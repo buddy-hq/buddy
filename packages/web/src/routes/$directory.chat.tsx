@@ -220,10 +220,19 @@ function DirectoryChatPage() {
         }
 
         if (payload.type === "session.status") {
+          const rawStatus = properties.status
+          const statusType =
+            typeof rawStatus === "string"
+              ? rawStatus
+              : rawStatus && typeof rawStatus === "object" && "type" in rawStatus
+                ? String((rawStatus as { type?: unknown }).type ?? "idle")
+                : "idle"
+
+          const normalizedStatus = statusType === "busy" || statusType === "retry" ? "busy" : "idle"
           applySessionStatus(
             directory,
             String(properties.sessionID ?? ""),
-            (properties.status as "busy" | "idle") ?? "idle",
+            normalizedStatus,
           )
           return
         }

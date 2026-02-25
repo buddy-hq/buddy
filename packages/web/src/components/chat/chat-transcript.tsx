@@ -332,6 +332,7 @@ function statusLabel(status: ToolState["status"]) {
 function assistantPartRenderable(part: MessagePart) {
   if (part.type === "text") return String(part.text ?? "").trim().length > 0
   if (part.type === "reasoning") return String(part.text ?? "").trim().length > 0
+  if (part.type === "step-start" || part.type === "step-finish") return false
   if (part.type !== "tool") return true
 
   const tool = String(part.tool ?? "")
@@ -775,6 +776,10 @@ function AssistantPartRenderer(props: {
   interrupted?: boolean
   onOpenSession?: (sessionID: string) => void
 }) {
+  if (props.part.type === "step-start" || props.part.type === "step-finish") {
+    return null
+  }
+
   if (props.part.type === "text") {
     return (
       <AssistantTextPart

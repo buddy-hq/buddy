@@ -7,7 +7,7 @@ import type {
   SessionInfo,
 } from "./chat-types"
 
-const POST_PROMPT_RESYNC_INTERVAL_MS = 1000
+const POST_PROMPT_RESYNC_INTERVAL_MS = 250
 const POST_PROMPT_RESYNC_ATTEMPTS = 600
 
 function clientFor(directory: string) {
@@ -228,28 +228,40 @@ export async function sendPrompt(directory: string, content: string) {
 
   const sdk = clientFor(directory)
   store.clearDirectoryError(directory)
+  store.applySessionStatus(directory, sessionID, "busy")
+
+  let promptRequestSettled = false
+  const canCompletePolling = () => promptRequestSettled
   try {
     console.info("[chat-action] prompt.start", {
       directory,
       contentLength: content.length,
       sessionID,
     })
-    await unwrap<MessageWithParts>(
+
+    const promptRequest = unwrap<MessageWithParts>(
       sdk.session.prompt({
         sessionID,
         content,
       }),
-    )
+    ).finally(() => {
+      promptRequestSettled = true
+    })
+
+    void pollPromptCompletion(directory, sessionID, canCompletePolling)
+    await promptRequest
+
     console.info("[chat-action] prompt.accepted", { directory, sessionID })
-    store.applySessionStatus(directory, sessionID, "busy")
-    void pollPromptCompletion(directory, sessionID)
   } catch (error) {
     console.error("[chat-action] prompt.failed", {
       directory,
       sessionID,
       error: stringifyError(error),
     })
+    store.applySessionStatus(directory, sessionID, "idle")
     store.setDirectoryError(directory, stringifyError(error))
+    void loadMessages(directory, sessionID).catch(() => undefined)
+    void loadSessions(directory).catch(() => undefined)
     throw error
   }
 }
@@ -439,7 +451,7 @@ function sleep(ms: number) {
   })
 }
 
-async function pollPromptCompletion(directory: string, sessionID: string) {
+async function pollPromptCompletion(directory: string, sessionID: string, canComplete: () => boolean = () => true) {
   for (let attempt = 1; attempt <= POST_PROMPT_RESYNC_ATTEMPTS; attempt += 1) {
     await sleep(POST_PROMPT_RESYNC_INTERVAL_MS)
     const snapshot = useChatStore.getState().directories[directory]
@@ -462,6 +474,10 @@ async function pollPromptCompletion(directory: string, sessionID: string) {
     if (!next) return
     if (next.sessionID !== sessionID) return
     if (!next.isBusy) {
+      if (!canComplete() || attempt < 2) {
+        useChatStore.getState().applySessionStatus(directory, sessionID, "busy")
+        continue
+      }
       console.info("[chat-action] prompt.resync.completed", {
         directory,
         sessionID,
