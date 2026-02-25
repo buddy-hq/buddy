@@ -2,10 +2,10 @@ import path from "node:path"
 import { mergeDeep, sortBy, values } from "remeda"
 import z from "zod"
 import { Config } from "../config/config.js"
-import { PermissionNext } from "../permission/next.js"
+import { PermissionNext } from "../opencode/vendor.js"
 import { Instance } from "../project/instance.js"
 import { Global } from "../storage/global.js"
-import { Truncate } from "../tool/truncation.js"
+import { Truncate } from "../opencode/vendor.js"
 import CURRICULUM_BUILDER_PROMPT from "./prompts/curriculum-builder.txt"
 
 function parseModelID(model: string) {
@@ -66,7 +66,7 @@ export namespace Agent {
       },
     })
 
-    const user = PermissionNext.fromConfig(cfg.permission)
+    const user = PermissionNext.fromConfig(cfg.permission ?? {})
 
     const result: Record<string, Info> = {
       build: {
@@ -177,7 +177,7 @@ export namespace Agent {
 
     for (const name in result) {
       const agent = result[name]
-      const explicitDeny = agent.permission.some((rule) => {
+      const explicitDeny = agent.permission.some((rule: { permission: string; action: string; pattern: string }) => {
         if (rule.permission !== "external_directory") return false
         if (rule.action !== "deny") return false
         return rule.pattern === Truncate.GLOB

@@ -1,4 +1,3 @@
-export { ControlAccountTable } from "../control/control.sql.js"
+// Buddy DB schema — only tables still in use after migration cleanup.
+// Session/permission tables removed: those are now managed entirely by vendored OpenCode.
 export { ProjectTable } from "../project/project.sql.js"
-export { SessionTable, MessageTable, PartTable, TodoTable, PermissionTable } from "../session/session.sql.js"
-export { SessionShareTable } from "../share/share.sql.js"

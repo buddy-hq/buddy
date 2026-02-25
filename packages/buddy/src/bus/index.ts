@@ -2,7 +2,6 @@ import z from "zod"
 import { GlobalBus } from "./global.js"
 import { BusEvent } from "./bus-event.js"
 import { Instance } from "../project/instance.js"
-import { logSession } from "../session/debug.js"
 
 export namespace Bus {
   type Subscription = (event: unknown) => void | Promise<void>
@@ -22,7 +21,7 @@ export namespace Bus {
       payload.type === "message.part.updated" ||
       payload.type === "message.part.delta"
     ) {
-      logSession("bus.publish", {
+      console.log("bus.publish", {
         directory: Instance.directory,
         type: payload.type,
         sessionID: String((payload.properties as Record<string, unknown>)?.sessionID ?? ""),

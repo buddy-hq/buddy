@@ -7,14 +7,12 @@ import { Config, InvalidError, JsonError } from "./config/config.js"
 import { CurriculumService } from "./curriculum/curriculum-service.js"
 import { ensureCurriculumToolsRegistered } from "./opencode/curriculum-tools.js"
 import { assertOpenCodeRuntime, loadOpenCodeApp } from "./opencode/runtime.js"
-import { PermissionNext } from "./permission/next.js"
 import { allowedDirectoryRoots, isAllowedDirectory, resolveDirectory } from "./project/directory.js"
 import { Instance as BuddyInstance } from "./project/instance.js"
 import { Project } from "./project/project.js"
 import { Provider } from "./provider/provider.js"
 import { CurriculumRoutes } from "./routes/curriculum.js"
 import { condenseCurriculum, loadBehavior } from "./session/system-prompt.js"
-import { SessionStore } from "./session/session-store.js"
 
 const app = new Hono()
 const api = new Hono()
@@ -76,7 +74,10 @@ async function normalizeErrorResponse(response: Response, forceBusyAs409 = false
     return response
   }
 
-  const payload = (await response.clone().json().catch(() => undefined)) as unknown
+  const payload = (await response
+    .clone()
+    .json()
+    .catch(() => undefined)) as unknown
   const message = extractErrorMessage(payload)
   if (!message) return response
 
@@ -248,19 +249,6 @@ async function syncOpenCodeProjectConfig(directory: string) {
       .catch(() => undefined)) ?? `OpenCode config sync failed (${normalized.status})`
 
   throw new Error(message)
-}
-
-async function localSessionBusy(directory: string, sessionID: string) {
-  return BuddyInstance.provide({
-    directory,
-    fn: () => {
-      try {
-        return SessionStore.isBusy(sessionID)
-      } catch {
-        return false
-      }
-    },
-  })
 }
 
 async function isSessionInRequestedProject(directory: string, session: unknown) {
@@ -457,74 +445,16 @@ api.get("/config/providers", async (c) => {
 })
 
 api.get("/permission", async (c) => {
-  const directoryResult = ensureAllowedDirectory(c.req.raw)
-  if (!directoryResult.ok) return directoryResult.response
-
-  const localPending = await BuddyInstance.provide({
-    directory: directoryResult.directory,
-    fn: () => PermissionNext.list(),
+  return proxyToOpenCode(c, {
+    targetPath: "/permission",
   })
-  if (localPending.length > 0) {
-    return c.json(localPending)
-  }
-
-  const response = await fetchOpenCode({
-    directory: directoryResult.directory,
-    method: "GET",
-    path: "/permission",
-    query: new URL(c.req.url).search,
-    headers: new Headers(c.req.raw.headers),
-  })
-  return normalizeErrorResponse(response)
 })
 
 api.post("/permission/:requestID/reply", async (c) => {
-  const directoryResult = ensureAllowedDirectory(c.req.raw)
-  if (!directoryResult.ok) return directoryResult.response
-
   const requestID = c.req.param("requestID")
-  const headers = new Headers(c.req.raw.headers)
-  const rawBody = await c.req.raw.text()
-
-  let parsedBody: {
-    reply?: "once" | "always" | "reject"
-    message?: string
-  } = {}
-
-  if (rawBody.trim().length > 0) {
-    try {
-      parsedBody = JSON.parse(rawBody) as {
-        reply?: "once" | "always" | "reject"
-        message?: string
-      }
-    } catch {
-      parsedBody = {}
-    }
-  }
-
-  if (parsedBody.reply) {
-    const localReply = await BuddyInstance.provide({
-      directory: directoryResult.directory,
-      fn: () =>
-        PermissionNext.reply({
-          requestID,
-          reply: parsedBody.reply as "once" | "always" | "reject",
-          message: parsedBody.message,
-        }),
-    })
-    if (localReply) {
-      return c.json(true)
-    }
-  }
-
-  const response = await fetchOpenCode({
-    directory: directoryResult.directory,
-    method: "POST",
-    path: `/permission/${encodeURIComponent(requestID)}/reply`,
-    headers,
-    body: rawBody.length > 0 ? rawBody : undefined,
+  return proxyToOpenCode(c, {
+    targetPath: `/permission/${encodeURIComponent(requestID)}/reply`,
   })
-  return normalizeErrorResponse(response)
 })
 
 api.get("/session", async (c) => {
@@ -556,7 +486,10 @@ api.get("/session/:sessionID", async (c) => {
   if (!normalized.ok) return normalized
   if (!isJsonContentType(normalized.headers.get("content-type"))) return normalized
 
-  const session = (await normalized.clone().json().catch(() => undefined)) as unknown
+  const session = (await normalized
+    .clone()
+    .json()
+    .catch(() => undefined)) as unknown
   const matchesProject = await isSessionInRequestedProject(directoryResult.directory, session)
   if (!matchesProject) {
     return c.json({ error: "Session not found" }, 404)
@@ -587,9 +520,6 @@ api.post("/session/:sessionID/message", async (c) => {
   await syncOpenCodeProjectConfig(directoryResult.directory).catch((error) => {
     throw new Error(`Failed to sync config before prompt: ${String(error instanceof Error ? error.message : error)}`)
   })
-  if (await localSessionBusy(directoryResult.directory, sessionID)) {
-    return c.json({ error: "Session is already running" }, 409)
-  }
 
   return proxyToOpenCode(c, {
     targetPath: `/session/${encodeURIComponent(sessionID)}/message`,
