@@ -1,4 +1,3 @@
-import { createBuddyClient } from "@buddy/sdk"
 import { useChatStore } from "./chat-store"
 import type {
   ConfigProvidersResponse,
@@ -9,10 +8,6 @@ import type {
 
 const POST_PROMPT_RESYNC_INTERVAL_MS = 250
 const POST_PROMPT_RESYNC_ATTEMPTS = 600
-
-function clientFor(directory: string) {
-  return createBuddyClient({ directory })
-}
 
 function directoryHeaderValue(directory: string) {
   const isNonASCII = /[^\x00-\x7F]/.test(directory)
@@ -40,36 +35,22 @@ export type AgentConfigOption = {
   hidden?: boolean
 }
 
-async function unwrap<T>(promise: Promise<{ data?: T; error?: unknown }>) {
-  const result = await promise
-  if (result.error) {
-    const error = result.error as
-      | string
-      | Error
-      | { error?: string; message?: string }
-      | undefined
-
-    if (typeof error === "string") {
-      throw new Error(error)
-    }
-    if (error instanceof Error) {
-      throw error
-    }
-
-    const message = error?.error ?? error?.message
-    throw new Error(message ?? JSON.stringify(result.error))
-  }
-  if (result.data === undefined) {
-    throw new Error("Empty response")
-  }
-  return result.data
-}
-
-async function requestJson<T>(directory: string, endpoint: string) {
+async function requestJson<T>(
+  directory: string,
+  endpoint: string,
+  init?: {
+    method?: string
+    body?: unknown
+  },
+) {
+  const body = init?.body === undefined ? undefined : JSON.stringify(init.body)
   const response = await fetch(endpoint, {
+    method: init?.method,
     headers: {
+      ...(body ? { "content-type": "application/json" } : {}),
       "x-buddy-directory": directoryHeaderValue(directory),
     },
+    body,
   })
 
   if (!response.ok) {
@@ -100,8 +81,10 @@ export async function loadSessions(directory: string) {
 export async function loadMessages(directory: string, sessionID: string) {
   const store = useChatStore.getState()
   try {
-    const sdk = clientFor(directory)
-    const messages = await unwrap<MessageWithParts[]>(sdk.session.messages({ sessionID }))
+    const messages = await requestJson<MessageWithParts[]>(
+      directory,
+      `/api/session/${encodeURIComponent(sessionID)}/message`,
+    )
     store.setMessages(directory, sessionID, messages)
     store.setDirectoryError(directory, undefined)
     return messages
@@ -140,8 +123,7 @@ export async function loadProviders(directory: string) {
 
 async function createSession(directory: string) {
   const store = useChatStore.getState()
-  const sdk = clientFor(directory)
-  const info = await unwrap<SessionInfo>(sdk.session.create())
+  const info = await requestJson<SessionInfo>(directory, "/api/session", { method: "POST" })
   store.setSessionInfo(directory, info)
   store.setMessages(directory, info.id, [])
   return info
@@ -170,8 +152,10 @@ export async function ensureDirectorySession(directory: string) {
     }
 
     if (!info && storedSession) {
-      const sdk = clientFor(directory)
-      info = await unwrap<SessionInfo>(sdk.session.get({ sessionID: storedSession })).catch(() => undefined)
+      info = await requestJson<SessionInfo>(
+        directory,
+        `/api/session/${encodeURIComponent(storedSession)}`,
+      ).catch(() => undefined)
     }
 
     if (!info) {
@@ -201,8 +185,7 @@ export async function selectSession(directory: string, sessionID: string) {
   if (existing) {
     store.setSessionInfo(directory, existing)
   } else {
-    const sdk = clientFor(directory)
-    const info = await unwrap<SessionInfo>(sdk.session.get({ sessionID }))
+    const info = await requestJson<SessionInfo>(directory, `/api/session/${encodeURIComponent(sessionID)}`)
     store.setSessionInfo(directory, info)
   }
 
@@ -226,7 +209,6 @@ export async function sendPrompt(directory: string, content: string) {
     throw new Error("No session available")
   }
 
-  const sdk = clientFor(directory)
   store.clearDirectoryError(directory)
   store.applySessionStatus(directory, sessionID, "busy")
 
@@ -239,11 +221,15 @@ export async function sendPrompt(directory: string, content: string) {
       sessionID,
     })
 
-    const promptRequest = unwrap<MessageWithParts>(
-      sdk.session.prompt({
-        sessionID,
-        content,
-      }),
+    const promptRequest = requestJson<MessageWithParts>(
+      directory,
+      `/api/session/${encodeURIComponent(sessionID)}/message`,
+      {
+        method: "POST",
+        body: {
+          content,
+        },
+      },
     ).finally(() => {
       promptRequestSettled = true
     })
@@ -274,9 +260,14 @@ export async function abortPrompt(directory: string) {
     return false
   }
 
-  const sdk = clientFor(directory)
   try {
-    const aborted = await unwrap<boolean>(sdk.session.abort({ sessionID }))
+    const aborted = await requestJson<boolean>(
+      directory,
+      `/api/session/${encodeURIComponent(sessionID)}/abort`,
+      {
+        method: "POST",
+      },
+    )
     if (aborted) store.applySessionStatus(directory, sessionID, "idle")
     // Always resync once after abort attempt so UI doesn't stay stale if server state drifted.
     void loadMessages(directory, sessionID).catch(() => undefined)

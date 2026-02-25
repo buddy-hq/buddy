@@ -824,7 +824,9 @@ export function ChatTranscript(props: ChatTranscriptProps) {
         )
 
         const lastAssistantTextID = assistantTextParts.at(-1)?.id
-        const assistantAborted = assistantMessages.at(-1)?.info.finish === "aborted"
+        const lastAssistantInfo = assistantMessages.at(-1)?.info
+        const assistantAborted =
+          lastAssistantInfo?.role === "assistant" && lastAssistantInfo.finish === "aborted"
         const assistantCompleted = assistantMessages.reduce<number | undefined>((max, message) => {
           const completed = message.info.time?.completed
           if (typeof completed !== "number") return max

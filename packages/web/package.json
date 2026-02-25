@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
-    "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.app.json && vite build",
+    "typecheck": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit",
     "preview": "vite preview",
     "test": "bun test --preload ./happydom.ts test",
     "test:parity": "bun test --preload ./happydom.ts test/parity"

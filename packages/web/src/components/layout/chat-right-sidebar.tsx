@@ -19,8 +19,8 @@ import {
   patchProjectConfig,
   saveCurriculum,
   type AgentConfigOption,
-  type ConfigProvidersResponse,
 } from "@/state/chat-actions"
+import type { ConfigProvidersResponse } from "@/state/chat-types"
 import type { RightSidebarTab } from "@/state/ui-preferences"
 import { BookOpenIcon, SettingsIcon, XIcon } from "./sidebar-icons"
 

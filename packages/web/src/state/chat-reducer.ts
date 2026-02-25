@@ -1,7 +1,13 @@
 import type { MessageInfo, MessagePart, MessageWithParts } from "./chat-types"
 
+function isAssistantMessage(
+  message: MessageWithParts,
+): message is MessageWithParts & { info: Extract<MessageInfo, { role: "assistant" }> } {
+  return message.info.role === "assistant"
+}
+
 export function inferBusyFromMessages(messages: MessageWithParts[]) {
-  const assistantMessages = messages.filter((message) => message.info.role === "assistant")
+  const assistantMessages = messages.filter(isAssistantMessage)
   const lastAssistant = assistantMessages.at(-1)
   if (!lastAssistant) return false
   return !lastAssistant.info.finish
@@ -80,4 +86,3 @@ export function appendPartDelta(
   }
   return next
 }
-

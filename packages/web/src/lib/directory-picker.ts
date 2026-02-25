@@ -1,5 +1,5 @@
 export function normalizeDirectory(input: string) {
-  const trimmed = input.trim().replaceAll("\\", "/")
+  const trimmed = input.trim().split("\\").join("/")
   if (!trimmed) return ""
   if (trimmed === "/") return trimmed
   return trimmed.replace(/\/+$/, "")

@@ -13,21 +13,37 @@ type ResizeHandleProps = Omit<HTMLAttributes<HTMLDivElement>, "onResize"> & {
 }
 
 export function ResizeHandle(props: ResizeHandleProps) {
+  const {
+    direction,
+    edge: edgeProp,
+    size,
+    min,
+    max,
+    onResize,
+    onCollapse,
+    collapseThreshold,
+    className,
+    onMouseDown: onMouseDownProp,
+    ...domProps
+  } = props
+
   function onMouseDown(event: ReactMouseEvent<HTMLDivElement>) {
+    onMouseDownProp?.(event)
+    if (event.defaultPrevented) return
     event.preventDefault()
 
-    const edge = props.edge ?? (props.direction === "vertical" ? "start" : "end")
-    const start = props.direction === "horizontal" ? event.clientX : event.clientY
-    const startSize = props.size
+    const edge = edgeProp ?? (direction === "vertical" ? "start" : "end")
+    const start = direction === "horizontal" ? event.clientX : event.clientY
+    const startSize = size
     let current = startSize
 
     document.body.style.userSelect = "none"
     document.body.style.overflow = "hidden"
 
     const onMouseMove = (moveEvent: MouseEvent) => {
-      const position = props.direction === "horizontal" ? moveEvent.clientX : moveEvent.clientY
+      const position = direction === "horizontal" ? moveEvent.clientX : moveEvent.clientY
       const delta =
-        props.direction === "vertical"
+        direction === "vertical"
           ? edge === "end"
             ? position - start
             : start - position
@@ -36,8 +52,8 @@ export function ResizeHandle(props: ResizeHandleProps) {
             : position - start
 
       current = startSize + delta
-      const clamped = Math.min(props.max, Math.max(props.min, current))
-      props.onResize(clamped)
+      const clamped = Math.min(max, Math.max(min, current))
+      onResize(clamped)
     }
 
     const onMouseUp = () => {
@@ -46,9 +62,9 @@ export function ResizeHandle(props: ResizeHandleProps) {
       document.removeEventListener("mousemove", onMouseMove)
       document.removeEventListener("mouseup", onMouseUp)
 
-      const threshold = props.collapseThreshold ?? 0
-      if (props.onCollapse && threshold > 0 && current < threshold) {
-        props.onCollapse()
+      const threshold = collapseThreshold ?? 0
+      if (onCollapse && threshold > 0 && current < threshold) {
+        onCollapse()
       }
     }
 
@@ -56,16 +72,16 @@ export function ResizeHandle(props: ResizeHandleProps) {
     document.addEventListener("mouseup", onMouseUp)
   }
 
-  const edge = props.edge ?? (props.direction === "vertical" ? "start" : "end")
-  const className = props.className ? `buddy-resize-handle ${props.className}` : "buddy-resize-handle"
+  const edge = edgeProp ?? (direction === "vertical" ? "start" : "end")
+  const handleClassName = className ? `buddy-resize-handle ${className}` : "buddy-resize-handle"
 
   return (
     <div
-      {...props}
+      {...domProps}
       data-component="resize-handle"
-      data-direction={props.direction}
+      data-direction={direction}
       data-edge={edge}
-      className={className}
+      className={handleClassName}
       onMouseDown={onMouseDown}
     />
   )
