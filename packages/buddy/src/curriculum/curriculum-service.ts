@@ -2,7 +2,6 @@ import fs from "node:fs/promises"
 import { Database, eq } from "../storage/db.js"
 import { CurriculumTable } from "./curriculum.sql.js"
 import { CurriculumPath } from "./curriculum-path.js"
-import { Instance } from "../project/instance.js"
 
 const DEFAULT_CURRICULUM_MARKDOWN = [
   "# Learning Curriculum",
@@ -23,6 +22,14 @@ export namespace CurriculumService {
     markdown: string
   }
 
+  async function openCodeProjectID(directory: string) {
+    const { Instance: OpenCodeInstance } = await import("@buddy/opencode-adapter/instance")
+    return OpenCodeInstance.provide({
+      directory,
+      fn: () => OpenCodeInstance.project.id,
+    })
+  }
+
   export function validate(markdown: string) {
     if (!markdown.trim()) {
       throw new Error("Curriculum markdown cannot be empty")
@@ -34,7 +41,7 @@ export namespace CurriculumService {
 
   export async function peek(directory: string): Promise<Document | undefined> {
     // Try DB first
-    const projectId = Instance.project.id
+    const projectId = await openCodeProjectID(directory)
     const row = Database.use((db) =>
       db.select().from(CurriculumTable).where(eq(CurriculumTable.project_id, projectId)).get(),
     )
@@ -80,7 +87,7 @@ export namespace CurriculumService {
   export async function write(directory: string, markdown: string) {
     validate(markdown)
 
-    const projectId = Instance.project.id
+    const projectId = await openCodeProjectID(directory)
     const filepath = CurriculumPath.file(directory)
 
     // Write to DB

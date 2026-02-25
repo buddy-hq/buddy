@@ -5,11 +5,11 @@ import { cors } from "hono/cors"
 import { logger } from "hono/logger"
 import { Config, InvalidError, JsonError } from "./config/config.js"
 import { CurriculumService } from "./curriculum/curriculum-service.js"
+import { COMPATIBILITY_OPENAPI_PATHS } from "./openapi/compatibility-doc.js"
 import { ensureCurriculumToolsRegistered } from "./opencode/curriculum-tools.js"
 import { assertOpenCodeRuntime, loadOpenCodeApp } from "./opencode/runtime.js"
 import { allowedDirectoryRoots, isAllowedDirectory, resolveDirectory } from "./project/directory.js"
 import { Instance as BuddyInstance } from "./project/instance.js"
-import { Project } from "./project/project.js"
 import { Provider } from "./provider/provider.js"
 import { CurriculumRoutes } from "./routes/curriculum.js"
 import { condenseCurriculum, loadBehavior } from "./session/system-prompt.js"
@@ -218,7 +218,41 @@ async function buildBuddySystemPrompt(directory: string) {
   return parts.join("\n\n").trim()
 }
 
-async function syncOpenCodeProjectConfig(directory: string) {
+function stableSerialize(value: unknown): string {
+  if (value === null || typeof value !== "object") {
+    return JSON.stringify(value)
+  }
+
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableSerialize(item)).join(",")}]`
+  }
+
+  const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b))
+  return `{${entries.map(([key, nested]) => `${JSON.stringify(key)}:${stableSerialize(nested)}`).join(",")}}`
+}
+
+const openCodeConfigFingerprint = new Map<string, string>()
+const openCodeConfigSyncInFlight = new Map<string, Promise<void>>()
+
+async function readProjectConfig(directory: string) {
+  return BuddyInstance.provide({
+    directory,
+    fn: () => Config.get(),
+  })
+}
+
+async function syncOpenCodeProjectConfig(directory: string, force = false) {
+  const existing = openCodeConfigSyncInFlight.get(directory)
+  if (existing) return existing
+
+  const task = (async () => {
+    const config = await readProjectConfig(directory)
+    const nextFingerprint = stableSerialize(config)
+    const previousFingerprint = openCodeConfigFingerprint.get(directory)
+    if (!force && previousFingerprint === nextFingerprint) {
+      return
+    }
+
   // Dispose the OpenCode instance so it re-bootstraps fresh on next request.
   // We do NOT call PATCH /config on the vendored OpenCode because that triggers
   // Config.update which writes config.json to the project root (config pollution).
@@ -229,6 +263,22 @@ async function syncOpenCodeProjectConfig(directory: string) {
       await OpenCodeInstance.dispose()
     },
   })
+
+    openCodeConfigFingerprint.set(directory, nextFingerprint)
+  })().finally(() => {
+    openCodeConfigSyncInFlight.delete(directory)
+  })
+
+  openCodeConfigSyncInFlight.set(directory, task)
+  return task
+}
+
+async function resolveOpenCodeProjectID(directory: string) {
+  const { Instance: OpenCodeInstance } = await import("@buddy/opencode-adapter/instance")
+  return OpenCodeInstance.provide({
+    directory,
+    fn: () => OpenCodeInstance.project.id,
+  })
 }
 
 async function isSessionInRequestedProject(directory: string, session: unknown) {
@@ -238,14 +288,13 @@ async function isSessionInRequestedProject(directory: string, session: unknown) 
     directory?: unknown
   }
 
-  const requested = await Project.fromDirectory(directory)
-  const requestedProjectID = requested.project.id
+  const requestedProjectID = await resolveOpenCodeProjectID(directory)
 
   const sessionProjectID =
     typeof payload.projectID === "string"
       ? payload.projectID
       : typeof payload.directory === "string"
-        ? (await Project.fromDirectory(payload.directory)).project.id
+        ? await resolveOpenCodeProjectID(payload.directory)
         : undefined
 
   if (!sessionProjectID) return true
@@ -542,18 +591,44 @@ app.use(logger())
 app.use(cors({ origin: "*" }))
 app.route("/api", api)
 
+const generatedOpenApiHandler = openAPIRouteHandler(app, {
+  documentation: {
+    info: {
+      title: "Buddy API",
+      version: "1.0.0",
+      description: "Buddy compatibility API over vendored OpenCode core.",
+    },
+    openapi: "3.1.1",
+  },
+})
+
 app.get(
   "/doc",
-  openAPIRouteHandler(app, {
-    documentation: {
-      info: {
-        title: "Buddy API",
-        version: "1.0.0",
-        description: "Buddy compatibility API over vendored OpenCode core.",
+  async (c, next) => {
+    const response = await generatedOpenApiHandler(c, next)
+    if (!(response instanceof Response)) return response
+    if (!isJsonContentType(response.headers.get("content-type"))) return response
+
+    const generatedDoc = (await response
+      .clone()
+      .json()
+      .catch(() => undefined)) as
+      | {
+          paths?: Record<string, unknown>
+          [key: string]: unknown
+        }
+      | undefined
+
+    if (!generatedDoc) return response
+
+    return c.json({
+      ...generatedDoc,
+      paths: {
+        ...(generatedDoc.paths ?? {}),
+        ...COMPATIBILITY_OPENAPI_PATHS,
       },
-      openapi: "3.1.1",
-    },
-  }),
+    })
+  },
 )
 
 const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000
