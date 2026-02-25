@@ -8,6 +8,7 @@ Bun + TypeScript monorepo managed with Turborepo.
 - `packages/web`: frontend (React + Vite + TanStack Router + TanStack Query)
 - `packages/ui`: shared UI (shadcn/ui + Tailwind v4)
 - `packages/sdk`: OpenAPI-generated client (hey-api/openapi-ts)
+- `packages/opencode-adapter`: Buddy compatibility bridge over vendored OpenCode modules
 
 ## OpenCode Reference (required)
 
@@ -35,9 +36,11 @@ bun run dev        # backend → http://localhost:3000 (PORT=... to override)
 bun run dev:web    # web    → http://localhost:1420
 bun run typecheck
 bun run build
-bun run lint       # wired to turbo; no workspace defines lint yet
+bun run lint
 bun run test:contracts   # backend+web compatibility contract suites
-bun run check:vendor     # recommended full gate for vendored-core updates
+bun run check:vendor     # recommended full gate for vendored OpenCode updates
+bun run vendor:check-upstream
+bun run vendor:sync
 bun run sdk:generate                            # requires backend running
 API_URL="http://localhost:3000/doc" bun run sdk:generate
 ```
