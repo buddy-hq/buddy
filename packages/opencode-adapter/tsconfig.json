@@ -4,7 +4,9 @@
     "outDir": "./dist",
     "composite": false,
     "declaration": false,
-    "declarationMap": false
+    "declarationMap": false,
+    "noEmit": true,
+    "allowImportingTsExtensions": true
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
   "exclude": ["dist", "node_modules"]

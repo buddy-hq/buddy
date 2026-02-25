@@ -7,10 +7,14 @@
     ".": "./src/index.ts",
     "./provider-transform": "./src/provider-transform.ts",
     "./permission": "./src/permission.ts",
-    "./tool": "./src/tool.ts"
+    "./tool": "./src/tool.ts",
+    "./server": "./src/server.ts",
+    "./instance": "./src/instance.ts",
+    "./agent": "./src/agent.ts",
+    "./registry": "./src/registry.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
     "ai": "5.0.124"
