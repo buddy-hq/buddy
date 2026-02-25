@@ -1,60 +1,37 @@
-# OpenCore Pairity Checklist
+# OpenCore Vendor Refresh Checklist
 
-## Per Sync Run
+## Goal
 
-1. Ensure OpenCode path resolves:
-   - `echo ${OPENCODE_DIR:-unset}`
-   - or pass `--opencode-dir`
-2. Run drift report:
-   - `./opencore-pairity/scripts/diff-pairs.sh --changed-only`
-   - `./opencore-pairity/scripts/screen-coverage.sh`
-   - `./opencore-pairity/scripts/test-coverage.sh`
-3. For each changed pair:
-   - inspect OpenCode commits:
-     `./opencore-pairity/scripts/upstream-history.sh --since <last_synced_sha>`
-   - port behavior changes into Buddy
-   - keep Buddy-only product logic out of mapped core when possible
-4. Validate Buddy after porting:
-   - `bun run typecheck -- --filter=@buddy/backend`
-   - `bun run test -- --filter=@buddy/backend`
-   - `bun run --cwd packages/buddy test:parity`
-   - `bun run --cwd packages/web test:parity`
-   - `bun run test:parity`
-   - `bun run check:parity` (expected to fail when pair drift exists)
-5. Record what was synced:
-   - add entry in `opencore-pairity/sync-log.md` with touched pair rows and upstream SHAs
-   - update PR description with a link to the new log entry
+Use vendored OpenCode core directly, with Buddy as a thin adapter/product layer.
 
-## When Adding A New OpenCode Feature To Buddy
+## Per Refresh Run
 
-1. Classify the feature:
-   - parity-core (tool/agent/session/permission/runtime infra), or
-   - buddy-product (learning-specific behavior/UI/domain)
-2. If parity-core:
-   - add mapping row in `pairs.tsv` with priority and note
-   - run parity scripts (diff, coverage, upstream history)
-   - add `sync-log.md` entry with upstream refs and intent
-3. If buddy-product:
-   - do not force-add to `pairs.tsv`
-   - add brief `sync-log.md` note explaining why it is intentionally out of scope
+1. Refresh vendored packages from OpenCode:
+   - `packages/opencode` -> `vendor/opencode-core`
+   - `packages/util` -> `vendor/opencode-util`
+   - `packages/plugin` -> `vendor/opencode-plugin`
+   - `packages/sdk/js` -> `vendor/opencode-sdk`
+   - `packages/script` -> `vendor/opencode-script`
+2. Run `bun install` at Buddy root.
+3. Verify vendored runtime import from Buddy execution context.
+4. Re-run Buddy gates:
+   - `bun run typecheck`
+   - `bun run test`
+5. Update `opencore-pairity/sync-log.md` with:
+   - vendored package refs
+   - core adapter modules touched
+   - validation status
 
-## Docs Or Mapping Change Run
+## Migration Mode (While Wrappers Are Still Being Replaced)
 
-Use this when changing only parity docs/mappings (`README.md`, `pairs.tsv`, `sync-checklist.md`, scripts).
-
-1. Run:
-   - `./opencore-pairity/scripts/diff-pairs.sh --changed-only`
-   - `./opencore-pairity/scripts/screen-coverage.sh`
-   - `./opencore-pairity/scripts/test-coverage.sh`
-   - `./opencore-pairity/scripts/upstream-history.sh --max-count 5`
-2. Add `sync-log.md` entry with:
-   - reason for contract/mapping change
-   - whether new pairs were added/removed
-   - next expected parity sync action
+1. Pick a core module batch (agent/session/tool/permission/project).
+2. Move Buddy implementation out of `packages/buddy/src` into adapter wrappers.
+3. Route wrapper to vendored OpenCode implementation.
+4. Run full test/typecheck before next batch.
 
 ## Rules
 
-- Do not bulk-copy all upstream changes blindly.
-- Prefer parity for infra behavior (looping, tooling, truncation, permissions).
-- Keep React/web product differences outside parity core.
-- No parity task is done without updating `sync-log.md`.
+- Do not reintroduce duplicated core implementations in `packages/buddy/src`.
+- Keep Buddy-only product logic separate from vendored core logic.
+- No refresh/migration batch is complete without a `sync-log.md` entry.
+- Legacy parity drift scripts are optional and should not block normal vendored-core updates.

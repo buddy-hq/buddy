@@ -1,6 +1,7 @@
 # AGENTS.md
 
 ## Web Learnings (non-obvious)
+- Web should treat backend as a compatibility contract (`/api/*`) and stay decoupled from OpenCode internal payload/store details.
 - Chat SSE must reconnect with backoff and then resync via `GET /api/session/:id/message`; reconnect alone can leave stale UI state.
 - Derive `isBusy` from the latest assistant message `finish` field after sync/reconnect to avoid blocked sends when stream lifecycle events are missed.
 - In `packages/web`, `@/lib/*` can resolve into `packages/ui/src/lib/*` via Vite alias rewriting; use relative imports for web-only modules unless alias config is updated.

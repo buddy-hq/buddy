@@ -2,55 +2,52 @@
 
 This file is intentionally stable.
 
-Do not copy frequently changing parity state here.
-Read it from `opencore-pairity/` at runtime.
+Do not copy changing operational data here. Read it from `opencore-pairity/` at runtime.
 
 ## OpenCode Location
 
 - Primary: `~/code/opencode`
 - Fallback: `~/Code/opencode`
 
-## Buddy Parity Contract Location
+## Buddy Vendoring Runbook Location
 
-- `opencore-pairity/`
-
-Use these as dynamic sources (do not duplicate their contents in this skill):
-
-- `opencore-pairity/pairs.tsv`
 - `opencore-pairity/README.md`
 - `opencore-pairity/sync-checklist.md`
 - `opencore-pairity/sync-log.md`
 - `opencore-pairity/CONTEXT.md`
 
-## Durable OpenCode Directories
+## Runtime Authority Directories
 
-Use these paths to navigate current OpenCode implementation:
+Use vendored code first when investigating core runtime behavior:
 
-- `packages/opencode/src/tool/`
-- `packages/opencode/src/session/`
-- `packages/opencode/src/permission/`
-- `packages/opencode/src/agent/`
-- `packages/opencode/src/storage/`
-- `packages/opencode/src/bus/`
-- `packages/opencode/src/server/routes/`
-- `packages/opencode/src/config/`
-- `packages/opencode/src/project/`
-- `packages/opencode/src/global/`
+- `vendor/opencode-core/src/session/`
+- `vendor/opencode-core/src/tool/`
+- `vendor/opencode-core/src/permission/`
+- `vendor/opencode-core/src/agent/`
+- `vendor/opencode-core/src/provider/`
+- `vendor/opencode-core/src/server/routes/`
+- `vendor/opencode-core/src/config/`
+- `vendor/opencode-core/src/project/`
+- `vendor/opencode-core/src/global/`
 
-## Durable Buddy Counterpart Directories
+Auxiliary vendored dependencies:
 
-- `packages/buddy/src/tool/`
-- `packages/buddy/src/session/`
-- `packages/buddy/src/permission/`
-- `packages/buddy/src/agent/`
-- `packages/buddy/src/storage/`
-- `packages/buddy/src/bus/`
-- `packages/buddy/src/routes/`
-- `packages/buddy/src/config/`
-- `packages/buddy/src/project/`
+- `vendor/opencode-util/`
+- `vendor/opencode-plugin/`
+- `vendor/opencode-sdk/`
+- `vendor/opencode-script/`
 
-## Runtime Commands
+## Buddy Product/Facade Directories
 
-Use parity scripts from `opencore-pairity/scripts/` directly.
+- `packages/buddy/src/index.ts` (compatibility facade routing)
+- `packages/buddy/src/routes/` (Buddy-owned endpoints)
+- `packages/buddy/src/curriculum/` (learning product behavior)
+- `packages/buddy/src/opencode/` (runtime bootstrap + extension hooks)
+- `packages/opencode-adapter/src/` (thin adapter seams)
 
-Do not mirror command outputs or mapping snapshots in this file.
+## Legacy References
+
+- `opencore-pairity/pairs.tsv`
+- `opencore-pairity/test-pairs.tsv`
+
+These are historical/migration references, not the primary operating workflow.

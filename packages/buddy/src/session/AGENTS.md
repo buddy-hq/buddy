@@ -1,11 +1,8 @@
 # AGENTS.md
 
 ## Session Learnings (non-obvious)
-- The agent loop is manual (OpenCode-style): `processAssistantResponse()` runs multiple `streamText` steps and continues on `tool-calls`/`unknown` or tool activity without text output.
-- `SESSION_MAX_STEPS` controls loop depth (default `8`, hard cap `24`); the final step forces text-only output by disabling tools and appending `prompts/max-steps.txt`.
-- Assistant history intentionally serializes completed/error tool results into assistant text (`[tool:name] ...`); this serialization directly affects the next model step behavior.
-- Prompt text files are runtime assets loaded with `Bun.file(new URL(...))`; build must copy `src/session/prompts/*.txt` into `dist/session/prompts`.
-- Session storage is tenant-scoped via `Instance.state`; direct calls outside `Instance.provide({ directory })` collapse into the cwd tenant and can mask isolation bugs.
-- Session/bus isolation tests should always run per explicit directory context; otherwise tests pass while multi-project runtime behavior still leaks.
-- With project-scoped session persistence, busy/abort runtime state must be keyed by `Instance.project.id` (not directory) or the same session can run concurrently across nested directories in one repo.
-- In `processor.ts`, `text-delta`/`reasoning-delta` must also mutate in-memory part text; otherwise final `part.updated` at `*-end` can overwrite streamed UI content with stale empty text.
+- Active runtime session loop lives in vendored OpenCode (`vendor/opencode-core/src/session/**`), not in Buddy-local session modules.
+- Buddy-local session files in this directory should be treated as compatibility/legacy helpers unless explicitly wired from `packages/buddy/src/index.ts`.
+- When debugging prompt/loop/tool-call behavior, inspect OpenCode session routes + prompt assembly first, then Buddy facade transformations.
+- Buddy prompt customization should be injected through adapter seams (request body transform/config/instruction paths), not by reviving a full local loop.
+- Keep multi-tenant scoping explicit via directory context headers; missing directory propagation can look like "stuck" sends while core processing completed elsewhere.

@@ -1,73 +1,66 @@
 ---
 name: refer-opencode
-description: Use OpenCode as the default reference for Buddy core infra, with parity-aware classification (parity-core vs buddy-product), mapped counterpart checks, and selective porting guidance.
+description: Use vendored OpenCode core as Buddy's runtime authority, with Buddy-specific behavior layered through thin adapters.
 ---
 
 ## Purpose
 
-Use OpenCode as the primary reference model for Buddy core infra while preserving Buddy-specific product behavior.
+Use OpenCode as the primary implementation source for Buddy core infra while preserving Buddy-specific learning product behavior.
 
-This skill is intentionally stable. It should not duplicate frequently changing parity data.
-Dynamic parity state must live in `opencore-pairity/` and be read from there at runtime.
+This skill is intentionally stable. Do not duplicate frequently changing state here.
+Operational state belongs in `opencore-pairity/`.
 
 ### Stack Alignment
 
-| Component | OpenCode         | Buddy (Target) |
-| --------- | ---------------- | -------------- |
-| Backend   | Bun + Hono       | Bun + Hono     |
-| Frontend  | SolidJS          | React + Vite   |
-| Database  | SQLite (Drizzle) | SQLite         |
-| Transport | HTTP + SSE       | HTTP + SSE     |
-| Desktop   | Tauri            | Tauri          |
-| LLM       | AI SDK           | AI SDK         |
+| Component | OpenCode | Buddy (Current) |
+| --- | --- | --- |
+| Backend runtime | Bun + Hono | Bun + Hono facade over vendored OpenCode |
+| Frontend | SolidJS | React + Vite |
+| Database | SQLite (Drizzle) | Shared SQLite runtime path via vendored core |
+| Transport | HTTP + SSE | HTTP + SSE |
+| LLM/runtime loop | OpenCode core | Vendored OpenCode core |
 
 ## Repository Paths
 
 - Buddy: current repo
-- OpenCode: `~/code/opencode` (fallback `~/Code/opencode`)
-
-## Stability Rule
-
-- Keep this skill focused on durable process and decision logic.
-- Do not store volatile parity state (mapped file lists, drift status, latest SHAs) here.
-- If that data already exists in `opencore-pairity/`, reference it instead of copying it.
+- Vendored core: `vendor/opencode-*`
+- Upstream OpenCode: `~/code/opencode` (fallback `~/Code/opencode`)
 
 ## Source Of Truth
 
-1. Live code in Buddy and OpenCode
-2. Buddy parity contract files in `opencore-pairity/`
-3. This skill's reference docs (process-level only)
+1. Live Buddy code
+2. Vendored OpenCode code under `vendor/`
+3. Vendoring runbook in `opencore-pairity/`
 
 ## Operating Model
 
-Before recommending or implementing anything, classify the task:
+Before implementing, classify work as:
 
-1. `parity-core`: tool execution semantics, agent/session loop, permission engine, runtime/context plumbing, infra routes/contracts.
-2. `buddy-product`: learning UX/domain behavior (curriculum, memory strategy, UI experience).
+1. `core-runtime`: session loop, tool execution, provider plumbing, permission engine, SSE/runtime behavior.
+2. `buddy-product`: curriculum, learning UX, compatibility response shaping, web interaction details.
 
 Rules:
 
-- For `parity-core`, follow the parity contract and scripts in `opencore-pairity/`.
-- For `buddy-product`, use OpenCode as inspiration only; keep Buddy-first behavior.
-- If uncertain, default to `parity-core` for backend loop/tool/permission changes.
+- For `core-runtime`: execute behavior from vendored OpenCode modules; keep Buddy wrappers thin.
+- For `buddy-product`: keep Buddy-owned behavior in Buddy modules.
+- If uncertain, default to `core-runtime` and verify whether behavior already exists in vendored core.
 
-## Parity Workflow Entry Point
+## Vendoring Workflow Entry Point
 
-When task touches `parity-core`, use these files directly:
+When task touches `core-runtime`, use these files directly:
 
 - `opencore-pairity/README.md`
 - `opencore-pairity/sync-checklist.md`
-- `opencore-pairity/pairs.tsv`
 - `opencore-pairity/CONTEXT.md`
 - `opencore-pairity/sync-log.md`
+
+Legacy parity mapping files (`pairs.tsv`, `test-pairs.tsv`) are historical/reference material, not the primary operating workflow.
 
 ## References
 
 For detailed information, see:
 
-- **[FILES.md](references/FILES.md)** - Durable file navigation and where to fetch dynamic parity state
-- **[PATTERNS.md](references/PATTERNS.md)** - Stable process patterns (delegates live details to parity folder)
-- **[NOTES.md](references/NOTES.md)** - Durable decision model and risk framing
-- **[STYLE.md](references/STYLE.md)** - Porting style rules that should stay stable
-
----
+- **[FILES.md](references/FILES.md)** - where to read current runtime/vendoring sources
+- **[PATTERNS.md](references/PATTERNS.md)** - implementation patterns for vendored-core + adapter seams
+- **[NOTES.md](references/NOTES.md)** - decision model and risk framing
+- **[STYLE.md](references/STYLE.md)** - practical porting/editing style

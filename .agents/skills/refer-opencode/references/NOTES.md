@@ -2,21 +2,23 @@
 
 ## Current Decision Model
 
-Buddy should continue selective OpenCode parity, not full forking, unless product goals converge to near-1:1 OpenCode behavior.
+Buddy uses vendored OpenCode core as runtime authority for core infra.
+Buddy keeps product-specific behavior in Buddy-owned modules.
 
 Default:
 
-- parity-core => track and sync via `opencore-pairity/`
-- buddy-product => intentional divergence, documented
+- core-runtime => execute via vendored OpenCode modules
+- buddy-product => intentional Buddy-owned behavior, documented
 
 ## Where Dynamic Context Lives
 
 - `opencore-pairity/CONTEXT.md` for intent/risk context
-- `opencore-pairity/pairs.tsv` for current mappings
 - `opencore-pairity/sync-checklist.md` for current process
 - `opencore-pairity/sync-log.md` for recent decisions and outcomes
 
 Do not duplicate those changing details in this file.
+
+Legacy mapping files (`pairs.tsv`, `test-pairs.tsv`) remain for historical/migration context.
 
 ## When To Use OpenCode Notes Directory
 
@@ -35,6 +37,6 @@ Do not treat notes as implementation source of truth.
 Before recommending architecture:
 
 1. read Buddy live code
-2. read OpenCode live counterpart
-3. run parity workflow from `opencore-pairity/sync-checklist.md` when task touches parity-core
+2. read vendored OpenCode counterpart in `vendor/opencode-core`
+3. run vendoring workflow from `opencore-pairity/sync-checklist.md` when task touches core-runtime
 4. then propose porting/fork/divergence decision

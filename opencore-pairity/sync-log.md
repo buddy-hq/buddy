@@ -229,3 +229,123 @@ Append-only log for parity runs and parity contract changes.
   - partial-sync
 - Next step:
   - complete the remaining mapped P0/P1 runtime/tool/bus parity ports to reduce `diff-pairs` drift while keeping new message/provider contracts stable.
+
+## 2026-02-24 - Port OpenCode interleaved reasoning replay handling for Kimi tool loops
+
+- Type: parity-sync
+- Buddy refs: working tree
+- OpenCode refs:
+  - `packages/opencode/src/provider/provider.ts`
+  - `packages/opencode/src/provider/transform.ts`
+  - `packages/opencode/src/session/llm.ts`
+  - `packages/opencode/src/session/processor.ts`
+- Pairs touched:
+  - `packages/buddy/src/session/processor.ts` -> `packages/opencode/src/session/processor.ts`
+  - `packages/buddy/src/session/llm.ts` -> `packages/opencode/src/session/llm.ts`
+  - `packages/buddy/src/provider/provider.ts` -> `packages/opencode/src/provider/provider.ts`
+- Summary:
+  - Ported OpenCode parity behavior to preserve text/reasoning provider metadata during stream deltas and avoid end-event metadata clobbering.
+  - Ported OpenCode-style message normalization/rewrite path for interleaved models: Anthropic empty-content cleanup, Claude toolCallId sanitization, and assistant reasoning->`providerOptions.openaiCompatible.{reasoning_content|reasoning_details}` conversion based on model `interleaved.field`.
+  - Updated Buddy provider model mapping to carry `interleaved` capability through from models.dev so the same OpenCode transform gating can be used.
+  - Wired LLM message transform to use resolved provider model metadata (OpenCode style) instead of Buddy-only model ID heuristic.
+  - Added parity tests for interleaved rewrite behavior and Anthropic empty-content normalization.
+- Validation:
+  - `bun run typecheck -- --filter=@buddy/backend` -> pass
+  - `bun test packages/buddy/test/parity/session/provider-transform.test.ts` -> pass
+  - `bun test packages/buddy/test/parity/session/message-v2.test.ts packages/buddy/test/parity/session/processor-loop.test.ts packages/buddy/test/parity/session/provider-transform.test.ts` -> pass
+- Decision:
+  - synced
+- Next step:
+  - reproduce against the reported `/Users/prashantbhudwal/Code/buddybooks/typescript` session after backend restart and confirm no further `reasoning_content is missing` failures.
+
+## 2026-02-24 - Vendor OpenCode core via subtree split/squash workflow
+
+- Type: contract-change
+- Buddy refs:
+  - `8ecce357` (subtree add commit for `vendor/opencode-core`)
+  - working tree docs update (`opencore-pairity/README.md`, `opencore-pairity/sync-checklist.md`)
+- OpenCode refs:
+  - source repo: `/Users/prashantbhudwal/code/opencode`
+  - split source clone: `/tmp/opencode-core-split-1771962514`
+  - split SHA: `1c52b9e792c31d7e050e249524a53ad0f68e83cc` (`packages/opencode` subtree)
+- Pairs touched:
+  - vendored snapshot added: `vendor/opencode-core/**` (squashed import of `packages/opencode`)
+  - parity runbook docs:
+    - `opencore-pairity/README.md`
+    - `opencore-pairity/sync-checklist.md`
+- Summary:
+  - Imported OpenCode core package into Buddy using `git subtree add --squash` so future updates can use `subtree pull` instead of manual file-by-file copy.
+  - Kept Buddy's existing dirty worktree intact by stashing around subtree import and restoring it after import.
+  - Documented exact split/pull commands and clean-worktree requirement for repeatable future syncs.
+- Validation:
+  - subtree import:
+    - `git subtree add --prefix=vendor/opencode-core /tmp/opencode-core-split-1771962514 1c52b9e792c31d7e050e249524a53ad0f68e83cc --squash` -> success
+  - worktree safety:
+    - pre-existing local modifications restored after subtree import
+  - parity scripts:
+    - pending in this task (run in next parity sync step due current local WIP state)
+- Decision:
+  - synced
+- Next step:
+  - run parity scripts (`diff-pairs`, `screen-coverage`, `test-coverage`, `upstream-history`) in a clean parity branch and start migrating Buddy runtime hooks to consume vendored core surfaces incrementally.
+
+## 2026-02-24 - Introduce adapter package and route ProviderTransform through it
+
+- Type: parity-sync
+- Buddy refs: working tree
+- OpenCode refs:
+  - vendored snapshot: `vendor/opencode-core` (from split SHA `1c52b9e792c31d7e050e249524a53ad0f68e83cc`)
+  - parity source logic: `packages/opencode/src/provider/transform.ts`
+- Pairs touched:
+  - `packages/buddy/src/session/provider-transform.ts` -> `packages/opencode/src/provider/transform.ts`
+  - new workspace adapter package:
+    - `packages/opencode-adapter/src/provider-transform.ts`
+    - `packages/opencode-adapter/src/index.ts`
+    - `packages/opencode-adapter/package.json`
+    - `packages/opencode-adapter/tsconfig.json`
+- Summary:
+  - Added a real workspace adapter package (`@buddy/opencode-adapter`) to host OpenCode-derived core logic behind a stable Buddy-owned seam.
+  - Routed Buddy runtime `ProviderTransform` to call adapter functions for:
+    - `maxOutputTokens`
+    - anthropic Kimi `providerOptions`
+    - message normalization/reasoning rewrites
+  - Kept Buddy API/runtime contracts intact while shifting internals to adapter-based upstream porting flow.
+  - Fixed a strict message schema fixture in `session-store` test to include required `agent` and `model` fields.
+- Validation:
+  - `bun run typecheck` -> pass
+  - `bun run test` -> pass
+- Decision:
+  - synced
+- Next step:
+  - continue moving additional parity-core modules (e.g. `session/llm`, `session/processor`, `tool/registry`) behind `@buddy/opencode-adapter` in incremental slices with full test gates after each slice.
+
+## 2026-02-24 - Execute vendored OpenCode runtime path and install upstream workspace deps
+
+- Type: parity-sync
+- Buddy refs: working tree
+- OpenCode refs:
+  - `vendor/opencode-core/src/provider/transform.ts` (runtime import target)
+  - `/Users/prashantbhudwal/code/opencode/packages/{util,plugin,sdk/js,script}` (vendored workspace deps)
+- Pairs touched:
+  - `packages/buddy/src/session/provider-transform.ts` -> `packages/opencode/src/provider/transform.ts`
+  - `packages/buddy/src/session/llm.ts` -> `packages/opencode/src/session/llm.ts`
+  - `packages/buddy/src/provider/provider.ts` -> `packages/opencode/src/provider/provider.ts`
+- Summary:
+  - Added vendored OpenCode workspace dependencies required by core runtime resolution:
+    - `vendor/opencode-util`
+    - `vendor/opencode-plugin`
+    - `vendor/opencode-sdk`
+    - `vendor/opencode-script`
+  - Updated Buddy root workspace + catalog config so vendored OpenCode packages resolve `workspace:*` and `catalog:` dependencies.
+  - Switched adapter message normalization path to execute vendored OpenCode `ProviderTransform.message` at runtime.
+  - Kept Buddy-facing API surface stable while replacing local message-normalization core logic with upstream runtime behavior.
+  - Updated project root detection to support object-form `workspaces` in `package.json` (required by catalog-based setup).
+- Validation:
+  - vendored runtime import check:
+    - `cd vendor/opencode-core && bun -e "import { ProviderTransform } from './src/provider/transform.ts'; console.log('vendor-ok', typeof ProviderTransform.message)"` -> `vendor-ok function`
+  - `bun run typecheck` -> pass
+  - `bun run test` -> pass
+- Decision:
+  - synced
+- Next step:
+  - continue migrating additional mapped parity-core files so Buddy source becomes wrapper-only for core infra and executes vendored OpenCode implementations through `@buddy/opencode-adapter`.

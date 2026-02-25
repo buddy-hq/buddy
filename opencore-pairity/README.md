@@ -1,93 +1,96 @@
-# OpenCore Pairity Sync Kit
+# OpenCore Vendoring Kit
 
-This folder defines how Buddy keeps benefiting from OpenCode core infra changes
-without becoming a full fork.
+This folder defines how Buddy consumes OpenCode core directly through vendored packages.
 
 ## Scope
 
-Only core agent/runtime files that should stay close to OpenCode are tracked.
-See `pairs.tsv` for the source of truth.
+Buddy no longer uses parity drift tracking as the primary operating model.
+`pairs.tsv` and `test-pairs.tsv` are retained as migration/history references.
 
-Test parity coverage is tracked separately in `test-pairs.tsv`.
+`scripts/diff-pairs.sh`, `scripts/screen-coverage.sh`, and `scripts/test-coverage.sh`
+are legacy parity-audit tooling. They are optional for historical audits and not
+required for normal vendored-core development.
 
-## Will This Still Work As Buddy Grows?
+## Vendored OpenCode Core Snapshot
 
-Yes, if new OpenCode-inspired work follows this rule:
+Buddy now vendors `packages/opencode` into:
 
-- If it is core infra parity work, add it to `pairs.tsv` and track it with this kit.
-- If it is Buddy product work (learning UX/domain behavior), keep it outside parity mappings.
+- `vendor/opencode-core`
+- `vendor/opencode-util`
+- `vendor/opencode-plugin`
+- `vendor/opencode-sdk`
+- `vendor/opencode-script`
 
-This lets Buddy keep benefiting from OpenCode optimizations while avoiding full-fork merge debt.
+This is imported via `git subtree` from a `subtree split` of OpenCode's
+`packages/opencode` path. We use `--squash` so Buddy history stays compact.
+Auxiliary OpenCode workspace packages are vendored so `workspace:*` + `catalog:`
+dependencies resolve when Buddy executes vendored core modules.
 
-## Maintenance Contract (Bidirectional)
+### Initial Import (already done)
 
-This folder is intentionally treated as a contract, not optional notes.
+```bash
+# in a temp clone of OpenCode
+git subtree split --prefix=packages/opencode HEAD
 
-- If you change any mapped core file in `pairs.tsv`, you must update:
-  - `opencore-pairity/sync-log.md` (new entry)
-  - `opencore-pairity/pairs.tsv` only if mapping/scope changed
-- If you change `pairs.tsv`, `README.md`, or `sync-checklist.md`, you must run:
-  - `./opencore-pairity/scripts/diff-pairs.sh --changed-only`
-  - `./opencore-pairity/scripts/screen-coverage.sh`
-  - `./opencore-pairity/scripts/upstream-history.sh --max-count 5`
-  and add a `sync-log.md` entry describing why the contract changed.
+# in Buddy
+git subtree add \
+  --prefix=vendor/opencode-core \
+  <opencode-temp-clone-path> \
+  <split_sha> \
+  --squash
+```
 
-If one side changes, the other side must be updated in the same task/PR.
+### Update Vendor Snapshot
 
-- If you add a new OpenCode feature to Buddy and it belongs in core parity, you must:
-  - add a row to `pairs.tsv`
-  - run parity scripts (diff, coverage, upstream history)
-  - add a `sync-log.md` entry with rationale and upstream references
+```bash
+# 1) prepare split commit from latest OpenCode
+git clone <opencode-path> /tmp/opencode-core-split-update
+cd /tmp/opencode-core-split-update
+SPLIT_SHA=$(git subtree split --prefix=packages/opencode HEAD)
+
+# 2) pull into Buddy vendor path
+cd /path/to/buddy
+git subtree pull \
+  --prefix=vendor/opencode-core \
+  /tmp/opencode-core-split-update \
+  "$SPLIT_SHA" \
+  --squash
+```
+
+`git subtree add/pull` requires a clean Buddy worktree. If your tree is dirty,
+stash and pop around the command.
+
+## Vendor Workspace Dependencies
+
+OpenCode core depends on additional OpenCode workspace packages. Buddy vendors:
+
+- `vendor/opencode-util` (`@opencode-ai/util`)
+- `vendor/opencode-plugin` (`@opencode-ai/plugin`)
+- `vendor/opencode-sdk` (`@opencode-ai/sdk`)
+- `vendor/opencode-script` (`@opencode-ai/script`)
+
+Buddy root `package.json` workspace/catalog config is responsible for resolving
+these dependencies during `bun install`.
+
+## Operating Model
+
+- Core runtime behavior should execute from vendored OpenCode modules.
+- Buddy backend/web should call these via thin adapter seams.
+- Buddy-owned code should focus on product-specific behavior.
+
+## Maintenance Contract
+
+- Update `sync-log.md` for each vendor refresh or core migration batch.
+- Keep adapter seams thin and avoid re-implementing vendored core logic in Buddy.
+- Validate with `bun run typecheck` and `bun run test` after each batch.
 
 ## Quick Start
 
-1. Compare mapped files:
-
-```bash
-./opencore-pairity/scripts/diff-pairs.sh
-```
-
-2. Show only files that drifted:
-
-```bash
-./opencore-pairity/scripts/diff-pairs.sh --changed-only
-```
-
-3. Review upstream commit history for mapped files:
-
-```bash
-./opencore-pairity/scripts/upstream-history.sh --max-count 8
-```
-
-4. Optional: inspect changes since a known OpenCode commit:
-
-```bash
-./opencore-pairity/scripts/upstream-history.sh --since <opencode_commit_sha>
-```
-
-5. Run methodical coverage screening (checks for unmapped parity candidates):
-
-```bash
-./opencore-pairity/scripts/screen-coverage.sh
-```
-
-6. Run parity test coverage contract checks:
-
-```bash
-./opencore-pairity/scripts/test-coverage.sh
-```
-
-7. Run the Buddy parity test gate:
-
-```bash
-bun run test:parity
-```
-
-8. Run full parity gate (drift + coverage + tests):
-
-```bash
-bun run check:parity
-```
+1. Refresh vendored OpenCode packages.
+2. Run `bun install`.
+3. Run `bun run typecheck`.
+4. Run `bun run test`.
+5. Log batch details in `sync-log.md`.
 
 ## Path Resolution
 
@@ -100,10 +103,8 @@ Scripts resolve OpenCode from:
 
 ## Suggested Cadence
 
-- Run weekly or before major Buddy agent changes.
-- Port only behavior/perf/reliability changes from mapped files.
-- Keep Buddy product-specific behavior outside the mapped core where possible.
-- Run `screen-coverage.sh` after adding new OpenCode-inspired core features.
+- Refresh vendor snapshots on a planned cadence (or before major core work).
+- Perform migration in small wrapper batches with full test gates each batch.
 
 Use `sync-checklist.md` as the operational runbook.
 
@@ -111,13 +112,9 @@ Use `sync-checklist.md` as the operational runbook.
 
 See `CONTEXT.md` for the original intent behind this folder and the known failure modes future agents should account for.
 
-## Definition Of Done For Pairity Work
+## Definition Of Done For Vendor Migration Work
 
-A parity task is complete only when all are true:
-
-1. Code changes are made (or explicitly deferred) for targeted pairs.
-2. `sync-log.md` has an entry with date, pairs touched, upstream SHAs, and decision.
-3. `diff-pairs.sh --changed-only` output is reviewed and attached to task notes.
-4. `screen-coverage.sh` output is reviewed and attached to task notes.
-5. Backend validation commands are run (or failures documented).
-6. `test-pairs.tsv` is updated and `test-coverage.sh` passes.
+1. Buddy core wrapper modules call vendored OpenCode implementations.
+2. No duplicated core logic remains in targeted Buddy source modules.
+3. `sync-log.md` includes refs + validation.
+4. `bun run typecheck` and `bun run test` pass.

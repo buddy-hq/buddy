@@ -11,12 +11,19 @@ Bun + TypeScript monorepo managed with Turborepo.
 
 ## OpenCode Reference (required)
 
-Build Buddy core by referencing OpenCode, not from scratch.
+Build Buddy core by executing vendored OpenCode core, not by re-implementing it.
 
 - OpenCode is the default reference for architecture and implementation.
-- Prefer porting/copying OpenCode code (whole files if needed), adapting minimally.
-- Before implementing any agent feature, find the closest OpenCode equivalent first.
+- Core runtime authority is vendored code under `vendor/opencode-*`.
+- `packages/buddy/src` should stay a thin compatibility/product layer.
+- Before implementing any core agent/runtime feature, find the OpenCode equivalent first and route through adapter seams.
 - OpenCode location: `~/code/opencode` (fallback: `~/Code/opencode`).
+
+### Architecture Guardrail (current)
+
+- Core loop/agent/session/tool/permission behavior should execute from vendored OpenCode modules.
+- Buddy-owned behavior should remain in Buddy modules (curriculum, UX-specific route shaping, compatibility headers).
+- Do not edit files under `vendor/opencode-core/**` unless the change is an intentional vendored patch that will be tracked for the next subtree refresh.
 
 ## Commands
 
@@ -29,6 +36,8 @@ bun run dev:web    # web    → http://localhost:1420
 bun run typecheck
 bun run build
 bun run lint       # wired to turbo; no workspace defines lint yet
+bun run test:contracts   # backend+web compatibility contract suites
+bun run check:vendor     # recommended full gate for vendored-core updates
 bun run sdk:generate                            # requires backend running
 API_URL="http://localhost:3000/doc" bun run sdk:generate
 ```
@@ -52,12 +61,18 @@ bun run --cwd packages/sdk generate
 ## Ports & Endpoints
 
 - Backend: `http://localhost:3000` (OpenAPI docs at `/doc`)
-  - `GET /health`, `GET|POST /items`, `GET|PATCH|DELETE /items/:id`
+  - Primary compatibility routes are under `/api/*`:
+  - `GET /api/health`, `GET /api/event`
+  - `GET|PATCH /api/config`, `GET /api/config/providers`, `GET /api/config/agents`
+  - `GET|POST /api/session`, `GET|PATCH /api/session/:sessionID`
+  - `GET|POST /api/session/:sessionID/message`, `POST /api/session/:sessionID/abort`
+  - `GET /api/permission`, `POST /api/permission/:requestID/reply`
+  - `GET|PUT /api/curriculum`
 - Web: `http://localhost:1420` (routes under `packages/web/src/routes/*`)
 
 ## Tests (Bun)
 
-No committed tests yet; Bun's test runner is the expected default (see `spec/expectations.md`).
+Bun is the default test runner. Backend and web both include committed tests, including contract/parity suites retained as regression guards.
 
 ```bash
 bun test                                         # all tests

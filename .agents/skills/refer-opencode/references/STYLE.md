@@ -1,10 +1,10 @@
 # Style Guide For OpenCode→Buddy Porting
 
-This guide is about preserving behavior parity without importing style noise.
+This guide is about preserving runtime behavior from vendored OpenCode core without importing style noise.
 
 ## Primary Rule
 
-Match behavior first, style second.
+Match runtime behavior first, style second.
 
 Order of precedence:
 
@@ -33,20 +33,20 @@ Order of precedence:
 
 ## Buddy-Specific Constraints To Respect
 
-- Preserve Buddy route/module naming (`routes/*`, `session/system-prompt.ts`, etc.).
+- Preserve Buddy route/module naming for compatibility facades (`routes/*`, `index.ts`, adapter seams).
 - Keep React/Vite/TanStack frontend assumptions (not Solid-specific patterns).
 - Maintain existing imports and ESM resolution expectations in Buddy backend.
 
 ## Practical Editing Rules
 
-- Keep diffs narrow to parity target files from `pairs.tsv`.
+- Keep diffs narrow to the active runtime seam being changed.
 - If a dependency chain forces additional edits, document why in `sync-log.md`.
 - Do not normalize semicolons/quotes/import order across unrelated lines.
 - Avoid adding `any`; use narrowing or schema-backed typing.
 
 ## Verification Rules
 
-- Parity-core changes should include:
+- Core-runtime changes should include:
   - workflow from `opencore-pairity/sync-checklist.md`
 - Add `sync-log.md` entry with upstream references and decision (`synced`, `partial-sync`, `deferred`).
 
