@@ -219,36 +219,16 @@ async function buildBuddySystemPrompt(directory: string) {
 }
 
 async function syncOpenCodeProjectConfig(directory: string) {
-  const config = await BuddyInstance.provide({
+  // Dispose the OpenCode instance so it re-bootstraps fresh on next request.
+  // We do NOT call PATCH /config on the vendored OpenCode because that triggers
+  // Config.update which writes config.json to the project root (config pollution).
+  const { Instance: OpenCodeInstance } = await import("@buddy/opencode-adapter/instance")
+  await OpenCodeInstance.provide({
     directory,
-    fn: () => Config.get(),
+    fn: async () => {
+      await OpenCodeInstance.dispose()
+    },
   })
-  const syncConfig = {
-    ...config,
-  } as Record<string, unknown>
-  delete syncConfig.plugin
-
-  const response = await fetchOpenCode({
-    directory,
-    method: "PATCH",
-    path: "/config",
-    headers: new Headers({
-      "content-type": "application/json",
-    }),
-    body: JSON.stringify(syncConfig),
-  })
-
-  if (response.ok) return
-
-  const normalized = await normalizeErrorResponse(response)
-  const message =
-    (await normalized
-      .clone()
-      .json()
-      .then((payload) => extractErrorMessage(payload))
-      .catch(() => undefined)) ?? `OpenCode config sync failed (${normalized.status})`
-
-  throw new Error(message)
 }
 
 async function isSessionInRequestedProject(directory: string, session: unknown) {
@@ -334,38 +314,16 @@ api.get("/config/agents", async (c) => {
   const directoryResult = ensureAllowedDirectory(c.req.raw)
   if (!directoryResult.ok) return directoryResult.response
 
-  const [agentModule, instanceModule] = (await Promise.all([
-    (0, eval)('import("../../../vendor/opencode-core/src/agent/agent.ts")'),
-    (0, eval)('import("../../../vendor/opencode-core/src/project/instance.ts")'),
-  ])) as [
-    {
-      Agent: {
-        list(): Promise<
-          Array<{
-            name: string
-            description?: string
-            mode: "subagent" | "primary" | "all"
-            hidden?: boolean
-          }>
-        >
-      }
-    },
-    {
-      Instance: {
-        provide<T>(input: { directory: string; fn: () => Promise<T> | T }): Promise<T>
-      }
-    },
-  ]
-  const Agent = agentModule.Agent
-  const Instance = instanceModule.Instance
+  const { Agent: OpenCodeAgent } = await import("@buddy/opencode-adapter/agent")
+  const { Instance: OpenCodeInstance } = await import("@buddy/opencode-adapter/instance")
 
-  const agents = await Instance.provide({
+  const agents = await OpenCodeInstance.provide({
     directory: directoryResult.directory,
-    fn: () => Agent.list(),
+    fn: () => OpenCodeAgent.list(),
   })
 
   return c.json(
-    agents.map((agent) => ({
+    agents.map((agent: { name: string; description?: string; mode: string; hidden?: boolean }) => ({
       name: agent.name,
       description: agent.description,
       mode: agent.mode,

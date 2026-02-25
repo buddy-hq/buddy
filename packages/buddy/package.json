@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "bun --env-file=../../.env run --watch src/index.ts",
     "build": "tsc",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsgo --noEmit",
     "start": "bun --env-file=../../.env run src/index.ts",
     "test": "bun test --preload ./test/preload.ts test",
     "test:parity": "bun test --preload ./test/preload.ts test/parity",

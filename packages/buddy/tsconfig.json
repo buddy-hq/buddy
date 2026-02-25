@@ -5,11 +5,9 @@
     "composite": false,
     "declaration": false,
     "declarationMap": false,
-    "types": ["bun"],
-    "paths": {
-      "@/*": ["../../vendor/opencode-core/src/*"],
-      "@tui/*": ["../../vendor/opencode-core/src/cli/cmd/tui/*"]
-    }
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "types": ["bun"]
   },
   "include": ["src/**/*"]
 }

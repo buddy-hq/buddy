@@ -1,5 +1,8 @@
 import fs from "node:fs/promises"
+import { Database, eq } from "../storage/db.js"
+import { CurriculumTable } from "./curriculum.sql.js"
 import { CurriculumPath } from "./curriculum-path.js"
+import { Instance } from "../project/instance.js"
 
 const DEFAULT_CURRICULUM_MARKDOWN = [
   "# Learning Curriculum",
@@ -30,14 +33,39 @@ export namespace CurriculumService {
   }
 
   export async function peek(directory: string): Promise<Document | undefined> {
+    // Try DB first
+    const projectId = Instance.project.id
+    const row = Database.use((db) =>
+      db.select().from(CurriculumTable).where(eq(CurriculumTable.project_id, projectId)).get(),
+    )
+
+    if (row) {
+      return {
+        path: CurriculumPath.file(directory),
+        markdown: row.markdown,
+      }
+    }
+
+    // Fall back to file (migration path for existing users)
     const filepath = CurriculumPath.file(directory)
     const markdown = await fs.readFile(filepath, "utf8").catch(() => undefined)
-
     if (markdown === undefined) return undefined
-    return {
-      path: filepath,
-      markdown,
-    }
+
+    // Migrate file content to DB
+    Database.use((db) => {
+      db.insert(CurriculumTable)
+        .values({
+          project_id: projectId,
+          markdown,
+        })
+        .onConflictDoUpdate({
+          target: CurriculumTable.project_id,
+          set: { markdown, time_updated: Date.now() },
+        })
+        .run()
+    })
+
+    return { path: filepath, markdown }
   }
 
   export async function read(directory: string): Promise<Document> {
@@ -52,14 +80,28 @@ export namespace CurriculumService {
   export async function write(directory: string, markdown: string) {
     validate(markdown)
 
+    const projectId = Instance.project.id
     const filepath = CurriculumPath.file(directory)
+
+    // Write to DB
+    Database.use((db) => {
+      db.insert(CurriculumTable)
+        .values({
+          project_id: projectId,
+          markdown,
+        })
+        .onConflictDoUpdate({
+          target: CurriculumTable.project_id,
+          set: { markdown, time_updated: Date.now() },
+        })
+        .run()
+    })
+
+    // Also write to file for backward compatibility
     const dir = CurriculumPath.directory(directory)
     await fs.mkdir(dir, { recursive: true })
     await fs.writeFile(filepath, markdown, "utf8")
 
-    return {
-      path: filepath,
-      markdown,
-    }
+    return { path: filepath, markdown }
   }
 }

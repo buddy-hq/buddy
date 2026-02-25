@@ -53,6 +53,7 @@
     "sdk:generate": "bun run --cwd packages/sdk generate"
   },
   "devDependencies": {
+    "@typescript/native-preview": "^7.0.0-dev.20260225.1",
     "prettier": "3.6.2",
     "turbo": "^2.0.0"
   },

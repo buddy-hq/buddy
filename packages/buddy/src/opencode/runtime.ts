@@ -7,10 +7,11 @@ import {
   BUDDY_XDG_STATE_HOME,
   configureOpenCodeEnvironment,
 } from "./env.js"
+import { Server } from "@buddy/opencode-adapter/server"
 
 const BUDDY_RUNTIME_ROOT = path.resolve(process.cwd(), ".buddy-runtime")
 
-let appPromise: Promise<{ fetch(request: Request): Promise<Response> }> | undefined
+let appPromise: Promise<{ fetch(request: Request): Response | Promise<Response> }> | undefined
 
 configureOpenCodeEnvironment()
 
@@ -27,14 +28,7 @@ export async function loadOpenCodeApp() {
   if (!appPromise) {
     appPromise = (async () => {
       await ensureRuntimeDirectories()
-      const mod = (await (0, eval)(
-        'import("../../../../vendor/opencode-core/src/server/server.ts")',
-      )) as {
-        Server: {
-          App(): { fetch(request: Request): Promise<Response> }
-        }
-      }
-      return mod.Server.App()
+      return Server.App()
     })()
   }
 

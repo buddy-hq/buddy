@@ -1,93 +1,27 @@
 import z from "zod"
 import { CurriculumPath } from "../curriculum/curriculum-path.js"
 import { CurriculumService } from "../curriculum/curriculum-service.js"
+import { Tool } from "@buddy/opencode-adapter/tool"
+import { ToolRegistry } from "@buddy/opencode-adapter/registry"
+import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 
 const registeredDirectories = new Set<string>()
 
-type OpenCodeToolRegistry = {
-  register(tool: unknown): Promise<void>
-}
-
-type OpenCodeToolNamespace = {
-  define(
-    id: string,
-    init:
-      | {
-          description: string
-          parameters: z.ZodTypeAny
-          execute(
-            args: any,
-            ctx: {
-              ask(input: {
-                permission: string
-                patterns: string[]
-                always: string[]
-                metadata: Record<string, unknown>
-              }): Promise<void>
-            },
-          ): Promise<{
-            title: string
-            output: string
-            metadata: Record<string, unknown>
-          }>
-        }
-      | ((
-          initCtx: unknown,
-        ) => Promise<{
-          description: string
-          parameters: z.ZodTypeAny
-          execute(
-            args: any,
-            ctx: {
-              ask(input: {
-                permission: string
-                patterns: string[]
-                always: string[]
-                metadata: Record<string, unknown>
-              }): Promise<void>
-            },
-          ): Promise<{
-            title: string
-            output: string
-            metadata: Record<string, unknown>
-          }>
-        }>)
-  ): unknown
-}
-
-type OpenCodeInstance = {
-  provide<T>(input: { directory: string; fn: () => Promise<T> | T }): Promise<T>
-}
-
-async function modules() {
-  const registryMod = (await (0, eval)(
-    'import("../../../../vendor/opencode-core/src/tool/registry.ts")',
-  )) as {
-    ToolRegistry: OpenCodeToolRegistry
-  }
-  const toolMod = (await (0, eval)(
-    'import("../../../../vendor/opencode-core/src/tool/tool.ts")',
-  )) as {
-    Tool: OpenCodeToolNamespace
-  }
-  const instanceMod = (await (0, eval)(
-    'import("../../../../vendor/opencode-core/src/project/instance.ts")',
-  )) as {
-    Instance: OpenCodeInstance
-  }
-
-  return {
-    ToolRegistry: registryMod.ToolRegistry,
-    Tool: toolMod.Tool,
-    Instance: instanceMod.Instance,
-  }
-}
-
-function curriculumReadTool(Tool: OpenCodeToolNamespace, directory: string) {
+function curriculumReadTool(directory: string) {
   return Tool.define("curriculum_read", {
     description: "Read the current project curriculum markdown document.",
     parameters: z.object({}),
-    async execute(_params, ctx) {
+    async execute(
+      _params: unknown,
+      ctx: {
+        ask(input: {
+          permission: string
+          patterns: string[]
+          always: string[]
+          metadata: Record<string, unknown>
+        }): Promise<void>
+      },
+    ) {
       const filepath = CurriculumPath.file(directory)
       await ctx.ask({
         permission: "curriculum_read",
@@ -110,13 +44,23 @@ function curriculumReadTool(Tool: OpenCodeToolNamespace, directory: string) {
   })
 }
 
-function curriculumUpdateTool(Tool: OpenCodeToolNamespace, directory: string) {
+function curriculumUpdateTool(directory: string) {
   return Tool.define("curriculum_update", {
     description: "Replace the project curriculum markdown document.",
     parameters: z.object({
       markdown: z.string().describe("Full markdown document for curriculum.md"),
     }),
-    async execute(params, ctx) {
+    async execute(
+      params: { markdown: string },
+      ctx: {
+        ask(input: {
+          permission: string
+          patterns: string[]
+          always: string[]
+          metadata: Record<string, unknown>
+        }): Promise<void>
+      },
+    ) {
       const filepath = CurriculumPath.file(directory)
 
       await ctx.ask({
@@ -143,12 +87,11 @@ function curriculumUpdateTool(Tool: OpenCodeToolNamespace, directory: string) {
 export async function ensureCurriculumToolsRegistered(directory: string) {
   if (registeredDirectories.has(directory)) return
 
-  const { ToolRegistry, Tool, Instance } = await modules()
-  await Instance.provide({
+  await OpenCodeInstance.provide({
     directory,
     async fn() {
-      await ToolRegistry.register(curriculumReadTool(Tool, directory))
-      await ToolRegistry.register(curriculumUpdateTool(Tool, directory))
+      await ToolRegistry.register(curriculumReadTool(directory))
+      await ToolRegistry.register(curriculumUpdateTool(directory))
     },
   })
 
