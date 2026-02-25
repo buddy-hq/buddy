@@ -7,7 +7,7 @@ Buddy uses **two separate SQLite databases**. This is intentional.
 ### `opencode.db` — Chat Engine (managed by vendored OpenCode)
 
 **Location**: `.buddy-runtime/xdg/data/opencode/opencode.db`
-**Owner**: `vendor/opencode-core/`
+**Owner**: `vendor/opencode/packages/opencode/`
 **Tables**: session, message, part, todo, permission, project, session_share, control_account
 
 > **Do NOT create tables here.** OpenCode manages its own schema and migrations.
@@ -26,7 +26,7 @@ Buddy uses **two separate SQLite databases**. This is intentional.
 1. **Never duplicate OpenCode tables** in `buddy.db`. Sessions, messages, parts, permissions — all belong to OpenCode.
 2. **Cross-reference by ID** — store `project_id` in Buddy tables to link to OpenCode's project data.
 3. **Never query `opencode.db` directly** from Buddy code — use the adapter or HTTP proxy.
-4. **Buddy migrations** live in `packages/buddy/migration/`. OpenCode migrations live in `vendor/opencode-core/migration/`.
+4. **Buddy migrations** live in `packages/buddy/migration/`. OpenCode migrations live in `vendor/opencode/packages/opencode/migration/`.
 
 ## Adding a New Buddy Table
 

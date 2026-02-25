@@ -1,4 +1,4 @@
-# Buddy -> Vendored OpenCode Core Migration TODO
+# Buddy -> Vendored OpenCode Migration TODO
 
 ## Ground Rule
 - Target architecture: Buddy product layer + adapter only.
@@ -11,12 +11,8 @@
 - [ ] Add explicit "parity maintenance retired" note in `opencore-pairity/CONTEXT.md`.
 
 ## Phase 1 - Runtime Foundation
-- [x] Vendor required OpenCode workspace deps:
-  - [x] `vendor/opencode-core`
-  - [x] `vendor/opencode-util`
-  - [x] `vendor/opencode-plugin`
-  - [x] `vendor/opencode-sdk`
-  - [x] `vendor/opencode-script`
+- [x] Vendor OpenCode monorepo mirror:
+  - [x] `vendor/opencode` (contains `packages/opencode`, `packages/util`, `packages/plugin`, `packages/sdk`, `packages/script`)
 - [x] Configure root workspaces/catalog so vendored packages install.
 - [x] Verify vendored core can be imported and executed at runtime.
 

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Buddy migrated from **copying** OpenCode source files into its own package to **vendoring** the entire OpenCode runtime at `vendor/opencode-core/`. Buddy is now a thin product layer that wraps the vendored runtime via an HTTP proxy and adapter modules.
+Buddy migrated from **copying** OpenCode source files into its own package to **vendoring** the OpenCode monorepo mirror at `vendor/opencode/` (runtime under `vendor/opencode/packages/opencode/`). Buddy is now a thin product layer that wraps the vendored runtime via an HTTP proxy and adapter modules.
 
 ## Architecture
 
@@ -31,7 +31,7 @@ Buddy migrated from **copying** OpenCode source files into its own package to **
 │  └─────────────────┘  └───────────┬──────────────┘   │
 │                                   │                   │
 │                       ┌───────────▼──────────────┐   │
-│                       │ vendor/opencode-core/     │   │
+│                       │ vendor/opencode/          │   │
 │                       │ (full runtime,            │   │
 │                       │  opencode.db)             │   │
 │                       └──────────────────────────┘   │
@@ -114,11 +114,11 @@ After comprehensive audit, there are **zero dead-end risks** in this architectur
 
 ```bash
 # Pull latest from upstream
-git subtree pull --prefix vendor/opencode-core <remote> <branch> --squash
+git subtree pull --prefix vendor/opencode opencode-upstream dev --squash
 
 # Check for breaking changes
-git diff HEAD~1 vendor/opencode-core/migration/            # new migrations?
-git diff HEAD~1 vendor/opencode-core/src/server/routes/    # API changes?
+git diff HEAD~1 vendor/opencode/packages/opencode/migration/            # new migrations?
+git diff HEAD~1 vendor/opencode/packages/opencode/src/server/routes/    # API changes?
 
 # Regenerate SDK and verify
 cd packages/sdk && bun run generate
@@ -128,7 +128,7 @@ bun run test:contracts
 
 ## Completed Migration Steps
 
-- [x] Vendored `opencode-core` + dependencies at `vendor/`
+- [x] Vendored OpenCode monorepo mirror at `vendor/opencode/`
 - [x] Created `@buddy/opencode-adapter` with 8 bridge modules
 - [x] Eliminated all `eval()` dynamic imports (6 total)
 - [x] Fixed config pollution (replaced PATCH /config with Instance.dispose())

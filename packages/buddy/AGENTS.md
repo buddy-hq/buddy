@@ -2,7 +2,7 @@
 
 ## Backend Learnings (non-obvious)
 
-- Runtime authority is vendored OpenCode (`vendor/opencode-core`) mounted through `src/index.ts`; Buddy backend should remain a facade/adapter layer.
+- Runtime authority is vendored OpenCode (`vendor/opencode/packages/opencode`) mounted through `src/index.ts`; Buddy backend should remain a facade/adapter layer.
 - Keep header compatibility (`x-buddy-directory` -> `x-opencode-directory`) in `src/index.ts` so web routing remains stable while core executes upstream code.
 - Buddy-specific behavior belongs in extension seams only (curriculum routes/tools, compatibility response shaping), not in reimplemented core loop logic.
 - XDG bootstrap must verify directory writability (not only `mkdir` success); pre-existing read-only dirs can pass ensure and later fail DB init with `SQLITE_READONLY`.
