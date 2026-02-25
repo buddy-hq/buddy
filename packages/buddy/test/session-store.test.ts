@@ -94,6 +94,11 @@ describe("session store", () => {
         id: messageID,
         sessionID: session.id,
         role: "user",
+        agent: "build",
+        model: {
+          providerID: "anthropic",
+          modelID: "k2p5",
+        },
         time: { created: now },
       }
 

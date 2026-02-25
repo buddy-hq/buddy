@@ -8,13 +8,14 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "start": "bun --env-file=../../.env run src/index.ts",
-    "test": "bun test test",
-    "test:parity": "bun test test/parity",
+    "test": "bun test --preload ./test/preload.ts test",
+    "test:parity": "bun test --preload ./test/preload.ts test/parity",
     "format": "echo 'Formatting code...' && bunx prettier --write src/*.ts src/**/*.ts",
     "db": "bun drizzle-kit"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "2.0.62",
+    "@buddy/opencode-adapter": "workspace:*",
     "@hono/standard-validator": "^0.2.2",
     "ai": "5.0.124",
     "drizzle-orm": "1.0.0-beta.12-a5629fb",

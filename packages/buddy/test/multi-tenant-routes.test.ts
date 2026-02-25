@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import os from "node:os"
 import path from "node:path"
+import fs from "node:fs"
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs"
 import { spawnSync } from "node:child_process"
 import { app } from "../src/index.ts"
@@ -159,7 +160,12 @@ describe("multi-tenant session routes", () => {
   })
 
   test("allows sibling repository directories under monorepo parent", async () => {
-    const siblingDirectory = path.resolve(process.cwd(), "../injectbook")
+    const candidates = [
+      path.resolve(process.cwd(), "../injectbook"),
+      path.resolve(process.cwd(), "../../injectbook"),
+      path.resolve(process.cwd(), "../../../injectbook"),
+    ]
+    const siblingDirectory = candidates.find((candidate) => fs.existsSync(candidate)) ?? candidates[0]
     const create = await app.request(`/api/session?directory=${encodeURIComponent(siblingDirectory)}`, {
       method: "POST",
     })

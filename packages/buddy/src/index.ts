@@ -1,53 +1,659 @@
-import { Hono } from "hono"
+import "./opencode/env.js"
+import { Hono, type Context } from "hono"
 import { openAPIRouteHandler } from "hono-openapi"
 import { cors } from "hono/cors"
 import { logger } from "hono/logger"
-import { ConfigRoutes } from "./routes/config.js"
-import { CurriculumRoutes } from "./routes/curriculum.js"
-import { GlobalRoutes } from "./routes/global.js"
-import { PermissionRoutes } from "./routes/permission.js"
-import { SessionRoutes } from "./routes/session.js"
+import { Config, InvalidError, JsonError } from "./config/config.js"
+import { CurriculumService } from "./curriculum/curriculum-service.js"
+import { ensureCurriculumToolsRegistered } from "./opencode/curriculum-tools.js"
+import { assertOpenCodeRuntime, loadOpenCodeApp } from "./opencode/runtime.js"
+import { PermissionNext } from "./permission/next.js"
 import { allowedDirectoryRoots, isAllowedDirectory, resolveDirectory } from "./project/directory.js"
-import { Instance } from "./project/instance.js"
-import { Database } from "./storage/db.js"
+import { Instance as BuddyInstance } from "./project/instance.js"
+import { Project } from "./project/project.js"
+import { Provider } from "./provider/provider.js"
+import { CurriculumRoutes } from "./routes/curriculum.js"
+import { condenseCurriculum, loadBehavior } from "./session/system-prompt.js"
+import { SessionStore } from "./session/session-store.js"
 
 const app = new Hono()
 const api = new Hono()
 const directoryRoots = allowedDirectoryRoots()
 
-api.route("/", GlobalRoutes())
-api.use(async (c, next) => {
-  if (c.req.path.endsWith("/health") || c.req.path.endsWith("/event")) {
-    return next()
-  }
-
+function requestDirectory(request: Request) {
+  const url = new URL(request.url)
   const rawDirectory =
-    c.req.query("directory") ??
-    c.req.header("x-buddy-directory") ??
-    c.req.header("x-opencode-directory") ??
+    url.searchParams.get("directory") ??
+    request.headers.get("x-buddy-directory") ??
+    request.headers.get("x-opencode-directory") ??
     process.cwd()
 
-  const directory = resolveDirectory(rawDirectory)
+  return resolveDirectory(rawDirectory)
+}
+
+function ensureAllowedDirectory(request: Request) {
+  const directory = requestDirectory(request)
   if (!isAllowedDirectory(directory, directoryRoots)) {
-    return c.json({ error: "Directory is outside allowed roots" }, 403)
+    return {
+      ok: false as const,
+      response: Response.json({ error: "Directory is outside allowed roots" }, { status: 403 }),
+    }
   }
 
-  return Instance.provide({
+  return {
+    ok: true as const,
     directory,
-    fn: next,
+  }
+}
+
+function isJsonContentType(value: string | null) {
+  if (!value) return false
+  return value.toLowerCase().includes("application/json")
+}
+
+function extractErrorMessage(payload: unknown): string | undefined {
+  if (!payload || typeof payload !== "object") return undefined
+
+  const data = payload as {
+    error?: unknown
+    message?: unknown
+    data?: {
+      message?: unknown
+      name?: unknown
+    }
+    name?: unknown
+  }
+
+  if (typeof data.error === "string") return data.error
+  if (typeof data.message === "string") return data.message
+  if (typeof data.data?.message === "string") return data.data.message
+  if (typeof data.name === "string" && typeof data.data?.name === "string") return `${data.name}: ${data.data.name}`
+  return undefined
+}
+
+async function normalizeErrorResponse(response: Response, forceBusyAs409 = false) {
+  if (response.status < 400 || !isJsonContentType(response.headers.get("content-type"))) {
+    return response
+  }
+
+  const payload = (await response.clone().json().catch(() => undefined)) as unknown
+  const message = extractErrorMessage(payload)
+  if (!message) return response
+
+  const busy = /busy/i.test(message)
+  if (forceBusyAs409 && busy) {
+    return Response.json({ error: "Session is already running" }, { status: 409 })
+  }
+
+  return Response.json({ error: message }, { status: response.status })
+}
+
+async function fetchOpenCode(input: {
+  directory: string
+  method: string
+  path: string
+  query?: string
+  headers?: Headers
+  body?: BodyInit
+  registerTools?: boolean
+}) {
+  if (input.registerTools === true) {
+    await ensureCurriculumToolsRegistered(input.directory).catch((error) => {
+      console.warn("Failed to register Buddy curriculum tools into OpenCode runtime:", error)
+    })
+  }
+
+  const openCodeApp = await loadOpenCodeApp()
+  const url = new URL(`http://opencode.local${input.path}`)
+  if (input.query) {
+    url.search = input.query
+  }
+
+  const headers = new Headers(input.headers)
+  headers.delete("x-buddy-directory")
+  headers.set("x-opencode-directory", input.directory)
+  headers.delete("host")
+  headers.delete("content-length")
+
+  return openCodeApp.fetch(
+    new Request(url.toString(), {
+      method: input.method,
+      headers,
+      body: input.body,
+    }),
+  )
+}
+
+async function proxyToOpenCode(
+  c: Context,
+  input: {
+    targetPath: string
+    transformJsonBody?: (body: Record<string, unknown>) => Record<string, unknown> | Promise<Record<string, unknown>>
+    forceBusyAs409?: boolean
+    registerTools?: boolean
+  },
+) {
+  const directoryResult = ensureAllowedDirectory(c.req.raw)
+  if (!directoryResult.ok) return directoryResult.response
+
+  const method = c.req.method.toUpperCase()
+  const sourceURL = new URL(c.req.url)
+  const headers = new Headers(c.req.raw.headers)
+  let body: BodyInit | undefined
+
+  if (method !== "GET" && method !== "HEAD") {
+    if (input.transformJsonBody) {
+      const contentType = headers.get("content-type")
+      if (isJsonContentType(contentType)) {
+        const raw = await c.req.raw.text()
+        const parsed = raw.trim().length > 0 ? (JSON.parse(raw) as Record<string, unknown>) : {}
+        const transformed = await input.transformJsonBody(parsed)
+        body = JSON.stringify(transformed)
+      } else {
+        body = await c.req.raw.arrayBuffer()
+      }
+    } else {
+      const buffer = await c.req.raw.arrayBuffer()
+      body = buffer.byteLength > 0 ? buffer : undefined
+    }
+  }
+
+  const response = await fetchOpenCode({
+    directory: directoryResult.directory,
+    method,
+    path: input.targetPath,
+    query: sourceURL.search,
+    headers,
+    body,
+    registerTools: input.registerTools,
+  })
+
+  return normalizeErrorResponse(response, input.forceBusyAs409)
+}
+
+async function loadSessionStatus(directory: string, request: Request) {
+  const response = await fetchOpenCode({
+    directory,
+    method: "GET",
+    path: "/session/status",
+    headers: new Headers(request.headers),
+  })
+
+  if (!response.ok) return undefined
+  return (await response.json().catch(() => undefined)) as
+    | Record<
+        string,
+        {
+          type?: "busy" | "idle" | "retry"
+        }
+      >
+    | undefined
+}
+
+function isConfigValidationError(error: unknown) {
+  return error instanceof JsonError || error instanceof InvalidError
+}
+
+function configErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message) return error.message
+  return "Invalid config"
+}
+
+async function buildBuddySystemPrompt(directory: string) {
+  const parts: string[] = []
+  const behavior = loadBehavior().trim()
+  if (behavior) {
+    parts.push(behavior)
+  }
+
+  const curriculum = await CurriculumService.peek(directory).catch(() => undefined)
+  if (curriculum?.markdown) {
+    const condensed = condenseCurriculum(curriculum.markdown).trim()
+    if (condensed) {
+      parts.push(["<curriculum>", `Path: ${curriculum.path}`, condensed, "</curriculum>"].join("\n"))
+    }
+  }
+
+  return parts.join("\n\n").trim()
+}
+
+async function syncOpenCodeProjectConfig(directory: string) {
+  const config = await BuddyInstance.provide({
+    directory,
+    fn: () => Config.get(),
+  })
+  const syncConfig = {
+    ...config,
+  } as Record<string, unknown>
+  delete syncConfig.plugin
+
+  const response = await fetchOpenCode({
+    directory,
+    method: "PATCH",
+    path: "/config",
+    headers: new Headers({
+      "content-type": "application/json",
+    }),
+    body: JSON.stringify(syncConfig),
+  })
+
+  if (response.ok) return
+
+  const normalized = await normalizeErrorResponse(response)
+  const message =
+    (await normalized
+      .clone()
+      .json()
+      .then((payload) => extractErrorMessage(payload))
+      .catch(() => undefined)) ?? `OpenCode config sync failed (${normalized.status})`
+
+  throw new Error(message)
+}
+
+async function localSessionBusy(directory: string, sessionID: string) {
+  return BuddyInstance.provide({
+    directory,
+    fn: () => {
+      try {
+        return SessionStore.isBusy(sessionID)
+      } catch {
+        return false
+      }
+    },
+  })
+}
+
+async function isSessionInRequestedProject(directory: string, session: unknown) {
+  if (!session || typeof session !== "object") return true
+  const payload = session as {
+    projectID?: unknown
+    directory?: unknown
+  }
+
+  const requested = await Project.fromDirectory(directory)
+  const requestedProjectID = requested.project.id
+
+  const sessionProjectID =
+    typeof payload.projectID === "string"
+      ? payload.projectID
+      : typeof payload.directory === "string"
+        ? (await Project.fromDirectory(payload.directory)).project.id
+        : undefined
+
+  if (!sessionProjectID) return true
+  return sessionProjectID === requestedProjectID
+}
+
+api.route("/curriculum", CurriculumRoutes())
+
+api.get("/health", async (c) => {
+  return proxyToOpenCode(c, {
+    targetPath: "/global/health",
+    registerTools: false,
   })
 })
-api.route("/session", SessionRoutes())
-api.route("/permission", PermissionRoutes())
-api.route("/curriculum", CurriculumRoutes())
-api.route("/config", ConfigRoutes())
 
-app
-  .use(logger())
-  .use(cors({ origin: "*" }))
-  .route("/api", api)
+api.get("/event", async (c) => {
+  return proxyToOpenCode(c, {
+    targetPath: "/global/event",
+    registerTools: false,
+  })
+})
 
-// Add OpenAPI docs endpoint
+api.get("/global/config", async (c) => {
+  try {
+    const config = await Config.getGlobal()
+    return c.json(config)
+  } catch (error) {
+    if (isConfigValidationError(error)) {
+      return c.json({ error: configErrorMessage(error) }, 400)
+    }
+    throw error
+  }
+})
+
+api.patch("/global/config", async (c) => {
+  let body: unknown
+  try {
+    body = await c.req.json()
+  } catch {
+    return c.json({ error: "Invalid JSON body" }, 400)
+  }
+
+  try {
+    const parsed = Config.Info.parse(body)
+    const config = await Config.updateGlobal(parsed)
+    return c.json(config)
+  } catch (error) {
+    if (isConfigValidationError(error)) {
+      return c.json({ error: configErrorMessage(error) }, 400)
+    }
+    if (error instanceof Error && error.name === "ZodError") {
+      return c.json({ error: error.message }, 400)
+    }
+    throw error
+  }
+})
+
+api.post("/global/dispose", async (c) => {
+  return proxyToOpenCode(c, {
+    targetPath: "/global/dispose",
+    registerTools: false,
+  })
+})
+
+api.get("/config/agents", async (c) => {
+  const directoryResult = ensureAllowedDirectory(c.req.raw)
+  if (!directoryResult.ok) return directoryResult.response
+
+  const [agentModule, instanceModule] = (await Promise.all([
+    (0, eval)('import("../../../vendor/opencode-core/src/agent/agent.ts")'),
+    (0, eval)('import("../../../vendor/opencode-core/src/project/instance.ts")'),
+  ])) as [
+    {
+      Agent: {
+        list(): Promise<
+          Array<{
+            name: string
+            description?: string
+            mode: "subagent" | "primary" | "all"
+            hidden?: boolean
+          }>
+        >
+      }
+    },
+    {
+      Instance: {
+        provide<T>(input: { directory: string; fn: () => Promise<T> | T }): Promise<T>
+      }
+    },
+  ]
+  const Agent = agentModule.Agent
+  const Instance = instanceModule.Instance
+
+  const agents = await Instance.provide({
+    directory: directoryResult.directory,
+    fn: () => Agent.list(),
+  })
+
+  return c.json(
+    agents.map((agent) => ({
+      name: agent.name,
+      description: agent.description,
+      mode: agent.mode,
+      hidden: agent.hidden,
+    })),
+  )
+})
+
+api.get("/config", async (c) => {
+  const directoryResult = ensureAllowedDirectory(c.req.raw)
+  if (!directoryResult.ok) return directoryResult.response
+
+  try {
+    const config = await BuddyInstance.provide({
+      directory: directoryResult.directory,
+      fn: () => Config.get(),
+    })
+    return c.json(config)
+  } catch (error) {
+    if (isConfigValidationError(error)) {
+      return c.json({ error: configErrorMessage(error) }, 400)
+    }
+    throw error
+  }
+})
+
+api.patch("/config", async (c) => {
+  const directoryResult = ensureAllowedDirectory(c.req.raw)
+  if (!directoryResult.ok) return directoryResult.response
+
+  let body: unknown
+  try {
+    body = await c.req.json()
+  } catch {
+    return c.json({ error: "Invalid JSON body" }, 400)
+  }
+
+  try {
+    const parsed = Config.Info.parse(body)
+    await BuddyInstance.provide({
+      directory: directoryResult.directory,
+      fn: () => Config.update(parsed),
+    })
+    await syncOpenCodeProjectConfig(directoryResult.directory)
+    const config = await BuddyInstance.provide({
+      directory: directoryResult.directory,
+      fn: () => Config.get(),
+    })
+    return c.json(config)
+  } catch (error) {
+    if (isConfigValidationError(error)) {
+      return c.json({ error: configErrorMessage(error) }, 400)
+    }
+    if (error instanceof Error && error.name === "ZodError") {
+      return c.json({ error: error.message }, 400)
+    }
+    throw error
+  }
+})
+
+api.get("/config/providers", async (c) => {
+  const directoryResult = ensureAllowedDirectory(c.req.raw)
+  if (!directoryResult.ok) return directoryResult.response
+
+  const payload = await BuddyInstance.provide({
+    directory: directoryResult.directory,
+    fn: async () => {
+      const [providers, defaults] = await Promise.all([Provider.list(), Provider.defaults()])
+      return {
+        providers,
+        default: defaults,
+      }
+    },
+  })
+
+  return c.json(payload)
+})
+
+api.get("/permission", async (c) => {
+  const directoryResult = ensureAllowedDirectory(c.req.raw)
+  if (!directoryResult.ok) return directoryResult.response
+
+  const localPending = await BuddyInstance.provide({
+    directory: directoryResult.directory,
+    fn: () => PermissionNext.list(),
+  })
+  if (localPending.length > 0) {
+    return c.json(localPending)
+  }
+
+  const response = await fetchOpenCode({
+    directory: directoryResult.directory,
+    method: "GET",
+    path: "/permission",
+    query: new URL(c.req.url).search,
+    headers: new Headers(c.req.raw.headers),
+  })
+  return normalizeErrorResponse(response)
+})
+
+api.post("/permission/:requestID/reply", async (c) => {
+  const directoryResult = ensureAllowedDirectory(c.req.raw)
+  if (!directoryResult.ok) return directoryResult.response
+
+  const requestID = c.req.param("requestID")
+  const headers = new Headers(c.req.raw.headers)
+  const rawBody = await c.req.raw.text()
+
+  let parsedBody: {
+    reply?: "once" | "always" | "reject"
+    message?: string
+  } = {}
+
+  if (rawBody.trim().length > 0) {
+    try {
+      parsedBody = JSON.parse(rawBody) as {
+        reply?: "once" | "always" | "reject"
+        message?: string
+      }
+    } catch {
+      parsedBody = {}
+    }
+  }
+
+  if (parsedBody.reply) {
+    const localReply = await BuddyInstance.provide({
+      directory: directoryResult.directory,
+      fn: () =>
+        PermissionNext.reply({
+          requestID,
+          reply: parsedBody.reply as "once" | "always" | "reject",
+          message: parsedBody.message,
+        }),
+    })
+    if (localReply) {
+      return c.json(true)
+    }
+  }
+
+  const response = await fetchOpenCode({
+    directory: directoryResult.directory,
+    method: "POST",
+    path: `/permission/${encodeURIComponent(requestID)}/reply`,
+    headers,
+    body: rawBody.length > 0 ? rawBody : undefined,
+  })
+  return normalizeErrorResponse(response)
+})
+
+api.get("/session", async (c) => {
+  return proxyToOpenCode(c, {
+    targetPath: "/session",
+  })
+})
+
+api.post("/session", async (c) => {
+  return proxyToOpenCode(c, {
+    targetPath: "/session",
+  })
+})
+
+api.get("/session/:sessionID", async (c) => {
+  const directoryResult = ensureAllowedDirectory(c.req.raw)
+  if (!directoryResult.ok) return directoryResult.response
+
+  const sessionID = c.req.param("sessionID")
+  const response = await fetchOpenCode({
+    directory: directoryResult.directory,
+    method: "GET",
+    path: `/session/${encodeURIComponent(sessionID)}`,
+    query: new URL(c.req.url).search,
+    headers: new Headers(c.req.raw.headers),
+  })
+
+  const normalized = await normalizeErrorResponse(response)
+  if (!normalized.ok) return normalized
+  if (!isJsonContentType(normalized.headers.get("content-type"))) return normalized
+
+  const session = (await normalized.clone().json().catch(() => undefined)) as unknown
+  const matchesProject = await isSessionInRequestedProject(directoryResult.directory, session)
+  if (!matchesProject) {
+    return c.json({ error: "Session not found" }, 404)
+  }
+
+  return normalized
+})
+
+api.patch("/session/:sessionID", async (c) => {
+  const sessionID = c.req.param("sessionID")
+  return proxyToOpenCode(c, {
+    targetPath: `/session/${encodeURIComponent(sessionID)}`,
+  })
+})
+
+api.get("/session/:sessionID/message", async (c) => {
+  const sessionID = c.req.param("sessionID")
+  return proxyToOpenCode(c, {
+    targetPath: `/session/${encodeURIComponent(sessionID)}/message`,
+  })
+})
+
+api.post("/session/:sessionID/message", async (c) => {
+  const directoryResult = ensureAllowedDirectory(c.req.raw)
+  if (!directoryResult.ok) return directoryResult.response
+
+  const sessionID = c.req.param("sessionID")
+  await syncOpenCodeProjectConfig(directoryResult.directory).catch((error) => {
+    throw new Error(`Failed to sync config before prompt: ${String(error instanceof Error ? error.message : error)}`)
+  })
+  if (await localSessionBusy(directoryResult.directory, sessionID)) {
+    return c.json({ error: "Session is already running" }, 409)
+  }
+
+  return proxyToOpenCode(c, {
+    targetPath: `/session/${encodeURIComponent(sessionID)}/message`,
+    async transformJsonBody(body) {
+      const parts = Array.isArray(body.parts) ? [...body.parts] : []
+      const content = typeof body.content === "string" ? body.content : ""
+      if (content.trim().length > 0) {
+        parts.unshift({
+          type: "text",
+          text: content,
+        })
+      }
+
+      if (parts.length === 0) {
+        throw new Error("content or parts must be provided")
+      }
+
+      const transformed = {
+        ...body,
+        parts,
+      } as Record<string, unknown>
+      const existingSystem = typeof body.system === "string" ? body.system.trim() : ""
+      const buddySystem = await buildBuddySystemPrompt(directoryResult.directory)
+      const mergedSystem = [existingSystem, buddySystem].filter(Boolean).join("\n\n").trim()
+      if (mergedSystem) {
+        transformed.system = mergedSystem
+      }
+      delete (transformed as { content?: string }).content
+      return transformed
+    },
+    forceBusyAs409: true,
+    registerTools: true,
+  }).catch((error) => {
+    const message = String(error instanceof Error ? error.message : error)
+    if (message.includes("content or parts must be provided")) {
+      return c.json({ error: "content or parts must be provided" }, 400)
+    }
+    throw error
+  })
+})
+
+api.post("/session/:sessionID/abort", async (c) => {
+  const directoryResult = ensureAllowedDirectory(c.req.raw)
+  if (!directoryResult.ok) return directoryResult.response
+
+  const sessionID = c.req.param("sessionID")
+  const statuses = await loadSessionStatus(directoryResult.directory, c.req.raw)
+  const current = statuses?.[sessionID]
+  if (!current || current.type === "idle") {
+    return c.json(false)
+  }
+
+  const response = await proxyToOpenCode(c, {
+    targetPath: `/session/${encodeURIComponent(sessionID)}/abort`,
+  })
+
+  if (!response.ok) return response
+  return c.json(true)
+})
+
+app.use(logger())
+app.use(cors({ origin: "*" }))
+app.route("/api", api)
+
 app.get(
   "/doc",
   openAPIRouteHandler(app, {
@@ -55,27 +661,23 @@ app.get(
       info: {
         title: "Buddy API",
         version: "1.0.0",
-        description: "Buddy API Documentation",
+        description: "Buddy compatibility API over vendored OpenCode core.",
       },
       openapi: "3.1.1",
     },
   }),
 )
 
-const port = process.env.PORT ? parseInt(process.env.PORT) : 3000
+const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000
 
 if (import.meta.main) {
   try {
-    Database.Client()
-    console.log(`Storage ready at ${Database.Path}`)
+    await assertOpenCodeRuntime(process.cwd())
   } catch (error) {
-    console.error("Failed to initialize storage:", error)
+    console.error("Failed to initialize vendored OpenCode runtime:", error)
     process.exit(1)
   }
 
-  if (!process.env.KIMI_API_KEY) {
-    console.error("KIMI_API_KEY is missing in the repo root .env file; chat prompts will fail.")
-  }
   console.log(`Server starting on http://localhost:${port}`)
   console.log(`API docs available at http://localhost:${port}/doc`)
   Bun.serve({

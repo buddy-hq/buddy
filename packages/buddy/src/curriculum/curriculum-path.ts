@@ -1,12 +1,11 @@
 import path from "node:path"
-import { Instance } from "../project/instance.js"
 
 export namespace CurriculumPath {
-  export function directory() {
-    return path.join(Instance.directory, ".buddy")
+  export function directory(rootDirectory: string) {
+    return path.join(rootDirectory, ".buddy")
   }
 
-  export function file() {
-    return path.join(directory(), "curriculum.md")
+  export function file(rootDirectory: string) {
+    return path.join(directory(rootDirectory), "curriculum.md")
   }
 }

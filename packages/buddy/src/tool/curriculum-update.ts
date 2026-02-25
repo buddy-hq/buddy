@@ -1,6 +1,7 @@
 import z from "zod"
 import { CurriculumPath } from "../curriculum/curriculum-path.js"
 import { CurriculumService } from "../curriculum/curriculum-service.js"
+import { Instance } from "../project/instance.js"
 import { Tool } from "./tool.js"
 
 export const CurriculumUpdateTool = Tool.define("curriculum_update", {
@@ -9,7 +10,8 @@ export const CurriculumUpdateTool = Tool.define("curriculum_update", {
     markdown: z.string().describe("Full markdown document for curriculum.md"),
   }),
   async execute(params, ctx) {
-    const path = CurriculumPath.file()
+    const directory = Instance.directory
+    const path = CurriculumPath.file(directory)
 
     await ctx.ask({
       permission: "curriculum_update",
@@ -20,7 +22,7 @@ export const CurriculumUpdateTool = Tool.define("curriculum_update", {
       },
     })
 
-    const saved = await CurriculumService.write(params.markdown)
+    const saved = await CurriculumService.write(directory, params.markdown)
     return {
       title: "curriculum.md",
       output: `Updated curriculum at ${saved.path}`,

@@ -22,6 +22,11 @@ export type ProviderModel = {
     input: string[]
     output: string[]
   }
+  interleaved?:
+    | true
+    | {
+        field: "reasoning_content" | "reasoning_details"
+      }
   reasoning: boolean
   options: Record<string, unknown>
   variants?: Record<string, Record<string, unknown>>
@@ -61,6 +66,7 @@ function fromModelsDevModel(input: { providerID: string; modelID: string; model:
           output: model.modalities.output,
         }
       : undefined,
+    interleaved: model.interleaved,
     reasoning: model.reasoning ?? false,
     options: model.options ?? {},
     variants: model.variants,

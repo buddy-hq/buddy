@@ -29,8 +29,8 @@ export namespace CurriculumService {
     }
   }
 
-  export async function peek(): Promise<Document | undefined> {
-    const filepath = CurriculumPath.file()
+  export async function peek(directory: string): Promise<Document | undefined> {
+    const filepath = CurriculumPath.file(directory)
     const markdown = await fs.readFile(filepath, "utf8").catch(() => undefined)
 
     if (markdown === undefined) return undefined
@@ -40,20 +40,20 @@ export namespace CurriculumService {
     }
   }
 
-  export async function read(): Promise<Document> {
-    const existing = await peek()
+  export async function read(directory: string): Promise<Document> {
+    const existing = await peek(directory)
     if (existing) return existing
     return {
-      path: CurriculumPath.file(),
+      path: CurriculumPath.file(directory),
       markdown: DEFAULT_CURRICULUM_MARKDOWN,
     }
   }
 
-  export async function write(markdown: string) {
+  export async function write(directory: string, markdown: string) {
     validate(markdown)
 
-    const filepath = CurriculumPath.file()
-    const dir = CurriculumPath.directory()
+    const filepath = CurriculumPath.file(directory)
+    const dir = CurriculumPath.directory(directory)
     await fs.mkdir(dir, { recursive: true })
     await fs.writeFile(filepath, markdown, "utf8")
 

@@ -37,6 +37,8 @@ Prioritize technical accuracy and truthfulness over validating the learner's bel
 - Reference it when the learner asks about progress, next topics, or what to study.
 - When discussing a topic, note where it fits in the curriculum if relevant.
 - When a topic is clearly complete, suggest marking it done with curriculum_update.
+- If the learner asks you to update curriculum content or mark items complete, call `curriculum_update` yourself. Do not claim you cannot directly update the curriculum.
+- Use `curriculum_read` when you need to check the latest curriculum file before updating it.
 - To create, revise, or overhaul a curriculum, delegate to the `curriculum-builder` sub-agent via the `task` tool.
 - Delegate at most once per user request, then synthesize and return the final answer yourself.
 

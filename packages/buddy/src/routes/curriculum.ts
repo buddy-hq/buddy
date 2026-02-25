@@ -2,6 +2,7 @@ import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
 import { CurriculumService } from "../curriculum/curriculum-service.js"
+import { resolveDirectory } from "../project/directory.js"
 
 const CurriculumDocument = z.object({
   markdown: z.string(),
@@ -31,7 +32,10 @@ export const CurriculumRoutes = () =>
         },
       }),
       async (c) => {
-        const doc = await CurriculumService.read()
+        const directory = resolveDirectory(
+          c.req.header("x-buddy-directory") ?? c.req.header("x-opencode-directory") ?? process.cwd(),
+        )
+        const doc = await CurriculumService.read(directory)
         return c.json({ markdown: doc.markdown })
       },
     )
@@ -63,8 +67,11 @@ export const CurriculumRoutes = () =>
       validator("json", CurriculumDocument),
       async (c) => {
         const body = c.req.valid("json")
+        const directory = resolveDirectory(
+          c.req.header("x-buddy-directory") ?? c.req.header("x-opencode-directory") ?? process.cwd(),
+        )
         try {
-          const doc = await CurriculumService.write(body.markdown)
+          const doc = await CurriculumService.write(directory, body.markdown)
           return c.json({ markdown: doc.markdown })
         } catch (error) {
           return c.json({ error: String(error instanceof Error ? error.message : error) }, 400)

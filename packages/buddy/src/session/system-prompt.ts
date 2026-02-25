@@ -81,7 +81,7 @@ export function condenseCurriculum(markdown: string): string {
 
 export async function loadCurriculumContext(): Promise<string> {
   try {
-    const curriculum = await CurriculumService.peek()
+    const curriculum = await CurriculumService.peek(Instance.directory)
     if (!curriculum) {
       return ""
     }

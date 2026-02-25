@@ -276,6 +276,7 @@ export async function streamAssistant(input: StreamAssistantInput) {
     })),
     ...messages,
   ]
+  const transformedMessages = ProviderTransform.message(messagesWithSystem, resolvedModel)
 
   const maxOutputTokens = await ProviderTransform.maxOutputTokens(modelIdentity)
 
@@ -299,7 +300,7 @@ export async function streamAssistant(input: StreamAssistantInput) {
       }
     },
     model: kimiModel(modelIdentity.modelID),
-    messages: messagesWithSystem,
+    messages: transformedMessages,
     temperature: resolvedAgent.temperature ?? 1.0,
     topP: resolvedAgent.topP,
     providerOptions: ProviderTransform.providerOptions(modelIdentity),

@@ -14,6 +14,14 @@ function findMonorepoRoot(start: string) {
         if (Array.isArray(parsed.workspaces)) {
           return current
         }
+        if (
+          typeof parsed.workspaces === "object" &&
+          parsed.workspaces !== null &&
+          "packages" in parsed.workspaces &&
+          Array.isArray((parsed.workspaces as { packages?: unknown }).packages)
+        ) {
+          return current
+        }
       } catch {
         // Ignore invalid package.json and continue traversing up.
       }
