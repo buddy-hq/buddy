@@ -1,0 +1,19 @@
+{
+  "name": "@buddy/opencode-adapter",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./provider-transform": "./src/provider-transform.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "ai": "5.0.124"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

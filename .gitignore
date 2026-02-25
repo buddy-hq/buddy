@@ -33,3 +33,8 @@ packages/web/src/routeTree.gen.ts
 
 # Local links - used by agents for reference - check root agents.md
 /links/
+
+# Local OpenCode/Buddy runtime artifacts
+/.buddy-runtime/
+/.tmp-xdg/
+/packages/buddy/.buddy-runtime/
