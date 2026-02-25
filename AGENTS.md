@@ -8,13 +8,14 @@ Bun + TypeScript monorepo managed with Turborepo.
 - `packages/web`: frontend (React + Vite + TanStack Router + TanStack Query)
 - `packages/ui`: shared UI (shadcn/ui + Tailwind v4)
 - `packages/sdk`: OpenAPI-generated client (hey-api/openapi-ts)
+- `packages/opencode-adapter`: Buddy compatibility bridge over vendored OpenCode modules
 
 ## OpenCode Reference (required)
 
 Build Buddy core by executing vendored OpenCode core, not by re-implementing it.
 
 - OpenCode is the default reference for architecture and implementation.
-- Core runtime authority is vendored code under `vendor/opencode-*`.
+- Core runtime authority is vendored code under `vendor/opencode/packages/*`.
 - `packages/buddy/src` should stay a thin compatibility/product layer.
 - Before implementing any core agent/runtime feature, find the OpenCode equivalent first and route through adapter seams.
 - OpenCode location: `~/code/opencode` (fallback: `~/Code/opencode`).
@@ -23,7 +24,7 @@ Build Buddy core by executing vendored OpenCode core, not by re-implementing it.
 
 - Core loop/agent/session/tool/permission behavior should execute from vendored OpenCode modules.
 - Buddy-owned behavior should remain in Buddy modules (curriculum, UX-specific route shaping, compatibility headers).
-- Do not edit files under `vendor/opencode-core/**` unless the change is an intentional vendored patch that will be tracked for the next subtree refresh.
+- Do not edit files under `vendor/opencode/packages/opencode/**` unless the change is an intentional vendored patch that will be tracked for the next subtree refresh.
 
 ## Commands
 
@@ -35,9 +36,11 @@ bun run dev        # backend → http://localhost:3000 (PORT=... to override)
 bun run dev:web    # web    → http://localhost:1420
 bun run typecheck
 bun run build
-bun run lint       # wired to turbo; no workspace defines lint yet
+bun run lint
 bun run test:contracts   # backend+web compatibility contract suites
-bun run check:vendor     # recommended full gate for vendored-core updates
+bun run check:vendor     # recommended full gate for vendored OpenCode updates
+bun run vendor:check-upstream
+bun run vendor:sync
 bun run sdk:generate                            # requires backend running
 API_URL="http://localhost:3000/doc" bun run sdk:generate
 ```

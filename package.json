@@ -8,11 +8,11 @@
   "workspaces": {
     "packages": [
       "packages/*",
-      "vendor/opencode-core",
-      "vendor/opencode-util",
-      "vendor/opencode-plugin",
-      "vendor/opencode-sdk",
-      "vendor/opencode-script"
+      "vendor/opencode/packages/opencode",
+      "vendor/opencode/packages/util",
+      "vendor/opencode/packages/plugin",
+      "vendor/opencode/packages/sdk/js",
+      "vendor/opencode/packages/script"
     ],
     "catalog": {
       "@types/bun": "1.3.9",
@@ -41,15 +41,17 @@
     "dev": "bun --env-file=.env run --cwd packages/buddy dev",
     "dev:web": "bun run --cwd packages/web dev",
     "dev:all": "(bun run dev & BACKEND_PID=$!; trap \"kill $BACKEND_PID\" EXIT INT TERM; bun run dev:web)",
-    "build": "turbo run build --filter=@buddy/*",
+    "build": "turbo run build --filter=@buddy/* --only",
     "start:built": "bun run build && (bun run --cwd packages/buddy start & BACKEND_PID=$!; trap \"kill $BACKEND_PID\" EXIT INT TERM; bun run --cwd packages/web preview --host --port 1420 --strictPort)",
-    "typecheck": "turbo run typecheck --filter=@buddy/*",
-    "test": "bun run test:contracts && turbo run test --filter=@buddy/*",
+    "typecheck": "turbo run typecheck --filter=@buddy/* --only",
+    "test": "bun run test:contracts && turbo run test --filter=@buddy/* --only",
     "test:contracts": "bun run --cwd packages/buddy test:parity && bun run --cwd packages/web test:parity",
     "test:parity": "bun run test:contracts",
     "check:vendor": "bun run typecheck && bun run test",
     "check:parity": "bun run test:contracts",
-    "lint": "turbo run lint --filter=@buddy/*",
+    "vendor:sync": "git subtree pull --prefix vendor/opencode opencode-upstream dev --squash -m \"chore(vendor): sync opencode mirror\"",
+    "vendor:check-upstream": "./scripts/vendor-check-upstream.sh",
+    "lint": "turbo run lint --filter=@buddy/* --only",
     "sdk:generate": "bun run --cwd packages/sdk generate"
   },
   "devDependencies": {

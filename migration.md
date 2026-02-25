@@ -2,7 +2,7 @@
 
 ## Overview
 
-Buddy migrated from **copying** OpenCode source files into its own package to **vendoring** the entire OpenCode runtime at `vendor/opencode-core/`. Buddy is now a thin product layer that wraps the vendored runtime via an HTTP proxy and adapter modules.
+Buddy migrated from **copying** OpenCode source files into its own package to **vendoring** the OpenCode monorepo mirror at `vendor/opencode/` (runtime under `vendor/opencode/packages/opencode/`). Buddy is now a thin product layer that wraps the vendored runtime via an HTTP proxy and adapter modules.
 
 ## Architecture
 
@@ -31,7 +31,7 @@ Buddy migrated from **copying** OpenCode source files into its own package to **
 │  └─────────────────┘  └───────────┬──────────────┘   │
 │                                   │                   │
 │                       ┌───────────▼──────────────┐   │
-│                       │ vendor/opencode-core/     │   │
+│                       │ vendor/opencode/          │   │
 │                       │ (full runtime,            │   │
 │                       │  opencode.db)             │   │
 │                       └──────────────────────────┘   │
@@ -89,36 +89,35 @@ OPENCODE_CLIENT → web
 
 This ensures vendored OpenCode doesn't collide with a standalone OpenCode install on the same machine.
 
-## Risk Assessment (Final)
+## Risk Assessment (Current)
 
-### No Fatal Risks
+This cutover removes the previous split-SHA subtree workflow and unblocks feature work, but it does not remove all risk. The main remaining risks are operational and integration-related.
 
-After comprehensive audit, there are **zero dead-end risks** in this architecture. Every identified concern has a viable mitigation path.
+| Risk | Severity | Why it matters | Mitigation / Control |
+| --- | --- | --- | --- |
+| **Upstream internal import churn** (`opencode/*` deep paths) | 🟠 Medium | Buddy adapter imports target internal OpenCode modules; upstream refactors can break compile/runtime on sync. | Keep all OpenCode usage behind `@buddy/opencode-adapter`; run `bun run typecheck` + `bun run test:contracts` after every `vendor:sync`; pin to known-good mirror commit per release. |
+| **Large subtree sync blast radius** | 🟠 Medium | `vendor/opencode` updates can touch thousands of files, making regressions easy to miss in review. | Treat each sync as its own PR/commit batch; diff focus on `vendor/opencode/packages/opencode/src/server/routes`, migrations, and adapter compile surface. |
+| **API/contract drift between web and backend** | 🟠 Medium | Frontend behavior depends on `/api/*` compatibility semantics (SSE lifecycle, busy state, message shape). | Keep contract tests mandatory (`bun run test:contracts`); regenerate SDK after sync and verify no `/api/api` path regressions. |
+| **Dual project metadata divergence** (`buddy.db` vs `opencode.db`) | 🟡 Low | Project identity exists in both domains today; accidental divergence can cause routing/state confusion. | Keep Buddy data linked by `project_id`; avoid direct writes to OpenCode project tables; plan eventual project-source-of-truth consolidation. |
+| **Vendor patch drift** (editing `vendor/opencode/**`) | 🟡 Low | Local vendor edits are hard to preserve and reconcile with future upstream pulls. | Do not patch vendor runtime unless intentional and documented; prefer Buddy-side adapters and compatibility wrappers. |
+| **Runtime environment coupling** (XDG, ports, plugin bootstrap) | 🟡 Low | Misconfigured runtime dirs/ports can fail startup in ways that look like app regressions. | Keep XDG override bootstrap in place; use explicit `PORT` and root `.env`; keep startup smoke checks in release workflow. |
 
-### Remaining Risks (all manageable)
+### Dead-End Check
 
-| Risk                                                                             | Severity | Mitigation                                                                                                        |
-| -------------------------------------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------- |
-| **Project table duplication** — both `buddy.db` and `opencode.db` track projects | 🟡 Low   | Schemas are identical today. Can be unified by routing through adapter in a future refactor.                      |
-| **Upstream schema migration** — OpenCode may change table schemas                | 🟡 Low   | Buddy doesn't query OpenCode's DB directly. Dual-DB architecture isolates them. SCHEMA.md documents the boundary. |
-| **Flag system** — OpenCode flags frozen at import time                           | 🟢 None  | Separate `BUDDY_*` / `OPENCODE_*` namespaces. Dynamic flags use `defineProperty`.                                 |
-| **Upstream API contract change** — OpenCode may change response shapes           | 🟡 Low   | SDK types are auto-generated from runtime OpenAPI spec. Regenerate after pulling upstream.                        |
-
-### What Would Be Fatal (and why it won't happen)
-
-1. **OpenCode removes the HTTP server** → Won't happen; it's a core feature of OpenCode.
-2. **OpenCode removes `Instance.provide()`** → Won't happen; it's the foundation of their multi-project model.
-3. **OpenCode stops being importable as a library** → Won't happen; their architecture is already modular.
+There is no current architectural dead end for building Buddy logic on top of this mirror model. The cost is disciplined sync/review hygiene, not inability to extend.
 
 ## Upgrading Vendored OpenCode
 
 ```bash
-# Pull latest from upstream
-git subtree pull --prefix vendor/opencode-core <remote> <branch> --squash
+# Optional: confirm whether upstream has moved
+bun run vendor:check-upstream
+
+# Pull latest from upstream mirror
+bun run vendor:sync
 
 # Check for breaking changes
-git diff HEAD~1 vendor/opencode-core/migration/            # new migrations?
-git diff HEAD~1 vendor/opencode-core/src/server/routes/    # API changes?
+git diff HEAD~1 vendor/opencode/packages/opencode/migration/            # new migrations?
+git diff HEAD~1 vendor/opencode/packages/opencode/src/server/routes/    # API changes?
 
 # Regenerate SDK and verify
 cd packages/sdk && bun run generate
@@ -128,7 +127,7 @@ bun run test:contracts
 
 ## Completed Migration Steps
 
-- [x] Vendored `opencode-core` + dependencies at `vendor/`
+- [x] Vendored OpenCode monorepo mirror at `vendor/opencode/`
 - [x] Created `@buddy/opencode-adapter` with 8 bridge modules
 - [x] Eliminated all `eval()` dynamic imports (6 total)
 - [x] Fixed config pollution (replaced PATCH /config with Instance.dispose())
