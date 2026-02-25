@@ -1,2 +1,2 @@
 // Compile-safe bridge to vendored OpenCode server runtime.
-export { Server } from "@opencode-core/server/server"
+export { Server } from "opencode/server/server"

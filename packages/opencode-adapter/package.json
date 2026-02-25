@@ -17,7 +17,8 @@
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
-    "ai": "5.0.124"
+    "ai": "5.0.124",
+    "opencode": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.0.0"

@@ -15,9 +15,8 @@
     "paths": {
       "@buddy/opencode-adapter": ["./packages/opencode-adapter/src/index.ts"],
       "@buddy/opencode-adapter/*": ["./packages/opencode-adapter/src/*"],
-      "@/*": ["./vendor/opencode-core/src/*"],
-      "@tui/*": ["./vendor/opencode-core/src/cli/cmd/tui/*"],
-      "@opencode-core/*": ["./vendor/opencode-core/src/*"]
+      "@/*": ["./vendor/opencode/packages/opencode/src/*"],
+      "@tui/*": ["./vendor/opencode/packages/opencode/src/cli/cmd/tui/*"]
     }
   }
 }

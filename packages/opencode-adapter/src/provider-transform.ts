@@ -1,5 +1,5 @@
 import type { ModelMessage } from "ai"
-import { ProviderTransform } from "@opencode-core/provider/transform"
+import { ProviderTransform } from "opencode/provider/transform"
 
 const KIMI_REASONING_MODEL_MARKERS = ["k2p5", "kimi-k2.5", "kimi-k2p5"] as const
 const DEFAULT_OUTPUT_TOKEN_FALLBACK = 32_000
