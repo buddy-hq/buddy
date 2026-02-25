@@ -2,7 +2,7 @@ import z from "zod"
 import { CurriculumPath } from "../curriculum/curriculum-path.js"
 import { CurriculumService } from "../curriculum/curriculum-service.js"
 import { Instance } from "../project/instance.js"
-import { Tool } from "./tool.js"
+import { Tool } from "../opencode/vendor.js"
 
 export const CurriculumReadTool = Tool.define("curriculum_read", {
   description: "Read the current project curriculum markdown document.",

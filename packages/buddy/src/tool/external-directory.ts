@@ -1,5 +1,5 @@
 import path from "node:path"
-import type { Tool } from "./tool.js"
+import type { ToolContext } from "../opencode/vendor.js"
 import { Instance } from "../project/instance.js"
 
 type Kind = "file" | "directory"
@@ -9,7 +9,7 @@ type Options = {
   kind?: Kind
 }
 
-export async function assertExternalDirectory(ctx: Tool.Context, target?: string, options?: Options) {
+export async function assertExternalDirectory(ctx: ToolContext, target?: string, options?: Options) {
   if (!target) return
   if (options?.bypass) return
 
