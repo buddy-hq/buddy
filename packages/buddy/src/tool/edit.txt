@@ -1,9 +1,0 @@
-Performs exact string replacements in files.
-
-Usage:
-- You must use your `read` tool at least once in the conversation before editing.
-- When editing text from read output, preserve exact indentation (tabs/spaces) after the line-number prefix.
-- ALWAYS prefer editing existing files in the codebase. NEVER write new files unless explicitly required.
-- The edit fails if `oldString` is not found in the file.
-- The edit fails if `oldString` matches multiple places and `replaceAll` is not true.
-- Use `replaceAll` for broad replacements (for example renaming symbols across one file).

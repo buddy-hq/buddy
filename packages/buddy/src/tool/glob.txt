@@ -1,5 +1,0 @@
-- Fast file pattern matching tool for repository exploration.
-- Supports glob patterns like `"**/*.ts"` and `"src/**/*.{ts,tsx}"`.
-- Returns matched file paths sorted by modification time.
-- Use this when you need to find files by name/path pattern.
-- For broad multi-step exploration, prefer delegating to `task`.

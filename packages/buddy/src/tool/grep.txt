@@ -1,5 +1,0 @@
-- Fast content search tool for repository-scale regex matching.
-- Searches file contents and returns file paths + line numbers.
-- Supports regex patterns and optional file include globs.
-- Use this when you need to locate code/content patterns quickly.
-- If you need shell-level counting/aggregation, use `bash` with `rg`.
