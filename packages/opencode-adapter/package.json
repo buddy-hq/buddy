@@ -5,7 +5,9 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./provider-transform": "./src/provider-transform.ts"
+    "./provider-transform": "./src/provider-transform.ts",
+    "./permission": "./src/permission.ts",
+    "./tool": "./src/tool.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
