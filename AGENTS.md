@@ -17,8 +17,6 @@ Build Buddy core by executing vendored OpenCode core, not by re-implementing it.
 - OpenCode is the default reference for architecture and implementation.
 - Core runtime authority is vendored code under `vendor/opencode/packages/*`.
 - `packages/buddy/src` should stay a thin compatibility/product layer.
-- Before implementing any core agent/runtime feature, find the OpenCode equivalent first and route through adapter seams.
-- OpenCode location: `~/code/opencode` (fallback: `~/Code/opencode`).
 
 ### Architecture Guardrail (current)
 
@@ -32,8 +30,8 @@ All commands run from repo root.
 
 ```bash
 bun install
-bun run dev        # backend → http://localhost:3000 (PORT=... to override)
-bun run dev:web    # web    → http://localhost:1420
+bun run dev
+bun run dev:web
 bun run typecheck
 bun run build
 bun run lint
@@ -41,8 +39,7 @@ bun run test:contracts   # backend+web compatibility contract suites
 bun run check:vendor     # recommended full gate for vendored OpenCode updates
 bun run vendor:check-upstream
 bun run vendor:sync
-bun run sdk:generate                            # requires backend running
-API_URL="http://localhost:3000/doc" bun run sdk:generate
+bun run sdk:generate
 ```
 
 **Turbo filter:**
@@ -61,18 +58,6 @@ bun run --cwd packages/web dev
 bun run --cwd packages/sdk generate
 ```
 
-## Ports & Endpoints
-
-- Backend: `http://localhost:3000` (OpenAPI docs at `/doc`)
-  - Primary compatibility routes are under `/api/*`:
-  - `GET /api/health`, `GET /api/event`
-  - `GET|PATCH /api/config`, `GET /api/config/providers`, `GET /api/config/agents`
-  - `GET|POST /api/session`, `GET|PATCH /api/session/:sessionID`
-  - `GET|POST /api/session/:sessionID/message`, `POST /api/session/:sessionID/abort`
-  - `GET /api/permission`, `POST /api/permission/:requestID/reply`
-  - `GET|PUT /api/curriculum`
-- Web: `http://localhost:1420` (routes under `packages/web/src/routes/*`)
-
 ## Tests (Bun)
 
 Bun is the default test runner. Backend and web both include committed tests, including contract/parity suites retained as regression guards.
@@ -81,8 +66,6 @@ Bun is the default test runner. Backend and web both include committed tests, in
 bun test                                         # all tests
 bun test packages/buddy                          # package (pattern)
 bun test packages/web
-bun test packages/buddy/src/routes/items.test.ts # single file
-bun test -t "items\.create"                      # single test (regex)
 bun test --coverage
 ```
 
@@ -117,7 +100,7 @@ Follow existing code; avoid drive-by reformatting.
 
 - Components: PascalCase; hooks: `useX`; variables/functions: camelCase; constants: `UPPER_SNAKE_CASE`.
 - TanStack Router: route files in `packages/web/src/routes/*`, each exporting `Route` via `createFileRoute`/`createRootRoute`.
-- Hono: route modules in `packages/buddy/src/routes/*`, composed in `packages/buddy/src/index.ts`. `operationId` format: `group.action` (e.g. `health.check`, `items.list`).
+- Hono: backend route handling is composed in `packages/buddy/src/index.ts` with feature-specific route modules where needed (for example, curriculum routes). `operationId` format is `group.action` (for example `health.check`, `session.list`).
 
 ### Error Handling
 
@@ -136,11 +119,10 @@ Follow existing code; avoid drive-by reformatting.
 - `packages/sdk/src/client.gen.ts`, `packages/sdk/src/types.gen.ts` — SDK (gitignored)
 - Build artifacts ignored: `dist/`, `.turbo/`, `*.tsbuildinfo`, `*.log`
 
-## Session Learnings
+## Integration Couplings
 
-- Root `.env` loading is tied to root `dev` script (`bun --env-file=.env run --cwd packages/buddy dev`); running backend directly from `packages/buddy` can miss `KIMI_API_KEY` unless env file is passed explicitly.
-- `/api` pathing is a multi-package coupling: backend prefix, SDK generation, SDK client `baseUrl`, and web proxy must stay aligned or chat endpoints fail with misleading 404s.
-- Multi-tenant chat couples: web directory route/state, SDK directory header, backend middleware, and instance-scoped stores — misalignment makes sends appear "stuck" while backend finishes normally.
+- `/api` pathing is a multi-package coupling: backend prefix, SDK generation, SDK client `baseUrl`, and web proxy must stay aligned.
+- Multi-tenant chat couples web directory route/state, SDK directory header, backend middleware, and instance-scoped stores.
 
 ## Links
 
