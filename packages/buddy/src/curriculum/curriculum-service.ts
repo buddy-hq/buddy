@@ -1,4 +1,5 @@
 import fs from "node:fs/promises"
+import path from "node:path"
 import { Database, eq } from "../storage/db.js"
 import { CurriculumTable } from "./curriculum.sql.js"
 import { CurriculumPath } from "./curriculum-path.js"
@@ -22,6 +23,16 @@ export namespace CurriculumService {
     markdown: string
   }
 
+  function curriculumScopeID(projectId: string, directory: string) {
+    if (projectId !== "global") {
+      return projectId
+    }
+
+    // OpenCode uses a shared "global" project id for non-git directories.
+    // Scope these by absolute directory to prevent cross-directory leakage.
+    return `global:${path.resolve(directory)}`
+  }
+
   async function openCodeProjectID(directory: string) {
     const { Instance: OpenCodeInstance } = await import("@buddy/opencode-adapter/instance")
     return OpenCodeInstance.provide({
@@ -42,8 +53,9 @@ export namespace CurriculumService {
   export async function peek(directory: string): Promise<Document | undefined> {
     // Try DB first
     const projectId = await openCodeProjectID(directory)
+    const scopeId = curriculumScopeID(projectId, directory)
     const row = Database.use((db) =>
-      db.select().from(CurriculumTable).where(eq(CurriculumTable.project_id, projectId)).get(),
+      db.select().from(CurriculumTable).where(eq(CurriculumTable.project_id, scopeId)).get(),
     )
 
     if (row) {
@@ -62,7 +74,7 @@ export namespace CurriculumService {
     Database.use((db) => {
       db.insert(CurriculumTable)
         .values({
-          project_id: projectId,
+          project_id: scopeId,
           markdown,
         })
         .onConflictDoUpdate({
@@ -88,13 +100,14 @@ export namespace CurriculumService {
     validate(markdown)
 
     const projectId = await openCodeProjectID(directory)
+    const scopeId = curriculumScopeID(projectId, directory)
     const filepath = CurriculumPath.file(directory)
 
     // Write to DB
     Database.use((db) => {
       db.insert(CurriculumTable)
         .values({
-          project_id: projectId,
+          project_id: scopeId,
           markdown,
         })
         .onConflictDoUpdate({
