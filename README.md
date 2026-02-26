@@ -38,19 +38,6 @@ Currently in early development.
 
 ---
 
-## Roadmap
-
-- [ ] v1 agent loop
-- [ ] Core session management (start, continue, end)
-- [ ] Cross-session memory and context loading
-- [ ] Progress tracking and curriculum view
-- [ ] Chat interface with exercise generation
-- [ ] Visual knowledge/dependency graph
-- [ ] Spaced repetition reminders
-- [ ] Export notes as blog posts
-- [ ] Voice interface
-
----
 
 ## Contributing
 
