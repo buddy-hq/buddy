@@ -160,12 +160,9 @@ describe("multi-tenant session routes", () => {
   })
 
   test("allows sibling repository directories under monorepo parent", async () => {
-    const candidates = [
-      path.resolve(process.cwd(), "../injectbook"),
-      path.resolve(process.cwd(), "../../injectbook"),
-      path.resolve(process.cwd(), "../../../injectbook"),
-    ]
-    const siblingDirectory = candidates.find((candidate) => fs.existsSync(candidate)) ?? candidates[0]
+    const siblingDirectory = path.resolve(process.cwd(), "..")
+    expect(fs.existsSync(siblingDirectory)).toBe(true)
+
     const create = await app.request(`/api/session?directory=${encodeURIComponent(siblingDirectory)}`, {
       method: "POST",
     })

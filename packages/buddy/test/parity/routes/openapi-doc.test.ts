@@ -14,6 +14,9 @@ describe("parity.routes.openapi-doc", () => {
     const requiredPaths = [
       "/api/health",
       "/api/event",
+      "/api/global/config",
+      "/api/global/dispose",
+      "/api/config/agents",
       "/api/config",
       "/api/config/providers",
       "/api/permission",
@@ -30,6 +33,12 @@ describe("parity.routes.openapi-doc", () => {
     }
 
     const requiredOperations = [
+      { path: "/api/health", method: "get", operationId: "health.check" },
+      { path: "/api/event", method: "get", operationId: "event.stream" },
+      { path: "/api/global/config", method: "get", operationId: "global.config.get" },
+      { path: "/api/global/config", method: "patch", operationId: "global.config.patch" },
+      { path: "/api/global/dispose", method: "post", operationId: "global.dispose" },
+      { path: "/api/config/agents", method: "get", operationId: "config.agents" },
       { path: "/api/session", method: "get", operationId: "session.list" },
       { path: "/api/session", method: "post", operationId: "session.create" },
       { path: "/api/session/{sessionID}", method: "get", operationId: "session.get" },
@@ -40,6 +49,8 @@ describe("parity.routes.openapi-doc", () => {
       { path: "/api/permission", method: "get", operationId: "permission.list" },
       { path: "/api/permission/{requestID}/reply", method: "post", operationId: "permission.reply" },
       { path: "/api/config/providers", method: "get", operationId: "config.providers" },
+      { path: "/api/curriculum", method: "get", operationId: "curriculum.get" },
+      { path: "/api/curriculum", method: "put", operationId: "curriculum.put" },
     ] as const
 
     for (const operation of requiredOperations) {
