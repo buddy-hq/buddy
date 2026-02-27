@@ -42,7 +42,9 @@ import { useChatStore } from "../state/chat-store"
 import { startChatSync } from "../state/chat-sync"
 import type { GlobalEvent, MessageInfo, MessagePart, PermissionRequest, SessionInfo } from "../state/chat-types"
 import {
+  activateTeachingWorkspaceFile,
   checkpointTeachingWorkspace,
+  createTeachingWorkspaceFile,
   ensureTeachingWorkspace,
   loadTeachingWorkspace,
   restoreTeachingWorkspace,
@@ -480,6 +482,7 @@ function DirectoryChatPage() {
           sessionID,
           code: requestCode,
           expectedRevision,
+          relativePath: latest.activeRelativePath,
           language: nextLanguage,
         })
 
@@ -725,6 +728,51 @@ function DirectoryChatPage() {
     void flushTeachingWorkspace({ language })
   }
 
+  async function onTeachingSelectFile(relativePath: string) {
+    if (!decodedDirectory || !sessionID || !sessionKey) return
+    if (teachingWorkspace?.activeRelativePath === relativePath) return
+
+    const ready = await flushTeachingWorkspace()
+    if (!ready) return
+
+    try {
+      const workspace = await activateTeachingWorkspaceFile({
+        directory: decodedDirectory,
+        sessionID,
+        relativePath,
+      })
+      useTeachingMode.getState().setWorkspace(sessionKey, workspace)
+      useTeachingMode.getState().setSaveError(sessionKey, undefined)
+    } catch (fileError) {
+      useTeachingMode.getState().setSaveError(sessionKey, stringifyError(fileError))
+    }
+  }
+
+  async function onTeachingCreateFile() {
+    if (!decodedDirectory || !sessionID || !sessionKey) return
+
+    const relativePath = window.prompt("New teaching file path", "helpers.ts")?.trim()
+    if (!relativePath) return
+
+    const ready = await flushTeachingWorkspace()
+    if (!ready) return
+
+    try {
+      const workspace = await createTeachingWorkspaceFile({
+        directory: decodedDirectory,
+        sessionID,
+        relativePath,
+        activate: true,
+      })
+      useTeachingMode.getState().setWorkspace(sessionKey, workspace)
+      useTeachingMode.getState().setSaveError(sessionKey, undefined)
+      setRightSidebarTab("editor")
+      setRightSidebarOpen(true)
+    } catch (fileError) {
+      useTeachingMode.getState().setSaveError(sessionKey, stringifyError(fileError))
+    }
+  }
+
   function onToggleTeachingEditor() {
     if (!isTeachingMode) return
     if (editorPanelOpen) {
@@ -748,7 +796,10 @@ function DirectoryChatPage() {
       setRightSidebarTab("curriculum")
     }
 
-    if ((isTeachingMode ? effectiveRightSidebarTab : rightSidebarTab) === "editor" && rightSidebarWidth < RIGHT_SIDEBAR_EDITOR_MIN_WIDTH) {
+    if (
+      (isTeachingMode ? effectiveRightSidebarTab : rightSidebarTab) === "editor" &&
+      rightSidebarWidth < RIGHT_SIDEBAR_EDITOR_MIN_WIDTH
+    ) {
       setRightSidebarWidth(640)
     }
 
@@ -1009,6 +1060,12 @@ function DirectoryChatPage() {
                       workspace={teachingWorkspace}
                       isBusy={isBusy}
                       onCodeChange={onTeachingCodeChange}
+                      onSelectFile={(relativePath) => {
+                        void onTeachingSelectFile(relativePath)
+                      }}
+                      onCreateFile={() => {
+                        void onTeachingCreateFile()
+                      }}
                       onSelectionChange={onTeachingSelectionChange}
                       onLanguageChange={onTeachingLanguageChange}
                       onCheckpoint={() => {

@@ -1,7 +1,7 @@
 import { create } from "zustand"
 import { createJSONStorage, persist } from "zustand/middleware"
 
-export const TEACHING_MODE_STORAGE_KEY = "buddy.teaching.v1"
+export const TEACHING_MODE_STORAGE_KEY = "buddy.teaching.v2"
 
 export type TeachingLanguage = "ts" | "tsx"
 
@@ -18,8 +18,32 @@ export type TeachingWorkspace = {
   language: TeachingLanguage
   lessonFilePath: string
   checkpointFilePath: string
+  files: TeachingWorkspaceFile[]
+  activeRelativePath: string
   revision: number
   code: string
+  lspAvailable: boolean
+  diagnostics: TeachingDiagnostic[]
+}
+
+export type TeachingWorkspaceFile = {
+  relativePath: string
+  filePath: string
+  checkpointFilePath: string
+  language: TeachingLanguage
+}
+
+export type TeachingDiagnosticSeverity = "error" | "warning" | "info" | "hint"
+
+export type TeachingDiagnostic = {
+  message: string
+  severity: TeachingDiagnosticSeverity
+  source?: string
+  code?: string | number
+  startLine: number
+  startColumn: number
+  endLine: number
+  endColumn: number
 }
 
 export type TeachingPromptContext = {

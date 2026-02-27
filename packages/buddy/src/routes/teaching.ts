@@ -1,11 +1,14 @@
 import { Hono } from "hono"
 import z from "zod"
 import {
+  TeachingWorkspaceFileError,
   TeachingRevisionConflictError,
   TeachingService,
   TeachingWorkspaceNotFoundError,
 } from "../teaching/teaching-service.js"
 import {
+  TeachingWorkspaceActivateFileRequestSchema,
+  TeachingWorkspaceCreateFileRequestSchema,
   TeachingLanguageSchema,
   TeachingWorkspaceUpdateRequestSchema,
 } from "../teaching/types.js"
@@ -90,6 +93,9 @@ export const TeachingRoutes = (input: { ensureAllowedDirectory: EnsureAllowedDir
         if (error instanceof TeachingWorkspaceNotFoundError) {
           return c.json({ error: error.message }, 404)
         }
+        if (error instanceof TeachingWorkspaceFileError) {
+          return c.json({ error: error.message }, 400)
+        }
         if (error instanceof TeachingRevisionConflictError) {
           return c.json(
             {
@@ -98,6 +104,68 @@ export const TeachingRoutes = (input: { ensureAllowedDirectory: EnsureAllowedDir
             },
             409,
           )
+        }
+        throw error
+      }
+    })
+    .post("/session/:sessionID/file", async (c) => {
+      const directoryResult = input.ensureAllowedDirectory(c.req.raw)
+      if (!directoryResult.ok) return directoryResult.response
+
+      let body: unknown
+      try {
+        body = await c.req.json()
+      } catch {
+        return invalidJson()
+      }
+
+      const parsed = TeachingWorkspaceCreateFileRequestSchema.safeParse(body)
+      if (!parsed.success) {
+        return zodError(parsed.error)
+      }
+
+      try {
+        const workspace = await TeachingService.addFile(directoryResult.directory, c.req.param("sessionID"), parsed.data)
+        return c.json(workspace)
+      } catch (error) {
+        if (error instanceof TeachingWorkspaceNotFoundError) {
+          return c.json({ error: error.message }, 404)
+        }
+        if (error instanceof TeachingWorkspaceFileError) {
+          return c.json({ error: error.message }, 400)
+        }
+        throw error
+      }
+    })
+    .post("/session/:sessionID/active-file", async (c) => {
+      const directoryResult = input.ensureAllowedDirectory(c.req.raw)
+      if (!directoryResult.ok) return directoryResult.response
+
+      let body: unknown
+      try {
+        body = await c.req.json()
+      } catch {
+        return invalidJson()
+      }
+
+      const parsed = TeachingWorkspaceActivateFileRequestSchema.safeParse(body)
+      if (!parsed.success) {
+        return zodError(parsed.error)
+      }
+
+      try {
+        const workspace = await TeachingService.activateFile(
+          directoryResult.directory,
+          c.req.param("sessionID"),
+          parsed.data.relativePath,
+        )
+        return c.json(workspace)
+      } catch (error) {
+        if (error instanceof TeachingWorkspaceNotFoundError) {
+          return c.json({ error: error.message }, 404)
+        }
+        if (error instanceof TeachingWorkspaceFileError) {
+          return c.json({ error: error.message }, 400)
         }
         throw error
       }

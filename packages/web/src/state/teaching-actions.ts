@@ -90,6 +90,7 @@ export async function saveTeachingWorkspace(input: {
   sessionID: string
   code: string
   expectedRevision: number
+  relativePath?: string
   language?: TeachingLanguage
 }) {
   const response = await fetch(`/api/teaching/session/${encodeURIComponent(input.sessionID)}/workspace`, {
@@ -101,6 +102,7 @@ export async function saveTeachingWorkspace(input: {
     body: JSON.stringify({
       code: input.code,
       expectedRevision: input.expectedRevision,
+      relativePath: input.relativePath,
       language: input.language,
     }),
   })
@@ -135,6 +137,46 @@ export async function restoreTeachingWorkspace(input: { directory: string; sessi
     `/api/teaching/session/${encodeURIComponent(input.sessionID)}/restore`,
     {
       method: "POST",
+    },
+  )
+}
+
+export async function createTeachingWorkspaceFile(input: {
+  directory: string
+  sessionID: string
+  relativePath: string
+  content?: string
+  language?: TeachingLanguage
+  activate?: boolean
+}) {
+  return requestJson<TeachingWorkspace>(
+    input.directory,
+    `/api/teaching/session/${encodeURIComponent(input.sessionID)}/file`,
+    {
+      method: "POST",
+      body: {
+        relativePath: input.relativePath,
+        content: input.content,
+        language: input.language,
+        activate: input.activate,
+      },
+    },
+  )
+}
+
+export async function activateTeachingWorkspaceFile(input: {
+  directory: string
+  sessionID: string
+  relativePath: string
+}) {
+  return requestJson<TeachingWorkspace>(
+    input.directory,
+    `/api/teaching/session/${encodeURIComponent(input.sessionID)}/active-file`,
+    {
+      method: "POST",
+      body: {
+        relativePath: input.relativePath,
+      },
     },
   )
 }

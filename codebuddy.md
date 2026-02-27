@@ -11,7 +11,7 @@ The core product idea is:
 - keep the existing project/session chat model,
 - add a new primary agent called `code-teacher`,
 - render an editor inside the existing chat route,
-- back that editor with a real file on disk,
+- back that editor with one or more real files on disk,
 - let the agent guide the learner using the same core OpenCode runtime and tool system,
 - add a small Buddy-owned teaching layer for workspace lifecycle, prompt shaping, and teaching-specific tools.
 
@@ -26,7 +26,8 @@ Instead:
 - the user selects `code-teacher`,
 - the route keeps the normal chat layout,
 - the editor is exposed as a docked panel inside the existing right sidebar,
-- the right editor is backed by a real file under `.buddy/teaching/<sessionID>/`,
+- the right editor is backed by a tracked teaching workspace under `.buddy/teaching/<sessionID>/`,
+- the active file can be switched, and new tracked files can be added from the editor panel,
 - the backend injects additional teaching context into each prompt sent for that session.
 
 This means teaching mode is "just another session" inside the same project/session mental model, with an editor-capable right panel instead of a separate page layout.
@@ -302,8 +303,9 @@ Main schemas:
 Although the current language enum is still TS-oriented (`ts` / `tsx`), the teaching workflow itself is structured generically:
 
 - a workspace,
-- a lesson file,
-- a checkpoint file,
+- a set of tracked files,
+- a mirrored checkpoint snapshot for each tracked file,
+- an active editor file,
 - a revision,
 - selection metadata.
 
@@ -317,12 +319,8 @@ For a given `(directory, sessionID)`:
 
 - root: `.buddy/teaching/<safeSessionID>/`
 - metadata: `.buddy/teaching/<safeSessionID>/workspace.json`
-- lesson file:
-  - `lesson.ts` or
-  - `lesson.tsx`
-- checkpoint file:
-  - `checkpoint.ts` or
-  - `checkpoint.tsx`
+- active and secondary files: `.buddy/teaching/<safeSessionID>/files/<relativePath>`
+- checkpoint snapshots: `.buddy/teaching/<safeSessionID>/checkpoints/<relativePath>`
 
 The session ID is sanitized with `safeSessionID(...)` so only:
 
@@ -343,27 +341,27 @@ No teaching file writes should bypass this module.
 
 The service stores:
 
-- a lesson file (current editor source of truth),
-- a checkpoint file (last accepted step),
+- a set of tracked files under `files/`,
+- a checkpoint snapshot for each tracked file under `checkpoints/`,
+- one active tracked file that is mirrored into the top-level response fields for compatibility,
 - a metadata record (`workspace.json`) containing:
   - `sessionID`
-  - `language`
-  - `lessonFilePath`
-  - `checkpointFilePath`
+  - active-file compatibility fields (`language`, `lessonFilePath`, `checkpointFilePath`, `fileHash`)
+  - `files`
+  - `activeRelativePath`
   - `revision`
   - `timeCreated`
   - `timeUpdated`
-  - `fileHash`
 
 ### Key design choice: disk is the source of truth
 
 The frontend editor is not the canonical source of truth.
 
-The lesson file on disk is the canonical state.
+The tracked teaching files on disk are the canonical state.
 
-The service keeps the metadata record in sync with that file using:
+The service keeps the metadata record in sync with those files using:
 
-- `fileHash`
+- per-file hashes
 - `revision`
 
 ### Major functions
@@ -375,8 +373,10 @@ Creates the teaching workspace if it does not exist.
 It creates:
 
 - workspace folder
-- lesson file
-- checkpoint file
+- `files/`
+- `checkpoints/`
+- an initial tracked file (`lesson.ts` or `lesson.tsx`)
+- a matching checkpoint snapshot
 - metadata record
 
 Initial lesson code is currently an empty string.
@@ -385,9 +385,16 @@ Initial lesson code is currently an empty string.
 
 Reads the workspace and returns a normalized response.
 
-Before returning, it calls `syncRecord(...)` to detect whether the lesson file changed on disk outside the metadata flow. If the file content hash changed, the service increments the revision and updates metadata.
+Before returning, it calls `syncRecord(...)` to detect whether any tracked file changed on disk outside the metadata flow. If any tracked file hash changed, the service increments the revision and updates metadata.
 
 This is how agent-side file writes can be observed and surfaced back to the frontend.
+
+Each normalized workspace response now also attempts to load server-backed LSP diagnostics for the active teaching file and includes:
+
+- `lspAvailable`
+- `diagnostics`
+
+Those diagnostics come from the vendored OpenCode LSP runtime, not from Buddy re-implementing language analysis.
 
 #### `save(directory, sessionID, input)`
 
@@ -398,16 +405,16 @@ It:
 - syncs the current metadata first,
 - compares `expectedRevision` against the latest revision,
 - throws a conflict if the file changed since the editor's last known revision,
-- writes the lesson file,
+- writes the active tracked file,
 - optionally changes file extension if language changed,
-- preserves the checkpoint content across language switch,
+- preserves that file's checkpoint content across language switch,
 - increments revision and updates metadata.
 
 This implements optimistic concurrency for the editor.
 
 #### `checkpoint(directory, sessionID)`
 
-Copies the current lesson file into the checkpoint file.
+Copies every tracked file into its checkpoint snapshot.
 
 This is the "accept current step" operation.
 
@@ -420,9 +427,10 @@ It also returns whether the lesson changed since the last accepted checkpoint:
 Returns lightweight current status:
 
 - revision
-- lesson path
-- checkpoint path
-- whether the lesson differs from the checkpoint
+- active lesson path
+- active checkpoint path
+- tracked file list
+- whether any tracked file differs from its checkpoint
 
 This is used when building prompt context so the teacher knows whether the current exercise is already accepted or still pending acceptance.
 
@@ -432,11 +440,11 @@ This is the canonical "replace the whole lesson scaffold" operation.
 
 It:
 
-- writes the new lesson content,
-- writes the same content into the checkpoint,
+- writes the new content into the active tracked file,
+- writes the same content into that file's checkpoint snapshot,
 - increments revision,
 - updates metadata,
-- optionally switches language.
+- optionally switches the active file extension.
 
 The key semantic difference from `save(...)` is:
 
@@ -447,13 +455,13 @@ This was added to keep the editor and the accepted checkpoint synchronized when 
 
 #### `restore(directory, sessionID)`
 
-Restores the lesson file from the last accepted checkpoint.
+Restores the tracked workspace from the last accepted checkpoint snapshots.
 
 It:
 
-- reads checkpoint content,
-- writes it back into the lesson file,
-- increments revision,
+- reads each checkpoint snapshot,
+- writes it back into the corresponding tracked file,
+- increments revision when anything changed,
 - updates metadata.
 
 This was added to recover from teacher drift or destructive lesson rewrites.
@@ -467,9 +475,17 @@ The conflict error carries:
 
 - `revision`
 - `code`
-- `lessonFilePath`
+- active `lessonFilePath`
 
 so the frontend can surface a conflict UI.
+
+#### `addFile(directory, sessionID, input)`
+
+Creates a new tracked file in the teaching workspace and optionally makes it the active editor file.
+
+#### `activateFile(directory, sessionID, relativePath)`
+
+Switches which tracked file is currently active in the editor without changing the main revision.
 
 ## 4.7 `packages/buddy/src/teaching/teaching-tools.ts`
 
@@ -483,7 +499,7 @@ These tools are registered into the OpenCode runtime per directory.
 
 Purpose:
 
-- copy lesson file to checkpoint file
+- copy all tracked files to their checkpoint snapshots
 
 Behavior:
 
@@ -510,6 +526,22 @@ Behavior:
 
 This is the preferred whole-lesson transition tool.
 
+#### `teaching_add_file`
+
+Purpose:
+
+- create an additional tracked file so a lesson can span multiple files
+
+Behavior:
+
+- takes a workspace-relative file path
+- optional starter content
+- optional language/activation
+- asks for permission with:
+  - permission name: `teaching_add_file`
+- calls `TeachingService.addFile(...)`
+- returns the updated workspace metadata
+
 #### `teaching_restore_checkpoint`
 
 Purpose:
@@ -533,7 +565,7 @@ Without them, the model can replace the lesson file in ways that desynchronize:
 - what the learner sees,
 - what the app thinks is the accepted step.
 
-These tools reduce that drift by making "whole lesson replacement" and "restore accepted state" explicit, higher-level actions.
+These tools reduce that drift by making file creation, whole lesson replacement, and restore accepted state explicit, higher-level actions.
 
 ## 4.8 `packages/buddy/src/routes/teaching.ts`
 
@@ -558,6 +590,8 @@ Returns:
 - language
 - lesson file path
 - checkpoint file path
+- tracked file list
+- active relative path
 - revision
 - current code
 
@@ -573,11 +607,20 @@ Body:
 
 - `code`
 - `expectedRevision`
+- optional `relativePath`
 - optional `language`
 
 Conflict behavior:
 
 - returns `409` with latest revision and code if the file changed on disk first
+
+#### `POST /api/teaching/session/:sessionID/file`
+
+Creates a new tracked teaching file and returns the updated workspace snapshot.
+
+#### `POST /api/teaching/session/:sessionID/active-file`
+
+Switches the active editor file and returns the updated workspace snapshot.
 
 #### `POST /api/teaching/session/:sessionID/checkpoint`
 
@@ -625,6 +668,11 @@ Extends the backend workspace response with UI-only state:
 - `conflict`
 - `selection`
 
+The embedded workspace data now also includes:
+
+- `files`
+- `activeRelativePath`
+
 ### Important behavior
 
 #### A. Only agent selection is persisted
@@ -661,6 +709,8 @@ Functions:
 - `ensureTeachingWorkspace(...)`
 - `loadTeachingWorkspace(...)`
 - `saveTeachingWorkspace(...)`
+- `createTeachingWorkspaceFile(...)`
+- `activateTeachingWorkspaceFile(...)`
 - `checkpointTeachingWorkspace(...)`
 - `restoreTeachingWorkspace(...)`
 
@@ -723,20 +773,27 @@ It uses:
 
 - language selector (`ts` / `tsx`)
 - lesson file path label
+- tracked file tree
+- `New File` button
 - revision indicator
 - save status indicator
 - `Accept Step` button
 - `Restore Step` button
 - conflict banner
 - save error banner
+- LSP diagnostics panel
 - Monaco editor
 
 ### Current editor behavior
 
 - the editor is controlled via `value={workspace.code}`
 - the editor path is the lesson file path
+- the active file can be switched from the file tree
+- nested folders are grouped visually from relative paths
+- the user can create a new tracked file directly from the panel
 - the editor theme is `vs-dark`
 - Monaco layout is nudged on mount and when code changes
+- server-backed diagnostics are rendered both as Monaco markers and in the diagnostics panel
 - cursor selection is tracked and reported back to state
 
 ### Important fix
@@ -812,6 +869,7 @@ the route debounces for `500ms` and then calls `flushTeachingWorkspace()`.
 - checks conflict state
 - computes whether there are changes
 - sends `PUT /api/teaching/session/:sessionID/workspace`
+- includes the active relative path
 - applies save success or conflict
 
 #### F. Conflict handling
@@ -859,6 +917,7 @@ When teaching is active:
   - `Curriculum`
   - `Editor`
 - the main transcript and prompt composer stay in their normal full-width chat shell
+- the editor panel can switch between tracked files and create new ones without leaving the chat shell
 
 This preserves one route and one sidebar architecture instead of introducing a separate teaching layout mode.
 
@@ -912,7 +971,7 @@ This section describes how data moves through the system in the current implemen
 
 ## 6.2 Editing in the Right Sidebar Editor
 
-1. User types in Monaco.
+1. User types in Monaco while one tracked file is active.
 2. `TeachingEditorPanel` calls `onCodeChange(...)`.
 3. Route updates `TeachingModeState.workspaceBySession[sessionKey].code`.
 4. A `500ms` debounce waits.
@@ -921,7 +980,7 @@ This section describes how data moves through the system in the current implemen
    - current `code`
    - current `expectedRevision`
    - optional `language`
-7. Backend validates revision and writes the lesson file.
+7. Backend validates revision and writes the active tracked file.
 8. Backend increments revision and returns the updated workspace.
 9. Frontend applies save success:
    - updates `savedCode`
@@ -951,9 +1010,9 @@ This section describes how data moves through the system in the current implemen
 
 ## 6.4 Agent Writes the Lesson File
 
-If the model edits the lesson file using file tools:
+If the model edits a tracked teaching file using file tools:
 
-1. The tool writes the lesson file on disk.
+1. The tool writes a tracked file on disk.
 2. Buddy frontend does not instantly subscribe to raw filesystem events.
 3. After the session transitions from `busy` to `idle`, the route reloads the workspace.
 4. Backend `read(...)` calls `syncRecord(...)`.
@@ -969,7 +1028,7 @@ This is how the editor stays in sync with agent writes.
 ## 6.5 Accepting a Step
 
 1. User clicks `Accept Step`, or the agent can call `teaching_checkpoint`.
-2. Backend copies lesson file to checkpoint file.
+2. Backend copies all tracked files to checkpoint snapshots.
 3. Checkpoint now becomes the accepted baseline.
 4. Future prompt context can say whether the lesson differs from that checkpoint.
 
@@ -978,8 +1037,8 @@ This is the only explicit "accepted" marker in the current system.
 ## 6.6 Restoring a Step
 
 1. User clicks `Restore Step`, or the agent can call `teaching_restore_checkpoint`.
-2. Backend reads the checkpoint file.
-3. Backend overwrites the lesson file with the checkpoint content.
+2. Backend reads the checkpoint snapshots.
+3. Backend overwrites each tracked file with its checkpoint content.
 4. Backend bumps revision and returns the updated workspace.
 5. Frontend replaces the editor content with that restored snapshot.
 
@@ -1023,6 +1082,7 @@ Contains:
 - checkpoint file path
 - language
 - revision
+- tracked file list
 - optional current selection
 - checkpoint status (`accepted` or `pending acceptance`)
 
@@ -1101,6 +1161,7 @@ Buddy does not replace that runtime.
 Buddy's teaching tools ask for explicit permission names:
 
 - `teaching_checkpoint`
+- `teaching_add_file`
 - `teaching_set_lesson`
 - `teaching_restore_checkpoint`
 
@@ -1108,7 +1169,7 @@ These show up as normal permission-mediated actions in the runtime.
 
 ## 8.5 Raw shell and file tools remain broad
 
-The current implementation does not sandbox the teacher to only the lesson file.
+The current implementation does not sandbox the teacher to only the tracked teaching files.
 
 The teacher still operates in the same broad project context as the existing coding agent model.
 
@@ -1141,12 +1202,13 @@ The current system keeps chat and editor synchronized using a mix of:
 
 What keeps them aligned:
 
-- the lesson file is real and lives on disk,
+- the tracked teaching files are real and live on disk,
 - prompt send flushes local edits first,
 - busy-to-idle reload re-pulls agent-written changes,
 - remote changes auto-apply when the user has no unsaved edits,
-- accepted state is represented by the checkpoint file,
+- accepted state is represented by checkpoint snapshots,
 - whole lesson replacement now has a dedicated tool (`teaching_set_lesson`),
+- additional files can be created through `teaching_add_file` or the editor UI,
 - restoration has a dedicated tool and API path.
 
 What can still drift:
@@ -1209,6 +1271,12 @@ It makes the teacher more powerful, but also increases risk.
 This works, but it increases bundle weight.
 
 The editor is not yet lazy-loaded behind a separate chunk boundary.
+
+## 10.6 Multi-file support is still minimal
+
+The workspace can now track multiple files, and the UI now renders them in a lightweight file tree inside the editor sidebar.
+
+There is still no drag-and-drop file management, file rename/delete flow, or richer per-file metadata yet.
 
 ## 11. What Was Fixed Along the Way
 
@@ -1298,15 +1366,32 @@ Fix:
 - the right sidebar can switch between `Curriculum` and `Editor`,
 - selecting `code-teacher` opens the sidebar on `Editor` once, but after that the user controls it like any other right-side panel.
 
+### 11.8 Teaching workspaces were no longer limited to one file
+
+Cause:
+
+- the first implementation modeled a teaching session as one lesson file plus one checkpoint file,
+- that made multi-file exercises awkward and pushed the agent toward raw repo edits outside the teaching model.
+
+Fix:
+
+- the teaching workspace now tracks multiple files,
+- the right sidebar editor can switch the active file,
+- the UI can create a new tracked file,
+- the active file now surfaces server-backed LSP diagnostics in the editor,
+- checkpoint and restore now operate across the tracked workspace instead of only one file.
+
 ## 12. Practical Mental Model for the Current Code
 
 The easiest way to think about the system is:
 
 - OpenCode still runs the conversation.
 - Buddy wraps the prompt and tool surface.
-- The editor is a real file.
-- The lesson file is the live working state.
-- The checkpoint file is the accepted state.
+- The editor is a view over a tracked teaching workspace.
+- One tracked file is active at a time.
+- The active file is the live working state shown in Monaco.
+- The active file also carries server-backed LSP diagnostics when a matching language server is available.
+- Checkpoint snapshots represent the accepted workspace state.
 - The frontend keeps the editor synced to disk and blocks prompt sends until disk is current.
 - The backend injects extra system context so the model knows:
   - what file is the editor,

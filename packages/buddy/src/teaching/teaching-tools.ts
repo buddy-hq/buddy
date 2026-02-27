@@ -4,8 +4,10 @@ import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import {
   TeachingService,
+  TeachingWorkspaceFileError,
   TeachingWorkspaceNotFoundError,
 } from "./teaching-service.js"
+import { TeachingPath } from "./teaching-path.js"
 
 const registeredDirectories = new Set<string>()
 
@@ -149,6 +151,69 @@ function teachingRestoreCheckpointTool(directory: string) {
   })
 }
 
+function teachingAddFileTool(directory: string) {
+  return Tool.define("teaching_add_file", {
+    description:
+      "Create a new tracked file inside the teaching workspace so lessons can span multiple files. Use this before editing a file that does not exist yet.",
+    parameters: z.object({
+      relativePath: z.string().describe("Workspace-relative path for the new file, for example helpers/math.ts"),
+      content: z.string().optional().describe("Optional starter content for the new file"),
+      language: z.enum(["ts", "tsx"]).optional().describe("Optional language mode used to infer the file extension"),
+      activate: z.boolean().optional().describe("Whether the new file should become the active editor file"),
+    }),
+    async execute(
+      params: {
+        relativePath: string
+        content?: string
+        language?: "ts" | "tsx"
+        activate?: boolean
+      },
+      ctx: {
+        ask(input: {
+          permission: string
+          patterns: string[]
+          always: string[]
+          metadata: Record<string, unknown>
+        }): Promise<void>
+        sessionID: string
+      },
+    ) {
+      try {
+        await TeachingService.read(directory, ctx.sessionID)
+        const nextRelativePath = TeachingPath.normalizeRelativePath(params.relativePath, params.language ?? "ts")
+        const filePath = TeachingPath.workspaceFile(directory, ctx.sessionID, nextRelativePath)
+        const checkpointFilePath = TeachingPath.checkpointSnapshotFile(directory, ctx.sessionID, nextRelativePath)
+
+        await ctx.ask({
+          permission: "teaching_add_file",
+          patterns: [filePath, checkpointFilePath],
+          always: ["*"],
+          metadata: {
+            filePath,
+            checkpointFilePath,
+            activate: params.activate ?? true,
+          },
+        })
+
+        const workspace = await TeachingService.addFile(directory, ctx.sessionID, params)
+        return {
+          title: "Teaching file created",
+          output: `Added ${nextRelativePath} to the teaching workspace`,
+          metadata: workspace,
+        }
+      } catch (error) {
+        if (error instanceof TeachingWorkspaceNotFoundError) {
+          throw new Error("No teaching workspace exists for this session yet")
+        }
+        if (error instanceof TeachingWorkspaceFileError) {
+          throw new Error(error.message)
+        }
+        throw error
+      }
+    },
+  })
+}
+
 export async function ensureTeachingToolsRegistered(directory: string) {
   if (registeredDirectories.has(directory)) return
 
@@ -156,6 +221,7 @@ export async function ensureTeachingToolsRegistered(directory: string) {
     directory,
     async fn() {
       await ToolRegistry.register(teachingCheckpointTool(directory))
+      await ToolRegistry.register(teachingAddFileTool(directory))
       await ToolRegistry.register(teachingSetLessonTool(directory))
       await ToolRegistry.register(teachingRestoreCheckpointTool(directory))
     },

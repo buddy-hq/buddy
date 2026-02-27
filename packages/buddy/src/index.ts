@@ -224,6 +224,7 @@ function buildOpenCodeConfigOverlay() {
           question: "allow" as const,
           plan_enter: "allow" as const,
           teaching_checkpoint: "allow" as const,
+          teaching_add_file: "allow" as const,
           teaching_set_lesson: "allow" as const,
           teaching_restore_checkpoint: "allow" as const,
           task: "deny" as const,
@@ -241,7 +242,10 @@ function isCompletionClaim(value: string) {
   return /^(done|finished|complete|completed|ready|next|go ahead|go on|move on|continue)\b/.test(normalized)
 }
 
-function formatTeachingPromptContext(input: TeachingPromptContext & { changedSinceCheckpoint?: boolean }) {
+function formatTeachingPromptContext(input: TeachingPromptContext & {
+  changedSinceCheckpoint?: boolean
+  trackedFiles?: string[]
+}) {
   const parts = [
     "<teaching_workspace>",
     `Session: ${input.sessionID}`,
@@ -253,6 +257,13 @@ function formatTeachingPromptContext(input: TeachingPromptContext & { changedSin
 
   if (typeof input.changedSinceCheckpoint === "boolean") {
     parts.push(`Checkpoint status: ${input.changedSinceCheckpoint ? "pending acceptance" : "accepted"}`)
+  }
+
+  if (input.trackedFiles && input.trackedFiles.length > 0) {
+    parts.push("Tracked files:")
+    for (const file of input.trackedFiles) {
+      parts.push(`- ${file}`)
+    }
   }
 
   if (
@@ -282,6 +293,7 @@ function formatTeachingPolicy(input: { completionClaim: boolean; changedSinceChe
     "If a deterministic checker exists for the exercise, use it as the source of truth. Otherwise verify conservatively from the lesson file and do not advance when uncertain.",
     "If the work is incomplete or incorrect, keep the learner on the same lesson, explain the exact gap, and ask for one concrete fix.",
     "Only after the current exercise is verified should you accept it and move forward.",
+    "If the lesson needs an additional source file, create it with teaching_add_file before editing it.",
     "When you need to replace the whole lesson scaffold or move to a new exercise, use the teaching_set_lesson tool so the editor file and checkpoint stay synchronized.",
     "Do not replace the entire lesson file with a raw write when teaching_set_lesson is the appropriate tool.",
   ]
@@ -327,6 +339,7 @@ async function buildBuddySystemPrompt(input: {
       formatTeachingPromptContext({
         ...input.teachingContext,
         changedSinceCheckpoint: checkpointStatus?.changedSinceLastCheckpoint,
+        trackedFiles: checkpointStatus?.trackedFiles,
       }),
     )
     parts.push(

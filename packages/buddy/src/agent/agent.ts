@@ -96,6 +96,7 @@ export namespace Agent {
             question: "allow",
             plan_enter: "allow",
             teaching_checkpoint: "allow",
+            teaching_add_file: "allow",
             teaching_set_lesson: "allow",
             teaching_restore_checkpoint: "allow",
           }),
