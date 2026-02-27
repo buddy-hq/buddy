@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#190B2B"/>
+      <stop offset="100%" stop-color="#08020E"/>
+    </linearGradient>
+
+    <linearGradient id="main-grad" x1="302" y1="134" x2="722" y2="862" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FF1E8F"/>   <stop offset="50%" stop-color="#B721FF"/>  <stop offset="100%" stop-color="#6000FF"/> </linearGradient>
+
+    <g id="lego-brick">
+      
+      <rect x="18" y="-28" width="42" height="28" fill="url(#main-grad)" stroke="#08020E" stroke-width="4.5" />
+
+      <rect x="80" y="-28" width="42" height="28" fill="url(#main-grad)" stroke="#08020E" stroke-width="4.5" />
+
+      <rect x="0" y="0" width="140" height="140" fill="url(#main-grad)" stroke="#08020E" stroke-width="4.5" />
+      
+    </g>
+  </defs>
+
+  <rect width="1024" height="1024" rx="224" fill="url(#bg-grad)"/>
+
+  <g>
+    <use href="#lego-brick" x="302" y="722" /> <use href="#lego-brick" x="442" y="722" /> <use href="#lego-brick" x="582" y="722" /> <use href="#lego-brick" x="302" y="582" /> <use href="#lego-brick" x="582" y="582" /> <use href="#lego-brick" x="302" y="442" /> <use href="#lego-brick" x="442" y="442" /> <use href="#lego-brick" x="582" y="442" /> <use href="#lego-brick" x="302" y="302" /> <use href="#lego-brick" x="302" y="162" /> </g>
+</svg>

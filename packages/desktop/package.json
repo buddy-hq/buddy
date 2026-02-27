@@ -1,0 +1,44 @@
+{
+  "name": "@buddy/desktop",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit",
+    "predev": "bun ./scripts/predev.ts",
+    "pretauri": "bun run predev",
+    "dev": "vite",
+    "build": "bun run typecheck && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@buddy/ui": "workspace:*",
+    "@buddy/web": "workspace:*",
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-clipboard-manager": "~2",
+    "@tauri-apps/plugin-deep-link": "~2",
+    "@tauri-apps/plugin-dialog": "~2",
+    "@tauri-apps/plugin-http": "~2",
+    "@tauri-apps/plugin-notification": "~2",
+    "@tauri-apps/plugin-opener": "^2",
+    "@tauri-apps/plugin-os": "~2",
+    "@tauri-apps/plugin-process": "~2",
+    "@tauri-apps/plugin-shell": "~2",
+    "@tauri-apps/plugin-store": "~2",
+    "@tauri-apps/plugin-updater": "~2",
+    "@tauri-apps/plugin-window-state": "~2",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.18",
+    "@tauri-apps/cli": "^2",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@vitejs/plugin-react": "^4.2.0",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.0.0",
+    "vite": "7.1.4"
+  }
+}

@@ -1,40 +1,28 @@
-import React from "react";
-import ReactDOM from "react-dom/client";
-import { RouterProvider, createRouter } from "@tanstack/react-router";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { TooltipProvider } from "@buddy/ui";
-import { routeTree } from "./routeTree.gen";
-import "./index.css";
+import React from "react"
+import ReactDOM from "react-dom/client"
+import { PlatformProvider, createBrowserPlatform, setRuntimePlatform } from "./context/platform"
+import { ServerProvider, createBrowserServerConnection } from "./context/server"
+import "./index.css"
 
-const queryClient = new QueryClient();
-
-const router = createRouter({
-  routeTree,
-  context: {
-    queryClient,
-  },
-  defaultPreload: "intent",
-  defaultPreloadStaleTime: 0,
-});
-
-declare module "@tanstack/react-router" {
-  interface Register {
-    router: typeof router;
-  }
-}
-
-const rootElement = document.getElementById("root")!;
-document.documentElement.classList.add("dark");
+const rootElement = document.getElementById("root")!
+document.documentElement.classList.add("dark")
 
 if (!rootElement.innerHTML) {
-  const root = ReactDOM.createRoot(rootElement);
-  root.render(
-    <React.StrictMode>
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <RouterProvider router={router} />
-        </TooltipProvider>
-      </QueryClientProvider>
-    </React.StrictMode>
-  );
+  const platform = createBrowserPlatform()
+  setRuntimePlatform(platform)
+
+  void import("./app").then(({ AppBaseProviders, AppInterface }) => {
+    const root = ReactDOM.createRoot(rootElement)
+    root.render(
+      <React.StrictMode>
+        <AppBaseProviders>
+          <PlatformProvider value={platform}>
+            <ServerProvider value={createBrowserServerConnection()}>
+              <AppInterface />
+            </ServerProvider>
+          </PlatformProvider>
+        </AppBaseProviders>
+      </React.StrictMode>
+    )
+  })
 }

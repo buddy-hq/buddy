@@ -3,6 +3,12 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
+  "exports": {
+    ".": "./src/app.tsx",
+    "./app": "./src/app.tsx",
+    "./context/platform": "./src/context/platform.tsx",
+    "./context/server": "./src/context/server.tsx"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -p tsconfig.app.json && vite build",
