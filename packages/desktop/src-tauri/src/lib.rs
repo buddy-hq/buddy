@@ -10,7 +10,9 @@ use std::{
 };
 
 use serde::Serialize;
-use tauri::{AppHandle, Manager, RunEvent, State, WebviewUrl, WebviewWindowBuilder};
+use tauri::{AppHandle, Manager, RunEvent, State, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
+use tauri_plugin_window_state::{AppHandleExt, StateFlags};
+use tokio::sync::mpsc;
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -25,6 +27,58 @@ struct ServerReadyData {
 struct ServerState {
     child: Mutex<Option<Child>>,
     ready: Mutex<Option<ServerReadyData>>,
+}
+
+fn window_state_flags() -> StateFlags {
+    StateFlags::all() - StateFlags::DECORATIONS - StateFlags::VISIBLE
+}
+
+fn setup_window_state_listener(app: &AppHandle, window: &WebviewWindow) {
+    let (tx, mut rx) = mpsc::channel::<()>(1);
+
+    window.on_window_event(move |event| {
+        use tauri::WindowEvent;
+
+        if !matches!(event, WindowEvent::Moved(_) | WindowEvent::Resized(_)) {
+            return;
+        }
+
+        let _ = tx.try_send(());
+    });
+
+    tauri::async_runtime::spawn({
+        let app = app.clone();
+
+        async move {
+            while rx.recv().await.is_some() {
+                tokio::time::sleep(Duration::from_millis(200)).await;
+
+                let handle = app.clone();
+                let save_app = app.clone();
+                let _ = handle.run_on_main_thread(move || {
+                    let _ = save_app.save_window_state(window_state_flags());
+                });
+            }
+        }
+    });
+}
+
+fn ensure_main_window(app: &AppHandle) -> tauri::Result<()> {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.set_focus();
+        let _ = window.unminimize();
+        return Ok(());
+    }
+
+    let window = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("/".into()))
+        .title("Buddy Dev")
+        .visible(true)
+        .build()?;
+
+    let _ = window.set_focus();
+    setup_window_state_listener(app, &window);
+
+    Ok(())
 }
 
 fn find_free_port() -> Result<u16, String> {
@@ -174,13 +228,7 @@ async fn await_initialization(
     *state.child.lock().unwrap() = Some(child);
     *state.ready.lock().unwrap() = Some(ready.clone());
 
-    if app.get_webview_window("main").is_none() {
-        WebviewWindowBuilder::new(&app, "main", WebviewUrl::App("/".into()))
-            .title("Buddy Dev")
-            .visible(true)
-            .build()
-            .map_err(|err| err.to_string())?;
-    }
+    ensure_main_window(&app).map_err(|err| err.to_string())?;
 
     Ok(ready)
 }
@@ -197,7 +245,11 @@ pub fn run() {
     tauri::Builder::default()
         .manage(ServerState::default())
         .plugin(tauri_plugin_os::init())
-        .plugin(tauri_plugin_window_state::Builder::new().build())
+        .plugin(
+            tauri_plugin_window_state::Builder::new()
+                .with_state_flags(window_state_flags())
+                .build(),
+        )
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_notification::init())
@@ -209,12 +261,7 @@ pub fn run() {
             markdown::parse_markdown_command
         ])
         .setup(|app| {
-            if app.get_webview_window("main").is_none() {
-                WebviewWindowBuilder::new(app, "main", WebviewUrl::App("/".into()))
-                    .title("Buddy Dev")
-                    .visible(true)
-                    .build()?;
-            }
+            ensure_main_window(&app.handle())?;
 
             Ok(())
         })

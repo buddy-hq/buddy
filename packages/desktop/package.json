@@ -7,9 +7,9 @@
     "typecheck": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit",
     "predev": "bun ./scripts/predev.ts",
     "pretauri": "bun run predev",
-    "dev": "vite",
-    "build": "bun run typecheck && vite build",
-    "preview": "vite preview",
+    "dev": "bunx --bun vite",
+    "build": "bun run typecheck && bunx --bun vite build",
+    "preview": "bunx --bun vite preview",
     "tauri": "tauri"
   },
   "dependencies": {
