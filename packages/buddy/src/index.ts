@@ -1,9 +1,12 @@
+import fs from "node:fs/promises"
+import path from "node:path"
 import "./opencode/env.js"
 import { Hono, type Context } from "hono"
 import { openAPIRouteHandler } from "hono-openapi"
 import { cors } from "hono/cors"
 import { logger } from "hono/logger"
 import { setConfigOverlay } from "@buddy/opencode-adapter/config"
+import { Project as OpenCodeProject } from "@buddy/opencode-adapter/project"
 import { Config, InvalidError, JsonError } from "./config/config.js"
 import { Agent as BuddyAgent } from "./agent/agent.js"
 import { CurriculumService } from "./curriculum/curriculum-service.js"
@@ -17,6 +20,7 @@ import { CurriculumRoutes } from "./routes/curriculum.js"
 import { TeachingRoutes } from "./routes/teaching.js"
 import { condenseCurriculum, loadBehavior } from "./session/system-prompt.js"
 import CODE_TEACHER_PROMPT from "./session/prompts/code-teacher.txt"
+import { Global } from "./storage/global.js"
 import { TeachingService } from "./teaching/teaching-service.js"
 import { ensureTeachingToolsRegistered } from "./teaching/teaching-tools.js"
 import { TeachingPromptContextSchema, type TeachingPromptContext } from "./teaching/types.js"
@@ -24,6 +28,22 @@ import { TeachingPromptContextSchema, type TeachingPromptContext } from "./teach
 const app = new Hono()
 const api = new Hono()
 const directoryRoots = allowedDirectoryRoots()
+const NOTEBOOK_REGISTRY_PATH = path.join(Global.Path.state, "desktop-notebooks.json")
+
+function matchesBasicAuth(value: string | undefined, username: string, password: string) {
+  if (!value?.startsWith("Basic ")) return false
+
+  const encoded = value.slice("Basic ".length).trim()
+  let decoded = ""
+
+  try {
+    decoded = Buffer.from(encoded, "base64").toString("utf8")
+  } catch {
+    return false
+  }
+
+  return decoded === `${username}:${password}`
+}
 
 function requestDirectory(request: Request) {
   const url = new URL(request.url)
@@ -55,6 +75,68 @@ function isJsonContentType(value: string | null) {
   if (!value) return false
   return value.toLowerCase().includes("application/json")
 }
+
+async function readNotebookRegistry() {
+  const raw = await fs.readFile(NOTEBOOK_REGISTRY_PATH, "utf8").catch(() => "")
+  if (!raw) return [] as string[]
+
+  const parsed = JSON.parse(raw) as unknown
+  if (!Array.isArray(parsed)) return []
+
+  return Array.from(
+    new Set(
+      parsed
+        .filter((entry): entry is string => typeof entry === "string")
+        .map((entry) => resolveDirectory(entry))
+        .filter((entry) => entry !== "/")
+        .filter((entry) => isAllowedDirectory(entry, directoryRoots)),
+    ),
+  )
+}
+
+async function writeNotebookRegistry(directories: string[]) {
+  const unique = Array.from(
+    new Set(
+      directories
+        .map((entry) => resolveDirectory(entry))
+        .filter((entry) => entry !== "/")
+        .filter((entry) => isAllowedDirectory(entry, directoryRoots)),
+    ),
+  )
+
+  await fs.mkdir(path.dirname(NOTEBOOK_REGISTRY_PATH), { recursive: true })
+  await fs.writeFile(NOTEBOOK_REGISTRY_PATH, JSON.stringify(unique, null, 2))
+  return unique
+}
+
+async function rememberNotebookDirectory(directory: string) {
+  const current = await readNotebookRegistry()
+  if (current.includes(directory)) return current
+  return writeNotebookRegistry([...current, directory])
+}
+
+async function forgetNotebookDirectory(directory: string) {
+  const current = await readNotebookRegistry()
+  if (!current.includes(directory)) return current
+  return writeNotebookRegistry(current.filter((entry) => entry !== directory))
+}
+
+api.use("*", async (c, next) => {
+  const username = process.env.BUDDY_SERVER_USERNAME
+  const password = process.env.BUDDY_SERVER_PASSWORD
+
+  if (!username || !password) {
+    return next()
+  }
+
+  const authorization = c.req.header("authorization")
+  if (matchesBasicAuth(authorization, username, password)) {
+    return next()
+  }
+
+  c.header("www-authenticate", 'Basic realm="Buddy"')
+  return c.json({ error: "Unauthorized" }, 401)
+})
 
 function extractErrorMessage(payload: unknown): string | undefined {
   if (!payload || typeof payload !== "object") return undefined
@@ -509,6 +591,40 @@ api.get("/health", async (c) => {
   return proxyToOpenCode(c, {
     targetPath: "/global/health",
   })
+})
+
+api.get("/project", async (c) => {
+  const notebookProjects = await readNotebookRegistry()
+
+  return c.json({ projects: notebookProjects })
+})
+
+api.post("/project", async (c) => {
+  const payload = (await c.req.json().catch(() => undefined)) as { directory?: unknown } | undefined
+  if (typeof payload?.directory !== "string") {
+    return c.json({ error: "Directory is required" }, 400)
+  }
+
+  const directory = resolveDirectory(payload.directory)
+  if (!isAllowedDirectory(directory, directoryRoots)) {
+    return c.json({ error: "Directory is outside allowed roots" }, 403)
+  }
+
+  await loadOpenCodeApp()
+  await OpenCodeProject.fromDirectory(directory)
+  await rememberNotebookDirectory(directory)
+  return c.json({ directory })
+})
+
+api.delete("/project", async (c) => {
+  const rawDirectory = c.req.query("directory")
+  if (typeof rawDirectory !== "string" || rawDirectory.trim().length === 0) {
+    return c.json({ error: "Directory is required" }, 400)
+  }
+
+  const directory = resolveDirectory(rawDirectory)
+  await forgetNotebookDirectory(directory)
+  return c.json({ directory })
 })
 
 api.get("/event", async (c) => {

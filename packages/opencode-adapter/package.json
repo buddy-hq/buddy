@@ -10,6 +10,7 @@
     "./tool": "./src/tool.ts",
     "./server": "./src/server.ts",
     "./instance": "./src/instance.ts",
+    "./project": "./src/project.ts",
     "./lsp": "./src/lsp.ts",
     "./agent": "./src/agent.ts",
     "./registry": "./src/registry.ts",

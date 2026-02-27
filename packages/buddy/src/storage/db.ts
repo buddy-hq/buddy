@@ -10,6 +10,8 @@ import * as schema from "./schema.js"
 
 export * from "drizzle-orm"
 
+declare const BUDDY_MIGRATIONS: { sql: string; timestamp: number }[] | undefined
+
 type Schema = typeof schema
 type Client = SQLiteBunDatabase<Schema>
 type Tx = SQLiteTransaction<"sync", void, Schema>
@@ -21,6 +23,10 @@ type Journal = {
 }[]
 
 type TxOrDb = Tx | Client
+
+function getRuntimeEnv(name: string) {
+  return process.env[name]
+}
 
 function parseMigrationTime(tag: string) {
   const match = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/.exec(tag)
@@ -75,7 +81,11 @@ function openClient() {
   sqlite.run("PRAGMA wal_checkpoint(PASSIVE)")
 
   const db = drizzle({ client: sqlite, schema })
-  const entries = readMigrations(path.join(import.meta.dirname, "../../migration"))
+  const migrationDir = getRuntimeEnv("BUDDY_MIGRATION_DIR")
+  const entries =
+    typeof BUDDY_MIGRATIONS !== "undefined"
+      ? BUDDY_MIGRATIONS
+      : readMigrations(migrationDir || path.join(import.meta.dirname, "../../migration"))
   if (entries.length > 0) {
     migrate(db, entries)
   }

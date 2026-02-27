@@ -69,6 +69,10 @@ export namespace Database {
     return sql.sort((a, b) => a.timestamp - b.timestamp)
   }
 
+  function runtimeEnv(name: string) {
+    return process.env[name]
+  }
+
   export const Client = lazy(() => {
     log.info("opening database", { path: path.join(Global.Path.data, "opencode.db") })
 
@@ -85,10 +89,11 @@ export namespace Database {
     const db = drizzle({ client: sqlite, schema })
 
     // Apply schema migrations
+    const migrationDir = runtimeEnv("OPENCODE_MIGRATION_DIR")
     const entries =
       typeof OPENCODE_MIGRATIONS !== "undefined"
         ? OPENCODE_MIGRATIONS
-        : migrations(path.join(import.meta.dirname, "../../migration"))
+        : migrations(migrationDir || path.join(import.meta.dirname, "../../migration"))
     if (entries.length > 0) {
       log.info("applying migrations", {
         count: entries.length,

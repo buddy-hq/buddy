@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "bun --env-file=../../.env run --watch src/index.ts",
     "build": "tsc",
+    "build:single": "bun build --compile --outfile ./dist/desktop-sidecar/bin/buddy-backend ./src/index.ts",
+    "build:desktop-sidecar": "bun run build:single",
     "typecheck": "tsgo --noEmit",
     "start": "bun --env-file=../../.env run src/index.ts",
     "test": "bun test --preload ./test/preload.ts test",
