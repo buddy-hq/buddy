@@ -1,5 +1,6 @@
 import { create } from "zustand"
-import { createJSONStorage, persist } from "zustand/middleware"
+import { persist } from "zustand/middleware"
+import { createPlatformJsonStorage } from "../context/platform"
 import type {
   ConfigProvidersResponse,
   DirectoryChatState,
@@ -20,6 +21,7 @@ type ChatStore = {
   directories: Record<string, DirectoryChatState>
   streamStatus: StreamStatus
   ensureProject: (directory: string) => void
+  setProjects: (directories: string[]) => void
   removeProject: (directory: string) => void
   setActiveDirectory: (directory: string) => void
   setDirectoryReady: (directory: string, ready: boolean) => void
@@ -45,6 +47,13 @@ type ChatStore = {
 }
 
 const DEFAULT_TITLE = "New chat"
+
+function normalizeProjectDirectory(input: string | undefined) {
+  if (!input) return undefined
+  const trimmed = input.trim()
+  if (!trimmed || trimmed === "/") return undefined
+  return trimmed.replace(/\/+$/, "") || undefined
+}
 
 function emptyDirectoryState(): DirectoryChatState {
   return {
@@ -95,30 +104,63 @@ export const useChatStore = create<ChatStore>()(
       directories: {},
       streamStatus: "idle",
       ensureProject(directory) {
+        const normalized = normalizeProjectDirectory(directory)
+        if (!normalized) return
+
         set((state) => {
-          const projects = state.projects.includes(directory)
+          const projects = state.projects.includes(normalized)
             ? state.projects
-            : [...state.projects, directory]
+            : [...state.projects, normalized]
           return {
             projects,
             directories: {
               ...state.directories,
-              [directory]: ensureDirectoryState(state as ChatStore, directory),
+              [normalized]: ensureDirectoryState(state as ChatStore, normalized),
+            },
+          }
+        })
+      },
+      setProjects(directories) {
+        set((state) => {
+          const unique = Array.from(
+            new Set(directories.map((directory) => normalizeProjectDirectory(directory)).filter(Boolean)),
+          ) as string[]
+          const projects = unique
+          const nextLastSession = Object.fromEntries(
+            Object.entries(state.lastSessionByDirectory).filter(([directory]) => projects.includes(directory)),
+          )
+          const nextActiveDirectory =
+            state.activeDirectory && projects.includes(state.activeDirectory)
+              ? state.activeDirectory
+              : projects[0]
+
+          return {
+            projects,
+            activeDirectory: nextActiveDirectory,
+            lastSessionByDirectory: nextLastSession,
+            directories: {
+              ...state.directories,
+              ...Object.fromEntries(
+                projects.map((directory) => [directory, state.directories[directory] ?? emptyDirectoryState()]),
+              ),
             },
           }
         })
       },
       removeProject(directory) {
+        const normalized = normalizeProjectDirectory(directory)
+        if (!normalized) return
+
         set((state) => {
-          const projects = state.projects.filter((entry) => entry !== directory)
+          const projects = state.projects.filter((entry) => entry !== normalized)
           const directories = { ...state.directories }
-          delete directories[directory]
+          delete directories[normalized]
 
           const nextLastSession = { ...state.lastSessionByDirectory }
-          delete nextLastSession[directory]
+          delete nextLastSession[normalized]
 
           const nextActive =
-            state.activeDirectory === directory
+            state.activeDirectory === normalized
               ? projects[0]
               : state.activeDirectory
 
@@ -131,11 +173,14 @@ export const useChatStore = create<ChatStore>()(
         })
       },
       setActiveDirectory(directory) {
+        const normalized = normalizeProjectDirectory(directory)
+        if (!normalized) return
+
         set((state) => ({
-          activeDirectory: directory,
+          activeDirectory: normalized,
           directories: {
             ...state.directories,
-            [directory]: ensureDirectoryState(state as ChatStore, directory),
+            [normalized]: ensureDirectoryState(state as ChatStore, normalized),
           },
         }))
       },
@@ -465,12 +510,40 @@ export const useChatStore = create<ChatStore>()(
     }),
     {
       name: "buddy.chat.v2",
-      storage: createJSONStorage(() => localStorage),
-      partialize(state) {
+      storage: createPlatformJsonStorage("buddy.chat.dat"),
+      merge(persistedState, currentState) {
+        const persisted = (persistedState ?? {}) as Partial<ChatStore>
+        const projects = Array.from(
+          new Set(
+            (persisted.projects ?? [])
+              .map((directory) => normalizeProjectDirectory(directory))
+              .filter(Boolean),
+          ),
+        ) as string[]
+        const activeDirectory = normalizeProjectDirectory(persisted.activeDirectory)
+        const lastSessionByDirectory = Object.fromEntries(
+          Object.entries(persisted.lastSessionByDirectory ?? {}).filter(([directory]) => projects.includes(directory)),
+        )
+
         return {
-          projects: state.projects,
-          activeDirectory: state.activeDirectory,
-          lastSessionByDirectory: state.lastSessionByDirectory,
+          ...currentState,
+          ...persisted,
+          projects,
+          activeDirectory: activeDirectory && projects.includes(activeDirectory) ? activeDirectory : projects[0],
+          lastSessionByDirectory,
+        }
+      },
+      partialize(state) {
+        const projects = Array.from(
+          new Set(state.projects.map((directory) => normalizeProjectDirectory(directory)).filter(Boolean)),
+        ) as string[]
+        const activeDirectory = normalizeProjectDirectory(state.activeDirectory)
+        return {
+          projects,
+          activeDirectory: activeDirectory && projects.includes(activeDirectory) ? activeDirectory : projects[0],
+          lastSessionByDirectory: Object.fromEntries(
+            Object.entries(state.lastSessionByDirectory).filter(([directory]) => projects.includes(directory)),
+          ),
         }
       },
     },

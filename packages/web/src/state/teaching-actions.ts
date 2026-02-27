@@ -1,55 +1,5 @@
 import type { TeachingLanguage, TeachingWorkspace } from "./teaching-mode"
-
-function directoryHeaderValue(directory: string) {
-  const isNonASCII = /[^\x00-\x7F]/.test(directory)
-  return isNonASCII ? encodeURIComponent(directory) : directory
-}
-
-function stringifyError(error: unknown) {
-  if (error instanceof Error) {
-    return error.message
-  }
-  if (typeof error === "string") {
-    return error
-  }
-  try {
-    return JSON.stringify(error)
-  } catch {
-    return String(error)
-  }
-}
-
-async function requestJson<T>(
-  directory: string,
-  endpoint: string,
-  init?: {
-    method?: string
-    body?: unknown
-  },
-) {
-  const body = init?.body === undefined ? undefined : JSON.stringify(init.body)
-  const response = await fetch(endpoint, {
-    method: init?.method,
-    headers: {
-      ...(body ? { "content-type": "application/json" } : {}),
-      "x-buddy-directory": directoryHeaderValue(directory),
-    },
-    body,
-  })
-
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => undefined)) as
-      | {
-          error?: string
-          message?: string
-        }
-      | undefined
-    const message = payload?.error ?? payload?.message ?? `Request failed (${response.status})`
-    throw new Error(message)
-  }
-
-  return (await response.json()) as T
-}
+import { apiFetch, requestJson, stringifyError } from "../lib/api-client"
 
 export type TeachingConflictPayload = {
   error: string
@@ -93,18 +43,15 @@ export async function saveTeachingWorkspace(input: {
   relativePath?: string
   language?: TeachingLanguage
 }) {
-  const response = await fetch(`/api/teaching/session/${encodeURIComponent(input.sessionID)}/workspace`, {
+  const response = await apiFetch(`/api/teaching/session/${encodeURIComponent(input.sessionID)}/workspace`, {
     method: "PUT",
-    headers: {
-      "content-type": "application/json",
-      "x-buddy-directory": directoryHeaderValue(input.directory),
-    },
-    body: JSON.stringify({
+    directory: input.directory,
+    body: {
       code: input.code,
       expectedRevision: input.expectedRevision,
       relativePath: input.relativePath,
       language: input.language,
-    }),
+    },
   })
 
   if (response.status === 409) {

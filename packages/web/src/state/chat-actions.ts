@@ -6,28 +6,10 @@ import type {
   SessionInfo,
 } from "./chat-types"
 import type { TeachingPromptContext } from "./teaching-mode"
+import { apiFetch, requestJson, stringifyError } from "../lib/api-client"
 
 const POST_PROMPT_RESYNC_INTERVAL_MS = 250
 const POST_PROMPT_RESYNC_ATTEMPTS = 600
-
-function directoryHeaderValue(directory: string) {
-  const isNonASCII = /[^\x00-\x7F]/.test(directory)
-  return isNonASCII ? encodeURIComponent(directory) : directory
-}
-
-function stringifyError(error: unknown) {
-  if (error instanceof Error) {
-    return error.message
-  }
-  if (typeof error === "string") {
-    return error
-  }
-  try {
-    return JSON.stringify(error)
-  } catch {
-    return String(error)
-  }
-}
 
 export type AgentConfigOption = {
   name: string
@@ -36,33 +18,61 @@ export type AgentConfigOption = {
   hidden?: boolean
 }
 
-async function requestJson<T>(
-  directory: string,
-  endpoint: string,
-  init?: {
-    method?: string
-    body?: unknown
-  },
-) {
-  const body = init?.body === undefined ? undefined : JSON.stringify(init.body)
-  const response = await fetch(endpoint, {
-    method: init?.method,
-    headers: {
-      ...(body ? { "content-type": "application/json" } : {}),
-      "x-buddy-directory": directoryHeaderValue(directory),
-    },
-    body,
-  })
+function normalizeProjectDirectory(directory: string) {
+  const normalized = directory.trim().replace(/\/+$/, "")
+  if (!normalized || normalized === "/") {
+    return undefined
+  }
+  return normalized
+}
 
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => undefined)) as
-      | { error?: string; message?: string }
-      | undefined
-    const message = payload?.error ?? payload?.message ?? `Request failed (${response.status})`
-    throw new Error(message)
+export async function loadProjects() {
+  const result = await requestJson<{ projects: string[] }>("", "/api/project")
+  const backendProjects = result.projects.filter((project) => normalizeProjectDirectory(project)) as string[]
+  useChatStore.getState().setProjects(backendProjects)
+  return backendProjects
+}
+
+export async function rememberProject(directory: string) {
+  const normalized = normalizeProjectDirectory(directory)
+  if (!normalized) {
+    throw new Error("Please choose a project directory, not /")
   }
 
-  return (await response.json()) as T
+  const store = useChatStore.getState()
+  store.ensureProject(normalized)
+
+  const result = await requestJson<{ directory: string }>("", "/api/project", {
+    method: "POST",
+    body: { directory: normalized },
+  }).catch(() => ({ directory: normalized }))
+
+  const nextDirectory = result.directory
+  const currentProjects = useChatStore.getState().projects
+  if (!currentProjects.includes(nextDirectory)) {
+    useChatStore.getState().setProjects([...currentProjects, nextDirectory])
+  }
+
+  return nextDirectory
+}
+
+export async function preloadProjectSessions(directories: string[]) {
+  const unique = Array.from(
+    new Set(directories.map((directory) => normalizeProjectDirectory(directory)).filter(Boolean)),
+  ) as string[]
+  await Promise.all(
+    unique.map((directory) =>
+      loadSessions(directory).catch(async (error) => {
+        if (stringifyError(error).includes("Directory is outside allowed roots")) {
+          useChatStore.getState().removeProject(directory)
+          const query = new URLSearchParams({ directory })
+          await apiFetch(`/api/project?${query.toString()}`, {
+            method: "DELETE",
+          }).catch(() => undefined)
+        }
+      }),
+    ),
+  )
 }
 
 export async function loadSessions(directory: string) {
@@ -135,6 +145,8 @@ export async function ensureDirectorySession(directory: string) {
   store.ensureProject(directory)
   store.setDirectoryReady(directory, false)
   store.clearDirectoryError(directory)
+
+  await rememberProject(directory).catch(() => undefined)
 
   const current = store.directories[directory]
   const storedSession = current?.sessionID ?? store.lastSessionByDirectory[directory]
@@ -305,16 +317,13 @@ export async function replyPermission(input: {
   reply: "once" | "always" | "reject"
   message?: string
 }) {
-  const response = await fetch(`/api/permission/${encodeURIComponent(input.requestID)}/reply`, {
+  const response = await apiFetch(`/api/permission/${encodeURIComponent(input.requestID)}/reply`, {
     method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-buddy-directory": directoryHeaderValue(input.directory),
-    },
-    body: JSON.stringify({
+    directory: input.directory,
+    body: {
       reply: input.reply,
       message: input.message,
-    }),
+    },
   })
 
   if (!response.ok) {
@@ -357,13 +366,10 @@ export async function updateSession(input: {
   }
 
   try {
-    const response = await fetch(`/api/session/${encodeURIComponent(input.sessionID)}`, {
+    const response = await apiFetch(`/api/session/${encodeURIComponent(input.sessionID)}`, {
       method: "PATCH",
-      headers: {
-        "content-type": "application/json",
-        "x-buddy-directory": directoryHeaderValue(input.directory),
-      },
-      body: JSON.stringify(payload),
+      directory: input.directory,
+      body: payload,
     })
 
     if (!response.ok) {
@@ -382,10 +388,8 @@ export async function updateSession(input: {
 }
 
 export async function loadCurriculum(directory: string) {
-  const response = await fetch("/api/curriculum", {
-    headers: {
-      "x-buddy-directory": directoryHeaderValue(directory),
-    },
+  const response = await apiFetch("/api/curriculum", {
+    directory,
   })
 
   if (!response.ok) {
@@ -398,13 +402,10 @@ export async function loadCurriculum(directory: string) {
 }
 
 export async function saveCurriculum(directory: string, markdown: string) {
-  const response = await fetch("/api/curriculum", {
+  const response = await apiFetch("/api/curriculum", {
     method: "PUT",
-    headers: {
-      "content-type": "application/json",
-      "x-buddy-directory": directoryHeaderValue(directory),
-    },
-    body: JSON.stringify({ markdown }),
+    directory,
+    body: { markdown },
   })
 
   if (!response.ok) {
@@ -421,13 +422,10 @@ export async function loadProjectConfig(directory: string) {
 }
 
 export async function patchProjectConfig(directory: string, patch: Record<string, unknown>) {
-  const response = await fetch("/api/config", {
+  const response = await apiFetch("/api/config", {
     method: "PATCH",
-    headers: {
-      "content-type": "application/json",
-      "x-buddy-directory": directoryHeaderValue(directory),
-    },
-    body: JSON.stringify(patch),
+    directory,
+    body: patch,
   })
 
   if (!response.ok) {

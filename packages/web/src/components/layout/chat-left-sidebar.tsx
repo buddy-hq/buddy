@@ -15,7 +15,7 @@ import {
   Input,
 } from "@buddy/ui"
 import type { SessionInfo } from "@/state/chat-types"
-import { getFilename, relativeTime } from "./sidebar-helpers"
+import { getFilename } from "./sidebar-helpers"
 import {
   ArchiveIcon,
   BookOpenIcon,
@@ -58,6 +58,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
   const [renameState, setRenameState] = useState<RenameState | undefined>(undefined)
   const [renameSaving, setRenameSaving] = useState(false)
   const [expandedDirectories, setExpandedDirectories] = useState<Record<string, true>>({})
+  const [collapsedDirectories, setCollapsedDirectories] = useState<Record<string, true>>({})
   const COLLAPSED_COUNT = 9
 
   async function submitRename() {
@@ -75,26 +76,28 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
   }
 
   const directoryGroups = useMemo(() => {
-    return props.directories.map((directory) => {
-      const sessions = props.sessionsByDirectory[directory] ?? []
-      const pinnedSet = new Set(props.pinnedByDirectory[directory] ?? [])
+    return props.directories
+      .map((directory) => {
+        const sessions = props.sessionsByDirectory[directory] ?? []
+        const pinnedSet = new Set(props.pinnedByDirectory[directory] ?? [])
 
-      const pinned: SessionInfo[] = []
-      const rest: SessionInfo[] = []
+        const pinned: SessionInfo[] = []
+        const rest: SessionInfo[] = []
 
-      for (const session of sessions) {
-        if (pinnedSet.has(session.id)) {
-          pinned.push(session)
-          continue
+        for (const session of sessions) {
+          if (pinnedSet.has(session.id)) {
+            pinned.push(session)
+            continue
+          }
+          rest.push(session)
         }
-        rest.push(session)
-      }
 
-      return {
-        directory,
-        sessions: [...pinned, ...rest],
-      }
-    })
+        return {
+          directory,
+          sessions: [...pinned, ...rest],
+        }
+      })
+      .filter((group) => group.directory === props.currentDirectory || group.sessions.length > 0)
   }, [props.directories, props.sessionsByDirectory, props.pinnedByDirectory])
 
   return (
@@ -132,6 +135,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
             const pinnedSet = new Set(props.pinnedByDirectory[group.directory] ?? [])
             const sessionStatusByID = props.sessionStatusByDirectory[group.directory] ?? {}
             const expanded = !!expandedDirectories[group.directory]
+            const collapsed = !!collapsedDirectories[group.directory]
             const visibleSessions = expanded ? group.sessions : group.sessions.slice(0, COLLAPSED_COUNT)
             const hasMore = group.sessions.length > COLLAPSED_COUNT
 
@@ -145,101 +149,131 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
                       isCurrentDirectory ? "text-foreground font-medium" : "text-muted-foreground"
                     }`}
                     onClick={() => {
+                      if (isCurrentDirectory) {
+                        setCollapsedDirectories((current) => {
+                          const next = { ...current }
+                          if (next[group.directory]) {
+                            delete next[group.directory]
+                          } else {
+                            next[group.directory] = true
+                          }
+                          return next
+                        })
+                        return
+                      }
+
+                      setCollapsedDirectories((current) => {
+                        if (!current[group.directory]) return current
+                        const next = { ...current }
+                        delete next[group.directory]
+                        return next
+                      })
                       props.onSelectSession(group.directory, group.sessions[0]?.id)
+                    }}
+                    onDoubleClick={() => {
+                      if (!isCurrentDirectory) return
+                      props.onSelectSession(group.directory)
+                      setCollapsedDirectories((current) => {
+                        const next = { ...current }
+                        delete next[group.directory]
+                        return next
+                      })
                     }}
                   >
                     {getFilename(group.directory)}
                   </button>
                 </div>
 
-                {group.sessions.length === 0 ? (
-                  <p className="pl-8 text-sm text-muted-foreground/70">No threads</p>
-                ) : (
-                  visibleSessions.map((session) => {
-                    const active = group.directory === props.currentDirectory && session.id === props.activeSessionID
-                    const busy = sessionStatusByID[session.id] === "busy"
-                    const pinned = pinnedSet.has(session.id)
-                    const unread = !!unreadMap[session.id]
-                    const timeLabel = relativeTime(session.time.updated ?? session.time.created)
-
-                    return (
-                      <div
-                        key={`${group.directory}:${session.id}`}
-                        className={`group/thread relative ml-6 rounded-xl ${
-                          active ? "bg-[#1a1c21]" : "hover:bg-[#13161b]"
-                        }`}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => props.onSelectSession(group.directory, session.id)}
-                          className="w-full px-3 py-2 text-left"
-                        >
-                          <div className="flex items-center gap-2 min-w-0 pr-8">
-                            <span
-                              className={`inline-block size-1.5 rounded-full shrink-0 ${
-                                busy ? "bg-amber-500" : unread ? "bg-sky-500" : "bg-emerald-500"
-                              }`}
-                            />
-                            <span className="text-sm truncate">{session.title || "New thread"}</span>
-                            {pinned ? <PinIcon className="size-3 shrink-0 text-muted-foreground" /> : null}
-                          </div>
-                        </button>
-
-                        <div className="absolute right-1 top-1.5 opacity-0 pointer-events-none transition-opacity group-hover/thread:opacity-100 group-hover/thread:pointer-events-auto group-focus-within/thread:opacity-100 group-focus-within/thread:pointer-events-auto">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <button
-                                type="button"
-                                className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted/70 hover:text-foreground"
-                                aria-label="Thread options"
-                                onClick={(event) => event.stopPropagation()}
-                              >
-                                <EllipsisHorizontalIcon className="size-3.5" />
-                              </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-44">
-                              <DropdownMenuItem
-                                onSelect={() => {
-                                  props.onTogglePin(group.directory, session.id)
-                                }}
-                              >
-                                <PinIcon className="size-3.5 mr-2" />
-                                {pinned ? "Unpin thread" : "Pin thread"}
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onSelect={() => {
-                                  setRenameState({
-                                    directory: group.directory,
-                                    sessionID: session.id,
-                                    title: session.title,
-                                  })
-                                }}
-                              >
-                                <PencilIcon className="size-3.5 mr-2" />
-                                Rename thread
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onSelect={() => {
-                                  void props.onArchiveSession(group.directory, session.id)
-                                }}
-                              >
-                                <ArchiveIcon className="size-3.5 mr-2" />
-                                Archive thread
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onSelect={() => {
-                                  props.onToggleUnread(group.directory, session.id, !unread)
-                                }}
-                              >
-                                {unread ? "Mark as read" : "Mark as unread"}
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      </div>
+                {group.sessions.length === 0
+                  ? (
+                      <p className="pl-8 text-sm text-muted-foreground/70">No threads</p>
                     )
-                  })
-                )}
+                  : collapsed
+                    ? null
+                    : visibleSessions.map((session) => {
+                        const active =
+                          group.directory === props.currentDirectory && session.id === props.activeSessionID
+                        const busy = sessionStatusByID[session.id] === "busy"
+                        const pinned = pinnedSet.has(session.id)
+                        const unread = !!unreadMap[session.id]
+
+                        return (
+                          <div
+                            key={`${group.directory}:${session.id}`}
+                            className={`group/thread relative ml-6 rounded-xl ${
+                              active ? "bg-[#1a1c21]" : "hover:bg-[#13161b]"
+                            }`}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => props.onSelectSession(group.directory, session.id)}
+                              className="w-full px-3 py-2 text-left"
+                            >
+                              <div className="flex items-center gap-2 min-w-0 pr-8">
+                                <span
+                                  className={`inline-block size-1.5 rounded-full shrink-0 ${
+                                    busy ? "bg-amber-500" : unread ? "bg-sky-500" : "bg-emerald-500"
+                                  }`}
+                                />
+                                <span className="text-sm truncate">{session.title || "New thread"}</span>
+                                {pinned ? <PinIcon className="size-3 shrink-0 text-muted-foreground" /> : null}
+                              </div>
+                            </button>
+
+                            <div className="absolute right-1 top-1.5 opacity-0 pointer-events-none transition-opacity group-hover/thread:opacity-100 group-hover/thread:pointer-events-auto group-focus-within/thread:opacity-100 group-focus-within/thread:pointer-events-auto">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button
+                                    type="button"
+                                    className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                                    aria-label="Thread options"
+                                    onClick={(event) => event.stopPropagation()}
+                                  >
+                                    <EllipsisHorizontalIcon className="size-3.5" />
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-44">
+                                  <DropdownMenuItem
+                                    onSelect={() => {
+                                      props.onTogglePin(group.directory, session.id)
+                                    }}
+                                  >
+                                    <PinIcon className="size-3.5 mr-2" />
+                                    {pinned ? "Unpin thread" : "Pin thread"}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onSelect={() => {
+                                      setRenameState({
+                                        directory: group.directory,
+                                        sessionID: session.id,
+                                        title: session.title,
+                                      })
+                                    }}
+                                  >
+                                    <PencilIcon className="size-3.5 mr-2" />
+                                    Rename thread
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onSelect={() => {
+                                      void props.onArchiveSession(group.directory, session.id)
+                                    }}
+                                  >
+                                    <ArchiveIcon className="size-3.5 mr-2" />
+                                    Archive thread
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onSelect={() => {
+                                      props.onToggleUnread(group.directory, session.id, !unread)
+                                    }}
+                                  >
+                                    {unread ? "Mark as read" : "Mark as unread"}
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </div>
+                        )
+                      })}
 
                 {hasMore ? (
                   <button

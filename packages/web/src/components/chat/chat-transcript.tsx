@@ -531,7 +531,6 @@ function AssistantTextPart(props: {
   copyEnabled: boolean
   metaText?: string
   interrupted?: boolean
-  streaming?: boolean
 }) {
   const text = String(props.part.text ?? "")
   const throttledText = useThrottledText(text)
@@ -540,11 +539,7 @@ function AssistantTextPart(props: {
   return (
     <div className="buddy-assistant-text-part">
       <div className="buddy-markdown-surface">
-        {props.streaming ? (
-          <div className="whitespace-pre-wrap break-words">{throttledText}</div>
-        ) : (
-          <Markdown text={throttledText} cacheKey={props.part.id} />
-        )}
+        <Markdown text={throttledText} cacheKey={props.part.id} />
       </div>
       {props.copyEnabled ? (
         <div className="buddy-message-meta-row">
@@ -749,7 +744,6 @@ function AssistantPartRenderer(props: {
   copyPartID?: string
   metaText?: string
   interrupted?: boolean
-  streaming?: boolean
   onOpenSession?: (sessionID: string) => void
 }) {
   if (props.part.type === "step-start" || props.part.type === "step-finish") {
@@ -763,7 +757,6 @@ function AssistantPartRenderer(props: {
           copyEnabled={props.copyPartID === props.part.id}
           metaText={props.metaText}
           interrupted={props.interrupted}
-          streaming={props.streaming}
         />
       )
   }
@@ -831,8 +824,6 @@ export function ChatTranscript(props: ChatTranscriptProps) {
         })()
         const showAssistantSection = assistantMessages.length > 0 || (props.isBusy && isLastTurn)
         const showThinking = !!props.isBusy && isLastTurn && assistantItems.length === 0
-        const assistantStreaming = !!props.isBusy && isLastTurn
-
         return (
           <article key={turn.key} className="relative w-full px-4 md:px-5">
             {userMessage ? (
@@ -859,7 +850,6 @@ export function ChatTranscript(props: ChatTranscriptProps) {
                         copyPartID={lastAssistantTextID}
                         metaText={assistantMetaText}
                         interrupted={assistantAborted}
-                        streaming={assistantStreaming}
                         onOpenSession={props.onOpenSession}
                       />
                     )

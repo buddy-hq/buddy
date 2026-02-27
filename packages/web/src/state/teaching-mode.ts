@@ -1,5 +1,6 @@
 import { create } from "zustand"
-import { createJSONStorage, persist } from "zustand/middleware"
+import { persist } from "zustand/middleware"
+import { createPlatformJsonStorage } from "../context/platform"
 
 export const TEACHING_MODE_STORAGE_KEY = "buddy.teaching.v2"
 
@@ -352,7 +353,7 @@ export const useTeachingMode = create<TeachingModeState>()(
     {
       name: TEACHING_MODE_STORAGE_KEY,
       version: 2,
-      storage: createJSONStorage(() => localStorage),
+      storage: createPlatformJsonStorage("buddy.teaching.dat"),
       migrate(persistedState) {
         const state = persistedState as Partial<TeachingModeState> | undefined
         return {

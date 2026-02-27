@@ -1,3 +1,5 @@
+import { getPlatform } from "../context/platform"
+
 export function normalizeDirectory(input: string) {
   const trimmed = input.trim().split("\\").join("/")
   if (!trimmed) return ""
@@ -27,6 +29,29 @@ declare global {
 }
 
 async function openDesktopDirectoryPicker() {
+  const platform = getPlatform()
+
+  if (typeof platform.openDirectoryPickerDialog === "function") {
+    try {
+      const platformResult = await platform.openDirectoryPickerDialog({
+        title: "Open project",
+        multiple: false,
+      })
+
+      if (typeof platformResult === "string") {
+        return normalizeDirectory(platformResult)
+      }
+      if (Array.isArray(platformResult) && typeof platformResult[0] === "string") {
+        return normalizeDirectory(platformResult[0])
+      }
+      if (platformResult === null) {
+        return null
+      }
+    } catch (error) {
+      console.error("Failed to open native directory picker", error)
+    }
+  }
+
   const tauriResult = await window.__TAURI__?.dialog?.open?.({
     directory: true,
     multiple: false,
@@ -53,7 +78,9 @@ async function openDesktopDirectoryPicker() {
 }
 
 export async function pickProjectDirectory() {
+  const platform = getPlatform()
   const hasDesktopBridge =
+    typeof platform.openDirectoryPickerDialog === "function" ||
     typeof window.__TAURI__?.dialog?.open === "function" ||
     typeof window.electronAPI?.openDirectoryPickerDialog === "function"
 

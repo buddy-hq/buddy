@@ -1,7 +1,10 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Button, Input } from "@buddy/ui"
+import { usePlatform } from "../context/platform"
 import { encodeDirectory } from "../lib/directory-token"
+import { pickProjectDirectory } from "../lib/directory-picker"
+import { loadProjects, preloadProjectSessions, rememberProject } from "../state/chat-actions"
 import { useChatStore } from "../state/chat-store"
 
 export const Route = createFileRoute("/chat")({
@@ -10,26 +13,55 @@ export const Route = createFileRoute("/chat")({
 
 function ChatEntryPage() {
   const navigate = useNavigate()
+  const platform = usePlatform()
   const projects = useChatStore((state) => state.projects)
   const activeDirectory = useChatStore((state) => state.activeDirectory)
   const ensureProject = useChatStore((state) => state.ensureProject)
   const setActiveDirectory = useChatStore((state) => state.setActiveDirectory)
   const [directory, setDirectory] = useState("")
+  const hasNativePicker = typeof platform.openDirectoryPickerDialog === "function"
 
   const recents = useMemo(() => {
     if (!activeDirectory) return projects
     return [activeDirectory, ...projects.filter((item) => item !== activeDirectory)]
   }, [activeDirectory, projects])
 
-  function openDirectory(value: string) {
-    const directory = value.trim()
-    if (!directory) return
-    ensureProject(directory)
-    setActiveDirectory(directory)
+  useEffect(() => {
+    void loadProjects()
+      .then((knownProjects) => preloadProjectSessions(knownProjects))
+      .catch(() => undefined)
+  }, [])
+
+  useEffect(() => {
+    if (!activeDirectory || activeDirectory === "/") return
     navigate({
       to: "/$directory/chat",
-      params: { directory: encodeDirectory(directory) },
+      params: { directory: encodeDirectory(activeDirectory) },
+      replace: true,
     })
+  }, [activeDirectory, navigate])
+
+  async function openDirectory(value: string) {
+    const directory = value.trim()
+    if (!directory) return
+
+    const nextDirectory = await rememberProject(directory).catch(() => directory)
+    ensureProject(nextDirectory)
+    setActiveDirectory(nextDirectory)
+    navigate({
+      to: "/$directory/chat",
+      params: { directory: encodeDirectory(nextDirectory) },
+    })
+  }
+
+  async function openPickedDirectory() {
+    try {
+      const picked = await pickProjectDirectory()
+      if (!picked) return
+      await openDirectory(picked)
+    } catch {
+      // ignore user cancellation and invalid manual fallback input
+    }
   }
 
   return (
@@ -40,20 +72,28 @@ function ChatEntryPage() {
         <p className="text-sm text-muted-foreground">OpenCode-style project and session workflow for Buddy.</p>
       </div>
 
-      <form
-        className="mt-8 rounded-xl border bg-card p-4 flex gap-2"
-        onSubmit={(event) => {
-          event.preventDefault()
-          openDirectory(directory)
-        }}
-      >
-        <Input
-          value={directory}
-          onChange={(event) => setDirectory(event.target.value)}
-          placeholder="/absolute/path/to/repository"
-        />
-        <Button type="submit">Open</Button>
-      </form>
+      {hasNativePicker ? (
+        <div className="mt-8 rounded-xl border bg-card p-4">
+          <Button type="button" className="w-full" onClick={() => void openPickedDirectory()}>
+            Choose folder
+          </Button>
+        </div>
+      ) : (
+        <form
+          className="mt-8 rounded-xl border bg-card p-4 flex gap-2"
+          onSubmit={(event) => {
+            event.preventDefault()
+            void openDirectory(directory)
+          }}
+        >
+          <Input
+            value={directory}
+            onChange={(event) => setDirectory(event.target.value)}
+            placeholder="/absolute/path/to/repository"
+          />
+          <Button type="submit">Open</Button>
+        </form>
+      )}
 
       {recents.length > 0 ? (
         <div className="mt-8 space-y-3">
@@ -66,7 +106,7 @@ function ChatEntryPage() {
                 key={project}
                 type="button"
                 className="w-full rounded-md border px-3 py-2 text-left text-sm hover:bg-muted/50 transition-colors"
-                onClick={() => openDirectory(project)}
+                onClick={() => void openDirectory(project)}
               >
                 {project}
               </button>

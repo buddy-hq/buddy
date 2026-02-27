@@ -1,5 +1,6 @@
 import { create } from "zustand"
-import { createJSONStorage, persist } from "zustand/middleware"
+import { persist } from "zustand/middleware"
+import { createPlatformJsonStorage } from "../context/platform"
 
 export const UI_PREFERENCES_STORAGE_KEY = "buddy.ui.v1"
 
@@ -112,7 +113,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
     {
       name: UI_PREFERENCES_STORAGE_KEY,
       version: 3,
-      storage: createJSONStorage(() => localStorage),
+      storage: createPlatformJsonStorage("buddy.ui.dat"),
       migrate(persistedState) {
         const state = persistedState as Partial<UiPreferencesStore> | undefined
         return {

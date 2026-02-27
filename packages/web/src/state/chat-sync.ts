@@ -1,4 +1,7 @@
 import type { GlobalEvent } from "./chat-types"
+import { getPlatform } from "../context/platform"
+import { apiFetch, createEventStreamUrl } from "../lib/api-client"
+import { getServerConnection } from "../context/server"
 
 type SyncHandlers = {
   directory?: string
@@ -29,9 +32,11 @@ function eventKey(event: GlobalEvent) {
 
 export function startChatSync(handlers: SyncHandlers) {
   let source: EventSource | undefined
+  let streamAbort: AbortController | undefined
   let reconnectTimer: number | undefined
   let attempt = 0
   let disposed = false
+  let opened = false
   let queue: Array<GlobalEvent | undefined> = []
   const coalesced = new Map<string, number>()
   let flushTimer: number | undefined
@@ -46,6 +51,12 @@ export function startChatSync(handlers: SyncHandlers) {
     if (!source) return
     source.close()
     source = undefined
+  }
+
+  const closeStream = () => {
+    if (!streamAbort) return
+    streamAbort.abort()
+    streamAbort = undefined
   }
 
   const flush = () => {
@@ -75,24 +86,20 @@ export function startChatSync(handlers: SyncHandlers) {
     console.info("[chat-sync] connect")
     handlers.onStatus?.("connecting")
     closeSource()
+    closeStream()
     clearReconnect()
     const search = new URLSearchParams()
     if (handlers.directory) {
       search.set("directory", handlers.directory)
     }
     const endpoint = search.size > 0 ? `/api/event?${search.toString()}` : "/api/event"
-    source = new EventSource(endpoint)
+    const server = getServerConnection()
+    const requiresAuthenticatedStream = !!server.username && !!server.password
+    const requiresFetchStream = getPlatform().platform === "desktop" || requiresAuthenticatedStream
 
-    source.onopen = () => {
-      attempt = 0
-      console.info("[chat-sync] open")
-      handlers.onOpen?.()
-      handlers.onStatus?.("connected")
-    }
-
-    source.onmessage = (messageEvent) => {
+    const handleParsedEvent = (message: string) => {
       try {
-        const event = JSON.parse(messageEvent.data) as GlobalEvent
+        const event = JSON.parse(message) as GlobalEvent
         const payloadType = event.payload?.type ?? "unknown"
         if (payloadType === "session.status" || payloadType === "message.updated") {
           console.info("[chat-sync] event", {
@@ -117,17 +124,106 @@ export function startChatSync(handlers: SyncHandlers) {
       }
     }
 
-    source.onerror = () => {
-      handlers.onStatus?.("error")
-      console.warn("[chat-sync] error", { attempt: attempt + 1 })
-      closeSource()
+    const scheduleReconnect = () => {
       if (disposed) return
       attempt += 1
       const delay = Math.min(10_000, 500 * attempt)
       reconnectTimer = window.setTimeout(() => {
         connect()
       }, delay)
+      handlers.onStatus?.("error")
       handlers.onError?.(new Error(`Event stream disconnected (attempt ${attempt})`))
+    }
+
+    if (requiresFetchStream) {
+      streamAbort = new AbortController()
+
+      void (async () => {
+        try {
+          const response = await apiFetch(endpoint, {
+            directory: handlers.directory,
+            headers: {
+              accept: "text/event-stream",
+              "cache-control": "no-cache",
+            },
+            signal: streamAbort.signal,
+          })
+
+          if (!response.ok || !response.body) {
+            throw new Error(`Event stream request failed (${response.status})`)
+          }
+
+          attempt = 0
+          if (!opened) {
+            opened = true
+            handlers.onOpen?.()
+          }
+          handlers.onStatus?.("connected")
+
+          const reader = response.body.getReader()
+          const decoder = new TextDecoder()
+          let buffer = ""
+
+          while (!disposed) {
+            const result = await reader.read()
+            if (result.done) break
+
+            buffer += decoder.decode(result.value, { stream: true })
+
+            while (true) {
+              const boundary = buffer.indexOf("\n\n")
+              if (boundary === -1) break
+
+              const chunk = buffer.slice(0, boundary)
+              buffer = buffer.slice(boundary + 2)
+
+              const lines = chunk
+                .split(/\r?\n/)
+                .filter((line) => line.startsWith("data:"))
+                .map((line) => line.slice(5).trimStart())
+
+              if (lines.length === 0) continue
+              handleParsedEvent(lines.join("\n"))
+            }
+          }
+        } catch (error) {
+          if (disposed) return
+          console.warn("[chat-sync] error", { attempt: attempt + 1 })
+          scheduleReconnect()
+          return
+        } finally {
+          closeStream()
+        }
+
+        if (!disposed) {
+          console.warn("[chat-sync] error", { attempt: attempt + 1 })
+          scheduleReconnect()
+        }
+      })()
+
+      return
+    }
+
+    source = new EventSource(createEventStreamUrl(endpoint))
+
+    source.onopen = () => {
+      attempt = 0
+      console.info("[chat-sync] open")
+      if (!opened) {
+        opened = true
+        handlers.onOpen?.()
+      }
+      handlers.onStatus?.("connected")
+    }
+
+    source.onmessage = (messageEvent) => {
+      handleParsedEvent(messageEvent.data)
+    }
+
+    source.onerror = () => {
+      console.warn("[chat-sync] error", { attempt: attempt + 1 })
+      closeSource()
+      scheduleReconnect()
     }
   }
 
@@ -138,6 +234,7 @@ export function startChatSync(handlers: SyncHandlers) {
       disposed = true
       clearReconnect()
       closeSource()
+      closeStream()
       flush()
     },
   }

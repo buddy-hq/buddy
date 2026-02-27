@@ -28,10 +28,13 @@ import {
   ensureDirectorySession,
   loadAgentCatalog,
   loadPermissions,
+  loadProjects,
   loadProjectConfig,
   loadMessages,
   loadSessions,
+  preloadProjectSessions,
   replyPermission,
+  rememberProject,
   resyncDirectory,
   selectSession,
   sendPrompt,
@@ -174,6 +177,10 @@ function DirectoryChatPage() {
   const sessions = directoryState?.sessions ?? []
   const sessionTitle =
     sessions.find((session) => session.id === sessionID)?.title ?? directoryState?.sessionTitle ?? "New chat"
+  const validProjects = useMemo(
+    () => projects.filter((directory) => directory && directory !== "/"),
+    [projects],
+  )
   const messages = directoryState?.messages ?? []
   const providers = directoryState?.providers ?? []
   const isBusy = directoryState?.isBusy ?? false
@@ -183,18 +190,22 @@ function DirectoryChatPage() {
   const sessionsByDirectory = useMemo(
     () =>
       Object.fromEntries(
-        projects.map((directory) => [directory, allDirectoryStates[directory]?.sessions ?? []]),
+        validProjects.map((directory) => [directory, allDirectoryStates[directory]?.sessions ?? []]),
       ) as Record<string, SessionInfo[]>,
-    [allDirectoryStates, projects],
+    [allDirectoryStates, validProjects],
   )
   const sessionStatusByDirectory = useMemo(
     () =>
       Object.fromEntries(
-        projects.map((directory) => [directory, allDirectoryStates[directory]?.sessionStatusByID ?? {}]),
+        validProjects.map((directory) => [directory, allDirectoryStates[directory]?.sessionStatusByID ?? {}]),
       ) as Record<string, Record<string, "busy" | "idle">>,
-    [allDirectoryStates, projects],
+    [allDirectoryStates, validProjects],
   )
   const showDevSessionTrace = import.meta.env.DEV
+  const sidebarDirectories = useMemo(() => {
+    if (!decodedDirectory || decodedDirectory === "/") return validProjects
+    return [decodedDirectory, ...validProjects.filter((directory) => directory !== decodedDirectory)]
+  }, [decodedDirectory, validProjects])
   const leftSidebarMaxWidth = typeof window === "undefined" ? SIDEBAR_DEFAULT_MAX_WIDTH : window.innerWidth * 0.3 + 64
   const sessionKey = useMemo(
     () => (decodedDirectory && sessionID ? teachingSessionKey(decodedDirectory, sessionID) : ""),
@@ -211,12 +222,35 @@ function DirectoryChatPage() {
   const rightSidebarDisplayWidth = Math.min(Math.max(rightSidebarWidth, rightSidebarMinWidth), rightSidebarMaxWidth)
 
   useEffect(() => {
+    void loadProjects()
+      .then((knownProjects) => preloadProjectSessions(knownProjects))
+      .catch(() => undefined)
+  }, [])
+
+  useEffect(() => {
+    if (decodedDirectory === "/") {
+      const fallback = validProjects[0]
+      if (fallback) {
+        navigate({
+          to: "/$directory/chat",
+          params: { directory: encodeDirectory(fallback) },
+          replace: true,
+        })
+      } else {
+        navigate({
+          to: "/chat",
+          replace: true,
+        })
+      }
+      return
+    }
+
     if (!decodedDirectory) return
 
     ensureProject(decodedDirectory)
     setActiveDirectory(decodedDirectory)
     void ensureDirectorySession(decodedDirectory)
-  }, [decodedDirectory, ensureProject, setActiveDirectory])
+  }, [decodedDirectory, ensureProject, navigate, setActiveDirectory, validProjects])
 
   useEffect(() => {
     if (!decodedDirectory) return
@@ -257,19 +291,17 @@ function DirectoryChatPage() {
         setStreamStatus(status)
       },
       onOpen() {
-        const knownProjects = useChatStore.getState().projects
-        for (const directory of knownProjects) {
-          void resyncDirectory(directory)
-        }
+        if (!decodedDirectory || decodedDirectory === "/") return
+        void resyncDirectory(decodedDirectory)
       },
       onEvent(event: GlobalEvent) {
         const directory = event.directory
         if (!directory || directory === "global") {
           if (event.payload.type === "server.connected") {
-            const knownProjects = useChatStore.getState().projects
-            for (const projectDirectory of knownProjects) {
-              void resyncDirectory(projectDirectory)
+            if (!decodedDirectory || decodedDirectory === "/") {
+              return
             }
+            void resyncDirectory(decodedDirectory)
           }
           return
         }
@@ -712,9 +744,10 @@ function DirectoryChatPage() {
       const picked = await pickProjectDirectory()
       if (!picked) return
 
-      ensureProject(picked)
-      setActiveDirectory(picked)
-      onSwitchDirectory(picked)
+      const nextDirectory = await rememberProject(picked).catch(() => picked)
+      ensureProject(nextDirectory)
+      setActiveDirectory(nextDirectory)
+      onSwitchDirectory(nextDirectory)
     } catch {
       // keep current screen state if user cancels/inputs invalid path in fallback prompt
     }
@@ -970,7 +1003,7 @@ function DirectoryChatPage() {
             style={{ width: `${Math.max(leftSidebarWidth, SIDEBAR_MIN_WIDTH)}px` }}
           >
             <ChatLeftSidebar
-              directories={projects}
+              directories={sidebarDirectories}
               currentDirectory={decodedDirectory}
               sessionsByDirectory={sessionsByDirectory}
               activeSessionID={sessionID}
