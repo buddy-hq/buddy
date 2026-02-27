@@ -8,6 +8,7 @@ import { PermissionDock } from "@/components/chat/permission-dock"
 import { ChatLeftSidebar } from "@/components/layout/chat-left-sidebar"
 import { ChatRightSidebar } from "@/components/layout/chat-right-sidebar"
 import { ResizeHandle } from "@/components/layout/resize-handle"
+import { SettingsModal } from "@/components/settings-modal"
 import { getFilename } from "@/components/layout/sidebar-helpers"
 import { PromptComposer } from "@/components/prompt/prompt-composer"
 import {
@@ -35,13 +36,7 @@ import {
 } from "../state/chat-actions"
 import { useChatStore } from "../state/chat-store"
 import { startChatSync } from "../state/chat-sync"
-import type {
-  GlobalEvent,
-  MessageInfo,
-  MessagePart,
-  PermissionRequest,
-  SessionInfo,
-} from "../state/chat-types"
+import type { GlobalEvent, MessageInfo, MessagePart, PermissionRequest, SessionInfo } from "../state/chat-types"
 import { useUiPreferences } from "../state/ui-preferences"
 
 export const Route = createFileRoute("/$directory/chat")({
@@ -62,11 +57,7 @@ async function copyToClipboard(text: string) {
   return true
 }
 
-function buildSessionTrace(input: {
-  directory: string
-  sessionID?: string
-  streamStatus: string
-}) {
+function buildSessionTrace(input: { directory: string; sessionID?: string; streamStatus: string }) {
   const state = useChatStore.getState()
   const directoryState = state.directories[input.directory]
   const session = directoryState?.sessions.find((entry) => entry.id === input.sessionID)
@@ -105,6 +96,7 @@ function DirectoryChatPage() {
   const [draft, setDraft] = useState("")
   const transcriptRef = useRef<HTMLElement | null>(null)
   const [stickToBottom, setStickToBottom] = useState(true)
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false)
 
   const decodedDirectory = useMemo(() => {
     try {
@@ -117,9 +109,7 @@ function DirectoryChatPage() {
   const projects = useChatStore((state) => state.projects)
   const streamStatus = useChatStore((state) => state.streamStatus)
   const allDirectoryStates = useChatStore((state) => state.directories)
-  const directoryState = useChatStore((state) =>
-    decodedDirectory ? state.directories[decodedDirectory] : undefined,
-  )
+  const directoryState = useChatStore((state) => (decodedDirectory ? state.directories[decodedDirectory] : undefined))
   const ensureProject = useChatStore((state) => state.ensureProject)
   const setActiveDirectory = useChatStore((state) => state.setActiveDirectory)
   const setStreamStatus = useChatStore((state) => state.setStreamStatus)
@@ -135,14 +125,12 @@ function DirectoryChatPage() {
   const leftSidebarWidth = useUiPreferences((state) => state.leftSidebarWidth)
   const rightSidebarOpen = useUiPreferences((state) => state.rightSidebarOpen)
   const rightSidebarWidth = useUiPreferences((state) => state.rightSidebarWidth)
-  const rightSidebarTab = useUiPreferences((state) => state.rightSidebarTab)
   const pinnedByDirectory = useUiPreferences((state) => state.pinnedByDirectory)
   const unreadByDirectory = useUiPreferences((state) => state.unreadByDirectory)
   const setLeftSidebarOpen = useUiPreferences((state) => state.setLeftSidebarOpen)
   const setLeftSidebarWidth = useUiPreferences((state) => state.setLeftSidebarWidth)
   const setRightSidebarOpen = useUiPreferences((state) => state.setRightSidebarOpen)
   const setRightSidebarWidth = useUiPreferences((state) => state.setRightSidebarWidth)
-  const setRightSidebarTab = useUiPreferences((state) => state.setRightSidebarTab)
   const togglePinned = useUiPreferences((state) => state.togglePinned)
   const markUnread = useUiPreferences((state) => state.markUnread)
   const clearUnread = useUiPreferences((state) => state.clearUnread)
@@ -174,8 +162,7 @@ function DirectoryChatPage() {
   )
   const unreadSessionMap = unreadByDirectory[decodedDirectory] ?? {}
   const showDevSessionTrace = import.meta.env.DEV
-  const leftSidebarMaxWidth =
-    typeof window === "undefined" ? SIDEBAR_DEFAULT_MAX_WIDTH : window.innerWidth * 0.3 + 64
+  const leftSidebarMaxWidth = typeof window === "undefined" ? SIDEBAR_DEFAULT_MAX_WIDTH : window.innerWidth * 0.3 + 64
 
   useEffect(() => {
     if (!decodedDirectory) return
@@ -229,11 +216,7 @@ function DirectoryChatPage() {
                 : "idle"
 
           const normalizedStatus = statusType === "busy" || statusType === "retry" ? "busy" : "idle"
-          applySessionStatus(
-            directory,
-            String(properties.sessionID ?? ""),
-            normalizedStatus,
-          )
+          applySessionStatus(directory, String(properties.sessionID ?? ""), normalizedStatus)
           return
         }
 
@@ -449,13 +432,11 @@ function DirectoryChatPage() {
   }
 
   function openCurriculumPanel() {
-    setRightSidebarTab("curriculum")
     setRightSidebarOpen(true)
   }
 
   function openSettingsPanel() {
-    setRightSidebarTab("settings")
-    setRightSidebarOpen(true)
+    setSettingsModalOpen(true)
   }
 
   if (!decodedDirectory) {
@@ -525,9 +506,7 @@ function DirectoryChatPage() {
                 </Button>
                 <div className="min-w-0">
                   <h1 className="text-sm md:text-base font-medium truncate">{sessionTitle}</h1>
-                  <p className="text-xs text-muted-foreground truncate">
-                    local: {getFilename(decodedDirectory)}
-                  </p>
+                  <p className="text-xs text-muted-foreground truncate">local: {getFilename(decodedDirectory)}</p>
                 </div>
               </div>
 
@@ -575,7 +554,9 @@ function DirectoryChatPage() {
           </header>
 
           <section ref={transcriptRef} onScroll={onTranscriptScroll} className="flex-1 min-h-0 overflow-y-auto">
-            <div className={`mx-auto w-full max-w-[1080px] px-4 py-4 space-y-4 ${messages.length === 0 && isReady ? 'h-full' : ''}`}>
+            <div
+              className={`mx-auto w-full max-w-[1080px] px-4 py-4 space-y-4 ${messages.length === 0 && isReady ? "h-full" : ""}`}
+            >
               {!isReady ? (
                 <p className="text-sm text-muted-foreground">Loading notebook chat...</p>
               ) : messages.length === 0 ? (
@@ -642,8 +623,6 @@ function DirectoryChatPage() {
           >
             <ChatRightSidebar
               directory={decodedDirectory}
-              tab={rightSidebarTab}
-              onTabChange={setRightSidebarTab}
               onClose={() => setRightSidebarOpen(false)}
               className="w-full h-full"
             />
@@ -660,6 +639,8 @@ function DirectoryChatPage() {
           </div>
         ) : null}
       </div>
+
+      <SettingsModal directory={decodedDirectory} open={settingsModalOpen} onOpenChange={setSettingsModalOpen} />
     </div>
   )
 }
