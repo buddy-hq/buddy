@@ -8,9 +8,6 @@ import type {
 import type { TeachingPromptContext } from "./teaching-mode"
 import { apiFetch, requestJson, stringifyError } from "../lib/api-client"
 
-const POST_PROMPT_RESYNC_INTERVAL_MS = 250
-const POST_PROMPT_RESYNC_ATTEMPTS = 600
-
 export type AgentConfigOption = {
   name: string
   description?: string
@@ -39,20 +36,13 @@ export async function rememberProject(directory: string) {
     throw new Error("Please choose a project directory, not /")
   }
 
-  const store = useChatStore.getState()
-  store.ensureProject(normalized)
-
   const result = await requestJson<{ directory: string }>("", "/api/project", {
     method: "POST",
     body: { directory: normalized },
-  }).catch(() => ({ directory: normalized }))
+  })
 
   const nextDirectory = result.directory
-  const currentProjects = useChatStore.getState().projects
-  if (!currentProjects.includes(nextDirectory)) {
-    useChatStore.getState().setProjects([...currentProjects, nextDirectory])
-  }
-
+  useChatStore.getState().ensureProject(nextDirectory)
   return nextDirectory
 }
 
@@ -142,17 +132,15 @@ async function createSession(directory: string) {
 
 export async function ensureDirectorySession(directory: string) {
   const store = useChatStore.getState()
-  store.ensureProject(directory)
   store.setDirectoryReady(directory, false)
   store.clearDirectoryError(directory)
 
-  await rememberProject(directory).catch(() => undefined)
-
-  const current = store.directories[directory]
-  const storedSession = current?.sessionID ?? store.lastSessionByDirectory[directory]
-
   try {
-    const sessions = await loadSessions(directory)
+    const targetDirectory = await rememberProject(directory)
+    const state = useChatStore.getState()
+    const current = state.directories[targetDirectory]
+    const storedSession = current?.sessionID ?? state.lastSessionByDirectory[targetDirectory]
+    const sessions = await loadSessions(targetDirectory)
     const sessionByID = new Map(sessions.map((session) => [session.id, session]))
 
     let info: SessionInfo | undefined
@@ -166,22 +154,22 @@ export async function ensureDirectorySession(directory: string) {
 
     if (!info && storedSession) {
       info = await requestJson<SessionInfo>(
-        directory,
+        targetDirectory,
         `/api/session/${encodeURIComponent(storedSession)}`,
       ).catch(() => undefined)
     }
 
     if (!info) {
-      info = await createSession(directory)
-      void loadSessions(directory).catch(() => undefined)
+      info = await createSession(targetDirectory)
+      void loadSessions(targetDirectory).catch(() => undefined)
     } else {
-      store.setSessionInfo(directory, info)
+      store.setSessionInfo(targetDirectory, info)
     }
 
-    await loadMessages(directory, info.id)
-    await loadPermissions(directory)
-    await loadProviders(directory)
-    store.setDirectoryReady(directory, true)
+    await loadMessages(targetDirectory, info.id)
+    await loadPermissions(targetDirectory)
+    await loadProviders(targetDirectory)
+    store.setDirectoryReady(targetDirectory, true)
     return info
   } catch (error) {
     store.setDirectoryReady(directory, true)
@@ -232,8 +220,6 @@ export async function sendPrompt(
   store.clearDirectoryError(directory)
   store.applySessionStatus(directory, sessionID, "busy")
 
-  let promptRequestSettled = false
-  const canCompletePolling = () => promptRequestSettled
   try {
     console.info("[chat-action] prompt.start", {
       directory,
@@ -241,7 +227,7 @@ export async function sendPrompt(
       sessionID,
     })
 
-    const promptRequest = requestJson<MessageWithParts>(
+    await requestJson<MessageWithParts>(
       directory,
       `/api/session/${encodeURIComponent(sessionID)}/message`,
       {
@@ -252,12 +238,7 @@ export async function sendPrompt(
           ...(input?.teaching ? { teaching: input.teaching } : {}),
         },
       },
-    ).finally(() => {
-      promptRequestSettled = true
-    })
-
-    void pollPromptCompletion(directory, sessionID, canCompletePolling)
-    await promptRequest
+    )
 
     console.info("[chat-action] prompt.accepted", { directory, sessionID })
   } catch (error) {
@@ -308,6 +289,7 @@ export async function resyncDirectory(directory: string) {
   await loadPermissions(directory)
   await loadProviders(directory)
   if (!sessionID) return
+  if (shouldDeferTranscriptReload(directory, sessionID)) return
   await loadMessages(directory, sessionID)
 }
 
@@ -444,52 +426,11 @@ export async function loadAgentCatalog(directory: string) {
   return requestJson<AgentConfigOption[]>(directory, "/api/config/agents")
 }
 
-function sleep(ms: number) {
-  return new Promise<void>((resolve) => {
-    window.setTimeout(resolve, ms)
-  })
-}
-
-async function pollPromptCompletion(directory: string, sessionID: string, canComplete: () => boolean = () => true) {
-  for (let attempt = 1; attempt <= POST_PROMPT_RESYNC_ATTEMPTS; attempt += 1) {
-    await sleep(POST_PROMPT_RESYNC_INTERVAL_MS)
-    const snapshot = useChatStore.getState().directories[directory]
-    if (!snapshot) return
-    if (snapshot.sessionID !== sessionID) return
-
-    try {
-      await loadMessages(directory, sessionID)
-    } catch (error) {
-      console.warn("[chat-action] prompt.resync.failed", {
-        directory,
-        sessionID,
-        attempt,
-        error: stringifyError(error),
-      })
-      continue
-    }
-
-    const next = useChatStore.getState().directories[directory]
-    if (!next) return
-    if (next.sessionID !== sessionID) return
-    if (!next.isBusy) {
-      if (!canComplete() || attempt < 2) {
-        useChatStore.getState().applySessionStatus(directory, sessionID, "busy")
-        continue
-      }
-      console.info("[chat-action] prompt.resync.completed", {
-        directory,
-        sessionID,
-        attempt,
-      })
-      void loadSessions(directory).catch(() => undefined)
-      return
-    }
-  }
-
-  console.warn("[chat-action] prompt.resync.timeout", {
-    directory,
-    sessionID,
-    attempts: POST_PROMPT_RESYNC_ATTEMPTS,
-  })
+export function shouldDeferTranscriptReload(directory: string, sessionID?: string) {
+  const state = useChatStore.getState()
+  const snapshot = state.directories[directory]
+  if (!snapshot?.isBusy) return false
+  if (state.streamStatus !== "connected") return false
+  if (sessionID && snapshot.sessionID !== sessionID) return false
+  return true
 }
