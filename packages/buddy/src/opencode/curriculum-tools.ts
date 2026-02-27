@@ -2,7 +2,7 @@ import fs from "node:fs/promises"
 import z from "zod"
 import { CurriculumPath } from "../curriculum/curriculum-path.js"
 import { CurriculumService } from "../curriculum/curriculum-service.js"
-import { EditTool, Tool, WriteTool } from "@buddy/opencode-adapter/tool"
+import { EditTool, FileTime, Tool, WriteTool } from "@buddy/opencode-adapter/tool"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 
@@ -38,21 +38,29 @@ async function executeEditWithoutPrompt(
   })
 }
 
+async function syncCurriculumMirror(
+  ctx: Tool.Context,
+  directory: string,
+) {
+  const current = await CurriculumService.read(directory)
+  const filepath = current.path
+  const existing = await fs.readFile(filepath, "utf8").catch(() => undefined)
+
+  await fs.mkdir(CurriculumPath.directory(directory), { recursive: true })
+
+  if (existing !== current.markdown) {
+    await fs.writeFile(filepath, current.markdown, "utf8")
+  }
+
+  FileTime.read(ctx.sessionID, filepath)
+  return current
+}
+
 function curriculumReadTool(directory: string) {
   return Tool.define("curriculum_read", {
     description: "Read the current project curriculum markdown document.",
     parameters: z.object({}),
-    async execute(
-      _params: unknown,
-      ctx: {
-        ask(input: {
-          permission: string
-          patterns: string[]
-          always: string[]
-          metadata: Record<string, unknown>
-        }): Promise<void>
-      },
-    ) {
+    async execute(_params: unknown, ctx: Tool.Context) {
       const filepath = CurriculumPath.file(directory)
       await ctx.ask({
         permission: "curriculum_read",
@@ -63,7 +71,7 @@ function curriculumReadTool(directory: string) {
         },
       })
 
-      const current = await CurriculumService.read(directory)
+      const current = await syncCurriculumMirror(ctx, directory)
       return {
         title: "curriculum.md",
         output: current.markdown,
@@ -110,6 +118,7 @@ function curriculumUpdateTool(directory: string) {
 
       if (typeof params.markdown === "string") {
         const markdown = params.markdown
+        await syncCurriculumMirror(ctx, directory)
         const writeResult = await executeWriteWithoutPrompt(ctx, {
           filePath: filepath,
           content: markdown,
@@ -117,9 +126,7 @@ function curriculumUpdateTool(directory: string) {
         saved = await CurriculumService.persist(directory, markdown)
         output = writeResult.output.replace("Wrote file successfully.", `Updated curriculum at ${saved.path}`)
       } else {
-        const current = await CurriculumService.read(directory)
-        await fs.mkdir(CurriculumPath.directory(directory), { recursive: true })
-        await fs.writeFile(filepath, current.markdown, "utf8")
+        await syncCurriculumMirror(ctx, directory)
 
         const editResult = await executeEditWithoutPrompt(ctx, {
           filePath: filepath,
