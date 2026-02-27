@@ -13,6 +13,61 @@ type SyncHandlers = {
 
 const FRAME_MS = 16
 
+function findSseEventBoundary(buffer: string) {
+  const match = /\r?\n\r?\n/.exec(buffer)
+  if (!match) return undefined
+
+  return {
+    index: match.index,
+    length: match[0].length,
+  }
+}
+
+function parseSseEventChunk(chunk: string) {
+  const payload: string[] = []
+
+  for (const line of chunk.split(/\r?\n/)) {
+    if (!line || line.startsWith(":")) continue
+
+    const separator = line.indexOf(":")
+    const field = separator === -1 ? line : line.slice(0, separator)
+    let value = separator === -1 ? "" : line.slice(separator + 1)
+    if (value.startsWith(" ")) {
+      value = value.slice(1)
+    }
+
+    if (field === "data") {
+      payload.push(value)
+    }
+  }
+
+  if (payload.length === 0) return undefined
+  return payload.join("\n")
+}
+
+export function consumeSseBuffer(buffer: string) {
+  const messages: string[] = []
+  let rest = buffer
+
+  while (true) {
+    const boundary = findSseEventBoundary(rest)
+    if (!boundary) break
+
+    const chunk = rest.slice(0, boundary.index)
+    rest = rest.slice(boundary.index + boundary.length)
+
+    const message = parseSseEventChunk(chunk)
+    if (message !== undefined) {
+      messages.push(message)
+    }
+  }
+
+  return {
+    messages,
+    rest,
+  }
+}
+
 function eventKey(event: GlobalEvent) {
   const directory = event.directory ?? "global"
   const payload = event.payload
@@ -39,7 +94,10 @@ export function startChatSync(handlers: SyncHandlers) {
   let opened = false
   let queue: Array<GlobalEvent | undefined> = []
   const coalesced = new Map<string, number>()
+  const staleDeltas = new Set<string>()
   let flushTimer: number | undefined
+
+  const deltaKey = (directory: string, messageID: string, partID: string) => `${directory}:${messageID}:${partID}`
 
   const clearReconnect = () => {
     if (reconnectTimer === undefined) return
@@ -67,11 +125,27 @@ export function startChatSync(handlers: SyncHandlers) {
 
     if (queue.length === 0) return
     const events = queue
+    const skip = staleDeltas.size > 0 ? new Set(staleDeltas) : undefined
     queue = []
     coalesced.clear()
+    staleDeltas.clear()
 
     for (const event of events) {
       if (!event) continue
+      if (skip && event.payload.type === "message.part.delta") {
+        const props = event.payload.properties
+        if (
+          skip.has(
+            deltaKey(
+              event.directory ?? "global",
+              String(props.messageID ?? ""),
+              String(props.partID ?? ""),
+            ),
+          )
+        ) {
+          continue
+        }
+      }
       handlers.onEvent(event)
     }
   }
@@ -113,6 +187,12 @@ export function startChatSync(handlers: SyncHandlers) {
           const existing = coalesced.get(key)
           if (existing !== undefined) {
             queue[existing] = event
+            if (payloadType === "message.part.updated") {
+              const part = event.payload.properties.part as { messageID?: string; id?: string } | undefined
+              if (part?.messageID && part.id) {
+                staleDeltas.add(deltaKey(event.directory ?? "global", part.messageID, part.id))
+              }
+            }
             return
           }
           coalesced.set(key, queue.length)
@@ -166,25 +246,23 @@ export function startChatSync(handlers: SyncHandlers) {
 
           while (!disposed) {
             const result = await reader.read()
-            if (result.done) break
+            if (result.done) {
+              buffer += decoder.decode()
+              break
+            }
 
             buffer += decoder.decode(result.value, { stream: true })
+            const parsed = consumeSseBuffer(buffer)
+            buffer = parsed.rest
 
-            while (true) {
-              const boundary = buffer.indexOf("\n\n")
-              if (boundary === -1) break
-
-              const chunk = buffer.slice(0, boundary)
-              buffer = buffer.slice(boundary + 2)
-
-              const lines = chunk
-                .split(/\r?\n/)
-                .filter((line) => line.startsWith("data:"))
-                .map((line) => line.slice(5).trimStart())
-
-              if (lines.length === 0) continue
-              handleParsedEvent(lines.join("\n"))
+            for (const message of parsed.messages) {
+              handleParsedEvent(message)
             }
+          }
+
+          const parsed = consumeSseBuffer(buffer)
+          for (const message of parsed.messages) {
+            handleParsedEvent(message)
           }
         } catch (error) {
           if (disposed) return
