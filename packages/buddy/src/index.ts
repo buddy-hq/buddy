@@ -3,7 +3,9 @@ import { Hono, type Context } from "hono"
 import { openAPIRouteHandler } from "hono-openapi"
 import { cors } from "hono/cors"
 import { logger } from "hono/logger"
+import { setConfigOverlay } from "@buddy/opencode-adapter/config"
 import { Config, InvalidError, JsonError } from "./config/config.js"
+import { Agent as BuddyAgent } from "./agent/agent.js"
 import { CurriculumService } from "./curriculum/curriculum-service.js"
 import { COMPATIBILITY_OPENAPI_PATHS } from "./openapi/compatibility-doc.js"
 import { ensureCurriculumToolsRegistered } from "./opencode/curriculum-tools.js"
@@ -12,7 +14,12 @@ import { allowedDirectoryRoots, isAllowedDirectory, resolveDirectory } from "./p
 import { Instance as BuddyInstance } from "./project/instance.js"
 import { Provider } from "./provider/provider.js"
 import { CurriculumRoutes } from "./routes/curriculum.js"
+import { TeachingRoutes } from "./routes/teaching.js"
 import { condenseCurriculum, loadBehavior } from "./session/system-prompt.js"
+import CODE_TEACHER_PROMPT from "./session/prompts/code-teacher.txt"
+import { TeachingService } from "./teaching/teaching-service.js"
+import { ensureTeachingToolsRegistered } from "./teaching/teaching-tools.js"
+import { TeachingPromptContextSchema, type TeachingPromptContext } from "./teaching/types.js"
 
 const app = new Hono()
 const api = new Hono()
@@ -99,9 +106,14 @@ async function fetchOpenCode(input: {
   registerTools?: boolean
 }) {
   if (input.registerTools === true) {
-    await ensureCurriculumToolsRegistered(input.directory).catch((error) => {
-      console.warn("Failed to register Buddy curriculum tools into OpenCode runtime:", error)
-    })
+    await Promise.all([
+      ensureCurriculumToolsRegistered(input.directory).catch((error) => {
+        console.warn("Failed to register Buddy curriculum tools into OpenCode runtime:", error)
+      }),
+      ensureTeachingToolsRegistered(input.directory).catch((error) => {
+        console.warn("Failed to register Buddy teaching tools into OpenCode runtime:", error)
+      }),
+    ])
   }
 
   const openCodeApp = await loadOpenCodeApp()
@@ -200,19 +212,129 @@ function configErrorMessage(error: unknown) {
   return "Invalid config"
 }
 
-async function buildBuddySystemPrompt(directory: string) {
+function buildOpenCodeConfigOverlay() {
+  return {
+    agent: {
+      "code-teacher": {
+        description: "Interactive code teaching agent for the in-app lesson editor.",
+        mode: "primary" as const,
+        prompt: CODE_TEACHER_PROMPT.trim(),
+        steps: 8,
+        permission: {
+          question: "allow" as const,
+          plan_enter: "allow" as const,
+          teaching_checkpoint: "allow" as const,
+          teaching_set_lesson: "allow" as const,
+          teaching_restore_checkpoint: "allow" as const,
+          task: "deny" as const,
+          todoread: "deny" as const,
+          todowrite: "deny" as const,
+        },
+      },
+    },
+  }
+}
+
+function isCompletionClaim(value: string) {
+  const normalized = value.trim().toLowerCase()
+  if (!normalized) return false
+  return /^(done|finished|complete|completed|ready|next|go ahead|go on|move on|continue)\b/.test(normalized)
+}
+
+function formatTeachingPromptContext(input: TeachingPromptContext & { changedSinceCheckpoint?: boolean }) {
+  const parts = [
+    "<teaching_workspace>",
+    `Session: ${input.sessionID}`,
+    `Lesson file: ${input.lessonFilePath}`,
+    `Checkpoint file: ${input.checkpointFilePath}`,
+    `Language: ${input.language}`,
+    `Revision: ${input.revision}`,
+  ]
+
+  if (typeof input.changedSinceCheckpoint === "boolean") {
+    parts.push(`Checkpoint status: ${input.changedSinceCheckpoint ? "pending acceptance" : "accepted"}`)
+  }
+
+  if (
+    input.selectionStartLine &&
+    input.selectionStartColumn &&
+    input.selectionEndLine &&
+    input.selectionEndColumn
+  ) {
+    parts.push(
+      `Selection: L${input.selectionStartLine}:C${input.selectionStartColumn}-L${input.selectionEndLine}:C${input.selectionEndColumn}`,
+    )
+  }
+
+  parts.push(
+    "The lesson file is the in-app editor surface. Prefer reading and editing that file directly when guiding the learner.",
+  )
+  parts.push("</teaching_workspace>")
+  return parts.join("\n")
+}
+
+function formatTeachingPolicy(input: { completionClaim: boolean; changedSinceCheckpoint?: boolean }) {
+  const parts = [
+    "<teaching_policy>",
+    "The learner must stay on the current exercise until their work has been verified and accepted.",
+    "Do not treat a short status message such as 'done' or 'ready' as proof that the exercise is correct.",
+    "Before advancing, read the lesson file and verify it satisfies the current exercise requirements.",
+    "If a deterministic checker exists for the exercise, use it as the source of truth. Otherwise verify conservatively from the lesson file and do not advance when uncertain.",
+    "If the work is incomplete or incorrect, keep the learner on the same lesson, explain the exact gap, and ask for one concrete fix.",
+    "Only after the current exercise is verified should you accept it and move forward.",
+    "When you need to replace the whole lesson scaffold or move to a new exercise, use the teaching_set_lesson tool so the editor file and checkpoint stay synchronized.",
+    "Do not replace the entire lesson file with a raw write when teaching_set_lesson is the appropriate tool.",
+  ]
+
+  if (input.changedSinceCheckpoint === true) {
+    parts.push("There are unaccepted changes since the last teaching checkpoint. The current exercise has not been accepted yet.")
+  }
+
+  if (input.completionClaim) {
+    parts.push("The learner's latest message is only a completion claim. It is a request to verify the current exercise, not permission to advance automatically.")
+  }
+
+  parts.push("</teaching_policy>")
+  return parts.join("\n")
+}
+
+async function buildBuddySystemPrompt(input: {
+  directory: string
+  agentName?: string
+  teachingContext?: TeachingPromptContext
+  userContent?: string
+}) {
   const parts: string[] = []
-  const behavior = loadBehavior().trim()
+  const includeBehavior = input.agentName !== "code-teacher"
+  const behavior = includeBehavior ? loadBehavior().trim() : ""
   if (behavior) {
     parts.push(behavior)
   }
 
-  const curriculum = await CurriculumService.peek(directory).catch(() => undefined)
+  const curriculum = await CurriculumService.peek(input.directory).catch(() => undefined)
   if (curriculum?.markdown) {
     const condensed = condenseCurriculum(curriculum.markdown).trim()
     if (condensed) {
       parts.push(["<curriculum>", `Path: ${curriculum.path}`, condensed, "</curriculum>"].join("\n"))
     }
+  }
+
+  if (input.agentName === "code-teacher" && input.teachingContext?.active) {
+    const checkpointStatus = await TeachingService.status(input.directory, input.teachingContext.sessionID).catch(() => undefined)
+    const completionClaim = isCompletionClaim(input.userContent ?? "")
+
+    parts.push(
+      formatTeachingPromptContext({
+        ...input.teachingContext,
+        changedSinceCheckpoint: checkpointStatus?.changedSinceLastCheckpoint,
+      }),
+    )
+    parts.push(
+      formatTeachingPolicy({
+        completionClaim,
+        changedSinceCheckpoint: checkpointStatus?.changedSinceLastCheckpoint,
+      }),
+    )
   }
 
   return parts.join("\n\n").trim()
@@ -247,7 +369,12 @@ async function syncOpenCodeProjectConfig(directory: string, force = false) {
 
   const task = (async () => {
     const config = await readProjectConfig(directory)
-    const nextFingerprint = stableSerialize(config)
+    const overlay = buildOpenCodeConfigOverlay()
+    setConfigOverlay(directory, overlay)
+    const nextFingerprint = stableSerialize({
+      config,
+      overlay,
+    })
     const previousFingerprint = openCodeConfigFingerprint.get(directory)
     if (!force && previousFingerprint === nextFingerprint) {
       return
@@ -302,6 +429,7 @@ async function isSessionInRequestedProject(directory: string, session: unknown) 
 }
 
 api.route("/curriculum", CurriculumRoutes())
+api.route("/teaching", TeachingRoutes({ ensureAllowedDirectory }))
 
 api.get("/health", async (c) => {
   return proxyToOpenCode(c, {
@@ -363,12 +491,9 @@ api.get("/config/agents", async (c) => {
   const directoryResult = ensureAllowedDirectory(c.req.raw)
   if (!directoryResult.ok) return directoryResult.response
 
-  const { Agent: OpenCodeAgent } = await import("@buddy/opencode-adapter/agent")
-  const { Instance: OpenCodeInstance } = await import("@buddy/opencode-adapter/instance")
-
-  const agents = await OpenCodeInstance.provide({
+  const agents = await BuddyInstance.provide({
     directory: directoryResult.directory,
-    fn: () => OpenCodeAgent.list(),
+    fn: () => BuddyAgent.list(),
   })
 
   return c.json(
@@ -533,6 +658,10 @@ api.post("/session/:sessionID/message", async (c) => {
     async transformJsonBody(body) {
       const parts = Array.isArray(body.parts) ? [...body.parts] : []
       const content = typeof body.content === "string" ? body.content : ""
+      const teachingContext = TeachingPromptContextSchema.safeParse(body.teaching).success
+        ? TeachingPromptContextSchema.parse(body.teaching)
+        : undefined
+      const agentName = typeof body.agent === "string" ? body.agent : undefined
       if (content.trim().length > 0) {
         parts.unshift({
           type: "text",
@@ -549,12 +678,21 @@ api.post("/session/:sessionID/message", async (c) => {
         parts,
       } as Record<string, unknown>
       const existingSystem = typeof body.system === "string" ? body.system.trim() : ""
-      const buddySystem = await buildBuddySystemPrompt(directoryResult.directory)
+      const buddySystem = await buildBuddySystemPrompt({
+        directory: directoryResult.directory,
+        agentName,
+        teachingContext,
+        userContent: content,
+      })
       const mergedSystem = [existingSystem, buddySystem].filter(Boolean).join("\n\n").trim()
       if (mergedSystem) {
         transformed.system = mergedSystem
       }
+      if (agentName) {
+        transformed.agent = agentName
+      }
       delete (transformed as { content?: string }).content
+      delete (transformed as { teaching?: unknown }).teaching
       return transformed
     },
     forceBusyAs409: true,

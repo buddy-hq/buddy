@@ -11,7 +11,8 @@
     "./server": "./src/server.ts",
     "./instance": "./src/instance.ts",
     "./agent": "./src/agent.ts",
-    "./registry": "./src/registry.ts"
+    "./registry": "./src/registry.ts",
+    "./config": "./src/config.ts"
   },
   "scripts": {
     "typecheck": "tsgo --noEmit"

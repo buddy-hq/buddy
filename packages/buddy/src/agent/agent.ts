@@ -7,6 +7,7 @@ import { Instance } from "../project/instance.js"
 import { Global } from "../storage/global.js"
 import { Truncate } from "../opencode/vendor.js"
 import CURRICULUM_BUILDER_PROMPT from "./prompts/curriculum-builder.txt"
+import CODE_TEACHER_PROMPT from "../session/prompts/code-teacher.txt"
 
 function parseModelID(model: string) {
   const index = model.indexOf("/")
@@ -79,6 +80,31 @@ export namespace Agent {
             plan_enter: "allow",
           }),
           user,
+        ),
+        mode: "primary",
+        native: true,
+        options: {},
+        steps: 8,
+      },
+      "code-teacher": {
+        name: "code-teacher",
+        description: "Interactive code teaching agent for the in-app lesson editor.",
+        prompt: CODE_TEACHER_PROMPT,
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            question: "allow",
+            plan_enter: "allow",
+            teaching_checkpoint: "allow",
+            teaching_set_lesson: "allow",
+            teaching_restore_checkpoint: "allow",
+          }),
+          user,
+          PermissionNext.fromConfig({
+            task: "deny",
+            todoread: "deny",
+            todowrite: "deny",
+          }),
         ),
         mode: "primary",
         native: true,

@@ -12,6 +12,7 @@
     "test:parity": "bun test --preload ./happydom.ts test/parity"
   },
   "dependencies": {
+    "@monaco-editor/react": "^4.7.0",
     "@buddy/sdk": "workspace:*",
     "@buddy/ui": "workspace:*",
     "@tanstack/react-query": "^5.0.0",
@@ -22,6 +23,7 @@
     "marked": "^17.0.1",
     "marked-katex-extension": "^5.1.5",
     "marked-shiki": "^1.2.1",
+    "monaco-editor": "^0.52.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "shiki": "^3.20.0",

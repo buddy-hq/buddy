@@ -9,6 +9,7 @@ import { ChatLeftSidebar } from "@/components/layout/chat-left-sidebar"
 import { ChatRightSidebar } from "@/components/layout/chat-right-sidebar"
 import { ResizeHandle } from "@/components/layout/resize-handle"
 import { SettingsModal } from "@/components/settings-modal"
+import { TeachingEditorPanel } from "@/components/teaching/teaching-editor-panel"
 import { getFilename } from "@/components/layout/sidebar-helpers"
 import { PromptComposer } from "@/components/prompt/prompt-composer"
 import {
@@ -22,9 +23,12 @@ import {
 import { pickProjectDirectory } from "../lib/directory-picker"
 import { decodeDirectory, encodeDirectory } from "../lib/directory-token"
 import {
+  type AgentConfigOption,
   abortPrompt,
   ensureDirectorySession,
+  loadAgentCatalog,
   loadPermissions,
+  loadProjectConfig,
   loadMessages,
   loadSessions,
   replyPermission,
@@ -37,6 +41,16 @@ import {
 import { useChatStore } from "../state/chat-store"
 import { startChatSync } from "../state/chat-sync"
 import type { GlobalEvent, MessageInfo, MessagePart, PermissionRequest, SessionInfo } from "../state/chat-types"
+import {
+  checkpointTeachingWorkspace,
+  ensureTeachingWorkspace,
+  loadTeachingWorkspace,
+  restoreTeachingWorkspace,
+  saveTeachingWorkspace,
+  stringifyError,
+  TeachingConflictError,
+} from "../state/teaching-actions"
+import { teachingSessionKey, useTeachingMode, type TeachingLanguage } from "../state/teaching-mode"
 import { useUiPreferences } from "../state/ui-preferences"
 
 export const Route = createFileRoute("/$directory/chat")({
@@ -48,6 +62,8 @@ const SIDEBAR_MIN_WIDTH = 244
 const SIDEBAR_DEFAULT_MAX_WIDTH = 1000
 const RIGHT_SIDEBAR_MIN_WIDTH = 200
 const RIGHT_SIDEBAR_MAX_WIDTH = 480
+const RIGHT_SIDEBAR_EDITOR_MIN_WIDTH = 360
+const RIGHT_SIDEBAR_EDITOR_MAX_WIDTH = 960
 const RIGHT_SIDEBAR_COLLAPSE_THRESHOLD = 160
 
 async function copyToClipboard(text: string) {
@@ -95,8 +111,13 @@ function DirectoryChatPage() {
   const navigate = useNavigate()
   const [draft, setDraft] = useState("")
   const transcriptRef = useRef<HTMLElement | null>(null)
+  const saveInFlightRef = useRef<Promise<boolean> | null>(null)
+  const previousBusyRef = useRef(false)
+  const teachingSessionInitializedRef = useRef(new Set<string>())
   const [stickToBottom, setStickToBottom] = useState(true)
   const [settingsModalOpen, setSettingsModalOpen] = useState(false)
+  const [agentOptions, setAgentOptions] = useState<AgentConfigOption[]>([])
+  const [defaultAgent, setDefaultAgent] = useState("build")
 
   const decodedDirectory = useMemo(() => {
     try {
@@ -120,21 +141,25 @@ function DirectoryChatPage() {
   const applyPartDelta = useChatStore((state) => state.applyPartDelta)
   const applyPermissionAsked = useChatStore((state) => state.applyPermissionAsked)
   const applyPermissionReplied = useChatStore((state) => state.applyPermissionReplied)
+  const setDirectoryError = useChatStore((state) => state.setDirectoryError)
 
   const leftSidebarOpen = useUiPreferences((state) => state.leftSidebarOpen)
   const leftSidebarWidth = useUiPreferences((state) => state.leftSidebarWidth)
   const rightSidebarOpen = useUiPreferences((state) => state.rightSidebarOpen)
   const rightSidebarWidth = useUiPreferences((state) => state.rightSidebarWidth)
+  const rightSidebarTab = useUiPreferences((state) => state.rightSidebarTab)
   const pinnedByDirectory = useUiPreferences((state) => state.pinnedByDirectory)
   const unreadByDirectory = useUiPreferences((state) => state.unreadByDirectory)
   const setLeftSidebarOpen = useUiPreferences((state) => state.setLeftSidebarOpen)
   const setLeftSidebarWidth = useUiPreferences((state) => state.setLeftSidebarWidth)
   const setRightSidebarOpen = useUiPreferences((state) => state.setRightSidebarOpen)
   const setRightSidebarWidth = useUiPreferences((state) => state.setRightSidebarWidth)
+  const setRightSidebarTab = useUiPreferences((state) => state.setRightSidebarTab)
   const togglePinned = useUiPreferences((state) => state.togglePinned)
   const markUnread = useUiPreferences((state) => state.markUnread)
   const clearUnread = useUiPreferences((state) => state.clearUnread)
   const clearDirectorySessionState = useUiPreferences((state) => state.clearDirectorySessionState)
+  const teachingMode = useTeachingMode()
 
   const sessionID = directoryState?.sessionID
   const sessions = directoryState?.sessions ?? []
@@ -160,9 +185,20 @@ function DirectoryChatPage() {
       ) as Record<string, Record<string, "busy" | "idle">>,
     [allDirectoryStates, projects],
   )
-  const unreadSessionMap = unreadByDirectory[decodedDirectory] ?? {}
   const showDevSessionTrace = import.meta.env.DEV
   const leftSidebarMaxWidth = typeof window === "undefined" ? SIDEBAR_DEFAULT_MAX_WIDTH : window.innerWidth * 0.3 + 64
+  const sessionKey = useMemo(
+    () => (decodedDirectory && sessionID ? teachingSessionKey(decodedDirectory, sessionID) : ""),
+    [decodedDirectory, sessionID],
+  )
+  const selectedAgent = sessionKey ? teachingMode.selectedAgentBySession[sessionKey] ?? defaultAgent : defaultAgent
+  const teachingWorkspace = sessionKey ? teachingMode.workspaceBySession[sessionKey] : undefined
+  const isTeachingMode = !!sessionID && selectedAgent === "code-teacher"
+  const effectiveRightSidebarTab = !isTeachingMode && rightSidebarTab === "editor" ? "curriculum" : rightSidebarTab
+  const editorPanelOpen = rightSidebarOpen && effectiveRightSidebarTab === "editor"
+  const rightSidebarMinWidth = editorPanelOpen ? RIGHT_SIDEBAR_EDITOR_MIN_WIDTH : RIGHT_SIDEBAR_MIN_WIDTH
+  const rightSidebarMaxWidth = editorPanelOpen ? RIGHT_SIDEBAR_EDITOR_MAX_WIDTH : RIGHT_SIDEBAR_MAX_WIDTH
+  const rightSidebarDisplayWidth = Math.min(Math.max(rightSidebarWidth, rightSidebarMinWidth), rightSidebarMaxWidth)
 
   useEffect(() => {
     if (!decodedDirectory) return
@@ -171,6 +207,36 @@ function DirectoryChatPage() {
     setActiveDirectory(decodedDirectory)
     void ensureDirectorySession(decodedDirectory)
   }, [decodedDirectory, ensureProject, setActiveDirectory])
+
+  useEffect(() => {
+    if (!decodedDirectory) return
+
+    let cancelled = false
+
+    Promise.all([loadAgentCatalog(decodedDirectory), loadProjectConfig(decodedDirectory)])
+      .then(([agents, config]) => {
+        if (cancelled) return
+
+        const selectableAgents = agents.filter((agent) => agent.mode !== "subagent" && !agent.hidden)
+        const configuredDefault =
+          typeof config.default_agent === "string" &&
+          selectableAgents.some((agent) => agent.name === config.default_agent)
+            ? config.default_agent
+            : "build"
+
+        setAgentOptions(selectableAgents)
+        setDefaultAgent(configuredDefault)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setAgentOptions([])
+        setDefaultAgent("build")
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [decodedDirectory])
 
   useEffect(() => {
     if (!decodedDirectory) return
@@ -298,14 +364,209 @@ function DirectoryChatPage() {
     setStickToBottom(distanceFromBottom <= BOTTOM_THRESHOLD_PX)
   }
 
+  useEffect(() => {
+    if (!decodedDirectory || !sessionID || !isTeachingMode || !sessionKey) return
+
+    if (!teachingSessionInitializedRef.current.has(sessionKey)) {
+      teachingSessionInitializedRef.current.add(sessionKey)
+      const ui = useUiPreferences.getState()
+      ui.setRightSidebarTab("editor")
+      ui.setRightSidebarOpen(true)
+      if (ui.rightSidebarWidth < RIGHT_SIDEBAR_EDITOR_MIN_WIDTH) {
+        ui.setRightSidebarWidth(640)
+      }
+    }
+
+    let cancelled = false
+
+    if (teachingWorkspace) {
+      return () => {
+        cancelled = true
+      }
+    }
+
+    void ensureTeachingWorkspace({
+      directory: decodedDirectory,
+      sessionID,
+      language: "ts",
+    })
+      .then((workspace) => {
+        if (cancelled) return
+        useTeachingMode.getState().setWorkspace(sessionKey, workspace)
+      })
+      .catch((workspaceError) => {
+        if (cancelled) return
+        const message = stringifyError(workspaceError)
+        setDirectoryError(decodedDirectory, message)
+        useTeachingMode.getState().setSaveError(sessionKey, message)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [
+    decodedDirectory,
+    isTeachingMode,
+    sessionID,
+    sessionKey,
+    setDirectoryError,
+    teachingWorkspace,
+  ])
+
+  useEffect(() => {
+    if (!decodedDirectory || !sessionID || !isTeachingMode || !sessionKey || !teachingWorkspace) {
+      previousBusyRef.current = isBusy
+      return
+    }
+
+    if (previousBusyRef.current && !isBusy) {
+      void loadTeachingWorkspace({
+        directory: decodedDirectory,
+        sessionID,
+      })
+        .then((workspace) => {
+          useTeachingMode.getState().applyRemoteSnapshot(sessionKey, workspace)
+        })
+        .catch((workspaceError) => {
+          useTeachingMode.getState().setSaveError(sessionKey, stringifyError(workspaceError))
+        })
+    }
+
+    previousBusyRef.current = isBusy
+  }, [decodedDirectory, isBusy, isTeachingMode, sessionID, sessionKey, teachingWorkspace])
+
+  async function flushTeachingWorkspace(input?: {
+    forceOverwrite?: boolean
+    language?: TeachingLanguage
+  }) {
+    if (!decodedDirectory || !sessionID || !isTeachingMode || !sessionKey) {
+      return true
+    }
+
+    if (saveInFlightRef.current) {
+      const inFlight = saveInFlightRef.current
+      const settled = await inFlight
+      if (!settled) return false
+    }
+
+    const latest = useTeachingMode.getState().workspaceBySession[sessionKey]
+    if (!latest) {
+      const message = "Teaching workspace is still loading"
+      useTeachingMode.getState().setSaveError(sessionKey, message)
+      return false
+    }
+
+    if (latest.conflict && !input?.forceOverwrite) {
+      return false
+    }
+
+    const nextLanguage = input?.language ?? latest.language
+    const hasChanges = latest.code !== latest.savedCode || nextLanguage !== latest.language || !!input?.forceOverwrite
+
+    if (!hasChanges) {
+      return true
+    }
+
+    const expectedRevision = input?.forceOverwrite && latest.conflict ? latest.conflict.revision : latest.revision
+    const requestCode = latest.code
+
+    const task = (async () => {
+      useTeachingMode.getState().setPendingSave(sessionKey, true)
+      useTeachingMode.getState().setSaveError(sessionKey, undefined)
+
+      try {
+        const saved = await saveTeachingWorkspace({
+          directory: decodedDirectory,
+          sessionID,
+          code: requestCode,
+          expectedRevision,
+          language: nextLanguage,
+        })
+
+        useTeachingMode.getState().applySaveSuccess(sessionKey, {
+          requestCode,
+          workspace: saved,
+        })
+        return true
+      } catch (saveError) {
+        if (saveError instanceof TeachingConflictError) {
+          useTeachingMode.getState().setConflict(sessionKey, {
+            code: saveError.payload.code,
+            revision: saveError.payload.revision,
+            lessonFilePath: saveError.payload.lessonFilePath,
+          })
+          return false
+        }
+
+        useTeachingMode.getState().setPendingSave(sessionKey, false)
+        useTeachingMode.getState().setSaveError(sessionKey, stringifyError(saveError))
+        return false
+      }
+    })()
+
+    saveInFlightRef.current = task
+
+    try {
+      return await task
+    } finally {
+      if (saveInFlightRef.current === task) {
+        saveInFlightRef.current = null
+      }
+    }
+  }
+
+  useEffect(() => {
+    if (!decodedDirectory || !sessionID || !isTeachingMode || !sessionKey || !teachingWorkspace) return
+    if (teachingWorkspace.conflict) return
+    if (teachingWorkspace.code === teachingWorkspace.savedCode) return
+
+    const timeout = window.setTimeout(() => {
+      void flushTeachingWorkspace()
+    }, 500)
+
+    return () => {
+      window.clearTimeout(timeout)
+    }
+  }, [
+    decodedDirectory,
+    isTeachingMode,
+    sessionID,
+    sessionKey,
+    teachingWorkspace?.code,
+    teachingWorkspace?.savedCode,
+    teachingWorkspace?.conflict,
+  ])
+
   async function onSend() {
     if (!decodedDirectory) return
     const content = draft.trim()
     if (!content) return
 
+    if (isTeachingMode) {
+      const ready = await flushTeachingWorkspace()
+      if (!ready) return
+    }
+
+    const activeWorkspace = sessionKey ? useTeachingMode.getState().workspaceBySession[sessionKey] : undefined
+    const teachingContext =
+      isTeachingMode && activeWorkspace
+        ? {
+            active: true,
+            sessionID: activeWorkspace.sessionID,
+            lessonFilePath: activeWorkspace.lessonFilePath,
+            checkpointFilePath: activeWorkspace.checkpointFilePath,
+            language: activeWorkspace.language,
+            revision: activeWorkspace.revision,
+            ...(activeWorkspace.selection ?? {}),
+          }
+        : undefined
+
     setDraft("")
     try {
-      await sendPrompt(decodedDirectory, content)
+      await sendPrompt(decodedDirectory, content, {
+        agent: selectedAgent,
+        teaching: teachingContext,
+      })
     } catch {
       setDraft(content)
     }
@@ -432,11 +693,106 @@ function DirectoryChatPage() {
   }
 
   function openCurriculumPanel() {
+    setRightSidebarTab("curriculum")
     setRightSidebarOpen(true)
   }
 
   function openSettingsPanel() {
     setSettingsModalOpen(true)
+  }
+
+  function onAgentChange(agent: string) {
+    if (!sessionKey) return
+    teachingMode.setSessionAgent(sessionKey, agent)
+  }
+
+  function onTeachingCodeChange(code: string) {
+    if (!sessionKey) return
+    useTeachingMode.getState().updateWorkspaceCode(sessionKey, code)
+  }
+
+  function onTeachingSelectionChange(selection?: {
+    selectionStartLine?: number
+    selectionStartColumn?: number
+    selectionEndLine?: number
+    selectionEndColumn?: number
+  }) {
+    if (!sessionKey) return
+    useTeachingMode.getState().setSelection(sessionKey, selection)
+  }
+
+  function onTeachingLanguageChange(language: TeachingLanguage) {
+    void flushTeachingWorkspace({ language })
+  }
+
+  function onToggleTeachingEditor() {
+    if (!isTeachingMode) return
+    if (editorPanelOpen) {
+      setRightSidebarOpen(false)
+      return
+    }
+    setRightSidebarTab("editor")
+    if (rightSidebarWidth < RIGHT_SIDEBAR_EDITOR_MIN_WIDTH) {
+      setRightSidebarWidth(640)
+    }
+    setRightSidebarOpen(true)
+  }
+
+  function onToggleRightSidebar() {
+    if (rightSidebarOpen) {
+      setRightSidebarOpen(false)
+      return
+    }
+
+    if (!isTeachingMode && rightSidebarTab === "editor") {
+      setRightSidebarTab("curriculum")
+    }
+
+    if ((isTeachingMode ? effectiveRightSidebarTab : rightSidebarTab) === "editor" && rightSidebarWidth < RIGHT_SIDEBAR_EDITOR_MIN_WIDTH) {
+      setRightSidebarWidth(640)
+    }
+
+    setRightSidebarOpen(true)
+  }
+
+  function onLoadExternalChanges() {
+    if (!sessionKey) return
+    useTeachingMode.getState().loadConflictVersion(sessionKey)
+  }
+
+  function onForceOverwrite() {
+    void flushTeachingWorkspace({ forceOverwrite: true })
+  }
+
+  async function onTeachingCheckpoint() {
+    if (!decodedDirectory || !sessionID || !sessionKey) return
+    const ready = await flushTeachingWorkspace()
+    if (!ready) return
+
+    try {
+      await checkpointTeachingWorkspace({
+        directory: decodedDirectory,
+        sessionID,
+      })
+      useTeachingMode.getState().setSaveError(sessionKey, undefined)
+    } catch (checkpointError) {
+      useTeachingMode.getState().setSaveError(sessionKey, stringifyError(checkpointError))
+    }
+  }
+
+  async function onTeachingRestoreAccepted() {
+    if (!decodedDirectory || !sessionID || !sessionKey) return
+
+    try {
+      const workspace = await restoreTeachingWorkspace({
+        directory: decodedDirectory,
+        sessionID,
+      })
+      useTeachingMode.getState().setWorkspace(sessionKey, workspace)
+      useTeachingMode.getState().setSaveError(sessionKey, undefined)
+    } catch (restoreError) {
+      useTeachingMode.getState().setSaveError(sessionKey, stringifyError(restoreError))
+    }
   }
 
   if (!decodedDirectory) {
@@ -512,6 +868,16 @@ function DirectoryChatPage() {
 
               <div className="flex items-center gap-1.5">
                 <SessionContextUsage messages={messages} providers={providers} />
+                {isTeachingMode ? (
+                  <Button
+                    variant={editorPanelOpen ? "secondary" : "ghost"}
+                    size="sm"
+                    onClick={onToggleTeachingEditor}
+                    title={editorPanelOpen ? "Hide editor" : "Show editor"}
+                  >
+                    Editor
+                  </Button>
+                ) : null}
                 <Button variant="ghost" size="icon-xs" onClick={openCurriculumPanel} title="Open curriculum">
                   <BookOpenIcon className="size-3.5" />
                 </Button>
@@ -521,7 +887,7 @@ function DirectoryChatPage() {
                 <Button
                   variant="ghost"
                   size="icon-xs"
-                  onClick={() => setRightSidebarOpen(!rightSidebarOpen)}
+                  onClick={onToggleRightSidebar}
                   title={rightSidebarOpen ? "Collapse right panel" : "Expand right panel"}
                 >
                   {rightSidebarOpen ? (
@@ -553,85 +919,123 @@ function DirectoryChatPage() {
             </div>
           </header>
 
-          <section ref={transcriptRef} onScroll={onTranscriptScroll} className="flex-1 min-h-0 overflow-y-auto">
-            <div
-              className={`mx-auto w-full max-w-[1080px] px-4 py-4 space-y-4 ${messages.length === 0 && isReady ? "h-full" : ""}`}
-            >
-              {!isReady ? (
-                <p className="text-sm text-muted-foreground">Loading notebook chat...</p>
-              ) : messages.length === 0 ? (
-                <div className="h-full flex flex-col">
-                  <ChatEmptyState
-                    directoryLabel={getFilename(decodedDirectory)}
-                    onUsePrompt={setDraft}
-                    onOpenCurriculum={openCurriculumPanel}
+          <div className="flex-1 min-h-0 flex flex-col">
+            <div className="flex min-h-0 flex-1 flex-col">
+              <section ref={transcriptRef} onScroll={onTranscriptScroll} className="flex-1 min-h-0 overflow-y-auto">
+                <div
+                  className={`mx-auto w-full max-w-[1080px] px-4 py-4 space-y-4 ${
+                    messages.length === 0 && isReady ? "h-full" : ""
+                  }`}
+                >
+                  {!isReady ? (
+                    <p className="text-sm text-muted-foreground">Loading notebook chat...</p>
+                  ) : messages.length === 0 ? (
+                    <div className="h-full flex flex-col">
+                      <ChatEmptyState
+                        directoryLabel={getFilename(decodedDirectory)}
+                        onUsePrompt={setDraft}
+                        onOpenCurriculum={openCurriculumPanel}
+                      />
+                    </div>
+                  ) : (
+                    <ChatTranscript
+                      messages={messages}
+                      providers={providers}
+                      isBusy={isBusy}
+                      onOpenSession={(targetSessionID) => {
+                        void onSelectSession(decodedDirectory, targetSessionID)
+                      }}
+                    />
+                  )}
+                </div>
+              </section>
+
+              {error ? (
+                <div className="mx-auto w-full max-w-[1080px] px-4 pb-2">
+                  <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+                    {error}
+                  </div>
+                </div>
+              ) : null}
+
+              {pendingPermissions.length > 0 ? (
+                <div className="mx-auto w-full max-w-[1080px] px-4 pb-2">
+                  <PermissionDock
+                    request={pendingPermissions[0]!}
+                    pendingCount={Math.max(0, pendingPermissions.length - 1)}
+                    onReply={async (reply) => {
+                      await onPermissionReply(pendingPermissions[0]!.id, reply)
+                    }}
                   />
                 </div>
-              ) : (
-                <ChatTranscript
-                  messages={messages}
-                  providers={providers}
+              ) : null}
+
+              <div className="mx-auto w-full max-w-[1080px] px-4">
+                <PromptComposer
+                  className="mb-4"
+                  value={draft}
                   isBusy={isBusy}
-                  onOpenSession={(targetSessionID) => {
-                    void onSelectSession(decodedDirectory, targetSessionID)
+                  agentOptions={agentOptions.map((agent) => ({ name: agent.name }))}
+                  selectedAgent={selectedAgent}
+                  onChange={setDraft}
+                  onAgentChange={onAgentChange}
+                  onAbort={() => {
+                    void onAbort()
+                  }}
+                  onSubmit={() => {
+                    void onSend()
                   }}
                 />
-              )}
-            </div>
-          </section>
-
-          {error ? (
-            <div className="mx-auto w-full max-w-[1080px] px-4 pb-2">
-              <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-                {error}
               </div>
             </div>
-          ) : null}
-
-          {pendingPermissions.length > 0 ? (
-            <div className="mx-auto w-full max-w-[1080px] px-4 pb-2">
-              <PermissionDock
-                request={pendingPermissions[0]!}
-                pendingCount={Math.max(0, pendingPermissions.length - 1)}
-                onReply={async (reply) => {
-                  await onPermissionReply(pendingPermissions[0]!.id, reply)
-                }}
-              />
-            </div>
-          ) : null}
-
-          <div className="mx-auto w-full max-w-[1080px] px-4">
-            <PromptComposer
-              className="mb-4"
-              value={draft}
-              isBusy={isBusy}
-              onChange={setDraft}
-              onAbort={() => {
-                void onAbort()
-              }}
-              onSubmit={() => {
-                void onSend()
-              }}
-            />
           </div>
         </main>
 
         {rightSidebarOpen ? (
           <div
             className="relative shrink-0 min-h-0"
-            style={{ width: `${Math.max(rightSidebarWidth, RIGHT_SIDEBAR_MIN_WIDTH)}px` }}
+            style={{ width: `${rightSidebarDisplayWidth}px` }}
           >
             <ChatRightSidebar
               directory={decodedDirectory}
+              activeTab={effectiveRightSidebarTab}
+              onTabChange={setRightSidebarTab}
+              showEditorTab={isTeachingMode}
+              editorPanel={
+                isTeachingMode ? (
+                  teachingWorkspace ? (
+                    <TeachingEditorPanel
+                      className="h-full min-h-0 flex-1 border-t-0 bg-transparent lg:border-l-0"
+                      workspace={teachingWorkspace}
+                      isBusy={isBusy}
+                      onCodeChange={onTeachingCodeChange}
+                      onSelectionChange={onTeachingSelectionChange}
+                      onLanguageChange={onTeachingLanguageChange}
+                      onCheckpoint={() => {
+                        void onTeachingCheckpoint()
+                      }}
+                      onRestoreAccepted={() => {
+                        void onTeachingRestoreAccepted()
+                      }}
+                      onLoadExternalChanges={onLoadExternalChanges}
+                      onForceOverwrite={onForceOverwrite}
+                    />
+                  ) : (
+                    <section className="flex min-h-0 flex-1 items-center justify-center px-6 py-8 text-sm text-muted-foreground">
+                      Preparing lesson workspace...
+                    </section>
+                  )
+                ) : undefined
+              }
               onClose={() => setRightSidebarOpen(false)}
               className="w-full h-full"
             />
             <ResizeHandle
               direction="horizontal"
               edge="start"
-              size={rightSidebarWidth}
-              min={RIGHT_SIDEBAR_MIN_WIDTH}
-              max={RIGHT_SIDEBAR_MAX_WIDTH}
+              size={rightSidebarDisplayWidth}
+              min={rightSidebarMinWidth}
+              max={rightSidebarMaxWidth}
               collapseThreshold={RIGHT_SIDEBAR_COLLAPSE_THRESHOLD}
               onResize={setRightSidebarWidth}
               onCollapse={() => setRightSidebarOpen(false)}

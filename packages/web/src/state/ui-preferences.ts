@@ -10,6 +10,7 @@ type UiPreferencesStore = {
   leftSidebarWidth: number
   rightSidebarOpen: boolean
   rightSidebarWidth: number
+  rightSidebarTab: "curriculum" | "editor" | "settings"
   isPinned: (directory: string, sessionID: string) => boolean
   togglePinned: (directory: string, sessionID: string) => void
   markUnread: (directory: string, sessionID: string) => void
@@ -20,6 +21,7 @@ type UiPreferencesStore = {
   setLeftSidebarWidth: (width: number) => void
   setRightSidebarOpen: (open: boolean) => void
   setRightSidebarWidth: (width: number) => void
+  setRightSidebarTab: (tab: "curriculum" | "editor" | "settings") => void
 }
 
 export const useUiPreferences = create<UiPreferencesStore>()(
@@ -31,6 +33,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
       leftSidebarWidth: 344,
       rightSidebarOpen: false,
       rightSidebarWidth: 344,
+      rightSidebarTab: "curriculum",
       isPinned(directory, sessionID) {
         return (get().pinnedByDirectory[directory] ?? []).includes(sessionID)
       },
@@ -102,10 +105,13 @@ export const useUiPreferences = create<UiPreferencesStore>()(
       setRightSidebarWidth(width) {
         set({ rightSidebarWidth: width })
       },
+      setRightSidebarTab(tab) {
+        set({ rightSidebarTab: tab })
+      },
     }),
     {
       name: UI_PREFERENCES_STORAGE_KEY,
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => localStorage),
       migrate(persistedState) {
         const state = persistedState as Partial<UiPreferencesStore> | undefined
@@ -116,6 +122,12 @@ export const useUiPreferences = create<UiPreferencesStore>()(
           leftSidebarWidth: state?.leftSidebarWidth ?? 344,
           rightSidebarOpen: state?.rightSidebarOpen ?? false,
           rightSidebarWidth: state?.rightSidebarWidth ?? 344,
+          rightSidebarTab:
+            state?.rightSidebarTab === "settings"
+              ? "settings"
+              : state?.rightSidebarTab === "editor"
+                ? "editor"
+                : "curriculum",
         }
       },
       partialize(state) {
@@ -126,6 +138,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
           leftSidebarWidth: state.leftSidebarWidth,
           rightSidebarOpen: state.rightSidebarOpen,
           rightSidebarWidth: state.rightSidebarWidth,
+          rightSidebarTab: state.rightSidebarTab,
         }
       },
     },

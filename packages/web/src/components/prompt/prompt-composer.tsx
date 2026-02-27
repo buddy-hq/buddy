@@ -5,7 +5,12 @@ import { createPromptSubmit } from "./submit"
 type PromptComposerProps = {
   value: string
   isBusy: boolean
+  agentOptions: Array<{
+    name: string
+  }>
+  selectedAgent: string
   onChange: (value: string) => void
+  onAgentChange: (agent: string) => void
   onSubmit: () => void
   onAbort: () => void
   className?: string
@@ -52,6 +57,10 @@ function translatePromptPlaceholder(key: string, params?: Record<string, string>
 
 export function PromptComposer(props: PromptComposerProps) {
   const canSubmit = useMemo(() => !props.isBusy && props.value.trim().length > 0, [props.isBusy, props.value])
+  const agentOptions = useMemo(() => {
+    if (props.agentOptions.length > 0) return props.agentOptions
+    return props.selectedAgent ? [{ name: props.selectedAgent }] : [{ name: "build" }]
+  }, [props.agentOptions, props.selectedAgent])
   const placeholder = useMemo(
     () =>
       promptPlaceholder({
@@ -124,10 +133,15 @@ export function PromptComposer(props: PromptComposerProps) {
         <div className="flex min-w-0 items-center gap-1.5">
           <select
             className="h-7 max-w-[160px] min-w-0 rounded-md border border-transparent bg-transparent px-2 text-xs text-foreground/90 hover:bg-muted/50"
-            defaultValue="default"
+            value={props.selectedAgent}
+            onChange={(event) => props.onAgentChange(event.target.value)}
             aria-label="Agent"
           >
-            <option value="default">Agent: Default</option>
+            {agentOptions.map((agent) => (
+              <option key={agent.name} value={agent.name}>
+                {`Agent: ${agent.name}`}
+              </option>
+            ))}
           </select>
 
           <select

@@ -5,6 +5,7 @@ import type {
   PermissionRequest,
   SessionInfo,
 } from "./chat-types"
+import type { TeachingPromptContext } from "./teaching-mode"
 
 const POST_PROMPT_RESYNC_INTERVAL_MS = 250
 const POST_PROMPT_RESYNC_ATTEMPTS = 600
@@ -201,7 +202,14 @@ export async function startNewSession(directory: string) {
   return info
 }
 
-export async function sendPrompt(directory: string, content: string) {
+export async function sendPrompt(
+  directory: string,
+  content: string,
+  input?: {
+    agent?: string
+    teaching?: TeachingPromptContext
+  },
+) {
   const store = useChatStore.getState()
   const state = store.directories[directory]
   const sessionID = state?.sessionID
@@ -228,6 +236,8 @@ export async function sendPrompt(directory: string, content: string) {
         method: "POST",
         body: {
           content,
+          ...(input?.agent ? { agent: input.agent } : {}),
+          ...(input?.teaching ? { teaching: input.teaching } : {}),
         },
       },
     ).finally(() => {
