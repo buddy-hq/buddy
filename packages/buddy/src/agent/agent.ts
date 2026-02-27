@@ -95,6 +95,7 @@ export namespace Agent {
           PermissionNext.fromConfig({
             question: "allow",
             plan_enter: "allow",
+            teaching_start_lesson: "allow",
             teaching_checkpoint: "allow",
             teaching_add_file: "allow",
             teaching_set_lesson: "allow",

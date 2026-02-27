@@ -9,6 +9,7 @@ import type {
   TeachingWorkspaceFile,
   TeachingWorkspaceState,
 } from "@/state/teaching-mode"
+import { TEACHING_LANGUAGE_OPTIONS, teachingMonacoLanguage } from "@/state/teaching-mode"
 
 type TeachingEditorPanelProps = {
   workspace: TeachingWorkspaceState
@@ -254,8 +255,11 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
           disabled={props.isBusy}
           aria-label="Lesson language"
         >
-          <option value="ts">TypeScript</option>
-          <option value="tsx">React</option>
+          {TEACHING_LANGUAGE_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
         </select>
 
         <div className="min-w-0 flex-1 text-xs text-muted-foreground truncate">
@@ -316,7 +320,7 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
               <Editor
                 height="100%"
                 path={props.workspace.lessonFilePath}
-                language="typescript"
+                language={teachingMonacoLanguage(props.workspace.language)}
                 theme="vs-dark"
                 value={props.workspace.code}
                 onMount={onMount}

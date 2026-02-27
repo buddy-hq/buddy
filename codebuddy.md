@@ -23,9 +23,11 @@ Instead:
 
 - the user stays inside the normal directory chat route,
 - the prompt composer gets a real agent selector,
-- the user selects `code-teacher`,
+- the session stays in normal chat mode until the user explicitly starts an interactive lesson,
+- the selected agent remains independent from the session interaction mode,
 - the route keeps the normal chat layout,
 - the editor is exposed as a docked panel inside the existing right sidebar,
+- the editor tab can render an empty interactive starter state before any workspace exists,
 - the right editor is backed by a tracked teaching workspace under `.buddy/teaching/<sessionID>/`,
 - the active file can be switched, and new tracked files can be added from the editor panel,
 - the backend injects additional teaching context into each prompt sent for that session.
@@ -829,19 +831,27 @@ The route computes:
 
 - `sessionKey = <directory>::<sessionID>`
 - `selectedAgent = store value or defaultAgent`
+- `interactionMode = chat | interactive`
 
-This is the switch that activates teaching mode.
+Agent choice and interaction mode are intentionally separate.
 
 #### C. Teaching mode activation
 
-Teaching mode is active when:
+Interactive mode is active when:
 
 - there is a session ID
-- the selected agent is `code-teacher`
+- `interactionModeBySession[sessionKey] === "interactive"`
 
-When that happens:
+Before that, the `Editor` tab still exists and shows an empty starter state with:
 
-- the route ensures the teaching workspace exists
+- language picker
+- current selected agent
+- `Start Interactive Lesson` action
+
+When the user starts the interactive lesson:
+
+- the route upgrades the current session to interactive mode
+- the route ensures the teaching workspace exists lazily
 - the right sidebar is switched to the `Editor` tab and opened once on first entry for that session
 
 The workspace is provisioned by:
@@ -884,7 +894,7 @@ If the backend returns a revision conflict:
 
 #### G. Flush-before-send
 
-Before sending a prompt in teaching mode:
+Before sending a prompt in interactive mode:
 
 - the route flushes pending editor changes first
 - if the flush fails or there is an unresolved conflict, the prompt is blocked
@@ -893,7 +903,7 @@ This ensures the agent sees the latest lesson file on disk when it runs.
 
 #### H. Prompt context shaping
 
-If teaching mode is active, the route constructs a `teaching` payload containing:
+If interactive mode is active, the route constructs a `teaching` payload containing:
 
 - `active`
 - `sessionID`
@@ -956,18 +966,20 @@ This is the main bundle-level cost introduced by the feature.
 
 This section describes how data moves through the system in the current implementation.
 
-## 6.1 Entering Teaching Mode
+## 6.1 Entering Interactive Mode
 
 1. User opens a normal directory chat session.
 2. Frontend loads agents from `/api/config/agents`.
-3. User selects `code-teacher` in the prompt composer.
+3. User may select any agent in the prompt composer (including `code-teacher`).
 4. Frontend stores that agent choice in `selectedAgentBySession`.
-5. The route detects `selectedAgent === "code-teacher"`.
-6. The route ensures the teaching workspace exists.
-7. On first entry for that session, the route opens the existing right sidebar on the `Editor` tab.
-8. Backend provisions `.buddy/teaching/<sessionID>/...` if missing.
-9. Frontend stores the returned workspace in `workspaceBySession`.
-10. The main chat layout remains unchanged; the editor lives in the right sidebar.
+5. User opens the `Editor` tab and sees the empty interactive starter state.
+6. User picks the initial language and clicks `Start Interactive Lesson`.
+7. Frontend stores `interactionMode = "interactive"` for the session.
+8. The route ensures the teaching workspace exists.
+9. On first interactive entry for that session, the route opens the existing right sidebar on the `Editor` tab.
+10. Backend provisions `.buddy/teaching/<sessionID>/...` if missing.
+11. Frontend stores the returned workspace in `workspaceBySession`.
+12. The main chat layout remains unchanged; the editor lives in the right sidebar.
 
 ## 6.2 Editing in the Right Sidebar Editor
 
@@ -987,26 +999,27 @@ This section describes how data moves through the system in the current implemen
    - clears pending save
    - clears conflict
 
-## 6.3 Sending a Prompt in Teaching Mode
+## 6.3 Sending a Prompt in Interactive Mode
 
 1. User submits the prompt from the left chat composer.
-2. Route checks whether teaching mode is active.
+2. Route checks whether interactive mode is active.
 3. If yes, it flushes editor changes first.
 4. If unresolved conflict exists, send is blocked.
 5. The route builds `TeachingPromptContext`.
 6. `sendPrompt(...)` sends:
    - `content`
-   - `agent: "code-teacher"`
+   - `agent: <selected agent>`
    - `teaching: { ... }`
 7. Backend receives the prompt.
 8. Buddy:
    - parses the `teaching` payload,
    - builds Buddy system prompt content,
-   - injects curriculum + teaching context + teaching policy,
+   - injects curriculum + session mode + teaching context,
+   - injects teaching policy when the selected agent is `code-teacher`,
    - ensures the OpenCode runtime has the `code-teacher` agent definition via the adapter config overlay,
    - strips the `teaching` field,
    - proxies to OpenCode.
-9. OpenCode resolves `Agent.get("code-teacher")` natively and runs the session using its normal runtime.
+9. OpenCode resolves the selected agent natively and runs the session using its normal runtime.
 
 ## 6.4 Agent Writes the Lesson File
 
@@ -1364,7 +1377,7 @@ Fix:
 - the main chat layout now stays unchanged,
 - the editor lives in the existing right sidebar,
 - the right sidebar can switch between `Curriculum` and `Editor`,
-- selecting `code-teacher` opens the sidebar on `Editor` once, but after that the user controls it like any other right-side panel.
+- starting an interactive lesson opens the sidebar on `Editor` once, but after that the user controls it like any other right-side panel.
 
 ### 11.8 Teaching workspaces were no longer limited to one file
 

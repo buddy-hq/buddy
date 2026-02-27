@@ -1,6 +1,49 @@
 import z from "zod"
 
-export const TeachingLanguageSchema = z.enum(["ts", "tsx"])
+export const TEACHING_LANGUAGE_VALUES = [
+  "txt",
+  "ts",
+  "tsx",
+  "js",
+  "jsx",
+  "py",
+  "go",
+  "rs",
+  "java",
+  "kt",
+  "php",
+  "rb",
+  "swift",
+  "cs",
+  "fs",
+  "c",
+  "cpp",
+  "sh",
+  "yaml",
+  "json",
+  "md",
+  "html",
+  "css",
+  "sql",
+  "lua",
+  "dart",
+  "zig",
+  "vue",
+  "svelte",
+  "astro",
+  "ml",
+  "ex",
+  "gleam",
+  "nix",
+  "tf",
+  "typ",
+  "clj",
+  "hs",
+  "jl",
+  "xml",
+] as const
+
+export const TeachingLanguageSchema = z.enum(TEACHING_LANGUAGE_VALUES)
 
 export type TeachingLanguage = z.infer<typeof TeachingLanguageSchema>
 

@@ -99,6 +99,19 @@ export namespace CurriculumService {
   export async function write(directory: string, markdown: string) {
     validate(markdown)
 
+    const saved = await persist(directory, markdown)
+
+    // Also write to file for backward compatibility
+    const dir = CurriculumPath.directory(directory)
+    await fs.mkdir(dir, { recursive: true })
+    await fs.writeFile(saved.path, markdown, "utf8")
+
+    return saved
+  }
+
+  export async function persist(directory: string, markdown: string) {
+    validate(markdown)
+
     const projectId = await openCodeProjectID(directory)
     const scopeId = curriculumScopeID(projectId, directory)
     const filepath = CurriculumPath.file(directory)
@@ -116,11 +129,6 @@ export namespace CurriculumService {
         })
         .run()
     })
-
-    // Also write to file for backward compatibility
-    const dir = CurriculumPath.directory(directory)
-    await fs.mkdir(dir, { recursive: true })
-    await fs.writeFile(filepath, markdown, "utf8")
 
     return { path: filepath, markdown }
   }

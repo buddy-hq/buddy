@@ -103,17 +103,29 @@ async function fetchOpenCode(input: {
   query?: string
   headers?: Headers
   body?: BodyInit
-  registerTools?: boolean
+  registerCurriculumTools?: boolean
+  registerTeachingTools?: boolean
 }) {
-  if (input.registerTools === true) {
-    await Promise.all([
+  const registrations: Promise<void>[] = []
+
+  if (input.registerCurriculumTools === true) {
+    registrations.push(
       ensureCurriculumToolsRegistered(input.directory).catch((error) => {
         console.warn("Failed to register Buddy curriculum tools into OpenCode runtime:", error)
       }),
+    )
+  }
+
+  if (input.registerTeachingTools === true) {
+    registrations.push(
       ensureTeachingToolsRegistered(input.directory).catch((error) => {
         console.warn("Failed to register Buddy teaching tools into OpenCode runtime:", error)
       }),
-    ])
+    )
+  }
+
+  if (registrations.length > 0) {
+    await Promise.all(registrations)
   }
 
   const openCodeApp = await loadOpenCodeApp()
@@ -143,7 +155,8 @@ async function proxyToOpenCode(
     targetPath: string
     transformJsonBody?: (body: Record<string, unknown>) => Record<string, unknown> | Promise<Record<string, unknown>>
     forceBusyAs409?: boolean
-    registerTools?: boolean
+    registerCurriculumTools?: boolean | ((body: Record<string, unknown>) => boolean)
+    registerTeachingTools?: boolean | ((body: Record<string, unknown>) => boolean)
   },
 ) {
   const directoryResult = ensureAllowedDirectory(c.req.raw)
@@ -153,6 +166,8 @@ async function proxyToOpenCode(
   const sourceURL = new URL(c.req.url)
   const headers = new Headers(c.req.raw.headers)
   let body: BodyInit | undefined
+  let registerCurriculumTools = typeof input.registerCurriculumTools === "boolean" ? input.registerCurriculumTools : false
+  let registerTeachingTools = typeof input.registerTeachingTools === "boolean" ? input.registerTeachingTools : false
 
   if (method !== "GET" && method !== "HEAD") {
     if (input.transformJsonBody) {
@@ -160,6 +175,12 @@ async function proxyToOpenCode(
       if (isJsonContentType(contentType)) {
         const raw = await c.req.raw.text()
         const parsed = raw.trim().length > 0 ? (JSON.parse(raw) as Record<string, unknown>) : {}
+        if (typeof input.registerCurriculumTools === "function") {
+          registerCurriculumTools = input.registerCurriculumTools(parsed)
+        }
+        if (typeof input.registerTeachingTools === "function") {
+          registerTeachingTools = input.registerTeachingTools(parsed)
+        }
         const transformed = await input.transformJsonBody(parsed)
         body = JSON.stringify(transformed)
       } else {
@@ -178,7 +199,8 @@ async function proxyToOpenCode(
     query: sourceURL.search,
     headers,
     body,
-    registerTools: input.registerTools,
+    registerCurriculumTools,
+    registerTeachingTools,
   })
 
   return normalizeErrorResponse(response, input.forceBusyAs409)
@@ -214,6 +236,13 @@ function configErrorMessage(error: unknown) {
 
 function buildOpenCodeConfigOverlay() {
   return {
+    permission: {
+      teaching_start_lesson: "deny" as const,
+      teaching_checkpoint: "deny" as const,
+      teaching_add_file: "deny" as const,
+      teaching_set_lesson: "deny" as const,
+      teaching_restore_checkpoint: "deny" as const,
+    },
     agent: {
       "code-teacher": {
         description: "Interactive code teaching agent for the in-app lesson editor.",
@@ -223,6 +252,7 @@ function buildOpenCodeConfigOverlay() {
         permission: {
           question: "allow" as const,
           plan_enter: "allow" as const,
+          teaching_start_lesson: "allow" as const,
           teaching_checkpoint: "allow" as const,
           teaching_add_file: "allow" as const,
           teaching_set_lesson: "allow" as const,
@@ -240,6 +270,25 @@ function isCompletionClaim(value: string) {
   const normalized = value.trim().toLowerCase()
   if (!normalized) return false
   return /^(done|finished|complete|completed|ready|next|go ahead|go on|move on|continue)\b/.test(normalized)
+}
+
+function formatSessionMode(input: {
+  mode: "chat" | "interactive"
+  teachingToolsAvailable: boolean
+}) {
+  const { mode, teachingToolsAvailable } = input
+  return [
+    "<session_mode>",
+    `Mode: ${mode}`,
+    mode === "interactive"
+      ? teachingToolsAvailable
+        ? "An interactive workspace is active for this session. Teaching workspace tools are now available: teaching_start_lesson, teaching_add_file, teaching_checkpoint, teaching_set_lesson, teaching_restore_checkpoint."
+        : "An interactive workspace is active for this session. The editor context is available, but teaching workspace mutation tools are reserved for the code-teacher agent."
+      : teachingToolsAvailable
+        ? "No interactive workspace is active. Teach through normal chat unless the learner explicitly wants a hands-on editor lesson. If they do, use teaching_start_lesson to create the workspace first, then switch into editor-based teaching."
+        : "No interactive workspace is active. Teach through normal chat. If the learner wants a hands-on editor lesson, ask them to switch to the code-teacher agent or start it from the Editor tab.",
+    "</session_mode>",
+  ].join("\n")
 }
 
 function formatTeachingPromptContext(input: TeachingPromptContext & {
@@ -296,6 +345,8 @@ function formatTeachingPolicy(input: { completionClaim: boolean; changedSinceChe
     "If the lesson needs an additional source file, create it with teaching_add_file before editing it.",
     "When you need to replace the whole lesson scaffold or move to a new exercise, use the teaching_set_lesson tool so the editor file and checkpoint stay synchronized.",
     "Do not replace the entire lesson file with a raw write when teaching_set_lesson is the appropriate tool.",
+    "Answer conceptual questions in chat when possible. Do not rewrite the teaching workspace or curriculum unless the learner explicitly wants a new hands-on exercise in the editor.",
+    "If the learner asks to switch topics or languages mid-exercise, confirm the switch instead of silently replacing the current exercise.",
   ]
 
   if (input.changedSinceCheckpoint === true) {
@@ -331,9 +382,15 @@ async function buildBuddySystemPrompt(input: {
     }
   }
 
-  if (input.agentName === "code-teacher" && input.teachingContext?.active) {
+  parts.push(
+    formatSessionMode({
+      mode: input.teachingContext?.active ? "interactive" : "chat",
+      teachingToolsAvailable: input.agentName === "code-teacher",
+    }),
+  )
+
+  if (input.teachingContext?.active) {
     const checkpointStatus = await TeachingService.status(input.directory, input.teachingContext.sessionID).catch(() => undefined)
-    const completionClaim = isCompletionClaim(input.userContent ?? "")
 
     parts.push(
       formatTeachingPromptContext({
@@ -342,12 +399,16 @@ async function buildBuddySystemPrompt(input: {
         trackedFiles: checkpointStatus?.trackedFiles,
       }),
     )
-    parts.push(
-      formatTeachingPolicy({
-        completionClaim,
-        changedSinceCheckpoint: checkpointStatus?.changedSinceLastCheckpoint,
-      }),
-    )
+
+    if (input.agentName === "code-teacher") {
+      const completionClaim = isCompletionClaim(input.userContent ?? "")
+      parts.push(
+        formatTeachingPolicy({
+          completionClaim,
+          changedSinceCheckpoint: checkpointStatus?.changedSinceLastCheckpoint,
+        }),
+      )
+    }
   }
 
   return parts.join("\n\n").trim()
@@ -447,14 +508,12 @@ api.route("/teaching", TeachingRoutes({ ensureAllowedDirectory }))
 api.get("/health", async (c) => {
   return proxyToOpenCode(c, {
     targetPath: "/global/health",
-    registerTools: false,
   })
 })
 
 api.get("/event", async (c) => {
   return proxyToOpenCode(c, {
     targetPath: "/global/event",
-    registerTools: false,
   })
 })
 
@@ -496,7 +555,6 @@ api.patch("/global/config", async (c) => {
 api.post("/global/dispose", async (c) => {
   return proxyToOpenCode(c, {
     targetPath: "/global/dispose",
-    registerTools: false,
   })
 })
 
@@ -709,7 +767,10 @@ api.post("/session/:sessionID/message", async (c) => {
       return transformed
     },
     forceBusyAs409: true,
-    registerTools: true,
+    registerCurriculumTools: true,
+    registerTeachingTools(body) {
+      return typeof body.agent === "string" && body.agent === "code-teacher"
+    },
   }).catch((error) => {
     const message = String(error instanceof Error ? error.message : error)
     if (message.includes("content or parts must be provided")) {

@@ -1,11 +1,42 @@
+import fs from "node:fs/promises"
 import z from "zod"
 import { CurriculumPath } from "../curriculum/curriculum-path.js"
 import { CurriculumService } from "../curriculum/curriculum-service.js"
-import { Tool } from "@buddy/opencode-adapter/tool"
+import { EditTool, Tool, WriteTool } from "@buddy/opencode-adapter/tool"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 
 const registeredDirectories = new Set<string>()
+
+async function executeWriteWithoutPrompt(
+  ctx: Tool.Context,
+  input: {
+    filePath: string
+    content: string
+  },
+) {
+  const write = await WriteTool.init()
+  return write.execute(input, {
+    ...ctx,
+    ask: async () => {},
+  })
+}
+
+async function executeEditWithoutPrompt(
+  ctx: Tool.Context,
+  input: {
+    filePath: string
+    oldString: string
+    newString: string
+    replaceAll?: boolean
+  },
+) {
+  const edit = await EditTool.init()
+  return edit.execute(input, {
+    ...ctx,
+    ask: async () => {},
+  })
+}
 
 function curriculumReadTool(directory: string) {
   return Tool.define("curriculum_read", {
@@ -46,23 +77,25 @@ function curriculumReadTool(directory: string) {
 
 function curriculumUpdateTool(directory: string) {
   return Tool.define("curriculum_update", {
-    description: "Replace the project curriculum markdown document.",
-    parameters: z.object({
-      markdown: z.string().describe("Full markdown document for curriculum.md"),
-    }),
-    async execute(
-      params: { markdown: string },
-      ctx: {
-        ask(input: {
-          permission: string
-          patterns: string[]
-          always: string[]
-          metadata: Record<string, unknown>
-        }): Promise<void>
-      },
-    ) {
+    description:
+      "Update the project curriculum markdown document. Prefer targeted replacements (`oldString` -> `newString`) for small changes like checking off tasks. Use full `markdown` only when rewriting the whole curriculum.",
+    parameters: z
+      .object({
+        markdown: z.string().optional().describe("Full markdown document for curriculum.md (for complete rewrites)"),
+        oldString: z.string().optional().describe("Exact text to replace inside curriculum.md"),
+        newString: z.string().optional().describe("Replacement text for oldString"),
+        replaceAll: z.boolean().optional().describe("Replace every match of oldString instead of just the first one"),
+      })
+      .refine(
+        (value) =>
+          typeof value.markdown === "string" ||
+          (typeof value.oldString === "string" && typeof value.newString === "string"),
+        {
+          message: "Provide either `markdown`, or both `oldString` and `newString`.",
+        },
+      ),
+    async execute(params, ctx) {
       const filepath = CurriculumPath.file(directory)
-
       await ctx.ask({
         permission: "curriculum_update",
         patterns: [filepath],
@@ -72,10 +105,36 @@ function curriculumUpdateTool(directory: string) {
         },
       })
 
-      const saved = await CurriculumService.write(directory, params.markdown)
+      let output = ""
+      let saved: { path: string; markdown: string }
+
+      if (typeof params.markdown === "string") {
+        const markdown = params.markdown
+        const writeResult = await executeWriteWithoutPrompt(ctx, {
+          filePath: filepath,
+          content: markdown,
+        })
+        saved = await CurriculumService.persist(directory, markdown)
+        output = writeResult.output.replace("Wrote file successfully.", `Updated curriculum at ${saved.path}`)
+      } else {
+        const current = await CurriculumService.read(directory)
+        await fs.mkdir(CurriculumPath.directory(directory), { recursive: true })
+        await fs.writeFile(filepath, current.markdown, "utf8")
+
+        const editResult = await executeEditWithoutPrompt(ctx, {
+          filePath: filepath,
+          oldString: params.oldString!,
+          newString: params.newString!,
+          replaceAll: params.replaceAll,
+        })
+        const nextMarkdown = await fs.readFile(filepath, "utf8")
+        saved = await CurriculumService.persist(directory, nextMarkdown)
+        output = editResult.output.replace("Edit applied successfully.", `Updated curriculum at ${saved.path}`)
+      }
+
       return {
         title: "curriculum.md",
-        output: `Updated curriculum at ${saved.path}`,
+        output,
         metadata: {
           path: saved.path,
         },

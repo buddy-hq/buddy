@@ -471,36 +471,6 @@ function buildTurns(messages: MessageWithParts[]): ChatTurn[] {
   return turns
 }
 
-function copyableTextFromParts(input: {
-  role: "YOU" | "BUDDY"
-  id: string
-  parts: MessagePart[]
-}) {
-  const blocks: string[] = []
-  blocks.push(`${input.role} (${input.id})`)
-
-  for (const part of input.parts) {
-    if (part.type === "text") {
-      blocks.push(String(part.text ?? ""))
-      continue
-    }
-
-    if (part.type === "reasoning") {
-      blocks.push(`[reasoning]\n${String(part.text ?? "")}`)
-      continue
-    }
-
-    if (part.type === "tool") {
-      const state = parseToolState(part)
-      const title = String(part.tool ?? "tool")
-      const payload = state.output || (state.error ? unwrapError(state.error) : "")
-      blocks.push(`[tool:${title} status=${statusLabel(state.status)}]\n${payload}`)
-    }
-  }
-
-  return blocks.join("\n\n").trim()
-}
-
 function CopyAction(props: { value: string; label?: string; className?: string }) {
   const [copied, setCopied] = useState(false)
 
@@ -561,6 +531,7 @@ function AssistantTextPart(props: {
   copyEnabled: boolean
   metaText?: string
   interrupted?: boolean
+  streaming?: boolean
 }) {
   const text = String(props.part.text ?? "")
   const throttledText = useThrottledText(text)
@@ -569,7 +540,11 @@ function AssistantTextPart(props: {
   return (
     <div className="buddy-assistant-text-part">
       <div className="buddy-markdown-surface">
-        <Markdown text={throttledText} />
+        {props.streaming ? (
+          <div className="whitespace-pre-wrap break-words">{throttledText}</div>
+        ) : (
+          <Markdown text={throttledText} cacheKey={props.part.id} />
+        )}
       </div>
       {props.copyEnabled ? (
         <div className="buddy-message-meta-row">
@@ -596,7 +571,7 @@ function ReasoningPart(props: { part: MessagePart }) {
     <details className="buddy-reasoning-part">
       <summary>Thinking</summary>
       <div className="buddy-reasoning-body">
-        <Markdown text={throttledText} />
+        <Markdown text={throttledText} cacheKey={props.part.id} />
       </div>
     </details>
   )
@@ -774,6 +749,7 @@ function AssistantPartRenderer(props: {
   copyPartID?: string
   metaText?: string
   interrupted?: boolean
+  streaming?: boolean
   onOpenSession?: (sessionID: string) => void
 }) {
   if (props.part.type === "step-start" || props.part.type === "step-finish") {
@@ -781,14 +757,15 @@ function AssistantPartRenderer(props: {
   }
 
   if (props.part.type === "text") {
-    return (
-      <AssistantTextPart
-        part={props.part}
-        copyEnabled={props.copyPartID === props.part.id}
-        metaText={props.metaText}
-        interrupted={props.interrupted}
-      />
-    )
+      return (
+        <AssistantTextPart
+          part={props.part}
+          copyEnabled={props.copyPartID === props.part.id}
+          metaText={props.metaText}
+          interrupted={props.interrupted}
+          streaming={props.streaming}
+        />
+      )
   }
 
   if (props.part.type === "reasoning") {
@@ -811,7 +788,7 @@ export function ChatTranscript(props: ChatTranscriptProps) {
   const turns = useMemo(() => buildTurns(props.messages), [props.messages])
 
   return (
-    <div className="buddy-chat-transcript">
+    <div className="flex w-full flex-col items-start gap-12">
       {turns.map((turn, turnIndex) => {
         const isLastTurn = turnIndex === turns.length - 1
         const userMessage = turn.user
@@ -854,46 +831,22 @@ export function ChatTranscript(props: ChatTranscriptProps) {
         })()
         const showAssistantSection = assistantMessages.length > 0 || (props.isBusy && isLastTurn)
         const showThinking = !!props.isBusy && isLastTurn && assistantItems.length === 0
+        const assistantStreaming = !!props.isBusy && isLastTurn
 
         return (
-          <article key={turn.key} className="buddy-turn">
+          <article key={turn.key} className="relative w-full px-4 md:px-5">
             {userMessage ? (
-              <section className="buddy-turn-section">
-                <header className="buddy-turn-header">
-                  <span className="buddy-turn-role">You</span>
-                  <CopyAction
-                    value={copyableTextFromParts({
-                      role: "YOU",
-                      id: userMessage.info.id,
-                      parts: userMessage.parts,
-                    })}
-                    className="buddy-copy-action"
-                  />
-                </header>
-                <div className="buddy-turn-body">
+              <div className="w-full min-w-0">
+                <div className="flex w-full min-w-0 flex-col gap-2">
                   {userMessage.parts.map((part) => (
                     <UserMessagePart key={part.id} part={part} info={userMessage.info} />
                   ))}
                 </div>
-              </section>
+              </div>
             ) : null}
 
             {showAssistantSection ? (
-              <section className="buddy-turn-section">
-                <header className="buddy-turn-header">
-                  <span className="buddy-turn-role">Buddy{assistantAborted ? " (aborted)" : ""}</span>
-                  {assistantParts.length > 0 ? (
-                    <CopyAction
-                      value={copyableTextFromParts({
-                        role: "BUDDY",
-                        id: assistantMessages[0]?.info.id ?? `turn-${turnIndex}`,
-                        parts: assistantParts,
-                      })}
-                      className="buddy-copy-action"
-                    />
-                  ) : null}
-                </header>
-                <div className="buddy-turn-body">
+              <div className="mt-[18px] flex w-full min-w-0 flex-col gap-3">
                   {assistantItems.map((item) => {
                     if (item.type === "context") {
                       return <ContextToolGroup key={item.key} parts={item.parts} />
@@ -906,13 +859,17 @@ export function ChatTranscript(props: ChatTranscriptProps) {
                         copyPartID={lastAssistantTextID}
                         metaText={assistantMetaText}
                         interrupted={assistantAborted}
+                        streaming={assistantStreaming}
                         onOpenSession={props.onOpenSession}
                       />
                     )
                   })}
-                  {showThinking ? <div className="buddy-thinking buddy-shimmer">Thinking...</div> : null}
-                </div>
-              </section>
+                  {showThinking ? (
+                    <div className="flex min-h-5 w-full items-center gap-2 text-sm font-medium text-muted-foreground">
+                      <span className="buddy-shimmer">Thinking</span>
+                    </div>
+                  ) : null}
+              </div>
             ) : null}
           </article>
         )

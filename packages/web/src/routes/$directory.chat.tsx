@@ -52,7 +52,13 @@ import {
   stringifyError,
   TeachingConflictError,
 } from "../state/teaching-actions"
-import { teachingSessionKey, useTeachingMode, type TeachingLanguage } from "../state/teaching-mode"
+import {
+  TEACHING_LANGUAGE_OPTIONS,
+  teachingLanguageLabel,
+  teachingSessionKey,
+  useTeachingMode,
+  type TeachingLanguage,
+} from "../state/teaching-mode"
 import { useUiPreferences } from "../state/ui-preferences"
 
 export const Route = createFileRoute("/$directory/chat")({
@@ -116,6 +122,7 @@ function DirectoryChatPage() {
   const saveInFlightRef = useRef<Promise<boolean> | null>(null)
   const previousBusyRef = useRef(false)
   const teachingSessionInitializedRef = useRef(new Set<string>())
+  const workspaceProbeInFlightRef = useRef(new Set<string>())
   const [stickToBottom, setStickToBottom] = useState(true)
   const [settingsModalOpen, setSettingsModalOpen] = useState(false)
   const [agentOptions, setAgentOptions] = useState<AgentConfigOption[]>([])
@@ -194,10 +201,11 @@ function DirectoryChatPage() {
     [decodedDirectory, sessionID],
   )
   const selectedAgent = sessionKey ? teachingMode.selectedAgentBySession[sessionKey] ?? defaultAgent : defaultAgent
+  const interactionMode = sessionKey ? teachingMode.interactionModeBySession[sessionKey] ?? "chat" : "chat"
+  const preferredLanguage = sessionKey ? teachingMode.preferredLanguageBySession[sessionKey] ?? "ts" : "ts"
   const teachingWorkspace = sessionKey ? teachingMode.workspaceBySession[sessionKey] : undefined
-  const isTeachingMode = !!sessionID && selectedAgent === "code-teacher"
-  const effectiveRightSidebarTab = !isTeachingMode && rightSidebarTab === "editor" ? "curriculum" : rightSidebarTab
-  const editorPanelOpen = rightSidebarOpen && effectiveRightSidebarTab === "editor"
+  const isInteractiveMode = !!sessionID && interactionMode === "interactive"
+  const editorPanelOpen = rightSidebarOpen && rightSidebarTab === "editor"
   const rightSidebarMinWidth = editorPanelOpen ? RIGHT_SIDEBAR_EDITOR_MIN_WIDTH : RIGHT_SIDEBAR_MIN_WIDTH
   const rightSidebarMaxWidth = editorPanelOpen ? RIGHT_SIDEBAR_EDITOR_MAX_WIDTH : RIGHT_SIDEBAR_MAX_WIDTH
   const rightSidebarDisplayWidth = Math.min(Math.max(rightSidebarWidth, rightSidebarMinWidth), rightSidebarMaxWidth)
@@ -360,6 +368,36 @@ function DirectoryChatPage() {
     })
   }, [messages, isBusy, stickToBottom])
 
+  useEffect(() => {
+    if (!decodedDirectory || !sessionID || !sessionKey || isInteractiveMode) return
+    if (workspaceProbeInFlightRef.current.has(sessionKey)) return
+
+    let cancelled = false
+    workspaceProbeInFlightRef.current.add(sessionKey)
+
+    void loadTeachingWorkspace({
+      directory: decodedDirectory,
+      sessionID,
+    })
+      .then((workspace) => {
+        if (cancelled) return
+        const teaching = useTeachingMode.getState()
+        teaching.setWorkspace(sessionKey, workspace)
+        teaching.setInteractionMode(sessionKey, "interactive")
+        teaching.setSaveError(sessionKey, undefined)
+      })
+      .catch(() => {
+        // No workspace exists yet for normal chat sessions. Ignore background probe failures.
+      })
+      .finally(() => {
+        workspaceProbeInFlightRef.current.delete(sessionKey)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [decodedDirectory, isBusy, isInteractiveMode, messages.length, sessionID, sessionKey])
+
   function onTranscriptScroll(event: UIEvent<HTMLElement>) {
     const node = event.currentTarget
     const distanceFromBottom = node.scrollHeight - (node.scrollTop + node.clientHeight)
@@ -367,7 +405,7 @@ function DirectoryChatPage() {
   }
 
   useEffect(() => {
-    if (!decodedDirectory || !sessionID || !isTeachingMode || !sessionKey) return
+    if (!decodedDirectory || !sessionID || !isInteractiveMode || !sessionKey) return
 
     if (!teachingSessionInitializedRef.current.has(sessionKey)) {
       teachingSessionInitializedRef.current.add(sessionKey)
@@ -390,7 +428,7 @@ function DirectoryChatPage() {
     void ensureTeachingWorkspace({
       directory: decodedDirectory,
       sessionID,
-      language: "ts",
+      language: preferredLanguage,
     })
       .then((workspace) => {
         if (cancelled) return
@@ -408,7 +446,8 @@ function DirectoryChatPage() {
     }
   }, [
     decodedDirectory,
-    isTeachingMode,
+    isInteractiveMode,
+    preferredLanguage,
     sessionID,
     sessionKey,
     setDirectoryError,
@@ -416,7 +455,7 @@ function DirectoryChatPage() {
   ])
 
   useEffect(() => {
-    if (!decodedDirectory || !sessionID || !isTeachingMode || !sessionKey || !teachingWorkspace) {
+    if (!decodedDirectory || !sessionID || !isInteractiveMode || !sessionKey || !teachingWorkspace) {
       previousBusyRef.current = isBusy
       return
     }
@@ -435,13 +474,52 @@ function DirectoryChatPage() {
     }
 
     previousBusyRef.current = isBusy
-  }, [decodedDirectory, isBusy, isTeachingMode, sessionID, sessionKey, teachingWorkspace])
+  }, [decodedDirectory, isBusy, isInteractiveMode, sessionID, sessionKey, teachingWorkspace])
+
+  useEffect(() => {
+    if (!decodedDirectory || !sessionID || !isInteractiveMode || !sessionKey || !teachingWorkspace || !isBusy) {
+      return
+    }
+
+    const activeDirectory = decodedDirectory
+    const activeSessionID = sessionID
+    let cancelled = false
+    let refreshInFlight = false
+
+    async function refreshWorkspace() {
+      if (cancelled || refreshInFlight || saveInFlightRef.current) return
+
+      refreshInFlight = true
+      try {
+        const workspace = await loadTeachingWorkspace({
+          directory: activeDirectory,
+          sessionID: activeSessionID,
+        })
+        if (cancelled) return
+        useTeachingMode.getState().applyRemoteSnapshot(sessionKey, workspace)
+      } catch {
+        // Ignore transient refresh failures while the agent is still mid-step.
+      } finally {
+        refreshInFlight = false
+      }
+    }
+
+    void refreshWorkspace()
+    const interval = window.setInterval(() => {
+      void refreshWorkspace()
+    }, 1000)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+    }
+  }, [decodedDirectory, isBusy, isInteractiveMode, sessionID, sessionKey, teachingWorkspace])
 
   async function flushTeachingWorkspace(input?: {
     forceOverwrite?: boolean
     language?: TeachingLanguage
   }) {
-    if (!decodedDirectory || !sessionID || !isTeachingMode || !sessionKey) {
+    if (!decodedDirectory || !sessionID || !isInteractiveMode || !sessionKey) {
       return true
     }
 
@@ -519,7 +597,7 @@ function DirectoryChatPage() {
   }
 
   useEffect(() => {
-    if (!decodedDirectory || !sessionID || !isTeachingMode || !sessionKey || !teachingWorkspace) return
+    if (!decodedDirectory || !sessionID || !isInteractiveMode || !sessionKey || !teachingWorkspace) return
     if (teachingWorkspace.conflict) return
     if (teachingWorkspace.code === teachingWorkspace.savedCode) return
 
@@ -532,7 +610,7 @@ function DirectoryChatPage() {
     }
   }, [
     decodedDirectory,
-    isTeachingMode,
+    isInteractiveMode,
     sessionID,
     sessionKey,
     teachingWorkspace?.code,
@@ -545,14 +623,14 @@ function DirectoryChatPage() {
     const content = draft.trim()
     if (!content) return
 
-    if (isTeachingMode) {
+    if (isInteractiveMode) {
       const ready = await flushTeachingWorkspace()
       if (!ready) return
     }
 
     const activeWorkspace = sessionKey ? useTeachingMode.getState().workspaceBySession[sessionKey] : undefined
     const teachingContext =
-      isTeachingMode && activeWorkspace
+      isInteractiveMode && activeWorkspace
         ? {
             active: true,
             sessionID: activeWorkspace.sessionID,
@@ -728,6 +806,11 @@ function DirectoryChatPage() {
     void flushTeachingWorkspace({ language })
   }
 
+  function onPreferredLanguageChange(language: TeachingLanguage) {
+    if (!sessionKey) return
+    teachingMode.setPreferredLanguage(sessionKey, language)
+  }
+
   async function onTeachingSelectFile(relativePath: string) {
     if (!decodedDirectory || !sessionID || !sessionKey) return
     if (teachingWorkspace?.activeRelativePath === relativePath) return
@@ -774,7 +857,6 @@ function DirectoryChatPage() {
   }
 
   function onToggleTeachingEditor() {
-    if (!isTeachingMode) return
     if (editorPanelOpen) {
       setRightSidebarOpen(false)
       return
@@ -792,18 +874,47 @@ function DirectoryChatPage() {
       return
     }
 
-    if (!isTeachingMode && rightSidebarTab === "editor") {
-      setRightSidebarTab("curriculum")
-    }
-
-    if (
-      (isTeachingMode ? effectiveRightSidebarTab : rightSidebarTab) === "editor" &&
-      rightSidebarWidth < RIGHT_SIDEBAR_EDITOR_MIN_WIDTH
-    ) {
+    if (rightSidebarTab === "editor" && rightSidebarWidth < RIGHT_SIDEBAR_EDITOR_MIN_WIDTH) {
       setRightSidebarWidth(640)
     }
 
     setRightSidebarOpen(true)
+  }
+
+  async function onStartInteractiveLesson() {
+    if (!decodedDirectory || !sessionID || !sessionKey) return
+    teachingMode.setInteractionMode(sessionKey, "interactive")
+    setRightSidebarTab("editor")
+    if (rightSidebarWidth < RIGHT_SIDEBAR_EDITOR_MIN_WIDTH) {
+      setRightSidebarWidth(640)
+    }
+    setRightSidebarOpen(true)
+
+    try {
+      const workspace = await ensureTeachingWorkspace({
+        directory: decodedDirectory,
+        sessionID,
+        language: preferredLanguage,
+      })
+      useTeachingMode.getState().setWorkspace(sessionKey, workspace)
+      useTeachingMode.getState().setSaveError(sessionKey, undefined)
+
+      await sendPrompt(decodedDirectory, `I started an interactive lesson in ${teachingLanguageLabel(preferredLanguage)} mode. Interactive workspace tools are now available. Please use the editor workspace to set up the next hands-on step and guide me there.`, {
+        agent: selectedAgent,
+        teaching: {
+          active: true,
+          sessionID: workspace.sessionID,
+          lessonFilePath: workspace.lessonFilePath,
+          checkpointFilePath: workspace.checkpointFilePath,
+          language: workspace.language,
+          revision: workspace.revision,
+        },
+      })
+    } catch (interactiveError) {
+      const message = stringifyError(interactiveError)
+      setDirectoryError(decodedDirectory, message)
+      useTeachingMode.getState().setSaveError(sessionKey, message)
+    }
   }
 
   function onLoadExternalChanges() {
@@ -919,16 +1030,14 @@ function DirectoryChatPage() {
 
               <div className="flex items-center gap-1.5">
                 <SessionContextUsage messages={messages} providers={providers} />
-                {isTeachingMode ? (
-                  <Button
-                    variant={editorPanelOpen ? "secondary" : "ghost"}
-                    size="sm"
-                    onClick={onToggleTeachingEditor}
-                    title={editorPanelOpen ? "Hide editor" : "Show editor"}
-                  >
-                    Editor
-                  </Button>
-                ) : null}
+                <Button
+                  variant={editorPanelOpen ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={onToggleTeachingEditor}
+                  title={editorPanelOpen ? "Hide editor" : "Show editor"}
+                >
+                  Editor
+                </Button>
                 <Button variant="ghost" size="icon-xs" onClick={openCurriculumPanel} title="Open curriculum">
                   <BookOpenIcon className="size-3.5" />
                 </Button>
@@ -1049,11 +1158,11 @@ function DirectoryChatPage() {
           >
             <ChatRightSidebar
               directory={decodedDirectory}
-              activeTab={effectiveRightSidebarTab}
+              activeTab={rightSidebarTab}
               onTabChange={setRightSidebarTab}
-              showEditorTab={isTeachingMode}
+              showEditorTab
               editorPanel={
-                isTeachingMode ? (
+                isInteractiveMode ? (
                   teachingWorkspace ? (
                     <TeachingEditorPanel
                       className="h-full min-h-0 flex-1 border-t-0 bg-transparent lg:border-l-0"
@@ -1082,7 +1191,55 @@ function DirectoryChatPage() {
                       Preparing lesson workspace...
                     </section>
                   )
-                ) : undefined
+                ) : (
+                  <section className="flex min-h-0 flex-1 flex-col justify-center gap-4 px-6 py-8">
+                    <div className="space-y-2">
+                      <h2 className="text-sm font-medium">Interactive Lesson</h2>
+                      <p className="text-sm text-muted-foreground">
+                        Start an interactive session to create a tracked workspace with files, checkpoints, and
+                        server-backed editor diagnostics.
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        This upgrades the current session from chat mode to interactive mode. It does not switch back
+                        mid-session yet.
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="text-xs text-muted-foreground" htmlFor="interactive-language">
+                        Language
+                      </label>
+                      <select
+                        id="interactive-language"
+                        className="h-8 rounded-md border bg-background px-2 text-xs"
+                        value={preferredLanguage}
+                        onChange={(event) => onPreferredLanguageChange(event.target.value as TeachingLanguage)}
+                        disabled={!sessionKey || isBusy}
+                      >
+                        {TEACHING_LANGUAGE_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          void onStartInteractiveLesson()
+                        }}
+                        disabled={!sessionKey || isBusy}
+                      >
+                        Start Interactive Lesson
+                      </Button>
+                    </div>
+
+                    <div className="rounded-lg border border-border/70 bg-background p-3 text-xs text-muted-foreground">
+                      Current session mode: chat
+                      <br />
+                      Selected agent: {selectedAgent}
+                    </div>
+                  </section>
+                )
               }
               onClose={() => setRightSidebarOpen(false)}
               className="w-full h-full"
