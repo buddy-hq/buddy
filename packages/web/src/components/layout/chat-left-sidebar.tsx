@@ -156,8 +156,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
                   <p className="pl-8 text-sm text-muted-foreground/70">No threads</p>
                 ) : (
                   visibleSessions.map((session) => {
-                    const active =
-                      group.directory === props.currentDirectory && session.id === props.activeSessionID
+                    const active = group.directory === props.currentDirectory && session.id === props.activeSessionID
                     const busy = sessionStatusByID[session.id] === "busy"
                     const pinned = pinnedSet.has(session.id)
                     const unread = !!unreadMap[session.id]
@@ -271,10 +270,6 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
         <Button variant="ghost" size="sm" className="w-full justify-start h-9" onClick={props.onOpenSettings}>
           <SettingsIcon className="size-3.5 mr-2" />
           Settings
-        </Button>
-        <Button variant="ghost" size="sm" className="w-full justify-start h-9" onClick={props.onOpenCurriculum}>
-          <BookOpenIcon className="size-3.5 mr-2" />
-          Curriculum
         </Button>
       </footer>
 
