@@ -143,7 +143,6 @@ function DirectoryChatPage() {
   const streamStatus = useChatStore((state) => state.streamStatus)
   const allDirectoryStates = useChatStore((state) => state.directories)
   const directoryState = useChatStore((state) => (decodedDirectory ? state.directories[decodedDirectory] : undefined))
-  const ensureProject = useChatStore((state) => state.ensureProject)
   const setActiveDirectory = useChatStore((state) => state.setActiveDirectory)
   const setStreamStatus = useChatStore((state) => state.setStreamStatus)
   const applySessionUpdated = useChatStore((state) => state.applySessionUpdated)
@@ -180,6 +179,10 @@ function DirectoryChatPage() {
   const validProjects = useMemo(
     () => projects.filter((directory) => directory && directory !== "/"),
     [projects],
+  )
+  const hasRegisteredProject = useMemo(
+    () => !!decodedDirectory && validProjects.includes(decodedDirectory),
+    [decodedDirectory, validProjects],
   )
   const messages = directoryState?.messages ?? []
   const providers = directoryState?.providers ?? []
@@ -247,10 +250,9 @@ function DirectoryChatPage() {
 
     if (!decodedDirectory) return
 
-    ensureProject(decodedDirectory)
     setActiveDirectory(decodedDirectory)
-    void ensureDirectorySession(decodedDirectory)
-  }, [decodedDirectory, ensureProject, navigate, setActiveDirectory, validProjects])
+    void ensureDirectorySession(decodedDirectory).catch(() => undefined)
+  }, [decodedDirectory, navigate, setActiveDirectory, validProjects])
 
   useEffect(() => {
     if (!decodedDirectory) return
@@ -283,7 +285,7 @@ function DirectoryChatPage() {
   }, [decodedDirectory])
 
   useEffect(() => {
-    if (!decodedDirectory) return
+    if (!decodedDirectory || !hasRegisteredProject) return
 
     const sync = startChatSync({
       directory: decodedDirectory,
@@ -371,6 +373,7 @@ function DirectoryChatPage() {
     }
   }, [
     decodedDirectory,
+    hasRegisteredProject,
     applyMessageUpdated,
     applyPermissionAsked,
     applyPermissionReplied,
@@ -740,16 +743,17 @@ function DirectoryChatPage() {
   }
 
   async function onOpenProject() {
+    if (!decodedDirectory) return
+
     try {
       const picked = await pickProjectDirectory()
       if (!picked) return
 
-      const nextDirectory = await rememberProject(picked).catch(() => picked)
-      ensureProject(nextDirectory)
+      const nextDirectory = await rememberProject(picked)
       setActiveDirectory(nextDirectory)
       onSwitchDirectory(nextDirectory)
-    } catch {
-      // keep current screen state if user cancels/inputs invalid path in fallback prompt
+    } catch (error) {
+      setDirectoryError(decodedDirectory, stringifyError(error))
     }
   }
 

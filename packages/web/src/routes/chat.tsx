@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useEffect, useMemo, useState } from "react"
 import { Button, Input } from "@buddy/ui"
 import { usePlatform } from "../context/platform"
+import { stringifyError } from "../lib/api-client"
 import { encodeDirectory } from "../lib/directory-token"
 import { pickProjectDirectory } from "../lib/directory-picker"
 import { loadProjects, preloadProjectSessions, rememberProject } from "../state/chat-actions"
@@ -16,9 +17,9 @@ function ChatEntryPage() {
   const platform = usePlatform()
   const projects = useChatStore((state) => state.projects)
   const activeDirectory = useChatStore((state) => state.activeDirectory)
-  const ensureProject = useChatStore((state) => state.ensureProject)
   const setActiveDirectory = useChatStore((state) => state.setActiveDirectory)
   const [directory, setDirectory] = useState("")
+  const [openError, setOpenError] = useState<string>()
   const hasNativePicker = typeof platform.openDirectoryPickerDialog === "function"
 
   const recents = useMemo(() => {
@@ -45,22 +46,28 @@ function ChatEntryPage() {
     const directory = value.trim()
     if (!directory) return
 
-    const nextDirectory = await rememberProject(directory).catch(() => directory)
-    ensureProject(nextDirectory)
-    setActiveDirectory(nextDirectory)
-    navigate({
-      to: "/$directory/chat",
-      params: { directory: encodeDirectory(nextDirectory) },
-    })
+    setOpenError(undefined)
+
+    try {
+      const nextDirectory = await rememberProject(directory)
+      setActiveDirectory(nextDirectory)
+      navigate({
+        to: "/$directory/chat",
+        params: { directory: encodeDirectory(nextDirectory) },
+      })
+    } catch (error) {
+      setOpenError(stringifyError(error))
+    }
   }
 
   async function openPickedDirectory() {
     try {
+      setOpenError(undefined)
       const picked = await pickProjectDirectory()
       if (!picked) return
       await openDirectory(picked)
-    } catch {
-      // ignore user cancellation and invalid manual fallback input
+    } catch (error) {
+      setOpenError(stringifyError(error))
     }
   }
 
@@ -94,6 +101,12 @@ function ChatEntryPage() {
           <Button type="submit">Open</Button>
         </form>
       )}
+
+      {openError ? (
+        <div className="mt-4 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+          {openError}
+        </div>
+      ) : null}
 
       {recents.length > 0 ? (
         <div className="mt-8 space-y-3">
