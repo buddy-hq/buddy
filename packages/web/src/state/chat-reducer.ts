@@ -10,6 +10,10 @@ export function inferBusyFromMessages(messages: MessageWithParts[]) {
   const assistantMessages = messages.filter(isAssistantMessage)
   const lastAssistant = assistantMessages.at(-1)
   if (!lastAssistant) return false
+
+  if (lastAssistant.info.error) return false
+  if (lastAssistant.info.time?.completed) return false
+
   return !lastAssistant.info.finish
 }
 

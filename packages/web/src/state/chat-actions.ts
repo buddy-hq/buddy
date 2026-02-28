@@ -1,12 +1,15 @@
+import type { ProviderAuthMethod, ProviderAuthResponse, ProviderListResponse } from "@opencode-ai/sdk/v2/client"
 import { useChatStore } from "./chat-store"
 import type {
-  ConfigProvidersResponse,
   MessageWithParts,
   PermissionRequest,
+  ProviderCatalogState,
+  ProviderInfo,
   SessionInfo,
 } from "./chat-types"
 import type { TeachingPromptContext } from "./teaching-mode"
 import { apiFetch, requestJson, stringifyError } from "../lib/api-client"
+import { getOpenCodeClient } from "../lib/opencode-client"
 
 export type AgentConfigOption = {
   name: string
@@ -21,6 +24,96 @@ function normalizeProjectDirectory(directory: string) {
     return undefined
   }
   return normalized
+}
+
+type RawProvider = ProviderListResponse["all"][number]
+type RawProviderModel = RawProvider["models"][string]
+
+function normalizeProviderSource(input: unknown, connected: boolean): ProviderInfo["source"] {
+  if (input === "env" || input === "config" || input === "custom" || input === "api") {
+    return input
+  }
+  return connected ? "api" : "custom"
+}
+
+function normalizeProviderModel(providerID: string, input: RawProviderModel): ProviderInfo["models"][number] {
+  return {
+    id: input.id,
+    providerID,
+    name: input.name,
+    family: input.family,
+    releaseDate: input.release_date,
+    variants: Object.keys(input.variants ?? {}).sort((a, b) => a.localeCompare(b)),
+    status: input.status ?? "active",
+    limit: {
+      context: input.limit.context,
+      input: input.limit.input,
+      output: input.limit.output,
+    },
+    capabilities: {
+      reasoning: input.reasoning,
+      attachment: input.attachment,
+      toolcall: input.tool_call,
+      input: {
+        text: input.modalities?.input.includes("text") ?? false,
+        audio: input.modalities?.input.includes("audio") ?? false,
+        image: input.modalities?.input.includes("image") ?? false,
+        video: input.modalities?.input.includes("video") ?? false,
+        pdf: input.modalities?.input.includes("pdf") ?? false,
+      },
+      output: {
+        text: input.modalities?.output.includes("text") ?? false,
+        audio: input.modalities?.output.includes("audio") ?? false,
+        image: input.modalities?.output.includes("image") ?? false,
+        video: input.modalities?.output.includes("video") ?? false,
+        pdf: input.modalities?.output.includes("pdf") ?? false,
+      },
+      interleaved: input.interleaved ?? false,
+    },
+  }
+}
+
+function normalizeProviderCatalog(
+  providers: ProviderListResponse,
+  authMethods: ProviderAuthResponse,
+): ProviderCatalogState {
+  const connected = new Set(providers.connected)
+
+  return {
+    default: providers.default,
+    providers: providers.all
+      .map((provider) => {
+        const isConnected = connected.has(provider.id)
+        const source = normalizeProviderSource((provider as { source?: unknown }).source, isConnected)
+
+        return {
+          id: provider.id,
+          name: provider.name,
+          source,
+          env: provider.env,
+          connected: isConnected,
+          methods: (authMethods[provider.id] ?? []).map((method: ProviderAuthMethod) => ({
+            type: method.type,
+            label: method.label,
+          })),
+          models: Object.values(provider.models)
+            .filter((model) => model.status !== "deprecated")
+            .map((model) => normalizeProviderModel(provider.id, model))
+            .sort((a, b) => a.name.localeCompare(b.name)),
+        }
+      })
+      .sort((a, b) => a.name.localeCompare(b.name)),
+  }
+}
+
+async function fetchProviderCatalog(directory: string) {
+  const client = getOpenCodeClient(directory)
+  const [providerResult, authResult] = await Promise.all([
+    client.provider.list(undefined, { throwOnError: true }),
+    client.provider.auth(undefined, { throwOnError: true }),
+  ])
+
+  return normalizeProviderCatalog(providerResult.data!, authResult.data ?? {})
 }
 
 export async function loadProjects() {
@@ -109,10 +202,10 @@ export async function loadPermissions(directory: string) {
   }
 }
 
-export async function loadProviders(directory: string) {
+export async function loadProviderCatalog(directory: string) {
   const store = useChatStore.getState()
   try {
-    const providers = await requestJson<ConfigProvidersResponse>(directory, "/api/config/providers")
+    const providers = await fetchProviderCatalog(directory)
     store.setProviders(directory, providers)
     store.setDirectoryError(directory, undefined)
     return providers
@@ -168,7 +261,7 @@ export async function ensureDirectorySession(directory: string) {
 
     await loadMessages(targetDirectory, info.id)
     await loadPermissions(targetDirectory)
-    await loadProviders(targetDirectory)
+    await loadProviderCatalog(targetDirectory)
     store.setDirectoryReady(targetDirectory, true)
     return info
   } catch (error) {
@@ -207,6 +300,11 @@ export async function sendPrompt(
   content: string,
   input?: {
     agent?: string
+    model?: {
+      providerID: string
+      modelID: string
+    }
+    variant?: string
     teaching?: TeachingPromptContext
   },
 ) {
@@ -235,6 +333,8 @@ export async function sendPrompt(
         body: {
           content,
           ...(input?.agent ? { agent: input.agent } : {}),
+          ...(input?.model ? { model: input.model } : {}),
+          ...(input?.variant ? { variant: input.variant } : {}),
           ...(input?.teaching ? { teaching: input.teaching } : {}),
         },
       },
@@ -287,7 +387,7 @@ export async function resyncDirectory(directory: string) {
   const sessionID = store.directories[directory]?.sessionID
   await loadSessions(directory)
   await loadPermissions(directory)
-  await loadProviders(directory)
+  await loadProviderCatalog(directory)
   if (!sessionID) return
   if (shouldDeferTranscriptReload(directory, sessionID)) return
   await loadMessages(directory, sessionID)
@@ -416,10 +516,6 @@ export async function patchProjectConfig(directory: string, patch: Record<string
   }
 
   return (await response.json()) as Record<string, unknown>
-}
-
-export async function loadProviderCatalog(directory: string) {
-  return requestJson<ConfigProvidersResponse>(directory, "/api/config/providers")
 }
 
 export async function loadAgentCatalog(directory: string) {

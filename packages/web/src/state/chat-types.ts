@@ -120,34 +120,56 @@ export type ProviderModelInfo = {
   providerID: string
   name: string
   family?: string
-  api: {
-    id: string
-    npm?: string
-  }
+  releaseDate?: string
+  variants: string[]
+  status: "active" | "alpha" | "beta" | "deprecated"
   limit: {
     context: number
     input?: number
     output: number
   }
-  modalities?: {
-    input: string[]
-    output: string[]
+  capabilities: {
+    reasoning: boolean
+    attachment: boolean
+    toolcall: boolean
+    input: {
+      text: boolean
+      audio: boolean
+      image: boolean
+      video: boolean
+      pdf: boolean
+    }
+    output: {
+      text: boolean
+      audio: boolean
+      image: boolean
+      video: boolean
+      pdf: boolean
+    }
+    interleaved:
+      | boolean
+      | {
+          field: "reasoning_content" | "reasoning_details"
+        }
   }
-  reasoning: boolean
-  options: Record<string, unknown>
-  variants?: Record<string, Record<string, unknown>>
+}
+
+export type ProviderMethodInfo = {
+  type: "api" | "oauth"
+  label: string
 }
 
 export type ProviderInfo = {
   id: string
   name: string
-  npm?: string
-  api?: string
+  source: "env" | "config" | "custom" | "api"
   env: string[]
+  connected: boolean
+  methods: ProviderMethodInfo[]
   models: ProviderModelInfo[]
 }
 
-export type ConfigProvidersResponse = {
+export type ProviderCatalogState = {
   providers: ProviderInfo[]
   default: Record<string, string>
 }

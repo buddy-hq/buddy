@@ -2,12 +2,12 @@ import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { createPlatformJsonStorage } from "../context/platform"
 import type {
-  ConfigProvidersResponse,
   DirectoryChatState,
   MessageInfo,
   MessagePart,
   MessageWithParts,
   PermissionRequest,
+  ProviderCatalogState,
   SessionInfo,
 } from "./chat-types"
 import { appendPartDelta, inferBusyFromMessages, upsertMessage, upsertPart } from "./chat-reducer"
@@ -40,7 +40,7 @@ type ChatStore = {
     input: { sessionID: string; messageID: string; partID: string; field: string; delta: string },
   ) => void
   setPendingPermissions: (directory: string, requests: PermissionRequest[]) => void
-  setProviders: (directory: string, input: ConfigProvidersResponse) => void
+  setProviders: (directory: string, input: ProviderCatalogState) => void
   applyPermissionAsked: (directory: string, request: PermissionRequest) => void
   applyPermissionReplied: (directory: string, requestID: string) => void
   setStreamStatus: (status: StreamStatus) => void
