@@ -6,7 +6,7 @@ import {
   patchProjectConfig,
   type AgentConfigOption,
 } from "./chat-actions"
-import type { ConfigProvidersResponse } from "./chat-types"
+import type { ProviderCatalogState } from "./chat-types"
 
 export type LogLevel = "debug" | "info" | "warn" | "error"
 
@@ -22,12 +22,13 @@ type ProjectSettingsState = {
   saving: boolean
   error?: string
   projectConfig: Record<string, unknown>
-  providerCatalog: ConfigProvidersResponse
+  providerCatalog: ProviderCatalogState
   agentCatalog: AgentConfigOption[]
   draft: ProjectSettingsDraft
+  modelSelectionDirty: boolean
 }
 
-const EMPTY_PROVIDER_CATALOG: ConfigProvidersResponse = {
+const EMPTY_PROVIDER_CATALOG: ProviderCatalogState = {
   providers: [],
   default: {},
 }
@@ -76,6 +77,41 @@ function parseModel(model: string) {
   }
 }
 
+function connectedProviders(catalog: ProviderCatalogState) {
+  return catalog.providers.filter((provider) => provider.connected)
+}
+
+function buildDraft(input: {
+  config: Record<string, unknown>
+  providerCatalog: ProviderCatalogState
+  agents: AgentConfigOption[]
+}): ProjectSettingsDraft {
+  const model = parseModel(readString(input.config, "model"))
+  const connected = connectedProviders(input.providerCatalog)
+  const configuredProvider = connected.find((provider) => provider.id === model.providerID)
+  const initialProvider = configuredProvider?.id ?? connected[0]?.id ?? ""
+  const availableModels = connected.find((provider) => provider.id === initialProvider)?.models ?? []
+  const configuredModelIsAvailable =
+    initialProvider === model.providerID && availableModels.some((entry) => entry.id === model.modelID)
+  const initialModel = configuredModelIsAvailable
+    ? model.modelID
+    : input.providerCatalog.default[initialProvider] ?? availableModels[0]?.id ?? ""
+  const logLevel = readString(input.config, "logLevel")
+  const selectableAgents = input.agents.filter((agent) => agent.mode !== "subagent" && !agent.hidden)
+  const configuredDefaultAgent = readString(input.config, "default_agent")
+
+  return {
+    agent:
+      configuredDefaultAgent && selectableAgents.some((agent) => agent.name === configuredDefaultAgent)
+        ? configuredDefaultAgent
+        : "",
+    provider: initialProvider,
+    model: initialModel,
+    logLevel:
+      logLevel === "debug" || logLevel === "info" || logLevel === "warn" || logLevel === "error" ? logLevel : "",
+  }
+}
+
 function emptyState(): ProjectSettingsState {
   return {
     loading: false,
@@ -85,74 +121,67 @@ function emptyState(): ProjectSettingsState {
     providerCatalog: EMPTY_PROVIDER_CATALOG,
     agentCatalog: [],
     draft: EMPTY_DRAFT,
+    modelSelectionDirty: false,
   }
 }
 
 export function useProjectSettings(directory: string, open: boolean) {
   const [state, setState] = useState<ProjectSettingsState>(() => emptyState())
 
-  const providerModels = useMemo(
-    () => state.providerCatalog.providers.find((provider) => provider.id === state.draft.provider)?.models ?? [],
-    [state.draft.provider, state.providerCatalog.providers],
+  const connected = useMemo(
+    () => connectedProviders(state.providerCatalog),
+    [state.providerCatalog],
   )
 
-  useEffect(() => {
-    if (!open) return
+  const providerModels = useMemo(
+    () => connected.find((provider) => provider.id === state.draft.provider)?.models ?? [],
+    [connected, state.draft.provider],
+  )
 
-    let disposed = false
+  async function reload() {
     setState((current) => ({
       ...current,
       loading: true,
       error: undefined,
     }))
 
-    Promise.all([loadProjectConfig(directory), loadProviderCatalog(directory), loadAgentCatalog(directory)])
-      .then(([config, providerResult, agents]) => {
-        if (disposed) return
+    try {
+      const [config, providerCatalog, agents] = await Promise.all([
+        loadProjectConfig(directory),
+        loadProviderCatalog(directory),
+        loadAgentCatalog(directory),
+      ])
+      const selectableAgents = agents.filter((agent) => agent.mode !== "subagent" && !agent.hidden)
 
-        const model = parseModel(readString(config, "model"))
-        const initialProvider = model.providerID || providerResult.providers[0]?.id || ""
-        const providerDefault = providerResult.default[initialProvider]
-        const availableModels =
-          providerResult.providers.find((provider) => provider.id === initialProvider)?.models ?? []
-        const initialModel = model.modelID || providerDefault || availableModels[0]?.id || ""
-        const logLevel = readString(config, "logLevel")
-        const selectableAgents = agents.filter((agent) => agent.mode !== "subagent" && !agent.hidden)
-        const configuredDefaultAgent = readString(config, "default_agent")
-
-        setState({
-          loading: false,
-          saving: false,
-          error: undefined,
-          projectConfig: config,
-          providerCatalog: providerResult,
-          agentCatalog: selectableAgents,
-          draft: {
-            agent:
-              configuredDefaultAgent && selectableAgents.some((agent) => agent.name === configuredDefaultAgent)
-                ? configuredDefaultAgent
-                : "",
-            provider: initialProvider,
-            model: initialModel,
-            logLevel:
-              logLevel === "debug" || logLevel === "info" || logLevel === "warn" || logLevel === "error"
-                ? logLevel
-                : "",
-          },
-        })
+      setState({
+        loading: false,
+        saving: false,
+        error: undefined,
+        projectConfig: config,
+        providerCatalog,
+        agentCatalog: selectableAgents,
+        draft: buildDraft({
+          config,
+          providerCatalog,
+          agents,
+        }),
+        modelSelectionDirty: false,
       })
-      .catch((error) => {
-        if (disposed) return
-        setState((current) => ({
-          ...current,
-          loading: false,
-          error: stringifyError(error),
-        }))
-      })
-
-    return () => {
-      disposed = true
+      return true
+    } catch (error) {
+      setState((current) => ({
+        ...current,
+        loading: false,
+        saving: false,
+        error: stringifyError(error),
+      }))
+      return false
     }
+  }
+
+  useEffect(() => {
+    if (!open) return
+    void reload()
   }, [directory, open])
 
   async function save() {
@@ -166,7 +195,7 @@ export function useProjectSettings(directory: string, open: boolean) {
       patch.default_agent = nextAgent
     }
 
-    if (state.draft.provider && state.draft.model) {
+    if (state.modelSelectionDirty && state.draft.provider && state.draft.model) {
       const nextModel = `${state.draft.provider}/${state.draft.model}`
       if (nextModel !== currentModel) {
         patch.model = nextModel
@@ -193,6 +222,7 @@ export function useProjectSettings(directory: string, open: boolean) {
         ...current,
         saving: false,
         projectConfig: updated,
+        modelSelectionDirty: false,
       }))
       return true
     } catch (error) {
@@ -210,10 +240,12 @@ export function useProjectSettings(directory: string, open: boolean) {
       loading: state.loading,
       saving: state.saving,
       error: state.error,
+      providerMessage: connected.length === 0 ? "Connect a provider to choose a model." : undefined,
     },
     options: {
       agents: state.agentCatalog,
-      providers: state.providerCatalog.providers,
+      providers: connected,
+      allProviders: state.providerCatalog.providers,
       providerModels,
     },
     selection: {
@@ -234,7 +266,7 @@ export function useProjectSettings(directory: string, open: boolean) {
       },
       setProvider(provider: string) {
         setState((current) => {
-          const models = current.providerCatalog.providers.find((entry) => entry.id === provider)?.models ?? []
+          const models = connectedProviders(current.providerCatalog).find((entry) => entry.id === provider)?.models ?? []
           const defaultModel = current.providerCatalog.default[provider] ?? models[0]?.id ?? ""
           return {
             ...current,
@@ -243,6 +275,7 @@ export function useProjectSettings(directory: string, open: boolean) {
               provider,
               model: defaultModel,
             },
+            modelSelectionDirty: true,
           }
         })
       },
@@ -253,6 +286,7 @@ export function useProjectSettings(directory: string, open: boolean) {
             ...current.draft,
             model,
           },
+          modelSelectionDirty: true,
         }))
       },
       setLogLevel(logLevel: LogLevel | "") {
@@ -263,6 +297,9 @@ export function useProjectSettings(directory: string, open: boolean) {
             logLevel,
           },
         }))
+      },
+      async refresh() {
+        await reload()
       },
       save,
     },
