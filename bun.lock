@@ -129,6 +129,7 @@
         "@buddy/sdk": "workspace:*",
         "@buddy/ui": "workspace:*",
         "@monaco-editor/react": "^4.7.0",
+        "@opencode-ai/sdk": "workspace:*",
         "@tanstack/react-query": "^5.0.0",
         "@tanstack/react-router": "^1.0.0",
         "@tanstack/router-devtools": "^1.0.0",
