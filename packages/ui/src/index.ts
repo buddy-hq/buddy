@@ -30,7 +30,7 @@ export {
 } from "./components/ui/dropdown-menu";
 export { Input } from "./components/ui/input";
 export { NativeSelect, NativeSelectOptGroup, NativeSelectOption } from "./components/ui/native-select";
-export { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./components/ui/select";
+export { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "./components/ui/select";
 export { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 export { Textarea } from "./components/ui/textarea";
 export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./components/ui/tooltip";
