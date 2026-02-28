@@ -11,6 +11,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
   Input,
   Tooltip,
@@ -25,8 +29,10 @@ import {
   ChevronRightIcon,
   EllipsisHorizontalIcon,
   FolderIcon,
+  FolderPlusIcon,
   PencilIcon,
   PinIcon,
+  SlidersHorizontalIcon,
   SquarePenIcon,
   SettingsIcon,
 } from "./sidebar-icons"
@@ -58,6 +64,10 @@ type RenameState = {
   title: string
 }
 
+type OrganizeMode = "project" | "chronological"
+type SortMode = "created" | "updated"
+type ShowMode = "all" | "relevant"
+
 function formatThreadAge(timestamp: number) {
   const elapsed = Date.now() - timestamp
 
@@ -73,6 +83,9 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
   const [renameSaving, setRenameSaving] = useState(false)
   const [expandedDirectories, setExpandedDirectories] = useState<Record<string, true>>({})
   const [collapsedDirectories, setCollapsedDirectories] = useState<Record<string, true>>({})
+  const [organizeMode, setOrganizeMode] = useState<OrganizeMode>("project")
+  const [sortMode, setSortMode] = useState<SortMode>("updated")
+  const [showMode, setShowMode] = useState<ShowMode>("all")
   const COLLAPSED_COUNT = 9
 
   async function submitRename() {
@@ -90,28 +103,60 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
   }
 
   const directoryGroups = useMemo(() => {
-    return props.directories
+    const getSortTimestamp = (session: SessionInfo) =>
+      sortMode === "created" ? session.time.created : session.time.updated ?? session.time.created
+
+    const isRelevantSession = (directory: string, session: SessionInfo) => {
+      const unread = !!props.unreadByDirectory[directory]?.[session.id]
+      const pinned = (props.pinnedByDirectory[directory] ?? []).includes(session.id)
+      const busy = props.sessionStatusByDirectory[directory]?.[session.id] === "busy"
+      const active = directory === props.currentDirectory && session.id === props.activeSessionID
+      return unread || pinned || busy || active
+    }
+
+    const groups = props.directories
       .map((directory) => {
         const sessions = props.sessionsByDirectory[directory] ?? []
         const pinnedSet = new Set(props.pinnedByDirectory[directory] ?? [])
-
-        const pinned: SessionInfo[] = []
-        const rest: SessionInfo[] = []
-
-        for (const session of sessions) {
-          if (pinnedSet.has(session.id)) {
-            pinned.push(session)
-            continue
-          }
-          rest.push(session)
-        }
+        const visibleSessions = sessions
+          .filter((session) => (showMode === "relevant" ? isRelevantSession(directory, session) : true))
+          .sort((a, b) => {
+            const aPinned = pinnedSet.has(a.id)
+            const bPinned = pinnedSet.has(b.id)
+            if (aPinned !== bPinned) {
+              return aPinned ? -1 : 1
+            }
+            return getSortTimestamp(b) - getSortTimestamp(a)
+          })
 
         return {
           directory,
-          sessions: [...pinned, ...rest],
+          sessions: visibleSessions,
         }
       })
-  }, [props.directories, props.sessionsByDirectory, props.pinnedByDirectory])
+      .filter((group) => group.sessions.length > 0 || showMode === "all")
+
+    if (organizeMode === "chronological") {
+      return groups.sort((a, b) => {
+        const aTime = a.sessions[0] ? getSortTimestamp(a.sessions[0]) : 0
+        const bTime = b.sessions[0] ? getSortTimestamp(b.sessions[0]) : 0
+        return bTime - aTime
+      })
+    }
+
+    return groups
+  }, [
+    props.directories,
+    props.sessionsByDirectory,
+    props.pinnedByDirectory,
+    props.unreadByDirectory,
+    props.sessionStatusByDirectory,
+    props.currentDirectory,
+    props.activeSessionID,
+    organizeMode,
+    showMode,
+    sortMode,
+  ])
 
   return (
     <aside
@@ -121,8 +166,81 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
       style={props.style}
     >
       <div className="flex-1 min-h-0 overflow-y-auto px-3 pt-3 pb-3">
-        <div className="mb-2 px-1 text-muted-foreground">
+        <div className="mb-2 flex items-center justify-between px-1 text-muted-foreground">
           <p className="text-[13px] font-medium">Threads</p>
+          <div className="flex items-center gap-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  className="text-muted-foreground hover:bg-[#151821] hover:text-foreground"
+                  aria-label="Add notebook"
+                  title="Add notebook"
+                  onClick={props.onOpenDirectory}
+                >
+                  <FolderPlusIcon className="size-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top" sideOffset={8} className="px-2 py-1 text-[11px]">
+                Add notebook
+              </TooltipContent>
+            </Tooltip>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-[#1a1d24] hover:text-foreground"
+                  aria-label="Organize threads"
+                  title="Organize threads"
+                >
+                  <SlidersHorizontalIcon className="size-3.5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" sideOffset={6} className="w-56 min-w-56">
+                <DropdownMenuLabel>Organize</DropdownMenuLabel>
+                <DropdownMenuRadioGroup
+                  value={organizeMode}
+                  onValueChange={(value) => {
+                    if (value === "project" || value === "chronological") {
+                      setOrganizeMode(value)
+                    }
+                  }}
+                >
+                  <DropdownMenuRadioItem value="project">By project</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="chronological">Chronological list</DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+                <DropdownMenuRadioGroup
+                  value={sortMode}
+                  onValueChange={(value) => {
+                    if (value === "created" || value === "updated") {
+                      setSortMode(value)
+                    }
+                  }}
+                >
+                  <DropdownMenuRadioItem value="created">Created</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="updated">Updated</DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Show</DropdownMenuLabel>
+                <DropdownMenuRadioGroup
+                  value={showMode}
+                  onValueChange={(value) => {
+                    if (value === "all" || value === "relevant") {
+                      setShowMode(value)
+                    }
+                  }}
+                >
+                  <DropdownMenuRadioItem value="all">All threads</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="relevant">Relevant</DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
         <div className="space-y-5">
