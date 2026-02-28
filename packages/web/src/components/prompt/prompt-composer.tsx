@@ -1,13 +1,16 @@
 import {
+  ArrowUpIcon,
+  PlusIcon,
   Select,
   SelectContent,
   SelectGroup,
   SelectItem,
   SelectLabel,
+  SquareIcon,
   SelectTrigger,
   SelectValue,
 } from "@buddy/ui"
-import { useMemo, type SVGProps } from "react"
+import { useMemo } from "react"
 import { promptPlaceholder } from "./placeholder"
 import { createPromptSubmit } from "./submit"
 
@@ -37,34 +40,6 @@ type PromptComposerProps = {
   onSubmit: () => void
   onAbort: () => void
   className?: string
-}
-
-type IconProps = SVGProps<SVGSVGElement>
-
-function ArrowUpIcon(props: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
-      <path d="M12 19V5" />
-      <path d="m5 12 7-7 7 7" />
-    </svg>
-  )
-}
-
-function StopIcon(props: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
-      <rect x="7" y="7" width="10" height="10" rx="2" />
-    </svg>
-  )
-}
-
-function PlusIcon(props: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
-      <path d="M12 5v14" />
-      <path d="M5 12h14" />
-    </svg>
-  )
 }
 
 function translatePromptPlaceholder(key: string, params?: Record<string, string>) {
@@ -169,7 +144,7 @@ export function PromptComposer(props: PromptComposerProps) {
               aria-label={props.isBusy ? "Stop" : "Send"}
               title={props.isBusy ? "Stop" : "Send"}
             >
-              {props.isBusy ? <StopIcon className="size-3.5" /> : <ArrowUpIcon className="size-4" />}
+              {props.isBusy ? <SquareIcon className="size-3.5" /> : <ArrowUpIcon className="size-4" />}
             </button>
           </div>
         </div>
