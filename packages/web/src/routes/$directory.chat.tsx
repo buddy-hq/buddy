@@ -75,12 +75,32 @@ const RIGHT_SIDEBAR_MAX_WIDTH = 480
 const RIGHT_SIDEBAR_EDITOR_MIN_WIDTH = 360
 const RIGHT_SIDEBAR_EDITOR_MAX_WIDTH = 960
 const RIGHT_SIDEBAR_COLLAPSE_THRESHOLD = 160
+const MODEL_VISIBILITY_WINDOW_MS = 1000 * 60 * 60 * 24 * 31 * 6
 
 async function copyToClipboard(text: string) {
   if (!text) return false
   if (!("clipboard" in navigator)) return false
   await navigator.clipboard.writeText(text)
   return true
+}
+
+function readSessionErrorMessage(error: unknown) {
+  if (typeof error === "string" && error.trim()) return error
+  if (!error || typeof error !== "object") return "An error occurred"
+
+  const message = "message" in error ? (error as { message?: unknown }).message : undefined
+  if (typeof message === "string" && message.trim()) return message
+
+  const dataMessage =
+    "data" in error && error.data && typeof error.data === "object"
+      ? (error.data as { message?: unknown }).message
+      : undefined
+  if (typeof dataMessage === "string" && dataMessage.trim()) return dataMessage
+
+  const name = "name" in error ? (error as { name?: unknown }).name : undefined
+  if (typeof name === "string" && name.trim()) return name
+
+  return "An error occurred"
 }
 
 function buildSessionTrace(input: { directory: string; sessionID?: string; streamStatus: string }) {
@@ -116,6 +136,40 @@ function buildSessionTrace(input: { directory: string; sessionID?: string; strea
   )
 }
 
+function parseConfiguredModel(value: unknown) {
+  if (typeof value !== "string") return undefined
+  const trimmed = value.trim()
+  if (!trimmed) return undefined
+
+  const separator = trimmed.indexOf("/")
+  if (separator <= 0 || separator >= trimmed.length - 1) return undefined
+
+  return {
+    providerID: trimmed.slice(0, separator),
+    modelID: trimmed.slice(separator + 1),
+  }
+}
+
+function modelSelectionKey(input: { providerID: string; modelID: string }) {
+  return `${input.providerID}/${input.modelID}`
+}
+
+async function loadComposerConfiguration(directory: string) {
+  const [agents, config] = await Promise.all([loadAgentCatalog(directory), loadProjectConfig(directory)])
+  const selectableAgents = agents.filter((agent) => agent.mode !== "subagent" && !agent.hidden)
+  const configuredDefault =
+    typeof config.default_agent === "string" &&
+    selectableAgents.some((agent) => agent.name === config.default_agent)
+      ? config.default_agent
+      : "build"
+
+  return {
+    selectableAgents,
+    configuredDefault,
+    configuredModel: parseConfiguredModel(config.model),
+  }
+}
+
 function DirectoryChatPage() {
   const params = Route.useParams()
   const navigate = useNavigate()
@@ -129,6 +183,9 @@ function DirectoryChatPage() {
   const [settingsModalOpen, setSettingsModalOpen] = useState(false)
   const [agentOptions, setAgentOptions] = useState<AgentConfigOption[]>([])
   const [defaultAgent, setDefaultAgent] = useState("build")
+  const [configuredModel, setConfiguredModel] = useState<{ providerID: string; modelID: string } | undefined>(undefined)
+  const [selectedModelKey, setSelectedModelKey] = useState("auto")
+  const [selectedThinking, setSelectedThinking] = useState("default")
 
   const decodedDirectory = useMemo(() => {
     try {
@@ -151,6 +208,7 @@ function DirectoryChatPage() {
   const applyPartDelta = useChatStore((state) => state.applyPartDelta)
   const applyPermissionAsked = useChatStore((state) => state.applyPermissionAsked)
   const applyPermissionReplied = useChatStore((state) => state.applyPermissionReplied)
+  const clearDirectoryError = useChatStore((state) => state.clearDirectoryError)
   const setDirectoryError = useChatStore((state) => state.setDirectoryError)
 
   const leftSidebarOpen = useUiPreferences((state) => state.leftSidebarOpen)
@@ -185,6 +243,124 @@ function DirectoryChatPage() {
   )
   const messages = directoryState?.messages ?? []
   const providers = directoryState?.providers ?? []
+  const connectedProviders = useMemo(
+    () => providers.filter((provider) => provider.connected),
+    [providers],
+  )
+  const visibleModelKeys = useMemo(() => {
+    const visible = new Set<string>()
+    const latestByFamily = new Map<string, { key: string; releaseTime: number }>()
+    const now = Date.now()
+
+    for (const provider of connectedProviders) {
+      for (const model of provider.models) {
+        const key = modelSelectionKey({
+          providerID: provider.id,
+          modelID: model.id,
+        })
+        const releaseTime = model.releaseDate ? Date.parse(model.releaseDate) : Number.NaN
+
+        if (!Number.isFinite(releaseTime)) {
+          visible.add(key)
+          continue
+        }
+
+        if (Math.abs(now - releaseTime) >= MODEL_VISIBILITY_WINDOW_MS) {
+          continue
+        }
+
+        const family = model.family || model.id
+        const familyKey = `${provider.id}:${family}`
+        const existing = latestByFamily.get(familyKey)
+        if (!existing || releaseTime > existing.releaseTime) {
+          latestByFamily.set(familyKey, {
+            key,
+            releaseTime,
+          })
+        }
+      }
+    }
+
+    for (const latest of latestByFamily.values()) {
+      visible.add(latest.key)
+    }
+
+    if (configuredModel) {
+      visible.add(modelSelectionKey(configuredModel))
+    }
+    if (selectedModelKey !== "auto") {
+      visible.add(selectedModelKey)
+    }
+
+    return visible
+  }, [configuredModel, connectedProviders, selectedModelKey])
+  const modelOptions = useMemo(() => {
+    const configuredProvider = configuredModel
+      ? connectedProviders.find((provider) => provider.id === configuredModel.providerID)
+      : undefined
+    const configuredModelInfo = configuredModel
+      ? configuredProvider?.models.find((model) => model.id === configuredModel.modelID)
+      : undefined
+    const autoLabel = configuredModel
+      ? `Auto (${configuredModelInfo?.name ?? `${configuredModel.providerID}/${configuredModel.modelID}`})`
+      : "Auto"
+    const options: Array<{ key: string; label: string; group?: string; disabled?: boolean }> = [
+      {
+        key: "auto",
+        label: autoLabel,
+      },
+    ]
+
+    for (const provider of connectedProviders) {
+      for (const model of provider.models) {
+        const key = modelSelectionKey({
+          providerID: provider.id,
+          modelID: model.id,
+        })
+        if (!visibleModelKeys.has(key)) continue
+
+        options.push({
+          key,
+          label: model.name || model.id,
+          group: provider.name,
+        })
+      }
+    }
+
+    return options
+  }, [configuredModel, connectedProviders, visibleModelKeys])
+  const effectiveModelSelection = useMemo(
+    () => (selectedModelKey === "auto" ? configuredModel : parseConfiguredModel(selectedModelKey)),
+    [configuredModel, selectedModelKey],
+  )
+  const effectiveModelInfo = useMemo(() => {
+    if (!effectiveModelSelection) return undefined
+    return connectedProviders
+      .find((provider) => provider.id === effectiveModelSelection.providerID)
+      ?.models.find((model) => model.id === effectiveModelSelection.modelID)
+  }, [connectedProviders, effectiveModelSelection])
+  const thinkingOptions = useMemo(() => {
+    const variants = effectiveModelInfo?.variants ?? []
+    return [
+      {
+        key: "default",
+        label: "Thinking: Default",
+      },
+      ...variants.map((variant) => ({
+        key: variant,
+        label: `Thinking: ${variant}`,
+      })),
+    ]
+  }, [effectiveModelInfo])
+  useEffect(() => {
+    if (selectedModelKey === "auto") return
+    if (modelOptions.some((option) => option.key === selectedModelKey)) return
+    setSelectedModelKey("auto")
+  }, [modelOptions, selectedModelKey])
+  useEffect(() => {
+    if (thinkingOptions.some((option) => option.key === selectedThinking)) return
+    setSelectedThinking("default")
+  }, [selectedThinking, thinkingOptions])
   const isBusy = directoryState?.isBusy ?? false
   const isReady = directoryState?.isReady ?? false
   const error = directoryState?.error
@@ -258,30 +434,38 @@ function DirectoryChatPage() {
 
     let cancelled = false
 
-    Promise.all([loadAgentCatalog(decodedDirectory), loadProjectConfig(decodedDirectory)])
-      .then(([agents, config]) => {
+    loadComposerConfiguration(decodedDirectory)
+      .then((configuration) => {
         if (cancelled) return
 
-        const selectableAgents = agents.filter((agent) => agent.mode !== "subagent" && !agent.hidden)
-        const configuredDefault =
-          typeof config.default_agent === "string" &&
-          selectableAgents.some((agent) => agent.name === config.default_agent)
-            ? config.default_agent
-            : "build"
-
-        setAgentOptions(selectableAgents)
-        setDefaultAgent(configuredDefault)
+        setAgentOptions(configuration.selectableAgents)
+        setDefaultAgent(configuration.configuredDefault)
+        setConfiguredModel(configuration.configuredModel)
       })
       .catch(() => {
         if (cancelled) return
         setAgentOptions([])
         setDefaultAgent("build")
+        setConfiguredModel(undefined)
       })
 
     return () => {
       cancelled = true
     }
   }, [decodedDirectory])
+
+  function onSettingsModalOpenChange(nextOpen: boolean) {
+    setSettingsModalOpen(nextOpen)
+    if (nextOpen || !decodedDirectory) return
+
+    void loadComposerConfiguration(decodedDirectory)
+      .then((configuration) => {
+        setAgentOptions(configuration.selectableAgents)
+        setDefaultAgent(configuration.configuredDefault)
+        setConfiguredModel(configuration.configuredModel)
+      })
+      .catch(() => undefined)
+  }
 
   useEffect(() => {
     if (!decodedDirectory || !hasRegisteredProject) return
@@ -329,9 +513,30 @@ function DirectoryChatPage() {
           return
         }
 
+        if (payload.type === "session.error") {
+          const erroredSessionID =
+            typeof properties.sessionID === "string" && properties.sessionID
+              ? properties.sessionID
+              : undefined
+
+          if (erroredSessionID) {
+            applySessionStatus(directory, erroredSessionID, "idle")
+          }
+
+          setDirectoryError(directory, readSessionErrorMessage(properties.error))
+          return
+        }
+
         if (payload.type === "message.updated") {
           const info = properties.info as MessageInfo
           applyMessageUpdated(directory, info)
+          if (
+            info.role === "assistant" &&
+            !info.error &&
+            (!!info.finish || !!info.time.completed)
+          ) {
+            clearDirectoryError(directory)
+          }
           const activeSessionID = useChatStore.getState().directories[directory]?.sessionID
           if (info.role === "assistant" && info.sessionID && info.sessionID !== activeSessionID) {
             useUiPreferences.getState().markUnread(directory, info.sessionID)
@@ -380,6 +585,8 @@ function DirectoryChatPage() {
     applyPartUpdated,
     applySessionStatus,
     applySessionUpdated,
+    clearDirectoryError,
+    setDirectoryError,
     setStreamStatus,
   ])
 
@@ -680,6 +887,11 @@ function DirectoryChatPage() {
     try {
       await sendPrompt(decodedDirectory, content, {
         agent: selectedAgent,
+        model:
+          selectedModelKey !== "auto"
+            ? parseConfiguredModel(selectedModelKey)
+            : undefined,
+        variant: selectedThinking !== "default" ? selectedThinking : undefined,
         teaching: teachingContext,
       })
     } catch {
@@ -1172,9 +1384,15 @@ function DirectoryChatPage() {
                   value={draft}
                   isBusy={isBusy}
                   agentOptions={agentOptions.map((agent) => ({ name: agent.name }))}
+                  modelOptions={modelOptions}
                   selectedAgent={selectedAgent}
+                  selectedModel={selectedModelKey}
+                  thinkingOptions={thinkingOptions}
+                  selectedThinking={selectedThinking}
                   onChange={setDraft}
                   onAgentChange={onAgentChange}
+                  onModelChange={setSelectedModelKey}
+                  onThinkingChange={setSelectedThinking}
                   onAbort={() => {
                     void onAbort()
                   }}
@@ -1294,7 +1512,11 @@ function DirectoryChatPage() {
         ) : null}
       </div>
 
-      <SettingsModal directory={decodedDirectory} open={settingsModalOpen} onOpenChange={setSettingsModalOpen} />
+      <SettingsModal
+        directory={decodedDirectory}
+        open={settingsModalOpen}
+        onOpenChange={onSettingsModalOpenChange}
+      />
     </div>
   )
 }
