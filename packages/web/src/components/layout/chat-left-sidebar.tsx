@@ -13,17 +13,21 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   Input,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
 } from "@buddy/ui"
 import type { SessionInfo } from "@/state/chat-types"
 import { getFilename } from "./sidebar-helpers"
 import {
   ArchiveIcon,
-  BookOpenIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
   EllipsisHorizontalIcon,
   FolderIcon,
   PencilIcon,
   PinIcon,
-  PlusIcon,
+  SquarePenIcon,
   SettingsIcon,
 } from "./sidebar-icons"
 
@@ -36,7 +40,7 @@ type ChatLeftSidebarProps = {
   pinnedByDirectory: Record<string, string[]>
   unreadByDirectory: Record<string, Record<string, true>>
   onOpenDirectory: () => void
-  onNewSession: () => void
+  onNewSession: (directory?: string) => void
   onSelectSession: (directory: string, sessionID?: string) => void
   onTogglePin: (directory: string, sessionID: string) => void
   onToggleUnread: (directory: string, sessionID: string, unread: boolean) => void
@@ -52,6 +56,16 @@ type RenameState = {
   directory: string
   sessionID: string
   title: string
+}
+
+function formatThreadAge(timestamp: number) {
+  const elapsed = Date.now() - timestamp
+
+  if (elapsed < 60_000) return "now"
+  if (elapsed < 3_600_000) return `${Math.round(elapsed / 60_000)}m`
+  if (elapsed < 86_400_000) return `${Math.round(elapsed / 3_600_000)}h`
+  if (elapsed < 2_592_000_000) return `${Math.round(elapsed / 86_400_000)}d`
+  return `${Math.round(elapsed / 2_592_000_000)}mo`
 }
 
 export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
@@ -97,7 +111,6 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
           sessions: [...pinned, ...rest],
         }
       })
-      .filter((group) => group.directory === props.currentDirectory || group.sessions.length > 0)
   }, [props.directories, props.sessionsByDirectory, props.pinnedByDirectory])
 
   return (
@@ -107,30 +120,15 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
       }`}
       style={props.style}
     >
-      <header className="px-3 pt-3 pb-2 space-y-1.5">
-        <Button variant="ghost" size="sm" className="w-full justify-start h-9" onClick={props.onNewSession}>
-          <PlusIcon className="size-3.5 mr-2" />
-          New thread
-        </Button>
-        <Button variant="ghost" size="sm" className="w-full justify-start h-9" onClick={props.onOpenCurriculum}>
-          <BookOpenIcon className="size-3.5 mr-2" />
-          Curriculum
-        </Button>
-      </header>
-
-      <div className="flex-1 min-h-0 overflow-y-auto px-3 pb-2">
-        <div className="mb-2 flex items-center justify-between px-1 text-muted-foreground">
+      <div className="flex-1 min-h-0 overflow-y-auto px-3 pt-3 pb-3">
+        <div className="mb-2 px-1 text-muted-foreground">
           <p className="text-[13px] font-medium">Threads</p>
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon-xs" onClick={props.onOpenDirectory} title="Open notebook">
-              <FolderIcon className="size-3.5" />
-            </Button>
-          </div>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-5">
           {directoryGroups.map((group) => {
             const isCurrentDirectory = group.directory === props.currentDirectory
+            const directoryLabel = getFilename(group.directory)
             const unreadMap = props.unreadByDirectory[group.directory] ?? {}
             const pinnedSet = new Set(props.pinnedByDirectory[group.directory] ?? [])
             const sessionStatusByID = props.sessionStatusByDirectory[group.directory] ?? {}
@@ -140,53 +138,75 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
             const hasMore = group.sessions.length > COLLAPSED_COUNT
 
             return (
-              <section key={group.directory} className="space-y-1.5">
-                <div className="flex items-center gap-2 px-1">
-                  <FolderIcon className="size-3.5 text-muted-foreground shrink-0" />
+              <section key={group.directory} className="space-y-1">
+                <div
+                  className={`group/directory flex items-center gap-1 rounded-xl px-1 py-0.5 ${
+                    isCurrentDirectory ? "bg-[#111318]" : ""
+                  }`}
+                >
                   <button
                     type="button"
-                    className={`truncate text-left text-sm ${
-                      isCurrentDirectory ? "text-foreground font-medium" : "text-muted-foreground"
+                    className={`flex min-w-0 flex-1 items-center gap-1.5 rounded-lg px-1.5 py-1 text-left text-sm ${
+                      isCurrentDirectory ? "text-foreground" : "text-muted-foreground hover:text-foreground"
                     }`}
                     onClick={() => {
-                      if (isCurrentDirectory) {
-                        setCollapsedDirectories((current) => {
-                          const next = { ...current }
-                          if (next[group.directory]) {
-                            delete next[group.directory]
-                          } else {
-                            next[group.directory] = true
-                          }
-                          return next
-                        })
-                        return
-                      }
-
-                      setCollapsedDirectories((current) => {
-                        if (!current[group.directory]) return current
-                        const next = { ...current }
-                        delete next[group.directory]
-                        return next
-                      })
-                      props.onSelectSession(group.directory, group.sessions[0]?.id)
-                    }}
-                    onDoubleClick={() => {
-                      if (!isCurrentDirectory) return
-                      props.onSelectSession(group.directory)
                       setCollapsedDirectories((current) => {
                         const next = { ...current }
-                        delete next[group.directory]
+                        if (next[group.directory]) {
+                          delete next[group.directory]
+                        } else {
+                          next[group.directory] = true
+                        }
                         return next
                       })
                     }}
                   >
-                    {getFilename(group.directory)}
+                    {collapsed
+                      ? <ChevronRightIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                      : <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground" />}
+                    <span className={`truncate ${isCurrentDirectory ? "font-medium" : ""}`}>{directoryLabel}</span>
                   </button>
+
+                  <div className="flex items-center gap-0.5 pr-1 opacity-0 pointer-events-none transition-opacity group-hover/directory:opacity-100 group-hover/directory:pointer-events-auto group-focus-within/directory:opacity-100 group-focus-within/directory:pointer-events-auto">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-[#1a1d24] hover:text-foreground"
+                          aria-label={`Options for ${directoryLabel}`}
+                        >
+                          <EllipsisHorizontalIcon className="size-3.5" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-44">
+                        <DropdownMenuItem onSelect={() => props.onSelectSession(group.directory)}>
+                          <FolderIcon className="size-3.5 mr-2" />
+                          Open workspace
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-[#1a1d24] hover:text-foreground"
+                          aria-label={`Start new thread in ${directoryLabel}`}
+                          onClick={() => props.onNewSession(group.directory)}
+                        >
+                          <SquarePenIcon className="size-3.5" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" sideOffset={8} className="px-2 py-1 text-[11px]">
+                        {`Start new thread in ${directoryLabel}`}
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
                 </div>
 
                 {group.sessions.length === 0
                   ? (
-                      <p className="pl-8 text-sm text-muted-foreground/70">No threads</p>
+                      <p className="pl-6 text-sm text-muted-foreground/60">No threads</p>
                     )
                   : collapsed
                     ? null
@@ -200,8 +220,8 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
                         return (
                           <div
                             key={`${group.directory}:${session.id}`}
-                            className={`group/thread relative ml-6 rounded-xl ${
-                              active ? "bg-[#1a1c21]" : "hover:bg-[#13161b]"
+                            className={`group/thread relative ml-3 rounded-xl ${
+                              active ? "bg-[#121419] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)]" : "hover:bg-[#101217]"
                             }`}
                           >
                             <button
@@ -209,14 +229,29 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
                               onClick={() => props.onSelectSession(group.directory, session.id)}
                               className="w-full px-3 py-2 text-left"
                             >
-                              <div className="flex items-center gap-2 min-w-0 pr-8">
+                              <div className="flex min-w-0 items-center gap-2 pr-8">
                                 <span
-                                  className={`inline-block size-1.5 rounded-full shrink-0 ${
+                                  className={`inline-block size-1.5 shrink-0 rounded-full ${
                                     busy ? "bg-amber-500" : unread ? "bg-sky-500" : "bg-emerald-500"
                                   }`}
                                 />
-                                <span className="text-sm truncate">{session.title || "New thread"}</span>
-                                {pinned ? <PinIcon className="size-3 shrink-0 text-muted-foreground" /> : null}
+                                <div className="flex min-w-0 items-center gap-1">
+                                  <span
+                                    className={`truncate text-xs ${
+                                      active || unread ? "font-medium text-foreground" : "text-foreground/90"
+                                    }`}
+                                  >
+                                    {session.title || "New thread"}
+                                  </span>
+                                  {pinned ? <PinIcon className="size-3 shrink-0 text-muted-foreground" /> : null}
+                                </div>
+                                <span
+                                  className={`ml-auto shrink-0 text-[12px] ${
+                                    busy ? "text-amber-400" : "text-muted-foreground"
+                                  }`}
+                                >
+                                  {busy ? "live" : formatThreadAge(session.time.updated)}
+                                </span>
                               </div>
                             </button>
 
@@ -278,7 +313,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
                 {hasMore ? (
                   <button
                     type="button"
-                    className="ml-8 text-sm text-muted-foreground hover:text-foreground"
+                    className="ml-6 text-sm text-muted-foreground/80 hover:text-foreground"
                     onClick={() =>
                       setExpandedDirectories((current) => {
                         const next = { ...current }
@@ -300,9 +335,14 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
         </div>
       </div>
 
-      <footer className="border-t border-border/50 px-3 py-2 space-y-1">
-        <Button variant="ghost" size="sm" className="w-full justify-start h-9" onClick={props.onOpenSettings}>
-          <SettingsIcon className="size-3.5 mr-2" />
+      <footer className="border-t border-border/40 px-3 py-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-9 w-full justify-start rounded-lg px-2 text-sm font-medium text-foreground hover:bg-[#121419] hover:text-foreground"
+          onClick={props.onOpenSettings}
+        >
+          <SettingsIcon className="size-3.5" />
           Settings
         </Button>
       </footer>

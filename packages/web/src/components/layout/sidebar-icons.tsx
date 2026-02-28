@@ -46,6 +46,22 @@ export function ChevronRightIcon(props: IconProps) {
   )
 }
 
+export function SlidersHorizontalIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
+      <path d="M4 7h10" />
+      <path d="M18 7h2" />
+      <path d="M4 12h2" />
+      <path d="M10 12h10" />
+      <path d="M4 17h14" />
+      <path d="M22 17h-2" />
+      <circle cx="16" cy="7" r="2" />
+      <circle cx="8" cy="12" r="2" />
+      <circle cx="20" cy="17" r="2" />
+    </svg>
+  )
+}
+
 export function LayoutLeftIcon(props: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
@@ -100,6 +116,15 @@ export function FolderIcon(props: IconProps) {
   )
 }
 
+export function ClockIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  )
+}
+
 export function BookOpenIcon(props: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
@@ -134,6 +159,15 @@ export function PencilIcon(props: IconProps) {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
       <path d="M12 20h9" />
       <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4 11.5-11.5Z" />
+    </svg>
+  )
+}
+
+export function SquarePenIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
+      <path d="M11 4H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-6" />
+      <path d="M15.5 3.5a2.1 2.1 0 0 1 3 3L10 15l-4 1 1-4 8.5-8.5Z" />
     </svg>
   )
 }

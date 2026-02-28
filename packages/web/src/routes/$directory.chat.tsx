@@ -13,12 +13,11 @@ import { TeachingEditorPanel } from "@/components/teaching/teaching-editor-panel
 import { getFilename } from "@/components/layout/sidebar-helpers"
 import { PromptComposer } from "@/components/prompt/prompt-composer"
 import {
-  BookOpenIcon,
   LayoutLeftIcon,
   LayoutLeftPartialIcon,
   LayoutRightIcon,
   LayoutRightPartialIcon,
-  SettingsIcon,
+  SquarePenIcon,
 } from "@/components/layout/sidebar-icons"
 import { pickProjectDirectory } from "../lib/directory-picker"
 import { decodeDirectory, encodeDirectory } from "../lib/directory-token"
@@ -693,10 +692,13 @@ function DirectoryChatPage() {
     await abortPrompt(decodedDirectory)
   }
 
-  async function onNewSession() {
-    if (!decodedDirectory) return
+  async function onNewSession(targetDirectory = decodedDirectory) {
+    if (!targetDirectory) return
     try {
-      await startNewSession(decodedDirectory)
+      await startNewSession(targetDirectory)
+      if (targetDirectory !== decodedDirectory) {
+        onSwitchDirectory(targetDirectory)
+      }
     } catch {
       // Store already captures and displays errors.
     }
@@ -1017,8 +1019,8 @@ function DirectoryChatPage() {
               onOpenDirectory={() => {
                 void onOpenProject()
               }}
-              onNewSession={() => {
-                void onNewSession()
+              onNewSession={(targetDirectory) => {
+                void onNewSession(targetDirectory)
               }}
               onSelectSession={(targetDirectory, targetSessionID) => {
                 void onSelectSession(targetDirectory, targetSessionID)
@@ -1067,6 +1069,9 @@ function DirectoryChatPage() {
 
               <div className="flex items-center gap-1.5">
                 <SessionContextUsage messages={messages} providers={providers} />
+                <Button variant="ghost" size="icon-xs" onClick={() => void onNewSession()} title={`Start new thread in ${getFilename(decodedDirectory)}`}>
+                  <SquarePenIcon className="size-3.5" />
+                </Button>
                 <Button
                   variant={editorPanelOpen ? "secondary" : "ghost"}
                   size="sm"
@@ -1074,12 +1079,6 @@ function DirectoryChatPage() {
                   title={editorPanelOpen ? "Hide editor" : "Show editor"}
                 >
                   Editor
-                </Button>
-                <Button variant="ghost" size="icon-xs" onClick={openCurriculumPanel} title="Open curriculum">
-                  <BookOpenIcon className="size-3.5" />
-                </Button>
-                <Button variant="ghost" size="icon-xs" onClick={openSettingsPanel} title="Open settings">
-                  <SettingsIcon className="size-3.5" />
                 </Button>
                 <Button
                   variant="ghost"
