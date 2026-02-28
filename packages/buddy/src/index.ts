@@ -15,7 +15,6 @@ import { ensureCurriculumToolsRegistered } from "./opencode/curriculum-tools.js"
 import { assertOpenCodeRuntime, loadOpenCodeApp } from "./opencode/runtime.js"
 import { allowedDirectoryRoots, isAllowedDirectory, resolveDirectory } from "./project/directory.js"
 import { Instance as BuddyInstance } from "./project/instance.js"
-import { Provider } from "./provider/provider.js"
 import { CurriculumRoutes } from "./routes/curriculum.js"
 import { TeachingRoutes } from "./routes/teaching.js"
 import { condenseCurriculum, loadBehavior } from "./session/system-prompt.js"
@@ -314,6 +313,20 @@ function isConfigValidationError(error: unknown) {
 function configErrorMessage(error: unknown) {
   if (error instanceof Error && error.message) return error.message
   return "Invalid config"
+}
+
+function parseConfiguredModel(value: unknown) {
+  if (typeof value !== "string") return undefined
+  const trimmed = value.trim()
+  if (!trimmed) return undefined
+
+  const separator = trimmed.indexOf("/")
+  if (separator <= 0 || separator >= trimmed.length - 1) return undefined
+
+  return {
+    providerID: trimmed.slice(0, separator),
+    modelID: trimmed.slice(separator + 1),
+  }
 }
 
 function buildOpenCodeConfigOverlay() {
@@ -674,6 +687,46 @@ api.post("/global/dispose", async (c) => {
   })
 })
 
+api.get("/provider", async (c) => {
+  return proxyToOpenCode(c, {
+    targetPath: "/provider",
+  })
+})
+
+api.get("/provider/auth", async (c) => {
+  return proxyToOpenCode(c, {
+    targetPath: "/provider/auth",
+  })
+})
+
+api.post("/provider/:providerID/oauth/authorize", async (c) => {
+  const providerID = c.req.param("providerID")
+  return proxyToOpenCode(c, {
+    targetPath: `/provider/${encodeURIComponent(providerID)}/oauth/authorize`,
+  })
+})
+
+api.post("/provider/:providerID/oauth/callback", async (c) => {
+  const providerID = c.req.param("providerID")
+  return proxyToOpenCode(c, {
+    targetPath: `/provider/${encodeURIComponent(providerID)}/oauth/callback`,
+  })
+})
+
+api.put("/auth/:providerID", async (c) => {
+  const providerID = c.req.param("providerID")
+  return proxyToOpenCode(c, {
+    targetPath: `/auth/${encodeURIComponent(providerID)}`,
+  })
+})
+
+api.delete("/auth/:providerID", async (c) => {
+  const providerID = c.req.param("providerID")
+  return proxyToOpenCode(c, {
+    targetPath: `/auth/${encodeURIComponent(providerID)}`,
+  })
+})
+
 api.get("/config/agents", async (c) => {
   const directoryResult = ensureAllowedDirectory(c.req.raw)
   if (!directoryResult.ok) return directoryResult.response
@@ -743,24 +796,6 @@ api.patch("/config", async (c) => {
     }
     throw error
   }
-})
-
-api.get("/config/providers", async (c) => {
-  const directoryResult = ensureAllowedDirectory(c.req.raw)
-  if (!directoryResult.ok) return directoryResult.response
-
-  const payload = await BuddyInstance.provide({
-    directory: directoryResult.directory,
-    fn: async () => {
-      const [providers, defaults] = await Promise.all([Provider.list(), Provider.defaults()])
-      return {
-        providers,
-        default: defaults,
-      }
-    },
-  })
-
-  return c.json(payload)
 })
 
 api.get("/permission", async (c) => {
@@ -849,6 +884,10 @@ api.post("/session/:sessionID/message", async (c) => {
         ? TeachingPromptContextSchema.parse(body.teaching)
         : undefined
       const agentName = typeof body.agent === "string" ? body.agent : undefined
+      const projectConfig = await BuddyInstance.provide({
+        directory: directoryResult.directory,
+        fn: () => Config.get(),
+      })
       if (content.trim().length > 0) {
         parts.unshift({
           type: "text",
@@ -874,6 +913,15 @@ api.post("/session/:sessionID/message", async (c) => {
       const mergedSystem = [existingSystem, buddySystem].filter(Boolean).join("\n\n").trim()
       if (mergedSystem) {
         transformed.system = mergedSystem
+      }
+      const configuredModel = parseConfiguredModel(projectConfig.model)
+      const explicitModel =
+        body.model &&
+        typeof body.model === "object" &&
+        typeof (body.model as { providerID?: unknown }).providerID === "string" &&
+        typeof (body.model as { modelID?: unknown }).modelID === "string"
+      if (!explicitModel && configuredModel) {
+        transformed.model = configuredModel
       }
       if (agentName) {
         transformed.agent = agentName

@@ -68,24 +68,6 @@ const PermissionRequestSchema = {
   additionalProperties: true,
 } as const
 
-const ProvidersResponseSchema = {
-  type: "object",
-  properties: {
-    providers: {
-      type: "array",
-      items: AnyObjectSchema,
-    },
-    default: {
-      type: "object",
-      additionalProperties: {
-        type: "string",
-      },
-    },
-  },
-  required: ["providers", "default"],
-  additionalProperties: true,
-} as const
-
 const BooleanSchema = { type: "boolean" } as const
 
 const DirectoryHeader = {
@@ -111,6 +93,13 @@ const SessionIDPath = {
 
 const RequestIDPath = {
   name: "requestID",
+  in: "path",
+  required: true,
+  schema: { type: "string" },
+} as const
+
+const ProviderIDPath = {
+  name: "providerID",
   in: "path",
   required: true,
   schema: { type: "string" },
@@ -206,6 +195,172 @@ export const COMPATIBILITY_OPENAPI_PATHS: Record<string, Record<string, unknown>
       },
     },
   },
+  "/api/provider": {
+    get: {
+      operationId: "provider.list",
+      summary: "List providers",
+      parameters: [DirectoryHeader, DirectoryQuery],
+      responses: {
+        200: {
+          description: "OpenCode provider list payload",
+          content: {
+            "application/json": { schema: AnyObjectSchema },
+          },
+        },
+        403: {
+          description: "Directory is outside allowed roots",
+          content: {
+            "application/json": { schema: ErrorSchema },
+          },
+        },
+      },
+    },
+  },
+  "/api/provider/auth": {
+    get: {
+      operationId: "provider.auth",
+      summary: "List provider auth methods",
+      parameters: [DirectoryHeader, DirectoryQuery],
+      responses: {
+        200: {
+          description: "OpenCode provider auth method payload",
+          content: {
+            "application/json": { schema: AnyObjectSchema },
+          },
+        },
+        403: {
+          description: "Directory is outside allowed roots",
+          content: {
+            "application/json": { schema: ErrorSchema },
+          },
+        },
+      },
+    },
+  },
+  "/api/provider/{providerID}/oauth/authorize": {
+    post: {
+      operationId: "provider.oauth.authorize",
+      summary: "Start provider OAuth",
+      parameters: [ProviderIDPath, DirectoryHeader, DirectoryQuery],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": { schema: AnyObjectSchema },
+        },
+      },
+      responses: {
+        200: {
+          description: "OpenCode provider OAuth authorization payload",
+          content: {
+            "application/json": { schema: AnyObjectSchema },
+          },
+        },
+        400: {
+          description: "Invalid provider auth request",
+          content: {
+            "application/json": { schema: ErrorSchema },
+          },
+        },
+        403: {
+          description: "Directory is outside allowed roots",
+          content: {
+            "application/json": { schema: ErrorSchema },
+          },
+        },
+      },
+    },
+  },
+  "/api/provider/{providerID}/oauth/callback": {
+    post: {
+      operationId: "provider.oauth.callback",
+      summary: "Complete provider OAuth",
+      parameters: [ProviderIDPath, DirectoryHeader, DirectoryQuery],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": { schema: AnyObjectSchema },
+        },
+      },
+      responses: {
+        200: {
+          description: "Provider OAuth callback processed",
+          content: {
+            "application/json": { schema: BooleanSchema },
+          },
+        },
+        400: {
+          description: "Invalid provider auth callback",
+          content: {
+            "application/json": { schema: ErrorSchema },
+          },
+        },
+        403: {
+          description: "Directory is outside allowed roots",
+          content: {
+            "application/json": { schema: ErrorSchema },
+          },
+        },
+      },
+    },
+  },
+  "/api/auth/{providerID}": {
+    put: {
+      operationId: "auth.set",
+      summary: "Set provider credentials",
+      parameters: [ProviderIDPath, DirectoryHeader, DirectoryQuery],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": { schema: AnyObjectSchema },
+        },
+      },
+      responses: {
+        200: {
+          description: "Credentials stored",
+          content: {
+            "application/json": { schema: BooleanSchema },
+          },
+        },
+        400: {
+          description: "Invalid provider credentials",
+          content: {
+            "application/json": { schema: ErrorSchema },
+          },
+        },
+        403: {
+          description: "Directory is outside allowed roots",
+          content: {
+            "application/json": { schema: ErrorSchema },
+          },
+        },
+      },
+    },
+    delete: {
+      operationId: "auth.remove",
+      summary: "Remove provider credentials",
+      parameters: [ProviderIDPath, DirectoryHeader, DirectoryQuery],
+      responses: {
+        200: {
+          description: "Credentials removed",
+          content: {
+            "application/json": { schema: BooleanSchema },
+          },
+        },
+        400: {
+          description: "Invalid provider identifier",
+          content: {
+            "application/json": { schema: ErrorSchema },
+          },
+        },
+        403: {
+          description: "Directory is outside allowed roots",
+          content: {
+            "application/json": { schema: ErrorSchema },
+          },
+        },
+      },
+    },
+  },
   "/api/config/agents": {
     get: {
       operationId: "config.agents",
@@ -279,27 +434,6 @@ export const COMPATIBILITY_OPENAPI_PATHS: Record<string, Record<string, unknown>
           description: "Invalid config",
           content: {
             "application/json": { schema: ErrorSchema },
-          },
-        },
-        403: {
-          description: "Directory is outside allowed roots",
-          content: {
-            "application/json": { schema: ErrorSchema },
-          },
-        },
-      },
-    },
-  },
-  "/api/config/providers": {
-    get: {
-      operationId: "config.providers",
-      summary: "Get provider catalog",
-      parameters: [DirectoryHeader, DirectoryQuery],
-      responses: {
-        200: {
-          description: "Providers and defaults",
-          content: {
-            "application/json": { schema: ProvidersResponseSchema },
           },
         },
         403: {
