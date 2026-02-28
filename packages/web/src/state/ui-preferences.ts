@@ -7,6 +7,7 @@ export const UI_PREFERENCES_STORAGE_KEY = "buddy.ui.v1"
 type UiPreferencesStore = {
   pinnedByDirectory: Record<string, string[]>
   unreadByDirectory: Record<string, Record<string, true>>
+  directoryOrderMode: "saved-order" | "active-first"
   leftSidebarOpen: boolean
   leftSidebarWidth: number
   rightSidebarOpen: boolean
@@ -18,6 +19,7 @@ type UiPreferencesStore = {
   clearUnread: (directory: string, sessionID: string) => void
   isUnread: (directory: string, sessionID: string) => boolean
   clearDirectorySessionState: (directory: string, sessionID: string) => void
+  setDirectoryOrderMode: (mode: "saved-order" | "active-first") => void
   setLeftSidebarOpen: (open: boolean) => void
   setLeftSidebarWidth: (width: number) => void
   setRightSidebarOpen: (open: boolean) => void
@@ -30,6 +32,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
     (set, get) => ({
       pinnedByDirectory: {},
       unreadByDirectory: {},
+      directoryOrderMode: "saved-order",
       leftSidebarOpen: true,
       leftSidebarWidth: 344,
       rightSidebarOpen: false,
@@ -94,6 +97,9 @@ export const useUiPreferences = create<UiPreferencesStore>()(
           }
         })
       },
+      setDirectoryOrderMode(mode) {
+        set({ directoryOrderMode: mode })
+      },
       setLeftSidebarOpen(open) {
         set({ leftSidebarOpen: open })
       },
@@ -112,13 +118,14 @@ export const useUiPreferences = create<UiPreferencesStore>()(
     }),
     {
       name: UI_PREFERENCES_STORAGE_KEY,
-      version: 3,
+      version: 4,
       storage: createPlatformJsonStorage("buddy.ui.dat"),
       migrate(persistedState) {
         const state = persistedState as Partial<UiPreferencesStore> | undefined
         return {
           pinnedByDirectory: state?.pinnedByDirectory ?? {},
           unreadByDirectory: state?.unreadByDirectory ?? {},
+          directoryOrderMode: state?.directoryOrderMode === "active-first" ? "active-first" : "saved-order",
           leftSidebarOpen: state?.leftSidebarOpen ?? true,
           leftSidebarWidth: state?.leftSidebarWidth ?? 344,
           rightSidebarOpen: state?.rightSidebarOpen ?? false,
@@ -135,6 +142,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
         return {
           pinnedByDirectory: state.pinnedByDirectory,
           unreadByDirectory: state.unreadByDirectory,
+          directoryOrderMode: state.directoryOrderMode,
           leftSidebarOpen: state.leftSidebarOpen,
           leftSidebarWidth: state.leftSidebarWidth,
           rightSidebarOpen: state.rightSidebarOpen,

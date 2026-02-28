@@ -380,10 +380,7 @@ function DirectoryChatPage() {
     [allDirectoryStates, validProjects],
   )
   const showDevSessionTrace = import.meta.env.DEV
-  const sidebarDirectories = useMemo(() => {
-    if (!decodedDirectory || decodedDirectory === "/") return validProjects
-    return [decodedDirectory, ...validProjects.filter((directory) => directory !== decodedDirectory)]
-  }, [decodedDirectory, validProjects])
+  const sidebarDirectories = validProjects
   const leftSidebarMaxWidth = typeof window === "undefined" ? SIDEBAR_DEFAULT_MAX_WIDTH : window.innerWidth * 0.3 + 64
   const sessionKey = useMemo(
     () => (decodedDirectory && sessionID ? teachingSessionKey(decodedDirectory, sessionID) : ""),

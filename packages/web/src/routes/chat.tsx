@@ -22,10 +22,7 @@ function ChatEntryPage() {
   const [openError, setOpenError] = useState<string>()
   const hasNativePicker = typeof platform.openDirectoryPickerDialog === "function"
 
-  const recents = useMemo(() => {
-    if (!activeDirectory) return projects
-    return [activeDirectory, ...projects.filter((item) => item !== activeDirectory)]
-  }, [activeDirectory, projects])
+  const recents = useMemo(() => projects, [projects])
 
   useEffect(() => {
     void loadProjects()
