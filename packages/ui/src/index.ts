@@ -34,4 +34,29 @@ export { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrig
 export { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 export { Textarea } from "./components/ui/textarea";
 export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./components/ui/tooltip";
+export {
+  ArchiveIcon,
+  ArrowUpIcon,
+  BookOpenIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  CircleQuestionMarkIcon,
+  Clock3Icon,
+  EllipsisIcon,
+  FolderIcon,
+  FolderPlusIcon,
+  PanelLeftCloseIcon,
+  PanelLeftOpenIcon,
+  PanelRightCloseIcon,
+  PanelRightOpenIcon,
+  PencilIcon,
+  PinIcon,
+  PlusIcon,
+  SettingsIcon,
+  SlidersHorizontalIcon,
+  SparklesIcon,
+  SquareIcon,
+  SquarePenIcon,
+  XIcon,
+} from "lucide-react";
 export { cn } from "./lib/utils";
