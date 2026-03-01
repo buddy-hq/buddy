@@ -237,7 +237,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
 
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="overflow-hidden sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Connect provider</DialogTitle>
           <DialogDescription>Use your own provider account, subscription, or API key.</DialogDescription>
@@ -246,7 +246,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
         {props.providers.length === 0 ? (
           <p className="py-2 text-sm text-muted-foreground">No providers are available for this project.</p>
         ) : (
-          <div className="space-y-4 py-2">
+          <div className="min-w-0 space-y-4 py-2">
             <div className="space-y-1.5">
               <label className="text-xs text-muted-foreground">Provider</label>
               <Select
@@ -337,16 +337,20 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
                     ) : null}
 
                     {authorization ? (
-                      <div className="space-y-3 rounded-md border px-3 py-3">
-                        <div className="space-y-1">
+                      <div className="min-w-0 space-y-3 rounded-md border px-3 py-3">
+                        <div className="min-w-0 space-y-2">
                           <p className="text-xs text-muted-foreground">Authorization link</p>
+                          <p className="text-sm text-muted-foreground">
+                            Open the authorization page in your browser to continue connecting {selectedProvider.name}.
+                          </p>
                           <a
-                            className="text-sm text-primary underline-offset-4 hover:underline"
+                            className="inline-flex max-w-full text-sm text-primary underline-offset-4 hover:underline"
                             href={authorization.url}
                             target="_blank"
                             rel="noreferrer"
+                            title={authorization.url}
                           >
-                            {authorization.url}
+                            Open authorization page
                           </a>
                         </div>
 
@@ -369,9 +373,14 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
                         ) : (
                           <div className="space-y-2">
                             {confirmationCode ? (
-                              <div className="space-y-1">
+                              <div className="space-y-1 min-w-0">
                                 <p className="text-xs text-muted-foreground">Confirmation code</p>
-                                <code className="block rounded bg-muted px-2 py-1 text-xs">{confirmationCode}</code>
+                                <Input
+                                  readOnly
+                                  value={confirmationCode}
+                                  className="font-mono text-xs"
+                                  onFocus={(event) => event.currentTarget.select()}
+                                />
                               </div>
                             ) : null}
                             <p className="text-xs text-muted-foreground">
