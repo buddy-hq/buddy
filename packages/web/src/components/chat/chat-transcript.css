@@ -112,6 +112,15 @@
   padding: 0.4rem 0.55rem;
 }
 
+.buddy-tool-card-trigger {
+  display: block;
+  width: 100%;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+
 .buddy-context-group > summary,
 .buddy-tool-card > summary {
   cursor: pointer;
@@ -259,19 +268,11 @@
   color: var(--muted-foreground);
 }
 
-.buddy-subagent-link {
-  border: none;
-  background: transparent;
-  color: color-mix(in oklab, var(--primary) 80%, var(--foreground));
-  font-size: 0.8rem;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  cursor: pointer;
-  padding: 0;
-}
-
-.buddy-subagent-link:hover {
-  color: var(--primary);
+.buddy-tool-card-trigger:hover,
+.buddy-tool-card-trigger:focus-visible {
+  border-color: color-mix(in oklab, var(--primary) 28%, var(--border));
+  background: color-mix(in oklab, var(--card) 72%, var(--background));
+  outline: none;
 }
 
 .buddy-raw-part pre {

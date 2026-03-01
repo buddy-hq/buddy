@@ -640,59 +640,65 @@ function ToolPartCard(props: {
   const output = state.output || (state.error ? unwrapError(state.error) : "")
   const showOutput = output.trim().length > 0
 
-  const subtitle =
-    tool === "task" && childSessionId && props.onOpenSession ? (
-      <button
-        type="button"
-        className="buddy-subagent-link"
-        onClick={() => props.onOpenSession?.(childSessionId)}
-      >
-        {info.subtitle || childSessionId}
-      </button>
-    ) : info.subtitle ? (
-      <span className="buddy-tool-subtitle-text">{info.subtitle}</span>
-    ) : null
-
   if (tool === "task") {
-    return (
-      <div className="buddy-tool-card buddy-tool-card-task">
+    const onOpenSession = props.onOpenSession
+    const openChildSession =
+      childSessionId && onOpenSession
+        ? () => onOpenSession(childSessionId)
+        : undefined
+    const taskProgressLines = state.status === "pending" || state.status === "running" ? progressLines : []
+    const showTaskError = state.status === "error" && showOutput
+    const content = (
+      <>
         <div className="buddy-tool-summary">
           <div className="buddy-tool-main">
             <span className={toolTitleClass(state.status)}>{info.title}</span>
-            {subtitle}
-            {info.detail ? <span className="buddy-tool-detail">{info.detail}</span> : null}
-            {info.args?.map((arg) => (
-              <span key={`${props.part.id}:${arg}`} className="buddy-tool-arg">
-                {arg}
-              </span>
-            ))}
+            {info.subtitle ? <span className="buddy-tool-subtitle-text">{info.subtitle}</span> : null}
           </div>
           <span className={`buddy-tool-status buddy-tool-status-${state.status}`}>{statusLabel(state.status)}</span>
         </div>
 
-        <div className="buddy-tool-body">
-          {state.title ? <div className="buddy-tool-title-meta">{state.title}</div> : null}
-
-          {progressLines.length > 0 ? (
+        {taskProgressLines.length > 0 ? (
+          <div className="buddy-tool-body">
             <div className="buddy-tool-progress-lines">
-              {progressLines.map((line, index) => (
+              {taskProgressLines.map((line, index) => (
                 <div key={`${props.part.id}:progress:${index}`}>{line}</div>
               ))}
             </div>
-          ) : null}
+          </div>
+        ) : null}
 
-          {showOutput ? (
-            <>
-              <pre className="buddy-tool-output" data-status={state.status}>
-                {output}
-              </pre>
-              <CopyAction value={output} className="buddy-copy-action" />
-            </>
-          ) : null}
-        </div>
+        {showTaskError ? (
+          <div className="buddy-tool-body">
+            <pre className="buddy-tool-output" data-status={state.status}>
+              {output}
+            </pre>
+            <CopyAction value={output} className="buddy-copy-action" />
+          </div>
+        ) : null}
+      </>
+    )
+
+    if (openChildSession && !showTaskError) {
+      return (
+        <button
+          type="button"
+          className="buddy-tool-card buddy-tool-card-task buddy-tool-card-trigger"
+          onClick={openChildSession}
+        >
+          {content}
+        </button>
+      )
+    }
+
+    return (
+      <div className="buddy-tool-card buddy-tool-card-task">
+        {content}
       </div>
     )
   }
+
+  const subtitle = info.subtitle ? <span className="buddy-tool-subtitle-text">{info.subtitle}</span> : null
 
   return (
     <details className="buddy-tool-card" open={state.status === "error"}>
