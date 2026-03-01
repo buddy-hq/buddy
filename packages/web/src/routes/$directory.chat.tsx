@@ -10,9 +10,13 @@ import { ChatRightSidebar } from "@/components/layout/chat-right-sidebar"
 import { ResizeHandle } from "@/components/layout/resize-handle"
 import { SettingsModal } from "@/components/settings-modal"
 import { TeachingEditorPanel } from "@/components/teaching/teaching-editor-panel"
+import { usePlatform } from "@/context/platform"
 import { getFilename } from "@/components/layout/sidebar-helpers"
 import { PromptComposer } from "@/components/prompt/prompt-composer"
+import type { PromptAttachmentPart, PromptComposerAttachment } from "@/components/prompt/prompt-types"
+import { parseSlashCommandInput } from "@/components/prompt/slash-autocomplete"
 import {
+  ChevronRightIcon,
   LayoutLeftIcon,
   LayoutLeftPartialIcon,
   LayoutRightIcon,
@@ -21,11 +25,15 @@ import {
 } from "@/components/layout/sidebar-icons"
 import { pickProjectDirectory } from "../lib/directory-picker"
 import { decodeDirectory, encodeDirectory } from "../lib/directory-token"
+import { getSessionFamily } from "../lib/session-family"
 import {
   type AgentConfigOption,
+  type PromptCommandOption,
   abortPrompt,
   ensureDirectorySession,
+  findWorkspaceFiles,
   loadAgentCatalog,
+  loadCommandCatalog,
   loadPermissions,
   loadProjects,
   loadProjectConfig,
@@ -36,6 +44,7 @@ import {
   rememberProject,
   resyncDirectory,
   selectSession,
+  sendCommand,
   sendPrompt,
   startNewSession,
   updateSession,
@@ -154,8 +163,74 @@ function modelSelectionKey(input: { providerID: string; modelID: string }) {
   return `${input.providerID}/${input.modelID}`
 }
 
+function decodeAttachmentDataUrl(dataUrl: string) {
+  const separator = dataUrl.indexOf(",")
+  if (separator === -1) return undefined
+
+  const metadata = dataUrl.slice(0, separator)
+  const payload = dataUrl.slice(separator + 1)
+
+  if (/;base64$/i.test(metadata)) {
+    const binary = window.atob(payload)
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0))
+    return bytes
+  }
+
+  return new TextEncoder().encode(decodeURIComponent(payload))
+}
+
+function decodeAttachmentText(dataUrl: string) {
+  const bytes = decodeAttachmentDataUrl(dataUrl)
+  if (!bytes) return undefined
+
+  try {
+    return new TextDecoder().decode(bytes)
+  } catch {
+    return undefined
+  }
+}
+
+function buildPromptAttachmentParts(attachments: PromptComposerAttachment[]): PromptAttachmentPart[] {
+  return attachments.flatMap((attachment): PromptAttachmentPart[] => {
+    const textLike = attachment.mime === "image/svg+xml" || attachment.mime.startsWith("text/")
+    if (textLike) {
+      const content = decodeAttachmentText(attachment.dataUrl)
+      if (content !== undefined) {
+        return [
+          {
+            type: "text" as const,
+            text: `Attached file (${attachment.filename}):\n${content}`,
+          },
+        ]
+      }
+    }
+
+    return [
+      {
+        type: "file" as const,
+        mime: attachment.mime,
+        url: attachment.dataUrl,
+        filename: attachment.filename,
+      },
+    ]
+  })
+}
+
+function buildCommandAttachmentParts(attachments: PromptComposerAttachment[]) {
+  return attachments.map((attachment) => ({
+    type: "file" as const,
+    mime: attachment.mime === "text/plain" ? "application/octet-stream" : attachment.mime,
+    url: attachment.dataUrl,
+    filename: attachment.filename,
+  }))
+}
+
 async function loadComposerConfiguration(directory: string) {
-  const [agents, config] = await Promise.all([loadAgentCatalog(directory), loadProjectConfig(directory)])
+  const [agents, config, commands] = await Promise.all([
+    loadAgentCatalog(directory),
+    loadProjectConfig(directory),
+    loadCommandCatalog(directory),
+  ])
   const selectableAgents = agents.filter((agent) => agent.mode !== "subagent" && !agent.hidden)
   const configuredDefault =
     typeof config.default_agent === "string" &&
@@ -164,7 +239,8 @@ async function loadComposerConfiguration(directory: string) {
       : "build"
 
   return {
-    selectableAgents,
+    agents,
+    commands,
     configuredDefault,
     configuredModel: parseConfiguredModel(config.model),
   }
@@ -173,7 +249,9 @@ async function loadComposerConfiguration(directory: string) {
 function DirectoryChatPage() {
   const params = Route.useParams()
   const navigate = useNavigate()
+  const platform = usePlatform()
   const [draft, setDraft] = useState("")
+  const [draftAttachments, setDraftAttachments] = useState<PromptComposerAttachment[]>([])
   const transcriptRef = useRef<HTMLElement | null>(null)
   const saveInFlightRef = useRef<Promise<boolean> | null>(null)
   const previousBusyRef = useRef(false)
@@ -181,7 +259,8 @@ function DirectoryChatPage() {
   const workspaceProbeInFlightRef = useRef(new Set<string>())
   const [stickToBottom, setStickToBottom] = useState(true)
   const [settingsModalOpen, setSettingsModalOpen] = useState(false)
-  const [agentOptions, setAgentOptions] = useState<AgentConfigOption[]>([])
+  const [agentCatalog, setAgentCatalog] = useState<AgentConfigOption[]>([])
+  const [slashCommands, setSlashCommands] = useState<PromptCommandOption[]>([])
   const [defaultAgent, setDefaultAgent] = useState("build")
   const [configuredModel, setConfiguredModel] = useState<{ providerID: string; modelID: string } | undefined>(undefined)
   const [selectedModelKey, setSelectedModelKey] = useState("auto")
@@ -230,9 +309,20 @@ function DirectoryChatPage() {
   const teachingMode = useTeachingMode()
 
   const sessionID = directoryState?.sessionID
+  const showHeaderSidebarToggle = !(platform.platform === "desktop" && platform.os === "macos")
   const sessions = directoryState?.sessions ?? []
-  const sessionTitle =
-    sessions.find((session) => session.id === sessionID)?.title ?? directoryState?.sessionTitle ?? "New chat"
+  const sessionFamily = useMemo(
+    () => getSessionFamily(sessions, sessionID),
+    [sessionID, sessions],
+  )
+  const sessionTitle = sessionFamily.current?.title ?? directoryState?.sessionTitle ?? "New chat"
+  const parentSession = useMemo(
+    () =>
+      sessionFamily.current?.parentID
+        ? sessionFamily.family.find((session) => session.id === sessionFamily.current?.parentID)
+        : undefined,
+    [sessionFamily.current?.parentID, sessionFamily.family],
+  )
   const validProjects = useMemo(
     () => projects.filter((directory) => directory && directory !== "/"),
     [projects],
@@ -294,6 +384,20 @@ function DirectoryChatPage() {
 
     return visible
   }, [configuredModel, connectedProviders, selectedModelKey])
+  const primaryAgentOptions = useMemo(
+    () => agentCatalog.filter((agent) => agent.mode !== "subagent" && !agent.hidden),
+    [agentCatalog],
+  )
+  const mentionableAgentOptions = useMemo(
+    () =>
+      agentCatalog
+        .filter((agent) => agent.mode !== "primary" && !agent.hidden)
+        .map((agent) => ({
+          name: agent.name,
+          description: agent.description,
+        })),
+    [agentCatalog],
+  )
   const modelOptions = useMemo(() => {
     const configuredProvider = configuredModel
       ? connectedProviders.find((provider) => provider.id === configuredModel.providerID)
@@ -392,9 +496,11 @@ function DirectoryChatPage() {
   const teachingWorkspace = sessionKey ? teachingMode.workspaceBySession[sessionKey] : undefined
   const isInteractiveMode = !!sessionID && interactionMode === "interactive"
   const editorPanelOpen = rightSidebarOpen && rightSidebarTab === "editor"
-  const rightSidebarMinWidth = editorPanelOpen ? RIGHT_SIDEBAR_EDITOR_MIN_WIDTH : RIGHT_SIDEBAR_MIN_WIDTH
-  const rightSidebarMaxWidth = editorPanelOpen ? RIGHT_SIDEBAR_EDITOR_MAX_WIDTH : RIGHT_SIDEBAR_MAX_WIDTH
+  const editorPanelSizing = rightSidebarTab === "editor"
+  const rightSidebarMinWidth = editorPanelSizing ? RIGHT_SIDEBAR_EDITOR_MIN_WIDTH : RIGHT_SIDEBAR_MIN_WIDTH
+  const rightSidebarMaxWidth = editorPanelSizing ? RIGHT_SIDEBAR_EDITOR_MAX_WIDTH : RIGHT_SIDEBAR_MAX_WIDTH
   const rightSidebarDisplayWidth = Math.min(Math.max(rightSidebarWidth, rightSidebarMinWidth), rightSidebarMaxWidth)
+  const leftSidebarDisplayWidth = Math.max(leftSidebarWidth, SIDEBAR_MIN_WIDTH)
 
   useEffect(() => {
     void loadProjects()
@@ -435,13 +541,15 @@ function DirectoryChatPage() {
       .then((configuration) => {
         if (cancelled) return
 
-        setAgentOptions(configuration.selectableAgents)
+        setAgentCatalog(configuration.agents)
+        setSlashCommands(configuration.commands)
         setDefaultAgent(configuration.configuredDefault)
         setConfiguredModel(configuration.configuredModel)
       })
       .catch(() => {
         if (cancelled) return
-        setAgentOptions([])
+        setAgentCatalog([])
+        setSlashCommands([])
         setDefaultAgent("build")
         setConfiguredModel(undefined)
       })
@@ -457,12 +565,47 @@ function DirectoryChatPage() {
 
     void loadComposerConfiguration(decodedDirectory)
       .then((configuration) => {
-        setAgentOptions(configuration.selectableAgents)
+        setAgentCatalog(configuration.agents)
+        setSlashCommands(configuration.commands)
         setDefaultAgent(configuration.configuredDefault)
         setConfiguredModel(configuration.configuredModel)
       })
       .catch(() => undefined)
   }
+
+  function refreshSlashCommands() {
+    if (!decodedDirectory) return
+    void loadCommandCatalog(decodedDirectory)
+      .then((commands) => {
+        setSlashCommands(commands)
+      })
+      .catch(() => undefined)
+  }
+
+  useEffect(() => {
+    if (!decodedDirectory) return
+
+    const refresh = () => {
+      refreshSlashCommands()
+    }
+    const interval = window.setInterval(refresh, 30_000)
+    const onFocus = () => {
+      refresh()
+    }
+    const onVisibility = () => {
+      if (document.visibilityState !== "visible") return
+      refresh()
+    }
+
+    window.addEventListener("focus", onFocus)
+    document.addEventListener("visibilitychange", onVisibility)
+
+    return () => {
+      window.clearInterval(interval)
+      window.removeEventListener("focus", onFocus)
+      document.removeEventListener("visibilitychange", onVisibility)
+    }
+  }, [decodedDirectory])
 
   useEffect(() => {
     if (!decodedDirectory || !hasRegisteredProject) return
@@ -856,10 +999,40 @@ function DirectoryChatPage() {
     teachingWorkspace?.conflict,
   ])
 
-  async function onSend() {
+  async function onSend(input?: {
+    value: string
+    attachments: PromptComposerAttachment[]
+  }) {
     if (!decodedDirectory) return
-    const content = draft.trim()
-    if (!content) return
+    const rawContent = input?.value ?? draft
+    const rawAttachments = input?.attachments ?? draftAttachments
+    const content = rawContent.trim()
+    if (!content && rawAttachments.length === 0) return
+
+    const modelSelection =
+      selectedModelKey !== "auto"
+        ? parseConfiguredModel(selectedModelKey)
+        : undefined
+    const variant = selectedThinking !== "default" ? selectedThinking : undefined
+    const slashCommand = parseSlashCommandInput(rawContent, slashCommands)
+
+    if (slashCommand) {
+      const attachmentParts = buildCommandAttachmentParts(rawAttachments)
+      setDraft("")
+      setDraftAttachments([])
+      try {
+        await sendCommand(decodedDirectory, slashCommand.command.name, slashCommand.arguments, {
+          parts: attachmentParts,
+          agent: selectedAgent,
+          model: modelSelection,
+          variant,
+        })
+      } catch {
+        setDraft(rawContent)
+        setDraftAttachments(rawAttachments)
+      }
+      return
+    }
 
     if (isInteractiveMode) {
       const ready = await flushTeachingWorkspace()
@@ -881,18 +1054,19 @@ function DirectoryChatPage() {
         : undefined
 
     setDraft("")
+    setDraftAttachments([])
     try {
+      const attachmentParts = buildPromptAttachmentParts(rawAttachments)
       await sendPrompt(decodedDirectory, content, {
+        parts: attachmentParts,
         agent: selectedAgent,
-        model:
-          selectedModelKey !== "auto"
-            ? parseConfiguredModel(selectedModelKey)
-            : undefined,
-        variant: selectedThinking !== "default" ? selectedThinking : undefined,
+        model: modelSelection,
+        variant,
         teaching: teachingContext,
       })
     } catch {
-      setDraft(content)
+      setDraft(rawContent)
+      setDraftAttachments(rawAttachments)
     }
   }
 
@@ -1028,6 +1202,20 @@ function DirectoryChatPage() {
 
   function openSettingsPanel() {
     setSettingsModalOpen(true)
+  }
+
+  async function onSearchMentionFiles(query: string) {
+    if (!decodedDirectory) return [] as Array<{ path: string }>
+
+    try {
+      const files = await findWorkspaceFiles(decodedDirectory, query, {
+        includeDirectories: true,
+        limit: 20,
+      })
+      return files.map((path) => ({ path }))
+    } catch {
+      return []
+    }
   }
 
   function onAgentChange(agent: string) {
@@ -1210,12 +1398,19 @@ function DirectoryChatPage() {
   }
 
   return (
-    <div className="h-screen w-full overflow-hidden bg-card">
+    <div className="h-full w-full overflow-hidden bg-card">
       <div className="h-full w-full flex min-w-0">
-        {leftSidebarOpen ? (
+        <div
+          className={`relative shrink-0 min-h-0 overflow-hidden transition-[width] duration-200 ease-out ${
+            leftSidebarOpen ? "" : "pointer-events-none"
+          }`}
+          style={{ width: `${leftSidebarOpen ? leftSidebarDisplayWidth : 0}px` }}
+        >
           <div
-            className="relative shrink-0 min-h-0"
-            style={{ width: `${Math.max(leftSidebarWidth, SIDEBAR_MIN_WIDTH)}px` }}
+            className={`h-full transition-opacity duration-200 ease-out ${
+              leftSidebarOpen ? "opacity-100" : "opacity-0"
+            }`}
+            style={{ width: `${leftSidebarDisplayWidth}px` }}
           >
             <ChatLeftSidebar
               directories={sidebarDirectories}
@@ -1242,6 +1437,8 @@ function DirectoryChatPage() {
               onOpenSettings={openSettingsPanel}
               className="w-full h-full"
             />
+          </div>
+          {leftSidebarOpen ? (
             <ResizeHandle
               direction="horizontal"
               size={leftSidebarWidth}
@@ -1251,25 +1448,39 @@ function DirectoryChatPage() {
               onResize={setLeftSidebarWidth}
               onCollapse={() => setLeftSidebarOpen(false)}
             />
-          </div>
-        ) : null}
+          ) : null}
+        </div>
 
         <main className="flex-1 min-w-0 min-h-0 flex flex-col bg-background/20">
           <header className="border-b px-3 py-2">
             <div className="mx-auto flex w-full max-w-[1080px] items-center justify-between gap-2">
               <div className="min-w-0 flex items-center gap-1.5">
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  onClick={() => setLeftSidebarOpen(!leftSidebarOpen)}
-                  title={leftSidebarOpen ? "Collapse left panel" : "Expand left panel"}
-                >
-                  {leftSidebarOpen ? (
-                    <LayoutLeftPartialIcon className="size-3.5" />
-                  ) : (
-                    <LayoutLeftIcon className="size-3.5" />
-                  )}
-                </Button>
+                {showHeaderSidebarToggle ? (
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    onClick={() => setLeftSidebarOpen(!leftSidebarOpen)}
+                    title={leftSidebarOpen ? "Collapse left panel" : "Expand left panel"}
+                  >
+                    {leftSidebarOpen ? (
+                      <LayoutLeftPartialIcon className="size-3.5" />
+                    ) : (
+                      <LayoutLeftIcon className="size-3.5" />
+                    )}
+                  </Button>
+                ) : null}
+                {parentSession ? (
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    onClick={() => {
+                      void onSelectSession(decodedDirectory, parentSession.id)
+                    }}
+                    title={`Back to ${parentSession.title || "parent thread"}`}
+                  >
+                    <ChevronRightIcon className="size-3.5 rotate-180" />
+                  </Button>
+                ) : null}
                 <div className="min-w-0">
                   <h1 className="text-sm md:text-base font-medium truncate">{sessionTitle}</h1>
                   <p className="text-xs text-muted-foreground truncate">local: {getFilename(decodedDirectory)}</p>
@@ -1289,18 +1500,20 @@ function DirectoryChatPage() {
                 >
                   Editor
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  onClick={onToggleRightSidebar}
-                  title={rightSidebarOpen ? "Collapse right panel" : "Expand right panel"}
-                >
-                  {rightSidebarOpen ? (
-                    <LayoutRightPartialIcon className="size-3.5" />
-                  ) : (
-                    <LayoutRightIcon className="size-3.5" />
-                  )}
-                </Button>
+                {showHeaderSidebarToggle ? (
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    onClick={onToggleRightSidebar}
+                    title={rightSidebarOpen ? "Collapse right panel" : "Expand right panel"}
+                  >
+                    {rightSidebarOpen ? (
+                      <LayoutRightPartialIcon className="size-3.5" />
+                    ) : (
+                      <LayoutRightIcon className="size-3.5" />
+                    )}
+                  </Button>
+                ) : null}
 
                 {showDevSessionTrace && sessionID ? (
                   <Button
@@ -1338,7 +1551,10 @@ function DirectoryChatPage() {
                     <div className="h-full flex flex-col">
                       <ChatEmptyState
                         directoryLabel={getFilename(decodedDirectory)}
-                        onUsePrompt={setDraft}
+                        onUsePrompt={(value) => {
+                          setDraftAttachments([])
+                          setDraft(value)
+                        }}
                         onOpenCurriculum={openCurriculumPanel}
                       />
                     </div>
@@ -1379,22 +1595,32 @@ function DirectoryChatPage() {
                 <PromptComposer
                   className="mb-4"
                   value={draft}
+                  attachments={draftAttachments}
                   isBusy={isBusy}
-                  agentOptions={agentOptions.map((agent) => ({ name: agent.name }))}
+                  agentOptions={primaryAgentOptions.map((agent) => ({ name: agent.name }))}
+                  mentionableAgents={mentionableAgentOptions}
+                  slashCommands={slashCommands}
                   modelOptions={modelOptions}
                   selectedAgent={selectedAgent}
                   selectedModel={selectedModelKey}
                   thinkingOptions={thinkingOptions}
                   selectedThinking={selectedThinking}
                   onChange={setDraft}
+                  onAttachmentsChange={setDraftAttachments}
                   onAgentChange={onAgentChange}
                   onModelChange={setSelectedModelKey}
                   onThinkingChange={setSelectedThinking}
                   onAbort={() => {
                     void onAbort()
                   }}
-                  onSubmit={() => {
-                    void onSend()
+                  onNewSession={() => {
+                    void onNewSession()
+                  }}
+                  onSearchFiles={onSearchMentionFiles}
+                  onRefreshSlashCommands={refreshSlashCommands}
+                  historyKey={decodedDirectory}
+                  onSubmit={(input) => {
+                    void onSend(input)
                   }}
                 />
               </div>
@@ -1402,9 +1628,16 @@ function DirectoryChatPage() {
           </div>
         </main>
 
-        {rightSidebarOpen ? (
+        <div
+          className={`relative shrink-0 min-h-0 overflow-hidden transition-[width] duration-200 ease-out ${
+            rightSidebarOpen ? "" : "pointer-events-none"
+          }`}
+          style={{ width: `${rightSidebarOpen ? rightSidebarDisplayWidth : 0}px` }}
+        >
           <div
-            className="relative shrink-0 min-h-0"
+            className={`h-full transition-opacity duration-200 ease-out ${
+              rightSidebarOpen ? "opacity-100" : "opacity-0"
+            }`}
             style={{ width: `${rightSidebarDisplayWidth}px` }}
           >
             <ChatRightSidebar
@@ -1495,6 +1728,8 @@ function DirectoryChatPage() {
               onClose={() => setRightSidebarOpen(false)}
               className="w-full h-full"
             />
+          </div>
+          {rightSidebarOpen ? (
             <ResizeHandle
               direction="horizontal"
               edge="start"
@@ -1505,8 +1740,8 @@ function DirectoryChatPage() {
               onResize={setRightSidebarWidth}
               onCollapse={() => setRightSidebarOpen(false)}
             />
-          </div>
-        ) : null}
+          ) : null}
+        </div>
       </div>
 
       <SettingsModal
