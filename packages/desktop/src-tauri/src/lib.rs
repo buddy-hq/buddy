@@ -70,10 +70,17 @@ fn ensure_main_window(app: &AppHandle) -> tauri::Result<()> {
         return Ok(());
     }
 
-    let window = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("/".into()))
+    let window_builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("/".into()))
         .title("Buddy Dev")
-        .visible(true)
-        .build()?;
+        .visible(true);
+
+    #[cfg(target_os = "macos")]
+    let window_builder = window_builder
+        .title_bar_style(tauri::TitleBarStyle::Overlay)
+        .hidden_title(true)
+        .traffic_light_position(tauri::LogicalPosition::new(12.0, 18.0));
+
+    let window = window_builder.build()?;
 
     let _ = window.set_focus();
     setup_window_state_listener(app, &window);
