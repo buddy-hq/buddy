@@ -175,6 +175,13 @@ export type ProviderCatalogState = {
   default: Record<string, string>
 }
 
+export type McpStatusInfo = {
+  status: "connected" | "disabled" | "failed" | "needs_auth" | "needs_client_registration"
+  error?: string
+}
+
+export type McpStatusMap = Record<string, McpStatusInfo>
+
 export type DirectoryChatState = {
   sessionID?: string
   sessionTitle: string
@@ -184,6 +191,7 @@ export type DirectoryChatState = {
   pendingPermissions: PermissionRequest[]
   providers: ProviderInfo[]
   providerDefault: Record<string, string>
+  mcpStatus: McpStatusMap
   isBusy: boolean
   isReady: boolean
   error?: string

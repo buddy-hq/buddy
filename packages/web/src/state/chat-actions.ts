@@ -2,6 +2,7 @@ import type { ProviderAuthMethod, ProviderAuthResponse, ProviderListResponse } f
 import { useChatStore } from "./chat-store"
 import type {
   MessageWithParts,
+  McpStatusMap,
   PermissionRequest,
   ProviderCatalogState,
   ProviderInfo,
@@ -269,6 +270,7 @@ export async function ensureDirectorySession(directory: string) {
     await loadMessages(targetDirectory, info.id)
     await loadPermissions(targetDirectory)
     await loadProviderCatalog(targetDirectory)
+    await loadMcpStatus(targetDirectory).catch(() => undefined)
     store.setDirectoryReady(targetDirectory, true)
     return info
   } catch (error) {
@@ -448,6 +450,7 @@ export async function resyncDirectory(directory: string) {
   await loadSessions(directory)
   await loadPermissions(directory)
   await loadProviderCatalog(directory)
+  await loadMcpStatus(directory).catch(() => undefined)
   if (!sessionID) return
   if (shouldDeferTranscriptReload(directory, sessionID)) return
   await loadMessages(directory, sessionID)
@@ -578,12 +581,55 @@ export async function patchProjectConfig(directory: string, patch: Record<string
   return (await response.json()) as Record<string, unknown>
 }
 
+export async function saveProjectMcpConfig(directory: string, name: string, config: Record<string, unknown>) {
+  const response = await apiFetch(`/api/config/mcp/${encodeURIComponent(name)}`, {
+    method: "PUT",
+    directory,
+    body: config,
+  })
+
+  if (!response.ok) {
+    const result = (await response.json().catch(() => undefined)) as { error?: string; message?: string } | undefined
+    throw new Error(result?.error ?? result?.message ?? `Request failed (${response.status})`)
+  }
+
+  return (await response.json()) as Record<string, unknown>
+}
+
 export async function loadAgentCatalog(directory: string) {
   return requestJson<AgentConfigOption[]>(directory, "/api/config/agents")
 }
 
 export async function loadCommandCatalog(directory: string) {
   return requestJson<PromptCommandOption[]>(directory, "/api/command")
+}
+
+export async function loadMcpStatus(directory: string) {
+  const store = useChatStore.getState()
+  const status = await requestJson<McpStatusMap>(directory, "/api/mcp")
+  store.setMcpStatus(directory, status)
+  return status
+}
+
+export async function connectMcpServer(directory: string, name: string) {
+  await requestJson<boolean>(directory, `/api/mcp/${encodeURIComponent(name)}/connect`, {
+    method: "POST",
+  })
+  return loadMcpStatus(directory)
+}
+
+export async function disconnectMcpServer(directory: string, name: string) {
+  await requestJson<boolean>(directory, `/api/mcp/${encodeURIComponent(name)}/disconnect`, {
+    method: "POST",
+  })
+  return loadMcpStatus(directory)
+}
+
+export async function authenticateMcpServer(directory: string, name: string) {
+  await requestJson<{ status: string; error?: string }>(directory, `/api/mcp/${encodeURIComponent(name)}/auth/authenticate`, {
+    method: "POST",
+  })
+  return loadMcpStatus(directory)
 }
 
 export async function findWorkspaceFiles(

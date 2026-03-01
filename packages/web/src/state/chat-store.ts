@@ -6,6 +6,7 @@ import type {
   MessageInfo,
   MessagePart,
   MessageWithParts,
+  McpStatusMap,
   PermissionRequest,
   ProviderCatalogState,
   SessionInfo,
@@ -41,6 +42,7 @@ type ChatStore = {
   ) => void
   setPendingPermissions: (directory: string, requests: PermissionRequest[]) => void
   setProviders: (directory: string, input: ProviderCatalogState) => void
+  setMcpStatus: (directory: string, input: McpStatusMap) => void
   applyPermissionAsked: (directory: string, request: PermissionRequest) => void
   applyPermissionReplied: (directory: string, requestID: string) => void
   setStreamStatus: (status: StreamStatus) => void
@@ -64,6 +66,7 @@ function emptyDirectoryState(): DirectoryChatState {
     pendingPermissions: [],
     providers: [],
     providerDefault: {},
+    mcpStatus: {},
     isBusy: false,
     isReady: false,
   }
@@ -466,6 +469,17 @@ export const useChatStore = create<ChatStore>()(
               ...ensureDirectoryState(state as ChatStore, directory),
               providers: input.providers,
               providerDefault: input.default,
+            },
+          },
+        }))
+      },
+      setMcpStatus(directory, input) {
+        set((state) => ({
+          directories: {
+            ...state.directories,
+            [directory]: {
+              ...ensureDirectoryState(state as ChatStore, directory),
+              mcpStatus: input,
             },
           },
         }))
