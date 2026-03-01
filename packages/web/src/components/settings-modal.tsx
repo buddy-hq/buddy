@@ -1,17 +1,28 @@
+import type { ReactNode } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
+  Badge,
   Button,
+  Card,
+  CardContent,
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Separator,
+  SettingsIcon,
+  SlidersHorizontalIcon,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
 } from "@buddy/ui"
-import { useState } from "react"
+import { getFilename } from "@/components/layout/sidebar-helpers"
 import { ConnectProviderDialog } from "@/components/connect-provider-dialog"
+import type { ProviderInfo } from "@/state/chat-types"
 import type { LogLevel } from "@/state/project-settings"
 import { useProjectSettings } from "@/state/project-settings"
 
@@ -24,16 +35,94 @@ type SettingsModalProps = {
   onOpenChange: (open: boolean) => void
 }
 
+type SettingsTab = "general" | "providers"
+
+function SettingsPanel(props: {
+  value: SettingsTab
+  title: string
+  description: string
+  children: ReactNode
+}) {
+  return (
+    <TabsContent
+      value={props.value}
+      className="flex min-h-0 flex-1 flex-col outline-none data-[state=inactive]:hidden"
+    >
+      <div className="border-b border-border/60 px-5 py-5">
+        <h2 className="text-base font-medium text-foreground">{props.title}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{props.description}</p>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+        <div className="mx-auto flex max-w-3xl flex-col gap-6">{props.children}</div>
+      </div>
+    </TabsContent>
+  )
+}
+
+function SettingsListCard(props: {
+  children: ReactNode
+}) {
+  return (
+    <Card size="sm" className="gap-0 py-0">
+      <CardContent className="px-0">{props.children}</CardContent>
+    </Card>
+  )
+}
+
+function SettingsRow(props: {
+  title: string
+  description: string
+  control: ReactNode
+  last?: boolean
+}) {
+  return (
+    <>
+      <div className="px-4 py-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-foreground">{props.title}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{props.description}</p>
+          </div>
+          <div className="min-w-0 lg:w-[260px] lg:max-w-[260px]">{props.control}</div>
+        </div>
+      </div>
+      {props.last ? null : <Separator />}
+    </>
+  )
+}
+
+function ProviderSourceBadge(props: {
+  provider: ProviderInfo
+}) {
+  const label =
+    props.provider.source === "env"
+      ? "Environment"
+      : props.provider.source === "api"
+        ? "API key"
+        : props.provider.source === "custom"
+          ? "Custom"
+          : "Config"
+
+  return (
+    <Badge variant="outline" className="h-5">
+      {label}
+    </Badge>
+  )
+}
+
 export function SettingsModal(props: SettingsModalProps) {
   const settings = useProjectSettings(props.directory, props.open)
+  const [activeTab, setActiveTab] = useState<SettingsTab>("general")
   const [providerDialogOpen, setProviderDialogOpen] = useState(false)
   const [providerDialogTarget, setProviderDialogTarget] = useState<string | undefined>(undefined)
 
+  useEffect(() => {
+    if (!props.open) return
+    setActiveTab("general")
+  }, [props.open])
+
   async function onSaveSettings() {
-    const saved = await settings.actions.save()
-    if (saved) {
-      props.onOpenChange(false)
-    }
+    await settings.actions.save()
   }
 
   function openProviderDialog(initialProvider?: string) {
@@ -44,6 +133,17 @@ export function SettingsModal(props: SettingsModalProps) {
   const agentSelectValue = settings.selection.agent || AUTO_VALUE
   const logLevelSelectValue = settings.selection.logLevel || DEFAULT_VALUE
   const hasConnectedProviders = settings.options.providers.length > 0
+  const availableProviders = useMemo(
+    () => settings.options.allProviders.filter((provider) => !provider.connected),
+    [settings.options.allProviders],
+  )
+  const footerHint = (() => {
+    if (settings.status.loading) return "Loading settings..."
+    if (settings.status.saving) return "Saving changes..."
+    if (settings.status.error) return settings.status.error
+    if (activeTab === "providers") return "Connections are shared by the project runtime."
+    return "Changes apply to this project only."
+  })()
 
   return (
     <>
@@ -52,129 +152,308 @@ export function SettingsModal(props: SettingsModalProps) {
         onOpenChange={(nextOpen) => {
           if (!nextOpen) {
             setProviderDialogOpen(false)
+            setActiveTab("general")
           }
           props.onOpenChange(nextOpen)
         }}
       >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Settings</DialogTitle>
-          </DialogHeader>
+        <DialogContent
+          showCloseButton={false}
+          className="flex h-[min(720px,calc(100vh-2rem))] min-h-0 flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl"
+        >
+          <Tabs
+            orientation="vertical"
+            value={activeTab}
+            onValueChange={(value) => {
+              if (value === "general" || value === "providers") {
+                setActiveTab(value)
+              }
+            }}
+            className="min-h-0 flex-1 gap-0"
+          >
+            <div className="flex h-full w-[220px] shrink-0 flex-col border-r border-border/60 bg-muted/20">
+              <TabsList
+                variant="line"
+                className="flex h-full w-full flex-1 flex-col items-stretch justify-between rounded-none bg-transparent p-3"
+              >
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <p className="px-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                      Project
+                    </p>
+                    <div className="space-y-1">
+                      <TabsTrigger value="general" className="h-9 flex-none rounded-lg px-3">
+                        <SlidersHorizontalIcon className="size-4" />
+                        General
+                      </TabsTrigger>
+                    </div>
+                  </div>
 
-          {settings.status.loading ? (
-            <p className="text-sm text-muted-foreground">Loading settings...</p>
-          ) : (
-            <div className="space-y-4 py-2">
-              <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground">Default agent</label>
-                <Select
-                  value={agentSelectValue}
-                  onValueChange={(value) => settings.actions.setAgent(value === AUTO_VALUE ? "" : value)}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Auto" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={AUTO_VALUE}>Auto</SelectItem>
-                    {settings.options.agents.map((agent) => (
-                      <SelectItem key={agent.name} value={agent.name}>
-                        {agent.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                  <div className="space-y-2">
+                    <p className="px-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                      Server
+                    </p>
+                    <div className="space-y-1">
+                      <TabsTrigger value="providers" className="h-9 flex-none rounded-lg px-3">
+                        <SettingsIcon className="size-4" />
+                        Providers
+                      </TabsTrigger>
+                    </div>
+                  </div>
+                </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground">Connected provider</label>
-                <Select
-                  value={settings.selection.provider}
-                  onValueChange={settings.actions.setProvider}
-                  disabled={!hasConnectedProviders}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder={hasConnectedProviders ? "Select provider" : "Connect a provider first"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {settings.options.providers.map((provider) => (
-                      <SelectItem key={provider.id} value={provider.id}>
-                        {provider.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                <div className="px-2 py-1 text-xs text-muted-foreground">
+                  <p className="font-medium text-foreground/80">Buddy Dev</p>
+                  <p className="mt-1 truncate">local: {getFilename(props.directory)}</p>
+                </div>
+              </TabsList>
+            </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground">Model</label>
-                <Select
-                  value={settings.selection.model}
-                  onValueChange={settings.actions.setModel}
-                  disabled={!hasConnectedProviders}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder={hasConnectedProviders ? "Select model" : "Connect a provider first"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {settings.options.providerModels.map((model) => (
-                      <SelectItem key={`${settings.selection.provider}:${model.id}`} value={model.id}>
-                        {model.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <SettingsPanel
+              value="general"
+              title="General"
+              description="Configure project-specific defaults for Buddy in this repository."
+            >
+              <SettingsListCard>
+                <SettingsRow
+                  title="Default agent"
+                  description="Choose which primary agent Buddy uses by default for new prompts in this project."
+                  control={
+                    <Select
+                      value={agentSelectValue}
+                      onValueChange={(value) => settings.actions.setAgent(value === AUTO_VALUE ? "" : value)}
+                      disabled={settings.status.loading}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Auto" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={AUTO_VALUE}>Auto</SelectItem>
+                        {settings.options.agents.map((agent) => (
+                          <SelectItem key={agent.name} value={agent.name}>
+                            {agent.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  }
+                />
+
+                <SettingsRow
+                  title="Log level"
+                  description="Controls backend logging verbosity for this project."
+                  control={
+                    <Select
+                      value={logLevelSelectValue}
+                      onValueChange={(value) =>
+                        settings.actions.setLogLevel(value === DEFAULT_VALUE ? "" : (value as LogLevel))
+                      }
+                      disabled={settings.status.loading}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Default" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={DEFAULT_VALUE}>Default</SelectItem>
+                        <SelectItem value="debug">debug</SelectItem>
+                        <SelectItem value="info">info</SelectItem>
+                        <SelectItem value="warn">warn</SelectItem>
+                        <SelectItem value="error">error</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  }
+                />
+
+                <SettingsRow
+                  title="Provider"
+                  description="Choose which connected provider Buddy uses for project-level model selection."
+                  control={
+                    <Select
+                      value={settings.selection.provider}
+                      onValueChange={settings.actions.setProvider}
+                      disabled={settings.status.loading || !hasConnectedProviders}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder={hasConnectedProviders ? "Select provider" : "Connect a provider first"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {settings.options.providers.map((provider) => (
+                          <SelectItem key={provider.id} value={provider.id}>
+                            {provider.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  }
+                />
+
+                <SettingsRow
+                  title="Model"
+                  description="Pick the default model Buddy uses in this project. This does not control model visibility."
+                  last
+                  control={
+                    <Select
+                      value={settings.selection.model}
+                      onValueChange={settings.actions.setModel}
+                      disabled={settings.status.loading || !hasConnectedProviders}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder={hasConnectedProviders ? "Select model" : "Connect a provider first"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {settings.options.providerModels.map((model) => (
+                          <SelectItem key={`${settings.selection.provider}:${model.id}`} value={model.id}>
+                            {model.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  }
+                />
+              </SettingsListCard>
 
               {settings.status.providerMessage ? (
-                <p className="rounded-md border px-2 py-1.5 text-xs text-muted-foreground">
-                  {settings.status.providerMessage}
-                </p>
+                <p className="text-sm text-muted-foreground">{settings.status.providerMessage}</p>
               ) : null}
+            </SettingsPanel>
 
-              <div className="grid grid-cols-2 gap-2">
-                <Button type="button" onClick={() => openProviderDialog(settings.selection.provider || undefined)}>
-                  Connect provider
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => openProviderDialog(settings.selection.provider)}
-                  disabled={!settings.selection.provider}
-                >
-                  Manage connection
-                </Button>
+            <SettingsPanel
+              value="providers"
+              title="Providers"
+              description="Connect provider accounts and choose which connected provider is used for model selection."
+            >
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium text-foreground">Connected providers</h3>
+                <SettingsListCard>
+                  {settings.options.providers.length > 0 ? (
+                    settings.options.providers.map((provider, index) => {
+                      const selected = provider.id === settings.selection.provider
+
+                      return (
+                        <div key={provider.id}>
+                          <div className="px-4 py-4">
+                            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="text-sm font-medium text-foreground">{provider.name}</p>
+                                  <ProviderSourceBadge provider={provider} />
+                                  {selected ? <Badge variant="secondary">Selected</Badge> : null}
+                                </div>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  {provider.source === "env"
+                                    ? "Connected from environment variables."
+                                    : "Connected and available for this project."}
+                                </p>
+                              </div>
+
+                              <div className="flex flex-wrap items-center gap-2">
+                                {!selected ? (
+                                  <Button
+                                    type="button"
+                                    size="xs"
+                                    variant="outline"
+                                    onClick={() => settings.actions.setProvider(provider.id)}
+                                  >
+                                    Use for models
+                                  </Button>
+                                ) : null}
+                                <Button
+                                  type="button"
+                                  size="xs"
+                                  variant="outline"
+                                  onClick={() => openProviderDialog(provider.id)}
+                                >
+                                  Manage
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                          {index === settings.options.providers.length - 1 ? null : <Separator />}
+                        </div>
+                      )
+                    })
+                  ) : (
+                    <div className="px-4 py-8 text-sm text-muted-foreground">
+                      No providers are connected yet.
+                    </div>
+                  )}
+                </SettingsListCard>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground">Log level</label>
-                <Select
-                  value={logLevelSelectValue}
-                  onValueChange={(value) => settings.actions.setLogLevel(value === DEFAULT_VALUE ? "" : (value as LogLevel))}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Default" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={DEFAULT_VALUE}>Default</SelectItem>
-                    <SelectItem value="debug">debug</SelectItem>
-                    <SelectItem value="info">info</SelectItem>
-                    <SelectItem value="warn">warn</SelectItem>
-                    <SelectItem value="error">error</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-sm font-medium text-foreground">Available providers</h3>
+                  <Button
+                    type="button"
+                    size="xs"
+                    onClick={() => openProviderDialog(settings.selection.provider || undefined)}
+                  >
+                    Connect provider
+                  </Button>
+                </div>
+                <SettingsListCard>
+                  {availableProviders.length > 0 ? (
+                    availableProviders.map((provider, index) => (
+                      <div key={provider.id}>
+                        <div className="px-4 py-4">
+                          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="text-sm font-medium text-foreground">{provider.name}</p>
+                                <ProviderSourceBadge provider={provider} />
+                              </div>
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                {provider.methods.length > 0
+                                  ? provider.methods.map((method) => method.label).join(" or ")
+                                  : "Connection available"}
+                              </p>
+                            </div>
 
-              <Button className="w-full" onClick={() => void onSaveSettings()} disabled={settings.status.saving}>
-                {settings.status.saving ? "Saving..." : "Save settings"}
+                            <Button
+                              type="button"
+                              size="xs"
+                              variant="outline"
+                              onClick={() => openProviderDialog(provider.id)}
+                            >
+                              Connect
+                            </Button>
+                          </div>
+                        </div>
+                        {index === availableProviders.length - 1 ? null : <Separator />}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="px-4 py-8 text-sm text-muted-foreground">
+                      All available providers are already connected.
+                    </div>
+                  )}
+                </SettingsListCard>
+              </div>
+            </SettingsPanel>
+          </Tabs>
+
+          <Separator />
+          <div className="flex items-center justify-between gap-3 bg-muted/20 px-5 py-3">
+            <p
+              className={`min-w-0 flex-1 text-xs ${
+                settings.status.error ? "text-destructive" : "text-muted-foreground"
+              }`}
+            >
+              {footerHint}
+            </p>
+            <div className="flex shrink-0 items-center gap-2">
+              <Button type="button" variant="outline" onClick={() => props.onOpenChange(false)}>
+                Close
+              </Button>
+              <Button
+                type="button"
+                onClick={() => void onSaveSettings()}
+                disabled={settings.status.loading || settings.status.saving}
+              >
+                {settings.status.saving ? "Saving..." : "Save changes"}
               </Button>
             </div>
-          )}
-
-          {settings.status.error ? (
-            <p className="rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1.5 text-xs text-destructive">
-              {settings.status.error}
-            </p>
-          ) : null}
+          </div>
         </DialogContent>
       </Dialog>
 
