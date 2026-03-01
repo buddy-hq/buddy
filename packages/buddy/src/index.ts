@@ -1,4 +1,5 @@
 import fs from "node:fs/promises"
+import os from "node:os"
 import path from "node:path"
 import "./opencode/env.js"
 import { Hono, type Context } from "hono"
@@ -18,6 +19,7 @@ import { Instance as BuddyInstance } from "./project/instance.js"
 import { CurriculumRoutes } from "./routes/curriculum.js"
 import { TeachingRoutes } from "./routes/teaching.js"
 import { condenseCurriculum, loadBehavior } from "./session/system-prompt.js"
+import CURRICULUM_BUILDER_PROMPT from "./agent/prompts/curriculum-builder.txt"
 import CODE_TEACHER_PROMPT from "./session/prompts/code-teacher.txt"
 import { Global } from "./storage/global.js"
 import { TeachingService } from "./teaching/teaching-service.js"
@@ -329,7 +331,29 @@ function parseConfiguredModel(value: unknown) {
   }
 }
 
-function buildOpenCodeConfigOverlay() {
+async function resolveOpenCodeSkillPaths(config: Awaited<ReturnType<typeof Config.get>>) {
+  const paths = Array.isArray(config.skills?.paths)
+    ? config.skills.paths.filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
+    : []
+  const codexHome = process.env.CODEX_HOME?.trim() || path.join(os.homedir(), ".codex")
+  const codexRoots = [
+    path.join(codexHome, "skills"),
+    path.join(codexHome, "skills", ".system"),
+  ]
+
+  for (const candidate of codexRoots) {
+    const stats = await fs.stat(candidate).catch(() => undefined)
+    if (!stats?.isDirectory()) continue
+    if (paths.includes(candidate)) continue
+    paths.push(candidate)
+  }
+
+  return paths.length > 0 ? paths : undefined
+}
+
+async function buildOpenCodeConfigOverlay(config: Awaited<ReturnType<typeof Config.get>>) {
+  const skillPaths = await resolveOpenCodeSkillPaths(config)
+
   return {
     permission: {
       teaching_start_lesson: "deny" as const,
@@ -338,6 +362,7 @@ function buildOpenCodeConfigOverlay() {
       teaching_set_lesson: "deny" as const,
       teaching_restore_checkpoint: "deny" as const,
     },
+    ...(skillPaths ? { skills: { paths: skillPaths } } : {}),
     agent: {
       "code-teacher": {
         description: "Interactive code teaching agent for the in-app lesson editor.",
@@ -355,6 +380,22 @@ function buildOpenCodeConfigOverlay() {
           task: "deny" as const,
           todoread: "deny" as const,
           todowrite: "deny" as const,
+        },
+      },
+      "curriculum-builder": {
+        description: "Builds and updates project curriculum markdown with actionable checklists.",
+        mode: "subagent" as const,
+        prompt: CURRICULUM_BUILDER_PROMPT.trim(),
+        steps: 8,
+        permission: {
+          "*": "deny" as const,
+          read: "allow" as const,
+          list: "allow" as const,
+          write: "allow" as const,
+          webfetch: "allow" as const,
+          curriculum_read: "allow" as const,
+          curriculum_update: "allow" as const,
+          task: "deny" as const,
         },
       },
     },
@@ -538,7 +579,7 @@ async function syncOpenCodeProjectConfig(directory: string, force = false) {
 
   const task = (async () => {
     const config = await readProjectConfig(directory)
-    const overlay = buildOpenCodeConfigOverlay()
+    const overlay = await buildOpenCodeConfigOverlay(config)
     setConfigOverlay(directory, overlay)
     const nextFingerprint = stableSerialize({
       config,
@@ -693,6 +734,27 @@ api.get("/provider", async (c) => {
   })
 })
 
+api.get("/find/file", async (c) => {
+  return proxyToOpenCode(c, {
+    targetPath: "/find/file",
+  })
+})
+
+api.get("/command", async (c) => {
+  const directoryResult = ensureAllowedDirectory(c.req.raw)
+  if (!directoryResult.ok) return directoryResult.response
+
+  await syncOpenCodeProjectConfig(directoryResult.directory).catch((error) => {
+    throw new Error(
+      `Failed to sync config before listing commands: ${String(error instanceof Error ? error.message : error)}`,
+    )
+  })
+
+  return proxyToOpenCode(c, {
+    targetPath: "/command",
+  })
+})
+
 api.get("/provider/auth", async (c) => {
   return proxyToOpenCode(c, {
     targetPath: "/provider/auth",
@@ -730,6 +792,12 @@ api.delete("/auth/:providerID", async (c) => {
 api.get("/config/agents", async (c) => {
   const directoryResult = ensureAllowedDirectory(c.req.raw)
   if (!directoryResult.ok) return directoryResult.response
+
+  await syncOpenCodeProjectConfig(directoryResult.directory).catch((error) => {
+    throw new Error(
+      `Failed to sync config before listing agents: ${String(error instanceof Error ? error.message : error)}`,
+    )
+  })
 
   const agents = await BuddyInstance.provide({
     directory: directoryResult.directory,
@@ -941,6 +1009,21 @@ api.post("/session/:sessionID/message", async (c) => {
       return c.json({ error: "content or parts must be provided" }, 400)
     }
     throw error
+  })
+})
+
+api.post("/session/:sessionID/command", async (c) => {
+  const directoryResult = ensureAllowedDirectory(c.req.raw)
+  if (!directoryResult.ok) return directoryResult.response
+
+  const sessionID = c.req.param("sessionID")
+  await syncOpenCodeProjectConfig(directoryResult.directory).catch((error) => {
+    throw new Error(`Failed to sync config before command: ${String(error instanceof Error ? error.message : error)}`)
+  })
+
+  return proxyToOpenCode(c, {
+    targetPath: `/session/${encodeURIComponent(sessionID)}/command`,
+    forceBusyAs409: true,
   })
 })
 

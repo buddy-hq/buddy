@@ -19,6 +19,7 @@ const SessionInfoSchema = {
   properties: {
     id: { type: "string" },
     title: { type: "string" },
+    parentID: { type: "string" },
     time: {
       type: "object",
       properties: {
@@ -361,6 +362,65 @@ export const COMPATIBILITY_OPENAPI_PATHS: Record<string, Record<string, unknown>
       },
     },
   },
+  "/api/command": {
+    get: {
+      operationId: "command.list",
+      summary: "List available slash commands",
+      parameters: [DirectoryHeader, DirectoryQuery],
+      responses: {
+        200: {
+          description: "Available commands",
+          content: {
+            "application/json": {
+              schema: {
+                type: "array",
+                items: AnyObjectSchema,
+              },
+            },
+          },
+        },
+        403: {
+          description: "Directory is outside allowed roots",
+          content: {
+            "application/json": { schema: ErrorSchema },
+          },
+        },
+      },
+    },
+  },
+  "/api/find/file": {
+    get: {
+      operationId: "find.file",
+      summary: "Search files and directories",
+      parameters: [
+        DirectoryHeader,
+        DirectoryQuery,
+        { in: "query", name: "query", required: true, schema: { type: "string" } },
+        { in: "query", name: "dirs", required: false, schema: { type: "string", enum: ["true", "false"] } },
+        { in: "query", name: "type", required: false, schema: { type: "string", enum: ["file", "directory"] } },
+        { in: "query", name: "limit", required: false, schema: { type: "integer" } },
+      ],
+      responses: {
+        200: {
+          description: "Matching file and directory paths",
+          content: {
+            "application/json": {
+              schema: {
+                type: "array",
+                items: { type: "string" },
+              },
+            },
+          },
+        },
+        403: {
+          description: "Directory is outside allowed roots",
+          content: {
+            "application/json": { schema: ErrorSchema },
+          },
+        },
+      },
+    },
+  },
   "/api/config/agents": {
     get: {
       operationId: "config.agents",
@@ -660,6 +720,45 @@ export const COMPATIBILITY_OPENAPI_PATHS: Record<string, Record<string, unknown>
         },
         400: {
           description: "Invalid prompt payload",
+          content: {
+            "application/json": { schema: ErrorSchema },
+          },
+        },
+        403: {
+          description: "Directory is outside allowed roots",
+          content: {
+            "application/json": { schema: ErrorSchema },
+          },
+        },
+        409: {
+          description: "Session is already running",
+          content: {
+            "application/json": { schema: ErrorSchema },
+          },
+        },
+      },
+    },
+  },
+  "/api/session/{sessionID}/command": {
+    post: {
+      operationId: "session.command",
+      summary: "Send a slash command to a session",
+      parameters: [SessionIDPath, DirectoryHeader, DirectoryQuery],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": { schema: AnyObjectSchema },
+        },
+      },
+      responses: {
+        200: {
+          description: "Created command message",
+          content: {
+            "application/json": { schema: MessageWithPartsSchema },
+          },
+        },
+        400: {
+          description: "Invalid command payload",
           content: {
             "application/json": { schema: ErrorSchema },
           },

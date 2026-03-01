@@ -32,6 +32,8 @@ describe("parity.agent", () => {
       const listed = await inDirectory(directory, () => Agent.list())
       expect(listed[0]?.name).toBe("build")
       expect(listed.some((entry) => entry.name === "plan")).toBe(true)
+      expect(listed.some((entry) => entry.name === "explore")).toBe(true)
+      expect(listed.some((entry) => entry.name === "curriculum-builder")).toBe(true)
     })
   })
 })

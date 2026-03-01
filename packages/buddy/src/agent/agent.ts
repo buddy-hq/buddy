@@ -8,6 +8,7 @@ import { Global } from "../storage/global.js"
 import { Truncate } from "../opencode/vendor.js"
 import CURRICULUM_BUILDER_PROMPT from "./prompts/curriculum-builder.txt"
 import CODE_TEACHER_PROMPT from "../session/prompts/code-teacher.txt"
+import EXPLORE_PROMPT from "../../../../vendor/opencode/packages/opencode/src/agent/prompt/explore.txt"
 
 function parseModelID(model: string) {
   const index = model.indexOf("/")
@@ -133,12 +134,37 @@ export namespace Agent {
       },
       general: {
         name: "general",
-        description: "General-purpose subagent for research and multi-step execution.",
+        description:
+          "General-purpose agent for researching complex questions and executing multi-step tasks. Use this agent to execute multiple units of work in parallel.",
         permission: PermissionNext.merge(
           defaults,
           PermissionNext.fromConfig({
             todoread: "deny",
             todowrite: "deny",
+          }),
+          user,
+        ),
+        mode: "subagent",
+        native: true,
+        options: {},
+      },
+      explore: {
+        name: "explore",
+        description:
+          'Fast agent specialized for exploring codebases. Use this when you need to quickly find files by patterns (eg. "src/components/**/*.tsx"), search code for keywords (eg. "API endpoints"), or answer questions about the codebase (eg. "how do API endpoints work?"). When calling this agent, specify the desired thoroughness level: "quick" for basic searches, "medium" for moderate exploration, or "very thorough" for comprehensive analysis across multiple locations and naming conventions.',
+        prompt: EXPLORE_PROMPT,
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            "*": "deny",
+            grep: "allow",
+            glob: "allow",
+            list: "allow",
+            bash: "allow",
+            webfetch: "allow",
+            websearch: "allow",
+            codesearch: "allow",
+            read: "allow",
           }),
           user,
         ),
