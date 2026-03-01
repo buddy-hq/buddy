@@ -106,6 +106,13 @@ const ProviderIDPath = {
   schema: { type: "string" },
 } as const
 
+const McpNamePath = {
+  name: "name",
+  in: "path",
+  required: true,
+  schema: { type: "string" },
+} as const
+
 export const COMPATIBILITY_OPENAPI_PATHS: Record<string, Record<string, unknown>> = {
   "/api/health": {
     get: {
@@ -377,6 +384,234 @@ export const COMPATIBILITY_OPENAPI_PATHS: Record<string, Record<string, unknown>
                 items: AnyObjectSchema,
               },
             },
+          },
+        },
+        403: {
+          description: "Directory is outside allowed roots",
+          content: {
+            "application/json": { schema: ErrorSchema },
+          },
+        },
+      },
+    },
+  },
+  "/api/mcp": {
+    get: {
+      operationId: "mcp.status",
+      summary: "Get MCP server status",
+      parameters: [DirectoryHeader, DirectoryQuery],
+      responses: {
+        200: {
+          description: "MCP status map",
+          content: {
+            "application/json": {
+              schema: AnyObjectSchema,
+            },
+          },
+        },
+        403: {
+          description: "Directory is outside allowed roots",
+          content: {
+            "application/json": { schema: ErrorSchema },
+          },
+        },
+      },
+    },
+    post: {
+      operationId: "mcp.add",
+      summary: "Add an MCP server",
+      parameters: [DirectoryHeader, DirectoryQuery],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": { schema: AnyObjectSchema },
+        },
+      },
+      responses: {
+        200: {
+          description: "Updated MCP status map",
+          content: {
+            "application/json": {
+              schema: AnyObjectSchema,
+            },
+          },
+        },
+        400: {
+          description: "Invalid MCP configuration",
+          content: {
+            "application/json": { schema: ErrorSchema },
+          },
+        },
+        403: {
+          description: "Directory is outside allowed roots",
+          content: {
+            "application/json": { schema: ErrorSchema },
+          },
+        },
+      },
+    },
+  },
+  "/api/mcp/{name}/auth": {
+    post: {
+      operationId: "mcp.auth.start",
+      summary: "Start MCP OAuth",
+      parameters: [McpNamePath, DirectoryHeader, DirectoryQuery],
+      responses: {
+        200: {
+          description: "OAuth authorization URL",
+          content: {
+            "application/json": { schema: AnyObjectSchema },
+          },
+        },
+        400: {
+          description: "MCP server does not support OAuth",
+          content: {
+            "application/json": { schema: ErrorSchema },
+          },
+        },
+        403: {
+          description: "Directory is outside allowed roots",
+          content: {
+            "application/json": { schema: ErrorSchema },
+          },
+        },
+        404: {
+          description: "Unknown MCP server",
+          content: {
+            "application/json": { schema: ErrorSchema },
+          },
+        },
+      },
+    },
+    delete: {
+      operationId: "mcp.auth.remove",
+      summary: "Remove MCP OAuth credentials",
+      parameters: [McpNamePath, DirectoryHeader, DirectoryQuery],
+      responses: {
+        200: {
+          description: "OAuth credentials removed",
+          content: {
+            "application/json": { schema: AnyObjectSchema },
+          },
+        },
+        403: {
+          description: "Directory is outside allowed roots",
+          content: {
+            "application/json": { schema: ErrorSchema },
+          },
+        },
+        404: {
+          description: "Unknown MCP server",
+          content: {
+            "application/json": { schema: ErrorSchema },
+          },
+        },
+      },
+    },
+  },
+  "/api/mcp/{name}/auth/callback": {
+    post: {
+      operationId: "mcp.auth.callback",
+      summary: "Complete MCP OAuth callback",
+      parameters: [McpNamePath, DirectoryHeader, DirectoryQuery],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": { schema: AnyObjectSchema },
+        },
+      },
+      responses: {
+        200: {
+          description: "Updated MCP status",
+          content: {
+            "application/json": { schema: AnyObjectSchema },
+          },
+        },
+        400: {
+          description: "Invalid OAuth payload",
+          content: {
+            "application/json": { schema: ErrorSchema },
+          },
+        },
+        403: {
+          description: "Directory is outside allowed roots",
+          content: {
+            "application/json": { schema: ErrorSchema },
+          },
+        },
+        404: {
+          description: "Unknown MCP server",
+          content: {
+            "application/json": { schema: ErrorSchema },
+          },
+        },
+      },
+    },
+  },
+  "/api/mcp/{name}/auth/authenticate": {
+    post: {
+      operationId: "mcp.auth.authenticate",
+      summary: "Authenticate MCP OAuth in one step",
+      parameters: [McpNamePath, DirectoryHeader, DirectoryQuery],
+      responses: {
+        200: {
+          description: "Updated MCP status",
+          content: {
+            "application/json": { schema: AnyObjectSchema },
+          },
+        },
+        400: {
+          description: "MCP server does not support OAuth",
+          content: {
+            "application/json": { schema: ErrorSchema },
+          },
+        },
+        403: {
+          description: "Directory is outside allowed roots",
+          content: {
+            "application/json": { schema: ErrorSchema },
+          },
+        },
+        404: {
+          description: "Unknown MCP server",
+          content: {
+            "application/json": { schema: ErrorSchema },
+          },
+        },
+      },
+    },
+  },
+  "/api/mcp/{name}/connect": {
+    post: {
+      operationId: "mcp.connect",
+      summary: "Connect an MCP server",
+      parameters: [McpNamePath, DirectoryHeader, DirectoryQuery],
+      responses: {
+        200: {
+          description: "Connection attempt accepted",
+          content: {
+            "application/json": { schema: BooleanSchema },
+          },
+        },
+        403: {
+          description: "Directory is outside allowed roots",
+          content: {
+            "application/json": { schema: ErrorSchema },
+          },
+        },
+      },
+    },
+  },
+  "/api/mcp/{name}/disconnect": {
+    post: {
+      operationId: "mcp.disconnect",
+      summary: "Disconnect an MCP server",
+      parameters: [McpNamePath, DirectoryHeader, DirectoryQuery],
+      responses: {
+        200: {
+          description: "Disconnect accepted",
+          content: {
+            "application/json": { schema: BooleanSchema },
           },
         },
         403: {

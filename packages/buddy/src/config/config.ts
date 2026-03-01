@@ -957,6 +957,41 @@ export namespace Config {
     Instance.dispose()
   }
 
+  export async function setProjectMcp(name: string, mcp: Mcp) {
+    const filepath = nearestProjectConfigFile()
+    await fsp.mkdir(path.dirname(filepath), { recursive: true })
+
+    const before = await fsp.readFile(filepath, "utf8").catch((err: unknown) => {
+      const maybe = err as { code?: string }
+      if (maybe.code === "ENOENT") return "{}"
+      throw new JsonError({ path: filepath }, { cause: err })
+    })
+
+    if (!filepath.endsWith(".jsonc")) {
+      const existing = parseConfig(before, filepath)
+      const next = Info.parse({
+        ...existing,
+        mcp: {
+          ...(existing.mcp ?? {}),
+          [name]: mcp,
+        },
+      })
+      await fsp.writeFile(filepath, JSON.stringify(next, null, 2) + "\n", "utf8")
+    } else {
+      const edits = modify(before, ["mcp", name], mcp, {
+        formattingOptions: {
+          insertSpaces: true,
+          tabSize: 2,
+        },
+      })
+      const updated = applyEdits(before, edits)
+      parseConfig(updated, filepath)
+      await fsp.writeFile(filepath, updated, "utf8")
+    }
+
+    Instance.dispose()
+  }
+
   export async function updateGlobal(config: Info) {
     const filepath = globalConfigFile()
     await fsp.mkdir(path.dirname(filepath), { recursive: true })

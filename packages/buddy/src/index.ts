@@ -363,6 +363,7 @@ async function buildOpenCodeConfigOverlay(config: Awaited<ReturnType<typeof Conf
       teaching_restore_checkpoint: "deny" as const,
     },
     ...(skillPaths ? { skills: { paths: skillPaths } } : {}),
+    ...(config.mcp ? { mcp: config.mcp } : {}),
     agent: {
       "code-teacher": {
         description: "Interactive code teaching agent for the in-app lesson editor.",
@@ -618,6 +619,21 @@ async function resolveOpenCodeProjectID(directory: string) {
   })
 }
 
+async function proxyMcpToOpenCode(c: Context, targetPath: string) {
+  const directoryResult = ensureAllowedDirectory(c.req.raw)
+  if (!directoryResult.ok) return directoryResult.response
+
+  await syncOpenCodeProjectConfig(directoryResult.directory).catch((error) => {
+    throw new Error(
+      `Failed to sync config before MCP request: ${String(error instanceof Error ? error.message : error)}`,
+    )
+  })
+
+  return proxyToOpenCode(c, {
+    targetPath,
+  })
+}
+
 async function isSessionInRequestedProject(directory: string, session: unknown) {
   if (!session || typeof session !== "object") return true
   const payload = session as {
@@ -755,6 +771,44 @@ api.get("/command", async (c) => {
   })
 })
 
+api.get("/mcp", async (c) => {
+  return proxyMcpToOpenCode(c, "/mcp")
+})
+
+api.post("/mcp", async (c) => {
+  return proxyMcpToOpenCode(c, "/mcp")
+})
+
+api.post("/mcp/:name/auth", async (c) => {
+  const name = c.req.param("name")
+  return proxyMcpToOpenCode(c, `/mcp/${encodeURIComponent(name)}/auth`)
+})
+
+api.post("/mcp/:name/auth/callback", async (c) => {
+  const name = c.req.param("name")
+  return proxyMcpToOpenCode(c, `/mcp/${encodeURIComponent(name)}/auth/callback`)
+})
+
+api.post("/mcp/:name/auth/authenticate", async (c) => {
+  const name = c.req.param("name")
+  return proxyMcpToOpenCode(c, `/mcp/${encodeURIComponent(name)}/auth/authenticate`)
+})
+
+api.delete("/mcp/:name/auth", async (c) => {
+  const name = c.req.param("name")
+  return proxyMcpToOpenCode(c, `/mcp/${encodeURIComponent(name)}/auth`)
+})
+
+api.post("/mcp/:name/connect", async (c) => {
+  const name = c.req.param("name")
+  return proxyMcpToOpenCode(c, `/mcp/${encodeURIComponent(name)}/connect`)
+})
+
+api.post("/mcp/:name/disconnect", async (c) => {
+  const name = c.req.param("name")
+  return proxyMcpToOpenCode(c, `/mcp/${encodeURIComponent(name)}/disconnect`)
+})
+
 api.get("/provider/auth", async (c) => {
   return proxyToOpenCode(c, {
     targetPath: "/provider/auth",
@@ -848,6 +902,42 @@ api.patch("/config", async (c) => {
     await BuddyInstance.provide({
       directory: directoryResult.directory,
       fn: () => Config.update(parsed),
+    })
+    await syncOpenCodeProjectConfig(directoryResult.directory)
+    const config = await BuddyInstance.provide({
+      directory: directoryResult.directory,
+      fn: () => Config.get(),
+    })
+    return c.json(config)
+  } catch (error) {
+    if (isConfigValidationError(error)) {
+      return c.json({ error: configErrorMessage(error) }, 400)
+    }
+    if (error instanceof Error && error.name === "ZodError") {
+      return c.json({ error: error.message }, 400)
+    }
+    throw error
+  }
+})
+
+api.put("/config/mcp/:name", async (c) => {
+  const directoryResult = ensureAllowedDirectory(c.req.raw)
+  if (!directoryResult.ok) return directoryResult.response
+
+  const name = c.req.param("name")
+
+  let body: unknown
+  try {
+    body = await c.req.json()
+  } catch {
+    return c.json({ error: "Invalid JSON body" }, 400)
+  }
+
+  try {
+    const parsed = Config.Mcp.parse(body)
+    await BuddyInstance.provide({
+      directory: directoryResult.directory,
+      fn: () => Config.setProjectMcp(name, parsed),
     })
     await syncOpenCodeProjectConfig(directoryResult.directory)
     const config = await BuddyInstance.provide({
