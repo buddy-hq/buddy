@@ -78,6 +78,42 @@ function formatThreadAge(timestamp: number) {
   return `${Math.round(elapsed / 2_592_000_000)}mo`
 }
 
+function sessionFamilyIDs(allSessions: SessionInfo[], rootID: string) {
+  const family = new Set<string>([rootID])
+  let expanded = true
+
+  while (expanded) {
+    expanded = false
+    for (const session of allSessions) {
+      if (!session.parentID) continue
+      if (!family.has(session.parentID)) continue
+      if (family.has(session.id)) continue
+      family.add(session.id)
+      expanded = true
+    }
+  }
+
+  return Array.from(family)
+}
+
+function findRootSessionID(allSessions: SessionInfo[], activeSessionID?: string) {
+  if (!activeSessionID) return undefined
+
+  const byID = new Map(allSessions.map((session) => [session.id, session]))
+  let current = byID.get(activeSessionID)
+  const visited = new Set<string>()
+
+  while (current?.parentID) {
+    if (visited.has(current.id)) break
+    visited.add(current.id)
+    const parent = byID.get(current.parentID)
+    if (!parent) break
+    current = parent
+  }
+
+  return current?.id
+}
+
 export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
   const [renameState, setRenameState] = useState<RenameState | undefined>(undefined)
   const [renameSaving, setRenameSaving] = useState(false)
@@ -107,16 +143,22 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
       sortMode === "created" ? session.time.created : session.time.updated ?? session.time.created
 
     const isRelevantSession = (directory: string, session: SessionInfo) => {
-      const unread = !!props.unreadByDirectory[directory]?.[session.id]
-      const pinned = (props.pinnedByDirectory[directory] ?? []).includes(session.id)
-      const busy = props.sessionStatusByDirectory[directory]?.[session.id] === "busy"
-      const active = directory === props.currentDirectory && session.id === props.activeSessionID
+      const allSessions = props.sessionsByDirectory[directory] ?? []
+      const familyIDs = sessionFamilyIDs(allSessions, session.id)
+      const unreadMap = props.unreadByDirectory[directory] ?? {}
+      const pinnedIDs = new Set(props.pinnedByDirectory[directory] ?? [])
+      const statusByID = props.sessionStatusByDirectory[directory] ?? {}
+      const activeRootID = findRootSessionID(allSessions, props.activeSessionID)
+      const unread = familyIDs.some((id) => !!unreadMap[id])
+      const pinned = familyIDs.some((id) => pinnedIDs.has(id))
+      const busy = familyIDs.some((id) => statusByID[id] === "busy")
+      const active = directory === props.currentDirectory && session.id === activeRootID
       return unread || pinned || busy || active
     }
 
     const groups = props.directories
       .map((directory) => {
-        const sessions = props.sessionsByDirectory[directory] ?? []
+        const sessions = (props.sessionsByDirectory[directory] ?? []).filter((session) => !session.parentID)
         const pinnedSet = new Set(props.pinnedByDirectory[directory] ?? [])
         const visibleSessions = sessions
           .filter((session) => (showMode === "relevant" ? isRelevantSession(directory, session) : true))
@@ -165,7 +207,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
       }`}
       style={props.style}
     >
-      <div className="flex-1 min-h-0 overflow-y-auto px-3 pt-3 pb-3">
+      <div className="flex-1 min-h-0 overflow-y-auto px-3 pt-2 pb-3">
         <div className="mb-2 flex items-center justify-between px-1 text-muted-foreground">
           <p className="text-[13px] font-medium">Threads</p>
           <div className="flex items-center gap-1">
@@ -247,6 +289,8 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
           {directoryGroups.map((group) => {
             const isCurrentDirectory = group.directory === props.currentDirectory
             const directoryLabel = getFilename(group.directory)
+            const allSessions = props.sessionsByDirectory[group.directory] ?? []
+            const activeRootID = findRootSessionID(allSessions, props.activeSessionID)
             const unreadMap = props.unreadByDirectory[group.directory] ?? {}
             const pinnedSet = new Set(props.pinnedByDirectory[group.directory] ?? [])
             const sessionStatusByID = props.sessionStatusByDirectory[group.directory] ?? {}
@@ -329,11 +373,11 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
                   : collapsed
                     ? null
                     : visibleSessions.map((session) => {
-                        const active =
-                          group.directory === props.currentDirectory && session.id === props.activeSessionID
-                        const busy = sessionStatusByID[session.id] === "busy"
-                        const pinned = pinnedSet.has(session.id)
-                        const unread = !!unreadMap[session.id]
+                        const familyIDs = sessionFamilyIDs(allSessions, session.id)
+                        const active = group.directory === props.currentDirectory && session.id === activeRootID
+                        const busy = familyIDs.some((id) => sessionStatusByID[id] === "busy")
+                        const pinned = familyIDs.some((id) => pinnedSet.has(id))
+                        const unread = familyIDs.some((id) => !!unreadMap[id])
 
                         return (
                           <div
