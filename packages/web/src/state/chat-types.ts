@@ -1,6 +1,7 @@
 export type SessionInfo = {
   id: string
   title: string
+  parentID?: string
   time: {
     created: number
     updated: number
