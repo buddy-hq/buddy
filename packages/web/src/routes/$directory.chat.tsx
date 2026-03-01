@@ -7,6 +7,7 @@ import { ChatTranscript } from "@/components/chat/chat-transcript"
 import { PermissionDock } from "@/components/chat/permission-dock"
 import { ChatLeftSidebar } from "@/components/layout/chat-left-sidebar"
 import { ChatRightSidebar } from "@/components/layout/chat-right-sidebar"
+import { McpDialog } from "@/components/mcp-dialog"
 import { ResizeHandle } from "@/components/layout/resize-handle"
 import { SettingsModal } from "@/components/settings-modal"
 import { TeachingEditorPanel } from "@/components/teaching/teaching-editor-panel"
@@ -34,6 +35,7 @@ import {
   findWorkspaceFiles,
   loadAgentCatalog,
   loadCommandCatalog,
+  loadMcpStatus,
   loadPermissions,
   loadProjects,
   loadProjectConfig,
@@ -259,6 +261,7 @@ function DirectoryChatPage() {
   const workspaceProbeInFlightRef = useRef(new Set<string>())
   const [stickToBottom, setStickToBottom] = useState(true)
   const [settingsModalOpen, setSettingsModalOpen] = useState(false)
+  const [mcpDialogOpen, setMcpDialogOpen] = useState(false)
   const [agentCatalog, setAgentCatalog] = useState<AgentConfigOption[]>([])
   const [slashCommands, setSlashCommands] = useState<PromptCommandOption[]>([])
   const [defaultAgent, setDefaultAgent] = useState("build")
@@ -469,6 +472,24 @@ function DirectoryChatPage() {
   const isReady = directoryState?.isReady ?? false
   const error = directoryState?.error
   const pendingPermissions = directoryState?.pendingPermissions ?? []
+  const mcpStatus = directoryState?.mcpStatus ?? {}
+  const mcpEntries = useMemo(
+    () => Object.entries(mcpStatus).sort(([left], [right]) => left.localeCompare(right)),
+    [mcpStatus],
+  )
+  const connectedMcpCount = useMemo(
+    () => mcpEntries.filter(([, entry]) => entry.status === "connected").length,
+    [mcpEntries],
+  )
+  const hasMcpError = useMemo(
+    () =>
+      mcpEntries.some(([, entry]) =>
+        entry.status === "failed" ||
+        entry.status === "needs_auth" ||
+        entry.status === "needs_client_registration"
+      ),
+    [mcpEntries],
+  )
   const sessionsByDirectory = useMemo(
     () =>
       Object.fromEntries(
@@ -582,11 +603,17 @@ function DirectoryChatPage() {
       .catch(() => undefined)
   }
 
+  function refreshMcpStatus() {
+    if (!decodedDirectory) return
+    void loadMcpStatus(decodedDirectory).catch(() => undefined)
+  }
+
   useEffect(() => {
     if (!decodedDirectory) return
 
     const refresh = () => {
       refreshSlashCommands()
+      refreshMcpStatus()
     }
     const interval = window.setInterval(refresh, 30_000)
     const onFocus = () => {
@@ -1489,6 +1516,18 @@ function DirectoryChatPage() {
 
               <div className="flex items-center gap-1.5">
                 <SessionContextUsage messages={messages} providers={providers} />
+                <Button
+                  variant={hasMcpError ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={() => setMcpDialogOpen(true)}
+                  title="View and toggle MCP servers"
+                >
+                  {mcpEntries.length > 0
+                    ? hasMcpError
+                      ? `MCP error`
+                      : `MCP ${connectedMcpCount}/${mcpEntries.length}`
+                    : "MCP"}
+                </Button>
                 <Button variant="ghost" size="icon-xs" onClick={() => void onNewSession()} title={`Start new thread in ${getFilename(decodedDirectory)}`}>
                   <SquarePenIcon className="size-3.5" />
                 </Button>
@@ -1615,6 +1654,9 @@ function DirectoryChatPage() {
                   }}
                   onNewSession={() => {
                     void onNewSession()
+                  }}
+                  onOpenMcpDialog={() => {
+                    setMcpDialogOpen(true)
                   }}
                   onSearchFiles={onSearchMentionFiles}
                   onRefreshSlashCommands={refreshSlashCommands}
@@ -1744,6 +1786,11 @@ function DirectoryChatPage() {
         </div>
       </div>
 
+      <McpDialog
+        directory={decodedDirectory}
+        open={!!decodedDirectory && mcpDialogOpen}
+        onOpenChange={setMcpDialogOpen}
+      />
       <SettingsModal
         directory={decodedDirectory}
         open={settingsModalOpen}

@@ -71,6 +71,7 @@ type PromptComposerProps = {
   onSubmit: (input: { value: string; attachments: PromptComposerAttachment[] }) => void
   onAbort: () => void
   onNewSession: () => void
+  onOpenMcpDialog?: () => void
   onSearchFiles?: (query: string) => Promise<MentionableFile[]>
   onRefreshSlashCommands?: () => void
   historyKey?: string
@@ -115,6 +116,12 @@ const BUILTIN_SLASH_COMMANDS: SlashCommandOption[] = [
     name: "model",
     title: "Choose model",
     description: "Open the model picker.",
+  },
+  {
+    type: "builtin",
+    name: "mcp",
+    title: "Toggle MCPs",
+    description: "Open MCP server controls.",
   },
 ]
 
@@ -786,6 +793,10 @@ export function PromptComposer(props: PromptComposerProps) {
         window.requestAnimationFrame(() => {
           modelTriggerRef.current?.focus()
         })
+        return true
+      case "mcp":
+        clearComposer()
+        props.onOpenMcpDialog?.()
         return true
       default:
         return false
