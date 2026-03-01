@@ -1,11 +1,14 @@
 # AGENTS.md
 
-Bun + TypeScript monorepo managed with Turborepo.
+- Buddy is a Bun + TypeScript monorepo managed with Turborepo.
+- Buddy is a single-OS-user, non-multi-tenant agent. It stores one active config/credential/session state per OS user home directory, and it does not provide built-in in-app accounts, profiles, or permissions for multiple human users.
+- Buddy is a local-first system - when you run it normally, the primary agent loop usually runs in a local process on the host you launched. But it is not strictly a local-only system. It can expose server/client or remote-agent surfaces, and it may use the network for more than LLM calls, web search, MCP, and third-party APIs, including auth, remote config/admin policy, and remote subagent/client connections.
 
 **Packages:**
 
 - `packages/buddy`: backend (Bun + Hono + hono-openapi)
 - `packages/web`: frontend (React + Vite + TanStack Router + TanStack Query)
+- `packages/desktop`: Tauri desktop app (wraps `packages/web`)
 - `packages/ui`: shared UI (shadcn/ui + Tailwind v4)
 - `packages/sdk`: OpenAPI-generated client (hey-api/openapi-ts)
 - `packages/opencode-adapter`: Buddy compatibility bridge over vendored OpenCode modules
@@ -24,50 +27,16 @@ Build Buddy core by executing vendored OpenCode core, not by re-implementing it.
 - Buddy-owned behavior should remain in Buddy modules (curriculum, UX-specific route shaping, compatibility headers).
 - Do not edit files under `vendor/opencode/packages/opencode/**` unless the change is an intentional vendored patch that will be tracked for the next subtree refresh.
 
+## UI tasks
+
+refer to: `packages/ui/AGENTS.md`; it has instructions on:
+
+- how to create components
+- how to style them
+
 ## Commands
 
-All commands run from repo root.
-
-```bash
-bun install
-bun run dev
-bun run dev:web
-bun run typecheck
-bun run build
-bun run lint
-bun run test:contracts   # backend+web compatibility contract suites
-bun run check:vendor     # recommended full gate for vendored OpenCode updates
-bun run vendor:check-upstream
-bun run vendor:sync
-bun run sdk:generate
-```
-
-**Turbo filter:**
-
-```bash
-bun run build -- --filter=@buddy/backend
-bun run build -- --filter=@buddy/web
-bun run typecheck -- --filter=@buddy/ui
-```
-
-**Direct (per-package):**
-
-```bash
-bun run --cwd packages/buddy dev
-bun run --cwd packages/web dev
-bun run --cwd packages/sdk generate
-```
-
-## Tests (Bun)
-
-Bun is the default test runner. Backend and web both include committed tests, including contract/parity suites retained as regression guards.
-
-```bash
-bun test                                         # all tests
-bun test packages/buddy                          # package (pattern)
-bun test packages/web
-bun test --coverage
-```
+- if confused about which commands to run refer COMMANDS.AGENTS.md
 
 ## Code Style
 
@@ -100,29 +69,19 @@ Follow existing code; avoid drive-by reformatting.
 
 - Components: PascalCase; hooks: `useX`; variables/functions: camelCase; constants: `UPPER_SNAKE_CASE`.
 - TanStack Router: route files in `packages/web/src/routes/*`, each exporting `Route` via `createFileRoute`/`createRootRoute`.
-- Hono: backend route handling is composed in `packages/buddy/src/index.ts` with feature-specific route modules where needed (for example, curriculum routes). `operationId` format is `group.action` (for example `health.check`, `session.list`).
+- Hono: backend route handling is composed in `packages/buddy/src/index.ts` with feature-specific route modules where needed (for example, curriculum routes). Most `operationId` values are defined in `packages/buddy/src/openapi/compatibility-doc.ts`. Format is `group[.subgroup].action` (for example `health.check`, `session.list`, `global.config.get`, `provider.oauth.authorize`).
 
 ### Error Handling
 
 - Prefer early returns; keep happy-path left-aligned.
-- Backend: validate with `validator(...)` + zod; return errors as `c.json({ error: "..." }, status)`; include those statuses in `describeRoute.responses`. CORS is `origin: "*"` for dev — don't expand without reason.
+- Backend: validate with `validator(...)` + zod; return errors as `c.json({ error: "..." }, status)`. CORS is `origin: "*"` for dev — don't expand without reason.
 - Frontend: check `res.ok` before parsing; throw from `queryFn`/`mutationFn` for React Query. Don't hardcode hosts; if adding `/api` prefix, align across `vite.config.ts` proxy, `sdk/scripts/generate.ts` `baseUrl`, and backend route mounting.
-
-### UI Conventions
-
-- Shared components: `packages/ui/src/components/ui`; export from `packages/ui/src/index.ts`, consume via `@buddy/ui`.
-- Tailwind v4 scanning enabled via `@source "./**/*.{ts,tsx}";` in `packages/ui/src/index.css` — do not remove.
 
 ## Generated / Do Not Edit
 
 - `packages/web/src/routeTree.gen.ts` — TanStack Router (gitignored)
-- `packages/sdk/src/client.gen.ts`, `packages/sdk/src/types.gen.ts` — SDK (gitignored)
+- `packages/sdk/src/gen/` — SDK generated output (`sdk.gen.ts`, `types.gen.ts`, `client/`, `core/`); gitignored
 - Build artifacts ignored: `dist/`, `.turbo/`, `*.tsbuildinfo`, `*.log`
-
-## Integration Couplings
-
-- `/api` pathing is a multi-package coupling: backend prefix, SDK generation, SDK client `baseUrl`, and web proxy must stay aligned.
-- Multi-tenant chat couples web directory route/state, SDK directory header, backend middleware, and instance-scoped stores.
 
 ## Links
 
