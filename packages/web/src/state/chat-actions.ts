@@ -10,12 +10,19 @@ import type {
 import type { TeachingPromptContext } from "./teaching-mode"
 import { apiFetch, requestJson, stringifyError } from "../lib/api-client"
 import { getOpenCodeClient } from "../lib/opencode-client"
+import type { PromptAttachmentPart, PromptFilePart } from "../components/prompt/prompt-types"
 
 export type AgentConfigOption = {
   name: string
   description?: string
   mode: "subagent" | "primary" | "all"
   hidden?: boolean
+}
+
+export type PromptCommandOption = {
+  name: string
+  description?: string
+  source?: "command" | "mcp" | "skill"
 }
 
 function normalizeProjectDirectory(directory: string) {
@@ -299,6 +306,7 @@ export async function sendPrompt(
   directory: string,
   content: string,
   input?: {
+    parts?: PromptAttachmentPart[]
     agent?: string
     model?: {
       providerID: string
@@ -332,6 +340,7 @@ export async function sendPrompt(
         method: "POST",
         body: {
           content,
+          ...(input?.parts && input.parts.length > 0 ? { parts: input.parts } : {}),
           ...(input?.agent ? { agent: input.agent } : {}),
           ...(input?.model ? { model: input.model } : {}),
           ...(input?.variant ? { variant: input.variant } : {}),
@@ -347,6 +356,57 @@ export async function sendPrompt(
       sessionID,
       error: stringifyError(error),
     })
+    store.applySessionStatus(directory, sessionID, "idle")
+    store.setDirectoryError(directory, stringifyError(error))
+    void loadMessages(directory, sessionID).catch(() => undefined)
+    void loadSessions(directory).catch(() => undefined)
+    throw error
+  }
+}
+
+export async function sendCommand(
+  directory: string,
+  command: string,
+  argumentsText: string,
+  input?: {
+    parts?: PromptFilePart[]
+    agent?: string
+    model?: {
+      providerID: string
+      modelID: string
+    }
+    variant?: string
+  },
+) {
+  const store = useChatStore.getState()
+  const state = store.directories[directory]
+  const sessionID = state?.sessionID
+  if (!sessionID) {
+    throw new Error("No session available")
+  }
+
+  store.clearDirectoryError(directory)
+  store.applySessionStatus(directory, sessionID, "busy")
+
+  try {
+    await requestJson<MessageWithParts>(
+      directory,
+      `/api/session/${encodeURIComponent(sessionID)}/command`,
+      {
+        method: "POST",
+        body: {
+          command,
+          arguments: argumentsText,
+          ...(input?.parts && input.parts.length > 0 ? { parts: input.parts } : {}),
+          ...(input?.agent ? { agent: input.agent } : {}),
+          ...(input?.model
+            ? { model: `${input.model.providerID}/${input.model.modelID}` }
+            : {}),
+          ...(input?.variant ? { variant: input.variant } : {}),
+        },
+      },
+    )
+  } catch (error) {
     store.applySessionStatus(directory, sessionID, "idle")
     store.setDirectoryError(directory, stringifyError(error))
     void loadMessages(directory, sessionID).catch(() => undefined)
@@ -520,6 +580,35 @@ export async function patchProjectConfig(directory: string, patch: Record<string
 
 export async function loadAgentCatalog(directory: string) {
   return requestJson<AgentConfigOption[]>(directory, "/api/config/agents")
+}
+
+export async function loadCommandCatalog(directory: string) {
+  return requestJson<PromptCommandOption[]>(directory, "/api/command")
+}
+
+export async function findWorkspaceFiles(
+  directory: string,
+  query: string,
+  input?: {
+    includeDirectories?: boolean
+    limit?: number
+  },
+) {
+  const search = query.trim()
+  if (!search) return [] as string[]
+
+  const includeDirectories = input?.includeDirectories ?? true
+  const client = getOpenCodeClient(directory)
+  const response = await client.find.files(
+    {
+      query: search,
+      dirs: includeDirectories ? "true" : "false",
+      limit: input?.limit ?? 20,
+    },
+    { throwOnError: true },
+  )
+
+  return (response.data ?? []) as string[]
 }
 
 export function shouldDeferTranscriptReload(directory: string, sessionID?: string) {
