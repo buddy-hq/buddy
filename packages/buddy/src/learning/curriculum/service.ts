@@ -1,5 +1,5 @@
 import fs from "node:fs/promises"
-import { CurriculumPath } from "./curriculum-path.js"
+import { CurriculumPath } from "./path.js"
 
 const DEFAULT_CURRICULUM_MARKDOWN = [
   "# Learning Curriculum",

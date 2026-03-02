@@ -3,8 +3,8 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { LSP } from "@buddy/opencode-adapter/lsp"
-import { loadOpenCodeApp } from "../opencode/runtime.js"
-import { TeachingPath } from "./teaching-path.js"
+import { loadOpenCodeApp } from "../../opencode-runtime/runtime.js"
+import { TeachingPath } from "./path.js"
 import type {
   TeachingDiagnostic,
   TeachingLanguage,

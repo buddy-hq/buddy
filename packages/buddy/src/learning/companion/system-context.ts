@@ -1,11 +1,11 @@
-import LEARNING_COMPANION from "./prompts/learning-companion.txt"
+import LEARNING_COMPANION_PROMPT from "./prompt.txt"
 
 // ---------------------------------------------------------------------------
 // Stable behavior prompt loaded from disk
 // ---------------------------------------------------------------------------
 
-export function loadBehavior(): string {
-  return LEARNING_COMPANION
+export function loadLearningCompanionPrompt(): string {
+  return LEARNING_COMPANION_PROMPT
 }
 
 // ---------------------------------------------------------------------------

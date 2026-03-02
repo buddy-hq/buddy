@@ -1,5 +1,5 @@
 import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core"
-import { Timestamps } from "../storage/schema.sql.js"
+import { Timestamps } from "../../storage/schema.sql.js"
 
 /**
  * Buddy-specific curriculum storage.

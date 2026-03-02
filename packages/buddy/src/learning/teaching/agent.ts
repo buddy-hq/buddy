@@ -1,5 +1,5 @@
-import CODE_TEACHER_PROMPT from "../session/prompts/code-teacher.txt"
-import { definePrimaryAgent } from "./define.js"
+import CODE_TEACHER_PROMPT from "./agent-prompt.txt"
+import { definePrimaryAgent } from "../../agent-config/builders.js"
 
 export const CODE_TEACHER_AGENT = definePrimaryAgent({
   description: "Interactive code teaching agent for the in-app lesson editor.",

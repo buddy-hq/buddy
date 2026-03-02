@@ -6,8 +6,8 @@ import {
   TeachingService,
   TeachingWorkspaceFileError,
   TeachingWorkspaceNotFoundError,
-} from "./teaching-service.js"
-import { TeachingPath } from "./teaching-path.js"
+} from "./service.js"
+import { TeachingPath } from "./path.js"
 import { TeachingLanguageSchema, type TeachingDiagnostic, type TeachingLanguage, type TeachingWorkspaceResponse } from "./types.js"
 
 const registeredDirectories = new Set<string>()

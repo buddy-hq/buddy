@@ -1,7 +1,7 @@
 import type { TeachingPromptContext } from "../teaching/types.js"
-import { CurriculumService } from "../curriculum/curriculum-service.js"
-import { TeachingService } from "../teaching/teaching-service.js"
-import { condenseCurriculum, loadBehavior } from "./system-prompt.js"
+import { CurriculumService } from "../curriculum/service.js"
+import { loadLearningCompanionPrompt, condenseCurriculum } from "../companion/system-context.js"
+import { TeachingService } from "../teaching/service.js"
 
 function isCompletionClaim(value: string): boolean {
   const normalized = value.trim().toLowerCase()
@@ -100,7 +100,7 @@ function formatTeachingPolicy(input: { completionClaim: boolean; changedSinceChe
   return parts.join("\n")
 }
 
-export async function buildBuddySystemPrompt(input: {
+export async function composeLearningSystemPrompt(input: {
   directory: string
   agentName?: string
   teachingContext?: TeachingPromptContext
@@ -108,7 +108,7 @@ export async function buildBuddySystemPrompt(input: {
 }): Promise<string> {
   const parts: string[] = []
   const includeBehavior = input.agentName !== "code-teacher"
-  const behavior = includeBehavior ? loadBehavior().trim() : ""
+  const behavior = includeBehavior ? loadLearningCompanionPrompt().trim() : ""
   if (behavior) {
     parts.push(behavior)
   }

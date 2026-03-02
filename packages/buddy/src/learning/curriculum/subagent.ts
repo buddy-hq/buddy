@@ -1,5 +1,5 @@
-import CURRICULUM_BUILDER_PROMPT from "./prompts/curriculum-builder.txt"
-import { defineSubagent } from "./define.js"
+import CURRICULUM_BUILDER_PROMPT from "./subagent-prompt.txt"
+import { defineSubagent } from "../../agent-config/builders.js"
 
 export const CURRICULUM_BUILDER_SUBAGENT = defineSubagent({
   description: "Builds and updates project curriculum markdown with actionable checklists.",
