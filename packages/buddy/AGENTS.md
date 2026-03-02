@@ -15,6 +15,13 @@
 - **Agent Kit**: `src/agent-kit/` contains agent factories, buddy-agents registry, and registration helpers
 - **Learning Domain**: `src/learning/` contains curriculum, teaching, and companion subsystems with modular tools
 
+## Adding Agents And Tools
+
+- **Primary agent**: Define it in the owning feature folder and register it with `registerBuddyAgent({ key, agent: createPrimaryAgent(...) })`. Use `src/agent-kit/factories.ts` and `src/agent-kit/register-buddy-agent.ts`. Keep prompts next to the agent as `.md`.
+- **Subagent**: Same pattern, but use `createSubagent(...)` instead of `createPrimaryAgent(...)`. If you want build-like or plan-like defaults, use `createBuildAgent(...)` or `createPlanAgent(...)`.
+- **Tool**: Create one tool file and export a single tool constant via `createBuddyTool(...)` from `src/learning/shared/create-buddy-tool.ts`. The tool gets `ctx.directory` from the shared wrapper, so tool files do not need per-directory factory functions.
+- **Wire a tool into a feature**: Add the exported tool constant to that feature's `tools/index.ts`, then the existing `tools/register.ts` entrypoint will pick it up through the shared `createToolRegistrar(...)` helper.
+
 ## Dual Database Architecture
 
 - **Two databases**: `opencode.db` (chat engine, managed by vendored OpenCode) and `buddy.db` (learning layer, managed by Buddy). See `SCHEMA.md` for details.

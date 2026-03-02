@@ -78,6 +78,16 @@ Follow existing code; avoid drive-by reformatting.
 - TanStack Router: route files in `packages/web/src/routes/*`, each exporting `Route` via `createFileRoute`/`createRootRoute`.
 - Hono: backend routes are modular in `packages/buddy/src/routes/*.ts` (auth, config, session, curriculum, teaching, etc.). Most `operationId` values are defined in `packages/buddy/src/openapi/compatibility-schemas.ts`. Format is `group[.subgroup].action` (for example `health.check`, `session.list`, `global.config.get`, `provider.oauth.authorize`).
 
+## Working Style
+
+- Name things by what they literally do. If a file or function name needs explanation, the name is wrong.
+- Organize by feature ownership first. Keep prompts, agents, tools, and services with the feature that owns them unless there is a real runtime boundary.
+- Use thin helpers only when they reduce cognitive load. If a helper only adds indirection, remove it.
+- Keep side effects explicit. Prefer `register*` / `ensure*` entrypoints over hidden import-time behavior.
+- Keep naming and exports easy to scan. Prefer clear `create*` / `register*` APIs and explicit bottom exports for helper modules.
+- Use `git mv` for tracked moves so file history survives refactors.
+- If a name needs explanation, change the name instead of adding more explanation.
+
 ### Error Handling
 
 - Prefer early returns; keep happy-path left-aligned.
