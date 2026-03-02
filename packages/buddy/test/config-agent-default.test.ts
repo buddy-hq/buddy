@@ -4,8 +4,8 @@ import path from "node:path"
 import fs from "node:fs"
 import { mkdtempSync, writeFileSync } from "node:fs"
 import { spawnSync } from "node:child_process"
-import { Agent } from "../src/agent/agent.js"
-import { Instance } from "../src/project/instance.js"
+import { Agent as OpenCodeAgent } from "@buddy/opencode-adapter/agent"
+import { withSyncedOpenCodeConfig } from "./helpers/opencode.js"
 
 function runGit(cwd: string, args: string[]) {
   const result = spawnSync("git", args, {
@@ -42,10 +42,7 @@ describe("config default_agent", () => {
     )
 
     await expect(
-      Instance.provide({
-        directory: repo,
-        fn: () => Agent.defaultAgent(),
-      }),
+      withSyncedOpenCodeConfig(repo, () => OpenCodeAgent.defaultAgent()),
     ).rejects.toThrow("is a subagent")
   })
 
@@ -75,11 +72,40 @@ describe("config default_agent", () => {
       ) + "\n",
     )
 
-    const selected = await Instance.provide({
-      directory: repo,
-      fn: () => Agent.defaultAgent(),
-    })
+    const selected = await withSyncedOpenCodeConfig(repo, () => OpenCodeAgent.defaultAgent())
 
     expect(selected).toBe("coach")
+  })
+
+  test("resolves renamed primary default_agent from its display name", async () => {
+    const repo = createGitRepo("buddy-config-default-agent-renamed")
+    fs.mkdirSync(path.join(repo, ".buddy", "agents"), { recursive: true })
+
+    writeFileSync(
+      path.join(repo, ".buddy", "agents", "coach.md"),
+      [
+        "---",
+        "mode: primary",
+        "name: Senior Coach",
+        "description: coaching mode",
+        "---",
+        "You are a coaching agent.",
+      ].join("\n"),
+    )
+
+    writeFileSync(
+      path.join(repo, "buddy.jsonc"),
+      JSON.stringify(
+        {
+          default_agent: "Senior Coach",
+        },
+        null,
+        2,
+      ) + "\n",
+    )
+
+    const selected = await withSyncedOpenCodeConfig(repo, () => OpenCodeAgent.defaultAgent())
+
+    expect(selected).toBe("Senior Coach")
   })
 })

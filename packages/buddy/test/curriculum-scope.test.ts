@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import fs from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { mkdtempSync, rmSync } from "node:fs"
@@ -57,6 +58,39 @@ describe("curriculum scope", () => {
     } finally {
       rmSync(workspaceA, { recursive: true, force: true })
       rmSync(workspaceB, { recursive: true, force: true })
+    }
+  })
+
+  test("prefers the on-disk curriculum after a direct file edit", async () => {
+    const workspace = createWorkspace("buddy-curriculum-file")
+
+    try {
+      const savedMarkdown = "# Stored curriculum\n- [ ] stale task"
+      const updatedMarkdown = "# Updated curriculum\n- [x] fresh task"
+
+      const put = await app.request("/api/curriculum", {
+        method: "PUT",
+        headers: {
+          "x-buddy-directory": workspace,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ markdown: savedMarkdown }),
+      })
+      expect(put.status).toBe(200)
+
+      await fs.writeFile(path.join(workspace, ".buddy", "curriculum.md"), updatedMarkdown, "utf8")
+
+      const get = await app.request("/api/curriculum", {
+        headers: {
+          "x-buddy-directory": workspace,
+        },
+      })
+      expect(get.status).toBe(200)
+
+      const body = (await get.json()) as { markdown: string }
+      expect(body.markdown).toBe(updatedMarkdown)
+    } finally {
+      rmSync(workspace, { recursive: true, force: true })
     }
   })
 })
