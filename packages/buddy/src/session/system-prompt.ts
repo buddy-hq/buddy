@@ -1,29 +1,7 @@
-import { Instance } from "../project/instance.js"
-import { CurriculumService } from "../curriculum/curriculum-service.js"
 import LEARNING_COMPANION from "./prompts/learning-companion.txt"
-import MAX_STEPS from "./prompts/max-steps.txt"
 
 // ---------------------------------------------------------------------------
-// Layer 1: Identity + Environment (stable, rebuilt every call)
-// ---------------------------------------------------------------------------
-
-export function loadEnvironment(input: { providerID: string; modelID: string }): string {
-  return [
-    `You are powered by the model named ${input.modelID}. The exact model ID is ${input.providerID}/${input.modelID}.`,
-    `Here is some useful information about the environment you are running in:`,
-    `<env>`,
-    `  Working directory: ${Instance.directory}`,
-    `  Is directory a git repo: ${Instance.project.vcs === "git" ? "yes" : "no"}`,
-    `  Platform: ${process.platform}`,
-    `  Today's date: ${new Date().toDateString()}`,
-    `</env>`,
-    `<directories>`,
-    `</directories>`,
-  ].join("\n")
-}
-
-// ---------------------------------------------------------------------------
-// Layer 2: Behavioral Prompt (stable, loaded from .txt)
+// Stable behavior prompt loaded from disk
 // ---------------------------------------------------------------------------
 
 export function loadBehavior(): string {
@@ -77,28 +55,4 @@ export function condenseCurriculum(markdown: string): string {
 
   flushSection()
   return result.join("\n")
-}
-
-export async function loadCurriculumContext(): Promise<string> {
-  try {
-    const curriculum = await CurriculumService.peek(Instance.directory)
-    if (!curriculum) {
-      return ""
-    }
-
-    const condensed = condenseCurriculum(curriculum.markdown)
-    if (!condensed.trim()) return ""
-
-    return ["<curriculum>", `Path: ${curriculum.path}`, condensed, "</curriculum>"].join("\n")
-  } catch {
-    return ""
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Max-steps prompt (used as assistant message prefix, not system prompt)
-// ---------------------------------------------------------------------------
-
-export function loadMaxStepsPrompt(): string {
-  return MAX_STEPS
 }
