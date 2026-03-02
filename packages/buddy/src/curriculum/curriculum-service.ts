@@ -1,7 +1,4 @@
 import fs from "node:fs/promises"
-import path from "node:path"
-import { Database, eq } from "../storage/db.js"
-import { CurriculumTable } from "./curriculum.sql.js"
 import { CurriculumPath } from "./curriculum-path.js"
 
 const DEFAULT_CURRICULUM_MARKDOWN = [
@@ -23,22 +20,27 @@ export namespace CurriculumService {
     markdown: string
   }
 
-  function curriculumScopeID(projectId: string, directory: string) {
-    if (projectId !== "global") {
-      return projectId
-    }
+  // Keep the project-local file as the canonical curriculum document.
+  async function readFile(directory: string): Promise<Document | undefined> {
+    const filepath = CurriculumPath.file(directory)
+    const markdown = await fs.readFile(filepath, "utf8").catch(() => undefined)
+    if (markdown === undefined) return undefined
 
-    // OpenCode uses a shared "global" project id for non-git directories.
-    // Scope these by absolute directory to prevent cross-directory leakage.
-    return `global:${path.resolve(directory)}`
+    return {
+      path: filepath,
+      markdown,
+    }
   }
 
-  async function openCodeProjectID(directory: string) {
-    const { Instance: OpenCodeInstance } = await import("@buddy/opencode-adapter/instance")
-    return OpenCodeInstance.provide({
-      directory,
-      fn: () => OpenCodeInstance.project.id,
-    })
+  async function writeFile(directory: string, markdown: string): Promise<Document> {
+    const filepath = CurriculumPath.file(directory)
+    await fs.mkdir(CurriculumPath.directory(directory), { recursive: true })
+    await fs.writeFile(filepath, markdown, "utf8")
+
+    return {
+      path: filepath,
+      markdown,
+    }
   }
 
   export function validate(markdown: string) {
@@ -51,45 +53,13 @@ export namespace CurriculumService {
   }
 
   export async function peek(directory: string): Promise<Document | undefined> {
-    // Try DB first
-    const projectId = await openCodeProjectID(directory)
-    const scopeId = curriculumScopeID(projectId, directory)
-    const row = Database.use((db) =>
-      db.select().from(CurriculumTable).where(eq(CurriculumTable.project_id, scopeId)).get(),
-    )
-
-    if (row) {
-      return {
-        path: CurriculumPath.file(directory),
-        markdown: row.markdown,
-      }
-    }
-
-    // Fall back to file (migration path for existing users)
-    const filepath = CurriculumPath.file(directory)
-    const markdown = await fs.readFile(filepath, "utf8").catch(() => undefined)
-    if (markdown === undefined) return undefined
-
-    // Migrate file content to DB
-    Database.use((db) => {
-      db.insert(CurriculumTable)
-        .values({
-          project_id: scopeId,
-          markdown,
-        })
-        .onConflictDoUpdate({
-          target: CurriculumTable.project_id,
-          set: { markdown, time_updated: Date.now() },
-        })
-        .run()
-    })
-
-    return { path: filepath, markdown }
+    return readFile(directory)
   }
 
   export async function read(directory: string): Promise<Document> {
-    const existing = await peek(directory)
+    const existing = await readFile(directory)
     if (existing) return existing
+
     return {
       path: CurriculumPath.file(directory),
       markdown: DEFAULT_CURRICULUM_MARKDOWN,
@@ -98,38 +68,11 @@ export namespace CurriculumService {
 
   export async function write(directory: string, markdown: string) {
     validate(markdown)
-
-    const saved = await persist(directory, markdown)
-
-    // Also write to file for backward compatibility
-    const dir = CurriculumPath.directory(directory)
-    await fs.mkdir(dir, { recursive: true })
-    await fs.writeFile(saved.path, markdown, "utf8")
-
-    return saved
+    return writeFile(directory, markdown)
   }
 
   export async function persist(directory: string, markdown: string) {
     validate(markdown)
-
-    const projectId = await openCodeProjectID(directory)
-    const scopeId = curriculumScopeID(projectId, directory)
-    const filepath = CurriculumPath.file(directory)
-
-    // Write to DB
-    Database.use((db) => {
-      db.insert(CurriculumTable)
-        .values({
-          project_id: scopeId,
-          markdown,
-        })
-        .onConflictDoUpdate({
-          target: CurriculumTable.project_id,
-          set: { markdown, time_updated: Date.now() },
-        })
-        .run()
-    })
-
-    return { path: filepath, markdown }
+    return writeFile(directory, markdown)
   }
 }
