@@ -1,20 +1,36 @@
-# Buddy
+# Buddy - An IDE for learning.
 
-> An IDE for learning.
->
 > Licensed under the O’Saasy License (see LICENSE).
 
-Buddy is a persistent AI learning companion built for people who learn constantly and are tired of losing context between sessions. Think opencode, but purpose-built for learning.
+Buddy is a persistent AI learning companion built for people who learn constantly and are tired of losing context between sessions.
 
----
+## Constitution
 
-## The Problem
+### Local
 
-Most AI tools treat every learning session as a blank slate. You spend the first 10 minutes re-explaining what you've been studying, where you left off, and what you already know. Progress lives in your head (or a scattered collection of markdown files you're manually updating). There's no system that actually knows what you've learned and what's next.
+Buddy runs on your machine, all your data stays there.
 
----
+### Open
 
-## What Buddy Does
+All core code is open source.
+
+### Free
+
+The app is free for anyone to use.
+
+### Flexible
+
+Bring your own subscriptions and API keys.
+
+### Extensible
+
+Add your own MCP servers, skills, prompts, or agents.
+
+### Learner-driven
+
+Buddy doesn't assume what you want to learn or how. It provides good defaults, easy to change or disable—without pushing you in any particular direction.
+
+# What Buddy Does
 
 Buddy maintains your learning context across sessions so you can pick up exactly where you left off — no setup, no re-explaining yourself.
 
@@ -26,18 +42,9 @@ Buddy maintains your learning context across sessions so you can pick up exactly
 
 ---
 
-## Who It's For
+## The Problem
 
-Buddy is for self-directed learners who study regularly and want a tool that grows with them — not one that forgets them the moment the session ends.
-
----
-
-## Status
-
-Currently in early development.
-
----
-
+Most AI tools treat every learning session as a blank slate. You spend the first 10 minutes re-explaining what you've been studying, where you left off, and what you already know. Progress lives in your head (or a scattered collection of markdown files you're manually updating). There's no system that actually knows what you've learned and what's next.
 
 ## Contributing
 
