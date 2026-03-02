@@ -12,10 +12,8 @@ import {
   TeachingLanguageSchema,
   TeachingWorkspaceUpdateRequestSchema,
 } from "../teaching/types.js"
-
-type EnsureAllowedDirectory = (request: Request) =>
-  | { ok: true; directory: string }
-  | { ok: false; response: Response }
+import { isJsonContentType } from "./support.js"
+import type { EnsureAllowedDirectory } from "./support.js"
 
 const ProvisionRequestSchema = z.object({
   language: TeachingLanguageSchema.optional(),
@@ -125,7 +123,11 @@ export const TeachingRoutes = (input: { ensureAllowedDirectory: EnsureAllowedDir
       }
 
       try {
-        const workspace = await TeachingService.addFile(directoryResult.directory, c.req.param("sessionID"), parsed.data)
+        const workspace = await TeachingService.addFile(
+          directoryResult.directory,
+          c.req.param("sessionID"),
+          parsed.data,
+        )
         return c.json(workspace)
       } catch (error) {
         if (error instanceof TeachingWorkspaceNotFoundError) {
@@ -202,8 +204,3 @@ export const TeachingRoutes = (input: { ensureAllowedDirectory: EnsureAllowedDir
         throw error
       }
     })
-
-function isJsonContentType(value: string | undefined) {
-  if (!value) return false
-  return value.toLowerCase().includes("application/json")
-}
