@@ -1,2 +1,5 @@
+[loader]
+".md" = "text"
+
 [test]
 preload = ["./test/preload.ts"]
