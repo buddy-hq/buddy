@@ -4,7 +4,6 @@ import path from "node:path"
 import { mkdtempSync, writeFileSync } from "node:fs"
 import { spawnSync } from "node:child_process"
 import { Config, JsonError } from "../src/config/config.js"
-import { Instance } from "../src/project/instance.js"
 
 function runGit(cwd: string, args: string[]) {
   const result = spawnSync("git", args, {
@@ -40,10 +39,7 @@ describe("config jsonc", () => {
       ].join("\n"),
     )
 
-    const cfg = await Instance.provide({
-      directory: repo,
-      fn: () => Config.get(),
-    })
+    const cfg = await Config.getProject(repo)
 
     expect(cfg.instructions).toEqual(["./notes.md"])
     expect(cfg.compaction?.auto).toBe(false)
@@ -67,19 +63,13 @@ describe("config jsonc", () => {
     process.env.BUDDY_CONFIG = badConfig
 
     try {
-      await expect(
-        Instance.provide({
-          directory: repo,
-          fn: () => Config.get(),
-        }),
-      ).rejects.toBeInstanceOf(JsonError)
+      await expect(Config.getProject(repo)).rejects.toBeInstanceOf(JsonError)
     } finally {
       if (previous === undefined) {
         delete process.env.BUDDY_CONFIG
       } else {
         process.env.BUDDY_CONFIG = previous
       }
-      Instance.disposeAll()
     }
   })
 })

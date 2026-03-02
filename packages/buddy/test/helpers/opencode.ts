@@ -2,16 +2,12 @@ import { clearConfigOverlay, setConfigOverlay } from "@buddy/opencode-adapter/co
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { Config } from "../../src/config/config.js"
 import { buildOpenCodeConfigOverlay } from "../../src/index.js"
-import { Instance as BuddyInstance } from "../../src/project/instance.js"
 
 export async function withSyncedOpenCodeConfig<T>(
   directory: string,
   fn: () => Promise<T> | T,
 ) {
-  const config = await BuddyInstance.provide({
-    directory,
-    fn: () => Config.get(),
-  })
+  const config = await Config.getProject(directory)
   const overlay = await buildOpenCodeConfigOverlay(config)
 
   setConfigOverlay(directory, overlay)

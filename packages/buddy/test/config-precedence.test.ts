@@ -5,7 +5,6 @@ import fs from "node:fs"
 import { mkdtempSync, writeFileSync } from "node:fs"
 import { spawnSync } from "node:child_process"
 import { Config } from "../src/config/config.js"
-import { Instance } from "../src/project/instance.js"
 import { Global } from "../src/storage/global.js"
 
 function runGit(cwd: string, args: string[]) {
@@ -28,7 +27,7 @@ function createGitRepo(prefix: string) {
 }
 
 describe("config precedence", () => {
-  test("applies precedence from global -> env file -> project -> .buddy overlay -> inline content", async () => {
+  test("applies precedence from global -> env file -> project root -> inline content", async () => {
     const repo = createGitRepo("buddy-config-precedence")
     const nested = path.join(repo, "nested")
     fs.mkdirSync(nested, { recursive: true })
@@ -37,9 +36,9 @@ describe("config precedence", () => {
     writeFileSync(customPath, '{"username":"custom-user","compaction":{"reserved":222}}\n')
 
     writeFileSync(path.join(repo, "buddy.jsonc"), '{"username":"project-user","compaction":{"reserved":333}}\n')
-
+    writeFileSync(path.join(nested, "buddy.jsonc"), '{"username":"nested-user","compaction":{"reserved":444}}\n')
     fs.mkdirSync(path.join(repo, ".buddy"), { recursive: true })
-    writeFileSync(path.join(repo, ".buddy", "buddy.jsonc"), '{"username":"overlay-user","compaction":{"reserved":444}}\n')
+    writeFileSync(path.join(repo, ".buddy", "buddy.jsonc"), '{"username":"overlay-user","compaction":{"reserved":666}}\n')
 
     const globalFile = path.join(Global.Path.config, "buddy.jsonc")
     fs.mkdirSync(path.dirname(globalFile), { recursive: true })
@@ -53,25 +52,17 @@ describe("config precedence", () => {
       process.env.BUDDY_CONFIG = customPath
       process.env.BUDDY_CONFIG_CONTENT = '{"username":"inline-user","compaction":{"reserved":555}}'
 
-      Instance.disposeAll()
-      const cfg = await Instance.provide({
-        directory: nested,
-        fn: () => Config.get(),
-      })
+      const cfg = await Config.getProject(nested)
 
       expect(cfg.username).toBe("inline-user")
       expect(cfg.compaction?.reserved).toBe(555)
 
       delete process.env.BUDDY_CONFIG_CONTENT
-      Instance.disposeAll()
 
-      const withoutInline = await Instance.provide({
-        directory: nested,
-        fn: () => Config.get(),
-      })
+      const withoutInline = await Config.getProject(nested)
 
-      expect(withoutInline.username).toBe("overlay-user")
-      expect(withoutInline.compaction?.reserved).toBe(444)
+      expect(withoutInline.username).toBe("project-user")
+      expect(withoutInline.compaction?.reserved).toBe(333)
     } finally {
       if (previousConfig === undefined) delete process.env.BUDDY_CONFIG
       else process.env.BUDDY_CONFIG = previousConfig
@@ -85,7 +76,6 @@ describe("config precedence", () => {
         writeFileSync(globalFile, previousGlobal)
       }
 
-      Instance.disposeAll()
       await Config.updateGlobal({})
     }
   })

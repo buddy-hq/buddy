@@ -1,13 +1,14 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
-import { rememberProject, sendPrompt, shouldDeferTranscriptReload } from "../src/state/chat-actions"
+import { loadOpenProjects, openProject, sendPrompt, shouldDeferTranscriptReload } from "../src/state/chat-actions"
 import { useChatStore } from "../src/state/chat-store"
 
 const originalFetch = globalThis.fetch
 
 function resetStore() {
   useChatStore.setState({
-    projects: [],
+    openProjects: [],
     activeDirectory: undefined,
+    entryError: undefined,
     lastSessionByDirectory: {},
     directories: {},
     streamStatus: "idle",
@@ -23,22 +24,67 @@ afterEach(() => {
   globalThis.fetch = originalFetch
 })
 
-describe("rememberProject", () => {
-  test("persists the project only after the backend accepts it", async () => {
-    globalThis.fetch = (async () =>
-      new Response(JSON.stringify({ directory: "/repo" }), {
-        headers: {
-          "content-type": "application/json",
-        },
-      })) as typeof fetch
+describe("loadOpenProjects", () => {
+  test("restores normalized open projects from local state", async () => {
+    globalThis.fetch = (async () => {
+      throw new Error("loadOpenProjects should not fetch")
+    }) as typeof fetch
 
-    const nextDirectory = await rememberProject("/repo/")
+    useChatStore.setState({
+      openProjects: ["/repo/root", "/repo/root/", " /repo/other/ ", "/"],
+    })
+
+    const projects = await loadOpenProjects()
+
+    expect(projects).toEqual(["/repo/root", "/repo/other"])
+    expect(useChatStore.getState().openProjects).toEqual(["/repo/root", "/repo/other"])
+  })
+})
+
+describe("openProject", () => {
+  test("stores the canonical directory returned by the backend", async () => {
+    globalThis.fetch = (async (_input, init) => {
+      expect(init?.method).toBe("POST")
+      expect(new Headers(init?.headers).get("x-buddy-directory")).toBeNull()
+      expect(init?.body).toBe(JSON.stringify({ directory: "/repo/nested" }))
+      return new Response(
+        JSON.stringify({
+          directory: "/repo",
+        }),
+        {
+          headers: {
+            "content-type": "application/json",
+          },
+        },
+      )
+    }) as typeof fetch
+
+    const nextDirectory = await openProject("/repo/nested/")
 
     expect(nextDirectory).toBe("/repo")
-    expect(useChatStore.getState().projects).toEqual(["/repo"])
+    expect(useChatStore.getState().openProjects).toEqual(["/repo"])
   })
 
-  test("does not add the project when the backend rejects it", async () => {
+  test("allows non-git folders", async () => {
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          directory: "/tmp",
+        }),
+        {
+          headers: {
+            "content-type": "application/json",
+          },
+        },
+      )) as typeof fetch
+
+    const nextDirectory = await openProject("/tmp")
+
+    expect(nextDirectory).toBe("/tmp")
+    expect(useChatStore.getState().openProjects).toEqual(["/tmp"])
+  })
+
+  test("surfaces backend validation failures without opening the project", async () => {
     globalThis.fetch = (async () =>
       new Response(JSON.stringify({ error: "Directory is outside allowed roots" }), {
         status: 403,
@@ -47,8 +93,13 @@ describe("rememberProject", () => {
         },
       })) as typeof fetch
 
-    await expect(rememberProject("/denied")).rejects.toThrow("Directory is outside allowed roots")
-    expect(useChatStore.getState().projects).toEqual([])
+    await expect(openProject("../repo")).rejects.toThrow("Directory is outside allowed roots")
+    expect(useChatStore.getState().openProjects).toEqual([])
+  })
+
+  test("rejects the filesystem root", async () => {
+    await expect(openProject("/")).rejects.toThrow("Please choose a project directory, not /")
+    expect(useChatStore.getState().openProjects).toEqual([])
   })
 })
 

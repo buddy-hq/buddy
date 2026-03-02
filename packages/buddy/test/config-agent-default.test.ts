@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import os from "node:os"
 import path from "node:path"
-import fs from "node:fs"
 import { mkdtempSync, writeFileSync } from "node:fs"
 import { spawnSync } from "node:child_process"
 import { Agent as OpenCodeAgent } from "@buddy/opencode-adapter/agent"
@@ -48,24 +47,19 @@ describe("config default_agent", () => {
 
   test("uses configured primary default_agent", async () => {
     const repo = createGitRepo("buddy-config-default-agent-primary")
-    fs.mkdirSync(path.join(repo, ".buddy", "agents"), { recursive: true })
-
-    writeFileSync(
-      path.join(repo, ".buddy", "agents", "coach.md"),
-      [
-        "---",
-        "mode: primary",
-        "description: coaching mode",
-        "---",
-        "You are a coaching agent.",
-      ].join("\n"),
-    )
 
     writeFileSync(
       path.join(repo, "buddy.jsonc"),
       JSON.stringify(
         {
           default_agent: "coach",
+          agent: {
+            coach: {
+              mode: "primary",
+              description: "coaching mode",
+              prompt: "You are a coaching agent.",
+            },
+          },
         },
         null,
         2,
@@ -79,25 +73,20 @@ describe("config default_agent", () => {
 
   test("resolves renamed primary default_agent from its display name", async () => {
     const repo = createGitRepo("buddy-config-default-agent-renamed")
-    fs.mkdirSync(path.join(repo, ".buddy", "agents"), { recursive: true })
-
-    writeFileSync(
-      path.join(repo, ".buddy", "agents", "coach.md"),
-      [
-        "---",
-        "mode: primary",
-        "name: Senior Coach",
-        "description: coaching mode",
-        "---",
-        "You are a coaching agent.",
-      ].join("\n"),
-    )
 
     writeFileSync(
       path.join(repo, "buddy.jsonc"),
       JSON.stringify(
         {
           default_agent: "Senior Coach",
+          agent: {
+            coach: {
+              mode: "primary",
+              name: "Senior Coach",
+              description: "coaching mode",
+              prompt: "You are a coaching agent.",
+            },
+          },
         },
         null,
         2,

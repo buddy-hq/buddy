@@ -1,4 +1,4 @@
-import { Instance } from "../../src/project/instance.js"
+import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { tmpdir } from "../fixture/fixture"
 
 export async function withRepo<T>(fn: (directory: string) => Promise<T>) {
@@ -7,7 +7,7 @@ export async function withRepo<T>(fn: (directory: string) => Promise<T>) {
 }
 
 export function inDirectory<T>(directory: string, fn: () => Promise<T> | T) {
-  return Instance.provide({
+  return OpenCodeInstance.provide({
     directory,
     fn,
   })

@@ -39,8 +39,9 @@ const permissionRequest = (id: string, sessionID: string, permission = id): Perm
 
 function resetStore() {
   useChatStore.setState({
-    projects: [],
+    openProjects: [],
     activeDirectory: undefined,
+    entryError: undefined,
     lastSessionByDirectory: {},
     directories: {},
     streamStatus: "idle",
@@ -53,10 +54,33 @@ beforeEach(() => {
 })
 
 describe("chat-store parity events", () => {
+  test("tracks transient entry errors for route handoff", () => {
+    const store = useChatStore.getState()
+
+    store.setEntryError("Directory is outside allowed roots")
+    expect(useChatStore.getState().entryError).toBe("Directory is outside allowed roots")
+
+    store.setEntryError(undefined)
+    expect(useChatStore.getState().entryError).toBeUndefined()
+  })
+
+  test("ignores closeProject for directories that are not tracked", () => {
+    const store = useChatStore.getState()
+    const before = useChatStore.getState()
+
+    store.closeProject("/tmp/missing")
+
+    const after = useChatStore.getState()
+    expect(after).toBe(before)
+    expect(after.openProjects).toBe(before.openProjects)
+    expect(after.directories).toBe(before.directories)
+    expect(after.lastSessionByDirectory).toBe(before.lastSessionByDirectory)
+  })
+
   test("archives active session and resets transcript to next session", () => {
     const store = useChatStore.getState()
 
-    store.ensureProject(directory)
+    store.ensureOpenProject(directory)
     store.setSessions(directory, [session("session_1", 1), session("session_2", 2)])
     store.setActiveSession(directory, "session_1")
     store.setMessages(directory, "session_1", [{ info: assistantMessage("message_1", "session_1"), parts: [] }])
@@ -87,7 +111,7 @@ describe("chat-store parity events", () => {
   test("ignores message updates from inactive sessions", () => {
     const store = useChatStore.getState()
 
-    store.ensureProject(directory)
+    store.ensureOpenProject(directory)
     store.setSessions(directory, [session("session_1", 2), session("session_2", 1)])
     store.setActiveSession(directory, "session_1")
 
@@ -106,7 +130,7 @@ describe("chat-store parity events", () => {
   test("tracks permission request lifecycle with upsert semantics", () => {
     const store = useChatStore.getState()
 
-    store.ensureProject(directory)
+    store.ensureOpenProject(directory)
     store.setSessions(directory, [session("session_1", 1)])
     store.setActiveSession(directory, "session_1")
 

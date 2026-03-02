@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test"
 import path from "node:path"
 import { mkdirSync } from "node:fs"
-import { Project } from "../../../src/project/project.js"
-import { inDirectory, withRepo } from "../helpers"
+import { Project as OpenCodeProject } from "@buddy/opencode-adapter/project"
+import { withRepo } from "../helpers"
 
 describe("parity.project.project", () => {
   test("uses same project identity across nested directories", async () => {
@@ -10,8 +10,8 @@ describe("parity.project.project", () => {
       const nested = path.join(directory, "packages", "feature")
       mkdirSync(nested, { recursive: true })
 
-      const rootProject = await inDirectory(directory, () => Project.fromDirectory(directory))
-      const nestedProject = await inDirectory(nested, () => Project.fromDirectory(nested))
+      const rootProject = await OpenCodeProject.fromDirectory(directory)
+      const nestedProject = await OpenCodeProject.fromDirectory(nested)
 
       expect(rootProject.project.id).toBe(nestedProject.project.id)
       expect(rootProject.project.worktree).toBe(nestedProject.project.worktree)
@@ -21,8 +21,8 @@ describe("parity.project.project", () => {
   test("returns different ids for unrelated repositories", async () => {
     await withRepo(async (repoA) => {
       await withRepo(async (repoB) => {
-        const a = await inDirectory(repoA, () => Project.fromDirectory(repoA))
-        const b = await inDirectory(repoB, () => Project.fromDirectory(repoB))
+        const a = await OpenCodeProject.fromDirectory(repoA)
+        const b = await OpenCodeProject.fromDirectory(repoB)
         expect(a.project.id).not.toBe(b.project.id)
       })
     })
