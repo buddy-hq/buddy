@@ -4,7 +4,14 @@
 - Buddy is a single-OS-user, non-multi-tenant agent. It stores one active config/credential/session state per OS user home directory, and it does not provide built-in in-app accounts, profiles, or permissions for multiple human users.
 - Buddy is a local-first system - when you run it normally, the primary agent loop usually runs in a local process on the host you launched. But it is not strictly a local-only system. It can expose server/client or remote-agent surfaces, and it may use the network for more than LLM calls, web search, MCP, and third-party APIs, including auth, remote config/admin policy, and remote subagent/client connections.
 
-**Packages:**
+## Breaking Changes & Backward Compatibility
+
+- buddy is only being used by one user, on one machine ie. the current one.
+- so if `breaking changes` lead to better apis, better design or cut out a lot of work, DO IT.
+- that also means `backward compatibility` is NOT needed for anyting.
+- when this changes, the user will remove this section from your instruction.
+
+## Packages:
 
 - `packages/buddy`: backend (Bun + Hono + hono-openapi)
 - `packages/web`: frontend (React + Vite + TanStack Router + TanStack Query)
@@ -69,7 +76,7 @@ Follow existing code; avoid drive-by reformatting.
 
 - Components: PascalCase; hooks: `useX`; variables/functions: camelCase; constants: `UPPER_SNAKE_CASE`.
 - TanStack Router: route files in `packages/web/src/routes/*`, each exporting `Route` via `createFileRoute`/`createRootRoute`.
-- Hono: backend route handling is composed in `packages/buddy/src/index.ts` with feature-specific route modules where needed (for example, curriculum routes). Most `operationId` values are defined in `packages/buddy/src/openapi/compatibility-doc.ts`. Format is `group[.subgroup].action` (for example `health.check`, `session.list`, `global.config.get`, `provider.oauth.authorize`).
+- Hono: backend routes are modular in `packages/buddy/src/routes/*.ts` (auth, config, session, curriculum, teaching, etc.). Most `operationId` values are defined in `packages/buddy/src/openapi/compatibility-schemas.ts`. Format is `group[.subgroup].action` (for example `health.check`, `session.list`, `global.config.get`, `provider.oauth.authorize`).
 
 ### Error Handling
 
