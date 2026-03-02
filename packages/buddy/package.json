@@ -11,7 +11,7 @@
     "typecheck": "tsgo --noEmit",
     "start": "bun --env-file=../../.env run src/index.ts",
     "test": "bun test --preload ./test/preload.ts test",
-    "test:parity": "bun test --preload ./test/preload.ts test/parity",
+    "test:contracts": "bun test --preload ./test/preload.ts test/parity",
     "format": "echo 'Formatting code...' && bunx prettier --write src/*.ts src/**/*.ts",
     "db": "bun drizzle-kit"
   },

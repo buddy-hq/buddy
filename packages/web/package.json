@@ -15,7 +15,7 @@
     "typecheck": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit",
     "preview": "vite preview",
     "test": "bun test --preload ./happydom.ts test",
-    "test:parity": "bun test --preload ./happydom.ts test/parity"
+    "test:contracts": "bun test --preload ./happydom.ts test/parity"
   },
   "dependencies": {
     "@buddy/sdk": "workspace:*",
