@@ -16,14 +16,15 @@ import { appendPartDelta, inferBusyFromMessages, upsertMessage, upsertPart } fro
 type StreamStatus = "idle" | "connecting" | "connected" | "error"
 
 type ChatStore = {
-  projects: string[]
+  openProjects: string[]
   activeDirectory?: string
+  entryError?: string
   lastSessionByDirectory: Record<string, string>
   directories: Record<string, DirectoryChatState>
   streamStatus: StreamStatus
-  ensureProject: (directory: string) => void
-  setProjects: (directories: string[]) => void
-  removeProject: (directory: string) => void
+  ensureOpenProject: (directory: string) => void
+  setOpenProjects: (directories: string[]) => void
+  closeProject: (directory: string) => void
   setActiveDirectory: (directory: string) => void
   setDirectoryReady: (directory: string, ready: boolean) => void
   setDirectoryError: (directory: string, error?: string) => void
@@ -45,6 +46,7 @@ type ChatStore = {
   setMcpStatus: (directory: string, input: McpStatusMap) => void
   applyPermissionAsked: (directory: string, request: PermissionRequest) => void
   applyPermissionReplied: (directory: string, requestID: string) => void
+  setEntryError: (error?: string) => void
   setStreamStatus: (status: StreamStatus) => void
 }
 
@@ -101,21 +103,22 @@ function upsertSession(sessions: SessionInfo[], incoming: SessionInfo) {
 export const useChatStore = create<ChatStore>()(
   persist(
     (set, get) => ({
-      projects: [],
+      openProjects: [],
       activeDirectory: undefined,
+      entryError: undefined,
       lastSessionByDirectory: {},
       directories: {},
       streamStatus: "idle",
-      ensureProject(directory) {
+      ensureOpenProject(directory) {
         const normalized = normalizeProjectDirectory(directory)
         if (!normalized) return
 
         set((state) => {
-          const projects = state.projects.includes(normalized)
-            ? state.projects
-            : [...state.projects, normalized]
+          const openProjects = state.openProjects.includes(normalized)
+            ? state.openProjects
+            : [...state.openProjects, normalized]
           return {
-            projects,
+            openProjects,
             directories: {
               ...state.directories,
               [normalized]: ensureDirectoryState(state as ChatStore, normalized),
@@ -123,39 +126,48 @@ export const useChatStore = create<ChatStore>()(
           }
         })
       },
-      setProjects(directories) {
+      setOpenProjects(directories) {
         set((state) => {
           const unique = Array.from(
             new Set(directories.map((directory) => normalizeProjectDirectory(directory)).filter(Boolean)),
           ) as string[]
-          const projects = unique
+          const openProjects = unique
           const nextLastSession = Object.fromEntries(
-            Object.entries(state.lastSessionByDirectory).filter(([directory]) => projects.includes(directory)),
+            Object.entries(state.lastSessionByDirectory).filter(([directory]) => openProjects.includes(directory)),
           )
           const nextActiveDirectory =
-            state.activeDirectory && projects.includes(state.activeDirectory)
+            state.activeDirectory && openProjects.includes(state.activeDirectory)
               ? state.activeDirectory
-              : projects[0]
+              : openProjects[0]
 
           return {
-            projects,
+            openProjects,
             activeDirectory: nextActiveDirectory,
             lastSessionByDirectory: nextLastSession,
             directories: {
               ...state.directories,
               ...Object.fromEntries(
-                projects.map((directory) => [directory, state.directories[directory] ?? emptyDirectoryState()]),
+                openProjects.map((directory) => [directory, state.directories[directory] ?? emptyDirectoryState()]),
               ),
             },
           }
         })
       },
-      removeProject(directory) {
+      closeProject(directory) {
         const normalized = normalizeProjectDirectory(directory)
         if (!normalized) return
 
         set((state) => {
-          const projects = state.projects.filter((entry) => entry !== normalized)
+          const hasOpenProject = state.openProjects.includes(normalized)
+          const hasDirectoryState = normalized in state.directories
+          const hasLastSession = normalized in state.lastSessionByDirectory
+          const hasActiveDirectory = state.activeDirectory === normalized
+
+          if (!hasOpenProject && !hasDirectoryState && !hasLastSession && !hasActiveDirectory) {
+            return state
+          }
+
+          const openProjects = state.openProjects.filter((entry) => entry !== normalized)
           const directories = { ...state.directories }
           delete directories[normalized]
 
@@ -164,11 +176,11 @@ export const useChatStore = create<ChatStore>()(
 
           const nextActive =
             state.activeDirectory === normalized
-              ? projects[0]
+              ? openProjects[0]
               : state.activeDirectory
 
           return {
-            projects,
+            openProjects,
             directories,
             activeDirectory: nextActive,
             lastSessionByDirectory: nextLastSession,
@@ -518,45 +530,50 @@ export const useChatStore = create<ChatStore>()(
           }
         })
       },
+      setEntryError(error) {
+        set({ entryError: error })
+      },
       setStreamStatus(status) {
         set({ streamStatus: status })
       },
     }),
     {
-      name: "buddy.chat.v2",
+      name: "buddy.chat.v4",
       storage: createPlatformJsonStorage("buddy.chat.dat"),
       merge(persistedState, currentState) {
         const persisted = (persistedState ?? {}) as Partial<ChatStore>
-        const projects = Array.from(
+        const openProjects = Array.from(
           new Set(
-            (persisted.projects ?? [])
+            (persisted.openProjects ?? [])
               .map((directory) => normalizeProjectDirectory(directory))
               .filter(Boolean),
           ),
         ) as string[]
         const activeDirectory = normalizeProjectDirectory(persisted.activeDirectory)
         const lastSessionByDirectory = Object.fromEntries(
-          Object.entries(persisted.lastSessionByDirectory ?? {}).filter(([directory]) => projects.includes(directory)),
+          Object.entries(persisted.lastSessionByDirectory ?? {}).filter(([directory]) => openProjects.includes(directory)),
         )
 
         return {
           ...currentState,
           ...persisted,
-          projects,
-          activeDirectory: activeDirectory && projects.includes(activeDirectory) ? activeDirectory : projects[0],
+          openProjects,
+          activeDirectory:
+            activeDirectory && openProjects.includes(activeDirectory) ? activeDirectory : openProjects[0],
           lastSessionByDirectory,
         }
       },
       partialize(state) {
-        const projects = Array.from(
-          new Set(state.projects.map((directory) => normalizeProjectDirectory(directory)).filter(Boolean)),
+        const openProjects = Array.from(
+          new Set(state.openProjects.map((directory) => normalizeProjectDirectory(directory)).filter(Boolean)),
         ) as string[]
         const activeDirectory = normalizeProjectDirectory(state.activeDirectory)
         return {
-          projects,
-          activeDirectory: activeDirectory && projects.includes(activeDirectory) ? activeDirectory : projects[0],
+          openProjects,
+          activeDirectory:
+            activeDirectory && openProjects.includes(activeDirectory) ? activeDirectory : openProjects[0],
           lastSessionByDirectory: Object.fromEntries(
-            Object.entries(state.lastSessionByDirectory).filter(([directory]) => projects.includes(directory)),
+            Object.entries(state.lastSessionByDirectory).filter(([directory]) => openProjects.includes(directory)),
           ),
         }
       },

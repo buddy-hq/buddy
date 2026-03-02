@@ -5,7 +5,7 @@ import { usePlatform } from "../context/platform"
 import { stringifyError } from "../lib/api-client"
 import { encodeDirectory } from "../lib/directory-token"
 import { pickProjectDirectory } from "../lib/directory-picker"
-import { loadProjects, preloadProjectSessions, rememberProject } from "../state/chat-actions"
+import { loadOpenProjects, openProject, preloadProjectSessions } from "../state/chat-actions"
 import { useChatStore } from "../state/chat-store"
 
 export const Route = createFileRoute("/chat")({
@@ -15,18 +15,19 @@ export const Route = createFileRoute("/chat")({
 function ChatEntryPage() {
   const navigate = useNavigate()
   const platform = usePlatform()
-  const projects = useChatStore((state) => state.projects)
+  const openProjects = useChatStore((state) => state.openProjects)
   const activeDirectory = useChatStore((state) => state.activeDirectory)
+  const entryError = useChatStore((state) => state.entryError)
   const setActiveDirectory = useChatStore((state) => state.setActiveDirectory)
+  const setEntryError = useChatStore((state) => state.setEntryError)
   const [directory, setDirectory] = useState("")
-  const [openError, setOpenError] = useState<string>()
   const hasNativePicker = typeof platform.openDirectoryPickerDialog === "function"
 
-  const recents = useMemo(() => projects, [projects])
+  const recents = useMemo(() => openProjects, [openProjects])
 
   useEffect(() => {
-    void loadProjects()
-      .then((knownProjects) => preloadProjectSessions(knownProjects))
+    void loadOpenProjects()
+      .then((knownOpenProjects) => preloadProjectSessions(knownOpenProjects))
       .catch(() => undefined)
   }, [])
 
@@ -43,28 +44,28 @@ function ChatEntryPage() {
     const directory = value.trim()
     if (!directory) return
 
-    setOpenError(undefined)
+    setEntryError(undefined)
 
     try {
-      const nextDirectory = await rememberProject(directory)
+      const nextDirectory = await openProject(directory)
       setActiveDirectory(nextDirectory)
       navigate({
         to: "/$directory/chat",
         params: { directory: encodeDirectory(nextDirectory) },
       })
     } catch (error) {
-      setOpenError(stringifyError(error))
+      setEntryError(stringifyError(error))
     }
   }
 
   async function openPickedDirectory() {
     try {
-      setOpenError(undefined)
+      setEntryError(undefined)
       const picked = await pickProjectDirectory()
       if (!picked) return
       await openDirectory(picked)
     } catch (error) {
-      setOpenError(stringifyError(error))
+      setEntryError(stringifyError(error))
     }
   }
 
@@ -93,15 +94,15 @@ function ChatEntryPage() {
           <Input
             value={directory}
             onChange={(event) => setDirectory(event.target.value)}
-            placeholder="/absolute/path/to/repository"
+            placeholder="/absolute/path/to/folder"
           />
           <Button type="submit">Open</Button>
         </form>
       )}
 
-      {openError ? (
+      {entryError ? (
         <div className="mt-4 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-          {openError}
+          {entryError}
         </div>
       ) : null}
 
@@ -125,7 +126,7 @@ function ChatEntryPage() {
         </div>
       ) : (
         <div className="mt-12 rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
-          No projects yet. Open a repository directory to start.
+          No projects yet. Open a folder to start.
         </div>
       )}
     </div>

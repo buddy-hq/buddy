@@ -2,7 +2,7 @@ import { ProjectIcon } from "./sidebar-items"
 import { HelpIcon, PlusIcon, SettingsIcon } from "./sidebar-icons"
 
 type SidebarProjectProps = {
-  projects: string[]
+  openProjects: string[]
   currentDirectory?: string
   onSelectProject: (directory: string) => void
   onOpenProject: () => void
@@ -12,7 +12,7 @@ export function SidebarProject(props: SidebarProjectProps) {
   return (
     <aside className="hidden md:flex w-16 shrink-0 bg-background flex-col items-center border-r">
       <div className="flex-1 min-h-0 w-full overflow-y-auto py-3 px-2 flex flex-col items-center gap-3">
-        {props.projects.map((project) => (
+        {props.openProjects.map((project) => (
           <ProjectIcon
             key={project}
             project={project}

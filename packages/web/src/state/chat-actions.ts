@@ -36,6 +36,9 @@ function normalizeProjectDirectory(directory: string) {
 
 type RawProvider = ProviderListResponse["all"][number]
 type RawProviderModel = RawProvider["models"][string]
+type OpenProjectResult = {
+  directory: string
+}
 
 function normalizeProviderSource(input: unknown, connected: boolean): ProviderInfo["source"] {
   if (input === "env" || input === "config" || input === "custom" || input === "api") {
@@ -124,27 +127,40 @@ async function fetchProviderCatalog(directory: string) {
   return normalizeProviderCatalog(providerResult.data!, authResult.data ?? {})
 }
 
-export async function loadProjects() {
-  const result = await requestJson<{ projects: string[] }>("", "/api/project")
-  const backendProjects = result.projects.filter((project) => normalizeProjectDirectory(project)) as string[]
-  useChatStore.getState().setProjects(backendProjects)
-  return backendProjects
+export async function loadOpenProjects() {
+  const store = useChatStore.getState()
+  const knownOpenProjects = store.openProjects.reduce<string[]>((all, project) => {
+    const directory = normalizeProjectDirectory(project)
+    if (directory) {
+      all.push(directory)
+    }
+    return all
+  }, [])
+
+  store.setOpenProjects(knownOpenProjects)
+  return useChatStore.getState().openProjects
 }
 
-export async function rememberProject(directory: string) {
+export async function openProject(directory: string) {
   const normalized = normalizeProjectDirectory(directory)
   if (!normalized) {
     throw new Error("Please choose a project directory, not /")
   }
 
-  const result = await requestJson<{ directory: string }>("", "/api/project", {
+  const opened = await requestJson<OpenProjectResult>("", "/api/project", {
     method: "POST",
-    body: { directory: normalized },
+    body: {
+      directory: normalized,
+    },
   })
+  const canonicalDirectory = normalizeProjectDirectory(opened.directory)
 
-  const nextDirectory = result.directory
-  useChatStore.getState().ensureProject(nextDirectory)
-  return nextDirectory
+  if (!canonicalDirectory) {
+    throw new Error("Invalid project directory")
+  }
+
+  useChatStore.getState().ensureOpenProject(canonicalDirectory)
+  return canonicalDirectory
 }
 
 export async function preloadProjectSessions(directories: string[]) {
@@ -153,13 +169,9 @@ export async function preloadProjectSessions(directories: string[]) {
   ) as string[]
   await Promise.all(
     unique.map((directory) =>
-      loadSessions(directory).catch(async (error) => {
+      loadSessions(directory).catch((error) => {
         if (stringifyError(error).includes("Directory is outside allowed roots")) {
-          useChatStore.getState().removeProject(directory)
-          const query = new URLSearchParams({ directory })
-          await apiFetch(`/api/project?${query.toString()}`, {
-            method: "DELETE",
-          }).catch(() => undefined)
+          useChatStore.getState().closeProject(directory)
         }
       }),
     ),
@@ -233,11 +245,15 @@ async function createSession(directory: string) {
 
 export async function ensureDirectorySession(directory: string) {
   const store = useChatStore.getState()
-  store.setDirectoryReady(directory, false)
-  store.clearDirectoryError(directory)
+  const normalizedDirectory = normalizeProjectDirectory(directory) ?? directory
+  store.setDirectoryReady(normalizedDirectory, false)
+  store.clearDirectoryError(normalizedDirectory)
 
   try {
-    const targetDirectory = await rememberProject(directory)
+    const knownOpenProjects = store.openProjects
+    const targetDirectory = knownOpenProjects.includes(normalizedDirectory)
+      ? normalizedDirectory
+      : await openProject(normalizedDirectory)
     const state = useChatStore.getState()
     const current = state.directories[targetDirectory]
     const storedSession = current?.sessionID ?? state.lastSessionByDirectory[targetDirectory]
@@ -272,10 +288,17 @@ export async function ensureDirectorySession(directory: string) {
     await loadProviderCatalog(targetDirectory)
     await loadMcpStatus(targetDirectory).catch(() => undefined)
     store.setDirectoryReady(targetDirectory, true)
-    return info
+    return {
+      directory: targetDirectory,
+      info,
+    }
   } catch (error) {
-    store.setDirectoryReady(directory, true)
-    store.setDirectoryError(directory, stringifyError(error))
+    const isOutsideAllowedRoots = stringifyError(error).includes("Directory is outside allowed roots")
+    if (isOutsideAllowedRoots && useChatStore.getState().openProjects.includes(normalizedDirectory)) {
+      store.closeProject(normalizedDirectory)
+    }
+    store.setDirectoryReady(normalizedDirectory, true)
+    store.setDirectoryError(normalizedDirectory, stringifyError(error))
     throw error
   }
 }

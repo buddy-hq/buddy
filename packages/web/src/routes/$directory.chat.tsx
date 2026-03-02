@@ -37,13 +37,13 @@ import {
   loadCommandCatalog,
   loadMcpStatus,
   loadPermissions,
-  loadProjects,
+  loadOpenProjects,
   loadProjectConfig,
   loadMessages,
   loadSessions,
   preloadProjectSessions,
   replyPermission,
-  rememberProject,
+  openProject,
   resyncDirectory,
   selectSession,
   sendCommand,
@@ -138,7 +138,7 @@ function buildSessionTrace(input: { directory: string; sessionID?: string; strea
             messages: directoryState.messages,
           }
         : undefined,
-      projects: state.projects,
+      openProjects: state.openProjects,
       activeDirectory: state.activeDirectory,
       lastSessionByDirectory: state.lastSessionByDirectory,
     },
@@ -277,7 +277,7 @@ function DirectoryChatPage() {
     }
   }, [params.directory])
 
-  const projects = useChatStore((state) => state.projects)
+  const openProjects = useChatStore((state) => state.openProjects)
   const streamStatus = useChatStore((state) => state.streamStatus)
   const allDirectoryStates = useChatStore((state) => state.directories)
   const directoryState = useChatStore((state) => (decodedDirectory ? state.directories[decodedDirectory] : undefined))
@@ -326,13 +326,13 @@ function DirectoryChatPage() {
         : undefined,
     [sessionFamily.current?.parentID, sessionFamily.family],
   )
-  const validProjects = useMemo(
-    () => projects.filter((directory) => directory && directory !== "/"),
-    [projects],
+  const validOpenProjects = useMemo(
+    () => openProjects.filter((directory) => directory && directory !== "/"),
+    [openProjects],
   )
   const hasRegisteredProject = useMemo(
-    () => !!decodedDirectory && validProjects.includes(decodedDirectory),
-    [decodedDirectory, validProjects],
+    () => !!decodedDirectory && validOpenProjects.includes(decodedDirectory),
+    [decodedDirectory, validOpenProjects],
   )
   const messages = directoryState?.messages ?? []
   const providers = directoryState?.providers ?? []
@@ -493,19 +493,19 @@ function DirectoryChatPage() {
   const sessionsByDirectory = useMemo(
     () =>
       Object.fromEntries(
-        validProjects.map((directory) => [directory, allDirectoryStates[directory]?.sessions ?? []]),
+        validOpenProjects.map((directory) => [directory, allDirectoryStates[directory]?.sessions ?? []]),
       ) as Record<string, SessionInfo[]>,
-    [allDirectoryStates, validProjects],
+    [allDirectoryStates, validOpenProjects],
   )
   const sessionStatusByDirectory = useMemo(
     () =>
       Object.fromEntries(
-        validProjects.map((directory) => [directory, allDirectoryStates[directory]?.sessionStatusByID ?? {}]),
+        validOpenProjects.map((directory) => [directory, allDirectoryStates[directory]?.sessionStatusByID ?? {}]),
       ) as Record<string, Record<string, "busy" | "idle">>,
-    [allDirectoryStates, validProjects],
+    [allDirectoryStates, validOpenProjects],
   )
   const showDevSessionTrace = import.meta.env.DEV
-  const sidebarDirectories = validProjects
+  const sidebarDirectories = validOpenProjects
   const leftSidebarMaxWidth = typeof window === "undefined" ? SIDEBAR_DEFAULT_MAX_WIDTH : window.innerWidth * 0.3 + 64
   const sessionKey = useMemo(
     () => (decodedDirectory && sessionID ? teachingSessionKey(decodedDirectory, sessionID) : ""),
@@ -524,14 +524,14 @@ function DirectoryChatPage() {
   const leftSidebarDisplayWidth = Math.max(leftSidebarWidth, SIDEBAR_MIN_WIDTH)
 
   useEffect(() => {
-    void loadProjects()
-      .then((knownProjects) => preloadProjectSessions(knownProjects))
+    void loadOpenProjects()
+      .then((knownOpenProjects) => preloadProjectSessions(knownOpenProjects))
       .catch(() => undefined)
   }, [])
 
   useEffect(() => {
     if (decodedDirectory === "/") {
-      const fallback = validProjects[0]
+      const fallback = validOpenProjects[0]
       if (fallback) {
         navigate({
           to: "/$directory/chat",
@@ -549,12 +549,44 @@ function DirectoryChatPage() {
 
     if (!decodedDirectory) return
 
-    setActiveDirectory(decodedDirectory)
-    void ensureDirectorySession(decodedDirectory).catch(() => undefined)
-  }, [decodedDirectory, navigate, setActiveDirectory, validProjects])
+    void ensureDirectorySession(decodedDirectory)
+      .then((result) => {
+        setActiveDirectory(result.directory)
+        if (result.directory === decodedDirectory) return
+
+        navigate({
+          to: "/$directory/chat",
+          params: { directory: encodeDirectory(result.directory) },
+          replace: true,
+        })
+      })
+      .catch((error) => {
+        const state = useChatStore.getState()
+        if (state.openProjects.includes(decodedDirectory)) {
+          setActiveDirectory(decodedDirectory)
+          return
+        }
+
+        const fallback = state.openProjects[0]
+        if (fallback && fallback !== decodedDirectory) {
+          navigate({
+            to: "/$directory/chat",
+            params: { directory: encodeDirectory(fallback) },
+            replace: true,
+          })
+          return
+        }
+
+        state.setEntryError(stringifyError(error))
+        navigate({
+          to: "/chat",
+          replace: true,
+        })
+      })
+  }, [decodedDirectory, navigate, setActiveDirectory, validOpenProjects])
 
   useEffect(() => {
-    if (!decodedDirectory) return
+    if (!decodedDirectory || !hasRegisteredProject) return
 
     let cancelled = false
 
@@ -578,11 +610,11 @@ function DirectoryChatPage() {
     return () => {
       cancelled = true
     }
-  }, [decodedDirectory])
+  }, [decodedDirectory, hasRegisteredProject])
 
   function onSettingsModalOpenChange(nextOpen: boolean) {
     setSettingsModalOpen(nextOpen)
-    if (nextOpen || !decodedDirectory) return
+    if (nextOpen || !decodedDirectory || !hasRegisteredProject) return
 
     void loadComposerConfiguration(decodedDirectory)
       .then((configuration) => {
@@ -595,7 +627,7 @@ function DirectoryChatPage() {
   }
 
   function refreshSlashCommands() {
-    if (!decodedDirectory) return
+    if (!decodedDirectory || !hasRegisteredProject) return
     void loadCommandCatalog(decodedDirectory)
       .then((commands) => {
         setSlashCommands(commands)
@@ -604,12 +636,12 @@ function DirectoryChatPage() {
   }
 
   function refreshMcpStatus() {
-    if (!decodedDirectory) return
+    if (!decodedDirectory || !hasRegisteredProject) return
     void loadMcpStatus(decodedDirectory).catch(() => undefined)
   }
 
   useEffect(() => {
-    if (!decodedDirectory) return
+    if (!decodedDirectory || !hasRegisteredProject) return
 
     const refresh = () => {
       refreshSlashCommands()
@@ -632,7 +664,7 @@ function DirectoryChatPage() {
       window.removeEventListener("focus", onFocus)
       document.removeEventListener("visibilitychange", onVisibility)
     }
-  }, [decodedDirectory])
+  }, [decodedDirectory, hasRegisteredProject])
 
   useEffect(() => {
     if (!decodedDirectory || !hasRegisteredProject) return
@@ -1161,7 +1193,7 @@ function DirectoryChatPage() {
       const picked = await pickProjectDirectory()
       if (!picked) return
 
-      const nextDirectory = await rememberProject(picked)
+      const nextDirectory = await openProject(picked)
       setActiveDirectory(nextDirectory)
       onSwitchDirectory(nextDirectory)
     } catch (error) {
@@ -1422,6 +1454,10 @@ function DirectoryChatPage() {
 
   if (!decodedDirectory) {
     return <div className="p-6">Invalid project identifier in URL.</div>
+  }
+
+  if (!hasRegisteredProject) {
+    return <div className="p-6">Opening project...</div>
   }
 
   return (
