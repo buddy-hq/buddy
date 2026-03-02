@@ -122,6 +122,33 @@ export namespace Config {
   export const PermissionRule = z.union([PermissionAction, PermissionObject])
   export type PermissionRule = z.infer<typeof PermissionRule>
 
+  const PermissionShape = {
+    read: PermissionRule.optional(),
+    edit: PermissionRule.optional(),
+    glob: PermissionRule.optional(),
+    grep: PermissionRule.optional(),
+    list: PermissionRule.optional(),
+    bash: PermissionRule.optional(),
+    task: PermissionRule.optional(),
+    external_directory: PermissionRule.optional(),
+    todowrite: PermissionAction.optional(),
+    todoread: PermissionAction.optional(),
+    question: PermissionAction.optional(),
+    webfetch: PermissionAction.optional(),
+    websearch: PermissionAction.optional(),
+    codesearch: PermissionAction.optional(),
+    lsp: PermissionRule.optional(),
+    doom_loop: PermissionAction.optional(),
+    skill: PermissionRule.optional(),
+    plan_enter: PermissionAction.optional(),
+    plan_exit: PermissionAction.optional(),
+    curriculum_read: PermissionRule.optional(),
+    curriculum_update: PermissionRule.optional(),
+  } satisfies z.ZodRawShape
+
+  export const PermissionAuthoring = z.object(PermissionShape).catchall(PermissionRule).or(PermissionAction)
+  export type PermissionAuthoring = z.input<typeof PermissionAuthoring>
+
   const permissionPreprocess = (value: unknown) => {
     if (isRecord(value)) {
       return { __originalKeys: Object.keys(value), ...value }
@@ -147,27 +174,7 @@ export namespace Config {
       z
         .object({
           __originalKeys: z.string().array().optional(),
-          read: PermissionRule.optional(),
-          edit: PermissionRule.optional(),
-          glob: PermissionRule.optional(),
-          grep: PermissionRule.optional(),
-          list: PermissionRule.optional(),
-          bash: PermissionRule.optional(),
-          task: PermissionRule.optional(),
-          external_directory: PermissionRule.optional(),
-          todowrite: PermissionAction.optional(),
-          todoread: PermissionAction.optional(),
-          question: PermissionAction.optional(),
-          webfetch: PermissionAction.optional(),
-          websearch: PermissionAction.optional(),
-          codesearch: PermissionAction.optional(),
-          lsp: PermissionRule.optional(),
-          doom_loop: PermissionAction.optional(),
-          skill: PermissionRule.optional(),
-          plan_enter: PermissionAction.optional(),
-          plan_exit: PermissionAction.optional(),
-          curriculum_read: PermissionRule.optional(),
-          curriculum_update: PermissionRule.optional(),
+          ...PermissionShape,
         })
         .catchall(PermissionRule)
         .or(PermissionAction),
@@ -190,50 +197,36 @@ export namespace Config {
   })
   export type Skills = z.infer<typeof Skills>
 
-  export const Agent = z
-    .object({
-      name: z.string().optional(),
-      model: ModelId.optional(),
-      variant: z.string().optional(),
-      temperature: z.number().optional(),
-      top_p: z.number().optional(),
-      prompt: z.string().optional(),
-      tools: z.record(z.string(), z.boolean()).optional(),
-      disable: z.boolean().optional(),
-      description: z.string().optional(),
-      mode: z.enum(["subagent", "primary", "all"]).optional(),
-      hidden: z.boolean().optional(),
-      options: z.record(z.string(), z.any()).optional(),
-      color: z
-        .union([
-          z.string().regex(/^#[0-9a-fA-F]{6}$/),
-          z.enum(["primary", "secondary", "accent", "success", "warning", "error", "info"]),
-        ])
-        .optional(),
-      steps: z.number().int().positive().optional(),
-      maxSteps: z.number().int().positive().optional(),
-      permission: Permission.optional(),
-    })
-    .catchall(z.any())
-    .transform((agent) => {
-      const known = new Set([
-        "name",
-        "model",
-        "variant",
-        "prompt",
-        "description",
-        "temperature",
-        "top_p",
-        "mode",
-        "hidden",
-        "color",
-        "steps",
-        "maxSteps",
-        "options",
-        "permission",
-        "disable",
-        "tools",
+  const AgentShape = {
+    name: z.string().optional(),
+    model: ModelId.optional(),
+    variant: z.string().optional(),
+    temperature: z.number().optional(),
+    top_p: z.number().optional(),
+    prompt: z.string().optional(),
+    tools: z.record(z.string(), z.boolean()).optional(),
+    disable: z.boolean().optional(),
+    description: z.string().optional(),
+    mode: z.enum(["subagent", "primary", "all"]).optional(),
+    hidden: z.boolean().optional(),
+    options: z.record(z.string(), z.any()).optional(),
+    color: z
+      .union([
+        z.string().regex(/^#[0-9a-fA-F]{6}$/),
+        z.enum(["primary", "secondary", "accent", "success", "warning", "error", "info"]),
       ])
+      .optional(),
+    steps: z.number().int().positive().optional(),
+    maxSteps: z.number().int().positive().optional(),
+    permission: Permission.optional(),
+  } satisfies z.ZodRawShape
+
+  export const AgentAuthoring = z.object(AgentShape).catchall(z.any())
+  export type AgentAuthoring = z.input<typeof AgentAuthoring>
+
+  export const Agent = AgentAuthoring
+    .transform((agent) => {
+      const known = new Set(Object.keys(AgentShape))
 
       const options: Record<string, unknown> = { ...(agent.options ?? {}) }
       for (const [key, value] of Object.entries(agent)) {

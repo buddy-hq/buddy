@@ -6,10 +6,13 @@ import { Hono, type Context } from "hono"
 import { openAPIRouteHandler } from "hono-openapi"
 import { cors } from "hono/cors"
 import { logger } from "hono/logger"
+import { mergeDeep } from "remeda"
+import { Agent as OpenCodeAgent } from "@buddy/opencode-adapter/agent"
 import { setConfigOverlay } from "@buddy/opencode-adapter/config"
+import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { Project as OpenCodeProject } from "@buddy/opencode-adapter/project"
+import { BUDDY_AGENT_OVERLAY } from "./agent/overlay.js"
 import { Config, InvalidError, JsonError } from "./config/config.js"
-import { Agent as BuddyAgent } from "./agent/agent.js"
 import { CurriculumService } from "./curriculum/curriculum-service.js"
 import { COMPATIBILITY_OPENAPI_PATHS } from "./openapi/compatibility-doc.js"
 import { ensureCurriculumToolsRegistered } from "./opencode/curriculum-tools.js"
@@ -19,8 +22,6 @@ import { Instance as BuddyInstance } from "./project/instance.js"
 import { CurriculumRoutes } from "./routes/curriculum.js"
 import { TeachingRoutes } from "./routes/teaching.js"
 import { condenseCurriculum, loadBehavior } from "./session/system-prompt.js"
-import CURRICULUM_BUILDER_PROMPT from "./agent/prompts/curriculum-builder.txt"
-import CODE_TEACHER_PROMPT from "./session/prompts/code-teacher.txt"
 import { Global } from "./storage/global.js"
 import { TeachingService } from "./teaching/teaching-service.js"
 import { ensureTeachingToolsRegistered } from "./teaching/teaching-tools.js"
@@ -258,13 +259,13 @@ async function proxyToOpenCode(
       if (isJsonContentType(contentType)) {
         const raw = await c.req.raw.text()
         const parsed = raw.trim().length > 0 ? (JSON.parse(raw) as Record<string, unknown>) : {}
+        const transformed = await input.transformJsonBody(parsed)
         if (typeof input.registerCurriculumTools === "function") {
-          registerCurriculumTools = input.registerCurriculumTools(parsed)
+          registerCurriculumTools = input.registerCurriculumTools(transformed)
         }
         if (typeof input.registerTeachingTools === "function") {
-          registerTeachingTools = input.registerTeachingTools(parsed)
+          registerTeachingTools = input.registerTeachingTools(transformed)
         }
-        const transformed = await input.transformJsonBody(parsed)
         body = JSON.stringify(transformed)
       } else {
         body = await c.req.raw.arrayBuffer()
@@ -351,54 +352,117 @@ async function resolveOpenCodeSkillPaths(config: Awaited<ReturnType<typeof Confi
   return paths.length > 0 ? paths : undefined
 }
 
-async function buildOpenCodeConfigOverlay(config: Awaited<ReturnType<typeof Config.get>>) {
+function mergeBuddyAgentConfig(base: Config.Agent, override: Config.Agent): Config.Agent {
+  const merged: Config.Agent = {
+    ...base,
+    ...override,
+  }
+
+  merged.steps = override.steps ?? base.steps
+  merged.maxSteps = override.maxSteps ?? base.maxSteps
+
+  if (base.options || override.options) {
+    merged.options = mergeDeep(base.options ?? {}, override.options ?? {})
+  }
+
+  if (base.permission || override.permission) {
+    merged.permission = mergePermissionConfig(base.permission ?? {}, override.permission ?? {})
+  }
+
+  return merged
+}
+
+function permissionRuleEntries(rule: Config.PermissionRule): Array<[string, Config.PermissionAction]> {
+  if (typeof rule === "string") {
+    return [["*", rule]]
+  }
+
+  return Object.entries(rule)
+}
+
+function mergePermissionRule(base: Config.PermissionRule, override: Config.PermissionRule): Config.PermissionRule {
+  const ordered = new Map<string, Config.PermissionAction>()
+
+  for (const [pattern, action] of [...permissionRuleEntries(base), ...permissionRuleEntries(override)]) {
+    if (ordered.has(pattern)) {
+      ordered.delete(pattern)
+    }
+    ordered.set(pattern, action)
+  }
+
+  if (ordered.size === 1) {
+    const wildcard = ordered.get("*")
+    if (wildcard) {
+      return wildcard
+    }
+  }
+
+  return Object.fromEntries(ordered)
+}
+
+function mergePermissionConfig(base: Config.Permission, override: Config.Permission): Config.Permission {
+  const merged: Config.Permission = { ...base }
+
+  for (const [permission, rule] of Object.entries(override)) {
+    const existing = merged[permission]
+    merged[permission] = existing ? mergePermissionRule(existing, rule) : rule
+  }
+
+  return merged
+}
+
+function buildAgentOverlay(agentOverlay: Record<string, Config.Agent>) {
+  const merged: Record<string, Config.Agent> = { ...BUDDY_AGENT_OVERLAY }
+
+  for (const [name, agent] of Object.entries(agentOverlay)) {
+    const baseAgent = merged[name]
+    merged[name] = baseAgent ? mergeBuddyAgentConfig(baseAgent, agent) : agent
+  }
+
+  return merged
+}
+
+function resolveConfiguredAgentKey(name: string, agentOverlay: Record<string, Config.Agent>) {
+  if (name in agentOverlay) {
+    return name
+  }
+
+  const matches = Object.entries(agentOverlay)
+    .filter(([, agent]) => agent.name === name)
+    .map(([key]) => key)
+
+  return matches.length === 1 ? matches[0]! : name
+}
+
+export async function buildOpenCodeConfigOverlay(config: Awaited<ReturnType<typeof Config.get>>) {
   const skillPaths = await resolveOpenCodeSkillPaths(config)
+  const agentOverlay = buildAgentOverlay(config.agent ?? {})
+  const defaultAgent =
+    typeof config.default_agent === "string" && config.default_agent.trim().length > 0
+      ? resolveConfiguredAgentKey(config.default_agent, agentOverlay)
+      : undefined
 
   return {
     permission: {
+      ...(config.permission ?? {}),
+      curriculum_read: "deny" as const,
+      curriculum_update: "deny" as const,
       teaching_start_lesson: "deny" as const,
       teaching_checkpoint: "deny" as const,
       teaching_add_file: "deny" as const,
       teaching_set_lesson: "deny" as const,
       teaching_restore_checkpoint: "deny" as const,
     },
+    ...(config.model ? { model: config.model } : {}),
+    ...(config.small_model ? { small_model: config.small_model } : {}),
+    ...(defaultAgent ? { default_agent: defaultAgent } : {}),
+    ...(config.disabled_providers ? { disabled_providers: config.disabled_providers } : {}),
+    ...(config.enabled_providers ? { enabled_providers: config.enabled_providers } : {}),
+    ...(config.provider ? { provider: config.provider } : {}),
     ...(skillPaths ? { skills: { paths: skillPaths } } : {}),
     ...(config.mcp ? { mcp: config.mcp } : {}),
     agent: {
-      "code-teacher": {
-        description: "Interactive code teaching agent for the in-app lesson editor.",
-        mode: "primary" as const,
-        prompt: CODE_TEACHER_PROMPT.trim(),
-        steps: 8,
-        permission: {
-          question: "allow" as const,
-          plan_enter: "allow" as const,
-          teaching_start_lesson: "allow" as const,
-          teaching_checkpoint: "allow" as const,
-          teaching_add_file: "allow" as const,
-          teaching_set_lesson: "allow" as const,
-          teaching_restore_checkpoint: "allow" as const,
-          task: "deny" as const,
-          todoread: "deny" as const,
-          todowrite: "deny" as const,
-        },
-      },
-      "curriculum-builder": {
-        description: "Builds and updates project curriculum markdown with actionable checklists.",
-        mode: "subagent" as const,
-        prompt: CURRICULUM_BUILDER_PROMPT.trim(),
-        steps: 8,
-        permission: {
-          "*": "deny" as const,
-          read: "allow" as const,
-          list: "allow" as const,
-          write: "allow" as const,
-          webfetch: "allow" as const,
-          curriculum_read: "allow" as const,
-          curriculum_update: "allow" as const,
-          task: "deny" as const,
-        },
-      },
+      ...agentOverlay,
     },
   }
 }
@@ -591,16 +655,15 @@ async function syncOpenCodeProjectConfig(directory: string, force = false) {
       return
     }
 
-  // Dispose the OpenCode instance so it re-bootstraps fresh on next request.
-  // We do NOT call PATCH /config on the vendored OpenCode because that triggers
-  // Config.update which writes config.json to the project root (config pollution).
-  const { Instance: OpenCodeInstance } = await import("@buddy/opencode-adapter/instance")
-  await OpenCodeInstance.provide({
-    directory,
-    fn: async () => {
-      await OpenCodeInstance.dispose()
-    },
-  })
+    // Dispose the OpenCode instance so it re-bootstraps fresh on next request.
+    // We do NOT call PATCH /config on the vendored OpenCode because that triggers
+    // Config.update which writes config.json to the project root (config pollution).
+    await OpenCodeInstance.provide({
+      directory,
+      fn: async () => {
+        await OpenCodeInstance.dispose()
+      },
+    })
 
     openCodeConfigFingerprint.set(directory, nextFingerprint)
   })().finally(() => {
@@ -853,9 +916,9 @@ api.get("/config/agents", async (c) => {
     )
   })
 
-  const agents = await BuddyInstance.provide({
+  const agents = await OpenCodeInstance.provide({
     directory: directoryResult.directory,
-    fn: () => BuddyAgent.list(),
+    fn: () => OpenCodeAgent.list(),
   })
 
   return c.json(
@@ -1041,11 +1104,14 @@ api.post("/session/:sessionID/message", async (c) => {
       const teachingContext = TeachingPromptContextSchema.safeParse(body.teaching).success
         ? TeachingPromptContextSchema.parse(body.teaching)
         : undefined
-      const agentName = typeof body.agent === "string" ? body.agent : undefined
       const projectConfig = await BuddyInstance.provide({
         directory: directoryResult.directory,
         fn: () => Config.get(),
       })
+      const agentName =
+        typeof body.agent === "string"
+          ? resolveConfiguredAgentKey(body.agent, buildAgentOverlay(projectConfig.agent ?? {}))
+          : undefined
       if (content.trim().length > 0) {
         parts.unshift({
           type: "text",
@@ -1113,6 +1179,26 @@ api.post("/session/:sessionID/command", async (c) => {
 
   return proxyToOpenCode(c, {
     targetPath: `/session/${encodeURIComponent(sessionID)}/command`,
+    async transformJsonBody(body) {
+      if (typeof body.agent !== "string") {
+        return body
+      }
+
+      const projectConfig = await BuddyInstance.provide({
+        directory: directoryResult.directory,
+        fn: () => Config.get(),
+      })
+      const agentName = resolveConfiguredAgentKey(body.agent, buildAgentOverlay(projectConfig.agent ?? {}))
+
+      if (agentName === body.agent) {
+        return body
+      }
+
+      return {
+        ...body,
+        agent: agentName,
+      }
+    },
     forceBusyAs409: true,
   })
 })
