@@ -33,12 +33,10 @@ describe("config precedence", () => {
     fs.mkdirSync(nested, { recursive: true })
 
     const customPath = path.join(repo, "custom.jsonc")
-    writeFileSync(customPath, '{"username":"custom-user","compaction":{"reserved":222}}\n')
+    writeFileSync(customPath, '{"model":"anthropic/custom"}\n')
 
-    writeFileSync(path.join(repo, "buddy.jsonc"), '{"username":"project-user","compaction":{"reserved":333}}\n')
-    writeFileSync(path.join(nested, "buddy.jsonc"), '{"username":"nested-user","compaction":{"reserved":444}}\n')
-    fs.mkdirSync(path.join(repo, ".buddy"), { recursive: true })
-    writeFileSync(path.join(repo, ".buddy", "buddy.jsonc"), '{"username":"overlay-user","compaction":{"reserved":666}}\n')
+    writeFileSync(path.join(repo, "buddy.jsonc"), '{"model":"anthropic/project"}\n')
+    writeFileSync(path.join(nested, "buddy.jsonc"), '{"model":"anthropic/nested"}\n')
 
     const globalFile = path.join(Global.Path.config, "buddy.jsonc")
     fs.mkdirSync(path.dirname(globalFile), { recursive: true })
@@ -48,21 +46,19 @@ describe("config precedence", () => {
     const previousContent = process.env.BUDDY_CONFIG_CONTENT
 
     try {
-      writeFileSync(globalFile, '{"username":"global-user","compaction":{"reserved":111}}\n')
+      writeFileSync(globalFile, '{"model":"anthropic/global"}\n')
       process.env.BUDDY_CONFIG = customPath
-      process.env.BUDDY_CONFIG_CONTENT = '{"username":"inline-user","compaction":{"reserved":555}}'
+      process.env.BUDDY_CONFIG_CONTENT = '{"model":"anthropic/inline"}'
 
       const cfg = await Config.getProject(nested)
 
-      expect(cfg.username).toBe("inline-user")
-      expect(cfg.compaction?.reserved).toBe(555)
+      expect(cfg.model).toBe("anthropic/inline")
 
       delete process.env.BUDDY_CONFIG_CONTENT
 
       const withoutInline = await Config.getProject(nested)
 
-      expect(withoutInline.username).toBe("project-user")
-      expect(withoutInline.compaction?.reserved).toBe(333)
+      expect(withoutInline.model).toBe("anthropic/project")
     } finally {
       if (previousConfig === undefined) delete process.env.BUDDY_CONFIG
       else process.env.BUDDY_CONFIG = previousConfig

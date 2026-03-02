@@ -8,13 +8,13 @@ describe("parity.config.config", () => {
       await Config.updateProject(directory, {
         default_agent: "build",
         model: "anthropic/k2p5",
-        logLevel: "info",
+        small_model: "anthropic/mini",
       })
 
       const loaded = await Config.getProject(directory)
       expect(loaded.default_agent).toBe("build")
       expect(loaded.model).toBe("anthropic/k2p5")
-      expect(loaded.logLevel).toBe("info")
+      expect(loaded.small_model).toBe("anthropic/mini")
     })
   })
 

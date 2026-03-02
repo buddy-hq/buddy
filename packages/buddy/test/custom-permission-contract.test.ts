@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
+import { PermissionNext } from "@buddy/opencode-adapter/permission"
 import { Config } from "../src/config/config.js"
-import { PermissionNext } from "../src/opencode/vendor.js"
 
 describe("custom permission contract", () => {
   test("must accept curriculum_read and curriculum_update custom permissions", async () => {

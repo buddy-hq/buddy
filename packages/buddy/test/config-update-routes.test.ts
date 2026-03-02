@@ -38,9 +38,7 @@ describe("config routes", () => {
       },
       body: JSON.stringify({
         default_agent: "build",
-        compaction: {
-          auto: false,
-        },
+        model: "anthropic/route-project",
       }),
     })
 
@@ -55,13 +53,11 @@ describe("config routes", () => {
     expect(getResponse.status).toBe(200)
     const body = (await getResponse.json()) as {
       default_agent?: string
-      compaction?: {
-        auto?: boolean
-      }
+      model?: string
     }
 
     expect(body.default_agent).toBe("build")
-    expect(body.compaction?.auto).toBe(false)
+    expect(body.model).toBe("anthropic/route-project")
     expect(fs.existsSync(path.join(repo, "buddy.jsonc")) || fs.existsSync(path.join(repo, "buddy.json"))).toBe(true)
   })
 
@@ -119,15 +115,15 @@ describe("config routes", () => {
           "content-type": "application/json",
         },
         body: JSON.stringify({
-          username: "route-global-user",
+          model: "anthropic/route-global",
         }),
       })
       expect(patch.status).toBe(200)
 
       const getAfter = await app.request("/api/global/config")
       expect(getAfter.status).toBe(200)
-      const afterBody = (await getAfter.json()) as { username?: string }
-      expect(afterBody.username).toBe("route-global-user")
+      const afterBody = (await getAfter.json()) as { model?: string }
+      expect(afterBody.model).toBe("anthropic/route-global")
     } finally {
       if (previousGlobal === undefined) {
         fs.rmSync(globalFile, { force: true })
@@ -151,8 +147,7 @@ describe("config routes", () => {
       path.join(repo, "buddy.jsonc"),
       [
         "{",
-        '  "instructions": [',
-        '    "./notes.md",',
+        '  "model":',
         "  ",
         "",
       ].join("\n"),

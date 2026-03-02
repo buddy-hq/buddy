@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 import path from "node:path"
 import { writeFileSync } from "node:fs"
 import { Agent as OpenCodeAgent } from "@buddy/opencode-adapter/agent"
-import { PermissionNext } from "../../../src/opencode/vendor.js"
+import { PermissionNext } from "@buddy/opencode-adapter/permission"
 import { withSyncedOpenCodeConfig } from "../../helpers/opencode.js"
 import { withRepo } from "../helpers"
 

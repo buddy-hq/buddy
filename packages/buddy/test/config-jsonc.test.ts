@@ -32,8 +32,8 @@ describe("config jsonc", () => {
       [
         "{",
         '  // JSONC comment',
-        '  "instructions": ["./notes.md",],',
-        '  "compaction": { "auto": false, },',
+        '  "default_agent": "build",',
+        '  "model": "anthropic/k2p5",',
         "}",
         "",
       ].join("\n"),
@@ -41,8 +41,8 @@ describe("config jsonc", () => {
 
     const cfg = await Config.getProject(repo)
 
-    expect(cfg.instructions).toEqual(["./notes.md"])
-    expect(cfg.compaction?.auto).toBe(false)
+    expect(cfg.default_agent).toBe("build")
+    expect(cfg.model).toBe("anthropic/k2p5")
   })
 
   test("returns line and column diagnostics for invalid jsonc", async () => {
@@ -52,8 +52,7 @@ describe("config jsonc", () => {
       badConfig,
       [
         "{",
-        '  "instructions": [',
-        '    "./notes.md",',
+        '  "model": ',
         "  ",
         "",
       ].join("\n"),
