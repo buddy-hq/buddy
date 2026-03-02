@@ -51,13 +51,40 @@ function decodeDirectory(raw: string) {
   }
 }
 
+function canonicalizeDirectory(directory: string) {
+  let current = directory
+  const suffix: string[] = []
+
+  while (true) {
+    if (fs.existsSync(current)) {
+      try {
+        const resolved = fs.realpathSync.native(current)
+        if (suffix.length === 0) {
+          return resolved
+        }
+        return path.join(resolved, ...suffix.toReversed())
+      } catch {
+        return directory
+      }
+    }
+
+    const parent = path.dirname(current)
+    if (parent === current) {
+      return directory
+    }
+
+    suffix.push(path.basename(current))
+    current = parent
+  }
+}
+
 function isInsideRoot(directory: string, root: string) {
   const relative = path.relative(root, directory)
   return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative))
 }
 
 export function resolveDirectory(raw: string) {
-  return path.resolve(decodeDirectory(raw))
+  return canonicalizeDirectory(path.resolve(decodeDirectory(raw)))
 }
 
 export function allowedDirectoryRoots() {

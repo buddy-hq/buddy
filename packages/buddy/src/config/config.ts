@@ -11,21 +11,14 @@ import {
   printParseErrorCode,
   type ParseError as JsoncParseError,
 } from "jsonc-parser"
-import { mergeDeep, unique } from "remeda"
+import { mergeDeep } from "remeda"
+import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { GlobalBus } from "../bus/global.js"
 import { Flag } from "../flag/flag.js"
-import { Instance } from "../project/instance.js"
 import { Global } from "../storage/global.js"
-import { ConfigMarkdown } from "./markdown.js"
-import { FrontmatterError } from "./markdown.js"
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value)
-}
-
-function toObject(value: unknown): Record<string, unknown> {
-  if (!isRecord(value)) return {}
-  return value
 }
 
 export class JsonError extends Error {
@@ -54,23 +47,6 @@ export class InvalidError extends Error {
   constructor(data: { path: string; issues?: z.ZodIssue[]; message?: string }, options?: { cause?: unknown }) {
     super(data.message ?? `Invalid config: ${data.path}`)
     this.name = "ConfigInvalidError"
-    this.data = data
-    if (options?.cause !== undefined) {
-      ;(this as Error & { cause?: unknown }).cause = options.cause
-    }
-  }
-}
-
-export class ConfigDirectoryTypoError extends Error {
-  readonly data: {
-    path: string
-    dir: string
-    suggestion: string
-  }
-
-  constructor(data: { path: string; dir: string; suggestion: string }, options?: { cause?: unknown }) {
-    super(`Config directory typo at ${data.path}: ${data.dir}. Did you mean ${data.suggestion}?`)
-    this.name = "ConfigDirectoryTypoError"
     this.data = data
     if (options?.cause !== undefined) {
       ;(this as Error & { cause?: unknown }).cause = options.cause
@@ -411,180 +387,6 @@ export namespace Config {
     return merged
   }
 
-  function rel(item: string, patterns: string[]) {
-    for (const pattern of patterns) {
-      const index = item.indexOf(pattern)
-      if (index === -1) continue
-      return item.slice(index + pattern.length)
-    }
-  }
-
-  function trim(file: string) {
-    const ext = path.extname(file)
-    return ext.length ? file.slice(0, -ext.length) : file
-  }
-
-  async function scanGlob(pattern: string, cwd: string) {
-    const glob = new Bun.Glob(pattern)
-    const results: string[] = []
-    for await (const item of glob.scan({ cwd, absolute: true })) {
-      results.push(item)
-    }
-    return results
-  }
-
-  async function pathExists(filepath: string) {
-    return fsp
-      .access(filepath)
-      .then(() => true)
-      .catch(() => false)
-  }
-
-  async function findUp(filename: string, start: string, stop?: string) {
-    const result: string[] = []
-    let current = path.resolve(start)
-    const last = stop ? path.resolve(stop) : undefined
-
-    while (true) {
-      const candidate = path.join(current, filename)
-      if (await pathExists(candidate)) result.push(candidate)
-      if (last && current === last) break
-      const parent = path.dirname(current)
-      if (parent === current) break
-      current = parent
-    }
-
-    return result
-  }
-
-  async function up(target: string, start: string, stop: string) {
-    const results: string[] = []
-    let current = path.resolve(start)
-    const end = path.resolve(stop)
-
-    while (true) {
-      const candidate = path.join(current, target)
-      if (await pathExists(candidate)) {
-        results.push(candidate)
-      }
-      if (current === end) break
-      const parent = path.dirname(current)
-      if (parent === current) break
-      current = parent
-    }
-
-    return results
-  }
-
-  function overlayConfigDir(dir: string) {
-    return path.basename(dir) === ".buddy" ? dir : path.join(dir, ".buddy")
-  }
-
-  async function loadCommand(dir: string) {
-    const result: Record<string, Command> = {}
-
-    for (const item of await scanGlob("{command,commands}/**/*.md", dir)) {
-      const md = await ConfigMarkdown.parse(item).catch((err) => {
-        if (err instanceof FrontmatterError) {
-          throw new InvalidError({ path: item, message: err.data.message }, { cause: err })
-        }
-        throw new InvalidError({ path: item, message: `Failed to parse command ${item}` }, { cause: err })
-      })
-
-      const patterns = ["/.buddy/command/", "/.buddy/commands/", "/command/", "/commands/"]
-      const file = rel(item, patterns) ?? path.basename(item)
-      const name = trim(file)
-
-      const config = {
-        name,
-        ...toObject(md.data),
-        template: md.content.trim(),
-      }
-
-      const parsed = Command.safeParse(config)
-      if (!parsed.success) {
-        throw new InvalidError({ path: item, issues: parsed.error.issues }, { cause: parsed.error })
-      }
-
-      result[name] = parsed.data
-    }
-
-    return result
-  }
-
-  async function loadAgent(dir: string) {
-    const result: Record<string, Agent> = {}
-
-    for (const item of await scanGlob("{agent,agents}/**/*.md", dir)) {
-      const md = await ConfigMarkdown.parse(item).catch((err) => {
-        if (err instanceof FrontmatterError) {
-          throw new InvalidError({ path: item, message: err.data.message }, { cause: err })
-        }
-        throw new InvalidError({ path: item, message: `Failed to parse agent ${item}` }, { cause: err })
-      })
-
-      const patterns = ["/.buddy/agent/", "/.buddy/agents/", "/agent/", "/agents/"]
-      const file = rel(item, patterns) ?? path.basename(item)
-      const name = trim(file)
-
-      const config = {
-        name,
-        ...toObject(md.data),
-        prompt: md.content.trim(),
-      }
-
-      const parsed = Agent.safeParse(config)
-      if (!parsed.success) {
-        throw new InvalidError({ path: item, issues: parsed.error.issues }, { cause: parsed.error })
-      }
-
-      result[name] = parsed.data
-    }
-
-    return result
-  }
-
-  async function loadMode(dir: string) {
-    const result: Record<string, Agent> = {}
-
-    for (const item of await scanGlob("{mode,modes}/*.md", dir)) {
-      const md = await ConfigMarkdown.parse(item).catch((err) => {
-        if (err instanceof FrontmatterError) {
-          throw new InvalidError({ path: item, message: err.data.message }, { cause: err })
-        }
-        throw new InvalidError({ path: item, message: `Failed to parse mode ${item}` }, { cause: err })
-      })
-
-      const config = {
-        name: path.basename(item, ".md"),
-        ...toObject(md.data),
-        prompt: md.content.trim(),
-      }
-
-      const parsed = Agent.safeParse(config)
-      if (!parsed.success) {
-        throw new InvalidError({ path: item, issues: parsed.error.issues }, { cause: parsed.error })
-      }
-
-      result[config.name] = {
-        ...parsed.data,
-        mode: "primary" as const,
-      }
-    }
-
-    return result
-  }
-
-  async function loadPlugin(dir: string) {
-    const result: string[] = []
-
-    for (const item of await scanGlob("{plugin,plugins}/*.{ts,js}", dir)) {
-      result.push(pathToFileURL(item).href)
-    }
-
-    return result
-  }
-
   export function getPluginName(plugin: string): string {
     if (plugin.startsWith("file://")) {
       return path.parse(new URL(plugin).pathname).name
@@ -714,11 +516,7 @@ export namespace Config {
   export const global = async () => {
     if (!globalPromise) {
       globalPromise = (async () => {
-        let result: Info = {}
-        for (const file of ["buddy.json", "buddy.jsonc"]) {
-          result = merge(result, await loadFile(path.join(Global.Path.config, file)))
-        }
-        return result
+        return loadFile(globalConfigFile())
       })()
     }
     return globalPromise
@@ -728,7 +526,34 @@ export namespace Config {
     globalPromise = undefined
   }
 
-  async function loadState() {
+  async function projectConfigContext(directory: string) {
+    const normalized = path.resolve(directory)
+    return OpenCodeInstance.provide({
+      directory: normalized,
+      fn: () => {
+        const scopedDirectory = path.resolve(OpenCodeInstance.directory)
+        const worktree = path.resolve(OpenCodeInstance.worktree)
+        const configDirectory = worktree !== "/" ? worktree : scopedDirectory
+        return {
+          directory: scopedDirectory,
+          configDirectory,
+        }
+      },
+    })
+  }
+
+  function projectConfigFile(directory: string) {
+    const jsonc = path.join(directory, "buddy.jsonc")
+    if (fs.existsSync(jsonc)) return jsonc
+
+    const json = path.join(directory, "buddy.json")
+    if (fs.existsSync(json)) return json
+
+    return jsonc
+  }
+
+  async function loadProjectState(directory: string) {
+    const context = await projectConfigContext(directory)
     let result: Info = {}
 
     result = merge(result, await global())
@@ -738,54 +563,18 @@ export namespace Config {
     }
 
     if (!Flag.BUDDY_DISABLE_PROJECT_CONFIG) {
-      for (const file of ["buddy.jsonc", "buddy.json"]) {
-        const found = await findUp(file, Instance.directory, Instance.worktree)
-        for (const resolved of found.toReversed()) {
-          result = merge(result, await loadFile(resolved))
-        }
-      }
+      result = merge(result, await loadFile(projectConfigFile(context.configDirectory)))
     }
 
     result.agent = result.agent || {}
     result.mode = result.mode || {}
     result.plugin = result.plugin || []
 
-    const directories = [
-      ...(!Flag.BUDDY_DISABLE_PROJECT_CONFIG ? await up(".buddy", Instance.directory, Instance.worktree) : []),
-      ...(await up(".buddy", Global.Path.home, Global.Path.home)),
-    ]
-
-    if (Flag.BUDDY_CONFIG_DIR) {
-      const configDir = path.resolve(Flag.BUDDY_CONFIG_DIR)
-      directories.push(configDir)
-
-      const typo = path.join(configDir, ".buddy")
-      if (path.basename(configDir) !== ".buddy" && fs.existsSync(typo)) {
-        throw new ConfigDirectoryTypoError({
-          path: configDir,
-          dir: configDir,
-          suggestion: typo,
-        })
-      }
-    }
-
-    for (const dir of unique(directories)) {
-      const overlayDir = overlayConfigDir(dir)
-      for (const file of ["buddy.jsonc", "buddy.json"]) {
-        result = merge(result, await loadFile(path.join(overlayDir, file)))
-      }
-
-      result.command = mergeDeep(result.command ?? {}, await loadCommand(overlayDir))
-      result.agent = mergeDeep(result.agent ?? {}, await loadAgent(overlayDir))
-      result.agent = mergeDeep(result.agent ?? {}, await loadMode(overlayDir))
-      ;(result.plugin ??= []).push(...(await loadPlugin(overlayDir)))
-    }
-
     if (Flag.BUDDY_CONFIG_CONTENT) {
       result = merge(
         result,
         await load(Flag.BUDDY_CONFIG_CONTENT, {
-          dir: Instance.directory,
+          dir: context.directory,
           source: "BUDDY_CONFIG_CONTENT",
         }),
       )
@@ -851,14 +640,12 @@ export namespace Config {
 
     return {
       config: result,
-      directories,
+      directories: [context.configDirectory],
     }
   }
 
-  const state = Instance.state("config.state", () => loadState())
-
-  export async function get() {
-    return state().then((value) => value.config)
+  export async function getProject(directory: string) {
+    return loadProjectState(directory).then((value) => value.config)
   }
 
   export async function getGlobal() {
@@ -908,27 +695,9 @@ export namespace Config {
     }, input)
   }
 
-  function nearestProjectConfigFile() {
-    const candidates: string[] = []
-    let current = path.resolve(Instance.directory)
-    const stop = path.resolve(Instance.worktree)
-
-    while (true) {
-      for (const file of ["buddy.jsonc", "buddy.json"]) {
-        const candidate = path.join(current, file)
-        if (fs.existsSync(candidate)) return candidate
-      }
-      if (current === stop) break
-      const parent = path.dirname(current)
-      if (parent === current) break
-      current = parent
-    }
-
-    return path.join(Instance.directory, "buddy.jsonc")
-  }
-
-  export async function update(config: Info) {
-    const filepath = nearestProjectConfigFile()
+  export async function updateProject(directory: string, config: Info) {
+    const { configDirectory } = await projectConfigContext(directory)
+    const filepath = projectConfigFile(configDirectory)
     await fsp.mkdir(path.dirname(filepath), { recursive: true })
 
     const before = await fsp.readFile(filepath, "utf8").catch((err: unknown) => {
@@ -946,12 +715,11 @@ export namespace Config {
       parseConfig(updated, filepath)
       await fsp.writeFile(filepath, updated, "utf8")
     }
-
-    Instance.dispose()
   }
 
-  export async function setProjectMcp(name: string, mcp: Mcp) {
-    const filepath = nearestProjectConfigFile()
+  export async function setProjectMcp(directory: string, name: string, mcp: Mcp) {
+    const { configDirectory } = await projectConfigContext(directory)
+    const filepath = projectConfigFile(configDirectory)
     await fsp.mkdir(path.dirname(filepath), { recursive: true })
 
     const before = await fsp.readFile(filepath, "utf8").catch((err: unknown) => {
@@ -981,8 +749,6 @@ export namespace Config {
       parseConfig(updated, filepath)
       await fsp.writeFile(filepath, updated, "utf8")
     }
-
-    Instance.dispose()
   }
 
   export async function updateGlobal(config: Info) {
@@ -1011,7 +777,7 @@ export namespace Config {
 
     resetGlobal()
 
-    await Instance.disposeAll()
+    await OpenCodeInstance.disposeAll()
     GlobalBus.emit("event", {
       directory: "global",
       payload: {
@@ -1028,9 +794,5 @@ export namespace Config {
     })
 
     return next
-  }
-
-  export async function directories() {
-    return state().then((value) => value.directories)
   }
 }

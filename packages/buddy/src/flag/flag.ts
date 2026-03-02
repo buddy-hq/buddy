@@ -12,7 +12,6 @@ function number(key: string) {
 
 export namespace Flag {
   export declare const BUDDY_CONFIG: string | undefined
-  export declare const BUDDY_CONFIG_DIR: string | undefined
   export declare const BUDDY_CONFIG_CONTENT: string | undefined
 
   export declare const BUDDY_DISABLE_PROJECT_CONFIG: boolean
@@ -24,14 +23,6 @@ export namespace Flag {
 
   export const BUDDY_EXPERIMENTAL_OUTPUT_TOKEN_MAX = number("BUDDY_EXPERIMENTAL_OUTPUT_TOKEN_MAX")
 }
-
-Object.defineProperty(Flag, "BUDDY_CONFIG_DIR", {
-  get() {
-    return process.env.BUDDY_CONFIG_DIR
-  },
-  enumerable: true,
-  configurable: false,
-})
 
 Object.defineProperty(Flag, "BUDDY_CONFIG", {
   get() {
