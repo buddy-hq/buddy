@@ -1,10 +1,9 @@
 import { z } from "zod"
 import { Config } from "../config/config.js"
 
-type BuddyAgentInput = z.input<typeof Config.Agent>
-type BuddyAgentAuthoring = Config.AgentAuthoring
-type BuddyPermissionRuleInput = z.input<typeof Config.PermissionRule>
-type BuddyPermissionInput = Config.PermissionAuthoring
+type BuddyAgentAuthoring = z.input<typeof Config.Agent>
+type BuddyPermissionRuleInput = Config.PermissionRule
+type BuddyPermissionInput = Config.PermissionAction | Record<string, Config.PermissionRule>
 
 type BaseAgentDefinition = Omit<BuddyAgentAuthoring, "mode" | "permission"> & {
   permission?: BuddyPermissionInput
