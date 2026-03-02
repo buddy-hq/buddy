@@ -38,7 +38,6 @@ Files inspected for this audit include:
 - `packages/buddy/src/teaching/teaching-tools.ts`
 - `packages/buddy/src/teaching/teaching-service.ts`
 - `packages/buddy/src/curriculum/curriculum-service.ts`
-- `packages/buddy/src/agent/agent.ts`
 - `packages/opencode-adapter/src/*`
 - `packages/web/src/state/chat-actions.ts`
 - `packages/web/src/state/chat-sync.ts`
@@ -63,9 +62,9 @@ Files inspected for this audit include:
 | `@buddy/opencode-adapter/config` | `packages/buddy/src/index.ts` | Calls `setConfigOverlay()` to monkey-patch vendored `Config.get()` with in-memory per-directory overlays. | Public SDK has `client.config.update()` / `client.global.config.update()`, which persist config. No overlay hook. | `No` |
 | `@buddy/opencode-adapter/project` | `packages/buddy/src/index.ts` | Calls `Project.fromDirectory()` to eagerly initialize an OpenCode project before adding it to Buddy's notebook registry. | Closest public analog is `client.project.current({ directory })` or any other request scoped to that directory. No explicit "open project" API. | `Partial` |
 | `@buddy/opencode-adapter/instance` | `packages/buddy/src/index.ts`, `curriculum-service.ts`, `curriculum-tools.ts`, `teaching-tools.ts`, `teaching-service.ts` | Uses `Instance.provide(...)`, `Instance.project.id`, and `Instance.dispose()` for runtime scoping, tool registration, project identity lookup, and hot rebootstrap. | No public SDK access to in-memory `Instance` state. | `No` |
-| `@buddy/opencode-adapter/tool` | `packages/buddy/src/opencode/curriculum-tools.ts`, `packages/buddy/src/teaching/teaching-tools.ts`, `packages/buddy/src/opencode/vendor.ts`, `packages/buddy/src/agent/agent.ts` | Uses `Tool.define`, `WriteTool`, `EditTool`, `FileTime`, and `Truncate` to define custom tools, reuse vendor file mutation behavior, mark file reads, and reuse glob constants. | SDK exposes tool listing/introspection only. It does not define or register tools, and it does not expose `WriteTool`/`EditTool` helpers. | `No` |
+| `@buddy/opencode-adapter/tool` | `packages/buddy/src/opencode/curriculum-tools.ts`, `packages/buddy/src/teaching/teaching-tools.ts`, `packages/buddy/src/opencode/vendor.ts` | Uses `Tool.define`, `WriteTool`, `EditTool`, `FileTime`, and `Truncate` to define custom tools, reuse vendor file mutation behavior, mark file reads, and reuse glob constants. | SDK exposes tool listing/introspection only. It does not define or register tools, and it does not expose `WriteTool`/`EditTool` helpers. | `No` |
 | `@buddy/opencode-adapter/registry` | `packages/buddy/src/opencode/curriculum-tools.ts`, `packages/buddy/src/teaching/teaching-tools.ts` | Calls `ToolRegistry.register(...)` to inject Buddy-owned tools into the live OpenCode runtime. | No public SDK API for tool registration. | `No` |
-| `@buddy/opencode-adapter/permission` | `packages/buddy/src/opencode/vendor.ts`, transitive use in `packages/buddy/src/agent/agent.ts` | Uses `PermissionNext` helpers for rule parsing, rule merging, reply validation, and permission request wiring. | SDK exposes permission endpoints and a `PermissionRuleset` type, but not `fromConfig()`/`merge()` helper logic. | `Partial` |
+| `@buddy/opencode-adapter/permission` | `packages/buddy/src/opencode/vendor.ts` | Uses `PermissionNext` helpers for rule parsing, rule merging, reply validation, and permission request wiring. | SDK exposes permission endpoints and a `PermissionRuleset` type, but not `fromConfig()`/`merge()` helper logic. | `Partial` |
 | `@buddy/opencode-adapter/lsp` | `packages/buddy/src/teaching/teaching-service.ts` | Uses `LSP.hasClients`, `LSP.touchFile`, and `LSP.diagnostics()` to power live teaching diagnostics. | SDK only exposes `client.lsp.status()`. No diagnostics API. | `No` |
 
 ### 1.2 Adapter Surface Present But Not Currently Used
@@ -410,14 +409,10 @@ Classification: `Direct`
 Current Buddy behavior:
 
 - Web calls `loadAgentCatalog(directory)`.
-- Backend returns Buddy's own agent catalog built in `packages/buddy/src/agent/agent.ts`.
-- The catalog includes Buddy-owned primary and subagent identities:
-  - `build`
-  - `code-teacher`
-  - `plan`
-  - `general`
-  - `curriculum-builder`
-- Buddy uses `PermissionNext.fromConfig()` and `PermissionNext.merge()` to synthesize permission rules for these agents.
+- Backend syncs Buddy's in-memory config overlay, then returns the vendored OpenCode agent catalog through `@buddy/opencode-adapter/agent`.
+- OpenCode remains the source of truth for vendor-native agents such as `build`, `plan`, `general`, and `explore`.
+- Buddy extends that catalog by injecting Buddy-specific overlay agents such as `code-teacher` and `curriculum-builder`.
+- The frontend still filters hidden/internal agents before showing them in UI controls.
 
 SDK overlap:
 
