@@ -1,4 +1,4 @@
-import LEARNING_COMPANION_PROMPT from "./prompt.txt"
+import LEARNING_COMPANION_PROMPT from "./prompt.md"
 
 // ---------------------------------------------------------------------------
 // Stable behavior prompt loaded from disk
