@@ -1,24 +1,23 @@
 import { setConfigOverlay } from "@buddy/opencode-adapter/config"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { Config } from "./config.js"
+import { configErrorMessage, isConfigValidationError } from "./errors.js"
 import {
-  buildAgentOverlay,
   buildOpenCodeConfigOverlay,
-  configErrorMessage,
   fingerprintOpenCodeConfig,
-  isConfigValidationError,
+  mergeBuddyAndConfiguredAgents,
   parseConfiguredModel,
   resolveConfiguredAgentKey,
-} from "./overlay.js"
+} from "./opencode/index.js"
 
 const openCodeConfigFingerprint = new Map<string, string>()
 const openCodeConfigSyncInFlight = new Map<string, Promise<void>>()
 
 export {
-  buildAgentOverlay,
   buildOpenCodeConfigOverlay,
   configErrorMessage,
   isConfigValidationError,
+  mergeBuddyAndConfiguredAgents,
   parseConfiguredModel,
   resolveConfiguredAgentKey,
 }
