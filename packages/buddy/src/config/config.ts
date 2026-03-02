@@ -1,522 +1,43 @@
 import fs from "node:fs"
 import fsp from "node:fs/promises"
-import os from "node:os"
 import path from "node:path"
-import { pathToFileURL } from "node:url"
-import z from "zod"
-import {
-  applyEdits,
-  modify,
-  parse as parseJsonc,
-  printParseErrorCode,
-  type ParseError as JsoncParseError,
-} from "jsonc-parser"
 import { mergeDeep } from "remeda"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { GlobalBus } from "../bus/global.js"
 import { Flag } from "../flag/flag.js"
 import { Global } from "../storage/global.js"
+import { loadConfigFile, loadConfigText, parseConfigText, patchJsoncDocument } from "./document.js"
+import { InvalidError, JsonError } from "./errors.js"
+import { ConfigSchema } from "./schema.js"
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value)
-}
-
-export class JsonError extends Error {
-  readonly data: {
-    path: string
-    message?: string
-  }
-
-  constructor(data: { path: string; message?: string }, options?: { cause?: unknown }) {
-    super(data.message ?? `Invalid JSONC in ${data.path}`)
-    this.name = "ConfigJsonError"
-    this.data = data
-    if (options?.cause !== undefined) {
-      ;(this as Error & { cause?: unknown }).cause = options.cause
-    }
-  }
-}
-
-export class InvalidError extends Error {
-  readonly data: {
-    path: string
-    issues?: z.ZodIssue[]
-    message?: string
-  }
-
-  constructor(data: { path: string; issues?: z.ZodIssue[]; message?: string }, options?: { cause?: unknown }) {
-    super(data.message ?? `Invalid config: ${data.path}`)
-    this.name = "ConfigInvalidError"
-    this.data = data
-    if (options?.cause !== undefined) {
-      ;(this as Error & { cause?: unknown }).cause = options.cause
-    }
-  }
-}
+export { InvalidError, JsonError } from "./errors.js"
 
 export namespace Config {
-  const ModelId = z.string()
+  export const Mcp = ConfigSchema.Mcp
+  export type Mcp = ConfigSchema.Mcp
 
-  export const McpLocal = z
-    .object({
-      type: z.literal("local"),
-      command: z.string().array(),
-      environment: z.record(z.string(), z.string()).optional(),
-      enabled: z.boolean().optional(),
-      timeout: z.number().int().positive().optional(),
-    })
-    .strict()
+  export type PermissionAction = ConfigSchema.PermissionAction
 
-  export const McpOAuth = z
-    .object({
-      clientId: z.string().optional(),
-      clientSecret: z.string().optional(),
-      scope: z.string().optional(),
-    })
-    .strict()
+  export type PermissionRule = ConfigSchema.PermissionRule
 
-  export const McpRemote = z
-    .object({
-      type: z.literal("remote"),
-      url: z.string(),
-      enabled: z.boolean().optional(),
-      headers: z.record(z.string(), z.string()).optional(),
-      oauth: z.union([McpOAuth, z.literal(false)]).optional(),
-      timeout: z.number().int().positive().optional(),
-    })
-    .strict()
+  export const Permission = ConfigSchema.Permission
+  export type Permission = ConfigSchema.Permission
 
-  export const Mcp = z.discriminatedUnion("type", [McpLocal, McpRemote])
-  export type Mcp = z.infer<typeof Mcp>
+  export const Agent = ConfigSchema.Agent
+  export type Agent = ConfigSchema.Agent
 
-  export const PermissionAction = z.enum(["ask", "allow", "deny"])
-  export type PermissionAction = z.infer<typeof PermissionAction>
-
-  export const PermissionObject = z.record(z.string(), PermissionAction)
-  export type PermissionObject = z.infer<typeof PermissionObject>
-
-  export const PermissionRule = z.union([PermissionAction, PermissionObject])
-  export type PermissionRule = z.infer<typeof PermissionRule>
-
-  const PermissionShape = {
-    read: PermissionRule.optional(),
-    edit: PermissionRule.optional(),
-    glob: PermissionRule.optional(),
-    grep: PermissionRule.optional(),
-    list: PermissionRule.optional(),
-    bash: PermissionRule.optional(),
-    task: PermissionRule.optional(),
-    external_directory: PermissionRule.optional(),
-    todowrite: PermissionAction.optional(),
-    todoread: PermissionAction.optional(),
-    question: PermissionAction.optional(),
-    webfetch: PermissionAction.optional(),
-    websearch: PermissionAction.optional(),
-    codesearch: PermissionAction.optional(),
-    lsp: PermissionRule.optional(),
-    doom_loop: PermissionAction.optional(),
-    skill: PermissionRule.optional(),
-    plan_enter: PermissionAction.optional(),
-    plan_exit: PermissionAction.optional(),
-    curriculum_read: PermissionRule.optional(),
-    curriculum_update: PermissionRule.optional(),
-  } satisfies z.ZodRawShape
-
-  export const PermissionAuthoring = z.object(PermissionShape).catchall(PermissionRule).or(PermissionAction)
-  export type PermissionAuthoring = z.input<typeof PermissionAuthoring>
-
-  const permissionPreprocess = (value: unknown) => {
-    if (isRecord(value)) {
-      return { __originalKeys: Object.keys(value), ...value }
-    }
-    return value
-  }
-
-  const permissionTransform = (value: unknown): Record<string, PermissionRule> => {
-    if (typeof value === "string") return { "*": value as PermissionAction }
-    const obj = (value ?? {}) as { __originalKeys?: string[] } & Record<string, unknown>
-    const { __originalKeys, ...rest } = obj
-    if (!__originalKeys) return rest as Record<string, PermissionRule>
-    const result: Record<string, PermissionRule> = {}
-    for (const key of __originalKeys) {
-      if (key in rest) result[key] = rest[key] as PermissionRule
-    }
-    return result
-  }
-
-  export const Permission = z
-    .preprocess(
-      permissionPreprocess,
-      z
-        .object({
-          __originalKeys: z.string().array().optional(),
-          ...PermissionShape,
-        })
-        .catchall(PermissionRule)
-        .or(PermissionAction),
-    )
-    .transform(permissionTransform)
-  export type Permission = z.infer<typeof Permission>
-
-  export const Command = z.object({
-    template: z.string(),
-    description: z.string().optional(),
-    agent: z.string().optional(),
-    model: ModelId.optional(),
-    subtask: z.boolean().optional(),
-  })
-  export type Command = z.infer<typeof Command>
-
-  export const Skills = z.object({
-    paths: z.array(z.string()).optional(),
-    urls: z.array(z.string()).optional(),
-  })
-  export type Skills = z.infer<typeof Skills>
-
-  const AgentShape = {
-    name: z.string().optional(),
-    model: ModelId.optional(),
-    variant: z.string().optional(),
-    temperature: z.number().optional(),
-    top_p: z.number().optional(),
-    prompt: z.string().optional(),
-    tools: z.record(z.string(), z.boolean()).optional(),
-    disable: z.boolean().optional(),
-    description: z.string().optional(),
-    mode: z.enum(["subagent", "primary", "all"]).optional(),
-    hidden: z.boolean().optional(),
-    options: z.record(z.string(), z.any()).optional(),
-    color: z
-      .union([
-        z.string().regex(/^#[0-9a-fA-F]{6}$/),
-        z.enum(["primary", "secondary", "accent", "success", "warning", "error", "info"]),
-      ])
-      .optional(),
-    steps: z.number().int().positive().optional(),
-    maxSteps: z.number().int().positive().optional(),
-    permission: Permission.optional(),
-  } satisfies z.ZodRawShape
-
-  export const AgentAuthoring = z.object(AgentShape).catchall(z.any())
-  export type AgentAuthoring = z.input<typeof AgentAuthoring>
-
-  export const Agent = AgentAuthoring
-    .transform((agent) => {
-      const known = new Set(Object.keys(AgentShape))
-
-      const options: Record<string, unknown> = { ...(agent.options ?? {}) }
-      for (const [key, value] of Object.entries(agent)) {
-        if (!known.has(key)) options[key] = value
-      }
-
-      const permission: Permission = {}
-      for (const [tool, enabled] of Object.entries(agent.tools ?? {})) {
-        const action: PermissionAction = enabled ? "allow" : "deny"
-        if (tool === "write" || tool === "edit" || tool === "patch" || tool === "multiedit") {
-          permission.edit = action
-          continue
-        }
-        permission[tool] = action
-      }
-      Object.assign(permission, agent.permission)
-
-      return {
-        ...agent,
-        options,
-        permission,
-        steps: agent.steps ?? agent.maxSteps,
-      }
-    })
-  export type Agent = z.infer<typeof Agent>
-
-  export const TUI = z
-    .object({
-      scroll_speed: z.number().min(0.001).optional(),
-      scroll_acceleration: z
-        .object({
-          enabled: z.boolean(),
-        })
-        .optional(),
-      diff_style: z.enum(["auto", "stacked"]).optional(),
-    })
-    .strict()
-
-  export const Server = z
-    .object({
-      port: z.number().int().positive().optional(),
-      hostname: z.string().optional(),
-      mdns: z.boolean().optional(),
-      mdnsDomain: z.string().optional(),
-      cors: z.array(z.string()).optional(),
-    })
-    .strict()
-
-  export const Provider = z
-    .object({
-      whitelist: z.array(z.string()).optional(),
-      blacklist: z.array(z.string()).optional(),
-      models: z.record(z.string(), z.record(z.string(), z.any())).optional(),
-      options: z
-        .object({
-          apiKey: z.string().optional(),
-          baseURL: z.string().optional(),
-          enterpriseUrl: z.string().optional(),
-          setCacheKey: z.boolean().optional(),
-          timeout: z.union([z.number().int().positive(), z.literal(false)]).optional(),
-        })
-        .catchall(z.any())
-        .optional(),
-    })
-    .catchall(z.any())
-
-  export const Info = z
-    .object({
-      $schema: z.string().optional(),
-      theme: z.string().optional(),
-      keybinds: z.record(z.string(), z.string()).optional(),
-      logLevel: z.enum(["debug", "info", "warn", "error"]).optional(),
-      tui: TUI.optional(),
-      server: Server.optional(),
-      command: z.record(z.string(), Command).optional(),
-      skills: Skills.optional(),
-      watcher: z
-        .object({
-          ignore: z.array(z.string()).optional(),
-        })
-        .optional(),
-      plugin: z.array(z.string()).optional(),
-      snapshot: z.boolean().optional(),
-      share: z.enum(["manual", "auto", "disabled"]).optional(),
-      autoshare: z.boolean().optional(),
-      autoupdate: z.union([z.boolean(), z.literal("notify")]).optional(),
-      disabled_providers: z.array(z.string()).optional(),
-      enabled_providers: z.array(z.string()).optional(),
-      model: ModelId.optional(),
-      small_model: ModelId.optional(),
-      default_agent: z.string().optional(),
-      username: z.string().optional(),
-      mode: z.record(z.string(), Agent).optional(),
-      agent: z.record(z.string(), Agent).optional(),
-      provider: z.record(z.string(), Provider).optional(),
-      mcp: z
-        .record(
-          z.string(),
-          z.union([
-            Mcp,
-            z
-              .object({
-                enabled: z.boolean(),
-              })
-              .strict(),
-          ]),
-        )
-        .optional(),
-      formatter: z
-        .union([
-          z.literal(false),
-          z.record(
-            z.string(),
-            z.object({
-              disabled: z.boolean().optional(),
-              command: z.array(z.string()).optional(),
-              environment: z.record(z.string(), z.string()).optional(),
-              extensions: z.array(z.string()).optional(),
-            }),
-          ),
-        ])
-        .optional(),
-      lsp: z
-        .union([
-          z.literal(false),
-          z.record(
-            z.string(),
-            z.union([
-              z.object({
-                disabled: z.literal(true),
-              }),
-              z.object({
-                command: z.array(z.string()),
-                extensions: z.array(z.string()).optional(),
-                disabled: z.boolean().optional(),
-                env: z.record(z.string(), z.string()).optional(),
-                initialization: z.record(z.string(), z.any()).optional(),
-              }),
-            ]),
-          ),
-        ])
-        .optional(),
-      instructions: z.array(z.string()).optional(),
-      layout: z.enum(["auto", "stretch"]).optional(),
-      permission: Permission.optional(),
-      tools: z.record(z.string(), z.boolean()).optional(),
-      enterprise: z
-        .object({
-          url: z.string().optional(),
-        })
-        .optional(),
-      compaction: z
-        .object({
-          auto: z.boolean().optional(),
-          prune: z.boolean().optional(),
-          reserved: z.number().int().min(0).optional(),
-        })
-        .optional(),
-      experimental: z
-        .object({
-          disable_paste_summary: z.boolean().optional(),
-          batch_tool: z.boolean().optional(),
-          openTelemetry: z.boolean().optional(),
-          primary_tools: z.array(z.string()).optional(),
-          continue_loop_on_deny: z.boolean().optional(),
-          mcp_timeout: z.number().int().positive().optional(),
-        })
-        .optional(),
-    })
-    .strict()
-
-  export type Info = z.output<typeof Info>
+  export const Info = ConfigSchema.Info
+  export type Info = ConfigSchema.Info
 
   function merge(target: Info, source: Info): Info {
-    const merged = mergeDeep(target, source)
-    if (target.plugin && source.plugin) {
-      merged.plugin = Array.from(new Set([...target.plugin, ...source.plugin]))
-    }
-    if (target.instructions && source.instructions) {
-      merged.instructions = Array.from(new Set([...target.instructions, ...source.instructions]))
-    }
-    return merged
-  }
-
-  export function getPluginName(plugin: string): string {
-    if (plugin.startsWith("file://")) {
-      return path.parse(new URL(plugin).pathname).name
-    }
-    const lastAt = plugin.lastIndexOf("@")
-    if (lastAt > 0) return plugin.substring(0, lastAt)
-    return plugin
-  }
-
-  export function deduplicatePlugins(plugins: string[]) {
-    const seen = new Set<string>()
-    const uniqueSpecifiers: string[] = []
-
-    for (const specifier of plugins.toReversed()) {
-      const name = getPluginName(specifier)
-      if (seen.has(name)) continue
-      seen.add(name)
-      uniqueSpecifiers.push(specifier)
-    }
-
-    return uniqueSpecifiers.toReversed()
-  }
-
-  function errorDetails(text: string, errors: JsoncParseError[]) {
-    const lines = text.split("\n")
-    return errors
-      .map((item) => {
-        const beforeOffset = text.substring(0, item.offset).split("\n")
-        const line = beforeOffset.length
-        const column = beforeOffset[beforeOffset.length - 1].length + 1
-        const problemLine = lines[line - 1]
-        const error = `${printParseErrorCode(item.error)} at line ${line}, column ${column}`
-
-        if (!problemLine) return error
-        return `${error}\n   Line ${line}: ${problemLine}\n${"".padStart(column + 9)}^`
-      })
-      .join("\n")
-  }
-
-  async function loadFile(filepath: string): Promise<Info> {
-    const text = await fsp.readFile(filepath, "utf8").catch((err: unknown) => {
-      const maybe = err as { code?: string }
-      if (maybe.code === "ENOENT") return undefined
-      throw new JsonError({ path: filepath }, { cause: err })
-    })
-
-    if (!text) return {}
-    return load(text, { path: filepath })
-  }
-
-  async function load(text: string, options: { path: string } | { dir: string; source: string }) {
-    const original = text
-    const configDir = "path" in options ? path.dirname(options.path) : options.dir
-    const source = "path" in options ? options.path : options.source
-    const isFile = "path" in options
-
-    text = text.replace(/\{env:([^}]+)\}/g, (_, varName: string) => process.env[varName] ?? "")
-
-    const fileMatches = text.match(/\{file:[^}]+\}/g)
-    if (fileMatches) {
-      const lines = text.split("\n")
-
-      for (const match of fileMatches) {
-        const lineIndex = lines.findIndex((line) => line.includes(match))
-        if (lineIndex !== -1 && lines[lineIndex].trim().startsWith("//")) continue
-
-        let filePath = match.replace(/^\{file:/, "").replace(/\}$/, "")
-        if (filePath.startsWith("~/")) {
-          filePath = path.join(os.homedir(), filePath.slice(2))
-        }
-
-        const resolvedPath = path.isAbsolute(filePath) ? filePath : path.resolve(configDir, filePath)
-        const content = await fsp.readFile(resolvedPath, "utf8").catch((error: unknown) => {
-          const err = error as { code?: string }
-          const base = `bad file reference: \"${match}\"`
-          if (err.code === "ENOENT") {
-            throw new InvalidError(
-              { path: source, message: `${base} ${resolvedPath} does not exist` },
-              { cause: error },
-            )
-          }
-          throw new InvalidError({ path: source, message: base }, { cause: error })
-        })
-
-        text = text.replace(match, () => JSON.stringify(content.trim()).slice(1, -1))
-      }
-    }
-
-    const errors: JsoncParseError[] = []
-    const data = parseJsonc(text, errors, { allowTrailingComma: true })
-    if (errors.length > 0) {
-      throw new JsonError({
-        path: source,
-        message: `\n--- JSONC Input ---\n${text}\n--- Errors ---\n${errorDetails(text, errors)}\n--- End ---`,
-      })
-    }
-
-    const parsed = Info.safeParse(data)
-    if (!parsed.success) {
-      throw new InvalidError({ path: source, issues: parsed.error.issues }, { cause: parsed.error })
-    }
-
-    const output = parsed.data
-
-    if (!output.$schema && isFile) {
-      output.$schema = "https://buddy/config.json"
-      const updated = original.replace(/^\s*\{/, '{\n  "$schema": "https://buddy/config.json",')
-      await fsp.writeFile(options.path, updated, "utf8").catch(() => undefined)
-    }
-
-    if (output.plugin && isFile) {
-      output.plugin = output.plugin.map((plugin) => {
-        if (plugin.startsWith("file://")) return plugin
-        if (plugin.startsWith(".") || plugin.startsWith("/")) {
-          const resolved = path.isAbsolute(plugin) ? plugin : path.resolve(path.dirname(options.path), plugin)
-          return pathToFileURL(resolved).href
-        }
-        return plugin
-      })
-    }
-
-    return output
+    return mergeDeep(target, source)
   }
 
   let globalPromise: Promise<Info> | undefined
 
-  export const global = async () => {
+  const global = async () => {
     if (!globalPromise) {
       globalPromise = (async () => {
-        return loadFile(globalConfigFile())
+        return loadConfigFile(globalConfigFile())
       })()
     }
     return globalPromise
@@ -552,28 +73,27 @@ export namespace Config {
     return jsonc
   }
 
-  async function loadProjectState(directory: string) {
+  async function loadProjectState(directory: string): Promise<Info> {
     const context = await projectConfigContext(directory)
     let result: Info = {}
 
     result = merge(result, await global())
 
     if (Flag.BUDDY_CONFIG) {
-      result = merge(result, await loadFile(Flag.BUDDY_CONFIG))
+      result = merge(result, await loadConfigFile(Flag.BUDDY_CONFIG))
     }
 
     if (!Flag.BUDDY_DISABLE_PROJECT_CONFIG) {
-      result = merge(result, await loadFile(projectConfigFile(context.configDirectory)))
+      result = merge(result, await loadConfigFile(projectConfigFile(context.configDirectory)))
     }
 
     result.agent = result.agent || {}
     result.mode = result.mode || {}
-    result.plugin = result.plugin || []
 
     if (Flag.BUDDY_CONFIG_CONTENT) {
       result = merge(
         result,
-        await load(Flag.BUDDY_CONFIG_CONTENT, {
+        await loadConfigText(Flag.BUDDY_CONFIG_CONTENT, {
           dir: context.directory,
           source: "BUDDY_CONFIG_CONTENT",
         }),
@@ -614,38 +134,11 @@ export namespace Config {
       result.permission = mergeDeep(perms, result.permission ?? {})
     }
 
-    if (!result.username) {
-      result.username = os.userInfo().username
-    }
-
-    if (result.autoshare === true && !result.share) {
-      result.share = "auto"
-    }
-
-    if (Flag.BUDDY_DISABLE_AUTOCOMPACT) {
-      result.compaction = {
-        ...result.compaction,
-        auto: false,
-      }
-    }
-
-    if (Flag.BUDDY_DISABLE_PRUNE) {
-      result.compaction = {
-        ...result.compaction,
-        prune: false,
-      }
-    }
-
-    result.plugin = deduplicatePlugins(result.plugin ?? [])
-
-    return {
-      config: result,
-      directories: [context.configDirectory],
-    }
+    return result
   }
 
   export async function getProject(directory: string) {
-    return loadProjectState(directory).then((value) => value.config)
+    return loadProjectState(directory)
   }
 
   export async function getGlobal() {
@@ -660,41 +153,6 @@ export namespace Config {
     return candidates[0]
   }
 
-  function parseConfig(text: string, filepath: string): Info {
-    const errors: JsoncParseError[] = []
-    const data = parseJsonc(text, errors, { allowTrailingComma: true })
-    if (errors.length) {
-      throw new JsonError({
-        path: filepath,
-        message: `\n--- JSONC Input ---\n${text}\n--- Errors ---\n${errorDetails(text, errors)}\n--- End ---`,
-      })
-    }
-
-    const parsed = Info.safeParse(data)
-    if (!parsed.success) {
-      throw new InvalidError({ path: filepath, issues: parsed.error.issues }, { cause: parsed.error })
-    }
-
-    return parsed.data
-  }
-
-  function patchJsonc(input: string, patch: unknown, patchPath: string[] = []): string {
-    if (!isRecord(patch)) {
-      const edits = modify(input, patchPath, patch, {
-        formattingOptions: {
-          insertSpaces: true,
-          tabSize: 2,
-        },
-      })
-      return applyEdits(input, edits)
-    }
-
-    return Object.entries(patch).reduce((result, [key, value]) => {
-      if (value === undefined) return result
-      return patchJsonc(result, value, [...patchPath, key])
-    }, input)
-  }
-
   export async function updateProject(directory: string, config: Info) {
     const { configDirectory } = await projectConfigContext(directory)
     const filepath = projectConfigFile(configDirectory)
@@ -707,12 +165,12 @@ export namespace Config {
     })
 
     if (!filepath.endsWith(".jsonc")) {
-      const existing = parseConfig(before, filepath)
+      const existing = parseConfigText(before, filepath)
       const merged = mergeDeep(existing, config)
       await fsp.writeFile(filepath, JSON.stringify(merged, null, 2) + "\n", "utf8")
     } else {
-      const updated = patchJsonc(before, config)
-      parseConfig(updated, filepath)
+      const updated = patchJsoncDocument(before, config)
+      parseConfigText(updated, filepath)
       await fsp.writeFile(filepath, updated, "utf8")
     }
   }
@@ -729,7 +187,7 @@ export namespace Config {
     })
 
     if (!filepath.endsWith(".jsonc")) {
-      const existing = parseConfig(before, filepath)
+      const existing = parseConfigText(before, filepath)
       const next = Info.parse({
         ...existing,
         mcp: {
@@ -739,14 +197,12 @@ export namespace Config {
       })
       await fsp.writeFile(filepath, JSON.stringify(next, null, 2) + "\n", "utf8")
     } else {
-      const edits = modify(before, ["mcp", name], mcp, {
-        formattingOptions: {
-          insertSpaces: true,
-          tabSize: 2,
+      const updated = patchJsoncDocument(before, {
+        mcp: {
+          [name]: mcp,
         },
       })
-      const updated = applyEdits(before, edits)
-      parseConfig(updated, filepath)
+      parseConfigText(updated, filepath)
       await fsp.writeFile(filepath, updated, "utf8")
     }
   }
@@ -763,14 +219,14 @@ export namespace Config {
 
     const next = await (async () => {
       if (!filepath.endsWith(".jsonc")) {
-        const existing = parseConfig(before, filepath)
+        const existing = parseConfigText(before, filepath)
         const merged = mergeDeep(existing, config)
         await fsp.writeFile(filepath, JSON.stringify(merged, null, 2) + "\n", "utf8")
         return merged
       }
 
-      const updated = patchJsonc(before, config)
-      const merged = parseConfig(updated, filepath)
+      const updated = patchJsoncDocument(before, config)
+      const merged = parseConfigText(updated, filepath)
       await fsp.writeFile(filepath, updated, "utf8")
       return merged
     })()
@@ -778,20 +234,6 @@ export namespace Config {
     resetGlobal()
 
     await OpenCodeInstance.disposeAll()
-    GlobalBus.emit("event", {
-      directory: "global",
-      payload: {
-        type: "global.disposed",
-        properties: {},
-      },
-    })
-    GlobalBus.emit("event", {
-      directory: "global",
-      payload: {
-        type: "global.config.updated",
-        properties: {},
-      },
-    })
 
     return next
   }
