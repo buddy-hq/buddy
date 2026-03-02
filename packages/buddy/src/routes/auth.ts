@@ -6,8 +6,8 @@ import {
   DirectoryQuery,
   ErrorSchema,
   ProviderIDPath,
-} from "../openapi/compatibility-doc.js"
-import { compatibilityRoute } from "../openapi/route-doc.js"
+} from "../openapi/compatibility-schemas.js"
+import { compatibilityRoute } from "../openapi/compatibility-route.js"
 import { proxyToOpenCode } from "./support.js"
 
 const directoryParameters = [DirectoryHeader, DirectoryQuery]

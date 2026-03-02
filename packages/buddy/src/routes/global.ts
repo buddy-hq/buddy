@@ -1,8 +1,8 @@
 import { Hono } from "hono"
 import { configErrorMessage, isConfigValidationError } from "../config/compatibility.js"
 import { Config } from "../config/config.js"
-import { AnyObjectSchema, ErrorSchema } from "../openapi/compatibility-doc.js"
-import { compatibilityRoute } from "../openapi/route-doc.js"
+import { AnyObjectSchema, ErrorSchema } from "../openapi/compatibility-schemas.js"
+import { compatibilityRoute } from "../openapi/compatibility-route.js"
 import { proxyToOpenCode } from "./support.js"
 
 export const GlobalRoutes = (): Hono =>

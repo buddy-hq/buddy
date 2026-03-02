@@ -1,9 +1,9 @@
 import type { Context } from "hono"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { ensureCurriculumToolsRegistered } from "../opencode/curriculum-tools.js"
-import { loadOpenCodeApp } from "../opencode/runtime.js"
+import { ensureCurriculumToolsRegistered } from "../learning/curriculum/tools.js"
+import { ensureTeachingToolsRegistered } from "../learning/teaching/tools.js"
+import { loadOpenCodeApp } from "../opencode-runtime/runtime.js"
 import { allowedDirectoryRoots, isAllowedDirectory, resolveDirectory } from "../project/directory.js"
-import { ensureTeachingToolsRegistered } from "../teaching/teaching-tools.js"
 
 export type AllowedDirectoryResult =
   | {

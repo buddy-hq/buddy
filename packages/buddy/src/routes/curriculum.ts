@@ -1,7 +1,7 @@
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
-import { CurriculumService } from "../curriculum/curriculum-service.js"
+import { CurriculumService } from "../learning/curriculum/service.js"
 import { resolveDirectory } from "../project/directory.js"
 
 const CurriculumDocument = z.object({

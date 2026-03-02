@@ -5,13 +5,13 @@ import {
   TeachingRevisionConflictError,
   TeachingService,
   TeachingWorkspaceNotFoundError,
-} from "../teaching/teaching-service.js"
+} from "../learning/teaching/service.js"
 import {
   TeachingWorkspaceActivateFileRequestSchema,
   TeachingWorkspaceCreateFileRequestSchema,
   TeachingLanguageSchema,
   TeachingWorkspaceUpdateRequestSchema,
-} from "../teaching/types.js"
+} from "../learning/teaching/types.js"
 import { isJsonContentType } from "./support.js"
 import type { EnsureAllowedDirectory } from "./support.js"
 

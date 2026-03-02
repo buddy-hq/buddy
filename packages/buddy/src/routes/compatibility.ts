@@ -1,7 +1,7 @@
 import { Hono } from "hono"
 import { syncOpenCodeProjectConfig } from "../config/compatibility.js"
-import { AnyObjectSchema, DirectoryHeader, DirectoryQuery, ErrorSchema } from "../openapi/compatibility-doc.js"
-import { compatibilityRoute } from "../openapi/route-doc.js"
+import { AnyObjectSchema, DirectoryHeader, DirectoryQuery, ErrorSchema } from "../openapi/compatibility-schemas.js"
+import { compatibilityRoute } from "../openapi/compatibility-route.js"
 import { ensureAllowedDirectory, proxyToOpenCode } from "./support.js"
 
 const directoryParameters = [DirectoryHeader, DirectoryQuery]

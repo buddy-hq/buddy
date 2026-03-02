@@ -7,8 +7,8 @@ import {
   ProjectIDPath,
   ProjectInfoSchema,
   ProjectUpdateSchema,
-} from "../openapi/compatibility-doc.js"
-import { compatibilityRoute } from "../openapi/route-doc.js"
+} from "../openapi/compatibility-schemas.js"
+import { compatibilityRoute } from "../openapi/compatibility-route.js"
 import { isAllowedDirectory, resolveDirectory } from "../project/directory.js"
 import { proxyToOpenCode } from "./support.js"
 

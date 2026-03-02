@@ -7,8 +7,8 @@ import {
   DirectoryQuery,
   ErrorSchema,
   McpNamePath,
-} from "../openapi/compatibility-doc.js"
-import { compatibilityRoute } from "../openapi/route-doc.js"
+} from "../openapi/compatibility-schemas.js"
+import { compatibilityRoute } from "../openapi/compatibility-route.js"
 import { ensureAllowedDirectory, proxyToOpenCode } from "./support.js"
 
 const directoryParameters = [DirectoryHeader, DirectoryQuery]

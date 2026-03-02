@@ -15,10 +15,10 @@ import {
   MessageWithPartsSchema,
   SessionIDPath,
   SessionInfoSchema,
-} from "../openapi/compatibility-doc.js"
-import { compatibilityRoute } from "../openapi/route-doc.js"
-import { buildBuddySystemPrompt } from "../session/buddy-system-prompt.js"
-import { TeachingPromptContextSchema } from "../teaching/types.js"
+} from "../openapi/compatibility-schemas.js"
+import { compatibilityRoute } from "../openapi/compatibility-route.js"
+import { composeLearningSystemPrompt } from "../learning/shared/compose-system-prompt.js"
+import { TeachingPromptContextSchema } from "../learning/teaching/types.js"
 import {
   ensureAllowedDirectory,
   fetchOpenCode,
@@ -305,7 +305,7 @@ export const SessionRoutes = (): Hono =>
               parts,
             }
             const existingSystem = typeof body.system === "string" ? body.system.trim() : ""
-            const buddySystem = await buildBuddySystemPrompt({
+            const buddySystem = await composeLearningSystemPrompt({
               directory: directoryResult.directory,
               agentName,
               teachingContext,
