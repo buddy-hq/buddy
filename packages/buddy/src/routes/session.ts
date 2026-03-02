@@ -1,6 +1,6 @@
 import { Hono } from "hono"
 import {
-  buildAgentOverlay,
+  mergeBuddyAndConfiguredAgents,
   parseConfiguredModel,
   readProjectConfig,
   resolveConfiguredAgentKey,
@@ -287,7 +287,7 @@ export const SessionRoutes = (): Hono =>
             const projectConfig = await readProjectConfig(directoryResult.directory)
             const agentName =
               typeof body.agent === "string"
-                ? resolveConfiguredAgentKey(body.agent, buildAgentOverlay(projectConfig.agent ?? {}))
+                ? resolveConfiguredAgentKey(body.agent, mergeBuddyAndConfiguredAgents(projectConfig.agent ?? {}))
                 : undefined
             if (content.trim().length > 0) {
               parts.unshift({
@@ -399,7 +399,10 @@ export const SessionRoutes = (): Hono =>
             }
 
             const projectConfig = await readProjectConfig(directoryResult.directory)
-            const agentName = resolveConfiguredAgentKey(body.agent, buildAgentOverlay(projectConfig.agent ?? {}))
+            const agentName = resolveConfiguredAgentKey(
+              body.agent,
+              mergeBuddyAndConfiguredAgents(projectConfig.agent ?? {}),
+            )
 
             if (agentName === body.agent) {
               return body
