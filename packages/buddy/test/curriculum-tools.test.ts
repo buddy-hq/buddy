@@ -3,7 +3,7 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { ensureCurriculumToolsRegistered } from "../src/learning/curriculum/tools.js"
+import { ensureCurriculumToolsRegistered } from "../src/learning/curriculum/tools/register.js"
 import { tmpdir } from "./fixture/fixture"
 
 function createToolContext() {
