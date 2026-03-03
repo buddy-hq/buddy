@@ -2,7 +2,7 @@
 
 > Licensed under the O’Saasy License (see LICENSE).
 
-Buddy is a persistent AI learning companion built for people who learn constantly and are tired of losing context between sessions.
+Buddy is an AI learning companion built for people who learn constantly and are tired of losing context between sessions.
 
 ## Constitution
 
@@ -16,11 +16,11 @@ All core code is open source.
 
 ### Free
 
-The app is free for anyone to use.
+The app is free for anyone to use. You can bring your own subscriptions and API keys.
 
 ### Flexible
 
-Bring your own subscriptions and API keys.
+Buddy is made for anyone who wants to learn anything. You can be a student preparing for your exams or an adult exploring a curiosity.
 
 ### Extensible
 
