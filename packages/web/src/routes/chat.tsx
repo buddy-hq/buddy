@@ -75,6 +75,17 @@ function ChatEntryPage() {
         <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Buddy</p>
         <h1 className="text-3xl font-semibold">Open project</h1>
         <p className="text-sm text-muted-foreground">OpenCode-style project and session workflow for Buddy.</p>
+        <div className="pt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              navigate({ to: "/skills" })
+            }}
+          >
+            Manage skills
+          </Button>
+        </div>
       </div>
 
       {hasNativePicker ? (

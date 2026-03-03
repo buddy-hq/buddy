@@ -569,6 +569,22 @@ export async function loadCurriculum(directory: string) {
   return payload.markdown
 }
 
+export async function loadGoalsInspector(directory: string) {
+  const response = await apiFetch("/api/goals", {
+    directory,
+  })
+
+  if (!response.ok) {
+    const result = (await response.json().catch(() => undefined)) as { error?: string; message?: string } | undefined
+    throw new Error(result?.error ?? result?.message ?? `Request failed (${response.status})`)
+  }
+
+  return (await response.json()) as {
+    path: string
+    raw: string | null
+  }
+}
+
 export async function saveCurriculum(directory: string, markdown: string) {
   const response = await apiFetch("/api/curriculum", {
     method: "PUT",

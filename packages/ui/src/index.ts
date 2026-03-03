@@ -43,9 +43,11 @@ export { NativeSelect, NativeSelectOptGroup, NativeSelectOption } from "./compon
 export { Separator } from "./components/ui/separator";
 export { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "./components/ui/select";
 export { Switch } from "./components/ui/switch";
+export { Toaster } from "./components/ui/sonner";
 export { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 export { Textarea } from "./components/ui/textarea";
 export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./components/ui/tooltip";
+export { ThemeProvider } from "next-themes";
 export {
   ArchiveIcon,
   ArrowUpIcon,
@@ -72,3 +74,4 @@ export {
   XIcon,
 } from "lucide-react";
 export { cn } from "./lib/utils";
+export { toast } from "sonner";

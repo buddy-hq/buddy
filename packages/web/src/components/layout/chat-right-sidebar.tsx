@@ -2,7 +2,7 @@ import type { CSSProperties, ReactNode } from "react"
 import { useEffect, useState } from "react"
 import { Button, Textarea } from "@buddy/ui"
 import { Markdown } from "@/components/Markdown"
-import { loadCurriculum, saveCurriculum } from "@/state/chat-actions"
+import { loadCurriculum, loadGoalsInspector, saveCurriculum } from "@/state/chat-actions"
 import { XIcon } from "./sidebar-icons"
 
 type ChatRightSidebarProps = {
@@ -27,6 +27,10 @@ function stringifyError(error: unknown) {
 }
 
 export function ChatRightSidebar(props: ChatRightSidebarProps) {
+  const [goalsLoading, setGoalsLoading] = useState(false)
+  const [goalsError, setGoalsError] = useState<string | undefined>(undefined)
+  const [goalsPath, setGoalsPath] = useState(".buddy/goals.v1.json")
+  const [goalsRaw, setGoalsRaw] = useState<string | null>(null)
   const [curriculumLoading, setCurriculumLoading] = useState(false)
   const [curriculumSaving, setCurriculumSaving] = useState(false)
   const [curriculumError, setCurriculumError] = useState<string | undefined>(undefined)
@@ -36,45 +40,53 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
 
   const activeTab = props.activeTab === "editor" && props.showEditorTab ? "editor" : "curriculum"
 
+  async function loadSidebarData(isDisposed?: () => boolean) {
+    const disposed = isDisposed ?? (() => false)
+
+    if (!disposed()) {
+      setGoalsLoading(true)
+      setGoalsError(undefined)
+      setCurriculumLoading(true)
+      setCurriculumError(undefined)
+    }
+
+    const [goalsResult, curriculumResult] = await Promise.allSettled([
+      loadGoalsInspector(props.directory),
+      loadCurriculum(props.directory),
+    ])
+
+    if (disposed()) return
+
+    if (goalsResult.status === "fulfilled") {
+      setGoalsPath(goalsResult.value.path)
+      setGoalsRaw(goalsResult.value.raw)
+    } else {
+      setGoalsError(stringifyError(goalsResult.reason))
+    }
+    setGoalsLoading(false)
+
+    if (curriculumResult.status === "fulfilled") {
+      setCurriculumMarkdown(curriculumResult.value)
+      setCurriculumDraft(curriculumResult.value)
+    } else {
+      setCurriculumError(stringifyError(curriculumResult.reason))
+    }
+    setCurriculumLoading(false)
+  }
+
   useEffect(() => {
     if (activeTab !== "curriculum") return
 
     let disposed = false
-    setCurriculumLoading(true)
-    setCurriculumError(undefined)
-
-    loadCurriculum(props.directory)
-      .then((markdown) => {
-        if (disposed) return
-        setCurriculumMarkdown(markdown)
-        setCurriculumDraft(markdown)
-      })
-      .catch((error) => {
-        if (disposed) return
-        setCurriculumError(stringifyError(error))
-      })
-      .finally(() => {
-        if (disposed) return
-        setCurriculumLoading(false)
-      })
+    void loadSidebarData(() => disposed)
 
     return () => {
       disposed = true
     }
   }, [activeTab, props.directory])
 
-  async function onReloadCurriculum() {
-    setCurriculumLoading(true)
-    setCurriculumError(undefined)
-    try {
-      const markdown = await loadCurriculum(props.directory)
-      setCurriculumMarkdown(markdown)
-      setCurriculumDraft(markdown)
-    } catch (error) {
-      setCurriculumError(stringifyError(error))
-    } finally {
-      setCurriculumLoading(false)
-    }
+  async function onReloadSidebar() {
+    await loadSidebarData()
   }
 
   async function onSaveCurriculum() {
@@ -131,13 +143,31 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
         </div>
       ) : (
         <div className="flex-1 min-h-0 p-3 flex flex-col">
+          <div className="mb-3 rounded-lg border border-border/70 bg-background">
+            <div className="border-b border-border/70 px-3 py-2">
+              <p className="text-xs font-medium">Goals Inspector</p>
+              <p className="text-[11px] text-muted-foreground" title={goalsPath}>
+                .buddy/goals.v1.json
+              </p>
+            </div>
+            <div className="max-h-64 overflow-y-auto p-3">
+              {goalsLoading ? (
+                <div className="text-sm text-muted-foreground">Loading goals...</div>
+              ) : goalsRaw ? (
+                <pre className="whitespace-pre-wrap break-all font-mono text-xs text-foreground">{goalsRaw}</pre>
+              ) : (
+                <p className="text-sm text-muted-foreground">No goals found for this notebook yet.</p>
+              )}
+            </div>
+          </div>
+
           <div className="mb-2 flex items-center justify-between gap-2">
             <p className="text-xs text-muted-foreground">curriculum.md</p>
             <div className="flex items-center gap-1">
               <Button variant="ghost" size="sm" onClick={() => setCurriculumEditing((value) => !value)}>
                 {curriculumEditing ? "Preview" : "Edit"}
               </Button>
-              <Button variant="ghost" size="sm" onClick={() => void onReloadCurriculum()}>
+              <Button variant="ghost" size="sm" onClick={() => void onReloadSidebar()}>
                 Refresh
               </Button>
               {curriculumEditing ? (
@@ -169,6 +199,11 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
           {curriculumError ? (
             <p className="mt-2 rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1.5 text-xs text-destructive">
               {curriculumError}
+            </p>
+          ) : null}
+          {goalsError ? (
+            <p className="mt-2 rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1.5 text-xs text-destructive">
+              {goalsError}
             </p>
           ) : null}
         </div>

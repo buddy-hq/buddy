@@ -32,6 +32,7 @@ import {
   FolderPlusIcon,
   PencilIcon,
   PinIcon,
+  SparklesIcon,
   SlidersHorizontalIcon,
   SquarePenIcon,
   SettingsIcon,
@@ -53,7 +54,9 @@ type ChatLeftSidebarProps = {
   onArchiveSession: (directory: string, sessionID: string) => Promise<void>
   onRenameSession: (directory: string, sessionID: string, title: string) => Promise<void>
   onOpenCurriculum: () => void
+  onOpenSkills: () => void
   onOpenSettings: () => void
+  activeFooterItem?: "skills" | "settings"
   className?: string
   style?: CSSProperties
 }
@@ -501,7 +504,20 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
         <Button
           variant="ghost"
           size="sm"
-          className="h-9 w-full justify-start rounded-lg px-2 text-sm font-medium text-foreground hover:bg-[#121419] hover:text-foreground"
+          className={`mb-1 h-9 w-full justify-start rounded-lg px-2 text-sm font-medium text-foreground hover:bg-[#121419] hover:text-foreground ${
+            props.activeFooterItem === "skills" ? "bg-[#121419]" : ""
+          }`}
+          onClick={props.onOpenSkills}
+        >
+          <SparklesIcon className="size-3.5" />
+          Skills
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className={`h-9 w-full justify-start rounded-lg px-2 text-sm font-medium text-foreground hover:bg-[#121419] hover:text-foreground ${
+            props.activeFooterItem === "settings" ? "bg-[#121419]" : ""
+          }`}
           onClick={props.onOpenSettings}
         >
           <SettingsIcon className="size-3.5" />

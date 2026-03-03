@@ -1263,6 +1263,10 @@ function DirectoryChatPage() {
     setSettingsModalOpen(true)
   }
 
+  function openSkillsPage() {
+    navigate({ to: "/skills" })
+  }
+
   async function onSearchMentionFiles(query: string) {
     if (!decodedDirectory) return [] as Array<{ path: string }>
 
@@ -1497,6 +1501,7 @@ function DirectoryChatPage() {
               onArchiveSession={onArchiveSession}
               onRenameSession={onRenameSession}
               onOpenCurriculum={openCurriculumPanel}
+              onOpenSkills={openSkillsPage}
               onOpenSettings={openSettingsPanel}
               className="w-full h-full"
             />
