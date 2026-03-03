@@ -285,10 +285,16 @@ export const SessionRoutes = (): Hono =>
             const teachingContextResult = TeachingPromptContextSchema.safeParse(body.teaching)
             const teachingContext = teachingContextResult.success ? teachingContextResult.data : undefined
             const projectConfig = await readProjectConfig(directoryResult.directory)
-            const agentName =
+            const mergedAgents = mergeBuddyAndConfiguredAgents(projectConfig.agent ?? {})
+            const explicitAgentName =
               typeof body.agent === "string"
-                ? resolveConfiguredAgentKey(body.agent, mergeBuddyAndConfiguredAgents(projectConfig.agent ?? {}))
+                ? resolveConfiguredAgentKey(body.agent, mergedAgents)
                 : undefined
+            const configuredDefaultAgentName =
+              typeof projectConfig.default_agent === "string"
+                ? resolveConfiguredAgentKey(projectConfig.default_agent, mergedAgents)
+                : undefined
+            const agentName = explicitAgentName ?? configuredDefaultAgentName
             if (content.trim().length > 0) {
               parts.unshift({
                 type: "text",
@@ -329,9 +335,8 @@ export const SessionRoutes = (): Hono =>
           },
           forceBusyAs409: true,
           registerCurriculumTools: true,
-          registerTeachingTools(body) {
-            return typeof body.agent === "string" && body.agent === "code-teacher"
-          },
+          registerGoalTools: true,
+          registerTeachingTools: true,
         }).catch((error) => {
           const message = String(error instanceof Error ? error.message : error)
           if (message.includes("content or parts must be provided")) {
@@ -414,6 +419,9 @@ export const SessionRoutes = (): Hono =>
             }
           },
           forceBusyAs409: true,
+          registerCurriculumTools: true,
+          registerGoalTools: true,
+          registerTeachingTools: true,
         })
       },
     )

@@ -8,12 +8,14 @@ import { AuthRoutes } from "./routes/auth.js"
 import { CompatibilityRoutes } from "./routes/compatibility.js"
 import { ConfigRoutes } from "./routes/config.js"
 import { CurriculumRoutes } from "./routes/curriculum.js"
+import { GoalsRoutes } from "./routes/goals.js"
 import { GlobalRoutes } from "./routes/global.js"
 import { McpRoutes } from "./routes/mcp.js"
 import { PermissionRoutes } from "./routes/permission.js"
 import { ProjectRoutes } from "./routes/project.js"
 import { ProviderRoutes } from "./routes/provider.js"
 import { SessionRoutes } from "./routes/session.js"
+import { SkillsRoutes } from "./routes/skills.js"
 import { ensureAllowedDirectory } from "./routes/support.js"
 import { TeachingRoutes } from "./routes/teaching.js"
 
@@ -53,6 +55,7 @@ api.use("*", async (c, next) => {
 })
 
 api.route("/curriculum", CurriculumRoutes())
+api.route("/goals", GoalsRoutes())
 api.route("/teaching", TeachingRoutes({ ensureAllowedDirectory }))
 api.route("/", CompatibilityRoutes())
 api.route("/project", ProjectRoutes())
@@ -63,6 +66,7 @@ api.route("/mcp", McpRoutes())
 api.route("/config", ConfigRoutes())
 api.route("/permission", PermissionRoutes())
 api.route("/session", SessionRoutes())
+api.route("/skills", SkillsRoutes())
 
 app.use(logger())
 app.use(cors({ origin: "*" }))

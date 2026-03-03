@@ -1,6 +1,7 @@
 import type { Context } from "hono"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ensureCurriculumToolsRegistered } from "../learning/curriculum/tools/register.js"
+import { ensureGoalToolsRegistered } from "../learning/goals/tools/register.js"
 import { ensureTeachingToolsRegistered } from "../learning/teaching/tools/register.js"
 import { loadOpenCodeApp } from "../opencode-runtime/runtime.js"
 import { allowedDirectoryRoots, isAllowedDirectory, resolveDirectory } from "../project/directory.js"
@@ -24,6 +25,7 @@ export type ProxyToOpenCodeInput = {
   ) => Record<string, unknown> | Promise<Record<string, unknown>>
   forceBusyAs409?: boolean
   registerCurriculumTools?: boolean | ((body: Record<string, unknown>) => boolean)
+  registerGoalTools?: boolean | ((body: Record<string, unknown>) => boolean)
   registerTeachingTools?: boolean | ((body: Record<string, unknown>) => boolean)
 }
 
@@ -35,6 +37,7 @@ type FetchOpenCodeInput = {
   headers?: Headers
   body?: BodyInit
   registerCurriculumTools?: boolean
+  registerGoalTools?: boolean
   registerTeachingTools?: boolean
 }
 
@@ -132,6 +135,14 @@ export async function fetchOpenCode(input: FetchOpenCodeInput): Promise<Response
     )
   }
 
+  if (input.registerGoalTools === true) {
+    registrations.push(
+      ensureGoalToolsRegistered(input.directory).catch((error) => {
+        console.warn("Failed to register Buddy goal tools into OpenCode runtime:", error)
+      }),
+    )
+  }
+
   if (input.registerTeachingTools === true) {
     registrations.push(
       ensureTeachingToolsRegistered(input.directory).catch((error) => {
@@ -174,6 +185,7 @@ export async function proxyToOpenCode(c: Context, input: ProxyToOpenCodeInput): 
   const headers = new Headers(c.req.raw.headers)
   let body: BodyInit | undefined
   let registerCurriculumTools = typeof input.registerCurriculumTools === "boolean" ? input.registerCurriculumTools : false
+  let registerGoalTools = typeof input.registerGoalTools === "boolean" ? input.registerGoalTools : false
   let registerTeachingTools = typeof input.registerTeachingTools === "boolean" ? input.registerTeachingTools : false
 
   if (method !== "GET" && method !== "HEAD") {
@@ -185,6 +197,9 @@ export async function proxyToOpenCode(c: Context, input: ProxyToOpenCodeInput): 
         const transformed = await input.transformJsonBody(parsed)
         if (typeof input.registerCurriculumTools === "function") {
           registerCurriculumTools = input.registerCurriculumTools(transformed)
+        }
+        if (typeof input.registerGoalTools === "function") {
+          registerGoalTools = input.registerGoalTools(transformed)
         }
         if (typeof input.registerTeachingTools === "function") {
           registerTeachingTools = input.registerTeachingTools(transformed)
@@ -199,14 +214,21 @@ export async function proxyToOpenCode(c: Context, input: ProxyToOpenCodeInput): 
     }
   }
 
+  const proxyParams = new URLSearchParams(sourceURL.searchParams)
+  if (proxyParams.has("directory")) {
+    proxyParams.set("directory", directoryResult.directory)
+  }
+  const proxyQuery = proxyParams.toString()
+
   const response = await fetchOpenCode({
     directory: directoryResult.directory,
     method,
     path: input.targetPath,
-    query: sourceURL.search,
+    query: proxyQuery ? `?${proxyQuery}` : "",
     headers,
     body,
     registerCurriculumTools,
+    registerGoalTools,
     registerTeachingTools,
   })
 
