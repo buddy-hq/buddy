@@ -156,7 +156,12 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
               ) : goalsRaw ? (
                 <pre className="whitespace-pre-wrap break-all font-mono text-xs text-foreground">{goalsRaw}</pre>
               ) : (
-                <p className="text-sm text-muted-foreground">No goals found for this notebook yet.</p>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">No goals yet for this notebook.</p>
+                  <p className="text-xs text-muted-foreground">
+                    Goals help Buddy track what you want to learn. Ask Buddy to create a study plan to get started.
+                  </p>
+                </div>
               )}
             </div>
           </div>
@@ -191,7 +196,12 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
               {curriculumMarkdown.trim().length > 0 ? (
                 <Markdown text={curriculumMarkdown} />
               ) : (
-                <p className="text-sm text-muted-foreground">No curriculum found for this notebook yet.</p>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">No curriculum yet for this notebook.</p>
+                  <p className="text-xs text-muted-foreground">
+                    A curriculum gives Buddy a structured learning path. Ask Buddy to create one for this notebook.
+                  </p>
+                </div>
               )}
             </div>
           )}

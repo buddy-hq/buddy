@@ -67,6 +67,12 @@ type RenameState = {
   title: string
 }
 
+type ArchiveState = {
+  directory: string
+  sessionID: string
+  title: string
+}
+
 type OrganizeMode = "project" | "chronological"
 type SortMode = "created" | "updated"
 type ShowMode = "all" | "relevant"
@@ -117,7 +123,37 @@ function findRootSessionID(allSessions: SessionInfo[], activeSessionID?: string)
   return current?.id
 }
 
+function threadStatusLabel(status: "busy" | "unread" | "idle") {
+  switch (status) {
+    case "busy":
+      return "Live"
+    case "unread":
+      return "Unread"
+    default:
+      return "Up to date"
+  }
+}
+
+function ThreadStatusIndicator(props: { status: "busy" | "unread" | "idle" }) {
+  if (props.status === "busy") {
+    return (
+      <span className="relative inline-flex size-2.5 shrink-0 items-center justify-center" aria-hidden="true">
+        <span className="absolute inset-0 rounded-full border border-amber-400/70" />
+        <span className="size-1 rounded-full bg-amber-500 animate-pulse" />
+      </span>
+    )
+  }
+
+  if (props.status === "unread") {
+    return <span className="inline-block size-2 shrink-0 rotate-45 rounded-[1px] bg-sky-500" aria-hidden="true" />
+  }
+
+  return <span className="inline-block size-1.5 shrink-0 rounded-full bg-emerald-500" aria-hidden="true" />
+}
+
 export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
+  const [archiveState, setArchiveState] = useState<ArchiveState | undefined>(undefined)
+  const [archiveSaving, setArchiveSaving] = useState(false)
   const [renameState, setRenameState] = useState<RenameState | undefined>(undefined)
   const [renameSaving, setRenameSaving] = useState(false)
   const [expandedDirectories, setExpandedDirectories] = useState<Record<string, true>>({})
@@ -138,6 +174,18 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
       setRenameState(undefined)
     } finally {
       setRenameSaving(false)
+    }
+  }
+
+  async function submitArchive() {
+    if (!archiveState) return
+
+    setArchiveSaving(true)
+    try {
+      await props.onArchiveSession(archiveState.directory, archiveState.sessionID)
+      setArchiveState(undefined)
+    } finally {
+      setArchiveSaving(false)
     }
   }
 
@@ -348,7 +396,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
                       <DropdownMenuContent align="end" className="w-44">
                         <DropdownMenuItem onSelect={() => props.onSelectSession(group.directory)}>
                           <FolderIcon className="size-3.5 mr-2" />
-                          Open workspace
+                          Open notebook
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -380,6 +428,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
                     const busy = familyIDs.some((id) => sessionStatusByID[id] === "busy")
                     const pinned = familyIDs.some((id) => pinnedSet.has(id))
                     const unread = familyIDs.some((id) => !!unreadMap[id])
+                    const threadStatus = busy ? "busy" : unread ? "unread" : "idle"
 
                     return (
                       <div
@@ -394,11 +443,8 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
                           className="w-full px-3 py-2 text-left"
                         >
                           <div className="flex min-w-0 items-center gap-2 pr-8">
-                            <span
-                              className={`inline-block size-1.5 shrink-0 rounded-full ${
-                                busy ? "bg-amber-500" : unread ? "bg-sky-500" : "bg-emerald-500"
-                              }`}
-                            />
+                            <ThreadStatusIndicator status={threadStatus} />
+                            <span className="sr-only">{threadStatusLabel(threadStatus)}</span>
                             <div className="flex min-w-0 items-center gap-1">
                               <span
                                 className={`truncate text-xs ${
@@ -454,7 +500,11 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 onSelect={() => {
-                                  void props.onArchiveSession(group.directory, session.id)
+                                  setArchiveState({
+                                    directory: group.directory,
+                                    sessionID: session.id,
+                                    title: session.title || "Untitled thread",
+                                  })
                                 }}
                               >
                                 <ArchiveIcon className="size-3.5 mr-2" />
@@ -524,6 +574,32 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
           Settings
         </Button>
       </footer>
+
+      <Dialog
+        open={!!archiveState}
+        onOpenChange={(open) => {
+          if (!open && !archiveSaving) setArchiveState(undefined)
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Archive thread?</DialogTitle>
+            <DialogDescription>
+              {archiveState
+                ? `Archive "${archiveState.title}" and remove it from the active thread list?`
+                : "Archive this thread and remove it from the active thread list?"}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setArchiveState(undefined)} disabled={archiveSaving}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={() => void submitArchive()} disabled={archiveSaving}>
+              {archiveSaving ? "Archiving..." : "Archive"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={!!renameState}
