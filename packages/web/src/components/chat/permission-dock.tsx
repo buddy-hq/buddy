@@ -10,11 +10,11 @@ type PermissionDockProps = {
 }
 
 const TOOL_HINT: Record<string, string> = {
-  read: "Read files from your project.",
+  read: "Read files from your notebook.",
   list: "List files and directories.",
   glob: "Search files by glob pattern.",
   grep: "Search file contents by pattern.",
-  write: "Write or replace files in your project.",
+  write: "Write or replace files in your notebook.",
   edit: "Edit sections of files.",
   apply_patch: "Apply structured code patches.",
   bash: "Run shell commands.",

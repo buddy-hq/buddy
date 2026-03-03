@@ -244,7 +244,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
         </DialogHeader>
 
         {props.providers.length === 0 ? (
-          <p className="py-2 text-sm text-muted-foreground">No providers are available for this project.</p>
+          <p className="py-2 text-sm text-muted-foreground">No providers are available for this notebook.</p>
         ) : (
           <div className="min-w-0 space-y-4 py-2">
             <div className="space-y-1.5">
