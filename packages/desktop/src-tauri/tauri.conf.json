@@ -20,9 +20,11 @@
     "withGlobalTauri": true,
     "security": {
       "csp": null
-    }
+    },
+    "macOSPrivateApi": true
   },
   "bundle": {
+    "active": true,
     "icon": [
       "icons/dev/32x32.png",
       "icons/dev/128x128.png",
@@ -30,7 +32,18 @@
       "icons/dev/icon.icns",
       "icons/dev/icon.ico"
     ],
+    "targets": ["app", "dmg", "nsis"],
     "externalBin": ["sidecars/buddy-backend"],
-    "resources": ["resources/migrations"]
+    "resources": ["resources/migrations"],
+    "macOS": {
+      "entitlements": "./entitlements.plist"
+    },
+    "windows": {
+      "nsis": {
+        "installerIcon": "icons/dev/icon.ico",
+        "headerImage": "assets/nsis-header.bmp",
+        "sidebarImage": "assets/nsis-sidebar.bmp"
+      }
+    }
   }
 }

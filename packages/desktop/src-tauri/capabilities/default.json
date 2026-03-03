@@ -12,6 +12,7 @@
     "process:default",
     "shell:default",
     "store:default",
+    "updater:default",
     "window-state:default",
     {
       "identifier": "http:default",

@@ -4,6 +4,9 @@
   "workspaces": {
     "": {
       "name": "buddy",
+      "dependencies": {
+        "@buddy/script": "workspace:*",
+      },
       "devDependencies": {
         "@typescript/native-preview": "^7.0.0-dev.20260225.1",
         "prettier": "3.6.2",
@@ -78,6 +81,12 @@
       },
       "devDependencies": {
         "typescript": "^5.0.0",
+      },
+    },
+    "packages/script": {
+      "name": "@buddy/script",
+      "devDependencies": {
+        "@types/bun": "catalog:",
       },
     },
     "packages/sdk": {
@@ -572,6 +581,8 @@
     "@buddy/desktop": ["@buddy/desktop@workspace:packages/desktop"],
 
     "@buddy/opencode-adapter": ["@buddy/opencode-adapter@workspace:packages/opencode-adapter"],
+
+    "@buddy/script": ["@buddy/script@workspace:packages/script"],
 
     "@buddy/sdk": ["@buddy/sdk@workspace:packages/sdk"],
 
