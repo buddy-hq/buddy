@@ -103,7 +103,7 @@ const BUILTIN_SLASH_COMMANDS: SlashCommandOption[] = [
     type: "builtin",
     name: "new",
     title: "Start new thread",
-    description: "Create a fresh session in this project.",
+    description: "Create a fresh session in this notebook.",
   },
   {
     type: "builtin",
@@ -120,8 +120,8 @@ const BUILTIN_SLASH_COMMANDS: SlashCommandOption[] = [
   {
     type: "builtin",
     name: "mcp",
-    title: "Toggle MCPs",
-    description: "Open MCP server controls.",
+    title: "Open MCPs",
+    description: "Open MCP controls.",
   },
 ]
 
@@ -378,6 +378,7 @@ export function PromptComposer(props: PromptComposerProps) {
   const [slashIndex, setSlashIndex] = useState(0)
   const [dismissedSlashKey, setDismissedSlashKey] = useState<string | undefined>(undefined)
   const [searchMentionFiles, setSearchMentionFiles] = useState<MentionableFile[]>([])
+  const [searchingFiles, setSearchingFiles] = useState(false)
   const [recentMentionFiles, setRecentMentionFiles] = useState<MentionableFile[]>([])
   const [dragging, setDragging] = useState(false)
   const [modelMenuOpen, setModelMenuOpen] = useState(false)
@@ -423,6 +424,10 @@ export function PromptComposer(props: PromptComposerProps) {
     !!mentionMatch &&
     mentionOptions.length > 0 &&
     mentionKey !== dismissedMentionKey
+  const showMentionLoading =
+    !!mentionMatch &&
+    mentionKey !== dismissedMentionKey &&
+    searchingFiles
   const slashMatch = useMemo(
     () => getSlashMatch(props.value, cursorOffset),
     [props.value, cursorOffset],
@@ -531,24 +536,29 @@ export function PromptComposer(props: PromptComposerProps) {
   useEffect(() => {
     if (!mentionMatch || !props.onSearchFiles) {
       setSearchMentionFiles([])
+      setSearchingFiles(false)
       return
     }
 
     const query = mentionMatch.query.trim()
     if (!query) {
       setSearchMentionFiles([])
+      setSearchingFiles(false)
       return
     }
 
     let cancelled = false
+    setSearchingFiles(true)
     props.onSearchFiles(query)
       .then((files) => {
         if (cancelled) return
         setSearchMentionFiles(files)
+        setSearchingFiles(false)
       })
       .catch(() => {
         if (cancelled) return
         setSearchMentionFiles([])
+        setSearchingFiles(false)
       })
 
     return () => {
@@ -885,7 +895,7 @@ export function PromptComposer(props: PromptComposerProps) {
         }}
       >
         <div className="relative">
-          {slashVisible || mentionVisible ? (
+          {slashVisible || mentionVisible || showMentionLoading ? (
             <div className="absolute inset-x-2 bottom-16 z-20 max-h-80 overflow-y-auto rounded-xl border bg-popover/95 shadow-lg backdrop-blur">
               {slashVisible
                 ? slashOptions.map((command, index) => {
@@ -918,31 +928,38 @@ export function PromptComposer(props: PromptComposerProps) {
                       </button>
                     )
                   })
-                : mentionOptions.map((option, index) => {
-                    const active = index === mentionIndex
-                    return (
-                      <button
-                        key={option.type === "agent" ? `agent:${option.name}` : `file:${option.path}`}
-                        type="button"
-                        className={`flex w-full flex-col gap-0.5 px-3 py-2 text-left text-sm transition-colors ${
-                          active ? "bg-muted text-foreground" : "text-foreground/90 hover:bg-muted/70"
-                        }`}
-                        onMouseDown={(event) => {
-                          event.preventDefault()
-                          applyMention(option)
-                        }}
-                      >
-                        <span className="font-medium">
-                          {option.type === "agent" ? `@${option.name}` : `@${option.path}`}
-                        </span>
-                        {option.description ? (
-                          <span className="text-xs text-muted-foreground">{option.description}</span>
-                        ) : option.type === "file" && option.recent ? (
-                          <span className="text-xs text-muted-foreground">Recent file</span>
-                        ) : null}
-                      </button>
-                    )
-                  })}
+                : (
+                    <>
+                      {showMentionLoading ? (
+                        <div className="px-3 py-2 text-xs text-muted-foreground">Searching files...</div>
+                      ) : null}
+                      {mentionOptions.map((option, index) => {
+                        const active = index === mentionIndex
+                        return (
+                          <button
+                            key={option.type === "agent" ? `agent:${option.name}` : `file:${option.path}`}
+                            type="button"
+                            className={`flex w-full flex-col gap-0.5 px-3 py-2 text-left text-sm transition-colors ${
+                              active ? "bg-muted text-foreground" : "text-foreground/90 hover:bg-muted/70"
+                            }`}
+                            onMouseDown={(event) => {
+                              event.preventDefault()
+                              applyMention(option)
+                            }}
+                          >
+                            <span className="font-medium">
+                              {option.type === "agent" ? `@${option.name}` : `@${option.path}`}
+                            </span>
+                            {option.description ? (
+                              <span className="text-xs text-muted-foreground">{option.description}</span>
+                            ) : option.type === "file" && option.recent ? (
+                              <span className="text-xs text-muted-foreground">Recent file</span>
+                            ) : null}
+                          </button>
+                        )
+                      })}
+                    </>
+                  )}
             </div>
           ) : null}
 
