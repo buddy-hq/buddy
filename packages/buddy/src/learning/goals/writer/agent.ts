@@ -1,0 +1,45 @@
+import GOAL_WRITER_PROMPT from "./prompt.md"
+import { createBuildAgent } from "../../../agent-kit/factories.js"
+import { registerBuddyAgent } from "../../../agent-kit/register-buddy-agent.js"
+
+export const GOAL_WRITER = registerBuddyAgent({
+  key: "goal-writer",
+  agent: createBuildAgent({
+    description: "Writes CWSEI-style course/topic learning goals using a deterministic lint + commit workflow.",
+    prompt: GOAL_WRITER_PROMPT.trim(),
+    steps: 10,
+    permission: {
+      question: "allow",
+      plan_enter: "allow",
+      goal_decide_scope: "allow",
+      goal_lint: "allow",
+      goal_commit: "allow",
+      goal_state: "allow",
+      task: "deny",
+      read: "deny",
+      glob: "deny",
+      list: "deny",
+      grep: "deny",
+      bash: "deny",
+      webfetch: "deny",
+      websearch: "deny",
+      codesearch: "deny",
+      skill: "deny",
+      lsp: "deny",
+      batch: "deny",
+      plan_exit: "deny",
+      curriculum_read: "deny",
+      curriculum_update: "deny",
+      teaching_start_lesson: "deny",
+      teaching_checkpoint: "deny",
+      teaching_add_file: "deny",
+      teaching_set_lesson: "deny",
+      teaching_restore_checkpoint: "deny",
+      edit: "deny",
+      write: "deny",
+      apply_patch: "deny",
+      todoread: "deny",
+      todowrite: "deny",
+    },
+  }),
+})
