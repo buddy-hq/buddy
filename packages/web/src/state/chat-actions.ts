@@ -144,7 +144,7 @@ export async function loadOpenProjects() {
 export async function openProject(directory: string) {
   const normalized = normalizeProjectDirectory(directory)
   if (!normalized) {
-    throw new Error("Please choose a project directory, not /")
+    throw new Error("Please choose a notebook directory, not /")
   }
 
   const opened = await requestJson<OpenProjectResult>("", "/api/project", {
@@ -156,7 +156,7 @@ export async function openProject(directory: string) {
   const canonicalDirectory = normalizeProjectDirectory(opened.directory)
 
   if (!canonicalDirectory) {
-    throw new Error("Invalid project directory")
+    throw new Error("Invalid notebook directory")
   }
 
   useChatStore.getState().ensureOpenProject(canonicalDirectory)

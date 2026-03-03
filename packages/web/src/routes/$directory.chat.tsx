@@ -314,7 +314,7 @@ function DirectoryChatPage() {
   const showHeaderSidebarToggle = !(platform.platform === "desktop" && platform.os === "macos")
   const sessions = directoryState?.sessions ?? []
   const sessionFamily = useMemo(() => getSessionFamily(sessions, sessionID), [sessionID, sessions])
-  const sessionTitle = sessionFamily.current?.title ?? directoryState?.sessionTitle ?? "New chat"
+  const sessionTitle = sessionFamily.current?.title ?? directoryState?.sessionTitle ?? "New thread"
   const parentSession = useMemo(
     () =>
       sessionFamily.current?.parentID
@@ -1542,11 +1542,11 @@ function DirectoryChatPage() {
                   variant={hasMcpError ? "secondary" : "ghost"}
                   size="sm"
                   onClick={() => setMcpDialogOpen(true)}
-                  title="View and toggle MCP servers"
+                  title="View and manage MCPs"
                 >
                   {mcpEntries.length > 0
                     ? hasMcpError
-                      ? `MCP error`
+                      ? "MCP error"
                       : `MCP ${connectedMcpCount}/${mcpEntries.length}`
                     : "MCP"}
                 </Button>
@@ -1614,7 +1614,7 @@ function DirectoryChatPage() {
                   }`}
                 >
                   {!isReady ? (
-                    <p className="text-sm text-muted-foreground">Loading notebook chat...</p>
+                    <p className="text-sm text-muted-foreground">Loading conversation history...</p>
                   ) : messages.length === 0 ? (
                     <div className="h-full flex flex-col">
                       <ChatEmptyState

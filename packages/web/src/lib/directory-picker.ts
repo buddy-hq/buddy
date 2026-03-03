@@ -34,7 +34,7 @@ async function openDesktopDirectoryPicker() {
   if (typeof platform.openDirectoryPickerDialog === "function") {
     try {
       const platformResult = await platform.openDirectoryPickerDialog({
-        title: "Open project",
+        title: "Open notebook",
         multiple: false,
       })
 
@@ -55,7 +55,7 @@ async function openDesktopDirectoryPicker() {
   const tauriResult = await window.__TAURI__?.dialog?.open?.({
     directory: true,
     multiple: false,
-    title: "Open project",
+    title: "Open notebook",
   })
 
   if (typeof tauriResult === "string") {
@@ -88,7 +88,7 @@ export async function pickProjectDirectory() {
   if (picked) return picked
   if (hasDesktopBridge) return null
 
-  const input = window.prompt("Enter absolute project directory path")
+  const input = window.prompt("Enter the absolute notebook directory path")
   if (!input) return null
 
   const normalized = normalizeDirectory(input)

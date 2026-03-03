@@ -50,7 +50,7 @@ type ChatStore = {
   setStreamStatus: (status: StreamStatus) => void
 }
 
-const DEFAULT_TITLE = "New chat"
+const DEFAULT_TITLE = "New thread"
 
 function normalizeProjectDirectory(input: string | undefined) {
   if (!input) return undefined
