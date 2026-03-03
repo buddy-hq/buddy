@@ -401,7 +401,7 @@ export function SettingsModal(props: SettingsModalProps) {
                                     variant="outline"
                                     onClick={() => settings.actions.setProvider(provider.id)}
                                   >
-                                    Use for models
+                                    Set as default
                                   </Button>
                                 ) : null}
                                 <Button
@@ -410,7 +410,7 @@ export function SettingsModal(props: SettingsModalProps) {
                                   variant="outline"
                                   onClick={() => openProviderDialog(provider.id)}
                                 >
-                                  Manage
+                                  Edit connection
                                 </Button>
                               </div>
                             </div>
@@ -460,7 +460,7 @@ export function SettingsModal(props: SettingsModalProps) {
                               variant="outline"
                               onClick={() => openProviderDialog(provider.id)}
                             >
-                              Connect
+                              Connect provider
                             </Button>
                           </div>
                         </div>

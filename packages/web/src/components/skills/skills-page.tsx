@@ -136,7 +136,7 @@ function PermissionActionMenu(props: {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button type="button" variant="outline" size="sm" disabled={props.disabled}>
-          Policy
+          Permissions
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
@@ -497,7 +497,10 @@ export function SkillsPage(props: { directory?: string }) {
           </div>
         </header>
 
-        <div className="space-y-6" aria-busy={refreshing}>
+        <div className="space-y-6" aria-busy={refreshing || loading}>
+          {loading ? (
+            <p className="text-sm text-muted-foreground">Loading skills...</p>
+          ) : null}
           <section className="space-y-4">
             <SectionHeader
               title="Installed"

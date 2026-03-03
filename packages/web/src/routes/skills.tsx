@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useEffect, useMemo } from "react"
+import { toast } from "@buddy/ui"
 import { ChatLeftSidebar } from "@/components/layout/chat-left-sidebar"
 import { SkillsPage } from "@/components/skills/skills-page"
 import {
@@ -73,7 +74,7 @@ function SkillsRoute() {
         await preloadProjectSessions([nextDirectory])
       }
     } catch {
-      // project actions manage their own error state
+      toast.error("Couldn't open that notebook. Try again.")
     }
   }
 
@@ -87,7 +88,7 @@ function SkillsRoute() {
       await startNewSession(nextDirectory)
       openChat(nextDirectory)
     } catch {
-      // project actions manage their own error state
+      toast.error("Couldn't start a new thread. Try again.")
     }
   }
 
@@ -102,7 +103,7 @@ function SkillsRoute() {
       }
       openChat(targetDirectory)
     } catch {
-      // project actions manage their own error state
+      toast.error("Couldn't open that thread. Try again.")
     }
   }
 
@@ -128,7 +129,7 @@ function SkillsRoute() {
       })
       await preloadProjectSessions([targetDirectory])
     } catch {
-      // project actions manage their own error state
+      toast.error("Couldn't archive that thread. Try again.")
     }
   }
 
@@ -145,7 +146,7 @@ function SkillsRoute() {
       })
       useChatStore.getState().applySessionUpdated(targetDirectory, updated)
     } catch {
-      // project actions manage their own error state
+      toast.error("Couldn't rename that thread. Try again.")
     }
   }
 
