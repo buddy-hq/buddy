@@ -8,6 +8,8 @@
     "build": "tsc",
     "build:single": "bun build --compile --outfile ./dist/desktop-sidecar/bin/buddy-backend ./src/index.ts",
     "build:desktop-sidecar": "bun run build:single",
+    "build:release-sidecar": "bun ./script/build-sidecar.ts",
+    "build:release-sidecars": "bun ./script/build-sidecar.ts --all",
     "typecheck": "tsgo --noEmit",
     "start": "bun --env-file=../../.env run src/index.ts",
     "test": "bun test --preload ./test/preload.ts test",

@@ -44,6 +44,7 @@
     "dev:all": "(bun run dev & BACKEND_PID=$!; trap \"kill $BACKEND_PID\" EXIT INT TERM; bun run dev:web)",
     "build": "turbo run build --filter=@buddy/* --only",
     "build:desktop": "bun run --cwd packages/desktop tauri build",
+    "build:desktop:installable": "bun run --cwd packages/desktop build:installable",
     "start:built": "bun run build && (bun run --cwd packages/buddy start & BACKEND_PID=$!; trap \"kill $BACKEND_PID\" EXIT INT TERM; bun run --cwd packages/web preview --host --port 1420 --strictPort)",
     "typecheck": "turbo run typecheck --filter=@buddy/* --only",
     "test": "bun run test:contracts && turbo run test --filter=@buddy/* --only",
@@ -53,7 +54,14 @@
     "vendor:sync": "git subtree pull --prefix vendor/opencode opencode-upstream dev --squash -m \"chore(vendor): sync opencode mirror\"",
     "vendor:check-upstream": "./scripts/vendor-check-upstream.sh",
     "lint": "turbo run lint --filter=@buddy/* --only",
-    "sdk:generate": "bun run --cwd packages/sdk generate"
+    "sdk:generate": "bun run --cwd packages/sdk generate",
+    "release:tag": "bun ./script/tag.ts",
+    "release:notes": "bun ./script/changelog.ts",
+    "release:version": "bun ./script/version.ts",
+    "release:publish": "bun ./script/publish.ts"
+  },
+  "dependencies": {
+    "@buddy/script": "workspace:*"
   },
   "devDependencies": {
     "@typescript/native-preview": "^7.0.0-dev.20260225.1",
