@@ -1,9 +1,9 @@
 import { useEffect, useRef } from "react"
 import { createRootRoute, Outlet } from "@tanstack/react-router"
 import { TanStackRouterDevtools } from "@tanstack/router-devtools"
-import { toast } from "@buddy/ui"
 import { DesktopTitlebar } from "@/components/layout/desktop-titlebar"
 import { usePlatform } from "@/context/platform"
+import { showDesktopUpdateToast } from "../lib/desktop-updates"
 
 function ReleaseUpdateWatcher() {
   const platform = usePlatform()
@@ -17,22 +17,17 @@ function ReleaseUpdateWatcher() {
 
     const poll = async () => {
       const next = await platform.checkUpdate?.().catch(() => null)
-      if (cancelled || !next?.updateAvailable || shownRef.current) return
+      if (cancelled || next?.status !== "ready" || shownRef.current) return
 
       shownRef.current = true
-      toast("Update ready to install", {
-        description: next.version ? `Buddy ${next.version} has been downloaded.` : "A new Buddy release has been downloaded.",
-        duration: Number.POSITIVE_INFINITY,
-        action: {
-          label: "Install & restart",
-          onClick: async () => {
-            await platform.update?.()
-            await platform.restart()
-          },
+      showDesktopUpdateToast({
+        platform,
+        version: next.version,
+        onDeferred: () => {
+          shownRef.current = false
         },
-        cancel: {
-          label: "Later",
-          onClick: () => undefined,
+        onInstallFailed: () => {
+          shownRef.current = false
         },
       })
     }

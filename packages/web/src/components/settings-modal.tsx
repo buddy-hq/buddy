@@ -19,9 +19,12 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
+  toast,
 } from "@buddy/ui"
 import { getFilename } from "@/components/layout/sidebar-helpers"
 import { ConnectProviderDialog } from "@/components/connect-provider-dialog"
+import { usePlatform } from "@/context/platform"
+import { showDesktopUpdateToast } from "../lib/desktop-updates"
 import type { ProviderInfo } from "@/state/chat-types"
 import type { LogLevel } from "@/state/project-settings"
 import { useProjectSettings } from "@/state/project-settings"
@@ -94,8 +97,10 @@ function ProviderSourceBadge(props: { provider: ProviderInfo }) {
 }
 
 export function SettingsModal(props: SettingsModalProps) {
+  const platform = usePlatform()
   const settings = useProjectSettings(props.directory, props.open)
   const [activeTab, setActiveTab] = useState<SettingsTab>("general")
+  const [checkingForUpdates, setCheckingForUpdates] = useState(false)
   const [providerDialogOpen, setProviderDialogOpen] = useState(false)
   const [providerDialogTarget, setProviderDialogTarget] = useState<string | undefined>(undefined)
 
@@ -113,6 +118,36 @@ export function SettingsModal(props: SettingsModalProps) {
     setProviderDialogOpen(true)
   }
 
+  async function onCheckForUpdates() {
+    if (platform.platform !== "desktop" || !platform.checkUpdate || !platform.update) {
+      return
+    }
+
+    setCheckingForUpdates(true)
+    const result = await platform.checkUpdate().catch(() => ({ status: "error", stage: "check" }) as const)
+    setCheckingForUpdates(false)
+
+    switch (result.status) {
+      case "ready":
+        showDesktopUpdateToast({
+          platform,
+          version: result.version,
+        })
+        return
+      case "up-to-date":
+        toast("Buddy is up to date")
+        return
+      case "disabled":
+        toast("Updates are unavailable in this build")
+        return
+      case "error":
+        toast.error(
+          result.stage === "download" ? "Found an update, but download failed" : "Failed to check for updates",
+        )
+        return
+    }
+  }
+
   const agentSelectValue = settings.selection.agent || AUTO_VALUE
   const logLevelSelectValue = settings.selection.logLevel || DEFAULT_VALUE
   const hasConnectedProviders = settings.options.providers.length > 0
@@ -120,6 +155,7 @@ export function SettingsModal(props: SettingsModalProps) {
     () => settings.options.allProviders.filter((provider) => !provider.connected),
     [settings.options.allProviders],
   )
+  const showDesktopUpdateControls = platform.platform === "desktop" && !!platform.checkUpdate && !!platform.update
   const footerHint = (() => {
     if (settings.status.loading) return "Loading settings..."
     if (settings.status.saving) return "Saving changes..."
@@ -301,6 +337,30 @@ export function SettingsModal(props: SettingsModalProps) {
 
               {settings.status.providerMessage ? (
                 <p className="text-sm text-muted-foreground">{settings.status.providerMessage}</p>
+              ) : null}
+
+              {showDesktopUpdateControls ? (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium text-foreground">Desktop app</h3>
+                  <SettingsListCard>
+                    <SettingsRow
+                      title="App updates"
+                      description="Check for and install desktop app updates. This applies to Buddy itself, not this notebook."
+                      last
+                      control={
+                        <Button
+                          type="button"
+                          size="xs"
+                          variant="outline"
+                          onClick={() => void onCheckForUpdates()}
+                          disabled={checkingForUpdates}
+                        >
+                          {checkingForUpdates ? "Checking..." : "Check for updates"}
+                        </Button>
+                      }
+                    />
+                  </SettingsListCard>
+                </div>
               ) : null}
             </SettingsPanel>
 

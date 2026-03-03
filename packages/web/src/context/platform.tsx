@@ -6,9 +6,16 @@ export type OpenDirectoryPickerOptions = {
   multiple?: boolean
 }
 
+export type UpdateCheckResult =
+  | { status: "disabled" }
+  | { status: "up-to-date" }
+  | { status: "ready"; version?: string }
+  | { status: "error"; stage: "check" | "download" }
+
 export type Platform = {
   platform: "web" | "desktop"
   os?: "macos" | "windows" | "linux"
+  version?: string
   storage?(name?: string): StateStorage
   openDirectoryPickerDialog?(opts?: OpenDirectoryPickerOptions): Promise<string | string[] | null>
   fetch?: typeof fetch
@@ -17,6 +24,8 @@ export type Platform = {
   back(): void
   forward(): void
   notify(title: string, description?: string): Promise<void>
+  checkUpdate?(): Promise<UpdateCheckResult>
+  update?(): Promise<void>
   parseMarkdown?(markdown: string): Promise<string>
 }
 
