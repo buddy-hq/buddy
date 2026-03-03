@@ -26,6 +26,12 @@ export async function readProjectConfig(directory: string): Promise<Config.Info>
   return Config.getProject(directory)
 }
 
+export async function ensureOpenCodeProjectOverlay(directory: string): Promise<void> {
+  const config = await readProjectConfig(directory)
+  const overlay = await buildOpenCodeConfigOverlay(config)
+  setConfigOverlay(directory, overlay)
+}
+
 export async function syncOpenCodeProjectConfig(directory: string, force = false): Promise<void> {
   const existing = openCodeConfigSyncInFlight.get(directory)
   if (existing) return existing
