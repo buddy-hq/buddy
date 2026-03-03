@@ -3,11 +3,7 @@ import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import type { BuddyTool } from "./create-buddy-tool.js"
 
 function createToolRegistrar(tools: readonly BuddyTool[]) {
-  const registeredDirectories = new Set<string>()
-
   return async function ensureToolsRegistered(directory: string) {
-    if (registeredDirectories.has(directory)) return
-
     await OpenCodeInstance.provide({
       directory,
       async fn() {
@@ -16,8 +12,6 @@ function createToolRegistrar(tools: readonly BuddyTool[]) {
         }
       },
     })
-
-    registeredDirectories.add(directory)
   }
 }
 

@@ -1,7 +1,10 @@
 import type { TeachingPromptContext } from "../teaching/types.js"
 import { CurriculumService } from "../curriculum/service.js"
 import { loadLearningCompanionPrompt, condenseCurriculum } from "../companion/system-context.js"
+import { formatLearningGoalsForSystemPrompt, listActiveGoalSets, readGoalsV1File } from "../goals/goals-v1.js"
+import { GOAL_WRITER_AGENT_NAME } from "../goals/types.js"
 import { TeachingService } from "../teaching/service.js"
+import TEACHING_POLICY_PROMPT from "../teaching/policy.md"
 
 function isCompletionClaim(value: string): boolean {
   const normalized = value.trim().toLowerCase()
@@ -73,20 +76,9 @@ function formatTeachingPromptContext(
 }
 
 function formatTeachingPolicy(input: { completionClaim: boolean; changedSinceCheckpoint?: boolean }): string {
-  const parts = [
-    "<teaching_policy>",
-    "The learner must stay on the current exercise until their work has been verified and accepted.",
-    "Do not treat a short status message such as 'done' or 'ready' as proof that the exercise is correct.",
-    "Before advancing, read the lesson file and verify it satisfies the current exercise requirements.",
-    "If a deterministic checker exists for the exercise, use it as the source of truth. Otherwise verify conservatively from the lesson file and do not advance when uncertain.",
-    "If the work is incomplete or incorrect, keep the learner on the same lesson, explain the exact gap, and ask for one concrete fix.",
-    "Only after the current exercise is verified should you accept it and move forward.",
-    "If the lesson needs an additional source file, create it with teaching_add_file before editing it.",
-    "When you need to replace the whole lesson scaffold or move to a new exercise, use the teaching_set_lesson tool so the editor file and checkpoint stay synchronized.",
-    "Do not replace the entire lesson file with a raw write when teaching_set_lesson is the appropriate tool.",
-    "Answer conceptual questions in chat when possible. Do not rewrite the teaching workspace or curriculum unless the learner explicitly wants a new hands-on exercise in the editor.",
-    "If the learner asks to switch topics or languages mid-exercise, confirm the switch instead of silently replacing the current exercise.",
-  ]
+  const parts = TEACHING_POLICY_PROMPT.trim()
+    .replace(/\n<\/teaching_policy>\s*$/u, "")
+    .split("\n")
 
   if (input.changedSinceCheckpoint === true) {
     parts.push("There are unaccepted changes since the last teaching checkpoint. The current exercise has not been accepted yet.")
@@ -107,17 +99,32 @@ export async function composeLearningSystemPrompt(input: {
   userContent?: string
 }): Promise<string> {
   const parts: string[] = []
-  const includeBehavior = input.agentName !== "code-teacher"
+  const includeBehavior = input.agentName !== "code-teacher" && input.agentName !== GOAL_WRITER_AGENT_NAME
   const behavior = includeBehavior ? loadLearningCompanionPrompt().trim() : ""
   if (behavior) {
     parts.push(behavior)
   }
 
-  const curriculum = await CurriculumService.peek(input.directory).catch(() => undefined)
-  if (curriculum?.markdown) {
-    const condensed = condenseCurriculum(curriculum.markdown).trim()
-    if (condensed) {
-      parts.push(["<curriculum>", `Path: ${curriculum.path}`, condensed, "</curriculum>"].join("\n"))
+  if (input.agentName !== GOAL_WRITER_AGENT_NAME) {
+    const goalsFile = await readGoalsV1File(input.directory).catch(() => undefined)
+    const activeGoalSets = goalsFile ? listActiveGoalSets(goalsFile.data) : []
+    if (activeGoalSets.length > 0) {
+      const rendered = formatLearningGoalsForSystemPrompt({
+        file: goalsFile!.data,
+        maxSets: 2,
+        maxGoals: 10,
+      }).trim()
+      if (rendered) {
+        parts.push(rendered)
+      }
+    } else {
+      const curriculum = await CurriculumService.peek(input.directory).catch(() => undefined)
+      if (curriculum?.markdown) {
+        const condensed = condenseCurriculum(curriculum.markdown).trim()
+        if (condensed) {
+          parts.push(["<curriculum>", `Path: ${curriculum.path}`, condensed, "</curriculum>"].join("\n"))
+        }
+      }
     }
   }
 
