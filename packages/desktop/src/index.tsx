@@ -1,13 +1,10 @@
 import React from "react"
 import ReactDOM from "react-dom/client"
-import { invoke } from "@tauri-apps/api/core"
 import { PlatformProvider, setRuntimePlatform } from "@buddy/web/context/platform"
 import { ServerProvider } from "@buddy/web/context/server"
+import { commands } from "./bindings"
 import { createDesktopPlatform } from "./platform"
-import {
-  createDesktopServerConnection,
-  type DesktopServerReadyData,
-} from "./server"
+import { createDesktopServerConnection } from "./server"
 import "./styles.css"
 
 const rootElement = document.getElementById("root")!
@@ -26,7 +23,7 @@ async function bootstrap() {
   setRuntimePlatform(platform)
 
   try {
-    const server = await invoke<DesktopServerReadyData>("await_initialization")
+    const server = await commands.awaitInitialization()
     const { AppBaseProviders, AppInterface } = await import("@buddy/web/app")
     root.render(
       <React.StrictMode>

@@ -14,7 +14,7 @@ use tauri::{AppHandle, Manager, RunEvent, State, WebviewUrl, WebviewWindow, Webv
 use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 use tokio::sync::mpsc;
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 struct ServerReadyData {
     url: String,
@@ -28,6 +28,9 @@ struct ServerState {
     child: Mutex<Option<Child>>,
     ready: Mutex<Option<ServerReadyData>>,
 }
+
+const UPDATER_ENABLED: bool = matches!(option_env!("TAURI_SIGNING_PRIVATE_KEY"), Some(value) if !value.is_empty())
+    || matches!(option_env!("TAURI_SIGNING_PRIVATE_KEY_PATH"), Some(value) if !value.is_empty());
 
 fn window_state_flags() -> StateFlags {
     StateFlags::all() - StateFlags::DECORATIONS - StateFlags::VISIBLE
@@ -72,7 +75,13 @@ fn ensure_main_window(app: &AppHandle) -> tauri::Result<()> {
 
     let window_builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("/".into()))
         .title("Buddy Dev")
-        .visible(true);
+        .visible(true)
+        .initialization_script(format!(
+            r#"
+            window.__BUDDY__ ??= {{}};
+            window.__BUDDY__.updaterEnabled = {UPDATER_ENABLED};
+          "#
+        ));
 
     #[cfg(target_os = "macos")]
     let window_builder = window_builder
@@ -171,6 +180,7 @@ async fn wait_for_health(url: &str, username: &str, password: &str) -> Result<()
 }
 
 #[tauri::command]
+#[specta::specta]
 async fn await_initialization(
     app: AppHandle,
     state: State<'_, ServerState>,
@@ -240,16 +250,29 @@ async fn await_initialization(
     Ok(ready)
 }
 
-fn kill_sidecar(state: &ServerState) {
+fn kill_sidecar_process(state: &ServerState) {
     if let Some(mut child) = state.child.lock().unwrap().take() {
         let _ = child.kill();
         let _ = child.wait();
     }
 }
 
+#[tauri::command]
+#[specta::specta]
+fn kill_sidecar(app: AppHandle) {
+    if let Some(state) = app.try_state::<ServerState>() {
+        kill_sidecar_process(&state);
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let bindings = make_specta_builder();
+
+    #[cfg(debug_assertions)]
+    export_types(&bindings);
+
+    let mut builder = tauri::Builder::default()
         .manage(ServerState::default())
         .plugin(tauri_plugin_os::init())
         .plugin(
@@ -263,22 +286,52 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_store::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![
-            await_initialization,
-            markdown::parse_markdown_command
-        ])
+        .invoke_handler(bindings.invoke_handler())
         .setup(|app| {
             ensure_main_window(&app.handle())?;
 
             Ok(())
-        })
+        });
+
+    if UPDATER_ENABLED {
+        builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+    }
+
+    builder
         .build(tauri::generate_context!())
         .expect("error while running Buddy desktop")
         .run(|app, event| {
             if let RunEvent::Exit = event {
                 if let Some(state) = app.try_state::<ServerState>() {
-                    kill_sidecar(&state);
+                    kill_sidecar_process(&state);
                 }
             }
         });
+}
+
+fn make_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
+    tauri_specta::Builder::<tauri::Wry>::new()
+        .commands(tauri_specta::collect_commands![
+            kill_sidecar,
+            await_initialization,
+            markdown::parse_markdown_command
+        ])
+        .error_handling(tauri_specta::ErrorHandlingMode::Throw)
+}
+
+#[cfg(any(debug_assertions, test))]
+fn export_types(builder: &tauri_specta::Builder<tauri::Wry>) {
+    builder
+        .export(
+            specta_typescript::Typescript::default(),
+            "../src/bindings.ts",
+        )
+        .expect("Failed to export typescript bindings");
+}
+
+#[cfg(test)]
+#[test]
+fn test_export_types() {
+    let builder = make_specta_builder();
+    export_types(&builder);
 }
