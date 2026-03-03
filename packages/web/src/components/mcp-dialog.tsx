@@ -75,17 +75,74 @@ type McpFormDraft = {
   scope: string
 }
 
+type McpFieldName = "name" | "timeout" | "url" | "headers" | "command" | "environment"
+
+type McpFieldError = {
+  field: McpFieldName
+  message: string
+}
+
+type McpFieldErrors = Partial<Record<McpFieldName, string>>
+
+type McpDraftParseResult =
+  | {
+      fieldError: McpFieldError
+    }
+  | {
+      name: string
+      config: McpConfig
+    }
+
 const STATUS_LABELS = {
   connected: "Connected",
   disabled: "Disabled",
   failed: "Failed",
-  needs_auth: "Needs auth",
-  needs_client_registration: "Needs client registration",
+  needs_auth: "Sign in required",
+  needs_client_registration: "Needs setup",
 } as const
+
+function formatMcpError(error: unknown) {
+  const message = stringifyError(error)
+  const normalized = message.toLowerCase()
+
+  if (
+    normalized.includes("econnrefused") ||
+    normalized.includes("fetch failed") ||
+    normalized.includes("failed to fetch")
+  ) {
+    return "Could not connect to this MCP. Check the address and try again."
+  }
+
+  if (normalized.includes("timeout") || normalized.includes("timed out")) {
+    return "The connection timed out. The server may be busy or unavailable."
+  }
+
+  if (
+    normalized.includes("401") ||
+    normalized.includes("403") ||
+    normalized.includes("unauthorized") ||
+    normalized.includes("forbidden")
+  ) {
+    return "Authentication failed. Verify your credentials and try again."
+  }
+
+  return message
+}
 
 function isStringRecord(value: unknown): value is Record<string, string> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false
   return Object.values(value).every((entry) => typeof entry === "string")
+}
+
+function createFieldError(field: McpFieldName, message: string): McpFieldError {
+  return {
+    field,
+    message,
+  }
+}
+
+function getFieldErrorId(field: McpFieldName) {
+  return `mcp-${field}-error`
 }
 
 function parseMcpConfigMap(config: Record<string, unknown>) {
@@ -200,7 +257,7 @@ function buildDraft(name: string, config: McpConfig): McpFormDraft {
   }
 }
 
-function parseOptionalStringMap(label: string, value: string) {
+function parseOptionalStringMap(label: string, field: McpFieldName, value: string) {
   const trimmed = value.trim()
   if (!trimmed) {
     return {
@@ -212,7 +269,7 @@ function parseOptionalStringMap(label: string, value: string) {
     const parsed = JSON.parse(trimmed) as unknown
     if (!isStringRecord(parsed)) {
       return {
-        error: `${label} must be a JSON object with string values.`,
+        fieldError: createFieldError(field, `${label} must be a JSON object with text values.`),
       } as const
     }
     return {
@@ -220,16 +277,16 @@ function parseOptionalStringMap(label: string, value: string) {
     } as const
   } catch {
     return {
-      error: `${label} must be valid JSON.`,
+      fieldError: createFieldError(field, `${label} must be valid JSON.`),
     } as const
   }
 }
 
-function buildConfigFromDraft(draft: McpFormDraft) {
+function buildConfigFromDraft(draft: McpFormDraft): McpDraftParseResult {
   const name = draft.name.trim()
   if (!name) {
     return {
-      error: "Name is required.",
+      fieldError: createFieldError("name", "Name is required."),
     } as const
   }
 
@@ -241,7 +298,7 @@ function buildConfigFromDraft(draft: McpFormDraft) {
 
   if (timeoutValue.length > 0 && (!Number.isInteger(timeout) || !timeout || timeout <= 0)) {
     return {
-      error: "Timeout must be a positive integer.",
+      fieldError: createFieldError("timeout", "Timeout must be a positive whole number."),
     } as const
   }
 
@@ -249,7 +306,7 @@ function buildConfigFromDraft(draft: McpFormDraft) {
     const commandInput = draft.command.trim()
     if (!commandInput) {
       return {
-        error: "Local command is required.",
+        fieldError: createFieldError("command", "Local command is required."),
       } as const
     }
 
@@ -262,7 +319,7 @@ function buildConfigFromDraft(draft: McpFormDraft) {
           } as const
         }
         return {
-          error: "Local command must be a JSON array of strings.",
+          fieldError: createFieldError("command", "Command list must be a JSON array of text values."),
         } as const
       } catch {
         return {
@@ -271,16 +328,16 @@ function buildConfigFromDraft(draft: McpFormDraft) {
       }
     })()
 
-    if (command.error) {
+    if ("fieldError" in command && command.fieldError) {
       return {
-        error: command.error,
+        fieldError: command.fieldError,
       } as const
     }
 
-    const environment = parseOptionalStringMap("Environment", draft.environmentText)
-    if (environment.error) {
+    const environment = parseOptionalStringMap("Environment", "environment", draft.environmentText)
+    if ("fieldError" in environment && environment.fieldError) {
       return {
-        error: environment.error,
+        fieldError: environment.fieldError,
       } as const
     }
 
@@ -299,7 +356,7 @@ function buildConfigFromDraft(draft: McpFormDraft) {
   const url = draft.url.trim()
   if (!url) {
     return {
-      error: "Remote URL is required.",
+      fieldError: createFieldError("url", "Remote URL is required."),
     } as const
   }
 
@@ -307,20 +364,23 @@ function buildConfigFromDraft(draft: McpFormDraft) {
     new URL(url)
   } catch {
     return {
-      error: "Remote URL must be valid.",
+      fieldError: createFieldError("url", "Remote URL must be valid."),
     } as const
   }
 
-  const headers = parseOptionalStringMap("Headers", draft.headersText)
-  if (headers.error) {
+  const headers = parseOptionalStringMap("Headers", "headers", draft.headersText)
+  if ("fieldError" in headers && headers.fieldError) {
     return {
-      error: headers.error,
+      fieldError: headers.fieldError,
     } as const
   }
 
   if (draft.oauthEnabled && headers.value?.Authorization) {
     return {
-      error: "Remove the Authorization header when OAuth is enabled. Use either OAuth or header-based auth, not both.",
+      fieldError: createFieldError(
+        "headers",
+        "Remove the Authorization header when browser sign-in is enabled. Use either browser sign-in or header-based auth, not both.",
+      ),
     } as const
   }
 
@@ -355,6 +415,7 @@ export function McpDialog(props: McpDialogProps) {
   const [editorOpen, setEditorOpen] = useState(false)
   const [editorMode, setEditorMode] = useState<McpEditorMode>("create")
   const [editorError, setEditorError] = useState<string | undefined>(undefined)
+  const [fieldErrors, setFieldErrors] = useState<McpFieldErrors>({})
   const [editorSaving, setEditorSaving] = useState(false)
   const [showOAuthClientFields, setShowOAuthClientFields] = useState(false)
   const [draft, setDraft] = useState<McpFormDraft>(() => emptyDraft())
@@ -363,8 +424,8 @@ export function McpDialog(props: McpDialogProps) {
   const allNames = useMemo(
     () =>
       Array.from(
-      new Set([...Object.keys(statusByName), ...Object.keys(configByName)]),
-    )
+        new Set([...Object.keys(statusByName), ...Object.keys(configByName)]),
+      )
         .sort((left, right) => left.localeCompare(right)),
     [configByName, statusByName],
   )
@@ -372,9 +433,9 @@ export function McpDialog(props: McpDialogProps) {
   const entries = useMemo(() => {
     const search = query.trim().toLowerCase()
     return allNames.filter((name) => {
-        if (!search) return true
-        return name.toLowerCase().includes(search)
-      })
+      if (!search) return true
+      return name.toLowerCase().includes(search)
+    })
   }, [allNames, query])
   const showSearch = allNames.length >= 3
 
@@ -408,9 +469,9 @@ export function McpDialog(props: McpDialogProps) {
     }
 
     if (statusResult.status === "rejected") {
-      setError(stringifyError(statusResult.reason))
+      setError(formatMcpError(statusResult.reason))
     } else if (configResult.status === "rejected") {
-      setError(stringifyError(configResult.reason))
+      setError(formatMcpError(configResult.reason))
     }
 
     setLoading(false)
@@ -422,11 +483,33 @@ export function McpDialog(props: McpDialogProps) {
     void refreshData()
   }, [props.directory, props.open])
 
+  function clearFieldError(field: McpFieldName) {
+    setFieldErrors((current) => {
+      if (!current[field]) return current
+      const next = { ...current }
+      delete next[field]
+      return next
+    })
+  }
+
+  function getFieldProps(field: McpFieldName, describedBy?: string) {
+    const error = fieldErrors[field]
+    const errorId = error ? getFieldErrorId(field) : undefined
+    const describedByIds = [describedBy, errorId].filter(Boolean).join(" ")
+
+    return {
+      "aria-describedby": describedByIds || undefined,
+      "aria-errormessage": errorId,
+      "aria-invalid": error ? true : undefined,
+    } as const
+  }
+
   function openCreateEditor() {
     setEditorMode("create")
     setDraft(emptyDraft())
     setShowOAuthClientFields(false)
     setEditorError(undefined)
+    setFieldErrors({})
     setEditorOpen(true)
   }
 
@@ -442,6 +525,7 @@ export function McpDialog(props: McpDialogProps) {
       Object.keys(config.oauth).length > 0,
     )
     setEditorError(undefined)
+    setFieldErrors({})
     setEditorOpen(true)
   }
 
@@ -458,7 +542,7 @@ export function McpDialog(props: McpDialogProps) {
         await enableMcp(name)
       }
     } catch (toggleError) {
-      setError(stringifyError(toggleError))
+      setError(formatMcpError(toggleError))
     } finally {
       setPendingName(null)
     }
@@ -468,13 +552,17 @@ export function McpDialog(props: McpDialogProps) {
     if (!props.directory) return
 
     const parsed = buildConfigFromDraft(draft)
-    if ("error" in parsed) {
-      setEditorError(parsed.error)
+    if ("fieldError" in parsed) {
+      setFieldErrors({
+        [parsed.fieldError.field]: parsed.fieldError.message,
+      })
+      setEditorError(undefined)
       return
     }
 
     setEditorSaving(true)
     setEditorError(undefined)
+    setFieldErrors({})
 
     try {
       const updated = await saveProjectMcpConfig(props.directory, parsed.name, parsed.config as Record<string, unknown>)
@@ -487,7 +575,7 @@ export function McpDialog(props: McpDialogProps) {
       }
       setEditorOpen(false)
     } catch (saveError) {
-      setEditorError(stringifyError(saveError))
+      setEditorError(formatMcpError(saveError))
     } finally {
       setEditorSaving(false)
     }
@@ -504,11 +592,11 @@ export function McpDialog(props: McpDialogProps) {
 
           <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/20 px-3 py-2">
             <div className="min-w-0">
-              <p className="text-sm font-medium text-foreground">Server definitions</p>
+              <p className="text-sm font-medium text-foreground">MCP definitions</p>
               <p className="text-xs text-muted-foreground">
                 {allNames.length > 0
                   ? "Manage saved MCPs here. Use search below to filter the list."
-                  : "Add an MCP to save it to this project's buddy.jsonc."}
+                  : "Add an MCP to save it to this notebook's buddy.jsonc."}
               </p>
             </div>
             <Button type="button" size="sm" className="shrink-0" onClick={openCreateEditor}>
@@ -520,7 +608,7 @@ export function McpDialog(props: McpDialogProps) {
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Filter MCP servers"
+              placeholder="Filter MCPs"
               autoFocus
             />
           ) : null}
@@ -538,6 +626,12 @@ export function McpDialog(props: McpDialogProps) {
                       ? "Disabled"
                       : "Configured"
                 const isPending = pendingName === name
+                const pendingLabel =
+                  status?.status === "connected"
+                    ? "Disconnecting..."
+                    : status?.status === "needs_auth"
+                      ? "Signing in..."
+                      : "Connecting..."
 
                 return (
                   <div key={name}>
@@ -554,11 +648,11 @@ export function McpDialog(props: McpDialogProps) {
                             </Badge>
                           ) : null}
                           {isPending ? (
-                            <span className="text-xs text-muted-foreground">Updating...</span>
+                            <span className="text-xs text-muted-foreground">{pendingLabel}</span>
                           ) : null}
                         </div>
                         {status?.error ? (
-                          <p className="mt-1 truncate text-xs text-muted-foreground">{status.error}</p>
+                          <p className="mt-1 truncate text-xs text-muted-foreground">{formatMcpError(status.error)}</p>
                         ) : config ? (
                           <p className="mt-1 truncate text-xs text-muted-foreground">
                             {config.type === "remote" ? config.url : config.command.join(" ")}
@@ -574,7 +668,7 @@ export function McpDialog(props: McpDialogProps) {
                             variant="outline"
                             onClick={() => openEditEditor(name)}
                           >
-                            Edit
+                            Edit details
                           </Button>
                         ) : null}
                         {status?.status === "needs_auth" ? (
@@ -591,14 +685,14 @@ export function McpDialog(props: McpDialogProps) {
                                 try {
                                   await authenticateMcpServer(props.directory, name)
                                 } catch (authError) {
-                                  setError(stringifyError(authError))
+                                  setError(formatMcpError(authError))
                                 } finally {
                                   setPendingName(null)
                                 }
                               })()
                             }}
                           >
-                            Authorize
+                            Connect
                           </Button>
                         ) : null}
                         <Switch
@@ -619,10 +713,10 @@ export function McpDialog(props: McpDialogProps) {
               <div className="flex flex-col items-start gap-3 px-4 py-8 text-sm text-muted-foreground">
                 <p>
                   {loading
-                    ? "Loading MCP servers..."
+                    ? "Loading MCPs..."
                     : showSearch
-                      ? "No MCP servers match your current filter."
-                      : "No MCP servers configured yet."}
+                      ? "No MCPs match your current filter."
+                      : "No MCPs configured yet."}
                 </p>
                 {!loading && !showSearch ? (
                   <Button type="button" size="sm" variant="outline" onClick={openCreateEditor}>
@@ -637,7 +731,7 @@ export function McpDialog(props: McpDialogProps) {
             <p className="text-sm text-destructive">{error}</p>
           ) : (
             <p className="text-xs text-muted-foreground">
-              MCP definitions saved here override or extend this project's config.
+              MCP definitions saved here override or extend this notebook's config.
             </p>
           )}
         </DialogContent>
@@ -647,6 +741,10 @@ export function McpDialog(props: McpDialogProps) {
         open={editorOpen}
         onOpenChange={(nextOpen) => {
           if (!editorSaving) {
+            if (!nextOpen) {
+              setEditorError(undefined)
+              setFieldErrors({})
+            }
             setEditorOpen(nextOpen)
           }
         }}
@@ -655,7 +753,7 @@ export function McpDialog(props: McpDialogProps) {
           <DialogHeader>
             <DialogTitle>{editorMode === "create" ? "Add MCP" : `Edit ${draft.name}`}</DialogTitle>
             <DialogDescription>
-              Save a project-level MCP definition in this repository's config.
+              Save a notebook-level MCP definition in this repository's config.
             </DialogDescription>
           </DialogHeader>
 
@@ -669,13 +767,21 @@ export function McpDialog(props: McpDialogProps) {
                 value={draft.name}
                 disabled={editorMode === "edit"}
                 onChange={(event) => {
+                  const value = event.target.value
                   setDraft((current) => ({
                     ...current,
-                    name: event.target.value,
+                    name: value,
                   }))
+                  clearFieldError("name")
                 }}
                 placeholder="docs"
+                {...getFieldProps("name")}
               />
+              {fieldErrors.name ? (
+                <p id={getFieldErrorId("name")} className="text-xs text-destructive">
+                  {fieldErrors.name}
+                </p>
+              ) : null}
             </div>
 
             <div className="grid gap-2">
@@ -727,14 +833,22 @@ export function McpDialog(props: McpDialogProps) {
                 id="mcp-timeout"
                 value={draft.timeout}
                 onChange={(event) => {
+                  const value = event.target.value
                   setDraft((current) => ({
                     ...current,
-                    timeout: event.target.value,
+                    timeout: value,
                   }))
+                  clearFieldError("timeout")
                 }}
                 placeholder="30"
                 inputMode="numeric"
+                {...getFieldProps("timeout")}
               />
+              {fieldErrors.timeout ? (
+                <p id={getFieldErrorId("timeout")} className="text-xs text-destructive">
+                  {fieldErrors.timeout}
+                </p>
+              ) : null}
             </div>
 
             {draft.type === "remote" ? (
@@ -747,13 +861,21 @@ export function McpDialog(props: McpDialogProps) {
                     id="mcp-url"
                     value={draft.url}
                     onChange={(event) => {
+                      const value = event.target.value
                       setDraft((current) => ({
                         ...current,
-                        url: event.target.value,
+                        url: value,
                       }))
+                      clearFieldError("url")
                     }}
                     placeholder="https://example.com/mcp"
+                    {...getFieldProps("url")}
                   />
+                  {fieldErrors.url ? (
+                    <p id={getFieldErrorId("url")} className="text-xs text-destructive">
+                      {fieldErrors.url}
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="grid gap-2">
@@ -764,21 +886,29 @@ export function McpDialog(props: McpDialogProps) {
                     id="mcp-headers"
                     value={draft.headersText}
                     onChange={(event) => {
+                      const value = event.target.value
                       setDraft((current) => ({
                         ...current,
-                        headersText: event.target.value,
+                        headersText: value,
                       }))
+                      clearFieldError("headers")
                     }}
                     placeholder={`{\n  "Authorization": "Bearer ..."\n}`}
                     className="min-h-24"
+                    {...getFieldProps("headers")}
                   />
+                  {fieldErrors.headers ? (
+                    <p id={getFieldErrorId("headers")} className="text-xs text-destructive">
+                      {fieldErrors.headers}
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
                   <div>
                     <p className="text-sm font-medium text-foreground">OAuth</p>
                     <p className="text-xs text-muted-foreground">
-                      Remote MCPs use OAuth by default. Leave headers empty for browser login, or turn OAuth off to use an Authorization header instead.
+                      Remote MCPs use browser sign-in by default. Leave headers empty for browser login, or turn browser sign-in off to use an Authorization header instead.
                     </p>
                   </div>
                   <Switch
@@ -800,7 +930,7 @@ export function McpDialog(props: McpDialogProps) {
                     <div className="space-y-1">
                       <p className="text-sm font-medium text-foreground">Browser login</p>
                       <p className="text-xs text-muted-foreground">
-                        Most hosted MCPs, including Linear, work without any client details here. Save with OAuth on, then toggle the MCP to start the browser login flow.
+                        Most hosted MCPs, including Linear, work without any client details here. Save with browser sign-in on, then turn the MCP on to start the browser login flow.
                       </p>
                     </div>
 
@@ -808,7 +938,7 @@ export function McpDialog(props: McpDialogProps) {
                       <div>
                         <p className="text-sm font-medium text-foreground">Custom client details</p>
                         <p className="text-xs text-muted-foreground">
-                          Optional. Only use these if the MCP provider gave you a client ID/secret or dynamic registration fails.
+                          Optional. Only use these if the MCP provider gave you a client ID/secret or automatic registration fails.
                         </p>
                       </div>
                       <Button
@@ -880,23 +1010,31 @@ export function McpDialog(props: McpDialogProps) {
               <>
                 <div className="grid gap-2">
                   <label className="text-sm font-medium text-foreground" htmlFor="mcp-command">
-                    Local command (argv JSON)
+                    Local command
                   </label>
                   <Textarea
                     id="mcp-command"
                     value={draft.command}
                     onChange={(event) => {
+                      const value = event.target.value
                       setDraft((current) => ({
                         ...current,
-                        command: event.target.value,
+                        command: value,
                       }))
+                      clearFieldError("command")
                     }}
                     placeholder={`[\n  "npx",\n  "-y",\n  "@modelcontextprotocol/server-filesystem",\n  "/path with spaces"\n]`}
                     className="min-h-24"
+                    {...getFieldProps("command", "mcp-command-help")}
                   />
-                  <p className="text-xs text-muted-foreground">
+                  <p id="mcp-command-help" className="text-xs text-muted-foreground">
                     Use a JSON array to preserve exact argv values, especially when arguments contain spaces. Plain text still works for simple commands.
                   </p>
+                  {fieldErrors.command ? (
+                    <p id={getFieldErrorId("command")} className="text-xs text-destructive">
+                      {fieldErrors.command}
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="grid gap-2">
@@ -907,14 +1045,22 @@ export function McpDialog(props: McpDialogProps) {
                     id="mcp-environment"
                     value={draft.environmentText}
                     onChange={(event) => {
+                      const value = event.target.value
                       setDraft((current) => ({
                         ...current,
-                        environmentText: event.target.value,
+                        environmentText: value,
                       }))
+                      clearFieldError("environment")
                     }}
                     placeholder={`{\n  "NODE_NO_WARNINGS": "1"\n}`}
                     className="min-h-24"
+                    {...getFieldProps("environment")}
                   />
+                  {fieldErrors.environment ? (
+                    <p id={getFieldErrorId("environment")} className="text-xs text-destructive">
+                      {fieldErrors.environment}
+                    </p>
+                  ) : null}
                 </div>
               </>
             )}
