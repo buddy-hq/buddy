@@ -37,17 +37,9 @@ type SettingsModalProps = {
 
 type SettingsTab = "general" | "providers"
 
-function SettingsPanel(props: {
-  value: SettingsTab
-  title: string
-  description: string
-  children: ReactNode
-}) {
+function SettingsPanel(props: { value: SettingsTab; title: string; description: string; children: ReactNode }) {
   return (
-    <TabsContent
-      value={props.value}
-      className="flex min-h-0 flex-1 flex-col outline-none data-[state=inactive]:hidden"
-    >
+    <TabsContent value={props.value} className="flex min-h-0 flex-1 flex-col outline-none data-[state=inactive]:hidden">
       <div className="border-b border-border/60 px-5 py-5">
         <h2 className="text-base font-medium text-foreground">{props.title}</h2>
         <p className="mt-1 text-sm text-muted-foreground">{props.description}</p>
@@ -59,9 +51,7 @@ function SettingsPanel(props: {
   )
 }
 
-function SettingsListCard(props: {
-  children: ReactNode
-}) {
+function SettingsListCard(props: { children: ReactNode }) {
   return (
     <Card size="sm" className="gap-0 py-0">
       <CardContent className="px-0">{props.children}</CardContent>
@@ -69,12 +59,7 @@ function SettingsListCard(props: {
   )
 }
 
-function SettingsRow(props: {
-  title: string
-  description: string
-  control: ReactNode
-  last?: boolean
-}) {
+function SettingsRow(props: { title: string; description: string; control: ReactNode; last?: boolean }) {
   return (
     <>
       <div className="px-4 py-4">
@@ -91,9 +76,7 @@ function SettingsRow(props: {
   )
 }
 
-function ProviderSourceBadge(props: {
-  provider: ProviderInfo
-}) {
+function ProviderSourceBadge(props: { provider: ProviderInfo }) {
   const label =
     props.provider.source === "env"
       ? "Environment"
@@ -141,8 +124,8 @@ export function SettingsModal(props: SettingsModalProps) {
     if (settings.status.loading) return "Loading settings..."
     if (settings.status.saving) return "Saving changes..."
     if (settings.status.error) return settings.status.error
-    if (activeTab === "providers") return "Connections are shared by the project runtime."
-    return "Changes apply to this project only."
+    if (activeTab === "providers") return "Connections are shared by the notebook runtime."
+    return "Changes apply to this notebook only."
   })()
 
   return (
@@ -179,7 +162,7 @@ export function SettingsModal(props: SettingsModalProps) {
                 <div className="space-y-6">
                   <div className="space-y-2">
                     <p className="px-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                      Project
+                      Notebook
                     </p>
                     <div className="space-y-1">
                       <TabsTrigger value="general" className="h-9 flex-none rounded-lg px-3">
@@ -203,7 +186,7 @@ export function SettingsModal(props: SettingsModalProps) {
                 </div>
 
                 <div className="px-2 py-1 text-xs text-muted-foreground">
-                  <p className="font-medium text-foreground/80">Buddy Dev</p>
+                  <p className="font-medium text-foreground/80">Buddy</p>
                   <p className="mt-1 truncate">local: {getFilename(props.directory)}</p>
                 </div>
               </TabsList>
@@ -212,12 +195,12 @@ export function SettingsModal(props: SettingsModalProps) {
             <SettingsPanel
               value="general"
               title="General"
-              description="Configure project-specific defaults for Buddy in this repository."
+              description="Configure notebook-specific defaults for Buddy in this repository."
             >
               <SettingsListCard>
                 <SettingsRow
                   title="Default agent"
-                  description="Choose which primary agent Buddy uses by default for new prompts in this project."
+                  description="Choose which primary agent Buddy uses by default for new prompts in this notebook."
                   control={
                     <Select
                       value={agentSelectValue}
@@ -241,7 +224,7 @@ export function SettingsModal(props: SettingsModalProps) {
 
                 <SettingsRow
                   title="Log level"
-                  description="Controls backend logging verbosity for this project."
+                  description="Controls backend logging verbosity for this notebook."
                   control={
                     <Select
                       value={logLevelSelectValue}
@@ -255,7 +238,7 @@ export function SettingsModal(props: SettingsModalProps) {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value={DEFAULT_VALUE}>Default</SelectItem>
-                        <SelectItem value="debug">debug</SelectItem>
+                        {import.meta.env.DEV && <SelectItem value="debug">debug</SelectItem>}
                         <SelectItem value="info">info</SelectItem>
                         <SelectItem value="warn">warn</SelectItem>
                         <SelectItem value="error">error</SelectItem>
@@ -266,7 +249,7 @@ export function SettingsModal(props: SettingsModalProps) {
 
                 <SettingsRow
                   title="Provider"
-                  description="Choose which connected provider Buddy uses for project-level model selection."
+                  description="Choose which connected provider Buddy uses for notebook-level model selection."
                   control={
                     <Select
                       value={settings.selection.provider}
@@ -274,7 +257,9 @@ export function SettingsModal(props: SettingsModalProps) {
                       disabled={settings.status.loading || !hasConnectedProviders}
                     >
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder={hasConnectedProviders ? "Select provider" : "Connect a provider first"} />
+                        <SelectValue
+                          placeholder={hasConnectedProviders ? "Select provider" : "Connect a provider first"}
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         {settings.options.providers.map((provider) => (
@@ -289,7 +274,7 @@ export function SettingsModal(props: SettingsModalProps) {
 
                 <SettingsRow
                   title="Model"
-                  description="Pick the default model Buddy uses in this project. This does not control model visibility."
+                  description="Pick the default model Buddy uses in this notebook. This does not control model visibility."
                   last
                   control={
                     <Select
@@ -298,7 +283,9 @@ export function SettingsModal(props: SettingsModalProps) {
                       disabled={settings.status.loading || !hasConnectedProviders}
                     >
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder={hasConnectedProviders ? "Select model" : "Connect a provider first"} />
+                        <SelectValue
+                          placeholder={hasConnectedProviders ? "Select model" : "Connect a provider first"}
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         {settings.options.providerModels.map((model) => (
@@ -342,7 +329,7 @@ export function SettingsModal(props: SettingsModalProps) {
                                 <p className="mt-1 text-xs text-muted-foreground">
                                   {provider.source === "env"
                                     ? "Connected from environment variables."
-                                    : "Connected and available for this project."}
+                                    : "Connected and available for this notebook."}
                                 </p>
                               </div>
 
@@ -373,9 +360,7 @@ export function SettingsModal(props: SettingsModalProps) {
                       )
                     })
                   ) : (
-                    <div className="px-4 py-8 text-sm text-muted-foreground">
-                      No providers are connected yet.
-                    </div>
+                    <div className="px-4 py-8 text-sm text-muted-foreground">No providers are connected yet.</div>
                   )}
                 </SettingsListCard>
               </div>

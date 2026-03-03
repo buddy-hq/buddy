@@ -235,8 +235,7 @@ async function loadComposerConfiguration(directory: string) {
   ])
   const selectableAgents = agents.filter((agent) => agent.mode !== "subagent" && !agent.hidden)
   const configuredDefault =
-    typeof config.default_agent === "string" &&
-    selectableAgents.some((agent) => agent.name === config.default_agent)
+    typeof config.default_agent === "string" && selectableAgents.some((agent) => agent.name === config.default_agent)
       ? config.default_agent
       : "build"
 
@@ -314,10 +313,7 @@ function DirectoryChatPage() {
   const sessionID = directoryState?.sessionID
   const showHeaderSidebarToggle = !(platform.platform === "desktop" && platform.os === "macos")
   const sessions = directoryState?.sessions ?? []
-  const sessionFamily = useMemo(
-    () => getSessionFamily(sessions, sessionID),
-    [sessionID, sessions],
-  )
+  const sessionFamily = useMemo(() => getSessionFamily(sessions, sessionID), [sessionID, sessions])
   const sessionTitle = sessionFamily.current?.title ?? directoryState?.sessionTitle ?? "New chat"
   const parentSession = useMemo(
     () =>
@@ -336,10 +332,7 @@ function DirectoryChatPage() {
   )
   const messages = directoryState?.messages ?? []
   const providers = directoryState?.providers ?? []
-  const connectedProviders = useMemo(
-    () => providers.filter((provider) => provider.connected),
-    [providers],
-  )
+  const connectedProviders = useMemo(() => providers.filter((provider) => provider.connected), [providers])
   const visibleModelKeys = useMemo(() => {
     const visible = new Set<string>()
     const latestByFamily = new Map<string, { key: string; releaseTime: number }>()
@@ -483,10 +476,9 @@ function DirectoryChatPage() {
   )
   const hasMcpError = useMemo(
     () =>
-      mcpEntries.some(([, entry]) =>
-        entry.status === "failed" ||
-        entry.status === "needs_auth" ||
-        entry.status === "needs_client_registration"
+      mcpEntries.some(
+        ([, entry]) =>
+          entry.status === "failed" || entry.status === "needs_auth" || entry.status === "needs_client_registration",
       ),
     [mcpEntries],
   )
@@ -511,9 +503,9 @@ function DirectoryChatPage() {
     () => (decodedDirectory && sessionID ? teachingSessionKey(decodedDirectory, sessionID) : ""),
     [decodedDirectory, sessionID],
   )
-  const selectedAgent = sessionKey ? teachingMode.selectedAgentBySession[sessionKey] ?? defaultAgent : defaultAgent
-  const interactionMode = sessionKey ? teachingMode.interactionModeBySession[sessionKey] ?? "chat" : "chat"
-  const preferredLanguage = sessionKey ? teachingMode.preferredLanguageBySession[sessionKey] ?? "ts" : "ts"
+  const selectedAgent = sessionKey ? (teachingMode.selectedAgentBySession[sessionKey] ?? defaultAgent) : defaultAgent
+  const interactionMode = sessionKey ? (teachingMode.interactionModeBySession[sessionKey] ?? "chat") : "chat"
+  const preferredLanguage = sessionKey ? (teachingMode.preferredLanguageBySession[sessionKey] ?? "ts") : "ts"
   const teachingWorkspace = sessionKey ? teachingMode.workspaceBySession[sessionKey] : undefined
   const isInteractiveMode = !!sessionID && interactionMode === "interactive"
   const editorPanelOpen = rightSidebarOpen && rightSidebarTab === "editor"
@@ -714,9 +706,7 @@ function DirectoryChatPage() {
 
         if (payload.type === "session.error") {
           const erroredSessionID =
-            typeof properties.sessionID === "string" && properties.sessionID
-              ? properties.sessionID
-              : undefined
+            typeof properties.sessionID === "string" && properties.sessionID ? properties.sessionID : undefined
 
           if (erroredSessionID) {
             applySessionStatus(directory, erroredSessionID, "idle")
@@ -729,11 +719,7 @@ function DirectoryChatPage() {
         if (payload.type === "message.updated") {
           const info = properties.info as MessageInfo
           applyMessageUpdated(directory, info)
-          if (
-            info.role === "assistant" &&
-            !info.error &&
-            (!!info.finish || !!info.time.completed)
-          ) {
+          if (info.role === "assistant" && !info.error && (!!info.finish || !!info.time.completed)) {
             clearDirectoryError(directory)
           }
           const activeSessionID = useChatStore.getState().directories[directory]?.sessionID
@@ -955,10 +941,7 @@ function DirectoryChatPage() {
     }
   }, [decodedDirectory, isBusy, isInteractiveMode, sessionID, sessionKey, teachingWorkspace])
 
-  async function flushTeachingWorkspace(input?: {
-    forceOverwrite?: boolean
-    language?: TeachingLanguage
-  }) {
+  async function flushTeachingWorkspace(input?: { forceOverwrite?: boolean; language?: TeachingLanguage }) {
     if (!decodedDirectory || !sessionID || !isInteractiveMode || !sessionKey) {
       return true
     }
@@ -1058,20 +1041,14 @@ function DirectoryChatPage() {
     teachingWorkspace?.conflict,
   ])
 
-  async function onSend(input?: {
-    value: string
-    attachments: PromptComposerAttachment[]
-  }) {
+  async function onSend(input?: { value: string; attachments: PromptComposerAttachment[] }) {
     if (!decodedDirectory) return
     const rawContent = input?.value ?? draft
     const rawAttachments = input?.attachments ?? draftAttachments
     const content = rawContent.trim()
     if (!content && rawAttachments.length === 0) return
 
-    const modelSelection =
-      selectedModelKey !== "auto"
-        ? parseConfiguredModel(selectedModelKey)
-        : undefined
+    const modelSelection = selectedModelKey !== "auto" ? parseConfiguredModel(selectedModelKey) : undefined
     const variant = selectedThinking !== "default" ? selectedThinking : undefined
     const slashCommand = parseSlashCommandInput(rawContent, slashCommands)
 
@@ -1398,17 +1375,21 @@ function DirectoryChatPage() {
       useTeachingMode.getState().setWorkspace(sessionKey, workspace)
       useTeachingMode.getState().setSaveError(sessionKey, undefined)
 
-      await sendPrompt(decodedDirectory, `I started an interactive lesson in ${teachingLanguageLabel(preferredLanguage)} mode. Interactive workspace tools are now available. Please use the editor workspace to set up the next hands-on step and guide me there.`, {
-        agent: selectedAgent,
-        teaching: {
-          active: true,
-          sessionID: workspace.sessionID,
-          lessonFilePath: workspace.lessonFilePath,
-          checkpointFilePath: workspace.checkpointFilePath,
-          language: workspace.language,
-          revision: workspace.revision,
+      await sendPrompt(
+        decodedDirectory,
+        `I started an interactive lesson in ${teachingLanguageLabel(preferredLanguage)} mode. Interactive workspace tools are now available. Please use the editor workspace to set up the next hands-on step and guide me there.`,
+        {
+          agent: selectedAgent,
+          teaching: {
+            active: true,
+            sessionID: workspace.sessionID,
+            lessonFilePath: workspace.lessonFilePath,
+            checkpointFilePath: workspace.checkpointFilePath,
+            language: workspace.language,
+            revision: workspace.revision,
+          },
         },
-      })
+      )
     } catch (interactiveError) {
       const message = stringifyError(interactiveError)
       setDirectoryError(decodedDirectory, message)
@@ -1457,11 +1438,11 @@ function DirectoryChatPage() {
   }
 
   if (!decodedDirectory) {
-    return <div className="p-6">Invalid project identifier in URL.</div>
+    return <div className="p-6">Invalid notebook identifier in URL.</div>
   }
 
   if (!hasRegisteredProject) {
-    return <div className="p-6">Opening project...</div>
+    return <div className="p-6">Opening notebook...</div>
   }
 
   return (
@@ -1569,7 +1550,12 @@ function DirectoryChatPage() {
                       : `MCP ${connectedMcpCount}/${mcpEntries.length}`
                     : "MCP"}
                 </Button>
-                <Button variant="ghost" size="icon-xs" onClick={() => void onNewSession()} title={`Start new thread in ${getFilename(decodedDirectory)}`}>
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  onClick={() => void onNewSession()}
+                  title={`Start new thread in ${getFilename(decodedDirectory)}`}
+                >
                   <SquarePenIcon className="size-3.5" />
                 </Button>
                 <Button
@@ -1612,7 +1598,9 @@ function DirectoryChatPage() {
                     Copy Trace
                   </Button>
                 ) : null}
-                <span className="text-xs text-muted-foreground hidden lg:inline">SSE: {streamStatus}</span>
+                {showDevSessionTrace && (
+                  <span className="text-xs text-muted-foreground hidden lg:inline">SSE: {streamStatus}</span>
+                )}
               </div>
             </div>
           </header>
@@ -1832,11 +1820,7 @@ function DirectoryChatPage() {
         open={!!decodedDirectory && mcpDialogOpen}
         onOpenChange={setMcpDialogOpen}
       />
-      <SettingsModal
-        directory={decodedDirectory}
-        open={settingsModalOpen}
-        onOpenChange={onSettingsModalOpenChange}
-      />
+      <SettingsModal directory={decodedDirectory} open={settingsModalOpen} onOpenChange={onSettingsModalOpenChange} />
     </div>
   )
 }
