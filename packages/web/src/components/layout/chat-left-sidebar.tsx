@@ -143,7 +143,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
 
   const directoryGroups = useMemo(() => {
     const getSortTimestamp = (session: SessionInfo) =>
-      sortMode === "created" ? session.time.created : session.time.updated ?? session.time.created
+      sortMode === "created" ? session.time.created : (session.time.updated ?? session.time.created)
 
     const isRelevantSession = (directory: string, session: SessionInfo) => {
       const allSessions = props.sessionsByDirectory[directory] ?? []
@@ -254,7 +254,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
                     }
                   }}
                 >
-                  <DropdownMenuRadioItem value="project">By project</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="project">By notebook</DropdownMenuRadioItem>
                   <DropdownMenuRadioItem value="chronological">Chronological list</DropdownMenuRadioItem>
                 </DropdownMenuRadioGroup>
                 <DropdownMenuSeparator />
@@ -326,9 +326,11 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
                       })
                     }}
                   >
-                    {collapsed
-                      ? <ChevronRightIcon className="size-3.5 shrink-0 text-muted-foreground" />
-                      : <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground" />}
+                    {collapsed ? (
+                      <ChevronRightIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                    ) : (
+                      <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                    )}
                     <span className={`truncate ${isCurrentDirectory ? "font-medium" : ""}`}>{directoryLabel}</span>
                   </button>
 
@@ -369,111 +371,109 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
                   </div>
                 </div>
 
-                {group.sessions.length === 0
-                  ? (
-                      <p className="pl-6 text-sm text-muted-foreground/60">No threads</p>
-                    )
-                  : collapsed
-                    ? null
-                    : visibleSessions.map((session) => {
-                        const familyIDs = sessionFamilyIDs(allSessions, session.id)
-                        const active = group.directory === props.currentDirectory && session.id === activeRootID
-                        const busy = familyIDs.some((id) => sessionStatusByID[id] === "busy")
-                        const pinned = familyIDs.some((id) => pinnedSet.has(id))
-                        const unread = familyIDs.some((id) => !!unreadMap[id])
+                {group.sessions.length === 0 ? (
+                  <p className="pl-6 text-sm text-muted-foreground/60">No threads</p>
+                ) : collapsed ? null : (
+                  visibleSessions.map((session) => {
+                    const familyIDs = sessionFamilyIDs(allSessions, session.id)
+                    const active = group.directory === props.currentDirectory && session.id === activeRootID
+                    const busy = familyIDs.some((id) => sessionStatusByID[id] === "busy")
+                    const pinned = familyIDs.some((id) => pinnedSet.has(id))
+                    const unread = familyIDs.some((id) => !!unreadMap[id])
 
-                        return (
-                          <div
-                            key={`${group.directory}:${session.id}`}
-                            className={`group/thread relative ml-3 rounded-xl ${
-                              active ? "bg-[#121419] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)]" : "hover:bg-[#101217]"
-                            }`}
-                          >
-                            <button
-                              type="button"
-                              onClick={() => props.onSelectSession(group.directory, session.id)}
-                              className="w-full px-3 py-2 text-left"
-                            >
-                              <div className="flex min-w-0 items-center gap-2 pr-8">
-                                <span
-                                  className={`inline-block size-1.5 shrink-0 rounded-full ${
-                                    busy ? "bg-amber-500" : unread ? "bg-sky-500" : "bg-emerald-500"
-                                  }`}
-                                />
-                                <div className="flex min-w-0 items-center gap-1">
-                                  <span
-                                    className={`truncate text-xs ${
-                                      active || unread ? "font-medium text-foreground" : "text-foreground/90"
-                                    }`}
-                                  >
-                                    {session.title || "New thread"}
-                                  </span>
-                                  {pinned ? <PinIcon className="size-3 shrink-0 text-muted-foreground" /> : null}
-                                </div>
-                                <span
-                                  className={`ml-auto shrink-0 text-[12px] ${
-                                    busy ? "text-amber-400" : "text-muted-foreground"
-                                  }`}
-                                >
-                                  {busy ? "live" : formatThreadAge(session.time.updated)}
-                                </span>
-                              </div>
-                            </button>
-
-                            <div className="absolute right-1 top-1.5 opacity-0 pointer-events-none transition-opacity group-hover/thread:opacity-100 group-hover/thread:pointer-events-auto group-focus-within/thread:opacity-100 group-focus-within/thread:pointer-events-auto">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <button
-                                    type="button"
-                                    className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted/70 hover:text-foreground"
-                                    aria-label="Thread options"
-                                    onClick={(event) => event.stopPropagation()}
-                                  >
-                                    <EllipsisHorizontalIcon className="size-3.5" />
-                                  </button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-44">
-                                  <DropdownMenuItem
-                                    onSelect={() => {
-                                      props.onTogglePin(group.directory, session.id)
-                                    }}
-                                  >
-                                    <PinIcon className="size-3.5 mr-2" />
-                                    {pinned ? "Unpin thread" : "Pin thread"}
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onSelect={() => {
-                                      setRenameState({
-                                        directory: group.directory,
-                                        sessionID: session.id,
-                                        title: session.title,
-                                      })
-                                    }}
-                                  >
-                                    <PencilIcon className="size-3.5 mr-2" />
-                                    Rename thread
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onSelect={() => {
-                                      void props.onArchiveSession(group.directory, session.id)
-                                    }}
-                                  >
-                                    <ArchiveIcon className="size-3.5 mr-2" />
-                                    Archive thread
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onSelect={() => {
-                                      props.onToggleUnread(group.directory, session.id, !unread)
-                                    }}
-                                  >
-                                    {unread ? "Mark as read" : "Mark as unread"}
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
+                    return (
+                      <div
+                        key={`${group.directory}:${session.id}`}
+                        className={`group/thread relative ml-3 rounded-xl ${
+                          active ? "bg-[#121419] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)]" : "hover:bg-[#101217]"
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => props.onSelectSession(group.directory, session.id)}
+                          className="w-full px-3 py-2 text-left"
+                        >
+                          <div className="flex min-w-0 items-center gap-2 pr-8">
+                            <span
+                              className={`inline-block size-1.5 shrink-0 rounded-full ${
+                                busy ? "bg-amber-500" : unread ? "bg-sky-500" : "bg-emerald-500"
+                              }`}
+                            />
+                            <div className="flex min-w-0 items-center gap-1">
+                              <span
+                                className={`truncate text-xs ${
+                                  active || unread ? "font-medium text-foreground" : "text-foreground/90"
+                                }`}
+                              >
+                                {session.title || "New thread"}
+                              </span>
+                              {pinned ? <PinIcon className="size-3 shrink-0 text-muted-foreground" /> : null}
                             </div>
+                            <span
+                              className={`ml-auto shrink-0 text-[12px] ${
+                                busy ? "text-amber-400" : "text-muted-foreground"
+                              }`}
+                            >
+                              {busy ? "live" : formatThreadAge(session.time.updated)}
+                            </span>
                           </div>
-                        )
-                      })}
+                        </button>
+
+                        <div className="absolute right-1 top-1.5 opacity-0 pointer-events-none transition-opacity group-hover/thread:opacity-100 group-hover/thread:pointer-events-auto group-focus-within/thread:opacity-100 group-focus-within/thread:pointer-events-auto">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                type="button"
+                                className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                                aria-label="Thread options"
+                                onClick={(event) => event.stopPropagation()}
+                              >
+                                <EllipsisHorizontalIcon className="size-3.5" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-44">
+                              <DropdownMenuItem
+                                onSelect={() => {
+                                  props.onTogglePin(group.directory, session.id)
+                                }}
+                              >
+                                <PinIcon className="size-3.5 mr-2" />
+                                {pinned ? "Unpin thread" : "Pin thread"}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onSelect={() => {
+                                  setRenameState({
+                                    directory: group.directory,
+                                    sessionID: session.id,
+                                    title: session.title,
+                                  })
+                                }}
+                              >
+                                <PencilIcon className="size-3.5 mr-2" />
+                                Rename thread
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onSelect={() => {
+                                  void props.onArchiveSession(group.directory, session.id)
+                                }}
+                              >
+                                <ArchiveIcon className="size-3.5 mr-2" />
+                                Archive thread
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onSelect={() => {
+                                  props.onToggleUnread(group.directory, session.id, !unread)
+                                }}
+                              >
+                                {unread ? "Mark as read" : "Mark as unread"}
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
 
                 {hasMore ? (
                   <button

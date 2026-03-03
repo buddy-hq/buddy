@@ -73,8 +73,8 @@ function ChatEntryPage() {
     <div className="mx-auto w-full max-w-2xl px-6 py-16">
       <div className="text-center space-y-2">
         <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Buddy</p>
-        <h1 className="text-3xl font-semibold">Open project</h1>
-        <p className="text-sm text-muted-foreground">OpenCode-style project and session workflow for Buddy.</p>
+        <h1 className="text-3xl font-semibold">Open notebook</h1>
+        <p className="text-sm text-muted-foreground">Open a notebook to start chatting with Buddy.</p>
         <div className="pt-2">
           <Button
             variant="outline"
@@ -120,7 +120,7 @@ function ChatEntryPage() {
       {recents.length > 0 ? (
         <div className="mt-8 space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-medium">Recent projects</p>
+            <p className="text-sm font-medium">Recent notebooks</p>
           </div>
           <div className="space-y-2">
             {recents.map((project) => (
@@ -137,7 +137,7 @@ function ChatEntryPage() {
         </div>
       ) : (
         <div className="mt-12 rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
-          No projects yet. Open a folder to start.
+          No notebooks yet. Open a folder to start.
         </div>
       )}
     </div>

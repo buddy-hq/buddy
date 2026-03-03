@@ -115,11 +115,7 @@ async function copyText(text: string) {
   return true
 }
 
-function SectionHeader(props: {
-  title: string
-  description: string
-  action?: ReactNode
-}) {
+function SectionHeader(props: { title: string; description: string; action?: ReactNode }) {
   return (
     <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
       <div className="space-y-1">
@@ -233,11 +229,7 @@ function SkillCard(props: {
   )
 }
 
-function LibraryCard(props: {
-  skill: SkillLibraryEntry
-  disabled?: boolean
-  onInstall: () => void
-}) {
+function LibraryCard(props: { skill: SkillLibraryEntry; disabled?: boolean; onInstall: () => void }) {
   return (
     <Card className="border-border/60 bg-card/60">
       <CardContent className="flex h-full flex-col gap-4 p-5">
@@ -269,9 +261,7 @@ function LibraryCard(props: {
   )
 }
 
-export function SkillsPage(props: {
-  directory?: string
-}) {
+export function SkillsPage(props: { directory?: string }) {
   const currentDirectory = props.directory
   const [catalog, setCatalog] = useState<SkillsCatalog | undefined>(undefined)
   const [loading, setLoading] = useState(true)
@@ -328,10 +318,7 @@ export function SkillsPage(props: {
     })
   }
 
-  async function refreshCatalog(input?: {
-    preserveSelection?: boolean
-    force?: boolean
-  }) {
+  async function refreshCatalog(input?: { preserveSelection?: boolean; force?: boolean }) {
     if (!catalog) {
       setLoading(true)
     } else {
@@ -449,10 +436,7 @@ export function SkillsPage(props: {
   }
 
   const createDisabled =
-    busyKey === "create-skill" ||
-    !form.name.trim() ||
-    !form.description.trim() ||
-    !form.content.trim()
+    busyKey === "create-skill" || !form.name.trim() || !form.description.trim() || !form.content.trim()
 
   return (
     <>
@@ -468,10 +452,9 @@ export function SkillsPage(props: {
             <div>
               <h1 className="text-3xl font-semibold tracking-tight text-foreground">Manage skills</h1>
               <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-                Installed skills come from the real OpenCode discovery flow. The library section uses local placeholder
-                entries for now, so we can swap in a remote catalog later without changing the UI shape. Skills can be
-                set to always available, on-demand approval, or blocked. Workspace skills are discovered per project,
-                but permission rules still follow the core name-based model.
+                Manage which skills are available when chatting with Buddy. Installed skills are discovered from your
+                workspace and global skill directories. The library shows available skills you can enable. Set skills to
+                always available, ask before using, or blocked. Workspace skills are discovered per notebook.
               </p>
               {catalog?.directory ? (
                 <div className="mt-3 inline-flex max-w-full items-center gap-2 rounded-full border border-border/60 bg-card/60 px-3 py-1 text-xs text-muted-foreground">
@@ -581,7 +564,8 @@ export function SkillsPage(props: {
                         `install:${skill.id}`,
                         () => installLibrarySkill(skill.id, currentDirectory),
                         `Added ${skill.name}.`,
-                      )}
+                      )
+                    }
                   />
                 ))}
               </div>
@@ -611,9 +595,7 @@ export function SkillsPage(props: {
                 <div className="flex items-start justify-between gap-4">
                   <div className="space-y-2">
                     <DialogTitle className="text-left text-2xl">{selectedSkill.name}</DialogTitle>
-                    <DialogDescription className="text-left text-sm">
-                      {selectedSkill.description}
-                    </DialogDescription>
+                    <DialogDescription className="text-left text-sm">{selectedSkill.description}</DialogDescription>
                   </div>
                 </div>
               </DialogHeader>
@@ -623,13 +605,13 @@ export function SkillsPage(props: {
                 <Badge variant="outline">{scopeLabel(selectedSkill.scope)}</Badge>
                 <Badge variant="outline">{permissionSourceLabel(selectedSkill.permissionSource)}</Badge>
                 <Badge variant="outline">{statusLabel(selectedSkill.permissionAction)}</Badge>
-                {selectedSkill.libraryID ? <Badge variant="outline">Library ID: {selectedSkill.libraryID}</Badge> : null}
+                {selectedSkill.libraryID ? (
+                  <Badge variant="outline">Library ID: {selectedSkill.libraryID}</Badge>
+                ) : null}
               </div>
 
               <div className="space-y-2 rounded-2xl border border-border/60 bg-card/60 p-4">
-                <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                  Permission
-                </p>
+                <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Permission</p>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="space-y-1">
                     <p className="text-sm text-muted-foreground">{scopeDescription(selectedSkill.scope)}</p>
@@ -658,7 +640,8 @@ export function SkillsPage(props: {
                           if (copied) {
                             toast.success(`Copied prompt for ${selectedSkill.name}.`)
                           }
-                        })}
+                        })
+                      }
                     >
                       Copy
                     </Button>
@@ -681,7 +664,8 @@ export function SkillsPage(props: {
                         if (copied) {
                           toast.success(`Copied skill content for ${selectedSkill.name}.`)
                         }
-                      })}
+                      })
+                    }
                   >
                     Copy
                   </Button>
@@ -693,9 +677,7 @@ export function SkillsPage(props: {
 
               <div className="space-y-2 rounded-2xl border border-border/60 bg-card/60 p-4">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                    Folder
-                  </p>
+                  <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Folder</p>
                   <Button
                     type="button"
                     variant="ghost"
@@ -705,7 +687,8 @@ export function SkillsPage(props: {
                         if (copied) {
                           toast.success(`Copied folder for ${selectedSkill.name}.`)
                         }
-                      })}
+                      })
+                    }
                   >
                     Copy path
                   </Button>
@@ -731,7 +714,8 @@ export function SkillsPage(props: {
                           if (removed) {
                             setSelectedSkillName(undefined)
                           }
-                        })()}
+                        })()
+                      }
                     >
                       Remove
                     </Button>
