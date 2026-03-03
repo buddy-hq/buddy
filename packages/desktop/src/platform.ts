@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core"
 import { getCurrentWindow } from "@tauri-apps/api/window"
 import { open } from "@tauri-apps/plugin-dialog"
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http"
@@ -8,6 +7,8 @@ import { relaunch } from "@tauri-apps/plugin-process"
 import { open as shellOpen } from "@tauri-apps/plugin-shell"
 import { Store } from "@tauri-apps/plugin-store"
 import { createBrowserPlatform, type Platform } from "@buddy/web/context/platform"
+import { commands } from "./bindings"
+import { checkForUpdate, installPendingUpdate } from "./updater"
 
 function normalizeDirectory(input: string) {
   const trimmed = input.trim().split("\\").join("/")
@@ -184,7 +185,14 @@ export function createDesktopPlatform(): Platform {
     },
     async restart() {
       await flushAll()
+      await commands.killSidecar().catch(() => undefined)
       await relaunch()
+    },
+    checkUpdate() {
+      return checkForUpdate()
+    },
+    async update() {
+      await installPendingUpdate()
     },
     openLink(url: string) {
       void shellOpen(url).catch(() => undefined)
@@ -206,7 +214,7 @@ export function createDesktopPlatform(): Platform {
         .catch(() => undefined)
     },
     parseMarkdown(markdown) {
-      return invoke<string>("parse_markdown_command", { markdown })
+      return commands.parseMarkdownCommand(markdown)
     },
     async openDirectoryPickerDialog(opts) {
       const result = await open({
