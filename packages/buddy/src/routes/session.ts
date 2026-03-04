@@ -335,6 +335,8 @@ export const SessionRoutes = (): Hono =>
           },
           forceBusyAs409: true,
           registerCurriculumTools: true,
+          registerFigureTools: true,
+          registerFreeformFigureTools: true,
           registerGoalTools: true,
           registerTeachingTools: true,
         }).catch((error) => {
@@ -420,6 +422,8 @@ export const SessionRoutes = (): Hono =>
           },
           forceBusyAs409: true,
           registerCurriculumTools: true,
+          registerFigureTools: true,
+          registerFreeformFigureTools: true,
           registerGoalTools: true,
           registerTeachingTools: true,
         })
