@@ -167,6 +167,12 @@ export function createDesktopPlatform(): Platform {
     ...createBrowserPlatform(),
     platform: "desktop",
     os,
+    async startWindowDragging() {
+      await getCurrentWindow().startDragging()
+    },
+    async toggleWindowMaximize() {
+      await getCurrentWindow().toggleMaximize()
+    },
     storage(name) {
       const storeName = name ?? "buddy.global.dat"
       const cached = apiCache.get(storeName)

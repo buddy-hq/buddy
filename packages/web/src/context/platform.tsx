@@ -16,6 +16,8 @@ export type Platform = {
   platform: "web" | "desktop"
   os?: "macos" | "windows" | "linux"
   version?: string
+  startWindowDragging?(): Promise<void>
+  toggleWindowMaximize?(): Promise<void>
   storage?(name?: string): StateStorage
   openDirectoryPickerDialog?(opts?: OpenDirectoryPickerOptions): Promise<string | string[] | null>
   fetch?: typeof fetch
