@@ -19,6 +19,8 @@ import {
 import { compatibilityRoute } from "../openapi/compatibility-route.js"
 import { composeLearningSystemPrompt } from "../learning/shared/compose-system-prompt.js"
 import { TeachingPromptContextSchema } from "../learning/teaching/types.js"
+import { getBuddyMode, getDefaultBuddyMode } from "../modes/catalog.js"
+import { isBuddyModeID, type BuddyModeID } from "../modes/types.js"
 import {
   ensureAllowedDirectory,
   fetchOpenCode,
@@ -33,6 +35,65 @@ function hasExplicitModel(value: unknown): value is { providerID: string; modelI
   if (!value || typeof value !== "object") return false
   if (!("providerID" in value) || !("modelID" in value)) return false
   return typeof value.providerID === "string" && typeof value.modelID === "string"
+}
+
+function hasExplicitCommandModel(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0
+}
+
+function normalizeModeTarget(input: {
+  body: Record<string, unknown>
+  config: Awaited<ReturnType<typeof readProjectConfig>>
+}) {
+  const rawMode = typeof input.body.mode === "string" ? input.body.mode.trim() : ""
+  const rawAgent = typeof input.body.agent === "string" ? input.body.agent : undefined
+
+  if (rawMode && rawAgent) {
+    throw new Error('Provide either "mode" or "agent", not both')
+  }
+
+  const mergedAgents = mergeBuddyAndConfiguredAgents(input.config.agent ?? {})
+
+  if (rawMode) {
+    if (!isBuddyModeID(rawMode)) {
+      throw new Error(`Unknown Buddy mode "${rawMode}"`)
+    }
+
+    const mode = getBuddyMode(rawMode, input.config.modes)
+    if (mode.hidden) {
+      throw new Error(`Buddy mode "${rawMode}" is hidden`)
+    }
+
+    return {
+      modeID: mode.id,
+      runtimeAgent: resolveConfiguredAgentKey(mode.runtimeAgent, mergedAgents),
+      includeBuddySystem: true,
+    }
+  }
+
+  if (rawAgent) {
+    const explicitMode = isBuddyModeID(rawAgent) ? getBuddyMode(rawAgent, input.config.modes) : undefined
+    if (explicitMode?.hidden) {
+      throw new Error(`Buddy mode "${rawAgent}" is hidden`)
+    }
+
+    return {
+      modeID: explicitMode?.id as BuddyModeID | undefined,
+      runtimeAgent: resolveConfiguredAgentKey(rawAgent, mergedAgents),
+      includeBuddySystem: !!explicitMode,
+    }
+  }
+
+  const mode = getDefaultBuddyMode({
+    defaultMode: input.config.default_mode,
+    overrides: input.config.modes,
+  })
+
+  return {
+    modeID: mode.id,
+    runtimeAgent: resolveConfiguredAgentKey(mode.runtimeAgent, mergedAgents),
+    includeBuddySystem: true,
+  }
 }
 
 const directoryParameters = [DirectoryHeader, DirectoryQuery]
@@ -285,16 +346,10 @@ export const SessionRoutes = (): Hono =>
             const teachingContextResult = TeachingPromptContextSchema.safeParse(body.teaching)
             const teachingContext = teachingContextResult.success ? teachingContextResult.data : undefined
             const projectConfig = await readProjectConfig(directoryResult.directory)
-            const mergedAgents = mergeBuddyAndConfiguredAgents(projectConfig.agent ?? {})
-            const explicitAgentName =
-              typeof body.agent === "string"
-                ? resolveConfiguredAgentKey(body.agent, mergedAgents)
-                : undefined
-            const configuredDefaultAgentName =
-              typeof projectConfig.default_agent === "string"
-                ? resolveConfiguredAgentKey(projectConfig.default_agent, mergedAgents)
-                : undefined
-            const agentName = explicitAgentName ?? configuredDefaultAgentName
+            const target = normalizeModeTarget({
+              body,
+              config: projectConfig,
+            })
             if (content.trim().length > 0) {
               parts.unshift({
                 type: "text",
@@ -311,12 +366,14 @@ export const SessionRoutes = (): Hono =>
               parts,
             }
             const existingSystem = typeof body.system === "string" ? body.system.trim() : ""
-            const buddySystem = await composeLearningSystemPrompt({
-              directory: directoryResult.directory,
-              agentName,
-              teachingContext,
-              userContent: content,
-            })
+            const buddySystem = target.includeBuddySystem
+              ? await composeLearningSystemPrompt({
+                  directory: directoryResult.directory,
+                  modeID: target.modeID,
+                  teachingContext,
+                  userContent: content,
+                })
+              : ""
             const mergedSystem = [existingSystem, buddySystem].filter(Boolean).join("\n\n").trim()
             if (mergedSystem) {
               transformed.system = mergedSystem
@@ -326,10 +383,9 @@ export const SessionRoutes = (): Hono =>
             if (!explicitModel && configuredModel) {
               transformed.model = configuredModel
             }
-            if (agentName) {
-              transformed.agent = agentName
-            }
+            transformed.agent = target.runtimeAgent
             delete transformed.content
+            delete transformed.mode
             delete transformed.teaching
             return transformed
           },
@@ -343,6 +399,13 @@ export const SessionRoutes = (): Hono =>
           const message = String(error instanceof Error ? error.message : error)
           if (message.includes("content or parts must be provided")) {
             return c.json({ error: "content or parts must be provided" }, 400)
+          }
+          if (
+            message.includes('Provide either "mode" or "agent"') ||
+            message.includes("Unknown Buddy mode") ||
+            message.includes("is hidden")
+          ) {
+            return c.json({ error: message }, 400)
           }
           throw error
         })
@@ -401,24 +464,21 @@ export const SessionRoutes = (): Hono =>
         return proxyToOpenCode(c, {
           targetPath: `/session/${encodeURIComponent(sessionID)}/command`,
           async transformJsonBody(body) {
-            if (typeof body.agent !== "string") {
-              return body
-            }
-
             const projectConfig = await readProjectConfig(directoryResult.directory)
-            const agentName = resolveConfiguredAgentKey(
-              body.agent,
-              mergeBuddyAndConfiguredAgents(projectConfig.agent ?? {}),
-            )
+            const target = normalizeModeTarget({
+              body,
+              config: projectConfig,
+            })
 
-            if (agentName === body.agent) {
-              return body
-            }
-
-            return {
+            const transformed: Record<string, unknown> = {
               ...body,
-              agent: agentName,
+              agent: target.runtimeAgent,
             }
+            if (!hasExplicitCommandModel(body.model) && projectConfig.model) {
+              transformed.model = projectConfig.model
+            }
+            delete transformed.mode
+            return transformed
           },
           forceBusyAs409: true,
           registerCurriculumTools: true,
@@ -426,6 +486,16 @@ export const SessionRoutes = (): Hono =>
           registerFreeformFigureTools: true,
           registerGoalTools: true,
           registerTeachingTools: true,
+        }).catch((error) => {
+          const message = String(error instanceof Error ? error.message : error)
+          if (
+            message.includes('Provide either "mode" or "agent"') ||
+            message.includes("Unknown Buddy mode") ||
+            message.includes("is hidden")
+          ) {
+            return c.json({ error: message }, 400)
+          }
+          throw error
         })
       },
     )

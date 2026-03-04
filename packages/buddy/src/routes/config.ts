@@ -16,12 +16,60 @@ import {
   McpNamePath,
 } from "../openapi/compatibility-schemas.js"
 import { compatibilityRoute } from "../openapi/compatibility-route.js"
+import { modeCatalogEntries } from "../modes/catalog.js"
 import { ensureAllowedDirectory, proxyToOpenCode } from "./support.js"
 
 const directoryParameters = [DirectoryHeader, DirectoryQuery]
 
 export const ConfigRoutes = (): Hono =>
   new Hono()
+    .get(
+      "/modes",
+      compatibilityRoute({
+        operationId: "config.modes",
+        summary: "List Buddy modes",
+        parameters: directoryParameters,
+        responses: {
+          200: {
+            description: "Buddy modes",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "array",
+                  items: AnyObjectSchema,
+                },
+              },
+            },
+          },
+          400: {
+            description: "Invalid config",
+            content: {
+              "application/json": { schema: ErrorSchema },
+            },
+          },
+          403: {
+            description: "Directory is outside allowed roots",
+            content: {
+              "application/json": { schema: ErrorSchema },
+            },
+          },
+        },
+      }),
+      async (c) => {
+        const directoryResult = ensureAllowedDirectory(c.req.raw)
+        if (!directoryResult.ok) return directoryResult.response
+
+        try {
+          const config = await readProjectConfig(directoryResult.directory)
+          return c.json(modeCatalogEntries(config.modes))
+        } catch (error) {
+          if (isConfigValidationError(error)) {
+            return c.json({ error: configErrorMessage(error) }, 400)
+          }
+          throw error
+        }
+      },
+    )
     .get(
       "/agents",
       compatibilityRoute({

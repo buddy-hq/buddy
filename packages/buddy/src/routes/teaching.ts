@@ -1,6 +1,11 @@
 import { Hono } from "hono"
 import z from "zod"
 import {
+  configErrorMessage,
+  isConfigValidationError,
+  readProjectConfig,
+} from "../config/compatibility.js"
+import {
   TeachingWorkspaceFileError,
   TeachingRevisionConflictError,
   TeachingService,
@@ -12,11 +17,14 @@ import {
   TeachingLanguageSchema,
   TeachingWorkspaceUpdateRequestSchema,
 } from "../learning/teaching/types.js"
+import { getBuddyMode, getDefaultBuddyMode } from "../modes/catalog.js"
+import { isBuddyModeID } from "../modes/types.js"
 import { isJsonContentType } from "./support.js"
 import type { EnsureAllowedDirectory } from "./support.js"
 
 const ProvisionRequestSchema = z.object({
   language: TeachingLanguageSchema.optional(),
+  mode: z.string().optional(),
 })
 
 function invalidJson() {
@@ -45,6 +53,44 @@ export const TeachingRoutes = (input: { ensureAllowedDirectory: EnsureAllowedDir
       const parsed = ProvisionRequestSchema.safeParse(body)
       if (!parsed.success) {
         return zodError(parsed.error)
+      }
+
+      let config: Awaited<ReturnType<typeof readProjectConfig>>
+      try {
+        config = await readProjectConfig(directoryResult.directory)
+      } catch (error) {
+        if (isConfigValidationError(error)) {
+          return c.json({ error: configErrorMessage(error) }, 400)
+        }
+        throw error
+      }
+
+      const mode = (() => {
+        if (parsed.data.mode) {
+          if (!isBuddyModeID(parsed.data.mode)) {
+            return undefined
+          }
+
+          const explicitMode = getBuddyMode(parsed.data.mode, config.modes)
+          if (explicitMode.hidden) {
+            return undefined
+          }
+
+          return explicitMode
+        }
+
+        return getDefaultBuddyMode({
+          defaultMode: config.default_mode,
+          overrides: config.modes,
+        })
+      })()
+
+      if (!mode) {
+        return c.json({ error: "Unknown Buddy mode" }, 400)
+      }
+
+      if (!mode.surfaces.includes("editor")) {
+        return c.json({ error: `Buddy mode "${mode.id}" cannot start an interactive lesson` }, 400)
       }
 
       const workspace = await TeachingService.ensure(
