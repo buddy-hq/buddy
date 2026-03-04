@@ -9,18 +9,26 @@ import "./styles.css"
 
 const rootElement = document.getElementById("root")!
 document.documentElement.classList.add("dark")
+const platform = createDesktopPlatform()
+
+function ShellMessage(props: { children: React.ReactNode; tone?: "default" | "error" }) {
+  const toneClass = props.tone === "error" ? "text-destructive" : "text-muted-foreground"
+
+  return (
+    <div className={`relative flex h-full items-center justify-center bg-background px-6 text-center ${toneClass}`}>
+      {props.children}
+      {platform.os === "windows" ? (
+        <div data-tauri-decorum-tb className="absolute right-0 top-0 z-10 flex h-10 flex-row" />
+      ) : null}
+    </div>
+  )
+}
 
 async function bootstrap() {
   const root = ReactDOM.createRoot(rootElement)
-
-  root.render(
-    <div className="flex h-full items-center justify-center bg-background text-muted-foreground">
-      Connecting to Buddy...
-    </div>
-  )
-
-  const platform = createDesktopPlatform()
   setRuntimePlatform(platform)
+
+  root.render(<ShellMessage>Connecting to Buddy...</ShellMessage>)
 
   try {
     const server = await commands.awaitInitialization()
@@ -39,9 +47,9 @@ async function bootstrap() {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     root.render(
-      <div className="flex h-full items-center justify-center bg-background px-6 text-center text-sm text-destructive">
+      <ShellMessage tone="error">
         Failed to start Buddy backend: {message}
-      </div>
+      </ShellMessage>
     )
   }
 }

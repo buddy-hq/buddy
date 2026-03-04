@@ -2,12 +2,20 @@
 @source "../../web/src/**/*.{ts,tsx}";
 @source "./**/*.{ts,tsx}";
 
+button.decorum-tb-btn,
+button#decorum-tb-minimize,
+button#decorum-tb-maximize,
+button#decorum-tb-close,
+div[data-tauri-decorum-tb] {
+    height: calc(var(--spacing) * 10) !important;
+}
+
 html,
 body,
 #root {
-  height: 100%;
+    height: 100%;
 }
 
 body {
-  margin: 0;
+    margin: 0;
 }
