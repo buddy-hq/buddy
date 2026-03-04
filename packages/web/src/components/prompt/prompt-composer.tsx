@@ -41,7 +41,7 @@ type PromptComposerProps = {
   value: string
   attachments: PromptComposerAttachment[]
   isBusy: boolean
-  agentOptions: Array<{
+  modeOptions: Array<{
     name: string
   }>
   mentionableAgents: MentionableAgent[]
@@ -56,7 +56,7 @@ type PromptComposerProps = {
     group?: string
     disabled?: boolean
   }>
-  selectedAgent: string
+  selectedMode: string
   selectedModel: string
   thinkingOptions: Array<{
     key: string
@@ -65,7 +65,7 @@ type PromptComposerProps = {
   selectedThinking: string
   onChange: (value: string) => void
   onAttachmentsChange: (attachments: PromptComposerAttachment[]) => void
-  onAgentChange: (agent: string) => void
+  onModeChange: (mode: string) => void
   onModelChange: (model: string) => void
   onThinkingChange: (thinking: string) => void
   onSubmit: (input: { value: string; attachments: PromptComposerAttachment[] }) => void
@@ -107,9 +107,9 @@ const BUILTIN_SLASH_COMMANDS: SlashCommandOption[] = [
   },
   {
     type: "builtin",
-    name: "agent",
-    title: "Cycle agent",
-    description: "Switch to the next available agent.",
+    name: "mode",
+    title: "Cycle mode",
+    description: "Switch to the next available Buddy mode.",
   },
   {
     type: "builtin",
@@ -386,10 +386,10 @@ export function PromptComposer(props: PromptComposerProps) {
     () => new Set(props.mentionableAgents.map((agent) => agent.name)),
     [props.mentionableAgents],
   )
-  const agentOptions = useMemo(() => {
-    if (props.agentOptions.length > 0) return props.agentOptions
-    return props.selectedAgent ? [{ name: props.selectedAgent }] : [{ name: "build" }]
-  }, [props.agentOptions, props.selectedAgent])
+  const modeOptions = useMemo(() => {
+    if (props.modeOptions.length > 0) return props.modeOptions
+    return props.selectedMode ? [{ name: props.selectedMode }] : [{ name: "buddy" }]
+  }, [props.modeOptions, props.selectedMode])
   const slashCommandOptions = useMemo<SlashCommandOption[]>(() => {
     const customCommands = props.slashCommands.map((command) => ({
       type: "custom" as const,
@@ -766,14 +766,14 @@ export function PromptComposer(props: PromptComposerProps) {
         clearComposer()
         props.onNewSession()
         return true
-      case "agent": {
-        if (agentOptions.length <= 1) return false
-        const currentIndex = agentOptions.findIndex((option) => option.name === props.selectedAgent)
-        const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % agentOptions.length : 0
-        const nextAgent = agentOptions[nextIndex]
-        if (!nextAgent) return false
+      case "mode": {
+        if (modeOptions.length <= 1) return false
+        const currentIndex = modeOptions.findIndex((option) => option.name === props.selectedMode)
+        const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % modeOptions.length : 0
+        const nextMode = modeOptions[nextIndex]
+        if (!nextMode) return false
         clearComposer()
-        props.onAgentChange(nextAgent.name)
+        props.onModeChange(nextMode.name)
         return true
       }
       case "model":
@@ -1153,13 +1153,13 @@ export function PromptComposer(props: PromptComposerProps) {
 
       <div className="-mt-3.5 rounded-[12px] rounded-tl-none rounded-tr-none border border-t-0 bg-card/95 px-2 pt-5 pb-2">
         <div className="flex min-w-0 items-center gap-1.5">
-          <Select value={props.selectedAgent} onValueChange={props.onAgentChange}>
+          <Select value={props.selectedMode} onValueChange={props.onModeChange}>
             <SelectTrigger
               size="sm"
               className="h-7 max-w-[160px] min-w-0 border-transparent bg-transparent px-2 text-xs text-foreground/90 shadow-none hover:bg-muted/50 focus-visible:ring-0"
-              aria-label="Agent"
+              aria-label="Mode"
             >
-              <SelectValue placeholder="Agent" />
+              <SelectValue placeholder="Mode" />
             </SelectTrigger>
             <SelectContent
               side="top"
@@ -1168,9 +1168,9 @@ export function PromptComposer(props: PromptComposerProps) {
               sideOffset={6}
               className="w-[min(18rem,calc(100vw-2rem))] max-h-[min(20rem,calc(100vh-8rem))]"
             >
-              {agentOptions.map((agent) => (
-                <SelectItem key={agent.name} value={agent.name}>
-                  {agent.name}
+              {modeOptions.map((mode) => (
+                <SelectItem key={mode.name} value={mode.name}>
+                  {mode.name}
                 </SelectItem>
               ))}
             </SelectContent>

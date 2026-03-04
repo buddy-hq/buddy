@@ -11,6 +11,7 @@ import { McpDialog } from "@/components/mcp-dialog"
 import { ResizeHandle } from "@/components/layout/resize-handle"
 import { SettingsModal } from "@/components/settings-modal"
 import { TeachingEditorPanel } from "@/components/teaching/teaching-editor-panel"
+import { MathFigurePanel } from "@/components/teaching/math-figure-panel"
 import { usePlatform } from "@/context/platform"
 import { getFilename } from "@/components/layout/sidebar-helpers"
 import { PromptComposer } from "@/components/prompt/prompt-composer"
@@ -23,17 +24,20 @@ import {
   LayoutRightIcon,
   LayoutRightPartialIcon,
 } from "@/components/layout/sidebar-icons"
+import { resolveTeachingPromptContext } from "../lib/teaching-context"
 import { pickProjectDirectory } from "../lib/directory-picker"
 import { decodeDirectory, encodeDirectory } from "../lib/directory-token"
 import { getSessionFamily } from "../lib/session-family"
 import {
   type AgentConfigOption,
+  type ModeConfigOption,
   type PromptCommandOption,
   abortPrompt,
   ensureDirectorySession,
   findWorkspaceFiles,
   loadAgentCatalog,
   loadCommandCatalog,
+  loadModeCatalog,
   loadMcpStatus,
   loadPermissions,
   loadOpenProjects,
@@ -44,6 +48,7 @@ import {
   replyPermission,
   openProject,
   resyncDirectory,
+  resolveDefaultModeID,
   selectSession,
   sendCommand,
   sendPrompt,
@@ -86,6 +91,11 @@ const RIGHT_SIDEBAR_EDITOR_MIN_WIDTH = 360
 const RIGHT_SIDEBAR_EDITOR_MAX_WIDTH = 960
 const RIGHT_SIDEBAR_COLLAPSE_THRESHOLD = 160
 const MODEL_VISIBILITY_WINDOW_MS = 1000 * 60 * 60 * 24 * 31 * 6
+const DEFAULT_MODE_SURFACES = ["curriculum"] satisfies ModeConfigOption["surfaces"]
+
+function isModeSurface(value: string): value is ModeConfigOption["surfaces"][number] {
+  return value === "curriculum" || value === "editor" || value === "figure"
+}
 
 async function copyToClipboard(text: string) {
   if (!text) return false
@@ -227,19 +237,20 @@ function buildCommandAttachmentParts(attachments: PromptComposerAttachment[]) {
 }
 
 async function loadComposerConfiguration(directory: string) {
-  const [agents, config, commands] = await Promise.all([
+  const [agents, modes, config, commands] = await Promise.all([
     loadAgentCatalog(directory),
+    loadModeCatalog(directory),
     loadProjectConfig(directory),
     loadCommandCatalog(directory),
   ])
-  const selectableAgents = agents.filter((agent) => agent.mode !== "subagent" && !agent.hidden)
-  const configuredDefault =
-    typeof config.default_agent === "string" && selectableAgents.some((agent) => agent.name === config.default_agent)
-      ? config.default_agent
-      : "build"
+  const configuredDefault = resolveDefaultModeID(
+    modes,
+    typeof config.default_mode === "string" ? config.default_mode : undefined,
+  ) ?? "buddy"
 
   return {
     agents,
+    modes,
     commands,
     configuredDefault,
     configuredModel: parseConfiguredModel(config.model),
@@ -256,15 +267,17 @@ function DirectoryChatPage() {
   const saveInFlightRef = useRef<Promise<boolean> | null>(null)
   const previousBusyRef = useRef(false)
   const teachingSessionInitializedRef = useRef(new Set<string>())
-  const workspaceProbeInFlightRef = useRef(new Set<string>())
+  const workspaceProbeBySessionRef = useRef(
+    new Map<string, Promise<Awaited<ReturnType<typeof loadTeachingWorkspace>> | undefined>>(),
+  )
   const [stickToBottom, setStickToBottom] = useState(true)
   const [settingsModalOpen, setSettingsModalOpen] = useState(false)
   const [mcpDialogOpen, setMcpDialogOpen] = useState(false)
   const [agentCatalog, setAgentCatalog] = useState<AgentConfigOption[]>([])
+  const [modeCatalog, setModeCatalog] = useState<ModeConfigOption[]>([])
   const [slashCommands, setSlashCommands] = useState<PromptCommandOption[]>([])
-  const [defaultAgent, setDefaultAgent] = useState("build")
+  const [defaultMode, setDefaultMode] = useState("buddy")
   const [configuredModel, setConfiguredModel] = useState<{ providerID: string; modelID: string } | undefined>(undefined)
-  const [selectedModelKey, setSelectedModelKey] = useState("auto")
   const [selectedThinking, setSelectedThinking] = useState("default")
 
   const decodedDirectory = useMemo(() => {
@@ -290,6 +303,10 @@ function DirectoryChatPage() {
   const applyPermissionReplied = useChatStore((state) => state.applyPermissionReplied)
   const clearDirectoryError = useChatStore((state) => state.clearDirectoryError)
   const setDirectoryError = useChatStore((state) => state.setDirectoryError)
+  const setSelectedModel = useChatStore((state) => state.setSelectedModel)
+  const selectedModelKey = useChatStore((state) =>
+    decodedDirectory ? (state.selectedModelByDirectory[decodedDirectory] ?? "auto") : "auto",
+  )
 
   const leftSidebarOpen = useUiPreferences((state) => state.leftSidebarOpen)
   const leftSidebarWidth = useUiPreferences((state) => state.leftSidebarWidth)
@@ -331,7 +348,34 @@ function DirectoryChatPage() {
   )
   const messages = directoryState?.messages ?? []
   const providers = directoryState?.providers ?? []
+  const providerDefault = directoryState?.providerDefault ?? {}
   const connectedProviders = useMemo(() => providers.filter((provider) => provider.connected), [providers])
+  const autoModelSelection = useMemo(() => {
+    if (configuredModel) {
+      return configuredModel
+    }
+
+    for (const provider of connectedProviders) {
+      const configuredDefaultModel = providerDefault[provider.id]
+      if (configuredDefaultModel && provider.models.some((model) => model.id === configuredDefaultModel)) {
+        return {
+          providerID: provider.id,
+          modelID: configuredDefaultModel,
+        }
+      }
+    }
+
+    const firstProvider = connectedProviders[0]
+    const firstModel = firstProvider?.models[0]
+    if (!firstProvider || !firstModel) {
+      return undefined
+    }
+
+    return {
+      providerID: firstProvider.id,
+      modelID: firstModel.id,
+    }
+  }, [configuredModel, connectedProviders, providerDefault])
   const visibleModelKeys = useMemo(() => {
     const visible = new Set<string>()
     const latestByFamily = new Map<string, { key: string; releaseTime: number }>()
@@ -370,19 +414,16 @@ function DirectoryChatPage() {
       visible.add(latest.key)
     }
 
-    if (configuredModel) {
-      visible.add(modelSelectionKey(configuredModel))
+    if (autoModelSelection) {
+      visible.add(modelSelectionKey(autoModelSelection))
     }
     if (selectedModelKey !== "auto") {
       visible.add(selectedModelKey)
     }
 
     return visible
-  }, [configuredModel, connectedProviders, selectedModelKey])
-  const primaryAgentOptions = useMemo(
-    () => agentCatalog.filter((agent) => agent.mode !== "subagent" && !agent.hidden),
-    [agentCatalog],
-  )
+  }, [autoModelSelection, connectedProviders, selectedModelKey])
+  const primaryModeOptions = useMemo(() => modeCatalog.filter((mode) => !mode.hidden), [modeCatalog])
   const mentionableAgentOptions = useMemo(
     () =>
       agentCatalog
@@ -394,14 +435,14 @@ function DirectoryChatPage() {
     [agentCatalog],
   )
   const modelOptions = useMemo(() => {
-    const configuredProvider = configuredModel
-      ? connectedProviders.find((provider) => provider.id === configuredModel.providerID)
+    const autoProvider = autoModelSelection
+      ? connectedProviders.find((provider) => provider.id === autoModelSelection.providerID)
       : undefined
-    const configuredModelInfo = configuredModel
-      ? configuredProvider?.models.find((model) => model.id === configuredModel.modelID)
+    const autoModelInfo = autoModelSelection
+      ? autoProvider?.models.find((model) => model.id === autoModelSelection.modelID)
       : undefined
-    const autoLabel = configuredModel
-      ? `Auto (${configuredModelInfo?.name ?? `${configuredModel.providerID}/${configuredModel.modelID}`})`
+    const autoLabel = autoModelSelection
+      ? `Auto (${autoModelInfo?.name ?? `${autoModelSelection.providerID}/${autoModelSelection.modelID}`})`
       : "Auto"
     const options: Array<{ key: string; label: string; group?: string; disabled?: boolean }> = [
       {
@@ -427,10 +468,10 @@ function DirectoryChatPage() {
     }
 
     return options
-  }, [configuredModel, connectedProviders, visibleModelKeys])
+  }, [autoModelSelection, connectedProviders, visibleModelKeys])
   const effectiveModelSelection = useMemo(
-    () => (selectedModelKey === "auto" ? configuredModel : parseConfiguredModel(selectedModelKey)),
-    [configuredModel, selectedModelKey],
+    () => (selectedModelKey === "auto" ? autoModelSelection : parseConfiguredModel(selectedModelKey)),
+    [autoModelSelection, selectedModelKey],
   )
   const effectiveModelInfo = useMemo(() => {
     if (!effectiveModelSelection) return undefined
@@ -454,8 +495,9 @@ function DirectoryChatPage() {
   useEffect(() => {
     if (selectedModelKey === "auto") return
     if (modelOptions.some((option) => option.key === selectedModelKey)) return
-    setSelectedModelKey("auto")
-  }, [modelOptions, selectedModelKey])
+    if (!decodedDirectory) return
+    setSelectedModel(decodedDirectory, "auto")
+  }, [decodedDirectory, modelOptions, selectedModelKey, setSelectedModel])
   useEffect(() => {
     if (thinkingOptions.some((option) => option.key === selectedThinking)) return
     setSelectedThinking("default")
@@ -502,13 +544,23 @@ function DirectoryChatPage() {
     () => (decodedDirectory && sessionID ? teachingSessionKey(decodedDirectory, sessionID) : ""),
     [decodedDirectory, sessionID],
   )
-  const selectedAgent = sessionKey ? (teachingMode.selectedAgentBySession[sessionKey] ?? defaultAgent) : defaultAgent
-  const interactionMode = sessionKey ? (teachingMode.interactionModeBySession[sessionKey] ?? "chat") : "chat"
+  const storedMode = sessionKey ? (teachingMode.selectedModeBySession[sessionKey] ?? defaultMode) : defaultMode
   const preferredLanguage = sessionKey ? (teachingMode.preferredLanguageBySession[sessionKey] ?? "ts") : "ts"
   const teachingWorkspace = sessionKey ? teachingMode.workspaceBySession[sessionKey] : undefined
-  const isInteractiveMode = !!sessionID && interactionMode === "interactive"
-  const editorPanelOpen = rightSidebarOpen && rightSidebarTab === "editor"
-  const editorPanelSizing = rightSidebarTab === "editor"
+  const selectedModeConfig = useMemo(
+    () => primaryModeOptions.find((mode) => mode.id === storedMode) ?? primaryModeOptions[0],
+    [primaryModeOptions, storedMode],
+  )
+  const selectedMode = selectedModeConfig?.id ?? storedMode
+  const selectedModeSurfaces = selectedModeConfig?.surfaces ?? DEFAULT_MODE_SURFACES
+  const selectedModeDefaultSurface = selectedModeConfig?.defaultSurface ?? "curriculum"
+  const selectedModeSupportsEditor = selectedModeSurfaces.includes("editor")
+  const selectedModeSupportsFigure = selectedModeSurfaces.includes("figure")
+  const isInteractiveMode = !!sessionID && !!teachingWorkspace
+  const rightSidebarSurface = isModeSurface(rightSidebarTab) && selectedModeSurfaces.includes(rightSidebarTab)
+    ? rightSidebarTab
+    : selectedModeDefaultSurface
+  const editorPanelSizing = rightSidebarSurface === "editor"
   const rightSidebarMinWidth = editorPanelSizing ? RIGHT_SIDEBAR_EDITOR_MIN_WIDTH : RIGHT_SIDEBAR_MIN_WIDTH
   const rightSidebarMaxWidth = editorPanelSizing ? RIGHT_SIDEBAR_EDITOR_MAX_WIDTH : RIGHT_SIDEBAR_MAX_WIDTH
   const rightSidebarDisplayWidth = Math.min(Math.max(rightSidebarWidth, rightSidebarMinWidth), rightSidebarMaxWidth)
@@ -586,15 +638,17 @@ function DirectoryChatPage() {
         if (cancelled) return
 
         setAgentCatalog(configuration.agents)
+        setModeCatalog(configuration.modes)
         setSlashCommands(configuration.commands)
-        setDefaultAgent(configuration.configuredDefault)
+        setDefaultMode(configuration.configuredDefault)
         setConfiguredModel(configuration.configuredModel)
       })
       .catch(() => {
         if (cancelled) return
         setAgentCatalog([])
+        setModeCatalog([])
         setSlashCommands([])
-        setDefaultAgent("build")
+        setDefaultMode("buddy")
         setConfiguredModel(undefined)
       })
 
@@ -610,8 +664,9 @@ function DirectoryChatPage() {
     void loadComposerConfiguration(decodedDirectory)
       .then((configuration) => {
         setAgentCatalog(configuration.agents)
+        setModeCatalog(configuration.modes)
         setSlashCommands(configuration.commands)
-        setDefaultAgent(configuration.configuredDefault)
+        setDefaultMode(configuration.configuredDefault)
         setConfiguredModel(configuration.configuredModel)
       })
       .catch(() => undefined)
@@ -794,34 +849,35 @@ function DirectoryChatPage() {
   }, [messages, isBusy, stickToBottom])
 
   useEffect(() => {
-    if (!decodedDirectory || !sessionID || !sessionKey || isInteractiveMode) return
-    if (workspaceProbeInFlightRef.current.has(sessionKey)) return
+    if (!decodedDirectory || !sessionID || !sessionKey || teachingWorkspace) return
+    if (workspaceProbeBySessionRef.current.has(sessionKey)) return
 
     let cancelled = false
-    workspaceProbeInFlightRef.current.add(sessionKey)
-
-    void loadTeachingWorkspace({
+    const probe = loadTeachingWorkspace({
       directory: decodedDirectory,
       sessionID,
     })
       .then((workspace) => {
-        if (cancelled) return
+        if (cancelled) return undefined
         const teaching = useTeachingMode.getState()
         teaching.setWorkspace(sessionKey, workspace)
-        teaching.setInteractionMode(sessionKey, "interactive")
         teaching.setSaveError(sessionKey, undefined)
+        return workspace
       })
       .catch(() => {
         // No workspace exists yet for normal chat sessions. Ignore background probe failures.
+        return undefined
       })
       .finally(() => {
-        workspaceProbeInFlightRef.current.delete(sessionKey)
+        workspaceProbeBySessionRef.current.delete(sessionKey)
       })
+
+    workspaceProbeBySessionRef.current.set(sessionKey, probe)
 
     return () => {
       cancelled = true
     }
-  }, [decodedDirectory, isBusy, isInteractiveMode, messages.length, sessionID, sessionKey])
+  }, [decodedDirectory, isBusy, messages.length, sessionID, sessionKey, teachingWorkspace])
 
   function onTranscriptScroll(event: UIEvent<HTMLElement>) {
     const node = event.currentTarget
@@ -830,7 +886,7 @@ function DirectoryChatPage() {
   }
 
   useEffect(() => {
-    if (!decodedDirectory || !sessionID || !isInteractiveMode || !sessionKey) return
+    if (!decodedDirectory || !sessionID || !sessionKey || !teachingWorkspace || !selectedModeSupportsEditor) return
 
     if (!teachingSessionInitializedRef.current.has(sessionKey)) {
       teachingSessionInitializedRef.current.add(sessionKey)
@@ -841,43 +897,7 @@ function DirectoryChatPage() {
         ui.setRightSidebarWidth(640)
       }
     }
-
-    let cancelled = false
-
-    if (teachingWorkspace) {
-      return () => {
-        cancelled = true
-      }
-    }
-
-    void ensureTeachingWorkspace({
-      directory: decodedDirectory,
-      sessionID,
-      language: preferredLanguage,
-    })
-      .then((workspace) => {
-        if (cancelled) return
-        useTeachingMode.getState().setWorkspace(sessionKey, workspace)
-      })
-      .catch((workspaceError) => {
-        if (cancelled) return
-        const message = stringifyError(workspaceError)
-        setDirectoryError(decodedDirectory, message)
-        useTeachingMode.getState().setSaveError(sessionKey, message)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [
-    decodedDirectory,
-    isInteractiveMode,
-    preferredLanguage,
-    sessionID,
-    sessionKey,
-    setDirectoryError,
-    teachingWorkspace,
-  ])
+  }, [decodedDirectory, sessionID, sessionKey, selectedModeSupportsEditor, teachingWorkspace])
 
   useEffect(() => {
     if (!decodedDirectory || !sessionID || !isInteractiveMode || !sessionKey || !teachingWorkspace) {
@@ -1047,7 +1067,7 @@ function DirectoryChatPage() {
     const content = rawContent.trim()
     if (!content && rawAttachments.length === 0) return
 
-    const modelSelection = selectedModelKey !== "auto" ? parseConfiguredModel(selectedModelKey) : undefined
+    const modelSelection = effectiveModelSelection
     const variant = selectedThinking !== "default" ? selectedThinking : undefined
     const slashCommand = parseSlashCommandInput(rawContent, slashCommands)
 
@@ -1058,7 +1078,7 @@ function DirectoryChatPage() {
       try {
         await sendCommand(decodedDirectory, slashCommand.command.name, slashCommand.arguments, {
           parts: attachmentParts,
-          agent: selectedAgent,
+          mode: selectedMode,
           model: modelSelection,
           variant,
         })
@@ -1069,24 +1089,16 @@ function DirectoryChatPage() {
       return
     }
 
-    if (isInteractiveMode) {
+    if (selectedModeSupportsEditor && isInteractiveMode) {
       const ready = await flushTeachingWorkspace()
       if (!ready) return
     }
 
     const activeWorkspace = sessionKey ? useTeachingMode.getState().workspaceBySession[sessionKey] : undefined
-    const teachingContext =
-      isInteractiveMode && activeWorkspace
-        ? {
-            active: true,
-            sessionID: activeWorkspace.sessionID,
-            lessonFilePath: activeWorkspace.lessonFilePath,
-            checkpointFilePath: activeWorkspace.checkpointFilePath,
-            language: activeWorkspace.language,
-            revision: activeWorkspace.revision,
-            ...(activeWorkspace.selection ?? {}),
-          }
-        : undefined
+    const teachingContext = await resolveTeachingPromptContext({
+      workspace: activeWorkspace,
+      pendingWorkspace: sessionKey ? workspaceProbeBySessionRef.current.get(sessionKey) : undefined,
+    })
 
     setDraft("")
     setDraftAttachments([])
@@ -1094,7 +1106,7 @@ function DirectoryChatPage() {
       const attachmentParts = buildPromptAttachmentParts(rawAttachments)
       await sendPrompt(decodedDirectory, content, {
         parts: attachmentParts,
-        agent: selectedAgent,
+        mode: selectedMode,
         model: modelSelection,
         variant,
         teaching: teachingContext,
@@ -1257,9 +1269,25 @@ function DirectoryChatPage() {
     }
   }
 
-  function onAgentChange(agent: string) {
+  function onModeChange(mode: string) {
     if (!sessionKey) return
-    teachingMode.setSessionAgent(sessionKey, agent)
+    teachingMode.setSessionMode(sessionKey, mode)
+
+    const nextMode = primaryModeOptions.find((option) => option.id === mode)
+    if (!nextMode) return
+
+    if (nextMode.surfaces.includes("editor") && teachingWorkspace) {
+      setRightSidebarTab("editor")
+      if (rightSidebarWidth < RIGHT_SIDEBAR_EDITOR_MIN_WIDTH) {
+        setRightSidebarWidth(640)
+      }
+      setRightSidebarOpen(true)
+      return
+    }
+
+    if (!nextMode.surfaces.includes(rightSidebarSurface)) {
+      setRightSidebarTab(nextMode.defaultSurface)
+    }
   }
 
   function onTeachingCodeChange(code: string) {
@@ -1331,25 +1359,13 @@ function DirectoryChatPage() {
     }
   }
 
-  function onToggleTeachingEditor() {
-    if (editorPanelOpen) {
-      setRightSidebarOpen(false)
-      return
-    }
-    setRightSidebarTab("editor")
-    if (rightSidebarWidth < RIGHT_SIDEBAR_EDITOR_MIN_WIDTH) {
-      setRightSidebarWidth(640)
-    }
-    setRightSidebarOpen(true)
-  }
-
   function onToggleRightSidebar() {
     if (rightSidebarOpen) {
       setRightSidebarOpen(false)
       return
     }
 
-    if (rightSidebarTab === "editor" && rightSidebarWidth < RIGHT_SIDEBAR_EDITOR_MIN_WIDTH) {
+    if (rightSidebarSurface === "editor" && rightSidebarWidth < RIGHT_SIDEBAR_EDITOR_MIN_WIDTH) {
       setRightSidebarWidth(640)
     }
 
@@ -1357,8 +1373,7 @@ function DirectoryChatPage() {
   }
 
   async function onStartInteractiveLesson() {
-    if (!decodedDirectory || !sessionID || !sessionKey) return
-    teachingMode.setInteractionMode(sessionKey, "interactive")
+    if (!decodedDirectory || !sessionID || !sessionKey || !selectedModeSupportsEditor) return
     setRightSidebarTab("editor")
     if (rightSidebarWidth < RIGHT_SIDEBAR_EDITOR_MIN_WIDTH) {
       setRightSidebarWidth(640)
@@ -1370,6 +1385,7 @@ function DirectoryChatPage() {
         directory: decodedDirectory,
         sessionID,
         language: preferredLanguage,
+        mode: selectedMode,
       })
       useTeachingMode.getState().setWorkspace(sessionKey, workspace)
       useTeachingMode.getState().setSaveError(sessionKey, undefined)
@@ -1378,7 +1394,8 @@ function DirectoryChatPage() {
         decodedDirectory,
         `I started an interactive lesson in ${teachingLanguageLabel(preferredLanguage)} mode. Interactive workspace tools are now available. Please use the editor workspace to set up the next hands-on step and guide me there.`,
         {
-          agent: selectedAgent,
+          mode: selectedMode,
+          model: effectiveModelSelection,
           teaching: {
             active: true,
             sessionID: workspace.sessionID,
@@ -1648,18 +1665,21 @@ function DirectoryChatPage() {
                   value={draft}
                   attachments={draftAttachments}
                   isBusy={isBusy}
-                  agentOptions={primaryAgentOptions.map((agent) => ({ name: agent.name }))}
+                  modeOptions={primaryModeOptions.map((mode) => ({ name: mode.id }))}
                   mentionableAgents={mentionableAgentOptions}
                   slashCommands={slashCommands}
                   modelOptions={modelOptions}
-                  selectedAgent={selectedAgent}
+                  selectedMode={selectedMode}
                   selectedModel={selectedModelKey}
                   thinkingOptions={thinkingOptions}
                   selectedThinking={selectedThinking}
                   onChange={setDraft}
                   onAttachmentsChange={setDraftAttachments}
-                  onAgentChange={onAgentChange}
-                  onModelChange={setSelectedModelKey}
+                  onModeChange={onModeChange}
+                  onModelChange={(model) => {
+                    if (!decodedDirectory) return
+                    setSelectedModel(decodedDirectory, model)
+                  }}
                   onThinkingChange={setSelectedThinking}
                   onAbort={() => {
                     void onAbort()
@@ -1696,88 +1716,89 @@ function DirectoryChatPage() {
           >
             <ChatRightSidebar
               directory={decodedDirectory}
-              activeTab={rightSidebarTab}
+              activeTab={rightSidebarSurface}
               onTabChange={setRightSidebarTab}
-              showEditorTab
+              surfaces={selectedModeSurfaces}
               editorPanel={
-                isInteractiveMode ? (
-                  teachingWorkspace ? (
-                    <TeachingEditorPanel
-                      className="h-full min-h-0 flex-1 border-t-0 bg-transparent lg:border-l-0"
-                      workspace={teachingWorkspace}
-                      isBusy={isBusy}
-                      onCodeChange={onTeachingCodeChange}
-                      onSelectFile={(relativePath) => {
-                        void onTeachingSelectFile(relativePath)
-                      }}
-                      onCreateFile={() => {
-                        void onTeachingCreateFile()
-                      }}
-                      onSelectionChange={onTeachingSelectionChange}
-                      onLanguageChange={onTeachingLanguageChange}
-                      onCheckpoint={() => {
-                        void onTeachingCheckpoint()
-                      }}
-                      onRestoreAccepted={() => {
-                        void onTeachingRestoreAccepted()
-                      }}
-                      onLoadExternalChanges={onLoadExternalChanges}
-                      onForceOverwrite={onForceOverwrite}
-                    />
+                selectedModeSupportsEditor ? (
+                  isInteractiveMode ? (
+                    teachingWorkspace ? (
+                      <TeachingEditorPanel
+                        className="h-full min-h-0 flex-1 border-t-0 bg-transparent lg:border-l-0"
+                        workspace={teachingWorkspace}
+                        isBusy={isBusy}
+                        onCodeChange={onTeachingCodeChange}
+                        onSelectFile={(relativePath) => {
+                          void onTeachingSelectFile(relativePath)
+                        }}
+                        onCreateFile={() => {
+                          void onTeachingCreateFile()
+                        }}
+                        onSelectionChange={onTeachingSelectionChange}
+                        onLanguageChange={onTeachingLanguageChange}
+                        onCheckpoint={() => {
+                          void onTeachingCheckpoint()
+                        }}
+                        onRestoreAccepted={() => {
+                          void onTeachingRestoreAccepted()
+                        }}
+                        onLoadExternalChanges={onLoadExternalChanges}
+                        onForceOverwrite={onForceOverwrite}
+                      />
+                    ) : (
+                      <section className="flex min-h-0 flex-1 items-center justify-center px-6 py-8 text-sm text-muted-foreground">
+                        Preparing lesson workspace...
+                      </section>
+                    )
                   ) : (
-                    <section className="flex min-h-0 flex-1 items-center justify-center px-6 py-8 text-sm text-muted-foreground">
-                      Preparing lesson workspace...
+                    <section className="flex min-h-0 flex-1 flex-col justify-center gap-4 px-6 py-8">
+                      <div className="space-y-2">
+                        <h2 className="text-sm font-medium">Interactive Lesson</h2>
+                        <p className="text-sm text-muted-foreground">
+                          Start an interactive session to create a tracked workspace with files, checkpoints, and
+                          server-backed editor diagnostics.
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        <label className="text-xs text-muted-foreground" htmlFor="interactive-language">
+                          Language
+                        </label>
+                        <select
+                          id="interactive-language"
+                          className="h-8 rounded-md border bg-background px-2 text-xs"
+                          value={preferredLanguage}
+                          onChange={(event) => onPreferredLanguageChange(event.target.value as TeachingLanguage)}
+                          disabled={!sessionKey || isBusy}
+                        >
+                          {TEACHING_LANGUAGE_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            void onStartInteractiveLesson()
+                          }}
+                          disabled={!sessionKey || isBusy}
+                        >
+                          Start Interactive Lesson
+                        </Button>
+                      </div>
+
+                      <div className="rounded-lg border border-border/70 bg-background p-3 text-xs text-muted-foreground">
+                        Current workspace: not started
+                        <br />
+                        Selected mode: {selectedMode}
+                      </div>
                     </section>
                   )
-                ) : (
-                  <section className="flex min-h-0 flex-1 flex-col justify-center gap-4 px-6 py-8">
-                    <div className="space-y-2">
-                      <h2 className="text-sm font-medium">Interactive Lesson</h2>
-                      <p className="text-sm text-muted-foreground">
-                        Start an interactive session to create a tracked workspace with files, checkpoints, and
-                        server-backed editor diagnostics.
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        This upgrades the current session from chat mode to interactive mode. It does not switch back
-                        mid-session yet.
-                      </p>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
-                      <label className="text-xs text-muted-foreground" htmlFor="interactive-language">
-                        Language
-                      </label>
-                      <select
-                        id="interactive-language"
-                        className="h-8 rounded-md border bg-background px-2 text-xs"
-                        value={preferredLanguage}
-                        onChange={(event) => onPreferredLanguageChange(event.target.value as TeachingLanguage)}
-                        disabled={!sessionKey || isBusy}
-                      >
-                        {TEACHING_LANGUAGE_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          void onStartInteractiveLesson()
-                        }}
-                        disabled={!sessionKey || isBusy}
-                      >
-                        Start Interactive Lesson
-                      </Button>
-                    </div>
-
-                    <div className="rounded-lg border border-border/70 bg-background p-3 text-xs text-muted-foreground">
-                      Current session mode: chat
-                      <br />
-                      Selected agent: {selectedAgent}
-                    </div>
-                  </section>
-                )
+                ) : undefined
+              }
+              figurePanel={
+                selectedModeSupportsFigure ? <MathFigurePanel className="h-full min-h-0 flex-1" /> : undefined
               }
               onClose={() => setRightSidebarOpen(false)}
               className="w-full h-full"

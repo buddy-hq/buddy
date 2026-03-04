@@ -24,12 +24,12 @@ import {
 import { getFilename } from "@/components/layout/sidebar-helpers"
 import { ConnectProviderDialog } from "@/components/connect-provider-dialog"
 import { usePlatform } from "@/context/platform"
+import { resolveDefaultModeID } from "@/state/chat-actions"
 import { showDesktopUpdateToast } from "../lib/desktop-updates"
 import type { ProviderInfo } from "@/state/chat-types"
 import type { LogLevel } from "@/state/project-settings"
 import { useProjectSettings } from "@/state/project-settings"
 
-const AUTO_VALUE = "__auto__"
 const DEFAULT_VALUE = "__default__"
 
 type SettingsModalProps = {
@@ -148,7 +148,11 @@ export function SettingsModal(props: SettingsModalProps) {
     }
   }
 
-  const agentSelectValue = settings.selection.agent || AUTO_VALUE
+  const modeSelectValue =
+    resolveDefaultModeID(
+      settings.options.modes,
+      settings.selection.mode || undefined,
+    ) || "buddy"
   const logLevelSelectValue = settings.selection.logLevel || DEFAULT_VALUE
   const hasConnectedProviders = settings.options.providers.length > 0
   const availableProviders = useMemo(
@@ -235,22 +239,21 @@ export function SettingsModal(props: SettingsModalProps) {
             >
               <SettingsListCard>
                 <SettingsRow
-                  title="Default agent"
-                  description="Choose which primary agent Buddy uses by default for new prompts in this notebook."
+                  title="Default mode"
+                  description="Choose which Buddy mode is selected by default for new prompts in this notebook."
                   control={
                     <Select
-                      value={agentSelectValue}
-                      onValueChange={(value) => settings.actions.setAgent(value === AUTO_VALUE ? "" : value)}
+                      value={modeSelectValue}
+                      onValueChange={settings.actions.setMode}
                       disabled={settings.status.loading}
                     >
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Auto" />
+                        <SelectValue placeholder="Select mode" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value={AUTO_VALUE}>Auto</SelectItem>
-                        {settings.options.agents.map((agent) => (
-                          <SelectItem key={agent.name} value={agent.name}>
-                            {agent.name}
+                        {settings.options.modes.map((mode) => (
+                          <SelectItem key={mode.id} value={mode.id}>
+                            {mode.label}
                           </SelectItem>
                         ))}
                       </SelectContent>

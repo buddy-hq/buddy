@@ -5,12 +5,16 @@ import { Markdown } from "@/components/Markdown"
 import { loadCurriculum, loadGoalsInspector, saveCurriculum } from "@/state/chat-actions"
 import { XIcon } from "./sidebar-icons"
 
+export type ChatRightSidebarTab = "curriculum" | "editor" | "figure" | "settings"
+export type ChatRightSidebarSurface = Exclude<ChatRightSidebarTab, "settings">
+
 type ChatRightSidebarProps = {
   directory: string
-  activeTab: "curriculum" | "editor" | "settings"
-  onTabChange: (tab: "curriculum" | "editor" | "settings") => void
-  showEditorTab?: boolean
+  activeTab: ChatRightSidebarTab
+  onTabChange: (tab: ChatRightSidebarTab) => void
+  surfaces: ChatRightSidebarSurface[]
   editorPanel?: ReactNode
+  figurePanel?: ReactNode
   onClose: () => void
   className?: string
   style?: CSSProperties
@@ -38,7 +42,9 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
   const [curriculumDraft, setCurriculumDraft] = useState("")
   const [curriculumEditing, setCurriculumEditing] = useState(false)
 
-  const activeTab = props.activeTab === "editor" && props.showEditorTab ? "editor" : "curriculum"
+  const activeSurface = props.surfaces.includes(props.activeTab as ChatRightSidebarSurface)
+    ? (props.activeTab as ChatRightSidebarSurface)
+    : props.surfaces[0] ?? "curriculum"
 
   async function loadSidebarData(isDisposed?: () => boolean) {
     const disposed = isDisposed ?? (() => false)
@@ -75,7 +81,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
   }
 
   useEffect(() => {
-    if (activeTab !== "curriculum") return
+    if (activeSurface !== "curriculum") return
 
     let disposed = false
     void loadSidebarData(() => disposed)
@@ -83,7 +89,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
     return () => {
       disposed = true
     }
-  }, [activeTab, props.directory])
+  }, [activeSurface, props.directory])
 
   async function onReloadSidebar() {
     await loadSidebarData()
@@ -112,19 +118,28 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
       <header className="border-b px-3 py-2 flex items-center justify-between gap-2">
         <div className="flex items-center gap-1">
           <Button
-            variant={activeTab === "curriculum" ? "secondary" : "ghost"}
+            variant={activeSurface === "curriculum" ? "secondary" : "ghost"}
             size="sm"
             onClick={() => props.onTabChange("curriculum")}
           >
             Curriculum
           </Button>
-          {props.showEditorTab ? (
+          {props.surfaces.includes("editor") ? (
             <Button
-              variant={activeTab === "editor" ? "secondary" : "ghost"}
+              variant={activeSurface === "editor" ? "secondary" : "ghost"}
               size="sm"
               onClick={() => props.onTabChange("editor")}
             >
               Editor
+            </Button>
+          ) : null}
+          {props.surfaces.includes("figure") ? (
+            <Button
+              variant={activeSurface === "figure" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => props.onTabChange("figure")}
+            >
+              Figure
             </Button>
           ) : null}
         </div>
@@ -133,11 +148,19 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
         </Button>
       </header>
 
-      {activeTab === "editor" ? (
+      {activeSurface === "editor" ? (
         <div className="flex-1 min-h-0 flex flex-col">
           {props.editorPanel ?? (
             <div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">
               Teaching editor is not available for this session.
+            </div>
+          )}
+        </div>
+      ) : activeSurface === "figure" ? (
+        <div className="flex-1 min-h-0 flex flex-col">
+          {props.figurePanel ?? (
+            <div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">
+              Figure tools are not available for this session.
             </div>
           )}
         </div>
