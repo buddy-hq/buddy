@@ -22,7 +22,6 @@ import {
   LayoutLeftPartialIcon,
   LayoutRightIcon,
   LayoutRightPartialIcon,
-  SquarePenIcon,
 } from "@/components/layout/sidebar-icons"
 import { pickProjectDirectory } from "../lib/directory-picker"
 import { decodeDirectory, encodeDirectory } from "../lib/directory-token"
@@ -444,11 +443,11 @@ function DirectoryChatPage() {
     return [
       {
         key: "default",
-        label: "Thinking: Default",
+        label: "Default",
       },
       ...variants.map((variant) => ({
         key: variant,
-        label: `Thinking: ${variant}`,
+        label: variant,
       })),
     ]
   }, [effectiveModelInfo])
@@ -1549,22 +1548,6 @@ function DirectoryChatPage() {
                       ? "MCP error"
                       : `MCP ${connectedMcpCount}/${mcpEntries.length}`
                     : "MCP"}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  onClick={() => void onNewSession()}
-                  title={`Start new thread in ${getFilename(decodedDirectory)}`}
-                >
-                  <SquarePenIcon className="size-3.5" />
-                </Button>
-                <Button
-                  variant={editorPanelOpen ? "secondary" : "ghost"}
-                  size="sm"
-                  onClick={onToggleTeachingEditor}
-                  title={editorPanelOpen ? "Hide editor" : "Show editor"}
-                >
-                  Editor
                 </Button>
                 {showHeaderSidebarToggle ? (
                   <Button

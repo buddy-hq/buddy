@@ -331,6 +331,10 @@ export function SkillsPage(props: { directory?: string }) {
       })
       setCatalog(nextCatalog)
 
+      if (input?.force) {
+        toast.success("Skills refreshed")
+      }
+
       if (input?.preserveSelection && selectedSkillName) {
         const stillPresent = nextCatalog.installed.some((skill) => skill.name === selectedSkillName)
         if (!stillPresent) {
@@ -472,17 +476,9 @@ export function SkillsPage(props: { directory?: string }) {
               type="button"
               variant="outline"
               className="min-w-28"
-              disabled={refreshing}
               onClick={() => void refreshCatalog({ preserveSelection: true, force: true })}
             >
-              {refreshing ? (
-                <>
-                  <SparklesIcon className="size-4 animate-pulse" />
-                  Refreshing
-                </>
-              ) : (
-                "Refresh"
-              )}
+              Refresh
             </Button>
             <Input
               value={search}
@@ -498,9 +494,7 @@ export function SkillsPage(props: { directory?: string }) {
         </header>
 
         <div className="space-y-6" aria-busy={refreshing || loading}>
-          {loading ? (
-            <p className="text-sm text-muted-foreground">Loading skills...</p>
-          ) : null}
+          {loading ? <p className="text-sm text-muted-foreground">Loading skills...</p> : null}
           <section className="space-y-4">
             <SectionHeader
               title="Installed"

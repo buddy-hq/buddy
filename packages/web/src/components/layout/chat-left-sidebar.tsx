@@ -259,6 +259,19 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
       style={props.style}
     >
       <div className="flex-1 min-h-0 overflow-y-auto px-3 pt-2 pb-3">
+        <div className="mb-3 px-1">
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-9 w-full justify-start rounded-lg px-2 text-sm font-medium text-foreground hover:bg-[#121419] hover:text-foreground"
+            onClick={() => props.onNewSession(props.currentDirectory)}
+            disabled={!props.currentDirectory}
+          >
+            <SquarePenIcon className="size-3.5 mr-2" />
+            New thread
+          </Button>
+        </div>
+
         <div className="mb-2 flex items-center justify-between px-1 text-muted-foreground">
           <p className="text-[13px] font-medium">Threads</p>
           <div className="flex items-center gap-1">

@@ -335,9 +335,7 @@ function parseEditorValue(root: HTMLElement) {
     const children = Array.from(element.childNodes)
     children.forEach((child, index) => {
       visit(child)
-      const isBlock =
-        child.nodeType === Node.ELEMENT_NODE &&
-        ["DIV", "P"].includes((child as HTMLElement).tagName)
+      const isBlock = child.nodeType === Node.ELEMENT_NODE && ["DIV", "P"].includes((child as HTMLElement).tagName)
       if (isBlock && index < children.length - 1) {
         buffer += "\n"
       }
@@ -346,9 +344,7 @@ function parseEditorValue(root: HTMLElement) {
 
   Array.from(root.childNodes).forEach((child, index, siblings) => {
     visit(child)
-    const isBlock =
-      child.nodeType === Node.ELEMENT_NODE &&
-      ["DIV", "P"].includes((child as HTMLElement).tagName)
+    const isBlock = child.nodeType === Node.ELEMENT_NODE && ["DIV", "P"].includes((child as HTMLElement).tagName)
     if (isBlock && index < siblings.length - 1) {
       buffer += "\n"
     }
@@ -407,10 +403,7 @@ export function PromptComposer(props: PromptComposerProps) {
 
     return [...customCommands, ...builtinCommands]
   }, [props.slashCommands])
-  const mentionMatch = useMemo(
-    () => getMentionMatch(props.value, cursorOffset),
-    [props.value, cursorOffset],
-  )
+  const mentionMatch = useMemo(() => getMentionMatch(props.value, cursorOffset), [props.value, cursorOffset])
   const mentionKey = mentionMatch ? `${mentionMatch.start}:${mentionMatch.query}` : undefined
   const mentionFiles = useMemo(
     () => dedupeMentionFiles([...recentMentionFiles, ...searchMentionFiles]),
@@ -420,27 +413,15 @@ export function PromptComposer(props: PromptComposerProps) {
     if (!mentionMatch) return []
     return filterMentionOptions(props.mentionableAgents, mentionFiles, mentionMatch.query).slice(0, 10)
   }, [mentionFiles, mentionMatch, props.mentionableAgents])
-  const mentionVisible =
-    !!mentionMatch &&
-    mentionOptions.length > 0 &&
-    mentionKey !== dismissedMentionKey
-  const showMentionLoading =
-    !!mentionMatch &&
-    mentionKey !== dismissedMentionKey &&
-    searchingFiles
-  const slashMatch = useMemo(
-    () => getSlashMatch(props.value, cursorOffset),
-    [props.value, cursorOffset],
-  )
+  const mentionVisible = !!mentionMatch && mentionOptions.length > 0 && mentionKey !== dismissedMentionKey
+  const showMentionLoading = !!mentionMatch && mentionKey !== dismissedMentionKey && searchingFiles
+  const slashMatch = useMemo(() => getSlashMatch(props.value, cursorOffset), [props.value, cursorOffset])
   const slashKey = slashMatch ? `${slashMatch.start}:${slashMatch.query}` : undefined
   const slashOptions = useMemo(() => {
     if (!slashMatch) return []
     return filterSlashCommands(slashCommandOptions, slashMatch.query)
   }, [slashCommandOptions, slashMatch])
-  const slashVisible =
-    !!slashMatch &&
-    slashOptions.length > 0 &&
-    slashKey !== dismissedSlashKey
+  const slashVisible = !!slashMatch && slashOptions.length > 0 && slashKey !== dismissedSlashKey
 
   const groupedModelOptions = useMemo(() => {
     const grouped = new Map<string, Array<(typeof props.modelOptions)[number]>>()
@@ -549,7 +530,8 @@ export function PromptComposer(props: PromptComposerProps) {
 
     let cancelled = false
     setSearchingFiles(true)
-    props.onSearchFiles(query)
+    props
+      .onSearchFiles(query)
       .then((files) => {
         if (cancelled) return
         setSearchMentionFiles(files)
@@ -641,10 +623,7 @@ export function PromptComposer(props: PromptComposerProps) {
     setCursorOffset(nextCursor)
   }
 
-  function applyDraftSnapshot(
-    next: PromptHistoryEntry,
-    cursor: "start" | "end",
-  ) {
+  function applyDraftSnapshot(next: PromptHistoryEntry, cursor: "start" | "end") {
     historyApplyingRef.current = true
     pendingCursorRef.current = cursor === "start" ? 0 : next.value.length
     props.onAttachmentsChange(cloneAttachments(next.attachments))
@@ -897,69 +876,69 @@ export function PromptComposer(props: PromptComposerProps) {
         <div className="relative">
           {slashVisible || mentionVisible || showMentionLoading ? (
             <div className="absolute inset-x-2 bottom-16 z-20 max-h-80 overflow-y-auto rounded-xl border bg-popover/95 shadow-lg backdrop-blur">
-              {slashVisible
-                ? slashOptions.map((command, index) => {
-                    const active = index === slashIndex
+              {slashVisible ? (
+                slashOptions.map((command, index) => {
+                  const active = index === slashIndex
+                  return (
+                    <button
+                      key={`${command.type}:${command.name}`}
+                      type="button"
+                      className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors ${
+                        active ? "bg-muted text-foreground" : "text-foreground/90 hover:bg-muted/70"
+                      }`}
+                      onMouseDown={(event) => {
+                        event.preventDefault()
+                        applySlash(command)
+                      }}
+                    >
+                      <div className="flex min-w-0 flex-col gap-0.5">
+                        <span className="font-medium">{`/${command.name}`}</span>
+                        {command.description ? (
+                          <span className="truncate text-xs text-muted-foreground">{command.description}</span>
+                        ) : command.title ? (
+                          <span className="truncate text-xs text-muted-foreground">{command.title}</span>
+                        ) : null}
+                      </div>
+                      {command.type === "custom" && command.source && command.source !== "command" ? (
+                        <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                          {command.source}
+                        </span>
+                      ) : null}
+                    </button>
+                  )
+                })
+              ) : (
+                <>
+                  {showMentionLoading ? (
+                    <div className="px-3 py-2 text-xs text-muted-foreground">Searching files...</div>
+                  ) : null}
+                  {mentionOptions.map((option, index) => {
+                    const active = index === mentionIndex
                     return (
                       <button
-                        key={`${command.type}:${command.name}`}
+                        key={option.type === "agent" ? `agent:${option.name}` : `file:${option.path}`}
                         type="button"
-                        className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors ${
+                        className={`flex w-full flex-col gap-0.5 px-3 py-2 text-left text-sm transition-colors ${
                           active ? "bg-muted text-foreground" : "text-foreground/90 hover:bg-muted/70"
                         }`}
                         onMouseDown={(event) => {
                           event.preventDefault()
-                          applySlash(command)
+                          applyMention(option)
                         }}
                       >
-                        <div className="flex min-w-0 flex-col gap-0.5">
-                          <span className="font-medium">{`/${command.name}`}</span>
-                          {command.description ? (
-                            <span className="truncate text-xs text-muted-foreground">{command.description}</span>
-                          ) : command.title ? (
-                            <span className="truncate text-xs text-muted-foreground">{command.title}</span>
-                          ) : null}
-                        </div>
-                        {command.type === "custom" && command.source && command.source !== "command" ? (
-                          <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
-                            {command.source}
-                          </span>
+                        <span className="font-medium">
+                          {option.type === "agent" ? `@${option.name}` : `@${option.path}`}
+                        </span>
+                        {option.description ? (
+                          <span className="text-xs text-muted-foreground">{option.description}</span>
+                        ) : option.type === "file" && option.recent ? (
+                          <span className="text-xs text-muted-foreground">Recent file</span>
                         ) : null}
                       </button>
                     )
-                  })
-                : (
-                    <>
-                      {showMentionLoading ? (
-                        <div className="px-3 py-2 text-xs text-muted-foreground">Searching files...</div>
-                      ) : null}
-                      {mentionOptions.map((option, index) => {
-                        const active = index === mentionIndex
-                        return (
-                          <button
-                            key={option.type === "agent" ? `agent:${option.name}` : `file:${option.path}`}
-                            type="button"
-                            className={`flex w-full flex-col gap-0.5 px-3 py-2 text-left text-sm transition-colors ${
-                              active ? "bg-muted text-foreground" : "text-foreground/90 hover:bg-muted/70"
-                            }`}
-                            onMouseDown={(event) => {
-                              event.preventDefault()
-                              applyMention(option)
-                            }}
-                          >
-                            <span className="font-medium">
-                              {option.type === "agent" ? `@${option.name}` : `@${option.path}`}
-                            </span>
-                            {option.description ? (
-                              <span className="text-xs text-muted-foreground">{option.description}</span>
-                            ) : option.type === "file" && option.recent ? (
-                              <span className="text-xs text-muted-foreground">Recent file</span>
-                            ) : null}
-                          </button>
-                        )
-                      })}
-                    </>
-                  )}
+                  })}
+                </>
+              )}
             </div>
           ) : null}
 
@@ -1010,14 +989,12 @@ export function PromptComposer(props: PromptComposerProps) {
 
                 if (
                   event.key === "Tab" ||
-                  (
-                    event.key === "Enter" &&
+                  (event.key === "Enter" &&
                     !event.nativeEvent.isComposing &&
                     !event.shiftKey &&
                     !event.ctrlKey &&
                     !event.metaKey &&
-                    !event.altKey
-                  )
+                    !event.altKey)
                 ) {
                   event.preventDefault()
                   const selected = slashOptions[slashIndex]
@@ -1047,14 +1024,12 @@ export function PromptComposer(props: PromptComposerProps) {
 
                 if (
                   event.key === "Tab" ||
-                  (
-                    event.key === "Enter" &&
+                  (event.key === "Enter" &&
                     !event.nativeEvent.isComposing &&
                     !event.shiftKey &&
                     !event.ctrlKey &&
                     !event.metaKey &&
-                    !event.altKey
-                  )
+                    !event.altKey)
                 ) {
                   event.preventDefault()
                   const selected = mentionOptions[mentionIndex]
@@ -1160,11 +1135,7 @@ export function PromptComposer(props: PromptComposerProps) {
         {props.attachments.length > 0 ? (
           <div className="flex flex-wrap gap-2 border-t px-3 py-2">
             {props.attachments.map((attachment) => (
-              <Badge
-                key={attachment.id}
-                variant="secondary"
-                className="max-w-full gap-1.5 overflow-hidden px-2 py-1"
-              >
+              <Badge key={attachment.id} variant="secondary" className="max-w-full gap-1.5 overflow-hidden px-2 py-1">
                 <span className="truncate text-xs">{attachmentLabel(attachment)}</span>
                 <button
                   type="button"
@@ -1199,13 +1170,18 @@ export function PromptComposer(props: PromptComposerProps) {
             >
               {agentOptions.map((agent) => (
                 <SelectItem key={agent.name} value={agent.name}>
-                  {`Agent: ${agent.name}`}
+                  {agent.name}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
 
-          <Select value={props.selectedModel} onValueChange={props.onModelChange} open={modelMenuOpen} onOpenChange={setModelMenuOpen}>
+          <Select
+            value={props.selectedModel}
+            onValueChange={props.onModelChange}
+            open={modelMenuOpen}
+            onOpenChange={setModelMenuOpen}
+          >
             <SelectTrigger
               ref={modelTriggerRef}
               size="sm"
