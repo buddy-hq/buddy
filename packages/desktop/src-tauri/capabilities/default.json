@@ -6,6 +6,9 @@
   "permissions": [
     "core:default",
     "core:window:allow-is-focused",
+    "core:window:allow-start-dragging",
+    "core:window:allow-toggle-maximize",
+    "decorum:allow-show-snap-overlay",
     "dialog:default",
     "notification:default",
     "os:default",
