@@ -24,11 +24,22 @@ function ShellMessage(props: { children: React.ReactNode; tone?: "default" | "er
   )
 }
 
+function LoadingScreen() {
+  return (
+    <div className="relative flex h-full items-center justify-center bg-background">
+      <img src="/buddy-icon.png" alt="Buddy" className="h-24 w-24 rounded-2xl animate-pulse" />
+      {platform.os === "windows" ? (
+        <div data-tauri-decorum-tb className="absolute right-0 top-0 z-10 flex h-10 flex-row" />
+      ) : null}
+    </div>
+  )
+}
+
 async function bootstrap() {
   const root = ReactDOM.createRoot(rootElement)
   setRuntimePlatform(platform)
 
-  root.render(<ShellMessage>Connecting to Buddy...</ShellMessage>)
+  root.render(<LoadingScreen />)
 
   try {
     const server = await commands.awaitInitialization()
@@ -42,15 +53,11 @@ async function bootstrap() {
             </ServerProvider>
           </PlatformProvider>
         </AppBaseProviders>
-      </React.StrictMode>
+      </React.StrictMode>,
     )
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    root.render(
-      <ShellMessage tone="error">
-        Failed to start Buddy backend: {message}
-      </ShellMessage>
-    )
+    root.render(<ShellMessage tone="error">Failed to start Buddy backend: {message}</ShellMessage>)
   }
 }
 
