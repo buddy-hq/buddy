@@ -1,4 +1,4 @@
-import LEARNING_COMPANION_PROMPT from "./prompt.md"
+import LEARNING_COMPANION_PROMPT from "./prompt.js"
 
 // ---------------------------------------------------------------------------
 // Stable behavior prompt loaded from disk

@@ -2,9 +2,9 @@ import type { TeachingPromptContext } from "../teaching/types.js"
 import { CurriculumService } from "../curriculum/service.js"
 import { loadLearningCompanionPrompt, condenseCurriculum } from "../companion/system-context.js"
 import { formatLearningGoalsForSystemPrompt, listActiveGoalSets, readGoalsV1File } from "../goals/goals-v1.js"
-import { GOAL_WRITER_AGENT_NAME } from "../goals/types.js"
 import { TeachingService } from "../teaching/service.js"
-import TEACHING_POLICY_PROMPT from "../teaching/policy.md"
+import TEACHING_POLICY_PROMPT from "../teaching/policy.js"
+import { getBuddyAgentMeta } from "../../agent-kit/register-buddy-agent.js"
 
 function isCompletionClaim(value: string): boolean {
   const normalized = value.trim().toLowerCase()
@@ -15,8 +15,27 @@ function isCompletionClaim(value: string): boolean {
 function formatSessionMode(input: {
   mode: "chat" | "interactive"
   teachingToolsAvailable: boolean
+  inlineFiguresAvailable: boolean
+  isMathTeacher: boolean
 }): string {
-  const { mode, teachingToolsAvailable } = input
+  const { mode, teachingToolsAvailable, inlineFiguresAvailable, isMathTeacher } = input
+
+  if (isMathTeacher) {
+    const message =
+      mode === "interactive"
+        ? "An interactive workspace is active for this session, but this agent teaches through normal chat. Do not rely on the editor workspace or teaching workspace mutation tools. Inline figure rendering is available via render_figure and render_freeform_figure."
+        : inlineFiguresAvailable
+          ? "Teach through normal chat. Inline figure rendering is available via render_figure and render_freeform_figure when a diagram will materially improve the explanation. Do not rely on interactive workspace tools."
+          : "Teach through normal chat. Do not rely on interactive workspace tools."
+
+    return [
+      "<session_mode>",
+      `Mode: ${mode}`,
+      message,
+      "</session_mode>",
+    ].join("\n")
+  }
+
   return [
     "<session_mode>",
     `Mode: ${mode}`,
@@ -99,13 +118,14 @@ export async function composeLearningSystemPrompt(input: {
   userContent?: string
 }): Promise<string> {
   const parts: string[] = []
-  const includeBehavior = input.agentName !== "code-teacher" && input.agentName !== GOAL_WRITER_AGENT_NAME
+  const meta = getBuddyAgentMeta(input.agentName)
+  const includeBehavior = meta.includeLearningCompanionBehavior
   const behavior = includeBehavior ? loadLearningCompanionPrompt().trim() : ""
   if (behavior) {
     parts.push(behavior)
   }
 
-  if (input.agentName !== GOAL_WRITER_AGENT_NAME) {
+  if (meta.role !== "goal-writer") {
     const goalsFile = await readGoalsV1File(input.directory).catch(() => undefined)
     const activeGoalSets = goalsFile ? listActiveGoalSets(goalsFile.data) : []
     if (activeGoalSets.length > 0) {
@@ -131,11 +151,13 @@ export async function composeLearningSystemPrompt(input: {
   parts.push(
     formatSessionMode({
       mode: input.teachingContext?.active ? "interactive" : "chat",
-      teachingToolsAvailable: input.agentName === "code-teacher",
+      teachingToolsAvailable: meta.teachingTools,
+      inlineFiguresAvailable: meta.supportsInlineFigures,
+      isMathTeacher: meta.subject === "math",
     }),
   )
 
-  if (input.teachingContext?.active) {
+  if (input.teachingContext?.active && meta.subject !== "math") {
     const checkpointStatus = await TeachingService.status(input.directory, input.teachingContext.sessionID).catch(
       () => undefined,
     )
@@ -148,7 +170,7 @@ export async function composeLearningSystemPrompt(input: {
       }),
     )
 
-    if (input.agentName === "code-teacher") {
+    if (meta.teachingPolicyMode === "interactive") {
       const completionClaim = isCompletionClaim(input.userContent ?? "")
       parts.push(
         formatTeachingPolicy({

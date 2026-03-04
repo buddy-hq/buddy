@@ -4,6 +4,14 @@ import { registerBuddyAgent } from "../../agent-kit/register-buddy-agent.js"
 
 export const CURRICULUM_BUILDER = registerBuddyAgent({
   key: "curriculum-builder",
+  meta: {
+    role: "curriculum-builder",
+    interactiveWorkspace: false,
+    teachingTools: false,
+    teachingPolicyMode: "none",
+    supportsInlineFigures: false,
+    includeLearningCompanionBehavior: true,
+  },
   agent: createSubagent({
     description: "Builds and updates project curriculum markdown with actionable checklists.",
     prompt: CURRICULUM_BUILDER_PROMPT.trim(),
