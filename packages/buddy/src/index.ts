@@ -8,6 +8,8 @@ import { AuthRoutes } from "./routes/auth.js"
 import { CompatibilityRoutes } from "./routes/compatibility.js"
 import { ConfigRoutes } from "./routes/config.js"
 import { CurriculumRoutes } from "./routes/curriculum.js"
+import { FigureRoutes } from "./routes/figures.js"
+import { FreeformFigureRoutes } from "./routes/freeform-figures.js"
 import { GoalsRoutes } from "./routes/goals.js"
 import { GlobalRoutes } from "./routes/global.js"
 import { McpRoutes } from "./routes/mcp.js"
@@ -55,6 +57,8 @@ api.use("*", async (c, next) => {
 })
 
 api.route("/curriculum", CurriculumRoutes())
+api.route("/figures", FigureRoutes({ ensureAllowedDirectory }))
+api.route("/freeform-figures", FreeformFigureRoutes({ ensureAllowedDirectory }))
 api.route("/goals", GoalsRoutes())
 api.route("/teaching", TeachingRoutes({ ensureAllowedDirectory }))
 api.route("/", CompatibilityRoutes())

@@ -13,6 +13,8 @@ function buildOpenCodePermissionOverlay(permission: Config.Permission | undefine
     goal_lint: "deny",
     goal_commit: "deny",
     goal_state: "deny",
+    render_figure: "deny",
+    render_freeform_figure: "deny",
     teaching_start_lesson: "deny",
     teaching_checkpoint: "deny",
     teaching_add_file: "deny",

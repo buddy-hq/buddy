@@ -1,6 +1,8 @@
 import type { Context } from "hono"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ensureCurriculumToolsRegistered } from "../learning/curriculum/tools/register.js"
+import { ensureFreeformFigureToolsRegistered } from "../learning/freeform-figures/tools/register.js"
+import { ensureFigureToolsRegistered } from "../learning/figures/tools/register.js"
 import { ensureGoalToolsRegistered } from "../learning/goals/tools/register.js"
 import { ensureTeachingToolsRegistered } from "../learning/teaching/tools/register.js"
 import { loadOpenCodeApp } from "../opencode-runtime/runtime.js"
@@ -25,6 +27,8 @@ export type ProxyToOpenCodeInput = {
   ) => Record<string, unknown> | Promise<Record<string, unknown>>
   forceBusyAs409?: boolean
   registerCurriculumTools?: boolean | ((body: Record<string, unknown>) => boolean)
+  registerFigureTools?: boolean | ((body: Record<string, unknown>) => boolean)
+  registerFreeformFigureTools?: boolean | ((body: Record<string, unknown>) => boolean)
   registerGoalTools?: boolean | ((body: Record<string, unknown>) => boolean)
   registerTeachingTools?: boolean | ((body: Record<string, unknown>) => boolean)
 }
@@ -37,6 +41,8 @@ type FetchOpenCodeInput = {
   headers?: Headers
   body?: BodyInit
   registerCurriculumTools?: boolean
+  registerFigureTools?: boolean
+  registerFreeformFigureTools?: boolean
   registerGoalTools?: boolean
   registerTeachingTools?: boolean
 }
@@ -151,6 +157,22 @@ export async function fetchOpenCode(input: FetchOpenCodeInput): Promise<Response
     )
   }
 
+  if (input.registerFigureTools === true) {
+    registrations.push(
+      ensureFigureToolsRegistered(input.directory).catch((error) => {
+        console.warn("Failed to register Buddy figure tools into OpenCode runtime:", error)
+      }),
+    )
+  }
+
+  if (input.registerFreeformFigureTools === true) {
+    registrations.push(
+      ensureFreeformFigureToolsRegistered(input.directory).catch((error) => {
+        console.warn("Failed to register Buddy freeform figure tools into OpenCode runtime:", error)
+      }),
+    )
+  }
+
   if (registrations.length > 0) {
     await Promise.all(registrations)
   }
@@ -185,6 +207,9 @@ export async function proxyToOpenCode(c: Context, input: ProxyToOpenCodeInput): 
   const headers = new Headers(c.req.raw.headers)
   let body: BodyInit | undefined
   let registerCurriculumTools = typeof input.registerCurriculumTools === "boolean" ? input.registerCurriculumTools : false
+  let registerFigureTools = typeof input.registerFigureTools === "boolean" ? input.registerFigureTools : false
+  let registerFreeformFigureTools =
+    typeof input.registerFreeformFigureTools === "boolean" ? input.registerFreeformFigureTools : false
   let registerGoalTools = typeof input.registerGoalTools === "boolean" ? input.registerGoalTools : false
   let registerTeachingTools = typeof input.registerTeachingTools === "boolean" ? input.registerTeachingTools : false
 
@@ -197,6 +222,12 @@ export async function proxyToOpenCode(c: Context, input: ProxyToOpenCodeInput): 
         const transformed = await input.transformJsonBody(parsed)
         if (typeof input.registerCurriculumTools === "function") {
           registerCurriculumTools = input.registerCurriculumTools(transformed)
+        }
+        if (typeof input.registerFigureTools === "function") {
+          registerFigureTools = input.registerFigureTools(transformed)
+        }
+        if (typeof input.registerFreeformFigureTools === "function") {
+          registerFreeformFigureTools = input.registerFreeformFigureTools(transformed)
         }
         if (typeof input.registerGoalTools === "function") {
           registerGoalTools = input.registerGoalTools(transformed)
@@ -228,6 +259,8 @@ export async function proxyToOpenCode(c: Context, input: ProxyToOpenCodeInput): 
     headers,
     body,
     registerCurriculumTools,
+    registerFigureTools,
+    registerFreeformFigureTools,
     registerGoalTools,
     registerTeachingTools,
   })
