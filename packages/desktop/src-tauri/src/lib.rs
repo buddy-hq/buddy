@@ -83,6 +83,9 @@ fn ensure_main_window(app: &AppHandle) -> tauri::Result<()> {
           "#
         ));
 
+    #[cfg(target_os = "windows")]
+    let window_builder = window_builder.decorations(false);
+
     #[cfg(target_os = "macos")]
     let window_builder = window_builder
         .title_bar_style(tauri::TitleBarStyle::Overlay)
@@ -93,6 +96,13 @@ fn ensure_main_window(app: &AppHandle) -> tauri::Result<()> {
 
     let _ = window.set_focus();
     setup_window_state_listener(app, &window);
+
+    #[cfg(windows)]
+    {
+        use tauri_plugin_decorum::WebviewWindowExt;
+
+        let _ = window.create_overlay_titlebar();
+    }
 
     Ok(())
 }
@@ -283,6 +293,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_decorum::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_store::Builder::new().build())

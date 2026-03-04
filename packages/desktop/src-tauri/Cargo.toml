@@ -20,6 +20,7 @@ specta = "=2.0.0-rc.22"
 specta-typescript = "0.0.9"
 tauri = { version = "2", features = ["macos-private-api"] }
 tauri-specta = { version = "=2.0.0-rc.21", features = ["derive", "typescript"] }
+tauri-plugin-decorum = "1.1.1"
 tauri-plugin-dialog = "2"
 tauri-plugin-http = "2"
 tauri-plugin-notification = "2"
