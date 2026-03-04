@@ -111,4 +111,23 @@ describe("parity.agent", () => {
       expect(PermissionNext.evaluate("task", "tmp/scratch.md", agent!.permission).action).toBe("deny")
     })
   })
+
+  test("registers math-teacher as a primary agent with inline figure permissions", async () => {
+    await withRepo(async (directory) => {
+      const result = await withSyncedOpenCodeConfig(directory, async () => ({
+        agent: await OpenCodeAgent.get("math-teacher"),
+        listed: await OpenCodeAgent.list(),
+      }))
+
+      expect(result.agent).toBeDefined()
+      expect(result.agent?.mode).toBe("primary")
+      expect(result.listed.some((entry) => entry.name === "math-teacher")).toBe(true)
+      expect(PermissionNext.evaluate("render_figure", "figures/example.svg", result.agent!.permission).action).toBe(
+        "allow",
+      )
+      expect(
+        PermissionNext.evaluate("teaching_start_lesson", "teaching/lesson.ts", result.agent!.permission).action,
+      ).toBe("deny")
+    })
+  })
 })
