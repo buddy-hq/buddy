@@ -55,7 +55,7 @@ function requestDirectory(request: Request): string {
     url.searchParams.get("directory") ??
     request.headers.get("x-buddy-directory") ??
     request.headers.get("x-opencode-directory") ??
-    process.cwd()
+    ""
 
   return resolveDirectory(rawDirectory)
 }

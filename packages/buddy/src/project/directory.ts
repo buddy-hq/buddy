@@ -51,6 +51,25 @@ function decodeDirectory(raw: string) {
   }
 }
 
+function directoryBase() {
+  const configured = process.env.BUDDY_DIRECTORY_BASE?.trim()
+  if (configured) {
+    return path.resolve(decodeDirectory(configured))
+  }
+  return process.cwd()
+}
+
+function resolveDirectoryPath(raw: string) {
+  const decoded = decodeDirectory(raw).trim()
+  if (!decoded) {
+    return directoryBase()
+  }
+  if (path.isAbsolute(decoded)) {
+    return decoded
+  }
+  return path.resolve(directoryBase(), decoded)
+}
+
 function canonicalizeDirectory(directory: string) {
   let current = directory
   const suffix: string[] = []
@@ -84,7 +103,7 @@ function isInsideRoot(directory: string, root: string) {
 }
 
 export function resolveDirectory(raw: string) {
-  return canonicalizeDirectory(path.resolve(decodeDirectory(raw)))
+  return canonicalizeDirectory(resolveDirectoryPath(raw))
 }
 
 export function allowedDirectoryRoots() {

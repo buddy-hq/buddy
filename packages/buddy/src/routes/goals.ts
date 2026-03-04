@@ -30,7 +30,7 @@ export const GoalsRoutes = () =>
     }),
     async (c) => {
       const directory = resolveDirectory(
-        c.req.header("x-buddy-directory") ?? c.req.header("x-opencode-directory") ?? process.cwd(),
+        c.req.header("x-buddy-directory") ?? c.req.header("x-opencode-directory") ?? "",
       )
       const doc = await readGoalsV1File(directory)
       return c.json({

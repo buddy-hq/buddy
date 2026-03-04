@@ -33,7 +33,7 @@ export const CurriculumRoutes = () =>
       }),
       async (c) => {
         const directory = resolveDirectory(
-          c.req.header("x-buddy-directory") ?? c.req.header("x-opencode-directory") ?? process.cwd(),
+          c.req.header("x-buddy-directory") ?? c.req.header("x-opencode-directory") ?? "",
         )
         const doc = await CurriculumService.read(directory)
         return c.json({ markdown: doc.markdown })
@@ -68,7 +68,7 @@ export const CurriculumRoutes = () =>
       async (c) => {
         const body = c.req.valid("json")
         const directory = resolveDirectory(
-          c.req.header("x-buddy-directory") ?? c.req.header("x-opencode-directory") ?? process.cwd(),
+          c.req.header("x-buddy-directory") ?? c.req.header("x-opencode-directory") ?? "",
         )
         try {
           const doc = await CurriculumService.write(directory, body.markdown)

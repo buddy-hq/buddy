@@ -3,7 +3,6 @@ import { Hono } from "hono"
 import { openAPIRouteHandler } from "hono-openapi"
 import { cors } from "hono/cors"
 import { logger } from "hono/logger"
-import { assertOpenCodeRuntime } from "./opencode-runtime/runtime.js"
 import { AuthRoutes } from "./routes/auth.js"
 import { CompatibilityRoutes } from "./routes/compatibility.js"
 import { ConfigRoutes } from "./routes/config.js"
@@ -74,6 +73,7 @@ api.route("/skills", SkillsRoutes())
 
 app.use(logger())
 app.use(cors({ origin: "*" }))
+app.get("/api/healthz", (c) => c.json({ healthy: true }))
 app.route("/api", api)
 
 const generatedOpenApiHandler = openAPIRouteHandler(app, {
@@ -92,13 +92,6 @@ app.get("/doc", generatedOpenApiHandler)
 const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000
 
 if (import.meta.main) {
-  try {
-    await assertOpenCodeRuntime(process.cwd())
-  } catch (error) {
-    console.error("Failed to initialize vendored OpenCode runtime:", error)
-    process.exit(1)
-  }
-
   console.log(`Server starting on http://localhost:${port}`)
   console.log(`API docs available at http://localhost:${port}/doc`)
   Bun.serve({
