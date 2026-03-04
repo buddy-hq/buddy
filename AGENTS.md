@@ -34,6 +34,10 @@ Build Buddy core by executing vendored OpenCode core, not by re-implementing it.
 - Buddy-owned behavior should remain in Buddy modules (curriculum, UX-specific route shaping, compatibility headers).
 - Do not edit files under `vendor/opencode/packages/opencode/**` unless the change is an intentional vendored patch that will be tracked for the next subtree refresh.
 
+## Target Platforms: macos and windows
+
+- the developer is testing this app on mac(arm64) but a good portion of the users of this app will be windows users: so when a developer asks you to implement something for the desktop - assume they mean for both platforms. they might not explicitly say or test it for now, but it's the agent's job to do it.
+
 ## UI tasks
 
 refer to: `packages/ui/AGENTS.md`; it has instructions on:
@@ -41,9 +45,9 @@ refer to: `packages/ui/AGENTS.md`; it has instructions on:
 - how to create components
 - how to style them
 
-## Commands
+## Scripts/Commands
 
-- if confused about which commands to run refer COMMANDS.AGENTS.md
+- if confused about how scripts or commands work for this project refer COMMANDS.AGENTS.md
 
 ## Code Style
 
