@@ -26,6 +26,41 @@ function createGitRepo(prefix: string) {
 }
 
 describe("project routes", () => {
+  test("resolves relative directories against BUDDY_DIRECTORY_BASE when configured", async () => {
+    const repo = createGitRepo("buddy-route-project-base")
+    const canonicalRepo = realpathSync(repo)
+    const base = path.dirname(repo)
+    const relativeDirectory = path.basename(repo)
+    const originalDirectoryBase = process.env.BUDDY_DIRECTORY_BASE
+    const originalAllowedRoots = process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS
+
+    process.env.BUDDY_DIRECTORY_BASE = base
+    process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS = base
+
+    try {
+      const response = await app.request("/api/project", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          directory: relativeDirectory,
+        }),
+      })
+
+      expect(response.status).toBe(200)
+      await expect(response.json()).resolves.toEqual({
+        directory: canonicalRepo,
+      })
+    } finally {
+      if (originalDirectoryBase === undefined) delete process.env.BUDDY_DIRECTORY_BASE
+      else process.env.BUDDY_DIRECTORY_BASE = originalDirectoryBase
+
+      if (originalAllowedRoots === undefined) delete process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS
+      else process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS = originalAllowedRoots
+    }
+  })
+
   test("opens projects by resolving the requested directory on the backend", async () => {
     const repo = createGitRepo("buddy-route-project-open")
     const canonicalRepo = realpathSync(repo)
