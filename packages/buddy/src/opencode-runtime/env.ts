@@ -1,12 +1,25 @@
 import fs from "node:fs"
 import path from "node:path"
 
-const runtimeRoot = path.resolve(process.cwd(), ".buddy-runtime/xdg")
+function runtimeRoot() {
+  const configured = process.env.BUDDY_RUNTIME_ROOT?.trim()
+  if (configured && configured !== "undefined") {
+    try {
+      return path.resolve(decodeURIComponent(configured))
+    } catch {
+      return path.resolve(configured)
+    }
+  }
 
-export const BUDDY_XDG_DATA_HOME = path.join(runtimeRoot, "data")
-export const BUDDY_XDG_CACHE_HOME = path.join(runtimeRoot, "cache")
-export const BUDDY_XDG_CONFIG_HOME = path.join(runtimeRoot, "config")
-export const BUDDY_XDG_STATE_HOME = path.join(runtimeRoot, "state")
+  return path.resolve(process.cwd(), ".buddy-runtime/xdg")
+}
+
+const runtimeRootPath = runtimeRoot()
+
+export const BUDDY_XDG_DATA_HOME = path.join(runtimeRootPath, "data")
+export const BUDDY_XDG_CACHE_HOME = path.join(runtimeRootPath, "cache")
+export const BUDDY_XDG_CONFIG_HOME = path.join(runtimeRootPath, "config")
+export const BUDDY_XDG_STATE_HOME = path.join(runtimeRootPath, "state")
 
 function findRepoPath(relativePath: string): string | undefined {
   const searchRoots = [
