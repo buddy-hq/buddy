@@ -230,6 +230,35 @@
   gap: 0.45rem;
 }
 
+.buddy-render-figure-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.buddy-render-figure-frame {
+  margin: 0;
+  border: 1px solid color-mix(in oklab, var(--border) 80%, transparent);
+  border-radius: 0.5rem;
+  background: color-mix(in oklab, var(--background) 86%, transparent);
+  padding: 0.6rem;
+}
+
+.buddy-render-figure-frame img {
+  width: 100%;
+  max-width: min(100%, 36rem);
+  height: auto;
+  margin: 0 auto;
+  display: block;
+  border-radius: 0.375rem;
+}
+
+.buddy-render-figure-caption,
+.buddy-render-figure-meta {
+  font-size: 0.76rem;
+  color: var(--muted-foreground);
+}
+
 .buddy-tool-title-meta {
   font-size: 0.78rem;
   color: var(--muted-foreground);

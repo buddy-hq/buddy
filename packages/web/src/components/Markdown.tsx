@@ -2,19 +2,29 @@ import { useEffect, useRef } from "react";
 import DOMPurify from "dompurify";
 import morphdom from "morphdom";
 import "katex/dist/katex.min.css";
+import { getServerConnection } from "../context/server";
+import { resolveApiUrl } from "../lib/api-client";
 import { parseMarkdownToHtml } from "../lib/markdown-parser";
 import "./markdown.css";
 
 if (typeof window !== "undefined" && DOMPurify.isSupported) {
   DOMPurify.addHook("afterSanitizeAttributes", (node: Element) => {
-    if (!(node instanceof HTMLAnchorElement)) return;
-    if (node.target !== "_blank") return;
+    if (node instanceof HTMLAnchorElement) {
+      if (node.target !== "_blank") return;
 
-    const rel = node.getAttribute("rel") ?? "";
-    const set = new Set(rel.split(/\s+/).filter(Boolean));
-    set.add("noopener");
-    set.add("noreferrer");
-    node.setAttribute("rel", Array.from(set).join(" "));
+      const rel = node.getAttribute("rel") ?? "";
+      const set = new Set(rel.split(/\s+/).filter(Boolean));
+      set.add("noopener");
+      set.add("noreferrer");
+      node.setAttribute("rel", Array.from(set).join(" "));
+      return;
+    }
+
+    if (node instanceof HTMLImageElement) {
+      const src = node.getAttribute("src");
+      if (!src || !src.startsWith("/api/")) return;
+      node.setAttribute("src", resolveApiUrl(src));
+    }
   });
 }
 
@@ -38,6 +48,11 @@ function sanitize(html: string) {
   return DOMPurify.sanitize(html, sanitizeConfig);
 }
 
+function markdownSanitizeContextKey() {
+  const server = getServerConnection();
+  return [server.url ?? "", server.username ?? "", server.password ?? ""].join("|");
+}
+
 function touchMarkdownCache(key: string, value: MarkdownCacheEntry) {
   markdownCache.delete(key);
   markdownCache.set(key, value);
@@ -59,6 +74,7 @@ export function Markdown({
   cacheKey?: string;
 }) {
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const sanitizeContextKey = markdownSanitizeContextKey();
 
   useEffect(() => {
     let disposed = false;
@@ -84,7 +100,7 @@ export function Markdown({
       });
     };
 
-    const key = cacheKey ?? text;
+    const key = `${cacheKey ?? text}::${sanitizeContextKey}`;
     const cached = markdownCache.get(key);
     if (cached && cached.source === text) {
       touchMarkdownCache(key, cached);
@@ -118,7 +134,7 @@ export function Markdown({
     return () => {
       disposed = true;
     };
-  }, [cacheKey, text]);
+  }, [cacheKey, sanitizeContextKey, text]);
 
   return <div data-component="markdown" className={className} ref={rootRef} />;
 }

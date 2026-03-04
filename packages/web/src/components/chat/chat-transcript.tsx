@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Markdown } from "@/components/Markdown"
+import { resolveApiUrl } from "../../lib/api-client"
 import { computeTokenContextMetrics } from "@/state/context-metrics"
 import type { MessageInfo, MessagePart, MessageWithParts, ProviderInfo } from "@/state/chat-types"
 import "./chat-transcript.css"
@@ -20,6 +21,15 @@ type ToolState = {
   output?: string
   error?: string
   title?: string
+}
+
+type RenderFigureToolOutput = {
+  figureID: string
+  mime: "image/svg+xml"
+  url: string
+  alt: string
+  caption?: string
+  repairAttempts: number
 }
 
 type AssistantRenderItem =
@@ -239,6 +249,7 @@ function getToolInfo(tool: string, input: Record<string, unknown>) {
   const url = typeof input.url === "string" ? input.url : undefined
   const description = typeof input.description === "string" ? input.description : undefined
   const subagent = typeof input.subagent_type === "string" ? input.subagent_type : undefined
+  const alt = typeof input.alt === "string" ? input.alt : undefined
 
   switch (tool) {
     case "read": {
@@ -310,6 +321,12 @@ function getToolInfo(tool: string, input: Record<string, unknown>) {
         title: "Questions",
         subtitle: description,
       }
+    case "render_figure":
+    case "render_freeform_figure":
+      return {
+        title: "Figure",
+        subtitle: alt,
+      }
     default:
       return {
         title: tool,
@@ -320,6 +337,57 @@ function getToolInfo(tool: string, input: Record<string, unknown>) {
 
 function readString(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined
+}
+
+function readNonEmptyString(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : undefined
+}
+
+function readNonNegativeInt(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : undefined
+}
+
+function parseRenderFigureToolOutput(state: ToolState): RenderFigureToolOutput | undefined {
+  const artifact = readString(state.metadata.artifact)
+  if (artifact !== "RenderFigureOutput" && artifact !== "RenderFreeformFigureOutput") return undefined
+
+  const value = isRecord(state.metadata.value) ? state.metadata.value : undefined
+  if (!value) return undefined
+
+  const figureID = readNonEmptyString(value.figureID)
+  const mime = value.mime === "image/svg+xml" ? "image/svg+xml" : undefined
+  const url = readNonEmptyString(value.url)
+  const alt = readNonEmptyString(value.alt)
+  const caption = readNonEmptyString(value.caption)
+  const repairAttempts = readNonNegativeInt(value.repairAttempts)
+
+  if (!figureID || !mime || !url || !alt || repairAttempts === undefined) return undefined
+
+  return {
+    figureID,
+    mime,
+    url,
+    alt,
+    caption,
+    repairAttempts,
+  }
+}
+
+function stripLeadingRenderFigureMarkdown(text: string) {
+  return text.replace(/^\s*!\[[^\]]*\]\((\/api\/(?:figures|freeform-figures)\/[^)\s]+)\)(?:\r?\n\s*)*/u, "")
+}
+
+function stripUrlCredentials(value: string) {
+  try {
+    const url = new URL(value)
+    url.username = ""
+    url.password = ""
+    return url.toString()
+  } catch {
+    return value
+  }
 }
 
 function statusLabel(status: ToolState["status"]) {
@@ -531,9 +599,11 @@ function AssistantTextPart(props: {
   copyEnabled: boolean
   metaText?: string
   interrupted?: boolean
+  stripLeadingFigureImage?: boolean
 }) {
   const text = String(props.part.text ?? "")
-  const throttledText = useThrottledText(text)
+  const visibleText = props.stripLeadingFigureImage ? stripLeadingRenderFigureMarkdown(text) : text
+  const throttledText = useThrottledText(visibleText)
   if (!throttledText.trim()) return null
 
   return (
@@ -550,7 +620,7 @@ function AssistantTextPart(props: {
           ) : (
             <span />
           )}
-          <CopyAction value={text} className="buddy-copy-action buddy-copy-action-inline" />
+          <CopyAction value={visibleText} className="buddy-copy-action buddy-copy-action-inline" />
         </div>
       ) : null}
     </div>
@@ -639,6 +709,10 @@ function ToolPartCard(props: {
   const childSessionId = readString(state.metadata.sessionId)
   const output = state.output || (state.error ? unwrapError(state.error) : "")
   const showOutput = output.trim().length > 0
+  const renderFigure =
+    (tool === "render_figure" || tool === "render_freeform_figure") && state.status === "completed"
+      ? parseRenderFigureToolOutput(state)
+      : undefined
 
   if (tool === "task") {
     const onOpenSession = props.onOpenSession
@@ -700,6 +774,53 @@ function ToolPartCard(props: {
 
   const subtitle = info.subtitle ? <span className="buddy-tool-subtitle-text">{info.subtitle}</span> : null
 
+  if (renderFigure) {
+    const imageUrl = resolveApiUrl(renderFigure.url)
+    const copyableImageUrl = stripUrlCredentials(imageUrl)
+
+    return (
+      <div className="buddy-tool-card buddy-render-figure-card">
+        <div className="buddy-tool-summary">
+          <div className="buddy-tool-main">
+            <span className={toolTitleClass(state.status)}>{info.title}</span>
+            {subtitle}
+            {info.detail ? <span className="buddy-tool-detail">{info.detail}</span> : null}
+          </div>
+          <span className={`buddy-tool-status buddy-tool-status-${state.status}`}>{statusLabel(state.status)}</span>
+        </div>
+
+        <div className="buddy-tool-body">
+          {state.title ? <div className="buddy-tool-title-meta">{state.title}</div> : null}
+
+          {progressLines.length > 0 ? (
+            <div className="buddy-tool-progress-lines">
+              {progressLines.map((line, index) => (
+                <div key={`${props.part.id}:progress:${index}`}>{line}</div>
+              ))}
+            </div>
+          ) : null}
+
+          <figure className="buddy-render-figure-frame">
+            <img src={imageUrl} alt={renderFigure.alt} loading="lazy" />
+          </figure>
+
+          {renderFigure.caption ? (
+            <div className="buddy-render-figure-caption">{renderFigure.caption}</div>
+          ) : null}
+
+          <div className="buddy-message-meta-row">
+            <span className="buddy-render-figure-meta">
+              {renderFigure.repairAttempts > 0
+                ? `repaired ${renderFigure.repairAttempts} ${renderFigure.repairAttempts === 1 ? "time" : "times"}`
+                : "rendered automatically from tool output"}
+            </span>
+            <CopyAction value={copyableImageUrl} label="Copy image URL" className="buddy-copy-action buddy-copy-action-inline" />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <details className="buddy-tool-card" open={state.status === "error"}>
       <summary>
@@ -751,6 +872,7 @@ function AssistantPartRenderer(props: {
   metaText?: string
   interrupted?: boolean
   onOpenSession?: (sessionID: string) => void
+  stripLeadingFigureImage?: boolean
 }) {
   if (props.part.type === "step-start" || props.part.type === "step-finish") {
     return null
@@ -763,6 +885,7 @@ function AssistantPartRenderer(props: {
           copyEnabled={props.copyPartID === props.part.id}
           metaText={props.metaText}
           interrupted={props.interrupted}
+          stripLeadingFigureImage={props.stripLeadingFigureImage}
         />
       )
   }
@@ -844,10 +967,21 @@ export function ChatTranscript(props: ChatTranscriptProps) {
 
             {showAssistantSection ? (
               <div className="mt-[18px] flex w-full min-w-0 flex-col gap-3">
-                  {assistantItems.map((item) => {
+                  {assistantItems.map((item, itemIndex) => {
                     if (item.type === "context") {
                       return <ContextToolGroup key={item.key} parts={item.parts} />
                     }
+
+                    const previousItem = assistantItems[itemIndex - 1]
+                    const previousPart = previousItem?.type === "part" ? previousItem.part : undefined
+                    const previousPartState = previousPart ? parseToolState(previousPart) : undefined
+                    const stripLeadingFigureImage =
+                      item.part.type === "text" &&
+                      previousPart?.type === "tool" &&
+                      (String(previousPart.tool ?? "") === "render_figure" ||
+                        String(previousPart.tool ?? "") === "render_freeform_figure") &&
+                      previousPartState?.status === "completed" &&
+                      !!parseRenderFigureToolOutput(previousPartState)
 
                     return (
                       <AssistantPartRenderer
@@ -857,6 +991,7 @@ export function ChatTranscript(props: ChatTranscriptProps) {
                         metaText={assistantMetaText}
                         interrupted={assistantAborted}
                         onOpenSession={props.onOpenSession}
+                        stripLeadingFigureImage={stripLeadingFigureImage}
                       />
                     )
                   })}
