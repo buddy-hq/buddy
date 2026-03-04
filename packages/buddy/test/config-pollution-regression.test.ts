@@ -42,7 +42,7 @@ describe("config pollution regression", () => {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        default_agent: "build",
+        default_mode: "code-buddy",
         model: "anthropic/k2p5",
       }),
     })

@@ -15,7 +15,7 @@ function createToolContext() {
   return {
     sessionID: "ses_math",
     messageID: "msg_math",
-    agent: "math-teacher",
+    agent: "math-buddy",
     abort: new AbortController().signal,
     messages: [],
     metadata() {},

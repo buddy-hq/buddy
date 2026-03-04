@@ -1,18 +1,22 @@
 import { describe, expect, test } from "bun:test"
-import fs from "node:fs/promises"
-import path from "node:path"
+import { readFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { Agent as OpenCodeAgent } from "@buddy/opencode-adapter/agent"
 import { composeLearningSystemPrompt } from "../src/learning/shared/compose-system-prompt.js"
-import {
-  assembleCodeTeacherPrompt,
-  assembleLearningCompanionPrompt,
-  assembleMathTeacherPrompt,
-  assembleTeachingPolicyPrompt,
-} from "../src/learning/shared/prompt-assemblies.js"
 import { readNormalizedPromptFixture } from "../src/learning/shared/prompt-fixture.js"
 import { tmpdir } from "./fixture/fixture"
 import { withSyncedOpenCodeConfig } from "./helpers/opencode.js"
+
+const BUDDY_BASE_PROMPT = readFileSync(new URL("../src/learning/companion/buddy-base.p.md", import.meta.url), "utf8")
+const TEACHING_POLICY_PROMPT = readFileSync(new URL("../src/learning/teaching/teaching-policy.p.md", import.meta.url), "utf8")
+const CODE_BUDDY_OVERLAY = readFileSync(
+  new URL("../src/learning/teaching/teacher/coding/code-buddy-overlay.p.md", import.meta.url),
+  "utf8",
+)
+const MATH_BUDDY_OVERLAY = readFileSync(
+  new URL("../src/learning/teaching/teacher/math/math-buddy-overlay.p.md", import.meta.url),
+  "utf8",
+)
 
 function fixturePath(filename: string): string {
   return fileURLToPath(new URL(`./fixtures/prompts/${filename}`, import.meta.url))
@@ -22,43 +26,42 @@ function sessionMode(lines: string[]): string {
   return ["<session_mode>", ...lines, "</session_mode>"].join("\n")
 }
 
+function composeStaticPrompt(...parts: string[]): string {
+  return parts.map((part) => part.trim()).filter(Boolean).join("\n\n")
+}
+
 describe("prompt assemblies", () => {
-  test("assemble existing prompts byte-for-byte from fixtures", async () => {
+  test("loads shared prompt assets byte-for-byte from fixtures", async () => {
     const learningFixture = await readNormalizedPromptFixture(fixturePath("learning-companion.txt"))
-    const codeTeacherFixture = await readNormalizedPromptFixture(fixturePath("code-teacher.txt"))
     const teachingPolicyFixture = await readNormalizedPromptFixture(fixturePath("teaching-policy.txt"))
 
-    expect(assembleLearningCompanionPrompt().trimEnd()).toBe(learningFixture)
-    expect(assembleCodeTeacherPrompt().trimEnd()).toBe(codeTeacherFixture)
-    expect(assembleTeachingPolicyPrompt().trimEnd()).toBe(teachingPolicyFixture)
+    expect(BUDDY_BASE_PROMPT.trimEnd()).toBe(learningFixture)
+    expect(TEACHING_POLICY_PROMPT.trimEnd()).toBe(teachingPolicyFixture)
   })
 
-  test("preserves companion prompt composition for default agents", async () => {
+  test("preserves buddy chat-mode system prompt", async () => {
     await using project = await tmpdir()
 
     const system = await composeLearningSystemPrompt({
       directory: project.path,
-      agentName: "build",
+      modeID: "buddy",
       userContent: "hello",
     })
 
-    const expected = [
-      await readNormalizedPromptFixture(fixturePath("learning-companion.txt")),
-      sessionMode([
-        "Mode: chat",
-        "No interactive workspace is active. Teach through normal chat. If the learner wants a hands-on editor lesson, ask them to switch to the code-teacher agent or start it from the Editor tab.",
-      ]),
-    ].join("\n\n")
+    const expected = sessionMode([
+      "Mode: chat",
+      "No interactive workspace is active. Teach through normal chat. If the learner wants a hands-on editor lesson, ask them to switch to Buddy's code-buddy mode or start it from the Editor tab.",
+    ])
 
     expect(system).toBe(expected)
   })
 
-  test("preserves code-teacher chat-mode system prompt", async () => {
+  test("preserves code-buddy chat-mode system prompt", async () => {
     await using project = await tmpdir()
 
     const system = await composeLearningSystemPrompt({
       directory: project.path,
-      agentName: "code-teacher",
+      modeID: "code-buddy",
       userContent: "teach me arrays",
     })
 
@@ -70,13 +73,13 @@ describe("prompt assemblies", () => {
     )
   })
 
-  test("preserves code-teacher interactive system prompt with completion-claim policy", async () => {
+  test("preserves code-buddy interactive system prompt with completion-claim policy", async () => {
     await using project = await tmpdir()
     const teachingPolicyFixture = await readNormalizedPromptFixture(fixturePath("teaching-policy.txt"))
 
     const system = await composeLearningSystemPrompt({
       directory: project.path,
-      agentName: "code-teacher",
+      modeID: "code-buddy",
       userContent: "done",
       teachingContext: {
         active: true,
@@ -114,37 +117,43 @@ describe("prompt assemblies", () => {
     expect(system).toBe(expected)
   })
 
-  test("skips companion and curriculum injection for goal-writer", async () => {
+  test("preserves math-buddy chat-mode system prompt", async () => {
     await using project = await tmpdir()
-    await fs.mkdir(path.join(project.path, ".buddy"), { recursive: true })
-    await fs.writeFile(path.join(project.path, ".buddy", "curriculum.md"), "# Learning Curriculum\n", "utf8")
 
     const system = await composeLearningSystemPrompt({
       directory: project.path,
-      agentName: "goal-writer",
-      userContent: "write course goals",
+      modeID: "math-buddy",
+      userContent: "teach me reflection",
     })
 
     expect(system).toBe(
       sessionMode([
         "Mode: chat",
-        "No interactive workspace is active. Teach through normal chat. If the learner wants a hands-on editor lesson, ask them to switch to the code-teacher agent or start it from the Editor tab.",
+        "Teach through normal chat. Inline figure rendering is available via render_figure and render_freeform_figure when a diagram will materially improve the explanation. Do not rely on interactive workspace tools.",
       ]),
     )
   })
 
-  test("keeps the registered code-teacher prompt byte-identical", async () => {
+  test("keeps the registered code-buddy prompt byte-identical", async () => {
     await using project = await tmpdir({ git: true })
-    const fixture = await readNormalizedPromptFixture(fixturePath("code-teacher.txt"))
+    const expected = composeStaticPrompt(BUDDY_BASE_PROMPT, CODE_BUDDY_OVERLAY)
 
-    const agent = await withSyncedOpenCodeConfig(project.path, () => OpenCodeAgent.get("code-teacher"))
+    const agent = await withSyncedOpenCodeConfig(project.path, () => OpenCodeAgent.get("code-buddy"))
 
     expect(agent).toBeDefined()
-    expect(agent?.prompt?.trimEnd()).toBe(fixture)
+    expect(agent?.prompt?.trimEnd()).toBe(expected)
   })
 
-  test("gives math-teacher generic figure authoring guidance without overfitting to one shape", async () => {
-    const prompt = assembleMathTeacherPrompt()
+  test("composes code-buddy from the base buddy prompt plus the code overlay", async () => {
+    const prompt = composeStaticPrompt(BUDDY_BASE_PROMPT, CODE_BUDDY_OVERLAY)
+
+    expect(prompt).toContain("You are Buddy, a learning companion that helps you learn by doing.")
+    expect(prompt).toContain("For coding sessions, act as Buddy in `code-buddy` mode.")
+    expect(prompt).toContain("Treat the lesson file shown in <teaching_workspace> as the shared whiteboard for the lesson.")
+  })
+
+  test("composes math-buddy from the base buddy prompt plus the math overlay", async () => {
+    const prompt = composeStaticPrompt(BUDDY_BASE_PROMPT, MATH_BUDDY_OVERLAY)
 
     expect(prompt).toContain("Figure trigger policy:")
     expect(prompt).toContain("Figure authoring:")

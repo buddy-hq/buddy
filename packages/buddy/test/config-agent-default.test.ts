@@ -4,6 +4,7 @@ import path from "node:path"
 import { mkdtempSync, writeFileSync } from "node:fs"
 import { spawnSync } from "node:child_process"
 import { Agent as OpenCodeAgent } from "@buddy/opencode-adapter/agent"
+import { Config, InvalidError } from "../src/config/config.ts"
 import { withSyncedOpenCodeConfig } from "./helpers/opencode.js"
 
 function runGit(cwd: string, args: string[]) {
@@ -25,41 +26,23 @@ function createGitRepo(prefix: string) {
   return root
 }
 
-describe("config default_agent", () => {
-  test("rejects subagent as default_agent", async () => {
-    const repo = createGitRepo("buddy-config-default-agent-sub")
+describe("config default_mode", () => {
+  test("defaults to buddy when no default_mode is configured", async () => {
+    const repo = createGitRepo("buddy-config-default-mode-default")
 
-    writeFileSync(
-      path.join(repo, "buddy.jsonc"),
-      JSON.stringify(
-        {
-          default_agent: "curriculum-builder",
-        },
-        null,
-        2,
-      ) + "\n",
-    )
+    const selected = await withSyncedOpenCodeConfig(repo, () => OpenCodeAgent.defaultAgent())
 
-    await expect(
-      withSyncedOpenCodeConfig(repo, () => OpenCodeAgent.defaultAgent()),
-    ).rejects.toThrow("is a subagent")
+    expect(selected).toBe("buddy")
   })
 
-  test("uses configured primary default_agent", async () => {
-    const repo = createGitRepo("buddy-config-default-agent-primary")
+  test("uses configured code-buddy as default_mode", async () => {
+    const repo = createGitRepo("buddy-config-default-mode-code")
 
     writeFileSync(
       path.join(repo, "buddy.jsonc"),
       JSON.stringify(
         {
-          default_agent: "coach",
-          agent: {
-            coach: {
-              mode: "primary",
-              description: "coaching mode",
-              prompt: "You are a coaching agent.",
-            },
-          },
+          default_mode: "code-buddy",
         },
         null,
         2,
@@ -68,25 +51,17 @@ describe("config default_agent", () => {
 
     const selected = await withSyncedOpenCodeConfig(repo, () => OpenCodeAgent.defaultAgent())
 
-    expect(selected).toBe("coach")
+    expect(selected).toBe("code-buddy")
   })
 
-  test("resolves renamed primary default_agent from its display name", async () => {
-    const repo = createGitRepo("buddy-config-default-agent-renamed")
+  test("uses configured math-buddy as default_mode", async () => {
+    const repo = createGitRepo("buddy-config-default-mode-math")
 
     writeFileSync(
       path.join(repo, "buddy.jsonc"),
       JSON.stringify(
         {
-          default_agent: "Senior Coach",
-          agent: {
-            coach: {
-              mode: "primary",
-              name: "Senior Coach",
-              description: "coaching mode",
-              prompt: "You are a coaching agent.",
-            },
-          },
+          default_mode: "math-buddy",
         },
         null,
         2,
@@ -95,6 +70,95 @@ describe("config default_agent", () => {
 
     const selected = await withSyncedOpenCodeConfig(repo, () => OpenCodeAgent.defaultAgent())
 
-    expect(selected).toBe("Senior Coach")
+    expect(selected).toBe("math-buddy")
+  })
+
+  test("propagates hidden modes into the runtime agent catalog", async () => {
+    const repo = createGitRepo("buddy-config-hidden-mode")
+
+    writeFileSync(
+      path.join(repo, "buddy.jsonc"),
+      JSON.stringify(
+        {
+          modes: {
+            "code-buddy": {
+              hidden: true,
+            },
+          },
+        },
+        null,
+        2,
+      ) + "\n",
+    )
+
+    const codeBuddy = await withSyncedOpenCodeConfig(repo, async () => OpenCodeAgent.get("code-buddy"))
+
+    expect(codeBuddy?.hidden).toBe(true)
+  })
+
+  test("rejects configs that hide every Buddy mode", async () => {
+    const repo = createGitRepo("buddy-config-hidden-all-modes")
+
+    writeFileSync(
+      path.join(repo, "buddy.jsonc"),
+      JSON.stringify(
+        {
+          modes: {
+            buddy: {
+              hidden: true,
+            },
+            "code-buddy": {
+              hidden: true,
+            },
+            "math-buddy": {
+              hidden: true,
+            },
+          },
+        },
+        null,
+        2,
+      ) + "\n",
+    )
+
+    await expect(Config.getProject(repo)).rejects.toBeInstanceOf(InvalidError)
+    await expect(Config.getProject(repo)).rejects.toMatchObject({
+      data: {
+        issues: expect.arrayContaining([
+          expect.objectContaining({
+            message: "At least one Buddy mode must remain visible",
+          }),
+        ]),
+      },
+    })
+  })
+
+  test("rejects surfaces overrides that remove the inherited default surface", async () => {
+    const repo = createGitRepo("buddy-config-invalid-default-surface")
+
+    writeFileSync(
+      path.join(repo, "buddy.jsonc"),
+      JSON.stringify(
+        {
+          modes: {
+            "code-buddy": {
+              surfaces: ["curriculum"],
+            },
+          },
+        },
+        null,
+        2,
+      ) + "\n",
+    )
+
+    await expect(Config.getProject(repo)).rejects.toBeInstanceOf(InvalidError)
+    await expect(Config.getProject(repo)).rejects.toMatchObject({
+      data: {
+        issues: expect.arrayContaining([
+          expect.objectContaining({
+            message: 'defaultSurface "editor" must remain available for code-buddy',
+          }),
+        ]),
+      },
+    })
   })
 })

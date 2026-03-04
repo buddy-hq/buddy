@@ -4,6 +4,7 @@ import path from "node:path"
 import { mkdtempSync, writeFileSync } from "node:fs"
 import { spawnSync } from "node:child_process"
 import { Config, JsonError } from "../src/config/config.js"
+import { InvalidError } from "../src/config/errors.js"
 
 function runGit(cwd: string, args: string[]) {
   const result = spawnSync("git", args, {
@@ -32,7 +33,7 @@ describe("config jsonc", () => {
       [
         "{",
         '  // JSONC comment',
-        '  "default_agent": "build",',
+        '  "default_mode": "code-buddy",',
         '  "model": "anthropic/k2p5",',
         "}",
         "",
@@ -41,7 +42,7 @@ describe("config jsonc", () => {
 
     const cfg = await Config.getProject(repo)
 
-    expect(cfg.default_agent).toBe("build")
+    expect(cfg.default_mode).toBe("code-buddy")
     expect(cfg.model).toBe("anthropic/k2p5")
   })
 
@@ -70,5 +71,24 @@ describe("config jsonc", () => {
         process.env.BUDDY_CONFIG = previous
       }
     }
+  })
+
+  test("rejects configurations that hide every Buddy mode", async () => {
+    const repo = createGitRepo("buddy-config-jsonc-hidden-all")
+    writeFileSync(
+      path.join(repo, "buddy.jsonc"),
+      [
+        "{",
+        '  "modes": {',
+        '    "buddy": { "hidden": true },',
+        '    "code-buddy": { "hidden": true },',
+        '    "math-buddy": { "hidden": true }',
+        "  }",
+        "}",
+        "",
+      ].join("\n"),
+    )
+
+    await expect(Config.getProject(repo)).rejects.toBeInstanceOf(InvalidError)
   })
 })

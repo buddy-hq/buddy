@@ -7,32 +7,34 @@ import { withSyncedOpenCodeConfig } from "../../helpers/opencode.js"
 import { withRepo } from "../helpers"
 
 describe("parity.agent", () => {
-  test("rejects subagent as default agent", async () => {
+  test("rejects non-mode values for default_mode", async () => {
     await withRepo(async (directory) => {
       writeFileSync(
         path.join(directory, "buddy.jsonc"),
         JSON.stringify({
-          default_agent: "curriculum-builder",
+          default_mode: "curriculum-builder",
         }),
       )
 
       await expect(
         withSyncedOpenCodeConfig(directory, () => OpenCodeAgent.defaultAgent()),
-      ).rejects.toThrow("subagent")
+      ).rejects.toThrow()
     })
   })
 
-  test("orders configured default agent first in list", async () => {
+  test("orders configured default mode first in list", async () => {
     await withRepo(async (directory) => {
       writeFileSync(
         path.join(directory, "buddy.jsonc"),
         JSON.stringify({
-          default_agent: "build",
+          default_mode: "code-buddy",
         }),
       )
 
       const listed = await withSyncedOpenCodeConfig(directory, () => OpenCodeAgent.list())
-      expect(listed[0]?.name).toBe("build")
+      expect(listed[0]?.name).toBe("code-buddy")
+      expect(listed.some((entry) => entry.name === "buddy")).toBe(true)
+      expect(listed.some((entry) => entry.name === "build")).toBe(true)
       expect(listed.some((entry) => entry.name === "plan")).toBe(true)
       expect(listed.some((entry) => entry.name === "explore")).toBe(true)
       expect(listed.some((entry) => entry.name === "curriculum-builder")).toBe(true)
@@ -45,14 +47,14 @@ describe("parity.agent", () => {
         path.join(directory, "buddy.jsonc"),
         JSON.stringify({
           agent: {
-            "code-teacher": {
+            "code-buddy": {
               description: "patched only",
             },
           },
         }),
       )
 
-      const agent = await withSyncedOpenCodeConfig(directory, () => OpenCodeAgent.get("code-teacher"))
+      const agent = await withSyncedOpenCodeConfig(directory, () => OpenCodeAgent.get("code-buddy"))
 
       expect(agent).toBeDefined()
       expect(agent?.description).toBe("patched only")
@@ -93,7 +95,7 @@ describe("parity.agent", () => {
         path.join(directory, "buddy.jsonc"),
         JSON.stringify({
           agent: {
-            "code-teacher": {
+            "code-buddy": {
               permission: {
                 task: {
                   "notes/*": "allow",
@@ -104,7 +106,7 @@ describe("parity.agent", () => {
         }),
       )
 
-      const agent = await withSyncedOpenCodeConfig(directory, () => OpenCodeAgent.get("code-teacher"))
+      const agent = await withSyncedOpenCodeConfig(directory, () => OpenCodeAgent.get("code-buddy"))
 
       expect(agent).toBeDefined()
       expect(PermissionNext.evaluate("task", "notes/lesson.md", agent!.permission).action).toBe("allow")
@@ -112,16 +114,16 @@ describe("parity.agent", () => {
     })
   })
 
-  test("registers math-teacher as a primary agent with inline figure permissions", async () => {
+  test("registers math-buddy as a primary agent with inline figure permissions", async () => {
     await withRepo(async (directory) => {
       const result = await withSyncedOpenCodeConfig(directory, async () => ({
-        agent: await OpenCodeAgent.get("math-teacher"),
+        agent: await OpenCodeAgent.get("math-buddy"),
         listed: await OpenCodeAgent.list(),
       }))
 
       expect(result.agent).toBeDefined()
       expect(result.agent?.mode).toBe("primary")
-      expect(result.listed.some((entry) => entry.name === "math-teacher")).toBe(true)
+      expect(result.listed.some((entry) => entry.name === "math-buddy")).toBe(true)
       expect(PermissionNext.evaluate("render_figure", "figures/example.svg", result.agent!.permission).action).toBe(
         "allow",
       )

@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
-import { loadOpenProjects, openProject, sendPrompt, shouldDeferTranscriptReload } from "../src/state/chat-actions"
+import {
+  loadOpenProjects,
+  openProject,
+  resolveDefaultModeID,
+  sendPrompt,
+  shouldDeferTranscriptReload,
+} from "../src/state/chat-actions"
 import { useChatStore } from "../src/state/chat-store"
 
 const originalFetch = globalThis.fetch
@@ -10,6 +16,7 @@ function resetStore() {
     activeDirectory: undefined,
     entryError: undefined,
     lastSessionByDirectory: {},
+    selectedModelByDirectory: {},
     directories: {},
     streamStatus: "idle",
   })
@@ -38,6 +45,21 @@ describe("loadOpenProjects", () => {
 
     expect(projects).toEqual(["/repo/root", "/repo/other"])
     expect(useChatStore.getState().openProjects).toEqual(["/repo/root", "/repo/other"])
+  })
+})
+
+describe("chat store model selection", () => {
+  test("tracks selected models per directory without changing other directories", () => {
+    const store = useChatStore.getState()
+
+    store.setSelectedModel("/repo/a", "anthropic/claude-sonnet-4")
+    store.setSelectedModel("/repo/b", "openai/gpt-5")
+    store.setSelectedModel("/repo/a", "auto")
+
+    expect(useChatStore.getState().selectedModelByDirectory).toEqual({
+      "/repo/a": "auto",
+      "/repo/b": "openai/gpt-5",
+    })
   })
 })
 
@@ -98,7 +120,7 @@ describe("openProject", () => {
   })
 
   test("rejects the filesystem root", async () => {
-    await expect(openProject("/")).rejects.toThrow("Please choose a project directory, not /")
+    await expect(openProject("/")).rejects.toThrow("Please choose a notebook directory, not /")
     expect(useChatStore.getState().openProjects).toEqual([])
   })
 })
@@ -185,5 +207,26 @@ describe("sendPrompt", () => {
     })
 
     expect(requests).toBe(1)
+  })
+})
+
+describe("resolveDefaultModeID", () => {
+  test("uses the built-in mode order instead of label order when no default is configured", () => {
+    const selected = resolveDefaultModeID([
+      {
+        id: "code-buddy",
+        label: "A Code",
+        surfaces: ["curriculum", "editor"],
+        defaultSurface: "editor",
+      },
+      {
+        id: "buddy",
+        label: "Z Buddy",
+        surfaces: ["curriculum"],
+        defaultSurface: "curriculum",
+      },
+    ])
+
+    expect(selected).toBe("buddy")
   })
 })

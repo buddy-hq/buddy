@@ -51,7 +51,7 @@ describe("composeLearningSystemPrompt (goals.v1)", () => {
 
     const system = await composeLearningSystemPrompt({
       directory: project.path,
-      agentName: "build",
+      modeID: "buddy",
       userContent: "hello",
     })
 
