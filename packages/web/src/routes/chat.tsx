@@ -1,7 +1,9 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
-import { useEffect, useMemo, useState } from "react"
-import { Button, Input } from "@buddy/ui"
+import { useEffect, useState } from "react"
+import { Button, Input, Card, CardContent } from "@buddy/ui"
+import { FolderPlusIcon } from "@/components/layout/sidebar-icons"
 import { usePlatform } from "../context/platform"
+import buddyIcon from "../../public/buddy-icon.png"
 import { stringifyError } from "../lib/api-client"
 import { encodeDirectory } from "../lib/directory-token"
 import { pickProjectDirectory } from "../lib/directory-picker"
@@ -14,16 +16,10 @@ export const Route = createFileRoute("/chat")({
 
 function ChatEntryPage() {
   const navigate = useNavigate()
-  const platform = usePlatform()
-  const openProjects = useChatStore((state) => state.openProjects)
   const activeDirectory = useChatStore((state) => state.activeDirectory)
   const entryError = useChatStore((state) => state.entryError)
   const setActiveDirectory = useChatStore((state) => state.setActiveDirectory)
   const setEntryError = useChatStore((state) => state.setEntryError)
-  const [directory, setDirectory] = useState("")
-  const hasNativePicker = typeof platform.openDirectoryPickerDialog === "function"
-
-  const recents = useMemo(() => openProjects, [openProjects])
 
   useEffect(() => {
     void loadOpenProjects()
@@ -58,88 +54,83 @@ function ChatEntryPage() {
     }
   }
 
-  async function openPickedDirectory() {
-    try {
-      setEntryError(undefined)
-      const picked = await pickProjectDirectory()
-      if (!picked) return
-      await openDirectory(picked)
-    } catch (error) {
-      setEntryError(stringifyError(error))
-    }
-  }
-
   return (
     <div className="mx-auto w-full max-w-2xl px-6 py-16">
-      <div className="text-center space-y-2">
-        <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Buddy</p>
-        <h1 className="text-3xl font-semibold">Open notebook</h1>
-        <p className="text-sm text-muted-foreground">Open a notebook to start chatting with Buddy.</p>
-        <div className="pt-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              navigate({ to: "/skills" })
-            }}
-          >
-            Manage skills
-          </Button>
-        </div>
-      </div>
-
-      {hasNativePicker ? (
-        <div className="mt-8 rounded-xl border bg-card p-4">
-          <Button type="button" className="w-full" onClick={() => void openPickedDirectory()}>
-            Choose folder
-          </Button>
-        </div>
-      ) : (
-        <form
-          className="mt-8 rounded-xl border bg-card p-4 flex gap-2"
-          onSubmit={(event) => {
-            event.preventDefault()
-            void openDirectory(directory)
-          }}
-        >
-          <Input
-            value={directory}
-            onChange={(event) => setDirectory(event.target.value)}
-            placeholder="/absolute/path/to/folder"
-          />
-          <Button type="submit">Open</Button>
-        </form>
-      )}
+      <EmptyProjectsState onOpenDirectory={openDirectory} />
 
       {entryError ? (
         <div className="mt-4 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
           {entryError}
         </div>
       ) : null}
+    </div>
+  )
+}
 
-      {recents.length > 0 ? (
-        <div className="mt-8 space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium">Recent notebooks</p>
-          </div>
-          <div className="space-y-2">
-            {recents.map((project) => (
-              <button
-                key={project}
-                type="button"
-                className="w-full rounded-md border px-3 py-2 text-left text-sm hover:bg-muted/50 transition-colors"
-                onClick={() => void openDirectory(project)}
-              >
-                {project}
-              </button>
-            ))}
-          </div>
+type EmptyProjectsStateProps = {
+  onOpenDirectory: (directory: string) => void
+}
+
+function EmptyProjectsState(props: EmptyProjectsStateProps) {
+  const platform = usePlatform()
+  const [directory, setDirectory] = useState("")
+  const hasNativePicker = typeof platform.openDirectoryPickerDialog === "function"
+
+  async function openPickedDirectory() {
+    try {
+      const picked = await pickProjectDirectory()
+      if (!picked) return
+      props.onOpenDirectory(picked)
+    } catch {
+      // Error handling is done in parent
+    }
+  }
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-20">
+      <div className="flex flex-col items-center gap-6 text-center">
+        <img src={buddyIcon} alt="Buddy" className="h-32 w-32 rounded-3xl shadow-xl" />
+        <div className="space-y-4">
+          <h1 className="text-5xl font-bold tracking-tight">Buddy</h1>
+          <p className="text-base text-muted-foreground">learn something new today</p>
         </div>
-      ) : (
-        <div className="mt-12 rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
-          No notebooks yet. Open a folder to start.
-        </div>
-      )}
+      </div>
+
+      <Card className="w-full max-w-md border-dashed">
+        <CardContent className="p-8">
+          {hasNativePicker ? (
+            <div className="flex flex-col items-center gap-4">
+              <Button type="button" className="w-full" size="lg" onClick={() => void openPickedDirectory()}>
+                <FolderPlusIcon className="mr-2 h-4 w-4" />
+                choose a folder
+              </Button>
+              <span className="text-xs text-muted-foreground">to start your learning journey</span>
+            </div>
+          ) : (
+            <form
+              className="flex flex-col items-center gap-4"
+              onSubmit={(event) => {
+                event.preventDefault()
+                props.onOpenDirectory(directory)
+              }}
+            >
+              <div className="flex w-full gap-3">
+                <Input
+                  value={directory}
+                  onChange={(event) => setDirectory(event.target.value)}
+                  placeholder="/path/to/your/project"
+                  className="flex-1"
+                />
+                <Button type="submit">
+                  <FolderPlusIcon className="mr-2 h-4 w-4" />
+                  Open
+                </Button>
+              </div>
+              <span className="text-xs text-muted-foreground">to start your learning journey</span>
+            </form>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }
