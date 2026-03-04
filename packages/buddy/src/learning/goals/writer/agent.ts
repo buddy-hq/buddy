@@ -1,17 +1,9 @@
-import GOAL_WRITER_PROMPT from "./prompt.md"
 import { createBuildAgent } from "../../../agent-kit/factories.js"
 import { registerBuddyAgent } from "../../../agent-kit/register-buddy-agent.js"
+import GOAL_WRITER_PROMPT from "./goal-writer.p.md"
 
 export const GOAL_WRITER = registerBuddyAgent({
   key: "goal-writer",
-  meta: {
-    role: "goal-writer",
-    interactiveWorkspace: false,
-    teachingTools: false,
-    teachingPolicyMode: "none",
-    supportsInlineFigures: false,
-    includeLearningCompanionBehavior: false,
-  },
   agent: createBuildAgent({
     description: "Writes CWSEI-style course/topic learning goals using a deterministic lint + commit workflow.",
     prompt: GOAL_WRITER_PROMPT.trim(),

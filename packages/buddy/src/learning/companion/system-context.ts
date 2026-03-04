@@ -1,22 +1,3 @@
-import LEARNING_COMPANION_PROMPT from "./prompt.js"
-
-// ---------------------------------------------------------------------------
-// Stable behavior prompt loaded from disk
-// ---------------------------------------------------------------------------
-
-export function loadLearningCompanionPrompt(): string {
-  return LEARNING_COMPANION_PROMPT
-}
-
-// ---------------------------------------------------------------------------
-// Layer 4: Dynamic Context -- Curriculum injection
-// ---------------------------------------------------------------------------
-
-/**
- * Condense a full curriculum markdown into just headings + incomplete items
- * with completion counts per section. This keeps the token cost small while
- * giving the LLM awareness of the learner's progress.
- */
 export function condenseCurriculum(markdown: string): string {
   const lines = markdown.split("\n")
   const result: string[] = []

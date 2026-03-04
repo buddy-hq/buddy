@@ -1,22 +1,13 @@
-import MATH_TEACHER_PROMPT from "./prompt.js"
 import { createPrimaryAgent } from "../../../../agent-kit/factories.js"
 import { registerBuddyAgent } from "../../../../agent-kit/register-buddy-agent.js"
+import BUDDY_BASE_PROMPT from "../../../companion/buddy-base.p.md"
+import MATH_BUDDY_OVERLAY from "./math-buddy-overlay.p.md"
 
-export const MATH_TEACHER = registerBuddyAgent({
-  key: "math-teacher",
-  meta: {
-    role: "teacher",
-    subject: "math",
-    interactiveWorkspace: false,
-    teachingTools: false,
-    teachingPolicyMode: "none",
-    supportsInlineFigures: true,
-    includeLearningCompanionBehavior: false,
-    recommendedTeacherName: "math-teacher",
-  },
+export const MATH_BUDDY = registerBuddyAgent({
+  key: "math-buddy",
   agent: createPrimaryAgent({
-    description: "Chat-first math teaching agent that can render inline constrained geometry and unrestricted SVG figures.",
-    prompt: MATH_TEACHER_PROMPT,
+    description: "Chat-first math Buddy mode with inline constrained geometry and unrestricted SVG figures.",
+    prompt: [BUDDY_BASE_PROMPT.trim(), MATH_BUDDY_OVERLAY.trim()].join("\n\n"),
     steps: 8,
     availableSubagents: [],
     permission: {

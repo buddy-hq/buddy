@@ -1,10 +1,11 @@
 import type { TeachingPromptContext } from "../teaching/types.js"
 import { CurriculumService } from "../curriculum/service.js"
-import { loadLearningCompanionPrompt, condenseCurriculum } from "../companion/system-context.js"
+import { condenseCurriculum } from "../companion/system-context.js"
 import { formatLearningGoalsForSystemPrompt, listActiveGoalSets, readGoalsV1File } from "../goals/goals-v1.js"
 import { TeachingService } from "../teaching/service.js"
-import TEACHING_POLICY_PROMPT from "../teaching/policy.js"
-import { getBuddyAgentMeta } from "../../agent-kit/register-buddy-agent.js"
+import { getBuddyMode } from "../../modes/catalog.js"
+import { isBuddyModeID } from "../../modes/types.js"
+import RAW_TEACHING_POLICY_PROMPT from "../teaching/teaching-policy.p.md"
 
 function isCompletionClaim(value: string): boolean {
   const normalized = value.trim().toLowerCase()
@@ -14,24 +15,28 @@ function isCompletionClaim(value: string): boolean {
 
 function formatSessionMode(input: {
   mode: "chat" | "interactive"
-  teachingToolsAvailable: boolean
-  inlineFiguresAvailable: boolean
-  isMathTeacher: boolean
+  sessionProfile: "general" | "workspace" | "figure"
 }): string {
-  const { mode, teachingToolsAvailable, inlineFiguresAvailable, isMathTeacher } = input
+  const { mode, sessionProfile } = input
 
-  if (isMathTeacher) {
-    const message =
-      mode === "interactive"
-        ? "An interactive workspace is active for this session, but this agent teaches through normal chat. Do not rely on the editor workspace or teaching workspace mutation tools. Inline figure rendering is available via render_figure and render_freeform_figure."
-        : inlineFiguresAvailable
-          ? "Teach through normal chat. Inline figure rendering is available via render_figure and render_freeform_figure when a diagram will materially improve the explanation. Do not rely on interactive workspace tools."
-          : "Teach through normal chat. Do not rely on interactive workspace tools."
-
+  if (sessionProfile === "figure") {
     return [
       "<session_mode>",
       `Mode: ${mode}`,
-      message,
+      mode === "interactive"
+        ? "An interactive workspace is active for this session, but this mode teaches through normal chat. Do not rely on the editor workspace or teaching workspace mutation tools. Inline figure rendering is available via render_figure and render_freeform_figure."
+        : "Teach through normal chat. Inline figure rendering is available via render_figure and render_freeform_figure when a diagram will materially improve the explanation. Do not rely on interactive workspace tools.",
+      "</session_mode>",
+    ].join("\n")
+  }
+
+  if (sessionProfile === "workspace") {
+    return [
+      "<session_mode>",
+      `Mode: ${mode}`,
+      mode === "interactive"
+        ? "An interactive workspace is active for this session. Teaching workspace tools are now available: teaching_start_lesson, teaching_add_file, teaching_checkpoint, teaching_set_lesson, teaching_restore_checkpoint."
+        : "No interactive workspace is active. Teach through normal chat unless the learner explicitly wants a hands-on editor lesson. If they do, use teaching_start_lesson to create the workspace first, then switch into editor-based teaching.",
       "</session_mode>",
     ].join("\n")
   }
@@ -40,12 +45,8 @@ function formatSessionMode(input: {
     "<session_mode>",
     `Mode: ${mode}`,
     mode === "interactive"
-      ? teachingToolsAvailable
-        ? "An interactive workspace is active for this session. Teaching workspace tools are now available: teaching_start_lesson, teaching_add_file, teaching_checkpoint, teaching_set_lesson, teaching_restore_checkpoint."
-        : "An interactive workspace is active for this session. The editor context is available, but teaching workspace mutation tools are reserved for the code-teacher agent."
-      : teachingToolsAvailable
-        ? "No interactive workspace is active. Teach through normal chat unless the learner explicitly wants a hands-on editor lesson. If they do, use teaching_start_lesson to create the workspace first, then switch into editor-based teaching."
-        : "No interactive workspace is active. Teach through normal chat. If the learner wants a hands-on editor lesson, ask them to switch to the code-teacher agent or start it from the Editor tab.",
+      ? "An interactive workspace is active for this session. The editor context is available, but teaching workspace mutation tools are reserved for Buddy's code-buddy mode."
+      : "No interactive workspace is active. Teach through normal chat. If the learner wants a hands-on editor lesson, ask them to switch to Buddy's code-buddy mode or start it from the Editor tab.",
     "</session_mode>",
   ].join("\n")
 }
@@ -95,7 +96,7 @@ function formatTeachingPromptContext(
 }
 
 function formatTeachingPolicy(input: { completionClaim: boolean; changedSinceCheckpoint?: boolean }): string {
-  const parts = TEACHING_POLICY_PROMPT.trim()
+  const parts = RAW_TEACHING_POLICY_PROMPT.trim()
     .replace(/\n<\/teaching_policy>\s*$/u, "")
     .split("\n")
 
@@ -113,19 +114,17 @@ function formatTeachingPolicy(input: { completionClaim: boolean; changedSinceChe
 
 export async function composeLearningSystemPrompt(input: {
   directory: string
-  agentName?: string
+  modeID?: string
   teachingContext?: TeachingPromptContext
   userContent?: string
 }): Promise<string> {
+  const mode =
+    input.modeID && isBuddyModeID(input.modeID)
+      ? getBuddyMode(input.modeID)
+      : getBuddyMode("buddy")
   const parts: string[] = []
-  const meta = getBuddyAgentMeta(input.agentName)
-  const includeBehavior = meta.includeLearningCompanionBehavior
-  const behavior = includeBehavior ? loadLearningCompanionPrompt().trim() : ""
-  if (behavior) {
-    parts.push(behavior)
-  }
 
-  if (meta.role !== "goal-writer") {
+  if (mode.behavior.attachCurriculum) {
     const goalsFile = await readGoalsV1File(input.directory).catch(() => undefined)
     const activeGoalSets = goalsFile ? listActiveGoalSets(goalsFile.data) : []
     if (activeGoalSets.length > 0) {
@@ -151,13 +150,11 @@ export async function composeLearningSystemPrompt(input: {
   parts.push(
     formatSessionMode({
       mode: input.teachingContext?.active ? "interactive" : "chat",
-      teachingToolsAvailable: meta.teachingTools,
-      inlineFiguresAvailable: meta.supportsInlineFigures,
-      isMathTeacher: meta.subject === "math",
+      sessionProfile: mode.behavior.sessionProfile,
     }),
   )
 
-  if (input.teachingContext?.active && meta.subject !== "math") {
+  if (input.teachingContext?.active && mode.behavior.attachTeachingWorkspace) {
     const checkpointStatus = await TeachingService.status(input.directory, input.teachingContext.sessionID).catch(
       () => undefined,
     )
@@ -170,7 +167,7 @@ export async function composeLearningSystemPrompt(input: {
       }),
     )
 
-    if (meta.teachingPolicyMode === "interactive") {
+    if (mode.behavior.attachTeachingPolicy) {
       const completionClaim = isCompletionClaim(input.userContent ?? "")
       parts.push(
         formatTeachingPolicy({

@@ -1,22 +1,13 @@
-import CODE_TEACHER_PROMPT from "./prompt.js"
 import { createPrimaryAgent } from "../../../../agent-kit/factories.js"
 import { registerBuddyAgent } from "../../../../agent-kit/register-buddy-agent.js"
+import BUDDY_BASE_PROMPT from "../../../companion/buddy-base.p.md"
+import CODE_BUDDY_OVERLAY from "./code-buddy-overlay.p.md"
 
-export const CODING_TEACHER = registerBuddyAgent({
-  key: "code-teacher",
-  meta: {
-    role: "teacher",
-    subject: "coding",
-    interactiveWorkspace: true,
-    teachingTools: true,
-    teachingPolicyMode: "interactive",
-    supportsInlineFigures: false,
-    includeLearningCompanionBehavior: false,
-    recommendedTeacherName: "code-teacher",
-  },
+export const CODE_BUDDY = registerBuddyAgent({
+  key: "code-buddy",
   agent: createPrimaryAgent({
-    description: "Interactive code teaching agent for the in-app lesson editor.",
-    prompt: CODE_TEACHER_PROMPT,
+    description: "Interactive code Buddy mode for the in-app lesson editor.",
+    prompt: [BUDDY_BASE_PROMPT.trim(), CODE_BUDDY_OVERLAY.trim()].join("\n\n"),
     steps: 8,
     availableSubagents: [],
     permission: {
