@@ -163,6 +163,19 @@ fn user_home_dir() -> PathBuf {
         .unwrap_or_else(|| env::temp_dir())
 }
 
+fn sidecar_runtime_dir(app: &AppHandle) -> PathBuf {
+    if let Ok(base) = app.path().app_local_data_dir() {
+        let runtime = base.join("runtime");
+        if std::fs::create_dir_all(&runtime).is_ok() {
+            return runtime;
+        }
+    }
+
+    let fallback = env::temp_dir().join("buddy").join("runtime");
+    let _ = std::fs::create_dir_all(&fallback);
+    fallback
+}
+
 async fn wait_for_health(url: &str, username: &str, password: &str) -> Result<(), String> {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(2))
@@ -213,6 +226,8 @@ async fn await_initialization(
     let buddy_migration_dir = migration_root.join("buddy");
     let opencode_migration_dir = migration_root.join("opencode");
     let home_dir = user_home_dir();
+    let sidecar_cwd = sidecar_runtime_dir(&app);
+    let runtime_root = home_dir.join(".buddy-runtime").join("xdg");
     let allowed_roots = format!("{},{}", home_dir.display(), std::env::temp_dir().display());
 
     let stdout = if cfg!(debug_assertions) {
@@ -233,7 +248,9 @@ async fn await_initialization(
         .env("BUDDY_MIGRATION_DIR", &buddy_migration_dir)
         .env("OPENCODE_MIGRATION_DIR", &opencode_migration_dir)
         .env("BUDDY_ALLOWED_DIRECTORY_ROOTS", &allowed_roots)
-        .current_dir(&home_dir)
+        .env("BUDDY_DIRECTORY_BASE", &home_dir)
+        .env("BUDDY_RUNTIME_ROOT", &runtime_root)
+        .current_dir(&sidecar_cwd)
         .stdout(stdout)
         .stderr(stderr)
         .spawn()
