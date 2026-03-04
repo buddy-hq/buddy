@@ -538,7 +538,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
                   })
                 )}
 
-                {hasMore ? (
+                {hasMore && !collapsed ? (
                   <button
                     type="button"
                     className="ml-6 text-sm text-muted-foreground/80 hover:text-foreground"
