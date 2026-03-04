@@ -1,8 +1,13 @@
 import { Config } from "../config.js"
-import { mergeBuddyAndConfiguredAgents, resolveConfiguredAgentKey } from "./agents.js"
+import {
+  applyBuddyModeHiddenFlags,
+  mergeBuddyAndConfiguredAgents,
+  resolveConfiguredAgentKey,
+} from "./agents.js"
 import { fingerprintOpenCodeConfig } from "./fingerprint.js"
 import { parseConfiguredModel } from "./models.js"
 import { resolveOpenCodeSkillPaths } from "./skills.js"
+import { getDefaultBuddyMode } from "../../modes/catalog.js"
 
 function buildOpenCodePermissionOverlay(permission: Config.Permission | undefined): Config.Permission {
   return {
@@ -25,11 +30,17 @@ function buildOpenCodePermissionOverlay(permission: Config.Permission | undefine
 
 async function buildOpenCodeConfigOverlay(config: Config.Info) {
   const skillPaths = await resolveOpenCodeSkillPaths(config)
-  const agentOverlay = mergeBuddyAndConfiguredAgents(config.agent ?? {})
-  const defaultAgent =
-    typeof config.default_agent === "string" && config.default_agent.trim().length > 0
-      ? resolveConfiguredAgentKey(config.default_agent, agentOverlay)
-      : undefined
+  const agentOverlay = applyBuddyModeHiddenFlags(
+    mergeBuddyAndConfiguredAgents(config.agent ?? {}),
+    config.modes,
+  )
+  const defaultAgent = resolveConfiguredAgentKey(
+    getDefaultBuddyMode({
+      defaultMode: config.default_mode,
+      overrides: config.modes,
+    }).runtimeAgent,
+    agentOverlay,
+  )
 
   return {
     permission: buildOpenCodePermissionOverlay(config.permission),

@@ -1,4 +1,7 @@
 import { mergeDeep } from "remeda"
+import { resolveBuddyModeProfiles } from "../../modes/catalog.js"
+import type { BuddyModeID } from "../../modes/types.js"
+import { isBuddyModeID } from "../../modes/types.js"
 import { indexBuddyAgents } from "../../agent-kit/buddy-agents.js"
 import { Config } from "../config.js"
 
@@ -66,10 +69,37 @@ function mergeBuddyAndConfiguredAgents(agentOverlay: Record<string, Config.Agent
 
   for (const [name, agent] of Object.entries(agentOverlay)) {
     const baseAgent = merged[name]
-    merged[name] = baseAgent ? mergeBuddyAgentConfig(baseAgent, agent) : agent
+    const nextAgent =
+      baseAgent && isBuddyModeID(name)
+        ? (() => {
+            const { disable: _disable, ...rest } = agent
+            return rest as Config.Agent
+          })()
+        : agent
+    merged[name] = baseAgent ? mergeBuddyAgentConfig(baseAgent, nextAgent) : nextAgent
   }
 
   return merged
+}
+
+function applyBuddyModeHiddenFlags(
+  agentOverlay: Record<string, Config.Agent>,
+  modeOverrides?: Partial<Record<BuddyModeID, { hidden?: boolean }>>,
+): Record<string, Config.Agent> {
+  const next = { ...agentOverlay }
+  const profiles = resolveBuddyModeProfiles(modeOverrides)
+
+  for (const mode of Object.values(profiles)) {
+    if (!mode.hidden) continue
+    const agent = next[mode.runtimeAgent]
+    if (!agent) continue
+    next[mode.runtimeAgent] = {
+      ...agent,
+      hidden: true,
+    }
+  }
+
+  return next
 }
 
 function resolveConfiguredAgentKey(
@@ -88,6 +118,7 @@ function resolveConfiguredAgentKey(
 }
 
 export {
+  applyBuddyModeHiddenFlags,
   mergeBuddyAndConfiguredAgents,
   resolveConfiguredAgentKey,
 }

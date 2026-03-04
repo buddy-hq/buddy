@@ -88,7 +88,7 @@ export namespace Config {
     }
 
     result.agent = result.agent || {}
-    result.mode = result.mode || {}
+    result.modes = result.modes || {}
 
     if (Flag.BUDDY_CONFIG_CONTENT) {
       result = merge(
@@ -98,15 +98,6 @@ export namespace Config {
           source: "BUDDY_CONFIG_CONTENT",
         }),
       )
-    }
-
-    for (const [name, mode] of Object.entries(result.mode ?? {})) {
-      result.agent = mergeDeep(result.agent ?? {}, {
-        [name]: {
-          ...mode,
-          mode: "primary" as const,
-        },
-      })
     }
 
     if (Flag.BUDDY_PERMISSION) {
