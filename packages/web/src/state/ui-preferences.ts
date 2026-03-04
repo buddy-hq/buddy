@@ -12,7 +12,7 @@ type UiPreferencesStore = {
   leftSidebarWidth: number
   rightSidebarOpen: boolean
   rightSidebarWidth: number
-  rightSidebarTab: "curriculum" | "editor" | "settings"
+  rightSidebarTab: "curriculum" | "editor" | "figure" | "settings"
   isPinned: (directory: string, sessionID: string) => boolean
   togglePinned: (directory: string, sessionID: string) => void
   markUnread: (directory: string, sessionID: string) => void
@@ -24,7 +24,7 @@ type UiPreferencesStore = {
   setLeftSidebarWidth: (width: number) => void
   setRightSidebarOpen: (open: boolean) => void
   setRightSidebarWidth: (width: number) => void
-  setRightSidebarTab: (tab: "curriculum" | "editor" | "settings") => void
+  setRightSidebarTab: (tab: "curriculum" | "editor" | "figure" | "settings") => void
 }
 
 export const useUiPreferences = create<UiPreferencesStore>()(
@@ -118,7 +118,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
     }),
     {
       name: UI_PREFERENCES_STORAGE_KEY,
-      version: 4,
+      version: 5,
       storage: createPlatformJsonStorage("buddy.ui.dat"),
       migrate(persistedState) {
         const state = persistedState as Partial<UiPreferencesStore> | undefined
@@ -133,6 +133,8 @@ export const useUiPreferences = create<UiPreferencesStore>()(
           rightSidebarTab:
             state?.rightSidebarTab === "settings"
               ? "settings"
+              : state?.rightSidebarTab === "figure"
+                ? "figure"
               : state?.rightSidebarTab === "editor"
                 ? "editor"
                 : "curriculum",

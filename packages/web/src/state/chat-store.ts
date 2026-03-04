@@ -20,6 +20,7 @@ type ChatStore = {
   activeDirectory?: string
   entryError?: string
   lastSessionByDirectory: Record<string, string>
+  selectedModelByDirectory: Record<string, string>
   directories: Record<string, DirectoryChatState>
   streamStatus: StreamStatus
   ensureOpenProject: (directory: string) => void
@@ -46,6 +47,7 @@ type ChatStore = {
   setMcpStatus: (directory: string, input: McpStatusMap) => void
   applyPermissionAsked: (directory: string, request: PermissionRequest) => void
   applyPermissionReplied: (directory: string, requestID: string) => void
+  setSelectedModel: (directory: string, model: string) => void
   setEntryError: (error?: string) => void
   setStreamStatus: (status: StreamStatus) => void
 }
@@ -107,6 +109,7 @@ export const useChatStore = create<ChatStore>()(
       activeDirectory: undefined,
       entryError: undefined,
       lastSessionByDirectory: {},
+      selectedModelByDirectory: {},
       directories: {},
       streamStatus: "idle",
       ensureOpenProject(directory) {
@@ -529,6 +532,18 @@ export const useChatStore = create<ChatStore>()(
             },
           }
         })
+      },
+      setSelectedModel(directory, model) {
+        const normalized = normalizeProjectDirectory(directory)
+        if (!normalized) return
+
+        const nextModel = model.trim() || "auto"
+        set((state) => ({
+          selectedModelByDirectory: {
+            ...state.selectedModelByDirectory,
+            [normalized]: nextModel,
+          },
+        }))
       },
       setEntryError(error) {
         set({ entryError: error })

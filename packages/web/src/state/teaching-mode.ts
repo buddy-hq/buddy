@@ -60,7 +60,6 @@ export function teachingLanguageLabel(language: TeachingLanguage) {
 export function teachingMonacoLanguage(language: TeachingLanguage) {
   return TEACHING_LANGUAGE_OPTION_INDEX[language]?.monacoLanguage ?? "plaintext"
 }
-export type InteractionMode = "chat" | "interactive"
 
 export type TeachingSelection = {
   selectionStartLine?: number
@@ -127,12 +126,10 @@ export type TeachingWorkspaceState = TeachingWorkspace & {
 }
 
 export type TeachingModeState = {
-  selectedAgentBySession: Record<string, string>
-  interactionModeBySession: Record<string, InteractionMode>
+  selectedModeBySession: Record<string, string>
   preferredLanguageBySession: Record<string, TeachingLanguage>
   workspaceBySession: Record<string, TeachingWorkspaceState>
-  setSessionAgent: (sessionKey: string, agent: string) => void
-  setInteractionMode: (sessionKey: string, mode: InteractionMode) => void
+  setSessionMode: (sessionKey: string, mode: string) => void
   setPreferredLanguage: (sessionKey: string, language: TeachingLanguage) => void
   setWorkspace: (sessionKey: string, workspace: TeachingWorkspace) => void
   updateWorkspaceCode: (sessionKey: string, code: string) => void
@@ -165,29 +162,16 @@ function withWorkspace(
 export const useTeachingMode = create<TeachingModeState>()(
   persist(
     (set) => ({
-      selectedAgentBySession: {},
-      interactionModeBySession: {},
+      selectedModeBySession: {},
       preferredLanguageBySession: {},
       workspaceBySession: {},
-      setSessionAgent(sessionKey, agent) {
+      setSessionMode(sessionKey, mode) {
         set((state) => ({
-          selectedAgentBySession: {
-            ...state.selectedAgentBySession,
-            [sessionKey]: agent,
+          selectedModeBySession: {
+            ...state.selectedModeBySession,
+            [sessionKey]: mode,
           },
         }))
-      },
-      setInteractionMode(sessionKey, mode) {
-        set((state) => {
-          const currentMode = state.interactionModeBySession[sessionKey] ?? "chat"
-          const nextMode = currentMode === "interactive" ? "interactive" : mode
-          return {
-            interactionModeBySession: {
-              ...state.interactionModeBySession,
-              [sessionKey]: nextMode,
-            },
-          }
-        })
       },
       setPreferredLanguage(sessionKey, language) {
         set((state) => ({
@@ -352,21 +336,24 @@ export const useTeachingMode = create<TeachingModeState>()(
     }),
     {
       name: TEACHING_MODE_STORAGE_KEY,
-      version: 2,
+      version: 3,
       storage: createPlatformJsonStorage("buddy.teaching.dat"),
       migrate(persistedState) {
-        const state = persistedState as Partial<TeachingModeState> | undefined
+        const state =
+          (persistedState as
+            | (Partial<TeachingModeState> & {
+                selectedAgentBySession?: Record<string, string>
+              })
+            | undefined) ?? undefined
         return {
-          selectedAgentBySession: state?.selectedAgentBySession ?? {},
-          interactionModeBySession: state?.interactionModeBySession ?? {},
+          selectedModeBySession: state?.selectedModeBySession ?? state?.selectedAgentBySession ?? {},
           preferredLanguageBySession: state?.preferredLanguageBySession ?? {},
           workspaceBySession: {},
         }
       },
       partialize(state) {
         return {
-          selectedAgentBySession: state.selectedAgentBySession,
-          interactionModeBySession: state.interactionModeBySession,
+          selectedModeBySession: state.selectedModeBySession,
           preferredLanguageBySession: state.preferredLanguageBySession,
         }
       },

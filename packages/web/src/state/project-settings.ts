@@ -1,17 +1,17 @@
 import { useEffect, useMemo, useState } from "react"
 import {
-  loadAgentCatalog,
+  loadModeCatalog,
   loadProjectConfig,
   loadProviderCatalog,
   patchProjectConfig,
-  type AgentConfigOption,
+  type ModeConfigOption,
 } from "./chat-actions"
 import type { ProviderCatalogState } from "./chat-types"
 
 export type LogLevel = "debug" | "info" | "warn" | "error"
 
 type ProjectSettingsDraft = {
-  agent: string
+  mode: string
   provider: string
   model: string
   logLevel: LogLevel | ""
@@ -23,7 +23,7 @@ type ProjectSettingsState = {
   error?: string
   projectConfig: Record<string, unknown>
   providerCatalog: ProviderCatalogState
-  agentCatalog: AgentConfigOption[]
+  modeCatalog: ModeConfigOption[]
   draft: ProjectSettingsDraft
   modelSelectionDirty: boolean
 }
@@ -34,7 +34,7 @@ const EMPTY_PROVIDER_CATALOG: ProviderCatalogState = {
 }
 
 const EMPTY_DRAFT: ProjectSettingsDraft = {
-  agent: "",
+  mode: "",
   provider: "",
   model: "",
   logLevel: "",
@@ -84,7 +84,7 @@ function connectedProviders(catalog: ProviderCatalogState) {
 function buildDraft(input: {
   config: Record<string, unknown>
   providerCatalog: ProviderCatalogState
-  agents: AgentConfigOption[]
+  modes: ModeConfigOption[]
 }): ProjectSettingsDraft {
   const model = parseModel(readString(input.config, "model"))
   const connected = connectedProviders(input.providerCatalog)
@@ -97,13 +97,13 @@ function buildDraft(input: {
     ? model.modelID
     : input.providerCatalog.default[initialProvider] ?? availableModels[0]?.id ?? ""
   const logLevel = readString(input.config, "logLevel")
-  const selectableAgents = input.agents.filter((agent) => agent.mode !== "subagent" && !agent.hidden)
-  const configuredDefaultAgent = readString(input.config, "default_agent")
+  const selectableModes = input.modes.filter((mode) => !mode.hidden)
+  const configuredDefaultMode = readString(input.config, "default_mode")
 
   return {
-    agent:
-      configuredDefaultAgent && selectableAgents.some((agent) => agent.name === configuredDefaultAgent)
-        ? configuredDefaultAgent
+    mode:
+      configuredDefaultMode && selectableModes.some((mode) => mode.id === configuredDefaultMode)
+        ? configuredDefaultMode
         : "",
     provider: initialProvider,
     model: initialModel,
@@ -119,7 +119,7 @@ function emptyState(): ProjectSettingsState {
     error: undefined,
     projectConfig: {},
     providerCatalog: EMPTY_PROVIDER_CATALOG,
-    agentCatalog: [],
+    modeCatalog: [],
     draft: EMPTY_DRAFT,
     modelSelectionDirty: false,
   }
@@ -146,12 +146,12 @@ export function useProjectSettings(directory: string, open: boolean) {
     }))
 
     try {
-      const [config, providerCatalog, agents] = await Promise.all([
+      const [config, providerCatalog, modes] = await Promise.all([
         loadProjectConfig(directory),
         loadProviderCatalog(directory),
-        loadAgentCatalog(directory),
+        loadModeCatalog(directory),
       ])
-      const selectableAgents = agents.filter((agent) => agent.mode !== "subagent" && !agent.hidden)
+      const selectableModes = modes.filter((mode) => !mode.hidden)
 
       setState({
         loading: false,
@@ -159,11 +159,11 @@ export function useProjectSettings(directory: string, open: boolean) {
         error: undefined,
         projectConfig: config,
         providerCatalog,
-        agentCatalog: selectableAgents,
+        modeCatalog: selectableModes,
         draft: buildDraft({
           config,
           providerCatalog,
-          agents,
+          modes,
         }),
         modelSelectionDirty: false,
       })
@@ -186,13 +186,13 @@ export function useProjectSettings(directory: string, open: boolean) {
 
   async function save() {
     const patch: Record<string, unknown> = {}
-    const currentAgent = readString(state.projectConfig, "default_agent")
+    const currentMode = readString(state.projectConfig, "default_mode")
     const currentModel = readString(state.projectConfig, "model")
     const currentLogLevel = readString(state.projectConfig, "logLevel")
-    const nextAgent = state.draft.agent.trim()
+    const nextMode = state.draft.mode.trim()
 
-    if (nextAgent !== currentAgent) {
-      patch.default_agent = nextAgent
+    if (nextMode && nextMode !== currentMode) {
+      patch.default_mode = nextMode
     }
 
     if (state.modelSelectionDirty && state.draft.provider && state.draft.model) {
@@ -243,24 +243,24 @@ export function useProjectSettings(directory: string, open: boolean) {
       providerMessage: connected.length === 0 ? "Connect a provider to choose a model." : undefined,
     },
     options: {
-      agents: state.agentCatalog,
+      modes: state.modeCatalog,
       providers: connected,
       allProviders: state.providerCatalog.providers,
       providerModels,
     },
     selection: {
-      agent: state.draft.agent,
+      mode: state.draft.mode,
       provider: state.draft.provider,
       model: state.draft.model,
       logLevel: state.draft.logLevel,
     },
     actions: {
-      setAgent(agent: string) {
+      setMode(mode: string) {
         setState((current) => ({
           ...current,
           draft: {
             ...current.draft,
-            agent,
+            mode,
           },
         }))
       },

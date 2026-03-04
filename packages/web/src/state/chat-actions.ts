@@ -20,11 +20,22 @@ export type AgentConfigOption = {
   hidden?: boolean
 }
 
+export type ModeConfigOption = {
+  id: string
+  label: string
+  description?: string
+  surfaces: Array<"curriculum" | "editor" | "figure">
+  defaultSurface: "curriculum" | "editor" | "figure"
+  hidden?: boolean
+}
+
 export type PromptCommandOption = {
   name: string
   description?: string
   source?: "command" | "mcp" | "skill"
 }
+
+const BUDDY_MODE_DEFAULT_ORDER = ["buddy", "code-buddy", "math-buddy"] as const
 
 function normalizeProjectDirectory(directory: string) {
   const normalized = directory.trim().replace(/\/+$/, "")
@@ -32,6 +43,25 @@ function normalizeProjectDirectory(directory: string) {
     return undefined
   }
   return normalized
+}
+
+export function resolveDefaultModeID(
+  modes: ModeConfigOption[],
+  configuredDefaultMode?: string,
+): string | undefined {
+  const selectableModes = modes.filter((mode) => !mode.hidden)
+
+  if (configuredDefaultMode && selectableModes.some((mode) => mode.id === configuredDefaultMode)) {
+    return configuredDefaultMode
+  }
+
+  for (const modeID of BUDDY_MODE_DEFAULT_ORDER) {
+    if (selectableModes.some((mode) => mode.id === modeID)) {
+      return modeID
+    }
+  }
+
+  return selectableModes[0]?.id
 }
 
 type RawProvider = ProviderListResponse["all"][number]
@@ -332,6 +362,7 @@ export async function sendPrompt(
   content: string,
   input?: {
     parts?: PromptAttachmentPart[]
+    mode?: string
     agent?: string
     model?: {
       providerID: string
@@ -366,6 +397,7 @@ export async function sendPrompt(
         body: {
           content,
           ...(input?.parts && input.parts.length > 0 ? { parts: input.parts } : {}),
+          ...(input?.mode ? { mode: input.mode } : {}),
           ...(input?.agent ? { agent: input.agent } : {}),
           ...(input?.model ? { model: input.model } : {}),
           ...(input?.variant ? { variant: input.variant } : {}),
@@ -395,6 +427,7 @@ export async function sendCommand(
   argumentsText: string,
   input?: {
     parts?: PromptFilePart[]
+    mode?: string
     agent?: string
     model?: {
       providerID: string
@@ -423,6 +456,7 @@ export async function sendCommand(
           command,
           arguments: argumentsText,
           ...(input?.parts && input.parts.length > 0 ? { parts: input.parts } : {}),
+          ...(input?.mode ? { mode: input.mode } : {}),
           ...(input?.agent ? { agent: input.agent } : {}),
           ...(input?.model
             ? { model: `${input.model.providerID}/${input.model.modelID}` }
@@ -637,6 +671,10 @@ export async function saveProjectMcpConfig(directory: string, name: string, conf
 
 export async function loadAgentCatalog(directory: string) {
   return requestJson<AgentConfigOption[]>(directory, "/api/config/agents")
+}
+
+export async function loadModeCatalog(directory: string) {
+  return requestJson<ModeConfigOption[]>(directory, "/api/config/modes")
 }
 
 export async function loadCommandCatalog(directory: string) {

@@ -22,11 +22,13 @@ export async function ensureTeachingWorkspace(input: {
   directory: string
   sessionID: string
   language?: TeachingLanguage
+  mode?: string
 }) {
   return requestJson<TeachingWorkspace>(input.directory, `/api/teaching/session/${encodeURIComponent(input.sessionID)}/workspace`, {
     method: "POST",
     body: {
       language: input.language,
+      mode: input.mode,
     },
   })
 }
