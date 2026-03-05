@@ -20,6 +20,12 @@
 - `packages/sdk`: OpenAPI-generated client (hey-api/openapi-ts)
 - `packages/opencode-adapter`: Buddy compatibility bridge over vendored OpenCode modules
 
+## Vendor
+
+- we vendor the core agent/runtime/server from `vendor/opencode`
+- we use an adapter to make the vendor compatible with `package/opencode-adapter`
+- we NEVER patch the `vendor` directly.
+
 ## OpenCode Reference (required)
 
 Build Buddy core by executing vendored OpenCode core, not by re-implementing it.
