@@ -9,8 +9,8 @@ bun run build
 bun run lint
 bun run test:contracts   # backend+web compatibility contract suites
 bun run check:vendor     # recommended full gate for vendored OpenCode updates
-bun run vendor:check-upstream
 bun run vendor:sync
+bun run hooks:install    # install tracked git hooks from .githooks/
 bun run sdk:generate
 ```
 

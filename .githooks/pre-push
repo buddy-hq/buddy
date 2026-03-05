@@ -1,0 +1,29 @@
+#!/usr/bin/env sh
+set -eu
+
+ZERO_SHA="0000000000000000000000000000000000000000"
+EMPTY_TREE_SHA="$(git hash-object -t tree /dev/null)"
+
+tmp_file="$(mktemp)"
+cleanup() {
+  rm -f "$tmp_file"
+}
+trap cleanup EXIT INT TERM
+
+while read -r local_ref local_sha remote_ref remote_sha
+do
+  [ -z "${local_sha:-}" ] && continue
+  [ "$local_sha" = "$ZERO_SHA" ] && continue
+
+  if [ "${remote_sha:-$ZERO_SHA}" = "$ZERO_SHA" ]; then
+    range="$EMPTY_TREE_SHA..$local_sha"
+  else
+    range="$remote_sha..$local_sha"
+  fi
+
+  git diff --name-only --diff-filter=ACMR "$range" >> "$tmp_file"
+done
+
+if [ -s "$tmp_file" ]; then
+  sort -u "$tmp_file" | bun run script/vendor-guard.ts --stdin
+fi
