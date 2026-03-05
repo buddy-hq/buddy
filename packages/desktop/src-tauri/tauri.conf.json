@@ -34,7 +34,7 @@
     ],
     "targets": ["app", "dmg", "nsis"],
     "externalBin": ["sidecars/buddy-backend"],
-    "resources": ["resources/migrations"],
+    "resources": ["resources/migrations", "resources/backend"],
     "macOS": {
       "entitlements": "./entitlements.plist"
     },

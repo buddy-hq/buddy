@@ -1,5 +1,12 @@
 import path from "node:path"
-import { copyBinaryToSidecarFolder, getCurrentSidecar, syncMigrations, updateDesktopPackageVersion, windowsify } from "./utils"
+import {
+  copyBinaryToSidecarFolder,
+  getCurrentSidecar,
+  syncBackendRuntimeResources,
+  syncMigrations,
+  updateDesktopPackageVersion,
+  windowsify,
+} from "./utils"
 
 const version = Bun.env.BUDDY_VERSION?.trim()
 if (!version) {
@@ -14,9 +21,11 @@ if (!artifactDir) {
 const target = Bun.env.BUDDY_RUST_TARGET ?? Bun.env.RUST_TARGET ?? Bun.env.TAURI_ENV_TARGET_TRIPLE
 const config = getCurrentSidecar(target)
 const source = path.resolve(artifactDir, config.sidecarDir, "bin", windowsify("buddy-backend", config.rustTarget))
+const runtimeSourceDir = path.resolve(artifactDir, config.sidecarDir, "app")
 
 updateDesktopPackageVersion(version)
 copyBinaryToSidecarFolder(source, config.rustTarget)
+syncBackendRuntimeResources(runtimeSourceDir, config.rustTarget)
 syncMigrations()
 
 console.log(`Prepared desktop release assets for ${config.rustTarget}`)
