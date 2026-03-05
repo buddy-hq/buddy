@@ -133,6 +133,25 @@ fn sidecar_path() -> Result<std::path::PathBuf, String> {
     Err(format!("Buddy backend sidecar not found at {}", path.display()))
 }
 
+fn sidecar_entrypoint_path(app: &AppHandle) -> Result<PathBuf, String> {
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        let path = resource_dir.join("backend").join("buddy-backend.js");
+        if path.exists() {
+            return Ok(path);
+        }
+    }
+
+    let dev_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("resources")
+        .join("backend")
+        .join("buddy-backend.js");
+    if dev_path.exists() {
+        return Ok(dev_path);
+    }
+
+    Err("Bundled Buddy backend entrypoint was not found in desktop resources".to_string())
+}
+
 fn resource_migrations_root(app: &AppHandle) -> Result<PathBuf, String> {
     if let Ok(resource_dir) = app.path().resource_dir() {
         let root = resource_dir.join("migrations");
@@ -226,6 +245,7 @@ async fn await_initialization(
     let buddy_migration_dir = migration_root.join("buddy");
     let home_dir = user_home_dir();
     let sidecar_cwd = sidecar_runtime_dir(&app);
+    let sidecar_entrypoint = sidecar_entrypoint_path(&app)?;
     let runtime_root = home_dir.join(".buddy-runtime").join("xdg");
     let allowed_roots = format!("{},{}", home_dir.display(), std::env::temp_dir().display());
 
@@ -241,6 +261,9 @@ async fn await_initialization(
     };
 
     let mut child = std::process::Command::new(sidecar_path()?)
+        .arg("run")
+        .arg(&sidecar_entrypoint)
+        .env("BUN_BE_BUN", "1")
         .env("PORT", port.to_string())
         .env("BUDDY_SERVER_USERNAME", &username)
         .env("BUDDY_SERVER_PASSWORD", &password)
