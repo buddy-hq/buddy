@@ -22,14 +22,19 @@ mkdirSync(DIST_DIR, { recursive: true })
 
 for (const config of selected) {
   const outputDir = path.resolve(DIST_DIR, config.sidecarDir, "bin")
+  const bundleOutputFile = path.resolve(DIST_DIR, config.sidecarDir, "app", "index.js")
   const outputFile = path.resolve(outputDir, windowsify("buddy-backend", config.rustTarget))
 
   mkdirSync(outputDir, { recursive: true })
   const built = await buildCompiledBuddyBinary({
+    bundleOutputFile,
     outputFile,
     target: config.bunTarget,
   })
   console.log(`Built ${config.rustTarget} sidecar at ${outputFile}`)
+  if (built.bundleOutputFile) {
+    console.log(`Built ${config.rustTarget} runtime entry at ${built.bundleOutputFile}`)
+  }
   console.log(
     `Embedded migrations: buddy=${built.buddyMigrationCount}, opencode=${built.opencodeMigrationCount}`,
   )

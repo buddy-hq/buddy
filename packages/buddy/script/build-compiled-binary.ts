@@ -8,6 +8,7 @@ type MigrationEntry = {
 
 type BuildCompiledBuddyBinaryInput = {
   outputFile: string
+  bundleOutputFile?: string
   target?: string
 }
 
@@ -52,6 +53,7 @@ function loadMigrations(dir: string, label: string): MigrationEntry[] {
 export async function buildCompiledBuddyBinary(input: BuildCompiledBuddyBinaryInput) {
   const backendDir = path.resolve(import.meta.dir, "..")
   const outputFile = path.resolve(input.outputFile)
+  const bundleOutputFile = input.bundleOutputFile ? path.resolve(input.bundleOutputFile) : undefined
   const buddyMigrationDir = path.resolve(backendDir, "migration")
   const opencodeMigrationDir = path.resolve(backendDir, "../../vendor/opencode/packages/opencode/migration")
 
@@ -59,6 +61,34 @@ export async function buildCompiledBuddyBinary(input: BuildCompiledBuddyBinaryIn
   const opencodeMigrations = loadMigrations(opencodeMigrationDir, "OpenCode")
 
   mkdirSync(path.dirname(outputFile), { recursive: true })
+  if (bundleOutputFile) {
+    mkdirSync(path.dirname(bundleOutputFile), { recursive: true })
+  }
+
+  const define = {
+    BUDDY_MIGRATIONS: JSON.stringify(buddyMigrations),
+    OPENCODE_MIGRATIONS: JSON.stringify(opencodeMigrations),
+  }
+
+  if (bundleOutputFile) {
+    const bundleOutdir = path.dirname(bundleOutputFile)
+    const bundleResult = await Bun.build({
+      entrypoints: [path.resolve(backendDir, "src/index.ts")],
+      outdir: bundleOutdir,
+      target: "bun",
+      format: "esm",
+      define,
+      write: true,
+    })
+
+    if (!bundleResult.success) {
+      throw new Error(`Failed to build sidecar entry bundle: ${bundleOutputFile}`)
+    }
+
+    if (!existsSync(bundleOutputFile)) {
+      throw new Error(`Sidecar entry bundle missing after build: ${bundleOutputFile}`)
+    }
+  }
 
   const result = await Bun.build({
     entrypoints: [path.resolve(backendDir, "src/index.ts")],
@@ -66,10 +96,7 @@ export async function buildCompiledBuddyBinary(input: BuildCompiledBuddyBinaryIn
       outfile: outputFile,
       ...(input.target ? { target: input.target } : {}),
     },
-    define: {
-      BUDDY_MIGRATIONS: JSON.stringify(buddyMigrations),
-      OPENCODE_MIGRATIONS: JSON.stringify(opencodeMigrations),
-    },
+    define,
   })
 
   if (!result.success) {
@@ -77,6 +104,7 @@ export async function buildCompiledBuddyBinary(input: BuildCompiledBuddyBinaryIn
   }
 
   return {
+    bundleOutputFile,
     outputFile,
     buddyMigrationCount: buddyMigrations.length,
     opencodeMigrationCount: opencodeMigrations.length,
