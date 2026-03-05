@@ -7,9 +7,8 @@ import { configureOpenCodeEnvironment } from "../src/opencode-runtime/env.js"
 
 const originalCwd = process.cwd()
 const originalBuddyMigrationDir = process.env.BUDDY_MIGRATION_DIR
-const originalOpenCodeMigrationDir = process.env.OPENCODE_MIGRATION_DIR
 
-function restoreEnv(name: "BUDDY_MIGRATION_DIR" | "OPENCODE_MIGRATION_DIR", value: string | undefined) {
+function restoreEnv(name: "BUDDY_MIGRATION_DIR", value: string | undefined) {
   if (value === undefined) {
     delete process.env[name]
     return
@@ -21,13 +20,11 @@ function restoreEnv(name: "BUDDY_MIGRATION_DIR" | "OPENCODE_MIGRATION_DIR", valu
 beforeEach(() => {
   process.chdir(originalCwd)
   restoreEnv("BUDDY_MIGRATION_DIR", originalBuddyMigrationDir)
-  restoreEnv("OPENCODE_MIGRATION_DIR", originalOpenCodeMigrationDir)
 })
 
 afterEach(() => {
   process.chdir(originalCwd)
   restoreEnv("BUDDY_MIGRATION_DIR", originalBuddyMigrationDir)
-  restoreEnv("OPENCODE_MIGRATION_DIR", originalOpenCodeMigrationDir)
 })
 
 describe("opencode runtime env", () => {
@@ -73,12 +70,10 @@ describe("opencode runtime env", () => {
     const outsideRepo = mkdtempSync(path.join(os.tmpdir(), "buddy-env-outside-repo-"))
 
     delete process.env.BUDDY_MIGRATION_DIR
-    delete process.env.OPENCODE_MIGRATION_DIR
     process.chdir(outsideRepo)
 
     configureOpenCodeEnvironment()
 
     expect(process.env.BUDDY_MIGRATION_DIR).toBeUndefined()
-    expect(process.env.OPENCODE_MIGRATION_DIR).toBeUndefined()
   })
 })

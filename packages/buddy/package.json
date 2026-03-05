@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "bun --env-file=../../.env run --watch src/index.ts",
     "build": "tsc",
-    "build:single": "bun build --compile --outfile ./dist/desktop-sidecar/bin/buddy-backend ./src/index.ts",
+    "build:single": "bun ./script/build-single.ts",
     "build:desktop-sidecar": "bun run build:single",
     "build:release-sidecar": "bun ./script/build-sidecar.ts",
     "build:release-sidecars": "bun ./script/build-sidecar.ts --all",

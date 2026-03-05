@@ -7,7 +7,6 @@ const SIDECARS_DIR = path.resolve(DESKTOP_DIR, "src-tauri/sidecars")
 const RESOURCES_DIR = path.resolve(DESKTOP_DIR, "src-tauri/resources/migrations")
 const DESKTOP_PACKAGE_JSON = path.resolve(DESKTOP_DIR, "package.json")
 const BUDDY_MIGRATION_SOURCE = path.resolve(BACKEND_DIR, "migration")
-const OPENCODE_MIGRATION_SOURCE = path.resolve(BACKEND_DIR, "../../vendor/opencode/packages/opencode/migration")
 
 export const SIDECAR_BINARIES = [
   {
@@ -92,7 +91,6 @@ export function syncMigrations() {
   rmSync(RESOURCES_DIR, { recursive: true, force: true })
   mkdirSync(RESOURCES_DIR, { recursive: true })
   cpSync(BUDDY_MIGRATION_SOURCE, path.resolve(RESOURCES_DIR, "buddy"), { recursive: true })
-  cpSync(OPENCODE_MIGRATION_SOURCE, path.resolve(RESOURCES_DIR, "opencode"), { recursive: true })
   return RESOURCES_DIR
 }
 

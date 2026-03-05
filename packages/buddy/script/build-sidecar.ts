@@ -1,4 +1,3 @@
-import { $ } from "bun"
 import { mkdirSync, rmSync } from "node:fs"
 import path from "node:path"
 import {
@@ -7,6 +6,7 @@ import {
   getCurrentSidecar,
   windowsify,
 } from "../../desktop/scripts/utils"
+import { buildCompiledBuddyBinary } from "./build-compiled-binary"
 
 const BACKEND_DIR = path.resolve(import.meta.dir, "..")
 const DIST_DIR = path.resolve(BACKEND_DIR, "dist/release-sidecars")
@@ -25,6 +25,12 @@ for (const config of selected) {
   const outputFile = path.resolve(outputDir, windowsify("buddy-backend", config.rustTarget))
 
   mkdirSync(outputDir, { recursive: true })
-  await $`bun build --compile --target ${config.bunTarget} --outfile ${outputFile} ./src/index.ts`.cwd(BACKEND_DIR)
+  const built = await buildCompiledBuddyBinary({
+    outputFile,
+    target: config.bunTarget,
+  })
   console.log(`Built ${config.rustTarget} sidecar at ${outputFile}`)
+  console.log(
+    `Embedded migrations: buddy=${built.buddyMigrationCount}, opencode=${built.opencodeMigrationCount}`,
+  )
 }

@@ -224,7 +224,6 @@ async fn await_initialization(
     let url = format!("http://127.0.0.1:{port}");
     let migration_root = resource_migrations_root(&app)?;
     let buddy_migration_dir = migration_root.join("buddy");
-    let opencode_migration_dir = migration_root.join("opencode");
     let home_dir = user_home_dir();
     let sidecar_cwd = sidecar_runtime_dir(&app);
     let runtime_root = home_dir.join(".buddy-runtime").join("xdg");
@@ -246,7 +245,6 @@ async fn await_initialization(
         .env("BUDDY_SERVER_USERNAME", &username)
         .env("BUDDY_SERVER_PASSWORD", &password)
         .env("BUDDY_MIGRATION_DIR", &buddy_migration_dir)
-        .env("OPENCODE_MIGRATION_DIR", &opencode_migration_dir)
         .env("BUDDY_ALLOWED_DIRECTORY_ROOTS", &allowed_roots)
         .env("BUDDY_DIRECTORY_BASE", &home_dir)
         .env("BUDDY_RUNTIME_ROOT", &runtime_root)

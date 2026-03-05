@@ -69,7 +69,6 @@ export function configureOpenCodeEnvironment() {
   process.env.XDG_STATE_HOME = BUDDY_XDG_STATE_HOME
   process.env.OPENCODE_CLIENT ||= "web"
   applyOptionalPathEnv("BUDDY_MIGRATION_DIR", findRepoPath("packages/buddy/migration"))
-  applyOptionalPathEnv("OPENCODE_MIGRATION_DIR", findRepoPath("vendor/opencode/packages/opencode/migration"))
 }
 
 configureOpenCodeEnvironment()
