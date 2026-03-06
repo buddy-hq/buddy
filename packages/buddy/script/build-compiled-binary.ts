@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, readdirSync } from "node:fs"
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync } from "node:fs"
 import path from "node:path"
 
 type MigrationEntry = {
@@ -56,6 +56,7 @@ export async function buildCompiledBuddyBinary(input: BuildCompiledBuddyBinaryIn
   const bundleOutputFile = input.bundleOutputFile ? path.resolve(input.bundleOutputFile) : undefined
   const buddyMigrationDir = path.resolve(backendDir, "migration")
   const opencodeMigrationDir = path.resolve(backendDir, "../../vendor/opencode/packages/opencode/migration")
+  const buddySkillsDir = path.resolve(backendDir, "src/skills/system")
 
   const buddyMigrations = loadMigrations(buddyMigrationDir, "Buddy")
   const opencodeMigrations = loadMigrations(opencodeMigrationDir, "OpenCode")
@@ -87,6 +88,13 @@ export async function buildCompiledBuddyBinary(input: BuildCompiledBuddyBinaryIn
 
     if (!existsSync(bundleOutputFile)) {
       throw new Error(`Sidecar entry bundle missing after build: ${bundleOutputFile}`)
+    }
+
+    if (existsSync(buddySkillsDir)) {
+      const bundledSkillsTarget = path.resolve(bundleOutdir, "skills/system")
+      rmSync(bundledSkillsTarget, { recursive: true, force: true })
+      mkdirSync(path.dirname(bundledSkillsTarget), { recursive: true })
+      cpSync(buddySkillsDir, bundledSkillsTarget, { recursive: true, dereference: true })
     }
   }
 

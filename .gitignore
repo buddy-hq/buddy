@@ -47,6 +47,7 @@ packages/desktop/src-tauri/target/
 packages/desktop/src-tauri/gen/
 packages/desktop/src-tauri/resources/migrations/
 packages/desktop/src-tauri/sidecars/buddy-backend
+packages/desktop/src-tauri/sidecars/buddy-backend.exe
 packages/desktop/src-tauri/sidecars/buddy-backend-*
 packages/desktop/.turbo/
 packages/desktop/dist/

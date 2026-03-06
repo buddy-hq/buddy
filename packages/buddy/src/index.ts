@@ -6,10 +6,11 @@ import { logger } from "hono/logger"
 import { AuthRoutes } from "./routes/auth.js"
 import { CompatibilityRoutes } from "./routes/compatibility.js"
 import { ConfigRoutes } from "./routes/config.js"
-import { CurriculumRoutes } from "./routes/curriculum.js"
 import { FigureRoutes } from "./routes/figures.js"
 import { FreeformFigureRoutes } from "./routes/freeform-figures.js"
 import { GoalsRoutes } from "./routes/goals.js"
+import { LearnerRoutes } from "./routes/learner.js"
+import { LearnerService } from "./learning/learner/service.js"
 import { GlobalRoutes } from "./routes/global.js"
 import { McpRoutes } from "./routes/mcp.js"
 import { PermissionRoutes } from "./routes/permission.js"
@@ -55,10 +56,10 @@ api.use("*", async (c, next) => {
   return c.json({ error: "Unauthorized" }, 401)
 })
 
-api.route("/curriculum", CurriculumRoutes())
 api.route("/figures", FigureRoutes({ ensureAllowedDirectory }))
 api.route("/freeform-figures", FreeformFigureRoutes({ ensureAllowedDirectory }))
 api.route("/goals", GoalsRoutes())
+api.route("/learner", LearnerRoutes())
 api.route("/teaching", TeachingRoutes({ ensureAllowedDirectory }))
 api.route("/", CompatibilityRoutes())
 api.route("/project", ProjectRoutes())
@@ -94,6 +95,14 @@ const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000
 if (import.meta.main) {
   console.log(`Server starting on http://localhost:${port}`)
   console.log(`API docs available at http://localhost:${port}/doc`)
+  void LearnerService.runSafetySweep().catch((error) => {
+    console.warn("Initial learner safety sweep failed:", error)
+  })
+  setInterval(() => {
+    void LearnerService.runSafetySweep().catch((error) => {
+      console.warn("Periodic learner safety sweep failed:", error)
+    })
+  }, 5 * 60 * 1000)
   Bun.serve({
     port,
     idleTimeout: 120,
