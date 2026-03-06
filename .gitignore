@@ -34,6 +34,7 @@ packages/web/src/routeTree.gen.ts
 /links/
 
 # Local OpenCode/Buddy runtime artifacts
+/.buddy/
 /.buddy-runtime/
 /.tmp-xdg/
 /packages/buddy/.buddy-runtime/
@@ -45,7 +46,7 @@ packages/web/src/routeTree.gen.ts
 # Tauri/Cargo build artifacts
 packages/desktop/src-tauri/target/
 packages/desktop/src-tauri/gen/
-packages/desktop/src-tauri/resources/migrations/
+packages/desktop/src-tauri/resources/
 packages/desktop/src-tauri/sidecars/buddy-backend
 packages/desktop/src-tauri/sidecars/buddy-backend.exe
 packages/desktop/src-tauri/sidecars/buddy-backend-*
