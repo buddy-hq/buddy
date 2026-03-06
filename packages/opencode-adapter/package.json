@@ -14,7 +14,8 @@
     "./lsp": "./src/lsp.ts",
     "./agent": "./src/agent.ts",
     "./registry": "./src/registry.ts",
-    "./config": "./src/config.ts"
+    "./config": "./src/config.ts",
+    "./session": "./src/session.ts"
   },
   "scripts": {
     "typecheck": "tsgo --noEmit"
