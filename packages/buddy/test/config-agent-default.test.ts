@@ -26,23 +26,23 @@ function createGitRepo(prefix: string) {
   return root
 }
 
-describe("config default_mode", () => {
-  test("defaults to buddy when no default_mode is configured", async () => {
-    const repo = createGitRepo("buddy-config-default-mode-default")
+describe("config default_persona", () => {
+  test("defaults to buddy when no default_persona is configured", async () => {
+    const repo = createGitRepo("buddy-config-default-persona-default")
 
     const selected = await withSyncedOpenCodeConfig(repo, () => OpenCodeAgent.defaultAgent())
 
     expect(selected).toBe("buddy")
   })
 
-  test("uses configured code-buddy as default_mode", async () => {
-    const repo = createGitRepo("buddy-config-default-mode-code")
+  test("uses configured code-buddy as default_persona", async () => {
+    const repo = createGitRepo("buddy-config-default-persona-code")
 
     writeFileSync(
       path.join(repo, "buddy.jsonc"),
       JSON.stringify(
         {
-          default_mode: "code-buddy",
+          default_persona: "code-buddy",
         },
         null,
         2,
@@ -54,14 +54,14 @@ describe("config default_mode", () => {
     expect(selected).toBe("code-buddy")
   })
 
-  test("uses configured math-buddy as default_mode", async () => {
-    const repo = createGitRepo("buddy-config-default-mode-math")
+  test("uses configured math-buddy as default_persona", async () => {
+    const repo = createGitRepo("buddy-config-default-persona-math")
 
     writeFileSync(
       path.join(repo, "buddy.jsonc"),
       JSON.stringify(
         {
-          default_mode: "math-buddy",
+          default_persona: "math-buddy",
         },
         null,
         2,
@@ -73,14 +73,14 @@ describe("config default_mode", () => {
     expect(selected).toBe("math-buddy")
   })
 
-  test("propagates hidden modes into the runtime agent catalog", async () => {
-    const repo = createGitRepo("buddy-config-hidden-mode")
+  test("propagates hidden personas into the runtime agent catalog", async () => {
+    const repo = createGitRepo("buddy-config-hidden-persona")
 
     writeFileSync(
       path.join(repo, "buddy.jsonc"),
       JSON.stringify(
         {
-          modes: {
+          personas: {
             "code-buddy": {
               hidden: true,
             },
@@ -96,14 +96,14 @@ describe("config default_mode", () => {
     expect(codeBuddy?.hidden).toBe(true)
   })
 
-  test("rejects configs that hide every Buddy mode", async () => {
-    const repo = createGitRepo("buddy-config-hidden-all-modes")
+  test("rejects configs that hide every Buddy persona", async () => {
+    const repo = createGitRepo("buddy-config-hidden-all-personas")
 
     writeFileSync(
       path.join(repo, "buddy.jsonc"),
       JSON.stringify(
         {
-          modes: {
+          personas: {
             buddy: {
               hidden: true,
             },
@@ -125,7 +125,7 @@ describe("config default_mode", () => {
       data: {
         issues: expect.arrayContaining([
           expect.objectContaining({
-            message: "At least one Buddy mode must remain visible",
+            message: "At least one Buddy persona must remain visible",
           }),
         ]),
       },
@@ -139,7 +139,7 @@ describe("config default_mode", () => {
       path.join(repo, "buddy.jsonc"),
       JSON.stringify(
         {
-          modes: {
+          personas: {
             "code-buddy": {
               surfaces: ["curriculum"],
             },

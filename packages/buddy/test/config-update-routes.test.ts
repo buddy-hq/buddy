@@ -37,7 +37,7 @@ describe("config routes", () => {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        default_mode: "code-buddy",
+        default_persona: "code-buddy",
         model: "anthropic/route-project",
       }),
     })
@@ -52,11 +52,11 @@ describe("config routes", () => {
 
     expect(getResponse.status).toBe(200)
     const body = (await getResponse.json()) as {
-      default_mode?: string
+      default_persona?: string
       model?: string
     }
 
-    expect(body.default_mode).toBe("code-buddy")
+    expect(body.default_persona).toBe("code-buddy")
     expect(body.model).toBe("anthropic/route-project")
     expect(fs.existsSync(path.join(repo, "buddy.jsonc")) || fs.existsSync(path.join(repo, "buddy.json"))).toBe(true)
   })
@@ -65,7 +65,7 @@ describe("config routes", () => {
     const repo = createGitRepo("buddy-route-config-root-only")
     const nested = path.join(repo, "nested")
     fs.mkdirSync(nested, { recursive: true })
-    writeFileSync(path.join(nested, "buddy.jsonc"), '{"default_mode":"math-buddy"}\n')
+    writeFileSync(path.join(nested, "buddy.jsonc"), '{"default_persona":"math-buddy"}\n')
 
     const patchResponse = await app.request("/api/config", {
       method: "PATCH",
@@ -74,7 +74,7 @@ describe("config routes", () => {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        default_mode: "code-buddy",
+        default_persona: "code-buddy",
       }),
     })
 
@@ -88,11 +88,11 @@ describe("config routes", () => {
 
     expect(getResponse.status).toBe(200)
     const body = (await getResponse.json()) as {
-      default_mode?: string
+      default_persona?: string
     }
 
-    expect(body.default_mode).toBe("code-buddy")
-    expect(fs.readFileSync(path.join(nested, "buddy.jsonc"), "utf8")).toContain('"default_mode":"math-buddy"')
+    expect(body.default_persona).toBe("code-buddy")
+    expect(fs.readFileSync(path.join(nested, "buddy.jsonc"), "utf8")).toContain('"default_persona":"math-buddy"')
     expect(fs.existsSync(path.join(repo, "buddy.jsonc")) || fs.existsSync(path.join(repo, "buddy.json"))).toBe(true)
   })
 
@@ -165,13 +165,13 @@ describe("config routes", () => {
     })
   })
 
-  test("returns 400 when project config hides every Buddy mode", async () => {
-    const repo = createGitRepo("buddy-route-config-modes-invalid")
+  test("returns 400 when project config hides every Buddy persona", async () => {
+    const repo = createGitRepo("buddy-route-config-personas-invalid")
     writeFileSync(
       path.join(repo, "buddy.jsonc"),
       JSON.stringify(
         {
-          modes: {
+          personas: {
             buddy: {
               hidden: true,
             },
@@ -188,7 +188,7 @@ describe("config routes", () => {
       ) + "\n",
     )
 
-    const response = await app.request("/api/config/modes", {
+    const response = await app.request("/api/config/personas", {
       headers: {
         "x-buddy-directory": repo,
       },
@@ -200,13 +200,13 @@ describe("config routes", () => {
     })
   })
 
-  test("returns 400 when a mode override removes its inherited default surface", async () => {
+  test("returns 400 when a persona override removes its inherited default surface", async () => {
     const repo = createGitRepo("buddy-route-config-default-surface-invalid")
     writeFileSync(
       path.join(repo, "buddy.jsonc"),
       JSON.stringify(
         {
-          modes: {
+          personas: {
             "code-buddy": {
               surfaces: ["curriculum"],
             },
@@ -217,7 +217,7 @@ describe("config routes", () => {
       ) + "\n",
     )
 
-    const response = await app.request("/api/config/modes", {
+    const response = await app.request("/api/config/personas", {
       headers: {
         "x-buddy-directory": repo,
       },

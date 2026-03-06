@@ -33,7 +33,7 @@ describe("config jsonc", () => {
       [
         "{",
         '  // JSONC comment',
-        '  "default_mode": "code-buddy",',
+        '  "default_persona": "code-buddy",',
         '  "model": "anthropic/k2p5",',
         "}",
         "",
@@ -42,7 +42,7 @@ describe("config jsonc", () => {
 
     const cfg = await Config.getProject(repo)
 
-    expect(cfg.default_mode).toBe("code-buddy")
+    expect(cfg.default_persona).toBe("code-buddy")
     expect(cfg.model).toBe("anthropic/k2p5")
   })
 
@@ -73,13 +73,13 @@ describe("config jsonc", () => {
     }
   })
 
-  test("rejects configurations that hide every Buddy mode", async () => {
+  test("rejects configurations that hide every Buddy persona", async () => {
     const repo = createGitRepo("buddy-config-jsonc-hidden-all")
     writeFileSync(
       path.join(repo, "buddy.jsonc"),
       [
         "{",
-        '  "modes": {',
+        '  "personas": {',
         '    "buddy": { "hidden": true },',
         '    "code-buddy": { "hidden": true },',
         '    "math-buddy": { "hidden": true }',
