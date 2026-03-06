@@ -11,7 +11,9 @@
   },
   "scripts": {
     "dev": "vite",
+    "prebuild": "bun run --cwd ../ui build",
     "build": "tsc -p tsconfig.app.json && vite build",
+    "pretypecheck": "bun run --cwd ../ui build",
     "typecheck": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit",
     "preview": "vite preview",
     "test": "bun test --preload ./happydom.ts test",
