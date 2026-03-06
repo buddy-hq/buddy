@@ -5,11 +5,14 @@ import BUDDY_BASE_PROMPT from "./buddy-base.p.md"
 export const BUDDY_AGENT = registerBuddyAgent({
   key: "buddy",
   agent: createBuildAgent({
-    description: "The default Buddy mode for learning conversations and project help.",
+    description: "The default Buddy persona for learning conversations and project help.",
     prompt: BUDDY_BASE_PROMPT.trim(),
     steps: 8,
-    availableSubagents: ["curriculum-builder"],
+    availableSubagents: ["curriculum-orchestrator", "goal-writer", "practice-agent", "assessment-agent"],
     permission: {
+      learner_state_query: "allow",
+      practice_record: "allow",
+      assessment_record: "allow",
       todoread: "deny",
       todowrite: "deny",
     },
