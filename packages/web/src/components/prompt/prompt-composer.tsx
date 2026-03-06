@@ -1,6 +1,7 @@
 import {
   ArrowUpIcon,
   Badge,
+  Button,
   PlusIcon,
   Select,
   SelectContent,
@@ -10,6 +11,8 @@ import {
   SelectTrigger,
   SelectValue,
   SquareIcon,
+  ToggleGroup,
+  ToggleGroupItem,
   XIcon,
 } from "@buddy/ui"
 import { useEffect, useMemo, useRef, useState } from "react"
@@ -41,8 +44,9 @@ type PromptComposerProps = {
   value: string
   attachments: PromptComposerAttachment[]
   isBusy: boolean
-  modeOptions: Array<{
+  personaOptions: Array<{
     name: string
+    label?: string
   }>
   mentionableAgents: MentionableAgent[]
   slashCommands: Array<{
@@ -56,8 +60,10 @@ type PromptComposerProps = {
     group?: string
     disabled?: boolean
   }>
-  selectedMode: string
+  selectedPersona: string
+  selectedIntent: "auto" | "learn" | "practice" | "assess"
   selectedModel: string
+  pendingSteerLabel?: string
   thinkingOptions: Array<{
     key: string
     label: string
@@ -65,7 +71,9 @@ type PromptComposerProps = {
   selectedThinking: string
   onChange: (value: string) => void
   onAttachmentsChange: (attachments: PromptComposerAttachment[]) => void
-  onModeChange: (mode: string) => void
+  onPersonaChange: (persona: string) => void
+  onIntentChange: (intent: "auto" | "learn" | "practice" | "assess") => void
+  onClearPendingSteer?: () => void
   onModelChange: (model: string) => void
   onThinkingChange: (thinking: string) => void
   onSubmit: (input: { value: string; attachments: PromptComposerAttachment[] }) => void
@@ -107,9 +115,9 @@ const BUILTIN_SLASH_COMMANDS: SlashCommandOption[] = [
   },
   {
     type: "builtin",
-    name: "mode",
-    title: "Cycle mode",
-    description: "Switch to the next available Buddy mode.",
+    name: "persona",
+    title: "Cycle persona",
+    description: "Switch to the next available Buddy persona.",
   },
   {
     type: "builtin",
@@ -123,6 +131,13 @@ const BUILTIN_SLASH_COMMANDS: SlashCommandOption[] = [
     title: "Open MCPs",
     description: "Open MCP controls.",
   },
+]
+
+const INTENT_OPTIONS = [
+  { key: "auto" as const, label: "Auto" },
+  { key: "learn" as const, label: "Learn" },
+  { key: "practice" as const, label: "Practice" },
+  { key: "assess" as const, label: "Assess" },
 ]
 
 function translatePromptPlaceholder(key: string, params?: Record<string, string>) {
@@ -386,10 +401,10 @@ export function PromptComposer(props: PromptComposerProps) {
     () => new Set(props.mentionableAgents.map((agent) => agent.name)),
     [props.mentionableAgents],
   )
-  const modeOptions = useMemo(() => {
-    if (props.modeOptions.length > 0) return props.modeOptions
-    return props.selectedMode ? [{ name: props.selectedMode }] : [{ name: "buddy" }]
-  }, [props.modeOptions, props.selectedMode])
+  const personaOptions = useMemo(() => {
+    if (props.personaOptions.length > 0) return props.personaOptions
+    return props.selectedPersona ? [{ name: props.selectedPersona }] : [{ name: "buddy" }]
+  }, [props.personaOptions, props.selectedPersona])
   const slashCommandOptions = useMemo<SlashCommandOption[]>(() => {
     const customCommands = props.slashCommands.map((command) => ({
       type: "custom" as const,
@@ -766,14 +781,14 @@ export function PromptComposer(props: PromptComposerProps) {
         clearComposer()
         props.onNewSession()
         return true
-      case "mode": {
-        if (modeOptions.length <= 1) return false
-        const currentIndex = modeOptions.findIndex((option) => option.name === props.selectedMode)
-        const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % modeOptions.length : 0
-        const nextMode = modeOptions[nextIndex]
-        if (!nextMode) return false
+      case "persona": {
+        if (personaOptions.length <= 1) return false
+        const currentIndex = personaOptions.findIndex((option) => option.name === props.selectedPersona)
+        const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % personaOptions.length : 0
+        const nextPersona = personaOptions[nextIndex]
+        if (!nextPersona) return false
         clearComposer()
-        props.onModeChange(nextMode.name)
+        props.onPersonaChange(nextPersona.name)
         return true
       }
       case "model":
@@ -1152,14 +1167,32 @@ export function PromptComposer(props: PromptComposerProps) {
       </form>
 
       <div className="-mt-3.5 rounded-[12px] rounded-tl-none rounded-tr-none border border-t-0 bg-card/95 px-2 pt-5 pb-2">
+        {props.pendingSteerLabel ? (
+          <div className="mb-2 flex min-w-0 items-center gap-2 px-1">
+            <Badge variant="secondary" className="max-w-full gap-1.5 px-2 py-1 text-[11px]">
+              <span className="truncate">{props.pendingSteerLabel}</span>
+              {props.onClearPendingSteer ? (
+                <button
+                  type="button"
+                  className="shrink-0 rounded-sm text-muted-foreground hover:text-foreground"
+                  aria-label="Clear pending teaching steer"
+                  onClick={props.onClearPendingSteer}
+                >
+                  <XIcon className="size-3" />
+                </button>
+              ) : null}
+            </Badge>
+          </div>
+        ) : null}
+
         <div className="flex min-w-0 items-center gap-1.5">
-          <Select value={props.selectedMode} onValueChange={props.onModeChange}>
+          <Select value={props.selectedPersona} onValueChange={props.onPersonaChange}>
             <SelectTrigger
               size="sm"
               className="h-7 max-w-[160px] min-w-0 border-transparent bg-transparent px-2 text-xs text-foreground/90 shadow-none hover:bg-muted/50 focus-visible:ring-0"
-              aria-label="Mode"
+              aria-label="Persona"
             >
-              <SelectValue placeholder="Mode" />
+              <SelectValue placeholder="Persona" />
             </SelectTrigger>
             <SelectContent
               side="top"
@@ -1168,13 +1201,38 @@ export function PromptComposer(props: PromptComposerProps) {
               sideOffset={6}
               className="w-[min(18rem,calc(100vw-2rem))] max-h-[min(20rem,calc(100vh-8rem))]"
             >
-              {modeOptions.map((mode) => (
-                <SelectItem key={mode.name} value={mode.name}>
-                  {mode.name}
+              {personaOptions.map((persona) => (
+                <SelectItem key={persona.name} value={persona.name}>
+                  {persona.label ?? persona.name}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+
+          <ToggleGroup
+            type="single"
+            value={props.selectedIntent}
+            size="sm"
+            spacing={2}
+            className="rounded-md border border-transparent bg-transparent"
+            aria-label="Teaching intent"
+            onValueChange={(value: string) => {
+              if (value === "auto" || value === "learn" || value === "practice" || value === "assess") {
+                props.onIntentChange(value)
+              }
+            }}
+          >
+            {INTENT_OPTIONS.map((intent) => (
+              <ToggleGroupItem
+                key={intent.key}
+                value={intent.key}
+                className="h-7 rounded-md px-2.5 text-[11px] text-muted-foreground data-[state=on]:text-foreground"
+                aria-label={intent.label}
+              >
+                {intent.label}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
 
           <Select
             value={props.selectedModel}

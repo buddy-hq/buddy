@@ -8,8 +8,8 @@ import type {
   TeachingSelection,
   TeachingWorkspaceFile,
   TeachingWorkspaceState,
-} from "@/state/teaching-mode"
-import { TEACHING_LANGUAGE_OPTIONS, teachingMonacoLanguage } from "@/state/teaching-mode"
+} from "@/state/teaching-runtime"
+import { TEACHING_LANGUAGE_OPTIONS, teachingMonacoLanguage } from "@/state/teaching-runtime"
 
 type TeachingEditorPanelProps = {
   workspace: TeachingWorkspaceState

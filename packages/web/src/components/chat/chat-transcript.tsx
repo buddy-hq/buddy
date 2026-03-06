@@ -569,6 +569,9 @@ function CopyAction(props: { value: string; label?: string; className?: string }
 }
 
 function UserMessagePart(props: { part: MessagePart; info: MessageInfo }) {
+  if (props.part.type !== "text") return null
+  if (props.part.synthetic === true) return null
+
   const text = String(props.part.text ?? "")
   const throttledText = useThrottledText(text)
   if (!throttledText.trim()) return null

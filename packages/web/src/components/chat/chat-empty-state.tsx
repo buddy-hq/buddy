@@ -2,7 +2,7 @@ import { Button } from "@buddy/ui"
 import { BookOpenIcon, SparklesIcon } from "@/components/layout/sidebar-icons"
 
 const STARTER_PROMPTS = [
-  "Where do I stand in the curriculum right now?",
+  "Where do I stand in the learning plan right now?",
   "Give me a quick recap of today's topic and a small exercise.",
   "Create a 20-minute study plan for this notebook.",
 ]
@@ -20,7 +20,7 @@ export function ChatEmptyState(props: ChatEmptyStateProps) {
         <div className="mb-3 inline-flex size-10 items-center justify-center rounded-full border border-border/70 bg-background/70 text-muted-foreground">
           <SparklesIcon className="size-4" />
         </div>
-        <h2 className="text-xl font-semibold">Let&apos;s learn {props.directoryLabel}</h2>
+        <h2 className="text-xl font-semibold">Let&apos;s learn in {props.directoryLabel}</h2>
         <p className="mt-2 text-sm text-muted-foreground">
           Ask Buddy anything, or start with a focused prompt from below.
         </p>
@@ -46,7 +46,7 @@ export function ChatEmptyState(props: ChatEmptyStateProps) {
           onClick={props.onOpenCurriculum}
         >
           <BookOpenIcon className="mr-2 size-4" />
-          Open curriculum
+          Open learning plan
         </Button>
       </div>
     </div>

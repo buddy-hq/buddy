@@ -24,7 +24,7 @@ import {
 import { getFilename } from "@/components/layout/sidebar-helpers"
 import { ConnectProviderDialog } from "@/components/connect-provider-dialog"
 import { usePlatform } from "@/context/platform"
-import { resolveDefaultModeID } from "@/state/chat-actions"
+import { resolveDefaultPersonaID } from "@/state/chat-actions"
 import { showDesktopUpdateToast } from "../lib/desktop-updates"
 import type { ProviderInfo } from "@/state/chat-types"
 import type { LogLevel } from "@/state/project-settings"
@@ -148,10 +148,10 @@ export function SettingsModal(props: SettingsModalProps) {
     }
   }
 
-  const modeSelectValue =
-    resolveDefaultModeID(
-      settings.options.modes,
-      settings.selection.mode || undefined,
+  const personaSelectValue =
+    resolveDefaultPersonaID(
+      settings.options.personas,
+      settings.selection.persona || undefined,
     ) || "buddy"
   const logLevelSelectValue = settings.selection.logLevel || DEFAULT_VALUE
   const hasConnectedProviders = settings.options.providers.length > 0
@@ -239,23 +239,45 @@ export function SettingsModal(props: SettingsModalProps) {
             >
               <SettingsListCard>
                 <SettingsRow
-                  title="Default mode"
-                  description="Choose which Buddy mode is selected by default for new prompts in this notebook."
+                  title="Default persona"
+                  description="Choose which Buddy persona is selected by default for new prompts in this notebook."
                   control={
                     <Select
-                      value={modeSelectValue}
-                      onValueChange={settings.actions.setMode}
+                      value={personaSelectValue}
+                      onValueChange={settings.actions.setPersona}
                       disabled={settings.status.loading}
                     >
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select mode" />
+                        <SelectValue placeholder="Select persona" />
                       </SelectTrigger>
                       <SelectContent>
-                        {settings.options.modes.map((mode) => (
-                          <SelectItem key={mode.id} value={mode.id}>
-                            {mode.label}
+                        {settings.options.personas.map((persona) => (
+                          <SelectItem key={persona.id} value={persona.id}>
+                            {persona.label}
                           </SelectItem>
                         ))}
+                      </SelectContent>
+                    </Select>
+                  }
+                />
+
+                <SettingsRow
+                  title="Default intent"
+                  description="Choose the default teaching intent for new prompts in this notebook. Auto leaves intent unforced."
+                  control={
+                    <Select
+                      value={settings.selection.intent}
+                      onValueChange={(value) => settings.actions.setIntent(value as "auto" | "learn" | "practice" | "assess")}
+                      disabled={settings.status.loading}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select default intent" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="auto">Auto</SelectItem>
+                        <SelectItem value="learn">Learn</SelectItem>
+                        <SelectItem value="practice">Practice</SelectItem>
+                        <SelectItem value="assess">Assess</SelectItem>
                       </SelectContent>
                     </Select>
                   }
