@@ -1,28 +1,33 @@
 import z from "zod"
-import { CurriculumPath } from "../path.js"
-import { syncCurriculumMirror } from "./tool-helpers.js"
 import { createBuddyTool, type BuddyToolContext } from "../../shared/create-buddy-tool.js"
+import { LearnerService } from "../../learner/service.js"
 
 const curriculumReadTool = createBuddyTool("curriculum_read", {
-  description: "Read the current project curriculum markdown document.",
+  description: "Read the generated learning-plan view for the current workspace.",
   parameters: z.object({}),
   async execute(_params: unknown, ctx: BuddyToolContext) {
-    const filepath = CurriculumPath.file(ctx.directory)
     await ctx.ask({
       permission: "curriculum_read",
-      patterns: [filepath],
+      patterns: ["*"],
       always: ["*"],
       metadata: {
-        path: filepath,
+        directory: ctx.directory,
       },
     })
 
-    const current = await syncCurriculumMirror(ctx, ctx.directory)
+    const workspace = await LearnerService.ensureWorkspaceContext(ctx.directory)
+    const current = await LearnerService.getCurriculumView(ctx.directory, {
+      workspaceId: workspace.workspaceId,
+      persona: "buddy",
+      intent: "learn",
+      focusGoalIds: [],
+      tokenBudget: 1200,
+    })
     return {
-      title: "curriculum.md",
+      title: "learning-plan",
       output: current.markdown,
       metadata: {
-        path: current.path,
+        workspaceId: current.workspace.workspaceId,
       },
     }
   },

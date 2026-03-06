@@ -1,22 +1,24 @@
 import { createSubagent } from "../../agent-kit/factories.js"
 import { registerBuddyAgent } from "../../agent-kit/register-buddy-agent.js"
-import CURRICULUM_BUILDER_PROMPT from "./curriculum-builder.p.md"
+import CURRICULUM_ORCHESTRATOR_PROMPT from "./curriculum-orchestrator.p.md"
 
-export const CURRICULUM_BUILDER = registerBuddyAgent({
-  key: "curriculum-builder",
+export const CURRICULUM_ORCHESTRATOR = registerBuddyAgent({
+  key: "curriculum-orchestrator",
   agent: createSubagent({
-    description: "Builds and updates project curriculum markdown with actionable checklists.",
-    prompt: CURRICULUM_BUILDER_PROMPT.trim(),
+    description: "Routes curriculum work to goals, practice, assessment, and learner-state services.",
+    prompt: CURRICULUM_ORCHESTRATOR_PROMPT.trim(),
     steps: 8,
     permission: {
       "*": "deny",
-      read: "allow",
-      list: "allow",
-      write: "allow",
-      webfetch: "allow",
       curriculum_read: "allow",
-      curriculum_update: "allow",
-      task: "deny",
+      curriculum_update: "deny",
+      learner_state_query: "allow",
+      task: {
+        "*": "deny",
+        "goal-writer": "allow",
+        "practice-agent": "allow",
+        "assessment-agent": "allow",
+      },
     },
   }),
 })
