@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test"
-import fs from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { mkdtempSync, rmSync } from "node:fs"
@@ -10,85 +9,93 @@ function createWorkspace(prefix: string) {
 }
 
 describe("curriculum scope", () => {
-  test("isolates curriculum for non-git directories", async () => {
+  test("isolates workspace context for non-git directories", async () => {
     const workspaceA = createWorkspace("buddy-curriculum-a")
     const workspaceB = createWorkspace("buddy-curriculum-b")
 
     try {
-      const markdownA = "# Workspace A\n- [ ] task a"
-      const markdownB = "# Workspace B\n- [ ] task b"
-
-      const putA = await app.request("/api/curriculum", {
-        method: "PUT",
+      const patchA = await app.request("/api/learner/context", {
+        method: "POST",
         headers: {
           "x-buddy-directory": workspaceA,
           "content-type": "application/json",
         },
-        body: JSON.stringify({ markdown: markdownA }),
+        body: JSON.stringify({ label: "Workspace A", tags: ["tauri"] }),
       })
-      expect(putA.status).toBe(200)
+      expect(patchA.status).toBe(200)
 
-      const putB = await app.request("/api/curriculum", {
-        method: "PUT",
+      const patchB = await app.request("/api/learner/context", {
+        method: "POST",
         headers: {
           "x-buddy-directory": workspaceB,
           "content-type": "application/json",
         },
-        body: JSON.stringify({ markdown: markdownB }),
+        body: JSON.stringify({ label: "Workspace B", tags: ["rust"] }),
       })
-      expect(putB.status).toBe(200)
+      expect(patchB.status).toBe(200)
 
-      const getA = await app.request("/api/curriculum", {
+      const getA = await app.request("/api/learner/curriculum-view", {
         headers: {
           "x-buddy-directory": workspaceA,
         },
       })
       expect(getA.status).toBe(200)
-      const getABody = (await getA.json()) as { markdown: string }
-      expect(getABody.markdown).toBe(markdownA)
+      const getABody = (await getA.json()) as { workspace: { label: string; tags: string[] }; markdown: string }
+      expect(getABody.workspace.label).toBe("Workspace A")
+      expect(getABody.workspace.tags).toContain("tauri")
+      expect(getABody.markdown).toContain("Workspace A")
 
-      const getB = await app.request("/api/curriculum", {
+      const getB = await app.request("/api/learner/curriculum-view", {
         headers: {
           "x-buddy-directory": workspaceB,
         },
       })
       expect(getB.status).toBe(200)
-      const getBBody = (await getB.json()) as { markdown: string }
-      expect(getBBody.markdown).toBe(markdownB)
+      const getBBody = (await getB.json()) as { workspace: { label: string; tags: string[] }; markdown: string }
+      expect(getBBody.workspace.label).toBe("Workspace B")
+      expect(getBBody.workspace.tags).toContain("rust")
+      expect(getBBody.markdown).toContain("Workspace B")
     } finally {
       rmSync(workspaceA, { recursive: true, force: true })
       rmSync(workspaceB, { recursive: true, force: true })
     }
   })
 
-  test("prefers the on-disk curriculum after a direct file edit", async () => {
+  test("returns the latest workspace context after an explicit update", async () => {
     const workspace = createWorkspace("buddy-curriculum-file")
 
     try {
-      const savedMarkdown = "# Stored curriculum\n- [ ] stale task"
-      const updatedMarkdown = "# Updated curriculum\n- [x] fresh task"
-
-      const put = await app.request("/api/curriculum", {
-        method: "PUT",
+      const initial = await app.request("/api/learner/context", {
+        method: "POST",
         headers: {
           "x-buddy-directory": workspace,
           "content-type": "application/json",
         },
-        body: JSON.stringify({ markdown: savedMarkdown }),
+        body: JSON.stringify({ label: "Stored curriculum", tags: ["stale"] }),
       })
-      expect(put.status).toBe(200)
+      expect(initial.status).toBe(200)
 
-      await fs.writeFile(path.join(workspace, ".buddy", "curriculum.md"), updatedMarkdown, "utf8")
+      const updated = await app.request("/api/learner/context", {
+        method: "POST",
+        headers: {
+          "x-buddy-directory": workspace,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ label: "Updated curriculum", tags: ["fresh"] }),
+      })
+      expect(updated.status).toBe(200)
 
-      const get = await app.request("/api/curriculum", {
+      const get = await app.request("/api/learner/curriculum-view", {
         headers: {
           "x-buddy-directory": workspace,
         },
       })
       expect(get.status).toBe(200)
 
-      const body = (await get.json()) as { markdown: string }
-      expect(body.markdown).toBe(updatedMarkdown)
+      const body = (await get.json()) as { workspace: { label: string; tags: string[] }; markdown: string }
+      expect(body.workspace.label).toBe("Updated curriculum")
+      expect(body.workspace.tags).toContain("fresh")
+      expect(body.markdown).toContain("Updated curriculum")
     } finally {
       rmSync(workspace, { recursive: true, force: true })
     }

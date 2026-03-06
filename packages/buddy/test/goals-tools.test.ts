@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test"
 import fs from "node:fs/promises"
-import path from "node:path"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
+import { LearnerPath } from "../src/learning/learner/path.js"
 import { ensureGoalToolsRegistered } from "../src/learning/goals/tools/register.js"
 import { tmpdir } from "./fixture/fixture"
 
@@ -19,9 +19,9 @@ function createToolContext() {
 }
 
 describe("goal tools", () => {
-  test("goal_commit persists .buddy/goals.v1.json", async () => {
+  test("goal_commit persists learner-store goals", async () => {
     await using project = await tmpdir({ git: true })
-    const filepath = path.join(project.path, ".buddy", "goals.v1.json")
+    const filepath = LearnerPath.goals()
 
     await OpenCodeInstance.provide({
       directory: project.path,
@@ -76,19 +76,16 @@ describe("goal tools", () => {
 
     const raw = await fs.readFile(filepath, "utf8")
     const parsed = JSON.parse(raw) as {
-      version: number
-      goalSets: Array<{ archivedAt?: string; setId: string; goals: Array<{ goalId: string }> }>
+      goals: Array<{ archivedAt?: string; setId: string; goalId: string; workspaceRefs: string[] }>
     }
 
-    expect(parsed.version).toBe(1)
-    expect(parsed.goalSets).toHaveLength(1)
-    expect(parsed.goalSets[0].archivedAt).toBeUndefined()
-    expect(parsed.goalSets[0].goals).toHaveLength(3)
-    expect(parsed.goalSets[0].setId).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/)
+    expect(parsed.goals).toHaveLength(3)
+    expect(new Set(parsed.goals.map((goal) => goal.setId)).size).toBe(1)
 
-    for (const goal of parsed.goalSets[0].goals) {
+    for (const goal of parsed.goals) {
       expect(goal.goalId).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/)
+      expect(goal.archivedAt).toBeUndefined()
+      expect(goal.workspaceRefs).toHaveLength(1)
     }
   })
 })
-

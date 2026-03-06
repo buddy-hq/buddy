@@ -1,6 +1,4 @@
 import { describe, expect, test } from "bun:test"
-import fs from "node:fs/promises"
-import path from "node:path"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ensureCurriculumToolsRegistered } from "../src/learning/curriculum/tools/register.js"
@@ -19,9 +17,8 @@ function createToolContext() {
 }
 
 describe("curriculum tools", () => {
-  test("can update curriculum immediately after curriculum_read", async () => {
+  test("reads the generated learning-plan view and does not register direct edit tools", async () => {
     await using project = await tmpdir({ git: true })
-    const filepath = path.join(project.path, ".buddy", "curriculum.md")
 
     const result = await OpenCodeInstance.provide({
       directory: project.path,
@@ -35,23 +32,14 @@ describe("curriculum tools", () => {
         const curriculumUpdate = tools.find((tool) => tool.id === "curriculum_update")
 
         expect(curriculumRead).toBeDefined()
-        expect(curriculumUpdate).toBeDefined()
+        expect(curriculumUpdate).toBeUndefined()
 
         const ctx = createToolContext()
-        const readResult = await curriculumRead!.execute({}, ctx)
-        expect(readResult.output).toContain("# Learning Curriculum")
-
-        return curriculumUpdate!.execute(
-          {
-            oldString: "- [ ] Define your learning goal for this workspace",
-            newString: "- [x] Define your learning goal for this workspace",
-          },
-          ctx,
-        )
+        return curriculumRead!.execute({}, ctx)
       },
     })
 
-    expect(result.output).toContain("Updated curriculum")
-    expect(await fs.readFile(filepath, "utf8")).toContain("- [x] Define your learning goal for this workspace")
+    expect(result.output).toContain("# Learning Plan")
+    expect(result.output).toContain("No relevant goals exist yet.")
   })
 })

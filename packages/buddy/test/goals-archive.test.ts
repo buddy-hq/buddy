@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test"
 import fs from "node:fs/promises"
-import path from "node:path"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
+import { LearnerPath } from "../src/learning/learner/path.js"
 import { ensureGoalToolsRegistered } from "../src/learning/goals/tools/register.js"
 import { tmpdir } from "./fixture/fixture"
 
@@ -18,10 +18,10 @@ function createToolContext() {
   }
 }
 
-describe("goals.v1 archiving", () => {
+describe("learner-store goal archiving", () => {
   test("committing a new set archives the previous active set for the same (scope, contextLabel)", async () => {
     await using project = await tmpdir({ git: true })
-    const filepath = path.join(project.path, ".buddy", "goals.v1.json")
+    const filepath = LearnerPath.goals()
 
     await OpenCodeInstance.provide({
       directory: project.path,
@@ -109,13 +109,23 @@ describe("goals.v1 archiving", () => {
     })
 
     const parsed = JSON.parse(await fs.readFile(filepath, "utf8")) as {
-      goalSets: Array<{ archivedAt?: string; contextLabel: string }>
+      goals: Array<{ archivedAt?: string; contextLabel: string; setId: string }>
     }
 
-    const tauriSets = parsed.goalSets.filter((set) => set.contextLabel === "Tauri IPC")
+    const tauriSets = Array.from(
+      parsed.goals
+        .filter((goal) => goal.contextLabel === "Tauri IPC")
+        .reduce<Map<string, Array<{ archivedAt?: string }>>>((all, goal) => {
+          const existing = all.get(goal.setId) ?? []
+          existing.push({ archivedAt: goal.archivedAt })
+          all.set(goal.setId, existing)
+          return all
+        }, new Map())
+        .values(),
+    )
+
     expect(tauriSets).toHaveLength(2)
-    expect(tauriSets[0].archivedAt).toBeDefined()
-    expect(tauriSets[1].archivedAt).toBeUndefined()
+    expect(tauriSets[0].every((goal) => typeof goal.archivedAt === "string")).toBe(true)
+    expect(tauriSets[1].every((goal) => goal.archivedAt === undefined)).toBe(true)
   })
 })
-
