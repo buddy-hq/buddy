@@ -3,7 +3,7 @@ import {
   buildTeachingPromptContext,
   resolveTeachingPromptContext,
 } from "../src/lib/teaching-context"
-import type { TeachingWorkspaceState } from "../src/state/teaching-mode"
+import type { TeachingWorkspaceState } from "../src/state/teaching-runtime"
 
 function workspace(): TeachingWorkspaceState {
   return {

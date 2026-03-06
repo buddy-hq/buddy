@@ -22,7 +22,7 @@ describe("mention autocomplete", () => {
     const agents = filterMentionableAgents(
       [
         { name: "general" },
-        { name: "curriculum-builder" },
+        { name: "curriculum-orchestrator" },
         { name: "explore" },
       ],
       "ex",

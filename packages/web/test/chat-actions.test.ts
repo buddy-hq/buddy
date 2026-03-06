@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import {
+  loadCurriculumView,
   loadOpenProjects,
   openProject,
-  resolveDefaultModeID,
+  resolveDefaultPersonaID,
   sendPrompt,
   shouldDeferTranscriptReload,
 } from "../src/state/chat-actions"
@@ -208,11 +209,72 @@ describe("sendPrompt", () => {
 
     expect(requests).toBe(1)
   })
+
+  test("sends an explicit activity bundle override when provided", async () => {
+    useChatStore.setState({
+      directories: {
+        "/repo": {
+          sessionTitle: "New chat",
+          sessions: [],
+          sessionStatusByID: {},
+          messages: [],
+          pendingPermissions: [],
+          providers: [],
+          providerDefault: {},
+          isBusy: false,
+          isReady: true,
+          sessionID: "session_1",
+        },
+      },
+    })
+
+    globalThis.fetch = (async (_input, init) => {
+      expect(init?.body).toBe(
+        JSON.stringify({
+          content: "give me a practice task",
+          intent: "practice",
+          activityBundleId: "practice-guided",
+          focusGoalIds: ["goal_1"],
+        }),
+      )
+      return new Response(JSON.stringify({}), {
+        headers: {
+          "content-type": "application/json",
+        },
+      })
+    }) as typeof fetch
+
+    await sendPrompt("/repo", "give me a practice task", {
+      intent: "practice",
+      activityBundleId: "practice-guided",
+      focusGoalIds: ["goal_1"],
+    })
+  })
 })
 
-describe("resolveDefaultModeID", () => {
-  test("uses the built-in mode order instead of label order when no default is configured", () => {
-    const selected = resolveDefaultModeID([
+describe("loadCurriculumView", () => {
+  test("forwards the current session id when loading the learner plan", async () => {
+    globalThis.fetch = (async (input, init) => {
+      expect(String(input)).toBe("/api/learner/curriculum-view?persona=code-buddy&intent=practice&sessionId=session_1")
+      expect(new Headers(init?.headers).get("x-buddy-directory")).toBe("/repo")
+      return new Response(JSON.stringify({}), {
+        headers: {
+          "content-type": "application/json",
+        },
+      })
+    }) as typeof fetch
+
+    await loadCurriculumView("/repo", {
+      persona: "code-buddy",
+      intent: "practice",
+      sessionID: "session_1",
+    })
+  })
+})
+
+describe("resolveDefaultPersonaID", () => {
+  test("uses the built-in persona order instead of label order when no default is configured", () => {
+    const selected = resolveDefaultPersonaID([
       {
         id: "code-buddy",
         label: "A Code",
