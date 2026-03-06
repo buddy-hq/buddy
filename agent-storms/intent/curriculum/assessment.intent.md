@@ -2,6 +2,15 @@
 
 Sub-intent of [curriculum system](./curriculum.intent.md). Assessment's purpose is to generate feedback, not grades. It tells both the learner and Buddy what's been mastered and what hasn't.
 
+## Source anchors
+
+Primary sources for this intent:
+
+- [docs/sources/curriculum/principles.md](/Users/prashantbhudwal/Code/buddy/docs/sources/curriculum/principles.md)
+- `docs/sources/curriculum/raw/coursetransformationguide-cwsei-cu-sei.txt`
+- `docs/sources/curriculum/raw/cwsei-teaching-practices-inventory.txt`
+- `docs/sources/curriculum/raw/creating-good-homework-problems-and-grading-them.txt`
+
 ---
 
 ## What CWSEI says about assessment
@@ -77,9 +86,11 @@ CWSEI is explicit: giving feedback is not enough. The learner must be _required 
 Buddy doesn't have grades. The stakes are intrinsic motivation. So assessment needs to:
 
 - **Feel useful, not punitive** — "let's check if this clicked" not "quiz time"
-- **Be woven into conversation** — not a separate mode the learner switches into
+- **Be woven into conversation** — not a separate product surface the learner switches into
 - **Generate evidence** — observable demonstrations that can update the progress tracker
 - **Drive adaptation** — assessment results should change what comes next
+
+In product/runtime terms, Buddy may expose an inline `Check` strategy, but that strategy should still feel like a teaching move inside the same conversation, not an exam handoff.
 
 ---
 

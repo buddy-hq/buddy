@@ -2,6 +2,15 @@
 
 Sub-intent of [curriculum system](./curriculum.intent.md). Sequencing determines the order in which topics and goals are presented. Done wrong, it creates isolated knowledge islands. Done right, it builds interconnected expertise.
 
+## Source anchors
+
+Primary sources for this intent:
+
+- [docs/sources/curriculum/principles.md](/Users/prashantbhudwal/Code/buddy/docs/sources/curriculum/principles.md)
+- `docs/sources/curriculum/raw/coursetransformationguide-cwsei-cu-sei.txt`
+- `docs/sources/curriculum/raw/how-people-learn-implications-for-teac.txt`
+- `docs/sources/curriculum/raw/good-examples-of-learning-goals-at-ubc-and-cu.txt`
+
 ---
 
 ## What CWSEI says about sequencing
@@ -90,7 +99,7 @@ Worked example  →  Guided exercise  →  Independent problem  →  Transfer/no
 
 ## Open questions
 
-1. **Who determines the sequence?** The goal agent when goals are created? A separate sequencing step? The companion ad hoc?
+1. **Who determines the sequence?** The goal-writer when goals are created? A separate sequencing step? The companion ad hoc?
 2. **How rigid is the sequence?** Strict prerequisites or flexible recommendations? Can the learner skip ahead?
 3. **How does spacing work practically?** A scheduler that resurfaces goals? Or the companion maintaining awareness of time-since-last-practice?
 4. **How do we handle the learner who wants to jump around?** Honor their agency or warn about missing prerequisites?

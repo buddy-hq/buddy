@@ -1,5 +1,7 @@
 # Alignment Agent — Definition
 
+> Historical reference: this file captures an earlier one-agent-per-capability sketch. The shipped model is defined by the intent docs in this folder plus [buddy-core.spec.md](/Users/prashantbhudwal/Code/buddy/buddy-core.spec.md). Treat this file as reference material, not the runtime contract.
+
 ## Identity
 
 The alignment agent is an auditor. It checks that goals, exercises, and assessments form a coherent web — nothing floats without anchoring to a goal, no goal exists without practice and assessment.

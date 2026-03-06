@@ -2,6 +2,15 @@
 
 Sub-intent of [curriculum system](./curriculum.intent.md). CWSEI is emphatic: feedback is the single most important element for learning. Not content delivery. Not assessment. Feedback.
 
+## Source anchors
+
+Primary sources for this intent:
+
+- [docs/sources/curriculum/principles.md](/Users/prashantbhudwal/Code/buddy/docs/sources/curriculum/principles.md)
+- `docs/sources/curriculum/raw/coursetransformationguide-cwsei-cu-sei.txt`
+- `docs/sources/curriculum/raw/cwsei-teaching-practices-inventory.txt`
+- `docs/sources/curriculum/raw/creating-good-homework-problems-and-grading-them.txt`
+
 ---
 
 ## What CWSEI says about feedback

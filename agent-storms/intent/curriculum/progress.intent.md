@@ -2,6 +2,15 @@
 
 Sub-intent of [curriculum system](./curriculum.intent.md). Progress tracking records what has been demonstrated. Adaptation adjusts the path based on that evidence.
 
+## Source anchors
+
+Primary sources for this intent:
+
+- [docs/sources/curriculum/principles.md](/Users/prashantbhudwal/Code/buddy/docs/sources/curriculum/principles.md)
+- `docs/sources/curriculum/raw/coursetransformationguide-cwsei-cu-sei.txt`
+- `docs/sources/curriculum/raw/how-people-learn-implications-for-teac.txt`
+- `docs/sources/curriculum/raw/cwsei-teaching-practices-inventory.txt`
+
 ---
 
 ## What CWSEI says about tracking and adapting
@@ -93,17 +102,16 @@ From the Course Transformation Guide:
 
 ---
 
-## The TA memory system (from user's brainstorm)
+## Current Buddy direction
 
-The user noted:
+Progress tracking in Buddy should behave like a memory system, but it does not need to be a chatty standalone agent.
 
-> "OpenAI Codex has a memory system where it analyzes chats and creates memories; it does that periodically. I might need an agent that does something similar but for learner progress stuff so that the main companion is not loaded with unnecessary tools."
+The current direction is:
 
-This suggests progress tracking should be:
-
-- **Asynchronous** — an agent periodically analyzes session transcripts and updates progress
-- **Separate from the companion** — the companion shouldn't need progress-tracking tools cluttering its toolkit
-- **Injected into context** — the companion sees progress state via the system prompt, not through tool calls
+- **Evidence-first writes** from goals, practice, assessment, and session summaries
+- **A separate progress-tracker service** so runtime personas do not need a cluttered toolkit
+- **Periodic safety sweeps** to catch missed follow-through and stale open feedback loops
+- **Prompt/context injection** so the active runtime sees a digest instead of the raw learner store
 
 ---
 
@@ -121,8 +129,7 @@ This suggests progress tracking should be:
 
 ## Open questions
 
-1. **Where does progress state live?** In the curriculum file? Separate JSON? In the learner's OpenCode session?
-2. **Who updates progress?** The companion? A dedicated progress-tracking agent? Automatic from assessment results?
-3. **How do we detect regression?** Time-based decay? Errors on previously-mastered goals?
-4. **How visible is progress to the learner?** Dashboard? "You've demonstrated 4 of 7 goals" messages? Subtle or explicit?
-5. **How does the TA memory system work technically?** Periodic batch processing of session transcripts? Event-driven on assessment results?
+1. **How do we detect regression well?** Time-based decay, later failure on a mastered goal, and misconception reappearance may need different weights.
+2. **How visible should progress be to the learner?** Dashboard-like explicitness vs. subtle session guidance.
+3. **How aggressive should the safety sweep be?** Frequent enough to catch drift, cheap enough not to become noisy.
+4. **When should progress surface course-level synthesis?** Topic success is easier than cross-topic transfer claims.

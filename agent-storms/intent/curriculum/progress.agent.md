@@ -1,5 +1,7 @@
 # Progress Agent — Definition
 
+> Historical reference: this file captures an earlier progress-agent sketch. The shipped model is defined by the intent docs in this folder plus [buddy-core.spec.md](/Users/prashantbhudwal/Code/buddy/buddy-core.spec.md). Treat this file as reference material, not the runtime contract.
+
 ## Identity
 
 The progress agent is the TA memory system. It analyzes learning sessions, extracts evidence of mastery, updates per-goal status, detects misconceptions, and schedules spaced reviews. It turns raw interaction into structured learning state.

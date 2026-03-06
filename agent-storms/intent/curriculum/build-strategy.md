@@ -1,5 +1,7 @@
 # Curriculum System — Build Strategy
 
+> Historical planning note: this document captures an earlier design phase before the learner-store and generated learning-plan cutover. Use the `*.intent.md` files in this folder for pedagogy and [buddy-core.spec.md](/Users/prashantbhudwal/Code/buddy/buddy-core.spec.md) for the shipped runtime/storage model.
+
 ## Critical Path
 
 ```mermaid

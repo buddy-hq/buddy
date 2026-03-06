@@ -2,6 +2,15 @@
 
 Sub-intent of [curriculum system](./curriculum.intent.md). Alignment ensures goals ↔ practice ↔ assessment are coherent. Without it, learners feel they're doing "busy work."
 
+## Source anchors
+
+Primary sources for this intent:
+
+- [docs/sources/curriculum/principles.md](/Users/prashantbhudwal/Code/buddy/docs/sources/curriculum/principles.md)
+- `docs/sources/curriculum/raw/coursetransformationguide-cwsei-cu-sei.txt`
+- `docs/sources/curriculum/raw/creating-and-using-effective-learning-goals.txt`
+- `docs/sources/curriculum/raw/creating-good-homework-problems-and-grading-them.txt`
+
 ---
 
 ## What CWSEI says about alignment
@@ -78,7 +87,7 @@ If practice exists without a goal → it's busy work.
 
 ## How alignment works in Buddy
 
-- The **goal agent** produces goals with cognitive levels
+- The **goal-writer** produces goals with cognitive levels
 - The **practice agent** must generate exercises mapped to specific goals
 - The **assessment** must check mastery of specific goals
 - **Progress tracking** records per-goal status
@@ -90,7 +99,7 @@ The alignment map is the connective tissue. Without it, each agent operates in i
 
 ## Open questions
 
-1. **Where does the alignment map live?** In the curriculum file? Generated dynamically? Both?
-2. **Who maintains it?** The goal agent creates goals, practice agent creates exercises — who ensures they're actually aligned?
+1. **Where does the alignment map live?** In the learner store, generated dynamically, or both?
+2. **Who maintains it?** The goal-writer creates goals and the practice agent creates exercises — who ensures they're actually aligned?
 3. **Is alignment visible to the learner?** Should Buddy say "this exercise targets goal #3" or is that too meta?
 4. **How do we handle gaps?** If a goal has no exercises, does the system flag it? Auto-generate?

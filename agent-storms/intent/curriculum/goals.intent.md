@@ -1,5 +1,14 @@
 # Goals — Intent
 
+## Source anchors
+
+Primary sources for this intent:
+
+- [docs/sources/curriculum/principles.md](/Users/prashantbhudwal/Code/buddy/docs/sources/curriculum/principles.md)
+- `docs/sources/curriculum/raw/creating-and-using-effective-learning-goals.txt`
+- `docs/sources/curriculum/raw/how-to-develop-learning-goals-for-an-established-course-the-computer-science-model1.txt`
+- `docs/sources/curriculum/raw/good-examples-of-learning-goals-at-ubc-and-cu.txt`
+
 This is a sub-intent of the broader [curriculum system](./curriculum.intent.md). Goals are the anchor — everything else (practice, assessment, feedback, progress) aligns back to them.
 
 ---
@@ -100,21 +109,20 @@ For every learning goal, check:
 
 ## What the current implementation does
 
-The current goal agent (`packages/buddy/src/learning/goals/`) has:
+The current goal system (`packages/buddy/src/learning/goals/`) has:
 
-- **5 tools**: `decide_scope` → `build_evidence_pack` → `draft_set` → `lint_set` → `submit_set`
-- **Standalone agent** (`goal-writer`) registered in `buddy-agents.ts`
-- **Zod schemas** for Brief, EvidencePack, Draft, LintReport, Result
-- **Deterministic lint rules** checking vague verbs, testability, compounds, topic-not-task, level-verb mismatch, jargon, breadth
-- **No persistence** — goals exist only in chat message history
+- a real `goal-writer` subagent
+- deterministic CWSEI-oriented linting
+- learner-store persistence through `goal_commit`
+- learner-state visibility through `goal_state` and `learner_state_query`
+- notebook-neutral storage, so goals survive across sessions and workspaces
 
-## What's wrong
+## What still needs care
 
-1. **Too many tools doing LLM work** — Scope detection and evidence gathering are reasoning tasks. They don't need tool calls with regex heuristics.
-2. **No persistence** — Goals vanish after the conversation.
-3. **Too mechanical** — 10-step pipeline feels like a form.
-4. **Isolated** — Can't read curriculum, can't search web.
-5. **Academic language** — "students" instead of "you."
+1. **Conversation quality** — goal-setting should feel like clarification and synthesis, not form filling.
+2. **Grounding quality** — goals still need enough context from the learner's actual project and motivation.
+3. **Scope discipline** — the system should avoid generating too many shallow goals too early.
+4. **Language quality** — keep learner-facing wording concrete and direct, never bureaucratic.
 
 ---
 
@@ -125,8 +133,8 @@ The current goal agent (`packages/buddy/src/learning/goals/`) has:
 - **Lint rules** — Deterministic CWSEI checks: vague verbs, compounds, topic-not-task, level-verb mismatch, jargon, breadth, testability. These are valuable.
 - **Bloom's verb table** — Hard-coded verb → level mapping. Reusable.
 - **Zod schemas** — Structure for goals. Keep but simplify.
-- **Curriculum persistence** — Goals must be written to the curriculum file.
-- **Curriculum read access** — Agent must see existing goals.
+- **Learner-store persistence** — Goals must be written to the cross-notebook learner store.
+- **Learner-state read access** — Goal writing must see existing goals and nearby learner context.
 
 ### Version A: Minimal (2 tools)
 

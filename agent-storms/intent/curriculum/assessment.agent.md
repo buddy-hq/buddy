@@ -1,5 +1,7 @@
 # Assessment Agent — Definition
 
+> Historical reference: this file captures an earlier subagent sketch. The shipped model is defined by the intent docs in this folder plus [buddy-core.spec.md](/Users/prashantbhudwal/Code/buddy/buddy-core.spec.md). Treat this file as reference material, not the runtime contract.
+
 ## Identity
 
 The assessment agent generates mastery checks that tell both Buddy and the learner whether a goal has been achieved. It uses CWSEI's "suites of questions" approach — multiple checks with varied formats and surface features for each goal, so the learner can't pattern-match their way to a false positive.

@@ -1,5 +1,7 @@
 # Feedback Agent — Definition
 
+> Historical reference: this file captures an earlier feedback-engine sketch. The shipped model is defined by the intent docs in this folder plus [buddy-core.spec.md](/Users/prashantbhudwal/Code/buddy/buddy-core.spec.md). Treat this file as reference material, not the runtime contract.
+
 ## Identity
 
 The feedback agent is not a separate conversational agent — it's a **feedback engine** that the companion uses to generate high-quality, CWSEI-compliant feedback. It ensures feedback is specific, timely, actionable, and requires the learner to act on it.

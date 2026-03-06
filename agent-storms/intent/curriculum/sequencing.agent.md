@@ -1,5 +1,7 @@
 # Sequencing Agent — Definition
 
+> Historical reference: this file captures an earlier sequencing-agent sketch. The shipped model is defined by the intent docs in this folder plus [buddy-core.spec.md](/Users/prashantbhudwal/Code/buddy/buddy-core.spec.md). Treat this file as reference material, not the runtime contract.
+
 ## Identity
 
 The sequencing agent determines the order of learning. It builds dependency graphs, recommends what to work on next, manages spaced interleaving, and adapts the path based on progress evidence.

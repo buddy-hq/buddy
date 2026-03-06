@@ -1,5 +1,18 @@
 # Curriculum System — Intent
 
+> Pedagogy note: the intent docs in this folder define the teaching model. For the current shipped runtime, storage contracts, and naming, use [buddy-core.spec.md](/Users/prashantbhudwal/Code/buddy/buddy-core.spec.md). If an implementation snapshot here is stale, the spec wins on implementation detail and this file wins on pedagogy.
+
+## Source anchors
+
+This intent is grounded in:
+
+- [docs/sources/curriculum/principles.md](/Users/prashantbhudwal/Code/buddy/docs/sources/curriculum/principles.md)
+- [docs/sources/curriculum/crosswalk.md](/Users/prashantbhudwal/Code/buddy/docs/sources/curriculum/crosswalk.md)
+- `docs/sources/curriculum/raw/coursetransformationguide-cwsei-cu-sei.txt`
+- `docs/sources/curriculum/raw/how-people-learn-implications-for-teac.txt`
+- `docs/sources/curriculum/raw/creating-good-homework-problems-and-grading-them.txt`
+- `docs/sources/curriculum/raw/creating-and-using-effective-learning-goals.txt`
+
 The curriculum system is the backbone of Buddy's learning experience. It turns "I want to learn X" into structured, persistent, adaptive learning — and keeps it going across sessions, days, and months.
 
 This is the **umbrella intent doc**. Each major component has its own `*.intent.md` with deeper intentions and architecture.
@@ -95,7 +108,7 @@ AI learning tools today have no curriculum. Every session is a blank slate. Ther
 - **Deliberate practice, not repetition** — Practice must be challenging, require intense thought, and target specific expert-thinking components. Easy repetitive tasks produce little learning.
 - **Conversational, not bureaucratic** — The underlying machinery is rigorous. The learner-facing experience is a conversation with a thoughtful tutor.
 - **CWSEI rigor, learner-friendly language** — "After this, you can…" not "Students will be able to…"
-- **Modular agents** — Each component may eventually have its own agent. Goal agent can't write exercises. Exercise agent can't conduct assessments.
+- **Modular agents** — Each component may eventually have its own agent or service. Goal writing should not collapse into practice generation, and assessment should not silently become explanation.
 - **Incremental buildout** — Goals first (anchor). Then practice. Then assessment and feedback. Each builds on the previous.
 
 ---
@@ -105,13 +118,13 @@ AI learning tools today have no curriculum. Every session is a blank slate. Ther
 ```
 Learner states intent
     → Buddy clarifies (conversational)
-    → Buddy sets goals (goal agent)
+    → Buddy sets goals (goal-writer)
     → Buddy sequences into a path (sequencing)
     → Buddy generates practice (practice agent)
-    → Buddy teaches (companion + code-teacher)
+    → Buddy teaches (runtime persona + interactive workspace when needed)
     → Buddy assesses (assessment)
     → Buddy gives feedback (feedback system)
-    → Buddy tracks progress (progress tracker)
+    → Buddy tracks progress (progress tracker service)
     → Buddy adapts the path (adaptation engine)
     → Repeat across sessions
 ```
@@ -122,13 +135,13 @@ Each arrow is a potential agent or subsystem. The companion orchestrates.
 
 ## How this connects to what exists today
 
-| What exists                | What it does                                        | What it will become                                           |
-| -------------------------- | --------------------------------------------------- | ------------------------------------------------------------- |
-| `CurriculumService`        | Reads/writes a curriculum markdown file per project | Persistence layer for the whole curriculum system             |
-| `compose-system-prompt.ts` | Injects curriculum into companion's system prompt   | Bridge between persisted curriculum and live agent context    |
-| `goals/` (new, untracked)  | 5-tool goal-writing agent                           | Simplified per `goals.intent.md`                              |
-| `teaching/` (code-teacher) | Interactive workspace teaching sessions             | One delivery mechanism for practice — needs to align to goals |
-| `curriculum/` (existing)   | Curriculum subagent for reading/updating curriculum | Will evolve to handle structured curriculum data              |
+| What exists now                    | What it does                                                     | Why it matters to this intent                                    |
+| ---------------------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Learner store                      | Persists goals, evidence, feedback, constraints, and projections | Gives curriculum real memory across notebooks and sessions        |
+| `compose-system-prompt.ts`         | Injects learner/runtime digests into the active teaching profile | Bridges persistent learner state into live conversation           |
+| Runtime compiler + adaptive router | Resolves persona + strategy + activity per turn                  | Keeps teaching stance explicit instead of blending everything     |
+| `curriculum-orchestrator`          | Delegates goals, practice, and assessment work                   | Central curriculum execution layer without a new user-facing mode |
+| Teaching workspace in `.buddy/`    | Hosts interactive lesson files and checkpoints                   | Gives practice a real workspace when chat alone is insufficient   |
 
 ---
 
@@ -142,26 +155,27 @@ The curriculum system is **not one agent**. It's a **family of agents + a shared
 │  Detects intent, routes to the right agent,   │
 │  presents results conversationally            │
 ├───────────────┬───────────────┬───────────────┤
-│  Goal Agent   │ Practice Agent│ Assessment    │
-│  Sets goals,  │ Generates     │ Agent         │
-│  lints, commits│ exercises    │ Checks mastery│
+│ Goal Writer   │ Practice Agent│ Assessment    │
+│ Sets goals,   │ Generates     │ Agent         │
+│ lints, commits│ exercises     │ Checks mastery│
 ├───────────────┴───────────────┴───────────────┤
-│           Curriculum Data Layer                │
-│  Persisted goals, progress, exercises,        │
-│  assessment results, adaptation state         │
-│  (CurriculumService + structured storage)     │
+│      Learner Store + Workspace Context        │
+│  Persisted goals, evidence, feedback,         │
+│  constraints, projections, local artifacts    │
+│  (structured storage + local teaching files)  │
 └───────────────────────────────────────────────┘
 ```
 
 ---
 
-## What to build first
+## Current emphasis
 
-1. **Goals** — Already in progress. Simplify per `goals.intent.md`. Make it persist.
-2. **Progress tracking** — Companion needs to record demonstrated performances. Without this, goals are write-once artifacts.
-3. **Practice generation** — Exercises aligned to goals, targeting expert-thinking components, using code-teacher workspace.
+The ontology and learner store now exist. The quality work going forward is to make the curriculum loop truer to these principles:
 
-Assessment, feedback, alignment, and sequencing come later.
+1. **Practice quality** — richer deliberate-practice generation tied to expert-thinking components
+2. **Feedback closure** — required actions that remain open until later evidence resolves them
+3. **Sequencing quality** — stronger prerequisite handling, interleaving, and spaced retrieval
+4. **Alignment depth** — better coverage across goals, practice, and varied assessment formats
 
 ---
 

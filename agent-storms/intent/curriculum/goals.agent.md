@@ -1,5 +1,7 @@
 # Goal Agent — Definition
 
+> Historical reference: this file captures an earlier goal-agent sketch. The shipped model is defined by the intent docs in this folder plus [buddy-core.spec.md](/Users/prashantbhudwal/Code/buddy/buddy-core.spec.md). Treat this file as reference material, not the runtime contract.
+
 ## Identity
 
 The goal agent translates learner intent into CWSEI-quality learning goals. It converses to understand what the learner wants, drafts goals with observable action verbs, validates them against CWSEI criteria, and persists them to the curriculum.

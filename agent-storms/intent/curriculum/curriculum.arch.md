@@ -1,5 +1,7 @@
 # Curriculum — Architecture (Orchestrating Agent)
 
+> Historical reference: this file captures earlier architecture options explored before the learner-store and generated learning-plan cutover. Use the `*.intent.md` files in this folder for pedagogy and [buddy-core.spec.md](/Users/prashantbhudwal/Code/buddy/buddy-core.spec.md) for the shipped runtime/storage model.
+
 The curriculum system is not one of its sub-components — it's the **orchestrator** that decides which sub-agent to invoke, when, and with what context. See [curriculum.intent.md](./curriculum.intent.md) for intent.
 
 ---

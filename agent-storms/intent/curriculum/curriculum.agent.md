@@ -1,5 +1,7 @@
 # Curriculum Orchestrator — Agent Definition
 
+> Historical reference: this file captures an earlier orchestrator sketch that assumed a curriculum file as the source of truth. The shipped model is defined by the intent docs in this folder plus [buddy-core.spec.md](/Users/prashantbhudwal/Code/buddy/buddy-core.spec.md). Treat this file as reference material, not the runtime contract.
+
 ## Identity
 
 The curriculum orchestrator is the conductor. It doesn't play any instrument — it decides which agent plays, when, and with what context. It sits between the companion and the sub-agents, managing the learning lifecycle.

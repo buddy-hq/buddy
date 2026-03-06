@@ -1,5 +1,7 @@
 # Assessment — Architecture
 
+> Historical reference: this file captures earlier architecture options explored before the learner-store and generated learning-plan cutover. Use the `*.intent.md` files in this folder for pedagogy and [buddy-core.spec.md](/Users/prashantbhudwal/Code/buddy/buddy-core.spec.md) for the shipped runtime/storage model.
+
 Two architecture options. See [assessment.intent.md](./assessment.intent.md) for the full intent.
 
 ---

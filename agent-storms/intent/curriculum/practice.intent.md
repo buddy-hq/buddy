@@ -2,6 +2,15 @@
 
 Sub-intent of [curriculum system](./curriculum.intent.md). Practice is where most learning actually happens — not during explanation, but during effortful work.
 
+## Source anchors
+
+Primary sources for this intent:
+
+- [docs/sources/curriculum/principles.md](/Users/prashantbhudwal/Code/buddy/docs/sources/curriculum/principles.md)
+- `docs/sources/curriculum/raw/creating-good-homework-problems-and-grading-them.txt`
+- `docs/sources/curriculum/raw/coursetransformationguide-cwsei-cu-sei.txt`
+- `docs/sources/curriculum/raw/cwsei-teaching-practices-inventory.txt`
+
 ---
 
 ## What CWSEI says about practice
@@ -92,7 +101,7 @@ Every practice task should:
 | CWSEI concept        | Buddy equivalent                                                               |
 | -------------------- | ------------------------------------------------------------------------------ |
 | Pre-reading quiz     | Pre-session prompt: "before we start, skim this doc section and tell me…"      |
-| Homework problem set | Exercises in the code-teacher workspace: multi-step, requiring expert thinking |
+| Homework problem set | Exercises in the Buddy interactive workspace: multi-step, requiring expert thinking |
 | In-class activity    | Interactive problem-solving in chat: think → attempt → discuss → refine        |
 | Worked example       | Buddy walks through a solution, showing reasoning and decision points          |
 | Case study           | "Here's a real codebase. Find the bug / optimize this / add this feature."     |
@@ -114,5 +123,5 @@ Don't give them all the info. Don't tell them which concept to apply. Don't stat
 1. **How does the practice agent generate exercises?** From the goals + Bloom's level + expert-thinking components → exercise spec?
 2. **What's the exercise format?** Free-form coding challenge? Structured multi-part? MCQ for concept checks?
 3. **How does difficulty scale?** Start with scaffolded (worked example + guided steps) → independent (open-ended problem)?
-4. **Where do exercises live?** In the curriculum file? Separate exercise bank? Generated on-the-fly?
-5. **How does practice connect to the code-teacher?** Same workspace? Separate mode?
+4. **Where do exercises live?** In the learner store, a separate exercise bank, or generated on the fly with only attempt history persisted?
+5. **How should practice split between chat and the interactive workspace?** Which scaffolding levels belong in each surface?

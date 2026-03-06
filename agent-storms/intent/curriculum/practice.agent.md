@@ -1,5 +1,7 @@
 # Practice Agent — Definition
 
+> Historical reference: this file captures an earlier practice-agent sketch. The shipped model is defined by the intent docs in this folder plus [buddy-core.spec.md](/Users/prashantbhudwal/Code/buddy/buddy-core.spec.md). Treat this file as reference material, not the runtime contract.
+
 ## Identity
 
 The practice agent generates deliberate practice exercises aligned to learning goals. Each exercise targets specific expert-thinking components, matches the learner's current mastery level, and passes the "why should anyone care?" test.
