@@ -16,7 +16,7 @@ import {
   McpNamePath,
 } from "../openapi/compatibility-schemas.js"
 import { compatibilityRoute } from "../openapi/compatibility-route.js"
-import { modeCatalogEntries } from "../modes/catalog.js"
+import { personaCatalogEntries } from "../personas/catalog.js"
 import { ensureAllowedDirectory, proxyToOpenCode } from "./support.js"
 
 const directoryParameters = [DirectoryHeader, DirectoryQuery]
@@ -24,14 +24,14 @@ const directoryParameters = [DirectoryHeader, DirectoryQuery]
 export const ConfigRoutes = (): Hono =>
   new Hono()
     .get(
-      "/modes",
+      "/personas",
       compatibilityRoute({
-        operationId: "config.modes",
-        summary: "List Buddy modes",
+        operationId: "config.personas",
+        summary: "List Buddy personas",
         parameters: directoryParameters,
         responses: {
           200: {
-            description: "Buddy modes",
+            description: "Buddy personas",
             content: {
               "application/json": {
                 schema: {
@@ -61,7 +61,7 @@ export const ConfigRoutes = (): Hono =>
 
         try {
           const config = await readProjectConfig(directoryResult.directory)
-          return c.json(modeCatalogEntries(config.modes))
+          return c.json(personaCatalogEntries(config.personas))
         } catch (error) {
           if (isConfigValidationError(error)) {
             return c.json({ error: configErrorMessage(error) }, 400)

@@ -17,14 +17,14 @@ import {
   TeachingLanguageSchema,
   TeachingWorkspaceUpdateRequestSchema,
 } from "../learning/teaching/types.js"
-import { getBuddyMode, getDefaultBuddyMode } from "../modes/catalog.js"
-import { isBuddyModeID } from "../modes/types.js"
+import { getBuddyPersona, getDefaultBuddyPersona } from "../personas/catalog.js"
+import { isPersonaId } from "../personas/types.js"
 import { isJsonContentType } from "./support.js"
 import type { EnsureAllowedDirectory } from "./support.js"
 
 const ProvisionRequestSchema = z.object({
   language: TeachingLanguageSchema.optional(),
-  mode: z.string().optional(),
+  persona: z.string().optional(),
 })
 
 function invalidJson() {
@@ -65,32 +65,32 @@ export const TeachingRoutes = (input: { ensureAllowedDirectory: EnsureAllowedDir
         throw error
       }
 
-      const mode = (() => {
-        if (parsed.data.mode) {
-          if (!isBuddyModeID(parsed.data.mode)) {
+      const persona = (() => {
+        if (parsed.data.persona) {
+          if (!isPersonaId(parsed.data.persona)) {
             return undefined
           }
 
-          const explicitMode = getBuddyMode(parsed.data.mode, config.modes)
-          if (explicitMode.hidden) {
+          const explicitPersona = getBuddyPersona(parsed.data.persona, config.personas)
+          if (explicitPersona.hidden) {
             return undefined
           }
 
-          return explicitMode
+          return explicitPersona
         }
 
-        return getDefaultBuddyMode({
-          defaultMode: config.default_mode,
-          overrides: config.modes,
+        return getDefaultBuddyPersona({
+          defaultPersona: config.default_persona,
+          overrides: config.personas,
         })
       })()
 
-      if (!mode) {
-        return c.json({ error: "Unknown Buddy mode" }, 400)
+      if (!persona) {
+        return c.json({ error: "Unknown Buddy persona" }, 400)
       }
 
-      if (!mode.surfaces.includes("editor")) {
-        return c.json({ error: `Buddy mode "${mode.id}" cannot start an interactive lesson` }, 400)
+      if (!persona.surfaces.includes("editor")) {
+        return c.json({ error: `Buddy persona "${persona.id}" cannot start an interactive lesson` }, 400)
       }
 
       const workspace = await TeachingService.ensure(
@@ -103,12 +103,16 @@ export const TeachingRoutes = (input: { ensureAllowedDirectory: EnsureAllowedDir
     .get("/session/:sessionID/workspace", async (c) => {
       const directoryResult = input.ensureAllowedDirectory(c.req.raw)
       if (!directoryResult.ok) return directoryResult.response
+      const optional = c.req.query("optional") === "1"
 
       try {
         const workspace = await TeachingService.read(directoryResult.directory, c.req.param("sessionID"))
         return c.json(workspace)
       } catch (error) {
         if (error instanceof TeachingWorkspaceNotFoundError) {
+          if (optional) {
+            return c.body(null, 204)
+          }
           return c.json({ error: error.message }, 404)
         }
         throw error

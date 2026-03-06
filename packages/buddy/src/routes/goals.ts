@@ -1,8 +1,8 @@
 import { Hono } from "hono"
 import { describeRoute, resolver } from "hono-openapi"
 import z from "zod"
-import { readGoalsV1File } from "../learning/goals/goals-v1.js"
-import { GoalsV1Path } from "../learning/goals/path.js"
+import { LearnerPath } from "../learning/learner/path.js"
+import { LearnerService } from "../learning/learner/service.js"
 import { resolveDirectory } from "../project/directory.js"
 
 const GoalsDocument = z.object({
@@ -14,8 +14,8 @@ export const GoalsRoutes = () =>
   new Hono().get(
     "/",
     describeRoute({
-      summary: "Get goals inspector document",
-      description: "Get the current .buddy/goals.v1.json content for the current project.",
+      summary: "Get workspace goals document",
+      description: "Get the current learner-store goals relevant to the current project.",
       operationId: "goals.get",
       responses: {
         200: {
@@ -32,10 +32,10 @@ export const GoalsRoutes = () =>
       const directory = resolveDirectory(
         c.req.header("x-buddy-directory") ?? c.req.header("x-opencode-directory") ?? "",
       )
-      const doc = await readGoalsV1File(directory)
+      const goals = await LearnerService.getWorkspaceGoals(directory)
       return c.json({
-        path: doc?.path ?? GoalsV1Path.file(directory),
-        raw: doc ? `${JSON.stringify(doc.data, null, 2)}\n` : null,
+        path: LearnerPath.goals(),
+        raw: goals.length > 0 ? `${JSON.stringify(goals, null, 2)}\n` : null,
       })
     },
   )

@@ -1,9 +1,11 @@
 import type { Context } from "hono"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ensureCurriculumToolsRegistered } from "../learning/curriculum/tools/register.js"
+import { ensureActivityToolsRegistered } from "../learning/activities/tools/register.js"
 import { ensureFreeformFigureToolsRegistered } from "../learning/freeform-figures/tools/register.js"
 import { ensureFigureToolsRegistered } from "../learning/figures/tools/register.js"
 import { ensureGoalToolsRegistered } from "../learning/goals/tools/register.js"
+import { ensureLearnerToolsRegistered } from "../learning/learner/tools/register.js"
 import { ensureTeachingToolsRegistered } from "../learning/teaching/tools/register.js"
 import { loadOpenCodeApp } from "../opencode-runtime/runtime.js"
 import { allowedDirectoryRoots, isAllowedDirectory, resolveDirectory } from "../project/directory.js"
@@ -30,6 +32,7 @@ export type ProxyToOpenCodeInput = {
   registerFigureTools?: boolean | ((body: Record<string, unknown>) => boolean)
   registerFreeformFigureTools?: boolean | ((body: Record<string, unknown>) => boolean)
   registerGoalTools?: boolean | ((body: Record<string, unknown>) => boolean)
+  registerLearnerTools?: boolean | ((body: Record<string, unknown>) => boolean)
   registerTeachingTools?: boolean | ((body: Record<string, unknown>) => boolean)
 }
 
@@ -44,6 +47,7 @@ type FetchOpenCodeInput = {
   registerFigureTools?: boolean
   registerFreeformFigureTools?: boolean
   registerGoalTools?: boolean
+  registerLearnerTools?: boolean
   registerTeachingTools?: boolean
 }
 
@@ -149,6 +153,17 @@ export async function fetchOpenCode(input: FetchOpenCodeInput): Promise<Response
     )
   }
 
+  if (input.registerLearnerTools === true) {
+    registrations.push(
+      ensureLearnerToolsRegistered(input.directory).catch((error) => {
+        console.warn("Failed to register Buddy learner tools into OpenCode runtime:", error)
+      }),
+      ensureActivityToolsRegistered(input.directory).catch((error) => {
+        console.warn("Failed to register Buddy activity tools into OpenCode runtime:", error)
+      }),
+    )
+  }
+
   if (input.registerTeachingTools === true) {
     registrations.push(
       ensureTeachingToolsRegistered(input.directory).catch((error) => {
@@ -211,6 +226,7 @@ export async function proxyToOpenCode(c: Context, input: ProxyToOpenCodeInput): 
   let registerFreeformFigureTools =
     typeof input.registerFreeformFigureTools === "boolean" ? input.registerFreeformFigureTools : false
   let registerGoalTools = typeof input.registerGoalTools === "boolean" ? input.registerGoalTools : false
+  let registerLearnerTools = typeof input.registerLearnerTools === "boolean" ? input.registerLearnerTools : false
   let registerTeachingTools = typeof input.registerTeachingTools === "boolean" ? input.registerTeachingTools : false
 
   if (method !== "GET" && method !== "HEAD") {
@@ -231,6 +247,9 @@ export async function proxyToOpenCode(c: Context, input: ProxyToOpenCodeInput): 
         }
         if (typeof input.registerGoalTools === "function") {
           registerGoalTools = input.registerGoalTools(transformed)
+        }
+        if (typeof input.registerLearnerTools === "function") {
+          registerLearnerTools = input.registerLearnerTools(transformed)
         }
         if (typeof input.registerTeachingTools === "function") {
           registerTeachingTools = input.registerTeachingTools(transformed)
@@ -262,6 +281,7 @@ export async function proxyToOpenCode(c: Context, input: ProxyToOpenCodeInput): 
     registerFigureTools,
     registerFreeformFigureTools,
     registerGoalTools,
+    registerLearnerTools,
     registerTeachingTools,
   })
 
