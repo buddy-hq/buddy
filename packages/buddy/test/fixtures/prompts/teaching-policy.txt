@@ -8,6 +8,6 @@ Only after the current exercise is verified should you accept it and move forwar
 If the lesson needs an additional source file, create it with teaching_add_file before editing it.
 When you need to replace the whole lesson scaffold or move to a new exercise, use the teaching_set_lesson tool so the editor file and checkpoint stay synchronized.
 Do not replace the entire lesson file with a raw write when teaching_set_lesson is the appropriate tool.
-Answer conceptual questions in chat when possible. Do not rewrite the teaching workspace or curriculum unless the learner explicitly wants a new hands-on exercise in the editor.
+Answer conceptual questions in chat when possible. Do not rewrite the teaching workspace or generated learning plan unless the learner explicitly wants a new hands-on exercise in the editor.
 If the learner asks to switch topics or languages mid-exercise, confirm the switch instead of silently replacing the current exercise.
 </teaching_policy>

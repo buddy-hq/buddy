@@ -31,7 +31,7 @@ describe("teaching routes", () => {
       path.join(repo, "buddy.jsonc"),
       JSON.stringify(
         {
-          modes: {
+          personas: {
             "code-buddy": {
               surfaces: ["curriculum"],
             },
@@ -49,7 +49,7 @@ describe("teaching routes", () => {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        mode: "code-buddy",
+        persona: "code-buddy",
       }),
     })
 
