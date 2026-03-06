@@ -2,7 +2,7 @@ import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { createPlatformJsonStorage } from "../context/platform"
 
-export const TEACHING_MODE_STORAGE_KEY = "buddy.teaching.v2"
+export const TEACHING_RUNTIME_STORAGE_KEY = "buddy.teaching.runtime.v1"
 
 export const TEACHING_LANGUAGE_OPTIONS = [
   { value: "txt", label: "Plain Text", monacoLanguage: "plaintext" },
@@ -125,11 +125,30 @@ export type TeachingWorkspaceState = TeachingWorkspace & {
   selection?: TeachingSelection
 }
 
-export type TeachingModeState = {
-  selectedModeBySession: Record<string, string>
+export type TeachingIntent = "learn" | "practice" | "assess"
+export type TeachingIntentSelection = TeachingIntent | "auto"
+
+export const TEACHING_INTENT_OPTIONS = [
+  { value: "auto", label: "Auto" },
+  { value: "learn", label: "Learn" },
+  { value: "practice", label: "Practice" },
+  { value: "assess", label: "Assess" },
+] as const satisfies Array<{
+  value: TeachingIntentSelection
+  label: string
+}>
+
+export function intentOverrideFromSelection(selection: TeachingIntentSelection) {
+  return selection === "auto" ? undefined : selection
+}
+
+export type TeachingRuntimeState = {
+  selectedPersonaBySession: Record<string, string>
+  selectedIntentBySession: Record<string, TeachingIntentSelection>
   preferredLanguageBySession: Record<string, TeachingLanguage>
   workspaceBySession: Record<string, TeachingWorkspaceState>
-  setSessionMode: (sessionKey: string, mode: string) => void
+  setSessionPersona: (sessionKey: string, persona: string) => void
+  setSessionIntent: (sessionKey: string, intent: TeachingIntentSelection) => void
   setPreferredLanguage: (sessionKey: string, language: TeachingLanguage) => void
   setWorkspace: (sessionKey: string, workspace: TeachingWorkspace) => void
   updateWorkspaceCode: (sessionKey: string, code: string) => void
@@ -147,7 +166,7 @@ export function teachingSessionKey(directory: string, sessionID: string) {
 }
 
 function withWorkspace(
-  state: TeachingModeState,
+  state: TeachingRuntimeState,
   sessionKey: string,
   fn: (workspace: TeachingWorkspaceState) => TeachingWorkspaceState,
 ) {
@@ -159,17 +178,26 @@ function withWorkspace(
   }
 }
 
-export const useTeachingMode = create<TeachingModeState>()(
+export const useTeachingRuntime = create<TeachingRuntimeState>()(
   persist(
     (set) => ({
-      selectedModeBySession: {},
+      selectedPersonaBySession: {},
+      selectedIntentBySession: {},
       preferredLanguageBySession: {},
       workspaceBySession: {},
-      setSessionMode(sessionKey, mode) {
+      setSessionPersona(sessionKey, persona) {
         set((state) => ({
-          selectedModeBySession: {
-            ...state.selectedModeBySession,
-            [sessionKey]: mode,
+          selectedPersonaBySession: {
+            ...state.selectedPersonaBySession,
+            [sessionKey]: persona,
+          },
+        }))
+      },
+      setSessionIntent(sessionKey, intent) {
+        set((state) => ({
+          selectedIntentBySession: {
+            ...state.selectedIntentBySession,
+            [sessionKey]: intent,
           },
         }))
       },
@@ -335,25 +363,42 @@ export const useTeachingMode = create<TeachingModeState>()(
       },
     }),
     {
-      name: TEACHING_MODE_STORAGE_KEY,
-      version: 3,
+      name: TEACHING_RUNTIME_STORAGE_KEY,
+      version: 5,
       storage: createPlatformJsonStorage("buddy.teaching.dat"),
       migrate(persistedState) {
-        const state =
-          (persistedState as
-            | (Partial<TeachingModeState> & {
-                selectedAgentBySession?: Record<string, string>
-              })
-            | undefined) ?? undefined
+        const state = (persistedState as Partial<TeachingRuntimeState> | undefined) ?? undefined
+        const selectedIntentBySession = { ...(state?.selectedIntentBySession ?? {}) }
+
+        const legacyStrategies = state as {
+          selectedStrategyBySession?: Record<string, string>
+          selectedAdaptivityBySession?: Record<string, string>
+        } | undefined
+        for (const sessionKey of Object.keys(legacyStrategies?.selectedStrategyBySession ?? {})) {
+          const legacyAdaptivity = legacyStrategies?.selectedAdaptivityBySession?.[sessionKey]
+          if (legacyAdaptivity === "adaptive") {
+            selectedIntentBySession[sessionKey] = "auto"
+            continue
+          }
+
+          const legacyStrategy = legacyStrategies?.selectedStrategyBySession?.[sessionKey]
+          selectedIntentBySession[sessionKey] =
+            legacyStrategy === "practice" || legacyStrategy === "assessment"
+              ? (legacyStrategy === "assessment" ? "assess" : "practice")
+              : "learn"
+        }
+
         return {
-          selectedModeBySession: state?.selectedModeBySession ?? state?.selectedAgentBySession ?? {},
+          selectedPersonaBySession: state?.selectedPersonaBySession ?? {},
+          selectedIntentBySession,
           preferredLanguageBySession: state?.preferredLanguageBySession ?? {},
           workspaceBySession: {},
         }
       },
       partialize(state) {
         return {
-          selectedModeBySession: state.selectedModeBySession,
+          selectedPersonaBySession: state.selectedPersonaBySession,
+          selectedIntentBySession: state.selectedIntentBySession,
           preferredLanguageBySession: state.preferredLanguageBySession,
         }
       },
