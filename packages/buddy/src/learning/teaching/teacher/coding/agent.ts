@@ -6,13 +6,16 @@ import CODE_BUDDY_OVERLAY from "./code-buddy-overlay.p.md"
 export const CODE_BUDDY = registerBuddyAgent({
   key: "code-buddy",
   agent: createPrimaryAgent({
-    description: "Interactive code Buddy mode for the in-app lesson editor.",
+    description: "Interactive code Buddy persona for the in-app lesson editor.",
     prompt: [BUDDY_BASE_PROMPT.trim(), CODE_BUDDY_OVERLAY.trim()].join("\n\n"),
     steps: 8,
-    availableSubagents: [],
+    availableSubagents: ["curriculum-orchestrator", "goal-writer", "practice-agent", "assessment-agent"],
     permission: {
       question: "allow",
       plan_enter: "allow",
+      learner_state_query: "allow",
+      practice_record: "allow",
+      assessment_record: "allow",
       teaching_start_lesson: "allow",
       teaching_checkpoint: "allow",
       teaching_add_file: "allow",

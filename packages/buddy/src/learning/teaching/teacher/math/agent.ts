@@ -6,13 +6,16 @@ import MATH_BUDDY_OVERLAY from "./math-buddy-overlay.p.md"
 export const MATH_BUDDY = registerBuddyAgent({
   key: "math-buddy",
   agent: createPrimaryAgent({
-    description: "Chat-first math Buddy mode with inline constrained geometry and unrestricted SVG figures.",
+    description: "Chat-first math Buddy persona with inline constrained geometry and unrestricted SVG figures.",
     prompt: [BUDDY_BASE_PROMPT.trim(), MATH_BUDDY_OVERLAY.trim()].join("\n\n"),
     steps: 8,
-    availableSubagents: [],
+    availableSubagents: ["curriculum-orchestrator", "goal-writer", "practice-agent", "assessment-agent"],
     permission: {
       question: "allow",
       plan_enter: "allow",
+      learner_state_query: "allow",
+      practice_record: "allow",
+      assessment_record: "allow",
       render_figure: "allow",
       render_freeform_figure: "allow",
       teaching_start_lesson: "deny",
