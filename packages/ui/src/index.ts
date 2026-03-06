@@ -21,6 +21,7 @@ export {
   DialogTitle,
   DialogTrigger,
 } from "./components/ui/dialog";
+export { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./components/ui/collapsible";
 export {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -43,6 +44,7 @@ export { NativeSelect, NativeSelectOptGroup, NativeSelectOption } from "./compon
 export { Separator } from "./components/ui/separator";
 export { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "./components/ui/select";
 export { Switch } from "./components/ui/switch";
+export { ToggleGroup, ToggleGroupItem } from "./components/ui/toggle-group";
 export { Toaster } from "./components/ui/sonner";
 export { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 export { Textarea } from "./components/ui/textarea";
