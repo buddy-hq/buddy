@@ -7,12 +7,12 @@ import { withSyncedOpenCodeConfig } from "../../helpers/opencode.js"
 import { withRepo } from "../helpers"
 
 describe("parity.agent", () => {
-  test("rejects non-mode values for default_mode", async () => {
+  test("rejects non-persona values for default_persona", async () => {
     await withRepo(async (directory) => {
       writeFileSync(
         path.join(directory, "buddy.jsonc"),
         JSON.stringify({
-          default_mode: "curriculum-builder",
+          default_persona: "curriculum-orchestrator",
         }),
       )
 
@@ -22,12 +22,12 @@ describe("parity.agent", () => {
     })
   })
 
-  test("orders configured default mode first in list", async () => {
+  test("orders configured default persona first in list", async () => {
     await withRepo(async (directory) => {
       writeFileSync(
         path.join(directory, "buddy.jsonc"),
         JSON.stringify({
-          default_mode: "code-buddy",
+          default_persona: "code-buddy",
         }),
       )
 
@@ -37,7 +37,7 @@ describe("parity.agent", () => {
       expect(listed.some((entry) => entry.name === "build")).toBe(true)
       expect(listed.some((entry) => entry.name === "plan")).toBe(true)
       expect(listed.some((entry) => entry.name === "explore")).toBe(true)
-      expect(listed.some((entry) => entry.name === "curriculum-builder")).toBe(true)
+      expect(listed.some((entry) => entry.name === "curriculum-orchestrator")).toBe(true)
     })
   })
 
@@ -65,20 +65,20 @@ describe("parity.agent", () => {
     })
   })
 
-  test("preserves curriculum-builder defaults when applying partial overrides", async () => {
+  test("preserves curriculum-orchestrator defaults when applying partial overrides", async () => {
     await withRepo(async (directory) => {
       writeFileSync(
         path.join(directory, "buddy.jsonc"),
         JSON.stringify({
           agent: {
-            "curriculum-builder": {
+            "curriculum-orchestrator": {
               description: "patched curriculum only",
             },
           },
         }),
       )
 
-      const agent = await withSyncedOpenCodeConfig(directory, () => OpenCodeAgent.get("curriculum-builder"))
+      const agent = await withSyncedOpenCodeConfig(directory, () => OpenCodeAgent.get("curriculum-orchestrator"))
 
       expect(agent).toBeDefined()
       expect(agent?.description).toBe("patched curriculum only")

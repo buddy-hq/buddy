@@ -38,8 +38,8 @@ describe("custom permission contract", () => {
   test("must accept curriculum_read with pattern-based rules", async () => {
     const customPermissionConfig = {
       curriculum_read: {
-        ".buddy/curriculum.md": "allow",
-        ".buddy/**/*.md": "ask",
+        ".buddy/context.json": "allow",
+        ".buddy/**": "ask",
       },
     }
 

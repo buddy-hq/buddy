@@ -1,22 +1,15 @@
 import { describe, expect, test } from "bun:test"
-import fs from "node:fs/promises"
-import path from "node:path"
-import { commitGoalsV1Set } from "../src/learning/goals/goals-v1.js"
+import { compileRuntimeProfile } from "../src/learning/runtime/compiler.js"
+import { LearnerService } from "../src/learning/learner/service.js"
 import { composeLearningSystemPrompt } from "../src/learning/shared/compose-system-prompt.js"
+import { getBuddyPersona } from "../src/personas/catalog.js"
 import { tmpdir } from "./fixture/fixture"
 
-describe("composeLearningSystemPrompt (goals.v1)", () => {
-  test("injects <learning_goals> and skips legacy <curriculum> when active goals exist", async () => {
+describe("composeLearningSystemPrompt (learner store)", () => {
+  test("injects learner-state context from the cross-notebook learner store", async () => {
     await using project = await tmpdir({ git: true })
 
-    await fs.mkdir(path.join(project.path, ".buddy"), { recursive: true })
-    await fs.writeFile(
-      path.join(project.path, ".buddy", "curriculum.md"),
-      ["# Learning Curriculum", "", "## Starter", "- [ ] Legacy curriculum task", ""].join("\n"),
-      "utf8",
-    )
-
-    await commitGoalsV1Set({
+    const committed = await LearnerService.commitGoals({
       directory: project.path,
       scope: "topic",
       contextLabel: "Tauri IPC",
@@ -30,32 +23,48 @@ describe("composeLearningSystemPrompt (goals.v1)", () => {
           cognitiveLevel: "Application",
           howToTest: "Run a smoke test that exercises both valid and invalid inputs and inspects the error structure.",
         },
-        {
-          statement:
-            "At the end of this topic, you will be able to debug an IPC failure by inspecting logs and payloads.",
-          actionVerb: "debug",
-          task: "Debug an IPC failure by inspecting logs and payloads.",
-          cognitiveLevel: "Application",
-          howToTest: "Reproduce a failure and capture logs that prove where the message is failing.",
-        },
-        {
-          statement:
-            "At the end of this topic, you will be able to write a focused regression test that proves an IPC bug is fixed.",
-          actionVerb: "write",
-          task: "Write a focused regression test that proves an IPC bug is fixed.",
-          cognitiveLevel: "Application",
-          howToTest: "Create a failing test for a known issue, apply the fix, and verify the test passes.",
-        },
       ],
     })
 
+    const workspace = await LearnerService.ensureWorkspaceContext(project.path)
+    const digest = await LearnerService.queryForPrompt({
+      directory: project.path,
+      query: {
+        workspaceId: workspace.workspaceId,
+        persona: "buddy",
+        intent: "learn",
+        focusGoalIds: committed.goalIds,
+        tokenBudget: 1200,
+      },
+    })
+    const runtimeProfile = compileRuntimeProfile({
+      persona: getBuddyPersona("buddy"),
+      workspaceState: "chat",
+      intentOverride: "learn",
+    })
+    const activityBundle = runtimeProfile.capabilityEnvelope.activityBundles.find((bundle) => bundle.id === "learn-worked-example")
+
     const system = await composeLearningSystemPrompt({
       directory: project.path,
-      modeID: "buddy",
-      userContent: "hello",
+      runtimeProfile,
+      learnerDigest: digest,
+      activityBundle,
+      intentOverride: "learn",
+      focusGoalIds: committed.goalIds,
+      userContent: "what skills and tools do you have",
     })
 
-    expect(system).toContain("<learning_goals>")
-    expect(system).not.toContain("<curriculum>\nPath:")
+    expect(system).toContain("<buddy_turn_context>")
+    expect(system).toContain("<buddy_capability_snapshot>")
+    expect(system).toContain("<activity_capabilities>")
+    expect(system).toContain("<selected_activity_bundle>")
+    expect(system).toContain("Direct Buddy tools: assessment_record, learner_state_query, practice_record")
+    expect(system).toContain("Activity tools:")
+    expect(system).toContain("activity_explanation")
+    expect(system).toContain("activity_worked_example")
+    expect(system).toContain("buddy-learn-worked-example")
+    expect(system).toContain("buddy-learn-explanation")
+    expect(system).toContain("implement a Tauri command that validates inputs")
+    expect(system).toContain("State: chat")
   })
 })

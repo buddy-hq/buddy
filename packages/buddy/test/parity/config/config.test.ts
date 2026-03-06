@@ -6,13 +6,13 @@ describe("parity.config.config", () => {
   test("updates and reads project config values", async () => {
     await withRepo(async (directory) => {
       await Config.updateProject(directory, {
-        default_mode: "code-buddy",
+        default_persona: "code-buddy",
         model: "anthropic/k2p5",
         small_model: "anthropic/mini",
       })
 
       const loaded = await Config.getProject(directory)
-      expect(loaded.default_mode).toBe("code-buddy")
+      expect(loaded.default_persona).toBe("code-buddy")
       expect(loaded.model).toBe("anthropic/k2p5")
       expect(loaded.small_model).toBe("anthropic/mini")
     })
@@ -27,7 +27,7 @@ describe("parity.config.config", () => {
         [
           "{",
           '  "model": "anthropic/k2p5",',
-          '  "default_mode":',
+          '  "default_persona":',
           "}",
         ].join("\n"),
       )

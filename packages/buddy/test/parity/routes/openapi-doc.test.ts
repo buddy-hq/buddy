@@ -17,6 +17,7 @@ describe("parity.routes.openapi-doc", () => {
       "/api/global/config",
       "/api/global/dispose",
       "/api/config/agents",
+      "/api/config/personas",
       "/api/config",
       "/api/config/providers",
       "/api/project",
@@ -28,7 +29,13 @@ describe("parity.routes.openapi-doc", () => {
       "/api/session/{sessionID}",
       "/api/session/{sessionID}/message",
       "/api/session/{sessionID}/abort",
-      "/api/curriculum",
+      "/api/learner/state",
+      "/api/learner/goals",
+      "/api/learner/progress",
+      "/api/learner/review",
+      "/api/learner/curriculum-view",
+      "/api/learner/context",
+      "/api/learner/rebuild",
     ]
 
     for (const path of requiredPaths) {
@@ -42,6 +49,7 @@ describe("parity.routes.openapi-doc", () => {
       { path: "/api/global/config", method: "patch", operationId: "global.config.patch" },
       { path: "/api/global/dispose", method: "post", operationId: "global.dispose" },
       { path: "/api/config/agents", method: "get", operationId: "config.agents" },
+      { path: "/api/config/personas", method: "get", operationId: "config.personas" },
       { path: "/api/project", method: "get", operationId: "project.list" },
       { path: "/api/project/current", method: "get", operationId: "project.current" },
       { path: "/api/project/{projectID}", method: "patch", operationId: "project.update" },
@@ -55,8 +63,13 @@ describe("parity.routes.openapi-doc", () => {
       { path: "/api/permission", method: "get", operationId: "permission.list" },
       { path: "/api/permission/{requestID}/reply", method: "post", operationId: "permission.reply" },
       { path: "/api/config/providers", method: "get", operationId: "config.providers" },
-      { path: "/api/curriculum", method: "get", operationId: "curriculum.get" },
-      { path: "/api/curriculum", method: "put", operationId: "curriculum.put" },
+      { path: "/api/learner/state", method: "get", operationId: "learner.state" },
+      { path: "/api/learner/goals", method: "get", operationId: "learner.goals" },
+      { path: "/api/learner/progress", method: "get", operationId: "learner.progress" },
+      { path: "/api/learner/review", method: "get", operationId: "learner.review" },
+      { path: "/api/learner/curriculum-view", method: "get", operationId: "learner.curriculumView" },
+      { path: "/api/learner/context", method: "post", operationId: "learner.context" },
+      { path: "/api/learner/rebuild", method: "post", operationId: "learner.rebuild" },
     ] as const
 
     for (const operation of requiredOperations) {
