@@ -1,17 +1,19 @@
 import { useEffect, useMemo, useState } from "react"
 import {
-  loadModeCatalog,
+  loadPersonaCatalog,
   loadProjectConfig,
   loadProviderCatalog,
   patchProjectConfig,
-  type ModeConfigOption,
+  type PersonaConfigOption,
 } from "./chat-actions"
+import type { TeachingIntentSelection } from "./teaching-runtime"
 import type { ProviderCatalogState } from "./chat-types"
 
 export type LogLevel = "debug" | "info" | "warn" | "error"
 
 type ProjectSettingsDraft = {
-  mode: string
+  persona: string
+  intent: TeachingIntentSelection
   provider: string
   model: string
   logLevel: LogLevel | ""
@@ -23,7 +25,7 @@ type ProjectSettingsState = {
   error?: string
   projectConfig: Record<string, unknown>
   providerCatalog: ProviderCatalogState
-  modeCatalog: ModeConfigOption[]
+  personaCatalog: PersonaConfigOption[]
   draft: ProjectSettingsDraft
   modelSelectionDirty: boolean
 }
@@ -34,7 +36,8 @@ const EMPTY_PROVIDER_CATALOG: ProviderCatalogState = {
 }
 
 const EMPTY_DRAFT: ProjectSettingsDraft = {
-  mode: "",
+  persona: "",
+  intent: "auto",
   provider: "",
   model: "",
   logLevel: "",
@@ -84,7 +87,7 @@ function connectedProviders(catalog: ProviderCatalogState) {
 function buildDraft(input: {
   config: Record<string, unknown>
   providerCatalog: ProviderCatalogState
-  modes: ModeConfigOption[]
+  personas: PersonaConfigOption[]
 }): ProjectSettingsDraft {
   const model = parseModel(readString(input.config, "model"))
   const connected = connectedProviders(input.providerCatalog)
@@ -97,14 +100,19 @@ function buildDraft(input: {
     ? model.modelID
     : input.providerCatalog.default[initialProvider] ?? availableModels[0]?.id ?? ""
   const logLevel = readString(input.config, "logLevel")
-  const selectableModes = input.modes.filter((mode) => !mode.hidden)
-  const configuredDefaultMode = readString(input.config, "default_mode")
+  const selectablePersonas = input.personas.filter((persona) => !persona.hidden)
+  const configuredDefaultPersona = readString(input.config, "default_persona")
+  const configuredDefaultIntent = readString(input.config, "default_intent")
 
   return {
-    mode:
-      configuredDefaultMode && selectableModes.some((mode) => mode.id === configuredDefaultMode)
-        ? configuredDefaultMode
+    persona:
+      configuredDefaultPersona && selectablePersonas.some((persona) => persona.id === configuredDefaultPersona)
+        ? configuredDefaultPersona
         : "",
+    intent:
+      configuredDefaultIntent === "learn" || configuredDefaultIntent === "practice" || configuredDefaultIntent === "assess"
+        ? configuredDefaultIntent
+        : "auto",
     provider: initialProvider,
     model: initialModel,
     logLevel:
@@ -119,7 +127,7 @@ function emptyState(): ProjectSettingsState {
     error: undefined,
     projectConfig: {},
     providerCatalog: EMPTY_PROVIDER_CATALOG,
-    modeCatalog: [],
+    personaCatalog: [],
     draft: EMPTY_DRAFT,
     modelSelectionDirty: false,
   }
@@ -146,12 +154,12 @@ export function useProjectSettings(directory: string, open: boolean) {
     }))
 
     try {
-      const [config, providerCatalog, modes] = await Promise.all([
+      const [config, providerCatalog, personas] = await Promise.all([
         loadProjectConfig(directory),
         loadProviderCatalog(directory),
-        loadModeCatalog(directory),
+        loadPersonaCatalog(directory),
       ])
-      const selectableModes = modes.filter((mode) => !mode.hidden)
+      const selectablePersonas = personas.filter((persona) => !persona.hidden)
 
       setState({
         loading: false,
@@ -159,11 +167,11 @@ export function useProjectSettings(directory: string, open: boolean) {
         error: undefined,
         projectConfig: config,
         providerCatalog,
-        modeCatalog: selectableModes,
+        personaCatalog: selectablePersonas,
         draft: buildDraft({
           config,
           providerCatalog,
-          modes,
+          personas,
         }),
         modelSelectionDirty: false,
       })
@@ -186,13 +194,19 @@ export function useProjectSettings(directory: string, open: boolean) {
 
   async function save() {
     const patch: Record<string, unknown> = {}
-    const currentMode = readString(state.projectConfig, "default_mode")
+    const currentPersona = readString(state.projectConfig, "default_persona")
+    const currentIntent = readString(state.projectConfig, "default_intent")
     const currentModel = readString(state.projectConfig, "model")
     const currentLogLevel = readString(state.projectConfig, "logLevel")
-    const nextMode = state.draft.mode.trim()
+    const nextPersona = state.draft.persona.trim()
 
-    if (nextMode && nextMode !== currentMode) {
-      patch.default_mode = nextMode
+    if (nextPersona && nextPersona !== currentPersona) {
+      patch.default_persona = nextPersona
+    }
+
+    const nextIntent = state.draft.intent === "auto" ? "" : state.draft.intent
+    if (nextIntent !== currentIntent) {
+      patch.default_intent = nextIntent || null
     }
 
     if (state.modelSelectionDirty && state.draft.provider && state.draft.model) {
@@ -243,24 +257,34 @@ export function useProjectSettings(directory: string, open: boolean) {
       providerMessage: connected.length === 0 ? "Connect a provider to choose a model." : undefined,
     },
     options: {
-      modes: state.modeCatalog,
+      personas: state.personaCatalog,
       providers: connected,
       allProviders: state.providerCatalog.providers,
       providerModels,
     },
     selection: {
-      mode: state.draft.mode,
+      persona: state.draft.persona,
+      intent: state.draft.intent,
       provider: state.draft.provider,
       model: state.draft.model,
       logLevel: state.draft.logLevel,
     },
     actions: {
-      setMode(mode: string) {
+      setPersona(persona: string) {
         setState((current) => ({
           ...current,
           draft: {
             ...current.draft,
-            mode,
+            persona,
+          },
+        }))
+      },
+      setIntent(intent: TeachingIntentSelection) {
+        setState((current) => ({
+          ...current,
+          draft: {
+            ...current.draft,
+            intent,
           },
         }))
       },

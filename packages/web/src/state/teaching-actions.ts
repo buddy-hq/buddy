@@ -1,4 +1,4 @@
-import type { TeachingLanguage, TeachingWorkspace } from "./teaching-mode"
+import type { TeachingLanguage, TeachingWorkspace } from "./teaching-runtime"
 import { apiFetch, requestJson, stringifyError } from "../lib/api-client"
 
 export type TeachingConflictPayload = {
@@ -22,19 +22,40 @@ export async function ensureTeachingWorkspace(input: {
   directory: string
   sessionID: string
   language?: TeachingLanguage
-  mode?: string
+  persona?: string
 }) {
   return requestJson<TeachingWorkspace>(input.directory, `/api/teaching/session/${encodeURIComponent(input.sessionID)}/workspace`, {
     method: "POST",
     body: {
       language: input.language,
-      mode: input.mode,
+      persona: input.persona,
     },
   })
 }
 
 export async function loadTeachingWorkspace(input: { directory: string; sessionID: string }) {
   return requestJson<TeachingWorkspace>(input.directory, `/api/teaching/session/${encodeURIComponent(input.sessionID)}/workspace`)
+}
+
+export async function probeTeachingWorkspace(input: { directory: string; sessionID: string }) {
+  const response = await apiFetch(
+    `/api/teaching/session/${encodeURIComponent(input.sessionID)}/workspace?optional=1`,
+    {
+      directory: input.directory,
+    },
+  )
+
+  if (response.status === 204) {
+    return undefined
+  }
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => undefined)) as { error?: string; message?: string } | undefined
+    const message = payload?.error ?? payload?.message ?? `Request failed (${response.status})`
+    throw new Error(message)
+  }
+
+  return (await response.json()) as TeachingWorkspace
 }
 
 export async function saveTeachingWorkspace(input: {

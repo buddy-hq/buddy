@@ -8,19 +8,12 @@ import type {
   ProviderInfo,
   SessionInfo,
 } from "./chat-types"
-import type { TeachingPromptContext } from "./teaching-mode"
+import type { TeachingIntent, TeachingPromptContext } from "./teaching-runtime"
 import { apiFetch, requestJson, stringifyError } from "../lib/api-client"
 import { getOpenCodeClient } from "../lib/opencode-client"
 import type { PromptAttachmentPart, PromptFilePart } from "../components/prompt/prompt-types"
 
-export type AgentConfigOption = {
-  name: string
-  description?: string
-  mode: "subagent" | "primary" | "all"
-  hidden?: boolean
-}
-
-export type ModeConfigOption = {
+export type PersonaConfigOption = {
   id: string
   label: string
   description?: string
@@ -29,13 +22,196 @@ export type ModeConfigOption = {
   hidden?: boolean
 }
 
+export type LearnerCurriculumView = {
+  workspace: {
+    workspaceId: string
+    label: string
+    tags: string[]
+    pinnedGoalIds: string[]
+    projectConstraints: string[]
+    localToolAvailability: string[]
+    preferredSurfaces: Array<"chat" | "curriculum" | "editor" | "figure" | "quiz">
+    motivationContext?: string
+    opportunities: string[]
+    userOverride: boolean
+    createdAt: string
+    updatedAt: string
+  }
+  coldStart: boolean
+  recommendedNextAction: string
+  sessionPlan: {
+    warmupReviewGoalIds: string[]
+    primaryGoalId?: string
+    suggestedActivity: string
+    suggestedScaffoldingLevel: string
+    alternatives: string[]
+    rationale: string[]
+    motivationHook?: string
+    constraintsConsidered: string[]
+    prerequisiteWarnings: string[]
+  }
+  alignmentSummary: {
+    records: Array<{
+      goalId: string
+      practiceCount: number
+      assessmentCount: number
+      assessmentFormats: string[]
+      coverage: "missing" | "partial" | "complete"
+      suiteComplete: boolean
+      orphanedRefs: string[]
+      recommendation: string
+    }>
+    incompleteGoalIds: string[]
+    recommendations: string[]
+  }
+  openFeedbackActions: Array<{
+    feedbackId: string
+    goalIds: string[]
+    requiredAction: string
+    scaffoldingLevel: string
+    pattern?: string
+    createdAt: string
+  }>
+  actions: Array<{
+    actionId:
+      | "define-goals"
+      | "start-practice"
+      | "run-check"
+      | "review-due"
+      | "resolve-feedback"
+      | "understand-next"
+    label: string
+    prompt: string
+    intent: TeachingIntent
+    activityBundleId?: string
+    activityBundleLabel?: string
+    focusGoalIds: string[]
+    reason: string
+  }>
+  activityBundles: Array<{
+    id: string
+    activity: string
+    label: string
+    intent: TeachingIntent
+    mode: "skill" | "tool" | "hybrid"
+    description: string
+    autoEligible: boolean
+    whenToUse: string[]
+    outputs: string[]
+    skills: string[]
+    tools: string[]
+    subagents: string[]
+  }>
+  constraintsSummary: string[]
+  markdown: string
+  sections: Array<{
+    title: string
+    items: string[]
+  }>
+}
+
 export type PromptCommandOption = {
   name: string
   description?: string
   source?: "command" | "mcp" | "skill"
 }
 
-const BUDDY_MODE_DEFAULT_ORDER = ["buddy", "code-buddy", "math-buddy"] as const
+export type TeachingSessionSnapshot = {
+  sessionId: string
+  persona: string
+  intentOverride?: TeachingIntent
+  currentSurface: string
+  workspaceState: "chat" | "interactive"
+  focusGoalIds: string[]
+}
+
+export type RuntimeInspectorSnapshot = {
+  sessionId: string
+  persona: string
+  intentOverride?: TeachingIntent
+  currentSurface: string
+  workspaceState: "chat" | "interactive"
+  focusGoalIds: string[]
+  inspector: {
+    runtimeAgent: string
+    capabilityEnvelope: {
+      visibleSurfaces: string[]
+      defaultSurface: string
+      tools: Record<string, "allow" | "deny">
+      subagents: Record<string, "allow" | "deny" | "prefer">
+      skills: Record<string, "allow" | "deny">
+      activityBundles: Array<{
+        id: string
+        activity: string
+        label: string
+        intent: TeachingIntent
+        mode: "skill" | "tool" | "hybrid"
+        description: string
+        autoEligible: boolean
+        whenToUse: string[]
+        outputs: string[]
+        skills: string[]
+        tools: string[]
+        subagents: string[]
+      }>
+    }
+    learnerDigest: {
+      coldStart: boolean
+      workspaceLabel: string
+      workspaceTags: string[]
+      relevantGoalIds: string[]
+      recommendedNextAction: string
+      constraintsSummary: string[]
+      openFeedbackActions: string[]
+      sessionPlanSummary: string[]
+      alignmentSummary: string[]
+      tier1: string[]
+      tier2: string[]
+      tier3: string[]
+    }
+    advisorySuggestions: string[]
+    stableHeader: string
+    turnContext: string
+    stableHeaderSections: Array<{
+      kind: string
+      label: string
+      text: string
+    }>
+    turnContextSections: Array<{
+      kind: string
+      label: string
+      text: string
+    }>
+    promptInjectionAudit?: {
+      matrixVersion: string
+      triggerIDs: string[]
+      matrix: Array<{
+        id: string
+        description: string
+        forceInjectStableHeader: boolean
+        forceInjectTurnContext: boolean
+        forceStableHeaderKinds: string[]
+        forceTurnContextKinds: string[]
+        alwaysIncludeTurnContextKinds: string[]
+      }>
+      appliedPolicy: {
+        forceInjectStableHeader: boolean
+        forceInjectTurnContext: boolean
+        forceStableHeaderKinds: string[]
+        forceTurnContextKinds: string[]
+        alwaysIncludeTurnContextKinds: string[]
+      }
+      decision: {
+        injectStableHeader: boolean
+        injectTurnContext: boolean
+        changedStableHeaderSectionKeys: string[]
+        changedTurnContextSectionKeys: string[]
+      }
+    }
+  }
+}
+
+const BUDDY_PERSONA_DEFAULT_ORDER = ["buddy", "code-buddy", "math-buddy"] as const
 
 function normalizeProjectDirectory(directory: string) {
   const normalized = directory.trim().replace(/\/+$/, "")
@@ -45,23 +221,23 @@ function normalizeProjectDirectory(directory: string) {
   return normalized
 }
 
-export function resolveDefaultModeID(
-  modes: ModeConfigOption[],
-  configuredDefaultMode?: string,
+export function resolveDefaultPersonaID(
+  personas: PersonaConfigOption[],
+  configuredDefaultPersona?: string,
 ): string | undefined {
-  const selectableModes = modes.filter((mode) => !mode.hidden)
+  const selectablePersonas = personas.filter((persona) => !persona.hidden)
 
-  if (configuredDefaultMode && selectableModes.some((mode) => mode.id === configuredDefaultMode)) {
-    return configuredDefaultMode
+  if (configuredDefaultPersona && selectablePersonas.some((persona) => persona.id === configuredDefaultPersona)) {
+    return configuredDefaultPersona
   }
 
-  for (const modeID of BUDDY_MODE_DEFAULT_ORDER) {
-    if (selectableModes.some((mode) => mode.id === modeID)) {
-      return modeID
+  for (const personaID of BUDDY_PERSONA_DEFAULT_ORDER) {
+    if (selectablePersonas.some((persona) => persona.id === personaID)) {
+      return personaID
     }
   }
 
-  return selectableModes[0]?.id
+  return selectablePersonas[0]?.id
 }
 
 type RawProvider = ProviderListResponse["all"][number]
@@ -362,7 +538,10 @@ export async function sendPrompt(
   content: string,
   input?: {
     parts?: PromptAttachmentPart[]
-    mode?: string
+    persona?: string
+    intent?: TeachingIntent
+    activityBundleId?: string
+    focusGoalIds?: string[]
     agent?: string
     model?: {
       providerID: string
@@ -397,7 +576,10 @@ export async function sendPrompt(
         body: {
           content,
           ...(input?.parts && input.parts.length > 0 ? { parts: input.parts } : {}),
-          ...(input?.mode ? { mode: input.mode } : {}),
+          ...(input?.persona ? { persona: input.persona } : {}),
+          ...(input?.intent ? { intent: input.intent } : {}),
+          ...(input?.activityBundleId ? { activityBundleId: input.activityBundleId } : {}),
+          ...(input?.focusGoalIds && input.focusGoalIds.length > 0 ? { focusGoalIds: input.focusGoalIds } : {}),
           ...(input?.agent ? { agent: input.agent } : {}),
           ...(input?.model ? { model: input.model } : {}),
           ...(input?.variant ? { variant: input.variant } : {}),
@@ -427,7 +609,8 @@ export async function sendCommand(
   argumentsText: string,
   input?: {
     parts?: PromptFilePart[]
-    mode?: string
+    persona?: string
+    intent?: TeachingIntent
     agent?: string
     model?: {
       providerID: string
@@ -456,7 +639,8 @@ export async function sendCommand(
           command,
           arguments: argumentsText,
           ...(input?.parts && input.parts.length > 0 ? { parts: input.parts } : {}),
-          ...(input?.mode ? { mode: input.mode } : {}),
+          ...(input?.persona ? { persona: input.persona } : {}),
+          ...(input?.intent ? { intent: input.intent } : {}),
           ...(input?.agent ? { agent: input.agent } : {}),
           ...(input?.model
             ? { model: `${input.model.providerID}/${input.model.modelID}` }
@@ -472,6 +656,58 @@ export async function sendCommand(
     void loadSessions(directory).catch(() => undefined)
     throw error
   }
+}
+
+export async function loadTeachingSessionState(directory: string, sessionID: string) {
+  const response = await apiFetch(
+    `/api/session/${encodeURIComponent(sessionID)}/teaching-state`,
+    {
+      directory,
+    },
+  )
+
+  if (response.status === 204) {
+    return undefined
+  }
+
+  if (!response.ok) {
+    let message = `Request failed with status ${response.status}`
+    try {
+      const data = await response.json()
+      message = stringifyError(data)
+    } catch {
+      // Ignore JSON parse failures and keep the default message.
+    }
+    throw new Error(message)
+  }
+
+  return (await response.json()) as TeachingSessionSnapshot
+}
+
+export async function loadRuntimeInspector(directory: string, sessionID: string) {
+  const response = await apiFetch(
+    `/api/session/${encodeURIComponent(sessionID)}/runtime-inspector`,
+    {
+      directory,
+    },
+  )
+
+  if (response.status === 204) {
+    return undefined
+  }
+
+  if (!response.ok) {
+    let message = `Request failed with status ${response.status}`
+    try {
+      const data = await response.json()
+      message = stringifyError(data)
+    } catch {
+      // Ignore JSON parse failures and keep the default message.
+    }
+    throw new Error(message)
+  }
+
+  return (await response.json()) as RuntimeInspectorSnapshot
 }
 
 export async function abortPrompt(directory: string) {
@@ -589,50 +825,31 @@ export async function updateSession(input: {
   }
 }
 
-export async function loadCurriculum(directory: string) {
-  const response = await apiFetch("/api/curriculum", {
+export async function loadCurriculumView(
+  directory: string,
+  input?: {
+    persona?: string
+    intent?: TeachingIntent
+    sessionID?: string
+  },
+) {
+  const query = new URLSearchParams()
+  if (input?.persona) query.set("persona", input.persona)
+  if (input?.intent) query.set("intent", input.intent)
+  if (input?.sessionID) query.set("sessionId", input.sessionID)
+  const search = query.toString()
+  return requestJson<LearnerCurriculumView>(
     directory,
-  })
-
-  if (!response.ok) {
-    const result = (await response.json().catch(() => undefined)) as { error?: string; message?: string } | undefined
-    throw new Error(result?.error ?? result?.message ?? `Request failed (${response.status})`)
-  }
-
-  const payload = (await response.json()) as { markdown: string }
-  return payload.markdown
+    `/api/learner/curriculum-view${search ? `?${search}` : ""}`,
+  )
 }
 
-export async function loadGoalsInspector(directory: string) {
-  const response = await apiFetch("/api/goals", {
-    directory,
-  })
-
-  if (!response.ok) {
-    const result = (await response.json().catch(() => undefined)) as { error?: string; message?: string } | undefined
-    throw new Error(result?.error ?? result?.message ?? `Request failed (${response.status})`)
-  }
-
-  return (await response.json()) as {
-    path: string
-    raw: string | null
-  }
+export async function loadLearnerGoals(directory: string) {
+  return requestJson<{ goals: Array<Record<string, unknown>> }>(directory, "/api/learner/goals")
 }
 
-export async function saveCurriculum(directory: string, markdown: string) {
-  const response = await apiFetch("/api/curriculum", {
-    method: "PUT",
-    directory,
-    body: { markdown },
-  })
-
-  if (!response.ok) {
-    const result = (await response.json().catch(() => undefined)) as { error?: string; message?: string } | undefined
-    throw new Error(result?.error ?? result?.message ?? `Request failed (${response.status})`)
-  }
-
-  const payload = (await response.json()) as { markdown: string }
-  return payload.markdown
+export async function loadLearnerProgress(directory: string) {
+  return requestJson<{ progress: Array<Record<string, unknown>> }>(directory, "/api/learner/progress")
 }
 
 export async function loadProjectConfig(directory: string) {
@@ -669,12 +886,8 @@ export async function saveProjectMcpConfig(directory: string, name: string, conf
   return (await response.json()) as Record<string, unknown>
 }
 
-export async function loadAgentCatalog(directory: string) {
-  return requestJson<AgentConfigOption[]>(directory, "/api/config/agents")
-}
-
-export async function loadModeCatalog(directory: string) {
-  return requestJson<ModeConfigOption[]>(directory, "/api/config/modes")
+export async function loadPersonaCatalog(directory: string) {
+  return requestJson<PersonaConfigOption[]>(directory, "/api/config/personas")
 }
 
 export async function loadCommandCatalog(directory: string) {

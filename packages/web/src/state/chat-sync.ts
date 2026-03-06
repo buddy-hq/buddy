@@ -204,7 +204,7 @@ export function startChatSync(handlers: SyncHandlers) {
       }
     }
 
-    const scheduleReconnect = () => {
+    const scheduleReconnect = (notifyError = true) => {
       if (disposed) return
       attempt += 1
       const delay = Math.min(10_000, 500 * attempt)
@@ -212,7 +212,9 @@ export function startChatSync(handlers: SyncHandlers) {
         connect()
       }, delay)
       handlers.onStatus?.("error")
-      handlers.onError?.(new Error(`Event stream disconnected (attempt ${attempt})`))
+      if (notifyError) {
+        handlers.onError?.(new Error(`Event stream disconnected (attempt ${attempt})`))
+      }
     }
 
     if (requiresFetchStream) {
@@ -267,7 +269,7 @@ export function startChatSync(handlers: SyncHandlers) {
         } catch (error) {
           if (disposed) return
           console.warn("[chat-sync] error", { attempt: attempt + 1 })
-          scheduleReconnect()
+          scheduleReconnect(true)
           return
         } finally {
           closeStream()
@@ -275,7 +277,7 @@ export function startChatSync(handlers: SyncHandlers) {
 
         if (!disposed) {
           console.warn("[chat-sync] error", { attempt: attempt + 1 })
-          scheduleReconnect()
+          scheduleReconnect(false)
         }
       })()
 
@@ -301,7 +303,7 @@ export function startChatSync(handlers: SyncHandlers) {
     source.onerror = () => {
       console.warn("[chat-sync] error", { attempt: attempt + 1 })
       closeSource()
-      scheduleReconnect()
+      scheduleReconnect(true)
     }
   }
 
