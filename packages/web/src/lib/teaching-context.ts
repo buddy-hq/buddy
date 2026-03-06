@@ -1,4 +1,4 @@
-import type { TeachingPromptContext, TeachingWorkspace, TeachingWorkspaceState } from "../state/teaching-mode"
+import type { TeachingPromptContext, TeachingWorkspace, TeachingWorkspaceState } from "../state/teaching-runtime"
 
 type TeachingWorkspaceContextSource = TeachingWorkspace | TeachingWorkspaceState
 

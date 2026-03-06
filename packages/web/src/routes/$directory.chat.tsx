@@ -29,26 +29,26 @@ import { pickProjectDirectory } from "../lib/directory-picker"
 import { decodeDirectory, encodeDirectory } from "../lib/directory-token"
 import { getSessionFamily } from "../lib/session-family"
 import {
-  type AgentConfigOption,
-  type ModeConfigOption,
+  type LearnerCurriculumView,
+  type PersonaConfigOption,
   type PromptCommandOption,
   abortPrompt,
   ensureDirectorySession,
   findWorkspaceFiles,
-  loadAgentCatalog,
   loadCommandCatalog,
-  loadModeCatalog,
+  loadPersonaCatalog,
   loadMcpStatus,
   loadPermissions,
   loadOpenProjects,
   loadProjectConfig,
+  loadTeachingSessionState,
   loadMessages,
   loadSessions,
   preloadProjectSessions,
   replyPermission,
   openProject,
   resyncDirectory,
-  resolveDefaultModeID,
+  resolveDefaultPersonaID,
   selectSession,
   sendCommand,
   sendPrompt,
@@ -64,6 +64,7 @@ import {
   createTeachingWorkspaceFile,
   ensureTeachingWorkspace,
   loadTeachingWorkspace,
+  probeTeachingWorkspace,
   restoreTeachingWorkspace,
   saveTeachingWorkspace,
   stringifyError,
@@ -71,11 +72,14 @@ import {
 } from "../state/teaching-actions"
 import {
   TEACHING_LANGUAGE_OPTIONS,
+  intentOverrideFromSelection,
   teachingLanguageLabel,
   teachingSessionKey,
-  useTeachingMode,
+  useTeachingRuntime,
   type TeachingLanguage,
-} from "../state/teaching-mode"
+  type TeachingIntent,
+  type TeachingIntentSelection,
+} from "../state/teaching-runtime"
 import { useUiPreferences } from "../state/ui-preferences"
 
 export const Route = createFileRoute("/$directory/chat")({
@@ -91,9 +95,9 @@ const RIGHT_SIDEBAR_EDITOR_MIN_WIDTH = 360
 const RIGHT_SIDEBAR_EDITOR_MAX_WIDTH = 960
 const RIGHT_SIDEBAR_COLLAPSE_THRESHOLD = 160
 const MODEL_VISIBILITY_WINDOW_MS = 1000 * 60 * 60 * 24 * 31 * 6
-const DEFAULT_MODE_SURFACES = ["curriculum"] satisfies ModeConfigOption["surfaces"]
+const DEFAULT_PERSONA_SURFACES = ["curriculum"] satisfies PersonaConfigOption["surfaces"]
 
-function isModeSurface(value: string): value is ModeConfigOption["surfaces"][number] {
+function isSidebarSurface(value: string): value is PersonaConfigOption["surfaces"][number] {
   return value === "curriculum" || value === "editor" || value === "figure"
 }
 
@@ -237,23 +241,31 @@ function buildCommandAttachmentParts(attachments: PromptComposerAttachment[]) {
 }
 
 async function loadComposerConfiguration(directory: string) {
-  const [agents, modes, config, commands] = await Promise.all([
-    loadAgentCatalog(directory),
-    loadModeCatalog(directory),
+  const [personas, config, commands] = await Promise.all([
+    loadPersonaCatalog(directory),
     loadProjectConfig(directory),
     loadCommandCatalog(directory),
   ])
-  const configuredDefault = resolveDefaultModeID(
-    modes,
-    typeof config.default_mode === "string" ? config.default_mode : undefined,
+  const configuredDefault = resolveDefaultPersonaID(
+    personas,
+    typeof config.default_persona === "string" ? config.default_persona : undefined,
   ) ?? "buddy"
 
   return {
-    agents,
-    modes,
+    personas,
     commands,
     configuredDefault,
     configuredModel: parseConfiguredModel(config.model),
+    configuredIntent:
+      config.default_intent === "learn" || config.default_intent === "practice" || config.default_intent === "assess"
+        ? config.default_intent
+        : ("auto" as const),
+  } satisfies {
+    personas: PersonaConfigOption[]
+    commands: PromptCommandOption[]
+    configuredDefault: string
+    configuredModel: { providerID: string; modelID: string } | undefined
+    configuredIntent: TeachingIntentSelection
   }
 }
 
@@ -273,12 +285,22 @@ function DirectoryChatPage() {
   const [stickToBottom, setStickToBottom] = useState(true)
   const [settingsModalOpen, setSettingsModalOpen] = useState(false)
   const [mcpDialogOpen, setMcpDialogOpen] = useState(false)
-  const [agentCatalog, setAgentCatalog] = useState<AgentConfigOption[]>([])
-  const [modeCatalog, setModeCatalog] = useState<ModeConfigOption[]>([])
+  const [personaCatalog, setPersonaCatalog] = useState<PersonaConfigOption[]>([])
   const [slashCommands, setSlashCommands] = useState<PromptCommandOption[]>([])
-  const [defaultMode, setDefaultMode] = useState("buddy")
+  const [defaultPersona, setDefaultPersona] = useState("buddy")
+  const [defaultIntent, setDefaultIntent] = useState<TeachingIntentSelection>("auto")
   const [configuredModel, setConfiguredModel] = useState<{ providerID: string; modelID: string } | undefined>(undefined)
   const [selectedThinking, setSelectedThinking] = useState("default")
+  const [pendingSuggestionOverride, setPendingSuggestionOverride] = useState<
+    | {
+        label: string
+        prompt: string
+        intent?: TeachingIntent
+        activityBundleId?: string
+        focusGoalIds: string[]
+      }
+    | undefined
+  >(undefined)
 
   const decodedDirectory = useMemo(() => {
     try {
@@ -324,7 +346,7 @@ function DirectoryChatPage() {
   const markUnread = useUiPreferences((state) => state.markUnread)
   const clearUnread = useUiPreferences((state) => state.clearUnread)
   const clearDirectorySessionState = useUiPreferences((state) => state.clearDirectorySessionState)
-  const teachingMode = useTeachingMode()
+  const teachingRuntime = useTeachingRuntime()
 
   const sessionID = directoryState?.sessionID
   const showHeaderSidebarToggle = !(platform.platform === "desktop" && platform.os === "macos")
@@ -423,17 +445,7 @@ function DirectoryChatPage() {
 
     return visible
   }, [autoModelSelection, connectedProviders, selectedModelKey])
-  const primaryModeOptions = useMemo(() => modeCatalog.filter((mode) => !mode.hidden), [modeCatalog])
-  const mentionableAgentOptions = useMemo(
-    () =>
-      agentCatalog
-        .filter((agent) => agent.mode !== "primary" && !agent.hidden)
-        .map((agent) => ({
-          name: agent.name,
-          description: agent.description,
-        })),
-    [agentCatalog],
-  )
+  const primaryPersonaOptions = useMemo(() => personaCatalog.filter((persona) => !persona.hidden), [personaCatalog])
   const modelOptions = useMemo(() => {
     const autoProvider = autoModelSelection
       ? connectedProviders.find((provider) => provider.id === autoModelSelection.providerID)
@@ -544,27 +556,33 @@ function DirectoryChatPage() {
     () => (decodedDirectory && sessionID ? teachingSessionKey(decodedDirectory, sessionID) : ""),
     [decodedDirectory, sessionID],
   )
-  const storedMode = sessionKey ? (teachingMode.selectedModeBySession[sessionKey] ?? defaultMode) : defaultMode
-  const preferredLanguage = sessionKey ? (teachingMode.preferredLanguageBySession[sessionKey] ?? "ts") : "ts"
-  const teachingWorkspace = sessionKey ? teachingMode.workspaceBySession[sessionKey] : undefined
-  const selectedModeConfig = useMemo(
-    () => primaryModeOptions.find((mode) => mode.id === storedMode) ?? primaryModeOptions[0],
-    [primaryModeOptions, storedMode],
+  const storedPersona =
+    sessionKey ? (teachingRuntime.selectedPersonaBySession[sessionKey] ?? defaultPersona) : defaultPersona
+  const storedIntent = sessionKey ? (teachingRuntime.selectedIntentBySession[sessionKey] ?? defaultIntent) : defaultIntent
+  const preferredLanguage = sessionKey ? (teachingRuntime.preferredLanguageBySession[sessionKey] ?? "ts") : "ts"
+  const teachingWorkspace = sessionKey ? teachingRuntime.workspaceBySession[sessionKey] : undefined
+  const selectedPersonaConfig = useMemo(
+    () => primaryPersonaOptions.find((persona) => persona.id === storedPersona) ?? primaryPersonaOptions[0],
+    [primaryPersonaOptions, storedPersona],
   )
-  const selectedMode = selectedModeConfig?.id ?? storedMode
-  const selectedModeSurfaces = selectedModeConfig?.surfaces ?? DEFAULT_MODE_SURFACES
-  const selectedModeDefaultSurface = selectedModeConfig?.defaultSurface ?? "curriculum"
-  const selectedModeSupportsEditor = selectedModeSurfaces.includes("editor")
-  const selectedModeSupportsFigure = selectedModeSurfaces.includes("figure")
+  const selectedPersona = selectedPersonaConfig?.id ?? storedPersona
+  const selectedPersonaSurfaces = selectedPersonaConfig?.surfaces ?? DEFAULT_PERSONA_SURFACES
+  const selectedPersonaDefaultSurface = selectedPersonaConfig?.defaultSurface ?? "curriculum"
+  const selectedPersonaSupportsEditor = selectedPersonaSurfaces.includes("editor")
+  const selectedPersonaSupportsFigure = selectedPersonaSurfaces.includes("figure")
   const isInteractiveMode = !!sessionID && !!teachingWorkspace
-  const rightSidebarSurface = isModeSurface(rightSidebarTab) && selectedModeSurfaces.includes(rightSidebarTab)
+  const rightSidebarSurface = isSidebarSurface(rightSidebarTab) && selectedPersonaSurfaces.includes(rightSidebarTab)
     ? rightSidebarTab
-    : selectedModeDefaultSurface
+    : selectedPersonaDefaultSurface
   const editorPanelSizing = rightSidebarSurface === "editor"
   const rightSidebarMinWidth = editorPanelSizing ? RIGHT_SIDEBAR_EDITOR_MIN_WIDTH : RIGHT_SIDEBAR_MIN_WIDTH
   const rightSidebarMaxWidth = editorPanelSizing ? RIGHT_SIDEBAR_EDITOR_MAX_WIDTH : RIGHT_SIDEBAR_MAX_WIDTH
   const rightSidebarDisplayWidth = Math.min(Math.max(rightSidebarWidth, rightSidebarMinWidth), rightSidebarMaxWidth)
   const leftSidebarDisplayWidth = Math.max(leftSidebarWidth, SIDEBAR_MIN_WIDTH)
+
+  useEffect(() => {
+    setPendingSuggestionOverride(undefined)
+  }, [sessionKey])
 
   useEffect(() => {
     void loadOpenProjects()
@@ -637,18 +655,18 @@ function DirectoryChatPage() {
       .then((configuration) => {
         if (cancelled) return
 
-        setAgentCatalog(configuration.agents)
-        setModeCatalog(configuration.modes)
+        setPersonaCatalog(configuration.personas)
         setSlashCommands(configuration.commands)
-        setDefaultMode(configuration.configuredDefault)
+        setDefaultPersona(configuration.configuredDefault)
+        setDefaultIntent(configuration.configuredIntent)
         setConfiguredModel(configuration.configuredModel)
       })
       .catch(() => {
         if (cancelled) return
-        setAgentCatalog([])
-        setModeCatalog([])
+        setPersonaCatalog([])
         setSlashCommands([])
-        setDefaultMode("buddy")
+        setDefaultPersona("buddy")
+        setDefaultIntent("auto")
         setConfiguredModel(undefined)
       })
 
@@ -663,10 +681,10 @@ function DirectoryChatPage() {
 
     void loadComposerConfiguration(decodedDirectory)
       .then((configuration) => {
-        setAgentCatalog(configuration.agents)
-        setModeCatalog(configuration.modes)
+        setPersonaCatalog(configuration.personas)
         setSlashCommands(configuration.commands)
-        setDefaultMode(configuration.configuredDefault)
+        setDefaultPersona(configuration.configuredDefault)
+        setDefaultIntent(configuration.configuredIntent)
         setConfiguredModel(configuration.configuredModel)
       })
       .catch(() => undefined)
@@ -684,6 +702,27 @@ function DirectoryChatPage() {
   function refreshMcpStatus() {
     if (!decodedDirectory || !hasRegisteredProject) return
     void loadMcpStatus(decodedDirectory).catch(() => undefined)
+  }
+
+  async function syncTeachingRuntimeSelection(input?: {
+    directory?: string
+    sessionID?: string
+    sessionKey?: string
+  }) {
+    const activeDirectory = input?.directory ?? decodedDirectory
+    const activeSessionID = input?.sessionID ?? sessionID
+    const activeSessionKey = input?.sessionKey ?? sessionKey
+    if (!activeDirectory || !activeSessionID || !activeSessionKey) return
+
+    try {
+      const runtime = await loadTeachingSessionState(activeDirectory, activeSessionID)
+      if (!runtime) return
+      const teaching = useTeachingRuntime.getState()
+      teaching.setSessionPersona(activeSessionKey, runtime.persona)
+      teaching.setSessionIntent(activeSessionKey, runtime.intentOverride ?? "auto")
+    } catch {
+      // Ignore sessions that have not produced Buddy teaching state yet.
+    }
   }
 
   useEffect(() => {
@@ -853,13 +892,14 @@ function DirectoryChatPage() {
     if (workspaceProbeBySessionRef.current.has(sessionKey)) return
 
     let cancelled = false
-    const probe = loadTeachingWorkspace({
+    const probe = probeTeachingWorkspace({
       directory: decodedDirectory,
       sessionID,
     })
       .then((workspace) => {
+        if (!workspace) return undefined
         if (cancelled) return undefined
-        const teaching = useTeachingMode.getState()
+        const teaching = useTeachingRuntime.getState()
         teaching.setWorkspace(sessionKey, workspace)
         teaching.setSaveError(sessionKey, undefined)
         return workspace
@@ -879,6 +919,10 @@ function DirectoryChatPage() {
     }
   }, [decodedDirectory, isBusy, messages.length, sessionID, sessionKey, teachingWorkspace])
 
+  useEffect(() => {
+    void syncTeachingRuntimeSelection()
+  }, [decodedDirectory, sessionID, sessionKey])
+
   function onTranscriptScroll(event: UIEvent<HTMLElement>) {
     const node = event.currentTarget
     const distanceFromBottom = node.scrollHeight - (node.scrollTop + node.clientHeight)
@@ -886,7 +930,7 @@ function DirectoryChatPage() {
   }
 
   useEffect(() => {
-    if (!decodedDirectory || !sessionID || !sessionKey || !teachingWorkspace || !selectedModeSupportsEditor) return
+    if (!decodedDirectory || !sessionID || !sessionKey || !teachingWorkspace || !selectedPersonaSupportsEditor) return
 
     if (!teachingSessionInitializedRef.current.has(sessionKey)) {
       teachingSessionInitializedRef.current.add(sessionKey)
@@ -897,7 +941,7 @@ function DirectoryChatPage() {
         ui.setRightSidebarWidth(640)
       }
     }
-  }, [decodedDirectory, sessionID, sessionKey, selectedModeSupportsEditor, teachingWorkspace])
+  }, [decodedDirectory, sessionID, sessionKey, selectedPersonaSupportsEditor, teachingWorkspace])
 
   useEffect(() => {
     if (!decodedDirectory || !sessionID || !isInteractiveMode || !sessionKey || !teachingWorkspace) {
@@ -911,10 +955,10 @@ function DirectoryChatPage() {
         sessionID,
       })
         .then((workspace) => {
-          useTeachingMode.getState().applyRemoteSnapshot(sessionKey, workspace)
+          useTeachingRuntime.getState().applyRemoteSnapshot(sessionKey, workspace)
         })
         .catch((workspaceError) => {
-          useTeachingMode.getState().setSaveError(sessionKey, stringifyError(workspaceError))
+          useTeachingRuntime.getState().setSaveError(sessionKey, stringifyError(workspaceError))
         })
     }
 
@@ -941,7 +985,7 @@ function DirectoryChatPage() {
           sessionID: activeSessionID,
         })
         if (cancelled) return
-        useTeachingMode.getState().applyRemoteSnapshot(sessionKey, workspace)
+        useTeachingRuntime.getState().applyRemoteSnapshot(sessionKey, workspace)
       } catch {
         // Ignore transient refresh failures while the agent is still mid-step.
       } finally {
@@ -971,10 +1015,10 @@ function DirectoryChatPage() {
       if (!settled) return false
     }
 
-    const latest = useTeachingMode.getState().workspaceBySession[sessionKey]
+    const latest = useTeachingRuntime.getState().workspaceBySession[sessionKey]
     if (!latest) {
       const message = "Teaching workspace is still loading"
-      useTeachingMode.getState().setSaveError(sessionKey, message)
+      useTeachingRuntime.getState().setSaveError(sessionKey, message)
       return false
     }
 
@@ -993,8 +1037,8 @@ function DirectoryChatPage() {
     const requestCode = latest.code
 
     const task = (async () => {
-      useTeachingMode.getState().setPendingSave(sessionKey, true)
-      useTeachingMode.getState().setSaveError(sessionKey, undefined)
+      useTeachingRuntime.getState().setPendingSave(sessionKey, true)
+      useTeachingRuntime.getState().setSaveError(sessionKey, undefined)
 
       try {
         const saved = await saveTeachingWorkspace({
@@ -1006,14 +1050,14 @@ function DirectoryChatPage() {
           language: nextLanguage,
         })
 
-        useTeachingMode.getState().applySaveSuccess(sessionKey, {
+        useTeachingRuntime.getState().applySaveSuccess(sessionKey, {
           requestCode,
           workspace: saved,
         })
         return true
       } catch (saveError) {
         if (saveError instanceof TeachingConflictError) {
-          useTeachingMode.getState().setConflict(sessionKey, {
+          useTeachingRuntime.getState().setConflict(sessionKey, {
             code: saveError.payload.code,
             revision: saveError.payload.revision,
             lessonFilePath: saveError.payload.lessonFilePath,
@@ -1021,8 +1065,8 @@ function DirectoryChatPage() {
           return false
         }
 
-        useTeachingMode.getState().setPendingSave(sessionKey, false)
-        useTeachingMode.getState().setSaveError(sessionKey, stringifyError(saveError))
+        useTeachingRuntime.getState().setPendingSave(sessionKey, false)
+        useTeachingRuntime.getState().setSaveError(sessionKey, stringifyError(saveError))
         return false
       }
     })()
@@ -1060,6 +1104,46 @@ function DirectoryChatPage() {
     teachingWorkspace?.conflict,
   ])
 
+  async function sendRuntimePrompt(input: {
+    content: string
+    attachments?: PromptComposerAttachment[]
+    intent?: TeachingIntent
+    activityBundleId?: string
+    focusGoalIds?: string[]
+  }) {
+    if (!decodedDirectory) return false
+
+    const rawAttachments = input.attachments ?? []
+    const content = input.content.trim()
+    if (!content && rawAttachments.length === 0) return false
+
+    if (selectedPersonaSupportsEditor && isInteractiveMode) {
+      const ready = await flushTeachingWorkspace()
+      if (!ready) return false
+    }
+
+    const modelSelection = effectiveModelSelection
+    const variant = selectedThinking !== "default" ? selectedThinking : undefined
+    const activeWorkspace = sessionKey ? useTeachingRuntime.getState().workspaceBySession[sessionKey] : undefined
+    const teachingContext = await resolveTeachingPromptContext({
+      workspace: activeWorkspace,
+      pendingWorkspace: sessionKey ? workspaceProbeBySessionRef.current.get(sessionKey) : undefined,
+    })
+
+    await sendPrompt(decodedDirectory, content, {
+      parts: buildPromptAttachmentParts(rawAttachments),
+      persona: selectedPersona,
+      intent: input.intent ?? intentOverrideFromSelection(storedIntent),
+      activityBundleId: input.activityBundleId,
+      focusGoalIds: input.focusGoalIds,
+      model: modelSelection,
+      variant,
+      teaching: teachingContext,
+    })
+    void syncTeachingRuntimeSelection()
+    return true
+  }
+
   async function onSend(input?: { value: string; attachments: PromptComposerAttachment[] }) {
     if (!decodedDirectory) return
     const rawContent = input?.value ?? draft
@@ -1075,13 +1159,15 @@ function DirectoryChatPage() {
       const attachmentParts = buildCommandAttachmentParts(rawAttachments)
       setDraft("")
       setDraftAttachments([])
-      try {
-        await sendCommand(decodedDirectory, slashCommand.command.name, slashCommand.arguments, {
+    try {
+      await sendCommand(decodedDirectory, slashCommand.command.name, slashCommand.arguments, {
           parts: attachmentParts,
-          mode: selectedMode,
+          persona: selectedPersona,
+          intent: intentOverrideFromSelection(storedIntent),
           model: modelSelection,
           variant,
         })
+        void syncTeachingRuntimeSelection()
       } catch {
         setDraft(rawContent)
         setDraftAttachments(rawAttachments)
@@ -1089,32 +1175,116 @@ function DirectoryChatPage() {
       return
     }
 
-    if (selectedModeSupportsEditor && isInteractiveMode) {
-      const ready = await flushTeachingWorkspace()
-      if (!ready) return
-    }
-
-    const activeWorkspace = sessionKey ? useTeachingMode.getState().workspaceBySession[sessionKey] : undefined
-    const teachingContext = await resolveTeachingPromptContext({
-      workspace: activeWorkspace,
-      pendingWorkspace: sessionKey ? workspaceProbeBySessionRef.current.get(sessionKey) : undefined,
-    })
-
     setDraft("")
     setDraftAttachments([])
     try {
-      const attachmentParts = buildPromptAttachmentParts(rawAttachments)
-      await sendPrompt(decodedDirectory, content, {
-        parts: attachmentParts,
-        mode: selectedMode,
-        model: modelSelection,
-        variant,
-        teaching: teachingContext,
+      const sent = await sendRuntimePrompt({
+        content,
+        attachments: rawAttachments,
+        intent: pendingSuggestionOverride?.intent,
+        activityBundleId: pendingSuggestionOverride?.activityBundleId,
+        focusGoalIds: pendingSuggestionOverride?.focusGoalIds,
       })
+      if (!sent) {
+        setDraft(rawContent)
+        setDraftAttachments(rawAttachments)
+        return
+      }
+      setPendingSuggestionOverride(undefined)
     } catch {
       setDraft(rawContent)
       setDraftAttachments(rawAttachments)
     }
+  }
+
+  async function onRunLearningPlanAction(action: LearnerCurriculumView["actions"][number]) {
+    const override = {
+      label: `${action.label}${action.activityBundleLabel ? ` (${action.activityBundleLabel})` : ""}: ${action.reason}`,
+      prompt: action.prompt,
+      intent: action.intent,
+      activityBundleId: action.activityBundleId,
+      focusGoalIds: action.focusGoalIds,
+    }
+
+    if (sessionKey) {
+      teachingRuntime.setSessionIntent(sessionKey, action.intent)
+    }
+
+    setPendingSuggestionOverride(override)
+
+    const canSendImmediately =
+      !!decodedDirectory &&
+      !!sessionKey &&
+      !isBusy &&
+      draft.trim().length === 0 &&
+      draftAttachments.length === 0
+
+    if (canSendImmediately) {
+      try {
+        const sent = await sendRuntimePrompt({
+          content: override.prompt,
+          intent: override.intent,
+          activityBundleId: override.activityBundleId,
+          focusGoalIds: override.focusGoalIds,
+        })
+        if (sent) {
+          setPendingSuggestionOverride(undefined)
+          setDraft("")
+          setDraftAttachments([])
+          return
+        }
+      } catch {
+        // Fall through to staging the override in the composer.
+      }
+    }
+
+    setDraftAttachments([])
+    setDraft(action.prompt)
+  }
+
+  async function onUseActivityBundle(bundle: LearnerCurriculumView["activityBundles"][number]) {
+    const override = {
+      label: `${bundle.label}: ${bundle.description}`,
+      prompt: `Use the ${bundle.label} activity for the current learning goal. Keep it grounded in the learner state and current conversation.`,
+      intent: bundle.intent,
+      activityBundleId: bundle.id,
+      focusGoalIds: [],
+    }
+
+    if (sessionKey) {
+      teachingRuntime.setSessionIntent(sessionKey, bundle.intent)
+    }
+
+    setPendingSuggestionOverride(override)
+
+    const canSendImmediately =
+      !!decodedDirectory &&
+      !!sessionKey &&
+      !isBusy &&
+      draft.trim().length === 0 &&
+      draftAttachments.length === 0
+
+    if (canSendImmediately) {
+      try {
+        const sent = await sendRuntimePrompt({
+          content: override.prompt,
+          intent: override.intent,
+          activityBundleId: override.activityBundleId,
+          focusGoalIds: override.focusGoalIds,
+        })
+        if (sent) {
+          setPendingSuggestionOverride(undefined)
+          setDraft("")
+          setDraftAttachments([])
+          return
+        }
+      } catch {
+        // Fall through to staging the override in the composer.
+      }
+    }
+
+    setDraftAttachments([])
+    setDraft(`Use the ${bundle.label} activity for the current learning goal.`)
   }
 
   async function onAbort() {
@@ -1269,14 +1439,14 @@ function DirectoryChatPage() {
     }
   }
 
-  function onModeChange(mode: string) {
+  function onPersonaChange(persona: string) {
     if (!sessionKey) return
-    teachingMode.setSessionMode(sessionKey, mode)
+    teachingRuntime.setSessionPersona(sessionKey, persona)
 
-    const nextMode = primaryModeOptions.find((option) => option.id === mode)
-    if (!nextMode) return
+    const nextPersona = primaryPersonaOptions.find((option) => option.id === persona)
+    if (!nextPersona) return
 
-    if (nextMode.surfaces.includes("editor") && teachingWorkspace) {
+    if (nextPersona.surfaces.includes("editor") && teachingWorkspace) {
       setRightSidebarTab("editor")
       if (rightSidebarWidth < RIGHT_SIDEBAR_EDITOR_MIN_WIDTH) {
         setRightSidebarWidth(640)
@@ -1285,14 +1455,19 @@ function DirectoryChatPage() {
       return
     }
 
-    if (!nextMode.surfaces.includes(rightSidebarSurface)) {
-      setRightSidebarTab(nextMode.defaultSurface)
+    if (!nextPersona.surfaces.includes(rightSidebarSurface)) {
+      setRightSidebarTab(nextPersona.defaultSurface)
     }
+  }
+
+  function onIntentChange(intent: TeachingIntentSelection) {
+    if (!sessionKey) return
+    teachingRuntime.setSessionIntent(sessionKey, intent)
   }
 
   function onTeachingCodeChange(code: string) {
     if (!sessionKey) return
-    useTeachingMode.getState().updateWorkspaceCode(sessionKey, code)
+    useTeachingRuntime.getState().updateWorkspaceCode(sessionKey, code)
   }
 
   function onTeachingSelectionChange(selection?: {
@@ -1302,7 +1477,7 @@ function DirectoryChatPage() {
     selectionEndColumn?: number
   }) {
     if (!sessionKey) return
-    useTeachingMode.getState().setSelection(sessionKey, selection)
+    useTeachingRuntime.getState().setSelection(sessionKey, selection)
   }
 
   function onTeachingLanguageChange(language: TeachingLanguage) {
@@ -1311,7 +1486,7 @@ function DirectoryChatPage() {
 
   function onPreferredLanguageChange(language: TeachingLanguage) {
     if (!sessionKey) return
-    teachingMode.setPreferredLanguage(sessionKey, language)
+    teachingRuntime.setPreferredLanguage(sessionKey, language)
   }
 
   async function onTeachingSelectFile(relativePath: string) {
@@ -1327,10 +1502,10 @@ function DirectoryChatPage() {
         sessionID,
         relativePath,
       })
-      useTeachingMode.getState().setWorkspace(sessionKey, workspace)
-      useTeachingMode.getState().setSaveError(sessionKey, undefined)
+      useTeachingRuntime.getState().setWorkspace(sessionKey, workspace)
+      useTeachingRuntime.getState().setSaveError(sessionKey, undefined)
     } catch (fileError) {
-      useTeachingMode.getState().setSaveError(sessionKey, stringifyError(fileError))
+      useTeachingRuntime.getState().setSaveError(sessionKey, stringifyError(fileError))
     }
   }
 
@@ -1350,12 +1525,12 @@ function DirectoryChatPage() {
         relativePath,
         activate: true,
       })
-      useTeachingMode.getState().setWorkspace(sessionKey, workspace)
-      useTeachingMode.getState().setSaveError(sessionKey, undefined)
+      useTeachingRuntime.getState().setWorkspace(sessionKey, workspace)
+      useTeachingRuntime.getState().setSaveError(sessionKey, undefined)
       setRightSidebarTab("editor")
       setRightSidebarOpen(true)
     } catch (fileError) {
-      useTeachingMode.getState().setSaveError(sessionKey, stringifyError(fileError))
+      useTeachingRuntime.getState().setSaveError(sessionKey, stringifyError(fileError))
     }
   }
 
@@ -1373,7 +1548,7 @@ function DirectoryChatPage() {
   }
 
   async function onStartInteractiveLesson() {
-    if (!decodedDirectory || !sessionID || !sessionKey || !selectedModeSupportsEditor) return
+    if (!decodedDirectory || !sessionID || !sessionKey || !selectedPersonaSupportsEditor) return
     setRightSidebarTab("editor")
     if (rightSidebarWidth < RIGHT_SIDEBAR_EDITOR_MIN_WIDTH) {
       setRightSidebarWidth(640)
@@ -1385,16 +1560,17 @@ function DirectoryChatPage() {
         directory: decodedDirectory,
         sessionID,
         language: preferredLanguage,
-        mode: selectedMode,
+        persona: selectedPersona,
       })
-      useTeachingMode.getState().setWorkspace(sessionKey, workspace)
-      useTeachingMode.getState().setSaveError(sessionKey, undefined)
+      useTeachingRuntime.getState().setWorkspace(sessionKey, workspace)
+      useTeachingRuntime.getState().setSaveError(sessionKey, undefined)
 
       await sendPrompt(
         decodedDirectory,
         `I started an interactive lesson in ${teachingLanguageLabel(preferredLanguage)} mode. Interactive workspace tools are now available. Please use the editor workspace to set up the next hands-on step and guide me there.`,
         {
-          mode: selectedMode,
+          persona: selectedPersona,
+          intent: intentOverrideFromSelection(storedIntent),
           model: effectiveModelSelection,
           teaching: {
             active: true,
@@ -1409,13 +1585,13 @@ function DirectoryChatPage() {
     } catch (interactiveError) {
       const message = stringifyError(interactiveError)
       setDirectoryError(decodedDirectory, message)
-      useTeachingMode.getState().setSaveError(sessionKey, message)
+      useTeachingRuntime.getState().setSaveError(sessionKey, message)
     }
   }
 
   function onLoadExternalChanges() {
     if (!sessionKey) return
-    useTeachingMode.getState().loadConflictVersion(sessionKey)
+    useTeachingRuntime.getState().loadConflictVersion(sessionKey)
   }
 
   function onForceOverwrite() {
@@ -1432,9 +1608,9 @@ function DirectoryChatPage() {
         directory: decodedDirectory,
         sessionID,
       })
-      useTeachingMode.getState().setSaveError(sessionKey, undefined)
+      useTeachingRuntime.getState().setSaveError(sessionKey, undefined)
     } catch (checkpointError) {
-      useTeachingMode.getState().setSaveError(sessionKey, stringifyError(checkpointError))
+      useTeachingRuntime.getState().setSaveError(sessionKey, stringifyError(checkpointError))
     }
   }
 
@@ -1446,10 +1622,10 @@ function DirectoryChatPage() {
         directory: decodedDirectory,
         sessionID,
       })
-      useTeachingMode.getState().setWorkspace(sessionKey, workspace)
-      useTeachingMode.getState().setSaveError(sessionKey, undefined)
+      useTeachingRuntime.getState().setWorkspace(sessionKey, workspace)
+      useTeachingRuntime.getState().setSaveError(sessionKey, undefined)
     } catch (restoreError) {
-      useTeachingMode.getState().setSaveError(sessionKey, stringifyError(restoreError))
+      useTeachingRuntime.getState().setSaveError(sessionKey, stringifyError(restoreError))
     }
   }
 
@@ -1665,17 +1841,23 @@ function DirectoryChatPage() {
                   value={draft}
                   attachments={draftAttachments}
                   isBusy={isBusy}
-                  modeOptions={primaryModeOptions.map((mode) => ({ name: mode.id }))}
-                  mentionableAgents={mentionableAgentOptions}
+                  personaOptions={primaryPersonaOptions.map((persona) => ({ name: persona.id, label: persona.label }))}
+                  mentionableAgents={[]}
                   slashCommands={slashCommands}
                   modelOptions={modelOptions}
-                  selectedMode={selectedMode}
+                  selectedPersona={selectedPersona}
+                  selectedIntent={storedIntent}
                   selectedModel={selectedModelKey}
+                  pendingSteerLabel={pendingSuggestionOverride?.label}
                   thinkingOptions={thinkingOptions}
                   selectedThinking={selectedThinking}
                   onChange={setDraft}
                   onAttachmentsChange={setDraftAttachments}
-                  onModeChange={onModeChange}
+                  onPersonaChange={onPersonaChange}
+                  onIntentChange={onIntentChange}
+                  onClearPendingSteer={() => {
+                    setPendingSuggestionOverride(undefined)
+                  }}
                   onModelChange={(model) => {
                     if (!decodedDirectory) return
                     setSelectedModel(decodedDirectory, model)
@@ -1718,9 +1900,18 @@ function DirectoryChatPage() {
               directory={decodedDirectory}
               activeTab={rightSidebarSurface}
               onTabChange={setRightSidebarTab}
-              surfaces={selectedModeSurfaces}
+              surfaces={selectedPersonaSurfaces}
+              sessionID={sessionID}
+              persona={selectedPersona}
+              intent={intentOverrideFromSelection(storedIntent)}
+              onRunAction={(action) => {
+                void onRunLearningPlanAction(action)
+              }}
+              onUseActivityBundle={(bundle) => {
+                void onUseActivityBundle(bundle)
+              }}
               editorPanel={
-                selectedModeSupportsEditor ? (
+                selectedPersonaSupportsEditor ? (
                   isInteractiveMode ? (
                     teachingWorkspace ? (
                       <TeachingEditorPanel
@@ -1791,14 +1982,14 @@ function DirectoryChatPage() {
                       <div className="rounded-lg border border-border/70 bg-background p-3 text-xs text-muted-foreground">
                         Current workspace: not started
                         <br />
-                        Selected mode: {selectedMode}
+                        Selected persona: {selectedPersona}
                       </div>
                     </section>
                   )
                 ) : undefined
               }
               figurePanel={
-                selectedModeSupportsFigure ? <MathFigurePanel className="h-full min-h-0 flex-1" /> : undefined
+                selectedPersonaSupportsFigure ? <MathFigurePanel className="h-full min-h-0 flex-1" /> : undefined
               }
               onClose={() => setRightSidebarOpen(false)}
               className="w-full h-full"
