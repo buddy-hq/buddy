@@ -1,0 +1,105 @@
+CWSEI – www.cwsei.ubc.ca                                        2014                                  CU-SEI – www.colorado.edu/sei/
+
+
+
+                                    Creating and Using Effective Learning Goals
+                                                          CU-SEI and CWSEI
+
+     An important first step in course transformation has been to define explicit learning goals for each course which
+then shape the instruction and assessment. Here we briefly describe the process and benefits of writing learning goals.
+Learning goals explicitly communicate the key ideas and the level at which students should understand them in terms of
+what the students should be able to do. Learning goals take the form: “At the end of this course, students will be able
+to...” followed by a specific action verb and a task. For each course, faculty typically define five to ten course-level goals
+that convey the major learning themes and concepts, as well as topic-level learning goals (also known as “learning
+outcomes” or “objectives”) that are more specific and are aligned with the course-level learning goals. Below are
+examples of learning goals from an introductory genetics course and a 2nd year physics course. A variety of other
+examples are available at the SEI learning goals resources link given below.
+
+               Examples of learning goals from an introductory genetics course (Univ. of Colorado-CU)
+Course-level learning goal:
+Deduce information about genes, alleles, and gene functions from analysis of genetic crosses and patterns of inheritance.
+Topic-level learning goals:
+a) Draw a pedigree based on information in a story problem.
+b) Distinguish between different modes of inheritance.
+c) Calculate the probability that an individual in a pedigree has a particular genotype or phenotype.
+d) Design genetic crosses to provide information about genes, alleles, and gene functions.
+e) Use statistical analysis to determine how well data from a genetic cross or human pedigree analysis fits theoretical predictions.
+
+
+              Examples of learning goals from a 2nd year physics course (Univ. of British Columbia-UBC)
+Course-level learning goal:
+Be able to argue that the ideas of quantum physics are true and that it is useful for engineers to know about them.
+Topic-level learning goals:
+a) Given a simple physical system, be able to draw the relevant potential energy curve needed to model dynamical behaviour.
+b) Be able to explain the essential role of the quantization of light as demonstrated by the photoelectric effect in the operation of
+   a photomultiplier tube, a solid state photodetector such as used in motion sensors, and the human eye.
+c) Be able to design an experiment for determining the composition of an unknown pure metal based on the photoelectric effect.
+d) For an unknown material, be able to analyze whether it is a conductor, insulator, or semiconductor, and then predict what
+   electron energy distribution it must have.
+e) Qualitatively design a semiconductor diode that will only allow current to flow in one direction.
+
+    The following process of developing learning goals has worked well for course transformations in the SEIs: A working
+group composed of faculty members who have previously taught a course and those who teach subsequent courses is
+formed. These working groups typically include a facilitator whose role is to review and synthesize materials, and create
+learning goal drafts. Learning goals are drafted by referring to materials used by instructors who previously taught the
+course, with emphasis on homework assignments, exams, and other materials that demonstrate what instructors want
+students to be able to do. Faculty members who teach subsequent courses communicate what they expect students to
+know coming into their course. The members of the working group discuss and revise these learning goals until a
+consensus list is generated, which for any instructor teaching the course would typically cover 70-80% of the class time.
+One of the most critical aspects of writing learning goals is choosing a verb that describes exactly what students should
+be able to do. Many faculty are tempted to use the verb “understand,” but this is not specific – two faculty members
+could both say “understand” but have completely different expectations as to what students should be able to do. We
+recommend creating learning goals that convey the relevance and usefulness of any particular content to students. Use
+everyday language and applications when possible, and minimize the use of technical jargon. Many courses at CU and
+UBC include goals that focus on skills, habits of mind, and affective outcomes such as: “Students should be able to justify
+& explain their thinking and/or approach to a problem or physical situation.”
+    Based on our experiences, we formulated a check-list to help instructors create and critique learning goals.
+Check-list for creating learning goals:
+   Does the learning goal identify what students will be able to do after the topic is covered?
+   Is it clear how you would test achievement of the learning goal?
+   Do chosen verbs have a clear meaning?
+   Is the verb aligned with the level of cognitive understanding expected of students? Could you expect a higher level
+      of understanding?
+   Is the terminology familiar/common? If not, is knowing the terminology a goal?
+   Is it possible to write the goal so it is relevant and useful to students (e.g. connected to their everyday life, or does it
+      represent a useful application of the ideas)?
+-----------------------------------------------------------------------------------------------------------------------------------
+     We also aligned the verbs with the cognitive level expected of students. The table below shows levels of learning
+and examples of verbs that match each level, based on Bloom’s taxonomy of the cognitive domain.
+Levels of cognitive understanding and corresponding verbs
+        Level                        Description                                               Representative Verbs
+Factual Knowledge Remember & recall factual information                      Define, List, State, Label, Name
+Comprehension        Demonstrate understanding of ideas, concepts            Describe, Explain, Summarize, Interpret, Illustrate
+Application          Apply comprehension to unfamiliar situations            Apply, Demonstrate, Use, Compute, Solve, Predict,
+                                                                             Construct, Modify
+Analysis             Break down concepts into parts                          Compare, Contrast, Categorize, Distinguish, Identify,
+                                                                             Infer
+Synthesis            Transform, combine ideas to create something new        Develop, Create, Propose, Formulate, Design, Invent
+Evaluation           Think critically about and defend a position            Judge, Appraise, Recommend, Justify, Defend, Criticize,
+                                                                             Evaluate
+Benefits
+    Writing learning goals requires effort and time, but carries multiple benefits. Faculty use learning goals as they plan
+class time, develop homework, and create exams. All aspects of the course become better aligned, and focus on what
+faculty most want the students to achieve. Faculty using learning goals report that writing good exam questions
+becomes easier. At CU and UBC, we have seen that the cognitive level of exams often increases as faculty align the
+questions with the higher cognitive level of the learning goals.
+    Sharing the learning goals with students improves faculty-student communication. Learning goals are often posted
+online and each lecture begins with the relevant learning goals for the day. Surveys reveal that students are
+overwhelmingly positive about having access to learning goals. The greatest reported benefit is that learning goals let
+students “know what I need to know,” which helps students focus on important ideas and study more effectively.
+    For departments, writing learning goals has informed, shaped, and aligned the departmental curriculum. By
+considering the learning goals from multiple courses, departments have discovered that some concepts were taught in
+an identical manner in multiple courses and other critical concepts were omitted entirely. As a result faculty members
+who teach different courses have begun to work together so that their goals complement each other and encompass
+what every student should be able to do by graduation. For instance, some fundamental evolution concepts were added
+to the CU biology curriculum after this process revealed their absence.
+
+Resources:
+www.cwsei.ubc.ca/resources/learn_goals.htm − compilation of learning goals and other resources from the CU and UBC SEIs
+“At the end of my course, students should be able to …”: The benefits of creating and using effective learning goals, Michelle Smith &
+Kathy Perkins, Microbiology Australia, pp. 35-37 (2010). http://microbiology.publish.csiro.au/?act=view_file&file_id=MA10035.pdf
+What is the Value of Course-Specific Learning Goals?, Beth Simon and Jared Taylor, Journal of College Science Teaching, Vol. 39, pp.
+52-57 (2009).
+A Thoughtful Approach to Instruction: Course transformation for the rest of us, Stephanie Chasteen, Katherine Perkins, Paul Beale,
+Steven Pollock, & Carl Wieman, Journal of College Science Teaching, Vol. 40, pp. 24-30 (2011).
+

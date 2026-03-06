@@ -1,5 +1,7 @@
 # Buddy UI/UX Polish Audit
 
+> Historical audit: this document was written before the Buddy core ontology and learning-plan cutover finished. Treat it as an issue log/reference, not as the current product description.
+
 **Date:** March 3, 2026  
 **Scope:** packages/web/src  
 **Status:** Pending Evaluation

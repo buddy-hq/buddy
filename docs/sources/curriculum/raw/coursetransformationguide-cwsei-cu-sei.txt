@@ -1,0 +1,1932 @@
+                                                                   UBC	  and	  CU	  
+                                                                     Science	  
+                                                                    Educa.on	  
+                                                                    Ini.a.ves	  
+
+
+
+
+A guide for instructors interested in transforming a course, and
+their instruction, to use research-based principles and improve
+                        student learning.
+                             This	  work	  is	  licensed	  under	  a	  
+             Crea2ve	  Commons	  A6ribu2on-­‐NonCommercial-­‐ShareAlike	  4.0	  
+                                    Interna2onal	  License.                     	  
+
+
+
+
+                        Published	  by	  the	  Science	  Educa2on	  Ini2a2ves:	  
+                                                       	  
+
+University	  of	  Colorado	  (CU-­‐SEI),	                University	  of	  Bri2sh	  Columbia	  (CWSEI),	  	  
+h6p://colorado.edu/sei	                                                               h6p://cwsei.ubc.ca	  	  
+
+
+
+
+                                                   Cover	  photo	  credit:	  	  Casey	  A.	  Cass/University	  of	  Colorado	  	  
+                                                                                                                                                                                                                                               	  
+                                                                                                                        	  
+                                                                                                                        	  
+
+
+Table	  of	  Contents	  
+	  
+
+Course	  transformation	  framework	  .......................................................................................................................................	  2	  
+       Overview	  ............................................................................................................................................................................	  2	  
+       Applying	  New	  Research	  to	  Improve	  Science	  Education	  .....................................................................................................	  4	  
+       What	  all	  instructors	  should	  know	  	  ......................................................................................................................................	  9	  
+Specific	  strategies	  for	  instructional	  activities	  .....................................................................................................................	  10	  
+       Motivation	  ........................................................................................................................................................................	  11	  
+       Developing	  mastery	  	  .........................................................................................................................................................	  12	  
+       Practice	  &	  Feedback	  .........................................................................................................................................................	  13	  
+       Creating	  self-­‐directed	  learners	  	  ........................................................................................................................................	  14	  
+       Creating	  productive	  views	  of	  intelligence	  and	  learning	  	  ..................................................................................................	  15	  
+       Memory	  and	  retention	  	  ....................................................................................................................................................	  16	  
+Recommendations	  for	  implementing	  specific	  instructional	  practices	  	  ..............................................................................	  18	  
+       Creating	  and	  using	  effective	  learning	  goals	  	  .....................................................................................................................	  19	  
+       First	  day	  of	  class	  	  ..............................................................................................................................................................	  21	  
+       Better	  ways	  to	  review	  material	  in	  class	  	  ...........................................................................................................................	  23	  
+       Basic	  instructor	  habits	  to	  keep	  students	  engaged	  	  ..........................................................................................................	  24	  
+       Preclass-­‐reading	  assignments	  	  .........................................................................................................................................	  26	  
+       Tips	  for	  successful	  “clicker”	  use	  	  ......................................................................................................................................	  28	  
+       (A	  more	  detailed	  discussion	  on	  the	  effective	  use	  of	  clickers	  in	  instruction	  is	  given	  in	  the	  SEI	  booklet	  “An	  instructor's	  guide	  to	  the	  effective	  use	  of	  
+       personal	  response	  systems	  ("clickers")	  in	  teaching."	  See	  http://STEMclickers.colorado.edu	  for	  this	  guide	  &	  videos	  on	  effective	  use.)	  
+
+       Student	  group	  work	  in	  educational	  settings	  	  ...................................................................................................................	  30	  
+       Creating	  and	  implementing	  in-­‐class	  activities;	  principles	  and	  practical	  tips	  	  ...................................................................	  32	  
+       What	  not	  to	  do	  	  ................................................................................................................................................................	  34	  
+       Assessments	  that	  support	  student	  learning	  	  ....................................................................................................................	  36	  
+       Promoting	  course	  alignment:	  Developing	  a	  systematic	  approach	  to	  question	  development	  	  ........................................	  38	  
+	  
+
+	  
+
+
+
+
+CWSEI – www.cwsei.ubc.ca                                                                                       April 2014                                                        CU-SEI – www.colorado.edu/sei/                          Page 1
+                               Course transformation framework—Overview
+                                                       Carl Wieman
+
+Introduction
+I have been involved in the transformation of the instructional practices of many science courses. Initially I did this for
+my own courses, and later I was supporting the efforts of other faculty, as part of the Science Education Initiatives at the
+University of Colorado and the University of British Columbia to transform dozens of courses in many different
+departments. These transformations implemented research-based instructional practices to increase student
+engagement and learning.
+
+This packet of materials is a guide for faculty for carrying out such a transformation. In some respects such a course
+transformation is much like doing a science experiment, there are numerous techniques and details that one needs to
+know, but one has to also understand the concepts and principles behind the design to be successful. This guide is an
+attempt to put all of this, from underlying concepts through details of successful implementation together in as succinct
+a fashion as possible.
+
+Background
+Results from research on learning provide a useful conceptual framework for thinking about effective teaching and
+learning. That leads to a set of general principles as to what is important for effective instruction. This framework and
+these principles, particularly as they apply to science and engineering education, are provided in the excerpt from my
+article “Applying New Research to Improve Science Education” that is below.
+
+Very briefly, the essential elements for effective learning are:
+    • Students must strenuously and explicitly practice the cognitive components of expertise. This includes the
+        unique disciplinary knowledge, the discipline-specific structures by which knowledge is organized and applied,
+        and the ways in which experts monitor their thinking when learning and problem solving.
+    • Students must receive effective feedback to guide their thinking while carrying out such practice.
+    • Students must be motivated to do the hard work required for learning.
+    • Instruction must recognize and build on students’ ideas and existing knowledge.
+    • Instructional activities need to be consistent with the basic mechanisms and limitations of how the brain
+        processes and remembers information.
+With this framework in hand, you now need to look at all the components of a course you will be teaching and map
+these essential instructional elements onto those components in a consistent fashion, in accord with the constraints and
+opportunities afforded by the context in which the course is situated. Unless there are a lot of resources and prior
+information available, it is usually more successful to not carry out a total transformation in the first iteration of the
+course, but rather to develop the design and then incrementally add things over two or three iterations of the course.
+
+Primary components and relevant constraints on course design
+    • Learning goals. Defined in operational terms of what students will be able to do that demonstrates they have
+       achieved all elements of the desired mastery, both cognitive and affective. These goals should guide the design
+       of all other course components.
+    • In-class activities. Some selection of clicker questions and peer instruction, group activities, worksheets,
+       student presentations, lectures, and other activities to help students actively develop their understanding.
+    • Homework. Pre-class reading, problem sets, projects, papers, and other mechanisms for student to further
+       engage with the topics at their own pace.
+    • Assessment and feedback, both formal and informal. In-class clicker question and discussion, via homework,
+       problem solving sessions, exams, surveys, peer review and discussion, instructor-independent measures of
+       expertise such as concept inventories, and other ways for instructors and students to gauge achievement of the
+       learning goals.
+    • Constraints and Opportunities. These typically include the available instructional space, incoming state of
+       knowledge of students (what is known and what are the needs for diagnostics), prerequisites or lack thereof,
+       constraints related to preceding and/or following courses in an established sequence, TA support, grading
+       support, instructor time, technology that can be used to support instruction, etc.
+
+
+CWSEI – www.cwsei.ubc.ca                                  April 2014                        CU-SEI – www.colorado.edu/sei/   Page 2
+There is never enough information available to get a course transformation perfect on the first try under any
+circumstances, and so you should assume that at least one iteration will be required for fine and/or coarse tuning.
+Typically the first iteration of a course incorporating these principles provides enormously more information about
+student thinking, background knowledge, and difficulties than was previously known. This provides a guide for
+substantial further improvement.
+
+A detailed case study of a major transformation of a course (Introduction to Quantum Mechanics) is given at
+http://cwsei.ubc.ca/resources/files/Course_transformation_case_study.pdf.
+
+
+
+
+CWSEI – www.cwsei.ubc.ca                                April 2014                        CU-SEI – www.colorado.edu/sei/   Page 3
+  Excerpt from Issues in Science and Technology, Fall 2012, page 25
+
+
+
+                                                                        CARL WIEMAN
+
+
+
+
+   Applying New Research to
+   Improve Science Education
+   Insights from several fields on how people learn to become experts can help us to dramatically
+   enhance the effectiveness of science, technology, engineering, and mathematics education.
+
+
+
+
+   S
+                     cience, technology, engineering, and mathe-        focused perspective is also a root cause of the failures of
+                    matics (STEM) education is critical to the U.S.     many reform efforts. Furthermore, the incentive systems in
+                    future because of its relevance to the econ-        higher education, in part driven by government programs,
+                    omy and the need for a citizenry able to make       act to prevent the adoption of these research-based ideas in
+                    wise decisions on issues faced by modern so-        teaching and teacher training.
+                    ciety. Calls for improvement have become in-
+                    creasingly widespread and desperate, and            A new approach
+   there have been countless national, local, and private pro-          The current approach to STEM education is built on the as-
+   grams aimed at improving STEM education, but there con-              sumption that students come to school with different brains
+   tinues to be little discernible change in either student achieve-    and that education is the process of immersing these brains
+   ment or student interest in STEM. Articles and letters in the        in knowledge, facts, and procedures, which those brains
+   spring and summer 2012 editions of Issues extensively dis-           then absorb to varying degrees. The extent of absorption is
+   cussed STEM education issues. Largely absent from these              largely determined by the inherent talent and interest of the
+   discussions, however, is attention to learning.                      brain. Thus, those with STEM “talent” will succeed, usually
+      This is unfortunate because there is an extensive body of         easily, whereas the others have no hope. Research advances
+   recent research on how learning is accomplished, with clear          in cognitive psychology, brain physiology, and classroom
+   implications for what constitutes effective STEM teaching            practices are painting a very different picture of how learn-
+   and how that differs from typical current teaching at the K-         ing works.
+   12 and college levels. Failure to understand this learning-             We are learning that complex expertise is a matter not of
+
+
+
+                                                                                                                          FALL 2012    1
+CWSEI – www.cwsei.ubc.ca                                       April 2014                           CU-SEI – www.colorado.edu/sei/    Page 4
+filling up an existing brain with knowledge, but of brain de-             • Specialized representations.
+velopment. This development comes about as the result of                  • Criteria for selecting the likely optimum solution
+intensive practice of the cognitive processes that define the          method to a given problem.
+specific expertise, and effective teaching can greatly reduce             • Self-checking and sense making, including the use of
+the impact of initial differences among the learners.                  discipline-specific criteria for checking the suitability of a
+    This research has established important underlying causes          solution method and a result.
+and principles and important specific results, but it is far              • Procedures and knowledge, some discipline-specific
+from complete. More research is needed on how to accom-                and some not, that have become so automatic with practice
+plish the desired learning most effectively over the full range        that they can be used without requiring conscious mental
+of STEM skills and potential learners in our classrooms, as            processing. This frees up cognitive resources for other tasks.
+well as how to best train teachers.                                       Many of these components involve making decisions in
+                                                                       the presence of limited information—a vital but often edu-
+What is learning STEM?                                                 cationally neglected aspect of expertise. All of these com-
+The appropriate STEM educational goal should be to max-                ponents are embedded in the knowledge and practices of
+imize the extent to which the learners develop expertise in            the discipline, but that knowledge is linked with the process
+the relevant subject, where expertise is defined by what sci-          and context, which are essential elements for knowledge to
+entists and engineers do. This is not to say that every learner        be useful. Similarly, measuring the learning of most ele-
+should become a scientist or engineer, or that they could              ments of this expertise is inherently discipline-specific.
+become one by taking any one class, but rather that the value
+of the educational experiences should be measured by their             How is learning achieved?
+effectiveness at changing the thinking of the learner to be            Researchers are also making great progress in determining
+more like that of an expert when solving problems and mak-             how expertise is acquired, with the basic conclusion being
+ing decisions relevant to the discipline. As discussed in the          that those cognitive processes that are explicitly and stren-
+National Research Council study Taking Science to School,              uously practiced are those that are learned. The learning of
+modern research has shown that children have the capabil-              complex expertise is thus quite analogous to muscle devel-
+ity to begin this process and learn complex reasoning at               opment. In response to the extended strenuous use of a mus-
+much earlier ages than previously thought, at least from the           cle, it grows and strengthens. In a similar way, the brain
+beginning of their formal schooling. Naturally, it is necessary        changes and develops in response to its strenuous extended
+and desirable for younger children to learn less specialized           use. Advances in brain science have now made it possible
+expertise encompassing a broader range of disciplines than             to observe some of these changes.
+would be the case for older learners.                                      Specific elements, collectively called “deliberate practice,”
+    Expertise has been extensively studied across a variety of         have been identified as key to acquiring expertise across
+disciplines. Experts in any given discipline have large                many different areas of human endeavor. This involves the
+amounts of knowledge and particular discipline-specific                learner solving a set of tasks or problems that are challeng-
+ways in which they organize and apply that knowledge. Ex-              ing but doable and that involve explicitly practicing the ap-
+perts also have the capability to monitor their own thinking           propriate expert thinking and performance. The tasks must
+when solving problems in their discipline, testing their un-           be sufficiently difficult to require intense effort by the learner
+derstanding and the suitability of different solution ap-              if progress is to be made, and hence must be adjusted to the
+proaches, and making corrections as appropriate. There are             current state of expertise of the learner. Deliberate practice
+a number of more specific components of expertise that ap-             also includes internal reflection by the learner and feedback
+ply across the STEM disciplines. These include the use of:             from the teacher/coach, during which the achievement of
+    • Discipline- and topic-specific mental models involv-             the learner is compared with a standard, and there is an
+ing relevant cause and effect relationships that are used to           analysis of how to make further progress. The level of ex-
+make predictions about behavior and solve problems.                    pert-like performance has been shown to be closely linked to
+    • Sophisticated criteria for deciding which of these mod-          the duration of deliberate practice. Thousands of hours of
+els do or don’t apply in a given situation, and processes for reg-     deliberate practice are typically required to reach an elite
+ularly testing the appropriateness of the model being used.            level of performance.
+    • Complex pattern-recognition systems for distinguish-                 This research has a number of important implications for
+ing between relevant and irrelevant information.                       STEM education. First, it means that learning is inherently
+
+
+
+2 ISSUES IN SCIENCE AND TECHNOLOGY
+CWSEI – www.cwsei.ubc.ca                                         April 2014                             CU-SEI – www.colorado.edu/sei/      Page 5
+                                                                                                            S C I E N C E E D U C AT I O N
+
+
+
+
+   difficult, so that motivation plays a large role. To succeed,         expertise, this includes other well-established principles re-
+   the learner must be convinced of the value of the goal and be-        garding how the human brain processes and remembers in-
+   lieve that hard work, not innate talent, is critical. Second, ac-     formation that are relevant to education, such as the limita-
+   tivities that do not demand substantial focus and effort pro-         tions of the brain’s short-term memory and what processes
+   vide little educational value. Listening passively to a lecture,      enhance long-term retention.
+   doing many easy, repetitive tasks, or practicing irrelevant              Although many of these instructional activities are eas-
+   skills produce little learning. Third, although there are dis-        ier to do one on one, there are a variety of pedagogical tech-
+   tinct differences among learners, for the great majority the          niques and simple technologies that extend the capabilities
+   amount of time spent in deliberate practice transcends any            of the teacher to provide these elements of instruction to
+   other variables in determining learning outcomes.                     many students at once in a classroom, often by productively
+                                                                         using student-student interactions. Examples of approaches
+   Implications for teaching                                             that have demonstrated their effectiveness can be found in
+   From the learning perspective, effective teaching is that             recommended reading articles by Michelle Smith and by
+   which maximizes the learner’s engagement in cognitive                 Louis Deslauriers et al.
+   processes that are necessary to develop expertise. As such,              Effective STEM teaching is a specific learned expertise
+   the characteristics of an effective teacher are very analogous        that includes, and goes well beyond, STEM subject expert-
+   to those of a good athletic coach: designing effective prac-          ise. Developing such teaching expertise should be the focus
+   tice activities that break down and collectively embody all the       of STEM teacher training. Teachers must have a deep mas-
+   essential component skills, motivating the learner to work            tery of the content so they know what expert thinking is,
+   hard on them, and providing effective feedback.                       but they also must have “pedagogical content knowledge.”
+       The effective STEM teacher must:                                  This is an understanding of how students learn the partic-
+       • Understand expert thinking and design suitable prac-            ular content and the challenges and opportunities for facil-
+   tice tasks.                                                           itation of learning at a topic-specific level.
+       • Target student thinking and learning needs. Such tasks             This view of STEM teaching as optimizing the develop-
+   must be appropriate to the level of the learner and be effective      ment of expertise provides clearer and more detailed guid-
+   at building on learners’ current thinking to move them to             ance than what is currently available from the classroom re-
+   higher expertise. The teacher must be aware of and connect            search on effective teaching. Most of the classroom research
+   with the prior thinking of the learner as well as have an un-         on effective teaching looks at K-12 classrooms and attempts
+   derstanding of the cognitive difficulties posed by the material.      to link student progress on standardized tests with various
+       • Motivate the student to put in the extensive effort that        teacher credentials, traits, or training. Although there has
+   is required for learning. This involves generating a sense of         been progress, it is limited because of the challenges of car-
+   self-efficacy and ownership of the learning; making the sub-          rying out educational research of this type. There are a large
+   ject interesting, relevant, and inspiring; developing a sense         number of uncontrolled variables in the K-12 school envi-
+   of identity in the learner as a STEM expert; and other fac-           ronment that affect student learning, the standardized tests
+   tors that affect motivation. How to do this in practice is de-        are often of questionable validity for measuring learning,
+   pendent on the subject matter and the characteristics of the          teacher credentials and training are at best tenuous measures
+   learner—their prior experience, level of mastery, and indi-           of their content mastery and pedagogical content mastery,
+   vidual and sociocultural values.                                      and the general level of these masteries is low in the K-12
+       • Provide effective feedback that is timely and directly          teacher population. The level of mastery is particularly low
+   addresses the student’s thinking. This requires the teacher to        in elementary- and middle-school teachers. All of these fac-
+   recognize the student’s thought processes, be aware of the            tors conspire to make the signals small and easily masked by
+   typical cognitive challenges with the material, and prepare           other variables.
+   particular questions, tasks, and examples to help the learner            At the college level, the number of uncontrolled variables
+   overcome those challenges. Research has shown several ef-             is much smaller, and as reviewed in the NRC report Disci-
+   fective means of providing feedback, including short, fo-             pline-Based Education Research, it is much clearer that those
+   cused lectures if the student has been carefully prepared to          teachers who practice pedagogy that supports deliberate
+   learn from that lecture.                                              practice by the students show substantially greater learning
+       • Understand how learning works, and use that to guide            gains than are achieved with traditional lectures. For exam-
+   all of their activities. In addition to the research on learning      ple, the learning of concepts for all students is improved,
+
+
+
+                                                                                                                           FALL 2012    3
+CWSEI – www.cwsei.ubc.ca                                        April 2014                           CU-SEI – www.colorado.edu/sei/    Page 6
+with typical increases of 50 to 100%, and the dropout and             viding information to the learner, with everything else be-
+failure rates are roughly halved.                                     ing the responsibility of the learners and/or their innate lim-
+                                                                      itations. It is common to assume that motivation, and even
+Shortcomings of the current system                                    curiosity about a subject, are entirely the responsibility of
+Typical K-16 STEM teaching contrasts starkly with what I              the student, even when the student does not yet know much
+have just described as effective teaching. At the K-12 level,         about the subject.
+although there are notable exceptions, the typical teacher
+starts out with a very weak idea of what it means to think like       Failure of reform efforts
+a scientist or engineer. Very few K-12 teachers, including            The perspective on learning that I have described also ex-
+many who were STEM majors, acquire sufficient domain                  plains the failure of many STEM reform efforts.
+expertise in their preparation. Hence, the typical teacher               Belief in the importance of innate talent or other char-
+begins with very little capability to properly design the req-        acteristics. Schools have long focused educational resources
+uisite learning tasks. Furthermore, their lack of content mas-        on learners that have been identified in some manner as ex-
+tery, combined with a lack of pedagogical content knowl-              ceptional. Although the research shows that all brains learn
+edge, prevents them from properly evaluating and guiding              expertise in fundamentally the same way, that is not to say
+the students’ thinking. Much of the time, students in class are       that all learners are the same. Many different aspects affect
+listening passively or practicing procedures that neither have        the learning of a particular student. Previous learning ex-
+the desired cognitive elements nor require the level of stren-        periences and sociocultural background and values obvi-
+uousness that are important for learning.                             ously play a role. There is a large and contentious literature
+    Teachers at both the K-12 and undergraduate levels also           as to the relative significance of innate ability/talent or the
+have limited knowledge of the learning process and what is            optimum learning style of each individual, with many claims
+known about how the mind functions, resulting in com-                 and fads supported by little or questionable research.
+mon educational practices that are clearly counter to what               Researchers have tried for decades to demonstrate that
+research shows is optimum, both for processing and learn-             success is largely determined by some innate traits and that
+ing information in the classroom environment and for                  by measuring those traits with IQ tests or other means, one
+achieving long-term retention. Another shortcoming of                 can preselect children who are destined for greatness and
+teaching at all levels is the strong tendency to teach “anti-cre-     then focus educational resources on them. This field of re-
+ativity.” Students are taught and tested on solving well-defined      search has been plagued by difficulties with selection bias and
+artificial problems posed by the teacher, where the goal is to        the lack of adequate controls. Although there continues to
+use the specific procedure the teacher intended to produce            be some debate, the bulk of the research is now showing
+the intended answer. This requires essentially the opposite           that, excepting the lower tail of the distribution consisting
+cognitive process from STEM creativity, which is primarily            of students with pathologies, the predictive value of any such
+recognizing the relevance of previously unappreciated re-             early tests of intellectual capability is very limited. From an
+lationships or information to solve a problem in a novel way.         educational policy point of view, the most important re-
+    At the undergraduate level, STEM teachers generally have          search result is that any predictive value is small compared
+a high degree of subject expertise. Unfortunately, this is not        to the later effects of the amount and quality of deliberate
+reflected in the cognitive activities of the students in the          practice undertaken by the learner. That predictive value is
+classroom, which again consist largely of listening, with very        also small compared to the effects of the learners’ and teach-
+little cognitive processing needed or possible. Students do           ers’ beliefs about learning and the learners’ intellectual ca-
+homework and exam problems that primarily involve prac-               pabilities. Although early measurements of talent, or IQ, in-
+ticing solution procedures, albeit complex and/or mathe-              dependent of other factors have at best small correlation
+matically sophisticated ones. However, the assigned problems          with later accomplishment, simply labeling someone as tal-
+almost never explicitly require the sorts of cognitive tasks that     ented or not has a much larger correlation. It should be
+are the critical components of expertise described above.             noted that in many schools students who are classified as
+Instructors also often suffer from “expert blindness,” failing        deficient by tests with very weak predictive value are put
+to recognize and make explicit many mental processes that             into classrooms that provide much less deliberate practice
+they have practiced so much that they are automatic.                  than the norm, whereas the opposite is true for students
+    Another problem at the postsecondary level is the com-            who are classified as gifted. The subsequent difference in
+mon belief that effective teaching is only a matter of pro-           learning outcomes for the two groups provides an apparent
+
+
+
+4 ISSUES IN SCIENCE AND TECHNOLOGY
+CWSEI – www.cwsei.ubc.ca                                        April 2014                            CU-SEI – www.colorado.edu/sei/    Page 7
+validation for what is merely a self-fulfilling prophecy. Given    J. Bransford, A. Brown, and R. Cocking, eds., How People
+these findings, human capital is clearly maximized by as-               Learn; Brain, Mind, Experience, and School
+suming that, except for students with obvious pathologies,              (expanded edition) (Washington, DC: National
+every student is capable of great achievement in STEM and               Academies Press, 2000).
+should be provided with the educational experiences that           G. Colvin, Talent Is Overrated: What Really Separates
+will maximize their learning.                                           World- Class Performers from Everybody Else (New
+   The idea that for each individual there is a unique learn-           York : Penguin Books, 2008).
+ing style is surprisingly widespread given the lack of sup-        L. Deslauriers, E. Schelew, and C. Wieman; “Improved
+porting evidence for this claim, and in fact significant evi-           Learn- ing in a Large-Enrollment Physics Class,” Science
+dence showing the contrary, as reviewed by Hal Pashler of               332, no. 6031 (2011): 862–864; and particularly the
+the University of California at San Diego and others.                   supporting online material.
+   Because of the presence of many different factors that in-      R. Duschl, H. Schweingruber, and A. Shouse, eds., Taking
+fluence a student’s success in STEM, including the mind’s               Science to School; Learning and Teaching Science
+natural tendency to learn, some students do succeed in spite            in Grades K-8 (Washington, DC: National Academies
+of the many deficiencies in the educational system. Most                Press, 2007).
+notably, parents can play a major role in both early cognitive     C. Dweck, Self-Theories: Their Role in Motivation,
+development and STEM interest, which are major contrib-                Personality, and Development (Philadelphia, PS:
+utors to later success. However, optimizing the teaching as            Taylor and Francis, 2000).
+I described would allow success for a much larger fraction         K. A. Ericsson, N. Charness, P. Feltovich, and R. Hoffman,
+of the population, as well as allowing those students who               eds., The Cambridge Handbook of Expertise and
+are successful in the current system to do even better.                 Expert Performance (Cambridge: Cambridge Univ.
+   …                                                                    Press, 2006).
+                                                                   H. Pashler, M. McDaniel, D. Rohrer, and R. Bjork, “Learn-
+                                                                        ing Styles: Concepts and Evidence,” Psychological
+Recommended reading                                                     Science in the Public Interest 9 (2009): 105.
+S. Ambrose, M. Bridges, M. DiPietro, M. Lovett, and M.             S. Singer, N. Nielsen, and H. Schweingruber, eds.,
+    Norman, How Learning Works: Seven Research-                         Understanding       and    Improving      Learning in
+    Based Principles for Smart Teaching (San Francisco,                 Undergraduate Science and Engineering (Washington,
+    CA: J. Wiley and Sons, 2010).                                       DC: National Academies Press, 2012).
+
+
+
+
+CWSEI – www.cwsei.ubc.ca                                     April 2014                          CU-SEI – www.colorado.edu/sei/   Page 8
+                                          What all Instructors Should Know
+Motivation is important for learning and is an essential part of effective teaching1
+− Show that the subject is interesting, relevant, valuable to learn, worthwhile, fun, … Remember that most
+  students do not have the benefit of your experience and perspective.
+− Convey that subject is challenging but all students can master it with effort, and why it is worth the effort.
+− Convey that you care about all students’ successfully learning the material.
+− Avoid: scare tactics, such as saying subject is really difficult; many students will fail, etc. These turn out to
+  be demotivating to many students.2
+Think of yourself as a "coach of thinking" rather than an as a "dispenser of information"
+"Learning" requires intense mental activity with resulting changes in the brain of learner.3
+Feedback that is timely and specific is critical for learning
+− Timely, frequent, detailed feedback that shows how to improve ("formative assessment") should be
+  provided for all students.
+− Give marks for what you value (homework, reading, in class participation, quizzes, pre-tests, …). For most
+  students, marks define the expectations and what is important in a course.2
+Teach students how to learn
+− Explicitly model expert thinking, being careful not to skip steps that are now automatic for you. Convey
+  how to best learn the material and skills, teach students how to study effectively and what is required for
+  conceptual mastery and retention.3,4 These are fairly readily acquired skills that are seldom if ever taught.
+− Know & teach using the best (proven) practices for achieving learning.1, 5
+Dos and Don’ts for the first week
+− Explain why you are teaching the way you are teaching, why course is worthwhile, what are your goals and
+  expectations. The first classes set the tone for the rest of the term.
+− Explicitly work to establish a desired class culture.
+− Don’t threaten or apologize for what or how you will teach.
+Find out what all your students are thinking; recognize they think differently than do you
+− Connect to and build on their prior knowledge, explicitly examine student preconceptions.1, 3
+− Probe understanding and adjust teaching as appropriate when find many are not getting it.
+Lay out framework, goals, & context for the knowledge & skills you want students to learn
+− Teach the organization and application of the knowledge, rather than just the facts. This is the vital
+   element of mastery that students have the most difficulty perceiving and mastering.6
+Approach teaching as a challenging subject that can be mastered1,3,4,5
+− The ability to teach effectively is not innate – it can be learned much like a scholarly discipline.
+− Understand how people learn and what processes facilitate learning-- these are understood.
+− Don't be afraid to copy what works. Use teaching practices that have been proven to be effective; they are
+  readily replicated.
+
+
+1
+  The Wisdom of Practice: Lessons Learned from the Study of Highly Effective Tutors, in Improving Academic Achievement, ed. J.
+  Aronson (2002) Academic Press.
+2
+  CWSEI and CU-SEI student interviews and focus groups, as well as other studies.
+3
+  How People Learn; brain, mind, experience, and school, Bransford et al. eds, (2000) NAS Press; S. Ambrose et. al., How Learning
+Works: Seven Research-Based Principles for Smart Teaching, J. Wiley and Sons, 2010
+4
+  CWSEI guidance for students (www.cwsei.ubc.ca/resources/student_guidance.htm)
+5
+  Bain, What the best college teacher do, (2004) Harvard Univ. Press
+6
+  refs. 1, 2, 3, and 5, and many other studies.
+
+
+
+CWSEI – www.cwsei.ubc.ca                                      April 2014                           CU-SEI – www.colorado.edu/sei/   Page 9
+                           Specific strategies for instructional activities
+
+         This document gives strategies to achieve the essential elements of effective learning, motivation,
+         practicing to master expertise, feedback etc. You should apply these strategies to all the course
+         components. Most of this material is summarized from the excellent book, How Learning Works: Seven
+         Research-Based Principles for Smart Teaching. 1 It is recommended that you buy that book, as it provides
+         more detailed discussion.
+              •    Motivation
+              •    Developing mastery
+              •    Practice & feedback
+              •    Creating self-directed learners
+              •    Creating productive views of intelligence and learning
+              •    Memory and retention
+
+
+
+
+         1
+          How Learning Works: Seven Research-Based Principles for Smart Teaching, S. Ambrose, M. Bridges, M. DiPietro,
+         M. Lovett, M. Norman. San Francisco, CA: John Wiley & Sons (2010).
+
+
+
+
+CWSEI – www.cwsei.ubc.ca                                    April 2014                         CU-SEI – www.colorado.edu/sei/   Page 10
+                                                     Motivation
+         Student motivation is a key ingredient in a successful course. Two major components of motivation, as
+         identified by Ambrose et al., are
+              I.       The expectations that students bring to the classroom, and
+              II.      The value that students place on the course material and tasks.
+
+         Ways to address students' expectations:
+              1. Set attainable goals. Students are best motivated when they feel optimally challenged – when
+                 the course and assignments are challenging, but students feel that they can be successful with
+                 some effort.
+              2. Let students know your expectations. Communicate your course goals, and how students can
+                 achieve those goals. Align instruction and assessment with those course goals – so that
+                 students can practice, and see whether they are achieving those goals. This helps to establish
+                 realistic expectations. The use of grading rubrics can help make your expectations of student
+                 performance on a task very explicit.
+              3. Give students feedback. Without feedback on their performance, students may lose sight of
+                 their progress towards a goal. Feedback is most effective when it is timely (i.e., without a long
+                 time delay), targeted (i.e., focused on a specific student performance on a specific task), and
+                 constructive (i.e., focusing on strengths and future action as well as weaknesses).
+              4. Give students a sense of control and self-efficacy. Self-efficacy is a very important ingredient to
+                 student motivation. Provide students with opportunities to feel successful early in the course.
+                 Be sure that your grading standards are seen as fair across students and over time. Provide
+                 students some flexibility and choice (for example, on assignment topics). Giving feedback on
+                 student progress towards well-articulated course and assignment goals can also enhance
+                 students' sense of efficacy and control. Also, help students focus on things that they can control
+                 (such as study habits), rather than personal characteristics (such as intelligence). Avoid threats
+                 and framing your course as competition among students, as these are typically demotivating.
+
+         Ways to address students' value of the material:
+              1. Highlight the relevance of material and tasks. Students are motivated to engage with material
+                 that relates to their personal interests, everyday lives, and academic or professional paths.
+                 Show students how these skills and ideas will relate to future courses and careers. Create
+                 assignments that are authentic and relevant; ensure that homework problems can pass the
+                 “Why should anyone care about the answer to this problem?” test.
+              2. Get students to reflect on what they have learned. e.g., ask students to write a short
+                 paragraph on what they learned from a class or an assignment, and how it applies to an
+                 interesting or important problem.
+              3. Be enthusiastic. Your own passion and enthusiasm can be a powerful motivator for students.
+
+
+         For more information about how to effectively use motivation in your teaching strategies, see Chapter 3
+         of How Learning Works (Ambrose et al.), and CWSEI 2-pager: Motivating Learning at
+         www.cwsei.ubc.ca/resources/instructor_guidance.htm .
+
+
+
+
+CWSEI – www.cwsei.ubc.ca                                   April 2014                       CU-SEI – www.colorado.edu/sei/   Page 11
+                                             Developing Mastery
+              According to Ambrose et al., in order to develop mastery, students must acquire component skills,
+                        practice integrating them, and know when to apply what they have learned.
+
+         Ways to help students learn key skills
+           1. Get broad perspectives on necessary student skills. Decompose tasks by asking, "What would
+                students need to know / know how to do in order to achieve this task?" Use your graduate
+                student assistants in this endeavor, as they more recently struggled with this material. Your
+                colleagues are also good sources of information about necessary student skills, as are
+                professionals outside your discipline.
+           2. Identify weak/missing skills and help students practice them. Early assessments (e.g., a
+                diagnostic test of expected prior knowledge), as well as thoughtful analysis of student
+                performance on assignments, can help you identify missing skills. Depending on the number of
+                students exhibiting this lack of mastery, you can either devote class time and resources to the
+                issue, or provide other resources. Create opportunities for students to work on their mastery of
+                those skills. To address inaccurate prior knowledge (e.g., misconceptions), have students make
+                and test predictions, and explicitly address any inconsistencies.
+
+         Ways to help students become more proficient
+           1. Give students opportunities to practice. As with other teaching practices, communicate your
+                intent about the practice opportunities, and make your expectations about students'
+                achievement level explicit.
+           2. Use productive constraints to reduce cognitive load. While practicing a skill, it can be helpful to
+                reduce cognitive load by (a) calling students' attention to the key goals and features of a task (so
+                they are not distracted by extraneous features) and (b) simplify tasks to hone in on key skills.
+                Once they become more proficient, the complexity and scope of the task can be increased.
+           3. Assess students on their proficiency. Test students on how well they have integrated the
+                components of complex tasks. This provides alignment between your goals, instruction, and
+                assessment, and gives students feedback on their progress.
+
+         Ways to help students learn when to apply their knowledge
+         There are a wide variety of strategies for helping students learn to transfer ideas to new contexts, which
+         are described in more detail in Ambrose et al. For example:
+              •    Discuss the contexts and conditions in which a skill or approach is applicable, and give students
+                   practice in doing this. For example, ask them "Which statistical technique would be used to
+                   solve this problem?" or "What questions could this research method be used to investigate?"
+              •    Ensure that students practice skills and understanding in many different contexts.
+              •    Encourage students to generalize ideas from a specific context to a broader principle.
+              •    Make use of structured comparisons to help students identify critical features. For example,
+                   you might give two problems that appear different, but use the same underlying principle.
+              •    Give prompts to help students make connections between their knowledge and a new problem.
+                   For example, "Think back to the bridge we discussed last week."
+
+
+         For more information about how to help students develop mastery, see Chapters 1, 2, and 4 of How
+         Learning Works (Ambrose et al.).
+
+
+
+
+CWSEI – www.cwsei.ubc.ca                                   April 2014                       CU-SEI – www.colorado.edu/sei/   Page 12
+                                           Practice and Feedback
+                 Practice aimed at achieving specific goals and feedback on progress are critical for learning.
+         Ways to give students goal-directed practice
+           1. Explicitly identify and communicate goals for students. Make your expectations clear – both
+                for student performance in the course overall, and on a given task. These goals can help guide
+                their practice, especially when these goals are stated in terms of what students should be able
+                to do at the end of an assignment or a course. Then, use rubrics to more specifically define
+                performance criteria for a particular assignment.
+           2. Support students in productive practice. Give students multiple opportunities for practice
+                (readings, quizzes, in-class activities, homework, etc.) so that they can develop skills and receive
+                feedback. During these assignments, scaffold students' development by giving students more
+                support early in learning (e.g., by breaking a task into parts for them), and later remove these
+                supports. Create realistic expectations about the amount of practice required by giving
+                guidelines for the amount and type of practice that will be needed. Instead of guessing how long
+                it will take students to do a task, gather data by asking students how long it took them (e.g., the
+                last item on a homework set could be: How long did it take you to do this homework?).
+           3. Give students positive and negative examples of performance. What would ideal performance
+                look like? What types of work would not meet your goals?
+           4. Modify your criteria as your students become more proficient. Early in the course, determine
+                an appropriate level of challenge by conducting an assessment of student knowledge. As
+                students progress through the course, refine your goals to meet their changing proficiency.
+
+         Ways to give students targeted feedback
+         There are a wide variety of strategies for giving students feedback, which are described in more detail in
+         Ambrose et al. For example:
+            • Provide feedback to the class as a whole about common errors (you can look for common
+                 errors in homework or tests, listen in on student discussions during in-class activities and
+                 problem solving sessions, etc.).
+            • Focus your feedback on key elements of the task, so that students are not overwhelmed.
+            • Communicate about strengths as well as weaknesses. If students have made progress, point
+                 that out to them—people are often unaware of the progress they are making.
+            • Give frequent feedback, made possible through use of frequent, smaller tasks.
+            • Give real-time feedback. Collecting group responses through colored cards or clickers lets you
+                 give feedback to the whole group.
+            • Use student-to-student feedback. Explicit guidelines can make student comments on each
+                 others' work even more valuable.
+            • Have students reflect on the feedback. Require students to incorporate feedback into later
+                 work or have them explain what they did wrong. Example from Carl Wieman’s teaching: each
+                 homework set starts with “Q1. Select a problem from the last HW set that you did incorrectly
+                 and explain what you did wrong and what should be done differently to obtain correct answer.”
+
+
+         For more information about how to give students opportunities for practice and targeted feedback, see
+         Chapter 5 and Appendices D & H of How Learning Works (Ambrose et al.).
+
+
+
+
+CWSEI – www.cwsei.ubc.ca                                   April 2014                        CU-SEI – www.colorado.edu/sei/   Page 13
+                                Becoming Self-Directed Learners
+          According to Ambrose et al, in order to become self-directed learners, students must learn to assess the
+             demands of the task, evaluate their own knowledge and skills, plan their approach, monitor their
+                                     progress, and adjust their strategies as needed.
+
+         How to help students learn to assess the task
+            1. Communicate the nature of the task and check understanding. Express the goals more
+                explicitly than you might think is necessary, and what students will need to do in order to
+                successfully complete the task. Check students' understanding of the task, and give them
+                feedback on their understanding – for example, you might have them express the goal of the
+                assignment in their own words. Be sure to tell students what it is that you do not want as well,
+                by showing common student errors in the past.
+            2. Give students criteria for success. Share the criteria that will be used in student evaluation – for
+                example, with a checklist or performance rubric. This helps students generate realistic
+                understanding of the task, as well as learn to monitor their progress towards success.
+
+         How to help students evaluate their knowledge
+            1. Assess early and often. Periodic, timely assessments give students opportunity to get practice
+                and feedback so that they can determine where their strengths and weaknesses lie – in time to
+                make corrections before the exam.
+            2. Have students assess themselves. Reduce your grading burden by giving students tasks and
+                have them check their own work using answer keys.
+
+         How to help students plan their approach
+            1. Provide a plan. Scaffold students' self-planning approach by providing them your own model
+                for effective planning. This helps them see how a complex assignment might be broken down
+                into pieces or plotted out over time.
+            2. Have students create plans; provide feedback on students' plans. Students might submit their
+                plan as the first part of a complex assignment. This forces them to externalize their thinking,
+                and gives you the opportunity to give them feedback on that plan.
+            3. Compare and contrast strategies. Problems or tasks can be approached in multiple ways; use of
+                different strategies can help students understand the relative merits, particularly if they are
+                given the task of explicitly determining advantages and disadvantages of different approaches.
+
+         How to help students learn to monitor their progress
+            1. Model metacognition. Walk students through your own approach to a problem or assignment,
+                identifying different steps and questions that you would ask yourself to check your progress
+                (e.g., "Am I making reasonable assumptions?").
+            2. Provide strategies for self-correction and reflection. Students can ask themselves, "Is that a
+                reasonable answer?" "What assumptions am I making?" or "Is this task taking me too long?"
+                Students can also benefit from reviewing classmates' work, especially when given a rubric.
+
+
+         For more information about how to help students become self-directed learners, see Chapter 7 and
+         Appendices A & C of How Learning Works (Ambrose et al.).
+
+
+
+
+CWSEI – www.cwsei.ubc.ca                                 April 2014                        CU-SEI – www.colorado.edu/sei/   Page 14
+                             Beliefs about Intelligence & Learning
+         According to Ambrose et al, these beliefs have a major impact on student motivation, choice of learning
+         strategies and methods, and the achievement of effective monitoring and self-regulation of learning.
+
+              1. Discuss the nature of learning. Tell students about the various types of knowledge, from factual
+                 recall, to conceptual understanding, to applying those concepts. This can help move them away
+                 from an overly rigid view of learning ("you know it or you don't.") Address common
+                 misconceptions about learning, to move students away from unproductive ideas (e.g., "I'm not a
+                 math person.") Discuss the features of learning discussed in this document, such as the impact
+                 of practice on performance. Studies by Dweck and others have shown that a student’s view of
+                 intelligence has a substantial impact on their motivation, approaches to learning, and their
+                 academic success. Those who have a view that intelligence is fixed (“There are right-brained
+                 people good at math and science and left-brained people who are not”) are less successful than
+                 those who have a growth mindset (“Learning and mastery is achieved through hard work rather
+                 than innate talent.”). These studies have also shown that such beliefs are quite malleable if
+                 explicitly addressed.
+              2. Encourage students to persevere. If students have unrealistic expectations about how quickly
+                 they will learn something, they may not push themselves when they hit difficulties. Discuss how
+                 you or others you know had to work to become expert in a field. Focus students on aspects of
+                 their learning over which they have control, such as their study habits, rather than external
+                 factors – such as their level of intelligence or aspects of the course. This helps to increase self-
+                 efficacy and a tendency to work through challenges.
+              3. Show them the research. Present research on learning showing how particular types of learner
+                 activities and practice are necessary for achieving expertise, and how teaching practices that
+                 involve greater student cognitive activity demonstrate greater learning. Show benefits of
+                 mentally demanding study strategies (e.g., “test yourself on retrieval and application of ideas”,
+                 and fully engaged effort to solve hard problems) compared to less effective strategies (e.g.,
+                 reread and review and practice of easy problems, or split-attention study activities).
+
+
+
+
+         For more information about how to address students' beliefs about intelligence and learning, see
+         Chapter 7 of How Learning Works (Ambrose et al.).
+
+
+
+
+CWSEI – www.cwsei.ubc.ca                                   April 2014                        CU-SEI – www.colorado.edu/sei/   Page 15
+                                         Memory and Retention
+
+         Introduction – Research on memory
+         Memory can be divided into two types; the long-term memory which has a large information capacity
+         and can remember information for many years, and the “working memory” which handles memory and
+         processing of new information over periods of seconds and minutes and has a very limited capacity.
+         Information enters (and leaves) the working memory quickly and easily. It is much harder to get
+         information into long-term memory, and accessing it is also challenging due to interference among the
+         different items in memory during the retrieval process. Repeated retrieval and application of the
+         information, spaced out over time, is the most important element for achieving long-term memory.
+         The working memory plays a major role in the mental processing that takes place in the classroom, and
+         other similar time-constrained situations, and its limitations have a correspondingly large impact on
+         learning that takes place in that setting. The human working memory has a remarkably small capacity,
+         typically 4-7 new (e.g. not already in long-term memory) items. The working memory does not just
+         store information, it also carries out basic processing, and so as it is called upon to remember more new
+         items, its ability to process is correspondingly reduced, analogous to a computer with very limited RAM.
+         The very limited capacity of the working memory has profound implications for the design of suitable
+         classroom activities. It means that anything that puts additional demands (“cognitive load”) on the
+         working memory of the student has a cost in what the learner can process and learn. For example,
+         every unfamiliar technical term introduced during a lecture has a significant impact on the capacity of
+         the audience to follow arguments and process the ideas, even if it that term is clearly explained and/or
+         unimportant. Similarly, studies have shown that anything that involves unnecessary input of
+         information or processing during a learning activity has a detrimental effect. Mayer and colleagues have
+         done a series of studies showing how the addition of “seductive details” commonly used by many
+         teachers and textbooks, such as adding amusing anecdotes, attractive pictures, or background graphics
+         that are only peripherally related to the topic, reduce learning.
+
+         Strategies to reduce unnecessary demands on the working memory in the classroom
+         1. Explicitly show how different topics or ideas are linked together, and explicitly show the
+             organization of the class presentation/activities, emphasizing how the parts are connected. This
+             helps the different topics to be consolidated (“chunked”) in the working memory of the students
+             rather than remain distinct, thereby taking up less capacity. Novices often do not recognize these
+             connections that are obvious to experts.
+         2. Use analogies—this maps complex relationships onto existing relationships already in long term
+             memory, so the working memory needs only remember the link to relevant part of long term
+             memory.
+         3. Use pictures, even simple sketches, to illustrate spatial relationships, rather than relying on verbal
+             descriptions that must be translated into images.
+         4. Provide worked examples for initial problem solving. Worked examples show the organizational
+             structure and focus the learner’s attention on key elements, reducing cognitive load.
+         5. Use pre-class reading assignments and quizzes to have students review definitions and basic
+             examples before class. See Preclass-Reading Assignments; Why they may be the most important
+             homework for your students (www.cwsei.ubc.ca/resources/files/Pre-reading_guide_CWSEI.pdf).
+         6. Keep the use of unfamiliar jargon to an absolute minimum; remembering each new term has a cost.
+
+
+
+
+CWSEI – www.cwsei.ubc.ca                                 April 2014                        CU-SEI – www.colorado.edu/sei/   Page 16
+         Strategies for Achieving Long Term Retention and Useful Access of Learning
+         1. Provide opportunities and encouragement to students to repeatedly test themselves on retrieving
+             and applying material. The more active the cognitive processing involved in this, the better.
+         2. Make homework and exams cumulative so that students are reusing and thinking about the ideas
+             multiple times in the presence of new material. Explain why this supports learning.
+         3. Provide multiple associations (“hooks”) between material to be learned and material already in the
+             students’ long term memory.
+         4. Avoid covering material in a separated sequential fashion, where each topic is covered and tested
+             only once and not revisited. While conducive to a well-organized syllabus, this is not conducive to
+             useful learning. Students need to build broader associations and to practice sorting out interference
+             between topics when accessing ideas in long-term memory. The additional cognitive processing
+             required to sort out and suppress erroneous interference when studying interleaved topics acts to
+             suppress such interference when accessing information in the future. Too often students will learn
+             and retain that some concept or solution method is associated with Chapter 4, covered in week 6,
+             but they will not develop the useful expert-like associations of the material with a suitable range of
+             contexts, concepts, and problem types that will facilitate the desired access from long term
+             memory.
+         5. Provide practice activities that explicitly build specific “expert” associations—those commonly
+             recognized and used by experts. Have an assignment that asks students to explain all the ways a
+             new solution method or principle might be used to solve problems associated with topics
+             encountered earlier in the term. Have the students generate general criteria for deciding when this
+             material might be useful.
+
+         References on memory and retention:
+         What college teachers should know about memory: a perspective from cognitive psychology,
+         Michelle D. Miller, College Teaching, Vol. 59, pp. 117-122 (2011).
+
+         Memory and metamemory considerations in the training of human beings, by Robert Bjork, in
+         Metacognition: Knowing about knowing (pp.185-205), J. Metcalfe and A. Shimamura (Eds.), Cambridge,
+         MA: MIT Press (1994). http://bjorklab.psych.ucla.edu/pubs/RBjork_1994a.pdf
+
+         Increased interestingness of extraneous details in a multimedia science presentation leads to decreased
+         learning, R. Mayer et al., Journal of Experimental Psychology: Applied, Vol. 14(4), pp. 329-339 (2008).
+
+         Learning from Examples: Instructional Principles from the Worked Examples Research, R.K. Atkinson et
+         al., Review of Educational Research, Vol. 70, No. 2, pp. 181-214 (2000).
+
+
+
+
+CWSEI – www.cwsei.ubc.ca                                  April 2014                       CU-SEI – www.colorado.edu/sei/   Page 17
+                                   Recommendations	  for	  implementing	  	  
+                                      specific	  instructional	  practices	  
+	  
+The	  rest	  of	  this	  transformation	  guide	  provides	  guidance	  on	  a	  variety	  of	  instructional	  practices,	  both	  in	  and	  out	  of	  the	  
+classroom:	  
+	  
+       •    Creating	  and	  using	  effective	  learning	  goals	  
+       •    First	  day	  of	  class	  
+       •    Better	  ways	  to	  review	  material	  in	  class	  
+       •    Basic	  instructor	  habits	  to	  keep	  students	  engaged	  
+       •    Pre-­‐class	  reading	  assignments	  
+       •    Tips	  for	  successful	  "clicker"	  use	  
+       •    Student	  group	  work	  in	  educational	  settings	  
+       •    Creating	  and	  implementing	  in-­‐class	  activities;	  principles	  and	  practical	  tips	  
+       •    What	  not	  to	  do	  
+       •    Assessments	  that	  support	  student	  learning	  
+       •    Promoting	  course	  alignment:	  	  Developing	  a	  systematic	  approach	  to	  question	  development	  
+	  
+
+
+
+
+CWSEI – www.cwsei.ubc.ca                                                              April 2014                                         CU-SEI – www.colorado.edu/sei/                Page 18
+                                    Creating and Using Effective Learning Goals
+                                                      CU-SEI and CWSEI (2014)
+
+     An important first step in course transformation has been to define explicit learning goals for each course which
+then shape the instruction and assessment. Here we briefly describe the process and benefits of writing learning goals.
+Learning goals explicitly communicate the key ideas and the level at which students should understand them in terms of
+what the students should be able to do. Learning goals take the form: “At the end of this course, students will be able
+to...” followed by a specific action verb and a task. For each course, faculty typically define five to ten course-level goals
+that convey the major learning themes and concepts, as well as topic-level learning goals (also known as “learning
+outcomes” or “objectives”) that are more specific and are aligned with the course-level learning goals. Below are
+examples of learning goals from an introductory genetics course and a 2nd year physics course. A variety of other
+examples are available at the SEI learning goals resources link given below.
+
+               Examples of learning goals from an introductory genetics course (Univ. of Colorado-CU)
+Course-level learning goal:
+Deduce information about genes, alleles, and gene functions from analysis of genetic crosses and patterns of inheritance.
+Topic-level learning goals:
+a) Draw a pedigree based on information in a story problem.
+b) Distinguish between different modes of inheritance.
+c) Calculate the probability that an individual in a pedigree has a particular genotype or phenotype.
+d) Design genetic crosses to provide information about genes, alleles, and gene functions.
+e) Use statistical analysis to determine how well data from a genetic cross or human pedigree analysis fits theoretical predictions.
+
+
+              Examples of learning goals from a 2nd year physics course (Univ. of British Columbia-UBC)
+Course-level learning goal:
+Be able to argue that the ideas of quantum physics are true and that it is useful for engineers to know about them.
+Topic-level learning goals:
+a) Given a simple physical system, be able to draw the relevant potential energy curve needed to model dynamical behaviour.
+b) Be able to explain the essential role of the quantization of light as demonstrated by the photoelectric effect in the operation of
+   a photomultiplier tube, a solid state photodetector such as used in motion sensors, and the human eye.
+c) Be able to design an experiment for determining the composition of an unknown pure metal based on the photoelectric effect.
+d) For an unknown material, be able to analyze whether it is a conductor, insulator, or semiconductor, and then predict what
+   electron energy distribution it must have.
+e) Qualitatively design a semiconductor diode that will only allow current to flow in one direction.
+
+    The following process of developing learning goals has worked well for course transformations in the SEIs: A working
+group composed of faculty members who have previously taught a course and those who teach subsequent courses is
+formed. These working groups typically include a facilitator whose role is to review and synthesize materials, and create
+learning goal drafts. Learning goals are drafted by referring to materials used by instructors who previously taught the
+course, with emphasis on homework assignments, exams, and other materials that demonstrate what instructors want
+students to be able to do. Faculty members who teach subsequent courses communicate what they expect students to
+know coming into their course. The members of the working group discuss and revise these learning goals until a
+consensus list is generated, which for any instructor teaching the course would typically cover 70-80% of the class time.
+One of the most critical aspects of writing learning goals is choosing a verb that describes exactly what students should
+be able to do. Many faculty are tempted to use the verb “understand,” but this is not specific – two faculty members
+could both say “understand” but have completely different expectations as to what students should be able to do. We
+recommend creating learning goals that convey the relevance and usefulness of any particular content to students. Use
+everyday language and applications when possible, and minimize the use of technical jargon. Many courses at CU and
+UBC include goals that focus on skills, habits of mind, and affective outcomes such as: “Students should be able to justify
+& explain their thinking and/or approach to a problem or physical situation.”
+    Based on our experiences, we formulated a check-list to help instructors create and critique learning goals (below).
+
+
+
+
+CWSEI – www.cwsei.ubc.ca                                       April 2014                           CU-SEI – www.colorado.edu/sei/      Page 19
+Check-list for creating learning goals:
+   Does the learning goal identify what students will be able to do after the topic is covered?
+   Is it clear how you would test achievement of the learning goal?
+   Do chosen verbs have a clear meaning?
+   Is the verb aligned with the level of cognitive understanding expected of students? Could you expect a higher level
+      of understanding?
+   Is the terminology familiar/common? If not, is knowing the terminology a goal?
+   Is it possible to write the goal so it is relevant and useful to students (e.g. connected to their everyday life, or does it
+      represent a useful application of the ideas)?
+-----------------------------------------------------------------------------------------------------------------------------------
+     We also aligned the verbs with the cognitive level expected of students. The table below shows levels of learning
+and examples of verbs that match each level, based on Bloom’s taxonomy of the cognitive domain.
+
+Levels of cognitive understanding and corresponding verbs
+        Level                        Description                                               Representative Verbs
+Factual Knowledge Remember & recall factual information                      Define, List, State, Label, Name
+Comprehension         Demonstrate understanding of ideas, concepts           Describe, Explain, Summarize, Interpret, Illustrate
+Application           Apply comprehension to unfamiliar situations           Apply, Demonstrate, Use, Compute, Solve, Predict,
+                                                                             Construct, Modify
+Analysis              Break down concepts into parts                         Compare, Contrast, Categorize, Distinguish, Identify,
+                                                                             Infer
+Synthesis             Transform, combine ideas to create something new       Develop, Create, Propose, Formulate, Design, Invent
+Evaluation            Think critically about and defend a position           Judge, Appraise, Recommend, Justify, Defend, Criticize,
+                                                                             Evaluate
+Benefits
+    Writing learning goals requires effort and time, but carries multiple benefits. Faculty use learning goals as they plan
+class time, develop homework, and create exams. All aspects of the course become better aligned, and focus on what
+faculty most want the students to achieve. Faculty using learning goals report that writing good exam questions
+becomes easier. At CU and UBC, we have seen that the cognitive level of exams often increases as faculty align the
+questions with the higher cognitive level of the learning goals.
+    Sharing the learning goals with students improves faculty-student communication. Learning goals are often posted
+online and each lecture begins with the relevant learning goals for the day. Surveys reveal that students are
+overwhelmingly positive about having access to learning goals. The greatest reported benefit is that learning goals let
+students “know what I need to know,” which helps students focus on important ideas and study more effectively.
+    For departments, writing learning goals has informed, shaped, and aligned the departmental curriculum. By
+considering the learning goals from multiple courses, departments have discovered that some concepts were taught in
+an identical manner in multiple courses and other critical concepts were omitted entirely. As a result faculty members
+who teach different courses have begun to work together so that their goals complement each other and encompass
+what every student should be able to do by graduation. For instance, some fundamental evolution concepts were added
+to the CU biology curriculum after this process revealed their absence.
+
+Resources:
+www.cwsei.ubc.ca/resources/learn_goals.htm − compilation of learning goals and other resources from the CU and UBC SEIs
+“At the end of my course, students should be able to …”: The benefits of creating and using effective learning goals, Michelle Smith
+and Katherine Perkins, Microbiology Australia, pp. 35-37, (March 2010).
+http://microbiology.publish.csiro.au/?act=view_file&file_id=MA10035.pdf
+What is the Value of Course-Specific Learning Goals?, Beth Simon and Jared Taylor, Journal of College Science Teaching, Vol. 39, pp.
+52-57 (2009).
+A Thoughtful Approach to Instruction: Course transformation for the rest of us, Stephanie Chasteen, Katherine Perkins, Paul Beale,
+Steven Pollock, & Carl Wieman, Journal of College Science Teaching, Vol. 40, pp. 24-30 (2011).
+
+
+CWSEI – www.cwsei.ubc.ca                                       April 2014                          CU-SEI – www.colorado.edu/sei/    Page 20
+                            First Day of Class – Recommendations for Instructors
+                                                        CWSEI, 2014
+
+   Set the Environment
+   The first day of class can have a large influence on students’ perception of the entire course. By the end
+   of the first class, you want students to have a good sense of why the course is interesting and
+   worthwhile, what kind of classroom environment you want, how the course will be conducted, why the
+   particular teaching methods are being used, and what the students need to do (generally) to learn
+   material and succeed in the course. It is also important to give the students the sense that you respect
+   them and would like all of them to succeed.
+
+   1. Establish Motivation
+      a. Provide an entry-level preview of the course material and explain why the course material is
+          important & interesting. Avoid jargon as much possible. Where applicable, make connections to:
+             •    Real world/everyday life
+             •    What students know
+             •    What students will need to be successful in future studies or career
+             •    What students are interested in, current events, …
+
+   2. Personalize the learning experience
+      a. Welcome students to your class – make it clear that you are looking forward to working with
+         them.
+      b. Introduce yourself, including describing your background and interests in connection to the
+         subject, e.g.:
+             •    Why you find it interesting and exciting for them to learn
+             •    How it applies to other things you do (research, …)
+             [Students—especially those majoring in the subject—say it is inspiring to hear about the instructor’s
+             background and research, and how it is relevant to the course.]
+        c. Introduce teaching team
+             • If applicable: TA’s and anyone else involved that students will be interacting with (could show
+               pictures or have them come to class)
+        d. Make an effort to find out who the students are and their expectations, motivations, and
+           interests, e.g.:
+             •    Ask them a series of questions about major, goals, background, … (perhaps use clickers or a
+                  survey)
+             •    If appropriate, ask them to introduce themselves to other students they will be working with.
+                  [note: use with caution; some students say it makes them uncomfortable if used as a general
+                  “icebreaker”, but it is appropriate to introduce themselves to group members with whom they will be
+                  working]
+
+   3. Establish Expectations (best if also handed out and/or online, not just spoken)
+      a. Describe overarching (course-level) learning goals—big picture view
+      b. Emphasize that you want them to learn and your role is to support their learning
+      c. Explain how course will be conducted, what will happen in class, expectations for out of class
+          work, overview of schedule, and marking scheme
+
+CWSEI – www.cwsei.ubc.ca                                  April 2014                       CU-SEI – www.colorado.edu/sei/   Page 21
+         d. Explain why you’re teaching the way you are teaching, how the different components support
+            their learning (especially important if you are teaching differently than most other courses are
+            taught); † e.g.:
+            • Teaching methods based on what is known about how people learn
+            • Students need to play an active part and be intensively engaged in the learning process, …
+         e. Describe (generally) how to succeed in your course
+              •   Learning and improvement take practice and effort; as well as good feedback.
+                  A good activity is to tell students: “1. Think of something you are really good at. Write it down
+                  (you don't have to share it with anyone). 2. Now, in one or two words, describe how you got
+                  to be good at that thing. 3. On the count of 3, shout out how you got to be good.” The
+                  overwhelming word shouted will be “PRACTICE”. Then talk to them about what kind of
+                  practice is the most effective for mastering the material in this course.
+              •Give general description of how assessments are used for both feedback and marks, leaving
+               details to be read on course website
+            • Give advice on how to study
+         f. Express that you feel they can succeed if they put in the effort
+
+   4. Details (syllabus, detailed schedule, detailed learning goals, academic conduct, deadlines, rules …)
+      a. Don’t go into details during first class; give links to more details on course
+              •   Could give an assignment involving reading these.
+
+   5. Other Tips
+                           Good practices                                                   Avoid
+   Check out classroom before first class (avoid technical
+   problems)
+   Start class on time (sends message that you expect
+   them to be on time)
+   Telling students you think they can all succeed if they
+                                                                   Telling students threatening things such as:
+   put in the effort (fine to say the course is challenging, as
+                                                                   you expect some to fail; or lots of students don’t like
+   long as also express that it is interesting/worthwhile
+                                                                   the course and/or have found it very difficult
+   and do-able)
+   Address academic conduct in context throughout
+                                                                   Emphasizing rules and penalties first day (sends
+   course (e.g. talk about plagiarism when you are giving a
+                                                                   message of distrust, and they’re not listening anyway)
+   writing assignment)
+   Provide students with some experiences that give a
+                                                                   Talking the entire class time
+   sense of what future classes will be like
+   End class on time with slide containing pertinent info
+   (your name, office hours, contact info website,                 Ending class early
+   homework, …)
+
+
+   In future classes: reinforce these messages periodically in the appropriate context.
+
+
+   †
+       For examples, see Framing the Interactive Engagement Classroom: www.colorado.edu/sei/fac-resources/framing.html
+
+
+CWSEI – www.cwsei.ubc.ca                                    April 2014                         CU-SEI – www.colorado.edu/sei/   Page 22
+                                     Better Ways to Review Material in Class
+                                                      by Carl Wieman, 2014
+
+A substantial amount of class time is spent reviewing material from previous courses or the previous class meeting. It is
+very common for instructors to give such review lectures that can occupy one or more classes at the beginning of a
+term, and/or 5-10 minutes at the start of each class. When we had trained observers at UBC watching the attention of
+students during classes, it revealed that this form of review was less than useless. Rather than helping students improve
+their memory and understanding of the material, it primarily diverted their attention to thinking about things other than
+the class they were in, and this made it harder to get them reengaged when new material was being covered. In
+retrospect, it is easy to understand why this method of review fails. There is a very well established result from cognitive
+psychology that familiarity with a topic makes people erroneously believe they understand it. When a person is being
+lectured on something they believe they already know, they will become quickly bored and start thinking about other
+things (or checking email, etc.). This means that students who have previously heard about the topic being reviewed will
+probably not pay attention, and those students who are not familiar with it will probably quickly get lost in the rapid
+review.
+The better way I found to do review is to replace ALL review lecturing with problems that the students solve in class that
+cover the material I want to review. This is particularly easy to do if they have clickers. Doing a problem gets them
+actively thinking about the relevant material and testing their understanding. If they get the problem wrong, and often
+even if they don’t, they are then primed to ask questions and listen to responses and explanations to learn why. Also, if
+there are things that everyone in the class already knows, I can see that immediately from their problem solutions or
+clicker responses, and can quickly move on and avoid wasting class time talking about that topic. That leaves more time
+to spend on the topics where many struggle with the relevant review problem.
+A final benefit is that I end up with a good idea of what topics individual students, and the class as a whole, have and
+have not mastered. As I move on to the subsequent material, I have a vastly better sense of their state of mastery than I
+previously got from review lectures, and can tailor instruction more effectively.
+
+Another review method: two-stage review
+An alternative review format to use at the start of a course is a two-stage review. 1 This has similar and possibly greater
+benefits. Give the students a quiz in class that has the review problems on it, have them do it individually and turn it in,
+and then have them do a group quiz in groups of 3-4 and turn in 1 answer sheet per group. The resulting discussion will
+provide nearly all the students with the primed and targeted review that they need. The instructor will then only have to
+worry about dealing with those students whose individual tests indicated they have seriously deficient backgrounds, and
+dealing with those topics where there are widespread deficiencies. During the group test portion, the instructor should
+listen in on the various group conversations. That is likely to reveal any widespread difficulties that can then be
+immediately addressed after the completion of the group test. There would also be a variety of more subtle benefits to
+this exercise having to do with classroom dynamics, and, as mentioned above, the instructor will know much more
+about their students’ prior knowledge as they move on to subsequent material.
+There is a fear that starting the first day with a difficult test will set the wrong tone for the course, so it is best to
+introduce the two-stage review with a statement like: “This is a carefully designed set of practice problems for your
+review and discussion, to help you prepare for the upcoming material. This will have no influence on your course grade,
+except in that they may help you to be better-prepared to do well in the course.”
+A two-stage review was implemented in a UBC science course in the spring of 2014. The 3rd year course built on topics
+covered in the 2nd year pre-requisite course, but the instructor knew that the students had a variety of backgrounds in
+that material. Overall, the experience was very positive for the students and instructor, and the instructor learned of
+some misconceptions that many of the student had.
+
+1
+ The two-stage review is patterned after the successful two-stage exams now used in a variety of science courses at UBC. See:
+Examinations That Support Collaborative Learning: The Students’ Perspective, G. Rieger & C. Heiner, Journal of College Science
+Teaching, Vol. 43, No. 4, pp. 41-47 (2014) and references therein (www.cwsei.ubc.ca/SEI_research/)
+
+
+CWSEI – www.cwsei.ubc.ca                                     April 2014                           CU-SEI – www.colorado.edu/sei/   Page 23
+                               Basic instructor habits to keep students engaged
+                                                     by Carl Wieman, 2010
+
+It is best to start doing all of these at beginning of the term.
+
+1. Pay special attention to the back of the room, particularly in a lecture theatre. Walk up aisle as frequently as
+   practical, look at back of room frequently, call on students at back in preference to students in front, repeat student
+   questions so the class can hear, ask students to speak loudly when asking or responding to a question, regularly ask
+   students in back if they can see what is on screen or board and hear what is being said, and don’t let chatter in back
+   of the room get out of hand. ALWAYS be conscious of your natural tendency to engage in what effectively becomes
+   a private discussion between you and an individual student in the first or second row.
+    See end of document for more detailed advice on paying special attention to the back of the room.
+2. When you are talking, regularly stop and ask for questions. Make sure you wait an adequate length of time for
+   response. What seems like very long time to you is actually short amount of time for a person to collect their
+   thoughts and phrase a question. Instructors typically wait less than 2 seconds, often less than one, before
+   concluding there are no questions and moving on. A few such very short waits convince students that when you say
+   that you are asking for questions it is just a ritual, and you do not actually want any. Since your time sense in this
+   situation is so skewed, initially you might even use a watch to time yourself to ensure you have waited an adequate
+   amount of time, like 20-30 seconds.
+3. If you have a clear impression from facial expressions that students are lost, just say you sense that, and say you
+   need them to ask questions so you can help them, and then wait. At first they won’t believe you, but if you wait
+   long enough (a minute seems like an eternity in that situation) and you look directly at them, someone will ALWAYS
+   ask a question and that starts a discussion. Do that once or twice early in term, and they will learn that you do
+   expect them to raise questions and will then do so quickly.
+4. When a student asks a question, sometimes offer the question to the whole class before answering it yourself.
+   This reinforces the message that whole class, rather than just you and questioner, should be involved with, and
+   learning from, student questions and answers.
+5. Avoid the tendency to sit back and wait while students discuss a clicker question or in-class activity. Instead,
+   circulate around the room and listen to them, so you can use what you hear in the follow-up discussion.
+6. After completing a clicker question or in class activity, share student thinking. If you solicit some
+   answers/explanation or questions from students, rather than you just explaining it, it sends the message that this is
+   about communication and feedback, and it will stimulate ongoing questions from students. If they have written
+   down answers, project some of those (if you have a document projector) or sketch them on the board to share with
+   the class. Sharing answers or calling on a student is not very traumatic for them if they have already worked as
+   group. Call on them to present their group’s thinking or answer. Students are normally full of questions after any
+   such activity in which they are obviously engaged, so if you are not getting any questions, you need to figure out
+   what to change.
+7. Define transitions clearly, such as switching between times for activities involving general student discussion and
+   times when there needs to be general quiet and raising hands before speaking. If you don’t, the boundaries get
+   fuzzy, and there can be enough noise in the room that those in back cannot hear and feel left out. Markers that
+   signal a boundary, such as sounding a bell, are quite effective.
+8. Be careful not to send out messages that suppress student engagement. Obvious examples are suggesting a
+   question is annoying or stupid, asking for questions and only waiting a second, or overlooking raised hands. Some
+   others are:
+   a. Jumping in to correct student use of terminology or a small error when main point is correct or relevant. Either
+       ignore the part that is wrong, or correct as an afterthought after discussing the main point.
+    b. Suggesting at the outset that a clicker question or activity should be very easy for them. This tends to decrease
+       student motivation to discuss it amongst themselves or to ask you questions.
+
+CWSEI – www.cwsei.ubc.ca                                    April 2014                    CU-SEI – www.colorado.edu/sei/   Page 24
+    c. Not discouraging highly vocal students who are asking questions primarily to show off rather than to seek an
+       answer. It can send message that asking a question in class is only about showing off.
+9. Avoid facing away from any part of the classroom. As soon as you are talking with your back to the students, you
+   are conveying that this is a monologue, not a conversation/explanation to them.
+10. Avoid distractions that split their attention. For example, having a complex image displayed while actually talking
+    about something else. Students will quickly become lost and disengaged.
+
+More detailed advice on paying special attention to the back of the room, particularly in a lecture theatre:
+   a. Walk up aisle as frequently as practical.
+    b. Very explicitly look at back of room frequently. Call on students at back in preference to students in front, and
+       sometimes explicitly call for answer to question only from students in back. Look at the back and wait patiently
+       for answer when you do so.
+    c. It is almost impossible not to sometimes overlook raised hands in the back half or sides of even a mid-sized
+       classroom and never realize it. This only has to happen 2 or 3 times and you have sent clear message that those
+       students in back are not really part of the class, and they will all stop asking questions from then on. Every now
+       and then apologize for the possibility and encourage students to call out and let you know if this happens.
+    d. When a student at front says something, if room size allows, ask them to repeat loudly enough and turn so the
+       rest of the class can hear, and regularly remind students when asking questions to do so. In larger rooms
+       (including anywhere you use microphone), you always need to repeat the student question or comment. Force
+       yourself to do that consistently. Even if it is a room that you will have to repeat question for the back, regularly
+       encourage students to talk as loudly as possible so other students can hear them. The best context for this is
+       when there is good question-- make a comment like “That is excellent question, everybody in room should hear
+       and think about that, so can you say as loudly as possible so others can hear?” This sends an explicit message
+       that whole class is involved and should be learning from student questions, and that it is not just a conversation
+       between you and one student. ALWAYS be conscious of your natural tendency to engage in what effectively
+       becomes a private discussion between you and an individual student in the first or second row.
+    e. Regularly ask students in back if they can see what is on screen or board and hear what is being said. Instructors
+       very frequently fail to recognize what cannot be seen or heard from the back. (Whenever you have walked up
+       aisle, look down to see what viewing is like from student perspective.) Just the act of your checking with them
+       makes them feel more involved and part of the class.
+    f.   A common error in a large classroom is to ignore bunch of chatter going on in back of room and then only teach
+         to the front half. DON’T. The earlier in the term you recognize and act on this, the less of a problem it will be.
+         The best preventative measure is regularly walking up the aisle and so you are talking directly to the people in
+         back as much as possible. Also, when you hear chatter in back growing, go up and ask non-talking students in
+         back if they can hear what you were saying and student questions asked from the front. When they say they
+         can’t, tell the students to stop talking so other students can hear. (This is a much better tactic than justifying
+         their being quiet on explicit or implicit grounds they are being rude to you.) If that still fails to quiet the chatter,
+         just stop talking and calmly wait while looking at the noisy students in the back.
+    g. The best preventative to avoid chatter getting out of hand is early in term pick someone who seems to be
+       among the worst, find out their name, and then when they start talking, call on them by name, asking them if
+       they have a question. If they are actually talking about class material and do have question, great. Answer it,
+       then add some comment like, “When you have a question, just raise your hand and ask--we are in same room
+       after all.” If they were talking about something else entirely and confess to no question, then gently admonish
+       them to be quiet so students around them can hear the class material. Point out that students often complain
+       about others in back talking in class, making it hard to hear, and they need to be more considerate of their
+       fellow students.
+    h. When groups are engaged in clicker question discussion or small group activity, try to first walk to the back of
+       class and interact with the students there. Avoid the very common mistake of frequently getting grabbed by
+       students at the front and spending a lot of time with one group and so you seldom get up to the back.
+
+CWSEI – www.cwsei.ubc.ca                                    April 2014                          CU-SEI – www.colorado.edu/sei/   Page 25
+                                                Preclass-Reading Assignments
+                               Why they may be the most important homework for your students
+                                       By Cynthia Heiner and Georg Rieger, CWSEI 2012
+
+       We usually think of homework as a task, such as a problem set, in which students apply what they have
+       learned in class. But homework can prepare students to learn in future classes. Here we discuss the benefits
+       of pre-reading assignments, report on what students think about pre-reading, and give tips on how best to
+       implement pre-reading assignments to make them effective.
+
+       What are pre-reading assignments and what are their benefits?
+       Traditionally, students are first introduced to a topic in lecture; however, students can read the textbook
+       before coming to class and complete a short quiz on the reading. This is a pre-reading assignment. The first
+       benefit of such assignments is that students will get more out of class if they already know the basic
+       definitions and vocabulary, as well as having already had the chance to work through simple examples and
+       think about concepts at their own pace. This helps control for the variability in background knowledge of
+       the students, and students regularly mention in surveys that pre-reading helps them follow what is covered
+       in class. Also, Louis Deslauriers has monitored the student questions in lectures and noted that student
+       questions are on a cognitively higher level in weeks with pre-reading assignments compared to those in
+       weeks without. Second, by looking at the average responses to pre-reading quiz questions or by directly
+       asking your students what was difficult in the pre-reading assignment, you can gain insight as to which
+       topics your students find difficult. Third, you don’t have to spend (much) time on definitions or low-level
+       examples, so you have more class time to focus on the more challenging material.
+
+       What students think about pre-reading assignments
+       Assigning reading is not new. However, in science classes students often do not read the assigned text on a
+       regular basis. So what is different with our pre-reading approach? The assigned readings directly target
+       material used, but not repeated, in upcoming classes and are coupled with targeted quiz questions. This
+       leads students to recognize the textbook as being helpful to their learning.
+       Typically 85% of students report that they read the assigned text every week or nearly every week when
+       the pre-reading assignments are implemented as described here. This has been true across numerous
+       courses spanning several science disciplines. Slightly higher numbers report completing the online quiz (for
+       which self-reports match closely to the computer record). When asked what motivated them to do the pre-
+       readings, the most frequent single answer was the contribution to their grade, but more than half the
+       students said it was because they found the pre-readings ‘helpful for understanding the material’, and ‘to
+       know what to expect in lectures’.
+       Examples of student comments:
+       Student A: “I know that if I complete the pre-reading I will better understand what is going on in the lecture
+       as well as I can figure out where I need to pay the most attention and potentially ask questions.”
+       Student B: “I think this forced me to think and was very beneficial to start off the week as I would come into
+       class knowing what to expect and what was expected of me.”
+       Student C: “To be honest, I did so because it was for marks. After a while, I didn't mind reading it; and the
+       questions on the pre-reading quizzes help me understand some of the concepts.”
+
+       How to implement pre-reading assignments
+       The pre-reading approach is a variant on “Just-In-Time-Teaching” (JITT †), in which every class is preceded by
+       a pre-reading assignment and a quiz with open-ended questions about the difficulties encountered. The
+       instructor reacts to these postings by adjusting the lecture to discuss the difficulties “just in time” for the
+       next class. The full JITT approach requires a strict timetable for the students and the instructor, which is
+
+       †
+           C. H. Crouch, E. Mazur, Am. J. Phys. 69, p. 970 (2001)
+
+
+CWSEI – www.cwsei.ubc.ca                                            April 2014              CU-SEI – www.colorado.edu/sei/   Page 26
+       challenging to implement in many courses, particularly ones with large enrollments, and/or multiple
+       sections.
+       Here we offer a ‘softer’ approach to JITT that provides many of the same benefits. The students get a
+       weekly pre-reading assignment to complete over the weekend, preparing them for the next week of
+       classes. There is a quiz on the reading due before class. There are three key components for the successful
+       implementation of pre-reading assignments: (1) the reading is very specific, (2) the quiz questions explicitly
+       refer to the textbook, and (3) the instructor does not begin class by repeating much of the material in the
+       assigned reading.
+
+       Best practices
+       1. The assignment should focus on what you plan to discuss in class. This creates a clear connection
+          between the reading and the expectations of the students for class.
+       2. Omit everything that is not necessary. The shorter the assignment is, the more likely the students will
+          actually read it and focus on the key material. Some instructors believe in longer, less focused, readings
+          from which the students are expected to extract the relevant material. This is an unrealistic expectation
+          for a first exposure to the material.
+       3. The reading should be guided with explicit prompts for the students of what to look for while reading.
+       4. Give a reading quiz for marks. By assigning marks, you are telling your students that this assignment is
+          important, even if the actual numerical value is small. We have seen that weightings of between 2%
+          and 5% of the course grade achieve similar ~85% reading completion rates, while assignments without
+          associated marks have much lower completion rates.
+       5. The questions on the quiz should force the students to read the sections you want them to read and
+          concentrate on the figures that are rich with information. By referring to specific figure numbers, (or
+          equations, etc.) in the textbook, students must at least open the textbook to be able to answer the
+          question.
+       6. Refer in class to things from the pre-reading– but do not re-teach them. The point of pre-reading is that
+          the students are expected to come to class prepared with some knowledge. If you re-teach it all, the
+          students will quickly realize that pre-reading is a waste of time and stop doing it. Explain the purpose of
+          pre-reading in your first class and stick with the approach.
+       7. While there are various quiz options, we have found that a multiple-choice online quiz is better than a
+          paper or clicker-based in-class quiz. In addition to saving precious class time, having the students do the
+          assignment at home with their textbooks open lets them review – before class – their mistakes (and at
+          their own pace). A reading quiz is not a pop quiz -- the idea is to prepare students and not to surprise
+          them. Pre-reading assignments should take less than an hour, with the quiz portion, typically around 5
+          questions, taking no more than 10-15 minutes of that time. Use mostly questions that all students
+          could answer with the book, but add in a few that require a little more “reading between the lines”.
+          Don’t forget: your goal is to draw their attention to something in particular and to motivate, not to trick
+          or overly burden them during their first exposure to the material.
+       8. It is important that the students understand why and how the pre-reading will be beneficial to them.
+          Explicitly explain your rational and expectations. On the one hand, you expect the students to read the
+          text and try hard to answer the quiz correctly. On the other hand, you do not expect them to “teach
+          themselves” the material nor understand it all completely from the textbook alone. This first exposure
+          gets them started and helps reveal the trouble spots to both the students and the instructor. It is worth
+          repeating the benefits of pre-reading to your students a couple of times during the term.
+
+
+
+
+CWSEI – www.cwsei.ubc.ca                                  April 2014                        CU-SEI – www.colorado.edu/sei/   Page 27
+A longer and more detailed discussion on the effective use of clickers in instruction is given in the SEI booklet “An instructor's guide to the effective use of
+personal response systems ("clickers") in teaching," see STEMclickers.colorado.edu for this guide and videos on effective clicker use.
+
+
+
+                                          Tips for Successful “Clicker” Use
+                                 © Dr. Douglas Duncan, University of Colorado, 2008
+                    Including recommendations from members of the Carl Wieman Science Education Initiative
+           More than 1,000,000 clickers are in use nationwide, and over 17,000 at CU. Data gathered during
+           the past few years makes it clear which uses of clickers lead to success, and which lead to failure.
+           Success means that both the faculty member and students report being satisfied with the results
+           of using clickers.
+           Clickers have many possible uses: Find out if students have done assigned reading before class;
+           measure what students know before you start to teach them and after you think you’ve taught
+           them; measure attitudes and opinions, with more honest answers if the topic is personal or
+           embarrassing; get students to confront common misconceptions; facilitate discussion and peer
+           teaching; increase student’s retention of what you teach; transform the way you do
+           demonstrations; increase class attendance; improve student attitudes. None of these are
+           magically achieved by the clicker itself. They are achieved – or not achieved – entirely by what
+           you do in implementation.
+           TECHNICAL POINTS:
+             • Try and get your school to adopt one clicker brand. Students hate being forced to buy
+                more than one clicker!
+             • RF (radio) clickers are easier and cheaper than infrared ones.
+             • Simpler clickers (e.g. iClicker) have fewer implementation problems.
+             • Test your registration system before students do. Deliberately make some mistakes and
+                see what happens. Check early in the semester that all responses are getting credited.
+
+                                            Practices that lead to Successful Clicker Use
+           1.   Have clear, specific goals for your class, and plan how clicker use could contribute to your
+                goals. Do not attempt all the possible uses described above at one time!
+           2. You MUST MUST MUST explain to students why you are using clickers. If you don’t, they
+              often assume your goal is to track them like Big Brother, and force them to come to class.
+              Students highly resent this.
+           3. Practice before using with students. Remember how irritated you get when A/V equipment fails
+              to work. Don’t subject students to this.
+           4. Make clicker use a regular, serious part of your course. If you treat clicker use as unimportant
+              or auxiliary then your students will too.
+           5. Use a combination of simple and more complex questions. Many users make their questions
+              too simple. The best questions focus on concepts you feel are particularly important and
+              involve challenging ideas with multiple plausible answers that reveal student confusion and
+              generate spirited discussion. Show some prospective questions to a colleague and ask if they
+              meet this criteria.
+           6. If one of your goals is more student participation, give partial credit, such as 1 point for any
+              answer and 2 for the correct one, for some clicker questions. With some questions it is
+              appropriate to give full credit to all students, such as when multiple answers are valid or when
+              you are gathering student opinions.
+
+           7.   If your goal is to increase student learning, have students discuss and debate challenging
+                conceptual questions with each other. This technique, peer instruction, is a proven method of
+                increasing learning. Have students answer individually first; then discuss with those sitting next
+                to them; then answer again.
+
+
+   CWSEI – www.cwsei.ubc.ca                                                 April 2014                                CU-SEI – www.colorado.edu/sei/       Page 28
+       8. Stress that genuine learning is not easy and that conceptual questions and conversations with
+          peers can help students find out what they don’t really understand and need to think about
+          further, as well as help you pace the class. Students tend to focus on correct answers, not
+          learning. Explain that it is the discussion itself that produces learning and if they “click in”
+          without participating they will probably get a lower grade on exams than the students who are
+          more active in discussion. My students came up with the phrase, “No brain, no gain.”
+
+       9. Use the time that students are discussing clicker questions to circulate and listen to their
+          reasoning. This is very valuable and often surprising. After students vote be sure to discuss
+          wrong answers and why they are wrong, not just why a right answer is correct.
+       10. Compile a sufficient number of good clicker questions and exchange them with other faculty.
+           The best questions for peer discussion are ones that around 30-70% of students can answer
+           correctly before discussion with peers. This maximizes good discussion and learning. There is
+           value in discussion even if a question is difficult and few know the answer initially.
+       11. If you are a first-time clicker user, start with just one or two questions per class. Increase your
+           use as you become more comfortable.
+       12. Explain what you will do when a student’s clicker doesn’t work, or if a student forgets to bring it
+           to class. You can deal with that problem as well as personal problems that cause students to
+           miss class by dropping 5-10 of the lowest clicker scores for each student.
+       13. Talk directly about cheating. Emphasize that using a clicker for someone else is like taking an
+           exam for someone else and is cause for discipline. Explain what the discipline would be.
+       14. Watching one class or even part of a class taught by an experienced clicker user is a good way
+           to rapidly improve your clicker use.
+
+                                           Practices that lead to Failure
+       1.     Fail to explain why you are using clickers.
+       2. Use them primarily for attendance.
+       3. Don’t have students talk with each other.
+       4. Use only factual recall questions.
+       5. Don’t make use of the student response information.
+       6. Fail to discuss what learning means or the depth of participation and learning you expect in
+          your class.
+       7. Think of clickers as a testing device, rather than a device to inform learning.
+
+        If you believe that the teacher, not the students, should be the focus of the classroom experience,
+                                   it is unlikely that clickers will work well for you.
+               Be prepared . . . Effective clicker use with peer discussions results in a livelier and more
+             interesting class, for you as well as the students! Expect good results immediately but better
+            results as you become more experienced with clickers. This is the usual experience nationwide.
+
+
+       Further information and references will be put in http://casa.colorado.edu/~dduncan/clickers. I’d
+       like to hear about your experiences, good and bad, and perhaps include them in future editions of
+       my book on how to teach with clickers. dduncan@colorado.edu.
+
+
+
+CWSEI – www.cwsei.ubc.ca                                    April 2014                CU-SEI – www.colorado.edu/sei/   Page 29
+                                   Student group work in educational settings
+                                                   CWSEI and CU-SEI, 2008
+     Although group work is sometimes hailed as an educational panacea, the realities are considerably more complex.
+Many studies of group work have been done, and they show a wide variety of results. These range from dramatic
+improvements in student learning and satisfaction to negative impacts on both. The potential benefits of social
+interaction on learning are readily apparent. Who has not understood a topic better through explaining it to a colleague
+and/or having that person raise questions about an explanation? Also, in many situations, peers can provide an effective
+low cost substitute to individualized instruction by the teacher. However, achieving these and other benefits, such as
+learning teamwork skills, do not come automatically, and there are clear potential downsides to group work, including
+the time for organizing groups and dealing with intra-group problems, potential student resentment, more complex
+grading policies, and difficulties in scheduling and room layout. To achieve the maximum benefit from group work, an
+instructor must carefully consider the desired educational goals and the benefits, tradeoffs, and pitfalls of introducing
+different types of collaborative work, and then choose the most suitable type.
+     Here we briefly review different levels of group work and list the potential benefits and negatives, and what
+requirements research has shown are needed to ensure a high probability of success.
+
+                     Levels of collaborative activity – Benefits, Requirements for success, and Negatives
+1. Multiple, brief small group discussions in class
+(in response to challenging instructor questions or in-class assignments)
+    A. Benefits: Learn through explanations to others, learn metacognitive skills through analyzing other’s reasoning,
+       learn jargon through use in discourse, learn to carry out scientific discourse. Peers provide low level help and
+       feedback, such as catching arithmetic mistakes and avoiding “getting stuck”. The stress of speaking in class is
+       reduced, particularly if student is asked what their group thought.
+    B. Requirements: Incorporating this in class is relatively easy – just provide some reason for students to discuss the
+       material with each other. Implementation needs to include some minor reward system or class expectation to
+       promote the group discussion, because otherwise it will not happen spontaneously for many students. Group size
+       should be small (2-4). Two low-effort options for group formation that enhance interaction over just “talk to your
+       neighbour” are: 1) instructor randomly assigns, or 2) students self-organize and register their group online. Such
+       formal groups particularly enhance interaction if students are occasionally required to provide group consensus
+       answers. While it is preferable to have a range of backgrounds and levels in each group, the benefits in this setting
+       are usually not considered large enough to be worth the effort. The benefits are primarily from avoiding groups
+       composed solely of low motivation and low ability students. With mixed groups, the better prepared students can
+       provide explanations to the weaker students, with benefit to both.
+    C. Negatives: Minor. Time needed to form student groups. Potential disruption due to off-topic discussions in class
+       (usually minor).
+    D. Other: Opinions vary, but we recommend keeping group composition stable, except where problems.
+
+2. Informal, out-of-class study groups
+    A. Benefits: Like 1A, plus students can study more effectively by getting low to moderate level feedback from each
+       other. This avoids wasting time from “getting stuck” or overlooking trivial mistakes. Students can succeed at more
+       challenging and complex assignments. Students may find course work more satisfying and enjoyable, and learn
+       teamwork skills.
+    B. Requirements: Minor. Regularly encourage and discuss the benefits of study groups. Ensure that marking/grading
+       scheme does not appear to penalize collaboration, as discussed below. Provide some form of both group and
+       individual incentives. For example, collaborating can improve grades on assignments, but there are also exams
+       that are closely aligned with assignments. Assignments must be challenging to draw students into meeting for
+       study groups. Make it logistically easy and not socially challenging to form into groups. For large classes, this likely
+       will involve scheduling a room and time for students to meet and/or website for connecting up. Having instructor
+       or TA at these study sessions can draw more students, but it is important that the instructor/TA does not provide
+       the answers.
+    C. Negatives. Negligible. Time needed for elements of B.
+
+
+CWSEI – www.cwsei.ubc.ca                                   April 2014                         CU-SEI – www.colorado.edu/sei/   Page 30
+3. Formal in-class group activities (such as tutorials, concept mapping, labs, …)
+    A. Benefits: Same as #2, but involves all students. Plus students can develop more teamwork skills.
+    B. Requirements: Best to have a challenging activity where students work with ideas that are typically difficult to
+       learn and the activity requires them to think about and debate these ideas with each other. Need course structure
+       and space conducive to group work (4/table works well). TAs with role of facilitating group discussion and Socratic
+       teaching works well. Grading options include: only for participation, grading individual work, or grading collective
+       work. Be explicit about why and how collaborative learning is beneficial. If grading collective work, need time and
+       attention devoted to why and how to work in teams effectively, roles and responsibilities of team members, and
+       evaluation of contributions as part of team. Often rotating roles are assigned, manager, recorder, sceptic, etc.
+    C. Negatives. Time and personnel needed to organize facilities and groups.
+
+4. Formal in or out-of-class collaborative assignments- collective group work and shared marking
+    A. Benefits: Same as #3, plus reduces time for marking assignments.
+    B. Requirements. Similar to #3, and a significant goal of the course should be to have students learn to work in teams.
+       Assignments must encourage teamwork, such as being sufficiently difficult or complex that is easier to set up team
+       and work together than to complete as an individual. Assignments that require judgement decisions are found to
+       be most effective at encouraging diverse participation. Groups should be formed by the instructor in a manner
+       that assures equal diversity and skills across groups and is perceived to be scrupulously fair. There must be timely
+       feedback on the functioning of group and a process for dealing with intra-group squabbles.
+    C. Negatives. 1) There will be some level of student resentment and intra-group disagreements over credit and level
+       of effort. 2) Time required to create groups and deal with logistics. In many courses, groups will not spend the 40
+       hours of interaction that has been cited as needed to have a highly effective team. 3) Instructors who are not
+       experienced in implementing this can find it difficult to obtain good results.
+    D. Other. Group size 4-5 is considered optimal, with all visibly under-represented minority students in a group with at
+       least one other minority student.
+
+5. Learning with fully developed teams
+    A. Benefits. Same as #4, plus students learn to work as part of team to solve problems and manage projects that
+       would usually be impossible for an individual to complete.
+    B. Requirements. Major part of course goals needs to be learning teamwork. All of #4B, plus requires more attention
+       to group size, composition, task assignment, general group interaction, and reward system. Majority of course
+       should be team based project(s). More time and attention devoted to why and how to work in teams effectively,
+       roles and responsibilities of team members, and evaluation of contributions as part of team. Teams should have at
+       least 5 and preferably 6 or 7 members, and the composition should be as diverse as possible.
+    C. Negatives. Similar to #4, plus significant time required to create good team-based learning projects.
+
+Group work and marking/grading scheme
+If student marks depend on relative student ranking (“grading on curve”, “normed”, etc.) there is a clear disincentive for
+a student to collaborate with other students. The inherent contradiction between telling students that they must
+collaborate, while at the same time penalizing them for helping other students through the marking scheme, will always
+result in student discomfort and resentment.
+References & Resources
+C. Crouch and E. Mazur, Peer Instruction: Ten years of experience and results, American Journal of Physics, V. 69, pp 970-977 (2001).
+A good review of Peer Instruction (falls under Level 1 in this document), including a description of the method and data on
+effectiveness for improving student learning.
+P. Heller and M. Hollabaugh, Teaching problem solving through cooperative grouping. Part 2: Designing problems and structuring
+groups, American Journal of Physics, V. 60, pp. 637-644 (1992). A good reference on structuring and managing cooperative groups.
+M. Prince and R Felder, The Many Faces of Inductive Teaching and Learning, Journal of College Science Teaching, V. 36(5), pp. 14-20
+(2007). A nice overview of various forms of inductive teaching that discusses both group and non-group approaches, benefits, and
+ease (or difficulty) of implementation.
+Team-based Learning: A Transformative Use of Small Groups, ed. by Larry K. Michaelsen et al. (2002). A good reference on Team-
+Based Learning and also a good reference on group dynamics (chap. 4 by Birmingham & McCord is on research on group dynamics);
+also see: UBC Faculty of Applied Science website on Team-Based Learning cis.apsc.ubc.ca/services/team-based-learning/
+
+
+CWSEI – www.cwsei.ubc.ca                                      April 2014                          CU-SEI – www.colorado.edu/sei/   Page 31
+               Creating and implementing in-class activities; principles and practical tips
+                                                       CWSEI, 2013
+
+1) Choose a goal or topic to focus the activity
+   Look closely at your material and ask yourself some of the following questions:
+   a. What is the most important content or learning goal and how might the activity support that?
+   b. Are there existing materials (such as a lecture, assignment, or exam question) to base the activity on?
+   c. Is there an important framework, model, or concept to reinforce?
+   d. How will it be giving them practice thinking like an expert in the subject?
+   e. What is most difficult? What gives students trouble? Are there exam questions students do poorly on?
+   f. Is there a controversy in the material? Is there material that would make a good discussion?
+   g. What could students work out on their own?
+
+2) Decide how students will engage with the material
+   The next step is to look at the material you’ve selected and decide how the students will interact with it. This is key
+   for developing activities. Try to design it so all of the students engage deeply with the content, not just a few.
+   a. Consider your context. How many students are in your class? How many may require some accommodation?
+        Will you have help administering the activity? How will this work in your particular classroom setting? If the
+        students will work in groups, how large will those be and how will they be formed?
+   b. What type of activity will be used? If you have difficulty deciding, discuss it with a colleague. Here are a few
+        options that work well with a variety of topics:
+         i. Think/Pair/Share [typically 5-15 min] – This type of short activity is designed to let everyone engage with the
+            material first individually and then in pairs. First the instructor poses a question, then students spend one
+            minute thinking or writing silently about the idea on their own (you may have to enforce silence, some
+            students will likely try to talk). Then students form groups of 2, each partner takes a minute or so describing
+            their thoughts. Finally the instructor facilitates a discussion with the whole class. This activity will usually
+            increase students’ responses to questions posed in class.
+        ii. Worksheets [typically 15-50 min] – Write a few questions that lead students through the content in a
+            structured way and photocopy enough for everyone (but see #5d below). Encourage them to work in groups
+            or pairs. The difficulty level should be set so that it is very challenging for most students if working
+            individually, but reasonably doable in groups. An approach that works well is to make the first part relatively
+            easy, so that most groups know how to start, and make later parts more challenging. Adjust the difficulty
+            after running it the first time.
+       iii. Case Study [typically 15-50 min] – In a case study, students engage with the content in a real world context.
+            Many people present cases or examples to students in lectures, however it is more effective to give the
+            students material and handouts (e.g. graphs, maps, data, …) that describe the conditions of the case and
+            have them work in groups to make decisions about it. Choose a case that is compelling and requires the
+            students to both analyze the situation and come to a decision or series of decisions and then justify their
+            choices (examples: how to proceed with a project, what to recommend to clients, where to drill, what future
+            changes to expect, how to reduce energy loss, which technique or instrument to use to achieve a goal, etc.).
+
+3) How will the students be motivated to put in effort?
+   a. Is it challenging, but doable in groups? Will students see that they are becoming more "expert" at something?
+   b. Can you connect the activity to a good real world example or something they may do in their future careers?
+   c. Does it convey why you and others see this topic as interesting and important?
+   d. Does it involve them making decisions and justifying actions, not simply following set procedures?
+   e. Does the activity relate to the types of tasks students will be asked to complete on a midterm or final exam?
+
+4) What product will students generate?
+   a. Consider more sophisticated tasks. For example, have students make and justify a decision (and perhaps identify
+      the criteria used to make a decision), produce a prediction, produce a ranking, or make a judgment (e.g.
+      best/worst/most efficient).
+   b. Consider having students produce a novel representation, such as a specialized graph or sketch.
+
+
+CWSEI – www.cwsei.ubc.ca                                 April 2014                        CU-SEI – www.colorado.edu/sei/   Page 32
+    c. It is usually best to avoid products that depend simply on applying a procedure (such as solving a familiar
+       quantitative problem) or involve extensive writing. These tend to cause more "solo" than "group" work, and are
+       better given as homework. Class time is better spent developing scientific reasoning, and getting feedback.
+
+5) Logistics and facilitation
+   a. Decide how large your groups will be. In a large lecture hall with fixed seats, keep it to 2-3 unless you have them
+       talk with rows in front/behind them. Four-in-a-row doesn’t work because the people on the ends get left out.
+   b. For longer activities, assign roles such as discussion leader, note-taker, or reporter based on arbitrary criteria.
+   c. Make it very clear what students are expected to do. Ask: “does everybody know what to do?”
+   d. Decide how many copies of the activity you will hand out (if you’re handing something out). If you have difficulty
+       getting many of your students to work in groups, you can hand out only one sheet per group and make it clear
+       that you expect only one submission per group. On the other hand, it is beneficial for all students to have a copy
+       of their work; some instructors have the students use “carbonless” copy paper with enough copies for all.
+   e. During the activity, CIRCULATE and listen to what students are talking about. Look for examples from groups
+       that you could show to the rest of the class for discussion (the doc cam works well in large classes).
+   f. Plant good questions: if someone asks you a question relevant to everyone, tell them it is a good one and ask
+       them to ask it when you return to the front of the class.
+   g. Collect something from the students (a completed worksheet, clicker answers…) so there is clear accountability
+       for doing the work. You don’t need to mark them, but check off for participation and look for useful examples to
+       help you learn more about student thinking and difficulties.
+   h. Be sure to wrap up the activity effectively. Have a few groups explain their answers. It is more interesting if their
+       answers could be different and spark discussion. Finish by giving your expert summary. Avoid giving a detailed
+       solution that would encourage a student to passively sit through the activity, waiting for you to eventually give
+       them the answers.
+
+6) Assessing the activity
+   After you’ve run your activity, reflect on how it went and how it might be improved.
+   a. Did anything surprise you?
+   b. Did the students understand what was required? Were they frustrated?
+   c. Did they engage the way you thought they would? Do you need to adjust the difficulty level?
+   d. Did they learn what you were trying to teach them (and how can you tell)?
+   e. Did they enjoy it?
+   f. Do you need to modify any of your learning goals based on how this went?
+
+7) Other considerations
+   There are a few other considerations that help in developing activities:
+   a. Create checkpoints during the activity (e.g. a clicker question, or a brief full-class discussion) within longer
+      activities so you can help groups stay roughly in synch.
+   b. If you know you will have fast groups add a “bonus” or extra consideration to the end of the activity, one you
+      expect only a few groups will get to.
+   c. Save class time by having them prepare for the activity. Assign reading and have them answer some relevant
+      questions prior to class.
+   d. Remember feedback! How are you going to measure and communicate how they’ve done? Is there a follow-up
+      task that will ensure they think about and use the feedback?
+
+8) Integrating activities into your course structure
+   a. Aim to make activities a normal, regular part of in-class time.
+   b. If you’re transitioning from dominantly lecture delivery, a good goal is to incorporate at least one 5-minute
+       activity into each 50-minute lecture period, or a longer activity each week. There is probably something in each
+       of your lectures that could be turned into a good activity, particularly if there is student pre-class preparation.
+
+It can be very helpful to bounce your ideas off STLFs, other faculty, and/or teaching assistants. For more resources, see:
+www.cwsei.ubc.ca/resources/instructor_guidance.htm. Particularly relevant 2-pagers: Group Work in Educational
+Settings and What Not To Do; practices that should be avoided when implementing active learning.
+
+CWSEI – www.cwsei.ubc.ca                                 April 2014                        CU-SEI – www.colorado.edu/sei/   Page 33
+                                                      What Not To Do
+                           Practices that should be avoided when implementing active learning
+                                                       CWSEI, 2013
+We and others have written about how to implement active learning in the university classroom, but we have noticed
+some practices by well-meaning instructors that we feel should be avoided. The numbered items are generally
+applicable to all types of active learning; there are a few clicker-specific items at the end of the table.
+                      Don’ts                                                           Comments
+1   Don't use active learning without giving      It's important that students feel that the active learning techniques you are using
+    students insight into why you are             are to their benefit. Some instructors will explain to their students why they are
+    teaching this way                             teaching this way (e.g., that research shows that people learn much more when
+                                                  they are actively engaged...), and others will engage students in discussion about
+                                                  their experience in a particular activity. If you don't address this, students may
+                                                  conclude that you are using less effective techniques or that you are
+                                                  experimenting on them; this can cause resentment and low engagement. It is
+                                                  also good to briefly remind students of the benefits periodically during the term.
+2   Don’t immediately tell the students the       It is usually best to let the students discuss, and then have them share their
+    answer and/or explanation                     reasoning with the class.
+3   Don’t leave activities unresolved             It is important for the students to hear your expert perspective and reasoning.
+                                                  The activity has prepared them to learn from your explanation. Even if you think
+                                                  all the important aspects have come out in the class discussion and/or a large
+                                                  fraction of the students have the correct answer, it is important for you to do a
+                                                  clear and explicit follow-up.
+4    Don’t forget to make students                 Some approaches to building in accountability are: Have the students turn
+     accountable                                   something in (such as a worksheet with all the group members’ names on it),
+                                                   use some clicker questions at key points and/or to follow-up on the activity,
+                                                   have random (or all) groups present their results, etc. Ensure that clickers are
+                                                   tied to student IDs.
+5   Don’t have an activity that is not clearly    Activities take time, and therefore should be targeted to important learning
+    targeting specific learning goals             goals.
+6   Don’t overlook motivation               People are much more willing to expend effort if they are intrinsically motivated
+                                            to do so. It is good to set an activity in a motivating context (e.g. a context that is
+                                            interesting and relevant to the students).
+7a Don’t stay in one location of the room   By circulating around the room, you can get a better sense of student thinking
+   during group discussions                 about the topic (particularly their difficulties and/or misconceptions), and also
+                                            encourage them to engage in the activity.
+7b Don’t spend too much time with one       Instructors can easily lose track of time when talking with students. This has 2
+   student or group during an activity      detrimental effects: you don’t get the benefits of circulating around the room
+                                            (7a), and many students may become disengaged.
+8a Don’t give too many instructions at once While it is good to make an activity cognitively challenging, introducing too many
+   and/or make an activity overly           complications at once adds cognitive load and will confuse and distract students
+   complicated                              from concentrating on the main goals.
+8b Don’t make the activity too easy               Trivial clicker questions or activities that have students blindly following steps or
+                                                  repeating memorized facts are a waste of time. Make activities sufficiently
+                                                  challenging so that most students need to discuss and use reasoning to complete
+                                                  them. Consider adding “bonus” questions or problems to keep the high achieving
+                                                  students engaged.
+9   Don’t expect things to go perfectly the       If you are running an activity that is new to you, or with a significantly different
+    first time you run an activity                group of students, it often will not go as planned. Be flexible and modify the
+                                                  activity as needed for the next time. If possible, it is very helpful to test activities
+                                                  in advance with a small group of students and/or discuss it with teaching
+                                                  assistants and other instructors.
+10 Don't bite off more than you can chew          Don’t try to do more new things in the course than you have time and resources
+                                                  to prepare. You can end up feeling overwhelmed and discouraged. Also, students
+                                                  are usually quite tolerant of an activity that does not go perfectly (#9), but far less
+                                                  tolerant when instructor is obviously disorganized and poorly prepared.
+
+CWSEI – www.cwsei.ubc.ca                                     April 2014                             CU-SEI – www.colorado.edu/sei/    Page 34
+11 Don’t forget to clearly indicate the start  Students will often wait for a signal before starting an activity. Instructors can be
+   of an activity                              expecting the students to start discussing in groups, without realizing the
+                                               students are waiting for a “Go” signal.
+12   Don’t lock into a rigid timeline          It’s important to be flexible. It is hard to predict the time needed for an activity.
+                                               Cutting off an activity too soon will leave students frustrated, and going too long
+                                               will bore students and waste time. Don’t use a timer for cutting off clicker
+                                               responses, instead rely on your judgment.
+13   Don’t wait for every student or group to Apply the “75% rule” for clicker votes. If 75% of the students have clicked in,
+     finish                                    announce that you will be closing to vote soon (e.g. in 10 seconds). For any group
+                                               activity, you can get a sense of students’ progress as you circulate. In longer
+                                               activities, it is good to have check points where you bring the class into sync.
+14   Don’t attach high stakes to activities    Accountability is necessary, but assigning a large amount of marks for correctness
+                                               causes students to seek the “right” answer without worrying about why it is right.
+                                               Instructors typically give participation points for students who did the activity. If
+                                               you give marks for correctness, keep this at a low level.
+15   Don’t embarrass individuals               Be careful in how you react to student statements, particularly if they say
+                                               something wrong. When calling on individuals, it often is more comfortable for
+                                               them if you ask them for their group’s reasoning.
+16   Don’t get stuck using only one strategy   In order to achieve different types of goals, use a variety of types of activities; if
+                                               you use clickers, use a variety of question types. Design activities to elicit student
+                                               reasoning.
+17   Don’t make comments in advance about Saying things like “I think everyone knows this” or “This should be an easy one” –
+     the difficulty of activity                you are just making them feel stupid if they don’t think it’s easy. Also, if you
+                                               think it is very easy, why use class time on it?
+18   Don’t rely too much on comments by        When there are a few outspoken students, it is very easy to jump to the
+     individual students, or solely on student conclusion that their views are representative of the entire class, but that’s often
+     self-reports about their learning         not the case. Use surveys of the entire class or more extensive sampling. Also,
+                                               student self-reports of what and how they are learning are often inaccurate.
+                                               Although you should not ignore self-reports, before acting on them you should
+                                               confirm with other evidence.
+19   Don’t be afraid of a silent moment        Students need time to think after being asked a challenging question.
+
+Clicker-specific Don’ts
+    Don’t leave out the peer discussion       Using clickers is not good in itself, it is how you use them that matters. Peer
+                                              discussion has been shown to increase student learning, particularly for
+                                              reasonably challenging conceptual questions.
+     Don’t show the first vote histogram if   In Peer Instruction, students first vote individually and then discuss the question
+     you plan to have the students vote twice in small groups and vote again. Showing the histogram after the first vote biases
+                                              the students toward the answer that got the most votes. You can always give a
+                                              verbal characterization, such as “the vote is split between several options”.
+     Don’t stop the vote collection without   Students will rush to put in an answer if they think you might cut off the vote
+     warning                                  without warning.
+     Don’t go into ‘police-mode’ for catching      Talk with individual students if you see that they are clearly off-task or have
+     students with multiple clickers or not        multiple clickers (doing the voting for students who are absent), but don’t make it
+     participating enough                          a big focus. It needlessly distracts the rest of the class.
+     Don’t limit yourself to questions with        Some of the best peer discussion and whole-class discussions are around
+     only one right answer                         questions with more than one defensible answer. For example, you could ask
+                                                   “which is the best answer” or “which is the most efficient method”. In the follow-
+                                                   up discussion, you could ask students what would have to change about the
+                                                   situation to make a particular answer the “best”.
+
+Further resources:
+www.cwsei.ubc.ca/resources/
+(includes materials developed by CWSEI and CU-SEI and links to other useful resources)
+
+
+
+
+CWSEI – www.cwsei.ubc.ca                                      April 2014                          CU-SEI – www.colorado.edu/sei/   Page 35
+                                Assessments That Support Student Learning
+                                                   CWSEI, updated 2014
+
+ Key points and factors from the review paper “Conditions Under Which Assessment Supports Student Learning,”
+ by G. Gibbs and C. Simpson 1
+
+ Key points (extensive references to data supporting all these points are listed in the original article)
+ From the students’ point of view:
+    • What is tested in a course dominates what students think is important and what they do.
+    • Effective feedback is the most powerful single element for achieving learning. Feedback that is not attached to
+      marks can be highly effective.
+    • Students who focus on picking up cues as to what will be on exams and study accordingly do much better than
+      those who do not. Students often realize this form of studying is not the same as studying to master (i.e.
+      understand and apply) the course material.
+    • Students prefer courses with a significant marked assignment component, feeling that such courses provide
+      them with more practice and feedback, and the assessment is fairer.
+
+ Marked assignments versus exams:
+   • Much assessment fails to engage students with appropriate types of learning.
+   • Exam scores correlate very weakly with post graduate performance. Scores on marked assignments are better
+     predictors than exams of long term learning retention.
+   • When assignments are a significant fraction of the course mark, the failure rates are 1/3 what they are when
+     course mark is based solely on exam scores. Students also study and learn in more naïve ways when mark is
+     based solely on exams. Although not in Ref. 1, there are techniques to minimize cheating on such marked
+     assignments.2
+
+ Factors that make assessments contribute to learning (and are frequently neglected)
+ 1. Assigned and assessed tasks that:
+    • are focused on the most important aspects of the course (tied to learning goals),
+    • require extended time to complete,
+    • are given frequently,
+    • engage students in appropriate forms of study/effort.
+
+ 2. Students need to have a clear concept of the assigned task and of learning in the discipline. The criteria for setting
+    the mark on the assignment needs to be explicit and understood by the student.
+
+ 3. The single most important element of assessment supporting learning is the frequency and type of the feedback
+    provided with the assessment. Feedback that supports learning:
+    • is frequent and sufficiently timely to the task so that it still matters to the student
+    • focuses on student performance and learning, rather than student characteristics
+    • is specific and detailed, addresses small chunks of material, and provides guidance for future efforts
+    • matches the purpose of the assignment and encourages the student to improve
+    • is supported by mechanisms that require the student to attend to and act upon the feedback
+
+ Implementing good assessment and feedback without spending excessive time marking
+ It is particularly challenging to have frequent assignments and timely feedback in large-enrollment classes. Below are
+ a few examples of ways to do this.
+     • Online, computer graded homework. There are numerous systems for this. (Instructor needs to generate or
+       find source of good multiple-choice questions, many systems provide these.) 3
+
+
+CWSEI – www.cwsei.ubc.ca                                  April 2014                        CU-SEI – www.colorado.edu/sei/   Page 36
+     • Problem-solving sessions associated with quizzes or homework. This could be informal (groups of students
+       voluntarily get together to work on problems with or without TA or instructor present) or formal (tutorial,
+       recitation, workshop with TA and/or instructor using Socratic approach).
+     • Peer Instruction: 4 during class pose questions, student discussions about which answer is correct, vote on
+       answer, instructor does short lecture on which answer is correct & why. Works in large lecture halls (This moves
+       the feedback part into the classroom and shares it between students and instructor. Some coverage of material
+       is moved from lecture to assigned reading.)
+     • Regular in-class group exercises done in stages that include partial deliverables (sketches, lists, worksheet
+       answers, etc) which are discussed in class. Simply working in groups provides “instant” peer feedback (as
+       above), and the whole class benefits from feedback that results from the instructor-led discussions at
+       intermediate stages of the exercise.
+     • Just-In-Time Teaching: 5 Web-based assignments due a short time before class, followed by discussion/lecture
+       focusing on areas of student difficulty (often involves adjustment of teaching based on responses, for large
+       classes, instructors usually go through a subset of the responses). Can also be implemented as quiz at start of
+       class with electronically collected responses.
+     • Have some long-answer or essay-type questions on assignments, but only grade some of these (important to be
+       clear to students that they will get some credit on a problem for turning something in, and a subset of those
+       problems will be graded for marks – students won’t know in advance which questions will be graded)
+     • Have multistage assignments with feedback in the middle that students need to use to complete assignment
+       (way to get students to act on feedback)
+     • Peer assessment (important for instructor to provide good marking rubric). Imperfect feedback from a fellow
+       student provided almost immediately can have much more impact than more perfect feedback from an expert
+       many weeks later. Students learn a lot by doing peer assessments – particularly when done as a group activity. 6
+     • Self assessment or reflection assignments (e.g. have students grade own work using a rubric created by
+       instructor, or have students go over a problem from previous assignment that they got wrong and explain what
+       they did, and why it was not the correct approach.)
+     • 2-Stage exams: 7 students do the exam individually first, turn their answers in, and then repeat the exam in
+       groups. Students get timely feedback from each other and learn from the exam via reasoning with peers. They
+       usually do significantly better on the group part vs. the individual part.
+
+ The bottom line?
+ Teaching students to monitor their own performance should be the ultimate goal of feedback.1 Continuous support
+ for improving these skills will help students transfer learning to new situations and become effective lifelong
+ learners.
+
+
+ 1
+   G. Gibbs and C. Simpson, “Conditions Under Which Assessment Supports Student Learning,” Learning and Teaching in Higher
+   Education, V. 1, pp. 3-31, (2004), http://resources.glos.ac.uk/shareddata/dms/2B70988BBCD42A03949CB4F3CB78A516.pdf
+ 2
+   Effective techniques are designing assignments to be of obvious benefit to the learning of the student, have substantial overlap
+   with the exams, and have some portions of the assignment that involve “explaining in your own words”.
+ 3
+   S. Bonham, “Reliability, compliance, and security in web-based course assessments,” Physical Review Special Topics - Physics
+   Education Research V. 4, paper 010106 (2008).
+ 4
+   C. Crouch and E. Mazur, “Peer Instruction: Ten years of experience and results,” American J. Physics, V. 69, pp. 970-977 (2001).
+ 5
+   See: http://jittdl.physics.iupui.edu/jitt/
+ 6
+   K. Topping - Review of Educational Research, V. 68, No. 3, 249-276 (1998),
+   http://rer.sagepub.com/cgi/content/abstract/68/3/249
+ 7
+   B. Gilley & B. Clarkston, “Collaborative Testing: Evidence of Learning in a Controlled In-Class Study of Undergraduate Students,”
+   J. College Science Teaching, V. 43(3), pp. 83-91 (2014); G. Rieger & C. Heiner, “Examinations That Support Collaborative
+   Learning: The Students’ Perspective,” J. College Science Teaching, V. 43(4), pp. 41-47 (2014).
+
+
+CWSEI – www.cwsei.ubc.ca                                      April 2014                           CU-SEI – www.colorado.edu/sei/   Page 37
+                                          Promoting course alignment:
+                           Developing a systematic approach to question development
+                                           By Françoise Bentley and Teresa Foley, 2010
+                              Integrative Physiology Dept. & CU-SEI, University of Colorado-Boulder
+
+                  When students cannot easily determine the connection between assessments in a course,
+         they often complain that such assignments or activities are “busy work” and “do not help in
+         preparing for the upcoming exam.” In order to avoid such discontinuity, it is important that every
+         element of a course be aligned with a set of well-defined learning goals. Using the following
+         systematic approach, faculty can develop a bank of questions that align with a single learning
+         goal. These so-called “suites” of questions can then be used in different settings to measure
+         student learning. For example, one or more questions could be used for formative assessments
+         (e.g., a clicker question, quiz, or homework), while a variation of the question(s) could be used
+         on a summative assessment (e.g., a final exam). This systematic approach to question
+         development helps faculty focus on their primary educational goals, while it allows students see
+         that the practice they are receiving from assessments is measuring and improving their learning.
+         As an added bonus to using this approach, course exams can be written well in advance of the
+         exam date!
+
+                                        Steps for developing “suites of questions”
+
+         1. Start by choosing a learning goal that you would like to assess.
+
+         2. Determine the settings where you would like to assess your students (i.e. during lecture,
+            homework, exam, recitation/tutorial, or lab).
+
+         3. Develop an initial question for this goal. An application-type question where the students
+            have to predict the outcome of a change in a scenario works best for creating a suite of
+            questions.
+
+                   For example, you could create a clicker question that has the students predict the
+                   result of increasing a certain variable.
+
+         4. Identify what aspects of your question have differing variables/factors that can be changed
+            over a series of questions.
+
+                   Using the example above, a related homework question would have students predict the
+                   result of decreasing that same variable.
+
+         5. Depending on the nature of the question, you can develop at least one exam, one clicker, and
+            one homework question aligned to the same learning goal.
+
+                   For example, the corresponding exam question would have students read the scenario and
+                   predict if a variable increases, decreases, or causes no change in a particular output
+                   quantity.
+
+
+
+
+CWSEI – www.cwsei.ubc.ca                                    April 2014                       CU-SEI – www.colorado.edu/sei/   Page 38
+                   Example “suite of questions” for a common learning goal
+
+         Learning goal: Predict whether a molecule will move across a cell membrane and by what
+         mechanism; explain how concentration and/or electrical gradients influence its movement.
+
+         Homework question:
+
+              Below is a depiction of a portion of the cell membrane that is positively charged on the
+              intracellular side and negatively charged on the extracellular side. Further in this cell, the
+              concentration of ion X+ in the intracellular space is high and in the extracellular space is low.
+                     +++++++++++++++++++   intracellular [X+]high
+                                        <- membrane
+                     ------------------   extracellular [X+]low
+
+              Use the figure above to determine what gradients play a role in the movement of ions.
+
+              1) Does an electrical gradient exist for X+? If it exists, what is the direction?
+                  a) No.         b) Yes, inward.                c) Yes, outward.
+
+
+         Clicker question using the same scenario as the homework question:
+
+              2) Does a concentration gradient exist for X+? If it exists, what is the direction?
+                  a) No.       b) Yes, inward.               c) Yes, outward.
+
+         In these examples, the homework and clicker questions are assessing the same concept
+         (electrochemical gradients and ion flow), but in multiple ways. For an exam question, you could
+         use a different ion and have the students predict the electrical and concentration gradients of a
+         related scenario.
+
+         Exam question:
+
+              Consider a typical cell that is temporarily hyperpolarized to -100mV.
+
+              What would be the direction of the chemical and electrical forces acting on K+ while the cell
+              is hyperpolarized?
+
+              a) chemical in, electrical in              b) chemical in, electrical out
+              c) chemical in, no net electrical          d) chemical out, electrical in
+              e) chemical out, electrical out            f) chemical out, no net electrical
+              g) no net chemical, electrical in          h) no net chemical, electrical out
+              i) no net chemical, no net electrical
+
+
+
+
+CWSEI – www.cwsei.ubc.ca                                 April 2014                      CU-SEI – www.colorado.edu/sei/   Page 39
+

@@ -1,5 +1,7 @@
 # CodeBuddy Implementation Overview
 
+> Historical note: this document predates the Buddy core ontology cutover. References here to `code-teacher`, `curriculum-builder`, notebook-local curriculum ownership, and older prompt file paths describe the previous architecture and are not the current source of truth. Use [buddy-core.spec.md](/Users/prashantbhudwal/Code/buddy/buddy-core.spec.md) for the current model.
+
 This document describes the current teaching-mode implementation that was added to Buddy.
 
 It is not a speculative plan. It is a description of the code that exists in the repository now, how it is wired, what responsibilities live in which files, how data moves through the system, how permissions work, where prompts come from, and what the known limitations still are.
@@ -22,9 +24,9 @@ The implementation does not create a separate teaching application surface.
 Instead:
 
 - the user stays inside the normal directory chat route,
-- the prompt composer gets a real agent selector,
+- the prompt composer gets a real persona selector plus strategy controls,
 - the session stays in normal chat mode until the user explicitly starts an interactive lesson,
-- the selected agent remains independent from the session interaction mode,
+- the selected teaching runtime remains independent from the session interaction mode,
 - the route keeps the normal chat layout,
 - the editor is exposed as a docked panel inside the existing right sidebar,
 - the editor tab can render an empty interactive starter state before any workspace exists,
@@ -76,7 +78,7 @@ In practical terms:
 - `packages/web/src/components/prompt/prompt-composer.tsx`
 - `packages/web/src/components/teaching/teaching-editor-panel.tsx`
 - `packages/web/src/state/chat-actions.ts`
-- `packages/web/src/state/teaching-mode.ts`
+- `packages/web/src/state/teaching-runtime.ts`
 - `packages/web/src/state/teaching-actions.ts`
 - `packages/web/src/state/ui-preferences.ts`
 - `packages/web/package.json`
@@ -88,7 +90,7 @@ In practical terms:
 ```mermaid
 flowchart TD
   U["User"] --> W["Web UI<br/>$directory.chat.tsx"]
-  W --> TS["Teaching State<br/>useTeachingMode"]
+  W --> TS["Teaching Runtime<br/>useTeachingRuntime"]
   W --> CA["Chat Actions<br/>sendPrompt()"]
   W --> TA["Teaching Actions<br/>workspace/checkpoint/restore"]
 
@@ -136,10 +138,9 @@ The teaching-related responsibilities in this file are:
 
 - mounting the teaching route group under `/api/teaching`,
 - ensuring Buddy teaching tools are registered into the OpenCode runtime before prompt execution,
-- returning Buddy's local agent catalog from `/api/config/agents`,
+- returning Buddy's persona catalog from `/api/config/personas`,
 - transforming prompt requests before proxying them to OpenCode,
-- injecting extra teaching system context,
-- installing an in-memory OpenCode config overlay so the vendored runtime recognizes `code-teacher` as a real agent.
+- injecting runtime teaching state and learner context.
 
 ### Key teaching behaviors in `index.ts`
 
@@ -169,15 +170,15 @@ The overlay is merged into `Config.get()` at runtime and is scoped by `Instance.
 
 This is what makes `code-teacher` a native upstream-recognized agent now.
 
-#### B. Buddy-owned agent list
+#### B. Buddy-owned persona list
 
-`GET /api/config/agents` now returns the Buddy agent catalog, not just the vendored OpenCode list.
+`GET /api/config/personas` returns the Buddy persona catalog used by the product UI.
 
 This matters because:
 
-- `code-teacher` is a Buddy-defined agent,
-- the frontend agent selector depends on `/api/config/agents`,
-- without this override, the UI would only show upstream agents like `build` and `plan`.
+- the product UI now selects `persona`, not raw agents,
+- persona selection controls the available surfaces and defaults,
+- raw agent overrides remain a backend/debug escape hatch rather than a primary UI concept.
 
 #### C. Prompt proxy transform
 
@@ -608,19 +609,35 @@ This is what the UI currently labels as `Restore Step`.
 
 ## 5. Frontend Overview
 
-## 5.1 `packages/web/src/state/teaching-mode.ts`
+## 5.1 `packages/web/src/state/teaching-runtime.ts`
 
 This file holds session-scoped teaching state in a persisted Zustand store.
 
 ### Store shape
 
-#### `selectedAgentBySession`
+#### `selectedPersonaBySession`
 
 Maps:
 
-- `"<directory>::<sessionID>" -> agentName`
+- `"<directory>::<sessionID>" -> personaId`
 
-This is how the agent selection is stored per chat session.
+This stores the selected Buddy persona per chat session.
+
+#### `selectedStrategyBySession`
+
+Maps:
+
+- `"<directory>::<sessionID>" -> instructionalStrategy`
+
+This stores the selected teaching strategy per chat session.
+
+#### `selectedAdaptivityBySession`
+
+Maps:
+
+- `"<directory>::<sessionID>" -> adaptivity`
+
+This stores whether the session is running in manual or auto strategy selection.
 
 #### `workspaceBySession`
 
@@ -647,11 +664,13 @@ The embedded workspace data now also includes:
 
 ### Important behavior
 
-#### A. Only agent selection is persisted
+#### A. Teaching runtime selections are persisted
 
 The store persists:
 
-- `selectedAgentBySession`
+- `selectedPersonaBySession`
+- `selectedStrategyBySession`
+- `selectedAdaptivityBySession`
 
 It does not persist:
 
@@ -716,13 +735,15 @@ Buddy consumes the `teaching` field on the backend and strips it before forwardi
 
 ## 5.4 `packages/web/src/components/prompt/prompt-composer.tsx`
 
-This component now has a real working agent selector.
+This component now has a real working persona selector plus strategy and Auto controls.
 
 The first dropdown is no longer a placeholder.
 
-It renders the supplied agent options and calls:
+It renders the supplied persona options and calls:
 
-- `onAgentChange(...)`
+- `onPersonaChange(...)`
+- `onStrategyChange(...)`
+- `onAutoChange(...)`
 
 That is how the user selects:
 
@@ -782,20 +803,20 @@ It keeps the existing route and adds teaching mode as a branch inside it.
 
 ### Main teaching responsibilities in this route
 
-#### A. Agent catalog loading
+#### A. Teaching runtime catalog loading
 
 On directory change, it loads:
 
-- `/api/config/agents`
+- `/api/config/personas`
 - `/api/config`
 
 Then it:
 
-- filters visible primary/all agents
-- computes the default agent
-- populates the composer's agent selector
+- computes the default persona
+- reads the default strategy and adaptivity
+- populates the composer's persona and strategy controls
 
-#### B. Session-scoped agent selection
+#### B. Session-scoped teaching runtime selection
 
 The route computes:
 
@@ -856,7 +877,7 @@ the route debounces for `500ms` and then calls `flushTeachingWorkspace()`.
 
 If the backend returns a revision conflict:
 
-- the route stores a conflict payload in `TeachingModeState`
+- the route stores a conflict payload in `TeachingRuntimeState`
 - the editor shows conflict UI
 - the user can:
   - load external changes
@@ -939,9 +960,9 @@ This section describes how data moves through the system in the current implemen
 ## 6.1 Entering Interactive Mode
 
 1. User opens a normal directory chat session.
-2. Frontend loads agents from `/api/config/agents`.
-3. User may select any agent in the prompt composer (including `code-teacher`).
-4. Frontend stores that agent choice in `selectedAgentBySession`.
+2. Frontend loads personas from `/api/config/personas` and runtime defaults from `/api/config`.
+3. User selects a persona and optional strategy in the prompt composer.
+4. Frontend stores that teaching runtime choice in `TeachingRuntimeState`.
 5. User opens the `Editor` tab and sees the empty interactive starter state.
 6. User picks the initial language and clicks `Start Interactive Lesson`.
 7. Frontend stores `interactionMode = "interactive"` for the session.
@@ -955,7 +976,7 @@ This section describes how data moves through the system in the current implemen
 
 1. User types in Monaco while one tracked file is active.
 2. `TeachingEditorPanel` calls `onCodeChange(...)`.
-3. Route updates `TeachingModeState.workspaceBySession[sessionKey].code`.
+3. Route updates `TeachingRuntimeState.workspaceBySession[sessionKey].code`.
 4. A `500ms` debounce waits.
 5. `flushTeachingWorkspace()` runs.
 6. Frontend sends:
@@ -1265,15 +1286,15 @@ There is still no drag-and-drop file management, file rename/delete flow, or ric
 
 Several implementation issues were found and corrected while building this feature.
 
-### 11.1 Agent dropdown did not show `code-teacher`
+### 11.1 Persona selector now drives Buddy teaching runtime
 
-Cause:
+Earlier cause:
 
-- `/api/config/agents` was initially still returning the upstream agent list.
+- the product UI was still too close to raw agent concepts.
 
 Fix:
 
-- Buddy now returns the local Buddy agent catalog from that endpoint.
+- Buddy now uses `/api/config/personas` and stores persona, strategy, and adaptivity in teaching runtime state.
 
 ### 11.2 Agent-written lesson changes did not auto-appear
 

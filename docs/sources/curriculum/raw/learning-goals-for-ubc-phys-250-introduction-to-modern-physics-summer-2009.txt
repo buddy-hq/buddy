@@ -1,0 +1,194 @@
+                                                                                                            1
+
+
+        Learning Goals for UBC PHYS 250, Introduction to Modern Physics, Summer 2009
+                                  (updated July 30, 2009)
+This list may be modified slightly as the term progresses and we realize there are things we expect you
+to learn that we forgot to list, or there are things we decide you need not learn in this course.
+
+
+                                  Course Level Goals (general)
+1) A bunch of old curmudgeon engineers complain to the engineering curriculum committee that
+quantum mechanics is a waste of time for any engineering student to take, claiming that regular
+engineers only work on things that only use classical (non-quantum) physics, and quantum physics is so
+weird it makes no sense and it is probably wrong anyway. You will be able to convince the engineering
+curriculum committee that the ideas of quantum physics are true and that it is useful for engineers to
+know about them.
+
+2) You will: see quantum mechanics as the most fascinating physics you have encountered, and see it as
+a way to understand the world at a level you never imagined possible; recognize and be able to describe
+how quantum mechanics is visible in the world all around you; recognize that physics required a major
+paradigm shift to advance its understanding of nature to the atomic size scale and smaller, but that the
+behaviour at that size also determines all macroscopic properties. This paradigm shift also involves
+accepting both the totally non-intuitive quantum ideas, and an approach to understanding the physical
+world by the use of mathematical models that match experiment, and then figure out what math implies,
+rather than in the reverse order has had previously been used. You will confront this intellectual
+paradigm shift and become at least partially comfortable with it.
+
+3) Special Relativity, although covered here in less detail than Quantum Mechanics, is an equally
+important aspect of modern physics. After covering this part of the course, students will develop a
+“scientifically literate” level of understanding of Special Relativity and its application to 21st century
+science and engineering. Specifically, you will be able to list the basic postulates of relativity, and be
+able to describe some of the basic implications of these that go against our usual intuition (and explain
+how experimental evidence supports these). You will also be able to analyze simple dynamical
+processes using relativistic dynamics. This will include: (1) knowing how to relate physical quantities
+measured by observers moving at some relative velocity and know which quantities observers at relative
+velocities will agree upon, and (2) knowing the limits of applicability of elementary formulae from
+mechanics and know the more general formulae that replace these in situations where velocities are not a
+negligible fraction of the speed of light.
+
+4) You will learn how to learn more effectively. You will understand the value of and use in your
+learning of: collaboration with peers, improvement in metacognitive skills, effortful study and practice,
+need for focused intense extended study time, and repeated recall and application for assessment. You
+will regularly use sense-making and explanations as part of solving physics problems, and be able to
+argue as to the value of doing this.
+                                                                                                          2
+
+                                       Specific Content Goals
+(“Quantitative” means you will be able to describe in terms of specific numbers, and so will usually
+involve calculations. “Qualitative” means using general reasoning and definitions, but not calculating
+any numbers.)
+
+I. Quantum Mechanics
+
+1. Modeling of physical mechanical systems.
+Be able to describe a physical situation that would correspond to simple potential energy curves. Given
+a simple physical system, be able to draw the relevant potential energy curve needed to model
+dynamical behaviour. Explain why models are useful in physics.
+
+2. Light as a Particle- why believe idea that there are particle and wave like properties to objects,
+role of probability in this interpretation
+    • Write down the mathematical description of a classical electromagnetic wave, and relate the
+        terms in the expression to the velocity, wavelength, and frequency of the wave.
+    • Be able to describe how the energy in a classical EM wave depends on the amplitude of the field,
+        and describe what happens when an EM wave is absorbed by a material if the wavelength is long
+        enough that it behaves classically.
+    • Design an experiment to show that something behaves as a wave.
+    • Qualitatively describe what is measured in the photoelectric effect experiment and explain how
+        this implies a quantum picture of light, including explaining what results the classical
+        interpretation of light would predict for this experiment.
+    • Quantitatively analyze photoelectric data to deduce the relationship between energy of photons
+        and frequency of light and predict how the emission of electrons will change if color of light,
+        type of metal, or voltage of the metal is changed.
+    • Be able to design an experiment for determining the composition of an unknown pure metal
+        based on the photoelectron effect.
+    • Be able to explain the essential role of the quantization of light as demonstrated by the
+        photoelectric effect in the operation of a photomultiplier tube, a solid state photodector such as
+        used in motion sensors, and the human eye. (Essentially all sensitive detectors of light.)
+    • In two slit interference pattern produced by light, relate the single particle detection of photons to
+        the interference pattern from light beams.
+
+3. Electrons as waves and particles
+a. emission and absorption of light by isolated atoms
+    • Explain how the discrete colors produced by neon signs, mercury and sodium street lights, and
+       other discharge lamps rule out Rutherford’s model of the atom as like a miniature solar system
+       with electrons orbiting the nucleus.
+    • Relate the colors of light produced by a discharge lamp to energy levels of the electron in the
+       atoms in the lamp.
+    • Be able to explain why such light sources are so much more efficient than incandescent light
+       bulbs.
+    • List the basic assumptions of the Bohr model of the atom and explain how those assumptions are
+       consistent with the light emitted by a hydrogen discharge lamp.
+    • Be able to provide a basic design for a gas laser, giving the basic components and qualitative
+       requirements for it to operate.
+                                                                                                          3
+
+
+b. electrons as waves
+    • Explain the interpretation and significance of the pattern observed when a beam of electrons is
+        sent through two very closely spaced slits and detected on a screen behind them.
+    • Explain what was observed in the Davisson-Germer experiment and how these observations
+        support the interpretation of electrons as waves.
+
+4. Electrons as probability waves.
+   • Given a particle description of an electron or photon, relate that to an equivalent wave
+       description, and vice-versa.
+   • Calculate the Broglie wavelength of a particle given the momentum, and vice-versa. Make
+       quantitative predictions for what will be detected on screen behind two closely spaced slits when
+       particles of known mass and energy are shot at the slits.
+   • Describe the double-slit experiment for light and electrons and explain why the interference
+       pattern is different depending on whether or not a measurement is made as to which slit the
+       photon/electron passes through
+   • Analyze the implications of the results of the double slit experiment in terms of the description of
+       the position of an initial electron
+   • Explain what is meant by the eigenstates of an electron, in terms of the energy, position and
+       momentum, when the electron is both free and when it is confined in some potential energy well.
+   • Write down the mathematical description of the wave functions for momentum eigenstates and
+       highly localized positions of free electrons.
+   • Explain how a wave function can be used to describe a general complex superposition of all
+       position eigenstates
+   • Calculate the probability for finding a particle in a given region of space from its wave function.
+   • Qualitatively relate the shape of the wave function to the relative probability of finding the
+       particle at different positions in space, and in different momentum ranges.
+   • Qualitatively relate the shape of the wave function to the kinetic energy of a particle at different
+       locations in space
+   • Argue why it is plausible that one can describe any function as a suitable superposition of
+       sinusoidal functions
+   • Argue how the description of a particle in terms of a wave function implies the Heisenberg
+       uncertainty principle, and be able to use this principle to calculate the minimum possible
+       uncertainty in measurements of position and momentum of particles.
+
+5. Schrodinger equation and potential energy wells
+   • Explain why a very deep square well potential is a crude but useful model for a variety of
+      physical systems, including electrons in atoms or wires. (somewhat implied under “bound states”,
+      3rd LG)
+   • Calculate the possible energy levels and normalized wave functions and probability distributions
+      for an electron in a very deep square well potential of arbitrary width in one dimension. Be able
+      to use these distributions to predict the results of measurements of these quantities for an electron.
+   • Explain general method for how to find allowed energies for an electron or atom in any shape
+      potential energy well, although not carry out the detailed calculations required for obtaining
+      values for those energies.
+   • Calculate how the current in a scanning tunnelling microscope (STM) depends on the distance
+      between the probe and the surface. Explain how an STM is able to obtain a measurement
+      resolution of less than one atomic diameter.
+                                                                                                         4
+
+
+6. Atomic Structure and interactions between light and atoms
+   • Write down the Schrodinger equation for the electron in a hydrogen atom
+   • Remember the basic characteristics and quantum numbers that describe the solutions to the
+      Schrodinger equation for a hydrogen atom.
+   • Explain how the Schrodinger equation predicts that different types of atoms will be different
+      colours and that it will require different amounts of energy to remove an electron. (under
+      Phys200 “bound states”)
+
+7. Conductivity of electrons in materials
+   • Given the conductivity of a material, predict the energy distribution of the electrons.
+   • For an unknown material, be able to analyze whether it is a conductor, insulator, or
+      semiconductor, and then predict what electron energy distribution it must have.
+   • Describe the energy distribution the electrons need to have in order to produce a desired
+      conductivity of a material.
+   • Qualitatively design a semiconductor diode that will only allow current to flow in one direction.
+
+
+II. Special Relativity
+
+1. Puzzles from Electromagnetism
+   • Give simple examples from electricity and magnetism that show that either the principle of
+      relativity or some basic notions of distance, time, and velocity must be abandoned
+
+2. Einstein’s Resolution
+   • Argue how the experimental evidence implies that the velocity of light is always independent of
+       the of the motion of the source or of the observer
+   • State Einstein’s postulates of special relativity
+   • Explain how an given observer can set up a coordinate system for making measurements of time
+       and position
+   • Show how Einstein's postulates imply that observers at large relative velocities will not agree on
+       distances, time intervals or whether two events are simultaneous
+   • Describe qualitatively the meaning of length contraction and time dilation
+   • Calculate the lengths and times differences that an observer will measure, accounting for length
+       contraction and time dilation.
+   • Relate the measurements of observers moving at arbitrary relative velocities using the Lorentz
+       transformation formulae
+   • Calculate the observed velocity of an object in a new reference frame given the velocity in the
+       old frame and the relative velocity of the two frames
+
+3. Relativistic Energy and Momentum
+   • Argue why classical formulae for momentum and energy must be modified to make sense
+       physically at high velocities
+   • Write down the relativistic formulae for energy and momentum and use them to solve simple
+       mechanics problems
+   • Give evidence for the equivalence between energy and mass and explain the implications
+   • Analyze simple high-energy particle decay processes and scattering processes using energy and
+       momentum conservation (did several examples of this in HW and Tutorial)
+

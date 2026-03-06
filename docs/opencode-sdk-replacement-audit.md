@@ -2,6 +2,8 @@
 
 Date: 2026-02-27
 
+> Historical note: this audit predates the Buddy core ontology cutover. References here to `mode`, `/api/config/agents`, `/api/curriculum`, and notebook-local curriculum storage describe the old architecture and are not the current source of truth.
+
 ## Executive Summary
 
 Buddy currently depends on vendored OpenCode in two very different ways:

@@ -1,0 +1,103 @@
+      How to Develop Learning Goals for an Established Course: The Computer Science Model 1
+                                      Developed by Beth Simon: May 2008, UBC
+
+Overview: The goal of this process is to develop a set of learning goals (also called learning outcomes) for
+existing computer science courses. These goals should describe, in detail, what students can be expected
+to do by the time they finish a course. The goals would be useful to:
+  • Instructors of the class – to prepare the course, focus lectures, develop exams, and have a solid,
+      coherent story of the course.
+  • Students of the class – to understand more precisely the expectations of instructors, to see the
+      bigger picture value of the materials presented, and to have a set of specific expectations that can
+      be used to focus attention in class and studying outside of class.
+  • Instructors of courses which follow this one – to have an explicit description of the skills and abilities
+      students entering the course are expected to have, to identify areas of expected knowledge that are
+      not supported through pre‐requisite coursework.
+
+The results of the process are encapsulated in a spreadsheet with 2 worksheets. The first is a set of topic
+level goals (35‐100 or so) that describe detailed materials at the lecture or “topic” level. The second is a
+course level goal grid with 3‐7 higher, course level goals. Under each goal, a list of topic level goals which
+contribute to that course goal are listed.
+
+General Process Outline: The model employed to develop these goals has been to have 2 (though we
+suspect 3‐4 works as well) instructors who have recently taught the course (or are otherwise engaged
+with it) meet with a facilitator (STLF) for a period of 8‐12 hours in either 1 hour a week or 1.5 hours every
+other week format. Very little outside work is needed from the instructors each week (occasionally 5‐20
+minutes of brainstorming or finding materials (lecture slides, exams). The facilitator spends approximately
+1 hour outside of the meeting each week (on reminders to instructors, rewording materials, cleaning up
+LG wording, reviewing materials (exams, homeworks, etc.)). The facilitator organizes and leads the
+meetings, and takes all notes (documenting the brainstorming and results of the LG creation). Instructors
+talk and brainstorm, but do not have to take notes.
+
+Step 1: Assessment‐Driven Topic Goals: Begin by asking (before the first meeting) for recent exams given
+in the course. At a meeting, all faculty will sit and work through the questions on the exam developing
+“topic level goals” which are reflected by a correct answer on that exam question. This goes something
+like “if a student gets this question correct on the exam, then it shows that the student can…” Through
+this process we identify at least what is expected on the final. This then brings up things that are assessed
+on possible exams throughout the term, on homeworks, etc. It also allows for the beginnings of
+discussions (often about “high level” things) that we want students to get but we don’t ask on the exam.
+This is OK, but the facilitator should feel free, to say, but if we don’t ask exam questions on this, how do
+we know if they “got that” high level ability or not?
+
+Step 2: Lecture‐Driven Topic Goals: Since we cover many things in class that we don’t necessarily assess
+on the final exam, we next walk through (mentally or by actual review of lecture slides) the materials
+covered in the course, topic by topic. Each topic is named (discussion happens about ordering, etc.) and a
+list of things that students should be able to do “after that material/section is covered” is named.
+Instructors will start by saying “we talk about this, we do that on the board”, and need to be prompted
+with statements like “so, afterwards you would expect a student to be able to do what”? Or propose
+something as a possible thing students would be able to do and the instructors will say “no, more than
+that, like this” or “no, not that in depth, like this”. Instructors may find out that they each have different
+expectations of depth of understanding in certain areas.
+
+1
+    This documents the process used in Computer Science, but it is certainly not the only process that can be used.
+Instructors (and facilitators) will also find it common to start by saying “students will understand this and
+that”. This is OK in the brainstorming phase. But the group should immediately (in the next few minutes
+of discussion) move to try to concretize “understand” by explaining exactly what would demonstrate
+understanding. Would that be: rank these algorithms in complexity order, compare and contrast the
+performance issues from disk access models, describe real world scenarios that reflect stacks versus
+queues, etc. Sometimes a goal listed as “understand” may get stuck there and have to be revisited at the
+next meeting. These are usually keys to goals that are not particularly clear or clean in the class.
+
+This process takes the majority of the meeting times (5‐7 weeks). Progress is slow in the beginning, but
+moves much more quickly after about the ½ way point as instructors get practiced in mentally converting
+what “they do” in class content into statements about what they can expect students to do after that
+material is covered. Instructors will get derailed when they differ in viewpoint on a topic or when a topic
+is difficult or perhaps doesn’t fit well in a course. Instructors should be given some time to discuss issues
+that arise in teaching this topic (and the facilitator should document this). But after 5‐7 minutes, the
+instructors should be reminded, “OK – I’ve documented our concerns here – let’s go back to focusing on
+what we actually do right now, not what we wish we did in this case”.
+
+Depending on the level of detail and the course, we’ve seen 30‐100 topic level goals developed usually
+spanning 5‐15 topics. These are listed in a 2 column spreadsheet (landscape), with the topic name in the
+left column and the goals themselves in the right column. The goals complete a common stub of “After
+this class students can…”. Each goal should be named something like A1, B3,... where the letter
+corresponds to a topic and the number to the number of goals under that topic.
+
+Step 3: Course Level Learning Goals: After the topic level goals are done, in 1‐2 meetings course level
+goals are developed. Often, instructors can be asked to independently brainstorm these outside of a
+meeting and send them in email to the facilitator. Then one meeting can be used to review these –
+merging similar ones, getting better wordings, etc. Occasionally, these start out too low level – basically
+subgroups of the topics. Through discussion, and focusing on how this course contributes to the general
+development of a student in the major, these can be made more high level. After identifying (a not
+perfect list, that may still have some duplication) of 5‐12 course goals, instructors can be assigned
+(outside of a meeting) to place each topic goal under the column of any course goal it applies to. This can
+also be done in a meeting, but it can be more efficient simply to have everyone bring their grid and to
+discuss where people differed and if a course goal was hard to find things to fit under, or if two course
+goals really seemed to be interpreted as the same thing. Eventually, course goals should be pared down
+to approximately 4‐7. Look for course goals that have few topic goals supporting them, or topic areas that
+fit under only one course goal.
+
+Advice/Common Expectations: The first few weeks are marked by a lot of discussion, which may not lead
+directly to completed LGs. This is especially the case for problematic courses, recently designed courses,
+or courses where significant differences exist in coverage depending on the instructor. This is OK.
+Discussion among the faculty should be allowed to occur, with the facilitator bringing people back on task
+occasionally. The focus should remain primarily on documenting what is done currently rather than
+bemoaning what we would like the course to accomplish.
+
+Instructors (and everyone) will tend towards high‐level, grandiose statements that are very meta‐level.
+These need to be deconstructed (especially in the beginning).
+
+Affective goals (goals about students developing appreciation, etc.) may come up in the discussion of
+course level goals – though they may not be assessed on exams, homeworks, etc. Affective goals may be
+an important part of a course – most notably in courses for non‐majors.
+

@@ -1,0 +1,107 @@
+www.cwsei.ubc.ca                       Carl Wieman Science Education Initiative                  updated August 2016
+
+
+                     Creating good homework problems (and grading them)
+                                                 by Carl Wieman
+Homework is a vital part of learning in university courses, arguably it is where most of the learning takes place.
+Doing homework is typically where the student will put in the most hours of intense thought about the subject,
+and such intense thought has been shown to be essential for developing mastery.1 However, the sheer amount
+of effort expended is not sufficient to ensure mastery. Students have completed thousands of practice physics
+problems and still do poorly on problems involving the use of simple physics concepts.2
+Applying the ideas of reference 1, the essential features for making homework support learning are:
+  • there is challenging and prolonged practice of the components of expert thinking the student is to learn
+  • the student is motivated to invest the necessary time and effort
+  • the student gets feedback on their practice that gives them guidance as to how they can improve
+We have shown large learning gains by analyzing the thinking a physicist uses, and then having students practice
+and get feedback on this type of thinking in class.3 The same approach can be applied to the design of
+homework problems in science and engineering. We start by considering the components of expert thinking that
+one wants the students to develop and the shortcomings of typical “back of the textbook chapter” problems.
+
+Generic components of expertise in all fields of science and engineering. Be able to:
+  a) Identify what concepts are useful for solving the problem and have criteria to use to decide which
+     concepts are relevant and which are not;
+  b) separate surface features from the underlying structural elements that determine what concepts apply;
+  c) identify what information is needed to solve the problem and what is irrelevant;
+  d) look up and, as appropriate, estimate values and/or deduce information that is needed but not given;
+  e) make appropriate simplifying assumptions;
+  f) break down a complex problem into appropriate pieces;
+  g) plan a solution;
+  h) use multiple specialized representations of information and move fluently between them to gain new
+     insights, and identify criteria for deciding which representation is most useful in a given situation;
+  i) carry out routine frequently-needed solution procedures quickly and correctly, and have criteria for
+     choosing when a specific procedure should be used;
+  j) articulate and suitably apply a set of criteria for evaluating if a solution or intermediate result makes sense.
+If one considers a typical back-of-the-chapter homework problem, it is clear that few of these components are
+practiced. First, all the information that is needed to solve the problem is given, and no extraneous information
+is given. Any simplifying assumptions are explicitly stated (“neglect friction and air resistance”). So items c), d),
+and e) are removed. Second, the chapter 5 problems only use chapter 5 concepts and equations, and the
+problems themselves are even organized to match the order of topics in the chapter. So the student never has
+to use a), and seldom uses b). A typical problem will only call for a final numerical answer, so f) and g) may be
+done by the student, but how they do them will remain hidden and the student will not get feedback on how
+they might improve. A solution will only call for the use of one representation, so while the student may be
+required to use a specialized representation, they will not practice moving between them or considering criteria
+for when to use a particular representation and so have little practice at h). Finally, j) is not used, as the
+problems do not call for arguments as to why the answer makes sense.
+So the typical problem will result in the student primarily practicing and getting feedback on i), carrying out
+routine procedures that are given in textbook. In addition, most standard problems in introductory chemistry
+and physics will strip away the context, to avoid complicating the routine practice. Students are asked to balance
+apparently meaningless sets of chemical equations or calculate the forces on frictionless blocks sliding down
+inclined planes. Such idealized artificial problems provide no motivation for students put in effort or see any
+value in mastering the subject.
+A criteria for any homework problem should be that it can pass the “Why should anyone care about the solution
+to the problem?” test. [Anyone other than the instructor.] The best problems are ones that the students can see
+www.cwsei.ubc.ca                         Carl Wieman Science Education Initiative                     updated August 2016
+
+
+provide solutions that are obviously relevant and useful to their immediate surroundings or intended future
+careers, but admittedly that can be a high bar. However, it is not so difficult to find some meaningful task a
+person in some occupation would need to carry out that utilizes the knowledge and skills involved in the
+problem. If you find yourself unable to find any such context, you should ask yourself why you are bothering to
+teach this material. I have dropped more than one topic from my courses after confronting such a realization.
+The other design criteria for good homework problems are that the problems and the required solutions
+explicitly involve all the items, a) to j) above, as mapped onto the context of the specific content and concepts
+and solution procedures that you want students to master. There may well be others aspects of expert thinking
+you also want to include, both more discipline-specific aspects and less (e.g. “be able to write an articulate well-
+reasoned explanation”), depending on your learning goals.
+As you incorporate the design features a)-j) in your homework problems, make them an explicit part the
+solution that students are required to produce (or stand-alone problems for specific features). For example, a
+part calling for a list of the concepts that apply and what features of the problem determine that choice, a part
+asking for what quantities/information are needed and estimates for values of any quantities not given, what
+procedures or techniques will be employed (Fourier transformation, use of multiple equations with multiple
+unknowns, …), approximations to be used, justification for why the answer makes sense and the criteria used to
+support that justification. This means a solution will involve far more than something like a simple number or
+fact. It provides them with far more explicit practice and feedback on how to develop and improve expert skills
+than does producing a single number which they find out is correct or not.
+
+Grading homework
+Such detailed solutions can be challenging to grade if one has many students and little support. There are
+various options for reducing the grading burden.
+1) Computer grading. Many parts of such a problem can be computer graded if one structures them
+appropriately. For example, asking what concepts apply can be made into a multiple choice question, where the
+options are the 20 or so concepts covered in the entire course and students have to choose all that apply. These
+same choices are given for every problem like this. One can have a similar list of perhaps 10 or so criteria to use
+in checking if an answer or intermediate result makes sense. These sorts of more demanding multiple choice
+computer graded problems can be made even richer by having ranking or ordering tasks of the items.
+2) Grade selectively. For problems or parts of problems where it is too difficult to put them in computer graded
+form, grade some fraction (1/2-2/3) just according to whether or not they turned in a solution, and grade the
+remainder on correctness with more detailed feedback.
+3) Use peer grading, in which students grade each other’s solutions. There are computer programs to facilitate
+the process. Two documents with resources and guidance on student peer review are posted on the CWSEI
+website at http://cwsei.ubc.ca/resources/instructor_guidance.htm#assess.
+
+Having students attend to feedback on homework
+Students attending to feedback and using it to improve is vital for learning. We have found three simple ways to
+encourage students to do this.
+1. For any question on which a student loses points, give them the option of getting some fraction (1/4-1/2)
+back by turning in an explanation of what was incorrect about their thinking that resulted in the error.
+2. Have each homework set contain a “reflection” problem such as, “Review your previous homework and the
+solution set, and then list all the problems you did incorrectly, what you did that was incorrect on each of those
+problems, and what you need to do differently on future problems of this type. If you did all the problems
+correctly, identify how you could improve a solution or which problem was most difficult and explain why.”
+3. Have the exam problems be very similar to homework problems and advertise to the class that this will be the
+case. It is easier to do this if you have good explicit learning goals for the course where it is clear that both
+homework and exam problems are testing the achievement of the learning goals.
+
+References: 1. A. Ericsson, R. Krampe, C. Tesch-Romer, Psychological Review 100, 363-406 (1993); 2. T. Byun and G. Lee,
+Am. J. Phys., Vol. 82, 906 (2014); 3. Deslauriers, Schelew, and Wieman. 2011. Science 332:862-864
+

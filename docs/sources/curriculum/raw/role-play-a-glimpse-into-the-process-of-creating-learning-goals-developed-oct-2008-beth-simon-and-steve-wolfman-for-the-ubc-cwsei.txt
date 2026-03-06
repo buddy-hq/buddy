@@ -1,0 +1,94 @@
+               Role Play: A Glimpse into the Process of Creating Learning Goals
+           (developed Oct 2008, Beth Simon and Steve Wolfman for the UBC CWSEI)
+
+Below is the script of a role-play discussion between Steve Wolfman and STLF Beth Simon. It
+attempts to re-enact and give the feel for the process used in the UBC Computer Science Department
+to create learning goals for their courses. They often started by looking at an exam question previously
+used in the class – and used this to stimulate discussion and refinement of the actual goals faculty had
+for students taking the course. The discussion below is modeled from an exam question used in CPSC
+101 (a course for non-majors) in Summer 2006.
+
+Original Exam Question:
+If the colour of a pixel is a shade of gray, what constraints must the three colour intensities
+satisfy?
+
+Revised Viewpoint of Instructor on Learning Goal (after discussion with STLF Beth):
+By the end of the course students can recognize that different data representations fit different tasks
+and can compare and contrast selected representations and their fit for certain tasks.
+
+
+Transcript of the kind of discussion and process used:
+
+   Beth: [[reads question and..]] so a student gets this correct on the
+   exam; what do you feel confident that they know?
+
+    Steve: Well, first of all, they need to know that those colour
+   components are the red, green, and blue intensities and that they vary
+   between 0 and 255 (or 8 bits). Once they've got that, it's gray if those
+   three intensities are the same.
+
+   Beth: OK. So, you mentioned a lot of very specific facts in that
+   answer. Is knowing those specific things what you really want
+   students to do? Is that the most important thing for students to know
+   if they get a right answer?
+
+   Steve: Well, the really key part is that the intensities be equal.
+
+   Beth: Then an answer like "they all have to be equal" would be a
+   perfect answer?
+
+   Steve: The thing is that it's not really even about the intensities being
+   equal. What do I really want students to get? The critical issue, if
+   they had all the time in the world to make a perfect answer? It's that
+   this red/green/blue representation, which is great for making simple
+   colours, makes it hard to dial up different shades of one colour, like
+   gray for example. So, you have to balance all these intensities. I
+   want them to recognize that these other representations we've talked
+   about can make some things that RGB makes easy harder, but other
+   things like dialing up a different shade of gray easier.
+   Beth: Would a student have to understand that idea, representations,
+   to get a correct answer to this question?
+
+   Steve: Well, no. Actually, it would be pretty unlikely for them to get
+   into that sort of detail on a real exam, at least for this question. In
+   fact, a student might just remember that light gray was something
+   like 196,196,196 and dark gray was something like 64,64,64 and put
+   down "all equal".
+
+   Beth: So, what kind of question or task would get at what you're
+   looking for?
+
+   Steve: Well, I'd like them to compare these representations. Like,
+   they could tell me for some particular task which representations
+   would be best (or worst) and argue their case. Or, I could lay out a
+   new representation for them and they could discuss its strengths and
+   weaknesses compared to the representations they already know.
+
+   Steve: In that sense, it's not even really about colour. It's about
+   recognizing that different data representations fit different tasks and
+   comparing and contrasting those representations.
+
+   Beth: Great! Let's write that down as one or two learning goals and
+   then see how it fits with your higher-level objectives.
+
+
+COMMENTARY: Exam questions make an excellent starting point for exploring learning goals
+because both faculty and students have already invested significant value in them, by virtue of
+creating/offering and answering them (respectively) in a high stakes environment. Often, however, we
+find that exam questions skirt what faculty consider the core issues in the class. Having a faculty
+member consider what a poor, good, and perfect response would be -- and forcing them to look for the
+real kernel of those responses -- can clarify the goals that were implicit in the choice of question.
+
+In this case, once the faculty member sets aside the voluminous detail that he (as an expert) naturally
+associates with this question, he realizes that a correct student response might not touch on the ideas
+that he says as really central to this unit of the course. With a bit of guidance, he explores the answer
+he WANTS to see and then transforms the question into a learning goal that addresses that desired
+outcome.
+
+Notice that in her role as facilitator, the STLF isn't diving into the course content but is instead
+watching for "traps" that the instructor might fall into: superfluous but shallow detail at first (when he
+discusses various features of RGB) and later drifting away from the anchoring context (when he gets
+drawn deeply into thinking about "dialing up" colours with different representations). In each case,
+the STLF uses the faculty member's own words and the mechanism of working around an exam
+question to bring the discussion back on track.
+

@@ -1,0 +1,257 @@
+                                                                                                         1
+
+
+
+                   Carl Wieman Science Education Initiative
+                                    Request for Proposals
+
+This is a call for departmental proposals for support from the CWSEI. This provides background
+information on the program, as well as the proposal details and selection criteria.
+
+GOALS AND PHILOSOPHY OF THE INITIATIVE
+   -   To achieve department-wide sustained educational improvement for all undergraduate students
+   -   To improve the coherence of educational delivery within and across departments to ensure there
+       is a well-organized progression of courses
+   -   To obtain clear measures of student learning
+   -   To achieve these goals in a sustainable manner (including not requiring substantial additional
+       amounts of faculty time or money beyond the CWSEI funding)
+   -   To make UBC a leader in science education
+
+Fundamental philosophy: Science education is a science in itself, and a scientific approach can be
+applied to optimize its delivery and impact. The CWSEI will assist science departments with
+implementation of research based methods and technology to assess and optimize delivery of
+education.
+
+
+BACKGROUND AND METHODOLOGY
+
+   -   A scientific approach to optimization of science education needs to include the following
+       elements
+          o Specification of measurable learning goals
+          o Rigorous objective assessment of student achievement of these goals
+          o Implementation of teaching methods aimed at maximizing achievement with respect to
+              the specified goals, that are consistent with empirically established results and principles
+          o Means for easy dissemination and duplication of materials, methods, and technology
+          o Sustainable and continued optimization based on results of assessment
+
+   The following descriptions are intended to be illustrative of how some of these ideas have been
+   and/or might be implemented in a department, but are not intended to be a dictation of procedures
+   that must be followed by any specific department.
+
+   -   Definition of learning goals
+          o This has been done by making an assessment of needs of students for various career
+               goals combined with detailed discussions among the faculty in the department as to
+               goals they perceive for the various courses and how these align from one course to the
+               next. Discussions with other relevant departments are often included as well as
+               employer feedback. Some departments have preferred to start from overall
+               programmatic goals and work down to individual course goals. Most find it more
+               manageable to start with individual course goals and eventually work up. Educational
+                                                                                                              2
+
+                   goals may be different for different student populations (honors, majors, other science,
+                   nonscience).
+
+               o These goals consider all aspects of student education that the faculty members in the
+                 department feel are important. These typically include analytic and problem solving
+                 skills, critical thinking, communication, conceptual understanding, attitudes about
+                 science, mastery of technical terminology, knowledge of particular topics, etc. Most
+                 people find it helpful to start the process of establishing course level goals with a
+                 framework for delineating different levels of cognitive activity required, such as
+                 Bloom’s taxonomy 1 .
+
+      -    Assessment methods
+              o There are now a number of assessment tools for looking at particular aspects of learning
+                 that have been rigorously developed. Examples include the Force Concepts Inventory
+                 that tests students’ mastery of the basic concepts of force and motion covered in first
+                 semester physics and is now widely used, the Basic Electricity and Magnetism
+                 Assessment that tests understanding of concepts in E&M as typically covered in second
+                 semester physics, and the Colorado Learning Attitudes about Science Survey (chemistry
+                 and physics versions) that measures students attitudes and beliefs about science and how
+                 to best learn it. Instruments for testing conceptual understanding in chemistry,
+                 geological sciences, and biology have been developed and are currently at various stages
+                 of refinement.
+              o These and similar assessment instruments suitable for machine grading, and hence large
+                 scale use, are created using what is now a fairly standard multi-step methodology. The
+                 essential aspects are to identify the desired goal to be tested, understand and characterize
+                 relevant student thinking, and create questions for which the responses accurately reflect
+                 the student thinking. In practice, the typical steps are as follows. 1) Obtain faculty
+                 consensus as to relevant concepts/beliefs/skills to be assessed, often with input as to
+                 manifestations indicating lack of mastery that they have observed. 2) Obtain data
+                 allowing one to characterize student thinking on the specific items to be assessed. This
+                 data is collected through examination of student work, observation of student
+                 discussions and problem solving, surveys, and interviews of students before, during, and
+                 after instruction on the item(s) of interest. 3) Open-ended questions are created and
+                 given to sample populations. From those responses, multiple choice questions are
+                 generated. 4) These are tested with experts to ensure there is a consensus as to the
+                 validity of the question, and then tested in student interviews to ensure there is
+                 consistency of interpretation and the reasons for choosing different possible answers are
+                 consistent. 5) Assessment is then administered on a large scale. Various standard
+                 statistical tests are done on the large scale data to check that the questions are testing
+                 what is intended and results are reproducible and not dependent on irrelevant variables.
+                 6) Typically over the first one to two years of large-scale use, there are minor revisions
+                 as larger data samples reveal minor difficulties. In many cases, one or more of these
+                 development steps can be replaced by referring to the science education literature.
+
+
+
+
+1
+    Benjamin S. Bloom, Taxonomy of educational objectives, published by Allyn and Bacon,.
+                                                                                                       3
+
+   - Examples of researched teaching methods
+   There are a number of teaching methods that have been guided by and/or are consistent with
+   cognitive science and educational research on important elements of developing long term learning.
+   These all involve some aspects of concentrated mental engagement and targeted feedback. Some
+   examples are:
+          o “Peer instruction”- where there are regular short student-student debates during class.
+               These are usually supported through some means by which students must submit
+               answers to the questions that are the topic of debate.
+          o Project-based or workshop style classes- students, often in small groups, engage in
+               extended in-depth work on a specific problem or topic.
+          o Published “Tutorials”- students work in small groups answering a carefully developed
+               and sequenced set of questions on particularly challenging topics that confront common
+               misconceptions and lead student to correct understanding and application of ideas on the
+               topic. These are supported by TAs specifically trained in implementation of the tutorial.
+          o Homework- Although there has not been extensive research on the precise forms of
+               effective homework, there is extensive data indicating that the quantity and quality of
+               study plays a major role in learning. Extensive homework that requires the use of the
+               full range of desired expert skills and knowledge and allows for effective feedback to
+               students has clear beneficial impacts.
+          o “Just in time” teaching- using web or email based systems, various types of questions
+               are posed to students and they answer shortly before class. The instructor then adapts
+               coverage and discussion in subsequent class according to student responses.
+
+   -   Existing educational technologies of proven value
+          o Personal response systems (“clickers”)- students are regularly asked questions during
+              class, and the clicker allows them to provide a response. A receiver records their
+              identity and their answer and stores them on computer. These have been used in
+              conjunction with peer instruction to good effect.
+          o Interactive computer simulations- These encourage students to explore physical
+              phenomena and develop deep understanding through discovering relationships and
+              connections. They also aid students in developing visual models and conceptual
+              understanding.
+          o Computer graded homework systems- these automate many of the aspects of
+              administering and grading of homework. Systems come with widely different
+              capabilities ranging from merely saving instructor and TA time to “intelligent tutoring”
+              systems. Such “intelligent tutoring” systems provide immediate feedback to the student
+              in the form of hints or follow up questions targeted to address specific student errors.
+
+
+Laboratory courses
+   - Existing research literature on lab courses.
+      It is universally recognized that laboratory courses have the potential to fill a unique education
+      role, because they are the only classroom experience that can represent the full range of
+      activities and thinking involved in actually doing science. However, the evidence is that, in the
+      form they are often implemented, lab courses fall far short of reaching this goal. Research on
+      the effectiveness of lab courses shows that the goals of the instructors are usually not
+      understood or achieved by most students (especially those who are not likely to become
+      professors). While the same sorts of problems have been seen in studies of other science
+                                                                                                            4
+
+           courses, the discrepancies are exceptionally large for lab courses. One likely contributor to this
+           is that the typical lab course is intended to address a mixture of different educational goals.
+           These goals encompass mastering techniques and hardware, learning science content, and
+           developing the understanding and skills of science as an experimental activity. In many lab
+           courses conflicts between some of these goals often remain unresolved. For example, if one
+           desires a student to learn the basics of how to pose scientific questions and develop experiments
+           to answer those questions, it is counterproductive if the equipment they are to use for this
+           exercise is highly complex and unfamiliar to them. Laboratory organization and scheduling,
+           grading policies, and inadequately trained TAs are among other factors that can also prevent lab
+           courses from living up to their potential.
+
+      - Alternative lab courses
+         There are examples of alternative labs courses where there is good evidence that they are
+         educationally effective. These courses usually have the lab activities fully integrated as part of
+         a more general course, such as Workshop Physics 2 . They also have carefully defined goals for
+         the lab activities, typically involve much simpler experimental hardware, and sometimes have
+         much more time available for experimental design, redesign, reflection, and iteration than in
+         many standard lab courses. The number and type of such proven-effective courses is limited
+         however, and so it is likely that there are other models that would work but have yet to be
+         widely tested. Because of the limited amount of research, the relatively high costs, and the
+         intense emotions connected with lab courses, this is an area where it would be particularly
+         appropriate to try a variety of approaches on an experimental basis and carefully assess the cost
+         effectiveness of the results to guide creation of highly effective lab courses.
+
+
+LEVEL OF SUPPORT
+         The CWSEI will be spending at least $12 M over the next six years to achieve its goals. About
+$10 M of this funding will be in the form of direct support to departments. The precise levels of
+funding will depend on the size of the department and the scale of effort proposed, but are anticipated
+to be in the range of $200-$400 K per year per department.
+         The decision as to how these funds are to be spent will be up to the individual departments
+within some broad guidelines. The commitment of funds will be for the full six year period, but this
+will be subject to an annual review to check that reasonable progress is being made.
+         In addition to the direct financial support to departments, the CWSEI will have a small central
+staff to provide ongoing assistance to departments in their efforts. This will include providing relevant
+references and training to faculty and staff, organizing workshops, coordinating efforts across
+departments, coordinating with activities at the University of Colorado (CU) SEI and ensuring UBC
+departments have ready access to relevant materials and software created at the CUSEI. Also, the
+central CWSEI staff will take responsibility for tasks common to multiple departments and thus most
+efficiently handled centrally. Examples will likely include such things as dealing with human research
+subjects approval for obtaining student data, assisting in writing up and publishing science education
+research results in suitable scholarly journals, developing interview protocols for collecting student
+data, and the development and implementation of widely useful IT. Some central effort will also be
+devoted to creating materials and technology that will save faculty time, particularly time connected
+with teaching that is not directly enhancing student learning.
+
+
+2
+    E. Redish, Teaching Physics with the Physics Suite, Wiley, 2003
+                                                                                                         5
+
+ELIGIBILITY AND SELECTION CRITERIA
+Eligibility: Departments in the Faculty of Science interested in implementing department-wide
+initiatives. In this context, “Department” should be interpreted only as being the organizational unit
+responsible for undergraduate education. Where the responsible unit is a combination of departments,
+a proposal from the combination is appropriate.
+
+   - Selection criteria
+   The fundamental criterion is the likelihood of achieving the basic goals of the CWSEI as laid out at
+   the top of page 1. Anything that is relevant to this will be important. Some specific factors that are
+   obviously relevant are below.
+           o Commitment to implement the five elements listed above for a scientific approach to
+               optimization of science education.
+           o Degree to which proposed enhancement plan impacts all undergraduate delivery within
+               the department, rather than only selected classes.
+           o Feasibility of proposed plans for broad buy-in and involvement of faculty and students.
+           o Sustainability of the improvements developed with CWSEI funding. This includes both
+               financial sustainability and indications of departmental level commitment to
+               sustainability. For example, oversight bodies to ensure that once goals and assessments
+               and demonstrably effective materials are established by the department for courses,
+               these are maintained and reused.
+           o Indications of depth and breadth of faculty interest and incentives to improve student
+               learning.
+           o Plans to ensure coherence of educational focus and enhancements across the curriculum.
+           o Integration with existing efforts where present.
+           o Inclusion of ideas for improving efficiency. This could include development of
+               materials or software, reorganizing workloads or programs, etc. so as to save faculty
+               time or use other resources more effectively.
+           o ….
+
+APPLICATION PROCESS
+Stage 1. Departments choosing to participate and receive funding should write a brief proposal (~2-4
+pages). To be considered for the first round of selection, this proposal must be submitted by
+December 1, 2006.
+
+Stage 2. All unsuccessful proposals will automatically be carried over to subsequent selection rounds
+unless they are withdrawn or replaced with a revised proposal. There will be opportunities for
+discussion and feedback on any unsuccessful proposal. The deadline for submitting a new or revised
+proposal for the second round of selections is March 30, 2007. Deadlines for the additional selection
+round(s) will be announced at a later time.
+
+   -   Proposals will not be expected to include detailed plans for specific teaching enhancement, only
+       plans for the process by which the department will undertake this effort. This should discuss
+       the level of involvement of faculty, staff, and students, and the organizational structures and
+       procedures that will support this effort and sustain improvements that are developed and tested.
+       Rough estimates as to the amount of funds needed and how they will be used should be
+       provided for informational purposes, but will not be considered accurate or binding.
+                                                                                                      6
+
+Selection and Funding timeline
+  •   By the end of December a decision will be made as to the first department to be supported and
+      at what level. Funds will be available in early January.
+  •   Stage 2. Two more departments will be selected during the spring semester based on proposals
+      submitted as of March 30, 2007, with funding available shortly thereafter.
+  •   Stage 3. Additional departments will be selected during subsequent years.
+
