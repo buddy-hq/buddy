@@ -1,10 +1,11 @@
 import z from "zod"
 import { createBuddyTool, type BuddyToolContext } from "../../shared/create-buddy-tool.js"
-import { commitGoalsV1Set } from "../goals-v1.js"
+import { LearnerService } from "../../learner/service.js"
 import { GoalCommitResultSchema, GoalSchema, GoalScopeSchema, createGoalToolResult } from "../types.js"
 
 const goalCommitTool = createBuddyTool("goal_commit", {
-  description: "Persist a goal set to .buddy/goals.v1.json. Archives any previous active set with the same scope+contextLabel.",
+  description:
+    "Persist a goal set to the cross-notebook learner store. Archives any previous active set with the same scope+contextLabel.",
   parameters: z.object({
     scope: GoalScopeSchema,
     contextLabel: z.string().min(1),
@@ -26,7 +27,7 @@ const goalCommitTool = createBuddyTool("goal_commit", {
       },
     })
 
-    const commit = await commitGoalsV1Set({
+    const commit = await LearnerService.commitGoals({
       directory: ctx.directory,
       scope: params.scope,
       contextLabel: params.contextLabel,
@@ -50,4 +51,3 @@ const goalCommitTool = createBuddyTool("goal_commit", {
 })
 
 export { goalCommitTool }
-

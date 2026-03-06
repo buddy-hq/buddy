@@ -30,7 +30,7 @@ This agent has a strict tool flow. Follow it every time.
 4. Draft the goals internally.
 5. Call `goal_lint`.
 6. If `goal_lint` returns errors, revise the goals and call `goal_lint` again until it passes.
-7. When lint passes, call `goal_commit` immediately. This v1 flow auto-commits to `.buddy/goals.v1.json`; do not ask for confirmation first.
+7. When lint passes, call `goal_commit` immediately. This flow writes to the cross-notebook learner store; do not ask for confirmation first.
 8. Then present the committed goals to the learner in clean markdown and invite refinement if needed.
 
 Do not print raw tool payloads in chat. Tools are the structured channel. Your learner-facing response is readable markdown only.

@@ -1,11 +1,11 @@
 import z from "zod"
 import { createBuddyTool, type BuddyToolContext } from "../../shared/create-buddy-tool.js"
-import { listActiveGoalSets, readGoalsV1File } from "../goals-v1.js"
-import { GoalsV1Path } from "../path.js"
+import { LearnerPath } from "../../learner/path.js"
+import { LearnerService } from "../../learner/service.js"
 import { GoalStateSchema, createGoalToolResult } from "../types.js"
 
 const goalStateTool = createBuddyTool("goal_state", {
-  description: "Debug tool that returns the current active goal sets and the raw goals.v1 JSON document.",
+  description: "Debug tool that returns the current relevant learner goals for this workspace.",
   parameters: z.object({}),
   async execute(_params, ctx: BuddyToolContext) {
     await ctx.ask({
@@ -15,21 +15,28 @@ const goalStateTool = createBuddyTool("goal_state", {
       metadata: {},
     })
 
-    const file = await readGoalsV1File(ctx.directory)
-    const activeSets = file ? listActiveGoalSets(file.data) : []
+    const goals = await LearnerService.getWorkspaceGoals(ctx.directory)
+    const activeSets = Array.from(
+      new Map(
+        goals.map((goal) => [
+          goal.setId,
+          {
+            setId: goal.setId,
+            scope: goal.scope,
+            contextLabel: goal.contextLabel,
+            goalCount: goals.filter((entry) => entry.setId === goal.setId).length,
+            createdAt: goal.createdAt,
+          },
+        ]),
+      ).values(),
+    )
 
     const result = GoalStateSchema.parse({
-      filePath: file?.path ?? GoalsV1Path.file(ctx.directory),
-      exists: Boolean(file),
+      filePath: LearnerPath.goals(),
+      exists: goals.length > 0,
       activeSetCount: activeSets.length,
-      activeSets: activeSets.map((set) => ({
-        setId: set.setId,
-        scope: set.scope,
-        contextLabel: set.contextLabel,
-        goalCount: set.goals.length,
-        createdAt: set.createdAt,
-      })),
-      raw: file?.data,
+      activeSets,
+      raw: goals,
     })
 
     return createGoalToolResult("GoalState", result)
