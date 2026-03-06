@@ -1,7 +1,8 @@
 import z from "zod"
 import { Config as OpenCodeConfig } from "@buddy/opencode-adapter/config"
-import { resolveBuddyModeProfiles } from "../modes/catalog.js"
-import { BUDDY_MODE_IDS, BUDDY_SURFACES } from "../modes/types.js"
+import { PERSONA_SURFACE_IDS, TEACHING_INTENT_IDS } from "../learning/runtime/types.js"
+import { resolveBuddyPersonaProfiles } from "../personas/catalog.js"
+import { PERSONA_IDS } from "../personas/types.js"
 
 export namespace ConfigSchema {
   export const Mcp = OpenCodeConfig.Mcp
@@ -17,10 +18,11 @@ export namespace ConfigSchema {
   export type Agent = z.output<typeof Agent>
 
   const openCodeInfoShape = OpenCodeConfig.Info.shape
-  const BuddySurface = z.enum(BUDDY_SURFACES)
-  const BuddyModeID = z.enum(BUDDY_MODE_IDS)
+  const BuddySurface = z.enum(PERSONA_SURFACE_IDS)
+  const BuddyPersonaID = z.enum(PERSONA_IDS)
+  const TeachingIntent = z.enum(TEACHING_INTENT_IDS)
 
-  export const ModeOverride = z
+  export const PersonaOverride = z
     .object({
       label: z.string().optional(),
       description: z.string().optional(),
@@ -38,16 +40,16 @@ export namespace ConfigSchema {
         })
       }
     })
-  export type ModeOverride = z.infer<typeof ModeOverride>
+  export type PersonaOverride = z.infer<typeof PersonaOverride>
 
-  export const Modes = z
+  export const Personas = z
     .object({
-      buddy: ModeOverride.optional(),
-      "code-buddy": ModeOverride.optional(),
-      "math-buddy": ModeOverride.optional(),
+      buddy: PersonaOverride.optional(),
+      "code-buddy": PersonaOverride.optional(),
+      "math-buddy": PersonaOverride.optional(),
     })
     .strict()
-  export type Modes = z.infer<typeof Modes>
+  export type Personas = z.infer<typeof Personas>
 
   export const Info = z
     .object({
@@ -57,8 +59,9 @@ export namespace ConfigSchema {
       enabled_providers: openCodeInfoShape.enabled_providers,
       model: openCodeInfoShape.model,
       small_model: openCodeInfoShape.small_model,
-      default_mode: BuddyModeID.optional(),
-      modes: Modes.optional(),
+      default_persona: BuddyPersonaID.optional(),
+      default_intent: TeachingIntent.nullable().optional(),
+      personas: Personas.optional(),
       agent: openCodeInfoShape.agent,
       provider: openCodeInfoShape.provider,
       mcp: openCodeInfoShape.mcp,
@@ -67,34 +70,34 @@ export namespace ConfigSchema {
     })
     .strict()
     .superRefine((value, ctx) => {
-      const profiles = resolveBuddyModeProfiles(value.modes)
+      const profiles = resolveBuddyPersonaProfiles(value.personas)
 
-      for (const modeID of BUDDY_MODE_IDS) {
-        const profile = profiles[modeID]
+      for (const personaID of PERSONA_IDS) {
+        const profile = profiles[personaID]
         if (profile.surfaces.includes(profile.defaultSurface)) {
           continue
         }
 
         ctx.addIssue({
           code: "custom",
-          path: ["modes", modeID, "surfaces"],
-          message: `defaultSurface "${profile.defaultSurface}" must remain available for ${modeID}`,
+          path: ["personas", personaID, "surfaces"],
+          message: `defaultSurface "${profile.defaultSurface}" must remain available for ${personaID}`,
         })
       }
 
-      if (value.default_mode && profiles[value.default_mode].hidden) {
+      if (value.default_persona && profiles[value.default_persona].hidden) {
         ctx.addIssue({
           code: "custom",
-          path: ["default_mode"],
-          message: `default_mode "${value.default_mode}" cannot point to a hidden mode`,
+          path: ["default_persona"],
+          message: `default_persona "${value.default_persona}" cannot point to a hidden persona`,
         })
       }
 
-      if (BUDDY_MODE_IDS.every((modeID) => profiles[modeID].hidden)) {
+      if (PERSONA_IDS.every((personaID) => profiles[personaID].hidden)) {
         ctx.addIssue({
           code: "custom",
-          path: ["modes"],
-          message: "At least one Buddy mode must remain visible",
+          path: ["personas"],
+          message: "At least one Buddy persona must remain visible",
         })
       }
     })

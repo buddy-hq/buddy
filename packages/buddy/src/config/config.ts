@@ -88,7 +88,7 @@ export namespace Config {
     }
 
     result.agent = result.agent || {}
-    result.modes = result.modes || {}
+    result.personas = result.personas || {}
 
     if (Flag.BUDDY_CONFIG_CONTENT) {
       result = merge(

@@ -1,7 +1,7 @@
 import { mergeDeep } from "remeda"
-import { resolveBuddyModeProfiles } from "../../modes/catalog.js"
-import type { BuddyModeID } from "../../modes/types.js"
-import { isBuddyModeID } from "../../modes/types.js"
+import { resolveBuddyPersonaProfiles } from "../../personas/catalog.js"
+import type { BuddyPersonaId } from "../../personas/types.js"
+import { isPersonaId } from "../../personas/types.js"
 import { indexBuddyAgents } from "../../agent-kit/buddy-agents.js"
 import { Config } from "../config.js"
 
@@ -70,10 +70,10 @@ function mergeBuddyAndConfiguredAgents(agentOverlay: Record<string, Config.Agent
   for (const [name, agent] of Object.entries(agentOverlay)) {
     const baseAgent = merged[name]
     const nextAgent =
-      baseAgent && isBuddyModeID(name)
+      baseAgent && isPersonaId(name)
         ? (() => {
-            const { disable: _disable, ...rest } = agent
-            return rest as Config.Agent
+          const { disable: _disable, ...rest } = agent
+          return rest as Config.Agent
           })()
         : agent
     merged[name] = baseAgent ? mergeBuddyAgentConfig(baseAgent, nextAgent) : nextAgent
@@ -82,18 +82,18 @@ function mergeBuddyAndConfiguredAgents(agentOverlay: Record<string, Config.Agent
   return merged
 }
 
-function applyBuddyModeHiddenFlags(
+function applyBuddyPersonaHiddenFlags(
   agentOverlay: Record<string, Config.Agent>,
-  modeOverrides?: Partial<Record<BuddyModeID, { hidden?: boolean }>>,
+  personaOverrides?: Partial<Record<BuddyPersonaId, { hidden?: boolean }>>,
 ): Record<string, Config.Agent> {
   const next = { ...agentOverlay }
-  const profiles = resolveBuddyModeProfiles(modeOverrides)
+  const profiles = resolveBuddyPersonaProfiles(personaOverrides)
 
-  for (const mode of Object.values(profiles)) {
-    if (!mode.hidden) continue
-    const agent = next[mode.runtimeAgent]
+  for (const persona of Object.values(profiles)) {
+    if (!persona.hidden) continue
+    const agent = next[persona.runtimeAgent]
     if (!agent) continue
-    next[mode.runtimeAgent] = {
+    next[persona.runtimeAgent] = {
       ...agent,
       hidden: true,
     }
@@ -118,7 +118,7 @@ function resolveConfiguredAgentKey(
 }
 
 export {
-  applyBuddyModeHiddenFlags,
+  applyBuddyPersonaHiddenFlags,
   mergeBuddyAndConfiguredAgents,
   resolveConfiguredAgentKey,
 }

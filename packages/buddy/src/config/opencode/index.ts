@@ -1,13 +1,13 @@
 import { Config } from "../config.js"
 import {
-  applyBuddyModeHiddenFlags,
+  applyBuddyPersonaHiddenFlags,
   mergeBuddyAndConfiguredAgents,
   resolveConfiguredAgentKey,
 } from "./agents.js"
 import { fingerprintOpenCodeConfig } from "./fingerprint.js"
 import { parseConfiguredModel } from "./models.js"
 import { resolveOpenCodeSkillPaths } from "./skills.js"
-import { getDefaultBuddyMode } from "../../modes/catalog.js"
+import { getDefaultBuddyPersona } from "../../personas/catalog.js"
 
 function buildOpenCodePermissionOverlay(permission: Config.Permission | undefined): Config.Permission {
   return {
@@ -18,6 +18,21 @@ function buildOpenCodePermissionOverlay(permission: Config.Permission | undefine
     goal_lint: "deny",
     goal_commit: "deny",
     goal_state: "deny",
+    learner_state_query: "deny",
+    activity_explanation: "deny",
+    activity_worked_example: "deny",
+    activity_concept_contrast: "deny",
+    activity_analogy: "deny",
+    activity_guided_practice: "deny",
+    activity_independent_practice: "deny",
+    activity_debug_attempt: "deny",
+    activity_stepwise_solve: "deny",
+    activity_mastery_check: "deny",
+    activity_reflection: "deny",
+    activity_retrieval_check: "deny",
+    activity_transfer_check: "deny",
+    practice_record: "deny",
+    assessment_record: "deny",
     render_figure: "deny",
     render_freeform_figure: "deny",
     teaching_start_lesson: "deny",
@@ -30,17 +45,26 @@ function buildOpenCodePermissionOverlay(permission: Config.Permission | undefine
 
 async function buildOpenCodeConfigOverlay(config: Config.Info) {
   const skillPaths = await resolveOpenCodeSkillPaths(config)
-  const agentOverlay = applyBuddyModeHiddenFlags(
+  const agentOverlay = applyBuddyPersonaHiddenFlags(
     mergeBuddyAndConfiguredAgents(config.agent ?? {}),
-    config.modes,
+    config.personas,
   )
   const defaultAgent = resolveConfiguredAgentKey(
-    getDefaultBuddyMode({
-      defaultMode: config.default_mode,
-      overrides: config.modes,
+    getDefaultBuddyPersona({
+      defaultPersona: config.default_persona,
+      overrides: config.personas,
     }).runtimeAgent,
     agentOverlay,
   )
+  const orderedAgents =
+    defaultAgent && defaultAgent in agentOverlay
+      ? {
+          [defaultAgent]: agentOverlay[defaultAgent]!,
+          ...Object.fromEntries(
+            Object.entries(agentOverlay).filter(([key]) => key !== defaultAgent),
+          ),
+        }
+      : agentOverlay
 
   return {
     permission: buildOpenCodePermissionOverlay(config.permission),
@@ -53,7 +77,7 @@ async function buildOpenCodeConfigOverlay(config: Config.Info) {
     ...(skillPaths ? { skills: { paths: skillPaths } } : {}),
     ...(config.mcp ? { mcp: config.mcp } : {}),
     agent: {
-      ...agentOverlay,
+      ...orderedAgents,
     },
   }
 }
