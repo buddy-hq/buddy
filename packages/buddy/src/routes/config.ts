@@ -1,25 +1,25 @@
 import { Hono } from "hono"
-import { Agent as OpenCodeAgent } from "@buddy/opencode-adapter/agent"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import {
-  configErrorMessage,
-  isConfigValidationError,
-  readProjectConfig,
-  syncOpenCodeProjectConfig,
-} from "../config/compatibility.js"
-import { Config } from "../config/config.js"
+import { readProjectConfig } from "../config/compatibility.js"
 import {
   AnyObjectSchema,
-  DirectoryHeader,
-  DirectoryQuery,
   ErrorSchema,
   McpNamePath,
 } from "../openapi/compatibility-schemas.js"
 import { compatibilityRoute } from "../openapi/compatibility-route.js"
-import { personaCatalogEntries } from "../personas/catalog.js"
-import { ensureAllowedDirectory, proxyToOpenCode } from "./support.js"
-
-const directoryParameters = [DirectoryHeader, DirectoryQuery]
+import {
+  listProjectAgents,
+  listProjectPersonas,
+  mapConfigRouteError,
+  patchProjectConfig,
+  putProjectMcpConfig,
+} from "./handlers/config.js"
+import {
+  withConfigSync,
+  withDirectoryContext,
+  withJsonBody,
+} from "./shared/route-helpers.js"
+import { directoryForbiddenResponse, directoryParameters } from "./shared/openapi.js"
+import { proxyToOpenCode } from "./support/proxy.js"
 
 export const ConfigRoutes = (): Hono =>
   new Hono()
@@ -48,24 +48,20 @@ export const ConfigRoutes = (): Hono =>
             },
           },
           403: {
-            description: "Directory is outside allowed roots",
-            content: {
-              "application/json": { schema: ErrorSchema },
-            },
+            ...directoryForbiddenResponse,
           },
         },
       }),
       async (c) => {
-        const directoryResult = ensureAllowedDirectory(c.req.raw)
-        if (!directoryResult.ok) return directoryResult.response
+        const contextResult = withDirectoryContext(c.req.raw)
+        if (!contextResult.ok) return contextResult.response
 
         try {
-          const config = await readProjectConfig(directoryResult.directory)
-          return c.json(personaCatalogEntries(config.personas))
+          const personas = await listProjectPersonas(contextResult.value.directory)
+          return c.json(personas)
         } catch (error) {
-          if (isConfigValidationError(error)) {
-            return c.json({ error: configErrorMessage(error) }, 400)
-          }
+          const response = mapConfigRouteError(error)
+          if (response) return response
           throw error
         }
       },
@@ -88,37 +84,29 @@ export const ConfigRoutes = (): Hono =>
               },
             },
           },
-          403: {
-            description: "Directory is outside allowed roots",
+          400: {
+            description: "Invalid config",
             content: {
               "application/json": { schema: ErrorSchema },
             },
           },
+          403: {
+            ...directoryForbiddenResponse,
+          },
         },
       }),
       async (c) => {
-        const directoryResult = ensureAllowedDirectory(c.req.raw)
-        if (!directoryResult.ok) return directoryResult.response
+        const contextResult = withDirectoryContext(c.req.raw)
+        if (!contextResult.ok) return contextResult.response
 
-        await syncOpenCodeProjectConfig(directoryResult.directory).catch((error) => {
-          throw new Error(
-            `Failed to sync config before listing agents: ${String(error instanceof Error ? error.message : error)}`,
-          )
-        })
-
-        const agents = await OpenCodeInstance.provide({
-          directory: directoryResult.directory,
-          fn: () => OpenCodeAgent.list(),
-        })
-
-        return c.json(
-          agents.map((agent: { name: string; description?: string; mode: string; hidden?: boolean }) => ({
-            name: agent.name,
-            description: agent.description,
-            mode: agent.mode,
-            hidden: agent.hidden,
-          })),
-        )
+        try {
+          const agents = await listProjectAgents(contextResult.value.directory)
+          return c.json(agents)
+        } catch (error) {
+          const response = mapConfigRouteError(error)
+          if (response) return response
+          throw error
+        }
       },
     )
     .get(
@@ -141,27 +129,15 @@ export const ConfigRoutes = (): Hono =>
             },
           },
           403: {
-            description: "Directory is outside allowed roots",
-            content: {
-              "application/json": { schema: ErrorSchema },
-            },
+            ...directoryForbiddenResponse,
           },
         },
       }),
       async (c) => {
-        const directoryResult = ensureAllowedDirectory(c.req.raw)
-        if (!directoryResult.ok) return directoryResult.response
-
-        try {
-          await syncOpenCodeProjectConfig(directoryResult.directory)
-        } catch (error) {
-          if (isConfigValidationError(error)) {
-            return c.json({ error: configErrorMessage(error) }, 400)
-          }
-          throw new Error(
-            `Failed to sync config before listing providers: ${String(error instanceof Error ? error.message : error)}`,
-          )
-        }
+        const syncResult = await withConfigSync(c.req.raw, {
+          operation: "listing providers",
+        })
+        if (!syncResult.ok) return syncResult.response
 
         return proxyToOpenCode(c, {
           targetPath: "/config/providers",
@@ -188,24 +164,20 @@ export const ConfigRoutes = (): Hono =>
             },
           },
           403: {
-            description: "Directory is outside allowed roots",
-            content: {
-              "application/json": { schema: ErrorSchema },
-            },
+            ...directoryForbiddenResponse,
           },
         },
       }),
       async (c) => {
-        const directoryResult = ensureAllowedDirectory(c.req.raw)
-        if (!directoryResult.ok) return directoryResult.response
+        const contextResult = withDirectoryContext(c.req.raw)
+        if (!contextResult.ok) return contextResult.response
 
         try {
-          const config = await readProjectConfig(directoryResult.directory)
+          const config = await readProjectConfig(contextResult.value.directory)
           return c.json(config)
         } catch (error) {
-          if (isConfigValidationError(error)) {
-            return c.json({ error: configErrorMessage(error) }, 400)
-          }
+          const response = mapConfigRouteError(error)
+          if (response) return response
           throw error
         }
       },
@@ -236,37 +208,26 @@ export const ConfigRoutes = (): Hono =>
             },
           },
           403: {
-            description: "Directory is outside allowed roots",
-            content: {
-              "application/json": { schema: ErrorSchema },
-            },
+            ...directoryForbiddenResponse,
           },
         },
       }),
       async (c) => {
-        const directoryResult = ensureAllowedDirectory(c.req.raw)
-        if (!directoryResult.ok) return directoryResult.response
+        const contextResult = withDirectoryContext(c.req.raw)
+        if (!contextResult.ok) return contextResult.response
 
-        let body: unknown
-        try {
-          body = await c.req.json()
-        } catch {
-          return c.json({ error: "Invalid JSON body" }, 400)
-        }
+        const bodyResult = await withJsonBody(c.req.raw)
+        if (!bodyResult.ok) return bodyResult.response
 
         try {
-          const parsed = Config.Info.parse(body)
-          await Config.updateProject(directoryResult.directory, parsed)
-          await syncOpenCodeProjectConfig(directoryResult.directory)
-          const config = await readProjectConfig(directoryResult.directory)
+          const config = await patchProjectConfig({
+            directory: contextResult.value.directory,
+            payload: bodyResult.value,
+          })
           return c.json(config)
         } catch (error) {
-          if (isConfigValidationError(error)) {
-            return c.json({ error: configErrorMessage(error) }, 400)
-          }
-          if (error instanceof Error && error.name === "ZodError") {
-            return c.json({ error: error.message }, 400)
-          }
+          const response = mapConfigRouteError(error)
+          if (response) return response
           throw error
         }
       },
@@ -297,39 +258,27 @@ export const ConfigRoutes = (): Hono =>
             },
           },
           403: {
-            description: "Directory is outside allowed roots",
-            content: {
-              "application/json": { schema: ErrorSchema },
-            },
+            ...directoryForbiddenResponse,
           },
         },
       }),
       async (c) => {
-        const directoryResult = ensureAllowedDirectory(c.req.raw)
-        if (!directoryResult.ok) return directoryResult.response
+        const contextResult = withDirectoryContext(c.req.raw)
+        if (!contextResult.ok) return contextResult.response
 
-        const name = c.req.param("name")
-
-        let body: unknown
-        try {
-          body = await c.req.json()
-        } catch {
-          return c.json({ error: "Invalid JSON body" }, 400)
-        }
+        const bodyResult = await withJsonBody(c.req.raw)
+        if (!bodyResult.ok) return bodyResult.response
 
         try {
-          const parsed = Config.Mcp.parse(body)
-          await Config.setProjectMcp(directoryResult.directory, name, parsed)
-          await syncOpenCodeProjectConfig(directoryResult.directory)
-          const config = await readProjectConfig(directoryResult.directory)
+          const config = await putProjectMcpConfig({
+            directory: contextResult.value.directory,
+            name: c.req.param("name"),
+            payload: bodyResult.value,
+          })
           return c.json(config)
         } catch (error) {
-          if (isConfigValidationError(error)) {
-            return c.json({ error: configErrorMessage(error) }, 400)
-          }
-          if (error instanceof Error && error.name === "ZodError") {
-            return c.json({ error: error.message }, 400)
-          }
+          const response = mapConfigRouteError(error)
+          if (response) return response
           throw error
         }
       },

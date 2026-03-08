@@ -5,6 +5,42 @@ import { readTeachingSessionState, writeTeachingSessionState } from "../src/lear
 import { tmpdir } from "./fixture/fixture"
 
 describe("session route regressions", () => {
+  test("returns 400 for malformed prompt JSON payloads", async () => {
+    await using project = await tmpdir({ git: true })
+
+    const response = await app.request("/api/session/ses_malformed/message", {
+      method: "POST",
+      headers: {
+        "x-buddy-directory": project.path,
+        "content-type": "application/json",
+      },
+      body: "{\"content\":\"missing quote}",
+    })
+
+    expect(response.status).toBe(400)
+    await expect(response.json()).resolves.toEqual({
+      error: "Invalid JSON body",
+    })
+  })
+
+  test("returns 400 for malformed command JSON payloads", async () => {
+    await using project = await tmpdir({ git: true })
+
+    const response = await app.request("/api/session/ses_malformed/command", {
+      method: "POST",
+      headers: {
+        "x-buddy-directory": project.path,
+        "content-type": "application/json",
+      },
+      body: "{\"command\":\"/help\"",
+    })
+
+    expect(response.status).toBe(400)
+    await expect(response.json()).resolves.toEqual({
+      error: "Invalid JSON body",
+    })
+  })
+
   test("restores the previous teaching state when prompt setup fails", async () => {
     await using project = await tmpdir({ git: true })
 

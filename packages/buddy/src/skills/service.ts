@@ -8,7 +8,7 @@ import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { PermissionNext, type PermissionAction } from "@buddy/opencode-adapter/permission"
 import { ensureOpenCodeProjectOverlay } from "../config/compatibility.js"
 import { Config } from "../config/config.js"
-import { fetchOpenCode } from "../routes/support.js"
+import { fetchOpenCode } from "../routes/support/proxy.js"
 import { Global } from "../storage/global.js"
 
 type PermissionRule = {
@@ -69,6 +69,18 @@ export type CreateCustomSkillInput = {
   description: string
   examplePrompt?: string
   content: string
+}
+
+export type SkillServiceErrorCode = "invalid_input" | "not_found" | "conflict" | "forbidden" | "upstream_failure"
+
+export class SkillServiceError extends Error {
+  constructor(
+    readonly code: SkillServiceErrorCode,
+    message: string,
+  ) {
+    super(message)
+    this.name = "SkillServiceError"
+  }
 }
 
 type PlaceholderLibrarySkill = Omit<SkillLibraryEntry, "installed"> & {
@@ -423,7 +435,7 @@ async function loadCachedOpenCodeSkills(directory: string) {
 
   if (!response.ok) {
     const payload = (await response.json().catch(() => undefined)) as { error?: string; message?: string } | undefined
-    throw new Error(payload?.error ?? payload?.message ?? `Failed to list skills (${response.status})`)
+    throw new SkillServiceError("upstream_failure", payload?.error ?? payload?.message ?? `Failed to list skills (${response.status})`)
   }
 
   return (await response.json()) as OpenCodeSkill[]
@@ -752,17 +764,17 @@ export async function listSkillsCatalog(
 export async function installPlaceholderLibrarySkill(skillID: string, directory: string) {
   const skill = PLACEHOLDER_LIBRARY.find((entry) => entry.id === skillID)
   if (!skill) {
-    throw new Error("Unknown skill library item")
+    throw new SkillServiceError("not_found", "Unknown skill library item")
   }
 
   const normalizedName = sanitizeSkillName(skill.id)
   if (!normalizedName) {
-    throw new Error("Invalid skill library item")
+    throw new SkillServiceError("invalid_input", "Invalid skill library item")
   }
 
   const existingSkill = await resolveInstalledSkillByName(normalizedName, directory)
   if (existingSkill) {
-    throw new Error(`Skill "${normalizedName}" already exists`)
+    throw new SkillServiceError("conflict", `Skill "${normalizedName}" already exists`)
   }
 
   const folder = path.join(managedLibraryRoot(), skill.id)
@@ -785,18 +797,18 @@ export async function installPlaceholderLibrarySkill(skillID: string, directory:
 export async function createCustomSkill(input: CreateCustomSkillInput, directory: string) {
   const name = sanitizeSkillName(input.name)
   if (!name) {
-    throw new Error("Skill name must include letters or numbers")
+    throw new SkillServiceError("invalid_input", "Skill name must include letters or numbers")
   }
 
   const existingSkill = await resolveInstalledSkillByName(name, directory)
   if (existingSkill) {
-    throw new Error(`Skill "${name}" already exists`)
+    throw new SkillServiceError("conflict", `Skill "${name}" already exists`)
   }
 
   const folder = path.join(managedCustomRoot(), name)
   const existing = await fsp.stat(path.join(folder, "SKILL.md")).catch(() => undefined)
   if (existing?.isFile()) {
-    throw new Error(`Skill "${name}" already exists`)
+    throw new SkillServiceError("conflict", `Skill "${name}" already exists`)
   }
 
   await ensureManagedSkillPathReady()
@@ -818,12 +830,12 @@ export async function createCustomSkill(input: CreateCustomSkillInput, directory
 export async function setInstalledSkillAction(name: string, action: SkillRuleAction, directory: string) {
   const normalizedName = name.trim()
   if (!normalizedName) {
-    throw new Error("Skill name is required")
+    throw new SkillServiceError("invalid_input", "Skill name is required")
   }
 
   const existing = await resolveInstalledSkillByName(normalizedName, directory)
   if (!existing) {
-    throw new Error(`Skill "${normalizedName}" not found`)
+    throw new SkillServiceError("not_found", `Skill "${normalizedName}" not found`)
   }
 
   if (action === "inherit") {
@@ -836,7 +848,7 @@ export async function setInstalledSkillAction(name: string, action: SkillRuleAct
   const updatedCatalog = await listSkillsCatalog(directory)
   const updatedSkill = updatedCatalog.installed.find((skill) => skill.name === existing.name)
   if (!updatedSkill) {
-    throw new Error(`Skill "${existing.name}" not found after update`)
+    throw new SkillServiceError("not_found", `Skill "${existing.name}" not found after update`)
   }
 
   return updatedSkill
@@ -845,23 +857,23 @@ export async function setInstalledSkillAction(name: string, action: SkillRuleAct
 export async function removeManagedSkill(name: string, directory: string) {
   const normalizedName = name.trim()
   if (!normalizedName) {
-    throw new Error("Skill name is required")
+    throw new SkillServiceError("invalid_input", "Skill name is required")
   }
 
   const existing = await resolveInstalledSkillByName(normalizedName, directory)
   if (!existing) {
-    throw new Error(`Skill "${normalizedName}" not found`)
+    throw new SkillServiceError("not_found", `Skill "${normalizedName}" not found`)
   }
 
   const ownership = managedSource(existing.location)
   if (!ownership.managed) {
-    throw new Error("Only Buddy-managed skills can be removed")
+    throw new SkillServiceError("forbidden", "Only Buddy-managed skills can be removed")
   }
 
   const folder = path.dirname(existing.location)
   const relative = path.relative(managedSkillsRoot(), folder)
   if (relative.startsWith("..") || path.isAbsolute(relative)) {
-    throw new Error("Refusing to remove a skill outside Buddy-managed storage")
+    throw new SkillServiceError("forbidden", "Refusing to remove a skill outside Buddy-managed storage")
   }
 
   await fsp.rm(folder, {

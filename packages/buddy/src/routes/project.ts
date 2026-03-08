@@ -1,33 +1,20 @@
 import { Hono } from "hono"
 import { Project as OpenCodeProject } from "@buddy/opencode-adapter/project"
 import {
-  DirectoryHeader,
-  DirectoryQuery,
   ErrorSchema,
   ProjectIDPath,
   ProjectInfoSchema,
   ProjectUpdateSchema,
 } from "../openapi/compatibility-schemas.js"
 import { compatibilityRoute } from "../openapi/compatibility-route.js"
-import { isAllowedDirectory, resolveDirectory } from "../project/directory.js"
-import { proxyToOpenCode } from "./support.js"
-
-const directoryParameters = [DirectoryHeader, DirectoryQuery]
-const projectUpdateBodySchema = OpenCodeProject.update.schema.omit({ projectID: true })
-const directoryDocumentSchema = {
-  type: "object",
-  properties: {
-    directory: { type: "string" },
-  },
-  required: ["directory"],
-  additionalProperties: false,
-}
-
-function errorMessage(error: unknown) {
-  if (error instanceof Error) return error.message
-  if (typeof error === "string") return error
-  return "Invalid project update"
-}
+import {
+  directoryDocumentSchema,
+  openProjectFromPayload,
+  updateProjectFromPayload,
+} from "./handlers/project.js"
+import { directoryParameters } from "./shared/openapi.js"
+import { withJsonBody } from "./shared/route-helpers.js"
+import { proxyToOpenCode } from "./support/proxy.js"
 
 export const ProjectRoutes = (): Hono =>
   new Hono()
@@ -85,23 +72,14 @@ export const ProjectRoutes = (): Hono =>
         },
       }),
       async (c) => {
-        const payload = await c.req.json().catch(() => undefined)
-        const rawDirectory =
-          payload && typeof payload === "object" && "directory" in payload
-            ? payload.directory
-            : undefined
+        const bodyResult = await withJsonBody(c.req.raw)
+        if (!bodyResult.ok) return bodyResult.response
 
-        if (typeof rawDirectory !== "string") {
-          return c.json({ error: "Directory is required" }, 400)
+        const openResult = await openProjectFromPayload(bodyResult.value)
+        if (!openResult.ok) {
+          return c.json({ error: openResult.error }, openResult.status)
         }
-
-        const directory = resolveDirectory(rawDirectory)
-        if (!isAllowedDirectory(directory)) {
-          return c.json({ error: "Directory is outside allowed roots" }, 403)
-        }
-
-        await OpenCodeProject.fromDirectory(directory)
-        return c.json({ directory })
+        return c.json({ directory: openResult.directory })
       },
     )
     .get(
@@ -165,23 +143,16 @@ export const ProjectRoutes = (): Hono =>
         },
       }),
       async (c) => {
-        const projectID = c.req.param("projectID")
-        const payload = await c.req.json().catch(() => undefined)
-        const body = projectUpdateBodySchema.safeParse(payload)
-        if (!body.success) {
-          return c.json({ error: "Invalid project update" }, 400)
-        }
+        const bodyResult = await withJsonBody(c.req.raw)
+        if (!bodyResult.ok) return bodyResult.response
 
-        try {
-          const project = await OpenCodeProject.update({
-            ...body.data,
-            projectID,
-          })
-          return c.json(project)
-        } catch (error) {
-          const message = errorMessage(error)
-          const status = message.startsWith("Project not found:") ? 404 : 400
-          return c.json({ error: message }, status)
+        const updateResult = await updateProjectFromPayload({
+          projectID: c.req.param("projectID"),
+          payload: bodyResult.value,
+        })
+        if (!updateResult.ok) {
+          return c.json({ error: updateResult.error }, updateResult.status)
         }
+        return c.json(updateResult.project)
       },
     )

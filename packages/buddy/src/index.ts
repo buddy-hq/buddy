@@ -18,8 +18,8 @@ import { ProjectRoutes } from "./routes/project.js"
 import { ProviderRoutes } from "./routes/provider.js"
 import { SessionRoutes } from "./routes/session.js"
 import { SkillsRoutes } from "./routes/skills.js"
-import { ensureAllowedDirectory } from "./routes/support.js"
 import { TeachingRoutes } from "./routes/teaching.js"
+import { ensureAllowedDirectory } from "./routes/support/directory.js"
 
 function matchesBasicAuth(value: string | undefined, username: string, password: string): boolean {
   if (!value?.startsWith("Basic ")) return false
@@ -60,7 +60,7 @@ api.route("/figures", FigureRoutes({ ensureAllowedDirectory }))
 api.route("/freeform-figures", FreeformFigureRoutes({ ensureAllowedDirectory }))
 api.route("/goals", GoalsRoutes())
 api.route("/learner", LearnerRoutes())
-api.route("/teaching", TeachingRoutes({ ensureAllowedDirectory }))
+api.route("/teaching", TeachingRoutes())
 api.route("/", CompatibilityRoutes())
 api.route("/project", ProjectRoutes())
 api.route("/global", GlobalRoutes())

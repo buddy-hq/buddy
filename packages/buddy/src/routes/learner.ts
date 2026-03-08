@@ -2,36 +2,20 @@ import { Hono } from "hono"
 import { resolver } from "hono-openapi"
 import z from "zod"
 import { PERSONA_IDS, TEACHING_INTENT_IDS } from "../learning/runtime/types.js"
-import { readTeachingSessionState } from "../learning/runtime/session-state.js"
 import { LearnerService } from "../learning/learner/service.js"
-import { LearnerStateQuerySchema } from "../learning/learner/types.js"
-import { AnyObjectSchema, DirectoryHeader, DirectoryQuery, ErrorSchema } from "../openapi/compatibility-schemas.js"
+import { AnyObjectSchema, ErrorSchema } from "../openapi/compatibility-schemas.js"
 import { compatibilityRoute } from "../openapi/compatibility-route.js"
-import { ensureAllowedDirectory } from "./support.js"
-
-const CurriculumQuerySchema = z.object({
-  persona: z.enum(PERSONA_IDS).optional(),
-  intent: z.enum(TEACHING_INTENT_IDS).optional(),
-  focusGoalIds: z.array(z.string()).optional(),
-  sessionId: z.string().optional(),
-})
-
-const directoryParameters = [DirectoryHeader, DirectoryQuery]
-
-function invalidJson() {
-  return Response.json({ error: "Invalid JSON body" }, { status: 400 })
-}
-
-async function readScopedLearnerProjections(directory: string) {
-  const goalIds = new Set((await LearnerService.getWorkspaceGoals(directory)).map((goal) => goal.goalId))
-  const state = await LearnerService.readState()
-  const projections = state.projections.progress.length > 0 ? state.projections : await LearnerService.rebuildProjections()
-
-  return {
-    progress: projections.progress.filter((record) => goalIds.has(record.goalId)),
-    review: projections.review.filter((record) => goalIds.has(record.goalId)),
-  }
-}
+import {
+  buildLearnerStateQueryFromRequest,
+  LearnerContextPatchSchema,
+  parseCurriculumViewQuery,
+  patchWorkspaceLearnerContext,
+  readScopedLearnerProjections,
+  readWorkspaceStateFromSession,
+} from "./handlers/learner.js"
+import { directoryParameters } from "./shared/openapi.js"
+import { zodIssuesResponse } from "./shared/request-json.js"
+import { withDirectoryContext, withJsonBody } from "./shared/route-helpers.js"
 
 export const LearnerRoutes = () =>
   new Hono()
@@ -40,11 +24,32 @@ export const LearnerRoutes = () =>
       compatibilityRoute({
         operationId: "learner.state",
         summary: "Get learner state",
-        parameters: directoryParameters,
+        parameters: [
+          ...directoryParameters,
+          {
+            in: "query",
+            name: "goalId",
+            schema: resolver(z.array(z.string())),
+          },
+          {
+            in: "query",
+            name: "conceptTag",
+            schema: resolver(z.array(z.string())),
+          },
+          {
+            in: "query",
+            name: "includeDerived",
+            schema: resolver(z.boolean()),
+          },
+        ],
         responses: {
           200: {
             description: "Learner state",
             content: { "application/json": { schema: AnyObjectSchema } },
+          },
+          400: {
+            description: "Invalid query parameters",
+            content: { "application/json": { schema: ErrorSchema } },
           },
           403: {
             description: "Directory is outside allowed roots",
@@ -53,23 +58,23 @@ export const LearnerRoutes = () =>
         },
       }),
       async (c) => {
-      const directoryResult = ensureAllowedDirectory(c.req.raw)
-      if (!directoryResult.ok) return directoryResult.response
+        const contextResult = withDirectoryContext(c.req.raw)
+        if (!contextResult.ok) return contextResult.response
 
-      const workspace = await LearnerService.ensureWorkspaceContext(directoryResult.directory)
-      const stateQuery = LearnerStateQuerySchema.parse({
-        workspaceId: c.req.query("workspaceId") ?? workspace.workspaceId,
-        goalIds: c.req.query("goalId") ? c.req.queries("goalId") : [],
-        conceptTags: c.req.query("conceptTag") ? c.req.queries("conceptTag") : [],
-        includeDerived: c.req.query("includeDerived")
-          ? c.req.query("includeDerived") !== "false"
-          : true,
-      })
-      const state = await LearnerService.queryState(stateQuery)
-      return c.json({
-        workspace,
-        ...state,
-      })
+        const workspace = await LearnerService.ensureWorkspaceContext(contextResult.value.directory)
+        const stateQueryResult = buildLearnerStateQueryFromRequest({
+          requestURL: contextResult.value.requestURL,
+          workspaceId: workspace.workspaceId,
+        })
+        if (!stateQueryResult.success) {
+          return zodIssuesResponse(stateQueryResult.error)
+        }
+
+        const state = await LearnerService.queryState(stateQueryResult.data)
+        return c.json({
+          workspace,
+          ...state,
+        })
       },
     )
     .get(
@@ -90,11 +95,11 @@ export const LearnerRoutes = () =>
         },
       }),
       async (c) => {
-      const directoryResult = ensureAllowedDirectory(c.req.raw)
-      if (!directoryResult.ok) return directoryResult.response
+        const contextResult = withDirectoryContext(c.req.raw)
+        if (!contextResult.ok) return contextResult.response
 
-      const goals = await LearnerService.getWorkspaceGoals(directoryResult.directory)
-      return c.json({ goals })
+        const goals = await LearnerService.getWorkspaceGoals(contextResult.value.directory)
+        return c.json({ goals })
       },
     )
     .get(
@@ -115,10 +120,10 @@ export const LearnerRoutes = () =>
         },
       }),
       async (c) => {
-        const directoryResult = ensureAllowedDirectory(c.req.raw)
-        if (!directoryResult.ok) return directoryResult.response
+        const contextResult = withDirectoryContext(c.req.raw)
+        if (!contextResult.ok) return contextResult.response
 
-        const projections = await readScopedLearnerProjections(directoryResult.directory)
+        const projections = await readScopedLearnerProjections(contextResult.value.directory)
         return c.json({ progress: projections.progress })
       },
     )
@@ -140,10 +145,10 @@ export const LearnerRoutes = () =>
         },
       }),
       async (c) => {
-        const directoryResult = ensureAllowedDirectory(c.req.raw)
-        if (!directoryResult.ok) return directoryResult.response
+        const contextResult = withDirectoryContext(c.req.raw)
+        if (!contextResult.ok) return contextResult.response
 
-        const projections = await readScopedLearnerProjections(directoryResult.directory)
+        const projections = await readScopedLearnerProjections(contextResult.value.directory)
         return c.json({ review: projections.review })
       },
     )
@@ -167,7 +172,7 @@ export const LearnerRoutes = () =>
           {
             in: "query",
             name: "goalId",
-            schema: resolver(z.string()),
+            schema: resolver(z.array(z.string())),
           },
           {
             in: "query",
@@ -180,6 +185,10 @@ export const LearnerRoutes = () =>
             description: "Generated learning-plan view",
             content: { "application/json": { schema: AnyObjectSchema } },
           },
+          400: {
+            description: "Invalid query parameters",
+            content: { "application/json": { schema: ErrorSchema } },
+          },
           403: {
             description: "Directory is outside allowed roots",
             content: { "application/json": { schema: ErrorSchema } },
@@ -187,20 +196,20 @@ export const LearnerRoutes = () =>
         },
       }),
       async (c) => {
-        const directoryResult = ensureAllowedDirectory(c.req.raw)
-        if (!directoryResult.ok) return directoryResult.response
+        const contextResult = withDirectoryContext(c.req.raw)
+        if (!contextResult.ok) return contextResult.response
 
-        const params = CurriculumQuerySchema.parse({
-          persona: c.req.query("persona") ?? undefined,
-          intent: c.req.query("intent") ?? undefined,
-          focusGoalIds: c.req.query("goalId") ? c.req.queries("goalId") : undefined,
-          sessionId: c.req.query("sessionId") ?? undefined,
+        const paramsResult = parseCurriculumViewQuery(contextResult.value.requestURL)
+        if (!paramsResult.success) {
+          return zodIssuesResponse(paramsResult.error)
+        }
+        const params = paramsResult.data
+        const workspace = await LearnerService.ensureWorkspaceContext(contextResult.value.directory)
+        const workspaceState = readWorkspaceStateFromSession({
+          directory: contextResult.value.directory,
+          sessionId: params.sessionId,
         })
-        const workspace = await LearnerService.ensureWorkspaceContext(directoryResult.directory)
-        const workspaceState = params.sessionId
-          ? readTeachingSessionState(directoryResult.directory, params.sessionId)?.workspaceState ?? "chat"
-          : "chat"
-        const view = await LearnerService.getCurriculumView(directoryResult.directory, {
+        const view = await LearnerService.getCurriculumView(contextResult.value.directory, {
           workspaceId: workspace.workspaceId,
           persona: params.persona ?? "buddy",
           intent: params.intent,
@@ -221,30 +230,7 @@ export const LearnerRoutes = () =>
           required: true,
           content: {
             "application/json": {
-              schema: resolver(
-                z.object({
-                  label: z.string().optional(),
-                  tags: z.array(z.string()).optional(),
-                  pinnedGoalIds: z.array(z.string()).optional(),
-                  projectConstraints: z.array(z.string()).optional(),
-                  localToolAvailability: z.array(z.string()).optional(),
-                  preferredSurfaces: z.array(z.enum(["chat", "curriculum", "editor", "figure", "quiz"])).optional(),
-                  motivationContext: z.string().optional(),
-                  opportunities: z.array(z.string()).optional(),
-                  userOverride: z.boolean().optional(),
-                  learnerConstraints: z
-                    .object({
-                      background: z.array(z.string()).optional(),
-                      knownPrerequisites: z.array(z.string()).optional(),
-                      availableTimePatterns: z.array(z.string()).optional(),
-                      toolEnvironmentLimits: z.array(z.string()).optional(),
-                      motivationAnchors: z.array(z.string()).optional(),
-                      opportunities: z.array(z.string()).optional(),
-                      learnerPreferences: z.array(z.string()).optional(),
-                    })
-                    .optional(),
-                }),
-              ),
+              schema: resolver(LearnerContextPatchSchema),
             },
           },
         },
@@ -264,54 +250,22 @@ export const LearnerRoutes = () =>
         },
       }),
       async (c) => {
-      const directoryResult = ensureAllowedDirectory(c.req.raw)
-      if (!directoryResult.ok) return directoryResult.response
+        const contextResult = withDirectoryContext(c.req.raw)
+        if (!contextResult.ok) return contextResult.response
 
-      let body: unknown = {}
-      try {
-        body = await c.req.json()
-      } catch {
-        return invalidJson()
-      }
+        const bodyResult = await withJsonBody(c.req.raw)
+        if (!bodyResult.ok) return bodyResult.response
 
-      const parsed = z
-        .object({
-          label: z.string().optional(),
-          tags: z.array(z.string()).optional(),
-          pinnedGoalIds: z.array(z.string()).optional(),
-          projectConstraints: z.array(z.string()).optional(),
-          localToolAvailability: z.array(z.string()).optional(),
-          preferredSurfaces: z.array(z.enum(["chat", "curriculum", "editor", "figure", "quiz"])).optional(),
-          motivationContext: z.string().optional(),
-          opportunities: z.array(z.string()).optional(),
-          userOverride: z.boolean().optional(),
-          learnerConstraints: z
-            .object({
-              background: z.array(z.string()).optional(),
-              knownPrerequisites: z.array(z.string()).optional(),
-              availableTimePatterns: z.array(z.string()).optional(),
-              toolEnvironmentLimits: z.array(z.string()).optional(),
-              motivationAnchors: z.array(z.string()).optional(),
-              opportunities: z.array(z.string()).optional(),
-              learnerPreferences: z.array(z.string()).optional(),
-            })
-            .optional(),
+        const parsed = LearnerContextPatchSchema.safeParse(bodyResult.value)
+        if (!parsed.success) {
+          return zodIssuesResponse(parsed.error)
+        }
+
+        const contextPatch = await patchWorkspaceLearnerContext({
+          directory: contextResult.value.directory,
+          patch: parsed.data,
         })
-        .safeParse(body)
-
-      if (!parsed.success) {
-        return c.json({ error: parsed.error.issues.map((issue) => issue.message).join(", ") }, 400)
-      }
-
-      const { learnerConstraints, ...workspacePatch } = parsed.data
-      const [context, constraints] = await Promise.all([
-        LearnerService.updateWorkspaceContext(directoryResult.directory, workspacePatch),
-        learnerConstraints ? LearnerService.updateLearnerConstraints(learnerConstraints) : Promise.resolve(undefined),
-      ])
-      return c.json({
-        workspace: context,
-        learnerConstraints: constraints,
-      })
+        return c.json(contextPatch)
       },
     )
     .post(
@@ -332,10 +286,11 @@ export const LearnerRoutes = () =>
         },
       }),
       async (c) => {
-      const directoryResult = ensureAllowedDirectory(c.req.raw)
-      if (!directoryResult.ok) return directoryResult.response
+        const contextResult = withDirectoryContext(c.req.raw)
+        if (!contextResult.ok) return contextResult.response
 
-      const projections = await LearnerService.runSafetySweep()
-      return c.json(projections)
+        await LearnerService.rebuildProjections()
+        const projections = await readScopedLearnerProjections(contextResult.value.directory)
+        return c.json(projections)
       },
     )

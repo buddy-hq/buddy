@@ -1,149 +1,125 @@
 import { Hono } from "hono"
 import {
   AnyObjectSchema,
-  DirectoryHeader,
-  DirectoryQuery,
   ErrorSchema,
   ProviderIDPath,
 } from "../openapi/compatibility-schemas.js"
-import { compatibilityRoute } from "../openapi/compatibility-route.js"
-import { proxyToOpenCode } from "./support.js"
+import type { ProxyEndpointSpec } from "./shared/proxy-routes.js"
+import { registerProxyEndpoints } from "./shared/proxy-routes.js"
+import { directoryForbiddenResponse, directoryParameters } from "./shared/openapi.js"
 
-const directoryParameters = [DirectoryHeader, DirectoryQuery]
-
-export const ProviderRoutes = (): Hono =>
-  new Hono()
-    .get(
-      "/",
-      compatibilityRoute({
-        operationId: "provider.list",
-        summary: "List providers",
-        parameters: directoryParameters,
-        responses: {
-          200: {
-            description: "OpenCode provider list payload",
-            content: {
-              "application/json": { schema: AnyObjectSchema },
-            },
-          },
-          403: {
-            description: "Directory is outside allowed roots",
-            content: {
-              "application/json": { schema: ErrorSchema },
-            },
-          },
-        },
-      }),
-      async (c) => {
-        return proxyToOpenCode(c, {
-          targetPath: "/provider",
-        })
-      },
-    )
-    .get(
-      "/auth",
-      compatibilityRoute({
-        operationId: "provider.auth",
-        summary: "List provider auth methods",
-        parameters: directoryParameters,
-        responses: {
-          200: {
-            description: "OpenCode provider auth method payload",
-            content: {
-              "application/json": { schema: AnyObjectSchema },
-            },
-          },
-          403: {
-            description: "Directory is outside allowed roots",
-            content: {
-              "application/json": { schema: ErrorSchema },
-            },
-          },
-        },
-      }),
-      async (c) => {
-        return proxyToOpenCode(c, {
-          targetPath: "/provider/auth",
-        })
-      },
-    )
-    .post(
-      "/:providerID/oauth/authorize",
-      compatibilityRoute({
-        operationId: "provider.oauth.authorize",
-        summary: "Start provider OAuth",
-        parameters: [ProviderIDPath, ...directoryParameters],
-        requestBody: {
-          required: true,
+const providerProxySpecs: ProxyEndpointSpec[] = [
+  {
+    method: "get",
+    path: "/",
+    route: {
+      operationId: "provider.list",
+      summary: "List providers",
+      parameters: directoryParameters,
+      responses: {
+        200: {
+          description: "OpenCode provider list payload",
           content: {
             "application/json": { schema: AnyObjectSchema },
           },
         },
-        responses: {
-          200: {
-            description: "Provider auth initiation payload",
-            content: {
-              "application/json": { schema: AnyObjectSchema },
-            },
-          },
-          400: {
-            description: "Invalid provider auth request",
-            content: {
-              "application/json": { schema: ErrorSchema },
-            },
-          },
-          403: {
-            description: "Directory is outside allowed roots",
-            content: {
-              "application/json": { schema: ErrorSchema },
-            },
-          },
+        403: {
+          ...directoryForbiddenResponse,
         },
-      }),
-      async (c) => {
-        const providerID = c.req.param("providerID")
-        return proxyToOpenCode(c, {
-          targetPath: `/provider/${encodeURIComponent(providerID)}/oauth/authorize`,
-        })
       },
-    )
-    .post(
-      "/:providerID/oauth/callback",
-      compatibilityRoute({
-        operationId: "provider.oauth.callback",
-        summary: "Complete provider OAuth callback",
-        parameters: [ProviderIDPath, ...directoryParameters],
-        requestBody: {
-          required: true,
+    },
+    targetPath: "/provider",
+  },
+  {
+    method: "get",
+    path: "/auth",
+    route: {
+      operationId: "provider.auth",
+      summary: "List provider auth methods",
+      parameters: directoryParameters,
+      responses: {
+        200: {
+          description: "OpenCode provider auth method payload",
           content: {
             "application/json": { schema: AnyObjectSchema },
           },
         },
-        responses: {
-          200: {
-            description: "Provider auth callback payload",
-            content: {
-              "application/json": { schema: AnyObjectSchema },
-            },
-          },
-          400: {
-            description: "Invalid provider auth callback",
-            content: {
-              "application/json": { schema: ErrorSchema },
-            },
-          },
-          403: {
-            description: "Directory is outside allowed roots",
-            content: {
-              "application/json": { schema: ErrorSchema },
-            },
+        403: {
+          ...directoryForbiddenResponse,
+        },
+      },
+    },
+    targetPath: "/provider/auth",
+  },
+  {
+    method: "post",
+    path: "/:providerID/oauth/authorize",
+    route: {
+      operationId: "provider.oauth.authorize",
+      summary: "Start provider OAuth",
+      parameters: [ProviderIDPath, ...directoryParameters],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": { schema: AnyObjectSchema },
+        },
+      },
+      responses: {
+        200: {
+          description: "Provider auth initiation payload",
+          content: {
+            "application/json": { schema: AnyObjectSchema },
           },
         },
-      }),
-      async (c) => {
-        const providerID = c.req.param("providerID")
-        return proxyToOpenCode(c, {
-          targetPath: `/provider/${encodeURIComponent(providerID)}/oauth/callback`,
-        })
+        400: {
+          description: "Invalid provider auth request",
+          content: {
+            "application/json": { schema: ErrorSchema },
+          },
+        },
+        403: {
+          ...directoryForbiddenResponse,
+        },
       },
-    )
+    },
+    targetPath: (c) => `/provider/${encodeURIComponent(c.req.param("providerID"))}/oauth/authorize`,
+  },
+  {
+    method: "post",
+    path: "/:providerID/oauth/callback",
+    route: {
+      operationId: "provider.oauth.callback",
+      summary: "Complete provider OAuth callback",
+      parameters: [ProviderIDPath, ...directoryParameters],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": { schema: AnyObjectSchema },
+        },
+      },
+      responses: {
+        200: {
+          description: "Provider auth callback payload",
+          content: {
+            "application/json": { schema: AnyObjectSchema },
+          },
+        },
+        400: {
+          description: "Invalid provider auth callback",
+          content: {
+            "application/json": { schema: ErrorSchema },
+          },
+        },
+        403: {
+          ...directoryForbiddenResponse,
+        },
+      },
+    },
+    targetPath: (c) => `/provider/${encodeURIComponent(c.req.param("providerID"))}/oauth/callback`,
+  },
+]
+
+export const ProviderRoutes = (): Hono => {
+  const app = new Hono()
+  return registerProxyEndpoints(app, providerProxySpecs)
+}
