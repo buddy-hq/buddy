@@ -282,6 +282,46 @@ describe("LearnerService regressions", () => {
     expect(planArtifacts.filter((record) => record.kind === "decision-plan")).toHaveLength(1)
   })
 
+  test("dedupes concurrent plan decisions for identical learner inputs", async () => {
+    await using project = await tmpdir({ git: true })
+
+    const committed = await LearnerService.replaceGoalSet({
+      directory: project.path,
+      scope: "topic",
+      contextLabel: "Closures",
+      learnerRequest: "I want to reason about closure capture.",
+      goals: [
+        {
+          statement: "At the end of this topic, you will be able to explain closure capture behavior.",
+          actionVerb: "explain",
+          task: "Explain closure capture behavior.",
+          cognitiveLevel: "Comprehension",
+          howToTest: "Describe closure capture outcomes in a few examples.",
+        },
+      ],
+    })
+
+    const request = {
+      directory: project.path,
+      query: {
+        persona: "buddy" as const,
+        intent: "practice" as const,
+        focusGoalIds: committed.goalIds,
+      },
+    }
+    const [first, second] = await Promise.all([
+      LearnerService.ensurePlanDecision(request),
+      LearnerService.ensurePlanDecision(request),
+    ])
+    const planArtifacts = await LearnerService.listArtifacts({
+      directory: project.path,
+      kind: "decision-plan",
+    })
+
+    expect(first.decision?.id).toBe(second.decision?.id)
+    expect(planArtifacts.filter((record) => record.kind === "decision-plan")).toHaveLength(1)
+  })
+
   test("scopes latest plan selection to the requested goal IDs", async () => {
     await using project = await tmpdir({ git: true })
 

@@ -18,6 +18,7 @@ export namespace ConfigSchema {
   export type Agent = z.output<typeof Agent>
 
   const openCodeInfoShape = OpenCodeConfig.Info.shape
+  const ToolToggleMap = z.record(z.string(), z.boolean()).optional()
   const BuddySurface = z.enum(PERSONA_SURFACE_IDS)
   const BuddyPersonaID = z.enum(PERSONA_IDS)
   const TeachingIntent = z.enum(TEACHING_INTENT_IDS)
@@ -66,7 +67,7 @@ export namespace ConfigSchema {
       provider: openCodeInfoShape.provider,
       mcp: openCodeInfoShape.mcp,
       permission: openCodeInfoShape.permission,
-      tools: openCodeInfoShape.tools,
+      tools: ToolToggleMap,
     })
     .strict()
     .superRefine((value, ctx) => {

@@ -6,6 +6,14 @@ import { LearnerDecisionService } from "../decision/service.js"
 import type { SessionPlan } from "../types.js"
 import { ensureWorkspaceContext } from "./workspace.js"
 
+type EnsurePlanDecisionResult = {
+  snapshot: LearnerSnapshot
+  plan: SessionPlan
+  decision?: DecisionArtifact
+}
+
+const pendingPlanDecisions = new Map<string, Promise<EnsurePlanDecisionResult>>()
+
 function fallbackPlan(snapshot: LearnerSnapshot): SessionPlan {
   return {
     warmupReviewGoalIds: [],
@@ -20,14 +28,23 @@ function fallbackPlan(snapshot: LearnerSnapshot): SessionPlan {
   }
 }
 
+async function readExistingPlanDecision(input: {
+  directory: string
+  workspaceId: string
+  inputHash: string
+}) {
+  return (await LearnerArtifactStore.readArtifacts(input.directory, "decision-plan", {
+    workspaceId: input.workspaceId,
+    inputHash: input.inputHash,
+  }))
+    .filter((artifact): artifact is DecisionArtifact => artifact.kind === "decision-plan")
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0]
+}
+
 export async function ensurePlanDecision(input: {
   directory: string
   query: DecisionPlanRequest
-}): Promise<{
-  snapshot: LearnerSnapshot
-  plan: SessionPlan
-  decision?: DecisionArtifact
-}> {
+}): Promise<EnsurePlanDecisionResult> {
   const [workspace, snapshot] = await Promise.all([
     ensureWorkspaceContext(input.directory),
     LearnerSnapshotCompiler.compile({
@@ -52,12 +69,11 @@ export async function ensurePlanDecision(input: {
     snapshot.decisionInputFingerprint,
   ].join("::"))
 
-  const existing = (await LearnerArtifactStore.readArtifacts(input.directory, "decision-plan", {
+  const existing = await readExistingPlanDecision({
+    directory: input.directory,
     workspaceId: workspace.workspaceId,
     inputHash,
-  }))
-    .filter((artifact): artifact is DecisionArtifact => artifact.kind === "decision-plan")
-    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0]
+  })
 
   if (existing) {
     if (existing.disposition === "apply") {
@@ -87,14 +103,89 @@ export async function ensurePlanDecision(input: {
     }
   }
 
-  const result = await LearnerDecisionService.planSession({
-    directory: input.directory,
-    snapshot,
-    focusGoalIds: input.query.focusGoalIds,
-    sessionId: input.query.sessionId,
-  })
+  const pendingKey = `${input.directory}::${workspace.workspaceId}::${inputHash}`
+  const pending = pendingPlanDecisions.get(pendingKey)
+  if (pending) {
+    return pending
+  }
 
-  if (result.output) {
+  const run = (async (): Promise<EnsurePlanDecisionResult> => {
+    const existingInFlight = await readExistingPlanDecision({
+      directory: input.directory,
+      workspaceId: workspace.workspaceId,
+      inputHash,
+    })
+    if (existingInFlight) {
+      if (existingInFlight.disposition === "apply") {
+        const decisionPayload = SnapshotPlanSchema.safeParse(existingInFlight.payload)
+        if (!decisionPayload.success) {
+          return {
+            snapshot,
+            plan: fallbackPlan(snapshot),
+            decision: existingInFlight,
+          }
+        }
+
+        return {
+          snapshot,
+          plan: buildSessionPlanFromDecision({
+            decision: decisionPayload.data,
+            constraintsSummary: snapshot.constraintsSummary,
+          }),
+          decision: existingInFlight,
+        }
+      }
+
+      return {
+        snapshot,
+        plan: fallbackPlan(snapshot),
+        decision: existingInFlight,
+      }
+    }
+
+    const result = await LearnerDecisionService.planSession({
+      directory: input.directory,
+      snapshot,
+      focusGoalIds: input.query.focusGoalIds,
+      sessionId: input.query.sessionId,
+    })
+
+    if (result.output) {
+      const decision = await recordDecisionArtifact({
+        directory: input.directory,
+        workspaceId: workspace.workspaceId,
+        goalIds: input.query.focusGoalIds,
+        kind: "decision-plan",
+        decisionType: "plan",
+        inputHash,
+        disposition: result.output.disposition,
+        confidence: result.output.confidence,
+        rationale: result.output.rationale,
+        payload: result.output,
+        providerId: result.providerId,
+        modelId: result.modelId,
+        usedSmallModel: result.usedSmallModel,
+        error: result.error,
+      })
+
+      if (result.output.disposition === "apply") {
+        return {
+          snapshot,
+          plan: buildSessionPlanFromDecision({
+            decision: result.output,
+            constraintsSummary: snapshot.constraintsSummary,
+          }),
+          decision,
+        }
+      }
+
+      return {
+        snapshot,
+        plan: fallbackPlan(snapshot),
+        decision,
+      }
+    }
+
     const decision = await recordDecisionArtifact({
       directory: input.directory,
       workspaceId: workspace.workspaceId,
@@ -102,53 +193,26 @@ export async function ensurePlanDecision(input: {
       kind: "decision-plan",
       decisionType: "plan",
       inputHash,
-      disposition: result.output.disposition,
-      confidence: result.output.confidence,
-      rationale: result.output.rationale,
-      payload: result.output,
+      disposition: "abstain",
+      confidence: 0,
+      rationale: ["Decision engine failed; no pedagogical state mutation was applied."],
       providerId: result.providerId,
       modelId: result.modelId,
       usedSmallModel: result.usedSmallModel,
       error: result.error,
     })
 
-    if (result.output.disposition === "apply") {
-      return {
-        snapshot,
-        plan: buildSessionPlanFromDecision({
-          decision: result.output,
-          constraintsSummary: snapshot.constraintsSummary,
-        }),
-        decision,
-      }
-    }
-
     return {
       snapshot,
       plan: fallbackPlan(snapshot),
       decision,
     }
-  }
+  })()
 
-  const decision = await recordDecisionArtifact({
-    directory: input.directory,
-    workspaceId: workspace.workspaceId,
-    goalIds: input.query.focusGoalIds,
-    kind: "decision-plan",
-    decisionType: "plan",
-    inputHash,
-    disposition: "abstain",
-    confidence: 0,
-    rationale: ["Decision engine failed; no pedagogical state mutation was applied."],
-    providerId: result.providerId,
-    modelId: result.modelId,
-    usedSmallModel: result.usedSmallModel,
-    error: result.error,
-  })
-
-  return {
-    snapshot,
-    plan: fallbackPlan(snapshot),
-    decision,
+  pendingPlanDecisions.set(pendingKey, run)
+  try {
+    return await run
+  } finally {
+    pendingPlanDecisions.delete(pendingKey)
   }
 }

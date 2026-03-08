@@ -40,4 +40,30 @@ describe("parity.config.config", () => {
       }
     })
   })
+
+  test("loads tools toggles and maps them into permission defaults", async () => {
+    await withRepo(async (directory) => {
+      await Bun.write(
+        `${directory}/buddy.jsonc`,
+        JSON.stringify(
+          {
+            tools: {
+              edit: false,
+              bash: true,
+            },
+          },
+          null,
+          2,
+        ),
+      )
+
+      const loaded = await Config.getProject(directory)
+      expect(loaded.tools).toEqual({
+        edit: false,
+        bash: true,
+      })
+      expect(loaded.permission?.edit).toBe("deny")
+      expect(loaded.permission?.bash).toBe("allow")
+    })
+  })
 })

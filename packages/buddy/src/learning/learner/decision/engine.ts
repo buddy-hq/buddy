@@ -27,6 +27,24 @@ type ResolvedModel = {
   usedSmallModel: boolean
 }
 
+const DECISION_AGENT = "summary"
+const DECISION_SESSION_PERMISSION = [
+  {
+    permission: "*",
+    pattern: "*",
+    action: "deny" as const,
+  },
+]
+
+function decisionSystemPrompt(base: string) {
+  return [
+    base.trim(),
+    "Decision-engine guardrails:",
+    "- You MUST NOT call any tools or subagents except StructuredOutput.",
+    "- Return immediately by calling StructuredOutput exactly once.",
+  ].join("\n")
+}
+
 export type DecisionEngineResult<T> = {
   output?: T
   providerId?: string
@@ -148,17 +166,19 @@ export async function runStructuredDecision<T>(input: {
 
       const session = await Session.create({
         title: input.title,
+        permission: DECISION_SESSION_PERMISSION,
       })
 
       let decisionResult: DecisionEngineResult<T>
       try {
         const response = await SessionPrompt.prompt({
           sessionID: session.id,
+          agent: DECISION_AGENT,
           model: {
             providerID: model.providerId,
             modelID: model.modelId,
           },
-          system: input.system,
+          system: decisionSystemPrompt(input.system),
           parts: [
             {
               type: "text",
