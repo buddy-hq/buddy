@@ -29,12 +29,12 @@ export const LearnerRoutes = () =>
           {
             in: "query",
             name: "goalId",
-            schema: resolver(z.string()),
+            schema: resolver(z.array(z.string())),
           },
           {
             in: "query",
             name: "conceptTag",
-            schema: resolver(z.string()),
+            schema: resolver(z.array(z.string())),
           },
           {
             in: "query",

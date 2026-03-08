@@ -26,16 +26,12 @@ export function parseProjectUpdateBody(payload: unknown) {
 }
 
 export function projectUpdateErrorMessage(error: unknown) {
-  if (error instanceof Error && error.message.trim().length > 0) return error.message
-  if (typeof error === "string") return error
   if (error && typeof error === "object") {
     const directMessage = projectErrorMessage(error)
     if (directMessage) return directMessage
-    if ("cause" in error) {
-      const causeMessage = projectErrorMessage((error as { cause?: unknown }).cause)
-      if (causeMessage) return causeMessage
-    }
   }
+  if (typeof error === "string") return error
+  if (error instanceof Error && error.message.trim().length > 0) return error.message
   return "Invalid project update"
 }
 
@@ -46,8 +42,11 @@ function projectErrorMessage(payload: unknown): string | undefined {
     data?: {
       message?: unknown
     }
+    cause?: unknown
   }
   if (typeof value.data?.message === "string") return value.data.message
+  const causeMessage = projectErrorMessage(value.cause)
+  if (causeMessage) return causeMessage
   if (typeof value.message === "string") return value.message
   return undefined
 }

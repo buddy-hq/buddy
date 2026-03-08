@@ -105,17 +105,31 @@ export async function patchWorkspaceLearnerContext(input: {
     try {
       constraints = await LearnerService.updateLearnerConstraints(learnerConstraints)
     } catch (error) {
-      await LearnerService.updateWorkspaceContext(input.directory, {
-        label: previousWorkspaceContext.label,
-        tags: previousWorkspaceContext.tags,
-        pinnedGoalIds: previousWorkspaceContext.pinnedGoalIds,
-        projectConstraints: previousWorkspaceContext.projectConstraints,
-        localToolAvailability: previousWorkspaceContext.localToolAvailability,
-        preferredSurfaces: previousWorkspaceContext.preferredSurfaces,
-        motivationContext: previousWorkspaceContext.motivationContext,
-        opportunities: previousWorkspaceContext.opportunities,
-        userOverride: previousWorkspaceContext.userOverride,
-      }).catch(() => undefined)
+      let rollbackError: unknown
+      try {
+        await LearnerService.updateWorkspaceContext(input.directory, {
+          label: previousWorkspaceContext.label,
+          tags: previousWorkspaceContext.tags,
+          pinnedGoalIds: previousWorkspaceContext.pinnedGoalIds,
+          projectConstraints: previousWorkspaceContext.projectConstraints,
+          localToolAvailability: previousWorkspaceContext.localToolAvailability,
+          preferredSurfaces: previousWorkspaceContext.preferredSurfaces,
+          motivationContext: previousWorkspaceContext.motivationContext,
+          opportunities: previousWorkspaceContext.opportunities,
+          userOverride: previousWorkspaceContext.userOverride,
+        })
+      } catch (rollbackFailure) {
+        rollbackError = rollbackFailure
+      }
+
+      if (rollbackError !== undefined) {
+        throw new Error("Failed to update learner constraints and failed to rollback workspace context", {
+          cause: {
+            originalError: error,
+            rollbackError,
+          },
+        })
+      }
       throw error
     }
   }

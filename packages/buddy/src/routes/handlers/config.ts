@@ -132,7 +132,7 @@ async function captureProjectConfigSnapshot(directory: string): Promise<ProjectC
 
 async function restoreProjectConfigSnapshot(snapshot: ProjectConfigSnapshot): Promise<void> {
   if (!snapshot.existed) {
-    await fsp.rm(snapshot.filepath, { force: true }).catch(() => undefined)
+    await fsp.rm(snapshot.filepath, { force: true })
     return
   }
 
@@ -146,9 +146,8 @@ async function applyAndSyncProjectConfigChange(input: {
 }) {
   return withProjectConfigChangeLock(input.directory, async () => {
     const snapshot = await captureProjectConfigSnapshot(input.directory)
-    await input.apply()
-
     try {
+      await input.apply()
       await syncOpenCodeProjectConfig(input.directory)
     } catch (error) {
       let recoveryError: unknown

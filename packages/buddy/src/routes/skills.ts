@@ -246,6 +246,14 @@ export const SkillsRoutes = (): Hono =>
               },
             },
           },
+          404: {
+            description: "Skill not found",
+            content: {
+              "application/json": {
+                schema: ErrorSchema,
+              },
+            },
+          },
           403: {
             description: "Directory is outside allowed roots",
             content: {
