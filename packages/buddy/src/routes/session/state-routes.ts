@@ -82,8 +82,17 @@ export function registerSessionStateRoutes(app: Hono): Hono {
           return c.body(null, 204)
         }
 
-        const capabilityEnv = state.inspector?.capabilityEnvelope ?? {}
-        const { activityBundles: _activityBundles, ...capabilityEnvelope } = capabilityEnv
+        const capabilityEnvelope =
+          state.inspector.capabilityEnvelope && typeof state.inspector.capabilityEnvelope === "object"
+            ? state.inspector.capabilityEnvelope
+            : {
+                visibleSurfaces: [],
+                defaultSurface: "chat",
+                tools: {},
+                subagents: {},
+                skills: {},
+                activityBundles: [],
+              }
 
         return c.json({
           sessionId: state.sessionId,
