@@ -24,7 +24,24 @@ export const LearnerRoutes = () =>
       compatibilityRoute({
         operationId: "learner.state",
         summary: "Get learner state",
-        parameters: directoryParameters,
+        parameters: [
+          ...directoryParameters,
+          {
+            in: "query",
+            name: "goalId",
+            schema: resolver(z.string()),
+          },
+          {
+            in: "query",
+            name: "conceptTag",
+            schema: resolver(z.string()),
+          },
+          {
+            in: "query",
+            name: "includeDerived",
+            schema: resolver(z.boolean()),
+          },
+        ],
         responses: {
           200: {
             description: "Learner state",
@@ -155,7 +172,7 @@ export const LearnerRoutes = () =>
           {
             in: "query",
             name: "goalId",
-            schema: resolver(z.string()),
+            schema: resolver(z.array(z.string())),
           },
           {
             in: "query",

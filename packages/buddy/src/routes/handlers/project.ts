@@ -26,8 +26,16 @@ export function parseProjectUpdateBody(payload: unknown) {
 }
 
 export function projectUpdateErrorMessage(error: unknown) {
-  if (error instanceof Error) return error.message
+  if (error instanceof Error && error.message.trim().length > 0) return error.message
   if (typeof error === "string") return error
+  if (error && typeof error === "object") {
+    const directMessage = projectErrorMessage(error)
+    if (directMessage) return directMessage
+    if ("cause" in error) {
+      const causeMessage = projectErrorMessage((error as { cause?: unknown }).cause)
+      if (causeMessage) return causeMessage
+    }
+  }
   return "Invalid project update"
 }
 
@@ -82,16 +90,16 @@ export async function openProjectFromPayload(payload: unknown): Promise<
     }
   }
 
-  const directory = resolveDirectory(rawDirectory)
-  if (!isAllowedDirectory(directory)) {
-    return {
-      ok: false,
-      status: 403,
-      error: "Directory is outside allowed roots",
-    }
-  }
-
   try {
+    const directory = resolveDirectory(rawDirectory)
+    if (!isAllowedDirectory(directory)) {
+      return {
+        ok: false,
+        status: 403,
+        error: "Directory is outside allowed roots",
+      }
+    }
+
     await OpenCodeProject.fromDirectory(directory)
     return {
       ok: true,

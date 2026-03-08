@@ -112,6 +112,14 @@ export const SkillsRoutes = (): Hono =>
               },
             },
           },
+          500: {
+            description: "Internal server error",
+            content: {
+              "application/json": {
+                schema: ErrorSchema,
+              },
+            },
+          },
         },
       }),
       async (c) => {
@@ -183,6 +191,14 @@ export const SkillsRoutes = (): Hono =>
               },
             },
           },
+          500: {
+            description: "Internal server error",
+            content: {
+              "application/json": {
+                schema: ErrorSchema,
+              },
+            },
+          },
         },
       }),
       async (c) => {
@@ -232,6 +248,14 @@ export const SkillsRoutes = (): Hono =>
           },
           403: {
             description: "Directory is outside allowed roots",
+            content: {
+              "application/json": {
+                schema: ErrorSchema,
+              },
+            },
+          },
+          500: {
+            description: "Internal server error",
             content: {
               "application/json": {
                 schema: ErrorSchema,
@@ -296,6 +320,14 @@ export const SkillsRoutes = (): Hono =>
           },
           403: {
             description: "Directory is outside allowed roots",
+            content: {
+              "application/json": {
+                schema: ErrorSchema,
+              },
+            },
+          },
+          500: {
+            description: "Internal server error",
             content: {
               "application/json": {
                 schema: ErrorSchema,

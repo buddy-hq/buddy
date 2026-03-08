@@ -40,18 +40,26 @@ export function parseLearnerStateQuery(input: {
   conceptTags: string[]
   includeDerived: string | undefined
 }) {
+  const includeDerived = input.includeDerived === undefined
+    ? undefined
+    : input.includeDerived === "true"
+      ? true
+      : input.includeDerived === "false"
+        ? false
+        : input.includeDerived
+
   return LearnerStateQuerySchema.safeParse({
     workspaceId: input.workspaceId,
     goalIds: input.goalIds,
     conceptTags: input.conceptTags,
-    includeDerived: input.includeDerived ? input.includeDerived !== "false" : true,
+    includeDerived,
   })
 }
 
 export async function readScopedLearnerProjections(directory: string) {
   const goalIds = new Set((await LearnerService.getWorkspaceGoals(directory)).map((goal) => goal.goalId))
   const state = await LearnerService.readState()
-  const projections = state.projections.progress.length > 0 ? state.projections : await LearnerService.rebuildProjections()
+  const projections = state.projections
 
   return {
     progress: projections.progress.filter((record) => goalIds.has(record.goalId)),

@@ -75,6 +75,28 @@ type ProjectConfigSnapshot = {
   contents?: string
 }
 
+const projectConfigChangeLocks = new Map<string, Promise<void>>()
+
+async function withProjectConfigChangeLock<T>(directory: string, task: () => Promise<T>): Promise<T> {
+  const key = path.resolve(directory)
+  const previous = projectConfigChangeLocks.get(key) ?? Promise.resolve()
+  let releaseLock!: () => void
+  const current = new Promise<void>((resolve) => {
+    releaseLock = resolve
+  })
+  const queued = previous.finally(() => current)
+  projectConfigChangeLocks.set(key, queued)
+  await previous.catch(() => undefined)
+  try {
+    return await task()
+  } finally {
+    releaseLock()
+    if (projectConfigChangeLocks.get(key) === queued) {
+      projectConfigChangeLocks.delete(key)
+    }
+  }
+}
+
 async function resolveProjectConfigFile(directory: string): Promise<string> {
   const { configDirectory } = await OpenCodeInstance.provide({
     directory: path.resolve(directory),
@@ -122,16 +144,34 @@ async function applyAndSyncProjectConfigChange(input: {
   directory: string
   apply: () => Promise<void>
 }) {
-  const snapshot = await captureProjectConfigSnapshot(input.directory)
-  await input.apply()
+  return withProjectConfigChangeLock(input.directory, async () => {
+    const snapshot = await captureProjectConfigSnapshot(input.directory)
+    await input.apply()
 
-  try {
-    await syncOpenCodeProjectConfig(input.directory)
-  } catch (error) {
-    await restoreProjectConfigSnapshot(snapshot)
-    await syncOpenCodeProjectConfig(input.directory, true).catch(() => undefined)
-    throw error
-  }
+    try {
+      await syncOpenCodeProjectConfig(input.directory)
+    } catch (error) {
+      let recoveryError: unknown
+
+      try {
+        await restoreProjectConfigSnapshot(snapshot)
+        await syncOpenCodeProjectConfig(input.directory, true)
+      } catch (syncError) {
+        recoveryError = syncError
+      }
+
+      if (recoveryError !== undefined) {
+        throw new Error("Failed to apply project config change and failed to recover previous config", {
+          cause: {
+            originalError: error,
+            recoveryError,
+          },
+        })
+      }
+
+      throw error
+    }
+  })
 }
 
 export async function patchProjectConfig(input: {
