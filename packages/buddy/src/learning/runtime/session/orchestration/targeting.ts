@@ -2,11 +2,11 @@ import {
   mergeBuddyAndConfiguredAgents,
   readProjectConfig,
   resolveConfiguredAgentKey,
-} from "../../config/compatibility.js"
-import { getBuddyPersona, getDefaultBuddyPersona } from "../../personas/catalog.js"
-import { isPersonaId, type BuddyPersonaId } from "../../personas/types.js"
-import { isTeachingIntentId, type TeachingIntentId, type TeachingSessionState, type WorkspaceState } from "../../learning/runtime/types.js"
-import { SessionTransformValidationError } from "./errors.js"
+} from "../../../../config/compatibility.js"
+import { getBuddyPersona, getDefaultBuddyPersona } from "../../../../personas/catalog.js"
+import { isPersonaId, type BuddyPersonaId } from "../../../../personas/types.js"
+import { isTeachingIntentId, type TeachingIntentId, type TeachingSessionState, type WorkspaceState } from "../../types.js"
+import { SessionTransformValidationError } from "../../../../session/orchestration/errors.js"
 
 export function hasExplicitModel(value: unknown): value is { providerID: string; modelID: string } {
   if (!value || typeof value !== "object") return false

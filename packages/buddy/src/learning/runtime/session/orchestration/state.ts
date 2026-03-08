@@ -1,5 +1,5 @@
-import { deleteTeachingSessionState, readTeachingSessionState, writeTeachingSessionState } from "../../learning/runtime/session-state.js"
-import type { TeachingSessionState } from "../../learning/runtime/types.js"
+import { deleteTeachingSessionState, readTeachingSessionState, writeTeachingSessionState } from "../../session-state.js"
+import type { TeachingSessionState } from "../../types.js"
 
 function cloneTracePayload(input: Record<string, unknown>): Record<string, unknown> {
   try {

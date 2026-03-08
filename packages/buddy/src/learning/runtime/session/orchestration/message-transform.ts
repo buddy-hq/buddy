@@ -1,18 +1,18 @@
-import { parseConfiguredModel, readProjectConfig } from "../../config/compatibility.js"
-import { compileRuntimeProfile } from "../../learning/runtime/compiler.js"
-import { readTeachingSessionState, writeTeachingSessionState } from "../../learning/runtime/session-state.js"
-import { type WorkspaceState } from "../../learning/runtime/types.js"
-import { LearnerService } from "../../learning/learner/service.js"
+import { parseConfiguredModel, readProjectConfig } from "../../../../config/compatibility.js"
+import { compileRuntimeProfile } from "../../compiler.js"
+import { readTeachingSessionState, writeTeachingSessionState } from "../../session-state.js"
+import { type WorkspaceState } from "../../types.js"
+import { LearnerService } from "../../../learner/service.js"
 import {
   buildLearningSystemPrompt,
   buildPromptInjectionPolicy,
   getAdvisorySuggestions,
   resolvePromptInjectionDecision,
-} from "../../learning/system-prompt/index.js"
-import { TeachingPromptContextSchema } from "../../learning/teaching/types.js"
-import { getBuddyPersona } from "../../personas/catalog.js"
-import { SessionTransformValidationError } from "./errors.js"
-import { assertSessionExistsInDirectory } from "./lookup.js"
+} from "../../../system-prompt/index.js"
+import { TeachingPromptContextSchema } from "../../../teaching/types.js"
+import { getBuddyPersona } from "../../../../personas/catalog.js"
+import { SessionTransformValidationError } from "../../../../session/orchestration/errors.js"
+import { assertSessionExistsInDirectory } from "../../../../session/orchestration/lookup.js"
 import { syncBuddyRuntimeSessionPermissions } from "./permissions.js"
 import { restoreTeachingSessionState, writeLastLlmOutbound } from "./state.js"
 import type { SessionTransform, SessionTransformContext } from "./transform-types.js"
