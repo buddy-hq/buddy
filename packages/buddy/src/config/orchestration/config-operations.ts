@@ -8,8 +8,8 @@ import {
   isConfigValidationError,
   readProjectConfig,
   syncOpenCodeProjectConfig,
-} from "../../config/compatibility.js"
-import { Config } from "../../config/config.js"
+} from "../compatibility.js"
+import { Config } from "../config.js"
 import { personaCatalogEntries } from "../../personas/catalog.js"
 
 export function mapOpenCodeAgents(
