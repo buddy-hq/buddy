@@ -1,33 +1,13 @@
-import type { RuntimePromptSection } from "./types.js"
-
-type SectionCache = Record<string, string>
-
-export type PromptInjectionCache = {
-  stableHeaderSections: SectionCache
-  turnContextSections: SectionCache
-}
+import type {
+  PromptInjectionCache,
+  PromptInjectionDecision,
+  PromptInjectionPolicy,
+  RuntimePromptSection,
+} from "./types.js"
 
 type PromptInjectionLegacyCache = {
   stableHeader: string
   turnContext: string
-}
-
-export type PromptInjectionPolicy = {
-  forceInjectStableHeader?: boolean
-  forceInjectTurnContext?: boolean
-  forceStableHeaderKinds?: RuntimePromptSection["kind"][]
-  forceTurnContextKinds?: RuntimePromptSection["kind"][]
-  alwaysIncludeTurnContextKinds?: RuntimePromptSection["kind"][]
-}
-
-export type PromptInjectionDecision = {
-  injectStableHeader: boolean
-  injectTurnContext: boolean
-  stableHeader: string
-  turnContext: string
-  changedStableHeaderSectionKeys: string[]
-  changedTurnContextSectionKeys: string[]
-  cache: PromptInjectionCache
 }
 
 type IndexedSection = {
@@ -40,7 +20,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value)
 }
 
-function isSectionCache(value: unknown): value is SectionCache {
+function isSectionCache(value: unknown): value is Record<string, string> {
   if (!isRecord(value)) return false
   for (const item of Object.values(value)) {
     if (typeof item !== "string") return false
@@ -48,37 +28,37 @@ function isSectionCache(value: unknown): value is SectionCache {
   return true
 }
 
-function isPromptInjectionCache(value: unknown): value is PromptInjectionCache {
-  if (!isRecord(value)) return false
-  return isSectionCache(value.stableHeaderSections) && isSectionCache(value.turnContextSections)
+function readPreviousCache(previous: unknown): PromptInjectionCache | undefined {
+  if (!isRecord(previous)) return undefined
+
+  const stableHeaderSections = previous.stableHeaderSections
+  const turnContextSections = previous.turnContextSections
+
+  if (!isSectionCache(stableHeaderSections) || !isSectionCache(turnContextSections)) {
+    return undefined
+  }
+
+  return {
+    stableHeaderSections,
+    turnContextSections,
+  }
 }
 
-function isPromptInjectionLegacyCache(value: unknown): value is PromptInjectionLegacyCache {
-  if (!isRecord(value)) return false
-  return typeof value.stableHeader === "string" && typeof value.turnContext === "string"
-}
-
-function normalizePreviousCache(previous: unknown): PromptInjectionCache | undefined {
-  if (isPromptInjectionCache(previous)) return previous
-  if (isPromptInjectionLegacyCache(previous)) return undefined
-  return undefined
-}
-
-function sectionFingerprint(section: RuntimePromptSection) {
+function sectionFingerprint(section: RuntimePromptSection): string {
   return `${section.label}\n${section.text}`.trim()
 }
 
 function indexSections(sections: RuntimePromptSection[]): IndexedSection[] {
-  const counts = new Map<string, number>()
   const result: IndexedSection[] = []
+  const counts = new Map<string, number>()
 
   for (const section of sections) {
     const baseKey = `${section.kind}:${section.label}`
-    const seen = (counts.get(baseKey) ?? 0) + 1
-    counts.set(baseKey, seen)
-    const key = seen === 1 ? baseKey : `${baseKey}#${seen}`
+    const seenCount = (counts.get(baseKey) ?? 0) + 1
+    counts.set(baseKey, seenCount)
+
     result.push({
-      key,
+      key: seenCount === 1 ? baseKey : `${baseKey}#${seenCount}`,
       fingerprint: sectionFingerprint(section),
       section,
     })
@@ -87,59 +67,86 @@ function indexSections(sections: RuntimePromptSection[]): IndexedSection[] {
   return result
 }
 
-function toCache(entries: IndexedSection[]): SectionCache {
+function buildSectionCache(entries: IndexedSection[]): Record<string, string> {
   return Object.fromEntries(entries.map((entry) => [entry.key, entry.fingerprint]))
 }
 
-function diffSections(previous: SectionCache | undefined, next: SectionCache) {
-  const changed = [] as string[]
-  const removed = [] as string[]
+function diffSectionCache(previous: Record<string, string> | undefined, next: Record<string, string>): {
+  changedKeys: string[]
+  removedKeys: string[]
+} {
+  const changedKeys: string[] = []
+  const removedKeys: string[] = []
 
   for (const [key, value] of Object.entries(next)) {
     if (!previous || previous[key] !== value) {
-      changed.push(key)
+      changedKeys.push(key)
     }
   }
 
-  if (previous) {
-    for (const key of Object.keys(previous)) {
-      if (!(key in next)) {
-        removed.push(key)
-      }
+  if (!previous) {
+    return { changedKeys, removedKeys }
+  }
+
+  for (const key of Object.keys(previous)) {
+    if (!(key in next)) {
+      removedKeys.push(key)
     }
   }
 
-  return { changed, removed }
+  return { changedKeys, removedKeys }
 }
 
-function renderStableHeader(sections: RuntimePromptSection[]) {
+function includeKinds(
+  allEntries: IndexedSection[],
+  currentEntries: IndexedSection[],
+  kinds: RuntimePromptSection["kind"][] | undefined,
+): IndexedSection[] {
+  if (!kinds || kinds.length === 0) {
+    return currentEntries
+  }
+
+  const wantedKinds = new Set(kinds)
+  const seenKeys = new Set(currentEntries.map((entry) => entry.key))
+  const merged = [...currentEntries]
+
+  for (const entry of allEntries) {
+    if (seenKeys.has(entry.key)) continue
+    if (!wantedKinds.has(entry.section.kind)) continue
+    seenKeys.add(entry.key)
+    merged.push(entry)
+  }
+
+  return merged
+}
+
+function pickSectionsToInject(input: {
+  allEntries: IndexedSection[]
+  changedKeys: string[]
+  injectAll: boolean
+  forceKinds?: RuntimePromptSection["kind"][]
+}): IndexedSection[] {
+  const changedKeySet = new Set(input.changedKeys)
+
+  const selected = input.injectAll
+    ? [...input.allEntries]
+    : input.allEntries.filter((entry) => changedKeySet.has(entry.key))
+
+  return includeKinds(input.allEntries, selected, input.forceKinds)
+}
+
+function renderStableHeader(sections: RuntimePromptSection[]): string {
   return sections.map((section) => section.text).join("\n\n").trim()
 }
 
-function renderTurnContext(sections: RuntimePromptSection[]) {
+function renderTurnContext(sections: RuntimePromptSection[]): string {
   if (sections.length === 0) return ""
+
   return [
     "<buddy_turn_context>",
     ...sections.map((section) => `${section.label}:\n${section.text}`),
     "</buddy_turn_context>",
   ].join("\n\n").trim()
-}
-
-function includeByKinds(
-  sections: IndexedSection[],
-  existing: IndexedSection[],
-  kinds: RuntimePromptSection["kind"][] | undefined,
-) {
-  if (!kinds || kinds.length === 0) return existing
-  const wanted = new Set(kinds)
-  const seen = new Set(existing.map((entry) => entry.key))
-  const merged = [...existing]
-  for (const section of sections) {
-    if (!wanted.has(section.section.kind) || seen.has(section.key)) continue
-    seen.add(section.key)
-    merged.push(section)
-  }
-  return merged
 }
 
 export function resolvePromptInjectionDecision(input: {
@@ -148,32 +155,38 @@ export function resolvePromptInjectionDecision(input: {
   turnContextSections: RuntimePromptSection[]
   policy?: PromptInjectionPolicy
 }): PromptInjectionDecision {
-  const previous = normalizePreviousCache(input.previous)
+  const previousCache = readPreviousCache(input.previous)
+
   const stableEntries = indexSections(input.stableHeaderSections)
   const turnEntries = indexSections(input.turnContextSections)
-  const stableCache = toCache(stableEntries)
-  const turnCache = toCache(turnEntries)
-  const stableDiff = diffSections(previous?.stableHeaderSections, stableCache)
-  const turnDiff = diffSections(previous?.turnContextSections, turnCache)
+
+  const nextStableCache = buildSectionCache(stableEntries)
+  const nextTurnCache = buildSectionCache(turnEntries)
+
+  const stableDiff = diffSectionCache(previousCache?.stableHeaderSections, nextStableCache)
+  const turnDiff = diffSectionCache(previousCache?.turnContextSections, nextTurnCache)
 
   const injectAllStableHeader =
-    !previous || !!input.policy?.forceInjectStableHeader || stableDiff.removed.length > 0
+    !previousCache || !!input.policy?.forceInjectStableHeader || stableDiff.removedKeys.length > 0
+
   const injectAllTurnContext =
-    !previous || !!input.policy?.forceInjectTurnContext || turnDiff.removed.length > 0
+    !previousCache || !!input.policy?.forceInjectTurnContext || turnDiff.removedKeys.length > 0
 
-  const changedStableKeys = new Set(stableDiff.changed)
-  const changedTurnKeys = new Set(turnDiff.changed)
+  const stableToInject = pickSectionsToInject({
+    allEntries: stableEntries,
+    changedKeys: stableDiff.changedKeys,
+    injectAll: injectAllStableHeader,
+    forceKinds: input.policy?.forceStableHeaderKinds,
+  })
 
-  let stableToInject = injectAllStableHeader
-    ? stableEntries
-    : stableEntries.filter((entry) => changedStableKeys.has(entry.key))
-  stableToInject = includeByKinds(stableEntries, stableToInject, input.policy?.forceStableHeaderKinds)
+  let turnToInject = pickSectionsToInject({
+    allEntries: turnEntries,
+    changedKeys: turnDiff.changedKeys,
+    injectAll: injectAllTurnContext,
+    forceKinds: input.policy?.forceTurnContextKinds,
+  })
 
-  let turnToInject = injectAllTurnContext
-    ? turnEntries
-    : turnEntries.filter((entry) => changedTurnKeys.has(entry.key))
-  turnToInject = includeByKinds(turnEntries, turnToInject, input.policy?.forceTurnContextKinds)
-  turnToInject = includeByKinds(turnEntries, turnToInject, input.policy?.alwaysIncludeTurnContextKinds)
+  turnToInject = includeKinds(turnEntries, turnToInject, input.policy?.alwaysIncludeTurnContextKinds)
 
   const stableHeader = renderStableHeader(stableToInject.map((entry) => entry.section))
   const turnContext = renderTurnContext(turnToInject.map((entry) => entry.section))
@@ -183,11 +196,17 @@ export function resolvePromptInjectionDecision(input: {
     injectTurnContext: turnContext.length > 0,
     stableHeader,
     turnContext,
-    changedStableHeaderSectionKeys: [...stableDiff.changed, ...stableDiff.removed],
-    changedTurnContextSectionKeys: [...turnDiff.changed, ...turnDiff.removed],
+    changedStableHeaderSectionKeys: [...stableDiff.changedKeys, ...stableDiff.removedKeys],
+    changedTurnContextSectionKeys: [...turnDiff.changedKeys, ...turnDiff.removedKeys],
     cache: {
-      stableHeaderSections: stableCache,
-      turnContextSections: turnCache,
+      stableHeaderSections: nextStableCache,
+      turnContextSections: nextTurnCache,
     },
   }
+}
+
+export type {
+  PromptInjectionCache,
+  PromptInjectionDecision,
+  PromptInjectionPolicy,
 }

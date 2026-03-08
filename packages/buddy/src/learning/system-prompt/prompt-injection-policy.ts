@@ -1,7 +1,14 @@
-import type { PromptInjectionPolicy } from "./prompt-injection.js"
-import type { RuntimePromptSection, TeachingIntentId, TeachingSessionState, WorkspaceState } from "./types.js"
+import type { TeachingIntentId, TeachingSessionState, WorkspaceState } from "../runtime/types.js"
+import type {
+  PromptInjectionPolicy,
+  PromptInjectionPolicyAudit,
+  PromptInjectionPolicyMatrixEntry,
+  RuntimePromptSection,
+} from "./types.js"
 
 type PromptKind = RuntimePromptSection["kind"]
+
+type PreviousRuntimeState = Pick<TeachingSessionState, "persona" | "intentOverride" | "workspaceState" | "focusGoalIds">
 
 export const PROMPT_INJECTION_MATRIX_VERSION = "v1"
 
@@ -86,61 +93,30 @@ export const PROMPT_INJECTION_CHANGE_MATRIX: Record<PromptInjectionTriggerID, Pr
   },
 }
 
-type MatrixEntry = {
-  id: PromptInjectionTriggerID
-  description: string
-  forceInjectStableHeader: boolean
-  forceInjectTurnContext: boolean
-  forceStableHeaderKinds: PromptKind[]
-  forceTurnContextKinds: PromptKind[]
-  alwaysIncludeTurnContextKinds: PromptKind[]
-}
+type MatrixEntry = PromptInjectionPolicyMatrixEntry & { id: PromptInjectionTriggerID }
 
-export type PromptInjectionPolicyAudit = {
-  matrixVersion: string
-  triggerIDs: PromptInjectionTriggerID[]
-  matrix: MatrixEntry[]
-  appliedPolicy: {
-    forceInjectStableHeader: boolean
-    forceInjectTurnContext: boolean
-    forceStableHeaderKinds: PromptKind[]
-    forceTurnContextKinds: PromptKind[]
-    alwaysIncludeTurnContextKinds: PromptKind[]
-  }
-}
-
-function uniqueKinds(values: PromptKind[]): PromptKind[] {
-  const seen = new Set<PromptKind>()
-  const result: PromptKind[] = []
+function pushUnique<T>(target: T[], values: T[]) {
+  const seen = new Set(target)
   for (const value of values) {
     if (seen.has(value)) continue
     seen.add(value)
-    result.push(value)
+    target.push(value)
   }
-  return result
 }
 
-function stringArrayEqual(left: string[] | undefined, right: string[]): boolean {
+function sameStringArray(left: string[] | undefined, right: string[]): boolean {
   if (!left) return right.length === 0
   if (left.length !== right.length) return false
-  return left.every((value, index) => value === right[index])
-}
 
-function matrixEntry(id: PromptInjectionTriggerID): MatrixEntry {
-  const rule = PROMPT_INJECTION_CHANGE_MATRIX[id]
-  return {
-    id,
-    description: rule.description,
-    forceInjectStableHeader: !!rule.forceInjectStableHeader,
-    forceInjectTurnContext: !!rule.forceInjectTurnContext,
-    forceStableHeaderKinds: rule.forceStableHeaderKinds ? [...rule.forceStableHeaderKinds] : [],
-    forceTurnContextKinds: rule.forceTurnContextKinds ? [...rule.forceTurnContextKinds] : [],
-    alwaysIncludeTurnContextKinds: rule.alwaysIncludeTurnContextKinds ? [...rule.alwaysIncludeTurnContextKinds] : [],
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) return false
   }
+
+  return true
 }
 
 function resolveTriggerIDs(input: {
-  previous?: Pick<TeachingSessionState, "persona" | "intentOverride" | "workspaceState" | "focusGoalIds">
+  previous?: PreviousRuntimeState
   personaID: string
   intentOverride?: TeachingIntentId
   workspaceState: WorkspaceState
@@ -155,13 +131,16 @@ function resolveTriggerIDs(input: {
     if (input.previous.persona !== input.personaID) {
       triggerIDs.push("persona-changed")
     }
+
     if ((input.previous.intentOverride ?? undefined) !== (input.intentOverride ?? undefined)) {
       triggerIDs.push("intent-changed")
     }
+
     if (input.previous.workspaceState !== input.workspaceState) {
       triggerIDs.push("workspace-state-changed")
     }
-    if (!stringArrayEqual(input.previous.focusGoalIds, input.focusGoalIds)) {
+
+    if (!sameStringArray(input.previous.focusGoalIds, input.focusGoalIds)) {
       triggerIDs.push("focus-goals-changed")
     }
   }
@@ -173,8 +152,22 @@ function resolveTriggerIDs(input: {
   return triggerIDs
 }
 
+function createMatrixEntry(id: PromptInjectionTriggerID): MatrixEntry {
+  const rule = PROMPT_INJECTION_CHANGE_MATRIX[id]
+
+  return {
+    id,
+    description: rule.description,
+    forceInjectStableHeader: !!rule.forceInjectStableHeader,
+    forceInjectTurnContext: !!rule.forceInjectTurnContext,
+    forceStableHeaderKinds: rule.forceStableHeaderKinds ? [...rule.forceStableHeaderKinds] : [],
+    forceTurnContextKinds: rule.forceTurnContextKinds ? [...rule.forceTurnContextKinds] : [],
+    alwaysIncludeTurnContextKinds: rule.alwaysIncludeTurnContextKinds ? [...rule.alwaysIncludeTurnContextKinds] : [],
+  }
+}
+
 export function buildPromptInjectionPolicy(input: {
-  previous?: Pick<TeachingSessionState, "persona" | "intentOverride" | "workspaceState" | "focusGoalIds">
+  previous?: PreviousRuntimeState
   personaID: string
   intentOverride?: TeachingIntentId
   workspaceState: WorkspaceState
@@ -185,34 +178,51 @@ export function buildPromptInjectionPolicy(input: {
   audit: PromptInjectionPolicyAudit
 } {
   const triggerIDs = resolveTriggerIDs(input)
-  const matrix = triggerIDs.map((id) => matrixEntry(id))
+  const matrix: MatrixEntry[] = []
 
-  const forceInjectStableHeader = matrix.some((entry) => entry.forceInjectStableHeader)
-  const forceInjectTurnContext = matrix.some((entry) => entry.forceInjectTurnContext)
-  const forceStableHeaderKinds = uniqueKinds(matrix.flatMap((entry) => entry.forceStableHeaderKinds))
-  const forceTurnContextKinds = uniqueKinds(matrix.flatMap((entry) => entry.forceTurnContextKinds))
-  const alwaysIncludeTurnContextKinds = uniqueKinds(matrix.flatMap((entry) => entry.alwaysIncludeTurnContextKinds))
+  const appliedPolicy = {
+    forceInjectStableHeader: false,
+    forceInjectTurnContext: false,
+    forceStableHeaderKinds: [] as PromptKind[],
+    forceTurnContextKinds: [] as PromptKind[],
+    alwaysIncludeTurnContextKinds: [] as PromptKind[],
+  }
+
+  for (const triggerID of triggerIDs) {
+    const entry = createMatrixEntry(triggerID)
+    matrix.push(entry)
+
+    if (entry.forceInjectStableHeader) {
+      appliedPolicy.forceInjectStableHeader = true
+    }
+
+    if (entry.forceInjectTurnContext) {
+      appliedPolicy.forceInjectTurnContext = true
+    }
+
+    pushUnique(appliedPolicy.forceStableHeaderKinds, entry.forceStableHeaderKinds)
+    pushUnique(appliedPolicy.forceTurnContextKinds, entry.forceTurnContextKinds)
+    pushUnique(appliedPolicy.alwaysIncludeTurnContextKinds, entry.alwaysIncludeTurnContextKinds)
+  }
 
   return {
     policy: {
-      forceInjectStableHeader: forceInjectStableHeader || undefined,
-      forceInjectTurnContext: forceInjectTurnContext || undefined,
-      forceStableHeaderKinds: forceStableHeaderKinds.length > 0 ? forceStableHeaderKinds : undefined,
-      forceTurnContextKinds: forceTurnContextKinds.length > 0 ? forceTurnContextKinds : undefined,
+      forceInjectStableHeader: appliedPolicy.forceInjectStableHeader || undefined,
+      forceInjectTurnContext: appliedPolicy.forceInjectTurnContext || undefined,
+      forceStableHeaderKinds:
+        appliedPolicy.forceStableHeaderKinds.length > 0 ? appliedPolicy.forceStableHeaderKinds : undefined,
+      forceTurnContextKinds:
+        appliedPolicy.forceTurnContextKinds.length > 0 ? appliedPolicy.forceTurnContextKinds : undefined,
       alwaysIncludeTurnContextKinds:
-        alwaysIncludeTurnContextKinds.length > 0 ? alwaysIncludeTurnContextKinds : undefined,
+        appliedPolicy.alwaysIncludeTurnContextKinds.length > 0
+          ? appliedPolicy.alwaysIncludeTurnContextKinds
+          : undefined,
     },
     audit: {
       matrixVersion: PROMPT_INJECTION_MATRIX_VERSION,
       triggerIDs,
       matrix,
-      appliedPolicy: {
-        forceInjectStableHeader,
-        forceInjectTurnContext,
-        forceStableHeaderKinds,
-        forceTurnContextKinds,
-        alwaysIncludeTurnContextKinds,
-      },
+      appliedPolicy,
     },
   }
 }
