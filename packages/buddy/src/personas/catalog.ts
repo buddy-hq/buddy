@@ -1,5 +1,5 @@
 import { builtinBuddyPersonas } from "./registry.js"
-import { PERSONA_IDS } from "../learning/runtime/types.js"
+import { PERSONA_IDS } from "../runtime-contract/types-primitives.js"
 import type { BuddyPersonaCatalogEntry, BuddyPersonaId, BuddyPersonaOverride, BuddyPersonaProfile } from "./types.js"
 
 type BuddyPersonaOverrides = Partial<Record<BuddyPersonaId, BuddyPersonaOverride>>

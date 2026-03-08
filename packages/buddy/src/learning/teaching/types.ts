@@ -135,6 +135,13 @@ export const TeachingWorkspaceActivateFileRequestSchema = z.object({
 
 export type TeachingWorkspaceActivateFileRequest = z.infer<typeof TeachingWorkspaceActivateFileRequestSchema>
 
+export const TeachingProvisionRequestSchema = z.object({
+  language: TeachingLanguageSchema.optional(),
+  persona: z.string().optional(),
+})
+
+export type TeachingProvisionRequest = z.infer<typeof TeachingProvisionRequestSchema>
+
 export const TeachingPromptContextSchema = z.object({
   active: z.boolean(),
   sessionID: z.string(),
