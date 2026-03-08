@@ -54,7 +54,8 @@ function denyTools(tools: Record<ToolId, "allow" | "deny">, toolIds: ToolId[]) {
 
 function applyPersonaDefaultTools(tools: Record<ToolId, "allow" | "deny">, persona: PersonaDefinition) {
   for (const [toolId, access] of Object.entries(persona.toolDefaults) as Array<[ToolId, "inherit" | "allow" | "deny"]>) {
-    tools[toolId] = access === "deny" ? "deny" : "allow"
+    if (access === "inherit") continue
+    tools[toolId] = access
   }
 }
 

@@ -25,6 +25,10 @@ import {
   resolveIntentOverride,
 } from "./targeting.js"
 
+// Disabled intentionally: automatic learner-message interpretation triggers extra
+// background LLM calls on every accepted user turn.
+const AUTO_LEARNER_MESSAGE_INTERPRETATION_ENABLED = false
+
 export function createSessionMessageTransform(input: { context: SessionTransformContext }): SessionTransform {
   let rollbackTeachingState: (() => void) | undefined
   let observeAcceptedMessage: (() => Promise<void>) | undefined
@@ -165,13 +169,15 @@ export function createSessionMessageTransform(input: { context: SessionTransform
             },
           },
         })
-        observeAcceptedMessage = async () => {
-          await LearnerService.recordLearnerMessageEvent({
-            directory: input.context.directory,
-            content: allTextContent,
-            goalIds: focusGoalIds.length > 0 ? focusGoalIds : learnerDigest.relevantGoalIds,
-            sessionId: input.context.sessionID,
-          })
+        if (AUTO_LEARNER_MESSAGE_INTERPRETATION_ENABLED) {
+          observeAcceptedMessage = async () => {
+            await LearnerService.recordLearnerMessageEvent({
+              directory: input.context.directory,
+              content: allTextContent,
+              goalIds: focusGoalIds.length > 0 ? focusGoalIds : learnerDigest.relevantGoalIds,
+              sessionId: input.context.sessionID,
+            })
+          }
         }
         await syncBuddyRuntimeSessionPermissions({
           directory: input.context.directory,

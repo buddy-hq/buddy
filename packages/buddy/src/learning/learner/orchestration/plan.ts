@@ -44,6 +44,7 @@ async function readExistingPlanDecision(input: {
 export async function ensurePlanDecision(input: {
   directory: string
   query: DecisionPlanRequest
+  allowGenerate?: boolean
 }): Promise<EnsurePlanDecisionResult> {
   const [workspace, snapshot] = await Promise.all([
     ensureWorkspaceContext(input.directory),
@@ -59,13 +60,14 @@ export async function ensurePlanDecision(input: {
     }),
   ])
 
+  const stableSortedFocusGoalIds = Array.from(new Set(input.query.focusGoalIds)).sort()
   const inputHash = hashDecisionInput([
     workspace.workspaceId,
     input.query.persona,
     input.query.intent ?? "",
     input.query.workspaceState ?? "",
     input.query.sessionId ?? "",
-    input.query.focusGoalIds.join(","),
+    stableSortedFocusGoalIds.join(","),
     snapshot.decisionInputFingerprint,
   ].join("::"))
 
@@ -78,28 +80,30 @@ export async function ensurePlanDecision(input: {
   if (existing) {
     if (existing.disposition === "apply") {
       const decisionPayload = SnapshotPlanSchema.safeParse(existing.payload)
-      if (!decisionPayload.success) {
+      if (decisionPayload.success) {
         return {
           snapshot,
-          plan: fallbackPlan(snapshot),
+          plan: buildSessionPlanFromDecision({
+            decision: decisionPayload.data,
+            constraintsSummary: snapshot.constraintsSummary,
+          }),
           decision: existing,
         }
       }
-
+    }
+    else {
       return {
         snapshot,
-        plan: buildSessionPlanFromDecision({
-          decision: decisionPayload.data,
-          constraintsSummary: snapshot.constraintsSummary,
-        }),
+        plan: fallbackPlan(snapshot),
         decision: existing,
       }
     }
+  }
 
+  if (input.allowGenerate === false) {
     return {
       snapshot,
       plan: fallbackPlan(snapshot),
-      decision: existing,
     }
   }
 
@@ -109,7 +113,7 @@ export async function ensurePlanDecision(input: {
     return pending
   }
 
-  const run = (async (): Promise<EnsurePlanDecisionResult> => {
+  const run = async (): Promise<EnsurePlanDecisionResult> => {
     const existingInFlight = await readExistingPlanDecision({
       directory: input.directory,
       workspaceId: workspace.workspaceId,
@@ -118,28 +122,23 @@ export async function ensurePlanDecision(input: {
     if (existingInFlight) {
       if (existingInFlight.disposition === "apply") {
         const decisionPayload = SnapshotPlanSchema.safeParse(existingInFlight.payload)
-        if (!decisionPayload.success) {
+        if (decisionPayload.success) {
           return {
             snapshot,
-            plan: fallbackPlan(snapshot),
+            plan: buildSessionPlanFromDecision({
+              decision: decisionPayload.data,
+              constraintsSummary: snapshot.constraintsSummary,
+            }),
             decision: existingInFlight,
           }
         }
-
+      }
+      else {
         return {
           snapshot,
-          plan: buildSessionPlanFromDecision({
-            decision: decisionPayload.data,
-            constraintsSummary: snapshot.constraintsSummary,
-          }),
+          plan: fallbackPlan(snapshot),
           decision: existingInFlight,
         }
-      }
-
-      return {
-        snapshot,
-        plan: fallbackPlan(snapshot),
-        decision: existingInFlight,
       }
     }
 
@@ -207,11 +206,19 @@ export async function ensurePlanDecision(input: {
       plan: fallbackPlan(snapshot),
       decision,
     }
-  })()
+  }
 
-  pendingPlanDecisions.set(pendingKey, run)
+  let resolveRunPromise!: (value: EnsurePlanDecisionResult | PromiseLike<EnsurePlanDecisionResult>) => void
+  let rejectRunPromise!: (reason?: unknown) => void
+  const runPromise = new Promise<EnsurePlanDecisionResult>((resolve, reject) => {
+    resolveRunPromise = resolve
+    rejectRunPromise = reject
+  })
+  pendingPlanDecisions.set(pendingKey, runPromise)
+  void run().then(resolveRunPromise, rejectRunPromise)
+
   try {
-    return await run
+    return await runPromise
   } finally {
     pendingPlanDecisions.delete(pendingKey)
   }

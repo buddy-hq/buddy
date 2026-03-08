@@ -113,7 +113,12 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
     ? (props.activeTab as ChatRightSidebarSurface)
     : props.surfaces[0] ?? "curriculum"
 
-  async function loadSidebarData(isDisposed?: () => boolean) {
+  async function loadSidebarData(
+    isDisposed?: () => boolean,
+    options?: {
+      generateDecision?: boolean
+    },
+  ) {
     const disposed = isDisposed ?? (() => false)
 
     if (!disposed()) {
@@ -126,6 +131,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
         persona: props.persona,
         intent: props.intent,
         sessionID: props.sessionID,
+        generateDecision: options?.generateDecision,
       })
       if (disposed()) return
       setCurriculumView(view)
@@ -258,7 +264,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
               variant="ghost"
               size="sm"
               onClick={() => {
-                void loadSidebarData()
+                void loadSidebarData(undefined, { generateDecision: true })
                 if (inspectorOpen) {
                   void loadInspectorData()
                 }

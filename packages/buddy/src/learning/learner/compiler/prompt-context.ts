@@ -13,8 +13,13 @@ function goalLine(goal: GoalArtifact) {
 
 function recommendedAction(input: {
   plan?: SessionPlan
+  goalCount: number
 }) {
-  return input.plan?.suggestedActivity ?? "goal-setting"
+  if (input.plan) {
+    return input.plan.suggestedActivity
+  }
+
+  return input.goalCount === 0 ? "goal-setting" : "review"
 }
 
 function planSummary(plan?: SessionPlan) {
@@ -94,6 +99,7 @@ export function compilePromptContext(input: {
     relevantGoalIds,
     recommendedNextAction: recommendedAction({
       plan: input.plan,
+      goalCount: input.snapshot.goals.length,
     }),
     constraintsSummary: [...input.snapshot.constraintsSummary],
     openFeedbackActions,

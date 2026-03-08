@@ -124,6 +124,7 @@ export namespace LearnerService {
   export async function ensurePlanDecision(input: {
     directory: string
     query: DecisionPlanRequest
+    allowGenerate?: boolean
   }) {
     return ensurePlanDecisionOrchestration(input)
   }

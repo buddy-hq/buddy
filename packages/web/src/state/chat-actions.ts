@@ -833,6 +833,7 @@ export async function loadCurriculumView(
     persona?: string
     intent?: TeachingIntent
     sessionID?: string
+    generateDecision?: boolean
   },
 ) {
   const query = new URLSearchParams()
@@ -856,15 +857,21 @@ export async function loadCurriculumView(
       constraintsSummary: string[]
       sections: LearnerCurriculumView["sections"]
       markdown: string
+      alignmentSummary?: LearnerCurriculumView["alignmentSummary"]
+      actions?: LearnerCurriculumView["actions"]
     }
-    plan: LearnerCurriculumView["sessionPlan"]
-  }>(directory, `/api/learner/plan${search ? `?${search}` : ""}`, { method: "POST" })
+    plan: LearnerCurriculumView["sessionPlan"] & {
+      alignmentSummary?: LearnerCurriculumView["alignmentSummary"]
+      actions?: LearnerCurriculumView["actions"]
+    }
+  }>(directory, `/api/learner/plan${search ? `?${search}` : ""}`, {
+    method: "POST",
+    body: input?.generateDecision ? { generateDecision: true } : {},
+  })
   const snapshot = result.snapshot
   const plan = result.plan
-  const alignmentSummary = (snapshot as { alignmentSummary?: LearnerCurriculumView["alignmentSummary"] }).alignmentSummary
-    ?? (plan as { alignmentSummary?: LearnerCurriculumView["alignmentSummary"] }).alignmentSummary
-  const actions = (snapshot as { actions?: LearnerCurriculumView["actions"] }).actions
-    ?? (plan as { actions?: LearnerCurriculumView["actions"] }).actions
+  const alignmentSummary = result.snapshot.alignmentSummary ?? result.plan.alignmentSummary
+  const actions = result.snapshot.actions ?? result.plan.actions
 
   return {
     workspace: snapshot.workspace,

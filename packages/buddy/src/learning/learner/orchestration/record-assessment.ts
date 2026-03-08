@@ -111,7 +111,7 @@ export async function recordAssessmentEvent(input: {
   })
 
   return {
-    filePath: LearnerArtifactPath.kindDirectory(input.directory, "assessment"),
+    filePath: LearnerArtifactPath.artifactFile(input.directory, "assessment", assessmentId),
     assessmentId,
     evidenceId: evidence.id,
     feedbackId,

@@ -2,13 +2,16 @@ import { resolver } from "hono-openapi"
 import z from "zod"
 import { PERSONA_IDS, TEACHING_INTENT_IDS } from "../../learning/runtime/types.js"
 import {
-  AnyObjectSchema,
+  ArtifactsRequestSchema,
+  ArtifactsResponseSchema,
   ErrorSchema,
-  LearnerPlanResponseSchema,
   LearnerSnapshotSchema,
+  PlanRequestSchema,
+  PlanResponseSchema,
+  WorkspaceRequestSchema,
+  WorkspaceResponseSchema,
 } from "../../openapi/compatibility-schemas.js"
 import { compatibilityRoute } from "../../openapi/compatibility-route.js"
-import { LearnerArtifactListQuerySchema, LearnerWorkspacePatchSchema } from "../handlers/learner.js"
 import { directoryParameters } from "../shared/openapi.js"
 
 const learnerContextQueryParameters = [
@@ -68,14 +71,14 @@ const learnerPlanRoute = compatibilityRoute({
     required: false,
     content: {
       "application/json": {
-        schema: AnyObjectSchema,
+        schema: PlanRequestSchema,
       },
     },
   },
   responses: {
     200: {
       description: "Plan decision",
-      content: { "application/json": { schema: LearnerPlanResponseSchema } },
+      content: { "application/json": { schema: PlanResponseSchema } },
     },
     400: {
       description: "Invalid request",
@@ -96,28 +99,28 @@ const learnerArtifactsRoute = compatibilityRoute({
     {
       in: "query" as const,
       name: "kind",
-      schema: resolver(LearnerArtifactListQuerySchema.shape.kind.unwrap()),
+      schema: ArtifactsRequestSchema.properties.kind,
     },
     {
       in: "query" as const,
       name: "goalId",
-      schema: resolver(z.string()),
+      schema: ArtifactsRequestSchema.properties.goalId,
     },
     {
       in: "query" as const,
       name: "status",
-      schema: resolver(z.string()),
+      schema: ArtifactsRequestSchema.properties.status,
     },
     {
       in: "query" as const,
       name: "includeRaw",
-      schema: resolver(z.boolean()),
+      schema: ArtifactsRequestSchema.properties.includeRaw,
     },
   ],
   responses: {
     200: {
       description: "Artifact list",
-      content: { "application/json": { schema: AnyObjectSchema } },
+      content: { "application/json": { schema: ArtifactsResponseSchema } },
     },
     400: {
       description: "Invalid query parameters",
@@ -138,14 +141,14 @@ const learnerWorkspacePatchRoute = compatibilityRoute({
     required: true,
     content: {
       "application/json": {
-        schema: resolver(LearnerWorkspacePatchSchema),
+        schema: WorkspaceRequestSchema,
       },
     },
   },
   responses: {
     200: {
       description: "Updated workspace/profile",
-      content: { "application/json": { schema: AnyObjectSchema } },
+      content: { "application/json": { schema: WorkspaceResponseSchema } },
     },
     400: {
       description: "Invalid request",

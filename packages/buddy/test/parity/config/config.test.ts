@@ -48,8 +48,8 @@ describe("parity.config.config", () => {
         JSON.stringify(
           {
             tools: {
-              edit: false,
-              bash: true,
+              learner_snapshot_read: false,
+              activity_explanation: true,
             },
           },
           null,
@@ -59,11 +59,11 @@ describe("parity.config.config", () => {
 
       const loaded = await Config.getProject(directory)
       expect(loaded.tools).toEqual({
-        edit: false,
-        bash: true,
+        learner_snapshot_read: false,
+        activity_explanation: true,
       })
-      expect(loaded.permission?.edit).toBe("deny")
-      expect(loaded.permission?.bash).toBe("allow")
+      expect(loaded.permission?.learner_snapshot_read).toBe("deny")
+      expect(loaded.permission?.activity_explanation).toBe("allow")
     })
   })
 })

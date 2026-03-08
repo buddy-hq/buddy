@@ -9,13 +9,34 @@ export type LoadedActivitySkill = {
   content: string
 }
 
+function isErrnoException(error: unknown): error is NodeJS.ErrnoException {
+  return typeof error === "object" && error !== null && "code" in error
+}
+
+function isPathInsideRoot(root: string, candidatePath: string) {
+  const relative = path.relative(root, candidatePath)
+  return relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative)
+}
+
 async function readBundledSkillDocument(name: string): Promise<string | undefined> {
-  const relativePath = path.join(name, "SKILL.md")
   const roots = await resolveBuddyBundledSkillRoots()
   for (const root of roots) {
-    const document = await fs.readFile(path.join(root, relativePath), "utf8").catch(() => undefined)
-    if (document) {
-      return document
+    const resolvedRoot = path.resolve(root)
+    const resolvedDocumentPath = path.resolve(root, name, "SKILL.md")
+    if (!isPathInsideRoot(resolvedRoot, resolvedDocumentPath)) {
+      continue
+    }
+
+    try {
+      const document = await fs.readFile(resolvedDocumentPath, "utf8")
+      if (document !== undefined) {
+        return document
+      }
+    } catch (error) {
+      if (isErrnoException(error) && error.code === "ENOENT") {
+        continue
+      }
+      throw error
     }
   }
   return undefined
@@ -23,7 +44,7 @@ async function readBundledSkillDocument(name: string): Promise<string | undefine
 
 export async function loadBundledActivitySkill(name: string): Promise<LoadedActivitySkill | undefined> {
   const document = await readBundledSkillDocument(name)
-  if (!document) return undefined
+  if (document === undefined) return undefined
 
   const parsed = matter(document)
   const description = typeof parsed.data.description === "string" ? parsed.data.description.trim() : undefined
@@ -37,5 +58,5 @@ export async function loadBundledActivitySkill(name: string): Promise<LoadedActi
 
 export async function loadBundledActivitySkills(names: string[]): Promise<LoadedActivitySkill[]> {
   const loaded = await Promise.all(names.map((name) => loadBundledActivitySkill(name)))
-  return loaded.filter((skill): skill is LoadedActivitySkill => !!skill)
+  return loaded.filter((skill): skill is LoadedActivitySkill => skill !== undefined)
 }

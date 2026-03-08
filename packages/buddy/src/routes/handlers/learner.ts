@@ -53,7 +53,9 @@ const BaseLearnerRequestSchema = z.object({
 })
 
 const SnapshotQueryRequestSchema = BaseLearnerRequestSchema
-const PlanRequestBodySchema = BaseLearnerRequestSchema
+const PlanRequestBodySchema = BaseLearnerRequestSchema.extend({
+  generateDecision: z.boolean().optional(),
+})
 
 export function parseSnapshotQuery(requestURL: URL) {
   const query = requestURL.searchParams

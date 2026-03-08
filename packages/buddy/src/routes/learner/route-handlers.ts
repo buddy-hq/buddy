@@ -10,6 +10,12 @@ import {
 import { zodIssuesResponse } from "../shared/request-json.js"
 import { withDirectoryContext, withJsonBody } from "../shared/route-helpers.js"
 
+function shouldGenerateDecision(value: unknown) {
+  if (!value || typeof value !== "object") return false
+  const candidate = value as { generateDecision?: unknown }
+  return candidate.generateDecision === true
+}
+
 async function learnerSnapshotHandler(c: Context): Promise<Response> {
   const contextResult = withDirectoryContext(c.req.raw)
   if (!contextResult.ok) return contextResult.response
@@ -43,6 +49,7 @@ async function learnerPlanHandler(c: Context): Promise<Response> {
     fallbackBody: {},
   })
   if (!bodyResult.ok) return bodyResult.response
+  const allowGenerate = shouldGenerateDecision(bodyResult.value)
 
   const parsed = parseDecisionPlanRequest({
     requestURL: contextResult.value.requestURL,
@@ -63,6 +70,7 @@ async function learnerPlanHandler(c: Context): Promise<Response> {
           sessionId: parsed.data.sessionId,
         }),
     },
+    allowGenerate,
   })
   return c.json(decision)
 }

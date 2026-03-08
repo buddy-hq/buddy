@@ -282,6 +282,44 @@ describe("LearnerService regressions", () => {
     expect(planArtifacts.filter((record) => record.kind === "decision-plan")).toHaveLength(1)
   })
 
+  test("returns fallback plan without generating a decision when allowGenerate is false", async () => {
+    await using project = await tmpdir({ git: true })
+
+    const committed = await LearnerService.replaceGoalSet({
+      directory: project.path,
+      scope: "topic",
+      contextLabel: "Closures",
+      learnerRequest: "I want to reason about closure capture.",
+      goals: [
+        {
+          statement: "At the end of this topic, you will be able to explain closure capture behavior.",
+          actionVerb: "explain",
+          task: "Explain closure capture behavior.",
+          cognitiveLevel: "Comprehension",
+          howToTest: "Describe closure capture outcomes in a few examples.",
+        },
+      ],
+    })
+
+    const result = await LearnerService.ensurePlanDecision({
+      directory: project.path,
+      query: {
+        persona: "buddy",
+        intent: "practice",
+        focusGoalIds: committed.goalIds,
+      },
+      allowGenerate: false,
+    })
+    const planArtifacts = await LearnerService.listArtifacts({
+      directory: project.path,
+      kind: "decision-plan",
+    })
+
+    expect(result.decision).toBeUndefined()
+    expect(result.plan.suggestedActivity).toBe("goal-setting")
+    expect(planArtifacts).toHaveLength(0)
+  })
+
   test("dedupes concurrent plan decisions for identical learner inputs", async () => {
     await using project = await tmpdir({ git: true })
 
