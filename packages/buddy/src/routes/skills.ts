@@ -1,1 +1,1 @@
-export { SkillsRoutes } from "./skills/router.js"
+export { SkillsRoutes } from "../skills/http/router.js"

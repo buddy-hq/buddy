@@ -1,1 +1,1 @@
-export { LearnerRoutes } from "./learner/router.js"
+export { LearnerRoutes } from "../learning/learner/http/router.js"

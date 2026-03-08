@@ -1,1 +1,1 @@
-export { ConfigRoutes } from "./config/router.js"
+export { ConfigRoutes } from "../config/http/router.js"
