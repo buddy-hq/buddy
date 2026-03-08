@@ -147,22 +147,21 @@ export async function closeFeedbackByIds(input: {
   status: "acted-on" | "resolved"
 }) {
   if (input.feedbackIds.length === 0) return
-
-  const current = (await LearnerArtifactStore.readArtifacts(input.directory, "feedback"))
-    .filter((artifact): artifact is FeedbackArtifact => artifact.kind === "feedback")
   const now = nowIso()
 
   await Promise.all(
-    current
-      .filter((artifact) => artifact.workspaceId === input.workspaceId)
-      .filter((artifact) => input.feedbackIds.includes(artifact.id))
-      .map((artifact) =>
-        LearnerArtifactStore.upsertArtifact(input.directory, "feedback", {
-          ...artifact,
-          status: input.status,
-          updatedAt: now,
-        }),
-      ),
+    input.feedbackIds.map(async (feedbackId) => {
+      const artifact = await LearnerArtifactStore.readArtifactById(input.directory, "feedback", feedbackId)
+      if (!artifact || artifact.kind !== "feedback") return
+      if (artifact.workspaceId !== input.workspaceId) return
+      if (artifact.status === input.status) return
+
+      await LearnerArtifactStore.upsertArtifact(input.directory, "feedback", {
+        ...artifact,
+        status: input.status,
+        updatedAt: now,
+      })
+    }),
   )
 }
 
@@ -172,23 +171,21 @@ export async function resolveMisconceptionsByIds(input: {
   misconceptionIds: string[]
 }) {
   if (input.misconceptionIds.length === 0) return
-
-  const current = (await LearnerArtifactStore.readArtifacts(input.directory, "misconception"))
-    .filter((artifact): artifact is MisconceptionArtifact => artifact.kind === "misconception")
   const now = nowIso()
 
   await Promise.all(
-    current
-      .filter((artifact) => artifact.workspaceId === input.workspaceId)
-      .filter((artifact) => input.misconceptionIds.includes(artifact.id))
-      .filter((artifact) => artifact.status !== "resolved")
-      .map((artifact) =>
-        LearnerArtifactStore.upsertArtifact(input.directory, "misconception", {
-          ...artifact,
-          status: "resolved",
-          updatedAt: now,
-        }),
-      ),
+    input.misconceptionIds.map(async (misconceptionId) => {
+      const artifact = await LearnerArtifactStore.readArtifactById(input.directory, "misconception", misconceptionId)
+      if (!artifact || artifact.kind !== "misconception") return
+      if (artifact.workspaceId !== input.workspaceId) return
+      if (artifact.status === "resolved") return
+
+      await LearnerArtifactStore.upsertArtifact(input.directory, "misconception", {
+        ...artifact,
+        status: "resolved",
+        updatedAt: now,
+      })
+    }),
   )
 }
 

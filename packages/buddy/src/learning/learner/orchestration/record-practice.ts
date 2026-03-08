@@ -41,7 +41,12 @@ export async function recordPracticeEvent(input: {
   surface?: "chat" | "curriculum" | "editor" | "figure" | "quiz"
   addressedFeedbackIds?: string[]
   sessionId?: string
-}) {
+}): Promise<{
+  filePath: string
+  practiceId: string
+  evidenceId: string
+  feedbackId?: string
+}> {
   ensureGoalIds(input.goalIds)
 
   const workspace = await ensureWorkspaceContext(input.directory)

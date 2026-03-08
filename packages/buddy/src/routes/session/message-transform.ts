@@ -75,16 +75,13 @@ export function createSessionMessageTransform(input: { context: SessionTransform
           body,
           config: projectConfig,
         })
-        const workspace = await LearnerService.ensureWorkspaceContext(input.context.directory)
         const focusGoalIds = resolveFocusGoalIds(body)
         const learnerDigest = await LearnerService.buildPromptContext({
           directory: input.context.directory,
           query: {
-            workspaceId: workspace.workspaceId,
             persona: persona.id,
             intent: intentOverride,
             focusGoalIds,
-            tokenBudget: 1400,
           },
         })
         const workspaceState: WorkspaceState = teachingContext?.active ? "interactive" : "chat"

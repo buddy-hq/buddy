@@ -20,14 +20,6 @@ const learnerStateQueryTool = createBuddyTool("learner_snapshot_read", {
       },
     })
 
-    const snapshot = await LearnerService.getWorkspaceSnapshot({
-      directory: ctx.directory,
-      query: {
-        persona: params.persona ?? "buddy",
-        intent: params.intent,
-        focusGoalIds: params.focusGoalIds ?? [],
-      },
-    })
     const planDecision = await LearnerService.ensurePlanDecision({
       directory: ctx.directory,
       query: {
@@ -36,13 +28,13 @@ const learnerStateQueryTool = createBuddyTool("learner_snapshot_read", {
         focusGoalIds: params.focusGoalIds ?? [],
       },
     })
-    const relevantGoalIds = snapshot.goals.map((goal) => goal.id)
+    const relevantGoalIds = planDecision.snapshot.goals.map((goal) => goal.id)
 
     return {
       title: "learner_state",
-      output: snapshot.markdown,
+      output: planDecision.snapshot.markdown,
       metadata: {
-        workspaceId: snapshot.workspace.workspaceId,
+        workspaceId: planDecision.snapshot.workspace.workspaceId,
         relevantGoalIds,
         latestPlanDecisionId: planDecision.decision?.id,
       },

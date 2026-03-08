@@ -1,6 +1,6 @@
 import { buildSessionPlanFromDecision, hashDecisionInput, recordDecisionArtifact } from "../artifacts/bridge.js"
 import { LearnerArtifactStore } from "../artifacts/store.js"
-import type { DecisionArtifact, DecisionPlanRequest } from "../artifacts/types.js"
+import { type DecisionArtifact, type DecisionPlanRequest, SnapshotPlanSchema } from "../artifacts/types.js"
 import { LearnerSnapshotCompiler, type LearnerSnapshot } from "../compiler/snapshot.js"
 import { LearnerDecisionService } from "../decision/service.js"
 import type { SessionPlan } from "../types.js"
@@ -52,29 +52,28 @@ export async function ensurePlanDecision(input: {
     snapshot.decisionInputFingerprint,
   ].join("::"))
 
-  const existing = (await LearnerArtifactStore.readArtifacts(input.directory, "decision-plan"))
+  const existing = (await LearnerArtifactStore.readArtifacts(input.directory, "decision-plan", {
+    workspaceId: workspace.workspaceId,
+    inputHash,
+  }))
     .filter((artifact): artifact is DecisionArtifact => artifact.kind === "decision-plan")
-    .filter((artifact) => artifact.workspaceId === workspace.workspaceId)
-    .filter((artifact) => artifact.inputHash === inputHash)
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0]
 
   if (existing) {
-    if (existing.disposition === "apply" && existing.payload && typeof existing.payload === "object") {
-      const decisionPayload = existing.payload as {
-        primaryGoalId?: string
-        suggestedActivity: SessionPlan["suggestedActivity"]
-        suggestedScaffoldingLevel: SessionPlan["suggestedScaffoldingLevel"]
-        warmupGoalIds: string[]
-        alternatives: string[]
-        rationale: string[]
-        motivationHook?: string
-        riskFlags: string[]
+    if (existing.disposition === "apply") {
+      const decisionPayload = SnapshotPlanSchema.safeParse(existing.payload)
+      if (!decisionPayload.success) {
+        return {
+          snapshot,
+          plan: fallbackPlan(snapshot),
+          decision: existing,
+        }
       }
 
       return {
         snapshot,
         plan: buildSessionPlanFromDecision({
-          decision: decisionPayload,
+          decision: decisionPayload.data,
           constraintsSummary: snapshot.constraintsSummary,
         }),
         decision: existing,
@@ -93,8 +92,6 @@ export async function ensurePlanDecision(input: {
     snapshot,
     focusGoalIds: input.query.focusGoalIds,
     sessionId: input.query.sessionId,
-    persona: input.query.persona,
-    intent: input.query.intent,
   })
 
   if (result.output) {

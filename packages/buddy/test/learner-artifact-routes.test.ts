@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { app } from "../src/index.ts"
+import { app } from "../src/index.js"
 import { LearnerService } from "../src/learning/learner/service.js"
 import { tmpdir } from "./fixture/fixture"
 

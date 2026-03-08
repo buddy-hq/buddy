@@ -64,6 +64,10 @@ function readIfFound(filepath: string) {
   })
 }
 
+function isAlreadyExistsError(error: unknown) {
+  return Boolean(error && typeof error === "object" && "code" in error && error.code === "EEXIST")
+}
+
 async function ensureParent(filepath: string) {
   await fs.mkdir(path.dirname(filepath), { recursive: true })
 }
@@ -79,10 +83,29 @@ async function readMarkdownFile<T>(filepath: string, schema: z.ZodType<T>): Prom
   }
 }
 
-async function writeMarkdownFile(filepath: string, frontmatter: Record<string, unknown>, body?: string) {
+async function writeMarkdownFile(
+  filepath: string,
+  frontmatter: Record<string, unknown>,
+  body?: string,
+  options?: {
+    exclusive?: boolean
+  },
+) {
   await ensureParent(filepath)
+  const contents = stringifyMarkdownArtifact(frontmatter, body)
+
+  if (options?.exclusive) {
+    const handle = await fs.open(filepath, "wx")
+    try {
+      await handle.writeFile(contents, "utf8")
+    } finally {
+      await handle.close()
+    }
+    return
+  }
+
   const tmpPath = `${filepath}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`
-  await fs.writeFile(tmpPath, stringifyMarkdownArtifact(frontmatter, body), "utf8")
+  await fs.writeFile(tmpPath, contents, "utf8")
   await fs.rename(tmpPath, filepath)
 }
 
@@ -190,9 +213,15 @@ export namespace LearnerArtifactStore {
     return existing?.data
   }
 
-  export async function writeWorkspaceContext(directory: string, context: WorkspaceContextArtifact) {
+  export async function writeWorkspaceContext(
+    directory: string,
+    context: WorkspaceContextArtifact,
+    options?: {
+      exclusive?: boolean
+    },
+  ) {
     const normalized = WorkspaceContextArtifactSchema.parse(context)
-    await writeMarkdownFile(LearnerArtifactPath.workspaceContextFile(directory), normalized, "")
+    await writeMarkdownFile(LearnerArtifactPath.workspaceContextFile(directory), normalized, "", options)
     return normalized
   }
 
@@ -207,7 +236,16 @@ export namespace LearnerArtifactStore {
       workspaceId: ulid(),
       packageJson,
     })
-    return writeWorkspaceContext(directory, workspace)
+
+    try {
+      return await writeWorkspaceContext(directory, workspace, { exclusive: true })
+    } catch (error) {
+      if (isAlreadyExistsError(error)) {
+        const created = await readMarkdownFile(filepath, WorkspaceContextArtifactSchema)
+        if (created) return created.data
+      }
+      throw error
+    }
   }
 
   export async function patchWorkspaceContext(
@@ -313,9 +351,19 @@ export namespace LearnerArtifactStore {
     artifact: ArtifactRecord,
     body?: string,
   ) {
-    const filepath = LearnerArtifactPath.artifactFile(directory, kind, artifact.id)
-    await writeMarkdownFile(filepath, artifact, body)
-    return artifact
+    if (artifact.kind !== kind) {
+      throw new Error(`Artifact kind mismatch: expected ${kind}, received ${artifact.kind}`)
+    }
+
+    const schema = schemaForKind(kind)
+    const parsed = schema.safeParse(artifact)
+    if (!parsed.success) {
+      throw new Error(`Invalid ${kind} artifact: ${parsed.error.issues[0]?.message ?? "parse failed"}`)
+    }
+
+    const filepath = LearnerArtifactPath.artifactFile(directory, kind, parsed.data.id)
+    await writeMarkdownFile(filepath, parsed.data, body)
+    return parsed.data
   }
 
   export async function readArtifacts(
@@ -323,9 +371,39 @@ export namespace LearnerArtifactStore {
     kind: WorkspaceRecordArtifactKind,
     input?: {
       includeRaw?: boolean
+      workspaceId?: string
+      inputHash?: string
     },
   ) {
-    return readKindArtifacts(directory, kind, input)
+    const records = await readKindArtifacts(directory, kind, input)
+    return records.filter((record) => {
+      if (input?.workspaceId && record.workspaceId !== input.workspaceId) return false
+      if (input?.inputHash && "inputHash" in record && record.inputHash !== input.inputHash) return false
+      return true
+    })
+  }
+
+  export async function readArtifactById(
+    directory: string,
+    kind: WorkspaceRecordArtifactKind,
+    artifactId: string,
+    input?: {
+      includeRaw?: boolean
+    },
+  ) {
+    const filepath = LearnerArtifactPath.artifactFile(directory, kind, artifactId)
+    const schema = schemaForKind(kind)
+    const parsed = await readMarkdownFile(filepath, schema as z.ZodType<ArtifactRecord>)
+    if (!parsed) return undefined
+    if (input?.includeRaw) {
+      const raw = await readIfFound(filepath)
+      if (raw === undefined) return undefined
+      return {
+        ...parsed.data,
+        raw,
+      } as ArtifactRecordWithRaw
+    }
+    return parsed.data
   }
 
   export async function listArtifacts(input: {

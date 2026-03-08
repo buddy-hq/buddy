@@ -36,15 +36,12 @@ async function buildRuntimePrompt(input: {
   teachingContext?: Parameters<typeof composeLearningSystemPrompt>[0]["teachingContext"]
   userContent?: string
 }) {
-  const workspace = await LearnerService.ensureWorkspaceContext(input.directory)
   const digest = await LearnerService.buildPromptContext({
     directory: input.directory,
     query: {
-      workspaceId: workspace.workspaceId,
       persona: input.persona,
       intent: input.intent ?? "learn",
       focusGoalIds: [],
-      tokenBudget: 1200,
     },
   })
   const profile = compileRuntimeProfile({

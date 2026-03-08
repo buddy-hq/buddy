@@ -31,6 +31,29 @@ export async function recordLearnerMessageEvent(input: {
   const messageId = input.sourceMessageId ?? nextId()
   const trimmedContent = input.content.trim()
 
+  if (!trimmedContent) {
+    return undefined
+  }
+
+  const dedupeKey = input.sourceMessageId ?? messageId
+  const inputHash = hashDecisionInput([
+    workspace.workspaceId,
+    input.sessionId ?? "",
+    dedupeKey,
+    input.goalIds.join(","),
+    trimmedContent,
+  ].join("::"))
+
+  if (input.sourceMessageId) {
+    const existingDecision = await LearnerArtifactStore.readArtifacts(input.directory, "decision-interpret-message", {
+      workspaceId: workspace.workspaceId,
+      inputHash,
+    })
+    if (existingDecision.length > 0) {
+      return undefined
+    }
+  }
+
   await LearnerArtifactStore.upsertArtifact(input.directory, "message", {
     id: messageId,
     kind: "message",
@@ -54,15 +77,6 @@ export async function recordLearnerMessageEvent(input: {
       sessionId: input.sessionId,
     },
   })
-
-  const inputHash = hashDecisionInput([
-    workspace.workspaceId,
-    input.sessionId ?? "",
-    input.sourceMessageId ?? "",
-    input.goalIds.join(","),
-    trimmedContent,
-    snapshot.markdown,
-  ].join("::"))
 
   const decision = await LearnerDecisionService.interpretMessage({
     directory: input.directory,

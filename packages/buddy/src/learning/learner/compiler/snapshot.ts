@@ -2,6 +2,7 @@ import { compileRuntimeProfile } from "../../runtime/compiler.js"
 import type { WorkspaceState } from "../../runtime/types.js"
 import { getBuddyPersona } from "../../../personas/catalog.js"
 import { LearnerArtifactStore } from "../artifacts/store.js"
+import { SnapshotPlanSchema } from "../artifacts/types.js"
 import type {
   DecisionArtifact,
   EvidenceArtifact,
@@ -88,18 +89,14 @@ function buildSections(input: {
       title: "Open Feedback",
       items:
         input.openFeedback.length > 0
-          ? input.openFeedback
-              .filter((record) => record.kind === "feedback")
-              .map((record) => record.requiredAction)
+          ? input.openFeedback.map((record) => record.requiredAction)
           : ["No open feedback items."],
     },
     {
       title: "Misconceptions",
       items:
         input.activeMisconceptions.length > 0
-          ? input.activeMisconceptions
-              .filter((record) => record.kind === "misconception")
-              .map((record) => record.summary)
+          ? input.activeMisconceptions.map((record) => record.summary)
           : ["No active misconceptions."],
     },
     {
@@ -178,9 +175,8 @@ export namespace LearnerSnapshotCompiler {
       })
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0]
 
-    const plan = latestPlan?.payload && typeof latestPlan.payload === "object"
-      ? (latestPlan.payload as SnapshotPlan)
-      : fallbackPlan()
+    const planResult = SnapshotPlanSchema.safeParse(latestPlan?.payload)
+    const plan = planResult.success ? planResult.data : fallbackPlan()
 
     const workspaceState: WorkspaceState = input.query.workspaceState ?? "chat"
     const runtimeProfile = compileRuntimeProfile({

@@ -291,7 +291,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                 </CardContent>
               </Card>
 
-              {curriculumView.actions.length > 0 ? (
+              {curriculumView.actions && curriculumView.actions.length > 0 ? (
                 <Card size="sm" className="gap-0 py-0">
                   <CardContent className="space-y-3 px-3 py-3">
                     <div>

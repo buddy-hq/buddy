@@ -7,6 +7,27 @@ import type {
 } from "../artifacts/types.js"
 import { inferTags, nextId, normalizeList, normalizeText, nowIso } from "./helpers.js"
 
+const goalSetLocks = new Map<string, Promise<void>>()
+
+async function withGoalSetLock<T>(key: string, task: () => Promise<T>) {
+  const prior = goalSetLocks.get(key) ?? Promise.resolve()
+  let release: (() => void) | undefined
+  const next = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  goalSetLocks.set(key, prior.then(() => next))
+  await prior
+
+  try {
+    return await task()
+  } finally {
+    release?.()
+    if (goalSetLocks.get(key) === next) {
+      goalSetLocks.delete(key)
+    }
+  }
+}
+
 function goalSetKey(input: { scope: GoalArtifact["scope"]; contextLabel: string }) {
   return `${input.scope}::${normalizeText(input.contextLabel).toLowerCase()}`
 }
@@ -23,6 +44,9 @@ function buildGoalArtifacts(input: {
     cognitiveLevel: GoalArtifact["cognitiveLevel"]
     howToTest: string
   }>
+  rationaleSummary?: string
+  assumptions?: string[]
+  openQuestions?: string[]
 }) {
   const now = nowIso()
   const setId = nextId()
@@ -40,6 +64,9 @@ function buildGoalArtifacts(input: {
     scope: input.scope,
     contextLabel: normalizeText(input.contextLabel),
     learnerRequest: normalizeText(input.learnerRequest),
+    rationaleSummary: input.rationaleSummary ? normalizeText(input.rationaleSummary) : undefined,
+    assumptions: normalizeList(input.assumptions),
+    openQuestions: normalizeList(input.openQuestions),
     statement: normalizeText(goal.statement),
     actionVerb: normalizeText(goal.actionVerb),
     task: normalizeText(goal.task),
@@ -125,53 +152,63 @@ export async function replaceGoalSet(input: {
   assumptions?: string[]
   openQuestions?: string[]
 }) {
-  const workspace = await ensureWorkspaceContext(input.directory)
-  const existing = (await LearnerArtifactStore.readArtifacts(input.directory, "goal"))
-    .filter((artifact): artifact is GoalArtifact => artifact.kind === "goal")
-
-  const now = nowIso()
   const targetKey = goalSetKey({
     scope: input.scope,
     contextLabel: input.contextLabel,
   })
+  const workspace = await ensureWorkspaceContext(input.directory)
 
-  const archivedSetIds = new Set<string>()
+  return withGoalSetLock(targetKey, async () => {
+    const existing = (await LearnerArtifactStore.readArtifacts(input.directory, "goal"))
+      .filter((artifact): artifact is GoalArtifact => artifact.kind === "goal")
 
-  await Promise.all(
-    existing
-      .filter((artifact) => artifact.workspaceId === workspace.workspaceId)
-      .filter((artifact) => artifact.status === "active")
-      .filter((artifact) =>
-        goalSetKey({
-          scope: artifact.scope,
-          contextLabel: artifact.contextLabel,
-        }) === targetKey,
-      )
-      .map((artifact) => {
-        if (artifact.setId) archivedSetIds.add(artifact.setId)
-        return LearnerArtifactStore.upsertArtifact(input.directory, "goal", {
-          ...artifact,
-          status: "archived",
-          updatedAt: now,
-        })
-      }),
-  )
+    const now = nowIso()
+    const archivedSetIds = new Set<string>()
 
-  const created = buildGoalArtifacts({
-    workspace,
-    scope: input.scope,
-    contextLabel: input.contextLabel,
-    learnerRequest: input.learnerRequest,
-    goals: input.goals,
+    const created = buildGoalArtifacts({
+      workspace,
+      scope: input.scope,
+      contextLabel: input.contextLabel,
+      learnerRequest: input.learnerRequest,
+      goals: input.goals,
+      rationaleSummary: input.rationaleSummary,
+      assumptions: input.assumptions,
+      openQuestions: input.openQuestions,
+    })
+
+    await Promise.all(created.map((artifact) => LearnerArtifactStore.upsertArtifact(input.directory, "goal", artifact)))
+
+    await Promise.all(
+      existing
+        .filter((artifact) => artifact.workspaceId === workspace.workspaceId)
+        .filter((artifact) => artifact.status === "active")
+        .filter((artifact) =>
+          goalSetKey({
+            scope: artifact.scope,
+            contextLabel: artifact.contextLabel,
+          }) === targetKey,
+        )
+        .map((artifact) => {
+          if (artifact.setId) archivedSetIds.add(artifact.setId)
+          return LearnerArtifactStore.upsertArtifact(input.directory, "goal", {
+            ...artifact,
+            status: "archived",
+            updatedAt: now,
+          })
+        }),
+    )
+
+    const edgeIds: string[] = []
+
+    return {
+      filePath: LearnerArtifactPath.kindDirectory(input.directory, "goal"),
+      setId: created[0]?.setId ?? nextId(),
+      goalIds: created.map((artifact) => artifact.id),
+      edgeIds,
+      archivedSetIds: [...archivedSetIds],
+      rationaleSummary: input.rationaleSummary ? normalizeText(input.rationaleSummary) : undefined,
+      assumptions: normalizeList(input.assumptions),
+      openQuestions: normalizeList(input.openQuestions),
+    }
   })
-
-  await Promise.all(created.map((artifact) => LearnerArtifactStore.upsertArtifact(input.directory, "goal", artifact)))
-
-  return {
-    filePath: LearnerArtifactPath.kindDirectory(input.directory, "goal"),
-    setId: created[0]?.setId ?? nextId(),
-    goalIds: created.map((artifact) => artifact.id),
-    edgeIds: [] as string[],
-    archivedSetIds: [...archivedSetIds],
-  }
 }

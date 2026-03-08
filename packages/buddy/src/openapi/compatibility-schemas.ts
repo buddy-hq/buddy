@@ -3,6 +3,85 @@ export const AnyObjectSchema = {
   additionalProperties: true,
 }
 
+export const LearnerSessionPlanSchema = {
+  type: "object",
+  properties: {
+    warmupReviewGoalIds: { type: "array", items: { type: "string" } },
+    primaryGoalId: { type: "string" },
+    suggestedActivity: { type: "string" },
+    suggestedScaffoldingLevel: { type: "string" },
+    alternatives: { type: "array", items: { type: "string" } },
+    rationale: { type: "array", items: { type: "string" } },
+    motivationHook: { type: "string" },
+    constraintsConsidered: { type: "array", items: { type: "string" } },
+    prerequisiteWarnings: { type: "array", items: { type: "string" } },
+  },
+  required: [
+    "warmupReviewGoalIds",
+    "suggestedActivity",
+    "suggestedScaffoldingLevel",
+    "alternatives",
+    "rationale",
+    "constraintsConsidered",
+    "prerequisiteWarnings",
+  ],
+  additionalProperties: true,
+}
+
+export const LearnerSnapshotSchema = {
+  type: "object",
+  properties: {
+    workspace: AnyObjectSchema,
+    profile: AnyObjectSchema,
+    goals: { type: "array", items: AnyObjectSchema },
+    activeMisconceptions: { type: "array", items: AnyObjectSchema },
+    openFeedback: { type: "array", items: AnyObjectSchema },
+    recentEvidence: { type: "array", items: AnyObjectSchema },
+    latestPlan: AnyObjectSchema,
+    constraintsSummary: { type: "array", items: { type: "string" } },
+    activityBundles: { type: "array", items: AnyObjectSchema },
+    sections: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          title: { type: "string" },
+          items: { type: "array", items: { type: "string" } },
+        },
+        required: ["title", "items"],
+        additionalProperties: false,
+      },
+    },
+    markdown: { type: "string" },
+    decisionInputFingerprint: { type: "string" },
+  },
+  required: [
+    "workspace",
+    "profile",
+    "goals",
+    "activeMisconceptions",
+    "openFeedback",
+    "recentEvidence",
+    "constraintsSummary",
+    "activityBundles",
+    "sections",
+    "markdown",
+    "decisionInputFingerprint",
+  ],
+  additionalProperties: true,
+}
+
+export const LearnerPlanResponseSchema = {
+  type: "object",
+  properties: {
+    snapshot: LearnerSnapshotSchema,
+    plan: LearnerSessionPlanSchema,
+    decision: AnyObjectSchema,
+  },
+  required: ["snapshot", "plan"],
+  additionalProperties: true,
+}
+
 export const ErrorSchema = {
   type: "object",
   properties: {

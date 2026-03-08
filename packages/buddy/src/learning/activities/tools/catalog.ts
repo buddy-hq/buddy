@@ -66,20 +66,17 @@ async function resolveActivityToolContext(
   const digest = await LearnerService.buildPromptContext({
     directory: ctx.directory,
     query: {
-      workspaceId: workspace.workspaceId,
       persona: runtimeState?.persona ?? "buddy",
       intent,
       focusGoalIds,
-      tokenBudget: 1200,
     },
   })
   const goalIds = focusGoalIds.length > 0 ? focusGoalIds : digest.relevantGoalIds
-  const goals = (await LearnerService.listArtifacts({
+  const goals = ((await LearnerService.listArtifacts({
     directory: ctx.directory,
     kind: "goal",
     status: "active",
-  }))
-    .filter((artifact): artifact is GoalArtifact => artifact.kind === "goal")
+  })) as GoalArtifact[])
     .filter((goal) => goalIds.includes(goal.id))
     .slice(0, 3)
 

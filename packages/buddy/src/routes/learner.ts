@@ -3,7 +3,12 @@ import { resolver } from "hono-openapi"
 import z from "zod"
 import { PERSONA_IDS, TEACHING_INTENT_IDS } from "../learning/runtime/types.js"
 import { LearnerService } from "../learning/learner/service.js"
-import { AnyObjectSchema, ErrorSchema } from "../openapi/compatibility-schemas.js"
+import {
+  AnyObjectSchema,
+  ErrorSchema,
+  LearnerPlanResponseSchema,
+  LearnerSnapshotSchema,
+} from "../openapi/compatibility-schemas.js"
 import { compatibilityRoute } from "../openapi/compatibility-route.js"
 import {
   LearnerArtifactListQuerySchema,
@@ -55,7 +60,7 @@ export const LearnerRoutes = () =>
         responses: {
           200: {
             description: "Learner snapshot",
-            content: { "application/json": { schema: AnyObjectSchema } },
+            content: { "application/json": { schema: LearnerSnapshotSchema } },
           },
           400: {
             description: "Invalid query parameters",
@@ -135,7 +140,7 @@ export const LearnerRoutes = () =>
         responses: {
           200: {
             description: "Plan decision",
-            content: { "application/json": { schema: AnyObjectSchema } },
+            content: { "application/json": { schema: LearnerPlanResponseSchema } },
           },
           400: {
             description: "Invalid request",

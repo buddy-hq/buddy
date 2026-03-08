@@ -1,6 +1,7 @@
 import type { LearnerPromptDigest, PersonaId, TeachingIntentId, WorkspaceState } from "../runtime/types.js"
 import { buildSessionPlanFromDecision } from "./artifacts/bridge.js"
 import { LearnerArtifactStore } from "./artifacts/store.js"
+import { SnapshotPlanSchema } from "./artifacts/types.js"
 import type {
   DecisionArtifact,
   DecisionPlanRequest,
@@ -21,11 +22,9 @@ import {
 import type { SessionPlan } from "./types.js"
 
 type PromptContextQuery = {
-  workspaceId?: string
   persona: PersonaId
   intent?: TeachingIntentId
   focusGoalIds: string[]
-  tokenBudget?: number
   sessionId?: string
   workspaceState?: WorkspaceState
 }
@@ -62,17 +61,13 @@ function planFromDecisionArtifact(input: {
     return fallbackPlan(input.snapshot)
   }
 
+  const parsed = SnapshotPlanSchema.safeParse(decision.payload)
+  if (!parsed.success) {
+    return fallbackPlan(input.snapshot)
+  }
+
   return buildSessionPlanFromDecision({
-    decision: decision.payload as {
-      primaryGoalId?: string
-      suggestedActivity: SessionPlan["suggestedActivity"]
-      suggestedScaffoldingLevel: SessionPlan["suggestedScaffoldingLevel"]
-      warmupGoalIds: string[]
-      alternatives: string[]
-      rationale: string[]
-      motivationHook?: string
-      riskFlags: string[]
-    },
+    decision: parsed.data,
     constraintsSummary: input.snapshot.constraintsSummary,
   })
 }

@@ -26,7 +26,10 @@ export function stringifyMarkdownArtifact(frontmatter: Record<string, unknown>, 
 }
 
 function sanitizeFrontmatter(value: Record<string, unknown>) {
-  return sanitizeValue(value) as Record<string, unknown>
+  const entries = Object.entries(value)
+    .map(([key, entryValue]) => [key, sanitizeValue(entryValue)])
+    .filter(([, entryValue]) => entryValue !== undefined)
+  return Object.fromEntries(entries)
 }
 
 function sanitizeValue(value: unknown): unknown {

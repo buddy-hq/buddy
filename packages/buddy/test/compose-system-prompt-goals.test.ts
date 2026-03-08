@@ -26,15 +26,12 @@ describe("composeLearningSystemPrompt (learner store)", () => {
       ],
     })
 
-    const workspace = await LearnerService.ensureWorkspaceContext(project.path)
     const digest = await LearnerService.buildPromptContext({
       directory: project.path,
       query: {
-        workspaceId: workspace.workspaceId,
         persona: "buddy",
         intent: "learn",
         focusGoalIds: committed.goalIds,
-        tokenBudget: 1200,
       },
     })
     const runtimeProfile = compileRuntimeProfile({

@@ -16,6 +16,12 @@ const KINDS_WITH_DIRECTORIES: Record<Exclude<LearnerArtifactKind, "workspace-con
 }
 
 export namespace LearnerArtifactPath {
+  function assertSafeArtifactId(artifactId: string) {
+    if (!/^[^/\\]+$/.test(artifactId) || artifactId.includes("..")) {
+      throw new Error(`Invalid artifact id: ${artifactId}`)
+    }
+  }
+
   export function workspaceRoot(directory: string) {
     return path.join(directory, ".buddy", "learner")
   }
@@ -33,6 +39,7 @@ export namespace LearnerArtifactPath {
     kind: Exclude<LearnerArtifactKind, "workspace-context" | "profile">,
     artifactId: string,
   ) {
+    assertSafeArtifactId(artifactId)
     return path.join(kindDirectory(directory, kind), `${artifactId}.md`)
   }
 

@@ -150,6 +150,7 @@ export async function runStructuredDecision<T>(input: {
         title: input.title,
       })
 
+      let decisionResult: DecisionEngineResult<T>
       try {
         const response = await SessionPrompt.prompt({
           sessionID: session.id,
@@ -174,29 +175,36 @@ export async function runStructuredDecision<T>(input: {
         const structured = extractStructuredPayload(response)
         const parsed = input.schema.safeParse(structured)
         if (!parsed.success) {
-          return {
+          decisionResult = {
             providerId: model.providerId,
             modelId: model.modelId,
             usedSmallModel: model.usedSmallModel,
             error: `Structured output parse failed: ${parsed.error.issues[0]?.message ?? "invalid output"}`,
           }
+          return decisionResult
         }
 
-        return {
+        decisionResult = {
           output: parsed.data,
           providerId: model.providerId,
           modelId: model.modelId,
           usedSmallModel: model.usedSmallModel,
         }
+        return decisionResult
       } catch (error) {
-        return {
+        decisionResult = {
           providerId: model.providerId,
           modelId: model.modelId,
           usedSmallModel: model.usedSmallModel,
           error: asErrorMessage(error),
         }
+        return decisionResult
       } finally {
-        await Session.remove(session.id)
+        try {
+          await Session.remove(session.id)
+        } catch (error) {
+          console.warn("Failed to remove decision session", error)
+        }
       }
     },
   })

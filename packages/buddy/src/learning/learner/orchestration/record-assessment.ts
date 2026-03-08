@@ -32,7 +32,12 @@ export async function recordAssessmentEvent(input: {
   evidenceCriteria?: string[]
   followUpAction?: string
   sessionId?: string
-}) {
+}): Promise<{
+  filePath: string
+  assessmentId: string
+  evidenceId: string
+  feedbackId?: string
+}> {
   ensureGoalIds(input.goalIds)
 
   const workspace = await ensureWorkspaceContext(input.directory)

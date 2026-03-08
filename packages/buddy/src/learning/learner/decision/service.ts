@@ -1,4 +1,3 @@
-import type { TeachingIntentId, PersonaId } from "../../runtime/types.js"
 import type { LearnerSnapshot } from "../compiler/snapshot.js"
 import { runStructuredDecision } from "./engine.js"
 import {
@@ -50,8 +49,6 @@ export namespace LearnerDecisionService {
     snapshot: LearnerSnapshot
     focusGoalIds: string[]
     sessionId?: string
-    persona?: PersonaId
-    intent?: TeachingIntentId
   }) {
     return runStructuredDecision<PlanDecision>({
       directory: input.directory,

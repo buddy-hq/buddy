@@ -123,9 +123,10 @@ describe("learner-store goal archiving", () => {
         }, new Map())
         .values(),
     )
+    const statusSets = tauriSets.map((set) => set.map((goal) => goal.status))
 
     expect(tauriSets).toHaveLength(2)
-    expect(tauriSets[0].every((goal) => goal.status === "archived")).toBe(true)
-    expect(tauriSets[1].every((goal) => goal.status === "active")).toBe(true)
+    expect(statusSets.some((statuses) => statuses.every((status) => status === "archived"))).toBe(true)
+    expect(statusSets.some((statuses) => statuses.every((status) => status === "active"))).toBe(true)
   })
 })

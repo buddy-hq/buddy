@@ -18,7 +18,6 @@ function feedbackLines(snapshot: LearnerSnapshot) {
   }
 
   return snapshot.openFeedback
-    .filter((record) => record.kind === "feedback")
     .slice(0, 8)
     .map((record) => `- ${trimLine(record.requiredAction)}`)
 }
@@ -29,7 +28,6 @@ function misconceptionLines(snapshot: LearnerSnapshot) {
   }
 
   return snapshot.activeMisconceptions
-    .filter((record) => record.kind === "misconception")
     .slice(0, 8)
     .map((record) => `- ${trimLine(record.summary)}`)
 }
@@ -40,7 +38,6 @@ function evidenceLines(snapshot: LearnerSnapshot) {
   }
 
   return snapshot.recentEvidence
-    .filter((record) => record.kind === "evidence")
     .slice(0, 8)
     .map((record) => `- (${record.strength}) ${trimLine(record.summary)}`)
 }

@@ -39,7 +39,7 @@ export type DecisionDisposition = z.infer<typeof DecisionDispositionSchema>
 export const BaseArtifactSchema = z.object({
   id: z.string().min(1),
   kind: LearnerArtifactKindSchema,
-  workspaceId: z.string().min(1).optional(),
+  workspaceId: z.string().min(1),
   goalIds: z.array(z.string()).default([]),
   createdAt: TimestampSchema,
   updatedAt: TimestampSchema,
@@ -48,7 +48,6 @@ export type BaseArtifact = z.infer<typeof BaseArtifactSchema>
 
 export const WorkspaceContextArtifactSchema = BaseArtifactSchema.extend({
   kind: z.literal("workspace-context"),
-  workspaceId: z.string().min(1),
   label: z.string().min(1),
   tags: z.array(z.string()).default([]),
   pinnedGoalIds: z.array(z.string()).default([]),
@@ -63,6 +62,7 @@ export type WorkspaceContextArtifact = z.infer<typeof WorkspaceContextArtifactSc
 
 export const ProfileArtifactSchema = BaseArtifactSchema.extend({
   kind: z.literal("profile"),
+  workspaceId: z.string().min(1).optional(),
   background: z.array(z.string()).default([]),
   knownPrerequisites: z.array(z.string()).default([]),
   availableTimePatterns: z.array(z.string()).default([]),
@@ -74,12 +74,14 @@ export type ProfileArtifact = z.infer<typeof ProfileArtifactSchema>
 
 export const GoalArtifactSchema = BaseArtifactSchema.extend({
   kind: z.literal("goal"),
-  workspaceId: z.string().min(1),
   status: z.enum(["active", "archived"]).default("active"),
   setId: z.string().min(1).optional(),
   scope: z.enum(["course", "topic"]),
   contextLabel: z.string().min(1),
   learnerRequest: z.string().min(1),
+  rationaleSummary: z.string().min(1).optional(),
+  assumptions: z.array(z.string()).default([]),
+  openQuestions: z.array(z.string()).default([]),
   statement: z.string().min(1),
   actionVerb: z.string().min(1),
   task: z.string().min(1),
@@ -102,7 +104,6 @@ export type GoalArtifact = z.infer<typeof GoalArtifactSchema>
 
 export const MessageArtifactSchema = BaseArtifactSchema.extend({
   kind: z.literal("message"),
-  workspaceId: z.string().min(1),
   role: z.literal("learner"),
   sessionId: z.string().optional(),
   sourceMessageId: z.string().optional(),
@@ -113,7 +114,6 @@ export type MessageArtifact = z.infer<typeof MessageArtifactSchema>
 
 export const PracticeArtifactSchema = BaseArtifactSchema.extend({
   kind: z.literal("practice"),
-  workspaceId: z.string().min(1),
   sessionId: z.string().optional(),
   outcome: z.enum(["assigned", "partial", "completed", "stuck"]),
   prompt: z.string().optional(),
@@ -132,7 +132,6 @@ export type PracticeArtifact = z.infer<typeof PracticeArtifactSchema>
 
 export const AssessmentArtifactSchema = BaseArtifactSchema.extend({
   kind: z.literal("assessment"),
-  workspaceId: z.string().min(1),
   sessionId: z.string().optional(),
   format: z.enum([
     "concept-check",
@@ -153,7 +152,6 @@ export type AssessmentArtifact = z.infer<typeof AssessmentArtifactSchema>
 
 export const EvidenceArtifactSchema = BaseArtifactSchema.extend({
   kind: z.literal("evidence"),
-  workspaceId: z.string().min(1),
   sourceKind: z.enum(["message", "practice", "assessment", "teacher-observation"]),
   strength: z.enum(["none", "weak", "strong"]).default("none"),
   outcome: z.enum(["positive", "mixed", "negative", "neutral"]),
@@ -165,7 +163,6 @@ export type EvidenceArtifact = z.infer<typeof EvidenceArtifactSchema>
 
 export const FeedbackArtifactSchema = BaseArtifactSchema.extend({
   kind: z.literal("feedback"),
-  workspaceId: z.string().min(1),
   status: z.enum(["open", "acted-on", "resolved"]).default("open"),
   sourceKind: z.enum(["practice", "assessment", "reflection", "teacher-observation"]),
   sourceRefId: z.string().optional(),
@@ -180,7 +177,6 @@ export type FeedbackArtifact = z.infer<typeof FeedbackArtifactSchema>
 
 export const MisconceptionArtifactSchema = BaseArtifactSchema.extend({
   kind: z.literal("misconception"),
-  workspaceId: z.string().min(1),
   status: z.enum(["active", "resolved"]).default("active"),
   summary: z.string().min(1),
   relatedDecisionId: z.string().optional(),
@@ -189,7 +185,6 @@ export type MisconceptionArtifact = z.infer<typeof MisconceptionArtifactSchema>
 
 export const DecisionArtifactSchema = BaseArtifactSchema.extend({
   kind: z.enum(["decision-interpret-message", "decision-feedback", "decision-plan"]),
-  workspaceId: z.string().min(1),
   decisionType: z.enum(["interpret-message", "feedback", "plan"]),
   providerId: z.string().optional(),
   modelId: z.string().optional(),
@@ -217,22 +212,17 @@ export const LearnerArtifactSchema = z.discriminatedUnion("kind", [
 ])
 export type LearnerArtifact = z.infer<typeof LearnerArtifactSchema>
 
-export const SnapshotQuerySchema = z.object({
+const SharedSnapshotDecisionSchema = z.object({
   persona: z.enum(PERSONA_IDS).default("buddy"),
   intent: z.enum(TEACHING_INTENT_IDS).optional(),
   focusGoalIds: z.array(z.string()).default([]),
   sessionId: z.string().optional(),
   workspaceState: z.enum(WORKSPACE_STATES).optional(),
 })
+export const SnapshotQuerySchema = SharedSnapshotDecisionSchema
 export type SnapshotQuery = z.infer<typeof SnapshotQuerySchema>
 
-export const DecisionPlanRequestSchema = z.object({
-  persona: z.enum(PERSONA_IDS).default("buddy"),
-  intent: z.enum(TEACHING_INTENT_IDS).optional(),
-  focusGoalIds: z.array(z.string()).default([]),
-  sessionId: z.string().optional(),
-  workspaceState: z.enum(WORKSPACE_STATES).optional(),
-})
+export const DecisionPlanRequestSchema = SharedSnapshotDecisionSchema
 export type DecisionPlanRequest = z.infer<typeof DecisionPlanRequestSchema>
 
 export const SnapshotPlanSchema = z.object({

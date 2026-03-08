@@ -48,14 +48,8 @@ export function compilePromptContext(input: {
   plan?: SessionPlan
 }): LearnerPromptDigest {
   const relevantGoalIds = input.snapshot.goals.map((goal) => goal.id)
-  const openFeedbackActions = input.snapshot.openFeedback
-    .filter((artifact) => artifact.kind === "feedback")
-    .map((artifact) => compact(artifact.requiredAction))
-    .slice(0, 8)
-  const activeMisconceptions = input.snapshot.activeMisconceptions
-    .filter((artifact) => artifact.kind === "misconception")
-    .map((artifact) => compact(artifact.summary))
-    .slice(0, 8)
+  const openFeedbackActions = input.snapshot.openFeedback.map((artifact) => compact(artifact.requiredAction)).slice(0, 8)
+  const activeMisconceptions = input.snapshot.activeMisconceptions.map((artifact) => compact(artifact.summary)).slice(0, 8)
   const summaryPlan = planSummary(input.plan)
   const summaryAlignment = alignmentSummary({
     goalCount: input.snapshot.goals.length,

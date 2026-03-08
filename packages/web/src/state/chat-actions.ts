@@ -64,6 +64,7 @@ export type LearnerCurriculumView = {
     incompleteGoalIds: string[]
     recommendations: string[]
   }
+  alignmentSummaryUnavailable?: boolean
   openFeedbackActions: Array<{
     feedbackId: string
     goalIds: string[]
@@ -88,6 +89,7 @@ export type LearnerCurriculumView = {
     focusGoalIds: string[]
     reason: string
   }>
+  actionsUnavailable?: boolean
   activityBundles: Array<{
     id: string
     activity: string
@@ -859,19 +861,24 @@ export async function loadCurriculumView(
   }>(directory, `/api/learner/plan${search ? `?${search}` : ""}`, { method: "POST" })
   const snapshot = result.snapshot
   const plan = result.plan
+  const alignmentSummary = (snapshot as { alignmentSummary?: LearnerCurriculumView["alignmentSummary"] }).alignmentSummary
+    ?? (plan as { alignmentSummary?: LearnerCurriculumView["alignmentSummary"] }).alignmentSummary
+  const actions = (snapshot as { actions?: LearnerCurriculumView["actions"] }).actions
+    ?? (plan as { actions?: LearnerCurriculumView["actions"] }).actions
 
   return {
     workspace: snapshot.workspace,
     coldStart: snapshot.goals.length === 0,
     recommendedNextAction: plan.suggestedActivity,
     sessionPlan: plan,
-    alignmentSummary: {
+    alignmentSummary: alignmentSummary ?? {
       records: [],
       incompleteGoalIds: [],
       recommendations: [],
     },
+    alignmentSummaryUnavailable: alignmentSummary === undefined,
     openFeedbackActions: snapshot.openFeedback
-      .filter((item) => Boolean(item.requiredAction))
+      .filter((item) => Boolean(item && item.id))
       .map((item) => ({
         feedbackId: item.id,
         goalIds: item.goalIds,
@@ -879,7 +886,8 @@ export async function loadCurriculumView(
         scaffoldingLevel: item.scaffoldingLevel ?? "guided",
         createdAt: item.createdAt,
       })),
-    actions: [],
+    actions: actions ?? [],
+    actionsUnavailable: actions === undefined,
     activityBundles: snapshot.activityBundles,
     constraintsSummary: snapshot.constraintsSummary,
     markdown: snapshot.markdown,
@@ -887,8 +895,34 @@ export async function loadCurriculumView(
   } satisfies LearnerCurriculumView
 }
 
-export async function loadLearnerGoals(directory: string) {
-  const result = await requestJson<{ artifacts: Array<Record<string, unknown>> }>(
+export type GoalArtifact = {
+  id: string
+  kind: "goal"
+  workspaceId: string
+  status: "active" | "archived"
+  setId?: string
+  scope: "course" | "topic"
+  contextLabel: string
+  learnerRequest: string
+  rationaleSummary?: string
+  assumptions: string[]
+  openQuestions: string[]
+  statement: string
+  actionVerb: string
+  task: string
+  cognitiveLevel: string
+  howToTest: string
+  dependsOnGoalIds: string[]
+  buildsOnGoalIds: string[]
+  reinforcesGoalIds: string[]
+  conceptTags: string[]
+  workspaceRefs: string[]
+  createdAt: string
+  updatedAt: string
+}
+
+export async function loadLearnerGoals(directory: string): Promise<{ goals: GoalArtifact[] }> {
+  const result = await requestJson<{ artifacts: GoalArtifact[] }>(
     directory,
     "/api/learner/artifacts?kind=goal&status=active",
   )

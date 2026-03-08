@@ -44,7 +44,7 @@ export const LearnerArtifactListQuerySchema = z.object({
   includeRaw: z.boolean().optional(),
 })
 
-const SnapshotQueryRequestSchema = z.object({
+const BaseLearnerRequestSchema = z.object({
   persona: z.enum(PERSONA_IDS).optional(),
   intent: z.enum(TEACHING_INTENT_IDS).optional(),
   goalIds: z.array(z.string()).optional(),
@@ -52,13 +52,8 @@ const SnapshotQueryRequestSchema = z.object({
   workspaceState: z.enum(WORKSPACE_STATES).optional(),
 })
 
-const PlanRequestBodySchema = z.object({
-  persona: z.enum(PERSONA_IDS).optional(),
-  intent: z.enum(TEACHING_INTENT_IDS).optional(),
-  goalIds: z.array(z.string()).optional(),
-  sessionId: z.string().optional(),
-  workspaceState: z.enum(WORKSPACE_STATES).optional(),
-})
+const SnapshotQueryRequestSchema = BaseLearnerRequestSchema
+const PlanRequestBodySchema = BaseLearnerRequestSchema
 
 export function parseSnapshotQuery(requestURL: URL) {
   const query = requestURL.searchParams

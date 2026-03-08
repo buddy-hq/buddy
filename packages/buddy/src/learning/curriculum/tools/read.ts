@@ -2,12 +2,12 @@ import z from "zod"
 import { createBuddyTool, type BuddyToolContext } from "../../shared/create-buddy-tool.js"
 import { LearnerService } from "../../learner/service.js"
 
-const curriculumReadTool = createBuddyTool("curriculum_read", {
+const curriculumReadTool = createBuddyTool("learner_snapshot_read", {
   description: "Read the generated learning-plan view for the current workspace.",
   parameters: z.object({}),
   async execute(_params: unknown, ctx: BuddyToolContext) {
     await ctx.ask({
-      permission: "curriculum_read",
+      permission: "learner_snapshot_read",
       patterns: ["*"],
       always: ["*"],
       metadata: {

@@ -28,7 +28,7 @@ describe("curriculum tools", () => {
           providerID: "opencode",
           modelID: "claude-sonnet",
         })
-        const curriculumRead = tools.find((tool) => tool.id === "curriculum_read")
+        const curriculumRead = tools.find((tool) => tool.id === "learner_snapshot_read")
         const curriculumUpdate = tools.find((tool) => tool.id === "curriculum_update")
 
         expect(curriculumRead).toBeDefined()

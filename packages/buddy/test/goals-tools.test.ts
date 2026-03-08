@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { LearnerArtifactStore } from "../src/learning/learner/artifacts/store.js"
+import type { GoalArtifact } from "../src/learning/learner/artifacts/types.js"
 import { ensureGoalToolsRegistered } from "../src/learning/goals/tools/register.js"
 import { tmpdir } from "./fixture/fixture"
 
@@ -72,8 +73,7 @@ describe("goal tools", () => {
       },
     })
 
-    const goals = (await LearnerArtifactStore.readArtifacts(project.path, "goal"))
-      .filter((artifact) => artifact.kind === "goal")
+    const goals = (await LearnerArtifactStore.readArtifacts(project.path, "goal")) as GoalArtifact[]
 
     expect(goals).toHaveLength(3)
     expect(new Set(goals.map((goal) => goal.setId)).size).toBe(1)
