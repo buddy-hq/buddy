@@ -1,28 +1,22 @@
-import z from "zod"
 import {
   configErrorMessage,
   isConfigValidationError,
   readProjectConfig,
-} from "../../config/compatibility.js"
+} from "../../../config/compatibility.js"
 import {
   TeachingService,
   TeachingWorkspaceFileError,
   TeachingRevisionConflictError,
   TeachingWorkspaceNotFoundError,
-} from "../../learning/teaching/service.js"
+} from "../service.js"
 import {
-  TeachingLanguageSchema,
-  TeachingWorkspaceActivateFileRequestSchema,
-  TeachingWorkspaceCreateFileRequestSchema,
-  TeachingWorkspaceUpdateRequestSchema,
-} from "../../learning/teaching/types.js"
-import { getBuddyPersona, getDefaultBuddyPersona } from "../../personas/catalog.js"
-import { isPersonaId } from "../../personas/types.js"
-
-export const TeachingProvisionRequestSchema = z.object({
-  language: TeachingLanguageSchema.optional(),
-  persona: z.string().optional(),
-})
+  type TeachingProvisionRequest,
+  type TeachingWorkspaceActivateFileRequest,
+  type TeachingWorkspaceCreateFileRequest,
+  type TeachingWorkspaceUpdateRequest,
+} from "../types.js"
+import { getBuddyPersona, getDefaultBuddyPersona } from "../../../personas/catalog.js"
+import { isPersonaId } from "../../../personas/types.js"
 
 export function resolveTeachingProvisionPersona(input: {
   config: Awaited<ReturnType<typeof readProjectConfig>>
@@ -102,7 +96,7 @@ async function runTeachingWorkspaceAction<T>(
 export async function provisionTeachingWorkspace(input: {
   directory: string
   sessionID: string
-  payload: z.infer<typeof TeachingProvisionRequestSchema>
+  payload: TeachingProvisionRequest
 }): Promise<TeachingHandlerResult<Awaited<ReturnType<typeof TeachingService.ensure>>>> {
   let config: Awaited<ReturnType<typeof readProjectConfig>>
   try {
@@ -178,7 +172,7 @@ export async function readTeachingWorkspace(input: {
 export async function saveTeachingWorkspace(input: {
   directory: string
   sessionID: string
-  payload: z.infer<typeof TeachingWorkspaceUpdateRequestSchema>
+  payload: TeachingWorkspaceUpdateRequest
 }): Promise<TeachingHandlerResult<Awaited<ReturnType<typeof TeachingService.save>>>> {
   return runTeachingWorkspaceAction(() => TeachingService.save(input.directory, input.sessionID, input.payload))
 }
@@ -186,7 +180,7 @@ export async function saveTeachingWorkspace(input: {
 export async function addTeachingWorkspaceFile(input: {
   directory: string
   sessionID: string
-  payload: z.infer<typeof TeachingWorkspaceCreateFileRequestSchema>
+  payload: TeachingWorkspaceCreateFileRequest
 }): Promise<TeachingHandlerResult<Awaited<ReturnType<typeof TeachingService.addFile>>>> {
   return runTeachingWorkspaceAction(() => TeachingService.addFile(input.directory, input.sessionID, input.payload))
 }
@@ -194,7 +188,7 @@ export async function addTeachingWorkspaceFile(input: {
 export async function activateTeachingWorkspaceFile(input: {
   directory: string
   sessionID: string
-  payload: z.infer<typeof TeachingWorkspaceActivateFileRequestSchema>
+  payload: TeachingWorkspaceActivateFileRequest
 }): Promise<TeachingHandlerResult<Awaited<ReturnType<typeof TeachingService.activateFile>>>> {
   return runTeachingWorkspaceAction(() =>
     TeachingService.activateFile(input.directory, input.sessionID, input.payload.relativePath),
