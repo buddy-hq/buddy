@@ -7,7 +7,8 @@ import {
 import { compatibilityRoute } from "../../openapi/compatibility-route.js"
 import { directoryParameters } from "../shared/openapi.js"
 import { ensureAllowedDirectory } from "../support/directory.js"
-import { proxyToOpenCode } from "../support/proxy.js"
+import { normalizeErrorResponse } from "../support/error-normalization.js"
+import { fetchOpenCode } from "../support/proxy.js"
 import { loadSessionStatus } from "../support/session.js"
 
 export function registerSessionAbortRoutes(app: Hono): Hono {
@@ -43,11 +44,15 @@ export function registerSessionAbortRoutes(app: Hono): Hono {
         return c.json(false)
       }
 
-      const response = await proxyToOpenCode(c, {
-        targetPath: `/session/${encodeURIComponent(sessionID)}/abort`,
+      const response = await fetchOpenCode({
+        directory: directoryResult.directory,
+        method: c.req.method.toUpperCase(),
+        path: `/session/${encodeURIComponent(sessionID)}/abort`,
+        headers: new Headers(c.req.raw.headers),
       })
+      const normalized = await normalizeErrorResponse(response)
 
-      if (!response.ok) return response
+      if (!normalized.ok) return normalized
       return c.json(true)
     },
   )

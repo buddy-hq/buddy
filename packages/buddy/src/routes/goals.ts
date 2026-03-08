@@ -3,9 +3,8 @@ import { resolver } from "hono-openapi"
 import z from "zod"
 import { LearnerPath } from "../learning/learner/path.js"
 import { LearnerService } from "../learning/learner/service.js"
-import { ErrorSchema } from "../openapi/compatibility-schemas.js"
 import { compatibilityRoute } from "../openapi/compatibility-route.js"
-import { directoryParameters } from "./shared/openapi.js"
+import { directoryForbiddenResponse, directoryParameters } from "./shared/openapi.js"
 import { withDirectoryContext } from "./shared/route-helpers.js"
 
 const GoalsDocument = z.object({
@@ -31,10 +30,7 @@ export const GoalsRoutes = () =>
           },
         },
         403: {
-          description: "Directory is outside allowed roots",
-          content: {
-            "application/json": { schema: ErrorSchema },
-          },
+          ...directoryForbiddenResponse,
         },
       },
     }),

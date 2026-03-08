@@ -49,13 +49,15 @@ export function normalizePersonaTarget(input: {
   }
 
   if (rawAgent) {
+    // Keep backward compatibility for `agent`: accept persona IDs (enables personaID/includeBuddySystem),
+    // then fall back to resolveConfiguredAgentKey for runtime-agent IDs.
     const explicitPersona = isPersonaId(rawAgent) ? getBuddyPersona(rawAgent, input.config.personas) : undefined
     if (explicitPersona?.hidden) {
       throw new SessionTransformValidationError(`Buddy persona "${rawAgent}" is hidden`)
     }
 
     return {
-      personaID: explicitPersona?.id as BuddyPersonaId | undefined,
+      personaID: explicitPersona ? explicitPersona.id : undefined,
       runtimeAgent: resolveConfiguredAgentKey(rawAgent, mergedAgents),
       includeBuddySystem: !!explicitPersona,
     }

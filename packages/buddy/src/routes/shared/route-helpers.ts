@@ -95,6 +95,7 @@ export async function withConfigSync(
     }
     throw new Error(
       `Failed to sync config before ${input.operation}: ${String(error instanceof Error ? error.message : error)}`,
+      { cause: error },
     )
   }
 

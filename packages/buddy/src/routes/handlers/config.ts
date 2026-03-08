@@ -1,5 +1,6 @@
 import { Agent as OpenCodeAgent } from "@buddy/opencode-adapter/agent"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
+import { ZodError } from "zod"
 import {
   configErrorMessage,
   isConfigValidationError,
@@ -21,7 +22,7 @@ export function mapOpenCodeAgents(
 }
 
 export function configRouteValidationResponse(error: unknown): Response | undefined {
-  if (error instanceof Error && error.name === "ZodError") {
+  if (error instanceof ZodError) {
     return Response.json({ error: error.message }, { status: 400 })
   }
   return undefined

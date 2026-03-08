@@ -82,7 +82,8 @@ export function registerSessionStateRoutes(app: Hono): Hono {
           return c.body(null, 204)
         }
 
-        const { activityBundles: _activityBundles, ...capabilityEnvelope } = state.inspector.capabilityEnvelope
+        const capabilityEnv = state.inspector?.capabilityEnvelope ?? {}
+        const { activityBundles: _activityBundles, ...capabilityEnvelope } = capabilityEnv
 
         return c.json({
           sessionId: state.sessionId,

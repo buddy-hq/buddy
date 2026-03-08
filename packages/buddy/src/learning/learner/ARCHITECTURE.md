@@ -328,8 +328,6 @@ confidence = low/medium  → guided-practice
 
 ---
 
----
-
 ## Appendix: Complete Reference
 
 ### Service API (Full)
@@ -471,7 +469,7 @@ requiredAction: "Return to guided practice before another mastery check"
 
 ```typescript
 autoResolveFeedback(evidence) {
-  if (evidence.outcome !== "positive" && "mixed") return  // Only positive/mixed triggers
+  if (evidence.outcome !== "positive" && evidence.outcome !== "mixed") return  // Only positive/mixed triggers
 
   for each feedback where:
     - same workspace

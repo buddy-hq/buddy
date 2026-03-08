@@ -17,8 +17,9 @@ export function createFigureSvgRoute(input: FigureRouteInput) {
       const svg = await input.readFigure(directoryResult.directory, c.req.param("figureID"))
       return new Response(svg, {
         headers: {
-          "cache-control": "public, max-age=31536000, immutable",
+          "cache-control": "private, max-age=31536000, immutable",
           "content-type": "image/svg+xml; charset=utf-8",
+          vary: "x-buddy-directory",
         },
       })
     } catch (error) {

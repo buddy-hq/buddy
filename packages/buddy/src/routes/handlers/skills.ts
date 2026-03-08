@@ -4,9 +4,9 @@ import {
   installPlaceholderLibrarySkill,
   listSkillsCatalog,
   removeManagedSkill,
+  SkillServiceError,
   setInstalledSkillAction,
 } from "../../skills/service.js"
-import { resolveDirectoryRequestContext } from "../support/directory.js"
 
 export const createSkillBodySchema = z.object({
   name: z.string().trim().min(1),
@@ -34,15 +34,6 @@ export function skillErrorMessage(error: unknown) {
 export function shouldRefreshSkillCatalog(requestURL: string): boolean {
   const refreshParam = new URL(requestURL).searchParams.get("refresh")
   return refreshParam === "1" || refreshParam === "true"
-}
-
-export function resolveSkillRequestContext(request: Request) {
-  const contextResult = resolveDirectoryRequestContext(request)
-  if (!contextResult.ok) return contextResult
-  return {
-    ok: true as const,
-    context: contextResult.context,
-  }
 }
 
 export async function loadSkillsCatalog(input: {
@@ -90,7 +81,7 @@ export async function createSkill(input: {
     }
   | {
       ok: false
-      status: 400 | 500
+      status: 400 | 409 | 500
       error: string
     }
 > {
@@ -102,9 +93,16 @@ export async function createSkill(input: {
     }
   } catch (error) {
     const message = skillErrorMessage(error)
+    const status = error instanceof SkillServiceError
+      ? error.code === "conflict"
+        ? 409
+        : error.code === "invalid_input"
+          ? 400
+          : 500
+      : 500
     return {
       ok: false,
-      status: /already exists/i.test(message) || /must include/i.test(message) ? 400 : 500,
+      status,
       error: message,
     }
   }
@@ -120,7 +118,7 @@ export async function installLibrarySkill(input: {
     }
   | {
       ok: false
-      status: 400 | 404 | 500
+      status: 400 | 404 | 409 | 500
       error: string
     }
 > {
@@ -132,9 +130,18 @@ export async function installLibrarySkill(input: {
     }
   } catch (error) {
     const message = skillErrorMessage(error)
+    const status = error instanceof SkillServiceError
+      ? error.code === "not_found"
+        ? 404
+        : error.code === "invalid_input"
+          ? 400
+          : error.code === "conflict"
+            ? 409
+            : 500
+      : 500
     return {
       ok: false,
-      status: /unknown/i.test(message) ? 404 : /already exists|invalid/i.test(message) ? 400 : 500,
+      status,
       error: message,
     }
   }
@@ -202,9 +209,10 @@ export async function removeSkill(input: {
     }
   } catch (error) {
     const message = skillErrorMessage(error)
+    const status = error instanceof SkillServiceError ? (error.code === "not_found" ? 404 : 400) : 400
     return {
       ok: false,
-      status: /not found/i.test(message) ? 404 : 400,
+      status,
       error: message,
     }
   }

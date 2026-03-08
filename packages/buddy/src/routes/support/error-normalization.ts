@@ -11,6 +11,7 @@ type ErrorPayload = {
 }
 
 function asErrorPayload(payload: unknown): ErrorPayload | undefined {
+  // Intentional shallow assertion in asErrorPayload; extractErrorMessage validates field types.
   if (!payload || typeof payload !== "object") return undefined
   return payload as ErrorPayload
 }
@@ -34,7 +35,7 @@ export async function normalizeErrorResponse(
     return response
   }
 
-  const payload = await safeReadJson(response)
+  const payload = await safeReadJson(response, { clone: true })
   const message = extractErrorMessage(payload)
   if (!message) return response
 

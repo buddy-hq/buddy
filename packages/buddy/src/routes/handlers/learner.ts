@@ -40,7 +40,7 @@ export function parseLearnerStateQuery(input: {
   conceptTags: string[]
   includeDerived: string | undefined
 }) {
-  return LearnerStateQuerySchema.parse({
+  return LearnerStateQuerySchema.safeParse({
     workspaceId: input.workspaceId,
     goalIds: input.goalIds,
     conceptTags: input.conceptTags,
@@ -76,7 +76,7 @@ export function buildLearnerStateQueryFromRequest(input: { requestURL: URL; work
 
 export function parseCurriculumViewQuery(requestURL: URL) {
   const query = requestURL.searchParams
-  return CurriculumQuerySchema.parse({
+  return CurriculumQuerySchema.safeParse({
     persona: query.get("persona") ?? undefined,
     intent: query.get("intent") ?? undefined,
     focusGoalIds: query.has("goalId") ? query.getAll("goalId") : undefined,

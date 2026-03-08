@@ -223,6 +223,15 @@ export type RuntimeProfile = {
   capabilityEnvelope: CapabilityEnvelope
 }
 
+export type TeachingLlmOutboundEntry = {
+  kind: "message" | "command"
+  createdAt: string
+  payload: Record<string, unknown>
+  systemPromptSent?: string
+  systemPromptBase?: string
+  systemPromptEffective?: string
+}
+
 export type TeachingSessionState = {
   sessionId: string
   persona: PersonaId
@@ -230,6 +239,8 @@ export type TeachingSessionState = {
   currentSurface: SurfaceId
   workspaceState: WorkspaceState
   focusGoalIds: string[]
+  lastLlmOutbound?: TeachingLlmOutboundEntry
+  llmOutboundHistory?: TeachingLlmOutboundEntry[]
   promptInjectionCache?: {
     stableHeaderSections: Record<string, string>
     turnContextSections: Record<string, string>

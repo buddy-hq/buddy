@@ -21,7 +21,7 @@ function readSessionNotFoundMessage(error: unknown): string | undefined {
   return undefined
 }
 
-function isSessionNotFoundError(error: unknown): boolean {
+export function isSessionNotFoundError(error: unknown): boolean {
   if (!error || typeof error !== "object") return false
   const errorName = "name" in error ? (error as OpenCodeNotFoundError).name : undefined
   if (errorName !== "NotFoundError") return false
@@ -29,8 +29,6 @@ function isSessionNotFoundError(error: unknown): boolean {
   const message = readSessionNotFoundMessage(error)
   return typeof message === "string" && message.startsWith("Session not found:")
 }
-
-export { isSessionNotFoundError }
 
 export async function ensureSessionExistsInDirectory(input: {
   directory: string

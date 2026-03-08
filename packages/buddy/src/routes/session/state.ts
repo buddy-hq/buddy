@@ -39,9 +39,7 @@ export function writeLastLlmOutbound(input: {
   writeTeachingSessionState(input.directory, {
     ...state,
     lastLlmOutbound: outboundEntry,
-    llmOutboundHistory: nextHistory.length > LLM_OUTBOUND_HISTORY_LIMIT
-      ? nextHistory.slice(nextHistory.length - LLM_OUTBOUND_HISTORY_LIMIT)
-      : nextHistory,
+    llmOutboundHistory: nextHistory.slice(-LLM_OUTBOUND_HISTORY_LIMIT),
   })
 }
 

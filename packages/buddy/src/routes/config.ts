@@ -84,6 +84,12 @@ export const ConfigRoutes = (): Hono =>
               },
             },
           },
+          400: {
+            description: "Invalid config",
+            content: {
+              "application/json": { schema: ErrorSchema },
+            },
+          },
           403: {
             ...directoryForbiddenResponse,
           },

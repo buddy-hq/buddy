@@ -50,15 +50,26 @@ export function createSessionMessageTransform(input: { context: SessionTransform
         throw new SessionTransformValidationError("content or parts must be provided")
       }
 
+      const allTextContent = content.trim().length > 0
+        ? content
+        : parts
+            .filter((part): part is { type: "text"; text: string } => {
+              if (!part || typeof part !== "object") return false
+              if (!("type" in part) || !("text" in part)) return false
+              return part.type === "text" && typeof part.text === "string"
+            })
+            .map((part) => part.text)
+            .join("\n")
+
       const transformed: Record<string, unknown> = {
         ...body,
         parts,
       }
       const existingSystem = typeof body.system === "string" ? body.system.trim() : ""
       let buddySystem = ""
-      const previousState = readTeachingSessionState(input.context.directory, input.context.sessionID)
 
       if (target.includeBuddySystem && target.personaID) {
+        const previousState = readTeachingSessionState(input.context.directory, input.context.sessionID)
         const persona = getBuddyPersona(target.personaID, projectConfig.personas)
         const intentOverride = resolveIntentOverride({
           body,
@@ -94,7 +105,7 @@ export function createSessionMessageTransform(input: { context: SessionTransform
           teachingContext,
           intentOverride,
           focusGoalIds,
-          userContent: content,
+          userContent: allTextContent,
         })
         const injectionPolicy = buildPromptInjectionPolicy({
           previous: previousState,
@@ -156,7 +167,7 @@ export function createSessionMessageTransform(input: { context: SessionTransform
         observeAcceptedMessage = async () => {
           await LearnerService.observeLearnerMessage({
             directory: input.context.directory,
-            content,
+            content: allTextContent,
             goalIds: focusGoalIds.length > 0 ? focusGoalIds : learnerDigest.relevantGoalIds,
             sessionId: input.context.sessionID,
           })

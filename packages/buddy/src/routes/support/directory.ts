@@ -4,6 +4,7 @@ export type AllowedDirectoryResult =
   | {
       ok: true
       directory: string
+      requestURL: URL
     }
   | {
       ok: false
@@ -18,22 +19,23 @@ export type DirectoryRequestContext = {
   directory: string
 }
 
-const directoryRoots = allowedDirectoryRoots()
-
-function requestDirectory(request: Request): string {
-  const url = new URL(request.url)
+function requestDirectory(request: Request): { requestURL: URL; directory: string } {
+  const requestURL = new URL(request.url)
   const rawDirectory =
-    url.searchParams.get("directory") ??
+    requestURL.searchParams.get("directory") ??
     request.headers.get("x-buddy-directory") ??
     request.headers.get("x-opencode-directory") ??
     ""
 
-  return resolveDirectory(rawDirectory)
+  return {
+    requestURL,
+    directory: resolveDirectory(rawDirectory),
+  }
 }
 
 export const ensureAllowedDirectory: EnsureAllowedDirectory = (request) => {
-  const directory = requestDirectory(request)
-  if (!isAllowedDirectory(directory, directoryRoots)) {
+  const { requestURL, directory } = requestDirectory(request)
+  if (!isAllowedDirectory(directory, allowedDirectoryRoots())) {
     return {
       ok: false,
       response: Response.json({ error: "Directory is outside allowed roots" }, { status: 403 }),
@@ -43,6 +45,7 @@ export const ensureAllowedDirectory: EnsureAllowedDirectory = (request) => {
   return {
     ok: true,
     directory,
+    requestURL,
   }
 }
 
@@ -62,7 +65,7 @@ export function resolveDirectoryRequestContext(request: Request):
     ok: true,
     context: {
       request,
-      requestURL: new URL(request.url),
+      requestURL: allowed.requestURL,
       directory: allowed.directory,
     },
   }

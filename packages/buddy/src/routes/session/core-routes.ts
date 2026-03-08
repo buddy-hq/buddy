@@ -9,6 +9,7 @@ import {
 import { compatibilityRoute } from "../../openapi/compatibility-route.js"
 import { isJsonContentType, safeReadJson } from "../shared/http.js"
 import { directoryParameters } from "../shared/openapi.js"
+import { ensureSessionExistsInDirectory } from "./lookup.js"
 import { ensureAllowedDirectory } from "../support/directory.js"
 import { normalizeErrorResponse } from "../support/error-normalization.js"
 import { fetchOpenCode, proxyToOpenCode } from "../support/proxy.js"
@@ -125,7 +126,7 @@ export function registerSessionCoreRoutes(app: Hono): Hono {
         if (!normalized.ok) return normalized
         if (!isJsonContentType(normalized.headers.get("content-type"))) return normalized
 
-        const session = await safeReadJson(normalized)
+        const session = await safeReadJson(normalized, { clone: true })
         const matchesProject = await isSessionInRequestedProject(directoryResult.directory, session)
         if (!matchesProject) {
           return c.json({ error: "Session not found" }, 404)
@@ -153,6 +154,12 @@ export function registerSessionCoreRoutes(app: Hono): Hono {
               "application/json": { schema: SessionInfoSchema },
             },
           },
+          404: {
+            description: "Session not found",
+            content: {
+              "application/json": { schema: ErrorSchema },
+            },
+          },
           403: {
             description: "Directory is outside allowed roots",
             content: {
@@ -162,7 +169,17 @@ export function registerSessionCoreRoutes(app: Hono): Hono {
         },
       }),
       async (c) => {
+        const directoryResult = ensureAllowedDirectory(c.req.raw)
+        if (!directoryResult.ok) return directoryResult.response
+
         const sessionID = c.req.param("sessionID")
+        const lookupResponse = await ensureSessionExistsInDirectory({
+          directory: directoryResult.directory,
+          sessionID,
+          request: c.req.raw,
+        })
+        if (lookupResponse) return lookupResponse
+
         return proxyToOpenCode(c, {
           targetPath: `/session/${encodeURIComponent(sessionID)}`,
         })

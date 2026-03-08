@@ -31,22 +31,34 @@ export function projectUpdateErrorMessage(error: unknown) {
   return "Invalid project update"
 }
 
-function isProjectNotFoundError(error: unknown): boolean {
-  if (!error || typeof error !== "object") return false
-  const payload = error as {
-    name?: unknown
+function projectErrorMessage(payload: unknown): string | undefined {
+  if (!payload || typeof payload !== "object") return undefined
+  const value = payload as {
     message?: unknown
     data?: {
       message?: unknown
     }
   }
+  if (typeof value.data?.message === "string") return value.data.message
+  if (typeof value.message === "string") return value.message
+  return undefined
+}
+
+/**
+ * Handles Error shapes from OpenCode:
+ * - Error with `cause` containing `{ data?: { message?: string }, message?: string }`
+ * - Error-like payloads with `{ data?: { message?: string }, message?: string }`
+ */
+function isProjectNotFoundError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false
+  const payload = error as {
+    name?: unknown
+  }
   if (payload.name === "NotFoundError") return true
 
-  const message = typeof payload.data?.message === "string"
-    ? payload.data.message
-    : typeof payload.message === "string"
-      ? payload.message
-      : ""
+  const message = (error instanceof Error ? projectErrorMessage(error.cause) : undefined)
+    ?? projectErrorMessage(error)
+    ?? ""
   return message.startsWith("Project not found:")
 }
 

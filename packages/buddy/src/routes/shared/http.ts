@@ -12,11 +12,16 @@ export function safeJsonParse(text: string): unknown | undefined {
   }
 }
 
-export async function safeReadJson(response: Response): Promise<unknown | undefined> {
-  return response
-    .clone()
-    .json()
-    .catch(() => undefined)
+export async function safeReadJson(
+  response: Response,
+  input?: { clone?: boolean },
+): Promise<unknown | undefined> {
+  try {
+    const source = input?.clone || response.bodyUsed ? response.clone() : response
+    return await source.json().catch(() => undefined)
+  } catch {
+    return undefined
+  }
 }
 
 export function parseJsonText(text: string): { ok: true; value: unknown } | { ok: false } {

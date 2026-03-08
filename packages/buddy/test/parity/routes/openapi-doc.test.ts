@@ -108,6 +108,7 @@ describe("parity.routes.openapi-doc", () => {
 
     expect(paths["/api/skills"]?.post?.responses?.["403"]).toBeDefined()
     expect(paths["/api/skills/{name}"]?.patch?.responses?.["403"]).toBeDefined()
+    expect(paths["/api/skills/{name}"]?.delete?.responses?.["403"]).toBeDefined()
     expect(paths["/api/skills/library/{skillID}/install"]?.post?.responses?.["403"]).toBeDefined()
   })
 })

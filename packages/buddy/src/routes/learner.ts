@@ -30,6 +30,10 @@ export const LearnerRoutes = () =>
             description: "Learner state",
             content: { "application/json": { schema: AnyObjectSchema } },
           },
+          400: {
+            description: "Invalid query parameters",
+            content: { "application/json": { schema: ErrorSchema } },
+          },
           403: {
             description: "Directory is outside allowed roots",
             content: { "application/json": { schema: ErrorSchema } },
@@ -41,11 +45,15 @@ export const LearnerRoutes = () =>
         if (!contextResult.ok) return contextResult.response
 
         const workspace = await LearnerService.ensureWorkspaceContext(contextResult.value.directory)
-        const stateQuery = buildLearnerStateQueryFromRequest({
+        const stateQueryResult = buildLearnerStateQueryFromRequest({
           requestURL: contextResult.value.requestURL,
           workspaceId: workspace.workspaceId,
         })
-        const state = await LearnerService.queryState(stateQuery)
+        if (!stateQueryResult.success) {
+          return zodIssuesResponse(stateQueryResult.error)
+        }
+
+        const state = await LearnerService.queryState(stateQueryResult.data)
         return c.json({
           workspace,
           ...state,
@@ -160,6 +168,10 @@ export const LearnerRoutes = () =>
             description: "Generated learning-plan view",
             content: { "application/json": { schema: AnyObjectSchema } },
           },
+          400: {
+            description: "Invalid query parameters",
+            content: { "application/json": { schema: ErrorSchema } },
+          },
           403: {
             description: "Directory is outside allowed roots",
             content: { "application/json": { schema: ErrorSchema } },
@@ -170,7 +182,11 @@ export const LearnerRoutes = () =>
         const contextResult = withDirectoryContext(c.req.raw)
         if (!contextResult.ok) return contextResult.response
 
-        const params = parseCurriculumViewQuery(contextResult.value.requestURL)
+        const paramsResult = parseCurriculumViewQuery(contextResult.value.requestURL)
+        if (!paramsResult.success) {
+          return zodIssuesResponse(paramsResult.error)
+        }
+        const params = paramsResult.data
         const workspace = await LearnerService.ensureWorkspaceContext(contextResult.value.directory)
         const workspaceState = readWorkspaceStateFromSession({
           directory: contextResult.value.directory,
@@ -256,7 +272,7 @@ export const LearnerRoutes = () =>
         const contextResult = withDirectoryContext(c.req.raw)
         if (!contextResult.ok) return contextResult.response
 
-        const projections = await LearnerService.runSafetySweep()
+        const projections = await readScopedLearnerProjections(contextResult.value.directory)
         return c.json(projections)
       },
     )

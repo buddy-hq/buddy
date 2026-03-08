@@ -9,12 +9,12 @@ import {
   parseToggleSkillPayload,
   removeSkill,
   resolveSkillAction,
-  resolveSkillRequestContext,
   shouldRefreshSkillCatalog,
   updateSkill,
 } from "./handlers/skills.js"
 import { directoryParameters } from "./shared/openapi.js"
 import { withJsonBody } from "./shared/route-helpers.js"
+import { resolveDirectoryRequestContext } from "./support/directory.js"
 
 export const SkillsRoutes = (): Hono =>
   new Hono()
@@ -52,7 +52,7 @@ export const SkillsRoutes = (): Hono =>
         },
       }),
       async (c) => {
-        const contextResult = resolveSkillRequestContext(c.req.raw)
+        const contextResult = resolveDirectoryRequestContext(c.req.raw)
         if (!contextResult.ok) return contextResult.response
 
         const catalogResult = await loadSkillsCatalog({
@@ -96,6 +96,14 @@ export const SkillsRoutes = (): Hono =>
               },
             },
           },
+          409: {
+            description: "Skill already exists",
+            content: {
+              "application/json": {
+                schema: ErrorSchema,
+              },
+            },
+          },
           403: {
             description: "Directory is outside allowed roots",
             content: {
@@ -107,7 +115,7 @@ export const SkillsRoutes = (): Hono =>
         },
       }),
       async (c) => {
-        const contextResult = resolveSkillRequestContext(c.req.raw)
+        const contextResult = resolveDirectoryRequestContext(c.req.raw)
         if (!contextResult.ok) return contextResult.response
 
         const bodyResult = await withJsonBody(c.req.raw)
@@ -143,8 +151,24 @@ export const SkillsRoutes = (): Hono =>
               },
             },
           },
+          400: {
+            description: "Invalid library item",
+            content: {
+              "application/json": {
+                schema: ErrorSchema,
+              },
+            },
+          },
           404: {
             description: "Library item not found",
+            content: {
+              "application/json": {
+                schema: ErrorSchema,
+              },
+            },
+          },
+          409: {
+            description: "Skill already exists",
             content: {
               "application/json": {
                 schema: ErrorSchema,
@@ -162,7 +186,7 @@ export const SkillsRoutes = (): Hono =>
         },
       }),
       async (c) => {
-        const contextResult = resolveSkillRequestContext(c.req.raw)
+        const contextResult = resolveDirectoryRequestContext(c.req.raw)
         if (!contextResult.ok) return contextResult.response
 
         const installResult = await installLibrarySkill({
@@ -217,7 +241,7 @@ export const SkillsRoutes = (): Hono =>
         },
       }),
       async (c) => {
-        const contextResult = resolveSkillRequestContext(c.req.raw)
+        const contextResult = resolveDirectoryRequestContext(c.req.raw)
         if (!contextResult.ok) return contextResult.response
 
         const bodyResult = await withJsonBody(c.req.raw)
@@ -262,6 +286,14 @@ export const SkillsRoutes = (): Hono =>
               },
             },
           },
+          404: {
+            description: "Skill not found",
+            content: {
+              "application/json": {
+                schema: ErrorSchema,
+              },
+            },
+          },
           403: {
             description: "Directory is outside allowed roots",
             content: {
@@ -273,7 +305,7 @@ export const SkillsRoutes = (): Hono =>
         },
       }),
       async (c) => {
-        const contextResult = resolveSkillRequestContext(c.req.raw)
+        const contextResult = resolveDirectoryRequestContext(c.req.raw)
         if (!contextResult.ok) return contextResult.response
 
         const removeResult = await removeSkill({
