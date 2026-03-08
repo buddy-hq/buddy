@@ -1,0 +1,36 @@
+import { loadOpenCodeApp } from "../../../opencode-runtime/runtime.js"
+import { registerOpenCodeTools } from "./registration.js"
+import type { FetchOpenCodeInput } from "./types.js"
+
+async function fetchOpenCode(input: FetchOpenCodeInput): Promise<Response> {
+  await registerOpenCodeTools(input.directory, {
+    registerCurriculumTools: input.registerCurriculumTools ?? false,
+    registerFigureTools: input.registerFigureTools ?? false,
+    registerFreeformFigureTools: input.registerFreeformFigureTools ?? false,
+    registerGoalTools: input.registerGoalTools ?? false,
+    registerLearnerTools: input.registerLearnerTools ?? false,
+    registerTeachingTools: input.registerTeachingTools ?? false,
+  })
+
+  const openCodeApp = await loadOpenCodeApp()
+  const url = new URL(`http://opencode.local${input.path}`)
+  if (input.query) {
+    url.search = input.query
+  }
+
+  const headers = new Headers(input.headers)
+  headers.delete("x-buddy-directory")
+  headers.set("x-opencode-directory", input.directory)
+  headers.delete("host")
+  headers.delete("content-length")
+
+  return openCodeApp.fetch(
+    new Request(url.toString(), {
+      method: input.method,
+      headers,
+      body: input.body,
+    }),
+  )
+}
+
+export { fetchOpenCode }

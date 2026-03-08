@@ -1,0 +1,84 @@
+import type { PermissionAction } from "@buddy/opencode-adapter/permission"
+
+export type SkillSource = "custom" | "library" | "external"
+export type SkillScope = "global" | "workspace"
+export type SkillPermissionSource = "explicit" | "inherited" | "default"
+export type SkillRuleAction = PermissionAction | "inherit"
+
+export type InstalledSkillInfo = {
+  name: string
+  description: string
+  location: string
+  directory: string
+  content: string
+  examplePrompt?: string
+  enabled: boolean
+  permissionAction: PermissionAction
+  permissionSource: SkillPermissionSource
+  source: SkillSource
+  scope: SkillScope
+  managed: boolean
+  removable: boolean
+  libraryID?: string
+}
+
+export type SkillLibraryEntry = {
+  id: string
+  name: string
+  description: string
+  summary: string
+  examplePrompt: string
+  installed: boolean
+}
+
+export type SkillsCatalog = {
+  directory: string
+  managedRoot: string
+  installed: InstalledSkillInfo[]
+  library: SkillLibraryEntry[]
+}
+
+export type CreateCustomSkillInput = {
+  name: string
+  description: string
+  examplePrompt?: string
+  content: string
+}
+
+export type SkillServiceErrorCode = "invalid_input" | "not_found" | "conflict" | "forbidden" | "upstream_failure"
+
+export class SkillServiceError extends Error {
+  constructor(
+    readonly code: SkillServiceErrorCode,
+    message: string,
+  ) {
+    super(message)
+    this.name = "SkillServiceError"
+  }
+}
+
+export type PermissionRule = {
+  permission: string
+  pattern: string
+  action: PermissionAction
+}
+
+export type PermissionRuleset = PermissionRule[]
+
+export type OpenCodeSkill = {
+  name: string
+  description: string
+  location: string
+  content: string
+}
+
+export type PlaceholderLibrarySkill = Omit<SkillLibraryEntry, "installed"> & {
+  content: string
+}
+
+export type ManagedSkillSource = {
+  source: SkillSource
+  managed: boolean
+  removable: boolean
+  libraryID?: string
+}
