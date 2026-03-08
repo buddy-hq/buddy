@@ -1,5 +1,4 @@
 import fs from "node:fs/promises"
-import path from "node:path"
 import {
   BUDDY_XDG_CACHE_HOME,
   BUDDY_XDG_CONFIG_HOME,
@@ -8,8 +7,6 @@ import {
   configureOpenCodeEnvironment,
 } from "./env.js"
 import { Server } from "@buddy/opencode-adapter/server"
-
-const BUDDY_RUNTIME_ROOT = path.resolve(process.cwd(), ".buddy-runtime")
 
 let appPromise: Promise<{ fetch(request: Request): Response | Promise<Response> }> | undefined
 
@@ -33,21 +30,4 @@ export async function loadOpenCodeApp() {
   }
 
   return appPromise
-}
-
-export async function assertOpenCodeRuntime(directory: string) {
-  const app = await loadOpenCodeApp()
-  const request = new Request("http://buddy/session", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-opencode-directory": directory,
-    },
-    body: "{}",
-  })
-  const response = await app.fetch(request)
-  if (!response.ok) {
-    const text = await response.text()
-    throw new Error(`OpenCode startup assertion failed (${response.status}): ${text}`)
-  }
 }

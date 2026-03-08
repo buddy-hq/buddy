@@ -1,6 +1,5 @@
 import { Hono } from "hono"
 import {
-  AnyObjectSchema,
   BooleanSchema,
   ErrorSchema,
   PermissionRequestSchema,

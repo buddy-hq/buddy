@@ -19,13 +19,6 @@ type RouteFailure = {
 
 export type RouteResult<T> = RouteSuccess<T> | RouteFailure
 
-export class RouteResponseError extends Error {
-  constructor(readonly response: Response, message = "Route response error") {
-    super(message)
-    this.name = "RouteResponseError"
-  }
-}
-
 export function withDirectoryContext(request: Request): RouteResult<DirectoryRequestContext> {
   const contextResult = resolveDirectoryRequestContext(request)
   if (!contextResult.ok) {
@@ -100,11 +93,4 @@ export async function withConfigSync(
   }
 
   return contextResult
-}
-
-export function mapRouteError(error: unknown): Response | undefined {
-  if (error instanceof RouteResponseError) {
-    return error.response
-  }
-  return undefined
 }

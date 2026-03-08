@@ -1,5 +1,5 @@
 import { Hono } from "hono"
-import { AnyObjectSchema, ErrorSchema } from "../openapi/compatibility-schemas.js"
+import { AnyObjectSchema } from "../openapi/compatibility-schemas.js"
 import { withConfigSync } from "./shared/route-helpers.js"
 import { directoryForbiddenResponse, directoryParameters } from "./shared/openapi.js"
 import type { ProxyEndpointSpec } from "./shared/proxy-routes.js"

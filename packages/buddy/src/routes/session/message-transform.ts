@@ -1,11 +1,14 @@
 import { parseConfiguredModel, readProjectConfig } from "../../config/compatibility.js"
 import { compileRuntimeProfile } from "../../learning/runtime/compiler.js"
-import { buildPromptInjectionPolicy } from "../../learning/runtime/prompt-injection-policy.js"
-import { resolvePromptInjectionDecision } from "../../learning/runtime/prompt-injection.js"
 import { readTeachingSessionState, writeTeachingSessionState } from "../../learning/runtime/session-state.js"
 import { type WorkspaceState } from "../../learning/runtime/types.js"
 import { LearnerService } from "../../learning/learner/service.js"
-import { buildLearningSystemPrompt, summarizeAdvisorySuggestions } from "../../learning/shared/compose-system-prompt.js"
+import {
+  buildLearningSystemPrompt,
+  buildPromptInjectionPolicy,
+  getAdvisorySuggestions,
+  resolvePromptInjectionDecision,
+} from "../../learning/system-prompt/index.js"
 import { TeachingPromptContextSchema } from "../../learning/teaching/types.js"
 import { getBuddyPersona } from "../../personas/catalog.js"
 import { SessionTransformValidationError } from "./errors.js"
@@ -50,16 +53,17 @@ export function createSessionMessageTransform(input: { context: SessionTransform
         throw new SessionTransformValidationError("content or parts must be provided")
       }
 
-      const allTextContent = content.trim().length > 0
-        ? content
-        : parts
-            .filter((part): part is { type: "text"; text: string } => {
-              if (!part || typeof part !== "object") return false
-              if (!("type" in part) || !("text" in part)) return false
-              return part.type === "text" && typeof part.text === "string"
-            })
-            .map((part) => part.text)
-            .join("\n")
+      const allTextContent =
+        content.trim().length > 0
+          ? content
+          : parts
+              .filter((part): part is { type: "text"; text: string } => {
+                if (!part || typeof part !== "object") return false
+                if (!("type" in part) || !("text" in part)) return false
+                return part.type === "text" && typeof part.text === "string"
+              })
+              .map((part) => part.text)
+              .join("\n")
 
       const transformed: Record<string, unknown> = {
         ...body,
@@ -141,7 +145,7 @@ export function createSessionMessageTransform(input: { context: SessionTransform
             runtimeAgent: runtimeProfile.runtimeAgent,
             capabilityEnvelope: runtimeProfile.capabilityEnvelope,
             learnerDigest,
-            advisorySuggestions: summarizeAdvisorySuggestions({
+            advisorySuggestions: getAdvisorySuggestions({
               recommendedNextAction: learnerDigest.recommendedNextAction,
               openFeedbackActions: learnerDigest.openFeedbackActions,
               relevantGoalIds: focusGoalIds.length > 0 ? focusGoalIds : learnerDigest.relevantGoalIds,
