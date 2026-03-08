@@ -1,14 +1,14 @@
 import type { Context } from "hono"
-import { readProjectConfig } from "../../config/compatibility.js"
+import { readProjectConfig } from "../compatibility.js"
 import {
   listProjectAgents,
   listProjectPersonas,
   mapConfigRouteError,
   patchProjectConfig,
   putProjectMcpConfig,
-} from "../handlers/config.js"
-import { withConfigSync, withDirectoryContext, withJsonBody } from "../shared/route-helpers.js"
-import { proxyToOpenCode } from "../support/proxy.js"
+} from "../orchestration/config-operations.js"
+import { withConfigSync, withDirectoryContext, withJsonBody } from "../../http/route-helpers.js"
+import { proxyToOpenCode } from "../../http/proxy.js"
 
 async function handleConfigErrors(task: () => Promise<Response>): Promise<Response> {
   try {

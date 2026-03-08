@@ -1,6 +1,6 @@
 import { AnyObjectSchema, ErrorSchema, McpNamePath } from "../../openapi/compatibility-schemas.js"
 import { compatibilityRoute } from "../../openapi/compatibility-route.js"
-import { directoryForbiddenResponse, directoryParameters } from "../shared/openapi.js"
+import { directoryForbiddenResponse, directoryParameters } from "../../http/openapi.js"
 
 const listConfigPersonasRoute = compatibilityRoute({
   operationId: "config.personas",
