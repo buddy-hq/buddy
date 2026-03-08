@@ -9,7 +9,7 @@ import type {
   ToolDelta,
   ToolId,
   WorkspaceState,
-} from "./types-primitives.js"
+} from "../../runtime-contract/types-primitives.js"
 
 export type PersonaContextPolicy = {
   attachCurriculum: boolean

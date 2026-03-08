@@ -1,6 +1,6 @@
 import type { PromptInjectionAudit, PromptInjectionCache, RuntimePromptSection } from "../system-prompt/types.js"
 import type { CapabilityEnvelope, LearnerPromptDigest } from "./types-model.js"
-import type { PersonaId, SurfaceId, TeachingIntentId, WorkspaceState } from "./types-primitives.js"
+import type { PersonaId, SurfaceId, TeachingIntentId, WorkspaceState } from "../../runtime-contract/types-primitives.js"
 
 export type TeachingLlmOutboundEntry = {
   kind: "message" | "command"
