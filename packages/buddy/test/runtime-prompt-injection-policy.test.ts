@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { buildPromptInjectionPolicy } from "../src/learning/runtime/prompt-injection-policy.js"
+import { buildPromptInjectionPolicy } from "../src/learning/system-prompt/prompt-injection-policy.js"
 import type { TeachingSessionState } from "../src/learning/runtime/types.js"
 
 function previousState(input?: {

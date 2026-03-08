@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { app } from "../src/index.ts"
 import { compileRuntimeProfile } from "../src/learning/runtime/compiler.js"
-import { buildLearningSystemPrompt } from "../src/learning/shared/compose-system-prompt.js"
+import { buildLearningSystemPrompt } from "../src/learning/system-prompt/index.js"
 import { writeTeachingSessionState } from "../src/learning/runtime/session-state.js"
 import { getBuddyPersona } from "../src/personas/catalog.js"
 import type { LearnerPromptDigest } from "../src/learning/runtime/types.js"

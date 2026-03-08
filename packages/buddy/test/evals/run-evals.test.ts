@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { compileRuntimeProfile } from "../../src/learning/runtime/compiler.js"
-import { buildLearningSystemPrompt } from "../../src/learning/shared/compose-system-prompt.js"
+import { buildLearningSystemPrompt } from "../../src/learning/system-prompt/index.js"
 import { getBuddyPersona } from "../../src/personas/catalog.js"
 import { tmpdir } from "../fixture/fixture"
 import { createDigest } from "./fixtures.ts"

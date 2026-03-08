@@ -4,14 +4,17 @@ import { fileURLToPath } from "node:url"
 import { Agent as OpenCodeAgent } from "@buddy/opencode-adapter/agent"
 import { compileRuntimeProfile } from "../src/learning/runtime/compiler.js"
 import { LearnerService } from "../src/learning/learner/service.js"
-import { composeLearningSystemPrompt } from "../src/learning/shared/compose-system-prompt.js"
+import { composeLearningSystemPrompt } from "../src/learning/system-prompt/index.js"
 import { readNormalizedPromptFixture } from "../src/learning/shared/prompt-fixture.js"
 import { getBuddyPersona } from "../src/personas/catalog.js"
 import { tmpdir } from "./fixture/fixture"
 import { withSyncedOpenCodeConfig } from "./helpers/opencode.js"
 
 const BUDDY_BASE_PROMPT = readFileSync(new URL("../src/learning/companion/buddy-base.p.md", import.meta.url), "utf8")
-const TEACHING_POLICY_PROMPT = readFileSync(new URL("../src/learning/teaching/teaching-policy.p.md", import.meta.url), "utf8")
+const TEACHING_POLICY_PROMPT = readFileSync(
+  new URL("../src/learning/system-prompt/teaching-workspace-policy.p.md", import.meta.url),
+  "utf8",
+)
 const CODE_BUDDY_OVERLAY = readFileSync(
   new URL("../src/learning/teaching/teacher/coding/code-buddy-overlay.p.md", import.meta.url),
   "utf8",
