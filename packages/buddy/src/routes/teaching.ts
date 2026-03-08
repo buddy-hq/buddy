@@ -1,256 +1,138 @@
 import { Hono } from "hono"
-import z from "zod"
-import {
-  configErrorMessage,
-  isConfigValidationError,
-  readProjectConfig,
-} from "../config/compatibility.js"
-import {
-  TeachingWorkspaceFileError,
-  TeachingRevisionConflictError,
-  TeachingService,
-  TeachingWorkspaceNotFoundError,
-} from "../learning/teaching/service.js"
 import {
   TeachingWorkspaceActivateFileRequestSchema,
   TeachingWorkspaceCreateFileRequestSchema,
-  TeachingLanguageSchema,
   TeachingWorkspaceUpdateRequestSchema,
 } from "../learning/teaching/types.js"
-import { getBuddyPersona, getDefaultBuddyPersona } from "../personas/catalog.js"
-import { isPersonaId } from "../personas/types.js"
-import { isJsonContentType } from "./support.js"
-import type { EnsureAllowedDirectory } from "./support.js"
+import {
+  activateTeachingWorkspaceFile,
+  addTeachingWorkspaceFile,
+  checkpointTeachingWorkspace,
+  provisionTeachingWorkspace,
+  readTeachingWorkspace,
+  restoreTeachingWorkspace,
+  saveTeachingWorkspace,
+  TeachingProvisionRequestSchema,
+} from "./handlers/teaching.js"
+import { zodIssuesResponse } from "./shared/request-json.js"
+import { withDirectoryContext, withJsonBody } from "./shared/route-helpers.js"
 
-const ProvisionRequestSchema = z.object({
-  language: TeachingLanguageSchema.optional(),
-  persona: z.string().optional(),
-})
-
-function invalidJson() {
-  return Response.json({ error: "Invalid JSON body" }, { status: 400 })
-}
-
-function zodError(error: z.ZodError) {
-  return Response.json({ error: error.issues.map((issue) => issue.message).join(", ") }, { status: 400 })
-}
-
-export const TeachingRoutes = (input: { ensureAllowedDirectory: EnsureAllowedDirectory }) =>
+export const TeachingRoutes = () =>
   new Hono()
     .post("/session/:sessionID/workspace", async (c) => {
-      const directoryResult = input.ensureAllowedDirectory(c.req.raw)
-      if (!directoryResult.ok) return directoryResult.response
+      const contextResult = withDirectoryContext(c.req.raw)
+      if (!contextResult.ok) return contextResult.response
 
-      let body: unknown = {}
-      try {
-        if (isJsonContentType(c.req.header("content-type"))) {
-          body = await c.req.json()
-        }
-      } catch {
-        return invalidJson()
-      }
+      const bodyResult = await withJsonBody(c.req.raw, {
+        optional: true,
+        fallbackBody: {},
+      })
+      if (!bodyResult.ok) return bodyResult.response
 
-      const parsed = ProvisionRequestSchema.safeParse(body)
+      const parsed = TeachingProvisionRequestSchema.safeParse(bodyResult.value)
       if (!parsed.success) {
-        return zodError(parsed.error)
+        return zodIssuesResponse(parsed.error)
       }
 
-      let config: Awaited<ReturnType<typeof readProjectConfig>>
-      try {
-        config = await readProjectConfig(directoryResult.directory)
-      } catch (error) {
-        if (isConfigValidationError(error)) {
-          return c.json({ error: configErrorMessage(error) }, 400)
-        }
-        throw error
-      }
-
-      const persona = (() => {
-        if (parsed.data.persona) {
-          if (!isPersonaId(parsed.data.persona)) {
-            return undefined
-          }
-
-          const explicitPersona = getBuddyPersona(parsed.data.persona, config.personas)
-          if (explicitPersona.hidden) {
-            return undefined
-          }
-
-          return explicitPersona
-        }
-
-        return getDefaultBuddyPersona({
-          defaultPersona: config.default_persona,
-          overrides: config.personas,
-        })
-      })()
-
-      if (!persona) {
-        return c.json({ error: "Unknown Buddy persona" }, 400)
-      }
-
-      if (!persona.surfaces.includes("editor")) {
-        return c.json({ error: `Buddy persona "${persona.id}" cannot start an interactive lesson` }, 400)
-      }
-
-      const workspace = await TeachingService.ensure(
-        directoryResult.directory,
-        c.req.param("sessionID"),
-        parsed.data.language ?? "ts",
-      )
-      return c.json(workspace)
+      const provisionResult = await provisionTeachingWorkspace({
+        directory: contextResult.value.directory,
+        sessionID: c.req.param("sessionID"),
+        payload: parsed.data,
+      })
+      if (!provisionResult.ok) return provisionResult.response
+      return c.json(provisionResult.value)
     })
     .get("/session/:sessionID/workspace", async (c) => {
-      const directoryResult = input.ensureAllowedDirectory(c.req.raw)
-      if (!directoryResult.ok) return directoryResult.response
-      const optional = c.req.query("optional") === "1"
+      const contextResult = withDirectoryContext(c.req.raw)
+      if (!contextResult.ok) return contextResult.response
 
-      try {
-        const workspace = await TeachingService.read(directoryResult.directory, c.req.param("sessionID"))
-        return c.json(workspace)
-      } catch (error) {
-        if (error instanceof TeachingWorkspaceNotFoundError) {
-          if (optional) {
-            return c.body(null, 204)
-          }
-          return c.json({ error: error.message }, 404)
-        }
-        throw error
-      }
+      const workspaceResult = await readTeachingWorkspace({
+        directory: contextResult.value.directory,
+        sessionID: c.req.param("sessionID"),
+        optional: c.req.query("optional") === "1",
+      })
+      if (!workspaceResult.ok) return workspaceResult.response
+      return c.json(workspaceResult.value)
     })
     .put("/session/:sessionID/workspace", async (c) => {
-      const directoryResult = input.ensureAllowedDirectory(c.req.raw)
-      if (!directoryResult.ok) return directoryResult.response
+      const contextResult = withDirectoryContext(c.req.raw)
+      if (!contextResult.ok) return contextResult.response
 
-      let body: unknown
-      try {
-        body = await c.req.json()
-      } catch {
-        return invalidJson()
-      }
+      const bodyResult = await withJsonBody(c.req.raw)
+      if (!bodyResult.ok) return bodyResult.response
 
-      const parsed = TeachingWorkspaceUpdateRequestSchema.safeParse(body)
+      const parsed = TeachingWorkspaceUpdateRequestSchema.safeParse(bodyResult.value)
       if (!parsed.success) {
-        return zodError(parsed.error)
+        return zodIssuesResponse(parsed.error)
       }
 
-      try {
-        const workspace = await TeachingService.save(directoryResult.directory, c.req.param("sessionID"), parsed.data)
-        return c.json(workspace)
-      } catch (error) {
-        if (error instanceof TeachingWorkspaceNotFoundError) {
-          return c.json({ error: error.message }, 404)
-        }
-        if (error instanceof TeachingWorkspaceFileError) {
-          return c.json({ error: error.message }, 400)
-        }
-        if (error instanceof TeachingRevisionConflictError) {
-          return c.json(
-            {
-              error: error.message,
-              ...error.response,
-            },
-            409,
-          )
-        }
-        throw error
-      }
+      const saveResult = await saveTeachingWorkspace({
+        directory: contextResult.value.directory,
+        sessionID: c.req.param("sessionID"),
+        payload: parsed.data,
+      })
+      if (!saveResult.ok) return saveResult.response
+      return c.json(saveResult.value)
     })
     .post("/session/:sessionID/file", async (c) => {
-      const directoryResult = input.ensureAllowedDirectory(c.req.raw)
-      if (!directoryResult.ok) return directoryResult.response
+      const contextResult = withDirectoryContext(c.req.raw)
+      if (!contextResult.ok) return contextResult.response
 
-      let body: unknown
-      try {
-        body = await c.req.json()
-      } catch {
-        return invalidJson()
-      }
+      const bodyResult = await withJsonBody(c.req.raw)
+      if (!bodyResult.ok) return bodyResult.response
 
-      const parsed = TeachingWorkspaceCreateFileRequestSchema.safeParse(body)
+      const parsed = TeachingWorkspaceCreateFileRequestSchema.safeParse(bodyResult.value)
       if (!parsed.success) {
-        return zodError(parsed.error)
+        return zodIssuesResponse(parsed.error)
       }
 
-      try {
-        const workspace = await TeachingService.addFile(
-          directoryResult.directory,
-          c.req.param("sessionID"),
-          parsed.data,
-        )
-        return c.json(workspace)
-      } catch (error) {
-        if (error instanceof TeachingWorkspaceNotFoundError) {
-          return c.json({ error: error.message }, 404)
-        }
-        if (error instanceof TeachingWorkspaceFileError) {
-          return c.json({ error: error.message }, 400)
-        }
-        throw error
-      }
+      const addFileResult = await addTeachingWorkspaceFile({
+        directory: contextResult.value.directory,
+        sessionID: c.req.param("sessionID"),
+        payload: parsed.data,
+      })
+      if (!addFileResult.ok) return addFileResult.response
+      return c.json(addFileResult.value)
     })
     .post("/session/:sessionID/active-file", async (c) => {
-      const directoryResult = input.ensureAllowedDirectory(c.req.raw)
-      if (!directoryResult.ok) return directoryResult.response
+      const contextResult = withDirectoryContext(c.req.raw)
+      if (!contextResult.ok) return contextResult.response
 
-      let body: unknown
-      try {
-        body = await c.req.json()
-      } catch {
-        return invalidJson()
-      }
+      const bodyResult = await withJsonBody(c.req.raw)
+      if (!bodyResult.ok) return bodyResult.response
 
-      const parsed = TeachingWorkspaceActivateFileRequestSchema.safeParse(body)
+      const parsed = TeachingWorkspaceActivateFileRequestSchema.safeParse(bodyResult.value)
       if (!parsed.success) {
-        return zodError(parsed.error)
+        return zodIssuesResponse(parsed.error)
       }
 
-      try {
-        const workspace = await TeachingService.activateFile(
-          directoryResult.directory,
-          c.req.param("sessionID"),
-          parsed.data.relativePath,
-        )
-        return c.json(workspace)
-      } catch (error) {
-        if (error instanceof TeachingWorkspaceNotFoundError) {
-          return c.json({ error: error.message }, 404)
-        }
-        if (error instanceof TeachingWorkspaceFileError) {
-          return c.json({ error: error.message }, 400)
-        }
-        throw error
-      }
+      const activateFileResult = await activateTeachingWorkspaceFile({
+        directory: contextResult.value.directory,
+        sessionID: c.req.param("sessionID"),
+        payload: parsed.data,
+      })
+      if (!activateFileResult.ok) return activateFileResult.response
+      return c.json(activateFileResult.value)
     })
     .post("/session/:sessionID/checkpoint", async (c) => {
-      const directoryResult = input.ensureAllowedDirectory(c.req.raw)
-      if (!directoryResult.ok) return directoryResult.response
+      const contextResult = withDirectoryContext(c.req.raw)
+      if (!contextResult.ok) return contextResult.response
 
-      try {
-        const checkpoint = await TeachingService.checkpoint(directoryResult.directory, c.req.param("sessionID"))
-        return c.json({
-          revision: checkpoint.revision,
-          lessonFilePath: checkpoint.lessonFilePath,
-          checkpointFilePath: checkpoint.checkpointFilePath,
-        })
-      } catch (error) {
-        if (error instanceof TeachingWorkspaceNotFoundError) {
-          return c.json({ error: error.message }, 404)
-        }
-        throw error
-      }
+      const checkpointResult = await checkpointTeachingWorkspace({
+        directory: contextResult.value.directory,
+        sessionID: c.req.param("sessionID"),
+      })
+      if (!checkpointResult.ok) return checkpointResult.response
+      return c.json(checkpointResult.value)
     })
     .post("/session/:sessionID/restore", async (c) => {
-      const directoryResult = input.ensureAllowedDirectory(c.req.raw)
-      if (!directoryResult.ok) return directoryResult.response
+      const contextResult = withDirectoryContext(c.req.raw)
+      if (!contextResult.ok) return contextResult.response
 
-      try {
-        const workspace = await TeachingService.restore(directoryResult.directory, c.req.param("sessionID"))
-        return c.json(workspace)
-      } catch (error) {
-        if (error instanceof TeachingWorkspaceNotFoundError) {
-          return c.json({ error: error.message }, 404)
-        }
-        throw error
-      }
+      const restoreResult = await restoreTeachingWorkspace({
+        directory: contextResult.value.directory,
+        sessionID: c.req.param("sessionID"),
+      })
+      if (!restoreResult.ok) return restoreResult.response
+      return c.json(restoreResult.value)
     })

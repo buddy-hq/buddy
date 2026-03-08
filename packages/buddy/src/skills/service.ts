@@ -8,7 +8,7 @@ import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { PermissionNext, type PermissionAction } from "@buddy/opencode-adapter/permission"
 import { ensureOpenCodeProjectOverlay } from "../config/compatibility.js"
 import { Config } from "../config/config.js"
-import { fetchOpenCode } from "../routes/support.js"
+import { fetchOpenCode } from "../routes/support/proxy.js"
 import { Global } from "../storage/global.js"
 
 type PermissionRule = {

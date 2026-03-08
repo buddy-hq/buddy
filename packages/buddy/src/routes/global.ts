@@ -3,7 +3,9 @@ import { configErrorMessage, isConfigValidationError } from "../config/compatibi
 import { Config } from "../config/config.js"
 import { AnyObjectSchema, ErrorSchema } from "../openapi/compatibility-schemas.js"
 import { compatibilityRoute } from "../openapi/compatibility-route.js"
-import { proxyToOpenCode } from "./support.js"
+import { configRouteValidationResponse } from "./handlers/config.js"
+import { withJsonBody } from "./shared/route-helpers.js"
+import { proxyToOpenCode } from "./support/proxy.js"
 
 export const GlobalRoutes = (): Hono =>
   new Hono()
@@ -66,24 +68,19 @@ export const GlobalRoutes = (): Hono =>
         },
       }),
       async (c) => {
-        let body: unknown
-        try {
-          body = await c.req.json()
-        } catch {
-          return c.json({ error: "Invalid JSON body" }, 400)
-        }
+        const bodyResult = await withJsonBody(c.req.raw)
+        if (!bodyResult.ok) return bodyResult.response
 
         try {
-          const parsed = Config.Info.parse(body)
+          const parsed = Config.Info.parse(bodyResult.value)
           const config = await Config.updateGlobal(parsed)
           return c.json(config)
         } catch (error) {
           if (isConfigValidationError(error)) {
             return c.json({ error: configErrorMessage(error) }, 400)
           }
-          if (error instanceof Error && error.name === "ZodError") {
-            return c.json({ error: error.message }, 400)
-          }
+          const validationResponse = configRouteValidationResponse(error)
+          if (validationResponse) return validationResponse
           throw error
         }
       },
