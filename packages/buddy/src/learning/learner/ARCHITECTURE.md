@@ -280,7 +280,7 @@ Retired heuristic/blob-era files:
 Rewrite verification commands used by this module:
 
 - `bun test packages/buddy`
-- `bun test packages/web` (with web preload in direct bun invocation)
+- `bun run --cwd packages/web test`
 - `bun run typecheck`
 - `bun run sdk:generate`
 - `bun run --cwd packages/desktop predev`
