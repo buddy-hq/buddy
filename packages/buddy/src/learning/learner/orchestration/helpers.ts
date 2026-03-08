@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto"
 import { ulid } from "ulid"
 import { LearnerArtifactStore } from "../artifacts/store.js"
+import { inferTags, normalizeList, normalizeText } from "../artifacts/store/normalize.js"
 import type {
   EvidenceArtifact,
   FeedbackArtifact,
@@ -8,30 +9,10 @@ import type {
   WorkspaceContextArtifact,
 } from "../artifacts/types.js"
 
-const STOP_WORDS = new Set(["the", "and", "for", "with", "this", "that", "project", "workspace", "buddy"])
-
-export function normalizeText(value: string) {
-  return value.trim().replace(/\s+/g, " ")
-}
-
-export function normalizeList(values: readonly string[] | undefined) {
-  return Array.from(new Set((values ?? []).map((value) => normalizeText(value)).filter(Boolean)))
-}
+export { inferTags, normalizeList, normalizeText }
 
 export function contentDigest(value: string) {
   return createHash("sha1").update(normalizeText(value)).digest("hex")
-}
-
-export function inferTags(input: string) {
-  return Array.from(
-    new Set(
-      input
-        .toLowerCase()
-        .split(/[^a-z0-9]+/g)
-        .map((token) => token.trim())
-        .filter((token) => token.length >= 3 && !STOP_WORDS.has(token)),
-    ),
-  ).slice(0, 12)
 }
 
 export function evidenceStrengthFromOutcome(

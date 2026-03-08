@@ -1,19 +1,17 @@
 import { LearnerArtifactPath } from "../artifacts/path.js"
-import { hashDecisionInput, recordDecisionArtifact } from "../artifacts/bridge.js"
+import { hashDecisionInput } from "../artifacts/bridge.js"
 import { LearnerArtifactStore } from "../artifacts/store.js"
 import { LearnerSnapshotCompiler } from "../compiler/snapshot.js"
 import { LearnerDecisionService } from "../decision/service.js"
 import {
-  closeFeedbackByIds,
   createEvidenceArtifact,
-  createFeedbackArtifact,
   ensureGoalIds,
   nextId,
   nowIso,
   normalizeList,
   normalizeText,
-  resolveMisconceptionsByIds,
 } from "./helpers.js"
+import { applyFeedbackDecision } from "./feedback-decision.js"
 import { ensureWorkspaceContext } from "./workspace.js"
 
 function evidenceOutcomeFromPracticeOutcome(
@@ -115,52 +113,14 @@ export async function recordPracticeEvent(input: {
     sessionId: input.sessionId,
   })
 
-  const decisionArtifact = await recordDecisionArtifact({
+  const { feedbackId } = await applyFeedbackDecision({
     directory: input.directory,
-    workspaceId: workspace.workspaceId,
+    workspace,
     goalIds: input.goalIds,
-    kind: "decision-feedback",
-    decisionType: "feedback",
-    inputHash: decisionHash,
-    disposition: decision.output?.disposition ?? "abstain",
-    confidence: decision.output?.confidence ?? 0,
-    rationale: decision.output?.rationale ?? [decision.error ?? "No decision output."],
-    payload: decision.output,
-    providerId: decision.providerId,
-    modelId: decision.modelId,
-    usedSmallModel: decision.usedSmallModel,
-    error: decision.error,
-  })
-
-  let feedbackId: string | undefined
-  if (decision.output?.disposition === "apply" && decision.output.feedbackRecord) {
-    const feedback = await createFeedbackArtifact({
-      directory: input.directory,
-      workspace,
-      goalIds: input.goalIds,
-      sourceKind: "practice",
-      sourceRefId: practiceId,
-      relatedDecisionId: decisionArtifact.id,
-      strengths: decision.output.feedbackRecord.strengths,
-      gaps: decision.output.feedbackRecord.gaps,
-      guidance: decision.output.feedbackRecord.guidance,
-      requiredAction: decision.output.feedbackRecord.requiredAction,
-      scaffoldingLevel: decision.output.feedbackRecord.scaffoldingLevel,
-    })
-    feedbackId = feedback.id
-  }
-
-  await closeFeedbackByIds({
-    directory: input.directory,
-    workspaceId: workspace.workspaceId,
-    feedbackIds: decision.output?.closeFeedbackIds ?? [],
-    status: decision.output?.closeFeedbackStatus ?? "acted-on",
-  })
-
-  await resolveMisconceptionsByIds({
-    directory: input.directory,
-    workspaceId: workspace.workspaceId,
-    misconceptionIds: decision.output?.resolveMisconceptionIds ?? [],
+    sourceKind: "practice",
+    sourceRefId: practiceId,
+    decisionHash,
+    decision,
   })
 
   return {
