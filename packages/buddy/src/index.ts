@@ -18,7 +18,7 @@ import { ProviderRoutes } from "./routes/provider.js"
 import { SessionRoutes } from "./routes/session.js"
 import { SkillsRoutes } from "./routes/skills.js"
 import { TeachingRoutes } from "./routes/teaching.js"
-import { ensureAllowedDirectory } from "./routes/support/directory.js"
+import { ensureAllowedDirectory } from "./http/directory.js"
 
 function matchesBasicAuth(value: string | undefined, username: string, password: string): boolean {
   if (!value?.startsWith("Basic ")) return false

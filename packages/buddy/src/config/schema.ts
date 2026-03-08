@@ -1,6 +1,6 @@
 import z from "zod"
 import { Config as OpenCodeConfig } from "@buddy/opencode-adapter/config"
-import { PERSONA_SURFACE_IDS, TEACHING_INTENT_IDS, TOOL_IDS } from "../learning/runtime/types.js"
+import { PERSONA_SURFACE_IDS, TEACHING_INTENT_IDS, TOOL_IDS } from "../runtime-contract/types-primitives.js"
 import { resolveBuddyPersonaProfiles } from "../personas/catalog.js"
 import { PERSONA_IDS } from "../personas/types.js"
 
