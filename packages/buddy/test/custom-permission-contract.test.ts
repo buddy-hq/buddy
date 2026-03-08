@@ -19,20 +19,20 @@ describe("custom permission contract", () => {
     expect(parsed).toHaveProperty("render_freeform_figure")
 
     const ruleset = PermissionNext.fromConfig(parsed)
+    const customRuleActions = new Map(
+      ruleset
+        .filter((rule) =>
+          rule.permission === "curriculum_read" ||
+          rule.permission === "curriculum_update" ||
+          rule.permission === "render_figure" ||
+          rule.permission === "render_freeform_figure")
+        .map((rule) => [rule.permission, rule.action]),
+    )
 
-    const curriculumReadRule = ruleset.find((r) => r.permission === "curriculum_read")
-    const curriculumUpdateRule = ruleset.find((r) => r.permission === "curriculum_update")
-    const renderFigureRule = ruleset.find((r) => r.permission === "render_figure")
-    const renderFreeformFigureRule = ruleset.find((r) => r.permission === "render_freeform_figure")
-
-    expect(curriculumReadRule).toBeDefined()
-    expect(curriculumReadRule?.action).toBe("allow")
-    expect(curriculumUpdateRule).toBeDefined()
-    expect(curriculumUpdateRule?.action).toBe("allow")
-    expect(renderFigureRule).toBeDefined()
-    expect(renderFigureRule?.action).toBe("allow")
-    expect(renderFreeformFigureRule).toBeDefined()
-    expect(renderFreeformFigureRule?.action).toBe("allow")
+    expect(customRuleActions.get("curriculum_read")).toBe("allow")
+    expect(customRuleActions.get("curriculum_update")).toBe("allow")
+    expect(customRuleActions.get("render_figure")).toBe("allow")
+    expect(customRuleActions.get("render_freeform_figure")).toBe("allow")
   })
 
   test("must accept curriculum_read with pattern-based rules", async () => {
@@ -49,9 +49,11 @@ describe("custom permission contract", () => {
     expect(typeof parsed.curriculum_read).toBe("object")
 
     const ruleset = PermissionNext.fromConfig(parsed)
+    const curriculumReadRules = ruleset.filter((rule) => rule.permission === "curriculum_read")
+    const byPattern = new Map(curriculumReadRules.map((rule) => [rule.pattern, rule.action]))
 
-    const curriculumReadRules = ruleset.filter((r) => r.permission === "curriculum_read")
-    expect(curriculumReadRules.length).toBeGreaterThanOrEqual(2)
+    expect(byPattern.get(".buddy/context.json")).toBe("allow")
+    expect(byPattern.get(".buddy/**")).toBe("ask")
   })
 
   test("custom permissions must survive round-trip through Config.Permission parsing", async () => {

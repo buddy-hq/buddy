@@ -20,7 +20,7 @@ describe("goals routes", () => {
 
   test("returns parsed goal artifacts for an allowed directory", async () => {
     await using project = await tmpdir({ git: true })
-    const now = new Date().toISOString()
+    const now = "2026-01-01T00:00:00.000Z"
     const goalId = "goal_test_1"
     const setId = "set_test_1"
     const workspaceId = "workspace_test_1"

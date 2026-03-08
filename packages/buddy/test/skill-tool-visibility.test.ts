@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import path from "node:path"
 import { Agent } from "@buddy/opencode-adapter/agent"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
@@ -9,24 +10,16 @@ import { loadBundledActivitySkill } from "../src/learning/runtime/activity-skill
 import { buildBuddyRuntimeSessionPermissions } from "../src/learning/runtime/session-permissions.js"
 import { getBuddyPersona } from "../src/personas/catalog.js"
 import { tmpdir } from "./fixture/fixture"
-
-function createToolContext() {
-  return {
-    sessionID: "ses_skill",
-    messageID: "msg_skill",
-    agent: "buddy",
-    abort: new AbortController().signal,
-    messages: [],
-    metadata() {},
-    async ask() {},
-  }
-}
+import { createToolContext, requireTool } from "./helpers/tools"
 
 describe("skill tool visibility", () => {
   test("Buddy bundled skills resolve from a real filesystem root", async () => {
     const roots = await resolveBuddyBundledSkillRoots()
+    const normalizedRoots = roots.map((root) => path.normalize(root))
+    const expectedSuffix = path.join("packages", "buddy", "src", "skills", "system")
+
     expect(roots.length).toBeGreaterThan(0)
-    expect(roots.some((root) => root.endsWith("/packages/buddy/src/skills/system"))).toBe(true)
+    expect(normalizedRoots.filter((root) => root.endsWith(expectedSuffix)).length).toBeGreaterThan(0)
 
     const loaded = await loadBundledActivitySkill("buddy-learn-explanation")
     expect(loaded?.name).toBe("buddy-learn-explanation")
@@ -62,21 +55,24 @@ describe("skill tool visibility", () => {
           },
           agent,
         )
-        const skillTool = tools.find((tool) => tool.id === "skill")
-        expect(skillTool).toBeDefined()
-        expect(skillTool?.description).toContain("buddy-learn-explanation")
-        expect(skillTool?.description).toContain("buddy-learn-worked-example")
-        expect(skillTool?.description).not.toContain("buddy-practice-guided")
+        const skillTool = requireTool(tools, "skill")
+        expect(skillTool.description).toContain("buddy-learn-explanation")
+        expect(skillTool.description).toContain("buddy-learn-worked-example")
+        expect(skillTool.description).not.toContain("buddy-practice-guided")
 
-        const loaded = await skillTool!.execute(
+        const loaded = await skillTool.execute(
           {
             name: "buddy-learn-explanation",
           },
-          createToolContext(),
+          createToolContext({
+            sessionID: "ses_skill",
+            messageID: "msg_skill",
+            agent: "buddy",
+          }),
         )
 
         return {
-          description: skillTool!.description,
+          description: skillTool.description,
           output: loaded.output,
         }
       },

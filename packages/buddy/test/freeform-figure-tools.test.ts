@@ -10,18 +10,7 @@ import {
 import { ensureFreeformFigureToolsRegistered } from "../src/learning/freeform-figures/tools/register.js"
 import { RenderFreeformFigureOutputSchema, type RenderFreeformFigureInput } from "../src/learning/freeform-figures/types.js"
 import { tmpdir } from "./fixture/fixture"
-
-function createToolContext() {
-  return {
-    sessionID: "ses_math",
-    messageID: "msg_math",
-    agent: "math-buddy",
-    abort: new AbortController().signal,
-    messages: [],
-    metadata() {},
-    async ask() {},
-  }
-}
+import { createToolContext, requireTool } from "./helpers/tools"
 
 function baseFreeformFigureInput(): RenderFreeformFigureInput {
   return {
@@ -51,11 +40,16 @@ describe("freeform figure tools", () => {
           providerID: "opencode",
           modelID: "claude-sonnet",
         })
-        const renderFreeformFigure = tools.find((tool) => tool.id === "render_freeform_figure")
+        const renderFreeformFigure = requireTool(tools, "render_freeform_figure")
 
-        expect(renderFreeformFigure).toBeDefined()
-
-        return renderFreeformFigure!.execute(baseFreeformFigureInput(), createToolContext())
+        return renderFreeformFigure.execute(
+          baseFreeformFigureInput(),
+          createToolContext({
+            sessionID: "ses_math",
+            messageID: "msg_math",
+            agent: "math-buddy",
+          }),
+        )
       },
     })
 

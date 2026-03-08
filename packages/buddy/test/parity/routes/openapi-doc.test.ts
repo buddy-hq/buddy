@@ -1,20 +1,29 @@
 import { describe, expect, test } from "bun:test"
 import { app } from "../../../src/index.ts"
 
+type OperationDoc = {
+  operationId?: string
+  parameters?: Array<{
+    name?: string
+    in?: string
+  }>
+  responses?: Record<string, unknown>
+}
+
+function requireOperation(operation: OperationDoc | undefined, label: string): OperationDoc {
+  if (operation) {
+    return operation
+  }
+  throw new Error(`Missing OpenAPI operation: ${label}`)
+}
+
 describe("parity.routes.openapi-doc", () => {
   test("documents compatibility routes required by the web client", async () => {
     const response = await app.request("/doc")
     expect(response.status).toBe(200)
 
     const doc = (await response.json()) as {
-      paths?: Record<string, Record<string, {
-        operationId?: string
-        parameters?: Array<{
-          name?: string
-          in?: string
-        }>
-        responses?: Record<string, unknown>
-      }>>
+      paths?: Record<string, Record<string, OperationDoc>>
     }
 
     const paths = doc.paths ?? {}
@@ -45,9 +54,7 @@ describe("parity.routes.openapi-doc", () => {
       "/api/skills/library/{skillID}/install",
     ]
 
-    for (const path of requiredPaths) {
-      expect(paths[path]).toBeDefined()
-    }
+    expect(Object.keys(paths)).toEqual(expect.arrayContaining(requiredPaths))
 
     const requiredOperations = [
       { path: "/api/health", method: "get", operationId: "health.check" },
@@ -87,22 +94,21 @@ describe("parity.routes.openapi-doc", () => {
     }
 
     const skillsOperations = [
-      paths["/api/skills"]?.get,
-      paths["/api/skills"]?.post,
-      paths["/api/skills/{name}"]?.patch,
-      paths["/api/skills/{name}"]?.delete,
-      paths["/api/skills/library/{skillID}/install"]?.post,
+      requireOperation(paths["/api/skills"]?.get, "/api/skills:get"),
+      requireOperation(paths["/api/skills"]?.post, "/api/skills:post"),
+      requireOperation(paths["/api/skills/{name}"]?.patch, "/api/skills/{name}:patch"),
+      requireOperation(paths["/api/skills/{name}"]?.delete, "/api/skills/{name}:delete"),
+      requireOperation(paths["/api/skills/library/{skillID}/install"]?.post, "/api/skills/library/{skillID}/install:post"),
     ]
 
     for (const operation of skillsOperations) {
-      expect(operation).toBeDefined()
-      const parameterNames = (operation?.parameters ?? []).map((parameter) => parameter.name)
+      const parameterNames = (operation.parameters ?? []).map((parameter) => parameter.name)
       expect(parameterNames).toContain("directory")
     }
 
-    expect(paths["/api/skills"]?.post?.responses?.["403"]).toBeDefined()
-    expect(paths["/api/skills/{name}"]?.patch?.responses?.["403"]).toBeDefined()
-    expect(paths["/api/skills/{name}"]?.delete?.responses?.["403"]).toBeDefined()
-    expect(paths["/api/skills/library/{skillID}/install"]?.post?.responses?.["403"]).toBeDefined()
+    expect(Object.keys(skillsOperations[1].responses ?? {})).toContain("403")
+    expect(Object.keys(skillsOperations[2].responses ?? {})).toContain("403")
+    expect(Object.keys(skillsOperations[3].responses ?? {})).toContain("403")
+    expect(Object.keys(skillsOperations[4].responses ?? {})).toContain("403")
   })
 })

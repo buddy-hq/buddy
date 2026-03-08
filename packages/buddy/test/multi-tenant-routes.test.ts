@@ -22,7 +22,7 @@ function runGit(cwd: string, args: string[]) {
 
 function createGitRepo(prefix: string) {
   const root = mkdtempSync(path.join(os.tmpdir(), `${prefix}-`))
-  const marker = `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  const marker = `${prefix}-marker`
   runGit(root, ["init", "-q"])
   writeFileSync(path.join(root, "README.md"), `# ${marker}\n`)
   runGit(root, ["add", "README.md"])

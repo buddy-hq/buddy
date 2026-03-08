@@ -3,18 +3,7 @@ import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ensureCurriculumToolsRegistered } from "../src/learning/curriculum/tools/register.js"
 import { tmpdir } from "./fixture/fixture"
-
-function createToolContext() {
-  return {
-    sessionID: "ses_curriculum",
-    messageID: "msg_curriculum",
-    agent: "build",
-    abort: new AbortController().signal,
-    messages: [],
-    metadata() {},
-    async ask() {},
-  }
-}
+import { createToolContext, requireTool } from "./helpers/tools"
 
 describe("curriculum tools", () => {
   test("reads the generated learning-plan view and does not register direct edit tools", async () => {
@@ -28,14 +17,17 @@ describe("curriculum tools", () => {
           providerID: "opencode",
           modelID: "claude-sonnet",
         })
-        const curriculumRead = tools.find((tool) => tool.id === "learner_snapshot_read")
+        const curriculumRead = requireTool(tools, "learner_snapshot_read")
         const curriculumUpdate = tools.find((tool) => tool.id === "curriculum_update")
 
-        expect(curriculumRead).toBeDefined()
         expect(curriculumUpdate).toBeUndefined()
 
-        const ctx = createToolContext()
-        return curriculumRead!.execute({}, ctx)
+        const ctx = createToolContext({
+          sessionID: "ses_curriculum",
+          messageID: "msg_curriculum",
+          agent: "build",
+        })
+        return curriculumRead.execute({}, ctx)
       },
     })
 

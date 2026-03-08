@@ -10,6 +10,14 @@ import { getBuddyPersona } from "../src/personas/catalog.js"
 import { tmpdir } from "./fixture/fixture"
 import { withSyncedOpenCodeConfig } from "./helpers/opencode.js"
 
+function requireValue<T>(value: T | undefined, label: string): T {
+  if (value !== undefined) {
+    return value
+  }
+
+  throw new Error(`Missing ${label}`)
+}
+
 const BUDDY_BASE_PROMPT = readFileSync(new URL("../src/learning/companion/buddy-base.p.md", import.meta.url), "utf8")
 const TEACHING_POLICY_PROMPT = readFileSync(
   new URL("../src/learning/system-prompt/teaching-workspace-policy.p.md", import.meta.url),
@@ -131,12 +139,14 @@ describe("prompt assemblies", () => {
   test("keeps the registered code-buddy prompt aligned with the base prompt and overlay", async () => {
     await using project = await tmpdir({ git: true })
 
-    const agent = await withSyncedOpenCodeConfig(project.path, () => OpenCodeAgent.get("code-buddy"))
+    const codeBuddyAgent = requireValue(
+      await withSyncedOpenCodeConfig(project.path, () => OpenCodeAgent.get("code-buddy")),
+      "code-buddy agent",
+    )
 
-    expect(agent).toBeDefined()
-    expect(agent?.prompt).toContain("You are Buddy, a learning companion")
-    expect(agent?.prompt).toContain("For coding sessions, act as Buddy")
-    expect(agent?.prompt).toContain("teaching_start_lesson")
+    expect(codeBuddyAgent.prompt).toContain("You are Buddy, a learning companion")
+    expect(codeBuddyAgent.prompt).toContain("For coding sessions, act as Buddy")
+    expect(codeBuddyAgent.prompt).toContain("teaching_start_lesson")
   })
 
   test("composes code-buddy from the base buddy prompt plus the code overlay", async () => {

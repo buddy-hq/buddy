@@ -5,6 +5,9 @@ import { hashDecisionInput } from "../src/learning/learner/artifacts/bridge.js"
 import { LearnerArtifactStore } from "../src/learning/learner/artifacts/store.js"
 import { tmpdir } from "./fixture/fixture"
 
+const FIXED_TIMESTAMP = "2026-03-01T00:00:00.000Z"
+const FIXED_DECISION_TIMESTAMP = "2026-03-01T12:00:00.000Z"
+
 describe("LearnerService regressions", () => {
   test("does not resolve open feedback from a learner completion claim alone", async () => {
     await using project = await tmpdir({ git: true })
@@ -34,7 +37,6 @@ describe("LearnerService regressions", () => {
     })
 
     const workspace = await LearnerService.ensureWorkspaceContext(project.path)
-    const now = new Date().toISOString()
     const seededFeedbackId = ulid()
     await LearnerArtifactStore.upsertArtifact(project.path, "feedback", {
       id: seededFeedbackId,
@@ -48,8 +50,8 @@ describe("LearnerService regressions", () => {
       guidance: ["Rebuild the type-guard branch structure and re-test."],
       requiredAction: "Fix guard branch coverage and rerun checks.",
       scaffoldingLevel: "guided",
-      createdAt: now,
-      updatedAt: now,
+      createdAt: FIXED_TIMESTAMP,
+      updatedAt: FIXED_TIMESTAMP,
     })
 
     await LearnerService.recordLearnerMessageEvent({
@@ -242,8 +244,8 @@ describe("LearnerService regressions", () => {
       decisionType: "plan",
       workspaceId: workspace.workspaceId,
       goalIds: committed.goalIds,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: FIXED_DECISION_TIMESTAMP,
+      updatedAt: FIXED_DECISION_TIMESTAMP,
       inputHash: seededHash,
       disposition: "apply",
       confidence: 0.8,

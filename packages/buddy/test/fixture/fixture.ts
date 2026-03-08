@@ -14,11 +14,10 @@ type TmpDirOptions<T> = {
 }
 
 export async function tmpdir<T>(options?: TmpDirOptions<T>) {
-  const dirpath = path.join(os.tmpdir(), "buddy-test-" + Math.random().toString(36).slice(2))
+  const dirpath = await fs.mkdtemp(path.join(os.tmpdir(), "buddy-test-"))
   if (!options?.preserveLearnerStore) {
     await fs.rm(LearnerArtifactPath.profileRoot(), { recursive: true, force: true })
   }
-  await fs.mkdir(dirpath, { recursive: true })
 
   if (options?.git) {
     await $`git init`.cwd(dirpath).quiet()

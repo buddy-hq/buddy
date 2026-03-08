@@ -7,18 +7,7 @@ import { FigureService } from "../src/learning/figures/service.js"
 import { ensureFigureToolsRegistered } from "../src/learning/figures/tools/register.js"
 import { RenderFigureOutputSchema, type RenderFigureInput } from "../src/learning/figures/types.js"
 import { tmpdir } from "./fixture/fixture"
-
-function createToolContext() {
-  return {
-    sessionID: "ses_math",
-    messageID: "msg_math",
-    agent: "math-buddy",
-    abort: new AbortController().signal,
-    messages: [],
-    metadata() {},
-    async ask() {},
-  }
-}
+import { createToolContext, requireTool } from "./helpers/tools"
 
 function baseFigureInput(): RenderFigureInput {
   return {
@@ -59,11 +48,16 @@ describe("figure tools", () => {
           providerID: "opencode",
           modelID: "claude-sonnet",
         })
-        const renderFigure = tools.find((tool) => tool.id === "render_figure")
+        const renderFigure = requireTool(tools, "render_figure")
 
-        expect(renderFigure).toBeDefined()
-
-        return renderFigure!.execute(baseFigureInput(), createToolContext())
+        return renderFigure.execute(
+          baseFigureInput(),
+          createToolContext({
+            sessionID: "ses_math",
+            messageID: "msg_math",
+            agent: "math-buddy",
+          }),
+        )
       },
     })
 
@@ -93,16 +87,21 @@ describe("figure tools", () => {
           providerID: "opencode",
           modelID: "claude-sonnet",
         })
-        const renderFigure = tools.find((tool) => tool.id === "render_figure")
-
-        expect(renderFigure).toBeDefined()
+        const renderFigure = requireTool(tools, "render_figure")
 
         const input = baseFigureInput()
         input.spec.points.push({ id: "A", x: 40, y: 140, label: "A2" })
         input.spec.segments?.push({ from: "A", to: "Z" })
         input.spec.markers = [{ type: "tick", from: "A", to: "Z" }]
 
-        return renderFigure!.execute(input, createToolContext())
+        return renderFigure.execute(
+          input,
+          createToolContext({
+            sessionID: "ses_math",
+            messageID: "msg_math",
+            agent: "math-buddy",
+          }),
+        )
       },
     })
 

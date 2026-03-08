@@ -4,18 +4,7 @@ import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ensureActivityToolsRegistered } from "../src/learning/activities/tools/register.js"
 import { writeTeachingSessionState } from "../src/learning/runtime/session-state.js"
 import { tmpdir } from "./fixture/fixture"
-
-function createToolContext() {
-  return {
-    sessionID: "ses_activity",
-    messageID: "msg_activity",
-    agent: "buddy",
-    abort: new AbortController().signal,
-    messages: [],
-    metadata() {},
-    async ask() {},
-  }
-}
+import { createToolContext, requireTool } from "./helpers/tools"
 
 describe("activity tools", () => {
   test("registers first-class activity tools and generates grounded activity artifacts", async () => {
@@ -38,14 +27,19 @@ describe("activity tools", () => {
           providerID: "opencode",
           modelID: "claude-sonnet",
         })
+        const toolIds = tools.map((tool) => tool.id)
 
-        expect(tools.some((tool) => tool.id === "activity_explanation")).toBe(true)
-        expect(tools.some((tool) => tool.id === "activity_guided_practice")).toBe(true)
-        expect(tools.some((tool) => tool.id === "activity_mastery_check")).toBe(true)
+        expect(toolIds).toContain("activity_explanation")
+        expect(toolIds).toContain("activity_guided_practice")
+        expect(toolIds).toContain("activity_mastery_check")
 
-        const explanation = tools.find((tool) => tool.id === "activity_explanation")!
-        const guidedPractice = tools.find((tool) => tool.id === "activity_guided_practice")!
-        const ctx = createToolContext()
+        const explanation = requireTool(tools, "activity_explanation")
+        const guidedPractice = requireTool(tools, "activity_guided_practice")
+        const ctx = createToolContext({
+          sessionID: "ses_activity",
+          messageID: "msg_activity",
+          agent: "buddy",
+        })
 
         return {
           explanation: await explanation.execute({ topic: "input validation in Tauri commands" }, ctx),

@@ -3,18 +3,7 @@ import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ensureGoalToolsRegistered } from "../src/learning/goals/tools/register.js"
 import { tmpdir } from "./fixture/fixture"
-
-function createToolContext() {
-  return {
-    sessionID: "ses_goal_lint",
-    messageID: "msg_goal_lint",
-    agent: "goal-writer",
-    abort: new AbortController().signal,
-    messages: [],
-    metadata() {},
-    async ask() {},
-  }
-}
+import { createToolContext, requireTool } from "./helpers/tools"
 
 describe("goal_lint", () => {
   test("rejects the 'students will be able to' template", async () => {
@@ -28,12 +17,14 @@ describe("goal_lint", () => {
           providerID: "opencode",
           modelID: "claude-sonnet",
         })
-        const goalLint = tools.find((tool) => tool.id === "goal_lint")
+        const goalLint = requireTool(tools, "goal_lint")
 
-        expect(goalLint).toBeDefined()
-
-        const ctx = createToolContext()
-        const result = await goalLint!.execute(
+        const ctx = createToolContext({
+          sessionID: "ses_goal_lint",
+          messageID: "msg_goal_lint",
+          agent: "goal-writer",
+        })
+        const result = await goalLint.execute(
           {
             scope: "topic",
             explicitlyRequestedSingleGoal: true,
@@ -59,7 +50,7 @@ describe("goal_lint", () => {
     })
 
     expect(report.ok).toBe(false)
-    expect(report.errors.some((issue) => issue.code === "TEMPLATE_MISMATCH")).toBe(true)
+    expect(report.errors.map((issue) => issue.code)).toContain("TEMPLATE_MISMATCH")
   })
 
   test("accepts the 'you will be able to' template", async () => {
@@ -73,12 +64,14 @@ describe("goal_lint", () => {
           providerID: "opencode",
           modelID: "claude-sonnet",
         })
-        const goalLint = tools.find((tool) => tool.id === "goal_lint")
+        const goalLint = requireTool(tools, "goal_lint")
 
-        expect(goalLint).toBeDefined()
-
-        const ctx = createToolContext()
-        const result = await goalLint!.execute(
+        const ctx = createToolContext({
+          sessionID: "ses_goal_lint",
+          messageID: "msg_goal_lint",
+          agent: "goal-writer",
+        })
+        const result = await goalLint.execute(
           {
             scope: "topic",
             explicitlyRequestedSingleGoal: true,
@@ -118,12 +111,14 @@ describe("goal_lint", () => {
           providerID: "opencode",
           modelID: "claude-sonnet",
         })
-        const goalLint = tools.find((tool) => tool.id === "goal_lint")
+        const goalLint = requireTool(tools, "goal_lint")
 
-        expect(goalLint).toBeDefined()
-
-        const ctx = createToolContext()
-        const result = await goalLint!.execute(
+        const ctx = createToolContext({
+          sessionID: "ses_goal_lint",
+          messageID: "msg_goal_lint",
+          agent: "goal-writer",
+        })
+        const result = await goalLint.execute(
           {
             scope: "topic",
             explicitlyRequestedSingleGoal: true,
@@ -149,7 +144,6 @@ describe("goal_lint", () => {
     })
 
     expect(report.ok).toBe(false)
-    expect(report.errors.some((issue) => issue.code === "VAGUE_VERB")).toBe(true)
+    expect(report.errors.map((issue) => issue.code)).toContain("VAGUE_VERB")
   })
 })
-

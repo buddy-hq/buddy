@@ -5,18 +5,7 @@ import { LearnerArtifactStore } from "../src/learning/learner/artifacts/store.js
 import type { GoalArtifact } from "../src/learning/learner/artifacts/types.js"
 import { ensureGoalToolsRegistered } from "../src/learning/goals/tools/register.js"
 import { tmpdir } from "./fixture/fixture"
-
-function createToolContext() {
-  return {
-    sessionID: "ses_goals",
-    messageID: "msg_goals",
-    agent: "goal-writer",
-    abort: new AbortController().signal,
-    messages: [],
-    metadata() {},
-    async ask() {},
-  }
-}
+import { createToolContext, requireTool } from "./helpers/tools"
 
 describe("goal tools", () => {
   test("goal_commit persists learner goals as markdown artifacts", async () => {
@@ -30,12 +19,14 @@ describe("goal tools", () => {
           providerID: "opencode",
           modelID: "claude-sonnet",
         })
-        const goalCommit = tools.find((tool) => tool.id === "goal_commit")
+        const goalCommit = requireTool(tools, "goal_commit")
 
-        expect(goalCommit).toBeDefined()
-
-        const ctx = createToolContext()
-        await goalCommit!.execute(
+        const ctx = createToolContext({
+          sessionID: "ses_goals",
+          messageID: "msg_goals",
+          agent: "goal-writer",
+        })
+        await goalCommit.execute(
           {
             scope: "topic",
             contextLabel: "Tauri IPC",

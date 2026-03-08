@@ -4,18 +4,7 @@ import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { LearnerArtifactStore } from "../src/learning/learner/artifacts/store.js"
 import { ensureGoalToolsRegistered } from "../src/learning/goals/tools/register.js"
 import { tmpdir } from "./fixture/fixture"
-
-function createToolContext() {
-  return {
-    sessionID: "ses_goals_archive",
-    messageID: "msg_goals_archive",
-    agent: "goal-writer",
-    abort: new AbortController().signal,
-    messages: [],
-    metadata() {},
-    async ask() {},
-  }
-}
+import { createToolContext, requireTool } from "./helpers/tools"
 
 describe("learner-store goal archiving", () => {
   test("committing a new set archives the previous active set for the same (scope, contextLabel)", async () => {
@@ -29,12 +18,14 @@ describe("learner-store goal archiving", () => {
           providerID: "opencode",
           modelID: "claude-sonnet",
         })
-        const goalCommit = tools.find((tool) => tool.id === "goal_commit")
+        const goalCommit = requireTool(tools, "goal_commit")
 
-        expect(goalCommit).toBeDefined()
-
-        const ctx = createToolContext()
-        await goalCommit!.execute(
+        const ctx = createToolContext({
+          sessionID: "ses_goals_archive",
+          messageID: "msg_goals_archive",
+          agent: "goal-writer",
+        })
+        await goalCommit.execute(
           {
             scope: "topic",
             contextLabel: "Tauri IPC",
@@ -69,7 +60,7 @@ describe("learner-store goal archiving", () => {
           ctx,
         )
 
-        await goalCommit!.execute(
+        await goalCommit.execute(
           {
             scope: "topic",
             contextLabel: "Tauri IPC",
@@ -124,9 +115,10 @@ describe("learner-store goal archiving", () => {
         .values(),
     )
     const statusSets = tauriSets.map((set) => set.map((goal) => goal.status))
+    const uniformStatusSets = statusSets.map((statuses) => Array.from(new Set(statuses)))
 
     expect(tauriSets).toHaveLength(2)
-    expect(statusSets.some((statuses) => statuses.every((status) => status === "archived"))).toBe(true)
-    expect(statusSets.some((statuses) => statuses.every((status) => status === "active"))).toBe(true)
+    expect(uniformStatusSets.filter((statuses) => statuses.length === 1 && statuses[0] === "archived")).toHaveLength(1)
+    expect(uniformStatusSets.filter((statuses) => statuses.length === 1 && statuses[0] === "active")).toHaveLength(1)
   })
 })
