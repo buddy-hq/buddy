@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
+import { readFile } from "node:fs/promises"
 import { fileURLToPath } from "node:url"
 import { Agent as OpenCodeAgent } from "@buddy/opencode-adapter/agent"
 import { compileRuntimeProfile } from "../src/learning/runtime/compiler.js"
 import { LearnerService } from "../src/learning/learner/service.js"
 import { composeLearningSystemPrompt } from "../src/learning/system-prompt/index.js"
-import { readNormalizedPromptFixture } from "../src/learning/shared/prompt-fixture.js"
 import { getBuddyPersona } from "../src/personas/catalog.js"
 import { tmpdir } from "./fixture/fixture"
 import { withSyncedOpenCodeConfig } from "./helpers/opencode.js"
@@ -30,6 +30,11 @@ function fixturePath(filename: string): string {
 
 function composeStaticPrompt(...parts: string[]): string {
   return parts.map((part) => part.trim()).filter(Boolean).join("\n\n")
+}
+
+async function readNormalizedFixture(filepath: string) {
+  const raw = await readFile(filepath, "utf8")
+  return raw.replace(/\r\n/g, "\n").trimEnd()
 }
 
 async function buildRuntimePrompt(input: {
@@ -64,8 +69,8 @@ async function buildRuntimePrompt(input: {
 
 describe("prompt assemblies", () => {
   test("loads shared prompt assets byte-for-byte from fixtures", async () => {
-    const learningFixture = await readNormalizedPromptFixture(fixturePath("learning-companion.txt"))
-    const teachingPolicyFixture = await readNormalizedPromptFixture(fixturePath("teaching-policy.txt"))
+    const learningFixture = await readNormalizedFixture(fixturePath("learning-companion.txt"))
+    const teachingPolicyFixture = await readNormalizedFixture(fixturePath("teaching-policy.txt"))
 
     expect(BUDDY_BASE_PROMPT.trimEnd()).toBe(learningFixture)
     expect(TEACHING_POLICY_PROMPT.trimEnd()).toBe(teachingPolicyFixture)
