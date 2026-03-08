@@ -2,10 +2,10 @@ import z from "zod"
 import { createBuddyTool, type BuddyToolContext } from "../../shared/create-buddy-tool.js"
 import { LearnerService } from "../service.js"
 
-const practiceRecordTool = createBuddyTool("practice_record", {
+const practiceRecordTool = createBuddyTool("learner_practice_record", {
   description: "Record a practice activity or learner attempt for the current workspace.",
   parameters: z.object({
-    goalIds: z.array(z.string()).default([]),
+    goalIds: z.array(z.string()).min(1),
     prompt: z.string().optional(),
     learnerResponseSummary: z.string().min(1),
     outcome: z.enum(["assigned", "partial", "completed", "stuck"]),
@@ -21,7 +21,7 @@ const practiceRecordTool = createBuddyTool("practice_record", {
   }),
   async execute(params, ctx: BuddyToolContext) {
     await ctx.ask({
-      permission: "practice_record",
+      permission: "learner_practice_record",
       patterns: ["*"],
       always: ["*"],
       metadata: {
@@ -30,7 +30,7 @@ const practiceRecordTool = createBuddyTool("practice_record", {
       },
     })
 
-    const recorded = await LearnerService.recordPractice({
+    const recorded = await LearnerService.recordPracticeEvent({
       directory: ctx.directory,
       goalIds: params.goalIds,
       prompt: params.prompt,
@@ -49,7 +49,7 @@ const practiceRecordTool = createBuddyTool("practice_record", {
     })
 
     return {
-      title: "practice_record",
+      title: "learner_practice_record",
       output: `Recorded practice outcome (${params.outcome}).`,
       metadata: recorded,
     }

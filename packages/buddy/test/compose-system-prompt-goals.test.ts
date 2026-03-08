@@ -9,7 +9,7 @@ describe("composeLearningSystemPrompt (learner store)", () => {
   test("injects learner-state context from the cross-notebook learner store", async () => {
     await using project = await tmpdir({ git: true })
 
-    const committed = await LearnerService.commitGoals({
+    const committed = await LearnerService.replaceGoalSet({
       directory: project.path,
       scope: "topic",
       contextLabel: "Tauri IPC",
@@ -27,7 +27,7 @@ describe("composeLearningSystemPrompt (learner store)", () => {
     })
 
     const workspace = await LearnerService.ensureWorkspaceContext(project.path)
-    const digest = await LearnerService.queryForPrompt({
+    const digest = await LearnerService.buildPromptContext({
       directory: project.path,
       query: {
         workspaceId: workspace.workspaceId,
@@ -58,7 +58,7 @@ describe("composeLearningSystemPrompt (learner store)", () => {
     expect(system).toContain("<buddy_capability_snapshot>")
     expect(system).toContain("<activity_capabilities>")
     expect(system).toContain("<selected_activity_bundle>")
-    expect(system).toContain("Direct Buddy tools: assessment_record, learner_state_query, practice_record")
+    expect(system).toContain("Direct Buddy tools: learner_assessment_record, learner_practice_record, learner_snapshot_read")
     expect(system).toContain("Activity tools:")
     expect(system).toContain("activity_explanation")
     expect(system).toContain("activity_worked_example")

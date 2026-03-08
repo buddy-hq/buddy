@@ -5,7 +5,7 @@ import { writeTeachingSessionState } from "../src/learning/runtime/session-state
 import { tmpdir } from "./fixture/fixture"
 
 describe("learner route regressions", () => {
-  test("uses the session workspace state when building the curriculum view", async () => {
+  test("uses the session workspace state when building snapshot activity bundles", async () => {
     await using project = await tmpdir({ git: true })
 
     writeTeachingSessionState(project.path, {
@@ -17,7 +17,7 @@ describe("learner route regressions", () => {
       focusGoalIds: [],
     })
 
-    const chatResponse = await app.request("/api/learner/curriculum-view?persona=code-buddy&intent=practice", {
+    const chatResponse = await app.request("/api/learner/snapshot?persona=code-buddy&intent=practice", {
       headers: {
         "x-buddy-directory": project.path,
       },
@@ -29,7 +29,7 @@ describe("learner route regressions", () => {
     expect(chatBody.activityBundles.map((bundle) => bundle.id)).not.toContain("code-debug-attempt")
 
     const interactiveResponse = await app.request(
-      "/api/learner/curriculum-view?persona=code-buddy&intent=practice&sessionId=ses_interactive",
+      "/api/learner/snapshot?persona=code-buddy&intent=practice&sessionId=ses_interactive",
       {
         headers: {
           "x-buddy-directory": project.path,
@@ -43,11 +43,11 @@ describe("learner route regressions", () => {
     expect(interactiveBody.activityBundles.map((bundle) => bundle.id)).toContain("code-debug-attempt")
   })
 
-  test("scopes progress and review projections to the requested workspace", async () => {
+  test("scopes artifacts to the requested workspace", async () => {
     await using projectA = await tmpdir({ git: true })
     await using projectB = await tmpdir({ git: true, preserveLearnerStore: true })
 
-    const committedA = await LearnerService.commitGoals({
+    const committedA = await LearnerService.replaceGoalSet({
       directory: projectA.path,
       scope: "topic",
       contextLabel: "Closures",
@@ -62,7 +62,7 @@ describe("learner route regressions", () => {
         },
       ],
     })
-    const committedB = await LearnerService.commitGoals({
+    const committedB = await LearnerService.replaceGoalSet({
       directory: projectB.path,
       scope: "topic",
       contextLabel: "Pointers",
@@ -78,7 +78,7 @@ describe("learner route regressions", () => {
       ],
     })
 
-    await LearnerService.recordAssessment({
+    await LearnerService.recordAssessmentEvent({
       directory: projectA.path,
       goalIds: committedA.goalIds,
       format: "concept-check",
@@ -86,7 +86,7 @@ describe("learner route regressions", () => {
       result: "demonstrated",
       sessionId: "ses_a",
     })
-    await LearnerService.recordAssessment({
+    await LearnerService.recordAssessmentEvent({
       directory: projectB.path,
       goalIds: committedB.goalIds,
       format: "concept-check",
@@ -95,28 +95,18 @@ describe("learner route regressions", () => {
       sessionId: "ses_b",
     })
 
-    const progressResponse = await app.request("/api/learner/progress", {
+    const artifactsResponse = await app.request("/api/learner/artifacts?kind=assessment", {
       headers: {
         "x-buddy-directory": projectA.path,
       },
     })
-    expect(progressResponse.status).toBe(200)
-    const progressBody = (await progressResponse.json()) as {
-      progress: Array<{ goalId: string }>
+    expect(artifactsResponse.status).toBe(200)
+    const artifactsBody = (await artifactsResponse.json()) as {
+      artifacts: Array<{ goalIds: string[] }>
     }
-    expect(progressBody.progress.map((record) => record.goalId)).toContain(committedA.goalIds[0]!)
-    expect(progressBody.progress.map((record) => record.goalId)).not.toContain(committedB.goalIds[0]!)
 
-    const reviewResponse = await app.request("/api/learner/review", {
-      headers: {
-        "x-buddy-directory": projectA.path,
-      },
-    })
-    expect(reviewResponse.status).toBe(200)
-    const reviewBody = (await reviewResponse.json()) as {
-      review: Array<{ goalId: string }>
-    }
-    expect(reviewBody.review.map((record) => record.goalId)).toContain(committedA.goalIds[0]!)
-    expect(reviewBody.review.map((record) => record.goalId)).not.toContain(committedB.goalIds[0]!)
+    const allGoalIds = artifactsBody.artifacts.flatMap((artifact) => artifact.goalIds)
+    expect(allGoalIds).toContain(committedA.goalIds[0]!)
+    expect(allGoalIds).not.toContain(committedB.goalIds[0]!)
   })
 })

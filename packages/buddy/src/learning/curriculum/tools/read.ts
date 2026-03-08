@@ -15,19 +15,36 @@ const curriculumReadTool = createBuddyTool("curriculum_read", {
       },
     })
 
-    const workspace = await LearnerService.ensureWorkspaceContext(ctx.directory)
-    const current = await LearnerService.getCurriculumView(ctx.directory, {
-      workspaceId: workspace.workspaceId,
-      persona: "buddy",
-      intent: "learn",
-      focusGoalIds: [],
-      tokenBudget: 1200,
+    const snapshot = await LearnerService.getWorkspaceSnapshot({
+      directory: ctx.directory,
+      query: {
+        persona: "buddy",
+        intent: "learn",
+        focusGoalIds: [],
+      },
     })
+    const planResult = await LearnerService.ensurePlanDecision({
+      directory: ctx.directory,
+      query: {
+        persona: "buddy",
+        intent: "learn",
+        focusGoalIds: [],
+      },
+    })
+    const markdown = [
+      snapshot.markdown,
+      "",
+      "## Plan",
+      `- Suggested activity: ${planResult.plan.suggestedActivity}`,
+      `- Scaffolding: ${planResult.plan.suggestedScaffoldingLevel}`,
+      ...planResult.plan.rationale.map((line) => `- ${line}`),
+    ].join("\n")
     return {
       title: "learning-plan",
-      output: current.markdown,
+      output: markdown,
       metadata: {
-        workspaceId: current.workspace.workspaceId,
+        workspaceId: snapshot.workspace.workspaceId,
+        latestPlanDecisionId: planResult.decision?.id,
       },
     }
   },

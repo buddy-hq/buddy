@@ -23,7 +23,7 @@ Run a guided practice attempt with tight scaffolding and feedback.
 4. Record practice evidence when the attempt yields a meaningful signal.
 
 # Tool Hints
-- Use practice_record when the attempt creates useful evidence.
+- Use learner_practice_record when the attempt creates useful evidence.
 - Use practice-agent only when you need a richer generated task than the chat reply itself.
 
 # Avoid

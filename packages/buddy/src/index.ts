@@ -8,7 +8,6 @@ import { CompatibilityRoutes } from "./routes/compatibility.js"
 import { ConfigRoutes } from "./routes/config.js"
 import { FigureRoutes } from "./routes/figures.js"
 import { FreeformFigureRoutes } from "./routes/freeform-figures.js"
-import { GoalsRoutes } from "./routes/goals.js"
 import { LearnerRoutes } from "./routes/learner.js"
 import { LearnerService } from "./learning/learner/service.js"
 import { GlobalRoutes } from "./routes/global.js"
@@ -58,7 +57,6 @@ api.use("*", async (c, next) => {
 
 api.route("/figures", FigureRoutes({ ensureAllowedDirectory }))
 api.route("/freeform-figures", FreeformFigureRoutes({ ensureAllowedDirectory }))
-api.route("/goals", GoalsRoutes())
 api.route("/learner", LearnerRoutes())
 api.route("/teaching", TeachingRoutes())
 api.route("/", CompatibilityRoutes())

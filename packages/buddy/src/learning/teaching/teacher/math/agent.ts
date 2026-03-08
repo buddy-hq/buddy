@@ -13,9 +13,9 @@ export const MATH_BUDDY = registerBuddyAgent({
     permission: {
       question: "allow",
       plan_enter: "allow",
-      learner_state_query: "allow",
-      practice_record: "allow",
-      assessment_record: "allow",
+      learner_snapshot_read: "allow",
+      learner_practice_record: "allow",
+      learner_assessment_record: "allow",
       render_figure: "allow",
       render_freeform_figure: "allow",
       teaching_start_lesson: "deny",

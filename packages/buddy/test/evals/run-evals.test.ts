@@ -15,9 +15,9 @@ describe("teaching eval harness", () => {
 
     expectVisibleSurfaces(profile, ["curriculum", "editor"])
     expectAllowedTools(profile, [
-      "learner_state_query",
-      "practice_record",
-      "assessment_record",
+      "learner_snapshot_read",
+      "learner_practice_record",
+      "learner_assessment_record",
       "teaching_start_lesson",
       "teaching_checkpoint",
     ])
@@ -30,7 +30,7 @@ describe("teaching eval harness", () => {
       workspaceState: "chat",
     })
 
-    expectAllowedTools(profile, ["learner_state_query", "practice_record", "assessment_record"])
+    expectAllowedTools(profile, ["learner_snapshot_read", "learner_practice_record", "learner_assessment_record"])
     expectDeniedTools(profile, ["render_figure", "teaching_start_lesson"])
   })
 

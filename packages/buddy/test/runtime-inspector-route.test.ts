@@ -101,7 +101,7 @@ describe("runtime inspector route", () => {
     expect(body.intentOverride).toBe("practice")
     expect(body.focusGoalIds).toEqual(["goal_1"])
     expect(body.inspector.runtimeAgent).toBe("code-buddy")
-    expect(body.inspector.capabilityEnvelope.tools.practice_record).toBe("allow")
+    expect(body.inspector.capabilityEnvelope.tools.learner_practice_record).toBe("allow")
     expect(body.inspector.capabilityEnvelope.skills["buddy-practice-guided"]).toBe("allow")
     expect(body.inspector.capabilityEnvelope.activityBundles.map((bundle) => bundle.id)).toContain("code-debug-attempt")
     expect(body.inspector.stableHeaderSections.some((section) => section.label === "Persona Header")).toBe(true)

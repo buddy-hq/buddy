@@ -39,7 +39,7 @@ describe("curriculum tools", () => {
       },
     })
 
-    expect(result.output).toContain("# Learning Plan")
-    expect(result.output).toContain("No relevant goals exist yet.")
+    expect(result.output).toContain("# Learning Snapshot")
+    expect(result.output).toContain("No active goals in this workspace yet.")
   })
 })

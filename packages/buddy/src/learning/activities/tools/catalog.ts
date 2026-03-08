@@ -3,7 +3,7 @@ import { readTeachingSessionState } from "../../runtime/session-state.js"
 import type { TeachingIntentId } from "../../runtime/types.js"
 import { createBuddyTool, type BuddyToolContext } from "../../shared/create-buddy-tool.js"
 import { LearnerService } from "../../learner/service.js"
-import type { GoalRecord } from "../../learner/types.js"
+import type { GoalArtifact } from "../../learner/artifacts/types.js"
 
 const ActivityToolParameters = z.object({
   goalIds: z.array(z.string()).default([]),
@@ -21,7 +21,7 @@ type ActivityToolContext = {
   persona: string
   intent?: TeachingIntentId
   goalIds: string[]
-  goals: GoalRecord[]
+  goals: GoalArtifact[]
   tier1: string[]
   tier2: string[]
   tier3: string[]
@@ -42,7 +42,7 @@ function pickPrimaryGoal(context: ActivityToolContext) {
   return context.goals[0]
 }
 
-function formatGoalLine(goal: GoalRecord) {
+function formatGoalLine(goal: GoalArtifact) {
   return `${goal.statement} [test: ${goal.howToTest}]`
 }
 
@@ -61,10 +61,9 @@ async function resolveActivityToolContext(
 ): Promise<ActivityToolContext> {
   const runtimeState = readTeachingSessionState(ctx.directory, ctx.sessionID)
   const workspace = await LearnerService.ensureWorkspaceContext(ctx.directory)
-  const learnerState = await LearnerService.readState()
   const requestedGoalIds = params.goalIds ?? []
   const focusGoalIds = requestedGoalIds.length > 0 ? requestedGoalIds : runtimeState?.focusGoalIds ?? []
-  const digest = await LearnerService.queryForPrompt({
+  const digest = await LearnerService.buildPromptContext({
     directory: ctx.directory,
     query: {
       workspaceId: workspace.workspaceId,
@@ -75,7 +74,14 @@ async function resolveActivityToolContext(
     },
   })
   const goalIds = focusGoalIds.length > 0 ? focusGoalIds : digest.relevantGoalIds
-  const goals = learnerState.goals.filter((goal) => goalIds.includes(goal.goalId)).slice(0, 3)
+  const goals = (await LearnerService.listArtifacts({
+    directory: ctx.directory,
+    kind: "goal",
+    status: "active",
+  }))
+    .filter((artifact): artifact is GoalArtifact => artifact.kind === "goal")
+    .filter((goal) => goalIds.includes(goal.id))
+    .slice(0, 3)
 
   return {
     workspaceLabel: workspace.label,

@@ -23,7 +23,7 @@ Check whether the learner can transfer the skill to a slightly changed context.
 4. Record the evidence and choose whether to advance or repair.
 
 # Tool Hints
-- Use assessment_record when the transfer attempt provides usable evidence.
+- Use learner_assessment_record when the transfer attempt provides usable evidence.
 - Use workspace or figure tools only if the new setting needs them.
 
 # Avoid

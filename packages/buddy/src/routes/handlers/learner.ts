@@ -1,141 +1,119 @@
 import z from "zod"
-import { PERSONA_IDS, TEACHING_INTENT_IDS } from "../../learning/runtime/types.js"
+import {
+  PERSONA_IDS,
+  TEACHING_INTENT_IDS,
+  WORKSPACE_STATES,
+} from "../../learning/runtime/types.js"
+import {
+  DecisionPlanRequestSchema,
+  SnapshotQuerySchema,
+  WorkspaceRecordArtifactKindSchema,
+} from "../../learning/learner/artifacts/types.js"
 import { readTeachingSessionState } from "../../learning/runtime/session-state.js"
-import { LearnerService } from "../../learning/learner/service.js"
-import { LearnerStateQuerySchema } from "../../learning/learner/types.js"
 
-export const CurriculumQuerySchema = z.object({
-  persona: z.enum(PERSONA_IDS).optional(),
-  intent: z.enum(TEACHING_INTENT_IDS).optional(),
-  focusGoalIds: z.array(z.string()).optional(),
-  sessionId: z.string().optional(),
-})
-
-export const LearnerContextPatchSchema = z.object({
-  label: z.string().optional(),
-  tags: z.array(z.string()).optional(),
-  pinnedGoalIds: z.array(z.string()).optional(),
-  projectConstraints: z.array(z.string()).optional(),
-  localToolAvailability: z.array(z.string()).optional(),
-  preferredSurfaces: z.array(z.enum(["chat", "curriculum", "editor", "figure", "quiz"])).optional(),
-  motivationContext: z.string().optional(),
-  opportunities: z.array(z.string()).optional(),
-  userOverride: z.boolean().optional(),
-  learnerConstraints: z
+export const LearnerWorkspacePatchSchema = z.object({
+  workspace: z
+    .object({
+      label: z.string().optional(),
+      tags: z.array(z.string()).optional(),
+      pinnedGoalIds: z.array(z.string()).optional(),
+      projectConstraints: z.array(z.string()).optional(),
+      localToolAvailability: z.array(z.string()).optional(),
+      preferredSurfaces: z.array(z.enum(["chat", "curriculum", "editor", "figure", "quiz"])).optional(),
+      motivationContext: z.string().optional(),
+      opportunities: z.array(z.string()).optional(),
+      userOverride: z.boolean().optional(),
+    })
+    .optional(),
+  profile: z
     .object({
       background: z.array(z.string()).optional(),
       knownPrerequisites: z.array(z.string()).optional(),
       availableTimePatterns: z.array(z.string()).optional(),
       toolEnvironmentLimits: z.array(z.string()).optional(),
       motivationAnchors: z.array(z.string()).optional(),
-      opportunities: z.array(z.string()).optional(),
       learnerPreferences: z.array(z.string()).optional(),
     })
     .optional(),
 })
 
-export function parseLearnerStateQuery(input: {
-  workspaceId: string
-  goalIds: string[]
-  conceptTags: string[]
-  includeDerived: string | undefined
-}) {
-  const includeDerived = input.includeDerived === undefined
-    ? undefined
-    : input.includeDerived === "true"
-      ? true
-      : input.includeDerived === "false"
-        ? false
-        : input.includeDerived
+export const LearnerArtifactListQuerySchema = z.object({
+  kind: WorkspaceRecordArtifactKindSchema.optional(),
+  goalId: z.string().optional(),
+  status: z.string().optional(),
+  includeRaw: z.boolean().optional(),
+})
 
-  return LearnerStateQuerySchema.safeParse({
-    workspaceId: input.workspaceId,
-    goalIds: input.goalIds,
-    conceptTags: input.conceptTags,
-    includeDerived,
-  })
-}
+const SnapshotQueryRequestSchema = z.object({
+  persona: z.enum(PERSONA_IDS).optional(),
+  intent: z.enum(TEACHING_INTENT_IDS).optional(),
+  goalIds: z.array(z.string()).optional(),
+  sessionId: z.string().optional(),
+  workspaceState: z.enum(WORKSPACE_STATES).optional(),
+})
 
-export async function readScopedLearnerProjections(directory: string) {
-  const goalIds = new Set((await LearnerService.getWorkspaceGoals(directory)).map((goal) => goal.goalId))
-  const state = await LearnerService.readState()
-  const projections = state.projections
+const PlanRequestBodySchema = z.object({
+  persona: z.enum(PERSONA_IDS).optional(),
+  intent: z.enum(TEACHING_INTENT_IDS).optional(),
+  goalIds: z.array(z.string()).optional(),
+  sessionId: z.string().optional(),
+  workspaceState: z.enum(WORKSPACE_STATES).optional(),
+})
 
-  return {
-    progress: projections.progress.filter((record) => goalIds.has(record.goalId)),
-    review: projections.review.filter((record) => goalIds.has(record.goalId)),
-  }
-}
-
-export function readWorkspaceStateFromSession(input: { directory: string; sessionId?: string }): "interactive" | "chat" {
-  if (!input.sessionId) return "chat"
-  return readTeachingSessionState(input.directory, input.sessionId)?.workspaceState ?? "chat"
-}
-
-export function buildLearnerStateQueryFromRequest(input: { requestURL: URL; workspaceId: string }) {
-  const query = input.requestURL.searchParams
-  return parseLearnerStateQuery({
-    workspaceId: input.workspaceId,
-    goalIds: query.has("goalId") ? query.getAll("goalId") : [],
-    conceptTags: query.has("conceptTag") ? query.getAll("conceptTag") : [],
-    includeDerived: query.get("includeDerived") ?? undefined,
-  })
-}
-
-export function parseCurriculumViewQuery(requestURL: URL) {
+export function parseSnapshotQuery(requestURL: URL) {
   const query = requestURL.searchParams
-  return CurriculumQuerySchema.safeParse({
+  return SnapshotQuerySchema.safeParse({
     persona: query.get("persona") ?? undefined,
     intent: query.get("intent") ?? undefined,
     focusGoalIds: query.has("goalId") ? query.getAll("goalId") : undefined,
     sessionId: query.get("sessionId") ?? undefined,
+    workspaceState: query.get("workspaceState") ?? undefined,
   })
 }
 
-export async function patchWorkspaceLearnerContext(input: {
-  directory: string
-  patch: z.infer<typeof LearnerContextPatchSchema>
+export function parseArtifactListQuery(requestURL: URL) {
+  const query = requestURL.searchParams
+  const includeRaw = query.get("includeRaw")
+  return LearnerArtifactListQuerySchema.safeParse({
+    kind: query.get("kind") ?? undefined,
+    goalId: query.get("goalId") ?? undefined,
+    status: query.get("status") ?? undefined,
+    includeRaw: includeRaw === null ? undefined : includeRaw === "true",
+  })
+}
+
+export function parseDecisionPlanRequest(input: {
+  requestURL: URL
+  body: unknown
 }) {
-  const { learnerConstraints, ...workspacePatch } = input.patch
-  const previousWorkspaceContext = await LearnerService.ensureWorkspaceContext(input.directory)
-  const context = await LearnerService.updateWorkspaceContext(input.directory, workspacePatch)
-  let constraints: Awaited<ReturnType<typeof LearnerService.updateLearnerConstraints>> | undefined
-
-  if (learnerConstraints) {
-    try {
-      constraints = await LearnerService.updateLearnerConstraints(learnerConstraints)
-    } catch (error) {
-      let rollbackError: unknown
-      try {
-        await LearnerService.updateWorkspaceContext(input.directory, {
-          label: previousWorkspaceContext.label,
-          tags: previousWorkspaceContext.tags,
-          pinnedGoalIds: previousWorkspaceContext.pinnedGoalIds,
-          projectConstraints: previousWorkspaceContext.projectConstraints,
-          localToolAvailability: previousWorkspaceContext.localToolAvailability,
-          preferredSurfaces: previousWorkspaceContext.preferredSurfaces,
-          motivationContext: previousWorkspaceContext.motivationContext,
-          opportunities: previousWorkspaceContext.opportunities,
-          userOverride: previousWorkspaceContext.userOverride,
-        })
-      } catch (rollbackFailure) {
-        rollbackError = rollbackFailure
-      }
-
-      if (rollbackError !== undefined) {
-        throw new Error("Failed to update learner constraints and failed to rollback workspace context", {
-          cause: {
-            originalError: error,
-            rollbackError,
-          },
-        })
-      }
-      throw error
-    }
+  const queryResult = SnapshotQueryRequestSchema.safeParse({
+    persona: input.requestURL.searchParams.get("persona") ?? undefined,
+    intent: input.requestURL.searchParams.get("intent") ?? undefined,
+    goalIds: input.requestURL.searchParams.has("goalId")
+      ? input.requestURL.searchParams.getAll("goalId")
+      : undefined,
+    sessionId: input.requestURL.searchParams.get("sessionId") ?? undefined,
+    workspaceState: input.requestURL.searchParams.get("workspaceState") ?? undefined,
+  })
+  if (!queryResult.success) {
+    return queryResult
   }
 
-  return {
-    workspace: context,
-    learnerConstraints: constraints,
+  const bodyResult = PlanRequestBodySchema.safeParse(input.body)
+  if (!bodyResult.success) {
+    return bodyResult
   }
+
+  return DecisionPlanRequestSchema.safeParse({
+    persona: bodyResult.data.persona ?? queryResult.data.persona,
+    intent: bodyResult.data.intent ?? queryResult.data.intent,
+    focusGoalIds: bodyResult.data.goalIds ?? queryResult.data.goalIds,
+    sessionId: bodyResult.data.sessionId ?? queryResult.data.sessionId,
+    workspaceState: bodyResult.data.workspaceState ?? queryResult.data.workspaceState,
+  })
+}
+
+export function readWorkspaceStateFromSession(input: { directory: string; sessionId?: string }) {
+  if (!input.sessionId) return "chat" as const
+  return readTeachingSessionState(input.directory, input.sessionId)?.workspaceState ?? "chat"
 }

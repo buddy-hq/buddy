@@ -8,7 +8,7 @@ Generate one inline mastery check whose job is to produce evidence and a follow-
 
 - The system prompt may include learning-plan context, active goals, prior evidence, open feedback actions, and constraints.
 - Use that context to pick the right target and avoid trivia.
-- If the scoped learner state is missing or stale, use `learner_state_query`.
+- If the scoped learner state is missing or stale, use `learner_snapshot_read`.
 
 # Workflow
 
@@ -16,14 +16,14 @@ Generate one inline mastery check whose job is to produce evidence and a follow-
 2. Choose one assessment format that fits the goal and varies the surface form when possible.
 3. State the evidence criteria explicitly.
 4. Keep the check inline and concise.
-5. Once the learner's performance is known, record the outcome with `assessment_record`.
+5. Once the learner's performance is known, record the outcome with `learner_assessment_record`.
 6. Return either:
    - the mastery check itself, or
    - the assessment conclusion with the concrete next action.
 
 # Tool rules
 
-- Use `assessment_record` only after the learner has actually produced evidence.
+- Use `learner_assessment_record` only after the learner has actually produced evidence.
 - Include the chosen format, summary, evidence criteria, and follow-up action in the record.
 - Do not record practice from this agent.
 - Do not expand the assessment into a long lecture while the check is in progress.

@@ -77,7 +77,7 @@ export function createSessionMessageTransform(input: { context: SessionTransform
         })
         const workspace = await LearnerService.ensureWorkspaceContext(input.context.directory)
         const focusGoalIds = resolveFocusGoalIds(body)
-        const learnerDigest = await LearnerService.queryForPrompt({
+        const learnerDigest = await LearnerService.buildPromptContext({
           directory: input.context.directory,
           query: {
             workspaceId: workspace.workspaceId,
@@ -165,7 +165,7 @@ export function createSessionMessageTransform(input: { context: SessionTransform
           },
         })
         observeAcceptedMessage = async () => {
-          await LearnerService.observeLearnerMessage({
+          await LearnerService.recordLearnerMessageEvent({
             directory: input.context.directory,
             content: allTextContent,
             goalIds: focusGoalIds.length > 0 ? focusGoalIds : learnerDigest.relevantGoalIds,

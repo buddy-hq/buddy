@@ -95,7 +95,7 @@ const BUNDLED_ACTIVITY_BUNDLES: ActivityBundleDefinition[] = [
     ],
     outputs: ["guided attempt", "practice evidence"],
     skills: ["buddy-practice-guided"],
-    tools: ["activity_guided_practice", "practice_record"],
+    tools: ["activity_guided_practice", "learner_practice_record"],
     subagents: ["practice-agent", "hint-generator"],
   },
   {
@@ -113,7 +113,7 @@ const BUNDLED_ACTIVITY_BUNDLES: ActivityBundleDefinition[] = [
     ],
     outputs: ["independent task", "practice evidence"],
     skills: ["buddy-practice-independent"],
-    tools: ["activity_independent_practice", "practice_record"],
+    tools: ["activity_independent_practice", "learner_practice_record"],
     subagents: ["practice-agent"],
   },
   {
@@ -131,7 +131,7 @@ const BUNDLED_ACTIVITY_BUNDLES: ActivityBundleDefinition[] = [
     ],
     outputs: ["debug plan", "workspace-backed practice evidence"],
     skills: ["buddy-practice-debug-attempt"],
-    tools: ["activity_debug_attempt", "practice_record", "teaching_set_lesson", "teaching_checkpoint"],
+    tools: ["activity_debug_attempt", "learner_practice_record", "teaching_set_lesson", "teaching_checkpoint"],
     subagents: ["practice-agent", "feedback-engine"],
     workspaceStates: ["interactive"],
   },
@@ -150,7 +150,7 @@ const BUNDLED_ACTIVITY_BUNDLES: ActivityBundleDefinition[] = [
     ],
     outputs: ["stepwise solve", "practice evidence"],
     skills: ["buddy-practice-stepwise-solve"],
-    tools: ["activity_stepwise_solve", "practice_record", "render_figure"],
+    tools: ["activity_stepwise_solve", "learner_practice_record", "render_figure"],
     subagents: ["solution-checker"],
   },
   {
@@ -168,7 +168,7 @@ const BUNDLED_ACTIVITY_BUNDLES: ActivityBundleDefinition[] = [
     ],
     outputs: ["check prompt", "assessment evidence", "follow-up action"],
     skills: ["buddy-assess-mastery-check"],
-    tools: ["activity_mastery_check", "assessment_record"],
+    tools: ["activity_mastery_check", "learner_assessment_record"],
     subagents: ["assessment-agent", "rubric-grader"],
   },
   {
@@ -203,7 +203,7 @@ const BUNDLED_ACTIVITY_BUNDLES: ActivityBundleDefinition[] = [
     ],
     outputs: ["retrieval prompt", "assessment evidence"],
     skills: ["buddy-assess-retrieval-check"],
-    tools: ["activity_retrieval_check", "assessment_record"],
+    tools: ["activity_retrieval_check", "learner_assessment_record"],
     subagents: ["assessment-agent"],
   },
   {
@@ -221,7 +221,7 @@ const BUNDLED_ACTIVITY_BUNDLES: ActivityBundleDefinition[] = [
     ],
     outputs: ["transfer task", "assessment evidence"],
     skills: ["buddy-assess-transfer-check"],
-    tools: ["activity_transfer_check", "assessment_record"],
+    tools: ["activity_transfer_check", "learner_assessment_record"],
     subagents: ["assessment-agent"],
   },
 ]

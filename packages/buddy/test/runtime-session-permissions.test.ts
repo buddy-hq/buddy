@@ -22,8 +22,8 @@ describe("buildBuddyRuntimeSessionPermissions", () => {
     })
 
     expect(PermissionNext.evaluate("question", "*", permissions).action).toBe("allow")
-    expect(PermissionNext.evaluate("learner_state_query", "*", permissions).action).toBe("allow")
-    expect(PermissionNext.evaluate("practice_record", "*", permissions).action).toBe("allow")
+    expect(PermissionNext.evaluate("learner_snapshot_read", "*", permissions).action).toBe("allow")
+    expect(PermissionNext.evaluate("learner_practice_record", "*", permissions).action).toBe("allow")
     expect(PermissionNext.evaluate("activity_explanation", "*", permissions).action).toBe("allow")
     expect(PermissionNext.evaluate("activity_guided_practice", "*", permissions).action).toBe("allow")
     expect(PermissionNext.evaluate("skill", "buddy-practice-guided", permissions).action).toBe("allow")
@@ -64,7 +64,7 @@ describe("buildBuddyRuntimeSessionPermissions", () => {
     const permissions = buildBuddyRuntimeSessionPermissions({
       existing: [
         {
-          permission: "practice_record",
+          permission: "learner_practice_record",
           pattern: "*",
           action: "allow",
         },

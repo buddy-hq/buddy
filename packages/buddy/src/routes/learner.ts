@@ -6,11 +6,11 @@ import { LearnerService } from "../learning/learner/service.js"
 import { AnyObjectSchema, ErrorSchema } from "../openapi/compatibility-schemas.js"
 import { compatibilityRoute } from "../openapi/compatibility-route.js"
 import {
-  buildLearnerStateQueryFromRequest,
-  LearnerContextPatchSchema,
-  parseCurriculumViewQuery,
-  patchWorkspaceLearnerContext,
-  readScopedLearnerProjections,
+  LearnerArtifactListQuerySchema,
+  LearnerWorkspacePatchSchema,
+  parseArtifactListQuery,
+  parseDecisionPlanRequest,
+  parseSnapshotQuery,
   readWorkspaceStateFromSession,
 } from "./handlers/learner.js"
 import { directoryParameters } from "./shared/openapi.js"
@@ -20,143 +20,10 @@ import { withDirectoryContext, withJsonBody } from "./shared/route-helpers.js"
 export const LearnerRoutes = () =>
   new Hono()
     .get(
-      "/state",
+      "/snapshot",
       compatibilityRoute({
-        operationId: "learner.state",
-        summary: "Get learner state",
-        parameters: [
-          ...directoryParameters,
-          {
-            in: "query",
-            name: "goalId",
-            schema: resolver(z.array(z.string())),
-          },
-          {
-            in: "query",
-            name: "conceptTag",
-            schema: resolver(z.array(z.string())),
-          },
-          {
-            in: "query",
-            name: "includeDerived",
-            schema: resolver(z.boolean()),
-          },
-        ],
-        responses: {
-          200: {
-            description: "Learner state",
-            content: { "application/json": { schema: AnyObjectSchema } },
-          },
-          400: {
-            description: "Invalid query parameters",
-            content: { "application/json": { schema: ErrorSchema } },
-          },
-          403: {
-            description: "Directory is outside allowed roots",
-            content: { "application/json": { schema: ErrorSchema } },
-          },
-        },
-      }),
-      async (c) => {
-        const contextResult = withDirectoryContext(c.req.raw)
-        if (!contextResult.ok) return contextResult.response
-
-        const workspace = await LearnerService.ensureWorkspaceContext(contextResult.value.directory)
-        const stateQueryResult = buildLearnerStateQueryFromRequest({
-          requestURL: contextResult.value.requestURL,
-          workspaceId: workspace.workspaceId,
-        })
-        if (!stateQueryResult.success) {
-          return zodIssuesResponse(stateQueryResult.error)
-        }
-
-        const state = await LearnerService.queryState(stateQueryResult.data)
-        return c.json({
-          workspace,
-          ...state,
-        })
-      },
-    )
-    .get(
-      "/goals",
-      compatibilityRoute({
-        operationId: "learner.goals",
-        summary: "Get relevant learner goals",
-        parameters: directoryParameters,
-        responses: {
-          200: {
-            description: "Relevant learner goals",
-            content: { "application/json": { schema: AnyObjectSchema } },
-          },
-          403: {
-            description: "Directory is outside allowed roots",
-            content: { "application/json": { schema: ErrorSchema } },
-          },
-        },
-      }),
-      async (c) => {
-        const contextResult = withDirectoryContext(c.req.raw)
-        if (!contextResult.ok) return contextResult.response
-
-        const goals = await LearnerService.getWorkspaceGoals(contextResult.value.directory)
-        return c.json({ goals })
-      },
-    )
-    .get(
-      "/progress",
-      compatibilityRoute({
-        operationId: "learner.progress",
-        summary: "Get learner progress projection",
-        parameters: directoryParameters,
-        responses: {
-          200: {
-            description: "Learner progress projection",
-            content: { "application/json": { schema: AnyObjectSchema } },
-          },
-          403: {
-            description: "Directory is outside allowed roots",
-            content: { "application/json": { schema: ErrorSchema } },
-          },
-        },
-      }),
-      async (c) => {
-        const contextResult = withDirectoryContext(c.req.raw)
-        if (!contextResult.ok) return contextResult.response
-
-        const projections = await readScopedLearnerProjections(contextResult.value.directory)
-        return c.json({ progress: projections.progress })
-      },
-    )
-    .get(
-      "/review",
-      compatibilityRoute({
-        operationId: "learner.review",
-        summary: "Get learner review projection",
-        parameters: directoryParameters,
-        responses: {
-          200: {
-            description: "Learner review projection",
-            content: { "application/json": { schema: AnyObjectSchema } },
-          },
-          403: {
-            description: "Directory is outside allowed roots",
-            content: { "application/json": { schema: ErrorSchema } },
-          },
-        },
-      }),
-      async (c) => {
-        const contextResult = withDirectoryContext(c.req.raw)
-        if (!contextResult.ok) return contextResult.response
-
-        const projections = await readScopedLearnerProjections(contextResult.value.directory)
-        return c.json({ review: projections.review })
-      },
-    )
-    .get(
-      "/curriculum-view",
-      compatibilityRoute({
-        operationId: "learner.curriculumView",
-        summary: "Get generated learning-plan view",
+        operationId: "learner.snapshot",
+        summary: "Get learner snapshot",
         parameters: [
           ...directoryParameters,
           {
@@ -179,10 +46,15 @@ export const LearnerRoutes = () =>
             name: "sessionId",
             schema: resolver(z.string()),
           },
+          {
+            in: "query",
+            name: "workspaceState",
+            schema: resolver(z.enum(["chat", "interactive"])),
+          },
         ],
         responses: {
           200: {
-            description: "Generated learning-plan view",
+            description: "Learner snapshot",
             content: { "application/json": { schema: AnyObjectSchema } },
           },
           400: {
@@ -199,44 +71,195 @@ export const LearnerRoutes = () =>
         const contextResult = withDirectoryContext(c.req.raw)
         if (!contextResult.ok) return contextResult.response
 
-        const paramsResult = parseCurriculumViewQuery(contextResult.value.requestURL)
-        if (!paramsResult.success) {
-          return zodIssuesResponse(paramsResult.error)
+        const parsed = parseSnapshotQuery(contextResult.value.requestURL)
+        if (!parsed.success) {
+          return zodIssuesResponse(parsed.error)
         }
-        const params = paramsResult.data
-        const workspace = await LearnerService.ensureWorkspaceContext(contextResult.value.directory)
-        const workspaceState = readWorkspaceStateFromSession({
+
+        const snapshot = await LearnerService.getWorkspaceSnapshot({
           directory: contextResult.value.directory,
-          sessionId: params.sessionId,
+          query: {
+            ...parsed.data,
+            workspaceState:
+              parsed.data.workspaceState ??
+              readWorkspaceStateFromSession({
+                directory: contextResult.value.directory,
+                sessionId: parsed.data.sessionId,
+              }),
+          },
         })
-        const view = await LearnerService.getCurriculumView(contextResult.value.directory, {
-          workspaceId: workspace.workspaceId,
-          persona: params.persona ?? "buddy",
-          intent: params.intent,
-          focusGoalIds: params.focusGoalIds ?? [],
-          tokenBudget: 1200,
-          workspaceState,
-        })
-        return c.json(view)
+        return c.json(snapshot)
       },
     )
     .post(
-      "/context",
+      "/plan",
       compatibilityRoute({
-        operationId: "learner.context",
-        summary: "Update workspace learner context",
-        parameters: directoryParameters,
+        operationId: "learner.plan",
+        summary: "Create or reuse plan decision",
+        parameters: [
+          ...directoryParameters,
+          {
+            in: "query",
+            name: "persona",
+            schema: resolver(z.enum(PERSONA_IDS)),
+          },
+          {
+            in: "query",
+            name: "intent",
+            schema: resolver(z.enum(TEACHING_INTENT_IDS)),
+          },
+          {
+            in: "query",
+            name: "goalId",
+            schema: resolver(z.array(z.string())),
+          },
+          {
+            in: "query",
+            name: "sessionId",
+            schema: resolver(z.string()),
+          },
+          {
+            in: "query",
+            name: "workspaceState",
+            schema: resolver(z.enum(["chat", "interactive"])),
+          },
+        ],
         requestBody: {
-          required: true,
+          required: false,
           content: {
             "application/json": {
-              schema: resolver(LearnerContextPatchSchema),
+              schema: AnyObjectSchema,
             },
           },
         },
         responses: {
           200: {
-            description: "Updated workspace context",
+            description: "Plan decision",
+            content: { "application/json": { schema: AnyObjectSchema } },
+          },
+          400: {
+            description: "Invalid request",
+            content: { "application/json": { schema: ErrorSchema } },
+          },
+          403: {
+            description: "Directory is outside allowed roots",
+            content: { "application/json": { schema: ErrorSchema } },
+          },
+        },
+      }),
+      async (c) => {
+        const contextResult = withDirectoryContext(c.req.raw)
+        if (!contextResult.ok) return contextResult.response
+
+        const bodyResult = await withJsonBody(c.req.raw, {
+          optional: true,
+          fallbackBody: {},
+        })
+        if (!bodyResult.ok) return bodyResult.response
+
+        const parsed = parseDecisionPlanRequest({
+          requestURL: contextResult.value.requestURL,
+          body: bodyResult.value,
+        })
+        if (!parsed.success) {
+          return zodIssuesResponse(parsed.error)
+        }
+
+        const decision = await LearnerService.ensurePlanDecision({
+          directory: contextResult.value.directory,
+          query: {
+            ...parsed.data,
+            workspaceState:
+              parsed.data.workspaceState ??
+              readWorkspaceStateFromSession({
+                directory: contextResult.value.directory,
+                sessionId: parsed.data.sessionId,
+              }),
+          },
+        })
+        return c.json(decision)
+      },
+    )
+    .get(
+      "/artifacts",
+      compatibilityRoute({
+        operationId: "learner.artifacts",
+        summary: "List learner artifacts",
+        parameters: [
+          ...directoryParameters,
+          {
+            in: "query",
+            name: "kind",
+            schema: resolver(LearnerArtifactListQuerySchema.shape.kind.unwrap()),
+          },
+          {
+            in: "query",
+            name: "goalId",
+            schema: resolver(z.string()),
+          },
+          {
+            in: "query",
+            name: "status",
+            schema: resolver(z.string()),
+          },
+          {
+            in: "query",
+            name: "includeRaw",
+            schema: resolver(z.boolean()),
+          },
+        ],
+        responses: {
+          200: {
+            description: "Artifact list",
+            content: { "application/json": { schema: AnyObjectSchema } },
+          },
+          400: {
+            description: "Invalid query parameters",
+            content: { "application/json": { schema: ErrorSchema } },
+          },
+          403: {
+            description: "Directory is outside allowed roots",
+            content: { "application/json": { schema: ErrorSchema } },
+          },
+        },
+      }),
+      async (c) => {
+        const contextResult = withDirectoryContext(c.req.raw)
+        if (!contextResult.ok) return contextResult.response
+
+        const parsed = parseArtifactListQuery(contextResult.value.requestURL)
+        if (!parsed.success) {
+          return zodIssuesResponse(parsed.error)
+        }
+
+        const artifacts = await LearnerService.listArtifacts({
+          directory: contextResult.value.directory,
+          kind: parsed.data.kind,
+          goalId: parsed.data.goalId,
+          status: parsed.data.status,
+          includeRaw: parsed.data.includeRaw,
+        })
+
+        return c.json({ artifacts })
+      },
+    )
+    .patch(
+      "/workspace",
+      compatibilityRoute({
+        operationId: "learner.workspace.patch",
+        summary: "Patch learner workspace and profile",
+        parameters: directoryParameters,
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: resolver(LearnerWorkspacePatchSchema),
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Updated workspace/profile",
             content: { "application/json": { schema: AnyObjectSchema } },
           },
           400: {
@@ -256,41 +279,17 @@ export const LearnerRoutes = () =>
         const bodyResult = await withJsonBody(c.req.raw)
         if (!bodyResult.ok) return bodyResult.response
 
-        const parsed = LearnerContextPatchSchema.safeParse(bodyResult.value)
+        const parsed = LearnerWorkspacePatchSchema.safeParse(bodyResult.value)
         if (!parsed.success) {
           return zodIssuesResponse(parsed.error)
         }
 
-        const contextPatch = await patchWorkspaceLearnerContext({
+        const patched = await LearnerService.patchWorkspace({
           directory: contextResult.value.directory,
-          patch: parsed.data,
+          workspace: parsed.data.workspace,
+          profile: parsed.data.profile,
         })
-        return c.json(contextPatch)
-      },
-    )
-    .post(
-      "/rebuild",
-      compatibilityRoute({
-        operationId: "learner.rebuild",
-        summary: "Rebuild learner projections",
-        parameters: directoryParameters,
-        responses: {
-          200: {
-            description: "Rebuilt learner projections",
-            content: { "application/json": { schema: AnyObjectSchema } },
-          },
-          403: {
-            description: "Directory is outside allowed roots",
-            content: { "application/json": { schema: ErrorSchema } },
-          },
-        },
-      }),
-      async (c) => {
-        const contextResult = withDirectoryContext(c.req.raw)
-        if (!contextResult.ok) return contextResult.response
 
-        await LearnerService.rebuildProjections()
-        const projections = await readScopedLearnerProjections(contextResult.value.directory)
-        return c.json(projections)
+        return c.json(patched)
       },
     )

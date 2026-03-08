@@ -12,7 +12,7 @@ export const CURRICULUM_ORCHESTRATOR = registerBuddyAgent({
       "*": "deny",
       curriculum_read: "allow",
       curriculum_update: "deny",
-      learner_state_query: "allow",
+      learner_snapshot_read: "allow",
       task: {
         "*": "deny",
         "goal-writer": "allow",

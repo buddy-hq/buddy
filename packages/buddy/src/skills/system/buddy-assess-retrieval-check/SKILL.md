@@ -23,7 +23,7 @@ Run a lightweight retrieval check without heavy prompting.
 4. Record the result if it is decision-relevant evidence.
 
 # Tool Hints
-- Use assessment_record for meaningful evidence.
+- Use learner_assessment_record for meaningful evidence.
 - Keep the check short; it is not a full mastery check.
 
 # Avoid

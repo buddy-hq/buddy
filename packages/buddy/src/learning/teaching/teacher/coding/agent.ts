@@ -13,9 +13,9 @@ export const CODE_BUDDY = registerBuddyAgent({
     permission: {
       question: "allow",
       plan_enter: "allow",
-      learner_state_query: "allow",
-      practice_record: "allow",
-      assessment_record: "allow",
+      learner_snapshot_read: "allow",
+      learner_practice_record: "allow",
+      learner_assessment_record: "allow",
       teaching_start_lesson: "allow",
       teaching_checkpoint: "allow",
       teaching_add_file: "allow",

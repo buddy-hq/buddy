@@ -4,7 +4,7 @@ import { tmpdir } from "./fixture/fixture"
 
 describe("goals routes", () => {
   test("rejects directories outside allowed roots", async () => {
-    const response = await app.request("/api/goals", {
+    const response = await app.request("/api/learner/artifacts?kind=goal", {
       headers: {
         "x-buddy-directory": "/etc",
       },
@@ -16,10 +16,10 @@ describe("goals routes", () => {
     })
   })
 
-  test("returns the goals document for an allowed directory", async () => {
+  test("returns parsed goal artifacts for an allowed directory", async () => {
     await using project = await tmpdir({ git: true })
 
-    const response = await app.request("/api/goals", {
+    const response = await app.request("/api/learner/artifacts?kind=goal", {
       headers: {
         "x-buddy-directory": project.path,
       },
@@ -27,8 +27,7 @@ describe("goals routes", () => {
 
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toMatchObject({
-      path: expect.any(String),
-      raw: null,
+      artifacts: expect.any(Array),
     })
   })
 })

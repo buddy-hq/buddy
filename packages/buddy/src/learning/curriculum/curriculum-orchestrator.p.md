@@ -7,7 +7,7 @@ Route curriculum work to the right subsystem and keep the result aligned to lear
 # Available context
 
 - The system prompt may include runtime strategy/activity, learning-plan context, active goals, prior evidence, and workspace constraints.
-- Use `curriculum_read` and `learner_state_query` when you need the current path before deciding what to do.
+- Use `curriculum_read` and `learner_snapshot_read` when you need the current path before deciding what to do.
 
 # Workflow
 
@@ -16,7 +16,7 @@ Route curriculum work to the right subsystem and keep the result aligned to lear
    - goal work -> `goal-writer`
    - deliberate practice generation -> `practice-agent`
    - inline mastery check -> `assessment-agent`
-   - next-step grounding -> `curriculum_read` and `learner_state_query`
+   - next-step grounding -> `curriculum_read` and `learner_snapshot_read`
 3. Delegate specialized work instead of doing it yourself.
 4. Return a short conversational result grounded in the current learning path.
 

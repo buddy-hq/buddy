@@ -23,7 +23,7 @@ describe("prompt contracts", () => {
     expect(prompt).toContain("deliverable")
     expect(prompt).toContain("self-check")
     expect(prompt).toContain("why the task matters")
-    expect(prompt).toContain("practice_record")
+    expect(prompt).toContain("learner_practice_record")
   })
 
   test("assessment-agent prompt keeps the evidence-first inline-check contract", () => {
@@ -41,7 +41,7 @@ describe("prompt contracts", () => {
     expect(prompt).toContain("evidence criteria")
     expect(prompt).toContain("follow-up action")
     expect(prompt).toContain("current conversation")
-    expect(prompt).toContain("assessment_record")
+    expect(prompt).toContain("learner_assessment_record")
   })
 
   test("curriculum-orchestrator prompt keeps routing and delegation explicit", () => {
@@ -73,6 +73,6 @@ describe("prompt contracts", () => {
     expect(prompt).toContain("# Tool Hints")
     expect(prompt).toContain("# Avoid")
     expect(prompt).toContain("# Output")
-    expect(prompt).toContain("practice_record")
+    expect(prompt).toContain("learner_practice_record")
   })
 })

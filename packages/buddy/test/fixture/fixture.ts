@@ -3,7 +3,7 @@ import * as fs from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import type { Config } from "../../src/config/config.js"
-import { LearnerPath } from "../../src/learning/learner/path.js"
+import { LearnerArtifactPath } from "../../src/learning/learner/artifacts/path.js"
 
 type TmpDirOptions<T> = {
   git?: boolean
@@ -16,7 +16,7 @@ type TmpDirOptions<T> = {
 export async function tmpdir<T>(options?: TmpDirOptions<T>) {
   const dirpath = path.join(os.tmpdir(), "buddy-test-" + Math.random().toString(36).slice(2))
   if (!options?.preserveLearnerStore) {
-    await fs.rm(path.join(LearnerPath.root()), { recursive: true, force: true })
+    await fs.rm(LearnerArtifactPath.profileRoot(), { recursive: true, force: true })
   }
   await fs.mkdir(dirpath, { recursive: true })
 

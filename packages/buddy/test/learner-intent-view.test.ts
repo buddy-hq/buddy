@@ -3,21 +3,23 @@ import { LearnerService } from "../src/learning/learner/service.js"
 import { tmpdir } from "./fixture/fixture"
 
 describe("learner curriculum intent view", () => {
-  test("includes session plan, constraints, alignment, and open feedback actions", async () => {
+  test("builds factual snapshot and plan context for the requested intent", async () => {
     await using project = await tmpdir({ git: true })
 
-    const workspace = await LearnerService.ensureWorkspaceContext(project.path)
-    await LearnerService.updateWorkspaceContext(project.path, {
-      projectConstraints: ["Only 30 minutes available today"],
-      motivationContext: "Ship one real Tauri feature this week",
-      localToolAvailability: ["bun", "tauri"],
-    })
-    await LearnerService.updateLearnerConstraints({
-      motivationAnchors: ["You want this skill for the desktop app you are already building."],
-      availableTimePatterns: ["Short evening sessions"],
+    await LearnerService.patchWorkspace({
+      directory: project.path,
+      workspace: {
+        projectConstraints: ["Only 30 minutes available today"],
+        motivationContext: "Ship one real Tauri feature this week",
+        localToolAvailability: ["bun", "tauri"],
+      },
+      profile: {
+        motivationAnchors: ["You want this skill for the desktop app you are already building."],
+        availableTimePatterns: ["Short evening sessions"],
+      },
     })
 
-    const committed = await LearnerService.commitGoals({
+    const committed = await LearnerService.replaceGoalSet({
       directory: project.path,
       scope: "topic",
       contextLabel: "Tauri IPC",
@@ -34,7 +36,7 @@ describe("learner curriculum intent view", () => {
       ],
     })
 
-    await LearnerService.recordPractice({
+    await LearnerService.recordPracticeEvent({
       directory: project.path,
       goalIds: committed.goalIds,
       prompt: "Create a command that validates payload shape before saving settings.",
@@ -46,26 +48,30 @@ describe("learner curriculum intent view", () => {
       sessionId: "ses_practice",
     })
 
-    const view = await LearnerService.getCurriculumView(project.path, {
-      workspaceId: workspace.workspaceId,
-      persona: "code-buddy",
-      intent: "practice",
-      focusGoalIds: committed.goalIds,
-      tokenBudget: 1200,
+    const snapshot = await LearnerService.getWorkspaceSnapshot({
+      directory: project.path,
+      query: {
+        persona: "code-buddy",
+        intent: "practice",
+        focusGoalIds: committed.goalIds,
+      },
+    })
+    const planResult = await LearnerService.ensurePlanDecision({
+      directory: project.path,
+      query: {
+        persona: "code-buddy",
+        intent: "practice",
+        focusGoalIds: committed.goalIds,
+      },
     })
 
-    expect(view.sessionPlan.suggestedActivity.length).toBeGreaterThan(0)
-    expect(view.constraintsSummary.some((item) => item.includes("30 minutes"))).toBe(true)
-    expect(view.openFeedbackActions.length).toBeGreaterThan(0)
-    expect(view.actions.length).toBeGreaterThan(0)
-    expect(view.actions.some((action) => action.actionId === "resolve-feedback")).toBe(true)
-    expect(view.actions.some((action) => action.activityBundleId === "practice-guided")).toBe(true)
-    expect(view.activityBundles.every((bundle) => bundle.intent === "practice")).toBe(true)
-    expect(view.activityBundles.map((bundle) => bundle.id)).toEqual(
+    expect(snapshot.constraintsSummary.some((item) => item.includes("30 minutes"))).toBe(true)
+    expect(snapshot.goals.map((goal) => goal.id)).toEqual(expect.arrayContaining(committed.goalIds))
+    expect(planResult.plan.suggestedActivity.length).toBeGreaterThan(0)
+    expect(snapshot.activityBundles.every((bundle) => bundle.intent === "practice")).toBe(true)
+    expect(snapshot.activityBundles.map((bundle) => bundle.id)).toEqual(
       expect.arrayContaining(["practice-guided", "practice-independent"]),
     )
-    expect(view.alignmentSummary.recommendations.length).toBeGreaterThan(0)
-    expect(view.markdown).toContain("Activity Bundles")
-    expect(view.markdown).toContain("Constraints & Opportunities")
+    expect(snapshot.markdown).toContain("Constraints")
   })
 })

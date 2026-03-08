@@ -37,7 +37,7 @@ async function buildRuntimePrompt(input: {
   userContent?: string
 }) {
   const workspace = await LearnerService.ensureWorkspaceContext(input.directory)
-  const digest = await LearnerService.queryForPrompt({
+  const digest = await LearnerService.buildPromptContext({
     directory: input.directory,
     query: {
       workspaceId: workspace.workspaceId,

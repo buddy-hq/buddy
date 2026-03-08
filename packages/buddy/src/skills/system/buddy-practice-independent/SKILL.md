@@ -23,7 +23,7 @@ Give a cleaner independent attempt with lighter support and collect evidence.
 4. Record the outcome once the learner attempt provides evidence.
 
 # Tool Hints
-- Use practice_record after the learner attempt.
+- Use learner_practice_record after the learner attempt.
 - Use practice-agent when you want a more carefully authored task artifact.
 
 # Avoid

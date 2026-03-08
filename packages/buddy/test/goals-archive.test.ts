@@ -1,8 +1,7 @@
 import { describe, expect, test } from "bun:test"
-import fs from "node:fs/promises"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { LearnerPath } from "../src/learning/learner/path.js"
+import { LearnerArtifactStore } from "../src/learning/learner/artifacts/store.js"
 import { ensureGoalToolsRegistered } from "../src/learning/goals/tools/register.js"
 import { tmpdir } from "./fixture/fixture"
 
@@ -21,7 +20,6 @@ function createToolContext() {
 describe("learner-store goal archiving", () => {
   test("committing a new set archives the previous active set for the same (scope, contextLabel)", async () => {
     await using project = await tmpdir({ git: true })
-    const filepath = LearnerPath.goals()
 
     await OpenCodeInstance.provide({
       directory: project.path,
@@ -108,16 +106,18 @@ describe("learner-store goal archiving", () => {
       },
     })
 
-    const parsed = JSON.parse(await fs.readFile(filepath, "utf8")) as {
-      goals: Array<{ archivedAt?: string; contextLabel: string; setId: string }>
-    }
+    const goals = (await LearnerArtifactStore.readArtifacts(project.path, "goal"))
+      .filter((artifact) => artifact.kind === "goal")
 
     const tauriSets = Array.from(
-      parsed.goals
+      goals
         .filter((goal) => goal.contextLabel === "Tauri IPC")
-        .reduce<Map<string, Array<{ archivedAt?: string }>>>((all, goal) => {
+        .reduce<Map<string, Array<{ status: "active" | "archived" }>>>((all, goal) => {
+          if (!goal.setId) {
+            return all
+          }
           const existing = all.get(goal.setId) ?? []
-          existing.push({ archivedAt: goal.archivedAt })
+          existing.push({ status: goal.status })
           all.set(goal.setId, existing)
           return all
         }, new Map())
@@ -125,7 +125,7 @@ describe("learner-store goal archiving", () => {
     )
 
     expect(tauriSets).toHaveLength(2)
-    expect(tauriSets[0].every((goal) => typeof goal.archivedAt === "string")).toBe(true)
-    expect(tauriSets[1].every((goal) => goal.archivedAt === undefined)).toBe(true)
+    expect(tauriSets[0].every((goal) => goal.status === "archived")).toBe(true)
+    expect(tauriSets[1].every((goal) => goal.status === "active")).toBe(true)
   })
 })

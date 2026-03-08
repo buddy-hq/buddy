@@ -23,7 +23,7 @@ Run a concise mastery check and decide the next move from explicit evidence.
 4. Record the assessment and recommend the next step.
 
 # Tool Hints
-- Use assessment_record when the check produces usable evidence.
+- Use learner_assessment_record when the check produces usable evidence.
 - Use assessment-agent when you need a more carefully designed check format.
 
 # Avoid

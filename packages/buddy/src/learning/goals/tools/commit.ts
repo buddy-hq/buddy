@@ -27,7 +27,7 @@ const goalCommitTool = createBuddyTool("goal_commit", {
       },
     })
 
-    const commit = await LearnerService.commitGoals({
+    const commit = await LearnerService.replaceGoalSet({
       directory: ctx.directory,
       scope: params.scope,
       contextLabel: params.contextLabel,

@@ -3,7 +3,7 @@ import { createBuddyTool, type BuddyToolContext } from "../../shared/create-budd
 import { LearnerService } from "../service.js"
 import { PERSONA_IDS, TEACHING_INTENT_IDS } from "../../runtime/types.js"
 
-const learnerStateQueryTool = createBuddyTool("learner_state_query", {
+const learnerStateQueryTool = createBuddyTool("learner_snapshot_read", {
   description: "Read the current learner state summary for this workspace from the cross-notebook learner store.",
   parameters: z.object({
     persona: z.enum(PERSONA_IDS).optional(),
@@ -12,7 +12,7 @@ const learnerStateQueryTool = createBuddyTool("learner_state_query", {
   }),
   async execute(params, ctx: BuddyToolContext) {
     await ctx.ask({
-      permission: "learner_state_query",
+      permission: "learner_snapshot_read",
       patterns: ["*"],
       always: ["*"],
       metadata: {
@@ -20,25 +20,31 @@ const learnerStateQueryTool = createBuddyTool("learner_state_query", {
       },
     })
 
-    const workspace = await LearnerService.ensureWorkspaceContext(ctx.directory)
-    const digest = await LearnerService.queryForPrompt({
+    const snapshot = await LearnerService.getWorkspaceSnapshot({
       directory: ctx.directory,
       query: {
-        workspaceId: workspace.workspaceId,
         persona: params.persona ?? "buddy",
         intent: params.intent,
         focusGoalIds: params.focusGoalIds ?? [],
-        tokenBudget: 1200,
       },
     })
+    const planDecision = await LearnerService.ensurePlanDecision({
+      directory: ctx.directory,
+      query: {
+        persona: params.persona ?? "buddy",
+        intent: params.intent,
+        focusGoalIds: params.focusGoalIds ?? [],
+      },
+    })
+    const relevantGoalIds = snapshot.goals.map((goal) => goal.id)
 
     return {
       title: "learner_state",
-      output: [...digest.tier1, ...digest.tier2, ...digest.tier3].join("\n"),
+      output: snapshot.markdown,
       metadata: {
-        workspaceId: workspace.workspaceId,
-        relevantGoalIds: digest.relevantGoalIds,
-        coldStart: digest.coldStart,
+        workspaceId: snapshot.workspace.workspaceId,
+        relevantGoalIds,
+        latestPlanDecisionId: planDecision.decision?.id,
       },
     }
   },

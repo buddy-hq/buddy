@@ -10,9 +10,9 @@ export const PRACTICE_AGENT = registerBuddyAgent({
     steps: 8,
     permission: {
       question: "allow",
-      learner_state_query: "allow",
-      practice_record: "allow",
-      assessment_record: "deny",
+      learner_snapshot_read: "allow",
+      learner_practice_record: "allow",
+      learner_assessment_record: "deny",
       curriculum_read: "allow",
       curriculum_update: "deny",
       task: "deny",

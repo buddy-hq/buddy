@@ -12,9 +12,9 @@ const BUILTIN_BUDDY_PERSONAS: Record<BuddyPersonaId, BuddyPersonaProfile> = {
     defaultSurface: "curriculum",
     hidden: false,
     toolDefaults: {
-      learner_state_query: "allow",
-      practice_record: "allow",
-      assessment_record: "allow",
+      learner_snapshot_read: "allow",
+      learner_practice_record: "allow",
+      learner_assessment_record: "allow",
     },
     subagentDefaults: {
       "curriculum-orchestrator": "prefer",
@@ -39,9 +39,9 @@ const BUILTIN_BUDDY_PERSONAS: Record<BuddyPersonaId, BuddyPersonaProfile> = {
     defaultSurface: "editor",
     hidden: false,
     toolDefaults: {
-      learner_state_query: "allow",
-      practice_record: "allow",
-      assessment_record: "allow",
+      learner_snapshot_read: "allow",
+      learner_practice_record: "allow",
+      learner_assessment_record: "allow",
       teaching_start_lesson: "allow",
       teaching_checkpoint: "allow",
       teaching_add_file: "allow",
@@ -72,9 +72,9 @@ const BUILTIN_BUDDY_PERSONAS: Record<BuddyPersonaId, BuddyPersonaProfile> = {
     defaultSurface: "figure",
     hidden: false,
     toolDefaults: {
-      learner_state_query: "allow",
-      practice_record: "allow",
-      assessment_record: "allow",
+      learner_snapshot_read: "allow",
+      learner_practice_record: "allow",
+      learner_assessment_record: "allow",
       render_figure: "allow",
       render_freeform_figure: "allow",
     },

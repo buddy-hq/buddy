@@ -2,594 +2,287 @@
 
 ## One-Line Summary
 
-A heuristic-based tutoring system that tracks learning goals, generates personalized practice, and provides feedback—all without ML models.
+Buddy learner is a file-first, artifact-based pedagogy system: every learner record is a standalone Markdown artifact with YAML frontmatter, and pedagogical decisions are produced by a structured LLM decision engine (no deterministic heuristics).
 
 ---
 
-## What Is This?
+## Design Principles
 
-It's an intelligent tutoring system for coding education. It watches what you do, remembers your progress, and decides what to teach next.
-
-**Three things it does:**
-
-1. **Tracks** what you're trying to learn (goals) and how you're doing (evidence)
-2. **Decides** what to teach next (session planning)
-3. **Responds** with targeted feedback after practice/assessments
-
----
-
-## Core Concept: Everything Links to Goals
-
-Goals are the atomic unit. Every piece of data points to a goal:
-
-```
-Goal "Understand React hooks"
-    ├── Evidence: 5 records (practice attempts, messages)
-    ├── Progress: "demonstrated" (passed 2 assessments)
-    ├── Feedback: 2 open items (what to fix next)
-    └── Misconceptions: 1 active ("state is confusing")
-```
+1. **Everything is a file**
+   - Workspace-scoped learner artifacts live inside each workspace at `.buddy/learner/`.
+   - User-wide learner profile lives at `~/.buddy/profile/learner/profile.md`.
+2. **No projection authority**
+   - There is no authoritative blob store and no persistent projection pipeline.
+   - Snapshot and prompt context are compiled directly from artifact files.
+3. **Decision engine for pedagogy**
+   - Message interpretation, feedback generation, and next-step planning are decision-engine operations.
+   - No silent regex/heuristic fallback for pedagogical state mutation.
+4. **Explicit goal relationships only**
+   - No auto-derived prerequisite/build/reinforce edges.
 
 ---
 
-## The Data Model (In Brief)
+## Storage Topology
 
-```
-┌─────────────────────────────────────────────────────────┐
-│  GOAL: What you're learning                            │
-│  - statement: "I can use useEffect for data fetching"  │
-│  - cognitiveLevel: "Application"                       │
-│  - howToTest: "Build a component that fetches on mount"│
-└─────────────────────────────────────────────────────────┘
-         │
-         ▼
-┌─────────────────────────────────────────────────────────┐
-│  EVIDENCE: What happened                               │
-│  - sourceType: "practice" | "assessment" | "message"    │
-│  - outcome: "positive" | "mixed" | "negative"         │
-│  - summary: What occurred                              │
-└─────────────────────────────────────────────────────────┘
-         │
-         ├──────────────────┬──────────────────┐
-         ▼                  ▼                  ▼
-┌──────────────┐   ┌──────────────┐   ┌──────────────┐
-│ MISCONCEPTION│   │  FEEDBACK   │   │  PROJECTION  │
-│ (if confused)│   │ (what to do)│   │ (derived view)│
-└──────────────┘   └──────────────┘   └──────────────┘
-```
+### Workspace root
+
+`<workspace>/.buddy/learner/`
+
+### Workspace artifact layout
+
+- `workspace/context.md`
+- `goals/<goalId>.md`
+- `messages/<messageId>.md`
+- `practice/<practiceId>.md`
+- `assessments/<assessmentId>.md`
+- `evidence/<evidenceId>.md`
+- `feedback/<feedbackId>.md`
+- `misconceptions/<misconceptionId>.md`
+- `decisions/interpret-message/<decisionId>.md`
+- `decisions/feedback/<decisionId>.md`
+- `decisions/plan/<decisionId>.md`
+
+### User-wide profile root
+
+`~/.buddy/profile/learner/profile.md`
 
 ---
 
-## How It Works: The Three Flows
+## Artifact Contract
 
-### Flow 1: You Say Something
+All artifacts include common frontmatter:
 
-```
-User message
-     │
-     ▼
-┌─────────────────┐
-│ Signal Detection│  Regex matching for:
-│                 │  - "stuck", "confused" → frustration
-│                 │  - "explain", "why" → request
-│                 │  - "done", "next" → completion
-└────────┬────────┘
-         │
-    has signal?
-         │
-    ┌──YES──┐
-    │       │
-    ▼       ▼
-Evidence  Misconception
-         (if confused)
-```
+- `id`
+- `kind`
+- `goalIds`
+- `createdAt`
+- `updatedAt`
+- `workspaceId` for workspace-scoped records
 
-### Flow 2: You Do Practice
+Artifact schemas are defined and validated in:
 
-```
-Practice attempt
-     │
-     ▼
-┌─────────────────┐
-│ Record Practice │
-│ (template +     │
-│  attempt)       │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ Generate        │
-│ Evidence        │
-│ (outcome based  │
-│  on: completed/ │
-│  partial/stuck) │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ Generate        │  Template-based:
-│ Feedback        │  - strengths
-│                 │  - gaps
-│                 │  - guidance
-│                 │  - required action
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ Auto-Resolve   │  Finds open feedback for
-│ old feedback   │  same goal, marks resolved
-└─────────────────┘
-```
+- `packages/buddy/src/learning/learner/artifacts/types.ts`
 
-### Flow 3: Session Planning
+Storage/parsing lives in:
 
-```
-Query for next activity
-     │
-     ▼
-┌─────────────────┐
-│ Build Session   │
-│ Plan            │
-│                 │
-│ Score each goal:│
-│ +30 open feedback│
-│ +20 needs review│
-│ +15 in progress │
-│ +10 not started │
-│ -50 blocked    │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ Return:         │
-│ - primary goal  │
-│ - activity type │
-│ - scaffolding   │
-│ - rationale     │
-└─────────────────┘
-```
+- `packages/buddy/src/learning/learner/artifacts/path.ts`
+- `packages/buddy/src/learning/learner/artifacts/markdown.ts`
+- `packages/buddy/src/learning/learner/artifacts/store.ts`
 
 ---
 
-## Key Decision Rules
+## Module Layout
 
-### When does something create a Misconception?
+Learner is split into focused Buddy-owned modules:
 
-Only when learner message contains: `confused`, `don't understand`, `stuck`, `frustrated`
-
-### When does something create Feedback?
-
-Every practice attempt and assessment generates feedback via templates.
-
-### When does Feedback resolve?
-
-- **Positive evidence** (completed practice, demonstrated assessment) → `resolved`
-- **Mixed evidence** (partial) → `acted-on` (needs follow-up)
-
----
-
-## Feedback Templates (How Responses Are Built)
-
-### Practice Feedback
-
-```
-outcomes:
-  completed → strengths: "You carried it through"
-              scaffolding: "independent"
-  partial   → gaps: "Reasoning incomplete"
-              guidance: "One targeted fix"
-  stuck     → gaps: "Exceeds working range"
-              guidance: "Worked example first"
-```
-
-### Assessment Feedback
-
-```
-results:
-  demonstrated → scaffolding: "transfer" (vary surface)
-  partial      → scaffolding: "guided" (targeted practice)
-  not-demonstrated → scaffolding: "worked-example" (back to basics)
-```
+- `learning/learner/artifacts/`
+  - schema definitions, markdown parsing/serialization, path mapping, repository operations
+- `learning/learner/compiler/`
+  - `snapshot.ts`: factual workspace snapshot compiler
+  - `prompt-context.ts`: typed prompt digest compiler
+- `learning/learner/decision/`
+  - `engine.ts`: structured decision runtime client
+  - `prompt.ts`: decision prompts
+  - `types.ts`: decision schemas / JSON schema contracts
+  - `service.ts`: decision operation wrappers
+- `learning/learner/orchestration/`
+  - `workspace.ts`: workspace/profile patching and goal-set replacement
+  - `observe-message.ts`: learner message observation workflow
+  - `record-practice.ts`: practice workflow
+  - `record-assessment.ts`: assessment workflow
+  - `plan.ts`: plan decision caching and generation
+  - `helpers.ts`: shared normalization + mutation helpers
+- `learning/learner/service.ts`
+  - thin facade only; delegates to artifact/compiler/decision/orchestration modules
 
 ---
 
-## Projections: Calculated Views
+## Public Learner Service Facade
 
-Three derived views rebuilt after significant events:
+`packages/buddy/src/learning/learner/service.ts` exposes only:
 
-### 1. Progress
+- `ensureWorkspaceContext(directory)`
+- `getWorkspaceSnapshot(input)`
+- `listArtifacts(input)`
+- `patchWorkspace(input)`
+- `replaceGoalSet(input)`
+- `recordLearnerMessageEvent(input)`
+- `recordPracticeEvent(input)`
+- `recordAssessmentEvent(input)`
+- `ensurePlanDecision(input)`
+- `buildPromptContext(input)`
 
-What's your status on each goal?
-
-```
-demonstrated  = passed assessment, no regression
-needs-review  = failed after success OR active misconceptions
-in-progress   = has some evidence
-not-started   = no evidence
-```
-
-### 2. Review (Spaced Repetition)
-
-When should you revisit?
-
-```
-demonstrated once → review in 1 day
-demonstrated twice → review in 3 days
-demonstrated 3x   → review in 7 days
-demonstrated 4x+  → review in 14-30 days
-```
-
-### 3. Alignment
-
-Does each goal have enough practice + assessment?
-
-```
-complete  = has practice AND assessment
-partial   = has one or the other
-missing   = has neither
-suiteComplete = 2+ assessment formats (prevents pattern-matching)
-```
+Legacy facade methods (`readState`, `queryState`, `rebuild*`, `getSessionPlan`, `getCurriculumView`, `queryForPrompt`) are removed.
 
 ---
 
-## Storage: Where Things Live
+## Route Surface
 
-```
-~/.buddy/learner/
-├── goals.json         # All learning goals
-├── edges.json         # Goal relationships (prerequisite, builds-on, reinforces)
-├── evidence.log       # Append-only log of everything
-├── practice.json      # Templates + attempts
-├── assessments.json  # Mastery checks
-├── misconceptions.json
-├── feedback.json
-├── constraints.json   # Your preferences, time availability, etc.
-└── projections/
-    ├── progress.json
-    ├── review.json
-    └── alignment.json
-```
+Learner API surface:
 
-Per-workspace context:
+- `GET /api/learner/snapshot`
+- `POST /api/learner/plan`
+- `GET /api/learner/artifacts`
+- `PATCH /api/learner/workspace`
 
-```
-<project>/.buddy/context.json
-```
+Implemented in:
 
----
+- `packages/buddy/src/routes/learner.ts`
+- `packages/buddy/src/routes/handlers/learner.ts`
 
-## Module Structure
+Removed route surface:
 
-```
-learner/
-├── service.ts        # Main logic: observe, record, plan (1100 lines)
-├── store.ts          # File I/O
-├── projections.ts    # Progress, review, alignment calculations
-├── sequencing.ts     # Goal edges, session planning
-├── feedback.ts       # Feedback templates
-├── query.ts         # Prompt digest, curriculum view
-├── types.ts         # All schemas
-├── path.ts          # File paths
-├── tagging.ts       # Extract tags from text
-└── tools/           # Agent-facing tools
-    ├── query.ts            → learner_state_query
-    ├── practice-record.ts  → practice_record
-    └── assessment-record.ts → assessment_record
-```
+- `learner.state`
+- `learner.goals`
+- `learner.progress`
+- `learner.review`
+- `learner.curriculumView`
+- `learner.rebuild`
+- `goals.get`
 
 ---
 
-## Signal Detection Patterns (Exact Regex)
+## Learner Tool Surface
 
-```typescript
-// Detection
-frustrationSignal: /\b(stuck|frustrated|confused|lost|not getting it)\b/
-confusionSignal: /\b(confused|don't understand|not sure|unclear)\b/
-masterySignal: /\b(i get it|makes sense|understand now|got it)\b/
-completionClaim: /^(done|finished|complete|ready|next|move on)\b/
-requestedExplanation: /\b(explain|what is|why|understand|walk me through)\b/
-requestedPractice: /\b(practice|exercise|try one|give me a problem)\b/
-requestedCheck: /\b(check|test me|assess|evaluate|am i right)\b/
-```
+Current learner tool IDs:
 
----
+- `learner_snapshot_read`
+- `learner_practice_record`
+- `learner_assessment_record`
 
-## Goal Scoring (Session Planning)
+Implemented in:
 
-```
-score =
-  +30  if has open feedback
-  +20  if status = needs-review
-  +15  if status = in-progress
-  +10  if status = not-started
-  +5   if coverage incomplete
-  -50  if prerequisites not met
-```
-
-Activity selection:
-
-```
-status = not-started     → guided-practice
-status = needs-review    → review (guided)
-status = demonstrated    → mastery-check (transfer)
-confidence = high        → independent-practice
-confidence = low/medium  → guided-practice
-```
+- `packages/buddy/src/learning/learner/tools/query.ts`
+- `packages/buddy/src/learning/learner/tools/practice-record.ts`
+- `packages/buddy/src/learning/learner/tools/assessment-record.ts`
 
 ---
 
-## Limitations
+## Compiler Behavior
 
-1. **Heuristics only** — No ML. Regex patterns miss nuance.
-2. **Single user** — No multi-learner support.
-3. **Local files** — No sync/backup.
-4. **Fixed intervals** — Spaced repetition uses fixed days, not adaptive.
-5. **Auto edges** — Goal relationships auto-derived, not manually editable.
+Snapshot compiler is factual and artifact-derived only.
 
----
+It compiles:
 
-## Appendix: Complete Reference
+- workspace context
+- profile
+- active goals
+- active misconceptions
+- open feedback
+- recent evidence
+- latest plan decision
+- constraints summary
+- activity bundles
+- sections and markdown digest
 
-### Service API (Full)
-
-```typescript
-LearnerService {
-  // Context
-  ensureWorkspaceContext(directory) → WorkspaceContext
-  updateWorkspaceContext(directory, patch)
-  updateLearnerConstraints(patch)
-
-  // Reading
-  readState() → LearnerState
-  queryState(query) → filtered state
-
-  // Observation
-  observeLearnerMessage({ content, goalIds, sessionId, sourceMessageId })
-  observeSessionSummary({ summary, outcome, goalIds, sessionId })
-
-  // Recording
-  recordPractice({ outcome, goalIds, learnerResponseSummary, ... })
-  recordAssessment({ result, goalIds, format, summary, ... })
-  recordFeedback({ strengths, gaps, guidance, requiredAction, ... })
-  appendEvidence({ sourceType, outcome, summary, ... })
-
-  // Projections
-  rebuildProjections()
-
-  // Planning
-  getSessionPlan() → SessionPlan
-  getCurriculumView() → LearnerCurriculumView
-  queryForPrompt(query) → LearnerPromptDigest
-
-  // Maintenance
-  runSafetySweep()
-}
-```
+It does **not** compute heuristic progress/review/alignment projections or auto-resolve pedagogical state.
 
 ---
 
-### All Assessment Formats
+## Decision Engine
 
-```
-concept-check     - Multiple choice / true-false
-predict-outcome   - What happens if X?
-debug-task        - Find and fix the bug
-build-task        - Build something from scratch
-review-task       - Review and critique code
-explain-reasoning - Explain why something works
-transfer-task     - Apply to new context
-```
+Decision engine contracts are schema-driven structured outputs for:
 
----
+- `interpretMessage`
+- `generatePracticeFeedback`
+- `generateAssessmentFeedback`
+- `planSession` (plan-next-step)
 
-### All Scaffolding Levels
+### Model resolution strategy
 
-```
-worked-example  - Show them how, then they replicate
-guided          - Step-by-step with prompts
-independent     - On their own
-transfer        - Vary surface features, prevent pattern-matching
-```
+`learning/learner/decision/engine.ts` resolves model in this order:
 
----
+1. Use model context from current session (if session ID is available and resolvable)
+2. Else use project-configured model
+3. Resolve via small-model preference:
+   - `Provider.getSmallModel(providerID)`
+   - fallback `Provider.getModel(providerID, modelID)`
 
-### All Surface Types
+This mirrors the vendored title-generation model preference flow without patching vendor code.
 
-```
-chat        - Conversational
-curriculum  - Structured learning path
-editor      - In-code exercises
-figure     - Diagram-based
-quiz       - Formal assessment
-```
+### Fallback behavior
+
+If model resolution fails or structured output parsing fails:
+
+- persist decision artifact with `disposition: abstain`
+- do not apply pedagogical mutations beyond source artifact persistence
 
 ---
 
-### Cognitive Levels (Bloom's Taxonomy)
+## Workflow Rules
 
-```
-Factual Knowledge → Comprehension → Application → Analysis → Synthesis → Evaluation
-```
+### Learner message observation
 
----
+1. Persist message artifact
+2. Compile factual context
+3. Call `interpretMessage`
+4. Persist interpretation decision
+5. Apply explicit decision payload mutations only:
+   - optional evidence creation
+   - optional misconception creation
+   - optional misconception resolution by explicit IDs
 
-### Learner Constraints
+### Practice recording
 
-```
-background             - What they already know
-knownPrerequisites    - Prior skills
-availableTimePatterns - When they study
-toolEnvironmentLimits - IDE/terminal constraints
-motivationAnchors     - Why they're learning
-opportunities         - Real projects to apply skills
-learnerPreferences    - Learning style preferences
-```
+1. Persist practice artifact
+2. Persist evidence artifact
+3. Compile feedback context
+4. Call `generatePracticeFeedback`
+5. Persist feedback decision
+6. Apply decision payload only:
+   - optional feedback creation
+   - feedback closure by explicit IDs only
+   - misconception resolution by explicit IDs only
 
----
+### Assessment recording
 
-### Complete Feedback Template Logic
+1. Persist assessment artifact
+2. Persist evidence artifact
+3. Compile feedback context
+4. Call `generateAssessmentFeedback`
+5. Persist feedback decision
+6. Apply explicit close/resolve IDs only
 
-**Practice - Completed:**
+### Plan generation
 
-```
-strengths: "You carried the practice through to a full attempt"
-gaps: "This was successful, but should transfer to less scaffolded variation"
-guidance: "Tighten self-check so learner verifies why it worked"
-requiredAction: "Do one transfer variation and explain what would break"
-```
-
-**Practice - Stuck:**
-
-```
-gaps: "The task currently exceeds the learner's independent working range"
-guidance: "Switch to a worked example or guided practice"
-requiredAction: "Work through one guided step, then retry independently"
-pattern: "challenge exceeds current scaffolding level"
-```
-
-**Assessment - Demonstrated:**
-
-```
-strengths: "The learner produced evidence that matches mastery check"
-scaffoldingLevel: "transfer" (vary surface features)
-requiredAction: "Do one varied mastery check later to confirm transfer"
-```
-
-**Assessment - Not Demonstrated:**
-
-```
-gaps: "Learner has not yet demonstrated the goal"
-scaffoldingLevel: "worked-example"
-requiredAction: "Return to guided practice before another mastery check"
-```
+1. Compile scoped plan context
+2. Hash exact input context
+3. Reuse existing plan decision when hash matches
+4. Else call plan decision engine and persist
 
 ---
 
-### Auto-Resolution Logic
+## Prompt Integration
 
-```typescript
-autoResolveFeedback(evidence) {
-  if (evidence.outcome !== "positive" && evidence.outcome !== "mixed") return  // Only positive/mixed triggers
+Session message transform consumes `LearnerService.buildPromptContext(...)`.
 
-  for each feedback where:
-    - same workspace
-    - status = "open"
-    - same goalIds
-    - feedback.createdAt < evidence.createdAt  // feedback came before evidence
+Prompt context is typed and assembled from factual snapshot + latest plan decision summary.
 
-    if evidence.outcome === "positive":
-      feedback.status = "resolved"
-      feedback.actedOnByEvidenceId = evidence.evidenceId
-    if evidence.outcome === "mixed":
-      feedback.status = "acted-on"
-}
-```
+No legacy learner projection/query templates are used.
 
 ---
 
-### Goal Edge Derivation
+## Retired Components
 
-Edges auto-created based on:
+Retired heuristic/blob-era files:
 
-1. **Concept tag overlap** - If goals share tags, relate them
-2. **Cognitive level** - Lower level → prerequisite
-3. **Foundation mentions** - If goal mentions "basics", "fundamentals", "intro" → prerequisite
-
-```
-Edge types:
-- prerequisite   - Must complete first
-- builds-on     - Next step after
-- reinforces    - Same level, different angle
-```
+- `learning/learner/path.ts`
+- `learning/learner/store.ts`
+- `learning/learner/projections.ts`
+- `learning/learner/sequencing.ts`
+- `learning/learner/feedback.ts`
+- `learning/learner/query.ts`
 
 ---
 
-### Deduplication
+## Verification Baseline
 
-Evidence uses SHA1 hash to prevent duplicates:
+Rewrite verification commands used by this module:
 
-```typescript
-dedupeKey = sha1(sessionId + sourceMessageId + normalizedContent)
-```
+- `bun test packages/buddy`
+- `bun test packages/web` (with web preload in direct bun invocation)
+- `bun run typecheck`
+- `bun run sdk:generate`
+- `bun run --cwd packages/desktop predev`
 
----
-
-### Observer Cursors
-
-Tracks last processed message to support resumable observation:
-
-```typescript
-observerCursors: {
-  lastProcessedSessionId: string
-  lastProcessedMessageId: string
-}
-```
-
----
-
-### Tool Parameters
-
-**learner_state_query:**
-
-```
-persona?: "buddy" | "teacher" | ...
-intent?: "learn" | "practice" | "assess" | ...
-focusGoalIds?: string[]
-```
-
-**practice_record:**
-
-```
-goalIds: string[]
-learnerResponseSummary: string
-outcome: "assigned" | "partial" | "completed" | "stuck"
-targetComponents?: string[]
-difficulty?: "scaffolded" | "moderate" | "stretch"
-surface?: "chat" | "curriculum" | "editor" | "figure" | "quiz"
-addressedFeedbackIds?: string[]
-```
-
-**assessment_record:**
-
-```
-goalIds: string[]
-format: "concept-check" | "debug-task" | "build-task" | ...
-summary: string
-result: "demonstrated" | "partial" | "not-demonstrated"
-evidenceCriteria?: string[]
-followUpAction?: string
-```
-
----
-
-### State Transitions
-
-**Goal Status:**
-
-```
-not-started → in-progress → demonstrated → [needs-review] → demonstrated
-                    ↓
-              needs-review (if regression)
-```
-
-**Feedback Status:**
-
-```
-open → acted-on → resolved
-      (partial)   (positive)
-```
-
-**Misconception Status:**
-
-```
-active → resolved (mastery evidence or manual)
-```
-
----
-
-## Future Enhancements
-
-- **Knowledge Tracing (DKT/AKT)** — Replace heuristics with trained models
-- **Affect Detection** — Use clickstream (time, hints, backtracking) not just text
-- **Adaptive Spacing** — ML-tuned intervals
-- **LLM Router** — Small LLM for ambiguous message classification
+No files under `vendor/opencode/**` are modified by learner rewrite work.

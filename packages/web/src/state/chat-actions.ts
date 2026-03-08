@@ -838,18 +838,74 @@ export async function loadCurriculumView(
   if (input?.intent) query.set("intent", input.intent)
   if (input?.sessionID) query.set("sessionId", input.sessionID)
   const search = query.toString()
-  return requestJson<LearnerCurriculumView>(
-    directory,
-    `/api/learner/curriculum-view${search ? `?${search}` : ""}`,
-  )
+
+  const result = await requestJson<{
+    snapshot: {
+      workspace: LearnerCurriculumView["workspace"]
+      goals: Array<{ id: string }>
+      openFeedback: Array<{
+        id: string
+        goalIds: string[]
+        requiredAction?: string
+        scaffoldingLevel?: string
+        createdAt: string
+      }>
+      activityBundles: LearnerCurriculumView["activityBundles"]
+      constraintsSummary: string[]
+      sections: LearnerCurriculumView["sections"]
+      markdown: string
+    }
+    plan: LearnerCurriculumView["sessionPlan"]
+  }>(directory, `/api/learner/plan${search ? `?${search}` : ""}`, { method: "POST" })
+  const snapshot = result.snapshot
+  const plan = result.plan
+
+  return {
+    workspace: snapshot.workspace,
+    coldStart: snapshot.goals.length === 0,
+    recommendedNextAction: plan.suggestedActivity,
+    sessionPlan: plan,
+    alignmentSummary: {
+      records: [],
+      incompleteGoalIds: [],
+      recommendations: [],
+    },
+    openFeedbackActions: snapshot.openFeedback
+      .filter((item) => Boolean(item.requiredAction))
+      .map((item) => ({
+        feedbackId: item.id,
+        goalIds: item.goalIds,
+        requiredAction: item.requiredAction ?? "Follow up on current gap",
+        scaffoldingLevel: item.scaffoldingLevel ?? "guided",
+        createdAt: item.createdAt,
+      })),
+    actions: [],
+    activityBundles: snapshot.activityBundles,
+    constraintsSummary: snapshot.constraintsSummary,
+    markdown: snapshot.markdown,
+    sections: snapshot.sections,
+  } satisfies LearnerCurriculumView
 }
 
 export async function loadLearnerGoals(directory: string) {
-  return requestJson<{ goals: Array<Record<string, unknown>> }>(directory, "/api/learner/goals")
+  const result = await requestJson<{ artifacts: Array<Record<string, unknown>> }>(
+    directory,
+    "/api/learner/artifacts?kind=goal&status=active",
+  )
+  return {
+    goals: result.artifacts,
+  }
 }
 
 export async function loadLearnerProgress(directory: string) {
-  return requestJson<{ progress: Array<Record<string, unknown>> }>(directory, "/api/learner/progress")
+  const result = await requestJson<{ plan: LearnerCurriculumView["sessionPlan"] }>(
+    directory,
+    "/api/learner/plan",
+    { method: "POST" },
+  )
+  return {
+    progress: [{ suggestedActivity: result.plan.suggestedActivity }],
+  }
 }
 
 export async function loadProjectConfig(directory: string) {

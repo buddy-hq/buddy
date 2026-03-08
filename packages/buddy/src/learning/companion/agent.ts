@@ -10,9 +10,9 @@ export const BUDDY_AGENT = registerBuddyAgent({
     steps: 8,
     availableSubagents: ["curriculum-orchestrator", "goal-writer", "practice-agent", "assessment-agent"],
     permission: {
-      learner_state_query: "allow",
-      practice_record: "allow",
-      assessment_record: "allow",
+      learner_snapshot_read: "allow",
+      learner_practice_record: "allow",
+      learner_assessment_record: "allow",
       todoread: "deny",
       todowrite: "deny",
     },

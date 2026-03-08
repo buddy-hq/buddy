@@ -1,8 +1,7 @@
 import { describe, expect, test } from "bun:test"
-import fs from "node:fs/promises"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { LearnerPath } from "../src/learning/learner/path.js"
+import { LearnerArtifactStore } from "../src/learning/learner/artifacts/store.js"
 import { ensureGoalToolsRegistered } from "../src/learning/goals/tools/register.js"
 import { tmpdir } from "./fixture/fixture"
 
@@ -19,9 +18,8 @@ function createToolContext() {
 }
 
 describe("goal tools", () => {
-  test("goal_commit persists learner-store goals", async () => {
+  test("goal_commit persists learner goals as markdown artifacts", async () => {
     await using project = await tmpdir({ git: true })
-    const filepath = LearnerPath.goals()
 
     await OpenCodeInstance.provide({
       directory: project.path,
@@ -74,17 +72,15 @@ describe("goal tools", () => {
       },
     })
 
-    const raw = await fs.readFile(filepath, "utf8")
-    const parsed = JSON.parse(raw) as {
-      goals: Array<{ archivedAt?: string; setId: string; goalId: string; workspaceRefs: string[] }>
-    }
+    const goals = (await LearnerArtifactStore.readArtifacts(project.path, "goal"))
+      .filter((artifact) => artifact.kind === "goal")
 
-    expect(parsed.goals).toHaveLength(3)
-    expect(new Set(parsed.goals.map((goal) => goal.setId)).size).toBe(1)
+    expect(goals).toHaveLength(3)
+    expect(new Set(goals.map((goal) => goal.setId)).size).toBe(1)
 
-    for (const goal of parsed.goals) {
-      expect(goal.goalId).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/)
-      expect(goal.archivedAt).toBeUndefined()
+    for (const goal of goals) {
+      expect(goal.id).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/)
+      expect(goal.status).toBe("active")
       expect(goal.workspaceRefs).toHaveLength(1)
     }
   })

@@ -2,10 +2,10 @@ import z from "zod"
 import { createBuddyTool, type BuddyToolContext } from "../../shared/create-buddy-tool.js"
 import { LearnerService } from "../service.js"
 
-const assessmentRecordTool = createBuddyTool("assessment_record", {
+const assessmentRecordTool = createBuddyTool("learner_assessment_record", {
   description: "Record an inline assessment result for the current workspace.",
   parameters: z.object({
-    goalIds: z.array(z.string()).default([]),
+    goalIds: z.array(z.string()).min(1),
     format: z.enum([
       "concept-check",
       "predict-outcome",
@@ -23,7 +23,7 @@ const assessmentRecordTool = createBuddyTool("assessment_record", {
   }),
   async execute(params, ctx: BuddyToolContext) {
     await ctx.ask({
-      permission: "assessment_record",
+      permission: "learner_assessment_record",
       patterns: ["*"],
       always: ["*"],
       metadata: {
@@ -32,7 +32,7 @@ const assessmentRecordTool = createBuddyTool("assessment_record", {
       },
     })
 
-    const recorded = await LearnerService.recordAssessment({
+    const recorded = await LearnerService.recordAssessmentEvent({
       directory: ctx.directory,
       goalIds: params.goalIds,
       format: params.format,
@@ -45,7 +45,7 @@ const assessmentRecordTool = createBuddyTool("assessment_record", {
     })
 
     return {
-      title: "assessment_record",
+      title: "learner_assessment_record",
       output: `Recorded assessment result (${params.result}).`,
       metadata: recorded,
     }

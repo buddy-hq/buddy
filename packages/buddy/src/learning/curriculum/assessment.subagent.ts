@@ -10,9 +10,9 @@ export const ASSESSMENT_AGENT = registerBuddyAgent({
     steps: 8,
     permission: {
       question: "allow",
-      learner_state_query: "allow",
-      practice_record: "deny",
-      assessment_record: "allow",
+      learner_snapshot_read: "allow",
+      learner_practice_record: "deny",
+      learner_assessment_record: "allow",
       curriculum_read: "allow",
       curriculum_update: "deny",
       task: "deny",
