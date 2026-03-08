@@ -6,7 +6,7 @@ import {
   removeManagedSkill,
   SkillServiceError,
   setInstalledSkillAction,
-} from "../../skills/service.js"
+} from "../service.js"
 
 export const createSkillBodySchema = z.object({
   name: z.string().trim().min(1),
