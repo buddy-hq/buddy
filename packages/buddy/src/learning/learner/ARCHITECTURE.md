@@ -128,7 +128,7 @@ Learner API surface:
 Implemented in:
 
 - `packages/buddy/src/routes/learner.ts`
-- `packages/buddy/src/routes/handlers/learner.ts`
+- `packages/buddy/src/learning/learner/orchestration/http-request.ts`
 
 Removed route surface:
 
