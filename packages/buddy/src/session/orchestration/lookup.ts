@@ -1,7 +1,7 @@
-import { isJsonContentType, safeReadJson } from "../shared/http.js"
-import { isSessionInRequestedProject } from "../support/session.js"
-import { normalizeErrorResponse } from "../support/error-normalization.js"
-import { fetchOpenCode } from "../support/proxy.js"
+import { isJsonContentType, safeReadJson } from "../../http/http.js"
+import { isSessionInRequestedProject } from "../../http/session.js"
+import { normalizeErrorResponse } from "../../http/error-normalization.js"
+import { fetchOpenCode } from "../../http/proxy.js"
 import { SessionLookupError } from "./errors.js"
 
 type OpenCodeNotFoundError = {

@@ -1,5 +1,5 @@
 import type { Context } from "hono"
-import { proxyToOpenCode } from "../support/proxy.js"
+import { proxyToOpenCode } from "../../http/proxy.js"
 import { SessionLookupError, SessionTransformValidationError } from "./errors.js"
 
 export function mapSessionTransformError(
