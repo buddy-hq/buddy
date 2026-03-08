@@ -1,5 +1,5 @@
 import type { Context } from "hono"
-import { isJsonContentType, parseJsonText } from "../../shared/http.js"
+import { isJsonContentType, parseJsonText } from "../http.js"
 import {
   resolveBodyRegistrationFlags,
   resolveInitialRegistrationFlags,

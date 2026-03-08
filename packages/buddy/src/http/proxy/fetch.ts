@@ -1,4 +1,4 @@
-import { loadOpenCodeApp } from "../../../opencode-runtime/runtime.js"
+import { loadOpenCodeApp } from "../../opencode-runtime/runtime.js"
 import { registerOpenCodeTools } from "./registration.js"
 import type { FetchOpenCodeInput } from "./types.js"
 

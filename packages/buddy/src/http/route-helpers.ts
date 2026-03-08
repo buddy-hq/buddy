@@ -2,9 +2,9 @@ import {
   configErrorMessage,
   isConfigValidationError,
   syncOpenCodeProjectConfig,
-} from "../../config/compatibility.js"
-import type { DirectoryRequestContext } from "../support/directory.js"
-import { resolveDirectoryRequestContext } from "../support/directory.js"
+} from "../config/compatibility.js"
+import type { DirectoryRequestContext } from "./directory.js"
+import { resolveDirectoryRequestContext } from "./directory.js"
 import { parseJsonBody, parseOptionalJsonBody } from "./request-json.js"
 
 type RouteSuccess<T> = {

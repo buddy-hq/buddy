@@ -1,4 +1,4 @@
-import { isJsonContentType, safeReadJson } from "../shared/http.js"
+import { isJsonContentType, safeReadJson } from "./http.js"
 
 type ErrorPayload = {
   error?: unknown

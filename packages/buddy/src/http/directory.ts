@@ -1,4 +1,4 @@
-import { allowedDirectoryRoots, isAllowedDirectory, resolveDirectory } from "../../project/directory.js"
+import { allowedDirectoryRoots, isAllowedDirectory, resolveDirectory } from "../project/directory.js"
 
 export type AllowedDirectoryResult =
   | {

@@ -1,8 +1,8 @@
 import { Hono } from "hono"
 import type { Context } from "hono"
-import { compatibilityRoute } from "../../openapi/compatibility-route.js"
-import type { ProxyToOpenCodeInput } from "../support/proxy.js"
-import { proxyToOpenCode } from "../support/proxy.js"
+import { compatibilityRoute } from "../openapi/compatibility-route.js"
+import type { ProxyToOpenCodeInput } from "./proxy.js"
+import { proxyToOpenCode } from "./proxy.js"
 
 type ProxyMethod = "get" | "post" | "put" | "patch" | "delete"
 
