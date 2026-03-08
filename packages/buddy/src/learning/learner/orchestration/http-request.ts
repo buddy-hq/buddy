@@ -3,13 +3,13 @@ import {
   PERSONA_IDS,
   TEACHING_INTENT_IDS,
   WORKSPACE_STATES,
-} from "../../learning/runtime/types.js"
+} from "../../runtime/types.js"
 import {
   DecisionPlanRequestSchema,
   SnapshotQuerySchema,
   WorkspaceRecordArtifactKindSchema,
-} from "../../learning/learner/artifacts/types.js"
-import { readTeachingSessionState } from "../../learning/runtime/session-state.js"
+} from "../artifacts/types.js"
+import { readTeachingSessionState } from "../../runtime/session-state.js"
 
 export const LearnerWorkspacePatchSchema = z.object({
   workspace: z
