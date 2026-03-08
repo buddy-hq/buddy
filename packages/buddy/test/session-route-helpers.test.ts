@@ -1,9 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { readProjectConfig } from "../src/config/compatibility.js"
 import { readTeachingSessionState, writeTeachingSessionState } from "../src/learning/runtime/session-state.js"
-import { SessionTransformValidationError } from "../src/routes/session/errors.js"
-import { isSessionNotFoundError } from "../src/routes/session/lookup.js"
-import { restoreTeachingSessionState, writeLastLlmOutbound } from "../src/routes/session/state.js"
+import { restoreTeachingSessionState, writeLastLlmOutbound } from "../src/learning/runtime/session/orchestration/state.js"
 import {
   assertNoLegacyRuntimeOverrides,
   hasExplicitCommandModel,
@@ -11,7 +9,9 @@ import {
   normalizePersonaTarget,
   resolveFocusGoalIds,
   resolveIntentOverride,
-} from "../src/routes/session/targeting.js"
+} from "../src/learning/runtime/session/orchestration/targeting.js"
+import { SessionTransformValidationError } from "../src/session/orchestration/errors.js"
+import { isSessionNotFoundError } from "../src/session/orchestration/lookup.js"
 import { tmpdir } from "./fixture/fixture"
 
 describe("session route helper modules", () => {
