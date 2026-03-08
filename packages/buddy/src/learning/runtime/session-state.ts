@@ -17,7 +17,12 @@ function sessionKey(directory: string, sessionId: string) {
   return `${normalizeDirectory(directory)}::${sessionId}`
 }
 
-function evictOldestIfNeeded() {
+function touchStateEntry(key: string, state: TeachingSessionState) {
+  runtimeState.delete(key)
+  runtimeState.set(key, state)
+}
+
+function evictOldestEntriesIfNeeded() {
   while (runtimeState.size > RUNTIME_STATE_LIMIT) {
     const oldest = runtimeState.keys().next().value as string | undefined
     if (!oldest) return
@@ -29,14 +34,13 @@ export function readTeachingSessionState(directory: string, sessionId: string): 
   const key = sessionKey(directory, sessionId)
   const state = runtimeState.get(key)
   if (!state) return undefined
-  runtimeState.delete(key)
-  runtimeState.set(key, state)
+  touchStateEntry(key, state)
   return state
 }
 
 export function writeTeachingSessionState(directory: string, state: TeachingSessionState) {
-  runtimeState.set(sessionKey(directory, state.sessionId), state)
-  evictOldestIfNeeded()
+  touchStateEntry(sessionKey(directory, state.sessionId), state)
+  evictOldestEntriesIfNeeded()
 }
 
 export function deleteTeachingSessionState(directory: string, sessionId: string) {

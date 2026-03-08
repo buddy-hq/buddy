@@ -3,62 +3,121 @@ import {
   resolveBundledActivityToolPermissions,
   resolveBundledSkillPermissions,
 } from "./activity-bundles.js"
-import type { PersonaDefinition, RuntimeProfile, TeachingIntentId, ToolId, WorkspaceState } from "./types.js"
-import { SUBAGENT_IDS, TOOL_IDS } from "./types.js"
+import {
+  SUBAGENT_IDS,
+  TOOL_IDS,
+  type PersonaDefinition,
+  type RuntimeProfile,
+  type TeachingIntentId,
+  type ToolId,
+  type WorkspaceState,
+} from "./types.js"
 
-function defaultToolPermissions() {
-  return Object.fromEntries(TOOL_IDS.map((toolId) => [toolId, "deny"])) as Record<ToolId, "allow" | "deny">
+const INTERACTIVE_ONLY_EDITOR_TOOLS: ToolId[] = [
+  "teaching_checkpoint",
+  "teaching_add_file",
+  "teaching_set_lesson",
+  "teaching_restore_checkpoint",
+]
+
+const EDITOR_SURFACE_ONLY_TOOLS: ToolId[] = [
+  "teaching_start_lesson",
+  ...INTERACTIVE_ONLY_EDITOR_TOOLS,
+]
+
+const FIGURE_SURFACE_ONLY_TOOLS: ToolId[] = [
+  "render_figure",
+  "render_freeform_figure",
+]
+
+function createDenyToolMap(): Record<ToolId, "allow" | "deny"> {
+  const tools = {} as Record<ToolId, "allow" | "deny">
+  for (const toolId of TOOL_IDS) {
+    tools[toolId] = "deny"
+  }
+  return tools
+}
+
+function createDenySubagentMap(): RuntimeProfile["capabilityEnvelope"]["subagents"] {
+  const subagents = {} as RuntimeProfile["capabilityEnvelope"]["subagents"]
+  for (const subagentId of SUBAGENT_IDS) {
+    subagents[subagentId] = "deny"
+  }
+  return subagents
+}
+
+function denyTools(tools: Record<ToolId, "allow" | "deny">, toolIds: ToolId[]) {
+  for (const toolId of toolIds) {
+    tools[toolId] = "deny"
+  }
+}
+
+function applyPersonaDefaultTools(tools: Record<ToolId, "allow" | "deny">, persona: PersonaDefinition) {
+  for (const [toolId, access] of Object.entries(persona.toolDefaults) as Array<[ToolId, "inherit" | "allow" | "deny"]>) {
+    tools[toolId] = access === "deny" ? "deny" : "allow"
+  }
+}
+
+function applySurfaceToolConstraints(input: {
+  tools: Record<ToolId, "allow" | "deny">
+  persona: PersonaDefinition
+  workspaceState: WorkspaceState
+}) {
+  if (input.workspaceState !== "interactive") {
+    denyTools(input.tools, INTERACTIVE_ONLY_EDITOR_TOOLS)
+  }
+
+  if (!input.persona.surfaces.includes("editor")) {
+    denyTools(input.tools, EDITOR_SURFACE_ONLY_TOOLS)
+  }
+
+  if (!input.persona.surfaces.includes("figure")) {
+    denyTools(input.tools, FIGURE_SURFACE_ONLY_TOOLS)
+  }
+}
+
+function applyActivityToolOverrides(input: {
+  tools: Record<ToolId, "allow" | "deny">
+  persona: PersonaDefinition
+  workspaceState: WorkspaceState
+  intentOverride?: TeachingIntentId
+}) {
+  const activityTools = resolveBundledActivityToolPermissions({
+    persona: input.persona,
+    intentOverride: input.intentOverride,
+    workspaceState: input.workspaceState,
+  })
+
+  for (const [toolId, access] of Object.entries(activityTools) as Array<[ToolId, "allow" | "deny"]>) {
+    input.tools[toolId] = access
+  }
 }
 
 function buildEffectiveTools(input: {
   persona: PersonaDefinition
   workspaceState: WorkspaceState
   intentOverride?: TeachingIntentId
-}) {
-  const tools = defaultToolPermissions()
-
-  for (const [toolId, access] of Object.entries(input.persona.toolDefaults) as Array<[ToolId, "inherit" | "allow" | "deny"]>) {
-    tools[toolId] = access === "deny" ? "deny" : "allow"
-  }
-
-  if (input.workspaceState !== "interactive") {
-    tools.teaching_checkpoint = "deny"
-    tools.teaching_add_file = "deny"
-    tools.teaching_set_lesson = "deny"
-    tools.teaching_restore_checkpoint = "deny"
-  }
-
-  if (!input.persona.surfaces.includes("figure")) {
-    tools.render_figure = "deny"
-    tools.render_freeform_figure = "deny"
-  }
-
-  if (!input.persona.surfaces.includes("editor")) {
-    tools.teaching_start_lesson = "deny"
-    tools.teaching_checkpoint = "deny"
-    tools.teaching_add_file = "deny"
-    tools.teaching_set_lesson = "deny"
-    tools.teaching_restore_checkpoint = "deny"
-  }
-
-  const activityTools = resolveBundledActivityToolPermissions({
+}): Record<ToolId, "allow" | "deny"> {
+  const tools = createDenyToolMap()
+  applyPersonaDefaultTools(tools, input.persona)
+  applySurfaceToolConstraints({
+    tools,
     persona: input.persona,
-    intentOverride: input.intentOverride,
     workspaceState: input.workspaceState,
   })
-  for (const [toolId, access] of Object.entries(activityTools) as Array<[ToolId, "allow" | "deny"]>) {
-    tools[toolId] = access
-  }
-
+  applyActivityToolOverrides({
+    tools,
+    persona: input.persona,
+    workspaceState: input.workspaceState,
+    intentOverride: input.intentOverride,
+  })
   return tools
 }
 
-function buildEffectiveSubagents(input: { persona: PersonaDefinition }) {
-  const subagents = Object.fromEntries(
-    SUBAGENT_IDS.map((subagentId) => [subagentId, "deny"]),
-  ) as RuntimeProfile["capabilityEnvelope"]["subagents"]
+function buildEffectiveSubagents(persona: PersonaDefinition): RuntimeProfile["capabilityEnvelope"]["subagents"] {
+  const subagents = createDenySubagentMap()
 
-  for (const [subagentId, access] of Object.entries(input.persona.subagentDefaults)) {
+  for (const [subagentId, access] of Object.entries(persona.subagentDefaults)) {
     if (!access || access === "inherit") continue
     subagents[subagentId as keyof typeof subagents] = access
   }
@@ -72,7 +131,7 @@ export function compileRuntimeProfile(input: {
   intentOverride?: TeachingIntentId
 }): RuntimeProfile {
   const tools = buildEffectiveTools(input)
-  const subagents = buildEffectiveSubagents({ persona: input.persona })
+  const subagents = buildEffectiveSubagents(input.persona)
 
   return {
     key: input.persona.id,

@@ -9,20 +9,20 @@ export type LoadedActivitySkill = {
   content: string
 }
 
-function bundledSkillPath(name: string) {
-  return path.join(name, "SKILL.md")
+async function readBundledSkillDocument(name: string): Promise<string | undefined> {
+  const relativePath = path.join(name, "SKILL.md")
+  const roots = await resolveBuddyBundledSkillRoots()
+  for (const root of roots) {
+    const document = await fs.readFile(path.join(root, relativePath), "utf8").catch(() => undefined)
+    if (document) {
+      return document
+    }
+  }
+  return undefined
 }
 
 export async function loadBundledActivitySkill(name: string): Promise<LoadedActivitySkill | undefined> {
-  const roots = await resolveBuddyBundledSkillRoots()
-  let document: string | undefined
-
-  for (const root of roots) {
-    const filePath = path.join(root, bundledSkillPath(name))
-    document = await fs.readFile(filePath, "utf8").catch(() => undefined)
-    if (document) break
-  }
-
+  const document = await readBundledSkillDocument(name)
   if (!document) return undefined
 
   const parsed = matter(document)

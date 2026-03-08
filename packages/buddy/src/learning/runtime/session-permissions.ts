@@ -2,23 +2,40 @@ import type { PermissionRule, PermissionRuleset } from "@buddy/opencode-adapter/
 import { bundledActivitySkillNames } from "./activity-bundles.js"
 import { SUBAGENT_IDS, TOOL_IDS, type RuntimeProfile } from "./types.js"
 
-const BUDDY_MANAGED_TOOL_PERMISSIONS = new Set<string>(TOOL_IDS)
-const BUDDY_MANAGED_SUBAGENT_PATTERNS = new Set<string>(SUBAGENT_IDS)
-const BUDDY_MANAGED_SKILL_PATTERNS = new Set<string>(bundledActivitySkillNames())
+const MANAGED_TOOL_IDS = new Set<string>(TOOL_IDS)
+const MANAGED_SUBAGENT_IDS = new Set<string>(SUBAGENT_IDS)
+const MANAGED_SKILL_NAMES = new Set<string>(bundledActivitySkillNames())
 
 function isBuddyManagedRuntimeRule(rule: PermissionRule): boolean {
-  if (BUDDY_MANAGED_TOOL_PERMISSIONS.has(rule.permission) && rule.pattern === "*") {
+  if (MANAGED_TOOL_IDS.has(rule.permission) && rule.pattern === "*") {
     return true
   }
 
-  if (rule.permission === "skill" && BUDDY_MANAGED_SKILL_PATTERNS.has(rule.pattern)) {
+  if (rule.permission === "skill" && MANAGED_SKILL_NAMES.has(rule.pattern)) {
     return true
   }
 
-  return rule.permission === "task" && BUDDY_MANAGED_SUBAGENT_PATTERNS.has(rule.pattern)
+  return rule.permission === "task" && MANAGED_SUBAGENT_IDS.has(rule.pattern)
 }
 
-function buildBuddyRuntimeRules(runtimeProfile: RuntimeProfile): {
+function appendRule(target: PermissionRuleset, rule: PermissionRule) {
+  target.push(rule)
+}
+
+function appendRuleByAction(input: {
+  allowRules: PermissionRuleset
+  denyRules: PermissionRuleset
+  rule: PermissionRule
+}) {
+  if (input.rule.action === "deny") {
+    appendRule(input.denyRules, input.rule)
+    return
+  }
+
+  appendRule(input.allowRules, input.rule)
+}
+
+function buildManagedRuntimeRules(runtimeProfile: RuntimeProfile): {
   allowRules: PermissionRuleset
   denyRules: PermissionRuleset
 } {
@@ -32,13 +49,7 @@ function buildBuddyRuntimeRules(runtimeProfile: RuntimeProfile): {
       pattern: "*",
       action,
     }
-
-    if (action === "deny") {
-      denyRules.push(rule)
-      continue
-    }
-
-    allowRules.push(rule)
+    appendRuleByAction({ allowRules, denyRules, rule })
   }
 
   for (const subagentId of SUBAGENT_IDS) {
@@ -49,13 +60,7 @@ function buildBuddyRuntimeRules(runtimeProfile: RuntimeProfile): {
       pattern: subagentId,
       action,
     }
-
-    if (action === "deny") {
-      denyRules.push(rule)
-      continue
-    }
-
-    allowRules.push(rule)
+    appendRuleByAction({ allowRules, denyRules, rule })
   }
 
   for (const [skillName, access] of Object.entries(runtimeProfile.capabilityEnvelope.skills)) {
@@ -64,13 +69,7 @@ function buildBuddyRuntimeRules(runtimeProfile: RuntimeProfile): {
       pattern: skillName,
       action: access,
     }
-
-    if (access === "deny") {
-      denyRules.push(rule)
-      continue
-    }
-
-    allowRules.push(rule)
+    appendRuleByAction({ allowRules, denyRules, rule })
   }
 
   return {
@@ -83,12 +82,14 @@ export function buildBuddyRuntimeSessionPermissions(input: {
   existing?: PermissionRuleset
   runtimeProfile?: RuntimeProfile
 }): PermissionRuleset {
-  const preservedRules = (input.existing ?? []).filter((rule) => !isBuddyManagedRuntimeRule(rule))
+  const preservedRules = (input.existing ?? []).filter((rule) => {
+    return !isBuddyManagedRuntimeRule(rule)
+  })
 
   if (!input.runtimeProfile) {
     return preservedRules
   }
 
-  const { allowRules, denyRules } = buildBuddyRuntimeRules(input.runtimeProfile)
+  const { allowRules, denyRules } = buildManagedRuntimeRules(input.runtimeProfile)
   return [...allowRules, ...preservedRules, ...denyRules]
 }
