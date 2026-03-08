@@ -46,6 +46,10 @@ export async function ensureSessionExistsInDirectory(input: {
   if (!isJsonContentType(normalized.headers.get("content-type"))) return undefined
 
   const session = await safeReadJson(normalized)
+  if (!session || typeof session !== "object" || Array.isArray(session)) {
+    return Response.json({ error: "Session not found" }, { status: 404 })
+  }
+
   const matchesProject = await isSessionInRequestedProject(input.directory, session)
   if (!matchesProject) {
     return Response.json({ error: "Session not found" }, { status: 404 })

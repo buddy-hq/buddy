@@ -119,7 +119,7 @@ export const SkillsRoutes = (): Hono =>
         if (!contextResult.ok) return contextResult.response
 
         const bodyResult = await withJsonBody(c.req.raw)
-        if (!bodyResult.ok) return c.json({ error: "Invalid skill payload" }, 400)
+        if (!bodyResult.ok) return bodyResult.response
 
         const parsed = parseCreateSkillPayload(bodyResult.value)
         if (!parsed.success) {
@@ -245,7 +245,7 @@ export const SkillsRoutes = (): Hono =>
         if (!contextResult.ok) return contextResult.response
 
         const bodyResult = await withJsonBody(c.req.raw)
-        if (!bodyResult.ok) return c.json({ error: "Invalid skill state" }, 400)
+        if (!bodyResult.ok) return bodyResult.response
 
         const parsed = parseToggleSkillPayload(bodyResult.value)
         if (!parsed.success) {

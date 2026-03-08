@@ -272,6 +272,7 @@ export const LearnerRoutes = () =>
         const contextResult = withDirectoryContext(c.req.raw)
         if (!contextResult.ok) return contextResult.response
 
+        await LearnerService.rebuildProjections()
         const projections = await readScopedLearnerProjections(contextResult.value.directory)
         return c.json(projections)
       },

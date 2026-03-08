@@ -91,10 +91,18 @@ export async function openProjectFromPayload(payload: unknown): Promise<
     }
   }
 
-  await OpenCodeProject.fromDirectory(directory)
-  return {
-    ok: true,
-    directory,
+  try {
+    await OpenCodeProject.fromDirectory(directory)
+    return {
+      ok: true,
+      directory,
+    }
+  } catch (error) {
+    return {
+      ok: false,
+      status: 400,
+      error: projectUpdateErrorMessage(error),
+    }
   }
 }
 

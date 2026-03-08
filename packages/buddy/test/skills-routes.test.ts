@@ -249,7 +249,7 @@ Use the renamed skill after refresh.
           content: "This should be rejected.",
         }),
       })
-      expect(createResponse.status).toBe(400)
+      expect(createResponse.status).toBe(409)
 
       const createUniqueResponse = await app.request("/api/skills", {
         method: "POST",

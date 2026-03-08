@@ -67,7 +67,7 @@ export function readWorkspaceStateFromSession(input: { directory: string; sessio
 export function buildLearnerStateQueryFromRequest(input: { requestURL: URL; workspaceId: string }) {
   const query = input.requestURL.searchParams
   return parseLearnerStateQuery({
-    workspaceId: query.get("workspaceId") ?? input.workspaceId,
+    workspaceId: input.workspaceId,
     goalIds: query.has("goalId") ? query.getAll("goalId") : [],
     conceptTags: query.has("conceptTag") ? query.getAll("conceptTag") : [],
     includeDerived: query.get("includeDerived") ?? undefined,
@@ -89,10 +89,28 @@ export async function patchWorkspaceLearnerContext(input: {
   patch: z.infer<typeof LearnerContextPatchSchema>
 }) {
   const { learnerConstraints, ...workspacePatch } = input.patch
-  const [context, constraints] = await Promise.all([
-    LearnerService.updateWorkspaceContext(input.directory, workspacePatch),
-    learnerConstraints ? LearnerService.updateLearnerConstraints(learnerConstraints) : Promise.resolve(undefined),
-  ])
+  const previousWorkspaceContext = await LearnerService.ensureWorkspaceContext(input.directory)
+  const context = await LearnerService.updateWorkspaceContext(input.directory, workspacePatch)
+  let constraints: Awaited<ReturnType<typeof LearnerService.updateLearnerConstraints>> | undefined
+
+  if (learnerConstraints) {
+    try {
+      constraints = await LearnerService.updateLearnerConstraints(learnerConstraints)
+    } catch (error) {
+      await LearnerService.updateWorkspaceContext(input.directory, {
+        label: previousWorkspaceContext.label,
+        tags: previousWorkspaceContext.tags,
+        pinnedGoalIds: previousWorkspaceContext.pinnedGoalIds,
+        projectConstraints: previousWorkspaceContext.projectConstraints,
+        localToolAvailability: previousWorkspaceContext.localToolAvailability,
+        preferredSurfaces: previousWorkspaceContext.preferredSurfaces,
+        motivationContext: previousWorkspaceContext.motivationContext,
+        opportunities: previousWorkspaceContext.opportunities,
+        userOverride: previousWorkspaceContext.userOverride,
+      }).catch(() => undefined)
+      throw error
+    }
+  }
 
   return {
     workspace: context,

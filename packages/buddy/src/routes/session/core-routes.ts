@@ -203,6 +203,12 @@ export function registerSessionCoreRoutes(app: Hono): Hono {
               },
             },
           },
+          404: {
+            description: "Session not found",
+            content: {
+              "application/json": { schema: ErrorSchema },
+            },
+          },
           403: {
             description: "Directory is outside allowed roots",
             content: {
@@ -212,7 +218,17 @@ export function registerSessionCoreRoutes(app: Hono): Hono {
         },
       }),
       async (c) => {
+        const directoryResult = ensureAllowedDirectory(c.req.raw)
+        if (!directoryResult.ok) return directoryResult.response
+
         const sessionID = c.req.param("sessionID")
+        const lookupResponse = await ensureSessionExistsInDirectory({
+          directory: directoryResult.directory,
+          sessionID,
+          request: c.req.raw,
+        })
+        if (lookupResponse) return lookupResponse
+
         return proxyToOpenCode(c, {
           targetPath: `/session/${encodeURIComponent(sessionID)}/message`,
         })

@@ -1,3 +1,5 @@
+import fsp from "node:fs/promises"
+import path from "node:path"
 import { Agent as OpenCodeAgent } from "@buddy/opencode-adapter/agent"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ZodError } from "zod"
@@ -51,8 +53,12 @@ export async function listProjectPersonas(directory: string) {
 
 export async function listProjectAgents(directory: string) {
   await syncOpenCodeProjectConfig(directory).catch((error) => {
+    if (isConfigValidationError(error)) {
+      throw error
+    }
     throw new Error(
       `Failed to sync config before listing agents: ${String(error instanceof Error ? error.message : error)}`,
+      { cause: error },
     )
   })
   const agents = await OpenCodeInstance.provide({
@@ -63,13 +69,80 @@ export async function listProjectAgents(directory: string) {
   return mapOpenCodeAgents(agents)
 }
 
+type ProjectConfigSnapshot = {
+  filepath: string
+  existed: boolean
+  contents?: string
+}
+
+async function resolveProjectConfigFile(directory: string): Promise<string> {
+  const { configDirectory } = await OpenCodeInstance.provide({
+    directory: path.resolve(directory),
+    fn: () => {
+      const scopedDirectory = path.resolve(OpenCodeInstance.directory)
+      const worktree = path.resolve(OpenCodeInstance.worktree)
+      return {
+        configDirectory: worktree !== "/" ? worktree : scopedDirectory,
+      }
+    },
+  })
+
+  const jsonc = path.join(configDirectory, "buddy.jsonc")
+  const json = path.join(configDirectory, "buddy.json")
+  if ((await fsp.stat(jsonc).catch(() => undefined))?.isFile()) return jsonc
+  if ((await fsp.stat(json).catch(() => undefined))?.isFile()) return json
+  return jsonc
+}
+
+async function captureProjectConfigSnapshot(directory: string): Promise<ProjectConfigSnapshot> {
+  const filepath = await resolveProjectConfigFile(directory)
+  const contents = await fsp.readFile(filepath, "utf8").catch((error: unknown) => {
+    const maybe = error as { code?: string }
+    if (maybe.code === "ENOENT") return undefined
+    throw error
+  })
+  return {
+    filepath,
+    existed: typeof contents === "string",
+    contents,
+  }
+}
+
+async function restoreProjectConfigSnapshot(snapshot: ProjectConfigSnapshot): Promise<void> {
+  if (!snapshot.existed) {
+    await fsp.rm(snapshot.filepath, { force: true }).catch(() => undefined)
+    return
+  }
+
+  await fsp.mkdir(path.dirname(snapshot.filepath), { recursive: true })
+  await fsp.writeFile(snapshot.filepath, snapshot.contents ?? "{}", "utf8")
+}
+
+async function applyAndSyncProjectConfigChange(input: {
+  directory: string
+  apply: () => Promise<void>
+}) {
+  const snapshot = await captureProjectConfigSnapshot(input.directory)
+  await input.apply()
+
+  try {
+    await syncOpenCodeProjectConfig(input.directory)
+  } catch (error) {
+    await restoreProjectConfigSnapshot(snapshot)
+    await syncOpenCodeProjectConfig(input.directory, true).catch(() => undefined)
+    throw error
+  }
+}
+
 export async function patchProjectConfig(input: {
   directory: string
   payload: unknown
 }) {
   const parsed = parseConfigInfo(input.payload)
-  await Config.updateProject(input.directory, parsed)
-  await syncOpenCodeProjectConfig(input.directory)
+  await applyAndSyncProjectConfigChange({
+    directory: input.directory,
+    apply: () => Config.updateProject(input.directory, parsed),
+  })
   return readProjectConfig(input.directory)
 }
 
@@ -79,7 +152,9 @@ export async function putProjectMcpConfig(input: {
   payload: unknown
 }) {
   const parsed = parseConfigMcp(input.payload)
-  await Config.setProjectMcp(input.directory, input.name, parsed)
-  await syncOpenCodeProjectConfig(input.directory)
+  await applyAndSyncProjectConfigChange({
+    directory: input.directory,
+    apply: () => Config.setProjectMcp(input.directory, input.name, parsed),
+  })
   return readProjectConfig(input.directory)
 }

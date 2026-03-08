@@ -167,7 +167,7 @@ export async function updateSkill(input: {
     }
   | {
       ok: false
-      status: 400
+      status: 400 | 500
       error: string
     }
 > {
@@ -179,9 +179,10 @@ export async function updateSkill(input: {
       action: input.action,
     }
   } catch (error) {
+    const status = error instanceof SkillServiceError ? 400 : 500
     return {
       ok: false,
-      status: 400,
+      status,
       error: skillErrorMessage(error),
     }
   }
@@ -197,7 +198,7 @@ export async function removeSkill(input: {
     }
   | {
       ok: false
-      status: 400 | 404
+      status: 400 | 404 | 500
       error: string
     }
 > {
@@ -209,7 +210,7 @@ export async function removeSkill(input: {
     }
   } catch (error) {
     const message = skillErrorMessage(error)
-    const status = error instanceof SkillServiceError ? (error.code === "not_found" ? 404 : 400) : 400
+    const status = error instanceof SkillServiceError ? (error.code === "not_found" ? 404 : 400) : 500
     return {
       ok: false,
       status,
