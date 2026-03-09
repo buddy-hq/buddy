@@ -2,7 +2,7 @@ import { mergeDeep } from "remeda"
 import { resolveBuddyPersonaProfiles } from "../../learning/agents/personas"
 import type { BuddyPersonaId } from "../../learning/agents/personas"
 import { isPersonaId } from "../../learning/agents/personas"
-import { indexBuddyAgents } from "../../agent-kit/registry"
+import { indexBuddyAgents } from "../../learning/agents/core/registry"
 import { Config } from "../config.js"
 
 function mergeBuddyAgentConfig(base: Config.Agent, override: Config.Agent): Config.Agent {

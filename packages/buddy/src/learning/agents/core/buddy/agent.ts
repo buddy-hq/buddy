@@ -1,5 +1,5 @@
-import { createBuildAgent } from "../../../../agent-kit"
-import { registerBuddyAgent } from "../../../../agent-kit"
+import { createBuildAgent } from "../runtime"
+import { registerBuddyAgent } from "../registry/register-buddy-agent"
 import BUDDY_BASE_PROMPT from "./prompt.p.md"
 
 export const BUDDY_AGENT = registerBuddyAgent({

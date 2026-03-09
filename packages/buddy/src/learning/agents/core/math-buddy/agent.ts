@@ -1,7 +1,7 @@
 import BUDDY_BASE_PROMPT from "../buddy/prompt.p.md"
 import MATH_BUDDY_OVERLAY from "./overlay.p.md"
-import { createPrimaryAgent } from "../../../../agent-kit"
-import { registerBuddyAgent } from "../../../../agent-kit"
+import { createPrimaryAgent } from "../runtime"
+import { registerBuddyAgent } from "../registry/register-buddy-agent"
 
 export const MATH_BUDDY = registerBuddyAgent({
   key: "math-buddy",
