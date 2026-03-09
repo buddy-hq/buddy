@@ -1,5 +1,5 @@
-import { createSubagent } from "../../../agent-kit"
-import { registerBuddyAgent } from "../../../agent-kit"
+import { createSubagent } from "../core/runtime"
+import { registerBuddyAgent } from "../core/registry/register-buddy-agent"
 import CURRICULUM_ORCHESTRATOR_PROMPT from "./orchestrator.p.md"
 
 export const CURRICULUM_ORCHESTRATOR = registerBuddyAgent({

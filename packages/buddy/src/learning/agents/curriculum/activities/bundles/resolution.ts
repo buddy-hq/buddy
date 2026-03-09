@@ -2,12 +2,10 @@ import type {
   ActivityBundleCapability,
   ActivityBundleDefinition,
   PersonaDefinition,
-  SubagentAccess,
-  SubagentId,
-  TeachingIntentId,
-  ToolId,
-  WorkspaceState,
-} from "../../../../agent-execution"
+} from "../../../core/runtime/types-model"
+import type { SubagentAccess } from "../../../core/runtime/types"
+import type { SubagentId, TeachingIntentId, WorkspaceState } from "../../../core/runtime/vocabulary"
+import type { ToolId } from "../../../core/runtime/tool-id"
 import {
   BUNDLED_ACTIVITY_SKILL_NAMES,
   BUNDLED_ACTIVITY_TOOL_NAMES,

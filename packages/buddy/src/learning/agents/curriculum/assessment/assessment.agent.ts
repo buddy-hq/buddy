@@ -1,5 +1,5 @@
-import { createSubagent } from "../../../../agent-kit"
-import { registerBuddyAgent } from "../../../../agent-kit"
+import { createSubagent } from "../../core/runtime"
+import { registerBuddyAgent } from "../../core/registry/register-buddy-agent"
 import ASSESSMENT_AGENT_PROMPT from "./assessment.p.md"
 
 export const ASSESSMENT_AGENT = registerBuddyAgent({

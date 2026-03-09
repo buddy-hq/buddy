@@ -1,4 +1,4 @@
-import type { TeachingIntentId } from "../../../../../agent-execution"
+import type { TeachingIntentId } from "../../../../core/runtime/vocabulary"
 import { compactLine } from "./context"
 
 export function formatActivityOutput(input: {
@@ -8,26 +8,28 @@ export function formatActivityOutput(input: {
   learnerContext: string[]
   sections: Array<[string, string[]]>
 }) {
-  const lines = [`<activity_tool_output name="${input.id}">`]
-  lines.push(`Intent: ${input.intent}`)
-  lines.push(`Target: ${input.goalLabel}`)
+  const learnerContextBlock =
+    input.learnerContext.length > 0
+      ? `Learner context:\n${input.learnerContext.map((line) => `- ${line}`).join("\n")}`
+      : ""
 
-  if (input.learnerContext.length > 0) {
-    lines.push("Learner context:")
-    for (const line of input.learnerContext) {
-      lines.push(`- ${line}`)
-    }
-  }
+  const sectionBlocks = input.sections
+    .map(([label, values]) => {
+      const items = values.map((value) => compactLine(value)).filter(Boolean)
+      if (items.length === 0) return ""
+      return `${label}:\n${items.map((item) => `- ${item}`).join("\n")}`
+    })
+    .filter(Boolean)
+    .join("\n")
 
-  for (const [label, values] of input.sections) {
-    const items = values.map((value) => compactLine(value)).filter(Boolean)
-    if (items.length === 0) continue
-    lines.push(`${label}:`)
-    for (const item of items) {
-      lines.push(`- ${item}`)
-    }
-  }
-
-  lines.push(`</activity_tool_output>`)
-  return lines.join("\n")
+  return [
+    `<activity_tool_output name="${input.id}">`,
+    `Intent: ${input.intent}`,
+    `Target: ${input.goalLabel}`,
+    learnerContextBlock,
+    sectionBlocks,
+    "</activity_tool_output>",
+  ]
+    .filter(Boolean)
+    .join("\n")
 }

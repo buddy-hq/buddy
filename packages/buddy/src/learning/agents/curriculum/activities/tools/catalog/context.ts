@@ -1,5 +1,5 @@
 import { readTeachingSessionState } from "../../../../../agent-execution"
-import type { TeachingIntentId } from "../../../../../agent-execution"
+import type { TeachingIntentId } from "../../../../core/runtime/vocabulary"
 import type { BuddyToolContext } from "../../../../../shared"
 import { buildPromptContext, ensureWorkspaceContext, listArtifacts } from "../../../../../learner-model"
 import type { GoalArtifact } from "../../../../../learner-model"

@@ -1,7 +1,7 @@
 import type {
   ActivityBundleDefinition,
-  ToolId,
-} from "../../../../agent-execution"
+} from "../../../core/runtime/types-model"
+import type { ToolId } from "../../../core/runtime/tool-id"
 
 export const BUNDLED_ACTIVITY_BUNDLES: ActivityBundleDefinition[] = [
   {

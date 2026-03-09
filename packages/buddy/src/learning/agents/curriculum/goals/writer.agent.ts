@@ -1,5 +1,5 @@
-import { createBuildAgent } from "../../../../agent-kit"
-import { registerBuddyAgent } from "../../../../agent-kit"
+import { createBuildAgent } from "../../core/runtime"
+import { registerBuddyAgent } from "../../core/registry/register-buddy-agent"
 import GOAL_WRITER_PROMPT from "./writer.p.md"
 
 export const GOAL_WRITER = registerBuddyAgent({

@@ -1,9 +1,8 @@
 import type {
   ActivityBundleDefinition,
   PersonaDefinition,
-  TeachingIntentId,
-  WorkspaceState,
-} from "../../../../agent-execution"
+} from "../../../core/runtime/types-model"
+import type { TeachingIntentId, WorkspaceState } from "../../../core/runtime/vocabulary"
 import { BUNDLED_ACTIVITY_BUNDLES } from "./data"
 
 function bundleMatchesIntent(bundle: ActivityBundleDefinition, intentOverride?: TeachingIntentId) {

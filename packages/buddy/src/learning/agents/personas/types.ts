@@ -1,10 +1,10 @@
-export { PERSONA_IDS, PERSONA_SURFACE_IDS, isPersonaId } from "@buddy/backend/learning/agent-execution/capabilities/vocabulary"
+export { PERSONA_IDS, PERSONA_SURFACE_IDS, isPersonaId } from "../core/runtime/vocabulary"
 export type {
   PersonaCatalogEntry as BuddyPersonaCatalogEntry,
   PersonaDefinition as BuddyPersonaProfile,
   PersonaOverride as BuddyPersonaOverride,
-} from "../../agent-execution"
+} from "../core/runtime/types-model"
 export type {
   PersonaId as BuddyPersonaId,
   PersonaSurfaceId as BuddySurface,
-} from "@buddy/backend/learning/agent-execution/capabilities/vocabulary"
+} from "../core/runtime/vocabulary"
