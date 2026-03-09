@@ -1,5 +1,5 @@
 import { Project as OpenCodeProject } from "@buddy/opencode-adapter/project"
-import { isAllowedDirectory, resolveDirectory } from "../directory.js"
+import { isAllowedDirectory, resolveDirectory } from "../directory"
 
 const projectUpdateBodySchema = OpenCodeProject.update.schema.omit({ projectID: true })
 

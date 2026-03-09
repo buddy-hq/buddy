@@ -5,7 +5,7 @@ import {
   BUDDY_XDG_DATA_HOME,
   BUDDY_XDG_STATE_HOME,
   configureOpenCodeEnvironment,
-} from "./env.js"
+} from "./env"
 import { Server } from "@buddy/opencode-adapter/server"
 
 let appPromise: Promise<{ fetch(request: Request): Response | Promise<Response> }> | undefined
