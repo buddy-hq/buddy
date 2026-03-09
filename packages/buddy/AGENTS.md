@@ -11,7 +11,12 @@
 ## Architecture Overview
 
 - **Routes**: Modular route files in `src/routes/*.ts` (auth, config, session, curriculum, teaching, etc.)
-- **Config**: Split into `src/config/` with schema.ts, errors.ts, document.ts, and `src/config/opencode/` for OpenCode overlay logic
+- **Config**: Structured by concern under `src/config/`:
+  - `contract/` (schema, document parsing, config errors)
+  - `store/` (config file paths, read/write, global cache, permission defaults)
+  - `opencode/` (overlay builders, agent/model/skill projection)
+  - `runtime/` (OpenCode sync and runtime-facing config helpers)
+  - `orchestration/` (project config operations + route error mappers)
 - **Agent Runtime**: `src/learning/agents/core/runtime/` contains agent factory helpers (`createPrimaryAgent`, `createSubagent`, `createBuildAgent`, `createPlanAgent`)
 - **Agent Registry**: `src/learning/agents/core/registry/` owns agent registration (`registerBuddyAgent`) and built-in agent indexing (`indexBuddyAgents`, `listBuddyAgents`)
 - **Learning Domain**: `src/learning/` contains curriculum, teaching, and companion subsystems with modular tools
