@@ -12,12 +12,13 @@
 
 - **Routes**: Modular route files in `src/routes/*.ts` (auth, config, session, curriculum, teaching, etc.)
 - **Config**: Split into `src/config/` with schema.ts, errors.ts, document.ts, and `src/config/opencode/` for OpenCode overlay logic
-- **Agent Kit**: `src/agent-kit/` contains agent factories, buddy-agents registry, and registration helpers
+- **Agent Runtime**: `src/learning/agents/core/runtime/` contains agent factory helpers (`createPrimaryAgent`, `createSubagent`, `createBuildAgent`, `createPlanAgent`)
+- **Agent Registry**: `src/learning/agents/core/registry/` owns agent registration (`registerBuddyAgent`) and built-in agent indexing (`indexBuddyAgents`, `listBuddyAgents`)
 - **Learning Domain**: `src/learning/` contains curriculum, teaching, and companion subsystems with modular tools
 
 ## Adding Agents And Tools
 
-- **Primary agent**: Define it in the owning feature folder and register it with `registerBuddyAgent({ key, agent: createPrimaryAgent(...) })`. Use `src/agent-kit/factories.ts` and `src/agent-kit/register-buddy-agent.ts`. Keep prompts next to the agent as `.md`.
+- **Primary agent**: Define it in the owning feature folder and register it with `registerBuddyAgent({ key, agent: createPrimaryAgent(...) })`. Use `src/learning/agents/core/runtime/agent-factories.ts` and `src/learning/agents/core/registry/register-buddy-agent.ts`. Keep prompts next to the agent as `.md`.
 - **Subagent**: Same pattern, but use `createSubagent(...)` instead of `createPrimaryAgent(...)`. If you want build-like or plan-like defaults, use `createBuildAgent(...)` or `createPlanAgent(...)`.
 - **Tool**: Create one tool file and export a single tool constant via `createBuddyTool(...)` from `src/learning/shared/create-buddy-tool.ts`. The tool gets `ctx.directory` from the shared wrapper, so tool files do not need per-directory factory functions.
 - **Wire a tool into a feature**: Add the exported tool constant to that feature's `tools/index.ts`, then the existing `tools/register.ts` entrypoint will pick it up through the shared `createToolRegistrar(...)` helper.
