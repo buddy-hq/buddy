@@ -1,11 +1,11 @@
-import { getGlobalConfig, loadProjectConfig } from "./config/load.js"
-import { setProjectMcpConfig, updateGlobalConfig, updateProjectConfig } from "./config/persist.js"
+import { getGlobalConfig, loadProjectConfig } from "./store/read-config.js"
+import { setProjectMcpConfig, updateGlobalConfig, updateProjectConfig } from "./store/write-config.js"
 import {
   Agent as AgentSchema,
   Info as InfoSchema,
   Mcp as McpSchema,
   Permission as PermissionSchema,
-} from "./config/types.js"
+} from "./store/types.js"
 import type {
   Agent as AgentType,
   Info as InfoType,
@@ -13,9 +13,9 @@ import type {
   Permission as PermissionType,
   PermissionAction as PermissionActionType,
   PermissionRule as PermissionRuleType,
-} from "./config/types.js"
+} from "./store/types.js"
 
-export { InvalidError, JsonError } from "./errors.js"
+export { InvalidError, JsonError } from "./contract/errors.js"
 
 export namespace Config {
   export const Mcp = McpSchema
