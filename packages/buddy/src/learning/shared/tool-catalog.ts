@@ -5,7 +5,7 @@ import { activityTools } from "@buddy/backend/learning/agents/curriculum/activit
 import { goalTools } from "@buddy/backend/learning/agents/curriculum/goals/tools/tools"
 import { curriculumTools } from "@buddy/backend/learning/agents/curriculum/planning/tools/tools"
 import { learnerTools } from "@buddy/backend/learning/learner-model/tools/tools"
-import type { BuddyTool } from "../../shared"
+import type { BuddyTool } from "./create-buddy-tool"
 
 const learningToolGroups = {
   activities: activityTools,
