@@ -1,9 +1,9 @@
-import { registerLearningRuntimeTools } from "../../learning/runtime/tool-registration.js"
+import { registerLearningRuntimeTools } from "../../learning/agent-execution"
 import type {
   ProxyRegistrationFlags,
   ProxyRegistrationOption,
   ProxyToOpenCodeInput,
-} from "./types.js"
+} from "./types"
 
 async function registerOpenCodeTools(
   directory: string,
@@ -23,6 +23,7 @@ function resolveRegistration(
 
 function resolveInitialRegistrationFlags(input: ProxyToOpenCodeInput): ProxyRegistrationFlags {
   return {
+    registerActivityTools: typeof input.registerActivityTools === "boolean" ? input.registerActivityTools : false,
     registerCurriculumTools: typeof input.registerCurriculumTools === "boolean" ? input.registerCurriculumTools : false,
     registerFigureTools: typeof input.registerFigureTools === "boolean" ? input.registerFigureTools : false,
     registerFreeformFigureTools:
@@ -38,6 +39,7 @@ function resolveBodyRegistrationFlags(
   input: ProxyToOpenCodeInput,
 ): ProxyRegistrationFlags {
   return {
+    registerActivityTools: resolveRegistration(body, input.registerActivityTools),
     registerCurriculumTools: resolveRegistration(body, input.registerCurriculumTools),
     registerFigureTools: resolveRegistration(body, input.registerFigureTools),
     registerFreeformFigureTools: resolveRegistration(body, input.registerFreeformFigureTools),

@@ -1,10 +1,10 @@
 import type { Context } from "hono"
-import { isJsonContentType, parseJsonText } from "../http.js"
+import { isJsonContentType, parseJsonText } from "../http"
 import {
   resolveBodyRegistrationFlags,
   resolveInitialRegistrationFlags,
-} from "./registration.js"
-import type { ProxyRegistrationFlags, ProxyToOpenCodeInput } from "./types.js"
+} from "./registration"
+import type { ProxyRegistrationFlags, ProxyToOpenCodeInput } from "./types"
 
 type PrepareProxyBodyResult =
   | {

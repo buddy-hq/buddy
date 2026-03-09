@@ -1,11 +1,7 @@
-import {
-  configErrorMessage,
-  isConfigValidationError,
-  syncOpenCodeProjectConfig,
-} from "../config/compatibility.js"
-import type { DirectoryRequestContext } from "./directory.js"
-import { resolveDirectoryRequestContext } from "./directory.js"
-import { parseJsonBody, parseOptionalJsonBody } from "./request-json.js"
+import { configErrorMessage, isConfigValidationError, syncOpenCodeProjectConfig } from "@buddy/backend/config/runtime"
+import type { DirectoryRequestContext } from "./directory"
+import { resolveDirectoryRequestContext } from "./directory"
+import { parseJsonBody, parseOptionalJsonBody } from "./request-json"
 
 type RouteSuccess<T> = {
   ok: true

@@ -1,4 +1,4 @@
-import { DirectoryHeader, DirectoryQuery, ErrorSchema } from "../openapi/compatibility-schemas.js"
+import { DirectoryHeader, DirectoryQuery, ErrorSchema } from "../openapi"
 
 export const directoryParameters = [DirectoryHeader, DirectoryQuery]
 

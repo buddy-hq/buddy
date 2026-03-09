@@ -3,6 +3,7 @@ export type ProxyRegistrationPredicate = (body: Record<string, unknown>) => bool
 export type ProxyRegistrationOption = boolean | ProxyRegistrationPredicate
 
 export type ProxyRegistrationFlags = {
+  registerActivityTools: boolean
   registerCurriculumTools: boolean
   registerFigureTools: boolean
   registerFreeformFigureTools: boolean
@@ -17,6 +18,7 @@ export type ProxyToOpenCodeInput = {
     body: Record<string, unknown>,
   ) => Record<string, unknown> | Promise<Record<string, unknown>>
   forceBusyAs409?: boolean
+  registerActivityTools?: ProxyRegistrationOption
   registerCurriculumTools?: ProxyRegistrationOption
   registerFigureTools?: ProxyRegistrationOption
   registerFreeformFigureTools?: ProxyRegistrationOption
@@ -32,6 +34,7 @@ export type FetchOpenCodeInput = {
   query?: string
   headers?: Headers
   body?: BodyInit
+  registerActivityTools?: boolean
   registerCurriculumTools?: boolean
   registerFigureTools?: boolean
   registerFreeformFigureTools?: boolean

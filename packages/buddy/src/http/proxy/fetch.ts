@@ -1,9 +1,10 @@
-import { loadOpenCodeApp } from "../../opencode-runtime/runtime.js"
-import { registerOpenCodeTools } from "./registration.js"
-import type { FetchOpenCodeInput } from "./types.js"
+import { loadOpenCodeApp } from "../../opencode-runtime"
+import { registerOpenCodeTools } from "./registration"
+import type { FetchOpenCodeInput } from "./types"
 
 async function fetchOpenCode(input: FetchOpenCodeInput): Promise<Response> {
   await registerOpenCodeTools(input.directory, {
+    registerActivityTools: input.registerActivityTools ?? false,
     registerCurriculumTools: input.registerCurriculumTools ?? false,
     registerFigureTools: input.registerFigureTools ?? false,
     registerFreeformFigureTools: input.registerFreeformFigureTools ?? false,

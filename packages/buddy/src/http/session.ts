@@ -1,6 +1,6 @@
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { safeReadJson } from "./http.js"
-import { fetchOpenCode } from "./proxy.js"
+import { safeReadJson } from "./http"
+import { fetchOpenCode } from "./proxy"
 
 export type SessionStatus = {
   type?: "busy" | "idle" | "retry"

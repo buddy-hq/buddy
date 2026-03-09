@@ -1,5 +1,5 @@
 import type z from "zod"
-import { isJsonContentType } from "./http.js"
+import { isJsonContentType } from "./http"
 
 export function invalidJsonResponse(): Response {
   return Response.json({ error: "Invalid JSON body" }, { status: 400 })

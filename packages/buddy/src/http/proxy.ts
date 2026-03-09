@@ -1,9 +1,9 @@
 import type { Context } from "hono"
-import { normalizeErrorResponse } from "./error-normalization.js"
-import { ensureAllowedDirectory } from "./directory.js"
-import { prepareProxyBody } from "./proxy/body.js"
-import { fetchOpenCode } from "./proxy/fetch.js"
-import type { ProxyToOpenCodeInput } from "./proxy/types.js"
+import { normalizeErrorResponse } from "./error-normalization"
+import { ensureAllowedDirectory } from "./directory"
+import { prepareProxyBody } from "./proxy/body"
+import { fetchOpenCode } from "./proxy/fetch"
+import type { ProxyToOpenCodeInput } from "./proxy/types"
 
 function buildProxyQuery(url: URL, directory: string): string {
   const proxyParams = new URLSearchParams(url.searchParams)
@@ -30,6 +30,7 @@ async function proxyToOpenCode(c: Context, input: ProxyToOpenCodeInput): Promise
     query: buildProxyQuery(sourceURL, directoryResult.directory),
     headers: prepared.headers,
     body: prepared.body,
+    registerActivityTools: prepared.registrationFlags.registerActivityTools,
     registerCurriculumTools: prepared.registrationFlags.registerCurriculumTools,
     registerFigureTools: prepared.registrationFlags.registerFigureTools,
     registerFreeformFigureTools: prepared.registrationFlags.registerFreeformFigureTools,
@@ -43,4 +44,4 @@ async function proxyToOpenCode(c: Context, input: ProxyToOpenCodeInput): Promise
 
 export { fetchOpenCode, proxyToOpenCode }
 
-export type { ProxyToOpenCodeInput } from "./proxy/types.js"
+export type { ProxyToOpenCodeInput } from "./proxy/types"
