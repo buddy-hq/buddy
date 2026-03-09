@@ -8,15 +8,15 @@ import {
   readTeachingWorkspace,
   restoreTeachingWorkspace,
   saveTeachingWorkspace,
-} from "../learning/teaching/orchestration/workspace-operations.js"
+} from "../learning/adapters/http"
 import {
   TeachingProvisionRequestSchema,
   TeachingWorkspaceActivateFileRequestSchema,
   TeachingWorkspaceCreateFileRequestSchema,
   TeachingWorkspaceUpdateRequestSchema,
-} from "../learning/teaching/types.js"
-import { zodIssuesResponse } from "../http/request-json.js"
-import { withDirectoryContext, withJsonBody } from "../http/route-helpers.js"
+} from "../learning/agents/capabilities"
+import { zodIssuesResponse } from "../http"
+import { withDirectoryContext, withJsonBody } from "../http"
 
 const teachingRoutes = {
   provisionWorkspace: {

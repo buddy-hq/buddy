@@ -1,8 +1,11 @@
 import type { Context } from "hono"
 import { Hono } from "hono"
-import type { EnsureAllowedDirectory } from "../http/directory.js"
-import { InvalidFigureIDError } from "../learning/figures/path.js"
-import { FigureNotFoundError, FigureService } from "../learning/figures/service.js"
+import type { EnsureAllowedDirectory } from "../http"
+import {
+  FigureNotFoundError,
+  FigureService,
+  InvalidFigureIDError,
+} from "../learning/agents/capabilities"
 
 const figureSvgPath = "/:figureID"
 

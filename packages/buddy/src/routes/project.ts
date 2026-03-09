@@ -6,12 +6,12 @@ import {
   ProjectIDPath,
   ProjectInfoSchema,
   ProjectUpdateSchema,
-} from "../openapi/compatibility-schemas.js"
-import { compatibilityRoute } from "../openapi/compatibility-route.js"
-import { directoryParameters } from "../http/openapi.js"
-import { withJsonBody } from "../http/route-helpers.js"
-import { proxyToOpenCode } from "../http/proxy.js"
-import { openProjectFromPayload, updateProjectFromPayload } from "../project/orchestration/project-operations.js"
+} from "../openapi"
+import { compatibilityRoute } from "../openapi"
+import { directoryParameters } from "../http"
+import { withJsonBody } from "../http"
+import { proxyToOpenCode } from "../http"
+import { openProjectFromPayload, updateProjectFromPayload } from "../project"
 
 const directoryDocumentSchema = {
   type: "object",

@@ -6,24 +6,22 @@ import {
   MessageWithPartsSchema,
   SessionIDPath,
   SessionInfoSchema,
-} from "../openapi/compatibility-schemas.js"
-import { compatibilityRoute } from "../openapi/compatibility-route.js"
-import { directoryParameters } from "../http/openapi.js"
-import { abortSessionRun } from "../session/orchestration/abort-actions.js"
+} from "../openapi"
+import { compatibilityRoute } from "../openapi"
+import { directoryParameters } from "../http"
 import {
+  abortSessionRun,
   getSessionById,
   listSessionMessages,
   patchSessionById,
   proxySessionCollection,
-} from "../session/orchestration/core-actions.js"
-import {
   postSessionCommand,
   postSessionPrompt,
-} from "../session/orchestration/interaction-actions.js"
+} from "../session"
 import {
   getRuntimeInspectorState,
   getTeachingState,
-} from "../learning/runtime/session/orchestration/state-actions.js"
+} from "../learning/adapters/http"
 
 const listSessionsRoute = compatibilityRoute({
   operationId: "session.list",

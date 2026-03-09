@@ -1,8 +1,11 @@
 import type { Context } from "hono"
 import { Hono } from "hono"
-import type { EnsureAllowedDirectory } from "../http/directory.js"
-import { InvalidFreeformFigureIDError } from "../learning/freeform-figures/path.js"
-import { FreeformFigureNotFoundError, FreeformFigureService } from "../learning/freeform-figures/service.js"
+import type { EnsureAllowedDirectory } from "../http"
+import {
+  FreeformFigureNotFoundError,
+  FreeformFigureService,
+  InvalidFreeformFigureIDError,
+} from "../learning/agents/capabilities"
 
 const freeformFigureSvgPath = "/:figureID"
 

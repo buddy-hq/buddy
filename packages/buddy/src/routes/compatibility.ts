@@ -1,9 +1,9 @@
 import { Hono } from "hono"
-import { AnyObjectSchema } from "../openapi/compatibility-schemas.js"
-import { withConfigSync } from "../http/route-helpers.js"
-import type { ProxyEndpointSpec } from "../http/proxy-routes.js"
-import { registerProxyEndpoints } from "../http/proxy-routes.js"
-import { directoryForbiddenResponse, directoryParameters } from "../http/openapi.js"
+import { AnyObjectSchema } from "../openapi"
+import { withConfigSync } from "../http"
+import type { ProxyEndpointSpec } from "../http"
+import { registerProxyEndpoints } from "../http"
+import { directoryForbiddenResponse, directoryParameters } from "../http"
 
 type CompatibilityProxyDefinition = Omit<ProxyEndpointSpec, "beforeProxy"> & {
   requiresConfigSync?: boolean

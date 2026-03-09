@@ -1,18 +1,18 @@
 import type { Context } from "hono"
 import { Hono } from "hono"
-import { AnyObjectSchema, ErrorSchema, McpNamePath } from "../openapi/compatibility-schemas.js"
-import { compatibilityRoute } from "../openapi/compatibility-route.js"
-import { directoryForbiddenResponse, directoryParameters } from "../http/openapi.js"
-import { withConfigSync, withDirectoryContext, withJsonBody } from "../http/route-helpers.js"
-import { proxyToOpenCode } from "../http/proxy.js"
-import { readProjectConfig } from "../config/compatibility.js"
+import { AnyObjectSchema, ErrorSchema, McpNamePath } from "../openapi"
+import { compatibilityRoute } from "../openapi"
+import { directoryForbiddenResponse, directoryParameters } from "../http"
+import { withConfigSync, withDirectoryContext, withJsonBody } from "../http"
+import { proxyToOpenCode } from "../http"
 import {
   listProjectAgents,
   listProjectPersonas,
   mapConfigRouteError,
   patchProjectConfig,
   putProjectMcpConfig,
-} from "../config/orchestration/config-operations.js"
+} from "@buddy/backend/config/orchestration"
+import { readProjectConfig } from "@buddy/backend/config/runtime"
 
 const listConfigPersonasRoute = compatibilityRoute({
   operationId: "config.personas",

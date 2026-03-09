@@ -1,10 +1,10 @@
 import type { Context } from "hono"
 import { Hono } from "hono"
-import { AnyObjectSchema, ErrorSchema } from "../openapi/compatibility-schemas.js"
-import { compatibilityRoute } from "../openapi/compatibility-route.js"
-import { directoryParameters } from "../http/openapi.js"
-import { resolveDirectoryRequestContext } from "../http/directory.js"
-import { withJsonBody } from "../http/route-helpers.js"
+import { AnyObjectSchema, ErrorSchema } from "../openapi"
+import { compatibilityRoute } from "../openapi"
+import { directoryParameters } from "../http"
+import { resolveDirectoryRequestContext } from "../http"
+import { withJsonBody } from "../http"
 import {
   createSkill,
   installLibrarySkill,
@@ -15,7 +15,7 @@ import {
   resolveSkillAction,
   shouldRefreshSkillCatalog,
   updateSkill,
-} from "../skills/orchestration/skill-operations.js"
+} from "../learning/agents/skills"
 
 const listSkillsRoute = compatibilityRoute({
   operationId: "skills.list",

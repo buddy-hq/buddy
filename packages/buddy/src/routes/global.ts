@@ -1,12 +1,12 @@
 import type { Context } from "hono"
 import { Hono } from "hono"
-import { AnyObjectSchema, ErrorSchema } from "../openapi/compatibility-schemas.js"
-import { compatibilityRoute } from "../openapi/compatibility-route.js"
-import { withJsonBody } from "../http/route-helpers.js"
-import { proxyToOpenCode } from "../http/proxy.js"
-import { configErrorMessage, isConfigValidationError } from "../config/compatibility.js"
-import { Config } from "../config/config.js"
-import { configRouteValidationResponse } from "../config/orchestration/config-operations.js"
+import { AnyObjectSchema, ErrorSchema } from "../openapi"
+import { compatibilityRoute } from "../openapi"
+import { withJsonBody } from "../http"
+import { proxyToOpenCode } from "../http"
+import { configRouteValidationResponse } from "@buddy/backend/config/orchestration"
+import { configErrorMessage, isConfigValidationError } from "@buddy/backend/config/runtime"
+import { Config } from "@buddy/backend/config"
 
 const getGlobalConfigRoute = compatibilityRoute({
   operationId: "global.config.get",

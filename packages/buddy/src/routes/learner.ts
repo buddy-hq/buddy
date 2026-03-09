@@ -2,7 +2,7 @@ import type { Context } from "hono"
 import { Hono } from "hono"
 import { resolver } from "hono-openapi"
 import z from "zod"
-import { PERSONA_IDS, TEACHING_INTENT_IDS } from "../learning/runtime/types.js"
+import { PERSONA_IDS, TEACHING_INTENT_IDS } from "../learning/agent-execution"
 import {
   ArtifactsRequestSchema,
   ArtifactsResponseSchema,
@@ -12,19 +12,24 @@ import {
   PlanResponseSchema,
   WorkspaceRequestSchema,
   WorkspaceResponseSchema,
-} from "../openapi/compatibility-schemas.js"
-import { compatibilityRoute } from "../openapi/compatibility-route.js"
-import { directoryParameters } from "../http/openapi.js"
-import { zodIssuesResponse } from "../http/request-json.js"
-import { withDirectoryContext, withJsonBody } from "../http/route-helpers.js"
-import { LearnerService } from "../learning/learner/service.js"
+} from "../openapi"
+import { compatibilityRoute } from "../openapi"
+import { directoryParameters } from "../http"
+import { zodIssuesResponse } from "../http"
+import { withDirectoryContext, withJsonBody } from "../http"
+import {
+  ensurePlanDecision,
+  getWorkspaceSnapshot,
+  listArtifacts,
+  patchWorkspace,
+} from "../learning/learner-model"
 import {
   LearnerWorkspacePatchSchema,
   parseArtifactListQuery,
   parseDecisionPlanRequest,
   parseSnapshotQuery,
   readWorkspaceStateFromSession,
-} from "../learning/learner/orchestration/http-request.js"
+} from "../learning/adapters/http"
 
 const learnerContextQueryParameters = [
   ...directoryParameters,
@@ -188,7 +193,7 @@ async function learnerSnapshotHandler(c: Context): Promise<Response> {
     return zodIssuesResponse(parsed.error)
   }
 
-  const snapshot = await LearnerService.getWorkspaceSnapshot({
+  const snapshot = await getWorkspaceSnapshot({
     directory: contextResult.value.directory,
     query: {
       ...parsed.data,
@@ -222,7 +227,7 @@ async function learnerPlanHandler(c: Context): Promise<Response> {
     return zodIssuesResponse(parsed.error)
   }
 
-  const decision = await LearnerService.ensurePlanDecision({
+  const decision = await ensurePlanDecision({
     directory: contextResult.value.directory,
     query: {
       ...parsed.data,
@@ -247,7 +252,7 @@ async function learnerArtifactsHandler(c: Context): Promise<Response> {
     return zodIssuesResponse(parsed.error)
   }
 
-  const artifacts = await LearnerService.listArtifacts({
+  const artifacts = await listArtifacts({
     directory: contextResult.value.directory,
     kind: parsed.data.kind,
     goalId: parsed.data.goalId,
@@ -270,7 +275,7 @@ async function learnerWorkspacePatchHandler(c: Context): Promise<Response> {
     return zodIssuesResponse(parsed.error)
   }
 
-  const patched = await LearnerService.patchWorkspace({
+  const patched = await patchWorkspace({
     directory: contextResult.value.directory,
     workspace: parsed.data.workspace,
     profile: parsed.data.profile,

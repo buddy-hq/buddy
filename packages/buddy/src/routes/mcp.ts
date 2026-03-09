@@ -3,11 +3,11 @@ import {
   AnyObjectSchema,
   ErrorSchema,
   McpNamePath,
-} from "../openapi/compatibility-schemas.js"
-import { withConfigSync } from "../http/route-helpers.js"
-import { directoryForbiddenResponse, directoryParameters } from "../http/openapi.js"
-import type { ProxyEndpointSpec } from "../http/proxy-routes.js"
-import { registerProxyEndpoints } from "../http/proxy-routes.js"
+} from "../openapi"
+import { withConfigSync } from "../http"
+import { directoryForbiddenResponse, directoryParameters } from "../http"
+import type { ProxyEndpointSpec } from "../http"
+import { registerProxyEndpoints } from "../http"
 
 type McpProxyDefinition = Omit<ProxyEndpointSpec, "beforeProxy">
 
