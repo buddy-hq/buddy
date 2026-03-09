@@ -8,7 +8,7 @@ import {
   buildPromptInjectionPolicy,
   getAdvisorySuggestions,
   resolvePromptInjectionDecision,
-} from "../prompt/system/index"
+} from "../../agents/core/prompt/system/index"
 import { TeachingPromptContextSchema } from "../../agents/capabilities"
 import { getBuddyPersona } from "../../agents/personas"
 import { assertSessionExistsInDirectory, SessionTransformValidationError } from "../../../session"

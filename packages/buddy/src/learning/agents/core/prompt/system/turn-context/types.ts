@@ -3,9 +3,9 @@ import type {
   LearnerPromptDigest,
   RuntimeProfile,
   TeachingIntentId,
-} from "../../../capabilities/types"
-import type { LoadedActivitySkill } from "../../../../agents/curriculum"
-import type { TeachingPromptContext } from "../../../../agents/capabilities"
+} from "../../../../../agent-execution"
+import type { LoadedActivitySkill } from "../../../../curriculum"
+import type { TeachingPromptContext } from "../../../../capabilities"
 
 export type LoadedBundledSkills = LoadedActivitySkill[]
 

@@ -23,7 +23,7 @@ const BUDDY_BASE_PROMPT = readFileSync(
   "utf8",
 )
 const TEACHING_POLICY_PROMPT = readFileSync(
-  new URL("../src/learning/agent-execution/prompt/system/teaching-workspace-policy.p.md", import.meta.url),
+  new URL("../src/learning/agents/core/prompt/system/teaching-workspace-policy.p.md", import.meta.url),
   "utf8",
 )
 const CODE_BUDDY_OVERLAY = readFileSync(

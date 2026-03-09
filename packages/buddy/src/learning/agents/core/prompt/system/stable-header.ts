@@ -1,4 +1,4 @@
-import type { RuntimeProfile } from "../../capabilities/types"
+import type { RuntimeProfile } from "../../../../agent-execution"
 import { createPromptSection } from "./helpers"
 import RAW_TEACHING_POLICY_PROMPT from "./teaching-workspace-policy.p.md"
 import type { RuntimePromptSection } from "./types"

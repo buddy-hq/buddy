@@ -1,6 +1,6 @@
-import type { WorkspaceState } from "../../../capabilities/types"
-import { loadBundledActivitySkills } from "../../../../agents/curriculum"
-import { TeachingService } from "../../../../agents/capabilities"
+import type { WorkspaceState } from "../../../../../agent-execution"
+import { loadBundledActivitySkills } from "../../../../curriculum"
+import { TeachingService } from "../../../../capabilities"
 import { createPromptSection, hasText } from "../helpers"
 import type { RuntimePromptSection } from "../types"
 import {

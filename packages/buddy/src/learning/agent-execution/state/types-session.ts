@@ -1,4 +1,4 @@
-import type { PromptInjectionAudit, PromptInjectionCache, RuntimePromptSection } from "../prompt/system"
+import type { PromptInjectionAudit, PromptInjectionCache, RuntimePromptSection } from "../../agents/core/prompt/system"
 import type { CapabilityEnvelope, LearnerPromptDigest } from "../capabilities/types-model"
 import type { PersonaId, SurfaceId, TeachingIntentId, WorkspaceState } from "../capabilities/vocabulary"
 

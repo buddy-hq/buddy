@@ -1,4 +1,4 @@
-import type { TeachingIntentId, TeachingSessionState, WorkspaceState } from "../../capabilities/types"
+import type { TeachingIntentId, TeachingSessionState, WorkspaceState } from "../../../../agent-execution"
 import type {
   PromptInjectionPolicy,
   PromptInjectionPolicyAudit,

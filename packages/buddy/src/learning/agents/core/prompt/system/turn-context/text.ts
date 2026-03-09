@@ -3,8 +3,8 @@ import type {
   RuntimeProfile,
   TeachingIntentId,
   WorkspaceState,
-} from "../../../capabilities/types"
-import type { TeachingPromptContext } from "../../../../agents/capabilities"
+} from "../../../../../agent-execution"
+import type { TeachingPromptContext } from "../../../../capabilities"
 import { hasText, titleCaseFromKebab } from "../helpers"
 import type { LoadedBundledSkills, TeachingCheckpointStatus } from "./types"
 
@@ -99,10 +99,7 @@ Other globally installed skills may also exist through the native skill tool. Do
 }
 
 export function buildActivityCapabilitiesText(profile: RuntimeProfile, intentOverride?: TeachingIntentId): string {
-  const lines = [
-    "<activity_capabilities>",
-    `Intent focus: ${intentOverride ?? "auto"}`,
-  ]
+  const lines = ["<activity_capabilities>", `Intent focus: ${intentOverride ?? "auto"}`]
 
   const bundles = profile.capabilityEnvelope.activityBundles
   if (bundles.length === 0) {
@@ -150,7 +147,9 @@ export function buildSelectedActivityText(input: {
 
   if (input.activityBundle.tools.length > 0) {
     lines.push(`Tool hooks: ${input.activityBundle.tools.join(", ")}`)
-    lines.push("If one of these tools can generate a structured artifact for the activity, prefer using it instead of improvising the artifact from scratch.")
+    lines.push(
+      "If one of these tools can generate a structured artifact for the activity, prefer using it instead of improvising the artifact from scratch.",
+    )
   }
 
   if (input.activityBundle.subagents.length > 0) {
