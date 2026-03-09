@@ -1,4 +1,4 @@
-import { Config } from "../config/config.js"
+import { Config } from "@buddy/backend/config"
 
 type BuddyAgentConfigInput = Parameters<(typeof Config.Agent)["parse"]>[0]
 type BuddyAgentConfig = ReturnType<(typeof Config.Agent)["parse"]>
@@ -40,13 +40,6 @@ function indexBuddyAgents(): Record<string, BuddyAgentConfig> {
   return Object.fromEntries(registeredBuddyAgents)
 }
 
-export {
-  indexBuddyAgents,
-  listBuddyAgents,
-  registerBuddyAgent,
-}
+export { indexBuddyAgents, listBuddyAgents, registerBuddyAgent }
 
-export type {
-  BuddyAgentRegistration,
-  RegisteredBuddyAgent,
-}
+export type { BuddyAgentRegistration, RegisteredBuddyAgent }

@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { Config } from "../config/config.js"
+import { Config } from "@buddy/backend/config"
 
 type BuddyAgentAuthoring = z.input<typeof Config.Agent>
 type BuddyPermissionRuleInput = Config.PermissionRule
@@ -136,17 +136,6 @@ function createPlanAgent(input: CoreAgentDefinition): DefinedPrimaryAgent | Defi
   })
 }
 
-export {
-  createBuildAgent,
-  createPlanAgent,
-  createPrimaryAgent,
-  createSubagent,
-}
+export { createBuildAgent, createPlanAgent, createPrimaryAgent, createSubagent }
 
-export type {
-  CoreAgentDefinition,
-  DefinedPrimaryAgent,
-  DefinedSubagent,
-  PrimaryAgentDefinition,
-  SubagentDefinition,
-}
+export type { CoreAgentDefinition, DefinedPrimaryAgent, DefinedSubagent, PrimaryAgentDefinition, SubagentDefinition }
