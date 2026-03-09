@@ -1,8 +1,8 @@
 import type { Context } from "hono"
-import { ensureAllowedDirectory } from "../../http/directory.js"
-import { normalizeErrorResponse } from "../../http/error-normalization.js"
-import { fetchOpenCode } from "../../http/proxy.js"
-import { loadSessionStatus } from "../../http/session.js"
+import { ensureAllowedDirectory } from "../../http"
+import { normalizeErrorResponse } from "../../http"
+import { fetchOpenCode } from "../../http"
+import { loadSessionStatus } from "../../http"
 
 export async function abortSessionRun(c: Context): Promise<Response> {
   const directoryResult = ensureAllowedDirectory(c.req.raw)

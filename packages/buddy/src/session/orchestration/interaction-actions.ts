@@ -1,9 +1,9 @@
 import type { Context } from "hono"
-import { withConfigSync } from "../../http/route-helpers.js"
-import { createSessionCommandTransform } from "../../learning/runtime/session/orchestration/command-transform.js"
-import { createSessionMessageTransform } from "../../learning/runtime/session/orchestration/message-transform.js"
-import type { SessionTransformContext } from "../../learning/runtime/session/orchestration/transform-types.js"
-import { mapSessionTransformError, runSessionTransformProxy } from "./proxy-transform.js"
+import { withConfigSync } from "../../http"
+import { createSessionCommandTransform } from "../../learning/agent-execution"
+import { createSessionMessageTransform } from "../../learning/agent-execution"
+import type { SessionTransformContext } from "../../learning/agent-execution"
+import { mapSessionTransformError, runSessionTransformProxy } from "./proxy-transform"
 
 export async function postSessionPrompt(c: Context): Promise<Response> {
   const syncResult = await withConfigSync(c.req.raw, {

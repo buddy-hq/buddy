@@ -1,8 +1,8 @@
-import { isJsonContentType, safeReadJson } from "../../http/http.js"
-import { isSessionInRequestedProject } from "../../http/session.js"
-import { normalizeErrorResponse } from "../../http/error-normalization.js"
-import { fetchOpenCode } from "../../http/proxy.js"
-import { SessionLookupError } from "./errors.js"
+import { isJsonContentType, safeReadJson } from "../../http"
+import { isSessionInRequestedProject } from "../../http"
+import { normalizeErrorResponse } from "../../http"
+import { fetchOpenCode } from "../../http"
+import { SessionLookupError } from "./errors"
 
 type OpenCodeNotFoundError = {
   name?: unknown

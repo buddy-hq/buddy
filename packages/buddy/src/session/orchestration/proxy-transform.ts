@@ -1,6 +1,6 @@
 import type { Context } from "hono"
-import { proxyToOpenCode } from "../../http/proxy.js"
-import { SessionLookupError, SessionTransformValidationError } from "./errors.js"
+import { proxyToOpenCode } from "../../http"
+import { SessionLookupError, SessionTransformValidationError } from "./errors"
 
 export function mapSessionTransformError(
   c: { json: (body: unknown, status?: number) => Response },
@@ -28,6 +28,7 @@ export async function runSessionTransformProxy(input: {
     targetPath: input.targetPath,
     transformJsonBody: input.onTransform,
     forceBusyAs409: true,
+    registerActivityTools: true,
     registerCurriculumTools: true,
     registerFigureTools: true,
     registerFreeformFigureTools: true,

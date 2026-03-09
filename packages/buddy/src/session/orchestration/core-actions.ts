@@ -1,10 +1,10 @@
 import type { Context } from "hono"
-import { isJsonContentType, safeReadJson } from "../../http/http.js"
-import { ensureAllowedDirectory } from "../../http/directory.js"
-import { normalizeErrorResponse } from "../../http/error-normalization.js"
-import { fetchOpenCode, proxyToOpenCode } from "../../http/proxy.js"
-import { isSessionInRequestedProject } from "../../http/session.js"
-import { ensureSessionExistsInDirectory } from "./lookup.js"
+import { isJsonContentType, safeReadJson } from "../../http"
+import { ensureAllowedDirectory } from "../../http"
+import { normalizeErrorResponse } from "../../http"
+import { fetchOpenCode, proxyToOpenCode } from "../../http"
+import { isSessionInRequestedProject } from "../../http"
+import { ensureSessionExistsInDirectory } from "./lookup"
 
 export async function proxySessionCollection(c: Context): Promise<Response> {
   return proxyToOpenCode(c, {
