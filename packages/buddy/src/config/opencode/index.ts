@@ -6,40 +6,22 @@ import {
 } from "./agents.js"
 import { fingerprintOpenCodeConfig } from "./fingerprint.js"
 import { parseConfiguredModel } from "./models.js"
-import { resolveOpenCodeSkillPaths } from "./skills.js"
-import { getDefaultBuddyPersona } from "../../personas/catalog.js"
+import { resolveBuddyBundledSkillRoots, resolveOpenCodeSkillPaths } from "./skills.js"
+import { getDefaultBuddyPersona } from "../../learning/agents/personas"
+
+const BUDDY_RUNTIME_PERMISSION_OVERLAY: Config.Permission = {
+  curriculum_read: "deny",
+  "goal_*": "deny",
+  "learner_*": "deny",
+  "activity_*": "deny",
+  "render_*": "deny",
+  "teaching_*": "deny",
+}
 
 function buildOpenCodePermissionOverlay(permission: Config.Permission | undefined): Config.Permission {
   return {
     ...(permission ?? {}),
-    curriculum_read: "deny",
-    curriculum_update: "deny",
-    goal_decide_scope: "deny",
-    goal_lint: "deny",
-    goal_commit: "deny",
-    goal_state: "deny",
-    learner_snapshot_read: "deny",
-    activity_explanation: "deny",
-    activity_worked_example: "deny",
-    activity_concept_contrast: "deny",
-    activity_analogy: "deny",
-    activity_guided_practice: "deny",
-    activity_independent_practice: "deny",
-    activity_debug_attempt: "deny",
-    activity_stepwise_solve: "deny",
-    activity_mastery_check: "deny",
-    activity_reflection: "deny",
-    activity_retrieval_check: "deny",
-    activity_transfer_check: "deny",
-    learner_practice_record: "deny",
-    learner_assessment_record: "deny",
-    render_figure: "deny",
-    render_freeform_figure: "deny",
-    teaching_start_lesson: "deny",
-    teaching_checkpoint: "deny",
-    teaching_add_file: "deny",
-    teaching_set_lesson: "deny",
-    teaching_restore_checkpoint: "deny",
+    ...BUDDY_RUNTIME_PERMISSION_OVERLAY,
   }
 }
 
@@ -88,4 +70,5 @@ export {
   mergeBuddyAndConfiguredAgents,
   parseConfiguredModel,
   resolveConfiguredAgentKey,
+  resolveBuddyBundledSkillRoots,
 }

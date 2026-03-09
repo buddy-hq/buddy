@@ -10,7 +10,7 @@ import {
   syncOpenCodeProjectConfig,
 } from "../compatibility.js"
 import { Config } from "../config.js"
-import { personaCatalogEntries } from "../../personas/catalog.js"
+import { personaCatalogEntries } from "../../learning/agents/personas"
 
 export function mapOpenCodeAgents(
   agents: Array<{ name: string; description?: string; mode: string; hidden?: boolean }>,

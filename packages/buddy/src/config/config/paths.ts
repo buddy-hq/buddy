@@ -1,7 +1,7 @@
 import fs from "node:fs"
 import path from "node:path"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { Global } from "../../storage/global.js"
+import { Global } from "../../storage"
 
 export interface ProjectConfigContext {
   directory: string

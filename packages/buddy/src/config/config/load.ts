@@ -1,5 +1,5 @@
 import { mergeDeep } from "remeda"
-import { Flag } from "../../flag/flag.js"
+import { Flag } from "../../flag"
 import { loadConfigFile, loadConfigText } from "../document.js"
 import { getCachedGlobalConfig } from "./cache.js"
 import { resolveProjectConfigContext, resolveProjectConfigFile } from "./paths.js"

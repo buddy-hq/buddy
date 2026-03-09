@@ -1,8 +1,8 @@
 import z from "zod"
 import { Config as OpenCodeConfig } from "@buddy/opencode-adapter/config"
-import { PERSONA_SURFACE_IDS, TEACHING_INTENT_IDS, TOOL_IDS } from "../runtime-contract/types-primitives.js"
-import { resolveBuddyPersonaProfiles } from "../personas/catalog.js"
-import { PERSONA_IDS } from "../personas/types.js"
+import { PERSONA_SURFACE_IDS, TEACHING_INTENT_IDS } from "@buddy/backend/learning/agent-execution/capabilities/vocabulary"
+import { resolveBuddyPersonaProfiles } from "../learning/agents/personas"
+import { PERSONA_IDS } from "../learning/agents/personas"
 
 export namespace ConfigSchema {
   export const Mcp = OpenCodeConfig.Mcp
@@ -18,7 +18,7 @@ export namespace ConfigSchema {
   export type Agent = z.output<typeof Agent>
 
   const openCodeInfoShape = OpenCodeConfig.Info.shape
-  const TOOL_TOGGLE_MAP = z.partialRecord(z.enum(TOOL_IDS), z.boolean()).optional()
+  const TOOL_TOGGLE_MAP = z.record(z.string(), z.boolean()).optional()
   const BuddySurface = z.enum(PERSONA_SURFACE_IDS)
   const BuddyPersonaID = z.enum(PERSONA_IDS)
   const TeachingIntent = z.enum(TEACHING_INTENT_IDS)
