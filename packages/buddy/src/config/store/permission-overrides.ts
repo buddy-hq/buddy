@@ -1,5 +1,5 @@
 import { mergeDeep } from "remeda"
-import { InvalidError } from "../errors.js"
+import { InvalidError } from "../contract/errors.js"
 import { Permission } from "./types.js"
 import type { Info, PermissionAction } from "./types.js"
 

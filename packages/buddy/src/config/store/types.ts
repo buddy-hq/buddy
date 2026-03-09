@@ -1,4 +1,4 @@
-import { ConfigSchema } from "../schema.js"
+import { ConfigSchema } from "../contract/schema.js"
 
 export const Mcp = ConfigSchema.Mcp
 export type Mcp = ConfigSchema.Mcp

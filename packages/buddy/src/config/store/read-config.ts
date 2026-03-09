@@ -1,9 +1,9 @@
 import { mergeDeep } from "remeda"
 import { Flag } from "../../flag"
-import { loadConfigFile, loadConfigText } from "../document.js"
-import { getCachedGlobalConfig } from "./cache.js"
-import { resolveProjectConfigContext, resolveProjectConfigFile } from "./paths.js"
-import { applyEnvironmentPermission, applyToolPermissionDefaults } from "./permissions.js"
+import { loadConfigFile, loadConfigText } from "../contract/document.js"
+import { getCachedGlobalConfig } from "./global-cache.js"
+import { resolveProjectConfigContext, resolveProjectConfigFile } from "./config-paths.js"
+import { applyEnvironmentPermission, applyToolPermissionDefaults } from "./permission-overrides.js"
 import type { Info } from "./types.js"
 
 function mergeInfo(target: Info, source: Info): Info {
