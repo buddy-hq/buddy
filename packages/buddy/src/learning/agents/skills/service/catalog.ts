@@ -1,7 +1,7 @@
 import fsp from "node:fs/promises"
 import path from "node:path"
 import matter from "gray-matter"
-import { Config } from "@buddy/backend/config/config"
+import { Config } from "@buddy/backend/config"
 import type { InstalledSkillInfo, SkillLibraryEntry, SkillsCatalog } from "./contracts"
 import { readOptionalString } from "./documents"
 import { loadVisibleSkills } from "./discovery"
