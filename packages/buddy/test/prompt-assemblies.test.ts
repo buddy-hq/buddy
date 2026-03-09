@@ -1,23 +1,37 @@
 import { describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
+import { readFile } from "node:fs/promises"
 import { fileURLToPath } from "node:url"
 import { Agent as OpenCodeAgent } from "@buddy/opencode-adapter/agent"
-import { compileRuntimeProfile } from "../src/learning/runtime/compiler.js"
-import { LearnerService } from "../src/learning/learner/service.js"
-import { composeLearningSystemPrompt } from "../src/learning/shared/compose-system-prompt.js"
-import { readNormalizedPromptFixture } from "../src/learning/shared/prompt-fixture.js"
-import { getBuddyPersona } from "../src/personas/catalog.js"
+import { compileRuntimeProfile } from "../src/learning/agent-execution"
+import { LearnerService } from "../src/learning/learner-model"
+import { composeLearningSystemPrompt } from "../src/learning/agent-execution"
+import { getBuddyPersona } from "../src/learning/agents/personas"
 import { tmpdir } from "./fixture/fixture"
-import { withSyncedOpenCodeConfig } from "./helpers/opencode.js"
+import { withSyncedOpenCodeConfig } from "./helpers/opencode"
 
-const BUDDY_BASE_PROMPT = readFileSync(new URL("../src/learning/companion/buddy-base.p.md", import.meta.url), "utf8")
-const TEACHING_POLICY_PROMPT = readFileSync(new URL("../src/learning/teaching/teaching-policy.p.md", import.meta.url), "utf8")
+function requireValue<T>(value: T | undefined, label: string): T {
+  if (value !== undefined) {
+    return value
+  }
+
+  throw new Error(`Missing ${label}`)
+}
+
+const BUDDY_BASE_PROMPT = readFileSync(
+  new URL("../src/learning/agents/core/buddy/prompt.p.md", import.meta.url),
+  "utf8",
+)
+const TEACHING_POLICY_PROMPT = readFileSync(
+  new URL("../src/learning/agent-execution/prompt/system/teaching-workspace-policy.p.md", import.meta.url),
+  "utf8",
+)
 const CODE_BUDDY_OVERLAY = readFileSync(
-  new URL("../src/learning/teaching/teacher/coding/code-buddy-overlay.p.md", import.meta.url),
+  new URL("../src/learning/agents/core/code-buddy/overlay.p.md", import.meta.url),
   "utf8",
 )
 const MATH_BUDDY_OVERLAY = readFileSync(
-  new URL("../src/learning/teaching/teacher/math/math-buddy-overlay.p.md", import.meta.url),
+  new URL("../src/learning/agents/core/math-buddy/overlay.p.md", import.meta.url),
   "utf8",
 )
 
@@ -26,7 +40,15 @@ function fixturePath(filename: string): string {
 }
 
 function composeStaticPrompt(...parts: string[]): string {
-  return parts.map((part) => part.trim()).filter(Boolean).join("\n\n")
+  return parts
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join("\n\n")
+}
+
+async function readNormalizedFixture(filepath: string) {
+  const raw = await readFile(filepath, "utf8")
+  return raw.replace(/\r\n/g, "\n").trimEnd()
 }
 
 async function buildRuntimePrompt(input: {
@@ -36,15 +58,12 @@ async function buildRuntimePrompt(input: {
   teachingContext?: Parameters<typeof composeLearningSystemPrompt>[0]["teachingContext"]
   userContent?: string
 }) {
-  const workspace = await LearnerService.ensureWorkspaceContext(input.directory)
-  const digest = await LearnerService.queryForPrompt({
+  const digest = await LearnerService.buildPromptContext({
     directory: input.directory,
     query: {
-      workspaceId: workspace.workspaceId,
       persona: input.persona,
       intent: input.intent ?? "learn",
       focusGoalIds: [],
-      tokenBudget: 1200,
     },
   })
   const profile = compileRuntimeProfile({
@@ -64,8 +83,8 @@ async function buildRuntimePrompt(input: {
 
 describe("prompt assemblies", () => {
   test("loads shared prompt assets byte-for-byte from fixtures", async () => {
-    const learningFixture = await readNormalizedPromptFixture(fixturePath("learning-companion.txt"))
-    const teachingPolicyFixture = await readNormalizedPromptFixture(fixturePath("teaching-policy.txt"))
+    const learningFixture = await readNormalizedFixture(fixturePath("learning-companion.txt"))
+    const teachingPolicyFixture = await readNormalizedFixture(fixturePath("teaching-policy.txt"))
 
     expect(BUDDY_BASE_PROMPT.trimEnd()).toBe(learningFixture)
     expect(TEACHING_POLICY_PROMPT.trimEnd()).toBe(teachingPolicyFixture)
@@ -126,20 +145,26 @@ describe("prompt assemblies", () => {
   test("keeps the registered code-buddy prompt aligned with the base prompt and overlay", async () => {
     await using project = await tmpdir({ git: true })
 
-    const agent = await withSyncedOpenCodeConfig(project.path, () => OpenCodeAgent.get("code-buddy"))
+    const codeBuddyAgent = requireValue(
+      await withSyncedOpenCodeConfig(project.path, () => OpenCodeAgent.get("code-buddy")),
+      "code-buddy agent",
+    )
 
-    expect(agent).toBeDefined()
-    expect(agent?.prompt).toContain("You are Buddy, a learning companion")
-    expect(agent?.prompt).toContain("For coding sessions, act as Buddy")
-    expect(agent?.prompt).toContain("teaching_start_lesson")
+    expect(codeBuddyAgent.prompt).toContain("You are Buddy, a learning companion")
+    expect(codeBuddyAgent.prompt).toContain("For coding sessions, act as Buddy")
+    expect(codeBuddyAgent.prompt).toContain("teaching_start_lesson")
   })
 
   test("composes code-buddy from the base buddy prompt plus the code overlay", async () => {
     const prompt = composeStaticPrompt(BUDDY_BASE_PROMPT, CODE_BUDDY_OVERLAY)
 
-    expect(prompt).toContain("You are Buddy, a learning companion that helps the learner learn by doing while building real projects.")
+    expect(prompt).toContain(
+      "You are Buddy, a learning companion that helps the learner learn by doing while building real projects.",
+    )
     expect(prompt).toContain("For coding sessions, act as Buddy in the `code-buddy` persona.")
-    expect(prompt).toContain("Treat the lesson file shown in <teaching_workspace> as the shared whiteboard for the lesson.")
+    expect(prompt).toContain(
+      "Treat the lesson file shown in <teaching_workspace> as the shared whiteboard for the lesson.",
+    )
   })
 
   test("composes math-buddy from the base buddy prompt plus the math overlay", async () => {

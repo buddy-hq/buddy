@@ -4,8 +4,8 @@ import path from "node:path"
 import fs from "node:fs"
 import { mkdtempSync, writeFileSync } from "node:fs"
 import { spawnSync } from "node:child_process"
-import { Config } from "../src/config/config.js"
-import { Global } from "../src/storage/global.js"
+import { Config } from "@buddy/backend/config"
+import { Global } from "../src/storage"
 
 function runGit(cwd: string, args: string[]) {
   const result = spawnSync("git", args, {

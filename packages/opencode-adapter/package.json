@@ -15,7 +15,9 @@
     "./agent": "./src/agent.ts",
     "./registry": "./src/registry.ts",
     "./config": "./src/config.ts",
-    "./session": "./src/session.ts"
+    "./session": "./src/session.ts",
+    "./session-prompt": "./src/session-prompt.ts",
+    "./provider": "./src/provider.ts"
   },
   "scripts": {
     "typecheck": "tsgo --noEmit"

@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test"
 import { app } from "../src/index.ts"
-import { compileRuntimeProfile } from "../src/learning/runtime/compiler.js"
-import { buildLearningSystemPrompt } from "../src/learning/shared/compose-system-prompt.js"
-import { writeTeachingSessionState } from "../src/learning/runtime/session-state.js"
-import { getBuddyPersona } from "../src/personas/catalog.js"
-import type { LearnerPromptDigest } from "../src/learning/runtime/types.js"
+import { compileRuntimeProfile } from "../src/learning/agent-execution"
+import { buildLearningSystemPrompt } from "../src/learning/agent-execution"
+import { writeTeachingSessionState } from "../src/learning/agent-execution"
+import { getBuddyPersona } from "../src/learning/agents/personas"
+import type { LearnerPromptDigest } from "../src/learning/agent-execution"
 import { tmpdir } from "./fixture/fixture"
 
 function createDigest(): LearnerPromptDigest {
@@ -101,7 +101,7 @@ describe("runtime inspector route", () => {
     expect(body.intentOverride).toBe("practice")
     expect(body.focusGoalIds).toEqual(["goal_1"])
     expect(body.inspector.runtimeAgent).toBe("code-buddy")
-    expect(body.inspector.capabilityEnvelope.tools.practice_record).toBe("allow")
+    expect(body.inspector.capabilityEnvelope.tools.learner_practice_record).toBe("allow")
     expect(body.inspector.capabilityEnvelope.skills["buddy-practice-guided"]).toBe("allow")
     expect(body.inspector.capabilityEnvelope.activityBundles.map((bundle) => bundle.id)).toContain("code-debug-attempt")
     expect(body.inspector.stableHeaderSections.some((section) => section.label === "Persona Header")).toBe(true)

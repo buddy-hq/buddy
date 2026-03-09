@@ -12,6 +12,15 @@ type BuildCompiledBuddyBinaryInput = {
   target?: string
 }
 
+function removeBunCompileArtifacts(directory: string) {
+  const entries = readdirSync(directory, { withFileTypes: true })
+  for (const entry of entries) {
+    if (!entry.isFile()) continue
+    if (!/^\..+\.bun-build$/.test(entry.name)) continue
+    rmSync(path.join(directory, entry.name), { force: true })
+  }
+}
+
 function parseMigrationTimestamp(tag: string) {
   const match = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/.exec(tag)
   if (!match) return 0
@@ -52,6 +61,10 @@ function loadMigrations(dir: string, label: string): MigrationEntry[] {
 
 export async function buildCompiledBuddyBinary(input: BuildCompiledBuddyBinaryInput) {
   const backendDir = path.resolve(import.meta.dir, "..")
+  const cleanupDirs = [...new Set([backendDir, path.resolve(process.cwd())])]
+  for (const directory of cleanupDirs) {
+    removeBunCompileArtifacts(directory)
+  }
   const outputFile = path.resolve(input.outputFile)
   const bundleOutputFile = input.bundleOutputFile ? path.resolve(input.bundleOutputFile) : undefined
   const buddyMigrationDir = path.resolve(backendDir, "migration")
@@ -71,50 +84,56 @@ export async function buildCompiledBuddyBinary(input: BuildCompiledBuddyBinaryIn
     OPENCODE_MIGRATIONS: JSON.stringify(opencodeMigrations),
   }
 
-  if (bundleOutputFile) {
-    const bundleOutdir = path.dirname(bundleOutputFile)
-    const bundleResult = await Bun.build({
+  try {
+    if (bundleOutputFile) {
+      const bundleOutdir = path.dirname(bundleOutputFile)
+      const bundleResult = await Bun.build({
+        entrypoints: [path.resolve(backendDir, "src/index.ts")],
+        outdir: bundleOutdir,
+        target: "bun",
+        format: "esm",
+        define,
+        write: true,
+      })
+
+      if (!bundleResult.success) {
+        throw new Error(`Failed to build sidecar entry bundle: ${bundleOutputFile}`)
+      }
+
+      if (!existsSync(bundleOutputFile)) {
+        throw new Error(`Sidecar entry bundle missing after build: ${bundleOutputFile}`)
+      }
+
+      if (existsSync(buddySkillsDir)) {
+        const bundledSkillsTarget = path.resolve(bundleOutdir, "skills/system")
+        rmSync(bundledSkillsTarget, { recursive: true, force: true })
+        mkdirSync(path.dirname(bundledSkillsTarget), { recursive: true })
+        cpSync(buddySkillsDir, bundledSkillsTarget, { recursive: true, dereference: true })
+      }
+    }
+
+    const result = await Bun.build({
       entrypoints: [path.resolve(backendDir, "src/index.ts")],
-      outdir: bundleOutdir,
-      target: "bun",
-      format: "esm",
+      compile: {
+        outfile: outputFile,
+        ...(input.target ? { target: input.target } : {}),
+      },
       define,
-      write: true,
     })
 
-    if (!bundleResult.success) {
-      throw new Error(`Failed to build sidecar entry bundle: ${bundleOutputFile}`)
+    if (!result.success) {
+      throw new Error(`Failed to compile sidecar binary: ${outputFile}`)
     }
 
-    if (!existsSync(bundleOutputFile)) {
-      throw new Error(`Sidecar entry bundle missing after build: ${bundleOutputFile}`)
+    return {
+      bundleOutputFile,
+      outputFile,
+      buddyMigrationCount: buddyMigrations.length,
+      opencodeMigrationCount: opencodeMigrations.length,
     }
-
-    if (existsSync(buddySkillsDir)) {
-      const bundledSkillsTarget = path.resolve(bundleOutdir, "skills/system")
-      rmSync(bundledSkillsTarget, { recursive: true, force: true })
-      mkdirSync(path.dirname(bundledSkillsTarget), { recursive: true })
-      cpSync(buddySkillsDir, bundledSkillsTarget, { recursive: true, dereference: true })
+  } finally {
+    for (const directory of cleanupDirs) {
+      removeBunCompileArtifacts(directory)
     }
-  }
-
-  const result = await Bun.build({
-    entrypoints: [path.resolve(backendDir, "src/index.ts")],
-    compile: {
-      outfile: outputFile,
-      ...(input.target ? { target: input.target } : {}),
-    },
-    define,
-  })
-
-  if (!result.success) {
-    throw new Error(`Failed to compile sidecar binary: ${outputFile}`)
-  }
-
-  return {
-    bundleOutputFile,
-    outputFile,
-    buddyMigrationCount: buddyMigrations.length,
-    opencodeMigrationCount: opencodeMigrations.length,
   }
 }

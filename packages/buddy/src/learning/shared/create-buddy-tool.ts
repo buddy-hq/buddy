@@ -20,15 +20,19 @@ type BuddyToolInit<Parameters extends z.ZodType, Metadata extends BuddyToolMetad
   | BuddyToolInitResult<Parameters, Metadata>
   | ((ctx?: Tool.InitContext) => Promise<BuddyToolInitResult<Parameters, Metadata>> | BuddyToolInitResult<Parameters, Metadata>)
 
-type BuddyTool<Parameters extends z.ZodType = z.ZodType, Metadata extends BuddyToolMetadata = BuddyToolMetadata> = {
-  id: string
+type BuddyTool<
+  Id extends string = string,
+  Parameters extends z.ZodType = z.ZodType,
+  Metadata extends BuddyToolMetadata = BuddyToolMetadata,
+> = {
+  id: Id
   toTool(directory: string): Tool.Info<Parameters, Metadata>
 }
 
-function createBuddyTool<Parameters extends z.ZodType, Metadata extends BuddyToolMetadata>(
-  id: string,
+function createBuddyTool<const Id extends string, Parameters extends z.ZodType, Metadata extends BuddyToolMetadata>(
+  id: Id,
   init: BuddyToolInit<Parameters, Metadata>,
-): BuddyTool<Parameters, Metadata> {
+): BuddyTool<Id, Parameters, Metadata> {
   return {
     id,
     toTool(directory: string) {

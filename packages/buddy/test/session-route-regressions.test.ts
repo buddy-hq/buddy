@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { app } from "../src/index.ts"
-import { LearnerService } from "../src/learning/learner/service.js"
-import { readTeachingSessionState, writeTeachingSessionState } from "../src/learning/runtime/session-state.js"
+import { LearnerService } from "../src/learning/learner-model"
+import { readTeachingSessionState, writeTeachingSessionState } from "../src/learning/agent-execution"
 import { tmpdir } from "./fixture/fixture"
 
 describe("session route regressions", () => {
@@ -90,7 +90,7 @@ describe("session route regressions", () => {
   test("does not record learner evidence when prompt validation fails", async () => {
     await using project = await tmpdir({ git: true })
 
-    const committed = await LearnerService.commitGoals({
+    const committed = await LearnerService.replaceGoalSet({
       directory: project.path,
       scope: "topic",
       contextLabel: "Closures",
@@ -106,12 +106,10 @@ describe("session route regressions", () => {
       ],
     })
 
-    const workspace = await LearnerService.ensureWorkspaceContext(project.path)
-    const before = await LearnerService.queryState({
-      workspaceId: workspace.workspaceId,
-      goalIds: committed.goalIds,
-      conceptTags: [],
-      includeDerived: true,
+    const before = await LearnerService.listArtifacts({
+      directory: project.path,
+      kind: "evidence",
+      goalId: committed.goalIds[0],
     })
 
     const response = await app.request("/api/session/ses_invalid/message", {
@@ -130,13 +128,12 @@ describe("session route regressions", () => {
 
     expect(response.status).toBe(400)
 
-    const after = await LearnerService.queryState({
-      workspaceId: workspace.workspaceId,
-      goalIds: committed.goalIds,
-      conceptTags: [],
-      includeDerived: true,
+    const after = await LearnerService.listArtifacts({
+      directory: project.path,
+      kind: "evidence",
+      goalId: committed.goalIds[0],
     })
 
-    expect(after.evidence).toEqual(before.evidence)
+    expect(after).toEqual(before)
   })
 })

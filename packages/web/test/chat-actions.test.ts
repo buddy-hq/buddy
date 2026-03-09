@@ -255,9 +255,43 @@ describe("sendPrompt", () => {
 describe("loadCurriculumView", () => {
   test("forwards the current session id when loading the learner plan", async () => {
     globalThis.fetch = (async (input, init) => {
-      expect(String(input)).toBe("/api/learner/curriculum-view?persona=code-buddy&intent=practice&sessionId=session_1")
+      expect(String(input)).toBe("/api/learner/plan?persona=code-buddy&intent=practice&sessionId=session_1")
+      expect(init?.method).toBe("POST")
       expect(new Headers(init?.headers).get("x-buddy-directory")).toBe("/repo")
-      return new Response(JSON.stringify({}), {
+      expect(init?.body).toBe(JSON.stringify({}))
+      const payload = {
+        snapshot: {
+            workspace: {
+              workspaceId: "w_1",
+              label: "Workspace",
+              tags: [],
+              pinnedGoalIds: [],
+              projectConstraints: [],
+              localToolAvailability: [],
+              preferredSurfaces: [],
+              opportunities: [],
+              userOverride: false,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            },
+            goals: [],
+            openFeedback: [],
+            activityBundles: [],
+            constraintsSummary: [],
+            sections: [],
+            markdown: "",
+          },
+        plan: {
+          warmupReviewGoalIds: [],
+          suggestedActivity: "guided-practice",
+          suggestedScaffoldingLevel: "guided",
+          alternatives: [],
+          rationale: [],
+          constraintsConsidered: [],
+          prerequisiteWarnings: [],
+        },
+      }
+      return new Response(JSON.stringify(payload), {
         headers: {
           "content-type": "application/json",
         },
@@ -268,6 +302,54 @@ describe("loadCurriculumView", () => {
       persona: "code-buddy",
       intent: "practice",
       sessionID: "session_1",
+    })
+  })
+
+  test("requests decision generation only when explicitly asked", async () => {
+    globalThis.fetch = (async (_input, init) => {
+      expect(init?.method).toBe("POST")
+      expect(init?.body).toBe(JSON.stringify({ generateDecision: true }))
+      const payload = {
+        snapshot: {
+          workspace: {
+            workspaceId: "w_1",
+            label: "Workspace",
+            tags: [],
+            pinnedGoalIds: [],
+            projectConstraints: [],
+            localToolAvailability: [],
+            preferredSurfaces: [],
+            opportunities: [],
+            userOverride: false,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+          goals: [],
+          openFeedback: [],
+          activityBundles: [],
+          constraintsSummary: [],
+          sections: [],
+          markdown: "",
+        },
+        plan: {
+          warmupReviewGoalIds: [],
+          suggestedActivity: "guided-practice",
+          suggestedScaffoldingLevel: "guided",
+          alternatives: [],
+          rationale: [],
+          constraintsConsidered: [],
+          prerequisiteWarnings: [],
+        },
+      }
+      return new Response(JSON.stringify(payload), {
+        headers: {
+          "content-type": "application/json",
+        },
+      })
+    }) as typeof fetch
+
+    await loadCurriculumView("/repo", {
+      generateDecision: true,
     })
   })
 })

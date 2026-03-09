@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
-import { compileRuntimeProfile } from "../src/learning/runtime/compiler.js"
-import { getBuddyPersona } from "../src/personas/catalog.js"
+import { compileRuntimeProfile } from "../src/learning/agent-execution"
+import { getBuddyPersona } from "../src/learning/agents/personas"
 
 describe("compileRuntimeProfile activity bundles", () => {
   test("keeps the full persona-appropriate activity set in Auto", () => {
@@ -15,9 +15,9 @@ describe("compileRuntimeProfile activity bundles", () => {
     expect(bundleIds).toContain("assess-mastery-check")
     expect(bundleIds).toContain("math-stepwise-solve")
     expect(bundleIds).not.toContain("code-debug-attempt")
-    expect(runtimeProfile.capabilityEnvelope.activityBundles.find((bundle) => bundle.id === "learn-explanation")?.tools).toContain(
-      "activity_explanation",
-    )
+    expect(
+      runtimeProfile.capabilityEnvelope.activityBundles.find((bundle) => bundle.id === "learn-explanation")?.tools,
+    ).toContain("activity_explanation")
   })
 
   test("filters activity bundles to the requested intent while preserving persona-specific variants", () => {
@@ -31,9 +31,11 @@ describe("compileRuntimeProfile activity bundles", () => {
     expect(runtimeProfile.capabilityEnvelope.activityBundles.map((bundle) => bundle.id)).toEqual(
       expect.arrayContaining(["practice-guided", "practice-independent", "code-debug-attempt"]),
     )
-    expect(runtimeProfile.capabilityEnvelope.activityBundles.map((bundle) => bundle.id)).not.toContain("assess-mastery-check")
-    expect(runtimeProfile.capabilityEnvelope.activityBundles.find((bundle) => bundle.id === "code-debug-attempt")?.tools).toContain(
-      "activity_debug_attempt",
+    expect(runtimeProfile.capabilityEnvelope.activityBundles.map((bundle) => bundle.id)).not.toContain(
+      "assess-mastery-check",
     )
+    expect(
+      runtimeProfile.capabilityEnvelope.activityBundles.find((bundle) => bundle.id === "code-debug-attempt")?.tools,
+    ).toContain("activity_debug_attempt")
   })
 })

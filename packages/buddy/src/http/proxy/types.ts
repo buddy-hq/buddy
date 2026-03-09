@@ -1,0 +1,44 @@
+export type ProxyRegistrationPredicate = (body: Record<string, unknown>) => boolean
+
+export type ProxyRegistrationOption = boolean | ProxyRegistrationPredicate
+
+export type ProxyRegistrationFlags = {
+  registerActivityTools: boolean
+  registerCurriculumTools: boolean
+  registerFigureTools: boolean
+  registerFreeformFigureTools: boolean
+  registerGoalTools: boolean
+  registerLearnerTools: boolean
+  registerTeachingTools: boolean
+}
+
+export type ProxyToOpenCodeInput = {
+  targetPath: string
+  transformJsonBody?: (
+    body: Record<string, unknown>,
+  ) => Record<string, unknown> | Promise<Record<string, unknown>>
+  forceBusyAs409?: boolean
+  registerActivityTools?: ProxyRegistrationOption
+  registerCurriculumTools?: ProxyRegistrationOption
+  registerFigureTools?: ProxyRegistrationOption
+  registerFreeformFigureTools?: ProxyRegistrationOption
+  registerGoalTools?: ProxyRegistrationOption
+  registerLearnerTools?: ProxyRegistrationOption
+  registerTeachingTools?: ProxyRegistrationOption
+}
+
+export type FetchOpenCodeInput = {
+  directory: string
+  method: string
+  path: string
+  query?: string
+  headers?: Headers
+  body?: BodyInit
+  registerActivityTools?: boolean
+  registerCurriculumTools?: boolean
+  registerFigureTools?: boolean
+  registerFreeformFigureTools?: boolean
+  registerGoalTools?: boolean
+  registerLearnerTools?: boolean
+  registerTeachingTools?: boolean
+}

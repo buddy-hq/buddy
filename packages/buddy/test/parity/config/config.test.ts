@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { Config } from "../../../src/config/config.js"
+import { Config } from "@buddy/backend/config"
 import { withRepo } from "../helpers"
 
 describe("parity.config.config", () => {
@@ -24,12 +24,7 @@ describe("parity.config.config", () => {
       process.env.BUDDY_CONFIG = `${directory}/broken.jsonc`
       await Bun.write(
         `${directory}/broken.jsonc`,
-        [
-          "{",
-          '  "model": "anthropic/k2p5",',
-          '  "default_persona":',
-          "}",
-        ].join("\n"),
+        ["{", '  "model": "anthropic/k2p5",', '  "default_persona":', "}"].join("\n"),
       )
 
       try {
@@ -38,6 +33,32 @@ describe("parity.config.config", () => {
         if (previous === undefined) delete process.env.BUDDY_CONFIG
         else process.env.BUDDY_CONFIG = previous
       }
+    })
+  })
+
+  test("loads tools toggles and maps them into permission defaults", async () => {
+    await withRepo(async (directory) => {
+      await Bun.write(
+        `${directory}/buddy.jsonc`,
+        JSON.stringify(
+          {
+            tools: {
+              learner_snapshot_read: false,
+              activity_explanation: true,
+            },
+          },
+          null,
+          2,
+        ),
+      )
+
+      const loaded = await Config.getProject(directory)
+      expect(loaded.tools).toEqual({
+        learner_snapshot_read: false,
+        activity_explanation: true,
+      })
+      expect(loaded.permission?.learner_snapshot_read).toBe("deny")
+      expect(loaded.permission?.activity_explanation).toBe("allow")
     })
   })
 })

@@ -3,10 +3,10 @@ import {
   AnyObjectSchema,
   ErrorSchema,
   ProviderIDPath,
-} from "../openapi/compatibility-schemas.js"
-import type { ProxyEndpointSpec } from "./shared/proxy-routes.js"
-import { registerProxyEndpoints } from "./shared/proxy-routes.js"
-import { directoryForbiddenResponse, directoryParameters } from "./shared/openapi.js"
+} from "../openapi"
+import { directoryForbiddenResponse, directoryParameters } from "../http"
+import type { ProxyEndpointSpec } from "../http"
+import { registerProxyEndpoints } from "../http"
 
 const providerProxySpecs: ProxyEndpointSpec[] = [
   {
@@ -119,7 +119,4 @@ const providerProxySpecs: ProxyEndpointSpec[] = [
   },
 ]
 
-export const ProviderRoutes = (): Hono => {
-  const app = new Hono()
-  return registerProxyEndpoints(app, providerProxySpecs)
-}
+export const ProviderRoutes = (): Hono => registerProxyEndpoints(new Hono(), providerProxySpecs)

@@ -3,8 +3,8 @@ import os from "node:os"
 import path from "node:path"
 import { mkdtempSync, writeFileSync } from "node:fs"
 import { spawnSync } from "node:child_process"
-import { Config, JsonError } from "../src/config/config.js"
-import { InvalidError } from "../src/config/errors.js"
+import { Config, JsonError } from "@buddy/backend/config"
+import { InvalidError } from "@buddy/backend/config"
 
 function runGit(cwd: string, args: string[]) {
   const result = spawnSync("git", args, {
@@ -30,14 +30,9 @@ describe("config jsonc", () => {
     const repo = createGitRepo("buddy-config-jsonc")
     writeFileSync(
       path.join(repo, "buddy.jsonc"),
-      [
-        "{",
-        '  // JSONC comment',
-        '  "default_persona": "code-buddy",',
-        '  "model": "anthropic/k2p5",',
-        "}",
-        "",
-      ].join("\n"),
+      ["{", "  // JSONC comment", '  "default_persona": "code-buddy",', '  "model": "anthropic/k2p5",', "}", ""].join(
+        "\n",
+      ),
     )
 
     const cfg = await Config.getProject(repo)
@@ -49,15 +44,7 @@ describe("config jsonc", () => {
   test("returns line and column diagnostics for invalid jsonc", async () => {
     const repo = createGitRepo("buddy-config-jsonc-invalid")
     const badConfig = path.join(repo, "bad.jsonc")
-    writeFileSync(
-      badConfig,
-      [
-        "{",
-        '  "model": ',
-        "  ",
-        "",
-      ].join("\n"),
-    )
+    writeFileSync(badConfig, ["{", '  "model": ', "  ", ""].join("\n"))
 
     const previous = process.env.BUDDY_CONFIG
     process.env.BUDDY_CONFIG = badConfig

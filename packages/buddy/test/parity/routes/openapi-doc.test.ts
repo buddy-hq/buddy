@@ -1,20 +1,29 @@
 import { describe, expect, test } from "bun:test"
 import { app } from "../../../src/index.ts"
 
+type OperationDoc = {
+  operationId?: string
+  parameters?: Array<{
+    name?: string
+    in?: string
+  }>
+  responses?: Record<string, unknown>
+}
+
+function requireOperation(operation: OperationDoc | undefined, label: string): OperationDoc {
+  if (operation) {
+    return operation
+  }
+  throw new Error(`Missing OpenAPI operation: ${label}`)
+}
+
 describe("parity.routes.openapi-doc", () => {
   test("documents compatibility routes required by the web client", async () => {
     const response = await app.request("/doc")
     expect(response.status).toBe(200)
 
     const doc = (await response.json()) as {
-      paths?: Record<string, Record<string, {
-        operationId?: string
-        parameters?: Array<{
-          name?: string
-          in?: string
-        }>
-        responses?: Record<string, unknown>
-      }>>
+      paths?: Record<string, Record<string, OperationDoc>>
     }
 
     const paths = doc.paths ?? {}
@@ -36,21 +45,16 @@ describe("parity.routes.openapi-doc", () => {
       "/api/session/{sessionID}",
       "/api/session/{sessionID}/message",
       "/api/session/{sessionID}/abort",
-      "/api/learner/state",
-      "/api/learner/goals",
-      "/api/learner/progress",
-      "/api/learner/review",
-      "/api/learner/curriculum-view",
-      "/api/learner/context",
-      "/api/learner/rebuild",
+      "/api/learner/snapshot",
+      "/api/learner/plan",
+      "/api/learner/artifacts",
+      "/api/learner/workspace",
       "/api/skills",
       "/api/skills/{name}",
       "/api/skills/library/{skillID}/install",
     ]
 
-    for (const path of requiredPaths) {
-      expect(paths[path]).toBeDefined()
-    }
+    expect(Object.keys(paths)).toEqual(expect.arrayContaining(requiredPaths))
 
     const requiredOperations = [
       { path: "/api/health", method: "get", operationId: "health.check" },
@@ -73,13 +77,10 @@ describe("parity.routes.openapi-doc", () => {
       { path: "/api/permission", method: "get", operationId: "permission.list" },
       { path: "/api/permission/{requestID}/reply", method: "post", operationId: "permission.reply" },
       { path: "/api/config/providers", method: "get", operationId: "config.providers" },
-      { path: "/api/learner/state", method: "get", operationId: "learner.state" },
-      { path: "/api/learner/goals", method: "get", operationId: "learner.goals" },
-      { path: "/api/learner/progress", method: "get", operationId: "learner.progress" },
-      { path: "/api/learner/review", method: "get", operationId: "learner.review" },
-      { path: "/api/learner/curriculum-view", method: "get", operationId: "learner.curriculumView" },
-      { path: "/api/learner/context", method: "post", operationId: "learner.context" },
-      { path: "/api/learner/rebuild", method: "post", operationId: "learner.rebuild" },
+      { path: "/api/learner/snapshot", method: "get", operationId: "learner.snapshot" },
+      { path: "/api/learner/plan", method: "post", operationId: "learner.plan" },
+      { path: "/api/learner/artifacts", method: "get", operationId: "learner.artifacts" },
+      { path: "/api/learner/workspace", method: "patch", operationId: "learner.workspace.patch" },
       { path: "/api/skills", method: "get", operationId: "skills.list" },
       { path: "/api/skills", method: "post", operationId: "skills.create" },
       { path: "/api/skills/{name}", method: "patch", operationId: "skills.update" },
@@ -93,22 +94,21 @@ describe("parity.routes.openapi-doc", () => {
     }
 
     const skillsOperations = [
-      paths["/api/skills"]?.get,
-      paths["/api/skills"]?.post,
-      paths["/api/skills/{name}"]?.patch,
-      paths["/api/skills/{name}"]?.delete,
-      paths["/api/skills/library/{skillID}/install"]?.post,
+      requireOperation(paths["/api/skills"]?.get, "/api/skills:get"),
+      requireOperation(paths["/api/skills"]?.post, "/api/skills:post"),
+      requireOperation(paths["/api/skills/{name}"]?.patch, "/api/skills/{name}:patch"),
+      requireOperation(paths["/api/skills/{name}"]?.delete, "/api/skills/{name}:delete"),
+      requireOperation(paths["/api/skills/library/{skillID}/install"]?.post, "/api/skills/library/{skillID}/install:post"),
     ]
 
     for (const operation of skillsOperations) {
-      expect(operation).toBeDefined()
-      const parameterNames = (operation?.parameters ?? []).map((parameter) => parameter.name)
+      const parameterNames = (operation.parameters ?? []).map((parameter) => parameter.name)
       expect(parameterNames).toContain("directory")
     }
 
-    expect(paths["/api/skills"]?.post?.responses?.["403"]).toBeDefined()
-    expect(paths["/api/skills/{name}"]?.patch?.responses?.["403"]).toBeDefined()
-    expect(paths["/api/skills/{name}"]?.delete?.responses?.["403"]).toBeDefined()
-    expect(paths["/api/skills/library/{skillID}/install"]?.post?.responses?.["403"]).toBeDefined()
+    expect(Object.keys(skillsOperations[1].responses ?? {})).toContain("403")
+    expect(Object.keys(skillsOperations[2].responses ?? {})).toContain("403")
+    expect(Object.keys(skillsOperations[3].responses ?? {})).toContain("403")
+    expect(Object.keys(skillsOperations[4].responses ?? {})).toContain("403")
   })
 })

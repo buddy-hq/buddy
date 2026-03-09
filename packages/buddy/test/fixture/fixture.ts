@@ -2,8 +2,8 @@ import { $ } from "bun"
 import * as fs from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
-import type { Config } from "../../src/config/config.js"
-import { LearnerPath } from "../../src/learning/learner/path.js"
+import type { Config } from "@buddy/backend/config"
+import { LearnerArtifactPath } from "../../src/learning/learner-model"
 
 type TmpDirOptions<T> = {
   git?: boolean
@@ -14,11 +14,10 @@ type TmpDirOptions<T> = {
 }
 
 export async function tmpdir<T>(options?: TmpDirOptions<T>) {
-  const dirpath = path.join(os.tmpdir(), "buddy-test-" + Math.random().toString(36).slice(2))
+  const dirpath = await fs.mkdtemp(path.join(os.tmpdir(), "buddy-test-"))
   if (!options?.preserveLearnerStore) {
-    await fs.rm(path.join(LearnerPath.root()), { recursive: true, force: true })
+    await fs.rm(LearnerArtifactPath.profileRoot(), { recursive: true, force: true })
   }
-  await fs.mkdir(dirpath, { recursive: true })
 
   if (options?.git) {
     await $`git init`.cwd(dirpath).quiet()

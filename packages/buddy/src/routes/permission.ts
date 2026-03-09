@@ -1,14 +1,13 @@
 import { Hono } from "hono"
 import {
-  AnyObjectSchema,
   BooleanSchema,
   ErrorSchema,
   PermissionRequestSchema,
   RequestIDPath,
-} from "../openapi/compatibility-schemas.js"
-import type { ProxyEndpointSpec } from "./shared/proxy-routes.js"
-import { registerProxyEndpoints } from "./shared/proxy-routes.js"
-import { directoryForbiddenResponse, directoryParameters } from "./shared/openapi.js"
+} from "../openapi"
+import { directoryForbiddenResponse, directoryParameters } from "../http"
+import type { ProxyEndpointSpec } from "../http"
+import { registerProxyEndpoints } from "../http"
 
 const permissionProxySpecs: ProxyEndpointSpec[] = [
   {
@@ -87,7 +86,4 @@ const permissionProxySpecs: ProxyEndpointSpec[] = [
   },
 ]
 
-export const PermissionRoutes = (): Hono => {
-  const app = new Hono()
-  return registerProxyEndpoints(app, permissionProxySpecs)
-}
+export const PermissionRoutes = (): Hono => registerProxyEndpoints(new Hono(), permissionProxySpecs)

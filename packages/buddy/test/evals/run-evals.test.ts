@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
-import { compileRuntimeProfile } from "../../src/learning/runtime/compiler.js"
-import { buildLearningSystemPrompt } from "../../src/learning/shared/compose-system-prompt.js"
-import { getBuddyPersona } from "../../src/personas/catalog.js"
+import { compileRuntimeProfile } from "../../src/learning/agent-execution"
+import { buildLearningSystemPrompt } from "../../src/learning/agent-execution"
+import { getBuddyPersona } from "../../src/learning/agents/personas"
 import { tmpdir } from "../fixture/fixture"
 import { createDigest } from "./fixtures.ts"
 import { expectAllowedTools, expectDeniedTools, expectPreferredHelpers, expectVisibleSurfaces } from "./scorers.ts"
@@ -15,9 +15,9 @@ describe("teaching eval harness", () => {
 
     expectVisibleSurfaces(profile, ["curriculum", "editor"])
     expectAllowedTools(profile, [
-      "learner_state_query",
-      "practice_record",
-      "assessment_record",
+      "learner_snapshot_read",
+      "learner_practice_record",
+      "learner_assessment_record",
       "teaching_start_lesson",
       "teaching_checkpoint",
     ])
@@ -30,7 +30,7 @@ describe("teaching eval harness", () => {
       workspaceState: "chat",
     })
 
-    expectAllowedTools(profile, ["learner_state_query", "practice_record", "assessment_record"])
+    expectAllowedTools(profile, ["learner_snapshot_read", "learner_practice_record", "learner_assessment_record"])
     expectDeniedTools(profile, ["render_figure", "teaching_start_lesson"])
   })
 

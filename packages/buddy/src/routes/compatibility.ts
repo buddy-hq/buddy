@@ -1,18 +1,15 @@
 import { Hono } from "hono"
-import { AnyObjectSchema, ErrorSchema } from "../openapi/compatibility-schemas.js"
-import { withConfigSync } from "./shared/route-helpers.js"
-import { directoryForbiddenResponse, directoryParameters } from "./shared/openapi.js"
-import type { ProxyEndpointSpec } from "./shared/proxy-routes.js"
-import { registerProxyEndpoints } from "./shared/proxy-routes.js"
+import { AnyObjectSchema } from "../openapi"
+import { withConfigSync } from "../http"
+import type { ProxyEndpointSpec } from "../http"
+import { registerProxyEndpoints } from "../http"
+import { directoryForbiddenResponse, directoryParameters } from "../http"
 
-async function syncConfigBeforeCommands(c: { req: { raw: Request } }): Promise<Response | undefined> {
-  const syncResult = await withConfigSync(c.req.raw, {
-    operation: "listing commands",
-  })
-  if (!syncResult.ok) return syncResult.response
+type CompatibilityProxyDefinition = Omit<ProxyEndpointSpec, "beforeProxy"> & {
+  requiresConfigSync?: boolean
 }
 
-const compatibilityProxySpecs: ProxyEndpointSpec[] = [
+const compatibilityProxyDefinitions: CompatibilityProxyDefinition[] = [
   {
     method: "get",
     path: "/health",
@@ -105,11 +102,26 @@ const compatibilityProxySpecs: ProxyEndpointSpec[] = [
       },
     },
     targetPath: "/command",
-    beforeProxy: syncConfigBeforeCommands,
+    requiresConfigSync: true,
   },
 ]
 
-export const CompatibilityRoutes = (): Hono => {
-  const app = new Hono()
-  return registerProxyEndpoints(app, compatibilityProxySpecs)
+async function syncConfigBeforeCommands(c: { req: { raw: Request } }): Promise<Response | undefined> {
+  const syncResult = await withConfigSync(c.req.raw, {
+    operation: "listing commands",
+  })
+  if (!syncResult.ok) return syncResult.response
 }
+
+function withCompatibilityHandlers(): ProxyEndpointSpec[] {
+  return compatibilityProxyDefinitions.map((definition) => {
+    if (!definition.requiresConfigSync) return definition
+
+    return {
+      ...definition,
+      beforeProxy: syncConfigBeforeCommands,
+    }
+  })
+}
+
+export const CompatibilityRoutes = (): Hono => registerProxyEndpoints(new Hono(), withCompatibilityHandlers())

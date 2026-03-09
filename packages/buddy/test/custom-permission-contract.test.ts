@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test"
 import { PermissionNext } from "@buddy/opencode-adapter/permission"
-import { Config } from "../src/config/config.js"
+import { Config } from "@buddy/backend/config"
 
 describe("custom permission contract", () => {
-  test("must accept curriculum_read, curriculum_update, render_figure, and render_freeform_figure custom permissions", async () => {
+  test("must accept curriculum_read, learner_snapshot_read, render_figure, and render_freeform_figure custom permissions", async () => {
     const customPermissionConfig = {
       curriculum_read: "allow",
-      curriculum_update: "allow",
+      learner_snapshot_read: "allow",
       render_figure: "allow",
       render_freeform_figure: "allow",
     }
@@ -14,25 +14,27 @@ describe("custom permission contract", () => {
     const parsed = Config.Permission.parse(customPermissionConfig)
 
     expect(parsed).toHaveProperty("curriculum_read")
-    expect(parsed).toHaveProperty("curriculum_update")
+    expect(parsed).toHaveProperty("learner_snapshot_read")
     expect(parsed).toHaveProperty("render_figure")
     expect(parsed).toHaveProperty("render_freeform_figure")
 
     const ruleset = PermissionNext.fromConfig(parsed)
+    const customRuleActions = new Map(
+      ruleset
+        .filter(
+          (rule) =>
+            rule.permission === "curriculum_read" ||
+            rule.permission === "learner_snapshot_read" ||
+            rule.permission === "render_figure" ||
+            rule.permission === "render_freeform_figure",
+        )
+        .map((rule) => [rule.permission, rule.action]),
+    )
 
-    const curriculumReadRule = ruleset.find((r) => r.permission === "curriculum_read")
-    const curriculumUpdateRule = ruleset.find((r) => r.permission === "curriculum_update")
-    const renderFigureRule = ruleset.find((r) => r.permission === "render_figure")
-    const renderFreeformFigureRule = ruleset.find((r) => r.permission === "render_freeform_figure")
-
-    expect(curriculumReadRule).toBeDefined()
-    expect(curriculumReadRule?.action).toBe("allow")
-    expect(curriculumUpdateRule).toBeDefined()
-    expect(curriculumUpdateRule?.action).toBe("allow")
-    expect(renderFigureRule).toBeDefined()
-    expect(renderFigureRule?.action).toBe("allow")
-    expect(renderFreeformFigureRule).toBeDefined()
-    expect(renderFreeformFigureRule?.action).toBe("allow")
+    expect(customRuleActions.get("curriculum_read")).toBe("allow")
+    expect(customRuleActions.get("learner_snapshot_read")).toBe("allow")
+    expect(customRuleActions.get("render_figure")).toBe("allow")
+    expect(customRuleActions.get("render_freeform_figure")).toBe("allow")
   })
 
   test("must accept curriculum_read with pattern-based rules", async () => {
@@ -49,15 +51,17 @@ describe("custom permission contract", () => {
     expect(typeof parsed.curriculum_read).toBe("object")
 
     const ruleset = PermissionNext.fromConfig(parsed)
+    const curriculumReadRules = ruleset.filter((rule) => rule.permission === "curriculum_read")
+    const byPattern = new Map(curriculumReadRules.map((rule) => [rule.pattern, rule.action]))
 
-    const curriculumReadRules = ruleset.filter((r) => r.permission === "curriculum_read")
-    expect(curriculumReadRules.length).toBeGreaterThanOrEqual(2)
+    expect(byPattern.get(".buddy/context.json")).toBe("allow")
+    expect(byPattern.get(".buddy/**")).toBe("ask")
   })
 
   test("custom permissions must survive round-trip through Config.Permission parsing", async () => {
     const input = {
       curriculum_read: "ask",
-      curriculum_update: "deny",
+      learner_snapshot_read: "deny",
       render_figure: "allow",
       render_freeform_figure: "ask",
       other_standard_permission: "allow",
@@ -67,7 +71,7 @@ describe("custom permission contract", () => {
     const reParsed = Config.Permission.parse(parsed)
 
     expect(reParsed.curriculum_read).toBe("ask")
-    expect(reParsed.curriculum_update).toBe("deny")
+    expect(reParsed.learner_snapshot_read).toBe("deny")
     expect(reParsed.render_figure).toBe("allow")
     expect(reParsed.render_freeform_figure).toBe("ask")
     expect(reParsed.other_standard_permission).toBe("allow")

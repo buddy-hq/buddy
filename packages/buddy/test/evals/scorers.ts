@@ -1,5 +1,5 @@
 import { expect } from "bun:test"
-import type { RuntimeProfile } from "../../src/learning/runtime/types.js"
+import type { RuntimeProfile } from "../../src/learning/agent-execution"
 
 export function expectAllowedTools(profile: RuntimeProfile, toolIds: string[]) {
   for (const toolId of toolIds) {

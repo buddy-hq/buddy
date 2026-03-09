@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test"
 import { PermissionNext } from "@buddy/opencode-adapter/permission"
-import { compileRuntimeProfile } from "../src/learning/runtime/compiler.js"
-import { buildBuddyRuntimeSessionPermissions } from "../src/learning/runtime/session-permissions.js"
-import { getBuddyPersona } from "../src/personas/catalog.js"
+import { compileRuntimeProfile } from "../src/learning/agent-execution"
+import { buildBuddyRuntimeSessionPermissions } from "../src/learning/agent-execution"
+import { getBuddyPersona } from "../src/learning/agents/personas"
 
 describe("buildBuddyRuntimeSessionPermissions", () => {
   test("preserves unrelated rules while enforcing the runtime tool and helper policy", () => {
@@ -22,8 +22,8 @@ describe("buildBuddyRuntimeSessionPermissions", () => {
     })
 
     expect(PermissionNext.evaluate("question", "*", permissions).action).toBe("allow")
-    expect(PermissionNext.evaluate("learner_state_query", "*", permissions).action).toBe("allow")
-    expect(PermissionNext.evaluate("practice_record", "*", permissions).action).toBe("allow")
+    expect(PermissionNext.evaluate("learner_snapshot_read", "*", permissions).action).toBe("allow")
+    expect(PermissionNext.evaluate("learner_practice_record", "*", permissions).action).toBe("allow")
     expect(PermissionNext.evaluate("activity_explanation", "*", permissions).action).toBe("allow")
     expect(PermissionNext.evaluate("activity_guided_practice", "*", permissions).action).toBe("allow")
     expect(PermissionNext.evaluate("skill", "buddy-practice-guided", permissions).action).toBe("allow")
@@ -64,7 +64,7 @@ describe("buildBuddyRuntimeSessionPermissions", () => {
     const permissions = buildBuddyRuntimeSessionPermissions({
       existing: [
         {
-          permission: "practice_record",
+          permission: "learner_practice_record",
           pattern: "*",
           action: "allow",
         },

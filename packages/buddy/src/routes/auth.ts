@@ -4,10 +4,10 @@ import {
   BooleanSchema,
   ErrorSchema,
   ProviderIDPath,
-} from "../openapi/compatibility-schemas.js"
-import type { ProxyEndpointSpec } from "./shared/proxy-routes.js"
-import { registerProxyEndpoints } from "./shared/proxy-routes.js"
-import { directoryForbiddenResponse, directoryParameters } from "./shared/openapi.js"
+} from "../openapi"
+import { directoryForbiddenResponse, directoryParameters } from "../http"
+import type { ProxyEndpointSpec } from "../http"
+import { registerProxyEndpoints } from "../http"
 
 const authProxySpecs: ProxyEndpointSpec[] = [
   {
@@ -72,7 +72,4 @@ const authProxySpecs: ProxyEndpointSpec[] = [
   },
 ]
 
-export const AuthRoutes = (): Hono => {
-  const app = new Hono()
-  return registerProxyEndpoints(app, authProxySpecs)
-}
+export const AuthRoutes = (): Hono => registerProxyEndpoints(new Hono(), authProxySpecs)

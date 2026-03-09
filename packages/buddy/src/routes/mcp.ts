@@ -3,20 +3,15 @@ import {
   AnyObjectSchema,
   ErrorSchema,
   McpNamePath,
-} from "../openapi/compatibility-schemas.js"
-import { withConfigSync } from "./shared/route-helpers.js"
-import { directoryForbiddenResponse, directoryParameters } from "./shared/openapi.js"
-import type { ProxyEndpointSpec } from "./shared/proxy-routes.js"
-import { registerProxyEndpoints } from "./shared/proxy-routes.js"
+} from "../openapi"
+import { withConfigSync } from "../http"
+import { directoryForbiddenResponse, directoryParameters } from "../http"
+import type { ProxyEndpointSpec } from "../http"
+import { registerProxyEndpoints } from "../http"
 
-async function syncBeforeMcpProxy(c: { req: { raw: Request } }): Promise<Response | undefined> {
-  const syncResult = await withConfigSync(c.req.raw, {
-    operation: "MCP request",
-  })
-  if (!syncResult.ok) return syncResult.response
-}
+type McpProxyDefinition = Omit<ProxyEndpointSpec, "beforeProxy">
 
-const mcpProxySpecs: ProxyEndpointSpec[] = [
+const mcpProxyDefinitions: McpProxyDefinition[] = [
   {
     method: "get",
     path: "/",
@@ -37,7 +32,6 @@ const mcpProxySpecs: ProxyEndpointSpec[] = [
       },
     },
     targetPath: "/mcp",
-    beforeProxy: syncBeforeMcpProxy,
   },
   {
     method: "post",
@@ -71,7 +65,6 @@ const mcpProxySpecs: ProxyEndpointSpec[] = [
       },
     },
     targetPath: "/mcp",
-    beforeProxy: syncBeforeMcpProxy,
   },
   {
     method: "post",
@@ -105,7 +98,6 @@ const mcpProxySpecs: ProxyEndpointSpec[] = [
       },
     },
     targetPath: (c) => `/mcp/${encodeURIComponent(c.req.param("name"))}/auth`,
-    beforeProxy: syncBeforeMcpProxy,
   },
   {
     method: "post",
@@ -139,7 +131,6 @@ const mcpProxySpecs: ProxyEndpointSpec[] = [
       },
     },
     targetPath: (c) => `/mcp/${encodeURIComponent(c.req.param("name"))}/auth/callback`,
-    beforeProxy: syncBeforeMcpProxy,
   },
   {
     method: "post",
@@ -173,7 +164,6 @@ const mcpProxySpecs: ProxyEndpointSpec[] = [
       },
     },
     targetPath: (c) => `/mcp/${encodeURIComponent(c.req.param("name"))}/auth/authenticate`,
-    beforeProxy: syncBeforeMcpProxy,
   },
   {
     method: "delete",
@@ -201,7 +191,6 @@ const mcpProxySpecs: ProxyEndpointSpec[] = [
       },
     },
     targetPath: (c) => `/mcp/${encodeURIComponent(c.req.param("name"))}/auth`,
-    beforeProxy: syncBeforeMcpProxy,
   },
   {
     method: "post",
@@ -229,7 +218,6 @@ const mcpProxySpecs: ProxyEndpointSpec[] = [
       },
     },
     targetPath: (c) => `/mcp/${encodeURIComponent(c.req.param("name"))}/connect`,
-    beforeProxy: syncBeforeMcpProxy,
   },
   {
     method: "post",
@@ -257,11 +245,21 @@ const mcpProxySpecs: ProxyEndpointSpec[] = [
       },
     },
     targetPath: (c) => `/mcp/${encodeURIComponent(c.req.param("name"))}/disconnect`,
-    beforeProxy: syncBeforeMcpProxy,
   },
 ]
 
-export const McpRoutes = (): Hono => {
-  const app = new Hono()
-  return registerProxyEndpoints(app, mcpProxySpecs)
+async function syncBeforeMcpProxy(c: { req: { raw: Request } }): Promise<Response | undefined> {
+  const syncResult = await withConfigSync(c.req.raw, {
+    operation: "MCP request",
+  })
+  if (!syncResult.ok) return syncResult.response
 }
+
+export const McpRoutes = (): Hono =>
+  registerProxyEndpoints(
+    new Hono(),
+    mcpProxyDefinitions.map((definition) => ({
+      ...definition,
+      beforeProxy: syncBeforeMcpProxy,
+    })),
+  )

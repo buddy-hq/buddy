@@ -3,23 +3,22 @@ import { Hono } from "hono"
 import { openAPIRouteHandler } from "hono-openapi"
 import { cors } from "hono/cors"
 import { logger } from "hono/logger"
-import { AuthRoutes } from "./routes/auth.js"
-import { CompatibilityRoutes } from "./routes/compatibility.js"
-import { ConfigRoutes } from "./routes/config.js"
-import { FigureRoutes } from "./routes/figures.js"
-import { FreeformFigureRoutes } from "./routes/freeform-figures.js"
-import { GoalsRoutes } from "./routes/goals.js"
-import { LearnerRoutes } from "./routes/learner.js"
-import { LearnerService } from "./learning/learner/service.js"
-import { GlobalRoutes } from "./routes/global.js"
-import { McpRoutes } from "./routes/mcp.js"
-import { PermissionRoutes } from "./routes/permission.js"
-import { ProjectRoutes } from "./routes/project.js"
-import { ProviderRoutes } from "./routes/provider.js"
-import { SessionRoutes } from "./routes/session.js"
-import { SkillsRoutes } from "./routes/skills.js"
-import { TeachingRoutes } from "./routes/teaching.js"
-import { ensureAllowedDirectory } from "./routes/support/directory.js"
+import { AuthRoutes } from "./routes"
+import { CompatibilityRoutes } from "./routes"
+import { ConfigRoutes } from "./routes"
+import { FigureRoutes } from "./routes"
+import { FreeformFigureRoutes } from "./routes"
+import { LearnerRoutes } from "./routes"
+import { runSafetySweep } from "./learning/learner-model"
+import { GlobalRoutes } from "./routes"
+import { McpRoutes } from "./routes"
+import { PermissionRoutes } from "./routes"
+import { ProjectRoutes } from "./routes"
+import { ProviderRoutes } from "./routes"
+import { SessionRoutes } from "./routes"
+import { SkillsRoutes } from "./routes"
+import { TeachingRoutes } from "./routes"
+import { ensureAllowedDirectory } from "./http"
 
 function matchesBasicAuth(value: string | undefined, username: string, password: string): boolean {
   if (!value?.startsWith("Basic ")) return false
@@ -58,7 +57,6 @@ api.use("*", async (c, next) => {
 
 api.route("/figures", FigureRoutes({ ensureAllowedDirectory }))
 api.route("/freeform-figures", FreeformFigureRoutes({ ensureAllowedDirectory }))
-api.route("/goals", GoalsRoutes())
 api.route("/learner", LearnerRoutes())
 api.route("/teaching", TeachingRoutes())
 api.route("/", CompatibilityRoutes())
@@ -95,14 +93,17 @@ const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000
 if (import.meta.main) {
   console.log(`Server starting on http://localhost:${port}`)
   console.log(`API docs available at http://localhost:${port}/doc`)
-  void LearnerService.runSafetySweep().catch((error) => {
+  void runSafetySweep().catch((error) => {
     console.warn("Initial learner safety sweep failed:", error)
   })
-  setInterval(() => {
-    void LearnerService.runSafetySweep().catch((error) => {
-      console.warn("Periodic learner safety sweep failed:", error)
-    })
-  }, 5 * 60 * 1000)
+  setInterval(
+    () => {
+      void runSafetySweep().catch((error) => {
+        console.warn("Periodic learner safety sweep failed:", error)
+      })
+    },
+    5 * 60 * 1000,
+  )
   Bun.serve({
     port,
     idleTimeout: 120,
@@ -111,4 +112,4 @@ if (import.meta.main) {
 }
 
 export { app }
-export { buildOpenCodeConfigOverlay } from "./config/compatibility.js"
+export { buildOpenCodeConfigOverlay } from "@buddy/backend/config/runtime"

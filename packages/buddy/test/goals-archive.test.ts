@@ -1,27 +1,14 @@
 import { describe, expect, test } from "bun:test"
-import fs from "node:fs/promises"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { LearnerPath } from "../src/learning/learner/path.js"
-import { ensureGoalToolsRegistered } from "../src/learning/goals/tools/register.js"
+import { LearnerArtifactStore } from "../src/learning/learner-model"
+import { ensureGoalToolsRegistered } from "../src/learning/agents/curriculum"
 import { tmpdir } from "./fixture/fixture"
-
-function createToolContext() {
-  return {
-    sessionID: "ses_goals_archive",
-    messageID: "msg_goals_archive",
-    agent: "goal-writer",
-    abort: new AbortController().signal,
-    messages: [],
-    metadata() {},
-    async ask() {},
-  }
-}
+import { createToolContext, requireTool } from "./helpers/tools"
 
 describe("learner-store goal archiving", () => {
   test("committing a new set archives the previous active set for the same (scope, contextLabel)", async () => {
     await using project = await tmpdir({ git: true })
-    const filepath = LearnerPath.goals()
 
     await OpenCodeInstance.provide({
       directory: project.path,
@@ -31,12 +18,14 @@ describe("learner-store goal archiving", () => {
           providerID: "opencode",
           modelID: "claude-sonnet",
         })
-        const goalCommit = tools.find((tool) => tool.id === "goal_commit")
+        const goalCommit = requireTool(tools, "goal_commit")
 
-        expect(goalCommit).toBeDefined()
-
-        const ctx = createToolContext()
-        await goalCommit!.execute(
+        const ctx = createToolContext({
+          sessionID: "ses_goals_archive",
+          messageID: "msg_goals_archive",
+          agent: "goal-writer",
+        })
+        await goalCommit.execute(
           {
             scope: "topic",
             contextLabel: "Tauri IPC",
@@ -71,7 +60,7 @@ describe("learner-store goal archiving", () => {
           ctx,
         )
 
-        await goalCommit!.execute(
+        await goalCommit.execute(
           {
             scope: "topic",
             contextLabel: "Tauri IPC",
@@ -83,7 +72,8 @@ describe("learner-store goal archiving", () => {
                 actionVerb: "implement",
                 task: "Implement a Tauri command that validates inputs and returns structured errors to the UI.",
                 cognitiveLevel: "Application",
-                howToTest: "Run a smoke test that exercises both valid and invalid inputs and inspects the error structure.",
+                howToTest:
+                  "Run a smoke test that exercises both valid and invalid inputs and inspects the error structure.",
               },
               {
                 statement:
@@ -91,7 +81,8 @@ describe("learner-store goal archiving", () => {
                 actionVerb: "evaluate",
                 task: "Evaluate whether a command should be synchronous or asynchronous based on the UI experience.",
                 cognitiveLevel: "Evaluation",
-                howToTest: "Compare two implementations and justify the choice with a short write-up and observed behavior.",
+                howToTest:
+                  "Compare two implementations and justify the choice with a short write-up and observed behavior.",
               },
               {
                 statement:
@@ -108,24 +99,29 @@ describe("learner-store goal archiving", () => {
       },
     })
 
-    const parsed = JSON.parse(await fs.readFile(filepath, "utf8")) as {
-      goals: Array<{ archivedAt?: string; contextLabel: string; setId: string }>
-    }
+    const goals = (await LearnerArtifactStore.readArtifacts(project.path, "goal")).filter(
+      (artifact) => artifact.kind === "goal",
+    )
 
     const tauriSets = Array.from(
-      parsed.goals
+      goals
         .filter((goal) => goal.contextLabel === "Tauri IPC")
-        .reduce<Map<string, Array<{ archivedAt?: string }>>>((all, goal) => {
+        .reduce<Map<string, Array<{ status: "active" | "archived" }>>>((all, goal) => {
+          if (!goal.setId) {
+            return all
+          }
           const existing = all.get(goal.setId) ?? []
-          existing.push({ archivedAt: goal.archivedAt })
+          existing.push({ status: goal.status })
           all.set(goal.setId, existing)
           return all
         }, new Map())
         .values(),
     )
+    const statusSets = tauriSets.map((set) => set.map((goal) => goal.status))
+    const uniformStatusSets = statusSets.map((statuses) => Array.from(new Set(statuses)))
 
     expect(tauriSets).toHaveLength(2)
-    expect(tauriSets[0].every((goal) => typeof goal.archivedAt === "string")).toBe(true)
-    expect(tauriSets[1].every((goal) => goal.archivedAt === undefined)).toBe(true)
+    expect(uniformStatusSets.filter((statuses) => statuses.length === 1 && statuses[0] === "archived")).toHaveLength(1)
+    expect(uniformStatusSets.filter((statuses) => statuses.length === 1 && statuses[0] === "active")).toHaveLength(1)
   })
 })

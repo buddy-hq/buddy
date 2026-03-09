@@ -14,27 +14,37 @@ describe("curriculum scope", () => {
     const workspaceB = createWorkspace("buddy-curriculum-b")
 
     try {
-      const patchA = await app.request("/api/learner/context", {
-        method: "POST",
+      const patchA = await app.request("/api/learner/workspace", {
+        method: "PATCH",
         headers: {
           "x-buddy-directory": workspaceA,
           "content-type": "application/json",
         },
-        body: JSON.stringify({ label: "Workspace A", tags: ["tauri"] }),
+        body: JSON.stringify({
+          workspace: {
+            label: "Workspace A",
+            tags: ["tauri"],
+          },
+        }),
       })
       expect(patchA.status).toBe(200)
 
-      const patchB = await app.request("/api/learner/context", {
-        method: "POST",
+      const patchB = await app.request("/api/learner/workspace", {
+        method: "PATCH",
         headers: {
           "x-buddy-directory": workspaceB,
           "content-type": "application/json",
         },
-        body: JSON.stringify({ label: "Workspace B", tags: ["rust"] }),
+        body: JSON.stringify({
+          workspace: {
+            label: "Workspace B",
+            tags: ["rust"],
+          },
+        }),
       })
       expect(patchB.status).toBe(200)
 
-      const getA = await app.request("/api/learner/curriculum-view", {
+      const getA = await app.request("/api/learner/snapshot", {
         headers: {
           "x-buddy-directory": workspaceA,
         },
@@ -45,7 +55,7 @@ describe("curriculum scope", () => {
       expect(getABody.workspace.tags).toContain("tauri")
       expect(getABody.markdown).toContain("Workspace A")
 
-      const getB = await app.request("/api/learner/curriculum-view", {
+      const getB = await app.request("/api/learner/snapshot", {
         headers: {
           "x-buddy-directory": workspaceB,
         },
@@ -65,27 +75,37 @@ describe("curriculum scope", () => {
     const workspace = createWorkspace("buddy-curriculum-file")
 
     try {
-      const initial = await app.request("/api/learner/context", {
-        method: "POST",
+      const initial = await app.request("/api/learner/workspace", {
+        method: "PATCH",
         headers: {
           "x-buddy-directory": workspace,
           "content-type": "application/json",
         },
-        body: JSON.stringify({ label: "Stored curriculum", tags: ["stale"] }),
+        body: JSON.stringify({
+          workspace: {
+            label: "Stored curriculum",
+            tags: ["stale"],
+          },
+        }),
       })
       expect(initial.status).toBe(200)
 
-      const updated = await app.request("/api/learner/context", {
-        method: "POST",
+      const updated = await app.request("/api/learner/workspace", {
+        method: "PATCH",
         headers: {
           "x-buddy-directory": workspace,
           "content-type": "application/json",
         },
-        body: JSON.stringify({ label: "Updated curriculum", tags: ["fresh"] }),
+        body: JSON.stringify({
+          workspace: {
+            label: "Updated curriculum",
+            tags: ["fresh"],
+          },
+        }),
       })
       expect(updated.status).toBe(200)
 
-      const get = await app.request("/api/learner/curriculum-view", {
+      const get = await app.request("/api/learner/snapshot", {
         headers: {
           "x-buddy-directory": workspace,
         },

@@ -1,4 +1,4 @@
-import type { LearnerPromptDigest, TeachingSessionState } from "../../src/learning/runtime/types.js"
+import type { LearnerPromptDigest, TeachingSessionState } from "../../src/learning/agent-execution"
 
 export function createDigest(overrides?: Partial<LearnerPromptDigest>): LearnerPromptDigest {
   return {

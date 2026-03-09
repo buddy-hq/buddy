@@ -13,6 +13,8 @@
     "sourceMap": true,
     "composite": true,
     "paths": {
+      "@buddy/backend": ["./packages/buddy/src/index.ts"],
+      "@buddy/backend/*": ["./packages/buddy/src/*"],
       "@buddy/opencode-adapter": ["./packages/opencode-adapter/src/index.ts"],
       "@buddy/opencode-adapter/*": ["./packages/opencode-adapter/src/*"],
       "@/*": ["./vendor/opencode/packages/opencode/src/*"],

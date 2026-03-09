@@ -1,0 +1,205 @@
+# Learning Architecture Draft (Editable)
+
+## adapters
+- http
+  - learner-model.ts
+  - lesson-workspace.ts
+  - session.ts
+
+## agent-execution
+- compilation
+  - compiler.ts
+  - types-model.ts
+  - types.ts
+- permissions
+  - runtime-session-permissions.ts
+  - session-permissions.ts
+- prompt
+  - system
+    - helpers.ts
+    - index.ts
+    - prompt-injection-policy.ts
+    - prompt-injection.ts
+    - stable-header.ts
+    - types.ts
+    - turn-context
+      - build.ts
+      - text.ts
+      - types.ts
+- state
+  - session-state.ts
+  - transform-state.ts
+  - types-session.ts
+- transforms
+  - command-transform.ts
+  - message-transform.ts
+  - targeting.ts
+  - types.ts
+
+## agent-kit
+- create-buddy-tool.ts
+- factories.ts
+- register-buddy-agent.ts
+- registries
+  - agents.ts
+  - tool-catalog.ts
+  - tools.ts
+
+## agents
+- core
+  - buddy
+    - agent.ts
+    - prompt.p.md
+  - code-buddy
+    - agent.ts
+    - overlay.p.md
+  - math-buddy
+    - agent.ts
+    - overlay.p.md
+- capabilities
+  - curriculum
+    - assessment.agent.ts
+    - assessment.p.md
+    - orchestrator.agent.ts
+    - orchestrator.p.md
+    - practice.agent.ts
+    - practice.p.md
+    - goals
+      - writer.agent.ts
+      - writer.p.md
+    - strategies
+      - assessment-strategy.p.md
+      - instruction-strategy.p.md
+      - practice-strategy.p.md
+  - figures
+
+## capabilities
+- curriculum
+  - api.ts
+  - activities
+    - bundles
+      - data.ts
+      - index.ts
+      - matching.ts
+      - resolution.ts
+    - skills
+      - load-bundled-skills.ts
+    - tools
+      - catalog.ts
+      - catalog
+        - builders.ts
+        - context.ts
+        - contracts.ts
+        - factory.ts
+        - output.ts
+      - register.ts
+      - tools.ts
+  - goals
+    - types.ts
+    - tools
+      - commit.ts
+      - decide-scope.ts
+      - lint.ts
+      - register.ts
+      - state.ts
+      - tools.ts
+  - planning
+    - persistence
+      - sql.ts
+    - tools
+      - read.ts
+      - register.ts
+      - tools.ts
+- figures
+  - api.ts
+  - freeform
+    - path.ts
+    - service.ts
+    - service
+      - errors.ts
+      - io.ts
+      - lint.ts
+      - render.ts
+      - sanitize.ts
+      - types.ts
+    - tools
+      - register.ts
+      - render-freeform-figure.ts
+      - tools.ts
+    - types.ts
+  - geometry
+    - path.ts
+    - render.ts
+    - repair.ts
+    - resolve.ts
+    - service.ts
+    - tools
+      - register.ts
+      - render-figure.ts
+      - tools.ts
+    - types.ts
+    - validate.ts
+- lesson-workspace
+  - api.ts
+  - model
+    - types.ts
+  - paths
+    - path.ts
+  - policy
+    - teaching-workspace-policy.p.md
+  - service
+    - diagnostics.ts
+    - errors.ts
+    - operations.ts
+    - workspace.ts
+  - tools
+    - add-file.ts
+    - checkpoint.ts
+    - register.ts
+    - restore-checkpoint.ts
+    - set-lesson.ts
+    - start-lesson.ts
+    - tools.ts
+    - write-without-prompt.ts
+
+## learner-model
+- ARCHITECTURE.md
+- api.ts
+- decisions
+  - engine.ts
+  - prompt.ts
+  - service.ts
+  - types.ts
+- model
+  - types.ts
+- projections
+  - prompt-context.ts
+  - snapshot.ts
+- repository
+  - bridge.ts
+  - markdown.ts
+  - path.ts
+  - store.ts
+  - store
+    - contracts.ts
+    - io.ts
+    - normalize.ts
+    - profile.ts
+    - records.ts
+    - schema.ts
+    - workspace.ts
+  - types.ts
+- tools
+  - assessment-record.ts
+  - practice-record.ts
+  - query.ts
+  - register.ts
+  - tools.ts
+- workflows
+  - feedback-decision.ts
+  - helpers.ts
+  - observe-message.ts
+  - plan.ts
+  - record-assessment.ts
+  - record-practice.ts
+  - workspace.ts

@@ -3,8 +3,16 @@ import path from "node:path"
 import { writeFileSync } from "node:fs"
 import { Agent as OpenCodeAgent } from "@buddy/opencode-adapter/agent"
 import { PermissionNext } from "@buddy/opencode-adapter/permission"
-import { withSyncedOpenCodeConfig } from "../../helpers/opencode.js"
+import { withSyncedOpenCodeConfig } from "../../helpers/opencode"
 import { withRepo } from "../helpers"
+
+function requireValue<T>(value: T | undefined, label: string): T {
+  if (value !== undefined) {
+    return value
+  }
+
+  throw new Error(`Missing ${label}`)
+}
 
 describe("parity.agent", () => {
   test("rejects non-persona values for default_persona", async () => {
@@ -33,11 +41,12 @@ describe("parity.agent", () => {
 
       const listed = await withSyncedOpenCodeConfig(directory, () => OpenCodeAgent.list())
       expect(listed[0]?.name).toBe("code-buddy")
-      expect(listed.some((entry) => entry.name === "buddy")).toBe(true)
-      expect(listed.some((entry) => entry.name === "build")).toBe(true)
-      expect(listed.some((entry) => entry.name === "plan")).toBe(true)
-      expect(listed.some((entry) => entry.name === "explore")).toBe(true)
-      expect(listed.some((entry) => entry.name === "curriculum-orchestrator")).toBe(true)
+      const names = listed.map((entry) => entry.name)
+      expect(names).toContain("buddy")
+      expect(names).toContain("build")
+      expect(names).toContain("plan")
+      expect(names).toContain("explore")
+      expect(names).toContain("curriculum-orchestrator")
     })
   })
 
@@ -54,14 +63,17 @@ describe("parity.agent", () => {
         }),
       )
 
-      const agent = await withSyncedOpenCodeConfig(directory, () => OpenCodeAgent.get("code-buddy"))
+      const codeBuddyAgent = requireValue(
+        await withSyncedOpenCodeConfig(directory, () => OpenCodeAgent.get("code-buddy")),
+        "code-buddy agent",
+      )
 
-      expect(agent).toBeDefined()
-      expect(agent?.description).toBe("patched only")
-      expect(agent?.mode).toBe("primary")
-      expect(agent?.steps).toBe(8)
-      expect(typeof agent?.prompt).toBe("string")
-      expect(agent?.prompt?.length).toBeGreaterThan(0)
+      expect(codeBuddyAgent.description).toBe("patched only")
+      expect(codeBuddyAgent.mode).toBe("primary")
+      expect(codeBuddyAgent.steps).toBe(8)
+      const codeBuddyPrompt = requireValue(codeBuddyAgent.prompt, "code-buddy prompt")
+      expect(typeof codeBuddyPrompt).toBe("string")
+      expect(codeBuddyPrompt.length).toBeGreaterThan(0)
     })
   })
 
@@ -78,14 +90,17 @@ describe("parity.agent", () => {
         }),
       )
 
-      const agent = await withSyncedOpenCodeConfig(directory, () => OpenCodeAgent.get("curriculum-orchestrator"))
+      const curriculumAgent = requireValue(
+        await withSyncedOpenCodeConfig(directory, () => OpenCodeAgent.get("curriculum-orchestrator")),
+        "curriculum-orchestrator agent",
+      )
 
-      expect(agent).toBeDefined()
-      expect(agent?.description).toBe("patched curriculum only")
-      expect(agent?.mode).toBe("subagent")
-      expect(agent?.steps).toBe(8)
-      expect(typeof agent?.prompt).toBe("string")
-      expect(agent?.prompt?.length).toBeGreaterThan(0)
+      expect(curriculumAgent.description).toBe("patched curriculum only")
+      expect(curriculumAgent.mode).toBe("subagent")
+      expect(curriculumAgent.steps).toBe(8)
+      const curriculumPrompt = requireValue(curriculumAgent.prompt, "curriculum-orchestrator prompt")
+      expect(typeof curriculumPrompt).toBe("string")
+      expect(curriculumPrompt.length).toBeGreaterThan(0)
     })
   })
 
@@ -106,11 +121,13 @@ describe("parity.agent", () => {
         }),
       )
 
-      const agent = await withSyncedOpenCodeConfig(directory, () => OpenCodeAgent.get("code-buddy"))
+      const codeBuddyAgent = requireValue(
+        await withSyncedOpenCodeConfig(directory, () => OpenCodeAgent.get("code-buddy")),
+        "code-buddy agent",
+      )
 
-      expect(agent).toBeDefined()
-      expect(PermissionNext.evaluate("task", "notes/lesson.md", agent!.permission).action).toBe("allow")
-      expect(PermissionNext.evaluate("task", "tmp/scratch.md", agent!.permission).action).toBe("deny")
+      expect(PermissionNext.evaluate("task", "notes/lesson.md", codeBuddyAgent.permission).action).toBe("allow")
+      expect(PermissionNext.evaluate("task", "tmp/scratch.md", codeBuddyAgent.permission).action).toBe("deny")
     })
   })
 
@@ -121,14 +138,14 @@ describe("parity.agent", () => {
         listed: await OpenCodeAgent.list(),
       }))
 
-      expect(result.agent).toBeDefined()
-      expect(result.agent?.mode).toBe("primary")
-      expect(result.listed.some((entry) => entry.name === "math-buddy")).toBe(true)
-      expect(PermissionNext.evaluate("render_figure", "figures/example.svg", result.agent!.permission).action).toBe(
+      const mathBuddyAgent = requireValue(result.agent, "math-buddy agent")
+      expect(mathBuddyAgent.mode).toBe("primary")
+      expect(result.listed.map((entry) => entry.name)).toContain("math-buddy")
+      expect(PermissionNext.evaluate("render_figure", "figures/example.svg", mathBuddyAgent.permission).action).toBe(
         "allow",
       )
       expect(
-        PermissionNext.evaluate("teaching_start_lesson", "teaching/lesson.ts", result.agent!.permission).action,
+        PermissionNext.evaluate("teaching_start_lesson", "teaching/lesson.ts", mathBuddyAgent.permission).action,
       ).toBe("deny")
     })
   })
