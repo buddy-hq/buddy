@@ -1,5 +1,5 @@
 import { deleteTeachingSessionState, readTeachingSessionState, writeTeachingSessionState } from "../state/session-state"
-import type { TeachingSessionState } from "./types-session"
+import type { TeachingSessionState } from "../../agents/core/runtime/teaching-session-state"
 
 function cloneTracePayload(input: Record<string, unknown>): Record<string, unknown> {
   try {
@@ -24,14 +24,12 @@ export function writeLastLlmOutbound(input: {
 
   const systemPromptSentRaw = typeof input.payload.system === "string" ? input.payload.system : ""
   const systemPromptSent = systemPromptSentRaw.trim()
-  const systemPromptBase = state.inspector?.stableHeader.trim() ?? ""
-  const systemPromptEffective = systemPromptSent || systemPromptBase
+  const systemPromptEffective = systemPromptSent
   const outboundEntry = {
     kind: input.kind,
     createdAt: new Date().toISOString(),
     payload: cloneTracePayload(input.payload),
     ...(systemPromptSent ? { systemPromptSent } : {}),
-    ...(systemPromptBase ? { systemPromptBase } : {}),
     ...(systemPromptEffective ? { systemPromptEffective } : {}),
   }
   const nextHistory = [...(state.llmOutboundHistory ?? []), outboundEntry]

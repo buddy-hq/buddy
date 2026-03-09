@@ -1,13 +1,8 @@
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import type { PermissionRuleset } from "@buddy/opencode-adapter/permission"
 import { Session } from "@buddy/opencode-adapter/session"
-import { readProjectConfig } from "@buddy/backend/config/runtime"
-import { compileRuntimeProfile } from "../capabilities/compiler"
-import { readTeachingSessionState } from "../state/session-state"
-import type { RuntimeProfile, TeachingIntentId } from "../capabilities/types"
+import type { RuntimeProfile } from "../../agents/core/runtime/types-model"
 import { buildBuddyRuntimeSessionPermissions } from "./session-permissions"
-import { getBuddyPersona } from "../../agents/personas"
-import type { BuddyPersonaId } from "../../agents/personas"
 import { loadOpenCodeApp } from "../../../opencode-runtime"
 import { isSessionNotFoundError } from "../../../session"
 
@@ -71,21 +66,5 @@ export async function syncBuddyRuntimeSessionPermissions(input: {
         permission: nextPermission,
       })
     },
-  })
-}
-
-export async function compileCommandRuntimeProfile(input: {
-  directory: string
-  sessionID: string
-  config: Awaited<ReturnType<typeof readProjectConfig>>
-  personaID: BuddyPersonaId
-  intentOverride?: TeachingIntentId
-}): Promise<RuntimeProfile> {
-  const persona = getBuddyPersona(input.personaID, input.config.personas)
-  const previousState = readTeachingSessionState(input.directory, input.sessionID)
-  return compileRuntimeProfile({
-    persona,
-    workspaceState: previousState?.workspaceState ?? "chat",
-    intentOverride: input.intentOverride,
   })
 }

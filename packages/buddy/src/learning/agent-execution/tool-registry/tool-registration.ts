@@ -1,5 +1,5 @@
 import { registerBuddyTools } from "../../shared"
-import { assertLearningToolCatalog, getLearningToolGroup, type LearningToolGroup } from "./tool-catalog"
+import { assertLearningToolCatalog, getLearningToolGroup, type LearningToolGroup } from "../../shared/tool-catalog"
 
 type LearningToolRegistrationFlags = {
   registerActivityTools: boolean

@@ -1,22 +1,38 @@
 import type { PermissionRule, PermissionRuleset } from "@buddy/opencode-adapter/permission"
 import { bundledActivitySkillNames } from "../../agents/curriculum"
-import { allLearningToolIds } from "../tool-registry/tool-catalog"
-import { SUBAGENT_IDS, type RuntimeProfile } from "../capabilities/types"
+import type { RuntimeProfile } from "../../agents/core/runtime/types-model"
+import { SUBAGENT_IDS } from "../../agents/core/runtime/vocabulary"
+import { allLearningToolIds } from "../../shared/tool-catalog"
 
-const MANAGED_TOOL_IDS = new Set<string>(allLearningToolIds())
-const MANAGED_SUBAGENT_IDS = new Set<string>(SUBAGENT_IDS)
-const MANAGED_SKILL_NAMES = new Set<string>(bundledActivitySkillNames())
+let managedToolIds: Set<string> | undefined
+let managedSubagentIds: Set<string> | undefined
+let managedSkillNames: Set<string> | undefined
+
+function getManagedToolIds() {
+  managedToolIds ??= new Set<string>(allLearningToolIds())
+  return managedToolIds
+}
+
+function getManagedSubagentIds() {
+  managedSubagentIds ??= new Set<string>(SUBAGENT_IDS)
+  return managedSubagentIds
+}
+
+function getManagedSkillNames() {
+  managedSkillNames ??= new Set<string>(bundledActivitySkillNames())
+  return managedSkillNames
+}
 
 function isBuddyManagedRuntimeRule(rule: PermissionRule): boolean {
-  if (MANAGED_TOOL_IDS.has(rule.permission) && rule.pattern === "*") {
+  if (getManagedToolIds().has(rule.permission) && rule.pattern === "*") {
     return true
   }
 
-  if (rule.permission === "skill" && MANAGED_SKILL_NAMES.has(rule.pattern)) {
+  if (rule.permission === "skill" && getManagedSkillNames().has(rule.pattern)) {
     return true
   }
 
-  return rule.permission === "task" && MANAGED_SUBAGENT_IDS.has(rule.pattern)
+  return rule.permission === "task" && getManagedSubagentIds().has(rule.pattern)
 }
 
 function appendRule(target: PermissionRuleset, rule: PermissionRule) {

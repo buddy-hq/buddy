@@ -1,12 +1,5 @@
 import { readProjectConfig } from "@buddy/backend/config/runtime"
-import { readTeachingSessionState, writeTeachingSessionState } from "../state/session-state"
-import { assertSessionExistsInDirectory } from "../../../session"
-import {
-  compileCommandRuntimeProfile,
-  syncBuddyRuntimeSessionPermissions,
-} from "../permissions/runtime-session-permissions"
-import { restoreTeachingSessionState, writeLastLlmOutbound } from "../state/transform-state"
-import type { SessionTransform, SessionTransformContext } from "./types"
+import { getBuddyPersona } from "../../agents/personas"
 import {
   assertNoLegacyRuntimeOverrides,
   hasExplicitCommandModel,
@@ -14,7 +7,13 @@ import {
   resolveCurrentSurface,
   resolveFocusGoalIds,
   resolveIntentOverride,
-} from "./targeting"
+} from "../../agents/core/runtime/targeting"
+import { compileRuntimeProfile } from "../../agents/core/runtime/runtime-profile"
+import { readTeachingSessionState, writeTeachingSessionState } from "../state/session-state"
+import { assertSessionExistsInDirectory } from "../../../session"
+import { syncBuddyRuntimeSessionPermissions } from "../permissions/runtime-session-permissions"
+import { restoreTeachingSessionState, writeLastLlmOutbound } from "../state/transform-state"
+import type { SessionTransform, SessionTransformContext } from "./types"
 
 export function createSessionCommandTransform(input: { context: SessionTransformContext }): SessionTransform {
   let rollbackTeachingState: (() => void) | undefined
@@ -34,11 +33,12 @@ export function createSessionCommandTransform(input: { context: SessionTransform
           body,
           config: projectConfig,
         })
-        const runtimeProfile = await compileCommandRuntimeProfile({
-          directory: input.context.directory,
-          sessionID: input.context.sessionID,
-          config: projectConfig,
-          personaID: target.personaID,
+        const previousState = readTeachingSessionState(input.context.directory, input.context.sessionID)
+        const workspaceState = previousState?.workspaceState ?? "chat"
+        const persona = getBuddyPersona(target.personaID, projectConfig.personas)
+        const runtimeProfile = compileRuntimeProfile({
+          persona,
+          workspaceState,
           intentOverride,
         })
         const focusGoalIds = resolveFocusGoalIds(body)
@@ -47,8 +47,6 @@ export function createSessionCommandTransform(input: { context: SessionTransform
           sessionID: input.context.sessionID,
           request: input.context.request,
         })
-        const previousState = readTeachingSessionState(input.context.directory, input.context.sessionID)
-        const workspaceState = previousState?.workspaceState ?? "chat"
         rollbackTeachingState = () =>
           restoreTeachingSessionState({
             directory: input.context.directory,
@@ -66,7 +64,6 @@ export function createSessionCommandTransform(input: { context: SessionTransform
           }),
           workspaceState,
           focusGoalIds,
-          promptInjectionCache: previousState?.promptInjectionCache,
         })
         await syncBuddyRuntimeSessionPermissions({
           directory: input.context.directory,
