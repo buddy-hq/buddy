@@ -3,13 +3,13 @@ import {
   PERSONA_IDS,
   TEACHING_INTENT_IDS,
   WORKSPACE_STATES,
-} from "../../../agent-execution"
+} from "../../../agents/core/runtime/vocabulary"
 import {
   DecisionPlanRequestSchema,
   SnapshotQuerySchema,
   WorkspaceRecordArtifactKindSchema,
 } from "../../../learner-model"
-import { readTeachingSessionState } from "../../../agent-execution"
+import { readTeachingSessionState } from "../../../agent-execution/state/session-state"
 
 export const LearnerWorkspacePatchSchema = z.object({
   workspace: z
