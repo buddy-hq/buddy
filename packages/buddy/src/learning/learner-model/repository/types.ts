@@ -1,5 +1,12 @@
 import z from "zod"
-import { SCAFFOLDING_LEVELS, SURFACE_IDS, TEACHING_INTENT_IDS, PERSONA_IDS, WORKSPACE_STATES, ACTIVITY_KINDS } from "../../agent-execution"
+import {
+  SCAFFOLDING_LEVELS,
+  SURFACE_IDS,
+  TEACHING_INTENT_IDS,
+  PERSONA_IDS,
+  WORKSPACE_STATES,
+  ACTIVITY_KINDS,
+} from "../../agents/core/runtime/vocabulary"
 
 const TimestampSchema = z.string().datetime()
 

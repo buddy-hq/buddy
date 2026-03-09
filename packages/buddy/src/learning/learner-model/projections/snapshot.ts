@@ -1,5 +1,5 @@
-import { compileRuntimeProfile } from "../../agent-execution"
-import type { WorkspaceState } from "../../agent-execution"
+import { compileRuntimeProfile } from "../../agents/core/runtime/runtime-profile"
+import type { WorkspaceState } from "../../agents/core/runtime/vocabulary"
 import { getBuddyPersona } from "../../agents/personas"
 import { LearnerArtifactStore } from "../repository/store"
 import { SnapshotPlanSchema } from "../repository/types"

@@ -1,4 +1,4 @@
-import type { LearnerPromptDigest } from "../../agent-execution"
+import type { LearnerPromptDigest } from "../../agents/core/runtime/types-model"
 import type { GoalArtifact } from "../repository/types"
 import type { LearnerSnapshot } from "./snapshot"
 import type { SessionPlan } from "../model/types"

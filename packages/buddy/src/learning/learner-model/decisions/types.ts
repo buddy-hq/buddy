@@ -1,5 +1,5 @@
 import z from "zod"
-import { ACTIVITY_KINDS, SCAFFOLDING_LEVELS } from "../../agent-execution"
+import { ACTIVITY_KINDS, SCAFFOLDING_LEVELS } from "../../agents/core/runtime/vocabulary"
 import { DecisionDispositionSchema } from "../repository/types"
 
 export const EvidenceStrengthSchema = z.enum(["none", "weak", "strong"])

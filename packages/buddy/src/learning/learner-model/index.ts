@@ -1,4 +1,5 @@
-import type { LearnerPromptDigest, PersonaId, TeachingIntentId, WorkspaceState } from "../agent-execution"
+import type { LearnerPromptDigest } from "../agents/core/runtime/types-model"
+import type { PersonaId, TeachingIntentId, WorkspaceState } from "../agents/core/runtime/vocabulary"
 import { buildSessionPlanFromDecision } from "./repository/bridge"
 import { LearnerArtifactStore } from "./repository/store"
 import { SnapshotPlanSchema } from "./repository/types"

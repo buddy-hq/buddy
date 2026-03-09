@@ -1,5 +1,5 @@
 import z from "zod"
-import { ACTIVITY_KINDS, SCAFFOLDING_LEVELS } from "../../agent-execution"
+import { ACTIVITY_KINDS, SCAFFOLDING_LEVELS } from "../../agents/core/runtime/vocabulary"
 
 export const SessionPlanSchema = z.object({
   warmupReviewGoalIds: z.array(z.string()).default([]),
