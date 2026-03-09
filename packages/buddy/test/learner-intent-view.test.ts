@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { LearnerService } from "../src/learning/learner/service.js"
+import { LearnerService } from "../src/learning/learner-model"
 import { tmpdir } from "./fixture/fixture"
 
 describe("learner curriculum intent view", () => {

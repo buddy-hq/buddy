@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
-import { resolvePromptInjectionDecision } from "../src/learning/system-prompt/prompt-injection.js"
-import type { RuntimePromptSection } from "../src/learning/system-prompt/types.js"
+import { resolvePromptInjectionDecision } from "../src/learning/agent-execution"
+import type { RuntimePromptSection } from "../src/learning/agent-execution"
 
 function section(input: {
   kind: RuntimePromptSection["kind"]

@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { ensureActivityToolsRegistered } from "../src/learning/activities/tools/register.js"
-import { writeTeachingSessionState } from "../src/learning/runtime/session-state.js"
+import { ensureActivityToolsRegistered } from "../src/learning/agents/curriculum"
+import { writeTeachingSessionState } from "../src/learning/agent-execution"
 import { tmpdir } from "./fixture/fixture"
 import { createToolContext, requireTool } from "./helpers/tools"
 

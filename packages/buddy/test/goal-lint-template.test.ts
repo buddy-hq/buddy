@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { ensureGoalToolsRegistered } from "../src/learning/goals/tools/register.js"
+import { ensureGoalToolsRegistered } from "../src/learning/agents/curriculum"
 import { tmpdir } from "./fixture/fixture"
 import { createToolContext, requireTool } from "./helpers/tools"
 
@@ -124,8 +124,7 @@ describe("goal_lint", () => {
             explicitlyRequestedSingleGoal: true,
             goals: [
               {
-                statement:
-                  "At the end of this topic, you will be able to understand Tauri IPC error handling.",
+                statement: "At the end of this topic, you will be able to understand Tauri IPC error handling.",
                 actionVerb: "understand",
                 task: "Explain what structured IPC errors mean in this codebase.",
                 cognitiveLevel: "Comprehension",

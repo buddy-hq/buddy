@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { ensureCurriculumToolsRegistered } from "../src/learning/curriculum/tools/register.js"
+import { ensureCurriculumToolsRegistered } from "../src/learning/agents/curriculum"
 import { tmpdir } from "./fixture/fixture"
 import { createToolContext, requireTool } from "./helpers/tools"
 
@@ -17,10 +17,7 @@ describe("curriculum tools", () => {
           providerID: "opencode",
           modelID: "claude-sonnet",
         })
-        const curriculumRead = requireTool(tools, "learner_snapshot_read")
-        const curriculumUpdate = tools.find((tool) => tool.id === "curriculum_update")
-
-        expect(curriculumUpdate).toBeUndefined()
+        const curriculumRead = requireTool(tools, "curriculum_read")
 
         const ctx = createToolContext({
           sessionID: "ses_curriculum",

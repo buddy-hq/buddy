@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { LearnerArtifactStore } from "../src/learning/learner/artifacts/store.js"
-import type { GoalArtifact } from "../src/learning/learner/artifacts/types.js"
-import { ensureGoalToolsRegistered } from "../src/learning/goals/tools/register.js"
+import { LearnerArtifactStore } from "../src/learning/learner-model"
+import type { GoalArtifact } from "../src/learning/learner-model"
+import { ensureGoalToolsRegistered } from "../src/learning/agents/curriculum"
 import { tmpdir } from "./fixture/fixture"
 import { createToolContext, requireTool } from "./helpers/tools"
 

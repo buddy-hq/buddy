@@ -3,12 +3,12 @@ import { readFileSync } from "node:fs"
 import { readFile } from "node:fs/promises"
 import { fileURLToPath } from "node:url"
 import { Agent as OpenCodeAgent } from "@buddy/opencode-adapter/agent"
-import { compileRuntimeProfile } from "../src/learning/runtime/compiler.js"
-import { LearnerService } from "../src/learning/learner/service.js"
-import { composeLearningSystemPrompt } from "../src/learning/system-prompt/index.js"
-import { getBuddyPersona } from "../src/personas/catalog.js"
+import { compileRuntimeProfile } from "../src/learning/agent-execution"
+import { LearnerService } from "../src/learning/learner-model"
+import { composeLearningSystemPrompt } from "../src/learning/agent-execution"
+import { getBuddyPersona } from "../src/learning/agents/personas"
 import { tmpdir } from "./fixture/fixture"
-import { withSyncedOpenCodeConfig } from "./helpers/opencode.js"
+import { withSyncedOpenCodeConfig } from "./helpers/opencode"
 
 function requireValue<T>(value: T | undefined, label: string): T {
   if (value !== undefined) {
@@ -18,17 +18,20 @@ function requireValue<T>(value: T | undefined, label: string): T {
   throw new Error(`Missing ${label}`)
 }
 
-const BUDDY_BASE_PROMPT = readFileSync(new URL("../src/learning/companion/buddy-base.p.md", import.meta.url), "utf8")
+const BUDDY_BASE_PROMPT = readFileSync(
+  new URL("../src/learning/agents/core/buddy/prompt.p.md", import.meta.url),
+  "utf8",
+)
 const TEACHING_POLICY_PROMPT = readFileSync(
-  new URL("../src/learning/system-prompt/teaching-workspace-policy.p.md", import.meta.url),
+  new URL("../src/learning/agent-execution/prompt/system/teaching-workspace-policy.p.md", import.meta.url),
   "utf8",
 )
 const CODE_BUDDY_OVERLAY = readFileSync(
-  new URL("../src/learning/teaching/teacher/coding/code-buddy-overlay.p.md", import.meta.url),
+  new URL("../src/learning/agents/core/code-buddy/overlay.p.md", import.meta.url),
   "utf8",
 )
 const MATH_BUDDY_OVERLAY = readFileSync(
-  new URL("../src/learning/teaching/teacher/math/math-buddy-overlay.p.md", import.meta.url),
+  new URL("../src/learning/agents/core/math-buddy/overlay.p.md", import.meta.url),
   "utf8",
 )
 
@@ -37,7 +40,10 @@ function fixturePath(filename: string): string {
 }
 
 function composeStaticPrompt(...parts: string[]): string {
-  return parts.map((part) => part.trim()).filter(Boolean).join("\n\n")
+  return parts
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join("\n\n")
 }
 
 async function readNormalizedFixture(filepath: string) {
@@ -152,9 +158,13 @@ describe("prompt assemblies", () => {
   test("composes code-buddy from the base buddy prompt plus the code overlay", async () => {
     const prompt = composeStaticPrompt(BUDDY_BASE_PROMPT, CODE_BUDDY_OVERLAY)
 
-    expect(prompt).toContain("You are Buddy, a learning companion that helps the learner learn by doing while building real projects.")
+    expect(prompt).toContain(
+      "You are Buddy, a learning companion that helps the learner learn by doing while building real projects.",
+    )
     expect(prompt).toContain("For coding sessions, act as Buddy in the `code-buddy` persona.")
-    expect(prompt).toContain("Treat the lesson file shown in <teaching_workspace> as the shared whiteboard for the lesson.")
+    expect(prompt).toContain(
+      "Treat the lesson file shown in <teaching_workspace> as the shared whiteboard for the lesson.",
+    )
   })
 
   test("composes math-buddy from the base buddy prompt plus the math overlay", async () => {

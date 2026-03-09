@@ -3,7 +3,7 @@ import os from "node:os"
 import path from "node:path"
 import { mkdtempSync } from "node:fs"
 import { spawnSync } from "node:child_process"
-import { configureOpenCodeEnvironment } from "../src/opencode-runtime/env.js"
+import { configureOpenCodeEnvironment } from "../src/opencode-runtime"
 
 const originalCwd = process.cwd()
 const originalBuddyMigrationDir = process.env.BUDDY_MIGRATION_DIR

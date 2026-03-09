@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test"
 import { PermissionNext } from "@buddy/opencode-adapter/permission"
-import { compileRuntimeProfile } from "../src/learning/runtime/compiler.js"
-import { buildBuddyRuntimeSessionPermissions } from "../src/learning/runtime/session-permissions.js"
-import { getBuddyPersona } from "../src/personas/catalog.js"
+import { compileRuntimeProfile } from "../src/learning/agent-execution"
+import { buildBuddyRuntimeSessionPermissions } from "../src/learning/agent-execution"
+import { getBuddyPersona } from "../src/learning/agents/personas"
 
 describe("buildBuddyRuntimeSessionPermissions", () => {
   test("preserves unrelated rules while enforcing the runtime tool and helper policy", () => {

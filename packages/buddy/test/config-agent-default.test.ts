@@ -4,8 +4,8 @@ import path from "node:path"
 import { mkdtempSync, writeFileSync } from "node:fs"
 import { spawnSync } from "node:child_process"
 import { Agent as OpenCodeAgent } from "@buddy/opencode-adapter/agent"
-import { Config, InvalidError } from "../src/config/config.ts"
-import { withSyncedOpenCodeConfig } from "./helpers/opencode.js"
+import { Config, InvalidError } from "@buddy/backend/config"
+import { withSyncedOpenCodeConfig } from "./helpers/opencode"
 
 function runGit(cwd: string, args: string[]) {
   const result = spawnSync("git", args, {

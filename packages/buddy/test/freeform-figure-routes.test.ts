@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { FreeformFigureService } from "../src/learning/freeform-figures/service.js"
+import { FreeformFigureService } from "../src/learning/agents/capabilities"
 import { app } from "../src/index.ts"
 import { tmpdir } from "./fixture/fixture"
 

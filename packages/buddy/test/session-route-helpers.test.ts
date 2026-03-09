@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
-import { readProjectConfig } from "../src/config/compatibility.js"
-import { readTeachingSessionState, writeTeachingSessionState } from "../src/learning/runtime/session-state.js"
-import { restoreTeachingSessionState, writeLastLlmOutbound } from "../src/learning/runtime/session/orchestration/state.js"
+import { readProjectConfig } from "@buddy/backend/config/runtime"
+import { readTeachingSessionState, writeTeachingSessionState } from "../src/learning/agent-execution"
+import { restoreTeachingSessionState, writeLastLlmOutbound } from "../src/learning/agent-execution"
 import {
   assertNoLegacyRuntimeOverrides,
   hasExplicitCommandModel,
@@ -9,9 +9,8 @@ import {
   normalizePersonaTarget,
   resolveFocusGoalIds,
   resolveIntentOverride,
-} from "../src/learning/runtime/session/orchestration/targeting.js"
-import { SessionTransformValidationError } from "../src/session/orchestration/errors.js"
-import { isSessionNotFoundError } from "../src/session/orchestration/lookup.js"
+} from "../src/learning/agent-execution"
+import { isSessionNotFoundError, SessionTransformValidationError } from "../src/session"
 import { tmpdir } from "./fixture/fixture"
 
 describe("session route helper modules", () => {
@@ -23,7 +22,8 @@ describe("session route helper modules", () => {
       normalizePersonaTarget({
         body: { persona: "buddy", agent: "code-buddy" },
         config,
-      })).toThrow('Provide either "persona" or "agent", not both')
+      }),
+    ).toThrow('Provide either "persona" or "agent", not both')
 
     const target = normalizePersonaTarget({
       body: { persona: "buddy" },
@@ -48,7 +48,8 @@ describe("session route helper modules", () => {
       assertNoLegacyRuntimeOverrides({
         focusGoalIds: ["goal_1"],
         activityBundleId: "legacy",
-      })).toThrow(SessionTransformValidationError)
+      }),
+    ).toThrow(SessionTransformValidationError)
 
     expect(
       resolveIntentOverride({
@@ -67,9 +68,7 @@ describe("session route helper modules", () => {
 
   test("detects opencode-style not-found errors", () => {
     expect(isSessionNotFoundError({ name: "NotFoundError", message: "Session not found: ses_1" })).toBe(true)
-    expect(isSessionNotFoundError({ name: "NotFoundError", data: { message: "Session not found: ses_1" } })).toBe(
-      true,
-    )
+    expect(isSessionNotFoundError({ name: "NotFoundError", data: { message: "Session not found: ses_1" } })).toBe(true)
     expect(isSessionNotFoundError({ name: "NotFoundError", message: "Different failure" })).toBe(false)
   })
 

@@ -3,7 +3,7 @@ import path from "node:path"
 import { writeFileSync } from "node:fs"
 import { Agent as OpenCodeAgent } from "@buddy/opencode-adapter/agent"
 import { PermissionNext } from "@buddy/opencode-adapter/permission"
-import { withSyncedOpenCodeConfig } from "../../helpers/opencode.js"
+import { withSyncedOpenCodeConfig } from "../../helpers/opencode"
 import { withRepo } from "../helpers"
 
 function requireValue<T>(value: T | undefined, label: string): T {

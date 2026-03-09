@@ -7,7 +7,7 @@ function readPrompt(path: string) {
 
 describe("prompt contracts", () => {
   test("practice-agent prompt keeps the deliberate-practice contract", () => {
-    const prompt = readPrompt("../src/learning/curriculum/practice-agent.p.md")
+    const prompt = readPrompt("../src/learning/agents/curriculum/practice/practice.p.md")
 
     expect(prompt).toContain("# Role")
     expect(prompt).toContain("# Available context")
@@ -27,7 +27,7 @@ describe("prompt contracts", () => {
   })
 
   test("assessment-agent prompt keeps the evidence-first inline-check contract", () => {
-    const prompt = readPrompt("../src/learning/curriculum/assessment-agent.p.md")
+    const prompt = readPrompt("../src/learning/agents/curriculum/assessment/assessment.p.md")
 
     expect(prompt).toContain("# Role")
     expect(prompt).toContain("# Available context")
@@ -45,7 +45,7 @@ describe("prompt contracts", () => {
   })
 
   test("curriculum-orchestrator prompt keeps routing and delegation explicit", () => {
-    const prompt = readPrompt("../src/learning/curriculum/curriculum-orchestrator.p.md")
+    const prompt = readPrompt("../src/learning/agents/curriculum/orchestrator.p.md")
 
     expect(prompt).toContain("# Role")
     expect(prompt).toContain("# Available context")
@@ -58,11 +58,11 @@ describe("prompt contracts", () => {
     expect(prompt).toContain("practice-agent")
     expect(prompt).toContain("assessment-agent")
     expect(prompt).toContain("Use the `task` tool")
-    expect(prompt).toContain("Do not call `curriculum_update`")
+    expect(prompt).toContain("Do not treat curriculum as editable markdown")
   })
 
   test("bundled activity skills keep the procedural contract shape", () => {
-    const prompt = readPrompt("../src/skills/system/buddy-practice-guided/SKILL.md")
+    const prompt = readPrompt("../src/learning/agents/skills/system/buddy-practice-guided/SKILL.md")
 
     expect(prompt).toContain("name: buddy-practice-guided")
     expect(prompt).toContain("intent: practice")

@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { LearnerArtifactStore } from "../src/learning/learner/artifacts/store.js"
-import { ensureGoalToolsRegistered } from "../src/learning/goals/tools/register.js"
+import { LearnerArtifactStore } from "../src/learning/learner-model"
+import { ensureGoalToolsRegistered } from "../src/learning/agents/curriculum"
 import { tmpdir } from "./fixture/fixture"
 import { createToolContext, requireTool } from "./helpers/tools"
 
@@ -72,7 +72,8 @@ describe("learner-store goal archiving", () => {
                 actionVerb: "implement",
                 task: "Implement a Tauri command that validates inputs and returns structured errors to the UI.",
                 cognitiveLevel: "Application",
-                howToTest: "Run a smoke test that exercises both valid and invalid inputs and inspects the error structure.",
+                howToTest:
+                  "Run a smoke test that exercises both valid and invalid inputs and inspects the error structure.",
               },
               {
                 statement:
@@ -80,7 +81,8 @@ describe("learner-store goal archiving", () => {
                 actionVerb: "evaluate",
                 task: "Evaluate whether a command should be synchronous or asynchronous based on the UI experience.",
                 cognitiveLevel: "Evaluation",
-                howToTest: "Compare two implementations and justify the choice with a short write-up and observed behavior.",
+                howToTest:
+                  "Compare two implementations and justify the choice with a short write-up and observed behavior.",
               },
               {
                 statement:
@@ -97,8 +99,9 @@ describe("learner-store goal archiving", () => {
       },
     })
 
-    const goals = (await LearnerArtifactStore.readArtifacts(project.path, "goal"))
-      .filter((artifact) => artifact.kind === "goal")
+    const goals = (await LearnerArtifactStore.readArtifacts(project.path, "goal")).filter(
+      (artifact) => artifact.kind === "goal",
+    )
 
     const tauriSets = Array.from(
       goals

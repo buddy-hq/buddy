@@ -2,8 +2,8 @@ import { $ } from "bun"
 import * as fs from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
-import type { Config } from "../../src/config/config.js"
-import { LearnerArtifactPath } from "../../src/learning/learner/artifacts/path.js"
+import type { Config } from "@buddy/backend/config"
+import { LearnerArtifactPath } from "../../src/learning/learner-model"
 
 type TmpDirOptions<T> = {
   git?: boolean

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { Config } from "../../../src/config/config.js"
+import { Config } from "@buddy/backend/config"
 import { withRepo } from "../helpers"
 
 describe("parity.config.config", () => {
@@ -24,12 +24,7 @@ describe("parity.config.config", () => {
       process.env.BUDDY_CONFIG = `${directory}/broken.jsonc`
       await Bun.write(
         `${directory}/broken.jsonc`,
-        [
-          "{",
-          '  "model": "anthropic/k2p5",',
-          '  "default_persona":',
-          "}",
-        ].join("\n"),
+        ["{", '  "model": "anthropic/k2p5",', '  "default_persona":', "}"].join("\n"),
       )
 
       try {

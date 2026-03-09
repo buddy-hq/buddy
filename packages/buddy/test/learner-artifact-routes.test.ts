@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
-import { app } from "../src/index.js"
-import { LearnerService } from "../src/learning/learner/service.js"
+import { app } from "../src/index"
+import { LearnerService } from "../src/learning/learner-model"
 import { tmpdir } from "./fixture/fixture"
 
 describe("learner artifact routes", () => {

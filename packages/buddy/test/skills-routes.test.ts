@@ -6,8 +6,8 @@ import { mkdtempSync, writeFileSync } from "node:fs"
 import { spawnSync } from "node:child_process"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { app } from "../src/index.ts"
-import { Config } from "../src/config/config.js"
-import { Global } from "../src/storage/global.js"
+import { Config } from "@buddy/backend/config"
+import { Global } from "../src/storage"
 
 function runGit(cwd: string, args: string[]) {
   const result = spawnSync("git", args, {
@@ -108,10 +108,7 @@ Use the Codex helper skill when testing overlay-backed skill paths.
       expect(beforeBody.library.some((entry) => entry.id === "release-notes" && entry.installed === false)).toBe(true)
       expect(
         beforeBody.installed.some(
-          (skill) =>
-            skill.name === "local-review" &&
-            skill.scope === "workspace" &&
-            skill.permissionAction === "ask",
+          (skill) => skill.name === "local-review" && skill.scope === "workspace" && skill.permissionAction === "ask",
         ),
       ).toBe(true)
       expect(beforeBody.installed.some((skill) => skill.name === "codex-helper")).toBe(true)
@@ -193,9 +190,9 @@ Use the renamed skill after refresh.
       const afterDisableBody = (await listAfterDisable.json()) as {
         installed: Array<{ name: string; enabled: boolean }>
       }
-      expect(afterDisableBody.installed.some((skill) => skill.name === "release-notes" && skill.enabled === false)).toBe(
-        true,
-      )
+      expect(
+        afterDisableBody.installed.some((skill) => skill.name === "release-notes" && skill.enabled === false),
+      ).toBe(true)
 
       const localRuleResponse = await app.request("/api/skills/local-review", {
         method: "PATCH",

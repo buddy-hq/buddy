@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test"
-import { compileRuntimeProfile } from "../src/learning/runtime/compiler.js"
-import { LearnerService } from "../src/learning/learner/service.js"
-import { composeLearningSystemPrompt } from "../src/learning/system-prompt/index.js"
-import { getBuddyPersona } from "../src/personas/catalog.js"
+import { compileRuntimeProfile } from "../src/learning/agent-execution"
+import { LearnerService } from "../src/learning/learner-model"
+import { composeLearningSystemPrompt } from "../src/learning/agent-execution"
+import { getBuddyPersona } from "../src/learning/agents/personas"
 import { tmpdir } from "./fixture/fixture"
 
 describe("composeLearningSystemPrompt (learner store)", () => {
@@ -39,7 +39,9 @@ describe("composeLearningSystemPrompt (learner store)", () => {
       workspaceState: "chat",
       intentOverride: "learn",
     })
-    const activityBundle = runtimeProfile.capabilityEnvelope.activityBundles.find((bundle) => bundle.id === "learn-worked-example")
+    const activityBundle = runtimeProfile.capabilityEnvelope.activityBundles.find(
+      (bundle) => bundle.id === "learn-worked-example",
+    )
 
     const system = await composeLearningSystemPrompt({
       directory: project.path,
@@ -55,7 +57,9 @@ describe("composeLearningSystemPrompt (learner store)", () => {
     expect(system).toContain("<buddy_capability_snapshot>")
     expect(system).toContain("<activity_capabilities>")
     expect(system).toContain("<selected_activity_bundle>")
-    expect(system).toContain("Direct Buddy tools: learner_assessment_record, learner_practice_record, learner_snapshot_read")
+    expect(system).toContain(
+      "Direct Buddy tools: learner_assessment_record, learner_practice_record, learner_snapshot_read",
+    )
     expect(system).toContain("Activity tools:")
     expect(system).toContain("activity_explanation")
     expect(system).toContain("activity_worked_example")

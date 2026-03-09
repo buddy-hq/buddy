@@ -5,7 +5,7 @@ import fs from "node:fs"
 import { mkdtempSync, writeFileSync } from "node:fs"
 import { spawnSync } from "node:child_process"
 import { app } from "../src/index.ts"
-import { Global } from "../src/storage/global.js"
+import { Global } from "../src/storage"
 
 function runGit(cwd: string, args: string[]) {
   const result = spawnSync("git", args, {

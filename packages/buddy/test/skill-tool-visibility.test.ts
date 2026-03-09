@@ -3,12 +3,12 @@ import path from "node:path"
 import { Agent } from "@buddy/opencode-adapter/agent"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
-import { syncOpenCodeProjectConfig } from "../src/config/compatibility.js"
-import { resolveBuddyBundledSkillRoots } from "../src/config/opencode/skills.js"
-import { compileRuntimeProfile } from "../src/learning/runtime/compiler.js"
-import { loadBundledActivitySkill } from "../src/learning/runtime/activity-skills.js"
-import { buildBuddyRuntimeSessionPermissions } from "../src/learning/runtime/session-permissions.js"
-import { getBuddyPersona } from "../src/personas/catalog.js"
+import { syncOpenCodeProjectConfig } from "@buddy/backend/config/runtime"
+import { resolveBuddyBundledSkillRoots } from "@buddy/backend/config/runtime"
+import { compileRuntimeProfile } from "../src/learning/agent-execution"
+import { loadBundledActivitySkill } from "../src/learning/agents/curriculum"
+import { buildBuddyRuntimeSessionPermissions } from "../src/learning/agent-execution"
+import { getBuddyPersona } from "../src/learning/agents/personas"
 import { tmpdir } from "./fixture/fixture"
 import { createToolContext, requireTool } from "./helpers/tools"
 
@@ -16,7 +16,7 @@ describe("skill tool visibility", () => {
   test("Buddy bundled skills resolve from a real filesystem root", async () => {
     const roots = await resolveBuddyBundledSkillRoots()
     const normalizedRoots = roots.map((root) => path.normalize(root))
-    const expectedSuffix = path.join("packages", "buddy", "src", "skills", "system")
+    const expectedSuffix = path.join("packages", "buddy", "src", "learning", "agents", "skills", "system")
 
     expect(roots.length).toBeGreaterThan(0)
     expect(normalizedRoots.filter((root) => root.endsWith(expectedSuffix)).length).toBeGreaterThan(0)
@@ -79,7 +79,7 @@ describe("skill tool visibility", () => {
     })
 
     expect(result.description).toContain("<available_skills>")
-    expect(result.output).toContain("<skill_content name=\"buddy-learn-explanation\">")
+    expect(result.output).toContain('<skill_content name="buddy-learn-explanation">')
     expect(result.output).toContain("# Skill: buddy-learn-explanation")
   })
 })

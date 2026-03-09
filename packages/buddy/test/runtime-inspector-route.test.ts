@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test"
 import { app } from "../src/index.ts"
-import { compileRuntimeProfile } from "../src/learning/runtime/compiler.js"
-import { buildLearningSystemPrompt } from "../src/learning/system-prompt/index.js"
-import { writeTeachingSessionState } from "../src/learning/runtime/session-state.js"
-import { getBuddyPersona } from "../src/personas/catalog.js"
-import type { LearnerPromptDigest } from "../src/learning/runtime/types.js"
+import { compileRuntimeProfile } from "../src/learning/agent-execution"
+import { buildLearningSystemPrompt } from "../src/learning/agent-execution"
+import { writeTeachingSessionState } from "../src/learning/agent-execution"
+import { getBuddyPersona } from "../src/learning/agents/personas"
+import type { LearnerPromptDigest } from "../src/learning/agent-execution"
 import { tmpdir } from "./fixture/fixture"
 
 function createDigest(): LearnerPromptDigest {

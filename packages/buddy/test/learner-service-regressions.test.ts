@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test"
 import { ulid } from "ulid"
-import { LearnerService } from "../src/learning/learner/service.js"
-import { hashDecisionInput } from "../src/learning/learner/artifacts/bridge.js"
-import { LearnerArtifactStore } from "../src/learning/learner/artifacts/store.js"
+import { LearnerService } from "../src/learning/learner-model"
+import { hashDecisionInput } from "../src/learning/learner-model"
+import { LearnerArtifactStore } from "../src/learning/learner-model"
 import { tmpdir } from "./fixture/fixture"
 
 const FIXED_TIMESTAMP = "2026-03-01T00:00:00.000Z"
