@@ -2,8 +2,7 @@ import {
   resolveActivityBundles,
   resolveBundledActivityToolPermissions,
   resolveBundledSkillPermissions,
-} from "../../agents/curriculum"
-import { allLearningToolIds } from "../tool-registry/tool-catalog"
+} from "../../curriculum"
 import {
   SUBAGENT_IDS,
   type PersonaDefinition,
@@ -11,7 +10,7 @@ import {
   type TeachingIntentId,
   type ToolId,
   type WorkspaceState,
-} from "../capabilities/types"
+} from "./types"
 
 const INTERACTIVE_ONLY_EDITOR_TOOLS: ToolId[] = [
   "teaching_checkpoint",
@@ -31,11 +30,7 @@ const FIGURE_SURFACE_ONLY_TOOLS: ToolId[] = [
 ]
 
 function createDenyToolMap(): Record<ToolId, "allow" | "deny"> {
-  const tools = {} as Record<ToolId, "allow" | "deny">
-  for (const toolId of allLearningToolIds()) {
-    tools[toolId] = "deny"
-  }
-  return tools
+  return {} as Record<ToolId, "allow" | "deny">
 }
 
 function createDenySubagentMap(): RuntimeProfile["capabilityEnvelope"]["subagents"] {

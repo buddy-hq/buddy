@@ -1,5 +1,5 @@
 export * from "./vocabulary"
 export type { ToolId } from "./tool-id"
-export * from "../../../runtime-contract"
+export * from "./types-primitives"
 export * from "./types-model"
-export * from "../state/types-session"
+export * from "./teaching-session-state"

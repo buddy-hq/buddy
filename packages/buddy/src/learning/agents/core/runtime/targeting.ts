@@ -3,15 +3,15 @@ import {
   readProjectConfig,
   resolveConfiguredAgentKey,
 } from "@buddy/backend/config/runtime"
-import { getBuddyPersona, getDefaultBuddyPersona } from "../../agents/personas"
-import { isPersonaId, type BuddyPersonaId } from "../../agents/personas"
+import { getBuddyPersona, getDefaultBuddyPersona } from "../../personas"
+import { isPersonaId, type BuddyPersonaId } from "../../personas"
 import {
   isTeachingIntentId,
   type TeachingIntentId,
   type TeachingSessionState,
   type WorkspaceState,
-} from "../capabilities/types"
-import { SessionTransformValidationError } from "../../../session"
+} from "./types"
+import { SessionTransformValidationError } from "../../../../session"
 
 export function hasExplicitModel(value: unknown): value is { providerID: string; modelID: string } {
   if (!value || typeof value !== "object") return false

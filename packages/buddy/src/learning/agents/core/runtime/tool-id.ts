@@ -1,3 +1,3 @@
-import type { LearningToolId } from "../tool-registry/tool-catalog"
+import type { LearningToolId } from "../../../shared/tool-catalog"
 
 export type ToolId = LearningToolId

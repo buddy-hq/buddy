@@ -8,7 +8,7 @@ import type {
   WorkspaceState,
 } from "./vocabulary"
 import type { ToolId } from "./tool-id"
-import type { SubagentDelta, ToolDelta } from "../../../runtime-contract"
+import type { SubagentDelta, ToolDelta } from "./types-primitives"
 
 export type PersonaContextPolicy = {
   attachCurriculum: boolean
