@@ -1,0 +1,177 @@
+import { createHash } from "node:crypto"
+import { ulid } from "ulid"
+import { LearnerArtifactStore } from "../repository/store"
+import { inferTags, normalizeList, normalizeText } from "../repository/store/normalize"
+import type {
+  EvidenceArtifact,
+  FeedbackArtifact,
+  MisconceptionArtifact,
+  WorkspaceContextArtifact,
+} from "../repository/types"
+
+export { inferTags, normalizeList, normalizeText }
+
+export function contentDigest(value: string) {
+  return createHash("sha1").update(normalizeText(value)).digest("hex")
+}
+
+export function evidenceStrengthFromOutcome(
+  outcome: EvidenceArtifact["outcome"],
+): EvidenceArtifact["strength"] {
+  if (outcome === "positive") return "strong"
+  if (outcome === "mixed") return "weak"
+  return "none"
+}
+
+export function nowIso() {
+  return new Date().toISOString()
+}
+
+export function nextId() {
+  return ulid()
+}
+
+export async function createEvidenceArtifact(input: {
+  directory: string
+  workspace: WorkspaceContextArtifact
+  goalIds: string[]
+  sourceKind: EvidenceArtifact["sourceKind"]
+  outcome: EvidenceArtifact["outcome"]
+  summary: string
+  sourceRefId?: string
+  sessionId?: string
+}) {
+  const now = nowIso()
+  const evidence: EvidenceArtifact = {
+    id: nextId(),
+    kind: "evidence",
+    workspaceId: input.workspace.workspaceId,
+    goalIds: [...input.goalIds],
+    sourceKind: input.sourceKind,
+    outcome: input.outcome,
+    strength: evidenceStrengthFromOutcome(input.outcome),
+    sourceRefId: input.sourceRefId,
+    sessionId: input.sessionId,
+    summary: normalizeText(input.summary),
+    createdAt: now,
+    updatedAt: now,
+  }
+
+  await LearnerArtifactStore.upsertArtifact(input.directory, "evidence", evidence)
+  return evidence
+}
+
+export async function createFeedbackArtifact(input: {
+  directory: string
+  workspace: WorkspaceContextArtifact
+  goalIds: string[]
+  sourceKind: FeedbackArtifact["sourceKind"]
+  sourceRefId?: string
+  relatedDecisionId?: string
+  strengths: string[]
+  gaps: string[]
+  guidance: string[]
+  requiredAction: string
+  scaffoldingLevel: FeedbackArtifact["scaffoldingLevel"]
+}) {
+  const now = nowIso()
+  const feedback: FeedbackArtifact = {
+    id: nextId(),
+    kind: "feedback",
+    workspaceId: input.workspace.workspaceId,
+    goalIds: [...input.goalIds],
+    status: "open",
+    sourceKind: input.sourceKind,
+    sourceRefId: input.sourceRefId,
+    relatedDecisionId: input.relatedDecisionId,
+    strengths: normalizeList(input.strengths),
+    gaps: normalizeList(input.gaps),
+    guidance: normalizeList(input.guidance),
+    requiredAction: normalizeText(input.requiredAction),
+    scaffoldingLevel: input.scaffoldingLevel,
+    createdAt: now,
+    updatedAt: now,
+  }
+
+  await LearnerArtifactStore.upsertArtifact(input.directory, "feedback", feedback)
+  return feedback
+}
+
+export async function createMisconceptionArtifact(input: {
+  directory: string
+  workspace: WorkspaceContextArtifact
+  goalIds: string[]
+  summary: string
+  relatedDecisionId?: string
+}) {
+  const now = nowIso()
+  const misconception: MisconceptionArtifact = {
+    id: nextId(),
+    kind: "misconception",
+    workspaceId: input.workspace.workspaceId,
+    goalIds: [...input.goalIds],
+    status: "active",
+    summary: normalizeText(input.summary),
+    relatedDecisionId: input.relatedDecisionId,
+    createdAt: now,
+    updatedAt: now,
+  }
+
+  await LearnerArtifactStore.upsertArtifact(input.directory, "misconception", misconception)
+  return misconception
+}
+
+export async function closeFeedbackByIds(input: {
+  directory: string
+  workspaceId: string
+  feedbackIds: string[]
+  status: "acted-on" | "resolved"
+}) {
+  if (input.feedbackIds.length === 0) return
+  const now = nowIso()
+
+  await Promise.all(
+    input.feedbackIds.map(async (feedbackId) => {
+      const artifact = await LearnerArtifactStore.readArtifactById(input.directory, "feedback", feedbackId)
+      if (!artifact || artifact.kind !== "feedback") return
+      if (artifact.workspaceId !== input.workspaceId) return
+      if (artifact.status === input.status) return
+
+      await LearnerArtifactStore.upsertArtifact(input.directory, "feedback", {
+        ...artifact,
+        status: input.status,
+        updatedAt: now,
+      })
+    }),
+  )
+}
+
+export async function resolveMisconceptionsByIds(input: {
+  directory: string
+  workspaceId: string
+  misconceptionIds: string[]
+}) {
+  if (input.misconceptionIds.length === 0) return
+  const now = nowIso()
+
+  await Promise.all(
+    input.misconceptionIds.map(async (misconceptionId) => {
+      const artifact = await LearnerArtifactStore.readArtifactById(input.directory, "misconception", misconceptionId)
+      if (!artifact || artifact.kind !== "misconception") return
+      if (artifact.workspaceId !== input.workspaceId) return
+      if (artifact.status === "resolved") return
+
+      await LearnerArtifactStore.upsertArtifact(input.directory, "misconception", {
+        ...artifact,
+        status: "resolved",
+        updatedAt: now,
+      })
+    }),
+  )
+}
+
+export function ensureGoalIds(goalIds: string[]) {
+  if (goalIds.length === 0) {
+    throw new Error("goalIds must be non-empty")
+  }
+}
