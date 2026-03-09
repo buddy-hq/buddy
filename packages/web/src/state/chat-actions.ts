@@ -127,92 +127,6 @@ export type TeachingSessionSnapshot = {
   focusGoalIds: string[]
 }
 
-export type RuntimeInspectorSnapshot = {
-  sessionId: string
-  persona: string
-  intentOverride?: TeachingIntent
-  currentSurface: string
-  workspaceState: "chat" | "interactive"
-  focusGoalIds: string[]
-  inspector: {
-    runtimeAgent: string
-    capabilityEnvelope: {
-      visibleSurfaces: string[]
-      defaultSurface: string
-      tools: Record<string, "allow" | "deny">
-      subagents: Record<string, "allow" | "deny" | "prefer">
-      skills: Record<string, "allow" | "deny">
-      activityBundles: Array<{
-        id: string
-        activity: string
-        label: string
-        intent: TeachingIntent
-        mode: "skill" | "tool" | "hybrid"
-        description: string
-        autoEligible: boolean
-        whenToUse: string[]
-        outputs: string[]
-        skills: string[]
-        tools: string[]
-        subagents: string[]
-      }>
-    }
-    learnerDigest: {
-      coldStart: boolean
-      workspaceLabel: string
-      workspaceTags: string[]
-      relevantGoalIds: string[]
-      recommendedNextAction: string
-      constraintsSummary: string[]
-      openFeedbackActions: string[]
-      sessionPlanSummary: string[]
-      alignmentSummary: string[]
-      tier1: string[]
-      tier2: string[]
-      tier3: string[]
-    }
-    advisorySuggestions: string[]
-    stableHeader: string
-    turnContext: string
-    stableHeaderSections: Array<{
-      kind: string
-      label: string
-      text: string
-    }>
-    turnContextSections: Array<{
-      kind: string
-      label: string
-      text: string
-    }>
-    promptInjectionAudit?: {
-      matrixVersion: string
-      triggerIDs: string[]
-      matrix: Array<{
-        id: string
-        description: string
-        forceInjectStableHeader: boolean
-        forceInjectTurnContext: boolean
-        forceStableHeaderKinds: string[]
-        forceTurnContextKinds: string[]
-        alwaysIncludeTurnContextKinds: string[]
-      }>
-      appliedPolicy: {
-        forceInjectStableHeader: boolean
-        forceInjectTurnContext: boolean
-        forceStableHeaderKinds: string[]
-        forceTurnContextKinds: string[]
-        alwaysIncludeTurnContextKinds: string[]
-      }
-      decision: {
-        injectStableHeader: boolean
-        injectTurnContext: boolean
-        changedStableHeaderSectionKeys: string[]
-        changedTurnContextSectionKeys: string[]
-      }
-    }
-  }
-}
-
 const BUDDY_PERSONA_DEFAULT_ORDER = ["buddy", "code-buddy", "math-buddy"] as const
 
 function normalizeProjectDirectory(directory: string) {
@@ -684,32 +598,6 @@ export async function loadTeachingSessionState(directory: string, sessionID: str
   }
 
   return (await response.json()) as TeachingSessionSnapshot
-}
-
-export async function loadRuntimeInspector(directory: string, sessionID: string) {
-  const response = await apiFetch(
-    `/api/session/${encodeURIComponent(sessionID)}/runtime-inspector`,
-    {
-      directory,
-    },
-  )
-
-  if (response.status === 204) {
-    return undefined
-  }
-
-  if (!response.ok) {
-    let message = `Request failed with status ${response.status}`
-    try {
-      const data = await response.json()
-      message = stringifyError(data)
-    } catch {
-      // Ignore JSON parse failures and keep the default message.
-    }
-    throw new Error(message)
-  }
-
-  return (await response.json()) as RuntimeInspectorSnapshot
 }
 
 export async function abortPrompt(directory: string) {

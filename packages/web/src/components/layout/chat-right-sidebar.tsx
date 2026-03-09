@@ -4,9 +4,7 @@ import { Badge, Button, Card, CardContent, ChevronDownIcon, Collapsible, Collaps
 import { Markdown } from "@/components/Markdown"
 import {
   loadCurriculumView,
-  loadRuntimeInspector,
   type LearnerCurriculumView,
-  type RuntimeInspectorSnapshot,
 } from "@/state/chat-actions"
 import type { TeachingIntent } from "@/state/teaching-runtime"
 import { XIcon } from "./sidebar-icons"
@@ -72,41 +70,10 @@ function titleCaseLabel(value: string) {
     .join(" ")
 }
 
-function compactKeys(values: string[]) {
-  return values.filter(Boolean).slice(0, 12)
-}
-
-function formatKindList(kinds: string[]) {
-  if (kinds.length === 0) return "none"
-  return kinds.map((kind) => titleCaseLabel(kind)).join(", ")
-}
-
-function formatActivityBundleSummary(bundle: RuntimeInspectorSnapshot["inspector"]["capabilityEnvelope"]["activityBundles"][number]) {
-  const parts = [`${bundle.label} (${titleCaseLabel(bundle.intent)})`, bundle.description]
-
-  if (bundle.skills.length > 0) {
-    parts.push(`skills: ${bundle.skills.join(", ")}`)
-  }
-
-  if (bundle.tools.length > 0) {
-    parts.push(`tools: ${bundle.tools.join(", ")}`)
-  }
-
-  if (bundle.subagents.length > 0) {
-    parts.push(`helpers: ${bundle.subagents.join(", ")}`)
-  }
-
-  return parts.join(" - ")
-}
-
 export function ChatRightSidebar(props: ChatRightSidebarProps) {
   const [curriculumLoading, setCurriculumLoading] = useState(false)
   const [curriculumError, setCurriculumError] = useState<string | undefined>(undefined)
   const [curriculumView, setCurriculumView] = useState<LearnerCurriculumView | undefined>(undefined)
-  const [inspectorLoading, setInspectorLoading] = useState(false)
-  const [inspectorError, setInspectorError] = useState<string | undefined>(undefined)
-  const [runtimeInspector, setRuntimeInspector] = useState<RuntimeInspectorSnapshot | undefined>(undefined)
-  const [inspectorOpen, setInspectorOpen] = useState(false)
   const [rawPlanOpen, setRawPlanOpen] = useState(false)
 
   const activeSurface = props.surfaces.includes(props.activeTab as ChatRightSidebarSurface)
@@ -145,36 +112,6 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
     }
   }
 
-  async function loadInspectorData(isDisposed?: () => boolean) {
-    const disposed = isDisposed ?? (() => false)
-
-    if (!props.sessionID) {
-      if (!disposed()) {
-        setRuntimeInspector(undefined)
-        setInspectorError(undefined)
-      }
-      return
-    }
-
-    if (!disposed()) {
-      setInspectorLoading(true)
-      setInspectorError(undefined)
-    }
-
-    try {
-      const inspector = await loadRuntimeInspector(props.directory, props.sessionID)
-      if (disposed()) return
-      setRuntimeInspector(inspector)
-    } catch (error) {
-      if (disposed()) return
-      setInspectorError(stringifyError(error))
-    } finally {
-      if (!disposed()) {
-        setInspectorLoading(false)
-      }
-    }
-  }
-
   useEffect(() => {
     if (activeSurface !== "curriculum") return
 
@@ -185,17 +122,6 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
       disposed = true
     }
   }, [activeSurface, props.directory, props.intent, props.persona, props.sessionID])
-
-  useEffect(() => {
-    if (!inspectorOpen || activeSurface !== "curriculum") return
-
-    let disposed = false
-    void loadInspectorData(() => disposed)
-
-    return () => {
-      disposed = true
-    }
-  }, [activeSurface, inspectorOpen, props.directory, props.sessionID])
 
   return (
     <aside
@@ -265,9 +191,6 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
               size="sm"
               onClick={() => {
                 void loadSidebarData(undefined, { generateDecision: true })
-                if (inspectorOpen) {
-                  void loadInspectorData()
-                }
               }}
             >
               Refresh
@@ -380,174 +303,6 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                   empty="No workspace or learner constraints are shaping the plan right now."
                 />
               </div>
-
-              <Collapsible open={inspectorOpen} onOpenChange={setInspectorOpen}>
-                <Card size="sm" className="gap-0 py-0">
-                  <CardContent className="px-3 py-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Runtime Inspector</p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Inspect learner evidence, capability gating, explicit overrides, and prompt sections.
-                        </p>
-                      </div>
-                      <CollapsibleTrigger asChild>
-                        <Button variant="ghost" size="sm" className="gap-1.5">
-                          {inspectorOpen ? "Hide inspector" : "Show inspector"}
-                          <ChevronDownIcon className={`size-3.5 transition-transform ${inspectorOpen ? "rotate-180" : ""}`} />
-                        </Button>
-                      </CollapsibleTrigger>
-                    </div>
-                    <CollapsibleContent className="space-y-3 pt-3">
-                      {inspectorLoading ? (
-                        <p className="text-sm text-muted-foreground">Loading runtime inspector...</p>
-                      ) : runtimeInspector?.inspector ? (
-                        <>
-                          {runtimeInspector.inspector.promptInjectionAudit ? (
-                            <>
-                              <SidebarSection
-                                title="Prompt Injection Triggers"
-                                items={runtimeInspector.inspector.promptInjectionAudit.matrix.map((entry) =>
-                                  `${entry.id}: ${entry.description}`,
-                                )}
-                                empty="No prompt-injection triggers fired this turn."
-                              />
-                              <SidebarSection
-                                title="Prompt Injection Policy"
-                                items={[
-                                  `Matrix version: ${runtimeInspector.inspector.promptInjectionAudit.matrixVersion}`,
-                                  `Inject stable header now: ${runtimeInspector.inspector.promptInjectionAudit.decision.injectStableHeader ? "yes" : "no"}`,
-                                  `Inject turn context now: ${runtimeInspector.inspector.promptInjectionAudit.decision.injectTurnContext ? "yes" : "no"}`,
-                                  `Force stable header snapshot: ${runtimeInspector.inspector.promptInjectionAudit.appliedPolicy.forceInjectStableHeader ? "yes" : "no"}`,
-                                  `Force turn context snapshot: ${runtimeInspector.inspector.promptInjectionAudit.appliedPolicy.forceInjectTurnContext ? "yes" : "no"}`,
-                                  `Forced stable header sections: ${formatKindList(runtimeInspector.inspector.promptInjectionAudit.appliedPolicy.forceStableHeaderKinds)}`,
-                                  `Forced turn context sections: ${formatKindList(runtimeInspector.inspector.promptInjectionAudit.appliedPolicy.forceTurnContextKinds)}`,
-                                  `Always included turn sections: ${formatKindList(runtimeInspector.inspector.promptInjectionAudit.appliedPolicy.alwaysIncludeTurnContextKinds)}`,
-                                  `Changed stable header keys: ${runtimeInspector.inspector.promptInjectionAudit.decision.changedStableHeaderSectionKeys.join(", ") || "none"}`,
-                                  `Changed turn context keys: ${runtimeInspector.inspector.promptInjectionAudit.decision.changedTurnContextSectionKeys.join(", ") || "none"}`,
-                                ]}
-                              />
-                            </>
-                          ) : null}
-
-                          <Card size="sm" className="gap-0 py-0">
-                            <CardContent className="space-y-3 px-3 py-3">
-                              <div className="flex flex-wrap gap-2">
-                                <Badge variant="secondary">{runtimeInspector.persona}</Badge>
-                                <Badge variant="outline">{runtimeInspector.intentOverride ? titleCaseLabel(runtimeInspector.intentOverride) : "Auto"}</Badge>
-                                <Badge variant="outline">{runtimeInspector.currentSurface}</Badge>
-                                <Badge variant="outline">{runtimeInspector.workspaceState}</Badge>
-                              </div>
-                              <div className="space-y-1 text-xs text-muted-foreground">
-                                <p>
-                                  Runtime agent:{" "}
-                                  <span className="font-medium text-foreground">{runtimeInspector.inspector.runtimeAgent}</span>
-                                </p>
-                                <p>
-                                  Intent override:{" "}
-                                  <span className="font-medium text-foreground">
-                                    {runtimeInspector.intentOverride ? titleCaseLabel(runtimeInspector.intentOverride) : "Auto"}
-                                  </span>
-                                </p>
-                                <p>
-                                  Focus goals:{" "}
-                                  <span className="font-medium text-foreground">
-                                    {runtimeInspector.focusGoalIds.join(", ") || "none"}
-                                  </span>
-                                </p>
-                              </div>
-                            </CardContent>
-                          </Card>
-
-                          <SidebarSection
-                            title="Allowed Tools"
-                            items={compactKeys(
-                              Object.entries(runtimeInspector.inspector.capabilityEnvelope.tools)
-                                .filter(([, access]) => access === "allow")
-                                .map(([toolId]) => toolId),
-                            )}
-                            empty="No Buddy-owned tools are currently enabled."
-                          />
-                          <SidebarSection
-                            title="Allowed Skills"
-                            items={compactKeys(
-                              Object.entries(runtimeInspector.inspector.capabilityEnvelope.skills)
-                                .filter(([, access]) => access === "allow")
-                                .map(([skillName]) => skillName),
-                            )}
-                            empty="No bundled activity skills are currently enabled."
-                          />
-                          <SidebarSection
-                            title="Preferred Helpers"
-                            items={compactKeys(
-                              Object.entries(runtimeInspector.inspector.capabilityEnvelope.subagents)
-                                .filter(([, access]) => access === "prefer")
-                                .map(([subagentId]) => subagentId),
-                            )}
-                            empty="No helper preference is currently being forced."
-                          />
-                          <SidebarSection
-                            title="Learner Digest"
-                            items={[
-                              `Workspace: ${runtimeInspector.inspector.learnerDigest.workspaceLabel}`,
-                              `Relevant goals: ${runtimeInspector.inspector.learnerDigest.relevantGoalIds.join(", ") || "none"}`,
-                              `Recommended next action: ${titleCaseLabel(runtimeInspector.inspector.learnerDigest.recommendedNextAction)}`,
-                              ...runtimeInspector.inspector.learnerDigest.constraintsSummary,
-                              ...runtimeInspector.inspector.learnerDigest.openFeedbackActions.map((item) => `Open feedback: ${item}`),
-                            ]}
-                          />
-                          <SidebarSection
-                            title="Advisory Suggestions"
-                            items={runtimeInspector.inspector.advisorySuggestions}
-                            empty="No advisory suggestions are available yet."
-                          />
-                          <SidebarSection
-                            title="Activity Bundles"
-                            items={runtimeInspector.inspector.capabilityEnvelope.activityBundles.map(formatActivityBundleSummary)}
-                            empty="No first-class activity bundles are available for this runtime."
-                          />
-                          <div className="grid gap-3">
-                            {runtimeInspector.inspector.stableHeaderSections.map((section, index) => (
-                              <Card key={`${section.kind}-${index}`} size="sm" className="gap-0 py-0">
-                                <CardContent className="px-3 py-3">
-                                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                    {section.label}
-                                  </p>
-                                  <pre className="mt-2 whitespace-pre-wrap break-words text-xs text-foreground/85">
-                                    {section.text}
-                                  </pre>
-                                </CardContent>
-                              </Card>
-                            ))}
-                            {runtimeInspector.inspector.turnContextSections.map((section, index) => (
-                              <Card key={`${section.kind}-turn-${index}`} size="sm" className="gap-0 py-0">
-                                <CardContent className="px-3 py-3">
-                                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                    {section.label}
-                                  </p>
-                                  <pre className="mt-2 whitespace-pre-wrap break-words text-xs text-foreground/85">
-                                    {section.text}
-                                  </pre>
-                                </CardContent>
-                              </Card>
-                            ))}
-                          </div>
-                        </>
-                      ) : (
-                        <p className="text-sm text-muted-foreground">
-                          Send a prompt in this session to capture the compiled teaching runtime.
-                        </p>
-                      )}
-
-                      {inspectorError ? (
-                        <p className="rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1.5 text-xs text-destructive">
-                          {inspectorError}
-                        </p>
-                      ) : null}
-                    </CollapsibleContent>
-                  </CardContent>
-                </Card>
-              </Collapsible>
 
               <Collapsible open={rawPlanOpen} onOpenChange={setRawPlanOpen}>
                 <Card size="sm" className="gap-0 py-0">
