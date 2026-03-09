@@ -2,7 +2,7 @@ import type { Context } from "hono"
 import { Hono } from "hono"
 import { resolver } from "hono-openapi"
 import z from "zod"
-import { PERSONA_IDS, TEACHING_INTENT_IDS } from "../learning/agent-execution"
+import { PERSONA_IDS, TEACHING_INTENT_IDS } from "../learning/agents/core/runtime/vocabulary"
 import {
   ArtifactsRequestSchema,
   ArtifactsResponseSchema,

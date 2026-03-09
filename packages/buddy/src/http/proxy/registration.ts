@@ -1,4 +1,4 @@
-import { registerLearningRuntimeTools } from "../../learning/agent-execution"
+import { registerLearningRuntimeTools } from "../../learning/agent-execution/tool-registry/tool-registration"
 import type {
   ProxyRegistrationFlags,
   ProxyRegistrationOption,

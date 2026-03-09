@@ -19,7 +19,6 @@ import {
   postSessionPrompt,
 } from "../session"
 import {
-  getRuntimeInspectorState,
   getTeachingState,
 } from "../learning/adapters/http"
 
@@ -262,29 +261,6 @@ const getTeachingStateRoute = compatibilityRoute({
   },
 })
 
-const getRuntimeInspectorRoute = compatibilityRoute({
-  operationId: "session.runtimeInspector",
-  summary: "Get Buddy runtime inspector state for a session",
-  parameters: [SessionIDPath, ...directoryParameters],
-  responses: {
-    200: {
-      description: "Runtime inspector state",
-      content: {
-        "application/json": { schema: AnyObjectSchema },
-      },
-    },
-    204: {
-      description: "No Buddy runtime inspector state exists for this session yet",
-    },
-    403: {
-      description: "Directory is outside allowed roots",
-      content: {
-        "application/json": { schema: ErrorSchema },
-      },
-    },
-  },
-})
-
 const abortSessionRoute = compatibilityRoute({
   operationId: "session.abort",
   summary: "Abort active session run",
@@ -313,7 +289,6 @@ const listSessionMessagesHandler = listSessionMessages
 const postSessionPromptHandler = postSessionPrompt
 const postSessionCommandHandler = postSessionCommand
 const getTeachingStateHandler = getTeachingState
-const getRuntimeInspectorHandler = getRuntimeInspectorState
 const abortSessionHandler = abortSessionRun
 
 export const SessionRoutes = (): Hono =>
@@ -326,5 +301,4 @@ export const SessionRoutes = (): Hono =>
     .post("/:sessionID/message", postSessionPromptRoute, postSessionPromptHandler)
     .post("/:sessionID/command", postSessionCommandRoute, postSessionCommandHandler)
     .get("/:sessionID/teaching-state", getTeachingStateRoute, getTeachingStateHandler)
-    .get("/:sessionID/runtime-inspector", getRuntimeInspectorRoute, getRuntimeInspectorHandler)
     .post("/:sessionID/abort", abortSessionRoute, abortSessionHandler)
