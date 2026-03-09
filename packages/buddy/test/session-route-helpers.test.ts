@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { readProjectConfig } from "@buddy/backend/config/runtime"
-import { readTeachingSessionState, writeTeachingSessionState } from "../src/learning/agent-execution"
-import { restoreTeachingSessionState, writeLastLlmOutbound } from "../src/learning/agent-execution"
+import { readTeachingSessionState, writeTeachingSessionState } from "../src/learning/agent-execution/state/session-state"
+import { restoreTeachingSessionState, writeLastLlmOutbound } from "../src/learning/agent-execution/state/transform-state"
 import {
   assertNoLegacyRuntimeOverrides,
   hasExplicitCommandModel,
@@ -9,7 +9,7 @@ import {
   normalizePersonaTarget,
   resolveFocusGoalIds,
   resolveIntentOverride,
-} from "../src/learning/agent-execution"
+} from "../src/learning/agents/core/runtime/targeting"
 import { isSessionNotFoundError, SessionTransformValidationError } from "../src/session"
 import { tmpdir } from "./fixture/fixture"
 
@@ -81,10 +81,6 @@ describe("session route helper modules", () => {
       currentSurface: "curriculum",
       workspaceState: "chat",
       focusGoalIds: ["goal_1"],
-      promptInjectionCache: {
-        stableHeaderSections: {},
-        turnContextSections: {},
-      },
     })
 
     writeLastLlmOutbound({

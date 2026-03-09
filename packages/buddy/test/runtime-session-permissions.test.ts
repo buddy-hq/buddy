@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { PermissionNext } from "@buddy/opencode-adapter/permission"
-import { compileRuntimeProfile } from "../src/learning/agent-execution"
-import { buildBuddyRuntimeSessionPermissions } from "../src/learning/agent-execution"
+import { buildBuddyRuntimeSessionPermissions } from "../src/learning/agent-execution/permissions/session-permissions"
+import { compileRuntimeProfile } from "../src/learning/agents/core/runtime/runtime-profile"
 import { getBuddyPersona } from "../src/learning/agents/personas"
 
 describe("buildBuddyRuntimeSessionPermissions", () => {

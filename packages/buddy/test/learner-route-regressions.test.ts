@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { app } from "../src/index.ts"
 import { LearnerService } from "../src/learning/learner-model"
-import { writeTeachingSessionState } from "../src/learning/agent-execution"
+import { writeTeachingSessionState } from "../src/learning/agent-execution/state/session-state"
 import { tmpdir } from "./fixture/fixture"
 
 describe("learner route regressions", () => {

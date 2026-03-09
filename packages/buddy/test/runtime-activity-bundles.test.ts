@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { compileRuntimeProfile } from "../src/learning/agent-execution"
+import { compileRuntimeProfile } from "../src/learning/agents/core/runtime/runtime-profile"
 import { getBuddyPersona } from "../src/learning/agents/personas"
 
 describe("compileRuntimeProfile activity bundles", () => {

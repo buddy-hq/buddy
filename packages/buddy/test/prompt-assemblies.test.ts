@@ -3,9 +3,9 @@ import { readFileSync } from "node:fs"
 import { readFile } from "node:fs/promises"
 import { fileURLToPath } from "node:url"
 import { Agent as OpenCodeAgent } from "@buddy/opencode-adapter/agent"
-import { compileRuntimeProfile } from "../src/learning/agent-execution"
+import { compileRuntimeProfile } from "../src/learning/agents/core/runtime/runtime-profile"
 import { LearnerService } from "../src/learning/learner-model"
-import { composeLearningSystemPrompt } from "../src/learning/agent-execution"
+import { buildLearningSystemPrompt } from "../src/learning/agents/core/prompt"
 import { getBuddyPersona } from "../src/learning/agents/personas"
 import { tmpdir } from "./fixture/fixture"
 import { withSyncedOpenCodeConfig } from "./helpers/opencode"
@@ -55,7 +55,7 @@ async function buildRuntimePrompt(input: {
   directory: string
   persona: "buddy" | "code-buddy" | "math-buddy"
   intent?: "learn" | "practice" | "assess"
-  teachingContext?: Parameters<typeof composeLearningSystemPrompt>[0]["teachingContext"]
+  teachingContext?: Parameters<typeof buildLearningSystemPrompt>[0]["workspace"]["teachingContext"]
   userContent?: string
 }) {
   const digest = await LearnerService.buildPromptContext({
@@ -71,14 +71,21 @@ async function buildRuntimePrompt(input: {
     workspaceState: input.teachingContext?.active ? "interactive" : "chat",
   })
 
-  return composeLearningSystemPrompt({
-    directory: input.directory,
-    runtimeProfile: profile,
-    learnerDigest: digest,
-    focusGoalIds: [],
-    teachingContext: input.teachingContext,
-    userContent: input.userContent,
+  const { systemContext, turnReminder } = await buildLearningSystemPrompt({
+    runtime: {
+      directory: input.directory,
+      profile,
+    },
+    learner: {
+      digest,
+      focusGoalIds: [],
+      userContent: input.userContent,
+    },
+    workspace: {
+      teachingContext: input.teachingContext,
+    },
   })
+  return [systemContext, turnReminder].filter(Boolean).join("\n\n")
 }
 
 describe("prompt assemblies", () => {

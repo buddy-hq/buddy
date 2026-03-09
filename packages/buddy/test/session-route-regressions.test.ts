@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { app } from "../src/index.ts"
 import { LearnerService } from "../src/learning/learner-model"
-import { readTeachingSessionState, writeTeachingSessionState } from "../src/learning/agent-execution"
+import { readTeachingSessionState, writeTeachingSessionState } from "../src/learning/agent-execution/state/session-state"
 import { tmpdir } from "./fixture/fixture"
 
 describe("session route regressions", () => {
@@ -14,7 +14,7 @@ describe("session route regressions", () => {
         "x-buddy-directory": project.path,
         "content-type": "application/json",
       },
-      body: "{\"content\":\"missing quote}",
+      body: '{"content":"missing quote}',
     })
 
     expect(response.status).toBe(400)
@@ -32,7 +32,7 @@ describe("session route regressions", () => {
         "x-buddy-directory": project.path,
         "content-type": "application/json",
       },
-      body: "{\"command\":\"/help\"",
+      body: '{"command":"/help"',
     })
 
     expect(response.status).toBe(400)
@@ -50,14 +50,6 @@ describe("session route regressions", () => {
       currentSurface: "curriculum",
       workspaceState: "chat",
       focusGoalIds: ["goal_prev"],
-      promptInjectionCache: {
-        stableHeaderSections: {
-          "persona-header:Persona Header": "old stable header",
-        },
-        turnContextSections: {
-          "workspace-state:Workspace State": "old turn context",
-        },
-      },
     })
 
     const response = await app.request("/api/session/ses_missing/message", {
@@ -76,14 +68,6 @@ describe("session route regressions", () => {
     expect(readTeachingSessionState(project.path, "ses_missing")).toMatchObject({
       sessionId: "ses_missing",
       focusGoalIds: ["goal_prev"],
-      promptInjectionCache: {
-        stableHeaderSections: {
-          "persona-header:Persona Header": "old stable header",
-        },
-        turnContextSections: {
-          "workspace-state:Workspace State": "old turn context",
-        },
-      },
     })
   })
 

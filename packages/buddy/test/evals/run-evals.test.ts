@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
-import { compileRuntimeProfile } from "../../src/learning/agent-execution"
-import { buildLearningSystemPrompt } from "../../src/learning/agent-execution"
+import { buildLearningSystemPrompt } from "../../src/learning/agents/core/prompt"
+import { compileRuntimeProfile } from "../../src/learning/agents/core/runtime/runtime-profile"
 import { getBuddyPersona } from "../../src/learning/agents/personas"
 import { tmpdir } from "../fixture/fixture"
 import { createDigest } from "./fixtures.ts"
@@ -46,26 +46,76 @@ describe("teaching eval harness", () => {
     })
 
     const prompt = await buildLearningSystemPrompt({
-      directory: project.path,
-      runtimeProfile: profile,
-      learnerDigest: digest,
-      intentOverride: "practice",
-      focusGoalIds: ["goal_1"],
-      userContent: "Give me a focused practice task.",
-      teachingContext: {
-        active: true,
-        sessionID: "ses_eval",
-        lessonFilePath: "/tmp/lesson.ts",
-        checkpointFilePath: "/tmp/checkpoint.ts",
-        language: "ts",
-        revision: 1,
+      runtime: {
+        directory: project.path,
+        profile,
+        intentOverride: "practice",
+      },
+      learner: {
+        digest,
+        focusGoalIds: ["goal_1"],
+        userContent: "Give me a focused practice task.",
+      },
+      workspace: {
+        teachingContext: {
+          active: true,
+          sessionID: "ses_eval",
+          lessonFilePath: "/tmp/lesson.ts",
+          checkpointFilePath: "/tmp/checkpoint.ts",
+          language: "ts",
+          revision: 1,
+        },
       },
     })
 
-    expect(prompt.stableHeaderSections.some((section) => section.label === "Persona Header")).toBe(true)
-    expect(prompt.turnContextSections.some((section) => section.label === "Workspace State")).toBe(true)
-    expect(prompt.turnContextSections.some((section) => section.label === "Teaching Workspace")).toBe(true)
-    expect(prompt.turnContext).toContain("Intent override: practice")
-    expect(prompt.turnContext).toContain("An interactive lesson workspace is active")
+    expect(prompt.systemContext).toContain("<buddy_runtime_header>")
+    expect(prompt.systemContext).toContain("Workspace State:")
+    expect(prompt.systemContext).toContain("Teaching Workspace:")
+    expect(prompt.systemContext).toContain("Intent override: practice")
+    expect(prompt.systemContext).toContain("An interactive lesson workspace is active")
+    expect(prompt.turnReminder).toBeUndefined()
+  })
+
+  test("compiled prompt emits a transition reminder when intent/persona shift execution focus", async () => {
+    await using project = await tmpdir({ git: true })
+
+    const profile = compileRuntimeProfile({
+      persona: getBuddyPersona("code-buddy"),
+      workspaceState: "interactive",
+      intentOverride: "practice",
+    })
+    const digest = createDigest()
+
+    const prompt = await buildLearningSystemPrompt({
+      runtime: {
+        directory: project.path,
+        profile,
+        intentOverride: "practice",
+      },
+      learner: {
+        digest,
+        focusGoalIds: ["goal_1"],
+        userContent: "continue",
+      },
+      workspace: {
+        teachingContext: {
+          active: true,
+          sessionID: "ses_eval_transition",
+          lessonFilePath: "/tmp/lesson.ts",
+          checkpointFilePath: "/tmp/checkpoint.ts",
+          language: "ts",
+          revision: 1,
+        },
+      },
+      previousState: {
+        persona: "buddy",
+        intentOverride: "learn",
+        workspaceState: "chat",
+      },
+    })
+
+    expect(prompt.turnReminder).toContain("Teaching focus switch: concept-first -> execution-focused")
+    expect(prompt.turnReminder).toContain("Persona switch: buddy -> code-buddy")
+    expect(prompt.turnReminder).toContain("Intent switch: learn -> practice")
   })
 })

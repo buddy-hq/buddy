@@ -1,4 +1,5 @@
-import type { LearnerPromptDigest, TeachingSessionState } from "../../src/learning/agent-execution"
+import type { LearnerPromptDigest } from "../../src/learning/agents/core/runtime/types-model"
+import type { TeachingSessionState } from "../../src/learning/agents/core/runtime/teaching-session-state"
 
 export function createDigest(overrides?: Partial<LearnerPromptDigest>): LearnerPromptDigest {
   return {

@@ -6,9 +6,9 @@ import {
   allLearningToolIds,
   assertUniqueLearningToolIds,
   allLearningTools,
-} from "../src/learning/agent-execution"
-import { buildBuddyRuntimeSessionPermissions } from "../src/learning/agent-execution"
-import { compileRuntimeProfile } from "../src/learning/agent-execution"
+} from "../src/learning/shared/tool-catalog"
+import { buildBuddyRuntimeSessionPermissions } from "../src/learning/agent-execution/permissions/session-permissions"
+import { compileRuntimeProfile } from "../src/learning/agents/core/runtime/runtime-profile"
 import { getBuddyPersona } from "../src/learning/agents/personas"
 import { ensureCurriculumToolsRegistered } from "../src/learning/agents/curriculum"
 import { ensureLearnerToolsRegistered } from "../src/learning/learner-model"

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
-import { compileRuntimeProfile } from "../src/learning/agent-execution"
+import { compileRuntimeProfile } from "../src/learning/agents/core/runtime/runtime-profile"
 import { LearnerService } from "../src/learning/learner-model"
-import { composeLearningSystemPrompt } from "../src/learning/agent-execution"
+import { buildLearningSystemPrompt } from "../src/learning/agents/core/prompt"
 import { getBuddyPersona } from "../src/learning/agents/personas"
 import { tmpdir } from "./fixture/fixture"
 
@@ -43,17 +43,23 @@ describe("composeLearningSystemPrompt (learner store)", () => {
       (bundle) => bundle.id === "learn-worked-example",
     )
 
-    const system = await composeLearningSystemPrompt({
-      directory: project.path,
-      runtimeProfile,
-      learnerDigest: digest,
-      activityBundle,
-      intentOverride: "learn",
-      focusGoalIds: committed.goalIds,
-      userContent: "what skills and tools do you have",
+    const { systemContext, turnReminder } = await buildLearningSystemPrompt({
+      runtime: {
+        directory: project.path,
+        profile: runtimeProfile,
+        activityBundle,
+        intentOverride: "learn",
+      },
+      learner: {
+        digest,
+        focusGoalIds: committed.goalIds,
+        userContent: "what skills and tools do you have",
+      },
+      workspace: {},
     })
+    const system = [systemContext, turnReminder].filter(Boolean).join("\n\n")
 
-    expect(system).toContain("<buddy_turn_context>")
+    expect(system).toContain("<buddy_runtime_context>")
     expect(system).toContain("<buddy_capability_snapshot>")
     expect(system).toContain("<activity_capabilities>")
     expect(system).toContain("<selected_activity_bundle>")

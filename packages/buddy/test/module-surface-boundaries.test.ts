@@ -7,7 +7,6 @@ const srcRoot = path.join(packageRoot, "src")
 const testRoot = path.join(packageRoot, "test")
 
 const MODULE_ROOTS = [
-  "agent-kit",
   "config",
   "flag",
   "http",
@@ -24,7 +23,6 @@ const MODULE_ROOTS = [
   "opencode-runtime",
   "project",
   "routes",
-  "runtime-contract",
   "session",
   "storage",
 ] as const
