@@ -1,8 +1,8 @@
 import z from "zod"
 import { Config as OpenCodeConfig } from "@buddy/opencode-adapter/config"
 import { PERSONA_SURFACES, INTENTS } from "@buddy/backend/learning/shared/teaching-vocabulary"
-import { resolveBuddyPersonaProfiles } from "../../learning/agents/personas"
-import { PERSONAS } from "../../learning/agents/personas"
+import { resolveBuddyPersonaProfiles } from "../../learning/personas"
+import { PERSONAS } from "../../learning/personas"
 
 export namespace ConfigSchema {
   export const Mcp = OpenCodeConfig.Mcp

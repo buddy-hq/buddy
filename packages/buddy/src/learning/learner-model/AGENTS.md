@@ -1,0 +1,5 @@
+- this module is a prototype and is incomplete
+- the user has been experimenting with maintaining learner profile
+- this is still an openproblem
+- don't take anything in this module for absolute truth
+- don't build on top of this module unless the user explicitly asks and wants to refactor the module

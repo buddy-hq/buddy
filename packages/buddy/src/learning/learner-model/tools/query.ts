@@ -3,7 +3,7 @@ import {
   PERSONAS,
   INTENTS,
 } from "@buddy/backend/learning/shared/teaching-vocabulary"
-import { createBuddyTool, type BuddyToolContext } from "../../shared"
+import { createBuddyTool, type BuddyToolContext } from "../../tools"
 import { ensurePlanDecision } from ".."
 
 const learnerStateQueryTool = createBuddyTool("learner_snapshot_read", {

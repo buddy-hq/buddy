@@ -1,4 +1,4 @@
-import { registerLearningRuntimeTools } from "../../learning/agent-execution/tool-registry/tool-registration"
+import { registerRuntimeTools } from "../../learning/tools/register-runtime-tools"
 import type {
   ProxyRegistrationFlags,
   ProxyRegistrationOption,
@@ -9,7 +9,7 @@ async function registerOpenCodeTools(
   directory: string,
   flags: ProxyRegistrationFlags,
 ): Promise<void> {
-  await registerLearningRuntimeTools(directory, flags)
+  await registerRuntimeTools(directory, flags)
 }
 
 function resolveRegistration(

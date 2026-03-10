@@ -12,9 +12,9 @@ import {
   TeachingWorkspaceFileError,
   TeachingRevisionConflictError,
   TeachingWorkspaceNotFoundError,
-} from "../../../agents/capabilities"
-import { getBuddyPersona, getDefaultBuddyPersona } from "../../../agents/personas"
-import { isPersona } from "../../../agents/personas"
+} from "../../../capabilities"
+import { getBuddyPersona, getDefaultBuddyPersona } from "../../../personas"
+import { isPersona } from "../../../personas"
 
 export function resolveTeachingProvisionPersona(input: {
   config: Awaited<ReturnType<typeof readProjectConfig>>

@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test"
-import { compileRuntimeProfile } from "../src/learning/agents/core/runtime/runtime-profile"
+import { resolveCapabilityProfile } from "../src/learning/resolve-capability-profile"
 import { LearnerService } from "../src/learning/learner-model"
-import { buildLearningSystemPrompt } from "../src/learning/agents/core/prompt"
-import { getBuddyPersona } from "../src/learning/agents/personas"
+import { buildLearningSystemPrompt } from "../src/learning/prompt"
+import { getBuddyPersona } from "../src/learning/personas"
 import { tmpdir } from "./fixture/fixture"
 
 describe("composeLearningSystemPrompt (learner store)", () => {
@@ -35,7 +35,7 @@ describe("composeLearningSystemPrompt (learner store)", () => {
         workspaceState: "chat",
       },
     })
-    const runtimeProfile = compileRuntimeProfile({
+    const runtimeProfile = resolveCapabilityProfile({
       persona: getBuddyPersona("buddy"),
       workspaceState: "chat",
       intentOverride: "learn",
@@ -45,17 +45,13 @@ describe("composeLearningSystemPrompt (learner store)", () => {
     )
 
     const { systemContext, turnReminder } = await buildLearningSystemPrompt({
-      runtime: {
-        directory: project.path,
-        profile: runtimeProfile,
-        activityBundle,
-        intentOverride: "learn",
-      },
-      learner: {
-        snapshot,
-        focusGoalIds: committed.goalIds,
-      },
-      workspace: {},
+      directory: project.path,
+      persona: runtimeProfile.persona,
+      capabilityEnvelope: runtimeProfile.capabilityEnvelope,
+      activityBundle,
+      intent: "learn",
+      learnerSnapshot: snapshot,
+      focusGoalIds: committed.goalIds,
     })
     const system = [systemContext, turnReminder].filter(Boolean).join("\n\n")
 

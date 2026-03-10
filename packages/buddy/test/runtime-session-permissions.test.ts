@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test"
 import { PermissionNext } from "@buddy/opencode-adapter/permission"
 import { buildBuddyRuntimeSessionPermissions } from "../src/learning/agent-execution/permissions/session-permissions"
-import { compileRuntimeProfile } from "../src/learning/agents/core/runtime/runtime-profile"
-import { getBuddyPersona } from "../src/learning/agents/personas"
+import { resolveCapabilityProfile } from "../src/learning/resolve-capability-profile"
+import { getBuddyPersona } from "../src/learning/personas"
 
 describe("buildBuddyRuntimeSessionPermissions", () => {
   test("preserves unrelated rules while enforcing the runtime tool and helper policy", () => {
-    const runtimeProfile = compileRuntimeProfile({
+    const runtimeProfile = resolveCapabilityProfile({
       persona: getBuddyPersona("buddy"),
       workspaceState: "chat",
     })
@@ -33,7 +33,7 @@ describe("buildBuddyRuntimeSessionPermissions", () => {
   })
 
   test("filters bundled skills down to the explicit teaching intent without touching unrelated permissions", () => {
-    const runtimeProfile = compileRuntimeProfile({
+    const runtimeProfile = resolveCapabilityProfile({
       persona: getBuddyPersona("code-buddy"),
       workspaceState: "interactive",
       intentOverride: "practice",

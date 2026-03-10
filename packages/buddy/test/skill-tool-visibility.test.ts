@@ -5,10 +5,10 @@ import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { syncOpenCodeProjectConfig } from "@buddy/backend/config/runtime"
 import { resolveBuddyBundledSkillRoots } from "@buddy/backend/config/runtime"
-import { compileRuntimeProfile } from "../src/learning/agents/core/runtime/runtime-profile"
-import { loadBundledActivitySkill } from "../src/learning/agents/curriculum"
+import { resolveCapabilityProfile } from "../src/learning/resolve-capability-profile"
+import { loadBundledActivitySkill } from "../src/learning/curriculum"
 import { buildBuddyRuntimeSessionPermissions } from "../src/learning/agent-execution/permissions/session-permissions"
-import { getBuddyPersona } from "../src/learning/agents/personas"
+import { getBuddyPersona } from "../src/learning/personas"
 import { tmpdir } from "./fixture/fixture"
 import { createToolContext, requireTool } from "./helpers/tools"
 
@@ -34,7 +34,7 @@ describe("skill tool visibility", () => {
       async fn() {
         await syncOpenCodeProjectConfig(project.path, true)
 
-        const runtimeProfile = compileRuntimeProfile({
+        const runtimeProfile = resolveCapabilityProfile({
           persona: getBuddyPersona("buddy"),
           workspaceState: "chat",
           intentOverride: "learn",

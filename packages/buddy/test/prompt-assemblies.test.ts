@@ -3,10 +3,10 @@ import { readFileSync } from "node:fs"
 import { readFile } from "node:fs/promises"
 import { fileURLToPath } from "node:url"
 import { Agent as OpenCodeAgent } from "@buddy/opencode-adapter/agent"
-import { compileRuntimeProfile } from "../src/learning/agents/core/runtime/runtime-profile"
+import { resolveCapabilityProfile } from "../src/learning/resolve-capability-profile"
 import { LearnerService } from "../src/learning/learner-model"
-import { buildLearningSystemPrompt } from "../src/learning/agents/core/prompt"
-import { getBuddyPersona } from "../src/learning/agents/personas"
+import { buildLearningSystemPrompt } from "../src/learning/prompt"
+import { getBuddyPersona } from "../src/learning/personas"
 import { tmpdir } from "./fixture/fixture"
 import { withSyncedOpenCodeConfig } from "./helpers/opencode"
 
@@ -19,19 +19,19 @@ function requireValue<T>(value: T | undefined, label: string): T {
 }
 
 const BUDDY_BASE_PROMPT = readFileSync(
-  new URL("../src/learning/agents/core/buddy/prompt.p.md", import.meta.url),
+  new URL("../src/learning/personas/buddy/prompt.p.md", import.meta.url),
   "utf8",
 )
 const TEACHING_POLICY_PROMPT = readFileSync(
-  new URL("../src/learning/agents/core/prompt/system/teaching-workspace-policy.p.md", import.meta.url),
+  new URL("../src/learning/prompt/teaching-workspace-policy.p.md", import.meta.url),
   "utf8",
 )
 const CODE_BUDDY_OVERLAY = readFileSync(
-  new URL("../src/learning/agents/core/code-buddy/overlay.p.md", import.meta.url),
+  new URL("../src/learning/personas/code-buddy/overlay.p.md", import.meta.url),
   "utf8",
 )
 const MATH_BUDDY_OVERLAY = readFileSync(
-  new URL("../src/learning/agents/core/math-buddy/overlay.p.md", import.meta.url),
+  new URL("../src/learning/personas/math-buddy/overlay.p.md", import.meta.url),
   "utf8",
 )
 
@@ -55,7 +55,7 @@ async function buildRuntimePrompt(input: {
   directory: string
   persona: "buddy" | "code-buddy" | "math-buddy"
   intent?: "learn" | "practice" | "assess"
-  teachingContext?: Parameters<typeof buildLearningSystemPrompt>[0]["workspace"]["teachingContext"]
+  teachingContext?: Parameters<typeof buildLearningSystemPrompt>[0]["teachingContext"]
 }) {
   const workspaceState = input.teachingContext?.active ? "interactive" : "chat"
   const snapshot = await LearnerService.getWorkspaceSnapshot({
@@ -67,23 +67,18 @@ async function buildRuntimePrompt(input: {
       workspaceState,
     },
   })
-  const profile = compileRuntimeProfile({
+  const profile = resolveCapabilityProfile({
     persona: getBuddyPersona(input.persona),
     workspaceState,
   })
 
   const { systemContext, turnReminder } = await buildLearningSystemPrompt({
-    runtime: {
-      directory: input.directory,
-      profile,
-    },
-    learner: {
-      snapshot,
-      focusGoalIds: [],
-    },
-    workspace: {
-      teachingContext: input.teachingContext,
-    },
+    directory: input.directory,
+    persona: profile.persona,
+    capabilityEnvelope: profile.capabilityEnvelope,
+    learnerSnapshot: snapshot,
+    focusGoalIds: [],
+    teachingContext: input.teachingContext,
   })
   return [systemContext, turnReminder].filter(Boolean).join("\n\n")
 }

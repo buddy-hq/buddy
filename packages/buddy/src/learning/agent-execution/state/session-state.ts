@@ -1,6 +1,6 @@
 import { realpathSync } from "node:fs"
 import { resolve } from "node:path"
-import type { TeachingSessionState } from "../../agents/core/shared/teaching-session-state"
+import type { TeachingSessionState } from "../../shared/teaching-session-state"
 
 const RUNTIME_STATE_LIMIT = 512
 const runtimeState = new Map<string, TeachingSessionState>()

@@ -1,16 +1,16 @@
 import { describe, expect, test } from "bun:test"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
-import type { BuddyTool } from "../src/learning/shared"
+import type { BuddyTool } from "../src/learning/tools"
 import {
   allLearningToolIds,
   assertUniqueLearningToolIds,
   allLearningTools,
-} from "../src/learning/shared/tool-catalog"
+} from "../src/learning/tools/tool-catalog"
 import { buildBuddyRuntimeSessionPermissions } from "../src/learning/agent-execution/permissions/session-permissions"
-import { compileRuntimeProfile } from "../src/learning/agents/core/runtime/runtime-profile"
-import { getBuddyPersona } from "../src/learning/agents/personas"
-import { ensureCurriculumToolsRegistered } from "../src/learning/agents/curriculum"
+import { resolveCapabilityProfile } from "../src/learning/resolve-capability-profile"
+import { getBuddyPersona } from "../src/learning/personas"
+import { ensureCurriculumToolsRegistered } from "../src/learning/curriculum"
 import { ensureLearnerToolsRegistered } from "../src/learning/learner-model"
 import { tmpdir } from "./fixture/fixture"
 import { createToolContext, requireTool } from "./helpers/tools"
@@ -41,7 +41,7 @@ describe("learning tool contract", () => {
 
     expect(registeredToolIds).toEqual(runtimeToolIds)
 
-    const runtimeProfile = compileRuntimeProfile({
+    const runtimeProfile = resolveCapabilityProfile({
       persona: getBuddyPersona("code-buddy"),
       workspaceState: "interactive",
       intentOverride: "practice",

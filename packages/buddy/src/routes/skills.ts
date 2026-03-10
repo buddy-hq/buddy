@@ -15,7 +15,7 @@ import {
   resolveSkillAction,
   shouldRefreshSkillCatalog,
   updateSkill,
-} from "../learning/agents/skills"
+} from "../learning/skills"
 
 const listSkillsRoute = compatibilityRoute({
   operationId: "skills.list",

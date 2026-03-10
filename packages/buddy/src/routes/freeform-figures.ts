@@ -5,7 +5,7 @@ import {
   FreeformFigureNotFoundError,
   FreeformFigureService,
   InvalidFreeformFigureIDError,
-} from "../learning/agents/capabilities"
+} from "../learning/capabilities"
 
 const freeformFigureSvgPath = "/:figureID"
 

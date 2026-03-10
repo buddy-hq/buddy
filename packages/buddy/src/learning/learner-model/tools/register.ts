@@ -1,4 +1,4 @@
-import { registerBuddyTools } from "../../shared"
+import { registerBuddyTools } from "../../tools"
 import { learnerTools } from "./tools"
 
 export async function ensureLearnerToolsRegistered(directory: string): Promise<void> {

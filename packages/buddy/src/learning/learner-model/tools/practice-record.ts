@@ -1,5 +1,5 @@
 import z from "zod"
-import { createBuddyTool, type BuddyToolContext } from "../../shared"
+import { createBuddyTool, type BuddyToolContext } from "../../tools"
 import { recordPracticeEvent } from ".."
 
 const practiceRecordTool = createBuddyTool("learner_practice_record", {

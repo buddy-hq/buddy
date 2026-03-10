@@ -7,7 +7,7 @@ import {
 import { fingerprintOpenCodeConfig } from "./fingerprint.js"
 import { parseConfiguredModel } from "./models.js"
 import { resolveBuddyBundledSkillRoots, resolveOpenCodeSkillPaths } from "./skills.js"
-import { getDefaultBuddyPersona } from "../../learning/agents/personas"
+import { getDefaultBuddyPersona } from "../../learning/personas"
 
 const BUDDY_RUNTIME_PERMISSION_OVERLAY: Config.Permission = {
   curriculum_read: "deny",
@@ -35,7 +35,7 @@ async function buildOpenCodeConfigOverlay(config: Config.Info) {
     getDefaultBuddyPersona({
       defaultPersona: config.default_persona,
       overrides: config.personas,
-    }).runtimeAgent,
+    }).id,
     agentOverlay,
   )
   const orderedAgents =

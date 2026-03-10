@@ -2,7 +2,7 @@ import fsp from "node:fs/promises"
 import path from "node:path"
 import { Agent as OpenCodeAgent } from "@buddy/opencode-adapter/agent"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { personaCatalogEntries } from "../../learning/agents/personas"
+import { personaCatalogEntries } from "../../learning/personas"
 import { Config } from "../config.js"
 import {
   isConfigValidationError,

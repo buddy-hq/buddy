@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { LearnerArtifactStore } from "../src/learning/learner-model"
-import { ensureGoalToolsRegistered } from "../src/learning/agents/curriculum"
+import { ensureGoalToolsRegistered } from "../src/learning/curriculum"
 import { tmpdir } from "./fixture/fixture"
 import { createToolContext, requireTool } from "./helpers/tools"
 

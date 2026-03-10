@@ -4,7 +4,7 @@ import { syncBuddyRuntimeSessionPermissions } from "../permissions/runtime-sessi
 import { readTeachingSessionState, writeTeachingSessionState } from "../state/session-state"
 import { restoreTeachingSessionState, writeLastLlmOutbound } from "../state/transform-state"
 import type { SessionTransformContext } from "./types"
-import { runMessagePromptPipeline } from "../../agents/core/prompt/pipeline"
+import { runMessagePromptPipeline } from "../../prompt/message-prompt-pipeline"
 
 export type SessionMessageTransformOrchestrationResult = {
   transformed: Record<string, unknown>

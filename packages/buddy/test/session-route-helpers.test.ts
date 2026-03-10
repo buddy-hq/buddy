@@ -9,7 +9,7 @@ import {
   normalizePersonaTarget,
   resolveFocusGoalIds,
   resolveIntentOverride,
-} from "../src/learning/agents/core/shared/targeting"
+} from "../src/learning/shared/targeting"
 import { isSessionNotFoundError, SessionTransformValidationError } from "../src/session"
 import { tmpdir } from "./fixture/fixture"
 
@@ -31,7 +31,7 @@ describe("session route helper modules", () => {
     })
     expect(target.personaID).toBe("buddy")
     expect(target.includeBuddySystem).toBe(true)
-    expect(typeof target.runtimeAgent).toBe("string")
+    expect(typeof target.agent).toBe("string")
   })
 
   test("parses intent/focus-goal overrides and rejects legacy runtime fields", async () => {

@@ -5,7 +5,7 @@ import {
   FigureNotFoundError,
   FigureService,
   InvalidFigureIDError,
-} from "../learning/agents/capabilities"
+} from "../learning/capabilities"
 
 const figureSvgPath = "/:figureID"
 

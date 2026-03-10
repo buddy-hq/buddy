@@ -1,8 +1,8 @@
 import type { PermissionRule, PermissionRuleset } from "@buddy/opencode-adapter/permission"
-import { bundledActivitySkillNames } from "../../agents/curriculum"
-import type { RuntimeProfile } from "../../agents/core/runtime/types-model"
 import { SUBAGENT_IDS } from "@buddy/backend/learning/shared/teaching-vocabulary"
-import { allLearningToolIds } from "../../shared/tool-catalog"
+import { bundledActivitySkillNames } from "../../curriculum"
+import type { RuntimeProfile } from "../../shared/runtime-types"
+import { allLearningToolIds } from "../../tools/tool-catalog"
 
 let managedToolIds: Set<string> | undefined
 let managedSubagentIds: Set<string> | undefined

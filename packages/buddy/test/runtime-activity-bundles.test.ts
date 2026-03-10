@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test"
-import { compileRuntimeProfile } from "../src/learning/agents/core/runtime/runtime-profile"
-import { getBuddyPersona } from "../src/learning/agents/personas"
+import { resolveCapabilityProfile } from "../src/learning/resolve-capability-profile"
+import { getBuddyPersona } from "../src/learning/personas"
 
-describe("compileRuntimeProfile activity bundles", () => {
+describe("resolveCapabilityProfile activity bundles", () => {
   test("keeps the full persona-appropriate activity set in Auto", () => {
-    const runtimeProfile = compileRuntimeProfile({
+    const runtimeProfile = resolveCapabilityProfile({
       persona: getBuddyPersona("math-buddy"),
       workspaceState: "chat",
     })
@@ -21,7 +21,7 @@ describe("compileRuntimeProfile activity bundles", () => {
   })
 
   test("filters activity bundles to the requested intent while preserving persona-specific variants", () => {
-    const runtimeProfile = compileRuntimeProfile({
+    const runtimeProfile = resolveCapabilityProfile({
       persona: getBuddyPersona("code-buddy"),
       workspaceState: "interactive",
       intentOverride: "practice",

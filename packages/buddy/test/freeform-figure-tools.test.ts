@@ -6,9 +6,9 @@ import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import {
   FreeformFigureRenderError,
   FreeformFigureService,
-} from "../src/learning/agents/capabilities"
-import { ensureFreeformFigureToolsRegistered } from "../src/learning/agents/capabilities"
-import { RenderFreeformFigureOutputSchema, type RenderFreeformFigureInput } from "../src/learning/agents/capabilities"
+} from "../src/learning/capabilities"
+import { ensureFreeformFigureToolsRegistered } from "../src/learning/capabilities"
+import { RenderFreeformFigureOutputSchema, type RenderFreeformFigureInput } from "../src/learning/capabilities"
 import { tmpdir } from "./fixture/fixture"
 import { createToolContext, requireTool } from "./helpers/tools"
 

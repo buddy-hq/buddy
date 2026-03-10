@@ -1,5 +1,5 @@
 import { readProjectConfig } from "@buddy/backend/config/runtime"
-import { getBuddyPersona } from "../../agents/personas"
+import { getBuddyPersona } from "../../personas"
 import {
   assertNoLegacyRuntimeOverrides,
   hasExplicitCommandModel,
@@ -7,8 +7,8 @@ import {
   resolveCurrentSurface,
   resolveFocusGoalIds,
   resolveIntentOverride,
-} from "../../agents/core/shared/targeting"
-import { compileRuntimeProfile } from "../../agents/core/runtime/runtime-profile"
+} from "../../shared/targeting"
+import { resolveCapabilityProfile } from "../../resolve-capability-profile"
 import { readTeachingSessionState, writeTeachingSessionState } from "../state/session-state"
 import { assertSessionExistsInDirectory } from "../../../session"
 import { syncBuddyRuntimeSessionPermissions } from "../permissions/runtime-session-permissions"
@@ -36,7 +36,7 @@ export function createSessionCommandTransform(input: { context: SessionTransform
         const previousState = readTeachingSessionState(input.context.directory, input.context.sessionID)
         const workspaceState = previousState?.workspaceState ?? "chat"
         const persona = getBuddyPersona(target.personaID, projectConfig.personas)
-        const runtimeProfile = compileRuntimeProfile({
+        const runtimeProfile = resolveCapabilityProfile({
           persona,
           workspaceState,
           intentOverride,
@@ -84,7 +84,7 @@ export function createSessionCommandTransform(input: { context: SessionTransform
 
       const transformed: Record<string, unknown> = {
         ...body,
-        agent: target.runtimeAgent,
+        agent: target.agent,
       }
       if (!hasExplicitCommandModel(body.model) && projectConfig.model) {
         transformed.model = projectConfig.model

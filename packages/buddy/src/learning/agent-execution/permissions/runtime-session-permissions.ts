@@ -1,7 +1,7 @@
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import type { PermissionRuleset } from "@buddy/opencode-adapter/permission"
 import { Session } from "@buddy/opencode-adapter/session"
-import type { RuntimeProfile } from "../../agents/core/runtime/types-model"
+import type { RuntimeProfile } from "../../shared/runtime-types"
 import { buildBuddyRuntimeSessionPermissions } from "./session-permissions"
 import { loadOpenCodeApp } from "../../../opencode-runtime"
 import { isSessionNotFoundError } from "../../../session"

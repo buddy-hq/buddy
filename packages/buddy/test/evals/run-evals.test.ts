@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test"
-import { buildLearningSystemPrompt } from "../../src/learning/agents/core/prompt"
-import { compileRuntimeProfile } from "../../src/learning/agents/core/runtime/runtime-profile"
-import { getBuddyPersona } from "../../src/learning/agents/personas"
+import { buildLearningSystemPrompt } from "../../src/learning/prompt"
+import { resolveCapabilityProfile } from "../../src/learning/resolve-capability-profile"
+import { getBuddyPersona } from "../../src/learning/personas"
 import { LearnerService } from "../../src/learning/learner-model"
 import { tmpdir } from "../fixture/fixture"
 import { expectAllowedTools, expectDeniedTools, expectPreferredHelpers, expectVisibleSurfaces } from "./scorers.ts"
 
 describe("teaching eval harness", () => {
   test("code-buddy practice runtime keeps editor teaching and practice tools enabled", async () => {
-    const profile = compileRuntimeProfile({
+    const profile = resolveCapabilityProfile({
       persona: getBuddyPersona("code-buddy"),
       workspaceState: "interactive",
     })
@@ -25,7 +25,7 @@ describe("teaching eval harness", () => {
   })
 
   test("buddy understand runtime denies recording tools and stays concept-first", async () => {
-    const profile = compileRuntimeProfile({
+    const profile = resolveCapabilityProfile({
       persona: getBuddyPersona("buddy"),
       workspaceState: "chat",
     })
@@ -37,7 +37,7 @@ describe("teaching eval harness", () => {
   test("compiled prompt keeps runtime sections inspectable and practice-forward", async () => {
     await using project = await tmpdir({ git: true })
 
-    const profile = compileRuntimeProfile({
+    const profile = resolveCapabilityProfile({
       persona: getBuddyPersona("code-buddy"),
       workspaceState: "interactive",
     })
@@ -52,24 +52,19 @@ describe("teaching eval harness", () => {
     })
 
     const prompt = await buildLearningSystemPrompt({
-      runtime: {
-        directory: project.path,
-        profile,
-        intentOverride: "practice",
-      },
-      learner: {
-        snapshot,
-        focusGoalIds: ["goal_1"],
-      },
-      workspace: {
-        teachingContext: {
-          active: true,
-          sessionID: "ses_eval",
-          lessonFilePath: "/tmp/lesson.ts",
-          checkpointFilePath: "/tmp/checkpoint.ts",
-          language: "ts",
-          revision: 1,
-        },
+      directory: project.path,
+      persona: profile.persona,
+      capabilityEnvelope: profile.capabilityEnvelope,
+      intent: "practice",
+      learnerSnapshot: snapshot,
+      focusGoalIds: ["goal_1"],
+      teachingContext: {
+        active: true,
+        sessionID: "ses_eval",
+        lessonFilePath: "/tmp/lesson.ts",
+        checkpointFilePath: "/tmp/checkpoint.ts",
+        language: "ts",
+        revision: 1,
       },
     })
 
@@ -84,7 +79,7 @@ describe("teaching eval harness", () => {
   test("compiled prompt emits a transition reminder when intent/persona shift execution focus", async () => {
     await using project = await tmpdir({ git: true })
 
-    const profile = compileRuntimeProfile({
+    const profile = resolveCapabilityProfile({
       persona: getBuddyPersona("code-buddy"),
       workspaceState: "interactive",
       intentOverride: "practice",
@@ -100,28 +95,23 @@ describe("teaching eval harness", () => {
     })
 
     const prompt = await buildLearningSystemPrompt({
-      runtime: {
-        directory: project.path,
-        profile,
-        intentOverride: "practice",
+      directory: project.path,
+      persona: profile.persona,
+      capabilityEnvelope: profile.capabilityEnvelope,
+      intent: "practice",
+      learnerSnapshot: snapshot,
+      focusGoalIds: ["goal_1"],
+      teachingContext: {
+        active: true,
+        sessionID: "ses_eval_transition",
+        lessonFilePath: "/tmp/lesson.ts",
+        checkpointFilePath: "/tmp/checkpoint.ts",
+        language: "ts",
+        revision: 1,
       },
-      learner: {
-        snapshot,
-        focusGoalIds: ["goal_1"],
-      },
-      workspace: {
-        teachingContext: {
-          active: true,
-          sessionID: "ses_eval_transition",
-          lessonFilePath: "/tmp/lesson.ts",
-          checkpointFilePath: "/tmp/checkpoint.ts",
-          language: "ts",
-          revision: 1,
-        },
-      },
-      previousState: {
+      priorTurn: {
         persona: "buddy",
-        intentOverride: "learn",
+        intent: "learn",
         workspaceState: "chat",
       },
     })

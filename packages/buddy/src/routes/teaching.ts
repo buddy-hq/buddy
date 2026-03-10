@@ -14,7 +14,7 @@ import {
   TeachingWorkspaceActivateFileRequestSchema,
   TeachingWorkspaceCreateFileRequestSchema,
   TeachingWorkspaceUpdateRequestSchema,
-} from "../learning/agents/capabilities"
+} from "../learning/capabilities"
 import { zodIssuesResponse } from "../http"
 import { withDirectoryContext, withJsonBody } from "../http"
 

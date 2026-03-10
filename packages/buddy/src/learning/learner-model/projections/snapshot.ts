@@ -1,6 +1,6 @@
-import { compileRuntimeProfile } from "../../agents/core/runtime/runtime-profile"
+import { resolveCapabilityProfile } from "../../resolve-capability-profile"
 import type { WorkspaceState } from "@buddy/backend/learning/shared/teaching-vocabulary"
-import { getBuddyPersona } from "../../agents/personas"
+import { getBuddyPersona } from "../../personas"
 import { LearnerArtifactStore } from "../repository/store"
 import { SnapshotPlanSchema } from "../repository/types"
 import type {
@@ -23,7 +23,7 @@ export type LearnerSnapshot = {
   recentEvidence: EvidenceArtifact[]
   latestPlan?: DecisionArtifact
   constraintsSummary: string[]
-  activityBundles: ReturnType<typeof compileRuntimeProfile>["capabilityEnvelope"]["activityBundles"]
+  activityBundles: ReturnType<typeof resolveCapabilityProfile>["capabilityEnvelope"]["activityBundles"]
   sections: Array<{
     title: string
     items: string[]
@@ -126,7 +126,7 @@ function buildDecisionInputFingerprint(input: {
   activeMisconceptions: MisconceptionArtifact[]
   recentEvidence: EvidenceArtifact[]
   constraintsSummary: string[]
-  activityBundles: ReturnType<typeof compileRuntimeProfile>["capabilityEnvelope"]["activityBundles"]
+  activityBundles: ReturnType<typeof resolveCapabilityProfile>["capabilityEnvelope"]["activityBundles"]
 }) {
   return [
     `workspace:${input.workspace.workspaceId}@${input.workspace.updatedAt}`,
@@ -192,7 +192,7 @@ export namespace LearnerSnapshotCompiler {
     const plan = planResult.success ? planResult.data : fallbackPlan()
 
     const workspaceState: WorkspaceState = input.query.workspaceState ?? "chat"
-    const runtimeProfile = compileRuntimeProfile({
+    const runtimeProfile = resolveCapabilityProfile({
       persona: getBuddyPersona(input.query.persona),
       workspaceState,
       intentOverride: input.query.intent,

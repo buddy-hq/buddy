@@ -1,8 +1,8 @@
 import { mergeDeep } from "remeda"
-import { resolveBuddyPersonaProfiles } from "../../learning/agents/personas"
-import type { BuddyPersona } from "../../learning/agents/personas"
-import { isPersona } from "../../learning/agents/personas"
-import { indexBuddyAgents } from "../../learning/agents/core/registry"
+import { resolveBuddyPersonaProfiles } from "../../learning/personas"
+import type { BuddyPersona } from "../../learning/personas"
+import { isPersona } from "../../learning/personas"
+import { indexBuddyAgents } from "../../learning/register-agents"
 import { Config } from "../config.js"
 
 function mergeBuddyAgentConfig(base: Config.Agent, override: Config.Agent): Config.Agent {
@@ -91,9 +91,9 @@ function applyBuddyPersonaHiddenFlags(
 
   for (const persona of Object.values(profiles)) {
     if (!persona.hidden) continue
-    const agent = next[persona.runtimeAgent]
+    const agent = next[persona.id]
     if (!agent) continue
-    next[persona.runtimeAgent] = {
+    next[persona.id] = {
       ...agent,
       hidden: true,
     }
