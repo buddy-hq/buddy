@@ -6,7 +6,7 @@ import {
   normalizePersonaTarget,
   resolveCurrentSurface,
   resolveFocusGoalIds,
-  resolveIntentOverride,
+  resolveIntent,
 } from "../../shared/targeting"
 import { resolveCapabilityProfile } from "../../resolve-capability-profile"
 import { readTeachingSessionState, writeTeachingSessionState } from "../state/session-state"
@@ -29,7 +29,7 @@ export function createSessionCommandTransform(input: { context: SessionTransform
       })
 
       if (target.includeBuddySystem && target.personaID) {
-        const intentOverride = resolveIntentOverride({
+        const intent = resolveIntent({
           body,
           config: projectConfig,
         })
@@ -39,7 +39,7 @@ export function createSessionCommandTransform(input: { context: SessionTransform
         const runtimeProfile = resolveCapabilityProfile({
           persona,
           workspaceState,
-          intentOverride,
+          intent,
         })
         const focusGoalIds = resolveFocusGoalIds(body)
         await assertSessionExistsInDirectory({
@@ -56,7 +56,7 @@ export function createSessionCommandTransform(input: { context: SessionTransform
         writeTeachingSessionState(input.context.directory, {
           sessionId: input.context.sessionID,
           persona: target.personaID,
-          intentOverride,
+          intent,
           currentSurface: resolveCurrentSurface({
             personaID: target.personaID,
             config: projectConfig,

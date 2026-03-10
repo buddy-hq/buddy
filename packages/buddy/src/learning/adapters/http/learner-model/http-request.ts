@@ -46,7 +46,7 @@ export const LearnerArtifactListQuerySchema = z.object({
 
 const BaseLearnerRequestSchema = z.object({
   persona: z.enum(PERSONAS).optional(),
-  intent: z.enum(INTENTS).optional(),
+  intent: z.enum(INTENTS).default("auto"),
   goalIds: z.array(z.string()).optional(),
   sessionId: z.string().optional(),
   workspaceState: z.enum(WORKSPACE_STATES).optional(),
@@ -101,9 +101,13 @@ export function parseDecisionPlanRequest(input: {
     return bodyResult
   }
 
+  const rawBody = input.body
+  const hasBodyIntent =
+    !!rawBody && typeof rawBody === "object" && !Array.isArray(rawBody) && "intent" in rawBody
+
   return DecisionPlanRequestSchema.safeParse({
     persona: bodyResult.data.persona ?? queryResult.data.persona,
-    intent: bodyResult.data.intent ?? queryResult.data.intent,
+    intent: hasBodyIntent ? bodyResult.data.intent : queryResult.data.intent,
     focusGoalIds: bodyResult.data.goalIds ?? queryResult.data.goalIds,
     sessionId: bodyResult.data.sessionId ?? queryResult.data.sessionId,
     workspaceState: bodyResult.data.workspaceState ?? queryResult.data.workspaceState,
