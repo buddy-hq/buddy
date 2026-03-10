@@ -84,10 +84,10 @@ export function normalizePersonaTarget(input: {
   }
 }
 
-export function resolveIntentOverride(input: {
+export function resolveIntent(input: {
   body: Record<string, unknown>
   config: Awaited<ReturnType<typeof readProjectConfig>>
-}): Intent | undefined {
+}): Intent {
   const raw = typeof input.body.intent === "string" ? input.body.intent.trim() : ""
   if (raw) {
     if (!isIntent(raw)) {
@@ -96,11 +96,11 @@ export function resolveIntentOverride(input: {
     return raw
   }
 
-  if (input.config.default_intent && isIntent(input.config.default_intent)) {
+  if (typeof input.config.default_intent === "string" && isIntent(input.config.default_intent)) {
     return input.config.default_intent
   }
 
-  return undefined
+  return "auto"
 }
 
 export function resolveFocusGoalIds(body: Record<string, unknown>): string[] {

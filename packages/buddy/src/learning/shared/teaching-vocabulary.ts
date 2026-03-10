@@ -13,7 +13,7 @@ if (derivedPersonas.length === 0) {
 export const PERSONAS = [...derivedPersonas] as [BuiltinPersona, ...BuiltinPersona[]]
 export type Persona = (typeof PERSONAS)[number]
 
-export const INTENTS = ["learn", "practice", "assess"] as const
+export const INTENTS = ["learn", "practice", "assess", "auto"] as const
 export type Intent = (typeof INTENTS)[number]
 
 export const SURFACES = ["chat", "curriculum", "editor", "figure", "quiz"] as const
@@ -76,6 +76,7 @@ export const INTENT_LABELS: Record<Intent, string> = {
   learn: "Understand",
   practice: "Practice",
   assess: "Check",
+  auto: "Auto",
 }
 
 export function isPersona(value: string): value is Persona {
