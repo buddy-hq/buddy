@@ -1,9 +1,9 @@
 import z from "zod"
 import {
   SCAFFOLDING_LEVELS,
-  SURFACE_IDS,
-  TEACHING_INTENT_IDS,
-  PERSONA_IDS,
+  SURFACES,
+  INTENTS,
+  PERSONAS,
   WORKSPACE_STATES,
   ACTIVITY_KINDS,
 } from "@buddy/backend/learning/shared/teaching-vocabulary"
@@ -60,7 +60,7 @@ export const WorkspaceContextArtifactSchema = BaseArtifactSchema.extend({
   pinnedGoalIds: z.array(z.string()).default([]),
   projectConstraints: z.array(z.string()).default([]),
   localToolAvailability: z.array(z.string()).default([]),
-  preferredSurfaces: z.array(z.enum(SURFACE_IDS)).default([]),
+  preferredSurfaces: z.array(z.enum(SURFACES)).default([]),
   motivationContext: z.string().optional(),
   opportunities: z.array(z.string()).default([]),
   userOverride: z.boolean().default(false),
@@ -132,7 +132,7 @@ export const PracticeArtifactSchema = BaseArtifactSchema.extend({
   deliverable: z.string().optional(),
   selfCheck: z.string().optional(),
   whyItMatters: z.string().optional(),
-  surface: z.enum(SURFACE_IDS).optional(),
+  surface: z.enum(SURFACES).optional(),
   addressedFeedbackIds: z.array(z.string()).default([]),
 })
 export type PracticeArtifact = z.infer<typeof PracticeArtifactSchema>
@@ -220,8 +220,8 @@ export const LearnerArtifactSchema = z.discriminatedUnion("kind", [
 export type LearnerArtifact = z.infer<typeof LearnerArtifactSchema>
 
 const SharedSnapshotDecisionSchema = z.object({
-  persona: z.enum(PERSONA_IDS).default("buddy"),
-  intent: z.enum(TEACHING_INTENT_IDS).optional(),
+  persona: z.enum(PERSONAS).default("buddy"),
+  intent: z.enum(INTENTS).optional(),
   focusGoalIds: z.array(z.string()).default([]),
   sessionId: z.string().optional(),
   workspaceState: z.enum(WORKSPACE_STATES).optional(),
