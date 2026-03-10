@@ -2,7 +2,7 @@ import z from "zod"
 import {
   PERSONA_IDS,
   TEACHING_INTENT_IDS,
-} from "../../agents/core/runtime/vocabulary"
+} from "@buddy/backend/learning/shared/teaching-vocabulary"
 import { createBuddyTool, type BuddyToolContext } from "../../shared"
 import { ensurePlanDecision } from ".."
 

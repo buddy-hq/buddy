@@ -1,21 +1,14 @@
-import type { LearnerPromptDigest } from "../agents/core/runtime/types-model"
-import type { PersonaId, TeachingIntentId, WorkspaceState } from "../agents/core/runtime/vocabulary"
-import { buildSessionPlanFromDecision } from "./repository/bridge"
 import { LearnerArtifactStore } from "./repository/store"
-import { SnapshotPlanSchema } from "./repository/types"
 import type {
-  DecisionArtifact,
   SnapshotQuery,
   WorkspaceRecordArtifactKind,
 } from "./repository/types"
-import { compilePromptContext } from "./projections/prompt-context"
 import { LearnerSnapshotCompiler, type LearnerSnapshot } from "./projections/snapshot"
 import { recordAssessmentEvent } from "./workflows/record-assessment"
 import { recordLearnerMessageEvent } from "./workflows/observe-message"
 import { ensurePlanDecision } from "./workflows/plan"
 import { recordPracticeEvent } from "./workflows/record-practice"
 import { ensureWorkspaceContext, patchWorkspace, replaceGoalSet } from "./workflows/workspace"
-import type { SessionPlan } from "./model/types"
 export { ensureWorkspaceContext, patchWorkspace, replaceGoalSet }
 export { recordLearnerMessageEvent, recordPracticeEvent, recordAssessmentEvent, ensurePlanDecision }
 export { learnerTools } from "./tools/tools"
@@ -34,57 +27,7 @@ export type {
   SnapshotQuery,
   WorkspaceRecordArtifactKind,
 } from "./repository/types"
-
-type PromptContextQuery = {
-  persona: PersonaId
-  intent?: TeachingIntentId
-  focusGoalIds: string[]
-  sessionId?: string
-  workspaceState?: WorkspaceState
-}
-
-function fallbackPlan(snapshot: LearnerSnapshot): SessionPlan {
-  return {
-    warmupReviewGoalIds: [],
-    primaryGoalId: undefined,
-    suggestedActivity: "goal-setting",
-    suggestedScaffoldingLevel: "guided",
-    alternatives: [],
-    rationale: ["No plan decision exists yet."],
-    motivationHook: undefined,
-    constraintsConsidered: [...snapshot.constraintsSummary],
-    prerequisiteWarnings: [],
-  }
-}
-
-function planFromDecisionArtifact(input: {
-  snapshot: LearnerSnapshot
-  decision?: DecisionArtifact
-  override?: SessionPlan
-}) {
-  if (input.override) {
-    return input.override
-  }
-
-  const decision = input.decision ?? input.snapshot.latestPlan
-  if (!decision || decision.disposition !== "apply") {
-    return fallbackPlan(input.snapshot)
-  }
-
-  if (!decision.payload || typeof decision.payload !== "object") {
-    return fallbackPlan(input.snapshot)
-  }
-
-  const parsed = SnapshotPlanSchema.safeParse(decision.payload)
-  if (!parsed.success) {
-    return fallbackPlan(input.snapshot)
-  }
-
-  return buildSessionPlanFromDecision({
-    decision: parsed.data,
-    constraintsSummary: input.snapshot.constraintsSummary,
-  })
-}
+export type { LearnerSnapshot } from "./projections/snapshot"
 
 export async function getWorkspaceSnapshot(input: {
   directory: string
@@ -106,33 +49,6 @@ export async function listArtifacts(input: {
   return LearnerArtifactStore.listArtifacts(input)
 }
 
-export async function buildPromptContext(input: {
-  directory: string
-  query: PromptContextQuery
-  sessionPlanOverride?: SessionPlan
-}): Promise<LearnerPromptDigest> {
-  const snapshot = await getWorkspaceSnapshot({
-    directory: input.directory,
-    query: {
-      persona: input.query.persona,
-      intent: input.query.intent,
-      focusGoalIds: input.query.focusGoalIds,
-      sessionId: input.query.sessionId,
-      workspaceState: input.query.workspaceState,
-    },
-  })
-
-  const plan = planFromDecisionArtifact({
-    snapshot,
-    override: input.sessionPlanOverride,
-  })
-
-  return compilePromptContext({
-    snapshot,
-    plan,
-  })
-}
-
 export async function runSafetySweep() {
   await LearnerArtifactStore.ensureProfile()
   return {
@@ -150,6 +66,5 @@ export const LearnerService = {
   recordPracticeEvent,
   recordAssessmentEvent,
   ensurePlanDecision,
-  buildPromptContext,
   runSafetySweep,
 }

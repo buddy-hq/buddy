@@ -6,7 +6,7 @@ import {
   PERSONA_IDS,
   WORKSPACE_STATES,
   ACTIVITY_KINDS,
-} from "../../agents/core/runtime/vocabulary"
+} from "@buddy/backend/learning/shared/teaching-vocabulary"
 
 const TimestampSchema = z.string().datetime()
 

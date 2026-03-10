@@ -79,7 +79,6 @@ Learner is split into focused Buddy-owned modules:
   - schema definitions, markdown parsing/serialization, path mapping, repository operations
 - `learning/learner-model/projections/`
   - `snapshot.ts`: factual workspace snapshot compiler
-  - `prompt-context.ts`: typed prompt digest compiler
 - `learning/learner-model/decisions/`
   - `engine.ts`: structured decision runtime client
   - `prompt.ts`: decision prompts
@@ -111,7 +110,6 @@ Learner is split into focused Buddy-owned modules:
 - `recordPracticeEvent(input)`
 - `recordAssessmentEvent(input)`
 - `ensurePlanDecision(input)`
-- `buildPromptContext(input)`
 - `runSafetySweep()`
 
 These are exported as named functions; `LearnerService` object export remains as a compatibility alias for existing call sites.
@@ -258,9 +256,9 @@ If model resolution fails or structured output parsing fails:
 
 ## Prompt Integration
 
-Session message transform consumes `buildPromptContext(...)`.
+Session message transform consumes `getWorkspaceSnapshot(...)`.
 
-Prompt context is typed and assembled from factual snapshot + latest plan decision summary.
+Prompt context is assembled directly from factual snapshot fields.
 
 No legacy learner projection/query templates are used.
 
