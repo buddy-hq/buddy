@@ -1,5 +1,5 @@
 import { deleteTeachingSessionState, readTeachingSessionState, writeTeachingSessionState } from "../state/session-state"
-import type { TeachingSessionState } from "../../agents/core/runtime/teaching-session-state"
+import type { TeachingSessionState } from "../../agents/core/shared/teaching-session-state"
 
 function cloneTracePayload(input: Record<string, unknown>): Record<string, unknown> {
   try {

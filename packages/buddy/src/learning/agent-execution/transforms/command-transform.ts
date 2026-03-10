@@ -7,7 +7,7 @@ import {
   resolveCurrentSurface,
   resolveFocusGoalIds,
   resolveIntentOverride,
-} from "../../agents/core/runtime/targeting"
+} from "../../agents/core/shared/targeting"
 import { compileRuntimeProfile } from "../../agents/core/runtime/runtime-profile"
 import { readTeachingSessionState, writeTeachingSessionState } from "../state/session-state"
 import { assertSessionExistsInDirectory } from "../../../session"
