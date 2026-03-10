@@ -2,7 +2,7 @@ import type { Context } from "hono"
 import { Hono } from "hono"
 import { resolver } from "hono-openapi"
 import z from "zod"
-import { PERSONA_IDS, TEACHING_INTENT_IDS } from "@buddy/backend/learning/shared/teaching-vocabulary"
+import { PERSONAS, INTENTS } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import {
   ArtifactsRequestSchema,
   ArtifactsResponseSchema,
@@ -36,12 +36,12 @@ const learnerContextQueryParameters = [
   {
     in: "query" as const,
     name: "persona",
-    schema: resolver(z.enum(PERSONA_IDS)),
+    schema: resolver(z.enum(PERSONAS)),
   },
   {
     in: "query" as const,
     name: "intent",
-    schema: resolver(z.enum(TEACHING_INTENT_IDS)),
+    schema: resolver(z.enum(INTENTS)),
   },
   {
     in: "query" as const,

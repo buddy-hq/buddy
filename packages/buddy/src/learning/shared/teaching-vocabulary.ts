@@ -1,39 +1,39 @@
 import { BUNDLED_ACTIVITY_BUNDLES } from "@buddy/backend/learning/agents/curriculum/activities/bundles/data"
 import { BUILTIN_BUDDY_PERSONAS } from "@buddy/backend/learning/agents/personas/registry"
 
-type BuiltinPersonaId = keyof typeof BUILTIN_BUDDY_PERSONAS & string
+type BuiltinPersona = keyof typeof BUILTIN_BUDDY_PERSONAS & string
 
-const derivedPersonaIds = Object.keys(BUILTIN_BUDDY_PERSONAS)
-  .sort((left, right) => left.localeCompare(right)) as BuiltinPersonaId[]
+const derivedPersonas = Object.keys(BUILTIN_BUDDY_PERSONAS)
+  .sort((left, right) => left.localeCompare(right)) as BuiltinPersona[]
 
-if (derivedPersonaIds.length === 0) {
+if (derivedPersonas.length === 0) {
   throw new Error("At least one Buddy persona must be defined")
 }
 
-export const PERSONA_IDS = [...derivedPersonaIds] as [BuiltinPersonaId, ...BuiltinPersonaId[]]
-export type PersonaId = (typeof PERSONA_IDS)[number]
+export const PERSONAS = [...derivedPersonas] as [BuiltinPersona, ...BuiltinPersona[]]
+export type Persona = (typeof PERSONAS)[number]
 
-export const TEACHING_INTENT_IDS = ["learn", "practice", "assess"] as const
-export type TeachingIntentId = (typeof TEACHING_INTENT_IDS)[number]
+export const INTENTS = ["learn", "practice", "assess"] as const
+export type Intent = (typeof INTENTS)[number]
 
-export const SURFACE_IDS = ["chat", "curriculum", "editor", "figure", "quiz"] as const
-export type SurfaceId = (typeof SURFACE_IDS)[number]
+export const SURFACES = ["chat", "curriculum", "editor", "figure", "quiz"] as const
+export type Surface = (typeof SURFACES)[number]
 
-type BuiltinPersonaSurfaceId = (typeof BUILTIN_BUDDY_PERSONAS)[BuiltinPersonaId]["surfaces"][number]
+type BuiltinPersonaSurface = (typeof BUILTIN_BUDDY_PERSONAS)[BuiltinPersona]["surfaces"][number]
 
-const derivedPersonaSurfaceIds = Array.from(
+const derivedPersonaSurfaces = Array.from(
   new Set(Object.values(BUILTIN_BUDDY_PERSONAS).flatMap((persona) => persona.surfaces)),
-).sort((left, right) => left.localeCompare(right)) as BuiltinPersonaSurfaceId[]
+).sort((left, right) => left.localeCompare(right)) as BuiltinPersonaSurface[]
 
-if (derivedPersonaSurfaceIds.length === 0) {
+if (derivedPersonaSurfaces.length === 0) {
   throw new Error("At least one Buddy persona surface must be defined")
 }
 
-export const PERSONA_SURFACE_IDS = [...derivedPersonaSurfaceIds] as [
-  BuiltinPersonaSurfaceId,
-  ...BuiltinPersonaSurfaceId[],
+export const PERSONA_SURFACES = [...derivedPersonaSurfaces] as [
+  BuiltinPersonaSurface,
+  ...BuiltinPersonaSurface[],
 ]
-export type PersonaSurfaceId = (typeof PERSONA_SURFACE_IDS)[number]
+export type PersonaSurface = (typeof PERSONA_SURFACES)[number]
 
 export const WORKSPACE_STATES = ["chat", "interactive"] as const
 export type WorkspaceState = (typeof WORKSPACE_STATES)[number]
@@ -72,20 +72,20 @@ const derivedSubagentIds = Array.from(
 export const SUBAGENT_IDS = [...derivedSubagentIds]
 export type SubagentId = string
 
-export const TEACHING_INTENT_USER_LABELS: Record<TeachingIntentId, string> = {
+export const INTENT_LABELS: Record<Intent, string> = {
   learn: "Understand",
   practice: "Practice",
   assess: "Check",
 }
 
-export function isPersonaId(value: string): value is PersonaId {
-  return PERSONA_IDS.includes(value as PersonaId)
+export function isPersona(value: string): value is Persona {
+  return PERSONAS.includes(value as Persona)
 }
 
-export function isTeachingIntentId(value: string): value is TeachingIntentId {
-  return TEACHING_INTENT_IDS.includes(value as TeachingIntentId)
+export function isIntent(value: string): value is Intent {
+  return INTENTS.includes(value as Intent)
 }
 
-export function isPersonaSurfaceId(value: string): value is PersonaSurfaceId {
-  return PERSONA_SURFACE_IDS.includes(value as PersonaSurfaceId)
+export function isPersonaSurface(value: string): value is PersonaSurface {
+  return PERSONA_SURFACES.includes(value as PersonaSurface)
 }
