@@ -28,11 +28,10 @@ If the code is still hard to reason about after the refactor, the refactor is no
 
 1. Prefer direct code over clever code.
 2. Prefer explicit flow over indirection.
-3. Prefer small focused modules over one giant file.
+3. Prefer small focused modules over one giant file. But never split code that belongs together in the same file just because it's large.
 4. Prefer descriptive names over comments that explain bad names.
-5. Prefer one responsibility per file and per function.
-6. Prefer stable contracts and clear boundaries.
-7. Prefer local reasoning: you should not need to open many files to understand one path.
+5. Prefer stable contracts and clear boundaries.
+6. Prefer local reasoning: you should not need to open many files to understand one path.
 
 ## What To Remove
 
@@ -42,9 +41,8 @@ Remove these patterns aggressively:
 2. Generic abstractions used once.
 3. Utility functions that hide straightforward logic.
 4. Premature extension points with no real caller.
-5. “Pipeline” style code that obscures ordering and state.
-6. Repeated filtering/mapping chains that can be one clear pass.
-7. Indirection introduced only to look “architected.”
+5. Repeated filtering/mapping chains that can be one clear pass.
+6. Indirection introduced only to look “architected.”
 
 ## Preferred Refactor Shape
 
@@ -55,25 +53,7 @@ Use this shape by default:
 3. Keep shared helpers minimal and obvious.
 4. Use explicit input/output types at module boundaries.
 5. Keep internal helpers private unless reused.
-6. Keep data transformations close to where they are used.
 
-## Entrypoint Standard
-
-For boundary code (for example HTTP handlers, CLI commands, tool entrypoints, workers), keep a single readable control flow by default.
-
-Each entrypoint should show this flow inline and in order:
-
-1. Parse/validate input.
-2. Perform authorization/capability checks.
-3. Call service/orchestrator.
-4. Map result to boundary output.
-
-Apply these constraints:
-
-1. Keep boundary metadata/contracts close to handlers when they are local to that flow.
-2. Keep business/domain logic outside boundary handlers in owned modules.
-3. Extract shared helpers only when reused and clearly reducing noise.
-4. Do not split one thin entrypoint flow into multiple files unless it clearly improves local reasoning.
 
 ## Naming Rules
 
@@ -90,37 +70,10 @@ Apply these constraints:
 4. Keep async orchestration explicit (`Promise.all` only when independent).
 5. Keep mutation intentional and local.
 
-## Type Rules
 
-1. Keep public types explicit.
-2. Keep domain types near domain modules.
-3. Keep state contract types where state is owned.
-4. Avoid type churn with broad rename-only changes unless needed.
-5. Avoid `any`; use narrow unions and explicit shape types.
 
-## Module Boundaries
-
-1. Group code by feature ownership, not by technical novelty.
-2. Keep runtime/state contracts separate from presentation/formatting logic.
-3. Keep a single module entrypoint when a feature has multiple internals.
-4. Keep compatibility barrels only when they reduce migration risk.
-5. Delete dead paths and stale files during refactor.
-6. Co-locate code that changes together; if two modules must be edited together frequently, they likely belong together.
-7. Avoid dual modularization for one feature path (for example splitting one flow across two ownership areas without a clear boundary).
-
-## Refactor Workflow
-
-1. Map current behavior and call sites first.
-2. Define target module boundaries before editing.
-3. Extract/move code in small safe steps.
-4. Keep existing behavior and output shape stable.
-5. Update imports immediately after each move.
-6. Run typecheck and relevant tests after each substantial step.
-7. Remove leftovers and duplicate code at the end.
 
 ## Code Review Checklist
-
-A refactor PR is acceptable only if all are true:
 
 1. Behavior is unchanged and verified by tests.
 2. Entrypoint flow can be understood top-to-bottom quickly.
@@ -133,7 +86,7 @@ A refactor PR is acceptable only if all are true:
 9. Entrypoint flow is readable in one pass without hopping through thin wrapper files.
 10. Entrypoint handlers visibly follow parse/validate → authorization/capability → service/orchestrator → output mapping.
 
-## Red Flags (Reject PR)
+## Red Flags
 
 Reject refactor PRs that do any of the following:
 
