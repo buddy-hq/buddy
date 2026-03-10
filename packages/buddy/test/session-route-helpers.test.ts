@@ -8,7 +8,7 @@ import {
   hasExplicitModel,
   normalizePersonaTarget,
   resolveFocusGoalIds,
-  resolveIntentOverride,
+  resolveIntent,
 } from "../src/learning/shared/targeting"
 import { isSessionNotFoundError, SessionTransformValidationError } from "../src/session"
 import { tmpdir } from "./fixture/fixture"
@@ -52,7 +52,7 @@ describe("session route helper modules", () => {
     ).toThrow(SessionTransformValidationError)
 
     expect(
-      resolveIntentOverride({
+      resolveIntent({
         body: { intent: "practice" },
         config,
       }),
@@ -78,6 +78,7 @@ describe("session route helper modules", () => {
     writeTeachingSessionState(project.path, {
       sessionId: "ses_helper",
       persona: "buddy",
+      intent: "auto",
       currentSurface: "curriculum",
       workspaceState: "chat",
       focusGoalIds: ["goal_1"],

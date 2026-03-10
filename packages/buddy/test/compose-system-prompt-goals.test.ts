@@ -38,7 +38,7 @@ describe("composeLearningSystemPrompt (learner store)", () => {
     const runtimeProfile = resolveCapabilityProfile({
       persona: getBuddyPersona("buddy"),
       workspaceState: "chat",
-      intentOverride: "learn",
+      intent: "learn",
     })
     const activityBundle = runtimeProfile.capabilityEnvelope.activityBundles.find(
       (bundle) => bundle.id === "learn-worked-example",

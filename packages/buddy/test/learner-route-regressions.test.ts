@@ -11,7 +11,7 @@ describe("learner route regressions", () => {
     writeTeachingSessionState(project.path, {
       sessionId: "ses_interactive",
       persona: "code-buddy",
-      intentOverride: "practice",
+      intent: "practice",
       currentSurface: "editor",
       workspaceState: "interactive",
       focusGoalIds: [],

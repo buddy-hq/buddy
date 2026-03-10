@@ -9,6 +9,7 @@ describe("buildBuddyRuntimeSessionPermissions", () => {
     const runtimeProfile = resolveCapabilityProfile({
       persona: getBuddyPersona("buddy"),
       workspaceState: "chat",
+      intent: "auto",
     })
     const permissions = buildBuddyRuntimeSessionPermissions({
       existing: [
@@ -36,7 +37,7 @@ describe("buildBuddyRuntimeSessionPermissions", () => {
     const runtimeProfile = resolveCapabilityProfile({
       persona: getBuddyPersona("code-buddy"),
       workspaceState: "interactive",
-      intentOverride: "practice",
+      intent: "practice",
     })
     const permissions = buildBuddyRuntimeSessionPermissions({
       existing: [

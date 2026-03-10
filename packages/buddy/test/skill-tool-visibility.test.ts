@@ -37,7 +37,7 @@ describe("skill tool visibility", () => {
         const runtimeProfile = resolveCapabilityProfile({
           persona: getBuddyPersona("buddy"),
           workspaceState: "chat",
-          intentOverride: "learn",
+          intent: "learn",
         })
         const permission = buildBuddyRuntimeSessionPermissions({
           runtimeProfile,

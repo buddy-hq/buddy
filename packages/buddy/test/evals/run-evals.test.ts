@@ -11,6 +11,7 @@ describe("teaching eval harness", () => {
     const profile = resolveCapabilityProfile({
       persona: getBuddyPersona("code-buddy"),
       workspaceState: "interactive",
+      intent: "auto",
     })
 
     expectVisibleSurfaces(profile, ["curriculum", "editor"])
@@ -28,6 +29,7 @@ describe("teaching eval harness", () => {
     const profile = resolveCapabilityProfile({
       persona: getBuddyPersona("buddy"),
       workspaceState: "chat",
+      intent: "auto",
     })
 
     expectAllowedTools(profile, ["learner_snapshot_read", "learner_practice_record", "learner_assessment_record"])
@@ -40,6 +42,7 @@ describe("teaching eval harness", () => {
     const profile = resolveCapabilityProfile({
       persona: getBuddyPersona("code-buddy"),
       workspaceState: "interactive",
+      intent: "practice",
     })
     const snapshot = await LearnerService.getWorkspaceSnapshot({
       directory: project.path,
@@ -71,7 +74,7 @@ describe("teaching eval harness", () => {
     expect(prompt.systemContext).toContain("<buddy_runtime_header>")
     expect(prompt.systemContext).toContain("<workspace_state>")
     expect(prompt.systemContext).toContain("<teaching_workspace>")
-    expect(prompt.systemContext).toContain("Intent override: practice")
+    expect(prompt.systemContext).toContain("Intent focus: practice")
     expect(prompt.systemContext).toContain("An interactive lesson workspace is active")
     expect(prompt.turnReminder).toBeUndefined()
   })
@@ -82,7 +85,7 @@ describe("teaching eval harness", () => {
     const profile = resolveCapabilityProfile({
       persona: getBuddyPersona("code-buddy"),
       workspaceState: "interactive",
-      intentOverride: "practice",
+      intent: "practice",
     })
     const snapshot = await LearnerService.getWorkspaceSnapshot({
       directory: project.path,

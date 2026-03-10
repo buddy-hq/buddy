@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test"
-import { intentOverrideFromSelection } from "../src/state/teaching-runtime"
+import { intentFromSelection } from "../src/state/teaching-runtime"
 
-describe("intentOverrideFromSelection", () => {
-  test("returns undefined when the UI is left on Auto", () => {
-    expect(intentOverrideFromSelection("auto")).toBeUndefined()
+describe("intentFromSelection", () => {
+  test("returns auto when the UI is left on Auto", () => {
+    expect(intentFromSelection("auto")).toBe("auto")
   })
 
   test("passes through explicit teaching intents", () => {
-    expect(intentOverrideFromSelection("learn")).toBe("learn")
-    expect(intentOverrideFromSelection("practice")).toBe("practice")
-    expect(intentOverrideFromSelection("assess")).toBe("assess")
+    expect(intentFromSelection("learn")).toBe("learn")
+    expect(intentFromSelection("practice")).toBe("practice")
+    expect(intentFromSelection("assess")).toBe("assess")
   })
 })

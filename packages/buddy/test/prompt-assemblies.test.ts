@@ -54,15 +54,16 @@ async function readNormalizedFixture(filepath: string) {
 async function buildRuntimePrompt(input: {
   directory: string
   persona: "buddy" | "code-buddy" | "math-buddy"
-  intent?: "learn" | "practice" | "assess"
+  intent?: "auto" | "learn" | "practice" | "assess"
   teachingContext?: Parameters<typeof buildLearningSystemPrompt>[0]["teachingContext"]
 }) {
+  const intent = input.intent ?? "auto"
   const workspaceState = input.teachingContext?.active ? "interactive" : "chat"
   const snapshot = await LearnerService.getWorkspaceSnapshot({
     directory: input.directory,
     query: {
       persona: input.persona,
-      intent: input.intent ?? "learn",
+      intent,
       focusGoalIds: [],
       workspaceState,
     },
@@ -70,12 +71,14 @@ async function buildRuntimePrompt(input: {
   const profile = resolveCapabilityProfile({
     persona: getBuddyPersona(input.persona),
     workspaceState,
+    intent: intent,
   })
 
   const { systemContext, turnReminder } = await buildLearningSystemPrompt({
     directory: input.directory,
     persona: profile.persona,
     capabilityEnvelope: profile.capabilityEnvelope,
+    intent,
     learnerSnapshot: snapshot,
     focusGoalIds: [],
     teachingContext: input.teachingContext,
@@ -102,7 +105,7 @@ describe("prompt assemblies", () => {
 
     expect(system).toContain("<buddy_runtime_header>")
     expect(system).toContain("Persona: buddy")
-    expect(system).toContain("Intent override: auto")
+    expect(system).toContain("Intent focus: auto")
     expect(system).toContain("<workspace_state>")
     expect(system).toContain("No relevant goals exist yet")
   })

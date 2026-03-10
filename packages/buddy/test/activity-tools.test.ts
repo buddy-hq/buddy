@@ -16,7 +16,7 @@ describe("activity tools", () => {
         writeTeachingSessionState(project.path, {
           sessionId: "ses_activity",
           persona: "buddy",
-          intentOverride: "learn",
+          intent: "learn",
           currentSurface: "curriculum",
           workspaceState: "chat",
           focusGoalIds: [],

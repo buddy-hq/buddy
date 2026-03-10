@@ -7,6 +7,7 @@ describe("resolveCapabilityProfile activity bundles", () => {
     const runtimeProfile = resolveCapabilityProfile({
       persona: getBuddyPersona("math-buddy"),
       workspaceState: "chat",
+      intent: "auto",
     })
 
     const bundleIds = runtimeProfile.capabilityEnvelope.activityBundles.map((bundle) => bundle.id)
@@ -24,7 +25,7 @@ describe("resolveCapabilityProfile activity bundles", () => {
     const runtimeProfile = resolveCapabilityProfile({
       persona: getBuddyPersona("code-buddy"),
       workspaceState: "interactive",
-      intentOverride: "practice",
+      intent: "practice",
     })
 
     expect(runtimeProfile.capabilityEnvelope.activityBundles.every((bundle) => bundle.intent === "practice")).toBe(true)
