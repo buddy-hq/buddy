@@ -1,7 +1,7 @@
 import z from "zod"
 import {
-  PERSONA_IDS,
-  TEACHING_INTENT_IDS,
+  PERSONAS,
+  INTENTS,
   WORKSPACE_STATES,
 } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import {
@@ -45,8 +45,8 @@ export const LearnerArtifactListQuerySchema = z.object({
 })
 
 const BaseLearnerRequestSchema = z.object({
-  persona: z.enum(PERSONA_IDS).optional(),
-  intent: z.enum(TEACHING_INTENT_IDS).optional(),
+  persona: z.enum(PERSONAS).optional(),
+  intent: z.enum(INTENTS).optional(),
   goalIds: z.array(z.string()).optional(),
   sessionId: z.string().optional(),
   workspaceState: z.enum(WORKSPACE_STATES).optional(),

@@ -14,14 +14,14 @@ import {
   TeachingWorkspaceNotFoundError,
 } from "../../../agents/capabilities"
 import { getBuddyPersona, getDefaultBuddyPersona } from "../../../agents/personas"
-import { isPersonaId } from "../../../agents/personas"
+import { isPersona } from "../../../agents/personas"
 
 export function resolveTeachingProvisionPersona(input: {
   config: Awaited<ReturnType<typeof readProjectConfig>>
   requestedPersona?: string
 }) {
   if (input.requestedPersona) {
-    if (!isPersonaId(input.requestedPersona)) {
+    if (!isPersona(input.requestedPersona)) {
       return undefined
     }
 
