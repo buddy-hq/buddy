@@ -1,4 +1,4 @@
-import { Config } from "@buddy/backend/config"
+import { Config } from "@buddy/backend/config/config"
 
 type BuddyAgentConfigInput = Parameters<(typeof Config.Agent)["parse"]>[0]
 type BuddyAgentConfig = ReturnType<(typeof Config.Agent)["parse"]>

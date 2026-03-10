@@ -6,7 +6,7 @@ import type {
   SubagentId,
   TeachingIntentId,
   WorkspaceState,
-} from "./vocabulary"
+} from "@buddy/backend/learning/shared/teaching-vocabulary"
 import type { ToolId } from "./tool-id"
 import type { SubagentDelta, ToolDelta } from "./types-primitives"
 
@@ -45,21 +45,6 @@ export type PersonaCatalogEntry = Pick<
   PersonaDefinition,
   "id" | "label" | "description" | "surfaces" | "defaultSurface" | "hidden"
 >
-
-export type LearnerPromptDigest = {
-  coldStart: boolean
-  workspaceLabel: string
-  workspaceTags: string[]
-  relevantGoalIds: string[]
-  recommendedNextAction: ActivityKind
-  constraintsSummary: string[]
-  openFeedbackActions: string[]
-  sessionPlanSummary: string[]
-  alignmentSummary: string[]
-  tier1: string[]
-  tier2: string[]
-  tier3: string[]
-}
 
 export type SkillCapability = {
   name: string

@@ -4,11 +4,11 @@ import type { PromptBuildContext } from "../system"
 import type { MessagePromptPipelineContext } from "./types"
 import { TeachingPromptContextSchema } from "../../../capabilities"
 import { getBuddyPersona } from "../../../personas"
-import { buildPromptContext } from "../../../../learner-model"
+import { getWorkspaceSnapshot } from "../../../../learner-model"
 import { SessionTransformValidationError } from "../../../../../session"
 import { compileRuntimeProfile } from "../../runtime/runtime-profile"
-import type { TeachingSessionState } from "../../runtime/teaching-session-state"
-import type { WorkspaceState } from "../../runtime/vocabulary"
+import type { TeachingSessionState } from "../../shared/teaching-session-state"
+import type { WorkspaceState } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import {
   assertNoLegacyRuntimeOverrides,
   hasExplicitModel,
@@ -16,7 +16,7 @@ import {
   resolveCurrentSurface,
   resolveFocusGoalIds,
   resolveIntentOverride,
-} from "../../runtime/targeting"
+} from "../../shared/targeting"
 
 export type MessagePromptPipelineResult = {
   transformed: Record<string, unknown>
@@ -45,18 +45,6 @@ export async function runMessagePromptPipeline(input: {
     throw new SessionTransformValidationError("content or parts must be provided")
   }
 
-  const allTextContent =
-    content.trim().length > 0
-      ? content
-      : parts
-          .filter((part): part is { type: "text"; text: string } => {
-            if (!part || typeof part !== "object") return false
-            if (!("type" in part) || !("text" in part)) return false
-            return part.type === "text" && typeof part.text === "string"
-          })
-          .map((part) => part.text)
-          .join("\n")
-
   const teachingContextResult = TeachingPromptContextSchema.safeParse(input.body.teaching)
   const teachingContext = teachingContextResult.success ? teachingContextResult.data : undefined
   const target = normalizePersonaTarget({
@@ -81,15 +69,16 @@ export async function runMessagePromptPipeline(input: {
       config: input.projectConfig,
     })
     const focusGoalIds = resolveFocusGoalIds(input.body)
-    const learnerDigest = await buildPromptContext({
+    const workspaceState: WorkspaceState = teachingContext?.active ? "interactive" : "chat"
+    const learnerSnapshot = await getWorkspaceSnapshot({
       directory: input.context.directory,
       query: {
         persona: persona.id,
         intent: intentOverride,
         focusGoalIds,
+        workspaceState,
       },
     })
-    const workspaceState: WorkspaceState = teachingContext?.active ? "interactive" : "chat"
     const runtimeProfile = compileRuntimeProfile({
       persona,
       workspaceState,
@@ -104,9 +93,8 @@ export async function runMessagePromptPipeline(input: {
         intentOverride,
       },
       learner: {
-        digest: learnerDigest,
+        snapshot: learnerSnapshot,
         focusGoalIds,
-        userContent: allTextContent,
       },
       workspace: {
         teachingContext,

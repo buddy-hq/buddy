@@ -40,8 +40,7 @@ export async function buildLearningSystemPrompt(input: BuildLearningSystemPrompt
     previousState: input.previousState,
     currentState,
     activityBundle: input.runtime.activityBundle,
-    completionClaim: systemBuild.reminderSignals.completionClaim,
-    changedSinceCheckpoint: systemBuild.reminderSignals.changedSinceCheckpoint,
+    changedSinceCheckpoint: systemBuild.changedSinceCheckpoint,
   })
 
   return {

@@ -2,15 +2,11 @@ import type {
   ActivityBundleCapability,
   RuntimeProfile,
   TeachingIntentId,
-  WorkspaceState,
 } from "../../runtime/types"
+import type { PromptRuntimeState } from "../../shared/teaching-session-state"
 import type { TeachingPromptContext } from "../../../capabilities"
-
-export type PromptRuntimeState = {
-  persona: string
-  intentOverride?: TeachingIntentId
-  workspaceState: WorkspaceState
-}
+import type { LearnerSnapshot } from "../../../../learner-model"
+export type { PromptRuntimeState } from "../../shared/teaching-session-state"
 
 export type PromptBuildContext = {
   runtime: {
@@ -20,13 +16,8 @@ export type PromptBuildContext = {
     activityBundle?: ActivityBundleCapability
   }
   learner: {
-    digest: {
-      tier1: string[]
-      tier2: string[]
-      tier3: string[]
-    }
+    snapshot: LearnerSnapshot
     focusGoalIds: string[]
-    userContent?: string
   }
   workspace: {
     teachingContext?: TeachingPromptContext

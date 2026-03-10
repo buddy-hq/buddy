@@ -1,11 +1,8 @@
 import type {
   ActivityBundleCapability,
 } from "../../runtime/types"
-import type { PromptRuntimeState } from "./prompt-build-context"
-
-function hasText(value: string | undefined | null): value is string {
-  return typeof value === "string" && value.trim().length > 0
-}
+import { hasText } from "../../shared/text"
+import type { PromptRuntimeState } from "../../shared/teaching-session-state"
 
 function isExecutionFocusedState(state: PromptRuntimeState): boolean {
   if (state.intentOverride === "learn") return false
@@ -32,7 +29,6 @@ export function buildTurnReminder(input: {
   previousState?: PromptRuntimeState
   currentState: PromptRuntimeState
   activityBundle?: ActivityBundleCapability
-  completionClaim: boolean
   changedSinceCheckpoint?: boolean
 }) {
   const focusShift = buildFocusShiftReminder({
@@ -61,10 +57,6 @@ export function buildTurnReminder(input: {
     ? `This turn has an explicit activity bundle override: ${input.activityBundle.label} (${input.activityBundle.id}). Treat it as primary unless the learner's message conflicts.`
     : undefined
 
-  const completionReminder = input.completionClaim
-    ? "The learner's latest message sounds like a completion claim. Verify before advancing."
-    : undefined
-
   const checkpointReminder = input.changedSinceCheckpoint
     ? "There are unaccepted lesson changes since the last checkpoint. Verify before accepting progress."
     : undefined
@@ -75,7 +67,6 @@ export function buildTurnReminder(input: {
     intentTransition,
     workspaceTransition,
     activityOverride,
-    completionReminder,
     checkpointReminder,
   ].filter(hasText)
 
