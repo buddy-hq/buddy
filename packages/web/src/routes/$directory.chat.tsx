@@ -72,13 +72,12 @@ import {
 } from "../state/teaching-actions"
 import {
   TEACHING_LANGUAGE_OPTIONS,
-  intentOverrideFromSelection,
+  intentFromSelection,
   teachingLanguageLabel,
   teachingSessionKey,
   useTeachingRuntime,
   type TeachingLanguage,
   type TeachingIntent,
-  type TeachingIntentSelection,
 } from "../state/teaching-runtime"
 import { useUiPreferences } from "../state/ui-preferences"
 
@@ -265,7 +264,7 @@ async function loadComposerConfiguration(directory: string) {
     commands: PromptCommandOption[]
     configuredDefault: string
     configuredModel: { providerID: string; modelID: string } | undefined
-    configuredIntent: TeachingIntentSelection
+    configuredIntent: TeachingIntent
   }
 }
 
@@ -288,7 +287,7 @@ function DirectoryChatPage() {
   const [personaCatalog, setPersonaCatalog] = useState<PersonaConfigOption[]>([])
   const [slashCommands, setSlashCommands] = useState<PromptCommandOption[]>([])
   const [defaultPersona, setDefaultPersona] = useState("buddy")
-  const [defaultIntent, setDefaultIntent] = useState<TeachingIntentSelection>("auto")
+  const [defaultIntent, setDefaultIntent] = useState<TeachingIntent>("auto")
   const [configuredModel, setConfiguredModel] = useState<{ providerID: string; modelID: string } | undefined>(undefined)
   const [selectedThinking, setSelectedThinking] = useState("default")
   const [pendingSuggestionOverride, setPendingSuggestionOverride] = useState<
@@ -719,7 +718,7 @@ function DirectoryChatPage() {
       if (!runtime) return
       const teaching = useTeachingRuntime.getState()
       teaching.setSessionPersona(activeSessionKey, runtime.persona)
-      teaching.setSessionIntent(activeSessionKey, runtime.intentOverride ?? "auto")
+      teaching.setSessionIntent(activeSessionKey, runtime.intent ?? "auto")
     } catch {
       // Ignore sessions that have not produced Buddy teaching state yet.
     }
@@ -1133,7 +1132,7 @@ function DirectoryChatPage() {
     await sendPrompt(decodedDirectory, content, {
       parts: buildPromptAttachmentParts(rawAttachments),
       persona: selectedPersona,
-      intent: input.intent ?? intentOverrideFromSelection(storedIntent),
+      intent: input.intent ?? intentFromSelection(storedIntent),
       activityBundleId: input.activityBundleId,
       focusGoalIds: input.focusGoalIds,
       model: modelSelection,
@@ -1163,7 +1162,7 @@ function DirectoryChatPage() {
       await sendCommand(decodedDirectory, slashCommand.command.name, slashCommand.arguments, {
           parts: attachmentParts,
           persona: selectedPersona,
-          intent: intentOverrideFromSelection(storedIntent),
+          intent: intentFromSelection(storedIntent),
           model: modelSelection,
           variant,
         })
@@ -1460,7 +1459,7 @@ function DirectoryChatPage() {
     }
   }
 
-  function onIntentChange(intent: TeachingIntentSelection) {
+  function onIntentChange(intent: TeachingIntent) {
     if (!sessionKey) return
     teachingRuntime.setSessionIntent(sessionKey, intent)
   }
@@ -1570,7 +1569,7 @@ function DirectoryChatPage() {
         `I started an interactive lesson in ${teachingLanguageLabel(preferredLanguage)} mode. Interactive workspace tools are now available. Please use the editor workspace to set up the next hands-on step and guide me there.`,
         {
           persona: selectedPersona,
-          intent: intentOverrideFromSelection(storedIntent),
+          intent: intentFromSelection(storedIntent),
           model: effectiveModelSelection,
           teaching: {
             active: true,
@@ -1903,7 +1902,7 @@ function DirectoryChatPage() {
               surfaces={selectedPersonaSurfaces}
               sessionID={sessionID}
               persona={selectedPersona}
-              intent={intentOverrideFromSelection(storedIntent)}
+              intent={intentFromSelection(storedIntent)}
               onRunAction={(action) => {
                 void onRunLearningPlanAction(action)
               }}

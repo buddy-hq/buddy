@@ -125,8 +125,7 @@ export type TeachingWorkspaceState = TeachingWorkspace & {
   selection?: TeachingSelection
 }
 
-export type TeachingIntent = "learn" | "practice" | "assess"
-export type TeachingIntentSelection = TeachingIntent | "auto"
+export type TeachingIntent = "auto" | "learn" | "practice" | "assess"
 
 export const TEACHING_INTENT_OPTIONS = [
   { value: "auto", label: "Auto" },
@@ -134,21 +133,21 @@ export const TEACHING_INTENT_OPTIONS = [
   { value: "practice", label: "Practice" },
   { value: "assess", label: "Assess" },
 ] as const satisfies Array<{
-  value: TeachingIntentSelection
+  value: TeachingIntent
   label: string
 }>
 
-export function intentOverrideFromSelection(selection: TeachingIntentSelection) {
-  return selection === "auto" ? undefined : selection
+export function intentFromSelection(selection: TeachingIntent) {
+  return selection
 }
 
 export type TeachingRuntimeState = {
   selectedPersonaBySession: Record<string, string>
-  selectedIntentBySession: Record<string, TeachingIntentSelection>
+  selectedIntentBySession: Record<string, TeachingIntent>
   preferredLanguageBySession: Record<string, TeachingLanguage>
   workspaceBySession: Record<string, TeachingWorkspaceState>
   setSessionPersona: (sessionKey: string, persona: string) => void
-  setSessionIntent: (sessionKey: string, intent: TeachingIntentSelection) => void
+  setSessionIntent: (sessionKey: string, intent: TeachingIntent) => void
   setPreferredLanguage: (sessionKey: string, language: TeachingLanguage) => void
   setWorkspace: (sessionKey: string, workspace: TeachingWorkspace) => void
   updateWorkspaceCode: (sessionKey: string, code: string) => void

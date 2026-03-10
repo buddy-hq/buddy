@@ -6,14 +6,14 @@ import {
   patchProjectConfig,
   type PersonaConfigOption,
 } from "./chat-actions"
-import type { TeachingIntentSelection } from "./teaching-runtime"
+import type { TeachingIntent } from "./teaching-runtime"
 import type { ProviderCatalogState } from "./chat-types"
 
 export type LogLevel = "debug" | "info" | "warn" | "error"
 
 type ProjectSettingsDraft = {
   persona: string
-  intent: TeachingIntentSelection
+  intent: TeachingIntent
   provider: string
   model: string
   logLevel: LogLevel | ""
@@ -279,7 +279,7 @@ export function useProjectSettings(directory: string, open: boolean) {
           },
         }))
       },
-      setIntent(intent: TeachingIntentSelection) {
+      setIntent(intent: TeachingIntent) {
         setState((current) => ({
           ...current,
           draft: {

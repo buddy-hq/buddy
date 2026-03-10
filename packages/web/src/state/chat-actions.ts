@@ -8,7 +8,10 @@ import type {
   ProviderInfo,
   SessionInfo,
 } from "./chat-types"
-import type { TeachingIntent, TeachingPromptContext } from "./teaching-runtime"
+import type {
+  TeachingIntent,
+  TeachingPromptContext,
+} from "./teaching-runtime"
 import { apiFetch, requestJson, stringifyError } from "../lib/api-client"
 import { getOpenCodeClient } from "../lib/opencode-client"
 import type { PromptAttachmentPart, PromptFilePart } from "../components/prompt/prompt-types"
@@ -121,7 +124,7 @@ export type PromptCommandOption = {
 export type TeachingSessionSnapshot = {
   sessionId: string
   persona: string
-  intentOverride?: TeachingIntent
+  intent: TeachingIntent
   currentSurface: string
   workspaceState: "chat" | "interactive"
   focusGoalIds: string[]
@@ -455,7 +458,7 @@ export async function sendPrompt(
   input?: {
     parts?: PromptAttachmentPart[]
     persona?: string
-    intent?: TeachingIntent
+    intent: TeachingIntent
     activityBundleId?: string
     focusGoalIds?: string[]
     agent?: string
@@ -478,6 +481,8 @@ export async function sendPrompt(
   store.applySessionStatus(directory, sessionID, "busy")
 
   try {
+    const intent = input?.intent ?? "auto"
+
     console.info("[chat-action] prompt.start", {
       directory,
       contentLength: content.length,
@@ -493,7 +498,7 @@ export async function sendPrompt(
           content,
           ...(input?.parts && input.parts.length > 0 ? { parts: input.parts } : {}),
           ...(input?.persona ? { persona: input.persona } : {}),
-          ...(input?.intent ? { intent: input.intent } : {}),
+          intent,
           ...(input?.activityBundleId ? { activityBundleId: input.activityBundleId } : {}),
           ...(input?.focusGoalIds && input.focusGoalIds.length > 0 ? { focusGoalIds: input.focusGoalIds } : {}),
           ...(input?.agent ? { agent: input.agent } : {}),
@@ -526,7 +531,7 @@ export async function sendCommand(
   input?: {
     parts?: PromptFilePart[]
     persona?: string
-    intent?: TeachingIntent
+    intent: TeachingIntent
     agent?: string
     model?: {
       providerID: string
@@ -546,6 +551,8 @@ export async function sendCommand(
   store.applySessionStatus(directory, sessionID, "busy")
 
   try {
+    const intent = input?.intent ?? "auto"
+
     await requestJson<MessageWithParts>(
       directory,
       `/api/session/${encodeURIComponent(sessionID)}/command`,
@@ -556,7 +563,7 @@ export async function sendCommand(
           arguments: argumentsText,
           ...(input?.parts && input.parts.length > 0 ? { parts: input.parts } : {}),
           ...(input?.persona ? { persona: input.persona } : {}),
-          ...(input?.intent ? { intent: input.intent } : {}),
+          intent,
           ...(input?.agent ? { agent: input.agent } : {}),
           ...(input?.model
             ? { model: `${input.model.providerID}/${input.model.modelID}` }
@@ -725,8 +732,9 @@ export async function loadCurriculumView(
   },
 ) {
   const query = new URLSearchParams()
+  const intent = input?.intent ?? "auto"
   if (input?.persona) query.set("persona", input.persona)
-  if (input?.intent) query.set("intent", input.intent)
+  query.set("intent", intent)
   if (input?.sessionID) query.set("sessionId", input.sessionID)
   const search = query.toString()
 
