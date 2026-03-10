@@ -4,7 +4,7 @@ import type {
   PersonaDefinition,
 } from "../../../core/runtime/types-model"
 import type { SubagentAccess } from "../../../core/runtime/types"
-import type { SubagentId, TeachingIntentId, WorkspaceState } from "../../../core/runtime/vocabulary"
+import type { SubagentId, TeachingIntentId, WorkspaceState } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import type { ToolId } from "../../../core/runtime/tool-id"
 import {
   BUNDLED_ACTIVITY_SKILL_NAMES,

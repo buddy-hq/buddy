@@ -2,7 +2,7 @@ import type {
   ActivityBundleDefinition,
   PersonaDefinition,
 } from "../../../core/runtime/types-model"
-import type { TeachingIntentId, WorkspaceState } from "../../../core/runtime/vocabulary"
+import type { TeachingIntentId, WorkspaceState } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import { BUNDLED_ACTIVITY_BUNDLES } from "./data"
 
 function bundleMatchesIntent(bundle: ActivityBundleDefinition, intentOverride?: TeachingIntentId) {

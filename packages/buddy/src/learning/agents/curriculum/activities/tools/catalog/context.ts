@@ -1,7 +1,7 @@
-import { readTeachingSessionState } from "../../../../../agent-execution"
-import type { TeachingIntentId } from "../../../../core/runtime/vocabulary"
+import { readTeachingSessionState } from "../../../../../agent-execution/state"
+import type { TeachingIntentId } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import type { BuddyToolContext } from "../../../../../shared"
-import { buildPromptContext, ensureWorkspaceContext, listArtifacts } from "../../../../../learner-model"
+import { ensureWorkspaceContext, getWorkspaceSnapshot, listArtifacts } from "../../../../../learner-model"
 import type { GoalArtifact } from "../../../../../learner-model"
 import type { ActivityToolContext, ActivityToolParams } from "./contracts"
 
@@ -14,10 +14,9 @@ export function pickPrimaryGoal(context: ActivityToolContext) {
 }
 
 export function summarizeLearnerContext(context: ActivityToolContext) {
-  const lines = [...context.tier1, ...context.tier2, ...context.tier3]
+  const lines = context.learnerSummaryLines
     .map((line) => compactLine(line))
     .filter((line) => line.length > 0)
-    .filter((line) => !line.startsWith("<") && !line.endsWith(">"))
 
   return lines.slice(0, 4)
 }
@@ -31,15 +30,16 @@ export async function resolveActivityToolContext(
   const workspace = await ensureWorkspaceContext(ctx.directory)
   const requestedGoalIds = params.goalIds ?? []
   const focusGoalIds = requestedGoalIds.length > 0 ? requestedGoalIds : runtimeState?.focusGoalIds ?? []
-  const digest = await buildPromptContext({
+  const snapshot = await getWorkspaceSnapshot({
     directory: ctx.directory,
     query: {
       persona: runtimeState?.persona ?? "buddy",
       intent,
       focusGoalIds,
+      workspaceState: runtimeState?.workspaceState,
     },
   })
-  const goalIds = focusGoalIds.length > 0 ? focusGoalIds : digest.relevantGoalIds
+  const goalIds = focusGoalIds.length > 0 ? focusGoalIds : snapshot.goals.map((goal) => goal.id)
   const goals = ((await listArtifacts({
     directory: ctx.directory,
     kind: "goal",
@@ -47,6 +47,16 @@ export async function resolveActivityToolContext(
   })) as GoalArtifact[])
     .filter((goal) => goalIds.includes(goal.id))
     .slice(0, 3)
+  const learnerSummaryLines = [
+    `Workspace: ${workspace.label}`,
+    snapshot.goals.length > 0
+      ? `Primary goal: ${compactLine(snapshot.goals[0]?.statement ?? "")}`
+      : "No active goals in scope.",
+    `Open feedback items: ${snapshot.openFeedback.length}`,
+    `Active misconceptions: ${snapshot.activeMisconceptions.length}`,
+    `Recent evidence records: ${snapshot.recentEvidence.length}`,
+    ...snapshot.constraintsSummary.map((line) => `Constraint: ${compactLine(line)}`),
+  ]
 
   return {
     workspaceLabel: workspace.label,
@@ -54,8 +64,6 @@ export async function resolveActivityToolContext(
     intent: runtimeState?.intentOverride,
     goalIds,
     goals,
-    tier1: digest.tier1,
-    tier2: digest.tier2,
-    tier3: digest.tier3,
+    learnerSummaryLines,
   }
 }

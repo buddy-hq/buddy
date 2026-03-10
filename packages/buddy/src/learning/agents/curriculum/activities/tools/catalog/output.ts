@@ -1,4 +1,4 @@
-import type { TeachingIntentId } from "../../../../core/runtime/vocabulary"
+import type { TeachingIntentId } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import { compactLine } from "./context"
 
 export function formatActivityOutput(input: {

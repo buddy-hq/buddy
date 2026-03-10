@@ -1,5 +1,5 @@
 import z from "zod"
-import type { TeachingIntentId } from "../../../../core/runtime/vocabulary"
+import type { TeachingIntentId } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import type { GoalArtifact } from "../../../../../learner-model"
 
 export const ActivityToolParameters = z.object({
@@ -19,9 +19,7 @@ export type ActivityToolContext = {
   intent?: TeachingIntentId
   goalIds: string[]
   goals: GoalArtifact[]
-  tier1: string[]
-  tier2: string[]
-  tier3: string[]
+  learnerSummaryLines: string[]
 }
 
 type ActivityToolId = `activity_${string}`
