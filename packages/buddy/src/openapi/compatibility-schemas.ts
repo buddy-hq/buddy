@@ -75,7 +75,7 @@ export const PlanRequestSchema = {
   type: "object",
   properties: {
     persona: { type: "string", enum: ["buddy", "code-buddy", "math-buddy"] },
-    intent: { type: "string", enum: ["learn", "practice", "assess"] },
+    intent: { type: "string", enum: ["learn", "practice", "assess", "auto"] },
     goalIds: { type: "array", items: { type: "string" } },
     sessionId: { type: "string" },
     workspaceState: { type: "string", enum: ["chat", "interactive"] },
