@@ -1,5 +1,5 @@
 import z from "zod"
-import type { TeachingIntentId } from "@buddy/backend/learning/shared/teaching-vocabulary"
+import type { Intent } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import type { GoalArtifact } from "../../../../../learner-model"
 
 export const ActivityToolParameters = z.object({
@@ -16,7 +16,7 @@ export type ActivityToolParams = z.infer<typeof ActivityToolParameters>
 export type ActivityToolContext = {
   workspaceLabel: string
   persona: string
-  intent?: TeachingIntentId
+  intent?: Intent
   goalIds: string[]
   goals: GoalArtifact[]
   learnerSummaryLines: string[]
@@ -27,6 +27,6 @@ type ActivityToolId = `activity_${string}`
 export type ActivityToolDefinition<Id extends ActivityToolId = ActivityToolId> = {
   id: Id
   description: string
-  intent: TeachingIntentId
+  intent: Intent
   buildOutput: (params: ActivityToolParams, context: ActivityToolContext) => string
 }

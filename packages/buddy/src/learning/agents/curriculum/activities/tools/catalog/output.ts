@@ -1,9 +1,9 @@
-import type { TeachingIntentId } from "@buddy/backend/learning/shared/teaching-vocabulary"
+import type { Intent } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import { compactLine } from "./context"
 
 export function formatActivityOutput(input: {
   id: string
-  intent: TeachingIntentId
+  intent: Intent
   goalLabel: string
   learnerContext: string[]
   sections: Array<[string, string[]]>

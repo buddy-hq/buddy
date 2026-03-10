@@ -1,13 +1,13 @@
 import { builtinBuddyPersonas } from "./registry"
-import { PERSONA_IDS } from "./types"
+import { PERSONAS } from "./types"
 import type {
   BuddyPersonaCatalogEntry,
-  BuddyPersonaId,
+  BuddyPersona,
   BuddyPersonaOverride,
   BuddyPersonaProfile,
 } from "./types"
 
-type BuddyPersonaOverrides = Partial<Record<BuddyPersonaId, BuddyPersonaOverride>>
+type BuddyPersonaOverrides = Partial<Record<BuddyPersona, BuddyPersonaOverride>>
 
 function applyPersonaOverride(
   base: BuddyPersonaProfile,
@@ -25,11 +25,11 @@ function applyPersonaOverride(
   }
 }
 
-// TODO: Refactor to use iteration over PERSONA_IDS instead of hardcoding each persona.
+// TODO: Refactor to use iteration over PERSONAS instead of hardcoding each persona.
 // This violates the Open/Closed Principle - adding a new persona requires editing this file.
 export function resolveBuddyPersonaProfiles(
   overrides?: BuddyPersonaOverrides,
-): Record<BuddyPersonaId, BuddyPersonaProfile> {
+): Record<BuddyPersona, BuddyPersonaProfile> {
   const builtins = builtinBuddyPersonas()
 
   return {
@@ -45,12 +45,12 @@ export function listBuddyPersonas(overrides?: BuddyPersonaOverrides): BuddyPerso
     .sort((left, right) => left.label.localeCompare(right.label))
 }
 
-export function getBuddyPersona(personaID: BuddyPersonaId, overrides?: BuddyPersonaOverrides): BuddyPersonaProfile {
+export function getBuddyPersona(personaID: BuddyPersona, overrides?: BuddyPersonaOverrides): BuddyPersonaProfile {
   return resolveBuddyPersonaProfiles(overrides)[personaID]
 }
 
 export function getDefaultBuddyPersona(input?: {
-  defaultPersona?: BuddyPersonaId
+  defaultPersona?: BuddyPersona
   overrides?: BuddyPersonaOverrides
 }): BuddyPersonaProfile {
   const profiles = resolveBuddyPersonaProfiles(input?.overrides)
@@ -59,7 +59,7 @@ export function getDefaultBuddyPersona(input?: {
     return profiles[input.defaultPersona]
   }
 
-  const visible = PERSONA_IDS.map((personaID) => profiles[personaID]).find((persona) => !persona.hidden)
+  const visible = PERSONAS.map((personaID) => profiles[personaID]).find((persona) => !persona.hidden)
   if (visible) {
     return visible
   }

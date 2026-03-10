@@ -2,10 +2,10 @@ import type {
   ActivityBundleDefinition,
   PersonaDefinition,
 } from "../../../core/runtime/types-model"
-import type { TeachingIntentId, WorkspaceState } from "@buddy/backend/learning/shared/teaching-vocabulary"
+import type { Intent, WorkspaceState } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import { BUNDLED_ACTIVITY_BUNDLES } from "./data"
 
-function bundleMatchesIntent(bundle: ActivityBundleDefinition, intentOverride?: TeachingIntentId) {
+function bundleMatchesIntent(bundle: ActivityBundleDefinition, intentOverride?: Intent) {
   return !intentOverride || bundle.intent === intentOverride
 }
 
@@ -19,7 +19,7 @@ function bundleMatchesWorkspace(bundle: ActivityBundleDefinition, workspaceState
 
 export function resolveMatchingBundles(input: {
   persona: PersonaDefinition
-  intentOverride?: TeachingIntentId
+  intentOverride?: Intent
   workspaceState: WorkspaceState
 }): ActivityBundleDefinition[] {
   return BUNDLED_ACTIVITY_BUNDLES

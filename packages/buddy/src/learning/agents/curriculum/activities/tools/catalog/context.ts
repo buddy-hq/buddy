@@ -1,5 +1,5 @@
 import { readTeachingSessionState } from "../../../../../agent-execution/state"
-import type { TeachingIntentId } from "@buddy/backend/learning/shared/teaching-vocabulary"
+import type { Intent } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import type { BuddyToolContext } from "../../../../../shared"
 import { ensureWorkspaceContext, getWorkspaceSnapshot, listArtifacts } from "../../../../../learner-model"
 import type { GoalArtifact } from "../../../../../learner-model"
@@ -23,7 +23,7 @@ export function summarizeLearnerContext(context: ActivityToolContext) {
 
 export async function resolveActivityToolContext(
   ctx: BuddyToolContext,
-  intent: TeachingIntentId,
+  intent: Intent,
   params: ActivityToolParams,
 ): Promise<ActivityToolContext> {
   const runtimeState = readTeachingSessionState(ctx.directory, ctx.sessionID)
