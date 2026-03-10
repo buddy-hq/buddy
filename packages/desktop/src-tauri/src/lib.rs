@@ -247,6 +247,10 @@ async fn await_initialization(
     let sidecar_cwd = sidecar_runtime_dir(&app);
     let sidecar_entrypoint = sidecar_entrypoint_path(&app)?;
     let runtime_root = home_dir.join(".buddy-runtime").join("xdg");
+    let xdg_data_home = runtime_root.join("data");
+    let xdg_cache_home = runtime_root.join("cache");
+    let xdg_config_home = runtime_root.join("config");
+    let xdg_state_home = runtime_root.join("state");
     let allowed_roots = format!("{},{}", home_dir.display(), std::env::temp_dir().display());
 
     let stdout = if cfg!(debug_assertions) {
@@ -271,6 +275,10 @@ async fn await_initialization(
         .env("BUDDY_ALLOWED_DIRECTORY_ROOTS", &allowed_roots)
         .env("BUDDY_DIRECTORY_BASE", &home_dir)
         .env("BUDDY_RUNTIME_ROOT", &runtime_root)
+        .env("XDG_DATA_HOME", &xdg_data_home)
+        .env("XDG_CACHE_HOME", &xdg_cache_home)
+        .env("XDG_CONFIG_HOME", &xdg_config_home)
+        .env("XDG_STATE_HOME", &xdg_state_home)
         .current_dir(&sidecar_cwd)
         .stdout(stdout)
         .stderr(stderr)
