@@ -1,5 +1,5 @@
-import { BUNDLED_ACTIVITY_BUNDLES } from "@buddy/backend/learning/agents/curriculum/activities/bundles/data"
-import { BUILTIN_BUDDY_PERSONAS } from "@buddy/backend/learning/agents/personas/registry"
+import { BUNDLED_ACTIVITY_BUNDLES } from "@buddy/backend/learning/curriculum/activities/bundles/data"
+import { BUILTIN_BUDDY_PERSONAS } from "@buddy/backend/learning/personas/registry"
 
 type BuiltinPersona = keyof typeof BUILTIN_BUDDY_PERSONAS & string
 
