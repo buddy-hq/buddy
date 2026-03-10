@@ -10,7 +10,7 @@ const learnerStateQueryTool = createBuddyTool("learner_snapshot_read", {
   description: "Read the current learner state summary for this workspace from the cross-notebook learner store.",
   parameters: z.object({
     persona: z.enum(PERSONAS).optional(),
-    intent: z.enum(INTENTS).optional(),
+    intent: z.enum(INTENTS).default("auto"),
     focusGoalIds: z.array(z.string()).optional(),
   }),
   async execute(params, ctx: BuddyToolContext) {

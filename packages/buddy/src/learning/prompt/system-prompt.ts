@@ -2,6 +2,7 @@ import type { Intent, WorkspaceState } from "@buddy/backend/learning/shared/teac
 import RAW_TEACHING_POLICY_PROMPT from "./teaching-workspace-policy.p.md"
 import { hasText } from "./utils"
 import type { SystemPromptCtx } from "./prompt-context"
+import { getIntentPrompt } from "../intents/get-intent-prompt"
 
 export type SystemContextBuild = {
   systemContext: string
@@ -130,17 +131,6 @@ function buildWorkspaceStateText(profile: RuntimePromptProfile, workspaceState: 
   return `<workspace_state>\nState: ${workspaceState}\n${guidance}\n</workspace_state>`
 }
 
-function buildExplicitOverridesText(input: {
-  intentOverride?: Intent
-  focusGoalIds: string[]
-  activityBundle?: ActivityBundleContext
-}): string {
-  const focusGoals = input.focusGoalIds.length > 0 ? input.focusGoalIds.join(", ") : "none"
-  const activityOverride = input.activityBundle ? `${input.activityBundle.label} (${input.activityBundle.id})` : "none"
-
-  return `<explicit_overrides>\nIntent override: ${input.intentOverride ?? "auto"}\nFocus goals: ${focusGoals}\nActivity bundle override: ${activityOverride}\n</explicit_overrides>`
-}
-
 function buildCapabilitySnapshotText(profile: RuntimePromptProfile): string {
   const allAllowedTools = collectPermissionKeys({
     permissions: profile.capabilityEnvelope.tools,
@@ -171,10 +161,10 @@ Other globally installed skills may also exist through the native skill tool. Do
 </buddy_capability_snapshot>`
 }
 
-function buildActivityCapabilitiesText(profile: RuntimePromptProfile, intentOverride?: Intent): string {
+function buildActivityCapabilitiesText(profile: RuntimePromptProfile, intent: Intent): string {
   const bundles = profile.capabilityEnvelope.activityBundles
   if (bundles.length === 0) {
-    return `<activity_capabilities>\nIntent focus: ${intentOverride ?? "auto"}\nNo first-class activity bundles are available for this persona and workspace state.\n</activity_capabilities>`
+    return `<activity_capabilities>\nIntent focus: ${intent}\nNo first-class activity bundles are available for this persona and workspace state.\n</activity_capabilities>`
   }
 
   const bundleText = bundles
@@ -188,7 +178,7 @@ function buildActivityCapabilitiesText(profile: RuntimePromptProfile, intentOver
     })
     .join("\n")
 
-  return `<activity_capabilities>\nIntent focus: ${intentOverride ?? "auto"}\n${bundleText}\n</activity_capabilities>`
+  return `<activity_capabilities>\nIntent focus: ${intent}\n${bundleText}\n</activity_capabilities>`
 }
 
 function buildSelectedActivityText(input: {
@@ -292,13 +282,7 @@ async function buildRuntimeContext(input: SystemPromptCtx): Promise<RuntimeConte
 
   // Keep top-level prompt assembly imperative so section order and inclusion stay obvious.
   runtimeSections.push(buildWorkspaceStateText(profile, workspaceState))
-  runtimeSections.push(
-    buildExplicitOverridesText({
-      intentOverride: input.intent,
-      focusGoalIds: input.focusGoalIds,
-      activityBundle: input.activityBundle,
-    }),
-  )
+
   runtimeSections.push(buildCapabilitySnapshotText(profile))
   runtimeSections.push(buildActivityCapabilitiesText(profile, input.intent))
   runtimeSections.push(learnerSections.learnerSummary)
@@ -338,30 +322,12 @@ export async function buildSystemPrompt(input: SystemPromptCtx): Promise<SystemC
     ? `\n\n${RAW_TEACHING_POLICY_PROMPT.trim()}`
     : ""
 
-  const stableHeader = `<buddy_runtime_header>
-Persona: ${profile.persona}
-
-Teaching principles:
-Use explanation to unlock progress, practice to create evidence, and checks to verify understanding.
-Do not wait for backend routing. Decide live from the learner's message, the history, and the current learner state.
-Use the learner store and workspace context when they materially improve the answer.
-
-Tooling guidance:
-Available surfaces: ${profile.capabilityEnvelope.visibleSurfaces.join(", ") || "chat"}
-Tool permissions are authoritative. Use persona-specific tools and subagents when they are available, but do not assume unavailable capabilities exist.
-Optional activity capabilities should do real work such as generating practice, generating checks, or mutating the lesson workspace; do not treat them as a hidden routing layer.
-
-Runtime usage notes:
-The learner may optionally steer the session with an explicit intent override, but the teacher agent decides the pedagogical flow from conversation history, learner state, and available tools.
-Sidebar suggestions are advisory learner-facing shortcuts. Treat them as agent input only when the learner explicitly clicks or sends one.
-First-class activity bundles may expose skills, tools, and subagents. Load a skill only when you want its full procedure; do not call skills as a formality.
-When the learner asks which Buddy teaching skills or tools are available, answer from the current activity capabilities and runtime permissions first. Other globally installed skills may also exist, but they are not the Buddy teaching playbook.
-</buddy_runtime_header>${teachingWorkspacePolicy}`
-
   const runtimeContext = await buildRuntimeContext(input)
 
+  const intentSection = `<student_intent>\n${getIntentPrompt(input.intent)}\n</student_intent>`
+
   return {
-    systemContext: [stableHeader, runtimeContext.runtimeContext].filter(Boolean).join("\n\n"),
+    systemContext: [intentSection, runtimeContext.runtimeContext].filter(Boolean).join("\n\n"),
     changedSinceCheckpoint: runtimeContext.changedSinceCheckpoint,
   }
 }

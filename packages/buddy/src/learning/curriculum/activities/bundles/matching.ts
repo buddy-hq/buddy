@@ -5,8 +5,8 @@ import type {
 } from "../../../shared/runtime-types"
 import { BUNDLED_ACTIVITY_BUNDLES } from "./data"
 
-function bundleMatchesIntent(bundle: ActivityBundleDefinition, intentOverride?: Intent) {
-  return !intentOverride || bundle.intent === intentOverride
+function bundleMatchesIntent(bundle: ActivityBundleDefinition, intent: Intent) {
+  return intent === "auto" || bundle.intent === intent
 }
 
 function bundleMatchesPersona(bundle: ActivityBundleDefinition, persona: PersonaDefinition) {
@@ -19,11 +19,11 @@ function bundleMatchesWorkspace(bundle: ActivityBundleDefinition, workspaceState
 
 export function resolveMatchingBundles(input: {
   persona: PersonaDefinition
-  intentOverride?: Intent
+  intent: Intent
   workspaceState: WorkspaceState
 }): ActivityBundleDefinition[] {
   return BUNDLED_ACTIVITY_BUNDLES
     .filter((bundle) => bundleMatchesPersona(bundle, input.persona))
-    .filter((bundle) => bundleMatchesIntent(bundle, input.intentOverride))
+    .filter((bundle) => bundleMatchesIntent(bundle, input.intent))
     .filter((bundle) => bundleMatchesWorkspace(bundle, input.workspaceState))
 }

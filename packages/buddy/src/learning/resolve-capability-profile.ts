@@ -1,4 +1,8 @@
-import { SUBAGENT_IDS, type Intent, type WorkspaceState } from "@buddy/backend/learning/shared/teaching-vocabulary"
+import {
+  SUBAGENT_IDS,
+  type Intent,
+  type WorkspaceState,
+} from "@buddy/backend/learning/shared/teaching-vocabulary"
 import {
   resolveActivityBundles,
   resolveBundledActivityToolPermissions,
@@ -70,11 +74,11 @@ function applyActivityToolOverrides(input: {
   tools: Record<ToolId, "allow" | "deny">
   persona: PersonaDefinition
   workspaceState: WorkspaceState
-  intentOverride?: Intent
+  intent: Intent
 }) {
   const activityTools = resolveBundledActivityToolPermissions({
     persona: input.persona,
-    intentOverride: input.intentOverride,
+    intent: input.intent,
     workspaceState: input.workspaceState,
   })
 
@@ -86,7 +90,7 @@ function applyActivityToolOverrides(input: {
 function buildEffectiveTools(input: {
   persona: PersonaDefinition
   workspaceState: WorkspaceState
-  intentOverride?: Intent
+  intent: Intent
 }): Record<ToolId, "allow" | "deny"> {
   const tools = createDenyToolMap()
   applyPersonaDefaultTools(tools, input.persona)
@@ -99,7 +103,7 @@ function buildEffectiveTools(input: {
     tools,
     persona: input.persona,
     workspaceState: input.workspaceState,
-    intentOverride: input.intentOverride,
+    intent: input.intent,
   })
   return tools
 }
@@ -118,7 +122,7 @@ function buildEffectiveSubagents(persona: PersonaDefinition): RuntimeProfile["ca
 export function resolveCapabilityProfile(input: {
   persona: PersonaDefinition
   workspaceState: WorkspaceState
-  intentOverride?: Intent
+  intent: Intent
 }): RuntimeProfile {
   const tools = buildEffectiveTools(input)
   const subagents = buildEffectiveSubagents(input.persona)
@@ -132,12 +136,12 @@ export function resolveCapabilityProfile(input: {
       subagents,
       skills: resolveBundledSkillPermissions({
         persona: input.persona,
-        intentOverride: input.intentOverride,
+        intent: input.intent,
         workspaceState: input.workspaceState,
       }),
       activityBundles: resolveActivityBundles({
         persona: input.persona,
-        intentOverride: input.intentOverride,
+        intent: input.intent,
         workspaceState: input.workspaceState,
         tools,
         subagents,

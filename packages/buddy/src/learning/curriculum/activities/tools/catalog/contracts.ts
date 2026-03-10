@@ -16,7 +16,7 @@ export type ActivityToolParams = z.infer<typeof ActivityToolParameters>
 export type ActivityToolContext = {
   workspaceLabel: string
   persona: string
-  intent?: Intent
+  intent: Intent
   goalIds: string[]
   goals: GoalArtifact[]
   learnerSummaryLines: string[]

@@ -195,7 +195,7 @@ export namespace LearnerSnapshotCompiler {
     const runtimeProfile = resolveCapabilityProfile({
       persona: getBuddyPersona(input.query.persona),
       workspaceState,
-      intentOverride: input.query.intent,
+      intent: input.query.intent,
     })
 
     const constraintsSummary = summarizeConstraints({

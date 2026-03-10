@@ -61,7 +61,7 @@ export async function resolveActivityToolContext(
   return {
     workspaceLabel: workspace.label,
     persona: runtimeState?.persona ?? "buddy",
-    intent: runtimeState?.intentOverride,
+    intent: runtimeState?.intent ?? "auto",
     goalIds,
     goals,
     learnerSummaryLines,

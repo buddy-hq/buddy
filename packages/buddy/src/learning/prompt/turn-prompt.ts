@@ -40,8 +40,8 @@ export function buildTurnPrompt(input: {
       : undefined
 
   const intentTransition =
-    input.priorTurn && (input.priorTurn.intent ?? "auto") !== (input.currentTurn.intent ?? "auto")
-      ? `Intent switch: ${input.priorTurn.intent ?? "auto"} -> ${input.currentTurn.intent ?? "auto"}.`
+    input.priorTurn && input.priorTurn.intent !== input.currentTurn.intent
+      ? `Intent switch: ${input.priorTurn.intent} -> ${input.currentTurn.intent}.`
       : undefined
 
   const workspaceTransition =

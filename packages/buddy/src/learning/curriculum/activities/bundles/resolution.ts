@@ -1,4 +1,8 @@
-import type { SubagentId, Intent, WorkspaceState } from "@buddy/backend/learning/shared/teaching-vocabulary"
+import type {
+  SubagentId,
+  Intent,
+  WorkspaceState,
+} from "@buddy/backend/learning/shared/teaching-vocabulary"
 import type {
   ActivityBundleCapability,
   ActivityBundleDefinition,
@@ -59,14 +63,14 @@ function resolveBundleCapabilities(input: {
 
 export function resolveActivityBundles(input: {
   persona: PersonaDefinition
-  intentOverride?: Intent
+  intent: Intent
   workspaceState: WorkspaceState
   tools: Record<ToolId, "allow" | "deny">
   subagents: Record<SubagentId, SubagentAccess>
 }): ActivityBundleCapability[] {
   return resolveMatchingBundles({
     persona: input.persona,
-    intentOverride: input.intentOverride,
+    intent: input.intent,
     workspaceState: input.workspaceState,
   }).map((bundle) => resolveBundleCapabilities({
     bundle,
@@ -77,7 +81,7 @@ export function resolveActivityBundles(input: {
 
 export function resolveBundledSkillPermissions(input: {
   persona: PersonaDefinition
-  intentOverride?: Intent
+  intent: Intent
   workspaceState: WorkspaceState
 }): Record<string, "allow" | "deny"> {
   const allowedSkillNames = new Set(resolveMatchingBundles(input).flatMap((bundle) => bundle.skills ?? []))
@@ -89,7 +93,7 @@ export function resolveBundledSkillPermissions(input: {
 
 export function resolveBundledActivityToolPermissions(input: {
   persona: PersonaDefinition
-  intentOverride?: Intent
+  intent: Intent
   workspaceState: WorkspaceState
 }): Partial<Record<ToolId, "allow" | "deny">> {
   const allowedToolNames = new Set(

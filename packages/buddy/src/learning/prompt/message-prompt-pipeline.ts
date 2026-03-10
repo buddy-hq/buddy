@@ -14,7 +14,7 @@ import {
   normalizePersonaTarget,
   resolveCurrentSurface,
   resolveFocusGoalIds,
-  resolveIntentOverride,
+  resolveIntent,
 } from "../shared/targeting"
 
 export type MessagePromptPipelineContext = {
@@ -68,7 +68,7 @@ export async function runMessagePromptPipeline(input: {
 
   if (target.includeBuddySystem && target.personaID) {
     const persona = getBuddyPersona(target.personaID, input.projectConfig.personas)
-    const intentOverride = resolveIntentOverride({
+    const intent = resolveIntent({
       body: input.body,
       config: input.projectConfig,
     })
@@ -78,7 +78,7 @@ export async function runMessagePromptPipeline(input: {
       directory: input.context.directory,
       query: {
         persona: persona.id,
-        intent: intentOverride,
+        intent: intent,
         focusGoalIds,
         workspaceState,
       },
@@ -86,7 +86,7 @@ export async function runMessagePromptPipeline(input: {
     const runtimeProfile = resolveCapabilityProfile({
       persona,
       workspaceState,
-      intentOverride,
+      intent,
     })
     runtimeProfileForPermissions = runtimeProfile
 
@@ -94,7 +94,7 @@ export async function runMessagePromptPipeline(input: {
       directory: input.context.directory,
       persona: runtimeProfile.persona,
       capabilityEnvelope: runtimeProfile.capabilityEnvelope,
-      intent: intentOverride,
+      intent: intent,
       learnerSnapshot: learnerSnapshot,
       focusGoalIds,
       teachingContext,
@@ -102,7 +102,7 @@ export async function runMessagePromptPipeline(input: {
         ? {
             priorTurn: {
               persona: input.previousState.persona,
-              intent: input.previousState.intentOverride,
+              intent: input.previousState.intent,
               workspaceState: input.previousState.workspaceState,
             },
           }
@@ -113,7 +113,7 @@ export async function runMessagePromptPipeline(input: {
     nextTeachingState = {
       sessionId: input.context.sessionID,
       persona: persona.id,
-      intentOverride,
+      intent,
       currentSurface: resolveCurrentSurface({
         personaID: persona.id,
         config: input.projectConfig,

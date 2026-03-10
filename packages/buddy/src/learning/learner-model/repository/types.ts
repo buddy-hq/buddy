@@ -221,7 +221,7 @@ export type LearnerArtifact = z.infer<typeof LearnerArtifactSchema>
 
 const SharedSnapshotDecisionSchema = z.object({
   persona: z.enum(PERSONAS).default("buddy"),
-  intent: z.enum(INTENTS).optional(),
+  intent: z.enum(INTENTS).default("auto"),
   focusGoalIds: z.array(z.string()).default([]),
   sessionId: z.string().optional(),
   workspaceState: z.enum(WORKSPACE_STATES).optional(),
