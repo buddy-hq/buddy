@@ -1,4 +1,3 @@
-import { $ } from "bun"
 import * as fs from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
@@ -13,6 +12,18 @@ type TmpDirOptions<T> = {
   preserveLearnerStore?: boolean
 }
 
+async function runGit(args: string[], cwd: string) {
+  const process = Bun.spawn(["git", ...args], {
+    cwd,
+    stdout: "ignore",
+    stderr: "ignore",
+  })
+  const exitCode = await process.exited
+  if (exitCode === 0) return
+
+  throw new Error(`git ${args.join(" ")} failed with exit code ${exitCode}`)
+}
+
 export async function tmpdir<T>(options?: TmpDirOptions<T>) {
   const dirpath = await fs.mkdtemp(path.join(os.tmpdir(), "buddy-test-"))
   if (!options?.preserveLearnerStore) {
@@ -20,10 +31,17 @@ export async function tmpdir<T>(options?: TmpDirOptions<T>) {
   }
 
   if (options?.git) {
-    await $`git init`.cwd(dirpath).quiet()
-    await $`git -c user.email=buddy@test.local -c user.name=Buddy\ Test commit --allow-empty -m "root commit ${dirpath}"`
-      .cwd(dirpath)
-      .quiet()
+    await runGit(["init"], dirpath)
+    await runGit([
+      "-c",
+      "user.email=buddy@test.local",
+      "-c",
+      "user.name=Buddy Test",
+      "commit",
+      "--allow-empty",
+      "-m",
+      `root commit ${dirpath}`,
+    ], dirpath)
   }
 
   if (options?.config) {

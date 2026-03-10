@@ -56,19 +56,20 @@ async function buildRuntimePrompt(input: {
   persona: "buddy" | "code-buddy" | "math-buddy"
   intent?: "learn" | "practice" | "assess"
   teachingContext?: Parameters<typeof buildLearningSystemPrompt>[0]["workspace"]["teachingContext"]
-  userContent?: string
 }) {
-  const digest = await LearnerService.buildPromptContext({
+  const workspaceState = input.teachingContext?.active ? "interactive" : "chat"
+  const snapshot = await LearnerService.getWorkspaceSnapshot({
     directory: input.directory,
     query: {
       persona: input.persona,
       intent: input.intent ?? "learn",
       focusGoalIds: [],
+      workspaceState,
     },
   })
   const profile = compileRuntimeProfile({
     persona: getBuddyPersona(input.persona),
-    workspaceState: input.teachingContext?.active ? "interactive" : "chat",
+    workspaceState,
   })
 
   const { systemContext, turnReminder } = await buildLearningSystemPrompt({
@@ -77,9 +78,8 @@ async function buildRuntimePrompt(input: {
       profile,
     },
     learner: {
-      digest,
+      snapshot,
       focusGoalIds: [],
-      userContent: input.userContent,
     },
     workspace: {
       teachingContext: input.teachingContext,
@@ -103,7 +103,6 @@ describe("prompt assemblies", () => {
     const system = await buildRuntimePrompt({
       directory: project.path,
       persona: "buddy",
-      userContent: "hello",
     })
 
     expect(system).toContain("<buddy_runtime_header>")
@@ -119,7 +118,6 @@ describe("prompt assemblies", () => {
     const system = await buildRuntimePrompt({
       directory: project.path,
       persona: "code-buddy",
-      userContent: "done",
       teachingContext: {
         active: true,
         sessionID: "ses_teach",
@@ -133,7 +131,7 @@ describe("prompt assemblies", () => {
     expect(system).toContain("Persona: code-buddy")
     expect(system).toContain("State: interactive")
     expect(system).toContain("<teaching_workspace>")
-    expect(system).toContain("sounds like a completion claim")
+    expect(system).not.toContain("<system-reminder>")
   })
 
   test("builds a math-buddy prompt with figure-capable workspace guidance", async () => {
@@ -142,7 +140,6 @@ describe("prompt assemblies", () => {
     const system = await buildRuntimePrompt({
       directory: project.path,
       persona: "math-buddy",
-      userContent: "teach me reflection",
     })
 
     expect(system).toContain("Persona: math-buddy")

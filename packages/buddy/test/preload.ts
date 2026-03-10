@@ -2,15 +2,21 @@ import fs from "node:fs"
 import path from "node:path"
 
 const root = path.resolve(process.cwd(), "../../.buddy-runtime/xdg")
-const testHome = path.join(root, "home")
+const runRoot = path.join(root, "test-runs", `${Date.now()}-${process.pid}`)
+const testHome = path.join(runRoot, "home")
+const dataHome = path.join(runRoot, "data")
+const cacheHome = path.join(runRoot, "cache")
+const configHome = path.join(runRoot, "config")
+const stateHome = path.join(runRoot, "state")
 
-fs.rmSync(testHome, { recursive: true, force: true })
-fs.mkdirSync(testHome, { recursive: true })
+for (const directory of [testHome, dataHome, cacheHome, configHome, stateHome]) {
+  fs.mkdirSync(directory, { recursive: true })
+}
 
-process.env.XDG_DATA_HOME = path.join(root, "data")
-process.env.XDG_CACHE_HOME = path.join(root, "cache")
-process.env.XDG_CONFIG_HOME = path.join(root, "config")
-process.env.XDG_STATE_HOME = path.join(root, "state")
+process.env.XDG_DATA_HOME = dataHome
+process.env.XDG_CACHE_HOME = cacheHome
+process.env.XDG_CONFIG_HOME = configHome
+process.env.XDG_STATE_HOME = stateHome
 process.env.BUDDY_TEST_HOME = testHome
 process.env.OPENCODE_DISABLE_DEFAULT_PLUGINS = "1"
 process.env.OPENCODE_DISABLE_MODELS_FETCH = "1"

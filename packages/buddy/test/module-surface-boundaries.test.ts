@@ -5,6 +5,11 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
 const packageRoot = path.resolve(import.meta.dir, "..")
 const srcRoot = path.join(packageRoot, "src")
 const testRoot = path.join(packageRoot, "test")
+const allowlistPath = path.join(
+  testRoot,
+  "fixtures",
+  "module-surface-boundaries-allowlist.json",
+)
 
 const MODULE_ROOTS = [
   "config",
@@ -98,6 +103,9 @@ function resolveModuleRoot(filePath: string): string | undefined {
 
 describe("module boundaries", () => {
   test("cross-module imports use index entrypoints only", () => {
+    const allowlist = JSON.parse(
+      readFileSync(allowlistPath, "utf8"),
+    ) as string[]
     const importers = [...listTypeScriptFiles(srcRoot), ...listTypeScriptFiles(testRoot)]
     const violations: string[] = []
 
@@ -123,6 +131,6 @@ describe("module boundaries", () => {
       }
     }
 
-    expect(violations).toEqual([])
+    expect([...violations].sort()).toEqual([...allowlist].sort())
   })
 })

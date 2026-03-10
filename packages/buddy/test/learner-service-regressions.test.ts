@@ -9,7 +9,7 @@ const FIXED_TIMESTAMP = "2026-03-01T00:00:00.000Z"
 const FIXED_DECISION_TIMESTAMP = "2026-03-01T12:00:00.000Z"
 
 describe("LearnerService regressions", () => {
-  test("does not resolve open feedback from a learner completion claim alone", async () => {
+  test("does not resolve open feedback from a learner self-report alone", async () => {
     await using project = await tmpdir({ git: true })
 
     const committed = await LearnerService.replaceGoalSet({

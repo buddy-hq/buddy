@@ -2,8 +2,8 @@ import { describe, expect, test } from "bun:test"
 import { buildLearningSystemPrompt } from "../../src/learning/agents/core/prompt"
 import { compileRuntimeProfile } from "../../src/learning/agents/core/runtime/runtime-profile"
 import { getBuddyPersona } from "../../src/learning/agents/personas"
+import { LearnerService } from "../../src/learning/learner-model"
 import { tmpdir } from "../fixture/fixture"
-import { createDigest } from "./fixtures.ts"
 import { expectAllowedTools, expectDeniedTools, expectPreferredHelpers, expectVisibleSurfaces } from "./scorers.ts"
 
 describe("teaching eval harness", () => {
@@ -41,8 +41,14 @@ describe("teaching eval harness", () => {
       persona: getBuddyPersona("code-buddy"),
       workspaceState: "interactive",
     })
-    const digest = createDigest({
-      constraintsSummary: ["Time: short session", "Environment: local editor available"],
+    const snapshot = await LearnerService.getWorkspaceSnapshot({
+      directory: project.path,
+      query: {
+        persona: "code-buddy",
+        intent: "practice",
+        focusGoalIds: ["goal_1"],
+        workspaceState: "interactive",
+      },
     })
 
     const prompt = await buildLearningSystemPrompt({
@@ -52,9 +58,8 @@ describe("teaching eval harness", () => {
         intentOverride: "practice",
       },
       learner: {
-        digest,
+        snapshot,
         focusGoalIds: ["goal_1"],
-        userContent: "Give me a focused practice task.",
       },
       workspace: {
         teachingContext: {
@@ -69,8 +74,8 @@ describe("teaching eval harness", () => {
     })
 
     expect(prompt.systemContext).toContain("<buddy_runtime_header>")
-    expect(prompt.systemContext).toContain("Workspace State:")
-    expect(prompt.systemContext).toContain("Teaching Workspace:")
+    expect(prompt.systemContext).toContain("<workspace_state>")
+    expect(prompt.systemContext).toContain("<teaching_workspace>")
     expect(prompt.systemContext).toContain("Intent override: practice")
     expect(prompt.systemContext).toContain("An interactive lesson workspace is active")
     expect(prompt.turnReminder).toBeUndefined()
@@ -84,7 +89,15 @@ describe("teaching eval harness", () => {
       workspaceState: "interactive",
       intentOverride: "practice",
     })
-    const digest = createDigest()
+    const snapshot = await LearnerService.getWorkspaceSnapshot({
+      directory: project.path,
+      query: {
+        persona: "code-buddy",
+        intent: "practice",
+        focusGoalIds: ["goal_1"],
+        workspaceState: "interactive",
+      },
+    })
 
     const prompt = await buildLearningSystemPrompt({
       runtime: {
@@ -93,9 +106,8 @@ describe("teaching eval harness", () => {
         intentOverride: "practice",
       },
       learner: {
-        digest,
+        snapshot,
         focusGoalIds: ["goal_1"],
-        userContent: "continue",
       },
       workspace: {
         teachingContext: {
