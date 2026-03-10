@@ -1,8 +1,8 @@
 import z from "zod"
 import { Config as OpenCodeConfig } from "@buddy/opencode-adapter/config"
-import { PERSONA_SURFACE_IDS, TEACHING_INTENT_IDS } from "@buddy/backend/learning/shared/teaching-vocabulary"
+import { PERSONA_SURFACES, INTENTS } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import { resolveBuddyPersonaProfiles } from "../../learning/agents/personas"
-import { PERSONA_IDS } from "../../learning/agents/personas"
+import { PERSONAS } from "../../learning/agents/personas"
 
 export namespace ConfigSchema {
   export const Mcp = OpenCodeConfig.Mcp
@@ -19,9 +19,9 @@ export namespace ConfigSchema {
 
   const openCodeInfoShape = OpenCodeConfig.Info.shape
   const TOOL_TOGGLE_MAP = z.record(z.string(), z.boolean()).optional()
-  const BuddySurface = z.enum(PERSONA_SURFACE_IDS)
-  const BuddyPersonaID = z.enum(PERSONA_IDS)
-  const TeachingIntent = z.enum(TEACHING_INTENT_IDS)
+  const BuddySurface = z.enum(PERSONA_SURFACES)
+  const BuddyPersonaID = z.enum(PERSONAS)
+  const TeachingIntent = z.enum(INTENTS)
 
   export const PersonaOverride = z
     .object({
@@ -73,7 +73,7 @@ export namespace ConfigSchema {
     .superRefine((value, ctx) => {
       const profiles = resolveBuddyPersonaProfiles(value.personas)
 
-      for (const personaID of PERSONA_IDS) {
+      for (const personaID of PERSONAS) {
         const profile = profiles[personaID]
         if (profile.surfaces.includes(profile.defaultSurface)) {
           continue
@@ -94,7 +94,7 @@ export namespace ConfigSchema {
         })
       }
 
-      if (PERSONA_IDS.every((personaID) => profiles[personaID].hidden)) {
+      if (PERSONAS.every((personaID) => profiles[personaID].hidden)) {
         ctx.addIssue({
           code: "custom",
           path: ["personas"],

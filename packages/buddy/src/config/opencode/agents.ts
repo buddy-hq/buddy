@@ -1,7 +1,7 @@
 import { mergeDeep } from "remeda"
 import { resolveBuddyPersonaProfiles } from "../../learning/agents/personas"
-import type { BuddyPersonaId } from "../../learning/agents/personas"
-import { isPersonaId } from "../../learning/agents/personas"
+import type { BuddyPersona } from "../../learning/agents/personas"
+import { isPersona } from "../../learning/agents/personas"
 import { indexBuddyAgents } from "../../learning/agents/core/registry"
 import { Config } from "../config.js"
 
@@ -70,7 +70,7 @@ function mergeBuddyAndConfiguredAgents(agentOverlay: Record<string, Config.Agent
   for (const [name, agent] of Object.entries(agentOverlay)) {
     const baseAgent = merged[name]
     const nextAgent =
-      baseAgent && isPersonaId(name)
+      baseAgent && isPersona(name)
         ? (() => {
           const { disable: _disable, ...rest } = agent
           return rest as Config.Agent
@@ -84,7 +84,7 @@ function mergeBuddyAndConfiguredAgents(agentOverlay: Record<string, Config.Agent
 
 function applyBuddyPersonaHiddenFlags(
   agentOverlay: Record<string, Config.Agent>,
-  personaOverrides?: Partial<Record<BuddyPersonaId, { hidden?: boolean }>>,
+  personaOverrides?: Partial<Record<BuddyPersona, { hidden?: boolean }>>,
 ): Record<string, Config.Agent> {
   const next = { ...agentOverlay }
   const profiles = resolveBuddyPersonaProfiles(personaOverrides)
