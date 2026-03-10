@@ -20,6 +20,10 @@
 - `packages/sdk`: OpenAPI-generated client (hey-api/openapi-ts)
 - `packages/opencode-adapter`: Buddy compatibility bridge over vendored OpenCode modules
 
+## Tests
+- NEVER run the full test suite, explitly run tests for packages you're working on.
+- NEVER run the vendor tests directly.
+
 ## Vendor
 
 - we vendor the core agent/runtime/server from `vendor/opencode`
@@ -55,9 +59,6 @@ refer to: `packages/ui/AGENTS.md`; it has instructions on:
 
 - if confused about how scripts or commands work for this project refer COMMANDS.AGENTS.md
 
-## Code Style
-
-Follow existing code; avoid drive-by reformatting.
 
 ### TypeScript
 
@@ -66,27 +67,6 @@ Follow existing code; avoid drive-by reformatting.
 - `import type { ... }` for type-only imports.
 - Infer types for locals; annotate exports/public APIs explicitly.
 
-### Imports & Module Resolution
-
-- ESM everywhere (`"type": "module"`); no `require`.
-- Import order: external deps → workspace packages (`@buddy/*`) → relative.
-- `packages/buddy` relative imports use `.js` extension (ESM emit).
-- Path aliases:
-  - `packages/ui`: `@/*` → `packages/ui/src/*`
-  - `packages/web`: `@/*` → `packages/web/src/*` (also Vite rewrites UI-internal imports)
-- Adding new `@/...` imports inside `packages/ui`: extend `packages/web/vite.config.ts` aliases or switch to relative paths.
-
-### Formatting
-
-- No repo-wide Prettier/ESLint/Biome; match each file's existing style.
-- 2-space indentation; trailing commas on multiline objects/arrays/calls.
-- Semicolons vary by package — do not normalize them.
-
-### Naming & File Layout
-
-- Components: PascalCase; hooks: `useX`; variables/functions: camelCase; constants: `UPPER_SNAKE_CASE`.
-- TanStack Router: route files in `packages/web/src/routes/*`, each exporting `Route` via `createFileRoute`/`createRootRoute`.
-- Hono: backend routes are modular in `packages/buddy/src/routes/*.ts` (auth, config, session, curriculum, teaching, etc.). Most `operationId` values are defined in `packages/buddy/src/openapi/compatibility-schemas.ts`. Format is `group[.subgroup].action` (for example `health.check`, `session.list`, `global.config.get`, `provider.oauth.authorize`).
 
 ## Working Style
 
