@@ -1,4 +1,4 @@
-import type { ActivityBundleCapability, RuntimeProfile, TeachingIntentId, WorkspaceState } from "../../runtime/types"
+import type { ActivityBundleCapability, RuntimeProfile, Intent, WorkspaceState } from "../../runtime/types"
 import { hasText } from "../../shared/text"
 import type { LoadedActivitySkill } from "../../../curriculum"
 import type { TeachingPromptContext } from "../../../capabilities"
@@ -125,7 +125,7 @@ function buildWorkspaceStateText(profile: RuntimeProfile, workspaceState: Worksp
 }
 
 function buildExplicitOverridesText(input: {
-  intentOverride?: TeachingIntentId
+  intentOverride?: Intent
   focusGoalIds: string[]
   activityBundle?: ActivityBundleCapability
 }): string {
@@ -165,7 +165,7 @@ Other globally installed skills may also exist through the native skill tool. Do
 </buddy_capability_snapshot>`
 }
 
-function buildActivityCapabilitiesText(profile: RuntimeProfile, intentOverride?: TeachingIntentId): string {
+function buildActivityCapabilitiesText(profile: RuntimeProfile, intentOverride?: Intent): string {
   const bundles = profile.capabilityEnvelope.activityBundles
   if (bundles.length === 0) {
     return `<activity_capabilities>\nIntent focus: ${intentOverride ?? "auto"}\nNo first-class activity bundles are available for this persona and workspace state.\n</activity_capabilities>`

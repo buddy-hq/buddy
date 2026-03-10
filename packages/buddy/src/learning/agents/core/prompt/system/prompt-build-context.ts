@@ -1,7 +1,7 @@
 import type {
   ActivityBundleCapability,
   RuntimeProfile,
-  TeachingIntentId,
+  Intent,
 } from "../../runtime/types"
 import type { PromptRuntimeState } from "../../shared/teaching-session-state"
 import type { TeachingPromptContext } from "../../../capabilities"
@@ -12,7 +12,7 @@ export type PromptBuildContext = {
   runtime: {
     directory: string
     profile: RuntimeProfile
-    intentOverride?: TeachingIntentId
+    intentOverride?: Intent
     activityBundle?: ActivityBundleCapability
   }
   learner: {

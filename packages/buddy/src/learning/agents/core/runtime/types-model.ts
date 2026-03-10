@@ -1,10 +1,10 @@
 import type {
   ActivityCapabilityMode,
   ActivityKind,
-  PersonaId,
-  PersonaSurfaceId,
+  Persona,
+  PersonaSurface,
   SubagentId,
-  TeachingIntentId,
+  Intent,
   WorkspaceState,
 } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import type { ToolId } from "./tool-id"
@@ -19,15 +19,15 @@ export type PersonaContextPolicy = {
 }
 
 export type PersonaDefinition = {
-  id: PersonaId
+  id: Persona
   label: string
   description: string
   domain: "general" | "coding" | "math"
-  runtimeAgent: PersonaId
-  surfaces: PersonaSurfaceId[]
-  defaultSurface: PersonaSurfaceId
+  runtimeAgent: Persona
+  surfaces: PersonaSurface[]
+  defaultSurface: PersonaSurface
   hidden: boolean
-  defaultIntent: TeachingIntentId
+  defaultIntent: Intent
   toolDefaults: ToolDelta<ToolId>
   subagentDefaults: SubagentDelta<SubagentId>
   contextPolicy: PersonaContextPolicy
@@ -36,8 +36,8 @@ export type PersonaDefinition = {
 export type PersonaOverride = {
   label?: string
   description?: string
-  surfaces?: PersonaSurfaceId[]
-  defaultSurface?: PersonaSurfaceId
+  surfaces?: PersonaSurface[]
+  defaultSurface?: PersonaSurface
   hidden?: boolean
 }
 
@@ -55,8 +55,8 @@ export type ActivityBundleDefinition = {
   id: string
   activity: ActivityKind
   label: string
-  intent: TeachingIntentId
-  personas: PersonaId[]
+  intent: Intent
+  personas: Persona[]
   mode: ActivityCapabilityMode
   description: string
   autoEligible: boolean
@@ -72,7 +72,7 @@ export type ActivityBundleCapability = {
   id: string
   activity: ActivityKind
   label: string
-  intent: TeachingIntentId
+  intent: Intent
   mode: ActivityCapabilityMode
   description: string
   autoEligible: boolean
@@ -84,8 +84,8 @@ export type ActivityBundleCapability = {
 }
 
 export type CapabilityEnvelope = {
-  visibleSurfaces: PersonaSurfaceId[]
-  defaultSurface: PersonaSurfaceId
+  visibleSurfaces: PersonaSurface[]
+  defaultSurface: PersonaSurface
   tools: Record<ToolId, "allow" | "deny">
   subagents: Record<SubagentId, "allow" | "deny" | "prefer">
   skills: Record<string, "allow" | "deny">
@@ -93,8 +93,8 @@ export type CapabilityEnvelope = {
 }
 
 export type RuntimeProfile = {
-  key: PersonaId
-  persona: PersonaId
-  runtimeAgent: PersonaId
+  key: Persona
+  persona: Persona
+  runtimeAgent: Persona
   capabilityEnvelope: CapabilityEnvelope
 }

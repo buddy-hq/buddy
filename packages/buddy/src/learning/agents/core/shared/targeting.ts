@@ -4,10 +4,10 @@ import {
   type readProjectConfig,
 } from "@buddy/backend/config/runtime"
 import { getBuddyPersona, getDefaultBuddyPersona } from "../../personas"
-import { isPersonaId, type BuddyPersonaId } from "../../personas"
+import { isPersona, type BuddyPersona } from "../../personas"
 import {
-  isTeachingIntentId,
-  type TeachingIntentId,
+  isIntent,
+  type Intent,
   type TeachingSessionState,
   type WorkspaceState,
 } from "../runtime/types"
@@ -37,7 +37,7 @@ export function normalizePersonaTarget(input: {
   const mergedAgents = mergeBuddyAndConfiguredAgents(input.config.agent ?? {})
 
   if (rawPersona) {
-    if (!isPersonaId(rawPersona)) {
+    if (!isPersona(rawPersona)) {
       throw new SessionTransformValidationError(`Unknown Buddy persona "${rawPersona}"`)
     }
 
@@ -56,7 +56,7 @@ export function normalizePersonaTarget(input: {
   if (rawAgent) {
     // Keep backward compatibility for `agent`: accept persona IDs (enables personaID/includeBuddySystem),
     // then fall back to resolveConfiguredAgentKey for runtime-agent IDs.
-    const explicitPersona = isPersonaId(rawAgent) ? getBuddyPersona(rawAgent, input.config.personas) : undefined
+    const explicitPersona = isPersona(rawAgent) ? getBuddyPersona(rawAgent, input.config.personas) : undefined
     if (explicitPersona?.hidden) {
       throw new SessionTransformValidationError(`Buddy persona "${rawAgent}" is hidden`)
     }
@@ -83,16 +83,16 @@ export function normalizePersonaTarget(input: {
 export function resolveIntentOverride(input: {
   body: Record<string, unknown>
   config: Awaited<ReturnType<typeof readProjectConfig>>
-}): TeachingIntentId | undefined {
+}): Intent | undefined {
   const raw = typeof input.body.intent === "string" ? input.body.intent.trim() : ""
   if (raw) {
-    if (!isTeachingIntentId(raw)) {
+    if (!isIntent(raw)) {
       throw new SessionTransformValidationError(`Unknown teaching intent "${raw}"`)
     }
     return raw
   }
 
-  if (input.config.default_intent && isTeachingIntentId(input.config.default_intent)) {
+  if (input.config.default_intent && isIntent(input.config.default_intent)) {
     return input.config.default_intent
   }
 
@@ -115,7 +115,7 @@ export function assertNoLegacyRuntimeOverrides(body: Record<string, unknown>) {
 }
 
 export function resolveCurrentSurface(input: {
-  personaID: BuddyPersonaId
+  personaID: BuddyPersona
   config: Awaited<ReturnType<typeof readProjectConfig>>
   workspaceState: WorkspaceState
 }): TeachingSessionState["currentSurface"] {

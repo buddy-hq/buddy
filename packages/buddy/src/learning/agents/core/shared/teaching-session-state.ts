@@ -1,8 +1,8 @@
-import type { PersonaId, SurfaceId, TeachingIntentId, WorkspaceState } from "@buddy/backend/learning/shared/teaching-vocabulary"
+import type { Persona, Surface, Intent, WorkspaceState } from "@buddy/backend/learning/shared/teaching-vocabulary"
 
 export type PromptRuntimeState = {
   persona: string
-  intentOverride?: TeachingIntentId
+  intentOverride?: Intent
   workspaceState: WorkspaceState
 }
 
@@ -16,9 +16,9 @@ export type TeachingLlmOutboundEntry = {
 
 export type TeachingSessionState = {
   sessionId: string
-  persona: PersonaId
-  intentOverride?: TeachingIntentId
-  currentSurface: SurfaceId
+  persona: Persona
+  intentOverride?: Intent
+  currentSurface: Surface
   workspaceState: WorkspaceState
   focusGoalIds: string[]
   lastLlmOutbound?: TeachingLlmOutboundEntry

@@ -7,7 +7,7 @@ import {
   SUBAGENT_IDS,
   type PersonaDefinition,
   type RuntimeProfile,
-  type TeachingIntentId,
+  type Intent,
   type ToolId,
   type WorkspaceState,
 } from "./types"
@@ -76,7 +76,7 @@ function applyActivityToolOverrides(input: {
   tools: Record<ToolId, "allow" | "deny">
   persona: PersonaDefinition
   workspaceState: WorkspaceState
-  intentOverride?: TeachingIntentId
+  intentOverride?: Intent
 }) {
   const activityTools = resolveBundledActivityToolPermissions({
     persona: input.persona,
@@ -92,7 +92,7 @@ function applyActivityToolOverrides(input: {
 function buildEffectiveTools(input: {
   persona: PersonaDefinition
   workspaceState: WorkspaceState
-  intentOverride?: TeachingIntentId
+  intentOverride?: Intent
 }): Record<ToolId, "allow" | "deny"> {
   const tools = createDenyToolMap()
   applyPersonaDefaultTools(tools, input.persona)
@@ -124,7 +124,7 @@ function buildEffectiveSubagents(persona: PersonaDefinition): RuntimeProfile["ca
 export function compileRuntimeProfile(input: {
   persona: PersonaDefinition
   workspaceState: WorkspaceState
-  intentOverride?: TeachingIntentId
+  intentOverride?: Intent
 }): RuntimeProfile {
   const tools = buildEffectiveTools(input)
   const subagents = buildEffectiveSubagents(input.persona)
