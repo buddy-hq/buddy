@@ -1,7 +1,7 @@
 import {
   mergeBuddyAndConfiguredAgents,
-  readProjectConfig,
   resolveConfiguredAgentKey,
+  type readProjectConfig,
 } from "@buddy/backend/config/runtime"
 import { getBuddyPersona, getDefaultBuddyPersona } from "../../personas"
 import { isPersonaId, type BuddyPersonaId } from "../../personas"
@@ -10,7 +10,7 @@ import {
   type TeachingIntentId,
   type TeachingSessionState,
   type WorkspaceState,
-} from "./types"
+} from "../runtime/types"
 import { SessionTransformValidationError } from "../../../../session"
 
 export function hasExplicitModel(value: unknown): value is { providerID: string; modelID: string } {

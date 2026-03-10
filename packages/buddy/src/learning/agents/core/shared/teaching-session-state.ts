@@ -1,4 +1,10 @@
-import type { PersonaId, SurfaceId, TeachingIntentId, WorkspaceState } from "./vocabulary"
+import type { PersonaId, SurfaceId, TeachingIntentId, WorkspaceState } from "@buddy/backend/learning/shared/teaching-vocabulary"
+
+export type PromptRuntimeState = {
+  persona: string
+  intentOverride?: TeachingIntentId
+  workspaceState: WorkspaceState
+}
 
 export type TeachingLlmOutboundEntry = {
   kind: "message" | "command"

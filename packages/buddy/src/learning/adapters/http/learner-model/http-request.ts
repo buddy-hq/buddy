@@ -3,7 +3,7 @@ import {
   PERSONA_IDS,
   TEACHING_INTENT_IDS,
   WORKSPACE_STATES,
-} from "../../../agents/core/runtime/vocabulary"
+} from "@buddy/backend/learning/shared/teaching-vocabulary"
 import {
   DecisionPlanRequestSchema,
   SnapshotQuerySchema,

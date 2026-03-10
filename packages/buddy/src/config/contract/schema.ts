@@ -1,6 +1,6 @@
 import z from "zod"
 import { Config as OpenCodeConfig } from "@buddy/opencode-adapter/config"
-import { PERSONA_SURFACE_IDS, TEACHING_INTENT_IDS } from "../../learning/agents/core/runtime/vocabulary"
+import { PERSONA_SURFACE_IDS, TEACHING_INTENT_IDS } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import { resolveBuddyPersonaProfiles } from "../../learning/agents/personas"
 import { PERSONA_IDS } from "../../learning/agents/personas"
 
