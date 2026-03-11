@@ -1,5 +1,14 @@
 import { allowedDirectoryRoots, isAllowedDirectory, resolveDirectory } from "../project"
 
+export type DirectoryRequestSource =
+  | Request
+  | {
+      req: {
+        url: string
+        header: (name: string) => string | undefined
+      }
+    }
+
 export type AllowedDirectoryResult =
   | {
       ok: true
@@ -11,20 +20,33 @@ export type AllowedDirectoryResult =
       response: Response
     }
 
-export type EnsureAllowedDirectory = (request: Request) => AllowedDirectoryResult
+export type EnsureAllowedDirectory = (source: DirectoryRequestSource) => AllowedDirectoryResult
 
 export type DirectoryRequestContext = {
-  request: Request
   requestURL: URL
   directory: string
 }
 
-function requestDirectory(request: Request): { requestURL: URL; directory: string } {
-  const requestURL = new URL(request.url)
+function readSourceURL(source: DirectoryRequestSource): URL {
+  if (source instanceof Request) {
+    return new URL(source.url)
+  }
+  return new URL(source.req.url)
+}
+
+function readSourceHeader(source: DirectoryRequestSource, name: string): string | null {
+  if (source instanceof Request) {
+    return source.headers.get(name)
+  }
+  return source.req.header(name) ?? null
+}
+
+function requestDirectory(source: DirectoryRequestSource): { requestURL: URL; directory: string } {
+  const requestURL = readSourceURL(source)
   const rawDirectory =
     requestURL.searchParams.get("directory") ??
-    request.headers.get("x-buddy-directory") ??
-    request.headers.get("x-opencode-directory") ??
+    readSourceHeader(source, "x-buddy-directory") ??
+    readSourceHeader(source, "x-opencode-directory") ??
     ""
 
   return {
@@ -33,8 +55,8 @@ function requestDirectory(request: Request): { requestURL: URL; directory: strin
   }
 }
 
-export const ensureAllowedDirectory: EnsureAllowedDirectory = (request) => {
-  const { requestURL, directory } = requestDirectory(request)
+export const ensureAllowedDirectory: EnsureAllowedDirectory = (source) => {
+  const { requestURL, directory } = requestDirectory(source)
   if (!isAllowedDirectory(directory, allowedDirectoryRoots())) {
     return {
       ok: false,
@@ -49,7 +71,7 @@ export const ensureAllowedDirectory: EnsureAllowedDirectory = (request) => {
   }
 }
 
-export function resolveDirectoryRequestContext(request: Request):
+export function resolveDirectoryRequestContext(source: DirectoryRequestSource):
   | {
       ok: true
       context: DirectoryRequestContext
@@ -58,13 +80,12 @@ export function resolveDirectoryRequestContext(request: Request):
       ok: false
       response: Response
     } {
-  const allowed = ensureAllowedDirectory(request)
+  const allowed = ensureAllowedDirectory(source)
   if (!allowed.ok) return allowed
 
   return {
     ok: true,
     context: {
-      request,
       requestURL: allowed.requestURL,
       directory: allowed.directory,
     },

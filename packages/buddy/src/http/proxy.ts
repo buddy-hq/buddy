@@ -16,7 +16,7 @@ function buildProxyQuery(url: URL, directory: string): string {
 }
 
 async function proxyToOpenCode(c: Context, input: ProxyToOpenCodeInput): Promise<Response> {
-  const directoryResult = ensureAllowedDirectory(c.req.raw)
+  const directoryResult = ensureAllowedDirectory(c)
   if (!directoryResult.ok) return directoryResult.response
 
   const prepared = await prepareProxyBody(c, input)
@@ -43,5 +43,6 @@ async function proxyToOpenCode(c: Context, input: ProxyToOpenCodeInput): Promise
 }
 
 export { fetchOpenCode, proxyToOpenCode }
+export { prepareProxyBody }
 
 export type { ProxyToOpenCodeInput } from "./proxy/types"
