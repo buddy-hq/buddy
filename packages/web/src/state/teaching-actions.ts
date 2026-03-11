@@ -1,11 +1,32 @@
+import type {
+  TeachingWorkspaceCheckpointResponses,
+  TeachingWorkspaceFileActivateResponses,
+  TeachingWorkspaceFileCreateResponses,
+  TeachingWorkspaceProvisionResponses,
+  TeachingWorkspaceReadResponses,
+  TeachingWorkspaceRestoreResponses,
+  TeachingWorkspaceSaveResponses,
+} from "@buddy/sdk"
 import type { TeachingLanguage, TeachingWorkspace } from "./teaching-runtime"
-import { apiFetch, requestJson, stringifyError } from "../lib/api-client"
+import { buddyResultMessage, getBuddyClient, requireBuddyData } from "../lib/buddy-client"
+import { stringifyError } from "../lib/api-client"
 
 export type TeachingConflictPayload = {
   error: string
   revision: number
   code: string
   lessonFilePath: string
+}
+
+function isTeachingConflictPayload(value: unknown): value is TeachingConflictPayload {
+  if (!value || typeof value !== "object") return false
+  const candidate = value as Partial<TeachingConflictPayload>
+  return (
+    typeof candidate.error === "string" &&
+    typeof candidate.revision === "number" &&
+    typeof candidate.code === "string" &&
+    typeof candidate.lessonFilePath === "string"
+  )
 }
 
 export class TeachingConflictError extends Error {
@@ -24,38 +45,43 @@ export async function ensureTeachingWorkspace(input: {
   language?: TeachingLanguage
   persona?: string
 }) {
-  return requestJson<TeachingWorkspace>(input.directory, `/api/teaching/session/${encodeURIComponent(input.sessionID)}/workspace`, {
-    method: "POST",
-    body: {
-      language: input.language,
-      persona: input.persona,
-    },
+  const result = await getBuddyClient(input.directory).teaching.workspace.provision({
+    sessionID: input.sessionID,
+    language: input.language,
+    persona: input.persona,
   })
+  const data: TeachingWorkspaceProvisionResponses[200] = requireBuddyData(result)
+  return data as TeachingWorkspace
 }
 
 export async function loadTeachingWorkspace(input: { directory: string; sessionID: string }) {
-  return requestJson<TeachingWorkspace>(input.directory, `/api/teaching/session/${encodeURIComponent(input.sessionID)}/workspace`)
+  const result = await getBuddyClient(input.directory).teaching.workspace.read({
+    sessionID: input.sessionID,
+  })
+  if (result.response.status === 204 || result.data === undefined) {
+    throw new Error("Teaching workspace is not provisioned for this session.")
+  }
+  if (!result.response.ok || result.error !== undefined) {
+    throw new Error(buddyResultMessage(result))
+  }
+  return result.data as TeachingWorkspaceReadResponses[200] as TeachingWorkspace
 }
 
 export async function probeTeachingWorkspace(input: { directory: string; sessionID: string }) {
-  const response = await apiFetch(
-    `/api/teaching/session/${encodeURIComponent(input.sessionID)}/workspace?optional=1`,
-    {
-      directory: input.directory,
-    },
-  )
+  const result = await getBuddyClient(input.directory).teaching.workspace.read({
+    sessionID: input.sessionID,
+    optional: "1",
+  })
 
-  if (response.status === 204) {
+  if (result.response.status === 204) {
     return undefined
   }
 
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => undefined)) as { error?: string; message?: string } | undefined
-    const message = payload?.error ?? payload?.message ?? `Request failed (${response.status})`
-    throw new Error(message)
+  if (!result.response.ok || result.error !== undefined || result.data === undefined) {
+    throw new Error(buddyResultMessage(result))
   }
 
-  return (await response.json()) as TeachingWorkspace
+  return result.data as TeachingWorkspaceReadResponses[200] as TeachingWorkspace
 }
 
 export async function saveTeachingWorkspace(input: {
@@ -66,49 +92,38 @@ export async function saveTeachingWorkspace(input: {
   relativePath?: string
   language?: TeachingLanguage
 }) {
-  const response = await apiFetch(`/api/teaching/session/${encodeURIComponent(input.sessionID)}/workspace`, {
-    method: "PUT",
-    directory: input.directory,
-    body: {
-      code: input.code,
-      expectedRevision: input.expectedRevision,
-      relativePath: input.relativePath,
-      language: input.language,
-    },
+  const result = await getBuddyClient(input.directory).teaching.workspace.save({
+    sessionID: input.sessionID,
+    code: input.code,
+    expectedRevision: input.expectedRevision,
+    relativePath: input.relativePath,
+    language: input.language,
   })
 
-  if (response.status === 409) {
-    const payload = (await response.json()) as TeachingConflictPayload
-    throw new TeachingConflictError(payload)
+  if (result.response.status === 409 && isTeachingConflictPayload(result.error)) {
+    throw new TeachingConflictError(result.error)
   }
 
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => undefined)) as { error?: string; message?: string } | undefined
-    const message = payload?.error ?? payload?.message ?? `Request failed (${response.status})`
-    throw new Error(message)
+  if (!result.response.ok || result.error !== undefined || result.data === undefined) {
+    throw new Error(buddyResultMessage(result))
   }
 
-  return (await response.json()) as TeachingWorkspace
+  return result.data as TeachingWorkspaceSaveResponses[200] as TeachingWorkspace
 }
 
 export async function checkpointTeachingWorkspace(input: { directory: string; sessionID: string }) {
-  return requestJson<{
-    revision: number
-    lessonFilePath: string
-    checkpointFilePath: string
-  }>(input.directory, `/api/teaching/session/${encodeURIComponent(input.sessionID)}/checkpoint`, {
-    method: "POST",
+  const result = await getBuddyClient(input.directory).teaching.workspace.checkpoint({
+    sessionID: input.sessionID,
   })
+  return requireBuddyData(result) satisfies TeachingWorkspaceCheckpointResponses[200]
 }
 
 export async function restoreTeachingWorkspace(input: { directory: string; sessionID: string }) {
-  return requestJson<TeachingWorkspace>(
-    input.directory,
-    `/api/teaching/session/${encodeURIComponent(input.sessionID)}/restore`,
-    {
-      method: "POST",
-    },
-  )
+  const result = await getBuddyClient(input.directory).teaching.workspace.restore({
+    sessionID: input.sessionID,
+  })
+  const data: TeachingWorkspaceRestoreResponses[200] = requireBuddyData(result)
+  return data as TeachingWorkspace
 }
 
 export async function createTeachingWorkspaceFile(input: {
@@ -119,19 +134,15 @@ export async function createTeachingWorkspaceFile(input: {
   language?: TeachingLanguage
   activate?: boolean
 }) {
-  return requestJson<TeachingWorkspace>(
-    input.directory,
-    `/api/teaching/session/${encodeURIComponent(input.sessionID)}/file`,
-    {
-      method: "POST",
-      body: {
-        relativePath: input.relativePath,
-        content: input.content,
-        language: input.language,
-        activate: input.activate,
-      },
-    },
-  )
+  const result = await getBuddyClient(input.directory).teaching.workspace.file.create({
+    sessionID: input.sessionID,
+    relativePath: input.relativePath,
+    content: input.content,
+    language: input.language,
+    activate: input.activate,
+  })
+  const data: TeachingWorkspaceFileCreateResponses[200] = requireBuddyData(result)
+  return data as TeachingWorkspace
 }
 
 export async function activateTeachingWorkspaceFile(input: {
@@ -139,16 +150,12 @@ export async function activateTeachingWorkspaceFile(input: {
   sessionID: string
   relativePath: string
 }) {
-  return requestJson<TeachingWorkspace>(
-    input.directory,
-    `/api/teaching/session/${encodeURIComponent(input.sessionID)}/active-file`,
-    {
-      method: "POST",
-      body: {
-        relativePath: input.relativePath,
-      },
-    },
-  )
+  const result = await getBuddyClient(input.directory).teaching.workspace.file.activate({
+    sessionID: input.sessionID,
+    relativePath: input.relativePath,
+  })
+  const data: TeachingWorkspaceFileActivateResponses[200] = requireBuddyData(result)
+  return data as TeachingWorkspace
 }
 
 export { stringifyError }

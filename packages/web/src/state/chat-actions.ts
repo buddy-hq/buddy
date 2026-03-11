@@ -1,4 +1,23 @@
-import type { ProviderAuthMethod, ProviderAuthResponse, ProviderListResponse } from "@opencode-ai/sdk/v2/client"
+import type {
+  CommandListResponses,
+  ConfigGetResponses,
+  ConfigMcpPutData,
+  ConfigPersonasResponses,
+  ConfigUpdateData,
+  FindFilesResponses,
+  LearnerPlanResponses,
+  LearnerSnapshotResponses,
+  McpLocalConfig,
+  McpRemoteConfig,
+  McpStatusResponses,
+  PermissionListResponses,
+  ProjectOpenResponses,
+  SessionMessagesResponses,
+  SessionTeachingStateResponses,
+  ProviderAuthMethod,
+  ProviderAuthResponse,
+  ProviderListResponse,
+} from "@buddy/sdk"
 import { useChatStore } from "./chat-store"
 import type {
   MessageWithParts,
@@ -12,8 +31,8 @@ import type {
   TeachingIntent,
   TeachingPromptContext,
 } from "./teaching-runtime"
-import { apiFetch, requestJson, stringifyError } from "../lib/api-client"
-import { getOpenCodeClient } from "../lib/opencode-client"
+import { stringifyError } from "../lib/api-client"
+import { getBuddyClient, requireBuddyData, buddyResultMessage } from "../lib/buddy-client"
 import type { PromptAttachmentPart, PromptFilePart } from "../components/prompt/prompt-types"
 
 export type PersonaConfigOption = {
@@ -166,8 +185,158 @@ export function resolveDefaultPersonaID(
 
 type RawProvider = ProviderListResponse["all"][number]
 type RawProviderModel = RawProvider["models"][string]
-type OpenProjectResult = {
-  directory: string
+type OpenProjectResult = ProjectOpenResponses[200]
+type LearnerPersona = "buddy" | "code-buddy" | "math-buddy"
+
+const LEARNER_PERSONAS = ["buddy", "code-buddy", "math-buddy"] as const
+const PERSONA_SURFACES = ["curriculum", "editor", "figure"] as const
+type PersonaSurface = (typeof PERSONA_SURFACES)[number]
+const DEFAULT_PERSONA_SURFACE: PersonaConfigOption["defaultSurface"] = "curriculum"
+const EMPTY_ALIGNMENT_SUMMARY: LearnerCurriculumView["alignmentSummary"] = {
+  records: [],
+  incompleteGoalIds: [],
+  recommendations: [],
+}
+
+function toLearnerPersona(persona?: string): LearnerPersona | undefined {
+  if (!persona) return undefined
+  if (LEARNER_PERSONAS.includes(persona as LearnerPersona)) {
+    return persona as LearnerPersona
+  }
+  return undefined
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined
+  return value as Record<string, unknown>
+}
+
+function asString(value: unknown, fallback = ""): string {
+  return typeof value === "string" ? value : fallback
+}
+
+function asStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((item): item is string => typeof item === "string")
+}
+
+function asBoolean(value: unknown, fallback = false): boolean {
+  return typeof value === "boolean" ? value : fallback
+}
+
+function parseToolPermissions(value: unknown): Record<string, "allow" | "deny"> {
+  const record = asRecord(value)
+  if (!record) return {}
+
+  return Object.fromEntries(
+    Object.entries(record).filter(
+      (entry): entry is [string, "allow" | "deny"] => entry[1] === "allow" || entry[1] === "deny",
+    ),
+  )
+}
+
+function parseSubagentPermissions(value: unknown): Record<string, "allow" | "deny" | "prefer"> {
+  const record = asRecord(value)
+  if (!record) return {}
+
+  return Object.fromEntries(
+    Object.entries(record).filter(
+      (entry): entry is [string, "allow" | "deny" | "prefer"] =>
+        entry[1] === "allow" || entry[1] === "deny" || entry[1] === "prefer",
+    ),
+  )
+}
+
+function parseWorkspaceView(workspace: unknown): LearnerCurriculumView["workspace"] {
+  const value = asRecord(workspace) ?? {}
+
+  const preferredSurfaces = asStringArray(value.preferredSurfaces).filter(
+    (surface): surface is LearnerCurriculumView["workspace"]["preferredSurfaces"][number] =>
+      surface === "chat" ||
+      surface === "curriculum" ||
+      surface === "editor" ||
+      surface === "figure" ||
+      surface === "quiz",
+  )
+
+  return {
+    workspaceId: asString(value.workspaceId),
+    label: asString(value.label, "Workspace"),
+    tags: asStringArray(value.tags),
+    pinnedGoalIds: asStringArray(value.pinnedGoalIds),
+    projectConstraints: asStringArray(value.projectConstraints),
+    localToolAvailability: asStringArray(value.localToolAvailability),
+    preferredSurfaces,
+    motivationContext: asString(value.motivationContext) || undefined,
+    opportunities: asStringArray(value.opportunities),
+    userOverride: asBoolean(value.userOverride),
+    createdAt: asString(value.createdAt),
+    updatedAt: asString(value.updatedAt),
+  }
+}
+
+function parseOpenFeedbackActions(openFeedback: unknown): LearnerCurriculumView["openFeedbackActions"] {
+  if (!Array.isArray(openFeedback)) return []
+
+  return openFeedback
+    .map((item) => asRecord(item))
+    .filter((item): item is Record<string, unknown> => item !== undefined)
+    .map((item) => ({
+      feedbackId: asString(item.id),
+      goalIds: asStringArray(item.goalIds),
+      requiredAction: asString(item.requiredAction, "Follow up on current gap"),
+      scaffoldingLevel: asString(item.scaffoldingLevel, "guided"),
+      pattern: asString(item.pattern) || undefined,
+      createdAt: asString(item.createdAt),
+    }))
+    .filter((item) => item.feedbackId.length > 0)
+}
+
+function parseSections(sections: unknown): LearnerCurriculumView["sections"] {
+  if (!Array.isArray(sections)) return []
+  return sections
+    .map((section) => asRecord(section))
+    .filter((section): section is Record<string, unknown> => section !== undefined)
+    .map((section) => ({
+      title: asString(section.title),
+      items: asStringArray(section.items),
+    }))
+    .filter((section) => section.title.length > 0)
+}
+
+function parsePersonaSurfaces(
+  surfaces: string[] | undefined,
+): PersonaConfigOption["surfaces"] {
+  if (!surfaces || surfaces.length === 0) return [DEFAULT_PERSONA_SURFACE]
+
+  const normalized = surfaces.filter(
+    (surface): surface is PersonaConfigOption["surfaces"][number] =>
+      surface === "curriculum" || surface === "editor" || surface === "figure",
+  )
+
+  return normalized.length > 0 ? normalized : [DEFAULT_PERSONA_SURFACE]
+}
+
+function parseDefaultSurface(
+  value: string | undefined,
+  surfaces: PersonaConfigOption["surfaces"],
+): PersonaConfigOption["defaultSurface"] {
+  if (value === "curriculum" || value === "editor" || value === "figure") {
+    return value
+  }
+  return surfaces[0] ?? DEFAULT_PERSONA_SURFACE
+}
+
+function normalizeMcpStatusMap(input: McpStatusResponses[200]): McpStatusMap {
+  return Object.fromEntries(
+    Object.entries(input).map(([name, status]) => [
+      name,
+      {
+        status: status.status,
+        ...("error" in status && typeof status.error === "string" ? { error: status.error } : {}),
+      },
+    ]),
+  )
 }
 
 function normalizeProviderSource(input: unknown, connected: boolean): ProviderInfo["source"] {
@@ -192,24 +361,24 @@ function normalizeProviderModel(providerID: string, input: RawProviderModel): Pr
       output: input.limit.output,
     },
     capabilities: {
-      reasoning: input.reasoning,
-      attachment: input.attachment,
-      toolcall: input.tool_call,
+      reasoning: input.capabilities.reasoning,
+      attachment: input.capabilities.attachment,
+      toolcall: input.capabilities.toolcall,
       input: {
-        text: input.modalities?.input.includes("text") ?? false,
-        audio: input.modalities?.input.includes("audio") ?? false,
-        image: input.modalities?.input.includes("image") ?? false,
-        video: input.modalities?.input.includes("video") ?? false,
-        pdf: input.modalities?.input.includes("pdf") ?? false,
+        text: input.capabilities.input.text,
+        audio: input.capabilities.input.audio,
+        image: input.capabilities.input.image,
+        video: input.capabilities.input.video,
+        pdf: input.capabilities.input.pdf,
       },
       output: {
-        text: input.modalities?.output.includes("text") ?? false,
-        audio: input.modalities?.output.includes("audio") ?? false,
-        image: input.modalities?.output.includes("image") ?? false,
-        video: input.modalities?.output.includes("video") ?? false,
-        pdf: input.modalities?.output.includes("pdf") ?? false,
+        text: input.capabilities.output.text,
+        audio: input.capabilities.output.audio,
+        image: input.capabilities.output.image,
+        video: input.capabilities.output.video,
+        pdf: input.capabilities.output.pdf,
       },
-      interleaved: input.interleaved ?? false,
+      interleaved: input.capabilities.interleaved ?? false,
     },
   }
 }
@@ -248,13 +417,13 @@ function normalizeProviderCatalog(
 }
 
 async function fetchProviderCatalog(directory: string) {
-  const client = getOpenCodeClient(directory)
-  const [providerResult, authResult] = await Promise.all([
-    client.provider.list(undefined, { throwOnError: true }),
-    client.provider.auth(undefined, { throwOnError: true }),
-  ])
+  const client = getBuddyClient(directory)
+  const [providerResult, authResult] = await Promise.all([client.provider.list(), client.provider.auth()])
 
-  return normalizeProviderCatalog(providerResult.data!, authResult.data ?? {})
+  return normalizeProviderCatalog(
+    requireBuddyData<ProviderListResponse>(providerResult),
+    requireBuddyData<ProviderAuthResponse>(authResult),
+  )
 }
 
 export async function loadOpenProjects() {
@@ -277,12 +446,9 @@ export async function openProject(directory: string) {
     throw new Error("Please choose a notebook directory, not /")
   }
 
-  const opened = await requestJson<OpenProjectResult>("", "/api/project", {
-    method: "POST",
-    body: {
-      directory: normalized,
-    },
-  })
+  const opened = requireBuddyData<OpenProjectResult>(await getBuddyClient().project.open({
+    directory: normalized,
+  }))
   const canonicalDirectory = normalizeProjectDirectory(opened.directory)
 
   if (!canonicalDirectory) {
@@ -311,8 +477,7 @@ export async function preloadProjectSessions(directories: string[]) {
 export async function loadSessions(directory: string) {
   const store = useChatStore.getState()
   try {
-    const query = new URLSearchParams({ directory })
-    const sessions = await requestJson<SessionInfo[]>(directory, `/api/session?${query.toString()}`)
+    const sessions = requireBuddyData<SessionInfo[]>(await getBuddyClient(directory).session.list())
     store.setSessions(directory, sessions)
     store.setDirectoryError(directory, undefined)
     return sessions
@@ -325,10 +490,11 @@ export async function loadSessions(directory: string) {
 export async function loadMessages(directory: string, sessionID: string) {
   const store = useChatStore.getState()
   try {
-    const messages = await requestJson<MessageWithParts[]>(
-      directory,
-      `/api/session/${encodeURIComponent(sessionID)}/message`,
-    )
+    const messages = requireBuddyData<SessionMessagesResponses[200]>(
+      await getBuddyClient(directory).session.messages({
+        sessionID,
+      }),
+    ) as MessageWithParts[]
     store.setMessages(directory, sessionID, messages)
     store.setDirectoryError(directory, undefined)
     return messages
@@ -341,8 +507,9 @@ export async function loadMessages(directory: string, sessionID: string) {
 export async function loadPermissions(directory: string) {
   const store = useChatStore.getState()
   try {
-    const query = new URLSearchParams({ directory })
-    const requests = await requestJson<PermissionRequest[]>(directory, `/api/permission?${query.toString()}`)
+    const requests = requireBuddyData<PermissionListResponses[200]>(
+      await getBuddyClient(directory).permission.list(),
+    ) as PermissionRequest[]
     store.setPendingPermissions(directory, requests)
     store.setDirectoryError(directory, undefined)
     return requests
@@ -367,7 +534,7 @@ export async function loadProviderCatalog(directory: string) {
 
 async function createSession(directory: string) {
   const store = useChatStore.getState()
-  const info = await requestJson<SessionInfo>(directory, "/api/session", { method: "POST" })
+  const info = requireBuddyData<SessionInfo>(await getBuddyClient(directory).session.create())
   store.setSessionInfo(directory, info)
   store.setMessages(directory, info.id, [])
   return info
@@ -400,10 +567,12 @@ export async function ensureDirectorySession(directory: string) {
     }
 
     if (!info && storedSession) {
-      info = await requestJson<SessionInfo>(
-        targetDirectory,
-        `/api/session/${encodeURIComponent(storedSession)}`,
-      ).catch(() => undefined)
+      info = await getBuddyClient(targetDirectory)
+        .session.get({
+          sessionID: storedSession,
+        })
+        .then((result) => requireBuddyData(result))
+        .catch(() => undefined)
     }
 
     if (!info) {
@@ -441,7 +610,11 @@ export async function selectSession(directory: string, sessionID: string) {
   if (existing) {
     store.setSessionInfo(directory, existing)
   } else {
-    const info = await requestJson<SessionInfo>(directory, `/api/session/${encodeURIComponent(sessionID)}`)
+    const info = requireBuddyData<SessionInfo>(
+      await getBuddyClient(directory).session.get({
+        sessionID,
+      }),
+    )
     store.setSessionInfo(directory, info)
   }
 
@@ -493,23 +666,19 @@ export async function sendPrompt(
       sessionID,
     })
 
-    await requestJson<MessageWithParts>(
-      directory,
-      `/api/session/${encodeURIComponent(sessionID)}/message`,
-      {
-        method: "POST",
-        body: {
-          content,
-          ...(input?.parts && input.parts.length > 0 ? { parts: input.parts } : {}),
-          ...(input?.persona ? { persona: input.persona } : {}),
-          intent,
-          ...(input?.focusGoalIds && input.focusGoalIds.length > 0 ? { focusGoalIds: input.focusGoalIds } : {}),
-          ...(input?.agent ? { agent: input.agent } : {}),
-          ...(input?.model ? { model: input.model } : {}),
-          ...(input?.variant ? { variant: input.variant } : {}),
-          ...(input?.teaching ? { teaching: input.teaching } : {}),
-        },
-      },
+    requireBuddyData(
+      await getBuddyClient(directory).session.prompt({
+        sessionID,
+        content,
+        ...(input?.parts && input.parts.length > 0 ? { parts: input.parts } : {}),
+        ...(input?.persona ? { persona: input.persona } : {}),
+        intent,
+        ...(input?.focusGoalIds && input.focusGoalIds.length > 0 ? { focusGoalIds: input.focusGoalIds } : {}),
+        ...(input?.agent ? { agent: input.agent } : {}),
+        ...(input?.model ? { model: input.model } : {}),
+        ...(input?.variant ? { variant: input.variant } : {}),
+        ...(input?.teaching ? { teaching: input.teaching } : {}),
+      }),
     )
 
     console.info("[chat-action] prompt.accepted", { directory, sessionID })
@@ -556,24 +725,20 @@ export async function sendCommand(
   try {
     const intent = input?.intent ?? "auto"
 
-    await requestJson<MessageWithParts>(
-      directory,
-      `/api/session/${encodeURIComponent(sessionID)}/command`,
-      {
-        method: "POST",
-        body: {
-          command,
-          arguments: argumentsText,
-          ...(input?.parts && input.parts.length > 0 ? { parts: input.parts } : {}),
-          ...(input?.persona ? { persona: input.persona } : {}),
-          intent,
-          ...(input?.agent ? { agent: input.agent } : {}),
-          ...(input?.model
-            ? { model: `${input.model.providerID}/${input.model.modelID}` }
-            : {}),
-          ...(input?.variant ? { variant: input.variant } : {}),
-        },
-      },
+    requireBuddyData(
+      await getBuddyClient(directory).session.command({
+        sessionID,
+        command,
+        arguments: argumentsText,
+        ...(input?.parts && input.parts.length > 0 ? { parts: input.parts } : {}),
+        ...(input?.persona ? { persona: input.persona } : {}),
+        intent,
+        ...(input?.agent ? { agent: input.agent } : {}),
+        ...(input?.model
+          ? { model: `${input.model.providerID}/${input.model.modelID}` }
+          : {}),
+        ...(input?.variant ? { variant: input.variant } : {}),
+      }),
     )
   } catch (error) {
     store.applySessionStatus(directory, sessionID, "idle")
@@ -585,29 +750,19 @@ export async function sendCommand(
 }
 
 export async function loadTeachingSessionState(directory: string, sessionID: string) {
-  const response = await apiFetch(
-    `/api/session/${encodeURIComponent(sessionID)}/teaching-state`,
-    {
-      directory,
-    },
-  )
+  const result = await getBuddyClient(directory).session.teachingState({
+    sessionID,
+  })
 
-  if (response.status === 204) {
+  if (result.response.status === 204) {
     return undefined
   }
 
-  if (!response.ok) {
-    let message = `Request failed with status ${response.status}`
-    try {
-      const data = await response.json()
-      message = stringifyError(data)
-    } catch {
-      // Ignore JSON parse failures and keep the default message.
-    }
-    throw new Error(message)
+  if (!result.response.ok || result.error !== undefined || result.data === undefined) {
+    throw new Error(buddyResultMessage(result))
   }
 
-  return (await response.json()) as TeachingSessionSnapshot
+  return result.data as SessionTeachingStateResponses[200] as TeachingSessionSnapshot
 }
 
 export async function abortPrompt(directory: string) {
@@ -619,12 +774,10 @@ export async function abortPrompt(directory: string) {
   }
 
   try {
-    const aborted = await requestJson<boolean>(
-      directory,
-      `/api/session/${encodeURIComponent(sessionID)}/abort`,
-      {
-        method: "POST",
-      },
+    const aborted = requireBuddyData(
+      await getBuddyClient(directory).session.abort({
+        sessionID,
+      }),
     )
     if (aborted) store.applySessionStatus(directory, sessionID, "idle")
     // Always resync once after abort attempt so UI doesn't stay stale if server state drifted.
@@ -655,24 +808,13 @@ export async function replyPermission(input: {
   reply: "once" | "always" | "reject"
   message?: string
 }) {
-  const response = await apiFetch(`/api/permission/${encodeURIComponent(input.requestID)}/reply`, {
-    method: "POST",
-    directory: input.directory,
-    body: {
+  const result = requireBuddyData(
+    await getBuddyClient(input.directory).permission.reply({
+      requestID: input.requestID,
       reply: input.reply,
       message: input.message,
-    },
-  })
-
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => undefined)) as
-      | { error?: string; message?: string }
-      | undefined
-    const message = payload?.error ?? payload?.message ?? `Request failed (${response.status})`
-    throw new Error(message)
-  }
-
-  const result = (await response.json()) as boolean
+    }),
+  )
   if (result) {
     useChatStore.getState().applyPermissionReplied(input.directory, input.requestID)
   }
@@ -704,19 +846,12 @@ export async function updateSession(input: {
   }
 
   try {
-    const response = await apiFetch(`/api/session/${encodeURIComponent(input.sessionID)}`, {
-      method: "PATCH",
-      directory: input.directory,
-      body: payload,
-    })
-
-    if (!response.ok) {
-      const result = (await response.json().catch(() => undefined)) as { error?: string; message?: string } | undefined
-      const message = result?.error ?? result?.message ?? `Request failed (${response.status})`
-      throw new Error(message)
-    }
-
-    const session = (await response.json()) as SessionInfo
+    const session = requireBuddyData<SessionInfo>(
+      await getBuddyClient(input.directory).session.update({
+        sessionID: input.sessionID,
+        ...payload,
+      }),
+    )
     store.setDirectoryError(input.directory, undefined)
     return session
   } catch (error) {
@@ -734,69 +869,44 @@ export async function loadCurriculumView(
     generateDecision?: boolean
   },
 ) {
-  const query = new URLSearchParams()
   const intent = input?.intent ?? "auto"
-  if (input?.persona) query.set("persona", input.persona)
-  query.set("intent", intent)
-  if (input?.sessionID) query.set("sessionId", input.sessionID)
-  const search = query.toString()
 
-  const result = await requestJson<{
-    snapshot: {
-      workspace: LearnerCurriculumView["workspace"]
-      goals: Array<{ id: string }>
-      openFeedback: Array<{
-        id: string
-        goalIds: string[]
-        requiredAction?: string
-        scaffoldingLevel?: string
-        createdAt: string
-      }>
-      constraintsSummary: string[]
-      sections: LearnerCurriculumView["sections"]
-      markdown: string
-      alignmentSummary?: LearnerCurriculumView["alignmentSummary"]
-      actions?: LearnerCurriculumView["actions"]
-    }
-    plan: LearnerCurriculumView["sessionPlan"] & {
-      alignmentSummary?: LearnerCurriculumView["alignmentSummary"]
-      actions?: LearnerCurriculumView["actions"]
-    }
-  }>(directory, `/api/learner/plan${search ? `?${search}` : ""}`, {
-    method: "POST",
-    body: input?.generateDecision ? { generateDecision: true } : {},
-  })
+  const result = requireBuddyData<LearnerPlanResponses[200]>(
+    await getBuddyClient(directory).learner.plan({
+      query_persona: toLearnerPersona(input?.persona),
+      query_intent: intent,
+      query_sessionId: input?.sessionID,
+      generateDecision: input?.generateDecision ? true : undefined,
+    }),
+  )
   const snapshot = result.snapshot
   const plan = result.plan
-  const alignmentSummary = result.snapshot.alignmentSummary ?? result.plan.alignmentSummary
-  const actions = result.snapshot.actions ?? result.plan.actions
+  const sessionPlan: LearnerCurriculumView["sessionPlan"] = {
+    warmupReviewGoalIds: plan.warmupReviewGoalIds ?? [],
+    primaryGoalId: plan.primaryGoalId,
+    suggestedActivity: plan.suggestedActivity,
+    suggestedScaffoldingLevel: plan.suggestedScaffoldingLevel,
+    alternatives: plan.alternatives ?? [],
+    rationale: plan.rationale ?? [],
+    motivationHook: plan.motivationHook,
+    constraintsConsidered: plan.constraintsConsidered ?? [],
+    prerequisiteWarnings: plan.prerequisiteWarnings ?? [],
+  }
 
   return {
-    workspace: snapshot.workspace,
+    workspace: parseWorkspaceView(snapshot.workspace),
     coldStart: snapshot.goals.length === 0,
     recommendedNextAction: plan.suggestedActivity,
-    sessionPlan: plan,
-    alignmentSummary: alignmentSummary ?? {
-      records: [],
-      incompleteGoalIds: [],
-      recommendations: [],
-    },
-    alignmentSummaryUnavailable: alignmentSummary === undefined,
-    openFeedbackActions: snapshot.openFeedback
-      .filter((item) => Boolean(item && item.id))
-      .map((item) => ({
-        feedbackId: item.id,
-        goalIds: item.goalIds,
-        requiredAction: item.requiredAction ?? "Follow up on current gap",
-        scaffoldingLevel: item.scaffoldingLevel ?? "guided",
-        createdAt: item.createdAt,
-      })),
-    actions: actions ?? [],
-    actionsUnavailable: actions === undefined,
+    sessionPlan,
+    alignmentSummary: EMPTY_ALIGNMENT_SUMMARY,
+    alignmentSummaryUnavailable: true,
+    openFeedbackActions: parseOpenFeedbackActions(snapshot.openFeedback),
+    actions: [],
+    actionsUnavailable: true,
     constraintsSummary: snapshot.constraintsSummary,
     markdown: snapshot.markdown,
-    sections: snapshot.sections,
-  } satisfies LearnerCurriculumView
+    sections: parseSections(snapshot.sections),
+  }
 }
 
 function sortedPermissionKeys(
@@ -826,57 +936,50 @@ export async function loadRuntimeCapabilities(
     intent?: TeachingIntent
     sessionID?: string
   },
-): Promise<LearnerRuntimeCapabilitiesView> {
-  const query = new URLSearchParams()
+) {
   const requestedIntent = input?.intent ?? "auto"
-  if (input?.persona) query.set("persona", input.persona)
-  query.set("intent", requestedIntent)
-  if (input?.sessionID) query.set("sessionId", input.sessionID)
-  const search = query.toString()
 
-  const snapshot = await requestJson<{
-    runtimeContext: {
-      intent: TeachingIntent
-      workspaceState: "chat" | "interactive"
-    }
-    runtimeProfile: {
-      persona: string
-      capabilityEnvelope: {
-        visibleSurfaces: string[]
-        defaultSurface: string
-        tools: Record<string, "allow" | "deny">
-        skills: Record<string, "allow" | "deny">
-        subagents: Record<string, "allow" | "deny" | "prefer">
-      }
-    }
-  }>(directory, `/api/learner/snapshot${search ? `?${search}` : ""}`)
+  const snapshot = requireBuddyData<LearnerSnapshotResponses[200]>(
+    await getBuddyClient(directory).learner.snapshot({
+      persona: toLearnerPersona(input?.persona),
+      intent: requestedIntent,
+      sessionId: input?.sessionID,
+    }),
+  )
 
-  const runtimeProfile = snapshot.runtimeProfile
-  const envelope = runtimeProfile?.capabilityEnvelope
+  const runtimeProfile = asRecord(snapshot.runtimeProfile)
+  const envelope = asRecord(runtimeProfile?.capabilityEnvelope)
   if (!runtimeProfile || !envelope) {
     throw new Error("Runtime capability profile is unavailable for this session.")
   }
 
+  const visibleSurfaces = asStringArray(envelope.visibleSurfaces).sort((left, right) =>
+    left.localeCompare(right),
+  )
+  const tools = parseToolPermissions(envelope.tools)
+  const skills = parseToolPermissions(envelope.skills)
+  const subagents = parseSubagentPermissions(envelope.subagents)
+
   return {
-    persona: runtimeProfile.persona,
+    persona: asString(runtimeProfile.persona, toLearnerPersona(input?.persona) ?? "buddy"),
     intent: snapshot.runtimeContext?.intent ?? requestedIntent,
     workspaceState: snapshot.runtimeContext?.workspaceState ?? "chat",
-    visibleSurfaces: [...(envelope.visibleSurfaces ?? [])].sort((left, right) => left.localeCompare(right)),
-    defaultSurface: envelope.defaultSurface,
+    visibleSurfaces,
+    defaultSurface: asString(envelope.defaultSurface, visibleSurfaces[0] ?? DEFAULT_PERSONA_SURFACE),
     tools: {
-      allow: sortedPermissionKeys(envelope.tools, "allow"),
-      deny: sortedPermissionKeys(envelope.tools, "deny"),
+      allow: sortedPermissionKeys(tools, "allow"),
+      deny: sortedPermissionKeys(tools, "deny"),
     },
     skills: {
-      allow: sortedPermissionKeys(envelope.skills, "allow"),
-      deny: sortedPermissionKeys(envelope.skills, "deny"),
+      allow: sortedPermissionKeys(skills, "allow"),
+      deny: sortedPermissionKeys(skills, "deny"),
     },
     subagents: {
-      prefer: sortedSubagentKeys(envelope.subagents, "prefer"),
-      allow: sortedSubagentKeys(envelope.subagents, "allow"),
-      deny: sortedSubagentKeys(envelope.subagents, "deny"),
+      prefer: sortedSubagentKeys(subagents, "prefer"),
+      allow: sortedSubagentKeys(subagents, "allow"),
+      deny: sortedSubagentKeys(subagents, "deny"),
     },
-  }
+  } satisfies LearnerRuntimeCapabilitiesView
 }
 
 export type GoalArtifact = {
@@ -906,93 +1009,112 @@ export type GoalArtifact = {
 }
 
 export async function loadLearnerGoals(directory: string): Promise<{ goals: GoalArtifact[] }> {
-  const result = await requestJson<{ artifacts: GoalArtifact[] }>(
-    directory,
-    "/api/learner/artifacts?kind=goal&status=active",
+  const result = requireBuddyData(
+    await getBuddyClient(directory).learner.artifacts({
+      kind: "goal",
+      status: "active",
+    }),
   )
   return {
-    goals: result.artifacts,
+    goals: result.artifacts as GoalArtifact[],
   }
 }
 
 export async function loadLearnerProgress(directory: string) {
-  const result = await requestJson<{ plan: LearnerCurriculumView["sessionPlan"] }>(
-    directory,
-    "/api/learner/plan",
-    { method: "POST" },
-  )
+  const result = requireBuddyData(await getBuddyClient(directory).learner.plan())
   return {
     progress: [{ suggestedActivity: result.plan.suggestedActivity }],
   }
 }
 
 export async function loadProjectConfig(directory: string) {
-  return requestJson<Record<string, unknown>>(directory, "/api/config")
+  return requireBuddyData<ConfigGetResponses[200]>(await getBuddyClient(directory).config.get()) as Record<
+    string,
+    unknown
+  >
 }
 
 export async function patchProjectConfig(directory: string, patch: Record<string, unknown>) {
-  const response = await apiFetch("/api/config", {
-    method: "PATCH",
-    directory,
-    body: patch,
+  const configPatch = patch as Partial<NonNullable<ConfigUpdateData["body"]>>
+  const result = await getBuddyClient(directory).config.update({
+    ...configPatch,
   })
-
-  if (!response.ok) {
-    const result = (await response.json().catch(() => undefined)) as { error?: string; message?: string } | undefined
-    throw new Error(result?.error ?? result?.message ?? `Request failed (${response.status})`)
-  }
-
-  return (await response.json()) as Record<string, unknown>
+  return requireBuddyData(result) as Record<string, unknown>
 }
 
 export async function saveProjectMcpConfig(directory: string, name: string, config: Record<string, unknown>) {
-  const response = await apiFetch(`/api/config/mcp/${encodeURIComponent(name)}`, {
-    method: "PUT",
-    directory,
-    body: config,
+  const body = config as ConfigMcpPutData["body"] extends infer T
+    ? T extends McpLocalConfig | McpRemoteConfig
+      ? T
+      : never
+    : never
+  const result = await getBuddyClient(directory).config.mcp.put({
+    name,
+    body,
   })
 
-  if (!response.ok) {
-    const result = (await response.json().catch(() => undefined)) as { error?: string; message?: string } | undefined
-    throw new Error(result?.error ?? result?.message ?? `Request failed (${response.status})`)
-  }
-
-  return (await response.json()) as Record<string, unknown>
+  return requireBuddyData(result) as Record<string, unknown>
 }
 
 export async function loadPersonaCatalog(directory: string) {
-  return requestJson<PersonaConfigOption[]>(directory, "/api/config/personas")
+  const result = await getBuddyClient(directory).config.personas()
+  const personas = requireBuddyData<ConfigPersonasResponses[200]>(result)
+  return personas.map((persona) => {
+    const surfaces = parsePersonaSurfaces(persona.surfaces)
+    return {
+      id: persona.id,
+      label: persona.label,
+      description: persona.description,
+      surfaces,
+      defaultSurface: parseDefaultSurface(persona.defaultSurface, surfaces),
+      hidden: persona.hidden,
+    }
+  })
 }
 
 export async function loadCommandCatalog(directory: string) {
-  return requestJson<PromptCommandOption[]>(directory, "/api/command")
+  const result = await getBuddyClient(directory).command.list()
+  const commands = requireBuddyData<CommandListResponses[200]>(result)
+  return commands.map((command) => ({
+    name: command.name,
+    description: command.description,
+    source: command.source,
+  }))
 }
 
 export async function loadMcpStatus(directory: string) {
   const store = useChatStore.getState()
-  const status = await requestJson<McpStatusMap>(directory, "/api/mcp")
+  const status = normalizeMcpStatusMap(
+    requireBuddyData<McpStatusResponses[200]>(await getBuddyClient(directory).mcp.status()),
+  )
   store.setMcpStatus(directory, status)
   return status
 }
 
 export async function connectMcpServer(directory: string, name: string) {
-  await requestJson<boolean>(directory, `/api/mcp/${encodeURIComponent(name)}/connect`, {
-    method: "POST",
-  })
+  requireBuddyData(
+    await getBuddyClient(directory).mcp.connect({
+      name,
+    }),
+  )
   return loadMcpStatus(directory)
 }
 
 export async function disconnectMcpServer(directory: string, name: string) {
-  await requestJson<boolean>(directory, `/api/mcp/${encodeURIComponent(name)}/disconnect`, {
-    method: "POST",
-  })
+  requireBuddyData(
+    await getBuddyClient(directory).mcp.disconnect({
+      name,
+    }),
+  )
   return loadMcpStatus(directory)
 }
 
 export async function authenticateMcpServer(directory: string, name: string) {
-  await requestJson<{ status: string; error?: string }>(directory, `/api/mcp/${encodeURIComponent(name)}/auth/authenticate`, {
-    method: "POST",
-  })
+  requireBuddyData(
+    await getBuddyClient(directory).mcp.auth.authenticate({
+      name,
+    }),
+  )
   return loadMcpStatus(directory)
 }
 
@@ -1003,22 +1125,20 @@ export async function findWorkspaceFiles(
     includeDirectories?: boolean
     limit?: number
   },
-) {
+): Promise<FindFilesResponses[200]> {
   const search = query.trim()
   if (!search) return [] as string[]
 
   const includeDirectories = input?.includeDirectories ?? true
-  const client = getOpenCodeClient(directory)
-  const response = await client.find.files(
+  const response = await getBuddyClient(directory).find.files(
     {
       query: search,
       dirs: includeDirectories ? "true" : "false",
       limit: input?.limit ?? 20,
     },
-    { throwOnError: true },
   )
 
-  return (response.data ?? []) as string[]
+  return requireBuddyData<FindFilesResponses[200]>(response)
 }
 
 export function shouldDeferTranscriptReload(directory: string, sessionID?: string) {
