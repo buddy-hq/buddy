@@ -3,7 +3,7 @@ import { readTeachingSessionState } from "../../../agent-execution/state/session
 import { ensureAllowedDirectory } from "../../../../http/directory"
 
 export async function getTeachingState(c: Context): Promise<Response> {
-  const directoryResult = ensureAllowedDirectory(c.req.raw)
+  const directoryResult = ensureAllowedDirectory(c)
   if (!directoryResult.ok) return directoryResult.response
 
   const sessionID = c.req.param("sessionID")

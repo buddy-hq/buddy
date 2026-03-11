@@ -8,6 +8,7 @@ export { teachingTools } from "./tools/tools"
 export {
   TeachingPromptContextSchema,
   TeachingProvisionRequestSchema,
+  TeachingWorkspaceResponseSchema,
   TeachingWorkspaceActivateFileRequestSchema,
   TeachingWorkspaceCreateFileRequestSchema,
   TeachingWorkspaceUpdateRequestSchema,
