@@ -12,7 +12,7 @@ export { SkillServiceError } from "./service/contracts"
 export { listSkillsCatalog } from "./service/catalog"
 export {
   createCustomSkill,
-  installPlaceholderLibrarySkill,
+  installCuratedLibrarySkill,
   removeManagedSkill,
   setInstalledSkillAction,
 } from "./service/mutations"
