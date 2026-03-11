@@ -54,3 +54,6 @@ packages/desktop/.turbo/
 packages/desktop/dist/
 packages/desktop/node_modules/
 packages/desktop/*.tsbuildinfo
+packages/sdk/.buddy-runtime/
+packages/web/.tanstack/
+docs/audits/

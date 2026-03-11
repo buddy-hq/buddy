@@ -8,12 +8,11 @@ function parseConfiguredModel(
   const trimmed = value.trim()
   if (!trimmed) return undefined
 
-  const separator = trimmed.indexOf("/")
-  if (separator <= 0 || separator >= trimmed.length - 1) return undefined
+  const [providerID, ...rest] = trimmed.split("/")
 
   return {
-    providerID: trimmed.slice(0, separator),
-    modelID: trimmed.slice(separator + 1),
+    providerID,
+    modelID: rest.join("/"),
   }
 }
 
