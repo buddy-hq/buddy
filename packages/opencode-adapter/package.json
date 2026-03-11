@@ -7,6 +7,7 @@
     ".": "./src/index.ts",
     "./provider-transform": "./src/provider-transform.ts",
     "./permission": "./src/permission.ts",
+    "./wildcard": "./src/wildcard.ts",
     "./tool": "./src/tool.ts",
     "./server": "./src/server.ts",
     "./instance": "./src/instance.ts",
