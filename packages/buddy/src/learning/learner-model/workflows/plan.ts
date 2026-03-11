@@ -14,6 +14,23 @@ type EnsurePlanDecisionResult = {
 
 const pendingPlanDecisions = new Map<string, Promise<EnsurePlanDecisionResult>>()
 
+function planDecisionRequestKey(input: {
+  directory: string
+  query: DecisionPlanRequest
+  allowGenerate?: boolean
+}) {
+  const stableSortedFocusGoalIds = Array.from(new Set(input.query.focusGoalIds)).sort()
+  return [
+    input.directory,
+    input.query.persona,
+    input.query.intent ?? "",
+    input.query.workspaceState ?? "",
+    input.query.sessionId ?? "",
+    input.allowGenerate === false ? "no-generate" : "allow-generate",
+    stableSortedFocusGoalIds.join(","),
+  ].join("::")
+}
+
 function fallbackPlan(snapshot: LearnerSnapshot): SessionPlan {
   return {
     warmupReviewGoalIds: [],
@@ -46,82 +63,47 @@ export async function ensurePlanDecision(input: {
   query: DecisionPlanRequest
   allowGenerate?: boolean
 }): Promise<EnsurePlanDecisionResult> {
-  const [workspace, snapshot] = await Promise.all([
-    ensureWorkspaceContext(input.directory),
-    LearnerSnapshotCompiler.compile({
-      directory: input.directory,
-      query: {
-        persona: input.query.persona,
-        intent: input.query.intent,
-        focusGoalIds: input.query.focusGoalIds,
-        sessionId: input.query.sessionId,
-        workspaceState: input.query.workspaceState,
-      },
-    }),
-  ])
-
-  const stableSortedFocusGoalIds = Array.from(new Set(input.query.focusGoalIds)).sort()
-  const inputHash = hashDecisionInput([
-    workspace.workspaceId,
-    input.query.persona,
-    input.query.intent ?? "",
-    input.query.workspaceState ?? "",
-    input.query.sessionId ?? "",
-    stableSortedFocusGoalIds.join(","),
-    snapshot.decisionInputFingerprint,
-  ].join("::"))
-
-  const existing = await readExistingPlanDecision({
-    directory: input.directory,
-    workspaceId: workspace.workspaceId,
-    inputHash,
-  })
-
-  if (existing) {
-    if (existing.disposition === "apply") {
-      const decisionPayload = SnapshotPlanSchema.safeParse(existing.payload)
-      if (decisionPayload.success) {
-        return {
-          snapshot,
-          plan: buildSessionPlanFromDecision({
-            decision: decisionPayload.data,
-            constraintsSummary: snapshot.constraintsSummary,
-          }),
-          decision: existing,
-        }
-      }
-    }
-    else {
-      return {
-        snapshot,
-        plan: fallbackPlan(snapshot),
-        decision: existing,
-      }
-    }
-  }
-
-  if (input.allowGenerate === false) {
-    return {
-      snapshot,
-      plan: fallbackPlan(snapshot),
-    }
-  }
-
-  const pendingKey = `${input.directory}::${workspace.workspaceId}::${inputHash}`
+  const pendingKey = planDecisionRequestKey(input)
   const pending = pendingPlanDecisions.get(pendingKey)
   if (pending) {
     return pending
   }
 
-  const run = async (): Promise<EnsurePlanDecisionResult> => {
-    const existingInFlight = await readExistingPlanDecision({
+  let runPromise: Promise<EnsurePlanDecisionResult>
+  runPromise = (async (): Promise<EnsurePlanDecisionResult> => {
+    const [workspace, snapshot] = await Promise.all([
+      ensureWorkspaceContext(input.directory),
+      LearnerSnapshotCompiler.compile({
+        directory: input.directory,
+        query: {
+          persona: input.query.persona,
+          intent: input.query.intent,
+          focusGoalIds: input.query.focusGoalIds,
+          sessionId: input.query.sessionId,
+          workspaceState: input.query.workspaceState,
+        },
+      }),
+    ])
+
+    const stableSortedFocusGoalIds = Array.from(new Set(input.query.focusGoalIds)).sort()
+    const inputHash = hashDecisionInput([
+      workspace.workspaceId,
+      input.query.persona,
+      input.query.intent ?? "",
+      input.query.workspaceState ?? "",
+      input.query.sessionId ?? "",
+      stableSortedFocusGoalIds.join(","),
+      snapshot.decisionInputFingerprint,
+    ].join("::"))
+
+    const existing = await readExistingPlanDecision({
       directory: input.directory,
       workspaceId: workspace.workspaceId,
       inputHash,
     })
-    if (existingInFlight) {
-      if (existingInFlight.disposition === "apply") {
-        const decisionPayload = SnapshotPlanSchema.safeParse(existingInFlight.payload)
+    if (existing) {
+      if (existing.disposition === "apply") {
+        const decisionPayload = SnapshotPlanSchema.safeParse(existing.payload)
         if (decisionPayload.success) {
           return {
             snapshot,
@@ -129,7 +111,7 @@ export async function ensurePlanDecision(input: {
               decision: decisionPayload.data,
               constraintsSummary: snapshot.constraintsSummary,
             }),
-            decision: existingInFlight,
+            decision: existing,
           }
         }
       }
@@ -137,8 +119,15 @@ export async function ensurePlanDecision(input: {
         return {
           snapshot,
           plan: fallbackPlan(snapshot),
-          decision: existingInFlight,
+          decision: existing,
         }
+      }
+    }
+
+    if (input.allowGenerate === false) {
+      return {
+        snapshot,
+        plan: fallbackPlan(snapshot),
       }
     }
 
@@ -206,20 +195,12 @@ export async function ensurePlanDecision(input: {
       plan: fallbackPlan(snapshot),
       decision,
     }
-  }
-
-  let resolveRunPromise!: (value: EnsurePlanDecisionResult | PromiseLike<EnsurePlanDecisionResult>) => void
-  let rejectRunPromise!: (reason?: unknown) => void
-  const runPromise = new Promise<EnsurePlanDecisionResult>((resolve, reject) => {
-    resolveRunPromise = resolve
-    rejectRunPromise = reject
+  })().finally(() => {
+    if (pendingPlanDecisions.get(pendingKey) === runPromise) {
+      pendingPlanDecisions.delete(pendingKey)
+    }
   })
   pendingPlanDecisions.set(pendingKey, runPromise)
-  void run().then(resolveRunPromise, rejectRunPromise)
 
-  try {
-    return await runPromise
-  } finally {
-    pendingPlanDecisions.delete(pendingKey)
-  }
+  return runPromise
 }

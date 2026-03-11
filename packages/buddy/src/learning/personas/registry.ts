@@ -1,3 +1,5 @@
+import type { BuddyPersona, BuddyPersonaProfile } from "./types"
+
 const RESERVED_SUBAGENT_DEFAULTS = {
   "progress-tracker": "deny",
   sequencer: "deny",
@@ -98,7 +100,7 @@ const BUILTIN_BUDDY_PERSONAS = {
   },
 } as const
 
-export function builtinBuddyPersonas() {
+export function builtinBuddyPersonas(): Record<BuddyPersona, BuddyPersonaProfile> {
   return {
     buddy: {
       ...BUILTIN_BUDDY_PERSONAS.buddy,

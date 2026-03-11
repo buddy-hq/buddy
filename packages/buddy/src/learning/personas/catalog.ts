@@ -25,18 +25,17 @@ function applyPersonaOverride(
   }
 }
 
-// TODO: Refactor to use iteration over PERSONAS instead of hardcoding each persona.
-// This violates the Open/Closed Principle - adding a new persona requires editing this file.
 export function resolveBuddyPersonaProfiles(
   overrides?: BuddyPersonaOverrides,
 ): Record<BuddyPersona, BuddyPersonaProfile> {
   const builtins = builtinBuddyPersonas()
+  const profiles = { ...builtins }
 
-  return {
-    buddy: applyPersonaOverride(builtins.buddy, overrides?.buddy),
-    "code-buddy": applyPersonaOverride(builtins["code-buddy"], overrides?.["code-buddy"]),
-    "math-buddy": applyPersonaOverride(builtins["math-buddy"], overrides?.["math-buddy"]),
+  for (const personaID of PERSONAS) {
+    profiles[personaID] = applyPersonaOverride(builtins[personaID], overrides?.[personaID])
   }
+
+  return profiles
 }
 
 export function listBuddyPersonas(overrides?: BuddyPersonaOverrides): BuddyPersonaProfile[] {

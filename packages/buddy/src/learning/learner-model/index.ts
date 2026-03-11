@@ -17,11 +17,20 @@ export { LearnerArtifactPath } from "./repository/path"
 export { LearnerArtifactStore } from "./repository/store"
 export { hashDecisionInput } from "./repository/bridge"
 export {
+  DecisionArtifactSchema,
   DecisionPlanRequestSchema,
+  EvidenceArtifactSchema,
+  FeedbackArtifactSchema,
+  GoalArtifactSchema,
+  LearnerArtifactSchema,
+  MisconceptionArtifactSchema,
+  ProfileArtifactSchema,
   SnapshotPlanSchema,
   SnapshotQuerySchema,
+  WorkspaceContextArtifactSchema,
   WorkspaceRecordArtifactKindSchema,
 } from "./repository/types"
+export { SessionPlanSchema } from "./model/types"
 export type {
   GoalArtifact,
   SnapshotQuery,

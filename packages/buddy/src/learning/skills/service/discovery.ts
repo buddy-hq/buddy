@@ -1,6 +1,7 @@
 import fsp from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
+import { Config } from "@buddy/backend/config"
 import { Config as OpenCodeConfig } from "@buddy/opencode-adapter/config"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ensureOpenCodeProjectOverlay } from "@buddy/backend/config/runtime"
@@ -167,12 +168,37 @@ function mergeOpenCodeAndManagedSkills(openCodeSkills: OpenCodeSkill[], managedS
   return Array.from(merged.values())
 }
 
+function isExternalVendorSkill(location: string) {
+  const segments = path.resolve(location).split(path.sep)
+  for (let index = 0; index < segments.length - 1; index += 1) {
+    const current = segments[index]
+    const next = segments[index + 1]
+    if ((current === ".claude" || current === ".agents") && next === "skills") {
+      return true
+    }
+  }
+
+  return false
+}
+
+function filterOpenCodeSkillsByProjectSettings(input: {
+  openCodeSkills: OpenCodeSkill[]
+  externalVendorRootsEnabled: boolean
+}) {
+  if (input.externalVendorRootsEnabled) {
+    return input.openCodeSkills
+  }
+
+  return input.openCodeSkills.filter((skill) => !isExternalVendorSkill(skill.location))
+}
+
 export async function loadVisibleSkills(
   directory: string,
   options?: {
     refresh?: boolean
   },
 ) {
+  const projectConfig = await Config.getProject(directory)
   await ensureOpenCodeProjectOverlay(directory)
 
   const [openCodeSkills, managedSkills] = await Promise.all([
@@ -180,7 +206,13 @@ export async function loadVisibleSkills(
     loadBuddyManagedSkills(),
   ])
 
-  return mergeOpenCodeAndManagedSkills(openCodeSkills, managedSkills)
+  return mergeOpenCodeAndManagedSkills(
+    filterOpenCodeSkillsByProjectSettings({
+      openCodeSkills,
+      externalVendorRootsEnabled: projectConfig.skills_external_vendor_roots_enabled === true,
+    }),
+    managedSkills,
+  )
 }
 
 export async function resolveInstalledSkillByName(name: string, directory: string) {
