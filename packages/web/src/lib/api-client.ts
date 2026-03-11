@@ -1,5 +1,10 @@
-import { getPlatform } from "../context/platform"
-import { getServerConnection } from "../context/server"
+import {
+  applyAuthToUrl,
+  authorizationHeader,
+  createServerFetchTransport,
+  resolveServerApiBaseUrl,
+  resolveServerEndpoint,
+} from "./server-client"
 
 export function directoryHeaderValue(directory: string) {
   const isNonASCII = /[^\x00-\x7F]/.test(directory)
@@ -20,29 +25,10 @@ export function stringifyError(error: unknown) {
   }
 }
 
-function getBaseUrl() {
-  return getServerConnection().url
-}
-
-function resolveEndpoint(endpoint: string) {
-  if (/^https?:\/\//.test(endpoint)) return endpoint
-
-  const baseUrl = getBaseUrl()
-  if (!baseUrl) return endpoint
-  return `${baseUrl}${endpoint}`
-}
-
-function applyAuth(url: URL) {
-  const server = getServerConnection()
-  if (!server.username || !server.password) return
-  url.username = server.username
-  url.password = server.password
-}
-
 export function resolveApiUrl(endpoint: string) {
-  const resolved = resolveEndpoint(endpoint)
+  const resolved = resolveServerEndpoint(endpoint)
   const url = new URL(resolved, window.location.origin)
-  applyAuth(url)
+  applyAuthToUrl(url)
   return url.toString()
 }
 
@@ -71,14 +57,14 @@ export async function apiFetch(
     headers.set("x-buddy-directory", directoryHeaderValue(init.directory))
   }
 
-  const server = getServerConnection()
-  if (server.username && server.password && !headers.has("authorization")) {
-    headers.set("authorization", `Basic ${btoa(`${server.username}:${server.password}`)}`)
+  const auth = authorizationHeader()
+  if (auth && !headers.has("authorization")) {
+    headers.set("authorization", auth)
   }
 
-  const transport = getPlatform().fetch ?? fetch
+  const transport = createServerFetchTransport(resolveServerApiBaseUrl())
 
-  return transport(resolveEndpoint(endpoint), {
+  return transport(resolveServerEndpoint(endpoint), {
     method: init?.method,
     headers,
     body,
