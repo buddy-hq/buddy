@@ -1,75 +1,58 @@
 import { Hono } from "hono"
-import {
-  AnyObjectSchema,
-  BooleanSchema,
-  ErrorSchema,
-  ProviderIDPath,
-} from "../openapi"
-import { directoryForbiddenResponse, directoryParameters } from "../http"
-import type { ProxyEndpointSpec } from "../http"
-import { registerProxyEndpoints } from "../http"
+import { describeRoute, resolver, validator } from "hono-openapi"
+import z from "zod"
+import { Auth as OpenCodeAuth } from "@buddy/opencode-adapter/auth"
+import { routeErrors, directoryQuerySchema, ProviderIDParamSchema } from "../http"
+import { proxyToOpenCode } from "../http"
 
-const authProxySpecs: ProxyEndpointSpec[] = [
-  {
-    method: "put",
-    path: "/:providerID",
-    route: {
-      operationId: "auth.set",
-      summary: "Set provider credentials",
-      parameters: [ProviderIDPath, ...directoryParameters],
-      requestBody: {
-        required: true,
-        content: {
-          "application/json": { schema: AnyObjectSchema },
-        },
-      },
-      responses: {
-        200: {
-          description: "Credentials stored",
-          content: {
-            "application/json": { schema: BooleanSchema },
-          },
-        },
-        400: {
-          description: "Invalid provider credentials",
-          content: {
-            "application/json": { schema: ErrorSchema },
-          },
-        },
-        403: {
-          ...directoryForbiddenResponse,
-        },
-      },
-    },
-    targetPath: (c) => `/auth/${encodeURIComponent(c.req.param("providerID"))}`,
-  },
-  {
-    method: "delete",
-    path: "/:providerID",
-    route: {
-      operationId: "auth.remove",
-      summary: "Remove provider credentials",
-      parameters: [ProviderIDPath, ...directoryParameters],
-      responses: {
-        200: {
-          description: "Credentials removed",
-          content: {
-            "application/json": { schema: BooleanSchema },
-          },
-        },
-        400: {
-          description: "Invalid provider identifier",
-          content: {
-            "application/json": { schema: ErrorSchema },
-          },
-        },
-        403: {
-          ...directoryForbiddenResponse,
-        },
-      },
-    },
-    targetPath: (c) => `/auth/${encodeURIComponent(c.req.param("providerID"))}`,
-  },
-]
+const credentialSetResponseSchema = resolver(z.boolean())
 
-export const AuthRoutes = (): Hono => registerProxyEndpoints(new Hono(), authProxySpecs)
+export const AuthRoutes = (): Hono =>
+  new Hono()
+    .put(
+      "/:providerID",
+      describeRoute({
+        operationId: "auth.set",
+        summary: "Set provider credentials",
+        responses: {
+          200: {
+            description: "Credentials stored",
+            content: {
+              "application/json": { schema: credentialSetResponseSchema },
+            },
+          },
+          ...routeErrors(400, 403),
+        },
+      }),
+      validator("query", directoryQuerySchema),
+      validator("param", ProviderIDParamSchema),
+      validator("json", OpenCodeAuth.Info),
+      async (c) => {
+        return proxyToOpenCode(c, {
+          targetPath: `/auth/${encodeURIComponent(c.req.valid("param").providerID)}`,
+        })
+      },
+    )
+    .delete(
+      "/:providerID",
+      describeRoute({
+        operationId: "auth.remove",
+        summary: "Remove provider credentials",
+        responses: {
+          200: {
+            description: "Credentials removed",
+            content: {
+              "application/json": { schema: credentialSetResponseSchema },
+            },
+          },
+          ...routeErrors(400, 403),
+        },
+      }),
+      validator("query", directoryQuerySchema),
+      validator("param", ProviderIDParamSchema),
+      async (c) => {
+        return proxyToOpenCode(c, {
+          targetPath: `/auth/${encodeURIComponent(c.req.valid("param").providerID)}`,
+        })
+      },
+    )

@@ -1,127 +1,122 @@
 import { Hono } from "hono"
-import { AnyObjectSchema } from "../openapi"
-import { withConfigSync } from "../http"
-import type { ProxyEndpointSpec } from "../http"
-import { registerProxyEndpoints } from "../http"
-import { directoryForbiddenResponse, directoryParameters } from "../http"
+import { describeRoute, resolver, validator } from "hono-openapi"
+import z from "zod"
+import { Command as OpenCodeCommand } from "@buddy/opencode-adapter/command"
+import {
+  routeErrors,
+  directoryForbiddenResponse,
+  directoryQuerySchema,
+  withConfigSync,
+} from "../http"
+import { proxyToOpenCode } from "../http"
 
-type CompatibilityProxyDefinition = Omit<ProxyEndpointSpec, "beforeProxy"> & {
-  requiresConfigSync?: boolean
-}
+const findFileQuerySchema = z.object({
+  query: z.string(),
+  dirs: z.enum(["true", "false"]).optional(),
+  type: z.enum(["file", "directory"]).optional(),
+  limit: z.coerce.number().int().min(1).max(200).optional(),
+  directory: z.string().optional(),
+})
 
-const compatibilityProxyDefinitions: CompatibilityProxyDefinition[] = [
-  {
-    method: "get",
-    path: "/health",
-    route: {
-      operationId: "health.check",
-      summary: "Health check",
-      responses: {
-        200: {
-          description: "Health payload",
-          content: {
-            "application/json": { schema: AnyObjectSchema },
-          },
-        },
-      },
-    },
-    targetPath: "/global/health",
-  },
-  {
-    method: "get",
-    path: "/event",
-    route: {
-      operationId: "event.stream",
-      summary: "Server events stream",
-      parameters: directoryParameters,
-      responses: {
-        200: {
-          description: "Server-sent events stream",
-          content: {
-            "text/event-stream": {
-              schema: { type: "string" },
+const healthResponseSchema = z.object({
+  healthy: z.literal(true),
+  version: z.string(),
+})
+
+export const CompatibilityRoutes = (): Hono =>
+  new Hono()
+    .get(
+      "/health",
+      describeRoute({
+        operationId: "health.check",
+        summary: "Health check",
+        responses: {
+          200: {
+            description: "Health payload",
+            content: {
+              "application/json": { schema: resolver(healthResponseSchema) },
             },
           },
         },
-        403: {
-          ...directoryForbiddenResponse,
-        },
+      }),
+      async (c) => {
+        return proxyToOpenCode(c, {
+          targetPath: "/global/health",
+        })
       },
-    },
-    targetPath: "/global/event",
-  },
-  {
-    method: "get",
-    path: "/find/file",
-    route: {
-      operationId: "find.file",
-      summary: "Search files and directories",
-      parameters: [
-        ...directoryParameters,
-        { in: "query", name: "query", required: true, schema: { type: "string" } },
-        { in: "query", name: "dirs", required: false, schema: { type: "string", enum: ["true", "false"] } },
-        { in: "query", name: "type", required: false, schema: { type: "string", enum: ["file", "directory"] } },
-        { in: "query", name: "limit", required: false, schema: { type: "integer" } },
-      ],
-      responses: {
-        200: {
-          description: "Matching file and directory paths",
-          content: {
-            "application/json": {
-              schema: {
-                type: "array",
-                items: { type: "string" },
+    )
+    .get(
+      "/event",
+      describeRoute({
+        operationId: "event.stream",
+        summary: "Server events stream",
+        responses: {
+          200: {
+            description: "Server-sent events stream",
+            content: {
+              "text/event-stream": {
+                schema: resolver(z.string()),
               },
             },
           },
+          403: directoryForbiddenResponse,
         },
-        403: {
-          ...directoryForbiddenResponse,
-        },
+      }),
+      validator("query", directoryQuerySchema),
+      async (c) => {
+        return proxyToOpenCode(c, {
+          targetPath: "/global/event",
+        })
       },
-    },
-    targetPath: "/find/file",
-  },
-  {
-    method: "get",
-    path: "/command",
-    route: {
-      operationId: "command.list",
-      summary: "List project commands",
-      parameters: directoryParameters,
-      responses: {
-        200: {
-          description: "Project command metadata",
-          content: {
-            "application/json": { schema: AnyObjectSchema },
+    )
+    .get(
+      "/find/file",
+      describeRoute({
+        operationId: "find.files",
+        summary: "Search files and directories",
+        responses: {
+          200: {
+            description: "Matching file and directory paths",
+            content: {
+              "application/json": {
+                schema: resolver(z.array(z.string())),
+              },
+            },
           },
+          403: directoryForbiddenResponse,
         },
-        403: {
-          ...directoryForbiddenResponse,
-        },
+      }),
+      validator("query", findFileQuerySchema),
+      async (c) => {
+        return proxyToOpenCode(c, {
+          targetPath: "/find/file",
+        })
       },
-    },
-    targetPath: "/command",
-    requiresConfigSync: true,
-  },
-]
+    )
+    .get(
+      "/command",
+      describeRoute({
+        operationId: "command.list",
+        summary: "List project commands",
+        responses: {
+          200: {
+            description: "Project command metadata",
+            content: {
+              "application/json": { schema: resolver(OpenCodeCommand.Info.array()) },
+            },
+          },
+          ...routeErrors(403),
+        },
+      }),
+      validator("query", directoryQuerySchema),
+      async (c) => {
+        const syncResult = await withConfigSync(c, {
+          operation: "listing commands",
+        })
+        if (!syncResult.ok) return syncResult.response
 
-async function syncConfigBeforeCommands(c: { req: { raw: Request } }): Promise<Response | undefined> {
-  const syncResult = await withConfigSync(c.req.raw, {
-    operation: "listing commands",
-  })
-  if (!syncResult.ok) return syncResult.response
-}
-
-function withCompatibilityHandlers(): ProxyEndpointSpec[] {
-  return compatibilityProxyDefinitions.map((definition) => {
-    if (!definition.requiresConfigSync) return definition
-
-    return {
-      ...definition,
-      beforeProxy: syncConfigBeforeCommands,
-    }
-  })
-}
-
-export const CompatibilityRoutes = (): Hono => registerProxyEndpoints(new Hono(), withCompatibilityHandlers())
+        return proxyToOpenCode(c, {
+          targetPath: "/command",
+        })
+      },
+    )
