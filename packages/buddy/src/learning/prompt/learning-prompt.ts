@@ -20,7 +20,6 @@ export async function buildLearningSystemPrompt(input: BuildLearningSystemPrompt
   const turnReminder = buildTurnPrompt({
     priorTurn: input.priorTurn,
     currentTurn,
-    activityBundle: input.activityBundle,
     changedSinceCheckpoint: systemBuild.changedSinceCheckpoint,
   })
 

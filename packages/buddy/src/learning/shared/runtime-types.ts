@@ -1,11 +1,8 @@
 import type {
-  ActivityCapabilityMode,
-  ActivityKind,
   Intent,
   Persona,
   PersonaSurface,
   SubagentId,
-  WorkspaceState,
 } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import type { LearningToolId } from "../tools/tool-catalog"
 
@@ -52,48 +49,12 @@ export type PersonaCatalogEntry = Pick<
   "id" | "label" | "description" | "surfaces" | "defaultSurface" | "hidden"
 >
 
-type ActivityBundleMetadata = {
-  id: string
-  activity: ActivityKind
-  label: string
-  intent: Intent
-  mode: ActivityCapabilityMode
-  description: string
-  autoEligible: boolean
-  whenToUse: string[]
-}
-
-type ActivityBundleTargeting = {
-  personas: Persona[]
-  workspaceStates?: WorkspaceState[]
-}
-
-type ActivityBundleResources = {
-  outputs?: string[]
-  skills?: string[]
-  tools?: ToolId[]
-  subagents?: SubagentId[]
-}
-
-type NormalizedActivityBundleResources = {
-  outputs: string[]
-  skills: string[]
-  tools: ToolId[]
-  subagents: SubagentId[]
-}
-
-type ActivityBundle<ResourceShape extends object> = ActivityBundleMetadata & ResourceShape
-
-export type ActivityBundleDefinition = ActivityBundle<ActivityBundleTargeting & ActivityBundleResources>
-export type ActivityBundleCapability = ActivityBundle<NormalizedActivityBundleResources>
-
 export type CapabilityEnvelope = {
   visibleSurfaces: PersonaSurface[]
   defaultSurface: PersonaSurface
   tools: Record<ToolId, "allow" | "deny">
   subagents: Record<SubagentId, "allow" | "deny" | "prefer">
   skills: Record<string, "allow" | "deny">
-  activityBundles: ActivityBundleCapability[]
 }
 
 export type RuntimeProfile = {

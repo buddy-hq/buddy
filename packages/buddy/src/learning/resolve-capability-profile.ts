@@ -3,11 +3,7 @@ import {
   type Intent,
   type WorkspaceState,
 } from "@buddy/backend/learning/shared/teaching-vocabulary"
-import {
-  resolveActivityBundles,
-  resolveBundledActivityToolPermissions,
-  resolveBundledSkillPermissions,
-} from "./curriculum"
+import { resolveIntentPermissions } from "./intents/capabilities"
 import type { PersonaDefinition, RuntimeProfile, ToolId } from "./shared/runtime-types"
 
 const INTERACTIVE_ONLY_EDITOR_TOOLS: ToolId[] = [
@@ -70,19 +66,11 @@ function applySurfaceToolConstraints(input: {
   }
 }
 
-function applyActivityToolOverrides(input: {
+function applyIntentToolOverrides(input: {
   tools: Record<ToolId, "allow" | "deny">
-  persona: PersonaDefinition
-  workspaceState: WorkspaceState
-  intent: Intent
+  intentToolPermissions: Partial<Record<ToolId, "allow" | "deny">>
 }) {
-  const activityTools = resolveBundledActivityToolPermissions({
-    persona: input.persona,
-    intent: input.intent,
-    workspaceState: input.workspaceState,
-  })
-
-  for (const [toolId, access] of Object.entries(activityTools) as Array<[ToolId, "allow" | "deny"]>) {
+  for (const [toolId, access] of Object.entries(input.intentToolPermissions) as Array<[ToolId, "allow" | "deny"]>) {
     input.tools[toolId] = access
   }
 }
@@ -90,7 +78,7 @@ function applyActivityToolOverrides(input: {
 function buildEffectiveTools(input: {
   persona: PersonaDefinition
   workspaceState: WorkspaceState
-  intent: Intent
+  intentToolPermissions: Partial<Record<ToolId, "allow" | "deny">>
 }): Record<ToolId, "allow" | "deny"> {
   const tools = createDenyToolMap()
   applyPersonaDefaultTools(tools, input.persona)
@@ -99,11 +87,9 @@ function buildEffectiveTools(input: {
     persona: input.persona,
     workspaceState: input.workspaceState,
   })
-  applyActivityToolOverrides({
+  applyIntentToolOverrides({
     tools,
-    persona: input.persona,
-    workspaceState: input.workspaceState,
-    intent: input.intent,
+    intentToolPermissions: input.intentToolPermissions,
   })
   return tools
 }
@@ -124,7 +110,17 @@ export function resolveCapabilityProfile(input: {
   workspaceState: WorkspaceState
   intent: Intent
 }): RuntimeProfile {
-  const tools = buildEffectiveTools(input)
+  const intentPermissions = resolveIntentPermissions({
+    persona: input.persona,
+    intent: input.intent,
+    workspaceState: input.workspaceState,
+  })
+
+  const tools = buildEffectiveTools({
+    persona: input.persona,
+    workspaceState: input.workspaceState,
+    intentToolPermissions: intentPermissions.tools,
+  })
   const subagents = buildEffectiveSubagents(input.persona)
 
   return {
@@ -134,18 +130,7 @@ export function resolveCapabilityProfile(input: {
       defaultSurface: input.persona.defaultSurface,
       tools,
       subagents,
-      skills: resolveBundledSkillPermissions({
-        persona: input.persona,
-        intent: input.intent,
-        workspaceState: input.workspaceState,
-      }),
-      activityBundles: resolveActivityBundles({
-        persona: input.persona,
-        intent: input.intent,
-        workspaceState: input.workspaceState,
-        tools,
-        subagents,
-      }),
+      skills: intentPermissions.skills,
     },
   }
 }

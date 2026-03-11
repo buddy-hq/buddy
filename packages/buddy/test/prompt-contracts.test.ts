@@ -61,18 +61,16 @@ describe("prompt contracts", () => {
     expect(prompt).toContain("Do not treat curriculum as editable markdown")
   })
 
-  test("bundled activity skills keep the procedural contract shape", () => {
-    const prompt = readPrompt("../src/learning/skills/system/buddy-practice-guided/SKILL.md")
+  test("bundled pedagogy skills keep the procedural contract shape", () => {
+    const prompt = readPrompt("../src/learning/capabilities/pedagogy/skills/buddy-pedagogy-explanation/SKILL.md")
 
-    expect(prompt).toContain("name: buddy-practice-guided")
-    expect(prompt).toContain("intent: practice")
-    expect(prompt).toContain("activity: guided-practice")
+    expect(prompt).toContain("name: buddy-pedagogy-explanation")
     expect(prompt).toContain("# Role")
     expect(prompt).toContain("# Use When")
     expect(prompt).toContain("# Workflow")
     expect(prompt).toContain("# Tool Hints")
     expect(prompt).toContain("# Avoid")
     expect(prompt).toContain("# Output")
-    expect(prompt).toContain("learner_practice_record")
+    expect(prompt).toContain("Usually no tool is required")
   })
 })

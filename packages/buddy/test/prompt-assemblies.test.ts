@@ -103,9 +103,9 @@ describe("prompt assemblies", () => {
       persona: "buddy",
     })
 
-    expect(system).toContain("<buddy_runtime_header>")
-    expect(system).toContain("Persona: buddy")
-    expect(system).toContain("Intent focus: auto")
+    expect(system).toContain("<student_intent>")
+    expect(system).toContain("The student has shown no explicit intent")
+    expect(system).toContain("<buddy_runtime_context>")
     expect(system).toContain("<workspace_state>")
     expect(system).toContain("No relevant goals exist yet")
   })
@@ -126,7 +126,7 @@ describe("prompt assemblies", () => {
       },
     })
 
-    expect(system).toContain("Persona: code-buddy")
+    expect(system).toContain("<buddy_runtime_context>")
     expect(system).toContain("State: interactive")
     expect(system).toContain("<teaching_workspace>")
     expect(system).not.toContain("<system-reminder>")
@@ -140,7 +140,7 @@ describe("prompt assemblies", () => {
       persona: "math-buddy",
     })
 
-    expect(system).toContain("Persona: math-buddy")
+    expect(system).toContain("<buddy_runtime_context>")
     expect(system).toContain("Render a figure only when it materially improves the current explanation")
   })
 

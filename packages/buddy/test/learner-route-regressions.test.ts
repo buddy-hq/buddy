@@ -5,7 +5,7 @@ import { writeTeachingSessionState } from "../src/learning/agent-execution/state
 import { tmpdir } from "./fixture/fixture"
 
 describe("learner route regressions", () => {
-  test("uses the session workspace state when building snapshot activity bundles", async () => {
+  test("uses the session workspace state when building snapshot fingerprints", async () => {
     await using project = await tmpdir({ git: true })
 
     writeTeachingSessionState(project.path, {
@@ -24,9 +24,11 @@ describe("learner route regressions", () => {
     })
     expect(chatResponse.status).toBe(200)
     const chatBody = (await chatResponse.json()) as {
-      activityBundles: Array<{ id: string }>
+      decisionInputFingerprint: string
+      activityBundles?: unknown
     }
-    expect(chatBody.activityBundles.map((bundle) => bundle.id)).not.toContain("code-debug-attempt")
+    expect(chatBody.activityBundles).toBeUndefined()
+    expect(chatBody.decisionInputFingerprint).toContain("workspaceState:chat")
 
     const interactiveResponse = await app.request(
       "/api/learner/snapshot?persona=code-buddy&intent=practice&sessionId=ses_interactive",
@@ -38,9 +40,11 @@ describe("learner route regressions", () => {
     )
     expect(interactiveResponse.status).toBe(200)
     const interactiveBody = (await interactiveResponse.json()) as {
-      activityBundles: Array<{ id: string }>
+      decisionInputFingerprint: string
+      activityBundles?: unknown
     }
-    expect(interactiveBody.activityBundles.map((bundle) => bundle.id)).toContain("code-debug-attempt")
+    expect(interactiveBody.activityBundles).toBeUndefined()
+    expect(interactiveBody.decisionInputFingerprint).toContain("workspaceState:interactive")
   })
 
   test("scopes artifacts to the requested workspace", async () => {

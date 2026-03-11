@@ -68,10 +68,8 @@ describe("learner curriculum intent view", () => {
     expect(snapshot.constraintsSummary.some((item) => item.includes("30 minutes"))).toBe(true)
     expect(snapshot.goals.map((goal) => goal.id)).toEqual(expect.arrayContaining(committed.goalIds))
     expect(planResult.plan.suggestedActivity.length).toBeGreaterThan(0)
-    expect(snapshot.activityBundles.every((bundle) => bundle.intent === "practice")).toBe(true)
-    expect(snapshot.activityBundles.map((bundle) => bundle.id)).toEqual(
-      expect.arrayContaining(["practice-guided", "practice-independent"]),
-    )
+    expect(snapshot.decisionInputFingerprint).toContain("intent:practice")
+    expect(snapshot.decisionInputFingerprint).toContain("workspaceState:")
     expect(snapshot.markdown).toContain("Constraints")
   })
 })

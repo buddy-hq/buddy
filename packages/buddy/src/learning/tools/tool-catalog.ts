@@ -1,14 +1,14 @@
 import { freeformFigureTools } from "@buddy/backend/learning/capabilities/figures/freeform/tools/tools"
 import { figureTools } from "@buddy/backend/learning/capabilities/figures/geometry/tools/tools"
 import { teachingTools } from "@buddy/backend/learning/capabilities/lesson-workspace/tools/tools"
-import { activityTools } from "@buddy/backend/learning/curriculum/activities/tools/tools"
+import { pedagogyTools } from "@buddy/backend/learning/capabilities/pedagogy/tools/tools"
 import { goalTools } from "@buddy/backend/learning/curriculum/goals/tools/tools"
 import { curriculumTools } from "@buddy/backend/learning/curriculum/planning/tools/tools"
 import { learnerTools } from "@buddy/backend/learning/learner-model/tools/tools"
 import type { BuddyTool } from "./create-buddy-tool"
 
 const learningToolGroups = {
-  activities: activityTools,
+  pedagogy: pedagogyTools,
   curriculum: curriculumTools,
   figures: figureTools,
   freeformFigures: freeformFigureTools,

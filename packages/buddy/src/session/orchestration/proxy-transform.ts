@@ -28,7 +28,7 @@ export async function runSessionTransformProxy(input: {
     targetPath: input.targetPath,
     transformJsonBody: input.onTransform,
     forceBusyAs409: true,
-    registerActivityTools: true,
+    registerPedagogyTools: true,
     registerCurriculumTools: true,
     registerFigureTools: true,
     registerFreeformFigureTools: true,

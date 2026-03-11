@@ -3,7 +3,7 @@ import { createBuddyTool, type BuddyToolContext } from "../../tools"
 import { recordPracticeEvent } from ".."
 
 const practiceRecordTool = createBuddyTool("learner_practice_record", {
-  description: "Record a practice activity or learner attempt for the current workspace.",
+  description: "Record a practice attempt for the current workspace.",
   parameters: z.object({
     goalIds: z.array(z.string()).min(1),
     prompt: z.string().optional(),

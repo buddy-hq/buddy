@@ -92,7 +92,6 @@ export function createSessionCommandTransform(input: { context: SessionTransform
       delete transformed.persona
       delete transformed.intent
       delete transformed.focusGoalIds
-      delete transformed.activityBundleId
       writeLastLlmOutbound({
         directory: input.context.directory,
         sessionID: input.context.sessionID,

@@ -295,7 +295,6 @@ function DirectoryChatPage() {
         label: string
         prompt: string
         intent?: TeachingIntent
-        activityBundleId?: string
         focusGoalIds: string[]
       }
     | undefined
@@ -549,6 +548,7 @@ function DirectoryChatPage() {
     [allDirectoryStates, validOpenProjects],
   )
   const showDevSessionTrace = import.meta.env.DEV
+  const showCapabilitiesSidebarTab = showDevSessionTrace
   const sidebarDirectories = validOpenProjects
   const leftSidebarMaxWidth = typeof window === "undefined" ? SIDEBAR_DEFAULT_MAX_WIDTH : window.innerWidth * 0.3 + 64
   const sessionKey = useMemo(
@@ -570,10 +570,12 @@ function DirectoryChatPage() {
   const selectedPersonaSupportsEditor = selectedPersonaSurfaces.includes("editor")
   const selectedPersonaSupportsFigure = selectedPersonaSurfaces.includes("figure")
   const isInteractiveMode = !!sessionID && !!teachingWorkspace
-  const rightSidebarSurface = isSidebarSurface(rightSidebarTab) && selectedPersonaSurfaces.includes(rightSidebarTab)
+  const selectedSurfaceTab = isSidebarSurface(rightSidebarTab) && selectedPersonaSurfaces.includes(rightSidebarTab)
     ? rightSidebarTab
     : selectedPersonaDefaultSurface
-  const editorPanelSizing = rightSidebarSurface === "editor"
+  const rightSidebarActiveTab =
+    rightSidebarTab === "capabilities" && showCapabilitiesSidebarTab ? "capabilities" : selectedSurfaceTab
+  const editorPanelSizing = rightSidebarActiveTab === "editor"
   const rightSidebarMinWidth = editorPanelSizing ? RIGHT_SIDEBAR_EDITOR_MIN_WIDTH : RIGHT_SIDEBAR_MIN_WIDTH
   const rightSidebarMaxWidth = editorPanelSizing ? RIGHT_SIDEBAR_EDITOR_MAX_WIDTH : RIGHT_SIDEBAR_MAX_WIDTH
   const rightSidebarDisplayWidth = Math.min(Math.max(rightSidebarWidth, rightSidebarMinWidth), rightSidebarMaxWidth)
@@ -1107,7 +1109,6 @@ function DirectoryChatPage() {
     content: string
     attachments?: PromptComposerAttachment[]
     intent?: TeachingIntent
-    activityBundleId?: string
     focusGoalIds?: string[]
   }) {
     if (!decodedDirectory) return false
@@ -1133,7 +1134,6 @@ function DirectoryChatPage() {
       parts: buildPromptAttachmentParts(rawAttachments),
       persona: selectedPersona,
       intent: input.intent ?? intentFromSelection(storedIntent),
-      activityBundleId: input.activityBundleId,
       focusGoalIds: input.focusGoalIds,
       model: modelSelection,
       variant,
@@ -1181,7 +1181,6 @@ function DirectoryChatPage() {
         content,
         attachments: rawAttachments,
         intent: pendingSuggestionOverride?.intent,
-        activityBundleId: pendingSuggestionOverride?.activityBundleId,
         focusGoalIds: pendingSuggestionOverride?.focusGoalIds,
       })
       if (!sent) {
@@ -1198,10 +1197,9 @@ function DirectoryChatPage() {
 
   async function onRunLearningPlanAction(action: LearnerCurriculumView["actions"][number]) {
     const override = {
-      label: `${action.label}${action.activityBundleLabel ? ` (${action.activityBundleLabel})` : ""}: ${action.reason}`,
+      label: `${action.label}: ${action.reason}`,
       prompt: action.prompt,
       intent: action.intent,
-      activityBundleId: action.activityBundleId,
       focusGoalIds: action.focusGoalIds,
     }
 
@@ -1223,7 +1221,6 @@ function DirectoryChatPage() {
         const sent = await sendRuntimePrompt({
           content: override.prompt,
           intent: override.intent,
-          activityBundleId: override.activityBundleId,
           focusGoalIds: override.focusGoalIds,
         })
         if (sent) {
@@ -1239,51 +1236,6 @@ function DirectoryChatPage() {
 
     setDraftAttachments([])
     setDraft(action.prompt)
-  }
-
-  async function onUseActivityBundle(bundle: LearnerCurriculumView["activityBundles"][number]) {
-    const override = {
-      label: `${bundle.label}: ${bundle.description}`,
-      prompt: `Use the ${bundle.label} activity for the current learning goal. Keep it grounded in the learner state and current conversation.`,
-      intent: bundle.intent,
-      activityBundleId: bundle.id,
-      focusGoalIds: [],
-    }
-
-    if (sessionKey) {
-      teachingRuntime.setSessionIntent(sessionKey, bundle.intent)
-    }
-
-    setPendingSuggestionOverride(override)
-
-    const canSendImmediately =
-      !!decodedDirectory &&
-      !!sessionKey &&
-      !isBusy &&
-      draft.trim().length === 0 &&
-      draftAttachments.length === 0
-
-    if (canSendImmediately) {
-      try {
-        const sent = await sendRuntimePrompt({
-          content: override.prompt,
-          intent: override.intent,
-          activityBundleId: override.activityBundleId,
-          focusGoalIds: override.focusGoalIds,
-        })
-        if (sent) {
-          setPendingSuggestionOverride(undefined)
-          setDraft("")
-          setDraftAttachments([])
-          return
-        }
-      } catch {
-        // Fall through to staging the override in the composer.
-      }
-    }
-
-    setDraftAttachments([])
-    setDraft(`Use the ${bundle.label} activity for the current learning goal.`)
   }
 
   async function onAbort() {
@@ -1454,7 +1406,11 @@ function DirectoryChatPage() {
       return
     }
 
-    if (!nextPersona.surfaces.includes(rightSidebarSurface)) {
+    if (rightSidebarActiveTab === "capabilities" && showCapabilitiesSidebarTab) {
+      return
+    }
+
+    if (!nextPersona.surfaces.includes(selectedSurfaceTab)) {
       setRightSidebarTab(nextPersona.defaultSurface)
     }
   }
@@ -1539,7 +1495,7 @@ function DirectoryChatPage() {
       return
     }
 
-    if (rightSidebarSurface === "editor" && rightSidebarWidth < RIGHT_SIDEBAR_EDITOR_MIN_WIDTH) {
+    if (rightSidebarActiveTab === "editor" && rightSidebarWidth < RIGHT_SIDEBAR_EDITOR_MIN_WIDTH) {
       setRightSidebarWidth(640)
     }
 
@@ -1897,17 +1853,15 @@ function DirectoryChatPage() {
           >
             <ChatRightSidebar
               directory={decodedDirectory}
-              activeTab={rightSidebarSurface}
+              activeTab={rightSidebarActiveTab}
               onTabChange={setRightSidebarTab}
               surfaces={selectedPersonaSurfaces}
+              showCapabilitiesTab={showCapabilitiesSidebarTab}
               sessionID={sessionID}
               persona={selectedPersona}
               intent={intentFromSelection(storedIntent)}
               onRunAction={(action) => {
                 void onRunLearningPlanAction(action)
-              }}
-              onUseActivityBundle={(bundle) => {
-                void onUseActivityBundle(bundle)
               }}
               editorPanel={
                 selectedPersonaSupportsEditor ? (

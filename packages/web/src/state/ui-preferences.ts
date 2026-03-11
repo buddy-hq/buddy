@@ -12,7 +12,7 @@ type UiPreferencesStore = {
   leftSidebarWidth: number
   rightSidebarOpen: boolean
   rightSidebarWidth: number
-  rightSidebarTab: "curriculum" | "editor" | "figure" | "settings"
+  rightSidebarTab: "curriculum" | "editor" | "figure" | "capabilities" | "settings"
   isPinned: (directory: string, sessionID: string) => boolean
   togglePinned: (directory: string, sessionID: string) => void
   markUnread: (directory: string, sessionID: string) => void
@@ -24,7 +24,7 @@ type UiPreferencesStore = {
   setLeftSidebarWidth: (width: number) => void
   setRightSidebarOpen: (open: boolean) => void
   setRightSidebarWidth: (width: number) => void
-  setRightSidebarTab: (tab: "curriculum" | "editor" | "figure" | "settings") => void
+  setRightSidebarTab: (tab: "curriculum" | "editor" | "figure" | "capabilities" | "settings") => void
 }
 
 export const useUiPreferences = create<UiPreferencesStore>()(
@@ -133,6 +133,8 @@ export const useUiPreferences = create<UiPreferencesStore>()(
           rightSidebarTab:
             state?.rightSidebarTab === "settings"
               ? "settings"
+              : state?.rightSidebarTab === "capabilities"
+                ? "capabilities"
               : state?.rightSidebarTab === "figure"
                 ? "figure"
               : state?.rightSidebarTab === "editor"

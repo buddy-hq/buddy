@@ -1,27 +1,19 @@
 import type { Intent, WorkspaceState } from "@buddy/backend/learning/shared/teaching-vocabulary"
-import RAW_TEACHING_POLICY_PROMPT from "./teaching-workspace-policy.p.md"
-import { hasText } from "./utils"
-import type { SystemPromptCtx } from "./prompt-context"
 import { getIntentPrompt } from "../intents/get-intent-prompt"
-
-export type SystemContextBuild = {
-  systemContext: string
-  changedSinceCheckpoint?: boolean
-}
+import type { SystemPromptCtx } from "./prompt-context"
 
 type LearnerSnapshotContext = SystemPromptCtx["learnerSnapshot"]
 type RuntimePromptProfile = Pick<SystemPromptCtx, "persona" | "capabilityEnvelope">
-type ActivityBundleContext = NonNullable<SystemPromptCtx["activityBundle"]>
 type TeachingContext = NonNullable<SystemPromptCtx["teachingContext"]>
-type ActivitySkillPromptDoc = {
-  name: string
-  description?: string
-  content: string
-}
 
 type TeachingCheckpointStatus = {
   changedSinceLastCheckpoint: boolean
   trackedFiles: string[]
+}
+
+export type SystemContextBuild = {
+  systemContext: string
+  changedSinceCheckpoint?: boolean
 }
 
 type RuntimeContextBuild = {
@@ -31,30 +23,6 @@ type RuntimeContextBuild = {
 
 function compactLine(value: string) {
   return value.trim().replace(/\s+/g, " ")
-}
-
-function titleCaseFromKebab(value: string): string {
-  return value
-    .split("-")
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ")
-}
-
-function sortValues(values: string[]) {
-  return values.sort((left, right) => left.localeCompare(right))
-}
-
-function collectPermissionKeys<TAccess extends string>(input: {
-  permissions: Record<string, TAccess>
-  includes: (access: TAccess) => boolean
-  map?: (entry: { id: string; access: TAccess }) => string
-}): string[] {
-  return sortValues(
-    Object.entries(input.permissions)
-      .filter(([, access]) => input.includes(access))
-      .map(([id, access]) => (input.map ? input.map({ id, access }) : id)),
-  )
 }
 
 function buildLearnerSummaryText(snapshot: LearnerSnapshotContext): string {
@@ -131,87 +99,6 @@ function buildWorkspaceStateText(profile: RuntimePromptProfile, workspaceState: 
   return `<workspace_state>\nState: ${workspaceState}\n${guidance}\n</workspace_state>`
 }
 
-function buildCapabilitySnapshotText(profile: RuntimePromptProfile): string {
-  const allAllowedTools = collectPermissionKeys({
-    permissions: profile.capabilityEnvelope.tools,
-    includes: (access) => access === "allow",
-  })
-
-  const directTools = allAllowedTools.filter((toolId) => !toolId.startsWith("activity_"))
-  const activityTools = allAllowedTools.filter((toolId) => toolId.startsWith("activity_"))
-
-  const activitySkills = collectPermissionKeys({
-    permissions: profile.capabilityEnvelope.skills,
-    includes: (access) => access === "allow",
-  })
-
-  const subagents = collectPermissionKeys({
-    permissions: profile.capabilityEnvelope.subagents,
-    includes: (access) => access !== "deny",
-    map: ({ id, access }) => (access === "prefer" ? `${id} (preferred)` : id),
-  })
-
-  return `<buddy_capability_snapshot>
-This snapshot is authoritative for Buddy-managed teaching capabilities on this turn.
-Direct Buddy tools: ${directTools.length > 0 ? directTools.join(", ") : "none"}
-Activity tools: ${activityTools.length > 0 ? activityTools.join(", ") : "none"}
-Activity skills: ${activitySkills.length > 0 ? activitySkills.join(", ") : "none"}
-Subagents: ${subagents.length > 0 ? subagents.join(", ") : "none"}
-Other globally installed skills may also exist through the native skill tool. Do not hide them, but do not confuse them with Buddy's teaching playbook.
-</buddy_capability_snapshot>`
-}
-
-function buildActivityCapabilitiesText(profile: RuntimePromptProfile, intent: Intent): string {
-  const bundles = profile.capabilityEnvelope.activityBundles
-  if (bundles.length === 0) {
-    return `<activity_capabilities>\nIntent focus: ${intent}\nNo first-class activity bundles are available for this persona and workspace state.\n</activity_capabilities>`
-  }
-
-  const bundleText = bundles
-    .map((bundle) => {
-      const skills =
-        bundle.skills.length > 0 ? `\n  Skills (loadable via the native skill tool): ${bundle.skills.join(", ")}` : ""
-      const tools = bundle.tools.length > 0 ? `\n  Tools (vendor-callable this turn): ${bundle.tools.join(", ")}` : ""
-      const subagents = bundle.subagents.length > 0 ? `\n  Subagents: ${bundle.subagents.join(", ")}` : ""
-      const whenToUse = bundle.whenToUse.length > 0 ? `\n  Use when: ${bundle.whenToUse[0]}` : ""
-      return `- ${bundle.label} [${titleCaseFromKebab(bundle.intent)} | ${bundle.mode}] -> ${bundle.description}${skills}${tools}${subagents}${whenToUse}`
-    })
-    .join("\n")
-
-  return `<activity_capabilities>\nIntent focus: ${intent}\n${bundleText}\n</activity_capabilities>`
-}
-
-function buildSelectedActivityText(input: {
-  activityBundle: ActivityBundleContext
-  loadedSkills: ActivitySkillPromptDoc[]
-}): string {
-  const toolHooks =
-    input.activityBundle.tools.length > 0
-      ? `\nTool hooks: ${input.activityBundle.tools.join(", ")}\nIf one of these tools can generate a structured artifact for the activity, prefer using it instead of improvising the artifact from scratch.`
-      : ""
-
-  const helperHooks =
-    input.activityBundle.subagents.length > 0 ? `\nHelper hooks: ${input.activityBundle.subagents.join(", ")}` : ""
-
-  const useWhen =
-    input.activityBundle.whenToUse.length > 0 ? `\nUse when: ${input.activityBundle.whenToUse.join(" | ")}` : ""
-
-  const skillsText = input.loadedSkills
-    .map((skill) => {
-      const description = hasText(skill.description) ? `Description: ${skill.description}\n\n` : ""
-      return `<activity_skill name="${skill.name}">\n${description}${skill.content}\n</activity_skill>`
-    })
-    .join("\n\n")
-
-  return `<selected_activity_bundle>
-This bundle was explicitly selected for the next reply. Treat it as the primary teaching procedure for this turn unless the learner's actual message clearly conflicts.
-Selected bundle: ${input.activityBundle.label} (${input.activityBundle.id})
-Intent: ${input.activityBundle.intent}
-Mode: ${input.activityBundle.mode}
-Description: ${input.activityBundle.description}${toolHooks}${helperHooks}${useWhen}${skillsText ? `\n\n${skillsText}` : ""}
-</selected_activity_bundle>`
-}
-
 function buildTeachingWorkspaceText(input: {
   context: TeachingContext
   checkpointStatus?: TeachingCheckpointStatus
@@ -232,24 +119,7 @@ function buildTeachingWorkspaceText(input: {
       ? `\nSelection: L${input.context.selectionStartLine}:C${input.context.selectionStartColumn}-L${input.context.selectionEndLine}:C${input.context.selectionEndColumn}`
       : ""
 
-  return `<teaching_workspace>
-Session: ${input.context.sessionID}
-Lesson file: ${input.context.lessonFilePath}
-Checkpoint file: ${input.context.checkpointFilePath}
-Language: ${input.context.language}
-Revision: ${input.context.revision}${checkpointStatus}${trackedFiles}${selection}
-Treat the lesson file as the shared teaching surface when editor tools are available.
-</teaching_workspace>`
-}
-
-async function loadBundledActivitySkills(skills: string[]) {
-  const { loadBundledActivitySkills: load } = await import("../curriculum")
-  const loaded = await load(skills)
-  return loaded.map((skill) => ({
-    name: skill.name,
-    description: skill.description,
-    content: skill.content,
-  }))
+  return `<teaching_workspace>\nSession: ${input.context.sessionID}\nLesson file: ${input.context.lessonFilePath}\nCheckpoint file: ${input.context.checkpointFilePath}\nLanguage: ${input.context.language}\nRevision: ${input.context.revision}${checkpointStatus}${trackedFiles}${selection}\nTreat the lesson file as the shared teaching surface when editor tools are available.\n</teaching_workspace>`
 }
 
 async function getCheckpointStatus(directory: string, sessionID: string) {
@@ -267,36 +137,19 @@ async function buildRuntimeContext(input: SystemPromptCtx): Promise<RuntimeConte
   const teachingContext = input.teachingContext
   const learnerSections = buildLearnerContextSections(input.learnerSnapshot)
 
-  const loadSkillsPromise = input.activityBundle
-    ? loadBundledActivitySkills(input.activityBundle.skills)
-    : Promise.resolve(undefined)
-
   const checkpointStatusPromise =
     input.teachingContext?.active && hasEditor
       ? getCheckpointStatus(input.directory, input.teachingContext.sessionID)
       : Promise.resolve(undefined)
 
-  const [loadedSkills, checkpointStatus] = await Promise.all([loadSkillsPromise, checkpointStatusPromise])
+  const checkpointStatus = await checkpointStatusPromise
 
   const runtimeSections: string[] = []
 
-  // Keep top-level prompt assembly imperative so section order and inclusion stay obvious.
   runtimeSections.push(buildWorkspaceStateText(profile, workspaceState))
-
-  runtimeSections.push(buildCapabilitySnapshotText(profile))
-  runtimeSections.push(buildActivityCapabilitiesText(profile, input.intent))
   runtimeSections.push(learnerSections.learnerSummary)
   runtimeSections.push(learnerSections.learnerProgress)
   runtimeSections.push(learnerSections.learnerFeedback)
-
-  if (input.activityBundle && loadedSkills) {
-    runtimeSections.push(
-      buildSelectedActivityText({
-        activityBundle: input.activityBundle,
-        loadedSkills,
-      }),
-    )
-  }
 
   if (teachingContext?.active && hasEditor) {
     runtimeSections.push(
@@ -314,14 +167,6 @@ async function buildRuntimeContext(input: SystemPromptCtx): Promise<RuntimeConte
 }
 
 export async function buildSystemPrompt(input: SystemPromptCtx): Promise<SystemContextBuild> {
-  const profile: RuntimePromptProfile = {
-    persona: input.persona,
-    capabilityEnvelope: input.capabilityEnvelope,
-  }
-  const teachingWorkspacePolicy = profile.capabilityEnvelope.visibleSurfaces.includes("editor")
-    ? `\n\n${RAW_TEACHING_POLICY_PROMPT.trim()}`
-    : ""
-
   const runtimeContext = await buildRuntimeContext(input)
 
   const intentSection = `<student_intent>\n${getIntentPrompt(input.intent)}\n</student_intent>`

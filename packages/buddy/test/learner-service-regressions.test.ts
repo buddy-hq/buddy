@@ -460,7 +460,7 @@ describe("LearnerService regressions", () => {
     })
 
     expect(closuresSnapshot.latestPlan?.id).toBe(closuresPlanId)
-    expect(closuresSnapshot.markdown).toContain("Suggested activity: guided-practice")
-    expect(closuresSnapshot.markdown).not.toContain("Suggested activity: retrieval-check")
+    expect(closuresSnapshot.markdown).toContain("Suggested next step: guided-practice")
+    expect(closuresSnapshot.markdown).not.toContain("Suggested next step: retrieval-check")
   })
 })

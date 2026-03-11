@@ -3,7 +3,7 @@ import type {
   Persona,
   WorkspaceState,
 } from "@buddy/backend/learning/shared/teaching-vocabulary"
-import type { ActivityBundleCapability, CapabilityEnvelope } from "../shared/runtime-types"
+import type { CapabilityEnvelope } from "../shared/runtime-types"
 import type { TeachingPromptContext } from "../capabilities"
 import type { LearnerSnapshot } from "../learner-model"
 
@@ -18,7 +18,6 @@ export type SystemPromptCtx = {
   persona: Persona
   capabilityEnvelope: CapabilityEnvelope
   intent: Intent
-  activityBundle?: ActivityBundleCapability
   learnerSnapshot: LearnerSnapshot
   focusGoalIds: string[]
   teachingContext?: TeachingPromptContext

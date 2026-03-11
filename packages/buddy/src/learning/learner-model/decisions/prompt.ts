@@ -98,19 +98,12 @@ export function buildPlanUserPrompt(input: {
   focusGoalIds: string[]
   sessionId?: string
 }) {
-  const bundleLines = input.snapshot.activityBundles.slice(0, 12).map((bundle) =>
-    `- ${bundle.id}: ${bundle.label} (${bundle.intent})`,
-  )
-
   return [
     "Create the next learning plan decision.",
     "",
     `Workspace: ${input.snapshot.workspace.label}`,
     `Session: ${input.sessionId ?? "unknown"}`,
     `Focus goal IDs: ${input.focusGoalIds.length > 0 ? input.focusGoalIds.join(", ") : "none provided"}`,
-    "",
-    "Available activity bundles:",
-    ...(bundleLines.length > 0 ? bundleLines : ["- none"]),
     "",
     "Snapshot markdown:",
     input.snapshot.markdown,

@@ -5,9 +5,12 @@ import { fileURLToPath } from "node:url"
 import { Config } from "../config.js"
 
 const BUDDY_BUNDLED_SKILL_ROOT_CANDIDATES = [
-  path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../learning/skills/system"),
-  path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../learning/skills/system"),
-  path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../src/learning/skills/system"),
+  path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../learning/capabilities/pedagogy/skills"),
+  path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../learning/capabilities/pedagogy/skills"),
+  path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "../../../src/learning/capabilities/pedagogy/skills",
+  ),
 ]
 
 async function resolveBuddyBundledSkillRoots(): Promise<string[]> {

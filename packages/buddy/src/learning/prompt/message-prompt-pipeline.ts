@@ -148,7 +148,6 @@ export async function runMessagePromptPipeline(input: {
   delete transformed.persona
   delete transformed.intent
   delete transformed.focusGoalIds
-  delete transformed.activityBundleId
   delete transformed.teaching
 
   return {

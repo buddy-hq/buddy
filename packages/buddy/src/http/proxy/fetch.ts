@@ -4,7 +4,7 @@ import type { FetchOpenCodeInput } from "./types"
 
 async function fetchOpenCode(input: FetchOpenCodeInput): Promise<Response> {
   await registerOpenCodeTools(input.directory, {
-    registerActivityTools: input.registerActivityTools ?? false,
+    registerPedagogyTools: input.registerPedagogyTools ?? false,
     registerCurriculumTools: input.registerCurriculumTools ?? false,
     registerFigureTools: input.registerFigureTools ?? false,
     registerFreeformFigureTools: input.registerFreeformFigureTools ?? false,

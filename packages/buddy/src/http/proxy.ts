@@ -30,7 +30,7 @@ async function proxyToOpenCode(c: Context, input: ProxyToOpenCodeInput): Promise
     query: buildProxyQuery(sourceURL, directoryResult.directory),
     headers: prepared.headers,
     body: prepared.body,
-    registerActivityTools: prepared.registrationFlags.registerActivityTools,
+    registerPedagogyTools: prepared.registrationFlags.registerPedagogyTools,
     registerCurriculumTools: prepared.registrationFlags.registerCurriculumTools,
     registerFigureTools: prepared.registrationFlags.registerFigureTools,
     registerFreeformFigureTools: prepared.registrationFlags.registerFreeformFigureTools,

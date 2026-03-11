@@ -25,10 +25,10 @@ describe("buildBuddyRuntimeSessionPermissions", () => {
     expect(PermissionNext.evaluate("question", "*", permissions).action).toBe("allow")
     expect(PermissionNext.evaluate("learner_snapshot_read", "*", permissions).action).toBe("allow")
     expect(PermissionNext.evaluate("learner_practice_record", "*", permissions).action).toBe("allow")
-    expect(PermissionNext.evaluate("activity_explanation", "*", permissions).action).toBe("allow")
-    expect(PermissionNext.evaluate("activity_guided_practice", "*", permissions).action).toBe("allow")
-    expect(PermissionNext.evaluate("skill", "buddy-practice-guided", permissions).action).toBe("allow")
-    expect(PermissionNext.evaluate("skill", "buddy-practice-debug-attempt", permissions).action).toBe("deny")
+    expect(PermissionNext.evaluate("pedagogy_explanation", "*", permissions).action).toBe("ask")
+    expect(PermissionNext.evaluate("pedagogy_guided_practice", "*", permissions).action).toBe("allow")
+    expect(PermissionNext.evaluate("skill", "buddy-pedagogy-explanation", permissions).action).toBe("allow")
+    expect(PermissionNext.evaluate("skill", "buddy-pedagogy-analogy", permissions).action).toBe("allow")
     expect(PermissionNext.evaluate("task", "goal-writer", permissions).action).toBe("allow")
     expect(PermissionNext.evaluate("task", "practice-agent", permissions).action).toBe("deny")
   })
@@ -50,14 +50,14 @@ describe("buildBuddyRuntimeSessionPermissions", () => {
       runtimeProfile,
     })
 
-    expect(PermissionNext.evaluate("skill", "buddy-practice-guided", permissions).action).toBe("allow")
-    expect(PermissionNext.evaluate("skill", "buddy-practice-debug-attempt", permissions).action).toBe("allow")
-    expect(PermissionNext.evaluate("skill", "buddy-assess-mastery-check", permissions).action).toBe("deny")
-    expect(PermissionNext.evaluate("skill", "buddy-learn-explanation", permissions).action).toBe("deny")
-    expect(PermissionNext.evaluate("activity_guided_practice", "*", permissions).action).toBe("allow")
-    expect(PermissionNext.evaluate("activity_debug_attempt", "*", permissions).action).toBe("allow")
-    expect(PermissionNext.evaluate("activity_mastery_check", "*", permissions).action).toBe("deny")
-    expect(PermissionNext.evaluate("activity_explanation", "*", permissions).action).toBe("deny")
+    expect(PermissionNext.evaluate("skill", "buddy-pedagogy-explanation", permissions).action).toBe("deny")
+    expect(PermissionNext.evaluate("skill", "buddy-pedagogy-worked-example", permissions).action).toBe("deny")
+    expect(PermissionNext.evaluate("skill", "buddy-pedagogy-concept-contrast", permissions).action).toBe("deny")
+    expect(PermissionNext.evaluate("skill", "buddy-pedagogy-analogy", permissions).action).toBe("deny")
+    expect(PermissionNext.evaluate("pedagogy_guided_practice", "*", permissions).action).toBe("allow")
+    expect(PermissionNext.evaluate("pedagogy_debug_attempt", "*", permissions).action).toBe("allow")
+    expect(PermissionNext.evaluate("pedagogy_mastery_check", "*", permissions).action).toBe("deny")
+    expect(PermissionNext.evaluate("pedagogy_explanation", "*", permissions).action).toBe("ask")
     expect(PermissionNext.evaluate("question", "*", permissions).action).toBe("allow")
   })
 
@@ -86,7 +86,7 @@ describe("buildBuddyRuntimeSessionPermissions", () => {
         },
         {
           permission: "skill",
-          pattern: "buddy-practice-guided",
+          pattern: "buddy-pedagogy-explanation",
           action: "allow",
         },
       ],

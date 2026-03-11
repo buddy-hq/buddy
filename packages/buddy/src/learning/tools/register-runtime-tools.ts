@@ -2,7 +2,7 @@ import { registerBuddyTools } from "./register-buddy-tools"
 import { assertLearningToolCatalog, getLearningToolGroup, type LearningToolGroup } from "./tool-catalog"
 
 type LearningToolRegistrationFlags = {
-  registerActivityTools: boolean
+  registerPedagogyTools: boolean
   registerCurriculumTools: boolean
   registerFigureTools: boolean
   registerFreeformFigureTools: boolean
@@ -39,10 +39,10 @@ async function registerRuntimeTools(
   const registrations: Promise<void>[] = []
 
   registerToolGroup({
-    enabled: flags.registerActivityTools,
+    enabled: flags.registerPedagogyTools,
     directory,
-    group: "activities",
-    warning: "Failed to register Buddy activity tools into OpenCode runtime:",
+    group: "pedagogy",
+    warning: "Failed to register Buddy pedagogy tools into OpenCode runtime:",
     registrations,
   })
 

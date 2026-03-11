@@ -34,7 +34,7 @@ const curriculumReadTool = createBuddyTool("curriculum_read", {
       snapshot.markdown,
       "",
       "## Plan",
-      `- Suggested activity: ${planResult.plan.suggestedActivity}`,
+      `- Suggested next step: ${planResult.plan.suggestedActivity}`,
       `- Scaffolding: ${planResult.plan.suggestedScaffoldingLevel}`,
       ...planResult.plan.rationale.map((line) => `- ${line}`),
     ].join("\n")

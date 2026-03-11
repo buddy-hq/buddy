@@ -87,32 +87,37 @@ export type LearnerCurriculumView = {
     label: string
     prompt: string
     intent: TeachingIntent
-    activityBundleId?: string
-    activityBundleLabel?: string
     focusGoalIds: string[]
     reason: string
   }>
   actionsUnavailable?: boolean
-  activityBundles: Array<{
-    id: string
-    activity: string
-    label: string
-    intent: TeachingIntent
-    mode: "skill" | "tool" | "hybrid"
-    description: string
-    autoEligible: boolean
-    whenToUse: string[]
-    outputs: string[]
-    skills: string[]
-    tools: string[]
-    subagents: string[]
-  }>
   constraintsSummary: string[]
   markdown: string
   sections: Array<{
     title: string
     items: string[]
   }>
+}
+
+export type LearnerRuntimeCapabilitiesView = {
+  persona: string
+  intent: TeachingIntent
+  workspaceState: "chat" | "interactive"
+  visibleSurfaces: string[]
+  defaultSurface: string
+  tools: {
+    allow: string[]
+    deny: string[]
+  }
+  skills: {
+    allow: string[]
+    deny: string[]
+  }
+  subagents: {
+    prefer: string[]
+    allow: string[]
+    deny: string[]
+  }
 }
 
 export type PromptCommandOption = {
@@ -459,7 +464,6 @@ export async function sendPrompt(
     parts?: PromptAttachmentPart[]
     persona?: string
     intent: TeachingIntent
-    activityBundleId?: string
     focusGoalIds?: string[]
     agent?: string
     model?: {
@@ -499,7 +503,6 @@ export async function sendPrompt(
           ...(input?.parts && input.parts.length > 0 ? { parts: input.parts } : {}),
           ...(input?.persona ? { persona: input.persona } : {}),
           intent,
-          ...(input?.activityBundleId ? { activityBundleId: input.activityBundleId } : {}),
           ...(input?.focusGoalIds && input.focusGoalIds.length > 0 ? { focusGoalIds: input.focusGoalIds } : {}),
           ...(input?.agent ? { agent: input.agent } : {}),
           ...(input?.model ? { model: input.model } : {}),
@@ -749,7 +752,6 @@ export async function loadCurriculumView(
         scaffoldingLevel?: string
         createdAt: string
       }>
-      activityBundles: LearnerCurriculumView["activityBundles"]
       constraintsSummary: string[]
       sections: LearnerCurriculumView["sections"]
       markdown: string
@@ -791,11 +793,90 @@ export async function loadCurriculumView(
       })),
     actions: actions ?? [],
     actionsUnavailable: actions === undefined,
-    activityBundles: snapshot.activityBundles,
     constraintsSummary: snapshot.constraintsSummary,
     markdown: snapshot.markdown,
     sections: snapshot.sections,
   } satisfies LearnerCurriculumView
+}
+
+function sortedPermissionKeys(
+  permissions: Record<string, "allow" | "deny">,
+  action: "allow" | "deny",
+) {
+  return Object.entries(permissions)
+    .filter(([, value]) => value === action)
+    .map(([key]) => key)
+    .sort((left, right) => left.localeCompare(right))
+}
+
+function sortedSubagentKeys(
+  permissions: Record<string, "allow" | "deny" | "prefer">,
+  action: "allow" | "deny" | "prefer",
+) {
+  return Object.entries(permissions)
+    .filter(([, value]) => value === action)
+    .map(([key]) => key)
+    .sort((left, right) => left.localeCompare(right))
+}
+
+export async function loadRuntimeCapabilities(
+  directory: string,
+  input?: {
+    persona?: string
+    intent?: TeachingIntent
+    sessionID?: string
+  },
+): Promise<LearnerRuntimeCapabilitiesView> {
+  const query = new URLSearchParams()
+  const requestedIntent = input?.intent ?? "auto"
+  if (input?.persona) query.set("persona", input.persona)
+  query.set("intent", requestedIntent)
+  if (input?.sessionID) query.set("sessionId", input.sessionID)
+  const search = query.toString()
+
+  const snapshot = await requestJson<{
+    runtimeContext: {
+      intent: TeachingIntent
+      workspaceState: "chat" | "interactive"
+    }
+    runtimeProfile: {
+      persona: string
+      capabilityEnvelope: {
+        visibleSurfaces: string[]
+        defaultSurface: string
+        tools: Record<string, "allow" | "deny">
+        skills: Record<string, "allow" | "deny">
+        subagents: Record<string, "allow" | "deny" | "prefer">
+      }
+    }
+  }>(directory, `/api/learner/snapshot${search ? `?${search}` : ""}`)
+
+  const runtimeProfile = snapshot.runtimeProfile
+  const envelope = runtimeProfile?.capabilityEnvelope
+  if (!runtimeProfile || !envelope) {
+    throw new Error("Runtime capability profile is unavailable for this session.")
+  }
+
+  return {
+    persona: runtimeProfile.persona,
+    intent: snapshot.runtimeContext?.intent ?? requestedIntent,
+    workspaceState: snapshot.runtimeContext?.workspaceState ?? "chat",
+    visibleSurfaces: [...(envelope.visibleSurfaces ?? [])].sort((left, right) => left.localeCompare(right)),
+    defaultSurface: envelope.defaultSurface,
+    tools: {
+      allow: sortedPermissionKeys(envelope.tools, "allow"),
+      deny: sortedPermissionKeys(envelope.tools, "deny"),
+    },
+    skills: {
+      allow: sortedPermissionKeys(envelope.skills, "allow"),
+      deny: sortedPermissionKeys(envelope.skills, "deny"),
+    },
+    subagents: {
+      prefer: sortedSubagentKeys(envelope.subagents, "prefer"),
+      allow: sortedSubagentKeys(envelope.subagents, "allow"),
+      deny: sortedSubagentKeys(envelope.subagents, "deny"),
+    },
+  }
 }
 
 export type GoalArtifact = {

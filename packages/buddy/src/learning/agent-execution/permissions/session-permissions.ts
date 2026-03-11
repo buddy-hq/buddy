@@ -1,6 +1,6 @@
 import type { PermissionRule, PermissionRuleset } from "@buddy/opencode-adapter/permission"
 import { SUBAGENT_IDS } from "@buddy/backend/learning/shared/teaching-vocabulary"
-import { bundledActivitySkillNames } from "../../curriculum"
+import { pedagogyManagedSkillNames } from "../../intents/capabilities"
 import type { RuntimeProfile } from "../../shared/runtime-types"
 import { allLearningToolIds } from "../../tools/tool-catalog"
 
@@ -19,7 +19,7 @@ function getManagedSubagentIds() {
 }
 
 function getManagedSkillNames() {
-  managedSkillNames ??= new Set<string>(bundledActivitySkillNames())
+  managedSkillNames ??= new Set<string>(pedagogyManagedSkillNames())
   return managedSkillNames
 }
 

@@ -1,20 +1,20 @@
 import { describe, expect, test } from "bun:test"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { ensureActivityToolsRegistered } from "../src/learning/curriculum"
+import { ensurePedagogyToolsRegistered } from "../src/learning/capabilities"
 import { writeTeachingSessionState } from "../src/learning/agent-execution/state/session-state"
 import { tmpdir } from "./fixture/fixture"
 import { createToolContext, requireTool } from "./helpers/tools"
 
-describe("activity tools", () => {
-  test("registers first-class activity tools and generates grounded activity artifacts", async () => {
+describe("pedagogy tools", () => {
+  test("registers first-class pedagogy tools and generates grounded teaching artifacts", async () => {
     await using project = await tmpdir({ git: true })
 
     const result = await OpenCodeInstance.provide({
       directory: project.path,
       async fn() {
         writeTeachingSessionState(project.path, {
-          sessionId: "ses_activity",
+          sessionId: "ses_pedagogy",
           persona: "buddy",
           intent: "learn",
           currentSurface: "curriculum",
@@ -22,35 +22,36 @@ describe("activity tools", () => {
           focusGoalIds: [],
         })
 
-        await ensureActivityToolsRegistered(project.path)
+        await ensurePedagogyToolsRegistered(project.path)
         const tools = await ToolRegistry.tools({
           providerID: "opencode",
           modelID: "claude-sonnet",
         })
         const toolIds = tools.map((tool) => tool.id)
 
-        expect(toolIds).toContain("activity_explanation")
-        expect(toolIds).toContain("activity_guided_practice")
-        expect(toolIds).toContain("activity_mastery_check")
+        expect(toolIds).toContain("pedagogy_guided_practice")
+        expect(toolIds).toContain("pedagogy_mastery_check")
+        expect(toolIds).not.toContain("pedagogy_explanation")
+        expect(toolIds.some((id) => id.startsWith("activity_"))).toBe(false)
 
-        const explanation = requireTool(tools, "activity_explanation")
-        const guidedPractice = requireTool(tools, "activity_guided_practice")
+        const guidedPractice = requireTool(tools, "pedagogy_guided_practice")
+        const masteryCheck = requireTool(tools, "pedagogy_mastery_check")
         const ctx = createToolContext({
-          sessionID: "ses_activity",
-          messageID: "msg_activity",
+          sessionID: "ses_pedagogy",
+          messageID: "msg_pedagogy",
           agent: "buddy",
         })
 
         return {
-          explanation: await explanation.execute({ topic: "input validation in Tauri commands" }, ctx),
           guidedPractice: await guidedPractice.execute({ topic: "input validation in Tauri commands" }, ctx),
+          masteryCheck: await masteryCheck.execute({ topic: "input validation in Tauri commands" }, ctx),
         }
       },
     })
 
-    expect(result.explanation.output).toContain("<activity_tool_output name=\"activity_explanation\">")
-    expect(result.explanation.output).toContain("input validation in Tauri commands")
-    expect(result.guidedPractice.output).toContain("<activity_tool_output name=\"activity_guided_practice\">")
+    expect(result.guidedPractice.output).toContain("<pedagogy_tool_output name=\"pedagogy_guided_practice\">")
     expect(result.guidedPractice.output).toContain("Hint ladder:")
+    expect(result.masteryCheck.output).toContain("<pedagogy_tool_output name=\"pedagogy_mastery_check\">")
+    expect(result.masteryCheck.output).toContain("input validation in Tauri commands")
   })
 })

@@ -44,7 +44,7 @@ describe("parity.config.config", () => {
           {
             tools: {
               learner_snapshot_read: false,
-              activity_explanation: true,
+              pedagogy_explanation: true,
             },
           },
           null,
@@ -55,10 +55,10 @@ describe("parity.config.config", () => {
       const loaded = await Config.getProject(directory)
       expect(loaded.tools).toEqual({
         learner_snapshot_read: false,
-        activity_explanation: true,
+        pedagogy_explanation: true,
       })
       expect(loaded.permission?.learner_snapshot_read).toBe("deny")
-      expect(loaded.permission?.activity_explanation).toBe("allow")
+      expect(loaded.permission?.pedagogy_explanation).toBe("allow")
     })
   })
 })

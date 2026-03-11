@@ -6,7 +6,7 @@ Route curriculum work to the right subsystem and keep the result aligned to lear
 
 # Available context
 
-- The system prompt may include runtime strategy/activity, learning-plan context, active goals, prior evidence, and workspace constraints.
+- The system prompt may include runtime strategy/capability context, learning-plan context, active goals, prior evidence, and workspace constraints.
 - Use `curriculum_read` and `learner_snapshot_read` when you need the current path before deciding what to do.
 
 # Workflow

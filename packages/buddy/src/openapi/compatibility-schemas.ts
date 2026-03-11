@@ -39,7 +39,6 @@ export const LearnerSnapshotSchema = {
     recentEvidence: { type: "array", items: AnyObjectSchema },
     latestPlan: AnyObjectSchema,
     constraintsSummary: { type: "array", items: { type: "string" } },
-    activityBundles: { type: "array", items: AnyObjectSchema },
     sections: {
       type: "array",
       items: {
@@ -54,6 +53,16 @@ export const LearnerSnapshotSchema = {
     },
     markdown: { type: "string" },
     decisionInputFingerprint: { type: "string" },
+    runtimeContext: {
+      type: "object",
+      properties: {
+        intent: { type: "string", enum: ["learn", "practice", "assess", "auto"] },
+        workspaceState: { type: "string", enum: ["chat", "interactive"] },
+      },
+      required: ["intent", "workspaceState"],
+      additionalProperties: false,
+    },
+    runtimeProfile: AnyObjectSchema,
   },
   required: [
     "workspace",
@@ -63,10 +72,11 @@ export const LearnerSnapshotSchema = {
     "openFeedback",
     "recentEvidence",
     "constraintsSummary",
-    "activityBundles",
     "sections",
     "markdown",
     "decisionInputFingerprint",
+    "runtimeContext",
+    "runtimeProfile",
   ],
   additionalProperties: true,
 }

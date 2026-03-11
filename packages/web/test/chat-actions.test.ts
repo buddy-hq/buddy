@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import {
   loadCurriculumView,
+  loadRuntimeCapabilities,
   loadOpenProjects,
   openProject,
   resolveDefaultPersonaID,
@@ -210,7 +211,7 @@ describe("sendPrompt", () => {
     expect(requests).toBe(1)
   })
 
-  test("sends an explicit activity bundle override when provided", async () => {
+  test("sends explicit focus-goal targeting when provided", async () => {
     useChatStore.setState({
       directories: {
         "/repo": {
@@ -233,7 +234,6 @@ describe("sendPrompt", () => {
         JSON.stringify({
           content: "give me a practice task",
           intent: "practice",
-          activityBundleId: "practice-guided",
           focusGoalIds: ["goal_1"],
         }),
       )
@@ -246,7 +246,6 @@ describe("sendPrompt", () => {
 
     await sendPrompt("/repo", "give me a practice task", {
       intent: "practice",
-      activityBundleId: "practice-guided",
       focusGoalIds: ["goal_1"],
     })
   })
@@ -276,7 +275,6 @@ describe("loadCurriculumView", () => {
             },
             goals: [],
             openFeedback: [],
-            activityBundles: [],
             constraintsSummary: [],
             sections: [],
             markdown: "",
@@ -326,7 +324,6 @@ describe("loadCurriculumView", () => {
           },
           goals: [],
           openFeedback: [],
-          activityBundles: [],
           constraintsSummary: [],
           sections: [],
           markdown: "",
@@ -351,6 +348,64 @@ describe("loadCurriculumView", () => {
     await loadCurriculumView("/repo", {
       generateDecision: true,
     })
+  })
+})
+
+describe("loadRuntimeCapabilities", () => {
+  test("returns allowed and denied tool/skill state for the current intent", async () => {
+    globalThis.fetch = (async (input) => {
+      expect(String(input)).toBe("/api/learner/snapshot?persona=code-buddy&intent=practice&sessionId=session_1")
+      const payload = {
+        runtimeContext: {
+          intent: "practice",
+          workspaceState: "interactive",
+        },
+        runtimeProfile: {
+          persona: "code-buddy",
+          capabilityEnvelope: {
+            visibleSurfaces: ["editor", "curriculum"],
+            defaultSurface: "editor",
+            tools: {
+              learner_snapshot_read: "allow",
+              pedagogy_guided_practice: "allow",
+              pedagogy_reflection: "deny",
+            },
+            skills: {
+              "buddy-pedagogy-explanation": "deny",
+              "buddy-pedagogy-worked-example": "deny",
+            },
+            subagents: {
+              "practice-agent": "allow",
+              "assessment-agent": "deny",
+              "curriculum-orchestrator": "prefer",
+            },
+          },
+        },
+      }
+      return new Response(JSON.stringify(payload), {
+        headers: {
+          "content-type": "application/json",
+        },
+      })
+    }) as typeof fetch
+
+    const capabilities = await loadRuntimeCapabilities("/repo", {
+      persona: "code-buddy",
+      intent: "practice",
+      sessionID: "session_1",
+    })
+
+    expect(capabilities.persona).toBe("code-buddy")
+    expect(capabilities.intent).toBe("practice")
+    expect(capabilities.workspaceState).toBe("interactive")
+    expect(capabilities.visibleSurfaces).toEqual(["curriculum", "editor"])
+    expect(capabilities.tools.allow).toEqual(["learner_snapshot_read", "pedagogy_guided_practice"])
+    expect(capabilities.tools.deny).toEqual(["pedagogy_reflection"])
+    expect(capabilities.skills.allow).toEqual([])
+    expect(capabilities.skills.deny).toEqual(["buddy-pedagogy-explanation", "buddy-pedagogy-worked-example"])
+    expect(capabilities.subagents.prefer).toEqual(["curriculum-orchestrator"])
+    expect(capabilities.subagents.allow).toEqual(["practice-agent"])
+    expect(capabilities.subagents.deny).toEqual(["assessment-agent"])
   })
 })
 

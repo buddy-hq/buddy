@@ -174,7 +174,7 @@ It compiles:
 - recent evidence
 - latest plan decision
 - constraints summary
-- activity bundles
+- intent-bound capability permissions (tools + skills)
 - sections and markdown digest
 
 It does **not** compute heuristic progress/review/alignment projections or auto-resolve pedagogical state.

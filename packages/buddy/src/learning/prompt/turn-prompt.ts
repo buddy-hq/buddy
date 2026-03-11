@@ -1,4 +1,3 @@
-import type { ActivityBundleCapability } from "../shared/runtime-types"
 import { hasText } from "./utils"
 import type { PromptTurnSnapshot } from "./prompt-context"
 
@@ -26,7 +25,6 @@ function buildFocusShiftReminder(input: {
 export function buildTurnPrompt(input: {
   priorTurn?: PromptTurnSnapshot
   currentTurn: PromptTurnSnapshot
-  activityBundle?: ActivityBundleCapability
   changedSinceCheckpoint?: boolean
 }) {
   const focusShift = buildFocusShiftReminder({
@@ -51,10 +49,6 @@ export function buildTurnPrompt(input: {
         : "Workspace switch: interactive -> chat. Continue in chat unless the learner explicitly asks to use the editor."
       : undefined
 
-  const activityOverride = input.activityBundle
-    ? `This turn has an explicit activity bundle override: ${input.activityBundle.label} (${input.activityBundle.id}). Treat it as primary unless the learner's message conflicts.`
-    : undefined
-
   const checkpointReminder = input.changedSinceCheckpoint
     ? "There are unaccepted lesson changes since the last checkpoint. Verify before accepting progress."
     : undefined
@@ -64,7 +58,6 @@ export function buildTurnPrompt(input: {
     personaTransition,
     intentTransition,
     workspaceTransition,
-    activityOverride,
     checkpointReminder,
   ].filter(hasText)
 

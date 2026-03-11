@@ -3,7 +3,7 @@ import path from "node:path"
 import matter from "gray-matter"
 import { resolveBuddyBundledSkillRoots } from "@buddy/backend/config/runtime"
 
-export type LoadedActivitySkill = {
+export type LoadedBundledSkill = {
   name: string
   description?: string
   content: string
@@ -42,7 +42,7 @@ async function readBundledSkillDocument(name: string): Promise<string | undefine
   return undefined
 }
 
-export async function loadBundledActivitySkill(name: string): Promise<LoadedActivitySkill | undefined> {
+export async function loadBundledSkill(name: string): Promise<LoadedBundledSkill | undefined> {
   const document = await readBundledSkillDocument(name)
   if (document === undefined) return undefined
 
@@ -56,7 +56,7 @@ export async function loadBundledActivitySkill(name: string): Promise<LoadedActi
   }
 }
 
-export async function loadBundledActivitySkills(names: string[]): Promise<LoadedActivitySkill[]> {
-  const loaded = await Promise.all(names.map((name) => loadBundledActivitySkill(name)))
-  return loaded.filter((skill): skill is LoadedActivitySkill => skill !== undefined)
+export async function loadBundledSkills(names: string[]): Promise<LoadedBundledSkill[]> {
+  const loaded = await Promise.all(names.map((name) => loadBundledSkill(name)))
+  return loaded.filter((skill): skill is LoadedBundledSkill => skill !== undefined)
 }

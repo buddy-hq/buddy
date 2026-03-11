@@ -1,4 +1,5 @@
 export * from "./figures"
 export * from "./lesson-workspace"
+export * from "./pedagogy/tools"
 export * from "./figures/geometry/types"
 export * from "./figures/freeform/types"

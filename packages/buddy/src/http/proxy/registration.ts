@@ -23,7 +23,7 @@ function resolveRegistration(
 
 function resolveInitialRegistrationFlags(input: ProxyToOpenCodeInput): ProxyRegistrationFlags {
   return {
-    registerActivityTools: typeof input.registerActivityTools === "boolean" ? input.registerActivityTools : false,
+    registerPedagogyTools: typeof input.registerPedagogyTools === "boolean" ? input.registerPedagogyTools : false,
     registerCurriculumTools: typeof input.registerCurriculumTools === "boolean" ? input.registerCurriculumTools : false,
     registerFigureTools: typeof input.registerFigureTools === "boolean" ? input.registerFigureTools : false,
     registerFreeformFigureTools:
@@ -39,7 +39,7 @@ function resolveBodyRegistrationFlags(
   input: ProxyToOpenCodeInput,
 ): ProxyRegistrationFlags {
   return {
-    registerActivityTools: resolveRegistration(body, input.registerActivityTools),
+    registerPedagogyTools: resolveRegistration(body, input.registerPedagogyTools),
     registerCurriculumTools: resolveRegistration(body, input.registerCurriculumTools),
     registerFigureTools: resolveRegistration(body, input.registerFigureTools),
     registerFreeformFigureTools: resolveRegistration(body, input.registerFreeformFigureTools),

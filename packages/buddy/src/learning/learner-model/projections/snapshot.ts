@@ -14,6 +14,8 @@ import type {
   WorkspaceContextArtifact,
 } from "../repository/types"
 
+type RuntimeProfile = ReturnType<typeof resolveCapabilityProfile>
+
 export type LearnerSnapshot = {
   workspace: WorkspaceContextArtifact
   profile: Awaited<ReturnType<typeof LearnerArtifactStore.ensureProfile>>
@@ -23,13 +25,17 @@ export type LearnerSnapshot = {
   recentEvidence: EvidenceArtifact[]
   latestPlan?: DecisionArtifact
   constraintsSummary: string[]
-  activityBundles: ReturnType<typeof resolveCapabilityProfile>["capabilityEnvelope"]["activityBundles"]
   sections: Array<{
     title: string
     items: string[]
   }>
   markdown: string
   decisionInputFingerprint: string
+  runtimeContext: {
+    intent: SnapshotQuery["intent"]
+    workspaceState: WorkspaceState
+  }
+  runtimeProfile: RuntimeProfile
 }
 
 function cleanDisplayValue(value: string) {
@@ -81,7 +87,7 @@ function buildSections(input: {
     {
       title: "Next Step",
       items: [
-        `Suggested activity: ${input.plan.suggestedActivity}`,
+        `Suggested next step: ${input.plan.suggestedActivity}`,
         `Scaffolding: ${input.plan.suggestedScaffoldingLevel}`,
         ...input.plan.rationale,
       ],
@@ -126,7 +132,6 @@ function buildDecisionInputFingerprint(input: {
   activeMisconceptions: MisconceptionArtifact[]
   recentEvidence: EvidenceArtifact[]
   constraintsSummary: string[]
-  activityBundles: ReturnType<typeof resolveCapabilityProfile>["capabilityEnvelope"]["activityBundles"]
 }) {
   return [
     `workspace:${input.workspace.workspaceId}@${input.workspace.updatedAt}`,
@@ -152,7 +157,6 @@ function buildDecisionInputFingerprint(input: {
       .sort()
       .join(",")}`,
     `constraints:${input.constraintsSummary.join("|")}`,
-    `bundles:${input.activityBundles.map((bundle) => bundle.id).join(",")}`,
   ].join("\n")
 }
 
@@ -223,7 +227,6 @@ export namespace LearnerSnapshotCompiler {
       activeMisconceptions,
       recentEvidence,
       constraintsSummary,
-      activityBundles: runtimeProfile.capabilityEnvelope.activityBundles,
     })
 
     return {
@@ -235,10 +238,14 @@ export namespace LearnerSnapshotCompiler {
       recentEvidence,
       latestPlan,
       constraintsSummary,
-      activityBundles: runtimeProfile.capabilityEnvelope.activityBundles,
       sections,
       markdown: buildMarkdown(workspace.label, sections),
       decisionInputFingerprint,
+      runtimeContext: {
+        intent: input.query.intent,
+        workspaceState,
+      },
+      runtimeProfile,
     }
   }
 }

@@ -71,10 +71,10 @@ describe("teaching eval harness", () => {
       },
     })
 
-    expect(prompt.systemContext).toContain("<buddy_runtime_header>")
+    expect(prompt.systemContext).toContain("<student_intent>")
     expect(prompt.systemContext).toContain("<workspace_state>")
     expect(prompt.systemContext).toContain("<teaching_workspace>")
-    expect(prompt.systemContext).toContain("Intent focus: practice")
+    expect(prompt.systemContext).toContain("The student has shown explicit intent to practice")
     expect(prompt.systemContext).toContain("An interactive lesson workspace is active")
     expect(prompt.turnReminder).toBeUndefined()
   })

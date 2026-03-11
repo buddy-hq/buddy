@@ -40,33 +40,28 @@ describe("composeLearningSystemPrompt (learner store)", () => {
       workspaceState: "chat",
       intent: "learn",
     })
-    const activityBundle = runtimeProfile.capabilityEnvelope.activityBundles.find(
-      (bundle) => bundle.id === "learn-worked-example",
-    )
 
     const { systemContext, turnReminder } = await buildLearningSystemPrompt({
       directory: project.path,
       persona: runtimeProfile.persona,
       capabilityEnvelope: runtimeProfile.capabilityEnvelope,
-      activityBundle,
       intent: "learn",
       learnerSnapshot: snapshot,
       focusGoalIds: committed.goalIds,
     })
     const system = [systemContext, turnReminder].filter(Boolean).join("\n\n")
 
+    expect(system).toContain("<student_intent>")
     expect(system).toContain("<buddy_runtime_context>")
-    expect(system).toContain("<buddy_capability_snapshot>")
-    expect(system).toContain("<activity_capabilities>")
-    expect(system).toContain("<selected_activity_bundle>")
-    expect(system).toContain(
-      "Direct Buddy tools: learner_assessment_record, learner_practice_record, learner_snapshot_read",
-    )
-    expect(system).toContain("Activity tools:")
-    expect(system).toContain("activity_explanation")
-    expect(system).toContain("activity_worked_example")
-    expect(system).toContain("buddy-learn-worked-example")
-    expect(system).toContain("buddy-learn-explanation")
+    expect(system).toContain("<workspace_state>")
+    expect(system).toContain("<learner_state>")
+    expect(system).toContain("<learner_progress>")
+    expect(system).toContain("<learner_feedback>")
+    expect(system).not.toContain("<buddy_capability_snapshot>")
+    expect(system).not.toContain("<activity_capabilities>")
+    expect(system).not.toContain("<selected_activity_bundle>")
+    expect(system).not.toContain("buddy-pedagogy-worked-example")
+    expect(system).not.toContain("buddy-pedagogy-explanation")
     expect(system).toContain("implement a Tauri command that validates inputs")
     expect(system).toContain("State: chat")
   })

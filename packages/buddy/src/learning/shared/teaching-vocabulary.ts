@@ -1,4 +1,3 @@
-import { BUNDLED_ACTIVITY_BUNDLES } from "@buddy/backend/learning/curriculum/activities/bundles/data"
 import { BUILTIN_BUDDY_PERSONAS } from "@buddy/backend/learning/personas/registry"
 
 type BuiltinPersona = keyof typeof BUILTIN_BUDDY_PERSONAS & string
@@ -59,13 +58,18 @@ export type ActivityKind = (typeof ACTIVITY_KINDS)[number]
 export const SCAFFOLDING_LEVELS = ["worked-example", "guided", "independent", "transfer"] as const
 export type ScaffoldingLevel = (typeof SCAFFOLDING_LEVELS)[number]
 
-export const ACTIVITY_CAPABILITY_MODES = ["skill", "tool", "hybrid"] as const
-export type ActivityCapabilityMode = (typeof ACTIVITY_CAPABILITY_MODES)[number]
+const PEDAGOGY_HELPER_SUBAGENT_IDS = [
+  "analogy-author",
+  "hint-generator",
+  "feedback-engine",
+  "solution-checker",
+  "rubric-grader",
+] as const
 
 const derivedSubagentIds = Array.from(
   new Set([
     ...Object.values(BUILTIN_BUDDY_PERSONAS).flatMap((persona) => Object.keys(persona.subagentDefaults)),
-    ...BUNDLED_ACTIVITY_BUNDLES.flatMap((bundle) => bundle.subagents ?? []),
+    ...PEDAGOGY_HELPER_SUBAGENT_IDS,
   ]),
 ).sort((left, right) => left.localeCompare(right))
 
