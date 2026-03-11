@@ -6,7 +6,7 @@ import type { SessionTransformContext } from "../../learning/agent-execution/tra
 import { mapSessionTransformError, runSessionTransformProxy } from "./proxy-transform"
 
 export async function postSessionPrompt(c: Context): Promise<Response> {
-  const syncResult = await withConfigSync(c.req.raw, {
+  const syncResult = await withConfigSync(c, {
     operation: "prompt",
   })
   if (!syncResult.ok) return syncResult.response
@@ -39,7 +39,7 @@ export async function postSessionPrompt(c: Context): Promise<Response> {
 }
 
 export async function postSessionCommand(c: Context): Promise<Response> {
-  const syncResult = await withConfigSync(c.req.raw, {
+  const syncResult = await withConfigSync(c, {
     operation: "command",
   })
   if (!syncResult.ok) return syncResult.response

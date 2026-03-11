@@ -5,7 +5,7 @@ import { fetchOpenCode } from "../../http"
 import { loadSessionStatus } from "../../http"
 
 export async function abortSessionRun(c: Context): Promise<Response> {
-  const directoryResult = ensureAllowedDirectory(c.req.raw)
+  const directoryResult = ensureAllowedDirectory(c)
   if (!directoryResult.ok) return directoryResult.response
 
   const sessionID = c.req.param("sessionID")

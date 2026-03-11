@@ -13,7 +13,7 @@ export async function proxySessionCollection(c: Context): Promise<Response> {
 }
 
 export async function getSessionById(c: Context): Promise<Response> {
-  const directoryResult = ensureAllowedDirectory(c.req.raw)
+  const directoryResult = ensureAllowedDirectory(c)
   if (!directoryResult.ok) return directoryResult.response
 
   const sessionID = c.req.param("sessionID")
@@ -39,7 +39,7 @@ export async function getSessionById(c: Context): Promise<Response> {
 }
 
 export async function patchSessionById(c: Context): Promise<Response> {
-  const directoryResult = ensureAllowedDirectory(c.req.raw)
+  const directoryResult = ensureAllowedDirectory(c)
   if (!directoryResult.ok) return directoryResult.response
 
   const sessionID = c.req.param("sessionID")
@@ -56,7 +56,7 @@ export async function patchSessionById(c: Context): Promise<Response> {
 }
 
 export async function listSessionMessages(c: Context): Promise<Response> {
-  const directoryResult = ensureAllowedDirectory(c.req.raw)
+  const directoryResult = ensureAllowedDirectory(c)
   if (!directoryResult.ok) return directoryResult.response
 
   const sessionID = c.req.param("sessionID")

@@ -1,14 +1,15 @@
 import { Hono } from "hono"
+import { describeRoute, resolver, validator } from "hono-openapi"
+import z from "zod"
+import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
+import { MessageV2 as OpenCodeMessage } from "@buddy/opencode-adapter/message"
+import { INTENTS, PERSONAS, PERSONA_SURFACES, WORKSPACE_STATES } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import {
-  AnyObjectSchema,
-  BooleanSchema,
-  ErrorSchema,
-  MessageWithPartsSchema,
-  SessionIDPath,
-  SessionInfoSchema,
-} from "../openapi"
-import { compatibilityRoute } from "../openapi"
-import { directoryParameters } from "../http"
+  routeErrors,
+  directoryQuerySchema,
+  SessionIDParamSchema,
+  booleanJsonResponse,
+} from "../http"
 import {
   abortSessionRun,
   getSessionById,
@@ -18,267 +19,114 @@ import {
   postSessionCommand,
   postSessionPrompt,
 } from "../session"
-import {
-  getTeachingState,
-} from "../learning/adapters/http"
+import { getTeachingState } from "../learning/adapters/http"
 
-const listSessionsRoute = compatibilityRoute({
-  operationId: "session.list",
-  summary: "List sessions",
-  parameters: directoryParameters,
-  responses: {
-    200: {
-      description: "Session list",
-      content: {
-        "application/json": {
-          schema: {
-            type: "array",
-            items: SessionInfoSchema,
+const sessionListQuerySchema = z.object({
+  directory: z.string().optional(),
+  roots: z.coerce.boolean().optional(),
+  start: z.coerce.number().optional(),
+  search: z.string().optional(),
+  limit: z.coerce.number().optional(),
+})
+
+const sessionUpdateBodySchema = z.object({
+  title: z.string().optional(),
+  time: z
+    .object({
+      archived: z.number().optional(),
+    })
+    .optional(),
+})
+
+const sessionPromptBodyOpenApiSchema = {
+  type: "object" as const,
+  required: ["content"],
+  additionalProperties: true,
+  properties: {
+    content: { type: "string" as const },
+    parts: {
+      type: "array" as const,
+      items: { type: "object" as const, additionalProperties: true },
+    },
+    persona: { type: "string" as const },
+    intent: {
+      type: "string" as const,
+      enum: [...INTENTS],
+    },
+    focusGoalIds: {
+      type: "array" as const,
+      items: { type: "string" as const },
+    },
+    agent: { type: "string" as const },
+    model: {
+      type: "object" as const,
+      additionalProperties: false,
+      required: ["providerID", "modelID"],
+      properties: {
+        providerID: { type: "string" as const },
+        modelID: { type: "string" as const },
+      },
+    },
+    variant: { type: "string" as const },
+    teaching: {
+      type: "object" as const,
+      additionalProperties: true,
+    },
+  },
+}
+
+const sessionCommandBodyOpenApiSchema = {
+  type: "object" as const,
+  required: ["command"],
+  additionalProperties: true,
+  properties: {
+    command: { type: "string" as const },
+    arguments: { type: "string" as const },
+    parts: {
+      type: "array" as const,
+      items: { type: "object" as const, additionalProperties: true },
+    },
+    persona: { type: "string" as const },
+    intent: {
+      type: "string" as const,
+      enum: [...INTENTS],
+    },
+    agent: { type: "string" as const },
+    model: {
+      oneOf: [
+        { type: "string" as const },
+        {
+          type: "object" as const,
+          additionalProperties: false,
+          required: ["providerID", "modelID"],
+          properties: {
+            providerID: { type: "string" as const },
+            modelID: { type: "string" as const },
           },
         },
-      },
+      ],
     },
-    403: {
-      description: "Directory is outside allowed roots",
-      content: {
-        "application/json": { schema: ErrorSchema },
-      },
-    },
+    variant: { type: "string" as const },
   },
+}
+
+const teachingSessionStateOutboundSchema = z.object({
+  kind: z.enum(["message", "command"]),
+  createdAt: z.string(),
+  payload: z.object({}).passthrough(),
+  systemPromptSent: z.string().optional(),
+  systemPromptEffective: z.string().optional(),
 })
 
-const createSessionRoute = compatibilityRoute({
-  operationId: "session.create",
-  summary: "Create a new session",
-  parameters: directoryParameters,
-  requestBody: {
-    required: false,
-    content: {
-      "application/json": { schema: AnyObjectSchema },
-    },
-  },
-  responses: {
-    200: {
-      description: "Created session",
-      content: {
-        "application/json": { schema: SessionInfoSchema },
-      },
-    },
-    403: {
-      description: "Directory is outside allowed roots",
-      content: {
-        "application/json": { schema: ErrorSchema },
-      },
-    },
-  },
-})
-
-const getSessionRoute = compatibilityRoute({
-  operationId: "session.get",
-  summary: "Get session by ID",
-  parameters: [SessionIDPath, ...directoryParameters],
-  responses: {
-    200: {
-      description: "Session info",
-      content: {
-        "application/json": { schema: SessionInfoSchema },
-      },
-    },
-    404: {
-      description: "Session not found",
-      content: {
-        "application/json": { schema: ErrorSchema },
-      },
-    },
-    403: {
-      description: "Directory is outside allowed roots",
-      content: {
-        "application/json": { schema: ErrorSchema },
-      },
-    },
-  },
-})
-
-const updateSessionRoute = compatibilityRoute({
-  operationId: "session.update",
-  summary: "Patch session metadata",
-  parameters: [SessionIDPath, ...directoryParameters],
-  requestBody: {
-    required: true,
-    content: {
-      "application/json": { schema: AnyObjectSchema },
-    },
-  },
-  responses: {
-    200: {
-      description: "Updated session info",
-      content: {
-        "application/json": { schema: SessionInfoSchema },
-      },
-    },
-    404: {
-      description: "Session not found",
-      content: {
-        "application/json": { schema: ErrorSchema },
-      },
-    },
-    403: {
-      description: "Directory is outside allowed roots",
-      content: {
-        "application/json": { schema: ErrorSchema },
-      },
-    },
-  },
-})
-
-const listSessionMessagesRoute = compatibilityRoute({
-  operationId: "session.messages",
-  summary: "List session messages",
-  parameters: [SessionIDPath, ...directoryParameters],
-  responses: {
-    200: {
-      description: "Message list",
-      content: {
-        "application/json": {
-          schema: {
-            type: "array",
-            items: MessageWithPartsSchema,
-          },
-        },
-      },
-    },
-    404: {
-      description: "Session not found",
-      content: {
-        "application/json": { schema: ErrorSchema },
-      },
-    },
-    403: {
-      description: "Directory is outside allowed roots",
-      content: {
-        "application/json": { schema: ErrorSchema },
-      },
-    },
-  },
-})
-
-const postSessionPromptRoute = compatibilityRoute({
-  operationId: "session.prompt",
-  summary: "Send a prompt to a session",
-  parameters: [SessionIDPath, ...directoryParameters],
-  requestBody: {
-    required: true,
-    content: {
-      "application/json": { schema: AnyObjectSchema },
-    },
-  },
-  responses: {
-    200: {
-      description: "Created user message",
-      content: {
-        "application/json": { schema: MessageWithPartsSchema },
-      },
-    },
-    400: {
-      description: "Invalid prompt payload",
-      content: {
-        "application/json": { schema: ErrorSchema },
-      },
-    },
-    403: {
-      description: "Directory is outside allowed roots",
-      content: {
-        "application/json": { schema: ErrorSchema },
-      },
-    },
-    409: {
-      description: "Session is already running",
-      content: {
-        "application/json": { schema: ErrorSchema },
-      },
-    },
-  },
-})
-
-const postSessionCommandRoute = compatibilityRoute({
-  operationId: "session.command",
-  summary: "Send a slash command to a session",
-  parameters: [SessionIDPath, ...directoryParameters],
-  requestBody: {
-    required: true,
-    content: {
-      "application/json": { schema: AnyObjectSchema },
-    },
-  },
-  responses: {
-    200: {
-      description: "Created command message",
-      content: {
-        "application/json": { schema: MessageWithPartsSchema },
-      },
-    },
-    400: {
-      description: "Invalid command payload",
-      content: {
-        "application/json": { schema: ErrorSchema },
-      },
-    },
-    403: {
-      description: "Directory is outside allowed roots",
-      content: {
-        "application/json": { schema: ErrorSchema },
-      },
-    },
-    409: {
-      description: "Session is already running",
-      content: {
-        "application/json": { schema: ErrorSchema },
-      },
-    },
-  },
-})
-
-const getTeachingStateRoute = compatibilityRoute({
-  operationId: "session.teachingState",
-  summary: "Get Buddy teaching runtime state for a session",
-  parameters: [SessionIDPath, ...directoryParameters],
-  responses: {
-    200: {
-      description: "Teaching runtime state",
-      content: {
-        "application/json": { schema: AnyObjectSchema },
-      },
-    },
-    204: {
-      description: "No Buddy teaching state exists for this session yet",
-    },
-    403: {
-      description: "Directory is outside allowed roots",
-      content: {
-        "application/json": { schema: ErrorSchema },
-      },
-    },
-  },
-})
-
-const abortSessionRoute = compatibilityRoute({
-  operationId: "session.abort",
-  summary: "Abort active session run",
-  parameters: [SessionIDPath, ...directoryParameters],
-  responses: {
-    200: {
-      description: "Whether a running session was aborted",
-      content: {
-        "application/json": { schema: BooleanSchema },
-      },
-    },
-    403: {
-      description: "Directory is outside allowed roots",
-      content: {
-        "application/json": { schema: ErrorSchema },
-      },
-    },
-  },
+const teachingSessionStateSchema = z.object({
+  sessionId: z.string(),
+  persona: z.enum(PERSONAS),
+  intent: z.enum(INTENTS),
+  currentSurface: z.enum(PERSONA_SURFACES),
+  workspaceState: z.enum(WORKSPACE_STATES),
+  focusGoalIds: z.array(z.string()),
+  lastLlmOutbound: teachingSessionStateOutboundSchema.optional(),
+  llmOutboundHistory: z.array(teachingSessionStateOutboundSchema).optional(),
 })
 
 const listSessionsHandler = proxySessionCollection
@@ -293,12 +141,193 @@ const abortSessionHandler = abortSessionRun
 
 export const SessionRoutes = (): Hono =>
   new Hono()
-    .get("/", listSessionsRoute, listSessionsHandler)
-    .post("/", createSessionRoute, createSessionHandler)
-    .get("/:sessionID", getSessionRoute, getSessionHandler)
-    .patch("/:sessionID", updateSessionRoute, updateSessionHandler)
-    .get("/:sessionID/message", listSessionMessagesRoute, listSessionMessagesHandler)
-    .post("/:sessionID/message", postSessionPromptRoute, postSessionPromptHandler)
-    .post("/:sessionID/command", postSessionCommandRoute, postSessionCommandHandler)
-    .get("/:sessionID/teaching-state", getTeachingStateRoute, getTeachingStateHandler)
-    .post("/:sessionID/abort", abortSessionRoute, abortSessionHandler)
+    .get(
+      "/",
+      describeRoute({
+        operationId: "session.list",
+        summary: "List sessions",
+        responses: {
+          200: {
+            description: "Session list",
+            content: {
+              "application/json": {
+                schema: resolver(OpenCodeSession.Info.array()),
+              },
+            },
+          },
+          ...routeErrors(403),
+        },
+      }),
+      validator("query", sessionListQuerySchema),
+      listSessionsHandler,
+    )
+    .post(
+      "/",
+      describeRoute({
+        operationId: "session.create",
+        summary: "Create a new session",
+        responses: {
+          200: {
+            description: "Created session",
+            content: {
+              "application/json": { schema: resolver(OpenCodeSession.Info) },
+            },
+          },
+          ...routeErrors(403),
+        },
+      }),
+      validator("query", directoryQuerySchema),
+      validator("json", OpenCodeSession.create.schema.optional()),
+      createSessionHandler,
+    )
+    .get(
+      "/:sessionID",
+      describeRoute({
+        operationId: "session.get",
+        summary: "Get session by ID",
+        responses: {
+          200: {
+            description: "Session info",
+            content: {
+              "application/json": { schema: resolver(OpenCodeSession.Info) },
+            },
+          },
+          ...routeErrors(403, 404),
+        },
+      }),
+      validator("query", directoryQuerySchema),
+      validator("param", SessionIDParamSchema),
+      getSessionHandler,
+    )
+    .patch(
+      "/:sessionID",
+      describeRoute({
+        operationId: "session.update",
+        summary: "Patch session metadata",
+        responses: {
+          200: {
+            description: "Updated session info",
+            content: {
+              "application/json": { schema: resolver(OpenCodeSession.Info) },
+            },
+          },
+          ...routeErrors(403, 404),
+        },
+      }),
+      validator("query", directoryQuerySchema),
+      validator("param", SessionIDParamSchema),
+      validator("json", sessionUpdateBodySchema),
+      updateSessionHandler,
+    )
+    .get(
+      "/:sessionID/message",
+      describeRoute({
+        operationId: "session.messages",
+        summary: "List session messages",
+        responses: {
+          200: {
+            description: "Message list",
+            content: {
+              "application/json": {
+                schema: resolver(OpenCodeMessage.WithParts.array()),
+              },
+            },
+          },
+          ...routeErrors(403, 404),
+        },
+      }),
+      validator("query", directoryQuerySchema),
+      validator("param", SessionIDParamSchema),
+      listSessionMessagesHandler,
+    )
+    .post(
+      "/:sessionID/message",
+      describeRoute({
+        operationId: "session.prompt",
+        summary: "Send a prompt to a session",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": { schema: sessionPromptBodyOpenApiSchema },
+          },
+        },
+        responses: {
+          200: {
+            description: "Created user message",
+            content: {
+              "application/json": { schema: resolver(OpenCodeMessage.WithParts) },
+            },
+          },
+          ...routeErrors(400, 403, 409),
+        },
+      }),
+      validator("query", directoryQuerySchema),
+      validator("param", SessionIDParamSchema),
+      postSessionPromptHandler,
+    )
+    .post(
+      "/:sessionID/command",
+      describeRoute({
+        operationId: "session.command",
+        summary: "Send a slash command to a session",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": { schema: sessionCommandBodyOpenApiSchema },
+          },
+        },
+        responses: {
+          200: {
+            description: "Created command message",
+            content: {
+              "application/json": { schema: resolver(OpenCodeMessage.WithParts) },
+            },
+          },
+          ...routeErrors(400, 403, 409),
+        },
+      }),
+      validator("query", directoryQuerySchema),
+      validator("param", SessionIDParamSchema),
+      postSessionCommandHandler,
+    )
+    .get(
+      "/:sessionID/teaching-state",
+      describeRoute({
+        operationId: "session.teachingState",
+        summary: "Get Buddy teaching runtime state for a session",
+        responses: {
+          200: {
+            description: "Teaching runtime state",
+            content: {
+              "application/json": { schema: resolver(teachingSessionStateSchema) },
+            },
+          },
+          204: {
+            description: "No Buddy teaching state exists for this session yet",
+          },
+          ...routeErrors(403),
+        },
+      }),
+      validator("query", directoryQuerySchema),
+      validator("param", SessionIDParamSchema),
+      getTeachingStateHandler,
+    )
+    .post(
+      "/:sessionID/abort",
+      describeRoute({
+        operationId: "session.abort",
+        summary: "Abort active session run",
+        responses: {
+          200: {
+            description: "Whether a running session was aborted",
+            content: {
+              "application/json": booleanJsonResponse,
+            },
+          },
+          ...routeErrors(403),
+        },
+      }),
+      validator("query", directoryQuerySchema),
+      validator("param", SessionIDParamSchema),
+      abortSessionHandler,
+    )
