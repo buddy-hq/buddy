@@ -1,108 +1,86 @@
-import type { Context } from "hono"
 import { Hono } from "hono"
-import { AnyObjectSchema, ErrorSchema } from "../openapi"
-import { compatibilityRoute } from "../openapi"
-import { withJsonBody } from "../http"
-import { proxyToOpenCode } from "../http"
+import { describeRoute, resolver, validator } from "hono-openapi"
 import { configRouteValidationResponse } from "@buddy/backend/config/orchestration"
 import { configErrorMessage, isConfigValidationError } from "@buddy/backend/config/runtime"
 import { Config } from "@buddy/backend/config"
-
-const getGlobalConfigRoute = compatibilityRoute({
-  operationId: "global.config.get",
-  summary: "Get global config",
-  responses: {
-    200: {
-      description: "Global configuration payload",
-      content: {
-        "application/json": { schema: AnyObjectSchema },
-      },
-    },
-    400: {
-      description: "Invalid config",
-      content: {
-        "application/json": { schema: ErrorSchema },
-      },
-    },
-  },
-})
-
-const patchGlobalConfigRoute = compatibilityRoute({
-  operationId: "global.config.patch",
-  summary: "Patch global config",
-  requestBody: {
-    required: true,
-    content: {
-      "application/json": { schema: AnyObjectSchema },
-    },
-  },
-  responses: {
-    200: {
-      description: "Updated global configuration",
-      content: {
-        "application/json": { schema: AnyObjectSchema },
-      },
-    },
-    400: {
-      description: "Invalid config",
-      content: {
-        "application/json": { schema: ErrorSchema },
-      },
-    },
-  },
-})
-
-const disposeGlobalRoute = compatibilityRoute({
-  operationId: "global.dispose",
-  summary: "Dispose all global runtime instances",
-  responses: {
-    200: {
-      description: "Disposal response",
-      content: {
-        "application/json": { schema: AnyObjectSchema },
-      },
-    },
-  },
-})
-
-async function getGlobalConfigHandler(c: Context): Promise<Response> {
-  try {
-    const config = await Config.getGlobal()
-    return c.json(config)
-  } catch (error) {
-    if (isConfigValidationError(error)) {
-      return c.json({ error: configErrorMessage(error) }, 400)
-    }
-    throw error
-  }
-}
-
-async function patchGlobalConfigHandler(c: Context): Promise<Response> {
-  const bodyResult = await withJsonBody(c.req.raw)
-  if (!bodyResult.ok) return bodyResult.response
-
-  try {
-    const parsed = Config.Info.parse(bodyResult.value)
-    const config = await Config.updateGlobal(parsed)
-    return c.json(config)
-  } catch (error) {
-    if (isConfigValidationError(error)) {
-      return c.json({ error: configErrorMessage(error) }, 400)
-    }
-    const validationResponse = configRouteValidationResponse(error)
-    if (validationResponse) return validationResponse
-    throw error
-  }
-}
-
-async function disposeGlobalHandler(c: Context): Promise<Response> {
-  return proxyToOpenCode(c, {
-    targetPath: "/global/dispose",
-  })
-}
+import { booleanJsonResponse, routeErrors } from "../http"
+import { proxyToOpenCode } from "../http"
 
 export const GlobalRoutes = (): Hono =>
   new Hono()
-    .get("/config", getGlobalConfigRoute, getGlobalConfigHandler)
-    .patch("/config", patchGlobalConfigRoute, patchGlobalConfigHandler)
-    .post("/dispose", disposeGlobalRoute, disposeGlobalHandler)
+    .get(
+      "/config",
+      describeRoute({
+        operationId: "global.config.get",
+        summary: "Get global config",
+        responses: {
+          200: {
+            description: "Global configuration payload",
+            content: {
+              "application/json": { schema: resolver(Config.Info) },
+            },
+          },
+          ...routeErrors(400),
+        },
+      }),
+      async (c) => {
+        try {
+          const config = await Config.getGlobal()
+          return c.json(config)
+        } catch (error) {
+          if (isConfigValidationError(error)) {
+            return c.json({ error: configErrorMessage(error) }, 400)
+          }
+          throw error
+        }
+      },
+    )
+    .patch(
+      "/config",
+      describeRoute({
+        operationId: "global.config.patch",
+        summary: "Update global config",
+        responses: {
+          200: {
+            description: "Updated global configuration",
+            content: {
+              "application/json": { schema: resolver(Config.Info) },
+            },
+          },
+          ...routeErrors(400),
+        },
+      }),
+      validator("json", Config.Info),
+      async (c) => {
+        try {
+          const config = await Config.updateGlobal(c.req.valid("json"))
+          return c.json(config)
+        } catch (error) {
+          if (isConfigValidationError(error)) {
+            return c.json({ error: configErrorMessage(error) }, 400)
+          }
+          const validationResponse = configRouteValidationResponse(error)
+          if (validationResponse) return validationResponse
+          throw error
+        }
+      },
+    )
+    .post(
+      "/dispose",
+      describeRoute({
+        operationId: "global.dispose",
+        summary: "Dispose all global runtime instances",
+        responses: {
+          200: {
+            description: "Disposal response",
+            content: {
+              "application/json": booleanJsonResponse,
+            },
+          },
+        },
+      }),
+      async (c) =>
+        proxyToOpenCode(c, {
+          targetPath: "/global/dispose",
+        }),
+    )

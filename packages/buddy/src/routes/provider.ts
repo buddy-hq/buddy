@@ -1,122 +1,119 @@
 import { Hono } from "hono"
-import {
-  AnyObjectSchema,
-  ErrorSchema,
-  ProviderIDPath,
-} from "../openapi"
-import { directoryForbiddenResponse, directoryParameters } from "../http"
-import type { ProxyEndpointSpec } from "../http"
-import { registerProxyEndpoints } from "../http"
+import { describeRoute, resolver, validator } from "hono-openapi"
+import z from "zod"
+import { Provider as OpenCodeProvider } from "@buddy/opencode-adapter/provider"
+import { ProviderAuth as OpenCodeProviderAuth } from "@buddy/opencode-adapter/provider-auth"
+import { routeErrors, directoryQuerySchema, ProviderIDParamSchema } from "../http"
+import { proxyToOpenCode } from "../http"
 
-const providerProxySpecs: ProxyEndpointSpec[] = [
-  {
-    method: "get",
-    path: "/",
-    route: {
-      operationId: "provider.list",
-      summary: "List providers",
-      parameters: directoryParameters,
-      responses: {
-        200: {
-          description: "OpenCode provider list payload",
-          content: {
-            "application/json": { schema: AnyObjectSchema },
-          },
-        },
-        403: {
-          ...directoryForbiddenResponse,
-        },
-      },
-    },
-    targetPath: "/provider",
-  },
-  {
-    method: "get",
-    path: "/auth",
-    route: {
-      operationId: "provider.auth",
-      summary: "List provider auth methods",
-      parameters: directoryParameters,
-      responses: {
-        200: {
-          description: "OpenCode provider auth method payload",
-          content: {
-            "application/json": { schema: AnyObjectSchema },
-          },
-        },
-        403: {
-          ...directoryForbiddenResponse,
-        },
-      },
-    },
-    targetPath: "/provider/auth",
-  },
-  {
-    method: "post",
-    path: "/:providerID/oauth/authorize",
-    route: {
-      operationId: "provider.oauth.authorize",
-      summary: "Start provider OAuth",
-      parameters: [ProviderIDPath, ...directoryParameters],
-      requestBody: {
-        required: true,
-        content: {
-          "application/json": { schema: AnyObjectSchema },
-        },
-      },
-      responses: {
-        200: {
-          description: "Provider auth initiation payload",
-          content: {
-            "application/json": { schema: AnyObjectSchema },
-          },
-        },
-        400: {
-          description: "Invalid provider auth request",
-          content: {
-            "application/json": { schema: ErrorSchema },
-          },
-        },
-        403: {
-          ...directoryForbiddenResponse,
-        },
-      },
-    },
-    targetPath: (c) => `/provider/${encodeURIComponent(c.req.param("providerID"))}/oauth/authorize`,
-  },
-  {
-    method: "post",
-    path: "/:providerID/oauth/callback",
-    route: {
-      operationId: "provider.oauth.callback",
-      summary: "Complete provider OAuth callback",
-      parameters: [ProviderIDPath, ...directoryParameters],
-      requestBody: {
-        required: true,
-        content: {
-          "application/json": { schema: AnyObjectSchema },
-        },
-      },
-      responses: {
-        200: {
-          description: "Provider auth callback payload",
-          content: {
-            "application/json": { schema: AnyObjectSchema },
-          },
-        },
-        400: {
-          description: "Invalid provider auth callback",
-          content: {
-            "application/json": { schema: ErrorSchema },
-          },
-        },
-        403: {
-          ...directoryForbiddenResponse,
-        },
-      },
-    },
-    targetPath: (c) => `/provider/${encodeURIComponent(c.req.param("providerID"))}/oauth/callback`,
-  },
-]
+const oauthMethodRequestSchema = z.object({
+  method: z.number().int(),
+})
 
-export const ProviderRoutes = (): Hono => registerProxyEndpoints(new Hono(), providerProxySpecs)
+const oauthCallbackRequestSchema = z.object({
+  method: z.number().int(),
+  code: z.string().optional(),
+})
+
+const providerListResponseSchema = z.object({
+  all: OpenCodeProvider.Info.array(),
+  default: z.record(z.string(), z.string()),
+  connected: z.array(z.string()),
+})
+
+const providerAuthResponseSchema = z.record(z.string(), z.array(OpenCodeProviderAuth.Method))
+
+export const ProviderRoutes = (): Hono =>
+  new Hono()
+    .get(
+      "/",
+      describeRoute({
+        operationId: "provider.list",
+        summary: "List providers",
+        responses: {
+          200: {
+            description: "OpenCode provider list payload",
+            content: {
+              "application/json": { schema: resolver(providerListResponseSchema) },
+            },
+          },
+          ...routeErrors(403),
+        },
+      }),
+      validator("query", directoryQuerySchema),
+      async (c) => {
+        return proxyToOpenCode(c, {
+          targetPath: "/provider",
+        })
+      },
+    )
+    .get(
+      "/auth",
+      describeRoute({
+        operationId: "provider.auth",
+        summary: "List provider auth methods",
+        responses: {
+          200: {
+            description: "OpenCode provider auth method payload",
+            content: {
+              "application/json": { schema: resolver(providerAuthResponseSchema) },
+            },
+          },
+          ...routeErrors(403),
+        },
+      }),
+      validator("query", directoryQuerySchema),
+      async (c) => {
+        return proxyToOpenCode(c, {
+          targetPath: "/provider/auth",
+        })
+      },
+    )
+    .post(
+      "/:providerID/oauth/authorize",
+      describeRoute({
+        operationId: "provider.oauth.authorize",
+        summary: "Start provider OAuth",
+        responses: {
+          200: {
+            description: "Provider auth initiation payload",
+            content: {
+              "application/json": { schema: resolver(OpenCodeProviderAuth.Authorization.optional()) },
+            },
+          },
+          ...routeErrors(400, 403),
+        },
+      }),
+      validator("query", directoryQuerySchema),
+      validator("param", ProviderIDParamSchema),
+      validator("json", oauthMethodRequestSchema),
+      async (c) => {
+        return proxyToOpenCode(c, {
+          targetPath: `/provider/${encodeURIComponent(c.req.valid("param").providerID)}/oauth/authorize`,
+        })
+      },
+    )
+    .post(
+      "/:providerID/oauth/callback",
+      describeRoute({
+        operationId: "provider.oauth.callback",
+        summary: "Complete provider OAuth callback",
+        responses: {
+          200: {
+            description: "Provider auth callback payload",
+            content: {
+              "application/json": { schema: resolver(z.boolean()) },
+            },
+          },
+          ...routeErrors(400, 403),
+        },
+      }),
+      validator("query", directoryQuerySchema),
+      validator("param", ProviderIDParamSchema),
+      validator("json", oauthCallbackRequestSchema),
+      async (c) => {
+        return proxyToOpenCode(c, {
+          targetPath: `/provider/${encodeURIComponent(c.req.valid("param").providerID)}/oauth/callback`,
+        })
+      },
+    )
