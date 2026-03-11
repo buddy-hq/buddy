@@ -1,8 +1,6 @@
 ---
-name: buddy-learn-concept-contrast
+name: buddy-pedagogy-concept-contrast
 description: Contrast two related concepts so the learner stops conflating them.
-intent: learn
-activity: concept-contrast
 personas:
   - buddy
   - code-buddy

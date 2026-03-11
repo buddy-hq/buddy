@@ -1,8 +1,6 @@
 ---
-name: buddy-learn-worked-example
+name: buddy-pedagogy-worked-example
 description: Show a complete example with explicit reasoning and transition to learner action.
-intent: learn
-activity: worked-example
 personas:
   - buddy
   - code-buddy

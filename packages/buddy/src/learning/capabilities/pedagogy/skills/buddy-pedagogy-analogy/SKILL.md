@@ -1,8 +1,6 @@
 ---
-name: buddy-learn-analogy
+name: buddy-pedagogy-analogy
 description: Use a bounded analogy to make an abstract idea easier to grasp.
-intent: learn
-activity: analogy
 personas:
   - buddy
   - math-buddy

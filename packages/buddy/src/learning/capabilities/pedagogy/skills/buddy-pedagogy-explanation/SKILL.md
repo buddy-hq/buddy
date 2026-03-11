@@ -1,8 +1,6 @@
 ---
-name: buddy-learn-explanation
+name: buddy-pedagogy-explanation
 description: Teach a concept directly and concisely before moving into application.
-intent: learn
-activity: explanation
 personas:
   - buddy
   - code-buddy
