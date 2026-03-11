@@ -26,7 +26,7 @@ export function projectUpdateErrorMessage(error: unknown) {
   return "Invalid project update"
 }
 
-function projectErrorMessage(payload: unknown): string | undefined {
+function projectErrorMessage(payload: unknown, depth = 0): string | undefined {
   if (!payload || typeof payload !== "object") return undefined
   const value = payload as {
     message?: unknown
@@ -36,8 +36,10 @@ function projectErrorMessage(payload: unknown): string | undefined {
     cause?: unknown
   }
   if (typeof value.data?.message === "string") return value.data.message
-  const causeMessage = projectErrorMessage(value.cause)
-  if (causeMessage) return causeMessage
+  if (depth < 10) {
+    const causeMessage = projectErrorMessage(value.cause, depth + 1)
+    if (causeMessage) return causeMessage
+  }
   if (typeof value.message === "string") return value.message
   return undefined
 }
