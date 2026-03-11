@@ -1,5 +1,6 @@
-import type { Context } from "hono"
 import { Hono } from "hono"
+import { describeRoute, resolver, validator } from "hono-openapi"
+import z from "zod"
 import { patchProjectConfig } from "@buddy/backend/config/orchestration"
 import {
   HTTP_STATUS,
@@ -10,20 +11,19 @@ import {
   SKILL_ROUTE_QUERY,
 } from "./skills.constants"
 import {
-  createSkillRoute,
-  installLibrarySkillRoute,
-  listSkillsRoute,
-  removeSkillRoute,
-  updateSkillRoute,
-  updateSkillsSettingsRoute,
-} from "./skills.openapi"
-import {
   createSkillBodySchema,
   skillsSettingsBodySchema,
   type ToggleSkillBody,
   toggleSkillBodySchema,
 } from "./skills.schemas"
-import { resolveDirectoryRequestContext, withJsonBody } from "../http"
+import {
+  directoryQuerySchema,
+  routeErrors,
+  runRouteTask,
+  SkillIDParamSchema,
+  SkillNameParamSchema,
+  withDirectoryRoute,
+} from "../http"
 import {
   createCustomSkill,
   installCuratedLibrarySkill,
@@ -32,18 +32,62 @@ import {
   setInstalledSkillAction,
   SkillServiceError,
   type SkillServiceErrorCode,
-} from "../learning/skills/service"
+} from "../learning/skills"
 
-type SkillsRouteContext = {
-  directory: string
-  requestURL: URL
-}
+const installedSkillSchema = z.object({
+  name: z.string(),
+  description: z.string(),
+  location: z.string(),
+  directory: z.string(),
+  content: z.string(),
+  examplePrompt: z.string().optional(),
+  enabled: z.boolean(),
+  permissionAction: z.enum(["allow", "deny", "ask"]),
+  permissionSource: z.enum(["explicit", "inherited", "default"]),
+  source: z.enum(["custom", "library", "external"]),
+  scope: z.enum(["global", "workspace"]),
+  managed: z.boolean(),
+  removable: z.boolean(),
+  libraryID: z.string().optional(),
+})
 
-function requireSkillsContext(c: Context): SkillsRouteContext | Response {
-  const contextResult = resolveDirectoryRequestContext(c.req.raw)
-  if (!contextResult.ok) return contextResult.response
-  return contextResult.context
-}
+const skillLibraryEntrySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string(),
+  summary: z.string(),
+  examplePrompt: z.string(),
+  installed: z.boolean(),
+})
+
+const skillsCatalogResponseSchema = z.object({
+  directory: z.string(),
+  managedRoot: z.string(),
+  externalVendorRootsEnabled: z.boolean(),
+  installed: z.array(installedSkillSchema),
+  library: z.array(skillLibraryEntrySchema),
+  librarySyncError: z.string().optional(),
+})
+
+const skillCreatedResponseSchema = z.object({
+  ok: z.literal(true),
+  name: z.string(),
+})
+
+const skillUpdatedResponseSchema = z.object({
+  ok: z.literal(true),
+  skill: installedSkillSchema,
+  action: z.enum(["allow", "deny", "ask", "inherit"]),
+})
+
+const skillsSettingsResponseSchema = z.object({
+  ok: z.literal(true),
+  externalVendorRootsEnabled: z.boolean(),
+})
+
+const listSkillsQuerySchema = directoryQuerySchema.extend({
+  refresh: z.string().optional(),
+})
 
 function skillErrorMessage(error: unknown) {
   if (error instanceof SkillServiceError && error.message.trim()) {
@@ -73,131 +117,196 @@ function notFoundSkillErrorStatus(error: unknown): 400 | 404 | 500 {
   return skillErrorStatus(error, SKILL_ERROR_STATUS.byName, HTTP_STATUS.BAD_REQUEST)
 }
 
-function shouldRefreshSkillCatalog(requestURL: string): boolean {
-  const refreshParam = new URL(requestURL).searchParams.get(SKILL_ROUTE_QUERY.refreshParam)
-  return refreshParam !== null && SKILL_ROUTE_QUERY.refreshValues.has(refreshParam)
+function shouldRefreshSkillCatalog(refreshValue: string | undefined): boolean {
+  if (!refreshValue) return false
+  return SKILL_ROUTE_QUERY.refreshValues.has(refreshValue)
 }
 
 function resolveSkillAction(input: ToggleSkillBody) {
   return input.action ?? (input.enabled ? SKILL_ROUTE_ACTIONS.whenEnabled : SKILL_ROUTE_ACTIONS.whenDisabled)
 }
 
-function invalidPayload(c: Context, message: string) {
-  return c.json({ error: message }, HTTP_STATUS.BAD_REQUEST)
-}
-
-async function listSkillsHandler(c: Context): Promise<Response> {
-  const context = requireSkillsContext(c)
-  if (context instanceof Response) return context
-
-  try {
-    const catalog = await listSkillsCatalog(context.directory, {
-      refresh: shouldRefreshSkillCatalog(context.requestURL.toString()),
-    })
-    return c.json(catalog)
-  } catch (error) {
-    return c.json({ error: skillErrorMessage(error) }, HTTP_STATUS.INTERNAL_SERVER_ERROR)
-  }
-}
-
-async function createSkillHandler(c: Context): Promise<Response> {
-  const context = requireSkillsContext(c)
-  if (context instanceof Response) return context
-
-  const bodyResult = await withJsonBody(c.req.raw)
-  if (!bodyResult.ok) return bodyResult.response
-
-  const parsed = createSkillBodySchema.safeParse(bodyResult.value)
-  if (!parsed.success) {
-    return invalidPayload(c, SKILL_ROUTE_ERRORS.invalidSkillPayload)
-  }
-
-  try {
-    const name = await createCustomSkill(parsed.data, context.directory)
-    return c.json({ ok: true, name })
-  } catch (error) {
-    return c.json({ error: skillErrorMessage(error) }, createSkillErrorStatus(error))
-  }
-}
-
-async function installLibrarySkillHandler(c: Context): Promise<Response> {
-  const context = requireSkillsContext(c)
-  if (context instanceof Response) return context
-
-  try {
-    const name = await installCuratedLibrarySkill(c.req.param("skillID"), context.directory)
-    return c.json({ ok: true, name })
-  } catch (error) {
-    return c.json({ error: skillErrorMessage(error) }, installLibrarySkillErrorStatus(error))
-  }
-}
-
-async function updateSkillHandler(c: Context): Promise<Response> {
-  const context = requireSkillsContext(c)
-  if (context instanceof Response) return context
-
-  const bodyResult = await withJsonBody(c.req.raw)
-  if (!bodyResult.ok) return bodyResult.response
-
-  const parsed = toggleSkillBodySchema.safeParse(bodyResult.value)
-  if (!parsed.success) {
-    return invalidPayload(c, SKILL_ROUTE_ERRORS.invalidSkillState)
-  }
-
-  const action = resolveSkillAction(parsed.data)
-  try {
-    const skill = await setInstalledSkillAction(c.req.param("name"), action, context.directory)
-    return c.json({ ok: true, skill, action })
-  } catch (error) {
-    return c.json({ error: skillErrorMessage(error) }, notFoundSkillErrorStatus(error))
-  }
-}
-
-async function updateSkillsSettingsHandler(c: Context): Promise<Response> {
-  const context = requireSkillsContext(c)
-  if (context instanceof Response) return context
-
-  const bodyResult = await withJsonBody(c.req.raw)
-  if (!bodyResult.ok) return bodyResult.response
-
-  const parsed = skillsSettingsBodySchema.safeParse(bodyResult.value)
-  if (!parsed.success) {
-    return invalidPayload(c, SKILL_ROUTE_ERRORS.invalidSkillsSettingsPayload)
-  }
-
-  try {
-    const config = await patchProjectConfig({
-      directory: context.directory,
-      payload: {
-        [SKILL_ROUTE_CONFIG.externalVendorRootsEnabledKey]: parsed.data.externalVendorRootsEnabled,
-      },
-    })
-    return c.json({
-      ok: true,
-      externalVendorRootsEnabled: config.skills_external_vendor_roots_enabled === true,
-    })
-  } catch (error) {
-    return c.json({ error: skillErrorMessage(error) }, HTTP_STATUS.INTERNAL_SERVER_ERROR)
-  }
-}
-
-async function removeSkillHandler(c: Context): Promise<Response> {
-  const context = requireSkillsContext(c)
-  if (context instanceof Response) return context
-
-  try {
-    const name = await removeManagedSkill(c.req.param("name"), context.directory)
-    return c.json({ ok: true, name })
-  } catch (error) {
-    return c.json({ error: skillErrorMessage(error) }, notFoundSkillErrorStatus(error))
-  }
-}
-
 export const SkillsRoutes = (): Hono =>
   new Hono()
-    .get("/", listSkillsRoute, listSkillsHandler)
-    .post("/", createSkillRoute, createSkillHandler)
-    .post("/library/:skillID/install", installLibrarySkillRoute, installLibrarySkillHandler)
-    .patch("/settings", updateSkillsSettingsRoute, updateSkillsSettingsHandler)
-    .patch("/:name", updateSkillRoute, updateSkillHandler)
-    .delete("/:name", removeSkillRoute, removeSkillHandler)
+    .get(
+      "/",
+      describeRoute({
+        operationId: "skills.list",
+        summary: "List installed skills and curated library entries",
+        responses: {
+          200: {
+            description: "Skill catalog",
+            content: {
+              "application/json": { schema: resolver(skillsCatalogResponseSchema) },
+            },
+          },
+          ...routeErrors(403, 500),
+        },
+      }),
+      validator("query", listSkillsQuerySchema),
+      async (c) =>
+        withDirectoryRoute(c, async (context) =>
+          runRouteTask({
+            task: async () => {
+              const query = c.req.valid("query")
+              const catalog = await listSkillsCatalog(context.directory, {
+                refresh: shouldRefreshSkillCatalog(query.refresh),
+              })
+              return c.json(catalog)
+            },
+            mapError: (error) => c.json({ error: skillErrorMessage(error) }, HTTP_STATUS.INTERNAL_SERVER_ERROR),
+          }),
+        ),
+    )
+    .post(
+      "/",
+      describeRoute({
+        operationId: "skills.create",
+        summary: "Create a new Buddy-managed custom skill",
+        responses: {
+          200: {
+            description: "Created skill",
+            content: {
+              "application/json": { schema: resolver(skillCreatedResponseSchema) },
+            },
+          },
+          ...routeErrors(400, 403, 409, 500),
+        },
+      }),
+      validator("query", directoryQuerySchema),
+      validator("json", createSkillBodySchema),
+      async (c) =>
+        withDirectoryRoute(c, async (context) =>
+          runRouteTask({
+            task: async () => {
+              const name = await createCustomSkill(c.req.valid("json"), context.directory)
+              return c.json({ ok: true, name })
+            },
+            mapError: (error) => c.json({ error: skillErrorMessage(error) }, createSkillErrorStatus(error)),
+          }),
+        ),
+    )
+    .post(
+      "/library/:skillID/install",
+      describeRoute({
+        operationId: "skills.library.install",
+        summary: "Install a curated library skill into Buddy-managed storage",
+        responses: {
+          200: {
+            description: "Installed skill",
+            content: {
+              "application/json": { schema: resolver(skillCreatedResponseSchema) },
+            },
+          },
+          ...routeErrors(400, 403, 404, 409, 500),
+        },
+      }),
+      validator("query", directoryQuerySchema),
+      validator("param", SkillIDParamSchema),
+      async (c) =>
+        withDirectoryRoute(c, async (context) =>
+          runRouteTask({
+            task: async () => {
+              const name = await installCuratedLibrarySkill(c.req.valid("param").skillID, context.directory)
+              return c.json({ ok: true, name })
+            },
+            mapError: (error) => c.json({ error: skillErrorMessage(error) }, installLibrarySkillErrorStatus(error)),
+          }),
+        ),
+    )
+    .patch(
+      "/settings",
+      describeRoute({
+        operationId: "skills.settings.patch",
+        summary: "Update per-project skills settings",
+        responses: {
+          200: {
+            description: "Updated skills settings",
+            content: {
+              "application/json": { schema: resolver(skillsSettingsResponseSchema) },
+            },
+          },
+          ...routeErrors(400, 403, 500),
+        },
+      }),
+      validator("query", directoryQuerySchema),
+      validator("json", skillsSettingsBodySchema),
+      async (c) =>
+        withDirectoryRoute(c, async (context) =>
+          runRouteTask({
+            task: async () => {
+              const parsed = c.req.valid("json")
+              const config = await patchProjectConfig({
+                directory: context.directory,
+                payload: {
+                  [SKILL_ROUTE_CONFIG.externalVendorRootsEnabledKey]: parsed.externalVendorRootsEnabled,
+                },
+              })
+              return c.json({
+                ok: true,
+                externalVendorRootsEnabled: config.skills_external_vendor_roots_enabled === true,
+              })
+            },
+            mapError: (error) => c.json({ error: skillErrorMessage(error) }, HTTP_STATUS.INTERNAL_SERVER_ERROR),
+          }),
+        ),
+    )
+    .patch(
+      "/:name",
+      describeRoute({
+        operationId: "skills.update",
+        summary: "Update a skill permission rule for this user",
+        responses: {
+          200: {
+            description: "Updated skill state",
+            content: {
+              "application/json": { schema: resolver(skillUpdatedResponseSchema) },
+            },
+          },
+          ...routeErrors(400, 403, 404, 500),
+        },
+      }),
+      validator("query", directoryQuerySchema),
+      validator("param", SkillNameParamSchema),
+      validator("json", toggleSkillBodySchema),
+      async (c) =>
+        withDirectoryRoute(c, async (context) =>
+          runRouteTask({
+            task: async () => {
+              const payload = c.req.valid("json")
+              const action = resolveSkillAction(payload)
+              const skill = await setInstalledSkillAction(c.req.valid("param").name, action, context.directory)
+              return c.json({ ok: true, skill, action })
+            },
+            mapError: (error) => c.json({ error: skillErrorMessage(error) }, notFoundSkillErrorStatus(error)),
+          }),
+        ),
+    )
+    .delete(
+      "/:name",
+      describeRoute({
+        operationId: "skills.delete",
+        summary: "Remove a Buddy-managed installed skill",
+        responses: {
+          200: {
+            description: "Removed skill",
+            content: {
+              "application/json": { schema: resolver(skillCreatedResponseSchema) },
+            },
+          },
+          ...routeErrors(400, 403, 404, 500),
+        },
+      }),
+      validator("query", directoryQuerySchema),
+      validator("param", SkillNameParamSchema),
+      async (c) =>
+        withDirectoryRoute(c, async (context) =>
+          runRouteTask({
+            task: async () => {
+              const removedSkillName = await removeManagedSkill(c.req.valid("param").name, context.directory)
+              return c.json({ ok: true, name: removedSkillName })
+            },
+            mapError: (error) => c.json({ error: skillErrorMessage(error) }, notFoundSkillErrorStatus(error)),
+          }),
+        ),
+    )
