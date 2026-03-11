@@ -18,7 +18,6 @@ import { ProviderRoutes } from "./routes"
 import { SessionRoutes } from "./routes"
 import { SkillsRoutes } from "./routes"
 import { TeachingRoutes } from "./routes"
-import { ensureAllowedDirectory } from "./http"
 
 function matchesBasicAuth(value: string | undefined, username: string, password: string): boolean {
   if (!value?.startsWith("Basic ")) return false
@@ -55,8 +54,8 @@ api.use("*", async (c, next) => {
   return c.json({ error: "Unauthorized" }, 401)
 })
 
-api.route("/figures", FigureRoutes({ ensureAllowedDirectory }))
-api.route("/freeform-figures", FreeformFigureRoutes({ ensureAllowedDirectory }))
+api.route("/figures", FigureRoutes())
+api.route("/freeform-figures", FreeformFigureRoutes())
 api.route("/learner", LearnerRoutes())
 api.route("/teaching", TeachingRoutes())
 api.route("/", CompatibilityRoutes())
