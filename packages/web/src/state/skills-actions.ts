@@ -35,8 +35,10 @@ export type SkillLibraryEntry = {
 export type SkillsCatalog = {
   directory: string
   managedRoot: string
+  externalVendorRootsEnabled: boolean
   installed: InstalledSkillInfo[]
   library: SkillLibraryEntry[]
+  librarySyncError?: string
 }
 
 export type CreateCustomSkillInput = {
@@ -113,5 +115,15 @@ export async function removeSkill(name: string, directory?: string) {
   return requestSkillsJson<{ ok: true; name: string }>(`/api/skills/${encodeURIComponent(name)}`, {
     method: "DELETE",
     directory,
+  })
+}
+
+export async function updateSkillsSettings(externalVendorRootsEnabled: boolean, directory?: string) {
+  return requestSkillsJson<{ ok: true; externalVendorRootsEnabled: boolean }>("/api/skills/settings", {
+    method: "PATCH",
+    directory,
+    body: {
+      externalVendorRootsEnabled,
+    },
   })
 }

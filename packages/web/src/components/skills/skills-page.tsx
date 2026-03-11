@@ -31,6 +31,7 @@ import {
   loadSkillsCatalog,
   removeSkill,
   setSkillPermissionAction,
+  updateSkillsSettings,
   type CreateCustomSkillInput,
   type InstalledSkillInfo,
   type SkillLibraryEntry,
@@ -113,6 +114,13 @@ async function copyText(text: string) {
   if (!("clipboard" in navigator)) return false
   await navigator.clipboard.writeText(text)
   return true
+}
+
+async function copyWithSuccessToast(text: string, message: string) {
+  const copied = await copyText(text)
+  if (copied) {
+    toast.success(message)
+  }
 }
 
 function SectionHeader(props: { title: string; description: string; action?: ReactNode }) {
@@ -244,7 +252,7 @@ function LibraryCard(props: { skill: SkillLibraryEntry; disabled?: boolean; onIn
 
         <div className="mt-auto flex items-center justify-between gap-3">
           <Badge variant="outline" className="h-5">
-            Placeholder
+            Curated
           </Badge>
           <Button
             type="button"
@@ -318,7 +326,7 @@ export function SkillsPage(props: { directory?: string }) {
     })
   }
 
-  async function refreshCatalog(input?: { preserveSelection?: boolean; force?: boolean }) {
+  async function refreshCatalog(input?: { preserveSelection?: boolean; force?: boolean; showRefreshToast?: boolean }) {
     if (!catalog) {
       setLoading(true)
     } else {
@@ -331,8 +339,12 @@ export function SkillsPage(props: { directory?: string }) {
       })
       setCatalog(nextCatalog)
 
-      if (input?.force) {
+      if (input?.force && input.showRefreshToast !== false) {
         toast.success("Skills refreshed")
+      }
+
+      if (nextCatalog.librarySyncError) {
+        toast.error(`Curated library sync failed: ${nextCatalog.librarySyncError}`)
       }
 
       if (input?.preserveSelection && selectedSkillName) {
@@ -378,6 +390,16 @@ export function SkillsPage(props: { directory?: string }) {
     }))
   }
 
+  function setExternalVendorRootsEnabled(enabled: boolean) {
+    setCatalog((current) => {
+      if (!current) return current
+      return {
+        ...current,
+        externalVendorRootsEnabled: enabled,
+      }
+    })
+  }
+
   function updateSkillPermission(skill: InstalledSkillInfo, action: SkillRuleAction) {
     if (action === "inherit" && skill.permissionSource !== "explicit") {
       return
@@ -416,6 +438,42 @@ export function SkillsPage(props: { directory?: string }) {
     }
 
     updateSkillPermission(skill, nextAction)
+  }
+
+  function toggleExternalVendorRoots(enabled: boolean) {
+    if (!catalog) {
+      return
+    }
+    if (catalog.externalVendorRootsEnabled === enabled) {
+      return
+    }
+
+    void (async () => {
+      const key = "settings:external-roots"
+      const previous = catalog.externalVendorRootsEnabled
+      setBusyKey(key)
+      setExternalVendorRootsEnabled(enabled)
+
+      try {
+        await updateSkillsSettings(enabled, currentDirectory)
+        await refreshCatalog({
+          preserveSelection: true,
+          force: true,
+          showRefreshToast: false,
+        })
+        toast.success(
+          enabled
+            ? "External .agents/.claude skill discovery is enabled."
+            : "External .agents/.claude skill discovery is disabled.",
+        )
+      } catch (error) {
+        setExternalVendorRootsEnabled(previous)
+        const message = error instanceof Error ? error.message : "Request failed"
+        toast.error(message)
+      } finally {
+        setBusyKey(undefined)
+      }
+    })()
   }
 
   async function submitNewSkill() {
@@ -457,8 +515,8 @@ export function SkillsPage(props: { directory?: string }) {
               <h1 className="text-3xl font-semibold tracking-tight text-foreground">Manage skills</h1>
               <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
                 Manage which skills are available when chatting with Buddy. Installed skills are discovered from your
-                workspace and global skill directories. The library shows available skills you can enable. Set skills to
-                always available, ask before using, or blocked. Workspace skills are discovered per notebook.
+                workspace and global skill directories. The library shows curated skills you can install. Set skills to
+                always available, ask before using, or blocked.
               </p>
               {catalog?.directory ? (
                 <div className="mt-3 inline-flex max-w-full items-center gap-2 rounded-full border border-border/60 bg-card/60 px-3 py-1 text-xs text-muted-foreground">
@@ -468,6 +526,35 @@ export function SkillsPage(props: { directory?: string }) {
                   <span className="truncate font-mono text-[11px] text-foreground/85">{catalog.directory}</span>
                 </div>
               ) : null}
+              <Card className="mt-4 border-border/60 bg-card/60">
+                <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-medium text-foreground">
+                        Discover external <code>.agents/.claude</code> skills (restore vendor behavior)
+                      </p>
+                      <Badge variant="outline" className="h-5">
+                        {catalog?.externalVendorRootsEnabled ? "Enabled" : "Disabled"}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      When enabled for this notebook, Buddy discovers vendor-style skills from home and ancestor
+                      directories.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">
+                      {catalog?.externalVendorRootsEnabled ? "On" : "Off"}
+                    </span>
+                    <Switch
+                      checked={catalog?.externalVendorRootsEnabled ?? false}
+                      onCheckedChange={toggleExternalVendorRoots}
+                      disabled={loading || busyKey === "settings:external-roots"}
+                      aria-label="Discover external vendor roots"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
 
@@ -535,7 +622,7 @@ export function SkillsPage(props: { directory?: string }) {
             ) : (
               <Card className="border-dashed border-border/60 bg-card/30">
                 <CardContent className="p-6 text-sm text-muted-foreground">
-                  No installed skills matched your search. Add a placeholder skill below or create a new custom one.
+                  No installed skills matched your search. Add a curated skill below or create a new custom one.
                 </CardContent>
               </Card>
             )}
@@ -546,7 +633,7 @@ export function SkillsPage(props: { directory?: string }) {
           <section className="space-y-4 pb-4">
             <SectionHeader
               title="Library"
-              description="Placeholder entries only for now. The fetch source can be swapped later without changing this screen."
+              description="Install curated skills from the synced catalog."
             />
 
             {filteredLibrary.length > 0 ? (
@@ -633,11 +720,10 @@ export function SkillsPage(props: { directory?: string }) {
                       variant="ghost"
                       size="xs"
                       onClick={() =>
-                        void copyText(selectedSkill.examplePrompt!).then((copied) => {
-                          if (copied) {
-                            toast.success(`Copied prompt for ${selectedSkill.name}.`)
-                          }
-                        })
+                        void copyWithSuccessToast(
+                          selectedSkill.examplePrompt!,
+                          `Copied prompt for ${selectedSkill.name}.`,
+                        )
                       }
                     >
                       Copy
@@ -657,11 +743,7 @@ export function SkillsPage(props: { directory?: string }) {
                     variant="ghost"
                     size="xs"
                     onClick={() =>
-                      void copyText(selectedSkill.content).then((copied) => {
-                        if (copied) {
-                          toast.success(`Copied skill content for ${selectedSkill.name}.`)
-                        }
-                      })
+                      void copyWithSuccessToast(selectedSkill.content, `Copied skill content for ${selectedSkill.name}.`)
                     }
                   >
                     Copy
@@ -680,11 +762,7 @@ export function SkillsPage(props: { directory?: string }) {
                     variant="ghost"
                     size="xs"
                     onClick={() =>
-                      void copyText(selectedSkill.directory).then((copied) => {
-                        if (copied) {
-                          toast.success(`Copied folder for ${selectedSkill.name}.`)
-                        }
-                      })
+                      void copyWithSuccessToast(selectedSkill.directory, `Copied folder for ${selectedSkill.name}.`)
                     }
                   >
                     Copy path
