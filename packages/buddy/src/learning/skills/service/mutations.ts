@@ -3,9 +3,9 @@ import path from "node:path"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import type { CreateCustomSkillInput, SkillRuleAction } from "./contracts"
 import { SkillServiceError } from "./contracts"
-import { readOptionalString, sanitizeSkillName, skillDocument } from "./documents"
+import { loadManagedSkillFile, readOptionalString, sanitizeSkillName, skillDocument } from "./documents"
 import { resolveInstalledSkillByName } from "./discovery"
-import { PLACEHOLDER_LIBRARY } from "./library"
+import { readCuratedLibrarySkillByID } from "./library"
 import { ensureManagedSkillPathReady, managedCustomRoot, managedLibraryRoot, managedSkillsRoot, managedSource } from "./paths"
 import { clearSkillPermission, setSkillPermission } from "./permissions"
 import { listSkillsCatalog } from "./catalog"
@@ -19,37 +19,72 @@ async function refreshSkillRuntime() {
   await OpenCodeInstance.disposeAll()
 }
 
-export async function installPlaceholderLibrarySkill(skillID: string, directory: string) {
-  const skill = PLACEHOLDER_LIBRARY.find((entry) => entry.id === skillID)
+function requiredSkillName(name: string) {
+  const normalized = name.trim()
+  if (!normalized) {
+    throw new SkillServiceError("invalid_input", "Skill name is required")
+  }
+  return normalized
+}
+
+async function findInstalledSkillOrThrow(name: string, directory: string) {
+  const existing = await resolveInstalledSkillByName(name, directory)
+  if (!existing) {
+    throw new SkillServiceError("not_found", `Skill "${name}" not found`)
+  }
+  return existing
+}
+
+function validateLibrarySkillID(input: string) {
+  const normalized = input.trim()
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(normalized)) {
+    throw new SkillServiceError("invalid_input", "Invalid skill library item")
+  }
+  return normalized
+}
+
+export async function installCuratedLibrarySkill(skillID: string, directory: string) {
+  const normalizedSkillID = validateLibrarySkillID(skillID)
+  const skill = await readCuratedLibrarySkillByID(normalizedSkillID, {
+    refresh: true,
+  })
   if (!skill) {
     throw new SkillServiceError("not_found", "Unknown skill library item")
   }
 
-  const normalizedName = sanitizeSkillName(skill.id)
-  if (!normalizedName) {
-    throw new SkillServiceError("invalid_input", "Invalid skill library item")
+  const sourceSkill = await loadManagedSkillFile(skill.skillFile)
+  if (!sourceSkill) {
+    throw new SkillServiceError("invalid_input", `Invalid SKILL.md for library item "${normalizedSkillID}"`)
   }
 
-  const existingSkill = await resolveInstalledSkillByName(normalizedName, directory)
-  if (existingSkill) {
-    throw new SkillServiceError("conflict", `Skill "${normalizedName}" already exists`)
+  if (await resolveInstalledSkillByName(sourceSkill.name, directory)) {
+    throw new SkillServiceError("conflict", `Skill "${sourceSkill.name}" already exists`)
   }
 
-  const folder = path.join(managedLibraryRoot(), skill.id)
+  const folder = path.join(managedLibraryRoot(), normalizedSkillID)
   await ensureManagedSkillPathReady()
-  await writeManagedSkillFile(
-    folder,
-    skillDocument({
-      name: normalizedName,
-      description: skill.description,
-      examplePrompt: skill.examplePrompt,
-      content: skill.content,
-    }),
-  )
-  await setSkillPermission(normalizedName, "allow")
+
+  await fsp.rm(folder, {
+    recursive: true,
+    force: true,
+  })
+  await fsp.cp(skill.sourceDirectory, folder, {
+    recursive: true,
+    force: true,
+  })
+
+  const installedSkill = await loadManagedSkillFile(path.join(folder, "SKILL.md"))
+  if (!installedSkill) {
+    throw new SkillServiceError(
+      "invalid_input",
+      `Installed library item "${normalizedSkillID}" is missing a valid SKILL.md`,
+    )
+  }
+
+  await setSkillPermission(installedSkill.name, "allow")
   await refreshSkillRuntime()
 
-  return normalizedName
+  return installedSkill.name
 }
 
 export async function createCustomSkill(input: CreateCustomSkillInput, directory: string) {
@@ -58,8 +93,7 @@ export async function createCustomSkill(input: CreateCustomSkillInput, directory
     throw new SkillServiceError("invalid_input", "Skill name must include letters or numbers")
   }
 
-  const existingSkill = await resolveInstalledSkillByName(name, directory)
-  if (existingSkill) {
+  if (await resolveInstalledSkillByName(name, directory)) {
     throw new SkillServiceError("conflict", `Skill "${name}" already exists`)
   }
 
@@ -86,15 +120,8 @@ export async function createCustomSkill(input: CreateCustomSkillInput, directory
 }
 
 export async function setInstalledSkillAction(name: string, action: SkillRuleAction, directory: string) {
-  const normalizedName = name.trim()
-  if (!normalizedName) {
-    throw new SkillServiceError("invalid_input", "Skill name is required")
-  }
-
-  const existing = await resolveInstalledSkillByName(normalizedName, directory)
-  if (!existing) {
-    throw new SkillServiceError("not_found", `Skill "${normalizedName}" not found`)
-  }
+  const normalizedName = requiredSkillName(name)
+  const existing = await findInstalledSkillOrThrow(normalizedName, directory)
 
   if (action === "inherit") {
     await clearSkillPermission(existing.name)
@@ -113,15 +140,8 @@ export async function setInstalledSkillAction(name: string, action: SkillRuleAct
 }
 
 export async function removeManagedSkill(name: string, directory: string) {
-  const normalizedName = name.trim()
-  if (!normalizedName) {
-    throw new SkillServiceError("invalid_input", "Skill name is required")
-  }
-
-  const existing = await resolveInstalledSkillByName(normalizedName, directory)
-  if (!existing) {
-    throw new SkillServiceError("not_found", `Skill "${normalizedName}" not found`)
-  }
+  const normalizedName = requiredSkillName(name)
+  const existing = await findInstalledSkillOrThrow(normalizedName, directory)
 
   const ownership = managedSource(existing.location)
   if (!ownership.managed) {

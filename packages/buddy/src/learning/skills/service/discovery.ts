@@ -5,17 +5,20 @@ import { Config as OpenCodeConfig } from "@buddy/opencode-adapter/config"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ensureOpenCodeProjectOverlay } from "@buddy/backend/config/runtime"
 import { fetchOpenCode } from "../../../http"
-import { Global } from "../../../storage"
 import { SkillServiceError, type OpenCodeSkill } from "./contracts"
 import { loadManagedSkillFile } from "./documents"
 import { OPENCODE_SKILL_CACHE_ROOT, isWithinPath, managedSkillsRoot } from "./paths"
 
-async function collectSkillFiles(root: string) {
-  const entries = await fsp
-    .readdir(root, {
+async function readDirectoryEntries(directory: string) {
+  return fsp
+    .readdir(directory, {
       withFileTypes: true,
     })
     .catch(() => [])
+}
+
+async function collectSkillFiles(root: string) {
+  const entries = await readDirectoryEntries(root)
 
   const matches: string[] = []
   for (const entry of entries) {
@@ -33,6 +36,19 @@ async function collectSkillFiles(root: string) {
   return matches
 }
 
+function expandSkillPath(skillPath: string, directory: string) {
+  const expanded = skillPath.startsWith("~/") ? path.join(os.homedir(), skillPath.slice(2)) : skillPath
+  return path.isAbsolute(expanded) ? expanded : path.join(directory, expanded)
+}
+
+function mergeSkillsByName(skills: OpenCodeSkill[]) {
+  const merged = new Map<string, OpenCodeSkill>()
+  for (const skill of skills) {
+    merged.set(skill.name, skill)
+  }
+  return Array.from(merged.values())
+}
+
 async function appendSkillsFromRoot(root: string, skills: Map<string, OpenCodeSkill>) {
   const stats = await fsp.stat(root).catch(() => undefined)
   if (!stats?.isDirectory()) {
@@ -48,31 +64,7 @@ async function appendSkillsFromRoot(root: string, skills: Map<string, OpenCodeSk
   }
 }
 
-function walkUpDirectories(start: string, stop: string) {
-  const result: string[] = []
-  let current = path.resolve(start)
-  const boundary = path.resolve(stop)
-
-  while (true) {
-    result.push(current)
-    if (current === boundary) {
-      break
-    }
-
-    const parent = path.dirname(current)
-    if (parent === current) {
-      break
-    }
-
-    current = parent
-  }
-
-  return result
-}
-
 async function loadCachedOpenCodeSkills(directory: string): Promise<OpenCodeSkill[]> {
-  await ensureOpenCodeProjectOverlay(directory)
-
   const response = await fetchOpenCode({
     directory,
     method: "GET",
@@ -91,8 +83,6 @@ async function loadCachedOpenCodeSkills(directory: string): Promise<OpenCodeSkil
 }
 
 async function loadFreshLocalOpenCodeSkills(directory: string): Promise<OpenCodeSkill[]> {
-  await ensureOpenCodeProjectOverlay(directory)
-
   const runtimeContext = await OpenCodeInstance.provide({
     directory,
     fn: async () => {
@@ -102,22 +92,11 @@ async function loadFreshLocalOpenCodeSkills(directory: string): Promise<OpenCode
       return {
         config,
         configDirectories,
-        worktree: OpenCodeInstance.worktree,
       }
     },
   })
 
   const skills = new Map<string, OpenCodeSkill>()
-
-  for (const externalDir of [".claude", ".agents"]) {
-    await appendSkillsFromRoot(path.join(Global.Path.home, externalDir, "skills"), skills)
-  }
-
-  for (const current of walkUpDirectories(directory, runtimeContext.worktree)) {
-    for (const externalDir of [".claude", ".agents"]) {
-      await appendSkillsFromRoot(path.join(current, externalDir, "skills"), skills)
-    }
-  }
 
   for (const configDirectory of runtimeContext.configDirectories) {
     await appendSkillsFromRoot(path.join(configDirectory, "skill"), skills)
@@ -125,8 +104,7 @@ async function loadFreshLocalOpenCodeSkills(directory: string): Promise<OpenCode
   }
 
   for (const skillPath of runtimeContext.config.skills?.paths ?? []) {
-    const expanded = skillPath.startsWith("~/") ? path.join(os.homedir(), skillPath.slice(2)) : skillPath
-    const resolved = path.isAbsolute(expanded) ? expanded : path.join(directory, expanded)
+    const resolved = expandSkillPath(skillPath, directory)
     await appendSkillsFromRoot(resolved, skills)
   }
 
@@ -138,36 +116,22 @@ function isCachedRemoteSkill(skill: OpenCodeSkill) {
 }
 
 function mergeRefreshedOpenCodeSkills(cachedSkills: OpenCodeSkill[], freshLocalSkills: OpenCodeSkill[]) {
-  const merged = new Map<string, OpenCodeSkill>()
-  for (const skill of cachedSkills) {
-    if (isCachedRemoteSkill(skill)) {
-      merged.set(skill.name, skill)
-    }
-  }
-  for (const skill of freshLocalSkills) {
-    merged.set(skill.name, skill)
-  }
-  return Array.from(merged.values())
+  return mergeSkillsByName([
+    ...cachedSkills.filter(isCachedRemoteSkill),
+    ...freshLocalSkills,
+  ])
 }
 
 async function loadBuddyManagedSkills() {
   const root = managedSkillsRoot()
-  const entries = await fsp
-    .readdir(root, {
-      withFileTypes: true,
-    })
-    .catch(() => [])
+  const entries = await readDirectoryEntries(root)
 
   const skills: OpenCodeSkill[] = []
 
   for (const group of entries) {
     if (!group.isDirectory()) continue
     const groupPath = path.join(root, group.name)
-    const groupEntries = await fsp
-      .readdir(groupPath, {
-        withFileTypes: true,
-      })
-      .catch(() => [])
+    const groupEntries = await readDirectoryEntries(groupPath)
 
     for (const skillDir of groupEntries) {
       if (!skillDir.isDirectory()) continue
@@ -181,29 +145,42 @@ async function loadBuddyManagedSkills() {
   return skills
 }
 
-export async function loadVisibleSkills(
-  directory: string,
-  options?: {
-    refresh?: boolean
-  },
-) {
-  const [openCodeSkills, managedSkills] = await Promise.all([
-    options?.refresh
-      ? Promise.all([loadCachedOpenCodeSkills(directory), loadFreshLocalOpenCodeSkills(directory)]).then(
-          ([cachedSkills, freshLocalSkills]) => mergeRefreshedOpenCodeSkills(cachedSkills, freshLocalSkills),
-        )
-      : loadCachedOpenCodeSkills(directory),
-    loadBuddyManagedSkills(),
-  ])
+async function loadOpenCodeSkills(directory: string, refresh: boolean | undefined) {
+  if (!refresh) {
+    return loadCachedOpenCodeSkills(directory)
+  }
 
+  const [cachedSkills, freshLocalSkills] = await Promise.all([
+    loadCachedOpenCodeSkills(directory),
+    loadFreshLocalOpenCodeSkills(directory),
+  ])
+  return mergeRefreshedOpenCodeSkills(cachedSkills, freshLocalSkills)
+}
+
+function mergeOpenCodeAndManagedSkills(openCodeSkills: OpenCodeSkill[], managedSkills: OpenCodeSkill[]) {
   const merged = new Map(openCodeSkills.map((skill) => [skill.name, skill]))
   for (const skill of managedSkills) {
     if (!merged.has(skill.name)) {
       merged.set(skill.name, skill)
     }
   }
-
   return Array.from(merged.values())
+}
+
+export async function loadVisibleSkills(
+  directory: string,
+  options?: {
+    refresh?: boolean
+  },
+) {
+  await ensureOpenCodeProjectOverlay(directory)
+
+  const [openCodeSkills, managedSkills] = await Promise.all([
+    loadOpenCodeSkills(directory, options?.refresh),
+    loadBuddyManagedSkills(),
+  ])
+
+  return mergeOpenCodeAndManagedSkills(openCodeSkills, managedSkills)
 }
 
 export async function resolveInstalledSkillByName(name: string, directory: string) {

@@ -34,8 +34,10 @@ export type SkillLibraryEntry = {
 export type SkillsCatalog = {
   directory: string
   managedRoot: string
+  externalVendorRootsEnabled: boolean
   installed: InstalledSkillInfo[]
   library: SkillLibraryEntry[]
+  librarySyncError?: string
 }
 
 export type CreateCustomSkillInput = {
@@ -69,10 +71,6 @@ export type OpenCodeSkill = {
   name: string
   description: string
   location: string
-  content: string
-}
-
-export type PlaceholderLibrarySkill = Omit<SkillLibraryEntry, "installed"> & {
   content: string
 }
 
