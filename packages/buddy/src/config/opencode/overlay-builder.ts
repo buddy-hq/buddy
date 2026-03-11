@@ -25,39 +25,50 @@ function buildOpenCodePermissionOverlay(permission: Config.Permission | undefine
   }
 }
 
-async function buildOpenCodeConfigOverlay(config: Config.Info) {
-  const skillPaths = await resolveOpenCodeSkillPaths(config)
-  const agentOverlay = applyBuddyPersonaHiddenFlags(
-    mergeBuddyAndConfiguredAgents(config.agent ?? {}),
-    config.personas,
+function orderAgentsWithDefaultFirst(
+  agents: Record<string, Config.Agent>,
+  defaultAgent: string | undefined,
+) {
+  if (!defaultAgent || !(defaultAgent in agents)) {
+    return agents
+  }
+
+  return {
+    [defaultAgent]: agents[defaultAgent]!,
+    ...Object.fromEntries(
+      Object.entries(agents).filter(([key]) => key !== defaultAgent),
+    ),
+  }
+}
+
+async function buildOpenCodeConfigOverlay(input: {
+  config: Config.Info
+  directory: string
+}) {
+  const skillPaths = await resolveOpenCodeSkillPaths(input.config, input.directory)
+  const mergedAgents = applyBuddyPersonaHiddenFlags(
+    mergeBuddyAndConfiguredAgents(input.config.agent ?? {}),
+    input.config.personas,
   )
   const defaultAgent = resolveConfiguredAgentKey(
     getDefaultBuddyPersona({
-      defaultPersona: config.default_persona,
-      overrides: config.personas,
+      defaultPersona: input.config.default_persona,
+      overrides: input.config.personas,
     }).id,
-    agentOverlay,
+    mergedAgents,
   )
-  const orderedAgents =
-    defaultAgent && defaultAgent in agentOverlay
-      ? {
-          [defaultAgent]: agentOverlay[defaultAgent]!,
-          ...Object.fromEntries(
-            Object.entries(agentOverlay).filter(([key]) => key !== defaultAgent),
-          ),
-        }
-      : agentOverlay
+  const orderedAgents = orderAgentsWithDefaultFirst(mergedAgents, defaultAgent)
 
   return {
-    permission: buildOpenCodePermissionOverlay(config.permission),
-    ...(config.model ? { model: config.model } : {}),
-    ...(config.small_model ? { small_model: config.small_model } : {}),
+    permission: buildOpenCodePermissionOverlay(input.config.permission),
+    ...(input.config.model ? { model: input.config.model } : {}),
+    ...(input.config.small_model ? { small_model: input.config.small_model } : {}),
     ...(defaultAgent ? { default_agent: defaultAgent } : {}),
-    ...(config.disabled_providers ? { disabled_providers: config.disabled_providers } : {}),
-    ...(config.enabled_providers ? { enabled_providers: config.enabled_providers } : {}),
-    ...(config.provider ? { provider: config.provider } : {}),
+    ...(input.config.disabled_providers ? { disabled_providers: input.config.disabled_providers } : {}),
+    ...(input.config.enabled_providers ? { enabled_providers: input.config.enabled_providers } : {}),
+    ...(input.config.provider ? { provider: input.config.provider } : {}),
     ...(skillPaths ? { skills: { paths: skillPaths } } : {}),
-    ...(config.mcp ? { mcp: config.mcp } : {}),
+    ...(input.config.mcp ? { mcp: input.config.mcp } : {}),
     agent: {
       ...orderedAgents,
     },

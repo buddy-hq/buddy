@@ -68,6 +68,7 @@ export namespace ConfigSchema {
       mcp: openCodeInfoShape.mcp,
       permission: openCodeInfoShape.permission,
       tools: TOOL_TOGGLE_MAP,
+      skills_external_vendor_roots_enabled: z.boolean().optional(),
     })
     .strict()
     .superRefine((value, ctx) => {

@@ -2,6 +2,7 @@ import { setConfigOverlay } from "@buddy/opencode-adapter/config"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { Config } from "../config.js"
 import { configErrorMessage, isConfigValidationError } from "../contract/errors.js"
+import { readInstalledSystemSkillsFingerprint } from "../../learning/skills/service/system-installer.js"
 import {
   buildOpenCodeConfigOverlay,
   fingerprintOpenCodeConfig,
@@ -10,8 +11,8 @@ import {
   resolveConfiguredAgentKey,
 } from "../opencode/overlay-builder.js"
 
-const openCodeConfigFingerprint = new Map<string, string>()
-const openCodeConfigSyncInFlight = new Map<string, Promise<void>>()
+const configFingerprintByDirectory = new Map<string, string>()
+const configSyncTaskByDirectory = new Map<string, Promise<void>>()
 
 export {
   buildOpenCodeConfigOverlay,
@@ -26,22 +27,39 @@ export async function readProjectConfig(directory: string): Promise<Config.Info>
   return Config.getProject(directory)
 }
 
-export async function ensureOpenCodeProjectOverlay(directory: string): Promise<void> {
+async function buildAndApplyProjectOverlay(directory: string) {
   const config = await readProjectConfig(directory)
-  const overlay = await buildOpenCodeConfigOverlay(config)
+  const overlay = await buildOpenCodeConfigOverlay({
+    config,
+    directory,
+  })
   setConfigOverlay(directory, overlay)
+  return {
+    config,
+    overlay,
+  }
+}
+
+async function resolveProjectConfigFingerprint(config: Config.Info, overlay: unknown) {
+  const installedSystemSkillsFingerprint = await readInstalledSystemSkillsFingerprint().catch(() => undefined)
+  return [
+    fingerprintOpenCodeConfig(config, overlay),
+    installedSystemSkillsFingerprint ?? "none",
+  ].join("|system-skills:")
+}
+
+export async function ensureOpenCodeProjectOverlay(directory: string): Promise<void> {
+  await buildAndApplyProjectOverlay(directory)
 }
 
 export async function syncOpenCodeProjectConfig(directory: string, force = false): Promise<void> {
-  const existing = openCodeConfigSyncInFlight.get(directory)
-  if (existing) return existing
+  const existingTask = configSyncTaskByDirectory.get(directory)
+  if (existingTask) return existingTask
 
   const task = (async () => {
-    const config = await readProjectConfig(directory)
-    const overlay = await buildOpenCodeConfigOverlay(config)
-    setConfigOverlay(directory, overlay)
-    const nextFingerprint = fingerprintOpenCodeConfig(config, overlay)
-    const previousFingerprint = openCodeConfigFingerprint.get(directory)
+    const { config, overlay } = await buildAndApplyProjectOverlay(directory)
+    const nextFingerprint = await resolveProjectConfigFingerprint(config, overlay)
+    const previousFingerprint = configFingerprintByDirectory.get(directory)
     if (!force && previousFingerprint === nextFingerprint) {
       return
     }
@@ -56,11 +74,11 @@ export async function syncOpenCodeProjectConfig(directory: string, force = false
       },
     })
 
-    openCodeConfigFingerprint.set(directory, nextFingerprint)
+    configFingerprintByDirectory.set(directory, nextFingerprint)
   })().finally(() => {
-    openCodeConfigSyncInFlight.delete(directory)
+    configSyncTaskByDirectory.delete(directory)
   })
 
-  openCodeConfigSyncInFlight.set(directory, task)
+  configSyncTaskByDirectory.set(directory, task)
   return task
 }
