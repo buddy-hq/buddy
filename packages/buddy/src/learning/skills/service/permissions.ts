@@ -1,29 +1,32 @@
 import { PermissionNext, type PermissionAction } from "@buddy/opencode-adapter/permission"
+import { Wildcard } from "@buddy/opencode-adapter/wildcard"
 import { Config } from "@buddy/backend/config"
 import type { PermissionRule, PermissionRuleset, SkillPermissionSource } from "./contracts"
 
-function wildcardMatch(input: string, pattern: string) {
-  const normalizedInput = input.replaceAll("\\", "/")
-  let escapedPattern = pattern
-    .replaceAll("\\", "/")
-    .replace(/[.+^${}()|[\]\\]/g, "\\$&")
-    .replace(/\*/g, ".*")
-    .replace(/\?/g, ".")
-
-  if (escapedPattern.endsWith(" .*")) {
-    escapedPattern = escapedPattern.slice(0, -3) + "( .*)?"
-  }
-
-  const flags = process.platform === "win32" ? "si" : "s"
-  return new RegExp(`^${escapedPattern}$`, flags).test(normalizedInput)
+const SKILL_RULE_DEFAULTS = {
+  permission: "skill",
+  wildcardPattern: "*",
+  defaultAction: "ask",
+  deniedAction: "deny",
+} as const satisfies {
+  permission: string
+  wildcardPattern: string
+  defaultAction: PermissionAction
+  deniedAction: PermissionAction
 }
+
+const SKILL_PERMISSION_SOURCE = {
+  default: "default",
+  explicit: "explicit",
+  inherited: "inherited",
+} as const satisfies Record<string, SkillPermissionSource>
 
 function matchSkillRule(name: string, ruleset: PermissionRuleset) {
   for (let index = ruleset.length - 1; index >= 0; index -= 1) {
     const rule = ruleset[index]
     if (!rule) continue
-    if (!wildcardMatch("skill", rule.permission)) continue
-    if (!wildcardMatch(name, rule.pattern)) continue
+    if (!Wildcard.match(SKILL_RULE_DEFAULTS.permission, rule.permission)) continue
+    if (!Wildcard.match(name, rule.pattern)) continue
     return rule
   }
 
@@ -36,9 +39,9 @@ export function resolveSkillPermission(name: string, ruleset: PermissionRuleset)
     return {
       explicit: false,
       rule: {
-        action: "ask",
-        permission: "skill",
-        pattern: "*",
+        action: SKILL_RULE_DEFAULTS.defaultAction,
+        permission: SKILL_RULE_DEFAULTS.permission,
+        pattern: SKILL_RULE_DEFAULTS.wildcardPattern,
       } satisfies PermissionRule,
     }
   }
@@ -55,7 +58,7 @@ export function skillRuleset(config: Config.Info): PermissionRuleset {
 }
 
 export function enabledAction(action: PermissionAction) {
-  return action !== "deny"
+  return action !== SKILL_RULE_DEFAULTS.deniedAction
 }
 
 export function resolvePermissionSource(input: {
@@ -64,14 +67,14 @@ export function resolvePermissionSource(input: {
   skillName: string
 }): SkillPermissionSource {
   if (!input.explicit) {
-    return "default"
+    return SKILL_PERMISSION_SOURCE.default
   }
 
   if (input.matchedPattern === input.skillName) {
-    return "explicit"
+    return SKILL_PERMISSION_SOURCE.explicit
   }
 
-  return "inherited"
+  return SKILL_PERMISSION_SOURCE.inherited
 }
 
 export async function setSkillPermission(pattern: string, action: PermissionAction) {
@@ -83,7 +86,7 @@ export async function setSkillPermission(pattern: string, action: PermissionActi
   const nextSkillPermission =
     typeof existingSkillPermission === "string"
       ? {
-          "*": existingSkillPermission,
+          [SKILL_RULE_DEFAULTS.wildcardPattern]: existingSkillPermission,
           [pattern]: action,
         }
       : {
@@ -94,12 +97,12 @@ export async function setSkillPermission(pattern: string, action: PermissionActi
   const nextPermission = Config.Permission.parse(
     typeof existingPermission === "string"
       ? {
-          "*": existingPermission,
-          skill: nextSkillPermission,
+          [SKILL_RULE_DEFAULTS.wildcardPattern]: existingPermission,
+          [SKILL_RULE_DEFAULTS.permission]: nextSkillPermission,
         }
       : {
           ...(existingPermission ?? {}),
-          skill: nextSkillPermission,
+          [SKILL_RULE_DEFAULTS.permission]: nextSkillPermission,
         },
   )
 
@@ -119,11 +122,11 @@ export async function clearSkillPermission(pattern: string) {
   const nextPermission = { ...existingPermission } as Record<string, unknown>
 
   if (typeof existingSkillPermission === "string") {
-    if (pattern !== "*") {
+    if (pattern !== SKILL_RULE_DEFAULTS.wildcardPattern) {
       return
     }
 
-    delete nextPermission.skill
+    delete nextPermission[SKILL_RULE_DEFAULTS.permission]
     await Config.updateGlobal({
       permission: Config.Permission.parse(nextPermission),
     })
@@ -138,9 +141,9 @@ export async function clearSkillPermission(pattern: string) {
   delete nextSkillPermission[pattern]
 
   if (Object.keys(nextSkillPermission).length === 0) {
-    delete nextPermission.skill
+    delete nextPermission[SKILL_RULE_DEFAULTS.permission]
   } else {
-    nextPermission.skill = nextSkillPermission
+    nextPermission[SKILL_RULE_DEFAULTS.permission] = nextSkillPermission
   }
 
   await Config.updateGlobal({
