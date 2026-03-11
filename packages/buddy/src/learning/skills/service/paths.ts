@@ -11,12 +11,16 @@ export const OPENCODE_SKILL_CACHE_ROOT = path.join(
   "skills",
 )
 
-export function agentSkillsRoot() {
-  return path.join(Global.Path.home, ".agents", "skills")
+export function buddyHomeRoot() {
+  return path.join(Global.Path.home, ".buddy")
 }
 
 export function managedSkillsRoot() {
-  return path.join(agentSkillsRoot(), "buddy-managed")
+  return path.join(buddyHomeRoot(), "skills")
+}
+
+export function managedSystemRoot() {
+  return path.join(managedSkillsRoot(), ".system")
 }
 
 export function managedLibraryRoot() {
@@ -27,9 +31,15 @@ export function managedCustomRoot() {
   return path.join(managedSkillsRoot(), "custom")
 }
 
+export function curatedSkillsCacheRoot() {
+  return path.join(buddyHomeRoot(), "cache")
+}
+
 export async function ensureManagedSkillPathReady() {
-  await fsp.mkdir(agentSkillsRoot(), { recursive: true })
   await fsp.mkdir(managedSkillsRoot(), { recursive: true })
+  await fsp.mkdir(managedSystemRoot(), { recursive: true })
+  await fsp.mkdir(managedLibraryRoot(), { recursive: true })
+  await fsp.mkdir(managedCustomRoot(), { recursive: true })
 }
 
 export function isWithinPath(root: string, target: string) {
@@ -40,6 +50,7 @@ export function isWithinPath(root: string, target: string) {
 export function resolveSkillScope(location: string): SkillScope {
   const normalizedLocation = path.resolve(location)
   const globalRoots = [
+    managedSkillsRoot(),
     path.join(Global.Path.home, ".agents", "skills"),
     path.join(Global.Path.home, ".claude", "skills"),
   ]
@@ -51,10 +62,19 @@ export function resolveSkillScope(location: string): SkillScope {
   return "workspace"
 }
 
-export function managedSource(location: string): ManagedSkillSource {
+function managedRelativeSegments(location: string) {
   const root = managedSkillsRoot()
   const relative = path.relative(root, location)
   const insideManagedRoot = relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative)
+
+  return {
+    insideManagedRoot,
+    segments: relative.split(path.sep),
+  }
+}
+
+export function managedSource(location: string): ManagedSkillSource {
+  const { insideManagedRoot, segments } = managedRelativeSegments(location)
   if (!insideManagedRoot) {
     return {
       source: "external",
@@ -63,7 +83,6 @@ export function managedSource(location: string): ManagedSkillSource {
     }
   }
 
-  const segments = relative.split(path.sep)
   if (segments[0] === "library" && segments[1]) {
     return {
       source: "library",
@@ -81,9 +100,17 @@ export function managedSource(location: string): ManagedSkillSource {
     }
   }
 
+  if (segments[0] === ".system") {
+    return {
+      source: "external",
+      managed: true,
+      removable: false,
+    }
+  }
+
   return {
     source: "external",
     managed: true,
-    removable: true,
+    removable: false,
   }
 }
