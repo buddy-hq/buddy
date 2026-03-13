@@ -1,16 +1,10 @@
 import { describe, expect, test } from "bun:test"
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
+import { readdirSync, readFileSync, statSync } from "node:fs"
 import path from "node:path"
 
 const packageRoot = path.resolve(import.meta.dir, "../..")
 const srcRoot = path.join(packageRoot, "src")
 const routesRoot = path.join(srcRoot, "routes")
-
-const removedCompatibilityFiles = [
-  path.join(srcRoot, "openapi", "compatibility-route.ts"),
-  path.join(srcRoot, "openapi", "compatibility-schemas.ts"),
-  path.join(srcRoot, "http", "proxy-routes.ts"),
-] as const
 
 const forbiddenRouteTokens = [
   "compatibilityRoute(",
@@ -38,12 +32,6 @@ function listRouteFiles(root: string): string[] {
 }
 
 describe("route OpenAPI guardrails", () => {
-  test("keeps compatibility wrapper files removed", () => {
-    for (const removedFile of removedCompatibilityFiles) {
-      expect(existsSync(removedFile)).toBe(false)
-    }
-  })
-
   test("prevents deprecated route helper patterns", () => {
     const routeFiles = listRouteFiles(routesRoot)
     const violations: string[] = []

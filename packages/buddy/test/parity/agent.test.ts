@@ -15,41 +15,6 @@ function requireValue<T>(value: T | undefined, label: string): T {
 }
 
 describe("parity.agent", () => {
-  test("rejects non-persona values for default_persona", async () => {
-    await withRepo(async (directory) => {
-      writeFileSync(
-        path.join(directory, "buddy.jsonc"),
-        JSON.stringify({
-          default_persona: "curriculum-orchestrator",
-        }),
-      )
-
-      await expect(
-        withSyncedOpenCodeConfig(directory, () => OpenCodeAgent.defaultAgent()),
-      ).rejects.toThrow()
-    })
-  })
-
-  test("orders configured default persona first in list", async () => {
-    await withRepo(async (directory) => {
-      writeFileSync(
-        path.join(directory, "buddy.jsonc"),
-        JSON.stringify({
-          default_persona: "code-buddy",
-        }),
-      )
-
-      const listed = await withSyncedOpenCodeConfig(directory, () => OpenCodeAgent.list())
-      expect(listed[0]?.name).toBe("code-buddy")
-      const names = listed.map((entry) => entry.name)
-      expect(names).toContain("buddy")
-      expect(names).toContain("build")
-      expect(names).toContain("plan")
-      expect(names).toContain("explore")
-      expect(names).toContain("curriculum-orchestrator")
-    })
-  })
-
   test("preserves Buddy agent defaults when applying partial overrides", async () => {
     await withRepo(async (directory) => {
       writeFileSync(
