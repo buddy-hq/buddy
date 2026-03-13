@@ -13,6 +13,13 @@
     "typecheck": "tsgo --noEmit",
     "start": "bun --env-file=../../.env run src/index.ts",
     "test": "bun test --preload ./test/preload.ts test",
+    "test:architecture": "bun test --preload ./test/preload.ts test/architecture",
+    "test:config": "bun test --preload ./test/preload.ts test/config",
+    "test:curriculum": "bun test --preload ./test/preload.ts test/curriculum",
+    "test:learning": "bun test --preload ./test/preload.ts test/learning",
+    "test:session": "bun test --preload ./test/preload.ts test/session",
+    "test:skills": "bun test --preload ./test/preload.ts test/skills",
+    "test:parity": "bun test --preload ./test/preload.ts test/parity",
     "test:contracts": "bun test --preload ./test/preload.ts test/parity",
     "format": "echo 'Formatting code...' && bunx prettier --write src/*.ts src/**/*.ts",
     "db": "bun drizzle-kit"
