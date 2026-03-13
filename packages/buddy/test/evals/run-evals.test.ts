@@ -3,7 +3,7 @@ import { buildLearningSystemPrompt } from "../../src/learning/prompt"
 import { resolveCapabilityProfile } from "../../src/learning/resolve-capability-profile"
 import { getBuddyPersona } from "../../src/learning/personas"
 import { LearnerService } from "../../src/learning/learner-model"
-import { tmpdir } from "../fixture/fixture"
+import { tmpdir } from "../helpers/tmpdir"
 import { expectAllowedTools, expectDeniedTools, expectPreferredHelpers, expectVisibleSurfaces } from "./scorers.ts"
 
 describe("teaching eval harness", () => {

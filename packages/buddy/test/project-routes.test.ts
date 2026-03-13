@@ -1,29 +1,9 @@
 import { describe, expect, test } from "bun:test"
-import os from "node:os"
 import path from "node:path"
-import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs"
-import { spawnSync } from "node:child_process"
+import { mkdirSync, realpathSync } from "node:fs"
 import { Project as OpenCodeProject } from "@buddy/opencode-adapter/project"
 import { app } from "../src/index.ts"
-
-function runGit(cwd: string, args: string[]) {
-  const result = spawnSync("git", args, {
-    cwd,
-    encoding: "utf8",
-  })
-  if (result.status !== 0) {
-    throw new Error(result.stderr || result.stdout || "git command failed")
-  }
-}
-
-function createGitRepo(prefix: string) {
-  const root = mkdtempSync(path.join(os.tmpdir(), `${prefix}-`))
-  runGit(root, ["init", "-q"])
-  writeFileSync(path.join(root, "README.md"), "# test\n")
-  runGit(root, ["add", "README.md"])
-  runGit(root, ["-c", "user.email=buddy@test.local", "-c", "user.name=Buddy Test", "commit", "-qm", "init"])
-  return root
-}
+import { createGitRepo } from "./helpers/repo"
 
 describe("project routes", () => {
   test("resolves relative directories against BUDDY_DIRECTORY_BASE when configured", async () => {
