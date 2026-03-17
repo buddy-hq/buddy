@@ -3,6 +3,7 @@ import { Markdown } from "@/components/Markdown"
 import { resolveApiUrl } from "../../lib/api-client"
 import { computeTokenContextMetrics } from "@/state/context-metrics"
 import type { MessageInfo, MessagePart, MessageWithParts, ProviderInfo } from "@/state/chat-types"
+import { Dialog, DialogContent, FolderIcon, XIcon } from "@buddy/ui"
 import "./chat-transcript.css"
 
 type ChatTranscriptProps = {
@@ -560,8 +561,8 @@ function CopyAction(props: { value: string; label?: string; className?: string }
       type="button"
       className={props.className ?? "buddy-copy-action"}
       onClick={onCopy}
-      title={copied ? "Copied" : props.label ?? "Copy"}
-      aria-label={copied ? "Copied" : props.label ?? "Copy"}
+      title={copied ? "Copied" : (props.label ?? "Copy")}
+      aria-label={copied ? "Copied" : (props.label ?? "Copy")}
     >
       {copied ? "Copied" : "Copy"}
     </button>
@@ -594,6 +595,41 @@ function UserMessagePart(props: { part: MessagePart; info: MessageInfo }) {
         <CopyAction value={text} className="buddy-copy-action buddy-copy-action-inline" />
       </div>
     </div>
+  )
+}
+
+function FileAttachmentPart(props: { part: MessagePart }) {
+  if (props.part.type !== "file") return null
+
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const url = String(props.part.url ?? "")
+  const filename = String(props.part.filename ?? "")
+  const mime = String(props.part.mime ?? "")
+  const isImage = mime.startsWith("image/")
+
+  return (
+    <>
+      <div
+        className="flex flex-col items-center justify-center size-12 rounded-md overflow-hidden bg-muted border border-border hover:border-foreground/20 transition-colors cursor-pointer"
+        data-type={isImage ? "image" : "file"}
+        onClick={() => isImage && setPreviewOpen(true)}
+        title={filename}
+      >
+        {isImage ? (
+          <img src={url} alt={filename} className="w-full h-full object-cover" />
+        ) : (
+          <FolderIcon className="size-5 text-muted-foreground" />
+        )}
+      </div>
+
+      {isImage && (
+        <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+          <DialogContent className="max-w-3xl max-h-[80vh] p-0 overflow-hidden">
+            <img src={url} alt={filename} className="w-full h-full object-contain" />
+          </DialogContent>
+        </Dialog>
+      )}
+    </>
   )
 }
 
@@ -686,10 +722,7 @@ function ContextToolGroup(props: { parts: MessagePart[] }) {
   )
 }
 
-function ToolPartCard(props: {
-  part: MessagePart
-  onOpenSession?: (sessionID: string) => void
-}) {
+function ToolPartCard(props: { part: MessagePart; onOpenSession?: (sessionID: string) => void }) {
   const state = parseToolState(props.part)
   const tool = String(props.part.tool ?? "")
   const info = getToolInfo(tool, state.input)
@@ -719,10 +752,7 @@ function ToolPartCard(props: {
 
   if (tool === "task") {
     const onOpenSession = props.onOpenSession
-    const openChildSession =
-      childSessionId && onOpenSession
-        ? () => onOpenSession(childSessionId)
-        : undefined
+    const openChildSession = childSessionId && onOpenSession ? () => onOpenSession(childSessionId) : undefined
     const taskProgressLines = state.status === "pending" || state.status === "running" ? progressLines : []
     const showTaskError = state.status === "error" && showOutput
     const content = (
@@ -768,11 +798,7 @@ function ToolPartCard(props: {
       )
     }
 
-    return (
-      <div className="buddy-tool-card buddy-tool-card-task">
-        {content}
-      </div>
-    )
+    return <div className="buddy-tool-card buddy-tool-card-task">{content}</div>
   }
 
   const subtitle = info.subtitle ? <span className="buddy-tool-subtitle-text">{info.subtitle}</span> : null
@@ -807,9 +833,7 @@ function ToolPartCard(props: {
             <img src={imageUrl} alt={renderFigure.alt} loading="lazy" />
           </figure>
 
-          {renderFigure.caption ? (
-            <div className="buddy-render-figure-caption">{renderFigure.caption}</div>
-          ) : null}
+          {renderFigure.caption ? <div className="buddy-render-figure-caption">{renderFigure.caption}</div> : null}
 
           <div className="buddy-message-meta-row">
             <span className="buddy-render-figure-meta">
@@ -817,7 +841,11 @@ function ToolPartCard(props: {
                 ? `repaired ${renderFigure.repairAttempts} ${renderFigure.repairAttempts === 1 ? "time" : "times"}`
                 : "rendered automatically from tool output"}
             </span>
-            <CopyAction value={copyableImageUrl} label="Copy image URL" className="buddy-copy-action buddy-copy-action-inline" />
+            <CopyAction
+              value={copyableImageUrl}
+              label="Copy image URL"
+              className="buddy-copy-action buddy-copy-action-inline"
+            />
           </div>
         </div>
       </div>
@@ -882,15 +910,15 @@ function AssistantPartRenderer(props: {
   }
 
   if (props.part.type === "text") {
-      return (
-        <AssistantTextPart
-          part={props.part}
-          copyEnabled={props.copyPartID === props.part.id}
-          metaText={props.metaText}
-          interrupted={props.interrupted}
-          stripLeadingFigureImage={props.stripLeadingFigureImage}
-        />
-      )
+    return (
+      <AssistantTextPart
+        part={props.part}
+        copyEnabled={props.copyPartID === props.part.id}
+        metaText={props.metaText}
+        interrupted={props.interrupted}
+        stripLeadingFigureImage={props.stripLeadingFigureImage}
+      />
+    )
   }
 
   if (props.part.type === "reasoning") {
@@ -927,8 +955,7 @@ export function ChatTranscript(props: ChatTranscriptProps) {
 
         const lastAssistantTextID = assistantTextParts.at(-1)?.id
         const lastAssistantInfo = assistantMessages.at(-1)?.info
-        const assistantAborted =
-          lastAssistantInfo?.role === "assistant" && lastAssistantInfo.finish === "aborted"
+        const assistantAborted = lastAssistantInfo?.role === "assistant" && lastAssistantInfo.finish === "aborted"
         const assistantCompleted = assistantMessages.reduce<number | undefined>((max, message) => {
           const completed = message.info.time?.completed
           if (typeof completed !== "number") return max
@@ -961,6 +988,20 @@ export function ChatTranscript(props: ChatTranscriptProps) {
             {userMessage ? (
               <div className="w-full min-w-0">
                 <div className="flex w-full min-w-0 flex-col gap-2">
+                  {/* Attachments first (matching vendor) */}
+                  {userMessage.parts.some((p) => p.type === "file") && (
+                    <div className="flex flex-wrap justify-end gap-2 w-fit max-w-[min(82%,64ch)] ml-auto">
+                      {userMessage.parts
+                        .filter(
+                          (p): p is MessagePart & { type: "file"; url: string; filename: string; mime: string } =>
+                            p.type === "file",
+                        )
+                        .map((part) => (
+                          <FileAttachmentPart key={part.id} part={part} />
+                        ))}
+                    </div>
+                  )}
+                  {/* Then text */}
                   {userMessage.parts.map((part) => (
                     <UserMessagePart key={part.id} part={part} info={userMessage.info} />
                   ))}
@@ -970,39 +1011,39 @@ export function ChatTranscript(props: ChatTranscriptProps) {
 
             {showAssistantSection ? (
               <div className="mt-[18px] flex w-full min-w-0 flex-col gap-3">
-                  {assistantItems.map((item, itemIndex) => {
-                    if (item.type === "context") {
-                      return <ContextToolGroup key={item.key} parts={item.parts} />
-                    }
+                {assistantItems.map((item, itemIndex) => {
+                  if (item.type === "context") {
+                    return <ContextToolGroup key={item.key} parts={item.parts} />
+                  }
 
-                    const previousItem = assistantItems[itemIndex - 1]
-                    const previousPart = previousItem?.type === "part" ? previousItem.part : undefined
-                    const previousPartState = previousPart ? parseToolState(previousPart) : undefined
-                    const stripLeadingFigureImage =
-                      item.part.type === "text" &&
-                      previousPart?.type === "tool" &&
-                      (String(previousPart.tool ?? "") === "render_figure" ||
-                        String(previousPart.tool ?? "") === "render_freeform_figure") &&
-                      previousPartState?.status === "completed" &&
-                      !!parseRenderFigureToolOutput(previousPartState)
+                  const previousItem = assistantItems[itemIndex - 1]
+                  const previousPart = previousItem?.type === "part" ? previousItem.part : undefined
+                  const previousPartState = previousPart ? parseToolState(previousPart) : undefined
+                  const stripLeadingFigureImage =
+                    item.part.type === "text" &&
+                    previousPart?.type === "tool" &&
+                    (String(previousPart.tool ?? "") === "render_figure" ||
+                      String(previousPart.tool ?? "") === "render_freeform_figure") &&
+                    previousPartState?.status === "completed" &&
+                    !!parseRenderFigureToolOutput(previousPartState)
 
-                    return (
-                      <AssistantPartRenderer
-                        key={item.key}
-                        part={item.part}
-                        copyPartID={lastAssistantTextID}
-                        metaText={assistantMetaText}
-                        interrupted={assistantAborted}
-                        onOpenSession={props.onOpenSession}
-                        stripLeadingFigureImage={stripLeadingFigureImage}
-                      />
-                    )
-                  })}
-                  {showThinking ? (
-                    <div className="flex min-h-5 w-full items-center gap-2 text-sm font-medium text-muted-foreground">
-                      <span className="buddy-shimmer">Thinking</span>
-                    </div>
-                  ) : null}
+                  return (
+                    <AssistantPartRenderer
+                      key={item.key}
+                      part={item.part}
+                      copyPartID={lastAssistantTextID}
+                      metaText={assistantMetaText}
+                      interrupted={assistantAborted}
+                      onOpenSession={props.onOpenSession}
+                      stripLeadingFigureImage={stripLeadingFigureImage}
+                    />
+                  )
+                })}
+                {showThinking ? (
+                  <div className="flex min-h-5 w-full items-center gap-2 text-sm font-medium text-muted-foreground">
+                    <span className="buddy-shimmer">Thinking</span>
+                  </div>
+                ) : null}
               </div>
             ) : null}
           </article>

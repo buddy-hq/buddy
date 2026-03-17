@@ -3,6 +3,8 @@ import {
   Badge,
   BookOpenIcon,
   BrainIcon,
+  Dialog,
+  DialogContent,
   PlusIcon,
   Select,
   SelectContent,
@@ -47,6 +49,7 @@ import {
   type SlashCommandSource,
 } from "./slash-autocomplete"
 import type { PromptComposerAttachment } from "./prompt-types"
+import { ImageAttachments } from "./image-attachments"
 
 type PromptComposerProps = {
   value: string
@@ -167,6 +170,9 @@ const INTENT_OPTIONS = [
     description: "Quiz mode – Questions to test your understanding",
   },
 ]
+
+const ACCEPTED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"]
+const ACCEPTED_FILE_TYPES = [...ACCEPTED_IMAGE_TYPES, "application/pdf"]
 
 function translatePromptPlaceholder(key: string, params?: Record<string, string>) {
   if (key === "prompt.placeholder.shell") return "Run a shell command"
@@ -426,6 +432,7 @@ export function PromptComposer(props: PromptComposerProps) {
   const [savedHistoryDraft, setSavedHistoryDraft] = useState<PromptHistoryEntry | null>(null)
   const [displayedPlaceholder, setDisplayedPlaceholder] = useState("Ask Buddy...")
   const [placeholderOpacity, setPlaceholderOpacity] = useState(1)
+  const [previewAttachment, setPreviewAttachment] = useState<PromptComposerAttachment | null>(null)
 
   const knownAgents = useMemo(
     () => new Set(props.mentionableAgents.map((agent) => agent.name)),
@@ -1146,7 +1153,23 @@ export function PromptComposer(props: PromptComposerProps) {
               }
             }}
             onPaste={(event) => {
-              const text = event.clipboardData.getData("text/plain")
+              const clipboardData = event.clipboardData
+              if (!clipboardData) return
+
+              const items = Array.from(clipboardData.items)
+              const fileItems = items.filter((item) => item.kind === "file")
+              const imageItems = fileItems.filter((item) => ACCEPTED_FILE_TYPES.includes(item.type))
+
+              if (imageItems.length > 0) {
+                event.preventDefault()
+                for (const item of imageItems) {
+                  const file = item.getAsFile()
+                  if (file) addAttachments([file])
+                }
+                return
+              }
+
+              const text = clipboardData.getData("text/plain")
               if (!text) return
               event.preventDefault()
               insertTextAtSelection(text)
@@ -1157,6 +1180,7 @@ export function PromptComposer(props: PromptComposerProps) {
             ref={fileInputRef}
             type="file"
             multiple
+            accept={ACCEPTED_FILE_TYPES.join(",")}
             className="hidden"
             onChange={(event) => {
               const files = event.target.files
@@ -1191,23 +1215,11 @@ export function PromptComposer(props: PromptComposerProps) {
           </div>
         </div>
 
-        {props.attachments.length > 0 ? (
-          <div className="flex flex-wrap gap-2 border-t px-3 py-2">
-            {props.attachments.map((attachment) => (
-              <Badge key={attachment.id} variant="secondary" className="max-w-full gap-1.5 overflow-hidden px-2 py-1">
-                <span className="truncate text-xs">{attachmentLabel(attachment)}</span>
-                <button
-                  type="button"
-                  className="shrink-0 rounded-sm text-muted-foreground hover:text-foreground"
-                  aria-label={`Remove ${attachmentLabel(attachment)}`}
-                  onClick={() => removeAttachment(attachment.id)}
-                >
-                  <XIcon className="size-3" />
-                </button>
-              </Badge>
-            ))}
-          </div>
-        ) : null}
+        <ImageAttachments
+          attachments={props.attachments}
+          onRemove={removeAttachment}
+          onOpen={(attachment) => setPreviewAttachment(attachment)}
+        />
       </form>
 
       <div className="-mt-3.5 rounded-[12px] rounded-tl-none rounded-tr-none border border-t-0 bg-card/95 px-2 pt-5 pb-2">
@@ -1360,6 +1372,18 @@ export function PromptComposer(props: PromptComposerProps) {
           </div>
         </div>
       </div>
+
+      <Dialog open={!!previewAttachment} onOpenChange={(open) => !open && setPreviewAttachment(null)}>
+        <DialogContent className="max-w-3xl max-h-[80vh] p-0 overflow-hidden">
+          {previewAttachment && (
+            <img
+              src={previewAttachment.dataUrl}
+              alt={previewAttachment.filename}
+              className="w-full h-full object-contain"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
