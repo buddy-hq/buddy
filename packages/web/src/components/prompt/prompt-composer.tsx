@@ -1,7 +1,8 @@
 import {
   ArrowUpIcon,
   Badge,
-  Button,
+  BookOpenIcon,
+  BrainIcon,
   PlusIcon,
   Select,
   SelectContent,
@@ -10,9 +11,16 @@ import {
   SelectLabel,
   SelectTrigger,
   SelectValue,
+  SparklesIcon,
   SquareIcon,
-  ToggleGroup,
-  ToggleGroupItem,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TargetIcon,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
   XIcon,
 } from "@buddy/ui"
 import { useEffect, useMemo, useRef, useState } from "react"
@@ -134,10 +142,30 @@ const BUILTIN_SLASH_COMMANDS: SlashCommandOption[] = [
 ]
 
 const INTENT_OPTIONS = [
-  { key: "auto" as const, label: "Auto" },
-  { key: "learn" as const, label: "Learn" },
-  { key: "practice" as const, label: "Practice" },
-  { key: "assess" as const, label: "Assess" },
+  {
+    key: "auto" as const,
+    label: "Auto",
+    icon: SparklesIcon,
+    description: "Adaptive mode – Buddy decides the best approach",
+  },
+  {
+    key: "learn" as const,
+    label: "Learn",
+    icon: BookOpenIcon,
+    description: "Study mode – Explanations, examples, and deep dives",
+  },
+  {
+    key: "practice" as const,
+    label: "Practice",
+    icon: TargetIcon,
+    description: "Drill mode – Exercises and hands-on problems",
+  },
+  {
+    key: "assess" as const,
+    label: "Assess",
+    icon: BrainIcon,
+    description: "Quiz mode – Questions to test your understanding",
+  },
 ]
 
 function translatePromptPlaceholder(key: string, params?: Record<string, string>) {
@@ -396,6 +424,8 @@ export function PromptComposer(props: PromptComposerProps) {
   const [historyEntries, setHistoryEntries] = useState<PromptHistoryEntry[]>(() => loadHistory(props.historyKey))
   const [historyIndex, setHistoryIndex] = useState(-1)
   const [savedHistoryDraft, setSavedHistoryDraft] = useState<PromptHistoryEntry | null>(null)
+  const [displayedPlaceholder, setDisplayedPlaceholder] = useState("Ask Buddy...")
+  const [placeholderOpacity, setPlaceholderOpacity] = useState(1)
 
   const knownAgents = useMemo(
     () => new Set(props.mentionableAgents.map((agent) => agent.name)),
@@ -468,10 +498,21 @@ export function PromptComposer(props: PromptComposerProps) {
         commentCount: 0,
         example: "",
         suggest: false,
+        intent: props.selectedIntent,
         t: translatePromptPlaceholder,
       }),
-    [],
+    [props.selectedIntent],
   )
+
+  useEffect(() => {
+    if (displayedPlaceholder === placeholder) return
+    setPlaceholderOpacity(0)
+    const timeout = setTimeout(() => {
+      setDisplayedPlaceholder(placeholder)
+      setPlaceholderOpacity(1)
+    }, 250)
+    return () => clearTimeout(timeout)
+  }, [placeholder, displayedPlaceholder])
 
   useEffect(() => {
     setHistoryEntries(loadHistory(props.historyKey))
@@ -964,8 +1005,11 @@ export function PromptComposer(props: PromptComposerProps) {
           ) : null}
 
           {!props.value && props.attachments.length === 0 ? (
-            <div className="pointer-events-none absolute left-3 top-3 right-20 text-sm leading-6 text-muted-foreground">
-              {placeholder}
+            <div
+              className="pointer-events-none absolute left-3 top-3 right-20 text-sm leading-6 text-muted-foreground transition-opacity duration-250 ease-out"
+              style={{ opacity: placeholderOpacity }}
+            >
+              {displayedPlaceholder}
             </div>
           ) : null}
 
@@ -1185,116 +1229,135 @@ export function PromptComposer(props: PromptComposerProps) {
           </div>
         ) : null}
 
-        <div className="flex min-w-0 items-center gap-1.5">
-          <Select value={props.selectedPersona} onValueChange={props.onPersonaChange}>
-            <SelectTrigger
-              size="sm"
-              className="h-7 max-w-[160px] min-w-0 border-transparent bg-transparent px-2 text-xs text-foreground/90 shadow-none hover:bg-muted/50 focus-visible:ring-0"
-              aria-label="Persona"
-            >
-              <SelectValue placeholder="Persona" />
-            </SelectTrigger>
-            <SelectContent
-              side="top"
-              align="start"
-              position="popper"
-              sideOffset={6}
-              className="w-[min(18rem,calc(100vw-2rem))] max-h-[min(20rem,calc(100vh-8rem))]"
-            >
-              {personaOptions.map((persona) => (
-                <SelectItem key={persona.name} value={persona.name}>
-                  {persona.label ?? persona.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <ToggleGroup
-            type="single"
-            value={props.selectedIntent}
-            size="sm"
-            spacing={2}
-            className="rounded-md border border-transparent bg-transparent"
-            aria-label="Teaching intent"
-            onValueChange={(value: string) => {
-              if (value === "auto" || value === "learn" || value === "practice" || value === "assess") {
-                props.onIntentChange(value)
-              }
-            }}
-          >
-            {INTENT_OPTIONS.map((intent) => (
-              <ToggleGroupItem
-                key={intent.key}
-                value={intent.key}
-                className="h-7 rounded-md px-2.5 text-[11px] text-muted-foreground data-[state=on]:text-foreground"
-                aria-label={intent.label}
+        <div className="flex min-w-0 items-center justify-between gap-2">
+          <div className="flex items-center gap-1">
+            <TooltipProvider delayDuration={300}>
+              <Tabs
+                value={props.selectedIntent}
+                onValueChange={(value) => {
+                  if (value === "auto" || value === "learn" || value === "practice" || value === "assess") {
+                    props.onIntentChange(value)
+                  }
+                }}
+                className="w-auto"
               >
-                {intent.label}
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
+                <TabsList variant="default" className="h-7 bg-muted/50 p-0.5">
+                  {INTENT_OPTIONS.map((intent) => {
+                    const Icon = intent.icon
+                    const isSelected = props.selectedIntent === intent.key
+                    return (
+                      <Tooltip key={intent.key}>
+                        <TooltipTrigger>
+                          <TabsTrigger
+                            value={intent.key}
+                            className="h-6 gap-1.5 px-2 text-[11px] text-muted-foreground/60 hover:text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-none [&_svg]:size-3.5 border-0 shadow-none"
+                          >
+                            <Icon className="shrink-0" />
+                            <span
+                              className={`whitespace-nowrap overflow-hidden transition-all duration-500 ease-out ${
+                                isSelected ? "max-w-[80px] opacity-100" : "max-w-0 opacity-0"
+                              }`}
+                            >
+                              {intent.label}
+                            </span>
+                          </TabsTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" align="center" sideOffset={4}>
+                          <p className="text-xs">{intent.description.split(" – ")[1]}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )
+                  })}
+                </TabsList>
+              </Tabs>
+            </TooltipProvider>
+          </div>
 
-          <Select
-            value={props.selectedModel}
-            onValueChange={props.onModelChange}
-            open={modelMenuOpen}
-            onOpenChange={setModelMenuOpen}
-          >
-            <SelectTrigger
-              ref={modelTriggerRef}
-              size="sm"
-              className="h-7 max-w-[240px] min-w-0 border-transparent bg-transparent px-2 text-xs text-foreground/90 shadow-none hover:bg-muted/50 focus-visible:ring-0"
-              aria-label="Model"
+          <div className="flex items-center gap-1">
+            <Select value={props.selectedPersona} onValueChange={props.onPersonaChange}>
+              <SelectTrigger
+                size="sm"
+                className="h-7 max-w-[140px] min-w-0 border-transparent bg-transparent px-2 text-xs text-foreground/90 shadow-none hover:bg-muted/50 focus-visible:ring-0"
+                aria-label="Persona"
+              >
+                <SelectValue placeholder="Persona" />
+              </SelectTrigger>
+              <SelectContent
+                side="top"
+                align="end"
+                position="popper"
+                sideOffset={6}
+                className="w-[min(16rem,calc(100vw-2rem))] max-h-[min(20rem,calc(100vh-8rem))]"
+              >
+                {personaOptions.map((persona) => (
+                  <SelectItem key={persona.name} value={persona.name}>
+                    {persona.label ?? persona.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={props.selectedModel}
+              onValueChange={props.onModelChange}
+              open={modelMenuOpen}
+              onOpenChange={setModelMenuOpen}
             >
-              <SelectValue placeholder="Auto" />
-            </SelectTrigger>
-            <SelectContent
-              side="top"
-              align="start"
-              position="popper"
-              sideOffset={6}
-              className="w-[min(24rem,calc(100vw-2rem))] max-h-[min(28rem,calc(100vh-8rem))]"
-            >
-              {groupedModelOptions.ungrouped.map((option) => (
-                <SelectItem key={option.key} value={option.key} disabled={option.disabled}>
-                  {option.label}
-                </SelectItem>
-              ))}
-              {groupedModelOptions.grouped.map(([group, options]) => (
-                <SelectGroup key={group}>
-                  <SelectLabel>{group}</SelectLabel>
-                  {options.map((option) => (
-                    <SelectItem key={option.key} value={option.key} disabled={option.disabled}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              ))}
-            </SelectContent>
-          </Select>
+              <SelectTrigger
+                ref={modelTriggerRef}
+                size="sm"
+                className="h-7 max-w-[180px] min-w-0 border-transparent bg-transparent px-2 text-xs text-foreground/90 shadow-none hover:bg-muted/50 focus-visible:ring-0"
+                aria-label="Model"
+              >
+                <SelectValue placeholder="Auto" />
+              </SelectTrigger>
+              <SelectContent
+                side="top"
+                align="start"
+                position="popper"
+                sideOffset={6}
+                className="w-[min(22rem,calc(100vw-2rem))] max-h-[min(28rem,calc(100vh-8rem))]"
+              >
+                {groupedModelOptions.ungrouped.map((option) => (
+                  <SelectItem key={option.key} value={option.key} disabled={option.disabled}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+                {groupedModelOptions.grouped.map(([group, options]) => (
+                  <SelectGroup key={group}>
+                    <SelectLabel>{group}</SelectLabel>
+                    {options.map((option) => (
+                      <SelectItem key={option.key} value={option.key} disabled={option.disabled}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                ))}
+              </SelectContent>
+            </Select>
 
-          <Select value={props.selectedThinking} onValueChange={props.onThinkingChange}>
-            <SelectTrigger
-              size="sm"
-              className="h-7 max-w-[160px] min-w-0 border-transparent bg-transparent px-2 text-xs text-foreground/90 shadow-none hover:bg-muted/50 focus-visible:ring-0"
-              aria-label="Thinking"
-            >
-              <SelectValue placeholder="Thinking" />
-            </SelectTrigger>
-            <SelectContent
-              side="top"
-              align="start"
-              position="popper"
-              sideOffset={6}
-              className="w-[min(18rem,calc(100vw-2rem))] max-h-[min(20rem,calc(100vh-8rem))]"
-            >
-              {props.thinkingOptions.map((option) => (
-                <SelectItem key={option.key} value={option.key}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            <Select value={props.selectedThinking} onValueChange={props.onThinkingChange}>
+              <SelectTrigger
+                size="sm"
+                className="h-7 max-w-[160px] min-w-0 border-transparent bg-transparent px-2 text-xs text-foreground/90 shadow-none hover:bg-muted/50 focus-visible:ring-0"
+                aria-label="Thinking"
+              >
+                <SelectValue placeholder="Thinking" />
+              </SelectTrigger>
+              <SelectContent
+                side="top"
+                align="start"
+                position="popper"
+                sideOffset={6}
+                className="w-[min(18rem,calc(100vw-2rem))] max-h-[min(20rem,calc(100vh-8rem))]"
+              >
+                {props.thinkingOptions.map((option) => (
+                  <SelectItem key={option.key} value={option.key}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
     </div>
