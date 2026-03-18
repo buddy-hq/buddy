@@ -1,4 +1,4 @@
-import { registerBuddyTools } from "./register-buddy-tools"
+import { registerBuddyTools, unregisterBuddyTools } from "./register-buddy-tools"
 import { assertLearningToolCatalog, getLearningToolGroup, type LearningToolGroup } from "./tool-catalog"
 
 type LearningToolRegistrationFlags = {
@@ -9,6 +9,7 @@ type LearningToolRegistrationFlags = {
   registerGoalTools: boolean
   registerLearnerTools: boolean
   registerTeachingTools: boolean
+  registerMathTools: boolean
 }
 
 function warnToolRegistrationFailure(message: string, error: unknown): void {
@@ -26,6 +27,25 @@ function registerToolGroup(input: {
 
   input.registrations.push(
     registerBuddyTools(input.directory, getLearningToolGroup(input.group)).catch((error) => {
+      warnToolRegistrationFailure(input.warning, error)
+    }),
+  )
+}
+
+function unregisterToolGroup(input: {
+  enabled: boolean
+  directory: string
+  group: LearningToolGroup
+  warning: string
+  registrations: Promise<void>[]
+}): void {
+  if (input.enabled) return
+
+  input.registrations.push(
+    unregisterBuddyTools(
+      input.directory,
+      getLearningToolGroup(input.group).map((tool) => tool.id),
+    ).catch((error) => {
       warnToolRegistrationFailure(input.warning, error)
     }),
   )
@@ -91,6 +111,21 @@ async function registerRuntimeTools(
     directory,
     group: "freeformFigures",
     warning: "Failed to register Buddy freeform figure tools into OpenCode runtime:",
+    registrations,
+  })
+
+  registerToolGroup({
+    enabled: flags.registerMathTools,
+    directory,
+    group: "math",
+    warning: "Failed to register Buddy math tools into OpenCode runtime:",
+    registrations,
+  })
+  unregisterToolGroup({
+    enabled: flags.registerMathTools,
+    directory,
+    group: "math",
+    warning: "Failed to unregister Buddy math tools from OpenCode runtime:",
     registrations,
   })
 

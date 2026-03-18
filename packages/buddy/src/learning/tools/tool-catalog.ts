@@ -1,6 +1,7 @@
 import { freeformFigureTools } from "@buddy/backend/learning/capabilities/figures/freeform/tools/tools"
 import { figureTools } from "@buddy/backend/learning/capabilities/figures/geometry/tools/tools"
 import { teachingTools } from "@buddy/backend/learning/capabilities/lesson-workspace/tools/tools"
+import { mathTools } from "@buddy/backend/learning/capabilities/math/tools/tools"
 import { pedagogyTools } from "@buddy/backend/learning/capabilities/pedagogy/tools/tools"
 import { goalTools } from "@buddy/backend/learning/curriculum/goals/tools/tools"
 import { curriculumTools } from "@buddy/backend/learning/curriculum/planning/tools/tools"
@@ -15,6 +16,7 @@ const learningToolGroups = {
   goals: goalTools,
   learner: learnerTools,
   teaching: teachingTools,
+  math: mathTools,
 } as const
 
 type LearningToolGroup = keyof typeof learningToolGroups
