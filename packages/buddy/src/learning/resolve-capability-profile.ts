@@ -3,6 +3,7 @@ import {
   type Intent,
   type WorkspaceState,
 } from "@buddy/backend/learning/shared/teaching-vocabulary"
+import { AdvancedMathRuntimeService } from "../local-runtimes/advanced-math/service"
 import { resolveIntentPermissions } from "./intents/capabilities"
 import type { PersonaDefinition, RuntimeProfile, ToolId } from "./shared/runtime-types"
 
@@ -75,6 +76,12 @@ function applyIntentToolOverrides(input: {
   }
 }
 
+function applyRuntimeToolConstraints(tools: Record<ToolId, "allow" | "deny">) {
+  if (!AdvancedMathRuntimeService.isReady()) {
+    tools.python_calculator = "deny"
+  }
+}
+
 function buildEffectiveTools(input: {
   persona: PersonaDefinition
   workspaceState: WorkspaceState
@@ -91,6 +98,7 @@ function buildEffectiveTools(input: {
     tools,
     intentToolPermissions: input.intentToolPermissions,
   })
+  applyRuntimeToolConstraints(tools)
   return tools
 }
 
