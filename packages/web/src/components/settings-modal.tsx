@@ -7,6 +7,7 @@ import {
   CardContent,
   Dialog,
   DialogContent,
+  Progress,
   Select,
   SelectContent,
   SelectItem,
@@ -15,6 +16,7 @@ import {
   Separator,
   SettingsIcon,
   SlidersHorizontalIcon,
+  Switch,
   Tabs,
   TabsContent,
   TabsList,
@@ -27,6 +29,12 @@ import { usePlatform } from "@/context/platform"
 import { resolveDefaultPersonaID } from "@/state/chat-actions"
 import { showDesktopUpdateToast } from "../lib/desktop-updates"
 import type { ProviderInfo } from "@/state/chat-types"
+import {
+  installAdvancedMathRuntime,
+  loadAdvancedMathRuntimeStatus,
+  removeAdvancedMathRuntime,
+  type AdvancedMathRuntimeStatus,
+} from "@/state/advanced-math-runtime"
 import type { LogLevel } from "@/state/project-settings"
 import { useProjectSettings } from "@/state/project-settings"
 
@@ -39,6 +47,38 @@ type SettingsModalProps = {
 }
 
 type SettingsTab = "general" | "providers"
+
+function advancedMathStatusLabel(status: AdvancedMathRuntimeStatus | null, loading: boolean) {
+  if (!status) return loading ? "Loading..." : "Unknown"
+
+  switch (status.state) {
+    case "not_installed":
+      return "Not installed"
+    case "downloading":
+      return "Downloading..."
+    case "installing":
+      return "Installing..."
+    case "repairing":
+      return "Repairing..."
+    case "removing":
+      return "Removing..."
+    case "ready":
+      return "Installed"
+    case "error":
+      return "Installation failed"
+  }
+}
+
+function isAdvancedMathRuntimeOperationInProgress(status: AdvancedMathRuntimeStatus | null) {
+  if (!status) return false
+
+  return (
+    status.state === "downloading" ||
+    status.state === "installing" ||
+    status.state === "repairing" ||
+    status.state === "removing"
+  )
+}
 
 function SettingsPanel(props: { value: SettingsTab; title: string; description: string; children: ReactNode }) {
   return (
@@ -103,11 +143,67 @@ export function SettingsModal(props: SettingsModalProps) {
   const [checkingForUpdates, setCheckingForUpdates] = useState(false)
   const [providerDialogOpen, setProviderDialogOpen] = useState(false)
   const [providerDialogTarget, setProviderDialogTarget] = useState<string | undefined>(undefined)
+  const [advancedMathStatus, setAdvancedMathStatus] = useState<AdvancedMathRuntimeStatus | null>(null)
+  const [advancedMathLoading, setAdvancedMathLoading] = useState(false)
 
   useEffect(() => {
     if (!props.open) return
     setActiveTab("general")
   }, [props.open])
+
+  useEffect(() => {
+    if (!props.open || platform.platform !== "desktop") return
+
+    let cancelled = false
+    setAdvancedMathLoading(true)
+    void loadAdvancedMathRuntimeStatus()
+      .then((status) => {
+        if (!cancelled) {
+          setAdvancedMathStatus(status)
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          toast.error(error instanceof Error ? error.message : "Failed to load advanced math runtime status")
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setAdvancedMathLoading(false)
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [platform.platform, props.open])
+
+  useEffect(() => {
+    if (!props.open || platform.platform !== "desktop") return
+    if (!advancedMathLoading && !isAdvancedMathRuntimeOperationInProgress(advancedMathStatus)) return
+
+    let cancelled = false
+    const refresh = async () => {
+      try {
+        const status = await loadAdvancedMathRuntimeStatus()
+        if (!cancelled) {
+          setAdvancedMathStatus(status)
+        }
+      } catch {
+        // Ignore transient polling errors while an operation is in flight.
+      }
+    }
+
+    void refresh()
+    const interval = window.setInterval(() => {
+      void refresh()
+    }, 1000)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+    }
+  }, [advancedMathLoading, advancedMathStatus, platform.platform, props.open])
 
   async function onSaveSettings() {
     await settings.actions.save()
@@ -148,6 +244,34 @@ export function SettingsModal(props: SettingsModalProps) {
     }
   }
 
+  async function onToggleAdvancedMathRuntime(nextChecked: boolean) {
+    if (!nextChecked) {
+      const confirmed = typeof window === "undefined"
+        ? true
+        : window.confirm("Remove the optional advanced math runtime from this device?")
+      if (!confirmed) {
+        return
+      }
+    }
+
+    setAdvancedMathLoading(true)
+    try {
+      const nextStatus = nextChecked
+        ? await installAdvancedMathRuntime()
+        : await removeAdvancedMathRuntime()
+      setAdvancedMathStatus(nextStatus)
+      toast(nextChecked ? "Advanced math runtime installed" : "Advanced math runtime removed")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update advanced math runtime")
+      const refreshed = await loadAdvancedMathRuntimeStatus().catch(() => undefined)
+      if (refreshed) {
+        setAdvancedMathStatus(refreshed)
+      }
+    } finally {
+      setAdvancedMathLoading(false)
+    }
+  }
+
   const personaSelectValue =
     resolveDefaultPersonaID(
       settings.options.personas,
@@ -160,6 +284,14 @@ export function SettingsModal(props: SettingsModalProps) {
     [settings.options.allProviders],
   )
   const showDesktopUpdateControls = platform.platform === "desktop" && !!platform.checkUpdate && !!platform.update
+  const showAdvancedMathControls = platform.platform === "desktop"
+  const advancedMathBusy = advancedMathLoading || isAdvancedMathRuntimeOperationInProgress(advancedMathStatus)
+  const advancedMathEnabled =
+    !!advancedMathStatus &&
+    advancedMathStatus.enabled &&
+    advancedMathStatus.state !== "not_installed" &&
+    advancedMathStatus.state !== "error" &&
+    advancedMathStatus.state !== "removing"
   const footerHint = (() => {
     if (settings.status.loading) return "Loading settings..."
     if (settings.status.saving) return "Saving changes..."
@@ -364,10 +496,48 @@ export function SettingsModal(props: SettingsModalProps) {
                 <p className="text-sm text-muted-foreground">{settings.status.providerMessage}</p>
               ) : null}
 
-              {showDesktopUpdateControls ? (
+              {showAdvancedMathControls || showDesktopUpdateControls ? (
                 <div className="space-y-2">
                   <h3 className="text-sm font-medium text-foreground">Desktop app</h3>
                   <SettingsListCard>
+                    {showAdvancedMathControls ? (
+                      <>
+                        <SettingsRow
+                          title="Advanced math runtime"
+                          description="Optional machine-wide runtime for Python-based math and plotting."
+                          control={
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between gap-3">
+                                <span className="text-xs text-muted-foreground">
+                                  {advancedMathStatusLabel(advancedMathStatus, advancedMathLoading)}
+                                </span>
+                                <Switch
+                                  aria-label="Toggle advanced math runtime"
+                                  checked={advancedMathEnabled}
+                                  disabled={advancedMathBusy || advancedMathStatus === null}
+                                  onCheckedChange={(checked) => void onToggleAdvancedMathRuntime(checked)}
+                                />
+                              </div>
+                              {advancedMathStatus?.progressMessage || typeof advancedMathStatus?.progressPercent === "number" ? (
+                                <div className="space-y-1">
+                                  <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                                    <span className="truncate">{advancedMathStatus?.progressMessage ?? "Working..."}</span>
+                                    {typeof advancedMathStatus?.progressPercent === "number" ? (
+                                      <span>{Math.round(advancedMathStatus.progressPercent)}%</span>
+                                    ) : null}
+                                  </div>
+                                  <Progress value={advancedMathStatus?.progressPercent ?? 0} className="h-1.5" />
+                                </div>
+                              ) : null}
+                              {advancedMathStatus?.lastError ? (
+                                <p className="text-xs text-destructive">{advancedMathStatus.lastError}</p>
+                              ) : null}
+                            </div>
+                          }
+                        />
+                        <Separator />
+                      </>
+                    ) : null}
                     <SettingsRow
                       title="App updates"
                       description="Check for and install desktop app updates. This applies to Buddy itself, not this notebook."
