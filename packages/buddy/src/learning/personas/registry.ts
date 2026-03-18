@@ -83,6 +83,7 @@ const BUILTIN_BUDDY_PERSONAS = {
       learner_assessment_record: "allow",
       render_figure: "allow",
       render_freeform_figure: "allow",
+      python_calculator: "allow",
     },
     subagentDefaults: {
       "analogy-author": "prefer",

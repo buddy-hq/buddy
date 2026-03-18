@@ -13,6 +13,7 @@ export const BUDDY_AGENT = registerBuddyAgent({
       learner_snapshot_read: "allow",
       learner_practice_record: "allow",
       learner_assessment_record: "allow",
+      python_calculator: "deny",
       todoread: "deny",
       todowrite: "deny",
     },

@@ -21,6 +21,7 @@ export const CODE_BUDDY = registerBuddyAgent({
       teaching_add_file: "allow",
       teaching_set_lesson: "allow",
       teaching_restore_checkpoint: "allow",
+      python_calculator: "deny",
       todoread: "deny",
       todowrite: "deny",
     },

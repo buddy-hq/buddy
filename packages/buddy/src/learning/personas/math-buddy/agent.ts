@@ -18,6 +18,7 @@ export const MATH_BUDDY = registerBuddyAgent({
       learner_assessment_record: "allow",
       render_figure: "allow",
       render_freeform_figure: "allow",
+      python_calculator: "allow",
       teaching_start_lesson: "deny",
       teaching_checkpoint: "deny",
       teaching_add_file: "deny",
