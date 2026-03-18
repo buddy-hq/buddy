@@ -80,7 +80,10 @@ fn ensure_main_window(app: &AppHandle) -> tauri::Result<()> {
             r#"
             window.__BUDDY__ ??= {{}};
             window.__BUDDY__.updaterEnabled = {UPDATER_ENABLED};
+            window.__BUDDY__.version = "{version}";
           "#
+          ,
+          version = app.package_info().version
         ));
 
     #[cfg(target_os = "windows")]
@@ -195,6 +198,21 @@ fn sidecar_runtime_dir(app: &AppHandle) -> PathBuf {
     fallback
 }
 
+fn development_advanced_math_asset_dir() -> Option<PathBuf> {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join("..")
+        .join("buddy")
+        .join("dist")
+        .join("advanced-math-runtime");
+
+    if path.exists() {
+        return Some(path);
+    }
+
+    None
+}
+
 async fn wait_for_health(url: &str, username: &str, password: &str) -> Result<(), String> {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(2))
@@ -264,13 +282,15 @@ async fn await_initialization(
         std::process::Stdio::null()
     };
 
-    let mut child = std::process::Command::new(sidecar_path()?)
+    let mut child = std::process::Command::new(sidecar_path()?);
+    child
         .arg("run")
         .arg(&sidecar_entrypoint)
         .env("BUN_BE_BUN", "1")
         .env("PORT", port.to_string())
         .env("BUDDY_SERVER_USERNAME", &username)
         .env("BUDDY_SERVER_PASSWORD", &password)
+        .env("BUDDY_APP_VERSION", app.package_info().version.to_string())
         .env("BUDDY_MIGRATION_DIR", &buddy_migration_dir)
         .env("BUDDY_ALLOWED_DIRECTORY_ROOTS", &allowed_roots)
         .env("BUDDY_DIRECTORY_BASE", &home_dir)
@@ -281,7 +301,13 @@ async fn await_initialization(
         .env("XDG_STATE_HOME", &xdg_state_home)
         .current_dir(&sidecar_cwd)
         .stdout(stdout)
-        .stderr(stderr)
+        .stderr(stderr);
+
+    if let Some(local_asset_dir) = development_advanced_math_asset_dir() {
+        child.env("BUDDY_ADVANCED_MATH_LOCAL_ASSET_DIR", local_asset_dir);
+    }
+
+    let mut child = child
         .spawn()
         .map_err(|err| format!("Failed to start Buddy backend: {err}"))?;
 

@@ -8,6 +8,7 @@ const config = getCurrentSidecar()
 const source = path.resolve(backendDir, "dist/desktop-sidecar/bin", windowsify("buddy-backend", config.rustTarget))
 const runtimeSourceDir = path.resolve(backendDir, "dist/desktop-sidecar/app")
 
+await $`bun run --cwd ${backendDir} ensure:advanced-math-runtime`
 await $`bun run --cwd ${backendDir} build:desktop-sidecar`
 const copied = copyBinaryToSidecarFolder(source, config.rustTarget)
 const entrypoint = syncBackendRuntimeResources(runtimeSourceDir, config.rustTarget)

@@ -10,6 +10,12 @@ import { createBrowserPlatform, type Platform } from "@buddy/web/context/platfor
 import { commands } from "./bindings"
 import { checkForUpdate, installPendingUpdate } from "./updater"
 
+type BuddyWindow = Window & {
+  __BUDDY__?: {
+    version?: string
+  }
+}
+
 function normalizeDirectory(input: string) {
   const trimmed = input.trim().split("\\").join("/")
   if (!trimmed) return ""
@@ -167,6 +173,7 @@ export function createDesktopPlatform(): Platform {
     ...createBrowserPlatform(),
     platform: "desktop",
     os,
+    version: (window as BuddyWindow).__BUDDY__?.version,
     async startWindowDragging() {
       await getCurrentWindow().startDragging()
     },

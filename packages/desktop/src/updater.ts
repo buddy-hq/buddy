@@ -6,6 +6,7 @@ import { commands } from "./bindings"
 type BuddyWindow = Window & {
   __BUDDY__?: {
     updaterEnabled?: boolean
+    version?: string
   }
 }
 
