@@ -29,6 +29,30 @@ type BuddyTool<
   toTool(directory: string): Tool.Info<Parameters, Metadata>
 }
 
+function createAbortError() {
+  return new DOMException("Aborted", "AbortError")
+}
+
+async function executeUntilAbort<T>(abort: AbortSignal, execute: () => Promise<T>) {
+  abort.throwIfAborted()
+
+  let onAbort: (() => void) | undefined
+  const aborted = new Promise<never>((_, reject) => {
+    onAbort = () => reject(createAbortError())
+    abort.addEventListener("abort", onAbort, { once: true })
+  })
+
+  try {
+    const result = await Promise.race([execute(), aborted])
+    abort.throwIfAborted()
+    return result
+  } finally {
+    if (onAbort) {
+      abort.removeEventListener("abort", onAbort)
+    }
+  }
+}
+
 function createBuddyTool<const Id extends string, Parameters extends z.ZodType, Metadata extends BuddyToolMetadata>(
   id: Id,
   init: BuddyToolInit<Parameters, Metadata>,
@@ -47,7 +71,8 @@ function createBuddyTool<const Id extends string, Parameters extends z.ZodType, 
               directory,
             }
 
-            return definition.execute(args, nextCtx)
+            nextCtx.abort.throwIfAborted()
+            return executeUntilAbort(nextCtx.abort, () => definition.execute(args, nextCtx))
           },
         }
       })

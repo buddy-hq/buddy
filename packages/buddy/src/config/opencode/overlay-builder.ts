@@ -14,6 +14,7 @@ const BUDDY_RUNTIME_PERMISSION_OVERLAY: Config.Permission = {
   "goal_*": "deny",
   "learner_*": "deny",
   "pedagogy_*": "deny",
+  "python_*": "deny",
   "render_*": "deny",
   "teaching_*": "deny",
 }

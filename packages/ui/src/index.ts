@@ -33,6 +33,7 @@ export {
 } from "./components/ui/dropdown-menu"
 export { Input } from "./components/ui/input"
 export { NativeSelect, NativeSelectOptGroup, NativeSelectOption } from "./components/ui/native-select"
+export { Progress } from "./components/ui/progress"
 export { Separator } from "./components/ui/separator"
 export {
   Select,
@@ -55,10 +56,12 @@ export {
   ArrowUpIcon,
   BookOpenIcon,
   BrainIcon,
+  CheckIcon,
   ChevronDownIcon,
   ChevronRightIcon,
   CircleQuestionMarkIcon,
   Clock3Icon,
+  CopyIcon,
   EllipsisIcon,
   FolderIcon,
   FolderPlusIcon,

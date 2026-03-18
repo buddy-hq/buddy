@@ -3,6 +3,7 @@ import { resolveCapabilityProfile } from "../../src/learning/resolve-capability-
 import { LearnerService } from "../../src/learning/learner-model"
 import { buildLearningSystemPrompt } from "../../src/learning/prompt"
 import { getBuddyPersona } from "../../src/learning/personas"
+import { withInstalledMockAdvancedMathRuntime } from "../helpers/advanced-math-runtime"
 import { tmpdir } from "../helpers/tmpdir"
 
 async function buildRuntimePrompt(input: {
@@ -61,5 +62,29 @@ describe("prompt assemblies", () => {
     expect(system).toContain("State: interactive")
     expect(system).toContain("<teaching_workspace>")
     expect(system).not.toContain("<system-reminder>")
+  })
+
+  test("adds calculator guidance to math-buddy only when the advanced runtime is available", async () => {
+    await using project = await tmpdir()
+
+    const withoutRuntime = await buildRuntimePrompt({
+      directory: project.path,
+      persona: "math-buddy",
+      intent: "learn",
+    })
+
+    expect(withoutRuntime).not.toContain("<calculator_runtime>")
+
+    await withInstalledMockAdvancedMathRuntime(async () => {
+      const withRuntime = await buildRuntimePrompt({
+        directory: project.path,
+        persona: "math-buddy",
+        intent: "learn",
+      })
+
+      expect(withRuntime).toContain("<calculator_runtime>")
+      expect(withRuntime).toContain("python_calculator is available in this session.")
+      expect(withRuntime).toContain("Prefer exact symbolic forms")
+    })
   })
 })

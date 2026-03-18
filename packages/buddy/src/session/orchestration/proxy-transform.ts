@@ -1,5 +1,6 @@
 import type { Context } from "hono"
 import { proxyToOpenCode } from "../../http/proxy"
+import { AdvancedMathRuntimeService } from "../../local-runtimes/advanced-math/service"
 import { SessionLookupError, SessionTransformValidationError } from "./errors"
 
 export function mapSessionTransformError(
@@ -35,6 +36,7 @@ export async function runSessionTransformProxy(input: {
     registerGoalTools: true,
     registerLearnerTools: true,
     registerTeachingTools: true,
+    registerMathTools: AdvancedMathRuntimeService.isReady(),
   })
 
   if (!response.ok) {

@@ -100,15 +100,22 @@ describe("parity.agent", () => {
     await withRepo(async (directory) => {
       const result = await withSyncedOpenCodeConfig(directory, async () => ({
         agent: await OpenCodeAgent.get("math-buddy"),
+        buddyAgent: await OpenCodeAgent.get("buddy"),
+        codeBuddyAgent: await OpenCodeAgent.get("code-buddy"),
         listed: await OpenCodeAgent.list(),
       }))
 
       const mathBuddyAgent = requireValue(result.agent, "math-buddy agent")
+      const buddyAgent = requireValue(result.buddyAgent, "buddy agent")
+      const codeBuddyAgent = requireValue(result.codeBuddyAgent, "code-buddy agent")
       expect(mathBuddyAgent.mode).toBe("primary")
       expect(result.listed.map((entry) => entry.name)).toContain("math-buddy")
       expect(PermissionNext.evaluate("render_figure", "figures/example.svg", mathBuddyAgent.permission).action).toBe(
         "allow",
       )
+      expect(PermissionNext.evaluate("python_calculator", "*", mathBuddyAgent.permission).action).toBe("allow")
+      expect(PermissionNext.evaluate("python_calculator", "*", buddyAgent.permission).action).toBe("deny")
+      expect(PermissionNext.evaluate("python_calculator", "*", codeBuddyAgent.permission).action).toBe("deny")
       expect(
         PermissionNext.evaluate("teaching_start_lesson", "teaching/lesson.ts", mathBuddyAgent.permission).action,
       ).toBe("deny")

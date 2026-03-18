@@ -37,6 +37,7 @@ async function proxyToOpenCode(c: Context, input: ProxyToOpenCodeInput): Promise
     registerGoalTools: prepared.registrationFlags.registerGoalTools,
     registerLearnerTools: prepared.registrationFlags.registerLearnerTools,
     registerTeachingTools: prepared.registrationFlags.registerTeachingTools,
+    registerMathTools: prepared.registrationFlags.registerMathTools,
   })
 
   return normalizeErrorResponse(response, input.forceBusyAs409)

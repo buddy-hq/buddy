@@ -31,6 +31,7 @@ function resolveInitialRegistrationFlags(input: ProxyToOpenCodeInput): ProxyRegi
     registerGoalTools: typeof input.registerGoalTools === "boolean" ? input.registerGoalTools : false,
     registerLearnerTools: typeof input.registerLearnerTools === "boolean" ? input.registerLearnerTools : false,
     registerTeachingTools: typeof input.registerTeachingTools === "boolean" ? input.registerTeachingTools : false,
+    registerMathTools: typeof input.registerMathTools === "boolean" ? input.registerMathTools : false,
   }
 }
 
@@ -46,6 +47,7 @@ function resolveBodyRegistrationFlags(
     registerGoalTools: resolveRegistration(body, input.registerGoalTools),
     registerLearnerTools: resolveRegistration(body, input.registerLearnerTools),
     registerTeachingTools: resolveRegistration(body, input.registerTeachingTools),
+    registerMathTools: resolveRegistration(body, input.registerMathTools),
   }
 }
 

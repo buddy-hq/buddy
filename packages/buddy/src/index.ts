@@ -12,6 +12,7 @@ import { LearnerRoutes } from "./routes"
 import { runSafetySweep } from "./learning/learner-model"
 import { GlobalRoutes } from "./routes"
 import { McpRoutes } from "./routes"
+import { LocalRuntimeRoutes } from "./routes"
 import { PermissionRoutes } from "./routes"
 import { ProjectRoutes } from "./routes"
 import { ProviderRoutes } from "./routes"
@@ -61,6 +62,7 @@ api.route("/teaching", TeachingRoutes())
 api.route("/", CompatibilityRoutes())
 api.route("/project", ProjectRoutes())
 api.route("/global", GlobalRoutes())
+api.route("/local-runtimes", LocalRuntimeRoutes())
 api.route("/provider", ProviderRoutes())
 api.route("/auth", AuthRoutes())
 api.route("/mcp", McpRoutes())

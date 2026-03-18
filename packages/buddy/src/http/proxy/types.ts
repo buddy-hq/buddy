@@ -10,6 +10,7 @@ export type ProxyRegistrationFlags = {
   registerGoalTools: boolean
   registerLearnerTools: boolean
   registerTeachingTools: boolean
+  registerMathTools: boolean
 }
 
 export type ProxyToOpenCodeInput = {
@@ -25,6 +26,7 @@ export type ProxyToOpenCodeInput = {
   registerGoalTools?: ProxyRegistrationOption
   registerLearnerTools?: ProxyRegistrationOption
   registerTeachingTools?: ProxyRegistrationOption
+  registerMathTools?: ProxyRegistrationOption
 }
 
 export type FetchOpenCodeInput = {
@@ -41,4 +43,5 @@ export type FetchOpenCodeInput = {
   registerGoalTools?: boolean
   registerLearnerTools?: boolean
   registerTeachingTools?: boolean
+  registerMathTools?: boolean
 }

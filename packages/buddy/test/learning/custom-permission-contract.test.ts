@@ -3,10 +3,11 @@ import { PermissionNext } from "@buddy/opencode-adapter/permission"
 import { Config } from "@buddy/backend/config"
 
 describe("custom permission contract", () => {
-  test("must accept curriculum_read, learner_snapshot_read, render_figure, and render_freeform_figure custom permissions", async () => {
+  test("must accept curriculum_read, learner_snapshot_read, python_calculator, render_figure, and render_freeform_figure custom permissions", async () => {
     const customPermissionConfig = {
       curriculum_read: "allow",
       learner_snapshot_read: "allow",
+      python_calculator: "allow",
       render_figure: "allow",
       render_freeform_figure: "allow",
     }
@@ -15,6 +16,7 @@ describe("custom permission contract", () => {
 
     expect(parsed).toHaveProperty("curriculum_read")
     expect(parsed).toHaveProperty("learner_snapshot_read")
+    expect(parsed).toHaveProperty("python_calculator")
     expect(parsed).toHaveProperty("render_figure")
     expect(parsed).toHaveProperty("render_freeform_figure")
 
@@ -25,6 +27,7 @@ describe("custom permission contract", () => {
           (rule) =>
             rule.permission === "curriculum_read" ||
             rule.permission === "learner_snapshot_read" ||
+            rule.permission === "python_calculator" ||
             rule.permission === "render_figure" ||
             rule.permission === "render_freeform_figure",
         )
@@ -33,6 +36,7 @@ describe("custom permission contract", () => {
 
     expect(customRuleActions.get("curriculum_read")).toBe("allow")
     expect(customRuleActions.get("learner_snapshot_read")).toBe("allow")
+    expect(customRuleActions.get("python_calculator")).toBe("allow")
     expect(customRuleActions.get("render_figure")).toBe("allow")
     expect(customRuleActions.get("render_freeform_figure")).toBe("allow")
   })
@@ -62,6 +66,7 @@ describe("custom permission contract", () => {
     const input = {
       curriculum_read: "ask",
       learner_snapshot_read: "deny",
+      python_calculator: "allow",
       render_figure: "allow",
       render_freeform_figure: "ask",
       other_standard_permission: "allow",
@@ -72,6 +77,7 @@ describe("custom permission contract", () => {
 
     expect(reParsed.curriculum_read).toBe("ask")
     expect(reParsed.learner_snapshot_read).toBe("deny")
+    expect(reParsed.python_calculator).toBe("allow")
     expect(reParsed.render_figure).toBe("allow")
     expect(reParsed.render_freeform_figure).toBe("ask")
     expect(reParsed.other_standard_permission).toBe("allow")

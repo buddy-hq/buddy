@@ -99,6 +99,20 @@ function buildWorkspaceStateText(profile: RuntimePromptProfile, workspaceState: 
   return `<workspace_state>\nState: ${workspaceState}\n${guidance}\n</workspace_state>`
 }
 
+function buildCalculatorRuntimeText(profile: RuntimePromptProfile): string | undefined {
+  if (profile.capabilityEnvelope.tools.python_calculator !== "allow") {
+    return undefined
+  }
+
+  return [
+    "<calculator_runtime>",
+    "python_calculator is available in this session.",
+    "Before making any mathematical claim or validating a worked result, call python_calculator first.",
+    "Prefer exact symbolic forms such as fractions, radicals, and symbolic constants before decimal approximations when possible.",
+    "</calculator_runtime>",
+  ].join("\n")
+}
+
 function buildTeachingWorkspaceText(input: {
   context: TeachingContext
   checkpointStatus?: TeachingCheckpointStatus
@@ -147,6 +161,10 @@ async function buildRuntimeContext(input: SystemPromptCtx): Promise<RuntimeConte
   const runtimeSections: string[] = []
 
   runtimeSections.push(buildWorkspaceStateText(profile, workspaceState))
+  const calculatorRuntime = buildCalculatorRuntimeText(profile)
+  if (calculatorRuntime) {
+    runtimeSections.push(calculatorRuntime)
+  }
   runtimeSections.push(learnerSections.learnerSummary)
   runtimeSections.push(learnerSections.learnerProgress)
   runtimeSections.push(learnerSections.learnerFeedback)
