@@ -165,10 +165,57 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
+  build-advanced-math:
+    needs:
+      - version
+    strategy:
+      fail-fast: false
+      matrix:
+        settings:
+          - host: macos-latest
+            target: aarch64-apple-darwin
+          - host: macos-latest
+            target: x86_64-apple-darwin
+          - host: windows-latest
+            target: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.settings.host }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.9"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: bun install
+
+      - run: bun run --cwd packages/buddy build:advanced-math-runtime
+        env:
+          BUDDY_VERSION: ${{ needs.version.outputs.version }}
+          BUDDY_RUST_TARGET: ${{ matrix.settings.target }}
+
+      - shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUDDY_RELEASE_REPO: ${{ needs.version.outputs.repo }}
+          BUDDY_RELEASE_TAG: ${{ needs.version.outputs.tag }}
+        run: |
+          gh release upload "$BUDDY_RELEASE_TAG" \
+            "packages/buddy/dist/advanced-math-runtime/${{ matrix.settings.target }}"/* \
+            --clobber \
+            --repo "$BUDDY_RELEASE_REPO"
+
   publish:
     needs:
       - version
       - build-tauri
+      - build-advanced-math
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
