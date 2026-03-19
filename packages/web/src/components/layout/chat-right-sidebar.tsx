@@ -11,7 +11,14 @@ import {
 import type { TeachingIntent } from "@/state/teaching-runtime"
 import { XIcon } from "./sidebar-icons"
 
-export type ChatRightSidebarTab = "curriculum" | "editor" | "figure" | "resources" | "capabilities" | "settings"
+export type ChatRightSidebarTab =
+  | "curriculum"
+  | "editor"
+  | "figure"
+  | "resources"
+  | "capabilities"
+  | "system-prompt"
+  | "settings"
 export type ChatRightSidebarSurface = "curriculum" | "editor" | "figure"
 
 type ChatRightSidebarProps = {
@@ -20,6 +27,7 @@ type ChatRightSidebarProps = {
   onTabChange: (tab: ChatRightSidebarTab) => void
   surfaces: ChatRightSidebarSurface[]
   resourcesPanel?: ReactNode
+  systemPromptPanel?: ReactNode
   editorPanel?: ReactNode
   figurePanel?: ReactNode
   onClose: () => void
@@ -30,6 +38,7 @@ type ChatRightSidebarProps = {
   className?: string
   style?: CSSProperties
   showCapabilitiesTab?: boolean
+  showSystemPromptTab?: boolean
 }
 
 function stringifyError(error: unknown) {
@@ -90,9 +99,12 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
   const [capabilitiesView, setCapabilitiesView] = useState<LearnerRuntimeCapabilitiesView | undefined>(undefined)
   const [rawPlanOpen, setRawPlanOpen] = useState(false)
   const capabilitiesTabEnabled = props.showCapabilitiesTab === true
+  const systemPromptTabEnabled = props.showSystemPromptTab === true
 
   const activeTab =
-    props.activeTab === "capabilities" && capabilitiesTabEnabled
+    props.activeTab === "system-prompt" && systemPromptTabEnabled
+      ? "system-prompt"
+      : props.activeTab === "capabilities" && capabilitiesTabEnabled
       ? "capabilities"
       : props.activeTab === "resources"
         ? "resources"
@@ -230,6 +242,15 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
               Capabilities
             </Button>
           ) : null}
+          {systemPromptTabEnabled ? (
+            <Button
+              variant={activeTab === "system-prompt" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => props.onTabChange("system-prompt")}
+            >
+              System
+            </Button>
+          ) : null}
         </div>
         <Button variant="ghost" size="icon-xs" onClick={props.onClose} title="Close panel">
           <XIcon className="size-3.5" />
@@ -353,6 +374,14 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
               {capabilitiesError}
             </p>
           ) : null}
+        </div>
+      ) : activeTab === "system-prompt" ? (
+        <div className="flex-1 min-h-0 flex flex-col">
+          {props.systemPromptPanel ?? (
+            <div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">
+              System prompt inspection is not available for this session.
+            </div>
+          )}
         </div>
       ) : (
         <div className="flex-1 min-h-0 p-3 flex flex-col">

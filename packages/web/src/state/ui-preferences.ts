@@ -13,7 +13,14 @@ type UiPreferencesStore = {
   leftSidebarWidth: number
   rightSidebarOpen: boolean
   rightSidebarWidth: number
-  rightSidebarTab: "curriculum" | "editor" | "figure" | "resources" | "capabilities" | "settings"
+  rightSidebarTab:
+    | "curriculum"
+    | "editor"
+    | "figure"
+    | "resources"
+    | "capabilities"
+    | "system-prompt"
+    | "settings"
   isPinned: (directory: string, sessionID: string) => boolean
   togglePinned: (directory: string, sessionID: string) => void
   markUnread: (directory: string, sessionID: string) => void
@@ -26,7 +33,16 @@ type UiPreferencesStore = {
   setLeftSidebarWidth: (width: number) => void
   setRightSidebarOpen: (open: boolean) => void
   setRightSidebarWidth: (width: number) => void
-  setRightSidebarTab: (tab: "curriculum" | "editor" | "figure" | "resources" | "capabilities" | "settings") => void
+  setRightSidebarTab: (
+    tab:
+      | "curriculum"
+      | "editor"
+      | "figure"
+      | "resources"
+      | "capabilities"
+      | "system-prompt"
+      | "settings",
+  ) => void
 }
 
 export const useUiPreferences = create<UiPreferencesStore>()(
@@ -140,6 +156,8 @@ export const useUiPreferences = create<UiPreferencesStore>()(
           rightSidebarTab:
             state?.rightSidebarTab === "settings"
               ? "settings"
+              : state?.rightSidebarTab === "system-prompt"
+                ? "system-prompt"
               : state?.rightSidebarTab === "capabilities"
                 ? "capabilities"
               : state?.rightSidebarTab === "resources"

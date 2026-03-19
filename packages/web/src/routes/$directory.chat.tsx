@@ -5,6 +5,7 @@ import { ChatEmptyState } from "@/components/chat/chat-empty-state"
 import { SessionContextUsage } from "@/components/chat/session-context-usage"
 import { ChatTranscript } from "@/components/chat/chat-transcript"
 import { PermissionDock } from "@/components/chat/permission-dock"
+import { SystemPromptPanel } from "@/components/debug/system-prompt-panel"
 import { ChatLeftSidebar } from "@/components/layout/chat-left-sidebar"
 import { ChatRightSidebar } from "@/components/layout/chat-right-sidebar"
 import { McpDialog } from "@/components/mcp-dialog"
@@ -334,6 +335,7 @@ function DirectoryChatPage() {
   const [configuredModel, setConfiguredModel] = useState<{ providerID: string; modelID: string } | undefined>(undefined)
   const [selectedThinking, setSelectedThinking] = useState("default")
   const [resourcesRefreshToken, setResourcesRefreshToken] = useState(0)
+  const [systemPromptRefreshToken, setSystemPromptRefreshToken] = useState(0)
   const [pendingSuggestionOverride, setPendingSuggestionOverride] = useState<
     | {
         label: string
@@ -595,6 +597,7 @@ function DirectoryChatPage() {
   )
   const showDevSessionTrace = import.meta.env.DEV
   const showCapabilitiesSidebarTab = showDevSessionTrace
+  const showSystemPromptSidebarTab = showDevSessionTrace
   const sidebarDirectories = useMemo(() => {
     if (directoryOrder.length === 0) return validOpenProjects
     const orderIndex = new Map(directoryOrder.map((dir, i) => [dir, i]))
@@ -628,7 +631,9 @@ function DirectoryChatPage() {
     ? rightSidebarTab
     : selectedPersonaDefaultSurface
   const rightSidebarActiveTab =
-    rightSidebarTab === "capabilities" && showCapabilitiesSidebarTab
+    rightSidebarTab === "system-prompt" && showSystemPromptSidebarTab
+      ? "system-prompt"
+      : rightSidebarTab === "capabilities" && showCapabilitiesSidebarTab
       ? "capabilities"
       : rightSidebarTab === RESOURCE_SIDEBAR_TAB
         ? RESOURCE_SIDEBAR_TAB
@@ -871,10 +876,13 @@ function DirectoryChatPage() {
         if (payload.type === "message.updated") {
           const info = properties.info as MessageInfo
           applyMessageUpdated(directory, info)
+          const activeSessionID = useChatStore.getState().directories[directory]?.sessionID
+          if (info.role === "user" && info.sessionID && info.sessionID === activeSessionID) {
+            setSystemPromptRefreshToken((token) => token + 1)
+          }
           if (info.role === "assistant" && !info.error && (!!info.finish || !!info.time.completed)) {
             clearDirectoryError(directory)
           }
-          const activeSessionID = useChatStore.getState().directories[directory]?.sessionID
           if (info.role === "assistant" && info.sessionID && info.sessionID !== activeSessionID) {
             useUiPreferences.getState().markUnread(directory, info.sessionID)
           }
@@ -1199,6 +1207,7 @@ function DirectoryChatPage() {
       variant,
       teaching: teachingContext,
     })
+    setSystemPromptRefreshToken((token) => token + 1)
     void syncTeachingRuntimeSelection()
     return true
   }
@@ -1257,6 +1266,7 @@ function DirectoryChatPage() {
           model: modelSelection,
           variant,
         })
+        setSystemPromptRefreshToken((token) => token + 1)
         void syncTeachingRuntimeSelection()
       } catch {
         setDraft(rawContent)
@@ -2024,11 +2034,21 @@ function DirectoryChatPage() {
               onTabChange={setRightSidebarTab}
               surfaces={selectedPersonaSurfaces}
               showCapabilitiesTab={showCapabilitiesSidebarTab}
+              showSystemPromptTab={showSystemPromptSidebarTab}
               resourcesPanel={
                 <ResourcesPanel
                   directory={decodedDirectory}
                   refreshToken={resourcesRefreshToken}
                 />
+              }
+              systemPromptPanel={
+                showSystemPromptSidebarTab ? (
+                  <SystemPromptPanel
+                    directory={decodedDirectory}
+                    sessionID={sessionID}
+                    refreshToken={systemPromptRefreshToken}
+                  />
+                ) : undefined
               }
               sessionID={sessionID}
               persona={selectedPersona}
