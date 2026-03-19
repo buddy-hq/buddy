@@ -29,6 +29,7 @@
   "dependencies": {
     "@ai-sdk/anthropic": "2.0.62",
     "@buddy/opencode-adapter": "workspace:*",
+    "@chonkiejs/core": "^0.0.8",
     "@hono/standard-validator": "^0.2.2",
     "@zip.js/zip.js": "^2.8.23",
     "ai": "5.0.124",

@@ -2,8 +2,13 @@ import type { Intent, WorkspaceState } from "@buddy/backend/learning/shared/teac
 import { getIntentPrompt } from "../intents/get-intent-prompt"
 import type { SystemPromptCtx } from "./prompt-context"
 import {
+  RESOURCE_PACK_CHUNKS_DIR_NAME,
+  RESOURCE_PACK_ENTRYPOINT_FILE_NAME,
+  RESOURCE_PACK_FULL_TEXT_FILE_PREFIX,
+  RESOURCE_PACK_PAGES_DIR_NAME,
   RESOURCE_PACK_PROCESSED_DIR_NAME,
   RESOURCE_PACK_ROOT_DIR,
+  RESOURCE_PACK_TOC_FILE_NAME,
 } from "../../resource-packs/contracts"
 
 type LearnerSnapshotContext = SystemPromptCtx["learnerSnapshot"]
@@ -160,7 +165,7 @@ function buildResourceContextText(resources: SystemPromptCtx["resources"]): stri
     RESOURCE_CONTEXT_TAG_OPEN,
     "Resources are notebook-local user-provided reference files.",
     "They are staged under `resources/<alias>/` and prepared text is under `resources/<alias>/processed/`.",
-    "When resource evidence is relevant, start from `RESOURCE.md`, then `toc.md` if present, then `chunks/`, `pages/` (PDF), and `full.md`.",
+    `When resource evidence is relevant, start from \`${RESOURCE_PACK_ENTRYPOINT_FILE_NAME}\`, then \`${RESOURCE_PACK_TOC_FILE_NAME}\` if present, then \`${RESOURCE_PACK_CHUNKS_DIR_NAME}/\`, \`${RESOURCE_PACK_PAGES_DIR_NAME}/\` (PDF), and \`${RESOURCE_PACK_FULL_TEXT_FILE_PREFIX}-*.md\`.`,
     "Use normal file tools (`read`, `grep`, `glob`, `bash`) and subagents as needed. Do not read every resource by default.",
   ]
 
