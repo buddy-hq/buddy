@@ -80,6 +80,13 @@ import {
   rebuildResource,
   removeResource,
 } from "../state/resource-actions"
+import {
+  clonePromptDraft,
+  createTextPromptDraft,
+  getPromptDraft,
+  getPromptScopeKey,
+  usePromptStore,
+} from "../state/prompt-store"
 import { useChatStore } from "../state/chat-store"
 import { startChatSync } from "../state/chat-sync"
 import type { GlobalEvent, MessageInfo, MessagePart, PermissionRequest, SessionInfo } from "../state/chat-types"
@@ -307,8 +314,6 @@ function DirectoryChatPage() {
   const params = Route.useParams()
   const navigate = useNavigate()
   const platform = usePlatform()
-  const [draft, setDraft] = useState("")
-  const [draftAttachments, setDraftAttachments] = useState<PromptComposerAttachment[]>([])
   const transcriptRef = useRef<HTMLElement | null>(null)
   const saveInFlightRef = useRef<Promise<boolean> | null>(null)
   const previousBusyRef = useRef(false)
@@ -395,6 +400,14 @@ function DirectoryChatPage() {
   const teachingRuntime = useTeachingRuntime()
 
   const sessionID = directoryState?.sessionID
+  const promptKey = useMemo(() => getPromptScopeKey(decodedDirectory, sessionID), [decodedDirectory, sessionID])
+  const draftState = usePromptStore((state) => getPromptDraft(state, promptKey))
+  const setPromptDraft = usePromptStore((state) => state.replaceDraft)
+  const clearPromptDraft = usePromptStore((state) => state.clearDraft)
+  const migrateWorkspaceDraft = usePromptStore((state) => state.migrateWorkspaceDraft)
+  const removePromptDraft = usePromptStore((state) => state.removeSessionDraft)
+  const draft = draftState.value
+  const draftAttachments = draftState.attachments
   const showHeaderSidebarToggle = !(platform.platform === "desktop" && platform.os === "macos")
   const sessions = directoryState?.sessions ?? []
   const sessionFamily = useMemo(() => getSessionFamily(sessions, sessionID), [sessionID, sessions])
@@ -644,9 +657,32 @@ function DirectoryChatPage() {
   const rightSidebarDisplayWidth = Math.min(Math.max(rightSidebarWidth, rightSidebarMinWidth), rightSidebarMaxWidth)
   const leftSidebarDisplayWidth = Math.max(leftSidebarWidth, SIDEBAR_MIN_WIDTH)
 
+  function readPromptSnapshot() {
+    return clonePromptDraft(getPromptDraft(usePromptStore.getState(), promptKey))
+  }
+
+  function restorePromptSnapshot(snapshot: ReturnType<typeof readPromptSnapshot>) {
+    setPromptDraft(promptKey, {
+      value: snapshot.value,
+      parts: snapshot.parts,
+      attachments: snapshot.attachments,
+      cursor: snapshot.cursor,
+    })
+  }
+
+  function stagePromptText(value: string) {
+    const draftState = createTextPromptDraft(value)
+    setPromptDraft(promptKey, draftState)
+  }
+
   useEffect(() => {
     setPendingSuggestionOverride(undefined)
   }, [sessionKey])
+
+  useEffect(() => {
+    if (!decodedDirectory || !sessionID) return
+    migrateWorkspaceDraft(decodedDirectory, sessionID)
+  }, [decodedDirectory, migrateWorkspaceDraft, sessionID])
 
   useEffect(() => {
     void loadOpenProjects()
@@ -1212,15 +1248,12 @@ function DirectoryChatPage() {
     return true
   }
 
-  async function onSend(input?: {
-    value: string
-    attachments: PromptComposerAttachment[]
-    parts: PromptComposerPart[]
-  }) {
+  async function onSend() {
     if (!decodedDirectory) return
-    const rawContent = input?.value ?? draft
-    const promptParts = input?.parts ?? []
-    const rawAttachments = input?.attachments ?? draftAttachments
+    const draftSnapshot = readPromptSnapshot()
+    const rawContent = draftSnapshot.value
+    const promptParts = draftSnapshot.parts
+    const rawAttachments = draftSnapshot.attachments
     const content = rawContent.trim()
     if (!content && rawAttachments.length === 0 && promptParts.length === 0) return
 
@@ -1231,11 +1264,9 @@ function DirectoryChatPage() {
     if (slashCommand) {
       if (isResourceLocalSlashCommandName(slashCommand.command.name)) {
         const resourceCommand = parseResourceLocalSlashCommand(rawContent)
-        setDraft("")
-        setDraftAttachments([])
+        clearPromptDraft(promptKey)
         if (!resourceCommand) {
-          setDraft(rawContent)
-          setDraftAttachments(rawAttachments)
+          restorePromptSnapshot(draftSnapshot)
           return
         }
 
@@ -1246,18 +1277,15 @@ function DirectoryChatPage() {
           if (handled) {
             return
           }
-          setDraft(rawContent)
-          setDraftAttachments(rawAttachments)
+          restorePromptSnapshot(draftSnapshot)
         } catch {
-          setDraft(rawContent)
-          setDraftAttachments(rawAttachments)
+          restorePromptSnapshot(draftSnapshot)
         }
         return
       }
 
       const attachmentParts = buildCommandAttachmentParts(rawAttachments)
-      setDraft("")
-      setDraftAttachments([])
+      clearPromptDraft(promptKey)
       try {
         await sendCommand(decodedDirectory, slashCommand.command.name, slashCommand.arguments, {
           parts: attachmentParts,
@@ -1269,14 +1297,12 @@ function DirectoryChatPage() {
         setSystemPromptRefreshToken((token) => token + 1)
         void syncTeachingRuntimeSelection()
       } catch {
-        setDraft(rawContent)
-        setDraftAttachments(rawAttachments)
+        restorePromptSnapshot(draftSnapshot)
       }
       return
     }
 
-    setDraft("")
-    setDraftAttachments([])
+    clearPromptDraft(promptKey)
     try {
       const sent = await sendRuntimePrompt({
         content,
@@ -1286,14 +1312,12 @@ function DirectoryChatPage() {
         focusGoalIds: pendingSuggestionOverride?.focusGoalIds,
       })
       if (!sent) {
-        setDraft(rawContent)
-        setDraftAttachments(rawAttachments)
+        restorePromptSnapshot(draftSnapshot)
         return
       }
       setPendingSuggestionOverride(undefined)
     } catch {
-      setDraft(rawContent)
-      setDraftAttachments(rawAttachments)
+      restorePromptSnapshot(draftSnapshot)
     }
   }
 
@@ -1327,8 +1351,7 @@ function DirectoryChatPage() {
         })
         if (sent) {
           setPendingSuggestionOverride(undefined)
-          setDraft("")
-          setDraftAttachments([])
+          clearPromptDraft(promptKey)
           return
         }
       } catch {
@@ -1336,8 +1359,7 @@ function DirectoryChatPage() {
       }
     }
 
-    setDraftAttachments([])
-    setDraft(action.prompt)
+    stagePromptText(action.prompt)
   }
 
   async function onAbort() {
@@ -1420,6 +1442,7 @@ function DirectoryChatPage() {
         sessionID: targetSessionID,
         archivedAt: Date.now(),
       })
+      removePromptDraft(getPromptScopeKey(targetDirectory, targetSessionID))
       clearDirectorySessionState(targetDirectory, targetSessionID)
       await loadSessions(targetDirectory)
       await loadPermissions(targetDirectory)
@@ -1530,8 +1553,7 @@ function DirectoryChatPage() {
         intent: intentFromSelection(storedIntent),
       })
       if (sent) {
-        setDraft("")
-        setDraftAttachments([])
+        clearPromptDraft(promptKey)
         return true
       }
       return false
@@ -1928,8 +1950,7 @@ function DirectoryChatPage() {
                       <ChatEmptyState
                         directoryLabel={getFilename(decodedDirectory)}
                         onUsePrompt={(value) => {
-                          setDraftAttachments([])
-                          setDraft(value)
+                          stagePromptText(value)
                         }}
                         onOpenCurriculum={openCurriculumPanel}
                       />
@@ -1970,8 +1991,8 @@ function DirectoryChatPage() {
               <div className="mx-auto w-full max-w-[1080px] px-4">
                 <PromptComposer
                   className="mb-4"
-                  value={draft}
-                  attachments={draftAttachments}
+                  directory={decodedDirectory}
+                  sessionID={sessionID}
                   isBusy={isBusy}
                   personaOptions={primaryPersonaOptions.map((persona) => ({ name: persona.id, label: persona.label }))}
                   mentionableAgents={[]}
@@ -1983,8 +2004,6 @@ function DirectoryChatPage() {
                   pendingSteerLabel={pendingSuggestionOverride?.label}
                   thinkingOptions={thinkingOptions}
                   selectedThinking={selectedThinking}
-                  onChange={setDraft}
-                  onAttachmentsChange={setDraftAttachments}
                   onPersonaChange={onPersonaChange}
                   onIntentChange={onIntentChange}
                   onClearPendingSteer={() => {
@@ -2006,9 +2025,8 @@ function DirectoryChatPage() {
                   }}
                   onSearchFiles={onSearchMentionFiles}
                   onRefreshSlashCommands={refreshSlashCommands}
-                  historyKey={decodedDirectory}
-                  onSubmit={(input) => {
-                    void onSend(input)
+                  onSubmit={() => {
+                    void onSend()
                   }}
                 />
               </div>
