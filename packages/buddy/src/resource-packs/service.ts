@@ -1,7 +1,9 @@
 import { promises as fs } from "node:fs"
 import path from "node:path"
-import { buildChunkMarkdowns } from "./chunking"
+import { buildResourceChunkFiles } from "./chunking"
 import {
+  RESOURCE_PACK_SPLIT_REASON_FALLBACK_STRUCTURE,
+  RESOURCE_PACK_UNIT_KIND_GENERIC,
   RESOURCE_PACK_STATUS_ERROR,
   RESOURCE_PACK_PREPARING_WARNING,
   RESOURCE_PACK_STATUS_PREPARING,
@@ -91,6 +93,22 @@ async function buildResourcePack(input: ResourcePackBuildInput): Promise<void> {
 
   try {
     const extraction = await extractResourcePack(input.sourcePath, input.classification)
+    const resourceAlias = path.basename(path.dirname(input.packPaths.rootPath))
+    const chunkUnits = extraction.chunkUnits ?? extraction.chunkMarkdowns?.map((chunk, index) => ({
+      unitKind: RESOURCE_PACK_UNIT_KIND_GENERIC,
+      unitTitle: `Chunk ${index + 1}`,
+      unitIndex: index + 1,
+      text: chunk,
+      splitReason: RESOURCE_PACK_SPLIT_REASON_FALLBACK_STRUCTURE,
+    }))
+    const chunkFiles = await buildResourceChunkFiles({
+      resourceAlias,
+      sourceRelpath: input.sourceRelpath,
+      format: input.classification.format,
+      fullText: extraction.fullText,
+      chunkUnits,
+    })
+
     await writeResourcePackFiles({
       build: input,
       status: extraction.status,
@@ -99,7 +117,7 @@ async function buildResourcePack(input: ResourcePackBuildInput): Promise<void> {
       fullText: extraction.fullText,
       tocMarkdown: extraction.tocMarkdown,
       pageMarkdowns: extraction.pageMarkdowns,
-      chunks: extraction.chunkMarkdowns ?? buildChunkMarkdowns(extraction.fullText),
+      chunkFiles,
     })
   } catch (error) {
     await writeErroredResourcePackMetadata({

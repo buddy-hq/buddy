@@ -1,8 +1,9 @@
 import { promises as fs } from "node:fs"
 import path from "node:path"
 import matter from "gray-matter"
-import { buildResourcePackEntryMarkdown, wrapChunkMarkdown } from "./markdown"
+import { buildResourcePackEntryMarkdown } from "./markdown"
 import type {
+  ResourceChunkFileRecord,
   ResourceExtractionPage,
   ResourceFormat,
   ResourcePackBuildInput,
@@ -11,12 +12,26 @@ import type {
   ResourcePackStatus,
 } from "./contracts"
 import {
+  RESOURCE_PACK_FILE_KIND_FULL_TEXT,
+  RESOURCE_PACK_FILE_KIND_PAGE,
+  RESOURCE_PACK_FILE_KIND_TOC,
+  RESOURCE_PACK_FULL_TEXT_FILE_PREFIX,
+  RESOURCE_PACK_FULL_TEXT_FILE_NAME,
   RESOURCE_PACK_STATUS_ERROR,
   RESOURCE_PACK_STATUS_PREPARING,
   RESOURCE_PACK_STATUS_READY,
   RESOURCE_PACK_STATUS_UNSUPPORTED,
   RESOURCE_PACK_PREPARING_WARNING,
 } from "./contracts"
+import {
+  RESOURCE_PACK_FILENAME_CHAR_LABEL,
+  RESOURCE_PACK_FILENAME_CHAR_PAD,
+  RESOURCE_PACK_FILENAME_PAGE_PAD,
+  RESOURCE_PACK_FILENAME_TOKEN_LABEL,
+  RESOURCE_PACK_FILENAME_TOKEN_PAD,
+  RESOURCE_PACK_PAGE_FILE_PREFIX,
+  estimateTokenCountFromText,
+} from "./chunking-config"
 
 export async function exists(filepath: string) {
   return fs.stat(filepath).then(() => true).catch(() => false)
@@ -31,14 +46,20 @@ export async function loadFreshResourcePackSnapshot(
   if (metadata.source_mtime_ms !== Number(input.sourceStat.mtimeMs)) return undefined
   if (metadata.source_size_bytes !== Number(input.sourceStat.size)) return undefined
 
+  const fullTextPath = await resolveFullTextPath({
+    rootPath: input.packPaths.rootPath,
+    metadataFullTextFile: metadata.full_text_file,
+    fallbackPath: input.packPaths.fullPath,
+  })
+
   return {
     sourcePath: input.sourcePath,
     sourceRelpath: input.sourceRelpath,
-    packKey: path.basename(input.packPaths.rootPath),
+    packKey: resourcePackKeyFromRootPath(input.packPaths.rootPath),
     packRootPath: input.packPaths.rootPath,
     metadataPath: input.packPaths.metadataPath,
     entrypointPath: input.packPaths.entrypointPath,
-    fullPath: input.packPaths.fullPath,
+    fullPath: fullTextPath,
     tocPath: (await exists(input.packPaths.tocPath)) ? input.packPaths.tocPath : undefined,
     status: metadata.status,
     format: metadata.format,
@@ -50,7 +71,7 @@ export function createPendingResourcePackSnapshot(input: ResourcePackBuildInput)
   return {
     sourcePath: input.sourcePath,
     sourceRelpath: input.sourceRelpath,
-    packKey: path.basename(input.packPaths.rootPath),
+    packKey: resourcePackKeyFromRootPath(input.packPaths.rootPath),
     packRootPath: input.packPaths.rootPath,
     metadataPath: input.packPaths.metadataPath,
     entrypointPath: input.packPaths.entrypointPath,
@@ -89,19 +110,53 @@ export async function writeResourcePackFiles(input: {
   fullText: string
   tocMarkdown?: string
   pageMarkdowns?: ResourceExtractionPage[]
-  chunks: string[]
+  chunkFiles: ResourceChunkFileRecord[]
 }) {
   await fs.mkdir(input.build.packPaths.chunksDirPath, { recursive: true })
-  await writeTextFile(input.build.packPaths.fullPath, input.fullText)
+  const resourceAlias = path.basename(path.dirname(input.build.packPaths.rootPath))
+  const fullTextBody = normalizeText(input.fullText)
+  const fullTextChars = fullTextBody.length
+  const fullTextTokens = estimateTokenCountFromText(fullTextBody)
+  const fullTextFilename = buildFullTextFilename({
+    estTokens: fullTextTokens,
+    chars: fullTextChars,
+  })
+  const fullTextPath = path.join(input.build.packPaths.rootPath, fullTextFilename)
+  await removeStaleFullTextFiles({
+    rootPath: input.build.packPaths.rootPath,
+    keepFilename: fullTextFilename,
+  })
+  await writeTextFile(fullTextPath, matter.stringify(fullTextBody, {
+    file_kind: RESOURCE_PACK_FILE_KIND_FULL_TEXT,
+    resource_alias: resourceAlias,
+    source_relpath: input.build.sourceRelpath,
+    format: input.build.classification.format,
+    chars: fullTextChars,
+    est_tokens: fullTextTokens,
+  }))
+  if (input.build.packPaths.fullPath !== fullTextPath) {
+    await fs.rm(input.build.packPaths.fullPath, { force: true }).catch(() => undefined)
+  }
 
   if (input.tocMarkdown && input.tocMarkdown.trim().length > 0) {
-    await writeTextFile(input.build.packPaths.tocPath, input.tocMarkdown)
+    await writeTextFile(input.build.packPaths.tocPath, matter.stringify(normalizeText(input.tocMarkdown), {
+      file_kind: RESOURCE_PACK_FILE_KIND_TOC,
+      resource_alias: resourceAlias,
+      source_relpath: input.build.sourceRelpath,
+      format: input.build.classification.format,
+    }))
   } else {
     await fs.rm(input.build.packPaths.tocPath, { force: true }).catch(() => undefined)
   }
 
-  await writePageMarkdowns(input.build.packPaths.pagesDirPath, input.pageMarkdowns)
-  await writeChunkMarkdowns(input.build.packPaths.chunksDirPath, input.chunks)
+  await writePageMarkdowns({
+    pagesDirPath: input.build.packPaths.pagesDirPath,
+    pageMarkdowns: input.pageMarkdowns,
+    resourceAlias,
+    sourceRelpath: input.build.sourceRelpath,
+    format: input.build.classification.format,
+  })
+  await writeChunkMarkdowns(input.build.packPaths.chunksDirPath, input.chunkFiles)
 
   await writeResourcePackMetadata(input.build.packPaths.metadataPath, {
     source_path: input.build.sourcePath,
@@ -112,7 +167,8 @@ export async function writeResourcePackFiles(input: {
     prepared_at: new Date().toISOString(),
     source_mtime_ms: Number(input.build.sourceStat.mtimeMs),
     source_size_bytes: Number(input.build.sourceStat.size),
-    chunk_count: input.chunks.length,
+    chunk_count: input.chunkFiles.length,
+    full_text_file: fullTextFilename,
     page_count: input.pageMarkdowns?.length,
     warnings: input.warnings,
   })
@@ -132,6 +188,7 @@ export async function writeErroredResourcePackMetadata(input: {
     source_mtime_ms: Number(input.build.sourceStat.mtimeMs),
     source_size_bytes: Number(input.build.sourceStat.size),
     chunk_count: 0,
+    full_text_file: undefined,
     warnings: [input.message],
   })
 }
@@ -153,6 +210,7 @@ async function loadResourcePackMetadata(metadataPath: string): Promise<ResourceP
   const sourceMtimeMs = numberValue(data, "source_mtime_ms")
   const sourceSizeBytes = numberValue(data, "source_size_bytes")
   const chunkCount = numberValue(data, "chunk_count")
+  const fullTextFile = stringValue(data, "full_text_file") || undefined
   const warnings = stringArrayValue(data, "warnings")
   const pageCount = numberValue(data, "page_count", true)
 
@@ -180,6 +238,7 @@ async function loadResourcePackMetadata(metadataPath: string): Promise<ResourceP
     source_mtime_ms: sourceMtimeMs,
     source_size_bytes: sourceSizeBytes,
     chunk_count: chunkCount,
+    full_text_file: fullTextFile,
     warnings,
     ...(pageCount !== undefined ? { page_count: pageCount } : {}),
   }
@@ -189,7 +248,15 @@ async function writeResourcePackMetadata(metadataPath: string, metadata: Resourc
   await writeTextFile(metadataPath, buildResourcePackEntryMarkdown(metadata))
 }
 
-async function writePageMarkdowns(pagesDirPath: string, pageMarkdowns?: ResourceExtractionPage[]) {
+async function writePageMarkdowns(input: {
+  pagesDirPath: string
+  pageMarkdowns?: ResourceExtractionPage[]
+  resourceAlias: string
+  sourceRelpath: string
+  format: ResourceFormat
+}) {
+  const pagesDirPath = input.pagesDirPath
+  const pageMarkdowns = input.pageMarkdowns
   if (!pageMarkdowns || pageMarkdowns.length === 0) {
     await fs.rm(pagesDirPath, { recursive: true, force: true }).catch(() => undefined)
     return
@@ -199,20 +266,38 @@ async function writePageMarkdowns(pagesDirPath: string, pageMarkdowns?: Resource
   await fs.mkdir(pagesDirPath, { recursive: true })
   await Promise.all(
     pageMarkdowns.map(async (page) => {
-      const filename = `${String(page.pageNumber).padStart(4, "0")}.md`
-      await writeTextFile(path.join(pagesDirPath, filename), page.markdown)
+      const pageBody = normalizeText(page.markdown)
+      const chars = pageBody.length
+      const estTokens = estimateTokenCountFromText(pageBody)
+      const filename = [
+        RESOURCE_PACK_PAGE_FILE_PREFIX,
+        padNumber(page.pageNumber, RESOURCE_PACK_FILENAME_PAGE_PAD),
+        RESOURCE_PACK_FILENAME_TOKEN_LABEL,
+        padNumber(estTokens, RESOURCE_PACK_FILENAME_TOKEN_PAD),
+        RESOURCE_PACK_FILENAME_CHAR_LABEL,
+        padNumber(chars, RESOURCE_PACK_FILENAME_CHAR_PAD),
+      ].join("-") + ".md"
+      const content = matter.stringify(pageBody, {
+        file_kind: RESOURCE_PACK_FILE_KIND_PAGE,
+        resource_alias: input.resourceAlias,
+        source_relpath: input.sourceRelpath,
+        format: input.format,
+        page_number: page.pageNumber,
+        chars,
+        est_tokens: estTokens,
+      })
+      await writeTextFile(path.join(pagesDirPath, filename), content)
     }),
   )
 }
 
-async function writeChunkMarkdowns(chunksDirPath: string, chunks: string[]) {
+async function writeChunkMarkdowns(chunksDirPath: string, chunkFiles: ResourceChunkFileRecord[]) {
   await fs.rm(chunksDirPath, { recursive: true, force: true }).catch(() => undefined)
   await fs.mkdir(chunksDirPath, { recursive: true })
 
   await Promise.all(
-    chunks.map(async (chunk, index) => {
-      const filename = `${String(index + 1).padStart(4, "0")}.md`
-      await writeTextFile(path.join(chunksDirPath, filename), wrapChunkMarkdown(index, chunk))
+    chunkFiles.map(async (chunkFile) => {
+      await writeTextFile(path.join(chunksDirPath, chunkFile.filename), normalizeText(chunkFile.content))
     }),
   )
 }
@@ -277,4 +362,79 @@ function normalizeResourceFormat(value: string): ResourceFormat | undefined {
   if (value === "code") return "code"
   if (value === "unknown") return "unknown"
   return undefined
+}
+
+function padNumber(value: number, width: number) {
+  return String(Math.max(0, Math.trunc(value))).padStart(width, "0")
+}
+
+function normalizeText(value: string) {
+  return value.replace(/\r\n/g, "\n").trim()
+}
+
+function resourcePackKeyFromRootPath(rootPath: string) {
+  return path.basename(path.dirname(rootPath))
+}
+
+function buildFullTextFilename(input: {
+  estTokens: number
+  chars: number
+}) {
+  return [
+    RESOURCE_PACK_FULL_TEXT_FILE_PREFIX,
+    RESOURCE_PACK_FILENAME_TOKEN_LABEL,
+    padNumber(input.estTokens, RESOURCE_PACK_FILENAME_TOKEN_PAD),
+    RESOURCE_PACK_FILENAME_CHAR_LABEL,
+    padNumber(input.chars, RESOURCE_PACK_FILENAME_CHAR_PAD),
+  ].join("-") + ".md"
+}
+
+async function resolveFullTextPath(input: {
+  rootPath: string
+  metadataFullTextFile?: string
+  fallbackPath: string
+}) {
+  const fromMetadata = input.metadataFullTextFile?.trim()
+  if (fromMetadata) {
+    const candidate = path.join(input.rootPath, fromMetadata)
+    if (await exists(candidate)) return candidate
+  }
+
+  const entries = await fs.readdir(input.rootPath, { withFileTypes: true }).catch(() => [])
+  const dynamic = entries
+    .filter((entry) => entry.isFile())
+    .map((entry) => entry.name)
+    .find((name) =>
+      name.startsWith(`${RESOURCE_PACK_FULL_TEXT_FILE_PREFIX}-${RESOURCE_PACK_FILENAME_TOKEN_LABEL}-`) &&
+      name.endsWith(".md"),
+    )
+  if (dynamic) {
+    return path.join(input.rootPath, dynamic)
+  }
+
+  if (await exists(input.fallbackPath)) return input.fallbackPath
+
+  return path.join(input.rootPath, RESOURCE_PACK_FULL_TEXT_FILE_NAME)
+}
+
+async function removeStaleFullTextFiles(input: {
+  rootPath: string
+  keepFilename: string
+}) {
+  const entries = await fs.readdir(input.rootPath, { withFileTypes: true }).catch(() => [])
+  const staleFiles = entries
+    .filter((entry) => entry.isFile())
+    .map((entry) => entry.name)
+    .filter((name) => name !== input.keepFilename)
+    .filter((name) =>
+      name === RESOURCE_PACK_FULL_TEXT_FILE_NAME ||
+      (
+        name.startsWith(`${RESOURCE_PACK_FULL_TEXT_FILE_PREFIX}-${RESOURCE_PACK_FILENAME_TOKEN_LABEL}-`) &&
+        name.endsWith(".md")
+      ),
+    )
+
+  await Promise.all(
+    staleFiles.map((name) => fs.rm(path.join(input.rootPath, name), { force: true }).catch(() => undefined)),
+  )
 }
