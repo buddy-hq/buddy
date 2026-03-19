@@ -1,13 +1,15 @@
-import type { PromptComposerAttachment } from "./prompt-types"
+import type { PromptComposerAttachment, PromptComposerPart } from "./prompt-types"
 
 export type PromptHistoryEntry = {
   value: string
   attachments: PromptComposerAttachment[]
+  parts: PromptComposerPart[]
 }
 
 const EMPTY_DRAFT: PromptHistoryEntry = {
   value: "",
   attachments: [],
+  parts: [],
 }
 
 export const MAX_HISTORY = 100
@@ -16,6 +18,7 @@ export function clonePromptHistoryEntry(entry: PromptHistoryEntry): PromptHistor
   return {
     value: entry.value,
     attachments: entry.attachments.map((attachment) => ({ ...attachment })),
+    parts: entry.parts.map((part) => ({ ...part })),
   }
 }
 
@@ -37,6 +40,7 @@ export function canNavigateHistoryAtCursor(
 function isHistoryEntryEqual(left: PromptHistoryEntry, right: PromptHistoryEntry) {
   if (left.value !== right.value) return false
   if (left.attachments.length !== right.attachments.length) return false
+  if (left.parts.length !== right.parts.length) return false
 
   for (let index = 0; index < left.attachments.length; index += 1) {
     const leftAttachment = left.attachments[index]
@@ -48,6 +52,16 @@ function isHistoryEntryEqual(left: PromptHistoryEntry, right: PromptHistoryEntry
     if (leftAttachment.kind !== rightAttachment.kind) return false
   }
 
+  for (let index = 0; index < left.parts.length; index += 1) {
+    const leftPart = left.parts[index]
+    const rightPart = right.parts[index]
+    if (!leftPart || !rightPart) return false
+    if (leftPart.type !== rightPart.type) return false
+    if ("text" in leftPart && "text" in rightPart && leftPart.text !== rightPart.text) return false
+    if ("name" in leftPart && "name" in rightPart && leftPart.name !== rightPart.name) return false
+    if ("path" in leftPart && "path" in rightPart && leftPart.path !== rightPart.path) return false
+  }
+
   return true
 }
 
@@ -55,9 +69,10 @@ export function prependHistoryEntry(entries: PromptHistoryEntry[], entry: Prompt
   const normalized = {
     value: entry.value.trimEnd(),
     attachments: entry.attachments,
+    parts: entry.parts,
   }
 
-  if (!normalized.value.trim() && normalized.attachments.length === 0) {
+  if (!normalized.value.trim() && normalized.attachments.length === 0 && normalized.parts.length === 0) {
     return entries
   }
 

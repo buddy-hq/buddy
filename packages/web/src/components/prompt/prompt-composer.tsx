@@ -43,12 +43,25 @@ import {
   type MentionableFile,
 } from "./mention-autocomplete"
 import {
+  clonePromptParts,
+  collectPromptParts,
+  createPromptPartsFromValue,
+  renderPromptParts,
+  serializePromptParts,
+} from "./prompt-parts"
+import {
   filterSlashCommands,
   getSlashMatch,
   type SlashCommandOption,
   type SlashCommandSource,
 } from "./slash-autocomplete"
-import type { PromptComposerAttachment } from "./prompt-types"
+import {
+  PROMPT_PART_TYPE_AGENT,
+  PROMPT_PART_TYPE_TEXT,
+  type PromptComposerAttachment,
+  type PromptComposerPart,
+  WORKSPACE_FILE_REFERENCE_PART_TYPE,
+} from "./prompt-types"
 import { ImageAttachments } from "./image-attachments"
 
 type PromptComposerProps = {
@@ -87,7 +100,11 @@ type PromptComposerProps = {
   onClearPendingSteer?: () => void
   onModelChange: (model: string) => void
   onThinkingChange: (thinking: string) => void
-  onSubmit: (input: { value: string; attachments: PromptComposerAttachment[] }) => void
+  onSubmit: (input: {
+    value: string
+    attachments: PromptComposerAttachment[]
+    parts: PromptComposerPart[]
+  }) => void
   onAbort: () => void
   onNewSession: () => void
   onOpenMcpDialog?: () => void
@@ -96,22 +113,6 @@ type PromptComposerProps = {
   historyKey?: string
   className?: string
 }
-
-type StructuredPromptPart =
-  | {
-      type: "text"
-      content: string
-    }
-  | {
-      type: "agent"
-      name: string
-      content: string
-    }
-  | {
-      type: "file"
-      path: string
-      content: string
-    }
 
 const HISTORY_STORAGE_PREFIX = "buddy.prompt-history.v3"
 const MAX_RECENT_MENTION_FILES = 8
@@ -205,6 +206,7 @@ function loadHistory(key: string | undefined): PromptHistoryEntry[] {
         const candidate = entry as {
           value?: unknown
           attachments?: unknown
+          parts?: unknown
         }
         const value = typeof candidate.value === "string" ? candidate.value : ""
         const attachments = Array.isArray(candidate.attachments)
@@ -232,8 +234,37 @@ function loadHistory(key: string | undefined): PromptHistoryEntry[] {
               ]
             })
           : []
+        const parts: PromptComposerPart[] = []
+        if (Array.isArray(candidate.parts)) {
+          for (const part of candidate.parts) {
+            if (!part || typeof part !== "object") continue
+            const item = part as Record<string, unknown>
+            if (item.type === PROMPT_PART_TYPE_TEXT && typeof item.text === "string") {
+              parts.push({
+                type: PROMPT_PART_TYPE_TEXT,
+                text: item.text,
+              })
+              continue
+            }
+            if (item.type === PROMPT_PART_TYPE_AGENT && typeof item.name === "string") {
+              parts.push({
+                type: PROMPT_PART_TYPE_AGENT,
+                name: item.name,
+              })
+              continue
+            }
+            if (item.type === WORKSPACE_FILE_REFERENCE_PART_TYPE && typeof item.path === "string") {
+              parts.push({
+                type: WORKSPACE_FILE_REFERENCE_PART_TYPE,
+                path: item.path,
+              })
+            }
+          }
+        } else {
+          parts.push(...createPromptPartsFromValue(value, new Set()))
+        }
 
-        return [{ value, attachments }]
+        return [{ value, attachments, parts }]
       })
       .slice(0, 100)
   } catch {
@@ -290,119 +321,8 @@ function readFileAsDataUrl(file: File) {
   })
 }
 
-function looksLikePath(token: string) {
-  return token.includes("/") || token.includes("\\") || token.includes(".")
-}
-
-function parseStructuredValue(value: string, knownAgents: Set<string>): StructuredPromptPart[] {
-  if (!value) return [{ type: "text", content: "" }]
-
-  const parts: StructuredPromptPart[] = []
-  const matcher = /(^|\s)(@(\S+))/g
-  let cursor = 0
-
-  while (true) {
-    const match = matcher.exec(value)
-    if (!match) break
-
-    const leadingWhitespace = match[1] ?? ""
-    const token = match[2] ?? ""
-    const mentionValue = match[3] ?? ""
-    const triggerIndex = match.index + leadingWhitespace.length
-
-    if (triggerIndex > cursor) {
-      parts.push({
-        type: "text",
-        content: value.slice(cursor, triggerIndex),
-      })
-    }
-
-    if (knownAgents.has(mentionValue)) {
-      parts.push({
-        type: "agent",
-        name: mentionValue,
-        content: token,
-      })
-    } else if (looksLikePath(mentionValue)) {
-      parts.push({
-        type: "file",
-        path: mentionValue,
-        content: token,
-      })
-    } else {
-      parts.push({
-        type: "text",
-        content: token,
-      })
-    }
-
-    cursor = triggerIndex + token.length
-  }
-
-  if (cursor < value.length) {
-    parts.push({
-      type: "text",
-      content: value.slice(cursor),
-    })
-  }
-
-  return parts.length > 0 ? parts : [{ type: "text", content: "" }]
-}
-
-function parseEditorValue(root: HTMLElement) {
-  let buffer = ""
-
-  const flush = () => {
-    const next = buffer.replace(/\u200B/g, "")
-    buffer = ""
-    return next
-  }
-
-  const parts: string[] = []
-
-  const visit = (node: Node) => {
-    if (node.nodeType === Node.TEXT_NODE) {
-      buffer += node.textContent ?? ""
-      return
-    }
-
-    if (node.nodeType !== Node.ELEMENT_NODE) return
-    const element = node as HTMLElement
-
-    if (element.dataset.type === "file" || element.dataset.type === "agent") {
-      const text = flush()
-      if (text) parts.push(text)
-      parts.push(element.textContent ?? "")
-      return
-    }
-
-    if (element.tagName === "BR") {
-      buffer += "\n"
-      return
-    }
-
-    const children = Array.from(element.childNodes)
-    children.forEach((child, index) => {
-      visit(child)
-      const isBlock = child.nodeType === Node.ELEMENT_NODE && ["DIV", "P"].includes((child as HTMLElement).tagName)
-      if (isBlock && index < children.length - 1) {
-        buffer += "\n"
-      }
-    })
-  }
-
-  Array.from(root.childNodes).forEach((child, index, siblings) => {
-    visit(child)
-    const isBlock = child.nodeType === Node.ELEMENT_NODE && ["DIV", "P"].includes((child as HTMLElement).tagName)
-    if (isBlock && index < siblings.length - 1) {
-      buffer += "\n"
-    }
-  })
-
-  const tail = flush()
-  if (tail) parts.push(tail)
-
-  return parts.join("")
+function hasSubmittablePromptParts(parts: PromptComposerPart[]) {
+  return parts.some((part) => part.type !== PROMPT_PART_TYPE_TEXT || part.text.trim().length > 0)
 }
 
 export function PromptComposer(props: PromptComposerProps) {
@@ -413,9 +333,11 @@ export function PromptComposer(props: PromptComposerProps) {
   const pendingCursorRef = useRef<number | undefined>(undefined)
   const slashRefreshRequestedRef = useRef(false)
   const historyApplyingRef = useRef(false)
+  const [currentPartCount, setCurrentPartCount] = useState(0)
+  const [hasSubmittableParts, setHasSubmittableParts] = useState(false)
   const canSubmit = useMemo(
-    () => !props.isBusy && (props.value.trim().length > 0 || props.attachments.length > 0),
-    [props.attachments.length, props.isBusy, props.value],
+    () => !props.isBusy && (props.value.trim().length > 0 || props.attachments.length > 0 || hasSubmittableParts),
+    [hasSubmittableParts, props.attachments.length, props.isBusy, props.value],
   )
   const [cursorOffset, setCursorOffset] = useState(() => props.value.length)
   const [mentionIndex, setMentionIndex] = useState(0)
@@ -433,6 +355,7 @@ export function PromptComposer(props: PromptComposerProps) {
   const [displayedPlaceholder, setDisplayedPlaceholder] = useState("Ask Buddy...")
   const [placeholderOpacity, setPlaceholderOpacity] = useState(1)
   const [previewAttachment, setPreviewAttachment] = useState<PromptComposerAttachment | null>(null)
+  const currentPartsRef = useRef<PromptComposerPart[]>([])
 
   const knownAgents = useMemo(
     () => new Set(props.mentionableAgents.map((agent) => agent.name)),
@@ -620,34 +543,15 @@ export function PromptComposer(props: PromptComposerProps) {
       return
     }
 
-    const nextParts = parseStructuredValue(props.value, knownAgents)
-    editor.replaceChildren()
-    for (const part of nextParts) {
-      if (part.type === "text") {
-        if (part.content) {
-          editor.appendChild(createTextFragment(part.content))
-        }
-        continue
-      }
-
-      const pill = document.createElement("span")
-      pill.className =
-        "mx-0.5 inline-flex max-w-full items-center rounded-md border border-border/70 bg-muted px-1.5 py-0.5 text-xs font-medium text-foreground"
-      pill.textContent = part.content
-      pill.setAttribute("contenteditable", "false")
-      pill.dataset.type = part.type
-      if (part.type === "agent") {
-        pill.dataset.name = part.name
-      } else {
-        pill.dataset.path = part.path
-      }
-      editor.appendChild(pill)
+    const serializedCurrent = serializePromptParts(currentPartsRef.current)
+    if (currentPartsRef.current.length > 0 && props.value === serializedCurrent) {
+      renderPromptParts(editor, currentPartsRef.current)
+      return
     }
 
-    const last = editor.lastChild
-    if (last?.nodeType === Node.ELEMENT_NODE && (last as HTMLElement).tagName === "BR") {
-      editor.appendChild(document.createTextNode("\u200B"))
-    }
+    const nextParts = createPromptPartsFromValue(props.value, knownAgents)
+    updateCurrentParts(nextParts)
+    renderPromptParts(editor, nextParts)
 
     const nextCursor = pendingCursorRef.current
     if (nextCursor === undefined) return
@@ -664,7 +568,7 @@ export function PromptComposer(props: PromptComposerProps) {
     return () => {
       window.cancelAnimationFrame(frame)
     }
-  }, [knownAgents, props.value])
+  }, [currentPartCount, knownAgents, props.attachments.length, props.value])
 
   function resetHistoryNavigation() {
     if (historyApplyingRef.current) return
@@ -677,20 +581,39 @@ export function PromptComposer(props: PromptComposerProps) {
     props.onChange(value)
   }
 
+  function updateCurrentParts(parts: PromptComposerPart[]) {
+    currentPartsRef.current = parts
+    setCurrentPartCount(parts.length)
+    setHasSubmittableParts(hasSubmittablePromptParts(parts))
+  }
+
   function focusEditorEnd() {
     const editor = editorRef.current
     if (!editor) return
     editor.focus()
-    const nextCursor = parseEditorValue(editor).length
+    const nextCursor = serializePromptParts(currentPartsRef.current).length
     setCursorPosition(editor, nextCursor)
     setCursorOffset(nextCursor)
   }
 
   function applyDraftSnapshot(next: PromptHistoryEntry, cursor: "start" | "end") {
     historyApplyingRef.current = true
-    pendingCursorRef.current = cursor === "start" ? 0 : next.value.length
+    pendingCursorRef.current =
+      cursor === "start"
+        ? 0
+        : next.parts.length > 0
+          ? serializePromptParts(next.parts).length
+          : next.value.length
+    updateCurrentParts(
+      next.parts.length > 0 ? clonePromptParts(next.parts) : createPromptPartsFromValue(next.value, knownAgents),
+    )
     props.onAttachmentsChange(cloneAttachments(next.attachments))
+    mirrorInputRef.current = true
     props.onChange(next.value)
+    const editor = editorRef.current
+    if (editor) {
+      renderPromptParts(editor, currentPartsRef.current)
+    }
     window.requestAnimationFrame(() => {
       historyApplyingRef.current = false
     })
@@ -700,6 +623,7 @@ export function PromptComposer(props: PromptComposerProps) {
     const nextEntries = prependHistoryEntry(historyEntries, {
       value: props.value,
       attachments: props.attachments,
+      parts: clonePromptParts(currentPartsRef.current),
     })
     if (nextEntries !== historyEntries) {
       setHistoryEntries(nextEntries)
@@ -718,18 +642,25 @@ export function PromptComposer(props: PromptComposerProps) {
     const editor = editorRef.current
     if (!editor) return
 
-    const nextValue = parseEditorValue(editor)
+    const nextParts = collectPromptParts(editor)
+    const nextValue = serializePromptParts(nextParts)
     const nextCursor = getCursorPosition(editor)
     const shouldReset =
       !NON_EMPTY_TEXT.test(nextValue) &&
       props.attachments.length === 0 &&
-      !Array.from(editor.querySelectorAll("[data-type='agent'], [data-type='file']")).length
+      !Array.from(
+        editor.querySelectorAll(
+          `[data-type='${PROMPT_PART_TYPE_AGENT}'], [data-type='${WORKSPACE_FILE_REFERENCE_PART_TYPE}']`,
+        ),
+      ).length
 
     setCursorOffset(nextCursor)
     setDismissedMentionKey(undefined)
     setDismissedSlashKey(undefined)
+    updateCurrentParts(nextParts)
 
     if (shouldReset) {
+      updateCurrentParts([])
       updateCurrentValue("")
       resetHistoryNavigation()
       return
@@ -790,11 +721,11 @@ export function PromptComposer(props: PromptComposerProps) {
       "mx-0.5 inline-flex max-w-full items-center rounded-md border border-border/70 bg-muted px-1.5 py-0.5 text-xs font-medium text-foreground"
     if (option.type === "agent") {
       pill.textContent = `@${option.name}`
-      pill.dataset.type = "agent"
+      pill.dataset.type = PROMPT_PART_TYPE_AGENT
       pill.dataset.name = option.name
     } else {
       pill.textContent = `@${option.path}`
-      pill.dataset.type = "file"
+      pill.dataset.type = WORKSPACE_FILE_REFERENCE_PART_TYPE
       pill.dataset.path = option.path
       appendRecentMentionFile({ path: option.path, recent: true })
     }
@@ -819,6 +750,11 @@ export function PromptComposer(props: PromptComposerProps) {
   function clearComposer() {
     resetHistoryNavigation()
     props.onAttachmentsChange([])
+    updateCurrentParts([])
+    const editor = editorRef.current
+    if (editor) {
+      renderPromptParts(editor, [])
+    }
     updateCurrentValue("")
     pendingCursorRef.current = 0
   }
@@ -865,6 +801,12 @@ export function PromptComposer(props: PromptComposerProps) {
     const nextCursor = command.name.length + 2
     pendingCursorRef.current = nextCursor
     setDismissedSlashKey(undefined)
+    const nextParts = createPromptPartsFromValue(nextValue, knownAgents)
+    updateCurrentParts(nextParts)
+    const editor = editorRef.current
+    if (editor) {
+      renderPromptParts(editor, nextParts)
+    }
     updateCurrentValue(nextValue)
   }
 
@@ -899,7 +841,7 @@ export function PromptComposer(props: PromptComposerProps) {
       return
     }
 
-    if (!props.value.trim() && props.attachments.length === 0) {
+    if (!props.value.trim() && props.attachments.length === 0 && !hasSubmittableParts) {
       return
     }
 
@@ -907,6 +849,7 @@ export function PromptComposer(props: PromptComposerProps) {
     props.onSubmit({
       value: props.value,
       attachments: cloneAttachments(props.attachments),
+      parts: clonePromptParts(currentPartsRef.current),
     })
   }
 
@@ -1011,7 +954,7 @@ export function PromptComposer(props: PromptComposerProps) {
             </div>
           ) : null}
 
-          {!props.value && props.attachments.length === 0 ? (
+          {!props.value && props.attachments.length === 0 && !hasSubmittableParts ? (
             <div
               className="pointer-events-none absolute left-3 top-3 right-20 text-sm leading-6 text-muted-foreground transition-opacity duration-250 ease-out"
               style={{ opacity: placeholderOpacity }}
@@ -1126,6 +1069,7 @@ export function PromptComposer(props: PromptComposerProps) {
                   current: {
                     value: props.value,
                     attachments: props.attachments,
+                    parts: clonePromptParts(currentPartsRef.current),
                   },
                   savedDraft: savedHistoryDraft,
                 })
