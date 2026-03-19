@@ -248,5 +248,24 @@ export function createDesktopPlatform(): Platform {
 
       return null
     },
+    async openFilePickerDialog(opts) {
+      const result = await open({
+        directory: false,
+        multiple: opts?.multiple ?? false,
+        title: opts?.title ?? "Select file",
+      }) as string | string[] | null
+
+      if (typeof result === "string") {
+        return normalizeDirectory(result)
+      }
+
+      if (Array.isArray(result)) {
+        return result
+          .filter((value): value is string => typeof value === "string")
+          .map((value: string) => normalizeDirectory(value))
+      }
+
+      return null
+    },
   }
 }
