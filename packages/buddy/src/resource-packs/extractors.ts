@@ -6,15 +6,22 @@ import { BlobReader, TextWriter, ZipReader, type Entry, type FileEntry } from "@
 import { XMLParser } from "fast-xml-parser"
 import mammoth from "mammoth"
 import TurndownService from "turndown"
-import { buildChunkMarkdowns } from "./chunking"
 import {
-  RESOURCE_PACK_CHUNK_TARGET_BYTES,
   RESOURCE_PACK_STATUS_READY,
   RESOURCE_PACK_STATUS_UNSUPPORTED,
   RESOURCE_PACK_UNSUPPORTED_WARNING,
+  type ResourceChunkUnitKind,
+  type ResourceChunkUnitSeed,
   type ResourceClassification,
   type ResourceExtractionResult,
 } from "./contracts"
+import {
+  RESOURCE_PACK_NON_CHAPTER_MAX_CHARS,
+  RESOURCE_PACK_SPLIT_REASON_FALLBACK_STRUCTURE,
+  RESOURCE_PACK_UNIT_KIND_CHAPTER,
+  RESOURCE_PACK_UNIT_KIND_GENERIC,
+  RESOURCE_PACK_UNIT_KIND_PAGE_WINDOW,
+} from "./chunking-config"
 import { buildHeadingTocMarkdown, renderNoTextMarkdown, renderPageMarkdown, renderTocMarkdown } from "./markdown"
 
 type XmlRecord = Record<string, unknown>
@@ -127,22 +134,28 @@ async function extractPdfResource(sourcePath: string): Promise<ResourceExtractio
 
     const fullText = pageMarkdowns.map((page) => page.markdown).join("\n\n")
     let status: ResourceExtractionResult["status"] = RESOURCE_PACK_STATUS_READY
-    let chunkMarkdowns = buildPdfOutlineChunkMarkdowns({
+    let chunkUnits = buildPdfOutlineChunkUnits({
       outlinePoints,
       pageTexts,
     })
-    if (chunkMarkdowns.length === 0) {
-      chunkMarkdowns = buildPdfInferredHeadingChunkMarkdowns(pageTexts)
+    if (chunkUnits.length === 0) {
+      chunkUnits = buildPdfInferredHeadingChunkUnits(pageTexts)
     }
-    if (chunkMarkdowns.length === 0) {
-      chunkMarkdowns = buildPdfPageWindowChunkMarkdowns(pageTexts)
-      if (chunkMarkdowns.length > 0) {
+    if (chunkUnits.length === 0) {
+      chunkUnits = buildPdfPageWindowChunkUnits(pageTexts)
+      if (chunkUnits.length > 0) {
         warnings.push(PDF_CHUNKING_FALLBACK_WARNING)
       }
     }
-    if (chunkMarkdowns.length === 0 && fullText.trim().length > 0) {
-      chunkMarkdowns = buildChunkMarkdowns(fullText)
-      if (chunkMarkdowns.length > 0) {
+    if (chunkUnits.length === 0 && fullText.trim().length > 0) {
+      chunkUnits = [{
+        unitKind: RESOURCE_PACK_UNIT_KIND_GENERIC,
+        unitTitle: "Chunk 1",
+        unitIndex: 1,
+        text: fullText,
+        splitReason: RESOURCE_PACK_SPLIT_REASON_FALLBACK_STRUCTURE,
+      }]
+      if (chunkUnits.length > 0) {
         warnings.push(PDF_CHUNKING_GENERIC_WARNING)
       }
     }
@@ -157,7 +170,7 @@ async function extractPdfResource(sourcePath: string): Promise<ResourceExtractio
       warnings,
       extractor: "pdfjs-dist",
       fullText: fullText || renderNoTextMarkdown("PDF"),
-      chunkMarkdowns,
+      chunkUnits,
       tocMarkdown: tocLines.length > 0 ? renderTocMarkdown(tocLines) : undefined,
       pageMarkdowns,
     }
@@ -205,7 +218,7 @@ async function extractPdfResourceWithSystemFallback(
       pageNumber: index + 1,
       markdown: renderPageMarkdown(index + 1, text),
     }))
-    const chunkMarkdowns = buildPdfPageWindowChunkMarkdowns(pageTexts)
+    const chunkUnits = buildPdfPageWindowChunkUnits(pageTexts)
     const fullText = pageMarkdowns.length > 0
       ? pageMarkdowns.map((page) => page.markdown).join("\n\n")
       : extractedText
@@ -215,11 +228,11 @@ async function extractPdfResourceWithSystemFallback(
       warnings: [
         ...fallbackWarnings,
         `Used ${attempt.extractor} fallback.`,
-        ...(chunkMarkdowns.length > 0 ? [PDF_CHUNKING_FALLBACK_WARNING] : [PDF_CHUNKING_GENERIC_WARNING]),
+        ...(chunkUnits.length > 0 ? [PDF_CHUNKING_FALLBACK_WARNING] : [PDF_CHUNKING_GENERIC_WARNING]),
       ],
       extractor: attempt.extractor,
       fullText,
-      chunkMarkdowns: chunkMarkdowns.length > 0 ? chunkMarkdowns : undefined,
+      chunkUnits: chunkUnits.length > 0 ? chunkUnits : undefined,
       pageMarkdowns,
     }
   }
@@ -305,14 +318,14 @@ async function extractEpubResource(sourcePath: string): Promise<ResourceExtracti
     }
 
     const fullText = chapters.map((chapter) => `# ${chapter.title}\n\n${chapter.body}`).join("\n\n")
-    const chunkMarkdowns = buildStructuredChunkMarkdowns(chapters)
+    const chunkUnits = buildStructuredChunkUnits(chapters, RESOURCE_PACK_UNIT_KIND_CHAPTER)
 
     return {
       status: RESOURCE_PACK_STATUS_READY,
       warnings: [],
       extractor: "@zip.js/zip.js + fast-xml-parser + turndown",
       fullText,
-      chunkMarkdowns: chunkMarkdowns.length > 0 ? chunkMarkdowns : undefined,
+      chunkUnits: chunkUnits.length > 0 ? chunkUnits : undefined,
       tocMarkdown,
     }
   } finally {
@@ -505,10 +518,10 @@ async function resolvePdfOutlinePageNumber(
   return pageIndex + 1
 }
 
-function buildPdfOutlineChunkMarkdowns(input: {
+function buildPdfOutlineChunkUnits(input: {
   outlinePoints: PdfOutlinePoint[]
   pageTexts: string[]
-}): string[] {
+}): ResourceChunkUnitSeed[] {
   if (input.outlinePoints.length === 0 || input.pageTexts.length === 0) return []
 
   const chapterDepth = Math.min(...input.outlinePoints.map((point) => point.depth))
@@ -526,7 +539,7 @@ function buildPdfOutlineChunkMarkdowns(input: {
 
   if (dedupedChapters.length === 0) return []
 
-  const chunks: string[] = []
+  const units: ResourceChunkUnitSeed[] = []
   for (let index = 0; index < dedupedChapters.length; index += 1) {
     const chapter = dedupedChapters[index]!
     const nextChapter = dedupedChapters[index + 1]
@@ -538,10 +551,17 @@ function buildPdfOutlineChunkMarkdowns(input: {
     const chapterBody = chapterPages
       .map((pageText, pageOffset) => renderPageMarkdown(startPage + pageOffset, pageText))
       .join("\n\n")
-    chunks.push(...splitStructuredSegment(chapter.title, chapterBody))
+    units.push({
+      unitKind: RESOURCE_PACK_UNIT_KIND_CHAPTER,
+      unitTitle: chapter.title,
+      unitIndex: index + 1,
+      text: chapterBody,
+      pageStart: startPage,
+      pageEnd: endPage,
+    })
   }
 
-  return chunks
+  return units
 }
 
 type PdfHeadingMarker = {
@@ -549,7 +569,7 @@ type PdfHeadingMarker = {
   pageNumber: number
 }
 
-function buildPdfInferredHeadingChunkMarkdowns(pageTexts: string[]): string[] {
+function buildPdfInferredHeadingChunkUnits(pageTexts: string[]): ResourceChunkUnitSeed[] {
   if (pageTexts.length === 0) return []
 
   const markers: PdfHeadingMarker[] = []
@@ -573,7 +593,7 @@ function buildPdfInferredHeadingChunkMarkdowns(pageTexts: string[]): string[] {
 
   if (markers.length === 0) return []
 
-  const chunks: string[] = []
+  const units: ResourceChunkUnitSeed[] = []
   for (let index = 0; index < markers.length; index += 1) {
     const marker = markers[index]!
     const nextMarker = markers[index + 1]
@@ -585,10 +605,17 @@ function buildPdfInferredHeadingChunkMarkdowns(pageTexts: string[]): string[] {
     const sectionBody = sectionPages
       .map((pageText, pageOffset) => renderPageMarkdown(startPage + pageOffset, pageText))
       .join("\n\n")
-    chunks.push(...splitStructuredSegment(marker.title, sectionBody))
+    units.push({
+      unitKind: RESOURCE_PACK_UNIT_KIND_CHAPTER,
+      unitTitle: marker.title,
+      unitIndex: index + 1,
+      text: sectionBody,
+      pageStart: startPage,
+      pageEnd: endPage,
+    })
   }
 
-  return chunks
+  return units
 }
 
 function inferPdfHeadingFromPage(pageText: string): string | undefined {
@@ -621,14 +648,15 @@ function inferPdfHeadingFromPage(pageText: string): string | undefined {
   return undefined
 }
 
-function buildPdfPageWindowChunkMarkdowns(pageTexts: string[]): string[] {
+function buildPdfPageWindowChunkUnits(pageTexts: string[]): ResourceChunkUnitSeed[] {
   if (pageTexts.length === 0) return []
 
-  const chunks: string[] = []
+  const units: ResourceChunkUnitSeed[] = []
   let currentStartPage = 1
   let currentEndPage = 0
   let currentPages: string[] = []
-  let currentBytes = 0
+  let currentChars = 0
+  let currentIndex = 1
 
   const flush = () => {
     if (currentPages.length === 0) return
@@ -636,16 +664,25 @@ function buildPdfPageWindowChunkMarkdowns(pageTexts: string[]): string[] {
       ? `Page ${currentStartPage}`
       : `Pages ${currentStartPage}-${currentEndPage}`
     const body = currentPages.join("\n\n")
-    chunks.push(...splitStructuredSegment(title, body))
+    units.push({
+      unitKind: RESOURCE_PACK_UNIT_KIND_PAGE_WINDOW,
+      unitTitle: title,
+      unitIndex: currentIndex,
+      text: body,
+      pageStart: currentStartPage,
+      pageEnd: currentEndPage,
+      splitReason: RESOURCE_PACK_SPLIT_REASON_FALLBACK_STRUCTURE,
+    })
+    currentIndex += 1
     currentPages = []
-    currentBytes = 0
+    currentChars = 0
   }
 
   for (let index = 0; index < pageTexts.length; index += 1) {
     const pageNumber = index + 1
     const pageMarkdown = renderPageMarkdown(pageNumber, pageTexts[index] ?? "")
-    const pageBytes = Buffer.byteLength(pageMarkdown, "utf8")
-    if (currentBytes > 0 && currentBytes + pageBytes > RESOURCE_PACK_CHUNK_TARGET_BYTES) {
+    const pageChars = pageMarkdown.length
+    if (currentChars > 0 && currentChars + pageChars > RESOURCE_PACK_NON_CHAPTER_MAX_CHARS) {
       flush()
       currentStartPage = pageNumber
     }
@@ -654,44 +691,33 @@ function buildPdfPageWindowChunkMarkdowns(pageTexts: string[]): string[] {
     }
     currentEndPage = pageNumber
     currentPages.push(pageMarkdown)
-    currentBytes += pageBytes
+    currentChars += pageChars
   }
 
   flush()
-  return chunks
+  return units
 }
 
-function buildStructuredChunkMarkdowns(
+function buildStructuredChunkUnits(
   segments: Array<{ title: string; body: string }>,
-): string[] {
-  const chunks: string[] = []
-  for (const segment of segments) {
+  unitKind: ResourceChunkUnitKind,
+): ResourceChunkUnitSeed[] {
+  const units: ResourceChunkUnitSeed[] = []
+  for (let index = 0; index < segments.length; index += 1) {
+    const segment = segments[index]
+    if (!segment) continue
     const title = segment.title.trim() || "Section"
     const body = segment.body.trim()
     if (!body) continue
-    chunks.push(...splitStructuredSegment(title, body))
+
+    units.push({
+      unitKind,
+      unitTitle: title,
+      unitIndex: index + 1,
+      text: body,
+    })
   }
-  return chunks
-}
-
-function splitStructuredSegment(title: string, body: string): string[] {
-  const normalizedTitle = title.trim() || "Section"
-  const normalizedBody = body.trim()
-  if (!normalizedBody) return []
-
-  const combined = `# ${normalizedTitle}\n\n${normalizedBody}`
-  if (Buffer.byteLength(combined, "utf8") <= RESOURCE_PACK_CHUNK_TARGET_BYTES) {
-    return [combined]
-  }
-
-  const splitBody = buildChunkMarkdowns(normalizedBody)
-  if (splitBody.length <= 1) {
-    return [combined]
-  }
-
-  return splitBody.map((chunk, index) => {
-    return `# ${normalizedTitle} (Part ${index + 1})\n\n${chunk}`
-  })
+  return units
 }
 
 function renderPdfTextContent(items: unknown[]): string {

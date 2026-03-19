@@ -1,4 +1,5 @@
 export * from "./classification"
+export * from "./chunking-config"
 export * from "./contracts"
 export * from "./paths"
 export * from "./service"

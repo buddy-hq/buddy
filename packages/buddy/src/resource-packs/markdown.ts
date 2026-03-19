@@ -1,9 +1,10 @@
 import matter from "gray-matter"
 import {
-  RESOURCE_PACK_CHUNK_PREFIX,
   RESOURCE_PACK_CHUNKS_DIR_NAME,
   RESOURCE_PACK_ENTRYPOINT_FILE_NAME,
   RESOURCE_PACK_ENTRYPOINT_TITLE,
+  RESOURCE_PACK_FILE_KIND_RESOURCE_INDEX,
+  RESOURCE_PACK_FULL_TEXT_FILE_PREFIX,
   RESOURCE_PACK_FULL_TEXT_FILE_NAME,
   RESOURCE_PACK_NO_TEXT_MARKER,
   RESOURCE_PACK_PAGES_DIR_NAME,
@@ -49,22 +50,23 @@ export function buildResourcePackEntryMarkdown(metadata: ResourcePackMetadata) {
       "",
       "## How to use this pack",
       "",
-      "- Start with `toc.md` if it exists.",
+      `- Start with \`${RESOURCE_PACK_TOC_FILE_NAME}\` if it exists.`,
       "- Search this directory with `grep`.",
-      "- Read matching files in `chunks/`.",
-      "- Fall back to `pages/` when the structure is weak.",
-      "- Use `full.md` if you want the entire extracted text.",
+      `- Read matching files in \`${RESOURCE_PACK_CHUNKS_DIR_NAME}/\`.`,
+      `- Fall back to \`${RESOURCE_PACK_PAGES_DIR_NAME}/\` when the structure is weak.`,
+      `- Use \`${RESOURCE_PACK_FULL_TEXT_FILE_PREFIX}-*.md\` if you want the entire extracted text.`,
       "- Use the original source path if you want to run your own conversion flow.",
       "",
       "## Pack Files",
       "",
       `- Entry point: \`${RESOURCE_PACK_ENTRYPOINT_FILE_NAME}\``,
-      `- Full text: \`${RESOURCE_PACK_FULL_TEXT_FILE_NAME}\``,
+      `- Full text: \`${RESOURCE_PACK_FULL_TEXT_FILE_PREFIX}-*.md\``,
       `- TOC: \`${RESOURCE_PACK_TOC_FILE_NAME}\``,
       `- Chunks: \`${RESOURCE_PACK_CHUNKS_DIR_NAME}/\``,
       `- Pages: \`${RESOURCE_PACK_PAGES_DIR_NAME}/\``,
     ].join("\n"),
     {
+      file_kind: RESOURCE_PACK_FILE_KIND_RESOURCE_INDEX,
       source_path: metadata.source_path,
       source_relpath: metadata.source_relpath,
       format: metadata.format,
@@ -78,8 +80,4 @@ export function buildResourcePackEntryMarkdown(metadata: ResourcePackMetadata) {
       ...(metadata.page_count !== undefined ? { page_count: metadata.page_count } : {}),
     },
   )
-}
-
-export function wrapChunkMarkdown(index: number, chunk: string) {
-  return [`# ${RESOURCE_PACK_CHUNK_PREFIX} ${index + 1}`, "", chunk.trim()].join("\n")
 }
