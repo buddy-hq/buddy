@@ -60,8 +60,10 @@ import {
   PROMPT_PART_TYPE_TEXT,
   type PromptComposerAttachment,
   type PromptComposerPart,
+  RESOURCE_REFERENCE_PART_TYPE,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
 } from "./prompt-types"
+import { RESOURCE_LOCAL_SLASH_COMMANDS } from "../../lib/resource-commands"
 import { ImageAttachments } from "./image-attachments"
 
 type PromptComposerProps = {
@@ -100,11 +102,7 @@ type PromptComposerProps = {
   onClearPendingSteer?: () => void
   onModelChange: (model: string) => void
   onThinkingChange: (thinking: string) => void
-  onSubmit: (input: {
-    value: string
-    attachments: PromptComposerAttachment[]
-    parts: PromptComposerPart[]
-  }) => void
+  onSubmit: (input: { value: string; attachments: PromptComposerAttachment[]; parts: PromptComposerPart[] }) => void
   onAbort: () => void
   onNewSession: () => void
   onOpenMcpDialog?: () => void
@@ -258,6 +256,13 @@ function loadHistory(key: string | undefined): PromptHistoryEntry[] {
                 type: WORKSPACE_FILE_REFERENCE_PART_TYPE,
                 path: item.path,
               })
+              continue
+            }
+            if (item.type === RESOURCE_REFERENCE_PART_TYPE && typeof item.key === "string") {
+              parts.push({
+                type: RESOURCE_REFERENCE_PART_TYPE,
+                key: item.key,
+              })
             }
           }
         } else {
@@ -373,10 +378,12 @@ export function PromptComposer(props: PromptComposerProps) {
       description: command.description,
       source: command.source,
     }))
-    const customNames = new Set(customCommands.map((command) => command.name.toLowerCase()))
+    const localNames = new Set(RESOURCE_LOCAL_SLASH_COMMANDS.map((command) => command.name.toLowerCase()))
+    const filteredCustomCommands = customCommands.filter((command) => !localNames.has(command.name.toLowerCase()))
+    const customNames = new Set(filteredCustomCommands.map((command) => command.name.toLowerCase()))
     const builtinCommands = BUILTIN_SLASH_COMMANDS.filter((command) => !customNames.has(command.name.toLowerCase()))
 
-    return [...customCommands, ...builtinCommands]
+    return [...filteredCustomCommands, ...builtinCommands, ...RESOURCE_LOCAL_SLASH_COMMANDS]
   }, [props.slashCommands])
   const mentionMatch = useMemo(() => getMentionMatch(props.value, cursorOffset), [props.value, cursorOffset])
   const mentionKey = mentionMatch ? `${mentionMatch.start}:${mentionMatch.query}` : undefined
@@ -543,31 +550,31 @@ export function PromptComposer(props: PromptComposerProps) {
       return
     }
 
+    const nextCursor = pendingCursorRef.current
+    if (nextCursor !== undefined) {
+      pendingCursorRef.current = undefined
+      const frame = window.requestAnimationFrame(() => {
+        const field = editorRef.current
+        if (!field) return
+        field.focus()
+        setCursorPosition(field, nextCursor)
+        setCursorOffset(nextCursor)
+      })
+      return () => {
+        window.cancelAnimationFrame(frame)
+      }
+    }
+
     const serializedCurrent = serializePromptParts(currentPartsRef.current)
     if (currentPartsRef.current.length > 0 && props.value === serializedCurrent) {
-      renderPromptParts(editor, currentPartsRef.current)
       return
     }
 
+    const savedCursor = getCursorPosition(editor)
     const nextParts = createPromptPartsFromValue(props.value, knownAgents)
     updateCurrentParts(nextParts)
     renderPromptParts(editor, nextParts)
-
-    const nextCursor = pendingCursorRef.current
-    if (nextCursor === undefined) return
-
-    pendingCursorRef.current = undefined
-    const frame = window.requestAnimationFrame(() => {
-      const field = editorRef.current
-      if (!field) return
-      field.focus()
-      setCursorPosition(field, nextCursor)
-      setCursorOffset(nextCursor)
-    })
-
-    return () => {
-      window.cancelAnimationFrame(frame)
-    }
+    setCursorPosition(editor, savedCursor)
   }, [currentPartCount, knownAgents, props.attachments.length, props.value])
 
   function resetHistoryNavigation() {
@@ -599,11 +606,7 @@ export function PromptComposer(props: PromptComposerProps) {
   function applyDraftSnapshot(next: PromptHistoryEntry, cursor: "start" | "end") {
     historyApplyingRef.current = true
     pendingCursorRef.current =
-      cursor === "start"
-        ? 0
-        : next.parts.length > 0
-          ? serializePromptParts(next.parts).length
-          : next.value.length
+      cursor === "start" ? 0 : next.parts.length > 0 ? serializePromptParts(next.parts).length : next.value.length
     updateCurrentParts(
       next.parts.length > 0 ? clonePromptParts(next.parts) : createPromptPartsFromValue(next.value, knownAgents),
     )
@@ -650,7 +653,7 @@ export function PromptComposer(props: PromptComposerProps) {
       props.attachments.length === 0 &&
       !Array.from(
         editor.querySelectorAll(
-          `[data-type='${PROMPT_PART_TYPE_AGENT}'], [data-type='${WORKSPACE_FILE_REFERENCE_PART_TYPE}']`,
+          `[data-type='${PROMPT_PART_TYPE_AGENT}'], [data-type='${WORKSPACE_FILE_REFERENCE_PART_TYPE}'], [data-type='${RESOURCE_REFERENCE_PART_TYPE}']`,
         ),
       ).length
 
@@ -799,13 +802,14 @@ export function PromptComposer(props: PromptComposerProps) {
 
     const nextValue = `/${command.name} `
     const nextCursor = command.name.length + 2
-    pendingCursorRef.current = nextCursor
     setDismissedSlashKey(undefined)
     const nextParts = createPromptPartsFromValue(nextValue, knownAgents)
     updateCurrentParts(nextParts)
     const editor = editorRef.current
     if (editor) {
       renderPromptParts(editor, nextParts)
+      setCursorPosition(editor, nextCursor)
+      setCursorOffset(nextCursor)
     }
     updateCurrentValue(nextValue)
   }

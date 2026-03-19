@@ -9,13 +9,14 @@ import { ChatLeftSidebar } from "@/components/layout/chat-left-sidebar"
 import { ChatRightSidebar } from "@/components/layout/chat-right-sidebar"
 import { McpDialog } from "@/components/mcp-dialog"
 import { ResizeHandle } from "@/components/layout/resize-handle"
+import { ResourcesPanel } from "@/components/resources/resources-panel"
 import { SettingsModal } from "@/components/settings-modal"
 import { TeachingEditorPanel } from "@/components/teaching/teaching-editor-panel"
 import { MathFigurePanel } from "@/components/teaching/math-figure-panel"
 import { usePlatform } from "@/context/platform"
 import { getFilename } from "@/components/layout/sidebar-helpers"
 import { PromptComposer } from "@/components/prompt/prompt-composer"
-import { PROMPT_PART_TYPE_FILE, PROMPT_PART_TYPE_TEXT } from "@/components/prompt/prompt-types"
+import { PROMPT_PART_TYPE_FILE, PROMPT_PART_TYPE_TEXT, RESOURCE_REFERENCE_PART_TYPE } from "@/components/prompt/prompt-types"
 import type {
   PromptAttachmentPart,
   PromptComposerAttachment,
@@ -23,6 +24,18 @@ import type {
   PromptSubmissionPart,
 } from "@/components/prompt/prompt-types"
 import { parseSlashCommandInput } from "@/components/prompt/slash-autocomplete"
+import {
+  isResourceLocalSlashCommandName,
+  parseResourceLocalSlashCommand,
+  RESOURCE_COMMAND_ADD,
+  RESOURCE_COMMAND_PANEL,
+  RESOURCE_COMMAND_REMOVE,
+  RESOURCE_COMMAND_REBUILD,
+  RESOURCE_COMMAND_USE,
+  RESOURCE_LOCAL_SLASH_COMMANDS,
+  RESOURCE_SIDEBAR_TAB,
+  type ResourceLocalSlashCommand,
+} from "../lib/resource-commands"
 import {
   ChevronRightIcon,
   LayoutLeftIcon,
@@ -61,6 +74,11 @@ import {
   startNewSession,
   updateSession,
 } from "../state/chat-actions"
+import {
+  addResource,
+  rebuildResource,
+  removeResource,
+} from "../state/resource-actions"
 import { useChatStore } from "../state/chat-store"
 import { startChatSync } from "../state/chat-sync"
 import type { GlobalEvent, MessageInfo, MessagePart, PermissionRequest, SessionInfo } from "../state/chat-types"
@@ -302,10 +320,20 @@ function DirectoryChatPage() {
   const [mcpDialogOpen, setMcpDialogOpen] = useState(false)
   const [personaCatalog, setPersonaCatalog] = useState<PersonaConfigOption[]>([])
   const [slashCommands, setSlashCommands] = useState<PromptCommandOption[]>([])
+  const slashCommandCandidates = useMemo(
+    () => [
+      ...RESOURCE_LOCAL_SLASH_COMMANDS.map((command) => ({
+        name: command.name,
+      })),
+      ...slashCommands,
+    ],
+    [slashCommands],
+  )
   const [defaultPersona, setDefaultPersona] = useState("buddy")
   const [defaultIntent, setDefaultIntent] = useState<TeachingIntent>("auto")
   const [configuredModel, setConfiguredModel] = useState<{ providerID: string; modelID: string } | undefined>(undefined)
   const [selectedThinking, setSelectedThinking] = useState("default")
+  const [resourcesRefreshToken, setResourcesRefreshToken] = useState(0)
   const [pendingSuggestionOverride, setPendingSuggestionOverride] = useState<
     | {
         label: string
@@ -351,6 +379,7 @@ function DirectoryChatPage() {
   const rightSidebarTab = useUiPreferences((state) => state.rightSidebarTab)
   const pinnedByDirectory = useUiPreferences((state) => state.pinnedByDirectory)
   const unreadByDirectory = useUiPreferences((state) => state.unreadByDirectory)
+  const directoryOrder = useUiPreferences((state) => state.directoryOrder)
   const setLeftSidebarOpen = useUiPreferences((state) => state.setLeftSidebarOpen)
   const setLeftSidebarWidth = useUiPreferences((state) => state.setLeftSidebarWidth)
   const setRightSidebarOpen = useUiPreferences((state) => state.setRightSidebarOpen)
@@ -360,6 +389,7 @@ function DirectoryChatPage() {
   const markUnread = useUiPreferences((state) => state.markUnread)
   const clearUnread = useUiPreferences((state) => state.clearUnread)
   const clearDirectorySessionState = useUiPreferences((state) => state.clearDirectorySessionState)
+  const setDirectoryOrder = useUiPreferences((state) => state.setDirectoryOrder)
   const teachingRuntime = useTeachingRuntime()
 
   const sessionID = directoryState?.sessionID
@@ -565,7 +595,15 @@ function DirectoryChatPage() {
   )
   const showDevSessionTrace = import.meta.env.DEV
   const showCapabilitiesSidebarTab = showDevSessionTrace
-  const sidebarDirectories = validOpenProjects
+  const sidebarDirectories = useMemo(() => {
+    if (directoryOrder.length === 0) return validOpenProjects
+    const orderIndex = new Map(directoryOrder.map((dir, i) => [dir, i]))
+    return [...validOpenProjects].sort((a, b) => {
+      const ai = orderIndex.get(a) ?? Number.MAX_SAFE_INTEGER
+      const bi = orderIndex.get(b) ?? Number.MAX_SAFE_INTEGER
+      return ai - bi
+    })
+  }, [validOpenProjects, directoryOrder])
   const leftSidebarMaxWidth = typeof window === "undefined" ? SIDEBAR_DEFAULT_MAX_WIDTH : window.innerWidth * 0.3 + 64
   const sessionKey = useMemo(
     () => (decodedDirectory && sessionID ? teachingSessionKey(decodedDirectory, sessionID) : ""),
@@ -590,7 +628,11 @@ function DirectoryChatPage() {
     ? rightSidebarTab
     : selectedPersonaDefaultSurface
   const rightSidebarActiveTab =
-    rightSidebarTab === "capabilities" && showCapabilitiesSidebarTab ? "capabilities" : selectedSurfaceTab
+    rightSidebarTab === "capabilities" && showCapabilitiesSidebarTab
+      ? "capabilities"
+      : rightSidebarTab === RESOURCE_SIDEBAR_TAB
+        ? RESOURCE_SIDEBAR_TAB
+        : selectedSurfaceTab
   const editorPanelSizing = rightSidebarActiveTab === "editor"
   const rightSidebarMinWidth = editorPanelSizing ? RIGHT_SIDEBAR_EDITOR_MIN_WIDTH : RIGHT_SIDEBAR_MIN_WIDTH
   const rightSidebarMaxWidth = editorPanelSizing ? RIGHT_SIDEBAR_EDITOR_MAX_WIDTH : RIGHT_SIDEBAR_MAX_WIDTH
@@ -1175,9 +1217,35 @@ function DirectoryChatPage() {
 
     const modelSelection = effectiveModelSelection
     const variant = selectedThinking !== "default" ? selectedThinking : undefined
-    const slashCommand = parseSlashCommandInput(rawContent, slashCommands)
+    const slashCommand = parseSlashCommandInput(rawContent, slashCommandCandidates)
 
     if (slashCommand) {
+      if (isResourceLocalSlashCommandName(slashCommand.command.name)) {
+        const resourceCommand = parseResourceLocalSlashCommand(rawContent)
+        setDraft("")
+        setDraftAttachments([])
+        if (!resourceCommand) {
+          setDraft(rawContent)
+          setDraftAttachments(rawAttachments)
+          return
+        }
+
+        try {
+          const handled = await handleResourceCommand(resourceCommand, {
+            rawAttachments,
+          })
+          if (handled) {
+            return
+          }
+          setDraft(rawContent)
+          setDraftAttachments(rawAttachments)
+        } catch {
+          setDraft(rawContent)
+          setDraftAttachments(rawAttachments)
+        }
+        return
+      }
+
       const attachmentParts = buildCommandAttachmentParts(rawAttachments)
       setDraft("")
       setDraftAttachments([])
@@ -1392,6 +1460,76 @@ function DirectoryChatPage() {
     setRightSidebarOpen(true)
   }
 
+  function openResourcesPanel() {
+    setRightSidebarTab(RESOURCE_SIDEBAR_TAB)
+    setRightSidebarOpen(true)
+  }
+
+  function refreshResourcesPanel() {
+    setResourcesRefreshToken((current) => current + 1)
+  }
+
+  async function handleResourceCommand(
+    command: ResourceLocalSlashCommand,
+    input: {
+      rawAttachments: PromptComposerAttachment[]
+    },
+  ) {
+    if (command.type === RESOURCE_COMMAND_PANEL) {
+      openResourcesPanel()
+      refreshResourcesPanel()
+      return true
+    }
+
+    if (command.type === RESOURCE_COMMAND_ADD) {
+      await addResource(decodedDirectory, {
+        sourcePath: command.path,
+        ...(command.alias ? { alias: command.alias } : {}),
+      })
+      openResourcesPanel()
+      refreshResourcesPanel()
+      return true
+    }
+
+    if (command.type === RESOURCE_COMMAND_REBUILD || command.type === RESOURCE_COMMAND_REMOVE) {
+      if (command.type === RESOURCE_COMMAND_REBUILD) {
+        await rebuildResource(decodedDirectory, {
+          resourceKey: command.key,
+        })
+      } else {
+        await removeResource(decodedDirectory, {
+          resourceKey: command.key,
+        })
+      }
+
+      openResourcesPanel()
+      refreshResourcesPanel()
+      return true
+    }
+
+    if (command.type === RESOURCE_COMMAND_USE) {
+      const sent = await sendRuntimePrompt({
+        content: command.prompt ?? "",
+        attachments: input.rawAttachments,
+        parts: [
+          {
+            type: RESOURCE_REFERENCE_PART_TYPE,
+            key: command.key,
+          },
+        ],
+        intent: intentFromSelection(storedIntent),
+      })
+      if (sent) {
+        setDraft("")
+        setDraftAttachments([])
+        return true
+      }
+      return false
+    }
+
+    return false
+  }
+
   function openSettingsPanel() {
     setSettingsModalOpen(true)
   }
@@ -1421,16 +1559,20 @@ function DirectoryChatPage() {
     const nextPersona = primaryPersonaOptions.find((option) => option.id === persona)
     if (!nextPersona) return
 
+    if (rightSidebarActiveTab === "capabilities" && showCapabilitiesSidebarTab) {
+      return
+    }
+
+    if (rightSidebarActiveTab === RESOURCE_SIDEBAR_TAB) {
+      return
+    }
+
     if (nextPersona.surfaces.includes("editor") && teachingWorkspace) {
       setRightSidebarTab("editor")
       if (rightSidebarWidth < RIGHT_SIDEBAR_EDITOR_MIN_WIDTH) {
         setRightSidebarWidth(640)
       }
       setRightSidebarOpen(true)
-      return
-    }
-
-    if (rightSidebarActiveTab === "capabilities" && showCapabilitiesSidebarTab) {
       return
     }
 
@@ -1652,6 +1794,7 @@ function DirectoryChatPage() {
               onToggleUnread={onToggleUnreadSession}
               onArchiveSession={onArchiveSession}
               onRenameSession={onRenameSession}
+              onReorderDirectories={setDirectoryOrder}
               onOpenCurriculum={openCurriculumPanel}
               onOpenSkills={openSkillsPage}
               onOpenSettings={openSettingsPanel}
@@ -1881,6 +2024,12 @@ function DirectoryChatPage() {
               onTabChange={setRightSidebarTab}
               surfaces={selectedPersonaSurfaces}
               showCapabilitiesTab={showCapabilitiesSidebarTab}
+              resourcesPanel={
+                <ResourcesPanel
+                  directory={decodedDirectory}
+                  refreshToken={resourcesRefreshToken}
+                />
+              }
               sessionID={sessionID}
               persona={selectedPersona}
               intent={intentFromSelection(storedIntent)}

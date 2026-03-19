@@ -2,10 +2,12 @@ import { createTextFragment } from "./editor-dom"
 import {
   PROMPT_PART_TYPE_AGENT,
   PROMPT_PART_TYPE_TEXT,
+  RESOURCE_REFERENCE_PART_TYPE,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
   type PromptAgentPart,
   type PromptComposerPart,
   type PromptTextPart,
+  type PromptResourceReferencePart,
   type PromptWorkspaceFileReferencePart,
 } from "./prompt-types"
 
@@ -38,6 +40,13 @@ function createWorkspaceFileReferencePart(path: string): PromptWorkspaceFileRefe
   }
 }
 
+function createResourceReferencePart(key: string): PromptResourceReferencePart {
+  return {
+    type: RESOURCE_REFERENCE_PART_TYPE,
+    key,
+  }
+}
+
 function appendTextPart(parts: PromptComposerPart[], text: string) {
   if (!text) return
   const last = parts[parts.length - 1]
@@ -58,6 +67,10 @@ export function clonePromptParts(parts: PromptComposerPart[]): PromptComposerPar
       return createAgentPart(part.name)
     }
 
+    if (part.type === RESOURCE_REFERENCE_PART_TYPE) {
+      return createResourceReferencePart(part.key)
+    }
+
     return createWorkspaceFileReferencePart(part.path)
   })
 }
@@ -68,6 +81,13 @@ export function extractWorkspaceFileReferenceParts(
   return parts.flatMap((part) => {
     if (part.type !== WORKSPACE_FILE_REFERENCE_PART_TYPE) return []
     return [createWorkspaceFileReferencePart(part.path)]
+  })
+}
+
+export function extractResourceReferenceParts(parts: PromptComposerPart[]): PromptResourceReferencePart[] {
+  return parts.flatMap((part) => {
+    if (part.type !== RESOURCE_REFERENCE_PART_TYPE) return []
+    return [createResourceReferencePart(part.key)]
   })
 }
 
@@ -112,6 +132,7 @@ export function serializePromptParts(parts: PromptComposerPart[]): string {
     .map((part) => {
       if (part.type === PROMPT_PART_TYPE_TEXT) return part.text
       if (part.type === PROMPT_PART_TYPE_AGENT) return `@${part.name}`
+      if (part.type === RESOURCE_REFERENCE_PART_TYPE) return `resource:${part.key}`
       return `@${part.path}`
     })
     .join("")
@@ -151,6 +172,15 @@ export function collectPromptParts(root: HTMLElement): PromptComposerPart[] {
       const path = element.dataset.path
       if (path) {
         parts.push(createWorkspaceFileReferencePart(path))
+      }
+      return
+    }
+
+    if (element.dataset.type === RESOURCE_REFERENCE_PART_TYPE) {
+      flush()
+      const key = element.dataset.key
+      if (key) {
+        parts.push(createResourceReferencePart(key))
       }
       return
     }
@@ -202,6 +232,9 @@ export function renderPromptParts(root: HTMLElement, parts: PromptComposerPart[]
     if (part.type === PROMPT_PART_TYPE_AGENT) {
       pill.textContent = `@${part.name}`
       pill.dataset.name = part.name
+    } else if (part.type === RESOURCE_REFERENCE_PART_TYPE) {
+      pill.textContent = `resource:${part.key}`
+      pill.dataset.key = part.key
     } else {
       pill.textContent = `@${part.path}`
       pill.dataset.path = part.path

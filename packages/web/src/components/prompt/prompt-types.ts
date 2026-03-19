@@ -11,6 +11,7 @@ export const PROMPT_PART_TYPE_FILE = "file" as const
 export const PROMPT_PART_TYPE_AGENT = "agent" as const
 // Sync with packages/buddy/src/learning/prompt/workspace-file-references.ts.
 export const WORKSPACE_FILE_REFERENCE_PART_TYPE = "workspace-file-reference" as const
+export const RESOURCE_REFERENCE_PART_TYPE = "resource-reference" as const
 
 export type PromptTextPart = {
   type: typeof PROMPT_PART_TYPE_TEXT
@@ -34,8 +35,18 @@ export type PromptWorkspaceFileReferencePart = {
   path: string
 }
 
+export type PromptResourceReferencePart = {
+  type: typeof RESOURCE_REFERENCE_PART_TYPE
+  key: string
+}
+
 export type PromptAttachmentPart = PromptTextPart | PromptFilePart
 
-export type PromptComposerPart = PromptTextPart | PromptAgentPart | PromptWorkspaceFileReferencePart
+export type PromptComposerPart = PromptTextPart | PromptAgentPart | PromptWorkspaceFileReferencePart | PromptResourceReferencePart
 
-export type PromptSubmissionPart = PromptTextPart | PromptAgentPart | PromptWorkspaceFileReferencePart | PromptFilePart
+export type PromptSubmissionPart =
+  | PromptTextPart
+  | PromptAgentPart
+  | PromptWorkspaceFileReferencePart
+  | PromptResourceReferencePart
+  | PromptFilePart

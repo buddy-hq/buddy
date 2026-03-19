@@ -1,4 +1,4 @@
-import { PROMPT_PART_TYPE_AGENT, WORKSPACE_FILE_REFERENCE_PART_TYPE } from "./prompt-types"
+import { PROMPT_PART_TYPE_AGENT, RESOURCE_REFERENCE_PART_TYPE, WORKSPACE_FILE_REFERENCE_PART_TYPE } from "./prompt-types"
 
 const MAX_BREAKS = 200
 
@@ -69,7 +69,8 @@ export function setCursorPosition(parent: HTMLElement, position: number) {
     const isStructured =
       node.nodeType === Node.ELEMENT_NODE &&
       ((node as HTMLElement).dataset.type === WORKSPACE_FILE_REFERENCE_PART_TYPE ||
-        (node as HTMLElement).dataset.type === PROMPT_PART_TYPE_AGENT)
+        (node as HTMLElement).dataset.type === PROMPT_PART_TYPE_AGENT ||
+        (node as HTMLElement).dataset.type === RESOURCE_REFERENCE_PART_TYPE)
     const isBreak = node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).tagName === "BR"
 
     if (isText && remaining <= length) {
@@ -133,7 +134,8 @@ export function setRangeEdge(parent: HTMLElement, range: Range, edge: "start" | 
     const isStructured =
       node.nodeType === Node.ELEMENT_NODE &&
       ((node as HTMLElement).dataset.type === WORKSPACE_FILE_REFERENCE_PART_TYPE ||
-        (node as HTMLElement).dataset.type === PROMPT_PART_TYPE_AGENT)
+        (node as HTMLElement).dataset.type === PROMPT_PART_TYPE_AGENT ||
+        (node as HTMLElement).dataset.type === RESOURCE_REFERENCE_PART_TYPE)
     const isBreak = node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).tagName === "BR"
 
     if (isText && remaining <= length) {
