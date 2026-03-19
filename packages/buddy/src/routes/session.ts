@@ -116,6 +116,7 @@ const teachingSessionStateOutboundSchema = z.object({
   payload: z.object({}).passthrough(),
   systemPromptSent: z.string().optional(),
   systemPromptEffective: z.string().optional(),
+  fullSystemPrompt: z.string().optional(),
 })
 
 const teachingSessionStateSchema = z.object({

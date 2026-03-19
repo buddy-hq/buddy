@@ -11,6 +11,7 @@ export type TeachingLlmOutboundEntry = {
   payload: Record<string, unknown>
   systemPromptSent?: string
   systemPromptEffective?: string
+  fullSystemPrompt?: string
 }
 
 export type TeachingSessionState = {
