@@ -119,7 +119,7 @@ export const useChatStore = create<ChatStore>()(
         set((state) => {
           const openProjects = state.openProjects.includes(normalized)
             ? state.openProjects
-            : [...state.openProjects, normalized]
+            : [normalized, ...state.openProjects]
           return {
             openProjects,
             directories: {
@@ -177,10 +177,7 @@ export const useChatStore = create<ChatStore>()(
           const nextLastSession = { ...state.lastSessionByDirectory }
           delete nextLastSession[normalized]
 
-          const nextActive =
-            state.activeDirectory === normalized
-              ? openProjects[0]
-              : state.activeDirectory
+          const nextActive = state.activeDirectory === normalized ? openProjects[0] : state.activeDirectory
 
           return {
             openProjects,
@@ -336,9 +333,7 @@ export const useChatStore = create<ChatStore>()(
           const current = ensureDirectoryState(state as ChatStore, directory)
           const nextSessions = upsertSession(current.sessions, info)
           const nextSessionID =
-            current.sessionID === info.id && info.time.archived
-              ? nextSessions[0]?.id
-              : current.sessionID
+            current.sessionID === info.id && info.time.archived ? nextSessions[0]?.id : current.sessionID
           const switchedActiveSession = nextSessionID !== current.sessionID
           const nextSessionStatusByID = {
             ...current.sessionStatusByID,
@@ -559,14 +554,14 @@ export const useChatStore = create<ChatStore>()(
         const persisted = (persistedState ?? {}) as Partial<ChatStore>
         const openProjects = Array.from(
           new Set(
-            (persisted.openProjects ?? [])
-              .map((directory) => normalizeProjectDirectory(directory))
-              .filter(Boolean),
+            (persisted.openProjects ?? []).map((directory) => normalizeProjectDirectory(directory)).filter(Boolean),
           ),
         ) as string[]
         const activeDirectory = normalizeProjectDirectory(persisted.activeDirectory)
         const lastSessionByDirectory = Object.fromEntries(
-          Object.entries(persisted.lastSessionByDirectory ?? {}).filter(([directory]) => openProjects.includes(directory)),
+          Object.entries(persisted.lastSessionByDirectory ?? {}).filter(([directory]) =>
+            openProjects.includes(directory),
+          ),
         )
 
         return {
