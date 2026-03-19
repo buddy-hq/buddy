@@ -15,6 +15,20 @@ export {
 } from "./components/ui/dialog"
 export { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./components/ui/collapsible"
 export {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogOverlay,
+  AlertDialogPortal,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "./components/ui/alert-dialog"
+export {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
@@ -31,6 +45,7 @@ export {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "./components/ui/dropdown-menu"
+export { HoverCard, HoverCardContent, HoverCardTrigger } from "./components/ui/hover-card"
 export { Input } from "./components/ui/input"
 export { NativeSelect, NativeSelectOptGroup, NativeSelectOption } from "./components/ui/native-select"
 export { Progress } from "./components/ui/progress"
