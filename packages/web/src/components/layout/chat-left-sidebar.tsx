@@ -1,5 +1,5 @@
-import type { CSSProperties } from "react"
-import { useMemo, useState } from "react"
+import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   Button,
   Dialog,
@@ -38,6 +38,8 @@ import {
   SettingsIcon,
 } from "./sidebar-icons"
 
+
+
 type ChatLeftSidebarProps = {
   directories: string[]
   currentDirectory: string
@@ -53,6 +55,7 @@ type ChatLeftSidebarProps = {
   onToggleUnread: (directory: string, sessionID: string, unread: boolean) => void
   onArchiveSession: (directory: string, sessionID: string) => Promise<void>
   onRenameSession: (directory: string, sessionID: string, title: string) => Promise<void>
+  onReorderDirectories: (newOrder: string[]) => void
   onOpenCurriculum: () => void
   onOpenSkills: () => void
   onOpenSettings: () => void
@@ -161,6 +164,10 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
   const [organizeMode, setOrganizeMode] = useState<OrganizeMode>("project")
   const [sortMode, setSortMode] = useState<SortMode>("updated")
   const [showMode, setShowMode] = useState<ShowMode>("all")
+  const [draggedDirectory, setDraggedDirectory] = useState<string | undefined>(undefined)
+  const [dragOverDirectory, setDragOverDirectory] = useState<string | undefined>(undefined)
+  const [dragOverPosition, setDragOverPosition] = useState<"before" | "after">("after")
+  const sectionRefsMap = useRef<Map<string, HTMLElement>>(new Map())
   const COLLAPSED_COUNT = 9
 
   async function submitRename() {
@@ -187,6 +194,86 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
     } finally {
       setArchiveSaving(false)
     }
+  }
+
+  const sectionRefCallback = useCallback(
+    (directory: string) => (element: HTMLElement | null) => {
+      if (element) {
+        sectionRefsMap.current.set(directory, element)
+      } else {
+        sectionRefsMap.current.delete(directory)
+      }
+    },
+    [],
+  )
+
+  function findDropTarget(clientY: number, draggedDir: string): { directory: string; position: "before" | "after" } | undefined {
+    const groups = directoryGroups
+    for (const group of groups) {
+      if (group.directory === draggedDir) continue
+      const el = sectionRefsMap.current.get(group.directory)
+      if (!el) continue
+      const rect = el.getBoundingClientRect()
+      if (clientY >= rect.top && clientY <= rect.bottom) {
+        const midpoint = rect.top + rect.height / 2
+        return { directory: group.directory, position: clientY < midpoint ? "before" : "after" }
+      }
+    }
+    return undefined
+  }
+
+  function commitReorder(sourceDir: string, targetDir: string, position: "before" | "after") {
+    const currentOrder = directoryGroups.map((g) => g.directory)
+    if (!currentOrder.includes(sourceDir) || !currentOrder.includes(targetDir)) return
+    const without = currentOrder.filter((d) => d !== sourceDir)
+    const targetIndex = without.indexOf(targetDir)
+    if (targetIndex === -1) return
+    const insertAt = position === "before" ? targetIndex : targetIndex + 1
+    const next = [...without.slice(0, insertAt), sourceDir, ...without.slice(insertAt)]
+    props.onReorderDirectories(next)
+  }
+
+  function handleLabelPointerDown(event: ReactPointerEvent<HTMLButtonElement>, directory: string) {
+    if (event.button !== 0) return
+
+    const startY = event.clientY
+    let isDragging = false
+    const controller = new AbortController()
+
+    function onPointerMove(e: globalThis.PointerEvent) {
+      const deltaY = Math.abs(e.clientY - startY)
+      if (!isDragging && deltaY > 3) {
+        isDragging = true
+        setDraggedDirectory(directory)
+      }
+
+      if (isDragging) {
+        e.preventDefault()
+        const target = findDropTarget(e.clientY, directory)
+        if (target) {
+          setDragOverDirectory(target.directory)
+          setDragOverPosition(target.position)
+        } else {
+          setDragOverDirectory(undefined)
+        }
+      }
+    }
+
+    function onPointerUp(e: globalThis.PointerEvent) {
+      if (isDragging) {
+        const target = findDropTarget(e.clientY, directory)
+        if (target) {
+          commitReorder(directory, target.directory, target.position)
+        }
+      }
+      
+      controller.abort()
+      setDraggedDirectory(undefined)
+      setDragOverDirectory(undefined)
+    }
+
+    document.addEventListener("pointermove", onPointerMove, { signal: controller.signal })
+    document.addEventListener("pointerup", onPointerUp, { signal: controller.signal })
   }
 
   const directoryGroups = useMemo(() => {
@@ -362,9 +449,21 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
             const collapsed = !!collapsedDirectories[group.directory]
             const visibleSessions = expanded ? group.sessions : group.sessions.slice(0, COLLAPSED_COUNT)
             const hasMore = group.sessions.length > COLLAPSED_COUNT
+            const isDragging = draggedDirectory === group.directory
+            const isDragOver = dragOverDirectory === group.directory && draggedDirectory !== group.directory
+            const canDrag = organizeMode === "project"
 
             return (
-              <section key={group.directory} className="space-y-1">
+              <section
+                key={group.directory}
+                ref={sectionRefCallback(group.directory)}
+                className={`space-y-1 relative transition-opacity duration-150 ${
+                  isDragging ? "opacity-40" : "opacity-100"
+                }`}
+              >
+                {isDragOver && dragOverPosition === "before" ? (
+                  <div className="h-0.5 rounded-full bg-primary/70 mx-2 mb-1" />
+                ) : null}
                 <div
                   className={`group/directory flex items-center gap-1 rounded-xl px-1 py-0.5 ${
                     isCurrentDirectory ? "bg-[#111318]" : ""
@@ -374,7 +473,8 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
                     type="button"
                     className={`flex min-w-0 flex-1 items-center gap-1.5 rounded-lg px-1.5 py-1 text-left text-sm ${
                       isCurrentDirectory ? "text-foreground" : "text-muted-foreground hover:text-foreground"
-                    }`}
+                    } ${canDrag ? "cursor-grab active:cursor-grabbing" : ""}`}
+                    onPointerDown={canDrag ? (e) => handleLabelPointerDown(e, group.directory) : undefined}
                     onClick={() => {
                       setCollapsedDirectories((current) => {
                         const next = { ...current }
@@ -556,6 +656,9 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
                   >
                     {expanded ? "Show less" : "Show more"}
                   </button>
+                ) : null}
+                {isDragOver && dragOverPosition === "after" ? (
+                  <div className="h-0.5 rounded-full bg-primary/70 mx-2 mt-1" />
                 ) : null}
               </section>
             )

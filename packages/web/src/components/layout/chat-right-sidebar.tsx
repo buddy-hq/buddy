@@ -11,7 +11,7 @@ import {
 import type { TeachingIntent } from "@/state/teaching-runtime"
 import { XIcon } from "./sidebar-icons"
 
-export type ChatRightSidebarTab = "curriculum" | "editor" | "figure" | "capabilities" | "settings"
+export type ChatRightSidebarTab = "curriculum" | "editor" | "figure" | "resources" | "capabilities" | "settings"
 export type ChatRightSidebarSurface = "curriculum" | "editor" | "figure"
 
 type ChatRightSidebarProps = {
@@ -19,6 +19,7 @@ type ChatRightSidebarProps = {
   activeTab: ChatRightSidebarTab
   onTabChange: (tab: ChatRightSidebarTab) => void
   surfaces: ChatRightSidebarSurface[]
+  resourcesPanel?: ReactNode
   editorPanel?: ReactNode
   figurePanel?: ReactNode
   onClose: () => void
@@ -93,9 +94,11 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
   const activeTab =
     props.activeTab === "capabilities" && capabilitiesTabEnabled
       ? "capabilities"
-      : props.surfaces.includes(props.activeTab as ChatRightSidebarSurface)
-        ? (props.activeTab as ChatRightSidebarSurface)
-        : props.surfaces[0] ?? "curriculum"
+      : props.activeTab === "resources"
+        ? "resources"
+        : props.surfaces.includes(props.activeTab as ChatRightSidebarSurface)
+          ? (props.activeTab as ChatRightSidebarSurface)
+          : props.surfaces[0] ?? "curriculum"
 
   async function loadSidebarData(
     isDisposed?: () => boolean,
@@ -211,6 +214,13 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
               Figure
             </Button>
           ) : null}
+          <Button
+            variant={activeTab === "resources" ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => props.onTabChange("resources")}
+          >
+            Resources
+          </Button>
           {capabilitiesTabEnabled ? (
             <Button
               variant={activeTab === "capabilities" ? "secondary" : "ghost"}
@@ -239,6 +249,14 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
           {props.figurePanel ?? (
             <div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">
               Figure tools are not available for this session.
+            </div>
+          )}
+        </div>
+      ) : activeTab === "resources" ? (
+        <div className="flex-1 min-h-0 flex flex-col">
+          {props.resourcesPanel ?? (
+            <div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">
+              Resource management is not available for this session.
             </div>
           )}
         </div>
