@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs"
 import path from "node:path"
 import { buildChunkMarkdowns } from "./chunking"
 import {
-  RESOURCE_PACK_CONFIDENCE_MEDIUM,
+  RESOURCE_PACK_STATUS_ERROR,
   RESOURCE_PACK_PREPARING_WARNING,
   RESOURCE_PACK_STATUS_PREPARING,
   RESOURCE_PACK_SYNC_BUDGET_MS,
@@ -53,7 +53,11 @@ export async function ensureResourcePack(input: {
   }
 
   const current = await loadFreshResourcePackSnapshot(buildInput)
-  if (current && current.status !== RESOURCE_PACK_STATUS_PREPARING) return current
+  if (
+    current &&
+    current.status !== RESOURCE_PACK_STATUS_PREPARING &&
+    current.status !== RESOURCE_PACK_STATUS_ERROR
+  ) return current
 
   const build = getOrStartBuild(buildInput)
   const readySnapshot = await Promise.race([
@@ -82,7 +86,6 @@ async function buildResourcePack(input: ResourcePackBuildInput): Promise<void> {
   await fs.mkdir(input.packPaths.rootPath, { recursive: true })
   await writePreparingResourcePackMetadata({
     build: input,
-    confidence: RESOURCE_PACK_CONFIDENCE_MEDIUM,
     warnings: [RESOURCE_PACK_PREPARING_WARNING],
   })
 
@@ -91,13 +94,12 @@ async function buildResourcePack(input: ResourcePackBuildInput): Promise<void> {
     await writeResourcePackFiles({
       build: input,
       status: extraction.status,
-      confidence: extraction.confidence,
       warnings: extraction.warnings,
       extractor: extraction.extractor,
       fullText: extraction.fullText,
       tocMarkdown: extraction.tocMarkdown,
       pageMarkdowns: extraction.pageMarkdowns,
-      chunks: buildChunkMarkdowns(extraction.fullText),
+      chunks: extraction.chunkMarkdowns ?? buildChunkMarkdowns(extraction.fullText),
     })
   } catch (error) {
     await writeErroredResourcePackMetadata({

@@ -6,15 +6,11 @@ import type {
   ResourceExtractionPage,
   ResourceFormat,
   ResourcePackBuildInput,
-  ResourcePackConfidence,
   ResourcePackMetadata,
   ResourcePackResolution,
   ResourcePackStatus,
 } from "./contracts"
 import {
-  RESOURCE_PACK_CONFIDENCE_HIGH,
-  RESOURCE_PACK_CONFIDENCE_LOW,
-  RESOURCE_PACK_CONFIDENCE_MEDIUM,
   RESOURCE_PACK_STATUS_ERROR,
   RESOURCE_PACK_STATUS_PREPARING,
   RESOURCE_PACK_STATUS_READY,
@@ -45,7 +41,6 @@ export async function loadFreshResourcePackSnapshot(
     fullPath: input.packPaths.fullPath,
     tocPath: (await exists(input.packPaths.tocPath)) ? input.packPaths.tocPath : undefined,
     status: metadata.status,
-    confidence: metadata.confidence,
     format: metadata.format,
     warnings: metadata.warnings,
   }
@@ -62,7 +57,6 @@ export function createPendingResourcePackSnapshot(input: ResourcePackBuildInput)
     fullPath: input.packPaths.fullPath,
     tocPath: undefined,
     status: RESOURCE_PACK_STATUS_PREPARING,
-    confidence: RESOURCE_PACK_CONFIDENCE_MEDIUM,
     format: input.classification.format,
     warnings: [RESOURCE_PACK_PREPARING_WARNING],
   }
@@ -70,7 +64,6 @@ export function createPendingResourcePackSnapshot(input: ResourcePackBuildInput)
 
 export async function writePreparingResourcePackMetadata(input: {
   build: ResourcePackBuildInput
-  confidence: ResourcePackConfidence
   warnings: string[]
 }) {
   await writeResourcePackMetadata(input.build.packPaths.metadataPath, {
@@ -84,7 +77,6 @@ export async function writePreparingResourcePackMetadata(input: {
     source_size_bytes: Number(input.build.sourceStat.size),
     chunk_count: 0,
     page_count: undefined,
-    confidence: input.confidence,
     warnings: input.warnings,
   })
 }
@@ -92,7 +84,6 @@ export async function writePreparingResourcePackMetadata(input: {
 export async function writeResourcePackFiles(input: {
   build: ResourcePackBuildInput
   status: ResourcePackStatus
-  confidence: ResourcePackConfidence
   warnings: string[]
   extractor: string
   fullText: string
@@ -123,7 +114,6 @@ export async function writeResourcePackFiles(input: {
     source_size_bytes: Number(input.build.sourceStat.size),
     chunk_count: input.chunks.length,
     page_count: input.pageMarkdowns?.length,
-    confidence: input.confidence,
     warnings: input.warnings,
   })
 }
@@ -142,7 +132,6 @@ export async function writeErroredResourcePackMetadata(input: {
     source_mtime_ms: Number(input.build.sourceStat.mtimeMs),
     source_size_bytes: Number(input.build.sourceStat.size),
     chunk_count: 0,
-    confidence: RESOURCE_PACK_CONFIDENCE_LOW,
     warnings: [input.message],
   })
 }
@@ -164,7 +153,6 @@ async function loadResourcePackMetadata(metadataPath: string): Promise<ResourceP
   const sourceMtimeMs = numberValue(data, "source_mtime_ms")
   const sourceSizeBytes = numberValue(data, "source_size_bytes")
   const chunkCount = numberValue(data, "chunk_count")
-  const confidence = normalizeResourcePackConfidence(stringValue(data, "confidence"))
   const warnings = stringArrayValue(data, "warnings")
   const pageCount = numberValue(data, "page_count", true)
 
@@ -177,8 +165,7 @@ async function loadResourcePackMetadata(metadataPath: string): Promise<ResourceP
     !preparedAt ||
     sourceMtimeMs === undefined ||
     sourceSizeBytes === undefined ||
-    chunkCount === undefined ||
-    !confidence
+    chunkCount === undefined
   ) {
     return undefined
   }
@@ -193,7 +180,6 @@ async function loadResourcePackMetadata(metadataPath: string): Promise<ResourceP
     source_mtime_ms: sourceMtimeMs,
     source_size_bytes: sourceSizeBytes,
     chunk_count: chunkCount,
-    confidence,
     warnings,
     ...(pageCount !== undefined ? { page_count: pageCount } : {}),
   }
@@ -271,13 +257,6 @@ function normalizeResourcePackStatus(value: string) {
   if (value === RESOURCE_PACK_STATUS_READY) return RESOURCE_PACK_STATUS_READY
   if (value === RESOURCE_PACK_STATUS_UNSUPPORTED) return RESOURCE_PACK_STATUS_UNSUPPORTED
   if (value === RESOURCE_PACK_STATUS_ERROR) return RESOURCE_PACK_STATUS_ERROR
-  return undefined
-}
-
-function normalizeResourcePackConfidence(value: string) {
-  if (value === RESOURCE_PACK_CONFIDENCE_HIGH) return RESOURCE_PACK_CONFIDENCE_HIGH
-  if (value === RESOURCE_PACK_CONFIDENCE_MEDIUM) return RESOURCE_PACK_CONFIDENCE_MEDIUM
-  if (value === RESOURCE_PACK_CONFIDENCE_LOW) return RESOURCE_PACK_CONFIDENCE_LOW
   return undefined
 }
 

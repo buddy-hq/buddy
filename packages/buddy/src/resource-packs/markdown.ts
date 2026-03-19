@@ -74,7 +74,6 @@ export function buildResourcePackEntryMarkdown(metadata: ResourcePackMetadata) {
       source_mtime_ms: metadata.source_mtime_ms,
       source_size_bytes: metadata.source_size_bytes,
       chunk_count: metadata.chunk_count,
-      confidence: metadata.confidence,
       warnings: metadata.warnings,
       ...(metadata.page_count !== undefined ? { page_count: metadata.page_count } : {}),
     },

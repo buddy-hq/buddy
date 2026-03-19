@@ -1,6 +1,7 @@
 import type { Stats } from "node:fs"
 
-export const RESOURCE_PACK_ROOT_DIR = ".buddy/resources" as const
+export const RESOURCE_PACK_ROOT_DIR = "resources" as const
+export const RESOURCE_PACK_PROCESSED_DIR_NAME = "processed" as const
 export const RESOURCE_PACK_ENTRYPOINT_FILE_NAME = "RESOURCE.md" as const
 export const RESOURCE_PACK_FULL_TEXT_FILE_NAME = "full.md" as const
 export const RESOURCE_PACK_TOC_FILE_NAME = "toc.md" as const
@@ -11,10 +12,6 @@ export const RESOURCE_PACK_STATUS_PREPARING = "preparing" as const
 export const RESOURCE_PACK_STATUS_READY = "ready" as const
 export const RESOURCE_PACK_STATUS_UNSUPPORTED = "unsupported" as const
 export const RESOURCE_PACK_STATUS_ERROR = "error" as const
-
-export const RESOURCE_PACK_CONFIDENCE_HIGH = "high" as const
-export const RESOURCE_PACK_CONFIDENCE_MEDIUM = "medium" as const
-export const RESOURCE_PACK_CONFIDENCE_LOW = "low" as const
 
 export const RESOURCE_PACK_SYNC_BUDGET_MS = 1500
 export const RESOURCE_PACK_LARGE_TEXT_THRESHOLD_BYTES = 128 * 1024
@@ -33,11 +30,6 @@ export type ResourcePackStatus =
   | typeof RESOURCE_PACK_STATUS_READY
   | typeof RESOURCE_PACK_STATUS_UNSUPPORTED
   | typeof RESOURCE_PACK_STATUS_ERROR
-
-export type ResourcePackConfidence =
-  | typeof RESOURCE_PACK_CONFIDENCE_HIGH
-  | typeof RESOURCE_PACK_CONFIDENCE_MEDIUM
-  | typeof RESOURCE_PACK_CONFIDENCE_LOW
 
 export type ResourceFormat =
   | "pdf"
@@ -72,7 +64,6 @@ export type ResourcePackResolution = {
   fullPath: string
   tocPath?: string
   status: ResourcePackStatus
-  confidence: ResourcePackConfidence
   format: ResourceFormat
   warnings: string[]
 }
@@ -91,7 +82,6 @@ export type ResourcePackMetadata = {
   source_mtime_ms: number
   source_size_bytes: number
   chunk_count: number
-  confidence: ResourcePackConfidence
   warnings: string[]
   page_count?: number
 }
@@ -103,9 +93,9 @@ export type ResourceExtractionPage = {
 
 export type ResourceExtractionResult = {
   status: Exclude<ResourcePackStatus, typeof RESOURCE_PACK_STATUS_PREPARING>
-  confidence: ResourcePackConfidence
   warnings: string[]
   fullText: string
+  chunkMarkdowns?: string[]
   tocMarkdown?: string
   pageMarkdowns?: ResourceExtractionPage[]
   extractor: string

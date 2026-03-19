@@ -2,6 +2,7 @@ import { createHash } from "node:crypto"
 import path from "node:path"
 import {
   RESOURCE_PACK_LARGE_TEXT_THRESHOLD_BYTES,
+  RESOURCE_PACK_ROOT_DIR,
   type ResourceClassification,
   type ResourceFormat,
 } from "./contracts"
@@ -92,6 +93,11 @@ export function classifyResourcePath(sourcePath: string, sourceSizeBytes?: numbe
 
 export function createResourcePackKey(directory: string, sourcePath: string) {
   const sourceRelpath = path.relative(directory, sourcePath) || path.basename(sourcePath)
+  const segments = sourceRelpath.split(path.sep)
+  if (segments.length >= 2 && segments[0] === RESOURCE_PACK_ROOT_DIR) {
+    const resourceFolder = segments[1]?.trim()
+    if (resourceFolder) return resourceFolder
+  }
   const slug = sourceRelpath.replace(/[^\w.-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40)
   const hash = createHash("sha256").update(sourceRelpath).digest("hex").slice(0, 12)
   return `${slug || "resource"}-${hash}`
