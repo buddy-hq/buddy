@@ -4,14 +4,12 @@ import { promises as fs } from "node:fs"
 import { pathToFileURL } from "node:url"
 import { Agent } from "@buddy/opencode-adapter/agent"
 import { SessionTransformValidationError } from "../../session"
-import {
-  classifyResourcePath,
-  ensureResourcePack,
-  type ResourcePackService,
-} from "../../resources/resource-pack-service"
+import { resolveResourceReference } from "../../resources/resource-registry-service"
 
 // Sync with packages/web/src/components/prompt/prompt-types.ts.
 export const WORKSPACE_FILE_REFERENCE_PART_TYPE = "workspace-file-reference" as const
+// Sync with packages/web/src/components/prompt/prompt-types.ts.
+export const RESOURCE_REFERENCE_PART_TYPE = "resource-reference" as const
 export const PROMPT_WORKSPACE_FILE_REFERENCE_REGEX =
   /(?<![\w`])@(?:"([^"\n]+)"|`([^`\n]+)`|(\.?[^\s`,.]+(?:\.[^\s`,.]+)*))/g
 const PROMPT_PART_TYPE_TEXT = "text" as const
@@ -19,19 +17,25 @@ const PROMPT_PART_TYPE_FILE = "file" as const
 const PROMPT_PART_TYPE_AGENT = "agent" as const
 const FILE_MIME_TEXT = "text/plain" as const
 const FILE_MIME_DIRECTORY = "application/x-directory" as const
+const RESOURCE_REFERENCE_NOT_FOUND = "Resource reference was not found. Add it first with /resource add." as const
+const RESOURCE_REFERENCE_NOT_READY = "Resource is not ready yet. Run /resource rebuild or wait for preparation." as const
+const RESOURCE_REFERENCE_INVALID_PACK = "Resource pack is invalid. Run /resource rebuild." as const
 
 export type WorkspaceFileReferencePart = {
   type: typeof WORKSPACE_FILE_REFERENCE_PART_TYPE
   path: string
 }
 
+export type ResourceReferencePart = {
+  type: typeof RESOURCE_REFERENCE_PART_TYPE
+  key: string
+}
+
 export async function normalizePromptParts(input: {
   directory: string
   content: string
   parts: unknown[]
-  resourcePackService?: ResourcePackService
 }): Promise<Record<string, unknown>[]> {
-  const resourcePackResolver = input.resourcePackService ?? { ensureResourcePack }
   const normalizedParts: Record<string, unknown>[] = []
 
   if (input.content.trim().length > 0) {
@@ -41,7 +45,6 @@ export async function normalizePromptParts(input: {
         type: "text",
         text: input.content,
       },
-      resourcePackResolver,
     })))
   }
 
@@ -50,7 +53,14 @@ export async function normalizePromptParts(input: {
       normalizedParts.push(...(await expandWorkspaceFileReferencePart({
         directory: input.directory,
         part,
-        resourcePackResolver,
+      })))
+      continue
+    }
+
+    if (isResourceReferencePart(part)) {
+      normalizedParts.push(...(await expandResourceReferencePart({
+        directory: input.directory,
+        part,
       })))
       continue
     }
@@ -59,7 +69,6 @@ export async function normalizePromptParts(input: {
       normalizedParts.push(...(await expandPromptTextPart({
         directory: input.directory,
         part,
-        resourcePackResolver,
       })))
       continue
     }
@@ -79,7 +88,6 @@ export async function normalizePromptParts(input: {
 async function expandPromptTextPart(input: {
   directory: string
   part: Record<string, unknown>
-  resourcePackResolver: ResourcePackService
 }): Promise<Record<string, unknown>[]> {
   const text = promptTextValue(input.part)
   if (text === undefined || text.length === 0) {
@@ -111,7 +119,6 @@ async function expandPromptTextPart(input: {
       directory: input.directory,
       rawPath: rawReference,
       source: "raw",
-      resourcePackResolver: input.resourcePackResolver,
     })
     if (resolvedParts.length > 0) {
       pieces.push(...resolvedParts)
@@ -134,21 +141,63 @@ async function expandPromptTextPart(input: {
 async function expandWorkspaceFileReferencePart(input: {
   directory: string
   part: WorkspaceFileReferencePart
-  resourcePackResolver: ResourcePackService
 }): Promise<Record<string, unknown>[]> {
   return resolveWorkspaceReference({
     directory: input.directory,
     rawPath: input.part.path,
     source: "explicit",
-    resourcePackResolver: input.resourcePackResolver,
   })
+}
+
+async function expandResourceReferencePart(input: {
+  directory: string
+  part: ResourceReferencePart
+}): Promise<Record<string, unknown>[]> {
+  const key = input.part.key.trim()
+  if (!key) {
+    throw new SessionTransformValidationError("resource-reference key is required")
+  }
+
+  const resolved = await resolveResourceReference({
+    directory: input.directory,
+    key,
+  })
+
+  if (!resolved.ok) {
+    if (resolved.reason === "not_found") {
+      throw new SessionTransformValidationError(RESOURCE_REFERENCE_NOT_FOUND)
+    }
+    if (resolved.reason === "not_ready") {
+      throw new SessionTransformValidationError(RESOURCE_REFERENCE_NOT_READY)
+    }
+    throw new SessionTransformValidationError(RESOURCE_REFERENCE_INVALID_PACK)
+  }
+
+  const fileParts = [
+    createVendorFilePart({
+      filePath: resolved.entrypointPath,
+      filename: relativeDisplayPath(input.directory, resolved.entrypointPath),
+      mime: FILE_MIME_TEXT,
+    }),
+  ]
+
+  if (resolved.tocPath) {
+    fileParts.push(
+      createVendorFilePart({
+        filePath: resolved.tocPath,
+        filename: relativeDisplayPath(input.directory, resolved.tocPath),
+        mime: FILE_MIME_TEXT,
+      }),
+    )
+  }
+
+  return fileParts
 }
 
 async function resolveWorkspaceReference(input: {
   directory: string
   rawPath: string
   source: "raw" | "explicit"
-  resourcePackResolver: ResourcePackService
 }): Promise<Record<string, unknown>[]> {
   const resolvedPath = resolveWorkspacePath(input.directory, input.rawPath)
   const isWorkspaceScopedPath =
@@ -189,46 +238,11 @@ async function resolveWorkspaceReference(input: {
     ]
   }
 
-  const classification = classifyResourcePath(resolvedPath, Number(stat.size))
-  if (classification.kind === "pack") {
-    try {
-      const pack = await input.resourcePackResolver.ensureResourcePack({
-        directory: input.directory,
-        sourcePath: resolvedPath,
-      })
-
-      const fileParts = [
-        createVendorFilePart({
-          filePath: pack.entrypointPath,
-          filename: relativeDisplayPath(input.directory, pack.entrypointPath),
-          mime: FILE_MIME_TEXT,
-        }),
-      ]
-
-      if (pack.tocPath) {
-        fileParts.push(
-          createVendorFilePart({
-            filePath: pack.tocPath,
-            filename: relativeDisplayPath(input.directory, pack.tocPath),
-            mime: FILE_MIME_TEXT,
-          }),
-        )
-      }
-
-      return fileParts
-    } catch (error) {
-      if (error instanceof Error) {
-        throw new SessionTransformValidationError(error.message)
-      }
-      throw new SessionTransformValidationError(String(error))
-    }
-  }
-
   return [
     createVendorFilePart({
       filePath: resolvedPath,
       filename: relativeDisplayPath(input.directory, resolvedPath),
-      mime: classification.mime,
+      mime: FILE_MIME_TEXT,
     }),
   ]
 }
@@ -302,6 +316,11 @@ function isPromptTextPart(part: unknown): part is Record<string, unknown> {
 function isWorkspaceFileReferencePart(part: unknown): part is WorkspaceFileReferencePart {
   if (!isPlainObject(part)) return false
   return part.type === WORKSPACE_FILE_REFERENCE_PART_TYPE && typeof part.path === "string"
+}
+
+function isResourceReferencePart(part: unknown): part is ResourceReferencePart {
+  if (!isPlainObject(part)) return false
+  return part.type === RESOURCE_REFERENCE_PART_TYPE && typeof part.key === "string"
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

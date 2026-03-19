@@ -5,10 +5,10 @@ import { buildLearningSystemPrompt } from "./learning-prompt"
 import { normalizePromptParts } from "./workspace-file-references"
 import type { SystemPromptCtx } from "./prompt-context"
 import { getWorkspaceSnapshot } from "../learner-model"
+import { listResources } from "../../resources/resource-registry-service"
 import { resolveCapabilityProfile } from "../resolve-capability-profile"
 import type { TeachingSessionState } from "../shared/teaching-session-state"
 import type { WorkspaceState } from "@buddy/backend/learning/shared/teaching-vocabulary"
-import type { ResourcePackService } from "../../resources/resource-pack-service"
 import {
   assertNoLegacyRuntimeOverrides,
   hasExplicitModel,
@@ -23,10 +23,6 @@ export type MessagePromptPipelineContext = {
   sessionID: string
 }
 
-export type MessagePromptPipelineResources = {
-  resourcePackService?: ResourcePackService
-}
-
 export type MessagePromptPipelineResult = {
   transformed: Record<string, unknown>
   runtimeProfileForPermissions?: ReturnType<typeof resolveCapabilityProfile>
@@ -38,7 +34,6 @@ export async function runMessagePromptPipeline(input: {
   body: Record<string, unknown>
   projectConfig: Awaited<ReturnType<typeof readProjectConfig>>
   previousState?: TeachingSessionState
-  resources?: MessagePromptPipelineResources
 }): Promise<MessagePromptPipelineResult> {
   assertNoLegacyRuntimeOverrides(input.body)
 
@@ -47,9 +42,6 @@ export async function runMessagePromptPipeline(input: {
     directory: input.context.directory,
     content,
     parts: Array.isArray(input.body.parts) ? [...input.body.parts] : [],
-    ...(input.resources?.resourcePackService
-      ? { resourcePackService: input.resources.resourcePackService }
-      : {}),
   })
 
   const teachingContextResult = TeachingPromptContextSchema.safeParse(input.body.teaching)
@@ -86,6 +78,7 @@ export async function runMessagePromptPipeline(input: {
         workspaceState,
       },
     })
+    const resources = await listResources(input.context.directory).catch(() => [])
     const runtimeProfile = resolveCapabilityProfile({
       persona,
       workspaceState,
@@ -100,6 +93,13 @@ export async function runMessagePromptPipeline(input: {
       intent: intent,
       learnerSnapshot: learnerSnapshot,
       focusGoalIds,
+      resources: resources.map((resource) => ({
+        alias: resource.alias,
+        sourceRelpath: resource.sourceRelpath,
+        format: resource.format,
+        status: resource.status,
+        warnings: resource.warnings,
+      })),
       teachingContext,
       ...(input.previousState
         ? {

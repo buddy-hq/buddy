@@ -1,10 +1,22 @@
 import type { Intent, WorkspaceState } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import { getIntentPrompt } from "../intents/get-intent-prompt"
 import type { SystemPromptCtx } from "./prompt-context"
+import {
+  RESOURCE_PACK_PROCESSED_DIR_NAME,
+  RESOURCE_PACK_ROOT_DIR,
+} from "../../resource-packs/contracts"
 
 type LearnerSnapshotContext = SystemPromptCtx["learnerSnapshot"]
 type RuntimePromptProfile = Pick<SystemPromptCtx, "persona" | "capabilityEnvelope">
 type TeachingContext = NonNullable<SystemPromptCtx["teachingContext"]>
+type ResourceContext = SystemPromptCtx["resources"][number]
+
+const RESOURCE_CONTEXT_TAG_OPEN = "<notebook_resources>" as const
+const RESOURCE_CONTEXT_TAG_CLOSE = "</notebook_resources>" as const
+const RESOURCE_INVENTORY_DETAILED_MAX_ITEMS = 7
+const RESOURCE_INVENTORY_ALIAS_ONLY_MAX_ITEMS = 20
+const RESOURCE_PATH_PREVIEW_MAX_CHARS = 120
+const RESOURCE_WARNING_PREVIEW_MAX_CHARS = 140
 
 type TeachingCheckpointStatus = {
   changedSinceLastCheckpoint: boolean
@@ -113,6 +125,72 @@ function buildCalculatorRuntimeText(profile: RuntimePromptProfile): string | und
   ].join("\n")
 }
 
+function clampText(value: string, maxLength: number): string {
+  if (value.length <= maxLength) return value
+  return `${value.slice(0, Math.max(0, maxLength - 3))}...`
+}
+
+function firstWarningText(warnings: string[]): string | undefined {
+  const warning = warnings.find((entry) => entry.trim().length > 0)
+  if (!warning) return undefined
+  return clampText(compactLine(warning), RESOURCE_WARNING_PREVIEW_MAX_CHARS)
+}
+
+function formatResourceInventoryLine(resource: ResourceContext): string {
+  const sourcePreview = clampText(resource.sourceRelpath, RESOURCE_PATH_PREVIEW_MAX_CHARS)
+  const packPath = `${RESOURCE_PACK_ROOT_DIR}/${resource.alias}/${RESOURCE_PACK_PROCESSED_DIR_NAME}`
+  const segments = [
+    `alias=${resource.alias}`,
+    `format=${resource.format}`,
+    `status=${resource.status}`,
+    `source=${sourcePreview}`,
+    `pack=${packPath}`,
+  ]
+
+  const warning = firstWarningText(resource.warnings)
+  if (warning) {
+    segments.push(`note=${warning}`)
+  }
+
+  return `- ${segments.join(" | ")}`
+}
+
+function buildResourceContextText(resources: SystemPromptCtx["resources"]): string {
+  const lines = [
+    RESOURCE_CONTEXT_TAG_OPEN,
+    "Resources are notebook-local user-provided reference files.",
+    "They are staged under `resources/<alias>/` and prepared text is under `resources/<alias>/processed/`.",
+    "When resource evidence is relevant, start from `RESOURCE.md`, then `toc.md` if present, then `chunks/`, `pages/` (PDF), and `full.md`.",
+    "Use normal file tools (`read`, `grep`, `glob`, `bash`) and subagents as needed. Do not read every resource by default.",
+  ]
+
+  if (resources.length === 0) {
+    lines.push("No notebook resources are currently available.")
+    lines.push("If external material is needed, ask the learner to add a resource from the Resources panel or with `/resource add`.")
+    lines.push(RESOURCE_CONTEXT_TAG_CLOSE)
+    return lines.join("\n")
+  }
+
+  lines.push("Available resources:")
+  const detailedResources = resources.slice(0, RESOURCE_INVENTORY_DETAILED_MAX_ITEMS)
+  lines.push(...detailedResources.map(formatResourceInventoryLine))
+
+  const remainingResources = resources.slice(detailedResources.length)
+  if (remainingResources.length > 0) {
+    const aliasOnlyResources = remainingResources.slice(0, RESOURCE_INVENTORY_ALIAS_ONLY_MAX_ITEMS)
+    lines.push(
+      `Additional resources (alias only): ${aliasOnlyResources.map((resource) => resource.alias).join(", ")}`,
+    )
+    const hiddenCount = remainingResources.length - aliasOnlyResources.length
+    if (hiddenCount > 0) {
+      lines.push(`- ... ${hiddenCount} more resources not listed`)
+    }
+    lines.push("Inventory is truncated for prompt budget. Inspect `resources/` directly when you need the full list.")
+  }
+  lines.push(RESOURCE_CONTEXT_TAG_CLOSE)
+  return lines.join("\n")
+}
+
 function buildTeachingWorkspaceText(input: {
   context: TeachingContext
   checkpointStatus?: TeachingCheckpointStatus
@@ -165,6 +243,7 @@ async function buildRuntimeContext(input: SystemPromptCtx): Promise<RuntimeConte
   if (calculatorRuntime) {
     runtimeSections.push(calculatorRuntime)
   }
+  runtimeSections.push(buildResourceContextText(input.resources))
   runtimeSections.push(learnerSections.learnerSummary)
   runtimeSections.push(learnerSections.learnerProgress)
   runtimeSections.push(learnerSections.learnerFeedback)

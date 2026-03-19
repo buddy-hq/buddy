@@ -13,6 +13,16 @@ export type PromptTurnSnapshot = {
   workspaceState: WorkspaceState
 }
 
+export type PromptResourceStatus = "preparing" | "ready" | "unsupported" | "error" | "stale"
+
+export type PromptResourceSnapshot = {
+  alias: string
+  sourceRelpath: string
+  format: string
+  status: PromptResourceStatus
+  warnings: string[]
+}
+
 export type SystemPromptCtx = {
   directory: string
   persona: Persona
@@ -20,6 +30,7 @@ export type SystemPromptCtx = {
   intent: Intent
   learnerSnapshot: LearnerSnapshot
   focusGoalIds: string[]
+  resources: PromptResourceSnapshot[]
   teachingContext?: TeachingPromptContext
   priorTurn?: PromptTurnSnapshot
 }
