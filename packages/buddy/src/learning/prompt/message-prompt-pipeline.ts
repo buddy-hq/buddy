@@ -1,13 +1,14 @@
 import { parseConfiguredModel, type readProjectConfig } from "@buddy/backend/config/runtime"
-import { SessionTransformValidationError } from "../../session"
 import { TeachingPromptContextSchema } from "../capabilities"
 import { getBuddyPersona } from "../personas"
 import { buildLearningSystemPrompt } from "./learning-prompt"
+import { normalizePromptParts } from "./workspace-file-references"
 import type { SystemPromptCtx } from "./prompt-context"
 import { getWorkspaceSnapshot } from "../learner-model"
 import { resolveCapabilityProfile } from "../resolve-capability-profile"
 import type { TeachingSessionState } from "../shared/teaching-session-state"
 import type { WorkspaceState } from "@buddy/backend/learning/shared/teaching-vocabulary"
+import type { ResourcePackService } from "../../resources/resource-pack-service"
 import {
   assertNoLegacyRuntimeOverrides,
   hasExplicitModel,
@@ -22,6 +23,10 @@ export type MessagePromptPipelineContext = {
   sessionID: string
 }
 
+export type MessagePromptPipelineResources = {
+  resourcePackService?: ResourcePackService
+}
+
 export type MessagePromptPipelineResult = {
   transformed: Record<string, unknown>
   runtimeProfileForPermissions?: ReturnType<typeof resolveCapabilityProfile>
@@ -33,21 +38,19 @@ export async function runMessagePromptPipeline(input: {
   body: Record<string, unknown>
   projectConfig: Awaited<ReturnType<typeof readProjectConfig>>
   previousState?: TeachingSessionState
+  resources?: MessagePromptPipelineResources
 }): Promise<MessagePromptPipelineResult> {
   assertNoLegacyRuntimeOverrides(input.body)
 
-  const parts = Array.isArray(input.body.parts) ? [...input.body.parts] : []
   const content = typeof input.body.content === "string" ? input.body.content : ""
-  if (content.trim().length > 0) {
-    parts.unshift({
-      type: "text",
-      text: content,
-    })
-  }
-
-  if (parts.length === 0) {
-    throw new SessionTransformValidationError("content or parts must be provided")
-  }
+  const parts = await normalizePromptParts({
+    directory: input.context.directory,
+    content,
+    parts: Array.isArray(input.body.parts) ? [...input.body.parts] : [],
+    ...(input.resources?.resourcePackService
+      ? { resourcePackService: input.resources.resourcePackService }
+      : {}),
+  })
 
   const teachingContextResult = TeachingPromptContextSchema.safeParse(input.body.teaching)
   const teachingContext = teachingContextResult.success ? teachingContextResult.data : undefined
