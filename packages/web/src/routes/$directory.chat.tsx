@@ -15,7 +15,13 @@ import { MathFigurePanel } from "@/components/teaching/math-figure-panel"
 import { usePlatform } from "@/context/platform"
 import { getFilename } from "@/components/layout/sidebar-helpers"
 import { PromptComposer } from "@/components/prompt/prompt-composer"
-import type { PromptAttachmentPart, PromptComposerAttachment } from "@/components/prompt/prompt-types"
+import { PROMPT_PART_TYPE_FILE, PROMPT_PART_TYPE_TEXT } from "@/components/prompt/prompt-types"
+import type {
+  PromptAttachmentPart,
+  PromptComposerAttachment,
+  PromptComposerPart,
+  PromptSubmissionPart,
+} from "@/components/prompt/prompt-types"
 import { parseSlashCommandInput } from "@/components/prompt/slash-autocomplete"
 import {
   ChevronRightIcon,
@@ -212,7 +218,7 @@ function buildPromptAttachmentParts(attachments: PromptComposerAttachment[]): Pr
       if (content !== undefined) {
         return [
           {
-            type: "text" as const,
+            type: PROMPT_PART_TYPE_TEXT,
             text: `Attached file (${attachment.filename}):\n${content}`,
           },
         ]
@@ -221,7 +227,7 @@ function buildPromptAttachmentParts(attachments: PromptComposerAttachment[]): Pr
 
     return [
       {
-        type: "file" as const,
+        type: PROMPT_PART_TYPE_FILE,
         mime: attachment.mime,
         url: attachment.dataUrl,
         filename: attachment.filename,
@@ -230,9 +236,19 @@ function buildPromptAttachmentParts(attachments: PromptComposerAttachment[]): Pr
   })
 }
 
+function buildPromptSubmissionParts(
+  promptParts: PromptComposerPart[],
+  attachments: PromptComposerAttachment[],
+): PromptSubmissionPart[] {
+  return [
+    ...promptParts.map((part) => ({ ...part })),
+    ...buildPromptAttachmentParts(attachments),
+  ]
+}
+
 function buildCommandAttachmentParts(attachments: PromptComposerAttachment[]) {
   return attachments.map((attachment) => ({
-    type: "file" as const,
+    type: PROMPT_PART_TYPE_FILE,
     mime: attachment.mime === "text/plain" ? "application/octet-stream" : attachment.mime,
     url: attachment.dataUrl,
     filename: attachment.filename,
@@ -1108,14 +1124,16 @@ function DirectoryChatPage() {
   async function sendRuntimePrompt(input: {
     content: string
     attachments?: PromptComposerAttachment[]
+    parts?: PromptComposerPart[]
     intent?: TeachingIntent
     focusGoalIds?: string[]
   }) {
     if (!decodedDirectory) return false
 
     const rawAttachments = input.attachments ?? []
+    const promptParts = input.parts ?? []
     const content = input.content.trim()
-    if (!content && rawAttachments.length === 0) return false
+    if (!content && rawAttachments.length === 0 && promptParts.length === 0) return false
 
     if (selectedPersonaSupportsEditor && isInteractiveMode) {
       const ready = await flushTeachingWorkspace()
@@ -1130,8 +1148,8 @@ function DirectoryChatPage() {
       pendingWorkspace: sessionKey ? workspaceProbeBySessionRef.current.get(sessionKey) : undefined,
     })
 
-    await sendPrompt(decodedDirectory, content, {
-      parts: buildPromptAttachmentParts(rawAttachments),
+    await sendPrompt(decodedDirectory, promptParts.length > 0 ? "" : content, {
+      parts: buildPromptSubmissionParts(promptParts, rawAttachments),
       persona: selectedPersona,
       intent: input.intent ?? intentFromSelection(storedIntent),
       focusGoalIds: input.focusGoalIds,
@@ -1143,12 +1161,17 @@ function DirectoryChatPage() {
     return true
   }
 
-  async function onSend(input?: { value: string; attachments: PromptComposerAttachment[] }) {
+  async function onSend(input?: {
+    value: string
+    attachments: PromptComposerAttachment[]
+    parts: PromptComposerPart[]
+  }) {
     if (!decodedDirectory) return
     const rawContent = input?.value ?? draft
+    const promptParts = input?.parts ?? []
     const rawAttachments = input?.attachments ?? draftAttachments
     const content = rawContent.trim()
-    if (!content && rawAttachments.length === 0) return
+    if (!content && rawAttachments.length === 0 && promptParts.length === 0) return
 
     const modelSelection = effectiveModelSelection
     const variant = selectedThinking !== "default" ? selectedThinking : undefined
@@ -1158,8 +1181,8 @@ function DirectoryChatPage() {
       const attachmentParts = buildCommandAttachmentParts(rawAttachments)
       setDraft("")
       setDraftAttachments([])
-    try {
-      await sendCommand(decodedDirectory, slashCommand.command.name, slashCommand.arguments, {
+      try {
+        await sendCommand(decodedDirectory, slashCommand.command.name, slashCommand.arguments, {
           parts: attachmentParts,
           persona: selectedPersona,
           intent: intentFromSelection(storedIntent),
@@ -1179,6 +1202,7 @@ function DirectoryChatPage() {
     try {
       const sent = await sendRuntimePrompt({
         content,
+        parts: promptParts,
         attachments: rawAttachments,
         intent: pendingSuggestionOverride?.intent,
         focusGoalIds: pendingSuggestionOverride?.focusGoalIds,

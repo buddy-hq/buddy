@@ -33,7 +33,10 @@ import type {
 } from "./teaching-runtime"
 import { stringifyError } from "../lib/api-client"
 import { getBuddyClient, requireBuddyData, buddyResultMessage } from "../lib/buddy-client"
-import type { PromptAttachmentPart, PromptFilePart } from "../components/prompt/prompt-types"
+import type {
+  PromptFilePart,
+  PromptSubmissionPart,
+} from "../components/prompt/prompt-types"
 
 export type PersonaConfigOption = {
   id: string
@@ -477,7 +480,7 @@ export async function preloadProjectSessions(directories: string[]) {
 export async function loadSessions(directory: string) {
   const store = useChatStore.getState()
   try {
-    const sessions = requireBuddyData<SessionInfo[]>(await getBuddyClient(directory).session.list())
+    const sessions = requireBuddyData<SessionInfo[]>(await getBuddyClient(directory).session.list({ directory }))
     store.setSessions(directory, sessions)
     store.setDirectoryError(directory, undefined)
     return sessions
@@ -634,7 +637,7 @@ export async function sendPrompt(
   directory: string,
   content: string,
   input?: {
-    parts?: PromptAttachmentPart[]
+    parts?: PromptSubmissionPart[]
     persona?: string
     intent: TeachingIntent
     focusGoalIds?: string[]
