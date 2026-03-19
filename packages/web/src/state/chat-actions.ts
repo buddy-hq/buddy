@@ -155,6 +155,17 @@ export type TeachingSessionSnapshot = {
   currentSurface: string
   workspaceState: "chat" | "interactive"
   focusGoalIds: string[]
+  lastLlmOutbound?: TeachingLlmOutboundSnapshot
+  llmOutboundHistory?: TeachingLlmOutboundSnapshot[]
+}
+
+export type TeachingLlmOutboundSnapshot = {
+  kind: "message" | "command"
+  createdAt: string
+  payload: Record<string, unknown>
+  systemPromptSent?: string
+  systemPromptEffective?: string
+  fullSystemPrompt?: string
 }
 
 const BUDDY_PERSONA_DEFAULT_ORDER = ["buddy", "code-buddy", "math-buddy"] as const
