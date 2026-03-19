@@ -18,6 +18,7 @@ import {
 const RESOURCE_PREPARATION_POLL_ATTEMPTS = 20
 const RESOURCE_PREPARATION_POLL_DELAY_MS = 500
 const RESOURCE_ALIAS_DEFAULT = "resource" as const
+const LEGACY_RESOURCE_REGISTRY_FILENAME = "registry.json" as const
 const RESOURCE_ALIAS_REPLACE_REGEX = /[^a-z0-9._-]+/g
 const RESOURCE_ALIAS_TRIM_REGEX = /^-+|-+$/g
 const RESOURCE_SOURCE_MISSING_WARNING_PREFIX = "Resource source file not found: " as const
@@ -70,6 +71,7 @@ export class ResourceValidationError extends Error {}
 export class ResourceNotFoundError extends Error {}
 
 export async function listResources(directory: string): Promise<ResourceRecord[]> {
+  await removeLegacyResourceRegistryFile(directory)
   const aliases = await listResourceAliases(directory)
   const records = await Promise.all(
     aliases.map(async (alias) => buildResourceRecord({
@@ -85,6 +87,7 @@ export async function addResource(input: {
   sourcePath: string
   alias?: string
 }): Promise<ResourceRecord> {
+  await removeLegacyResourceRegistryFile(input.directory)
   const absoluteSourcePath = resolveInputSourcePath(input.directory, input.sourcePath)
   const sourceStat = await fs.stat(absoluteSourcePath).catch(() => undefined)
   if (!sourceStat) {
@@ -464,6 +467,11 @@ async function listResourceAliases(directory: string): Promise<string[]> {
   return entries
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
+}
+
+async function removeLegacyResourceRegistryFile(directory: string) {
+  const legacyRegistryPath = path.join(resourceRootPath(directory), LEGACY_RESOURCE_REGISTRY_FILENAME)
+  await fs.rm(legacyRegistryPath, { force: true }).catch(() => undefined)
 }
 
 function resourceAliasFromStagedSourcePath(directory: string, sourcePath: string) {
