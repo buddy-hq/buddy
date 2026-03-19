@@ -12,7 +12,7 @@ export const RESOURCE_LOCAL_SLASH_COMMANDS = [
     type: "builtin" as const,
     name: RESOURCE_COMMAND_PANEL,
     title: "Open resources panel",
-    description: "Show the notebook resource registry in the right sidebar.",
+    description: "Show notebook resources in the right sidebar.",
   },
   {
     type: "builtin" as const,
