@@ -4,11 +4,11 @@ import path from "node:path"
 import { pathToFileURL } from "node:url"
 import { readProjectConfig } from "@buddy/backend/config/runtime"
 import { runMessagePromptPipeline } from "../../src/learning/prompt/message-prompt-pipeline"
-import { WORKSPACE_FILE_REFERENCE_PART_TYPE } from "../../src/learning/prompt/workspace-file-references"
-import type {
-  ResourcePackResolution,
-  ResourcePackService,
-} from "../../src/resources/resource-pack-service"
+import { ensureResourcePack } from "../../src/resources/resource-pack-service"
+import {
+  RESOURCE_REFERENCE_PART_TYPE,
+  WORKSPACE_FILE_REFERENCE_PART_TYPE,
+} from "../../src/learning/prompt/workspace-file-references"
 import { tmpdir } from "../helpers/tmpdir"
 
 describe("message prompt resource references", () => {
@@ -17,39 +17,10 @@ describe("message prompt resource references", () => {
     const config = await readProjectConfig(project.path)
 
     const notesPath = path.join(project.path, "notes.md")
-    const codePath = path.join(project.path, "helper.ts")
     const sourcePath = path.join(project.path, "book chapter 1.pdf")
-    const packRootPath = path.join(project.path, ".buddy", "resources", "fake-pack")
-    const entrypointPath = path.join(packRootPath, "RESOURCE.md")
-    const tocPath = path.join(packRootPath, "toc.md")
 
-    mkdirSync(packRootPath, { recursive: true })
     writeFileSync(notesPath, "# Notes\n\nPlain text reference.\n")
-    writeFileSync(codePath, "export const helper = 1\n")
     writeFileSync(sourcePath, "%PDF-1.4\n% fake resource for testing\n")
-    writeFileSync(entrypointPath, "# Resource\n")
-    writeFileSync(tocPath, "# Table of Contents\n")
-
-    const calls: Array<{ directory: string; sourcePath: string }> = []
-    const resourcePackService: ResourcePackService = {
-      ensureResourcePack: async (input): Promise<ResourcePackResolution> => {
-        calls.push({ directory: input.directory, sourcePath: input.sourcePath })
-        return {
-          sourcePath: input.sourcePath,
-          sourceRelpath: path.relative(input.directory, input.sourcePath),
-          packKey: "fake-pack",
-          packRootPath,
-          metadataPath: entrypointPath,
-          entrypointPath,
-          fullPath: path.join(packRootPath, "full.md"),
-          tocPath,
-          status: "ready",
-          confidence: "medium",
-          format: "pdf",
-          warnings: [],
-        }
-      },
-    }
 
     const result = await runMessagePromptPipeline({
       context: {
@@ -67,20 +38,10 @@ describe("message prompt resource references", () => {
         agent: "custom-agent",
       },
       projectConfig: config,
-      resources: {
-        resourcePackService,
-      },
     })
 
-    expect(calls).toEqual([
-      {
-        directory: project.path,
-        sourcePath,
-      },
-    ])
-
     const parts = result.transformed.parts as Array<Record<string, unknown>>
-    expect(parts).toHaveLength(4)
+    expect(parts).toHaveLength(3)
     expect(parts[0]).toEqual({
       type: "text",
       text: "See ",
@@ -94,61 +55,92 @@ describe("message prompt resource references", () => {
     expect(parts[2]).toMatchObject({
       type: "file",
       mime: "text/plain",
-      filename: path.relative(project.path, entrypointPath),
-      url: pathToFileURL(entrypointPath).href,
-    })
-    expect(parts[3]).toMatchObject({
-      type: "file",
-      mime: "text/plain",
-      filename: path.relative(project.path, tocPath),
-      url: pathToFileURL(tocPath).href,
+      filename: "book chapter 1.pdf",
+      url: pathToFileURL(sourcePath).href,
     })
   })
 
-  test("keeps direct code references on the existing text-file path", async () => {
+  test("resolves explicit resource-reference parts to pack entry files", async () => {
     await using project = await tmpdir({ git: true })
     const config = await readProjectConfig(project.path)
-
-    const codePath = path.join(project.path, "helper.ts")
-    writeFileSync(codePath, "export const helper = 1\n")
-
-    let resourcePackCalls = 0
-    const resourcePackService: ResourcePackService = {
-      ensureResourcePack: async () => {
-        resourcePackCalls += 1
-        throw new Error("should not be called for direct code files")
-      },
-    }
+    const packKey = "shape-up"
+    const sourcePath = path.join(project.path, "resources", packKey, "guide.html")
+    mkdirSync(path.dirname(sourcePath), { recursive: true })
+    writeFileSync(
+      sourcePath,
+      "<!doctype html><html><body><h1>Shape Up</h1><h2>Chapter 1</h2><p>Start</p></body></html>",
+      "utf8",
+    )
+    const prepared = await ensureResourcePack({
+      directory: project.path,
+      sourcePath,
+    })
+    const entrypointPath = prepared.entrypointPath
+    const tocPath = prepared.tocPath
+    expect(tocPath).toBeDefined()
 
     const result = await runMessagePromptPipeline({
       context: {
         directory: project.path,
-        sessionID: "ses_direct_code",
+        sessionID: "ses_resource_part",
       },
       body: {
-        content: "Open @helper.ts",
+        content: "Use this resource",
+        parts: [
+          {
+            type: RESOURCE_REFERENCE_PART_TYPE,
+            key: packKey,
+          },
+        ],
         agent: "custom-agent",
       },
       projectConfig: config,
-      resources: {
-        resourcePackService,
-      },
     })
 
-    expect(resourcePackCalls).toBe(0)
     const parts = result.transformed.parts as Array<Record<string, unknown>>
     expect(parts).toEqual([
       {
         type: "text",
-        text: "Open ",
+        text: "Use this resource",
       },
       {
         type: "file",
         mime: "text/plain",
-        filename: "helper.ts",
-        url: pathToFileURL(codePath).href,
+        filename: path.relative(project.path, entrypointPath),
+        url: pathToFileURL(entrypointPath).href,
+      },
+      {
+        type: "file",
+        mime: "text/plain",
+        filename: path.relative(project.path, tocPath!),
+        url: pathToFileURL(tocPath!).href,
       },
     ])
+  })
+
+  test("rejects unknown resource-reference keys", async () => {
+    await using project = await tmpdir({ git: true })
+    const config = await readProjectConfig(project.path)
+
+    await expect(
+      runMessagePromptPipeline({
+        context: {
+          directory: project.path,
+          sessionID: "ses_resource_missing",
+        },
+        body: {
+          content: "",
+          parts: [
+            {
+              type: RESOURCE_REFERENCE_PART_TYPE,
+              key: "missing",
+            },
+          ],
+          agent: "custom-agent",
+        },
+        projectConfig: config,
+      }),
+    ).rejects.toThrow("Resource reference was not found")
   })
 
   test("keeps unresolved raw @tokens as text", async () => {

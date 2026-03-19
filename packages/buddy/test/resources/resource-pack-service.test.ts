@@ -137,11 +137,12 @@ describe("resource pack service", () => {
 
     const fullText = await fs.readFile(pack.fullPath, "utf8")
     const tocText = await fs.readFile(pack.tocPath!, "utf8")
+    const chunkFiles = await fs.readdir(path.join(pack.packRootPath, RESOURCE_PACK_CHUNKS_DIR_NAME))
     expect(fullText).toContain("Opening chapter")
     expect(fullText).toContain("Closing chapter")
     expect(tocText).toContain("Chapter One")
     expect(tocText).toContain("Chapter Two")
-    expect(await fs.readdir(path.join(pack.packRootPath, RESOURCE_PACK_CHUNKS_DIR_NAME))).not.toHaveLength(0)
+    expect(chunkFiles.length).toBeGreaterThanOrEqual(2)
   })
 
   test("rebuilds packs when fresh metadata is stuck in preparing state", async () => {
@@ -164,8 +165,40 @@ describe("resource pack service", () => {
         source_mtime_ms: Number(sourceStat.mtimeMs),
         source_size_bytes: Number(sourceStat.size),
         chunk_count: 0,
-        confidence: "medium",
         warnings: ["The resource is still being prepared."],
+      }),
+    )
+
+    const pack = await ensureResourcePack({
+      directory: project.path,
+      sourcePath,
+    })
+
+    expect(pack.status).toBe(RESOURCE_PACK_STATUS_READY)
+    expect(await exists(pack.fullPath)).toBe(true)
+  })
+
+  test("rebuilds packs when fresh metadata is stuck in error state", async () => {
+    await using project = await tmpdir({ git: true })
+    const sourcePath = path.join(project.path, "guide.html")
+    await fs.writeFile(sourcePath, "<!doctype html><html><body><h1>Guide</h1><p>Body</p></body></html>")
+    const sourceStat = await fs.stat(sourcePath)
+    const packPaths = createResourcePackPaths(project.path, sourcePath)
+
+    await fs.mkdir(packPaths.rootPath, { recursive: true })
+    await fs.writeFile(
+      packPaths.metadataPath,
+      matter.stringify("# Resource", {
+        source_path: sourcePath,
+        source_relpath: "guide.html",
+        format: "html",
+        status: "error",
+        extractor: "error",
+        prepared_at: new Date().toISOString(),
+        source_mtime_ms: Number(sourceStat.mtimeMs),
+        source_size_bytes: Number(sourceStat.size),
+        chunk_count: 0,
+        warnings: ["prior failure"],
       }),
     )
 
