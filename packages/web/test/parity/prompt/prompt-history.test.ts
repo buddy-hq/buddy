@@ -113,6 +113,23 @@ describe("prompt history", () => {
     expect(entries[0]?.parts).toEqual(draft.parts)
   })
 
+  test("does not deduplicate resource references with different keys", () => {
+    const first = prependHistoryEntry([], {
+      value: "Use resource:alpha",
+      attachments: [],
+      parts: [{ type: "resource-reference", key: "alpha" }],
+    })
+    const second = prependHistoryEntry(first, {
+      value: "Use resource:beta",
+      attachments: [],
+      parts: [{ type: "resource-reference", key: "beta" }],
+    })
+
+    expect(second).toHaveLength(2)
+    expect(second[0]?.parts).toEqual([{ type: "resource-reference", key: "beta" }])
+    expect(second[1]?.parts).toEqual([{ type: "resource-reference", key: "alpha" }])
+  })
+
   test("only allows fresh history navigation at the start or end of the editor", () => {
     expect(canNavigateHistoryAtCursor("up", "hello", 0)).toBe(true)
     expect(canNavigateHistoryAtCursor("up", "hello", 2)).toBe(false)

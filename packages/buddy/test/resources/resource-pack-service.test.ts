@@ -8,6 +8,7 @@ import {
   createResourcePackPaths,
   ensureResourcePack,
   RESOURCE_PACK_CHUNKS_DIR_NAME,
+  RESOURCE_PACK_FULL_TEXT_FILE_PREFIX,
   RESOURCE_PACK_ROOT_DIR,
   RESOURCE_PACK_STATUS_PREPARING,
   RESOURCE_PACK_STATUS_READY,
@@ -109,6 +110,11 @@ describe("resource pack service", () => {
     expect(String(refreshedMetadata.content)).toContain("How to use this pack")
     expect(await fs.readFile(refreshed.fullPath, "utf8")).toContain("Appendix")
     expect(await fs.readFile(refreshed.tocPath!, "utf8")).toContain("Appendix")
+    expect(await exists(first.fullPath)).toBe(false)
+    const fullTextFiles = (await fs.readdir(refreshed.packRootPath))
+      .filter((name) => name.startsWith(`${RESOURCE_PACK_FULL_TEXT_FILE_PREFIX}-`) && name.endsWith(".md"))
+    expect(fullTextFiles).toHaveLength(1)
+    expect(path.join(refreshed.packRootPath, fullTextFiles[0]!)).toBe(refreshed.fullPath)
   })
 
   test("extracts EPUB content and toc data", async () => {
