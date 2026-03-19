@@ -6,6 +6,11 @@ export type OpenDirectoryPickerOptions = {
   multiple?: boolean
 }
 
+export type OpenFilePickerOptions = {
+  title?: string
+  multiple?: boolean
+}
+
 export type UpdateCheckResult =
   | { status: "disabled" }
   | { status: "up-to-date" }
@@ -20,6 +25,7 @@ export type Platform = {
   toggleWindowMaximize?(): Promise<void>
   storage?(name?: string): StateStorage
   openDirectoryPickerDialog?(opts?: OpenDirectoryPickerOptions): Promise<string | string[] | null>
+  openFilePickerDialog?(opts?: OpenFilePickerOptions): Promise<string | string[] | null>
   fetch?: typeof fetch
   openLink(url: string): void
   restart(): Promise<void>

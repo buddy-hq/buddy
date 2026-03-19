@@ -87,12 +87,48 @@ export async function requestJson<T>(
   })
 
   if (!response.ok) {
-    const payload = (await response.json().catch(() => undefined)) as
-      | { error?: string; message?: string }
-      | undefined
-    const message = payload?.error ?? payload?.message ?? `Request failed (${response.status})`
+    const payload = await response.json().catch(() => undefined)
+    const message = readApiErrorMessage(payload, response.status)
     throw new Error(message)
   }
 
   return (await response.json()) as T
+}
+
+function readApiErrorMessage(payload: unknown, status: number) {
+  if (typeof payload === "string" && payload.trim().length > 0) {
+    return payload
+  }
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return `Request failed (${status})`
+  }
+
+  const candidate = payload as {
+    error?: unknown
+    message?: unknown
+    issues?: unknown
+  }
+
+  if (typeof candidate.error === "string" && candidate.error.trim().length > 0) {
+    return candidate.error
+  }
+  if (typeof candidate.message === "string" && candidate.message.trim().length > 0) {
+    return candidate.message
+  }
+
+  if (candidate.error && typeof candidate.error === "object" && !Array.isArray(candidate.error)) {
+    const nested = candidate.error as { message?: unknown; issues?: unknown }
+    if (typeof nested.message === "string" && nested.message.trim().length > 0) {
+      return nested.message
+    }
+    if (Array.isArray(nested.issues) && nested.issues.length > 0) {
+      return stringifyError(nested.issues[0])
+    }
+  }
+
+  if (Array.isArray(candidate.issues) && candidate.issues.length > 0) {
+    return stringifyError(candidate.issues[0])
+  }
+
+  return stringifyError(payload)
 }

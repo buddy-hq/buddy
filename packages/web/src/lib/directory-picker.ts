@@ -24,6 +24,7 @@ declare global {
     }
     electronAPI?: {
       openDirectoryPickerDialog?: () => Promise<string | string[] | null>
+      openFilePickerDialog?: () => Promise<string | string[] | null>
     }
   }
 }

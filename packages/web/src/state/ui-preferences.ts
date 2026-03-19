@@ -8,11 +8,12 @@ type UiPreferencesStore = {
   pinnedByDirectory: Record<string, string[]>
   unreadByDirectory: Record<string, Record<string, true>>
   directoryOrderMode: "saved-order" | "active-first"
+  directoryOrder: string[]
   leftSidebarOpen: boolean
   leftSidebarWidth: number
   rightSidebarOpen: boolean
   rightSidebarWidth: number
-  rightSidebarTab: "curriculum" | "editor" | "figure" | "capabilities" | "settings"
+  rightSidebarTab: "curriculum" | "editor" | "figure" | "resources" | "capabilities" | "settings"
   isPinned: (directory: string, sessionID: string) => boolean
   togglePinned: (directory: string, sessionID: string) => void
   markUnread: (directory: string, sessionID: string) => void
@@ -20,11 +21,12 @@ type UiPreferencesStore = {
   isUnread: (directory: string, sessionID: string) => boolean
   clearDirectorySessionState: (directory: string, sessionID: string) => void
   setDirectoryOrderMode: (mode: "saved-order" | "active-first") => void
+  setDirectoryOrder: (order: string[]) => void
   setLeftSidebarOpen: (open: boolean) => void
   setLeftSidebarWidth: (width: number) => void
   setRightSidebarOpen: (open: boolean) => void
   setRightSidebarWidth: (width: number) => void
-  setRightSidebarTab: (tab: "curriculum" | "editor" | "figure" | "capabilities" | "settings") => void
+  setRightSidebarTab: (tab: "curriculum" | "editor" | "figure" | "resources" | "capabilities" | "settings") => void
 }
 
 export const useUiPreferences = create<UiPreferencesStore>()(
@@ -33,6 +35,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
       pinnedByDirectory: {},
       unreadByDirectory: {},
       directoryOrderMode: "saved-order",
+      directoryOrder: [],
       leftSidebarOpen: true,
       leftSidebarWidth: 344,
       rightSidebarOpen: false,
@@ -100,6 +103,9 @@ export const useUiPreferences = create<UiPreferencesStore>()(
       setDirectoryOrderMode(mode) {
         set({ directoryOrderMode: mode })
       },
+      setDirectoryOrder(order) {
+        set({ directoryOrder: order })
+      },
       setLeftSidebarOpen(open) {
         set({ leftSidebarOpen: open })
       },
@@ -118,7 +124,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
     }),
     {
       name: UI_PREFERENCES_STORAGE_KEY,
-      version: 5,
+      version: 7,
       storage: createPlatformJsonStorage("buddy.ui.dat"),
       migrate(persistedState) {
         const state = persistedState as Partial<UiPreferencesStore> | undefined
@@ -126,6 +132,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
           pinnedByDirectory: state?.pinnedByDirectory ?? {},
           unreadByDirectory: state?.unreadByDirectory ?? {},
           directoryOrderMode: state?.directoryOrderMode === "active-first" ? "active-first" : "saved-order",
+          directoryOrder: Array.isArray(state?.directoryOrder) ? state.directoryOrder : [],
           leftSidebarOpen: state?.leftSidebarOpen ?? true,
           leftSidebarWidth: state?.leftSidebarWidth ?? 344,
           rightSidebarOpen: state?.rightSidebarOpen ?? false,
@@ -135,6 +142,8 @@ export const useUiPreferences = create<UiPreferencesStore>()(
               ? "settings"
               : state?.rightSidebarTab === "capabilities"
                 ? "capabilities"
+              : state?.rightSidebarTab === "resources"
+                ? "resources"
               : state?.rightSidebarTab === "figure"
                 ? "figure"
               : state?.rightSidebarTab === "editor"
@@ -147,6 +156,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
           pinnedByDirectory: state.pinnedByDirectory,
           unreadByDirectory: state.unreadByDirectory,
           directoryOrderMode: state.directoryOrderMode,
+          directoryOrder: state.directoryOrder,
           leftSidebarOpen: state.leftSidebarOpen,
           leftSidebarWidth: state.leftSidebarWidth,
           rightSidebarOpen: state.rightSidebarOpen,
