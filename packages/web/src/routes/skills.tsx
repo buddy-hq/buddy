@@ -30,6 +30,7 @@ function SkillsRoute() {
   const togglePinned = useUiPreferences((state) => state.togglePinned)
   const markUnread = useUiPreferences((state) => state.markUnread)
   const clearUnread = useUiPreferences((state) => state.clearUnread)
+  const setDirectoryOrder = useUiPreferences((state) => state.setDirectoryOrder)
 
   const currentDirectory = activeDirectory ?? openProjects[0] ?? ""
   const activeSessionID = currentDirectory ? directories[currentDirectory]?.sessionID : undefined
@@ -176,6 +177,7 @@ function SkillsRoute() {
           onToggleUnread={onToggleUnread}
           onArchiveSession={onArchiveSession}
           onRenameSession={onRenameSession}
+          onReorderDirectories={setDirectoryOrder}
           onOpenCurriculum={() => {
             if (currentDirectory) {
               openChat(currentDirectory)
