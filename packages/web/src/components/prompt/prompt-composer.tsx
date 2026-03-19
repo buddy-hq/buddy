@@ -31,7 +31,6 @@ import { createTextFragment, getCursorPosition, setCursorPosition, setRangeEdge 
 import {
   canNavigateHistoryAtCursor,
   navigatePromptHistory,
-  prependHistoryEntry,
   type PromptHistoryEntry,
 } from "./prompt-history"
 import { promptPlaceholder } from "./placeholder"
@@ -65,10 +64,17 @@ import {
 } from "./prompt-types"
 import { RESOURCE_LOCAL_SLASH_COMMANDS } from "../../lib/resource-commands"
 import { ImageAttachments } from "./image-attachments"
+import {
+  getPromptDraft,
+  getPromptHistoryEntries,
+  getPromptHistoryNavigation,
+  getPromptScopeKey,
+  usePromptStore,
+} from "../../state/prompt-store"
 
 type PromptComposerProps = {
-  value: string
-  attachments: PromptComposerAttachment[]
+  directory: string
+  sessionID?: string
   isBusy: boolean
   personaOptions: Array<{
     name: string
@@ -95,24 +101,20 @@ type PromptComposerProps = {
     label: string
   }>
   selectedThinking: string
-  onChange: (value: string) => void
-  onAttachmentsChange: (attachments: PromptComposerAttachment[]) => void
   onPersonaChange: (persona: string) => void
   onIntentChange: (intent: "auto" | "learn" | "practice" | "assess") => void
   onClearPendingSteer?: () => void
   onModelChange: (model: string) => void
   onThinkingChange: (thinking: string) => void
-  onSubmit: (input: { value: string; attachments: PromptComposerAttachment[]; parts: PromptComposerPart[] }) => void
+  onSubmit: () => void
   onAbort: () => void
   onNewSession: () => void
   onOpenMcpDialog?: () => void
   onSearchFiles?: (query: string) => Promise<MentionableFile[]>
   onRefreshSlashCommands?: () => void
-  historyKey?: string
   className?: string
 }
 
-const HISTORY_STORAGE_PREFIX = "buddy.prompt-history.v3"
 const MAX_RECENT_MENTION_FILES = 8
 const NON_EMPTY_TEXT = /[^\s\u200B]/
 
@@ -184,109 +186,6 @@ function translatePromptPlaceholder(key: string, params?: Record<string, string>
   return "Ask Buddy"
 }
 
-function historyStorageKey(key: string | undefined) {
-  if (!key) return `${HISTORY_STORAGE_PREFIX}:global`
-  return `${HISTORY_STORAGE_PREFIX}:${key}`
-}
-
-function loadHistory(key: string | undefined): PromptHistoryEntry[] {
-  if (typeof window === "undefined" || !("localStorage" in window)) return []
-
-  try {
-    const raw = window.localStorage.getItem(historyStorageKey(key))
-    if (!raw) return []
-    const parsed = JSON.parse(raw) as unknown
-    if (!Array.isArray(parsed)) return []
-
-    return parsed
-      .flatMap((entry) => {
-        if (!entry || typeof entry !== "object") return []
-        const candidate = entry as {
-          value?: unknown
-          attachments?: unknown
-          parts?: unknown
-        }
-        const value = typeof candidate.value === "string" ? candidate.value : ""
-        const attachments = Array.isArray(candidate.attachments)
-          ? candidate.attachments.flatMap((attachment) => {
-              if (!attachment || typeof attachment !== "object") return []
-              const item = attachment as Partial<PromptComposerAttachment>
-              if (
-                typeof item.id !== "string" ||
-                typeof item.filename !== "string" ||
-                typeof item.mime !== "string" ||
-                typeof item.dataUrl !== "string" ||
-                (item.kind !== "file" && item.kind !== "image")
-              ) {
-                return []
-              }
-
-              return [
-                {
-                  id: item.id,
-                  filename: item.filename,
-                  mime: item.mime,
-                  dataUrl: item.dataUrl,
-                  kind: item.kind,
-                } satisfies PromptComposerAttachment,
-              ]
-            })
-          : []
-        const parts: PromptComposerPart[] = []
-        if (Array.isArray(candidate.parts)) {
-          for (const part of candidate.parts) {
-            if (!part || typeof part !== "object") continue
-            const item = part as Record<string, unknown>
-            if (item.type === PROMPT_PART_TYPE_TEXT && typeof item.text === "string") {
-              parts.push({
-                type: PROMPT_PART_TYPE_TEXT,
-                text: item.text,
-              })
-              continue
-            }
-            if (item.type === PROMPT_PART_TYPE_AGENT && typeof item.name === "string") {
-              parts.push({
-                type: PROMPT_PART_TYPE_AGENT,
-                name: item.name,
-              })
-              continue
-            }
-            if (item.type === WORKSPACE_FILE_REFERENCE_PART_TYPE && typeof item.path === "string") {
-              parts.push({
-                type: WORKSPACE_FILE_REFERENCE_PART_TYPE,
-                path: item.path,
-              })
-              continue
-            }
-            if (item.type === RESOURCE_REFERENCE_PART_TYPE && typeof item.key === "string") {
-              parts.push({
-                type: RESOURCE_REFERENCE_PART_TYPE,
-                key: item.key,
-              })
-            }
-          }
-        } else {
-          parts.push(...createPromptPartsFromValue(value, new Set()))
-        }
-
-        return [{ value, attachments, parts }]
-      })
-      .slice(0, 100)
-  } catch {
-    return []
-  }
-}
-
-function saveHistory(key: string | undefined, entries: PromptHistoryEntry[]) {
-  if (typeof window === "undefined" || !("localStorage" in window)) return
-
-  try {
-    window.localStorage.setItem(historyStorageKey(key), JSON.stringify(entries))
-  } catch {
-    // Ignore storage failures in the composer.
-  }
-}
-
 function dedupeMentionFiles(files: MentionableFile[]) {
   const seen = new Set<string>()
   return files.filter((file) => {
@@ -330,21 +229,47 @@ function hasSubmittablePromptParts(parts: PromptComposerPart[]) {
   return parts.some((part) => part.type !== PROMPT_PART_TYPE_TEXT || part.text.trim().length > 0)
 }
 
+function arePromptPartsEqual(left: PromptComposerPart[], right: PromptComposerPart[]) {
+  if (left.length !== right.length) return false
+
+  for (let index = 0; index < left.length; index += 1) {
+    const leftPart = left[index]
+    const rightPart = right[index]
+    if (!leftPart || !rightPart) return false
+    if (leftPart.type !== rightPart.type) return false
+    if ("text" in leftPart && "text" in rightPart && leftPart.text !== rightPart.text) return false
+    if ("name" in leftPart && "name" in rightPart && leftPart.name !== rightPart.name) return false
+    if ("path" in leftPart && "path" in rightPart && leftPart.path !== rightPart.path) return false
+    if ("key" in leftPart && "key" in rightPart && leftPart.key !== rightPart.key) return false
+  }
+
+  return true
+}
+
 export function PromptComposer(props: PromptComposerProps) {
   const editorRef = useRef<HTMLDivElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const modelTriggerRef = useRef<HTMLButtonElement | null>(null)
   const mirrorInputRef = useRef(false)
-  const pendingCursorRef = useRef<number | undefined>(undefined)
   const slashRefreshRequestedRef = useRef(false)
   const historyApplyingRef = useRef(false)
-  const [currentPartCount, setCurrentPartCount] = useState(0)
-  const [hasSubmittableParts, setHasSubmittableParts] = useState(false)
+  const promptKey = useMemo(() => getPromptScopeKey(props.directory, props.sessionID), [props.directory, props.sessionID])
+  const draft = usePromptStore((state) => getPromptDraft(state, promptKey))
+  const historyEntries = usePromptStore((state) => getPromptHistoryEntries(state, props.directory))
+  const historyNavigation = usePromptStore((state) => getPromptHistoryNavigation(state, promptKey))
+  const replaceDraft = usePromptStore((state) => state.replaceDraft)
+  const setDraftAttachments = usePromptStore((state) => state.setAttachments)
+  const setDraftCursor = usePromptStore((state) => state.setCursor)
+  const clearDraft = usePromptStore((state) => state.clearDraft)
+  const pushHistoryEntry = usePromptStore((state) => state.pushHistoryEntry)
+  const setHistoryNavigation = usePromptStore((state) => state.setHistoryNavigation)
+  const clearHistoryNavigation = usePromptStore((state) => state.resetHistoryNavigation)
+  const hasSubmittableParts = useMemo(() => hasSubmittablePromptParts(draft.parts), [draft.parts])
   const canSubmit = useMemo(
-    () => !props.isBusy && (props.value.trim().length > 0 || props.attachments.length > 0 || hasSubmittableParts),
-    [hasSubmittableParts, props.attachments.length, props.isBusy, props.value],
+    () => !props.isBusy && (draft.value.trim().length > 0 || draft.attachments.length > 0 || hasSubmittableParts),
+    [draft.attachments.length, draft.value, hasSubmittableParts, props.isBusy],
   )
-  const [cursorOffset, setCursorOffset] = useState(() => props.value.length)
+  const [cursorOffset, setCursorOffset] = useState(() => draft.cursor)
   const [mentionIndex, setMentionIndex] = useState(0)
   const [dismissedMentionKey, setDismissedMentionKey] = useState<string | undefined>(undefined)
   const [slashIndex, setSlashIndex] = useState(0)
@@ -354,13 +279,11 @@ export function PromptComposer(props: PromptComposerProps) {
   const [recentMentionFiles, setRecentMentionFiles] = useState<MentionableFile[]>([])
   const [dragging, setDragging] = useState(false)
   const [modelMenuOpen, setModelMenuOpen] = useState(false)
-  const [historyEntries, setHistoryEntries] = useState<PromptHistoryEntry[]>(() => loadHistory(props.historyKey))
-  const [historyIndex, setHistoryIndex] = useState(-1)
-  const [savedHistoryDraft, setSavedHistoryDraft] = useState<PromptHistoryEntry | null>(null)
   const [displayedPlaceholder, setDisplayedPlaceholder] = useState("Ask Buddy...")
   const [placeholderOpacity, setPlaceholderOpacity] = useState(1)
   const [previewAttachment, setPreviewAttachment] = useState<PromptComposerAttachment | null>(null)
-  const currentPartsRef = useRef<PromptComposerPart[]>([])
+  const historyIndex = historyNavigation.historyIndex
+  const savedHistoryDraft = historyNavigation.savedDraft
 
   const knownAgents = useMemo(
     () => new Set(props.mentionableAgents.map((agent) => agent.name)),
@@ -385,7 +308,7 @@ export function PromptComposer(props: PromptComposerProps) {
 
     return [...filteredCustomCommands, ...builtinCommands, ...RESOURCE_LOCAL_SLASH_COMMANDS]
   }, [props.slashCommands])
-  const mentionMatch = useMemo(() => getMentionMatch(props.value, cursorOffset), [props.value, cursorOffset])
+  const mentionMatch = useMemo(() => getMentionMatch(draft.value, cursorOffset), [cursorOffset, draft.value])
   const mentionKey = mentionMatch ? `${mentionMatch.start}:${mentionMatch.query}` : undefined
   const mentionFiles = useMemo(
     () => dedupeMentionFiles([...recentMentionFiles, ...searchMentionFiles]),
@@ -397,7 +320,7 @@ export function PromptComposer(props: PromptComposerProps) {
   }, [mentionFiles, mentionMatch, props.mentionableAgents])
   const mentionVisible = !!mentionMatch && mentionOptions.length > 0 && mentionKey !== dismissedMentionKey
   const showMentionLoading = !!mentionMatch && mentionKey !== dismissedMentionKey && searchingFiles
-  const slashMatch = useMemo(() => getSlashMatch(props.value, cursorOffset), [props.value, cursorOffset])
+  const slashMatch = useMemo(() => getSlashMatch(draft.value, cursorOffset), [cursorOffset, draft.value])
   const slashKey = slashMatch ? `${slashMatch.start}:${slashMatch.query}` : undefined
   const slashOptions = useMemo(() => {
     if (!slashMatch) return []
@@ -452,16 +375,6 @@ export function PromptComposer(props: PromptComposerProps) {
   }, [placeholder, displayedPlaceholder])
 
   useEffect(() => {
-    setHistoryEntries(loadHistory(props.historyKey))
-    setHistoryIndex(-1)
-    setSavedHistoryDraft(null)
-  }, [props.historyKey])
-
-  useEffect(() => {
-    saveHistory(props.historyKey, historyEntries)
-  }, [historyEntries, props.historyKey])
-
-  useEffect(() => {
     setMentionIndex(0)
   }, [mentionKey])
 
@@ -470,9 +383,9 @@ export function PromptComposer(props: PromptComposerProps) {
   }, [slashKey])
 
   useEffect(() => {
-    if (cursorOffset <= props.value.length) return
-    setCursorOffset(props.value.length)
-  }, [cursorOffset, props.value])
+    if (cursorOffset <= draft.value.length) return
+    setCursorOffset(draft.value.length)
+  }, [cursorOffset, draft.value])
 
   useEffect(() => {
     if (!mentionKey) {
@@ -550,89 +463,85 @@ export function PromptComposer(props: PromptComposerProps) {
       return
     }
 
-    const nextCursor = pendingCursorRef.current
-    if (nextCursor !== undefined) {
-      pendingCursorRef.current = undefined
-      const frame = window.requestAnimationFrame(() => {
-        const field = editorRef.current
-        if (!field) return
-        field.focus()
-        setCursorPosition(field, nextCursor)
-        setCursorOffset(nextCursor)
-      })
-      return () => {
-        window.cancelAnimationFrame(frame)
-      }
-    }
+    const nextParts = draft.parts.length > 0 ? draft.parts : createPromptPartsFromValue(draft.value, knownAgents)
+    const nextCursor = Math.max(0, Math.min(draft.cursor, draft.value.length))
+    const domParts = collectPromptParts(editor)
 
-    const serializedCurrent = serializePromptParts(currentPartsRef.current)
-    if (currentPartsRef.current.length > 0 && props.value === serializedCurrent) {
+    if (arePromptPartsEqual(domParts, nextParts)) {
+      if (document.activeElement === editor) {
+        const currentCursor = getCursorPosition(editor)
+        if (currentCursor !== nextCursor) {
+          setCursorPosition(editor, nextCursor)
+        }
+      }
+      setCursorOffset(nextCursor)
       return
     }
 
-    const savedCursor = getCursorPosition(editor)
-    const nextParts = createPromptPartsFromValue(props.value, knownAgents)
-    updateCurrentParts(nextParts)
     renderPromptParts(editor, nextParts)
-    setCursorPosition(editor, savedCursor)
-  }, [currentPartCount, knownAgents, props.attachments.length, props.value])
+    if (document.activeElement === editor) {
+      setCursorPosition(editor, nextCursor)
+    }
+    setCursorOffset(nextCursor)
+  }, [draft.cursor, draft.parts, draft.value, knownAgents])
+
+  function replaceDraftFromComposer(draftState: Omit<typeof draft, "updatedAt">) {
+    mirrorInputRef.current = true
+    replaceDraft(promptKey, draftState)
+  }
+
+  function renderEditorAtCursor(parts: PromptComposerPart[], cursor: number, focus = false) {
+    const editor = editorRef.current
+    if (!editor) return
+    renderPromptParts(editor, parts)
+    if (focus) {
+      editor.focus()
+    }
+    setCursorPosition(editor, cursor)
+    setCursorOffset(cursor)
+  }
 
   function resetHistoryNavigation() {
     if (historyApplyingRef.current) return
-    setHistoryIndex(-1)
-    setSavedHistoryDraft(null)
-  }
-
-  function updateCurrentValue(value: string) {
-    mirrorInputRef.current = true
-    props.onChange(value)
-  }
-
-  function updateCurrentParts(parts: PromptComposerPart[]) {
-    currentPartsRef.current = parts
-    setCurrentPartCount(parts.length)
-    setHasSubmittableParts(hasSubmittablePromptParts(parts))
+    if (historyNavigation.historyIndex < 0 && historyNavigation.savedDraft === null) return
+    clearHistoryNavigation(promptKey)
   }
 
   function focusEditorEnd() {
     const editor = editorRef.current
     if (!editor) return
     editor.focus()
-    const nextCursor = serializePromptParts(currentPartsRef.current).length
+    const nextCursor = draft.parts.length > 0 ? serializePromptParts(draft.parts).length : draft.value.length
     setCursorPosition(editor, nextCursor)
     setCursorOffset(nextCursor)
+    setDraftCursor(promptKey, nextCursor)
   }
 
   function applyDraftSnapshot(next: PromptHistoryEntry, cursor: "start" | "end") {
     historyApplyingRef.current = true
-    pendingCursorRef.current =
-      cursor === "start" ? 0 : next.parts.length > 0 ? serializePromptParts(next.parts).length : next.value.length
-    updateCurrentParts(
-      next.parts.length > 0 ? clonePromptParts(next.parts) : createPromptPartsFromValue(next.value, knownAgents),
-    )
-    props.onAttachmentsChange(cloneAttachments(next.attachments))
-    mirrorInputRef.current = true
-    props.onChange(next.value)
-    const editor = editorRef.current
-    if (editor) {
-      renderPromptParts(editor, currentPartsRef.current)
-    }
+    const nextParts =
+      next.parts.length > 0 ? clonePromptParts(next.parts) : createPromptPartsFromValue(next.value, knownAgents)
+    const nextValue = next.parts.length > 0 ? serializePromptParts(nextParts) : next.value
+    const nextCursor = cursor === "start" ? 0 : nextValue.length
+    renderEditorAtCursor(nextParts, nextCursor, true)
+    replaceDraftFromComposer({
+      value: nextValue,
+      parts: nextParts,
+      attachments: cloneAttachments(next.attachments),
+      cursor: nextCursor,
+    })
     window.requestAnimationFrame(() => {
       historyApplyingRef.current = false
     })
   }
 
   function commitDraftToHistory() {
-    const nextEntries = prependHistoryEntry(historyEntries, {
-      value: props.value,
-      attachments: props.attachments,
-      parts: clonePromptParts(currentPartsRef.current),
+    pushHistoryEntry(props.directory, {
+      value: draft.value,
+      attachments: cloneAttachments(draft.attachments),
+      parts: clonePromptParts(draft.parts),
     })
-    if (nextEntries !== historyEntries) {
-      setHistoryEntries(nextEntries)
-    }
-    setHistoryIndex(-1)
-    setSavedHistoryDraft(null)
+    clearHistoryNavigation(promptKey)
   }
 
   function appendRecentMentionFile(file: MentionableFile) {
@@ -650,7 +559,7 @@ export function PromptComposer(props: PromptComposerProps) {
     const nextCursor = getCursorPosition(editor)
     const shouldReset =
       !NON_EMPTY_TEXT.test(nextValue) &&
-      props.attachments.length === 0 &&
+      draft.attachments.length === 0 &&
       !Array.from(
         editor.querySelectorAll(
           `[data-type='${PROMPT_PART_TYPE_AGENT}'], [data-type='${WORKSPACE_FILE_REFERENCE_PART_TYPE}'], [data-type='${RESOURCE_REFERENCE_PART_TYPE}']`,
@@ -660,17 +569,25 @@ export function PromptComposer(props: PromptComposerProps) {
     setCursorOffset(nextCursor)
     setDismissedMentionKey(undefined)
     setDismissedSlashKey(undefined)
-    updateCurrentParts(nextParts)
 
     if (shouldReset) {
-      updateCurrentParts([])
-      updateCurrentValue("")
       resetHistoryNavigation()
+      replaceDraftFromComposer({
+        value: "",
+        parts: [],
+        attachments: draft.attachments,
+        cursor: 0,
+      })
       return
     }
 
     resetHistoryNavigation()
-    updateCurrentValue(nextValue)
+    replaceDraftFromComposer({
+      value: nextValue,
+      parts: nextParts,
+      attachments: draft.attachments,
+      cursor: nextCursor,
+    })
   }
 
   function insertTextAtSelection(text: string) {
@@ -682,7 +599,7 @@ export function PromptComposer(props: PromptComposerProps) {
 
     if (selection.rangeCount === 0 || !editor.contains(selection.anchorNode)) {
       editor.focus()
-      setCursorPosition(editor, props.value.length)
+      setCursorPosition(editor, draft.cursor)
     }
 
     if (selection.rangeCount === 0) return
@@ -752,14 +669,8 @@ export function PromptComposer(props: PromptComposerProps) {
 
   function clearComposer() {
     resetHistoryNavigation()
-    props.onAttachmentsChange([])
-    updateCurrentParts([])
-    const editor = editorRef.current
-    if (editor) {
-      renderPromptParts(editor, [])
-    }
-    updateCurrentValue("")
-    pendingCursorRef.current = 0
+    renderEditorAtCursor([], 0)
+    clearDraft(promptKey)
   }
 
   function runBuiltinSlashCommand(name: string) {
@@ -804,14 +715,13 @@ export function PromptComposer(props: PromptComposerProps) {
     const nextCursor = command.name.length + 2
     setDismissedSlashKey(undefined)
     const nextParts = createPromptPartsFromValue(nextValue, knownAgents)
-    updateCurrentParts(nextParts)
-    const editor = editorRef.current
-    if (editor) {
-      renderPromptParts(editor, nextParts)
-      setCursorPosition(editor, nextCursor)
-      setCursorOffset(nextCursor)
-    }
-    updateCurrentValue(nextValue)
+    renderEditorAtCursor(nextParts, nextCursor, true)
+    replaceDraftFromComposer({
+      value: nextValue,
+      parts: nextParts,
+      attachments: draft.attachments,
+      cursor: nextCursor,
+    })
   }
 
   async function addAttachments(files: FileList | File[]) {
@@ -831,12 +741,15 @@ export function PromptComposer(props: PromptComposerProps) {
     if (!next) return
 
     resetHistoryNavigation()
-    props.onAttachmentsChange([...props.attachments, ...next])
+    setDraftAttachments(promptKey, [...draft.attachments, ...next])
   }
 
   function removeAttachment(id: string) {
     resetHistoryNavigation()
-    props.onAttachmentsChange(props.attachments.filter((attachment) => attachment.id !== id))
+    setDraftAttachments(
+      promptKey,
+      draft.attachments.filter((attachment) => attachment.id !== id),
+    )
   }
 
   function handleSubmit() {
@@ -845,16 +758,12 @@ export function PromptComposer(props: PromptComposerProps) {
       return
     }
 
-    if (!props.value.trim() && props.attachments.length === 0 && !hasSubmittableParts) {
+    if (!draft.value.trim() && draft.attachments.length === 0 && !hasSubmittableParts) {
       return
     }
 
     commitDraftToHistory()
-    props.onSubmit({
-      value: props.value,
-      attachments: cloneAttachments(props.attachments),
-      parts: clonePromptParts(currentPartsRef.current),
-    })
+    props.onSubmit()
   }
 
   return (
@@ -958,7 +867,7 @@ export function PromptComposer(props: PromptComposerProps) {
             </div>
           ) : null}
 
-          {!props.value && props.attachments.length === 0 && !hasSubmittableParts ? (
+          {!draft.value && draft.attachments.length === 0 && !hasSubmittableParts ? (
             <div
               className="pointer-events-none absolute left-3 top-3 right-20 text-sm leading-6 text-muted-foreground transition-opacity duration-250 ease-out"
               style={{ opacity: placeholderOpacity }}
@@ -977,15 +886,35 @@ export function PromptComposer(props: PromptComposerProps) {
             onInput={() => {
               handleEditorInput()
             }}
+            onFocus={() => {
+              const editor = editorRef.current
+              if (!editor) return
+
+              const selection = window.getSelection()
+              if (selection && selection.rangeCount > 0 && editor.contains(selection.anchorNode)) {
+                const currentCursor = getCursorPosition(editor)
+                setCursorOffset(currentCursor)
+                setDraftCursor(promptKey, currentCursor)
+                return
+              }
+
+              const nextCursor = Math.max(0, Math.min(draft.cursor, draft.value.length))
+              setCursorPosition(editor, nextCursor)
+              setCursorOffset(nextCursor)
+              setDraftCursor(promptKey, nextCursor)
+            }}
             onClick={() => {
               const editor = editorRef.current
               if (!editor) return
-              setCursorOffset(getCursorPosition(editor))
+              const currentCursor = getCursorPosition(editor)
+              setCursorOffset(currentCursor)
+              setDraftCursor(promptKey, currentCursor)
             }}
             onKeyDown={(event) => {
               const editor = editorRef.current
-              const currentCursor = editor ? getCursorPosition(editor) : props.value.length
+              const currentCursor = editor ? getCursorPosition(editor) : draft.value.length
               setCursorOffset(currentCursor)
+              setDraftCursor(promptKey, currentCursor)
 
               if (slashVisible) {
                 if (event.key === "ArrowDown") {
@@ -1061,7 +990,7 @@ export function PromptComposer(props: PromptComposerProps) {
                 (event.key === "ArrowUp" || event.key === "ArrowDown") &&
                 canNavigateHistoryAtCursor(
                   event.key === "ArrowUp" ? "up" : "down",
-                  props.value,
+                  draft.value,
                   currentCursor,
                   historyIndex !== -1,
                 )
@@ -1071,16 +1000,18 @@ export function PromptComposer(props: PromptComposerProps) {
                   entries: historyEntries,
                   historyIndex,
                   current: {
-                    value: props.value,
-                    attachments: props.attachments,
-                    parts: clonePromptParts(currentPartsRef.current),
+                    value: draft.value,
+                    attachments: cloneAttachments(draft.attachments),
+                    parts: clonePromptParts(draft.parts),
                   },
                   savedDraft: savedHistoryDraft,
                 })
                 if (result.handled) {
                   event.preventDefault()
-                  setHistoryIndex(result.historyIndex)
-                  setSavedHistoryDraft(result.savedDraft)
+                  setHistoryNavigation(promptKey, {
+                    historyIndex: result.historyIndex,
+                    savedDraft: result.savedDraft,
+                  })
                   applyDraftSnapshot(result.entry, result.cursor)
                   return
                 }
@@ -1164,7 +1095,7 @@ export function PromptComposer(props: PromptComposerProps) {
         </div>
 
         <ImageAttachments
-          attachments={props.attachments}
+          attachments={draft.attachments}
           onRemove={removeAttachment}
           onOpen={(attachment) => setPreviewAttachment(attachment)}
         />

@@ -60,6 +60,7 @@ function isHistoryEntryEqual(left: PromptHistoryEntry, right: PromptHistoryEntry
     if ("text" in leftPart && "text" in rightPart && leftPart.text !== rightPart.text) return false
     if ("name" in leftPart && "name" in rightPart && leftPart.name !== rightPart.name) return false
     if ("path" in leftPart && "path" in rightPart && leftPart.path !== rightPart.path) return false
+    if ("key" in leftPart && "key" in rightPart && leftPart.key !== rightPart.key) return false
   }
 
   return true
