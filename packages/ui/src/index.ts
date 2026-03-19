@@ -60,6 +60,7 @@ export {
   SelectValue,
 } from "./components/ui/select"
 export { Switch } from "./components/ui/switch"
+export { Skeleton } from "./components/ui/skeleton"
 export { ToggleGroup, ToggleGroupItem } from "./components/ui/toggle-group"
 export { Toaster } from "./components/ui/sonner"
 export { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs"
