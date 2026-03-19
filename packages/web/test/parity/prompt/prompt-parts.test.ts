@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import {
   collectPromptParts,
   createPromptPartsFromValue,
+  extractResourceReferenceParts,
   extractWorkspaceFileReferenceParts,
   renderPromptParts,
   serializePromptParts,
@@ -46,6 +47,26 @@ describe("prompt parts", () => {
         { type: "workspace-file-reference", path: "docs/book with spaces.pdf" },
       ]),
     ).toBe("Read @docs/book with spaces.pdf")
+  })
+
+  test("serializes and round-trips resource references", () => {
+    const parts = [
+      { type: "text", text: "Open " },
+      { type: "resource-reference", key: "book" },
+      { type: "text", text: " now" },
+    ] as const
+
+    expect(serializePromptParts([...parts])).toBe("Open resource:book now")
+
+    const root = document.createElement("div")
+    renderPromptParts(root, [...parts])
+
+    expect(collectPromptParts(root)).toEqual([
+      { type: "text", text: "Open " },
+      { type: "resource-reference", key: "book" },
+      { type: "text", text: " now" },
+    ])
+    expect(extractResourceReferenceParts([...parts])).toEqual([{ type: "resource-reference", key: "book" }])
   })
 
   test("round-trips structured editor parts", () => {

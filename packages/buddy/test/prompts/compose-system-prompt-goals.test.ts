@@ -48,6 +48,7 @@ describe("composeLearningSystemPrompt (learner store)", () => {
       intent: "learn",
       learnerSnapshot: snapshot,
       focusGoalIds: committed.goalIds,
+      resources: [],
     })
     const system = [systemContext, turnReminder].filter(Boolean).join("\n\n")
 
@@ -57,6 +58,8 @@ describe("composeLearningSystemPrompt (learner store)", () => {
     expect(system).toContain("<learner_state>")
     expect(system).toContain("<learner_progress>")
     expect(system).toContain("<learner_feedback>")
+    expect(system).toContain("<notebook_resources>")
+    expect(system).toContain("No notebook resources are currently available.")
     expect(system).not.toContain("<buddy_capability_snapshot>")
     expect(system).not.toContain("<activity_capabilities>")
     expect(system).not.toContain("<selected_activity_bundle>")

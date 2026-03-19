@@ -30,6 +30,7 @@ describe("ui preference persistence parity", () => {
     state.setRightSidebarOpen(true)
     state.setRightSidebarWidth(420)
     state.setRightSidebarTab("settings")
+    state.setRightSidebarTab("resources")
 
     const raw = localStorage.getItem(UI_PREFERENCES_STORAGE_KEY)
     expect(raw).toBeTruthy()
@@ -42,7 +43,7 @@ describe("ui preference persistence parity", () => {
       leftSidebarWidth: 280,
       rightSidebarOpen: true,
       rightSidebarWidth: 420,
-      rightSidebarTab: "settings",
+      rightSidebarTab: "resources",
     })
     expect(parsed.state.togglePinned).toBeUndefined()
     expect(parsed.state.setRightSidebarOpen).toBeUndefined()
