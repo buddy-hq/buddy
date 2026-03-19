@@ -10,10 +10,12 @@ describe("prompt history", () => {
     const first = prependHistoryEntry([], {
       value: "Review these diffs",
       attachments: [],
+      parts: [],
     })
     const second = prependHistoryEntry(first, {
       value: "Review these diffs",
       attachments: [],
+      parts: [],
     })
 
     expect(first).toHaveLength(1)
@@ -24,6 +26,7 @@ describe("prompt history", () => {
     const entries = prependHistoryEntry([], {
       value: "Investigate the prompt box",
       attachments: [],
+      parts: [],
     })
     const up = navigatePromptHistory({
       direction: "up",
@@ -32,6 +35,7 @@ describe("prompt history", () => {
       current: {
         value: "Unsaved draft",
         attachments: [],
+        parts: [],
       },
       savedDraft: null,
     })
@@ -54,9 +58,59 @@ describe("prompt history", () => {
       entry: {
         value: "Unsaved draft",
         attachments: [],
+        parts: [],
       },
       cursor: "end",
     })
+  })
+
+  test("preserves structured parts when saving and restoring drafts", () => {
+    const draft = {
+      value: "Read @docs/book with spaces.pdf",
+      attachments: [],
+      parts: [
+        {
+          type: "text" as const,
+          text: "Read ",
+        },
+        {
+          type: "workspace-file-reference" as const,
+          path: "docs/book with spaces.pdf",
+        },
+      ],
+    }
+
+    const entries = prependHistoryEntry([], draft)
+    const restored = navigatePromptHistory({
+      direction: "up",
+      entries,
+      historyIndex: -1,
+      current: draft,
+      savedDraft: null,
+    })
+
+    expect(restored.handled).toBe(true)
+    if (!restored.handled) return
+
+    expect(restored.entry.parts).toEqual(draft.parts)
+  })
+
+  test("keeps history entries that are represented only by structured parts", () => {
+    const draft = {
+      value: "",
+      attachments: [],
+      parts: [
+        {
+          type: "workspace-file-reference" as const,
+          path: "docs/book.pdf",
+        },
+      ],
+    }
+
+    const entries = prependHistoryEntry([], draft)
+
+    expect(entries).toHaveLength(1)
+    expect(entries[0]?.parts).toEqual(draft.parts)
   })
 
   test("only allows fresh history navigation at the start or end of the editor", () => {

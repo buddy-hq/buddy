@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import {
   loadCurriculumView,
+  loadSessions,
   loadRuntimeCapabilities,
   loadOpenProjects,
   openProject,
@@ -127,6 +128,23 @@ describe("openProject", () => {
   })
 })
 
+describe("loadSessions", () => {
+  test("scopes session listing to the requested directory", async () => {
+    globalThis.fetch = (async (input, init) => {
+      expect(String(input)).toBe("/api/session?directory=%2Frepo%2Ftauri")
+      expect(init?.method).toBe("GET")
+      expect(new Headers(init?.headers).get("x-buddy-directory")).toBe("/repo/tauri")
+      return new Response(JSON.stringify([]), {
+        headers: {
+          "content-type": "application/json",
+        },
+      })
+    }) as typeof fetch
+
+    await loadSessions("/repo/tauri")
+  })
+})
+
 describe("shouldDeferTranscriptReload", () => {
   test("defers transcript reload while the current session is streaming", () => {
     useChatStore.setState({
@@ -247,6 +265,47 @@ describe("sendPrompt", () => {
     await sendPrompt("/repo", "give me a practice task", {
       intent: "practice",
       focusGoalIds: ["goal_1"],
+    })
+  })
+
+  test("forwards workspace file references alongside attachment parts", async () => {
+    useChatStore.setState({
+      directories: {
+        "/repo": {
+          sessionTitle: "New chat",
+          sessions: [],
+          sessionStatusByID: {},
+          messages: [],
+          pendingPermissions: [],
+          providers: [],
+          providerDefault: {},
+          isBusy: false,
+          isReady: true,
+          sessionID: "session_1",
+        },
+      },
+    })
+
+    globalThis.fetch = (async (_input, init) => {
+      expect(JSON.parse(String(init?.body))).toMatchObject({
+        content: "Read @docs/book with spaces.pdf",
+        parts: [
+          {
+            type: "workspace-file-reference",
+            path: "docs/book with spaces.pdf",
+          },
+        ],
+      })
+      return new Response(JSON.stringify({}), {
+        headers: {
+          "content-type": "application/json",
+        },
+      })
+    }) as typeof fetch
+
+    await sendPrompt("/repo", "Read @docs/book with spaces.pdf", {
+      parts: [{ type: "workspace-file-reference", path: "docs/book with spaces.pdf" }],
+      intent: "practice",
     })
   })
 })
