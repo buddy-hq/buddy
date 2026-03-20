@@ -803,7 +803,7 @@ export function PromptComposer(props: PromptComposerProps) {
                       key={`${command.type}:${command.name}`}
                       type="button"
                       className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors ${
-                        active ? "bg-muted text-foreground" : "text-foreground/90 hover:bg-muted/70"
+                        active ? "bg-muted text-foreground" : "text-foreground hover:bg-muted/70"
                       }`}
                       onMouseDown={(event) => {
                         event.preventDefault()
@@ -838,7 +838,7 @@ export function PromptComposer(props: PromptComposerProps) {
                         key={option.type === "agent" ? `agent:${option.name}` : `file:${option.path}`}
                         type="button"
                         className={`flex w-full flex-col gap-0.5 px-3 py-2 text-left text-sm transition-colors ${
-                          active ? "bg-muted text-foreground" : "text-foreground/90 hover:bg-muted/70"
+                          active ? "bg-muted text-foreground" : "text-foreground hover:bg-muted/70"
                         }`}
                         onMouseDown={(event) => {
                           event.preventDefault()
@@ -1141,7 +1141,7 @@ export function PromptComposer(props: PromptComposerProps) {
                         <TooltipTrigger>
                           <TabsTrigger
                             value={intent.key}
-                            className="h-6 gap-1.5 px-2 text-[11px] text-muted-foreground/60 hover:text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-none [&_svg]:size-3.5 border-0 shadow-none"
+                            className="h-6 gap-1.5 px-2 text-[11px] text-muted-foreground hover:text-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-none [&_svg]:size-3.5 border-0 shadow-none"
                           >
                             <Icon className="shrink-0" />
                             <span
@@ -1168,7 +1168,7 @@ export function PromptComposer(props: PromptComposerProps) {
             <Select value={props.selectedPersona} onValueChange={props.onPersonaChange}>
               <SelectTrigger
                 size="sm"
-                className="h-7 max-w-[140px] min-w-0 border-transparent bg-transparent px-2 text-xs text-foreground/90 shadow-none hover:bg-muted/50 focus-visible:ring-0"
+                className="h-7 max-w-[140px] min-w-0 border-transparent bg-transparent px-2 text-xs text-foreground shadow-none hover:bg-muted/50 focus-visible:ring-0"
                 aria-label="Persona"
               >
                 <SelectValue placeholder="Persona" />
@@ -1196,7 +1196,7 @@ export function PromptComposer(props: PromptComposerProps) {
               <SelectTrigger
                 ref={modelTriggerRef}
                 size="sm"
-                className="h-7 max-w-[180px] min-w-0 border-transparent bg-transparent px-2 text-xs text-foreground/90 shadow-none hover:bg-muted/50 focus-visible:ring-0"
+                className="h-7 max-w-[180px] min-w-0 border-transparent bg-transparent px-2 text-xs text-foreground shadow-none hover:bg-muted/50 focus-visible:ring-0"
                 aria-label="Model"
               >
                 <SelectValue placeholder="Auto" />
@@ -1229,7 +1229,7 @@ export function PromptComposer(props: PromptComposerProps) {
             <Select value={props.selectedThinking} onValueChange={props.onThinkingChange}>
               <SelectTrigger
                 size="sm"
-                className="h-7 max-w-[160px] min-w-0 border-transparent bg-transparent px-2 text-xs text-foreground/90 shadow-none hover:bg-muted/50 focus-visible:ring-0"
+                className="h-7 max-w-[160px] min-w-0 border-transparent bg-transparent px-2 text-xs text-foreground shadow-none hover:bg-muted/50 focus-visible:ring-0"
                 aria-label="Thinking"
               >
                 <SelectValue placeholder="Thinking" />

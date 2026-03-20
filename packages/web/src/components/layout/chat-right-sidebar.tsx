@@ -64,7 +64,7 @@ function SidebarSection(props: {
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{props.title}</p>
         <ul className="mt-2 list-disc space-y-1.5 pl-4 text-sm">
           {items.map((item, index) => (
-            <li key={`${props.title}-${index}`} className="text-foreground/90">
+            <li key={`${props.title}-${index}`} className="text-foreground">
               {item}
             </li>
           ))}

@@ -418,7 +418,7 @@ export function SettingsModal(props: SettingsModalProps) {
                 </div>
 
                 <div className="px-2 py-1 text-xs text-muted-foreground">
-                  <p className="font-medium text-foreground/80">Buddy</p>
+                  <p className="font-medium text-foreground">Buddy</p>
                   <p className="mt-1 truncate">local: {getFilename(props.directory)}</p>
                 </div>
               </TabsList>
