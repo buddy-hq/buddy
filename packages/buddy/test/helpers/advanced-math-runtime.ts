@@ -6,18 +6,27 @@ import { spawnSync } from "node:child_process"
 import { AdvancedMathRuntimeService } from "../../src/local-runtimes/advanced-math/service"
 
 const TINY_PNG_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9p3xK+QAAAAASUVORK5CYII="
-const BACKEND_ROOT = path.resolve(import.meta.dir, "../..")
+type MockRuntimeBundleOptions = {
+  marker?: string
+  selfCheckDelayMs?: number
+}
 
-function buildFakeRuntimeExecutable(marker = "default") {
+function buildFakeRuntimeExecutable(options: MockRuntimeBundleOptions = {}) {
+  const marker = options.marker ?? "default"
+  const selfCheckDelayMs = Math.max(0, options.selfCheckDelayMs ?? 0)
   return `#!/usr/bin/env bun
 import fs from "node:fs"
 import path from "node:path"
 
 const TINY_PNG_BASE64 = "${TINY_PNG_BASE64}"
 const MARKER = ${JSON.stringify(marker)}
+const SELF_CHECK_DELAY_MS = ${JSON.stringify(selfCheckDelayMs)}
 const command = process.argv[2] ?? ""
 
 if (command === "self-check") {
+  if (SELF_CHECK_DELAY_MS > 0) {
+    await new Promise((resolve) => setTimeout(resolve, SELF_CHECK_DELAY_MS))
+  }
   process.exit(0)
 }
 
@@ -107,7 +116,7 @@ function createArchive(sourceDir: string, outputArchive: string) {
   }
 }
 
-async function buildMockRuntimeBundle(marker = "default") {
+async function buildMockRuntimeBundle(options: MockRuntimeBundleOptions = {}) {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "buddy-advanced-math-test-"))
   const bundleDir = path.join(tempDir, "buddy-advanced-math")
   const executableName = process.platform === "win32" ? "buddy-advanced-math.exe" : "buddy-advanced-math"
@@ -115,7 +124,7 @@ async function buildMockRuntimeBundle(marker = "default") {
   const archivePath = path.join(tempDir, "buddy-advanced-math.zip")
 
   await fs.mkdir(bundleDir, { recursive: true })
-  await fs.writeFile(executablePath, buildFakeRuntimeExecutable(marker), "utf8")
+  await fs.writeFile(executablePath, buildFakeRuntimeExecutable(options), "utf8")
   await fs.chmod(executablePath, 0o755).catch(() => undefined)
   createArchive(bundleDir, archivePath)
   const archiveBytes = await fs.readFile(archivePath)
@@ -176,7 +185,7 @@ export async function withInstalledMockAdvancedMathRuntime<T>(run: () => Promise
 }
 
 export async function withLocalMockAdvancedMathRuntimeAssets<T>(
-  run: (helpers: { replaceAssets: (marker?: string) => Promise<void> }) => Promise<T>,
+  run: (helpers: { replaceAssets: (options?: MockRuntimeBundleOptions) => Promise<void> }) => Promise<T>,
 ) {
   const previousVersion = process.env.BUDDY_APP_VERSION
   const previousBaseUrl = process.env.BUDDY_ADVANCED_MATH_ASSET_BASE_URL
@@ -194,8 +203,8 @@ export async function withLocalMockAdvancedMathRuntimeAssets<T>(
   const targetDir = path.join(localAssetRoot, assetInfo.targetTriple)
   const bundlePath = path.join(targetDir, assetInfo.bundleFilename)
   const checksumPath = path.join(targetDir, assetInfo.checksumFilename)
-  const replaceAssets = async (marker = "default") => {
-    const archiveBytes = await buildMockRuntimeBundle(marker)
+  const replaceAssets = async (options: MockRuntimeBundleOptions = {}) => {
+    const archiveBytes = await buildMockRuntimeBundle(options)
     const checksum = sha256Bytes(archiveBytes)
 
     await fs.mkdir(targetDir, { recursive: true })

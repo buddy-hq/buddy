@@ -85,7 +85,7 @@ describe("python_calculator runtime", () => {
       const installed = await AdvancedMathRuntimeService.install()
       expect(installed.ready).toBe(true)
 
-      await replaceAssets("updated-runtime")
+      await replaceAssets({ marker: "updated-runtime" })
 
       const staleStatus = await AdvancedMathRuntimeService.getStatus()
       expect(staleStatus.ready).toBe(false)
@@ -98,6 +98,26 @@ describe("python_calculator runtime", () => {
       const repairedStatus = await AdvancedMathRuntimeService.getStatus()
       expect(repairedStatus.ready).toBe(true)
       expect(repairedStatus.state).toBe("ready")
+    })
+  })
+
+  test("reports a configured self-check timeout when runtime verification takes too long", async () => {
+    await withLocalMockAdvancedMathRuntimeAssets(async ({ replaceAssets }) => {
+      const previousTimeout = process.env.BUDDY_ADVANCED_MATH_SELF_CHECK_TIMEOUT_MS
+      process.env.BUDDY_ADVANCED_MATH_SELF_CHECK_TIMEOUT_MS = "50"
+      try {
+        await replaceAssets({
+          selfCheckDelayMs: 200,
+        })
+
+        const status = await AdvancedMathRuntimeService.install()
+        expect(status.ready).toBe(false)
+        expect(status.state).toBe("error")
+        expect(status.lastError).toContain("timed out after 50ms")
+      } finally {
+        if (previousTimeout === undefined) delete process.env.BUDDY_ADVANCED_MATH_SELF_CHECK_TIMEOUT_MS
+        else process.env.BUDDY_ADVANCED_MATH_SELF_CHECK_TIMEOUT_MS = previousTimeout
+      }
     })
   })
 

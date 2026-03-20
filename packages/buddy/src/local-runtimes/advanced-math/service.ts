@@ -26,6 +26,7 @@ const SUPPORTED_LIBRARY_NAMES = [
 ] as const
 const IN_PROGRESS_STATES = new Set(["downloading", "installing", "repairing", "removing"])
 const READY_STATE = "ready"
+const DEFAULT_SELF_CHECK_TIMEOUT_MS = 60_000
 
 const advancedMathRuntimeStateSchema = z.object({
   enabled: z.boolean().default(false),
@@ -315,6 +316,14 @@ function sanitizedRuntimeEnv() {
   }
 }
 
+function selfCheckTimeoutMs() {
+  const configured = Number.parseInt(process.env.BUDDY_ADVANCED_MATH_SELF_CHECK_TIMEOUT_MS ?? "", 10)
+  if (Number.isFinite(configured) && configured > 0) {
+    return configured
+  }
+  return DEFAULT_SELF_CHECK_TIMEOUT_MS
+}
+
 function waitForProcess(child: ChildProcess, stdoutChunks: Buffer[], stderrChunks: Buffer[]) {
   return new Promise<{ code: number | null; signal: NodeJS.Signals | null; stdout: string; stderr: string }>((resolve, reject) => {
     child.on("error", reject)
@@ -382,6 +391,7 @@ async function stopChildProcess(child: ChildProcess, timeoutMs = 5_000) {
 }
 
 async function runSelfCheck(executablePath: string) {
+  const timeoutMs = selfCheckTimeoutMs()
   const child = spawn(executablePath, ["self-check"], {
     env: sanitizedRuntimeEnv(),
     stdio: ["ignore", "pipe", "pipe"],
@@ -395,14 +405,23 @@ async function runSelfCheck(executablePath: string) {
     stderrChunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
   })
 
+  let timedOut = false
   const timeout = setTimeout(() => {
+    timedOut = true
     child.kill("SIGKILL")
-  }, 15_000)
+  }, timeoutMs)
 
   const result = await waitForProcess(child, stdoutChunks, stderrChunks)
   clearTimeout(timeout)
   if (result.code !== 0) {
-    const details = result.stderr.trim() || result.stdout.trim() || `exit code ${result.code ?? "unknown"}`
+    const details =
+      result.stderr.trim() ||
+      result.stdout.trim() ||
+      (timedOut
+        ? `timed out after ${timeoutMs}ms`
+        : result.signal
+          ? `terminated by signal ${result.signal}`
+          : `exit code ${result.code ?? "unknown"}`)
     throw new Error(`Advanced math runtime self-check failed: ${details}`)
   }
 }
