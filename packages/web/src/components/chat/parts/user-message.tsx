@@ -1,8 +1,8 @@
+import { memo } from "react"
 import { HighlightedText } from "../shared/highlighted-text"
 import { CopyAction } from "../shared/copy-action"
-import { useThrottledText } from "../shared/hooks"
 import { titleCase } from "../shared/utils"
-import { cn } from "@buddy/ui"
+import { Button, cn } from "@buddy/ui"
 import { formatTime } from "../shared/utils"
 import type { MessageInfo, MessagePart } from "@/state/chat-types"
 
@@ -12,6 +12,8 @@ interface UserMessagePartProps {
   references: MessagePart[]
   agents: MessagePart[]
   queued?: boolean
+  onForkMessage?: () => Promise<void> | void
+  onRevertMessage?: () => Promise<void> | void
 }
 
 function modelLabel(info: MessageInfo): string {
@@ -24,13 +26,45 @@ function modelLabel(info: MessageInfo): string {
   return ""
 }
 
-export function UserMessagePart({ part, info, references, agents, queued }: UserMessagePartProps) {
+function userMessagePartEqual(prevProps: UserMessagePartProps, nextProps: UserMessagePartProps): boolean {
+  if (prevProps.part.id !== nextProps.part.id) return false
+  if (prevProps.queued !== nextProps.queued) return false
+  if (prevProps.part.type !== "text" || nextProps.part.type !== "text") return false
+  if (prevProps.part.text !== nextProps.part.text) return false
+  if (prevProps.part.synthetic !== nextProps.part.synthetic) return false
+
+  // Compare info (shallow comparison of key fields)
+  const prevAgent = "agent" in prevProps.info ? prevProps.info.agent : undefined
+  const nextAgent = "agent" in nextProps.info ? nextProps.info.agent : undefined
+  if (prevAgent !== nextAgent) return false
+
+  const prevTime = prevProps.info.time?.created
+  const nextTime = nextProps.info.time?.created
+  if (prevTime !== nextTime) return false
+
+  // Compare arrays by reference (they're memoized in parent)
+  if (prevProps.references !== nextProps.references) return false
+  if (prevProps.agents !== nextProps.agents) return false
+  if (prevProps.onForkMessage !== nextProps.onForkMessage) return false
+  if (prevProps.onRevertMessage !== nextProps.onRevertMessage) return false
+
+  return true
+}
+
+export const UserMessagePart = memo(function UserMessagePart({
+  part,
+  info,
+  references,
+  agents,
+  queued,
+  onForkMessage,
+  onRevertMessage,
+}: UserMessagePartProps) {
   if (part.type !== "text") return null
   if (part.synthetic === true) return null
 
   const text = String(part.text ?? "")
-  const throttledText = useThrottledText(text)
-  if (!throttledText.trim()) return null
+  if (!text.trim()) return null
 
   const agent = "agent" in info ? info.agent : undefined
   const metaHead = [titleCase(agent), modelLabel(info)].filter((value) => !!value).join("\u00A0\u00B7\u00A0")
@@ -45,7 +79,7 @@ export function UserMessagePart({ part, info, references, agents, queued }: User
             queued && "opacity-60",
           )}
         >
-          <HighlightedText text={throttledText} references={references} agents={agents} />
+          <HighlightedText text={text} references={references} agents={agents} />
         </div>
         {queued && (
           <div className="mt-1.5 mr-0.5 text-xs text-muted-foreground">
@@ -61,8 +95,18 @@ export function UserMessagePart({ part, info, references, agents, queued }: User
             {metaTail && <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground">{metaTail}</span>}
           </span>
         )}
+        {onForkMessage ? (
+          <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => void onForkMessage()}>
+            Fork
+          </Button>
+        ) : null}
+        {onRevertMessage ? (
+          <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => void onRevertMessage()}>
+            Revert
+          </Button>
+        ) : null}
         <CopyAction value={text} label="Copy message" />
       </div>
     </>
   )
-}
+}, userMessagePartEqual)

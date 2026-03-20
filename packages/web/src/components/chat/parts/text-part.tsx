@@ -1,3 +1,4 @@
+import { memo } from "react"
 import { Markdown } from "@/components/Markdown"
 import { CopyAction } from "../shared/copy-action"
 import { useThrottledText } from "../shared/hooks"
@@ -16,7 +17,16 @@ function stripLeadingRenderFigureMarkdown(text: string): string {
   return text.replace(/^\s*!\[[^\]]*\]\((\/api\/(?:figures|freeform-figures)\/[^)\s]+)\)(?:\r?\n\s*)*/u, "")
 }
 
-export function AssistantTextPart({
+function assistantTextPartEqual(prevProps: AssistantTextPartProps, nextProps: AssistantTextPartProps): boolean {
+  if (prevProps.part.id !== nextProps.part.id) return false
+  if (prevProps.copyEnabled !== nextProps.copyEnabled) return false
+  if (prevProps.metaText !== nextProps.metaText) return false
+  if (prevProps.interrupted !== nextProps.interrupted) return false
+  if (prevProps.stripLeadingFigureImage !== nextProps.stripLeadingFigureImage) return false
+  return prevProps.part.text === nextProps.part.text
+}
+
+export const AssistantTextPart = memo(function AssistantTextPart({
   part,
   copyEnabled,
   metaText,
@@ -41,10 +51,10 @@ export function AssistantTextPart({
             interrupted && "w-full justify-end",
           )}
         >
-          <CopyAction value={visibleText} label="Copy response" />
+          <CopyAction value={throttledText} label="Copy response" />
           {metaText ? <span className="text-xs text-muted-foreground">{metaText}</span> : null}
         </div>
       ) : null}
     </div>
   )
-}
+}, assistantTextPartEqual)

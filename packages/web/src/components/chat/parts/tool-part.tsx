@@ -1,3 +1,4 @@
+import { memo } from "react"
 import { GenericTool } from "../tools/generic-tool"
 import { getToolRenderer, isContextTool, HIDDEN_TOOLS } from "../tools/registry"
 import { parseToolState } from "../tools/parse-tool-state"
@@ -12,9 +13,27 @@ import { BuddyCustomTool } from "../tools/python-calculator-tool"
 interface ToolPartRendererProps {
   part: MessagePart
   onOpenSession?: (sessionID: string) => void
+  defaultOpen?: boolean
 }
 
-export function ToolPartCard({ part, onOpenSession }: ToolPartRendererProps) {
+function toolPartCardEqual(prevProps: ToolPartRendererProps, nextProps: ToolPartRendererProps): boolean {
+  if (prevProps.part.id !== nextProps.part.id) return false
+  if (prevProps.onOpenSession !== nextProps.onOpenSession) return false
+  if (prevProps.defaultOpen !== nextProps.defaultOpen) return false
+  if (prevProps.part.type !== "tool" || nextProps.part.type !== "tool") return false
+
+  const prevState = parseToolState(prevProps.part)
+  const nextState = parseToolState(nextProps.part)
+
+  return (
+    prevState.status === nextState.status &&
+    JSON.stringify(prevState.output) === JSON.stringify(nextState.output) &&
+    JSON.stringify(prevState.metadata) === JSON.stringify(nextState.metadata) &&
+    JSON.stringify(prevState.attachments) === JSON.stringify(nextState.attachments)
+  )
+}
+
+export const ToolPartCard = memo(function ToolPartCard({ part, onOpenSession, defaultOpen }: ToolPartRendererProps) {
   const tool = String(part.tool ?? "")
 
   // Hidden tools return null
@@ -24,7 +43,7 @@ export function ToolPartCard({ part, onOpenSession }: ToolPartRendererProps) {
 
   const state = parseToolState(part)
   const info = getToolInfo(tool, state.input)
-  const props: ToolPartProps = { part, state, info, tool, onOpenSession }
+  const props: ToolPartProps = { part, state, info, tool, onOpenSession, defaultOpen }
 
   // Check if this is a Buddy custom tool (but not python_calculator which is registered separately)
   if (isBuddyCustomTool(tool) && tool !== "python_calculator") {
@@ -39,6 +58,6 @@ export function ToolPartCard({ part, onOpenSession }: ToolPartRendererProps) {
 
   // Fallback to generic tool
   return <GenericTool {...props} />
-}
+}, toolPartCardEqual)
 
 export { isContextTool }

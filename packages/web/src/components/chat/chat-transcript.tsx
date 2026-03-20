@@ -1,4 +1,4 @@
-import { useMemo } from "react"
+import { useMemo, memo } from "react"
 import { TooltipProvider } from "@buddy/ui"
 import { computeTokenContextMetrics } from "@/state/context-metrics"
 import type { MessageInfo, MessagePart, MessageWithParts, ProviderInfo } from "@/state/chat-types"
@@ -17,6 +17,7 @@ import {
   ToolPartCard,
   ContextToolGroup,
   FileAttachmentPart,
+  MessageDivider,
 } from "./parts"
 import { isAttachmentFilePart } from "./shared/highlighted-text"
 
@@ -32,6 +33,11 @@ interface ChatTranscriptProps {
   providers?: ProviderInfo[]
   isBusy?: boolean
   onOpenSession?: (sessionID: string) => void
+  onForkMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
+  onRevertMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
+  showReasoningSummaries?: boolean
+  shellToolDefaultOpen?: boolean
+  editToolDefaultOpen?: boolean
 }
 
 type AssistantRenderItem =
@@ -74,9 +80,10 @@ function tokenContextLabel(info: MessageInfo, providers: ProviderInfo[]): string
   return `${metrics.used.toLocaleString()} used`
 }
 
-function assistantPartRenderable(part: MessagePart): boolean {
+function assistantPartRenderable(part: MessagePart, showReasoningSummaries: boolean): boolean {
   if (part.type === "text") return String(part.text ?? "").trim().length > 0
-  if (part.type === "reasoning") return String(part.text ?? "").trim().length > 0
+  if (part.type === "reasoning") return showReasoningSummaries && String(part.text ?? "").trim().length > 0
+  if (part.type === "compaction") return true
   if (part.type === "step-start" || part.type === "step-finish") return false
   if (part.type !== "tool") return true
 
@@ -91,8 +98,44 @@ function assistantPartRenderable(part: MessagePart): boolean {
   return true
 }
 
-function groupAssistantParts(parts: MessagePart[]): AssistantRenderItem[] {
-  const visibleParts = parts.filter(assistantPartRenderable)
+function cleanReasoningHeading(value: string): string {
+  return value
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\[([^\]]+)\]\([^\)]+\)/g, "$1")
+    .replace(/[*_~]+/g, "")
+    .trim()
+}
+
+function reasoningHeading(text: string): string | undefined {
+  const markdown = text.replace(/\r\n?/g, "\n")
+
+  const html = markdown.match(/<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/i)
+  if (html?.[1]) {
+    const value = cleanReasoningHeading(html[1].replace(/<[^>]+>/g, " "))
+    if (value) return value
+  }
+
+  const atx = markdown.match(/^\s{0,3}#{1,6}[ \t]+(.+?)(?:[ \t]+#+[ \t]*)?$/m)
+  if (atx?.[1]) {
+    const value = cleanReasoningHeading(atx[1])
+    if (value) return value
+  }
+
+  const setext = markdown.match(/^([^\n]+)\n(?:=+|-+)\s*$/m)
+  if (setext?.[1]) {
+    const value = cleanReasoningHeading(setext[1])
+    if (value) return value
+  }
+
+  const strong = markdown.match(/^\s*(?:\*\*|__)(.+?)(?:\*\*|__)\s*$/m)
+  if (strong?.[1]) {
+    const value = cleanReasoningHeading(strong[1])
+    if (value) return value
+  }
+}
+
+function groupAssistantParts(parts: MessagePart[], showReasoningSummaries: boolean): AssistantRenderItem[] {
+  const visibleParts = parts.filter((part) => assistantPartRenderable(part, showReasoningSummaries))
 
   const items: AssistantRenderItem[] = []
   let contextStart = -1
@@ -162,21 +205,69 @@ function buildTurns(messages: MessageWithParts[]): ChatTurn[] {
   return turns
 }
 
-function AssistantPartRenderer({
-  part,
-  copyPartID,
-  metaText,
-  interrupted,
-  onOpenSession,
-  stripLeadingFigureImage,
-}: {
+function toolDefaultOpen(
+  tool: string,
+  shellToolDefaultOpen: boolean,
+  editToolDefaultOpen: boolean,
+): boolean | undefined {
+  if (tool === "bash") return shellToolDefaultOpen
+  if (tool === "edit" || tool === "write" || tool === "apply_patch") return editToolDefaultOpen
+  return undefined
+}
+
+// Serialize tool state for comparison
+function getToolStateHash(part: MessagePart): string {
+  if (part.type !== "tool") return ""
+  const state = parseToolState(part)
+  return `${state.status}:${JSON.stringify(state.output)}:${JSON.stringify(state.metadata)}:${JSON.stringify(state.attachments)}`
+}
+
+// Custom equality check for AssistantPartRenderer props
+function assistantPartRendererEqual(
+  prevProps: AssistantPartRendererProps,
+  nextProps: AssistantPartRendererProps,
+): boolean {
+  if (prevProps.part.id !== nextProps.part.id) return false
+  if (prevProps.copyPartID !== nextProps.copyPartID) return false
+  if (prevProps.metaText !== nextProps.metaText) return false
+  if (prevProps.interrupted !== nextProps.interrupted) return false
+  if (prevProps.stripLeadingFigureImage !== nextProps.stripLeadingFigureImage) return false
+  if (prevProps.onOpenSession !== nextProps.onOpenSession) return false
+  if (prevProps.defaultOpen !== nextProps.defaultOpen) return false
+
+  // Deep comparison for part content
+  if (prevProps.part.type === "text" && nextProps.part.type === "text") {
+    return prevProps.part.text === nextProps.part.text
+  }
+  if (prevProps.part.type === "reasoning" && nextProps.part.type === "reasoning") {
+    return prevProps.part.text === nextProps.part.text
+  }
+  if (prevProps.part.type === "tool" && nextProps.part.type === "tool") {
+    return getToolStateHash(prevProps.part) === getToolStateHash(nextProps.part)
+  }
+
+  return prevProps.part.type === nextProps.part.type
+}
+
+interface AssistantPartRendererProps {
   part: MessagePart
   copyPartID?: string
   metaText?: string
   interrupted?: boolean
   onOpenSession?: (sessionID: string) => void
   stripLeadingFigureImage?: boolean
-}) {
+  defaultOpen?: boolean
+}
+
+const AssistantPartRenderer = memo(function AssistantPartRenderer({
+  part,
+  copyPartID,
+  metaText,
+  interrupted,
+  onOpenSession,
+  stripLeadingFigureImage,
+  defaultOpen,
+}: AssistantPartRendererProps) {
   if (part.type === "step-start" || part.type === "step-finish") {
     return null
   }
@@ -198,7 +289,11 @@ function AssistantPartRenderer({
   }
 
   if (part.type === "tool") {
-    return <ToolPartCard part={part} onOpenSession={onOpenSession} />
+    return <ToolPartCard part={part} onOpenSession={onOpenSession} defaultOpen={defaultOpen} />
+  }
+
+  if (part.type === "compaction") {
+    return <MessageDivider label="Compaction" />
   }
 
   return (
@@ -208,7 +303,223 @@ function AssistantPartRenderer({
       </pre>
     </div>
   )
+}, assistantPartRendererEqual)
+
+// Props for TurnRenderer
+interface TurnRendererProps {
+  turn: ChatTurn
+  turnIndex: number
+  totalTurns: number
+  providers: ProviderInfo[]
+  isBusy: boolean
+  onOpenSession?: (sessionID: string) => void
+  onForkMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
+  onRevertMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
+  showReasoningSummaries: boolean
+  shellToolDefaultOpen: boolean
+  editToolDefaultOpen: boolean
 }
+
+// Memoized equality for TurnRenderer
+function turnRendererEqual(prevProps: TurnRendererProps, nextProps: TurnRendererProps): boolean {
+  if (prevProps.turnIndex !== nextProps.turnIndex) return false
+  if (prevProps.totalTurns !== nextProps.totalTurns) return false
+  if (prevProps.isBusy !== nextProps.isBusy) return false
+  if (prevProps.onOpenSession !== nextProps.onOpenSession) return false
+  if (prevProps.onForkMessage !== nextProps.onForkMessage) return false
+  if (prevProps.onRevertMessage !== nextProps.onRevertMessage) return false
+  if (prevProps.providers !== nextProps.providers) return false
+  if (prevProps.showReasoningSummaries !== nextProps.showReasoningSummaries) return false
+  if (prevProps.shellToolDefaultOpen !== nextProps.shellToolDefaultOpen) return false
+  if (prevProps.editToolDefaultOpen !== nextProps.editToolDefaultOpen) return false
+
+  const prevTurn = prevProps.turn
+  const nextTurn = nextProps.turn
+
+  if (prevTurn.key !== nextTurn.key) return false
+  if (prevTurn.user !== nextTurn.user) return false
+  if (prevTurn.assistants.length !== nextTurn.assistants.length) return false
+
+  for (let index = 0; index < prevTurn.assistants.length; index += 1) {
+    if (prevTurn.assistants[index] !== nextTurn.assistants[index]) return false
+  }
+
+  return true
+}
+
+const TurnRenderer = memo(function TurnRenderer({
+  turn,
+  turnIndex,
+  totalTurns,
+  providers,
+  isBusy,
+  onOpenSession,
+  onForkMessage,
+  onRevertMessage,
+  showReasoningSummaries,
+  shellToolDefaultOpen,
+  editToolDefaultOpen,
+}: TurnRendererProps) {
+  const isLastTurn = turnIndex === totalTurns - 1
+  const userMessage = turn.user
+
+  // Memoize user parts filtering
+  const userParts = useMemo(() => userMessage?.parts ?? [], [userMessage?.parts])
+  const userFileParts = useMemo(() => userParts.filter((part) => part.type === "file"), [userParts])
+  const userAttachmentParts = useMemo(() => userFileParts.filter(isAttachmentFilePart), [userFileParts])
+  const userInlineFileParts = useMemo(
+    () => userFileParts.filter((part) => !isAttachmentFilePart(part)),
+    [userFileParts],
+  )
+  const userAgentParts = useMemo(() => userParts.filter((part) => part.type === "agent"), [userParts])
+  const userTextParts = useMemo(() => userParts.filter((part) => part.type === "text"), [userParts])
+
+  // Memoize assistant computations
+  const assistantMessages = turn.assistants
+  const assistantParts = useMemo(() => assistantMessages.flatMap((message) => message.parts), [assistantMessages])
+  const assistantItems = useMemo(
+    () => groupAssistantParts(assistantParts, showReasoningSummaries),
+    [assistantParts, showReasoningSummaries],
+  )
+  const assistantTextParts = useMemo(
+    () => assistantParts.filter((part) => part.type === "text" && String(part.text ?? "").trim().length > 0),
+    [assistantParts],
+  )
+  const currentReasoningHeading = useMemo(
+    () =>
+      assistantParts
+        .filter((part): part is MessagePart & { type: "reasoning"; text: string } => part.type === "reasoning")
+        .map((part) => reasoningHeading(String(part.text ?? "")))
+        .filter((value): value is string => Boolean(value))
+        .at(-1),
+    [assistantParts],
+  )
+
+  const lastAssistantTextID = assistantTextParts.at(-1)?.id
+  const lastAssistantInfo = assistantMessages.at(-1)?.info
+  const assistantCopyPartID = isBusy && isLastTurn ? undefined : lastAssistantTextID
+  const assistantAborted = lastAssistantInfo?.role === "assistant" && lastAssistantInfo.finish === "aborted"
+  const assistantErrored = Boolean(lastAssistantInfo?.role === "assistant" && lastAssistantInfo.error)
+  const assistantCompleted = assistantMessages.reduce<number | undefined>((max, message) => {
+    const completed = message.info.time?.completed
+    if (typeof completed !== "number") return max
+    if (typeof max !== "number") return completed
+    return Math.max(max, completed)
+  }, undefined)
+  const turnStart = userMessage?.info.time?.created ?? assistantMessages[0]?.info.time?.created
+  const turnDurationMs =
+    typeof turnStart === "number" && typeof assistantCompleted === "number" && assistantCompleted >= turnStart
+      ? assistantCompleted - turnStart
+      : undefined
+  const assistantMetaText = useMemo(() => {
+    const info = assistantMessages.at(-1)?.info
+    if (!info) return ""
+    const tokenContext = tokenContextLabel(info, providers)
+    return [
+      titleCase(info.agent),
+      modelLabel(info),
+      tokenContext,
+      formatDuration(turnDurationMs),
+      assistantAborted ? "Interrupted" : "",
+    ]
+      .filter((value) => !!value)
+      .join(" · ")
+  }, [assistantMessages, providers, turnDurationMs, assistantAborted])
+  const showAssistantSection = assistantMessages.length > 0 || (isBusy && isLastTurn)
+  const showThinking =
+    isBusy && isLastTurn && !assistantErrored && (showReasoningSummaries ? assistantItems.length === 0 : true)
+
+  return (
+    <article className="relative w-full px-4 md:px-5">
+      {userMessage ? (
+        <div className="group/user flex w-full flex-col items-end gap-2 text-sm">
+          {userAttachmentParts.length > 0 ? (
+            <div className="ml-auto flex w-fit max-w-[min(82%,64ch)] flex-wrap justify-end gap-2">
+              {userAttachmentParts.map((part) => (
+                <FileAttachmentPart key={part.id} part={part} />
+              ))}
+            </div>
+          ) : null}
+          {userTextParts.map((part) => (
+            <UserMessagePart
+              key={part.id}
+              part={part}
+              info={userMessage.info}
+              references={userInlineFileParts}
+              agents={userAgentParts}
+              onForkMessage={
+                onForkMessage
+                  ? () =>
+                      onForkMessage({
+                        sessionID: userMessage.info.sessionID,
+                        messageID: userMessage.info.id,
+                      })
+                  : undefined
+              }
+              onRevertMessage={
+                onRevertMessage
+                  ? () =>
+                      onRevertMessage({
+                        sessionID: userMessage.info.sessionID,
+                        messageID: userMessage.info.id,
+                      })
+                  : undefined
+              }
+            />
+          ))}
+        </div>
+      ) : null}
+
+      {assistantAborted ? <MessageDivider label="Interrupted" /> : null}
+
+      {showAssistantSection ? (
+        <div className="mt-[18px] flex w-full flex-col items-start gap-3">
+          {assistantItems.map((item, itemIndex) => {
+            if (item.type === "context") {
+              return <ContextToolGroup key={item.key} parts={item.parts} />
+            }
+
+            const previousItem = assistantItems[itemIndex - 1]
+            const previousPart = previousItem?.type === "part" ? previousItem.part : undefined
+            const previousPartState = previousPart ? parseToolState(previousPart) : undefined
+            const stripLeadingFigureImage =
+              item.part.type === "text" &&
+              previousPart?.type === "tool" &&
+              (String(previousPart.tool ?? "") === "render_figure" ||
+                String(previousPart.tool ?? "") === "render_freeform_figure") &&
+              previousPartState?.status === "completed" &&
+              !!parseRenderFigureToolOutput(previousPartState)
+
+            return (
+              <AssistantPartRenderer
+                key={item.key}
+                part={item.part}
+                copyPartID={assistantCopyPartID}
+                metaText={assistantMetaText}
+                interrupted={assistantAborted}
+                onOpenSession={onOpenSession}
+                stripLeadingFigureImage={stripLeadingFigureImage}
+                defaultOpen={
+                  item.part.type === "tool"
+                    ? toolDefaultOpen(String(item.part.tool ?? ""), shellToolDefaultOpen, editToolDefaultOpen)
+                    : undefined
+                }
+              />
+            )
+          })}
+          {showThinking ? (
+            <div className="flex min-h-5 w-full items-center gap-2 text-sm font-medium text-muted-foreground">
+              <span className="animate-pulse">Thinking</span>
+              {!showReasoningSummaries && currentReasoningHeading ? (
+                <span className="truncate text-muted-foreground/90">{currentReasoningHeading}</span>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </article>
+  )
+}, turnRendererEqual)
 
 export function ChatTranscript(props: ChatTranscriptProps) {
   const providers = props.providers ?? []
@@ -217,117 +528,22 @@ export function ChatTranscript(props: ChatTranscriptProps) {
   return (
     <TooltipProvider>
       <div className="flex w-full flex-col items-start gap-12">
-        {turns.map((turn, turnIndex) => {
-          const isLastTurn = turnIndex === turns.length - 1
-          const userMessage = turn.user
-          const userParts = userMessage?.parts ?? []
-          const userFileParts = userParts.filter((part) => part.type === "file")
-          const userAttachmentParts = userFileParts.filter(isAttachmentFilePart)
-          const userInlineFileParts = userFileParts.filter((part) => !isAttachmentFilePart(part))
-          const userAgentParts = userParts.filter((part) => part.type === "agent")
-          const userTextParts = userParts.filter((part) => part.type === "text")
-
-          const assistantMessages = turn.assistants
-          const assistantParts = assistantMessages.flatMap((message) => message.parts)
-          const assistantItems = groupAssistantParts(assistantParts)
-          const assistantTextParts = assistantParts.filter(
-            (part) => part.type === "text" && String(part.text ?? "").trim().length > 0,
-          )
-
-          const lastAssistantTextID = assistantTextParts.at(-1)?.id
-          const lastAssistantInfo = assistantMessages.at(-1)?.info
-          const assistantAborted = lastAssistantInfo?.role === "assistant" && lastAssistantInfo.finish === "aborted"
-          const assistantCompleted = assistantMessages.reduce<number | undefined>((max, message) => {
-            const completed = message.info.time?.completed
-            if (typeof completed !== "number") return max
-            if (typeof max !== "number") return completed
-            return Math.max(max, completed)
-          }, undefined)
-          const turnStart = userMessage?.info.time?.created ?? assistantMessages[0]?.info.time?.created
-          const turnDurationMs =
-            typeof turnStart === "number" && typeof assistantCompleted === "number" && assistantCompleted >= turnStart
-              ? assistantCompleted - turnStart
-              : undefined
-          const assistantMetaText = (() => {
-            const info = assistantMessages.at(-1)?.info
-            if (!info) return ""
-            const tokenContext = tokenContextLabel(info, providers)
-            return [
-              titleCase(info.agent),
-              modelLabel(info),
-              tokenContext,
-              formatDuration(turnDurationMs),
-              assistantAborted ? "Interrupted" : "",
-            ]
-              .filter((value) => !!value)
-              .join(" · ")
-          })()
-          const showAssistantSection = assistantMessages.length > 0 || (props.isBusy && isLastTurn)
-          const showThinking = !!props.isBusy && isLastTurn && assistantItems.length === 0
-
-          return (
-            <article key={turn.key} className="relative w-full px-4 md:px-5">
-              {userMessage ? (
-                <div className="group/user flex w-full flex-col items-end gap-2 text-sm">
-                  {userAttachmentParts.length > 0 ? (
-                    <div className="ml-auto flex w-fit max-w-[min(82%,64ch)] flex-wrap justify-end gap-2">
-                      {userAttachmentParts.map((part) => (
-                        <FileAttachmentPart key={part.id} part={part} />
-                      ))}
-                    </div>
-                  ) : null}
-                  {userTextParts.map((part) => (
-                    <UserMessagePart
-                      key={part.id}
-                      part={part}
-                      info={userMessage.info}
-                      references={userInlineFileParts}
-                      agents={userAgentParts}
-                    />
-                  ))}
-                </div>
-              ) : null}
-
-              {showAssistantSection ? (
-                <div className="mt-[18px] flex w-full flex-col items-start gap-3">
-                  {assistantItems.map((item, itemIndex) => {
-                    if (item.type === "context") {
-                      return <ContextToolGroup key={item.key} parts={item.parts} />
-                    }
-
-                    const previousItem = assistantItems[itemIndex - 1]
-                    const previousPart = previousItem?.type === "part" ? previousItem.part : undefined
-                    const previousPartState = previousPart ? parseToolState(previousPart) : undefined
-                    const stripLeadingFigureImage =
-                      item.part.type === "text" &&
-                      previousPart?.type === "tool" &&
-                      (String(previousPart.tool ?? "") === "render_figure" ||
-                        String(previousPart.tool ?? "") === "render_freeform_figure") &&
-                      previousPartState?.status === "completed" &&
-                      !!parseRenderFigureToolOutput(previousPartState)
-
-                    return (
-                      <AssistantPartRenderer
-                        key={item.key}
-                        part={item.part}
-                        copyPartID={lastAssistantTextID}
-                        metaText={assistantMetaText}
-                        interrupted={assistantAborted}
-                        onOpenSession={props.onOpenSession}
-                        stripLeadingFigureImage={stripLeadingFigureImage}
-                      />
-                    )
-                  })}
-                  {showThinking ? (
-                    <div className="flex min-h-5 w-full items-center gap-2 text-sm font-medium text-muted-foreground">
-                      <span className="animate-pulse">Thinking</span>
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
-            </article>
-          )
-        })}
+        {turns.map((turn, turnIndex) => (
+          <TurnRenderer
+            key={turn.key}
+            turn={turn}
+            turnIndex={turnIndex}
+            totalTurns={turns.length}
+            providers={providers}
+            isBusy={props.isBusy ?? false}
+            onOpenSession={props.onOpenSession}
+            onForkMessage={props.onForkMessage}
+            onRevertMessage={props.onRevertMessage}
+            showReasoningSummaries={props.showReasoningSummaries ?? true}
+            shellToolDefaultOpen={props.shellToolDefaultOpen ?? false}
+            editToolDefaultOpen={props.editToolDefaultOpen ?? false}
+          />
+        ))}
       </div>
     </TooltipProvider>
   )

@@ -1,4 +1,5 @@
 export * from "./file-attachment"
+export * from "./message-divider"
 export * from "./text-part"
 export * from "./reasoning-part"
 export * from "./user-message"
