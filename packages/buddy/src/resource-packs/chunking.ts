@@ -88,7 +88,7 @@ export async function buildResourceChunkFiles(input: {
     const threshold = chunkThresholdForUnit(seed.unitKind)
     const baseTitle = resolveUnitTitle(seed, seedIndex + 1)
     const unitIndex = seed.unitIndex ?? (seedIndex + 1)
-    const parts = await splitSeedIntoParts(seed, threshold)
+    const parts = await splitSeedIntoParts(seed, threshold, { format: input.format })
     const partCount = parts.length
 
     for (let partOffset = 0; partOffset < partCount; partOffset += 1) {
@@ -179,7 +179,7 @@ function deriveUnitSeedsFromFullText(fullText: string): ResourceChunkUnitSeed[] 
   const topLevel = splitMarkdownByHeadingLevel(fullText, 1)
   if (topLevel.length >= 2) return topLevel
 
-  const nested = splitMarkdownByAnyHeading(fullText)
+  const nested = splitMarkdownByAnyHeading(fullText, RESOURCE_PACK_SPLIT_REASON_FALLBACK_STRUCTURE)
   if (nested.length >= 2) return nested
 
   return [
@@ -193,7 +193,11 @@ function deriveUnitSeedsFromFullText(fullText: string): ResourceChunkUnitSeed[] 
   ]
 }
 
-function splitMarkdownByHeadingLevel(fullText: string, level: number): ResourceChunkUnitSeed[] {
+function splitMarkdownByHeadingLevel(
+  fullText: string,
+  level: number,
+  splitReason?: ResourceChunkSplitReason,
+): ResourceChunkUnitSeed[] {
   const lines = normalizeText(fullText).split("\n")
   const units: ResourceChunkUnitSeed[] = []
   const headingPrefix = `${"#".repeat(level)} `
@@ -213,7 +217,7 @@ function splitMarkdownByHeadingLevel(fullText: string, level: number): ResourceC
       unitTitle: title,
       unitIndex: units.length + 1,
       text: body,
-      splitReason: RESOURCE_PACK_SPLIT_REASON_FALLBACK_STRUCTURE,
+      splitReason,
     })
     currentBody = []
     currentTitle = ""
@@ -233,7 +237,7 @@ function splitMarkdownByHeadingLevel(fullText: string, level: number): ResourceC
   return units
 }
 
-function splitMarkdownByAnyHeading(fullText: string): ResourceChunkUnitSeed[] {
+function splitMarkdownByAnyHeading(fullText: string, splitReason?: ResourceChunkSplitReason): ResourceChunkUnitSeed[] {
   const lines = normalizeText(fullText).split("\n")
   const units: ResourceChunkUnitSeed[] = []
   let currentTitle = ""
@@ -252,7 +256,7 @@ function splitMarkdownByAnyHeading(fullText: string): ResourceChunkUnitSeed[] {
       unitTitle: title,
       unitIndex: units.length + 1,
       text: body,
-      splitReason: RESOURCE_PACK_SPLIT_REASON_FALLBACK_STRUCTURE,
+      splitReason,
     })
     currentBody = []
     currentTitle = ""
@@ -273,11 +277,25 @@ function splitMarkdownByAnyHeading(fullText: string): ResourceChunkUnitSeed[] {
   return units
 }
 
-async function splitSeedIntoParts(seed: ResourceChunkUnitSeed, threshold: ChunkThreshold): Promise<ChunkPart[]> {
+async function splitSeedIntoParts(
+  seed: ResourceChunkUnitSeed,
+  threshold: ChunkThreshold,
+  input: { format: ResourceFormat },
+): Promise<ChunkPart[]> {
   const trimmed = normalizeText(seed.text)
   if (!trimmed) return []
   if (estimateTokenCountFromText(trimmed) <= threshold.maxTokens) {
     return [{ text: trimmed, splitReason: seed.splitReason ?? RESOURCE_PACK_SPLIT_REASON_INTACT }]
+  }
+
+  if (input.format === "epub" && seed.unitKind === RESOURCE_PACK_UNIT_KIND_CHAPTER) {
+    const headingParts = splitByMarkdownHeadingBoundary(trimmed, threshold.maxChars)
+    if (headingParts.length > 1) {
+      return headingParts.map((text) => ({
+        text,
+        splitReason: RESOURCE_PACK_SPLIT_REASON_OVER_THRESHOLD,
+      }))
+    }
   }
 
   const splitParts = await splitWithRecursiveChunker(trimmed, threshold.maxChars)
@@ -289,6 +307,80 @@ async function splitSeedIntoParts(seed: ResourceChunkUnitSeed, threshold: ChunkT
     text,
     splitReason: RESOURCE_PACK_SPLIT_REASON_OVER_THRESHOLD,
   }))
+}
+
+function splitByMarkdownHeadingBoundary(text: string, maxChars: number): string[] {
+  const trimmed = normalizeText(text)
+  if (!trimmed) return []
+  if (trimmed.length <= maxChars) return [trimmed]
+
+  const headingBoundaries = collectMarkdownHeadingBoundaries(trimmed)
+  if (headingBoundaries.length === 0) return [trimmed]
+
+  const parts: string[] = []
+  let cursor = 0
+
+  while (cursor < trimmed.length) {
+    if (trimmed.length - cursor <= maxChars) {
+      const tail = normalizeText(trimmed.slice(cursor))
+      if (tail) parts.push(tail)
+      break
+    }
+
+    const target = cursor + maxChars
+    const headingBoundary = findHeadingBoundaryNearTarget({
+      cursor,
+      target,
+      headingBoundaries,
+    })
+    if (headingBoundary === undefined) return [trimmed]
+
+    const part = normalizeText(trimmed.slice(cursor, headingBoundary))
+    if (!part) return [trimmed]
+    parts.push(part)
+    cursor = headingBoundary
+
+    while (cursor < trimmed.length && /\s/.test(trimmed[cursor] ?? "")) {
+      cursor += 1
+    }
+  }
+
+  return parts.length > 1 ? parts : [trimmed]
+}
+
+function collectMarkdownHeadingBoundaries(text: string): number[] {
+  const lines = text.split("\n")
+  const boundaries: number[] = []
+  let cursor = 0
+
+  for (const line of lines) {
+    if (cursor > 0 && /^#{1,6}\s+\S/u.test(line)) {
+      boundaries.push(cursor)
+    }
+    cursor += line.length + 1
+  }
+
+  return boundaries
+}
+
+function findHeadingBoundaryNearTarget(input: {
+  cursor: number
+  target: number
+  headingBoundaries: number[]
+}): number | undefined {
+  const minUsefulBoundary = input.cursor +
+    Math.floor((input.target - input.cursor) * RESOURCE_PACK_FALLBACK_MIN_BOUNDARY_RATIO)
+  let candidate: number | undefined
+
+  for (const boundary of input.headingBoundaries) {
+    if (boundary <= input.cursor) continue
+    if (boundary > input.target) break
+    if (boundary >= minUsefulBoundary) {
+      candidate = boundary
+    }
+  }
+
+  return candidate
 }
 
 async function splitWithRecursiveChunker(text: string, maxChars: number): Promise<string[]> {
