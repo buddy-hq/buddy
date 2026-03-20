@@ -209,3 +209,18 @@ local_opencode/dev^{tree}    e9221c5648ab74a52b19b5bfa4a9d55cabf7db30
   - keeping adapter seams for Buddy-owned config/runtime behavior still makes sense
   - keeping adapter seams that only hide upstream branded types does not
   - future upstream syncs should prefer boundary migrations like this over rebuilding string-compatibility wrappers
+
+## Checkpoint 11 - Algorithm updated from run findings
+
+- Timestamp: 2026-03-20 11:51:15 IST
+- Updated `docs/guides/upstream-fetch.algo.md` to better match what actually worked in this run
+
+- Main process changes recorded:
+  - local upstream clone freshness is now an explicit prerequisite before trusting `local_opencode/dev`
+  - temp-worktree validation now defaults to `rsync` of a verified upstream tree instead of defaulting to `git subtree pull`
+  - root workspace metadata changes required by the new vendor snapshot are now treated as part of the validated sync path
+  - the algorithm now includes a follow-up step to remove temporary compatibility wrappers and migrate Buddy boundary code to improved upstream APIs when that is the lower-maintenance outcome
+  - commit guidance now reflects the actual two-commit split used here, and notes that local hook bypass is acceptable for an intentional validated vendor sync
+
+- Validation:
+  - no code/runtime checks rerun for this checkpoint because it only updates process documentation
