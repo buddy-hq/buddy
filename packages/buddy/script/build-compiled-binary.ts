@@ -1,6 +1,10 @@
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs"
 import path from "node:path"
 
+const loader = {
+  ".md": "text",
+} as const
+
 type MigrationEntry = {
   sql: string
   timestamp: number
@@ -10,7 +14,7 @@ type MigrationEntry = {
 type BuildCompiledBuddyBinaryInput = {
   outputFile: string
   bundleOutputFile?: string
-  target?: string
+  target?: Bun.Build.CompileTarget
 }
 
 function removeBunCompileArtifacts(directory: string) {
@@ -104,7 +108,7 @@ export async function buildCompiledBuddyBinary(input: BuildCompiledBuddyBinaryIn
         target: "bun",
         format: "esm",
         define,
-        write: true,
+        loader,
       })
 
       if (!bundleResult.success) {
@@ -132,6 +136,7 @@ export async function buildCompiledBuddyBinary(input: BuildCompiledBuddyBinaryIn
         ...(input.target ? { target: input.target } : {}),
       },
       define,
+      loader,
     })
 
     if (!result.success) {
