@@ -1,5 +1,4 @@
 import type { HTMLAttributes, MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from "react"
-import "./resize-handle.css"
 
 type ResizeHandleProps = Omit<HTMLAttributes<HTMLDivElement>, "onResize"> & {
   direction: "horizontal" | "vertical"
@@ -130,14 +129,23 @@ export function ResizeHandle(props: ResizeHandleProps) {
   }
 
   const edge = edgeProp ?? (direction === "vertical" ? "start" : "end")
-  const handleClassName = className ? `buddy-resize-handle ${className}` : "buddy-resize-handle"
+  const handleClassName = [
+    "absolute z-10 after:absolute after:content-[''] after:opacity-0 after:transition-opacity after:duration-150 after:ease-in-out after:bg-[color-mix(in_oklab,var(--muted-foreground)_45%,transparent)] hover:after:opacity-100 active:after:opacity-100",
+    direction === "horizontal"
+      ? edge === "start"
+        ? "inset-y-0 left-0 w-2 -translate-x-1/2 cursor-col-resize after:inset-y-0 after:left-1/2 after:w-[3px] after:-translate-x-1/2"
+        : "inset-y-0 right-0 w-2 translate-x-1/2 cursor-col-resize after:inset-y-0 after:left-1/2 after:w-[3px] after:-translate-x-1/2"
+      : edge === "end"
+        ? "inset-x-0 bottom-0 h-2 translate-y-1/2 cursor-row-resize after:inset-x-0 after:top-1/2 after:h-[3px] after:-translate-y-1/2"
+        : "inset-x-0 top-0 h-2 -translate-y-1/2 cursor-row-resize after:inset-x-0 after:top-1/2 after:h-[3px] after:-translate-y-1/2",
+    className,
+  ]
+    .filter(Boolean)
+    .join(" ")
 
   return (
     <div
       {...domProps}
-      data-component="resize-handle"
-      data-direction={direction}
-      data-edge={edge}
       className={handleClassName}
       onMouseDown={onMouseDown}
       onTouchStart={onTouchStart}

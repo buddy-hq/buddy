@@ -1,7 +1,6 @@
 import { useState } from "react"
 import { Button } from "@buddy/ui"
 import type { PermissionRequest } from "@/state/chat-types"
-import "./permission-dock.css"
 
 type PermissionDockProps = {
   request: PermissionRequest
@@ -38,35 +37,44 @@ export function PermissionDock(props: PermissionDockProps) {
   }
 
   return (
-    <div className="buddy-permission-dock" role="alert" aria-live="assertive">
-      <div className="buddy-permission-body">
-        <div className="buddy-permission-row buddy-permission-row-header">
-          <span className="buddy-permission-icon" aria-hidden="true">
+    <div
+      className="flex flex-col overflow-hidden rounded-lg border border-[color-mix(in_oklab,var(--chart-3)_40%,var(--border))] bg-[color-mix(in_oklab,var(--card)_94%,var(--chart-3)_6%)] shadow-[0_0_0_1px_color-mix(in_oklab,var(--chart-3)_14%,transparent)]"
+      role="alert"
+      aria-live="assertive"
+    >
+      <div className="flex flex-col gap-[0.55rem] px-[0.8rem] py-[0.7rem] pb-[0.4rem]">
+        <div className="grid grid-cols-[1.1rem_1fr] items-center gap-x-[0.55rem]">
+          <span
+            className="inline-flex size-[1.1rem] items-center justify-center rounded-full border border-[color-mix(in_oklab,var(--chart-3)_28%,transparent)] bg-[color-mix(in_oklab,var(--chart-3)_16%,transparent)] text-[0.72rem] font-bold text-chart-3"
+            aria-hidden="true"
+          >
             !
           </span>
-          <div className="buddy-permission-header-title">Permission required</div>
+          <div className="text-[0.87rem] font-semibold text-foreground">Permission required</div>
         </div>
 
         {hint ? (
-          <div className="buddy-permission-row">
-            <span className="buddy-permission-spacer" aria-hidden="true" />
-            <div className="buddy-permission-hint">{hint}</div>
+          <div className="grid grid-cols-[1.1rem_1fr] items-start gap-x-[0.55rem]">
+            <span aria-hidden="true" />
+            <div className="text-[0.8rem] text-muted-foreground">{hint}</div>
           </div>
         ) : null}
 
-        <div className="buddy-permission-row">
-          <span className="buddy-permission-spacer" aria-hidden="true" />
-          <div className="buddy-permission-main">
-            <div className="buddy-permission-label">Tool: {props.request.permission}</div>
+        <div className="grid grid-cols-[1.1rem_1fr] items-start gap-x-[0.55rem]">
+          <span aria-hidden="true" />
+          <div className="flex min-w-0 flex-col gap-[0.4rem]">
+            <div className="text-[0.82rem] text-foreground">Tool: {props.request.permission}</div>
             {props.request.patterns.length > 0 ? (
-              <div className="buddy-permission-patterns">
+              <div className="flex max-h-32 flex-col gap-[0.3rem] overflow-auto">
                 {props.request.patterns.map((pattern) => (
-                  <code key={`${props.request.id}:${pattern}`}>{pattern}</code>
+                  <code key={`${props.request.id}:${pattern}`} className="whitespace-pre-wrap break-words text-[0.74rem] text-muted-foreground">
+                    {pattern}
+                  </code>
                 ))}
               </div>
             ) : null}
             {(props.pendingCount ?? 0) > 0 ? (
-              <div className="buddy-permission-remaining">
+              <div className="text-[0.72rem] text-muted-foreground">
                 +{props.pendingCount} more pending request{(props.pendingCount ?? 0) === 1 ? "" : "s"}
               </div>
             ) : null}
@@ -74,9 +82,9 @@ export function PermissionDock(props: PermissionDockProps) {
         </div>
       </div>
 
-      <div className="buddy-permission-footer">
+      <div className="flex items-center justify-between border-t border-[color-mix(in_oklab,var(--border)_75%,transparent)] px-[0.65rem] py-[0.45rem]">
         <div />
-        <div className="buddy-permission-actions">
+        <div className="flex items-center gap-[0.45rem]">
           <Button variant="ghost" size="sm" disabled={responding} onClick={() => void onDecide("reject")}>
             Reject
           </Button>
