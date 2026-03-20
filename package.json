@@ -69,6 +69,7 @@
     "@types/node": "22.13.9"
   },
   "devDependencies": {
+    "@tsconfig/node22": "catalog:",
     "@typescript/native-preview": "^7.0.0-dev.20260225.1",
     "prettier": "3.6.2",
     "turbo": "^2.0.0"
