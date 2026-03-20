@@ -11,7 +11,7 @@ export function WriteTool(props: ToolPartProps) {
   return renderFileEditTool(props)
 }
 
-function renderFileEditTool({ state, info, tool }: ToolPartProps) {
+function renderFileEditTool({ state, info, defaultOpen }: ToolPartProps) {
   const running = state.status === "pending" || state.status === "running"
   const filePath = readString(state.input.filePath)
   const fileDiff = isRecord(state.metadata.filediff) ? state.metadata.filediff : undefined
@@ -50,7 +50,7 @@ function renderFileEditTool({ state, info, tool }: ToolPartProps) {
   }
 
   return (
-    <ToolCardWithDetails info={info} status={state.status} running={running}>
+    <ToolCardWithDetails info={info} status={state.status} running={running} defaultOpen={defaultOpen}>
       {filePath ? <div className="text-xs text-muted-foreground">{dirname(filePath)}</div> : null}
       {beforeText !== undefined || afterText !== undefined ? (
         <div className="grid gap-2 md:grid-cols-2">

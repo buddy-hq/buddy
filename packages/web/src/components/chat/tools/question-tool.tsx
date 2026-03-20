@@ -23,7 +23,7 @@ function readQuestionAnswers(metadata: Record<string, unknown>): string[][] {
   })
 }
 
-export function QuestionTool({ state, info }: ToolPartProps) {
+export function QuestionTool({ state, info, defaultOpen }: ToolPartProps) {
   const running = state.status === "pending" || state.status === "running"
   const questions = readQuestions(state.input)
   const questionAnswers = readQuestionAnswers(state.metadata)
@@ -39,7 +39,12 @@ export function QuestionTool({ state, info }: ToolPartProps) {
         : `${questions.length} ${questions.length === 1 ? "question" : "questions"}`
 
   return (
-    <ToolCardWithDetails info={{ ...info, subtitle }} status={state.status} running={running} defaultOpen={hasAnswers}>
+    <ToolCardWithDetails
+      info={{ ...info, subtitle }}
+      status={state.status}
+      running={running}
+      defaultOpen={defaultOpen || hasAnswers}
+    >
       {hasAnswers ? (
         <div className="space-y-2">
           {questions.map((question, index) => {

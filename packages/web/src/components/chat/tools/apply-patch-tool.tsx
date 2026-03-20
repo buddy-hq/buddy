@@ -2,7 +2,7 @@ import { ToolCardWithDetails, ToolOutputPanel, ApplyPatchFileItem } from "../sha
 import { isRecord, readString, unwrapError } from "../shared/utils"
 import type { ToolPartProps, ApplyPatchFile } from "./registry"
 
-export function ApplyPatchTool({ part, state, info }: ToolPartProps) {
+export function ApplyPatchTool({ part, state, info, defaultOpen }: ToolPartProps) {
   const running = state.status === "pending" || state.status === "running"
   const showOutput = (state.output || (state.error ? unwrapError(state.error) : "")).trim().length > 0
   const output = state.output || (state.error ? unwrapError(state.error) : "")
@@ -38,7 +38,7 @@ export function ApplyPatchTool({ part, state, info }: ToolPartProps) {
   }
 
   return (
-    <ToolCardWithDetails info={patchedInfo} status={state.status} running={running}>
+    <ToolCardWithDetails info={patchedInfo} status={state.status} running={running} defaultOpen={defaultOpen}>
       <div>
         {applyPatchFiles.length > 0 ? (
           <div className="space-y-2">
