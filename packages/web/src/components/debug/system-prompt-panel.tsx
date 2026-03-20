@@ -65,6 +65,8 @@ export function SystemPromptPanel(props: SystemPromptPanelProps) {
   const lastOutbound = useMemo(() => readLastOutboundEntry(runtime), [runtime])
   const systemPromptText = useMemo(() => readSystemPromptText(lastOutbound), [lastOutbound])
   const renderedAt = formatIsoTime(lastOutbound?.createdAt)
+  const charCount = systemPromptText?.length ?? 0
+  const approxTokens = Math.round(charCount / 4)
 
   async function refresh(input?: { silent?: boolean }) {
     if (!props.sessionID) {
@@ -105,7 +107,9 @@ export function SystemPromptPanel(props: SystemPromptPanelProps) {
     <div className={`flex h-full min-h-0 flex-col gap-3 p-3 ${props.className ?? ""}`} style={props.style}>
       <div className="flex items-start justify-between gap-3 pb-2">
         <div className="min-w-0 space-y-1.5">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground leading-none">System Prompt</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground leading-none">
+            System Prompt
+          </p>
           <p className="text-xs text-muted-foreground line-clamp-2">
             Exact system prompt from the most recent outbound LLM turn.
           </p>
@@ -134,6 +138,8 @@ export function SystemPromptPanel(props: SystemPromptPanelProps) {
               <div className="border-b border-border/60 px-3 py-2 text-[11px] text-muted-foreground">
                 <span>Turn: {lastOutbound?.kind ?? "unknown"}</span>
                 {renderedAt ? <span className="ml-3">Captured: {renderedAt}</span> : null}
+                <span className="ml-3">~{approxTokens.toLocaleString()} tokens</span>
+                <span className="ml-1">({charCount.toLocaleString()} chars)</span>
               </div>
               <pre className="min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap break-words p-3 text-[12px] leading-5 text-foreground font-mono">
                 {systemPromptText}
