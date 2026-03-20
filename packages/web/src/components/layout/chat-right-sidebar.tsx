@@ -1,6 +1,15 @@
 import type { CSSProperties, ReactNode } from "react"
 import { useEffect, useState } from "react"
-import { Badge, Button, Card, CardContent, ChevronDownIcon, Collapsible, CollapsibleContent, CollapsibleTrigger } from "@buddy/ui"
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  ChevronDownIcon,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@buddy/ui"
 import { Markdown } from "@/components/Markdown"
 import {
   loadCurriculumView,
@@ -16,6 +25,7 @@ export type ChatRightSidebarTab =
   | "editor"
   | "figure"
   | "resources"
+  | "agents-md"
   | "capabilities"
   | "system-prompt"
   | "settings"
@@ -27,6 +37,7 @@ type ChatRightSidebarProps = {
   onTabChange: (tab: ChatRightSidebarTab) => void
   surfaces: ChatRightSidebarSurface[]
   resourcesPanel?: ReactNode
+  agentsPanel?: ReactNode
   systemPromptPanel?: ReactNode
   editorPanel?: ReactNode
   figurePanel?: ReactNode
@@ -51,11 +62,7 @@ function stringifyError(error: unknown) {
   }
 }
 
-function SidebarSection(props: {
-  title: string
-  items: string[]
-  empty?: string
-}) {
+function SidebarSection(props: { title: string; items: string[]; empty?: string }) {
   const items = props.items.length > 0 ? props.items : props.empty ? [props.empty] : []
 
   return (
@@ -82,11 +89,7 @@ function titleCaseLabel(value: string) {
     .join(" ")
 }
 
-function RuntimeListSection(props: {
-  title: string
-  items: string[]
-  empty: string
-}) {
+function RuntimeListSection(props: { title: string; items: string[]; empty: string }) {
   return <SidebarSection title={props.title} items={props.items} empty={props.empty} />
 }
 
@@ -105,12 +108,14 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
     props.activeTab === "system-prompt" && systemPromptTabEnabled
       ? "system-prompt"
       : props.activeTab === "capabilities" && capabilitiesTabEnabled
-      ? "capabilities"
-      : props.activeTab === "resources"
-        ? "resources"
-        : props.surfaces.includes(props.activeTab as ChatRightSidebarSurface)
-          ? (props.activeTab as ChatRightSidebarSurface)
-          : props.surfaces[0] ?? "curriculum"
+        ? "capabilities"
+        : props.activeTab === "resources"
+          ? "resources"
+          : props.activeTab === "agents-md"
+            ? "agents-md"
+            : props.surfaces.includes(props.activeTab as ChatRightSidebarSurface)
+              ? (props.activeTab as ChatRightSidebarSurface)
+              : (props.surfaces[0] ?? "curriculum")
 
   async function loadSidebarData(
     isDisposed?: () => boolean,
@@ -144,9 +149,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
     }
   }
 
-  async function loadCapabilitiesData(
-    isDisposed?: () => boolean,
-  ) {
+  async function loadCapabilitiesData(isDisposed?: () => boolean) {
     const disposed = isDisposed ?? (() => false)
 
     if (!disposed()) {
@@ -233,6 +236,13 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
           >
             Resources
           </Button>
+          <Button
+            variant={activeTab === "agents-md" ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => props.onTabChange("agents-md")}
+          >
+            Agents
+          </Button>
           {capabilitiesTabEnabled ? (
             <Button
               variant={activeTab === "capabilities" ? "secondary" : "ghost"}
@@ -281,12 +291,22 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
             </div>
           )}
         </div>
+      ) : activeTab === "agents-md" ? (
+        <div className="flex-1 min-h-0 flex flex-col">
+          {props.agentsPanel ?? (
+            <div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">
+              AGENTS.md editing is not available for this notebook.
+            </div>
+          )}
+        </div>
       ) : activeTab === "capabilities" ? (
         <div className="flex-1 min-h-0 p-3 flex flex-col">
           <div className="mb-2 flex items-center justify-between gap-2">
             <div>
               <p className="text-xs font-medium">Runtime Capabilities</p>
-              <p className="text-[11px] text-muted-foreground">Live capability state for the current teaching context.</p>
+              <p className="text-[11px] text-muted-foreground">
+                Live capability state for the current teaching context.
+              </p>
             </div>
             <Button
               variant="ghost"
@@ -325,8 +345,8 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                       Skills: {capabilitiesView.skills.allow.length} allow / {capabilitiesView.skills.deny.length} deny
                     </div>
                     <div className="rounded-md border border-border/60 px-2 py-1.5 col-span-2">
-                      Subagents: {capabilitiesView.subagents.prefer.length} prefer / {capabilitiesView.subagents.allow.length} allow /{" "}
-                      {capabilitiesView.subagents.deny.length} deny
+                      Subagents: {capabilitiesView.subagents.prefer.length} prefer /{" "}
+                      {capabilitiesView.subagents.allow.length} allow / {capabilitiesView.subagents.deny.length} deny
                     </div>
                   </div>
                 </CardContent>
@@ -481,7 +501,9 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                       <CollapsibleTrigger asChild>
                         <Button variant="ghost" size="sm" className="gap-1.5">
                           {rawPlanOpen ? "Hide raw plan" : "Show raw plan"}
-                          <ChevronDownIcon className={`size-3.5 transition-transform ${rawPlanOpen ? "rotate-180" : ""}`} />
+                          <ChevronDownIcon
+                            className={`size-3.5 transition-transform ${rawPlanOpen ? "rotate-180" : ""}`}
+                          />
                         </Button>
                       </CollapsibleTrigger>
                     </div>

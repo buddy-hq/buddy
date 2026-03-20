@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useLayoutEffect, useMemo } from "react"
 import DOMPurify from "dompurify"
 import morphdom from "morphdom"
 import "katex/dist/katex.min.css"
@@ -73,6 +73,149 @@ const markdownClassName = [
   "[&_a.external-link:hover>code]:underline [&_a.external-link:hover>code]:underline-offset-2",
 ].join(" ")
 
+type CopyLabels = {
+  copy: string
+  copied: string
+}
+
+const codeUrlPattern = /^https?:\/\/[^\s<>()`"']+$/u
+
+function codeUrl(text: string) {
+  const href = text.trim().replace(/[),.;!?]+$/g, "")
+  if (!codeUrlPattern.test(href)) return
+  try {
+    const url = new URL(href)
+    return url.toString()
+  } catch {
+    return
+  }
+}
+
+function createCopyButton(labels: CopyLabels) {
+  const button = document.createElement("button")
+  button.type = "button"
+  button.setAttribute("data-slot", "markdown-copy-button")
+  button.setAttribute("data-copied", "false")
+  button.setAttribute("aria-label", labels.copy)
+  button.className =
+    "mt-2 inline-flex h-6 items-center rounded border border-border bg-background px-2 text-xs text-muted-foreground hover:text-foreground"
+  button.textContent = labels.copy
+  return button
+}
+
+function setCopyState(button: HTMLButtonElement, labels: CopyLabels, copied: boolean) {
+  button.setAttribute("data-copied", copied ? "true" : "false")
+  button.setAttribute("aria-label", copied ? labels.copied : labels.copy)
+  button.textContent = copied ? labels.copied : labels.copy
+}
+
+function ensureCodeWrapper(block: HTMLPreElement, labels: CopyLabels) {
+  const parent = block.parentElement
+  if (!parent) return
+  const wrapped = parent.getAttribute("data-component") === "markdown-code"
+  if (!wrapped) {
+    const wrapper = document.createElement("div")
+    wrapper.setAttribute("data-component", "markdown-code")
+    parent.replaceChild(wrapper, block)
+    wrapper.appendChild(block)
+    wrapper.appendChild(createCopyButton(labels))
+    return
+  }
+
+  const buttons = Array.from(parent.querySelectorAll('[data-slot="markdown-copy-button"]')).filter(
+    (element): element is HTMLButtonElement => element instanceof HTMLButtonElement,
+  )
+
+  if (buttons.length === 0) {
+    parent.appendChild(createCopyButton(labels))
+    return
+  }
+
+  for (const button of buttons.slice(1)) {
+    button.remove()
+  }
+}
+
+function markCodeLinks(root: HTMLDivElement) {
+  const codeNodes = Array.from(root.querySelectorAll(":not(pre) > code"))
+  for (const code of codeNodes) {
+    const href = codeUrl(code.textContent ?? "")
+    const parentLink =
+      code.parentElement instanceof HTMLAnchorElement && code.parentElement.classList.contains("external-link")
+        ? code.parentElement
+        : null
+
+    if (!href) {
+      if (parentLink) parentLink.replaceWith(code)
+      continue
+    }
+
+    if (parentLink) {
+      parentLink.href = href
+      continue
+    }
+
+    const link = document.createElement("a")
+    link.href = href
+    link.className = "external-link"
+    link.target = "_blank"
+    link.rel = "noopener noreferrer"
+    code.parentNode?.replaceChild(link, code)
+    link.appendChild(code)
+  }
+}
+
+function decorateMarkdown(root: HTMLDivElement, labels: CopyLabels) {
+  const blocks = Array.from(root.querySelectorAll("pre"))
+  for (const block of blocks) {
+    ensureCodeWrapper(block, labels)
+  }
+  markCodeLinks(root)
+}
+
+function setupCodeCopy(root: HTMLDivElement, labels: CopyLabels) {
+  const timeouts = new Map<HTMLButtonElement, ReturnType<typeof setTimeout>>()
+  const buttons = Array.from(root.querySelectorAll('[data-slot="markdown-copy-button"]')).filter(
+    (button): button is HTMLButtonElement => button instanceof HTMLButtonElement,
+  )
+
+  for (const button of buttons) {
+    const copied = button.getAttribute("data-copied") === "true"
+    setCopyState(button, labels, copied)
+  }
+
+  const handleClick = async (event: MouseEvent) => {
+    const target = event.target
+    if (!(target instanceof Element)) return
+
+    const button = target.closest('[data-slot="markdown-copy-button"]')
+    if (!(button instanceof HTMLButtonElement)) return
+
+    const code = button.closest('[data-component="markdown-code"]')?.querySelector("code")
+    const content = code?.textContent ?? ""
+    if (!content) return
+    const clipboard = navigator?.clipboard
+    if (!clipboard) return
+
+    await clipboard.writeText(content)
+    setCopyState(button, labels, true)
+
+    const existing = timeouts.get(button)
+    if (existing) clearTimeout(existing)
+    const timeout = setTimeout(() => setCopyState(button, labels, false), 2000)
+    timeouts.set(button, timeout)
+  }
+
+  root.addEventListener("click", handleClick)
+
+  return () => {
+    root.removeEventListener("click", handleClick)
+    for (const timeout of timeouts.values()) {
+      clearTimeout(timeout)
+    }
+  }
+}
+
 function sanitize(html: string) {
   if (!DOMPurify.isSupported) return ""
   return DOMPurify.sanitize(html, sanitizeConfig)
@@ -94,77 +237,151 @@ function touchMarkdownCache(key: string, value: MarkdownCacheEntry) {
   markdownCache.delete(first)
 }
 
-export function Markdown({
-  text,
-  className,
-  cacheKey,
-}: {
-  text: string
-  className?: string
-  cacheKey?: string
-}) {
+export function Markdown({ text, className, cacheKey }: { text: string; className?: string; cacheKey?: string }) {
   const rootRef = useRef<HTMLDivElement | null>(null)
+  const renderIdRef = useRef(0)
+  const copyCleanupRef = useRef<(() => void) | undefined>(undefined)
+  const copySetupTimerRef = useRef<number | undefined>(undefined)
+  const copyLabels = useMemo<CopyLabels>(() => ({ copy: "Copy code", copied: "Copied" }), [])
   const sanitizeContextKey = markdownSanitizeContextKey()
 
-  useEffect(() => {
-    let disposed = false
+  // Compute cache key synchronously
+  const fullCacheKey = useMemo(() => `${cacheKey ?? text}::${sanitizeContextKey}`, [cacheKey, sanitizeContextKey, text])
 
-    const applyHtml = (html: string) => {
+  // Check cache synchronously - if we have a hit, we can render immediately
+  const cachedEntry = useMemo(() => {
+    const cached = markdownCache.get(fullCacheKey)
+    if (cached && cached.source === text) {
+      touchMarkdownCache(fullCacheKey, cached)
+      return cached
+    }
+    return null
+  }, [fullCacheKey, text])
+
+  const resetCodeCopy = () => {
+    if (copySetupTimerRef.current !== undefined) {
+      window.clearTimeout(copySetupTimerRef.current)
+      copySetupTimerRef.current = undefined
+    }
+    if (copyCleanupRef.current) {
+      copyCleanupRef.current()
+      copyCleanupRef.current = undefined
+    }
+  }
+
+  const scheduleCodeCopy = () => {
+    if (copySetupTimerRef.current !== undefined) {
+      window.clearTimeout(copySetupTimerRef.current)
+      copySetupTimerRef.current = undefined
+    }
+
+    copySetupTimerRef.current = window.setTimeout(() => {
+      copySetupTimerRef.current = undefined
+      if (copyCleanupRef.current) {
+        copyCleanupRef.current()
+        copyCleanupRef.current = undefined
+      }
       const root = rootRef.current
       if (!root) return
+      copyCleanupRef.current = setupCodeCopy(root, copyLabels)
+    }, 150)
+  }
 
-      if (!html) {
-        if (root.innerHTML) root.innerHTML = ""
-        return
-      }
+  const applyHtml = (html: string) => {
+    const root = rootRef.current
+    if (!root) return
 
-      const temp = document.createElement("div")
-      temp.innerHTML = html
-
-      morphdom(root, temp, {
-        childrenOnly: true,
-        onBeforeElUpdated(fromEl, toEl) {
-          if (fromEl.isEqualNode(toEl)) return false
-          return true
-        },
-      })
+    if (!html) {
+      if (root.innerHTML) root.innerHTML = ""
+      resetCodeCopy()
+      return
     }
 
-    const key = `${cacheKey ?? text}::${sanitizeContextKey}`
-    const cached = markdownCache.get(key)
+    const temp = document.createElement("div")
+    temp.innerHTML = html
+    decorateMarkdown(temp, copyLabels)
+
+    morphdom(root, temp, {
+      childrenOnly: true,
+      onBeforeElUpdated(fromEl, toEl) {
+        if (fromEl.isEqualNode(toEl)) return false
+        return true
+      },
+    })
+
+    scheduleCodeCopy()
+  }
+
+  useLayoutEffect(() => {
+    // If we have cached HTML, apply it synchronously during layout phase
+    if (cachedEntry) {
+      applyHtml(cachedEntry.html)
+    }
+  }, [cachedEntry])
+
+  useEffect(() => {
+    // Skip async work if we already rendered from cache
+    if (cachedEntry) return
+
+    // Increment render ID to track stale async operations
+    const currentRenderId = ++renderIdRef.current
+
+    const applyIfCurrent = (html: string) => {
+      // Guard against stale async resolves
+      if (currentRenderId !== renderIdRef.current) return
+      applyHtml(html)
+    }
+
+    // Double-check cache in case it was populated between render and effect
+    const cached = markdownCache.get(fullCacheKey)
     if (cached && cached.source === text) {
-      touchMarkdownCache(key, cached)
-      applyHtml(cached.html)
-      return () => {
-        disposed = true
-      }
+      touchMarkdownCache(fullCacheKey, cached)
+      applyIfCurrent(cached.html)
+      return
     }
 
-    (async () => {
+    // Async markdown parsing
+    let cancelled = false
+
+    ;(async () => {
       try {
         const rendered = await parseMarkdownToHtml(text)
+        if (cancelled) return
+
         const safe = sanitize(rendered)
-        if (disposed) return
-        touchMarkdownCache(key, {
+        if (cancelled) return
+
+        touchMarkdownCache(fullCacheKey, {
           source: text,
           html: safe,
         })
-        applyHtml(safe)
+        applyIfCurrent(safe)
       } catch {
+        if (cancelled) return
+
         const safe = sanitize(text)
-        if (disposed) return
-        touchMarkdownCache(key, {
+        if (cancelled) return
+
+        touchMarkdownCache(fullCacheKey, {
           source: text,
           html: safe,
         })
-        applyHtml(safe)
+        applyIfCurrent(safe)
       }
     })()
 
     return () => {
-      disposed = true
+      cancelled = true
     }
-  }, [cacheKey, sanitizeContextKey, text])
+  }, [cachedEntry, fullCacheKey, text])
 
-  return <div data-component="markdown" className={[markdownClassName, className].filter(Boolean).join(" ")} ref={rootRef} />
+  useEffect(() => {
+    return () => {
+      resetCodeCopy()
+    }
+  }, [])
+
+  return (
+    <div data-component="markdown" className={[markdownClassName, className].filter(Boolean).join(" ")} ref={rootRef} />
+  )
 }
