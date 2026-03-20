@@ -5,7 +5,6 @@ import { ServerProvider, createBrowserServerConnection } from "./context/server"
 import "./index.css"
 
 const rootElement = document.getElementById("root")!
-document.documentElement.classList.add("dark")
 
 if (!rootElement.innerHTML) {
   const platform = createBrowserPlatform()
@@ -22,7 +21,7 @@ if (!rootElement.innerHTML) {
             </ServerProvider>
           </PlatformProvider>
         </AppBaseProviders>
-      </React.StrictMode>
+      </React.StrictMode>,
     )
   })
 }

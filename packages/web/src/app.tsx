@@ -1,7 +1,8 @@
 import type { ReactNode } from "react"
 import { RouterProvider, createRouter } from "@tanstack/react-router"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { ThemeProvider, Toaster, TooltipProvider } from "@buddy/ui"
+import { Toaster, TooltipProvider } from "@buddy/ui"
+import { ThemeProvider } from "@/theme"
 import { routeTree } from "./routeTree.gen"
 
 const queryClient = new QueryClient()
@@ -21,12 +22,10 @@ declare module "@tanstack/react-router" {
   }
 }
 
-export function AppBaseProviders(props: {
-  children: ReactNode
-}) {
+export function AppBaseProviders(props: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider attribute="class" forcedTheme="dark" enableSystem={false}>
+      <ThemeProvider defaultTheme="oc-2">
         <TooltipProvider>
           {props.children}
           <Toaster position="bottom-right" />
