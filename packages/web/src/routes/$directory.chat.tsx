@@ -11,6 +11,7 @@ import { ChatRightSidebar } from "@/components/layout/chat-right-sidebar"
 import { McpDialog } from "@/components/mcp-dialog"
 import { ResizeHandle } from "@/components/layout/resize-handle"
 import { ResourcesPanel } from "@/components/resources/resources-panel"
+import { AgentsMdPanel } from "@/components/agents/agents-md-panel"
 import { SettingsModal } from "@/components/settings-modal"
 import { TeachingEditorPanel } from "@/components/teaching/teaching-editor-panel"
 import { MathFigurePanel } from "@/components/teaching/math-figure-panel"
@@ -48,6 +49,7 @@ import {
   LayoutRightIcon,
   LayoutRightPartialIcon,
 } from "@/components/layout/sidebar-icons"
+import { Loader2Icon } from "lucide-react"
 import { resolveTeachingPromptContext } from "../lib/teaching-context"
 import { pickProjectDirectory } from "../lib/directory-picker"
 import { decodeDirectory, encodeDirectory } from "../lib/directory-token"
@@ -348,6 +350,7 @@ function DirectoryChatPage() {
       }
     | undefined
   >(undefined)
+  const [isStartingInteractiveLesson, setIsStartingInteractiveLesson] = useState(false)
 
   const decodedDirectory = useMemo(() => {
     try {
@@ -652,7 +655,9 @@ function DirectoryChatPage() {
         ? "capabilities"
         : rightSidebarTab === RESOURCE_SIDEBAR_TAB
           ? RESOURCE_SIDEBAR_TAB
-          : selectedSurfaceTab
+          : rightSidebarTab === "agents-md"
+            ? "agents-md"
+            : selectedSurfaceTab
   const editorPanelSizing = rightSidebarActiveTab === "editor"
   const rightSidebarMinWidth = editorPanelSizing ? RIGHT_SIDEBAR_EDITOR_MIN_WIDTH : RIGHT_SIDEBAR_MIN_WIDTH
   const rightSidebarMaxWidth = editorPanelSizing ? RIGHT_SIDEBAR_EDITOR_MAX_WIDTH : RIGHT_SIDEBAR_MAX_WIDTH
@@ -1593,6 +1598,10 @@ function DirectoryChatPage() {
       return
     }
 
+    if (rightSidebarActiveTab === "agents-md") {
+      return
+    }
+
     if (nextPersona.surfaces.includes("editor") && teachingWorkspace) {
       setRightSidebarTab("editor")
       if (rightSidebarWidth < RIGHT_SIDEBAR_EDITOR_MIN_WIDTH) {
@@ -1695,7 +1704,16 @@ function DirectoryChatPage() {
   }
 
   async function onStartInteractiveLesson() {
-    if (!decodedDirectory || !sessionID || !sessionKey || !selectedPersonaSupportsEditor) return
+    if (
+      !decodedDirectory ||
+      !sessionID ||
+      !sessionKey ||
+      !selectedPersonaSupportsEditor ||
+      isBusy ||
+      isStartingInteractiveLesson
+    )
+      return
+    setIsStartingInteractiveLesson(true)
     setRightSidebarTab("editor")
     if (rightSidebarWidth < RIGHT_SIDEBAR_EDITOR_MIN_WIDTH) {
       setRightSidebarWidth(640)
@@ -1733,6 +1751,8 @@ function DirectoryChatPage() {
       const message = stringifyError(interactiveError)
       setDirectoryError(decodedDirectory, message)
       useTeachingRuntime.getState().setSaveError(sessionKey, message)
+    } finally {
+      setIsStartingInteractiveLesson(false)
     }
   }
 
@@ -1941,13 +1961,7 @@ function DirectoryChatPage() {
                     <p className="text-sm text-muted-foreground">Loading conversation history...</p>
                   ) : messages.length === 0 ? (
                     <div className="h-full flex flex-col">
-                      <ChatEmptyState
-                        directoryLabel={getFilename(decodedDirectory)}
-                        onUsePrompt={(value) => {
-                          stagePromptText(value)
-                        }}
-                        onOpenCurriculum={openCurriculumPanel}
-                      />
+                      <ChatEmptyState directoryLabel={getFilename(decodedDirectory)} />
                     </div>
                   ) : (
                     <ChatTranscript
@@ -2048,6 +2062,7 @@ function DirectoryChatPage() {
               showCapabilitiesTab={showCapabilitiesSidebarTab}
               showSystemPromptTab={showSystemPromptSidebarTab}
               resourcesPanel={<ResourcesPanel directory={decodedDirectory} refreshToken={resourcesRefreshToken} />}
+              agentsPanel={<AgentsMdPanel directory={decodedDirectory} />}
               systemPromptPanel={
                 showSystemPromptSidebarTab ? (
                   <SystemPromptPanel
@@ -2126,14 +2141,21 @@ function DirectoryChatPage() {
                           onClick={() => {
                             void onStartInteractiveLesson()
                           }}
-                          disabled={!sessionKey || isBusy}
+                          disabled={!sessionKey || isBusy || isStartingInteractiveLesson}
                         >
-                          Start Interactive Lesson
+                          {isStartingInteractiveLesson ? (
+                            <>
+                              <Loader2Icon className="mr-2 size-4 animate-spin" />
+                              Starting...
+                            </>
+                          ) : (
+                            "Start Interactive Lesson"
+                          )}
                         </Button>
                       </div>
 
                       <div className="rounded-lg border border-border/70 bg-background p-3 text-xs text-muted-foreground">
-                        Current workspace: not started
+                        Current workspace: {isStartingInteractiveLesson ? "starting..." : "not started"}
                         <br />
                         Selected persona: {selectedPersona}
                       </div>

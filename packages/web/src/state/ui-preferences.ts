@@ -18,6 +18,7 @@ type UiPreferencesStore = {
     | "editor"
     | "figure"
     | "resources"
+    | "agents-md"
     | "capabilities"
     | "system-prompt"
     | "settings"
@@ -34,14 +35,7 @@ type UiPreferencesStore = {
   setRightSidebarOpen: (open: boolean) => void
   setRightSidebarWidth: (width: number) => void
   setRightSidebarTab: (
-    tab:
-      | "curriculum"
-      | "editor"
-      | "figure"
-      | "resources"
-      | "capabilities"
-      | "system-prompt"
-      | "settings",
+    tab: "curriculum" | "editor" | "figure" | "resources" | "agents-md" | "capabilities" | "system-prompt" | "settings",
   ) => void
 }
 
@@ -158,15 +152,17 @@ export const useUiPreferences = create<UiPreferencesStore>()(
               ? "settings"
               : state?.rightSidebarTab === "system-prompt"
                 ? "system-prompt"
-              : state?.rightSidebarTab === "capabilities"
-                ? "capabilities"
-              : state?.rightSidebarTab === "resources"
-                ? "resources"
-              : state?.rightSidebarTab === "figure"
-                ? "figure"
-              : state?.rightSidebarTab === "editor"
-                ? "editor"
-                : "curriculum",
+                : state?.rightSidebarTab === "capabilities"
+                  ? "capabilities"
+                  : state?.rightSidebarTab === "resources"
+                    ? "resources"
+                    : state?.rightSidebarTab === "agents-md"
+                      ? "agents-md"
+                      : state?.rightSidebarTab === "figure"
+                        ? "figure"
+                        : state?.rightSidebarTab === "editor"
+                          ? "editor"
+                          : "curriculum",
         }
       },
       partialize(state) {
