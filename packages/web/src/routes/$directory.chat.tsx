@@ -17,7 +17,11 @@ import { MathFigurePanel } from "@/components/teaching/math-figure-panel"
 import { usePlatform } from "@/context/platform"
 import { getFilename } from "@/components/layout/sidebar-helpers"
 import { PromptComposer } from "@/components/prompt/prompt-composer"
-import { PROMPT_PART_TYPE_FILE, PROMPT_PART_TYPE_TEXT, RESOURCE_REFERENCE_PART_TYPE } from "@/components/prompt/prompt-types"
+import {
+  PROMPT_PART_TYPE_FILE,
+  PROMPT_PART_TYPE_TEXT,
+  RESOURCE_REFERENCE_PART_TYPE,
+} from "@/components/prompt/prompt-types"
 import type {
   PromptAttachmentPart,
   PromptComposerAttachment,
@@ -75,11 +79,7 @@ import {
   startNewSession,
   updateSession,
 } from "../state/chat-actions"
-import {
-  addResource,
-  rebuildResource,
-  removeResource,
-} from "../state/resource-actions"
+import { addResource, rebuildResource, removeResource } from "../state/resource-actions"
 import {
   clonePromptDraft,
   createTextPromptDraft,
@@ -266,10 +266,7 @@ function buildPromptSubmissionParts(
   promptParts: PromptComposerPart[],
   attachments: PromptComposerAttachment[],
 ): PromptSubmissionPart[] {
-  return [
-    ...promptParts.map((part) => ({ ...part })),
-    ...buildPromptAttachmentParts(attachments),
-  ]
+  return [...promptParts.map((part) => ({ ...part })), ...buildPromptAttachmentParts(attachments)]
 }
 
 function buildCommandAttachmentParts(attachments: PromptComposerAttachment[]) {
@@ -287,10 +284,11 @@ async function loadComposerConfiguration(directory: string) {
     loadProjectConfig(directory),
     loadCommandCatalog(directory),
   ])
-  const configuredDefault = resolveDefaultPersonaID(
-    personas,
-    typeof config.default_persona === "string" ? config.default_persona : undefined,
-  ) ?? "buddy"
+  const configuredDefault =
+    resolveDefaultPersonaID(
+      personas,
+      typeof config.default_persona === "string" ? config.default_persona : undefined,
+    ) ?? "buddy"
 
   return {
     personas,
@@ -625,9 +623,12 @@ function DirectoryChatPage() {
     () => (decodedDirectory && sessionID ? teachingSessionKey(decodedDirectory, sessionID) : ""),
     [decodedDirectory, sessionID],
   )
-  const storedPersona =
-    sessionKey ? (teachingRuntime.selectedPersonaBySession[sessionKey] ?? defaultPersona) : defaultPersona
-  const storedIntent = sessionKey ? (teachingRuntime.selectedIntentBySession[sessionKey] ?? defaultIntent) : defaultIntent
+  const storedPersona = sessionKey
+    ? (teachingRuntime.selectedPersonaBySession[sessionKey] ?? defaultPersona)
+    : defaultPersona
+  const storedIntent = sessionKey
+    ? (teachingRuntime.selectedIntentBySession[sessionKey] ?? defaultIntent)
+    : defaultIntent
   const preferredLanguage = sessionKey ? (teachingRuntime.preferredLanguageBySession[sessionKey] ?? "ts") : "ts"
   const teachingWorkspace = sessionKey ? teachingRuntime.workspaceBySession[sessionKey] : undefined
   const selectedPersonaConfig = useMemo(
@@ -640,17 +641,18 @@ function DirectoryChatPage() {
   const selectedPersonaSupportsEditor = selectedPersonaSurfaces.includes("editor")
   const selectedPersonaSupportsFigure = selectedPersonaSurfaces.includes("figure")
   const isInteractiveMode = !!sessionID && !!teachingWorkspace
-  const selectedSurfaceTab = isSidebarSurface(rightSidebarTab) && selectedPersonaSurfaces.includes(rightSidebarTab)
-    ? rightSidebarTab
-    : selectedPersonaDefaultSurface
+  const selectedSurfaceTab =
+    isSidebarSurface(rightSidebarTab) && selectedPersonaSurfaces.includes(rightSidebarTab)
+      ? rightSidebarTab
+      : selectedPersonaDefaultSurface
   const rightSidebarActiveTab =
     rightSidebarTab === "system-prompt" && showSystemPromptSidebarTab
       ? "system-prompt"
       : rightSidebarTab === "capabilities" && showCapabilitiesSidebarTab
-      ? "capabilities"
-      : rightSidebarTab === RESOURCE_SIDEBAR_TAB
-        ? RESOURCE_SIDEBAR_TAB
-        : selectedSurfaceTab
+        ? "capabilities"
+        : rightSidebarTab === RESOURCE_SIDEBAR_TAB
+          ? RESOURCE_SIDEBAR_TAB
+          : selectedSurfaceTab
   const editorPanelSizing = rightSidebarActiveTab === "editor"
   const rightSidebarMinWidth = editorPanelSizing ? RIGHT_SIDEBAR_EDITOR_MIN_WIDTH : RIGHT_SIDEBAR_MIN_WIDTH
   const rightSidebarMaxWidth = editorPanelSizing ? RIGHT_SIDEBAR_EDITOR_MAX_WIDTH : RIGHT_SIDEBAR_MAX_WIDTH
@@ -804,11 +806,7 @@ function DirectoryChatPage() {
     void loadMcpStatus(decodedDirectory).catch(() => undefined)
   }
 
-  async function syncTeachingRuntimeSelection(input?: {
-    directory?: string
-    sessionID?: string
-    sessionKey?: string
-  }) {
+  async function syncTeachingRuntimeSelection(input?: { directory?: string; sessionID?: string; sessionKey?: string }) {
     const activeDirectory = input?.directory ?? decodedDirectory
     const activeSessionID = input?.sessionID ?? sessionID
     const activeSessionKey = input?.sessionKey ?? sessionKey
@@ -1336,11 +1334,7 @@ function DirectoryChatPage() {
     setPendingSuggestionOverride(override)
 
     const canSendImmediately =
-      !!decodedDirectory &&
-      !!sessionKey &&
-      !isBusy &&
-      draft.trim().length === 0 &&
-      draftAttachments.length === 0
+      !!decodedDirectory && !!sessionKey && !isBusy && draft.trim().length === 0 && draftAttachments.length === 0
 
     if (canSendImmediately) {
       try {
@@ -1848,7 +1842,7 @@ function DirectoryChatPage() {
 
         <main className="flex-1 min-w-0 min-h-0 flex flex-col bg-background/20">
           <header className="border-b px-3 py-2">
-            <div className="mx-auto flex w-full max-w-[1080px] items-center justify-between gap-2">
+            <div className="mx-auto flex w-full max-w-full items-center justify-between gap-2 md:max-w-200 2xl:max-w-[1000px]">
               <div className="min-w-0 flex items-center gap-1.5">
                 {showHeaderSidebarToggle ? (
                   <Button
@@ -1939,7 +1933,7 @@ function DirectoryChatPage() {
             <div className="flex min-h-0 flex-1 flex-col">
               <section ref={transcriptRef} onScroll={onTranscriptScroll} className="flex-1 min-h-0 overflow-y-auto">
                 <div
-                  className={`mx-auto w-full max-w-[1080px] px-4 py-4 space-y-4 ${
+                  className={`mx-auto w-full max-w-full px-4 py-4 space-y-4 md:max-w-200 2xl:max-w-[1000px] ${
                     messages.length === 0 && isReady ? "h-full" : ""
                   }`}
                 >
@@ -1969,7 +1963,7 @@ function DirectoryChatPage() {
               </section>
 
               {error ? (
-                <div className="mx-auto w-full max-w-[1080px] px-4 pb-2">
+                <div className="mx-auto w-full max-w-full px-4 pb-2 md:max-w-200 2xl:max-w-[1000px]">
                   <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
                     {error}
                   </div>
@@ -1977,7 +1971,7 @@ function DirectoryChatPage() {
               ) : null}
 
               {pendingPermissions.length > 0 ? (
-                <div className="mx-auto w-full max-w-[1080px] px-4 pb-2">
+                <div className="mx-auto w-full max-w-full px-4 pb-2 md:max-w-200 2xl:max-w-[1000px]">
                   <PermissionDock
                     request={pendingPermissions[0]!}
                     pendingCount={Math.max(0, pendingPermissions.length - 1)}
@@ -1988,7 +1982,7 @@ function DirectoryChatPage() {
                 </div>
               ) : null}
 
-              <div className="mx-auto w-full max-w-[1080px] px-4">
+              <div className="mx-auto w-full max-w-full px-4 md:max-w-200 2xl:max-w-[1000px]">
                 <PromptComposer
                   className="mb-4"
                   directory={decodedDirectory}
@@ -2053,12 +2047,7 @@ function DirectoryChatPage() {
               surfaces={selectedPersonaSurfaces}
               showCapabilitiesTab={showCapabilitiesSidebarTab}
               showSystemPromptTab={showSystemPromptSidebarTab}
-              resourcesPanel={
-                <ResourcesPanel
-                  directory={decodedDirectory}
-                  refreshToken={resourcesRefreshToken}
-                />
-              }
+              resourcesPanel={<ResourcesPanel directory={decodedDirectory} refreshToken={resourcesRefreshToken} />}
               systemPromptPanel={
                 showSystemPromptSidebarTab ? (
                   <SystemPromptPanel
