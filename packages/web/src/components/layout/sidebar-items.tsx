@@ -45,7 +45,7 @@ export function SessionItem(props: SessionItemProps) {
     >
       <div className="flex items-center gap-2 min-w-0">
         <span
-          className={`inline-block size-1.5 rounded-full shrink-0 ${props.busy ? "bg-amber-500" : "bg-emerald-500"}`}
+          className={`inline-block size-1.5 rounded-full shrink-0 ${props.busy ? "bg-[var(--chart-3)]" : "bg-[var(--chart-2)]"}`}
         />
         <span className="text-sm truncate">{props.session.title || "New chat"}</span>
       </div>

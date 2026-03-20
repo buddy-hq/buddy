@@ -292,7 +292,7 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
       </div>
 
       {props.workspace.conflict ? (
-        <div className="flex flex-wrap items-center gap-2 border-b border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-900">
+        <div className="flex flex-wrap items-center gap-2 border-b border-b-[color:color-mix(in_oklab,var(--chart-3)_38%,transparent)] bg-[color:color-mix(in_oklab,var(--chart-3)_12%,transparent)] px-3 py-2 text-xs text-foreground">
           <span className="min-w-0 flex-1">The lesson file changed outside the editor. Choose which version to keep.</span>
           <Button size="sm" variant="secondary" onClick={props.onLoadExternalChanges}>
             Load external changes

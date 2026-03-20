@@ -9,9 +9,9 @@ type SessionContextUsageProps = {
 }
 
 function usageColor(usage: number) {
-  if (usage >= 90) return "#ef4444"
-  if (usage >= 70) return "#f59e0b"
-  return "#22c55e"
+  if (usage >= 90) return "var(--chart-4)"
+  if (usage >= 70) return "var(--chart-3)"
+  return "var(--chart-2)"
 }
 
 export function SessionContextUsage(props: SessionContextUsageProps) {
@@ -38,7 +38,7 @@ export function SessionContextUsage(props: SessionContextUsageProps) {
           <span
             className="absolute inset-0 rounded-full"
             style={{
-              background: `conic-gradient(${color} ${usage * 3.6}deg, rgba(100, 116, 139, 0.28) ${usage * 3.6}deg 360deg)`,
+              background: `conic-gradient(${color} ${usage * 3.6}deg, color-mix(in oklab, var(--muted-foreground) 28%, transparent) ${usage * 3.6}deg 360deg)`,
             }}
           />
           <span className="absolute inset-[3px] rounded-full bg-background" />

@@ -36,8 +36,8 @@ export function ImageAttachments({ attachments, onRemove, onOpen }: ImageAttachm
             <XIcon className="size-3 text-muted-foreground" />
           </button>
 
-          <div className="absolute bottom-0 left-0 right-0 px-1 py-0.5 bg-black/50 rounded-b-md">
-            <span className="text-[10px] text-white truncate block">{attachment.filename}</span>
+          <div className="absolute right-0 bottom-0 left-0 rounded-b-md bg-[color:color-mix(in_oklab,var(--popover)_78%,transparent)] px-1 py-0.5 backdrop-blur-[2px]">
+            <span className="block truncate text-[10px] text-popover-foreground">{attachment.filename}</span>
           </div>
         </div>
       ))}

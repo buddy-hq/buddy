@@ -211,9 +211,9 @@ function SkillCard(props: {
                 className={cn(
                   "h-5",
                   props.skill.permissionAction === "allow"
-                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+                    ? "border-[color:color-mix(in_oklab,var(--chart-2)_30%,transparent)] bg-[color:color-mix(in_oklab,var(--chart-2)_12%,transparent)] text-[var(--chart-2)]"
                     : props.skill.permissionAction === "ask"
-                      ? "border-sky-500/30 bg-sky-500/10 text-sky-200"
+                      ? "border-[color:color-mix(in_oklab,var(--chart-5)_30%,transparent)] bg-[color:color-mix(in_oklab,var(--chart-5)_12%,transparent)] text-[var(--chart-5)]"
                       : "border-destructive/30 bg-destructive/10 text-destructive",
                 )}
               >
@@ -247,7 +247,7 @@ function LibraryCard(props: { skill: SkillLibraryEntry; disabled?: boolean; onIn
             <p className="text-sm font-semibold text-foreground">{props.skill.name}</p>
           </div>
           <p className="text-sm text-muted-foreground">{props.skill.description}</p>
-          <p className="text-xs text-muted-foreground/80">{props.skill.summary}</p>
+          <p className="text-xs text-muted-foreground">{props.skill.summary}</p>
         </div>
 
         <div className="mt-auto flex items-center justify-between gap-3">
@@ -523,7 +523,7 @@ export function SkillsPage(props: { directory?: string }) {
                   <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
                     Workspace
                   </span>
-                  <span className="truncate font-mono text-[11px] text-foreground/85">{catalog.directory}</span>
+                  <span className="truncate font-mono text-[11px] text-foreground">{catalog.directory}</span>
                 </div>
               ) : null}
               <Card className="mt-4 border-border/60 bg-card/60">
@@ -729,7 +729,7 @@ export function SkillsPage(props: { directory?: string }) {
                       Copy
                     </Button>
                   </div>
-                  <p className="whitespace-pre-wrap text-sm text-foreground/90">{selectedSkill.examplePrompt}</p>
+                  <p className="whitespace-pre-wrap text-sm text-foreground">{selectedSkill.examplePrompt}</p>
                 </div>
               ) : null}
 
@@ -749,7 +749,7 @@ export function SkillsPage(props: { directory?: string }) {
                     Copy
                   </Button>
                 </div>
-                <pre className="max-h-[320px] overflow-auto whitespace-pre-wrap rounded-xl bg-muted/30 p-3 text-sm text-foreground/90">
+                <pre className="max-h-[320px] overflow-auto whitespace-pre-wrap rounded-xl bg-muted/30 p-3 text-sm text-foreground">
                   {selectedSkill.content}
                 </pre>
               </div>
@@ -768,7 +768,7 @@ export function SkillsPage(props: { directory?: string }) {
                     Copy path
                   </Button>
                 </div>
-                <p className="break-all text-sm text-foreground/90">{selectedSkill.directory}</p>
+                <p className="break-all text-sm text-foreground">{selectedSkill.directory}</p>
               </div>
 
               <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-between">

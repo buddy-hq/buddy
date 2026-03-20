@@ -141,17 +141,17 @@ function ThreadStatusIndicator(props: { status: "busy" | "unread" | "idle" }) {
   if (props.status === "busy") {
     return (
       <span className="relative inline-flex size-2.5 shrink-0 items-center justify-center" aria-hidden="true">
-        <span className="absolute inset-0 rounded-full border border-amber-400/70" />
-        <span className="size-1 rounded-full bg-amber-500 animate-pulse" />
+        <span className="absolute inset-0 rounded-full border border-[color:color-mix(in_oklab,var(--chart-3)_72%,transparent)]" />
+        <span className="size-1 animate-pulse rounded-full bg-[var(--chart-3)]" />
       </span>
     )
   }
 
   if (props.status === "unread") {
-    return <span className="inline-block size-2 shrink-0 rotate-45 rounded-[1px] bg-sky-500" aria-hidden="true" />
+    return <span className="inline-block size-2 shrink-0 rotate-45 rounded-[1px] bg-[var(--chart-5)]" aria-hidden="true" />
   }
 
-  return <span className="inline-block size-1.5 shrink-0 rounded-full bg-emerald-500" aria-hidden="true" />
+  return <span className="inline-block size-1.5 shrink-0 rounded-full bg-[var(--chart-2)]" aria-hidden="true" />
 }
 
 export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
@@ -340,7 +340,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
 
   return (
     <aside
-      className={`shrink-0 border-r border-border/60 bg-[#0b0b0d] text-foreground flex flex-col min-h-0 ${
+      className={`shrink-0 border-r border-sidebar-border bg-sidebar text-sidebar-foreground flex flex-col min-h-0 ${
         props.className ?? ""
       }`}
       style={props.style}
@@ -350,7 +350,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
           <Button
             type="button"
             variant="ghost"
-            className="h-9 w-full justify-start rounded-lg px-2 text-sm font-medium text-foreground hover:bg-[#121419] hover:text-foreground"
+            className="h-9 w-full justify-start rounded-lg px-2 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
             onClick={() => props.onNewSession(props.currentDirectory)}
             disabled={!props.currentDirectory}
           >
@@ -368,7 +368,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
                   type="button"
                   variant="ghost"
                   size="icon-xs"
-                  className="text-muted-foreground hover:bg-[#151821] hover:text-foreground"
+                  className="text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                   aria-label="Add notebook"
                   title="Add notebook"
                   onClick={props.onOpenDirectory}
@@ -385,7 +385,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-[#1a1d24] hover:text-foreground"
+                  className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                   aria-label="Organize threads"
                   title="Organize threads"
                 >
@@ -464,15 +464,13 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
                 {isDragOver && dragOverPosition === "before" ? (
                   <div className="h-0.5 rounded-full bg-primary/70 mx-2 mb-1" />
                 ) : null}
-                <div
-                  className={`group/directory flex items-center gap-1 rounded-xl px-1 py-0.5 ${
-                    isCurrentDirectory ? "bg-[#111318]" : ""
-                  }`}
-                >
+                <div className="group/directory flex items-center gap-1 rounded-xl px-1 py-0.5">
                   <button
                     type="button"
                     className={`flex min-w-0 flex-1 items-center gap-1.5 rounded-lg px-1.5 py-1 text-left text-sm ${
-                      isCurrentDirectory ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                      isCurrentDirectory
+                        ? "text-sidebar-accent-foreground"
+                        : "text-muted-foreground hover:text-sidebar-foreground"
                     } ${canDrag ? "cursor-grab active:cursor-grabbing" : ""}`}
                     onPointerDown={canDrag ? (e) => handleLabelPointerDown(e, group.directory) : undefined}
                     onClick={() => {
@@ -500,7 +498,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
                       <DropdownMenuTrigger asChild>
                         <button
                           type="button"
-                          className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-[#1a1d24] hover:text-foreground"
+                          className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                           aria-label={`Options for ${directoryLabel}`}
                         >
                           <EllipsisHorizontalIcon className="size-3.5" />
@@ -518,7 +516,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
                       <TooltipTrigger asChild>
                         <button
                           type="button"
-                          className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-[#1a1d24] hover:text-foreground"
+                          className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                           aria-label={`Start new thread in ${directoryLabel}`}
                           onClick={() => props.onNewSession(group.directory)}
                         >
@@ -533,7 +531,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
                 </div>
 
                 {group.sessions.length === 0 ? (
-                  <p className="pl-6 text-sm text-muted-foreground/60">No threads</p>
+                  <p className="pl-6 text-sm text-muted-foreground">No threads</p>
                 ) : collapsed ? null : (
                   visibleSessions.map((session) => {
                     const familyIDs = sessionFamilyIDs(allSessions, session.id)
@@ -547,7 +545,9 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
                       <div
                         key={`${group.directory}:${session.id}`}
                         className={`group/thread relative ml-3 rounded-xl ${
-                          active ? "bg-[#121419] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)]" : "hover:bg-[#101217]"
+                          active
+                            ? "bg-[color:color-mix(in_oklab,var(--sidebar-accent)_58%,var(--sidebar)_42%)] ring-1 ring-sidebar-border"
+                            : "hover:bg-sidebar-accent"
                         }`}
                       >
                         <button
@@ -561,7 +561,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
                             <div className="flex min-w-0 items-center gap-1">
                               <span
                                 className={`truncate text-xs ${
-                                  active || unread ? "font-medium text-foreground" : "text-foreground/90"
+                                  active || unread ? "font-medium text-sidebar-accent-foreground" : "text-muted-foreground"
                                 }`}
                               >
                                 {session.title || "New thread"}
@@ -570,7 +570,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
                             </div>
                             <span
                               className={`ml-auto shrink-0 text-[12px] ${
-                                busy ? "text-amber-400" : "text-muted-foreground"
+                                busy ? "text-chart-3" : "text-muted-foreground"
                               }`}
                             >
                               {busy ? "live" : formatThreadAge(session.time.updated)}
@@ -641,7 +641,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
                 {hasMore && !collapsed ? (
                   <button
                     type="button"
-                    className="ml-6 text-sm text-muted-foreground/80 hover:text-foreground"
+                    className="ml-6 text-sm text-muted-foreground hover:text-sidebar-foreground"
                     onClick={() =>
                       setExpandedDirectories((current) => {
                         const next = { ...current }
@@ -670,8 +670,8 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
         <Button
           variant="ghost"
           size="sm"
-          className={`mb-1 h-9 w-full justify-start rounded-lg px-2 text-sm font-medium text-foreground hover:bg-[#121419] hover:text-foreground ${
-            props.activeFooterItem === "skills" ? "bg-[#121419]" : ""
+          className={`mb-1 h-9 w-full justify-start rounded-lg px-2 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground ${
+            props.activeFooterItem === "skills" ? "bg-sidebar-accent text-sidebar-accent-foreground" : ""
           }`}
           onClick={props.onOpenSkills}
         >
@@ -681,8 +681,8 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
         <Button
           variant="ghost"
           size="sm"
-          className={`h-9 w-full justify-start rounded-lg px-2 text-sm font-medium text-foreground hover:bg-[#121419] hover:text-foreground ${
-            props.activeFooterItem === "settings" ? "bg-[#121419]" : ""
+          className={`h-9 w-full justify-start rounded-lg px-2 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground ${
+            props.activeFooterItem === "settings" ? "bg-sidebar-accent text-sidebar-accent-foreground" : ""
           }`}
           onClick={props.onOpenSettings}
         >
