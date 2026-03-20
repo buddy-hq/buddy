@@ -9,7 +9,8 @@ import type { TeachingLlmOutboundEntry } from "../../shared/teaching-session-sta
 
 const SYSTEM_PROMPT_SECTION_SEPARATOR = "\n\n" as const
 const STRUCTURED_OUTPUT_FORMAT_TYPE = "json_schema" as const
-const STRUCTURED_OUTPUT_SYSTEM_PROMPT = "IMPORTANT: The user has requested structured output. You MUST use the StructuredOutput tool to provide your final response. Do NOT respond with plain text - you MUST call the StructuredOutput tool with your answer formatted according to the schema." as const
+const STRUCTURED_OUTPUT_SYSTEM_PROMPT =
+  "IMPORTANT: The user has requested structured output. You MUST use the StructuredOutput tool to provide your final response. Do NOT respond with plain text - you MUST call the StructuredOutput tool with your answer formatted according to the schema." as const
 const OPENAI_PROVIDER_ID = "openai" as const
 const OAUTH_AUTH_TYPE = "oauth" as const
 
@@ -58,11 +59,9 @@ export async function buildFullSystemPrompt(input: {
   }
 
   const header = system[0]
-  await Plugin.trigger(
-    "experimental.chat.system.transform",
-    { sessionID: input.sessionID, model },
-    { system },
-  ).catch(() => undefined)
+  await Plugin.trigger("experimental.chat.system.transform", { sessionID: input.sessionID, model }, { system }).catch(
+    () => undefined,
+  )
 
   if (header && system.length > 2 && system[0] === header) {
     const remaining = system.slice(1).join("\n")
@@ -79,9 +78,7 @@ export async function buildFullSystemPrompt(input: {
   return fullPrompt.length > 0 ? fullPrompt : undefined
 }
 
-async function resolvePromptModel(input: {
-  payload: SerializableRecord
-}) {
+async function resolvePromptModel(input: { payload: SerializableRecord }) {
   const directModel = readModelRef(input.payload)
   if (directModel) {
     const resolved = await Provider.getModel(
