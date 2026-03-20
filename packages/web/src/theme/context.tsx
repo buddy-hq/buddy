@@ -14,7 +14,7 @@ const STORAGE_KEYS = {
 
 const THEME_STYLE_ID = "oc-theme"
 const PRELOAD_STYLE_ID = "oc-theme-preload"
-const THEME_CACHE_VERSION = "2"
+const THEME_CACHE_VERSION = "3"
 
 function normalize(id: string | null | undefined): string | null {
   if (id === "oc-1") return "oc-2"

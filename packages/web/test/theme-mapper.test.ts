@@ -13,12 +13,16 @@ describe("toShadcnCss", () => {
     const tokens = resolveThemeVariant(defaultThemes["oc-2"].dark, true)
     const css = toShadcnCss(tokens, true)
 
-    expect(cssValue(css, "--foreground")).toBe(tokens["text-strong"])
+    expect(cssValue(css, "--foreground")).toBe(tokens["text-base"])
+    expect(cssValue(css, "--card-foreground")).toBe(tokens["text-base"])
+    expect(cssValue(css, "--popover-foreground")).toBe(tokens["text-base"])
     expect(cssValue(css, "--secondary")).toBe(tokens["surface-raised-strong"])
-    expect(cssValue(css, "--secondary-foreground")).toBe(tokens["text-strong"])
-    expect(cssValue(css, "--accent")).toBe(tokens["surface-raised-strong"])
+    expect(cssValue(css, "--secondary-foreground")).toBe(tokens["text-base"])
+    expect(cssValue(css, "--accent")).toBe(tokens["surface-strong"])
     expect(cssValue(css, "--accent-foreground")).toBe(tokens["text-strong"])
+    expect(cssValue(css, "--sidebar-foreground")).toBe(tokens["text-base"])
     expect(cssValue(css, "--input")).toBe(tokens["border-base"])
+    expect(cssValue(css, "--accent")).not.toBe(cssValue(css, "--popover"))
   })
 
   test("keeps light control surfaces on the softer neutral step", () => {

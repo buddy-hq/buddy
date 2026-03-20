@@ -6,18 +6,20 @@ import type { ResolvedTheme } from "./types"
  */
 export function toShadcnCss(tokens: ResolvedTheme, isDark: boolean): string {
   const secondarySurface = isDark ? tokens["surface-raised-strong"] : tokens["surface-weak"]
-  const accentSurface = isDark ? tokens["surface-raised-strong"] : tokens["surface-weak"]
+  const accentSurface = isDark
+    ? (tokens["surface-strong"] ?? tokens["surface-raised-stronger"] ?? tokens["surface-raised-strong"])
+    : tokens["surface-weak"]
 
   const map: Record<string, string | undefined> = {
     // Background
     "--background": tokens["background-base"],
-    "--foreground": tokens["text-strong"],
+    "--foreground": tokens["text-base"],
 
     // Card/Popover surfaces
     "--card": tokens["surface-raised-base"],
-    "--card-foreground": tokens["text-strong"],
+    "--card-foreground": tokens["text-base"],
     "--popover": tokens["surface-raised-strong"],
-    "--popover-foreground": tokens["text-strong"],
+    "--popover-foreground": tokens["text-base"],
 
     // Primary (interactive/brand)
     "--primary": tokens["surface-interactive-base"] || tokens["surface-brand-base"],
@@ -25,7 +27,7 @@ export function toShadcnCss(tokens: ResolvedTheme, isDark: boolean): string {
 
     // Secondary/Muted/Accent (neutral surfaces)
     "--secondary": secondarySurface,
-    "--secondary-foreground": tokens["text-strong"],
+    "--secondary-foreground": tokens["text-base"],
     "--muted": tokens["surface-weak"],
     "--muted-foreground": tokens["text-weak"],
     "--accent": accentSurface,
@@ -42,7 +44,7 @@ export function toShadcnCss(tokens: ResolvedTheme, isDark: boolean): string {
 
     // Sidebar (use raised surfaces)
     "--sidebar": tokens["surface-raised-base"],
-    "--sidebar-foreground": tokens["text-strong"],
+    "--sidebar-foreground": tokens["text-base"],
     "--sidebar-primary": tokens["surface-interactive-base"] || tokens["surface-brand-base"],
     "--sidebar-primary-foreground": tokens["text-on-interactive-base"] || tokens["text-on-brand-base"],
     "--sidebar-accent": accentSurface,
@@ -54,11 +56,11 @@ export function toShadcnCss(tokens: ResolvedTheme, isDark: boolean): string {
     "--radius": "0.45rem",
 
     // Charts - use accent colors
-    "--chart-1": tokens["surface-interactive-base"] || tokens["primary"] || "#3b82f6",
-    "--chart-2": tokens["surface-success-base"] || "#22c55e",
-    "--chart-3": tokens["surface-warning-base"] || "#f59e0b",
-    "--chart-4": tokens["surface-critical-base"] || "#ef4444",
-    "--chart-5": tokens["surface-info-base"] || "#06b6d4",
+    "--chart-1": tokens["surface-interactive-base"] || tokens["surface-brand-base"] || tokens["icon-interactive-base"],
+    "--chart-2": tokens["surface-success-base"] || tokens["icon-success-base"],
+    "--chart-3": tokens["surface-warning-base"] || tokens["icon-warning-base"],
+    "--chart-4": tokens["surface-critical-base"] || tokens["icon-critical-base"],
+    "--chart-5": tokens["surface-info-base"] || tokens["icon-info-base"],
   }
 
   return Object.entries(map)
