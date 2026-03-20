@@ -155,6 +155,7 @@ export type ResourcePackService = {
 }
 
 export type ResourcePackMetadata = {
+  resource_alias?: string
   source_path: string
   source_relpath: string
   format: ResourceFormat

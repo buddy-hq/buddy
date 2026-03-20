@@ -55,6 +55,7 @@ describe("resource pack service", () => {
 
     const firstMetadata = matter(await fs.readFile(first.metadataPath, "utf8"))
     expect(firstMetadata.data).toMatchObject({
+      resource_alias: first.packKey,
       source_path: sourcePath,
       source_relpath: "guide.html",
       format: "html",
@@ -135,6 +136,7 @@ describe("resource pack service", () => {
 
     const metadata = matter(await fs.readFile(pack.metadataPath, "utf8"))
     expect(metadata.data).toMatchObject({
+      resource_alias: pack.packKey,
       source_path: sourcePath,
       format: "epub",
       status: RESOURCE_PACK_STATUS_READY,

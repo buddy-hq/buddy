@@ -87,7 +87,9 @@ export async function writePreparingResourcePackMetadata(input: {
   build: ResourcePackBuildInput
   warnings: string[]
 }) {
+  const resourceAlias = path.basename(path.dirname(input.build.packPaths.rootPath))
   await writeResourcePackMetadata(input.build.packPaths.metadataPath, {
+    resource_alias: resourceAlias,
     source_path: input.build.sourcePath,
     source_relpath: input.build.sourceRelpath,
     format: input.build.classification.format,
@@ -159,6 +161,7 @@ export async function writeResourcePackFiles(input: {
   await writeChunkMarkdowns(input.build.packPaths.chunksDirPath, input.chunkFiles)
 
   await writeResourcePackMetadata(input.build.packPaths.metadataPath, {
+    resource_alias: resourceAlias,
     source_path: input.build.sourcePath,
     source_relpath: input.build.sourceRelpath,
     format: input.build.classification.format,
@@ -178,7 +181,9 @@ export async function writeErroredResourcePackMetadata(input: {
   build: ResourcePackBuildInput
   message: string
 }) {
+  const resourceAlias = path.basename(path.dirname(input.build.packPaths.rootPath))
   await writeResourcePackMetadata(input.build.packPaths.metadataPath, {
+    resource_alias: resourceAlias,
     source_path: input.build.sourcePath,
     source_relpath: input.build.sourceRelpath,
     format: input.build.classification.format,
@@ -203,6 +208,7 @@ async function loadResourcePackMetadata(metadataPath: string): Promise<ResourceP
 
   const sourcePath = stringValue(data, "source_path")
   const sourceRelpath = stringValue(data, "source_relpath")
+  const resourceAlias = stringValue(data, "resource_alias") || undefined
   const format = normalizeResourceFormat(stringValue(data, "format"))
   const status = normalizeResourcePackStatus(stringValue(data, "status"))
   const extractor = stringValue(data, "extractor")
@@ -229,6 +235,7 @@ async function loadResourcePackMetadata(metadataPath: string): Promise<ResourceP
   }
 
   return {
+    resource_alias: resourceAlias,
     source_path: sourcePath,
     source_relpath: sourceRelpath,
     format,

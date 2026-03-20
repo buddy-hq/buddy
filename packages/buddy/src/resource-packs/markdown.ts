@@ -67,6 +67,7 @@ export function buildResourcePackEntryMarkdown(metadata: ResourcePackMetadata) {
     ].join("\n"),
     {
       file_kind: RESOURCE_PACK_FILE_KIND_RESOURCE_INDEX,
+      resource_alias: metadata.resource_alias,
       source_path: metadata.source_path,
       source_relpath: metadata.source_relpath,
       format: metadata.format,
