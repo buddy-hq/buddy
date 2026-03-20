@@ -1,9 +1,10 @@
-import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync } from "node:fs"
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs"
 import path from "node:path"
 
 type MigrationEntry = {
   sql: string
   timestamp: number
+  name: string
 }
 
 type BuildCompiledBuddyBinaryInput = {
@@ -49,6 +50,7 @@ function loadMigrations(dir: string, label: string): MigrationEntry[] {
       }
 
       return {
+        name,
         sql: readFileSync(file, "utf8"),
         timestamp: parseMigrationTimestamp(name),
       } satisfies MigrationEntry
@@ -57,6 +59,15 @@ function loadMigrations(dir: string, label: string): MigrationEntry[] {
     .sort((left, right) => left.timestamp - right.timestamp)
 
   return entries
+}
+
+function patchBundledUndiciNamespace(bundleOutputFile: string) {
+  const source = readFileSync(bundleOutputFile, "utf8")
+  const broken = 'import Undici from "undici";\nimport"undici";'
+  if (!source.includes(broken)) return
+
+  const fixed = 'import Undici from "undici";\nimport * as undici from "undici";'
+  writeFileSync(bundleOutputFile, source.replace(broken, fixed))
 }
 
 export async function buildCompiledBuddyBinary(input: BuildCompiledBuddyBinaryInput) {
@@ -103,6 +114,8 @@ export async function buildCompiledBuddyBinary(input: BuildCompiledBuddyBinaryIn
       if (!existsSync(bundleOutputFile)) {
         throw new Error(`Sidecar entry bundle missing after build: ${bundleOutputFile}`)
       }
+
+      patchBundledUndiciNamespace(bundleOutputFile)
 
       if (existsSync(buddySkillsDir)) {
         const bundledSkillsTarget = path.resolve(bundleOutdir, "learning/capabilities/pedagogy/skills")

@@ -21,6 +21,12 @@ async function fetchOpenCode(input: FetchOpenCodeInput): Promise<Response> {
   }
 
   const headers = new Headers(input.headers)
+  headers.delete("authorization")
+  if (process.env.OPENCODE_SERVER_PASSWORD) {
+    const username = process.env.OPENCODE_SERVER_USERNAME ?? "opencode"
+    const token = Buffer.from(`${username}:${process.env.OPENCODE_SERVER_PASSWORD}`).toString("base64")
+    headers.set("authorization", `Basic ${token}`)
+  }
   headers.delete("x-buddy-directory")
   headers.set("x-opencode-directory", input.directory)
   headers.delete("host")

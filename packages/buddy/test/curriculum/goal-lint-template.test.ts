@@ -3,7 +3,7 @@ import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ensureGoalToolsRegistered } from "../../src/learning/curriculum"
 import { tmpdir } from "../helpers/tmpdir"
-import { createToolContext, requireTool } from "../helpers/tools"
+import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
 
 describe("goal_lint", () => {
   test("rejects the 'students will be able to' template", async () => {
@@ -13,10 +13,7 @@ describe("goal_lint", () => {
       directory: project.path,
       async fn() {
         await ensureGoalToolsRegistered(project.path)
-        const tools = await ToolRegistry.tools({
-          providerID: "opencode",
-          modelID: "claude-sonnet",
-        })
+        const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
         const goalLint = requireTool(tools, "goal_lint")
 
         const ctx = createToolContext({
@@ -60,10 +57,7 @@ describe("goal_lint", () => {
       directory: project.path,
       async fn() {
         await ensureGoalToolsRegistered(project.path)
-        const tools = await ToolRegistry.tools({
-          providerID: "opencode",
-          modelID: "claude-sonnet",
-        })
+        const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
         const goalLint = requireTool(tools, "goal_lint")
 
         const ctx = createToolContext({
@@ -107,10 +101,7 @@ describe("goal_lint", () => {
       directory: project.path,
       async fn() {
         await ensureGoalToolsRegistered(project.path)
-        const tools = await ToolRegistry.tools({
-          providerID: "opencode",
-          modelID: "claude-sonnet",
-        })
+        const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
         const goalLint = requireTool(tools, "goal_lint")
 
         const ctx = createToolContext({

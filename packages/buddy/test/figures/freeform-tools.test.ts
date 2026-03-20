@@ -10,7 +10,7 @@ import {
 import { ensureFreeformFigureToolsRegistered } from "../../src/learning/capabilities"
 import { RenderFreeformFigureOutputSchema, type RenderFreeformFigureInput } from "../../src/learning/capabilities"
 import { tmpdir } from "../helpers/tmpdir"
-import { createToolContext, requireTool } from "../helpers/tools"
+import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
 
 function baseFreeformFigureInput(): RenderFreeformFigureInput {
   return {
@@ -36,10 +36,7 @@ describe("freeform figure tools", () => {
       directory: project.path,
       async fn() {
         await ensureFreeformFigureToolsRegistered(project.path)
-        const tools = await ToolRegistry.tools({
-          providerID: "opencode",
-          modelID: "claude-sonnet",
-        })
+        const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
         const renderFreeformFigure = requireTool(tools, "render_freeform_figure")
 
         return renderFreeformFigure.execute(

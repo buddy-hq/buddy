@@ -7,7 +7,7 @@ import { resolveCapabilityProfile } from "../../src/learning/resolve-capability-
 import { buildBuddyRuntimeSessionPermissions } from "../../src/learning/agent-execution/permissions/session-permissions"
 import { getBuddyPersona } from "../../src/learning/personas"
 import { tmpdir } from "../helpers/tmpdir"
-import { createToolContext, requireTool } from "../helpers/tools"
+import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
 
 describe("skill tool visibility", () => {
   test("vendor skill tool exposes Buddy pedagogy skills through agent permissions", async () => {
@@ -32,13 +32,7 @@ describe("skill tool visibility", () => {
           permission,
           options: {},
         })
-        const tools = await ToolRegistry.tools(
-          {
-            providerID: "opencode",
-            modelID: "claude-sonnet",
-          },
-          agent,
-        )
+        const tools = await ToolRegistry.tools(TEST_TOOL_MODEL, agent)
         const skillTool = requireTool(tools, "skill")
         const loaded = await skillTool.execute(
           {

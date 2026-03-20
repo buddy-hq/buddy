@@ -7,7 +7,7 @@ import { FigureService } from "../../src/learning/capabilities"
 import { ensureFigureToolsRegistered } from "../../src/learning/capabilities"
 import { RenderFigureOutputSchema, type RenderFigureInput } from "../../src/learning/capabilities"
 import { tmpdir } from "../helpers/tmpdir"
-import { createToolContext, requireTool } from "../helpers/tools"
+import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
 
 function baseFigureInput(): RenderFigureInput {
   return {
@@ -44,10 +44,7 @@ describe("figure tools", () => {
       directory: project.path,
       async fn() {
         await ensureFigureToolsRegistered(project.path)
-        const tools = await ToolRegistry.tools({
-          providerID: "opencode",
-          modelID: "claude-sonnet",
-        })
+        const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
         const renderFigure = requireTool(tools, "render_figure")
 
         return renderFigure.execute(
@@ -83,10 +80,7 @@ describe("figure tools", () => {
       directory: project.path,
       async fn() {
         await ensureFigureToolsRegistered(project.path)
-        const tools = await ToolRegistry.tools({
-          providerID: "opencode",
-          modelID: "claude-sonnet",
-        })
+        const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
         const renderFigure = requireTool(tools, "render_figure")
 
         const input = baseFigureInput()

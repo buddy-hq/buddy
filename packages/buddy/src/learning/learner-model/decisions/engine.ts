@@ -1,4 +1,5 @@
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
+import { ModelID, ProviderID, SessionID } from "@buddy/opencode-adapter/id"
 import { Provider } from "@buddy/opencode-adapter/provider"
 import { Session } from "@buddy/opencode-adapter/session"
 import { SessionPrompt } from "@buddy/opencode-adapter/session-prompt"
@@ -88,7 +89,7 @@ function parseModelRef(value: unknown): ModelRef | undefined {
 
 async function resolveSessionModel(sessionID: string): Promise<ModelRef | undefined> {
   const messages = await Session.messages({
-    sessionID,
+    sessionID: SessionID.make(sessionID),
     limit: 50,
   }).catch(() => [])
 
@@ -109,7 +110,9 @@ async function resolveSessionModel(sessionID: string): Promise<ModelRef | undefi
 }
 
 async function resolvePreferredModel(reference: ModelRef): Promise<ResolvedModel | undefined> {
-  const small = await Provider.getSmallModel(reference.providerID).catch(() => undefined)
+  const providerID = ProviderID.make(reference.providerID)
+  const modelID = ModelID.make(reference.modelID)
+  const small = await Provider.getSmallModel(providerID).catch(() => undefined)
   if (small) {
     return {
       providerId: small.providerID,
@@ -118,7 +121,7 @@ async function resolvePreferredModel(reference: ModelRef): Promise<ResolvedModel
     }
   }
 
-  const direct = await Provider.getModel(reference.providerID, reference.modelID).catch(() => undefined)
+  const direct = await Provider.getModel(providerID, modelID).catch(() => undefined)
   if (!direct) {
     return undefined
   }
@@ -175,8 +178,8 @@ export async function runStructuredDecision<T>(input: {
           sessionID: session.id,
           agent: DECISION_AGENT,
           model: {
-            providerID: model.providerId,
-            modelID: model.modelId,
+            providerID: ProviderID.make(model.providerId),
+            modelID: ModelID.make(model.modelId),
           },
           system: decisionSystemPrompt(input.system),
           parts: [

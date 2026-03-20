@@ -1,19 +1,25 @@
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
+import { MessageID, ModelID, ProviderID, SessionID } from "@buddy/opencode-adapter/id"
 import type { Tool } from "@buddy/opencode-adapter/tool"
 
 type ToolList = Awaited<ReturnType<typeof ToolRegistry.tools>>
 type RuntimeTool = ToolList[number]
 
+export const TEST_TOOL_MODEL = {
+  providerID: ProviderID.opencode,
+  modelID: ModelID.make("claude-sonnet"),
+}
+
 type ToolContextInput = {
-  sessionID: string
-  messageID: string
+  sessionID?: string
+  messageID?: string
   agent: string
 }
 
 export function createToolContext(input: ToolContextInput): Tool.Context {
   return {
-    sessionID: input.sessionID,
-    messageID: input.messageID,
+    sessionID: input.sessionID ? SessionID.make(input.sessionID) : SessionID.descending(),
+    messageID: input.messageID ? MessageID.make(input.messageID) : MessageID.ascending(),
     agent: input.agent,
     abort: new AbortController().signal,
     messages: [],
@@ -28,6 +34,9 @@ export function requireTool(tools: RuntimeTool[], id: string): RuntimeTool {
     return tool
   }
 
-  const available = tools.map((entry) => entry.id).sort().join(", ")
+  const available = tools
+    .map((entry) => entry.id)
+    .sort()
+    .join(", ")
   throw new Error(`Tool "${id}" was not registered. Available tools: ${available}`)
 }

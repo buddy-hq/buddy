@@ -1,6 +1,8 @@
 // Compile-safe bridge to vendored OpenCode config runtime with in-memory overlays.
 import { Config } from "opencode/config/config"
 import { Instance } from "opencode/project/instance"
+import path from "node:path"
+import { realpathSync } from "node:fs"
 
 type RuntimeConfig = Awaited<ReturnType<typeof Config.get>>
 
@@ -26,13 +28,22 @@ function mergeConfigValue<T>(base: T, overlay: unknown): T {
   return result as T
 }
 
+function key(directory: string) {
+  const resolved = path.resolve(directory)
+  try {
+    return realpathSync.native(resolved)
+  } catch {
+    return resolved
+  }
+}
+
 function ensurePatched() {
   if (patched) return
   patched = true
 
   Config.get = async function getWithOverlay() {
     const base = await originalGet()
-    const overlay = overlays.get(Instance.directory)
+    const overlay = overlays.get(key(Instance.directory))
     if (!overlay) return base
     return mergeConfigValue(base, overlay)
   }
@@ -40,11 +51,11 @@ function ensurePatched() {
 
 export function setConfigOverlay(directory: string, overlay: Partial<RuntimeConfig>) {
   ensurePatched()
-  overlays.set(directory, overlay)
+  overlays.set(key(directory), overlay)
 }
 
 export function clearConfigOverlay(directory: string) {
-  overlays.delete(directory)
+  overlays.delete(key(directory))
 }
 
 export { Config }

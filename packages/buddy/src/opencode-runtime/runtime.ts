@@ -25,7 +25,7 @@ export async function loadOpenCodeApp() {
   if (!appPromise) {
     appPromise = (async () => {
       await ensureRuntimeDirectories()
-      return Server.App()
+      return Server.Default()
     })()
   }
 

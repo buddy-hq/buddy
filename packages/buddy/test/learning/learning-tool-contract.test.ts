@@ -13,7 +13,7 @@ import { getBuddyPersona } from "../../src/learning/personas"
 import { ensureCurriculumToolsRegistered } from "../../src/learning/curriculum"
 import { ensureLearnerToolsRegistered } from "../../src/learning/learner-model"
 import { tmpdir } from "../helpers/tmpdir"
-import { createToolContext, requireTool } from "../helpers/tools"
+import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
 
 function fakeTool(id: string): BuddyTool {
   return {
@@ -69,10 +69,7 @@ describe("learning tool contract", () => {
         await ensureCurriculumToolsRegistered(project.path)
         await ensureLearnerToolsRegistered(project.path)
 
-        const tools = await ToolRegistry.tools({
-          providerID: "opencode",
-          modelID: "claude-sonnet",
-        })
+        const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
 
         const curriculumRead = requireTool(tools, "curriculum_read")
         const learnerRead = requireTool(tools, "learner_snapshot_read")

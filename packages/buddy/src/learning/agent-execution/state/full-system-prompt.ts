@@ -1,5 +1,6 @@
 import { Agent } from "@buddy/opencode-adapter/agent"
 import { Auth } from "@buddy/opencode-adapter/auth"
+import { ModelID, ProviderID } from "@buddy/opencode-adapter/id"
 import { Plugin } from "@buddy/opencode-adapter/plugin"
 import { Provider } from "@buddy/opencode-adapter/provider"
 import { InstructionPrompt } from "@buddy/opencode-adapter/session-instruction"
@@ -34,8 +35,8 @@ export async function buildFullSystemPrompt(input: {
 
   const [agentInfo, providerInfo, authInfo, environmentPrompts, instructionPrompts] = await Promise.all([
     Agent.get(agentName).catch(() => undefined),
-    Provider.getProvider(model.providerID).catch(() => undefined),
-    Auth.get(model.providerID).catch(() => undefined),
+    Provider.getProvider(ProviderID.make(model.providerID)).catch(() => undefined),
+    Auth.get(ProviderID.make(model.providerID)).catch(() => undefined),
     SystemPrompt.environment(model).catch(() => [] as string[]),
     InstructionPrompt.system().catch(() => [] as string[]),
   ])
@@ -83,7 +84,10 @@ async function resolvePromptModel(input: {
 }) {
   const directModel = readModelRef(input.payload)
   if (directModel) {
-    const resolved = await Provider.getModel(directModel.providerID, directModel.modelID).catch(() => undefined)
+    const resolved = await Provider.getModel(
+      ProviderID.make(directModel.providerID),
+      ModelID.make(directModel.modelID),
+    ).catch(() => undefined)
     if (resolved) return resolved
   }
 

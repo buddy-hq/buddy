@@ -6,7 +6,7 @@ import { registerBuddyTools } from "../../src/learning/tools/register-buddy-tool
 import { AdvancedMathRuntimeService } from "../../src/local-runtimes/advanced-math/service"
 import { withInstalledMockAdvancedMathRuntime, withLocalMockAdvancedMathRuntimeAssets } from "../helpers/advanced-math-runtime"
 import { tmpdir } from "../helpers/tmpdir"
-import { createToolContext, requireTool } from "../helpers/tools"
+import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
 
 describe("python_calculator runtime", () => {
   test("installs the optional runtime and returns text plus plot attachments", async () => {
@@ -57,10 +57,7 @@ describe("python_calculator runtime", () => {
         async fn() {
           await registerBuddyTools(project.path, mathTools)
 
-          const tools = await ToolRegistry.tools({
-            providerID: "opencode",
-            modelID: "claude-sonnet",
-          })
+          const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
           const calculator = requireTool(tools, "python_calculator")
 
           return calculator.execute(

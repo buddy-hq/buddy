@@ -1,4 +1,5 @@
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
+import { SessionID } from "@buddy/opencode-adapter/id"
 import type { PermissionRuleset } from "@buddy/opencode-adapter/permission"
 import { Session } from "@buddy/opencode-adapter/session"
 import type { RuntimeProfile } from "../../shared/runtime-types"
@@ -40,10 +41,11 @@ export async function syncBuddyRuntimeSessionPermissions(input: {
   runtimeProfile?: RuntimeProfile
 }) {
   await loadOpenCodeApp()
+  const sessionID = SessionID.make(input.sessionID)
   await OpenCodeInstance.provide({
     directory: input.directory,
     fn: async () => {
-      const session = await Session.get(input.sessionID).catch((error) => {
+      const session = await Session.get(sessionID).catch((error) => {
         if (isSessionNotFoundError(error)) {
           return undefined
         }
@@ -62,7 +64,7 @@ export async function syncBuddyRuntimeSessionPermissions(input: {
       }
 
       await Session.setPermission({
-        sessionID: input.sessionID,
+        sessionID,
         permission: nextPermission,
       })
     },

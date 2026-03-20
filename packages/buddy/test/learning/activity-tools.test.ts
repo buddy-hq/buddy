@@ -4,7 +4,7 @@ import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ensurePedagogyToolsRegistered } from "../../src/learning/capabilities"
 import { writeTeachingSessionState } from "../../src/learning/agent-execution/state/session-state"
 import { tmpdir } from "../helpers/tmpdir"
-import { createToolContext, requireTool } from "../helpers/tools"
+import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
 
 describe("pedagogy tools", () => {
   test("registers first-class pedagogy tools and generates grounded teaching artifacts", async () => {
@@ -23,10 +23,7 @@ describe("pedagogy tools", () => {
         })
 
         await ensurePedagogyToolsRegistered(project.path)
-        const tools = await ToolRegistry.tools({
-          providerID: "opencode",
-          modelID: "claude-sonnet",
-        })
+        const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
         const toolIds = tools.map((tool) => tool.id)
 
         expect(toolIds).toContain("pedagogy_guided_practice")

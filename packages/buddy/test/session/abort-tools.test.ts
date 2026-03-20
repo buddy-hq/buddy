@@ -1,11 +1,12 @@
 import { describe, expect, test } from "bun:test"
 import z from "zod"
+import { MessageID, SessionID } from "@buddy/opencode-adapter/id"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { createBuddyTool } from "../../src/learning/tools/create-buddy-tool"
 import { registerBuddyTools } from "../../src/learning/tools/register-buddy-tools"
 import { tmpdir } from "../helpers/tmpdir"
-import { requireTool } from "../helpers/tools"
+import { requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
 
 const slowAbortTool = createBuddyTool("slow_abort_test", {
   description: "Slow tool used to verify abort propagation.",
@@ -32,10 +33,7 @@ describe("buddy tool abort handling", () => {
       async fn() {
         await registerBuddyTools(project.path, [slowAbortTool])
 
-        const tools = await ToolRegistry.tools({
-          providerID: "opencode",
-          modelID: "claude-sonnet",
-        })
+        const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
         const slowTool = requireTool(tools, "slow_abort_test")
         const abortController = new AbortController()
         setTimeout(() => abortController.abort(), 25)
@@ -43,8 +41,8 @@ describe("buddy tool abort handling", () => {
         return slowTool.execute(
           { value: "late result" },
           {
-            sessionID: "ses_abort",
-            messageID: "msg_abort",
+            sessionID: SessionID.make("ses_abort"),
+            messageID: MessageID.make("msg_abort"),
             agent: "math-buddy",
             abort: abortController.signal,
             messages: [],

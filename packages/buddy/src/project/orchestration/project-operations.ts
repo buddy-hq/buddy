@@ -1,4 +1,5 @@
 import { Project as OpenCodeProject } from "@buddy/opencode-adapter/project"
+import { ProjectID } from "@buddy/opencode-adapter/id"
 import { isAllowedDirectory, resolveDirectory } from "../directory"
 
 const projectUpdateBodySchema = OpenCodeProject.update.schema.omit({ projectID: true })
@@ -132,7 +133,7 @@ export async function updateProjectFromPayload(input: {
   try {
     const project = await OpenCodeProject.update({
       ...body.data,
-      projectID: input.projectID,
+      projectID: ProjectID.make(input.projectID),
     })
     return {
       ok: true,

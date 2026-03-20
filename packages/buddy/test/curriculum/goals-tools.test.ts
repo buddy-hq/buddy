@@ -5,7 +5,7 @@ import { LearnerArtifactStore } from "../../src/learning/learner-model"
 import type { GoalArtifact } from "../../src/learning/learner-model"
 import { ensureGoalToolsRegistered } from "../../src/learning/curriculum"
 import { tmpdir } from "../helpers/tmpdir"
-import { createToolContext, requireTool } from "../helpers/tools"
+import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
 
 describe("goal tools", () => {
   test("goal_commit persists learner goals as markdown artifacts", async () => {
@@ -15,10 +15,7 @@ describe("goal tools", () => {
       directory: project.path,
       async fn() {
         await ensureGoalToolsRegistered(project.path)
-        const tools = await ToolRegistry.tools({
-          providerID: "opencode",
-          modelID: "claude-sonnet",
-        })
+        const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
         const goalCommit = requireTool(tools, "goal_commit")
 
         const ctx = createToolContext({

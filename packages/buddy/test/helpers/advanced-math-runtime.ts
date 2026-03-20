@@ -5,8 +5,7 @@ import os from "node:os"
 import { spawnSync } from "node:child_process"
 import { AdvancedMathRuntimeService } from "../../src/local-runtimes/advanced-math/service"
 
-const TINY_PNG_BASE64 =
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9p3xK+QAAAAASUVORK5CYII="
+const TINY_PNG_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9p3xK+QAAAAASUVORK5CYII="
 const BACKEND_ROOT = path.resolve(import.meta.dir, "../..")
 
 function buildFakeRuntimeExecutable(marker = "default") {
@@ -93,14 +92,18 @@ function createArchive(sourceDir: string, outputArchive: string) {
       `Compress-Archive -LiteralPath '${sourceDir.replace(/'/g, "''")}' -DestinationPath '${outputArchive.replace(/'/g, "''")}' -Force`,
     ])
     if (result.status !== 0) {
-      throw new Error(`Failed to create mock advanced math runtime archive: ${result.stderr?.toString("utf8") || result.stdout?.toString("utf8")}`)
+      throw new Error(
+        `Failed to create mock advanced math runtime archive: ${result.stderr?.toString("utf8") || result.stdout?.toString("utf8")}`,
+      )
     }
     return
   }
 
   const result = spawnSync("ditto", ["-c", "-k", "--sequesterRsrc", "--keepParent", sourceDir, outputArchive])
   if (result.status !== 0) {
-    throw new Error(`Failed to create mock advanced math runtime archive: ${result.stderr?.toString("utf8") || result.stdout?.toString("utf8")}`)
+    throw new Error(
+      `Failed to create mock advanced math runtime archive: ${result.stderr?.toString("utf8") || result.stdout?.toString("utf8")}`,
+    )
   }
 }
 
@@ -139,7 +142,7 @@ export async function withMockAdvancedMathRuntimeAssets<T>(run: () => Promise<T>
   globalThis.fetch = (async (input) => {
     const url = String(input)
     if (url === `${baseUrl}/${assetInfo.bundleFilename}`) {
-      return new Response(archiveBytes, { status: 200 })
+      return new Response(Uint8Array.from(archiveBytes), { status: 200 })
     }
     if (url === `${baseUrl}/${assetInfo.checksumFilename}`) {
       return new Response(`${checksum}  ${assetInfo.bundleFilename}\n`, { status: 200 })

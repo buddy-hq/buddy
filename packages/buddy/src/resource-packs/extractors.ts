@@ -51,14 +51,9 @@ const PDF_PAGE_DELIMITER_REGEX = /\f/g
 const PDF_HEADING_SCAN_MAX_LINES = 18
 const PDF_HEADING_SCAN_MAX_LENGTH = 200
 const PDF_TOC_HINT_REGEX = /\btable of contents\b/i
-const PDF_CHUNKING_FALLBACK_WARNING =
-  "No PDF outline or chapter headings were found; using page-window chunking."
-const PDF_CHUNKING_GENERIC_WARNING =
-  "Structured chunking was unavailable; using generic paragraph chunking."
-const PDF_HEADING_PATTERNS = [
-  /^chapter\s+([0-9ivxlcdm]+)\b[:.\-\s]*(.*)$/i,
-  /^part\s+([0-9ivxlcdm]+)\b[:.\-\s]*(.*)$/i,
-]
+const PDF_CHUNKING_FALLBACK_WARNING = "No PDF outline or chapter headings were found; using page-window chunking."
+const PDF_CHUNKING_GENERIC_WARNING = "Structured chunking was unavailable; using generic paragraph chunking."
+const PDF_HEADING_PATTERNS = [/^chapter\s+([0-9ivxlcdm]+)\b[:.\-\s]*(.*)$/i, /^part\s+([0-9ivxlcdm]+)\b[:.\-\s]*(.*)$/i]
 
 const resourcePackXMLParser = new XMLParser({
   ignoreAttributes: false,
@@ -148,13 +143,15 @@ async function extractPdfResource(sourcePath: string): Promise<ResourceExtractio
       }
     }
     if (chunkUnits.length === 0 && fullText.trim().length > 0) {
-      chunkUnits = [{
-        unitKind: RESOURCE_PACK_UNIT_KIND_GENERIC,
-        unitTitle: "Chunk 1",
-        unitIndex: 1,
-        text: fullText,
-        splitReason: RESOURCE_PACK_SPLIT_REASON_FALLBACK_STRUCTURE,
-      }]
+      chunkUnits = [
+        {
+          unitKind: RESOURCE_PACK_UNIT_KIND_GENERIC,
+          unitTitle: "Chunk 1",
+          unitIndex: 1,
+          text: fullText,
+          splitReason: RESOURCE_PACK_SPLIT_REASON_FALLBACK_STRUCTURE,
+        },
+      ]
       if (chunkUnits.length > 0) {
         warnings.push(PDF_CHUNKING_GENERIC_WARNING)
       }
@@ -219,9 +216,7 @@ async function extractPdfResourceWithSystemFallback(
       markdown: renderPageMarkdown(index + 1, text),
     }))
     const chunkUnits = buildPdfPageWindowChunkUnits(pageTexts)
-    const fullText = pageMarkdowns.length > 0
-      ? pageMarkdowns.map((page) => page.markdown).join("\n\n")
-      : extractedText
+    const fullText = pageMarkdowns.length > 0 ? pageMarkdowns.map((page) => page.markdown).join("\n\n") : extractedText
 
     return {
       status: RESOURCE_PACK_STATUS_READY,
@@ -269,12 +264,10 @@ async function runPdfTextCommand(
 
 async function extractEpubResource(sourcePath: string): Promise<ResourceExtractionResult> {
   const bytes = await fs.readFile(sourcePath)
-  const zipReader = new ZipReader<Blob>(new BlobReader(new Blob([bytes])))
+  const zipReader = new ZipReader<Blob>(new BlobReader(new Blob([Uint8Array.from(bytes)])))
   const entries = await zipReader.getEntries()
   const entryByName = new Map(
-    entries
-      .filter(isFileEntry)
-      .map((entry) => [normalizeZipPath(entry.filename), entry] as const),
+    entries.filter(isFileEntry).map((entry) => [normalizeZipPath(entry.filename), entry] as const),
   )
 
   try {
@@ -293,9 +286,7 @@ async function extractEpubResource(sourcePath: string): Promise<ResourceExtracti
     const opfDir = path.posix.dirname(opfPath)
     const tocEntryName = resolveEpubTocEntry(manifestItems, opfDir)
 
-    const tocMarkdown = tocEntryName
-      ? await extractEpubTocMarkdown(entryByName, tocEntryName)
-      : undefined
+    const tocMarkdown = tocEntryName ? await extractEpubTocMarkdown(entryByName, tocEntryName) : undefined
     const chapters: Array<{ title: string; body: string }> = []
 
     for (let index = 0; index < spineItems.length; index += 1) {
@@ -544,7 +535,7 @@ function buildPdfOutlineChunkUnits(input: {
     const chapter = dedupedChapters[index]!
     const nextChapter = dedupedChapters[index + 1]
     const startPage = chapter.pageNumber
-    const endPage = Math.max(startPage, (nextChapter?.pageNumber ?? (input.pageTexts.length + 1)) - 1)
+    const endPage = Math.max(startPage, (nextChapter?.pageNumber ?? input.pageTexts.length + 1) - 1)
     const chapterPages = input.pageTexts.slice(startPage - 1, endPage)
     if (chapterPages.length === 0) continue
 
@@ -598,7 +589,7 @@ function buildPdfInferredHeadingChunkUnits(pageTexts: string[]): ResourceChunkUn
     const marker = markers[index]!
     const nextMarker = markers[index + 1]
     const startPage = marker.pageNumber
-    const endPage = Math.max(startPage, (nextMarker?.pageNumber ?? (pageTexts.length + 1)) - 1)
+    const endPage = Math.max(startPage, (nextMarker?.pageNumber ?? pageTexts.length + 1) - 1)
     const sectionPages = pageTexts.slice(startPage - 1, endPage)
     if (sectionPages.length === 0) continue
 
@@ -639,9 +630,7 @@ function inferPdfHeadingFromPage(pageText: string): string | undefined {
       const titleSuffix = (match[2] ?? "").trim()
       if (!index) continue
 
-      return titleSuffix.length > 0
-        ? `${kind} ${index}: ${titleSuffix}`
-        : `${kind} ${index}`
+      return titleSuffix.length > 0 ? `${kind} ${index}: ${titleSuffix}` : `${kind} ${index}`
     }
   }
 
@@ -660,9 +649,8 @@ function buildPdfPageWindowChunkUnits(pageTexts: string[]): ResourceChunkUnitSee
 
   const flush = () => {
     if (currentPages.length === 0) return
-    const title = currentStartPage === currentEndPage
-      ? `Page ${currentStartPage}`
-      : `Pages ${currentStartPage}-${currentEndPage}`
+    const title =
+      currentStartPage === currentEndPage ? `Page ${currentStartPage}` : `Pages ${currentStartPage}-${currentEndPage}`
     const body = currentPages.join("\n\n")
     units.push({
       unitKind: RESOURCE_PACK_UNIT_KIND_PAGE_WINDOW,
@@ -748,10 +736,7 @@ function renderPdfTextContent(items: unknown[]): string {
   return lines.join("\n").trim()
 }
 
-async function readZipEntryText(
-  entryByName: Map<string, ResourcePackZipEntry>,
-  filename: string,
-) {
+async function readZipEntryText(entryByName: Map<string, ResourcePackZipEntry>, filename: string) {
   const normalized = normalizeZipPath(filename)
   const entry = entryByName.get(normalized)
   if (!entry) {
