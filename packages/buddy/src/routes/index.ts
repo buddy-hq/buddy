@@ -1,3 +1,4 @@
+export { AgentsMdRoutes } from "./agents-md"
 export { AuthRoutes } from "./auth"
 export { CompatibilityRoutes } from "./compatibility"
 export { ConfigRoutes } from "./config"

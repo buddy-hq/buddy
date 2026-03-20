@@ -3,6 +3,7 @@ import { Hono } from "hono"
 import { openAPIRouteHandler } from "hono-openapi"
 import { cors } from "hono/cors"
 import { logger } from "hono/logger"
+import { AgentsMdRoutes } from "./routes"
 import { AuthRoutes } from "./routes"
 import { CompatibilityRoutes } from "./routes"
 import { ConfigRoutes } from "./routes"
@@ -60,6 +61,7 @@ api.route("/figures", FigureRoutes())
 api.route("/freeform-figures", FreeformFigureRoutes())
 api.route("/learner", LearnerRoutes())
 api.route("/teaching", TeachingRoutes())
+api.route("/agents-md", AgentsMdRoutes())
 api.route("/", CompatibilityRoutes())
 api.route("/project", ProjectRoutes())
 api.route("/resource", ResourceRoutes())
