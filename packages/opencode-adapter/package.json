@@ -24,7 +24,8 @@
     "./config": "./src/config.ts",
     "./session": "./src/session.ts",
     "./session-prompt": "./src/session-prompt.ts",
-    "./provider": "./src/provider.ts"
+    "./provider": "./src/provider.ts",
+    "./theme": "./src/theme.ts"
   },
   "scripts": {
     "typecheck": "tsgo --noEmit"
