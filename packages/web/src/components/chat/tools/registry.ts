@@ -68,6 +68,7 @@ export interface ToolPartProps {
   info: ToolInfo
   tool: string
   onOpenSession?: (sessionID: string) => void
+  defaultOpen?: boolean
 }
 
 export type ToolRenderer = {

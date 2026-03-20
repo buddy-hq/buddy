@@ -12,6 +12,7 @@ import { ApplyPatchTool } from "./apply-patch-tool"
 import { ListTool, GlobTool, GrepTool } from "./search-tools"
 import { TaskTool } from "./task-tool"
 import { WebfetchTool } from "./webfetch-tool"
+import { WebsearchTool, CodesearchTool } from "./exa-tools"
 import { RenderFigureTool } from "./render-figure-tool"
 import { QuestionTool } from "./question-tool"
 import { PythonCalculatorTool, SkillTool, BuddyCustomTool } from "./python-calculator-tool"
@@ -71,6 +72,16 @@ registerTool({
 registerTool({
   name: "webfetch",
   render: WebfetchTool,
+})
+
+registerTool({
+  name: "websearch",
+  render: WebsearchTool,
+})
+
+registerTool({
+  name: "codesearch",
+  render: CodesearchTool,
 })
 
 registerTool({

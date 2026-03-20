@@ -7,6 +7,7 @@ export function getToolInfo(tool: string, input: Record<string, unknown>): ToolI
   const pattern = typeof input.pattern === "string" ? input.pattern : undefined
   const include = typeof input.include === "string" ? input.include : undefined
   const url = typeof input.url === "string" ? input.url : undefined
+  const query = typeof input.query === "string" ? input.query : undefined
   const description = typeof input.description === "string" ? input.description : undefined
   const subagent = typeof input.subagent_type === "string" ? input.subagent_type : undefined
   const alt = typeof input.alt === "string" ? input.alt : undefined
@@ -48,6 +49,16 @@ export function getToolInfo(tool: string, input: Record<string, unknown>): ToolI
       return {
         title: "Webfetch",
         subtitle: url,
+      }
+    case "websearch":
+      return {
+        title: "Websearch",
+        subtitle: query,
+      }
+    case "codesearch":
+      return {
+        title: "Codesearch",
+        subtitle: query,
       }
     case "task":
       return {
