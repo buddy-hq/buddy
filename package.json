@@ -24,10 +24,12 @@
       "@octokit/rest": "22.0.0",
       "@openauthjs/openauth": "0.0.0-20250322224806",
       "@pierre/diffs": "1.1.0-beta.13",
+      "@effect/platform-node": "4.0.0-beta.35",
       "ai": "5.0.124",
       "diff": "8.0.2",
       "drizzle-kit": "1.0.0-beta.12-a5629fb",
       "drizzle-orm": "1.0.0-beta.12-a5629fb",
+      "effect": "4.0.0-beta.35",
       "hono": "4.10.7",
       "hono-openapi": "1.1.2",
       "remeda": "2.26.0",
@@ -62,6 +64,9 @@
   },
   "dependencies": {
     "@buddy/script": "workspace:*"
+  },
+  "overrides": {
+    "@types/node": "22.13.9"
   },
   "devDependencies": {
     "@typescript/native-preview": "^7.0.0-dev.20260225.1",
