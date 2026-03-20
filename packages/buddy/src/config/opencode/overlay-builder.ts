@@ -1,9 +1,5 @@
 import { Config } from "../config.js"
-import {
-  applyBuddyPersonaHiddenFlags,
-  mergeBuddyAndConfiguredAgents,
-  resolveConfiguredAgentKey,
-} from "./agents.js"
+import { applyBuddyPersonaHiddenFlags, mergeBuddyAndConfiguredAgents, resolveConfiguredAgentKey } from "./agents.js"
 import { fingerprintOpenCodeConfig } from "./fingerprint.js"
 import { parseConfiguredModel } from "./models.js"
 import { resolveBuddyBundledSkillRoots, resolveOpenCodeSkillPaths } from "./skills.js"
@@ -17,6 +13,8 @@ const BUDDY_RUNTIME_PERMISSION_OVERLAY: Config.Permission = {
   "python_*": "deny",
   "render_*": "deny",
   "teaching_*": "deny",
+  websearch: "allow",
+  codesearch: "allow",
 }
 
 function buildOpenCodePermissionOverlay(permission: Config.Permission | undefined): Config.Permission {
@@ -26,26 +24,18 @@ function buildOpenCodePermissionOverlay(permission: Config.Permission | undefine
   }
 }
 
-function orderAgentsWithDefaultFirst(
-  agents: Record<string, Config.Agent>,
-  defaultAgent: string | undefined,
-) {
+function orderAgentsWithDefaultFirst(agents: Record<string, Config.Agent>, defaultAgent: string | undefined) {
   if (!defaultAgent || !(defaultAgent in agents)) {
     return agents
   }
 
   return {
     [defaultAgent]: agents[defaultAgent]!,
-    ...Object.fromEntries(
-      Object.entries(agents).filter(([key]) => key !== defaultAgent),
-    ),
+    ...Object.fromEntries(Object.entries(agents).filter(([key]) => key !== defaultAgent)),
   }
 }
 
-async function buildOpenCodeConfigOverlay(input: {
-  config: Config.Info
-  directory: string
-}) {
+async function buildOpenCodeConfigOverlay(input: { config: Config.Info; directory: string }) {
   const skillPaths = await resolveOpenCodeSkillPaths(input.config, input.directory)
   const mergedAgents = applyBuddyPersonaHiddenFlags(
     mergeBuddyAndConfiguredAgents(input.config.agent ?? {}),

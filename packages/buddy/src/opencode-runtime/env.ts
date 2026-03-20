@@ -67,6 +67,7 @@ export function configureOpenCodeEnvironment() {
   process.env.OPENCODE_DISABLE_CHANNEL_DB ||= "1"
   process.env.OPENCODE_DISABLE_EXTERNAL_SKILLS ||= "1"
   process.env.OPENCODE_CLIENT ||= "web"
+  process.env.OPENCODE_ENABLE_EXA ||= "1"
   applyOptionalPathEnv("BUDDY_MIGRATION_DIR", findRepoPath("packages/buddy/migration"))
 }
 
