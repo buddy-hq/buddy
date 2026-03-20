@@ -37,6 +37,7 @@ import {
 } from "@/state/advanced-math-runtime"
 import type { LogLevel } from "@/state/project-settings"
 import { useProjectSettings } from "@/state/project-settings"
+import { useTheme, type ColorScheme } from "@/theme"
 
 const DEFAULT_VALUE = "__default__"
 
@@ -133,6 +134,69 @@ function ProviderSourceBadge(props: { provider: ProviderInfo }) {
     <Badge variant="outline" className="h-5">
       {label}
     </Badge>
+  )
+}
+
+function isColorScheme(value: string): value is ColorScheme {
+  return value === "system" || value === "light" || value === "dark"
+}
+
+function ThemeSettingsRows() {
+  const { themeId, colorScheme, themes, setTheme, setColorScheme } = useTheme()
+
+  const colorSchemeOptions: { value: ColorScheme; label: string }[] = [
+    { value: "system", label: "System" },
+    { value: "light", label: "Light" },
+    { value: "dark", label: "Dark" },
+  ]
+
+  const themeOptions = useMemo(() => {
+    return Object.entries(themes).map(([id, theme]) => ({
+      id,
+      name: theme.name,
+    }))
+  }, [themes])
+
+  return (
+    <>
+      <SettingsRow
+        title="Color scheme"
+        description="Choose how Buddy should render on this machine. System follows your OS setting."
+        control={
+          <Select value={colorScheme} onValueChange={(value) => isColorScheme(value) && setColorScheme(value)}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select color scheme" />
+            </SelectTrigger>
+            <SelectContent>
+              {colorSchemeOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        }
+      />
+
+      <SettingsRow
+        title="Theme"
+        description="Choose your preferred theme for the interface."
+        control={
+          <Select value={themeId} onValueChange={setTheme}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select theme" />
+            </SelectTrigger>
+            <SelectContent>
+              {themeOptions.map((option) => (
+                <SelectItem key={option.id} value={option.id}>
+                  {option.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        }
+      />
+    </>
   )
 }
 
@@ -246,9 +310,10 @@ export function SettingsModal(props: SettingsModalProps) {
 
   async function onToggleAdvancedMathRuntime(nextChecked: boolean) {
     if (!nextChecked) {
-      const confirmed = typeof window === "undefined"
-        ? true
-        : window.confirm("Remove the optional advanced math runtime from this device?")
+      const confirmed =
+        typeof window === "undefined"
+          ? true
+          : window.confirm("Remove the optional advanced math runtime from this device?")
       if (!confirmed) {
         return
       }
@@ -256,9 +321,7 @@ export function SettingsModal(props: SettingsModalProps) {
 
     setAdvancedMathLoading(true)
     try {
-      const nextStatus = nextChecked
-        ? await installAdvancedMathRuntime()
-        : await removeAdvancedMathRuntime()
+      const nextStatus = nextChecked ? await installAdvancedMathRuntime() : await removeAdvancedMathRuntime()
       setAdvancedMathStatus(nextStatus)
       toast(nextChecked ? "Advanced math runtime installed" : "Advanced math runtime removed")
     } catch (error) {
@@ -273,10 +336,7 @@ export function SettingsModal(props: SettingsModalProps) {
   }
 
   const personaSelectValue =
-    resolveDefaultPersonaID(
-      settings.options.personas,
-      settings.selection.persona || undefined,
-    ) || "buddy"
+    resolveDefaultPersonaID(settings.options.personas, settings.selection.persona || undefined) || "buddy"
   const logLevelSelectValue = settings.selection.logLevel || DEFAULT_VALUE
   const hasConnectedProviders = settings.options.providers.length > 0
   const availableProviders = useMemo(
@@ -297,7 +357,7 @@ export function SettingsModal(props: SettingsModalProps) {
     if (settings.status.saving) return "Saving changes..."
     if (settings.status.error) return settings.status.error
     if (activeTab === "providers") return "Connections are shared by the notebook runtime."
-    return "Changes apply to this notebook only."
+    return "Appearance applies to this app; notebook defaults apply only to this repository."
   })()
 
   return (
@@ -367,130 +427,142 @@ export function SettingsModal(props: SettingsModalProps) {
             <SettingsPanel
               value="general"
               title="General"
-              description="Configure notebook-specific defaults for Buddy in this repository."
+              description="Adjust Buddy appearance and notebook defaults for this repository."
             >
-              <SettingsListCard>
-                <SettingsRow
-                  title="Default persona"
-                  description="Choose which Buddy persona is selected by default for new prompts in this notebook."
-                  control={
-                    <Select
-                      value={personaSelectValue}
-                      onValueChange={settings.actions.setPersona}
-                      disabled={settings.status.loading}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select persona" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {settings.options.personas.map((persona) => (
-                          <SelectItem key={persona.id} value={persona.id}>
-                            {persona.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  }
-                />
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium text-foreground">Interface</h3>
+                <SettingsListCard>
+                  <ThemeSettingsRows />
+                </SettingsListCard>
+              </div>
 
-                <SettingsRow
-                  title="Default intent"
-                  description="Choose the default teaching intent for new prompts in this notebook. Auto leaves intent unforced."
-                  control={
-                    <Select
-                      value={settings.selection.intent}
-                      onValueChange={(value) => settings.actions.setIntent(value as "auto" | "learn" | "practice" | "assess")}
-                      disabled={settings.status.loading}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select default intent" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="auto">Auto</SelectItem>
-                        <SelectItem value="learn">Learn</SelectItem>
-                        <SelectItem value="practice">Practice</SelectItem>
-                        <SelectItem value="assess">Assess</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  }
-                />
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium text-foreground">Notebook</h3>
+                <SettingsListCard>
+                  <SettingsRow
+                    title="Default persona"
+                    description="Choose which Buddy persona is selected by default for new prompts in this notebook."
+                    control={
+                      <Select
+                        value={personaSelectValue}
+                        onValueChange={settings.actions.setPersona}
+                        disabled={settings.status.loading}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select persona" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {settings.options.personas.map((persona) => (
+                            <SelectItem key={persona.id} value={persona.id}>
+                              {persona.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    }
+                  />
 
-                <SettingsRow
-                  title="Log level"
-                  description="Controls backend logging verbosity for this notebook."
-                  control={
-                    <Select
-                      value={logLevelSelectValue}
-                      onValueChange={(value) =>
-                        settings.actions.setLogLevel(value === DEFAULT_VALUE ? "" : (value as LogLevel))
-                      }
-                      disabled={settings.status.loading}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Default" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={DEFAULT_VALUE}>Default</SelectItem>
-                        {import.meta.env.DEV && <SelectItem value="debug">debug</SelectItem>}
-                        <SelectItem value="info">info</SelectItem>
-                        <SelectItem value="warn">warn</SelectItem>
-                        <SelectItem value="error">error</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  }
-                />
+                  <SettingsRow
+                    title="Default intent"
+                    description="Choose the default teaching intent for new prompts in this notebook. Auto leaves intent unforced."
+                    control={
+                      <Select
+                        value={settings.selection.intent}
+                        onValueChange={(value) =>
+                          settings.actions.setIntent(value as "auto" | "learn" | "practice" | "assess")
+                        }
+                        disabled={settings.status.loading}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select default intent" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="auto">Auto</SelectItem>
+                          <SelectItem value="learn">Learn</SelectItem>
+                          <SelectItem value="practice">Practice</SelectItem>
+                          <SelectItem value="assess">Assess</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    }
+                  />
 
-                <SettingsRow
-                  title="Provider"
-                  description="Choose which connected provider Buddy uses for notebook-level model selection."
-                  control={
-                    <Select
-                      value={settings.selection.provider}
-                      onValueChange={settings.actions.setProvider}
-                      disabled={settings.status.loading || !hasConnectedProviders}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue
-                          placeholder={hasConnectedProviders ? "Select provider" : "Connect a provider first"}
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {settings.options.providers.map((provider) => (
-                          <SelectItem key={provider.id} value={provider.id}>
-                            {provider.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  }
-                />
+                  <SettingsRow
+                    title="Log level"
+                    description="Controls backend logging verbosity for this notebook."
+                    control={
+                      <Select
+                        value={logLevelSelectValue}
+                        onValueChange={(value) =>
+                          settings.actions.setLogLevel(value === DEFAULT_VALUE ? "" : (value as LogLevel))
+                        }
+                        disabled={settings.status.loading}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Default" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={DEFAULT_VALUE}>Default</SelectItem>
+                          {import.meta.env.DEV && <SelectItem value="debug">debug</SelectItem>}
+                          <SelectItem value="info">info</SelectItem>
+                          <SelectItem value="warn">warn</SelectItem>
+                          <SelectItem value="error">error</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    }
+                  />
 
-                <SettingsRow
-                  title="Model"
-                  description="Pick the default model Buddy uses in this notebook. This does not control model visibility."
-                  last
-                  control={
-                    <Select
-                      value={settings.selection.model}
-                      onValueChange={settings.actions.setModel}
-                      disabled={settings.status.loading || !hasConnectedProviders}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue
-                          placeholder={hasConnectedProviders ? "Select model" : "Connect a provider first"}
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {settings.options.providerModels.map((model) => (
-                          <SelectItem key={`${settings.selection.provider}:${model.id}`} value={model.id}>
-                            {model.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  }
-                />
-              </SettingsListCard>
+                  <SettingsRow
+                    title="Provider"
+                    description="Choose which connected provider Buddy uses for notebook-level model selection."
+                    control={
+                      <Select
+                        value={settings.selection.provider}
+                        onValueChange={settings.actions.setProvider}
+                        disabled={settings.status.loading || !hasConnectedProviders}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue
+                            placeholder={hasConnectedProviders ? "Select provider" : "Connect a provider first"}
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {settings.options.providers.map((provider) => (
+                            <SelectItem key={provider.id} value={provider.id}>
+                              {provider.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    }
+                  />
+
+                  <SettingsRow
+                    title="Model"
+                    description="Pick the default model Buddy uses in this notebook. This does not control model visibility."
+                    last
+                    control={
+                      <Select
+                        value={settings.selection.model}
+                        onValueChange={settings.actions.setModel}
+                        disabled={settings.status.loading || !hasConnectedProviders}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue
+                            placeholder={hasConnectedProviders ? "Select model" : "Connect a provider first"}
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {settings.options.providerModels.map((model) => (
+                            <SelectItem key={`${settings.selection.provider}:${model.id}`} value={model.id}>
+                              {model.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    }
+                  />
+                </SettingsListCard>
+              </div>
 
               {settings.status.providerMessage ? (
                 <p className="text-sm text-muted-foreground">{settings.status.providerMessage}</p>
@@ -518,10 +590,13 @@ export function SettingsModal(props: SettingsModalProps) {
                                   onCheckedChange={(checked) => void onToggleAdvancedMathRuntime(checked)}
                                 />
                               </div>
-                              {advancedMathStatus?.progressMessage || typeof advancedMathStatus?.progressPercent === "number" ? (
+                              {advancedMathStatus?.progressMessage ||
+                              typeof advancedMathStatus?.progressPercent === "number" ? (
                                 <div className="space-y-1">
                                   <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-                                    <span className="truncate">{advancedMathStatus?.progressMessage ?? "Working..."}</span>
+                                    <span className="truncate">
+                                      {advancedMathStatus?.progressMessage ?? "Working..."}
+                                    </span>
                                     {typeof advancedMathStatus?.progressPercent === "number" ? (
                                       <span>{Math.round(advancedMathStatus.progressPercent)}%</span>
                                     ) : null}
