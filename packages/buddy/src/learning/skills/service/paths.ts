@@ -2,7 +2,7 @@ import fsp from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { xdgCache } from "xdg-basedir"
-import { Global } from "../../../storage"
+import { BUDDY_HOME_DIRECTORY_NAME, Global } from "../../../storage"
 import type { ManagedSkillSource, SkillScope } from "./contracts"
 
 export const OPENCODE_SKILL_CACHE_ROOT = path.join(
@@ -12,7 +12,7 @@ export const OPENCODE_SKILL_CACHE_ROOT = path.join(
 )
 
 export function buddyHomeRoot() {
-  return path.join(Global.Path.home, ".buddy")
+  return path.join(Global.Path.home, BUDDY_HOME_DIRECTORY_NAME)
 }
 
 export function managedSkillsRoot() {

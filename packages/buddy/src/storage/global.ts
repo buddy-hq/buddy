@@ -1,9 +1,8 @@
 import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
-import { xdgCache, xdgConfig, xdgData, xdgState } from "xdg-basedir"
-
-const APP_NAME = "buddy"
+import { xdgCache, xdgData, xdgState } from "xdg-basedir"
+import { BUDDY_APP_NAME, resolveConfiguredPath, resolveDefaultBuddyGlobalConfigDir } from "./constants"
 
 function withFallback(value: string | undefined, fallback: string) {
   return value ?? fallback
@@ -23,26 +22,26 @@ function buildPaths(input: { data: string; cache: string; config: string; state:
 const preferred = buildPaths({
   data: path.resolve(
     process.env.BUDDY_DATA_DIR ??
-      path.join(withFallback(xdgData, path.join(os.homedir(), ".local", "share")), APP_NAME),
+      path.join(withFallback(xdgData, path.join(os.homedir(), ".local", "share")), BUDDY_APP_NAME),
   ),
   cache: path.resolve(
-    process.env.BUDDY_CACHE_DIR ?? path.join(withFallback(xdgCache, path.join(os.homedir(), ".cache")), APP_NAME),
+    process.env.BUDDY_CACHE_DIR ??
+      path.join(withFallback(xdgCache, path.join(os.homedir(), ".cache")), BUDDY_APP_NAME),
   ),
   config: path.resolve(
-    process.env.BUDDY_GLOBAL_CONFIG_DIR ??
-      path.join(withFallback(xdgConfig, path.join(os.homedir(), ".config")), APP_NAME),
+    resolveConfiguredPath(process.env.BUDDY_GLOBAL_CONFIG_DIR) ?? resolveDefaultBuddyGlobalConfigDir(),
   ),
   state: path.resolve(
     process.env.BUDDY_STATE_DIR ??
-      path.join(withFallback(xdgState, path.join(os.homedir(), ".local", "state")), APP_NAME),
+      path.join(withFallback(xdgState, path.join(os.homedir(), ".local", "state")), BUDDY_APP_NAME),
   ),
 })
 
 const fallback = buildPaths({
-  data: path.join(os.tmpdir(), APP_NAME, "data"),
-  cache: path.join(os.tmpdir(), APP_NAME, "cache"),
-  config: path.join(os.tmpdir(), APP_NAME, "config"),
-  state: path.join(os.tmpdir(), APP_NAME, "state"),
+  data: path.join(os.tmpdir(), BUDDY_APP_NAME, "data"),
+  cache: path.join(os.tmpdir(), BUDDY_APP_NAME, "cache"),
+  config: path.join(os.tmpdir(), BUDDY_APP_NAME, "config"),
+  state: path.join(os.tmpdir(), BUDDY_APP_NAME, "state"),
 })
 
 let current = preferred
