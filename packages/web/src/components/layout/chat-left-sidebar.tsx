@@ -24,6 +24,14 @@ import {
 import type { SessionInfo } from "@/state/chat-types"
 import { getFilename } from "./sidebar-helpers"
 import {
+  findRootSessionID,
+  formatThreadAge,
+  sessionFamilyIDs,
+  threadStatusLabel,
+  ThreadStatusIndicator,
+} from "./chat-left-sidebar/thread-helpers"
+import { useDirectoryGroups } from "./chat-left-sidebar/use-directory-groups"
+import {
   ArchiveIcon,
   ChevronDownIcon,
   ChevronRightIcon,
@@ -36,9 +44,8 @@ import {
   SlidersHorizontalIcon,
   SquarePenIcon,
   SettingsIcon,
+  XIcon,
 } from "./sidebar-icons"
-
-
 
 type ChatLeftSidebarProps = {
   directories: string[]
@@ -56,6 +63,7 @@ type ChatLeftSidebarProps = {
   onArchiveSession: (directory: string, sessionID: string) => Promise<void>
   onRenameSession: (directory: string, sessionID: string, title: string) => Promise<void>
   onReorderDirectories: (newOrder: string[]) => void
+  onCloseDirectory: (directory: string) => void
   onOpenCurriculum: () => void
   onOpenSkills: () => void
   onOpenSettings: () => void
@@ -80,79 +88,7 @@ type OrganizeMode = "project" | "chronological"
 type SortMode = "created" | "updated"
 type ShowMode = "all" | "relevant"
 
-function formatThreadAge(timestamp: number) {
-  const elapsed = Date.now() - timestamp
-
-  if (elapsed < 60_000) return "now"
-  if (elapsed < 3_600_000) return `${Math.round(elapsed / 60_000)}m`
-  if (elapsed < 86_400_000) return `${Math.round(elapsed / 3_600_000)}h`
-  if (elapsed < 2_592_000_000) return `${Math.round(elapsed / 86_400_000)}d`
-  return `${Math.round(elapsed / 2_592_000_000)}mo`
-}
-
-function sessionFamilyIDs(allSessions: SessionInfo[], rootID: string) {
-  const family = new Set<string>([rootID])
-  let expanded = true
-
-  while (expanded) {
-    expanded = false
-    for (const session of allSessions) {
-      if (!session.parentID) continue
-      if (!family.has(session.parentID)) continue
-      if (family.has(session.id)) continue
-      family.add(session.id)
-      expanded = true
-    }
-  }
-
-  return Array.from(family)
-}
-
-function findRootSessionID(allSessions: SessionInfo[], activeSessionID?: string) {
-  if (!activeSessionID) return undefined
-
-  const byID = new Map(allSessions.map((session) => [session.id, session]))
-  let current = byID.get(activeSessionID)
-  const visited = new Set<string>()
-
-  while (current?.parentID) {
-    if (visited.has(current.id)) break
-    visited.add(current.id)
-    const parent = byID.get(current.parentID)
-    if (!parent) break
-    current = parent
-  }
-
-  return current?.id
-}
-
-function threadStatusLabel(status: "busy" | "unread" | "idle") {
-  switch (status) {
-    case "busy":
-      return "Live"
-    case "unread":
-      return "Unread"
-    default:
-      return "Up to date"
-  }
-}
-
-function ThreadStatusIndicator(props: { status: "busy" | "unread" | "idle" }) {
-  if (props.status === "busy") {
-    return (
-      <span className="relative inline-flex size-2.5 shrink-0 items-center justify-center" aria-hidden="true">
-        <span className="absolute inset-0 rounded-full border border-[color:color-mix(in_oklab,var(--chart-3)_72%,transparent)]" />
-        <span className="size-1 animate-pulse rounded-full bg-[var(--chart-3)]" />
-      </span>
-    )
-  }
-
-  if (props.status === "unread") {
-    return <span className="inline-block size-2 shrink-0 rotate-45 rounded-[1px] bg-[var(--chart-5)]" aria-hidden="true" />
-  }
-
-  return <span className="inline-block size-1.5 shrink-0 rounded-full bg-[var(--chart-2)]" aria-hidden="true" />
-}
+const COLLAPSED_COUNT = 9
 
 export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
   const [archiveState, setArchiveState] = useState<ArchiveState | undefined>(undefined)
@@ -168,7 +104,6 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
   const [dragOverDirectory, setDragOverDirectory] = useState<string | undefined>(undefined)
   const [dragOverPosition, setDragOverPosition] = useState<"before" | "after">("after")
   const sectionRefsMap = useRef<Map<string, HTMLElement>>(new Map())
-  const COLLAPSED_COUNT = 9
 
   async function submitRename() {
     if (!renameState) return
@@ -207,7 +142,10 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
     [],
   )
 
-  function findDropTarget(clientY: number, draggedDir: string): { directory: string; position: "before" | "after" } | undefined {
+  function findDropTarget(
+    clientY: number,
+    draggedDir: string,
+  ): { directory: string; position: "before" | "after" } | undefined {
     const groups = directoryGroups
     for (const group of groups) {
       if (group.directory === draggedDir) continue
@@ -266,7 +204,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
           commitReorder(directory, target.directory, target.position)
         }
       }
-      
+
       controller.abort()
       setDraggedDirectory(undefined)
       setDragOverDirectory(undefined)
@@ -276,67 +214,18 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
     document.addEventListener("pointerup", onPointerUp, { signal: controller.signal })
   }
 
-  const directoryGroups = useMemo(() => {
-    const getSortTimestamp = (session: SessionInfo) =>
-      sortMode === "created" ? session.time.created : (session.time.updated ?? session.time.created)
-
-    const isRelevantSession = (directory: string, session: SessionInfo) => {
-      const allSessions = props.sessionsByDirectory[directory] ?? []
-      const familyIDs = sessionFamilyIDs(allSessions, session.id)
-      const unreadMap = props.unreadByDirectory[directory] ?? {}
-      const pinnedIDs = new Set(props.pinnedByDirectory[directory] ?? [])
-      const statusByID = props.sessionStatusByDirectory[directory] ?? {}
-      const activeRootID = findRootSessionID(allSessions, props.activeSessionID)
-      const unread = familyIDs.some((id) => !!unreadMap[id])
-      const pinned = familyIDs.some((id) => pinnedIDs.has(id))
-      const busy = familyIDs.some((id) => statusByID[id] === "busy")
-      const active = directory === props.currentDirectory && session.id === activeRootID
-      return unread || pinned || busy || active
-    }
-
-    const groups = props.directories
-      .map((directory) => {
-        const sessions = (props.sessionsByDirectory[directory] ?? []).filter((session) => !session.parentID)
-        const pinnedSet = new Set(props.pinnedByDirectory[directory] ?? [])
-        const visibleSessions = sessions
-          .filter((session) => (showMode === "relevant" ? isRelevantSession(directory, session) : true))
-          .sort((a, b) => {
-            const aPinned = pinnedSet.has(a.id)
-            const bPinned = pinnedSet.has(b.id)
-            if (aPinned !== bPinned) {
-              return aPinned ? -1 : 1
-            }
-            return getSortTimestamp(b) - getSortTimestamp(a)
-          })
-
-        return {
-          directory,
-          sessions: visibleSessions,
-        }
-      })
-      .filter((group) => group.sessions.length > 0 || showMode === "all")
-
-    if (organizeMode === "chronological") {
-      return groups.sort((a, b) => {
-        const aTime = a.sessions[0] ? getSortTimestamp(a.sessions[0]) : 0
-        const bTime = b.sessions[0] ? getSortTimestamp(b.sessions[0]) : 0
-        return bTime - aTime
-      })
-    }
-
-    return groups
-  }, [
-    props.directories,
-    props.sessionsByDirectory,
-    props.pinnedByDirectory,
-    props.unreadByDirectory,
-    props.sessionStatusByDirectory,
-    props.currentDirectory,
-    props.activeSessionID,
+  const directoryGroups = useDirectoryGroups({
+    directories: props.directories,
+    sessionsByDirectory: props.sessionsByDirectory,
+    pinnedByDirectory: props.pinnedByDirectory,
+    unreadByDirectory: props.unreadByDirectory,
+    sessionStatusByDirectory: props.sessionStatusByDirectory,
+    currentDirectory: props.currentDirectory,
+    activeSessionID: props.activeSessionID,
     organizeMode,
     showMode,
     sortMode,
-  ])
+  })
 
   return (
     <aside
@@ -509,6 +398,10 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
                           <FolderIcon className="size-3.5 mr-2" />
                           Open notebook
                         </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => props.onCloseDirectory(group.directory)}>
+                          <XIcon className="size-3.5 mr-2" />
+                          Close notebook
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
 
@@ -561,7 +454,9 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
                             <div className="flex min-w-0 items-center gap-1">
                               <span
                                 className={`truncate text-xs ${
-                                  active || unread ? "font-medium text-sidebar-accent-foreground" : "text-muted-foreground"
+                                  active || unread
+                                    ? "font-medium text-sidebar-accent-foreground"
+                                    : "text-muted-foreground"
                                 }`}
                               >
                                 {session.title || "New thread"}
