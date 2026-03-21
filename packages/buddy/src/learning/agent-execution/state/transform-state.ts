@@ -22,15 +22,10 @@ export function writeLastLlmOutbound(input: {
   const state = readTeachingSessionState(input.directory, input.sessionID)
   if (!state) return
 
-  const systemPromptSentRaw = typeof input.payload.system === "string" ? input.payload.system : ""
-  const systemPromptSent = systemPromptSentRaw.trim()
-  const systemPromptEffective = systemPromptSent
   const outboundEntry = {
     kind: input.kind,
     createdAt: new Date().toISOString(),
     payload: cloneTracePayload(input.payload),
-    ...(systemPromptSent ? { systemPromptSent } : {}),
-    ...(systemPromptEffective ? { systemPromptEffective } : {}),
   }
   const nextHistory = [...(state.llmOutboundHistory ?? []), outboundEntry]
 

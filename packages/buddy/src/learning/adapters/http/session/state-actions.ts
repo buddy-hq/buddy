@@ -1,8 +1,7 @@
 import type { Context } from "hono"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { readTeachingSessionState } from "../../../agent-execution/state/session-state"
 import { withConfigSync } from "../../../../http/route-helpers"
-import { buildFullSystemPrompt } from "../../../agent-execution/state/full-system-prompt"
+import { readCapturedSessionSystemPrompt } from "../../../../opencode-runtime"
 
 export async function getTeachingState(c: Context): Promise<Response> {
   const syncResult = await withConfigSync(c, {
@@ -17,14 +16,10 @@ export async function getTeachingState(c: Context): Promise<Response> {
   }
 
   const fullSystemPrompt = state.lastLlmOutbound
-    ? await OpenCodeInstance.provide({
+    ? await readCapturedSessionSystemPrompt({
         directory: syncResult.value.directory,
-        fn: () =>
-          buildFullSystemPrompt({
-            sessionID,
-            outbound: state.lastLlmOutbound,
-          }),
-      }).catch(() => undefined)
+        sessionID,
+      })
     : undefined
 
   if (!fullSystemPrompt) {

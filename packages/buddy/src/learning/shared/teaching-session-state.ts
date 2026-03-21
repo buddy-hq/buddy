@@ -9,8 +9,6 @@ export type TeachingLlmOutboundEntry = {
   kind: "message" | "command"
   createdAt: string
   payload: Record<string, unknown>
-  systemPromptSent?: string
-  systemPromptEffective?: string
   fullSystemPrompt?: string
 }
 
