@@ -10,7 +10,7 @@
     "./sdk": "./src/gen/sdk.gen.ts"
   },
   "scripts": {
-    "generate": "bun run scripts/generate.ts",
+    "generate": "bun run scripts/generate.ts && tsc -b",
     "typecheck": "tsc --noEmit",
     "build": "tsc"
   },

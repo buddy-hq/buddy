@@ -7,7 +7,7 @@ import { BuddyClient } from "./gen/sdk.gen.js"
 export { BuddyClient }
 export type { Config as BuddyClientConfig }
 
-export function createBuddyClient(config?: Config & { directory?: string }) {
+export function createBuddyClient(config?: Config & { directory?: string }): BuddyClient {
   const { directory, ...rest } = config ?? {}
   const customFetch: typeof fetch = ((request: RequestInfo | URL, init?: RequestInit) =>
     fetch(request, init)) as typeof fetch
