@@ -4,8 +4,11 @@ import { toast } from "@buddy/ui"
 import { ChatLeftSidebar } from "@/components/layout/chat-left-sidebar"
 import { SkillsPage } from "@/components/skills/skills-page"
 import {
+  bootstrapOpenProjects,
+  closeOpenProject,
   openProject,
   preloadProjectSessions,
+  reorderOpenProjects,
   selectSession,
   startNewSession,
   updateSession,
@@ -30,7 +33,6 @@ function SkillsRoute() {
   const togglePinned = useUiPreferences((state) => state.togglePinned)
   const markUnread = useUiPreferences((state) => state.markUnread)
   const clearUnread = useUiPreferences((state) => state.clearUnread)
-  const setDirectoryOrder = useUiPreferences((state) => state.setDirectoryOrder)
 
   const currentDirectory = activeDirectory ?? openProjects[0] ?? ""
   const activeSessionID = currentDirectory ? directories[currentDirectory]?.sessionID : undefined
@@ -52,9 +54,8 @@ function SkillsRoute() {
   )
 
   useEffect(() => {
-    if (openProjects.length === 0) return
-    void preloadProjectSessions(openProjects).catch(() => undefined)
-  }, [openProjects])
+    void bootstrapOpenProjects().catch(() => undefined)
+  }, [])
 
   function openChat(directory: string) {
     navigate({
@@ -69,11 +70,8 @@ function SkillsRoute() {
       if (!picked) return
 
       const nextDirectory = await openProject(picked)
-      const alreadyOpen = openProjects.includes(nextDirectory)
       setActiveDirectory(nextDirectory)
-      if (alreadyOpen) {
-        await preloadProjectSessions([nextDirectory])
-      }
+      await preloadProjectSessions([nextDirectory])
     } catch {
       toast.error("Couldn't open that notebook. Try again.")
     }
@@ -151,6 +149,14 @@ function SkillsRoute() {
     }
   }
 
+  async function onCloseDirectory(targetDirectory: string) {
+    try {
+      await closeOpenProject(targetDirectory)
+    } catch {
+      toast.error("Couldn't close that notebook. Try again.")
+    }
+  }
+
   return (
     <div className="h-full w-full overflow-hidden bg-card">
       <div className="flex h-full w-full min-w-0">
@@ -177,7 +183,12 @@ function SkillsRoute() {
           onToggleUnread={onToggleUnread}
           onArchiveSession={onArchiveSession}
           onRenameSession={onRenameSession}
-          onReorderDirectories={setDirectoryOrder}
+          onReorderDirectories={(nextOrder) => {
+            void reorderOpenProjects(nextOrder)
+          }}
+          onCloseDirectory={(targetDirectory) => {
+            void onCloseDirectory(targetDirectory)
+          }}
           onOpenCurriculum={() => {
             if (currentDirectory) {
               openChat(currentDirectory)

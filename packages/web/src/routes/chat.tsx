@@ -7,7 +7,7 @@ import buddyIcon from "../../public/buddy-icon.png"
 import { stringifyError } from "../lib/api-client"
 import { encodeDirectory } from "../lib/directory-token"
 import { pickProjectDirectory } from "../lib/directory-picker"
-import { loadOpenProjects, openProject, preloadProjectSessions } from "../state/chat-actions"
+import { bootstrapOpenProjects, openProject } from "../state/chat-actions"
 import { useChatStore } from "../state/chat-store"
 
 export const Route = createFileRoute("/chat")({
@@ -22,9 +22,7 @@ function ChatEntryPage() {
   const setEntryError = useChatStore((state) => state.setEntryError)
 
   useEffect(() => {
-    void loadOpenProjects()
-      .then((knownOpenProjects) => preloadProjectSessions(knownOpenProjects))
-      .catch(() => undefined)
+    void bootstrapOpenProjects().catch(() => undefined)
   }, [])
 
   useEffect(() => {
