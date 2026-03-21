@@ -1,14 +1,9 @@
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
-import z from "zod"
 import { Project as OpenCodeProject } from "@buddy/opencode-adapter/project"
 import { routeErrors, directoryQuerySchema, ProjectIDParamSchema } from "../http"
 import { proxyToOpenCode } from "../http"
-import { openProjectFromPayload, updateProjectFromPayload } from "../project"
-
-const openProjectBodySchema = z.object({
-  directory: z.string(),
-})
+import { updateProjectFromPayload } from "../project"
 
 const projectUpdateBodySchema = OpenCodeProject.update.schema.omit({
   projectID: true,
@@ -33,31 +28,6 @@ export const ProjectRoutes = (): Hono =>
         },
       }),
       (c) => c.json(OpenCodeProject.list()),
-    )
-    .post(
-      "/",
-      describeRoute({
-        operationId: "project.open",
-        summary: "Open project",
-        responses: {
-          200: {
-            description: "Opened project directory",
-            content: {
-              "application/json": { schema: resolver(openProjectBodySchema) },
-            },
-          },
-          ...routeErrors(400, 403),
-        },
-      }),
-      validator("json", openProjectBodySchema),
-      async (c) => {
-        const openResult = await openProjectFromPayload(c.req.valid("json"))
-        if (!openResult.ok) {
-          return c.json({ error: openResult.error }, openResult.status)
-        }
-
-        return c.json({ directory: openResult.directory })
-      },
     )
     .get(
       "/current",
