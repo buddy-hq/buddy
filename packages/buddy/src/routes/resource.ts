@@ -8,9 +8,9 @@ import {
   rebuildResource,
   removeResource,
   renameResource,
+  resolveResourceIDByKey,
+  mapResourceRouteError,
   type ResourceRecord,
-  ResourceNotFoundError,
-  ResourceValidationError,
 } from "../resources/resource-registry-service"
 
 const ResourceStatusSchema = z.enum(["preparing", "ready", "unsupported", "error", "stale"])
@@ -61,8 +61,7 @@ const ResourceDeleteResponseSchema = z.object({
   ok: z.literal(true),
 })
 
-export const ResourceRoutes = (): Hono =>
-  new Hono()
+export const ResourceRoutes = new Hono()
     .get(
       "/",
       describeRoute({
@@ -145,8 +144,8 @@ export const ResourceRoutes = (): Hono =>
           runRouteTask({
             task: async () => {
               const { resourceKey } = c.req.valid("param")
-              const payload = c.req.valid("json")
               const resourceID = await resolveResourceIDByKey(context.directory, resourceKey)
+              const payload = c.req.valid("json")
               const record = await renameResource({
                 directory: context.directory,
                 resourceID,
@@ -221,24 +220,5 @@ export const ResourceRoutes = (): Hono =>
             mapError: mapResourceRouteError,
           })),
     )
-
-async function resolveResourceIDByKey(directory: string, key: string): Promise<string> {
-  const resources = await listResources(directory)
-  const entry = resources.find((record) => record.id === key || record.alias === key)
-  if (!entry) {
-    throw new ResourceNotFoundError(`Resource not found: ${key}`)
-  }
-  return entry.id
-}
-
-function mapResourceRouteError(error: unknown): Response | undefined {
-  if (error instanceof ResourceValidationError) {
-    return Response.json({ error: error.message }, { status: 400 })
-  }
-  if (error instanceof ResourceNotFoundError) {
-    return Response.json({ error: error.message }, { status: 404 })
-  }
-  return undefined
-}
 
 export type { ResourceRecord }

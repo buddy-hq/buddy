@@ -149,3 +149,8 @@ export async function reorderOpenProjectRegistryEntries(rawDirectories: string[]
 export function isOpenProjectRegistryError(error: unknown): error is OpenProjectRegistryError {
   return error instanceof OpenProjectRegistryError
 }
+
+export function mapOpenProjectRegistryError(error: unknown): Response | undefined {
+  if (!isOpenProjectRegistryError(error)) return undefined
+  return Response.json({ error: error.message }, { status: error.status })
+}

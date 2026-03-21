@@ -1,11 +1,11 @@
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
-import { routeErrors } from "../http"
+import { routeErrors, runRouteTask } from "../http"
 import {
   closeOpenProjectRegistryEntry,
-  isOpenProjectRegistryError,
   listOpenProjects,
+  mapOpenProjectRegistryError,
   openProjectRegistryEntry,
   reorderOpenProjectRegistryEntries,
 } from "../project/open-project-registry"
@@ -26,8 +26,7 @@ const openProjectResponseSchema = z.object({
   directory: z.string(),
 })
 
-export const OpenProjectsRoutes = (): Hono =>
-  new Hono()
+export const OpenProjectsRoutes = new Hono()
     .get(
       "/",
       describeRoute({
@@ -64,17 +63,11 @@ export const OpenProjectsRoutes = (): Hono =>
         },
       }),
       validator("json", openProjectBodySchema),
-      async (c) => {
-        try {
-          const directory = await openProjectRegistryEntry(c.req.valid("json").directory)
-          return c.json({ directory })
-        } catch (error) {
-          if (isOpenProjectRegistryError(error)) {
-            return c.json({ error: error.message }, error.status)
-          }
-          throw error
-        }
-      },
+      async (c) =>
+        runRouteTask({
+          task: async () => c.json({ directory: await openProjectRegistryEntry(c.req.valid("json").directory) }),
+          mapError: mapOpenProjectRegistryError,
+        }),
     )
     .delete(
       "/",
@@ -94,17 +87,11 @@ export const OpenProjectsRoutes = (): Hono =>
         },
       }),
       validator("query", openProjectQuerySchema),
-      async (c) => {
-        try {
-          const directory = await closeOpenProjectRegistryEntry(c.req.valid("query").directory)
-          return c.json({ directory })
-        } catch (error) {
-          if (isOpenProjectRegistryError(error)) {
-            return c.json({ error: error.message }, error.status)
-          }
-          throw error
-        }
-      },
+      async (c) =>
+        runRouteTask({
+          task: async () => c.json({ directory: await closeOpenProjectRegistryEntry(c.req.valid("query").directory) }),
+          mapError: mapOpenProjectRegistryError,
+        }),
     )
     .put(
       "/order",
@@ -124,15 +111,9 @@ export const OpenProjectsRoutes = (): Hono =>
         },
       }),
       validator("json", openProjectsResponseSchema),
-      async (c) => {
-        try {
-          const directories = await reorderOpenProjectRegistryEntries(c.req.valid("json").directories)
-          return c.json({ directories })
-        } catch (error) {
-          if (isOpenProjectRegistryError(error)) {
-            return c.json({ error: error.message }, error.status)
-          }
-          throw error
-        }
-      },
+      async (c) =>
+        runRouteTask({
+          task: async () => c.json({ directories: await reorderOpenProjectRegistryEntries(c.req.valid("json").directories) }),
+          mapError: mapOpenProjectRegistryError,
+        }),
     )

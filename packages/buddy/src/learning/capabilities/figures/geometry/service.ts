@@ -1,6 +1,6 @@
 import fs from "node:fs/promises"
 import { createHash } from "node:crypto"
-import { FigurePath } from "./path"
+import { FigurePath, InvalidFigureIDError } from "./path"
 import { repairGeometryFigureSpec } from "./repair"
 import { renderGeometryFigure } from "./render"
 import { resolveGeometryFigureSpec } from "./resolve"
@@ -34,6 +34,19 @@ class FigureRenderError extends Error {
     this.name = "FigureRenderError"
     this.issues = issues
   }
+}
+
+function mapFigureRouteError(error: unknown): Response | undefined {
+  if (error instanceof InvalidFigureIDError) {
+    return Response.json({ error: error.message }, { status: 400 })
+  }
+  if (error instanceof FigureNotFoundError) {
+    return Response.json({ error: error.message }, { status: 404 })
+  }
+  if (error instanceof FigureRenderError) {
+    return Response.json({ error: error.message }, { status: 400 })
+  }
+  return undefined
 }
 
 function normalizeGeometryFigureSpec(spec: GeometryFigureSpec): GeometryFigureSpec {
@@ -286,4 +299,5 @@ export {
   FigureNotFoundError,
   FigureRenderError,
   FigureService,
+  mapFigureRouteError,
 }

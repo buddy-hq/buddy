@@ -205,6 +205,15 @@ export async function resolveResourceReference(input: {
   }
 }
 
+export async function resolveResourceIDByKey(directory: string, key: string): Promise<string> {
+  const resources = await listResources(directory)
+  const entry = resources.find((record) => record.id === key || record.alias === key)
+  if (!entry) {
+    throw new ResourceNotFoundError(`Resource not found: ${key}`)
+  }
+  return entry.id
+}
+
 async function prepareResource(directory: string, alias: string): Promise<void> {
   const key = preparationKey(directory, alias)
   const existing = inFlightResourcePreparation.get(key)
@@ -236,6 +245,16 @@ async function prepareResourceInternal(directory: string, alias: string): Promis
       }
     }
   }
+}
+
+export function mapResourceRouteError(error: unknown): Response | undefined {
+  if (error instanceof ResourceValidationError) {
+    return Response.json({ error: error.message }, { status: 400 })
+  }
+  if (error instanceof ResourceNotFoundError) {
+    return Response.json({ error: error.message }, { status: 404 })
+  }
+  return undefined
 }
 
 async function buildResourceRecord(input: {
