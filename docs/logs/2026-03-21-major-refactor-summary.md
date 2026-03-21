@@ -20,7 +20,7 @@ This worktree reorganizes Buddy around a backend-owned open-project registry, th
   - Updates stay on `PATCH /api/project/:projectID`.
   - The old open-project behavior moved out to the dedicated registry route.
 - Updated `packages/buddy/SCHEMA.md` and `packages/buddy/AGENTS.md` to document the backend-owned registry and the current database boundaries.
-
+ 
 ## Web App
 
 - `packages/web/src/state/chat-actions.ts`
