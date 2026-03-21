@@ -3,24 +3,14 @@ import type { DesktopTheme, ColorScheme } from "./types"
 import { resolveThemeVariant } from "./resolve"
 import { defaultThemes } from "./default-themes"
 import { toShadcnCss } from "./shadcn-mapper"
-
-const STORAGE_KEYS = {
-  THEME_ID: "opencode-theme-id",
-  COLOR_SCHEME: "opencode-color-scheme",
-  CACHE_VERSION: "opencode-theme-cache-version",
-  THEME_CSS_LIGHT: "opencode-theme-css-light",
-  THEME_CSS_DARK: "opencode-theme-css-dark",
-} as const
-
-const THEME_STYLE_ID = "oc-theme"
-const PRELOAD_STYLE_ID = "oc-theme-preload"
-const THEME_CACHE_VERSION = "3"
-
-function normalize(id: string | null | undefined): string | null {
-  if (id === "oc-1") return "oc-2"
-  if (!id) return null
-  return id
-}
+import {
+  DEFAULT_THEME_ID,
+  PRELOAD_STYLE_ID,
+  STORAGE_KEYS,
+  THEME_CACHE_VERSION,
+  THEME_STYLE_ID,
+  normalizeThemeID,
+} from "./storage"
 
 function isColorScheme(value: string | null): value is ColorScheme {
   return value === "system" || value === "light" || value === "dark"
@@ -109,8 +99,8 @@ export interface ThemeProviderProps {
 
 export function ThemeProvider({ children, defaultTheme = "oc-2", onThemeApplied }: ThemeProviderProps) {
   const [themeId, setThemeIdState] = useState<string>(() => {
-    const saved = normalize(localStorage.getItem(STORAGE_KEYS.THEME_ID))
-    return saved && defaultThemes[saved] ? saved : (normalize(defaultTheme) ?? "oc-2")
+    const saved = normalizeThemeID(localStorage.getItem(STORAGE_KEYS.THEME_ID))
+    return saved && defaultThemes[saved] ? saved : (normalizeThemeID(defaultTheme) ?? DEFAULT_THEME_ID)
   })
 
   const [colorScheme, setColorSchemeState] = useState<ColorScheme>(() => {
@@ -169,7 +159,7 @@ export function ThemeProvider({ children, defaultTheme = "oc-2", onThemeApplied 
   useEffect(() => {
     const handler = (e: StorageEvent) => {
       if (e.key === STORAGE_KEYS.THEME_ID && e.newValue) {
-        const normalized = normalize(e.newValue)
+        const normalized = normalizeThemeID(e.newValue)
         if (normalized) setThemeIdState(normalized)
       }
       if (e.key === STORAGE_KEYS.COLOR_SCHEME && isColorScheme(e.newValue)) {
@@ -183,7 +173,7 @@ export function ThemeProvider({ children, defaultTheme = "oc-2", onThemeApplied 
 
   useEffect(() => {
     const savedTheme = localStorage.getItem(STORAGE_KEYS.THEME_ID)
-    const normalizedThemeId = normalize(savedTheme)
+    const normalizedThemeId = normalizeThemeID(savedTheme)
     const nextThemeId = normalizedThemeId && defaultThemes[normalizedThemeId] ? normalizedThemeId : themeId
     const savedScheme = localStorage.getItem(STORAGE_KEYS.COLOR_SCHEME)
     const cachedVersion = localStorage.getItem(STORAGE_KEYS.CACHE_VERSION)
@@ -214,7 +204,7 @@ export function ThemeProvider({ children, defaultTheme = "oc-2", onThemeApplied 
   }, [])
 
   const setTheme = useCallback((id: string) => {
-    const next = normalize(id)
+    const next = normalizeThemeID(id)
     if (!next) {
       console.warn(`Theme "${id}" not found`)
       return
@@ -237,7 +227,7 @@ export function ThemeProvider({ children, defaultTheme = "oc-2", onThemeApplied 
 
   const previewTheme = useCallback(
     (id: string) => {
-      const next = normalize(id)
+      const next = normalizeThemeID(id)
       if (!next) return
       const theme = defaultThemes[next]
       if (!theme) return
