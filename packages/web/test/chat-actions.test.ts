@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import {
+  closeOpenProject,
   loadCurriculumView,
   loadSessions,
   loadRuntimeCapabilities,
   loadOpenProjects,
   openProject,
+  reorderOpenProjects,
   resolveDefaultPersonaID,
   sendPrompt,
   shouldDeferTranscriptReload,
@@ -13,10 +15,42 @@ import { useChatStore } from "../src/state/chat-store"
 
 const originalFetch = globalThis.fetch
 
+function hasStringUrl(value: unknown): value is { url: string } {
+  return Boolean(value && typeof value === "object" && "url" in value && typeof value.url === "string")
+}
+
+function hasStringMethod(value: unknown): value is { method: string } {
+  return Boolean(value && typeof value === "object" && "method" in value && typeof value.method === "string")
+}
+
+function hasHeaders(value: unknown): value is { headers: HeadersInit } {
+  return Boolean(value && typeof value === "object" && "headers" in value)
+}
+
+function requestUrl(input: RequestInfo | URL) {
+  if (typeof input === "string") return input
+  if (input instanceof URL) return input.toString()
+  if (hasStringUrl(input)) return input.url
+  return String(input)
+}
+
+function requestMethod(input: RequestInfo | URL, init?: RequestInit) {
+  if (init?.method) return init.method
+  if (hasStringMethod(input)) return input.method
+  return undefined
+}
+
+function requestHeaders(input: RequestInfo | URL, init?: RequestInit) {
+  if (init?.headers) return new Headers(init.headers)
+  if (hasHeaders(input)) return new Headers(input.headers)
+  return new Headers()
+}
+
 function resetStore() {
   useChatStore.setState({
     openProjects: [],
     activeDirectory: undefined,
+    pendingActiveDirectory: undefined,
     entryError: undefined,
     lastSessionByDirectory: {},
     selectedModelByDirectory: {},
@@ -35,14 +69,33 @@ afterEach(() => {
 })
 
 describe("loadOpenProjects", () => {
-  test("restores normalized open projects from local state", async () => {
-    globalThis.fetch = (async () => {
-      throw new Error("loadOpenProjects should not fetch")
-    }) as typeof fetch
+  test("hydrates normalized open projects from the backend instead of local storage", async () => {
+    localStorage.setItem(
+      "buddy.chat.v4",
+      JSON.stringify({
+        state: {
+          openProjects: ["/polluted/local", "/polluted/other"],
+          activeDirectory: "/polluted/local",
+        },
+        version: 0,
+      }),
+    )
 
-    useChatStore.setState({
-      openProjects: ["/repo/root", "/repo/root/", " /repo/other/ ", "/"],
-    })
+    globalThis.fetch = (async (input, init) => {
+      expect(new URL(requestUrl(input), "http://localhost").pathname).toBe("/api/open-projects")
+      expect(requestMethod(input, init)).toBe("GET")
+      expect(requestHeaders(input, init).get("x-buddy-directory")).toBeNull()
+      return new Response(
+        JSON.stringify({
+          directories: ["/repo/root", "/repo/root/", " /repo/other/ ", "/"],
+        }),
+        {
+          headers: {
+            "content-type": "application/json",
+          },
+        },
+      )
+    }) as typeof fetch
 
     const projects = await loadOpenProjects()
 
@@ -125,6 +178,85 @@ describe("openProject", () => {
   test("rejects the filesystem root", async () => {
     await expect(openProject("/")).rejects.toThrow("Please choose a notebook directory, not /")
     expect(useChatStore.getState().openProjects).toEqual([])
+  })
+})
+
+describe("closeOpenProject", () => {
+  test("removes a directory from the in-memory store through the backend API", async () => {
+    useChatStore.setState({
+      openProjects: ["/repo", "/other"],
+      activeDirectory: "/repo",
+      directories: {
+        "/repo": {
+          sessionTitle: "New thread",
+          sessions: [],
+          sessionStatusByID: {},
+          messages: [],
+          pendingPermissions: [],
+          providers: [],
+          providerDefault: {},
+          mcpStatus: {},
+          isBusy: false,
+          isReady: false,
+        },
+        "/other": {
+          sessionTitle: "New thread",
+          sessions: [],
+          sessionStatusByID: {},
+          messages: [],
+          pendingPermissions: [],
+          providers: [],
+          providerDefault: {},
+          mcpStatus: {},
+          isBusy: false,
+          isReady: false,
+        },
+      },
+    })
+
+    globalThis.fetch = (async (input, init) => {
+      expect(String(input)).toBe("/api/open-projects?directory=%2Frepo")
+      expect(init?.method).toBe("DELETE")
+      return new Response(JSON.stringify({ directory: "/repo" }), {
+        headers: {
+          "content-type": "application/json",
+        },
+      })
+    }) as typeof fetch
+
+    await expect(closeOpenProject("/repo")).resolves.toBe("/repo")
+    expect(useChatStore.getState().openProjects).toEqual(["/other"])
+    expect(useChatStore.getState().activeDirectory).toBe("/other")
+  })
+})
+
+describe("reorderOpenProjects", () => {
+  test("uses the backend response order as the notebook order", async () => {
+    useChatStore.setState({
+      openProjects: ["/repo/one", "/repo/two"],
+    })
+
+    globalThis.fetch = (async (input, init) => {
+      expect(String(input)).toBe("/api/open-projects/order")
+      expect(init?.method).toBe("PUT")
+      expect(init?.body).toBe(JSON.stringify({ directories: ["/repo/two", "/repo/one"] }))
+      return new Response(
+        JSON.stringify({
+          directories: ["/repo/two", "/repo/one"],
+        }),
+        {
+          headers: {
+            "content-type": "application/json",
+          },
+        },
+      )
+    }) as typeof fetch
+
+    await expect(reorderOpenProjects(["/repo/two", "/repo/one"])).resolves.toEqual([
+      "/repo/two",
+      "/repo/one",
+    ])
+    expect(useChatStore.getState().openProjects).toEqual(["/repo/two", "/repo/one"])
   })
 })
 
