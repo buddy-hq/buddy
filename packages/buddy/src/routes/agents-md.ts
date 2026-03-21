@@ -1,12 +1,8 @@
-import { createHash } from "node:crypto"
-import fsp from "node:fs/promises"
-import path from "node:path"
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
+import { mapAgentsMdConflictError, readNotebookAgentsMd, saveNotebookAgentsMd } from "../agents-md/service"
 import { directoryQuerySchema, routeErrors, runRouteTask, withDirectoryRoute } from "../http"
-
-const NOTEBOOK_AGENTS_MD_FILE_NAME = "AGENTS.md"
 
 const agentsMdReadResponseSchema = z.object({
   path: z.string(),
@@ -26,69 +22,7 @@ const agentsMdWriteResponseSchema = z.object({
   version: z.string(),
 })
 
-class AgentsMdVersionConflictError extends Error {}
-
-function contentVersion(content: string | undefined) {
-  if (content === undefined) return null
-  return createHash("sha256").update(content, "utf8").digest("hex")
-}
-
-function resolveNotebookAgentsMdPath(directory: string) {
-  return path.join(directory, NOTEBOOK_AGENTS_MD_FILE_NAME)
-}
-
-async function readNotebookAgentsMd(directory: string) {
-  const filePath = resolveNotebookAgentsMdPath(directory)
-  const content = await fsp.readFile(filePath, "utf8").catch((error: unknown) => {
-    const maybe = error as { code?: string }
-    if (maybe.code === "ENOENT") {
-      return undefined
-    }
-    throw error
-  })
-
-  return {
-    path: filePath,
-    exists: typeof content === "string",
-    content: content ?? "",
-    version: contentVersion(content),
-  }
-}
-
-async function writeNotebookAgentsMd(input: { directory: string; content: string; expectedVersion?: string | null }) {
-  const filePath = resolveNotebookAgentsMdPath(input.directory)
-  const currentContent = await fsp.readFile(filePath, "utf8").catch((error: unknown) => {
-    const maybe = error as { code?: string }
-    if (maybe.code === "ENOENT") {
-      return undefined
-    }
-    throw error
-  })
-  const currentVersion = contentVersion(currentContent)
-
-  if (input.expectedVersion !== undefined && input.expectedVersion !== currentVersion) {
-    throw new AgentsMdVersionConflictError("AGENTS.md changed on disk. Reload or overwrite to continue.")
-  }
-
-  await fsp.mkdir(path.dirname(filePath), { recursive: true })
-  await fsp.writeFile(filePath, input.content, "utf8")
-
-  return {
-    path: filePath,
-    content: input.content,
-    version: contentVersion(input.content) ?? "",
-  }
-}
-
-function mapAgentsMdRouteError(error: unknown): Response | undefined {
-  if (error instanceof AgentsMdVersionConflictError) {
-    return Response.json({ error: error.message }, { status: 409 })
-  }
-  return undefined
-}
-
-export const AgentsMdRoutes = (): Hono =>
-  new Hono()
+export const AgentsMdRoutes = new Hono()
     .get(
       "/",
       describeRoute({
@@ -138,14 +72,14 @@ export const AgentsMdRoutes = (): Hono =>
           runRouteTask({
             task: async () => {
               const payload = c.req.valid("json")
-              const saved = await writeNotebookAgentsMd({
+              const saved = await saveNotebookAgentsMd({
                 directory: context.directory,
                 content: payload.content,
                 expectedVersion: payload.expectedVersion,
               })
               return c.json(saved)
             },
-            mapError: mapAgentsMdRouteError,
+            mapError: mapAgentsMdConflictError,
           }),
         ),
     )
