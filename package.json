@@ -55,7 +55,9 @@
     "check:vendor": "bun run typecheck && bun run test",
     "vendor:sync": "git subtree pull --prefix vendor/opencode opencode-upstream dev --squash -m \"chore(vendor): sync opencode mirror\"",
     "hooks:install": "git config core.hooksPath .githooks",
-    "lint": "turbo run lint --filter=@buddy/* --only",
+    "lint": "oxlint --report-unused-disable-directives",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check",
     "sdk:generate": "bun run --cwd packages/sdk generate",
     "release:tag": "bun ./script/tag.ts",
     "release:notes": "bun ./script/changelog.ts",
@@ -71,11 +73,8 @@
   "devDependencies": {
     "@tsconfig/node22": "catalog:",
     "@typescript/native-preview": "^7.0.0-dev.20260225.1",
-    "prettier": "3.6.2",
+    "oxfmt": "^0.40.0",
+    "oxlint": "^1.55.0",
     "turbo": "^2.0.0"
-  },
-  "prettier": {
-    "semi": false,
-    "printWidth": 120
   }
 }

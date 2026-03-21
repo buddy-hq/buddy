@@ -1,0 +1,17 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "ignorePatterns": [
+    "dist",
+    ".turbo",
+    ".buddy-runtime",
+    ".opencode",
+    "vendor",
+    "node_modules",
+    "bun.lock",
+    "*.tsbuildinfo",
+    "**/routeTree.gen.ts"
+  ],
+  "singleQuote": true,
+  "semi": false,
+  "sortPackageJson": {}
+}
