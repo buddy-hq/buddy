@@ -1,8 +1,12 @@
 import { beforeEach, describe, expect, test } from "bun:test"
+import { applyThemePreload } from "../src/theme/preload-runtime"
 
-const src = await Bun.file(new URL("../public/oc-theme-preload.js", import.meta.url)).text()
-
-const run = () => Function(src)()
+const run = () =>
+  applyThemePreload({
+    document,
+    storage: localStorage,
+    matchMedia: window.matchMedia.bind(window),
+  })
 
 function createMediaQueryList(matches: boolean): MediaQueryList {
   return {
