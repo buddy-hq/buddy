@@ -1,4 +1,3 @@
-import type { ReactNode } from "react"
 import { useEffect, useMemo, useState } from "react"
 import {
   Badge,
@@ -18,7 +17,6 @@ import {
   SlidersHorizontalIcon,
   Switch,
   Tabs,
-  TabsContent,
   TabsList,
   TabsTrigger,
   toast,
@@ -28,16 +26,12 @@ import { ConnectProviderDialog } from "@/components/connect-provider-dialog"
 import { usePlatform } from "@/context/platform"
 import { resolveDefaultPersonaID } from "@/state/chat-actions"
 import { showDesktopUpdateToast } from "../lib/desktop-updates"
-import type { ProviderInfo } from "@/state/chat-types"
-import {
-  installAdvancedMathRuntime,
-  loadAdvancedMathRuntimeStatus,
-  removeAdvancedMathRuntime,
-  type AdvancedMathRuntimeStatus,
-} from "@/state/advanced-math-runtime"
 import type { LogLevel } from "@/state/project-settings"
 import { useProjectSettings } from "@/state/project-settings"
-import { useTheme, type ColorScheme } from "@/theme"
+import { ThemeSettingsSection } from "./settings/theme-settings-section"
+import { ProviderSourceBadge, SettingsListCard, SettingsPanel, SettingsRow, type SettingsTab } from "./settings/settings-primitives"
+import { advancedMathStatusLabel, useAdvancedMathRuntime } from "./settings/use-advanced-math-runtime"
+import { ConfirmRemoveMathRuntimeDialog } from "./settings/confirm-remove-math-runtime-dialog"
 
 const DEFAULT_VALUE = "__default__"
 
@@ -47,158 +41,6 @@ type SettingsModalProps = {
   onOpenChange: (open: boolean) => void
 }
 
-type SettingsTab = "general" | "providers"
-
-function advancedMathStatusLabel(status: AdvancedMathRuntimeStatus | null, loading: boolean) {
-  if (!status) return loading ? "Loading..." : "Unknown"
-
-  switch (status.state) {
-    case "not_installed":
-      return "Not installed"
-    case "downloading":
-      return "Downloading..."
-    case "installing":
-      return "Installing..."
-    case "repairing":
-      return "Repairing..."
-    case "removing":
-      return "Removing..."
-    case "ready":
-      return "Installed"
-    case "error":
-      return "Installation failed"
-  }
-}
-
-function isAdvancedMathRuntimeOperationInProgress(status: AdvancedMathRuntimeStatus | null) {
-  if (!status) return false
-
-  return (
-    status.state === "downloading" ||
-    status.state === "installing" ||
-    status.state === "repairing" ||
-    status.state === "removing"
-  )
-}
-
-function SettingsPanel(props: { value: SettingsTab; title: string; description: string; children: ReactNode }) {
-  return (
-    <TabsContent value={props.value} className="flex min-h-0 flex-1 flex-col outline-none data-[state=inactive]:hidden">
-      <div className="border-b border-border/60 px-5 py-5">
-        <h2 className="text-base font-medium text-foreground">{props.title}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">{props.description}</p>
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
-        <div className="mx-auto flex max-w-3xl flex-col gap-6">{props.children}</div>
-      </div>
-    </TabsContent>
-  )
-}
-
-function SettingsListCard(props: { children: ReactNode }) {
-  return (
-    <Card size="sm" className="gap-0 py-0">
-      <CardContent className="px-0">{props.children}</CardContent>
-    </Card>
-  )
-}
-
-function SettingsRow(props: { title: string; description: string; control: ReactNode; last?: boolean }) {
-  return (
-    <>
-      <div className="px-4 py-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-foreground">{props.title}</p>
-            <p className="mt-1 text-xs text-muted-foreground">{props.description}</p>
-          </div>
-          <div className="min-w-0 lg:w-[260px] lg:max-w-[260px]">{props.control}</div>
-        </div>
-      </div>
-      {props.last ? null : <Separator />}
-    </>
-  )
-}
-
-function ProviderSourceBadge(props: { provider: ProviderInfo }) {
-  const label =
-    props.provider.source === "env"
-      ? "Environment"
-      : props.provider.source === "api"
-        ? "API key"
-        : props.provider.source === "custom"
-          ? "Custom"
-          : "Config"
-
-  return (
-    <Badge variant="outline" className="h-5">
-      {label}
-    </Badge>
-  )
-}
-
-function isColorScheme(value: string): value is ColorScheme {
-  return value === "system" || value === "light" || value === "dark"
-}
-
-function ThemeSettingsRows() {
-  const { themeId, colorScheme, themes, setTheme, setColorScheme } = useTheme()
-
-  const colorSchemeOptions: { value: ColorScheme; label: string }[] = [
-    { value: "system", label: "System" },
-    { value: "light", label: "Light" },
-    { value: "dark", label: "Dark" },
-  ]
-
-  const themeOptions = useMemo(() => {
-    return Object.entries(themes).map(([id, theme]) => ({
-      id,
-      name: theme.name,
-    }))
-  }, [themes])
-
-  return (
-    <>
-      <SettingsRow
-        title="Color scheme"
-        description="Choose how Buddy should render on this machine. System follows your OS setting."
-        control={
-          <Select value={colorScheme} onValueChange={(value) => isColorScheme(value) && setColorScheme(value)}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select color scheme" />
-            </SelectTrigger>
-            <SelectContent>
-              {colorSchemeOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        }
-      />
-
-      <SettingsRow
-        title="Theme"
-        description="Choose your preferred theme for the interface."
-        control={
-          <Select value={themeId} onValueChange={setTheme}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select theme" />
-            </SelectTrigger>
-            <SelectContent>
-              {themeOptions.map((option) => (
-                <SelectItem key={option.id} value={option.id}>
-                  {option.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        }
-      />
-    </>
-  )
-}
 
 export function SettingsModal(props: SettingsModalProps) {
   const platform = usePlatform()
@@ -207,71 +49,24 @@ export function SettingsModal(props: SettingsModalProps) {
   const [checkingForUpdates, setCheckingForUpdates] = useState(false)
   const [providerDialogOpen, setProviderDialogOpen] = useState(false)
   const [providerDialogTarget, setProviderDialogTarget] = useState<string | undefined>(undefined)
-  const [advancedMathStatus, setAdvancedMathStatus] = useState<AdvancedMathRuntimeStatus | null>(null)
-  const [advancedMathLoading, setAdvancedMathLoading] = useState(false)
+  const {
+    advancedMathStatus,
+    advancedMathLoading,
+    advancedMathBusy,
+    advancedMathEnabled,
+    onToggleAdvancedMathRuntime,
+    removeConfirmOpen,
+    setRemoveConfirmOpen,
+    onConfirmRemoveMathRuntime,
+  } = useAdvancedMathRuntime({
+    open: props.open,
+    platform: platform.platform,
+  })
 
   useEffect(() => {
     if (!props.open) return
     setActiveTab("general")
   }, [props.open])
-
-  useEffect(() => {
-    if (!props.open || platform.platform !== "desktop") return
-
-    let cancelled = false
-    setAdvancedMathLoading(true)
-    void loadAdvancedMathRuntimeStatus()
-      .then((status) => {
-        if (!cancelled) {
-          setAdvancedMathStatus(status)
-        }
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          toast.error(error instanceof Error ? error.message : "Failed to load advanced math runtime status")
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setAdvancedMathLoading(false)
-        }
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [platform.platform, props.open])
-
-  useEffect(() => {
-    if (!props.open || platform.platform !== "desktop") return
-    if (!advancedMathLoading && !isAdvancedMathRuntimeOperationInProgress(advancedMathStatus)) return
-
-    let cancelled = false
-    const refresh = async () => {
-      try {
-        const status = await loadAdvancedMathRuntimeStatus()
-        if (!cancelled) {
-          setAdvancedMathStatus(status)
-        }
-      } catch {
-        // Ignore transient polling errors while an operation is in flight.
-      }
-    }
-
-    void refresh()
-    const interval = window.setInterval(() => {
-      void refresh()
-    }, 1000)
-
-    return () => {
-      cancelled = true
-      window.clearInterval(interval)
-    }
-  }, [advancedMathLoading, advancedMathStatus, platform.platform, props.open])
-
-  async function onSaveSettings() {
-    await settings.actions.save()
-  }
 
   function openProviderDialog(initialProvider?: string) {
     setProviderDialogTarget(initialProvider)
@@ -308,33 +103,6 @@ export function SettingsModal(props: SettingsModalProps) {
     }
   }
 
-  async function onToggleAdvancedMathRuntime(nextChecked: boolean) {
-    if (!nextChecked) {
-      const confirmed =
-        typeof window === "undefined"
-          ? true
-          : window.confirm("Remove the optional advanced math runtime from this device?")
-      if (!confirmed) {
-        return
-      }
-    }
-
-    setAdvancedMathLoading(true)
-    try {
-      const nextStatus = nextChecked ? await installAdvancedMathRuntime() : await removeAdvancedMathRuntime()
-      setAdvancedMathStatus(nextStatus)
-      toast(nextChecked ? "Advanced math runtime installed" : "Advanced math runtime removed")
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to update advanced math runtime")
-      const refreshed = await loadAdvancedMathRuntimeStatus().catch(() => undefined)
-      if (refreshed) {
-        setAdvancedMathStatus(refreshed)
-      }
-    } finally {
-      setAdvancedMathLoading(false)
-    }
-  }
-
   const personaSelectValue =
     resolveDefaultPersonaID(settings.options.personas, settings.selection.persona || undefined) || "buddy"
   const logLevelSelectValue = settings.selection.logLevel || DEFAULT_VALUE
@@ -345,20 +113,13 @@ export function SettingsModal(props: SettingsModalProps) {
   )
   const showDesktopUpdateControls = platform.platform === "desktop" && !!platform.checkUpdate && !!platform.update
   const showAdvancedMathControls = platform.platform === "desktop"
-  const advancedMathBusy = advancedMathLoading || isAdvancedMathRuntimeOperationInProgress(advancedMathStatus)
-  const advancedMathEnabled =
-    !!advancedMathStatus &&
-    advancedMathStatus.enabled &&
-    advancedMathStatus.state !== "not_installed" &&
-    advancedMathStatus.state !== "error" &&
-    advancedMathStatus.state !== "removing"
-  const footerHint = (() => {
+  const footerHint = useMemo(() => {
     if (settings.status.loading) return "Loading settings..."
     if (settings.status.saving) return "Saving changes..."
     if (settings.status.error) return settings.status.error
     if (activeTab === "providers") return "Connections are shared by the notebook runtime."
     return "Appearance applies to this app; notebook defaults apply only to this repository."
-  })()
+  }, [settings.status.loading, settings.status.saving, settings.status.error, activeTab])
 
   return (
     <>
@@ -432,7 +193,7 @@ export function SettingsModal(props: SettingsModalProps) {
               <div className="space-y-2">
                 <h3 className="text-sm font-medium text-foreground">Interface</h3>
                 <SettingsListCard>
-                  <ThemeSettingsRows />
+                  <ThemeSettingsSection />
                 </SettingsListCard>
               </div>
 
@@ -587,7 +348,7 @@ export function SettingsModal(props: SettingsModalProps) {
                                   aria-label="Toggle advanced math runtime"
                                   checked={advancedMathEnabled}
                                   disabled={advancedMathBusy || advancedMathStatus === null}
-                                  onCheckedChange={(checked) => void onToggleAdvancedMathRuntime(checked)}
+                                  onCheckedChange={onToggleAdvancedMathRuntime}
                                 />
                               </div>
                               {advancedMathStatus?.progressMessage ||
@@ -762,7 +523,7 @@ export function SettingsModal(props: SettingsModalProps) {
               </Button>
               <Button
                 type="button"
-                onClick={() => void onSaveSettings()}
+                onClick={() => void settings.actions.save()}
                 disabled={settings.status.loading || settings.status.saving}
               >
                 {settings.status.saving ? "Saving..." : "Save changes"}
@@ -779,6 +540,11 @@ export function SettingsModal(props: SettingsModalProps) {
         initialProvider={providerDialogTarget}
         onOpenChange={setProviderDialogOpen}
         onUpdated={settings.actions.refresh}
+      />
+      <ConfirmRemoveMathRuntimeDialog
+        open={removeConfirmOpen}
+        onOpenChange={setRemoveConfirmOpen}
+        onConfirm={onConfirmRemoveMathRuntime}
       />
     </>
   )
