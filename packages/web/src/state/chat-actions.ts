@@ -568,14 +568,29 @@ async function createSession(directory: string) {
 export async function ensureDirectorySession(directory: string) {
   const store = useChatStore.getState()
   const normalizedDirectory = normalizeProjectDirectory(directory) ?? directory
-  store.setDirectoryReady(normalizedDirectory, false)
-  store.clearDirectoryError(normalizedDirectory)
+  let targetDirectory = normalizedDirectory
 
   try {
     const knownOpenProjects = store.openProjects
-    const targetDirectory = knownOpenProjects.includes(normalizedDirectory)
+    targetDirectory = knownOpenProjects.includes(normalizedDirectory)
       ? normalizedDirectory
       : await openProject(normalizedDirectory)
+    const readyState = useChatStore.getState().directories[targetDirectory]
+    const readyInfo = readyState?.isReady
+      ? readyState.sessions.find((session) => session.id === readyState.sessionID)
+      : undefined
+
+    if (readyInfo) {
+      store.clearDirectoryError(targetDirectory)
+      return {
+        directory: targetDirectory,
+        info: readyInfo,
+      }
+    }
+
+    store.setDirectoryReady(targetDirectory, false)
+    store.clearDirectoryError(targetDirectory)
+
     const state = useChatStore.getState()
     const current = state.directories[targetDirectory]
     const storedSession = current?.sessionID ?? state.lastSessionByDirectory[targetDirectory]
@@ -617,8 +632,8 @@ export async function ensureDirectorySession(directory: string) {
       info,
     }
   } catch (error) {
-    store.setDirectoryReady(normalizedDirectory, true)
-    store.setDirectoryError(normalizedDirectory, stringifyError(error))
+    store.setDirectoryReady(targetDirectory, true)
+    store.setDirectoryError(targetDirectory, stringifyError(error))
     throw error
   }
 }

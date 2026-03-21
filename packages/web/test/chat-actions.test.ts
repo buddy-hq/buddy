@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import {
   closeOpenProject,
+  ensureDirectorySession,
   loadCurriculumView,
   loadSessions,
   loadRuntimeCapabilities,
@@ -257,6 +258,51 @@ describe("reorderOpenProjects", () => {
       "/repo/one",
     ])
     expect(useChatStore.getState().openProjects).toEqual(["/repo/two", "/repo/one"])
+  })
+})
+
+describe("ensureDirectorySession", () => {
+  test("reuses a ready directory without reloading the transcript", async () => {
+    const existingSession = {
+      id: "session-1",
+      title: "Existing thread",
+      time: {
+        created: 1,
+        updated: 2,
+      },
+    }
+
+    useChatStore.setState({
+      openProjects: ["/repo"],
+      activeDirectory: "/repo",
+      lastSessionByDirectory: {
+        "/repo": existingSession.id,
+      },
+      directories: {
+        "/repo": {
+          sessionID: existingSession.id,
+          sessionTitle: existingSession.title,
+          sessions: [existingSession],
+          sessionStatusByID: {},
+          messages: [],
+          pendingPermissions: [],
+          providers: [],
+          providerDefault: {},
+          mcpStatus: {},
+          isBusy: false,
+          isReady: true,
+        },
+      },
+    })
+
+    globalThis.fetch = (async () => {
+      throw new Error("ensureDirectorySession should not fetch when directory state is already ready")
+    }) as typeof fetch
+
+    await expect(ensureDirectorySession("/repo")).resolves.toEqual({
+      directory: "/repo",
+      info: existingSession,
+    })
   })
 })
 
