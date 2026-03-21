@@ -11,7 +11,6 @@ import type {
   McpRemoteConfig,
   McpStatusResponses,
   PermissionListResponses,
-  ProjectOpenResponses,
   SessionMessagesResponses,
   SessionTeachingStateResponses,
   ProviderAuthMethod,
@@ -178,6 +177,12 @@ function normalizeProjectDirectory(directory: string) {
   return normalized
 }
 
+function normalizeDirectoryList(directories: string[]) {
+  return Array.from(
+    new Set(directories.map((directory) => normalizeProjectDirectory(directory)).filter(Boolean)),
+  ) as string[]
+}
+
 export function resolveDefaultPersonaID(
   personas: PersonaConfigOption[],
   configuredDefaultPersona?: string,
@@ -199,7 +204,6 @@ export function resolveDefaultPersonaID(
 
 type RawProvider = ProviderListResponse["all"][number]
 type RawProviderModel = RawProvider["models"][string]
-type OpenProjectResult = ProjectOpenResponses[200]
 type LearnerPersona = "buddy" | "code-buddy" | "math-buddy"
 
 const LEARNER_PERSONAS = ["buddy", "code-buddy", "math-buddy"] as const
@@ -441,16 +445,9 @@ async function fetchProviderCatalog(directory: string) {
 }
 
 export async function loadOpenProjects() {
-  const store = useChatStore.getState()
-  const knownOpenProjects = store.openProjects.reduce<string[]>((all, project) => {
-    const directory = normalizeProjectDirectory(project)
-    if (directory) {
-      all.push(directory)
-    }
-    return all
-  }, [])
-
-  store.setOpenProjects(knownOpenProjects)
+  const response = requireBuddyData(await getBuddyClient().openProjects.list())
+  const knownOpenProjects = normalizeDirectoryList(response.directories)
+  useChatStore.getState().setOpenProjects(knownOpenProjects)
   return useChatStore.getState().openProjects
 }
 
@@ -460,9 +457,7 @@ export async function openProject(directory: string) {
     throw new Error("Please choose a notebook directory, not /")
   }
 
-  const opened = requireBuddyData<OpenProjectResult>(await getBuddyClient().project.open({
-    directory: normalized,
-  }))
+  const opened = requireBuddyData(await getBuddyClient().openProjects.open({ directory: normalized }))
   const canonicalDirectory = normalizeProjectDirectory(opened.directory)
 
   if (!canonicalDirectory) {
@@ -477,15 +472,33 @@ export async function preloadProjectSessions(directories: string[]) {
   const unique = Array.from(
     new Set(directories.map((directory) => normalizeProjectDirectory(directory)).filter(Boolean)),
   ) as string[]
-  await Promise.all(
-    unique.map((directory) =>
-      loadSessions(directory).catch((error) => {
-        if (stringifyError(error).includes("Directory is outside allowed roots")) {
-          useChatStore.getState().closeProject(directory)
-        }
-      }),
-    ),
-  )
+  await Promise.all(unique.map((directory) => loadSessions(directory).catch(() => undefined)))
+}
+
+export async function bootstrapOpenProjects() {
+  const knownOpenProjects = await loadOpenProjects()
+  await preloadProjectSessions(knownOpenProjects)
+  return knownOpenProjects
+}
+
+export async function closeOpenProject(directory: string) {
+  const normalized = normalizeProjectDirectory(directory)
+  if (!normalized) return undefined
+
+  const closed = requireBuddyData(await getBuddyClient().openProjects.close({ directory: normalized }))
+  const canonicalDirectory = normalizeProjectDirectory(closed.directory)
+  if (!canonicalDirectory) return undefined
+
+  useChatStore.getState().closeProject(canonicalDirectory)
+  return canonicalDirectory
+}
+
+export async function reorderOpenProjects(directories: string[]) {
+  const ordered = normalizeDirectoryList(directories)
+  const response = requireBuddyData(await getBuddyClient().openProjects.reorder({ directories: ordered }))
+  const knownOpenProjects = normalizeDirectoryList(response.directories)
+  useChatStore.getState().setOpenProjects(knownOpenProjects)
+  return knownOpenProjects
 }
 
 export async function loadSessions(directory: string) {
@@ -606,10 +619,6 @@ export async function ensureDirectorySession(directory: string) {
       info,
     }
   } catch (error) {
-    const isOutsideAllowedRoots = stringifyError(error).includes("Directory is outside allowed roots")
-    if (isOutsideAllowedRoots && useChatStore.getState().openProjects.includes(normalizedDirectory)) {
-      store.closeProject(normalizedDirectory)
-    }
     store.setDirectoryReady(normalizedDirectory, true)
     store.setDirectoryError(normalizedDirectory, stringifyError(error))
     throw error
