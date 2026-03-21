@@ -7,8 +7,6 @@ export const UI_PREFERENCES_STORAGE_KEY = "buddy.ui.v1"
 type UiPreferencesStore = {
   pinnedByDirectory: Record<string, string[]>
   unreadByDirectory: Record<string, Record<string, true>>
-  directoryOrderMode: "saved-order" | "active-first"
-  directoryOrder: string[]
   leftSidebarOpen: boolean
   leftSidebarWidth: number
   rightSidebarOpen: boolean
@@ -28,8 +26,6 @@ type UiPreferencesStore = {
   clearUnread: (directory: string, sessionID: string) => void
   isUnread: (directory: string, sessionID: string) => boolean
   clearDirectorySessionState: (directory: string, sessionID: string) => void
-  setDirectoryOrderMode: (mode: "saved-order" | "active-first") => void
-  setDirectoryOrder: (order: string[]) => void
   setLeftSidebarOpen: (open: boolean) => void
   setLeftSidebarWidth: (width: number) => void
   setRightSidebarOpen: (open: boolean) => void
@@ -44,8 +40,6 @@ export const useUiPreferences = create<UiPreferencesStore>()(
     (set, get) => ({
       pinnedByDirectory: {},
       unreadByDirectory: {},
-      directoryOrderMode: "saved-order",
-      directoryOrder: [],
       leftSidebarOpen: true,
       leftSidebarWidth: 344,
       rightSidebarOpen: false,
@@ -110,12 +104,6 @@ export const useUiPreferences = create<UiPreferencesStore>()(
           }
         })
       },
-      setDirectoryOrderMode(mode) {
-        set({ directoryOrderMode: mode })
-      },
-      setDirectoryOrder(order) {
-        set({ directoryOrder: order })
-      },
       setLeftSidebarOpen(open) {
         set({ leftSidebarOpen: open })
       },
@@ -141,8 +129,6 @@ export const useUiPreferences = create<UiPreferencesStore>()(
         return {
           pinnedByDirectory: state?.pinnedByDirectory ?? {},
           unreadByDirectory: state?.unreadByDirectory ?? {},
-          directoryOrderMode: state?.directoryOrderMode === "active-first" ? "active-first" : "saved-order",
-          directoryOrder: Array.isArray(state?.directoryOrder) ? state.directoryOrder : [],
           leftSidebarOpen: state?.leftSidebarOpen ?? true,
           leftSidebarWidth: state?.leftSidebarWidth ?? 344,
           rightSidebarOpen: state?.rightSidebarOpen ?? false,
@@ -169,8 +155,6 @@ export const useUiPreferences = create<UiPreferencesStore>()(
         return {
           pinnedByDirectory: state.pinnedByDirectory,
           unreadByDirectory: state.unreadByDirectory,
-          directoryOrderMode: state.directoryOrderMode,
-          directoryOrder: state.directoryOrder,
           leftSidebarOpen: state.leftSidebarOpen,
           leftSidebarWidth: state.leftSidebarWidth,
           rightSidebarOpen: state.rightSidebarOpen,
