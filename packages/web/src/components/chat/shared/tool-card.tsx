@@ -86,8 +86,11 @@ export function DiagnosticList({ diagnostics }: DiagnosticListProps) {
 
   return (
     <div className="mt-2 flex flex-col gap-1 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2">
-      {diagnostics.map((diagnostic, index) => (
-        <div key={index} className="flex items-baseline gap-2 text-xs">
+      {diagnostics.map((diagnostic) => (
+        <div
+          key={`${diagnostic.range.start.line}:${diagnostic.range.start.character}:${diagnostic.message}`}
+          className="flex items-baseline gap-2 text-xs"
+        >
           <span className="font-semibold uppercase tracking-wide text-destructive">error</span>
           <span className="shrink-0 text-destructive/80">
             [{diagnostic.range.start.line + 1}:{diagnostic.range.start.character + 1}]

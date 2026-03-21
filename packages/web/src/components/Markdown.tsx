@@ -1,4 +1,4 @@
-import { useEffect, useRef, useLayoutEffect, useMemo } from "react"
+import { useCallback, useEffect, useRef, useLayoutEffect, useMemo } from "react"
 import DOMPurify from "dompurify"
 import morphdom from "morphdom"
 import "katex/dist/katex.min.css"
@@ -270,7 +270,7 @@ export function Markdown({
     return null
   }, [fullCacheKey, text])
 
-  const resetCodeCopy = () => {
+  const resetCodeCopy = useCallback(() => {
     if (copySetupTimerRef.current !== undefined) {
       window.clearTimeout(copySetupTimerRef.current)
       copySetupTimerRef.current = undefined
@@ -279,9 +279,9 @@ export function Markdown({
       copyCleanupRef.current()
       copyCleanupRef.current = undefined
     }
-  }
+  }, [])
 
-  const scheduleCodeCopy = () => {
+  const scheduleCodeCopy = useCallback(() => {
     if (copySetupTimerRef.current !== undefined) {
       window.clearTimeout(copySetupTimerRef.current)
       copySetupTimerRef.current = undefined
@@ -297,39 +297,42 @@ export function Markdown({
       if (!root) return
       copyCleanupRef.current = setupCodeCopy(root, copyLabels)
     }, 150)
-  }
+  }, [copyLabels])
 
-  const applyHtml = (html: string) => {
-    const root = rootRef.current
-    if (!root) return
+  const applyHtml = useCallback(
+    (html: string) => {
+      const root = rootRef.current
+      if (!root) return
 
-    if (!html) {
-      if (root.innerHTML) root.innerHTML = ""
-      resetCodeCopy()
-      return
-    }
+      if (!html) {
+        if (root.innerHTML) root.innerHTML = ""
+        resetCodeCopy()
+        return
+      }
 
-    const temp = document.createElement("div")
-    temp.innerHTML = html
-    decorateMarkdown(temp, copyLabels)
+      const temp = document.createElement("div")
+      temp.innerHTML = html
+      decorateMarkdown(temp, copyLabels)
 
-    morphdom(root, temp, {
-      childrenOnly: true,
-      onBeforeElUpdated(fromEl, toEl) {
-        if (fromEl.isEqualNode(toEl)) return false
-        return true
-      },
-    })
+      morphdom(root, temp, {
+        childrenOnly: true,
+        onBeforeElUpdated(fromEl, toEl) {
+          if (fromEl.isEqualNode(toEl)) return false
+          return true
+        },
+      })
 
-    scheduleCodeCopy()
-  }
+      scheduleCodeCopy()
+    },
+    [copyLabels, resetCodeCopy, scheduleCodeCopy],
+  )
 
   useLayoutEffect(() => {
     // If we have cached HTML, apply it synchronously during layout phase
     if (cachedEntry) {
       applyHtml(cachedEntry.html)
     }
-  }, [cachedEntry])
+  }, [applyHtml, cachedEntry])
 
   useEffect(() => {
     // Skip async work if we already rendered from cache
@@ -385,13 +388,13 @@ export function Markdown({
     return () => {
       cancelled = true
     }
-  }, [cachedEntry, fullCacheKey, text])
+  }, [applyHtml, cachedEntry, fullCacheKey, text])
 
   useEffect(() => {
     return () => {
       resetCodeCopy()
     }
-  }, [])
+  }, [resetCodeCopy])
 
   return (
     <div

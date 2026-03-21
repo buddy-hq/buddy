@@ -54,13 +54,18 @@ const defaultPlatform: Platform = {
   async notify(title: string, description?: string) {
     if (!("Notification" in window)) return
     if (Notification.permission === "granted") {
-      new Notification(title, description ? { body: description } : undefined)
+      const notification = new Notification(title, description ? { body: description } : undefined)
+      void notification
       return
     }
     if (Notification.permission !== "denied") {
       const next = await Notification.requestPermission()
       if (next === "granted") {
-        new Notification(title, description ? { body: description } : undefined)
+        const notification = new Notification(
+          title,
+          description ? { body: description } : undefined,
+        )
+        void notification
       }
     }
   },

@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react"
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -98,6 +98,7 @@ function SkeletonCard() {
 }
 
 export function ResourcesPanel(props: ResourcesPanelProps) {
+  const { directory, refreshToken, className, style } = props
   const [resources, setResources] = useState<ResourceRecord[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | undefined>(undefined)
@@ -106,28 +107,31 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
     undefined,
   )
 
-  async function refreshResources(input?: { silent?: boolean }) {
-    const silent = input?.silent === true
-    if (!silent) {
-      setLoading(true)
-      setError(undefined)
-    }
-
-    try {
-      const next = await loadResources(props.directory)
-      setResources(next)
-    } catch (resourceError) {
-      setError(resourceError instanceof Error ? resourceError.message : String(resourceError))
-    } finally {
+  const refreshResources = useCallback(
+    async (input?: { silent?: boolean }) => {
+      const silent = input?.silent === true
       if (!silent) {
-        setLoading(false)
+        setLoading(true)
+        setError(undefined)
       }
-    }
-  }
+
+      try {
+        const next = await loadResources(directory)
+        setResources(next)
+      } catch (resourceError) {
+        setError(resourceError instanceof Error ? resourceError.message : String(resourceError))
+      } finally {
+        if (!silent) {
+          setLoading(false)
+        }
+      }
+    },
+    [directory],
+  )
 
   useEffect(() => {
     void refreshResources()
-  }, [props.directory, props.refreshToken])
+  }, [refreshResources, refreshToken])
 
   const sortedResources = useMemo(
     () => [...resources].toSorted((left, right) => left.alias.localeCompare(right.alias)),
@@ -148,7 +152,7 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
     return () => {
       window.clearInterval(intervalID)
     }
-  }, [hasPreparingResources, props.directory])
+  }, [hasPreparingResources, refreshResources])
 
   async function runResourceAction(key: string, action: () => Promise<unknown>) {
     setBusyKey(key)
@@ -169,7 +173,7 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
     if (!sourcePath) return
 
     await runResourceAction(`add:${sourcePath}`, async () => {
-      await addResource(props.directory, {
+      await addResource(directory, {
         sourcePath,
       })
     })
@@ -181,17 +185,14 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
 
     setResourcePendingRemoval(undefined)
     await runResourceAction(pending.id, async () => {
-      await removeResource(props.directory, {
+      await removeResource(directory, {
         resourceKey: pending.id,
       })
     })
   }
 
   return (
-    <div
-      className={`flex h-full min-h-0 flex-col gap-3 p-3 ${props.className ?? ""}`}
-      style={props.style}
-    >
+    <div className={`flex h-full min-h-0 flex-col gap-3 p-3 ${className ?? ""}`} style={style}>
       <div className="flex items-start justify-between gap-3 pb-2">
         <div className="min-w-0 space-y-1.5">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground leading-none">
@@ -290,7 +291,7 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
                           className="size-7 p-0 text-muted-foreground hover:text-foreground"
                           onClick={() => {
                             void runResourceAction(resource.id, async () => {
-                              await rebuildResource(props.directory, { resourceKey: resource.id })
+                              await rebuildResource(directory, { resourceKey: resource.id })
                             })
                           }}
                           title="Retry"
@@ -320,7 +321,7 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
                               ?.trim()
                             if (!nextAlias || nextAlias === resource.alias) return
                             void runResourceAction(resource.id, async () => {
-                              await renameResource(props.directory, {
+                              await renameResource(directory, {
                                 resourceKey: resource.id,
                                 alias: nextAlias,
                               })
@@ -332,7 +333,7 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
                         <DropdownMenuItem
                           onSelect={() => {
                             void runResourceAction(resource.id, async () => {
-                              await rebuildResource(props.directory, {
+                              await rebuildResource(directory, {
                                 resourceKey: resource.id,
                               })
                             })

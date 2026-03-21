@@ -11,6 +11,8 @@ import { RESOURCE_SIDEBAR_TAB } from "../resource-commands"
 import type { ChatRightSidebarTab } from "@/components/layout/chat-right-sidebar"
 
 const MODEL_VISIBILITY_WINDOW_MS = 1000 * 60 * 60 * 24 * 31 * 6
+const EMPTY_LIST: never[] = []
+const EMPTY_RECORD: Record<string, never> = {}
 
 function isSidebarSurface(value: string): value is PersonaConfigOption["surfaces"][number] {
   return value === "curriculum" || value === "editor" || value === "figure"
@@ -97,7 +99,7 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
     () => !!decodedDirectory && validOpenProjects.includes(decodedDirectory),
     [decodedDirectory, validOpenProjects],
   )
-  const sessions = directoryState?.sessions ?? []
+  const sessions = directoryState?.sessions ?? EMPTY_LIST
   const sessionFamily = useMemo(() => getSessionFamily(sessions, sessionID), [sessionID, sessions])
   const sessionTitle = sessionFamily.current?.title ?? directoryState?.sessionTitle ?? "New thread"
   const parentSession = useMemo(
@@ -107,9 +109,9 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
         : undefined,
     [sessionFamily.current?.parentID, sessionFamily.family],
   )
-  const messages = directoryState?.messages ?? []
-  const providers = directoryState?.providers ?? []
-  const providerDefault = directoryState?.providerDefault ?? {}
+  const messages = directoryState?.messages ?? EMPTY_LIST
+  const providers = directoryState?.providers ?? EMPTY_LIST
+  const providerDefault = directoryState?.providerDefault ?? EMPTY_RECORD
   const connectedProviders = useMemo(
     () => providers.filter((provider) => provider.connected),
     [providers],
@@ -216,7 +218,7 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
   const isReady = directoryState?.isReady ?? false
   const error = directoryState?.error
   const pendingPermissions = directoryState?.pendingPermissions ?? []
-  const mcpStatus = directoryState?.mcpStatus ?? {}
+  const mcpStatus = directoryState?.mcpStatus ?? EMPTY_RECORD
   const mcpEntries = useMemo(
     () => Object.entries(mcpStatus).sort(([left], [right]) => left.localeCompare(right)),
     [mcpStatus],

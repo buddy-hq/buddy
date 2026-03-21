@@ -88,21 +88,21 @@ export function toToolStatus(value: unknown): "pending" | "running" | "completed
   return "pending"
 }
 
+function parseJsonValue(value: string) {
+  try {
+    return JSON.parse(value) as unknown
+  } catch {
+    return undefined
+  }
+}
+
 export function unwrapError(message: string): string {
   const text = message.replace(/^Error:\s*/, "").trim()
 
-  const parse = (value: string) => {
-    try {
-      return JSON.parse(value) as unknown
-    } catch {
-      return undefined
-    }
-  }
-
   const read = (value: string) => {
-    const first = parse(value)
+    const first = parseJsonValue(value)
     if (typeof first !== "string") return first
-    return parse(first.trim())
+    return parseJsonValue(first.trim())
   }
 
   let json = read(text)

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   loadPersonaCatalog,
   loadProjectConfig,
@@ -153,7 +153,7 @@ export function useProjectSettings(directory: string, open: boolean) {
     [connected, state.draft.provider],
   )
 
-  async function reload() {
+  const reload = useCallback(async () => {
     setState((current) => ({
       ...current,
       loading: true,
@@ -192,12 +192,12 @@ export function useProjectSettings(directory: string, open: boolean) {
       }))
       return false
     }
-  }
+  }, [directory])
 
   useEffect(() => {
     if (!open) return
     void reload()
-  }, [directory, open])
+  }, [open, reload])
 
   async function save() {
     const patch: Record<string, unknown> = {}

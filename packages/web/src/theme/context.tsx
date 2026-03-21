@@ -195,7 +195,7 @@ export function ThemeProvider({
     const savedTheme = localStorage.getItem(STORAGE_KEYS.THEME_ID)
     const normalizedThemeId = normalizeThemeID(savedTheme)
     const nextThemeId =
-      normalizedThemeId && defaultThemes[normalizedThemeId] ? normalizedThemeId : themeId
+      normalizedThemeId && defaultThemes[normalizedThemeId] ? normalizedThemeId : DEFAULT_THEME_ID
     const savedScheme = localStorage.getItem(STORAGE_KEYS.COLOR_SCHEME)
     const cachedVersion = localStorage.getItem(STORAGE_KEYS.CACHE_VERSION)
 
@@ -294,20 +294,33 @@ export function ThemeProvider({
     }
   }, [themeId, mode, applyTheme])
 
-  const value: ThemeContextValue = {
-    themeId,
-    colorScheme,
-    mode,
-    themes: defaultThemes,
-    setTheme,
-    setColorScheme,
-    previewTheme,
-    previewColorScheme,
-    commitPreview,
-    cancelPreview,
-  }
+  const contextValue = useMemo<ThemeContextValue>(
+    () => ({
+      themeId,
+      colorScheme,
+      mode,
+      themes: defaultThemes,
+      setTheme,
+      setColorScheme,
+      previewTheme,
+      previewColorScheme,
+      commitPreview,
+      cancelPreview,
+    }),
+    [
+      cancelPreview,
+      colorScheme,
+      commitPreview,
+      mode,
+      previewColorScheme,
+      previewTheme,
+      setColorScheme,
+      setTheme,
+      themeId,
+    ],
+  )
 
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
+  return <ThemeContext.Provider value={contextValue}>{children}</ThemeContext.Provider>
 }
 
 export function useTheme() {

@@ -50,8 +50,9 @@ export function QuestionTool({ state, info, defaultOpen }: ToolPartProps) {
         <div className="space-y-2">
           {questions.map((question, index) => {
             const answers = questionAnswers[index] ?? []
+            const questionKey = `${question.question}:${answers.join("|")}`
             return (
-              <div key={index} className="rounded-md border border-border bg-background p-2">
+              <div key={questionKey} className="rounded-md border border-border bg-background p-2">
                 <div className="text-sm text-foreground">{question.question}</div>
                 <div className="mt-1 text-xs text-muted-foreground">
                   {answers.join(", ") || "(no answer)"}

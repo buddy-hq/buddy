@@ -33,20 +33,20 @@ type UsePromptEditorSyncProps = {
 }
 
 export function usePromptEditorSync(props: UsePromptEditorSyncProps) {
+  const { draft, editorRef, knownAgents, mirrorInputRef, setCursorOffset } = props
+
   useEffect(() => {
-    const editor = props.editorRef.current
+    const editor = editorRef.current
     if (!editor) return
 
-    if (props.mirrorInputRef.current) {
-      props.mirrorInputRef.current = false
+    if (mirrorInputRef.current) {
+      mirrorInputRef.current = false
       return
     }
 
     const nextParts =
-      props.draft.parts.length > 0
-        ? props.draft.parts
-        : createPromptPartsFromValue(props.draft.value, props.knownAgents)
-    const nextCursor = Math.max(0, Math.min(props.draft.cursor, props.draft.value.length))
+      draft.parts.length > 0 ? draft.parts : createPromptPartsFromValue(draft.value, knownAgents)
+    const nextCursor = Math.max(0, Math.min(draft.cursor, draft.value.length))
     const domParts = collectPromptParts(editor)
 
     if (arePromptPartsEqual(domParts, nextParts)) {
@@ -56,7 +56,7 @@ export function usePromptEditorSync(props: UsePromptEditorSyncProps) {
           setCursorPosition(editor, nextCursor)
         }
       }
-      props.setCursorOffset(nextCursor)
+      setCursorOffset(nextCursor)
       return
     }
 
@@ -64,14 +64,14 @@ export function usePromptEditorSync(props: UsePromptEditorSyncProps) {
     if (document.activeElement === editor) {
       setCursorPosition(editor, nextCursor)
     }
-    props.setCursorOffset(nextCursor)
+    setCursorOffset(nextCursor)
   }, [
-    props.draft.cursor,
-    props.draft.parts,
-    props.draft.value,
-    props.editorRef,
-    props.knownAgents,
-    props.mirrorInputRef,
-    props.setCursorOffset,
+    draft.cursor,
+    draft.parts,
+    draft.value,
+    editorRef,
+    knownAgents,
+    mirrorInputRef,
+    setCursorOffset,
   ])
 }

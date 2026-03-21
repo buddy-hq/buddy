@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@buddy/ui"
 import {
   loadTeachingSessionState,
@@ -54,14 +54,15 @@ function formatIsoTime(value?: string) {
 }
 
 export function SystemPromptPanel(props: SystemPromptPanelProps) {
+  const { directory, sessionID, refreshToken, className, style } = props
   const [runtime, setRuntime] = useState<TeachingSessionSnapshot | undefined>(undefined)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | undefined>(undefined)
   const requestCounterRef = useRef(0)
   const activeSessionBusy = useChatStore((state) => {
-    const directoryState = state.directories[props.directory]
-    if (!directoryState || !props.sessionID) return false
-    return directoryState.sessionStatusByID[props.sessionID] === "busy"
+    const directoryState = state.directories[directory]
+    if (!directoryState || !sessionID) return false
+    return directoryState.sessionStatusByID[sessionID] === "busy"
   })
 
   const lastOutbound = useMemo(() => readLastOutboundEntry(runtime), [runtime])
@@ -70,47 +71,50 @@ export function SystemPromptPanel(props: SystemPromptPanelProps) {
   const charCount = systemPromptText?.length ?? 0
   const approxTokens = Math.round(charCount / 4)
 
-  async function refresh(input?: { silent?: boolean }) {
-    if (!props.sessionID) {
-      setRuntime(undefined)
-      setError(undefined)
-      setLoading(false)
-      return
-    }
-
-    const requestID = requestCounterRef.current + 1
-    requestCounterRef.current = requestID
-
-    if (!input?.silent) {
-      setLoading(true)
-      setError(undefined)
-    }
-
-    try {
-      const next = await loadTeachingSessionState(props.directory, props.sessionID)
-      if (requestID !== requestCounterRef.current) return
-      if (next) {
-        setRuntime(next)
-      } else {
-        setRuntime((current) => (current?.sessionId === props.sessionID ? current : undefined))
-      }
-      setError(undefined)
-    } catch (runtimeError) {
-      if (requestID !== requestCounterRef.current) return
-      setError(stringifyError(runtimeError))
-    } finally {
-      if (requestID === requestCounterRef.current && !input?.silent) {
+  const refresh = useCallback(
+    async (input?: { silent?: boolean }) => {
+      if (!sessionID) {
+        setRuntime(undefined)
+        setError(undefined)
         setLoading(false)
+        return
       }
-    }
-  }
+
+      const requestID = requestCounterRef.current + 1
+      requestCounterRef.current = requestID
+
+      if (!input?.silent) {
+        setLoading(true)
+        setError(undefined)
+      }
+
+      try {
+        const next = await loadTeachingSessionState(directory, sessionID)
+        if (requestID !== requestCounterRef.current) return
+        if (next) {
+          setRuntime(next)
+        } else {
+          setRuntime((current) => (current?.sessionId === sessionID ? current : undefined))
+        }
+        setError(undefined)
+      } catch (runtimeError) {
+        if (requestID !== requestCounterRef.current) return
+        setError(stringifyError(runtimeError))
+      } finally {
+        if (requestID === requestCounterRef.current && !input?.silent) {
+          setLoading(false)
+        }
+      }
+    },
+    [directory, sessionID],
+  )
 
   useEffect(() => {
     void refresh()
-  }, [props.directory, props.sessionID, props.refreshToken])
+  }, [refresh, refreshToken])
 
   useEffect(() => {
-    if (!props.sessionID || !activeSessionBusy) return
+    if (!sessionID || !activeSessionBusy) return
 
     const interval = window.setInterval(() => {
       void refresh({ silent: true })
@@ -119,13 +123,10 @@ export function SystemPromptPanel(props: SystemPromptPanelProps) {
     return () => {
       window.clearInterval(interval)
     }
-  }, [activeSessionBusy, props.directory, props.sessionID, props.refreshToken])
+  }, [activeSessionBusy, refresh, refreshToken, sessionID])
 
   return (
-    <div
-      className={`flex h-full min-h-0 flex-col gap-3 p-3 ${props.className ?? ""}`}
-      style={props.style}
-    >
+    <div className={`flex h-full min-h-0 flex-col gap-3 p-3 ${className ?? ""}`} style={style}>
       <div className="flex items-start justify-between gap-3 pb-2">
         <div className="min-w-0 space-y-1.5">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground leading-none">
@@ -146,7 +147,7 @@ export function SystemPromptPanel(props: SystemPromptPanelProps) {
         </Button>
       </div>
 
-      {!props.sessionID ? (
+      {!sessionID ? (
         <div className="rounded-md border border-border/70 bg-background p-3 text-sm text-muted-foreground">
           Select a session to inspect system prompts.
         </div>
@@ -158,7 +159,7 @@ export function SystemPromptPanel(props: SystemPromptPanelProps) {
         </p>
       ) : null}
 
-      {props.sessionID ? (
+      {sessionID ? (
         <div className="min-h-0 flex-1 rounded-md border border-border/70 bg-background">
           {systemPromptText ? (
             <div className="flex h-full min-h-0 flex-col">

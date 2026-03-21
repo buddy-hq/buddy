@@ -136,7 +136,8 @@ function filterInstructionBlocks(input: string, context: FilterContext) {
       if (line.trim().length === 0 && previous?.trim().length === 0) {
         return lines
       }
-      return [...lines, line]
+      lines.push(line)
+      return lines
     }, [])
     .join("\n")
     .trim()

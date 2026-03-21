@@ -53,6 +53,7 @@ function stringifyError(error: unknown) {
 
 export function MarkdownFileEditor(props: MarkdownFileEditorProps) {
   const isActive = props.active ?? true
+  const { isVersionConflictError, load, reloadKey, save: saveMarkdown } = props
   const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null)
   const editorContainerRef = useRef<HTMLDivElement | null>(null)
   const [path, setPath] = useState<string>("")
@@ -72,6 +73,9 @@ export function MarkdownFileEditor(props: MarkdownFileEditorProps) {
   const conflictMessageRef = useRef(conflictMessage)
   const savingRef = useRef(saving)
   const versionRef = useRef(version)
+  const saveRef = useRef<
+    (contentToSave: string, options?: { overwrite?: boolean }) => Promise<void>
+  >(async () => undefined)
 
   useEffect(() => {
     contentRef.current = content
@@ -97,62 +101,72 @@ export function MarkdownFileEditor(props: MarkdownFileEditorProps) {
     versionRef.current = version
   }, [version])
 
-  async function refresh(input?: { silent?: boolean }) {
-    const requestID = requestCounterRef.current + 1
-    requestCounterRef.current = requestID
+  const refresh = useCallback(
+    async (input?: { silent?: boolean }) => {
+      const requestID = requestCounterRef.current + 1
+      requestCounterRef.current = requestID
 
-    if (!input?.silent) {
-      setLoading(true)
-      setError(undefined)
-      setConflictMessage(undefined)
-    }
-
-    try {
-      const next = await props.load()
-      if (requestID !== requestCounterRef.current) return
-
-      setPath(next.path)
-      setExists(next.exists)
-      setVersion(next.version)
-      setContent(next.content)
-      setSavedContent(next.content)
-      setError(undefined)
-      setConflictMessage(undefined)
-    } catch (readError) {
-      if (requestID !== requestCounterRef.current) return
-      setError(stringifyError(readError))
-    } finally {
-      if (requestID === requestCounterRef.current && !input?.silent) {
-        setLoading(false)
+      if (!input?.silent) {
+        setLoading(true)
+        setError(undefined)
+        setConflictMessage(undefined)
       }
-    }
-  }
 
-  async function save(contentToSave: string, options?: { overwrite?: boolean }) {
-    setSaving(true)
-    setError(undefined)
+      try {
+        const next = await load()
+        if (requestID !== requestCounterRef.current) return
 
-    try {
-      const saved = await props.save({
-        content: contentToSave,
-        expectedVersion: options?.overwrite ? undefined : versionRef.current,
-      })
-      setPath(saved.path)
-      setExists(true)
-      setVersion(saved.version)
-      setContent(saved.content)
-      setSavedContent(saved.content)
-      setConflictMessage(undefined)
-    } catch (saveError) {
-      if (props.isVersionConflictError(saveError)) {
-        setConflictMessage(stringifyError(saveError))
-        return
+        setPath(next.path)
+        setExists(next.exists)
+        setVersion(next.version)
+        setContent(next.content)
+        setSavedContent(next.content)
+        setError(undefined)
+        setConflictMessage(undefined)
+      } catch (readError) {
+        if (requestID !== requestCounterRef.current) return
+        setError(stringifyError(readError))
+      } finally {
+        if (requestID === requestCounterRef.current && !input?.silent) {
+          setLoading(false)
+        }
       }
-      setError(stringifyError(saveError))
-    } finally {
-      setSaving(false)
-    }
-  }
+    },
+    [load],
+  )
+
+  const save = useCallback(
+    async (contentToSave: string, options?: { overwrite?: boolean }) => {
+      setSaving(true)
+      setError(undefined)
+
+      try {
+        const saved = await saveMarkdown({
+          content: contentToSave,
+          expectedVersion: options?.overwrite ? undefined : versionRef.current,
+        })
+        setPath(saved.path)
+        setExists(true)
+        setVersion(saved.version)
+        setContent(saved.content)
+        setSavedContent(saved.content)
+        setConflictMessage(undefined)
+      } catch (saveError) {
+        if (isVersionConflictError(saveError)) {
+          setConflictMessage(stringifyError(saveError))
+          return
+        }
+        setError(stringifyError(saveError))
+      } finally {
+        setSaving(false)
+      }
+    },
+    [isVersionConflictError, saveMarkdown],
+  )
+
+  useEffect(() => {
+    saveRef.current = save
+  }, [save])
 
   const flushPendingSave = useCallback(async () => {
     if (!existsRef.current) return
@@ -160,16 +174,16 @@ export function MarkdownFileEditor(props: MarkdownFileEditorProps) {
     if (conflictMessageRef.current) return
     if (contentRef.current === savedContentRef.current) return
 
-    await props.save({
+    await saveMarkdown({
       content: contentRef.current,
       expectedVersion: versionRef.current,
     })
-  }, [props.save])
+  }, [saveMarkdown])
 
   useEffect(() => {
     if (!isActive) return
     void refresh()
-  }, [isActive, props.reloadKey])
+  }, [isActive, refresh, reloadKey])
 
   useEffect(() => {
     if (isActive) return
@@ -190,7 +204,7 @@ export function MarkdownFileEditor(props: MarkdownFileEditorProps) {
     if (saving) return
 
     const timer = window.setTimeout(() => {
-      void save(contentRef.current)
+      void saveRef.current(contentRef.current)
     }, AUTO_SAVE_DELAY_MS)
 
     return () => {

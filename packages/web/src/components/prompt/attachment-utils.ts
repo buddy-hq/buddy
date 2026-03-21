@@ -17,14 +17,16 @@ export function createAttachmentID() {
 export function readFileAsDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader()
-    reader.onload = () => {
+    const onLoad = () => {
       if (typeof reader.result === "string") {
         resolve(reader.result)
         return
       }
       reject(new Error("Failed to read attachment"))
     }
-    reader.onerror = () => reject(reader.error ?? new Error("Failed to read attachment"))
+    const onError = () => reject(reader.error ?? new Error("Failed to read attachment"))
+    reader.addEventListener("load", onLoad, { once: true })
+    reader.addEventListener("error", onError, { once: true })
     reader.readAsDataURL(file)
   })
 }

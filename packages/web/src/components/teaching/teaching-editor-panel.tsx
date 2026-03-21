@@ -45,6 +45,37 @@ type TeachingFileTreeBucket = {
   files: TeachingWorkspaceFile[]
 }
 
+function fileTreeNodesFromBucket(
+  bucket: TeachingFileTreeBucket,
+  prefix = "",
+): TeachingFileTreeNode[] {
+  const directoryNodes = Array.from(bucket.directories.entries())
+    .toSorted(([left], [right]) => left.localeCompare(right))
+    .map(([segment, child]) => {
+      const key = prefix ? `${prefix}/${segment}` : segment
+      return {
+        type: "directory" as const,
+        key,
+        name: segment,
+        children: fileTreeNodesFromBucket(child, key),
+      }
+    })
+
+  const fileNodes = [...bucket.files]
+    .toSorted((left, right) => left.relativePath.localeCompare(right.relativePath))
+    .map((file) => {
+      const segments = file.relativePath.split("/")
+      return {
+        type: "file" as const,
+        key: file.relativePath,
+        name: segments[segments.length - 1] ?? file.relativePath,
+        file,
+      }
+    })
+
+  return [...directoryNodes, ...fileNodes]
+}
+
 function selectionFromEditor(
   editor: MonacoEditor.IStandaloneCodeEditor,
 ): TeachingSelection | undefined {
@@ -90,35 +121,7 @@ function buildFileTree(files: TeachingWorkspaceFile[]): TeachingFileTreeNode[] {
     bucket.files.push(file)
   }
 
-  function toNodes(bucket: TeachingFileTreeBucket, prefix = ""): TeachingFileTreeNode[] {
-    const directoryNodes = Array.from(bucket.directories.entries())
-      .toSorted(([left], [right]) => left.localeCompare(right))
-      .map(([segment, child]) => {
-        const key = prefix ? `${prefix}/${segment}` : segment
-        return {
-          type: "directory" as const,
-          key,
-          name: segment,
-          children: toNodes(child, key),
-        }
-      })
-
-    const fileNodes = [...bucket.files]
-      .toSorted((left, right) => left.relativePath.localeCompare(right.relativePath))
-      .map((file) => {
-        const segments = file.relativePath.split("/")
-        return {
-          type: "file" as const,
-          key: file.relativePath,
-          name: segments[segments.length - 1] ?? file.relativePath,
-          file,
-        }
-      })
-
-    return [...directoryNodes, ...fileNodes]
-  }
-
-  return toNodes(root)
+  return fileTreeNodesFromBucket(root)
 }
 
 function toMonacoSeverity(
@@ -365,9 +368,9 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
               ) : (
                 <div className="max-h-32 overflow-y-auto px-2 py-2">
                   <div className="space-y-1">
-                    {props.workspace.diagnostics.map((diagnostic, index) => (
+                    {props.workspace.diagnostics.map((diagnostic) => (
                       <div
-                        key={`${diagnostic.startLine}:${diagnostic.startColumn}:${index}`}
+                        key={`${diagnostic.startLine}:${diagnostic.startColumn}:${diagnostic.severity}:${diagnostic.message}`}
                         className="rounded-md border border-border/70 bg-background px-2 py-1.5 text-xs"
                       >
                         <div className="flex items-center gap-2">

@@ -222,7 +222,11 @@ export function createDesktopPlatform(): Platform {
       await Promise.resolve()
         .then(() => {
           if (!("Notification" in window)) return
-          new Notification(title, description ? { body: description } : undefined)
+          const notification = new Notification(
+            title,
+            description ? { body: description } : undefined,
+          )
+          void notification
         })
         .catch(() => undefined)
     },

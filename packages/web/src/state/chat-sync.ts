@@ -85,6 +85,10 @@ function eventKey(event: GlobalEvent) {
   return undefined
 }
 
+function deltaKey(directory: string, messageID: string, partID: string) {
+  return `${directory}:${messageID}:${partID}`
+}
+
 export function startChatSync(handlers: SyncHandlers) {
   let source: EventSource | undefined
   let streamAbort: AbortController | undefined
@@ -96,9 +100,6 @@ export function startChatSync(handlers: SyncHandlers) {
   const coalesced = new Map<string, number>()
   const staleDeltas = new Set<string>()
   let flushTimer: number | undefined
-
-  const deltaKey = (directory: string, messageID: string, partID: string) =>
-    `${directory}:${messageID}:${partID}`
 
   const clearReconnect = () => {
     if (reconnectTimer === undefined) return
@@ -249,7 +250,8 @@ export function startChatSync(handlers: SyncHandlers) {
           const decoder = new TextDecoder()
           let buffer = ""
 
-          while (!disposed) {
+          for (;;) {
+            if (disposed) break
             const result = await reader.read()
             if (result.done) {
               buffer += decoder.decode()
@@ -289,7 +291,7 @@ export function startChatSync(handlers: SyncHandlers) {
 
     source = new EventSource(createEventStreamUrl(endpoint))
 
-    source.onopen = () => {
+    source.addEventListener("open", () => {
       attempt = 0
       console.info("[chat-sync] open")
       if (!opened) {
@@ -297,17 +299,17 @@ export function startChatSync(handlers: SyncHandlers) {
         handlers.onOpen?.()
       }
       handlers.onStatus?.("connected")
-    }
+    })
 
-    source.onmessage = (messageEvent) => {
-      handleParsedEvent(messageEvent.data)
-    }
+    source.addEventListener("message", (messageEvent) => {
+      handleParsedEvent((messageEvent as MessageEvent<string>).data)
+    })
 
-    source.onerror = () => {
+    source.addEventListener("error", () => {
       console.warn("[chat-sync] error", { attempt: attempt + 1 })
       closeSource()
       scheduleReconnect(true)
-    }
+    })
   }
 
   connect()

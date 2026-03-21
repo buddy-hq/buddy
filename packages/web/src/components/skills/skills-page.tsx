@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import {
   Badge,
   BookOpenIcon,
@@ -52,6 +52,13 @@ const EMPTY_FORM: SkillsFormState = {
   examplePrompt: "",
   content: "",
 }
+
+const SKELETON_CARD_KEYS = [
+  "skill-skeleton-1",
+  "skill-skeleton-2",
+  "skill-skeleton-3",
+  "skill-skeleton-4",
+] as const
 
 function statusLabel(action: InstalledSkillInfo["permissionAction"]) {
   if (action === "allow") return "Always available"
@@ -285,6 +292,11 @@ export function SkillsPage(props: { directory?: string }) {
   const [newSkillOpen, setNewSkillOpen] = useState(false)
   const [form, setForm] = useState<SkillsFormState>(EMPTY_FORM)
   const [busyKey, setBusyKey] = useState<string | undefined>(undefined)
+  const catalogRef = useRef<SkillsCatalog | undefined>(catalog)
+
+  useEffect(() => {
+    catalogRef.current = catalog
+  }, [catalog])
 
   const selectedSkill = useMemo(
     () => catalog?.installed.find((skill) => skill.name === selectedSkillName),
@@ -334,49 +346,53 @@ export function SkillsPage(props: { directory?: string }) {
     })
   }
 
-  async function refreshCatalog(input?: {
-    preserveSelection?: boolean
-    force?: boolean
-    showRefreshToast?: boolean
-  }) {
-    if (!catalog) {
-      setLoading(true)
-    } else {
-      setRefreshing(true)
-    }
-
-    try {
-      const nextCatalog = await loadSkillsCatalog(currentDirectory, {
-        refresh: input?.force,
-      })
-      setCatalog(nextCatalog)
-
-      if (input?.force && input.showRefreshToast !== false) {
-        toast.success("Skills refreshed")
+  const refreshCatalog = useCallback(
+    async (input?: {
+      preserveSelection?: boolean
+      force?: boolean
+      showRefreshToast?: boolean
+    }) => {
+      if (!catalogRef.current) {
+        setLoading(true)
+      } else {
+        setRefreshing(true)
       }
 
-      if (nextCatalog.librarySyncError) {
-        toast.error(`Curated library sync failed: ${nextCatalog.librarySyncError}`)
-      }
+      try {
+        const nextCatalog = await loadSkillsCatalog(currentDirectory, {
+          refresh: input?.force,
+        })
+        setCatalog(nextCatalog)
 
-      if (input?.preserveSelection && selectedSkillName) {
-        const stillPresent = nextCatalog.installed.some((skill) => skill.name === selectedSkillName)
-        if (!stillPresent) {
-          setSelectedSkillName(undefined)
+        if (input?.force && input.showRefreshToast !== false) {
+          toast.success("Skills refreshed")
         }
+
+        if (nextCatalog.librarySyncError) {
+          toast.error(`Curated library sync failed: ${nextCatalog.librarySyncError}`)
+        }
+
+        if (input?.preserveSelection) {
+          setSelectedSkillName((current) => {
+            if (!current) return current
+            const stillPresent = nextCatalog.installed.some((skill) => skill.name === current)
+            return stillPresent ? current : undefined
+          })
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to load skills"
+        toast.error(message)
+      } finally {
+        setLoading(false)
+        setRefreshing(false)
       }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to load skills"
-      toast.error(message)
-    } finally {
-      setLoading(false)
-      setRefreshing(false)
-    }
-  }
+    },
+    [currentDirectory],
+  )
 
   useEffect(() => {
     void refreshCatalog()
-  }, [currentDirectory])
+  }, [refreshCatalog])
 
   async function runMutation<T>(
     key: string,
@@ -620,8 +636,8 @@ export function SkillsPage(props: { directory?: string }) {
 
             {loading ? (
               <div className="grid gap-4 lg:grid-cols-2">
-                {Array.from({ length: 4 }).map((_, index) => (
-                  <Card key={index} className="h-full border-border/60 bg-card/50">
+                {SKELETON_CARD_KEYS.map((key) => (
+                  <Card key={key} className="h-full border-border/60 bg-card/50">
                     <CardContent className="flex h-full flex-col gap-4 p-5">
                       <div className="h-5 w-2/5 rounded-md bg-muted/60" />
                       <div className="flex gap-2">

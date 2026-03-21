@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test"
 import { promptPlaceholder } from "../../../src/components/prompt/placeholder"
 
-describe("promptPlaceholder", () => {
-  const t = (key: string, params?: Record<string, string>) =>
-    `${key}${params?.example ? `:${params.example}` : ""}`
+const t = (key: string, params?: Record<string, string>) =>
+  `${key}${params?.example ? `:${params.example}` : ""}`
 
+describe("promptPlaceholder", () => {
   test("returns shell placeholder in shell mode", () => {
     const value = promptPlaceholder({
       mode: "shell",

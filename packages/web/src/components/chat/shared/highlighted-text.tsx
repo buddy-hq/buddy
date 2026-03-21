@@ -84,11 +84,23 @@ export function HighlightedText({ text, references, agents }: HighlightedTextPro
     return result
   }, [agents, references, text])
 
+  const keyedSegments = useMemo(() => {
+    let cursor = 0
+    return segments.map((segment) => {
+      const start = cursor
+      cursor += segment.text.length
+      return {
+        key: `${segment.type ?? "plain"}:${start}:${cursor}:${segment.text}`,
+        segment,
+      }
+    })
+  }, [segments])
+
   return (
     <>
-      {segments.map((segment, index) => (
+      {keyedSegments.map(({ key, segment }) => (
         <span
-          key={index}
+          key={key}
           className={cn(
             segment.type === "file" && "text-primary",
             segment.type === "agent" && "text-foreground font-medium",

@@ -1,13 +1,13 @@
 import { describe, expect, test } from "bun:test"
 import { questionSubtitle } from "../../../src/components/chat/prompt-dock-helpers"
 
-describe("questionSubtitle", () => {
-  const t = (key: string) => {
-    if (key === "ui.common.question.one") return "question"
-    if (key === "ui.common.question.other") return "questions"
-    return key
-  }
+const t = (key: string) => {
+  if (key === "ui.common.question.one") return "question"
+  if (key === "ui.common.question.other") return "questions"
+  return key
+}
 
+describe("questionSubtitle", () => {
   test("returns empty for zero", () => {
     expect(questionSubtitle(0, t)).toBe("")
   })

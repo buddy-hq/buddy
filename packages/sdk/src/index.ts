@@ -7,6 +7,10 @@ import { BuddyClient } from "./gen/sdk.gen.js"
 export { BuddyClient }
 export type { Config as BuddyClientConfig }
 
+function hasNonAscii(value: string) {
+  return Array.from(value).some((character) => (character.codePointAt(0) ?? 0) > 0x7f)
+}
+
 export function createBuddyClient(config?: Config & { directory?: string }): BuddyClient {
   const { directory, ...rest } = config ?? {}
   const customFetch: typeof fetch = ((request: RequestInfo | URL, init?: RequestInit) =>
@@ -14,7 +18,7 @@ export function createBuddyClient(config?: Config & { directory?: string }): Bud
 
   let headers = rest.headers
   if (directory) {
-    const isNonASCII = /[^\x00-\x7F]/.test(directory)
+    const isNonASCII = hasNonAscii(directory)
     const encodedDirectory = isNonASCII ? encodeURIComponent(directory) : directory
     headers = {
       ...headers,

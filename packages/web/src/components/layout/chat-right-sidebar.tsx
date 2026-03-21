@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from "react"
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import {
   Badge,
   Button,
@@ -64,6 +64,7 @@ function stringifyError(error: unknown) {
 
 function SidebarSection(props: { title: string; items: string[]; empty?: string }) {
   const items = props.items.length > 0 ? props.items : props.empty ? [props.empty] : []
+  const seen = new Map<string, number>()
 
   return (
     <Card size="sm" className="gap-0 py-0">
@@ -72,11 +73,15 @@ function SidebarSection(props: { title: string; items: string[]; empty?: string 
           {props.title}
         </p>
         <ul className="mt-2 list-disc space-y-1.5 pl-4 text-sm">
-          {items.map((item, index) => (
-            <li key={`${props.title}-${index}`} className="text-foreground">
-              {item}
-            </li>
-          ))}
+          {items.map((item) => {
+            const occurrence = seen.get(item) ?? 0
+            seen.set(item, occurrence + 1)
+            return (
+              <li key={`${props.title}:${item}:${occurrence}`} className="text-foreground">
+                {item}
+              </li>
+            )
+          })}
         </ul>
       </CardContent>
     </Card>
@@ -96,6 +101,7 @@ function RuntimeListSection(props: { title: string; items: string[]; empty: stri
 }
 
 export function ChatRightSidebar(props: ChatRightSidebarProps) {
+  const { directory, intent, persona, sessionID } = props
   const [curriculumLoading, setCurriculumLoading] = useState(false)
   const [curriculumError, setCurriculumError] = useState<string | undefined>(undefined)
   const [curriculumView, setCurriculumView] = useState<LearnerCurriculumView | undefined>(undefined)
@@ -121,63 +127,69 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
               ? (props.activeTab as ChatRightSidebarSurface)
               : (props.surfaces[0] ?? "curriculum")
 
-  async function loadSidebarData(
-    isDisposed?: () => boolean,
-    options?: {
-      generateDecision?: boolean
+  const loadSidebarData = useCallback(
+    async (
+      isDisposed?: () => boolean,
+      options?: {
+        generateDecision?: boolean
+      },
+    ) => {
+      const disposed = isDisposed ?? (() => false)
+
+      if (!disposed()) {
+        setCurriculumLoading(true)
+        setCurriculumError(undefined)
+      }
+
+      try {
+        const view = await loadCurriculumView(directory, {
+          persona,
+          intent,
+          sessionID,
+          generateDecision: options?.generateDecision,
+        })
+        if (disposed()) return
+        setCurriculumView(view)
+      } catch (error) {
+        if (disposed()) return
+        setCurriculumError(stringifyError(error))
+      } finally {
+        if (!disposed()) {
+          setCurriculumLoading(false)
+        }
+      }
     },
-  ) {
-    const disposed = isDisposed ?? (() => false)
+    [directory, intent, persona, sessionID],
+  )
 
-    if (!disposed()) {
-      setCurriculumLoading(true)
-      setCurriculumError(undefined)
-    }
+  const loadCapabilitiesData = useCallback(
+    async (isDisposed?: () => boolean) => {
+      const disposed = isDisposed ?? (() => false)
 
-    try {
-      const view = await loadCurriculumView(props.directory, {
-        persona: props.persona,
-        intent: props.intent,
-        sessionID: props.sessionID,
-        generateDecision: options?.generateDecision,
-      })
-      if (disposed()) return
-      setCurriculumView(view)
-    } catch (error) {
-      if (disposed()) return
-      setCurriculumError(stringifyError(error))
-    } finally {
       if (!disposed()) {
-        setCurriculumLoading(false)
+        setCapabilitiesLoading(true)
+        setCapabilitiesError(undefined)
       }
-    }
-  }
 
-  async function loadCapabilitiesData(isDisposed?: () => boolean) {
-    const disposed = isDisposed ?? (() => false)
-
-    if (!disposed()) {
-      setCapabilitiesLoading(true)
-      setCapabilitiesError(undefined)
-    }
-
-    try {
-      const view = await loadRuntimeCapabilities(props.directory, {
-        persona: props.persona,
-        intent: props.intent,
-        sessionID: props.sessionID,
-      })
-      if (disposed()) return
-      setCapabilitiesView(view)
-    } catch (error) {
-      if (disposed()) return
-      setCapabilitiesError(stringifyError(error))
-    } finally {
-      if (!disposed()) {
-        setCapabilitiesLoading(false)
+      try {
+        const view = await loadRuntimeCapabilities(directory, {
+          persona,
+          intent,
+          sessionID,
+        })
+        if (disposed()) return
+        setCapabilitiesView(view)
+      } catch (error) {
+        if (disposed()) return
+        setCapabilitiesError(stringifyError(error))
+      } finally {
+        if (!disposed()) {
+          setCapabilitiesLoading(false)
+        }
       }
-    }
-  }
+    },
+    [directory, intent, persona, sessionID],
+  )
 
   useEffect(() => {
     if (activeTab !== "curriculum") return
@@ -188,7 +200,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
     return () => {
       disposed = true
     }
-  }, [activeTab, props.directory, props.intent, props.persona, props.sessionID])
+  }, [activeTab, loadSidebarData])
 
   useEffect(() => {
     if (activeTab !== "capabilities") return
@@ -199,7 +211,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
     return () => {
       disposed = true
     }
-  }, [activeTab, props.directory, props.intent, props.persona, props.sessionID])
+  }, [activeTab, loadCapabilitiesData])
 
   return (
     <aside

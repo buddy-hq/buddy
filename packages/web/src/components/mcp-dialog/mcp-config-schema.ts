@@ -342,7 +342,8 @@ export function buildConfigFromDraft(draft: McpFormDraft): McpDraftParseResult {
   }
 
   try {
-    new URL(url)
+    const parsedUrl = new URL(url)
+    void parsedUrl
   } catch {
     return {
       fieldError: createFieldError("url", "Remote URL must be valid."),

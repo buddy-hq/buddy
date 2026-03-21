@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react"
+import { useCallback, useEffect, useRef } from "react"
 import { useTeachingRuntime } from "@/state/teaching-runtime"
 import {
   activateTeachingWorkspaceFile,
@@ -44,7 +44,20 @@ type UseTeachingWorkspaceProps = {
 const RIGHT_SIDEBAR_EDITOR_MIN_WIDTH = 360
 
 export function useTeachingWorkspace(props: UseTeachingWorkspaceProps) {
-  const { decodedDirectory, sessionID, sessionKey, isInteractiveMode, isBusy } = props
+  const {
+    decodedDirectory,
+    sessionID,
+    sessionKey,
+    isInteractiveMode,
+    isBusy,
+    messages,
+    selectedPersonaSupportsEditor,
+    setRightSidebarTab,
+    setRightSidebarOpen,
+    setRightSidebarWidth,
+    rightSidebarWidth,
+    setDirectoryError,
+  } = props
 
   const saveInFlightRef = useRef<Promise<boolean> | null>(null)
   const teachingSessionInitializedRef = useRef(new Set<string>())
@@ -82,7 +95,7 @@ export function useTeachingWorkspace(props: UseTeachingWorkspaceProps) {
     return () => {
       cancelled = true
     }
-  }, [decodedDirectory, isBusy, props.messages.length, sessionID, sessionKey, teachingWorkspace])
+  }, [decodedDirectory, isBusy, messages.length, sessionID, sessionKey, teachingWorkspace])
 
   // ── Open editor sidebar on first workspace load ─────────────────────────────
   useEffect(() => {
@@ -91,22 +104,26 @@ export function useTeachingWorkspace(props: UseTeachingWorkspaceProps) {
       !sessionID ||
       !sessionKey ||
       !teachingWorkspace ||
-      !props.selectedPersonaSupportsEditor
+      !selectedPersonaSupportsEditor
     )
       return
     if (teachingSessionInitializedRef.current.has(sessionKey)) return
 
     teachingSessionInitializedRef.current.add(sessionKey)
-    props.setRightSidebarTab("editor")
-    props.setRightSidebarOpen(true)
-    if (props.rightSidebarWidth < RIGHT_SIDEBAR_EDITOR_MIN_WIDTH) {
-      props.setRightSidebarWidth(640)
+    setRightSidebarTab("editor")
+    setRightSidebarOpen(true)
+    if (rightSidebarWidth < RIGHT_SIDEBAR_EDITOR_MIN_WIDTH) {
+      setRightSidebarWidth(640)
     }
   }, [
     decodedDirectory,
+    rightSidebarWidth,
     sessionID,
     sessionKey,
-    props.selectedPersonaSupportsEditor,
+    selectedPersonaSupportsEditor,
+    setRightSidebarOpen,
+    setRightSidebarTab,
+    setRightSidebarWidth,
     teachingWorkspace,
   ])
 
@@ -181,6 +198,82 @@ export function useTeachingWorkspace(props: UseTeachingWorkspaceProps) {
     }
   }, [decodedDirectory, isBusy, isInteractiveMode, sessionID, sessionKey, teachingWorkspace])
 
+  // ── Core workspace operations ───────────────────────────────────────────────
+
+  const flushTeachingWorkspace = useCallback(
+    async (input?: { forceOverwrite?: boolean; language?: TeachingLanguage }) => {
+      if (!decodedDirectory || !sessionID || !isInteractiveMode || !sessionKey) return true
+
+      if (saveInFlightRef.current) {
+        const settled = await saveInFlightRef.current
+        if (!settled) return false
+      }
+
+      const latest = useTeachingRuntime.getState().workspaceBySession[sessionKey]
+      if (!latest) {
+        useTeachingRuntime
+          .getState()
+          .setSaveError(sessionKey, "Teaching workspace is still loading")
+        return false
+      }
+
+      if (latest.conflict && !input?.forceOverwrite) return false
+
+      const nextLanguage = input?.language ?? latest.language
+      const hasChanges =
+        latest.code !== latest.savedCode ||
+        nextLanguage !== latest.language ||
+        !!input?.forceOverwrite
+      if (!hasChanges) return true
+
+      const expectedRevision =
+        input?.forceOverwrite && latest.conflict ? latest.conflict.revision : latest.revision
+      const requestCode = latest.code
+
+      const task = (async () => {
+        useTeachingRuntime.getState().setPendingSave(sessionKey, true)
+        useTeachingRuntime.getState().setSaveError(sessionKey, undefined)
+
+        try {
+          const saved = await saveTeachingWorkspace({
+            directory: decodedDirectory,
+            sessionID,
+            code: requestCode,
+            expectedRevision,
+            relativePath: latest.activeRelativePath,
+            language: nextLanguage,
+          })
+          useTeachingRuntime
+            .getState()
+            .applySaveSuccess(sessionKey, { requestCode, workspace: saved })
+          return true
+        } catch (saveError) {
+          if (saveError instanceof TeachingConflictError) {
+            useTeachingRuntime.getState().setConflict(sessionKey, {
+              code: saveError.payload.code,
+              revision: saveError.payload.revision,
+              lessonFilePath: saveError.payload.lessonFilePath,
+            })
+            return false
+          }
+          useTeachingRuntime.getState().setPendingSave(sessionKey, false)
+          useTeachingRuntime.getState().setSaveError(sessionKey, stringifyError(saveError))
+          return false
+        }
+      })()
+
+      saveInFlightRef.current = task
+      try {
+        return await task
+      } finally {
+        if (saveInFlightRef.current === task) {
+          saveInFlightRef.current = null
+        }
+      }
+    },
+    [decodedDirectory, isInteractiveMode, sessionID, sessionKey],
+  )
+
   // ── Auto-flush on code change (debounced 500ms) ─────────────────────────────
   useEffect(() => {
     if (!decodedDirectory || !sessionID || !isInteractiveMode || !sessionKey || !teachingWorkspace)
@@ -194,87 +287,15 @@ export function useTeachingWorkspace(props: UseTeachingWorkspaceProps) {
     return () => window.clearTimeout(timeout)
   }, [
     decodedDirectory,
+    flushTeachingWorkspace,
     isInteractiveMode,
     sessionID,
     sessionKey,
+    teachingWorkspace,
     teachingWorkspace?.code,
     teachingWorkspace?.savedCode,
     teachingWorkspace?.conflict,
   ])
-
-  // ── Core workspace operations ───────────────────────────────────────────────
-
-  async function flushTeachingWorkspace(input?: {
-    forceOverwrite?: boolean
-    language?: TeachingLanguage
-  }) {
-    if (!decodedDirectory || !sessionID || !isInteractiveMode || !sessionKey) return true
-
-    if (saveInFlightRef.current) {
-      const settled = await saveInFlightRef.current
-      if (!settled) return false
-    }
-
-    const latest = useTeachingRuntime.getState().workspaceBySession[sessionKey]
-    if (!latest) {
-      useTeachingRuntime.getState().setSaveError(sessionKey, "Teaching workspace is still loading")
-      return false
-    }
-
-    if (latest.conflict && !input?.forceOverwrite) return false
-
-    const nextLanguage = input?.language ?? latest.language
-    const hasChanges =
-      latest.code !== latest.savedCode ||
-      nextLanguage !== latest.language ||
-      !!input?.forceOverwrite
-    if (!hasChanges) return true
-
-    const expectedRevision =
-      input?.forceOverwrite && latest.conflict ? latest.conflict.revision : latest.revision
-    const requestCode = latest.code
-
-    const task = (async () => {
-      useTeachingRuntime.getState().setPendingSave(sessionKey, true)
-      useTeachingRuntime.getState().setSaveError(sessionKey, undefined)
-
-      try {
-        const saved = await saveTeachingWorkspace({
-          directory: decodedDirectory,
-          sessionID,
-          code: requestCode,
-          expectedRevision,
-          relativePath: latest.activeRelativePath,
-          language: nextLanguage,
-        })
-        useTeachingRuntime
-          .getState()
-          .applySaveSuccess(sessionKey, { requestCode, workspace: saved })
-        return true
-      } catch (saveError) {
-        if (saveError instanceof TeachingConflictError) {
-          useTeachingRuntime.getState().setConflict(sessionKey, {
-            code: saveError.payload.code,
-            revision: saveError.payload.revision,
-            lessonFilePath: saveError.payload.lessonFilePath,
-          })
-          return false
-        }
-        useTeachingRuntime.getState().setPendingSave(sessionKey, false)
-        useTeachingRuntime.getState().setSaveError(sessionKey, stringifyError(saveError))
-        return false
-      }
-    })()
-
-    saveInFlightRef.current = task
-    try {
-      return await task
-    } finally {
-      if (saveInFlightRef.current === task) {
-        saveInFlightRef.current = null
-      }
-    }
-  }
 
   async function onTeachingSelectFile(relativePath: string) {
     if (!decodedDirectory || !sessionID || !sessionKey) return
@@ -312,8 +333,8 @@ export function useTeachingWorkspace(props: UseTeachingWorkspaceProps) {
       })
       useTeachingRuntime.getState().setWorkspace(sessionKey, workspace)
       useTeachingRuntime.getState().setSaveError(sessionKey, undefined)
-      props.setRightSidebarTab("editor")
-      props.setRightSidebarOpen(true)
+      setRightSidebarTab("editor")
+      setRightSidebarOpen(true)
     } catch (fileError) {
       useTeachingRuntime.getState().setSaveError(sessionKey, stringifyError(fileError))
     }
@@ -410,11 +431,11 @@ export function useTeachingWorkspace(props: UseTeachingWorkspaceProps) {
       return
 
     input.setIsStartingInteractiveLesson(true)
-    props.setRightSidebarTab("editor")
+    setRightSidebarTab("editor")
     if (input.rightSidebarWidth < RIGHT_SIDEBAR_EDITOR_MIN_WIDTH) {
-      props.setRightSidebarWidth(640)
+      setRightSidebarWidth(640)
     }
-    props.setRightSidebarOpen(true)
+    setRightSidebarOpen(true)
 
     try {
       const workspace = await ensureTeachingWorkspace({
@@ -445,7 +466,7 @@ export function useTeachingWorkspace(props: UseTeachingWorkspaceProps) {
       )
     } catch (interactiveError) {
       const message = stringifyError(interactiveError)
-      props.setDirectoryError(decodedDirectory, message)
+      setDirectoryError(decodedDirectory, message)
       useTeachingRuntime.getState().setSaveError(sessionKey, message)
     } finally {
       input.setIsStartingInteractiveLesson(false)

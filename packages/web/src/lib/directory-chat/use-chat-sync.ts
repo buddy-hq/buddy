@@ -34,7 +34,23 @@ type UseChatSyncProps = {
 }
 
 export function useChatSync(props: UseChatSyncProps) {
-  const { decodedDirectory, hasRegisteredProject } = props
+  const {
+    decodedDirectory,
+    hasRegisteredProject,
+    applyMessageUpdated,
+    applyPartDelta,
+    applyPartUpdated,
+    applyPermissionAsked,
+    applyPermissionReplied,
+    applySessionStatus,
+    applySessionUpdated,
+    clearDirectoryError,
+    refreshMcpStatus,
+    refreshSlashCommands,
+    setDirectoryError,
+    setStreamStatus,
+    setSystemPromptRefreshToken,
+  } = props
 
   // ── SSE sync ────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -43,7 +59,7 @@ export function useChatSync(props: UseChatSyncProps) {
     const sync = startChatSync({
       directory: decodedDirectory,
       onStatus(status) {
-        props.setStreamStatus(status)
+        setStreamStatus(status)
       },
       onOpen() {
         if (!decodedDirectory || decodedDirectory === "/") return
@@ -63,7 +79,7 @@ export function useChatSync(props: UseChatSyncProps) {
         const properties = payload.properties
 
         if (payload.type === "session.created" || payload.type === "session.updated") {
-          props.applySessionUpdated(directory, properties.info as SessionInfo)
+          applySessionUpdated(directory, properties.info as SessionInfo)
           return
         }
 
@@ -77,14 +93,14 @@ export function useChatSync(props: UseChatSyncProps) {
                 : "idle"
           const normalizedStatus = statusType === "busy" || statusType === "retry" ? "busy" : "idle"
           const statusSessionID = String(properties.sessionID ?? "")
-          props.applySessionStatus(directory, statusSessionID, normalizedStatus)
+          applySessionStatus(directory, statusSessionID, normalizedStatus)
           const activeSessionID = useChatStore.getState().directories[directory]?.sessionID
           if (
             normalizedStatus === "idle" &&
             statusSessionID &&
             statusSessionID === activeSessionID
           ) {
-            props.setSystemPromptRefreshToken((token) => token + 1)
+            setSystemPromptRefreshToken((token) => token + 1)
           }
           return
         }
@@ -95,21 +111,21 @@ export function useChatSync(props: UseChatSyncProps) {
               ? properties.sessionID
               : undefined
           if (erroredSessionID) {
-            props.applySessionStatus(directory, erroredSessionID, "idle")
+            applySessionStatus(directory, erroredSessionID, "idle")
           }
-          props.setDirectoryError(directory, readSessionErrorMessage(properties.error))
+          setDirectoryError(directory, readSessionErrorMessage(properties.error))
           return
         }
 
         if (payload.type === "message.updated") {
           const info = properties.info as MessageInfo
-          props.applyMessageUpdated(directory, info)
+          applyMessageUpdated(directory, info)
           if (
             info.role === "assistant" &&
             !info.error &&
             (!!info.finish || !!info.time.completed)
           ) {
-            props.clearDirectoryError(directory)
+            clearDirectoryError(directory)
           }
           const activeSessionID = useChatStore.getState().directories[directory]?.sessionID
           if (info.role === "assistant" && info.sessionID && info.sessionID !== activeSessionID) {
@@ -119,12 +135,12 @@ export function useChatSync(props: UseChatSyncProps) {
         }
 
         if (payload.type === "message.part.updated") {
-          props.applyPartUpdated(directory, properties.part as MessagePart)
+          applyPartUpdated(directory, properties.part as MessagePart)
           return
         }
 
         if (payload.type === "message.part.delta") {
-          props.applyPartDelta(directory, {
+          applyPartDelta(directory, {
             sessionID: String(properties.sessionID ?? ""),
             messageID: String(properties.messageID ?? ""),
             partID: String(properties.partID ?? ""),
@@ -135,34 +151,34 @@ export function useChatSync(props: UseChatSyncProps) {
         }
 
         if (payload.type === "permission.asked") {
-          props.applyPermissionAsked(directory, properties as PermissionRequest)
+          applyPermissionAsked(directory, properties as PermissionRequest)
           return
         }
 
         if (payload.type === "permission.replied") {
-          props.applyPermissionReplied(directory, String(properties.requestID ?? ""))
+          applyPermissionReplied(directory, String(properties.requestID ?? ""))
         }
       },
     })
 
     return () => {
       sync.stop()
-      props.setStreamStatus("idle")
+      setStreamStatus("idle")
     }
   }, [
     decodedDirectory,
     hasRegisteredProject,
-    props.applyMessageUpdated,
-    props.applyPermissionAsked,
-    props.applyPermissionReplied,
-    props.applyPartDelta,
-    props.applyPartUpdated,
-    props.applySessionStatus,
-    props.applySessionUpdated,
-    props.clearDirectoryError,
-    props.setDirectoryError,
-    props.setSystemPromptRefreshToken,
-    props.setStreamStatus,
+    applyMessageUpdated,
+    applyPartDelta,
+    applyPartUpdated,
+    applyPermissionAsked,
+    applyPermissionReplied,
+    applySessionStatus,
+    applySessionUpdated,
+    clearDirectoryError,
+    setDirectoryError,
+    setStreamStatus,
+    setSystemPromptRefreshToken,
   ])
 
   // ── Background refresh interval ─────────────────────────────────────────────
@@ -170,8 +186,8 @@ export function useChatSync(props: UseChatSyncProps) {
     if (!decodedDirectory || !hasRegisteredProject) return
 
     const refresh = () => {
-      props.refreshSlashCommands()
-      props.refreshMcpStatus()
+      refreshSlashCommands()
+      refreshMcpStatus()
     }
     const interval = window.setInterval(refresh, 30_000)
     const onFocus = () => refresh()
@@ -188,5 +204,5 @@ export function useChatSync(props: UseChatSyncProps) {
       window.removeEventListener("focus", onFocus)
       document.removeEventListener("visibilitychange", onVisibility)
     }
-  }, [decodedDirectory, hasRegisteredProject, props.refreshSlashCommands, props.refreshMcpStatus])
+  }, [decodedDirectory, hasRegisteredProject, refreshMcpStatus, refreshSlashCommands])
 }

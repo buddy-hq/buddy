@@ -299,10 +299,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
                     </SelectTrigger>
                     <SelectContent>
                       {methods.map((method, index) => (
-                        <SelectItem
-                          key={`${method.type}:${method.label}:${index}`}
-                          value={String(index)}
-                        >
+                        <SelectItem key={`${method.type}:${method.label}`} value={String(index)}>
                           {method.label}
                         </SelectItem>
                       ))}

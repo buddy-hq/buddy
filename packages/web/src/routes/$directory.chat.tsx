@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
-import { useEffect, useMemo, useRef, useState, type UIEvent } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type UIEvent } from "react"
 import { Button } from "@buddy/ui"
 import { ChatEmptyState } from "@/components/chat/chat-empty-state"
 import { SessionContextUsage } from "@/components/chat/session-context-usage"
@@ -156,6 +156,18 @@ function DirectoryChatPage() {
     showSystemPromptSidebarTab,
     showCapabilitiesSidebarTab,
   })
+  const {
+    clearUnread,
+    migrateWorkspaceDraft,
+    modelOptions,
+    selectedModelKey,
+    sessionID,
+    sessionKey,
+    setActiveDirectory,
+    setSelectedModel,
+    thinkingOptions,
+    validOpenProjects,
+  } = cs
 
   const { slashCommands } = chatConfig
   const slashCommandCandidates = useMemo(
@@ -171,8 +183,8 @@ function DirectoryChatPage() {
   // ── Teaching workspace ───────────────────────────────────────────────────────
   const teachingWs = useTeachingWorkspace({
     decodedDirectory,
-    sessionID: cs.sessionID,
-    sessionKey: cs.sessionKey,
+    sessionID,
+    sessionKey,
     isInteractiveMode: cs.isInteractiveMode,
     isBusy: cs.isBusy,
     messages: cs.messages,
@@ -230,12 +242,12 @@ function DirectoryChatPage() {
   // ── Effects ─────────────────────────────────────────────────────────────────
   useEffect(() => {
     setPendingSuggestionOverride(undefined)
-  }, [cs.sessionKey])
+  }, [sessionKey])
 
   useEffect(() => {
-    if (!decodedDirectory || !cs.sessionID) return
-    cs.migrateWorkspaceDraft(decodedDirectory, cs.sessionID)
-  }, [decodedDirectory, cs.migrateWorkspaceDraft, cs.sessionID])
+    if (!decodedDirectory || !sessionID) return
+    migrateWorkspaceDraft(decodedDirectory, sessionID)
+  }, [decodedDirectory, migrateWorkspaceDraft, sessionID])
 
   useEffect(() => {
     void bootstrapOpenProjects().catch(() => undefined)
@@ -243,7 +255,7 @@ function DirectoryChatPage() {
 
   useEffect(() => {
     if (decodedDirectory === "/") {
-      const fallback = cs.validOpenProjects[0]
+      const fallback = validOpenProjects[0]
       if (fallback) {
         navigate({
           to: "/$directory/chat",
@@ -260,7 +272,7 @@ function DirectoryChatPage() {
 
     void ensureDirectorySession(decodedDirectory)
       .then((result) => {
-        cs.setActiveDirectory(result.directory)
+        setActiveDirectory(result.directory)
         if (result.directory === decodedDirectory) return
         navigate({
           to: "/$directory/chat",
@@ -271,7 +283,7 @@ function DirectoryChatPage() {
       .catch((error) => {
         const state = useChatStore.getState()
         if (state.openProjects.includes(decodedDirectory)) {
-          cs.setActiveDirectory(decodedDirectory)
+          setActiveDirectory(decodedDirectory)
           return
         }
         const fallback = state.openProjects[0]
@@ -286,16 +298,16 @@ function DirectoryChatPage() {
         state.setEntryError(stringifyError(error))
         navigate({ to: "/chat", replace: true })
       })
-  }, [decodedDirectory, navigate, cs.setActiveDirectory, cs.validOpenProjects])
+  }, [decodedDirectory, navigate, setActiveDirectory, validOpenProjects])
 
   useEffect(() => {
     setStickToBottom(true)
-  }, [cs.sessionID])
+  }, [sessionID])
 
   useEffect(() => {
-    if (!decodedDirectory || !cs.sessionID) return
-    cs.clearUnread(decodedDirectory, cs.sessionID)
-  }, [cs.clearUnread, decodedDirectory, cs.sessionID])
+    if (!decodedDirectory || !sessionID) return
+    clearUnread(decodedDirectory, sessionID)
+  }, [clearUnread, decodedDirectory, sessionID])
 
   useEffect(() => {
     if (!stickToBottom) return
@@ -305,42 +317,41 @@ function DirectoryChatPage() {
   }, [cs.messages, cs.isBusy, stickToBottom])
 
   useEffect(() => {
-    void syncTeachingRuntimeSelection()
-  }, [decodedDirectory, cs.sessionID, cs.sessionKey])
-
-  useEffect(() => {
-    if (cs.selectedModelKey === "auto") return
-    if (cs.modelOptions.some((option) => option.key === cs.selectedModelKey)) return
+    if (selectedModelKey === "auto") return
+    if (modelOptions.some((option) => option.key === selectedModelKey)) return
     if (!decodedDirectory) return
-    cs.setSelectedModel(decodedDirectory, "auto")
-  }, [decodedDirectory, cs.modelOptions, cs.selectedModelKey, cs.setSelectedModel])
+    setSelectedModel(decodedDirectory, "auto")
+  }, [decodedDirectory, modelOptions, selectedModelKey, setSelectedModel])
 
   useEffect(() => {
-    if (cs.thinkingOptions.some((option) => option.key === selectedThinking)) return
+    if (thinkingOptions.some((option) => option.key === selectedThinking)) return
     setSelectedThinking("default")
-  }, [selectedThinking, cs.thinkingOptions])
+  }, [selectedThinking, thinkingOptions])
 
   // ── Teaching runtime sync ───────────────────────────────────────────────────
-  async function syncTeachingRuntimeSelection(input?: {
-    directory?: string
-    sessionID?: string
-    sessionKey?: string
-  }) {
-    const activeDirectory = input?.directory ?? decodedDirectory
-    const activeSessionID = input?.sessionID ?? cs.sessionID
-    const activeSessionKey = input?.sessionKey ?? cs.sessionKey
-    if (!activeDirectory || !activeSessionID || !activeSessionKey) return
+  const syncTeachingRuntimeSelection = useCallback(
+    async (input?: { directory?: string; sessionID?: string; sessionKey?: string }) => {
+      const activeDirectory = input?.directory ?? decodedDirectory
+      const activeSessionID = input?.sessionID ?? sessionID
+      const activeSessionKey = input?.sessionKey ?? sessionKey
+      if (!activeDirectory || !activeSessionID || !activeSessionKey) return
 
-    try {
-      const runtime = await loadTeachingSessionState(activeDirectory, activeSessionID)
-      if (!runtime) return
-      const teaching = useTeachingRuntime.getState()
-      teaching.setSessionPersona(activeSessionKey, runtime.persona)
-      teaching.setSessionIntent(activeSessionKey, runtime.intent ?? "auto")
-    } catch {
-      // Ignore sessions without Buddy teaching state yet.
-    }
-  }
+      try {
+        const runtime = await loadTeachingSessionState(activeDirectory, activeSessionID)
+        if (!runtime) return
+        const teaching = useTeachingRuntime.getState()
+        teaching.setSessionPersona(activeSessionKey, runtime.persona)
+        teaching.setSessionIntent(activeSessionKey, runtime.intent ?? "auto")
+      } catch {
+        // Ignore sessions without Buddy teaching state yet.
+      }
+    },
+    [decodedDirectory, sessionID, sessionKey],
+  )
+
+  useEffect(() => {
+    void syncTeachingRuntimeSelection()
+  }, [syncTeachingRuntimeSelection])
 
   // ── Session / navigation handlers ───────────────────────────────────────────
   function onSwitchDirectory(nextDirectory: string) {

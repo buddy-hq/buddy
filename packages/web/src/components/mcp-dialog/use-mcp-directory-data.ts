@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   authenticateMcpServer,
   connectMcpServer,
@@ -39,12 +39,13 @@ export type McpDirectoryDataState = {
 }
 
 export function useMcpDirectoryData(props: UseMcpDirectoryDataProps): McpDirectoryDataState {
+  const { directory, open } = props
   const [query, setQuery] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | undefined>(undefined)
   const [pendingName, setPendingName] = useState<string | null>(null)
   const [configByName, setConfigByName] = useState<Record<string, McpConfig>>({})
-  const statusByName = useChatStore((state) => state.directories[props.directory]?.mcpStatus ?? {})
+  const statusByName = useChatStore((state) => state.directories[directory]?.mcpStatus ?? {})
 
   const allNames = useMemo(
     () =>
@@ -68,26 +69,26 @@ export function useMcpDirectoryData(props: UseMcpDirectoryDataProps): McpDirecto
   )
 
   async function enableMcp(name: string) {
-    const status = await connectMcpServer(props.directory, name)
+    const status = await connectMcpServer(directory, name)
     if (status[name]?.status === "needs_auth") {
-      return authenticateMcpServer(props.directory, name)
+      return authenticateMcpServer(directory, name)
     }
     return status
   }
 
   async function disconnectMcp(name: string) {
-    await disconnectMcpServer(props.directory, name)
+    await disconnectMcpServer(directory, name)
   }
 
-  async function refreshData() {
-    if (!props.directory) return
+  const refreshData = useCallback(async () => {
+    if (!directory) return
 
     setLoading(true)
     setError(undefined)
 
     const [statusResult, configResult] = await Promise.allSettled([
-      loadMcpStatus(props.directory),
-      loadProjectConfig(props.directory),
+      loadMcpStatus(directory),
+      loadProjectConfig(directory),
     ])
 
     if (configResult.status === "fulfilled") {
@@ -101,16 +102,16 @@ export function useMcpDirectoryData(props: UseMcpDirectoryDataProps): McpDirecto
     setError(statusError ?? configError)
 
     setLoading(false)
-  }
+  }, [directory])
 
   useEffect(() => {
-    if (!props.open) return
+    if (!open) return
     setQuery("")
     void refreshData()
-  }, [props.directory, props.open])
+  }, [open, refreshData])
 
   async function toggleMcp(name: string) {
-    if (!props.directory || pendingName) return
+    if (!directory || pendingName) return
 
     const current = statusByName[name]
     setPendingName(name)
@@ -129,11 +130,11 @@ export function useMcpDirectoryData(props: UseMcpDirectoryDataProps): McpDirecto
   }
 
   async function connectMcp(name: string) {
-    if (!props.directory || pendingName) return
+    if (!directory || pendingName) return
     setPendingName(name)
     setError(undefined)
     try {
-      await authenticateMcpServer(props.directory, name)
+      await authenticateMcpServer(directory, name)
     } catch (authError) {
       setError(formatMcpError(authError))
     } finally {

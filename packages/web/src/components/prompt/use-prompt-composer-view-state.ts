@@ -93,6 +93,7 @@ type UsePromptComposerViewStateProps = {
 }
 
 export function usePromptComposerViewState(props: UsePromptComposerViewStateProps) {
+  const { onRefreshSlashCommands, onSearchFiles } = props
   const [mentionIndex, setMentionIndex] = useState(0)
   const [dismissedMentionKey, setDismissedMentionKey] = useState<string | undefined>(undefined)
   const [slashIndex, setSlashIndex] = useState(0)
@@ -252,11 +253,11 @@ export function usePromptComposerViewState(props: UsePromptComposerViewStateProp
 
     if (slashRefreshRequestedRef.current) return
     slashRefreshRequestedRef.current = true
-    props.onRefreshSlashCommands?.()
-  }, [props.onRefreshSlashCommands, slashMatch])
+    onRefreshSlashCommands?.()
+  }, [onRefreshSlashCommands, slashMatch])
 
   useEffect(() => {
-    if (!mentionMatch || !props.onSearchFiles) {
+    if (!mentionMatch || !onSearchFiles) {
       setSearchMentionFiles([])
       setSearchingFiles(false)
       return
@@ -271,8 +272,7 @@ export function usePromptComposerViewState(props: UsePromptComposerViewStateProp
 
     let cancelled = false
     setSearchingFiles(true)
-    props
-      .onSearchFiles(query)
+    onSearchFiles(query)
       .then((files) => {
         if (cancelled) return
         setSearchMentionFiles(files)
@@ -287,7 +287,7 @@ export function usePromptComposerViewState(props: UsePromptComposerViewStateProp
     return () => {
       cancelled = true
     }
-  }, [mentionKey, mentionMatch, props.onSearchFiles])
+  }, [mentionKey, mentionMatch, onSearchFiles])
 
   function appendRecentMentionFile(file: MentionableFile) {
     setRecentMentionFiles((current) =>

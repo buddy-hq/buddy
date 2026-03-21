@@ -173,6 +173,9 @@ describe("startChatSync fetch stream", () => {
 
     expect(events).toHaveLength(1)
     expect(events[0]?.payload.type).toBe("message.part.updated")
-    expect((events[0]?.payload.properties as { part?: { text?: string } }).part?.text).toBe("final")
+    const firstEvent = events[0]
+    expect(
+      (firstEvent?.payload.properties as { part?: { text?: string } } | undefined)?.part?.text,
+    ).toBe("final")
   })
 })
