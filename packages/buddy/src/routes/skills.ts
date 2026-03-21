@@ -4,16 +4,11 @@ import z from "zod"
 import { patchProjectConfig } from "@buddy/backend/config/orchestration"
 import {
   HTTP_STATUS,
-  SKILL_ERROR_STATUS,
-  SKILL_ROUTE_ACTIONS,
   SKILL_ROUTE_CONFIG,
-  SKILL_ROUTE_ERRORS,
-  SKILL_ROUTE_QUERY,
 } from "./skills.constants"
 import {
   createSkillBodySchema,
   skillsSettingsBodySchema,
-  type ToggleSkillBody,
   toggleSkillBodySchema,
 } from "./skills.schemas"
 import {
@@ -30,9 +25,15 @@ import {
   listSkillsCatalog,
   removeManagedSkill,
   setInstalledSkillAction,
-  SkillServiceError,
-  type SkillServiceErrorCode,
 } from "../learning/skills"
+import {
+  createSkillErrorStatus,
+  installLibrarySkillErrorStatus,
+  notFoundSkillErrorStatus,
+  resolveSkillAction,
+  shouldRefreshSkillCatalog,
+  skillErrorMessage,
+} from "./skills.route-helpers"
 
 const installedSkillSchema = z.object({
   name: z.string(),
@@ -89,45 +90,7 @@ const listSkillsQuerySchema = directoryQuerySchema.extend({
   refresh: z.string().optional(),
 })
 
-function skillErrorMessage(error: unknown) {
-  if (error instanceof SkillServiceError && error.message.trim()) {
-    return error.message
-  }
-  return SKILL_ROUTE_ERRORS.fallback
-}
-
-function skillErrorStatus<TStatus extends number>(
-  error: unknown,
-  codeMap: Partial<Record<SkillServiceErrorCode, TStatus>>,
-  defaultStatus: TStatus,
-): TStatus {
-  if (!(error instanceof SkillServiceError)) return HTTP_STATUS.INTERNAL_SERVER_ERROR as TStatus
-  return codeMap[error.code] ?? defaultStatus
-}
-
-function createSkillErrorStatus(error: unknown): 400 | 409 | 500 {
-  return skillErrorStatus(error, SKILL_ERROR_STATUS.create, HTTP_STATUS.INTERNAL_SERVER_ERROR)
-}
-
-function installLibrarySkillErrorStatus(error: unknown): 400 | 404 | 409 | 500 {
-  return skillErrorStatus(error, SKILL_ERROR_STATUS.installLibrary, HTTP_STATUS.INTERNAL_SERVER_ERROR)
-}
-
-function notFoundSkillErrorStatus(error: unknown): 400 | 404 | 500 {
-  return skillErrorStatus(error, SKILL_ERROR_STATUS.byName, HTTP_STATUS.BAD_REQUEST)
-}
-
-function shouldRefreshSkillCatalog(refreshValue: string | undefined): boolean {
-  if (!refreshValue) return false
-  return SKILL_ROUTE_QUERY.refreshValues.has(refreshValue)
-}
-
-function resolveSkillAction(input: ToggleSkillBody) {
-  return input.action ?? (input.enabled ? SKILL_ROUTE_ACTIONS.whenEnabled : SKILL_ROUTE_ACTIONS.whenDisabled)
-}
-
-export const SkillsRoutes = (): Hono =>
-  new Hono()
+export const SkillsRoutes = new Hono()
     .get(
       "/",
       describeRoute({
