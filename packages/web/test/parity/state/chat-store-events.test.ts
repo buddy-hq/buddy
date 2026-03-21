@@ -41,6 +41,7 @@ function resetStore() {
   useChatStore.setState({
     openProjects: [],
     activeDirectory: undefined,
+    pendingActiveDirectory: undefined,
     entryError: undefined,
     lastSessionByDirectory: {},
     directories: {},
@@ -54,6 +55,73 @@ beforeEach(() => {
 })
 
 describe("chat-store parity events", () => {
+  test("persists only route/session handoff state, not openProjects", () => {
+    const store = useChatStore.getState()
+
+    store.setOpenProjects(["/tmp/alpha", "/tmp/beta"])
+    store.setActiveDirectory("/tmp/beta")
+    store.setActiveSession(directory, "session_1")
+
+    const persistedRaw = localStorage.getItem("buddy.chat.v4")
+    expect(persistedRaw).not.toBeNull()
+
+    const persisted = JSON.parse(persistedRaw ?? "{}") as {
+      state?: {
+        openProjects?: unknown
+        activeDirectory?: unknown
+        lastSessionByDirectory?: unknown
+      }
+    }
+
+    expect(persisted.state?.openProjects).toBeUndefined()
+    expect(persisted.state?.activeDirectory).toBe("/tmp/beta")
+    expect(persisted.state?.lastSessionByDirectory).toEqual({
+      "/tmp/parity": "session_1",
+    })
+  })
+
+  test("defers persisted active directory until backend open-projects are loaded", async () => {
+    localStorage.setItem(
+      "buddy.chat.v4",
+      JSON.stringify({
+        state: {
+          activeDirectory: "/tmp/beta",
+        },
+        version: 0,
+      }),
+    )
+
+    await useChatStore.persist.rehydrate()
+
+    let next = useChatStore.getState()
+    expect(next.activeDirectory).toBeUndefined()
+    expect(next.pendingActiveDirectory).toBe("/tmp/beta")
+
+    next.setOpenProjects(["/tmp/alpha", "/tmp/beta"])
+    next = useChatStore.getState()
+    expect(next.activeDirectory).toBe("/tmp/beta")
+    expect(next.pendingActiveDirectory).toBeUndefined()
+  })
+
+  test("falls back to backend project order when persisted active directory is stale", async () => {
+    localStorage.setItem(
+      "buddy.chat.v4",
+      JSON.stringify({
+        state: {
+          activeDirectory: "/tmp/missing",
+        },
+        version: 0,
+      }),
+    )
+
+    await useChatStore.persist.rehydrate()
+    useChatStore.getState().setOpenProjects(["/tmp/alpha", "/tmp/beta"])
+
+    const next = useChatStore.getState()
+    expect(next.activeDirectory).toBe("/tmp/alpha")
+    expect(next.pendingActiveDirectory).toBeUndefined()
+  })
+
   test("tracks transient entry errors for route handoff", () => {
     const store = useChatStore.getState()
 
