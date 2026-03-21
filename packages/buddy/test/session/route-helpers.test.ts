@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { readProjectConfig } from "@buddy/backend/config/runtime"
 import { readTeachingSessionState, writeTeachingSessionState } from "../../src/learning/agent-execution/state/session-state"
 import { restoreTeachingSessionState, writeLastLlmOutbound } from "../../src/learning/agent-execution/state/transform-state"
+import { captureSessionSystemPrompt, readCapturedSessionSystemPrompt } from "../../src/opencode-runtime/system-prompt-capture"
 import {
   assertNoLegacyRuntimeOverrides,
   hasExplicitCommandModel,
@@ -99,5 +100,22 @@ describe("session route helper modules", () => {
       previousState: undefined,
     })
     expect(readTeachingSessionState(project.path, "ses_helper")).toBeUndefined()
+  })
+
+  test("reads captured system prompt by session ID when directory key differs", async () => {
+    await using project = await tmpdir({ git: true })
+
+    await captureSessionSystemPrompt({
+      directory: project.path,
+      sessionID: "ses_capture_fallback",
+      fullSystemPrompt: "captured prompt",
+    })
+
+    const captured = await readCapturedSessionSystemPrompt({
+      directory: `${project.path}/nested/path`,
+      sessionID: "ses_capture_fallback",
+    })
+
+    expect(captured).toBe("captured prompt")
   })
 })
