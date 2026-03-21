@@ -1,38 +1,49 @@
-import { ToolCardWithDetails, ToolOutputPanel, ApplyPatchFileItem } from '../shared/tool-card'
-import { isRecord, readString, unwrapError } from '../shared/utils'
-import type { ToolPartProps, ApplyPatchFile } from './registry'
+import {
+  ToolCardWithDetails,
+  ToolOutputPanel,
+  ApplyPatchFileItem,
+} from "../shared/tool-card";
+import { isRecord, unwrapError } from "../shared/utils";
+import type { ToolPartProps, ApplyPatchFile } from "./registry";
 
-export function ApplyPatchTool({ part, state, info, defaultOpen }: ToolPartProps) {
-  const running = state.status === 'pending' || state.status === 'running'
+export function ApplyPatchTool({
+  part: _part,
+  state,
+  info,
+  defaultOpen,
+}: ToolPartProps) {
+  const running = state.status === "pending" || state.status === "running";
   const showOutput =
-    (state.output || (state.error ? unwrapError(state.error) : '')).trim().length > 0
-  const output = state.output || (state.error ? unwrapError(state.error) : '')
+    (state.output || (state.error ? unwrapError(state.error) : "")).trim()
+      .length > 0;
+  const output = state.output || (state.error ? unwrapError(state.error) : "");
 
-  const applyPatchFiles: ApplyPatchFile[] = []
-  const files = state.metadata.files
+  const applyPatchFiles: ApplyPatchFile[] = [];
+  const files = state.metadata.files;
   if (Array.isArray(files)) {
     for (const entry of files) {
-      if (!isRecord(entry)) continue
-      if (typeof entry.filePath !== 'string') continue
-      if (typeof entry.relativePath !== 'string') continue
+      if (!isRecord(entry)) continue;
+      if (typeof entry.filePath !== "string") continue;
+      if (typeof entry.relativePath !== "string") continue;
       if (
-        entry.type !== 'add' &&
-        entry.type !== 'update' &&
-        entry.type !== 'delete' &&
-        entry.type !== 'move'
+        entry.type !== "add" &&
+        entry.type !== "update" &&
+        entry.type !== "delete" &&
+        entry.type !== "move"
       )
-        continue
+        continue;
 
       applyPatchFiles.push({
         filePath: entry.filePath,
         relativePath: entry.relativePath,
         type: entry.type,
-        before: typeof entry.before === 'string' ? entry.before : '',
-        after: typeof entry.after === 'string' ? entry.after : '',
-        additions: typeof entry.additions === 'number' ? entry.additions : 0,
-        deletions: typeof entry.deletions === 'number' ? entry.deletions : 0,
-        movePath: typeof entry.movePath === 'string' ? entry.movePath : undefined,
-      })
+        before: typeof entry.before === "string" ? entry.before : "",
+        after: typeof entry.after === "string" ? entry.after : "",
+        additions: typeof entry.additions === "number" ? entry.additions : 0,
+        deletions: typeof entry.deletions === "number" ? entry.deletions : 0,
+        movePath:
+          typeof entry.movePath === "string" ? entry.movePath : undefined,
+      });
     }
   }
 
@@ -40,9 +51,9 @@ export function ApplyPatchTool({ part, state, info, defaultOpen }: ToolPartProps
     ...info,
     subtitle:
       applyPatchFiles.length > 0
-        ? `${applyPatchFiles.length} ${applyPatchFiles.length === 1 ? 'file' : 'files'}`
+        ? `${applyPatchFiles.length} ${applyPatchFiles.length === 1 ? "file" : "files"}`
         : info.subtitle,
-  }
+  };
 
   return (
     <ToolCardWithDetails
@@ -70,9 +81,13 @@ export function ApplyPatchTool({ part, state, info, defaultOpen }: ToolPartProps
           </div>
         ) : null}
         {showOutput ? (
-          <ToolOutputPanel output={output} status={state.status} copyLabel="Copy output" />
+          <ToolOutputPanel
+            output={output}
+            status={state.status}
+            copyLabel="Copy output"
+          />
         ) : null}
       </div>
     </ToolCardWithDetails>
-  )
+  );
 }

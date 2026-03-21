@@ -10,10 +10,11 @@
     "bun.lock",
     "*.tsbuildinfo",
     "**/routeTree.gen.ts",
+    "**/bindings.ts",
     "**/*.md",
     "**/*.txt"
   ],
-  "singleQuote": true,
+  "singleQuote": false,
   "semi": false,
   "sortPackageJson": {}
 }
