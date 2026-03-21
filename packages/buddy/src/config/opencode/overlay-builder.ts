@@ -4,6 +4,7 @@ import { fingerprintOpenCodeConfig } from "./fingerprint.js"
 import { parseConfiguredModel } from "./models.js"
 import { resolveBuddyBundledSkillRoots, resolveOpenCodeSkillPaths } from "./skills.js"
 import { getDefaultBuddyPersona } from "../../learning/personas"
+import { resolveBuddySystemPromptGuardPluginUrl } from "../../opencode-runtime"
 
 const BUDDY_RUNTIME_PERMISSION_OVERLAY: Config.Permission = {
   curriculum_read: "deny",
@@ -37,6 +38,7 @@ function orderAgentsWithDefaultFirst(agents: Record<string, Config.Agent>, defau
 
 async function buildOpenCodeConfigOverlay(input: { config: Config.Info; directory: string }) {
   const skillPaths = await resolveOpenCodeSkillPaths(input.config, input.directory)
+  const systemPromptGuardPlugin = resolveBuddySystemPromptGuardPluginUrl()
   const mergedAgents = applyBuddyPersonaHiddenFlags(
     mergeBuddyAndConfiguredAgents(input.config.agent ?? {}),
     input.config.personas,
@@ -59,6 +61,7 @@ async function buildOpenCodeConfigOverlay(input: { config: Config.Info; director
     ...(input.config.enabled_providers ? { enabled_providers: input.config.enabled_providers } : {}),
     ...(input.config.provider ? { provider: input.config.provider } : {}),
     ...(skillPaths ? { skills: { paths: skillPaths } } : {}),
+    ...(systemPromptGuardPlugin ? { plugin: [systemPromptGuardPlugin] } : {}),
     ...(input.config.mcp ? { mcp: input.config.mcp } : {}),
     agent: {
       ...orderedAgents,

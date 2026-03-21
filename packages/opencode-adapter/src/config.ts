@@ -15,15 +15,26 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value)
 }
 
-function mergeConfigValue<T>(base: T, overlay: unknown): T {
+function mergePluginValues(base: unknown, overlay: unknown) {
+  if (!Array.isArray(base) || !Array.isArray(overlay)) {
+    return overlay
+  }
+
+  return Array.from(new Set([...base, ...overlay]))
+}
+
+function mergeConfigValue<T>(base: T, overlay: unknown, key?: string): T {
   if (overlay === undefined) return base
+  if (key === "plugin") {
+    return mergePluginValues(base, overlay) as T
+  }
   if (!isPlainObject(base) || !isPlainObject(overlay)) {
     return overlay as T
   }
 
   const result: Record<string, unknown> = { ...base }
   for (const [key, value] of Object.entries(overlay)) {
-    result[key] = key in result ? mergeConfigValue(result[key], value) : value
+    result[key] = key in result ? mergeConfigValue(result[key], value, key) : value
   }
   return result as T
 }
