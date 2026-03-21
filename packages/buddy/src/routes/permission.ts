@@ -10,8 +10,7 @@ const permissionReplyRequestSchema = z.object({
   message: z.string().optional(),
 })
 
-export const PermissionRoutes = (): Hono =>
-  new Hono()
+export const PermissionRoutes = new Hono()
     .get(
       "/",
       describeRoute({

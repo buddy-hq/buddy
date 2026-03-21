@@ -18,8 +18,7 @@ const advancedMathRuntimeStatusSchema = z.object({
   supportedLibraries: z.array(z.string()),
 })
 
-export const LocalRuntimeRoutes = (): Hono =>
-  new Hono()
+export const LocalRuntimeRoutes = new Hono()
     .get(
       "/advanced-math",
       describeRoute({

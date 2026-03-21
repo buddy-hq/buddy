@@ -1,9 +1,8 @@
-import type { Context } from "hono"
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
 import { directoryQuerySchema, routeErrors, runRouteTask, withDirectoryRoute } from "../http"
-import { FigureNotFoundError, FigureService, InvalidFigureIDError } from "../learning/capabilities"
+import { FigureService, mapFigureRouteError } from "../learning/capabilities"
 
 const figureIDParamSchema = z.object({
   figureID: z.string(),
@@ -17,18 +16,7 @@ const figureSvgHeaders = {
   vary: "x-buddy-directory",
 }
 
-function mapFigureError(c: Context, error: unknown): Response | undefined {
-  if (error instanceof InvalidFigureIDError) {
-    return c.json({ error: error.message }, 400)
-  }
-  if (error instanceof FigureNotFoundError) {
-    return c.json({ error: error.message }, 404)
-  }
-  return undefined
-}
-
-export const FigureRoutes = (): Hono =>
-  new Hono().get(
+export const FigureRoutes = new Hono().get(
     figureSvgPath,
     describeRoute({
       operationId: "figure.read",
@@ -56,7 +44,7 @@ export const FigureRoutes = (): Hono =>
               headers: figureSvgHeaders,
             })
           },
-          mapError: (error) => mapFigureError(c, error),
+          mapError: mapFigureRouteError,
         }),
       ),
   )

@@ -1,4 +1,3 @@
-import type { Context } from "hono"
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
@@ -6,10 +5,10 @@ import { Config } from "@buddy/backend/config"
 import { MCP as OpenCodeMcp } from "@buddy/opencode-adapter/mcp"
 import {
   booleanJsonResponse,
+  createConfigSyncMiddleware,
   routeErrors,
   directoryQuerySchema,
   McpNameParamSchema,
-  withConfigSync,
 } from "../http"
 import { proxyToOpenCode } from "../http"
 
@@ -32,19 +31,8 @@ const mcpAuthRemovedSchema = z.object({
   success: z.literal(true),
 })
 
-function withMcpConfigSync(pathname: string) {
-  return async (c: Context, next: () => Promise<void>) => {
-    const syncResult = await withConfigSync(c, {
-      operation: `${pathname} MCP request`,
-    })
-    if (!syncResult.ok) return syncResult.response
-    await next()
-  }
-}
-
-export const McpRoutes = (): Hono =>
-  new Hono()
-    .use("*", withMcpConfigSync("any"))
+export const McpRoutes = new Hono()
+    .use("*", createConfigSyncMiddleware("MCP request"))
     .get(
       "/",
       describeRoute({

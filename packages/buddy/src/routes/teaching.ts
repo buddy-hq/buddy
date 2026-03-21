@@ -33,8 +33,7 @@ const checkpointResponseSchema = z.object({
   checkpointFilePath: z.string(),
 })
 
-export const TeachingRoutes = (): Hono =>
-  new Hono()
+export const TeachingRoutes = new Hono()
     .post(
       "/session/:sessionID/workspace",
       describeRoute({

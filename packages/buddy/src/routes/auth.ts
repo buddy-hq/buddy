@@ -7,8 +7,7 @@ import { proxyToOpenCode } from "../http"
 
 const credentialSetResponseSchema = resolver(z.boolean())
 
-export const AuthRoutes = (): Hono =>
-  new Hono()
+export const AuthRoutes = new Hono()
     .put(
       "/:providerID",
       describeRoute({

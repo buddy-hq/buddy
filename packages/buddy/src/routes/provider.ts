@@ -23,8 +23,7 @@ const providerListResponseSchema = z.object({
 
 const providerAuthResponseSchema = z.record(z.string(), z.array(OpenCodeProviderAuth.Method))
 
-export const ProviderRoutes = (): Hono =>
-  new Hono()
+export const ProviderRoutes = new Hono()
     .get(
       "/",
       describeRoute({

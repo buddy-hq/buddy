@@ -101,8 +101,7 @@ const learnerWorkspaceResponseSchema = z.object({
   profile: ProfileArtifactSchema,
 })
 
-export const LearnerRoutes = (): Hono =>
-  new Hono()
+export const LearnerRoutes = new Hono()
     .get(
       "/snapshot",
       describeRoute({

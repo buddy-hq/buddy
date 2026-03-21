@@ -9,8 +9,7 @@ const projectUpdateBodySchema = OpenCodeProject.update.schema.omit({
   projectID: true,
 })
 
-export const ProjectRoutes = (): Hono =>
-  new Hono()
+export const ProjectRoutes = new Hono()
     .get(
       "/",
       describeRoute({

@@ -1,12 +1,10 @@
-import type { Context } from "hono"
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
 import { directoryQuerySchema, routeErrors, runRouteTask, withDirectoryRoute } from "../http"
 import {
-  FreeformFigureNotFoundError,
   FreeformFigureService,
-  InvalidFreeformFigureIDError,
+  mapFreeformFigureRouteError,
 } from "../learning/capabilities"
 
 const figureIDParamSchema = z.object({
@@ -21,18 +19,7 @@ const freeformFigureSvgHeaders = {
   vary: "x-buddy-directory",
 }
 
-function mapFreeformFigureError(c: Context, error: unknown): Response | undefined {
-  if (error instanceof InvalidFreeformFigureIDError) {
-    return c.json({ error: error.message }, 400)
-  }
-  if (error instanceof FreeformFigureNotFoundError) {
-    return c.json({ error: error.message }, 404)
-  }
-  return undefined
-}
-
-export const FreeformFigureRoutes = (): Hono =>
-  new Hono().get(
+export const FreeformFigureRoutes = new Hono().get(
     freeformFigureSvgPath,
     describeRoute({
       operationId: "freeformFigure.read",
@@ -60,7 +47,7 @@ export const FreeformFigureRoutes = (): Hono =>
               headers: freeformFigureSvgHeaders,
             })
           },
-          mapError: (error) => mapFreeformFigureError(c, error),
+          mapError: mapFreeformFigureRouteError,
         }),
       ),
   )

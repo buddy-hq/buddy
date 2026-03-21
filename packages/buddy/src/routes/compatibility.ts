@@ -23,8 +23,7 @@ const healthResponseSchema = z.object({
   version: z.string(),
 })
 
-export const CompatibilityRoutes = (): Hono =>
-  new Hono()
+export const CompatibilityRoutes = new Hono()
     .get(
       "/health",
       describeRoute({

@@ -42,12 +42,7 @@ const providerConfigResponseSchema = z.object({
   default: z.record(z.string(), z.string()),
 })
 
-function mapConfigError(error: unknown): Response | undefined {
-  return mapConfigRouteError(error)
-}
-
-export const ConfigRoutes = (): Hono =>
-  new Hono()
+export const ConfigRoutes = new Hono()
     .get(
       "/personas",
       describeRoute({
@@ -73,7 +68,7 @@ export const ConfigRoutes = (): Hono =>
               const personas = await listProjectPersonas(context.directory)
               return c.json(personas)
             },
-            mapError: mapConfigError,
+            mapError: mapConfigRouteError,
           }),
         ),
     )
@@ -102,7 +97,7 @@ export const ConfigRoutes = (): Hono =>
               const agents = await listProjectAgents(context.directory)
               return c.json(agents)
             },
-            mapError: mapConfigError,
+            mapError: mapConfigRouteError,
           }),
         ),
     )
@@ -154,7 +149,7 @@ export const ConfigRoutes = (): Hono =>
               const config = await readProjectConfig(context.directory)
               return c.json(config)
             },
-            mapError: mapConfigError,
+            mapError: mapConfigRouteError,
           }),
         ),
     )
@@ -185,7 +180,7 @@ export const ConfigRoutes = (): Hono =>
               })
               return c.json(config)
             },
-            mapError: mapConfigError,
+            mapError: mapConfigRouteError,
           }),
         ),
     )
@@ -218,7 +213,7 @@ export const ConfigRoutes = (): Hono =>
               })
               return c.json(config)
             },
-            mapError: mapConfigError,
+            mapError: mapConfigRouteError,
           }),
         ),
     )
