@@ -6,6 +6,7 @@ import {
   type TeachingLlmOutboundSnapshot,
   type TeachingSessionSnapshot,
 } from "@/state/chat-actions"
+import { useChatStore } from "@/state/chat-store"
 
 type SystemPromptPanelProps = {
   directory: string
@@ -30,10 +31,6 @@ function readSystemPromptText(entry: TeachingLlmOutboundSnapshot | undefined) {
   if (typeof entry.fullSystemPrompt === "string" && entry.fullSystemPrompt.trim().length > 0) {
     return entry.fullSystemPrompt
   }
-  const payloadSystem = entry.payload.system
-  if (typeof payloadSystem === "string") return payloadSystem
-  if (typeof entry.systemPromptEffective === "string") return entry.systemPromptEffective
-  if (typeof entry.systemPromptSent === "string") return entry.systemPromptSent
   return undefined
 }
 
@@ -61,6 +58,11 @@ export function SystemPromptPanel(props: SystemPromptPanelProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | undefined>(undefined)
   const requestCounterRef = useRef(0)
+  const activeSessionBusy = useChatStore((state) => {
+    const directoryState = state.directories[props.directory]
+    if (!directoryState || !props.sessionID) return false
+    return directoryState.sessionStatusByID[props.sessionID] === "busy"
+  })
 
   const lastOutbound = useMemo(() => readLastOutboundEntry(runtime), [runtime])
   const systemPromptText = useMemo(() => readSystemPromptText(lastOutbound), [lastOutbound])
@@ -87,7 +89,11 @@ export function SystemPromptPanel(props: SystemPromptPanelProps) {
     try {
       const next = await loadTeachingSessionState(props.directory, props.sessionID)
       if (requestID !== requestCounterRef.current) return
-      setRuntime(next)
+      if (next) {
+        setRuntime(next)
+      } else {
+        setRuntime((current) => (current?.sessionId === props.sessionID ? current : undefined))
+      }
       setError(undefined)
     } catch (runtimeError) {
       if (requestID !== requestCounterRef.current) return
@@ -102,6 +108,18 @@ export function SystemPromptPanel(props: SystemPromptPanelProps) {
   useEffect(() => {
     void refresh()
   }, [props.directory, props.sessionID, props.refreshToken])
+
+  useEffect(() => {
+    if (!props.sessionID || !activeSessionBusy) return
+
+    const interval = window.setInterval(() => {
+      void refresh({ silent: true })
+    }, 750)
+
+    return () => {
+      window.clearInterval(interval)
+    }
+  }, [activeSessionBusy, props.directory, props.sessionID, props.refreshToken])
 
   return (
     <div className={`flex h-full min-h-0 flex-col gap-3 p-3 ${props.className ?? ""}`} style={props.style}>
@@ -147,7 +165,9 @@ export function SystemPromptPanel(props: SystemPromptPanelProps) {
             </div>
           ) : (
             <div className="p-3 text-sm text-muted-foreground">
-              {loading ? "Loading last system prompt..." : "No system prompt has been recorded for this session yet."}
+              {loading || activeSessionBusy
+                ? "Capturing the latest system prompt..."
+                : "No system prompt has been recorded for this session yet."}
             </div>
           )}
         </div>

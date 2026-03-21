@@ -72,12 +72,7 @@ import {
   updateSession,
 } from "../state/chat-actions"
 import { addResource, rebuildResource, removeResource } from "../state/resource-actions"
-import {
-  clonePromptDraft,
-  createTextPromptDraft,
-  getPromptDraft,
-  usePromptStore,
-} from "../state/prompt-store"
+import { clonePromptDraft, createTextPromptDraft, getPromptDraft, usePromptStore } from "../state/prompt-store"
 import { useChatStore } from "../state/chat-store"
 import { stringifyError } from "../state/teaching-actions"
 import {
@@ -88,10 +83,7 @@ import {
   type TeachingLanguage,
   type TeachingIntent,
 } from "../state/teaching-runtime"
-import {
-  buildCommandAttachmentParts,
-  buildPromptSubmissionParts,
-} from "../lib/directory-chat/chat-prompt-helpers"
+import { buildCommandAttachmentParts, buildPromptSubmissionParts } from "../lib/directory-chat/chat-prompt-helpers"
 import { buildSessionTrace, copyToClipboard } from "../lib/directory-chat/chat-debug-helpers"
 import { useDirectoryChatState } from "../lib/directory-chat/use-directory-chat-state"
 import { useChatSync } from "../lib/directory-chat/use-chat-sync"
@@ -120,8 +112,7 @@ function DirectoryChatPage() {
   const [resourcesRefreshToken, setResourcesRefreshToken] = useState(0)
   const [systemPromptRefreshToken, setSystemPromptRefreshToken] = useState(0)
   const [pendingSuggestionOverride, setPendingSuggestionOverride] = useState<
-    | { label: string; prompt: string; intent?: TeachingIntent; focusGoalIds: string[] }
-    | undefined
+    { label: string; prompt: string; intent?: TeachingIntent; focusGoalIds: string[] } | undefined
   >(undefined)
   const [isStartingInteractiveLesson, setIsStartingInteractiveLesson] = useState(false)
   const [createFileDialogOpen, setCreateFileDialogOpen] = useState(false)
@@ -163,10 +154,7 @@ function DirectoryChatPage() {
 
   const { slashCommands } = chatConfig
   const slashCommandCandidates = useMemo(
-    () => [
-      ...RESOURCE_LOCAL_SLASH_COMMANDS.map((command) => ({ name: command.name })),
-      ...slashCommands,
-    ],
+    () => [...RESOURCE_LOCAL_SLASH_COMMANDS.map((command) => ({ name: command.name })), ...slashCommands],
     [slashCommands],
   )
 
@@ -311,11 +299,7 @@ function DirectoryChatPage() {
   }, [selectedThinking, cs.thinkingOptions])
 
   // ── Teaching runtime sync ───────────────────────────────────────────────────
-  async function syncTeachingRuntimeSelection(input?: {
-    directory?: string
-    sessionID?: string
-    sessionKey?: string
-  }) {
+  async function syncTeachingRuntimeSelection(input?: { directory?: string; sessionID?: string; sessionKey?: string }) {
     const activeDirectory = input?.directory ?? decodedDirectory
     const activeSessionID = input?.sessionID ?? cs.sessionID
     const activeSessionKey = input?.sessionKey ?? cs.sessionKey
@@ -389,9 +373,7 @@ function DirectoryChatPage() {
     if (!targetDirectory) return
     try {
       await updateSession({ directory: targetDirectory, sessionID: targetSessionID, archivedAt: Date.now() })
-      cs.removePromptDraft(
-        (await import("../state/prompt-store")).getPromptScopeKey(targetDirectory, targetSessionID),
-      )
+      cs.removePromptDraft((await import("../state/prompt-store")).getPromptScopeKey(targetDirectory, targetSessionID))
       cs.clearDirectorySessionState(targetDirectory, targetSessionID)
       await loadSessions(targetDirectory)
       await loadPermissions(targetDirectory)
@@ -565,14 +547,10 @@ function DirectoryChatPage() {
     }
 
     const variant = selectedThinking !== "default" ? selectedThinking : undefined
-    const activeWorkspace = cs.sessionKey
-      ? useTeachingRuntime.getState().workspaceBySession[cs.sessionKey]
-      : undefined
+    const activeWorkspace = cs.sessionKey ? useTeachingRuntime.getState().workspaceBySession[cs.sessionKey] : undefined
     const teachingContext = await resolveTeachingPromptContext({
       workspace: activeWorkspace,
-      pendingWorkspace: cs.sessionKey
-        ? teachingWs.workspaceProbeBySessionRef.current.get(cs.sessionKey)
-        : undefined,
+      pendingWorkspace: cs.sessionKey ? teachingWs.workspaceProbeBySessionRef.current.get(cs.sessionKey) : undefined,
     })
 
     await sendPrompt(decodedDirectory, promptParts.length > 0 ? "" : content, {
@@ -782,14 +760,16 @@ function DirectoryChatPage() {
               sessionStatusByDirectory={cs.sessionStatusByDirectory}
               pinnedByDirectory={cs.pinnedByDirectory}
               unreadByDirectory={cs.unreadByDirectory}
-              onOpenDirectory={() => { void onOpenProject() }}
-              onNewSession={(targetDirectory) => { void onNewSession(targetDirectory) }}
+              onOpenDirectory={() => {
+                void onOpenProject()
+              }}
+              onNewSession={(targetDirectory) => {
+                void onNewSession(targetDirectory)
+              }}
               onSelectSession={(targetDirectory, targetSessionID) => {
                 void onSelectSession(targetDirectory, targetSessionID)
               }}
-              onTogglePin={(targetDirectory, targetSessionID) =>
-                cs.togglePinned(targetDirectory, targetSessionID)
-              }
+              onTogglePin={(targetDirectory, targetSessionID) => cs.togglePinned(targetDirectory, targetSessionID)}
               onToggleUnread={onToggleUnreadSession}
               onArchiveSession={onArchiveSession}
               onRenameSession={onRenameSession}
@@ -841,7 +821,9 @@ function DirectoryChatPage() {
                   <Button
                     variant="ghost"
                     size="icon-xs"
-                    onClick={() => { void onSelectSession(decodedDirectory, cs.parentSession!.id) }}
+                    onClick={() => {
+                      void onSelectSession(decodedDirectory, cs.parentSession!.id)
+                    }}
                     title={`Back to ${cs.parentSession.title || "parent thread"}`}
                   >
                     <ChevronRightIcon className="size-3.5 rotate-180" />
@@ -898,9 +880,6 @@ function DirectoryChatPage() {
                     Copy Trace
                   </Button>
                 ) : null}
-                {showDevSessionTrace && (
-                  <span className="text-xs text-muted-foreground hidden lg:inline">SSE: {cs.streamStatus}</span>
-                )}
               </div>
             </div>
           </header>
@@ -958,7 +937,10 @@ function DirectoryChatPage() {
                   directory={decodedDirectory}
                   sessionID={cs.sessionID}
                   isBusy={cs.isBusy}
-                  personaOptions={cs.primaryPersonaOptions.map((persona) => ({ name: persona.id, label: persona.label }))}
+                  personaOptions={cs.primaryPersonaOptions.map((persona) => ({
+                    name: persona.id,
+                    label: persona.label,
+                  }))}
                   mentionableAgents={EMPTY_MENTIONABLE_AGENTS}
                   slashCommands={slashCommands}
                   modelOptions={cs.modelOptions}
@@ -970,18 +952,28 @@ function DirectoryChatPage() {
                   selectedThinking={selectedThinking}
                   onPersonaChange={onPersonaChange}
                   onIntentChange={onIntentChange}
-                  onClearPendingSteer={() => { setPendingSuggestionOverride(undefined) }}
+                  onClearPendingSteer={() => {
+                    setPendingSuggestionOverride(undefined)
+                  }}
                   onModelChange={(model) => {
                     if (!decodedDirectory) return
                     cs.setSelectedModel(decodedDirectory, model)
                   }}
                   onThinkingChange={setSelectedThinking}
-                  onAbort={() => { void onAbort() }}
-                  onNewSession={() => { void onNewSession() }}
-                  onOpenMcpDialog={() => { setMcpDialogOpen(true) }}
+                  onAbort={() => {
+                    void onAbort()
+                  }}
+                  onNewSession={() => {
+                    void onNewSession()
+                  }}
+                  onOpenMcpDialog={() => {
+                    setMcpDialogOpen(true)
+                  }}
                   onSearchFiles={onSearchMentionFiles}
                   onRefreshSlashCommands={chatConfig.refreshSlashCommands}
-                  onSubmit={() => { void onSend() }}
+                  onSubmit={() => {
+                    void onSend()
+                  }}
                 />
               </div>
             </div>
@@ -1022,7 +1014,9 @@ function DirectoryChatPage() {
               sessionID={cs.sessionID}
               persona={cs.selectedPersona}
               intent={intentFromSelection(cs.storedIntent)}
-              onRunAction={(action) => { void onRunLearningPlanAction(action) }}
+              onRunAction={(action) => {
+                void onRunLearningPlanAction(action)
+              }}
               editorPanel={
                 cs.selectedPersonaSupportsEditor ? (
                   cs.isInteractiveMode ? (
@@ -1032,12 +1026,20 @@ function DirectoryChatPage() {
                         workspace={cs.teachingWorkspace}
                         isBusy={cs.isBusy}
                         onCodeChange={teachingWs.onTeachingCodeChange}
-                        onSelectFile={(relativePath) => { void teachingWs.onTeachingSelectFile(relativePath) }}
-                        onCreateFile={() => { onTeachingCreateFile() }}
+                        onSelectFile={(relativePath) => {
+                          void teachingWs.onTeachingSelectFile(relativePath)
+                        }}
+                        onCreateFile={() => {
+                          onTeachingCreateFile()
+                        }}
                         onSelectionChange={teachingWs.onTeachingSelectionChange}
                         onLanguageChange={teachingWs.onTeachingLanguageChange}
-                        onCheckpoint={() => { void teachingWs.onTeachingCheckpoint() }}
-                        onRestoreAccepted={() => { void teachingWs.onTeachingRestoreAccepted() }}
+                        onCheckpoint={() => {
+                          void teachingWs.onTeachingCheckpoint()
+                        }}
+                        onRestoreAccepted={() => {
+                          void teachingWs.onTeachingRestoreAccepted()
+                        }}
                         onLoadExternalChanges={teachingWs.onLoadExternalChanges}
                         onForceOverwrite={teachingWs.onForceOverwrite}
                       />

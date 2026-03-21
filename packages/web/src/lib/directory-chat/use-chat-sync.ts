@@ -70,7 +70,12 @@ export function useChatSync(props: UseChatSyncProps) {
                 ? String((rawStatus as { type?: unknown }).type ?? "idle")
                 : "idle"
           const normalizedStatus = statusType === "busy" || statusType === "retry" ? "busy" : "idle"
-          props.applySessionStatus(directory, String(properties.sessionID ?? ""), normalizedStatus)
+          const statusSessionID = String(properties.sessionID ?? "")
+          props.applySessionStatus(directory, statusSessionID, normalizedStatus)
+          const activeSessionID = useChatStore.getState().directories[directory]?.sessionID
+          if (normalizedStatus === "idle" && statusSessionID && statusSessionID === activeSessionID) {
+            props.setSystemPromptRefreshToken((token) => token + 1)
+          }
           return
         }
 
@@ -87,13 +92,10 @@ export function useChatSync(props: UseChatSyncProps) {
         if (payload.type === "message.updated") {
           const info = properties.info as MessageInfo
           props.applyMessageUpdated(directory, info)
-          const activeSessionID = useChatStore.getState().directories[directory]?.sessionID
-          if (info.role === "user" && info.sessionID && info.sessionID === activeSessionID) {
-            props.setSystemPromptRefreshToken((token) => token + 1)
-          }
           if (info.role === "assistant" && !info.error && (!!info.finish || !!info.time.completed)) {
             props.clearDirectoryError(directory)
           }
+          const activeSessionID = useChatStore.getState().directories[directory]?.sessionID
           if (info.role === "assistant" && info.sessionID && info.sessionID !== activeSessionID) {
             useUiPreferences.getState().markUnread(directory, info.sessionID)
           }
@@ -143,6 +145,7 @@ export function useChatSync(props: UseChatSyncProps) {
     props.applySessionUpdated,
     props.clearDirectoryError,
     props.setDirectoryError,
+    props.setSystemPromptRefreshToken,
     props.setStreamStatus,
   ])
 
