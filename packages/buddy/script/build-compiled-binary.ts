@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs"
+import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs"
 import path from "node:path"
 
 const loader = {
@@ -85,6 +85,8 @@ export async function buildCompiledBuddyBinary(input: BuildCompiledBuddyBinaryIn
   const buddyMigrationDir = path.resolve(backendDir, "migration")
   const opencodeMigrationDir = path.resolve(backendDir, "../../vendor/opencode/packages/opencode/migration")
   const buddySkillsDir = path.resolve(backendDir, "src/learning/capabilities/pedagogy/skills")
+  const opencodeRuntimePluginsDir = path.resolve(backendDir, "src/opencode-runtime/plugins")
+  const systemPromptCaptureModule = path.resolve(backendDir, "src/opencode-runtime/system-prompt-capture.ts")
 
   const buddyMigrations = loadMigrations(buddyMigrationDir, "Buddy")
   const opencodeMigrations = loadMigrations(opencodeMigrationDir, "OpenCode")
@@ -126,6 +128,18 @@ export async function buildCompiledBuddyBinary(input: BuildCompiledBuddyBinaryIn
         rmSync(bundledSkillsTarget, { recursive: true, force: true })
         mkdirSync(path.dirname(bundledSkillsTarget), { recursive: true })
         cpSync(buddySkillsDir, bundledSkillsTarget, { recursive: true, dereference: true })
+      }
+
+      if (existsSync(opencodeRuntimePluginsDir)) {
+        const bundledPluginsTarget = path.resolve(bundleOutdir, "plugins")
+        rmSync(bundledPluginsTarget, { recursive: true, force: true })
+        mkdirSync(path.dirname(bundledPluginsTarget), { recursive: true })
+        cpSync(opencodeRuntimePluginsDir, bundledPluginsTarget, { recursive: true, dereference: true })
+      }
+
+      if (existsSync(systemPromptCaptureModule)) {
+        const bundledCaptureTarget = path.resolve(bundleOutdir, "system-prompt-capture.ts")
+        copyFileSync(systemPromptCaptureModule, bundledCaptureTarget)
       }
     }
 
