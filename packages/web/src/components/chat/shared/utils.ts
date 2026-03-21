@@ -42,7 +42,7 @@ export function titleCase(value?: string): string {
 export function basename(path: string): string {
   const normalized = path.replace(/\\+/g, "/")
   const segments = normalized.split("/").filter(Boolean)
-  return segments.at(-1) ?? path
+  return segments.length > 0 ? segments[segments.length - 1] : path
 }
 
 export function dirname(path: string): string {

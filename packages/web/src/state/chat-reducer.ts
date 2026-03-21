@@ -8,7 +8,7 @@ function isAssistantMessage(
 
 export function inferBusyFromMessages(messages: MessageWithParts[]) {
   const assistantMessages = messages.filter(isAssistantMessage)
-  const lastAssistant = assistantMessages.at(-1)
+  const lastAssistant = assistantMessages[assistantMessages.length - 1]
   if (!lastAssistant) return false
 
   if (lastAssistant.info.error) return false

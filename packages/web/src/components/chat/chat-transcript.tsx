@@ -132,6 +132,8 @@ function reasoningHeading(text: string): string | undefined {
     const value = cleanReasoningHeading(strong[1])
     if (value) return value
   }
+
+  return undefined
 }
 
 function groupAssistantParts(parts: MessagePart[], showReasoningSummaries: boolean): AssistantRenderItem[] {
@@ -391,12 +393,12 @@ const TurnRenderer = memo(function TurnRenderer({
         .filter((part): part is MessagePart & { type: "reasoning"; text: string } => part.type === "reasoning")
         .map((part) => reasoningHeading(String(part.text ?? "")))
         .filter((value): value is string => Boolean(value))
-        .at(-1),
+        .slice(-1)[0],
     [assistantParts],
   )
 
-  const lastAssistantTextID = assistantTextParts.at(-1)?.id
-  const lastAssistantInfo = assistantMessages.at(-1)?.info
+  const lastAssistantTextID = assistantTextParts[assistantTextParts.length - 1]?.id
+  const lastAssistantInfo = assistantMessages[assistantMessages.length - 1]?.info
   const assistantCopyPartID = isBusy && isLastTurn ? undefined : lastAssistantTextID
   const assistantAborted = lastAssistantInfo?.role === "assistant" && lastAssistantInfo.finish === "aborted"
   const assistantErrored = Boolean(lastAssistantInfo?.role === "assistant" && lastAssistantInfo.error)
@@ -412,7 +414,7 @@ const TurnRenderer = memo(function TurnRenderer({
       ? assistantCompleted - turnStart
       : undefined
   const assistantMetaText = useMemo(() => {
-    const info = assistantMessages.at(-1)?.info
+    const info = assistantMessages[assistantMessages.length - 1]?.info
     if (!info) return ""
     const tokenContext = tokenContextLabel(info, providers)
     return [
