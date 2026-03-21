@@ -92,7 +92,7 @@ function buildFileTree(files: TeachingWorkspaceFile[]): TeachingFileTreeNode[] {
 
   function toNodes(bucket: TeachingFileTreeBucket, prefix = ''): TeachingFileTreeNode[] {
     const directoryNodes = Array.from(bucket.directories.entries())
-      .sort(([left], [right]) => left.localeCompare(right))
+      .toSorted(([left], [right]) => left.localeCompare(right))
       .map(([segment, child]) => {
         const key = prefix ? `${prefix}/${segment}` : segment
         return {
@@ -104,7 +104,7 @@ function buildFileTree(files: TeachingWorkspaceFile[]): TeachingFileTreeNode[] {
       })
 
     const fileNodes = [...bucket.files]
-      .sort((left, right) => left.relativePath.localeCompare(right.relativePath))
+      .toSorted((left, right) => left.relativePath.localeCompare(right.relativePath))
       .map((file) => {
         const segments = file.relativePath.split('/')
         return {

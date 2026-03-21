@@ -49,10 +49,7 @@ function repairGeometryFigureSpec(
           return undefined
         }
 
-        return {
-          ...polygon,
-          points: uniqueValidPointIDs,
-        }
+        return Object.assign(polygon, {points:uniqueValidPointIDs})
       })
       .filter((polygon): polygon is NonNullable<typeof polygon> => polygon !== undefined),
   )

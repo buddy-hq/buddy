@@ -242,7 +242,7 @@ async function readCuratedSkillsFromRepository(
 
   const skills: CuratedLibrarySkill[] = []
 
-  for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+  for (const entry of entries.toSorted((left, right) => left.name.localeCompare(right.name))) {
     if (!entry.isDirectory()) continue
     const sourceDirectory = path.join(curatedRoot, entry.name)
     const skillFile = path.join(sourceDirectory, 'SKILL.md')
@@ -259,7 +259,7 @@ async function readCuratedSkillsFromRepository(
     )
   }
 
-  return skills.sort((left, right) => left.name.localeCompare(right.name))
+  return skills.toSorted((left, right) => left.name.localeCompare(right.name))
 }
 
 export async function listCuratedLibrarySkills(options?: {

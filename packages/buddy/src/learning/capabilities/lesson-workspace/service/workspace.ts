@@ -260,10 +260,7 @@ export async function syncRecord(directory: string, record: TeachingWorkspaceRec
         if (file.relativePath === normalized.activeRelativePath) {
           activeCode = code
         }
-        return {
-          ...file,
-          fileHash: nextHash,
-        }
+        return Object.assign(file, {fileHash:nextHash})
       }),
     )
   ).filter((file): file is TeachingWorkspaceFileRecord => Boolean(file))

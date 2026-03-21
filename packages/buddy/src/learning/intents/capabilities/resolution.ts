@@ -76,7 +76,7 @@ export function resolveIntentPermissions(input: {
       .map((capability) => capability.tool.id),
   )
 
-  const managedToolIds = TOOL_CAPABILITY_REGISTRY.map((capability) => capability.tool.id).sort(
+  const managedToolIds = TOOL_CAPABILITY_REGISTRY.map((capability) => capability.tool.id).toSorted(
     (a, b) => a.localeCompare(b),
   )
 

@@ -82,7 +82,7 @@ export async function listResources(directory: string): Promise<ResourceRecord[]
       }),
     ),
   )
-  return records.sort((left, right) => left.alias.localeCompare(right.alias))
+  return records.toSorted((left, right) => left.alias.localeCompare(right.alias))
 }
 
 export async function addResource(input: {
@@ -391,7 +391,7 @@ async function resolvePrimarySourcePathForAlias(
     .filter((entry) => entry.isFile())
     .filter((entry) => !entry.name.startsWith('.'))
     .map((entry) => entry.name)
-    .sort((left, right) => left.localeCompare(right))
+    .toSorted((left, right) => left.localeCompare(right))
 
   const firstFile = files[0]
   if (!firstFile) return undefined

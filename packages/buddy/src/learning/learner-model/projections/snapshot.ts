@@ -159,22 +159,22 @@ function buildDecisionInputFingerprint(input: {
     `persona:${input.query.persona}`,
     `intent:${input.query.intent ?? ''}`,
     `workspaceState:${input.query.workspaceState ?? ''}`,
-    `focusGoals:${[...input.query.focusGoalIds].sort().join(',')}`,
+    `focusGoals:${[...input.query.focusGoalIds].toSorted().join(',')}`,
     `goals:${[...input.goals]
       .map((goal) => `${goal.id}@${goal.updatedAt}`)
-      .sort()
+      .toSorted()
       .join(',')}`,
     `feedback:${[...input.openFeedback]
       .map((feedback) => `${feedback.id}@${feedback.updatedAt}`)
-      .sort()
+      .toSorted()
       .join(',')}`,
     `misconceptions:${[...input.activeMisconceptions]
       .map((record) => `${record.id}@${record.updatedAt}`)
-      .sort()
+      .toSorted()
       .join(',')}`,
     `evidence:${[...input.recentEvidence]
       .map((record) => `${record.id}@${record.updatedAt}`)
-      .sort()
+      .toSorted()
       .join(',')}`,
     `constraints:${input.constraintsSummary.join('|')}`,
   ].join('\n')
@@ -224,7 +224,7 @@ export namespace LearnerSnapshotCompiler {
         if (record.goalIds.length === 0) return false
         return input.query.focusGoalIds.every((goalId) => record.goalIds.includes(goalId))
       })
-      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0]
+      .toSorted((left, right) => right.createdAt.localeCompare(left.createdAt))[0]
 
     const planResult = SnapshotPlanSchema.safeParse(latestPlan?.payload)
     const plan = planResult.success ? planResult.data : fallbackPlan()
@@ -253,7 +253,7 @@ export namespace LearnerSnapshotCompiler {
         (record) =>
           record.goalIds.length === 0 || record.goalIds.some((goalId) => scopedGoalIds.has(goalId)),
       )
-      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+      .toSorted((left, right) => right.createdAt.localeCompare(left.createdAt))
       .slice(0, 20)
     const decisionInputFingerprint = buildDecisionInputFingerprint({
       query: input.query,

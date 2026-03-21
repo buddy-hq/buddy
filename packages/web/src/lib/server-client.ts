@@ -83,7 +83,7 @@ export function createServerFetchTransport(baseUrl: string) {
         referrer: input.referrer,
         referrerPolicy: input.referrerPolicy,
         signal: input.signal,
-        ...(init ?? {}),
+        ...init,
       })
     }
     return transport(input, init)

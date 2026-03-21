@@ -69,7 +69,7 @@ function loadMigrations(dir: string, label: string): MigrationEntry[] {
       } satisfies MigrationEntry
     })
     .filter((entry): entry is MigrationEntry => !!entry)
-    .sort((left, right) => left.timestamp - right.timestamp)
+    .toSorted((left, right) => left.timestamp - right.timestamp)
 
   return entries
 }

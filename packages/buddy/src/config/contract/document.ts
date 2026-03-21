@@ -71,7 +71,7 @@ export async function loadConfigText(
       const resolvedPath = path.isAbsolute(filePath) ? filePath : path.resolve(configDir, filePath)
       const content = await fsp.readFile(resolvedPath, 'utf8').catch((error: unknown) => {
         const err = error as { code?: string }
-        const base = `bad file reference: \"${match}\"`
+        const base = `bad file reference: "${match}"`
         if (err.code === 'ENOENT') {
           throw new InvalidError(
             { path: source, message: `${base} ${resolvedPath} does not exist` },

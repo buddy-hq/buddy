@@ -34,7 +34,7 @@ function findDuplicateLearningToolIds(tools: readonly BuddyTool[]): string[] {
   return [...counts.entries()]
     .filter(([, count]) => count > 1)
     .map(([id]) => id)
-    .sort((left, right) => left.localeCompare(right))
+    .toSorted((left, right) => left.localeCompare(right))
 }
 
 export function assertUniqueLearningToolIds(tools: readonly BuddyTool[]): void {

@@ -26,7 +26,7 @@ function buildOpenCodePermissionOverlay(
   permission: Config.Permission | undefined,
 ): Config.Permission {
   return {
-    ...(permission ?? {}),
+    ...permission,
     ...BUDDY_RUNTIME_PERMISSION_OVERLAY,
   }
 }

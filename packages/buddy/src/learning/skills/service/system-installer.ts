@@ -19,7 +19,7 @@ async function readDirectoryEntries(directory: string) {
 }
 
 function sortByName<T extends { name: string }>(entries: T[]) {
-  return entries.sort((left, right) => left.name.localeCompare(right.name))
+  return entries.toSorted((left, right) => left.name.localeCompare(right.name))
 }
 
 async function listFilesRecursively(directory: string): Promise<string[]> {
@@ -64,7 +64,7 @@ async function collectBundledSystemSkillDirectories(
     }
   }
 
-  return Array.from(sources.values()).sort((left, right) => left.name.localeCompare(right.name))
+  return Array.from(sources.values()).toSorted((left, right) => left.name.localeCompare(right.name))
 }
 
 async function fingerprintBundledSources(sources: BundledSkillSource[]) {

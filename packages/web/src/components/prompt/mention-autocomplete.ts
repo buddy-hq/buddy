@@ -65,7 +65,7 @@ export function filterMentionableAgents(agents: MentionableAgent[], query: strin
       if (!normalized) return true
       return agent.name.toLowerCase().includes(normalized)
     })
-    .sort((left, right) => {
+    .toSorted((left, right) => {
       const scoreDiff = mentionScore(left, normalized) - mentionScore(right, normalized)
       if (scoreDiff !== 0) return scoreDiff
       return left.name.localeCompare(right.name)
@@ -89,7 +89,7 @@ export function filterMentionableFiles(files: MentionableFile[], query: string) 
       if (!normalized) return true
       return file.path.toLowerCase().includes(normalized)
     })
-    .sort((left, right) => {
+    .toSorted((left, right) => {
       const scoreDiff = fileMentionScore(left, normalized) - fileMentionScore(right, normalized)
       if (scoreDiff !== 0) return scoreDiff
       return left.path.localeCompare(right.path)

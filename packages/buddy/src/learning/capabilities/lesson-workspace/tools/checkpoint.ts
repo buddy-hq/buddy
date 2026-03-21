@@ -26,7 +26,7 @@ const teachingCheckpointTool = createBuddyTool('teaching_checkpoint', {
       }
     } catch (error) {
       if (error instanceof TeachingWorkspaceNotFoundError) {
-        throw new Error('No teaching workspace exists for this session yet')
+        throw new Error('No teaching workspace exists for this session yet', { cause: error })
       }
       throw error
     }

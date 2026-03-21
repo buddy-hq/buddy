@@ -33,7 +33,7 @@ async function readKindArtifacts(
     artifacts.push(parsed.frontmatter)
   }
 
-  return artifacts.sort((left, right) => left.createdAt.localeCompare(right.createdAt))
+  return artifacts.toSorted((left, right) => left.createdAt.localeCompare(right.createdAt))
 }
 
 export async function upsertArtifact(
@@ -128,5 +128,5 @@ export async function listArtifacts(input: {
       if ('status' in record) return String(record.status) === input.status
       return false
     })
-    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+    .toSorted((left, right) => right.createdAt.localeCompare(left.createdAt))
 }

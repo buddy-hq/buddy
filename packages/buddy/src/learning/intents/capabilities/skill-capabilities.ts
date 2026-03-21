@@ -55,5 +55,5 @@ export function listSkillCapabilities(): SkillCapability[] {
 export function managedSkillNames(): string[] {
   return Array.from(
     new Set(SKILL_CAPABILITY_REGISTRY.map((capability) => capability.skillName)),
-  ).sort((a, b) => a.localeCompare(b))
+  ).toSorted((a, b) => a.localeCompare(b))
 }

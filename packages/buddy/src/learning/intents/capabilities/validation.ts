@@ -16,7 +16,7 @@ function duplicateValues(values: string[]): string[] {
   return [...counts.entries()]
     .filter(([, count]) => count > 1)
     .map(([value]) => value)
-    .sort((a, b) => a.localeCompare(b))
+    .toSorted((a, b) => a.localeCompare(b))
 }
 
 type ValidationInput = {
@@ -76,35 +76,35 @@ function assertManifestIntegrity(input: ValidationInput) {
     )
     if (duplicateToolKeys.length > 0) {
       throw new Error(
-        `Intent manifest \"${manifest.intent}\" contains duplicate tool capability keys: ${duplicateToolKeys.join(', ')}`,
+        `Intent manifest "${manifest.intent}" contains duplicate tool capability keys: ${duplicateToolKeys.join(', ')}`,
       )
     }
 
     const duplicateSkillKeys = duplicateValues(manifest.skillCapabilityKeys)
     if (duplicateSkillKeys.length > 0) {
       throw new Error(
-        `Intent manifest \"${manifest.intent}\" contains duplicate skill capability keys: ${duplicateSkillKeys.join(', ')}`,
+        `Intent manifest "${manifest.intent}" contains duplicate skill capability keys: ${duplicateSkillKeys.join(', ')}`,
       )
     }
 
     const unknownToolKeys = manifest.toolCapabilities
       .map((capability) => toolCapabilityKey(capability))
       .filter((key) => !knownToolCapabilityKeys.has(key))
-      .sort((a, b) => a.localeCompare(b))
+      .toSorted((a, b) => a.localeCompare(b))
 
     if (unknownToolKeys.length > 0) {
       throw new Error(
-        `Intent manifest \"${manifest.intent}\" references unknown tool capability keys: ${unknownToolKeys.join(', ')}`,
+        `Intent manifest "${manifest.intent}" references unknown tool capability keys: ${unknownToolKeys.join(', ')}`,
       )
     }
 
     const unknownSkillKeys = manifest.skillCapabilityKeys
       .filter((key) => !knownSkillCapabilityKeys.has(key))
-      .sort((a, b) => a.localeCompare(b))
+      .toSorted((a, b) => a.localeCompare(b))
 
     if (unknownSkillKeys.length > 0) {
       throw new Error(
-        `Intent manifest \"${manifest.intent}\" references unknown skill capability keys: ${unknownSkillKeys.join(', ')}`,
+        `Intent manifest "${manifest.intent}" references unknown skill capability keys: ${unknownSkillKeys.join(', ')}`,
       )
     }
 
@@ -128,7 +128,7 @@ function assertManifestIntegrity(input: ValidationInput) {
   const mixedTopics = [...crossTypeTopics.entries()]
     .filter(([, types]) => types.has('tool') && types.has('skill'))
     .map(([topic]) => topic)
-    .sort((a, b) => a.localeCompare(b))
+    .toSorted((a, b) => a.localeCompare(b))
 
   if (mixedTopics.length > 0) {
     throw new Error(

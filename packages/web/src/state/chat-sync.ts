@@ -269,7 +269,7 @@ export function startChatSync(handlers: SyncHandlers) {
           for (const message of parsed.messages) {
             handleParsedEvent(message)
           }
-        } catch (error) {
+        } catch  {
           if (disposed) return
           console.warn('[chat-sync] error', { attempt: attempt + 1 })
           scheduleReconnect(true)

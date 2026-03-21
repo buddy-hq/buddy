@@ -36,8 +36,8 @@ describe('learning tool contract', () => {
   test('keeps derived tool IDs aligned with registered learning tools and runtime permission overlay', () => {
     const registeredToolIds = allLearningTools()
       .map((tool) => tool.id)
-      .sort((left, right) => left.localeCompare(right))
-    const runtimeToolIds = allLearningToolIds().sort((left, right) => left.localeCompare(right))
+      .toSorted((left, right) => left.localeCompare(right))
+    const runtimeToolIds = allLearningToolIds().toSorted((left, right) => left.localeCompare(right))
 
     expect(registeredToolIds).toEqual(runtimeToolIds)
 
@@ -55,7 +55,7 @@ describe('learning tool contract', () => {
       .filter((rule) => rule.pattern === '*')
       .map((rule) => rule.permission)
       .filter((permission) => runtimeToolIdSet.has(permission))
-      .sort((left, right) => left.localeCompare(right))
+      .toSorted((left, right) => left.localeCompare(right))
 
     expect(runtimePermissions).toEqual(runtimeToolIds)
   })

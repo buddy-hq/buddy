@@ -51,7 +51,7 @@ export function filterSlashCommands(commands: SlashCommandOption[], query: strin
       if (command.name.toLowerCase().includes(normalized)) return true
       return command.title?.toLowerCase().includes(normalized) ?? false
     })
-    .sort((left, right) => {
+    .toSorted((left, right) => {
       const scoreDiff = slashScore(left, normalized) - slashScore(right, normalized)
       if (scoreDiff !== 0) return scoreDiff
       return left.name.localeCompare(right.name)

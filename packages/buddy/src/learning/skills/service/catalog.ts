@@ -72,7 +72,7 @@ async function readInstalledSkillEntries(input: {
 
   const ruleset = skillRuleset(config)
 
-  const sortedSkills = skills.slice().sort((left, right) => left.name.localeCompare(right.name))
+  const sortedSkills = skills.slice().toSorted((left, right) => left.name.localeCompare(right.name))
 
   return Promise.all(
     sortedSkills.map((skill) =>

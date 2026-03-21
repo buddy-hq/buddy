@@ -71,10 +71,10 @@ const teachingAddFileTool = createBuddyTool('teaching_add_file', {
       }
     } catch (error) {
       if (error instanceof TeachingWorkspaceNotFoundError) {
-        throw new Error('No teaching workspace exists for this session yet')
+        throw new Error('No teaching workspace exists for this session yet', { cause: error })
       }
       if (error instanceof TeachingWorkspaceFileError) {
-        throw new Error(error.message)
+        throw new Error(error.message, { cause: error })
       }
       throw error
     }

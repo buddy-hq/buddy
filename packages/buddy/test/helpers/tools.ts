@@ -36,7 +36,7 @@ export function requireTool(tools: RuntimeTool[], id: string): RuntimeTool {
 
   const available = tools
     .map((entry) => entry.id)
-    .sort()
+    .toSorted()
     .join(', ')
   throw new Error(`Tool "${id}" was not registered. Available tools: ${available}`)
 }

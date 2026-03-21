@@ -22,7 +22,7 @@ export function buildTeachingPromptContext(
     checkpointFilePath: workspace.checkpointFilePath,
     language: workspace.language,
     revision: workspace.revision,
-    ...(selection ?? {}),
+    ...selection,
   }
 }
 

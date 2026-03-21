@@ -74,7 +74,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
           unreadByDirectory: {
             ...state.unreadByDirectory,
             [directory]: {
-              ...(state.unreadByDirectory[directory] ?? {}),
+              ...state.unreadByDirectory[directory],
               [sessionID]: true,
             },
           },
@@ -82,7 +82,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
       },
       clearUnread(directory, sessionID) {
         set((state) => {
-          const current = { ...(state.unreadByDirectory[directory] ?? {}) }
+          const current = { ...state.unreadByDirectory[directory] }
           delete current[sessionID]
           return {
             unreadByDirectory: {
@@ -98,7 +98,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
       clearDirectorySessionState(directory, sessionID) {
         set((state) => {
           const pinned = (state.pinnedByDirectory[directory] ?? []).filter((id) => id !== sessionID)
-          const unread = { ...(state.unreadByDirectory[directory] ?? {}) }
+          const unread = { ...state.unreadByDirectory[directory] }
           delete unread[sessionID]
           return {
             pinnedByDirectory: {

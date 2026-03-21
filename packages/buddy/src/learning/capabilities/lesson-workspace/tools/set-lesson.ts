@@ -39,7 +39,7 @@ const teachingSetLessonTool = createBuddyTool('teaching_set_lesson', {
       }
     } catch (error) {
       if (error instanceof TeachingWorkspaceNotFoundError) {
-        throw new Error('No teaching workspace exists for this session yet')
+        throw new Error('No teaching workspace exists for this session yet', { cause: error })
       }
       throw error
     }

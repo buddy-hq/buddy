@@ -27,7 +27,7 @@ function planDecisionRequestKey(input: {
   query: DecisionPlanRequest
   allowGenerate?: boolean
 }) {
-  const stableSortedFocusGoalIds = Array.from(new Set(input.query.focusGoalIds)).sort()
+  const stableSortedFocusGoalIds = Array.from(new Set(input.query.focusGoalIds)).toSorted()
   return [
     input.directory,
     input.query.persona,
@@ -65,7 +65,7 @@ async function readExistingPlanDecision(input: {
     })
   )
     .filter((artifact): artifact is DecisionArtifact => artifact.kind === 'decision-plan')
-    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0]
+    .toSorted((left, right) => right.createdAt.localeCompare(left.createdAt))[0]
 }
 
 export async function ensurePlanDecision(input: {
@@ -95,7 +95,7 @@ export async function ensurePlanDecision(input: {
       }),
     ])
 
-    const stableSortedFocusGoalIds = Array.from(new Set(input.query.focusGoalIds)).sort()
+    const stableSortedFocusGoalIds = Array.from(new Set(input.query.focusGoalIds)).toSorted()
     const inputHash = hashDecisionInput(
       [
         workspace.workspaceId,

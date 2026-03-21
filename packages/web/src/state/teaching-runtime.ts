@@ -374,7 +374,7 @@ export const useTeachingRuntime = create<TeachingRuntimeState>()(
       storage: createPlatformJsonStorage('buddy.teaching.dat'),
       migrate(persistedState) {
         const state = (persistedState as Partial<TeachingRuntimeState> | undefined) ?? undefined
-        const selectedIntentBySession = { ...(state?.selectedIntentBySession ?? {}) }
+        const selectedIntentBySession = { ...state?.selectedIntentBySession }
 
         const legacyStrategies = state as
           | {

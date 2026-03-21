@@ -9,7 +9,7 @@ function stableSerialize(value: unknown): string {
     return `[${value.map((item) => stableSerialize(item)).join(',')}]`
   }
 
-  const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) =>
+  const entries = Object.entries(value as Record<string, unknown>).toSorted(([a], [b]) =>
     a.localeCompare(b),
   )
   return `{${entries.map(([key, nested]) => `${JSON.stringify(key)}:${stableSerialize(nested)}`).join(',')}}`

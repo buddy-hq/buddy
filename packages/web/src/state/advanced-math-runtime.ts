@@ -50,7 +50,7 @@ async function requestRuntimeStatus(
     ...init,
     headers: {
       ...(auth ? { authorization: auth } : {}),
-      ...(init?.headers ?? {}),
+      ...init?.headers,
     },
   })
 

@@ -2,7 +2,7 @@ import { BUILTIN_BUDDY_PERSONAS } from '@buddy/backend/learning/personas/registr
 
 type BuiltinPersona = keyof typeof BUILTIN_BUDDY_PERSONAS & string
 
-const derivedPersonas = Object.keys(BUILTIN_BUDDY_PERSONAS).sort((left, right) =>
+const derivedPersonas = Object.keys(BUILTIN_BUDDY_PERSONAS).toSorted((left, right) =>
   left.localeCompare(right),
 ) as BuiltinPersona[]
 
@@ -23,7 +23,7 @@ type BuiltinPersonaSurface = (typeof BUILTIN_BUDDY_PERSONAS)[BuiltinPersona]['su
 
 const derivedPersonaSurfaces = Array.from(
   new Set(Object.values(BUILTIN_BUDDY_PERSONAS).flatMap((persona) => persona.surfaces)),
-).sort((left, right) => left.localeCompare(right)) as BuiltinPersonaSurface[]
+).toSorted((left, right) => left.localeCompare(right)) as BuiltinPersonaSurface[]
 
 if (derivedPersonaSurfaces.length === 0) {
   throw new Error('At least one Buddy persona surface must be defined')
@@ -74,7 +74,7 @@ const derivedSubagentIds = Array.from(
     ),
     ...PEDAGOGY_HELPER_SUBAGENT_IDS,
   ]),
-).sort((left, right) => left.localeCompare(right))
+).toSorted((left, right) => left.localeCompare(right))
 
 export const SUBAGENT_IDS = [...derivedSubagentIds]
 export type SubagentId = string

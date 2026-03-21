@@ -8,7 +8,7 @@ import { loadOpenCodeApp } from '../../../opencode-runtime'
 import { isSessionNotFoundError } from '../../../session'
 
 function sortPermissionRules(rules: PermissionRuleset | undefined) {
-  return [...(rules ?? [])].sort((left, right) => {
+  return [...(rules ?? [])].toSorted((left, right) => {
     const leftKey = `${left.permission}:${left.pattern}:${left.action}`
     const rightKey = `${right.permission}:${right.pattern}:${right.action}`
     return leftKey.localeCompare(rightKey)

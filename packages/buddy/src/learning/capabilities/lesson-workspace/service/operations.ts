@@ -272,10 +272,7 @@ async function restore(directory: string, sessionID: string) {
       }
       await ensureParentDirectory(lessonFilePath)
       await fs.writeFile(lessonFilePath, checkpointCode, 'utf8')
-      return {
-        ...file,
-        fileHash: nextHash,
-      }
+      return Object.assign(file, {fileHash:nextHash})
     }),
   )
 

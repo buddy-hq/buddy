@@ -107,7 +107,7 @@ function pruneDraftEntries(entries: Record<string, PromptDraftState>, max = MAX_
 
   const ordered = keys
     .map((key) => [key, entries[key]] as const)
-    .sort((left, right) => (right[1]?.updatedAt ?? 0) - (left[1]?.updatedAt ?? 0))
+    .toSorted((left, right) => (right[1]?.updatedAt ?? 0) - (left[1]?.updatedAt ?? 0))
     .slice(0, max)
 
   return Object.fromEntries(ordered)

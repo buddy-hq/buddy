@@ -547,7 +547,7 @@ function buildPdfOutlineChunkUnits(input: {
   const chapters = input.outlinePoints
     .filter((point) => point.depth === chapterDepth)
     .filter((point) => point.pageNumber >= 1 && point.pageNumber <= input.pageTexts.length)
-    .sort((left, right) => left.pageNumber - right.pageNumber)
+    .toSorted((left, right) => left.pageNumber - right.pageNumber)
 
   const dedupedChapters: PdfOutlinePoint[] = []
   for (const chapter of chapters) {

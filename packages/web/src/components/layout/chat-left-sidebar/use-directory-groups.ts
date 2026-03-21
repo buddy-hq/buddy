@@ -43,7 +43,7 @@ export function useDirectoryGroups(props: UseDirectoryGroupsProps) {
             const active = directory === props.currentDirectory && session.id === activeRootID
             return unread || pinned || busy || active
           })
-          .sort((a, b) => {
+          .toSorted((a, b) => {
             const aPinned = pinnedSet.has(a.id)
             const bPinned = pinnedSet.has(b.id)
             if (aPinned !== bPinned) {
@@ -60,7 +60,7 @@ export function useDirectoryGroups(props: UseDirectoryGroupsProps) {
       .filter((group) => group.sessions.length > 0 || props.showMode === 'all')
 
     if (props.organizeMode === 'chronological') {
-      return groups.sort((a, b) => {
+      return groups.toSorted((a, b) => {
         const aTime = a.sessions[0] ? getSortTimestamp(a.sessions[0], props.sortMode) : 0
         const bTime = b.sessions[0] ? getSortTimestamp(b.sessions[0], props.sortMode) : 0
         return bTime - aTime

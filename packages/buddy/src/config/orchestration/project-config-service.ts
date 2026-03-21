@@ -126,10 +126,7 @@ async function applyAndSyncProjectConfigChange(input: {
         throw new Error(
           'Failed to apply project config change and failed to recover previous config',
           {
-            cause: {
-              originalError: error,
-              recoveryError,
-            },
+            cause: error,
           },
         )
       }

@@ -102,7 +102,7 @@ function assistantPartRenderable(part: MessagePart, showReasoningSummaries: bool
 function cleanReasoningHeading(value: string): string {
   return value
     .replace(/`([^`]+)`/g, '$1')
-    .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
     .replace(/[*_~]+/g, '')
     .trim()
 }

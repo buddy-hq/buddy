@@ -62,7 +62,7 @@ export async function setProjectMcpConfig(
     const next = Info.parse({
       ...existing,
       mcp: {
-        ...(existing.mcp ?? {}),
+        ...existing.mcp,
         [name]: mcp,
       },
     })

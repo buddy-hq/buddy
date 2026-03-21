@@ -124,6 +124,6 @@ describe('module boundaries', () => {
       }
     }
 
-    expect([...violations].sort()).toEqual([...allowlist].sort())
+    expect([...violations].toSorted()).toEqual([...allowlist].toSorted())
   })
 })

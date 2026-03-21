@@ -64,7 +64,7 @@ export function getSessionFamily(sessions: SessionInfo[], activeSessionID?: stri
 
   const family = sessions
     .filter((session) => familyIDs.has(session.id))
-    .sort((left, right) => {
+    .toSorted((left, right) => {
       const leftRank = depth(left)
       const rightRank = depth(right)
       if (leftRank !== rightRank) return leftRank - rightRank

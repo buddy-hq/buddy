@@ -369,7 +369,7 @@ function normalizeProviderModel(
     name: input.name,
     family: input.family,
     releaseDate: input.release_date,
-    variants: Object.keys(input.variants ?? {}).sort((a, b) => a.localeCompare(b)),
+    variants: Object.keys(input.variants ?? {}).toSorted((a, b) => a.localeCompare(b)),
     status: input.status ?? 'active',
     limit: {
       context: input.limit.context,
@@ -428,10 +428,10 @@ function normalizeProviderCatalog(
           models: Object.values(provider.models)
             .filter((model) => model.status !== 'deprecated')
             .map((model) => normalizeProviderModel(provider.id, model))
-            .sort((a, b) => a.name.localeCompare(b.name)),
+            .toSorted((a, b) => a.name.localeCompare(b.name)),
         }
       })
-      .sort((a, b) => a.name.localeCompare(b.name)),
+      .toSorted((a, b) => a.name.localeCompare(b.name)),
   }
 }
 
@@ -966,7 +966,7 @@ function sortedPermissionKeys(
   return Object.entries(permissions)
     .filter(([, value]) => value === action)
     .map(([key]) => key)
-    .sort((left, right) => left.localeCompare(right))
+    .toSorted((left, right) => left.localeCompare(right))
 }
 
 function sortedSubagentKeys(
@@ -976,7 +976,7 @@ function sortedSubagentKeys(
   return Object.entries(permissions)
     .filter(([, value]) => value === action)
     .map(([key]) => key)
-    .sort((left, right) => left.localeCompare(right))
+    .toSorted((left, right) => left.localeCompare(right))
 }
 
 export async function loadRuntimeCapabilities(
@@ -1003,7 +1003,7 @@ export async function loadRuntimeCapabilities(
     throw new Error('Runtime capability profile is unavailable for this session.')
   }
 
-  const visibleSurfaces = asStringArray(envelope.visibleSurfaces).sort((left, right) =>
+  const visibleSurfaces = asStringArray(envelope.visibleSurfaces).toSorted((left, right) =>
     left.localeCompare(right),
   )
   const tools = parseToolPermissions(envelope.tools)

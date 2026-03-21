@@ -92,7 +92,7 @@ export async function setSkillPermission(pattern: string, action: PermissionActi
           [pattern]: action,
         }
       : {
-          ...(existingSkillPermission ?? {}),
+          ...existingSkillPermission,
           [pattern]: action,
         }
 
@@ -103,7 +103,7 @@ export async function setSkillPermission(pattern: string, action: PermissionActi
           [SKILL_RULE_DEFAULTS.permission]: nextSkillPermission,
         }
       : {
-          ...(existingPermission ?? {}),
+          ...existingPermission,
           [SKILL_RULE_DEFAULTS.permission]: nextSkillPermission,
         },
   )

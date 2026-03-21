@@ -73,10 +73,5 @@ type ListedToolCapability = {
 }
 
 export function listToolCapabilities(): ListedToolCapability[] {
-  return TOOL_CAPABILITY_REGISTRY.map((capability) => ({
-    key: toolCapabilityKey(capability),
-    toolId: capability.tool.id,
-    ...(capability.personas ? { personas: [...capability.personas] } : {}),
-    ...(capability.workspaceStates ? { workspaceStates: [...capability.workspaceStates] } : {}),
-  }))
+  return TOOL_CAPABILITY_REGISTRY.map((capability) => (Object.assign({key:toolCapabilityKey(capability),toolId:capability.tool.id}, capability.personas?{personas:[...capability.personas]}:{}, capability.workspaceStates?{workspaceStates:[...capability.workspaceStates]}:{})))
 }

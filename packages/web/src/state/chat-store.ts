@@ -87,7 +87,7 @@ function sortSessions(sessions: SessionInfo[]) {
   return sessions
     .filter((session) => !session.time.archived)
     .slice()
-    .sort((a, b) => (b.time.updated ?? b.time.created) - (a.time.updated ?? a.time.created))
+    .toSorted((a, b) => (b.time.updated ?? b.time.created) - (a.time.updated ?? a.time.created))
 }
 
 function upsertSession(sessions: SessionInfo[], incoming: SessionInfo) {

@@ -130,7 +130,7 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
   }, [props.directory, props.refreshToken])
 
   const sortedResources = useMemo(
-    () => [...resources].sort((left, right) => left.alias.localeCompare(right.alias)),
+    () => [...resources].toSorted((left, right) => left.alias.localeCompare(right.alias)),
     [resources],
   )
   const hasPreparingResources = useMemo(

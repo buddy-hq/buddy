@@ -61,7 +61,7 @@ export function HighlightedText({ text, references, agents }: HighlightedTextPro
       ...agents.map(readAgentHighlightReference),
     ]
       .filter((ref): ref is HighlightReference => ref !== undefined)
-      .sort((a, b) => a.start - b.start)
+      .toSorted((a, b) => a.start - b.start)
 
     const result: HighlightSegment[] = []
     let lastIndex = 0
