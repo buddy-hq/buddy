@@ -80,6 +80,16 @@ export async function withConfigSyncRoute(
   return input.handler(syncResult.value)
 }
 
+export function createConfigSyncMiddleware(operation: string) {
+  return async (c: Context, next: () => Promise<void>) => {
+    const syncResult = await withConfigSync(c, {
+      operation,
+    })
+    if (!syncResult.ok) return syncResult.response
+    await next()
+  }
+}
+
 export async function runRouteTask(input: {
   task: () => Promise<Response>
   mapError?: (error: unknown) => Response | undefined
