@@ -1,4 +1,5 @@
 import { Hono } from "hono"
+import { createFactory } from "hono/factory"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
 import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
@@ -15,11 +16,23 @@ import {
   getSessionById,
   listSessionMessages,
   patchSessionById,
-  proxySessionCollection,
   postSessionCommand,
   postSessionPrompt,
+  proxySessionCollection,
 } from "../session"
 import { getTeachingState } from "../learning/adapters/http"
+
+const sessionRouteFactory = createFactory()
+
+const [listSessionsHandler] = sessionRouteFactory.createHandlers(proxySessionCollection)
+const [createSessionHandler] = sessionRouteFactory.createHandlers(proxySessionCollection)
+const [getSessionHandler] = sessionRouteFactory.createHandlers(getSessionById)
+const [updateSessionHandler] = sessionRouteFactory.createHandlers(patchSessionById)
+const [listSessionMessagesHandler] = sessionRouteFactory.createHandlers(listSessionMessages)
+const [postSessionPromptHandler] = sessionRouteFactory.createHandlers(postSessionPrompt)
+const [postSessionCommandHandler] = sessionRouteFactory.createHandlers(postSessionCommand)
+const [getTeachingStateHandler] = sessionRouteFactory.createHandlers(getTeachingState)
+const [abortSessionHandler] = sessionRouteFactory.createHandlers(abortSessionRun)
 
 const sessionListQuerySchema = z.object({
   directory: z.string().optional(),
@@ -114,8 +127,6 @@ const teachingSessionStateOutboundSchema = z.object({
   kind: z.enum(["message", "command"]),
   createdAt: z.string(),
   payload: z.object({}).passthrough(),
-  systemPromptSent: z.string().optional(),
-  systemPromptEffective: z.string().optional(),
   fullSystemPrompt: z.string().optional(),
 })
 
@@ -130,18 +141,7 @@ const teachingSessionStateSchema = z.object({
   llmOutboundHistory: z.array(teachingSessionStateOutboundSchema).optional(),
 })
 
-const listSessionsHandler = proxySessionCollection
-const createSessionHandler = proxySessionCollection
-const getSessionHandler = getSessionById
-const updateSessionHandler = patchSessionById
-const listSessionMessagesHandler = listSessionMessages
-const postSessionPromptHandler = postSessionPrompt
-const postSessionCommandHandler = postSessionCommand
-const getTeachingStateHandler = getTeachingState
-const abortSessionHandler = abortSessionRun
-
-export const SessionRoutes = (): Hono =>
-  new Hono()
+export const SessionRoutes = new Hono()
     .get(
       "/",
       describeRoute({
