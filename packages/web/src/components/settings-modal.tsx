@@ -21,6 +21,7 @@ import {
   TabsTrigger,
   toast,
 } from "@buddy/ui"
+import { FileTextIcon } from "lucide-react"
 import { getFilename } from "@/components/layout/sidebar-helpers"
 import { ConnectProviderDialog } from "@/components/connect-provider-dialog"
 import { usePlatform } from "@/context/platform"
@@ -32,6 +33,7 @@ import { ThemeSettingsSection } from "./settings/theme-settings-section"
 import { ProviderSourceBadge, SettingsListCard, SettingsPanel, SettingsRow, type SettingsTab } from "./settings/settings-primitives"
 import { advancedMathStatusLabel, useAdvancedMathRuntime } from "./settings/use-advanced-math-runtime"
 import { ConfirmRemoveMathRuntimeDialog } from "./settings/confirm-remove-math-runtime-dialog"
+import { GlobalAgentsMdSettingsPanel } from "./settings/global-agents-md-settings-panel"
 
 const DEFAULT_VALUE = "__default__"
 
@@ -118,6 +120,7 @@ export function SettingsModal(props: SettingsModalProps) {
     if (settings.status.saving) return "Saving changes..."
     if (settings.status.error) return settings.status.error
     if (activeTab === "providers") return "Connections are shared by the notebook runtime."
+    if (activeTab === "agents-md") return "Global instructions apply across notebooks and save automatically."
     return "Appearance applies to this app; notebook defaults apply only to this repository."
   }, [settings.status.loading, settings.status.saving, settings.status.error, activeTab])
 
@@ -141,7 +144,7 @@ export function SettingsModal(props: SettingsModalProps) {
             orientation="vertical"
             value={activeTab}
             onValueChange={(value) => {
-              if (value === "general" || value === "providers") {
+              if (value === "general" || value === "providers" || value === "agents-md") {
                 setActiveTab(value)
               }
             }}
@@ -153,6 +156,18 @@ export function SettingsModal(props: SettingsModalProps) {
                 className="flex h-full w-full flex-1 flex-col items-stretch justify-between rounded-none bg-transparent p-3"
               >
                 <div className="space-y-6">
+                  <div className="space-y-2">
+                    <p className="px-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                      App
+                    </p>
+                    <div className="space-y-1">
+                      <TabsTrigger value="agents-md" className="h-9 flex-none rounded-lg px-3">
+                        <FileTextIcon className="size-4" />
+                        Instructions
+                      </TabsTrigger>
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
                     <p className="px-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                       Notebook
@@ -506,6 +521,16 @@ export function SettingsModal(props: SettingsModalProps) {
                 </SettingsListCard>
               </div>
             </SettingsPanel>
+
+            <SettingsPanel
+              value="agents-md"
+              title="Instructions"
+              description="Manage global AGENTS.md instructions that apply to every notebook session."
+              fillHeight
+              forceMount
+            >
+              <GlobalAgentsMdSettingsPanel active={activeTab === "agents-md" && props.open} />
+            </SettingsPanel>
           </Tabs>
 
           <Separator />
@@ -521,13 +546,15 @@ export function SettingsModal(props: SettingsModalProps) {
               <Button type="button" variant="outline" onClick={() => props.onOpenChange(false)}>
                 Close
               </Button>
-              <Button
-                type="button"
-                onClick={() => void settings.actions.save()}
-                disabled={settings.status.loading || settings.status.saving}
-              >
-                {settings.status.saving ? "Saving..." : "Save changes"}
-              </Button>
+              {activeTab === "agents-md" ? null : (
+                <Button
+                  type="button"
+                  onClick={() => void settings.actions.save()}
+                  disabled={settings.status.loading || settings.status.saving}
+                >
+                  {settings.status.saving ? "Saving..." : "Save changes"}
+                </Button>
+              )}
             </div>
           </div>
         </DialogContent>
