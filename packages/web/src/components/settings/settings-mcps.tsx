@@ -1,0 +1,62 @@
+import { McpEditorDialog } from "@/components/mcp-dialog/mcp-editor-dialog";
+import { McpListPanel } from "@/components/mcp-dialog/mcp-list-panel";
+import { useMcpDirectoryData } from "@/components/mcp-dialog/use-mcp-directory-data";
+import { useMcpEditorState } from "@/components/mcp-dialog/use-mcp-editor-state";
+import { SettingsPanelContent } from "./settings-page";
+
+export function McpsSettings({ directory }: { directory: string }) {
+  const directoryState = useMcpDirectoryData({
+    directory,
+    open: true,
+  });
+  const editorState = useMcpEditorState({
+    directory,
+    configByName: directoryState.configByName,
+    setConfigByName: directoryState.setConfigByName,
+    setError: directoryState.setError,
+    enableMcp: directoryState.enableMcp,
+  });
+
+  return (
+    <>
+      <SettingsPanelContent
+        title="MCPs"
+        description={`${directoryState.enabledCount} of ${directoryState.totalCount} enabled. MCP definitions saved here override or extend this notebook's config.`}
+      >
+        <McpListPanel
+          allNames={directoryState.allNames}
+          entries={directoryState.entries}
+          showSearch={directoryState.showSearch}
+          loading={directoryState.loading}
+          query={directoryState.query}
+          setQuery={directoryState.setQuery}
+          pendingName={directoryState.pendingName}
+          statusByName={directoryState.statusByName}
+          configByName={directoryState.configByName}
+          onAddMcp={editorState.openCreateEditor}
+          onEditMcp={editorState.openEditEditor}
+          onToggleMcp={directoryState.toggleMcp}
+          onConnectMcp={directoryState.connectMcp}
+        />
+        {directoryState.error ? (
+          <p className="text-sm text-destructive">{directoryState.error}</p>
+        ) : null}
+      </SettingsPanelContent>
+      <McpEditorDialog
+        open={editorState.editorOpen}
+        onOpenChange={editorState.onEditorOpenChange}
+        mode={editorState.editorMode}
+        draft={editorState.draft}
+        setDraft={editorState.setDraft}
+        showOAuthClientFields={editorState.showOAuthClientFields}
+        setShowOAuthClientFields={editorState.setShowOAuthClientFields}
+        fieldErrors={editorState.fieldErrors}
+        editorError={editorState.editorError}
+        editorSaving={editorState.editorSaving}
+        clearFieldError={editorState.clearFieldError}
+        getFieldProps={editorState.getFieldProps}
+        onSave={editorState.saveConfig}
+      />
+    </>
+  );
+}
