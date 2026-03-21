@@ -34,3 +34,4 @@
 - **Never duplicate OpenCode tables** in `buddy.db` — sessions, messages, permissions belong to OpenCode.
 - **Never query `opencode.db` directly** — use the adapter (`@buddy/opencode-adapter/*`) or the HTTP proxy.
 - **Cross-reference by `project_id`** when Buddy needs to associate its data with OpenCode projects.
+- **Curated sidebar membership is not in either DB** — it is backend-owned state in `Global.Path.state/desktop-notebooks.json`.

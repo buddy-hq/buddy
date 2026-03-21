@@ -90,7 +90,7 @@ This audit covers the current uncommitted worktree changes that shape the new de
   - The UI still treats projects as a first-class desktop concept and preloads session state around them.
 - `Where it deviates`:
   - Vendored OpenCode stores project lists inside client-side server context, keyed by active server.
-  - Buddy persists recent projects in `desktop-notebooks.json` under Buddy state and exposes them via `/api/project`.
+  - Buddy persists recent projects in `desktop-notebooks.json` under Buddy state and exposes them via `/api/open-projects`.
   - That means project state is now a backend-owned contract rather than a desktop-client concern.
 - `Impact`:
   - This is a real architecture fork, not just a UI port difference.

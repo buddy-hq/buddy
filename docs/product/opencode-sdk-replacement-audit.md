@@ -289,16 +289,17 @@ Important caveat:
 
 These are more mixed. Some overlap with the SDK, but Buddy's semantics are not the same as stock OpenCode.
 
-#### 2.2.1 Buddy notebook registry (`/api/project`)
+#### 2.2.1 Buddy curated open-project registry (`/api/open-projects`)
 
 Current Buddy behavior:
 
 - Web calls:
-  - `loadProjects()`
-  - `rememberProject(directory)`
-  - project deletion through `DELETE /api/project?directory=...`
+  - `openProjects.list()`
+  - `openProjects.open({ directory })`
+  - `openProjects.close({ directory })`
+  - `openProjects.reorder({ directories })`
 - Backend stores a curated notebook list in `desktop-notebooks.json`.
-- `POST /api/project` also calls `OpenCodeProject.fromDirectory(directory)` before persisting the directory.
+- `POST /api/open-projects` also calls `OpenCodeProject.fromDirectory(directory)` before persisting the directory.
 
 What this feature really is:
 
@@ -724,7 +725,7 @@ What does not line up exactly:
 - `client.global.health()` expects `/global/health`, but Buddy exposes `/api/health`
 - `client.global.event()` expects `/global/event`, but Buddy exposes `/api/event`
 - `client.app.agents()` expects `/agent`, but Buddy exposes Buddy's different `/api/config/agents`
-- `client.project.*` methods model OpenCode's project catalog, while Buddy's `/api/project` is a notebook registry with different semantics
+- `client.project.*` methods model OpenCode's project catalog, while Buddy's `/api/open-projects` is a curated notebook registry with different semantics
 - `client.session.status()` expects `/session/status`, but Buddy does not expose `/api/session/status`
 - Many stock OpenCode session methods are not exposed by Buddy's compatibility layer at all, including delete, children, todo, init, fork, share, diff, summarize, and others
 - There is no OpenCode SDK equivalent for Buddy's `/api/curriculum`
