@@ -36,6 +36,8 @@ describe("parity.routes.openapi-doc", () => {
       "/api/config/personas",
       "/api/config",
       "/api/config/providers",
+      "/api/open-projects",
+      "/api/open-projects/order",
       "/api/project",
       "/api/project/current",
       "/api/project/{projectID}",
@@ -64,6 +66,10 @@ describe("parity.routes.openapi-doc", () => {
       { path: "/api/global/dispose", method: "post", operationId: "global.dispose" },
       { path: "/api/config/agents", method: "get", operationId: "config.agents" },
       { path: "/api/config/personas", method: "get", operationId: "config.personas" },
+      { path: "/api/open-projects", method: "get", operationId: "openProjects.list" },
+      { path: "/api/open-projects", method: "post", operationId: "openProjects.open" },
+      { path: "/api/open-projects", method: "delete", operationId: "openProjects.close" },
+      { path: "/api/open-projects/order", method: "put", operationId: "openProjects.reorder" },
       { path: "/api/project", method: "get", operationId: "project.list" },
       { path: "/api/project/current", method: "get", operationId: "project.current" },
       { path: "/api/project/{projectID}", method: "patch", operationId: "project.update" },
@@ -92,6 +98,8 @@ describe("parity.routes.openapi-doc", () => {
       const methodDoc = paths[operation.path]?.[operation.method]
       expect(methodDoc?.operationId).toBe(operation.operationId)
     }
+
+    expect(paths["/api/project"]?.post).toBeUndefined()
 
     const skillsOperations = [
       requireOperation(paths["/api/skills"]?.get, "/api/skills:get"),
