@@ -1,13 +1,13 @@
-import { Hono } from 'hono'
-import { describeRoute, resolver, validator } from 'hono-openapi'
-import z from 'zod'
+import { Hono } from "hono"
+import { describeRoute, resolver, validator } from "hono-openapi"
+import z from "zod"
 import {
   INTENTS,
   PERSONAS,
   PERSONA_SURFACES,
   WORKSPACE_STATES,
-} from '@buddy/backend/learning/shared/teaching-vocabulary'
-import { directoryQuerySchema, routeErrors, withDirectoryRoute, zodIssuesResponse } from '../http'
+} from "@buddy/backend/learning/shared/teaching-vocabulary"
+import { directoryQuerySchema, routeErrors, withDirectoryRoute, zodIssuesResponse } from "../http"
 import {
   DecisionArtifactSchema,
   EvidenceArtifactSchema,
@@ -23,14 +23,14 @@ import {
   SessionPlanSchema,
   WorkspaceContextArtifactSchema,
   WorkspaceRecordArtifactKindSchema,
-} from '../learning/learner-model'
+} from "../learning/learner-model"
 import {
   LearnerWorkspacePatchSchema,
   parseArtifactListQuery,
   parseDecisionPlanRequest,
   parseSnapshotQuery,
   readWorkspaceStateFromSession,
-} from '../learning/adapters/http'
+} from "../learning/adapters/http"
 
 const learnerSnapshotQuerySchema = directoryQuerySchema.extend({
   persona: z.enum(PERSONAS).optional(),
@@ -56,9 +56,9 @@ const runtimeProfileSchema = z.object({
   capabilityEnvelope: z.object({
     visibleSurfaces: z.array(z.enum(PERSONA_SURFACES)),
     defaultSurface: z.enum(PERSONA_SURFACES),
-    tools: z.record(z.string(), z.enum(['allow', 'deny'])),
-    subagents: z.record(z.string(), z.enum(['allow', 'deny', 'prefer'])),
-    skills: z.record(z.string(), z.enum(['allow', 'deny'])),
+    tools: z.record(z.string(), z.enum(["allow", "deny"])),
+    subagents: z.record(z.string(), z.enum(["allow", "deny", "prefer"])),
+    skills: z.record(z.string(), z.enum(["allow", "deny"])),
   }),
 })
 
@@ -103,19 +103,19 @@ const learnerWorkspaceResponseSchema = z.object({
 
 export const LearnerRoutes = new Hono()
   .get(
-    '/snapshot',
+    "/snapshot",
     describeRoute({
-      operationId: 'learner.snapshot',
-      summary: 'Get learner snapshot',
+      operationId: "learner.snapshot",
+      summary: "Get learner snapshot",
       responses: {
         200: {
-          description: 'Learner snapshot',
-          content: { 'application/json': { schema: resolver(learnerSnapshotResponseSchema) } },
+          description: "Learner snapshot",
+          content: { "application/json": { schema: resolver(learnerSnapshotResponseSchema) } },
         },
         ...routeErrors(400, 403),
       },
     }),
-    validator('query', learnerSnapshotQuerySchema),
+    validator("query", learnerSnapshotQuerySchema),
     async (c) =>
       withDirectoryRoute(c, async (context) => {
         const parsed = parseSnapshotQuery(context.requestURL)
@@ -139,23 +139,23 @@ export const LearnerRoutes = new Hono()
       }),
   )
   .post(
-    '/plan',
+    "/plan",
     describeRoute({
-      operationId: 'learner.plan',
-      summary: 'Create or reuse plan decision',
+      operationId: "learner.plan",
+      summary: "Create or reuse plan decision",
       responses: {
         200: {
-          description: 'Plan decision',
-          content: { 'application/json': { schema: resolver(learnerPlanResponseSchema) } },
+          description: "Plan decision",
+          content: { "application/json": { schema: resolver(learnerPlanResponseSchema) } },
         },
         ...routeErrors(400, 403),
       },
     }),
-    validator('query', learnerSnapshotQuerySchema),
-    validator('json', learnerPlanBodySchema),
+    validator("query", learnerSnapshotQuerySchema),
+    validator("json", learnerPlanBodySchema),
     async (c) =>
       withDirectoryRoute(c, async (context) => {
-        const requestBody = c.req.valid('json') ?? {}
+        const requestBody = c.req.valid("json") ?? {}
         const parsed = parseDecisionPlanRequest({
           requestURL: context.requestURL,
           body: requestBody,
@@ -181,25 +181,25 @@ export const LearnerRoutes = new Hono()
       }),
   )
   .get(
-    '/artifacts',
+    "/artifacts",
     describeRoute({
-      operationId: 'learner.artifacts',
-      summary: 'List learner artifacts',
+      operationId: "learner.artifacts",
+      summary: "List learner artifacts",
       responses: {
         200: {
-          description: 'Artifact list',
-          content: { 'application/json': { schema: resolver(learnerArtifactsResponseSchema) } },
+          description: "Artifact list",
+          content: { "application/json": { schema: resolver(learnerArtifactsResponseSchema) } },
         },
         ...routeErrors(400, 403),
       },
     }),
     validator(
-      'query',
+      "query",
       directoryQuerySchema.extend({
         kind: WorkspaceRecordArtifactKindSchema.optional(),
         goalId: z.string().optional(),
         status: z.string().optional(),
-        includeRaw: z.union([z.literal('true'), z.literal('false')]).optional(),
+        includeRaw: z.union([z.literal("true"), z.literal("false")]).optional(),
       }),
     ),
     async (c) =>
@@ -221,23 +221,23 @@ export const LearnerRoutes = new Hono()
       }),
   )
   .patch(
-    '/workspace',
+    "/workspace",
     describeRoute({
-      operationId: 'learner.workspace.patch',
-      summary: 'Patch learner workspace and profile',
+      operationId: "learner.workspace.patch",
+      summary: "Patch learner workspace and profile",
       responses: {
         200: {
-          description: 'Updated workspace/profile',
-          content: { 'application/json': { schema: resolver(learnerWorkspaceResponseSchema) } },
+          description: "Updated workspace/profile",
+          content: { "application/json": { schema: resolver(learnerWorkspaceResponseSchema) } },
         },
         ...routeErrors(400, 403),
       },
     }),
-    validator('query', directoryQuerySchema),
-    validator('json', LearnerWorkspacePatchSchema),
+    validator("query", directoryQuerySchema),
+    validator("json", LearnerWorkspacePatchSchema),
     async (c) =>
       withDirectoryRoute(c, async (context) => {
-        const payload = c.req.valid('json')
+        const payload = c.req.valid("json")
         const patched = await patchWorkspace({
           directory: context.directory,
           workspace: payload.workspace,

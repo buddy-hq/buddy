@@ -2,7 +2,7 @@ import {
   PROMPT_PART_TYPE_AGENT,
   RESOURCE_REFERENCE_PART_TYPE,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
-} from './prompt-types'
+} from "./prompt-types"
 
 const MAX_BREAKS = 200
 
@@ -11,22 +11,22 @@ export function createTextFragment(content: string): DocumentFragment {
   let breaks = 0
 
   for (const char of content) {
-    if (char !== '\n') continue
+    if (char !== "\n") continue
     breaks += 1
     if (breaks <= MAX_BREAKS) continue
 
-    const tailBreak = content.endsWith('\n')
+    const tailBreak = content.endsWith("\n")
     const text = tailBreak ? content.slice(0, -1) : content
     if (text) fragment.appendChild(document.createTextNode(text))
-    if (tailBreak) fragment.appendChild(document.createElement('br'))
+    if (tailBreak) fragment.appendChild(document.createElement("br"))
     return fragment
   }
 
-  const segments = content.split('\n')
+  const segments = content.split("\n")
   segments.forEach((segment, index) => {
     if (segment) fragment.appendChild(document.createTextNode(segment))
     if (index < segments.length - 1) {
-      fragment.appendChild(document.createElement('br'))
+      fragment.appendChild(document.createElement("br"))
     }
   })
 
@@ -34,14 +34,14 @@ export function createTextFragment(content: string): DocumentFragment {
 }
 
 export function getNodeLength(node: Node): number {
-  if (node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).tagName === 'BR') return 1
-  return (node.textContent ?? '').replace(/\u200B/g, '').length
+  if (node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).tagName === "BR") return 1
+  return (node.textContent ?? "").replace(/\u200B/g, "").length
 }
 
 export function getTextLength(node: Node): number {
   if (node.nodeType === Node.TEXT_NODE)
-    return (node.textContent ?? '').replace(/\u200B/g, '').length
-  if (node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).tagName === 'BR') return 1
+    return (node.textContent ?? "").replace(/\u200B/g, "").length
+  if (node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).tagName === "BR") return 1
 
   let length = 0
   for (const child of Array.from(node.childNodes)) {
@@ -76,7 +76,7 @@ export function setCursorPosition(parent: HTMLElement, position: number) {
       ((node as HTMLElement).dataset.type === WORKSPACE_FILE_REFERENCE_PART_TYPE ||
         (node as HTMLElement).dataset.type === PROMPT_PART_TYPE_AGENT ||
         (node as HTMLElement).dataset.type === RESOURCE_REFERENCE_PART_TYPE)
-    const isBreak = node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).tagName === 'BR'
+    const isBreak = node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).tagName === "BR"
 
     if (isText && remaining <= length) {
       const range = document.createRange()
@@ -133,7 +133,7 @@ export function setCursorPosition(parent: HTMLElement, position: number) {
 export function setRangeEdge(
   parent: HTMLElement,
   range: Range,
-  edge: 'start' | 'end',
+  edge: "start" | "end",
   offset: number,
 ) {
   let remaining = offset
@@ -146,19 +146,19 @@ export function setRangeEdge(
       ((node as HTMLElement).dataset.type === WORKSPACE_FILE_REFERENCE_PART_TYPE ||
         (node as HTMLElement).dataset.type === PROMPT_PART_TYPE_AGENT ||
         (node as HTMLElement).dataset.type === RESOURCE_REFERENCE_PART_TYPE)
-    const isBreak = node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).tagName === 'BR'
+    const isBreak = node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).tagName === "BR"
 
     if (isText && remaining <= length) {
-      if (edge === 'start') range.setStart(node, remaining)
-      if (edge === 'end') range.setEnd(node, remaining)
+      if (edge === "start") range.setStart(node, remaining)
+      if (edge === "end") range.setEnd(node, remaining)
       return
     }
 
     if ((isStructured || isBreak) && remaining <= length) {
-      if (edge === 'start' && remaining === 0) range.setStartBefore(node)
-      if (edge === 'start' && remaining > 0) range.setStartAfter(node)
-      if (edge === 'end' && remaining === 0) range.setEndBefore(node)
-      if (edge === 'end' && remaining > 0) range.setEndAfter(node)
+      if (edge === "start" && remaining === 0) range.setStartBefore(node)
+      if (edge === "start" && remaining > 0) range.setStartAfter(node)
+      if (edge === "end" && remaining === 0) range.setEndBefore(node)
+      if (edge === "end" && remaining > 0) range.setEndAfter(node)
       return
     }
 

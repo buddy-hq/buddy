@@ -1,29 +1,26 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState, type UIEvent } from "react";
-import { Button } from "@buddy/ui";
-import { ChatEmptyState } from "@/components/chat/chat-empty-state";
-import { SessionContextUsage } from "@/components/chat/session-context-usage";
-import { ChatTranscript } from "@/components/chat/chat-transcript";
-import { PermissionDock } from "@/components/chat/permission-dock";
-import { SystemPromptPanel } from "@/components/debug/system-prompt-panel";
-import { ChatLeftSidebar } from "@/components/layout/chat-left-sidebar";
-import { ChatRightSidebar } from "@/components/layout/chat-right-sidebar";
-import { ResizeHandle } from "@/components/layout/resize-handle";
-import { ResourcesPanel } from "@/components/resources/resources-panel";
-import { AgentsMdPanel } from "@/components/agents/agents-md-panel";
-import { TeachingEditorPanel } from "@/components/teaching/teaching-editor-panel";
-import { MathFigurePanel } from "@/components/teaching/math-figure-panel";
-import { CreateTeachingFileDialog } from "@/components/teaching/create-teaching-file-dialog";
-import { usePlatform } from "@/context/platform";
-import { getFilename } from "@/components/layout/sidebar-helpers";
-import { PromptComposer } from "@/components/prompt/prompt-composer";
-import { RESOURCE_REFERENCE_PART_TYPE } from "@/components/prompt/prompt-types";
-import type {
-  PromptComposerAttachment,
-  PromptComposerPart,
-} from "@/components/prompt/prompt-types";
-import { parseSlashCommandInput } from "@/components/prompt/slash-autocomplete";
-import type { MentionableAgent } from "@/components/prompt/mention-autocomplete";
+import { createFileRoute, useNavigate } from "@tanstack/react-router"
+import { useEffect, useMemo, useRef, useState, type UIEvent } from "react"
+import { Button } from "@buddy/ui"
+import { ChatEmptyState } from "@/components/chat/chat-empty-state"
+import { SessionContextUsage } from "@/components/chat/session-context-usage"
+import { ChatTranscript } from "@/components/chat/chat-transcript"
+import { PermissionDock } from "@/components/chat/permission-dock"
+import { SystemPromptPanel } from "@/components/debug/system-prompt-panel"
+import { ChatLeftSidebar } from "@/components/layout/chat-left-sidebar"
+import { ChatRightSidebar } from "@/components/layout/chat-right-sidebar"
+import { ResizeHandle } from "@/components/layout/resize-handle"
+import { ResourcesPanel } from "@/components/resources/resources-panel"
+import { AgentsMdPanel } from "@/components/agents/agents-md-panel"
+import { TeachingEditorPanel } from "@/components/teaching/teaching-editor-panel"
+import { MathFigurePanel } from "@/components/teaching/math-figure-panel"
+import { CreateTeachingFileDialog } from "@/components/teaching/create-teaching-file-dialog"
+import { usePlatform } from "@/context/platform"
+import { getFilename } from "@/components/layout/sidebar-helpers"
+import { PromptComposer } from "@/components/prompt/prompt-composer"
+import { RESOURCE_REFERENCE_PART_TYPE } from "@/components/prompt/prompt-types"
+import type { PromptComposerAttachment, PromptComposerPart } from "@/components/prompt/prompt-types"
+import { parseSlashCommandInput } from "@/components/prompt/slash-autocomplete"
+import type { MentionableAgent } from "@/components/prompt/mention-autocomplete"
 import {
   isResourceLocalSlashCommandName,
   parseResourceLocalSlashCommand,
@@ -35,18 +32,18 @@ import {
   RESOURCE_LOCAL_SLASH_COMMANDS,
   RESOURCE_SIDEBAR_TAB,
   type ResourceLocalSlashCommand,
-} from "../lib/resource-commands";
+} from "../lib/resource-commands"
 import {
   ChevronRightIcon,
   LayoutLeftIcon,
   LayoutLeftPartialIcon,
   LayoutRightIcon,
   LayoutRightPartialIcon,
-} from "@/components/layout/sidebar-icons";
-import { Loader2Icon } from "lucide-react";
-import { resolveTeachingPromptContext } from "../lib/teaching-context";
-import { pickProjectDirectory } from "../lib/directory-picker";
-import { decodeDirectory, encodeDirectory } from "../lib/directory-token";
+} from "@/components/layout/sidebar-icons"
+import { Loader2Icon } from "lucide-react"
+import { resolveTeachingPromptContext } from "../lib/teaching-context"
+import { pickProjectDirectory } from "../lib/directory-picker"
+import { decodeDirectory, encodeDirectory } from "../lib/directory-token"
 import {
   type LearnerCurriculumView,
   abortPrompt,
@@ -66,96 +63,87 @@ import {
   sendPrompt,
   startNewSession,
   updateSession,
-} from "../state/chat-actions";
-import {
-  addResource,
-  rebuildResource,
-  removeResource,
-} from "../state/resource-actions";
+} from "../state/chat-actions"
+import { addResource, rebuildResource, removeResource } from "../state/resource-actions"
 import {
   clonePromptDraft,
   createTextPromptDraft,
   getPromptDraft,
   usePromptStore,
-} from "../state/prompt-store";
-import { useChatStore } from "../state/chat-store";
-import { stringifyError } from "../state/teaching-actions";
+} from "../state/prompt-store"
+import { useChatStore } from "../state/chat-store"
+import { stringifyError } from "../state/teaching-actions"
 import {
   TEACHING_LANGUAGE_OPTIONS,
   intentFromSelection,
   useTeachingRuntime,
   type TeachingLanguage,
   type TeachingIntent,
-} from "../state/teaching-runtime";
+} from "../state/teaching-runtime"
 import {
   buildCommandAttachmentParts,
   buildPromptSubmissionParts,
-} from "../lib/directory-chat/chat-prompt-helpers";
-import {
-  buildSessionTrace,
-  copyToClipboard,
-} from "../lib/directory-chat/chat-debug-helpers";
-import { useDirectoryChatState } from "../lib/directory-chat/use-directory-chat-state";
-import { useChatSync } from "../lib/directory-chat/use-chat-sync";
-import { useChatConfig } from "../lib/directory-chat/use-chat-config";
-import { useTeachingWorkspace } from "../lib/directory-chat/use-teaching-workspace";
+} from "../lib/directory-chat/chat-prompt-helpers"
+import { buildSessionTrace, copyToClipboard } from "../lib/directory-chat/chat-debug-helpers"
+import { useDirectoryChatState } from "../lib/directory-chat/use-directory-chat-state"
+import { useChatSync } from "../lib/directory-chat/use-chat-sync"
+import { useChatConfig } from "../lib/directory-chat/use-chat-config"
+import { useTeachingWorkspace } from "../lib/directory-chat/use-teaching-workspace"
 
 export const Route = createFileRoute("/$directory/chat")({
   component: DirectoryChatPage,
-});
+})
 
-const BOTTOM_THRESHOLD_PX = 96;
-const SIDEBAR_MIN_WIDTH = 244;
-const EMPTY_MENTIONABLE_AGENTS: MentionableAgent[] = [];
+const BOTTOM_THRESHOLD_PX = 96
+const SIDEBAR_MIN_WIDTH = 244
+const EMPTY_MENTIONABLE_AGENTS: MentionableAgent[] = []
 
 function DirectoryChatPage() {
-  const params = Route.useParams();
-  const navigate = useNavigate();
-  const platform = usePlatform();
-  const transcriptRef = useRef<HTMLElement | null>(null);
+  const params = Route.useParams()
+  const navigate = useNavigate()
+  const platform = usePlatform()
+  const transcriptRef = useRef<HTMLElement | null>(null)
 
   // ── Local UI state ──────────────────────────────────────────────────────────
-  const [stickToBottom, setStickToBottom] = useState(true);
-  const [selectedThinking, setSelectedThinking] = useState("default");
-  const [resourcesRefreshToken, setResourcesRefreshToken] = useState(0);
-  const [systemPromptRefreshToken, setSystemPromptRefreshToken] = useState(0);
+  const [stickToBottom, setStickToBottom] = useState(true)
+  const [selectedThinking, setSelectedThinking] = useState("default")
+  const [resourcesRefreshToken, setResourcesRefreshToken] = useState(0)
+  const [systemPromptRefreshToken, setSystemPromptRefreshToken] = useState(0)
   const [pendingSuggestionOverride, setPendingSuggestionOverride] = useState<
     | {
-        label: string;
-        prompt: string;
-        intent?: TeachingIntent;
-        focusGoalIds: string[];
+        label: string
+        prompt: string
+        intent?: TeachingIntent
+        focusGoalIds: string[]
       }
     | undefined
-  >(undefined);
-  const [isStartingInteractiveLesson, setIsStartingInteractiveLesson] =
-    useState(false);
-  const [createFileDialogOpen, setCreateFileDialogOpen] = useState(false);
+  >(undefined)
+  const [isStartingInteractiveLesson, setIsStartingInteractiveLesson] = useState(false)
+  const [createFileDialogOpen, setCreateFileDialogOpen] = useState(false)
 
   // ── Decoded directory ───────────────────────────────────────────────────────
   const decodedDirectory = useMemo(() => {
     try {
-      return decodeDirectory(params.directory);
+      return decodeDirectory(params.directory)
     } catch {
-      return "";
+      return ""
     }
-  }, [params.directory]);
+  }, [params.directory])
 
-  const showDevSessionTrace = import.meta.env.DEV;
-  const showCapabilitiesSidebarTab = showDevSessionTrace;
-  const showSystemPromptSidebarTab = showDevSessionTrace;
+  const showDevSessionTrace = import.meta.env.DEV
+  const showCapabilitiesSidebarTab = showDevSessionTrace
+  const showSystemPromptSidebarTab = showDevSessionTrace
 
   // ── Derive hasRegisteredProject before hooks that need it ──────────────────
-  const _openProjects = useChatStore((state) => state.openProjects);
+  const _openProjects = useChatStore((state) => state.openProjects)
   const hasRegisteredProject = useMemo(
     () =>
-      !!decodedDirectory &&
-      _openProjects.filter((d) => d && d !== "/").includes(decodedDirectory),
+      !!decodedDirectory && _openProjects.filter((d) => d && d !== "/").includes(decodedDirectory),
     [decodedDirectory, _openProjects],
-  );
+  )
 
   // ── Composer config (personas, slash commands, default intent/model) ─────────
-  const chatConfig = useChatConfig({ decodedDirectory, hasRegisteredProject });
+  const chatConfig = useChatConfig({ decodedDirectory, hasRegisteredProject })
 
   // ── All Zustand selectors and derived state ──────────────────────────────────
   const cs = useDirectoryChatState({
@@ -167,9 +155,9 @@ function DirectoryChatPage() {
     selectedThinking,
     showSystemPromptSidebarTab,
     showCapabilitiesSidebarTab,
-  });
+  })
 
-  const { slashCommands } = chatConfig;
+  const { slashCommands } = chatConfig
   const slashCommandCandidates = useMemo(
     () => [
       ...RESOURCE_LOCAL_SLASH_COMMANDS.map((command) => ({
@@ -178,7 +166,7 @@ function DirectoryChatPage() {
       ...slashCommands,
     ],
     [slashCommands],
-  );
+  )
 
   // ── Teaching workspace ───────────────────────────────────────────────────────
   const teachingWs = useTeachingWorkspace({
@@ -199,7 +187,7 @@ function DirectoryChatPage() {
     setRightSidebarWidth: cs.setRightSidebarWidth,
     rightSidebarWidth: cs.rightSidebarWidth,
     setIsStartingInteractiveLesson,
-  });
+  })
 
   // ── SSE sync + refresh interval ───────────────────────────────────────────
   useChatSync({
@@ -218,151 +206,137 @@ function DirectoryChatPage() {
     setSystemPromptRefreshToken,
     refreshSlashCommands: chatConfig.refreshSlashCommands,
     refreshMcpStatus: chatConfig.refreshMcpStatus,
-  });
+  })
 
   // ── Prompt store helpers ────────────────────────────────────────────────────
   function readPromptSnapshot() {
-    return clonePromptDraft(
-      getPromptDraft(usePromptStore.getState(), cs.promptKey),
-    );
+    return clonePromptDraft(getPromptDraft(usePromptStore.getState(), cs.promptKey))
   }
 
-  function restorePromptSnapshot(
-    snapshot: ReturnType<typeof readPromptSnapshot>,
-  ) {
+  function restorePromptSnapshot(snapshot: ReturnType<typeof readPromptSnapshot>) {
     cs.setPromptDraft(cs.promptKey, {
       value: snapshot.value,
       parts: snapshot.parts,
       attachments: snapshot.attachments,
       cursor: snapshot.cursor,
-    });
+    })
   }
 
   function stagePromptText(value: string) {
-    const nextDraft = createTextPromptDraft(value);
-    cs.setPromptDraft(cs.promptKey, nextDraft);
+    const nextDraft = createTextPromptDraft(value)
+    cs.setPromptDraft(cs.promptKey, nextDraft)
   }
 
   // ── Effects ─────────────────────────────────────────────────────────────────
   useEffect(() => {
-    setPendingSuggestionOverride(undefined);
-  }, [cs.sessionKey]);
+    setPendingSuggestionOverride(undefined)
+  }, [cs.sessionKey])
 
   useEffect(() => {
-    if (!decodedDirectory || !cs.sessionID) return;
-    cs.migrateWorkspaceDraft(decodedDirectory, cs.sessionID);
-  }, [decodedDirectory, cs.migrateWorkspaceDraft, cs.sessionID]);
+    if (!decodedDirectory || !cs.sessionID) return
+    cs.migrateWorkspaceDraft(decodedDirectory, cs.sessionID)
+  }, [decodedDirectory, cs.migrateWorkspaceDraft, cs.sessionID])
 
   useEffect(() => {
-    void bootstrapOpenProjects().catch(() => undefined);
-  }, []);
+    void bootstrapOpenProjects().catch(() => undefined)
+  }, [])
 
   useEffect(() => {
     if (decodedDirectory === "/") {
-      const fallback = cs.validOpenProjects[0];
+      const fallback = cs.validOpenProjects[0]
       if (fallback) {
         navigate({
           to: "/$directory/chat",
           params: { directory: encodeDirectory(fallback) },
           replace: true,
-        });
+        })
       } else {
-        navigate({ to: "/chat", replace: true });
+        navigate({ to: "/chat", replace: true })
       }
-      return;
+      return
     }
 
-    if (!decodedDirectory) return;
+    if (!decodedDirectory) return
 
     void ensureDirectorySession(decodedDirectory)
       .then((result) => {
-        cs.setActiveDirectory(result.directory);
-        if (result.directory === decodedDirectory) return;
+        cs.setActiveDirectory(result.directory)
+        if (result.directory === decodedDirectory) return
         navigate({
           to: "/$directory/chat",
           params: { directory: encodeDirectory(result.directory) },
           replace: true,
-        });
+        })
       })
       .catch((error) => {
-        const state = useChatStore.getState();
+        const state = useChatStore.getState()
         if (state.openProjects.includes(decodedDirectory)) {
-          cs.setActiveDirectory(decodedDirectory);
-          return;
+          cs.setActiveDirectory(decodedDirectory)
+          return
         }
-        const fallback = state.openProjects[0];
+        const fallback = state.openProjects[0]
         if (fallback && fallback !== decodedDirectory) {
           navigate({
             to: "/$directory/chat",
             params: { directory: encodeDirectory(fallback) },
             replace: true,
-          });
-          return;
+          })
+          return
         }
-        state.setEntryError(stringifyError(error));
-        navigate({ to: "/chat", replace: true });
-      });
-  }, [decodedDirectory, navigate, cs.setActiveDirectory, cs.validOpenProjects]);
+        state.setEntryError(stringifyError(error))
+        navigate({ to: "/chat", replace: true })
+      })
+  }, [decodedDirectory, navigate, cs.setActiveDirectory, cs.validOpenProjects])
 
   useEffect(() => {
-    setStickToBottom(true);
-  }, [cs.sessionID]);
+    setStickToBottom(true)
+  }, [cs.sessionID])
 
   useEffect(() => {
-    if (!decodedDirectory || !cs.sessionID) return;
-    cs.clearUnread(decodedDirectory, cs.sessionID);
-  }, [cs.clearUnread, decodedDirectory, cs.sessionID]);
+    if (!decodedDirectory || !cs.sessionID) return
+    cs.clearUnread(decodedDirectory, cs.sessionID)
+  }, [cs.clearUnread, decodedDirectory, cs.sessionID])
 
   useEffect(() => {
-    if (!stickToBottom) return;
-    const container = transcriptRef.current;
-    if (!container) return;
-    container.scrollTo({ top: container.scrollHeight, behavior: "auto" });
-  }, [cs.messages, cs.isBusy, stickToBottom]);
+    if (!stickToBottom) return
+    const container = transcriptRef.current
+    if (!container) return
+    container.scrollTo({ top: container.scrollHeight, behavior: "auto" })
+  }, [cs.messages, cs.isBusy, stickToBottom])
 
   useEffect(() => {
-    void syncTeachingRuntimeSelection();
-  }, [decodedDirectory, cs.sessionID, cs.sessionKey]);
+    void syncTeachingRuntimeSelection()
+  }, [decodedDirectory, cs.sessionID, cs.sessionKey])
 
   useEffect(() => {
-    if (cs.selectedModelKey === "auto") return;
-    if (cs.modelOptions.some((option) => option.key === cs.selectedModelKey))
-      return;
-    if (!decodedDirectory) return;
-    cs.setSelectedModel(decodedDirectory, "auto");
-  }, [
-    decodedDirectory,
-    cs.modelOptions,
-    cs.selectedModelKey,
-    cs.setSelectedModel,
-  ]);
+    if (cs.selectedModelKey === "auto") return
+    if (cs.modelOptions.some((option) => option.key === cs.selectedModelKey)) return
+    if (!decodedDirectory) return
+    cs.setSelectedModel(decodedDirectory, "auto")
+  }, [decodedDirectory, cs.modelOptions, cs.selectedModelKey, cs.setSelectedModel])
 
   useEffect(() => {
-    if (cs.thinkingOptions.some((option) => option.key === selectedThinking))
-      return;
-    setSelectedThinking("default");
-  }, [selectedThinking, cs.thinkingOptions]);
+    if (cs.thinkingOptions.some((option) => option.key === selectedThinking)) return
+    setSelectedThinking("default")
+  }, [selectedThinking, cs.thinkingOptions])
 
   // ── Teaching runtime sync ───────────────────────────────────────────────────
   async function syncTeachingRuntimeSelection(input?: {
-    directory?: string;
-    sessionID?: string;
-    sessionKey?: string;
+    directory?: string
+    sessionID?: string
+    sessionKey?: string
   }) {
-    const activeDirectory = input?.directory ?? decodedDirectory;
-    const activeSessionID = input?.sessionID ?? cs.sessionID;
-    const activeSessionKey = input?.sessionKey ?? cs.sessionKey;
-    if (!activeDirectory || !activeSessionID || !activeSessionKey) return;
+    const activeDirectory = input?.directory ?? decodedDirectory
+    const activeSessionID = input?.sessionID ?? cs.sessionID
+    const activeSessionKey = input?.sessionKey ?? cs.sessionKey
+    if (!activeDirectory || !activeSessionID || !activeSessionKey) return
 
     try {
-      const runtime = await loadTeachingSessionState(
-        activeDirectory,
-        activeSessionID,
-      );
-      if (!runtime) return;
-      const teaching = useTeachingRuntime.getState();
-      teaching.setSessionPersona(activeSessionKey, runtime.persona);
-      teaching.setSessionIntent(activeSessionKey, runtime.intent ?? "auto");
+      const runtime = await loadTeachingSessionState(activeDirectory, activeSessionID)
+      if (!runtime) return
+      const teaching = useTeachingRuntime.getState()
+      teaching.setSessionPersona(activeSessionKey, runtime.persona)
+      teaching.setSessionIntent(activeSessionKey, runtime.intent ?? "auto")
     } catch {
       // Ignore sessions without Buddy teaching state yet.
     }
@@ -370,143 +344,123 @@ function DirectoryChatPage() {
 
   // ── Session / navigation handlers ───────────────────────────────────────────
   function onSwitchDirectory(nextDirectory: string) {
-    if (!nextDirectory) return;
+    if (!nextDirectory) return
     navigate({
       to: "/$directory/chat",
       params: { directory: encodeDirectory(nextDirectory) },
-    });
+    })
   }
 
   async function onNewSession(targetDirectory = decodedDirectory) {
-    if (!targetDirectory) return;
+    if (!targetDirectory) return
     try {
-      await startNewSession(targetDirectory);
-      if (targetDirectory !== decodedDirectory)
-        onSwitchDirectory(targetDirectory);
+      await startNewSession(targetDirectory)
+      if (targetDirectory !== decodedDirectory) onSwitchDirectory(targetDirectory)
     } catch {
       // Store already captures and displays errors.
     }
   }
 
-  async function onSelectSession(
-    targetDirectory: string,
-    nextSessionID?: string,
-  ) {
-    if (!targetDirectory) return;
+  async function onSelectSession(targetDirectory: string, nextSessionID?: string) {
+    if (!targetDirectory) return
     if (!nextSessionID) {
-      if (targetDirectory !== decodedDirectory)
-        onSwitchDirectory(targetDirectory);
-      return;
+      if (targetDirectory !== decodedDirectory) onSwitchDirectory(targetDirectory)
+      return
     }
     try {
-      await selectSession(targetDirectory, nextSessionID);
-      cs.clearUnread(targetDirectory, nextSessionID);
-      if (targetDirectory !== decodedDirectory)
-        onSwitchDirectory(targetDirectory);
+      await selectSession(targetDirectory, nextSessionID)
+      cs.clearUnread(targetDirectory, nextSessionID)
+      if (targetDirectory !== decodedDirectory) onSwitchDirectory(targetDirectory)
     } catch {
       // Store already captures and displays errors.
     }
   }
 
-  async function onPermissionReply(
-    requestID: string,
-    reply: "once" | "always" | "reject",
-  ) {
-    if (!decodedDirectory) return;
+  async function onPermissionReply(requestID: string, reply: "once" | "always" | "reject") {
+    if (!decodedDirectory) return
     try {
-      await replyPermission({ directory: decodedDirectory, requestID, reply });
+      await replyPermission({ directory: decodedDirectory, requestID, reply })
     } catch {
       // store error is handled by action callers elsewhere; keep UI non-blocking here
     }
   }
 
   async function onOpenProject() {
-    if (!decodedDirectory) return;
+    if (!decodedDirectory) return
     try {
-      const picked = await pickProjectDirectory();
-      if (!picked) return;
-      const nextDirectory = await openProject(picked);
-      cs.setActiveDirectory(nextDirectory);
-      onSwitchDirectory(nextDirectory);
+      const picked = await pickProjectDirectory()
+      if (!picked) return
+      const nextDirectory = await openProject(picked)
+      cs.setActiveDirectory(nextDirectory)
+      onSwitchDirectory(nextDirectory)
     } catch (error) {
-      cs.setDirectoryError(decodedDirectory, stringifyError(error));
+      cs.setDirectoryError(decodedDirectory, stringifyError(error))
     }
   }
 
-  async function onArchiveSession(
-    targetDirectory: string,
-    targetSessionID: string,
-  ) {
-    if (!targetDirectory) return;
+  async function onArchiveSession(targetDirectory: string, targetSessionID: string) {
+    if (!targetDirectory) return
     try {
       await updateSession({
         directory: targetDirectory,
         sessionID: targetSessionID,
         archivedAt: Date.now(),
-      });
+      })
       cs.removePromptDraft(
-        (await import("../state/prompt-store")).getPromptScopeKey(
-          targetDirectory,
-          targetSessionID,
-        ),
-      );
-      cs.clearDirectorySessionState(targetDirectory, targetSessionID);
-      await loadSessions(targetDirectory);
-      await loadPermissions(targetDirectory);
+        (await import("../state/prompt-store")).getPromptScopeKey(targetDirectory, targetSessionID),
+      )
+      cs.clearDirectorySessionState(targetDirectory, targetSessionID)
+      await loadSessions(targetDirectory)
+      await loadPermissions(targetDirectory)
 
-      const activeSessionID =
-        useChatStore.getState().directories[targetDirectory]?.sessionID;
+      const activeSessionID = useChatStore.getState().directories[targetDirectory]?.sessionID
       if (!activeSessionID) {
-        await startNewSession(targetDirectory);
-        await loadPermissions(targetDirectory);
-        return;
+        await startNewSession(targetDirectory)
+        await loadPermissions(targetDirectory)
+        return
       }
 
       if (activeSessionID !== targetSessionID) {
-        await loadMessages(targetDirectory, activeSessionID);
-        cs.clearUnread(targetDirectory, activeSessionID);
+        await loadMessages(targetDirectory, activeSessionID)
+        cs.clearUnread(targetDirectory, activeSessionID)
       }
     } catch {
       // action layers keep directory-level error state
     }
   }
 
-  async function onRenameSession(
-    targetDirectory: string,
-    targetSessionID: string,
-    title: string,
-  ) {
-    if (!targetDirectory) return;
-    const trimmed = title.trim();
-    if (!trimmed) return;
+  async function onRenameSession(targetDirectory: string, targetSessionID: string, title: string) {
+    if (!targetDirectory) return
+    const trimmed = title.trim()
+    if (!trimmed) return
     try {
       const updated = await updateSession({
         directory: targetDirectory,
         sessionID: targetSessionID,
         title: trimmed,
-      });
-      cs.applySessionUpdated(targetDirectory, updated);
+      })
+      cs.applySessionUpdated(targetDirectory, updated)
     } catch {
       // action layers keep directory-level error state
     }
   }
 
   async function onCloseDirectory(targetDirectory: string) {
-    const closedDirectory = await closeOpenProject(targetDirectory);
-    if (!closedDirectory) return;
-    if (closedDirectory !== decodedDirectory) return;
+    const closedDirectory = await closeOpenProject(targetDirectory)
+    if (!closedDirectory) return
+    if (closedDirectory !== decodedDirectory) return
 
-    const nextDirectory = useChatStore.getState().openProjects[0];
+    const nextDirectory = useChatStore.getState().openProjects[0]
     if (nextDirectory) {
       navigate({
         to: "/$directory/chat",
         params: { directory: encodeDirectory(nextDirectory) },
         replace: true,
-      });
-      return;
+      })
+      return
     }
 
-    navigate({ to: "/chat", replace: true });
+    navigate({ to: "/chat", replace: true })
   }
 
   function onToggleUnreadSession(
@@ -514,46 +468,46 @@ function DirectoryChatPage() {
     targetSessionID: string,
     unread: boolean,
   ) {
-    if (!targetDirectory) return;
+    if (!targetDirectory) return
     if (unread) {
-      cs.markUnread(targetDirectory, targetSessionID);
-      return;
+      cs.markUnread(targetDirectory, targetSessionID)
+      return
     }
-    cs.clearUnread(targetDirectory, targetSessionID);
+    cs.clearUnread(targetDirectory, targetSessionID)
   }
 
   // ── Panel helpers ────────────────────────────────────────────────────────────
   function openCurriculumPanel() {
-    cs.setRightSidebarTab("curriculum");
-    cs.setRightSidebarOpen(true);
+    cs.setRightSidebarTab("curriculum")
+    cs.setRightSidebarOpen(true)
   }
 
   function openResourcesPanel() {
-    cs.setRightSidebarTab(RESOURCE_SIDEBAR_TAB);
-    cs.setRightSidebarOpen(true);
+    cs.setRightSidebarTab(RESOURCE_SIDEBAR_TAB)
+    cs.setRightSidebarOpen(true)
   }
 
   function refreshResourcesPanel() {
-    setResourcesRefreshToken((current) => current + 1);
+    setResourcesRefreshToken((current) => current + 1)
   }
 
   function openSettingsPanel() {
-    navigate({ to: "/settings", search: { tab: "instructions" } });
+    navigate({ to: "/settings", search: { tab: "instructions" } })
   }
 
   function openSkillsPage() {
-    navigate({ to: "/skills" });
+    navigate({ to: "/skills" })
   }
 
   function onToggleRightSidebar() {
     if (cs.rightSidebarOpen) {
-      cs.setRightSidebarOpen(false);
-      return;
+      cs.setRightSidebarOpen(false)
+      return
     }
     if (cs.rightSidebarActiveTab === "editor" && cs.rightSidebarWidth < 360) {
-      cs.setRightSidebarWidth(640);
+      cs.setRightSidebarWidth(640)
     }
-    cs.setRightSidebarOpen(true);
+    cs.setRightSidebarOpen(true)
   }
 
   // ── Resource command handler ─────────────────────────────────────────────────
@@ -562,33 +516,30 @@ function DirectoryChatPage() {
     input: { rawAttachments: PromptComposerAttachment[] },
   ) {
     if (command.type === RESOURCE_COMMAND_PANEL) {
-      openResourcesPanel();
-      refreshResourcesPanel();
-      return true;
+      openResourcesPanel()
+      refreshResourcesPanel()
+      return true
     }
 
     if (command.type === RESOURCE_COMMAND_ADD) {
       await addResource(decodedDirectory, {
         sourcePath: command.path,
         ...(command.alias ? { alias: command.alias } : {}),
-      });
-      openResourcesPanel();
-      refreshResourcesPanel();
-      return true;
+      })
+      openResourcesPanel()
+      refreshResourcesPanel()
+      return true
     }
 
-    if (
-      command.type === RESOURCE_COMMAND_REBUILD ||
-      command.type === RESOURCE_COMMAND_REMOVE
-    ) {
+    if (command.type === RESOURCE_COMMAND_REBUILD || command.type === RESOURCE_COMMAND_REMOVE) {
       if (command.type === RESOURCE_COMMAND_REBUILD) {
-        await rebuildResource(decodedDirectory, { resourceKey: command.key });
+        await rebuildResource(decodedDirectory, { resourceKey: command.key })
       } else {
-        await removeResource(decodedDirectory, { resourceKey: command.key });
+        await removeResource(decodedDirectory, { resourceKey: command.key })
       }
-      openResourcesPanel();
-      refreshResourcesPanel();
-      return true;
+      openResourcesPanel()
+      refreshResourcesPanel()
+      return true
     }
 
     if (command.type === RESOURCE_COMMAND_USE) {
@@ -597,63 +548,61 @@ function DirectoryChatPage() {
         attachments: input.rawAttachments,
         parts: [{ type: RESOURCE_REFERENCE_PART_TYPE, key: command.key }],
         intent: intentFromSelection(cs.storedIntent),
-      });
+      })
       if (sent) {
-        cs.clearPromptDraft(cs.promptKey);
-        return true;
+        cs.clearPromptDraft(cs.promptKey)
+        return true
       }
-      return false;
+      return false
     }
 
-    return false;
+    return false
   }
 
   // ── Search files for @mention ────────────────────────────────────────────────
   async function onSearchMentionFiles(query: string) {
-    if (!decodedDirectory) return [] as Array<{ path: string }>;
+    if (!decodedDirectory) return [] as Array<{ path: string }>
     try {
       const files = await findWorkspaceFiles(decodedDirectory, query, {
         includeDirectories: true,
         limit: 20,
-      });
-      return files.map((path) => ({ path }));
+      })
+      return files.map((path) => ({ path }))
     } catch {
-      return [];
+      return []
     }
   }
 
   // ── Prompt submission ────────────────────────────────────────────────────────
   async function sendRuntimePrompt(input: {
-    content: string;
-    attachments?: PromptComposerAttachment[];
-    parts?: PromptComposerPart[];
-    intent?: TeachingIntent;
-    focusGoalIds?: string[];
+    content: string
+    attachments?: PromptComposerAttachment[]
+    parts?: PromptComposerPart[]
+    intent?: TeachingIntent
+    focusGoalIds?: string[]
   }) {
-    if (!decodedDirectory) return false;
+    if (!decodedDirectory) return false
 
-    const rawAttachments = input.attachments ?? [];
-    const promptParts = input.parts ?? [];
-    const content = input.content.trim();
-    if (!content && rawAttachments.length === 0 && promptParts.length === 0)
-      return false;
+    const rawAttachments = input.attachments ?? []
+    const promptParts = input.parts ?? []
+    const content = input.content.trim()
+    if (!content && rawAttachments.length === 0 && promptParts.length === 0) return false
 
     if (cs.selectedPersonaSupportsEditor && cs.isInteractiveMode) {
-      const ready = await teachingWs.flushTeachingWorkspace();
-      if (!ready) return false;
+      const ready = await teachingWs.flushTeachingWorkspace()
+      if (!ready) return false
     }
 
-    const variant =
-      selectedThinking !== "default" ? selectedThinking : undefined;
+    const variant = selectedThinking !== "default" ? selectedThinking : undefined
     const activeWorkspace = cs.sessionKey
       ? useTeachingRuntime.getState().workspaceBySession[cs.sessionKey]
-      : undefined;
+      : undefined
     const teachingContext = await resolveTeachingPromptContext({
       workspace: activeWorkspace,
       pendingWorkspace: cs.sessionKey
         ? teachingWs.workspaceProbeBySessionRef.current.get(cs.sessionKey)
         : undefined,
-    });
+    })
 
     await sendPrompt(decodedDirectory, promptParts.length > 0 ? "" : content, {
       parts: buildPromptSubmissionParts(promptParts, rawAttachments),
@@ -663,73 +612,63 @@ function DirectoryChatPage() {
       model: cs.effectiveModelSelection,
       variant,
       teaching: teachingContext,
-    });
-    setSystemPromptRefreshToken((token) => token + 1);
-    void syncTeachingRuntimeSelection();
-    return true;
+    })
+    setSystemPromptRefreshToken((token) => token + 1)
+    void syncTeachingRuntimeSelection()
+    return true
   }
 
   async function onSend() {
-    if (!decodedDirectory) return;
-    const draftSnapshot = readPromptSnapshot();
-    const rawContent = draftSnapshot.value;
-    const promptParts = draftSnapshot.parts;
-    const rawAttachments = draftSnapshot.attachments;
-    const content = rawContent.trim();
-    if (!content && rawAttachments.length === 0 && promptParts.length === 0)
-      return;
+    if (!decodedDirectory) return
+    const draftSnapshot = readPromptSnapshot()
+    const rawContent = draftSnapshot.value
+    const promptParts = draftSnapshot.parts
+    const rawAttachments = draftSnapshot.attachments
+    const content = rawContent.trim()
+    if (!content && rawAttachments.length === 0 && promptParts.length === 0) return
 
-    const variant =
-      selectedThinking !== "default" ? selectedThinking : undefined;
-    const slashCommand = parseSlashCommandInput(
-      rawContent,
-      slashCommandCandidates,
-    );
+    const variant = selectedThinking !== "default" ? selectedThinking : undefined
+    const slashCommand = parseSlashCommandInput(rawContent, slashCommandCandidates)
 
     if (slashCommand) {
       if (isResourceLocalSlashCommandName(slashCommand.command.name)) {
-        const resourceCommand = parseResourceLocalSlashCommand(rawContent);
-        cs.clearPromptDraft(cs.promptKey);
+        const resourceCommand = parseResourceLocalSlashCommand(rawContent)
+        cs.clearPromptDraft(cs.promptKey)
         if (!resourceCommand) {
-          restorePromptSnapshot(draftSnapshot);
-          return;
+          restorePromptSnapshot(draftSnapshot)
+          return
         }
         try {
           const handled = await handleResourceCommand(resourceCommand, {
             rawAttachments,
-          });
-          if (handled) return;
-          restorePromptSnapshot(draftSnapshot);
+          })
+          if (handled) return
+          restorePromptSnapshot(draftSnapshot)
         } catch {
-          restorePromptSnapshot(draftSnapshot);
+          restorePromptSnapshot(draftSnapshot)
         }
-        return;
+        return
       }
 
-      const attachmentParts = buildCommandAttachmentParts(rawAttachments);
-      cs.clearPromptDraft(cs.promptKey);
+      const attachmentParts = buildCommandAttachmentParts(rawAttachments)
+      cs.clearPromptDraft(cs.promptKey)
       try {
-        await sendCommand(
-          decodedDirectory,
-          slashCommand.command.name,
-          slashCommand.arguments,
-          {
-            parts: attachmentParts,
-            persona: cs.selectedPersona,
-            intent: intentFromSelection(cs.storedIntent),
-            model: cs.effectiveModelSelection,
-            variant,
-          },
-        );
-        setSystemPromptRefreshToken((token) => token + 1);
-        void syncTeachingRuntimeSelection();
+        await sendCommand(decodedDirectory, slashCommand.command.name, slashCommand.arguments, {
+          parts: attachmentParts,
+          persona: cs.selectedPersona,
+          intent: intentFromSelection(cs.storedIntent),
+          model: cs.effectiveModelSelection,
+          variant,
+        })
+        setSystemPromptRefreshToken((token) => token + 1)
+        void syncTeachingRuntimeSelection()
       } catch {
-        restorePromptSnapshot(draftSnapshot);
+        restorePromptSnapshot(draftSnapshot)
       }
-      return;
+      return
     }
 
-    cs.clearPromptDraft(cs.promptKey);
+    cs.clearPromptDraft(cs.promptKey)
     try {
       const sent = await sendRuntimePrompt({
         content,
@@ -737,39 +676,37 @@ function DirectoryChatPage() {
         attachments: rawAttachments,
         intent: pendingSuggestionOverride?.intent,
         focusGoalIds: pendingSuggestionOverride?.focusGoalIds,
-      });
+      })
       if (!sent) {
-        restorePromptSnapshot(draftSnapshot);
-        return;
+        restorePromptSnapshot(draftSnapshot)
+        return
       }
-      setPendingSuggestionOverride(undefined);
+      setPendingSuggestionOverride(undefined)
     } catch {
-      restorePromptSnapshot(draftSnapshot);
+      restorePromptSnapshot(draftSnapshot)
     }
   }
 
-  async function onRunLearningPlanAction(
-    action: LearnerCurriculumView["actions"][number],
-  ) {
+  async function onRunLearningPlanAction(action: LearnerCurriculumView["actions"][number]) {
     const override = {
       label: `${action.label}: ${action.reason}`,
       prompt: action.prompt,
       intent: action.intent,
       focusGoalIds: action.focusGoalIds,
-    };
-
-    if (cs.sessionKey) {
-      cs.teachingRuntime.setSessionIntent(cs.sessionKey, action.intent);
     }
 
-    setPendingSuggestionOverride(override);
+    if (cs.sessionKey) {
+      cs.teachingRuntime.setSessionIntent(cs.sessionKey, action.intent)
+    }
+
+    setPendingSuggestionOverride(override)
 
     const canSendImmediately =
       !!decodedDirectory &&
       !!cs.sessionKey &&
       !cs.isBusy &&
       cs.draftState.value.trim().length === 0 &&
-      cs.draftState.attachments.length === 0;
+      cs.draftState.attachments.length === 0
 
     if (canSendImmediately) {
       try {
@@ -777,83 +714,74 @@ function DirectoryChatPage() {
           content: override.prompt,
           intent: override.intent,
           focusGoalIds: override.focusGoalIds,
-        });
+        })
         if (sent) {
-          setPendingSuggestionOverride(undefined);
-          cs.clearPromptDraft(cs.promptKey);
-          return;
+          setPendingSuggestionOverride(undefined)
+          cs.clearPromptDraft(cs.promptKey)
+          return
         }
       } catch {
         // Fall through to staging the override in the composer.
       }
     }
 
-    stagePromptText(action.prompt);
+    stagePromptText(action.prompt)
   }
 
   async function onAbort() {
-    if (!decodedDirectory) return;
-    await abortPrompt(decodedDirectory);
+    if (!decodedDirectory) return
+    await abortPrompt(decodedDirectory)
   }
 
   function onTranscriptScroll(event: UIEvent<HTMLElement>) {
-    const node = event.currentTarget;
-    const distanceFromBottom =
-      node.scrollHeight - (node.scrollTop + node.clientHeight);
-    setStickToBottom(distanceFromBottom <= BOTTOM_THRESHOLD_PX);
+    const node = event.currentTarget
+    const distanceFromBottom = node.scrollHeight - (node.scrollTop + node.clientHeight)
+    setStickToBottom(distanceFromBottom <= BOTTOM_THRESHOLD_PX)
   }
 
   function onPersonaChange(persona: string) {
-    if (!cs.sessionKey) return;
-    cs.teachingRuntime.setSessionPersona(cs.sessionKey, persona);
+    if (!cs.sessionKey) return
+    cs.teachingRuntime.setSessionPersona(cs.sessionKey, persona)
 
-    const nextPersona = cs.primaryPersonaOptions.find(
-      (option) => option.id === persona,
-    );
-    if (!nextPersona) return;
+    const nextPersona = cs.primaryPersonaOptions.find((option) => option.id === persona)
+    if (!nextPersona) return
 
-    if (
-      cs.rightSidebarActiveTab === "capabilities" &&
-      showCapabilitiesSidebarTab
-    )
-      return;
-    if (cs.rightSidebarActiveTab === RESOURCE_SIDEBAR_TAB) return;
-    if (cs.rightSidebarActiveTab === "agents-md") return;
+    if (cs.rightSidebarActiveTab === "capabilities" && showCapabilitiesSidebarTab) return
+    if (cs.rightSidebarActiveTab === RESOURCE_SIDEBAR_TAB) return
+    if (cs.rightSidebarActiveTab === "agents-md") return
 
     if (nextPersona.surfaces.includes("editor") && cs.teachingWorkspace) {
-      cs.setRightSidebarTab("editor");
-      if (cs.rightSidebarWidth < 360) cs.setRightSidebarWidth(640);
-      cs.setRightSidebarOpen(true);
-      return;
+      cs.setRightSidebarTab("editor")
+      if (cs.rightSidebarWidth < 360) cs.setRightSidebarWidth(640)
+      cs.setRightSidebarOpen(true)
+      return
     }
 
     if (!nextPersona.surfaces.includes(cs.selectedSurfaceTab)) {
-      cs.setRightSidebarTab(nextPersona.defaultSurface);
+      cs.setRightSidebarTab(nextPersona.defaultSurface)
     }
   }
 
   function onIntentChange(intent: TeachingIntent) {
-    if (!cs.sessionKey) return;
-    cs.teachingRuntime.setSessionIntent(cs.sessionKey, intent);
+    if (!cs.sessionKey) return
+    cs.teachingRuntime.setSessionIntent(cs.sessionKey, intent)
   }
 
   function onTeachingCreateFile() {
-    if (!decodedDirectory || !cs.sessionID || !cs.sessionKey) return;
-    setCreateFileDialogOpen(true);
+    if (!decodedDirectory || !cs.sessionID || !cs.sessionKey) return
+    setCreateFileDialogOpen(true)
   }
 
   // ── Early returns ────────────────────────────────────────────────────────────
   if (!decodedDirectory) {
-    return <div className="p-6">Invalid notebook identifier in URL.</div>;
+    return <div className="p-6">Invalid notebook identifier in URL.</div>
   }
 
   if (!hasRegisteredProject) {
-    return <div className="p-6">Opening notebook...</div>;
+    return <div className="p-6">Opening notebook...</div>
   }
 
-  const showHeaderSidebarToggle = !(
-    platform.platform === "desktop" && platform.os === "macos"
-  );
+  const showHeaderSidebarToggle = !(platform.platform === "desktop" && platform.os === "macos")
 
   // ── JSX ──────────────────────────────────────────────────────────────────────
   return (
@@ -883,13 +811,13 @@ function DirectoryChatPage() {
               pinnedByDirectory={cs.pinnedByDirectory}
               unreadByDirectory={cs.unreadByDirectory}
               onOpenDirectory={() => {
-                void onOpenProject();
+                void onOpenProject()
               }}
               onNewSession={(targetDirectory) => {
-                void onNewSession(targetDirectory);
+                void onNewSession(targetDirectory)
               }}
               onSelectSession={(targetDirectory, targetSessionID) => {
-                void onSelectSession(targetDirectory, targetSessionID);
+                void onSelectSession(targetDirectory, targetSessionID)
               }}
               onTogglePin={(targetDirectory, targetSessionID) =>
                 cs.togglePinned(targetDirectory, targetSessionID)
@@ -898,10 +826,10 @@ function DirectoryChatPage() {
               onArchiveSession={onArchiveSession}
               onRenameSession={onRenameSession}
               onReorderDirectories={(nextOrder) => {
-                void reorderOpenProjects(nextOrder);
+                void reorderOpenProjects(nextOrder)
               }}
               onCloseDirectory={(targetDirectory) => {
-                void onCloseDirectory(targetDirectory);
+                void onCloseDirectory(targetDirectory)
               }}
               onOpenCurriculum={openCurriculumPanel}
               onOpenSkills={openSkillsPage}
@@ -932,11 +860,7 @@ function DirectoryChatPage() {
                     variant="ghost"
                     size="icon-xs"
                     onClick={() => cs.setLeftSidebarOpen(!cs.leftSidebarOpen)}
-                    title={
-                      cs.leftSidebarOpen
-                        ? "Collapse left panel"
-                        : "Expand left panel"
-                    }
+                    title={cs.leftSidebarOpen ? "Collapse left panel" : "Expand left panel"}
                   >
                     {cs.leftSidebarOpen ? (
                       <LayoutLeftPartialIcon className="size-3.5" />
@@ -950,10 +874,7 @@ function DirectoryChatPage() {
                     variant="ghost"
                     size="icon-xs"
                     onClick={() => {
-                      void onSelectSession(
-                        decodedDirectory,
-                        cs.parentSession!.id,
-                      );
+                      void onSelectSession(decodedDirectory, cs.parentSession!.id)
                     }}
                     title={`Back to ${cs.parentSession.title || "parent thread"}`}
                   >
@@ -961,9 +882,7 @@ function DirectoryChatPage() {
                   </Button>
                 ) : null}
                 <div className="min-w-0">
-                  <h1 className="text-sm md:text-base font-medium truncate">
-                    {cs.sessionTitle}
-                  </h1>
+                  <h1 className="text-sm md:text-base font-medium truncate">{cs.sessionTitle}</h1>
                   <p className="text-xs text-muted-foreground truncate">
                     local: {getFilename(decodedDirectory)}
                   </p>
@@ -971,16 +890,11 @@ function DirectoryChatPage() {
               </div>
 
               <div className="flex items-center gap-1.5">
-                <SessionContextUsage
-                  messages={cs.messages}
-                  providers={cs.providers}
-                />
+                <SessionContextUsage messages={cs.messages} providers={cs.providers} />
                 <Button
                   variant={cs.hasMcpError ? "secondary" : "ghost"}
                   size="sm"
-                  onClick={() =>
-                    navigate({ to: "/settings", search: { tab: "mcps" } })
-                  }
+                  onClick={() => navigate({ to: "/settings", search: { tab: "mcps" } })}
                   title="View and manage MCPs"
                 >
                   {cs.mcpEntries.length > 0
@@ -994,11 +908,7 @@ function DirectoryChatPage() {
                     variant="ghost"
                     size="icon-xs"
                     onClick={onToggleRightSidebar}
-                    title={
-                      cs.rightSidebarOpen
-                        ? "Collapse right panel"
-                        : "Expand right panel"
-                    }
+                    title={cs.rightSidebarOpen ? "Collapse right panel" : "Expand right panel"}
                   >
                     {cs.rightSidebarOpen ? (
                       <LayoutRightPartialIcon className="size-3.5" />
@@ -1018,7 +928,7 @@ function DirectoryChatPage() {
                           sessionID: cs.sessionID!,
                           streamStatus: cs.streamStatus,
                         }),
-                      );
+                      )
                     }}
                   >
                     Copy Trace
@@ -1041,14 +951,10 @@ function DirectoryChatPage() {
                   }`}
                 >
                   {!cs.isReady ? (
-                    <p className="text-sm text-muted-foreground">
-                      Loading conversation history...
-                    </p>
+                    <p className="text-sm text-muted-foreground">Loading conversation history...</p>
                   ) : cs.messages.length === 0 ? (
                     <div className="h-full flex flex-col">
-                      <ChatEmptyState
-                        directoryLabel={getFilename(decodedDirectory)}
-                      />
+                      <ChatEmptyState directoryLabel={getFilename(decodedDirectory)} />
                     </div>
                   ) : (
                     <ChatTranscript
@@ -1056,7 +962,7 @@ function DirectoryChatPage() {
                       providers={cs.providers}
                       isBusy={cs.isBusy}
                       onOpenSession={(targetSessionID) => {
-                        void onSelectSession(decodedDirectory, targetSessionID);
+                        void onSelectSession(decodedDirectory, targetSessionID)
                       }}
                     />
                   )}
@@ -1077,10 +983,7 @@ function DirectoryChatPage() {
                     request={cs.pendingPermissions[0]!}
                     pendingCount={Math.max(0, cs.pendingPermissions.length - 1)}
                     onReply={async (reply) => {
-                      await onPermissionReply(
-                        cs.pendingPermissions[0]!.id,
-                        reply,
-                      );
+                      await onPermissionReply(cs.pendingPermissions[0]!.id, reply)
                     }}
                   />
                 </div>
@@ -1108,26 +1011,26 @@ function DirectoryChatPage() {
                   onPersonaChange={onPersonaChange}
                   onIntentChange={onIntentChange}
                   onClearPendingSteer={() => {
-                    setPendingSuggestionOverride(undefined);
+                    setPendingSuggestionOverride(undefined)
                   }}
                   onModelChange={(model) => {
-                    if (!decodedDirectory) return;
-                    cs.setSelectedModel(decodedDirectory, model);
+                    if (!decodedDirectory) return
+                    cs.setSelectedModel(decodedDirectory, model)
                   }}
                   onThinkingChange={setSelectedThinking}
                   onAbort={() => {
-                    void onAbort();
+                    void onAbort()
                   }}
                   onNewSession={() => {
-                    void onNewSession();
+                    void onNewSession()
                   }}
                   onOpenMcpDialog={() => {
-                    navigate({ to: "/settings", search: { tab: "mcps" } });
+                    navigate({ to: "/settings", search: { tab: "mcps" } })
                   }}
                   onSearchFiles={onSearchMentionFiles}
                   onRefreshSlashCommands={chatConfig.refreshSlashCommands}
                   onSubmit={() => {
-                    void onSend();
+                    void onSend()
                   }}
                 />
               </div>
@@ -1158,10 +1061,7 @@ function DirectoryChatPage() {
               showCapabilitiesTab={showCapabilitiesSidebarTab}
               showSystemPromptTab={showSystemPromptSidebarTab}
               resourcesPanel={
-                <ResourcesPanel
-                  directory={decodedDirectory}
-                  refreshToken={resourcesRefreshToken}
-                />
+                <ResourcesPanel directory={decodedDirectory} refreshToken={resourcesRefreshToken} />
               }
               agentsPanel={<AgentsMdPanel directory={decodedDirectory} />}
               systemPromptPanel={
@@ -1177,7 +1077,7 @@ function DirectoryChatPage() {
               persona={cs.selectedPersona}
               intent={intentFromSelection(cs.storedIntent)}
               onRunAction={(action) => {
-                void onRunLearningPlanAction(action);
+                void onRunLearningPlanAction(action)
               }}
               editorPanel={
                 cs.selectedPersonaSupportsEditor ? (
@@ -1189,18 +1089,18 @@ function DirectoryChatPage() {
                         isBusy={cs.isBusy}
                         onCodeChange={teachingWs.onTeachingCodeChange}
                         onSelectFile={(relativePath) => {
-                          void teachingWs.onTeachingSelectFile(relativePath);
+                          void teachingWs.onTeachingSelectFile(relativePath)
                         }}
                         onCreateFile={() => {
-                          onTeachingCreateFile();
+                          onTeachingCreateFile()
                         }}
                         onSelectionChange={teachingWs.onTeachingSelectionChange}
                         onLanguageChange={teachingWs.onTeachingLanguageChange}
                         onCheckpoint={() => {
-                          void teachingWs.onTeachingCheckpoint();
+                          void teachingWs.onTeachingCheckpoint()
                         }}
                         onRestoreAccepted={() => {
-                          void teachingWs.onTeachingRestoreAccepted();
+                          void teachingWs.onTeachingRestoreAccepted()
                         }}
                         onLoadExternalChanges={teachingWs.onLoadExternalChanges}
                         onForceOverwrite={teachingWs.onForceOverwrite}
@@ -1213,13 +1113,10 @@ function DirectoryChatPage() {
                   ) : (
                     <section className="flex min-h-0 flex-1 flex-col justify-center gap-4 px-6 py-8">
                       <div className="space-y-2">
-                        <h2 className="text-sm font-medium">
-                          Interactive Lesson
-                        </h2>
+                        <h2 className="text-sm font-medium">Interactive Lesson</h2>
                         <p className="text-sm text-muted-foreground">
-                          Start an interactive session to create a tracked
-                          workspace with files, checkpoints, and server-backed
-                          editor diagnostics.
+                          Start an interactive session to create a tracked workspace with files,
+                          checkpoints, and server-backed editor diagnostics.
                         </p>
                       </div>
 
@@ -1256,21 +1153,15 @@ function DirectoryChatPage() {
                               preferredLanguage: cs.preferredLanguage,
                               selectedPersona: cs.selectedPersona,
                               storedIntent: cs.storedIntent,
-                              effectiveModelSelection:
-                                cs.effectiveModelSelection,
+                              effectiveModelSelection: cs.effectiveModelSelection,
                               isBusy: cs.isBusy,
                               isStartingInteractiveLesson,
-                              selectedPersonaSupportsEditor:
-                                cs.selectedPersonaSupportsEditor,
+                              selectedPersonaSupportsEditor: cs.selectedPersonaSupportsEditor,
                               rightSidebarWidth: cs.rightSidebarWidth,
                               setIsStartingInteractiveLesson,
-                            });
+                            })
                           }}
-                          disabled={
-                            !cs.sessionKey ||
-                            cs.isBusy ||
-                            isStartingInteractiveLesson
-                          }
+                          disabled={!cs.sessionKey || cs.isBusy || isStartingInteractiveLesson}
                         >
                           {isStartingInteractiveLesson ? (
                             <>
@@ -1285,9 +1176,7 @@ function DirectoryChatPage() {
 
                       <div className="rounded-lg border border-border/70 bg-background p-3 text-xs text-muted-foreground">
                         Current workspace:{" "}
-                        {isStartingInteractiveLesson
-                          ? "starting..."
-                          : "not started"}
+                        {isStartingInteractiveLesson ? "starting..." : "not started"}
                         <br />
                         Selected persona: {cs.selectedPersona}
                       </div>
@@ -1325,5 +1214,5 @@ function DirectoryChatPage() {
         onConfirm={(path) => void teachingWs.onCreateTeachingFileConfirm(path)}
       />
     </div>
-  );
+  )
 }

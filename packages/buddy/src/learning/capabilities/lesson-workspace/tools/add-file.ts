@@ -1,25 +1,25 @@
-import z from 'zod'
-import { TeachingService, TeachingWorkspaceFileError, TeachingWorkspaceNotFoundError } from '..'
-import { TeachingPath } from '../paths/path'
-import { TeachingLanguageSchema, type TeachingLanguage } from '../model/types'
-import { createBuddyTool, type BuddyToolContext } from '../../../tools'
-import { executeWriteWithoutPrompt } from './write-without-prompt'
+import z from "zod"
+import { TeachingService, TeachingWorkspaceFileError, TeachingWorkspaceNotFoundError } from ".."
+import { TeachingPath } from "../paths/path"
+import { TeachingLanguageSchema, type TeachingLanguage } from "../model/types"
+import { createBuddyTool, type BuddyToolContext } from "../../../tools"
+import { executeWriteWithoutPrompt } from "./write-without-prompt"
 
-const teachingAddFileTool = createBuddyTool('teaching_add_file', {
+const teachingAddFileTool = createBuddyTool("teaching_add_file", {
   description:
-    'Create a new tracked file inside the teaching workspace so lessons can span multiple files. The relativePath should include the intended extension (for example lesson.rs or vite.config.js). Only supply language when the path has no extension and you want Buddy to append one.',
+    "Create a new tracked file inside the teaching workspace so lessons can span multiple files. The relativePath should include the intended extension (for example lesson.rs or vite.config.js). Only supply language when the path has no extension and you want Buddy to append one.",
   parameters: z.object({
     relativePath: z
       .string()
-      .describe('Workspace-relative path for the new file, for example helpers/math.ts'),
-    content: z.string().optional().describe('Optional starter content for the new file'),
+      .describe("Workspace-relative path for the new file, for example helpers/math.ts"),
+    content: z.string().optional().describe("Optional starter content for the new file"),
     language: TeachingLanguageSchema.optional().describe(
-      'Optional language mode used only when the path omits an extension',
+      "Optional language mode used only when the path omits an extension",
     ),
     activate: z
       .boolean()
       .optional()
-      .describe('Whether the new file should become the active editor file'),
+      .describe("Whether the new file should become the active editor file"),
   }),
   async execute(
     params: {
@@ -43,9 +43,9 @@ const teachingAddFileTool = createBuddyTool('teaching_add_file', {
       )
 
       await ctx.ask({
-        permission: 'teaching_add_file',
+        permission: "teaching_add_file",
         patterns: [filePath, checkpointFilePath],
-        always: ['*'],
+        always: ["*"],
         metadata: {
           filePath,
           checkpointFilePath,
@@ -55,23 +55,23 @@ const teachingAddFileTool = createBuddyTool('teaching_add_file', {
 
       const writeResult = await executeWriteWithoutPrompt(ctx, {
         filePath,
-        content: params.content ?? '',
+        content: params.content ?? "",
       })
       const workspace = await TeachingService.trackExistingFile(ctx.directory, ctx.sessionID, {
         relativePath: nextRelativePath,
         activate: params.activate,
       })
       return {
-        title: 'Teaching file created',
+        title: "Teaching file created",
         output: writeResult.output.replace(
-          'Wrote file successfully.',
+          "Wrote file successfully.",
           `Added ${nextRelativePath} to the teaching workspace`,
         ),
         metadata: workspace,
       }
     } catch (error) {
       if (error instanceof TeachingWorkspaceNotFoundError) {
-        throw new Error('No teaching workspace exists for this session yet', { cause: error })
+        throw new Error("No teaching workspace exists for this session yet", { cause: error })
       }
       if (error instanceof TeachingWorkspaceFileError) {
         throw new Error(error.message, { cause: error })

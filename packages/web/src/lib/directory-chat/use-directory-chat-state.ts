@@ -1,19 +1,19 @@
-import { useMemo } from 'react'
-import { useChatStore } from '@/state/chat-store'
-import { useUiPreferences } from '@/state/ui-preferences'
-import { useTeachingRuntime, teachingSessionKey } from '@/state/teaching-runtime'
-import { usePromptStore, getPromptDraft, getPromptScopeKey } from '@/state/prompt-store'
-import { getSessionFamily } from '../session-family'
-import { modelSelectionKey, parseConfiguredModel } from './chat-prompt-helpers'
-import type { SessionInfo } from '@/state/chat-types'
-import type { PersonaConfigOption } from '@/state/chat-actions'
-import { RESOURCE_SIDEBAR_TAB } from '../resource-commands'
-import type { ChatRightSidebarTab } from '@/components/layout/chat-right-sidebar'
+import { useMemo } from "react"
+import { useChatStore } from "@/state/chat-store"
+import { useUiPreferences } from "@/state/ui-preferences"
+import { useTeachingRuntime, teachingSessionKey } from "@/state/teaching-runtime"
+import { usePromptStore, getPromptDraft, getPromptScopeKey } from "@/state/prompt-store"
+import { getSessionFamily } from "../session-family"
+import { modelSelectionKey, parseConfiguredModel } from "./chat-prompt-helpers"
+import type { SessionInfo } from "@/state/chat-types"
+import type { PersonaConfigOption } from "@/state/chat-actions"
+import { RESOURCE_SIDEBAR_TAB } from "../resource-commands"
+import type { ChatRightSidebarTab } from "@/components/layout/chat-right-sidebar"
 
 const MODEL_VISIBILITY_WINDOW_MS = 1000 * 60 * 60 * 24 * 31 * 6
 
-function isSidebarSurface(value: string): value is PersonaConfigOption['surfaces'][number] {
-  return value === 'curriculum' || value === 'editor' || value === 'figure'
+function isSidebarSurface(value: string): value is PersonaConfigOption["surfaces"][number] {
+  return value === "curriculum" || value === "editor" || value === "figure"
 }
 
 const RIGHT_SIDEBAR_EDITOR_MIN_WIDTH = 360
@@ -23,7 +23,7 @@ type UseDirectoryChatStateProps = {
   configuredModel: { providerID: string; modelID: string } | undefined
   personaCatalog: PersonaConfigOption[]
   defaultPersona: string
-  defaultIntent: 'auto' | 'learn' | 'practice' | 'assess'
+  defaultIntent: "auto" | "learn" | "practice" | "assess"
   selectedThinking: string
   showSystemPromptSidebarTab: boolean
   showCapabilitiesSidebarTab: boolean
@@ -52,7 +52,7 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
   const setDirectoryError = useChatStore((state) => state.setDirectoryError)
   const setSelectedModel = useChatStore((state) => state.setSelectedModel)
   const selectedModelKey = useChatStore((state) =>
-    decodedDirectory ? (state.selectedModelByDirectory[decodedDirectory] ?? 'auto') : 'auto',
+    decodedDirectory ? (state.selectedModelByDirectory[decodedDirectory] ?? "auto") : "auto",
   )
 
   // ── UI preferences ─────────────────────────────────────────────────────────
@@ -90,7 +90,7 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
 
   // ── Derived state ──────────────────────────────────────────────────────────
   const validOpenProjects = useMemo(
-    () => openProjects.filter((directory) => directory && directory !== '/'),
+    () => openProjects.filter((directory) => directory && directory !== "/"),
     [openProjects],
   )
   const hasRegisteredProject = useMemo(
@@ -99,7 +99,7 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
   )
   const sessions = directoryState?.sessions ?? []
   const sessionFamily = useMemo(() => getSessionFamily(sessions, sessionID), [sessionID, sessions])
-  const sessionTitle = sessionFamily.current?.title ?? directoryState?.sessionTitle ?? 'New thread'
+  const sessionTitle = sessionFamily.current?.title ?? directoryState?.sessionTitle ?? "New thread"
   const parentSession = useMemo(
     () =>
       sessionFamily.current?.parentID
@@ -162,7 +162,7 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
     }
 
     if (autoModelSelection) visible.add(modelSelectionKey(autoModelSelection))
-    if (selectedModelKey !== 'auto') visible.add(selectedModelKey)
+    if (selectedModelKey !== "auto") visible.add(selectedModelKey)
 
     return visible
   }, [autoModelSelection, connectedProviders, selectedModelKey])
@@ -179,9 +179,9 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
       : undefined
     const autoLabel = autoModelSelection
       ? `Auto (${autoModelInfo?.name ?? `${autoModelSelection.providerID}/${autoModelSelection.modelID}`})`
-      : 'Auto'
+      : "Auto"
     const options: Array<{ key: string; label: string; group?: string; disabled?: boolean }> = [
-      { key: 'auto', label: autoLabel },
+      { key: "auto", label: autoLabel },
     ]
 
     for (const provider of connectedProviders) {
@@ -196,7 +196,7 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
   }, [autoModelSelection, connectedProviders, visibleModelKeys])
   const effectiveModelSelection = useMemo(
     () =>
-      selectedModelKey === 'auto' ? autoModelSelection : parseConfiguredModel(selectedModelKey),
+      selectedModelKey === "auto" ? autoModelSelection : parseConfiguredModel(selectedModelKey),
     [autoModelSelection, selectedModelKey],
   )
   const effectiveModelInfo = useMemo(() => {
@@ -208,7 +208,7 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
   const thinkingOptions = useMemo(() => {
     const variants = effectiveModelInfo?.variants ?? []
     return [
-      { key: 'default', label: 'Default' },
+      { key: "default", label: "Default" },
       ...variants.map((variant) => ({ key: variant, label: variant })),
     ]
   }, [effectiveModelInfo])
@@ -222,16 +222,16 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
     [mcpStatus],
   )
   const connectedMcpCount = useMemo(
-    () => mcpEntries.filter(([, entry]) => entry.status === 'connected').length,
+    () => mcpEntries.filter(([, entry]) => entry.status === "connected").length,
     [mcpEntries],
   )
   const hasMcpError = useMemo(
     () =>
       mcpEntries.some(
         ([, entry]) =>
-          entry.status === 'failed' ||
-          entry.status === 'needs_auth' ||
-          entry.status === 'needs_client_registration',
+          entry.status === "failed" ||
+          entry.status === "needs_auth" ||
+          entry.status === "needs_client_registration",
       ),
     [mcpEntries],
   )
@@ -252,12 +252,12 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
           directory,
           allDirectoryStates[directory]?.sessionStatusByID ?? {},
         ]),
-      ) as Record<string, Record<string, 'busy' | 'idle'>>,
+      ) as Record<string, Record<string, "busy" | "idle">>,
     [allDirectoryStates, validOpenProjects],
   )
   const sidebarDirectories = validOpenProjects
   const sessionKey = useMemo(
-    () => (decodedDirectory && sessionID ? teachingSessionKey(decodedDirectory, sessionID) : ''),
+    () => (decodedDirectory && sessionID ? teachingSessionKey(decodedDirectory, sessionID) : ""),
     [decodedDirectory, sessionID],
   )
   const storedPersona = sessionKey
@@ -267,8 +267,8 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
     ? (teachingRuntime.selectedIntentBySession[sessionKey] ?? props.defaultIntent)
     : props.defaultIntent
   const preferredLanguage = sessionKey
-    ? (teachingRuntime.preferredLanguageBySession[sessionKey] ?? 'ts')
-    : 'ts'
+    ? (teachingRuntime.preferredLanguageBySession[sessionKey] ?? "ts")
+    : "ts"
   const teachingWorkspace = sessionKey ? teachingRuntime.workspaceBySession[sessionKey] : undefined
   const selectedPersonaConfig = useMemo(
     () =>
@@ -278,33 +278,33 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
   )
   const selectedPersona = selectedPersonaConfig?.id ?? storedPersona
   const selectedPersonaSurfaces =
-    selectedPersonaConfig?.surfaces ?? (['curriculum'] satisfies PersonaConfigOption['surfaces'])
-  const selectedPersonaDefaultSurface = selectedPersonaConfig?.defaultSurface ?? 'curriculum'
-  const selectedPersonaSupportsEditor = selectedPersonaSurfaces.includes('editor')
-  const selectedPersonaSupportsFigure = selectedPersonaSurfaces.includes('figure')
+    selectedPersonaConfig?.surfaces ?? (["curriculum"] satisfies PersonaConfigOption["surfaces"])
+  const selectedPersonaDefaultSurface = selectedPersonaConfig?.defaultSurface ?? "curriculum"
+  const selectedPersonaSupportsEditor = selectedPersonaSurfaces.includes("editor")
+  const selectedPersonaSupportsFigure = selectedPersonaSurfaces.includes("figure")
   const isInteractiveMode = !!sessionID && !!teachingWorkspace
   const selectedSurfaceTab =
     isSidebarSurface(rightSidebarTab) && selectedPersonaSurfaces.includes(rightSidebarTab)
       ? rightSidebarTab
       : selectedPersonaDefaultSurface
   const rightSidebarActiveTab: ChatRightSidebarTab =
-    rightSidebarTab === 'system-prompt' && props.showSystemPromptSidebarTab
-      ? 'system-prompt'
-      : rightSidebarTab === 'capabilities' && props.showCapabilitiesSidebarTab
-        ? 'capabilities'
+    rightSidebarTab === "system-prompt" && props.showSystemPromptSidebarTab
+      ? "system-prompt"
+      : rightSidebarTab === "capabilities" && props.showCapabilitiesSidebarTab
+        ? "capabilities"
         : rightSidebarTab === RESOURCE_SIDEBAR_TAB
           ? RESOURCE_SIDEBAR_TAB
-          : rightSidebarTab === 'agents-md'
-            ? 'agents-md'
+          : rightSidebarTab === "agents-md"
+            ? "agents-md"
             : selectedSurfaceTab
-  const editorPanelSizing = rightSidebarActiveTab === 'editor'
+  const editorPanelSizing = rightSidebarActiveTab === "editor"
   const rightSidebarMinWidth = editorPanelSizing ? RIGHT_SIDEBAR_EDITOR_MIN_WIDTH : 200
   const rightSidebarMaxWidth = editorPanelSizing ? 960 : 480
   const rightSidebarDisplayWidth = Math.min(
     Math.max(rightSidebarWidth, rightSidebarMinWidth),
     rightSidebarMaxWidth,
   )
-  const leftSidebarMaxWidth = typeof window === 'undefined' ? 1000 : window.innerWidth * 0.3 + 64
+  const leftSidebarMaxWidth = typeof window === "undefined" ? 1000 : window.innerWidth * 0.3 + 64
   const leftSidebarDisplayWidth = Math.max(leftSidebarWidth, 244)
 
   return {

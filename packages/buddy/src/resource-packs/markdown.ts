@@ -1,4 +1,4 @@
-import matter from "gray-matter";
+import matter from "gray-matter"
 import {
   RESOURCE_PACK_CHUNKS_DIR_NAME,
   RESOURCE_PACK_ENTRYPOINT_FILE_NAME,
@@ -10,35 +10,34 @@ import {
   RESOURCE_PACK_TOC_FILE_NAME,
   RESOURCE_PACK_TOC_TITLE,
   type ResourcePackMetadata,
-} from "./contracts";
+} from "./contracts"
 
 export function renderPageMarkdown(pageNumber: number, text: string) {
-  const body =
-    text.trim().length > 0 ? text.trim() : RESOURCE_PACK_NO_TEXT_MARKER;
-  return `# Page ${pageNumber}\n\n${body}`;
+  const body = text.trim().length > 0 ? text.trim() : RESOURCE_PACK_NO_TEXT_MARKER
+  return `# Page ${pageNumber}\n\n${body}`
 }
 
 export function renderNoTextMarkdown(label: string) {
-  return `# ${label}\n\n${RESOURCE_PACK_NO_TEXT_MARKER}`;
+  return `# ${label}\n\n${RESOURCE_PACK_NO_TEXT_MARKER}`
 }
 
 export function renderTocMarkdown(lines: string[]) {
-  return [`# ${RESOURCE_PACK_TOC_TITLE}`, "", ...lines].join("\n").trim();
+  return [`# ${RESOURCE_PACK_TOC_TITLE}`, "", ...lines].join("\n").trim()
 }
 
 export function buildHeadingTocMarkdown(markdown: string) {
-  const lines = markdown.split(/\r?\n/);
-  const tocLines: string[] = [];
+  const lines = markdown.split(/\r?\n/)
+  const tocLines: string[] = []
 
   for (const line of lines) {
-    const match = line.match(/^(#{1,6})\s+(.*)$/);
-    if (!match) continue;
-    const depth = match[1].length - 1;
-    tocLines.push(`${"  ".repeat(depth)}- ${match[2]?.trim() ?? ""}`);
+    const match = line.match(/^(#{1,6})\s+(.*)$/)
+    if (!match) continue
+    const depth = match[1].length - 1
+    tocLines.push(`${"  ".repeat(depth)}- ${match[2]?.trim() ?? ""}`)
   }
 
-  if (tocLines.length === 0) return undefined;
-  return renderTocMarkdown(tocLines);
+  if (tocLines.length === 0) return undefined
+  return renderTocMarkdown(tocLines)
 }
 
 export function buildResourcePackEntryMarkdown(metadata: ResourcePackMetadata) {
@@ -78,9 +77,7 @@ export function buildResourcePackEntryMarkdown(metadata: ResourcePackMetadata) {
       source_size_bytes: metadata.source_size_bytes,
       chunk_count: metadata.chunk_count,
       warnings: metadata.warnings,
-      ...(metadata.page_count !== undefined
-        ? { page_count: metadata.page_count }
-        : {}),
+      ...(metadata.page_count !== undefined ? { page_count: metadata.page_count } : {}),
     },
-  );
+  )
 }

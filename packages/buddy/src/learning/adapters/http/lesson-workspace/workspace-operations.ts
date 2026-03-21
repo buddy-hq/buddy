@@ -2,7 +2,7 @@ import {
   configErrorMessage,
   isConfigValidationError,
   readProjectConfig,
-} from '@buddy/backend/config/runtime'
+} from "@buddy/backend/config/runtime"
 import {
   TeachingService,
   type TeachingProvisionRequest,
@@ -12,9 +12,9 @@ import {
   TeachingWorkspaceFileError,
   TeachingRevisionConflictError,
   TeachingWorkspaceNotFoundError,
-} from '../../../capabilities'
-import { getBuddyPersona, getDefaultBuddyPersona } from '../../../personas'
-import { isPersona } from '../../../personas'
+} from "../../../capabilities"
+import { getBuddyPersona, getDefaultBuddyPersona } from "../../../personas"
+import { isPersona } from "../../../personas"
 
 export function resolveTeachingProvisionPersona(input: {
   config: Awaited<ReturnType<typeof readProjectConfig>>
@@ -116,11 +116,11 @@ export async function provisionTeachingWorkspace(input: {
   if (!persona) {
     return {
       ok: false,
-      response: Response.json({ error: 'Unknown Buddy persona' }, { status: 400 }),
+      response: Response.json({ error: "Unknown Buddy persona" }, { status: 400 }),
     }
   }
 
-  if (!persona.surfaces.includes('editor')) {
+  if (!persona.surfaces.includes("editor")) {
     return {
       ok: false,
       response: Response.json(
@@ -135,7 +135,7 @@ export async function provisionTeachingWorkspace(input: {
   const workspace = await TeachingService.ensure(
     input.directory,
     input.sessionID,
-    input.payload.language ?? 'ts',
+    input.payload.language ?? "ts",
   )
   return {
     ok: true,
@@ -206,7 +206,7 @@ export async function checkpointTeachingWorkspace(input: {
   sessionID: string
 }): Promise<
   TeachingHandlerResult<{
-    revision: Awaited<ReturnType<typeof TeachingService.checkpoint>>['revision']
+    revision: Awaited<ReturnType<typeof TeachingService.checkpoint>>["revision"]
     lessonFilePath: string
     checkpointFilePath: string
   }>

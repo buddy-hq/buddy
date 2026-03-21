@@ -1,42 +1,42 @@
-import { useEffect, useState } from 'react'
-import { toast } from '@buddy/ui'
+import { useEffect, useState } from "react"
+import { toast } from "@buddy/ui"
 import {
   installAdvancedMathRuntime,
   loadAdvancedMathRuntimeStatus,
   removeAdvancedMathRuntime,
   type AdvancedMathRuntimeStatus,
-} from '@/state/advanced-math-runtime'
+} from "@/state/advanced-math-runtime"
 
 const MATH_RUNTIME_POLL_INTERVAL_MS = 1000
 
-const MATH_RUNTIME_ENABLED_STATES: ReadonlySet<AdvancedMathRuntimeStatus['state']> = new Set([
-  'ready',
-  'downloading',
-  'installing',
-  'repairing',
+const MATH_RUNTIME_ENABLED_STATES: ReadonlySet<AdvancedMathRuntimeStatus["state"]> = new Set([
+  "ready",
+  "downloading",
+  "installing",
+  "repairing",
 ])
 
 export function advancedMathStatusLabel(
   status: AdvancedMathRuntimeStatus | null,
   loading: boolean,
 ) {
-  if (!status) return loading ? 'Loading...' : 'Unknown'
+  if (!status) return loading ? "Loading..." : "Unknown"
 
   switch (status.state) {
-    case 'not_installed':
-      return 'Not installed'
-    case 'downloading':
-      return 'Downloading...'
-    case 'installing':
-      return 'Installing...'
-    case 'repairing':
-      return 'Repairing...'
-    case 'removing':
-      return 'Removing...'
-    case 'ready':
-      return 'Installed'
-    case 'error':
-      return 'Installation failed'
+    case "not_installed":
+      return "Not installed"
+    case "downloading":
+      return "Downloading..."
+    case "installing":
+      return "Installing..."
+    case "repairing":
+      return "Repairing..."
+    case "removing":
+      return "Removing..."
+    case "ready":
+      return "Installed"
+    case "error":
+      return "Installation failed"
   }
 }
 
@@ -44,16 +44,16 @@ function isAdvancedMathRuntimeOperationInProgress(status: AdvancedMathRuntimeSta
   if (!status) return false
 
   return (
-    status.state === 'downloading' ||
-    status.state === 'installing' ||
-    status.state === 'repairing' ||
-    status.state === 'removing'
+    status.state === "downloading" ||
+    status.state === "installing" ||
+    status.state === "repairing" ||
+    status.state === "removing"
   )
 }
 
 type UseAdvancedMathRuntimeProps = {
   open: boolean
-  platform: 'desktop' | 'web'
+  platform: "desktop" | "web"
 }
 
 export function useAdvancedMathRuntime(props: UseAdvancedMathRuntimeProps) {
@@ -64,7 +64,7 @@ export function useAdvancedMathRuntime(props: UseAdvancedMathRuntimeProps) {
   const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false)
 
   useEffect(() => {
-    if (!props.open || props.platform !== 'desktop') return
+    if (!props.open || props.platform !== "desktop") return
 
     let cancelled = false
     setAdvancedMathLoading(true)
@@ -77,7 +77,7 @@ export function useAdvancedMathRuntime(props: UseAdvancedMathRuntimeProps) {
       .catch((error) => {
         if (!cancelled) {
           toast.error(
-            error instanceof Error ? error.message : 'Failed to load advanced math runtime status',
+            error instanceof Error ? error.message : "Failed to load advanced math runtime status",
           )
         }
       })
@@ -93,7 +93,7 @@ export function useAdvancedMathRuntime(props: UseAdvancedMathRuntimeProps) {
   }, [props.open, props.platform])
 
   useEffect(() => {
-    if (!props.open || props.platform !== 'desktop') return
+    if (!props.open || props.platform !== "desktop") return
     if (!advancedMathLoading && !isAdvancedMathRuntimeOperationInProgress(advancedMathStatus))
       return
 
@@ -127,9 +127,9 @@ export function useAdvancedMathRuntime(props: UseAdvancedMathRuntimeProps) {
         ? await installAdvancedMathRuntime()
         : await removeAdvancedMathRuntime()
       setAdvancedMathStatus(nextStatus)
-      toast(install ? 'Advanced math runtime installed' : 'Advanced math runtime removed')
+      toast(install ? "Advanced math runtime installed" : "Advanced math runtime removed")
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to update advanced math runtime')
+      toast.error(error instanceof Error ? error.message : "Failed to update advanced math runtime")
       const refreshed = await loadAdvancedMathRuntimeStatus().catch(() => undefined)
       if (refreshed) {
         setAdvancedMathStatus(refreshed)

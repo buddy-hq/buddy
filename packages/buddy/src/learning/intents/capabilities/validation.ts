@@ -1,9 +1,9 @@
-import type { IntentCapabilityManifest } from './intent-manifests'
-import { INTENT_CAPABILITY_MANIFESTS } from './intent-manifests'
-import type { SkillCapability } from './skill-capabilities'
-import { SKILL_CAPABILITY_REGISTRY } from './skill-capabilities'
-import type { ToolCapability } from './tool-capabilities'
-import { TOOL_CAPABILITY_REGISTRY, toolCapabilityKey } from './tool-capabilities'
+import type { IntentCapabilityManifest } from "./intent-manifests"
+import { INTENT_CAPABILITY_MANIFESTS } from "./intent-manifests"
+import type { SkillCapability } from "./skill-capabilities"
+import { SKILL_CAPABILITY_REGISTRY } from "./skill-capabilities"
+import type { ToolCapability } from "./tool-capabilities"
+import { TOOL_CAPABILITY_REGISTRY, toolCapabilityKey } from "./tool-capabilities"
 
 let validated = false
 
@@ -26,12 +26,12 @@ type ValidationInput = {
 }
 
 function toolCapabilityTopic(key: string) {
-  const withoutNamespace = key.startsWith('pedagogy_') ? key.slice('pedagogy_'.length) : key
-  return withoutNamespace.replaceAll('_', '-')
+  const withoutNamespace = key.startsWith("pedagogy_") ? key.slice("pedagogy_".length) : key
+  return withoutNamespace.replaceAll("_", "-")
 }
 
 function skillCapabilityTopic(key: string) {
-  return key.endsWith('-playbook') ? key.slice(0, -'-playbook'.length) : key
+  return key.endsWith("-playbook") ? key.slice(0, -"-playbook".length) : key
 }
 
 function assertNoRegistryCollisions(input: ValidationInput) {
@@ -39,7 +39,7 @@ function assertNoRegistryCollisions(input: ValidationInput) {
     input.skillCapabilities.map((capability) => capability.key),
   )
   if (duplicateSkillKeys.length > 0) {
-    throw new Error(`Duplicate skill capability keys detected: ${duplicateSkillKeys.join(', ')}`)
+    throw new Error(`Duplicate skill capability keys detected: ${duplicateSkillKeys.join(", ")}`)
   }
 
   const duplicateToolIds = duplicateValues(
@@ -47,7 +47,7 @@ function assertNoRegistryCollisions(input: ValidationInput) {
   )
   if (duplicateToolIds.length > 0) {
     throw new Error(
-      `Colliding pedagogy tool IDs detected across capabilities: ${duplicateToolIds.join(', ')}`,
+      `Colliding pedagogy tool IDs detected across capabilities: ${duplicateToolIds.join(", ")}`,
     )
   }
 
@@ -56,7 +56,7 @@ function assertNoRegistryCollisions(input: ValidationInput) {
   )
   if (duplicateSkillNames.length > 0) {
     throw new Error(
-      `Colliding skill names detected across capabilities: ${duplicateSkillNames.join(', ')}`,
+      `Colliding skill names detected across capabilities: ${duplicateSkillNames.join(", ")}`,
     )
   }
 }
@@ -68,7 +68,7 @@ function assertManifestIntegrity(input: ValidationInput) {
   const knownSkillCapabilityKeys = new Set(
     input.skillCapabilities.map((capability) => capability.key),
   )
-  const crossTypeTopics = new Map<string, Set<'tool' | 'skill'>>()
+  const crossTypeTopics = new Map<string, Set<"tool" | "skill">>()
 
   for (const manifest of input.manifests) {
     const duplicateToolKeys = duplicateValues(
@@ -76,14 +76,14 @@ function assertManifestIntegrity(input: ValidationInput) {
     )
     if (duplicateToolKeys.length > 0) {
       throw new Error(
-        `Intent manifest "${manifest.intent}" contains duplicate tool capability keys: ${duplicateToolKeys.join(', ')}`,
+        `Intent manifest "${manifest.intent}" contains duplicate tool capability keys: ${duplicateToolKeys.join(", ")}`,
       )
     }
 
     const duplicateSkillKeys = duplicateValues(manifest.skillCapabilityKeys)
     if (duplicateSkillKeys.length > 0) {
       throw new Error(
-        `Intent manifest "${manifest.intent}" contains duplicate skill capability keys: ${duplicateSkillKeys.join(', ')}`,
+        `Intent manifest "${manifest.intent}" contains duplicate skill capability keys: ${duplicateSkillKeys.join(", ")}`,
       )
     }
 
@@ -94,7 +94,7 @@ function assertManifestIntegrity(input: ValidationInput) {
 
     if (unknownToolKeys.length > 0) {
       throw new Error(
-        `Intent manifest "${manifest.intent}" references unknown tool capability keys: ${unknownToolKeys.join(', ')}`,
+        `Intent manifest "${manifest.intent}" references unknown tool capability keys: ${unknownToolKeys.join(", ")}`,
       )
     }
 
@@ -104,7 +104,7 @@ function assertManifestIntegrity(input: ValidationInput) {
 
     if (unknownSkillKeys.length > 0) {
       throw new Error(
-        `Intent manifest "${manifest.intent}" references unknown skill capability keys: ${unknownSkillKeys.join(', ')}`,
+        `Intent manifest "${manifest.intent}" references unknown skill capability keys: ${unknownSkillKeys.join(", ")}`,
       )
     }
 
@@ -112,27 +112,27 @@ function assertManifestIntegrity(input: ValidationInput) {
       toolCapabilityKey(capability),
     )) {
       const topic = toolCapabilityTopic(key)
-      const types = crossTypeTopics.get(topic) ?? new Set<'tool' | 'skill'>()
-      types.add('tool')
+      const types = crossTypeTopics.get(topic) ?? new Set<"tool" | "skill">()
+      types.add("tool")
       crossTypeTopics.set(topic, types)
     }
 
     for (const key of manifest.skillCapabilityKeys) {
       const topic = skillCapabilityTopic(key)
-      const types = crossTypeTopics.get(topic) ?? new Set<'tool' | 'skill'>()
-      types.add('skill')
+      const types = crossTypeTopics.get(topic) ?? new Set<"tool" | "skill">()
+      types.add("skill")
       crossTypeTopics.set(topic, types)
     }
   }
 
   const mixedTopics = [...crossTypeTopics.entries()]
-    .filter(([, types]) => types.has('tool') && types.has('skill'))
+    .filter(([, types]) => types.has("tool") && types.has("skill"))
     .map(([topic]) => topic)
     .toSorted((a, b) => a.localeCompare(b))
 
   if (mixedTopics.length > 0) {
     throw new Error(
-      `Capability topics cannot be both tool and skill. Conflicting topics: ${mixedTopics.join(', ')}`,
+      `Capability topics cannot be both tool and skill. Conflicting topics: ${mixedTopics.join(", ")}`,
     )
   }
 }

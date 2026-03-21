@@ -1,13 +1,13 @@
-import { Hono } from 'hono'
-import { describeRoute, resolver, validator } from 'hono-openapi'
-import z from 'zod'
-import { patchProjectConfig } from '@buddy/backend/config/orchestration'
-import { HTTP_STATUS, SKILL_ROUTE_CONFIG } from './skills.constants'
+import { Hono } from "hono"
+import { describeRoute, resolver, validator } from "hono-openapi"
+import z from "zod"
+import { patchProjectConfig } from "@buddy/backend/config/orchestration"
+import { HTTP_STATUS, SKILL_ROUTE_CONFIG } from "./skills.constants"
 import {
   createSkillBodySchema,
   skillsSettingsBodySchema,
   toggleSkillBodySchema,
-} from './skills.schemas'
+} from "./skills.schemas"
 import {
   directoryQuerySchema,
   routeErrors,
@@ -15,14 +15,14 @@ import {
   SkillIDParamSchema,
   SkillNameParamSchema,
   withDirectoryRoute,
-} from '../http'
+} from "../http"
 import {
   createCustomSkill,
   installCuratedLibrarySkill,
   listSkillsCatalog,
   removeManagedSkill,
   setInstalledSkillAction,
-} from '../learning/skills'
+} from "../learning/skills"
 import {
   createSkillErrorStatus,
   installLibrarySkillErrorStatus,
@@ -30,7 +30,7 @@ import {
   resolveSkillAction,
   shouldRefreshSkillCatalog,
   skillErrorMessage,
-} from './skills.route-helpers'
+} from "./skills.route-helpers"
 
 const installedSkillSchema = z.object({
   name: z.string(),
@@ -40,10 +40,10 @@ const installedSkillSchema = z.object({
   content: z.string(),
   examplePrompt: z.string().optional(),
   enabled: z.boolean(),
-  permissionAction: z.enum(['allow', 'deny', 'ask']),
-  permissionSource: z.enum(['explicit', 'inherited', 'default']),
-  source: z.enum(['custom', 'library', 'external']),
-  scope: z.enum(['global', 'workspace']),
+  permissionAction: z.enum(["allow", "deny", "ask"]),
+  permissionSource: z.enum(["explicit", "inherited", "default"]),
+  source: z.enum(["custom", "library", "external"]),
+  scope: z.enum(["global", "workspace"]),
   managed: z.boolean(),
   removable: z.boolean(),
   libraryID: z.string().optional(),
@@ -75,7 +75,7 @@ const skillCreatedResponseSchema = z.object({
 const skillUpdatedResponseSchema = z.object({
   ok: z.literal(true),
   skill: installedSkillSchema,
-  action: z.enum(['allow', 'deny', 'ask', 'inherit']),
+  action: z.enum(["allow", "deny", "ask", "inherit"]),
 })
 
 const skillsSettingsResponseSchema = z.object({
@@ -89,26 +89,26 @@ const listSkillsQuerySchema = directoryQuerySchema.extend({
 
 export const SkillsRoutes = new Hono()
   .get(
-    '/',
+    "/",
     describeRoute({
-      operationId: 'skills.list',
-      summary: 'List installed skills and curated library entries',
+      operationId: "skills.list",
+      summary: "List installed skills and curated library entries",
       responses: {
         200: {
-          description: 'Skill catalog',
+          description: "Skill catalog",
           content: {
-            'application/json': { schema: resolver(skillsCatalogResponseSchema) },
+            "application/json": { schema: resolver(skillsCatalogResponseSchema) },
           },
         },
         ...routeErrors(403, 500),
       },
     }),
-    validator('query', listSkillsQuerySchema),
+    validator("query", listSkillsQuerySchema),
     async (c) =>
       withDirectoryRoute(c, async (context) =>
         runRouteTask({
           task: async () => {
-            const query = c.req.valid('query')
+            const query = c.req.valid("query")
             const catalog = await listSkillsCatalog(context.directory, {
               refresh: shouldRefreshSkillCatalog(query.refresh),
             })
@@ -120,27 +120,27 @@ export const SkillsRoutes = new Hono()
       ),
   )
   .post(
-    '/',
+    "/",
     describeRoute({
-      operationId: 'skills.create',
-      summary: 'Create a new Buddy-managed custom skill',
+      operationId: "skills.create",
+      summary: "Create a new Buddy-managed custom skill",
       responses: {
         200: {
-          description: 'Created skill',
+          description: "Created skill",
           content: {
-            'application/json': { schema: resolver(skillCreatedResponseSchema) },
+            "application/json": { schema: resolver(skillCreatedResponseSchema) },
           },
         },
         ...routeErrors(400, 403, 409, 500),
       },
     }),
-    validator('query', directoryQuerySchema),
-    validator('json', createSkillBodySchema),
+    validator("query", directoryQuerySchema),
+    validator("json", createSkillBodySchema),
     async (c) =>
       withDirectoryRoute(c, async (context) =>
         runRouteTask({
           task: async () => {
-            const name = await createCustomSkill(c.req.valid('json'), context.directory)
+            const name = await createCustomSkill(c.req.valid("json"), context.directory)
             return c.json({ ok: true, name })
           },
           mapError: (error) =>
@@ -149,28 +149,28 @@ export const SkillsRoutes = new Hono()
       ),
   )
   .post(
-    '/library/:skillID/install',
+    "/library/:skillID/install",
     describeRoute({
-      operationId: 'skills.library.install',
-      summary: 'Install a curated library skill into Buddy-managed storage',
+      operationId: "skills.library.install",
+      summary: "Install a curated library skill into Buddy-managed storage",
       responses: {
         200: {
-          description: 'Installed skill',
+          description: "Installed skill",
           content: {
-            'application/json': { schema: resolver(skillCreatedResponseSchema) },
+            "application/json": { schema: resolver(skillCreatedResponseSchema) },
           },
         },
         ...routeErrors(400, 403, 404, 409, 500),
       },
     }),
-    validator('query', directoryQuerySchema),
-    validator('param', SkillIDParamSchema),
+    validator("query", directoryQuerySchema),
+    validator("param", SkillIDParamSchema),
     async (c) =>
       withDirectoryRoute(c, async (context) =>
         runRouteTask({
           task: async () => {
             const name = await installCuratedLibrarySkill(
-              c.req.valid('param').skillID,
+              c.req.valid("param").skillID,
               context.directory,
             )
             return c.json({ ok: true, name })
@@ -181,27 +181,27 @@ export const SkillsRoutes = new Hono()
       ),
   )
   .patch(
-    '/settings',
+    "/settings",
     describeRoute({
-      operationId: 'skills.settings.patch',
-      summary: 'Update per-project skills settings',
+      operationId: "skills.settings.patch",
+      summary: "Update per-project skills settings",
       responses: {
         200: {
-          description: 'Updated skills settings',
+          description: "Updated skills settings",
           content: {
-            'application/json': { schema: resolver(skillsSettingsResponseSchema) },
+            "application/json": { schema: resolver(skillsSettingsResponseSchema) },
           },
         },
         ...routeErrors(400, 403, 500),
       },
     }),
-    validator('query', directoryQuerySchema),
-    validator('json', skillsSettingsBodySchema),
+    validator("query", directoryQuerySchema),
+    validator("json", skillsSettingsBodySchema),
     async (c) =>
       withDirectoryRoute(c, async (context) =>
         runRouteTask({
           task: async () => {
-            const parsed = c.req.valid('json')
+            const parsed = c.req.valid("json")
             const config = await patchProjectConfig({
               directory: context.directory,
               payload: {
@@ -220,31 +220,31 @@ export const SkillsRoutes = new Hono()
       ),
   )
   .patch(
-    '/:name',
+    "/:name",
     describeRoute({
-      operationId: 'skills.update',
-      summary: 'Update a skill permission rule for this user',
+      operationId: "skills.update",
+      summary: "Update a skill permission rule for this user",
       responses: {
         200: {
-          description: 'Updated skill state',
+          description: "Updated skill state",
           content: {
-            'application/json': { schema: resolver(skillUpdatedResponseSchema) },
+            "application/json": { schema: resolver(skillUpdatedResponseSchema) },
           },
         },
         ...routeErrors(400, 403, 404, 500),
       },
     }),
-    validator('query', directoryQuerySchema),
-    validator('param', SkillNameParamSchema),
-    validator('json', toggleSkillBodySchema),
+    validator("query", directoryQuerySchema),
+    validator("param", SkillNameParamSchema),
+    validator("json", toggleSkillBodySchema),
     async (c) =>
       withDirectoryRoute(c, async (context) =>
         runRouteTask({
           task: async () => {
-            const payload = c.req.valid('json')
+            const payload = c.req.valid("json")
             const action = resolveSkillAction(payload)
             const skill = await setInstalledSkillAction(
-              c.req.valid('param').name,
+              c.req.valid("param").name,
               action,
               context.directory,
             )
@@ -256,28 +256,28 @@ export const SkillsRoutes = new Hono()
       ),
   )
   .delete(
-    '/:name',
+    "/:name",
     describeRoute({
-      operationId: 'skills.delete',
-      summary: 'Remove a Buddy-managed installed skill',
+      operationId: "skills.delete",
+      summary: "Remove a Buddy-managed installed skill",
       responses: {
         200: {
-          description: 'Removed skill',
+          description: "Removed skill",
           content: {
-            'application/json': { schema: resolver(skillCreatedResponseSchema) },
+            "application/json": { schema: resolver(skillCreatedResponseSchema) },
           },
         },
         ...routeErrors(400, 403, 404, 500),
       },
     }),
-    validator('query', directoryQuerySchema),
-    validator('param', SkillNameParamSchema),
+    validator("query", directoryQuerySchema),
+    validator("param", SkillNameParamSchema),
     async (c) =>
       withDirectoryRoute(c, async (context) =>
         runRouteTask({
           task: async () => {
             const removedSkillName = await removeManagedSkill(
-              c.req.valid('param').name,
+              c.req.valid("param").name,
               context.directory,
             )
             return c.json({ ok: true, name: removedSkillName })

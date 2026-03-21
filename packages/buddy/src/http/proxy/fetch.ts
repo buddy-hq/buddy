@@ -1,6 +1,6 @@
-import { loadOpenCodeApp } from '../../opencode-runtime'
-import { registerOpenCodeTools } from './registration'
-import type { FetchOpenCodeInput } from './types'
+import { loadOpenCodeApp } from "../../opencode-runtime"
+import { registerOpenCodeTools } from "./registration"
+import type { FetchOpenCodeInput } from "./types"
 
 async function fetchOpenCode(input: FetchOpenCodeInput): Promise<Response> {
   await registerOpenCodeTools(input.directory, {
@@ -21,18 +21,18 @@ async function fetchOpenCode(input: FetchOpenCodeInput): Promise<Response> {
   }
 
   const headers = new Headers(input.headers)
-  headers.delete('authorization')
+  headers.delete("authorization")
   if (process.env.OPENCODE_SERVER_PASSWORD) {
-    const username = process.env.OPENCODE_SERVER_USERNAME ?? 'opencode'
+    const username = process.env.OPENCODE_SERVER_USERNAME ?? "opencode"
     const token = Buffer.from(`${username}:${process.env.OPENCODE_SERVER_PASSWORD}`).toString(
-      'base64',
+      "base64",
     )
-    headers.set('authorization', `Basic ${token}`)
+    headers.set("authorization", `Basic ${token}`)
   }
-  headers.delete('x-buddy-directory')
-  headers.set('x-opencode-directory', input.directory)
-  headers.delete('host')
-  headers.delete('content-length')
+  headers.delete("x-buddy-directory")
+  headers.set("x-opencode-directory", input.directory)
+  headers.delete("host")
+  headers.delete("content-length")
 
   return openCodeApp.fetch(
     new Request(url.toString(), {

@@ -1,21 +1,21 @@
 #!/usr/bin/env bun
 
-import { $ } from 'bun'
-import path from 'node:path'
-import { Script } from '@buddy/script'
+import { $ } from "bun"
+import path from "node:path"
+import { Script } from "@buddy/script"
 
-const ROOT_DIR = path.resolve(import.meta.dir, '..')
+const ROOT_DIR = path.resolve(import.meta.dir, "..")
 const PACKAGE_FILES = [
-  'packages/desktop/package.json',
-  'packages/buddy/package.json',
-  'packages/web/package.json',
-  'packages/ui/package.json',
-  'packages/sdk/package.json',
-  'packages/opencode-adapter/package.json',
+  "packages/desktop/package.json",
+  "packages/buddy/package.json",
+  "packages/web/package.json",
+  "packages/ui/package.json",
+  "packages/sdk/package.json",
+  "packages/opencode-adapter/package.json",
 ]
 
 async function currentBranch() {
-  if (process.env.GITHUB_REF_TYPE === 'branch' && process.env.GITHUB_REF_NAME?.trim()) {
+  if (process.env.GITHUB_REF_TYPE === "branch" && process.env.GITHUB_REF_NAME?.trim()) {
     return process.env.GITHUB_REF_NAME.trim()
   }
 
@@ -27,14 +27,14 @@ async function currentBranch() {
 
 const branch = await currentBranch()
 
-if (branch !== 'main') {
-  throw new Error(`Release tags must be created from main, received '${branch || 'detached'}'`)
+if (branch !== "main") {
+  throw new Error(`Release tags must be created from main, received '${branch || "detached"}'`)
 }
 
 const dirty = await $`git status --porcelain`.cwd(ROOT_DIR).text()
 
 if (dirty.trim()) {
-  throw new Error('Working tree must be clean before creating a release tag')
+  throw new Error("Working tree must be clean before creating a release tag")
 }
 
 for (const relativePath of PACKAGE_FILES) {

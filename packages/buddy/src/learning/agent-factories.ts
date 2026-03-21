@@ -1,12 +1,12 @@
-import { z } from 'zod'
-import { Config } from '@buddy/backend/config'
+import { z } from "zod"
+import { Config } from "@buddy/backend/config"
 
 type BuddyAgentAuthoring = z.input<typeof Config.Agent>
 type BuddyPermissionRuleInput = Config.PermissionRule
 type BuddyPermissionInput = Config.PermissionAction | Record<string, Config.PermissionRule>
-type AgentMode = 'primary' | 'subagent'
+type AgentMode = "primary" | "subagent"
 
-type BaseAgentDefinition = Omit<BuddyAgentAuthoring, 'mode' | 'permission'> & {
+type BaseAgentDefinition = Omit<BuddyAgentAuthoring, "mode" | "permission"> & {
   permission?: BuddyPermissionInput
 }
 
@@ -15,11 +15,11 @@ type PrimaryAgentDefinition = BaseAgentDefinition & {
 }
 
 type SubagentDefinition = BaseAgentDefinition
-type DefinedPrimaryAgent = Omit<PrimaryAgentDefinition, 'availableSubagents'> & {
-  mode: 'primary'
+type DefinedPrimaryAgent = Omit<PrimaryAgentDefinition, "availableSubagents"> & {
+  mode: "primary"
 }
 type DefinedSubagent = SubagentDefinition & {
-  mode: 'subagent'
+  mode: "subagent"
 }
 type CoreAgentDefinition = BaseAgentDefinition & {
   mode?: AgentMode
@@ -27,16 +27,16 @@ type CoreAgentDefinition = BaseAgentDefinition & {
 }
 
 const BUILD_AGENT_PERMISSION_DELTA: BuddyPermissionInput = {
-  question: 'allow',
-  plan_enter: 'allow',
+  question: "allow",
+  plan_enter: "allow",
 }
 
 const PLAN_AGENT_PERMISSION_DELTA: BuddyPermissionInput = {
-  question: 'allow',
-  plan_exit: 'allow',
+  question: "allow",
+  plan_exit: "allow",
   edit: {
-    '*': 'deny',
-    '.opencode/plans/*.md': 'allow',
+    "*": "deny",
+    ".opencode/plans/*.md": "allow",
   },
 }
 
@@ -44,11 +44,11 @@ function taskPermission(
   availableSubagents: readonly string[] | undefined,
 ): BuddyPermissionRuleInput | undefined {
   if (availableSubagents === undefined) return undefined
-  if (availableSubagents.length === 0) return 'deny'
+  if (availableSubagents.length === 0) return "deny"
 
   return {
-    '*': 'deny',
-    ...Object.fromEntries(availableSubagents.map((agent) => [agent, 'allow' as const])),
+    "*": "deny",
+    ...Object.fromEntries(availableSubagents.map((agent) => [agent, "allow" as const])),
   }
 }
 
@@ -61,9 +61,9 @@ function mergePermission(
     return { task }
   }
 
-  if (typeof permission === 'string') {
+  if (typeof permission === "string") {
     return {
-      '*': permission,
+      "*": permission,
       task,
     }
   }
@@ -80,14 +80,14 @@ function mergePermissionPreset(
 ): BuddyPermissionInput {
   if (permission === undefined) return preset
 
-  if (typeof preset === 'string') {
+  if (typeof preset === "string") {
     return mergePermission(permission, preset) ?? permission
   }
 
-  if (typeof permission === 'string') {
+  if (typeof permission === "string") {
     return {
       ...preset,
-      '*': permission,
+      "*": permission,
     }
   }
 
@@ -98,7 +98,7 @@ function mergePermissionPreset(
 }
 
 function defineAgentWithMode(input: CoreAgentDefinition): DefinedPrimaryAgent | DefinedSubagent {
-  if (input.mode === 'subagent') {
+  if (input.mode === "subagent") {
     const { mode: _mode, availableSubagents: _availableSubagents, ...agent } = input
     return createSubagent(agent)
   }
@@ -112,7 +112,7 @@ function createPrimaryAgent(input: PrimaryAgentDefinition): DefinedPrimaryAgent 
 
   return {
     ...agent,
-    mode: 'primary',
+    mode: "primary",
     permission: mergePermission(permission, taskPermission(availableSubagents)),
   }
 }
@@ -120,7 +120,7 @@ function createPrimaryAgent(input: PrimaryAgentDefinition): DefinedPrimaryAgent 
 function createSubagent(input: SubagentDefinition): DefinedSubagent {
   return {
     ...input,
-    mode: 'subagent',
+    mode: "subagent",
   }
 }
 

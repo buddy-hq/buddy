@@ -6,7 +6,7 @@ const ONE_MONTH_MS = 2_592_000_000
 export function formatThreadAge(timestamp: number) {
   const elapsed = Date.now() - timestamp
 
-  if (elapsed < ONE_MINUTE_MS) return 'now'
+  if (elapsed < ONE_MINUTE_MS) return "now"
   if (elapsed < ONE_HOUR_MS) return `${Math.round(elapsed / ONE_MINUTE_MS)}m`
   if (elapsed < ONE_DAY_MS) return `${Math.round(elapsed / ONE_HOUR_MS)}h`
   if (elapsed < ONE_MONTH_MS) return `${Math.round(elapsed / ONE_DAY_MS)}d`
@@ -64,19 +64,19 @@ export function findRootSessionID(
   return current?.id
 }
 
-export function threadStatusLabel(status: 'busy' | 'unread' | 'idle') {
+export function threadStatusLabel(status: "busy" | "unread" | "idle") {
   switch (status) {
-    case 'busy':
-      return 'Live'
-    case 'unread':
-      return 'Unread'
+    case "busy":
+      return "Live"
+    case "unread":
+      return "Unread"
     default:
-      return 'Up to date'
+      return "Up to date"
   }
 }
 
-export function ThreadStatusIndicator(props: { status: 'busy' | 'unread' | 'idle' }) {
-  if (props.status === 'busy') {
+export function ThreadStatusIndicator(props: { status: "busy" | "unread" | "idle" }) {
+  if (props.status === "busy") {
     return (
       <span
         className="relative inline-flex size-2.5 shrink-0 items-center justify-center"
@@ -88,7 +88,7 @@ export function ThreadStatusIndicator(props: { status: 'busy' | 'unread' | 'idle
     )
   }
 
-  if (props.status === 'unread') {
+  if (props.status === "unread") {
     return (
       <span
         className="inline-block size-2 shrink-0 rotate-45 rounded-[1px] bg-[var(--chart-5)]"

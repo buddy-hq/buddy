@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react'
-import { Badge, Button, Separator } from '@buddy/ui'
-import { ConnectProviderDialog } from '@/components/connect-provider-dialog'
-import { useProjectSettings } from '@/state/project-settings'
-import { ProviderSourceBadge, SettingsListCard } from './settings-primitives'
-import { SettingsPanelContent } from './settings-page'
+import { useMemo, useState } from "react"
+import { Badge, Button, Separator } from "@buddy/ui"
+import { ConnectProviderDialog } from "@/components/connect-provider-dialog"
+import { useProjectSettings } from "@/state/project-settings"
+import { ProviderSourceBadge, SettingsListCard } from "./settings-primitives"
+import { SettingsPanelContent } from "./settings-page"
 
 export function ProvidersSettings({ directory }: { directory: string }) {
   const settings = useProjectSettings(directory, true)
@@ -32,7 +32,7 @@ export function ProvidersSettings({ directory }: { directory: string }) {
             onClick={() => void settings.actions.save()}
             disabled={settings.status.loading || settings.status.saving}
           >
-            {settings.status.saving ? 'Saving...' : 'Save changes'}
+            {settings.status.saving ? "Saving..." : "Save changes"}
           </Button>
         </div>
 
@@ -53,9 +53,9 @@ export function ProvidersSettings({ directory }: { directory: string }) {
                             {selected ? <Badge variant="secondary">Selected</Badge> : null}
                           </div>
                           <p className="mt-1 text-xs text-muted-foreground">
-                            {provider.source === 'env'
-                              ? 'Connected from environment variables.'
-                              : 'Connected and available for this notebook.'}
+                            {provider.source === "env"
+                              ? "Connected from environment variables."
+                              : "Connected and available for this notebook."}
                           </p>
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
@@ -116,8 +116,8 @@ export function ProvidersSettings({ directory }: { directory: string }) {
                         </div>
                         <p className="mt-1 text-xs text-muted-foreground">
                           {provider.methods.length > 0
-                            ? provider.methods.map((method) => method.label).join(' or ')
-                            : 'Connection available'}
+                            ? provider.methods.map((method) => method.label).join(" or ")
+                            : "Connection available"}
                         </p>
                       </div>
                       <Button

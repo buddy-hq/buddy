@@ -1,6 +1,6 @@
-import { promises as fs } from 'node:fs'
-import path from 'node:path'
-import matter from 'gray-matter'
+import { promises as fs } from "node:fs"
+import path from "node:path"
+import matter from "gray-matter"
 import {
   RESOURCE_PACK_ENTRYPOINT_FILE_NAME,
   RESOURCE_PACK_PREPARING_WARNING,
@@ -13,22 +13,22 @@ import {
   RESOURCE_PACK_TOC_FILE_NAME,
   classifyResourcePath,
   ensureResourcePack,
-} from '../resource-packs'
+} from "../resource-packs"
 
 const RESOURCE_PREPARATION_POLL_ATTEMPTS = 20
 const RESOURCE_PREPARATION_POLL_DELAY_MS = 500
-const RESOURCE_ALIAS_DEFAULT = 'resource' as const
-const LEGACY_RESOURCE_REGISTRY_FILENAME = 'registry.json' as const
+const RESOURCE_ALIAS_DEFAULT = "resource" as const
+const LEGACY_RESOURCE_REGISTRY_FILENAME = "registry.json" as const
 const RESOURCE_ALIAS_REPLACE_REGEX = /[^a-z0-9._-]+/g
 const RESOURCE_ALIAS_TRIM_REGEX = /^-+|-+$/g
-const RESOURCE_SOURCE_MISSING_WARNING_PREFIX = 'Resource source file not found: ' as const
-const RESOURCE_SOURCE_NOT_FILE_ERROR = 'Resource path must point to a file.' as const
-const RESOURCE_SOURCE_PATH_REQUIRED_ERROR = 'Resource path is required.' as const
+const RESOURCE_SOURCE_MISSING_WARNING_PREFIX = "Resource source file not found: " as const
+const RESOURCE_SOURCE_NOT_FILE_ERROR = "Resource path must point to a file." as const
+const RESOURCE_SOURCE_PATH_REQUIRED_ERROR = "Resource path is required." as const
 const RESOURCE_PROCESSED_METADATA_MISSING_WARNING =
-  'Resource metadata is missing. Run /resource rebuild.' as const
-const RESOURCE_STALE_WARNING = 'Source file changed since last successful preparation.' as const
+  "Resource metadata is missing. Run /resource rebuild." as const
+const RESOURCE_STALE_WARNING = "Source file changed since last successful preparation." as const
 
-export type ResourceStatus = 'preparing' | 'ready' | 'unsupported' | 'error' | 'stale'
+export type ResourceStatus = "preparing" | "ready" | "unsupported" | "error" | "stale"
 
 export type ResourceRecord = {
   id: string
@@ -52,7 +52,7 @@ type ResourceUseResolution =
     }
   | {
       ok: false
-      reason: 'not_found' | 'not_ready' | 'invalid_pack'
+      reason: "not_found" | "not_ready" | "invalid_pack"
       record?: ResourceRecord
     }
 
@@ -191,10 +191,10 @@ export async function resolveResourceReference(input: {
 }): Promise<ResourceUseResolution> {
   const record = await findResourceByKey(input.directory, input.key)
   if (!record) {
-    return { ok: false, reason: 'not_found' }
+    return { ok: false, reason: "not_found" }
   }
   if (record.status !== RESOURCE_PACK_STATUS_READY || !record.packKey) {
-    return { ok: false, reason: 'not_ready', record }
+    return { ok: false, reason: "not_ready", record }
   }
 
   const processedPath = resourceProcessedPath(input.directory, record.packKey)
@@ -202,7 +202,7 @@ export async function resolveResourceReference(input: {
   const tocPath = path.join(processedPath, RESOURCE_PACK_TOC_FILE_NAME)
   const entryExists = await fileExists(entrypointPath)
   if (!entryExists) {
-    return { ok: false, reason: 'invalid_pack', record }
+    return { ok: false, reason: "invalid_pack", record }
   }
 
   const tocExists = await fileExists(tocPath)
@@ -284,8 +284,8 @@ async function buildResourceRecord(input: {
       id: input.alias,
       alias: input.alias,
       sourceRelpath: path.join(RESOURCE_PACK_ROOT_DIR, input.alias),
-      format: metadata?.format ?? 'unknown',
-      status: 'error',
+      format: metadata?.format ?? "unknown",
+      status: "error",
       warnings: [
         `${RESOURCE_SOURCE_MISSING_WARNING_PREFIX}${path.join(RESOURCE_PACK_ROOT_DIR, input.alias)}`,
       ],
@@ -320,7 +320,7 @@ async function buildResourceRecord(input: {
           metadata.sourceSizeBytes !== Number(sourceStat.size)
         : false
     if (status === RESOURCE_PACK_STATUS_READY && sourceChanged) {
-      status = 'stale'
+      status = "stale"
       warnings = [RESOURCE_STALE_WARNING]
     }
   }
@@ -347,7 +347,7 @@ async function readResourcePackMetadataForAlias(
     resourceProcessedPath(directory, alias),
     RESOURCE_PACK_ENTRYPOINT_FILE_NAME,
   )
-  const content = await fs.readFile(metadataPath, 'utf8').catch(() => undefined)
+  const content = await fs.readFile(metadataPath, "utf8").catch(() => undefined)
   if (!content) return undefined
 
   const parsed = matter(content)
@@ -356,19 +356,19 @@ async function readResourcePackMetadataForAlias(
 
   const rawWarnings = data.warnings
   const warnings = Array.isArray(rawWarnings)
-    ? rawWarnings.filter((entry): entry is string => typeof entry === 'string')
-    : typeof rawWarnings === 'string' && rawWarnings.trim().length > 0
+    ? rawWarnings.filter((entry): entry is string => typeof entry === "string")
+    : typeof rawWarnings === "string" && rawWarnings.trim().length > 0
       ? [rawWarnings]
       : []
 
   return {
-    sourceRelpath: stringValue(data, 'source_relpath'),
-    format: stringValue(data, 'format') || undefined,
-    status: normalizeResourceStatus(stringValue(data, 'status')),
+    sourceRelpath: stringValue(data, "source_relpath"),
+    format: stringValue(data, "format") || undefined,
+    status: normalizeResourceStatus(stringValue(data, "status")),
     warnings,
-    preparedAt: stringValue(data, 'prepared_at') || undefined,
-    sourceMtimeMs: numberValue(data, 'source_mtime_ms'),
-    sourceSizeBytes: numberValue(data, 'source_size_bytes'),
+    preparedAt: stringValue(data, "prepared_at") || undefined,
+    sourceMtimeMs: numberValue(data, "source_mtime_ms"),
+    sourceSizeBytes: numberValue(data, "source_size_bytes"),
   }
 }
 
@@ -389,7 +389,7 @@ async function resolvePrimarySourcePathForAlias(
   const entries = await fs.readdir(folderPath, { withFileTypes: true }).catch(() => [])
   const files = entries
     .filter((entry) => entry.isFile())
-    .filter((entry) => !entry.name.startsWith('.'))
+    .filter((entry) => !entry.name.startsWith("."))
     .map((entry) => entry.name)
     .toSorted((left, right) => left.localeCompare(right))
 
@@ -521,8 +521,8 @@ async function removeLegacyResourceRegistryFile(directory: string) {
 }
 
 function resourceAliasFromStagedSourcePath(directory: string, sourcePath: string) {
-  const relpath = relativeDisplayPath(directory, sourcePath).split(path.sep).join('/')
-  const segments = relpath.split('/')
+  const relpath = relativeDisplayPath(directory, sourcePath).split(path.sep).join("/")
+  const segments = relpath.split("/")
   if (segments.length < 3) return undefined
   if (segments[0] !== RESOURCE_PACK_ROOT_DIR) return undefined
   if (segments[2] === RESOURCE_PACK_PROCESSED_DIR_NAME) return undefined
@@ -566,12 +566,12 @@ function pickResourceAlias(input: {
 }
 
 function normalizeAliasToken(value: string | undefined) {
-  if (!value) return ''
+  if (!value) return ""
   return value
     .trim()
     .toLowerCase()
-    .replace(RESOURCE_ALIAS_REPLACE_REGEX, '-')
-    .replace(RESOURCE_ALIAS_TRIM_REGEX, '')
+    .replace(RESOURCE_ALIAS_REPLACE_REGEX, "-")
+    .replace(RESOURCE_ALIAS_TRIM_REGEX, "")
 }
 
 function normalizeResourceStatus(value: string): ResourceStatus | undefined {
@@ -583,18 +583,18 @@ function normalizeResourceStatus(value: string): ResourceStatus | undefined {
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value))
+  return Boolean(value && typeof value === "object" && !Array.isArray(value))
 }
 
 function stringValue(value: Record<string, unknown>, key: string) {
   const entry = value[key]
-  return typeof entry === 'string' ? entry : ''
+  return typeof entry === "string" ? entry : ""
 }
 
 function numberValue(value: Record<string, unknown>, key: string) {
   const entry = value[key]
-  if (typeof entry === 'number') return entry
-  if (typeof entry === 'string' && entry.trim().length > 0) {
+  if (typeof entry === "number") return entry
+  if (typeof entry === "string" && entry.trim().length > 0) {
     const parsed = Number(entry)
     if (!Number.isNaN(parsed)) return parsed
   }
@@ -620,8 +620,8 @@ function isPathInsideWorkspace(directory: string, candidatePath: string) {
 
 function isPathInsideDirectory(parentPath: string, candidatePath: string) {
   const relativePath = path.relative(parentPath, candidatePath)
-  if (relativePath === '') return true
-  return !relativePath.startsWith('..') && !path.isAbsolute(relativePath)
+  if (relativePath === "") return true
+  return !relativePath.startsWith("..") && !path.isAbsolute(relativePath)
 }
 
 async function fileExists(filepath: string) {

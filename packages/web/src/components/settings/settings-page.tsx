@@ -1,11 +1,11 @@
-import type { ReactNode } from 'react'
-import type { SettingsTab } from './settings-primitives'
-import { InstructionsSettings } from './settings-instructions'
-import { AppearanceSettings } from './settings-appearance'
-import { NotebookSettings } from './settings-notebook'
-import { ModelSettings } from './settings-model'
-import { ProvidersSettings } from './settings-providers'
-import { McpsSettings } from './settings-mcps'
+import type { ReactNode } from "react"
+import type { SettingsTab } from "./settings-primitives"
+import { InstructionsSettings } from "./settings-instructions"
+import { AppearanceSettings } from "./settings-appearance"
+import { NotebookSettings } from "./settings-notebook"
+import { ModelSettings } from "./settings-model"
+import { ProvidersSettings } from "./settings-providers"
+import { McpsSettings } from "./settings-mcps"
 
 type SettingsPageProps = {
   directory: string
@@ -15,12 +15,12 @@ type SettingsPageProps = {
 export function SettingsPage(props: SettingsPageProps) {
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col">
-      {props.activeTab === 'instructions' && <InstructionsSettings />}
-      {props.activeTab === 'appearance' && <AppearanceSettings />}
-      {props.activeTab === 'notebook' && <NotebookSettings directory={props.directory} />}
-      {props.activeTab === 'model' && <ModelSettings directory={props.directory} />}
-      {props.activeTab === 'providers' && <ProvidersSettings directory={props.directory} />}
-      {props.activeTab === 'mcps' && <McpsSettings directory={props.directory} />}
+      {props.activeTab === "instructions" && <InstructionsSettings />}
+      {props.activeTab === "appearance" && <AppearanceSettings />}
+      {props.activeTab === "notebook" && <NotebookSettings directory={props.directory} />}
+      {props.activeTab === "model" && <ModelSettings directory={props.directory} />}
+      {props.activeTab === "providers" && <ProvidersSettings directory={props.directory} />}
+      {props.activeTab === "mcps" && <McpsSettings directory={props.directory} />}
     </div>
   )
 }

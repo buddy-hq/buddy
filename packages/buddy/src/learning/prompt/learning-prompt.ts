@@ -1,6 +1,6 @@
-import { buildSystemPrompt } from './system-prompt'
-import { buildTurnPrompt } from './turn-prompt'
-import type { PromptTurnSnapshot, SystemPromptCtx } from './prompt-context'
+import { buildSystemPrompt } from "./system-prompt"
+import { buildTurnPrompt } from "./turn-prompt"
+import type { PromptTurnSnapshot, SystemPromptCtx } from "./prompt-context"
 
 export type LearningPromptBuild = {
   systemContext: string
@@ -16,7 +16,7 @@ export async function buildLearningSystemPrompt(
   const currentTurn: PromptTurnSnapshot = {
     persona: input.persona,
     intent: input.intent,
-    workspaceState: input.teachingContext?.active ? 'interactive' : 'chat',
+    workspaceState: input.teachingContext?.active ? "interactive" : "chat",
   }
 
   const turnReminder = buildTurnPrompt({

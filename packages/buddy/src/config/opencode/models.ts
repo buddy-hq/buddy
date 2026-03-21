@@ -4,15 +4,15 @@ function parseConfiguredModel(value: unknown):
       modelID: string
     }
   | undefined {
-  if (typeof value !== 'string') return undefined
+  if (typeof value !== "string") return undefined
   const trimmed = value.trim()
   if (!trimmed) return undefined
 
-  const [providerID, ...rest] = trimmed.split('/')
+  const [providerID, ...rest] = trimmed.split("/")
 
   return {
     providerID,
-    modelID: rest.join('/'),
+    modelID: rest.join("/"),
   }
 }
 

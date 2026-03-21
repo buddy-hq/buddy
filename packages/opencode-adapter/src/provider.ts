@@ -1,1 +1,1 @@
-export { Provider } from 'opencode/provider/provider'
+export { Provider } from "opencode/provider/provider"

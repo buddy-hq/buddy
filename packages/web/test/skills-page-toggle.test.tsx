@@ -1,9 +1,9 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import { act } from 'react'
-import { createRoot, type Root } from 'react-dom/client'
-import { SkillsPage } from '../src/components/skills/skills-page'
-import { PlatformProvider, createBrowserPlatform } from '../src/context/platform'
-import { ServerProvider } from '../src/context/server'
+import { afterEach, beforeEach, describe, expect, test } from "bun:test"
+import { act } from "react"
+import { createRoot, type Root } from "react-dom/client"
+import { SkillsPage } from "../src/components/skills/skills-page"
+import { PlatformProvider, createBrowserPlatform } from "../src/context/platform"
+import { ServerProvider } from "../src/context/server"
 
 const originalFetch = globalThis.fetch
 
@@ -11,7 +11,7 @@ function jsonResponse(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), {
     status,
     headers: {
-      'content-type': 'application/json',
+      "content-type": "application/json",
     },
   })
 }
@@ -38,13 +38,13 @@ async function waitForAssertion(assertion: () => void, timeoutMs = 1500) {
   }
 }
 
-describe('SkillsPage external vendor roots toggle', () => {
+describe("SkillsPage external vendor roots toggle", () => {
   let container: HTMLDivElement
   let root: Root
 
   beforeEach(() => {
     ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
-    container = document.createElement('div')
+    container = document.createElement("div")
     document.body.appendChild(container)
     root = createRoot(container)
   })
@@ -59,32 +59,32 @@ describe('SkillsPage external vendor roots toggle', () => {
     ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = undefined
   })
 
-  test('loads initial toggle state and forces refresh after updating settings', async () => {
+  test("loads initial toggle state and forces refresh after updating settings", async () => {
     const requests: Array<{ url: string; method: string; body?: unknown }> = []
 
     const initialCatalog = {
-      directory: '/repo',
-      managedRoot: '/home/test/.buddy/skills',
+      directory: "/repo",
+      managedRoot: "/home/test/.buddy/skills",
       externalVendorRootsEnabled: false,
       installed: [],
       library: [],
     }
     const refreshedCatalog = {
-      directory: '/repo',
-      managedRoot: '/home/test/.buddy/skills',
+      directory: "/repo",
+      managedRoot: "/home/test/.buddy/skills",
       externalVendorRootsEnabled: true,
       installed: [
         {
-          name: 'local-review',
-          description: 'Workspace-local review workflow.',
-          location: '/repo/.agents/skills/local-review/SKILL.md',
-          directory: '/repo/.agents/skills/local-review',
-          content: 'Use the local review workflow.',
+          name: "local-review",
+          description: "Workspace-local review workflow.",
+          location: "/repo/.agents/skills/local-review/SKILL.md",
+          directory: "/repo/.agents/skills/local-review",
+          content: "Use the local review workflow.",
           enabled: true,
-          permissionAction: 'ask',
-          permissionSource: 'default',
-          source: 'external',
-          scope: 'workspace',
+          permissionAction: "ask",
+          permissionSource: "default",
+          source: "external",
+          scope: "workspace",
           managed: false,
           removable: false,
         },
@@ -94,26 +94,26 @@ describe('SkillsPage external vendor roots toggle', () => {
 
     globalThis.fetch = (async (input, init) => {
       const url = String(input)
-      const method = init?.method ?? 'GET'
-      const body = typeof init?.body === 'string' ? JSON.parse(init.body) : undefined
+      const method = init?.method ?? "GET"
+      const body = typeof init?.body === "string" ? JSON.parse(init.body) : undefined
       requests.push({
         url,
         method,
         ...(body !== undefined ? { body } : {}),
       })
 
-      if (url === '/api/skills' && method === 'GET') {
+      if (url === "/api/skills" && method === "GET") {
         return jsonResponse(initialCatalog)
       }
 
-      if (url === '/api/skills/settings' && method === 'PATCH') {
+      if (url === "/api/skills/settings" && method === "PATCH") {
         return jsonResponse({
           ok: true,
           externalVendorRootsEnabled: true,
         })
       }
 
-      if (url === '/api/skills?refresh=1' && method === 'GET') {
+      if (url === "/api/skills?refresh=1" && method === "GET") {
         return jsonResponse(refreshedCatalog)
       }
 
@@ -125,7 +125,7 @@ describe('SkillsPage external vendor roots toggle', () => {
         <PlatformProvider value={createBrowserPlatform()}>
           <ServerProvider
             value={{
-              url: '',
+              url: "",
               username: null,
               password: null,
               isSidecar: false,
@@ -140,16 +140,16 @@ describe('SkillsPage external vendor roots toggle', () => {
 
     await waitForAssertion(() => {
       expect(
-        requests.some((request) => request.url === '/api/skills' && request.method === 'GET'),
+        requests.some((request) => request.url === "/api/skills" && request.method === "GET"),
       ).toBe(true)
       const toggle = container.querySelector('[aria-label="Discover external vendor roots"]')
       expect(toggle).not.toBeNull()
-      expect(toggle?.getAttribute('aria-checked')).toBe('false')
+      expect(toggle?.getAttribute("aria-checked")).toBe("false")
     })
 
     const toggle = container.querySelector('[aria-label="Discover external vendor roots"]')
     if (!(toggle instanceof HTMLElement)) {
-      throw new Error('External vendor roots toggle is missing')
+      throw new Error("External vendor roots toggle is missing")
     }
 
     await act(async () => {
@@ -160,7 +160,7 @@ describe('SkillsPage external vendor roots toggle', () => {
 
     await waitForAssertion(() => {
       const settingsPatch = requests.find(
-        (request) => request.url === '/api/skills/settings' && request.method === 'PATCH',
+        (request) => request.url === "/api/skills/settings" && request.method === "PATCH",
       )
       expect(settingsPatch).toBeDefined()
       expect(settingsPatch?.body).toEqual({
@@ -168,12 +168,12 @@ describe('SkillsPage external vendor roots toggle', () => {
       })
       expect(
         requests.some(
-          (request) => request.url === '/api/skills?refresh=1' && request.method === 'GET',
+          (request) => request.url === "/api/skills?refresh=1" && request.method === "GET",
         ),
       ).toBe(true)
       const nextToggle = container.querySelector('[aria-label="Discover external vendor roots"]')
-      expect(nextToggle?.getAttribute('aria-checked')).toBe('true')
-      expect(container.textContent?.includes('local-review')).toBe(true)
+      expect(nextToggle?.getAttribute("aria-checked")).toBe("true")
+      expect(container.textContent?.includes("local-review")).toBe(true)
     })
   })
 })

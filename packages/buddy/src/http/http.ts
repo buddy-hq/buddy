@@ -1,7 +1,7 @@
 export function isJsonContentType(value: string | null | undefined): boolean {
   if (!value) return false
   const normalized = value.toLowerCase()
-  return normalized.includes('application/json') || normalized.includes('+json')
+  return normalized.includes("application/json") || normalized.includes("+json")
 }
 
 export function safeJsonParse(text: string): unknown | undefined {

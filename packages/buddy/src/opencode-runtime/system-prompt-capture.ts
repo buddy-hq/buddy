@@ -1,10 +1,10 @@
-import fs from 'node:fs/promises'
-import { realpathSync } from 'node:fs'
-import path, { resolve } from 'node:path'
+import fs from "node:fs/promises"
+import { realpathSync } from "node:fs"
+import path, { resolve } from "node:path"
 
 const CAPTURE_LIMIT = 512
-const CAPTURE_STORE_KEY = '__buddySystemPromptCaptureStore__'
-const CAPTURE_DIRECTORY_NAME = 'system-prompts'
+const CAPTURE_STORE_KEY = "__buddySystemPromptCaptureStore__"
+const CAPTURE_DIRECTORY_NAME = "system-prompts"
 
 type CaptureStore = {
   bySession: Map<string, string>
@@ -45,11 +45,11 @@ function key(directory: string, sessionID: string) {
 
 function resolveStateHome() {
   const configured = process.env.XDG_STATE_HOME?.trim()
-  if (configured && configured !== 'undefined') {
+  if (configured && configured !== "undefined") {
     return configured
   }
 
-  return path.resolve(process.cwd(), '.buddy-runtime/xdg/state')
+  return path.resolve(process.cwd(), ".buddy-runtime/xdg/state")
 }
 
 function captureDirectory() {
@@ -91,23 +91,23 @@ async function writePromptCaptureRecord(record: PromptCaptureRecord) {
   await fs.mkdir(captureDirectory(), { recursive: true })
   const targetPath = captureFilePath(record.sessionID)
   const tempPath = `${targetPath}.${process.pid}.${Date.now()}.tmp`
-  await fs.writeFile(tempPath, `${JSON.stringify(record)}\n`, 'utf8')
+  await fs.writeFile(tempPath, `${JSON.stringify(record)}\n`, "utf8")
   await fs.rename(tempPath, targetPath)
 }
 
 async function readPromptCaptureRecord(sessionID: string) {
   const targetPath = captureFilePath(sessionID)
-  const raw = await fs.readFile(targetPath, 'utf8').catch(() => undefined)
+  const raw = await fs.readFile(targetPath, "utf8").catch(() => undefined)
   if (!raw) {
     return undefined
   }
 
   const parsed = JSON.parse(raw) as Partial<PromptCaptureRecord>
   if (
-    typeof parsed.directory !== 'string' ||
-    typeof parsed.sessionID !== 'string' ||
-    typeof parsed.fullSystemPrompt !== 'string' ||
-    typeof parsed.capturedAt !== 'string'
+    typeof parsed.directory !== "string" ||
+    typeof parsed.sessionID !== "string" ||
+    typeof parsed.fullSystemPrompt !== "string" ||
+    typeof parsed.capturedAt !== "string"
   ) {
     return undefined
   }

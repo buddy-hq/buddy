@@ -1,6 +1,6 @@
-import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
-import { createPlatformJsonStorage } from '../context/platform'
+import { create } from "zustand"
+import { persist } from "zustand/middleware"
+import { createPlatformJsonStorage } from "../context/platform"
 import type {
   DirectoryChatState,
   MessageInfo,
@@ -10,10 +10,10 @@ import type {
   PermissionRequest,
   ProviderCatalogState,
   SessionInfo,
-} from './chat-types'
-import { appendPartDelta, inferBusyFromMessages, upsertMessage, upsertPart } from './chat-reducer'
+} from "./chat-types"
+import { appendPartDelta, inferBusyFromMessages, upsertMessage, upsertPart } from "./chat-reducer"
 
-type StreamStatus = 'idle' | 'connecting' | 'connected' | 'error'
+type StreamStatus = "idle" | "connecting" | "connected" | "error"
 
 type ChatStore = {
   openProjects: string[]
@@ -36,7 +36,7 @@ type ChatStore = {
   setSessionInfo: (directory: string, info: SessionInfo) => void
   setMessages: (directory: string, sessionID: string, messages: MessageWithParts[]) => void
   applySessionUpdated: (directory: string, info: SessionInfo) => void
-  applySessionStatus: (directory: string, sessionID: string, status: 'busy' | 'idle') => void
+  applySessionStatus: (directory: string, sessionID: string, status: "busy" | "idle") => void
   applyMessageUpdated: (directory: string, info: MessageInfo) => void
   applyPartUpdated: (directory: string, part: MessagePart) => void
   applyPartDelta: (
@@ -53,15 +53,15 @@ type ChatStore = {
   setStreamStatus: (status: StreamStatus) => void
 }
 
-const DEFAULT_TITLE = 'New thread'
-const CHAT_STORAGE_FILE = 'buddy.chat.dat'
-const CHAT_STORAGE_KEY = 'buddy.chat.v4'
+const DEFAULT_TITLE = "New thread"
+const CHAT_STORAGE_FILE = "buddy.chat.dat"
+const CHAT_STORAGE_KEY = "buddy.chat.v4"
 
 function normalizeProjectDirectory(input: string | undefined) {
   if (!input) return undefined
   const trimmed = input.trim()
-  if (!trimmed || trimmed === '/') return undefined
-  return trimmed.replace(/\/+$/, '') || undefined
+  if (!trimmed || trimmed === "/") return undefined
+  return trimmed.replace(/\/+$/, "") || undefined
 }
 
 function emptyDirectoryState(): DirectoryChatState {
@@ -115,7 +115,7 @@ export const useChatStore = create<ChatStore>()(
       lastSessionByDirectory: {},
       selectedModelByDirectory: {},
       directories: {},
-      streamStatus: 'idle',
+      streamStatus: "idle",
       ensureOpenProject(directory) {
         const normalized = normalizeProjectDirectory(directory)
         if (!normalized) return
@@ -286,7 +286,7 @@ export const useChatStore = create<ChatStore>()(
                 ...current,
                 sessionID,
                 sessionTitle: activeInfo?.title ?? current.sessionTitle,
-                isBusy: current.sessionStatusByID[sessionID] === 'busy',
+                isBusy: current.sessionStatusByID[sessionID] === "busy",
               },
             },
             lastSessionByDirectory: {
@@ -312,7 +312,7 @@ export const useChatStore = create<ChatStore>()(
                 sessions: nextSessions,
                 sessionID: info.id,
                 sessionTitle: info.title || DEFAULT_TITLE,
-                isBusy: current.sessionStatusByID[info.id] === 'busy',
+                isBusy: current.sessionStatusByID[info.id] === "busy",
               },
             },
           }
@@ -339,7 +339,7 @@ export const useChatStore = create<ChatStore>()(
                 isBusy: inferredBusy,
                 sessionStatusByID: {
                   ...current.sessionStatusByID,
-                  [nextSessionID]: inferredBusy ? 'busy' : 'idle',
+                  [nextSessionID]: inferredBusy ? "busy" : "idle",
                 },
               },
             },
@@ -364,7 +364,7 @@ export const useChatStore = create<ChatStore>()(
           const nextActiveInfo = nextSessionID
             ? nextSessions.find((session) => session.id === nextSessionID)
             : undefined
-          const nextBusy = nextSessionID ? nextSessionStatusByID[nextSessionID] === 'busy' : false
+          const nextBusy = nextSessionID ? nextSessionStatusByID[nextSessionID] === "busy" : false
           return {
             directories: {
               ...state.directories,
@@ -404,7 +404,7 @@ export const useChatStore = create<ChatStore>()(
                   ...current.sessionStatusByID,
                   [sessionID]: status,
                 },
-                isBusy: current.sessionID === sessionID ? status === 'busy' : current.isBusy,
+                isBusy: current.sessionID === sessionID ? status === "busy" : current.isBusy,
               },
             },
           }
@@ -427,7 +427,7 @@ export const useChatStore = create<ChatStore>()(
                 isBusy: inferredBusy,
                 sessionStatusByID: {
                   ...current.sessionStatusByID,
-                  [info.sessionID]: inferredBusy ? 'busy' : 'idle',
+                  [info.sessionID]: inferredBusy ? "busy" : "idle",
                 },
               },
             },
@@ -451,7 +451,7 @@ export const useChatStore = create<ChatStore>()(
                 isBusy: inferredBusy,
                 sessionStatusByID: {
                   ...current.sessionStatusByID,
-                  [part.sessionID]: inferredBusy ? 'busy' : 'idle',
+                  [part.sessionID]: inferredBusy ? "busy" : "idle",
                 },
               },
             },
@@ -475,7 +475,7 @@ export const useChatStore = create<ChatStore>()(
                 isBusy: inferredBusy,
                 sessionStatusByID: {
                   ...current.sessionStatusByID,
-                  [input.sessionID]: inferredBusy ? 'busy' : 'idle',
+                  [input.sessionID]: inferredBusy ? "busy" : "idle",
                 },
               },
             },
@@ -560,7 +560,7 @@ export const useChatStore = create<ChatStore>()(
         const normalized = normalizeProjectDirectory(directory)
         if (!normalized) return
 
-        const nextModel = model.trim() || 'auto'
+        const nextModel = model.trim() || "auto"
         set((state) => ({
           selectedModelByDirectory: {
             ...state.selectedModelByDirectory,

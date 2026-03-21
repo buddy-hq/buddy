@@ -4,7 +4,7 @@ type MathFigurePanelProps = {
 
 export function MathFigurePanel(props: MathFigurePanelProps) {
   return (
-    <section className={`flex min-h-0 flex-1 flex-col gap-4 px-6 py-8 ${props.className ?? ''}`}>
+    <section className={`flex min-h-0 flex-1 flex-col gap-4 px-6 py-8 ${props.className ?? ""}`}>
       <div className="space-y-2">
         <h2 className="text-sm font-medium">Figure Surface</h2>
         <p className="text-sm text-muted-foreground">

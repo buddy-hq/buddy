@@ -1,4 +1,4 @@
-import { renderFigureTool } from './render-figure'
+import { renderFigureTool } from "./render-figure"
 
 const figureTools = [renderFigureTool] as const
 

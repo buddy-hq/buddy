@@ -1,4 +1,4 @@
-import type { Persona, WorkspaceState } from '@buddy/backend/learning/shared/teaching-vocabulary'
+import type { Persona, WorkspaceState } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import {
   pedagogyDebugAttemptTool,
   pedagogyGuidedPracticeTool,
@@ -8,8 +8,8 @@ import {
   pedagogyRetrievalCheckTool,
   pedagogyStepwiseSolveTool,
   pedagogyTransferCheckTool,
-} from '../../capabilities/pedagogy/tools/definitions'
-import type { BuddyTool } from '../../tools'
+} from "../../capabilities/pedagogy/tools/definitions"
+import type { BuddyTool } from "../../tools"
 
 export type ToolCapability = {
   tool: BuddyTool
@@ -26,7 +26,7 @@ export type ToolCapabilityInput =
     }
 
 function isBuddyTool(value: ToolCapabilityInput): value is BuddyTool {
-  return 'id' in value
+  return "id" in value
 }
 
 export function createToolCapability(input: ToolCapabilityInput): ToolCapability {
@@ -52,12 +52,12 @@ export const TOOL_CAPABILITY_REGISTRY = [
   createToolCapability(pedagogyIndependentPracticeTool),
   createToolCapability({
     tool: pedagogyDebugAttemptTool,
-    personas: ['code-buddy'],
-    workspaceStates: ['interactive'],
+    personas: ["code-buddy"],
+    workspaceStates: ["interactive"],
   }),
   createToolCapability({
     tool: pedagogyStepwiseSolveTool,
-    personas: ['math-buddy'],
+    personas: ["math-buddy"],
   }),
   createToolCapability(pedagogyMasteryCheckTool),
   createToolCapability(pedagogyReflectionTool),
@@ -73,5 +73,11 @@ type ListedToolCapability = {
 }
 
 export function listToolCapabilities(): ListedToolCapability[] {
-  return TOOL_CAPABILITY_REGISTRY.map((capability) => (Object.assign({key:toolCapabilityKey(capability),toolId:capability.tool.id}, capability.personas?{personas:[...capability.personas]}:{}, capability.workspaceStates?{workspaceStates:[...capability.workspaceStates]}:{})))
+  return TOOL_CAPABILITY_REGISTRY.map((capability) =>
+    Object.assign(
+      { key: toolCapabilityKey(capability), toolId: capability.tool.id },
+      capability.personas ? { personas: [...capability.personas] } : {},
+      capability.workspaceStates ? { workspaceStates: [...capability.workspaceStates] } : {},
+    ),
+  )
 }

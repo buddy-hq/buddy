@@ -1,8 +1,8 @@
-import { McpEditorDialog } from '@/components/mcp-dialog/mcp-editor-dialog'
-import { McpListPanel } from '@/components/mcp-dialog/mcp-list-panel'
-import { useMcpDirectoryData } from '@/components/mcp-dialog/use-mcp-directory-data'
-import { useMcpEditorState } from '@/components/mcp-dialog/use-mcp-editor-state'
-import { SettingsPanelContent } from './settings-page'
+import { McpEditorDialog } from "@/components/mcp-dialog/mcp-editor-dialog"
+import { McpListPanel } from "@/components/mcp-dialog/mcp-list-panel"
+import { useMcpDirectoryData } from "@/components/mcp-dialog/use-mcp-directory-data"
+import { useMcpEditorState } from "@/components/mcp-dialog/use-mcp-editor-state"
+import { SettingsPanelContent } from "./settings-page"
 
 export function McpsSettings({ directory }: { directory: string }) {
   const directoryState = useMcpDirectoryData({

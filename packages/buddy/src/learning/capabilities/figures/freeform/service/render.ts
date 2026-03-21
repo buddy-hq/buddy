@@ -1,17 +1,17 @@
-import { createHash } from 'node:crypto'
+import { createHash } from "node:crypto"
 import {
   RenderFreeformFigureInputSchema,
   RenderFreeformFigureOutputSchema,
   type RenderFreeformFigureInput,
   type RenderFreeformFigureOutput,
-} from '../types'
-import { FreeformFigureRenderError } from './errors'
-import { writeFreeformFigure } from './io'
-import { lintSvg } from './lint'
-import { applyTextHalo, sanitizeSvg } from './sanitize'
+} from "../types"
+import { FreeformFigureRenderError } from "./errors"
+import { writeFreeformFigure } from "./io"
+import { lintSvg } from "./lint"
+import { applyTextHalo, sanitizeSvg } from "./sanitize"
 
 function escapeMarkdownAlt(value: string): string {
-  return value.replaceAll('\\', '\\\\').replaceAll('[', '\\[').replaceAll(']', '\\]')
+  return value.replaceAll("\\", "\\\\").replaceAll("[", "\\[").replaceAll("]", "\\]")
 }
 
 function buildFreeformFigureURL(directory: string, figureID: string): string {
@@ -19,10 +19,10 @@ function buildFreeformFigureURL(directory: string, figureID: string): string {
 }
 
 function hashFreeformFigure(input: {
-  kind: RenderFreeformFigureInput['kind']
+  kind: RenderFreeformFigureInput["kind"]
   source: string
 }): string {
-  return createHash('sha256').update(JSON.stringify(input)).digest('hex')
+  return createHash("sha256").update(JSON.stringify(input)).digest("hex")
 }
 
 async function renderFreeformFigure(
@@ -53,7 +53,7 @@ async function renderFreeformFigure(
 
   return RenderFreeformFigureOutputSchema.parse({
     figureID,
-    mime: 'image/svg+xml',
+    mime: "image/svg+xml",
     url,
     alt: parsed.alt,
     ...(parsed.caption ? { caption: parsed.caption } : {}),

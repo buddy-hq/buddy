@@ -1,6 +1,6 @@
 function truthy(key: string) {
   const value = process.env[key]?.toLowerCase()
-  return value === 'true' || value === '1'
+  return value === "true" || value === "1"
 }
 
 export namespace Flag {
@@ -12,7 +12,7 @@ export namespace Flag {
   export declare const BUDDY_PERMISSION: string | undefined
 }
 
-Object.defineProperty(Flag, 'BUDDY_CONFIG', {
+Object.defineProperty(Flag, "BUDDY_CONFIG", {
   get() {
     return process.env.BUDDY_CONFIG
   },
@@ -20,7 +20,7 @@ Object.defineProperty(Flag, 'BUDDY_CONFIG', {
   configurable: false,
 })
 
-Object.defineProperty(Flag, 'BUDDY_CONFIG_CONTENT', {
+Object.defineProperty(Flag, "BUDDY_CONFIG_CONTENT", {
   get() {
     return process.env.BUDDY_CONFIG_CONTENT
   },
@@ -28,15 +28,15 @@ Object.defineProperty(Flag, 'BUDDY_CONFIG_CONTENT', {
   configurable: false,
 })
 
-Object.defineProperty(Flag, 'BUDDY_DISABLE_PROJECT_CONFIG', {
+Object.defineProperty(Flag, "BUDDY_DISABLE_PROJECT_CONFIG", {
   get() {
-    return truthy('BUDDY_DISABLE_PROJECT_CONFIG')
+    return truthy("BUDDY_DISABLE_PROJECT_CONFIG")
   },
   enumerable: true,
   configurable: false,
 })
 
-Object.defineProperty(Flag, 'BUDDY_PERMISSION', {
+Object.defineProperty(Flag, "BUDDY_PERMISSION", {
   get() {
     return process.env.BUDDY_PERMISSION
   },

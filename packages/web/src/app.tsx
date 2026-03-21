@@ -1,9 +1,9 @@
-import type { ReactNode } from 'react'
-import { RouterProvider, createRouter } from '@tanstack/react-router'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { Toaster, TooltipProvider } from '@buddy/ui'
-import { ThemeProvider } from '@/theme'
-import { routeTree } from './routeTree.gen'
+import type { ReactNode } from "react"
+import { RouterProvider, createRouter } from "@tanstack/react-router"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { Toaster, TooltipProvider } from "@buddy/ui"
+import { ThemeProvider } from "@/theme"
+import { routeTree } from "./routeTree.gen"
 
 const queryClient = new QueryClient()
 
@@ -12,11 +12,11 @@ const router = createRouter({
   context: {
     queryClient,
   },
-  defaultPreload: 'intent',
+  defaultPreload: "intent",
   defaultPreloadStaleTime: 0,
 })
 
-declare module '@tanstack/react-router' {
+declare module "@tanstack/react-router" {
   interface Register {
     router: typeof router
   }

@@ -1,9 +1,9 @@
-import { createHash } from 'node:crypto'
-import fsp from 'node:fs/promises'
-import path from 'node:path'
-import { Global } from '../storage'
+import { createHash } from "node:crypto"
+import fsp from "node:fs/promises"
+import path from "node:path"
+import { Global } from "../storage"
 
-const AGENTS_MD_FILE_NAME = 'AGENTS.md'
+const AGENTS_MD_FILE_NAME = "AGENTS.md"
 
 export type AgentsMdState = {
   path: string
@@ -29,13 +29,13 @@ export function mapAgentsMdConflictError(error: unknown): Response | undefined {
 
 function contentVersion(content: string | undefined) {
   if (content === undefined) return null
-  return createHash('sha256').update(content, 'utf8').digest('hex')
+  return createHash("sha256").update(content, "utf8").digest("hex")
 }
 
 async function readFileContent(filePath: string) {
-  return fsp.readFile(filePath, 'utf8').catch((error: unknown) => {
+  return fsp.readFile(filePath, "utf8").catch((error: unknown) => {
     const maybe = error as { code?: string }
-    if (maybe.code === 'ENOENT') {
+    if (maybe.code === "ENOENT") {
       return undefined
     }
     throw error
@@ -46,8 +46,8 @@ async function readAgentsMd(filePath: string): Promise<AgentsMdState> {
   const content = await readFileContent(filePath)
   return {
     path: filePath,
-    exists: typeof content === 'string',
-    content: content ?? '',
+    exists: typeof content === "string",
+    content: content ?? "",
     version: contentVersion(content),
   }
 }
@@ -66,12 +66,12 @@ async function saveAgentsMd(input: {
   }
 
   await fsp.mkdir(path.dirname(input.filePath), { recursive: true })
-  await fsp.writeFile(input.filePath, input.content, 'utf8')
+  await fsp.writeFile(input.filePath, input.content, "utf8")
 
   return {
     path: input.filePath,
     content: input.content,
-    version: contentVersion(input.content) ?? '',
+    version: contentVersion(input.content) ?? "",
   }
 }
 
@@ -96,7 +96,7 @@ export async function saveNotebookAgentsMd(input: {
     filePath: resolveNotebookAgentsMdPath(input.directory),
     content: input.content,
     expectedVersion: input.expectedVersion,
-    conflictMessage: 'AGENTS.md changed on disk. Reload or overwrite to continue.',
+    conflictMessage: "AGENTS.md changed on disk. Reload or overwrite to continue.",
   })
 }
 
@@ -114,6 +114,6 @@ export async function saveGlobalAgentsMd(input: {
     filePath,
     content: input.content,
     expectedVersion: input.expectedVersion,
-    conflictMessage: 'Global AGENTS.md changed on disk. Reload or overwrite to continue.',
+    conflictMessage: "Global AGENTS.md changed on disk. Reload or overwrite to continue.",
   })
 }

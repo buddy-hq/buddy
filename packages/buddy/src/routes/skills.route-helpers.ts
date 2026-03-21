@@ -1,15 +1,15 @@
-import type { SkillServiceErrorCode } from '../learning/skills'
-import { SkillServiceError } from '../learning/skills'
+import type { SkillServiceErrorCode } from "../learning/skills"
+import { SkillServiceError } from "../learning/skills"
 import {
   HTTP_STATUS,
   SKILL_ERROR_STATUS,
   SKILL_ROUTE_ACTIONS,
   SKILL_ROUTE_ERRORS,
   SKILL_ROUTE_QUERY,
-} from './skills.constants'
+} from "./skills.constants"
 
 type SkillToggleInput = {
-  action?: 'allow' | 'deny' | 'ask' | 'inherit'
+  action?: "allow" | "deny" | "ask" | "inherit"
   enabled?: boolean
 }
 

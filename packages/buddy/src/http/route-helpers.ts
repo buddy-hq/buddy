@@ -2,10 +2,10 @@ import {
   configErrorMessage,
   isConfigValidationError,
   syncOpenCodeProjectConfig,
-} from '@buddy/backend/config/runtime'
-import type { Context } from 'hono'
-import type { DirectoryRequestContext, DirectoryRequestSource } from './directory'
-import { resolveDirectoryRequestContext } from './directory'
+} from "@buddy/backend/config/runtime"
+import type { Context } from "hono"
+import type { DirectoryRequestContext, DirectoryRequestSource } from "./directory"
+import { resolveDirectoryRequestContext } from "./directory"
 
 type RouteSuccess<T> = {
   ok: true

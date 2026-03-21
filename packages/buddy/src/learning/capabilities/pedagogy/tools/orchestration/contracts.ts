@@ -1,6 +1,6 @@
-import z from 'zod'
-import type { Intent } from '@buddy/backend/learning/shared/teaching-vocabulary'
-import type { GoalArtifact } from '../../../../learner-model'
+import z from "zod"
+import type { Intent } from "@buddy/backend/learning/shared/teaching-vocabulary"
+import type { GoalArtifact } from "../../../../learner-model"
 
 export const PedagogyToolParameters = z.object({
   goalIds: z.array(z.string()).default([]),

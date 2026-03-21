@@ -1,13 +1,13 @@
-import { PermissionNext, type PermissionAction } from '@buddy/opencode-adapter/permission'
-import { Wildcard } from '@buddy/opencode-adapter/wildcard'
-import { Config } from '@buddy/backend/config'
-import type { PermissionRule, PermissionRuleset, SkillPermissionSource } from './contracts'
+import { PermissionNext, type PermissionAction } from "@buddy/opencode-adapter/permission"
+import { Wildcard } from "@buddy/opencode-adapter/wildcard"
+import { Config } from "@buddy/backend/config"
+import type { PermissionRule, PermissionRuleset, SkillPermissionSource } from "./contracts"
 
 const SKILL_RULE_DEFAULTS = {
-  permission: 'skill',
-  wildcardPattern: '*',
-  defaultAction: 'ask',
-  deniedAction: 'deny',
+  permission: "skill",
+  wildcardPattern: "*",
+  defaultAction: "ask",
+  deniedAction: "deny",
 } as const satisfies {
   permission: string
   wildcardPattern: string
@@ -16,9 +16,9 @@ const SKILL_RULE_DEFAULTS = {
 }
 
 const SKILL_PERMISSION_SOURCE = {
-  default: 'default',
-  explicit: 'explicit',
-  inherited: 'inherited',
+  default: "default",
+  explicit: "explicit",
+  inherited: "inherited",
 } as const satisfies Record<string, SkillPermissionSource>
 
 function matchSkillRule(name: string, ruleset: PermissionRuleset) {
@@ -81,12 +81,12 @@ export async function setSkillPermission(pattern: string, action: PermissionActi
   const current = await Config.getGlobal()
   const existingPermission = current.permission
   const existingSkillPermission =
-    existingPermission && typeof existingPermission !== 'string'
+    existingPermission && typeof existingPermission !== "string"
       ? existingPermission.skill
       : undefined
 
   const nextSkillPermission =
-    typeof existingSkillPermission === 'string'
+    typeof existingSkillPermission === "string"
       ? {
           [SKILL_RULE_DEFAULTS.wildcardPattern]: existingSkillPermission,
           [pattern]: action,
@@ -97,7 +97,7 @@ export async function setSkillPermission(pattern: string, action: PermissionActi
         }
 
   const nextPermission = Config.Permission.parse(
-    typeof existingPermission === 'string'
+    typeof existingPermission === "string"
       ? {
           [SKILL_RULE_DEFAULTS.wildcardPattern]: existingPermission,
           [SKILL_RULE_DEFAULTS.permission]: nextSkillPermission,
@@ -116,14 +116,14 @@ export async function setSkillPermission(pattern: string, action: PermissionActi
 export async function clearSkillPermission(pattern: string) {
   const current = await Config.getGlobal()
   const existingPermission = current.permission
-  if (!existingPermission || typeof existingPermission === 'string') {
+  if (!existingPermission || typeof existingPermission === "string") {
     return
   }
 
   const existingSkillPermission = existingPermission.skill
   const nextPermission = { ...existingPermission } as Record<string, unknown>
 
-  if (typeof existingSkillPermission === 'string') {
+  if (typeof existingSkillPermission === "string") {
     if (pattern !== SKILL_RULE_DEFAULTS.wildcardPattern) {
       return
     }

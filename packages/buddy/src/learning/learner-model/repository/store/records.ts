@@ -1,14 +1,14 @@
-import type z from 'zod'
-import { LearnerArtifactPath } from '../path'
-import type { LearnerArtifactKind, WorkspaceRecordArtifactKind } from '../types'
-import { parseMarkdownArtifact } from '../markdown'
-import type { ArtifactRecord, ArtifactRecordWithRaw } from './contracts'
-import { listMarkdownFiles, readIfFound, readMarkdownFile, writeMarkdownFile } from './io'
-import { WORKSPACE_ARTIFACT_KINDS, schemaForKind } from './schema'
+import type z from "zod"
+import { LearnerArtifactPath } from "../path"
+import type { LearnerArtifactKind, WorkspaceRecordArtifactKind } from "../types"
+import { parseMarkdownArtifact } from "../markdown"
+import type { ArtifactRecord, ArtifactRecordWithRaw } from "./contracts"
+import { listMarkdownFiles, readIfFound, readMarkdownFile, writeMarkdownFile } from "./io"
+import { WORKSPACE_ARTIFACT_KINDS, schemaForKind } from "./schema"
 
 async function readKindArtifacts(
   directory: string,
-  kind: Exclude<LearnerArtifactKind, 'workspace-context' | 'profile'>,
+  kind: Exclude<LearnerArtifactKind, "workspace-context" | "profile">,
   input?: {
     includeRaw?: boolean
   },
@@ -50,7 +50,7 @@ export async function upsertArtifact(
   const parsed = schema.safeParse(artifact)
   if (!parsed.success) {
     throw new Error(
-      `Invalid ${kind} artifact: ${parsed.error.issues[0]?.message ?? 'parse failed'}`,
+      `Invalid ${kind} artifact: ${parsed.error.issues[0]?.message ?? "parse failed"}`,
     )
   }
 
@@ -71,7 +71,7 @@ export async function readArtifacts(
   const records = await readKindArtifacts(directory, kind, input)
   return records.filter((record) => {
     if (input?.workspaceId && record.workspaceId !== input.workspaceId) return false
-    if (input?.inputHash && 'inputHash' in record && record.inputHash !== input.inputHash)
+    if (input?.inputHash && "inputHash" in record && record.inputHash !== input.inputHash)
       return false
     return true
   })
@@ -125,7 +125,7 @@ export async function listArtifacts(input: {
     .filter((record) => (input.goalId ? record.goalIds.includes(input.goalId) : true))
     .filter((record) => {
       if (!input.status) return true
-      if ('status' in record) return String(record.status) === input.status
+      if ("status" in record) return String(record.status) === input.status
       return false
     })
     .toSorted((left, right) => right.createdAt.localeCompare(left.createdAt))

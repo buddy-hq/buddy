@@ -1,4 +1,4 @@
-import { createContext, useContext, type ReactNode } from 'react'
+import { createContext, useContext, type ReactNode } from "react"
 
 export type ServerConnection = {
   url: string
@@ -8,7 +8,7 @@ export type ServerConnection = {
 }
 
 const defaultServerConnection: ServerConnection = {
-  url: '',
+  url: "",
   username: null,
   password: null,
   isSidecar: false,
@@ -18,7 +18,7 @@ let currentServerConnection = defaultServerConnection
 
 function normalizeConnection(value: ServerConnection): ServerConnection {
   return {
-    url: value.url.replace(/\/+$/, ''),
+    url: value.url.replace(/\/+$/, ""),
     username: value.username ?? null,
     password: value.password ?? null,
     isSidecar: value.isSidecar,
@@ -44,7 +44,7 @@ export function getServerConnection() {
 
 export function createBrowserServerConnection(): ServerConnection {
   return {
-    url: '',
+    url: "",
     username: null,
     password: null,
     isSidecar: false,

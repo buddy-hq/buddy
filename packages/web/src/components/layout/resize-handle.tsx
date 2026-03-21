@@ -2,11 +2,11 @@ import type {
   HTMLAttributes,
   MouseEvent as ReactMouseEvent,
   TouchEvent as ReactTouchEvent,
-} from 'react'
+} from "react"
 
-type ResizeHandleProps = Omit<HTMLAttributes<HTMLDivElement>, 'onResize'> & {
-  direction: 'horizontal' | 'vertical'
-  edge?: 'start' | 'end'
+type ResizeHandleProps = Omit<HTMLAttributes<HTMLDivElement>, "onResize"> & {
+  direction: "horizontal" | "vertical"
+  edge?: "start" | "end"
   size: number
   min: number
   max: number
@@ -36,21 +36,21 @@ export function ResizeHandle(props: ResizeHandleProps) {
     start: number,
     subscribe: (onMove: (position: number) => void, onEnd: () => void) => () => void,
   ) {
-    const edge = edgeProp ?? (direction === 'vertical' ? 'start' : 'end')
+    const edge = edgeProp ?? (direction === "vertical" ? "start" : "end")
     const startSize = size
     let current = startSize
 
-    document.body.style.userSelect = 'none'
-    document.body.style.overflow = 'hidden'
+    document.body.style.userSelect = "none"
+    document.body.style.overflow = "hidden"
 
     const unsubscribe = subscribe(
       (position) => {
         const delta =
-          direction === 'vertical'
-            ? edge === 'end'
+          direction === "vertical"
+            ? edge === "end"
               ? position - start
               : start - position
-            : edge === 'start'
+            : edge === "start"
               ? start - position
               : position - start
 
@@ -59,8 +59,8 @@ export function ResizeHandle(props: ResizeHandleProps) {
         onResize(clamped)
       },
       () => {
-        document.body.style.userSelect = ''
-        document.body.style.overflow = ''
+        document.body.style.userSelect = ""
+        document.body.style.overflow = ""
         unsubscribe()
 
         const threshold = collapseThreshold ?? 0
@@ -76,10 +76,10 @@ export function ResizeHandle(props: ResizeHandleProps) {
     if (event.defaultPrevented || event.button !== 0) return
     event.preventDefault()
 
-    const start = direction === 'horizontal' ? event.clientX : event.clientY
+    const start = direction === "horizontal" ? event.clientX : event.clientY
     startResize(start, (onMove, onEnd) => {
       const onMouseMove = (moveEvent: MouseEvent) => {
-        const position = direction === 'horizontal' ? moveEvent.clientX : moveEvent.clientY
+        const position = direction === "horizontal" ? moveEvent.clientX : moveEvent.clientY
         onMove(position)
       }
 
@@ -87,12 +87,12 @@ export function ResizeHandle(props: ResizeHandleProps) {
         onEnd()
       }
 
-      document.addEventListener('mousemove', onMouseMove)
-      document.addEventListener('mouseup', onMouseUp)
+      document.addEventListener("mousemove", onMouseMove)
+      document.addEventListener("mouseup", onMouseUp)
 
       return () => {
-        document.removeEventListener('mousemove', onMouseMove)
-        document.removeEventListener('mouseup', onMouseUp)
+        document.removeEventListener("mousemove", onMouseMove)
+        document.removeEventListener("mouseup", onMouseUp)
       }
     })
   }
@@ -106,7 +106,7 @@ export function ResizeHandle(props: ResizeHandleProps) {
     event.preventDefault()
 
     const touchID = touch.identifier
-    const start = direction === 'horizontal' ? touch.clientX : touch.clientY
+    const start = direction === "horizontal" ? touch.clientX : touch.clientY
 
     startResize(start, (onMove, onEnd) => {
       const onTouchMove = (moveEvent: TouchEvent) => {
@@ -115,7 +115,7 @@ export function ResizeHandle(props: ResizeHandleProps) {
         )
         if (!nextTouch) return
         moveEvent.preventDefault()
-        const position = direction === 'horizontal' ? nextTouch.clientX : nextTouch.clientY
+        const position = direction === "horizontal" ? nextTouch.clientX : nextTouch.clientY
         onMove(position)
       }
 
@@ -127,32 +127,32 @@ export function ResizeHandle(props: ResizeHandleProps) {
         onEnd()
       }
 
-      document.addEventListener('touchmove', onTouchMove, { passive: false })
-      document.addEventListener('touchend', onTouchEnd)
-      document.addEventListener('touchcancel', onTouchEnd)
+      document.addEventListener("touchmove", onTouchMove, { passive: false })
+      document.addEventListener("touchend", onTouchEnd)
+      document.addEventListener("touchcancel", onTouchEnd)
 
       return () => {
-        document.removeEventListener('touchmove', onTouchMove)
-        document.removeEventListener('touchend', onTouchEnd)
-        document.removeEventListener('touchcancel', onTouchEnd)
+        document.removeEventListener("touchmove", onTouchMove)
+        document.removeEventListener("touchend", onTouchEnd)
+        document.removeEventListener("touchcancel", onTouchEnd)
       }
     })
   }
 
-  const edge = edgeProp ?? (direction === 'vertical' ? 'start' : 'end')
+  const edge = edgeProp ?? (direction === "vertical" ? "start" : "end")
   const handleClassName = [
     "absolute z-10 after:absolute after:content-[''] after:opacity-0 after:transition-opacity after:duration-150 after:ease-in-out after:bg-[color-mix(in_oklab,var(--muted-foreground)_45%,transparent)] hover:after:opacity-100 active:after:opacity-100",
-    direction === 'horizontal'
-      ? edge === 'start'
-        ? 'inset-y-0 left-0 w-2 -translate-x-1/2 cursor-col-resize after:inset-y-0 after:left-1/2 after:w-[3px] after:-translate-x-1/2'
-        : 'inset-y-0 right-0 w-2 translate-x-1/2 cursor-col-resize after:inset-y-0 after:left-1/2 after:w-[3px] after:-translate-x-1/2'
-      : edge === 'end'
-        ? 'inset-x-0 bottom-0 h-2 translate-y-1/2 cursor-row-resize after:inset-x-0 after:top-1/2 after:h-[3px] after:-translate-y-1/2'
-        : 'inset-x-0 top-0 h-2 -translate-y-1/2 cursor-row-resize after:inset-x-0 after:top-1/2 after:h-[3px] after:-translate-y-1/2',
+    direction === "horizontal"
+      ? edge === "start"
+        ? "inset-y-0 left-0 w-2 -translate-x-1/2 cursor-col-resize after:inset-y-0 after:left-1/2 after:w-[3px] after:-translate-x-1/2"
+        : "inset-y-0 right-0 w-2 translate-x-1/2 cursor-col-resize after:inset-y-0 after:left-1/2 after:w-[3px] after:-translate-x-1/2"
+      : edge === "end"
+        ? "inset-x-0 bottom-0 h-2 translate-y-1/2 cursor-row-resize after:inset-x-0 after:top-1/2 after:h-[3px] after:-translate-y-1/2"
+        : "inset-x-0 top-0 h-2 -translate-y-1/2 cursor-row-resize after:inset-x-0 after:top-1/2 after:h-[3px] after:-translate-y-1/2",
     className,
   ]
     .filter(Boolean)
-    .join(' ')
+    .join(" ")
 
   return (
     <div
@@ -160,7 +160,7 @@ export function ResizeHandle(props: ResizeHandleProps) {
       className={handleClassName}
       onMouseDown={onMouseDown}
       onTouchStart={onTouchStart}
-      style={style ? { ...style, touchAction: 'none' } : { touchAction: 'none' }}
+      style={style ? { ...style, touchAction: "none" } : { touchAction: "none" }}
     />
   )
 }

@@ -1,18 +1,18 @@
-import { useState, useEffect, type ReactNode } from 'react'
+import { useState, useEffect, type ReactNode } from "react"
 import {
   Collapsible,
   CollapsibleTrigger,
   CollapsibleContent,
   ChevronRightIcon,
   cn,
-} from '@buddy/ui'
-import { ToolHeader } from './tool-header'
-import { CopyAction } from './copy-action'
-import type { ToolInfo, ToolState } from '../tools/registry'
+} from "@buddy/ui"
+import { ToolHeader } from "./tool-header"
+import { CopyAction } from "./copy-action"
+import type { ToolInfo, ToolState } from "../tools/registry"
 
 interface ToolCardWithDetailsProps {
   info: ToolInfo
-  status: ToolState['status']
+  status: ToolState["status"]
   running: boolean
   defaultOpen?: boolean
   children: ReactNode
@@ -28,7 +28,7 @@ export function ToolCardWithDetails({
   const [open, setOpen] = useState(defaultOpen)
 
   useEffect(() => {
-    if (status === 'error') setOpen(true)
+    if (status === "error") setOpen(true)
   }, [status])
 
   return (
@@ -51,7 +51,7 @@ export function ToolCardWithDetails({
 
 interface ToolOutputPanelProps {
   output: string
-  status: ToolState['status']
+  status: ToolState["status"]
   copyLabel: string
 }
 
@@ -60,8 +60,8 @@ export function ToolOutputPanel({ output, status, copyLabel }: ToolOutputPanelPr
     <div className="mt-2 flex flex-col gap-2">
       <pre
         className={cn(
-          'max-h-60 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-background px-3 py-2 text-xs text-muted-foreground',
-          status === 'error' && 'border-destructive/40 bg-destructive/10 text-destructive',
+          "max-h-60 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-background px-3 py-2 text-xs text-muted-foreground",
+          status === "error" && "border-destructive/40 bg-destructive/10 text-destructive",
         )}
       >
         {output}
@@ -102,7 +102,7 @@ export function DiagnosticList({ diagnostics }: DiagnosticListProps) {
 interface ApplyPatchFileItemProps {
   file: {
     relativePath: string
-    type: 'add' | 'update' | 'delete' | 'move'
+    type: "add" | "update" | "delete" | "move"
     before: string
     after: string
     additions: number
@@ -111,7 +111,7 @@ interface ApplyPatchFileItemProps {
 }
 
 export function ApplyPatchFileItem({ file }: ApplyPatchFileItemProps) {
-  const [open, setOpen] = useState(file.type !== 'delete')
+  const [open, setOpen] = useState(file.type !== "delete")
 
   return (
     <Collapsible
@@ -134,8 +134,8 @@ export function ApplyPatchFileItem({ file }: ApplyPatchFileItemProps) {
           </div>
           <ChevronRightIcon
             className={cn(
-              'h-4 w-4 shrink-0 text-muted-foreground transition-transform',
-              open && 'rotate-90',
+              "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
+              open && "rotate-90",
             )}
           />
         </button>
@@ -145,13 +145,13 @@ export function ApplyPatchFileItem({ file }: ApplyPatchFileItemProps) {
           <div>
             <div className="mb-1 text-xs font-semibold text-muted-foreground">Before</div>
             <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-muted/40 p-2 text-xs text-muted-foreground">
-              {file.before || '(empty)'}
+              {file.before || "(empty)"}
             </pre>
           </div>
           <div>
             <div className="mb-1 text-xs font-semibold text-muted-foreground">After</div>
             <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-muted/40 p-2 text-xs text-muted-foreground">
-              {file.after || '(empty)'}
+              {file.after || "(empty)"}
             </pre>
           </div>
         </div>

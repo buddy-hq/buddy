@@ -1,15 +1,15 @@
-import { useEffect, useRef, type ReactNode } from 'react'
-import Editor, { type OnMount } from '@monaco-editor/react'
-import type { editor as MonacoEditor } from 'monaco-editor'
-import { Button } from '@buddy/ui'
+import { useEffect, useRef, type ReactNode } from "react"
+import Editor, { type OnMount } from "@monaco-editor/react"
+import type { editor as MonacoEditor } from "monaco-editor"
+import { Button } from "@buddy/ui"
 import type {
   TeachingDiagnostic,
   TeachingLanguage,
   TeachingSelection,
   TeachingWorkspaceFile,
   TeachingWorkspaceState,
-} from '@/state/teaching-runtime'
-import { TEACHING_LANGUAGE_OPTIONS, teachingMonacoLanguage } from '@/state/teaching-runtime'
+} from "@/state/teaching-runtime"
+import { TEACHING_LANGUAGE_OPTIONS, teachingMonacoLanguage } from "@/state/teaching-runtime"
 
 type TeachingEditorPanelProps = {
   workspace: TeachingWorkspaceState
@@ -28,13 +28,13 @@ type TeachingEditorPanelProps = {
 
 type TeachingFileTreeNode =
   | {
-      type: 'directory'
+      type: "directory"
       key: string
       name: string
       children: TeachingFileTreeNode[]
     }
   | {
-      type: 'file'
+      type: "file"
       key: string
       name: string
       file: TeachingWorkspaceFile
@@ -78,7 +78,7 @@ function buildFileTree(files: TeachingWorkspaceFile[]): TeachingFileTreeNode[] {
   }
 
   for (const file of files) {
-    const segments = file.relativePath.split('/').filter(Boolean)
+    const segments = file.relativePath.split("/").filter(Boolean)
     if (segments.length === 0) continue
 
     let bucket = root
@@ -90,13 +90,13 @@ function buildFileTree(files: TeachingWorkspaceFile[]): TeachingFileTreeNode[] {
     bucket.files.push(file)
   }
 
-  function toNodes(bucket: TeachingFileTreeBucket, prefix = ''): TeachingFileTreeNode[] {
+  function toNodes(bucket: TeachingFileTreeBucket, prefix = ""): TeachingFileTreeNode[] {
     const directoryNodes = Array.from(bucket.directories.entries())
       .toSorted(([left], [right]) => left.localeCompare(right))
       .map(([segment, child]) => {
         const key = prefix ? `${prefix}/${segment}` : segment
         return {
-          type: 'directory' as const,
+          type: "directory" as const,
           key,
           name: segment,
           children: toNodes(child, key),
@@ -106,9 +106,9 @@ function buildFileTree(files: TeachingWorkspaceFile[]): TeachingFileTreeNode[] {
     const fileNodes = [...bucket.files]
       .toSorted((left, right) => left.relativePath.localeCompare(right.relativePath))
       .map((file) => {
-        const segments = file.relativePath.split('/')
+        const segments = file.relativePath.split("/")
         return {
-          type: 'file' as const,
+          type: "file" as const,
           key: file.relativePath,
           name: segments[segments.length - 1] ?? file.relativePath,
           file,
@@ -122,15 +122,15 @@ function buildFileTree(files: TeachingWorkspaceFile[]): TeachingFileTreeNode[] {
 }
 
 function toMonacoSeverity(
-  monaco: typeof import('monaco-editor'),
-  severity: TeachingDiagnostic['severity'],
+  monaco: typeof import("monaco-editor"),
+  severity: TeachingDiagnostic["severity"],
 ) {
   switch (severity) {
-    case 'error':
+    case "error":
       return monaco.MarkerSeverity.Error
-    case 'warning':
+    case "warning":
       return monaco.MarkerSeverity.Warning
-    case 'info':
+    case "info":
       return monaco.MarkerSeverity.Info
     default:
       return monaco.MarkerSeverity.Hint
@@ -139,13 +139,13 @@ function toMonacoSeverity(
 
 export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
   const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null)
-  const monacoRef = useRef<typeof import('monaco-editor') | null>(null)
+  const monacoRef = useRef<typeof import("monaco-editor") | null>(null)
   const rootClassName = [
-    'flex min-h-0 flex-1 flex-col border-t bg-card/60 lg:border-t-0 lg:border-l',
+    "flex min-h-0 flex-1 flex-col border-t bg-card/60 lg:border-t-0 lg:border-l",
     props.className,
   ]
     .filter(Boolean)
-    .join(' ')
+    .join(" ")
 
   const onMount: OnMount = (editor, monaco) => {
     editorRef.current = editor
@@ -177,7 +177,7 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
 
     monaco.editor.setModelMarkers(
       model,
-      'buddy-lsp',
+      "buddy-lsp",
       (props.workspace.diagnostics ?? []).map((diagnostic) => ({
         severity: toMonacoSeverity(monaco, diagnostic.severity),
         message: diagnostic.message,
@@ -192,26 +192,26 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
 
     return () => {
       if (model.isDisposed()) return
-      monaco.editor.setModelMarkers(model, 'buddy-lsp', [])
+      monaco.editor.setModelMarkers(model, "buddy-lsp", [])
     }
   }, [props.workspace.diagnostics, props.workspace.lessonFilePath])
 
   const status = props.workspace.conflict
-    ? 'Conflict'
+    ? "Conflict"
     : props.workspace.pendingSave
-      ? 'Saving...'
+      ? "Saving..."
       : props.workspace.saveError
-        ? 'Save failed'
+        ? "Save failed"
         : props.workspace.code === props.workspace.savedCode
-          ? 'Saved'
-          : 'Unsaved'
+          ? "Saved"
+          : "Unsaved"
   const fileTree = buildFileTree(props.workspace.files)
 
   function renderTree(nodes: TeachingFileTreeNode[], depth = 0): ReactNode {
     return nodes.map((node) => {
       const paddingLeft = `${depth * 14 + 10}px`
 
-      if (node.type === 'directory') {
+      if (node.type === "directory") {
         return (
           <div key={node.key}>
             <div
@@ -235,8 +235,8 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
           onClick={() => props.onSelectFile(node.file.relativePath)}
           className={`flex w-full items-center gap-2 rounded-md py-1.5 pr-2 text-left text-xs ${
             isActive
-              ? 'bg-background text-foreground shadow-sm'
-              : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:bg-background/60 hover:text-foreground"
           }`}
           style={{ paddingLeft }}
           title={node.file.relativePath}
@@ -322,7 +322,7 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
         <div className="flex h-full min-h-0">
           <div className="min-w-0 flex min-h-0 flex-1 flex-col">
             <div className="border-b px-3 py-2 text-xs text-muted-foreground">
-              Editing:{' '}
+              Editing:{" "}
               <span className="font-medium text-foreground">
                 {props.workspace.activeRelativePath}
               </span>
@@ -336,7 +336,7 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
                 theme="vs-dark"
                 value={props.workspace.code}
                 onMount={onMount}
-                onChange={(value) => props.onCodeChange(value ?? '')}
+                onChange={(value) => props.onCodeChange(value ?? "")}
                 options={{
                   automaticLayout: true,
                   minimap: {
@@ -344,7 +344,7 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
                   },
                   fontSize: 14,
                   scrollBeyondLastLine: false,
-                  wordWrap: 'on',
+                  wordWrap: "on",
                 }}
               />
             </div>

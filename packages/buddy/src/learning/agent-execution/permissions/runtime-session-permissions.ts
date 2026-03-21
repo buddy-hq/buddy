@@ -1,11 +1,11 @@
-import { Instance as OpenCodeInstance } from '@buddy/opencode-adapter/instance'
-import { SessionID } from '@buddy/opencode-adapter/id'
-import type { PermissionRuleset } from '@buddy/opencode-adapter/permission'
-import { Session } from '@buddy/opencode-adapter/session'
-import type { RuntimeProfile } from '../../shared/runtime-types'
-import { buildBuddyRuntimeSessionPermissions } from './session-permissions'
-import { loadOpenCodeApp } from '../../../opencode-runtime'
-import { isSessionNotFoundError } from '../../../session'
+import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
+import { SessionID } from "@buddy/opencode-adapter/id"
+import type { PermissionRuleset } from "@buddy/opencode-adapter/permission"
+import { Session } from "@buddy/opencode-adapter/session"
+import type { RuntimeProfile } from "../../shared/runtime-types"
+import { buildBuddyRuntimeSessionPermissions } from "./session-permissions"
+import { loadOpenCodeApp } from "../../../opencode-runtime"
+import { isSessionNotFoundError } from "../../../session"
 
 function sortPermissionRules(rules: PermissionRuleset | undefined) {
   return [...(rules ?? [])].toSorted((left, right) => {

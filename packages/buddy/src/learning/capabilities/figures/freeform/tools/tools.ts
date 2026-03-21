@@ -1,4 +1,4 @@
-import { renderFreeformFigureTool } from './render-freeform-figure'
+import { renderFreeformFigureTool } from "./render-freeform-figure"
 
 const freeformFigureTools = [renderFreeformFigureTool] as const
 

@@ -7,7 +7,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@buddy/ui'
+} from "@buddy/ui"
 
 type ConfirmRemoveMathRuntimeDialogProps = {
   open: boolean

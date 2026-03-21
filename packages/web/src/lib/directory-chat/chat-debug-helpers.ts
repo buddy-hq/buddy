@@ -1,8 +1,8 @@
-import { useChatStore } from '@/state/chat-store'
+import { useChatStore } from "@/state/chat-store"
 
 export async function copyToClipboard(text: string) {
   if (!text) return false
-  if (!('clipboard' in navigator)) return false
+  if (!("clipboard" in navigator)) return false
   await navigator.clipboard.writeText(text)
   return true
 }

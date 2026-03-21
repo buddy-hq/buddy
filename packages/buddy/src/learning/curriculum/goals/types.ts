@@ -1,19 +1,19 @@
-import z from 'zod'
+import z from "zod"
 
-const GOAL_WRITER_AGENT_NAME = 'goal-writer' as const
+const GOAL_WRITER_AGENT_NAME = "goal-writer" as const
 
-const GOAL_TOOL_IDS = ['goal_decide_scope', 'goal_lint', 'goal_commit', 'goal_state'] as const
+const GOAL_TOOL_IDS = ["goal_decide_scope", "goal_lint", "goal_commit", "goal_state"] as const
 
-const GoalScopeSchema = z.enum(['course', 'topic'])
+const GoalScopeSchema = z.enum(["course", "topic"])
 type GoalScope = z.infer<typeof GoalScopeSchema>
 
 const GoalCognitiveLevelSchema = z.enum([
-  'Factual Knowledge',
-  'Comprehension',
-  'Application',
-  'Analysis',
-  'Synthesis',
-  'Evaluation',
+  "Factual Knowledge",
+  "Comprehension",
+  "Application",
+  "Analysis",
+  "Synthesis",
+  "Evaluation",
 ])
 type GoalCognitiveLevel = z.infer<typeof GoalCognitiveLevelSchema>
 
@@ -39,26 +39,26 @@ const GoalScopeDecisionSchema = z.object({
 type GoalScopeDecision = z.infer<typeof GoalScopeDecisionSchema>
 
 const GoalLintFieldSchema = z.enum([
-  'statement',
-  'actionVerb',
-  'task',
-  'cognitiveLevel',
-  'howToTest',
-  'goal',
+  "statement",
+  "actionVerb",
+  "task",
+  "cognitiveLevel",
+  "howToTest",
+  "goal",
 ])
 type GoalLintField = z.infer<typeof GoalLintFieldSchema>
 
 const GoalLintCodeSchema = z.enum([
-  'VAGUE_VERB',
-  'MISSING_TESTABILITY',
-  'COMPOUND_GOAL',
-  'TOPIC_NOT_TASK',
-  'TEMPLATE_MISMATCH',
-  'LEVEL_VERB_MISMATCH',
-  'TOO_BROAD',
-  'JARGON_HEAVY',
-  'WEAK_RELEVANCE',
-  'COUNT_OUT_OF_RANGE',
+  "VAGUE_VERB",
+  "MISSING_TESTABILITY",
+  "COMPOUND_GOAL",
+  "TOPIC_NOT_TASK",
+  "TEMPLATE_MISMATCH",
+  "LEVEL_VERB_MISMATCH",
+  "TOO_BROAD",
+  "JARGON_HEAVY",
+  "WEAK_RELEVANCE",
+  "COUNT_OUT_OF_RANGE",
 ])
 type GoalLintCode = z.infer<typeof GoalLintCodeSchema>
 
@@ -66,7 +66,7 @@ const GoalLintIssueSchema = z.object({
   goalIndex: z.number().int().min(-1),
   field: GoalLintFieldSchema,
   code: GoalLintCodeSchema,
-  severity: z.enum(['error', 'warning']),
+  severity: z.enum(["error", "warning"]),
   message: z.string().min(1),
 })
 type GoalLintIssue = z.infer<typeof GoalLintIssueSchema>
@@ -105,66 +105,66 @@ const GoalStateSchema = z.object({
 })
 type GoalState = z.infer<typeof GoalStateSchema>
 
-type GoalArtifactName = 'GoalScopeDecision' | 'GoalLintReport' | 'GoalCommitResult' | 'GoalState'
+type GoalArtifactName = "GoalScopeDecision" | "GoalLintReport" | "GoalCommitResult" | "GoalState"
 
 const ACTION_VERB_LEVELS = new Map<string, GoalCognitiveLevel>([
-  ['define', 'Factual Knowledge'],
-  ['list', 'Factual Knowledge'],
-  ['state', 'Factual Knowledge'],
-  ['label', 'Factual Knowledge'],
-  ['name', 'Factual Knowledge'],
-  ['describe', 'Comprehension'],
-  ['explain', 'Comprehension'],
-  ['summarize', 'Comprehension'],
-  ['interpret', 'Comprehension'],
-  ['illustrate', 'Comprehension'],
-  ['apply', 'Application'],
-  ['demonstrate', 'Application'],
-  ['use', 'Application'],
-  ['compute', 'Application'],
-  ['solve', 'Application'],
-  ['predict', 'Application'],
-  ['construct', 'Application'],
-  ['modify', 'Application'],
-  ['implement', 'Application'],
-  ['compare', 'Analysis'],
-  ['contrast', 'Analysis'],
-  ['categorize', 'Analysis'],
-  ['distinguish', 'Analysis'],
-  ['identify', 'Analysis'],
-  ['infer', 'Analysis'],
-  ['develop', 'Synthesis'],
-  ['create', 'Synthesis'],
-  ['propose', 'Synthesis'],
-  ['formulate', 'Synthesis'],
-  ['design', 'Synthesis'],
-  ['invent', 'Synthesis'],
-  ['judge', 'Evaluation'],
-  ['appraise', 'Evaluation'],
-  ['recommend', 'Evaluation'],
-  ['justify', 'Evaluation'],
-  ['defend', 'Evaluation'],
-  ['criticize', 'Evaluation'],
-  ['evaluate', 'Evaluation'],
+  ["define", "Factual Knowledge"],
+  ["list", "Factual Knowledge"],
+  ["state", "Factual Knowledge"],
+  ["label", "Factual Knowledge"],
+  ["name", "Factual Knowledge"],
+  ["describe", "Comprehension"],
+  ["explain", "Comprehension"],
+  ["summarize", "Comprehension"],
+  ["interpret", "Comprehension"],
+  ["illustrate", "Comprehension"],
+  ["apply", "Application"],
+  ["demonstrate", "Application"],
+  ["use", "Application"],
+  ["compute", "Application"],
+  ["solve", "Application"],
+  ["predict", "Application"],
+  ["construct", "Application"],
+  ["modify", "Application"],
+  ["implement", "Application"],
+  ["compare", "Analysis"],
+  ["contrast", "Analysis"],
+  ["categorize", "Analysis"],
+  ["distinguish", "Analysis"],
+  ["identify", "Analysis"],
+  ["infer", "Analysis"],
+  ["develop", "Synthesis"],
+  ["create", "Synthesis"],
+  ["propose", "Synthesis"],
+  ["formulate", "Synthesis"],
+  ["design", "Synthesis"],
+  ["invent", "Synthesis"],
+  ["judge", "Evaluation"],
+  ["appraise", "Evaluation"],
+  ["recommend", "Evaluation"],
+  ["justify", "Evaluation"],
+  ["defend", "Evaluation"],
+  ["criticize", "Evaluation"],
+  ["evaluate", "Evaluation"],
 ])
 
 const TASK_LIKE_VERBS = new Set<string>([
   ...ACTION_VERB_LEVELS.keys(),
-  'build',
-  'write',
-  'debug',
-  'deploy',
-  'configure',
-  'integrate',
-  'prototype',
-  'refactor',
-  'plan',
-  'test',
-  'ship',
+  "build",
+  "write",
+  "debug",
+  "deploy",
+  "configure",
+  "integrate",
+  "prototype",
+  "refactor",
+  "plan",
+  "test",
+  "ship",
 ])
 
 function normalizeGoalText(value: string): string {
-  return value.trim().replace(/\s+/g, ' ')
+  return value.trim().replace(/\s+/g, " ")
 }
 
 function splitGoalWords(value: string): string[] {
@@ -172,8 +172,8 @@ function splitGoalWords(value: string): string[] {
   if (!normalized) return []
 
   return normalized
-    .split(' ')
-    .map((word) => word.replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, ''))
+    .split(" ")
+    .map((word) => word.replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, ""))
     .filter(Boolean)
 }
 
@@ -197,11 +197,11 @@ function deriveGoalContextLabel(value: string): string {
   ]
 
   for (const pattern of patterns) {
-    label = label.replace(pattern, '')
+    label = label.replace(pattern, "")
   }
 
-  label = label.replace(/[.?!]+$/g, '').trim()
-  return label || 'Untitled goal set'
+  label = label.replace(/[.?!]+$/g, "").trim()
+  return label || "Untitled goal set"
 }
 
 function inferGoalCognitiveLevel(actionVerb: string): GoalCognitiveLevel | undefined {
@@ -241,9 +241,9 @@ function isLikelyTestableTask(value: string): boolean {
 function hasGoalTemplatePrefix(scope: GoalScope, statement: string): boolean {
   const normalized = normalizeGoalText(statement).toLowerCase()
   const prefix =
-    scope === 'course'
-      ? 'at the end of this course, you will be able to'
-      : 'at the end of this topic, you will be able to'
+    scope === "course"
+      ? "at the end of this course, you will be able to"
+      : "at the end of this topic, you will be able to"
 
   return normalized.startsWith(prefix)
 }
@@ -253,7 +253,7 @@ function isLikelyTopicLabel(value: string): boolean {
   if (!normalized) return true
 
   const lower = normalized.toLowerCase()
-  if (lower.includes('you will be able to')) return false
+  if (lower.includes("you will be able to")) return false
 
   const words = splitGoalWords(normalized).map((word) => word.toLowerCase())
   if (words.length > 5) return false

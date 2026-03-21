@@ -1,32 +1,32 @@
-import fsp from 'node:fs/promises'
-import path from 'node:path'
-import { mergeDeep } from 'remeda'
-import { Instance as OpenCodeInstance } from '@buddy/opencode-adapter/instance'
-import { parseConfigText, patchJsoncDocument } from '../contract/document.js'
-import { JsonError } from '../contract/errors.js'
-import { resetGlobalConfigCache } from './global-cache.js'
+import fsp from "node:fs/promises"
+import path from "node:path"
+import { mergeDeep } from "remeda"
+import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
+import { parseConfigText, patchJsoncDocument } from "../contract/document.js"
+import { JsonError } from "../contract/errors.js"
+import { resetGlobalConfigCache } from "./global-cache.js"
 import {
   resolveGlobalConfigFile,
   resolveProjectConfigContext,
   resolveProjectConfigFile,
-} from './config-paths.js'
-import { Info } from './types.js'
-import type { Mcp, Info as ConfigInfo } from './types.js'
+} from "./config-paths.js"
+import { Info } from "./types.js"
+import type { Mcp, Info as ConfigInfo } from "./types.js"
 
 async function ensureParentDirectory(filepath: string): Promise<void> {
   await fsp.mkdir(path.dirname(filepath), { recursive: true })
 }
 
 async function readConfigTextOrDefault(filepath: string): Promise<string> {
-  return fsp.readFile(filepath, 'utf8').catch((err: unknown) => {
+  return fsp.readFile(filepath, "utf8").catch((err: unknown) => {
     const maybe = err as { code?: string }
-    if (maybe.code === 'ENOENT') return '{}'
+    if (maybe.code === "ENOENT") return "{}"
     throw new JsonError({ path: filepath }, { cause: err })
   })
 }
 
 function writeJsonFile(filepath: string, value: unknown): Promise<void> {
-  return fsp.writeFile(filepath, JSON.stringify(value, null, 2) + '\n', 'utf8')
+  return fsp.writeFile(filepath, JSON.stringify(value, null, 2) + "\n", "utf8")
 }
 
 export async function updateProjectConfig(directory: string, config: ConfigInfo): Promise<void> {
@@ -35,7 +35,7 @@ export async function updateProjectConfig(directory: string, config: ConfigInfo)
   await ensureParentDirectory(filepath)
 
   const before = await readConfigTextOrDefault(filepath)
-  if (!filepath.endsWith('.jsonc')) {
+  if (!filepath.endsWith(".jsonc")) {
     const existing = parseConfigText(before, filepath)
     const merged = mergeDeep(existing, config)
     await writeJsonFile(filepath, merged)
@@ -44,7 +44,7 @@ export async function updateProjectConfig(directory: string, config: ConfigInfo)
 
   const updated = patchJsoncDocument(before, config)
   parseConfigText(updated, filepath)
-  await fsp.writeFile(filepath, updated, 'utf8')
+  await fsp.writeFile(filepath, updated, "utf8")
 }
 
 export async function setProjectMcpConfig(
@@ -57,7 +57,7 @@ export async function setProjectMcpConfig(
   await ensureParentDirectory(filepath)
 
   const before = await readConfigTextOrDefault(filepath)
-  if (!filepath.endsWith('.jsonc')) {
+  if (!filepath.endsWith(".jsonc")) {
     const existing = parseConfigText(before, filepath)
     const next = Info.parse({
       ...existing,
@@ -76,7 +76,7 @@ export async function setProjectMcpConfig(
     },
   })
   parseConfigText(updated, filepath)
-  await fsp.writeFile(filepath, updated, 'utf8')
+  await fsp.writeFile(filepath, updated, "utf8")
 }
 
 export async function updateGlobalConfig(config: ConfigInfo): Promise<ConfigInfo> {
@@ -85,7 +85,7 @@ export async function updateGlobalConfig(config: ConfigInfo): Promise<ConfigInfo
 
   const before = await readConfigTextOrDefault(filepath)
   const next = await (async () => {
-    if (!filepath.endsWith('.jsonc')) {
+    if (!filepath.endsWith(".jsonc")) {
       const existing = parseConfigText(before, filepath)
       const merged = mergeDeep(existing, config)
       await writeJsonFile(filepath, merged)
@@ -94,7 +94,7 @@ export async function updateGlobalConfig(config: ConfigInfo): Promise<ConfigInfo
 
     const updated = patchJsoncDocument(before, config)
     const merged = parseConfigText(updated, filepath)
-    await fsp.writeFile(filepath, updated, 'utf8')
+    await fsp.writeFile(filepath, updated, "utf8")
     return merged
   })()
 

@@ -1,4 +1,4 @@
-import type { SessionInfo } from '@/state/chat-types'
+import type { SessionInfo } from "@/state/chat-types"
 
 export type SessionFamily = {
   current?: SessionInfo

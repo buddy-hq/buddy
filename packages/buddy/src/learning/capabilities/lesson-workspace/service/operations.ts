@@ -1,18 +1,18 @@
-import fs from 'node:fs/promises'
-import { TeachingPath } from '../paths/path'
+import fs from "node:fs/promises"
+import { TeachingPath } from "../paths/path"
 import type {
   TeachingLanguage,
   TeachingWorkspaceCreateFileRequest,
   TeachingWorkspaceRecord,
   TeachingWorkspaceResponse,
   TeachingWorkspaceUpdateRequest,
-} from '../model/types'
+} from "../model/types"
 import {
   TeachingRevisionConflictError,
   TeachingWorkspaceFileError,
   TeachingWorkspaceNotFoundError,
-} from './errors'
-import { readActiveDiagnostics } from './diagnostics'
+} from "./errors"
+import { readActiveDiagnostics } from "./diagnostics"
 import {
   buildDefaultRelativePath,
   ensureParentDirectory,
@@ -28,7 +28,7 @@ import {
   syncRecord,
   toWorkspaceResponse,
   writeRecord,
-} from './workspace'
+} from "./workspace"
 
 async function buildResponse(
   directory: string,
@@ -54,7 +54,7 @@ async function requireRecord(directory: string, sessionID: string) {
   return record
 }
 
-async function ensure(directory: string, sessionID: string, language: TeachingLanguage = 'ts') {
+async function ensure(directory: string, sessionID: string, language: TeachingLanguage = "ts") {
   const existing = await loadRecord(directory, sessionID)
   if (existing) {
     return buildResponse(directory, existing)
@@ -91,8 +91,8 @@ async function ensure(directory: string, sessionID: string, language: TeachingLa
     fs.mkdir(TeachingPath.checkpointsRoot(directory, sessionID), { recursive: true }),
   ])
   await Promise.all([
-    fs.writeFile(lessonFilePath, code, 'utf8'),
-    fs.writeFile(checkpointFilePath, code, 'utf8'),
+    fs.writeFile(lessonFilePath, code, "utf8"),
+    fs.writeFile(checkpointFilePath, code, "utf8"),
     writeRecord(directory, record),
   ])
 
@@ -118,7 +118,7 @@ async function save(directory: string, sessionID: string, input: TeachingWorkspa
 
   const currentFile = findTrackedFile(synced.record, input.relativePath)
   if (!currentFile) {
-    throw new TeachingWorkspaceFileError('Tracked teaching file not found')
+    throw new TeachingWorkspaceFileError("Tracked teaching file not found")
   }
 
   const currentResolved = resolveFile(directory, sessionID, currentFile)
@@ -146,9 +146,9 @@ async function save(directory: string, sessionID: string, input: TeachingWorkspa
     ensureParentDirectory(nextLessonFilePath),
     ensureParentDirectory(nextCheckpointFilePath),
   ])
-  await fs.writeFile(nextLessonFilePath, input.code, 'utf8')
+  await fs.writeFile(nextLessonFilePath, input.code, "utf8")
   if (nextCheckpointFilePath !== currentResolved.checkpointFilePath) {
-    await fs.writeFile(nextCheckpointFilePath, checkpointCode, 'utf8')
+    await fs.writeFile(nextCheckpointFilePath, checkpointCode, "utf8")
     await fs.rm(currentResolved.checkpointFilePath, { force: true })
   }
   if (nextLessonFilePath !== currentResolved.filePath) {
@@ -189,7 +189,7 @@ async function checkpoint(directory: string, sessionID: string) {
         changedSinceLastCheckpoint = true
       }
       await ensureParentDirectory(checkpointFilePath)
-      await fs.writeFile(checkpointFilePath, lessonCode, 'utf8')
+      await fs.writeFile(checkpointFilePath, lessonCode, "utf8")
     }),
   )
 
@@ -248,7 +248,7 @@ async function setLesson(
     language: input.language,
   })
 
-  await fs.writeFile(saved.checkpointFilePath, saved.code, 'utf8')
+  await fs.writeFile(saved.checkpointFilePath, saved.code, "utf8")
   return read(directory, sessionID)
 }
 
@@ -271,8 +271,8 @@ async function restore(directory: string, sessionID: string) {
         changed = true
       }
       await ensureParentDirectory(lessonFilePath)
-      await fs.writeFile(lessonFilePath, checkpointCode, 'utf8')
-      return Object.assign(file, {fileHash:nextHash})
+      await fs.writeFile(lessonFilePath, checkpointCode, "utf8")
+      return Object.assign(file, { fileHash: nextHash })
     }),
   )
 
@@ -312,8 +312,8 @@ async function addFile(
     ensureParentDirectory(checkpointFilePath),
   ])
   await Promise.all([
-    fs.writeFile(lessonFilePath, code, 'utf8'),
-    fs.writeFile(checkpointFilePath, code, 'utf8'),
+    fs.writeFile(lessonFilePath, code, "utf8"),
+    fs.writeFile(checkpointFilePath, code, "utf8"),
   ])
 
   const activate = input.activate !== false
@@ -351,7 +351,7 @@ async function trackExistingFile(
   const fileHash = hashContent(code)
 
   await ensureParentDirectory(checkpointFilePath)
-  await fs.writeFile(checkpointFilePath, code, 'utf8')
+  await fs.writeFile(checkpointFilePath, code, "utf8")
 
   const activate = input.activate !== false
   const nextRecord = syncDerivedFields(directory, {

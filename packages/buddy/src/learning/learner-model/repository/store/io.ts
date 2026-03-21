@@ -1,11 +1,11 @@
-import fs from 'node:fs/promises'
-import path from 'node:path'
-import type z from 'zod'
-import { parseMarkdownArtifact, stringifyMarkdownArtifact } from '../markdown'
+import fs from "node:fs/promises"
+import path from "node:path"
+import type z from "zod"
+import { parseMarkdownArtifact, stringifyMarkdownArtifact } from "../markdown"
 
 export function readIfFound(filepath: string) {
-  return fs.readFile(filepath, 'utf8').catch((error: unknown) => {
-    if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+  return fs.readFile(filepath, "utf8").catch((error: unknown) => {
+    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
       return undefined
     }
     throw error
@@ -13,7 +13,7 @@ export function readIfFound(filepath: string) {
 }
 
 export function isAlreadyExistsError(error: unknown) {
-  return Boolean(error && typeof error === 'object' && 'code' in error && error.code === 'EEXIST')
+  return Boolean(error && typeof error === "object" && "code" in error && error.code === "EEXIST")
 }
 
 async function ensureParent(filepath: string) {
@@ -46,9 +46,9 @@ export async function writeMarkdownFile(
   const contents = stringifyMarkdownArtifact(frontmatter, body)
 
   if (options?.exclusive) {
-    const handle = await fs.open(filepath, 'wx')
+    const handle = await fs.open(filepath, "wx")
     try {
-      await handle.writeFile(contents, 'utf8')
+      await handle.writeFile(contents, "utf8")
     } finally {
       await handle.close()
     }
@@ -56,19 +56,19 @@ export async function writeMarkdownFile(
   }
 
   const tmpPath = `${filepath}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`
-  await fs.writeFile(tmpPath, contents, 'utf8')
+  await fs.writeFile(tmpPath, contents, "utf8")
   await fs.rename(tmpPath, filepath)
 }
 
 export async function listMarkdownFiles(directory: string) {
   const entries = await fs.readdir(directory, { withFileTypes: true }).catch((error: unknown) => {
-    if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
       return []
     }
     throw error
   })
 
   return entries
-    .filter((entry) => entry.isFile() && entry.name.endsWith('.md'))
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
     .map((entry) => path.join(directory, entry.name))
 }

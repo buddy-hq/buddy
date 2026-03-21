@@ -1,7 +1,7 @@
-import { useMemo } from 'react'
-import { Tooltip, TooltipContent, TooltipTrigger, buttonVariants, cn } from '@buddy/ui'
-import { getSessionContextMetrics } from '@/state/context-metrics'
-import type { MessageWithParts, ProviderInfo } from '@/state/chat-types'
+import { useMemo } from "react"
+import { Tooltip, TooltipContent, TooltipTrigger, buttonVariants, cn } from "@buddy/ui"
+import { getSessionContextMetrics } from "@/state/context-metrics"
+import type { MessageWithParts, ProviderInfo } from "@/state/chat-types"
 
 type SessionContextUsageProps = {
   messages: MessageWithParts[]
@@ -9,9 +9,9 @@ type SessionContextUsageProps = {
 }
 
 function usageColor(usage: number) {
-  if (usage >= 90) return 'var(--chart-4)'
-  if (usage >= 70) return 'var(--chart-3)'
-  return 'var(--chart-2)'
+  if (usage >= 90) return "var(--chart-4)"
+  if (usage >= 70) return "var(--chart-3)"
+  return "var(--chart-2)"
 }
 
 export function SessionContextUsage(props: SessionContextUsageProps) {
@@ -24,8 +24,8 @@ export function SessionContextUsage(props: SessionContextUsageProps) {
   const usage = Math.max(0, Math.min(context?.usage ?? 0, 100))
   const color = usageColor(usage)
   const cost = new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency: 'USD',
+    style: "currency",
+    currency: "USD",
   }).format(metrics.totalCost)
 
   return (
@@ -33,8 +33,8 @@ export function SessionContextUsage(props: SessionContextUsageProps) {
       <TooltipTrigger
         aria-label="Session context usage"
         className={cn(
-          buttonVariants({ variant: 'ghost', size: 'icon-xs' }),
-          'text-muted-foreground',
+          buttonVariants({ variant: "ghost", size: "icon-xs" }),
+          "text-muted-foreground",
         )}
       >
         <span className="relative size-4">

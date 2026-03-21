@@ -1,7 +1,7 @@
-import { createHash } from 'node:crypto'
-import fs from 'node:fs/promises'
-import path from 'node:path'
-import { TeachingPath } from '../paths/path'
+import { createHash } from "node:crypto"
+import fs from "node:fs/promises"
+import path from "node:path"
+import { TeachingPath } from "../paths/path"
 import type {
   TeachingDiagnostic,
   TeachingLanguage,
@@ -9,33 +9,33 @@ import type {
   TeachingWorkspaceFileRecord,
   TeachingWorkspaceRecord,
   TeachingWorkspaceResponse,
-} from '../model/types'
-import { TeachingWorkspaceRecordSchema } from '../model/types'
+} from "../model/types"
+import { TeachingWorkspaceRecordSchema } from "../model/types"
 
 export type ResolvedTeachingFile = TeachingWorkspaceFile & {
   fileHash: string
 }
 
 export function hashContent(value: string) {
-  return createHash('sha1').update(value).digest('hex')
+  return createHash("sha1").update(value).digest("hex")
 }
 
 function isNotFoundError(error: unknown) {
   return (
-    typeof error === 'object' &&
+    typeof error === "object" &&
     error !== null &&
-    'code' in error &&
-    (error as { code?: unknown }).code === 'ENOENT'
+    "code" in error &&
+    (error as { code?: unknown }).code === "ENOENT"
   )
 }
 
 export function initialCode() {
-  return ''
+  return ""
 }
 
 async function readFileIfPresent(filepath: string) {
   try {
-    return await fs.readFile(filepath, 'utf8')
+    return await fs.readFile(filepath, "utf8")
   } catch (error) {
     if (isNotFoundError(error)) {
       return undefined
@@ -44,18 +44,18 @@ async function readFileIfPresent(filepath: string) {
   }
 }
 
-export async function readFileOrDefault(filepath: string, fallback = '') {
+export async function readFileOrDefault(filepath: string, fallback = "") {
   return (await readFileIfPresent(filepath)) ?? fallback
 }
 
 export async function writeRecord(directory: string, record: TeachingWorkspaceRecord) {
   const filepath = TeachingPath.metadata(directory, record.sessionID)
-  await fs.writeFile(filepath, JSON.stringify(record, null, 2), 'utf8')
+  await fs.writeFile(filepath, JSON.stringify(record, null, 2), "utf8")
 }
 
 async function readRecordRaw(directory: string, sessionID: string) {
   const filepath = TeachingPath.metadata(directory, sessionID)
-  const raw = await fs.readFile(filepath, 'utf8').catch(() => undefined)
+  const raw = await fs.readFile(filepath, "utf8").catch(() => undefined)
   if (!raw) return undefined
 
   const parsed = JSON.parse(raw) as unknown
@@ -125,7 +125,7 @@ function getActiveResolvedFile(directory: string, record: TeachingWorkspaceRecor
     resolvedFiles.find((file) => file.relativePath === activeRelativePath) ?? resolvedFiles[0]
 
   if (!active) {
-    throw new Error('Teaching workspace has no tracked files')
+    throw new Error("Teaching workspace has no tracked files")
   }
 
   return {
@@ -189,8 +189,8 @@ async function migrateLegacyRecord(directory: string, record: TeachingWorkspaceR
     ensureParentDirectory(nextCheckpointFilePath),
   ])
   await Promise.all([
-    fs.writeFile(nextLessonFilePath, lessonCode, 'utf8'),
-    fs.writeFile(nextCheckpointFilePath, checkpointCode, 'utf8'),
+    fs.writeFile(nextLessonFilePath, lessonCode, "utf8"),
+    fs.writeFile(nextCheckpointFilePath, checkpointCode, "utf8"),
   ])
 
   if (record.lessonFilePath !== nextLessonFilePath) {
@@ -260,7 +260,7 @@ export async function syncRecord(directory: string, record: TeachingWorkspaceRec
         if (file.relativePath === normalized.activeRelativePath) {
           activeCode = code
         }
-        return Object.assign(file, {fileHash:nextHash})
+        return Object.assign(file, { fileHash: nextHash })
       }),
     )
   ).filter((file): file is TeachingWorkspaceFileRecord => Boolean(file))
@@ -285,8 +285,8 @@ export async function syncRecord(directory: string, record: TeachingWorkspaceRec
       ensureParentDirectory(fallbackCheckpointPath),
     ])
     await Promise.all([
-      fs.writeFile(fallbackFilePath, fallbackCode, 'utf8'),
-      fs.writeFile(fallbackCheckpointPath, fallbackCode, 'utf8'),
+      fs.writeFile(fallbackFilePath, fallbackCode, "utf8"),
+      fs.writeFile(fallbackCheckpointPath, fallbackCode, "utf8"),
     ])
 
     nextFiles.push({

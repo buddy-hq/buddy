@@ -1,15 +1,15 @@
-import fsp from 'node:fs/promises'
-import path from 'node:path'
-import { Agent as OpenCodeAgent } from '@buddy/opencode-adapter/agent'
-import { Instance as OpenCodeInstance } from '@buddy/opencode-adapter/instance'
-import { personaCatalogEntries } from '../../learning/personas'
-import { Config } from '../config.js'
+import fsp from "node:fs/promises"
+import path from "node:path"
+import { Agent as OpenCodeAgent } from "@buddy/opencode-adapter/agent"
+import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
+import { personaCatalogEntries } from "../../learning/personas"
+import { Config } from "../config.js"
 import {
   isConfigValidationError,
   readProjectConfig,
   syncOpenCodeProjectConfig,
-} from '../runtime/opencode-sync.js'
-import { resolveProjectConfigContext, resolveProjectConfigFile } from '../store/config-paths.js'
+} from "../runtime/opencode-sync.js"
+import { resolveProjectConfigContext, resolveProjectConfigFile } from "../store/config-paths.js"
 
 export async function listProjectPersonas(directory: string) {
   const config = await readProjectConfig(directory)
@@ -79,15 +79,15 @@ async function resolveProjectConfigPath(directory: string): Promise<string> {
 
 async function captureProjectConfigSnapshot(directory: string): Promise<ProjectConfigSnapshot> {
   const filepath = await resolveProjectConfigPath(directory)
-  const contents = await fsp.readFile(filepath, 'utf8').catch((error: unknown) => {
+  const contents = await fsp.readFile(filepath, "utf8").catch((error: unknown) => {
     const maybe = error as { code?: string }
-    if (maybe.code === 'ENOENT') return undefined
+    if (maybe.code === "ENOENT") return undefined
     throw error
   })
 
   return {
     filepath,
-    existed: typeof contents === 'string',
+    existed: typeof contents === "string",
     contents,
   }
 }
@@ -99,7 +99,7 @@ async function restoreProjectConfigSnapshot(snapshot: ProjectConfigSnapshot): Pr
   }
 
   await fsp.mkdir(path.dirname(snapshot.filepath), { recursive: true })
-  await fsp.writeFile(snapshot.filepath, snapshot.contents ?? '{}', 'utf8')
+  await fsp.writeFile(snapshot.filepath, snapshot.contents ?? "{}", "utf8")
 }
 
 async function applyAndSyncProjectConfigChange(input: {
@@ -124,7 +124,7 @@ async function applyAndSyncProjectConfigChange(input: {
 
       if (recoveryError !== undefined) {
         throw new Error(
-          'Failed to apply project config change and failed to recover previous config',
+          "Failed to apply project config change and failed to recover previous config",
           {
             cause: error,
           },

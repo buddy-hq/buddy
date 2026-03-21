@@ -15,4 +15,4 @@ export {
   lighten,
   darken,
   withAlpha,
-} from '@buddy/opencode-adapter/theme'
+} from "@buddy/opencode-adapter/theme"

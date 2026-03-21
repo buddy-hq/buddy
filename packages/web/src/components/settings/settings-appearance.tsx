@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState } from "react"
 import {
   Button,
   Progress,
@@ -10,17 +10,17 @@ import {
   Separator,
   Switch,
   toast,
-} from '@buddy/ui'
-import { usePlatform } from '@/context/platform'
-import { showDesktopUpdateToast } from '../../lib/desktop-updates'
-import { useTheme, type ColorScheme } from '@/theme'
-import { SettingsListCard, SettingsRow } from './settings-primitives'
-import { advancedMathStatusLabel, useAdvancedMathRuntime } from './use-advanced-math-runtime'
-import { ConfirmRemoveMathRuntimeDialog } from './confirm-remove-math-runtime-dialog'
-import { SettingsPanelContent } from './settings-page'
+} from "@buddy/ui"
+import { usePlatform } from "@/context/platform"
+import { showDesktopUpdateToast } from "../../lib/desktop-updates"
+import { useTheme, type ColorScheme } from "@/theme"
+import { SettingsListCard, SettingsRow } from "./settings-primitives"
+import { advancedMathStatusLabel, useAdvancedMathRuntime } from "./use-advanced-math-runtime"
+import { ConfirmRemoveMathRuntimeDialog } from "./confirm-remove-math-runtime-dialog"
+import { SettingsPanelContent } from "./settings-page"
 
 function isColorScheme(value: string): value is ColorScheme {
-  return value === 'system' || value === 'light' || value === 'dark'
+  return value === "system" || value === "light" || value === "dark"
 }
 
 export function AppearanceSettings() {
@@ -44,9 +44,9 @@ export function AppearanceSettings() {
   const { themeId, colorScheme, themes, setTheme, setColorScheme } = useTheme()
 
   const colorSchemeOptions: { value: ColorScheme; label: string }[] = [
-    { value: 'system', label: 'System' },
-    { value: 'light', label: 'Light' },
-    { value: 'dark', label: 'Dark' },
+    { value: "system", label: "System" },
+    { value: "light", label: "Light" },
+    { value: "dark", label: "Dark" },
   ]
 
   const themeOptions = useMemo(() => {
@@ -57,31 +57,31 @@ export function AppearanceSettings() {
   }, [themes])
 
   const showDesktopUpdateControls =
-    platform.platform === 'desktop' && !!platform.checkUpdate && !!platform.update
-  const showAdvancedMathControls = platform.platform === 'desktop'
+    platform.platform === "desktop" && !!platform.checkUpdate && !!platform.update
+  const showAdvancedMathControls = platform.platform === "desktop"
 
   async function onCheckForUpdates() {
-    if (platform.platform !== 'desktop' || !platform.checkUpdate || !platform.update) return
+    if (platform.platform !== "desktop" || !platform.checkUpdate || !platform.update) return
     setCheckingForUpdates(true)
     const result = await platform
       .checkUpdate()
-      .catch(() => ({ status: 'error', stage: 'check' }) as const)
+      .catch(() => ({ status: "error", stage: "check" }) as const)
     setCheckingForUpdates(false)
     switch (result.status) {
-      case 'ready':
+      case "ready":
         showDesktopUpdateToast({ platform, version: result.version })
         return
-      case 'up-to-date':
-        toast('Buddy is up to date')
+      case "up-to-date":
+        toast("Buddy is up to date")
         return
-      case 'disabled':
-        toast('Updates are unavailable in this build')
+      case "disabled":
+        toast("Updates are unavailable in this build")
         return
-      case 'error':
+      case "error":
         toast.error(
-          result.stage === 'download'
-            ? 'Found an update, but download failed'
-            : 'Failed to check for updates',
+          result.stage === "download"
+            ? "Found an update, but download failed"
+            : "Failed to check for updates",
         )
         return
     }
@@ -161,13 +161,13 @@ export function AppearanceSettings() {
                           />
                         </div>
                         {advancedMathStatus?.progressMessage ||
-                        typeof advancedMathStatus?.progressPercent === 'number' ? (
+                        typeof advancedMathStatus?.progressPercent === "number" ? (
                           <div className="space-y-1">
                             <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
                               <span className="truncate">
-                                {advancedMathStatus?.progressMessage ?? 'Working...'}
+                                {advancedMathStatus?.progressMessage ?? "Working..."}
                               </span>
-                              {typeof advancedMathStatus?.progressPercent === 'number' ? (
+                              {typeof advancedMathStatus?.progressPercent === "number" ? (
                                 <span>{Math.round(advancedMathStatus.progressPercent)}%</span>
                               ) : null}
                             </div>
@@ -198,7 +198,7 @@ export function AppearanceSettings() {
                     onClick={() => void onCheckForUpdates()}
                     disabled={checkingForUpdates}
                   >
-                    {checkingForUpdates ? 'Checking...' : 'Check for updates'}
+                    {checkingForUpdates ? "Checking..." : "Check for updates"}
                   </Button>
                 }
               />

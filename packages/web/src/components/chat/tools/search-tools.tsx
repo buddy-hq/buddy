@@ -1,11 +1,11 @@
-import { ToolCardWithDetails } from '../shared/tool-card'
-import { Markdown } from '@/components/Markdown'
-import { unwrapError } from '../shared/utils'
-import type { ToolPartProps } from './registry'
+import { ToolCardWithDetails } from "../shared/tool-card"
+import { Markdown } from "@/components/Markdown"
+import { unwrapError } from "../shared/utils"
+import type { ToolPartProps } from "./registry"
 
 function SearchTool({ part, state, info, defaultOpen }: ToolPartProps) {
-  const running = state.status === 'pending' || state.status === 'running'
-  const output = state.output || (state.error ? unwrapError(state.error) : '')
+  const running = state.status === "pending" || state.status === "running"
+  const output = state.output || (state.error ? unwrapError(state.error) : "")
   const showOutput = output.trim().length > 0
 
   return (

@@ -1,10 +1,10 @@
-import path from 'node:path'
-import { ulid } from 'ulid'
-import { LearnerArtifactPath } from '../path'
-import type { WorkspaceContextArtifact } from '../types'
-import { WorkspaceContextArtifactSchema } from '../types'
-import { isAlreadyExistsError, readIfFound, readMarkdownFile, writeMarkdownFile } from './io'
-import { inferTags, normalizeList, normalizeText } from './normalize'
+import path from "node:path"
+import { ulid } from "ulid"
+import { LearnerArtifactPath } from "../path"
+import type { WorkspaceContextArtifact } from "../types"
+import { WorkspaceContextArtifactSchema } from "../types"
+import { isAlreadyExistsError, readIfFound, readMarkdownFile, writeMarkdownFile } from "./io"
+import { inferTags, normalizeList, normalizeText } from "./normalize"
 
 function defaultWorkspaceContext(input: {
   directory: string
@@ -12,21 +12,21 @@ function defaultWorkspaceContext(input: {
   packageJson?: string
 }): WorkspaceContextArtifact {
   const now = new Date().toISOString()
-  const label = path.basename(input.directory) || 'Workspace'
+  const label = path.basename(input.directory) || "Workspace"
 
   return {
     id: input.workspaceId,
-    kind: 'workspace-context',
+    kind: "workspace-context",
     workspaceId: input.workspaceId,
     goalIds: [],
     label,
-    tags: Array.from(new Set([...inferTags(label), ...inferTags(input.packageJson ?? '')])).slice(
+    tags: Array.from(new Set([...inferTags(label), ...inferTags(input.packageJson ?? "")])).slice(
       0,
       12,
     ),
     pinnedGoalIds: [],
     projectConstraints: [],
-    localToolAvailability: input.packageJson ? ['package.json'] : [],
+    localToolAvailability: input.packageJson ? ["package.json"] : [],
     preferredSurfaces: [],
     motivationContext: undefined,
     opportunities: [],
@@ -53,7 +53,7 @@ export async function writeWorkspaceContext(
   await writeMarkdownFile(
     LearnerArtifactPath.workspaceContextFile(directory),
     normalized,
-    '',
+    "",
     options,
   )
   return normalized
@@ -64,7 +64,7 @@ export async function ensureWorkspaceContext(directory: string) {
   const existing = await readMarkdownFile(filepath, WorkspaceContextArtifactSchema)
   if (existing) return existing.data
 
-  const packageJson = await readIfFound(path.join(directory, 'package.json'))
+  const packageJson = await readIfFound(path.join(directory, "package.json"))
   const workspace = defaultWorkspaceContext({
     directory,
     workspaceId: ulid(),
@@ -87,15 +87,15 @@ export async function patchWorkspaceContext(
   patch: Partial<
     Pick<
       WorkspaceContextArtifact,
-      | 'label'
-      | 'tags'
-      | 'pinnedGoalIds'
-      | 'projectConstraints'
-      | 'localToolAvailability'
-      | 'preferredSurfaces'
-      | 'motivationContext'
-      | 'opportunities'
-      | 'userOverride'
+      | "label"
+      | "tags"
+      | "pinnedGoalIds"
+      | "projectConstraints"
+      | "localToolAvailability"
+      | "preferredSurfaces"
+      | "motivationContext"
+      | "opportunities"
+      | "userOverride"
     >
   >,
 ) {
@@ -126,7 +126,7 @@ export async function patchWorkspaceContext(
     ...(patch.opportunities !== undefined
       ? { opportunities: normalizeList(patch.opportunities) }
       : {}),
-    ...(typeof patch.userOverride === 'boolean' ? { userOverride: patch.userOverride } : {}),
+    ...(typeof patch.userOverride === "boolean" ? { userOverride: patch.userOverride } : {}),
     updatedAt: new Date().toISOString(),
   }
 

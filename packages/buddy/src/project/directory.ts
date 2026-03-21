@@ -1,23 +1,23 @@
-import os from 'node:os'
-import fs from 'node:fs'
-import path from 'node:path'
+import os from "node:os"
+import fs from "node:fs"
+import path from "node:path"
 
 function findMonorepoRoot(start: string) {
   let current = path.resolve(start)
   while (true) {
-    const packageJSON = path.join(current, 'package.json')
+    const packageJSON = path.join(current, "package.json")
     if (fs.existsSync(packageJSON)) {
       try {
-        const parsed = JSON.parse(fs.readFileSync(packageJSON, 'utf8')) as {
+        const parsed = JSON.parse(fs.readFileSync(packageJSON, "utf8")) as {
           workspaces?: unknown
         }
         if (Array.isArray(parsed.workspaces)) {
           return current
         }
         if (
-          typeof parsed.workspaces === 'object' &&
+          typeof parsed.workspaces === "object" &&
           parsed.workspaces !== null &&
-          'packages' in parsed.workspaces &&
+          "packages" in parsed.workspaces &&
           Array.isArray((parsed.workspaces as { packages?: unknown }).packages)
         ) {
           return current
@@ -41,8 +41,8 @@ function defaultAllowedRoots() {
   return [
     cwd,
     monorepoRoot,
-    monorepoRoot ? path.resolve(monorepoRoot, '..') : undefined,
-    '/tmp',
+    monorepoRoot ? path.resolve(monorepoRoot, "..") : undefined,
+    "/tmp",
     os.tmpdir(),
   ].filter((value): value is string => Boolean(value))
 }
@@ -103,7 +103,7 @@ function canonicalizeDirectory(directory: string) {
 
 function isInsideRoot(directory: string, root: string) {
   const relative = path.relative(root, directory)
-  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))
+  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative))
 }
 
 export function resolveDirectory(raw: string) {
@@ -111,8 +111,8 @@ export function resolveDirectory(raw: string) {
 }
 
 export function allowedDirectoryRoots() {
-  const configured = (process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS ?? '')
-    .split(',')
+  const configured = (process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS ?? "")
+    .split(",")
     .map((entry) => entry.trim())
     .filter(Boolean)
 

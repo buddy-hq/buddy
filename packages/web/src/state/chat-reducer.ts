@@ -1,9 +1,9 @@
-import type { MessageInfo, MessagePart, MessageWithParts } from './chat-types'
+import type { MessageInfo, MessagePart, MessageWithParts } from "./chat-types"
 
 function isAssistantMessage(
   message: MessageWithParts,
-): message is MessageWithParts & { info: Extract<MessageInfo, { role: 'assistant' }> } {
-  return message.info.role === 'assistant'
+): message is MessageWithParts & { info: Extract<MessageInfo, { role: "assistant" }> } {
+  return message.info.role === "assistant"
 }
 
 export function inferBusyFromMessages(messages: MessageWithParts[]) {
@@ -75,7 +75,7 @@ export function appendPartDelta(
 
   const part = message.parts[partIndex]
   const currentFieldValue = part[input.field]
-  if (typeof currentFieldValue !== 'string') {
+  if (typeof currentFieldValue !== "string") {
     return current
   }
 

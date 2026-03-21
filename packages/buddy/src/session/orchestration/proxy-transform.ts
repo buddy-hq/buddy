@@ -1,7 +1,7 @@
-import type { Context } from 'hono'
-import { proxyToOpenCode } from '../../http/proxy'
-import { AdvancedMathRuntimeService } from '../../local-runtimes/advanced-math/service'
-import { SessionLookupError, SessionTransformValidationError } from './errors'
+import type { Context } from "hono"
+import { proxyToOpenCode } from "../../http/proxy"
+import { AdvancedMathRuntimeService } from "../../local-runtimes/advanced-math/service"
+import { SessionLookupError, SessionTransformValidationError } from "./errors"
 
 export function mapSessionTransformError(
   c: { json: (body: unknown, status?: number) => Response },
@@ -46,7 +46,7 @@ export async function runSessionTransformProxy(input: {
 
   if (input.onAccepted) {
     await input.onAccepted().catch((error) => {
-      console.warn('Failed to record learner evidence after accepted prompt:', error)
+      console.warn("Failed to record learner evidence after accepted prompt:", error)
     })
   }
 

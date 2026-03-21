@@ -2,10 +2,10 @@ import {
   PedagogyToolParameters,
   type PedagogyToolContext,
   type PedagogyToolParams,
-} from '../orchestration/contracts'
-import { createBuddyTool } from '../../../../tools'
+} from "../orchestration/contracts"
+import { createBuddyTool } from "../../../../tools"
 
-const compactLine = (value: string) => value.trim().replace(/\s+/g, ' ')
+const compactLine = (value: string) => value.trim().replace(/\s+/g, " ")
 
 const summarizeLearnerContext = (context: PedagogyToolContext) => {
   const lines = context.learnerSummaryLines
@@ -17,24 +17,24 @@ const summarizeLearnerContext = (context: PedagogyToolContext) => {
 
 const formatPedagogyOutput = (input: {
   id: string
-  intent: PedagogyToolContext['intent']
+  intent: PedagogyToolContext["intent"]
   goalLabel: string
   learnerContext: string[]
   sections: Array<[string, string[]]>
 }) => {
   const learnerContextBlock =
     input.learnerContext.length > 0
-      ? `Learner context:\n${input.learnerContext.map((line) => `- ${line}`).join('\n')}`
-      : ''
+      ? `Learner context:\n${input.learnerContext.map((line) => `- ${line}`).join("\n")}`
+      : ""
 
   const sectionBlocks = input.sections
     .map(([label, values]) => {
       const items = values.map((value) => compactLine(value)).filter(Boolean)
-      if (items.length === 0) return ''
-      return `${label}:\n${items.map((item) => `- ${item}`).join('\n')}`
+      if (items.length === 0) return ""
+      return `${label}:\n${items.map((item) => `- ${item}`).join("\n")}`
     })
     .filter(Boolean)
-    .join('\n')
+    .join("\n")
 
   return [
     `<pedagogy_tool_output name="${input.id}">`,
@@ -42,10 +42,10 @@ const formatPedagogyOutput = (input: {
     `Target: ${input.goalLabel}`,
     learnerContextBlock,
     sectionBlocks,
-    '</pedagogy_tool_output>',
+    "</pedagogy_tool_output>",
   ]
     .filter(Boolean)
-    .join('\n')
+    .join("\n")
 }
 
 const buildOutput = (params: PedagogyToolParams, context: PedagogyToolContext) => {
@@ -53,22 +53,22 @@ const buildOutput = (params: PedagogyToolParams, context: PedagogyToolContext) =
   const target = goal?.statement ?? params.topic ?? context.workspaceLabel
 
   return formatPedagogyOutput({
-    id: 'pedagogy_reflection',
+    id: "pedagogy_reflection",
     intent: context.intent,
     goalLabel: target,
     learnerContext: summarizeLearnerContext(context),
     sections: [
       [
-        'Reflection prompt',
+        "Reflection prompt",
         [
           `Ask the learner to explain how they would approach ${target}.`,
-          'Probe one assumption, gap, or confidence claim.',
+          "Probe one assumption, gap, or confidence claim.",
         ],
       ],
       [
-        'Interpretation',
+        "Interpretation",
         [
-          'Look for grounded reasoning, not confidence theater.',
+          "Look for grounded reasoning, not confidence theater.",
           "Choose the next move from the learner's explanation quality.",
         ],
       ],
@@ -76,25 +76,25 @@ const buildOutput = (params: PedagogyToolParams, context: PedagogyToolContext) =
   })
 }
 
-export const pedagogyReflectionTool = createBuddyTool('pedagogy_reflection', {
-  description: 'Generate a reflection-based assessment prompt for the active goal.',
+export const pedagogyReflectionTool = createBuddyTool("pedagogy_reflection", {
+  description: "Generate a reflection-based assessment prompt for the active goal.",
   parameters: PedagogyToolParameters,
   async execute(params, ctx) {
     await ctx.ask({
-      permission: 'pedagogy_reflection',
-      patterns: ['*'],
-      always: ['*'],
+      permission: "pedagogy_reflection",
+      patterns: ["*"],
+      always: ["*"],
       metadata: {
         goals: params.goalIds?.length ?? 0,
       },
     })
 
-    const { resolvePedagogyToolContext } = await import('../orchestration/context')
+    const { resolvePedagogyToolContext } = await import("../orchestration/context")
     const context = await resolvePedagogyToolContext(ctx, params)
     const output = buildOutput(params, context)
 
     return {
-      title: 'pedagogy_reflection',
+      title: "pedagogy_reflection",
       output,
       metadata: {
         intent: context.intent,

@@ -1,14 +1,14 @@
-import { createHash } from 'node:crypto'
-import fsp from 'node:fs/promises'
-import path from 'node:path'
-import { ensureManagedSkillPathReady, managedSystemRoot } from './paths'
+import { createHash } from "node:crypto"
+import fsp from "node:fs/promises"
+import path from "node:path"
+import { ensureManagedSkillPathReady, managedSystemRoot } from "./paths"
 
 type BundledSkillSource = {
   name: string
   directory: string
 }
 
-const SYSTEM_SKILLS_FINGERPRINT_FILE = '.buddy-system-skills.fingerprint'
+const SYSTEM_SKILLS_FINGERPRINT_FILE = ".buddy-system-skills.fingerprint"
 
 async function readDirectoryEntries(directory: string) {
   return fsp
@@ -53,7 +53,7 @@ async function collectBundledSystemSkillDirectories(
       if (sources.has(entry.name)) continue
 
       const directory = path.join(root, entry.name)
-      const skillDocument = path.join(directory, 'SKILL.md')
+      const skillDocument = path.join(directory, "SKILL.md")
       const stats = await fsp.stat(skillDocument).catch(() => undefined)
       if (!stats?.isFile()) continue
 
@@ -68,7 +68,7 @@ async function collectBundledSystemSkillDirectories(
 }
 
 async function fingerprintBundledSources(sources: BundledSkillSource[]) {
-  const hash = createHash('sha256')
+  const hash = createHash("sha256")
 
   for (const source of sources) {
     hash.update(`${source.name}\n`)
@@ -77,18 +77,18 @@ async function fingerprintBundledSources(sources: BundledSkillSource[]) {
       const relative = path.relative(source.directory, file)
       const content = await fsp.readFile(file)
       hash.update(relative)
-      hash.update('\n')
+      hash.update("\n")
       hash.update(content)
-      hash.update('\n')
+      hash.update("\n")
     }
   }
 
-  return hash.digest('hex')
+  return hash.digest("hex")
 }
 
 async function destinationMatchesSources(destinationRoot: string, sources: BundledSkillSource[]) {
   for (const source of sources) {
-    const destinationSkillFile = path.join(destinationRoot, source.name, 'SKILL.md')
+    const destinationSkillFile = path.join(destinationRoot, source.name, "SKILL.md")
     const stats = await fsp.stat(destinationSkillFile).catch(() => undefined)
     if (!stats?.isFile()) {
       return false
@@ -99,7 +99,7 @@ async function destinationMatchesSources(destinationRoot: string, sources: Bundl
 }
 
 async function readSystemSkillsFingerprint(markerPath: string) {
-  return fsp.readFile(markerPath, 'utf8').catch(() => undefined)
+  return fsp.readFile(markerPath, "utf8").catch(() => undefined)
 }
 
 async function shouldSkipSystemSkillInstall(input: {
@@ -158,7 +158,7 @@ export async function ensureBundledSystemSkillsInstalled(sourceRoots: string[]):
   await clearDirectoryContents(systemRoot)
   await copySourcesToSystemRoot(systemRoot, sources)
 
-  await fsp.writeFile(markerPath, `${nextFingerprint}\n`, 'utf8')
+  await fsp.writeFile(markerPath, `${nextFingerprint}\n`, "utf8")
 }
 
 export async function readInstalledSystemSkillsFingerprint(): Promise<string | undefined> {

@@ -1,6 +1,6 @@
-import { promises as fs } from 'node:fs'
-import path from 'node:path'
-import { buildResourceChunkFiles } from './chunking'
+import { promises as fs } from "node:fs"
+import path from "node:path"
+import { buildResourceChunkFiles } from "./chunking"
 import {
   RESOURCE_PACK_SPLIT_REASON_FALLBACK_STRUCTURE,
   RESOURCE_PACK_UNIT_KIND_GENERIC,
@@ -11,24 +11,24 @@ import {
   type ResourcePackBuildInput,
   type ResourcePackResolution,
   type ResourcePackService,
-} from './contracts'
-import { classifyResourcePath } from './classification'
-import { extractResourcePack } from './extractors'
-import { createResourcePackPaths } from './paths'
+} from "./contracts"
+import { classifyResourcePath } from "./classification"
+import { extractResourcePack } from "./extractors"
+import { createResourcePackPaths } from "./paths"
 import {
   createPendingResourcePackSnapshot,
   loadFreshResourcePackSnapshot,
   writeErroredResourcePackMetadata,
   writePreparingResourcePackMetadata,
   writeResourcePackFiles,
-} from './storage'
+} from "./storage"
 
 const inFlightBuilds = new Map<string, Promise<void>>()
 
 export class ResourcePackSourceNotFoundError extends Error {
   constructor(public readonly sourcePath: string) {
     super(`Resource source not found: ${sourcePath}`)
-    this.name = 'ResourcePackSourceNotFoundError'
+    this.name = "ResourcePackSourceNotFoundError"
   }
 }
 

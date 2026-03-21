@@ -1,13 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState } from "react"
 import {
   loadCommandCatalog,
   loadMcpStatus,
   loadPersonaCatalog,
   loadProjectConfig,
   resolveDefaultPersonaID,
-} from '@/state/chat-actions'
-import type { PersonaConfigOption, PromptCommandOption } from '@/state/chat-actions'
-import type { TeachingIntent } from '@/state/teaching-runtime'
+} from "@/state/chat-actions"
+import type { PersonaConfigOption, PromptCommandOption } from "@/state/chat-actions"
+import type { TeachingIntent } from "@/state/teaching-runtime"
 
 type UseChatConfigProps = {
   decodedDirectory: string
@@ -25,16 +25,16 @@ type ComposerConfig = {
 const DEFAULT_COMPOSER_CONFIG: ComposerConfig = {
   personaCatalog: [],
   slashCommands: [],
-  defaultPersona: 'buddy',
-  defaultIntent: 'auto',
+  defaultPersona: "buddy",
+  defaultIntent: "auto",
   configuredModel: undefined,
 }
 
 function parseConfiguredModel(value: unknown): { providerID: string; modelID: string } | undefined {
-  if (typeof value !== 'string') return undefined
+  if (typeof value !== "string") return undefined
   const trimmed = value.trim()
   if (!trimmed) return undefined
-  const separator = trimmed.indexOf('/')
+  const separator = trimmed.indexOf("/")
   if (separator <= 0 || separator >= trimmed.length - 1) return undefined
   return { providerID: trimmed.slice(0, separator), modelID: trimmed.slice(separator + 1) }
 }
@@ -49,15 +49,15 @@ async function loadComposerConfig(directory: string): Promise<ComposerConfig> {
   const defaultPersona =
     resolveDefaultPersonaID(
       personas,
-      typeof config.default_persona === 'string' ? config.default_persona : undefined,
-    ) ?? 'buddy'
+      typeof config.default_persona === "string" ? config.default_persona : undefined,
+    ) ?? "buddy"
 
   const defaultIntent: TeachingIntent =
-    config.default_intent === 'learn' ||
-    config.default_intent === 'practice' ||
-    config.default_intent === 'assess'
+    config.default_intent === "learn" ||
+    config.default_intent === "practice" ||
+    config.default_intent === "assess"
       ? config.default_intent
-      : 'auto'
+      : "auto"
 
   return {
     personaCatalog: personas,

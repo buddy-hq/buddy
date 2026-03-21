@@ -1,20 +1,20 @@
-import { describe, expect, test } from 'bun:test'
-import { resolveCapabilityProfile } from '../../src/learning/resolve-capability-profile'
-import { LearnerService } from '../../src/learning/learner-model'
-import { buildLearningSystemPrompt } from '../../src/learning/prompt'
-import { getBuddyPersona } from '../../src/learning/personas'
-import { withInstalledMockAdvancedMathRuntime } from '../helpers/advanced-math-runtime'
-import { tmpdir } from '../helpers/tmpdir'
+import { describe, expect, test } from "bun:test"
+import { resolveCapabilityProfile } from "../../src/learning/resolve-capability-profile"
+import { LearnerService } from "../../src/learning/learner-model"
+import { buildLearningSystemPrompt } from "../../src/learning/prompt"
+import { getBuddyPersona } from "../../src/learning/personas"
+import { withInstalledMockAdvancedMathRuntime } from "../helpers/advanced-math-runtime"
+import { tmpdir } from "../helpers/tmpdir"
 
 async function buildRuntimePrompt(input: {
   directory: string
-  persona: 'buddy' | 'code-buddy' | 'math-buddy'
-  intent?: 'auto' | 'learn' | 'practice' | 'assess'
-  teachingContext?: Parameters<typeof buildLearningSystemPrompt>[0]['teachingContext']
-  resources?: Parameters<typeof buildLearningSystemPrompt>[0]['resources']
+  persona: "buddy" | "code-buddy" | "math-buddy"
+  intent?: "auto" | "learn" | "practice" | "assess"
+  teachingContext?: Parameters<typeof buildLearningSystemPrompt>[0]["teachingContext"]
+  resources?: Parameters<typeof buildLearningSystemPrompt>[0]["resources"]
 }) {
-  const intent = input.intent ?? 'auto'
-  const workspaceState = input.teachingContext?.active ? 'interactive' : 'chat'
+  const intent = input.intent ?? "auto"
+  const workspaceState = input.teachingContext?.active ? "interactive" : "chat"
   const snapshot = await LearnerService.getWorkspaceSnapshot({
     directory: input.directory,
     query: {
@@ -40,113 +40,113 @@ async function buildRuntimePrompt(input: {
     resources: input.resources ?? [],
     teachingContext: input.teachingContext,
   })
-  return [systemContext, turnReminder].filter(Boolean).join('\n\n')
+  return [systemContext, turnReminder].filter(Boolean).join("\n\n")
 }
 
-describe('prompt assemblies', () => {
-  test('builds a code-buddy interactive prompt with workspace guidance and teaching policy', async () => {
+describe("prompt assemblies", () => {
+  test("builds a code-buddy interactive prompt with workspace guidance and teaching policy", async () => {
     await using project = await tmpdir()
 
     const system = await buildRuntimePrompt({
       directory: project.path,
-      persona: 'code-buddy',
+      persona: "code-buddy",
       teachingContext: {
         active: true,
-        sessionID: 'ses_teach',
-        lessonFilePath: '/tmp/lesson.ts',
-        checkpointFilePath: '/tmp/checkpoint/lesson.ts',
-        language: 'ts',
+        sessionID: "ses_teach",
+        lessonFilePath: "/tmp/lesson.ts",
+        checkpointFilePath: "/tmp/checkpoint/lesson.ts",
+        language: "ts",
         revision: 3,
       },
     })
 
-    expect(system).toContain('<buddy_runtime_context>')
-    expect(system).toContain('State: interactive')
-    expect(system).toContain('<teaching_workspace>')
-    expect(system).not.toContain('<system-reminder>')
+    expect(system).toContain("<buddy_runtime_context>")
+    expect(system).toContain("State: interactive")
+    expect(system).toContain("<teaching_workspace>")
+    expect(system).not.toContain("<system-reminder>")
   })
 
-  test('adds calculator guidance to math-buddy only when the advanced runtime is available', async () => {
+  test("adds calculator guidance to math-buddy only when the advanced runtime is available", async () => {
     await using project = await tmpdir()
 
     const withoutRuntime = await buildRuntimePrompt({
       directory: project.path,
-      persona: 'math-buddy',
-      intent: 'learn',
+      persona: "math-buddy",
+      intent: "learn",
     })
 
-    expect(withoutRuntime).not.toContain('<calculator_runtime>')
+    expect(withoutRuntime).not.toContain("<calculator_runtime>")
 
     await withInstalledMockAdvancedMathRuntime(async () => {
       const withRuntime = await buildRuntimePrompt({
         directory: project.path,
-        persona: 'math-buddy',
-        intent: 'learn',
+        persona: "math-buddy",
+        intent: "learn",
       })
 
-      expect(withRuntime).toContain('<calculator_runtime>')
-      expect(withRuntime).toContain('python_calculator is available in this session.')
-      expect(withRuntime).toContain('Prefer exact symbolic forms')
+      expect(withRuntime).toContain("<calculator_runtime>")
+      expect(withRuntime).toContain("python_calculator is available in this session.")
+      expect(withRuntime).toContain("Prefer exact symbolic forms")
     })
   })
 
-  test('includes a compact notebook resource inventory', async () => {
+  test("includes a compact notebook resource inventory", async () => {
     await using project = await tmpdir()
 
     const system = await buildRuntimePrompt({
       directory: project.path,
-      persona: 'buddy',
+      persona: "buddy",
       resources: [
         {
-          alias: 'shape-up',
-          sourceRelpath: 'resources/shape-up/Shape Up.pdf',
-          format: 'pdf',
-          status: 'ready',
+          alias: "shape-up",
+          sourceRelpath: "resources/shape-up/Shape Up.pdf",
+          format: "pdf",
+          status: "ready",
           warnings: [],
         },
         {
-          alias: 'goal-rubric',
-          sourceRelpath: 'resources/goal-rubric/rubric.docx',
-          format: 'docx',
-          status: 'preparing',
-          warnings: ['The resource is still being prepared.'],
+          alias: "goal-rubric",
+          sourceRelpath: "resources/goal-rubric/rubric.docx",
+          format: "docx",
+          status: "preparing",
+          warnings: ["The resource is still being prepared."],
         },
       ],
     })
 
-    expect(system).toContain('<notebook_resources>')
-    expect(system).toContain('Available resources:')
-    expect(system).toContain('alias=shape-up')
-    expect(system).toContain('pack=resources/shape-up/processed')
-    expect(system).toContain('alias=goal-rubric')
-    expect(system).toContain('status=preparing')
+    expect(system).toContain("<notebook_resources>")
+    expect(system).toContain("Available resources:")
+    expect(system).toContain("alias=shape-up")
+    expect(system).toContain("pack=resources/shape-up/processed")
+    expect(system).toContain("alias=goal-rubric")
+    expect(system).toContain("status=preparing")
   })
 
-  test('adds truncation guidance when resources exceed detailed budget', async () => {
+  test("adds truncation guidance when resources exceed detailed budget", async () => {
     await using project = await tmpdir()
 
     const resources = Array.from({ length: 10 }, (_, index) => ({
       alias: `resource-${index + 1}`,
       sourceRelpath: `resources/resource-${index + 1}/source-${index + 1}.pdf`,
-      format: 'pdf',
-      status: 'ready' as const,
+      format: "pdf",
+      status: "ready" as const,
       warnings: [],
     }))
 
     const system = await buildRuntimePrompt({
       directory: project.path,
-      persona: 'buddy',
+      persona: "buddy",
       resources,
     })
 
-    expect(system).toContain('alias=resource-1')
-    expect(system).toContain('alias=resource-7')
-    expect(system).not.toContain('alias=resource-8 |')
+    expect(system).toContain("alias=resource-1")
+    expect(system).toContain("alias=resource-7")
+    expect(system).not.toContain("alias=resource-8 |")
     expect(system).toContain(
-      'Additional resources (alias only): resource-8, resource-9, resource-10',
+      "Additional resources (alias only): resource-8, resource-9, resource-10",
     )
     expect(system).toContain(
-      'Inventory is truncated for prompt budget. Inspect `resources/` directly when you need the full list.',
+      "Inventory is truncated for prompt budget. Inspect `resources/` directly when you need the full list.",
     )
   })
 })

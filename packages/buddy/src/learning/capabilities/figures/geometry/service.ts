@@ -1,17 +1,17 @@
-import fs from 'node:fs/promises'
-import { createHash } from 'node:crypto'
-import { FigurePath, InvalidFigureIDError } from './path'
-import { repairGeometryFigureSpec } from './repair'
-import { renderGeometryFigure } from './render'
-import { resolveGeometryFigureSpec } from './resolve'
+import fs from "node:fs/promises"
+import { createHash } from "node:crypto"
+import { FigurePath, InvalidFigureIDError } from "./path"
+import { repairGeometryFigureSpec } from "./repair"
+import { renderGeometryFigure } from "./render"
+import { resolveGeometryFigureSpec } from "./resolve"
 import {
   RenderFigureInputSchema,
   RenderFigureOutputSchema,
   type GeometryFigureSpec,
   type RenderFigureInput,
   type RenderFigureOutput,
-} from './types'
-import { validateGeometryFigureSpec, type FigureValidationIssue } from './validate'
+} from "./types"
+import { validateGeometryFigureSpec, type FigureValidationIssue } from "./validate"
 
 const MAX_TOTAL_ATTEMPTS = 3
 const MAX_REPAIR_PASSES = 2
@@ -19,7 +19,7 @@ const MAX_REPAIR_PASSES = 2
 class FigureNotFoundError extends Error {
   constructor(figureID: string) {
     super(`Figure '${figureID}' was not found.`)
-    this.name = 'FigureNotFoundError'
+    this.name = "FigureNotFoundError"
   }
 }
 
@@ -27,8 +27,8 @@ class FigureRenderError extends Error {
   readonly issues: readonly FigureValidationIssue[]
 
   constructor(issues: readonly FigureValidationIssue[]) {
-    super(issues.map((issue) => issue.message).join(' '))
-    this.name = 'FigureRenderError'
+    super(issues.map((issue) => issue.message).join(" "))
+    this.name = "FigureRenderError"
     this.issues = issues
   }
 }
@@ -51,7 +51,7 @@ function normalizeGeometryFigureSpec(spec: GeometryFigureSpec): GeometryFigureSp
     canvas: {
       width: spec.canvas.width,
       height: spec.canvas.height,
-      ...(typeof spec.canvas.padding === 'number' ? { padding: spec.canvas.padding } : {}),
+      ...(typeof spec.canvas.padding === "number" ? { padding: spec.canvas.padding } : {}),
     },
     points: spec.points.map((point) => ({
       id: point.id,
@@ -65,7 +65,7 @@ function normalizeGeometryFigureSpec(spec: GeometryFigureSpec): GeometryFigureSp
             from: segment.from,
             to: segment.to,
             ...(segment.style ? { style: segment.style } : {}),
-            ...(typeof segment.strokeWidth === 'number'
+            ...(typeof segment.strokeWidth === "number"
               ? { strokeWidth: segment.strokeWidth }
               : {}),
             ...(segment.label ? { label: segment.label } : {}),
@@ -94,19 +94,19 @@ function normalizeGeometryFigureSpec(spec: GeometryFigureSpec): GeometryFigureSp
     ...(spec.constraints && spec.constraints.length > 0
       ? {
           constraints: spec.constraints.map((constraint) => {
-            if (constraint.type === 'point-on-segment') {
+            if (constraint.type === "point-on-segment") {
               return {
                 type: constraint.type,
                 point: constraint.point,
                 from: constraint.from,
                 to: constraint.to,
-                ...(typeof constraint.position === 'number'
+                ...(typeof constraint.position === "number"
                   ? { position: constraint.position }
                   : {}),
               }
             }
 
-            if (constraint.type === 'perpendicular-foot') {
+            if (constraint.type === "perpendicular-foot") {
               return {
                 type: constraint.type,
                 point: constraint.point,
@@ -130,16 +130,16 @@ function normalizeGeometryFigureSpec(spec: GeometryFigureSpec): GeometryFigureSp
     ...(spec.markers && spec.markers.length > 0
       ? {
           markers: spec.markers.map((marker) => {
-            if (marker.type === 'tick') {
+            if (marker.type === "tick") {
               return {
                 type: marker.type,
                 from: marker.from,
                 to: marker.to,
-                ...(typeof marker.count === 'number' ? { count: marker.count } : {}),
+                ...(typeof marker.count === "number" ? { count: marker.count } : {}),
               }
             }
 
-            if (marker.type === 'right-angle') {
+            if (marker.type === "right-angle") {
               return {
                 type: marker.type,
                 at: marker.at,
@@ -165,48 +165,48 @@ function svgSanityIssues(svg: string): FigureValidationIssue[] {
   const trimmed = svg.trim()
   const issues: FigureValidationIssue[] = []
 
-  if (!trimmed.startsWith('<svg')) {
+  if (!trimmed.startsWith("<svg")) {
     issues.push({
-      code: 'INVALID_SVG',
-      message: 'The rendered SVG did not start with an <svg tag.',
+      code: "INVALID_SVG",
+      message: "The rendered SVG did not start with an <svg tag.",
     })
   }
 
-  if (!trimmed.includes('</svg>')) {
+  if (!trimmed.includes("</svg>")) {
     issues.push({
-      code: 'INVALID_SVG',
-      message: 'The rendered SVG did not contain a closing </svg> tag.',
+      code: "INVALID_SVG",
+      message: "The rendered SVG did not contain a closing </svg> tag.",
     })
   }
 
-  if (!trimmed.includes('viewBox=')) {
+  if (!trimmed.includes("viewBox=")) {
     issues.push({
-      code: 'INVALID_SVG',
-      message: 'The rendered SVG did not include a viewBox.',
+      code: "INVALID_SVG",
+      message: "The rendered SVG did not include a viewBox.",
     })
   }
 
   if (trimmed.length === 0) {
     issues.push({
-      code: 'INVALID_SVG',
-      message: 'The rendered SVG was empty.',
+      code: "INVALID_SVG",
+      message: "The rendered SVG was empty.",
     })
   }
 
   return issues
 }
 
-function figureHash(input: { kind: RenderFigureInput['kind']; spec: GeometryFigureSpec }): string {
-  return createHash('sha256').update(JSON.stringify(input)).digest('hex')
+function figureHash(input: { kind: RenderFigureInput["kind"]; spec: GeometryFigureSpec }): string {
+  return createHash("sha256").update(JSON.stringify(input)).digest("hex")
 }
 
 function escapeMarkdownAlt(value: string): string {
-  return value.replaceAll('\\', '\\\\').replaceAll('[', '\\[').replaceAll(']', '\\]')
+  return value.replaceAll("\\", "\\\\").replaceAll("[", "\\[").replaceAll("]", "\\]")
 }
 
 async function writeFigure(directory: string, figureID: string, svg: string) {
   await fs.mkdir(FigurePath.root(directory), { recursive: true })
-  await fs.writeFile(FigurePath.file(directory, figureID), svg, 'utf8')
+  await fs.writeFile(FigurePath.file(directory, figureID), svg, "utf8")
 }
 
 async function render(directory: string, input: RenderFigureInput): Promise<RenderFigureOutput> {
@@ -234,7 +234,7 @@ async function render(directory: string, input: RenderFigureInput): Promise<Rend
 
             return RenderFigureOutputSchema.parse({
               figureID,
-              mime: 'image/svg+xml',
+              mime: "image/svg+xml",
               url: `/api/figures/${figureID}?directory=${encodeURIComponent(directory)}`,
               alt: parsed.alt,
               ...(parsed.caption ? { caption: parsed.caption } : {}),
@@ -248,7 +248,7 @@ async function render(directory: string, input: RenderFigureInput): Promise<Rend
           const message = String(error instanceof Error ? error.message : error)
           lastIssues = [
             {
-              code: 'RENDER_FAILED',
+              code: "RENDER_FAILED",
               message: `The figure could not be rendered: ${message}`,
             },
           ]
@@ -281,10 +281,10 @@ async function read(directory: string, figureID: string): Promise<string> {
   const filepath = FigurePath.file(directory, figureID)
 
   try {
-    return await fs.readFile(filepath, 'utf8')
+    return await fs.readFile(filepath, "utf8")
   } catch (error) {
     const maybe = error as { code?: string }
-    if (maybe.code === 'ENOENT') {
+    if (maybe.code === "ENOENT") {
       throw new FigureNotFoundError(figureID)
     }
     throw error

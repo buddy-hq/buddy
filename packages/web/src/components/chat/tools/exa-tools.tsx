@@ -1,6 +1,6 @@
-import { ToolCardWithDetails, ToolOutputPanel } from '../shared/tool-card'
-import { unwrapError } from '../shared/utils'
-import type { ToolPartProps } from './registry'
+import { ToolCardWithDetails, ToolOutputPanel } from "../shared/tool-card"
+import { unwrapError } from "../shared/utils"
+import type { ToolPartProps } from "./registry"
 
 const URL_PATTERN = /https?:\/\/[^\s<>"'`)\]]+/g
 
@@ -10,7 +10,7 @@ function extractUrls(text: string): string[] {
   const result: string[] = []
 
   for (const entry of matches) {
-    const normalized = entry.replace(/[),.;:!?]+$/g, '')
+    const normalized = entry.replace(/[),.;:!?]+$/g, "")
     if (!normalized || seen.has(normalized)) continue
     seen.add(normalized)
     result.push(normalized)
@@ -20,8 +20,8 @@ function extractUrls(text: string): string[] {
 }
 
 function ExaSearchTool({ state, info, defaultOpen }: ToolPartProps) {
-  const running = state.status === 'pending' || state.status === 'running'
-  const output = state.output || (state.error ? unwrapError(state.error) : '')
+  const running = state.status === "pending" || state.status === "running"
+  const output = state.output || (state.error ? unwrapError(state.error) : "")
   const links = extractUrls(output)
   const hasOutput = output.trim().length > 0
 
@@ -47,7 +47,7 @@ function ExaSearchTool({ state, info, defaultOpen }: ToolPartProps) {
           ))}
         </div>
       ) : null}
-      {state.status === 'error' && hasOutput ? (
+      {state.status === "error" && hasOutput ? (
         <ToolOutputPanel output={output} status={state.status} copyLabel="Copy output" />
       ) : null}
     </ToolCardWithDetails>

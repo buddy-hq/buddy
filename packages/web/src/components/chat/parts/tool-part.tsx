@@ -1,14 +1,14 @@
-import { memo } from 'react'
-import { GenericTool } from '../tools/generic-tool'
-import { getToolRenderer, isContextTool, HIDDEN_TOOLS } from '../tools/registry'
-import { parseToolState } from '../tools/parse-tool-state'
-import { getToolInfo } from '../tools/tool-info'
-import { isBuddyCustomTool } from '../shared/utils'
-import type { MessagePart } from '@/state/chat-types'
-import type { ToolPartProps } from '../tools/registry'
+import { memo } from "react"
+import { GenericTool } from "../tools/generic-tool"
+import { getToolRenderer, isContextTool, HIDDEN_TOOLS } from "../tools/registry"
+import { parseToolState } from "../tools/parse-tool-state"
+import { getToolInfo } from "../tools/tool-info"
+import { isBuddyCustomTool } from "../shared/utils"
+import type { MessagePart } from "@/state/chat-types"
+import type { ToolPartProps } from "../tools/registry"
 
 // Import BuddyCustomTool separately to avoid circular dependency
-import { BuddyCustomTool } from '../tools/python-calculator-tool'
+import { BuddyCustomTool } from "../tools/python-calculator-tool"
 
 interface ToolPartRendererProps {
   part: MessagePart
@@ -23,7 +23,7 @@ function toolPartCardEqual(
   if (prevProps.part.id !== nextProps.part.id) return false
   if (prevProps.onOpenSession !== nextProps.onOpenSession) return false
   if (prevProps.defaultOpen !== nextProps.defaultOpen) return false
-  if (prevProps.part.type !== 'tool' || nextProps.part.type !== 'tool') return false
+  if (prevProps.part.type !== "tool" || nextProps.part.type !== "tool") return false
 
   const prevState = parseToolState(prevProps.part)
   const nextState = parseToolState(nextProps.part)
@@ -41,7 +41,7 @@ export const ToolPartCard = memo(function ToolPartCard({
   onOpenSession,
   defaultOpen,
 }: ToolPartRendererProps) {
-  const tool = String(part.tool ?? '')
+  const tool = String(part.tool ?? "")
 
   // Hidden tools return null
   if (HIDDEN_TOOLS.has(tool)) {
@@ -53,7 +53,7 @@ export const ToolPartCard = memo(function ToolPartCard({
   const props: ToolPartProps = { part, state, info, tool, onOpenSession, defaultOpen }
 
   // Check if this is a Buddy custom tool (but not python_calculator which is registered separately)
-  if (isBuddyCustomTool(tool) && tool !== 'python_calculator') {
+  if (isBuddyCustomTool(tool) && tool !== "python_calculator") {
     return <BuddyCustomTool {...props} />
   }
 

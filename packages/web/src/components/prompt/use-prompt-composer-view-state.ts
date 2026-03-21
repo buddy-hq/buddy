@@ -1,61 +1,61 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { RESOURCE_LOCAL_SLASH_COMMANDS } from '../../lib/resource-commands'
+import { useEffect, useMemo, useRef, useState } from "react"
+import { RESOURCE_LOCAL_SLASH_COMMANDS } from "../../lib/resource-commands"
 import {
   filterMentionOptions,
   getMentionMatch,
   type MentionOption,
   type MentionableAgent,
   type MentionableFile,
-} from './mention-autocomplete'
-import { promptPlaceholder } from './placeholder'
+} from "./mention-autocomplete"
+import { promptPlaceholder } from "./placeholder"
 import {
   filterSlashCommands,
   getSlashMatch,
   type SlashCommandOption,
   type SlashCommandSource,
-} from './slash-autocomplete'
+} from "./slash-autocomplete"
 
 const MAX_RECENT_MENTION_FILES = 8
 
 const BUILTIN_SLASH_COMMANDS: SlashCommandOption[] = [
   {
-    type: 'builtin',
-    name: 'new',
-    title: 'Start new thread',
-    description: 'Create a fresh session in this notebook.',
+    type: "builtin",
+    name: "new",
+    title: "Start new thread",
+    description: "Create a fresh session in this notebook.",
   },
   {
-    type: 'builtin',
-    name: 'persona',
-    title: 'Cycle persona',
-    description: 'Switch to the next available Buddy persona.',
+    type: "builtin",
+    name: "persona",
+    title: "Cycle persona",
+    description: "Switch to the next available Buddy persona.",
   },
   {
-    type: 'builtin',
-    name: 'model',
-    title: 'Choose model',
-    description: 'Open the model picker.',
+    type: "builtin",
+    name: "model",
+    title: "Choose model",
+    description: "Open the model picker.",
   },
   {
-    type: 'builtin',
-    name: 'mcp',
-    title: 'Open MCPs',
-    description: 'Open MCP controls.',
+    type: "builtin",
+    name: "mcp",
+    title: "Open MCPs",
+    description: "Open MCP controls.",
   },
 ]
 
 const PLACEHOLDER_KEYS: Record<string, string> = {
-  'prompt.placeholder.shell': 'Run a shell command',
-  'prompt.placeholder.summarizeComments': 'Summarize these comments',
-  'prompt.placeholder.summarizeComment': 'Summarize this comment',
+  "prompt.placeholder.shell": "Run a shell command",
+  "prompt.placeholder.summarizeComments": "Summarize these comments",
+  "prompt.placeholder.summarizeComment": "Summarize this comment",
 }
 
 function translatePromptPlaceholder(key: string, params?: Record<string, string>) {
-  if (key === 'prompt.placeholder.normal') {
+  if (key === "prompt.placeholder.normal") {
     if (params?.example) return `Try: ${params.example}`
-    return 'Ask Buddy'
+    return "Ask Buddy"
   }
-  return PLACEHOLDER_KEYS[key] ?? 'Ask Buddy'
+  return PLACEHOLDER_KEYS[key] ?? "Ask Buddy"
 }
 
 function dedupeMentionFiles(files: MentionableFile[]) {
@@ -70,7 +70,7 @@ function dedupeMentionFiles(files: MentionableFile[]) {
 type UsePromptComposerViewStateProps = {
   cursorOffset: number
   draftValue: string
-  selectedIntent: 'auto' | 'learn' | 'practice' | 'assess'
+  selectedIntent: "auto" | "learn" | "practice" | "assess"
   selectedPersona: string
   personaOptions: Array<{
     name: string
@@ -100,7 +100,7 @@ export function usePromptComposerViewState(props: UsePromptComposerViewStateProp
   const [searchMentionFiles, setSearchMentionFiles] = useState<MentionableFile[]>([])
   const [searchingFiles, setSearchingFiles] = useState(false)
   const [recentMentionFiles, setRecentMentionFiles] = useState<MentionableFile[]>([])
-  const [displayedPlaceholder, setDisplayedPlaceholder] = useState('Ask Buddy...')
+  const [displayedPlaceholder, setDisplayedPlaceholder] = useState("Ask Buddy...")
   const [placeholderOpacity, setPlaceholderOpacity] = useState(1)
   // useRef: changing this doesn't need a re-render — it's only read inside useEffect.
   const slashRefreshRequestedRef = useRef(false)
@@ -111,11 +111,11 @@ export function usePromptComposerViewState(props: UsePromptComposerViewStateProp
   )
   const personaOptions = useMemo(() => {
     if (props.personaOptions.length > 0) return props.personaOptions
-    return props.selectedPersona ? [{ name: props.selectedPersona }] : [{ name: 'buddy' }]
+    return props.selectedPersona ? [{ name: props.selectedPersona }] : [{ name: "buddy" }]
   }, [props.personaOptions, props.selectedPersona])
   const slashCommandOptions = useMemo<SlashCommandOption[]>(() => {
     const customCommands = props.slashCommands.map((command) => ({
-      type: 'custom' as const,
+      type: "custom" as const,
       name: command.name,
       title: command.name,
       description: command.description,
@@ -194,9 +194,9 @@ export function usePromptComposerViewState(props: UsePromptComposerViewStateProp
   const placeholder = useMemo(
     () =>
       promptPlaceholder({
-        mode: 'normal',
+        mode: "normal",
         commentCount: 0,
-        example: '',
+        example: "",
         suggest: false,
         intent: props.selectedIntent,
         t: translatePromptPlaceholder,

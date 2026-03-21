@@ -1,9 +1,9 @@
-import { Instance as OpenCodeInstance } from '@buddy/opencode-adapter/instance'
-import { safeReadJson } from './http'
-import { fetchOpenCode } from './proxy'
+import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
+import { safeReadJson } from "./http"
+import { fetchOpenCode } from "./proxy"
 
 export type SessionStatus = {
-  type?: 'busy' | 'idle' | 'retry'
+  type?: "busy" | "idle" | "retry"
 }
 
 export type SessionStatusMap = Record<string, SessionStatus>
@@ -21,14 +21,14 @@ export async function loadSessionStatus(
 ): Promise<SessionStatusMap | undefined> {
   const response = await fetchOpenCode({
     directory,
-    method: 'GET',
-    path: '/session/status',
+    method: "GET",
+    path: "/session/status",
     headers: new Headers(request.headers),
   })
 
   if (!response.ok) return undefined
   const payload = await safeReadJson(response)
-  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return undefined
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return undefined
   return payload as SessionStatusMap
 }
 
@@ -36,7 +36,7 @@ export async function isSessionInRequestedProject(
   directory: string,
   session: unknown,
 ): Promise<boolean> {
-  if (!session || typeof session !== 'object') return true
+  if (!session || typeof session !== "object") return true
   const payload = session as {
     projectID?: unknown
     directory?: unknown
@@ -45,9 +45,9 @@ export async function isSessionInRequestedProject(
   const requestedProjectID = await resolveOpenCodeProjectID(directory)
 
   const sessionProjectID =
-    typeof payload.projectID === 'string'
+    typeof payload.projectID === "string"
       ? payload.projectID
-      : typeof payload.directory === 'string'
+      : typeof payload.directory === "string"
         ? await resolveOpenCodeProjectID(payload.directory)
         : undefined
 

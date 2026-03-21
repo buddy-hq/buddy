@@ -2,10 +2,10 @@ import type {
   Intent,
   Persona,
   WorkspaceState,
-} from '@buddy/backend/learning/shared/teaching-vocabulary'
-import type { CapabilityEnvelope } from '../shared/runtime-types'
-import type { TeachingPromptContext } from '../capabilities'
-import type { LearnerSnapshot } from '../learner-model'
+} from "@buddy/backend/learning/shared/teaching-vocabulary"
+import type { CapabilityEnvelope } from "../shared/runtime-types"
+import type { TeachingPromptContext } from "../capabilities"
+import type { LearnerSnapshot } from "../learner-model"
 
 export type PromptTurnSnapshot = {
   persona: Persona
@@ -13,7 +13,7 @@ export type PromptTurnSnapshot = {
   workspaceState: WorkspaceState
 }
 
-export type PromptResourceStatus = 'preparing' | 'ready' | 'unsupported' | 'error' | 'stale'
+export type PromptResourceStatus = "preparing" | "ready" | "unsupported" | "error" | "stale"
 
 export type PromptResourceSnapshot = {
   alias: string

@@ -1,18 +1,18 @@
-import path from 'node:path'
+import path from "node:path"
 
 class InvalidFreeformFigureIDError extends Error {
   constructor(figureID: string) {
     super(`Invalid freeform figure id '${figureID}'.`)
-    this.name = 'InvalidFreeformFigureIDError'
+    this.name = "InvalidFreeformFigureIDError"
   }
 }
 
 function root(directory: string): string {
-  return path.join(directory, '.buddy', 'freeform-figures')
+  return path.join(directory, ".buddy", "freeform-figures")
 }
 
 function glob(directory: string): string {
-  return path.join(root(directory), '*.svg')
+  return path.join(root(directory), "*.svg")
 }
 
 function sanitizeFigureID(figureID: string): string {

@@ -1,19 +1,19 @@
-import { Instance as OpenCodeInstance } from '@buddy/opencode-adapter/instance'
-import { LSP } from '@buddy/opencode-adapter/lsp'
-import { loadOpenCodeApp } from '@buddy/backend/opencode-runtime/runtime'
-import type { TeachingDiagnostic, TeachingWorkspaceRecord } from '../model/types'
-import { syncDerivedFields } from './workspace'
+import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
+import { LSP } from "@buddy/opencode-adapter/lsp"
+import { loadOpenCodeApp } from "@buddy/backend/opencode-runtime/runtime"
+import type { TeachingDiagnostic, TeachingWorkspaceRecord } from "../model/types"
+import { syncDerivedFields } from "./workspace"
 
-function normalizeDiagnosticSeverity(severity?: number): TeachingDiagnostic['severity'] {
+function normalizeDiagnosticSeverity(severity?: number): TeachingDiagnostic["severity"] {
   switch (severity) {
     case 1:
-      return 'error'
+      return "error"
     case 2:
-      return 'warning'
+      return "warning"
     case 3:
-      return 'info'
+      return "info"
     default:
-      return 'hint'
+      return "hint"
   }
 }
 
@@ -36,11 +36,11 @@ function normalizeDiagnostics(
   }>,
 ): TeachingDiagnostic[] {
   return diagnostics.map((diagnostic) => ({
-    message: diagnostic.message ?? 'Unknown diagnostic',
+    message: diagnostic.message ?? "Unknown diagnostic",
     severity: normalizeDiagnosticSeverity(diagnostic.severity),
     source: diagnostic.source,
     code:
-      typeof diagnostic.code === 'string' || typeof diagnostic.code === 'number'
+      typeof diagnostic.code === "string" || typeof diagnostic.code === "number"
         ? diagnostic.code
         : undefined,
     startLine: (diagnostic.range?.start?.line ?? 0) + 1,
@@ -53,10 +53,10 @@ function normalizeDiagnostics(
 async function ensureOpenCodeRuntimeForDirectory(directory: string) {
   const app = await loadOpenCodeApp()
   const response = await app.fetch(
-    new Request('http://opencode.local/agent', {
-      method: 'GET',
+    new Request("http://opencode.local/agent", {
+      method: "GET",
       headers: {
-        'x-opencode-directory': directory,
+        "x-opencode-directory": directory,
       },
     }),
   )

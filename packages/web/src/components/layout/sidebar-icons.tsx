@@ -20,4 +20,4 @@ export {
   SparklesIcon,
   SquarePenIcon,
   XIcon,
-} from '@buddy/ui'
+} from "@buddy/ui"

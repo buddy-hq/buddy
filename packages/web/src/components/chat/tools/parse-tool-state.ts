@@ -1,6 +1,6 @@
-import { isRecord, toToolStatus, readNonEmptyString } from '../shared/utils'
-import type { ToolState, ToolAttachment } from './registry'
-import type { MessagePart } from '@/state/chat-types'
+import { isRecord, toToolStatus, readNonEmptyString } from "../shared/utils"
+import type { ToolState, ToolAttachment } from "./registry"
+import type { MessagePart } from "@/state/chat-types"
 
 export function parseToolState(part: MessagePart): ToolState {
   const rawState = isRecord(part.state) ? part.state : {}
@@ -14,11 +14,11 @@ export function parseToolState(part: MessagePart): ToolState {
     ...stateMetadata,
   }
 
-  const start = typeof rawTime.start === 'number' ? rawTime.start : undefined
-  const end = typeof rawTime.end === 'number' ? rawTime.end : undefined
-  const output = typeof rawState.output === 'string' ? rawState.output : undefined
-  const error = typeof rawState.error === 'string' ? rawState.error : undefined
-  const title = typeof rawState.title === 'string' ? rawState.title : undefined
+  const start = typeof rawTime.start === "number" ? rawTime.start : undefined
+  const end = typeof rawTime.end === "number" ? rawTime.end : undefined
+  const output = typeof rawState.output === "string" ? rawState.output : undefined
+  const error = typeof rawState.error === "string" ? rawState.error : undefined
+  const title = typeof rawState.title === "string" ? rawState.title : undefined
   const attachments: ToolAttachment[] = Array.isArray(rawState.attachments)
     ? rawState.attachments.flatMap((attachment, index): ToolAttachment[] => {
         if (!isRecord(attachment)) return []

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import {
   closeOpenProject,
   ensureDirectorySession,
@@ -11,29 +11,29 @@ import {
   resolveDefaultPersonaID,
   sendPrompt,
   shouldDeferTranscriptReload,
-} from '../src/state/chat-actions'
-import { useChatStore } from '../src/state/chat-store'
+} from "../src/state/chat-actions"
+import { useChatStore } from "../src/state/chat-store"
 
 const originalFetch = globalThis.fetch
 
 function hasStringUrl(value: unknown): value is { url: string } {
   return Boolean(
-    value && typeof value === 'object' && 'url' in value && typeof value.url === 'string',
+    value && typeof value === "object" && "url" in value && typeof value.url === "string",
   )
 }
 
 function hasStringMethod(value: unknown): value is { method: string } {
   return Boolean(
-    value && typeof value === 'object' && 'method' in value && typeof value.method === 'string',
+    value && typeof value === "object" && "method" in value && typeof value.method === "string",
   )
 }
 
 function hasHeaders(value: unknown): value is { headers: HeadersInit } {
-  return Boolean(value && typeof value === 'object' && 'headers' in value)
+  return Boolean(value && typeof value === "object" && "headers" in value)
 }
 
 function requestUrl(input: RequestInfo | URL) {
-  if (typeof input === 'string') return input
+  if (typeof input === "string") return input
   if (input instanceof URL) return input.toString()
   if (hasStringUrl(input)) return input.url
   return String(input)
@@ -60,7 +60,7 @@ function resetStore() {
     lastSessionByDirectory: {},
     selectedModelByDirectory: {},
     directories: {},
-    streamStatus: 'idle',
+    streamStatus: "idle",
   })
 }
 
@@ -73,30 +73,30 @@ afterEach(() => {
   globalThis.fetch = originalFetch
 })
 
-describe('loadOpenProjects', () => {
-  test('hydrates normalized open projects from the backend instead of local storage', async () => {
+describe("loadOpenProjects", () => {
+  test("hydrates normalized open projects from the backend instead of local storage", async () => {
     localStorage.setItem(
-      'buddy.chat.v4',
+      "buddy.chat.v4",
       JSON.stringify({
         state: {
-          openProjects: ['/polluted/local', '/polluted/other'],
-          activeDirectory: '/polluted/local',
+          openProjects: ["/polluted/local", "/polluted/other"],
+          activeDirectory: "/polluted/local",
         },
         version: 0,
       }),
     )
 
     globalThis.fetch = (async (input, init) => {
-      expect(new URL(requestUrl(input), 'http://localhost').pathname).toBe('/api/open-projects')
-      expect(requestMethod(input, init)).toBe('GET')
-      expect(requestHeaders(input, init).get('x-buddy-directory')).toBeNull()
+      expect(new URL(requestUrl(input), "http://localhost").pathname).toBe("/api/open-projects")
+      expect(requestMethod(input, init)).toBe("GET")
+      expect(requestHeaders(input, init).get("x-buddy-directory")).toBeNull()
       return new Response(
         JSON.stringify({
-          directories: ['/repo/root', '/repo/root/', ' /repo/other/ ', '/'],
+          directories: ["/repo/root", "/repo/root/", " /repo/other/ ", "/"],
         }),
         {
           headers: {
-            'content-type': 'application/json',
+            "content-type": "application/json",
           },
         },
       )
@@ -104,96 +104,96 @@ describe('loadOpenProjects', () => {
 
     const projects = await loadOpenProjects()
 
-    expect(projects).toEqual(['/repo/root', '/repo/other'])
-    expect(useChatStore.getState().openProjects).toEqual(['/repo/root', '/repo/other'])
+    expect(projects).toEqual(["/repo/root", "/repo/other"])
+    expect(useChatStore.getState().openProjects).toEqual(["/repo/root", "/repo/other"])
   })
 })
 
-describe('chat store model selection', () => {
-  test('tracks selected models per directory without changing other directories', () => {
+describe("chat store model selection", () => {
+  test("tracks selected models per directory without changing other directories", () => {
     const store = useChatStore.getState()
 
-    store.setSelectedModel('/repo/a', 'anthropic/claude-sonnet-4')
-    store.setSelectedModel('/repo/b', 'openai/gpt-5')
-    store.setSelectedModel('/repo/a', 'auto')
+    store.setSelectedModel("/repo/a", "anthropic/claude-sonnet-4")
+    store.setSelectedModel("/repo/b", "openai/gpt-5")
+    store.setSelectedModel("/repo/a", "auto")
 
     expect(useChatStore.getState().selectedModelByDirectory).toEqual({
-      '/repo/a': 'auto',
-      '/repo/b': 'openai/gpt-5',
+      "/repo/a": "auto",
+      "/repo/b": "openai/gpt-5",
     })
   })
 })
 
-describe('openProject', () => {
-  test('stores the canonical directory returned by the backend', async () => {
+describe("openProject", () => {
+  test("stores the canonical directory returned by the backend", async () => {
     globalThis.fetch = (async (_input, init) => {
-      expect(init?.method).toBe('POST')
-      expect(new Headers(init?.headers).get('x-buddy-directory')).toBeNull()
-      expect(init?.body).toBe(JSON.stringify({ directory: '/repo/nested' }))
+      expect(init?.method).toBe("POST")
+      expect(new Headers(init?.headers).get("x-buddy-directory")).toBeNull()
+      expect(init?.body).toBe(JSON.stringify({ directory: "/repo/nested" }))
       return new Response(
         JSON.stringify({
-          directory: '/repo',
+          directory: "/repo",
         }),
         {
           headers: {
-            'content-type': 'application/json',
+            "content-type": "application/json",
           },
         },
       )
     }) as typeof fetch
 
-    const nextDirectory = await openProject('/repo/nested/')
+    const nextDirectory = await openProject("/repo/nested/")
 
-    expect(nextDirectory).toBe('/repo')
-    expect(useChatStore.getState().openProjects).toEqual(['/repo'])
+    expect(nextDirectory).toBe("/repo")
+    expect(useChatStore.getState().openProjects).toEqual(["/repo"])
   })
 
-  test('allows non-git folders', async () => {
+  test("allows non-git folders", async () => {
     globalThis.fetch = (async () =>
       new Response(
         JSON.stringify({
-          directory: '/tmp',
+          directory: "/tmp",
         }),
         {
           headers: {
-            'content-type': 'application/json',
+            "content-type": "application/json",
           },
         },
       )) as typeof fetch
 
-    const nextDirectory = await openProject('/tmp')
+    const nextDirectory = await openProject("/tmp")
 
-    expect(nextDirectory).toBe('/tmp')
-    expect(useChatStore.getState().openProjects).toEqual(['/tmp'])
+    expect(nextDirectory).toBe("/tmp")
+    expect(useChatStore.getState().openProjects).toEqual(["/tmp"])
   })
 
-  test('surfaces backend validation failures without opening the project', async () => {
+  test("surfaces backend validation failures without opening the project", async () => {
     globalThis.fetch = (async () =>
-      new Response(JSON.stringify({ error: 'Directory is outside allowed roots' }), {
+      new Response(JSON.stringify({ error: "Directory is outside allowed roots" }), {
         status: 403,
         headers: {
-          'content-type': 'application/json',
+          "content-type": "application/json",
         },
       })) as typeof fetch
 
-    await expect(openProject('../repo')).rejects.toThrow('Directory is outside allowed roots')
+    await expect(openProject("../repo")).rejects.toThrow("Directory is outside allowed roots")
     expect(useChatStore.getState().openProjects).toEqual([])
   })
 
-  test('rejects the filesystem root', async () => {
-    await expect(openProject('/')).rejects.toThrow('Please choose a notebook directory, not /')
+  test("rejects the filesystem root", async () => {
+    await expect(openProject("/")).rejects.toThrow("Please choose a notebook directory, not /")
     expect(useChatStore.getState().openProjects).toEqual([])
   })
 })
 
-describe('closeOpenProject', () => {
-  test('removes a directory from the in-memory store through the backend API', async () => {
+describe("closeOpenProject", () => {
+  test("removes a directory from the in-memory store through the backend API", async () => {
     useChatStore.setState({
-      openProjects: ['/repo', '/other'],
-      activeDirectory: '/repo',
+      openProjects: ["/repo", "/other"],
+      activeDirectory: "/repo",
       directories: {
-        '/repo': {
-          sessionTitle: 'New thread',
+        "/repo": {
+          sessionTitle: "New thread",
           sessions: [],
           sessionStatusByID: {},
           messages: [],
@@ -204,8 +204,8 @@ describe('closeOpenProject', () => {
           isBusy: false,
           isReady: false,
         },
-        '/other': {
-          sessionTitle: 'New thread',
+        "/other": {
+          sessionTitle: "New thread",
           sessions: [],
           sessionStatusByID: {},
           messages: [],
@@ -220,56 +220,56 @@ describe('closeOpenProject', () => {
     })
 
     globalThis.fetch = (async (input, init) => {
-      expect(String(input)).toBe('/api/open-projects?directory=%2Frepo')
-      expect(init?.method).toBe('DELETE')
-      return new Response(JSON.stringify({ directory: '/repo' }), {
+      expect(String(input)).toBe("/api/open-projects?directory=%2Frepo")
+      expect(init?.method).toBe("DELETE")
+      return new Response(JSON.stringify({ directory: "/repo" }), {
         headers: {
-          'content-type': 'application/json',
+          "content-type": "application/json",
         },
       })
     }) as typeof fetch
 
-    await expect(closeOpenProject('/repo')).resolves.toBe('/repo')
-    expect(useChatStore.getState().openProjects).toEqual(['/other'])
-    expect(useChatStore.getState().activeDirectory).toBe('/other')
+    await expect(closeOpenProject("/repo")).resolves.toBe("/repo")
+    expect(useChatStore.getState().openProjects).toEqual(["/other"])
+    expect(useChatStore.getState().activeDirectory).toBe("/other")
   })
 })
 
-describe('reorderOpenProjects', () => {
-  test('uses the backend response order as the notebook order', async () => {
+describe("reorderOpenProjects", () => {
+  test("uses the backend response order as the notebook order", async () => {
     useChatStore.setState({
-      openProjects: ['/repo/one', '/repo/two'],
+      openProjects: ["/repo/one", "/repo/two"],
     })
 
     globalThis.fetch = (async (input, init) => {
-      expect(String(input)).toBe('/api/open-projects/order')
-      expect(init?.method).toBe('PUT')
-      expect(init?.body).toBe(JSON.stringify({ directories: ['/repo/two', '/repo/one'] }))
+      expect(String(input)).toBe("/api/open-projects/order")
+      expect(init?.method).toBe("PUT")
+      expect(init?.body).toBe(JSON.stringify({ directories: ["/repo/two", "/repo/one"] }))
       return new Response(
         JSON.stringify({
-          directories: ['/repo/two', '/repo/one'],
+          directories: ["/repo/two", "/repo/one"],
         }),
         {
           headers: {
-            'content-type': 'application/json',
+            "content-type": "application/json",
           },
         },
       )
     }) as typeof fetch
 
-    await expect(reorderOpenProjects(['/repo/two', '/repo/one'])).resolves.toEqual([
-      '/repo/two',
-      '/repo/one',
+    await expect(reorderOpenProjects(["/repo/two", "/repo/one"])).resolves.toEqual([
+      "/repo/two",
+      "/repo/one",
     ])
-    expect(useChatStore.getState().openProjects).toEqual(['/repo/two', '/repo/one'])
+    expect(useChatStore.getState().openProjects).toEqual(["/repo/two", "/repo/one"])
   })
 })
 
-describe('ensureDirectorySession', () => {
-  test('reuses a ready directory without reloading the transcript', async () => {
+describe("ensureDirectorySession", () => {
+  test("reuses a ready directory without reloading the transcript", async () => {
     const existingSession = {
-      id: 'session-1',
-      title: 'Existing thread',
+      id: "session-1",
+      title: "Existing thread",
       time: {
         created: 1,
         updated: 2,
@@ -277,13 +277,13 @@ describe('ensureDirectorySession', () => {
     }
 
     useChatStore.setState({
-      openProjects: ['/repo'],
-      activeDirectory: '/repo',
+      openProjects: ["/repo"],
+      activeDirectory: "/repo",
       lastSessionByDirectory: {
-        '/repo': existingSession.id,
+        "/repo": existingSession.id,
       },
       directories: {
-        '/repo': {
+        "/repo": {
           sessionID: existingSession.id,
           sessionTitle: existingSession.title,
           sessions: [existingSession],
@@ -301,88 +301,88 @@ describe('ensureDirectorySession', () => {
 
     globalThis.fetch = (async () => {
       throw new Error(
-        'ensureDirectorySession should not fetch when directory state is already ready',
+        "ensureDirectorySession should not fetch when directory state is already ready",
       )
     }) as typeof fetch
 
-    await expect(ensureDirectorySession('/repo')).resolves.toEqual({
-      directory: '/repo',
+    await expect(ensureDirectorySession("/repo")).resolves.toEqual({
+      directory: "/repo",
       info: existingSession,
     })
   })
 })
 
-describe('loadSessions', () => {
-  test('scopes session listing to the requested directory', async () => {
+describe("loadSessions", () => {
+  test("scopes session listing to the requested directory", async () => {
     globalThis.fetch = (async (input, init) => {
-      expect(String(input)).toBe('/api/session?directory=%2Frepo%2Ftauri')
-      expect(init?.method).toBe('GET')
-      expect(new Headers(init?.headers).get('x-buddy-directory')).toBe('/repo/tauri')
+      expect(String(input)).toBe("/api/session?directory=%2Frepo%2Ftauri")
+      expect(init?.method).toBe("GET")
+      expect(new Headers(init?.headers).get("x-buddy-directory")).toBe("/repo/tauri")
       return new Response(JSON.stringify([]), {
         headers: {
-          'content-type': 'application/json',
+          "content-type": "application/json",
         },
       })
     }) as typeof fetch
 
-    await loadSessions('/repo/tauri')
+    await loadSessions("/repo/tauri")
   })
 })
 
-describe('shouldDeferTranscriptReload', () => {
-  test('defers transcript reload while the current session is streaming', () => {
+describe("shouldDeferTranscriptReload", () => {
+  test("defers transcript reload while the current session is streaming", () => {
     useChatStore.setState({
       directories: {
-        '/repo': {
-          sessionTitle: 'New chat',
+        "/repo": {
+          sessionTitle: "New chat",
           sessions: [],
-          sessionStatusByID: { session_1: 'busy' },
+          sessionStatusByID: { session_1: "busy" },
           messages: [],
           pendingPermissions: [],
           providers: [],
           providerDefault: {},
           isBusy: true,
           isReady: true,
-          sessionID: 'session_1',
+          sessionID: "session_1",
         },
       },
-      streamStatus: 'connected',
+      streamStatus: "connected",
     })
 
-    expect(shouldDeferTranscriptReload('/repo', 'session_1')).toBe(true)
+    expect(shouldDeferTranscriptReload("/repo", "session_1")).toBe(true)
   })
 
-  test('does not defer transcript reload when the stream is not active', () => {
+  test("does not defer transcript reload when the stream is not active", () => {
     useChatStore.setState({
       directories: {
-        '/repo': {
-          sessionTitle: 'New chat',
+        "/repo": {
+          sessionTitle: "New chat",
           sessions: [],
-          sessionStatusByID: { session_1: 'busy' },
+          sessionStatusByID: { session_1: "busy" },
           messages: [],
           pendingPermissions: [],
           providers: [],
           providerDefault: {},
           isBusy: true,
           isReady: true,
-          sessionID: 'session_1',
+          sessionID: "session_1",
         },
       },
-      streamStatus: 'idle',
+      streamStatus: "idle",
     })
 
-    expect(shouldDeferTranscriptReload('/repo', 'session_1')).toBe(false)
+    expect(shouldDeferTranscriptReload("/repo", "session_1")).toBe(false)
   })
 })
 
-describe('sendPrompt', () => {
-  test('does not start a transcript polling loop after prompt submission', async () => {
+describe("sendPrompt", () => {
+  test("does not start a transcript polling loop after prompt submission", async () => {
     let requests = 0
 
     useChatStore.setState({
       directories: {
-        '/repo': {
-          sessionTitle: 'New chat',
+        "/repo": {
+          sessionTitle: "New chat",
           sessions: [],
           sessionStatusByID: {},
           messages: [],
@@ -391,7 +391,7 @@ describe('sendPrompt', () => {
           providerDefault: {},
           isBusy: false,
           isReady: true,
-          sessionID: 'session_1',
+          sessionID: "session_1",
         },
       },
     })
@@ -400,12 +400,12 @@ describe('sendPrompt', () => {
       requests += 1
       return new Response(JSON.stringify({}), {
         headers: {
-          'content-type': 'application/json',
+          "content-type": "application/json",
         },
       })
     }) as typeof fetch
 
-    await sendPrompt('/repo', 'hello')
+    await sendPrompt("/repo", "hello")
     await new Promise<void>((resolve) => {
       setTimeout(resolve, 350)
     })
@@ -413,11 +413,11 @@ describe('sendPrompt', () => {
     expect(requests).toBe(1)
   })
 
-  test('sends explicit focus-goal targeting when provided', async () => {
+  test("sends explicit focus-goal targeting when provided", async () => {
     useChatStore.setState({
       directories: {
-        '/repo': {
-          sessionTitle: 'New chat',
+        "/repo": {
+          sessionTitle: "New chat",
           sessions: [],
           sessionStatusByID: {},
           messages: [],
@@ -426,7 +426,7 @@ describe('sendPrompt', () => {
           providerDefault: {},
           isBusy: false,
           isReady: true,
-          sessionID: 'session_1',
+          sessionID: "session_1",
         },
       },
     })
@@ -434,29 +434,29 @@ describe('sendPrompt', () => {
     globalThis.fetch = (async (_input, init) => {
       expect(init?.body).toBe(
         JSON.stringify({
-          content: 'give me a practice task',
-          intent: 'practice',
-          focusGoalIds: ['goal_1'],
+          content: "give me a practice task",
+          intent: "practice",
+          focusGoalIds: ["goal_1"],
         }),
       )
       return new Response(JSON.stringify({}), {
         headers: {
-          'content-type': 'application/json',
+          "content-type": "application/json",
         },
       })
     }) as typeof fetch
 
-    await sendPrompt('/repo', 'give me a practice task', {
-      intent: 'practice',
-      focusGoalIds: ['goal_1'],
+    await sendPrompt("/repo", "give me a practice task", {
+      intent: "practice",
+      focusGoalIds: ["goal_1"],
     })
   })
 
-  test('forwards workspace file references alongside attachment parts', async () => {
+  test("forwards workspace file references alongside attachment parts", async () => {
     useChatStore.setState({
       directories: {
-        '/repo': {
-          sessionTitle: 'New chat',
+        "/repo": {
+          sessionTitle: "New chat",
           sessions: [],
           sessionStatusByID: {},
           messages: [],
@@ -465,49 +465,49 @@ describe('sendPrompt', () => {
           providerDefault: {},
           isBusy: false,
           isReady: true,
-          sessionID: 'session_1',
+          sessionID: "session_1",
         },
       },
     })
 
     globalThis.fetch = (async (_input, init) => {
       expect(JSON.parse(String(init?.body))).toMatchObject({
-        content: 'Read @docs/book with spaces.pdf',
+        content: "Read @docs/book with spaces.pdf",
         parts: [
           {
-            type: 'workspace-file-reference',
-            path: 'docs/book with spaces.pdf',
+            type: "workspace-file-reference",
+            path: "docs/book with spaces.pdf",
           },
         ],
       })
       return new Response(JSON.stringify({}), {
         headers: {
-          'content-type': 'application/json',
+          "content-type": "application/json",
         },
       })
     }) as typeof fetch
 
-    await sendPrompt('/repo', 'Read @docs/book with spaces.pdf', {
-      parts: [{ type: 'workspace-file-reference', path: 'docs/book with spaces.pdf' }],
-      intent: 'practice',
+    await sendPrompt("/repo", "Read @docs/book with spaces.pdf", {
+      parts: [{ type: "workspace-file-reference", path: "docs/book with spaces.pdf" }],
+      intent: "practice",
     })
   })
 })
 
-describe('loadCurriculumView', () => {
-  test('forwards the current session id when loading the learner plan', async () => {
+describe("loadCurriculumView", () => {
+  test("forwards the current session id when loading the learner plan", async () => {
     globalThis.fetch = (async (input, init) => {
       expect(String(input)).toBe(
-        '/api/learner/plan?persona=code-buddy&intent=practice&sessionId=session_1',
+        "/api/learner/plan?persona=code-buddy&intent=practice&sessionId=session_1",
       )
-      expect(init?.method).toBe('POST')
-      expect(new Headers(init?.headers).get('x-buddy-directory')).toBe('/repo')
+      expect(init?.method).toBe("POST")
+      expect(new Headers(init?.headers).get("x-buddy-directory")).toBe("/repo")
       expect(init?.body).toBe(JSON.stringify({}))
       const payload = {
         snapshot: {
           workspace: {
-            workspaceId: 'w_1',
-            label: 'Workspace',
+            workspaceId: "w_1",
+            label: "Workspace",
             tags: [],
             pinnedGoalIds: [],
             projectConstraints: [],
@@ -522,12 +522,12 @@ describe('loadCurriculumView', () => {
           openFeedback: [],
           constraintsSummary: [],
           sections: [],
-          markdown: '',
+          markdown: "",
         },
         plan: {
           warmupReviewGoalIds: [],
-          suggestedActivity: 'guided-practice',
-          suggestedScaffoldingLevel: 'guided',
+          suggestedActivity: "guided-practice",
+          suggestedScaffoldingLevel: "guided",
           alternatives: [],
           rationale: [],
           constraintsConsidered: [],
@@ -536,27 +536,27 @@ describe('loadCurriculumView', () => {
       }
       return new Response(JSON.stringify(payload), {
         headers: {
-          'content-type': 'application/json',
+          "content-type": "application/json",
         },
       })
     }) as typeof fetch
 
-    await loadCurriculumView('/repo', {
-      persona: 'code-buddy',
-      intent: 'practice',
-      sessionID: 'session_1',
+    await loadCurriculumView("/repo", {
+      persona: "code-buddy",
+      intent: "practice",
+      sessionID: "session_1",
     })
   })
 
-  test('requests decision generation only when explicitly asked', async () => {
+  test("requests decision generation only when explicitly asked", async () => {
     globalThis.fetch = (async (_input, init) => {
-      expect(init?.method).toBe('POST')
+      expect(init?.method).toBe("POST")
       expect(init?.body).toBe(JSON.stringify({ generateDecision: true }))
       const payload = {
         snapshot: {
           workspace: {
-            workspaceId: 'w_1',
-            label: 'Workspace',
+            workspaceId: "w_1",
+            label: "Workspace",
             tags: [],
             pinnedGoalIds: [],
             projectConstraints: [],
@@ -571,12 +571,12 @@ describe('loadCurriculumView', () => {
           openFeedback: [],
           constraintsSummary: [],
           sections: [],
-          markdown: '',
+          markdown: "",
         },
         plan: {
           warmupReviewGoalIds: [],
-          suggestedActivity: 'guided-practice',
-          suggestedScaffoldingLevel: 'guided',
+          suggestedActivity: "guided-practice",
+          suggestedScaffoldingLevel: "guided",
           alternatives: [],
           rationale: [],
           constraintsConsidered: [],
@@ -585,97 +585,97 @@ describe('loadCurriculumView', () => {
       }
       return new Response(JSON.stringify(payload), {
         headers: {
-          'content-type': 'application/json',
+          "content-type": "application/json",
         },
       })
     }) as typeof fetch
 
-    await loadCurriculumView('/repo', {
+    await loadCurriculumView("/repo", {
       generateDecision: true,
     })
   })
 })
 
-describe('loadRuntimeCapabilities', () => {
-  test('returns allowed and denied tool/skill state for the current intent', async () => {
+describe("loadRuntimeCapabilities", () => {
+  test("returns allowed and denied tool/skill state for the current intent", async () => {
     globalThis.fetch = (async (input) => {
       expect(String(input)).toBe(
-        '/api/learner/snapshot?persona=code-buddy&intent=practice&sessionId=session_1',
+        "/api/learner/snapshot?persona=code-buddy&intent=practice&sessionId=session_1",
       )
       const payload = {
         runtimeContext: {
-          intent: 'practice',
-          workspaceState: 'interactive',
+          intent: "practice",
+          workspaceState: "interactive",
         },
         runtimeProfile: {
-          persona: 'code-buddy',
+          persona: "code-buddy",
           capabilityEnvelope: {
-            visibleSurfaces: ['editor', 'curriculum'],
-            defaultSurface: 'editor',
+            visibleSurfaces: ["editor", "curriculum"],
+            defaultSurface: "editor",
             tools: {
-              learner_snapshot_read: 'allow',
-              pedagogy_guided_practice: 'allow',
-              pedagogy_reflection: 'deny',
+              learner_snapshot_read: "allow",
+              pedagogy_guided_practice: "allow",
+              pedagogy_reflection: "deny",
             },
             skills: {
-              'buddy-pedagogy-explanation': 'deny',
-              'buddy-pedagogy-worked-example': 'deny',
+              "buddy-pedagogy-explanation": "deny",
+              "buddy-pedagogy-worked-example": "deny",
             },
             subagents: {
-              'practice-agent': 'allow',
-              'assessment-agent': 'deny',
-              'curriculum-orchestrator': 'prefer',
+              "practice-agent": "allow",
+              "assessment-agent": "deny",
+              "curriculum-orchestrator": "prefer",
             },
           },
         },
       }
       return new Response(JSON.stringify(payload), {
         headers: {
-          'content-type': 'application/json',
+          "content-type": "application/json",
         },
       })
     }) as typeof fetch
 
-    const capabilities = await loadRuntimeCapabilities('/repo', {
-      persona: 'code-buddy',
-      intent: 'practice',
-      sessionID: 'session_1',
+    const capabilities = await loadRuntimeCapabilities("/repo", {
+      persona: "code-buddy",
+      intent: "practice",
+      sessionID: "session_1",
     })
 
-    expect(capabilities.persona).toBe('code-buddy')
-    expect(capabilities.intent).toBe('practice')
-    expect(capabilities.workspaceState).toBe('interactive')
-    expect(capabilities.visibleSurfaces).toEqual(['curriculum', 'editor'])
-    expect(capabilities.tools.allow).toEqual(['learner_snapshot_read', 'pedagogy_guided_practice'])
-    expect(capabilities.tools.deny).toEqual(['pedagogy_reflection'])
+    expect(capabilities.persona).toBe("code-buddy")
+    expect(capabilities.intent).toBe("practice")
+    expect(capabilities.workspaceState).toBe("interactive")
+    expect(capabilities.visibleSurfaces).toEqual(["curriculum", "editor"])
+    expect(capabilities.tools.allow).toEqual(["learner_snapshot_read", "pedagogy_guided_practice"])
+    expect(capabilities.tools.deny).toEqual(["pedagogy_reflection"])
     expect(capabilities.skills.allow).toEqual([])
     expect(capabilities.skills.deny).toEqual([
-      'buddy-pedagogy-explanation',
-      'buddy-pedagogy-worked-example',
+      "buddy-pedagogy-explanation",
+      "buddy-pedagogy-worked-example",
     ])
-    expect(capabilities.subagents.prefer).toEqual(['curriculum-orchestrator'])
-    expect(capabilities.subagents.allow).toEqual(['practice-agent'])
-    expect(capabilities.subagents.deny).toEqual(['assessment-agent'])
+    expect(capabilities.subagents.prefer).toEqual(["curriculum-orchestrator"])
+    expect(capabilities.subagents.allow).toEqual(["practice-agent"])
+    expect(capabilities.subagents.deny).toEqual(["assessment-agent"])
   })
 })
 
-describe('resolveDefaultPersonaID', () => {
-  test('uses the built-in persona order instead of label order when no default is configured', () => {
+describe("resolveDefaultPersonaID", () => {
+  test("uses the built-in persona order instead of label order when no default is configured", () => {
     const selected = resolveDefaultPersonaID([
       {
-        id: 'code-buddy',
-        label: 'A Code',
-        surfaces: ['curriculum', 'editor'],
-        defaultSurface: 'editor',
+        id: "code-buddy",
+        label: "A Code",
+        surfaces: ["curriculum", "editor"],
+        defaultSurface: "editor",
       },
       {
-        id: 'buddy',
-        label: 'Z Buddy',
-        surfaces: ['curriculum'],
-        defaultSurface: 'curriculum',
+        id: "buddy",
+        label: "Z Buddy",
+        surfaces: ["curriculum"],
+        defaultSurface: "curriculum",
       },
     ])
 
-    expect(selected).toBe('buddy')
+    expect(selected).toBe("buddy")
   })
 })

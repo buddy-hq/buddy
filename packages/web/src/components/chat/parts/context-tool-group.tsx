@@ -1,27 +1,27 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo } from "react"
 import {
   Collapsible,
   CollapsibleTrigger,
   CollapsibleContent,
   ChevronRightIcon,
   cn,
-} from '@buddy/ui'
-import { parseToolState } from '../tools/parse-tool-state'
-import { getToolInfo } from '../tools/tool-info'
-import type { MessagePart } from '@/state/chat-types'
+} from "@buddy/ui"
+import { parseToolState } from "../tools/parse-tool-state"
+import { getToolInfo } from "../tools/tool-info"
+import type { MessagePart } from "@/state/chat-types"
 
 function contextSummary(parts: MessagePart[]) {
-  const read = parts.filter((part) => part.tool === 'read').length
-  const search = parts.filter((part) => part.tool === 'glob' || part.tool === 'grep').length
-  const list = parts.filter((part) => part.tool === 'list').length
+  const read = parts.filter((part) => part.tool === "read").length
+  const search = parts.filter((part) => part.tool === "glob" || part.tool === "grep").length
+  const list = parts.filter((part) => part.tool === "list").length
 
   const values = [
-    read ? `${read} ${read === 1 ? 'read' : 'reads'}` : undefined,
-    search ? `${search} ${search === 1 ? 'search' : 'searches'}` : undefined,
-    list ? `${list} ${list === 1 ? 'list' : 'lists'}` : undefined,
+    read ? `${read} ${read === 1 ? "read" : "reads"}` : undefined,
+    search ? `${search} ${search === 1 ? "search" : "searches"}` : undefined,
+    list ? `${list} ${list === 1 ? "list" : "lists"}` : undefined,
   ].filter((value): value is string => !!value)
 
-  return values.join(', ')
+  return values.join(", ")
 }
 
 interface ContextToolGroupProps {
@@ -31,7 +31,7 @@ interface ContextToolGroupProps {
 export function ContextToolGroup({ parts }: ContextToolGroupProps) {
   const states = useMemo(() => parts.map((part) => parseToolState(part)), [parts])
   const [isOpen, setIsOpen] = useState(false)
-  const pending = states.some((state) => state.status === 'pending' || state.status === 'running')
+  const pending = states.some((state) => state.status === "pending" || state.status === "running")
   const summary = contextSummary(parts)
 
   return (
@@ -44,9 +44,9 @@ export function ContextToolGroup({ parts }: ContextToolGroupProps) {
         <button type="button" className="flex w-full items-center justify-between gap-2 text-left">
           <span className="min-w-0 flex items-center gap-2">
             <span
-              className={cn('shrink-0 font-medium text-foreground', pending && 'animate-pulse')}
+              className={cn("shrink-0 font-medium text-foreground", pending && "animate-pulse")}
             >
-              {pending ? 'Gathering context' : 'Gathered context'}
+              {pending ? "Gathering context" : "Gathered context"}
             </span>
             {summary ? (
               <span className="truncate text-sm text-muted-foreground">{summary}</span>
@@ -54,8 +54,8 @@ export function ContextToolGroup({ parts }: ContextToolGroupProps) {
           </span>
           <ChevronRightIcon
             className={cn(
-              'h-4 w-4 shrink-0 text-muted-foreground transition-transform',
-              isOpen && 'rotate-90',
+              "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
+              isOpen && "rotate-90",
             )}
           />
         </button>
@@ -65,12 +65,12 @@ export function ContextToolGroup({ parts }: ContextToolGroupProps) {
           {parts.map((part, index) => {
             const state = states[index]
             if (!state) return null
-            const info = getToolInfo(String(part.tool ?? ''), state.input)
-            const running = state.status === 'pending' || state.status === 'running'
+            const info = getToolInfo(String(part.tool ?? ""), state.input)
+            const running = state.status === "pending" || state.status === "running"
             return (
               <div key={part.id} className="py-1.5">
                 <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm">
-                  <span className={cn('font-medium text-foreground', running && 'animate-pulse')}>
+                  <span className={cn("font-medium text-foreground", running && "animate-pulse")}>
                     {info.title}
                   </span>
                   {!running && info.subtitle ? (

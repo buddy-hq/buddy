@@ -1,7 +1,7 @@
-import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@buddy/ui'
-import { useProjectSettings } from '@/state/project-settings'
-import { SettingsListCard, SettingsRow } from './settings-primitives'
-import { SettingsPanelContent } from './settings-page'
+import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@buddy/ui"
+import { useProjectSettings } from "@/state/project-settings"
+import { SettingsListCard, SettingsRow } from "./settings-primitives"
+import { SettingsPanelContent } from "./settings-page"
 
 export function ModelSettings({ directory }: { directory: string }) {
   const settings = useProjectSettings(directory, true)
@@ -18,7 +18,7 @@ export function ModelSettings({ directory }: { directory: string }) {
           onClick={() => void settings.actions.save()}
           disabled={settings.status.loading || settings.status.saving}
         >
-          {settings.status.saving ? 'Saving...' : 'Save changes'}
+          {settings.status.saving ? "Saving..." : "Save changes"}
         </Button>
       </div>
 
@@ -35,7 +35,7 @@ export function ModelSettings({ directory }: { directory: string }) {
               <SelectTrigger className="w-full">
                 <SelectValue
                   placeholder={
-                    hasConnectedProviders ? 'Select provider' : 'Connect a provider first'
+                    hasConnectedProviders ? "Select provider" : "Connect a provider first"
                   }
                 />
               </SelectTrigger>
@@ -61,7 +61,7 @@ export function ModelSettings({ directory }: { directory: string }) {
             >
               <SelectTrigger className="w-full">
                 <SelectValue
-                  placeholder={hasConnectedProviders ? 'Select model' : 'Connect a provider first'}
+                  placeholder={hasConnectedProviders ? "Select model" : "Connect a provider first"}
                 />
               </SelectTrigger>
               <SelectContent>

@@ -1,1 +1,1 @@
-export { defaultThemes } from '@buddy/opencode-adapter/theme'
+export { defaultThemes } from "@buddy/opencode-adapter/theme"

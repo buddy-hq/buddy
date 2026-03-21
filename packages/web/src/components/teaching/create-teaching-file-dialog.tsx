@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState } from "react"
 import {
   Button,
   Dialog,
@@ -8,7 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
-} from '@buddy/ui'
+} from "@buddy/ui"
 
 type CreateTeachingFileDialogProps = {
   open: boolean
@@ -17,7 +17,7 @@ type CreateTeachingFileDialogProps = {
 }
 
 export function CreateTeachingFileDialog(props: CreateTeachingFileDialogProps) {
-  const [value, setValue] = useState('helpers.ts')
+  const [value, setValue] = useState("helpers.ts")
   const inputRef = useRef<HTMLInputElement>(null)
 
   function handleConfirm() {
@@ -25,11 +25,11 @@ export function CreateTeachingFileDialog(props: CreateTeachingFileDialogProps) {
     if (!trimmed) return
     props.onConfirm(trimmed)
     props.onOpenChange(false)
-    setValue('helpers.ts')
+    setValue("helpers.ts")
   }
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
-    if (event.key === 'Enter') {
+    if (event.key === "Enter") {
       event.preventDefault()
       handleConfirm()
     }
@@ -39,7 +39,7 @@ export function CreateTeachingFileDialog(props: CreateTeachingFileDialogProps) {
     <Dialog
       open={props.open}
       onOpenChange={(next) => {
-        if (!next) setValue('helpers.ts')
+        if (!next) setValue("helpers.ts")
         props.onOpenChange(next)
       }}
     >

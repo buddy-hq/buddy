@@ -1,12 +1,12 @@
-import fs from 'node:fs/promises'
+import fs from "node:fs/promises"
 import {
   BUDDY_XDG_CACHE_HOME,
   BUDDY_XDG_CONFIG_HOME,
   BUDDY_XDG_DATA_HOME,
   BUDDY_XDG_STATE_HOME,
   configureOpenCodeEnvironment,
-} from './env'
-import { Server } from '@buddy/opencode-adapter/server'
+} from "./env"
+import { Server } from "@buddy/opencode-adapter/server"
 
 let appPromise: Promise<{ fetch(request: Request): Response | Promise<Response> }> | undefined
 

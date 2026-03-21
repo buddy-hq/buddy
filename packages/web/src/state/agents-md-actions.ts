@@ -1,5 +1,5 @@
-import type { AgentsMdReadResponses, AgentsMdSaveResponses } from '@buddy/sdk'
-import { buddyResultMessage, getBuddyClient, requireBuddyData } from '../lib/buddy-client'
+import type { AgentsMdReadResponses, AgentsMdSaveResponses } from "@buddy/sdk"
+import { buddyResultMessage, getBuddyClient, requireBuddyData } from "../lib/buddy-client"
 
 export type NotebookAgentsMdState = AgentsMdReadResponses[200]
 
@@ -8,7 +8,7 @@ export type NotebookAgentsMdSaveResult = AgentsMdSaveResponses[200]
 export class NotebookAgentsMdVersionConflictError extends Error {
   constructor(message: string) {
     super(message)
-    this.name = 'NotebookAgentsMdVersionConflictError'
+    this.name = "NotebookAgentsMdVersionConflictError"
   }
 }
 

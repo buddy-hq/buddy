@@ -7,49 +7,49 @@ import {
   readFileSync,
   rmSync,
   writeFileSync,
-} from 'node:fs'
-import os from 'node:os'
-import path from 'node:path'
-import { spawnSync } from 'node:child_process'
+} from "node:fs"
+import os from "node:os"
+import path from "node:path"
+import { spawnSync } from "node:child_process"
 
-const DESKTOP_DIR = path.resolve(import.meta.dir, '..')
-const BACKEND_DIR = path.resolve(DESKTOP_DIR, '../buddy')
-const SIDECARS_DIR = path.resolve(DESKTOP_DIR, 'src-tauri/sidecars')
-const RESOURCES_DIR = path.resolve(DESKTOP_DIR, 'src-tauri/resources/migrations')
-const BACKEND_RESOURCES_DIR = path.resolve(DESKTOP_DIR, 'src-tauri/resources/backend')
-const DESKTOP_PACKAGE_JSON = path.resolve(DESKTOP_DIR, 'package.json')
-const BUDDY_MIGRATION_SOURCE = path.resolve(BACKEND_DIR, 'migration')
+const DESKTOP_DIR = path.resolve(import.meta.dir, "..")
+const BACKEND_DIR = path.resolve(DESKTOP_DIR, "../buddy")
+const SIDECARS_DIR = path.resolve(DESKTOP_DIR, "src-tauri/sidecars")
+const RESOURCES_DIR = path.resolve(DESKTOP_DIR, "src-tauri/resources/migrations")
+const BACKEND_RESOURCES_DIR = path.resolve(DESKTOP_DIR, "src-tauri/resources/backend")
+const DESKTOP_PACKAGE_JSON = path.resolve(DESKTOP_DIR, "package.json")
+const BUDDY_MIGRATION_SOURCE = path.resolve(BACKEND_DIR, "migration")
 const OPENCODE_PACKAGE_JSON = path.resolve(
   BACKEND_DIR,
-  '../../vendor/opencode/packages/opencode/package.json',
+  "../../vendor/opencode/packages/opencode/package.json",
 )
 
 const WATCHER_BINDING_BY_TARGET: Record<string, { packageName: string; os: string; cpu: string }> =
   {
-    'aarch64-apple-darwin': {
-      packageName: '@parcel/watcher-darwin-arm64',
-      os: 'darwin',
-      cpu: 'arm64',
+    "aarch64-apple-darwin": {
+      packageName: "@parcel/watcher-darwin-arm64",
+      os: "darwin",
+      cpu: "arm64",
     },
-    'x86_64-apple-darwin': {
-      packageName: '@parcel/watcher-darwin-x64',
-      os: 'darwin',
-      cpu: 'x64',
+    "x86_64-apple-darwin": {
+      packageName: "@parcel/watcher-darwin-x64",
+      os: "darwin",
+      cpu: "x64",
     },
-    'x86_64-pc-windows-msvc': {
-      packageName: '@parcel/watcher-win32-x64',
-      os: 'win32',
-      cpu: 'x64',
+    "x86_64-pc-windows-msvc": {
+      packageName: "@parcel/watcher-win32-x64",
+      os: "win32",
+      cpu: "x64",
     },
-    'x86_64-unknown-linux-gnu': {
-      packageName: '@parcel/watcher-linux-x64-glibc',
-      os: 'linux',
-      cpu: 'x64',
+    "x86_64-unknown-linux-gnu": {
+      packageName: "@parcel/watcher-linux-x64-glibc",
+      os: "linux",
+      cpu: "x64",
     },
-    'aarch64-unknown-linux-gnu': {
-      packageName: '@parcel/watcher-linux-arm64-glibc',
-      os: 'linux',
-      cpu: 'arm64',
+    "aarch64-unknown-linux-gnu": {
+      packageName: "@parcel/watcher-linux-arm64-glibc",
+      os: "linux",
+      cpu: "arm64",
     },
   }
 
@@ -58,12 +58,12 @@ function getWatcherBinding(target: string) {
 }
 
 function packageVersion(name: string) {
-  const pkg = JSON.parse(readFileSync(OPENCODE_PACKAGE_JSON, 'utf8')) as {
+  const pkg = JSON.parse(readFileSync(OPENCODE_PACKAGE_JSON, "utf8")) as {
     dependencies?: Record<string, string>
     devDependencies?: Record<string, string>
   }
 
-  return pkg.dependencies?.[name] ?? pkg.devDependencies?.[name] ?? 'latest'
+  return pkg.dependencies?.[name] ?? pkg.devDependencies?.[name] ?? "latest"
 }
 
 function installWatcherBinding(target: string, destinationDir: string) {
@@ -72,14 +72,14 @@ function installWatcherBinding(target: string, destinationDir: string) {
     return
   }
 
-  const packageDirName = binding.packageName.replace('@parcel/', '')
+  const packageDirName = binding.packageName.replace("@parcel/", "")
   const workspaceSource = path.resolve(
     BACKEND_DIR,
-    '../..',
-    'vendor/opencode/packages/opencode/node_modules/@parcel',
+    "../..",
+    "vendor/opencode/packages/opencode/node_modules/@parcel",
     packageDirName,
   )
-  const targetDir = path.resolve(destinationDir, 'node_modules/@parcel', packageDirName)
+  const targetDir = path.resolve(destinationDir, "node_modules/@parcel", packageDirName)
 
   mkdirSync(path.dirname(targetDir), { recursive: true })
 
@@ -88,28 +88,28 @@ function installWatcherBinding(target: string, destinationDir: string) {
     return
   }
 
-  const tempDir = mkdtempSync(path.join(os.tmpdir(), 'buddy-parcel-watcher-'))
-  const tempPackageJson = path.resolve(tempDir, 'package.json')
-  writeFileSync(tempPackageJson, '{}\n')
+  const tempDir = mkdtempSync(path.join(os.tmpdir(), "buddy-parcel-watcher-"))
+  const tempPackageJson = path.resolve(tempDir, "package.json")
+  writeFileSync(tempPackageJson, "{}\n")
 
   const packageSpec = `${binding.packageName}@${packageVersion(binding.packageName)}`
   const install = spawnSync(
-    'bun',
+    "bun",
     [
-      'add',
-      '--silent',
-      '--no-save',
-      '--exact',
-      '--cwd',
+      "add",
+      "--silent",
+      "--no-save",
+      "--exact",
+      "--cwd",
       tempDir,
-      '--os',
+      "--os",
       binding.os,
-      '--cpu',
+      "--cpu",
       binding.cpu,
       packageSpec,
     ],
     {
-      encoding: 'utf8',
+      encoding: "utf8",
     },
   )
 
@@ -118,11 +118,11 @@ function installWatcherBinding(target: string, destinationDir: string) {
       const message =
         install.stderr ||
         install.stdout ||
-        `bun add failed with code ${install.status ?? 'unknown'}`
+        `bun add failed with code ${install.status ?? "unknown"}`
       throw new Error(`Failed to install ${packageSpec} for ${target}: ${message}`)
     }
 
-    const installedSource = path.resolve(tempDir, 'node_modules/@parcel', packageDirName)
+    const installedSource = path.resolve(tempDir, "node_modules/@parcel", packageDirName)
     if (!existsSync(installedSource)) {
       throw new Error(`Installed watcher binding was not found at ${installedSource}`)
     }
@@ -135,45 +135,45 @@ function installWatcherBinding(target: string, destinationDir: string) {
 
 export const SIDECAR_BINARIES = [
   {
-    rustTarget: 'aarch64-apple-darwin',
-    bunTarget: 'bun-darwin-arm64',
-    sidecarDir: 'buddy-backend-darwin-arm64',
+    rustTarget: "aarch64-apple-darwin",
+    bunTarget: "bun-darwin-arm64",
+    sidecarDir: "buddy-backend-darwin-arm64",
   },
   {
-    rustTarget: 'x86_64-apple-darwin',
-    bunTarget: 'bun-darwin-x64',
-    sidecarDir: 'buddy-backend-darwin-x64',
+    rustTarget: "x86_64-apple-darwin",
+    bunTarget: "bun-darwin-x64",
+    sidecarDir: "buddy-backend-darwin-x64",
   },
   {
-    rustTarget: 'x86_64-pc-windows-msvc',
-    bunTarget: 'bun-windows-x64',
-    sidecarDir: 'buddy-backend-windows-x64',
+    rustTarget: "x86_64-pc-windows-msvc",
+    bunTarget: "bun-windows-x64",
+    sidecarDir: "buddy-backend-windows-x64",
   },
   {
-    rustTarget: 'x86_64-unknown-linux-gnu',
-    bunTarget: 'bun-linux-x64',
-    sidecarDir: 'buddy-backend-linux-x64',
+    rustTarget: "x86_64-unknown-linux-gnu",
+    bunTarget: "bun-linux-x64",
+    sidecarDir: "buddy-backend-linux-x64",
   },
   {
-    rustTarget: 'aarch64-unknown-linux-gnu',
-    bunTarget: 'bun-linux-arm64',
-    sidecarDir: 'buddy-backend-linux-arm64',
+    rustTarget: "aarch64-unknown-linux-gnu",
+    bunTarget: "bun-linux-arm64",
+    sidecarDir: "buddy-backend-linux-arm64",
   },
 ] as const
 
 export const RELEASE_SIDECAR_BINARIES = SIDECAR_BINARIES.filter(
-  (item) => !item.rustTarget.includes('linux'),
+  (item) => !item.rustTarget.includes("linux"),
 )
 
 export const BUDDY_RUST_TARGET =
   Bun.env.BUDDY_RUST_TARGET ?? Bun.env.RUST_TARGET ?? Bun.env.TAURI_ENV_TARGET_TRIPLE
 
 export function currentTargetTriple() {
-  if (process.platform === 'darwin' && process.arch === 'arm64') return 'aarch64-apple-darwin'
-  if (process.platform === 'darwin' && process.arch === 'x64') return 'x86_64-apple-darwin'
-  if (process.platform === 'linux' && process.arch === 'arm64') return 'aarch64-unknown-linux-gnu'
-  if (process.platform === 'linux' && process.arch === 'x64') return 'x86_64-unknown-linux-gnu'
-  if (process.platform === 'win32' && process.arch === 'x64') return 'x86_64-pc-windows-msvc'
+  if (process.platform === "darwin" && process.arch === "arm64") return "aarch64-apple-darwin"
+  if (process.platform === "darwin" && process.arch === "x64") return "x86_64-apple-darwin"
+  if (process.platform === "linux" && process.arch === "arm64") return "aarch64-unknown-linux-gnu"
+  if (process.platform === "linux" && process.arch === "x64") return "x86_64-unknown-linux-gnu"
+  if (process.platform === "win32" && process.arch === "x64") return "x86_64-pc-windows-msvc"
   throw new Error(`Unsupported desktop target: ${process.platform}/${process.arch}`)
 }
 
@@ -186,11 +186,11 @@ export function getCurrentSidecar(target = BUDDY_RUST_TARGET ?? currentTargetTri
 }
 
 export function isWindowsTarget(target = BUDDY_RUST_TARGET ?? currentTargetTriple()) {
-  return target.includes('windows')
+  return target.includes("windows")
 }
 
 export function windowsify(filepath: string, target = BUDDY_RUST_TARGET ?? currentTargetTriple()) {
-  if (filepath.endsWith('.exe')) return filepath
+  if (filepath.endsWith(".exe")) return filepath
   return isWindowsTarget(target) ? `${filepath}.exe` : filepath
 }
 
@@ -209,7 +209,7 @@ export function copyBinaryToSidecarFolder(
   )
   const compatibilityTarget = path.resolve(
     SIDECARS_DIR,
-    windowsify('buddy-backend', config.rustTarget),
+    windowsify("buddy-backend", config.rustTarget),
   )
 
   mkdirSync(SIDECARS_DIR, { recursive: true })
@@ -225,7 +225,7 @@ export function copyBinaryToSidecarFolder(
 export function syncMigrations() {
   rmSync(RESOURCES_DIR, { recursive: true, force: true })
   mkdirSync(RESOURCES_DIR, { recursive: true })
-  cpSync(BUDDY_MIGRATION_SOURCE, path.resolve(RESOURCES_DIR, 'buddy'), { recursive: true })
+  cpSync(BUDDY_MIGRATION_SOURCE, path.resolve(RESOURCES_DIR, "buddy"), { recursive: true })
   return RESOURCES_DIR
 }
 
@@ -241,20 +241,20 @@ export function syncBackendRuntimeResources(
   mkdirSync(BACKEND_RESOURCES_DIR, { recursive: true })
   cpSync(sourceDir, BACKEND_RESOURCES_DIR, { recursive: true, dereference: true })
 
-  const sourceEntrypoint = path.resolve(BACKEND_RESOURCES_DIR, 'index.js')
+  const sourceEntrypoint = path.resolve(BACKEND_RESOURCES_DIR, "index.js")
   if (!existsSync(sourceEntrypoint)) {
     throw new Error(`Buddy backend runtime entry missing at ${sourceEntrypoint}`)
   }
 
   installWatcherBinding(target, BACKEND_RESOURCES_DIR)
 
-  const targetEntrypoint = path.resolve(BACKEND_RESOURCES_DIR, 'buddy-backend.js')
+  const targetEntrypoint = path.resolve(BACKEND_RESOURCES_DIR, "buddy-backend.js")
   copyFileSync(sourceEntrypoint, targetEntrypoint)
   return targetEntrypoint
 }
 
 export function updateDesktopPackageVersion(version: string) {
-  const pkg = JSON.parse(readFileSync(DESKTOP_PACKAGE_JSON, 'utf8')) as {
+  const pkg = JSON.parse(readFileSync(DESKTOP_PACKAGE_JSON, "utf8")) as {
     version: string
   }
   pkg.version = version
@@ -262,7 +262,7 @@ export function updateDesktopPackageVersion(version: string) {
 }
 
 export function readDesktopPackageVersion() {
-  const pkg = JSON.parse(readFileSync(DESKTOP_PACKAGE_JSON, 'utf8')) as {
+  const pkg = JSON.parse(readFileSync(DESKTOP_PACKAGE_JSON, "utf8")) as {
     version: string
   }
   return pkg.version

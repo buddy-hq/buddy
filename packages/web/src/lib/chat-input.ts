@@ -12,7 +12,7 @@ export function shouldSubmitComposer(state: ComposerKeyState) {
     return false
   }
 
-  if (state.key !== 'Enter') {
+  if (state.key !== "Enter") {
     return false
   }
 

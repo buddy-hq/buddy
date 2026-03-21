@@ -1,9 +1,9 @@
-import { createBuddyClient } from '@buddy/sdk'
+import { createBuddyClient } from "@buddy/sdk"
 import {
   authorizationHeader,
   createServerFetchTransport,
   resolveServerApiBaseUrl,
-} from './server-client'
+} from "./server-client"
 
 export function getBuddyClient(directory?: string) {
   const auth = authorizationHeader()
@@ -29,20 +29,20 @@ type BuddyResult<T> = {
 }
 
 function hasMessage(value: unknown): value is { message?: unknown } {
-  return Boolean(value && typeof value === 'object')
+  return Boolean(value && typeof value === "object")
 }
 
 function hasError(value: unknown): value is { error?: unknown } {
-  return Boolean(value && typeof value === 'object')
+  return Boolean(value && typeof value === "object")
 }
 
 function errorMessage(value: unknown): string | undefined {
-  if (typeof value === 'string' && value) return value
+  if (typeof value === "string" && value) return value
   if (hasError(value)) {
     const nested = errorMessage(value.error)
     if (nested) return nested
   }
-  if (hasMessage(value) && typeof value.message === 'string' && value.message) {
+  if (hasMessage(value) && typeof value.message === "string" && value.message) {
     return value.message
   }
   return undefined

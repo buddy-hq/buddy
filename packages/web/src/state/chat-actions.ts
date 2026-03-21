@@ -16,8 +16,8 @@ import type {
   ProviderAuthMethod,
   ProviderAuthResponse,
   ProviderListResponse,
-} from "@buddy/sdk";
-import { useChatStore } from "./chat-store";
+} from "@buddy/sdk"
+import { useChatStore } from "./chat-store"
 import type {
   MessageWithParts,
   McpStatusMap,
@@ -25,81 +25,72 @@ import type {
   ProviderCatalogState,
   ProviderInfo,
   SessionInfo,
-} from "./chat-types";
-import type { TeachingIntent, TeachingPromptContext } from "./teaching-runtime";
-import { stringifyError } from "../lib/api-client";
-import {
-  getBuddyClient,
-  requireBuddyData,
-  buddyResultMessage,
-} from "../lib/buddy-client";
-import type {
-  PromptFilePart,
-  PromptSubmissionPart,
-} from "../components/prompt/prompt-types";
+} from "./chat-types"
+import type { TeachingIntent, TeachingPromptContext } from "./teaching-runtime"
+import { stringifyError } from "../lib/api-client"
+import { getBuddyClient, requireBuddyData, buddyResultMessage } from "../lib/buddy-client"
+import type { PromptFilePart, PromptSubmissionPart } from "../components/prompt/prompt-types"
 
 export type PersonaConfigOption = {
-  id: string;
-  label: string;
-  description?: string;
-  surfaces: Array<"curriculum" | "editor" | "figure">;
-  defaultSurface: "curriculum" | "editor" | "figure";
-  hidden?: boolean;
-};
+  id: string
+  label: string
+  description?: string
+  surfaces: Array<"curriculum" | "editor" | "figure">
+  defaultSurface: "curriculum" | "editor" | "figure"
+  hidden?: boolean
+}
 
 export type LearnerCurriculumView = {
   workspace: {
-    workspaceId: string;
-    label: string;
-    tags: string[];
-    pinnedGoalIds: string[];
-    projectConstraints: string[];
-    localToolAvailability: string[];
-    preferredSurfaces: Array<
-      "chat" | "curriculum" | "editor" | "figure" | "quiz"
-    >;
-    motivationContext?: string;
-    opportunities: string[];
-    userOverride: boolean;
-    createdAt: string;
-    updatedAt: string;
-  };
-  coldStart: boolean;
-  recommendedNextAction: string;
+    workspaceId: string
+    label: string
+    tags: string[]
+    pinnedGoalIds: string[]
+    projectConstraints: string[]
+    localToolAvailability: string[]
+    preferredSurfaces: Array<"chat" | "curriculum" | "editor" | "figure" | "quiz">
+    motivationContext?: string
+    opportunities: string[]
+    userOverride: boolean
+    createdAt: string
+    updatedAt: string
+  }
+  coldStart: boolean
+  recommendedNextAction: string
   sessionPlan: {
-    warmupReviewGoalIds: string[];
-    primaryGoalId?: string;
-    suggestedActivity: string;
-    suggestedScaffoldingLevel: string;
-    alternatives: string[];
-    rationale: string[];
-    motivationHook?: string;
-    constraintsConsidered: string[];
-    prerequisiteWarnings: string[];
-  };
+    warmupReviewGoalIds: string[]
+    primaryGoalId?: string
+    suggestedActivity: string
+    suggestedScaffoldingLevel: string
+    alternatives: string[]
+    rationale: string[]
+    motivationHook?: string
+    constraintsConsidered: string[]
+    prerequisiteWarnings: string[]
+  }
   alignmentSummary: {
     records: Array<{
-      goalId: string;
-      practiceCount: number;
-      assessmentCount: number;
-      assessmentFormats: string[];
-      coverage: "missing" | "partial" | "complete";
-      suiteComplete: boolean;
-      orphanedRefs: string[];
-      recommendation: string;
-    }>;
-    incompleteGoalIds: string[];
-    recommendations: string[];
-  };
-  alignmentSummaryUnavailable?: boolean;
+      goalId: string
+      practiceCount: number
+      assessmentCount: number
+      assessmentFormats: string[]
+      coverage: "missing" | "partial" | "complete"
+      suiteComplete: boolean
+      orphanedRefs: string[]
+      recommendation: string
+    }>
+    incompleteGoalIds: string[]
+    recommendations: string[]
+  }
+  alignmentSummaryUnavailable?: boolean
   openFeedbackActions: Array<{
-    feedbackId: string;
-    goalIds: string[];
-    requiredAction: string;
-    scaffoldingLevel: string;
-    pattern?: string;
-    createdAt: string;
-  }>;
+    feedbackId: string
+    goalIds: string[]
+    requiredAction: string
+    scaffoldingLevel: string
+    pattern?: string
+    createdAt: string
+  }>
   actions: Array<{
     actionId:
       | "define-goals"
@@ -107,198 +98,177 @@ export type LearnerCurriculumView = {
       | "run-check"
       | "review-due"
       | "resolve-feedback"
-      | "understand-next";
-    label: string;
-    prompt: string;
-    intent: TeachingIntent;
-    focusGoalIds: string[];
-    reason: string;
-  }>;
-  actionsUnavailable?: boolean;
-  constraintsSummary: string[];
-  markdown: string;
+      | "understand-next"
+    label: string
+    prompt: string
+    intent: TeachingIntent
+    focusGoalIds: string[]
+    reason: string
+  }>
+  actionsUnavailable?: boolean
+  constraintsSummary: string[]
+  markdown: string
   sections: Array<{
-    title: string;
-    items: string[];
-  }>;
-};
+    title: string
+    items: string[]
+  }>
+}
 
 export type LearnerRuntimeCapabilitiesView = {
-  persona: string;
-  intent: TeachingIntent;
-  workspaceState: "chat" | "interactive";
-  visibleSurfaces: string[];
-  defaultSurface: string;
+  persona: string
+  intent: TeachingIntent
+  workspaceState: "chat" | "interactive"
+  visibleSurfaces: string[]
+  defaultSurface: string
   tools: {
-    allow: string[];
-    deny: string[];
-  };
+    allow: string[]
+    deny: string[]
+  }
   skills: {
-    allow: string[];
-    deny: string[];
-  };
+    allow: string[]
+    deny: string[]
+  }
   subagents: {
-    prefer: string[];
-    allow: string[];
-    deny: string[];
-  };
-};
+    prefer: string[]
+    allow: string[]
+    deny: string[]
+  }
+}
 
 export type PromptCommandOption = {
-  name: string;
-  description?: string;
-  source?: "command" | "mcp" | "skill";
-};
+  name: string
+  description?: string
+  source?: "command" | "mcp" | "skill"
+}
 
 export type TeachingSessionSnapshot = {
-  sessionId: string;
-  persona: string;
-  intent: TeachingIntent;
-  currentSurface: string;
-  workspaceState: "chat" | "interactive";
-  focusGoalIds: string[];
-  lastLlmOutbound?: TeachingLlmOutboundSnapshot;
-  llmOutboundHistory?: TeachingLlmOutboundSnapshot[];
-};
+  sessionId: string
+  persona: string
+  intent: TeachingIntent
+  currentSurface: string
+  workspaceState: "chat" | "interactive"
+  focusGoalIds: string[]
+  lastLlmOutbound?: TeachingLlmOutboundSnapshot
+  llmOutboundHistory?: TeachingLlmOutboundSnapshot[]
+}
 
 export type TeachingLlmOutboundSnapshot = {
-  kind: "message" | "command";
-  createdAt: string;
-  payload: Record<string, unknown>;
-  fullSystemPrompt?: string;
-};
+  kind: "message" | "command"
+  createdAt: string
+  payload: Record<string, unknown>
+  fullSystemPrompt?: string
+}
 
-const BUDDY_PERSONA_DEFAULT_ORDER = [
-  "buddy",
-  "code-buddy",
-  "math-buddy",
-] as const;
+const BUDDY_PERSONA_DEFAULT_ORDER = ["buddy", "code-buddy", "math-buddy"] as const
 
 function normalizeProjectDirectory(directory: string) {
-  const normalized = directory.trim().replace(/\/+$/, "");
+  const normalized = directory.trim().replace(/\/+$/, "")
   if (!normalized || normalized === "/") {
-    return undefined;
+    return undefined
   }
-  return normalized;
+  return normalized
 }
 
 function normalizeDirectoryList(directories: string[]) {
   return Array.from(
-    new Set(
-      directories
-        .map((directory) => normalizeProjectDirectory(directory))
-        .filter(Boolean),
-    ),
-  ) as string[];
+    new Set(directories.map((directory) => normalizeProjectDirectory(directory)).filter(Boolean)),
+  ) as string[]
 }
 
 export function resolveDefaultPersonaID(
   personas: PersonaConfigOption[],
   configuredDefaultPersona?: string,
 ): string | undefined {
-  const selectablePersonas = personas.filter((persona) => !persona.hidden);
+  const selectablePersonas = personas.filter((persona) => !persona.hidden)
 
   if (
     configuredDefaultPersona &&
-    selectablePersonas.some(
-      (persona) => persona.id === configuredDefaultPersona,
-    )
+    selectablePersonas.some((persona) => persona.id === configuredDefaultPersona)
   ) {
-    return configuredDefaultPersona;
+    return configuredDefaultPersona
   }
 
   for (const personaID of BUDDY_PERSONA_DEFAULT_ORDER) {
     if (selectablePersonas.some((persona) => persona.id === personaID)) {
-      return personaID;
+      return personaID
     }
   }
 
-  return selectablePersonas[0]?.id;
+  return selectablePersonas[0]?.id
 }
 
-type RawProvider = ProviderListResponse["all"][number];
-type RawProviderModel = RawProvider["models"][string];
-type LearnerPersona = "buddy" | "code-buddy" | "math-buddy";
+type RawProvider = ProviderListResponse["all"][number]
+type RawProviderModel = RawProvider["models"][string]
+type LearnerPersona = "buddy" | "code-buddy" | "math-buddy"
 
-const LEARNER_PERSONAS = ["buddy", "code-buddy", "math-buddy"] as const;
-const DEFAULT_PERSONA_SURFACE: PersonaConfigOption["defaultSurface"] =
-  "curriculum";
+const LEARNER_PERSONAS = ["buddy", "code-buddy", "math-buddy"] as const
+const DEFAULT_PERSONA_SURFACE: PersonaConfigOption["defaultSurface"] = "curriculum"
 const EMPTY_ALIGNMENT_SUMMARY: LearnerCurriculumView["alignmentSummary"] = {
   records: [],
   incompleteGoalIds: [],
   recommendations: [],
-};
+}
 
 function toLearnerPersona(persona?: string): LearnerPersona | undefined {
-  if (!persona) return undefined;
+  if (!persona) return undefined
   if (LEARNER_PERSONAS.includes(persona as LearnerPersona)) {
-    return persona as LearnerPersona;
+    return persona as LearnerPersona
   }
-  return undefined;
+  return undefined
 }
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
-  if (!value || typeof value !== "object" || Array.isArray(value))
-    return undefined;
-  return value as Record<string, unknown>;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined
+  return value as Record<string, unknown>
 }
 
 function asString(value: unknown, fallback = ""): string {
-  return typeof value === "string" ? value : fallback;
+  return typeof value === "string" ? value : fallback
 }
 
 function asStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter((item): item is string => typeof item === "string");
+  if (!Array.isArray(value)) return []
+  return value.filter((item): item is string => typeof item === "string")
 }
 
 function asBoolean(value: unknown, fallback = false): boolean {
-  return typeof value === "boolean" ? value : fallback;
+  return typeof value === "boolean" ? value : fallback
 }
 
-function parseToolPermissions(
-  value: unknown,
-): Record<string, "allow" | "deny"> {
-  const record = asRecord(value);
-  if (!record) return {};
+function parseToolPermissions(value: unknown): Record<string, "allow" | "deny"> {
+  const record = asRecord(value)
+  if (!record) return {}
 
   return Object.fromEntries(
     Object.entries(record).filter(
-      (entry): entry is [string, "allow" | "deny"] =>
-        entry[1] === "allow" || entry[1] === "deny",
+      (entry): entry is [string, "allow" | "deny"] => entry[1] === "allow" || entry[1] === "deny",
     ),
-  );
+  )
 }
 
-function parseSubagentPermissions(
-  value: unknown,
-): Record<string, "allow" | "deny" | "prefer"> {
-  const record = asRecord(value);
-  if (!record) return {};
+function parseSubagentPermissions(value: unknown): Record<string, "allow" | "deny" | "prefer"> {
+  const record = asRecord(value)
+  if (!record) return {}
 
   return Object.fromEntries(
     Object.entries(record).filter(
       (entry): entry is [string, "allow" | "deny" | "prefer"] =>
         entry[1] === "allow" || entry[1] === "deny" || entry[1] === "prefer",
     ),
-  );
+  )
 }
 
-function parseWorkspaceView(
-  workspace: unknown,
-): LearnerCurriculumView["workspace"] {
-  const value = asRecord(workspace) ?? {};
+function parseWorkspaceView(workspace: unknown): LearnerCurriculumView["workspace"] {
+  const value = asRecord(workspace) ?? {}
 
   const preferredSurfaces = asStringArray(value.preferredSurfaces).filter(
-    (
-      surface,
-    ): surface is LearnerCurriculumView["workspace"]["preferredSurfaces"][number] =>
+    (surface): surface is LearnerCurriculumView["workspace"]["preferredSurfaces"][number] =>
       surface === "chat" ||
       surface === "curriculum" ||
       surface === "editor" ||
       surface === "figure" ||
       surface === "quiz",
-  );
+  )
 
   return {
     workspaceId: asString(value.workspaceId),
@@ -313,13 +283,13 @@ function parseWorkspaceView(
     userOverride: asBoolean(value.userOverride),
     createdAt: asString(value.createdAt),
     updatedAt: asString(value.updatedAt),
-  };
+  }
 }
 
 function parseOpenFeedbackActions(
   openFeedback: unknown,
 ): LearnerCurriculumView["openFeedbackActions"] {
-  if (!Array.isArray(openFeedback)) return [];
+  if (!Array.isArray(openFeedback)) return []
 
   return openFeedback
     .map((item) => asRecord(item))
@@ -332,34 +302,30 @@ function parseOpenFeedbackActions(
       pattern: asString(item.pattern) || undefined,
       createdAt: asString(item.createdAt),
     }))
-    .filter((item) => item.feedbackId.length > 0);
+    .filter((item) => item.feedbackId.length > 0)
 }
 
 function parseSections(sections: unknown): LearnerCurriculumView["sections"] {
-  if (!Array.isArray(sections)) return [];
+  if (!Array.isArray(sections)) return []
   return sections
     .map((section) => asRecord(section))
-    .filter(
-      (section): section is Record<string, unknown> => section !== undefined,
-    )
+    .filter((section): section is Record<string, unknown> => section !== undefined)
     .map((section) => ({
       title: asString(section.title),
       items: asStringArray(section.items),
     }))
-    .filter((section) => section.title.length > 0);
+    .filter((section) => section.title.length > 0)
 }
 
-function parsePersonaSurfaces(
-  surfaces: string[] | undefined,
-): PersonaConfigOption["surfaces"] {
-  if (!surfaces || surfaces.length === 0) return [DEFAULT_PERSONA_SURFACE];
+function parsePersonaSurfaces(surfaces: string[] | undefined): PersonaConfigOption["surfaces"] {
+  if (!surfaces || surfaces.length === 0) return [DEFAULT_PERSONA_SURFACE]
 
   const normalized = surfaces.filter(
     (surface): surface is PersonaConfigOption["surfaces"][number] =>
       surface === "curriculum" || surface === "editor" || surface === "figure",
-  );
+  )
 
-  return normalized.length > 0 ? normalized : [DEFAULT_PERSONA_SURFACE];
+  return normalized.length > 0 ? normalized : [DEFAULT_PERSONA_SURFACE]
 }
 
 function parseDefaultSurface(
@@ -367,9 +333,9 @@ function parseDefaultSurface(
   surfaces: PersonaConfigOption["surfaces"],
 ): PersonaConfigOption["defaultSurface"] {
   if (value === "curriculum" || value === "editor" || value === "figure") {
-    return value;
+    return value
   }
-  return surfaces[0] ?? DEFAULT_PERSONA_SURFACE;
+  return surfaces[0] ?? DEFAULT_PERSONA_SURFACE
 }
 
 function normalizeMcpStatusMap(input: McpStatusResponses[200]): McpStatusMap {
@@ -378,27 +344,17 @@ function normalizeMcpStatusMap(input: McpStatusResponses[200]): McpStatusMap {
       name,
       {
         status: status.status,
-        ...("error" in status && typeof status.error === "string"
-          ? { error: status.error }
-          : {}),
+        ...("error" in status && typeof status.error === "string" ? { error: status.error } : {}),
       },
     ]),
-  );
+  )
 }
 
-function normalizeProviderSource(
-  input: unknown,
-  connected: boolean,
-): ProviderInfo["source"] {
-  if (
-    input === "env" ||
-    input === "config" ||
-    input === "custom" ||
-    input === "api"
-  ) {
-    return input;
+function normalizeProviderSource(input: unknown, connected: boolean): ProviderInfo["source"] {
+  if (input === "env" || input === "config" || input === "custom" || input === "api") {
+    return input
   }
-  return connected ? "api" : "custom";
+  return connected ? "api" : "custom"
 }
 
 function normalizeProviderModel(
@@ -411,9 +367,7 @@ function normalizeProviderModel(
     name: input.name,
     family: input.family,
     releaseDate: input.release_date,
-    variants: Object.keys(input.variants ?? {}).toSorted((a, b) =>
-      a.localeCompare(b),
-    ),
+    variants: Object.keys(input.variants ?? {}).toSorted((a, b) => a.localeCompare(b)),
     status: input.status ?? "active",
     limit: {
       context: input.limit.context,
@@ -440,24 +394,24 @@ function normalizeProviderModel(
       },
       interleaved: input.capabilities.interleaved ?? false,
     },
-  };
+  }
 }
 
 function normalizeProviderCatalog(
   providers: ProviderListResponse,
   authMethods: ProviderAuthResponse,
 ): ProviderCatalogState {
-  const connected = new Set(providers.connected);
+  const connected = new Set(providers.connected)
 
   return {
     default: providers.default,
     providers: providers.all
       .map((provider) => {
-        const isConnected = connected.has(provider.id);
+        const isConnected = connected.has(provider.id)
         const source = normalizeProviderSource(
           (provider as { source?: unknown }).source,
           isConnected,
-        );
+        )
 
         return {
           id: provider.id,
@@ -465,218 +419,203 @@ function normalizeProviderCatalog(
           source,
           env: provider.env,
           connected: isConnected,
-          methods: (authMethods[provider.id] ?? []).map(
-            (method: ProviderAuthMethod) => ({
-              type: method.type,
-              label: method.label,
-            }),
-          ),
+          methods: (authMethods[provider.id] ?? []).map((method: ProviderAuthMethod) => ({
+            type: method.type,
+            label: method.label,
+          })),
           models: Object.values(provider.models)
             .filter((model) => model.status !== "deprecated")
             .map((model) => normalizeProviderModel(provider.id, model))
             .toSorted((a, b) => a.name.localeCompare(b.name)),
-        };
+        }
       })
       .toSorted((a, b) => a.name.localeCompare(b.name)),
-  };
+  }
 }
 
 async function fetchProviderCatalog(directory: string) {
-  const client = getBuddyClient(directory);
+  const client = getBuddyClient(directory)
   const [providerResult, authResult] = await Promise.all([
     client.provider.list(),
     client.provider.auth(),
-  ]);
+  ])
 
   return normalizeProviderCatalog(
     requireBuddyData<ProviderListResponse>(providerResult),
     requireBuddyData<ProviderAuthResponse>(authResult),
-  );
+  )
 }
 
 export async function loadOpenProjects() {
-  const response = requireBuddyData(await getBuddyClient().openProjects.list());
-  const knownOpenProjects = normalizeDirectoryList(response.directories);
-  useChatStore.getState().setOpenProjects(knownOpenProjects);
-  return useChatStore.getState().openProjects;
+  const response = requireBuddyData(await getBuddyClient().openProjects.list())
+  const knownOpenProjects = normalizeDirectoryList(response.directories)
+  useChatStore.getState().setOpenProjects(knownOpenProjects)
+  return useChatStore.getState().openProjects
 }
 
 export async function openProject(directory: string) {
-  const normalized = normalizeProjectDirectory(directory);
+  const normalized = normalizeProjectDirectory(directory)
   if (!normalized) {
-    throw new Error("Please choose a notebook directory, not /");
+    throw new Error("Please choose a notebook directory, not /")
   }
 
   const opened = requireBuddyData(
     await getBuddyClient().openProjects.open({ directory: normalized }),
-  );
-  const canonicalDirectory = normalizeProjectDirectory(opened.directory);
+  )
+  const canonicalDirectory = normalizeProjectDirectory(opened.directory)
 
   if (!canonicalDirectory) {
-    throw new Error("Invalid notebook directory");
+    throw new Error("Invalid notebook directory")
   }
 
-  useChatStore.getState().ensureOpenProject(canonicalDirectory);
-  return canonicalDirectory;
+  useChatStore.getState().ensureOpenProject(canonicalDirectory)
+  return canonicalDirectory
 }
 
 export async function preloadProjectSessions(directories: string[]) {
   const unique = Array.from(
-    new Set(
-      directories
-        .map((directory) => normalizeProjectDirectory(directory))
-        .filter(Boolean),
-    ),
-  ) as string[];
-  await Promise.all(
-    unique.map((directory) => loadSessions(directory).catch(() => undefined)),
-  );
+    new Set(directories.map((directory) => normalizeProjectDirectory(directory)).filter(Boolean)),
+  ) as string[]
+  await Promise.all(unique.map((directory) => loadSessions(directory).catch(() => undefined)))
 }
 
 export async function bootstrapOpenProjects() {
-  const knownOpenProjects = await loadOpenProjects();
-  await preloadProjectSessions(knownOpenProjects);
-  return knownOpenProjects;
+  const knownOpenProjects = await loadOpenProjects()
+  await preloadProjectSessions(knownOpenProjects)
+  return knownOpenProjects
 }
 
 export async function closeOpenProject(directory: string) {
-  const normalized = normalizeProjectDirectory(directory);
-  if (!normalized) return undefined;
+  const normalized = normalizeProjectDirectory(directory)
+  if (!normalized) return undefined
 
   const closed = requireBuddyData(
     await getBuddyClient().openProjects.close({ directory: normalized }),
-  );
-  const canonicalDirectory = normalizeProjectDirectory(closed.directory);
-  if (!canonicalDirectory) return undefined;
+  )
+  const canonicalDirectory = normalizeProjectDirectory(closed.directory)
+  if (!canonicalDirectory) return undefined
 
-  useChatStore.getState().closeProject(canonicalDirectory);
-  return canonicalDirectory;
+  useChatStore.getState().closeProject(canonicalDirectory)
+  return canonicalDirectory
 }
 
 export async function reorderOpenProjects(directories: string[]) {
-  const ordered = normalizeDirectoryList(directories);
+  const ordered = normalizeDirectoryList(directories)
   const response = requireBuddyData(
     await getBuddyClient().openProjects.reorder({ directories: ordered }),
-  );
-  const knownOpenProjects = normalizeDirectoryList(response.directories);
-  useChatStore.getState().setOpenProjects(knownOpenProjects);
-  return knownOpenProjects;
+  )
+  const knownOpenProjects = normalizeDirectoryList(response.directories)
+  useChatStore.getState().setOpenProjects(knownOpenProjects)
+  return knownOpenProjects
 }
 
 export async function loadSessions(directory: string) {
-  const store = useChatStore.getState();
+  const store = useChatStore.getState()
   try {
     const sessions = requireBuddyData<SessionInfo[]>(
       await getBuddyClient(directory).session.list({ directory }),
-    );
-    store.setSessions(directory, sessions);
-    store.setDirectoryError(directory, undefined);
-    return sessions;
+    )
+    store.setSessions(directory, sessions)
+    store.setDirectoryError(directory, undefined)
+    return sessions
   } catch (error) {
-    store.setDirectoryError(directory, stringifyError(error));
-    throw error;
+    store.setDirectoryError(directory, stringifyError(error))
+    throw error
   }
 }
 
 export async function loadMessages(directory: string, sessionID: string) {
-  const store = useChatStore.getState();
+  const store = useChatStore.getState()
   try {
     const messages = requireBuddyData<SessionMessagesResponses[200]>(
       await getBuddyClient(directory).session.messages({
         sessionID,
       }),
-    ) as MessageWithParts[];
-    store.setMessages(directory, sessionID, messages);
-    store.setDirectoryError(directory, undefined);
-    return messages;
+    ) as MessageWithParts[]
+    store.setMessages(directory, sessionID, messages)
+    store.setDirectoryError(directory, undefined)
+    return messages
   } catch (error) {
-    store.setDirectoryError(directory, stringifyError(error));
-    throw error;
+    store.setDirectoryError(directory, stringifyError(error))
+    throw error
   }
 }
 
 export async function loadPermissions(directory: string) {
-  const store = useChatStore.getState();
+  const store = useChatStore.getState()
   try {
     const requests = requireBuddyData<PermissionListResponses[200]>(
       await getBuddyClient(directory).permission.list(),
-    ) as PermissionRequest[];
-    store.setPendingPermissions(directory, requests);
-    store.setDirectoryError(directory, undefined);
-    return requests;
+    ) as PermissionRequest[]
+    store.setPendingPermissions(directory, requests)
+    store.setDirectoryError(directory, undefined)
+    return requests
   } catch (error) {
-    store.setDirectoryError(directory, stringifyError(error));
-    throw error;
+    store.setDirectoryError(directory, stringifyError(error))
+    throw error
   }
 }
 
 export async function loadProviderCatalog(directory: string) {
-  const store = useChatStore.getState();
+  const store = useChatStore.getState()
   try {
-    const providers = await fetchProviderCatalog(directory);
-    store.setProviders(directory, providers);
-    store.setDirectoryError(directory, undefined);
-    return providers;
+    const providers = await fetchProviderCatalog(directory)
+    store.setProviders(directory, providers)
+    store.setDirectoryError(directory, undefined)
+    return providers
   } catch (error) {
-    store.setDirectoryError(directory, stringifyError(error));
-    throw error;
+    store.setDirectoryError(directory, stringifyError(error))
+    throw error
   }
 }
 
 async function createSession(directory: string) {
-  const store = useChatStore.getState();
-  const info = requireBuddyData<SessionInfo>(
-    await getBuddyClient(directory).session.create(),
-  );
-  store.setSessionInfo(directory, info);
-  store.setMessages(directory, info.id, []);
-  return info;
+  const store = useChatStore.getState()
+  const info = requireBuddyData<SessionInfo>(await getBuddyClient(directory).session.create())
+  store.setSessionInfo(directory, info)
+  store.setMessages(directory, info.id, [])
+  return info
 }
 
 export async function ensureDirectorySession(directory: string) {
-  const store = useChatStore.getState();
-  const normalizedDirectory = normalizeProjectDirectory(directory) ?? directory;
-  let targetDirectory = normalizedDirectory;
+  const store = useChatStore.getState()
+  const normalizedDirectory = normalizeProjectDirectory(directory) ?? directory
+  let targetDirectory = normalizedDirectory
 
   try {
-    const knownOpenProjects = store.openProjects;
+    const knownOpenProjects = store.openProjects
     targetDirectory = knownOpenProjects.includes(normalizedDirectory)
       ? normalizedDirectory
-      : await openProject(normalizedDirectory);
-    const readyState = useChatStore.getState().directories[targetDirectory];
+      : await openProject(normalizedDirectory)
+    const readyState = useChatStore.getState().directories[targetDirectory]
     const readyInfo = readyState?.isReady
-      ? readyState.sessions.find(
-          (session) => session.id === readyState.sessionID,
-        )
-      : undefined;
+      ? readyState.sessions.find((session) => session.id === readyState.sessionID)
+      : undefined
 
     if (readyInfo) {
-      store.clearDirectoryError(targetDirectory);
+      store.clearDirectoryError(targetDirectory)
       return {
         directory: targetDirectory,
         info: readyInfo,
-      };
+      }
     }
 
-    store.setDirectoryReady(targetDirectory, false);
-    store.clearDirectoryError(targetDirectory);
+    store.setDirectoryReady(targetDirectory, false)
+    store.clearDirectoryError(targetDirectory)
 
-    const state = useChatStore.getState();
-    const current = state.directories[targetDirectory];
-    const storedSession =
-      current?.sessionID ?? state.lastSessionByDirectory[targetDirectory];
-    const sessions = await loadSessions(targetDirectory);
-    const sessionByID = new Map(
-      sessions.map((session) => [session.id, session]),
-    );
+    const state = useChatStore.getState()
+    const current = state.directories[targetDirectory]
+    const storedSession = current?.sessionID ?? state.lastSessionByDirectory[targetDirectory]
+    const sessions = await loadSessions(targetDirectory)
+    const sessionByID = new Map(sessions.map((session) => [session.id, session]))
 
-    let info: SessionInfo | undefined;
+    let info: SessionInfo | undefined
     if (storedSession && sessionByID.has(storedSession)) {
-      info = sessionByID.get(storedSession);
+      info = sessionByID.get(storedSession)
     }
 
     if (!info) {
-      info = sessions[0];
+      info = sessions[0]
     }
 
     if (!info && storedSession) {
@@ -685,105 +624,101 @@ export async function ensureDirectorySession(directory: string) {
           sessionID: storedSession,
         })
         .then((result) => requireBuddyData(result))
-        .catch(() => undefined);
+        .catch(() => undefined)
     }
 
     if (!info) {
-      info = await createSession(targetDirectory);
-      void loadSessions(targetDirectory).catch(() => undefined);
+      info = await createSession(targetDirectory)
+      void loadSessions(targetDirectory).catch(() => undefined)
     } else {
-      store.setSessionInfo(targetDirectory, info);
+      store.setSessionInfo(targetDirectory, info)
     }
 
-    await loadMessages(targetDirectory, info.id);
-    await loadPermissions(targetDirectory);
-    await loadProviderCatalog(targetDirectory);
-    await loadMcpStatus(targetDirectory).catch(() => undefined);
-    store.setDirectoryReady(targetDirectory, true);
+    await loadMessages(targetDirectory, info.id)
+    await loadPermissions(targetDirectory)
+    await loadProviderCatalog(targetDirectory)
+    await loadMcpStatus(targetDirectory).catch(() => undefined)
+    store.setDirectoryReady(targetDirectory, true)
     return {
       directory: targetDirectory,
       info,
-    };
+    }
   } catch (error) {
-    store.setDirectoryReady(targetDirectory, true);
-    store.setDirectoryError(targetDirectory, stringifyError(error));
-    throw error;
+    store.setDirectoryReady(targetDirectory, true)
+    store.setDirectoryError(targetDirectory, stringifyError(error))
+    throw error
   }
 }
 
 export async function selectSession(directory: string, sessionID: string) {
-  const store = useChatStore.getState();
-  const current = store.directories[directory];
-  const existing = current?.sessions.find(
-    (session) => session.id === sessionID,
-  );
+  const store = useChatStore.getState()
+  const current = store.directories[directory]
+  const existing = current?.sessions.find((session) => session.id === sessionID)
 
   if (existing) {
-    store.setSessionInfo(directory, existing);
+    store.setSessionInfo(directory, existing)
   } else {
     const info = requireBuddyData<SessionInfo>(
       await getBuddyClient(directory).session.get({
         sessionID,
       }),
-    );
-    store.setSessionInfo(directory, info);
+    )
+    store.setSessionInfo(directory, info)
   }
 
-  await loadMessages(directory, sessionID);
+  await loadMessages(directory, sessionID)
 }
 
 export async function startNewSession(directory: string) {
-  const store = useChatStore.getState();
-  store.clearDirectoryError(directory);
-  const info = await createSession(directory);
-  void loadSessions(directory).catch(() => undefined);
-  await loadMessages(directory, info.id);
-  return info;
+  const store = useChatStore.getState()
+  store.clearDirectoryError(directory)
+  const info = await createSession(directory)
+  void loadSessions(directory).catch(() => undefined)
+  await loadMessages(directory, info.id)
+  return info
 }
 
 export async function sendPrompt(
   directory: string,
   content: string,
   input?: {
-    parts?: PromptSubmissionPart[];
-    persona?: string;
-    intent: TeachingIntent;
-    focusGoalIds?: string[];
-    agent?: string;
+    parts?: PromptSubmissionPart[]
+    persona?: string
+    intent: TeachingIntent
+    focusGoalIds?: string[]
+    agent?: string
     model?: {
-      providerID: string;
-      modelID: string;
-    };
-    variant?: string;
-    teaching?: TeachingPromptContext;
+      providerID: string
+      modelID: string
+    }
+    variant?: string
+    teaching?: TeachingPromptContext
   },
 ) {
-  const store = useChatStore.getState();
-  const state = store.directories[directory];
-  const sessionID = state?.sessionID;
+  const store = useChatStore.getState()
+  const state = store.directories[directory]
+  const sessionID = state?.sessionID
   if (!sessionID) {
-    throw new Error("No session available");
+    throw new Error("No session available")
   }
 
-  store.clearDirectoryError(directory);
-  store.applySessionStatus(directory, sessionID, "busy");
+  store.clearDirectoryError(directory)
+  store.applySessionStatus(directory, sessionID, "busy")
 
   try {
-    const intent = input?.intent ?? "auto";
+    const intent = input?.intent ?? "auto"
 
     console.info("[chat-action] prompt.start", {
       directory,
       contentLength: content.length,
       sessionID,
-    });
+    })
 
     requireBuddyData(
       await getBuddyClient(directory).session.prompt({
         sessionID,
         content,
-        ...(input?.parts && input.parts.length > 0
-          ? { parts: input.parts }
-          : {}),
+        ...(input?.parts && input.parts.length > 0 ? { parts: input.parts } : {}),
         ...(input?.persona ? { persona: input.persona } : {}),
         intent,
         ...(input?.focusGoalIds && input.focusGoalIds.length > 0
@@ -794,20 +729,20 @@ export async function sendPrompt(
         ...(input?.variant ? { variant: input.variant } : {}),
         ...(input?.teaching ? { teaching: input.teaching } : {}),
       }),
-    );
+    )
 
-    console.info("[chat-action] prompt.accepted", { directory, sessionID });
+    console.info("[chat-action] prompt.accepted", { directory, sessionID })
   } catch (error) {
     console.error("[chat-action] prompt.failed", {
       directory,
       sessionID,
       error: stringifyError(error),
-    });
-    store.applySessionStatus(directory, sessionID, "idle");
-    store.setDirectoryError(directory, stringifyError(error));
-    void loadMessages(directory, sessionID).catch(() => undefined);
-    void loadSessions(directory).catch(() => undefined);
-    throw error;
+    })
+    store.applySessionStatus(directory, sessionID, "idle")
+    store.setDirectoryError(directory, stringifyError(error))
+    void loadMessages(directory, sessionID).catch(() => undefined)
+    void loadSessions(directory).catch(() => undefined)
+    throw error
   }
 }
 
@@ -816,85 +751,74 @@ export async function sendCommand(
   command: string,
   argumentsText: string,
   input?: {
-    parts?: PromptFilePart[];
-    persona?: string;
-    intent: TeachingIntent;
-    agent?: string;
+    parts?: PromptFilePart[]
+    persona?: string
+    intent: TeachingIntent
+    agent?: string
     model?: {
-      providerID: string;
-      modelID: string;
-    };
-    variant?: string;
+      providerID: string
+      modelID: string
+    }
+    variant?: string
   },
 ) {
-  const store = useChatStore.getState();
-  const state = store.directories[directory];
-  const sessionID = state?.sessionID;
+  const store = useChatStore.getState()
+  const state = store.directories[directory]
+  const sessionID = state?.sessionID
   if (!sessionID) {
-    throw new Error("No session available");
+    throw new Error("No session available")
   }
 
-  store.clearDirectoryError(directory);
-  store.applySessionStatus(directory, sessionID, "busy");
+  store.clearDirectoryError(directory)
+  store.applySessionStatus(directory, sessionID, "busy")
 
   try {
-    const intent = input?.intent ?? "auto";
+    const intent = input?.intent ?? "auto"
 
     requireBuddyData(
       await getBuddyClient(directory).session.command({
         sessionID,
         command,
         arguments: argumentsText,
-        ...(input?.parts && input.parts.length > 0
-          ? { parts: input.parts }
-          : {}),
+        ...(input?.parts && input.parts.length > 0 ? { parts: input.parts } : {}),
         ...(input?.persona ? { persona: input.persona } : {}),
         intent,
         ...(input?.agent ? { agent: input.agent } : {}),
-        ...(input?.model
-          ? { model: `${input.model.providerID}/${input.model.modelID}` }
-          : {}),
+        ...(input?.model ? { model: `${input.model.providerID}/${input.model.modelID}` } : {}),
         ...(input?.variant ? { variant: input.variant } : {}),
       }),
-    );
+    )
   } catch (error) {
-    store.applySessionStatus(directory, sessionID, "idle");
-    store.setDirectoryError(directory, stringifyError(error));
-    void loadMessages(directory, sessionID).catch(() => undefined);
-    void loadSessions(directory).catch(() => undefined);
-    throw error;
+    store.applySessionStatus(directory, sessionID, "idle")
+    store.setDirectoryError(directory, stringifyError(error))
+    void loadMessages(directory, sessionID).catch(() => undefined)
+    void loadSessions(directory).catch(() => undefined)
+    throw error
   }
 }
 
-export async function loadTeachingSessionState(
-  directory: string,
-  sessionID: string,
-) {
+export async function loadTeachingSessionState(directory: string, sessionID: string) {
   const result = await getBuddyClient(directory).session.teachingState({
     sessionID,
-  });
+  })
 
   if (result.response.status === 204) {
-    return undefined;
+    return undefined
   }
 
-  if (
-    !result.response.ok ||
-    result.error !== undefined ||
-    result.data === undefined
-  ) {
-    throw new Error(buddyResultMessage(result));
+  if (!result.response.ok || result.error !== undefined || result.data === undefined) {
+    throw new Error(buddyResultMessage(result))
   }
 
-  return result.data as SessionTeachingStateResponses[200] as TeachingSessionSnapshot;
+  return result.data as SessionTeachingStateResponses[200] as TeachingSessionSnapshot
 }
 
 export async function abortPrompt(directory: string) {
-  const store = useChatStore.getState();
-  const state = store.directories[directory];
-  const sessionID = state?.sessionID;
+  const store = useChatStore.getState()
+  const state = store.directories[directory]
+  const sessionID = state?.sessionID
   if (!sessionID) {
-    return false;
+    return false
   }
 
   try {
@@ -902,35 +826,35 @@ export async function abortPrompt(directory: string) {
       await getBuddyClient(directory).session.abort({
         sessionID,
       }),
-    );
-    if (aborted) store.applySessionStatus(directory, sessionID, "idle");
+    )
+    if (aborted) store.applySessionStatus(directory, sessionID, "idle")
     // Always resync once after abort attempt so UI doesn't stay stale if server state drifted.
-    void loadMessages(directory, sessionID).catch(() => undefined);
-    void loadSessions(directory).catch(() => undefined);
-    return aborted;
+    void loadMessages(directory, sessionID).catch(() => undefined)
+    void loadSessions(directory).catch(() => undefined)
+    return aborted
   } catch (error) {
-    store.setDirectoryError(directory, stringifyError(error));
-    throw error;
+    store.setDirectoryError(directory, stringifyError(error))
+    throw error
   }
 }
 
 export async function resyncDirectory(directory: string) {
-  const store = useChatStore.getState();
-  const sessionID = store.directories[directory]?.sessionID;
-  await loadSessions(directory);
-  await loadPermissions(directory);
-  await loadProviderCatalog(directory);
-  await loadMcpStatus(directory).catch(() => undefined);
-  if (!sessionID) return;
-  if (shouldDeferTranscriptReload(directory, sessionID)) return;
-  await loadMessages(directory, sessionID);
+  const store = useChatStore.getState()
+  const sessionID = store.directories[directory]?.sessionID
+  await loadSessions(directory)
+  await loadPermissions(directory)
+  await loadProviderCatalog(directory)
+  await loadMcpStatus(directory).catch(() => undefined)
+  if (!sessionID) return
+  if (shouldDeferTranscriptReload(directory, sessionID)) return
+  await loadMessages(directory, sessionID)
 }
 
 export async function replyPermission(input: {
-  directory: string;
-  requestID: string;
-  reply: "once" | "always" | "reject";
-  message?: string;
+  directory: string
+  requestID: string
+  reply: "once" | "always" | "reject"
+  message?: string
 }) {
   const result = requireBuddyData(
     await getBuddyClient(input.directory).permission.reply({
@@ -938,37 +862,35 @@ export async function replyPermission(input: {
       reply: input.reply,
       message: input.message,
     }),
-  );
+  )
   if (result) {
-    useChatStore
-      .getState()
-      .applyPermissionReplied(input.directory, input.requestID);
+    useChatStore.getState().applyPermissionReplied(input.directory, input.requestID)
   }
-  return result;
+  return result
 }
 
 export async function updateSession(input: {
-  directory: string;
-  sessionID: string;
-  title?: string;
-  archivedAt?: number;
+  directory: string
+  sessionID: string
+  title?: string
+  archivedAt?: number
 }) {
-  const store = useChatStore.getState();
+  const store = useChatStore.getState()
   const payload: {
-    title?: string;
+    title?: string
     time?: {
-      archived?: number;
-    };
-  } = {};
+      archived?: number
+    }
+  } = {}
 
   if (input.title !== undefined) {
-    payload.title = input.title;
+    payload.title = input.title
   }
 
   if (input.archivedAt !== undefined) {
     payload.time = {
       archived: input.archivedAt,
-    };
+    }
   }
 
   try {
@@ -977,25 +899,25 @@ export async function updateSession(input: {
         sessionID: input.sessionID,
         ...payload,
       }),
-    );
-    store.setDirectoryError(input.directory, undefined);
-    return session;
+    )
+    store.setDirectoryError(input.directory, undefined)
+    return session
   } catch (error) {
-    store.setDirectoryError(input.directory, stringifyError(error));
-    throw error;
+    store.setDirectoryError(input.directory, stringifyError(error))
+    throw error
   }
 }
 
 export async function loadCurriculumView(
   directory: string,
   input?: {
-    persona?: string;
-    intent?: TeachingIntent;
-    sessionID?: string;
-    generateDecision?: boolean;
+    persona?: string
+    intent?: TeachingIntent
+    sessionID?: string
+    generateDecision?: boolean
   },
 ) {
-  const intent = input?.intent ?? "auto";
+  const intent = input?.intent ?? "auto"
 
   const result = requireBuddyData<LearnerPlanResponses[200]>(
     await getBuddyClient(directory).learner.plan({
@@ -1004,9 +926,9 @@ export async function loadCurriculumView(
       query_sessionId: input?.sessionID,
       generateDecision: input?.generateDecision ? true : undefined,
     }),
-  );
-  const snapshot = result.snapshot;
-  const plan = result.plan;
+  )
+  const snapshot = result.snapshot
+  const plan = result.plan
   const sessionPlan: LearnerCurriculumView["sessionPlan"] = {
     warmupReviewGoalIds: plan.warmupReviewGoalIds ?? [],
     primaryGoalId: plan.primaryGoalId,
@@ -1017,7 +939,7 @@ export async function loadCurriculumView(
     motivationHook: plan.motivationHook,
     constraintsConsidered: plan.constraintsConsidered ?? [],
     prerequisiteWarnings: plan.prerequisiteWarnings ?? [],
-  };
+  }
 
   return {
     workspace: parseWorkspaceView(snapshot.workspace),
@@ -1032,7 +954,7 @@ export async function loadCurriculumView(
     constraintsSummary: snapshot.constraintsSummary,
     markdown: snapshot.markdown,
     sections: parseSections(snapshot.sections),
-  };
+  }
 }
 
 function sortedPermissionKeys(
@@ -1042,7 +964,7 @@ function sortedPermissionKeys(
   return Object.entries(permissions)
     .filter(([, value]) => value === action)
     .map(([key]) => key)
-    .toSorted((left, right) => left.localeCompare(right));
+    .toSorted((left, right) => left.localeCompare(right))
 }
 
 function sortedSubagentKeys(
@@ -1052,18 +974,18 @@ function sortedSubagentKeys(
   return Object.entries(permissions)
     .filter(([, value]) => value === action)
     .map(([key]) => key)
-    .toSorted((left, right) => left.localeCompare(right));
+    .toSorted((left, right) => left.localeCompare(right))
 }
 
 export async function loadRuntimeCapabilities(
   directory: string,
   input?: {
-    persona?: string;
-    intent?: TeachingIntent;
-    sessionID?: string;
+    persona?: string
+    intent?: TeachingIntent
+    sessionID?: string
   },
 ) {
-  const requestedIntent = input?.intent ?? "auto";
+  const requestedIntent = input?.intent ?? "auto"
 
   const snapshot = requireBuddyData<LearnerSnapshotResponses[200]>(
     await getBuddyClient(directory).learner.snapshot({
@@ -1071,28 +993,23 @@ export async function loadRuntimeCapabilities(
       intent: requestedIntent,
       sessionId: input?.sessionID,
     }),
-  );
+  )
 
-  const runtimeProfile = asRecord(snapshot.runtimeProfile);
-  const envelope = asRecord(runtimeProfile?.capabilityEnvelope);
+  const runtimeProfile = asRecord(snapshot.runtimeProfile)
+  const envelope = asRecord(runtimeProfile?.capabilityEnvelope)
   if (!runtimeProfile || !envelope) {
-    throw new Error(
-      "Runtime capability profile is unavailable for this session.",
-    );
+    throw new Error("Runtime capability profile is unavailable for this session.")
   }
 
-  const visibleSurfaces = asStringArray(envelope.visibleSurfaces).toSorted(
-    (left, right) => left.localeCompare(right),
-  );
-  const tools = parseToolPermissions(envelope.tools);
-  const skills = parseToolPermissions(envelope.skills);
-  const subagents = parseSubagentPermissions(envelope.subagents);
+  const visibleSurfaces = asStringArray(envelope.visibleSurfaces).toSorted((left, right) =>
+    left.localeCompare(right),
+  )
+  const tools = parseToolPermissions(envelope.tools)
+  const skills = parseToolPermissions(envelope.skills)
+  const subagents = parseSubagentPermissions(envelope.subagents)
 
   return {
-    persona: asString(
-      runtimeProfile.persona,
-      toLearnerPersona(input?.persona) ?? "buddy",
-    ),
+    persona: asString(runtimeProfile.persona, toLearnerPersona(input?.persona) ?? "buddy"),
     intent: snapshot.runtimeContext?.intent ?? requestedIntent,
     workspaceState: snapshot.runtimeContext?.workspaceState ?? "chat",
     visibleSurfaces,
@@ -1113,73 +1030,66 @@ export async function loadRuntimeCapabilities(
       allow: sortedSubagentKeys(subagents, "allow"),
       deny: sortedSubagentKeys(subagents, "deny"),
     },
-  } satisfies LearnerRuntimeCapabilitiesView;
+  } satisfies LearnerRuntimeCapabilitiesView
 }
 
 export type GoalArtifact = {
-  id: string;
-  kind: "goal";
-  workspaceId: string;
-  status: "active" | "archived";
-  setId?: string;
-  scope: "course" | "topic";
-  contextLabel: string;
-  learnerRequest: string;
-  rationaleSummary?: string;
-  assumptions: string[];
-  openQuestions: string[];
-  statement: string;
-  actionVerb: string;
-  task: string;
-  cognitiveLevel: string;
-  howToTest: string;
-  dependsOnGoalIds: string[];
-  buildsOnGoalIds: string[];
-  reinforcesGoalIds: string[];
-  conceptTags: string[];
-  workspaceRefs: string[];
-  createdAt: string;
-  updatedAt: string;
-};
+  id: string
+  kind: "goal"
+  workspaceId: string
+  status: "active" | "archived"
+  setId?: string
+  scope: "course" | "topic"
+  contextLabel: string
+  learnerRequest: string
+  rationaleSummary?: string
+  assumptions: string[]
+  openQuestions: string[]
+  statement: string
+  actionVerb: string
+  task: string
+  cognitiveLevel: string
+  howToTest: string
+  dependsOnGoalIds: string[]
+  buildsOnGoalIds: string[]
+  reinforcesGoalIds: string[]
+  conceptTags: string[]
+  workspaceRefs: string[]
+  createdAt: string
+  updatedAt: string
+}
 
-export async function loadLearnerGoals(
-  directory: string,
-): Promise<{ goals: GoalArtifact[] }> {
+export async function loadLearnerGoals(directory: string): Promise<{ goals: GoalArtifact[] }> {
   const result = requireBuddyData(
     await getBuddyClient(directory).learner.artifacts({
       kind: "goal",
       status: "active",
     }),
-  );
+  )
   return {
     goals: result.artifacts as GoalArtifact[],
-  };
+  }
 }
 
 export async function loadLearnerProgress(directory: string) {
-  const result = requireBuddyData(
-    await getBuddyClient(directory).learner.plan(),
-  );
+  const result = requireBuddyData(await getBuddyClient(directory).learner.plan())
   return {
     progress: [{ suggestedActivity: result.plan.suggestedActivity }],
-  };
+  }
 }
 
 export async function loadProjectConfig(directory: string) {
   return requireBuddyData<ConfigGetResponses[200]>(
     await getBuddyClient(directory).config.get(),
-  ) as Record<string, unknown>;
+  ) as Record<string, unknown>
 }
 
-export async function patchProjectConfig(
-  directory: string,
-  patch: Record<string, unknown>,
-) {
-  const configPatch = patch as Partial<NonNullable<ConfigUpdateData["body"]>>;
+export async function patchProjectConfig(directory: string, patch: Record<string, unknown>) {
+  const configPatch = patch as Partial<NonNullable<ConfigUpdateData["body"]>>
   const result = await getBuddyClient(directory).config.update({
     ...configPatch,
-  });
-  return requireBuddyData(result) as Record<string, unknown>;
+  })
+  return requireBuddyData(result) as Record<string, unknown>
 }
 
 export async function saveProjectMcpConfig(
@@ -1191,20 +1101,20 @@ export async function saveProjectMcpConfig(
     ? T extends McpLocalConfig | McpRemoteConfig
       ? T
       : never
-    : never;
+    : never
   const result = await getBuddyClient(directory).config.mcp.put({
     name,
     body,
-  });
+  })
 
-  return requireBuddyData(result) as Record<string, unknown>;
+  return requireBuddyData(result) as Record<string, unknown>
 }
 
 export async function loadPersonaCatalog(directory: string) {
-  const result = await getBuddyClient(directory).config.personas();
-  const personas = requireBuddyData<ConfigPersonasResponses[200]>(result);
+  const result = await getBuddyClient(directory).config.personas()
+  const personas = requireBuddyData<ConfigPersonasResponses[200]>(result)
   return personas.map((persona) => {
-    const surfaces = parsePersonaSurfaces(persona.surfaces);
+    const surfaces = parsePersonaSurfaces(persona.surfaces)
     return {
       id: persona.id,
       label: persona.label,
@@ -1212,29 +1122,27 @@ export async function loadPersonaCatalog(directory: string) {
       surfaces,
       defaultSurface: parseDefaultSurface(persona.defaultSurface, surfaces),
       hidden: persona.hidden,
-    };
-  });
+    }
+  })
 }
 
 export async function loadCommandCatalog(directory: string) {
-  const result = await getBuddyClient(directory).command.list();
-  const commands = requireBuddyData<CommandListResponses[200]>(result);
+  const result = await getBuddyClient(directory).command.list()
+  const commands = requireBuddyData<CommandListResponses[200]>(result)
   return commands.map((command) => ({
     name: command.name,
     description: command.description,
     source: command.source,
-  }));
+  }))
 }
 
 export async function loadMcpStatus(directory: string) {
-  const store = useChatStore.getState();
+  const store = useChatStore.getState()
   const status = normalizeMcpStatusMap(
-    requireBuddyData<McpStatusResponses[200]>(
-      await getBuddyClient(directory).mcp.status(),
-    ),
-  );
-  store.setMcpStatus(directory, status);
-  return status;
+    requireBuddyData<McpStatusResponses[200]>(await getBuddyClient(directory).mcp.status()),
+  )
+  store.setMcpStatus(directory, status)
+  return status
 }
 
 export async function connectMcpServer(directory: string, name: string) {
@@ -1242,8 +1150,8 @@ export async function connectMcpServer(directory: string, name: string) {
     await getBuddyClient(directory).mcp.connect({
       name,
     }),
-  );
-  return loadMcpStatus(directory);
+  )
+  return loadMcpStatus(directory)
 }
 
 export async function disconnectMcpServer(directory: string, name: string) {
@@ -1251,8 +1159,8 @@ export async function disconnectMcpServer(directory: string, name: string) {
     await getBuddyClient(directory).mcp.disconnect({
       name,
     }),
-  );
-  return loadMcpStatus(directory);
+  )
+  return loadMcpStatus(directory)
 }
 
 export async function authenticateMcpServer(directory: string, name: string) {
@@ -1260,39 +1168,36 @@ export async function authenticateMcpServer(directory: string, name: string) {
     await getBuddyClient(directory).mcp.auth.authenticate({
       name,
     }),
-  );
-  return loadMcpStatus(directory);
+  )
+  return loadMcpStatus(directory)
 }
 
 export async function findWorkspaceFiles(
   directory: string,
   query: string,
   input?: {
-    includeDirectories?: boolean;
-    limit?: number;
+    includeDirectories?: boolean
+    limit?: number
   },
 ): Promise<FindFilesResponses[200]> {
-  const search = query.trim();
-  if (!search) return [] as string[];
+  const search = query.trim()
+  if (!search) return [] as string[]
 
-  const includeDirectories = input?.includeDirectories ?? true;
+  const includeDirectories = input?.includeDirectories ?? true
   const response = await getBuddyClient(directory).find.files({
     query: search,
     dirs: includeDirectories ? "true" : "false",
     limit: input?.limit ?? 20,
-  });
+  })
 
-  return requireBuddyData<FindFilesResponses[200]>(response);
+  return requireBuddyData<FindFilesResponses[200]>(response)
 }
 
-export function shouldDeferTranscriptReload(
-  directory: string,
-  sessionID?: string,
-) {
-  const state = useChatStore.getState();
-  const snapshot = state.directories[directory];
-  if (!snapshot?.isBusy) return false;
-  if (state.streamStatus !== "connected") return false;
-  if (sessionID && snapshot.sessionID !== sessionID) return false;
-  return true;
+export function shouldDeferTranscriptReload(directory: string, sessionID?: string) {
+  const state = useChatStore.getState()
+  const snapshot = state.directories[directory]
+  if (!snapshot?.isBusy) return false
+  if (state.streamStatus !== "connected") return false
+  if (sessionID && snapshot.sessionID !== sessionID) return false
+  return true
 }

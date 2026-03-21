@@ -2,16 +2,16 @@ import {
   authorizationHeader,
   createServerFetchTransport,
   resolveServerApiBaseUrl,
-} from '../lib/server-client'
+} from "../lib/server-client"
 
 export type AdvancedMathRuntimeState =
-  | 'not_installed'
-  | 'downloading'
-  | 'installing'
-  | 'ready'
-  | 'repairing'
-  | 'removing'
-  | 'error'
+  | "not_installed"
+  | "downloading"
+  | "installing"
+  | "ready"
+  | "repairing"
+  | "removing"
+  | "error"
 
 export type AdvancedMathRuntimeStatus = {
   enabled: boolean
@@ -32,8 +32,8 @@ type RuntimeErrorBody = {
 }
 
 function errorMessage(value: unknown) {
-  if (typeof value === 'string' && value.length > 0) return value
-  if (value && typeof value === 'object' && 'error' in value) {
+  if (typeof value === "string" && value.length > 0) return value
+  if (value && typeof value === "object" && "error" in value) {
     return errorMessage((value as RuntimeErrorBody).error)
   }
   return undefined
@@ -63,17 +63,17 @@ async function requestRuntimeStatus(
 }
 
 export function loadAdvancedMathRuntimeStatus() {
-  return requestRuntimeStatus('/local-runtimes/advanced-math')
+  return requestRuntimeStatus("/local-runtimes/advanced-math")
 }
 
 export function installAdvancedMathRuntime() {
-  return requestRuntimeStatus('/local-runtimes/advanced-math/install', {
-    method: 'POST',
+  return requestRuntimeStatus("/local-runtimes/advanced-math/install", {
+    method: "POST",
   })
 }
 
 export function removeAdvancedMathRuntime() {
-  return requestRuntimeStatus('/local-runtimes/advanced-math/install', {
-    method: 'DELETE',
+  return requestRuntimeStatus("/local-runtimes/advanced-math/install", {
+    method: "DELETE",
   })
 }

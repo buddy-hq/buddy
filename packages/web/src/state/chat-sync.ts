@@ -1,14 +1,14 @@
-import type { GlobalEvent } from './chat-types'
-import { getPlatform } from '../context/platform'
-import { apiFetch, createEventStreamUrl } from '../lib/api-client'
-import { getServerConnection } from '../context/server'
+import type { GlobalEvent } from "./chat-types"
+import { getPlatform } from "../context/platform"
+import { apiFetch, createEventStreamUrl } from "../lib/api-client"
+import { getServerConnection } from "../context/server"
 
 type SyncHandlers = {
   directory?: string
   onOpen?: () => void
   onEvent: (event: GlobalEvent) => void
   onError?: (error: unknown) => void
-  onStatus?: (status: 'connecting' | 'connected' | 'error') => void
+  onStatus?: (status: "connecting" | "connected" | "error") => void
 }
 
 const FRAME_MS = 16
@@ -27,22 +27,22 @@ function parseSseEventChunk(chunk: string) {
   const payload: string[] = []
 
   for (const line of chunk.split(/\r?\n/)) {
-    if (!line || line.startsWith(':')) continue
+    if (!line || line.startsWith(":")) continue
 
-    const separator = line.indexOf(':')
+    const separator = line.indexOf(":")
     const field = separator === -1 ? line : line.slice(0, separator)
-    let value = separator === -1 ? '' : line.slice(separator + 1)
-    if (value.startsWith(' ')) {
+    let value = separator === -1 ? "" : line.slice(separator + 1)
+    if (value.startsWith(" ")) {
       value = value.slice(1)
     }
 
-    if (field === 'data') {
+    if (field === "data") {
       payload.push(value)
     }
   }
 
   if (payload.length === 0) return undefined
-  return payload.join('\n')
+  return payload.join("\n")
 }
 
 export function consumeSseBuffer(buffer: string) {
@@ -69,14 +69,14 @@ export function consumeSseBuffer(buffer: string) {
 }
 
 function eventKey(event: GlobalEvent) {
-  const directory = event.directory ?? 'global'
+  const directory = event.directory ?? "global"
   const payload = event.payload
 
-  if (payload.type === 'session.status') {
-    return `${directory}:session.status:${String(payload.properties.sessionID ?? '')}`
+  if (payload.type === "session.status") {
+    return `${directory}:session.status:${String(payload.properties.sessionID ?? "")}`
   }
 
-  if (payload.type === 'message.part.updated') {
+  if (payload.type === "message.part.updated") {
     const part = payload.properties.part as { messageID?: string; id?: string } | undefined
     if (!part?.messageID || !part.id) return undefined
     return `${directory}:message.part.updated:${part.messageID}:${part.id}`
@@ -133,14 +133,14 @@ export function startChatSync(handlers: SyncHandlers) {
 
     for (const event of events) {
       if (!event) continue
-      if (skip && event.payload.type === 'message.part.delta') {
+      if (skip && event.payload.type === "message.part.delta") {
         const props = event.payload.properties
         if (
           skip.has(
             deltaKey(
-              event.directory ?? 'global',
-              String(props.messageID ?? ''),
-              String(props.partID ?? ''),
+              event.directory ?? "global",
+              String(props.messageID ?? ""),
+              String(props.partID ?? ""),
             ),
           )
         ) {
@@ -158,29 +158,29 @@ export function startChatSync(handlers: SyncHandlers) {
 
   const connect = () => {
     if (disposed) return
-    console.info('[chat-sync] connect')
-    handlers.onStatus?.('connecting')
+    console.info("[chat-sync] connect")
+    handlers.onStatus?.("connecting")
     closeSource()
     closeStream()
     clearReconnect()
     const search = new URLSearchParams()
     if (handlers.directory) {
-      search.set('directory', handlers.directory)
+      search.set("directory", handlers.directory)
     }
-    const endpoint = search.size > 0 ? `/api/event?${search.toString()}` : '/api/event'
+    const endpoint = search.size > 0 ? `/api/event?${search.toString()}` : "/api/event"
     const server = getServerConnection()
     const requiresAuthenticatedStream = !!server.username && !!server.password
-    const requiresFetchStream = getPlatform().platform === 'desktop' || requiresAuthenticatedStream
+    const requiresFetchStream = getPlatform().platform === "desktop" || requiresAuthenticatedStream
 
     const handleParsedEvent = (message: string) => {
       try {
         const event = JSON.parse(message) as GlobalEvent
-        const payloadType = event.payload?.type ?? 'unknown'
-        if (payloadType === 'session.status' || payloadType === 'message.updated') {
-          console.info('[chat-sync] event', {
-            directory: event.directory ?? 'global',
+        const payloadType = event.payload?.type ?? "unknown"
+        if (payloadType === "session.status" || payloadType === "message.updated") {
+          console.info("[chat-sync] event", {
+            directory: event.directory ?? "global",
             type: payloadType,
-            sessionID: String(event.payload?.properties?.sessionID ?? ''),
+            sessionID: String(event.payload?.properties?.sessionID ?? ""),
           })
         }
         const key = eventKey(event)
@@ -188,12 +188,12 @@ export function startChatSync(handlers: SyncHandlers) {
           const existing = coalesced.get(key)
           if (existing !== undefined) {
             queue[existing] = event
-            if (payloadType === 'message.part.updated') {
+            if (payloadType === "message.part.updated") {
               const part = event.payload.properties.part as
                 | { messageID?: string; id?: string }
                 | undefined
               if (part?.messageID && part.id) {
-                staleDeltas.add(deltaKey(event.directory ?? 'global', part.messageID, part.id))
+                staleDeltas.add(deltaKey(event.directory ?? "global", part.messageID, part.id))
               }
             }
             return
@@ -214,7 +214,7 @@ export function startChatSync(handlers: SyncHandlers) {
       reconnectTimer = window.setTimeout(() => {
         connect()
       }, delay)
-      handlers.onStatus?.('error')
+      handlers.onStatus?.("error")
       if (notifyError) {
         handlers.onError?.(new Error(`Event stream disconnected (attempt ${attempt})`))
       }
@@ -228,8 +228,8 @@ export function startChatSync(handlers: SyncHandlers) {
           const response = await apiFetch(endpoint, {
             directory: handlers.directory,
             headers: {
-              accept: 'text/event-stream',
-              'cache-control': 'no-cache',
+              accept: "text/event-stream",
+              "cache-control": "no-cache",
             },
             signal: streamAbort.signal,
           })
@@ -243,11 +243,11 @@ export function startChatSync(handlers: SyncHandlers) {
             opened = true
             handlers.onOpen?.()
           }
-          handlers.onStatus?.('connected')
+          handlers.onStatus?.("connected")
 
           const reader = response.body.getReader()
           const decoder = new TextDecoder()
-          let buffer = ''
+          let buffer = ""
 
           while (!disposed) {
             const result = await reader.read()
@@ -269,9 +269,9 @@ export function startChatSync(handlers: SyncHandlers) {
           for (const message of parsed.messages) {
             handleParsedEvent(message)
           }
-        } catch  {
+        } catch {
           if (disposed) return
-          console.warn('[chat-sync] error', { attempt: attempt + 1 })
+          console.warn("[chat-sync] error", { attempt: attempt + 1 })
           scheduleReconnect(true)
           return
         } finally {
@@ -279,7 +279,7 @@ export function startChatSync(handlers: SyncHandlers) {
         }
 
         if (!disposed) {
-          console.warn('[chat-sync] error', { attempt: attempt + 1 })
+          console.warn("[chat-sync] error", { attempt: attempt + 1 })
           scheduleReconnect(false)
         }
       })()
@@ -291,12 +291,12 @@ export function startChatSync(handlers: SyncHandlers) {
 
     source.onopen = () => {
       attempt = 0
-      console.info('[chat-sync] open')
+      console.info("[chat-sync] open")
       if (!opened) {
         opened = true
         handlers.onOpen?.()
       }
-      handlers.onStatus?.('connected')
+      handlers.onStatus?.("connected")
     }
 
     source.onmessage = (messageEvent) => {
@@ -304,7 +304,7 @@ export function startChatSync(handlers: SyncHandlers) {
     }
 
     source.onerror = () => {
-      console.warn('[chat-sync] error', { attempt: attempt + 1 })
+      console.warn("[chat-sync] error", { attempt: attempt + 1 })
       closeSource()
       scheduleReconnect(true)
     }

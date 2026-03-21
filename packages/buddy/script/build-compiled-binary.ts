@@ -7,11 +7,11 @@ import {
   readdirSync,
   rmSync,
   writeFileSync,
-} from 'node:fs'
-import path from 'node:path'
+} from "node:fs"
+import path from "node:path"
 
 const loader = {
-  '.md': 'text',
+  ".md": "text",
 } as const
 
 type MigrationEntry = {
@@ -57,14 +57,14 @@ function loadMigrations(dir: string, label: string): MigrationEntry[] {
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
     .map((name) => {
-      const file = path.join(dir, name, 'migration.sql')
+      const file = path.join(dir, name, "migration.sql")
       if (!existsSync(file)) {
         return undefined
       }
 
       return {
         name,
-        sql: readFileSync(file, 'utf8'),
+        sql: readFileSync(file, "utf8"),
         timestamp: parseMigrationTimestamp(name),
       } satisfies MigrationEntry
     })
@@ -75,7 +75,7 @@ function loadMigrations(dir: string, label: string): MigrationEntry[] {
 }
 
 function patchBundledUndiciNamespace(bundleOutputFile: string) {
-  const source = readFileSync(bundleOutputFile, 'utf8')
+  const source = readFileSync(bundleOutputFile, "utf8")
   const broken = 'import Undici from "undici";\nimport"undici";'
   if (!source.includes(broken)) return
 
@@ -84,27 +84,27 @@ function patchBundledUndiciNamespace(bundleOutputFile: string) {
 }
 
 export async function buildCompiledBuddyBinary(input: BuildCompiledBuddyBinaryInput) {
-  const backendDir = path.resolve(import.meta.dir, '..')
+  const backendDir = path.resolve(import.meta.dir, "..")
   const cleanupDirs = [...new Set([backendDir, path.resolve(process.cwd())])]
   for (const directory of cleanupDirs) {
     removeBunCompileArtifacts(directory)
   }
   const outputFile = path.resolve(input.outputFile)
   const bundleOutputFile = input.bundleOutputFile ? path.resolve(input.bundleOutputFile) : undefined
-  const buddyMigrationDir = path.resolve(backendDir, 'migration')
+  const buddyMigrationDir = path.resolve(backendDir, "migration")
   const opencodeMigrationDir = path.resolve(
     backendDir,
-    '../../vendor/opencode/packages/opencode/migration',
+    "../../vendor/opencode/packages/opencode/migration",
   )
-  const buddySkillsDir = path.resolve(backendDir, 'src/learning/capabilities/pedagogy/skills')
-  const opencodeRuntimePluginsDir = path.resolve(backendDir, 'src/opencode-runtime/plugins')
+  const buddySkillsDir = path.resolve(backendDir, "src/learning/capabilities/pedagogy/skills")
+  const opencodeRuntimePluginsDir = path.resolve(backendDir, "src/opencode-runtime/plugins")
   const systemPromptCaptureModule = path.resolve(
     backendDir,
-    'src/opencode-runtime/system-prompt-capture.ts',
+    "src/opencode-runtime/system-prompt-capture.ts",
   )
 
-  const buddyMigrations = loadMigrations(buddyMigrationDir, 'Buddy')
-  const opencodeMigrations = loadMigrations(opencodeMigrationDir, 'OpenCode')
+  const buddyMigrations = loadMigrations(buddyMigrationDir, "Buddy")
+  const opencodeMigrations = loadMigrations(opencodeMigrationDir, "OpenCode")
 
   mkdirSync(path.dirname(outputFile), { recursive: true })
   if (bundleOutputFile) {
@@ -120,10 +120,10 @@ export async function buildCompiledBuddyBinary(input: BuildCompiledBuddyBinaryIn
     if (bundleOutputFile) {
       const bundleOutdir = path.dirname(bundleOutputFile)
       const bundleResult = await Bun.build({
-        entrypoints: [path.resolve(backendDir, 'src/index.ts')],
+        entrypoints: [path.resolve(backendDir, "src/index.ts")],
         outdir: bundleOutdir,
-        target: 'bun',
-        format: 'esm',
+        target: "bun",
+        format: "esm",
         define,
         loader,
       })
@@ -141,7 +141,7 @@ export async function buildCompiledBuddyBinary(input: BuildCompiledBuddyBinaryIn
       if (existsSync(buddySkillsDir)) {
         const bundledSkillsTarget = path.resolve(
           bundleOutdir,
-          'learning/capabilities/pedagogy/skills',
+          "learning/capabilities/pedagogy/skills",
         )
         rmSync(bundledSkillsTarget, { recursive: true, force: true })
         mkdirSync(path.dirname(bundledSkillsTarget), { recursive: true })
@@ -149,7 +149,7 @@ export async function buildCompiledBuddyBinary(input: BuildCompiledBuddyBinaryIn
       }
 
       if (existsSync(opencodeRuntimePluginsDir)) {
-        const bundledPluginsTarget = path.resolve(bundleOutdir, 'plugins')
+        const bundledPluginsTarget = path.resolve(bundleOutdir, "plugins")
         rmSync(bundledPluginsTarget, { recursive: true, force: true })
         mkdirSync(path.dirname(bundledPluginsTarget), { recursive: true })
         cpSync(opencodeRuntimePluginsDir, bundledPluginsTarget, {
@@ -159,13 +159,13 @@ export async function buildCompiledBuddyBinary(input: BuildCompiledBuddyBinaryIn
       }
 
       if (existsSync(systemPromptCaptureModule)) {
-        const bundledCaptureTarget = path.resolve(bundleOutdir, 'system-prompt-capture.ts')
+        const bundledCaptureTarget = path.resolve(bundleOutdir, "system-prompt-capture.ts")
         copyFileSync(systemPromptCaptureModule, bundledCaptureTarget)
       }
     }
 
     const result = await Bun.build({
-      entrypoints: [path.resolve(backendDir, 'src/index.ts')],
+      entrypoints: [path.resolve(backendDir, "src/index.ts")],
       compile: {
         outfile: outputFile,
         ...(input.target ? { target: input.target } : {}),

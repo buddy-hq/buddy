@@ -1,17 +1,17 @@
-import { spawn } from 'node:child_process'
-import fsp from 'node:fs/promises'
-import path from 'node:path'
-import matter from 'gray-matter'
-import type { SkillLibraryEntry } from './contracts'
-import { readOptionalString } from './documents'
-import { curatedSkillsCacheRoot } from './paths'
+import { spawn } from "node:child_process"
+import fsp from "node:fs/promises"
+import path from "node:path"
+import matter from "gray-matter"
+import type { SkillLibraryEntry } from "./contracts"
+import { readOptionalString } from "./documents"
+import { curatedSkillsCacheRoot } from "./paths"
 
-const DEFAULT_CURATED_SKILLS_REPO_URL = 'https://github.com/openai/skills.git'
-const CURATED_REPO_MIRROR_NAME = 'skills-repo'
-const CURATED_REPO_SHA_MARKER_FILE = 'skills-repo.sha'
-const CURATED_SKILLS_ROOT = path.join('skills', '.curated')
+const DEFAULT_CURATED_SKILLS_REPO_URL = "https://github.com/openai/skills.git"
+const CURATED_REPO_MIRROR_NAME = "skills-repo"
+const CURATED_REPO_SHA_MARKER_FILE = "skills-repo.sha"
+const CURATED_SKILLS_ROOT = path.join("skills", ".curated")
 
-export type CuratedLibrarySkill = Omit<SkillLibraryEntry, 'installed'> & {
+export type CuratedLibrarySkill = Omit<SkillLibraryEntry, "installed"> & {
   sourceDirectory: string
   skillFile: string
   skillName: string
@@ -42,30 +42,30 @@ async function directoryExists(filepath: string) {
 }
 
 async function readTrimmedFile(filepath: string) {
-  const value = await fsp.readFile(filepath, 'utf8').catch(() => undefined)
+  const value = await fsp.readFile(filepath, "utf8").catch(() => undefined)
   return value?.trim()
 }
 
 function runGit(args: string[], cwd?: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    const child = spawn('git', args, {
+    const child = spawn("git", args, {
       cwd,
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: ["ignore", "pipe", "pipe"],
     })
 
-    let stdout = ''
-    let stderr = ''
+    let stdout = ""
+    let stderr = ""
 
-    child.stdout.on('data', (chunk: Buffer | string) => {
+    child.stdout.on("data", (chunk: Buffer | string) => {
       stdout += chunk.toString()
     })
-    child.stderr.on('data', (chunk: Buffer | string) => {
+    child.stderr.on("data", (chunk: Buffer | string) => {
       stderr += chunk.toString()
     })
-    child.on('error', (error) => {
+    child.on("error", (error) => {
       reject(error)
     })
-    child.on('close', (code) => {
+    child.on("close", (code) => {
       if (code === 0) {
         resolve(stdout.trim())
         return
@@ -74,7 +74,7 @@ function runGit(args: string[], cwd?: string): Promise<string> {
       const output = stderr.trim() || stdout.trim()
       reject(
         new Error(
-          output.length > 0 ? output : `git ${args.join(' ')} failed with exit code ${code}`,
+          output.length > 0 ? output : `git ${args.join(" ")} failed with exit code ${code}`,
         ),
       )
     })
@@ -83,7 +83,7 @@ function runGit(args: string[], cwd?: string): Promise<string> {
 
 function parseHeadSha(input: string): string | undefined {
   const firstLine = input
-    .split('\n')
+    .split("\n")
     .map((line) => line.trim())
     .find((line) => line.length > 0)
   if (!firstLine) return undefined
@@ -92,7 +92,7 @@ function parseHeadSha(input: string): string | undefined {
 }
 
 async function resolveRemoteHeadSha(repositoryURL: string) {
-  const lsRemoteOutput = await runGit(['ls-remote', repositoryURL, 'HEAD'])
+  const lsRemoteOutput = await runGit(["ls-remote", repositoryURL, "HEAD"])
   const remoteSHA = parseHeadSha(lsRemoteOutput)
   if (!remoteSHA) {
     throw new Error(`Could not resolve remote HEAD for ${repositoryURL}`)
@@ -135,14 +135,14 @@ async function syncCuratedRepository(): Promise<void> {
   await removeDirectory(tempRoot)
 
   try {
-    await runGit(['clone', '--depth', '1', repositoryURL, tempRoot])
+    await runGit(["clone", "--depth", "1", repositoryURL, tempRoot])
     if (hasMirror) {
       await removeDirectory(backupRoot)
       await fsp.rename(mirrorRoot, backupRoot)
     }
     await fsp.rename(tempRoot, mirrorRoot)
     await removeDirectory(backupRoot)
-    await fsp.writeFile(markerPath, `${remoteSHA}\n`, 'utf8')
+    await fsp.writeFile(markerPath, `${remoteSHA}\n`, "utf8")
   } catch (error) {
     const mirrorExists = await directoryExists(mirrorRoot)
     const backupExists = await directoryExists(backupRoot)
@@ -189,11 +189,11 @@ async function resolveCuratedRepository(options?: {
 }
 
 function summarizeContent(input: string) {
-  const normalized = input.replace(/\r\n/g, '\n').trim()
+  const normalized = input.replace(/\r\n/g, "\n").trim()
   if (!normalized) return undefined
   const firstParagraph = normalized
     .split(/\n\s*\n/)
-    .map((entry) => entry.replace(/\s+/g, ' ').trim())
+    .map((entry) => entry.replace(/\s+/g, " ").trim())
     .find((entry) => entry.length > 0)
   if (!firstParagraph) return undefined
   if (firstParagraph.length <= 220) {
@@ -209,13 +209,13 @@ function parseCuratedSkillDocument(input: {
   document: string
 }): CuratedLibrarySkill {
   const parsed = matter(input.document)
-  const skillName = readOptionalString(parsed.data['name']) ?? input.id
+  const skillName = readOptionalString(parsed.data["name"]) ?? input.id
   const summarizedContent =
     summarizeContent(parsed.content) ?? `Use the ${skillName} skill for this workflow.`
-  const description = readOptionalString(parsed.data['description']) ?? summarizedContent
-  const summary = readOptionalString(parsed.data['summary']) ?? summarizedContent
+  const description = readOptionalString(parsed.data["description"]) ?? summarizedContent
+  const summary = readOptionalString(parsed.data["summary"]) ?? summarizedContent
   const examplePrompt =
-    readOptionalString(parsed.data['example_prompt']) ??
+    readOptionalString(parsed.data["example_prompt"]) ??
     `Use the ${skillName} skill to help with this task.`
 
   return {
@@ -245,8 +245,8 @@ async function readCuratedSkillsFromRepository(
   for (const entry of entries.toSorted((left, right) => left.name.localeCompare(right.name))) {
     if (!entry.isDirectory()) continue
     const sourceDirectory = path.join(curatedRoot, entry.name)
-    const skillFile = path.join(sourceDirectory, 'SKILL.md')
-    const document = await fsp.readFile(skillFile, 'utf8').catch(() => undefined)
+    const skillFile = path.join(sourceDirectory, "SKILL.md")
+    const document = await fsp.readFile(skillFile, "utf8").catch(() => undefined)
     if (!document) continue
 
     skills.push(

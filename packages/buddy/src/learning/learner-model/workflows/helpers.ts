@@ -1,26 +1,26 @@
-import { createHash } from 'node:crypto'
-import { ulid } from 'ulid'
-import { LearnerArtifactStore } from '../repository/store'
-import { inferTags, normalizeList, normalizeText } from '../repository/store/normalize'
+import { createHash } from "node:crypto"
+import { ulid } from "ulid"
+import { LearnerArtifactStore } from "../repository/store"
+import { inferTags, normalizeList, normalizeText } from "../repository/store/normalize"
 import type {
   EvidenceArtifact,
   FeedbackArtifact,
   MisconceptionArtifact,
   WorkspaceContextArtifact,
-} from '../repository/types'
+} from "../repository/types"
 
 export { inferTags, normalizeList, normalizeText }
 
 export function contentDigest(value: string) {
-  return createHash('sha1').update(normalizeText(value)).digest('hex')
+  return createHash("sha1").update(normalizeText(value)).digest("hex")
 }
 
 export function evidenceStrengthFromOutcome(
-  outcome: EvidenceArtifact['outcome'],
-): EvidenceArtifact['strength'] {
-  if (outcome === 'positive') return 'strong'
-  if (outcome === 'mixed') return 'weak'
-  return 'none'
+  outcome: EvidenceArtifact["outcome"],
+): EvidenceArtifact["strength"] {
+  if (outcome === "positive") return "strong"
+  if (outcome === "mixed") return "weak"
+  return "none"
 }
 
 export function nowIso() {
@@ -35,8 +35,8 @@ export async function createEvidenceArtifact(input: {
   directory: string
   workspace: WorkspaceContextArtifact
   goalIds: string[]
-  sourceKind: EvidenceArtifact['sourceKind']
-  outcome: EvidenceArtifact['outcome']
+  sourceKind: EvidenceArtifact["sourceKind"]
+  outcome: EvidenceArtifact["outcome"]
   summary: string
   sourceRefId?: string
   sessionId?: string
@@ -44,7 +44,7 @@ export async function createEvidenceArtifact(input: {
   const now = nowIso()
   const evidence: EvidenceArtifact = {
     id: nextId(),
-    kind: 'evidence',
+    kind: "evidence",
     workspaceId: input.workspace.workspaceId,
     goalIds: [...input.goalIds],
     sourceKind: input.sourceKind,
@@ -57,7 +57,7 @@ export async function createEvidenceArtifact(input: {
     updatedAt: now,
   }
 
-  await LearnerArtifactStore.upsertArtifact(input.directory, 'evidence', evidence)
+  await LearnerArtifactStore.upsertArtifact(input.directory, "evidence", evidence)
   return evidence
 }
 
@@ -65,22 +65,22 @@ export async function createFeedbackArtifact(input: {
   directory: string
   workspace: WorkspaceContextArtifact
   goalIds: string[]
-  sourceKind: FeedbackArtifact['sourceKind']
+  sourceKind: FeedbackArtifact["sourceKind"]
   sourceRefId?: string
   relatedDecisionId?: string
   strengths: string[]
   gaps: string[]
   guidance: string[]
   requiredAction: string
-  scaffoldingLevel: FeedbackArtifact['scaffoldingLevel']
+  scaffoldingLevel: FeedbackArtifact["scaffoldingLevel"]
 }) {
   const now = nowIso()
   const feedback: FeedbackArtifact = {
     id: nextId(),
-    kind: 'feedback',
+    kind: "feedback",
     workspaceId: input.workspace.workspaceId,
     goalIds: [...input.goalIds],
-    status: 'open',
+    status: "open",
     sourceKind: input.sourceKind,
     sourceRefId: input.sourceRefId,
     relatedDecisionId: input.relatedDecisionId,
@@ -93,7 +93,7 @@ export async function createFeedbackArtifact(input: {
     updatedAt: now,
   }
 
-  await LearnerArtifactStore.upsertArtifact(input.directory, 'feedback', feedback)
+  await LearnerArtifactStore.upsertArtifact(input.directory, "feedback", feedback)
   return feedback
 }
 
@@ -107,17 +107,17 @@ export async function createMisconceptionArtifact(input: {
   const now = nowIso()
   const misconception: MisconceptionArtifact = {
     id: nextId(),
-    kind: 'misconception',
+    kind: "misconception",
     workspaceId: input.workspace.workspaceId,
     goalIds: [...input.goalIds],
-    status: 'active',
+    status: "active",
     summary: normalizeText(input.summary),
     relatedDecisionId: input.relatedDecisionId,
     createdAt: now,
     updatedAt: now,
   }
 
-  await LearnerArtifactStore.upsertArtifact(input.directory, 'misconception', misconception)
+  await LearnerArtifactStore.upsertArtifact(input.directory, "misconception", misconception)
   return misconception
 }
 
@@ -125,7 +125,7 @@ export async function closeFeedbackByIds(input: {
   directory: string
   workspaceId: string
   feedbackIds: string[]
-  status: 'acted-on' | 'resolved'
+  status: "acted-on" | "resolved"
 }) {
   if (input.feedbackIds.length === 0) return
   const now = nowIso()
@@ -134,14 +134,14 @@ export async function closeFeedbackByIds(input: {
     input.feedbackIds.map(async (feedbackId) => {
       const artifact = await LearnerArtifactStore.readArtifactById(
         input.directory,
-        'feedback',
+        "feedback",
         feedbackId,
       )
-      if (!artifact || artifact.kind !== 'feedback') return
+      if (!artifact || artifact.kind !== "feedback") return
       if (artifact.workspaceId !== input.workspaceId) return
       if (artifact.status === input.status) return
 
-      await LearnerArtifactStore.upsertArtifact(input.directory, 'feedback', {
+      await LearnerArtifactStore.upsertArtifact(input.directory, "feedback", {
         ...artifact,
         status: input.status,
         updatedAt: now,
@@ -162,16 +162,16 @@ export async function resolveMisconceptionsByIds(input: {
     input.misconceptionIds.map(async (misconceptionId) => {
       const artifact = await LearnerArtifactStore.readArtifactById(
         input.directory,
-        'misconception',
+        "misconception",
         misconceptionId,
       )
-      if (!artifact || artifact.kind !== 'misconception') return
+      if (!artifact || artifact.kind !== "misconception") return
       if (artifact.workspaceId !== input.workspaceId) return
-      if (artifact.status === 'resolved') return
+      if (artifact.status === "resolved") return
 
-      await LearnerArtifactStore.upsertArtifact(input.directory, 'misconception', {
+      await LearnerArtifactStore.upsertArtifact(input.directory, "misconception", {
         ...artifact,
-        status: 'resolved',
+        status: "resolved",
         updatedAt: now,
       })
     }),
@@ -180,6 +180,6 @@ export async function resolveMisconceptionsByIds(input: {
 
 export function ensureGoalIds(goalIds: string[]) {
   if (goalIds.length === 0) {
-    throw new Error('goalIds must be non-empty')
+    throw new Error("goalIds must be non-empty")
   }
 }

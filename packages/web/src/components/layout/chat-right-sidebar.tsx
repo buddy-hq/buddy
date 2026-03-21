@@ -1,5 +1,5 @@
-import type { CSSProperties, ReactNode } from 'react'
-import { useEffect, useState } from 'react'
+import type { CSSProperties, ReactNode } from "react"
+import { useEffect, useState } from "react"
 import {
   Badge,
   Button,
@@ -9,27 +9,27 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from '@buddy/ui'
-import { Markdown } from '@/components/Markdown'
+} from "@buddy/ui"
+import { Markdown } from "@/components/Markdown"
 import {
   loadCurriculumView,
   loadRuntimeCapabilities,
   type LearnerCurriculumView,
   type LearnerRuntimeCapabilitiesView,
-} from '@/state/chat-actions'
-import type { TeachingIntent } from '@/state/teaching-runtime'
-import { XIcon } from './sidebar-icons'
+} from "@/state/chat-actions"
+import type { TeachingIntent } from "@/state/teaching-runtime"
+import { XIcon } from "./sidebar-icons"
 
 export type ChatRightSidebarTab =
-  | 'curriculum'
-  | 'editor'
-  | 'figure'
-  | 'resources'
-  | 'agents-md'
-  | 'capabilities'
-  | 'system-prompt'
-  | 'settings'
-export type ChatRightSidebarSurface = 'curriculum' | 'editor' | 'figure'
+  | "curriculum"
+  | "editor"
+  | "figure"
+  | "resources"
+  | "agents-md"
+  | "capabilities"
+  | "system-prompt"
+  | "settings"
+export type ChatRightSidebarSurface = "curriculum" | "editor" | "figure"
 
 type ChatRightSidebarProps = {
   directory: string
@@ -45,7 +45,7 @@ type ChatRightSidebarProps = {
   sessionID?: string
   persona?: string
   intent?: TeachingIntent
-  onRunAction?: (action: LearnerCurriculumView['actions'][number]) => void
+  onRunAction?: (action: LearnerCurriculumView["actions"][number]) => void
   className?: string
   style?: CSSProperties
   showCapabilitiesTab?: boolean
@@ -54,7 +54,7 @@ type ChatRightSidebarProps = {
 
 function stringifyError(error: unknown) {
   if (error instanceof Error) return error.message
-  if (typeof error === 'string') return error
+  if (typeof error === "string") return error
   try {
     return JSON.stringify(error)
   } catch {
@@ -85,10 +85,10 @@ function SidebarSection(props: { title: string; items: string[]; empty?: string 
 
 function titleCaseLabel(value: string) {
   return value
-    .split('-')
+    .split("-")
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ')
+    .join(" ")
 }
 
 function RuntimeListSection(props: { title: string; items: string[]; empty: string }) {
@@ -109,17 +109,17 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
   const systemPromptTabEnabled = props.showSystemPromptTab === true
 
   const activeTab =
-    props.activeTab === 'system-prompt' && systemPromptTabEnabled
-      ? 'system-prompt'
-      : props.activeTab === 'capabilities' && capabilitiesTabEnabled
-        ? 'capabilities'
-        : props.activeTab === 'resources'
-          ? 'resources'
-          : props.activeTab === 'agents-md'
-            ? 'agents-md'
+    props.activeTab === "system-prompt" && systemPromptTabEnabled
+      ? "system-prompt"
+      : props.activeTab === "capabilities" && capabilitiesTabEnabled
+        ? "capabilities"
+        : props.activeTab === "resources"
+          ? "resources"
+          : props.activeTab === "agents-md"
+            ? "agents-md"
             : props.surfaces.includes(props.activeTab as ChatRightSidebarSurface)
               ? (props.activeTab as ChatRightSidebarSurface)
-              : (props.surfaces[0] ?? 'curriculum')
+              : (props.surfaces[0] ?? "curriculum")
 
   async function loadSidebarData(
     isDisposed?: () => boolean,
@@ -180,7 +180,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
   }
 
   useEffect(() => {
-    if (activeTab !== 'curriculum') return
+    if (activeTab !== "curriculum") return
 
     let disposed = false
     void loadSidebarData(() => disposed)
@@ -191,7 +191,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
   }, [activeTab, props.directory, props.intent, props.persona, props.sessionID])
 
   useEffect(() => {
-    if (activeTab !== 'capabilities') return
+    if (activeTab !== "capabilities") return
 
     let disposed = false
     void loadCapabilitiesData(() => disposed)
@@ -203,64 +203,64 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
 
   return (
     <aside
-      className={`shrink-0 overflow-hidden border-l bg-card flex flex-col min-h-0 ${props.className ?? ''}`}
+      className={`shrink-0 overflow-hidden border-l bg-card flex flex-col min-h-0 ${props.className ?? ""}`}
       style={props.style}
     >
       <header className="border-b px-3 py-2 flex items-center justify-between gap-2">
         <div className="flex items-center gap-1">
           <Button
-            variant={activeTab === 'curriculum' ? 'secondary' : 'ghost'}
+            variant={activeTab === "curriculum" ? "secondary" : "ghost"}
             size="sm"
-            onClick={() => props.onTabChange('curriculum')}
+            onClick={() => props.onTabChange("curriculum")}
           >
             Plan
           </Button>
-          {props.surfaces.includes('editor') ? (
+          {props.surfaces.includes("editor") ? (
             <Button
-              variant={activeTab === 'editor' ? 'secondary' : 'ghost'}
+              variant={activeTab === "editor" ? "secondary" : "ghost"}
               size="sm"
-              onClick={() => props.onTabChange('editor')}
+              onClick={() => props.onTabChange("editor")}
             >
               Editor
             </Button>
           ) : null}
-          {props.surfaces.includes('figure') ? (
+          {props.surfaces.includes("figure") ? (
             <Button
-              variant={activeTab === 'figure' ? 'secondary' : 'ghost'}
+              variant={activeTab === "figure" ? "secondary" : "ghost"}
               size="sm"
-              onClick={() => props.onTabChange('figure')}
+              onClick={() => props.onTabChange("figure")}
             >
               Figure
             </Button>
           ) : null}
           <Button
-            variant={activeTab === 'resources' ? 'secondary' : 'ghost'}
+            variant={activeTab === "resources" ? "secondary" : "ghost"}
             size="sm"
-            onClick={() => props.onTabChange('resources')}
+            onClick={() => props.onTabChange("resources")}
           >
             Resources
           </Button>
           <Button
-            variant={activeTab === 'agents-md' ? 'secondary' : 'ghost'}
+            variant={activeTab === "agents-md" ? "secondary" : "ghost"}
             size="sm"
-            onClick={() => props.onTabChange('agents-md')}
+            onClick={() => props.onTabChange("agents-md")}
           >
             Agents
           </Button>
           {capabilitiesTabEnabled ? (
             <Button
-              variant={activeTab === 'capabilities' ? 'secondary' : 'ghost'}
+              variant={activeTab === "capabilities" ? "secondary" : "ghost"}
               size="sm"
-              onClick={() => props.onTabChange('capabilities')}
+              onClick={() => props.onTabChange("capabilities")}
             >
               Capabilities
             </Button>
           ) : null}
           {systemPromptTabEnabled ? (
             <Button
-              variant={activeTab === 'system-prompt' ? 'secondary' : 'ghost'}
+              variant={activeTab === "system-prompt" ? "secondary" : "ghost"}
               size="sm"
-              onClick={() => props.onTabChange('system-prompt')}
+              onClick={() => props.onTabChange("system-prompt")}
             >
               System
             </Button>
@@ -271,7 +271,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
         </Button>
       </header>
 
-      {activeTab === 'editor' ? (
+      {activeTab === "editor" ? (
         <div className="flex-1 min-h-0 flex flex-col">
           {props.editorPanel ?? (
             <div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">
@@ -279,7 +279,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
             </div>
           )}
         </div>
-      ) : activeTab === 'figure' ? (
+      ) : activeTab === "figure" ? (
         <div className="flex-1 min-h-0 flex flex-col">
           {props.figurePanel ?? (
             <div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">
@@ -287,7 +287,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
             </div>
           )}
         </div>
-      ) : activeTab === 'resources' ? (
+      ) : activeTab === "resources" ? (
         <div className="flex-1 min-h-0 flex flex-col">
           {props.resourcesPanel ?? (
             <div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">
@@ -295,7 +295,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
             </div>
           )}
         </div>
-      ) : activeTab === 'agents-md' ? (
+      ) : activeTab === "agents-md" ? (
         <div className="flex-1 min-h-0 flex flex-col">
           {props.agentsPanel ?? (
             <div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">
@@ -303,7 +303,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
             </div>
           )}
         </div>
-      ) : activeTab === 'capabilities' ? (
+      ) : activeTab === "capabilities" ? (
         <div className="flex-1 min-h-0 p-3 flex flex-col">
           <div className="mb-2 flex items-center justify-between gap-2">
             <div>
@@ -339,22 +339,22 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                   <div className="space-y-1">
                     <p className="text-sm font-medium text-foreground">Surface policy</p>
                     <p className="text-xs text-muted-foreground">
-                      Visible: {capabilitiesView.visibleSurfaces.join(', ') || 'none'} | Default:{' '}
-                      {capabilitiesView.defaultSurface || 'n/a'}
+                      Visible: {capabilitiesView.visibleSurfaces.join(", ") || "none"} | Default:{" "}
+                      {capabilitiesView.defaultSurface || "n/a"}
                     </p>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div className="rounded-md border border-border/60 px-2 py-1.5">
-                      Tools: {capabilitiesView.tools.allow.length} allow /{' '}
+                      Tools: {capabilitiesView.tools.allow.length} allow /{" "}
                       {capabilitiesView.tools.deny.length} deny
                     </div>
                     <div className="rounded-md border border-border/60 px-2 py-1.5">
-                      Skills: {capabilitiesView.skills.allow.length} allow /{' '}
+                      Skills: {capabilitiesView.skills.allow.length} allow /{" "}
                       {capabilitiesView.skills.deny.length} deny
                     </div>
                     <div className="rounded-md border border-border/60 px-2 py-1.5 col-span-2">
-                      Subagents: {capabilitiesView.subagents.prefer.length} prefer /{' '}
-                      {capabilitiesView.subagents.allow.length} allow /{' '}
+                      Subagents: {capabilitiesView.subagents.prefer.length} prefer /{" "}
+                      {capabilitiesView.subagents.allow.length} allow /{" "}
                       {capabilitiesView.subagents.deny.length} deny
                     </div>
                   </div>
@@ -404,7 +404,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
             </p>
           ) : null}
         </div>
-      ) : activeTab === 'system-prompt' ? (
+      ) : activeTab === "system-prompt" ? (
         <div className="flex-1 min-h-0 flex flex-col">
           {props.systemPromptPanel ?? (
             <div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">
@@ -418,8 +418,8 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
             <div>
               <p className="text-xs font-medium">Learning Plan</p>
               <p className="text-[11px] text-muted-foreground">
-                {curriculumView?.workspace.label ?? 'Workspace'}{' '}
-                {curriculumView?.coldStart ? '(cold start)' : ''}
+                {curriculumView?.workspace.label ?? "Workspace"}{" "}
+                {curriculumView?.coldStart ? "(cold start)" : ""}
               </p>
             </div>
             <Button
@@ -452,7 +452,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                     <p className="text-sm font-medium text-foreground">Recommended next step</p>
                     <p className="text-sm text-muted-foreground">
                       {curriculumView.sessionPlan.motivationHook ??
-                        'Buddy is using the current learner evidence to choose the next move.'}
+                        "Buddy is using the current learner evidence to choose the next move."}
                     </p>
                   </div>
                 </CardContent>
@@ -518,9 +518,9 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                       </div>
                       <CollapsibleTrigger asChild>
                         <Button variant="ghost" size="sm" className="gap-1.5">
-                          {rawPlanOpen ? 'Hide raw plan' : 'Show raw plan'}
+                          {rawPlanOpen ? "Hide raw plan" : "Show raw plan"}
                           <ChevronDownIcon
-                            className={`size-3.5 transition-transform ${rawPlanOpen ? 'rotate-180' : ''}`}
+                            className={`size-3.5 transition-transform ${rawPlanOpen ? "rotate-180" : ""}`}
                           />
                         </Button>
                       </CollapsibleTrigger>

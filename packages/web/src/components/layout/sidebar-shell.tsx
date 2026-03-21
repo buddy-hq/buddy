@@ -1,6 +1,6 @@
-import type { ReactNode } from 'react'
-import { SidebarProject } from './sidebar-project'
-import { sidebarExpanded } from './sidebar-shell-helpers'
+import type { ReactNode } from "react"
+import { SidebarProject } from "./sidebar-project"
+import { sidebarExpanded } from "./sidebar-shell-helpers"
 
 type SidebarShellProps = {
   openProjects: string[]

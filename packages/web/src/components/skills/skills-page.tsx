@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from "react"
 import {
   Badge,
   BookOpenIcon,
@@ -24,7 +24,7 @@ import {
   XIcon,
   cn,
   toast,
-} from '@buddy/ui'
+} from "@buddy/ui"
 import {
   createCustomSkill,
   installLibrarySkill,
@@ -37,7 +37,7 @@ import {
   type SkillLibraryEntry,
   type SkillRuleAction,
   type SkillsCatalog,
-} from '@/state/skills-actions'
+} from "@/state/skills-actions"
 
 type SkillsFormState = {
   name: string
@@ -47,71 +47,71 @@ type SkillsFormState = {
 }
 
 const EMPTY_FORM: SkillsFormState = {
-  name: '',
-  description: '',
-  examplePrompt: '',
-  content: '',
+  name: "",
+  description: "",
+  examplePrompt: "",
+  content: "",
 }
 
-function statusLabel(action: InstalledSkillInfo['permissionAction']) {
-  if (action === 'allow') return 'Always available'
-  if (action === 'deny') return 'Blocked'
-  return 'On-demand approval'
+function statusLabel(action: InstalledSkillInfo["permissionAction"]) {
+  if (action === "allow") return "Always available"
+  if (action === "deny") return "Blocked"
+  return "On-demand approval"
 }
 
-function sourceLabel(source: InstalledSkillInfo['source']) {
-  if (source === 'custom') return 'Custom'
-  if (source === 'library') return 'Library'
-  return 'Detected'
+function sourceLabel(source: InstalledSkillInfo["source"]) {
+  if (source === "custom") return "Custom"
+  if (source === "library") return "Library"
+  return "Detected"
 }
 
-function scopeLabel(scope: InstalledSkillInfo['scope']) {
-  return scope === 'workspace' ? 'Workspace' : 'Global'
+function scopeLabel(scope: InstalledSkillInfo["scope"]) {
+  return scope === "workspace" ? "Workspace" : "Global"
 }
 
-function scopeDescription(scope: InstalledSkillInfo['scope']) {
-  return scope === 'workspace'
-    ? 'This skill is discovered from the current workspace.'
-    : 'This skill is discovered from your global skills directory.'
+function scopeDescription(scope: InstalledSkillInfo["scope"]) {
+  return scope === "workspace"
+    ? "This skill is discovered from the current workspace."
+    : "This skill is discovered from your global skills directory."
 }
 
-function permissionUpdateMessage(name: string, action: InstalledSkillInfo['permissionAction']) {
+function permissionUpdateMessage(name: string, action: InstalledSkillInfo["permissionAction"]) {
   return `Set ${name} to ${statusLabel(action).toLowerCase()}.`
 }
 
 function permissionRuleMessage(name: string, action: SkillRuleAction) {
-  if (action === 'inherit') {
+  if (action === "inherit") {
     return `Reset ${name} to the inherited/default rule.`
   }
 
   return permissionUpdateMessage(name, action)
 }
 
-function permissionSourceLabel(source: InstalledSkillInfo['permissionSource']) {
-  if (source === 'explicit') return 'Explicit'
-  if (source === 'inherited') return 'Inherited'
-  return 'Default'
+function permissionSourceLabel(source: InstalledSkillInfo["permissionSource"]) {
+  if (source === "explicit") return "Explicit"
+  if (source === "inherited") return "Inherited"
+  return "Default"
 }
 
 function permissionSourceDescription(skill: InstalledSkillInfo) {
-  if (skill.permissionSource === 'explicit') {
-    return 'This skill name has its own explicit permission rule.'
+  if (skill.permissionSource === "explicit") {
+    return "This skill name has its own explicit permission rule."
   }
 
-  if (skill.permissionSource === 'inherited') {
-    return 'This skill name is matching a broader wildcard permission rule.'
+  if (skill.permissionSource === "inherited") {
+    return "This skill name is matching a broader wildcard permission rule."
   }
 
-  return 'No matching name rule is set. Core behavior falls back to on-demand approval.'
+  return "No matching name rule is set. Core behavior falls back to on-demand approval."
 }
 
 function resetPermissionLabel() {
-  return 'Use inherited/default rule'
+  return "Use inherited/default rule"
 }
 
 async function copyText(text: string) {
   if (!text) return false
-  if (!('clipboard' in navigator)) return false
+  if (!("clipboard" in navigator)) return false
   await navigator.clipboard.writeText(text)
   return true
 }
@@ -136,7 +136,7 @@ function SectionHeader(props: { title: string; description: string; action?: Rea
 }
 
 function PermissionActionMenu(props: {
-  source: InstalledSkillInfo['permissionSource']
+  source: InstalledSkillInfo["permissionSource"]
   disabled?: boolean
   onSelect: (action: SkillRuleAction) => void
 }) {
@@ -149,18 +149,18 @@ function PermissionActionMenu(props: {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuItem
-          disabled={props.disabled || props.source !== 'explicit'}
-          onSelect={() => props.onSelect('inherit')}
+          disabled={props.disabled || props.source !== "explicit"}
+          onSelect={() => props.onSelect("inherit")}
         >
           {resetPermissionLabel()}
         </DropdownMenuItem>
-        <DropdownMenuItem disabled={props.disabled} onSelect={() => props.onSelect('allow')}>
+        <DropdownMenuItem disabled={props.disabled} onSelect={() => props.onSelect("allow")}>
           Always available
         </DropdownMenuItem>
-        <DropdownMenuItem disabled={props.disabled} onSelect={() => props.onSelect('ask')}>
+        <DropdownMenuItem disabled={props.disabled} onSelect={() => props.onSelect("ask")}>
           On-demand approval
         </DropdownMenuItem>
-        <DropdownMenuItem disabled={props.disabled} onSelect={() => props.onSelect('deny')}>
+        <DropdownMenuItem disabled={props.disabled} onSelect={() => props.onSelect("deny")}>
           Blocked
         </DropdownMenuItem>
       </DropdownMenuContent>
@@ -187,7 +187,7 @@ function SkillCard(props: {
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-muted-foreground">Enabled</span>
                   <Switch
-                    checked={props.skill.permissionAction !== 'deny'}
+                    checked={props.skill.permissionAction !== "deny"}
                     onCheckedChange={props.onToggleEnabled}
                     disabled={props.disabled}
                     aria-label={`Toggle ${props.skill.name}`}
@@ -211,12 +211,12 @@ function SkillCard(props: {
               <Badge
                 variant="outline"
                 className={cn(
-                  'h-5',
-                  props.skill.permissionAction === 'allow'
-                    ? 'border-[color:color-mix(in_oklab,var(--chart-2)_30%,transparent)] bg-[color:color-mix(in_oklab,var(--chart-2)_12%,transparent)] text-[var(--chart-2)]'
-                    : props.skill.permissionAction === 'ask'
-                      ? 'border-[color:color-mix(in_oklab,var(--chart-5)_30%,transparent)] bg-[color:color-mix(in_oklab,var(--chart-5)_12%,transparent)] text-[var(--chart-5)]'
-                      : 'border-destructive/30 bg-destructive/10 text-destructive',
+                  "h-5",
+                  props.skill.permissionAction === "allow"
+                    ? "border-[color:color-mix(in_oklab,var(--chart-2)_30%,transparent)] bg-[color:color-mix(in_oklab,var(--chart-2)_12%,transparent)] text-[var(--chart-2)]"
+                    : props.skill.permissionAction === "ask"
+                      ? "border-[color:color-mix(in_oklab,var(--chart-5)_30%,transparent)] bg-[color:color-mix(in_oklab,var(--chart-5)_12%,transparent)] text-[var(--chart-5)]"
+                      : "border-destructive/30 bg-destructive/10 text-destructive",
                 )}
               >
                 {statusLabel(props.skill.permissionAction)}
@@ -262,12 +262,12 @@ function LibraryCard(props: {
           </Badge>
           <Button
             type="button"
-            variant={props.skill.installed ? 'outline' : 'default'}
+            variant={props.skill.installed ? "outline" : "default"}
             size="sm"
             disabled={props.disabled || props.skill.installed}
             onClick={props.onInstall}
           >
-            {props.skill.installed ? 'Installed' : 'Add'}
+            {props.skill.installed ? "Installed" : "Add"}
           </Button>
         </div>
       </CardContent>
@@ -280,7 +280,7 @@ export function SkillsPage(props: { directory?: string }) {
   const [catalog, setCatalog] = useState<SkillsCatalog | undefined>(undefined)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState("")
   const [selectedSkillName, setSelectedSkillName] = useState<string | undefined>(undefined)
   const [newSkillOpen, setNewSkillOpen] = useState(false)
   const [form, setForm] = useState<SkillsFormState>(EMPTY_FORM)
@@ -352,7 +352,7 @@ export function SkillsPage(props: { directory?: string }) {
       setCatalog(nextCatalog)
 
       if (input?.force && input.showRefreshToast !== false) {
-        toast.success('Skills refreshed')
+        toast.success("Skills refreshed")
       }
 
       if (nextCatalog.librarySyncError) {
@@ -366,7 +366,7 @@ export function SkillsPage(props: { directory?: string }) {
         }
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to load skills'
+      const message = error instanceof Error ? error.message : "Failed to load skills"
       toast.error(message)
     } finally {
       setLoading(false)
@@ -392,7 +392,7 @@ export function SkillsPage(props: { directory?: string }) {
       await refreshCatalog({ preserveSelection })
       return true
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Request failed'
+      const message = error instanceof Error ? error.message : "Request failed"
       toast.error(message)
       return false
     } finally {
@@ -418,13 +418,13 @@ export function SkillsPage(props: { directory?: string }) {
   }
 
   function updateSkillPermission(skill: InstalledSkillInfo, action: SkillRuleAction) {
-    if (action === 'inherit' && skill.permissionSource !== 'explicit') {
+    if (action === "inherit" && skill.permissionSource !== "explicit") {
       return
     }
 
     if (
-      action !== 'inherit' &&
-      skill.permissionSource === 'explicit' &&
+      action !== "inherit" &&
+      skill.permissionSource === "explicit" &&
       skill.permissionAction === action
     ) {
       return
@@ -439,7 +439,7 @@ export function SkillsPage(props: { directory?: string }) {
         replaceInstalledSkill(response.skill)
         toast.success(permissionRuleMessage(skill.name, action))
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'Request failed'
+        const message = error instanceof Error ? error.message : "Request failed"
         toast.error(message)
       } finally {
         setBusyKey(undefined)
@@ -448,13 +448,13 @@ export function SkillsPage(props: { directory?: string }) {
   }
 
   function toggleSkillEnabled(skill: InstalledSkillInfo, enabled: boolean) {
-    const nextAction: SkillRuleAction = enabled ? 'ask' : 'deny'
+    const nextAction: SkillRuleAction = enabled ? "ask" : "deny"
 
-    if (enabled && skill.permissionAction !== 'deny') {
+    if (enabled && skill.permissionAction !== "deny") {
       return
     }
 
-    if (!enabled && skill.permissionAction === 'deny') {
+    if (!enabled && skill.permissionAction === "deny") {
       return
     }
 
@@ -470,7 +470,7 @@ export function SkillsPage(props: { directory?: string }) {
     }
 
     void (async () => {
-      const key = 'settings:external-roots'
+      const key = "settings:external-roots"
       const previous = catalog.externalVendorRootsEnabled
       setBusyKey(key)
       setExternalVendorRootsEnabled(enabled)
@@ -484,12 +484,12 @@ export function SkillsPage(props: { directory?: string }) {
         })
         toast.success(
           enabled
-            ? 'External .agents/.claude skill discovery is enabled.'
-            : 'External .agents/.claude skill discovery is disabled.',
+            ? "External .agents/.claude skill discovery is enabled."
+            : "External .agents/.claude skill discovery is disabled.",
         )
       } catch (error) {
         setExternalVendorRootsEnabled(previous)
-        const message = error instanceof Error ? error.message : 'Request failed'
+        const message = error instanceof Error ? error.message : "Request failed"
         toast.error(message)
       } finally {
         setBusyKey(undefined)
@@ -506,9 +506,9 @@ export function SkillsPage(props: { directory?: string }) {
     }
 
     const created = await runMutation(
-      'create-skill',
+      "create-skill",
       () => createCustomSkill(payload, currentDirectory),
-      'Created new skill.',
+      "Created new skill.",
       false,
     )
 
@@ -519,7 +519,7 @@ export function SkillsPage(props: { directory?: string }) {
   }
 
   const createDisabled =
-    busyKey === 'create-skill' ||
+    busyKey === "create-skill" ||
     !form.name.trim() ||
     !form.description.trim() ||
     !form.content.trim()
@@ -564,7 +564,7 @@ export function SkillsPage(props: { directory?: string }) {
                         behavior)
                       </p>
                       <Badge variant="outline" className="h-5">
-                        {catalog?.externalVendorRootsEnabled ? 'Enabled' : 'Disabled'}
+                        {catalog?.externalVendorRootsEnabled ? "Enabled" : "Disabled"}
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">
@@ -574,12 +574,12 @@ export function SkillsPage(props: { directory?: string }) {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-muted-foreground">
-                      {catalog?.externalVendorRootsEnabled ? 'On' : 'Off'}
+                      {catalog?.externalVendorRootsEnabled ? "On" : "Off"}
                     </span>
                     <Switch
                       checked={catalog?.externalVendorRootsEnabled ?? false}
                       onCheckedChange={toggleExternalVendorRoots}
-                      disabled={loading || busyKey === 'settings:external-roots'}
+                      disabled={loading || busyKey === "settings:external-roots"}
                       aria-label="Discover external vendor roots"
                     />
                   </div>
@@ -932,7 +932,7 @@ export function SkillsPage(props: { directory?: string }) {
               Cancel
             </Button>
             <Button disabled={createDisabled} onClick={() => void submitNewSkill()}>
-              {busyKey === 'create-skill' ? 'Creating...' : 'Create skill'}
+              {busyKey === "create-skill" ? "Creating..." : "Create skill"}
             </Button>
           </DialogFooter>
         </DialogContent>

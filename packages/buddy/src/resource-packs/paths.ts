@@ -1,4 +1,4 @@
-import path from 'node:path'
+import path from "node:path"
 import {
   RESOURCE_PACK_CHUNKS_DIR_NAME,
   RESOURCE_PACK_ENTRYPOINT_FILE_NAME,
@@ -8,8 +8,8 @@ import {
   RESOURCE_PACK_ROOT_DIR,
   RESOURCE_PACK_TOC_FILE_NAME,
   type PackPaths,
-} from './contracts'
-import { createResourcePackKey } from './classification'
+} from "./contracts"
+import { createResourcePackKey } from "./classification"
 
 export function createResourcePackPaths(directory: string, sourcePath: string): PackPaths {
   const rootPath = path.join(

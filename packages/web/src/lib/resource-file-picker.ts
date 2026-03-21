@@ -1,6 +1,6 @@
-import { getPlatform } from '../context/platform'
+import { getPlatform } from "../context/platform"
 
-const RESOURCE_PICKER_TITLE = 'Select resource file' as const
+const RESOURCE_PICKER_TITLE = "Select resource file" as const
 
 type TauriDialogWindow = Window & {
   __TAURI__?: {
@@ -15,22 +15,22 @@ type TauriDialogWindow = Window & {
 }
 
 function normalizePath(input: string) {
-  const trimmed = input.trim().split('\\').join('/')
-  if (!trimmed) return ''
-  if (trimmed === '/') return trimmed
-  return trimmed.replace(/\/+$/, '')
+  const trimmed = input.trim().split("\\").join("/")
+  if (!trimmed) return ""
+  if (trimmed === "/") return trimmed
+  return trimmed.replace(/\/+$/, "")
 }
 
 function toFirstPath(input: string | string[] | null) {
-  if (typeof input === 'string') return normalizePath(input)
-  if (Array.isArray(input) && typeof input[0] === 'string') return normalizePath(input[0])
+  if (typeof input === "string") return normalizePath(input)
+  if (Array.isArray(input) && typeof input[0] === "string") return normalizePath(input[0])
   return null
 }
 
 export async function pickResourceFilePath(): Promise<string | null> {
   const platform = getPlatform()
 
-  if (typeof platform.openFilePickerDialog === 'function') {
+  if (typeof platform.openFilePickerDialog === "function") {
     const platformResult = await platform.openFilePickerDialog({
       title: RESOURCE_PICKER_TITLE,
       multiple: false,
@@ -56,5 +56,5 @@ export async function pickResourceFilePath(): Promise<string | null> {
     return electronPath
   }
 
-  throw new Error('File picker is unavailable in this runtime.')
+  throw new Error("File picker is unavailable in this runtime.")
 }

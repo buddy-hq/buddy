@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import { $ } from 'bun'
+import { $ } from "bun"
 
 type Release = {
   isDraft: boolean
@@ -15,41 +15,41 @@ type Commit = {
 }
 
 const SECTION_PRIORITY = [
-  'Desktop',
-  'Backend',
-  'Web',
-  'UI',
-  'Adapter/SDK',
-  'Vendored Core',
+  "Desktop",
+  "Backend",
+  "Web",
+  "UI",
+  "Adapter/SDK",
+  "Vendored Core",
 ] as const
 
 const SECTION_RULES = [
-  { prefix: 'packages/desktop/', section: 'Desktop' },
-  { prefix: 'packages/buddy/', section: 'Backend' },
-  { prefix: 'packages/web/', section: 'Web' },
-  { prefix: 'packages/ui/', section: 'UI' },
-  { prefix: 'packages/opencode-adapter/', section: 'Adapter/SDK' },
-  { prefix: 'packages/sdk/', section: 'Adapter/SDK' },
-  { prefix: 'vendor/opencode/packages/opencode/', section: 'Vendored Core' },
-  { prefix: 'vendor/opencode/packages/util/', section: 'Vendored Core' },
-  { prefix: 'vendor/opencode/packages/plugin/', section: 'Vendored Core' },
-  { prefix: 'vendor/opencode/packages/sdk/js/', section: 'Vendored Core' },
-  { prefix: 'vendor/opencode/packages/script/', section: 'Vendored Core' },
+  { prefix: "packages/desktop/", section: "Desktop" },
+  { prefix: "packages/buddy/", section: "Backend" },
+  { prefix: "packages/web/", section: "Web" },
+  { prefix: "packages/ui/", section: "UI" },
+  { prefix: "packages/opencode-adapter/", section: "Adapter/SDK" },
+  { prefix: "packages/sdk/", section: "Adapter/SDK" },
+  { prefix: "vendor/opencode/packages/opencode/", section: "Vendored Core" },
+  { prefix: "vendor/opencode/packages/util/", section: "Vendored Core" },
+  { prefix: "vendor/opencode/packages/plugin/", section: "Vendored Core" },
+  { prefix: "vendor/opencode/packages/sdk/js/", section: "Vendored Core" },
+  { prefix: "vendor/opencode/packages/script/", section: "Vendored Core" },
 ] as const
 
 function releaseRepo() {
-  return process.env.BUDDY_REPO || process.env.GITHUB_REPOSITORY || 'prashantbhudwal/buddy'
+  return process.env.BUDDY_REPO || process.env.GITHUB_REPOSITORY || "prashantbhudwal/buddy"
 }
 
 export async function getLatestRelease(skip?: string) {
   const repo = releaseRepo()
   const releases =
     (await $`gh release list --repo ${repo} --json tagName,isDraft,isPrerelease --limit 100`.json()) as Release[]
-  const skipTag = skip?.replace(/^v/, '')
+  const skipTag = skip?.replace(/^v/, "")
 
   for (const release of releases) {
     if (release.isDraft || release.isPrerelease) continue
-    const tag = release.tagName.replace(/^v/, '')
+    const tag = release.tagName.replace(/^v/, "")
     if (skipTag && tag === skipTag) continue
     if (!/^\d+\.\d+\.\d+$/.test(tag)) continue
     return tag
@@ -58,17 +58,17 @@ export async function getLatestRelease(skip?: string) {
   return undefined
 }
 
-async function listCommitHashes(from: string | undefined, to = 'HEAD') {
+async function listCommitHashes(from: string | undefined, to = "HEAD") {
   if (!from) {
     return $`git rev-list --reverse ${to}`
       .text()
-      .then((output) => output.split('\n').filter(Boolean))
+      .then((output) => output.split("\n").filter(Boolean))
   }
 
-  const fromRef = from.startsWith('v') ? from : `v${from}`
+  const fromRef = from.startsWith("v") ? from : `v${from}`
   return $`git rev-list --reverse ${fromRef}..${to}`
     .text()
-    .then((output) => output.split('\n').filter(Boolean))
+    .then((output) => output.split("\n").filter(Boolean))
 }
 
 function isIgnoredCommit(message: string) {
@@ -88,7 +88,7 @@ function classifyAreas(files: string[]) {
   return areas
 }
 
-async function getCommits(from: string | undefined, to = 'HEAD') {
+async function getCommits(from: string | undefined, to = "HEAD") {
   const hashes = await listCommitHashes(from, to)
   const commits: Commit[] = []
 
@@ -98,7 +98,7 @@ async function getCommits(from: string | undefined, to = 'HEAD') {
 
     const files = await $`git diff-tree --no-commit-id --name-only -r ${hash}`
       .text()
-      .then((output) => output.split('\n').filter(Boolean))
+      .then((output) => output.split("\n").filter(Boolean))
     const areas = classifyAreas(files)
     if (areas.size === 0) continue
 
@@ -141,10 +141,10 @@ function sectionForAreas(areas: Set<string>) {
   for (const section of SECTION_PRIORITY) {
     if (areas.has(section)) return section
   }
-  return 'Backend'
+  return "Backend"
 }
 
-export async function buildNotes(from: string | undefined, to = 'HEAD') {
+export async function buildNotes(from: string | undefined, to = "HEAD") {
   const commits = await getCommits(from, to)
   if (commits.length === 0) {
     return []
@@ -165,10 +165,10 @@ export async function buildNotes(from: string | undefined, to = 'HEAD') {
     if (!entries?.length) continue
     lines.push(`## ${section}`)
     lines.push(...entries)
-    lines.push('')
+    lines.push("")
   }
 
-  while (lines.at(-1) === '') {
+  while (lines.at(-1) === "") {
     lines.pop()
   }
 
@@ -177,6 +177,6 @@ export async function buildNotes(from: string | undefined, to = 'HEAD') {
 
 if (import.meta.main) {
   const previous = await getLatestRelease()
-  const notes = await buildNotes(previous, 'HEAD')
-  console.log(notes.join('\n') || 'No notable changes')
+  const notes = await buildNotes(previous, "HEAD")
+  console.log(notes.join("\n") || "No notable changes")
 }

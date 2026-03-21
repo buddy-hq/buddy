@@ -1,14 +1,14 @@
-import { Hono } from 'hono'
-import { describeRoute, resolver, validator } from 'hono-openapi'
-import z from 'zod'
-import { routeErrors, runRouteTask } from '../http'
+import { Hono } from "hono"
+import { describeRoute, resolver, validator } from "hono-openapi"
+import z from "zod"
+import { routeErrors, runRouteTask } from "../http"
 import {
   closeOpenProjectRegistryEntry,
   listOpenProjects,
   mapOpenProjectRegistryError,
   openProjectRegistryEntry,
   reorderOpenProjectRegistryEntries,
-} from '../project/open-project-registry'
+} from "../project/open-project-registry"
 
 const openProjectsResponseSchema = z.object({
   directories: z.array(z.string()),
@@ -28,15 +28,15 @@ const openProjectResponseSchema = z.object({
 
 export const OpenProjectsRoutes = new Hono()
   .get(
-    '/',
+    "/",
     describeRoute({
-      operationId: 'openProjects.list',
-      summary: 'List curated open projects',
+      operationId: "openProjects.list",
+      summary: "List curated open projects",
       responses: {
         200: {
-          description: 'Ordered curated open-project list',
+          description: "Ordered curated open-project list",
           content: {
-            'application/json': {
+            "application/json": {
               schema: resolver(openProjectsResponseSchema),
             },
           },
@@ -46,15 +46,15 @@ export const OpenProjectsRoutes = new Hono()
     async (c) => c.json({ directories: await listOpenProjects() }),
   )
   .post(
-    '/',
+    "/",
     describeRoute({
-      operationId: 'openProjects.open',
-      summary: 'Add a project to the curated open-project list',
+      operationId: "openProjects.open",
+      summary: "Add a project to the curated open-project list",
       responses: {
         200: {
-          description: 'Opened project directory',
+          description: "Opened project directory",
           content: {
-            'application/json': {
+            "application/json": {
               schema: resolver(openProjectResponseSchema),
             },
           },
@@ -62,24 +62,24 @@ export const OpenProjectsRoutes = new Hono()
         ...routeErrors(400, 403),
       },
     }),
-    validator('json', openProjectBodySchema),
+    validator("json", openProjectBodySchema),
     async (c) =>
       runRouteTask({
         task: async () =>
-          c.json({ directory: await openProjectRegistryEntry(c.req.valid('json').directory) }),
+          c.json({ directory: await openProjectRegistryEntry(c.req.valid("json").directory) }),
         mapError: mapOpenProjectRegistryError,
       }),
   )
   .delete(
-    '/',
+    "/",
     describeRoute({
-      operationId: 'openProjects.close',
-      summary: 'Remove a project from the curated open-project list',
+      operationId: "openProjects.close",
+      summary: "Remove a project from the curated open-project list",
       responses: {
         200: {
-          description: 'Closed project directory',
+          description: "Closed project directory",
           content: {
-            'application/json': {
+            "application/json": {
               schema: resolver(openProjectResponseSchema),
             },
           },
@@ -87,26 +87,26 @@ export const OpenProjectsRoutes = new Hono()
         ...routeErrors(400),
       },
     }),
-    validator('query', openProjectQuerySchema),
+    validator("query", openProjectQuerySchema),
     async (c) =>
       runRouteTask({
         task: async () =>
           c.json({
-            directory: await closeOpenProjectRegistryEntry(c.req.valid('query').directory),
+            directory: await closeOpenProjectRegistryEntry(c.req.valid("query").directory),
           }),
         mapError: mapOpenProjectRegistryError,
       }),
   )
   .put(
-    '/order',
+    "/order",
     describeRoute({
-      operationId: 'openProjects.reorder',
-      summary: 'Reorder the curated open-project list',
+      operationId: "openProjects.reorder",
+      summary: "Reorder the curated open-project list",
       responses: {
         200: {
-          description: 'Reordered curated open-project list',
+          description: "Reordered curated open-project list",
           content: {
-            'application/json': {
+            "application/json": {
               schema: resolver(openProjectsResponseSchema),
             },
           },
@@ -114,12 +114,12 @@ export const OpenProjectsRoutes = new Hono()
         ...routeErrors(400),
       },
     }),
-    validator('json', openProjectsResponseSchema),
+    validator("json", openProjectsResponseSchema),
     async (c) =>
       runRouteTask({
         task: async () =>
           c.json({
-            directories: await reorderOpenProjectRegistryEntries(c.req.valid('json').directories),
+            directories: await reorderOpenProjectRegistryEntries(c.req.valid("json").directories),
           }),
         mapError: mapOpenProjectRegistryError,
       }),

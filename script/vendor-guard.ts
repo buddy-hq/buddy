@@ -1,36 +1,36 @@
 #!/usr/bin/env bun
 
-import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { execFileSync } from "node:child_process"
+import { readFileSync } from "node:fs"
 
-const VENDOR_PREFIX = 'vendor/opencode/'
+const VENDOR_PREFIX = "vendor/opencode/"
 
-type Mode = { kind: 'staged' } | { kind: 'range'; range: string } | { kind: 'stdin' }
+type Mode = { kind: "staged" } | { kind: "range"; range: string } | { kind: "stdin" }
 
 function parseMode(argv: string[]): Mode {
-  if (argv.length === 0) return { kind: 'staged' }
+  if (argv.length === 0) return { kind: "staged" }
 
-  if (argv[0] === '--staged') return { kind: 'staged' }
+  if (argv[0] === "--staged") return { kind: "staged" }
 
-  if (argv[0] === '--range') {
+  if (argv[0] === "--range") {
     const range = argv[1]
     if (!range) {
-      throw new Error('Missing range after --range. Example: --range origin/main..HEAD')
+      throw new Error("Missing range after --range. Example: --range origin/main..HEAD")
     }
-    return { kind: 'range', range }
+    return { kind: "range", range }
   }
 
-  if (argv[0] === '--stdin') return { kind: 'stdin' }
+  if (argv[0] === "--stdin") return { kind: "stdin" }
 
   throw new Error(
-    `Unknown arguments: ${argv.join(' ')}\nUsage: bun run script/vendor-guard.ts [--staged | --range <a..b> | --stdin]`,
+    `Unknown arguments: ${argv.join(" ")}\nUsage: bun run script/vendor-guard.ts [--staged | --range <a..b> | --stdin]`,
   )
 }
 
 function gitChangedFilesForMode(mode: Mode): string[] {
-  if (mode.kind === 'staged') {
-    const output = execFileSync('git', ['diff', '--cached', '--name-only', '--diff-filter=ACMR'], {
-      encoding: 'utf8',
+  if (mode.kind === "staged") {
+    const output = execFileSync("git", ["diff", "--cached", "--name-only", "--diff-filter=ACMR"], {
+      encoding: "utf8",
     })
     return output
       .split(/\r?\n/)
@@ -38,9 +38,9 @@ function gitChangedFilesForMode(mode: Mode): string[] {
       .filter(Boolean)
   }
 
-  if (mode.kind === 'range') {
-    const output = execFileSync('git', ['diff', '--name-only', '--diff-filter=ACMR', mode.range], {
-      encoding: 'utf8',
+  if (mode.kind === "range") {
+    const output = execFileSync("git", ["diff", "--name-only", "--diff-filter=ACMR", mode.range], {
+      encoding: "utf8",
     })
     return output
       .split(/\r?\n/)
@@ -48,7 +48,7 @@ function gitChangedFilesForMode(mode: Mode): string[] {
       .filter(Boolean)
   }
 
-  const input = readFileSync(0, 'utf8')
+  const input = readFileSync(0, "utf8")
   return input
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -57,12 +57,12 @@ function gitChangedFilesForMode(mode: Mode): string[] {
 
 function printFailure(vendorPaths: string[], mode: Mode): void {
   const scope =
-    mode.kind === 'staged'
-      ? 'staged changes'
-      : mode.kind === 'range'
+    mode.kind === "staged"
+      ? "staged changes"
+      : mode.kind === "range"
         ? `range ${mode.range}`
-        : 'incoming push diff'
-  const list = vendorPaths.map((path) => `  - ${path}`).join('\n')
+        : "incoming push diff"
+  const list = vendorPaths.map((path) => `  - ${path}`).join("\n")
   const message = `ERROR: Protected vendored source was modified.
 
 What failed:
@@ -86,7 +86,7 @@ function main(): void {
 
   if (vendorPaths.length === 0) process.exit(0)
 
-  if (process.env.ALLOW_VENDOR_SYNC === '1') {
+  if (process.env.ALLOW_VENDOR_SYNC === "1") {
     console.log(
       `vendor-guard: allowing ${vendorPaths.length} vendor path change(s) because ALLOW_VENDOR_SYNC=1`,
     )

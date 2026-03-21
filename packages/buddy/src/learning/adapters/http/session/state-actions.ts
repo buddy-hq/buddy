@@ -1,15 +1,15 @@
-import type { Context } from 'hono'
-import { readTeachingSessionState } from '../../../agent-execution/state/session-state'
-import { withConfigSync } from '../../../../http/route-helpers'
-import { readCapturedSessionSystemPrompt } from '../../../../opencode-runtime'
+import type { Context } from "hono"
+import { readTeachingSessionState } from "../../../agent-execution/state/session-state"
+import { withConfigSync } from "../../../../http/route-helpers"
+import { readCapturedSessionSystemPrompt } from "../../../../opencode-runtime"
 
 export async function getTeachingState(c: Context): Promise<Response> {
   const syncResult = await withConfigSync(c, {
-    operation: 'teaching-state',
+    operation: "teaching-state",
   })
   if (!syncResult.ok) return syncResult.response
 
-  const sessionID = c.req.param('sessionID')
+  const sessionID = c.req.param("sessionID")
   const state = readTeachingSessionState(syncResult.value.directory, sessionID)
   if (!state) {
     return c.body(null, 204)

@@ -1,5 +1,5 @@
-import { Instance as OpenCodeInstance } from '@buddy/opencode-adapter/instance'
-import { tmpdir } from '../helpers/tmpdir'
+import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
+import { tmpdir } from "../helpers/tmpdir"
 
 export async function withRepo<T>(fn: (directory: string) => Promise<T>) {
   await using tmp = await tmpdir({ git: true })

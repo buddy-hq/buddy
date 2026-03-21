@@ -1,158 +1,133 @@
-import {
-  ArrowUpIcon,
-  Dialog,
-  DialogContent,
-  PlusIcon,
-  SquareIcon,
-} from "@buddy/ui";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { shouldSubmitComposer } from "../../lib/chat-input";
+import { ArrowUpIcon, Dialog, DialogContent, PlusIcon, SquareIcon } from "@buddy/ui"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { shouldSubmitComposer } from "../../lib/chat-input"
 import {
   createTextFragment,
   getCursorPosition,
   setCursorPosition,
   setRangeEdge,
-} from "./editor-dom";
+} from "./editor-dom"
 import {
   canNavigateHistoryAtCursor,
   navigatePromptHistory,
   type PromptHistoryEntry,
-} from "./prompt-history";
+} from "./prompt-history"
 import {
   type MentionOption,
   type MentionableAgent,
   type MentionableFile,
-} from "./mention-autocomplete";
+} from "./mention-autocomplete"
 import {
   clonePromptParts,
   collectPromptParts,
   createPromptPartsFromValue,
   renderPromptParts,
   serializePromptParts,
-} from "./prompt-parts";
-import {
-  type SlashCommandOption,
-  type SlashCommandSource,
-} from "./slash-autocomplete";
-import { PromptAutocompleteMenu } from "./components/prompt-autocomplete-menu";
-import { PromptComposerToolbar } from "./components/prompt-composer-toolbar";
+} from "./prompt-parts"
+import { type SlashCommandOption, type SlashCommandSource } from "./slash-autocomplete"
+import { PromptAutocompleteMenu } from "./components/prompt-autocomplete-menu"
+import { PromptComposerToolbar } from "./components/prompt-composer-toolbar"
 import {
   PROMPT_PART_TYPE_AGENT,
   PROMPT_PART_TYPE_TEXT,
   type PromptComposerPart,
   RESOURCE_REFERENCE_PART_TYPE,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
-} from "./prompt-types";
-import { ACCEPTED_FILE_TYPES, cloneAttachments } from "./attachment-utils";
-import { ImageAttachments } from "./image-attachments";
-import { usePromptComposerAttachments } from "./use-prompt-composer-attachments";
-import { usePromptComposerViewState } from "./use-prompt-composer-view-state";
-import { usePromptEditorSync } from "./use-prompt-editor-sync";
+} from "./prompt-types"
+import { ACCEPTED_FILE_TYPES, cloneAttachments } from "./attachment-utils"
+import { ImageAttachments } from "./image-attachments"
+import { usePromptComposerAttachments } from "./use-prompt-composer-attachments"
+import { usePromptComposerViewState } from "./use-prompt-composer-view-state"
+import { usePromptEditorSync } from "./use-prompt-editor-sync"
 import {
   getPromptDraft,
   getPromptHistoryEntries,
   getPromptHistoryNavigation,
   getPromptScopeKey,
   usePromptStore,
-} from "../../state/prompt-store";
+} from "../../state/prompt-store"
 
 type PromptComposerProps = {
-  directory: string;
-  sessionID?: string;
-  isBusy: boolean;
+  directory: string
+  sessionID?: string
+  isBusy: boolean
   personaOptions: Array<{
-    name: string;
-    label?: string;
-  }>;
-  mentionableAgents: MentionableAgent[];
+    name: string
+    label?: string
+  }>
+  mentionableAgents: MentionableAgent[]
   slashCommands: Array<{
-    name: string;
-    description?: string;
-    source?: SlashCommandSource;
-  }>;
+    name: string
+    description?: string
+    source?: SlashCommandSource
+  }>
   modelOptions: Array<{
-    key: string;
-    label: string;
-    group?: string;
-    disabled?: boolean;
-  }>;
-  selectedPersona: string;
-  selectedIntent: "auto" | "learn" | "practice" | "assess";
-  selectedModel: string;
-  pendingSteerLabel?: string;
+    key: string
+    label: string
+    group?: string
+    disabled?: boolean
+  }>
+  selectedPersona: string
+  selectedIntent: "auto" | "learn" | "practice" | "assess"
+  selectedModel: string
+  pendingSteerLabel?: string
   thinkingOptions: Array<{
-    key: string;
-    label: string;
-  }>;
-  selectedThinking: string;
-  onPersonaChange: (persona: string) => void;
-  onIntentChange: (intent: "auto" | "learn" | "practice" | "assess") => void;
-  onClearPendingSteer?: () => void;
-  onModelChange: (model: string) => void;
-  onThinkingChange: (thinking: string) => void;
-  onSubmit: () => void;
-  onAbort: () => void;
-  onNewSession: () => void;
-  onOpenMcpDialog?: () => void;
-  onSearchFiles?: (query: string) => Promise<MentionableFile[]>;
-  onRefreshSlashCommands?: () => void;
-  className?: string;
-};
+    key: string
+    label: string
+  }>
+  selectedThinking: string
+  onPersonaChange: (persona: string) => void
+  onIntentChange: (intent: "auto" | "learn" | "practice" | "assess") => void
+  onClearPendingSteer?: () => void
+  onModelChange: (model: string) => void
+  onThinkingChange: (thinking: string) => void
+  onSubmit: () => void
+  onAbort: () => void
+  onNewSession: () => void
+  onOpenMcpDialog?: () => void
+  onSearchFiles?: (query: string) => Promise<MentionableFile[]>
+  onRefreshSlashCommands?: () => void
+  className?: string
+}
 
-const NON_EMPTY_TEXT = /[^\s\u200B]/;
+const NON_EMPTY_TEXT = /[^\s\u200B]/
 
 function hasSubmittablePromptParts(parts: PromptComposerPart[]) {
-  return parts.some(
-    (part) =>
-      part.type !== PROMPT_PART_TYPE_TEXT || part.text.trim().length > 0,
-  );
+  return parts.some((part) => part.type !== PROMPT_PART_TYPE_TEXT || part.text.trim().length > 0)
 }
 
 export function PromptComposer(props: PromptComposerProps) {
-  const editorRef = useRef<HTMLDivElement | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const modelTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const mirrorInputRef = useRef(false);
-  const historyApplyingRef = useRef(false);
+  const editorRef = useRef<HTMLDivElement | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const modelTriggerRef = useRef<HTMLButtonElement | null>(null)
+  const mirrorInputRef = useRef(false)
+  const historyApplyingRef = useRef(false)
   const promptKey = useMemo(
     () => getPromptScopeKey(props.directory, props.sessionID),
     [props.directory, props.sessionID],
-  );
-  const draft = usePromptStore((state) => getPromptDraft(state, promptKey));
-  const historyEntries = usePromptStore((state) =>
-    getPromptHistoryEntries(state, props.directory),
-  );
-  const historyNavigation = usePromptStore((state) =>
-    getPromptHistoryNavigation(state, promptKey),
-  );
-  const replaceDraft = usePromptStore((state) => state.replaceDraft);
-  const setDraftAttachments = usePromptStore((state) => state.setAttachments);
-  const setDraftCursor = usePromptStore((state) => state.setCursor);
-  const clearDraft = usePromptStore((state) => state.clearDraft);
-  const pushHistoryEntry = usePromptStore((state) => state.pushHistoryEntry);
-  const setHistoryNavigation = usePromptStore(
-    (state) => state.setHistoryNavigation,
-  );
-  const clearHistoryNavigation = usePromptStore(
-    (state) => state.resetHistoryNavigation,
-  );
-  const hasSubmittableParts = useMemo(
-    () => hasSubmittablePromptParts(draft.parts),
-    [draft.parts],
-  );
+  )
+  const draft = usePromptStore((state) => getPromptDraft(state, promptKey))
+  const historyEntries = usePromptStore((state) => getPromptHistoryEntries(state, props.directory))
+  const historyNavigation = usePromptStore((state) => getPromptHistoryNavigation(state, promptKey))
+  const replaceDraft = usePromptStore((state) => state.replaceDraft)
+  const setDraftAttachments = usePromptStore((state) => state.setAttachments)
+  const setDraftCursor = usePromptStore((state) => state.setCursor)
+  const clearDraft = usePromptStore((state) => state.clearDraft)
+  const pushHistoryEntry = usePromptStore((state) => state.pushHistoryEntry)
+  const setHistoryNavigation = usePromptStore((state) => state.setHistoryNavigation)
+  const clearHistoryNavigation = usePromptStore((state) => state.resetHistoryNavigation)
+  const hasSubmittableParts = useMemo(() => hasSubmittablePromptParts(draft.parts), [draft.parts])
   const canSubmit = useMemo(
     () =>
       !props.isBusy &&
-      (draft.value.trim().length > 0 ||
-        draft.attachments.length > 0 ||
-        hasSubmittableParts),
+      (draft.value.trim().length > 0 || draft.attachments.length > 0 || hasSubmittableParts),
     [draft.attachments.length, draft.value, hasSubmittableParts, props.isBusy],
-  );
-  const [cursorOffset, setCursorOffset] = useState(() => draft.cursor);
-  const [dragging, setDragging] = useState(false);
-  const [modelMenuOpen, setModelMenuOpen] = useState(false);
-  const historyIndex = historyNavigation.historyIndex;
-  const savedHistoryDraft = historyNavigation.savedDraft;
+  )
+  const [cursorOffset, setCursorOffset] = useState(() => draft.cursor)
+  const [dragging, setDragging] = useState(false)
+  const [modelMenuOpen, setModelMenuOpen] = useState(false)
+  const historyIndex = historyNavigation.historyIndex
+  const savedHistoryDraft = historyNavigation.savedDraft
 
   const viewState = usePromptComposerViewState({
     cursorOffset,
@@ -165,19 +140,19 @@ export function PromptComposer(props: PromptComposerProps) {
     modelOptions: props.modelOptions,
     onSearchFiles: props.onSearchFiles,
     onRefreshSlashCommands: props.onRefreshSlashCommands,
-  });
+  })
 
   useEffect(() => {
-    if (cursorOffset <= draft.value.length) return;
-    setCursorOffset(draft.value.length);
-  }, [cursorOffset, draft.value]);
+    if (cursorOffset <= draft.value.length) return
+    setCursorOffset(draft.value.length)
+  }, [cursorOffset, draft.value])
 
   const attachmentState = usePromptComposerAttachments({
     promptKey,
     attachments: draft.attachments,
     setDraftAttachments,
     resetHistoryNavigation,
-  });
+  })
 
   usePromptEditorSync({
     editorRef,
@@ -185,62 +160,48 @@ export function PromptComposer(props: PromptComposerProps) {
     draft,
     knownAgents: viewState.knownAgents,
     setCursorOffset,
-  });
+  })
 
-  function replaceDraftFromComposer(
-    draftState: Omit<typeof draft, "updatedAt">,
-  ) {
-    mirrorInputRef.current = true;
-    replaceDraft(promptKey, draftState);
+  function replaceDraftFromComposer(draftState: Omit<typeof draft, "updatedAt">) {
+    mirrorInputRef.current = true
+    replaceDraft(promptKey, draftState)
   }
 
-  function renderEditorAtCursor(
-    parts: PromptComposerPart[],
-    cursor: number,
-    focus = false,
-  ) {
-    const editor = editorRef.current;
-    if (!editor) return;
-    renderPromptParts(editor, parts);
+  function renderEditorAtCursor(parts: PromptComposerPart[], cursor: number, focus = false) {
+    const editor = editorRef.current
+    if (!editor) return
+    renderPromptParts(editor, parts)
     if (focus) {
-      editor.focus();
+      editor.focus()
     }
-    setCursorPosition(editor, cursor);
-    setCursorOffset(cursor);
+    setCursorPosition(editor, cursor)
+    setCursorOffset(cursor)
   }
 
   function resetHistoryNavigation() {
-    if (historyApplyingRef.current) return;
-    if (
-      historyNavigation.historyIndex < 0 &&
-      historyNavigation.savedDraft === null
-    )
-      return;
-    clearHistoryNavigation(promptKey);
+    if (historyApplyingRef.current) return
+    if (historyNavigation.historyIndex < 0 && historyNavigation.savedDraft === null) return
+    clearHistoryNavigation(promptKey)
   }
 
-  function applyDraftSnapshot(
-    next: PromptHistoryEntry,
-    cursor: "start" | "end",
-  ) {
-    historyApplyingRef.current = true;
+  function applyDraftSnapshot(next: PromptHistoryEntry, cursor: "start" | "end") {
+    historyApplyingRef.current = true
     const nextParts =
       next.parts.length > 0
         ? clonePromptParts(next.parts)
-        : createPromptPartsFromValue(next.value, viewState.knownAgents);
-    const nextValue =
-      next.parts.length > 0 ? serializePromptParts(nextParts) : next.value;
-    const nextCursor = cursor === "start" ? 0 : nextValue.length;
-    renderEditorAtCursor(nextParts, nextCursor, true);
+        : createPromptPartsFromValue(next.value, viewState.knownAgents)
+    const nextValue = next.parts.length > 0 ? serializePromptParts(nextParts) : next.value
+    const nextCursor = cursor === "start" ? 0 : nextValue.length
+    renderEditorAtCursor(nextParts, nextCursor, true)
     replaceDraftFromComposer({
       value: nextValue,
       parts: nextParts,
       attachments: cloneAttachments(next.attachments),
       cursor: nextCursor,
-    });
+    })
     window.requestAnimationFrame(() => {
-      historyApplyingRef.current = false;
-    });
+      historyApplyingRef.current = false
+    })
   }
 
   function commitDraftToHistory() {
@@ -248,17 +209,17 @@ export function PromptComposer(props: PromptComposerProps) {
       value: draft.value,
       attachments: cloneAttachments(draft.attachments),
       parts: clonePromptParts(draft.parts),
-    });
-    clearHistoryNavigation(promptKey);
+    })
+    clearHistoryNavigation(promptKey)
   }
 
   function handleEditorInput() {
-    const editor = editorRef.current;
-    if (!editor) return;
+    const editor = editorRef.current
+    if (!editor) return
 
-    const nextParts = collectPromptParts(editor);
-    const nextValue = serializePromptParts(nextParts);
-    const nextCursor = getCursorPosition(editor);
+    const nextParts = collectPromptParts(editor)
+    const nextValue = serializePromptParts(nextParts)
+    const nextCursor = getCursorPosition(editor)
     const shouldReset =
       !NON_EMPTY_TEXT.test(nextValue) &&
       draft.attachments.length === 0 &&
@@ -266,190 +227,181 @@ export function PromptComposer(props: PromptComposerProps) {
         editor.querySelectorAll(
           `[data-type='${PROMPT_PART_TYPE_AGENT}'], [data-type='${WORKSPACE_FILE_REFERENCE_PART_TYPE}'], [data-type='${RESOURCE_REFERENCE_PART_TYPE}']`,
         ),
-      ).length;
+      ).length
 
-    setCursorOffset(nextCursor);
-    viewState.setDismissedMentionKey(undefined);
-    viewState.setDismissedSlashKey(undefined);
+    setCursorOffset(nextCursor)
+    viewState.setDismissedMentionKey(undefined)
+    viewState.setDismissedSlashKey(undefined)
 
     if (shouldReset) {
-      resetHistoryNavigation();
+      resetHistoryNavigation()
       replaceDraftFromComposer({
         value: "",
         parts: [],
         attachments: draft.attachments,
         cursor: 0,
-      });
-      return;
+      })
+      return
     }
 
-    resetHistoryNavigation();
+    resetHistoryNavigation()
     replaceDraftFromComposer({
       value: nextValue,
       parts: nextParts,
       attachments: draft.attachments,
       cursor: nextCursor,
-    });
+    })
   }
 
   function insertTextAtSelection(text: string) {
-    const editor = editorRef.current;
-    if (!editor) return;
+    const editor = editorRef.current
+    if (!editor) return
 
-    const selection = window.getSelection();
-    if (!selection) return;
+    const selection = window.getSelection()
+    if (!selection) return
 
     if (selection.rangeCount === 0 || !editor.contains(selection.anchorNode)) {
-      editor.focus();
-      setCursorPosition(editor, draft.cursor);
+      editor.focus()
+      setCursorPosition(editor, draft.cursor)
     }
 
-    if (selection.rangeCount === 0) return;
-    const range = selection.getRangeAt(0);
-    const fragment = createTextFragment(text);
-    const lastNode = fragment.lastChild;
-    range.deleteContents();
-    range.insertNode(fragment);
+    if (selection.rangeCount === 0) return
+    const range = selection.getRangeAt(0)
+    const fragment = createTextFragment(text)
+    const lastNode = fragment.lastChild
+    range.deleteContents()
+    range.insertNode(fragment)
 
     if (lastNode?.nodeType === Node.TEXT_NODE) {
-      range.setStart(lastNode, lastNode.textContent?.length ?? 0);
+      range.setStart(lastNode, lastNode.textContent?.length ?? 0)
     } else if (lastNode) {
-      range.setStartAfter(lastNode);
+      range.setStartAfter(lastNode)
     }
-    range.collapse(true);
-    selection.removeAllRanges();
-    selection.addRange(range);
-    handleEditorInput();
+    range.collapse(true)
+    selection.removeAllRanges()
+    selection.addRange(range)
+    handleEditorInput()
   }
 
   function applyMention(option: MentionOption) {
-    const editor = editorRef.current;
-    if (!editor || !viewState.mentionMatch) return;
+    const editor = editorRef.current
+    if (!editor || !viewState.mentionMatch) return
 
-    const selection = window.getSelection();
-    if (!selection) return;
+    const selection = window.getSelection()
+    if (!selection) return
 
     if (selection.rangeCount === 0 || !editor.contains(selection.anchorNode)) {
-      editor.focus();
-      setCursorPosition(editor, cursorOffset);
+      editor.focus()
+      setCursorPosition(editor, cursorOffset)
     }
 
-    if (selection.rangeCount === 0) return;
-    const range = selection.getRangeAt(0);
-    if (!editor.contains(range.startContainer)) return;
+    if (selection.rangeCount === 0) return
+    const range = selection.getRangeAt(0)
+    if (!editor.contains(range.startContainer)) return
 
-    const pill = document.createElement("span");
+    const pill = document.createElement("span")
     pill.className =
-      "mx-0.5 inline-flex max-w-full items-center rounded-md border border-border/70 bg-muted px-1.5 py-0.5 text-xs font-medium text-foreground";
+      "mx-0.5 inline-flex max-w-full items-center rounded-md border border-border/70 bg-muted px-1.5 py-0.5 text-xs font-medium text-foreground"
     if (option.type === "agent") {
-      pill.textContent = `@${option.name}`;
-      pill.dataset.type = PROMPT_PART_TYPE_AGENT;
-      pill.dataset.name = option.name;
+      pill.textContent = `@${option.name}`
+      pill.dataset.type = PROMPT_PART_TYPE_AGENT
+      pill.dataset.name = option.name
     } else {
-      pill.textContent = `@${option.path}`;
-      pill.dataset.type = WORKSPACE_FILE_REFERENCE_PART_TYPE;
-      pill.dataset.path = option.path;
-      viewState.appendRecentMentionFile({ path: option.path, recent: true });
+      pill.textContent = `@${option.path}`
+      pill.dataset.type = WORKSPACE_FILE_REFERENCE_PART_TYPE
+      pill.dataset.path = option.path
+      viewState.appendRecentMentionFile({ path: option.path, recent: true })
     }
-    pill.setAttribute("contenteditable", "false");
+    pill.setAttribute("contenteditable", "false")
 
-    setRangeEdge(editor, range, "start", viewState.mentionMatch.start);
-    setRangeEdge(editor, range, "end", viewState.mentionMatch.end);
-    range.deleteContents();
+    setRangeEdge(editor, range, "start", viewState.mentionMatch.start)
+    setRangeEdge(editor, range, "end", viewState.mentionMatch.end)
+    range.deleteContents()
 
-    const gap = document.createTextNode(" ");
-    range.insertNode(gap);
-    range.insertNode(pill);
-    range.setStartAfter(gap);
-    range.collapse(true);
-    selection.removeAllRanges();
-    selection.addRange(range);
+    const gap = document.createTextNode(" ")
+    range.insertNode(gap)
+    range.insertNode(pill)
+    range.setStartAfter(gap)
+    range.collapse(true)
+    selection.removeAllRanges()
+    selection.addRange(range)
 
-    viewState.setDismissedMentionKey(undefined);
-    handleEditorInput();
+    viewState.setDismissedMentionKey(undefined)
+    handleEditorInput()
   }
 
   function clearComposer() {
-    resetHistoryNavigation();
-    renderEditorAtCursor([], 0);
-    clearDraft(promptKey);
+    resetHistoryNavigation()
+    renderEditorAtCursor([], 0)
+    clearDraft(promptKey)
   }
 
   function runBuiltinSlashCommand(name: string) {
     switch (name) {
       case "new":
-        clearComposer();
-        props.onNewSession();
-        return true;
+        clearComposer()
+        props.onNewSession()
+        return true
       case "persona": {
-        if (viewState.personaOptions.length <= 1) return false;
+        if (viewState.personaOptions.length <= 1) return false
         const currentIndex = viewState.personaOptions.findIndex(
           (option) => option.name === props.selectedPersona,
-        );
+        )
         const nextIndex =
-          currentIndex >= 0
-            ? (currentIndex + 1) % viewState.personaOptions.length
-            : 0;
-        const nextPersona = viewState.personaOptions[nextIndex];
-        if (!nextPersona) return false;
-        clearComposer();
-        props.onPersonaChange(nextPersona.name);
-        return true;
+          currentIndex >= 0 ? (currentIndex + 1) % viewState.personaOptions.length : 0
+        const nextPersona = viewState.personaOptions[nextIndex]
+        if (!nextPersona) return false
+        clearComposer()
+        props.onPersonaChange(nextPersona.name)
+        return true
       }
       case "model":
-        clearComposer();
-        setModelMenuOpen(true);
+        clearComposer()
+        setModelMenuOpen(true)
         window.requestAnimationFrame(() => {
-          modelTriggerRef.current?.focus();
-        });
-        return true;
+          modelTriggerRef.current?.focus()
+        })
+        return true
       case "mcp":
-        clearComposer();
-        props.onOpenMcpDialog?.();
-        return true;
+        clearComposer()
+        props.onOpenMcpDialog?.()
+        return true
       default:
-        return false;
+        return false
     }
   }
 
   function applySlash(command: SlashCommandOption) {
     if (command.type === "builtin") {
-      runBuiltinSlashCommand(command.name);
-      return;
+      runBuiltinSlashCommand(command.name)
+      return
     }
 
-    const nextValue = `/${command.name} `;
-    const nextCursor = command.name.length + 2;
-    viewState.setDismissedSlashKey(undefined);
-    const nextParts = createPromptPartsFromValue(
-      nextValue,
-      viewState.knownAgents,
-    );
-    renderEditorAtCursor(nextParts, nextCursor, true);
+    const nextValue = `/${command.name} `
+    const nextCursor = command.name.length + 2
+    viewState.setDismissedSlashKey(undefined)
+    const nextParts = createPromptPartsFromValue(nextValue, viewState.knownAgents)
+    renderEditorAtCursor(nextParts, nextCursor, true)
     replaceDraftFromComposer({
       value: nextValue,
       parts: nextParts,
       attachments: draft.attachments,
       cursor: nextCursor,
-    });
+    })
   }
 
   function handleSubmit() {
     if (props.isBusy) {
-      props.onAbort();
-      return;
+      props.onAbort()
+      return
     }
 
-    if (
-      !draft.value.trim() &&
-      draft.attachments.length === 0 &&
-      !hasSubmittableParts
-    ) {
-      return;
+    if (!draft.value.trim() && draft.attachments.length === 0 && !hasSubmittableParts) {
+      return
     }
 
-    commitDraftToHistory();
-    props.onSubmit();
+    commitDraftToHistory()
+    props.onSubmit()
   }
 
   return (
@@ -457,26 +409,25 @@ export function PromptComposer(props: PromptComposerProps) {
       <form
         className="group/prompt-input relative z-10 rounded-[12px] border bg-card shadow-sm"
         onSubmit={(event) => {
-          event.preventDefault();
-          handleSubmit();
+          event.preventDefault()
+          handleSubmit()
         }}
         onDragEnter={(event) => {
-          event.preventDefault();
-          setDragging(true);
+          event.preventDefault()
+          setDragging(true)
         }}
         onDragOver={(event) => {
-          event.preventDefault();
-          if (!dragging) setDragging(true);
+          event.preventDefault()
+          if (!dragging) setDragging(true)
         }}
         onDragLeave={(event) => {
-          if (event.currentTarget.contains(event.relatedTarget as Node | null))
-            return;
-          setDragging(false);
+          if (event.currentTarget.contains(event.relatedTarget as Node | null)) return
+          setDragging(false)
         }}
         onDrop={(event) => {
-          event.preventDefault();
-          setDragging(false);
-          void attachmentState.addAttachments(event.dataTransfer.files);
+          event.preventDefault()
+          setDragging(false)
+          void attachmentState.addAttachments(event.dataTransfer.files)
         }}
       >
         <div className="relative">
@@ -498,9 +449,7 @@ export function PromptComposer(props: PromptComposerProps) {
             </div>
           ) : null}
 
-          {!draft.value &&
-          draft.attachments.length === 0 &&
-          !hasSubmittableParts ? (
+          {!draft.value && draft.attachments.length === 0 && !hasSubmittableParts ? (
             <div
               className="pointer-events-none absolute left-3 top-3 right-20 text-sm leading-6 text-muted-foreground transition-opacity duration-250 ease-out"
               style={{ opacity: viewState.placeholderOpacity }}
@@ -517,64 +466,54 @@ export function PromptComposer(props: PromptComposerProps) {
             aria-multiline="true"
             className="min-h-[84px] max-h-[240px] w-full overflow-y-auto rounded-[12px] border-0 bg-transparent px-3 pt-3 pb-12 text-sm leading-6 text-foreground focus:outline-none"
             onInput={() => {
-              handleEditorInput();
+              handleEditorInput()
             }}
             onFocus={() => {
-              const editor = editorRef.current;
-              if (!editor) return;
+              const editor = editorRef.current
+              if (!editor) return
 
-              const selection = window.getSelection();
-              if (
-                selection &&
-                selection.rangeCount > 0 &&
-                editor.contains(selection.anchorNode)
-              ) {
-                const currentCursor = getCursorPosition(editor);
-                setCursorOffset(currentCursor);
-                setDraftCursor(promptKey, currentCursor);
-                return;
+              const selection = window.getSelection()
+              if (selection && selection.rangeCount > 0 && editor.contains(selection.anchorNode)) {
+                const currentCursor = getCursorPosition(editor)
+                setCursorOffset(currentCursor)
+                setDraftCursor(promptKey, currentCursor)
+                return
               }
 
-              const nextCursor = Math.max(
-                0,
-                Math.min(draft.cursor, draft.value.length),
-              );
-              setCursorPosition(editor, nextCursor);
-              setCursorOffset(nextCursor);
-              setDraftCursor(promptKey, nextCursor);
+              const nextCursor = Math.max(0, Math.min(draft.cursor, draft.value.length))
+              setCursorPosition(editor, nextCursor)
+              setCursorOffset(nextCursor)
+              setDraftCursor(promptKey, nextCursor)
             }}
             onClick={() => {
-              const editor = editorRef.current;
-              if (!editor) return;
-              const currentCursor = getCursorPosition(editor);
-              setCursorOffset(currentCursor);
-              setDraftCursor(promptKey, currentCursor);
+              const editor = editorRef.current
+              if (!editor) return
+              const currentCursor = getCursorPosition(editor)
+              setCursorOffset(currentCursor)
+              setDraftCursor(promptKey, currentCursor)
             }}
             onKeyDown={(event) => {
-              const editor = editorRef.current;
-              const currentCursor = editor
-                ? getCursorPosition(editor)
-                : draft.value.length;
-              setCursorOffset(currentCursor);
-              setDraftCursor(promptKey, currentCursor);
+              const editor = editorRef.current
+              const currentCursor = editor ? getCursorPosition(editor) : draft.value.length
+              setCursorOffset(currentCursor)
+              setDraftCursor(promptKey, currentCursor)
 
               if (viewState.slashVisible) {
                 if (event.key === "ArrowDown") {
-                  event.preventDefault();
+                  event.preventDefault()
                   viewState.setSlashIndex(
                     (current) => (current + 1) % viewState.slashOptions.length,
-                  );
-                  return;
+                  )
+                  return
                 }
 
                 if (event.key === "ArrowUp") {
-                  event.preventDefault();
+                  event.preventDefault()
                   viewState.setSlashIndex(
                     (current) =>
-                      (current - 1 + viewState.slashOptions.length) %
-                      viewState.slashOptions.length,
-                  );
-                  return;
+                      (current - 1 + viewState.slashOptions.length) % viewState.slashOptions.length,
+                  )
+                  return
                 }
 
                 if (
@@ -586,37 +525,36 @@ export function PromptComposer(props: PromptComposerProps) {
                     !event.metaKey &&
                     !event.altKey)
                 ) {
-                  event.preventDefault();
-                  const selected = viewState.slashOptions[viewState.slashIndex];
-                  if (selected) applySlash(selected);
-                  return;
+                  event.preventDefault()
+                  const selected = viewState.slashOptions[viewState.slashIndex]
+                  if (selected) applySlash(selected)
+                  return
                 }
 
                 if (event.key === "Escape") {
-                  event.preventDefault();
-                  viewState.setDismissedSlashKey(viewState.slashKey);
-                  return;
+                  event.preventDefault()
+                  viewState.setDismissedSlashKey(viewState.slashKey)
+                  return
                 }
               }
 
               if (viewState.mentionVisible) {
                 if (event.key === "ArrowDown") {
-                  event.preventDefault();
+                  event.preventDefault()
                   viewState.setMentionIndex(
-                    (current) =>
-                      (current + 1) % viewState.mentionOptions.length,
-                  );
-                  return;
+                    (current) => (current + 1) % viewState.mentionOptions.length,
+                  )
+                  return
                 }
 
                 if (event.key === "ArrowUp") {
-                  event.preventDefault();
+                  event.preventDefault()
                   viewState.setMentionIndex(
                     (current) =>
                       (current - 1 + viewState.mentionOptions.length) %
                       viewState.mentionOptions.length,
-                  );
-                  return;
+                  )
+                  return
                 }
 
                 if (
@@ -628,17 +566,16 @@ export function PromptComposer(props: PromptComposerProps) {
                     !event.metaKey &&
                     !event.altKey)
                 ) {
-                  event.preventDefault();
-                  const selected =
-                    viewState.mentionOptions[viewState.mentionIndex];
-                  if (selected) applyMention(selected);
-                  return;
+                  event.preventDefault()
+                  const selected = viewState.mentionOptions[viewState.mentionIndex]
+                  if (selected) applyMention(selected)
+                  return
                 }
 
                 if (event.key === "Escape") {
-                  event.preventDefault();
-                  viewState.setDismissedMentionKey(viewState.mentionKey);
-                  return;
+                  event.preventDefault()
+                  viewState.setDismissedMentionKey(viewState.mentionKey)
+                  return
                 }
               }
 
@@ -661,15 +598,15 @@ export function PromptComposer(props: PromptComposerProps) {
                     parts: clonePromptParts(draft.parts),
                   },
                   savedDraft: savedHistoryDraft,
-                });
+                })
                 if (result.handled) {
-                  event.preventDefault();
+                  event.preventDefault()
                   setHistoryNavigation(promptKey, {
                     historyIndex: result.historyIndex,
                     savedDraft: result.savedDraft,
-                  });
-                  applyDraftSnapshot(result.entry, result.cursor);
-                  return;
+                  })
+                  applyDraftSnapshot(result.entry, result.cursor)
+                  return
                 }
               }
 
@@ -683,33 +620,31 @@ export function PromptComposer(props: PromptComposerProps) {
                   isComposing: event.nativeEvent.isComposing,
                 })
               ) {
-                event.preventDefault();
-                handleSubmit();
+                event.preventDefault()
+                handleSubmit()
               }
             }}
             onPaste={(event) => {
-              const clipboardData = event.clipboardData;
-              if (!clipboardData) return;
+              const clipboardData = event.clipboardData
+              if (!clipboardData) return
 
-              const items = Array.from(clipboardData.items);
-              const fileItems = items.filter((item) => item.kind === "file");
-              const imageItems = fileItems.filter((item) =>
-                ACCEPTED_FILE_TYPES.includes(item.type),
-              );
+              const items = Array.from(clipboardData.items)
+              const fileItems = items.filter((item) => item.kind === "file")
+              const imageItems = fileItems.filter((item) => ACCEPTED_FILE_TYPES.includes(item.type))
 
               if (imageItems.length > 0) {
-                event.preventDefault();
+                event.preventDefault()
                 for (const item of imageItems) {
-                  const file = item.getAsFile();
-                  if (file) attachmentState.addAttachments([file]);
+                  const file = item.getAsFile()
+                  if (file) attachmentState.addAttachments([file])
                 }
-                return;
+                return
               }
 
-              const text = clipboardData.getData("text/plain");
-              if (!text) return;
-              event.preventDefault();
-              insertTextAtSelection(text);
+              const text = clipboardData.getData("text/plain")
+              if (!text) return
+              event.preventDefault()
+              insertTextAtSelection(text)
             }}
           />
 
@@ -720,10 +655,10 @@ export function PromptComposer(props: PromptComposerProps) {
             accept={ACCEPTED_FILE_TYPES.join(",")}
             className="hidden"
             onChange={(event) => {
-              const files = event.target.files;
-              if (!files || files.length === 0) return;
-              void attachmentState.addAttachments(files);
-              event.currentTarget.value = "";
+              const files = event.target.files
+              if (!files || files.length === 0) return
+              void attachmentState.addAttachments(files)
+              event.currentTarget.value = ""
             }}
           />
 
@@ -734,7 +669,7 @@ export function PromptComposer(props: PromptComposerProps) {
               title="Attach files"
               aria-label="Attach files"
               onClick={() => {
-                fileInputRef.current?.click();
+                fileInputRef.current?.click()
               }}
             >
               <PlusIcon className="size-4" />
@@ -784,9 +719,7 @@ export function PromptComposer(props: PromptComposerProps) {
 
       <Dialog
         open={!!attachmentState.previewAttachment}
-        onOpenChange={(open) =>
-          !open && attachmentState.closePreviewAttachment()
-        }
+        onOpenChange={(open) => !open && attachmentState.closePreviewAttachment()}
       >
         <DialogContent className="max-w-3xl max-h-[80vh] p-0 overflow-hidden">
           {attachmentState.previewAttachment && (
@@ -799,5 +732,5 @@ export function PromptComposer(props: PromptComposerProps) {
         </DialogContent>
       </Dialog>
     </div>
-  );
+  )
 }

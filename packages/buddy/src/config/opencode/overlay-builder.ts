@@ -1,25 +1,25 @@
-import { Config } from '../config.js'
+import { Config } from "../config.js"
 import {
   applyBuddyPersonaHiddenFlags,
   mergeBuddyAndConfiguredAgents,
   resolveConfiguredAgentKey,
-} from './agents.js'
-import { fingerprintOpenCodeConfig } from './fingerprint.js'
-import { parseConfiguredModel } from './models.js'
-import { resolveBuddyBundledSkillRoots, resolveOpenCodeSkillPaths } from './skills.js'
-import { getDefaultBuddyPersona } from '../../learning/personas'
-import { resolveBuddySystemPromptGuardPluginUrl } from '../../opencode-runtime'
+} from "./agents.js"
+import { fingerprintOpenCodeConfig } from "./fingerprint.js"
+import { parseConfiguredModel } from "./models.js"
+import { resolveBuddyBundledSkillRoots, resolveOpenCodeSkillPaths } from "./skills.js"
+import { getDefaultBuddyPersona } from "../../learning/personas"
+import { resolveBuddySystemPromptGuardPluginUrl } from "../../opencode-runtime"
 
 const BUDDY_RUNTIME_PERMISSION_OVERLAY: Config.Permission = {
-  curriculum_read: 'deny',
-  'goal_*': 'deny',
-  'learner_*': 'deny',
-  'pedagogy_*': 'deny',
-  'python_*': 'deny',
-  'render_*': 'deny',
-  'teaching_*': 'deny',
-  websearch: 'allow',
-  codesearch: 'allow',
+  curriculum_read: "deny",
+  "goal_*": "deny",
+  "learner_*": "deny",
+  "pedagogy_*": "deny",
+  "python_*": "deny",
+  "render_*": "deny",
+  "teaching_*": "deny",
+  websearch: "allow",
+  codesearch: "allow",
 }
 
 function buildOpenCodePermissionOverlay(

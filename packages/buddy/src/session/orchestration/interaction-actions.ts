@@ -1,17 +1,17 @@
-import type { Context } from 'hono'
-import { withConfigSync } from '../../http/route-helpers'
-import { createSessionCommandTransform } from '../../learning/agent-execution/transforms/command-transform'
-import { createSessionMessageTransform } from '../../learning/agent-execution/transforms/message-transform'
-import type { SessionTransformContext } from '../../learning/agent-execution/transforms/types'
-import { mapSessionTransformError, runSessionTransformProxy } from './proxy-transform'
+import type { Context } from "hono"
+import { withConfigSync } from "../../http/route-helpers"
+import { createSessionCommandTransform } from "../../learning/agent-execution/transforms/command-transform"
+import { createSessionMessageTransform } from "../../learning/agent-execution/transforms/message-transform"
+import type { SessionTransformContext } from "../../learning/agent-execution/transforms/types"
+import { mapSessionTransformError, runSessionTransformProxy } from "./proxy-transform"
 
 export async function postSessionPrompt(c: Context): Promise<Response> {
   const syncResult = await withConfigSync(c, {
-    operation: 'prompt',
+    operation: "prompt",
   })
   if (!syncResult.ok) return syncResult.response
 
-  const sessionID = c.req.param('sessionID')
+  const sessionID = c.req.param("sessionID")
 
   const transformContext: SessionTransformContext = {
     directory: syncResult.value.directory,
@@ -40,11 +40,11 @@ export async function postSessionPrompt(c: Context): Promise<Response> {
 
 export async function postSessionCommand(c: Context): Promise<Response> {
   const syncResult = await withConfigSync(c, {
-    operation: 'command',
+    operation: "command",
   })
   if (!syncResult.ok) return syncResult.response
 
-  const sessionID = c.req.param('sessionID')
+  const sessionID = c.req.param("sessionID")
 
   const transformContext: SessionTransformContext = {
     directory: syncResult.value.directory,

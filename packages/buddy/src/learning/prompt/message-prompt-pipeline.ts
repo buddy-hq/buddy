@@ -1,14 +1,14 @@
-import { parseConfiguredModel, type readProjectConfig } from '@buddy/backend/config/runtime'
-import { TeachingPromptContextSchema } from '../capabilities'
-import { getBuddyPersona } from '../personas'
-import { buildLearningSystemPrompt } from './learning-prompt'
-import { normalizePromptParts } from './workspace-file-references'
-import type { SystemPromptCtx } from './prompt-context'
-import { getWorkspaceSnapshot } from '../learner-model'
-import { listResources } from '../../resources/resource-registry-service'
-import { resolveCapabilityProfile } from '../resolve-capability-profile'
-import type { TeachingSessionState } from '../shared/teaching-session-state'
-import type { WorkspaceState } from '@buddy/backend/learning/shared/teaching-vocabulary'
+import { parseConfiguredModel, type readProjectConfig } from "@buddy/backend/config/runtime"
+import { TeachingPromptContextSchema } from "../capabilities"
+import { getBuddyPersona } from "../personas"
+import { buildLearningSystemPrompt } from "./learning-prompt"
+import { normalizePromptParts } from "./workspace-file-references"
+import type { SystemPromptCtx } from "./prompt-context"
+import { getWorkspaceSnapshot } from "../learner-model"
+import { listResources } from "../../resources/resource-registry-service"
+import { resolveCapabilityProfile } from "../resolve-capability-profile"
+import type { TeachingSessionState } from "../shared/teaching-session-state"
+import type { WorkspaceState } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import {
   assertNoLegacyRuntimeOverrides,
   hasExplicitModel,
@@ -16,7 +16,7 @@ import {
   resolveCurrentSurface,
   resolveFocusGoalIds,
   resolveIntent,
-} from '../shared/targeting'
+} from "../shared/targeting"
 
 export type MessagePromptPipelineContext = {
   directory: string
@@ -37,7 +37,7 @@ export async function runMessagePromptPipeline(input: {
 }): Promise<MessagePromptPipelineResult> {
   assertNoLegacyRuntimeOverrides(input.body)
 
-  const content = typeof input.body.content === 'string' ? input.body.content : ''
+  const content = typeof input.body.content === "string" ? input.body.content : ""
   const parts = await normalizePromptParts({
     directory: input.context.directory,
     content,
@@ -58,8 +58,8 @@ export async function runMessagePromptPipeline(input: {
 
   let runtimeProfileForPermissions: ReturnType<typeof resolveCapabilityProfile> | undefined
   let nextTeachingState: TeachingSessionState | undefined
-  const existingSystem = typeof input.body.system === 'string' ? input.body.system.trim() : ''
-  let buddySystem = ''
+  const existingSystem = typeof input.body.system === "string" ? input.body.system.trim() : ""
+  let buddySystem = ""
 
   if (target.includeBuddySystem && target.personaID) {
     const persona = getBuddyPersona(target.personaID, input.projectConfig.personas)
@@ -68,7 +68,7 @@ export async function runMessagePromptPipeline(input: {
       config: input.projectConfig,
     })
     const focusGoalIds = resolveFocusGoalIds(input.body)
-    const workspaceState: WorkspaceState = teachingContext?.active ? 'interactive' : 'chat'
+    const workspaceState: WorkspaceState = teachingContext?.active ? "interactive" : "chat"
     const learnerSnapshot = await getWorkspaceSnapshot({
       directory: input.context.directory,
       query: {
@@ -129,7 +129,7 @@ export async function runMessagePromptPipeline(input: {
 
     if (promptBuild.turnReminder) {
       parts.unshift({
-        type: 'text',
+        type: "text",
         text: promptBuild.turnReminder,
         synthetic: true,
       })
@@ -137,7 +137,7 @@ export async function runMessagePromptPipeline(input: {
     }
   }
 
-  const mergedSystem = [existingSystem, buddySystem].filter(Boolean).join('\n\n').trim()
+  const mergedSystem = [existingSystem, buddySystem].filter(Boolean).join("\n\n").trim()
   if (mergedSystem) {
     transformed.system = mergedSystem
   }

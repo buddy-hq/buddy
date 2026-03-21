@@ -1,7 +1,7 @@
-import { check, type Update } from '@tauri-apps/plugin-updater'
-import { type as osType } from '@tauri-apps/plugin-os'
-import type { UpdateCheckResult } from '@buddy/web/context/platform'
-import { commands } from './bindings'
+import { check, type Update } from "@tauri-apps/plugin-updater"
+import { type as osType } from "@tauri-apps/plugin-os"
+import type { UpdateCheckResult } from "@buddy/web/context/platform"
+import { commands } from "./bindings"
 
 type BuddyWindow = Window & {
   __BUDDY__?: {
@@ -16,33 +16,33 @@ export const UPDATER_ENABLED = (window as BuddyWindow).__BUDDY__?.updaterEnabled
 
 export async function checkForUpdate(): Promise<UpdateCheckResult> {
   if (!UPDATER_ENABLED) {
-    return { status: 'disabled' }
+    return { status: "disabled" }
   }
 
   if (pendingUpdate) {
     return {
-      status: 'ready',
+      status: "ready",
       version: pendingUpdate.version,
     }
   }
 
   const next = await check().catch(() => undefined)
   if (next === undefined) {
-    return { status: 'error', stage: 'check' }
+    return { status: "error", stage: "check" }
   }
   if (!next) {
-    return { status: 'up-to-date' }
+    return { status: "up-to-date" }
   }
 
   try {
     await next.download()
   } catch {
-    return { status: 'error', stage: 'download' }
+    return { status: "error", stage: "download" }
   }
 
   pendingUpdate = next
   return {
-    status: 'ready',
+    status: "ready",
     version: next.version,
   }
 }
@@ -52,7 +52,7 @@ export async function installPendingUpdate() {
     return
   }
 
-  if (osType() === 'windows') {
+  if (osType() === "windows") {
     await commands.killSidecar()
   }
 

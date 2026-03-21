@@ -1,9 +1,9 @@
-import type { Intent } from '@buddy/backend/learning/shared/teaching-vocabulary'
-import type { SkillCapabilityKey } from './skill-capabilities'
-import { createToolCapability } from './tool-capabilities'
-import type { ToolCapability, ToolCapabilityInput } from './tool-capabilities'
+import type { Intent } from "@buddy/backend/learning/shared/teaching-vocabulary"
+import type { SkillCapabilityKey } from "./skill-capabilities"
+import { createToolCapability } from "./tool-capabilities"
+import type { ToolCapability, ToolCapabilityInput } from "./tool-capabilities"
 
-type ExplicitIntent = Exclude<Intent, 'auto'>
+type ExplicitIntent = Exclude<Intent, "auto">
 
 export type IntentCapabilityManifest = {
   intent: ExplicitIntent

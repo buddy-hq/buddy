@@ -1,4 +1,4 @@
-import type { Stats } from 'node:fs'
+import type { Stats } from "node:fs"
 import {
   RESOURCE_PACK_CHAPTER_MAX_TOKENS,
   RESOURCE_PACK_CHUNKS_DIR_NAME,
@@ -26,7 +26,7 @@ import {
   RESOURCE_PACK_UNIT_KIND_GENERIC,
   RESOURCE_PACK_UNIT_KIND_PAGE_WINDOW,
   RESOURCE_PACK_UNIT_KIND_SECTION,
-} from './chunking-config'
+} from "./chunking-config"
 
 export {
   RESOURCE_PACK_CHAPTER_MAX_TOKENS,
@@ -56,21 +56,21 @@ export {
   RESOURCE_PACK_SPLIT_REASON_FALLBACK_STRUCTURE,
 }
 
-export const RESOURCE_PACK_STATUS_PREPARING = 'preparing' as const
-export const RESOURCE_PACK_STATUS_READY = 'ready' as const
-export const RESOURCE_PACK_STATUS_UNSUPPORTED = 'unsupported' as const
-export const RESOURCE_PACK_STATUS_ERROR = 'error' as const
+export const RESOURCE_PACK_STATUS_PREPARING = "preparing" as const
+export const RESOURCE_PACK_STATUS_READY = "ready" as const
+export const RESOURCE_PACK_STATUS_UNSUPPORTED = "unsupported" as const
+export const RESOURCE_PACK_STATUS_ERROR = "error" as const
 
 export const RESOURCE_PACK_SYNC_BUDGET_MS = 1500
 export const RESOURCE_PACK_CHUNK_TARGET_BYTES = RESOURCE_PACK_NON_CHAPTER_MAX_CHARS
 
-export const RESOURCE_PACK_CHUNK_PREFIX = 'chunk' as const
-export const RESOURCE_PACK_ENTRYPOINT_TITLE = 'Resource' as const
-export const RESOURCE_PACK_TOC_TITLE = 'Table of Contents' as const
-export const RESOURCE_PACK_NO_TEXT_MARKER = '(No text could be extracted.)' as const
-export const RESOURCE_PACK_PREPARING_WARNING = 'The resource is still being prepared.' as const
+export const RESOURCE_PACK_CHUNK_PREFIX = "chunk" as const
+export const RESOURCE_PACK_ENTRYPOINT_TITLE = "Resource" as const
+export const RESOURCE_PACK_TOC_TITLE = "Table of Contents" as const
+export const RESOURCE_PACK_NO_TEXT_MARKER = "(No text could be extracted.)" as const
+export const RESOURCE_PACK_PREPARING_WARNING = "The resource is still being prepared." as const
 export const RESOURCE_PACK_UNSUPPORTED_WARNING =
-  'Buddy could not extract a usable text representation.' as const
+  "Buddy could not extract a usable text representation." as const
 
 export type ResourcePackStatus =
   | typeof RESOURCE_PACK_STATUS_PREPARING
@@ -79,24 +79,24 @@ export type ResourcePackStatus =
   | typeof RESOURCE_PACK_STATUS_ERROR
 
 export type ResourceFormat =
-  | 'pdf'
-  | 'epub'
-  | 'docx'
-  | 'html'
-  | 'htm'
-  | 'xhtml'
-  | 'markdown'
-  | 'text'
-  | 'json'
-  | 'jsonc'
-  | 'yaml'
-  | 'yml'
-  | 'csv'
-  | 'code'
-  | 'unknown'
+  | "pdf"
+  | "epub"
+  | "docx"
+  | "html"
+  | "htm"
+  | "xhtml"
+  | "markdown"
+  | "text"
+  | "json"
+  | "jsonc"
+  | "yaml"
+  | "yml"
+  | "csv"
+  | "code"
+  | "unknown"
 
 export type ResourceClassification = {
-  kind: 'direct' | 'pack'
+  kind: "direct" | "pack"
   format: ResourceFormat
   mime: string
 }

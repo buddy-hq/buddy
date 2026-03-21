@@ -1,29 +1,29 @@
-import z from 'zod'
-import { createBuddyTool, type BuddyToolContext } from '../../../tools'
+import z from "zod"
+import { createBuddyTool, type BuddyToolContext } from "../../../tools"
 import {
   GoalScopeSchema,
   GoalScopeDecisionSchema,
   createGoalToolResult,
   deriveGoalContextLabel,
   normalizeGoalText,
-} from '../types'
+} from "../types"
 
-const goalDecideScopeTool = createBuddyTool('goal_decide_scope', {
+const goalDecideScopeTool = createBuddyTool("goal_decide_scope", {
   description:
-    'Normalize a learner request into a goal-writing brief. Decide course vs topic scope, target count, and whether clarification is required.',
+    "Normalize a learner request into a goal-writing brief. Decide course vs topic scope, target count, and whether clarification is required.",
   parameters: z.object({
     learnerRequest: z.string().min(1).describe("The learner's raw request for goal writing."),
-    explicitScope: GoalScopeSchema.optional().describe('Optional caller-provided scope override.'),
+    explicitScope: GoalScopeSchema.optional().describe("Optional caller-provided scope override."),
     contextLabel: z
       .string()
       .optional()
-      .describe('Optional explicit label for the course or topic.'),
+      .describe("Optional explicit label for the course or topic."),
   }),
   async execute(params, ctx: BuddyToolContext) {
     await ctx.ask({
-      permission: 'goal_decide_scope',
-      patterns: ['*'],
-      always: ['*'],
+      permission: "goal_decide_scope",
+      patterns: ["*"],
+      always: ["*"],
       metadata: {
         learnerRequest: params.learnerRequest,
         explicitScope: params.explicitScope,
@@ -38,23 +38,23 @@ const goalDecideScopeTool = createBuddyTool('goal_decide_scope', {
 
     const explicitScope = params.explicitScope
     const courseSignals = [
-      'curriculum',
-      'program',
-      'overall',
-      'whole course',
-      'learning plan',
-      'roadmap',
-      'outcomes',
+      "curriculum",
+      "program",
+      "overall",
+      "whole course",
+      "learning plan",
+      "roadmap",
+      "outcomes",
     ]
     const topicSignals = [
-      'module',
-      'unit',
-      'lesson',
-      'sub-skill',
-      'subskill',
-      'specific part',
-      'one goal',
-      'single goal',
+      "module",
+      "unit",
+      "lesson",
+      "sub-skill",
+      "subskill",
+      "specific part",
+      "one goal",
+      "single goal",
     ]
 
     const courseMatches = courseSignals.filter((signal) => lower.includes(signal)).length
@@ -62,23 +62,23 @@ const goalDecideScopeTool = createBuddyTool('goal_decide_scope', {
     const hasSpecificGoalTarget =
       /\bgoal(?:s)?\b.*\bfor\b/.test(lower) || /\bfor\b.+\b(in|with|using|about)\b/.test(lower)
 
-    let scope = explicitScope ?? ('topic' as const)
+    let scope = explicitScope ?? ("topic" as const)
     let needsClarification = false
     const clarifyingQuestions: string[] = []
     const assumptions: string[] = []
 
     if (!explicitScope) {
       if (courseMatches > topicMatches) {
-        scope = 'course'
+        scope = "course"
       } else if (topicMatches > courseMatches) {
-        scope = 'topic'
+        scope = "topic"
       } else {
-        scope = 'topic'
+        scope = "topic"
         if (!hasSpecificGoalTarget) {
           needsClarification = true
-          assumptions.push('Defaulted to topic-level goals until the learner clarifies scope.')
-          clarifyingQuestions.push('Do you want course-level goals or topic-level goals?')
-          clarifyingQuestions.push('What specific outcome or end task should these goals cover?')
+          assumptions.push("Defaulted to topic-level goals until the learner clarifies scope.")
+          clarifyingQuestions.push("Do you want course-level goals or topic-level goals?")
+          clarifyingQuestions.push("What specific outcome or end task should these goals cover?")
         }
       }
     }
@@ -86,7 +86,7 @@ const goalDecideScopeTool = createBuddyTool('goal_decide_scope', {
     const contextLabel = normalizeGoalText(
       params.contextLabel ?? deriveGoalContextLabel(learnerRequest),
     )
-    const targetCount = explicitlyRequestedSingleGoal ? 1 : scope === 'course' ? 5 : 3
+    const targetCount = explicitlyRequestedSingleGoal ? 1 : scope === "course" ? 5 : 3
 
     const result = GoalScopeDecisionSchema.parse({
       learnerRequest,
@@ -99,7 +99,7 @@ const goalDecideScopeTool = createBuddyTool('goal_decide_scope', {
       assumptions,
     })
 
-    return createGoalToolResult('GoalScopeDecision', result)
+    return createGoalToolResult("GoalScopeDecision", result)
   },
 })
 

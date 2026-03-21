@@ -1,19 +1,19 @@
-import { createHash, randomUUID } from 'node:crypto'
-import fs from 'node:fs/promises'
-import path from 'node:path'
-import os from 'node:os'
-import { spawnSync } from 'node:child_process'
-import { AdvancedMathRuntimeService } from '../../src/local-runtimes/advanced-math/service'
+import { createHash, randomUUID } from "node:crypto"
+import fs from "node:fs/promises"
+import path from "node:path"
+import os from "node:os"
+import { spawnSync } from "node:child_process"
+import { AdvancedMathRuntimeService } from "../../src/local-runtimes/advanced-math/service"
 
 const TINY_PNG_BASE64 =
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9p3xK+QAAAAASUVORK5CYII='
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9p3xK+QAAAAASUVORK5CYII="
 type MockRuntimeBundleOptions = {
   marker?: string
   selfCheckDelayMs?: number
 }
 
 function buildFakeRuntimeExecutable(options: MockRuntimeBundleOptions = {}) {
-  const marker = options.marker ?? 'default'
+  const marker = options.marker ?? "default"
   const selfCheckDelayMs = Math.max(0, options.selfCheckDelayMs ?? 0)
   return `#!/usr/bin/env bun
 import fs from "node:fs"
@@ -91,49 +91,49 @@ process.stdout.write(JSON.stringify(payload))
 }
 
 function sha256Bytes(value: Uint8Array) {
-  return createHash('sha256').update(value).digest('hex')
+  return createHash("sha256").update(value).digest("hex")
 }
 
 function createArchive(sourceDir: string, outputArchive: string) {
-  if (process.platform === 'win32') {
-    const result = spawnSync('powershell.exe', [
-      '-NoProfile',
-      '-Command',
+  if (process.platform === "win32") {
+    const result = spawnSync("powershell.exe", [
+      "-NoProfile",
+      "-Command",
       `Compress-Archive -LiteralPath '${sourceDir.replace(/'/g, "''")}' -DestinationPath '${outputArchive.replace(/'/g, "''")}' -Force`,
     ])
     if (result.status !== 0) {
       throw new Error(
-        `Failed to create mock advanced math runtime archive: ${result.stderr?.toString('utf8') || result.stdout?.toString('utf8')}`,
+        `Failed to create mock advanced math runtime archive: ${result.stderr?.toString("utf8") || result.stdout?.toString("utf8")}`,
       )
     }
     return
   }
 
-  const result = spawnSync('ditto', [
-    '-c',
-    '-k',
-    '--sequesterRsrc',
-    '--keepParent',
+  const result = spawnSync("ditto", [
+    "-c",
+    "-k",
+    "--sequesterRsrc",
+    "--keepParent",
     sourceDir,
     outputArchive,
   ])
   if (result.status !== 0) {
     throw new Error(
-      `Failed to create mock advanced math runtime archive: ${result.stderr?.toString('utf8') || result.stdout?.toString('utf8')}`,
+      `Failed to create mock advanced math runtime archive: ${result.stderr?.toString("utf8") || result.stdout?.toString("utf8")}`,
     )
   }
 }
 
 async function buildMockRuntimeBundle(options: MockRuntimeBundleOptions = {}) {
-  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buddy-advanced-math-test-'))
-  const bundleDir = path.join(tempDir, 'buddy-advanced-math')
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "buddy-advanced-math-test-"))
+  const bundleDir = path.join(tempDir, "buddy-advanced-math")
   const executableName =
-    process.platform === 'win32' ? 'buddy-advanced-math.exe' : 'buddy-advanced-math'
+    process.platform === "win32" ? "buddy-advanced-math.exe" : "buddy-advanced-math"
   const executablePath = path.join(bundleDir, executableName)
-  const archivePath = path.join(tempDir, 'buddy-advanced-math.zip')
+  const archivePath = path.join(tempDir, "buddy-advanced-math.zip")
 
   await fs.mkdir(bundleDir, { recursive: true })
-  await fs.writeFile(executablePath, buildFakeRuntimeExecutable(options), 'utf8')
+  await fs.writeFile(executablePath, buildFakeRuntimeExecutable(options), "utf8")
   await fs.chmod(executablePath, 0o755).catch(() => undefined)
   createArchive(bundleDir, archivePath)
   const archiveBytes = await fs.readFile(archivePath)
@@ -147,7 +147,7 @@ export async function withMockAdvancedMathRuntimeAssets<T>(run: () => Promise<T>
   const previousVersion = process.env.BUDDY_APP_VERSION
   const previousBaseUrl = process.env.BUDDY_ADVANCED_MATH_ASSET_BASE_URL
   const version = `test-${randomUUID()}`
-  const baseUrl = 'https://advanced-math.invalid/releases'
+  const baseUrl = "https://advanced-math.invalid/releases"
   const archiveBytes = await buildMockRuntimeBundle()
   const checksum = sha256Bytes(archiveBytes)
 
@@ -165,7 +165,7 @@ export async function withMockAdvancedMathRuntimeAssets<T>(run: () => Promise<T>
     if (url === `${baseUrl}/${assetInfo.checksumFilename}`) {
       return new Response(`${checksum}  ${assetInfo.bundleFilename}\n`, { status: 200 })
     }
-    return new Response('not found', { status: 404 })
+    return new Response("not found", { status: 404 })
   }) as typeof fetch
 
   try {
@@ -186,7 +186,7 @@ export async function withInstalledMockAdvancedMathRuntime<T>(run: () => Promise
   return withMockAdvancedMathRuntimeAssets(async () => {
     const status = await AdvancedMathRuntimeService.install()
     if (!status.ready) {
-      throw new Error(status.lastError ?? 'Failed to install mock advanced math runtime')
+      throw new Error(status.lastError ?? "Failed to install mock advanced math runtime")
     }
 
     return run()
@@ -203,7 +203,7 @@ export async function withLocalMockAdvancedMathRuntimeAssets<T>(
   const previousLocalAssetDir = process.env.BUDDY_ADVANCED_MATH_LOCAL_ASSET_DIR
   const version = `test-${randomUUID()}`
   const localAssetRoot = await fs.mkdtemp(
-    path.join(os.tmpdir(), 'buddy-advanced-math-local-assets-'),
+    path.join(os.tmpdir(), "buddy-advanced-math-local-assets-"),
   )
 
   process.env.BUDDY_APP_VERSION = version
@@ -222,7 +222,7 @@ export async function withLocalMockAdvancedMathRuntimeAssets<T>(
 
     await fs.mkdir(targetDir, { recursive: true })
     await fs.writeFile(bundlePath, archiveBytes)
-    await fs.writeFile(checksumPath, `${checksum}  ${assetInfo.bundleFilename}\n`, 'utf8')
+    await fs.writeFile(checksumPath, `${checksum}  ${assetInfo.bundleFilename}\n`, "utf8")
   }
 
   await replaceAssets()

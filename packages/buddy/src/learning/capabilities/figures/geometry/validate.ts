@@ -1,4 +1,4 @@
-import type { GeometryConstraint, GeometryFigureSpec, GeometryMarker } from './types'
+import type { GeometryConstraint, GeometryFigureSpec, GeometryMarker } from "./types"
 
 type FigureValidationIssue = {
   code: string
@@ -13,8 +13,8 @@ type Vector = {
 const POSITION_TOLERANCE_MIN = 0.05
 
 function distanceSquared(
-  pointA: GeometryFigureSpec['points'][number],
-  pointB: GeometryFigureSpec['points'][number],
+  pointA: GeometryFigureSpec["points"][number],
+  pointB: GeometryFigureSpec["points"][number],
 ): number {
   const dx = pointA.x - pointB.x
   const dy = pointA.y - pointB.y
@@ -22,8 +22,8 @@ function distanceSquared(
 }
 
 function subtract(
-  from: GeometryFigureSpec['points'][number],
-  to: GeometryFigureSpec['points'][number],
+  from: GeometryFigureSpec["points"][number],
+  to: GeometryFigureSpec["points"][number],
 ): Vector {
   return {
     x: to.x - from.x,
@@ -48,9 +48,9 @@ function relationTolerance(segmentLengthSquared: number): number {
 }
 
 function pointSegmentMetrics(
-  point: GeometryFigureSpec['points'][number],
-  from: GeometryFigureSpec['points'][number],
-  to: GeometryFigureSpec['points'][number],
+  point: GeometryFigureSpec["points"][number],
+  from: GeometryFigureSpec["points"][number],
+  to: GeometryFigureSpec["points"][number],
 ) {
   const segment = subtract(from, to)
   const segmentLengthSquared = lengthSquared(segment)
@@ -77,19 +77,19 @@ function pointSegmentMetrics(
 
 function validateConstraint(
   constraint: GeometryConstraint,
-  points: Map<string, GeometryFigureSpec['points'][number]>,
+  points: Map<string, GeometryFigureSpec["points"][number]>,
 ): FigureValidationIssue[] {
   const point = points.get(constraint.point)
   if (!point) {
     return [
       {
-        code: 'UNKNOWN_CONSTRAINT_POINT',
+        code: "UNKNOWN_CONSTRAINT_POINT",
         message: `Constraint references an unknown point '${constraint.point}'.`,
       },
     ]
   }
 
-  if (constraint.type === 'line-intersection') {
+  if (constraint.type === "line-intersection") {
     const lineAFrom = points.get(constraint.lineAFrom)
     const lineATo = points.get(constraint.lineATo)
     const lineBFrom = points.get(constraint.lineBFrom)
@@ -98,7 +98,7 @@ function validateConstraint(
     if (!lineAFrom || !lineATo || !lineBFrom || !lineBTo) {
       return [
         {
-          code: 'INVALID_CONSTRAINT',
+          code: "INVALID_CONSTRAINT",
           message: `Constraint '${constraint.type}' references unknown supporting points.`,
         },
       ]
@@ -110,7 +110,7 @@ function validateConstraint(
     if (Math.abs(determinant) <= 1e-9) {
       return [
         {
-          code: 'INVALID_CONSTRAINT',
+          code: "INVALID_CONSTRAINT",
           message: `Constraint '${constraint.type}' uses parallel or overlapping lines.`,
         },
       ]
@@ -126,7 +126,7 @@ function validateConstraint(
     if (metricA.crossDistance > tolerance || metricB.crossDistance > tolerance) {
       return [
         {
-          code: 'BROKEN_CONSTRAINT',
+          code: "BROKEN_CONSTRAINT",
           message: `Constraint '${constraint.type}' did not place point '${constraint.point}' on both supporting lines.`,
         },
       ]
@@ -140,7 +140,7 @@ function validateConstraint(
   if (!from || !to) {
     return [
       {
-        code: 'INVALID_CONSTRAINT',
+        code: "INVALID_CONSTRAINT",
         message: `Constraint '${constraint.type}' references unknown supporting points.`,
       },
     ]
@@ -150,7 +150,7 @@ function validateConstraint(
   if (metrics.segmentLengthSquared === 0) {
     return [
       {
-        code: 'INVALID_CONSTRAINT',
+        code: "INVALID_CONSTRAINT",
         message: `Constraint '${constraint.type}' needs a non-zero support segment: ${constraint.from} -> ${constraint.to}.`,
       },
     ]
@@ -162,13 +162,13 @@ function validateConstraint(
   if (metrics.crossDistance > tolerance || !clampedPosition) {
     return [
       {
-        code: 'BROKEN_CONSTRAINT',
+        code: "BROKEN_CONSTRAINT",
         message: `Constraint '${constraint.type}' did not keep point '${constraint.point}' on segment ${constraint.from} -> ${constraint.to}.`,
       },
     ]
   }
 
-  if (constraint.type === 'point-on-segment') {
+  if (constraint.type === "point-on-segment") {
     return []
   }
 
@@ -176,7 +176,7 @@ function validateConstraint(
   if (!source) {
     return [
       {
-        code: 'INVALID_CONSTRAINT',
+        code: "INVALID_CONSTRAINT",
         message: `Constraint '${constraint.type}' references unknown point '${constraint.source}'.`,
       },
     ]
@@ -190,7 +190,7 @@ function validateConstraint(
   if (projectionError > toleranceDot) {
     return [
       {
-        code: 'BROKEN_CONSTRAINT',
+        code: "BROKEN_CONSTRAINT",
         message: `Constraint '${constraint.type}' did not place point '${constraint.point}' as a perpendicular foot from '${constraint.source}'.`,
       },
     ]
@@ -201,15 +201,15 @@ function validateConstraint(
 
 function validateMarker(
   marker: GeometryMarker,
-  points: Map<string, GeometryFigureSpec['points'][number]>,
+  points: Map<string, GeometryFigureSpec["points"][number]>,
 ): FigureValidationIssue[] {
-  if (marker.type === 'tick') {
+  if (marker.type === "tick") {
     const from = points.get(marker.from)
     const to = points.get(marker.to)
     if (!from || !to) {
       return [
         {
-          code: 'INVALID_MARKER',
+          code: "INVALID_MARKER",
           message: `Tick marker references unknown points: ${marker.from}, ${marker.to}.`,
         },
       ]
@@ -218,7 +218,7 @@ function validateMarker(
     if (distanceSquared(from, to) === 0) {
       return [
         {
-          code: 'INVALID_MARKER',
+          code: "INVALID_MARKER",
           message: `Tick marker references a zero-length segment: ${marker.from} -> ${marker.to}.`,
         },
       ]
@@ -231,20 +231,20 @@ function validateMarker(
   if (!at) {
     return [
       {
-        code: 'INVALID_MARKER',
+        code: "INVALID_MARKER",
         message: `Marker references an unknown point: ${marker.at}.`,
       },
     ]
   }
 
-  const first = points.get(marker.type === 'right-angle' ? marker.alongA : marker.from)
-  const second = points.get(marker.type === 'right-angle' ? marker.alongB : marker.to)
+  const first = points.get(marker.type === "right-angle" ? marker.alongA : marker.from)
+  const second = points.get(marker.type === "right-angle" ? marker.alongB : marker.to)
 
   if (!first || !second) {
     return [
       {
-        code: 'INVALID_MARKER',
-        message: 'Marker references unknown supporting points.',
+        code: "INVALID_MARKER",
+        message: "Marker references unknown supporting points.",
       },
     ]
   }
@@ -256,8 +256,8 @@ function validateMarker(
   ) {
     return [
       {
-        code: 'INVALID_MARKER',
-        message: 'Marker references overlapping points and cannot be rendered.',
+        code: "INVALID_MARKER",
+        message: "Marker references overlapping points and cannot be rendered.",
       },
     ]
   }
@@ -267,12 +267,12 @@ function validateMarker(
 
 function validateGeometryFigureSpec(spec: GeometryFigureSpec): FigureValidationIssue[] {
   const issues: FigureValidationIssue[] = []
-  const points = new Map<string, GeometryFigureSpec['points'][number]>()
+  const points = new Map<string, GeometryFigureSpec["points"][number]>()
 
   for (const point of spec.points) {
     if (points.has(point.id)) {
       issues.push({
-        code: 'DUPLICATE_POINT_ID',
+        code: "DUPLICATE_POINT_ID",
         message: `Point id '${point.id}' is duplicated.`,
       })
       continue
@@ -287,7 +287,7 @@ function validateGeometryFigureSpec(spec: GeometryFigureSpec): FigureValidationI
 
     if (!from || !to) {
       issues.push({
-        code: 'UNKNOWN_SEGMENT_POINT',
+        code: "UNKNOWN_SEGMENT_POINT",
         message: `Segment '${segment.from} -> ${segment.to}' references an unknown point.`,
       })
       continue
@@ -295,7 +295,7 @@ function validateGeometryFigureSpec(spec: GeometryFigureSpec): FigureValidationI
 
     if (distanceSquared(from, to) === 0) {
       issues.push({
-        code: 'ZERO_LENGTH_SEGMENT',
+        code: "ZERO_LENGTH_SEGMENT",
         message: `Segment '${segment.from} -> ${segment.to}' has zero length.`,
       })
     }
@@ -307,7 +307,7 @@ function validateGeometryFigureSpec(spec: GeometryFigureSpec): FigureValidationI
     for (const pointID of polygon.points) {
       if (!points.has(pointID)) {
         issues.push({
-          code: 'UNKNOWN_POLYGON_POINT',
+          code: "UNKNOWN_POLYGON_POINT",
           message: `Polygon references an unknown point '${pointID}'.`,
         })
       } else {
@@ -317,8 +317,8 @@ function validateGeometryFigureSpec(spec: GeometryFigureSpec): FigureValidationI
 
     if (uniqueIDs.size < 3) {
       issues.push({
-        code: 'INVALID_POLYGON',
-        message: 'A polygon must reference at least three distinct points.',
+        code: "INVALID_POLYGON",
+        message: "A polygon must reference at least three distinct points.",
       })
     }
   }

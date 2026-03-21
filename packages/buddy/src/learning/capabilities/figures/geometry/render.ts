@@ -1,4 +1,4 @@
-import type { GeometryFigureSpec, GeometryMarker, GeometryPoint } from './types'
+import type { GeometryFigureSpec, GeometryMarker, GeometryPoint } from "./types"
 
 type PointLookup = Map<string, GeometryPoint>
 type Vector = {
@@ -8,11 +8,11 @@ type Vector = {
 
 function escapeXML(value: string): string {
   return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&apos;')
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&apos;")
 }
 
 function formatNumber(value: number): string {
@@ -92,12 +92,12 @@ function shortestAngleDelta(startAngle: number, endAngle: number): number {
   return delta
 }
 
-function renderText(label: string, x: number, y: number, anchor = 'middle'): string {
+function renderText(label: string, x: number, y: number, anchor = "middle"): string {
   return `<text x="${formatNumber(x)}" y="${formatNumber(y)}" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12" text-anchor="${anchor}" fill="#0f172a" stroke="#ffffff" stroke-opacity="0.92" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" paint-order="stroke fill">${escapeXML(label)}</text>`
 }
 
 function renderRightAngleMarker(
-  marker: Extract<GeometryMarker, { type: 'right-angle' }>,
+  marker: Extract<GeometryMarker, { type: "right-angle" }>,
   points: PointLookup,
 ): string {
   const at = points.get(marker.at)!
@@ -114,7 +114,7 @@ function renderRightAngleMarker(
 }
 
 function renderTickMarker(
-  marker: Extract<GeometryMarker, { type: 'tick' }>,
+  marker: Extract<GeometryMarker, { type: "tick" }>,
   points: PointLookup,
 ): string {
   const from = points.get(marker.from)!
@@ -136,11 +136,11 @@ function renderTickMarker(
       const end = add(center, scale(normal, halfLength))
       return `<line x1="${formatNumber(start.x)}" y1="${formatNumber(start.y)}" x2="${formatNumber(end.x)}" y2="${formatNumber(end.y)}" stroke="#334155" stroke-width="1.5" />`
     })
-    .join('')
+    .join("")
 }
 
 function renderAngleArc(
-  marker: Extract<GeometryMarker, { type: 'angle-arc' }>,
+  marker: Extract<GeometryMarker, { type: "angle-arc" }>,
   points: PointLookup,
 ): string {
   const at = points.get(marker.at)!
@@ -176,11 +176,11 @@ function renderAngleArc(
 }
 
 function renderMarker(marker: GeometryMarker, points: PointLookup): string {
-  if (marker.type === 'right-angle') {
+  if (marker.type === "right-angle") {
     return renderRightAngleMarker(marker, points)
   }
 
-  if (marker.type === 'tick') {
+  if (marker.type === "tick") {
     return renderTickMarker(marker, points)
   }
 
@@ -198,7 +198,7 @@ function renderGeometryFigure(spec: GeometryFigureSpec): string {
   const polygonElements = (spec.polygons ?? [])
     .map((polygon) => {
       const polygonPoints = polygon.points.map((pointID) => points.get(pointID)!)
-      const shape = `<polygon points="${polygonPoints.map(pointRef).join(' ')}" fill="${polygon.fill === 'shade' ? '#dbeafe' : 'none'}" stroke="#1d4ed8" stroke-width="2" ${polygon.outline === 'dashed' ? 'stroke-dasharray="6 4"' : ''} />`
+      const shape = `<polygon points="${polygonPoints.map(pointRef).join(" ")}" fill="${polygon.fill === "shade" ? "#dbeafe" : "none"}" stroke="#1d4ed8" stroke-width="2" ${polygon.outline === "dashed" ? 'stroke-dasharray="6 4"' : ""} />`
 
       if (!polygon.label) {
         return shape
@@ -214,13 +214,13 @@ function renderGeometryFigure(spec: GeometryFigureSpec): string {
 
       return `${shape}${renderText(polygon.label, centroid.x, centroid.y)}`
     })
-    .join('')
+    .join("")
 
   const segmentElements = (spec.segments ?? [])
     .map((segment) => {
       const from = points.get(segment.from)!
       const to = points.get(segment.to)!
-      const line = `<line x1="${formatNumber(from.x)}" y1="${formatNumber(from.y)}" x2="${formatNumber(to.x)}" y2="${formatNumber(to.y)}" stroke="#0f172a" stroke-width="${formatNumber(segment.strokeWidth ?? 2)}" ${segment.style === 'dashed' ? 'stroke-dasharray="6 4"' : ''} />`
+      const line = `<line x1="${formatNumber(from.x)}" y1="${formatNumber(from.y)}" x2="${formatNumber(to.x)}" y2="${formatNumber(to.y)}" stroke="#0f172a" stroke-width="${formatNumber(segment.strokeWidth ?? 2)}" ${segment.style === "dashed" ? 'stroke-dasharray="6 4"' : ""} />`
 
       if (!segment.label) {
         return line
@@ -232,21 +232,21 @@ function renderGeometryFigure(spec: GeometryFigureSpec): string {
 
       return `${line}${renderText(segment.label, labelPoint.x, labelPoint.y)}`
     })
-    .join('')
+    .join("")
 
-  const markerElements = (spec.markers ?? []).map((marker) => renderMarker(marker, points)).join('')
+  const markerElements = (spec.markers ?? []).map((marker) => renderMarker(marker, points)).join("")
 
   const pointElements = spec.points
     .map((point) => {
       const circle = `<circle cx="${formatNumber(point.x)}" cy="${formatNumber(point.y)}" r="3.5" fill="#0f172a" />`
-      const label = point.label ? renderText(point.label, point.x + 10, point.y - 8, 'start') : ''
+      const label = point.label ? renderText(point.label, point.x + 10, point.y - 8, "start") : ""
       return `${circle}${label}`
     })
-    .join('')
+    .join("")
 
   const labelElements = (spec.labels ?? [])
     .map((label) => renderText(label.text, label.x, label.y))
-    .join('')
+    .join("")
 
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${formatNumber(totalWidth)}" height="${formatNumber(totalHeight)}" viewBox="0 0 ${formatNumber(totalWidth)} ${formatNumber(totalHeight)}" role="img" aria-label="Geometry figure">`,
@@ -257,9 +257,9 @@ function renderGeometryFigure(spec: GeometryFigureSpec): string {
     markerElements,
     pointElements,
     labelElements,
-    '</g>',
-    '</svg>',
-  ].join('')
+    "</g>",
+    "</svg>",
+  ].join("")
 }
 
 export { renderGeometryFigure }

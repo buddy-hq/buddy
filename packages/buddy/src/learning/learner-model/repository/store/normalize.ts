@@ -1,17 +1,17 @@
 const STOP_WORDS = new Set([
-  'the',
-  'and',
-  'for',
-  'with',
-  'this',
-  'that',
-  'project',
-  'workspace',
-  'buddy',
+  "the",
+  "and",
+  "for",
+  "with",
+  "this",
+  "that",
+  "project",
+  "workspace",
+  "buddy",
 ])
 
 export function normalizeText(value: string) {
-  return value.trim().replace(/\s+/g, ' ')
+  return value.trim().replace(/\s+/g, " ")
 }
 
 export function normalizeList(values: readonly string[] | undefined) {

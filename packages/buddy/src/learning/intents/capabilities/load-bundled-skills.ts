@@ -1,7 +1,7 @@
-import fs from 'node:fs/promises'
-import path from 'node:path'
-import matter from 'gray-matter'
-import { resolveBuddyBundledSkillRoots } from '@buddy/backend/config/runtime'
+import fs from "node:fs/promises"
+import path from "node:path"
+import matter from "gray-matter"
+import { resolveBuddyBundledSkillRoots } from "@buddy/backend/config/runtime"
 
 export type LoadedBundledSkill = {
   name: string
@@ -10,30 +10,30 @@ export type LoadedBundledSkill = {
 }
 
 function isErrnoException(error: unknown): error is NodeJS.ErrnoException {
-  return typeof error === 'object' && error !== null && 'code' in error
+  return typeof error === "object" && error !== null && "code" in error
 }
 
 function isPathInsideRoot(root: string, candidatePath: string) {
   const relative = path.relative(root, candidatePath)
-  return relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative)
+  return relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative)
 }
 
 async function readBundledSkillDocument(name: string): Promise<string | undefined> {
   const roots = await resolveBuddyBundledSkillRoots()
   for (const root of roots) {
     const resolvedRoot = path.resolve(root)
-    const resolvedDocumentPath = path.resolve(root, name, 'SKILL.md')
+    const resolvedDocumentPath = path.resolve(root, name, "SKILL.md")
     if (!isPathInsideRoot(resolvedRoot, resolvedDocumentPath)) {
       continue
     }
 
     try {
-      const document = await fs.readFile(resolvedDocumentPath, 'utf8')
+      const document = await fs.readFile(resolvedDocumentPath, "utf8")
       if (document !== undefined) {
         return document
       }
     } catch (error) {
-      if (isErrnoException(error) && error.code === 'ENOENT') {
+      if (isErrnoException(error) && error.code === "ENOENT") {
         continue
       }
       throw error
@@ -48,7 +48,7 @@ export async function loadBundledSkill(name: string): Promise<LoadedBundledSkill
 
   const parsed = matter(document)
   const description =
-    typeof parsed.data.description === 'string' ? parsed.data.description.trim() : undefined
+    typeof parsed.data.description === "string" ? parsed.data.description.trim() : undefined
 
   return {
     name,

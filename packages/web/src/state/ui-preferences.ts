@@ -1,8 +1,8 @@
-import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
-import { createPlatformJsonStorage } from '../context/platform'
+import { create } from "zustand"
+import { persist } from "zustand/middleware"
+import { createPlatformJsonStorage } from "../context/platform"
 
-export const UI_PREFERENCES_STORAGE_KEY = 'buddy.ui.v1'
+export const UI_PREFERENCES_STORAGE_KEY = "buddy.ui.v1"
 
 type UiPreferencesStore = {
   pinnedByDirectory: Record<string, string[]>
@@ -12,14 +12,14 @@ type UiPreferencesStore = {
   rightSidebarOpen: boolean
   rightSidebarWidth: number
   rightSidebarTab:
-    | 'curriculum'
-    | 'editor'
-    | 'figure'
-    | 'resources'
-    | 'agents-md'
-    | 'capabilities'
-    | 'system-prompt'
-    | 'settings'
+    | "curriculum"
+    | "editor"
+    | "figure"
+    | "resources"
+    | "agents-md"
+    | "capabilities"
+    | "system-prompt"
+    | "settings"
   isPinned: (directory: string, sessionID: string) => boolean
   togglePinned: (directory: string, sessionID: string) => void
   markUnread: (directory: string, sessionID: string) => void
@@ -32,14 +32,14 @@ type UiPreferencesStore = {
   setRightSidebarWidth: (width: number) => void
   setRightSidebarTab: (
     tab:
-      | 'curriculum'
-      | 'editor'
-      | 'figure'
-      | 'resources'
-      | 'agents-md'
-      | 'capabilities'
-      | 'system-prompt'
-      | 'settings',
+      | "curriculum"
+      | "editor"
+      | "figure"
+      | "resources"
+      | "agents-md"
+      | "capabilities"
+      | "system-prompt"
+      | "settings",
   ) => void
 }
 
@@ -52,7 +52,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
       leftSidebarWidth: 344,
       rightSidebarOpen: false,
       rightSidebarWidth: 344,
-      rightSidebarTab: 'curriculum',
+      rightSidebarTab: "curriculum",
       isPinned(directory, sessionID) {
         return (get().pinnedByDirectory[directory] ?? []).includes(sessionID)
       },
@@ -131,7 +131,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
     {
       name: UI_PREFERENCES_STORAGE_KEY,
       version: 7,
-      storage: createPlatformJsonStorage('buddy.ui.dat'),
+      storage: createPlatformJsonStorage("buddy.ui.dat"),
       migrate(persistedState) {
         const state = persistedState as Partial<UiPreferencesStore> | undefined
         return {
@@ -142,21 +142,21 @@ export const useUiPreferences = create<UiPreferencesStore>()(
           rightSidebarOpen: state?.rightSidebarOpen ?? false,
           rightSidebarWidth: state?.rightSidebarWidth ?? 344,
           rightSidebarTab:
-            state?.rightSidebarTab === 'settings'
-              ? 'settings'
-              : state?.rightSidebarTab === 'system-prompt'
-                ? 'system-prompt'
-                : state?.rightSidebarTab === 'capabilities'
-                  ? 'capabilities'
-                  : state?.rightSidebarTab === 'resources'
-                    ? 'resources'
-                    : state?.rightSidebarTab === 'agents-md'
-                      ? 'agents-md'
-                      : state?.rightSidebarTab === 'figure'
-                        ? 'figure'
-                        : state?.rightSidebarTab === 'editor'
-                          ? 'editor'
-                          : 'curriculum',
+            state?.rightSidebarTab === "settings"
+              ? "settings"
+              : state?.rightSidebarTab === "system-prompt"
+                ? "system-prompt"
+                : state?.rightSidebarTab === "capabilities"
+                  ? "capabilities"
+                  : state?.rightSidebarTab === "resources"
+                    ? "resources"
+                    : state?.rightSidebarTab === "agents-md"
+                      ? "agents-md"
+                      : state?.rightSidebarTab === "figure"
+                        ? "figure"
+                        : state?.rightSidebarTab === "editor"
+                          ? "editor"
+                          : "curriculum",
         }
       },
       partialize(state) {

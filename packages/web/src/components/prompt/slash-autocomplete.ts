@@ -1,7 +1,7 @@
-export type SlashCommandSource = 'command' | 'mcp' | 'skill'
+export type SlashCommandSource = "command" | "mcp" | "skill"
 
 export type SlashCommandOption = {
-  type: 'builtin' | 'custom'
+  type: "builtin" | "custom"
   name: string
   title?: string
   description?: string
@@ -15,12 +15,12 @@ export type SlashMatch = {
 }
 
 export function getSlashMatch(value: string, cursorOffset: number): SlashMatch | undefined {
-  if (!value.startsWith('/')) return undefined
+  if (!value.startsWith("/")) return undefined
   if (cursorOffset <= 0 || cursorOffset > value.length) return undefined
   if (/\s/.test(value)) return undefined
 
   const prefix = value.slice(0, cursorOffset)
-  if (!prefix.startsWith('/') || /\s/.test(prefix)) return undefined
+  if (!prefix.startsWith("/") || /\s/.test(prefix)) return undefined
 
   return {
     start: 0,
@@ -30,10 +30,10 @@ export function getSlashMatch(value: string, cursorOffset: number): SlashMatch |
 }
 
 function slashScore(command: SlashCommandOption, query: string) {
-  if (!query) return command.type === 'custom' ? 0 : 1
+  if (!query) return command.type === "custom" ? 0 : 1
 
   const name = command.name.toLowerCase()
-  const title = command.title?.toLowerCase() ?? ''
+  const title = command.title?.toLowerCase() ?? ""
 
   if (name.startsWith(query)) return 0
   if (name.includes(query)) return 1
@@ -60,11 +60,11 @@ export function filterSlashCommands(commands: SlashCommandOption[], query: strin
 
 export function parseSlashCommandInput(
   value: string,
-  commands: Array<Pick<SlashCommandOption, 'name'>>,
+  commands: Array<Pick<SlashCommandOption, "name">>,
 ) {
-  if (!value.startsWith('/')) return undefined
+  if (!value.startsWith("/")) return undefined
 
-  const [commandToken, ...argumentTokens] = value.split(' ')
+  const [commandToken, ...argumentTokens] = value.split(" ")
   const commandName = commandToken.slice(1)
   if (!commandName) return undefined
 
@@ -73,6 +73,6 @@ export function parseSlashCommandInput(
 
   return {
     command,
-    arguments: argumentTokens.join(' '),
+    arguments: argumentTokens.join(" "),
   }
 }

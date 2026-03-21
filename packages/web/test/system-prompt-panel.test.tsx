@@ -1,10 +1,10 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import { act } from 'react'
-import { createRoot, type Root } from 'react-dom/client'
-import { SystemPromptPanel } from '../src/components/debug/system-prompt-panel'
-import { PlatformProvider, createBrowserPlatform } from '../src/context/platform'
-import { ServerProvider } from '../src/context/server'
-import { useChatStore } from '../src/state/chat-store'
+import { afterEach, beforeEach, describe, expect, test } from "bun:test"
+import { act } from "react"
+import { createRoot, type Root } from "react-dom/client"
+import { SystemPromptPanel } from "../src/components/debug/system-prompt-panel"
+import { PlatformProvider, createBrowserPlatform } from "../src/context/platform"
+import { ServerProvider } from "../src/context/server"
+import { useChatStore } from "../src/state/chat-store"
 
 const originalFetch = globalThis.fetch
 
@@ -17,7 +17,7 @@ function resetStore() {
     lastSessionByDirectory: {},
     selectedModelByDirectory: {},
     directories: {},
-    streamStatus: 'idle',
+    streamStatus: "idle",
   })
 }
 
@@ -45,7 +45,7 @@ async function waitForAssertion(assertion: () => void, timeoutMs = 2500) {
   }
 }
 
-describe('SystemPromptPanel', () => {
+describe("SystemPromptPanel", () => {
   let container: HTMLDivElement
   let root: Root
 
@@ -53,7 +53,7 @@ describe('SystemPromptPanel', () => {
     ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
     localStorage.clear()
     resetStore()
-    container = document.createElement('div')
+    container = document.createElement("div")
     document.body.appendChild(container)
     root = createRoot(container)
   })
@@ -69,32 +69,32 @@ describe('SystemPromptPanel', () => {
     ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = undefined
   })
 
-  test('polls while the active session is busy and renders the captured prompt when it becomes available', async () => {
-    const directory = '/repo'
-    const sessionID = 'ses_busy'
+  test("polls while the active session is busy and renders the captured prompt when it becomes available", async () => {
+    const directory = "/repo"
+    const sessionID = "ses_busy"
     let teachingStateRequests = 0
 
     const store = useChatStore.getState()
     store.ensureOpenProject(directory)
     store.setSessionInfo(directory, {
       id: sessionID,
-      title: 'Test session',
+      title: "Test session",
       time: {
         created: 1,
         updated: 1,
       },
     })
-    store.applySessionStatus(directory, sessionID, 'busy')
+    store.applySessionStatus(directory, sessionID, "busy")
 
     globalThis.fetch = (async (input, init) => {
       const url =
-        typeof input === 'string' ? input : input instanceof URL ? input.toString() : String(input)
-      const method = init?.method ?? 'GET'
+        typeof input === "string" ? input : input instanceof URL ? input.toString() : String(input)
+      const method = init?.method ?? "GET"
       const headers = new Headers(init?.headers)
 
-      if (url.endsWith(`/api/session/${sessionID}/teaching-state`) && method === 'GET') {
+      if (url.endsWith(`/api/session/${sessionID}/teaching-state`) && method === "GET") {
         teachingStateRequests += 1
-        expect(headers.get('x-buddy-directory')).toBe(directory)
+        expect(headers.get("x-buddy-directory")).toBe(directory)
 
         if (teachingStateRequests === 1) {
           return new Response(null, { status: 204 })
@@ -103,23 +103,23 @@ describe('SystemPromptPanel', () => {
         return new Response(
           JSON.stringify({
             sessionId: sessionID,
-            persona: 'buddy',
-            intent: 'auto',
-            currentSurface: 'curriculum',
-            workspaceState: 'chat',
+            persona: "buddy",
+            intent: "auto",
+            currentSurface: "curriculum",
+            workspaceState: "chat",
             focusGoalIds: [],
             lastLlmOutbound: {
-              kind: 'message',
+              kind: "message",
               createdAt: new Date().toISOString(),
               payload: {},
-              fullSystemPrompt: 'You are Buddy, a learning companion.',
+              fullSystemPrompt: "You are Buddy, a learning companion.",
             },
             llmOutboundHistory: [],
           }),
           {
             status: 200,
             headers: {
-              'content-type': 'application/json',
+              "content-type": "application/json",
             },
           },
         )
@@ -133,7 +133,7 @@ describe('SystemPromptPanel', () => {
         <PlatformProvider value={createBrowserPlatform()}>
           <ServerProvider
             value={{
-              url: '',
+              url: "",
               username: null,
               password: null,
               isSidecar: false,
@@ -147,11 +147,11 @@ describe('SystemPromptPanel', () => {
     })
 
     await waitForAssertion(() => {
-      expect(container.textContent?.includes('Capturing the latest system prompt...')).toBe(true)
+      expect(container.textContent?.includes("Capturing the latest system prompt...")).toBe(true)
     })
 
     await waitForAssertion(() => {
-      expect(container.textContent?.includes('You are Buddy, a learning companion.')).toBe(true)
+      expect(container.textContent?.includes("You are Buddy, a learning companion.")).toBe(true)
       expect(teachingStateRequests).toBeGreaterThanOrEqual(2)
     })
   })

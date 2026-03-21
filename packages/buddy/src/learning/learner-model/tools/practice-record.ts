@@ -1,29 +1,29 @@
-import z from 'zod'
-import { createBuddyTool, type BuddyToolContext } from '../../tools'
-import { recordPracticeEvent } from '..'
+import z from "zod"
+import { createBuddyTool, type BuddyToolContext } from "../../tools"
+import { recordPracticeEvent } from ".."
 
-const practiceRecordTool = createBuddyTool('learner_practice_record', {
-  description: 'Record a practice attempt for the current workspace.',
+const practiceRecordTool = createBuddyTool("learner_practice_record", {
+  description: "Record a practice attempt for the current workspace.",
   parameters: z.object({
     goalIds: z.array(z.string()).min(1),
     prompt: z.string().optional(),
     learnerResponseSummary: z.string().min(1),
-    outcome: z.enum(['assigned', 'partial', 'completed', 'stuck']),
+    outcome: z.enum(["assigned", "partial", "completed", "stuck"]),
     targetComponents: z.array(z.string()).optional(),
-    difficulty: z.enum(['scaffolded', 'moderate', 'stretch']).optional(),
+    difficulty: z.enum(["scaffolded", "moderate", "stretch"]).optional(),
     scenario: z.string().optional(),
     taskConstraints: z.array(z.string()).optional(),
     deliverable: z.string().optional(),
     selfCheck: z.string().optional(),
     whyItMatters: z.string().optional(),
-    surface: z.enum(['chat', 'curriculum', 'editor', 'figure', 'quiz']).optional(),
+    surface: z.enum(["chat", "curriculum", "editor", "figure", "quiz"]).optional(),
     addressedFeedbackIds: z.array(z.string()).optional(),
   }),
   async execute(params, ctx: BuddyToolContext) {
     await ctx.ask({
-      permission: 'learner_practice_record',
-      patterns: ['*'],
-      always: ['*'],
+      permission: "learner_practice_record",
+      patterns: ["*"],
+      always: ["*"],
       metadata: {
         goals: params.goalIds.length,
         outcome: params.outcome,
@@ -49,7 +49,7 @@ const practiceRecordTool = createBuddyTool('learner_practice_record', {
     })
 
     return {
-      title: 'learner_practice_record',
+      title: "learner_practice_record",
       output: `Recorded practice outcome (${params.outcome}).`,
       metadata: recorded,
     }

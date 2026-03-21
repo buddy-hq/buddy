@@ -20,9 +20,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
   XIcon,
-} from '@buddy/ui'
-import type { ComponentType, RefObject } from 'react'
-import type { TeachingIntent } from '@/state/teaching-runtime'
+} from "@buddy/ui"
+import type { ComponentType, RefObject } from "react"
+import type { TeachingIntent } from "@/state/teaching-runtime"
 
 const INTENT_OPTIONS: Array<{
   key: TeachingIntent
@@ -32,32 +32,32 @@ const INTENT_OPTIONS: Array<{
   tooltip: string
 }> = [
   {
-    key: 'auto',
-    label: 'Auto',
+    key: "auto",
+    label: "Auto",
     icon: SparklesIcon,
-    description: 'Adaptive mode – Buddy decides the best approach',
-    tooltip: 'Buddy decides the best approach',
+    description: "Adaptive mode – Buddy decides the best approach",
+    tooltip: "Buddy decides the best approach",
   },
   {
-    key: 'learn',
-    label: 'Learn',
+    key: "learn",
+    label: "Learn",
     icon: BookOpenIcon,
-    description: 'Study mode – Explanations, examples, and deep dives',
-    tooltip: 'Explanations, examples, and deep dives',
+    description: "Study mode – Explanations, examples, and deep dives",
+    tooltip: "Explanations, examples, and deep dives",
   },
   {
-    key: 'practice',
-    label: 'Practice',
+    key: "practice",
+    label: "Practice",
     icon: TargetIcon,
-    description: 'Drill mode – Exercises and hands-on problems',
-    tooltip: 'Exercises and hands-on problems',
+    description: "Drill mode – Exercises and hands-on problems",
+    tooltip: "Exercises and hands-on problems",
   },
   {
-    key: 'assess',
-    label: 'Assess',
+    key: "assess",
+    label: "Assess",
     icon: BrainIcon,
-    description: 'Quiz mode – Questions to test your understanding',
-    tooltip: 'Questions to test your understanding',
+    description: "Quiz mode – Questions to test your understanding",
+    tooltip: "Questions to test your understanding",
   },
 ]
 
@@ -114,10 +114,10 @@ export function PromptComposerToolbar(props: PromptComposerToolbarProps) {
               value={props.selectedIntent}
               onValueChange={(value) => {
                 if (
-                  value === 'auto' ||
-                  value === 'learn' ||
-                  value === 'practice' ||
-                  value === 'assess'
+                  value === "auto" ||
+                  value === "learn" ||
+                  value === "practice" ||
+                  value === "assess"
                 ) {
                   props.onIntentChange(value)
                 }
@@ -138,8 +138,8 @@ export function PromptComposerToolbar(props: PromptComposerToolbarProps) {
                           <Icon className="shrink-0" />
                           <span
                             className={cn(
-                              'whitespace-nowrap overflow-hidden transition-all duration-500 ease-out',
-                              isSelected ? 'max-w-[80px] opacity-100' : 'max-w-0 opacity-0',
+                              "whitespace-nowrap overflow-hidden transition-all duration-500 ease-out",
+                              isSelected ? "max-w-[80px] opacity-100" : "max-w-0 opacity-0",
                             )}
                           >
                             {intent.label}

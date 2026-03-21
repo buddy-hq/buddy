@@ -1,23 +1,23 @@
-import { describe, expect, test } from 'bun:test'
-import { createPromptSubmit, promptSubmitAction } from '../../../src/components/prompt/submit'
+import { describe, expect, test } from "bun:test"
+import { createPromptSubmit, promptSubmitAction } from "../../../src/components/prompt/submit"
 
-describe('prompt submit actions', () => {
-  test('submits when there is input and not busy', () => {
-    expect(promptSubmitAction({ isBusy: false, value: 'echo hi' })).toBe('submit')
+describe("prompt submit actions", () => {
+  test("submits when there is input and not busy", () => {
+    expect(promptSubmitAction({ isBusy: false, value: "echo hi" })).toBe("submit")
   })
 
-  test('aborts when currently busy', () => {
-    expect(promptSubmitAction({ isBusy: true, value: 'echo hi' })).toBe('abort')
+  test("aborts when currently busy", () => {
+    expect(promptSubmitAction({ isBusy: true, value: "echo hi" })).toBe("abort")
   })
 
-  test('does nothing when input is empty', () => {
-    expect(promptSubmitAction({ isBusy: false, value: '   ' })).toBe('none')
+  test("does nothing when input is empty", () => {
+    expect(promptSubmitAction({ isBusy: false, value: "   " })).toBe("none")
   })
 })
 
-describe('createPromptSubmit', () => {
-  test('reads latest accessor values across submits', () => {
-    let value = 'first'
+describe("createPromptSubmit", () => {
+  test("reads latest accessor values across submits", () => {
+    let value = "first"
     const submitted: string[] = []
 
     const submit = createPromptSubmit({
@@ -25,25 +25,25 @@ describe('createPromptSubmit', () => {
       isBusy: () => false,
       onSubmit: () => submitted.push(value),
       onAbort: () => {
-        throw new Error('should not abort')
+        throw new Error("should not abort")
       },
     })
 
     submit.handleSubmit({ preventDefault() {} })
-    value = 'second'
+    value = "second"
     submit.handleSubmit({ preventDefault() {} })
 
-    expect(submitted).toEqual(['first', 'second'])
+    expect(submitted).toEqual(["first", "second"])
   })
 
-  test('routes enter key to abort while busy', () => {
+  test("routes enter key to abort while busy", () => {
     let abortCount = 0
 
     const submit = createPromptSubmit({
-      value: () => 'running',
+      value: () => "running",
       isBusy: () => true,
       onSubmit: () => {
-        throw new Error('should not submit')
+        throw new Error("should not submit")
       },
       onAbort: () => {
         abortCount += 1
@@ -51,7 +51,7 @@ describe('createPromptSubmit', () => {
     })
 
     const action = submit.handleKeyDown({
-      key: 'Enter',
+      key: "Enter",
       shiftKey: false,
       ctrlKey: false,
       metaKey: false,
@@ -59,27 +59,27 @@ describe('createPromptSubmit', () => {
       preventDefault() {},
     })
 
-    expect(action).toBe('abort')
+    expect(action).toBe("abort")
     expect(abortCount).toBe(1)
   })
 
-  test('ignores non-submit keyboard events', () => {
+  test("ignores non-submit keyboard events", () => {
     let prevented = false
     let submitCount = 0
 
     const submit = createPromptSubmit({
-      value: () => 'hello',
+      value: () => "hello",
       isBusy: () => false,
       onSubmit: () => {
         submitCount += 1
       },
       onAbort: () => {
-        throw new Error('should not abort')
+        throw new Error("should not abort")
       },
     })
 
     const action = submit.handleKeyDown({
-      key: 'Enter',
+      key: "Enter",
       shiftKey: true,
       ctrlKey: false,
       metaKey: false,
@@ -89,7 +89,7 @@ describe('createPromptSubmit', () => {
       },
     })
 
-    expect(action).toBe('none')
+    expect(action).toBe("none")
     expect(prevented).toBe(false)
     expect(submitCount).toBe(0)
   })

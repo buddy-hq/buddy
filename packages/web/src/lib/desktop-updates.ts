@@ -1,7 +1,7 @@
-import { toast } from '@buddy/ui'
-import type { Platform } from '@/context/platform'
+import { toast } from "@buddy/ui"
+import type { Platform } from "@/context/platform"
 
-const UPDATE_READY_TOAST_ID = 'buddy-desktop-update-ready'
+const UPDATE_READY_TOAST_ID = "buddy-desktop-update-ready"
 let activeHandlers: {
   onDeferred?: () => void
   onInstallFailed?: () => void
@@ -20,14 +20,14 @@ export function showDesktopUpdateToast(args: {
     activeHandlers.onInstallFailed = args.onInstallFailed
   }
 
-  toast('Update ready to install', {
+  toast("Update ready to install", {
     id: UPDATE_READY_TOAST_ID,
     description: args.version
       ? `Buddy ${args.version} has been downloaded.`
-      : 'A new Buddy release has been downloaded.',
+      : "A new Buddy release has been downloaded.",
     duration: Number.POSITIVE_INFINITY,
     action: {
-      label: 'Install & restart',
+      label: "Install & restart",
       onClick: async () => {
         toast.dismiss(UPDATE_READY_TOAST_ID)
 
@@ -37,14 +37,14 @@ export function showDesktopUpdateToast(args: {
         } catch {
           activeHandlers.onInstallFailed?.()
           activeHandlers = {}
-          toast.error('Update install failed', {
-            description: 'Buddy is still running the current version. Try again in a moment.',
+          toast.error("Update install failed", {
+            description: "Buddy is still running the current version. Try again in a moment.",
           })
         }
       },
     },
     cancel: {
-      label: 'Later',
+      label: "Later",
       onClick: () => {
         toast.dismiss(UPDATE_READY_TOAST_ID)
         activeHandlers.onDeferred?.()

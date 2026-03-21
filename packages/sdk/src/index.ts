@@ -1,8 +1,8 @@
-export * from './gen/types.gen.js'
+export * from "./gen/types.gen.js"
 
-import { createClient } from './gen/client/index.js'
-import type { Config } from './gen/client/types.gen.js'
-import { BuddyClient } from './gen/sdk.gen.js'
+import { createClient } from "./gen/client/index.js"
+import type { Config } from "./gen/client/types.gen.js"
+import { BuddyClient } from "./gen/sdk.gen.js"
 
 export { BuddyClient }
 export type { Config as BuddyClientConfig }
@@ -18,12 +18,12 @@ export function createBuddyClient(config?: Config & { directory?: string }): Bud
     const encodedDirectory = isNonASCII ? encodeURIComponent(directory) : directory
     headers = {
       ...headers,
-      'x-buddy-directory': encodedDirectory,
+      "x-buddy-directory": encodedDirectory,
     }
   }
 
   const client = createClient({
-    baseUrl: '/api',
+    baseUrl: "/api",
     ...rest,
     headers,
     fetch: rest.fetch ?? customFetch,

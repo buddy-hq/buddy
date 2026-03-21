@@ -1,6 +1,6 @@
 function bytesToBase64(value: string) {
   const encoded = new TextEncoder().encode(value)
-  let binary = ''
+  let binary = ""
   for (const chunk of encoded) {
     binary += String.fromCharCode(chunk)
   }
@@ -17,15 +17,15 @@ function base64ToBytes(value: string) {
 }
 
 export function encodeDirectory(directory: string) {
-  return bytesToBase64(directory).split('+').join('-').split('/').join('_').split('=').join('')
+  return bytesToBase64(directory).split("+").join("-").split("/").join("_").split("=").join("")
 }
 
 export function decodeDirectory(token: string) {
   const padded = token
-    .split('-')
-    .join('+')
-    .split('_')
-    .join('/')
-    .padEnd(Math.ceil(token.length / 4) * 4, '=')
+    .split("-")
+    .join("+")
+    .split("_")
+    .join("/")
+    .padEnd(Math.ceil(token.length / 4) * 4, "=")
   return base64ToBytes(padded)
 }

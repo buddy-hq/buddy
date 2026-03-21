@@ -1,5 +1,5 @@
-import { describe, expect, test } from 'bun:test'
-import { app } from '../../src/index.ts'
+import { describe, expect, test } from "bun:test"
+import { app } from "../../src/index.ts"
 
 type OperationDoc = {
   operationId?: string
@@ -17,9 +17,9 @@ function requireOperation(operation: OperationDoc | undefined, label: string): O
   throw new Error(`Missing OpenAPI operation: ${label}`)
 }
 
-describe('parity.routes.openapi-doc', () => {
-  test('documents compatibility routes required by the web client', async () => {
-    const response = await app.request('/doc')
+describe("parity.routes.openapi-doc", () => {
+  test("documents compatibility routes required by the web client", async () => {
+    const response = await app.request("/doc")
     expect(response.status).toBe(200)
 
     const doc = (await response.json()) as {
@@ -28,77 +28,77 @@ describe('parity.routes.openapi-doc', () => {
 
     const paths = doc.paths ?? {}
     const requiredPaths = [
-      '/api/health',
-      '/api/event',
-      '/api/global/config',
-      '/api/global/dispose',
-      '/api/config/agents',
-      '/api/config/personas',
-      '/api/config',
-      '/api/config/providers',
-      '/api/open-projects',
-      '/api/open-projects/order',
-      '/api/project',
-      '/api/project/current',
-      '/api/project/{projectID}',
-      '/api/permission',
-      '/api/permission/{requestID}/reply',
-      '/api/session',
-      '/api/session/{sessionID}',
-      '/api/session/{sessionID}/message',
-      '/api/session/{sessionID}/abort',
-      '/api/learner/snapshot',
-      '/api/learner/plan',
-      '/api/learner/artifacts',
-      '/api/learner/workspace',
-      '/api/skills',
-      '/api/skills/{name}',
-      '/api/skills/library/{skillID}/install',
+      "/api/health",
+      "/api/event",
+      "/api/global/config",
+      "/api/global/dispose",
+      "/api/config/agents",
+      "/api/config/personas",
+      "/api/config",
+      "/api/config/providers",
+      "/api/open-projects",
+      "/api/open-projects/order",
+      "/api/project",
+      "/api/project/current",
+      "/api/project/{projectID}",
+      "/api/permission",
+      "/api/permission/{requestID}/reply",
+      "/api/session",
+      "/api/session/{sessionID}",
+      "/api/session/{sessionID}/message",
+      "/api/session/{sessionID}/abort",
+      "/api/learner/snapshot",
+      "/api/learner/plan",
+      "/api/learner/artifacts",
+      "/api/learner/workspace",
+      "/api/skills",
+      "/api/skills/{name}",
+      "/api/skills/library/{skillID}/install",
     ]
 
     expect(Object.keys(paths)).toEqual(expect.arrayContaining(requiredPaths))
 
     const requiredOperations = [
-      { path: '/api/health', method: 'get', operationId: 'health.check' },
-      { path: '/api/event', method: 'get', operationId: 'event.stream' },
-      { path: '/api/global/config', method: 'get', operationId: 'global.config.get' },
-      { path: '/api/global/config', method: 'patch', operationId: 'global.config.patch' },
-      { path: '/api/global/dispose', method: 'post', operationId: 'global.dispose' },
-      { path: '/api/config/agents', method: 'get', operationId: 'config.agents' },
-      { path: '/api/config/personas', method: 'get', operationId: 'config.personas' },
-      { path: '/api/open-projects', method: 'get', operationId: 'openProjects.list' },
-      { path: '/api/open-projects', method: 'post', operationId: 'openProjects.open' },
-      { path: '/api/open-projects', method: 'delete', operationId: 'openProjects.close' },
-      { path: '/api/open-projects/order', method: 'put', operationId: 'openProjects.reorder' },
-      { path: '/api/project', method: 'get', operationId: 'project.list' },
-      { path: '/api/project/current', method: 'get', operationId: 'project.current' },
-      { path: '/api/project/{projectID}', method: 'patch', operationId: 'project.update' },
-      { path: '/api/session', method: 'get', operationId: 'session.list' },
-      { path: '/api/session', method: 'post', operationId: 'session.create' },
-      { path: '/api/session/{sessionID}', method: 'get', operationId: 'session.get' },
-      { path: '/api/session/{sessionID}', method: 'patch', operationId: 'session.update' },
-      { path: '/api/session/{sessionID}/message', method: 'get', operationId: 'session.messages' },
-      { path: '/api/session/{sessionID}/message', method: 'post', operationId: 'session.prompt' },
-      { path: '/api/session/{sessionID}/abort', method: 'post', operationId: 'session.abort' },
-      { path: '/api/permission', method: 'get', operationId: 'permission.list' },
+      { path: "/api/health", method: "get", operationId: "health.check" },
+      { path: "/api/event", method: "get", operationId: "event.stream" },
+      { path: "/api/global/config", method: "get", operationId: "global.config.get" },
+      { path: "/api/global/config", method: "patch", operationId: "global.config.patch" },
+      { path: "/api/global/dispose", method: "post", operationId: "global.dispose" },
+      { path: "/api/config/agents", method: "get", operationId: "config.agents" },
+      { path: "/api/config/personas", method: "get", operationId: "config.personas" },
+      { path: "/api/open-projects", method: "get", operationId: "openProjects.list" },
+      { path: "/api/open-projects", method: "post", operationId: "openProjects.open" },
+      { path: "/api/open-projects", method: "delete", operationId: "openProjects.close" },
+      { path: "/api/open-projects/order", method: "put", operationId: "openProjects.reorder" },
+      { path: "/api/project", method: "get", operationId: "project.list" },
+      { path: "/api/project/current", method: "get", operationId: "project.current" },
+      { path: "/api/project/{projectID}", method: "patch", operationId: "project.update" },
+      { path: "/api/session", method: "get", operationId: "session.list" },
+      { path: "/api/session", method: "post", operationId: "session.create" },
+      { path: "/api/session/{sessionID}", method: "get", operationId: "session.get" },
+      { path: "/api/session/{sessionID}", method: "patch", operationId: "session.update" },
+      { path: "/api/session/{sessionID}/message", method: "get", operationId: "session.messages" },
+      { path: "/api/session/{sessionID}/message", method: "post", operationId: "session.prompt" },
+      { path: "/api/session/{sessionID}/abort", method: "post", operationId: "session.abort" },
+      { path: "/api/permission", method: "get", operationId: "permission.list" },
       {
-        path: '/api/permission/{requestID}/reply',
-        method: 'post',
-        operationId: 'permission.reply',
+        path: "/api/permission/{requestID}/reply",
+        method: "post",
+        operationId: "permission.reply",
       },
-      { path: '/api/config/providers', method: 'get', operationId: 'config.providers' },
-      { path: '/api/learner/snapshot', method: 'get', operationId: 'learner.snapshot' },
-      { path: '/api/learner/plan', method: 'post', operationId: 'learner.plan' },
-      { path: '/api/learner/artifacts', method: 'get', operationId: 'learner.artifacts' },
-      { path: '/api/learner/workspace', method: 'patch', operationId: 'learner.workspace.patch' },
-      { path: '/api/skills', method: 'get', operationId: 'skills.list' },
-      { path: '/api/skills', method: 'post', operationId: 'skills.create' },
-      { path: '/api/skills/{name}', method: 'patch', operationId: 'skills.update' },
-      { path: '/api/skills/{name}', method: 'delete', operationId: 'skills.delete' },
+      { path: "/api/config/providers", method: "get", operationId: "config.providers" },
+      { path: "/api/learner/snapshot", method: "get", operationId: "learner.snapshot" },
+      { path: "/api/learner/plan", method: "post", operationId: "learner.plan" },
+      { path: "/api/learner/artifacts", method: "get", operationId: "learner.artifacts" },
+      { path: "/api/learner/workspace", method: "patch", operationId: "learner.workspace.patch" },
+      { path: "/api/skills", method: "get", operationId: "skills.list" },
+      { path: "/api/skills", method: "post", operationId: "skills.create" },
+      { path: "/api/skills/{name}", method: "patch", operationId: "skills.update" },
+      { path: "/api/skills/{name}", method: "delete", operationId: "skills.delete" },
       {
-        path: '/api/skills/library/{skillID}/install',
-        method: 'post',
-        operationId: 'skills.library.install',
+        path: "/api/skills/library/{skillID}/install",
+        method: "post",
+        operationId: "skills.library.install",
       },
     ] as const
 
@@ -107,27 +107,27 @@ describe('parity.routes.openapi-doc', () => {
       expect(methodDoc?.operationId).toBe(operation.operationId)
     }
 
-    expect(paths['/api/project']?.post).toBeUndefined()
+    expect(paths["/api/project"]?.post).toBeUndefined()
 
     const skillsOperations = [
-      requireOperation(paths['/api/skills']?.get, '/api/skills:get'),
-      requireOperation(paths['/api/skills']?.post, '/api/skills:post'),
-      requireOperation(paths['/api/skills/{name}']?.patch, '/api/skills/{name}:patch'),
-      requireOperation(paths['/api/skills/{name}']?.delete, '/api/skills/{name}:delete'),
+      requireOperation(paths["/api/skills"]?.get, "/api/skills:get"),
+      requireOperation(paths["/api/skills"]?.post, "/api/skills:post"),
+      requireOperation(paths["/api/skills/{name}"]?.patch, "/api/skills/{name}:patch"),
+      requireOperation(paths["/api/skills/{name}"]?.delete, "/api/skills/{name}:delete"),
       requireOperation(
-        paths['/api/skills/library/{skillID}/install']?.post,
-        '/api/skills/library/{skillID}/install:post',
+        paths["/api/skills/library/{skillID}/install"]?.post,
+        "/api/skills/library/{skillID}/install:post",
       ),
     ]
 
     for (const operation of skillsOperations) {
       const parameterNames = (operation.parameters ?? []).map((parameter) => parameter.name)
-      expect(parameterNames).toContain('directory')
+      expect(parameterNames).toContain("directory")
     }
 
-    expect(Object.keys(skillsOperations[1].responses ?? {})).toContain('403')
-    expect(Object.keys(skillsOperations[2].responses ?? {})).toContain('403')
-    expect(Object.keys(skillsOperations[3].responses ?? {})).toContain('403')
-    expect(Object.keys(skillsOperations[4].responses ?? {})).toContain('403')
+    expect(Object.keys(skillsOperations[1].responses ?? {})).toContain("403")
+    expect(Object.keys(skillsOperations[2].responses ?? {})).toContain("403")
+    expect(Object.keys(skillsOperations[3].responses ?? {})).toContain("403")
+    expect(Object.keys(skillsOperations[4].responses ?? {})).toContain("403")
   })
 })

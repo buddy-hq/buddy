@@ -1,21 +1,21 @@
-import fsp from 'node:fs/promises'
-import path from 'node:path'
-import matter from 'gray-matter'
-import { Config } from '@buddy/backend/config'
-import type { InstalledSkillInfo, SkillLibraryEntry, SkillsCatalog } from './contracts'
-import { readOptionalString } from './documents'
-import { loadVisibleSkills } from './discovery'
-import { listCuratedLibrarySkills } from './library'
-import { managedLibraryRoot, managedSkillsRoot, managedSource, resolveSkillScope } from './paths'
+import fsp from "node:fs/promises"
+import path from "node:path"
+import matter from "gray-matter"
+import { Config } from "@buddy/backend/config"
+import type { InstalledSkillInfo, SkillLibraryEntry, SkillsCatalog } from "./contracts"
+import { readOptionalString } from "./documents"
+import { loadVisibleSkills } from "./discovery"
+import { listCuratedLibrarySkills } from "./library"
+import { managedLibraryRoot, managedSkillsRoot, managedSource, resolveSkillScope } from "./paths"
 import {
   enabledAction,
   resolvePermissionSource,
   resolveSkillPermission,
   skillRuleset,
-} from './permissions'
+} from "./permissions"
 
 async function readSkillMetadata(location: string) {
-  const source = await fsp.readFile(location, 'utf8').catch(() => undefined)
+  const source = await fsp.readFile(location, "utf8").catch(() => undefined)
   if (!source) {
     return {
       examplePrompt: undefined,
@@ -24,7 +24,7 @@ async function readSkillMetadata(location: string) {
 
   const parsed = matter(source)
   return {
-    examplePrompt: readOptionalString(parsed.data['example_prompt']),
+    examplePrompt: readOptionalString(parsed.data["example_prompt"]),
   }
 }
 
@@ -92,7 +92,7 @@ async function readCuratedLibraryEntries(options?: {
   })
   const entries = await Promise.all(
     curated.skills.map(async (entry): Promise<SkillLibraryEntry> => {
-      const installedFile = path.join(managedLibraryRoot(), entry.id, 'SKILL.md')
+      const installedFile = path.join(managedLibraryRoot(), entry.id, "SKILL.md")
       const stats = await fsp.stat(installedFile).catch(() => undefined)
 
       return {

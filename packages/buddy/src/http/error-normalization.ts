@@ -1,4 +1,4 @@
-import { isJsonContentType, safeReadJson } from './http'
+import { isJsonContentType, safeReadJson } from "./http"
 
 type ErrorPayload = {
   error?: unknown
@@ -12,7 +12,7 @@ type ErrorPayload = {
 
 function asErrorPayload(payload: unknown): ErrorPayload | undefined {
   // Intentional shallow assertion in asErrorPayload; extractErrorMessage validates field types.
-  if (!payload || typeof payload !== 'object') return undefined
+  if (!payload || typeof payload !== "object") return undefined
   return payload as ErrorPayload
 }
 
@@ -20,10 +20,10 @@ function extractErrorMessage(payload: unknown): string | undefined {
   const data = asErrorPayload(payload)
   if (!data) return undefined
 
-  if (typeof data.error === 'string') return data.error
-  if (typeof data.message === 'string') return data.message
-  if (typeof data.data?.message === 'string') return data.data.message
-  if (typeof data.name === 'string' && typeof data.data?.name === 'string')
+  if (typeof data.error === "string") return data.error
+  if (typeof data.message === "string") return data.message
+  if (typeof data.data?.message === "string") return data.data.message
+  if (typeof data.name === "string" && typeof data.data?.name === "string")
     return `${data.name}: ${data.data.name}`
   return undefined
 }
@@ -32,7 +32,7 @@ export async function normalizeErrorResponse(
   response: Response,
   forceBusyAs409 = false,
 ): Promise<Response> {
-  if (response.status < 400 || !isJsonContentType(response.headers.get('content-type'))) {
+  if (response.status < 400 || !isJsonContentType(response.headers.get("content-type"))) {
     return response
   }
 
@@ -42,7 +42,7 @@ export async function normalizeErrorResponse(
 
   const busy = /busy/i.test(message)
   if (forceBusyAs409 && busy) {
-    return Response.json({ error: 'Session is already running' }, { status: 409 })
+    return Response.json({ error: "Session is already running" }, { status: 409 })
   }
 
   return Response.json({ error: message }, { status: response.status })

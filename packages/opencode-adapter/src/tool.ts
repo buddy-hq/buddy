@@ -8,8 +8,8 @@ export type ToolContext = {
 }
 
 // Compile-safe bridges to vendored OpenCode tool runtime.
-export { Tool } from 'opencode/tool/tool'
-export { Truncate } from 'opencode/tool/truncate'
-export { EditTool } from 'opencode/tool/edit'
-export { WriteTool } from 'opencode/tool/write'
-export { FileTime } from 'opencode/file/time'
+export { Tool } from "opencode/tool/tool"
+export { Truncate } from "opencode/tool/truncate"
+export { EditTool } from "opencode/tool/edit"
+export { WriteTool } from "opencode/tool/write"
+export { FileTime } from "opencode/file/time"

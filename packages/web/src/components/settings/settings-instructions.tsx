@@ -1,5 +1,5 @@
-import { GlobalAgentsMdSettingsPanel } from './global-agents-md-settings-panel'
-import { SettingsPanelContent } from './settings-page'
+import { GlobalAgentsMdSettingsPanel } from "./global-agents-md-settings-panel"
+import { SettingsPanelContent } from "./settings-page"
 
 export function InstructionsSettings() {
   return (

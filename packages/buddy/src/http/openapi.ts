@@ -1,24 +1,24 @@
-import { resolver } from 'hono-openapi'
-import z from 'zod'
+import { resolver } from "hono-openapi"
+import z from "zod"
 
-export const JSON_CONTENT_TYPE = 'application/json' as const
+export const JSON_CONTENT_TYPE = "application/json" as const
 
 export const RouteErrorSchema = z
   .object({
     error: z.string(),
   })
-  .meta({ ref: 'RouteError' })
+  .meta({ ref: "RouteError" })
 
 export const jsonErrorContent = {
   [JSON_CONTENT_TYPE]: { schema: resolver(RouteErrorSchema) },
 } as const
 
 const ERROR_DESCRIPTIONS: Record<number, string> = {
-  400: 'Bad request',
-  403: 'Directory is outside allowed roots',
-  404: 'Not found',
-  409: 'Conflict',
-  500: 'Internal server error',
+  400: "Bad request",
+  403: "Directory is outside allowed roots",
+  404: "Not found",
+  409: "Conflict",
+  500: "Internal server error",
 }
 
 export function routeErrors(...codes: number[]) {
@@ -26,7 +26,7 @@ export function routeErrors(...codes: number[]) {
     codes.map((code) => [
       code,
       {
-        description: ERROR_DESCRIPTIONS[code] ?? 'Request failed',
+        description: ERROR_DESCRIPTIONS[code] ?? "Request failed",
         content: jsonErrorContent,
       },
     ]),
@@ -34,17 +34,17 @@ export function routeErrors(...codes: number[]) {
 }
 
 export const directoryHeaderParameter = {
-  name: 'x-buddy-directory',
-  in: 'header' as const,
+  name: "x-buddy-directory",
+  in: "header" as const,
   required: false,
-  schema: { type: 'string' as const },
+  schema: { type: "string" as const },
 }
 
 export const directoryQueryParameter = {
-  name: 'directory',
-  in: 'query' as const,
+  name: "directory",
+  in: "query" as const,
   required: false,
-  schema: { type: 'string' as const },
+  schema: { type: "string" as const },
 }
 
 export const directoryParameters = [directoryHeaderParameter, directoryQueryParameter]
@@ -82,7 +82,7 @@ export const SkillNameParamSchema = z.object({
 })
 
 export const directoryForbiddenResponse = {
-  description: 'Directory is outside allowed roots',
+  description: "Directory is outside allowed roots",
   content: jsonErrorContent,
 }
 

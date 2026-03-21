@@ -4,11 +4,11 @@ run-name: "${{ format('release {0}', github.ref_type == 'tag' && github.ref_name
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
   workflow_dispatch:
     inputs:
       bump:
-        description: 'Bump major, minor, or patch'
+        description: "Bump major, minor, or patch"
         required: false
         type: choice
         options:
@@ -16,7 +16,7 @@ on:
           - minor
           - patch
       version:
-        description: 'Override version (optional)'
+        description: "Override version (optional)"
         required: false
         type: string
 
@@ -36,7 +36,7 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: '1.3.9'
+          bun-version: "1.3.9"
 
       - run: bun install
 
@@ -63,7 +63,7 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: '1.3.9'
+          bun-version: "1.3.9"
 
       - run: bun install
 
@@ -97,7 +97,7 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: '1.3.9'
+          bun-version: "1.3.9"
 
       - run: bun install
 
@@ -187,11 +187,11 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: '1.3.9'
+          bun-version: "1.3.9"
 
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: "3.12"
 
       - run: bun install
 
@@ -225,7 +225,7 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: '1.3.9'
+          bun-version: "1.3.9"
 
       - run: bun install
 

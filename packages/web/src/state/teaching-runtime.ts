@@ -1,53 +1,53 @@
-import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
-import { createPlatformJsonStorage } from '../context/platform'
+import { create } from "zustand"
+import { persist } from "zustand/middleware"
+import { createPlatformJsonStorage } from "../context/platform"
 
-export const TEACHING_RUNTIME_STORAGE_KEY = 'buddy.teaching.runtime.v1'
+export const TEACHING_RUNTIME_STORAGE_KEY = "buddy.teaching.runtime.v1"
 
 export const TEACHING_LANGUAGE_OPTIONS = [
-  { value: 'txt', label: 'Plain Text', monacoLanguage: 'plaintext' },
-  { value: 'ts', label: 'TypeScript', monacoLanguage: 'typescript' },
-  { value: 'tsx', label: 'TSX / React', monacoLanguage: 'typescriptreact' },
-  { value: 'js', label: 'JavaScript', monacoLanguage: 'javascript' },
-  { value: 'jsx', label: 'JSX / React', monacoLanguage: 'javascriptreact' },
-  { value: 'py', label: 'Python', monacoLanguage: 'python' },
-  { value: 'go', label: 'Go', monacoLanguage: 'go' },
-  { value: 'rs', label: 'Rust', monacoLanguage: 'rust' },
-  { value: 'java', label: 'Java', monacoLanguage: 'java' },
-  { value: 'kt', label: 'Kotlin', monacoLanguage: 'kotlin' },
-  { value: 'php', label: 'PHP', monacoLanguage: 'php' },
-  { value: 'rb', label: 'Ruby', monacoLanguage: 'ruby' },
-  { value: 'swift', label: 'Swift', monacoLanguage: 'swift' },
-  { value: 'cs', label: 'C#', monacoLanguage: 'csharp' },
-  { value: 'fs', label: 'F#', monacoLanguage: 'fsharp' },
-  { value: 'c', label: 'C', monacoLanguage: 'c' },
-  { value: 'cpp', label: 'C++', monacoLanguage: 'cpp' },
-  { value: 'sh', label: 'Shell', monacoLanguage: 'shell' },
-  { value: 'yaml', label: 'YAML', monacoLanguage: 'yaml' },
-  { value: 'json', label: 'JSON', monacoLanguage: 'json' },
-  { value: 'md', label: 'Markdown', monacoLanguage: 'markdown' },
-  { value: 'html', label: 'HTML', monacoLanguage: 'html' },
-  { value: 'css', label: 'CSS', monacoLanguage: 'css' },
-  { value: 'sql', label: 'SQL', monacoLanguage: 'sql' },
-  { value: 'lua', label: 'Lua', monacoLanguage: 'lua' },
-  { value: 'dart', label: 'Dart', monacoLanguage: 'dart' },
-  { value: 'zig', label: 'Zig', monacoLanguage: 'plaintext' },
-  { value: 'vue', label: 'Vue', monacoLanguage: 'html' },
-  { value: 'svelte', label: 'Svelte', monacoLanguage: 'html' },
-  { value: 'astro', label: 'Astro', monacoLanguage: 'html' },
-  { value: 'ml', label: 'OCaml', monacoLanguage: 'plaintext' },
-  { value: 'ex', label: 'Elixir', monacoLanguage: 'plaintext' },
-  { value: 'gleam', label: 'Gleam', monacoLanguage: 'plaintext' },
-  { value: 'nix', label: 'Nix', monacoLanguage: 'plaintext' },
-  { value: 'tf', label: 'Terraform', monacoLanguage: 'hcl' },
-  { value: 'typ', label: 'Typst', monacoLanguage: 'plaintext' },
-  { value: 'clj', label: 'Clojure', monacoLanguage: 'clojure' },
-  { value: 'hs', label: 'Haskell', monacoLanguage: 'haskell' },
-  { value: 'jl', label: 'Julia', monacoLanguage: 'plaintext' },
-  { value: 'xml', label: 'XML', monacoLanguage: 'xml' },
+  { value: "txt", label: "Plain Text", monacoLanguage: "plaintext" },
+  { value: "ts", label: "TypeScript", monacoLanguage: "typescript" },
+  { value: "tsx", label: "TSX / React", monacoLanguage: "typescriptreact" },
+  { value: "js", label: "JavaScript", monacoLanguage: "javascript" },
+  { value: "jsx", label: "JSX / React", monacoLanguage: "javascriptreact" },
+  { value: "py", label: "Python", monacoLanguage: "python" },
+  { value: "go", label: "Go", monacoLanguage: "go" },
+  { value: "rs", label: "Rust", monacoLanguage: "rust" },
+  { value: "java", label: "Java", monacoLanguage: "java" },
+  { value: "kt", label: "Kotlin", monacoLanguage: "kotlin" },
+  { value: "php", label: "PHP", monacoLanguage: "php" },
+  { value: "rb", label: "Ruby", monacoLanguage: "ruby" },
+  { value: "swift", label: "Swift", monacoLanguage: "swift" },
+  { value: "cs", label: "C#", monacoLanguage: "csharp" },
+  { value: "fs", label: "F#", monacoLanguage: "fsharp" },
+  { value: "c", label: "C", monacoLanguage: "c" },
+  { value: "cpp", label: "C++", monacoLanguage: "cpp" },
+  { value: "sh", label: "Shell", monacoLanguage: "shell" },
+  { value: "yaml", label: "YAML", monacoLanguage: "yaml" },
+  { value: "json", label: "JSON", monacoLanguage: "json" },
+  { value: "md", label: "Markdown", monacoLanguage: "markdown" },
+  { value: "html", label: "HTML", monacoLanguage: "html" },
+  { value: "css", label: "CSS", monacoLanguage: "css" },
+  { value: "sql", label: "SQL", monacoLanguage: "sql" },
+  { value: "lua", label: "Lua", monacoLanguage: "lua" },
+  { value: "dart", label: "Dart", monacoLanguage: "dart" },
+  { value: "zig", label: "Zig", monacoLanguage: "plaintext" },
+  { value: "vue", label: "Vue", monacoLanguage: "html" },
+  { value: "svelte", label: "Svelte", monacoLanguage: "html" },
+  { value: "astro", label: "Astro", monacoLanguage: "html" },
+  { value: "ml", label: "OCaml", monacoLanguage: "plaintext" },
+  { value: "ex", label: "Elixir", monacoLanguage: "plaintext" },
+  { value: "gleam", label: "Gleam", monacoLanguage: "plaintext" },
+  { value: "nix", label: "Nix", monacoLanguage: "plaintext" },
+  { value: "tf", label: "Terraform", monacoLanguage: "hcl" },
+  { value: "typ", label: "Typst", monacoLanguage: "plaintext" },
+  { value: "clj", label: "Clojure", monacoLanguage: "clojure" },
+  { value: "hs", label: "Haskell", monacoLanguage: "haskell" },
+  { value: "jl", label: "Julia", monacoLanguage: "plaintext" },
+  { value: "xml", label: "XML", monacoLanguage: "xml" },
 ] as const
 
-export type TeachingLanguage = (typeof TEACHING_LANGUAGE_OPTIONS)[number]['value']
+export type TeachingLanguage = (typeof TEACHING_LANGUAGE_OPTIONS)[number]["value"]
 
 const TEACHING_LANGUAGE_OPTION_INDEX = Object.fromEntries(
   TEACHING_LANGUAGE_OPTIONS.map((option) => [option.value, option]),
@@ -58,7 +58,7 @@ export function teachingLanguageLabel(language: TeachingLanguage) {
 }
 
 export function teachingMonacoLanguage(language: TeachingLanguage) {
-  return TEACHING_LANGUAGE_OPTION_INDEX[language]?.monacoLanguage ?? 'plaintext'
+  return TEACHING_LANGUAGE_OPTION_INDEX[language]?.monacoLanguage ?? "plaintext"
 }
 
 export type TeachingSelection = {
@@ -89,7 +89,7 @@ export type TeachingWorkspaceFile = {
   language: TeachingLanguage
 }
 
-export type TeachingDiagnosticSeverity = 'error' | 'warning' | 'info' | 'hint'
+export type TeachingDiagnosticSeverity = "error" | "warning" | "info" | "hint"
 
 export type TeachingDiagnostic = {
   message: string
@@ -125,13 +125,13 @@ export type TeachingWorkspaceState = TeachingWorkspace & {
   selection?: TeachingSelection
 }
 
-export type TeachingIntent = 'auto' | 'learn' | 'practice' | 'assess'
+export type TeachingIntent = "auto" | "learn" | "practice" | "assess"
 
 export const TEACHING_INTENT_OPTIONS = [
-  { value: 'auto', label: 'Auto' },
-  { value: 'learn', label: 'Learn' },
-  { value: 'practice', label: 'Practice' },
-  { value: 'assess', label: 'Assess' },
+  { value: "auto", label: "Auto" },
+  { value: "learn", label: "Learn" },
+  { value: "practice", label: "Practice" },
+  { value: "assess", label: "Assess" },
 ] as const satisfies Array<{
   value: TeachingIntent
   label: string
@@ -371,7 +371,7 @@ export const useTeachingRuntime = create<TeachingRuntimeState>()(
     {
       name: TEACHING_RUNTIME_STORAGE_KEY,
       version: 5,
-      storage: createPlatformJsonStorage('buddy.teaching.dat'),
+      storage: createPlatformJsonStorage("buddy.teaching.dat"),
       migrate(persistedState) {
         const state = (persistedState as Partial<TeachingRuntimeState> | undefined) ?? undefined
         const selectedIntentBySession = { ...state?.selectedIntentBySession }
@@ -384,18 +384,18 @@ export const useTeachingRuntime = create<TeachingRuntimeState>()(
           | undefined
         for (const sessionKey of Object.keys(legacyStrategies?.selectedStrategyBySession ?? {})) {
           const legacyAdaptivity = legacyStrategies?.selectedAdaptivityBySession?.[sessionKey]
-          if (legacyAdaptivity === 'adaptive') {
-            selectedIntentBySession[sessionKey] = 'auto'
+          if (legacyAdaptivity === "adaptive") {
+            selectedIntentBySession[sessionKey] = "auto"
             continue
           }
 
           const legacyStrategy = legacyStrategies?.selectedStrategyBySession?.[sessionKey]
           selectedIntentBySession[sessionKey] =
-            legacyStrategy === 'practice' || legacyStrategy === 'assessment'
-              ? legacyStrategy === 'assessment'
-                ? 'assess'
-                : 'practice'
-              : 'learn'
+            legacyStrategy === "practice" || legacyStrategy === "assessment"
+              ? legacyStrategy === "assessment"
+                ? "assess"
+                : "practice"
+              : "learn"
         }
 
         return {

@@ -1,12 +1,12 @@
 #!/usr/bin/env bun
-import { createClient } from '@hey-api/openapi-ts'
-import fs from 'fs/promises'
-import path from 'path'
-import { generateSpecs } from 'hono-openapi'
+import { createClient } from "@hey-api/openapi-ts"
+import fs from "fs/promises"
+import path from "path"
+import { generateSpecs } from "hono-openapi"
 
 // Generate SDK from running backend
-const API_URL = process.env.API_URL || 'http://localhost:3000/doc'
-const OPENAPI_PATH = path.resolve('openapi.json')
+const API_URL = process.env.API_URL || "http://localhost:3000/doc"
+const OPENAPI_PATH = path.resolve("openapi.json")
 
 console.log(`Generating SDK from ${API_URL}...`)
 
@@ -22,12 +22,12 @@ function normalizePaths(schema: OpenAPISchema) {
 
   const normalized: Record<string, unknown> = {}
   for (const [routePath, definition] of Object.entries(schema.paths)) {
-    if (routePath === '/api') {
-      normalized['/'] = definition
+    if (routePath === "/api") {
+      normalized["/"] = definition
       continue
     }
 
-    if (routePath.startsWith('/api/')) {
+    if (routePath.startsWith("/api/")) {
       normalized[routePath.slice(4)] = definition
       continue
     }
@@ -50,15 +50,15 @@ async function loadSchema() {
     const schema = (await response.json()) as OpenAPISchema
     return normalizePaths(schema)
   } catch {
-    const { app } = await import('../../buddy/src/index.ts')
+    const { app } = await import("../../buddy/src/index.ts")
     const schema = (await generateSpecs(app, {
       documentation: {
         info: {
-          title: 'Buddy API',
-          version: '1.0.0',
-          description: 'Buddy API Documentation',
+          title: "Buddy API",
+          version: "1.0.0",
+          description: "Buddy API Documentation",
         },
-        openapi: '3.1.1',
+        openapi: "3.1.1",
       },
     })) as OpenAPISchema
 
@@ -67,39 +67,39 @@ async function loadSchema() {
 }
 
 const schema = await loadSchema()
-await fs.writeFile(OPENAPI_PATH, JSON.stringify(schema, null, 2), 'utf-8')
+await fs.writeFile(OPENAPI_PATH, JSON.stringify(schema, null, 2), "utf-8")
 
 await createClient({
   input: OPENAPI_PATH,
   output: {
-    path: './src/gen',
-    tsConfigPath: path.resolve('tsconfig.json'),
+    path: "./src/gen",
+    tsConfigPath: path.resolve("tsconfig.json"),
     clean: true,
   },
   plugins: [
     {
-      name: '@hey-api/typescript',
+      name: "@hey-api/typescript",
       exportFromIndex: false,
     },
     {
-      name: '@hey-api/sdk',
+      name: "@hey-api/sdk",
       operations: {
-        strategy: 'single',
-        containerName: 'BuddyClient',
-        methods: 'instance',
+        strategy: "single",
+        containerName: "BuddyClient",
+        methods: "instance",
       },
       exportFromIndex: false,
       auth: false,
-      paramsStructure: 'flat',
+      paramsStructure: "flat",
     },
     {
-      name: '@hey-api/client-fetch',
+      name: "@hey-api/client-fetch",
       exportFromIndex: false,
-      baseUrl: '/api',
+      baseUrl: "/api",
     },
   ],
 })
 
 await fs.rm(OPENAPI_PATH, { force: true })
 
-console.log('✅ SDK generated successfully!')
+console.log("✅ SDK generated successfully!")

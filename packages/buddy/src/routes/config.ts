@@ -1,16 +1,16 @@
-import { Hono } from 'hono'
-import { describeRoute, resolver, validator } from 'hono-openapi'
-import z from 'zod'
-import { Config } from '@buddy/backend/config'
+import { Hono } from "hono"
+import { describeRoute, resolver, validator } from "hono-openapi"
+import z from "zod"
+import { Config } from "@buddy/backend/config"
 import {
   listProjectAgents,
   listProjectPersonas,
   mapConfigRouteError,
   patchProjectConfig,
   putProjectMcpConfig,
-} from '@buddy/backend/config/orchestration'
-import { readProjectConfig } from '@buddy/backend/config/runtime'
-import { Provider as OpenCodeProvider } from '@buddy/opencode-adapter/provider'
+} from "@buddy/backend/config/orchestration"
+import { readProjectConfig } from "@buddy/backend/config/runtime"
+import { Provider as OpenCodeProvider } from "@buddy/opencode-adapter/provider"
 import {
   directoryQuerySchema,
   McpNameParamSchema,
@@ -18,8 +18,8 @@ import {
   runRouteTask,
   withConfigSyncRoute,
   withDirectoryRoute,
-} from '../http'
-import { proxyToOpenCode } from '../http'
+} from "../http"
+import { proxyToOpenCode } from "../http"
 
 const personaCatalogEntrySchema = z.object({
   id: z.string(),
@@ -44,15 +44,15 @@ const providerConfigResponseSchema = z.object({
 
 export const ConfigRoutes = new Hono()
   .get(
-    '/personas',
+    "/personas",
     describeRoute({
-      operationId: 'config.personas',
-      summary: 'List Buddy personas',
+      operationId: "config.personas",
+      summary: "List Buddy personas",
       responses: {
         200: {
-          description: 'Buddy personas',
+          description: "Buddy personas",
           content: {
-            'application/json': {
+            "application/json": {
               schema: resolver(z.array(personaCatalogEntrySchema)),
             },
           },
@@ -60,7 +60,7 @@ export const ConfigRoutes = new Hono()
         ...routeErrors(400, 403),
       },
     }),
-    validator('query', directoryQuerySchema),
+    validator("query", directoryQuerySchema),
     async (c) =>
       withDirectoryRoute(c, async (context) =>
         runRouteTask({
@@ -73,15 +73,15 @@ export const ConfigRoutes = new Hono()
       ),
   )
   .get(
-    '/agents',
+    "/agents",
     describeRoute({
-      operationId: 'config.agents',
-      summary: 'List agent configurations',
+      operationId: "config.agents",
+      summary: "List agent configurations",
       responses: {
         200: {
-          description: 'Agent configurations',
+          description: "Agent configurations",
           content: {
-            'application/json': {
+            "application/json": {
               schema: resolver(z.array(agentConfigEntrySchema)),
             },
           },
@@ -89,7 +89,7 @@ export const ConfigRoutes = new Hono()
         ...routeErrors(400, 403),
       },
     }),
-    validator('query', directoryQuerySchema),
+    validator("query", directoryQuerySchema),
     async (c) =>
       withDirectoryRoute(c, async (context) =>
         runRouteTask({
@@ -102,46 +102,46 @@ export const ConfigRoutes = new Hono()
       ),
   )
   .get(
-    '/providers',
+    "/providers",
     describeRoute({
-      operationId: 'config.providers',
-      summary: 'List configured providers',
+      operationId: "config.providers",
+      summary: "List configured providers",
       responses: {
         200: {
-          description: 'Configured providers and defaults',
+          description: "Configured providers and defaults",
           content: {
-            'application/json': { schema: resolver(providerConfigResponseSchema) },
+            "application/json": { schema: resolver(providerConfigResponseSchema) },
           },
         },
         ...routeErrors(400, 403),
       },
     }),
-    validator('query', directoryQuerySchema),
+    validator("query", directoryQuerySchema),
     async (c) =>
       withConfigSyncRoute(c, {
-        operation: 'listing providers',
+        operation: "listing providers",
         handler: async () =>
           proxyToOpenCode(c, {
-            targetPath: '/config/providers',
+            targetPath: "/config/providers",
           }),
       }),
   )
   .get(
-    '/',
+    "/",
     describeRoute({
-      operationId: 'config.get',
-      summary: 'Get project config',
+      operationId: "config.get",
+      summary: "Get project config",
       responses: {
         200: {
-          description: 'Project config payload',
+          description: "Project config payload",
           content: {
-            'application/json': { schema: resolver(Config.Info) },
+            "application/json": { schema: resolver(Config.Info) },
           },
         },
         ...routeErrors(400, 403),
       },
     }),
-    validator('query', directoryQuerySchema),
+    validator("query", directoryQuerySchema),
     async (c) =>
       withDirectoryRoute(c, async (context) =>
         runRouteTask({
@@ -154,29 +154,29 @@ export const ConfigRoutes = new Hono()
       ),
   )
   .patch(
-    '/',
+    "/",
     describeRoute({
-      operationId: 'config.update',
-      summary: 'Patch project config',
+      operationId: "config.update",
+      summary: "Patch project config",
       responses: {
         200: {
-          description: 'Updated project config payload',
+          description: "Updated project config payload",
           content: {
-            'application/json': { schema: resolver(Config.Info) },
+            "application/json": { schema: resolver(Config.Info) },
           },
         },
         ...routeErrors(400, 403),
       },
     }),
-    validator('query', directoryQuerySchema),
-    validator('json', Config.Info),
+    validator("query", directoryQuerySchema),
+    validator("json", Config.Info),
     async (c) =>
       withDirectoryRoute(c, async (context) =>
         runRouteTask({
           task: async () => {
             const config = await patchProjectConfig({
               directory: context.directory,
-              payload: c.req.valid('json'),
+              payload: c.req.valid("json"),
             })
             return c.json(config)
           },
@@ -185,31 +185,31 @@ export const ConfigRoutes = new Hono()
       ),
   )
   .put(
-    '/mcp/:name',
+    "/mcp/:name",
     describeRoute({
-      operationId: 'config.mcp.put',
-      summary: 'Set project MCP config',
+      operationId: "config.mcp.put",
+      summary: "Set project MCP config",
       responses: {
         200: {
-          description: 'Updated project config payload',
+          description: "Updated project config payload",
           content: {
-            'application/json': { schema: resolver(Config.Info) },
+            "application/json": { schema: resolver(Config.Info) },
           },
         },
         ...routeErrors(400, 403),
       },
     }),
-    validator('query', directoryQuerySchema),
-    validator('param', McpNameParamSchema),
-    validator('json', Config.Mcp),
+    validator("query", directoryQuerySchema),
+    validator("param", McpNameParamSchema),
+    validator("json", Config.Mcp),
     async (c) =>
       withDirectoryRoute(c, async (context) =>
         runRouteTask({
           task: async () => {
             const config = await putProjectMcpConfig({
               directory: context.directory,
-              name: c.req.valid('param').name,
-              payload: c.req.valid('json'),
+              name: c.req.valid("param").name,
+              payload: c.req.valid("json"),
             })
             return c.json(config)
           },

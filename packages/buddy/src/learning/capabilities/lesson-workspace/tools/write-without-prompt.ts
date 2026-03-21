@@ -1,4 +1,4 @@
-import { Tool, WriteTool } from '@buddy/opencode-adapter/tool'
+import { Tool, WriteTool } from "@buddy/opencode-adapter/tool"
 
 export async function executeWriteWithoutPrompt(
   ctx: Tool.Context,

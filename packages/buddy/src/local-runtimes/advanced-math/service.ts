@@ -1,44 +1,44 @@
-import { spawn, type ChildProcess } from 'node:child_process'
-import { createHash } from 'node:crypto'
-import fs from 'node:fs'
-import fsp from 'node:fs/promises'
-import os from 'node:os'
-import path from 'node:path'
-import z from 'zod'
-import { Global } from '../../storage/global'
+import { spawn, type ChildProcess } from "node:child_process"
+import { createHash } from "node:crypto"
+import fs from "node:fs"
+import fsp from "node:fs/promises"
+import os from "node:os"
+import path from "node:path"
+import z from "zod"
+import { Global } from "../../storage/global"
 
-const ADVANCED_MATH_DIR = path.join(Global.Path.data, 'advanced-math')
-const ADVANCED_MATH_CACHE_DIR = path.join(Global.Path.cache, 'advanced-math')
-const ADVANCED_MATH_STATE_FILE = path.join(Global.Path.state, 'advanced-math.json')
-const BACKEND_ROOT = path.resolve(import.meta.dir, '../../..')
-const DEFAULT_RELEASE_REPOSITORY = 'prashantbhudwal/buddy'
-const ADVANCED_MATH_BUNDLE_DIR = 'buddy-advanced-math'
+const ADVANCED_MATH_DIR = path.join(Global.Path.data, "advanced-math")
+const ADVANCED_MATH_CACHE_DIR = path.join(Global.Path.cache, "advanced-math")
+const ADVANCED_MATH_STATE_FILE = path.join(Global.Path.state, "advanced-math.json")
+const BACKEND_ROOT = path.resolve(import.meta.dir, "../../..")
+const DEFAULT_RELEASE_REPOSITORY = "prashantbhudwal/buddy"
+const ADVANCED_MATH_BUNDLE_DIR = "buddy-advanced-math"
 const ADVANCED_MATH_EXECUTABLE =
-  process.platform === 'win32' ? 'buddy-advanced-math.exe' : 'buddy-advanced-math'
+  process.platform === "win32" ? "buddy-advanced-math.exe" : "buddy-advanced-math"
 const SUPPORTED_LIBRARY_NAMES = [
-  'math',
-  'sympy',
-  'numpy',
-  'pandas',
-  'xarray',
-  'scipy',
-  'matplotlib',
-  'seaborn',
+  "math",
+  "sympy",
+  "numpy",
+  "pandas",
+  "xarray",
+  "scipy",
+  "matplotlib",
+  "seaborn",
 ] as const
-const IN_PROGRESS_STATES = new Set(['downloading', 'installing', 'repairing', 'removing'])
-const READY_STATE = 'ready'
+const IN_PROGRESS_STATES = new Set(["downloading", "installing", "repairing", "removing"])
+const READY_STATE = "ready"
 const DEFAULT_SELF_CHECK_TIMEOUT_MS = 60_000
 
 const advancedMathRuntimeStateSchema = z.object({
   enabled: z.boolean().default(false),
   state: z.enum([
-    'not_installed',
-    'downloading',
-    'installing',
-    'ready',
-    'repairing',
-    'removing',
-    'error',
+    "not_installed",
+    "downloading",
+    "installing",
+    "ready",
+    "repairing",
+    "removing",
+    "error",
   ]),
   installedVersion: z.string().optional(),
   installedChecksum: z.string().optional(),
@@ -59,8 +59,8 @@ const pythonCalculatorRequestSchema = z.object({
 
 const pythonCalculatorResponseSchema = z.object({
   ok: z.boolean(),
-  stdout: z.string().default(''),
-  stderr: z.string().default(''),
+  stdout: z.string().default(""),
+  stderr: z.string().default(""),
   lastExpressionOutput: z.string().nullable().optional(),
   artifacts: z.array(z.string()).default([]),
   error: z.string().optional(),
@@ -73,29 +73,29 @@ export type AdvancedMathRuntimeStatus = z.infer<typeof advancedMathRuntimeStateS
 
 export type PythonCalculatorResponse = z.infer<typeof pythonCalculatorResponseSchema>
 type PythonCalculatorAttachment = {
-  type: 'file'
-  mime: 'image/png'
+  type: "file"
+  mime: "image/png"
   filename: string
   url: string
 }
 
 function currentTargetTriple() {
-  if (process.platform === 'darwin' && process.arch === 'arm64') return 'aarch64-apple-darwin'
-  if (process.platform === 'darwin' && process.arch === 'x64') return 'x86_64-apple-darwin'
-  if (process.platform === 'linux' && process.arch === 'arm64') return 'aarch64-unknown-linux-gnu'
-  if (process.platform === 'linux' && process.arch === 'x64') return 'x86_64-unknown-linux-gnu'
-  if (process.platform === 'win32' && process.arch === 'x64') return 'x86_64-pc-windows-msvc'
+  if (process.platform === "darwin" && process.arch === "arm64") return "aarch64-apple-darwin"
+  if (process.platform === "darwin" && process.arch === "x64") return "x86_64-apple-darwin"
+  if (process.platform === "linux" && process.arch === "arm64") return "aarch64-unknown-linux-gnu"
+  if (process.platform === "linux" && process.arch === "x64") return "x86_64-unknown-linux-gnu"
+  if (process.platform === "win32" && process.arch === "x64") return "x86_64-pc-windows-msvc"
   throw new Error(`Unsupported advanced math runtime target: ${process.platform}/${process.arch}`)
 }
 
 function appVersion() {
-  return process.env.BUDDY_APP_VERSION?.trim() || process.env.npm_package_version?.trim() || '0.0.1'
+  return process.env.BUDDY_APP_VERSION?.trim() || process.env.npm_package_version?.trim() || "0.0.1"
 }
 
 function runtimeStateDefaults() {
   return {
     enabled: false,
-    state: 'not_installed',
+    state: "not_installed",
     targetTriple: currentTargetTriple(),
     progressPercent: undefined,
     progressMessage: undefined,
@@ -105,7 +105,7 @@ function runtimeStateDefaults() {
 function normalizeRuntimeState(input: unknown) {
   const parsed = advancedMathRuntimeStateSchema.safeParse({
     ...runtimeStateDefaults(),
-    ...(typeof input === 'object' && input ? input : {}),
+    ...(typeof input === "object" && input ? input : {}),
     targetTriple: currentTargetTriple(),
   })
 
@@ -117,13 +117,13 @@ function normalizeRuntimeState(input: unknown) {
 }
 
 function readRuntimeStateSync() {
-  const raw = fs.readFileSync(ADVANCED_MATH_STATE_FILE, 'utf8')
+  const raw = fs.readFileSync(ADVANCED_MATH_STATE_FILE, "utf8")
   return normalizeRuntimeState(JSON.parse(raw))
 }
 
 async function writeRuntimeState(state: z.infer<typeof advancedMathRuntimeStateSchema>) {
   await fsp.mkdir(path.dirname(ADVANCED_MATH_STATE_FILE), { recursive: true })
-  await fsp.writeFile(ADVANCED_MATH_STATE_FILE, `${JSON.stringify(state, null, 2)}\n`, 'utf8')
+  await fsp.writeFile(ADVANCED_MATH_STATE_FILE, `${JSON.stringify(state, null, 2)}\n`, "utf8")
 }
 
 function releaseRepository() {
@@ -137,7 +137,7 @@ function releaseRepository() {
 function releaseAssetBaseUrl() {
   const configured = process.env.BUDDY_ADVANCED_MATH_ASSET_BASE_URL?.trim()
   if (configured) {
-    return configured.replace(/\/+$/, '')
+    return configured.replace(/\/+$/, "")
   }
 
   return `https://github.com/${releaseRepository()}/releases/download/v${appVersion()}`
@@ -175,12 +175,12 @@ function errorMessage(error: unknown) {
 }
 
 function logRuntimeEvent(event: string, details?: Record<string, unknown>) {
-  const suffix = details ? ` ${JSON.stringify(details)}` : ''
+  const suffix = details ? ` ${JSON.stringify(details)}` : ""
   console.error(`[advanced-math-runtime] ${event}${suffix}`)
 }
 
 type RuntimeProgressUpdate = {
-  state?: 'downloading' | 'installing' | 'repairing' | 'removing'
+  state?: "downloading" | "installing" | "repairing" | "removing"
   progressPercent: number
   progressMessage: string
 }
@@ -195,7 +195,7 @@ function localDevelopmentAssetRoot() {
     return configured
   }
 
-  return path.join(BACKEND_ROOT, 'dist', 'advanced-math-runtime')
+  return path.join(BACKEND_ROOT, "dist", "advanced-math-runtime")
 }
 
 function localDevelopmentAssetPath(filename: string) {
@@ -233,7 +233,7 @@ async function downloadText(url: string) {
 }
 
 function sha256(value: Uint8Array) {
-  return createHash('sha256').update(value).digest('hex')
+  return createHash("sha256").update(value).digest("hex")
 }
 
 function parseChecksum(input: string) {
@@ -243,12 +243,12 @@ function parseChecksum(input: string) {
     .find((line) => line.length > 0)
 
   if (!firstLine) {
-    throw new Error('Advanced math runtime checksum asset is empty')
+    throw new Error("Advanced math runtime checksum asset is empty")
   }
 
   const [checksum] = firstLine.split(/\s+/)
   if (!checksum) {
-    throw new Error('Advanced math runtime checksum asset is invalid')
+    throw new Error("Advanced math runtime checksum asset is invalid")
   }
 
   return checksum.trim().toLowerCase()
@@ -265,7 +265,7 @@ function currentLocalAssetChecksumState() {
     return {
       present: true as const,
       checksum: parseChecksum(
-        fs.readFileSync(localDevelopmentAssetPath(releaseChecksumFilename()), 'utf8'),
+        fs.readFileSync(localDevelopmentAssetPath(releaseChecksumFilename()), "utf8"),
       ),
     }
   } catch (error) {
@@ -281,18 +281,18 @@ function nextStatus(
 ): AdvancedMathRuntimeStatus {
   const currentVersion = appVersion()
   const executableExists =
-    typeof state.executablePath === 'string' &&
+    typeof state.executablePath === "string" &&
     state.executablePath.length > 0 &&
     fs.existsSync(state.executablePath)
   const versionMatches = state.installedVersion === currentVersion
   const localAssetState = currentLocalAssetChecksumState()
   const localAssetError =
     state.enabled && versionMatches && executableExists && localAssetState.present
-      ? 'error' in localAssetState
+      ? "error" in localAssetState
         ? localAssetState.error
         : state.installedChecksum === localAssetState.checksum
           ? undefined
-          : 'Installed advanced math runtime does not match the current local asset bundle'
+          : "Installed advanced math runtime does not match the current local asset bundle"
       : undefined
   const ready =
     state.enabled &&
@@ -304,17 +304,17 @@ function nextStatus(
     state.enabled &&
     !IN_PROGRESS_STATES.has(state.state) &&
     !ready &&
-    (state.state === READY_STATE || state.state === 'error')
-      ? 'error'
+    (state.state === READY_STATE || state.state === "error")
+      ? "error"
       : state.state
   const effectiveError =
-    effectiveState === 'error'
+    effectiveState === "error"
       ? (localAssetError ??
         state.lastError ??
         (!versionMatches && state.installedVersion
           ? `Installed advanced math runtime ${state.installedVersion} does not match Buddy ${currentVersion}`
           : !executableExists && state.executablePath
-            ? 'Installed advanced math runtime executable is missing'
+            ? "Installed advanced math runtime executable is missing"
             : state.lastError))
       : state.lastError
 
@@ -344,7 +344,7 @@ function sanitizedRuntimeEnv() {
 
 function selfCheckTimeoutMs() {
   const configured = Number.parseInt(
-    process.env.BUDDY_ADVANCED_MATH_SELF_CHECK_TIMEOUT_MS ?? '',
+    process.env.BUDDY_ADVANCED_MATH_SELF_CHECK_TIMEOUT_MS ?? "",
     10,
   )
   if (Number.isFinite(configured) && configured > 0) {
@@ -360,13 +360,13 @@ function waitForProcess(child: ChildProcess, stdoutChunks: Buffer[], stderrChunk
     stdout: string
     stderr: string
   }>((resolve, reject) => {
-    child.on('error', reject)
-    child.on('close', (code, signal) => {
+    child.on("error", reject)
+    child.on("close", (code, signal) => {
       resolve({
         code,
         signal,
-        stdout: Buffer.concat(stdoutChunks).toString('utf8'),
-        stderr: Buffer.concat(stderrChunks).toString('utf8'),
+        stdout: Buffer.concat(stdoutChunks).toString("utf8"),
+        stderr: Buffer.concat(stderrChunks).toString("utf8"),
       })
     })
   })
@@ -383,8 +383,8 @@ function waitForChildExit(child: ChildProcess) {
 
   return new Promise<void>((resolve, reject) => {
     const cleanup = () => {
-      child.off('close', onClose)
-      child.off('error', onError)
+      child.off("close", onClose)
+      child.off("error", onError)
     }
 
     const onClose = () => {
@@ -401,8 +401,8 @@ function waitForChildExit(child: ChildProcess) {
       reject(error)
     }
 
-    child.once('close', onClose)
-    child.once('error', onError)
+    child.once("close", onClose)
+    child.once("error", onError)
   })
 }
 
@@ -412,13 +412,13 @@ async function stopChildProcess(child: ChildProcess, timeoutMs = 5_000) {
   }
 
   const exitPromise = waitForChildExit(child)
-  child.kill('SIGKILL')
+  child.kill("SIGKILL")
 
   await Promise.race([
     exitPromise,
     new Promise<never>((_, reject) => {
       setTimeout(() => {
-        reject(new Error('Timed out waiting for advanced math runtime process to stop'))
+        reject(new Error("Timed out waiting for advanced math runtime process to stop"))
       }, timeoutMs)
     }),
   ])
@@ -426,23 +426,23 @@ async function stopChildProcess(child: ChildProcess, timeoutMs = 5_000) {
 
 async function runSelfCheck(executablePath: string) {
   const timeoutMs = selfCheckTimeoutMs()
-  const child = spawn(executablePath, ['self-check'], {
+  const child = spawn(executablePath, ["self-check"], {
     env: sanitizedRuntimeEnv(),
-    stdio: ['ignore', 'pipe', 'pipe'],
+    stdio: ["ignore", "pipe", "pipe"],
   })
   const stdoutChunks: Buffer[] = []
   const stderrChunks: Buffer[] = []
-  child.stdout?.on('data', (chunk: Buffer | string) => {
+  child.stdout?.on("data", (chunk: Buffer | string) => {
     stdoutChunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
   })
-  child.stderr?.on('data', (chunk: Buffer | string) => {
+  child.stderr?.on("data", (chunk: Buffer | string) => {
     stderrChunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
   })
 
   let timedOut = false
   const timeout = setTimeout(() => {
     timedOut = true
-    child.kill('SIGKILL')
+    child.kill("SIGKILL")
   }, timeoutMs)
 
   const result = await waitForProcess(child, stdoutChunks, stderrChunks)
@@ -455,65 +455,65 @@ async function runSelfCheck(executablePath: string) {
         ? `timed out after ${timeoutMs}ms`
         : result.signal
           ? `terminated by signal ${result.signal}`
-          : `exit code ${result.code ?? 'unknown'}`)
+          : `exit code ${result.code ?? "unknown"}`)
     throw new Error(`Advanced math runtime self-check failed: ${details}`)
   }
 }
 
 async function ensureExecutablePermissions(executablePath: string) {
-  if (process.platform === 'win32') return
+  if (process.platform === "win32") return
   await fsp.chmod(executablePath, 0o755)
 }
 
 async function extractRuntimeBundle(bundlePath: string, destinationDir: string) {
   await fsp.mkdir(path.dirname(destinationDir), { recursive: true })
 
-  if (process.platform === 'win32') {
+  if (process.platform === "win32") {
     const child = spawn(
-      'powershell.exe',
+      "powershell.exe",
       [
-        '-NoProfile',
-        '-Command',
+        "-NoProfile",
+        "-Command",
         `Expand-Archive -LiteralPath '${bundlePath.replace(/'/g, "''")}' -DestinationPath '${destinationDir.replace(/'/g, "''")}' -Force`,
       ],
       {
         env: sanitizedRuntimeEnv(),
-        stdio: ['ignore', 'pipe', 'pipe'],
+        stdio: ["ignore", "pipe", "pipe"],
       },
     )
     const stdoutChunks: Buffer[] = []
     const stderrChunks: Buffer[] = []
-    child.stdout?.on('data', (chunk: Buffer | string) => {
+    child.stdout?.on("data", (chunk: Buffer | string) => {
       stdoutChunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
     })
-    child.stderr?.on('data', (chunk: Buffer | string) => {
+    child.stderr?.on("data", (chunk: Buffer | string) => {
       stderrChunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
     })
     const result = await waitForProcess(child, stdoutChunks, stderrChunks)
     if (result.code !== 0) {
       const details =
-        result.stderr.trim() || result.stdout.trim() || `exit code ${result.code ?? 'unknown'}`
+        result.stderr.trim() || result.stdout.trim() || `exit code ${result.code ?? "unknown"}`
       throw new Error(`Failed to extract advanced math runtime bundle: ${details}`)
     }
     return
   }
 
-  const child = spawn('ditto', ['-x', '-k', bundlePath, destinationDir], {
+  const child = spawn("ditto", ["-x", "-k", bundlePath, destinationDir], {
     env: sanitizedRuntimeEnv(),
-    stdio: ['ignore', 'pipe', 'pipe'],
+    stdio: ["ignore", "pipe", "pipe"],
   })
   const stdoutChunks: Buffer[] = []
   const stderrChunks: Buffer[] = []
-  child.stdout?.on('data', (chunk: Buffer | string) => {
+  child.stdout?.on("data", (chunk: Buffer | string) => {
     stdoutChunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
   })
-  child.stderr?.on('data', (chunk: Buffer | string) => {
+  child.stderr?.on("data", (chunk: Buffer | string) => {
     stderrChunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
   })
   const result = await waitForProcess(child, stdoutChunks, stderrChunks)
   if (result.code !== 0) {
     const details =
-      result.stderr.trim() || result.stdout.trim() || `exit code ${result.code ?? 'unknown'}`
+      result.stderr.trim() || result.stdout.trim() || `exit code ${result.code ?? "unknown"}`
     throw new Error(`Failed to extract advanced math runtime bundle: ${details}`)
   }
 }
@@ -526,19 +526,19 @@ async function installBundleFromRelease(
   const bundleName = releaseBundleFilename()
   const checksumName = releaseChecksumFilename()
   const localSource = localDevelopmentAssetsExist()
-  logRuntimeEvent('install-start', {
+  logRuntimeEvent("install-start", {
     bundleName,
     checksumName,
     installRoot: installRoot(),
     localAssetRoot: localDevelopmentAssetRoot(),
-    source: localSource ? 'local' : 'remote',
+    source: localSource ? "local" : "remote",
   })
   await reportProgress({
-    state: localSource ? 'installing' : 'downloading',
+    state: localSource ? "installing" : "downloading",
     progressPercent: 15,
     progressMessage: localSource
-      ? 'Reading local runtime bundle...'
-      : 'Downloading runtime bundle...',
+      ? "Reading local runtime bundle..."
+      : "Downloading runtime bundle...",
   })
 
   const bundleBytes = localSource
@@ -550,15 +550,15 @@ async function installBundleFromRelease(
       })
 
   await reportProgress({
-    state: localSource ? 'installing' : 'downloading',
+    state: localSource ? "installing" : "downloading",
     progressPercent: 30,
     progressMessage: localSource
-      ? 'Loading runtime checksum...'
-      : 'Downloading runtime checksum...',
+      ? "Loading runtime checksum..."
+      : "Downloading runtime checksum...",
   })
 
   const checksumText = localSource
-    ? await fsp.readFile(localDevelopmentAssetPath(checksumName), 'utf8')
+    ? await fsp.readFile(localDevelopmentAssetPath(checksumName), "utf8")
     : await downloadText(runtimeAssetUrl(checksumName)).catch((error) => {
         throw new Error(
           `${errorMessage(error)}. If you are running Buddy from source, build the local advanced math runtime asset first.`,
@@ -566,9 +566,9 @@ async function installBundleFromRelease(
       })
 
   await reportProgress({
-    state: 'installing',
+    state: "installing",
     progressPercent: 45,
-    progressMessage: 'Validating runtime bundle...',
+    progressMessage: "Validating runtime bundle...",
   })
   const expectedChecksum = parseChecksum(checksumText)
   const actualChecksum = sha256(bundleBytes)
@@ -583,21 +583,21 @@ async function installBundleFromRelease(
   try {
     await fsp.rm(tempInstallRoot, { recursive: true, force: true })
     await reportProgress({
-      state: 'installing',
+      state: "installing",
       progressPercent: 65,
-      progressMessage: 'Extracting runtime files...',
+      progressMessage: "Extracting runtime files...",
     })
-    logRuntimeEvent('install-extracting', {
+    logRuntimeEvent("install-extracting", {
       bundlePath: downloadPath,
       destinationDir: tempInstallRoot,
     })
     await extractRuntimeBundle(downloadPath, tempInstallRoot)
     await reportProgress({
-      state: 'installing',
+      state: "installing",
       progressPercent: 85,
-      progressMessage: 'Verifying runtime...',
+      progressMessage: "Verifying runtime...",
     })
-    logRuntimeEvent('install-running-self-check', {
+    logRuntimeEvent("install-running-self-check", {
       executablePath: path.join(
         tempInstallRoot,
         ADVANCED_MATH_BUNDLE_DIR,
@@ -611,15 +611,15 @@ async function installBundleFromRelease(
       path.join(tempInstallRoot, ADVANCED_MATH_BUNDLE_DIR, ADVANCED_MATH_EXECUTABLE),
     )
     await reportProgress({
-      state: 'installing',
+      state: "installing",
       progressPercent: 95,
-      progressMessage: 'Finalizing installation...',
+      progressMessage: "Finalizing installation...",
     })
     await fsp.rm(installRoot(), { recursive: true, force: true })
     await fsp.rename(tempInstallRoot, installRoot())
     await ensureExecutablePermissions(installedExecutablePath())
-    await fsp.writeFile(cacheDownloadPath(checksumName), `${expectedChecksum}\n`, 'utf8')
-    logRuntimeEvent('install-finished', {
+    await fsp.writeFile(cacheDownloadPath(checksumName), `${expectedChecksum}\n`, "utf8")
+    logRuntimeEvent("install-finished", {
       executablePath: installedExecutablePath(),
       checksum: expectedChecksum,
     })
@@ -633,17 +633,17 @@ async function installBundleFromRelease(
 
 function dataUrlFromFile(filepath: string, mime: string) {
   const content = fs.readFileSync(filepath)
-  return `data:${mime};base64,${content.toString('base64')}`
+  return `data:${mime};base64,${content.toString("base64")}`
 }
 
 function calculatorAttachments(result: PythonCalculatorResponse): PythonCalculatorAttachment[] {
   return result.artifacts
-    .filter((filepath) => filepath.toLowerCase().endsWith('.png') && fs.existsSync(filepath))
+    .filter((filepath) => filepath.toLowerCase().endsWith(".png") && fs.existsSync(filepath))
     .map((filepath) => ({
-      type: 'file' as const,
-      mime: 'image/png' as const,
+      type: "file" as const,
+      mime: "image/png" as const,
       filename: path.basename(filepath),
-      url: dataUrlFromFile(filepath, 'image/png'),
+      url: dataUrlFromFile(filepath, "image/png"),
     }))
 }
 
@@ -669,9 +669,9 @@ function currentStatus() {
   if (runtimeOperation === undefined && IN_PROGRESS_STATES.has(status.state)) {
     return {
       ...status,
-      state: 'error' as const,
+      state: "error" as const,
       lastError:
-        status.lastError ?? 'The previous advanced math runtime operation was interrupted.',
+        status.lastError ?? "The previous advanced math runtime operation was interrupted.",
       progressPercent: undefined,
       progressMessage: undefined,
       ready: false,
@@ -689,7 +689,7 @@ async function updateRuntimeState(input: Partial<z.infer<typeof advancedMathRunt
 }
 
 async function reportRuntimeProgress(input: RuntimeProgressUpdate) {
-  logRuntimeEvent('runtime-progress', input)
+  logRuntimeEvent("runtime-progress", input)
   return updateRuntimeState(input)
 }
 
@@ -713,21 +713,21 @@ async function installRuntime() {
     const repairing =
       runtimeState.enabled &&
       (!!runtimeState.lastError ||
-        runtimeState.state === 'error' ||
+        runtimeState.state === "error" ||
         runtimeState.installedVersion !== appVersion() ||
-        (typeof runtimeState.executablePath === 'string' &&
+        (typeof runtimeState.executablePath === "string" &&
           runtimeState.executablePath.length > 0 &&
           !fs.existsSync(runtimeState.executablePath)))
     await updateRuntimeState({
       enabled: true,
-      state: repairing ? 'repairing' : 'downloading',
+      state: repairing ? "repairing" : "downloading",
       lastError: undefined,
       installedVersion: runtimeState.installedVersion,
       executablePath: runtimeState.executablePath,
       progressPercent: 5,
       progressMessage: repairing
-        ? 'Preparing runtime repair...'
-        : 'Preparing runtime installation...',
+        ? "Preparing runtime repair..."
+        : "Preparing runtime installation...",
     })
 
     try {
@@ -744,13 +744,13 @@ async function installRuntime() {
         progressMessage: undefined,
       })
     } catch (error) {
-      logRuntimeEvent('install-failed', {
+      logRuntimeEvent("install-failed", {
         error: errorMessage(error),
       })
       return await setRuntimeState({
         ...runtimeState,
         enabled: true,
-        state: 'error',
+        state: "error",
         targetTriple: currentTargetTriple(),
         lastError: errorMessage(error),
         progressPercent: undefined,
@@ -764,30 +764,30 @@ async function removeRuntime() {
   return withRuntimeOperation(async () => {
     await updateRuntimeState({
       enabled: false,
-      state: 'removing',
+      state: "removing",
       lastError: undefined,
       progressPercent: 15,
-      progressMessage: 'Stopping runtime processes...',
+      progressMessage: "Stopping runtime processes...",
     })
 
     await Promise.all(Array.from(activeCalculatorChildren, (child) => stopChildProcess(child)))
 
     await reportRuntimeProgress({
-      state: 'removing',
+      state: "removing",
       progressPercent: 60,
-      progressMessage: 'Removing installed runtime files...',
+      progressMessage: "Removing installed runtime files...",
     })
     await fsp.rm(ADVANCED_MATH_DIR, { recursive: true, force: true })
     await reportRuntimeProgress({
-      state: 'removing',
+      state: "removing",
       progressPercent: 85,
-      progressMessage: 'Clearing cached runtime assets...',
+      progressMessage: "Clearing cached runtime assets...",
     })
     await fsp.rm(ADVANCED_MATH_CACHE_DIR, { recursive: true, force: true })
 
     return await setRuntimeState({
       enabled: false,
-      state: 'not_installed',
+      state: "not_installed",
       targetTriple: currentTargetTriple(),
       progressPercent: undefined,
       progressMessage: undefined,
@@ -796,7 +796,7 @@ async function removeRuntime() {
 }
 
 function calculatorTimeoutMs() {
-  const configured = Number.parseInt(process.env.BUDDY_ADVANCED_MATH_TIMEOUT_MS ?? '', 10)
+  const configured = Number.parseInt(process.env.BUDDY_ADVANCED_MATH_TIMEOUT_MS ?? "", 10)
   return Number.isFinite(configured) && configured > 0 ? configured : 30_000
 }
 
@@ -809,62 +809,62 @@ async function runPythonCalculator(
     status = await installRuntime()
   }
   if (!status.ready || !runtimeState.executablePath) {
-    throw new Error('Advanced math runtime is not installed')
+    throw new Error("Advanced math runtime is not installed")
   }
 
   const request = pythonCalculatorRequestSchema.parse({
     code,
     timeoutMs: calculatorTimeoutMs(),
-    workingDirectory: await fsp.mkdtemp(path.join(os.tmpdir(), 'buddy-advanced-math-job-')),
-    artifactDirectory: await fsp.mkdtemp(path.join(os.tmpdir(), 'buddy-advanced-math-artifacts-')),
+    workingDirectory: await fsp.mkdtemp(path.join(os.tmpdir(), "buddy-advanced-math-job-")),
+    artifactDirectory: await fsp.mkdtemp(path.join(os.tmpdir(), "buddy-advanced-math-artifacts-")),
   })
 
-  const child = spawn(runtimeState.executablePath, ['execute'], {
+  const child = spawn(runtimeState.executablePath, ["execute"], {
     env: sanitizedRuntimeEnv(),
-    stdio: ['pipe', 'pipe', 'pipe'],
+    stdio: ["pipe", "pipe", "pipe"],
   })
   activeCalculatorChildren.add(child)
 
   const stdoutChunks: Buffer[] = []
   const stderrChunks: Buffer[] = []
-  child.stdout?.on('data', (chunk: Buffer | string) => {
+  child.stdout?.on("data", (chunk: Buffer | string) => {
     stdoutChunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
   })
-  child.stderr?.on('data', (chunk: Buffer | string) => {
+  child.stderr?.on("data", (chunk: Buffer | string) => {
     stderrChunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
   })
 
   const timeout = setTimeout(() => {
-    child.kill('SIGKILL')
+    child.kill("SIGKILL")
   }, request.timeoutMs)
 
   const onAbort = () => {
-    child.kill('SIGKILL')
+    child.kill("SIGKILL")
   }
-  abort?.addEventListener('abort', onAbort, { once: true })
+  abort?.addEventListener("abort", onAbort, { once: true })
 
   try {
     child.stdin?.end(`${JSON.stringify(request)}\n`)
     const result = await waitForProcess(child, stdoutChunks, stderrChunks)
 
     if (abort?.aborted) {
-      throw new Error('Calculator execution aborted')
+      throw new Error("Calculator execution aborted")
     }
 
     if (result.code !== 0) {
       const details =
-        result.stderr.trim() || result.stdout.trim() || `exit code ${result.code ?? 'unknown'}`
+        result.stderr.trim() || result.stdout.trim() || `exit code ${result.code ?? "unknown"}`
       throw new Error(`Calculator execution failed: ${details}`)
     }
 
-    const parsed = pythonCalculatorResponseSchema.parse(JSON.parse(result.stdout || '{}'))
+    const parsed = pythonCalculatorResponseSchema.parse(JSON.parse(result.stdout || "{}"))
     return {
       result: parsed,
       attachments: calculatorAttachments(parsed),
     }
   } finally {
     clearTimeout(timeout)
-    abort?.removeEventListener('abort', onAbort)
+    abort?.removeEventListener("abort", onAbort)
     activeCalculatorChildren.delete(child)
     await Promise.all([
       fsp.rm(request.workingDirectory, { recursive: true, force: true }),
@@ -882,7 +882,7 @@ function formatCalculatorOutput(result: PythonCalculatorResponse) {
   }
 
   const lastExpression = result.lastExpressionOutput?.trim()
-  if (lastExpression && lastExpression !== 'None') {
+  if (lastExpression && lastExpression !== "None") {
     sections.push(lastExpression)
   }
 
@@ -894,13 +894,13 @@ function formatCalculatorOutput(result: PythonCalculatorResponse) {
   if (sections.length === 0) {
     const plotCount = result.artifacts.length
     if (plotCount > 0) {
-      sections.push(`Generated ${plotCount} plot${plotCount === 1 ? '' : 's'}.`)
+      sections.push(`Generated ${plotCount} plot${plotCount === 1 ? "" : "s"}.`)
     } else {
-      sections.push('Execution completed with no output.')
+      sections.push("Execution completed with no output.")
     }
   }
 
-  return sections.join('\n\n')
+  return sections.join("\n\n")
 }
 
 export const AdvancedMathRuntimeService = {
@@ -929,7 +929,7 @@ export const AdvancedMathRuntimeService = {
       throw new Error(
         execution.result.error?.trim() ||
           execution.result.stderr.trim() ||
-          'Calculator execution failed',
+          "Calculator execution failed",
       )
     }
 

@@ -1,5 +1,5 @@
-import { XIcon, FolderIcon } from '@buddy/ui'
-import type { PromptComposerAttachment } from './prompt-types'
+import { XIcon, FolderIcon } from "@buddy/ui"
+import type { PromptComposerAttachment } from "./prompt-types"
 
 type ImageAttachmentsProps = {
   attachments: PromptComposerAttachment[]
@@ -14,7 +14,7 @@ export function ImageAttachments({ attachments, onRemove, onOpen }: ImageAttachm
     <div className="flex flex-wrap gap-2 px-3 pt-3">
       {attachments.map((attachment) => (
         <div key={attachment.id} className="relative group">
-          {attachment.mime.startsWith('image/') ? (
+          {attachment.mime.startsWith("image/") ? (
             <img
               src={attachment.dataUrl}
               alt={attachment.filename}

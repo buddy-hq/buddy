@@ -1,1 +1,1 @@
-export { SessionPrompt } from 'opencode/session/prompt'
+export { SessionPrompt } from "opencode/session/prompt"

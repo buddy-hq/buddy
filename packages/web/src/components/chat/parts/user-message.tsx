@@ -1,10 +1,10 @@
-import { memo } from 'react'
-import { HighlightedText } from '../shared/highlighted-text'
-import { CopyAction } from '../shared/copy-action'
-import { titleCase } from '../shared/utils'
-import { Button, cn } from '@buddy/ui'
-import { formatTime } from '../shared/utils'
-import type { MessageInfo, MessagePart } from '@/state/chat-types'
+import { memo } from "react"
+import { HighlightedText } from "../shared/highlighted-text"
+import { CopyAction } from "../shared/copy-action"
+import { titleCase } from "../shared/utils"
+import { Button, cn } from "@buddy/ui"
+import { formatTime } from "../shared/utils"
+import type { MessageInfo, MessagePart } from "@/state/chat-types"
 
 interface UserMessagePartProps {
   part: MessagePart
@@ -17,13 +17,13 @@ interface UserMessagePartProps {
 }
 
 function modelLabel(info: MessageInfo): string {
-  if ('modelID' in info && info.modelID) {
+  if ("modelID" in info && info.modelID) {
     return info.modelID
   }
-  if ('model' in info && info.model?.modelID) {
+  if ("model" in info && info.model?.modelID) {
     return info.model.modelID
   }
-  return ''
+  return ""
 }
 
 function userMessagePartEqual(
@@ -32,13 +32,13 @@ function userMessagePartEqual(
 ): boolean {
   if (prevProps.part.id !== nextProps.part.id) return false
   if (prevProps.queued !== nextProps.queued) return false
-  if (prevProps.part.type !== 'text' || nextProps.part.type !== 'text') return false
+  if (prevProps.part.type !== "text" || nextProps.part.type !== "text") return false
   if (prevProps.part.text !== nextProps.part.text) return false
   if (prevProps.part.synthetic !== nextProps.part.synthetic) return false
 
   // Compare info (shallow comparison of key fields)
-  const prevAgent = 'agent' in prevProps.info ? prevProps.info.agent : undefined
-  const nextAgent = 'agent' in nextProps.info ? nextProps.info.agent : undefined
+  const prevAgent = "agent" in prevProps.info ? prevProps.info.agent : undefined
+  const nextAgent = "agent" in nextProps.info ? nextProps.info.agent : undefined
   if (prevAgent !== nextAgent) return false
 
   const prevTime = prevProps.info.time?.created
@@ -63,16 +63,16 @@ export const UserMessagePart = memo(function UserMessagePart({
   onForkMessage,
   onRevertMessage,
 }: UserMessagePartProps) {
-  if (part.type !== 'text') return null
+  if (part.type !== "text") return null
   if (part.synthetic === true) return null
 
-  const text = String(part.text ?? '')
+  const text = String(part.text ?? "")
   if (!text.trim()) return null
 
-  const agent = 'agent' in info ? info.agent : undefined
+  const agent = "agent" in info ? info.agent : undefined
   const metaHead = [titleCase(agent), modelLabel(info)]
     .filter((value) => !!value)
-    .join('\u00A0\u00B7\u00A0')
+    .join("\u00A0\u00B7\u00A0")
   const metaTail = formatTime(info.time?.created)
 
   return (
@@ -80,8 +80,8 @@ export const UserMessagePart = memo(function UserMessagePart({
       <div className="ml-auto flex w-fit max-w-[min(82%,64ch)] flex-col items-end">
         <div
           className={cn(
-            'inline-block max-w-full rounded-md border border-border bg-background px-3 py-2 whitespace-pre-wrap break-words',
-            queued && 'opacity-60',
+            "inline-block max-w-full rounded-md border border-border bg-background px-3 py-2 whitespace-pre-wrap break-words",
+            queued && "opacity-60",
           )}
         >
           <HighlightedText text={text} references={references} agents={agents} />
@@ -97,7 +97,7 @@ export const UserMessagePart = memo(function UserMessagePart({
           <span className="flex min-w-0 flex-1 items-center justify-end gap-1.5 overflow-hidden">
             {metaHead && <span className="truncate text-xs text-muted-foreground">{metaHead}</span>}
             {metaHead && metaTail && (
-              <span className="text-xs text-muted-foreground">{'\u00A0\u00B7\u00A0'}</span>
+              <span className="text-xs text-muted-foreground">{"\u00A0\u00B7\u00A0"}</span>
             )}
             {metaTail && (
               <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground">

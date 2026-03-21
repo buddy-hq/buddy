@@ -10,7 +10,7 @@ export type {
   CssVarRef,
   TokenCategory,
   ThemeToken,
-} from '@buddy/opencode-adapter/theme'
+} from "@buddy/opencode-adapter/theme"
 
 // Color scheme for React context
-export type ColorScheme = 'system' | 'light' | 'dark'
+export type ColorScheme = "system" | "light" | "dark"

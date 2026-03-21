@@ -1,11 +1,11 @@
-import { builtinBuddyPersonas } from './registry'
-import { PERSONAS } from './types'
+import { builtinBuddyPersonas } from "./registry"
+import { PERSONAS } from "./types"
 import type {
   BuddyPersonaCatalogEntry,
   BuddyPersona,
   BuddyPersonaOverride,
   BuddyPersonaProfile,
-} from './types'
+} from "./types"
 
 type BuddyPersonaOverrides = Partial<Record<BuddyPersona, BuddyPersonaOverride>>
 
@@ -21,7 +21,7 @@ function applyPersonaOverride(
     ...(override.description ? { description: override.description } : {}),
     ...(override.surfaces ? { surfaces: [...override.surfaces] } : {}),
     ...(override.defaultSurface ? { defaultSurface: override.defaultSurface } : {}),
-    ...(typeof override.hidden === 'boolean' ? { hidden: override.hidden } : {}),
+    ...(typeof override.hidden === "boolean" ? { hidden: override.hidden } : {}),
   }
 }
 
@@ -68,7 +68,7 @@ export function getDefaultBuddyPersona(input?: {
     return visible
   }
 
-  throw new Error('At least one Buddy persona must remain visible')
+  throw new Error("At least one Buddy persona must remain visible")
 }
 
 export function personaCatalogEntries(

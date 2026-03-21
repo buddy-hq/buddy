@@ -1,12 +1,12 @@
-import type { CSSProperties } from 'react'
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Button } from '@buddy/ui'
+import type { CSSProperties } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { Button } from "@buddy/ui"
 import {
   loadTeachingSessionState,
   type TeachingLlmOutboundSnapshot,
   type TeachingSessionSnapshot,
-} from '@/state/chat-actions'
-import { useChatStore } from '@/state/chat-store'
+} from "@/state/chat-actions"
+import { useChatStore } from "@/state/chat-store"
 
 type SystemPromptPanelProps = {
   directory: string
@@ -18,7 +18,7 @@ type SystemPromptPanelProps = {
 
 function stringifyError(error: unknown) {
   if (error instanceof Error) return error.message
-  if (typeof error === 'string') return error
+  if (typeof error === "string") return error
   try {
     return JSON.stringify(error)
   } catch {
@@ -28,7 +28,7 @@ function stringifyError(error: unknown) {
 
 function readSystemPromptText(entry: TeachingLlmOutboundSnapshot | undefined) {
   if (!entry) return undefined
-  if (typeof entry.fullSystemPrompt === 'string' && entry.fullSystemPrompt.trim().length > 0) {
+  if (typeof entry.fullSystemPrompt === "string" && entry.fullSystemPrompt.trim().length > 0) {
     return entry.fullSystemPrompt
   }
   return undefined
@@ -50,7 +50,7 @@ function formatIsoTime(value?: string) {
   if (!value) return undefined
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
-  return date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'medium' })
+  return date.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "medium" })
 }
 
 export function SystemPromptPanel(props: SystemPromptPanelProps) {
@@ -61,7 +61,7 @@ export function SystemPromptPanel(props: SystemPromptPanelProps) {
   const activeSessionBusy = useChatStore((state) => {
     const directoryState = state.directories[props.directory]
     if (!directoryState || !props.sessionID) return false
-    return directoryState.sessionStatusByID[props.sessionID] === 'busy'
+    return directoryState.sessionStatusByID[props.sessionID] === "busy"
   })
 
   const lastOutbound = useMemo(() => readLastOutboundEntry(runtime), [runtime])
@@ -123,7 +123,7 @@ export function SystemPromptPanel(props: SystemPromptPanelProps) {
 
   return (
     <div
-      className={`flex h-full min-h-0 flex-col gap-3 p-3 ${props.className ?? ''}`}
+      className={`flex h-full min-h-0 flex-col gap-3 p-3 ${props.className ?? ""}`}
       style={props.style}
     >
       <div className="flex items-start justify-between gap-3 pb-2">
@@ -163,7 +163,7 @@ export function SystemPromptPanel(props: SystemPromptPanelProps) {
           {systemPromptText ? (
             <div className="flex h-full min-h-0 flex-col">
               <div className="border-b border-border/60 px-3 py-2 text-[11px] text-muted-foreground">
-                <span>Turn: {lastOutbound?.kind ?? 'unknown'}</span>
+                <span>Turn: {lastOutbound?.kind ?? "unknown"}</span>
                 {renderedAt ? <span className="ml-3">Captured: {renderedAt}</span> : null}
                 <span className="ml-3">~{approxTokens.toLocaleString()} tokens</span>
                 <span className="ml-1">({charCount.toLocaleString()} chars)</span>
@@ -175,8 +175,8 @@ export function SystemPromptPanel(props: SystemPromptPanelProps) {
           ) : (
             <div className="p-3 text-sm text-muted-foreground">
               {loading || activeSessionBusy
-                ? 'Capturing the latest system prompt...'
-                : 'No system prompt has been recorded for this session yet.'}
+                ? "Capturing the latest system prompt..."
+                : "No system prompt has been recorded for this session yet."}
             </div>
           )}
         </div>

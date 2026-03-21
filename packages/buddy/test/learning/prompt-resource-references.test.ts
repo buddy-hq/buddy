@@ -1,41 +1,41 @@
-import { describe, expect, test } from 'bun:test'
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
-import path from 'node:path'
-import { pathToFileURL } from 'node:url'
-import { readProjectConfig } from '@buddy/backend/config/runtime'
-import { runMessagePromptPipeline } from '../../src/learning/prompt/message-prompt-pipeline'
-import { ensureResourcePack } from '../../src/resources/resource-pack-service'
+import { describe, expect, test } from "bun:test"
+import { mkdirSync, rmSync, writeFileSync } from "node:fs"
+import path from "node:path"
+import { pathToFileURL } from "node:url"
+import { readProjectConfig } from "@buddy/backend/config/runtime"
+import { runMessagePromptPipeline } from "../../src/learning/prompt/message-prompt-pipeline"
+import { ensureResourcePack } from "../../src/resources/resource-pack-service"
 import {
   RESOURCE_REFERENCE_PART_TYPE,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
-} from '../../src/learning/prompt/workspace-file-references'
-import { tmpdir } from '../helpers/tmpdir'
+} from "../../src/learning/prompt/workspace-file-references"
+import { tmpdir } from "../helpers/tmpdir"
 
-describe('message prompt resource references', () => {
-  test('rewrites raw file references and workspace-file-reference parts', async () => {
+describe("message prompt resource references", () => {
+  test("rewrites raw file references and workspace-file-reference parts", async () => {
     await using project = await tmpdir({ git: true })
     const config = await readProjectConfig(project.path)
 
-    const notesPath = path.join(project.path, 'notes.md')
-    const sourcePath = path.join(project.path, 'book chapter 1.pdf')
+    const notesPath = path.join(project.path, "notes.md")
+    const sourcePath = path.join(project.path, "book chapter 1.pdf")
 
-    writeFileSync(notesPath, '# Notes\n\nPlain text reference.\n')
-    writeFileSync(sourcePath, '%PDF-1.4\n% fake resource for testing\n')
+    writeFileSync(notesPath, "# Notes\n\nPlain text reference.\n")
+    writeFileSync(sourcePath, "%PDF-1.4\n% fake resource for testing\n")
 
     const result = await runMessagePromptPipeline({
       context: {
         directory: project.path,
-        sessionID: 'ses_resource_refs',
+        sessionID: "ses_resource_refs",
       },
       body: {
-        content: 'See @notes.md',
+        content: "See @notes.md",
         parts: [
           {
             type: WORKSPACE_FILE_REFERENCE_PART_TYPE,
-            path: 'book chapter 1.pdf',
+            path: "book chapter 1.pdf",
           },
         ],
-        agent: 'custom-agent',
+        agent: "custom-agent",
       },
       projectConfig: config,
     })
@@ -43,33 +43,33 @@ describe('message prompt resource references', () => {
     const parts = result.transformed.parts as Array<Record<string, unknown>>
     expect(parts).toHaveLength(3)
     expect(parts[0]).toEqual({
-      type: 'text',
-      text: 'See ',
+      type: "text",
+      text: "See ",
     })
     expect(parts[1]).toMatchObject({
-      type: 'file',
-      mime: 'text/plain',
-      filename: 'notes.md',
+      type: "file",
+      mime: "text/plain",
+      filename: "notes.md",
       url: pathToFileURL(notesPath).href,
     })
     expect(parts[2]).toMatchObject({
-      type: 'file',
-      mime: 'text/plain',
-      filename: 'book chapter 1.pdf',
+      type: "file",
+      mime: "text/plain",
+      filename: "book chapter 1.pdf",
       url: pathToFileURL(sourcePath).href,
     })
   })
 
-  test('resolves explicit resource-reference parts to pack entry files', async () => {
+  test("resolves explicit resource-reference parts to pack entry files", async () => {
     await using project = await tmpdir({ git: true })
     const config = await readProjectConfig(project.path)
-    const packKey = 'shape-up'
-    const sourcePath = path.join(project.path, 'resources', packKey, 'guide.html')
+    const packKey = "shape-up"
+    const sourcePath = path.join(project.path, "resources", packKey, "guide.html")
     mkdirSync(path.dirname(sourcePath), { recursive: true })
     writeFileSync(
       sourcePath,
-      '<!doctype html><html><body><h1>Shape Up</h1><h2>Chapter 1</h2><p>Start</p></body></html>',
-      'utf8',
+      "<!doctype html><html><body><h1>Shape Up</h1><h2>Chapter 1</h2><p>Start</p></body></html>",
+      "utf8",
     )
     const prepared = await ensureResourcePack({
       directory: project.path,
@@ -82,17 +82,17 @@ describe('message prompt resource references', () => {
     const result = await runMessagePromptPipeline({
       context: {
         directory: project.path,
-        sessionID: 'ses_resource_part',
+        sessionID: "ses_resource_part",
       },
       body: {
-        content: 'Use this resource',
+        content: "Use this resource",
         parts: [
           {
             type: RESOURCE_REFERENCE_PART_TYPE,
             key: packKey,
           },
         ],
-        agent: 'custom-agent',
+        agent: "custom-agent",
       },
       projectConfig: config,
     })
@@ -100,25 +100,25 @@ describe('message prompt resource references', () => {
     const parts = result.transformed.parts as Array<Record<string, unknown>>
     expect(parts).toEqual([
       {
-        type: 'text',
-        text: 'Use this resource',
+        type: "text",
+        text: "Use this resource",
       },
       {
-        type: 'file',
-        mime: 'text/plain',
+        type: "file",
+        mime: "text/plain",
         filename: path.relative(project.path, entrypointPath),
         url: pathToFileURL(entrypointPath).href,
       },
       {
-        type: 'file',
-        mime: 'text/plain',
+        type: "file",
+        mime: "text/plain",
         filename: path.relative(project.path, tocPath!),
         url: pathToFileURL(tocPath!).href,
       },
     ])
   })
 
-  test('rejects unknown resource-reference keys', async () => {
+  test("rejects unknown resource-reference keys", async () => {
     await using project = await tmpdir({ git: true })
     const config = await readProjectConfig(project.path)
 
@@ -126,35 +126,35 @@ describe('message prompt resource references', () => {
       runMessagePromptPipeline({
         context: {
           directory: project.path,
-          sessionID: 'ses_resource_missing',
+          sessionID: "ses_resource_missing",
         },
         body: {
-          content: '',
+          content: "",
           parts: [
             {
               type: RESOURCE_REFERENCE_PART_TYPE,
-              key: 'missing',
+              key: "missing",
             },
           ],
-          agent: 'custom-agent',
+          agent: "custom-agent",
         },
         projectConfig: config,
       }),
-    ).rejects.toThrow('Resource reference was not found')
+    ).rejects.toThrow("Resource reference was not found")
   })
 
-  test('keeps unresolved raw @tokens as text', async () => {
+  test("keeps unresolved raw @tokens as text", async () => {
     await using project = await tmpdir({ git: true })
     const config = await readProjectConfig(project.path)
 
     const result = await runMessagePromptPipeline({
       context: {
         directory: project.path,
-        sessionID: 'ses_raw_mentions',
+        sessionID: "ses_raw_mentions",
       },
       body: {
-        content: 'Check @missing.txt and keep going',
-        agent: 'custom-agent',
+        content: "Check @missing.txt and keep going",
+        agent: "custom-agent",
       },
       projectConfig: config,
     })
@@ -162,35 +162,35 @@ describe('message prompt resource references', () => {
     const parts = result.transformed.parts as Array<Record<string, unknown>>
     expect(parts).toEqual([
       {
-        type: 'text',
-        text: 'Check ',
+        type: "text",
+        text: "Check ",
       },
       {
-        type: 'text',
-        text: '@missing.txt',
+        type: "text",
+        text: "@missing.txt",
       },
       {
-        type: 'text',
-        text: ' and keep going',
+        type: "text",
+        text: " and keep going",
       },
     ])
   })
 
-  test('resolves quoted raw file references with spaces', async () => {
+  test("resolves quoted raw file references with spaces", async () => {
     await using project = await tmpdir({ git: true })
     const config = await readProjectConfig(project.path)
 
-    const notesPath = path.join(project.path, 'notes with spaces.txt')
-    writeFileSync(notesPath, 'notes\n')
+    const notesPath = path.join(project.path, "notes with spaces.txt")
+    writeFileSync(notesPath, "notes\n")
 
     const result = await runMessagePromptPipeline({
       context: {
         directory: project.path,
-        sessionID: 'ses_raw_quoted_spaces',
+        sessionID: "ses_raw_quoted_spaces",
       },
       body: {
         content: 'Read @"notes with spaces.txt"',
-        agent: 'custom-agent',
+        agent: "custom-agent",
       },
       projectConfig: config,
     })
@@ -198,30 +198,30 @@ describe('message prompt resource references', () => {
     const parts = result.transformed.parts as Array<Record<string, unknown>>
     expect(parts).toEqual([
       {
-        type: 'text',
-        text: 'Read ',
+        type: "text",
+        text: "Read ",
       },
       {
-        type: 'file',
-        mime: 'text/plain',
-        filename: 'notes with spaces.txt',
+        type: "file",
+        mime: "text/plain",
+        filename: "notes with spaces.txt",
         url: pathToFileURL(notesPath).href,
       },
     ])
   })
 
-  test('keeps bare @ text untouched', async () => {
+  test("keeps bare @ text untouched", async () => {
     await using project = await tmpdir({ git: true })
     const config = await readProjectConfig(project.path)
 
     const result = await runMessagePromptPipeline({
       context: {
         directory: project.path,
-        sessionID: 'ses_raw_at_symbol',
+        sessionID: "ses_raw_at_symbol",
       },
       body: {
-        content: 'Ping @ to acknowledge',
-        agent: 'custom-agent',
+        content: "Ping @ to acknowledge",
+        agent: "custom-agent",
       },
       projectConfig: config,
     })
@@ -229,28 +229,28 @@ describe('message prompt resource references', () => {
     const parts = result.transformed.parts as Array<Record<string, unknown>>
     expect(parts).toEqual([
       {
-        type: 'text',
-        text: 'Ping @ to acknowledge',
+        type: "text",
+        text: "Ping @ to acknowledge",
       },
     ])
   })
 
-  test('keeps raw absolute path mentions outside workspace as text', async () => {
+  test("keeps raw absolute path mentions outside workspace as text", async () => {
     await using project = await tmpdir({ git: true })
     const config = await readProjectConfig(project.path)
     const outsideFilename = `outside-${Date.now()}-${Math.random().toString(36).slice(2)}.txt`
     const outsidePath = path.join(path.dirname(project.path), outsideFilename)
-    writeFileSync(outsidePath, 'outside workspace file\n')
+    writeFileSync(outsidePath, "outside workspace file\n")
 
     try {
       const result = await runMessagePromptPipeline({
         context: {
           directory: project.path,
-          sessionID: 'ses_raw_absolute_outside',
+          sessionID: "ses_raw_absolute_outside",
         },
         body: {
           content: `Review @${outsidePath} carefully`,
-          agent: 'custom-agent',
+          agent: "custom-agent",
         },
         projectConfig: config,
       })
@@ -258,16 +258,16 @@ describe('message prompt resource references', () => {
       const parts = result.transformed.parts as Array<Record<string, unknown>>
       expect(parts).toEqual([
         {
-          type: 'text',
-          text: 'Review ',
+          type: "text",
+          text: "Review ",
         },
         {
-          type: 'text',
+          type: "text",
           text: `@${outsidePath}`,
         },
         {
-          type: 'text',
-          text: ' carefully',
+          type: "text",
+          text: " carefully",
         },
       ])
     } finally {
@@ -275,60 +275,60 @@ describe('message prompt resource references', () => {
     }
   })
 
-  test('rejects absolute paths for explicit workspace-file-reference parts', async () => {
+  test("rejects absolute paths for explicit workspace-file-reference parts", async () => {
     await using project = await tmpdir({ git: true })
     const config = await readProjectConfig(project.path)
-    const outsidePath = path.join(project.path, 'outside.pdf')
-    writeFileSync(outsidePath, '%PDF-1.4\n')
+    const outsidePath = path.join(project.path, "outside.pdf")
+    writeFileSync(outsidePath, "%PDF-1.4\n")
 
     await expect(
       runMessagePromptPipeline({
         context: {
           directory: project.path,
-          sessionID: 'ses_explicit_absolute',
+          sessionID: "ses_explicit_absolute",
         },
         body: {
-          content: '',
+          content: "",
           parts: [
             {
               type: WORKSPACE_FILE_REFERENCE_PART_TYPE,
               path: outsidePath,
             },
           ],
-          agent: 'custom-agent',
+          agent: "custom-agent",
         },
         projectConfig: config,
       }),
-    ).rejects.toThrow('workspace-file-reference path must be workspace-relative')
+    ).rejects.toThrow("workspace-file-reference path must be workspace-relative")
   })
 
-  test('rejects explicit workspace-file-reference traversal outside workspace', async () => {
+  test("rejects explicit workspace-file-reference traversal outside workspace", async () => {
     await using project = await tmpdir({ git: true })
     const config = await readProjectConfig(project.path)
     const outsideFilename = `outside-${Date.now()}-${Math.random().toString(36).slice(2)}.txt`
     const outsidePath = path.join(path.dirname(project.path), outsideFilename)
-    writeFileSync(outsidePath, 'outside workspace file\n')
+    writeFileSync(outsidePath, "outside workspace file\n")
 
     try {
       await expect(
         runMessagePromptPipeline({
           context: {
             directory: project.path,
-            sessionID: 'ses_explicit_traversal',
+            sessionID: "ses_explicit_traversal",
           },
           body: {
-            content: '',
+            content: "",
             parts: [
               {
                 type: WORKSPACE_FILE_REFERENCE_PART_TYPE,
                 path: `../${outsideFilename}`,
               },
             ],
-            agent: 'custom-agent',
+            agent: "custom-agent",
           },
           projectConfig: config,
         }),
-      ).rejects.toThrow('workspace-file-reference path must be workspace-relative')
+      ).rejects.toThrow("workspace-file-reference path must be workspace-relative")
     } finally {
       rmSync(outsidePath, { force: true })
     }

@@ -1,9 +1,9 @@
-import type { CSSProperties } from 'react'
-import { useCallback, useEffect, useRef, useState } from 'react'
-import Editor, { type OnMount } from '@monaco-editor/react'
-import { Button } from '@buddy/ui'
-import { AlertTriangleIcon, FileTextIcon, PlusIcon, RefreshCwIcon } from 'lucide-react'
-import type { editor as MonacoEditor } from 'monaco-editor'
+import type { CSSProperties } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import Editor, { type OnMount } from "@monaco-editor/react"
+import { Button } from "@buddy/ui"
+import { AlertTriangleIcon, FileTextIcon, PlusIcon, RefreshCwIcon } from "lucide-react"
+import type { editor as MonacoEditor } from "monaco-editor"
 
 type MarkdownFileState = {
   path: string
@@ -43,7 +43,7 @@ const AUTO_SAVE_DELAY_MS = 1000
 
 function stringifyError(error: unknown) {
   if (error instanceof Error) return error.message
-  if (typeof error === 'string') return error
+  if (typeof error === "string") return error
   try {
     return JSON.stringify(error)
   } catch {
@@ -55,11 +55,11 @@ export function MarkdownFileEditor(props: MarkdownFileEditorProps) {
   const isActive = props.active ?? true
   const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null)
   const editorContainerRef = useRef<HTMLDivElement | null>(null)
-  const [path, setPath] = useState<string>('')
+  const [path, setPath] = useState<string>("")
   const [exists, setExists] = useState(false)
   const [version, setVersion] = useState<string | null>(null)
-  const [content, setContent] = useState('')
-  const [savedContent, setSavedContent] = useState('')
+  const [content, setContent] = useState("")
+  const [savedContent, setSavedContent] = useState("")
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | undefined>(undefined)
@@ -199,12 +199,12 @@ export function MarkdownFileEditor(props: MarkdownFileEditorProps) {
   }, [conflictMessage, content, exists, isActive, savedContent, saving])
 
   const saveStateLabel = conflictMessage
-    ? 'Conflict'
+    ? "Conflict"
     : saving
-      ? 'Saving...'
+      ? "Saving..."
       : content === savedContent
-        ? 'Saved'
-        : 'Pending...'
+        ? "Saved"
+        : "Pending..."
 
   function layoutEditor() {
     const editor = editorRef.current
@@ -258,7 +258,7 @@ export function MarkdownFileEditor(props: MarkdownFileEditorProps) {
 
   return (
     <div
-      className={`flex h-full min-h-0 flex-1 flex-col gap-3 p-3 ${props.className ?? ''}`}
+      className={`flex h-full min-h-0 flex-1 flex-col gap-3 p-3 ${props.className ?? ""}`}
       style={props.style}
     >
       <div className="flex items-start justify-between gap-3 pb-2">
@@ -281,7 +281,7 @@ export function MarkdownFileEditor(props: MarkdownFileEditorProps) {
             disabled={loading || saving}
             title="Reload"
           >
-            <RefreshCwIcon className={`size-4 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCwIcon className={`size-4 ${loading ? "animate-spin" : ""}`} />
           </Button>
         </div>
       </div>
@@ -359,15 +359,15 @@ export function MarkdownFileEditor(props: MarkdownFileEditorProps) {
               value={content}
               onMount={onMount}
               onChange={(nextValue) => {
-                setContent(nextValue ?? '')
+                setContent(nextValue ?? "")
               }}
               options={{
                 automaticLayout: true,
                 minimap: { enabled: false },
                 fontSize: 13,
                 scrollBeyondLastLine: false,
-                wordWrap: 'on',
-                lineNumbers: 'on',
+                wordWrap: "on",
+                lineNumbers: "on",
               }}
             />
           </div>

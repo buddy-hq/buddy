@@ -1,11 +1,11 @@
-import { describe, expect, test } from 'bun:test'
-import { shouldSubmitComposer } from '../src/lib/chat-input'
+import { describe, expect, test } from "bun:test"
+import { shouldSubmitComposer } from "../src/lib/chat-input"
 
-describe('chat composer keyboard behavior', () => {
-  test('submits on Enter', () => {
+describe("chat composer keyboard behavior", () => {
+  test("submits on Enter", () => {
     expect(
       shouldSubmitComposer({
-        key: 'Enter',
+        key: "Enter",
         shiftKey: false,
         ctrlKey: false,
         metaKey: false,
@@ -14,10 +14,10 @@ describe('chat composer keyboard behavior', () => {
     ).toBe(true)
   })
 
-  test('does not submit on Shift+Enter', () => {
+  test("does not submit on Shift+Enter", () => {
     expect(
       shouldSubmitComposer({
-        key: 'Enter',
+        key: "Enter",
         shiftKey: true,
         ctrlKey: false,
         metaKey: false,
@@ -26,10 +26,10 @@ describe('chat composer keyboard behavior', () => {
     ).toBe(false)
   })
 
-  test('does not submit while composing IME input', () => {
+  test("does not submit while composing IME input", () => {
     expect(
       shouldSubmitComposer({
-        key: 'Enter',
+        key: "Enter",
         shiftKey: false,
         ctrlKey: false,
         metaKey: false,

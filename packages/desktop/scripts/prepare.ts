@@ -1,4 +1,4 @@
-import path from 'node:path'
+import path from "node:path"
 import {
   copyBinaryToSidecarFolder,
   getCurrentSidecar,
@@ -6,16 +6,16 @@ import {
   syncMigrations,
   updateDesktopPackageVersion,
   windowsify,
-} from './utils'
+} from "./utils"
 
 const version = Bun.env.BUDDY_VERSION?.trim()
 if (!version) {
-  throw new Error('BUDDY_VERSION is required for release preparation')
+  throw new Error("BUDDY_VERSION is required for release preparation")
 }
 
 const artifactDir = Bun.env.BUDDY_SIDECAR_ARTIFACT_DIR?.trim()
 if (!artifactDir) {
-  throw new Error('BUDDY_SIDECAR_ARTIFACT_DIR is required for release preparation')
+  throw new Error("BUDDY_SIDECAR_ARTIFACT_DIR is required for release preparation")
 }
 
 const target = Bun.env.BUDDY_RUST_TARGET ?? Bun.env.RUST_TARGET ?? Bun.env.TAURI_ENV_TARGET_TRIPLE
@@ -23,10 +23,10 @@ const config = getCurrentSidecar(target)
 const source = path.resolve(
   artifactDir,
   config.sidecarDir,
-  'bin',
-  windowsify('buddy-backend', config.rustTarget),
+  "bin",
+  windowsify("buddy-backend", config.rustTarget),
 )
-const runtimeSourceDir = path.resolve(artifactDir, config.sidecarDir, 'app')
+const runtimeSourceDir = path.resolve(artifactDir, config.sidecarDir, "app")
 
 updateDesktopPackageVersion(version)
 copyBinaryToSidecarFolder(source, config.rustTarget)

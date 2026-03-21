@@ -13,16 +13,16 @@ import {
   SelectTrigger,
   SelectValue,
   Switch,
-} from '@buddy/ui'
+} from "@buddy/ui"
 import {
   getFieldErrorId,
   type McpEditorMode,
   type McpFieldErrors,
   type McpFieldName,
   type McpFormDraft,
-} from './mcp-config-schema'
-import { McpLocalFields } from './mcp-local-fields'
-import { McpRemoteFields } from './mcp-remote-fields'
+} from "./mcp-config-schema"
+import { McpLocalFields } from "./mcp-local-fields"
+import { McpRemoteFields } from "./mcp-remote-fields"
 
 type McpEditorDialogProps = {
   open: boolean
@@ -40,9 +40,9 @@ type McpEditorDialogProps = {
     field: McpFieldName,
     describedBy?: string,
   ) => {
-    'aria-describedby': string | undefined
-    'aria-errormessage': string | undefined
-    'aria-invalid': true | undefined
+    "aria-describedby": string | undefined
+    "aria-errormessage": string | undefined
+    "aria-invalid": true | undefined
   }
   onSave: () => Promise<void>
 }
@@ -53,7 +53,7 @@ export function McpEditorDialog(props: McpEditorDialogProps) {
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>
-            {props.mode === 'create' ? 'Add MCP' : `Edit ${props.draft.name}`}
+            {props.mode === "create" ? "Add MCP" : `Edit ${props.draft.name}`}
           </DialogTitle>
           <DialogDescription>
             Save a notebook-level MCP definition in this repository's config.
@@ -68,20 +68,20 @@ export function McpEditorDialog(props: McpEditorDialogProps) {
             <Input
               id="mcp-name"
               value={props.draft.name}
-              disabled={props.mode === 'edit'}
+              disabled={props.mode === "edit"}
               onChange={(event) => {
                 const value = event.target.value
                 props.setDraft((current) => ({
                   ...current,
                   name: value,
                 }))
-                props.clearFieldError('name')
+                props.clearFieldError("name")
               }}
               placeholder="docs"
-              {...props.getFieldProps('name')}
+              {...props.getFieldProps("name")}
             />
             {props.fieldErrors.name ? (
-              <p id={getFieldErrorId('name')} className="text-xs text-destructive">
+              <p id={getFieldErrorId("name")} className="text-xs text-destructive">
                 {props.fieldErrors.name}
               </p>
             ) : null}
@@ -94,13 +94,13 @@ export function McpEditorDialog(props: McpEditorDialogProps) {
             <Select
               value={props.draft.type}
               onValueChange={(value) => {
-                if (value !== 'local' && value !== 'remote') return
+                if (value !== "local" && value !== "remote") return
                 props.setDraft((current) => ({
                   ...current,
                   type: value,
                 }))
               }}
-              disabled={props.mode === 'edit'}
+              disabled={props.mode === "edit"}
             >
               <SelectTrigger id="mcp-type" className="w-full">
                 <SelectValue />
@@ -143,20 +143,20 @@ export function McpEditorDialog(props: McpEditorDialogProps) {
                   ...current,
                   timeout: value,
                 }))
-                props.clearFieldError('timeout')
+                props.clearFieldError("timeout")
               }}
               placeholder="30"
               inputMode="numeric"
-              {...props.getFieldProps('timeout')}
+              {...props.getFieldProps("timeout")}
             />
             {props.fieldErrors.timeout ? (
-              <p id={getFieldErrorId('timeout')} className="text-xs text-destructive">
+              <p id={getFieldErrorId("timeout")} className="text-xs text-destructive">
                 {props.fieldErrors.timeout}
               </p>
             ) : null}
           </div>
 
-          {props.draft.type === 'remote' ? (
+          {props.draft.type === "remote" ? (
             <McpRemoteFields
               draft={props.draft}
               fieldErrors={{
@@ -202,10 +202,10 @@ export function McpEditorDialog(props: McpEditorDialogProps) {
             disabled={props.editorSaving}
           >
             {props.editorSaving
-              ? 'Saving...'
-              : props.mode === 'create'
-                ? 'Add MCP'
-                : 'Save changes'}
+              ? "Saving..."
+              : props.mode === "create"
+                ? "Add MCP"
+                : "Save changes"}
           </Button>
         </DialogFooter>
       </DialogContent>

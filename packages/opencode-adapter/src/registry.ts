@@ -1,1 +1,1 @@
-export { ToolRegistry } from 'opencode/tool/registry'
+export { ToolRegistry } from "opencode/tool/registry"

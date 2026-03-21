@@ -1,17 +1,17 @@
-import { Button, Input, Switch, Textarea } from '@buddy/ui'
-import { getFieldErrorId, type McpFormDraft } from './mcp-config-schema'
+import { Button, Input, Switch, Textarea } from "@buddy/ui"
+import { getFieldErrorId, type McpFormDraft } from "./mcp-config-schema"
 
 type McpRemoteFieldsProps = {
   draft: McpFormDraft
-  fieldErrors: Partial<Record<'url' | 'headers', string>>
+  fieldErrors: Partial<Record<"url" | "headers", string>>
   showOAuthClientFields: boolean
   setShowOAuthClientFields: (next: boolean | ((current: boolean) => boolean)) => void
   setDraft: (next: McpFormDraft | ((current: McpFormDraft) => McpFormDraft)) => void
-  clearFieldError: (field: 'url' | 'headers') => void
-  getFieldProps: (field: 'url' | 'headers') => {
-    'aria-describedby': string | undefined
-    'aria-errormessage': string | undefined
-    'aria-invalid': true | undefined
+  clearFieldError: (field: "url" | "headers") => void
+  getFieldProps: (field: "url" | "headers") => {
+    "aria-describedby": string | undefined
+    "aria-errormessage": string | undefined
+    "aria-invalid": true | undefined
   }
 }
 
@@ -31,13 +31,13 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
               ...current,
               url: value,
             }))
-            props.clearFieldError('url')
+            props.clearFieldError("url")
           }}
           placeholder="https://example.com/mcp"
-          {...props.getFieldProps('url')}
+          {...props.getFieldProps("url")}
         />
         {props.fieldErrors.url ? (
-          <p id={getFieldErrorId('url')} className="text-xs text-destructive">
+          <p id={getFieldErrorId("url")} className="text-xs text-destructive">
             {props.fieldErrors.url}
           </p>
         ) : null}
@@ -56,14 +56,14 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
               ...current,
               headersText: value,
             }))
-            props.clearFieldError('headers')
+            props.clearFieldError("headers")
           }}
           placeholder={`{\n  "Authorization": "Bearer ..."\n}`}
           className="min-h-24"
-          {...props.getFieldProps('headers')}
+          {...props.getFieldProps("headers")}
         />
         {props.fieldErrors.headers ? (
-          <p id={getFieldErrorId('headers')} className="text-xs text-destructive">
+          <p id={getFieldErrorId("headers")} className="text-xs text-destructive">
             {props.fieldErrors.headers}
           </p>
         ) : null}
@@ -115,7 +115,7 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
               variant="outline"
               onClick={() => props.setShowOAuthClientFields((current) => !current)}
             >
-              {props.showOAuthClientFields ? 'Hide details' : 'Add details'}
+              {props.showOAuthClientFields ? "Hide details" : "Add details"}
             </Button>
           </div>
 

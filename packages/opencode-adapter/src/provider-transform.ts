@@ -1,7 +1,7 @@
-import type { ModelMessage } from 'ai'
-import { ProviderTransform } from 'opencode/provider/transform'
+import type { ModelMessage } from "ai"
+import { ProviderTransform } from "opencode/provider/transform"
 
-const KIMI_REASONING_MODEL_MARKERS = ['k2p5', 'kimi-k2.5', 'kimi-k2p5'] as const
+const KIMI_REASONING_MODEL_MARKERS = ["k2p5", "kimi-k2.5", "kimi-k2p5"] as const
 const DEFAULT_OUTPUT_TOKEN_FALLBACK = 32_000
 
 export interface ProviderModelIdentity {
@@ -50,7 +50,7 @@ function isKimiReasoningModel(modelID: string) {
 }
 
 function normalizeOutputTokenLimit(limit?: number, fallback = DEFAULT_OUTPUT_TOKEN_FALLBACK) {
-  if (typeof limit === 'number' && limit > 0) {
+  if (typeof limit === "number" && limit > 0) {
     return limit
   }
   return fallback
@@ -65,26 +65,26 @@ export namespace OpenCodeAdapterProviderTransform {
 
     const resolved = await options.resolveModel(options.model)
     const modelMax = resolved?.limit.output
-    if (typeof modelMax === 'number' && modelMax > 0) {
-      if (typeof cap === 'number' && cap > 0) return Math.min(modelMax, cap)
+    if (typeof modelMax === "number" && modelMax > 0) {
+      if (typeof cap === "number" && cap > 0) return Math.min(modelMax, cap)
       return modelMax
     }
 
-    if (typeof cap === 'number' && cap > 0) return cap
+    if (typeof cap === "number" && cap > 0) return cap
     return fallback
   }
 
   export function providerOptions(
     options: ProviderOptionOptions,
   ): Record<string, unknown> | undefined {
-    if (options.model.providerID !== 'anthropic') return undefined
+    if (options.model.providerID !== "anthropic") return undefined
     if (!isKimiReasoningModel(options.model.modelID)) return undefined
 
     const fallback = normalizeOutputTokenLimit(options.outputTokenCap, options.fallback)
     return {
       anthropic: {
         thinking: {
-          type: 'enabled',
+          type: "enabled",
           budgetTokens: Math.max(1, Math.min(16_000, Math.floor(fallback / 2 - 1))),
         },
       },
@@ -93,13 +93,13 @@ export namespace OpenCodeAdapterProviderTransform {
 
   export function message(messages: ModelMessage[], model?: AdapterProviderModel) {
     if (!model) return messages
-    const inputModalities = model.modalities?.input ?? ['text']
+    const inputModalities = model.modalities?.input ?? ["text"]
     const upstreamModel = {
-      providerID: model.providerID ?? 'anthropic',
+      providerID: model.providerID ?? "anthropic",
       id: model.id ?? model.api.id,
       api: {
         id: model.api.id,
-        npm: model.api.npm ?? '',
+        npm: model.api.npm ?? "",
       },
       limit: {
         output: model.limit.output ?? DEFAULT_OUTPUT_TOKEN_FALLBACK,
@@ -107,14 +107,14 @@ export namespace OpenCodeAdapterProviderTransform {
       capabilities: {
         interleaved:
           model.interleaved === true
-            ? { field: 'reasoning_content' as const }
+            ? { field: "reasoning_content" as const }
             : (model.interleaved ?? undefined),
         input: {
-          text: inputModalities.includes('text'),
-          audio: inputModalities.includes('audio'),
-          image: inputModalities.includes('image'),
-          video: inputModalities.includes('video'),
-          pdf: inputModalities.includes('pdf'),
+          text: inputModalities.includes("text"),
+          audio: inputModalities.includes("audio"),
+          image: inputModalities.includes("image"),
+          video: inputModalities.includes("video"),
+          pdf: inputModalities.includes("pdf"),
         },
       },
     }

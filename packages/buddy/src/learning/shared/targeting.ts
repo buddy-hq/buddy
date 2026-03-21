@@ -2,32 +2,32 @@ import {
   mergeBuddyAndConfiguredAgents,
   resolveConfiguredAgentKey,
   type readProjectConfig,
-} from '@buddy/backend/config/runtime'
+} from "@buddy/backend/config/runtime"
 import {
   isIntent,
   type Intent,
   type WorkspaceState,
-} from '@buddy/backend/learning/shared/teaching-vocabulary'
-import { getBuddyPersona, getDefaultBuddyPersona, isPersona, type BuddyPersona } from '../personas'
-import type { TeachingSessionState } from './teaching-session-state'
-import { SessionTransformValidationError } from '../../session'
+} from "@buddy/backend/learning/shared/teaching-vocabulary"
+import { getBuddyPersona, getDefaultBuddyPersona, isPersona, type BuddyPersona } from "../personas"
+import type { TeachingSessionState } from "./teaching-session-state"
+import { SessionTransformValidationError } from "../../session"
 
 export function hasExplicitModel(value: unknown): value is { providerID: string; modelID: string } {
-  if (!value || typeof value !== 'object') return false
-  if (!('providerID' in value) || !('modelID' in value)) return false
-  return typeof value.providerID === 'string' && typeof value.modelID === 'string'
+  if (!value || typeof value !== "object") return false
+  if (!("providerID" in value) || !("modelID" in value)) return false
+  return typeof value.providerID === "string" && typeof value.modelID === "string"
 }
 
 export function hasExplicitCommandModel(value: unknown): value is string {
-  return typeof value === 'string' && value.trim().length > 0
+  return typeof value === "string" && value.trim().length > 0
 }
 
 export function normalizePersonaTarget(input: {
   body: Record<string, unknown>
   config: Awaited<ReturnType<typeof readProjectConfig>>
 }) {
-  const rawPersona = typeof input.body.persona === 'string' ? input.body.persona.trim() : ''
-  const rawAgent = typeof input.body.agent === 'string' ? input.body.agent : undefined
+  const rawPersona = typeof input.body.persona === "string" ? input.body.persona.trim() : ""
+  const rawAgent = typeof input.body.agent === "string" ? input.body.agent : undefined
 
   if (rawPersona && rawAgent) {
     throw new SessionTransformValidationError('Provide either "persona" or "agent", not both')
@@ -85,7 +85,7 @@ export function resolveIntent(input: {
   body: Record<string, unknown>
   config: Awaited<ReturnType<typeof readProjectConfig>>
 }): Intent {
-  const raw = typeof input.body.intent === 'string' ? input.body.intent.trim() : ''
+  const raw = typeof input.body.intent === "string" ? input.body.intent.trim() : ""
   if (raw) {
     if (!isIntent(raw)) {
       throw new SessionTransformValidationError(`Unknown teaching intent "${raw}"`)
@@ -93,33 +93,33 @@ export function resolveIntent(input: {
     return raw
   }
 
-  if (typeof input.config.default_intent === 'string' && isIntent(input.config.default_intent)) {
+  if (typeof input.config.default_intent === "string" && isIntent(input.config.default_intent)) {
     return input.config.default_intent
   }
 
-  return 'auto'
+  return "auto"
 }
 
 export function resolveFocusGoalIds(body: Record<string, unknown>): string[] {
   if (!Array.isArray(body.focusGoalIds)) return []
   return body.focusGoalIds.filter(
-    (value): value is string => typeof value === 'string' && value.trim().length > 0,
+    (value): value is string => typeof value === "string" && value.trim().length > 0,
   )
 }
 
 export function assertNoLegacyRuntimeOverrides(body: Record<string, unknown>) {
   const legacyFields = [
-    'activity',
-    'strategy',
-    'adaptivity',
-    'currentGoalIds',
-    'activityBundleId',
+    "activity",
+    "strategy",
+    "adaptivity",
+    "currentGoalIds",
+    "activityBundleId",
   ] as const
   const present = legacyFields.filter((field) => field in body)
   if (present.length === 0) return
 
   throw new SessionTransformValidationError(
-    `Legacy runtime override fields are no longer supported (${present.join(', ')}). Use focusGoalIds.`,
+    `Legacy runtime override fields are no longer supported (${present.join(", ")}). Use focusGoalIds.`,
   )
 }
 
@@ -127,10 +127,10 @@ export function resolveCurrentSurface(input: {
   personaID: BuddyPersona
   config: Awaited<ReturnType<typeof readProjectConfig>>
   workspaceState: WorkspaceState
-}): TeachingSessionState['currentSurface'] {
+}): TeachingSessionState["currentSurface"] {
   const persona = getBuddyPersona(input.personaID, input.config.personas)
-  if (input.workspaceState === 'interactive' && persona.surfaces.includes('editor')) {
-    return 'editor'
+  if (input.workspaceState === "interactive" && persona.surfaces.includes("editor")) {
+    return "editor"
   }
   return persona.defaultSurface
 }

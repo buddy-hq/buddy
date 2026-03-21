@@ -1,9 +1,9 @@
-import { ToolHeader } from '../shared/tool-header'
-import { readString } from '../shared/utils'
-import type { ToolPartProps } from './registry'
+import { ToolHeader } from "../shared/tool-header"
+import { readString } from "../shared/utils"
+import type { ToolPartProps } from "./registry"
 
 export function WebfetchTool({ state, info }: ToolPartProps) {
-  const running = state.status === 'pending' || state.status === 'running'
+  const running = state.status === "pending" || state.status === "running"
   const link = readString(state.input.url)
 
   return (

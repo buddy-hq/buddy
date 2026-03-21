@@ -1,8 +1,8 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useEffect, useMemo } from 'react'
-import { toast } from '@buddy/ui'
-import { ChatLeftSidebar } from '@/components/layout/chat-left-sidebar'
-import { SkillsPage } from '@/components/skills/skills-page'
+import { createFileRoute, useNavigate } from "@tanstack/react-router"
+import { useEffect, useMemo } from "react"
+import { toast } from "@buddy/ui"
+import { ChatLeftSidebar } from "@/components/layout/chat-left-sidebar"
+import { SkillsPage } from "@/components/skills/skills-page"
 import {
   bootstrapOpenProjects,
   closeOpenProject,
@@ -12,13 +12,13 @@ import {
   selectSession,
   startNewSession,
   updateSession,
-} from '@/state/chat-actions'
-import { useChatStore } from '@/state/chat-store'
-import { useUiPreferences } from '@/state/ui-preferences'
-import { pickProjectDirectory } from '../lib/directory-picker'
-import { encodeDirectory } from '../lib/directory-token'
+} from "@/state/chat-actions"
+import { useChatStore } from "@/state/chat-store"
+import { useUiPreferences } from "@/state/ui-preferences"
+import { pickProjectDirectory } from "../lib/directory-picker"
+import { encodeDirectory } from "../lib/directory-token"
 
-export const Route = createFileRoute('/skills')({
+export const Route = createFileRoute("/skills")({
   component: SkillsRoute,
 })
 
@@ -34,7 +34,7 @@ function SkillsRoute() {
   const markUnread = useUiPreferences((state) => state.markUnread)
   const clearUnread = useUiPreferences((state) => state.clearUnread)
 
-  const currentDirectory = activeDirectory ?? openProjects[0] ?? ''
+  const currentDirectory = activeDirectory ?? openProjects[0] ?? ""
   const activeSessionID = currentDirectory ? directories[currentDirectory]?.sessionID : undefined
 
   const sessionsByDirectory = useMemo(
@@ -62,7 +62,7 @@ function SkillsRoute() {
 
   function openChat(directory: string) {
     navigate({
-      to: '/$directory/chat',
+      to: "/$directory/chat",
       params: { directory: encodeDirectory(directory) },
     })
   }
@@ -199,7 +199,7 @@ function SkillsRoute() {
           }}
           onOpenSkills={() => undefined}
           onOpenSettings={() => {
-            navigate({ to: '/settings', search: { tab: 'instructions' } })
+            navigate({ to: "/settings", search: { tab: "instructions" } })
           }}
           activeFooterItem="skills"
           className="h-full w-[344px]"

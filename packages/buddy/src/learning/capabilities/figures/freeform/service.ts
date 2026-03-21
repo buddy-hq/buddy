@@ -1,7 +1,7 @@
-import { InvalidFreeformFigureIDError } from './path'
-import { FreeformFigureNotFoundError, FreeformFigureRenderError } from './service/errors'
-import { readFreeformFigure } from './service/io'
-import { renderFreeformFigure } from './service/render'
+import { InvalidFreeformFigureIDError } from "./path"
+import { FreeformFigureNotFoundError, FreeformFigureRenderError } from "./service/errors"
+import { readFreeformFigure } from "./service/io"
+import { renderFreeformFigure } from "./service/render"
 
 const FreeformFigureService = {
   read: readFreeformFigure,
@@ -28,4 +28,4 @@ export {
   mapFreeformFigureRouteError,
 }
 
-export type { FreeformFigureLintIssue } from './service/types'
+export type { FreeformFigureLintIssue } from "./service/types"

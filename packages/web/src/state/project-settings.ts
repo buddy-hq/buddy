@@ -1,22 +1,22 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from "react"
 import {
   loadPersonaCatalog,
   loadProjectConfig,
   loadProviderCatalog,
   patchProjectConfig,
   type PersonaConfigOption,
-} from './chat-actions'
-import type { TeachingIntent } from './teaching-runtime'
-import type { ProviderCatalogState } from './chat-types'
+} from "./chat-actions"
+import type { TeachingIntent } from "./teaching-runtime"
+import type { ProviderCatalogState } from "./chat-types"
 
-export type LogLevel = 'debug' | 'info' | 'warn' | 'error'
+export type LogLevel = "debug" | "info" | "warn" | "error"
 
 type ProjectSettingsDraft = {
   persona: string
   intent: TeachingIntent
   provider: string
   model: string
-  logLevel: LogLevel | ''
+  logLevel: LogLevel | ""
 }
 
 type ProjectSettingsState = {
@@ -36,16 +36,16 @@ const EMPTY_PROVIDER_CATALOG: ProviderCatalogState = {
 }
 
 const EMPTY_DRAFT: ProjectSettingsDraft = {
-  persona: '',
-  intent: 'auto',
-  provider: '',
-  model: '',
-  logLevel: '',
+  persona: "",
+  intent: "auto",
+  provider: "",
+  model: "",
+  logLevel: "",
 }
 
 function stringifyError(error: unknown) {
   if (error instanceof Error) return error.message
-  if (typeof error === 'string') return error
+  if (typeof error === "string") return error
   try {
     return JSON.stringify(error)
   } catch {
@@ -55,22 +55,22 @@ function stringifyError(error: unknown) {
 
 function readString(input: Record<string, unknown>, key: string) {
   const value = input[key]
-  return typeof value === 'string' ? value : ''
+  return typeof value === "string" ? value : ""
 }
 
 function parseModel(model: string) {
   if (!model) {
     return {
-      providerID: '',
-      modelID: '',
+      providerID: "",
+      modelID: "",
     }
   }
 
-  const split = model.indexOf('/')
+  const split = model.indexOf("/")
   if (split <= 0 || split >= model.length - 1) {
     return {
-      providerID: '',
-      modelID: '',
+      providerID: "",
+      modelID: "",
     }
   }
 
@@ -89,10 +89,10 @@ function buildDraft(input: {
   providerCatalog: ProviderCatalogState
   personas: PersonaConfigOption[]
 }): ProjectSettingsDraft {
-  const model = parseModel(readString(input.config, 'model'))
+  const model = parseModel(readString(input.config, "model"))
   const connected = connectedProviders(input.providerCatalog)
   const configuredProvider = connected.find((provider) => provider.id === model.providerID)
-  const initialProvider = configuredProvider?.id ?? connected[0]?.id ?? ''
+  const initialProvider = configuredProvider?.id ?? connected[0]?.id ?? ""
   const availableModels =
     connected.find((provider) => provider.id === initialProvider)?.models ?? []
   const configuredModelIsAvailable =
@@ -100,30 +100,30 @@ function buildDraft(input: {
     availableModels.some((entry) => entry.id === model.modelID)
   const initialModel = configuredModelIsAvailable
     ? model.modelID
-    : (input.providerCatalog.default[initialProvider] ?? availableModels[0]?.id ?? '')
-  const logLevel = readString(input.config, 'logLevel')
+    : (input.providerCatalog.default[initialProvider] ?? availableModels[0]?.id ?? "")
+  const logLevel = readString(input.config, "logLevel")
   const selectablePersonas = input.personas.filter((persona) => !persona.hidden)
-  const configuredDefaultPersona = readString(input.config, 'default_persona')
-  const configuredDefaultIntent = readString(input.config, 'default_intent')
+  const configuredDefaultPersona = readString(input.config, "default_persona")
+  const configuredDefaultIntent = readString(input.config, "default_intent")
 
   return {
     persona:
       configuredDefaultPersona &&
       selectablePersonas.some((persona) => persona.id === configuredDefaultPersona)
         ? configuredDefaultPersona
-        : '',
+        : "",
     intent:
-      configuredDefaultIntent === 'learn' ||
-      configuredDefaultIntent === 'practice' ||
-      configuredDefaultIntent === 'assess'
+      configuredDefaultIntent === "learn" ||
+      configuredDefaultIntent === "practice" ||
+      configuredDefaultIntent === "assess"
         ? configuredDefaultIntent
-        : 'auto',
+        : "auto",
     provider: initialProvider,
     model: initialModel,
     logLevel:
-      logLevel === 'debug' || logLevel === 'info' || logLevel === 'warn' || logLevel === 'error'
+      logLevel === "debug" || logLevel === "info" || logLevel === "warn" || logLevel === "error"
         ? logLevel
-        : '',
+        : "",
   }
 }
 
@@ -201,17 +201,17 @@ export function useProjectSettings(directory: string, open: boolean) {
 
   async function save() {
     const patch: Record<string, unknown> = {}
-    const currentPersona = readString(state.projectConfig, 'default_persona')
-    const currentIntent = readString(state.projectConfig, 'default_intent')
-    const currentModel = readString(state.projectConfig, 'model')
-    const currentLogLevel = readString(state.projectConfig, 'logLevel')
+    const currentPersona = readString(state.projectConfig, "default_persona")
+    const currentIntent = readString(state.projectConfig, "default_intent")
+    const currentModel = readString(state.projectConfig, "model")
+    const currentLogLevel = readString(state.projectConfig, "logLevel")
     const nextPersona = state.draft.persona.trim()
 
     if (nextPersona && nextPersona !== currentPersona) {
       patch.default_persona = nextPersona
     }
 
-    const nextIntent = state.draft.intent === 'auto' ? '' : state.draft.intent
+    const nextIntent = state.draft.intent === "auto" ? "" : state.draft.intent
     if (nextIntent !== currentIntent) {
       patch.default_intent = nextIntent || null
     }
@@ -261,7 +261,7 @@ export function useProjectSettings(directory: string, open: boolean) {
       loading: state.loading,
       saving: state.saving,
       error: state.error,
-      providerMessage: connected.length === 0 ? 'Connect a provider to choose a model.' : undefined,
+      providerMessage: connected.length === 0 ? "Connect a provider to choose a model." : undefined,
     },
     options: {
       personas: state.personaCatalog,
@@ -300,7 +300,7 @@ export function useProjectSettings(directory: string, open: boolean) {
           const models =
             connectedProviders(current.providerCatalog).find((entry) => entry.id === provider)
               ?.models ?? []
-          const defaultModel = current.providerCatalog.default[provider] ?? models[0]?.id ?? ''
+          const defaultModel = current.providerCatalog.default[provider] ?? models[0]?.id ?? ""
           return {
             ...current,
             draft: {
@@ -322,7 +322,7 @@ export function useProjectSettings(directory: string, open: boolean) {
           modelSelectionDirty: true,
         }))
       },
-      setLogLevel(logLevel: LogLevel | '') {
+      setLogLevel(logLevel: LogLevel | "") {
         setState((current) => ({
           ...current,
           draft: {

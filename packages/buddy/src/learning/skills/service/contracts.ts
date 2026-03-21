@@ -1,9 +1,9 @@
-import type { PermissionAction } from '@buddy/opencode-adapter/permission'
+import type { PermissionAction } from "@buddy/opencode-adapter/permission"
 
-export type SkillSource = 'custom' | 'library' | 'external'
-export type SkillScope = 'global' | 'workspace'
-export type SkillPermissionSource = 'explicit' | 'inherited' | 'default'
-export type SkillRuleAction = PermissionAction | 'inherit'
+export type SkillSource = "custom" | "library" | "external"
+export type SkillScope = "global" | "workspace"
+export type SkillPermissionSource = "explicit" | "inherited" | "default"
+export type SkillRuleAction = PermissionAction | "inherit"
 
 export type InstalledSkillInfo = {
   name: string
@@ -48,11 +48,11 @@ export type CreateCustomSkillInput = {
 }
 
 export type SkillServiceErrorCode =
-  | 'invalid_input'
-  | 'not_found'
-  | 'conflict'
-  | 'forbidden'
-  | 'upstream_failure'
+  | "invalid_input"
+  | "not_found"
+  | "conflict"
+  | "forbidden"
+  | "upstream_failure"
 
 export class SkillServiceError extends Error {
   constructor(
@@ -60,7 +60,7 @@ export class SkillServiceError extends Error {
     message: string,
   ) {
     super(message)
-    this.name = 'SkillServiceError'
+    this.name = "SkillServiceError"
   }
 }
 

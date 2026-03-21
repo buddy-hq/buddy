@@ -1,14 +1,14 @@
-import { Hono } from 'hono'
-import { describeRoute, resolver, validator } from 'hono-openapi'
-import z from 'zod'
-import { PermissionNext } from '@buddy/opencode-adapter/permission'
+import { Hono } from "hono"
+import { describeRoute, resolver, validator } from "hono-openapi"
+import z from "zod"
+import { PermissionNext } from "@buddy/opencode-adapter/permission"
 import {
   booleanJsonResponse,
   routeErrors,
   directoryQuerySchema,
   RequestIDParamSchema,
-} from '../http'
-import { proxyToOpenCode } from '../http'
+} from "../http"
+import { proxyToOpenCode } from "../http"
 
 const permissionReplyRequestSchema = z.object({
   reply: PermissionNext.Reply,
@@ -17,15 +17,15 @@ const permissionReplyRequestSchema = z.object({
 
 export const PermissionRoutes = new Hono()
   .get(
-    '/',
+    "/",
     describeRoute({
-      operationId: 'permission.list',
-      summary: 'List pending permission requests',
+      operationId: "permission.list",
+      summary: "List pending permission requests",
       responses: {
         200: {
-          description: 'Pending permission requests',
+          description: "Pending permission requests",
           content: {
-            'application/json': {
+            "application/json": {
               schema: resolver(PermissionNext.Request.array()),
             },
           },
@@ -33,34 +33,34 @@ export const PermissionRoutes = new Hono()
         ...routeErrors(403),
       },
     }),
-    validator('query', directoryQuerySchema),
+    validator("query", directoryQuerySchema),
     async (c) => {
       return proxyToOpenCode(c, {
-        targetPath: '/permission',
+        targetPath: "/permission",
       })
     },
   )
   .post(
-    '/:requestID/reply',
+    "/:requestID/reply",
     describeRoute({
-      operationId: 'permission.reply',
-      summary: 'Reply to a permission request',
+      operationId: "permission.reply",
+      summary: "Reply to a permission request",
       responses: {
         200: {
-          description: 'Permission reply accepted',
+          description: "Permission reply accepted",
           content: {
-            'application/json': booleanJsonResponse,
+            "application/json": booleanJsonResponse,
           },
         },
         ...routeErrors(400, 403),
       },
     }),
-    validator('query', directoryQuerySchema),
-    validator('param', RequestIDParamSchema),
-    validator('json', permissionReplyRequestSchema),
+    validator("query", directoryQuerySchema),
+    validator("param", RequestIDParamSchema),
+    validator("json", permissionReplyRequestSchema),
     async (c) => {
       return proxyToOpenCode(c, {
-        targetPath: `/permission/${encodeURIComponent(c.req.valid('param').requestID)}/reply`,
+        targetPath: `/permission/${encodeURIComponent(c.req.valid("param").requestID)}/reply`,
       })
     },
   )

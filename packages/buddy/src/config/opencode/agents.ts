@@ -1,9 +1,9 @@
-import { mergeDeep } from 'remeda'
-import { resolveBuddyPersonaProfiles } from '../../learning/personas'
-import type { BuddyPersona } from '../../learning/personas'
-import { isPersona } from '../../learning/personas'
-import { indexBuddyAgents } from '../../learning/register-agents'
-import { Config } from '../config.js'
+import { mergeDeep } from "remeda"
+import { resolveBuddyPersonaProfiles } from "../../learning/personas"
+import type { BuddyPersona } from "../../learning/personas"
+import { isPersona } from "../../learning/personas"
+import { indexBuddyAgents } from "../../learning/register-agents"
+import { Config } from "../config.js"
 
 function mergeBuddyAgentConfig(base: Config.Agent, override: Config.Agent): Config.Agent {
   const merged: Config.Agent = {
@@ -28,8 +28,8 @@ function mergeBuddyAgentConfig(base: Config.Agent, override: Config.Agent): Conf
 function permissionRuleEntries(
   rule: Config.PermissionRule,
 ): Array<[string, Config.PermissionAction]> {
-  if (typeof rule === 'string') {
-    return [['*', rule]]
+  if (typeof rule === "string") {
+    return [["*", rule]]
   }
 
   return Object.entries(rule)
@@ -52,7 +52,7 @@ function mergePermissionRule(
   }
 
   if (ordered.size === 1) {
-    const wildcard = ordered.get('*')
+    const wildcard = ordered.get("*")
     if (wildcard) {
       return wildcard
     }

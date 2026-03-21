@@ -1,7 +1,7 @@
-import { LearnerArtifactPath } from '../repository/path'
-import { LearnerArtifactStore } from '../repository/store'
-import type { GoalArtifact, ProfileArtifact, WorkspaceContextArtifact } from '../repository/types'
-import { inferTags, nextId, normalizeList, normalizeText, nowIso } from './helpers'
+import { LearnerArtifactPath } from "../repository/path"
+import { LearnerArtifactStore } from "../repository/store"
+import type { GoalArtifact, ProfileArtifact, WorkspaceContextArtifact } from "../repository/types"
+import { inferTags, nextId, normalizeList, normalizeText, nowIso } from "./helpers"
 
 const goalSetLocks = new Map<string, Promise<void>>()
 
@@ -27,20 +27,20 @@ async function withGoalSetLock<T>(key: string, task: () => Promise<T>) {
   }
 }
 
-function goalSetKey(input: { scope: GoalArtifact['scope']; contextLabel: string }) {
+function goalSetKey(input: { scope: GoalArtifact["scope"]; contextLabel: string }) {
   return `${input.scope}::${normalizeText(input.contextLabel).toLowerCase()}`
 }
 
 function buildGoalArtifacts(input: {
   workspace: WorkspaceContextArtifact
-  scope: GoalArtifact['scope']
+  scope: GoalArtifact["scope"]
   contextLabel: string
   learnerRequest: string
   goals: Array<{
     statement: string
     actionVerb: string
     task: string
-    cognitiveLevel: GoalArtifact['cognitiveLevel']
+    cognitiveLevel: GoalArtifact["cognitiveLevel"]
     howToTest: string
   }>
   rationaleSummary?: string
@@ -51,16 +51,16 @@ function buildGoalArtifacts(input: {
   const setId = nextId()
   const conceptTags = inferTags(
     [input.contextLabel, input.learnerRequest, ...input.goals.map((goal) => goal.statement)].join(
-      ' ',
+      " ",
     ),
   )
 
   return input.goals.map<GoalArtifact>((goal) => ({
     id: nextId(),
-    kind: 'goal',
+    kind: "goal",
     workspaceId: input.workspace.workspaceId,
     goalIds: [],
-    status: 'active',
+    status: "active",
     setId,
     scope: input.scope,
     contextLabel: normalizeText(input.contextLabel),
@@ -92,26 +92,26 @@ export async function patchWorkspace(input: {
   workspace?: Partial<
     Pick<
       WorkspaceContextArtifact,
-      | 'label'
-      | 'tags'
-      | 'pinnedGoalIds'
-      | 'projectConstraints'
-      | 'localToolAvailability'
-      | 'preferredSurfaces'
-      | 'motivationContext'
-      | 'opportunities'
-      | 'userOverride'
+      | "label"
+      | "tags"
+      | "pinnedGoalIds"
+      | "projectConstraints"
+      | "localToolAvailability"
+      | "preferredSurfaces"
+      | "motivationContext"
+      | "opportunities"
+      | "userOverride"
     >
   >
   profile?: Partial<
     Pick<
       ProfileArtifact,
-      | 'background'
-      | 'knownPrerequisites'
-      | 'availableTimePatterns'
-      | 'toolEnvironmentLimits'
-      | 'motivationAnchors'
-      | 'learnerPreferences'
+      | "background"
+      | "knownPrerequisites"
+      | "availableTimePatterns"
+      | "toolEnvironmentLimits"
+      | "motivationAnchors"
+      | "learnerPreferences"
     >
   >
 }) {
@@ -141,14 +141,14 @@ export async function patchWorkspace(input: {
 
 export async function replaceGoalSet(input: {
   directory: string
-  scope: GoalArtifact['scope']
+  scope: GoalArtifact["scope"]
   contextLabel: string
   learnerRequest: string
   goals: Array<{
     statement: string
     actionVerb: string
     task: string
-    cognitiveLevel: GoalArtifact['cognitiveLevel']
+    cognitiveLevel: GoalArtifact["cognitiveLevel"]
     howToTest: string
   }>
   rationaleSummary?: string
@@ -162,8 +162,8 @@ export async function replaceGoalSet(input: {
   const workspace = await ensureWorkspaceContext(input.directory)
 
   return withGoalSetLock(targetKey, async () => {
-    const existing = (await LearnerArtifactStore.readArtifacts(input.directory, 'goal')).filter(
-      (artifact): artifact is GoalArtifact => artifact.kind === 'goal',
+    const existing = (await LearnerArtifactStore.readArtifacts(input.directory, "goal")).filter(
+      (artifact): artifact is GoalArtifact => artifact.kind === "goal",
     )
 
     const now = nowIso()
@@ -182,14 +182,14 @@ export async function replaceGoalSet(input: {
 
     await Promise.all(
       created.map((artifact) =>
-        LearnerArtifactStore.upsertArtifact(input.directory, 'goal', artifact),
+        LearnerArtifactStore.upsertArtifact(input.directory, "goal", artifact),
       ),
     )
 
     await Promise.all(
       existing
         .filter((artifact) => artifact.workspaceId === workspace.workspaceId)
-        .filter((artifact) => artifact.status === 'active')
+        .filter((artifact) => artifact.status === "active")
         .filter(
           (artifact) =>
             goalSetKey({
@@ -199,9 +199,9 @@ export async function replaceGoalSet(input: {
         )
         .map((artifact) => {
           if (artifact.setId) archivedSetIds.add(artifact.setId)
-          return LearnerArtifactStore.upsertArtifact(input.directory, 'goal', {
+          return LearnerArtifactStore.upsertArtifact(input.directory, "goal", {
             ...artifact,
-            status: 'archived',
+            status: "archived",
             updatedAt: now,
           })
         }),
@@ -210,7 +210,7 @@ export async function replaceGoalSet(input: {
     const edgeIds: string[] = []
 
     return {
-      filePath: LearnerArtifactPath.kindDirectory(input.directory, 'goal'),
+      filePath: LearnerArtifactPath.kindDirectory(input.directory, "goal"),
       setId: created[0]?.setId ?? nextId(),
       goalIds: created.map((artifact) => artifact.id),
       edgeIds,

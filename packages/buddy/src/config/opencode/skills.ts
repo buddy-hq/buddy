@@ -1,26 +1,26 @@
-import fs from 'node:fs/promises'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
-import { Config } from '../config.js'
-import { managedSkillsRoot, managedSystemRoot } from '../../learning/skills/service/paths.js'
-import { ensureBundledSystemSkillsInstalled } from '../../learning/skills/service/system-installer.js'
-import { Global } from '../../storage'
+import fs from "node:fs/promises"
+import path from "node:path"
+import { fileURLToPath } from "node:url"
+import { Config } from "../config.js"
+import { managedSkillsRoot, managedSystemRoot } from "../../learning/skills/service/paths.js"
+import { ensureBundledSystemSkillsInstalled } from "../../learning/skills/service/system-installer.js"
+import { Global } from "../../storage"
 
 const BUNDLED_SKILL_RELATIVE_PATHS = [
   // Bundled desktop runtime layout: resources/backend/learning/...
-  'learning/capabilities/pedagogy/skills',
+  "learning/capabilities/pedagogy/skills",
   // Bundled chunks/runtime variants.
-  '../learning/capabilities/pedagogy/skills',
+  "../learning/capabilities/pedagogy/skills",
   // Source layout from src/config/opencode/skills.ts.
-  '../../learning/capabilities/pedagogy/skills',
-  '../../../learning/capabilities/pedagogy/skills',
-  '../../../src/learning/capabilities/pedagogy/skills',
+  "../../learning/capabilities/pedagogy/skills",
+  "../../../learning/capabilities/pedagogy/skills",
+  "../../../src/learning/capabilities/pedagogy/skills",
   // Alternate bundled layout used by some build artifacts.
-  'skills/system',
-  '../skills/system',
+  "skills/system",
+  "../skills/system",
 ]
 
-const EXTERNAL_VENDOR_SKILL_DIRS = ['.claude', '.agents'] as const
+const EXTERNAL_VENDOR_SKILL_DIRS = [".claude", ".agents"] as const
 
 function uniqueResolvedPaths(entries: string[]) {
   return Array.from(new Set(entries.map((entry) => path.resolve(entry))))
@@ -75,11 +75,11 @@ function resolveConfiguredSkillPaths(config: Config.Info, directory: string): st
   }
 
   return config.skills.paths
-    .filter((entry): entry is string => typeof entry === 'string')
+    .filter((entry): entry is string => typeof entry === "string")
     .map((entry) => entry.trim())
     .filter((entry) => entry.length > 0)
     .map((entry) => {
-      const expanded = entry.startsWith('~/') ? path.join(Global.Path.home, entry.slice(2)) : entry
+      const expanded = entry.startsWith("~/") ? path.join(Global.Path.home, entry.slice(2)) : entry
       return path.isAbsolute(expanded) ? path.resolve(expanded) : path.resolve(directory, expanded)
     })
 }
@@ -89,7 +89,7 @@ function isPathInVendorSkillRoot(candidate: string) {
   for (let index = 0; index < segments.length - 1; index += 1) {
     const current = segments[index]
     const next = segments[index + 1]
-    if ((current === '.claude' || current === '.agents') && next === 'skills') {
+    if ((current === ".claude" || current === ".agents") && next === "skills") {
       return true
     }
   }
@@ -109,7 +109,7 @@ async function resolveGitBoundary(directory: string) {
   let current = path.resolve(directory)
 
   while (true) {
-    const gitMarker = path.join(current, '.git')
+    const gitMarker = path.join(current, ".git")
     const markerStats = await fs.stat(gitMarker).catch(() => undefined)
     if (markerStats) {
       return current
@@ -129,12 +129,12 @@ async function resolveVendorSkillRoots(directory: string): Promise<string[]> {
   const boundary = await resolveGitBoundary(directory)
 
   for (const externalDir of EXTERNAL_VENDOR_SKILL_DIRS) {
-    candidates.push(path.join(Global.Path.home, externalDir, 'skills'))
+    candidates.push(path.join(Global.Path.home, externalDir, "skills"))
   }
 
   for (const current of walkUpDirectories(directory, boundary)) {
     for (const externalDir of EXTERNAL_VENDOR_SKILL_DIRS) {
-      candidates.push(path.join(current, externalDir, 'skills'))
+      candidates.push(path.join(current, externalDir, "skills"))
     }
   }
 
