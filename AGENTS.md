@@ -4,12 +4,28 @@
 - Buddy is a single-OS-user, non-multi-tenant agent. It stores one active config/credential/session state per OS user home directory, and it does not provide built-in in-app accounts, profiles, or permissions for multiple human users.
 - Buddy is a local-first system - when you run it normally, the primary agent loop usually runs in a local process on the host you launched. But it is not strictly a local-only system. It can expose server/client or remote-agent surfaces, and it may use the network for more than LLM calls, web search, MCP, and third-party APIs, including auth, remote config/admin policy, and remote subagent/client connections.
 
+## Task Completion Requirements
+
+- All of `bun fmt`, `bun lint`, and `bun typecheck` must pass before considering tasks completed.
+
 ## Breaking Changes & Backward Compatibility
 
 - buddy is only being used by one user, on one machine ie. the current one.
 - so if `breaking changes` lead to better apis, better design or cut out a lot of work, DO IT.
 - that also means `backward compatibility` is NOT needed for anyting.
 - when this changes, the user will remove this section from your instruction.
+
+## Core Priorities
+
+1. Performance first.
+2. Reliability first.
+3. Keep behavior predictable under load and during failures (session restarts, reconnects, partial streams).
+
+If a tradeoff is required, choose correctness and robustness over short-term convenience.
+
+## Maintainability
+
+Long term maintainability is a core priority. If you add new functionality, first check if there is shared logic that can be extracted to a separate module. Duplicate logic across multiple files is a code smell and should be avoided. Don't be afraid to change existing code. Don't take shortcuts by just adding local logic to solve a problem.
 
 ## Packages:
 
@@ -21,6 +37,7 @@
 - `packages/opencode-adapter`: Buddy compatibility bridge over vendored OpenCode modules
 
 ## Tests
+
 - NEVER run the full test suite, explitly run tests for packages you're working on.
 - NEVER run the vendor tests directly.
 
@@ -59,14 +76,12 @@ refer to: `packages/ui/AGENTS.md`; it has instructions on:
 
 - if confused about how scripts or commands work for this project refer COMMANDS.AGENTS.md
 
-
 ### TypeScript
 
 - Strict TS enabled; keep types sound, no casting.
 - No `any`; use `unknown` + narrowing (zod, type guards, `in` checks).
 - `import type { ... }` for type-only imports.
 - Infer types for locals; annotate exports/public APIs explicitly.
-
 
 ## Working Style
 
@@ -77,12 +92,6 @@ refer to: `packages/ui/AGENTS.md`; it has instructions on:
 - Keep naming and exports easy to scan. Prefer clear `create*` / `register*` APIs and explicit bottom exports for helper modules.
 - Use `git mv` for tracked moves so file history survives refactors.
 - If a name needs explanation, change the name instead of adding more explanation.
-
-### Error Handling
-
-- Prefer early returns; keep happy-path left-aligned.
-- Backend: validate with `validator(...)` + zod; return errors as `c.json({ error: "..." }, status)`. CORS is `origin: "*"` for dev — don't expand without reason.
-- Frontend: check `res.ok` before parsing; throw from `queryFn`/`mutationFn` for React Query. Don't hardcode hosts; if adding `/api` prefix, align across `vite.config.ts` proxy, `sdk/scripts/generate.ts` `baseUrl`, and backend route mounting.
 
 ## Generated / Do Not Edit
 
@@ -96,4 +105,4 @@ Root has a `links/` folder of local symlinks.
 
 ### HackDiary
 
-`links/HackDiary` symlinks the user's programming journal. Use it to infer user intentions and progression. "Diary" always means `HackDiary`.
+`links/HackDiary` symlinks the user's programming journal. Use it to infer user intent ions and progression. "Diary" always means `HackDiary`.

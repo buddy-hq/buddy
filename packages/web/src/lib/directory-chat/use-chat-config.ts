@@ -53,9 +53,7 @@ async function loadComposerConfig(directory: string): Promise<ComposerConfig> {
     ) ?? "buddy"
 
   const defaultIntent: TeachingIntent =
-    config.default_intent === "learn" ||
-    config.default_intent === "practice" ||
-    config.default_intent === "assess"
+    config.default_intent === "learn" || config.default_intent === "practice" || config.default_intent === "assess"
       ? config.default_intent
       : "auto"
 
@@ -108,17 +106,9 @@ export function useChatConfig(props: UseChatConfigProps) {
     void loadMcpStatus(decodedDirectory).catch(() => undefined)
   }
 
-  function onSettingsModalClose() {
-    if (!decodedDirectory || !hasRegisteredProject) return
-    void loadComposerConfig(decodedDirectory)
-      .then((config) => setComposerConfig(config))
-      .catch(() => undefined)
-  }
-
   return {
     ...composerConfig,
     refreshSlashCommands,
     refreshMcpStatus,
-    onSettingsModalClose,
   }
 }
