@@ -1,1 +1,1 @@
-export * from "../resource-packs"
+export * from '../resource-packs'

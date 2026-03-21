@@ -1,7 +1,9 @@
-import type { SessionTransform, SessionTransformContext } from "./types"
-import { orchestrateSessionMessageTransform } from "./message-transform-orchestration"
+import type { SessionTransform, SessionTransformContext } from './types'
+import { orchestrateSessionMessageTransform } from './message-transform-orchestration'
 
-export function createSessionMessageTransform(input: { context: SessionTransformContext }): SessionTransform {
+export function createSessionMessageTransform(input: {
+  context: SessionTransformContext
+}): SessionTransform {
   let rollbackTeachingState: (() => void) | undefined
 
   return {

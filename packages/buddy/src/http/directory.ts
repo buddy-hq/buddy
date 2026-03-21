@@ -1,4 +1,4 @@
-import { allowedDirectoryRoots, isAllowedDirectory, resolveDirectory } from "../project"
+import { allowedDirectoryRoots, isAllowedDirectory, resolveDirectory } from '../project'
 
 export type DirectoryRequestSource =
   | Request
@@ -44,10 +44,10 @@ function readSourceHeader(source: DirectoryRequestSource, name: string): string 
 function requestDirectory(source: DirectoryRequestSource): { requestURL: URL; directory: string } {
   const requestURL = readSourceURL(source)
   const rawDirectory =
-    requestURL.searchParams.get("directory") ??
-    readSourceHeader(source, "x-buddy-directory") ??
-    readSourceHeader(source, "x-opencode-directory") ??
-    ""
+    requestURL.searchParams.get('directory') ??
+    readSourceHeader(source, 'x-buddy-directory') ??
+    readSourceHeader(source, 'x-opencode-directory') ??
+    ''
 
   return {
     requestURL,
@@ -60,7 +60,7 @@ export const ensureAllowedDirectory: EnsureAllowedDirectory = (source) => {
   if (!isAllowedDirectory(directory, allowedDirectoryRoots())) {
     return {
       ok: false,
-      response: Response.json({ error: "Directory is outside allowed roots" }, { status: 403 }),
+      response: Response.json({ error: 'Directory is outside allowed roots' }, { status: 403 }),
     }
   }
 

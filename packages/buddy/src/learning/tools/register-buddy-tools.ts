@@ -1,8 +1,11 @@
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { ToolRegistry } from "@buddy/opencode-adapter/registry"
-import type { BuddyTool } from "./create-buddy-tool"
+import { Instance as OpenCodeInstance } from '@buddy/opencode-adapter/instance'
+import { ToolRegistry } from '@buddy/opencode-adapter/registry'
+import type { BuddyTool } from './create-buddy-tool'
 
-export async function registerBuddyTools(directory: string, tools: readonly BuddyTool[]): Promise<void> {
+export async function registerBuddyTools(
+  directory: string,
+  tools: readonly BuddyTool[],
+): Promise<void> {
   await OpenCodeInstance.provide({
     directory,
     async fn() {
@@ -13,7 +16,10 @@ export async function registerBuddyTools(directory: string, tools: readonly Budd
   })
 }
 
-export async function unregisterBuddyTools(directory: string, toolIDs: readonly string[]): Promise<void> {
+export async function unregisterBuddyTools(
+  directory: string,
+  toolIDs: readonly string[],
+): Promise<void> {
   if (toolIDs.length === 0) return
 
   await OpenCodeInstance.provide({

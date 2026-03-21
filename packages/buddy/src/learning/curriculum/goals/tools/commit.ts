@@ -1,11 +1,11 @@
-import z from "zod"
-import { createBuddyTool, type BuddyToolContext } from "../../../tools"
-import { LearnerService } from "../../../learner-model"
-import { GoalCommitResultSchema, GoalSchema, GoalScopeSchema, createGoalToolResult } from "../types"
+import z from 'zod'
+import { createBuddyTool, type BuddyToolContext } from '../../../tools'
+import { LearnerService } from '../../../learner-model'
+import { GoalCommitResultSchema, GoalSchema, GoalScopeSchema, createGoalToolResult } from '../types'
 
-const goalCommitTool = createBuddyTool("goal_commit", {
+const goalCommitTool = createBuddyTool('goal_commit', {
   description:
-    "Persist a goal set to the cross-notebook learner store. Archives any previous active set with the same scope+contextLabel.",
+    'Persist a goal set to the cross-notebook learner store. Archives any previous active set with the same scope+contextLabel.',
   parameters: z.object({
     scope: GoalScopeSchema,
     contextLabel: z.string().min(1),
@@ -17,9 +17,9 @@ const goalCommitTool = createBuddyTool("goal_commit", {
   }),
   async execute(params, ctx: BuddyToolContext) {
     await ctx.ask({
-      permission: "goal_commit",
-      patterns: ["*"],
-      always: ["*"],
+      permission: 'goal_commit',
+      patterns: ['*'],
+      always: ['*'],
       metadata: {
         scope: params.scope,
         contextLabel: params.contextLabel,
@@ -46,7 +46,7 @@ const goalCommitTool = createBuddyTool("goal_commit", {
       archivedSetIds: commit.archivedSetIds,
     })
 
-    return createGoalToolResult("GoalCommitResult", result)
+    return createGoalToolResult('GoalCommitResult', result)
   },
 })
 

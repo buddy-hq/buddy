@@ -1,5 +1,5 @@
-import type { FigureValidationIssue } from "./validate"
-import type { GeometryFigureSpec } from "./types"
+import type { FigureValidationIssue } from './validate'
+import type { GeometryFigureSpec } from './types'
 
 function normalizeOptionalArray<T>(items: T[]): T[] | undefined {
   return items.length > 0 ? items : undefined
@@ -66,13 +66,13 @@ function repairGeometryFigureSpec(
       const point = pointMap.get(constraint.point)
       if (!point) return false
 
-      if (constraint.type === "point-on-segment" || constraint.type === "perpendicular-foot") {
+      if (constraint.type === 'point-on-segment' || constraint.type === 'perpendicular-foot') {
         const from = pointMap.get(constraint.from)
         const to = pointMap.get(constraint.to)
         if (!from || !to) return false
         if (from.x === to.x && from.y === to.y) return false
 
-        if (constraint.type === "perpendicular-foot") {
+        if (constraint.type === 'perpendicular-foot') {
           return pointMap.has(constraint.source)
         }
 
@@ -100,7 +100,7 @@ function repairGeometryFigureSpec(
 
   const markers = normalizeOptionalArray(
     (spec.markers ?? []).filter((marker) => {
-      if (marker.type === "tick") {
+      if (marker.type === 'tick') {
         const from = pointMap.get(marker.from)
         const to = pointMap.get(marker.to)
         if (!from || !to) return false
@@ -108,8 +108,8 @@ function repairGeometryFigureSpec(
       }
 
       const at = pointMap.get(marker.at)
-      const first = pointMap.get(marker.type === "right-angle" ? marker.alongA : marker.from)
-      const second = pointMap.get(marker.type === "right-angle" ? marker.alongB : marker.to)
+      const first = pointMap.get(marker.type === 'right-angle' ? marker.alongA : marker.from)
+      const second = pointMap.get(marker.type === 'right-angle' ? marker.alongB : marker.to)
 
       if (!at || !first || !second) {
         return false
@@ -134,6 +134,4 @@ function repairGeometryFigureSpec(
   }
 }
 
-export {
-  repairGeometryFigureSpec,
-}
+export { repairGeometryFigureSpec }

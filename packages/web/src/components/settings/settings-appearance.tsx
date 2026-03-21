@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState } from 'react'
 import {
   Button,
   Progress,
@@ -10,25 +10,22 @@ import {
   Separator,
   Switch,
   toast,
-} from "@buddy/ui";
-import { usePlatform } from "@/context/platform";
-import { showDesktopUpdateToast } from "../../lib/desktop-updates";
-import { useTheme, type ColorScheme } from "@/theme";
-import { SettingsListCard, SettingsRow } from "./settings-primitives";
-import {
-  advancedMathStatusLabel,
-  useAdvancedMathRuntime,
-} from "./use-advanced-math-runtime";
-import { ConfirmRemoveMathRuntimeDialog } from "./confirm-remove-math-runtime-dialog";
-import { SettingsPanelContent } from "./settings-page";
+} from '@buddy/ui'
+import { usePlatform } from '@/context/platform'
+import { showDesktopUpdateToast } from '../../lib/desktop-updates'
+import { useTheme, type ColorScheme } from '@/theme'
+import { SettingsListCard, SettingsRow } from './settings-primitives'
+import { advancedMathStatusLabel, useAdvancedMathRuntime } from './use-advanced-math-runtime'
+import { ConfirmRemoveMathRuntimeDialog } from './confirm-remove-math-runtime-dialog'
+import { SettingsPanelContent } from './settings-page'
 
 function isColorScheme(value: string): value is ColorScheme {
-  return value === "system" || value === "light" || value === "dark";
+  return value === 'system' || value === 'light' || value === 'dark'
 }
 
 export function AppearanceSettings() {
-  const platform = usePlatform();
-  const [checkingForUpdates, setCheckingForUpdates] = useState(false);
+  const platform = usePlatform()
+  const [checkingForUpdates, setCheckingForUpdates] = useState(false)
 
   const {
     advancedMathStatus,
@@ -42,58 +39,51 @@ export function AppearanceSettings() {
   } = useAdvancedMathRuntime({
     open: true,
     platform: platform.platform,
-  });
+  })
 
-  const { themeId, colorScheme, themes, setTheme, setColorScheme } = useTheme();
+  const { themeId, colorScheme, themes, setTheme, setColorScheme } = useTheme()
 
   const colorSchemeOptions: { value: ColorScheme; label: string }[] = [
-    { value: "system", label: "System" },
-    { value: "light", label: "Light" },
-    { value: "dark", label: "Dark" },
-  ];
+    { value: 'system', label: 'System' },
+    { value: 'light', label: 'Light' },
+    { value: 'dark', label: 'Dark' },
+  ]
 
   const themeOptions = useMemo(() => {
     return Object.entries(themes).map(([id, theme]) => ({
       id,
       name: theme.name,
-    }));
-  }, [themes]);
+    }))
+  }, [themes])
 
   const showDesktopUpdateControls =
-    platform.platform === "desktop" &&
-    !!platform.checkUpdate &&
-    !!platform.update;
-  const showAdvancedMathControls = platform.platform === "desktop";
+    platform.platform === 'desktop' && !!platform.checkUpdate && !!platform.update
+  const showAdvancedMathControls = platform.platform === 'desktop'
 
   async function onCheckForUpdates() {
-    if (
-      platform.platform !== "desktop" ||
-      !platform.checkUpdate ||
-      !platform.update
-    )
-      return;
-    setCheckingForUpdates(true);
+    if (platform.platform !== 'desktop' || !platform.checkUpdate || !platform.update) return
+    setCheckingForUpdates(true)
     const result = await platform
       .checkUpdate()
-      .catch(() => ({ status: "error", stage: "check" }) as const);
-    setCheckingForUpdates(false);
+      .catch(() => ({ status: 'error', stage: 'check' }) as const)
+    setCheckingForUpdates(false)
     switch (result.status) {
-      case "ready":
-        showDesktopUpdateToast({ platform, version: result.version });
-        return;
-      case "up-to-date":
-        toast("Buddy is up to date");
-        return;
-      case "disabled":
-        toast("Updates are unavailable in this build");
-        return;
-      case "error":
+      case 'ready':
+        showDesktopUpdateToast({ platform, version: result.version })
+        return
+      case 'up-to-date':
+        toast('Buddy is up to date')
+        return
+      case 'disabled':
+        toast('Updates are unavailable in this build')
+        return
+      case 'error':
         toast.error(
-          result.stage === "download"
-            ? "Found an update, but download failed"
-            : "Failed to check for updates",
-        );
-        return;
+          result.stage === 'download'
+            ? 'Found an update, but download failed'
+            : 'Failed to check for updates',
+        )
+        return
     }
   }
 
@@ -112,9 +102,7 @@ export function AppearanceSettings() {
               control={
                 <Select
                   value={colorScheme}
-                  onValueChange={(value) =>
-                    isColorScheme(value) && setColorScheme(value)
-                  }
+                  onValueChange={(value) => isColorScheme(value) && setColorScheme(value)}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select color scheme" />
@@ -163,37 +151,24 @@ export function AppearanceSettings() {
                       <div className="space-y-2">
                         <div className="flex items-center justify-between gap-3">
                           <span className="text-xs text-muted-foreground">
-                            {advancedMathStatusLabel(
-                              advancedMathStatus,
-                              advancedMathLoading,
-                            )}
+                            {advancedMathStatusLabel(advancedMathStatus, advancedMathLoading)}
                           </span>
                           <Switch
                             aria-label="Toggle advanced math runtime"
                             checked={advancedMathEnabled}
-                            disabled={
-                              advancedMathBusy || advancedMathStatus === null
-                            }
+                            disabled={advancedMathBusy || advancedMathStatus === null}
                             onCheckedChange={onToggleAdvancedMathRuntime}
                           />
                         </div>
                         {advancedMathStatus?.progressMessage ||
-                        typeof advancedMathStatus?.progressPercent ===
-                          "number" ? (
+                        typeof advancedMathStatus?.progressPercent === 'number' ? (
                           <div className="space-y-1">
                             <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
                               <span className="truncate">
-                                {advancedMathStatus?.progressMessage ??
-                                  "Working..."}
+                                {advancedMathStatus?.progressMessage ?? 'Working...'}
                               </span>
-                              {typeof advancedMathStatus?.progressPercent ===
-                              "number" ? (
-                                <span>
-                                  {Math.round(
-                                    advancedMathStatus.progressPercent,
-                                  )}
-                                  %
-                                </span>
+                              {typeof advancedMathStatus?.progressPercent === 'number' ? (
+                                <span>{Math.round(advancedMathStatus.progressPercent)}%</span>
                               ) : null}
                             </div>
                             <Progress
@@ -203,9 +178,7 @@ export function AppearanceSettings() {
                           </div>
                         ) : null}
                         {advancedMathStatus?.lastError ? (
-                          <p className="text-xs text-destructive">
-                            {advancedMathStatus.lastError}
-                          </p>
+                          <p className="text-xs text-destructive">{advancedMathStatus.lastError}</p>
                         ) : null}
                       </div>
                     }
@@ -225,7 +198,7 @@ export function AppearanceSettings() {
                     onClick={() => void onCheckForUpdates()}
                     disabled={checkingForUpdates}
                   >
-                    {checkingForUpdates ? "Checking..." : "Check for updates"}
+                    {checkingForUpdates ? 'Checking...' : 'Check for updates'}
                   </Button>
                 }
               />
@@ -239,5 +212,5 @@ export function AppearanceSettings() {
         onConfirm={onConfirmRemoveMathRuntime}
       />
     </>
-  );
+  )
 }

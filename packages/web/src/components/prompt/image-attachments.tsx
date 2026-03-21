@@ -1,5 +1,5 @@
-import { XIcon, FolderIcon } from "@buddy/ui"
-import type { PromptComposerAttachment } from "./prompt-types"
+import { XIcon, FolderIcon } from '@buddy/ui'
+import type { PromptComposerAttachment } from './prompt-types'
 
 type ImageAttachmentsProps = {
   attachments: PromptComposerAttachment[]
@@ -14,7 +14,7 @@ export function ImageAttachments({ attachments, onRemove, onOpen }: ImageAttachm
     <div className="flex flex-wrap gap-2 px-3 pt-3">
       {attachments.map((attachment) => (
         <div key={attachment.id} className="relative group">
-          {attachment.mime.startsWith("image/") ? (
+          {attachment.mime.startsWith('image/') ? (
             <img
               src={attachment.dataUrl}
               alt={attachment.filename}
@@ -37,7 +37,9 @@ export function ImageAttachments({ attachments, onRemove, onOpen }: ImageAttachm
           </button>
 
           <div className="absolute right-0 bottom-0 left-0 rounded-b-md bg-[color:color-mix(in_oklab,var(--popover)_78%,transparent)] px-1 py-0.5 backdrop-blur-[2px]">
-            <span className="block truncate text-[10px] text-popover-foreground">{attachment.filename}</span>
+            <span className="block truncate text-[10px] text-popover-foreground">
+              {attachment.filename}
+            </span>
           </div>
         </div>
       ))}

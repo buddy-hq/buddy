@@ -1,4 +1,4 @@
-import type { ProviderAuthAuthorization } from "@opencode-ai/sdk/v2/client"
+import type { ProviderAuthAuthorization } from '@opencode-ai/sdk/v2/client'
 import {
   Button,
   Dialog,
@@ -13,11 +13,11 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@buddy/ui"
-import { type FormEvent, useEffect, useState } from "react"
-import { usePlatform } from "@/context/platform"
-import { getOpenCodeClient } from "../lib/opencode-client"
-import type { ProviderInfo } from "@/state/chat-types"
+} from '@buddy/ui'
+import { type FormEvent, useEffect, useState } from 'react'
+import { usePlatform } from '@/context/platform'
+import { getOpenCodeClient } from '../lib/opencode-client'
+import type { ProviderInfo } from '@/state/chat-types'
 
 type ConnectProviderDialogProps = {
   directory: string
@@ -29,41 +29,43 @@ type ConnectProviderDialogProps = {
 }
 
 const FALLBACK_API_METHOD = {
-  type: "api",
-  label: "API key",
+  type: 'api',
+  label: 'API key',
 } as const
 
 function formatError(error: unknown, fallback: string): string {
-  if (error && typeof error === "object" && "data" in error) {
+  if (error && typeof error === 'object' && 'data' in error) {
     const data = (error as { data?: { message?: unknown } }).data
-    if (typeof data?.message === "string" && data.message) return data.message
+    if (typeof data?.message === 'string' && data.message) return data.message
   }
-  if (error && typeof error === "object" && "error" in error) {
-    const nested: string = formatError((error as { error?: unknown }).error, "")
+  if (error && typeof error === 'object' && 'error' in error) {
+    const nested: string = formatError((error as { error?: unknown }).error, '')
     if (nested) return nested
   }
-  if (error && typeof error === "object" && "message" in error) {
+  if (error && typeof error === 'object' && 'message' in error) {
     const message = (error as { message?: unknown }).message
-    if (typeof message === "string" && message) return message
+    if (typeof message === 'string' && message) return message
   }
   if (error instanceof Error && error.message) return error.message
-  if (typeof error === "string" && error) return error
+  if (typeof error === 'string' && error) return error
   return fallback
 }
 
 function parseConfirmationCode(input?: string) {
-  if (!input) return ""
-  if (!input.includes(":")) return input
-  return input.split(":")[1]?.trim() ?? input
+  if (!input) return ''
+  if (!input.includes(':')) return input
+  return input.split(':')[1]?.trim() ?? input
 }
 
 export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
   const platform = usePlatform()
-  const [providerID, setProviderID] = useState("")
+  const [providerID, setProviderID] = useState('')
   const [methodIndex, setMethodIndex] = useState(0)
-  const [authorization, setAuthorization] = useState<ProviderAuthAuthorization | undefined>(undefined)
-  const [apiKey, setApiKey] = useState("")
-  const [code, setCode] = useState("")
+  const [authorization, setAuthorization] = useState<ProviderAuthAuthorization | undefined>(
+    undefined,
+  )
+  const [apiKey, setApiKey] = useState('')
+  const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | undefined>(undefined)
 
@@ -71,15 +73,16 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
     if (!props.open) return
 
     const initialProvider =
-      props.initialProvider && props.providers.some((provider) => provider.id === props.initialProvider)
+      props.initialProvider &&
+      props.providers.some((provider) => provider.id === props.initialProvider)
         ? props.initialProvider
-        : props.providers[0]?.id ?? ""
+        : (props.providers[0]?.id ?? '')
 
     setProviderID(initialProvider)
     setMethodIndex(0)
     setAuthorization(undefined)
-    setApiKey("")
-    setCode("")
+    setApiKey('')
+    setCode('')
     setBusy(false)
     setError(undefined)
   }, [props.initialProvider, props.open, props.providers])
@@ -91,15 +94,15 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
       : [FALLBACK_API_METHOD]
     : []
   const selectedMethod = methods[methodIndex] ?? methods[0]
-  const canDisconnect = selectedProvider?.connected && selectedProvider.source !== "env"
-  const envManaged = selectedProvider?.connected && selectedProvider.source === "env"
+  const canDisconnect = selectedProvider?.connected && selectedProvider.source !== 'env'
+  const envManaged = selectedProvider?.connected && selectedProvider.source === 'env'
   const confirmationCode = parseConfirmationCode(authorization?.instructions)
 
   function resetAuthState(nextMethodIndex = 0) {
     setMethodIndex(nextMethodIndex)
     setAuthorization(undefined)
-    setApiKey("")
-    setCode("")
+    setApiKey('')
+    setCode('')
     setError(undefined)
     setBusy(false)
   }
@@ -114,7 +117,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
   async function handleApiSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!providerID || !apiKey.trim()) {
-      setError("API key is required")
+      setError('API key is required')
       return
     }
 
@@ -127,7 +130,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
         {
           providerID,
           auth: {
-            type: "api",
+            type: 'api',
             key: apiKey.trim(),
           },
         },
@@ -136,7 +139,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
       await disposeAndReload()
     } catch (error) {
       setBusy(false)
-      setError(formatError(error, "Failed to save provider credentials"))
+      setError(formatError(error, 'Failed to save provider credentials'))
     }
   }
 
@@ -157,7 +160,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
       await disposeAndReload()
     } catch (error) {
       setBusy(false)
-      setError(formatError(error, "Failed to remove provider credentials"))
+      setError(formatError(error, 'Failed to remove provider credentials'))
     }
   }
 
@@ -167,7 +170,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
     setBusy(true)
     setError(undefined)
     setAuthorization(undefined)
-    setCode("")
+    setCode('')
 
     try {
       const client = getOpenCodeClient(props.directory)
@@ -188,7 +191,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
       setAuthorization(nextAuthorization)
       platform.openLink(nextAuthorization.url)
 
-      if (nextAuthorization.method === "auto") {
+      if (nextAuthorization.method === 'auto') {
         await client.provider.oauth.callback(
           {
             providerID,
@@ -204,14 +207,14 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
     } catch (error) {
       setBusy(false)
       setAuthorization(undefined)
-      setError(formatError(error, "Failed to start provider login"))
+      setError(formatError(error, 'Failed to start provider login'))
     }
   }
 
   async function submitOAuthCode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!providerID || !code.trim()) {
-      setError("Authorization code is required")
+      setError('Authorization code is required')
       return
     }
 
@@ -231,7 +234,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
       await disposeAndReload()
     } catch (error) {
       setBusy(false)
-      setError(formatError(error, "Invalid authorization code"))
+      setError(formatError(error, 'Invalid authorization code'))
     }
   }
 
@@ -240,11 +243,15 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
       <DialogContent className="overflow-hidden sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Connect provider</DialogTitle>
-          <DialogDescription>Use your own provider account, subscription, or API key.</DialogDescription>
+          <DialogDescription>
+            Use your own provider account, subscription, or API key.
+          </DialogDescription>
         </DialogHeader>
 
         {props.providers.length === 0 ? (
-          <p className="py-2 text-sm text-muted-foreground">No providers are available for this notebook.</p>
+          <p className="py-2 text-sm text-muted-foreground">
+            No providers are available for this notebook.
+          </p>
         ) : (
           <div className="min-w-0 space-y-4 py-2">
             <div className="space-y-1.5">
@@ -275,9 +282,9 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
                 <div className="rounded-md border px-3 py-2 text-xs text-muted-foreground">
                   {selectedProvider.connected
                     ? envManaged
-                      ? "Connected via environment variables."
-                      : "Connected."
-                    : "Not connected."}
+                      ? 'Connected via environment variables.'
+                      : 'Connected.'
+                    : 'Not connected.'}
                 </div>
 
                 <div className="space-y-1.5">
@@ -292,7 +299,10 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
                     </SelectTrigger>
                     <SelectContent>
                       {methods.map((method, index) => (
-                        <SelectItem key={`${method.type}:${method.label}:${index}`} value={String(index)}>
+                        <SelectItem
+                          key={`${method.type}:${method.label}:${index}`}
+                          value={String(index)}
+                        >
                           {method.label}
                         </SelectItem>
                       ))}
@@ -300,7 +310,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
                   </Select>
                 </div>
 
-                {selectedMethod?.type === "api" ? (
+                {selectedMethod?.type === 'api' ? (
                   <form className="space-y-3" onSubmit={(event) => void handleApiSubmit(event)}>
                     <div className="space-y-1.5">
                       <label className="text-xs text-muted-foreground">API key</label>
@@ -314,10 +324,15 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
                     </div>
                     <div className="flex gap-2">
                       <Button className="flex-1" type="submit" disabled={busy}>
-                        {busy ? "Saving..." : "Save credentials"}
+                        {busy ? 'Saving...' : 'Save credentials'}
                       </Button>
                       {canDisconnect ? (
-                        <Button type="button" variant="outline" onClick={() => void handleDisconnect()} disabled={busy}>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => void handleDisconnect()}
+                          disabled={busy}
+                        >
                           Disconnect
                         </Button>
                       ) : null}
@@ -330,9 +345,9 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
                   </form>
                 ) : (
                   <div className="space-y-3">
-                    {!authorization || authorization.method !== "code" ? (
+                    {!authorization || authorization.method !== 'code' ? (
                       <Button className="w-full" onClick={() => void startOAuth()} disabled={busy}>
-                        {busy ? "Waiting for authorization..." : "Start login"}
+                        {busy ? 'Waiting for authorization...' : 'Start login'}
                       </Button>
                     ) : null}
 
@@ -341,7 +356,8 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
                         <div className="min-w-0 space-y-2">
                           <p className="text-xs text-muted-foreground">Authorization link</p>
                           <p className="text-sm text-muted-foreground">
-                            Open the authorization page in your browser to continue connecting {selectedProvider.name}.
+                            Open the authorization page in your browser to continue connecting{' '}
+                            {selectedProvider.name}.
                           </p>
                           <a
                             className="inline-flex max-w-full text-sm text-primary underline-offset-4 hover:underline"
@@ -354,10 +370,15 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
                           </a>
                         </div>
 
-                        {authorization.method === "code" ? (
-                          <form className="space-y-3" onSubmit={(event) => void submitOAuthCode(event)}>
+                        {authorization.method === 'code' ? (
+                          <form
+                            className="space-y-3"
+                            onSubmit={(event) => void submitOAuthCode(event)}
+                          >
                             <div className="space-y-1.5">
-                              <label className="text-xs text-muted-foreground">Authorization code</label>
+                              <label className="text-xs text-muted-foreground">
+                                Authorization code
+                              </label>
                               <Input
                                 type="text"
                                 value={code}
@@ -367,7 +388,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
                               />
                             </div>
                             <Button className="w-full" type="submit" disabled={busy}>
-                              {busy ? "Finishing login..." : "Complete login"}
+                              {busy ? 'Finishing login...' : 'Complete login'}
                             </Button>
                           </form>
                         ) : (
@@ -393,10 +414,17 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
 
                     <DialogFooter className="gap-2 sm:justify-between">
                       {canDisconnect ? (
-                        <Button type="button" variant="outline" onClick={() => void handleDisconnect()} disabled={busy}>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => void handleDisconnect()}
+                          disabled={busy}
+                        >
                           Disconnect
                         </Button>
-                      ) : <span />}
+                      ) : (
+                        <span />
+                      )}
                       {envManaged ? (
                         <span className="text-xs text-muted-foreground">
                           This provider is connected from the environment.

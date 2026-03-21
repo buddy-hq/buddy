@@ -1,18 +1,18 @@
-import { describe, expect, test } from "bun:test"
-import { readdirSync, readFileSync, statSync } from "node:fs"
-import path from "node:path"
+import { describe, expect, test } from 'bun:test'
+import { readdirSync, readFileSync, statSync } from 'node:fs'
+import path from 'node:path'
 
-const packageRoot = path.resolve(import.meta.dir, "../..")
-const srcRoot = path.join(packageRoot, "src")
-const routesRoot = path.join(srcRoot, "routes")
+const packageRoot = path.resolve(import.meta.dir, '../..')
+const srcRoot = path.join(packageRoot, 'src')
+const routesRoot = path.join(srcRoot, 'routes')
 
 const forbiddenRouteTokens = [
-  "compatibilityRoute(",
-  "AnyObjectSchema",
-  "withJsonBody(",
-  "parseJsonBody(",
-  "parseOptionalJsonBody(",
-  "parameters:",
+  'compatibilityRoute(',
+  'AnyObjectSchema',
+  'withJsonBody(',
+  'parseJsonBody(',
+  'parseOptionalJsonBody(',
+  'parameters:',
 ] as const
 
 function listRouteFiles(root: string): string[] {
@@ -24,20 +24,20 @@ function listRouteFiles(root: string): string[] {
       files.push(...listRouteFiles(fullPath))
       continue
     }
-    if (entry.endsWith(".ts")) {
+    if (entry.endsWith('.ts')) {
       files.push(fullPath)
     }
   }
   return files
 }
 
-describe("route OpenAPI guardrails", () => {
-  test("prevents deprecated route helper patterns", () => {
+describe('route OpenAPI guardrails', () => {
+  test('prevents deprecated route helper patterns', () => {
     const routeFiles = listRouteFiles(routesRoot)
     const violations: string[] = []
 
     for (const routeFile of routeFiles) {
-      const source = readFileSync(routeFile, "utf8")
+      const source = readFileSync(routeFile, 'utf8')
       for (const token of forbiddenRouteTokens) {
         if (source.includes(token)) {
           violations.push(`${path.relative(packageRoot, routeFile)} contains "${token}"`)

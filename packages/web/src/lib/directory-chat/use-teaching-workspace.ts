@@ -1,5 +1,5 @@
-import { useEffect, useRef } from "react"
-import { useTeachingRuntime } from "@/state/teaching-runtime"
+import { useEffect, useRef } from 'react'
+import { useTeachingRuntime } from '@/state/teaching-runtime'
 import {
   activateTeachingWorkspaceFile,
   checkpointTeachingWorkspace,
@@ -11,15 +11,15 @@ import {
   saveTeachingWorkspace,
   stringifyError,
   TeachingConflictError,
-} from "@/state/teaching-actions"
+} from '@/state/teaching-actions'
 import {
   intentFromSelection,
   teachingLanguageLabel,
   type TeachingIntent,
   type TeachingLanguage,
-} from "@/state/teaching-runtime"
-import { sendPrompt } from "@/state/chat-actions"
-import type { ChatRightSidebarTab } from "@/components/layout/chat-right-sidebar"
+} from '@/state/teaching-runtime'
+import { sendPrompt } from '@/state/chat-actions'
+import type { ChatRightSidebarTab } from '@/components/layout/chat-right-sidebar'
 
 type UseTeachingWorkspaceProps = {
   decodedDirectory: string
@@ -44,13 +44,7 @@ type UseTeachingWorkspaceProps = {
 const RIGHT_SIDEBAR_EDITOR_MIN_WIDTH = 360
 
 export function useTeachingWorkspace(props: UseTeachingWorkspaceProps) {
-  const {
-    decodedDirectory,
-    sessionID,
-    sessionKey,
-    isInteractiveMode,
-    isBusy,
-  } = props
+  const { decodedDirectory, sessionID, sessionKey, isInteractiveMode, isBusy } = props
 
   const saveInFlightRef = useRef<Promise<boolean> | null>(null)
   const teachingSessionInitializedRef = useRef(new Set<string>())
@@ -58,7 +52,9 @@ export function useTeachingWorkspace(props: UseTeachingWorkspaceProps) {
     new Map<string, Promise<Awaited<ReturnType<typeof loadTeachingWorkspace>> | undefined>>(),
   )
 
-  const teachingWorkspace = sessionKey ? useTeachingRuntime.getState().workspaceBySession[sessionKey] : undefined
+  const teachingWorkspace = sessionKey
+    ? useTeachingRuntime.getState().workspaceBySession[sessionKey]
+    : undefined
 
   // ── Probe for workspace when session loads ──────────────────────────────────
   useEffect(() => {
@@ -80,27 +76,48 @@ export function useTeachingWorkspace(props: UseTeachingWorkspaceProps) {
       })
 
     workspaceProbeBySessionRef.current.set(sessionKey, probe)
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [decodedDirectory, isBusy, props.messages.length, sessionID, sessionKey, teachingWorkspace])
 
   // ── Open editor sidebar on first workspace load ─────────────────────────────
   useEffect(() => {
-    if (!decodedDirectory || !sessionID || !sessionKey || !teachingWorkspace || !props.selectedPersonaSupportsEditor) return
+    if (
+      !decodedDirectory ||
+      !sessionID ||
+      !sessionKey ||
+      !teachingWorkspace ||
+      !props.selectedPersonaSupportsEditor
+    )
+      return
     if (teachingSessionInitializedRef.current.has(sessionKey)) return
 
     teachingSessionInitializedRef.current.add(sessionKey)
     const ui = useTeachingRuntime // we use UI preferences via the page props
-    props.setRightSidebarTab("editor")
+    props.setRightSidebarTab('editor')
     props.setRightSidebarOpen(true)
     if (props.rightSidebarWidth < RIGHT_SIDEBAR_EDITOR_MIN_WIDTH) {
       props.setRightSidebarWidth(640)
     }
-  }, [decodedDirectory, sessionID, sessionKey, props.selectedPersonaSupportsEditor, teachingWorkspace])
+  }, [
+    decodedDirectory,
+    sessionID,
+    sessionKey,
+    props.selectedPersonaSupportsEditor,
+    teachingWorkspace,
+  ])
 
   // ── Reload workspace after agent turn completes ─────────────────────────────
   const previousBusyRef = useRef(false)
   useEffect(() => {
-    if (!decodedDirectory || !sessionID || !isInteractiveMode || !sessionKey || !teachingWorkspace) {
+    if (
+      !decodedDirectory ||
+      !sessionID ||
+      !isInteractiveMode ||
+      !sessionKey ||
+      !teachingWorkspace
+    ) {
       previousBusyRef.current = isBusy
       return
     }
@@ -120,7 +137,15 @@ export function useTeachingWorkspace(props: UseTeachingWorkspaceProps) {
 
   // ── Poll workspace while agent is mid-run ───────────────────────────────────
   useEffect(() => {
-    if (!decodedDirectory || !sessionID || !isInteractiveMode || !sessionKey || !teachingWorkspace || !isBusy) return
+    if (
+      !decodedDirectory ||
+      !sessionID ||
+      !isInteractiveMode ||
+      !sessionKey ||
+      !teachingWorkspace ||
+      !isBusy
+    )
+      return
 
     const activeDirectory = decodedDirectory
     const activeSessionID = sessionID
@@ -131,7 +156,10 @@ export function useTeachingWorkspace(props: UseTeachingWorkspaceProps) {
       if (cancelled || refreshInFlight || saveInFlightRef.current) return
       refreshInFlight = true
       try {
-        const workspace = await loadTeachingWorkspace({ directory: activeDirectory, sessionID: activeSessionID })
+        const workspace = await loadTeachingWorkspace({
+          directory: activeDirectory,
+          sessionID: activeSessionID,
+        })
         if (!cancelled) {
           useTeachingRuntime.getState().applyRemoteSnapshot(sessionKey, workspace)
         }
@@ -153,11 +181,14 @@ export function useTeachingWorkspace(props: UseTeachingWorkspaceProps) {
 
   // ── Auto-flush on code change (debounced 500ms) ─────────────────────────────
   useEffect(() => {
-    if (!decodedDirectory || !sessionID || !isInteractiveMode || !sessionKey || !teachingWorkspace) return
+    if (!decodedDirectory || !sessionID || !isInteractiveMode || !sessionKey || !teachingWorkspace)
+      return
     if (teachingWorkspace.conflict) return
     if (teachingWorkspace.code === teachingWorkspace.savedCode) return
 
-    const timeout = window.setTimeout(() => { void flushTeachingWorkspace() }, 500)
+    const timeout = window.setTimeout(() => {
+      void flushTeachingWorkspace()
+    }, 500)
     return () => window.clearTimeout(timeout)
   }, [
     decodedDirectory,
@@ -171,7 +202,10 @@ export function useTeachingWorkspace(props: UseTeachingWorkspaceProps) {
 
   // ── Core workspace operations ───────────────────────────────────────────────
 
-  async function flushTeachingWorkspace(input?: { forceOverwrite?: boolean; language?: TeachingLanguage }) {
+  async function flushTeachingWorkspace(input?: {
+    forceOverwrite?: boolean
+    language?: TeachingLanguage
+  }) {
     if (!decodedDirectory || !sessionID || !isInteractiveMode || !sessionKey) return true
 
     if (saveInFlightRef.current) {
@@ -181,17 +215,21 @@ export function useTeachingWorkspace(props: UseTeachingWorkspaceProps) {
 
     const latest = useTeachingRuntime.getState().workspaceBySession[sessionKey]
     if (!latest) {
-      useTeachingRuntime.getState().setSaveError(sessionKey, "Teaching workspace is still loading")
+      useTeachingRuntime.getState().setSaveError(sessionKey, 'Teaching workspace is still loading')
       return false
     }
 
     if (latest.conflict && !input?.forceOverwrite) return false
 
     const nextLanguage = input?.language ?? latest.language
-    const hasChanges = latest.code !== latest.savedCode || nextLanguage !== latest.language || !!input?.forceOverwrite
+    const hasChanges =
+      latest.code !== latest.savedCode ||
+      nextLanguage !== latest.language ||
+      !!input?.forceOverwrite
     if (!hasChanges) return true
 
-    const expectedRevision = input?.forceOverwrite && latest.conflict ? latest.conflict.revision : latest.revision
+    const expectedRevision =
+      input?.forceOverwrite && latest.conflict ? latest.conflict.revision : latest.revision
     const requestCode = latest.code
 
     const task = (async () => {
@@ -207,7 +245,9 @@ export function useTeachingWorkspace(props: UseTeachingWorkspaceProps) {
           relativePath: latest.activeRelativePath,
           language: nextLanguage,
         })
-        useTeachingRuntime.getState().applySaveSuccess(sessionKey, { requestCode, workspace: saved })
+        useTeachingRuntime
+          .getState()
+          .applySaveSuccess(sessionKey, { requestCode, workspace: saved })
         return true
       } catch (saveError) {
         if (saveError instanceof TeachingConflictError) {
@@ -243,7 +283,11 @@ export function useTeachingWorkspace(props: UseTeachingWorkspaceProps) {
     if (!ready) return
 
     try {
-      const workspace = await activateTeachingWorkspaceFile({ directory: decodedDirectory, sessionID, relativePath })
+      const workspace = await activateTeachingWorkspaceFile({
+        directory: decodedDirectory,
+        sessionID,
+        relativePath,
+      })
       useTeachingRuntime.getState().setWorkspace(sessionKey, workspace)
       useTeachingRuntime.getState().setSaveError(sessionKey, undefined)
     } catch (fileError) {
@@ -266,7 +310,7 @@ export function useTeachingWorkspace(props: UseTeachingWorkspaceProps) {
       })
       useTeachingRuntime.getState().setWorkspace(sessionKey, workspace)
       useTeachingRuntime.getState().setSaveError(sessionKey, undefined)
-      props.setRightSidebarTab("editor")
+      props.setRightSidebarTab('editor')
       props.setRightSidebarOpen(true)
     } catch (fileError) {
       useTeachingRuntime.getState().setSaveError(sessionKey, stringifyError(fileError))
@@ -345,16 +389,20 @@ export function useTeachingWorkspace(props: UseTeachingWorkspaceProps) {
     rightSidebarWidth: number
     setIsStartingInteractiveLesson: (value: boolean) => void
   }) {
-    const {
-      isBusy,
-      isStartingInteractiveLesson,
-      selectedPersonaSupportsEditor,
-    } = input
+    const { isBusy, isStartingInteractiveLesson, selectedPersonaSupportsEditor } = input
 
-    if (!decodedDirectory || !sessionID || !sessionKey || !selectedPersonaSupportsEditor || isBusy || isStartingInteractiveLesson) return
+    if (
+      !decodedDirectory ||
+      !sessionID ||
+      !sessionKey ||
+      !selectedPersonaSupportsEditor ||
+      isBusy ||
+      isStartingInteractiveLesson
+    )
+      return
 
     input.setIsStartingInteractiveLesson(true)
-    props.setRightSidebarTab("editor")
+    props.setRightSidebarTab('editor')
     if (input.rightSidebarWidth < RIGHT_SIDEBAR_EDITOR_MIN_WIDTH) {
       props.setRightSidebarWidth(640)
     }

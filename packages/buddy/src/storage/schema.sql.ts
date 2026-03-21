@@ -1,4 +1,4 @@
-import { integer } from "drizzle-orm/sqlite-core"
+import { integer } from 'drizzle-orm/sqlite-core'
 
 export const Timestamps = {
   time_created: integer()

@@ -1,15 +1,15 @@
-import type { SkillServiceErrorCode } from "../learning/skills"
-import { SkillServiceError } from "../learning/skills"
+import type { SkillServiceErrorCode } from '../learning/skills'
+import { SkillServiceError } from '../learning/skills'
 import {
   HTTP_STATUS,
   SKILL_ERROR_STATUS,
   SKILL_ROUTE_ACTIONS,
   SKILL_ROUTE_ERRORS,
   SKILL_ROUTE_QUERY,
-} from "./skills.constants"
+} from './skills.constants'
 
 type SkillToggleInput = {
-  action?: "allow" | "deny" | "ask" | "inherit"
+  action?: 'allow' | 'deny' | 'ask' | 'inherit'
   enabled?: boolean
 }
 
@@ -34,7 +34,11 @@ export function createSkillErrorStatus(error: unknown): 400 | 409 | 500 {
 }
 
 export function installLibrarySkillErrorStatus(error: unknown): 400 | 404 | 409 | 500 {
-  return skillErrorStatus(error, SKILL_ERROR_STATUS.installLibrary, HTTP_STATUS.INTERNAL_SERVER_ERROR)
+  return skillErrorStatus(
+    error,
+    SKILL_ERROR_STATUS.installLibrary,
+    HTTP_STATUS.INTERNAL_SERVER_ERROR,
+  )
 }
 
 export function notFoundSkillErrorStatus(error: unknown): 400 | 404 | 500 {
@@ -47,5 +51,8 @@ export function shouldRefreshSkillCatalog(refreshValue: string | undefined): boo
 }
 
 export function resolveSkillAction(input: SkillToggleInput) {
-  return input.action ?? (input.enabled ? SKILL_ROUTE_ACTIONS.whenEnabled : SKILL_ROUTE_ACTIONS.whenDisabled)
+  return (
+    input.action ??
+    (input.enabled ? SKILL_ROUTE_ACTIONS.whenEnabled : SKILL_ROUTE_ACTIONS.whenDisabled)
+  )
 }

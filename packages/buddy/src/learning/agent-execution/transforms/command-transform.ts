@@ -1,5 +1,5 @@
-import { readProjectConfig } from "@buddy/backend/config/runtime"
-import { getBuddyPersona } from "../../personas"
+import { readProjectConfig } from '@buddy/backend/config/runtime'
+import { getBuddyPersona } from '../../personas'
 import {
   assertNoLegacyRuntimeOverrides,
   hasExplicitCommandModel,
@@ -7,15 +7,17 @@ import {
   resolveCurrentSurface,
   resolveFocusGoalIds,
   resolveIntent,
-} from "../../shared/targeting"
-import { resolveCapabilityProfile } from "../../resolve-capability-profile"
-import { readTeachingSessionState, writeTeachingSessionState } from "../state/session-state"
-import { assertSessionExistsInDirectory } from "../../../session"
-import { syncBuddyRuntimeSessionPermissions } from "../permissions/runtime-session-permissions"
-import { restoreTeachingSessionState, writeLastLlmOutbound } from "../state/transform-state"
-import type { SessionTransform, SessionTransformContext } from "./types"
+} from '../../shared/targeting'
+import { resolveCapabilityProfile } from '../../resolve-capability-profile'
+import { readTeachingSessionState, writeTeachingSessionState } from '../state/session-state'
+import { assertSessionExistsInDirectory } from '../../../session'
+import { syncBuddyRuntimeSessionPermissions } from '../permissions/runtime-session-permissions'
+import { restoreTeachingSessionState, writeLastLlmOutbound } from '../state/transform-state'
+import type { SessionTransform, SessionTransformContext } from './types'
 
-export function createSessionCommandTransform(input: { context: SessionTransformContext }): SessionTransform {
+export function createSessionCommandTransform(input: {
+  context: SessionTransformContext
+}): SessionTransform {
   let rollbackTeachingState: (() => void) | undefined
 
   return {
@@ -33,8 +35,11 @@ export function createSessionCommandTransform(input: { context: SessionTransform
           body,
           config: projectConfig,
         })
-        const previousState = readTeachingSessionState(input.context.directory, input.context.sessionID)
-        const workspaceState = previousState?.workspaceState ?? "chat"
+        const previousState = readTeachingSessionState(
+          input.context.directory,
+          input.context.sessionID,
+        )
+        const workspaceState = previousState?.workspaceState ?? 'chat'
         const persona = getBuddyPersona(target.personaID, projectConfig.personas)
         const runtimeProfile = resolveCapabilityProfile({
           persona,
@@ -95,7 +100,7 @@ export function createSessionCommandTransform(input: { context: SessionTransform
       writeLastLlmOutbound({
         directory: input.context.directory,
         sessionID: input.context.sessionID,
-        kind: "command",
+        kind: 'command',
         payload: transformed,
       })
       return transformed

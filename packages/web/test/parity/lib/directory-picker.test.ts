@@ -1,12 +1,16 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test"
-import { hasAbsolutePath, normalizeDirectory, pickProjectDirectory } from "../../../src/lib/directory-picker"
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import {
+  hasAbsolutePath,
+  normalizeDirectory,
+  pickProjectDirectory,
+} from '../../../src/lib/directory-picker'
 
 const originalPrompt = window.prompt
 
 beforeEach(() => {
   window.__TAURI__ = undefined
   window.electronAPI = undefined
-  Object.defineProperty(window, "prompt", {
+  Object.defineProperty(window, 'prompt', {
     configurable: true,
     value: () => null,
   })
@@ -15,59 +19,59 @@ beforeEach(() => {
 afterEach(() => {
   window.__TAURI__ = undefined
   window.electronAPI = undefined
-  Object.defineProperty(window, "prompt", {
+  Object.defineProperty(window, 'prompt', {
     configurable: true,
     value: originalPrompt,
   })
 })
 
-describe("directory picker parity", () => {
-  test("normalizes directory separators", () => {
-    expect(normalizeDirectory("/tmp/demo///")).toBe("/tmp/demo")
-    expect(normalizeDirectory("C:\\tmp\\demo\\")).toBe("C:/tmp/demo")
+describe('directory picker parity', () => {
+  test('normalizes directory separators', () => {
+    expect(normalizeDirectory('/tmp/demo///')).toBe('/tmp/demo')
+    expect(normalizeDirectory('C:\\tmp\\demo\\')).toBe('C:/tmp/demo')
   })
 
-  test("detects absolute paths", () => {
-    expect(hasAbsolutePath("/tmp/demo")).toBe(true)
-    expect(hasAbsolutePath("C:\\tmp\\demo")).toBe(true)
-    expect(hasAbsolutePath("tmp/demo")).toBe(false)
+  test('detects absolute paths', () => {
+    expect(hasAbsolutePath('/tmp/demo')).toBe(true)
+    expect(hasAbsolutePath('C:\\tmp\\demo')).toBe(true)
+    expect(hasAbsolutePath('tmp/demo')).toBe(false)
   })
 
-  test("prefers tauri picker result", async () => {
+  test('prefers tauri picker result', async () => {
     window.__TAURI__ = {
       dialog: {
-        open: async () => "/tmp/worktree/",
+        open: async () => '/tmp/worktree/',
       },
     }
 
-    await expect(pickProjectDirectory()).resolves.toBe("/tmp/worktree")
+    await expect(pickProjectDirectory()).resolves.toBe('/tmp/worktree')
   })
 
-  test("falls back to electron picker when tauri returns null", async () => {
+  test('falls back to electron picker when tauri returns null', async () => {
     window.__TAURI__ = {
       dialog: {
         open: async () => null,
       },
     }
     window.electronAPI = {
-      openDirectoryPickerDialog: async () => ["C:\\repo\\nested\\"],
+      openDirectoryPickerDialog: async () => ['C:\\repo\\nested\\'],
     }
 
-    await expect(pickProjectDirectory()).resolves.toBe("C:/repo/nested")
+    await expect(pickProjectDirectory()).resolves.toBe('C:/repo/nested')
   })
 
-  test("does not prompt when desktop bridge exists but user cancels", async () => {
+  test('does not prompt when desktop bridge exists but user cancels', async () => {
     let promptCalls = 0
     window.__TAURI__ = {
       dialog: {
         open: async () => null,
       },
     }
-    Object.defineProperty(window, "prompt", {
+    Object.defineProperty(window, 'prompt', {
       configurable: true,
       value: () => {
         promptCalls += 1
-        return "/tmp/fallback"
+        return '/tmp/fallback'
       },
     })
 
@@ -75,17 +79,17 @@ describe("directory picker parity", () => {
     expect(promptCalls).toBe(0)
   })
 
-  test("falls back to manual prompt and validates absolute paths", async () => {
-    Object.defineProperty(window, "prompt", {
+  test('falls back to manual prompt and validates absolute paths', async () => {
+    Object.defineProperty(window, 'prompt', {
       configurable: true,
-      value: () => "relative/path",
+      value: () => 'relative/path',
     })
-    await expect(pickProjectDirectory()).rejects.toThrow("Please enter an absolute directory path")
+    await expect(pickProjectDirectory()).rejects.toThrow('Please enter an absolute directory path')
 
-    Object.defineProperty(window, "prompt", {
+    Object.defineProperty(window, 'prompt', {
       configurable: true,
-      value: () => "/tmp/manual///",
+      value: () => '/tmp/manual///',
     })
-    await expect(pickProjectDirectory()).resolves.toBe("/tmp/manual")
+    await expect(pickProjectDirectory()).resolves.toBe('/tmp/manual')
   })
 })

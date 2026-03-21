@@ -1,11 +1,11 @@
-import type { CSSProperties } from "react"
-import { useCallback } from "react"
-import { MarkdownFileEditor } from "@/components/markdown/markdown-file-editor"
+import type { CSSProperties } from 'react'
+import { useCallback } from 'react'
+import { MarkdownFileEditor } from '@/components/markdown/markdown-file-editor'
 import {
   loadNotebookAgentsMd,
   NotebookAgentsMdVersionConflictError,
   saveNotebookAgentsMd,
-} from "@/state/agents-md-actions"
+} from '@/state/agents-md-actions'
 
 type AgentsMdPanelProps = {
   directory: string
@@ -14,7 +14,8 @@ type AgentsMdPanelProps = {
   style?: CSSProperties
 }
 
-const DEFAULT_AGENTS_MD_CONTENT = "# AGENTS.md\n\nAdd notebook-specific instructions for Buddy here.\n"
+const DEFAULT_AGENTS_MD_CONTENT =
+  '# AGENTS.md\n\nAdd notebook-specific instructions for Buddy here.\n'
 
 export function AgentsMdPanel(props: AgentsMdPanelProps) {
   const load = useCallback(() => loadNotebookAgentsMd(props.directory), [props.directory])

@@ -1,9 +1,9 @@
-import { describe, expect, test } from "bun:test"
-import path from "node:path"
-import fs from "node:fs"
-import { mkdirSync } from "node:fs"
-import { app } from "../../src/index.ts"
-import { createGitRepo } from "../helpers/repo"
+import { describe, expect, test } from 'bun:test'
+import path from 'node:path'
+import fs from 'node:fs'
+import { mkdirSync } from 'node:fs'
+import { app } from '../../src/index.ts'
+import { createGitRepo } from '../helpers/repo'
 
 async function json(response: Response) {
   return (await response.json()) as Record<string, unknown>
@@ -13,29 +13,29 @@ function createMarkedGitRepo(prefix: string) {
   return createGitRepo(prefix, { readme: `# ${prefix}-marker\n` })
 }
 
-describe("multi-tenant session routes", () => {
-  test("rejects directories outside allowed roots", async () => {
-    const create = await app.request("/api/session", {
-      method: "POST",
+describe('multi-tenant session routes', () => {
+  test('rejects directories outside allowed roots', async () => {
+    const create = await app.request('/api/session', {
+      method: 'POST',
       headers: {
-        "x-buddy-directory": "/",
+        'x-buddy-directory': '/',
       },
     })
     expect(create.status).toBe(403)
     const body = await json(create)
-    expect(body.error).toBe("Directory is outside allowed roots")
+    expect(body.error).toBe('Directory is outside allowed roots')
   })
 
-  test("scopes session access by project and allows same-project directories", async () => {
-    const repoA = createMarkedGitRepo("buddy-route-project-a")
-    const repoASubdir = path.join(repoA, "nested")
+  test('scopes session access by project and allows same-project directories', async () => {
+    const repoA = createMarkedGitRepo('buddy-route-project-a')
+    const repoASubdir = path.join(repoA, 'nested')
     mkdirSync(repoASubdir, { recursive: true })
-    const repoB = createMarkedGitRepo("buddy-route-project-b")
+    const repoB = createMarkedGitRepo('buddy-route-project-b')
 
-    const createA = await app.request("/api/session", {
-      method: "POST",
+    const createA = await app.request('/api/session', {
+      method: 'POST',
       headers: {
-        "x-buddy-directory": repoA,
+        'x-buddy-directory': repoA,
       },
     })
     expect(createA.status).toBe(200)
@@ -44,111 +44,125 @@ describe("multi-tenant session routes", () => {
 
     const getAFromSubdir = await app.request(`/api/session/${sessionID}`, {
       headers: {
-        "x-buddy-directory": repoASubdir,
+        'x-buddy-directory': repoASubdir,
       },
     })
     expect(getAFromSubdir.status).toBe(200)
 
     const getB = await app.request(`/api/session/${sessionID}`, {
       headers: {
-        "x-buddy-directory": repoB,
+        'x-buddy-directory': repoB,
       },
     })
     expect(getB.status).toBe(404)
   })
 
-  test("uses query directory before directory header", async () => {
-    const queryDirectory = createMarkedGitRepo("buddy-route-query-priority")
-    const headerDirectory = createMarkedGitRepo("buddy-route-header-priority")
+  test('uses query directory before directory header', async () => {
+    const queryDirectory = createMarkedGitRepo('buddy-route-query-priority')
+    const headerDirectory = createMarkedGitRepo('buddy-route-header-priority')
 
-    const create = await app.request(`/api/session?directory=${encodeURIComponent(queryDirectory)}`, {
-      method: "POST",
-      headers: {
-        "x-buddy-directory": headerDirectory,
+    const create = await app.request(
+      `/api/session?directory=${encodeURIComponent(queryDirectory)}`,
+      {
+        method: 'POST',
+        headers: {
+          'x-buddy-directory': headerDirectory,
+        },
       },
-    })
+    )
     expect(create.status).toBe(200)
     const body = await json(create)
     const sessionID = String(body.id)
 
-    const fromQueryDirectory = await app.request(`/api/session/${sessionID}?directory=${encodeURIComponent(queryDirectory)}`)
+    const fromQueryDirectory = await app.request(
+      `/api/session/${sessionID}?directory=${encodeURIComponent(queryDirectory)}`,
+    )
     expect(fromQueryDirectory.status).toBe(200)
 
     const fromHeaderDirectory = await app.request(`/api/session/${sessionID}`, {
       headers: {
-        "x-buddy-directory": headerDirectory,
+        'x-buddy-directory': headerDirectory,
       },
     })
     expect(fromHeaderDirectory.status).toBe(404)
   })
 
-  test("lists sessions project-wide by default and supports directory filtering", async () => {
-    const repo = createMarkedGitRepo("buddy-route-list-project-scope")
+  test('lists sessions project-wide by default and supports directory filtering', async () => {
+    const repo = createMarkedGitRepo('buddy-route-list-project-scope')
     const rootDirectory = repo
-    const nestedDirectory = path.join(repo, "workspace")
+    const nestedDirectory = path.join(repo, 'workspace')
     mkdirSync(nestedDirectory, { recursive: true })
 
-    const repoB = createMarkedGitRepo("buddy-route-list-other-project")
+    const repoB = createMarkedGitRepo('buddy-route-list-other-project')
 
-    const createRoot = await app.request("/api/session", {
-      method: "POST",
+    const createRoot = await app.request('/api/session', {
+      method: 'POST',
       headers: {
-        "x-buddy-directory": rootDirectory,
+        'x-buddy-directory': rootDirectory,
       },
     })
     expect(createRoot.status).toBe(200)
 
-    const createNested = await app.request("/api/session", {
-      method: "POST",
+    const createNested = await app.request('/api/session', {
+      method: 'POST',
       headers: {
-        "x-buddy-directory": nestedDirectory,
+        'x-buddy-directory': nestedDirectory,
       },
     })
     expect(createNested.status).toBe(200)
 
-    const createOtherProject = await app.request("/api/session", {
-      method: "POST",
+    const createOtherProject = await app.request('/api/session', {
+      method: 'POST',
       headers: {
-        "x-buddy-directory": repoB,
+        'x-buddy-directory': repoB,
       },
     })
     expect(createOtherProject.status).toBe(200)
 
-    const projectWide = await app.request("/api/session", {
+    const projectWide = await app.request('/api/session', {
       headers: {
-        "x-buddy-directory": nestedDirectory,
+        'x-buddy-directory': nestedDirectory,
       },
     })
     expect(projectWide.status).toBe(200)
     const projectWideBody = (await projectWide.json()) as Array<{ id: string }>
     expect(projectWideBody).toHaveLength(2)
 
-    const rootOnly = await app.request(`/api/session?directory=${encodeURIComponent(rootDirectory)}`, {
-      headers: {
-        "x-buddy-directory": nestedDirectory,
+    const rootOnly = await app.request(
+      `/api/session?directory=${encodeURIComponent(rootDirectory)}`,
+      {
+        headers: {
+          'x-buddy-directory': nestedDirectory,
+        },
       },
-    })
+    )
     expect(rootOnly.status).toBe(200)
     const rootOnlyBody = (await rootOnly.json()) as Array<{ id: string }>
     expect(rootOnlyBody).toHaveLength(1)
 
-    const nestedOnly = await app.request(`/api/session?directory=${encodeURIComponent(nestedDirectory)}`, {
-      headers: {
-        "x-buddy-directory": rootDirectory,
+    const nestedOnly = await app.request(
+      `/api/session?directory=${encodeURIComponent(nestedDirectory)}`,
+      {
+        headers: {
+          'x-buddy-directory': rootDirectory,
+        },
       },
-    })
+    )
     expect(nestedOnly.status).toBe(200)
     const nestedOnlyBody = (await nestedOnly.json()) as Array<{ id: string }>
     expect(nestedOnlyBody).toHaveLength(1)
   })
 
-  test("allows sibling repository directories under monorepo parent", async () => {
-    const siblingDirectory = path.resolve(process.cwd(), "..")
+  test('allows sibling repository directories under monorepo parent', async () => {
+    const siblingDirectory = path.resolve(process.cwd(), '..')
     expect(fs.existsSync(siblingDirectory)).toBe(true)
 
-    const create = await app.request(`/api/session?directory=${encodeURIComponent(siblingDirectory)}`, {
-      method: "POST",
-    })
+    const create = await app.request(
+      `/api/session?directory=${encodeURIComponent(siblingDirectory)}`,
+      {
+        method: 'POST',
+      },
+    )
     expect(create.status).toBe(200)
   })
 })

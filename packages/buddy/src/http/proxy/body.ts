@@ -1,10 +1,7 @@
-import type { Context } from "hono"
-import { isJsonContentType, parseJsonText } from "../http"
-import {
-  resolveBodyRegistrationFlags,
-  resolveInitialRegistrationFlags,
-} from "./registration"
-import type { ProxyRegistrationFlags, ProxyToOpenCodeInput } from "./types"
+import type { Context } from 'hono'
+import { isJsonContentType, parseJsonText } from '../http'
+import { resolveBodyRegistrationFlags, resolveInitialRegistrationFlags } from './registration'
+import type { ProxyRegistrationFlags, ProxyToOpenCodeInput } from './types'
 
 type PrepareProxyBodyResult =
   | {
@@ -20,7 +17,7 @@ type PrepareProxyBodyResult =
     }
 
 function validateJsonObjectBody(value: unknown): Record<string, unknown> | undefined {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return undefined
   }
   return value as Record<string, unknown>
@@ -29,22 +26,25 @@ function validateJsonObjectBody(value: unknown): Record<string, unknown> | undef
 function invalidJsonObjectResponse(): PrepareProxyBodyResult {
   return {
     ok: false,
-    response: Response.json({ error: "Invalid JSON body" }, { status: 400 }),
+    response: Response.json({ error: 'Invalid JSON body' }, { status: 400 }),
   }
 }
 
 type JsonValidatorRequest = {
-  valid: (target: "json") => unknown
+  valid: (target: 'json') => unknown
 }
 
 function validatedJsonBody(c: Context): unknown {
   const request = c.req as unknown as JsonValidatorRequest
-  return request.valid("json")
+  return request.valid('json')
 }
 
-async function parseRawJsonObject(c: Context): Promise<PrepareProxyBodyResult | Record<string, unknown>> {
+async function parseRawJsonObject(
+  c: Context,
+): Promise<PrepareProxyBodyResult | Record<string, unknown>> {
   const raw = await c.req.raw.text()
-  const parsedResult = raw.trim().length > 0 ? parseJsonText(raw) : { ok: true as const, value: {} as unknown }
+  const parsedResult =
+    raw.trim().length > 0 ? parseJsonText(raw) : { ok: true as const, value: {} as unknown }
   if (!parsedResult.ok) {
     return invalidJsonObjectResponse()
   }
@@ -56,8 +56,10 @@ async function parseRawJsonObject(c: Context): Promise<PrepareProxyBodyResult | 
   return parsed
 }
 
-function isProxyFailureResult(value: PrepareProxyBodyResult | Record<string, unknown>): value is PrepareProxyBodyResult {
-  return "ok" in value && value.ok === false
+function isProxyFailureResult(
+  value: PrepareProxyBodyResult | Record<string, unknown>,
+): value is PrepareProxyBodyResult {
+  return 'ok' in value && value.ok === false
 }
 
 function serializeValidatedJsonBody(c: Context): string | undefined {
@@ -75,9 +77,9 @@ async function prepareProxyBody(
   let body: BodyInit | undefined
   let registrationFlags = resolveInitialRegistrationFlags(input)
 
-  if (method !== "GET" && method !== "HEAD") {
+  if (method !== 'GET' && method !== 'HEAD') {
     if (input.transformJsonBody) {
-      const contentType = headers.get("content-type")
+      const contentType = headers.get('content-type')
       if (isJsonContentType(contentType)) {
         let parsedBody = validateJsonObjectBody(validatedJsonBody(c))
         if (!parsedBody) {
@@ -102,7 +104,9 @@ async function prepareProxyBody(
         }
       }
     } else {
-      const validatedJson = isJsonContentType(headers.get("content-type")) ? serializeValidatedJsonBody(c) : undefined
+      const validatedJson = isJsonContentType(headers.get('content-type'))
+        ? serializeValidatedJsonBody(c)
+        : undefined
       if (validatedJson !== undefined) {
         body = validatedJson
       } else {

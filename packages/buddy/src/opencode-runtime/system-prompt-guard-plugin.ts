@@ -1,9 +1,9 @@
-import fs from "node:fs"
-import path from "node:path"
-import { pathToFileURL } from "node:url"
+import fs from 'node:fs'
+import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 
-const GUARD_PLUGIN_BASENAME = "buddy-system-prompt-guard"
-const GUARD_PLUGIN_DIR = "plugins"
+const GUARD_PLUGIN_BASENAME = 'buddy-system-prompt-guard'
+const GUARD_PLUGIN_DIR = 'plugins'
 
 function resolvePluginPathCandidate(filename: string) {
   return path.resolve(import.meta.dir, GUARD_PLUGIN_DIR, filename)

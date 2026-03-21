@@ -1,9 +1,9 @@
-import { createOpencodeClient } from "@opencode-ai/sdk/v2/client"
+import { createOpencodeClient } from '@opencode-ai/sdk/v2/client'
 import {
   authorizationHeader,
   createServerFetchTransport,
   resolveServerApiBaseUrl,
-} from "./server-client"
+} from './server-client'
 
 export function getOpenCodeClient(directory: string) {
   const auth = authorizationHeader()

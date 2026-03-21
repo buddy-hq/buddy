@@ -1,15 +1,12 @@
-import path from "path"
-import { defineConfig } from "vite"
-import react from "@vitejs/plugin-react"
-import tailwindcss from "@tailwindcss/vite"
+import path from 'path'
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 
 const host = process.env.TAURI_DEV_HOST
 
 export default defineConfig({
-  plugins: [
-    react(),
-    tailwindcss(),
-  ],
+  plugins: [react(), tailwindcss()],
   clearScreen: false,
   esbuild: {
     keepNames: true,
@@ -18,15 +15,15 @@ export default defineConfig({
     alias: [
       {
         find: /^@\/lib\//,
-        replacement: `${path.resolve(__dirname, "../ui/src/lib")}/`,
+        replacement: `${path.resolve(__dirname, '../ui/src/lib')}/`,
       },
       {
         find: /^@\/components\/ui\//,
-        replacement: `${path.resolve(__dirname, "../ui/src/components/ui")}/`,
+        replacement: `${path.resolve(__dirname, '../ui/src/components/ui')}/`,
       },
       {
-        find: "@",
-        replacement: path.resolve(__dirname, "../web/src"),
+        find: '@',
+        replacement: path.resolve(__dirname, '../web/src'),
       },
     ],
   },
@@ -36,13 +33,13 @@ export default defineConfig({
     host: host || false,
     hmr: host
       ? {
-          protocol: "ws",
+          protocol: 'ws',
           host,
           port: 1421,
         }
       : undefined,
     watch: {
-      ignored: ["**/src-tauri/**"],
+      ignored: ['**/src-tauri/**'],
     },
   },
 })

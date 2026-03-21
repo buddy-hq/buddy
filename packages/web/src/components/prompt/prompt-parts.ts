@@ -1,4 +1,4 @@
-import { createTextFragment } from "./editor-dom"
+import { createTextFragment } from './editor-dom'
 import {
   PROMPT_PART_TYPE_AGENT,
   PROMPT_PART_TYPE_TEXT,
@@ -9,14 +9,14 @@ import {
   type PromptTextPart,
   type PromptResourceReferencePart,
   type PromptWorkspaceFileReferencePart,
-} from "./prompt-types"
+} from './prompt-types'
 
 const MENTION_REGEX = /(^|\s)(@(\S+))/g
-const ZERO_WIDTH_SPACE = "\u200B"
-const BLOCK_TAG_NAMES = new Set(["DIV", "P"])
+const ZERO_WIDTH_SPACE = '\u200B'
+const BLOCK_TAG_NAMES = new Set(['DIV', 'P'])
 
 function normalizeTextBuffer(value: string) {
-  return value.replace(new RegExp(ZERO_WIDTH_SPACE, "g"), "")
+  return value.replace(new RegExp(ZERO_WIDTH_SPACE, 'g'), '')
 }
 
 function createTextPart(text: string): PromptTextPart {
@@ -84,14 +84,19 @@ export function extractWorkspaceFileReferenceParts(
   })
 }
 
-export function extractResourceReferenceParts(parts: PromptComposerPart[]): PromptResourceReferencePart[] {
+export function extractResourceReferenceParts(
+  parts: PromptComposerPart[],
+): PromptResourceReferencePart[] {
   return parts.flatMap((part) => {
     if (part.type !== RESOURCE_REFERENCE_PART_TYPE) return []
     return [createResourceReferencePart(part.key)]
   })
 }
 
-export function createPromptPartsFromValue(value: string, knownAgents: Set<string>): PromptComposerPart[] {
+export function createPromptPartsFromValue(
+  value: string,
+  knownAgents: Set<string>,
+): PromptComposerPart[] {
   if (!value) return []
 
   const parts: PromptComposerPart[] = []
@@ -102,9 +107,9 @@ export function createPromptPartsFromValue(value: string, knownAgents: Set<strin
     const match = MENTION_REGEX.exec(value)
     if (!match) break
 
-    const leadingWhitespace = match[1] ?? ""
-    const token = match[2] ?? ""
-    const mentionValue = match[3] ?? ""
+    const leadingWhitespace = match[1] ?? ''
+    const token = match[2] ?? ''
+    const mentionValue = match[3] ?? ''
     const triggerIndex = match.index + leadingWhitespace.length
 
     if (triggerIndex > cursor) {
@@ -135,23 +140,23 @@ export function serializePromptParts(parts: PromptComposerPart[]): string {
       if (part.type === RESOURCE_REFERENCE_PART_TYPE) return `resource:${part.key}`
       return `@${part.path}`
     })
-    .join("")
+    .join('')
 }
 
 export function collectPromptParts(root: HTMLElement): PromptComposerPart[] {
-  let buffer = ""
+  let buffer = ''
   const parts: PromptComposerPart[] = []
 
   const flush = () => {
     const text = normalizeTextBuffer(buffer)
-    buffer = ""
+    buffer = ''
     if (!text) return
     appendTextPart(parts, text)
   }
 
   const visit = (node: Node) => {
     if (node.nodeType === Node.TEXT_NODE) {
-      buffer += node.textContent ?? ""
+      buffer += node.textContent ?? ''
       return
     }
 
@@ -185,26 +190,28 @@ export function collectPromptParts(root: HTMLElement): PromptComposerPart[] {
       return
     }
 
-    if (element.tagName === "BR") {
-      buffer += "\n"
+    if (element.tagName === 'BR') {
+      buffer += '\n'
       return
     }
 
     const children = Array.from(element.childNodes)
     children.forEach((child, index) => {
       visit(child)
-      const isBlock = child.nodeType === Node.ELEMENT_NODE && BLOCK_TAG_NAMES.has((child as HTMLElement).tagName)
+      const isBlock =
+        child.nodeType === Node.ELEMENT_NODE && BLOCK_TAG_NAMES.has((child as HTMLElement).tagName)
       if (isBlock && index < children.length - 1) {
-        buffer += "\n"
+        buffer += '\n'
       }
     })
   }
 
   Array.from(root.childNodes).forEach((child, index, siblings) => {
     visit(child)
-    const isBlock = child.nodeType === Node.ELEMENT_NODE && BLOCK_TAG_NAMES.has((child as HTMLElement).tagName)
+    const isBlock =
+      child.nodeType === Node.ELEMENT_NODE && BLOCK_TAG_NAMES.has((child as HTMLElement).tagName)
     if (isBlock && index < siblings.length - 1) {
-      buffer += "\n"
+      buffer += '\n'
     }
   })
 
@@ -223,10 +230,10 @@ export function renderPromptParts(root: HTMLElement, parts: PromptComposerPart[]
       continue
     }
 
-    const pill = document.createElement("span")
+    const pill = document.createElement('span')
     pill.className =
-      "mx-0.5 inline-flex max-w-full items-center rounded-md border border-border/70 bg-muted px-1.5 py-0.5 text-xs font-medium text-foreground"
-    pill.setAttribute("contenteditable", "false")
+      'mx-0.5 inline-flex max-w-full items-center rounded-md border border-border/70 bg-muted px-1.5 py-0.5 text-xs font-medium text-foreground'
+    pill.setAttribute('contenteditable', 'false')
     pill.dataset.type = part.type
 
     if (part.type === PROMPT_PART_TYPE_AGENT) {
@@ -247,7 +254,7 @@ export function renderPromptParts(root: HTMLElement, parts: PromptComposerPart[]
   const lastNode = root.lastChild
   const needsCursorAnchor =
     (lastPart !== undefined && lastPart.type !== PROMPT_PART_TYPE_TEXT) ||
-    (lastNode?.nodeType === Node.ELEMENT_NODE && (lastNode as HTMLElement).tagName === "BR")
+    (lastNode?.nodeType === Node.ELEMENT_NODE && (lastNode as HTMLElement).tagName === 'BR')
   if (needsCursorAnchor) {
     root.appendChild(document.createTextNode(ZERO_WIDTH_SPACE))
   }

@@ -1,7 +1,7 @@
-import { clearConfigOverlay, setConfigOverlay } from "@buddy/opencode-adapter/config"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { Config } from "@buddy/backend/config"
-import { buildOpenCodeConfigOverlay } from "../../src/index"
+import { clearConfigOverlay, setConfigOverlay } from '@buddy/opencode-adapter/config'
+import { Instance as OpenCodeInstance } from '@buddy/opencode-adapter/instance'
+import { Config } from '@buddy/backend/config'
+import { buildOpenCodeConfigOverlay } from '../../src/index'
 
 async function disposeInstance(directory: string) {
   await OpenCodeInstance.provide({

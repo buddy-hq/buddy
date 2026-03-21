@@ -1,7 +1,11 @@
-import { PedagogyToolParameters, type PedagogyToolContext, type PedagogyToolParams } from "../orchestration/contracts"
-import { createBuddyTool } from "../../../../tools"
+import {
+  PedagogyToolParameters,
+  type PedagogyToolContext,
+  type PedagogyToolParams,
+} from '../orchestration/contracts'
+import { createBuddyTool } from '../../../../tools'
 
-const compactLine = (value: string) => value.trim().replace(/\s+/g, " ")
+const compactLine = (value: string) => value.trim().replace(/\s+/g, ' ')
 
 const summarizeLearnerContext = (context: PedagogyToolContext) => {
   const lines = context.learnerSummaryLines
@@ -13,24 +17,24 @@ const summarizeLearnerContext = (context: PedagogyToolContext) => {
 
 const formatPedagogyOutput = (input: {
   id: string
-  intent: PedagogyToolContext["intent"]
+  intent: PedagogyToolContext['intent']
   goalLabel: string
   learnerContext: string[]
   sections: Array<[string, string[]]>
 }) => {
   const learnerContextBlock =
     input.learnerContext.length > 0
-      ? `Learner context:\n${input.learnerContext.map((line) => `- ${line}`).join("\n")}`
-      : ""
+      ? `Learner context:\n${input.learnerContext.map((line) => `- ${line}`).join('\n')}`
+      : ''
 
   const sectionBlocks = input.sections
     .map(([label, values]) => {
       const items = values.map((value) => compactLine(value)).filter(Boolean)
-      if (items.length === 0) return ""
-      return `${label}:\n${items.map((item) => `- ${item}`).join("\n")}`
+      if (items.length === 0) return ''
+      return `${label}:\n${items.map((item) => `- ${item}`).join('\n')}`
     })
     .filter(Boolean)
-    .join("\n")
+    .join('\n')
 
   return [
     `<pedagogy_tool_output name="${input.id}">`,
@@ -38,53 +42,57 @@ const formatPedagogyOutput = (input: {
     `Target: ${input.goalLabel}`,
     learnerContextBlock,
     sectionBlocks,
-    "</pedagogy_tool_output>",
+    '</pedagogy_tool_output>',
   ]
     .filter(Boolean)
-    .join("\n")
+    .join('\n')
 }
 
 const buildOutput = (params: PedagogyToolParams, context: PedagogyToolContext) => {
-    const goal = context.goals[0]
-    const target = goal?.statement ?? params.topic ?? context.workspaceLabel
+  const goal = context.goals[0]
+  const target = goal?.statement ?? params.topic ?? context.workspaceLabel
 
-    return formatPedagogyOutput({
-      id: "pedagogy_stepwise_solve",
-      intent: context.intent,
-      goalLabel: target,
-      learnerContext: summarizeLearnerContext(context),
-      sections: [
-        ["Solve plan", [
+  return formatPedagogyOutput({
+    id: 'pedagogy_stepwise_solve',
+    intent: context.intent,
+    goalLabel: target,
+    learnerContext: summarizeLearnerContext(context),
+    sections: [
+      [
+        'Solve plan',
+        [
           `Restate the target quantity or proof goal for ${target}.`,
-          "Ask for the next justified step, not the whole solve.",
-          "Use a figure only if it materially reduces ambiguity.",
-        ]],
-        ["Suggested next turn", [
-          `Coach a stepwise solve for ${target} without taking over the full solution.`,
-        ]],
+          'Ask for the next justified step, not the whole solve.',
+          'Use a figure only if it materially reduces ambiguity.',
+        ],
       ],
-    })
+      [
+        'Suggested next turn',
+        [`Coach a stepwise solve for ${target} without taking over the full solution.`],
+      ],
+    ],
+  })
 }
 
-export const pedagogyStepwiseSolveTool = createBuddyTool("pedagogy_stepwise_solve", {
-  description: "Generate a stepwise mathematical solve plan for the active goal.",
+export const pedagogyStepwiseSolveTool = createBuddyTool('pedagogy_stepwise_solve', {
+  description: 'Generate a stepwise mathematical solve plan for the active goal.',
   parameters: PedagogyToolParameters,
   async execute(params, ctx) {
     await ctx.ask({
-      permission: "pedagogy_stepwise_solve",
-      patterns: ["*"],
-      always: ["*"],
+      permission: 'pedagogy_stepwise_solve',
+      patterns: ['*'],
+      always: ['*'],
       metadata: {
         goals: params.goalIds?.length ?? 0,
       },
     })
 
-    const { resolvePedagogyToolContext } = await import("../orchestration/context")
+    const { resolvePedagogyToolContext } = await import('../orchestration/context')
     const context = await resolvePedagogyToolContext(ctx, params)
     const output = buildOutput(params, context)
 
     return {
-      title: "pedagogy_stepwise_solve",
+      title: 'pedagogy_stepwise_solve',
       output,
       metadata: {
         intent: context.intent,

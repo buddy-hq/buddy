@@ -1,26 +1,23 @@
-import { useMemo, useState } from "react";
-import { Badge, Button, Separator } from "@buddy/ui";
-import { ConnectProviderDialog } from "@/components/connect-provider-dialog";
-import { useProjectSettings } from "@/state/project-settings";
-import { ProviderSourceBadge, SettingsListCard } from "./settings-primitives";
-import { SettingsPanelContent } from "./settings-page";
+import { useMemo, useState } from 'react'
+import { Badge, Button, Separator } from '@buddy/ui'
+import { ConnectProviderDialog } from '@/components/connect-provider-dialog'
+import { useProjectSettings } from '@/state/project-settings'
+import { ProviderSourceBadge, SettingsListCard } from './settings-primitives'
+import { SettingsPanelContent } from './settings-page'
 
 export function ProvidersSettings({ directory }: { directory: string }) {
-  const settings = useProjectSettings(directory, true);
-  const [providerDialogOpen, setProviderDialogOpen] = useState(false);
-  const [providerDialogTarget, setProviderDialogTarget] = useState<
-    string | undefined
-  >(undefined);
+  const settings = useProjectSettings(directory, true)
+  const [providerDialogOpen, setProviderDialogOpen] = useState(false)
+  const [providerDialogTarget, setProviderDialogTarget] = useState<string | undefined>(undefined)
 
   const availableProviders = useMemo(
-    () =>
-      settings.options.allProviders.filter((provider) => !provider.connected),
+    () => settings.options.allProviders.filter((provider) => !provider.connected),
     [settings.options.allProviders],
-  );
+  )
 
   function openProviderDialog(initialProvider?: string) {
-    setProviderDialogTarget(initialProvider);
-    setProviderDialogOpen(true);
+    setProviderDialogTarget(initialProvider)
+    setProviderDialogOpen(true)
   }
 
   return (
@@ -35,36 +32,30 @@ export function ProvidersSettings({ directory }: { directory: string }) {
             onClick={() => void settings.actions.save()}
             disabled={settings.status.loading || settings.status.saving}
           >
-            {settings.status.saving ? "Saving..." : "Save changes"}
+            {settings.status.saving ? 'Saving...' : 'Save changes'}
           </Button>
         </div>
 
         <div className="space-y-2">
-          <h3 className="text-sm font-medium text-foreground">
-            Connected providers
-          </h3>
+          <h3 className="text-sm font-medium text-foreground">Connected providers</h3>
           <SettingsListCard>
             {settings.options.providers.length > 0 ? (
               settings.options.providers.map((provider, index) => {
-                const selected = provider.id === settings.selection.provider;
+                const selected = provider.id === settings.selection.provider
                 return (
                   <div key={provider.id}>
                     <div className="px-4 py-4">
                       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
-                            <p className="text-sm font-medium text-foreground">
-                              {provider.name}
-                            </p>
+                            <p className="text-sm font-medium text-foreground">{provider.name}</p>
                             <ProviderSourceBadge provider={provider} />
-                            {selected ? (
-                              <Badge variant="secondary">Selected</Badge>
-                            ) : null}
+                            {selected ? <Badge variant="secondary">Selected</Badge> : null}
                           </div>
                           <p className="mt-1 text-xs text-muted-foreground">
-                            {provider.source === "env"
-                              ? "Connected from environment variables."
-                              : "Connected and available for this notebook."}
+                            {provider.source === 'env'
+                              ? 'Connected from environment variables.'
+                              : 'Connected and available for this notebook.'}
                           </p>
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
@@ -73,9 +64,7 @@ export function ProvidersSettings({ directory }: { directory: string }) {
                               type="button"
                               size="xs"
                               variant="outline"
-                              onClick={() =>
-                                settings.actions.setProvider(provider.id)
-                              }
+                              onClick={() => settings.actions.setProvider(provider.id)}
                             >
                               Set as default
                             </Button>
@@ -91,11 +80,9 @@ export function ProvidersSettings({ directory }: { directory: string }) {
                         </div>
                       </div>
                     </div>
-                    {index === settings.options.providers.length - 1 ? null : (
-                      <Separator />
-                    )}
+                    {index === settings.options.providers.length - 1 ? null : <Separator />}
                   </div>
-                );
+                )
               })
             ) : (
               <div className="px-4 py-8 text-sm text-muted-foreground">
@@ -107,15 +94,11 @@ export function ProvidersSettings({ directory }: { directory: string }) {
 
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-3">
-            <h3 className="text-sm font-medium text-foreground">
-              Available providers
-            </h3>
+            <h3 className="text-sm font-medium text-foreground">Available providers</h3>
             <Button
               type="button"
               size="xs"
-              onClick={() =>
-                openProviderDialog(settings.selection.provider || undefined)
-              }
+              onClick={() => openProviderDialog(settings.selection.provider || undefined)}
             >
               Connect provider
             </Button>
@@ -128,17 +111,13 @@ export function ProvidersSettings({ directory }: { directory: string }) {
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-sm font-medium text-foreground">
-                            {provider.name}
-                          </p>
+                          <p className="text-sm font-medium text-foreground">{provider.name}</p>
                           <ProviderSourceBadge provider={provider} />
                         </div>
                         <p className="mt-1 text-xs text-muted-foreground">
                           {provider.methods.length > 0
-                            ? provider.methods
-                                .map((method) => method.label)
-                                .join(" or ")
-                            : "Connection available"}
+                            ? provider.methods.map((method) => method.label).join(' or ')
+                            : 'Connection available'}
                         </p>
                       </div>
                       <Button
@@ -151,9 +130,7 @@ export function ProvidersSettings({ directory }: { directory: string }) {
                       </Button>
                     </div>
                   </div>
-                  {index === availableProviders.length - 1 ? null : (
-                    <Separator />
-                  )}
+                  {index === availableProviders.length - 1 ? null : <Separator />}
                 </div>
               ))
             ) : (
@@ -173,5 +150,5 @@ export function ProvidersSettings({ directory }: { directory: string }) {
         onUpdated={settings.actions.refresh}
       />
     </>
-  );
+  )
 }

@@ -1,18 +1,18 @@
-import fs from "node:fs/promises"
-import path from "node:path"
-import { Project as OpenCodeProject } from "@buddy/opencode-adapter/project"
-import { Global } from "../storage/global"
-import { allowedDirectoryRoots, isAllowedDirectory, resolveDirectory } from "./directory"
-import { projectUpdateErrorMessage } from "./orchestration/project-operations"
+import fs from 'node:fs/promises'
+import path from 'node:path'
+import { Project as OpenCodeProject } from '@buddy/opencode-adapter/project'
+import { Global } from '../storage/global'
+import { allowedDirectoryRoots, isAllowedDirectory, resolveDirectory } from './directory'
+import { projectUpdateErrorMessage } from './orchestration/project-operations'
 
-const OPEN_PROJECTS_FILENAME = "desktop-notebooks.json"
+const OPEN_PROJECTS_FILENAME = 'desktop-notebooks.json'
 
 class OpenProjectRegistryError extends Error {
   status: 400 | 403
 
   constructor(status: 400 | 403, message: string) {
     super(message)
-    this.name = "OpenProjectRegistryError"
+    this.name = 'OpenProjectRegistryError'
     this.status = status
   }
 }
@@ -28,7 +28,7 @@ function normalizeRegistryDirectory(raw: string) {
   if (!trimmed) return undefined
 
   const directory = resolveDirectory(trimmed)
-  if (!directory || directory === "/") return undefined
+  if (!directory || directory === '/') return undefined
   return directory
 }
 
@@ -39,7 +39,7 @@ function normalizeRegistryDirectories(entries: unknown) {
   const directories: string[] = []
 
   for (const entry of entries) {
-    if (typeof entry !== "string") continue
+    if (typeof entry !== 'string') continue
     const normalized = normalizeRegistryDirectory(entry)
     if (!normalized || unique.has(normalized)) continue
     unique.add(normalized)
@@ -51,10 +51,10 @@ function normalizeRegistryDirectories(entries: unknown) {
 
 async function readRegistryFile() {
   try {
-    const raw = await fs.readFile(registryPath(), "utf8")
+    const raw = await fs.readFile(registryPath(), 'utf8')
     return normalizeRegistryDirectories(JSON.parse(raw))
   } catch (error) {
-    if ((error as NodeJS.ErrnoException | undefined)?.code === "ENOENT") {
+    if ((error as NodeJS.ErrnoException | undefined)?.code === 'ENOENT') {
       return []
     }
     return []
@@ -68,7 +68,7 @@ async function writeRegistryFile(directories: string[]) {
   const tempPath = `${targetPath}.${process.pid}.${Date.now()}.tmp`
   const payload = `${JSON.stringify(directories, null, 2)}\n`
 
-  await fs.writeFile(tempPath, payload, "utf8")
+  await fs.writeFile(tempPath, payload, 'utf8')
   await fs.rename(tempPath, targetPath)
 }
 
@@ -91,7 +91,7 @@ async function updateRegistry(mutator: (current: string[]) => Promise<string[]> 
 function requireRegistryDirectory(rawDirectory: string) {
   const directory = normalizeRegistryDirectory(rawDirectory)
   if (!directory) {
-    throw new OpenProjectRegistryError(400, "Directory is required")
+    throw new OpenProjectRegistryError(400, 'Directory is required')
   }
   return directory
 }
@@ -116,7 +116,7 @@ export async function listOpenProjects() {
 export async function openProjectRegistryEntry(rawDirectory: string) {
   const directory = requireRegistryDirectory(rawDirectory)
   if (!isAllowedDirectory(directory, allowedDirectoryRoots())) {
-    throw new OpenProjectRegistryError(403, "Directory is outside allowed roots")
+    throw new OpenProjectRegistryError(403, 'Directory is outside allowed roots')
   }
 
   try {
@@ -125,7 +125,9 @@ export async function openProjectRegistryEntry(rawDirectory: string) {
     throw new OpenProjectRegistryError(400, projectUpdateErrorMessage(error))
   }
 
-  await updateRegistry((current) => (current.includes(directory) ? current : [directory, ...current]))
+  await updateRegistry((current) =>
+    current.includes(directory) ? current : [directory, ...current],
+  )
   return directory
 }
 
@@ -140,7 +142,10 @@ export async function reorderOpenProjectRegistryEntries(rawDirectories: string[]
   const directories = normalizeRegistryDirectories(rawDirectories)
   return updateRegistry((current) => {
     if (!sameDirectorySet(current, directories)) {
-      throw new OpenProjectRegistryError(400, "Directory order must match the current open-project set")
+      throw new OpenProjectRegistryError(
+        400,
+        'Directory order must match the current open-project set',
+      )
     }
     return directories
   })

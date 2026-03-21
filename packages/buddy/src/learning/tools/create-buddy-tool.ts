@@ -1,24 +1,29 @@
-import type z from "zod"
-import { Tool } from "@buddy/opencode-adapter/tool"
+import type z from 'zod'
+import { Tool } from '@buddy/opencode-adapter/tool'
 
 type BuddyToolMetadata = Record<string, unknown>
-type BuddyToolContext<Metadata extends BuddyToolMetadata = BuddyToolMetadata> = Tool.Context<Metadata> & {
-  directory: string
-}
+type BuddyToolContext<Metadata extends BuddyToolMetadata = BuddyToolMetadata> =
+  Tool.Context<Metadata> & {
+    directory: string
+  }
 
 type BuddyToolInitResult<Parameters extends z.ZodType, Metadata extends BuddyToolMetadata> = Omit<
-  Awaited<ReturnType<Tool.Info<Parameters, Metadata>["init"]>>,
-  "execute"
+  Awaited<ReturnType<Tool.Info<Parameters, Metadata>['init']>>,
+  'execute'
 > & {
   execute(
     args: z.infer<Parameters>,
     ctx: BuddyToolContext<Metadata>,
-  ): ReturnType<Awaited<ReturnType<Tool.Info<Parameters, Metadata>["init"]>>["execute"]>
+  ): ReturnType<Awaited<ReturnType<Tool.Info<Parameters, Metadata>['init']>>['execute']>
 }
 
 type BuddyToolInit<Parameters extends z.ZodType, Metadata extends BuddyToolMetadata> =
   | BuddyToolInitResult<Parameters, Metadata>
-  | ((ctx?: Tool.InitContext) => Promise<BuddyToolInitResult<Parameters, Metadata>> | BuddyToolInitResult<Parameters, Metadata>)
+  | ((
+      ctx?: Tool.InitContext,
+    ) =>
+      | Promise<BuddyToolInitResult<Parameters, Metadata>>
+      | BuddyToolInitResult<Parameters, Metadata>)
 
 type BuddyTool<
   Id extends string = string,
@@ -30,7 +35,7 @@ type BuddyTool<
 }
 
 function createAbortError() {
-  return new DOMException("Aborted", "AbortError")
+  return new DOMException('Aborted', 'AbortError')
 }
 
 async function executeUntilAbort<T>(abort: AbortSignal, execute: () => Promise<T>) {
@@ -39,7 +44,7 @@ async function executeUntilAbort<T>(abort: AbortSignal, execute: () => Promise<T
   let onAbort: (() => void) | undefined
   const aborted = new Promise<never>((_, reject) => {
     onAbort = () => reject(createAbortError())
-    abort.addEventListener("abort", onAbort, { once: true })
+    abort.addEventListener('abort', onAbort, { once: true })
   })
 
   try {
@@ -48,20 +53,21 @@ async function executeUntilAbort<T>(abort: AbortSignal, execute: () => Promise<T
     return result
   } finally {
     if (onAbort) {
-      abort.removeEventListener("abort", onAbort)
+      abort.removeEventListener('abort', onAbort)
     }
   }
 }
 
-function createBuddyTool<const Id extends string, Parameters extends z.ZodType, Metadata extends BuddyToolMetadata>(
-  id: Id,
-  init: BuddyToolInit<Parameters, Metadata>,
-): BuddyTool<Id, Parameters, Metadata> {
+function createBuddyTool<
+  const Id extends string,
+  Parameters extends z.ZodType,
+  Metadata extends BuddyToolMetadata,
+>(id: Id, init: BuddyToolInit<Parameters, Metadata>): BuddyTool<Id, Parameters, Metadata> {
   return {
     id,
     toTool(directory: string) {
       return Tool.define<Parameters, Metadata>(id, async (initCtx) => {
-        const definition = typeof init === "function" ? await init(initCtx) : init
+        const definition = typeof init === 'function' ? await init(initCtx) : init
 
         return {
           ...definition,
@@ -80,12 +86,6 @@ function createBuddyTool<const Id extends string, Parameters extends z.ZodType, 
   }
 }
 
-export {
-  createBuddyTool,
-}
+export { createBuddyTool }
 
-export type {
-  BuddyTool,
-  BuddyToolContext,
-  BuddyToolInit,
-}
+export type { BuddyTool, BuddyToolContext, BuddyToolInit }

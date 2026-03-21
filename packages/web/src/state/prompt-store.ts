@@ -1,12 +1,20 @@
-import { create } from "zustand"
-import { persist } from "zustand/middleware"
-import { createPromptPartsFromValue, clonePromptParts, serializePromptParts } from "@/components/prompt/prompt-parts"
-import { clonePromptHistoryEntry, prependHistoryEntry, type PromptHistoryEntry } from "@/components/prompt/prompt-history"
-import type { PromptComposerAttachment, PromptComposerPart } from "@/components/prompt/prompt-types"
-import { createPlatformJsonStorage } from "../context/platform"
+import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
+import {
+  createPromptPartsFromValue,
+  clonePromptParts,
+  serializePromptParts,
+} from '@/components/prompt/prompt-parts'
+import {
+  clonePromptHistoryEntry,
+  prependHistoryEntry,
+  type PromptHistoryEntry,
+} from '@/components/prompt/prompt-history'
+import type { PromptComposerAttachment, PromptComposerPart } from '@/components/prompt/prompt-types'
+import { createPlatformJsonStorage } from '../context/platform'
 
-export const PROMPT_STORE_STORAGE_KEY = "buddy.prompt.v1"
-export const WORKSPACE_PROMPT_SCOPE = "__workspace__"
+export const PROMPT_STORE_STORAGE_KEY = 'buddy.prompt.v1'
+export const WORKSPACE_PROMPT_SCOPE = '__workspace__'
 export const MAX_PROMPT_DRAFTS = 20
 
 export type PromptDraftState = {
@@ -26,7 +34,7 @@ type PromptStore = {
   draftsByKey: Record<string, PromptDraftState>
   historyByDirectory: Record<string, PromptHistoryEntry[]>
   historyNavigationByKey: Record<string, PromptHistoryNavigationState>
-  replaceDraft: (key: string, draft: Omit<PromptDraftState, "updatedAt">) => void
+  replaceDraft: (key: string, draft: Omit<PromptDraftState, 'updatedAt'>) => void
   setAttachments: (key: string, attachments: PromptComposerAttachment[]) => void
   setCursor: (key: string, cursor: number) => void
   clearDraft: (key: string) => void
@@ -43,7 +51,7 @@ const EMPTY_HISTORY_NAVIGATION: PromptHistoryNavigationState = {
   savedDraft: null,
 }
 const EMPTY_PROMPT_DRAFT: PromptDraftState = {
-  value: "",
+  value: '',
   parts: [],
   attachments: [],
   cursor: 0,
@@ -75,7 +83,10 @@ function isDraftEmpty(draft: PromptDraftState) {
   return !draft.value.trim() && draft.attachments.length === 0 && draft.parts.length === 0
 }
 
-function normalizePromptDraft(draft: Omit<PromptDraftState, "updatedAt">, updatedAt = Date.now()): PromptDraftState {
+function normalizePromptDraft(
+  draft: Omit<PromptDraftState, 'updatedAt'>,
+  updatedAt = Date.now(),
+): PromptDraftState {
   const parts = clonePromptParts(draft.parts)
   const attachments = cloneAttachments(draft.attachments)
   const value = parts.length > 0 ? serializePromptParts(parts) : draft.value
@@ -106,7 +117,7 @@ export function getPromptScopeKey(directory: string, sessionID?: string) {
   return `${directory}::${sessionID ?? WORKSPACE_PROMPT_SCOPE}`
 }
 
-export function createTextPromptDraft(value: string): Omit<PromptDraftState, "updatedAt"> {
+export function createTextPromptDraft(value: string): Omit<PromptDraftState, 'updatedAt'> {
   return {
     value,
     parts: createPromptPartsFromValue(value, new Set()),
@@ -115,19 +126,22 @@ export function createTextPromptDraft(value: string): Omit<PromptDraftState, "up
   }
 }
 
-export function getPromptDraft(state: Pick<PromptStore, "draftsByKey">, key: string): PromptDraftState {
+export function getPromptDraft(
+  state: Pick<PromptStore, 'draftsByKey'>,
+  key: string,
+): PromptDraftState {
   return state.draftsByKey[key] ?? EMPTY_PROMPT_DRAFT
 }
 
 export function getPromptHistoryEntries(
-  state: Pick<PromptStore, "historyByDirectory">,
+  state: Pick<PromptStore, 'historyByDirectory'>,
   directory: string,
 ): PromptHistoryEntry[] {
   return state.historyByDirectory[directory] ?? EMPTY_HISTORY_ENTRIES
 }
 
 export function getPromptHistoryNavigation(
-  state: Pick<PromptStore, "historyNavigationByKey">,
+  state: Pick<PromptStore, 'historyNavigationByKey'>,
   key: string,
 ): PromptHistoryNavigationState {
   return state.historyNavigationByKey[key] ?? EMPTY_HISTORY_NAVIGATION
@@ -228,7 +242,7 @@ export const usePromptStore = create<PromptStore>()(
     {
       name: PROMPT_STORE_STORAGE_KEY,
       version: 1,
-      storage: createPlatformJsonStorage("buddy.prompt.dat"),
+      storage: createPlatformJsonStorage('buddy.prompt.dat'),
       partialize(state) {
         return {
           draftsByKey: state.draftsByKey,

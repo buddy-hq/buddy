@@ -1,5 +1,5 @@
-import { sqliteTable, text } from "drizzle-orm/sqlite-core"
-import { Timestamps } from "../../../../storage/schema.sql"
+import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { Timestamps } from '../../../../storage/schema.sql'
 
 /**
  * Buddy-specific curriculum storage.
@@ -11,7 +11,7 @@ import { Timestamps } from "../../../../storage/schema.sql"
  *
  * See SCHEMA.md in the package root for the dual-database architecture.
  */
-export const CurriculumTable = sqliteTable("curriculum", {
+export const CurriculumTable = sqliteTable('curriculum', {
   project_id: text().primaryKey(),
   markdown: text().notNull(),
   ...Timestamps,

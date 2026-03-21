@@ -1,18 +1,18 @@
-import fs from "node:fs/promises"
-import { TeachingPath } from "../paths/path"
+import fs from 'node:fs/promises'
+import { TeachingPath } from '../paths/path'
 import type {
   TeachingLanguage,
   TeachingWorkspaceCreateFileRequest,
   TeachingWorkspaceRecord,
   TeachingWorkspaceResponse,
   TeachingWorkspaceUpdateRequest,
-} from "../model/types"
+} from '../model/types'
 import {
   TeachingRevisionConflictError,
   TeachingWorkspaceFileError,
   TeachingWorkspaceNotFoundError,
-} from "./errors"
-import { readActiveDiagnostics } from "./diagnostics"
+} from './errors'
+import { readActiveDiagnostics } from './diagnostics'
 import {
   buildDefaultRelativePath,
   ensureParentDirectory,
@@ -28,9 +28,12 @@ import {
   syncRecord,
   toWorkspaceResponse,
   writeRecord,
-} from "./workspace"
+} from './workspace'
 
-async function buildResponse(directory: string, record: TeachingWorkspaceRecord): Promise<TeachingWorkspaceResponse> {
+async function buildResponse(
+  directory: string,
+  record: TeachingWorkspaceRecord,
+): Promise<TeachingWorkspaceResponse> {
   const synced = await syncRecord(directory, record)
   const lsp = await readActiveDiagnostics(directory, synced.record)
 
@@ -51,7 +54,7 @@ async function requireRecord(directory: string, sessionID: string) {
   return record
 }
 
-async function ensure(directory: string, sessionID: string, language: TeachingLanguage = "ts") {
+async function ensure(directory: string, sessionID: string, language: TeachingLanguage = 'ts') {
   const existing = await loadRecord(directory, sessionID)
   if (existing) {
     return buildResponse(directory, existing)
@@ -88,8 +91,8 @@ async function ensure(directory: string, sessionID: string, language: TeachingLa
     fs.mkdir(TeachingPath.checkpointsRoot(directory, sessionID), { recursive: true }),
   ])
   await Promise.all([
-    fs.writeFile(lessonFilePath, code, "utf8"),
-    fs.writeFile(checkpointFilePath, code, "utf8"),
+    fs.writeFile(lessonFilePath, code, 'utf8'),
+    fs.writeFile(checkpointFilePath, code, 'utf8'),
     writeRecord(directory, record),
   ])
 
@@ -101,11 +104,7 @@ async function read(directory: string, sessionID: string) {
   return buildResponse(directory, record)
 }
 
-async function save(
-  directory: string,
-  sessionID: string,
-  input: TeachingWorkspaceUpdateRequest,
-) {
+async function save(directory: string, sessionID: string, input: TeachingWorkspaceUpdateRequest) {
   const existing = await requireRecord(directory, sessionID)
   const synced = await syncRecord(directory, existing)
 
@@ -119,7 +118,7 @@ async function save(
 
   const currentFile = findTrackedFile(synced.record, input.relativePath)
   if (!currentFile) {
-    throw new TeachingWorkspaceFileError("Tracked teaching file not found")
+    throw new TeachingWorkspaceFileError('Tracked teaching file not found')
   }
 
   const currentResolved = resolveFile(directory, sessionID, currentFile)
@@ -135,14 +134,21 @@ async function save(
   }
 
   const nextLessonFilePath = TeachingPath.workspaceFile(directory, sessionID, nextRelativePath)
-  const nextCheckpointFilePath = TeachingPath.checkpointSnapshotFile(directory, sessionID, nextRelativePath)
+  const nextCheckpointFilePath = TeachingPath.checkpointSnapshotFile(
+    directory,
+    sessionID,
+    nextRelativePath,
+  )
   const checkpointCode = await readFileOrDefault(currentResolved.checkpointFilePath, initialCode())
   const nextFileHash = hashContent(input.code)
 
-  await Promise.all([ensureParentDirectory(nextLessonFilePath), ensureParentDirectory(nextCheckpointFilePath)])
-  await fs.writeFile(nextLessonFilePath, input.code, "utf8")
+  await Promise.all([
+    ensureParentDirectory(nextLessonFilePath),
+    ensureParentDirectory(nextCheckpointFilePath),
+  ])
+  await fs.writeFile(nextLessonFilePath, input.code, 'utf8')
   if (nextCheckpointFilePath !== currentResolved.checkpointFilePath) {
-    await fs.writeFile(nextCheckpointFilePath, checkpointCode, "utf8")
+    await fs.writeFile(nextCheckpointFilePath, checkpointCode, 'utf8')
     await fs.rm(currentResolved.checkpointFilePath, { force: true })
   }
   if (nextLessonFilePath !== currentResolved.filePath) {
@@ -172,14 +178,18 @@ async function checkpoint(directory: string, sessionID: string) {
   await Promise.all(
     synced.record.files!.map(async (file) => {
       const lessonFilePath = TeachingPath.workspaceFile(directory, sessionID, file.relativePath)
-      const checkpointFilePath = TeachingPath.checkpointSnapshotFile(directory, sessionID, file.relativePath)
+      const checkpointFilePath = TeachingPath.checkpointSnapshotFile(
+        directory,
+        sessionID,
+        file.relativePath,
+      )
       const lessonCode = await readFileOrDefault(lessonFilePath, initialCode())
       const checkpointCode = await readFileOrDefault(checkpointFilePath, initialCode())
       if (lessonCode !== checkpointCode) {
         changedSinceLastCheckpoint = true
       }
       await ensureParentDirectory(checkpointFilePath)
-      await fs.writeFile(checkpointFilePath, lessonCode, "utf8")
+      await fs.writeFile(checkpointFilePath, lessonCode, 'utf8')
     }),
   )
 
@@ -197,7 +207,10 @@ async function status(directory: string, sessionID: string) {
 
   const changes = await Promise.all(
     synced.record.files!.map(async (file) => {
-      const lessonCode = await readFileOrDefault(TeachingPath.workspaceFile(directory, sessionID, file.relativePath), initialCode())
+      const lessonCode = await readFileOrDefault(
+        TeachingPath.workspaceFile(directory, sessionID, file.relativePath),
+        initialCode(),
+      )
       const checkpointCode = await readFileOrDefault(
         TeachingPath.checkpointSnapshotFile(directory, sessionID, file.relativePath),
         initialCode(),
@@ -211,7 +224,9 @@ async function status(directory: string, sessionID: string) {
     lessonFilePath: synced.record.lessonFilePath,
     checkpointFilePath: synced.record.checkpointFilePath,
     changedSinceLastCheckpoint: changes.some(Boolean),
-    trackedFiles: synced.record.files!.map((file) => TeachingPath.workspaceFile(directory, sessionID, file.relativePath)),
+    trackedFiles: synced.record.files!.map((file) =>
+      TeachingPath.workspaceFile(directory, sessionID, file.relativePath),
+    ),
   }
 }
 
@@ -233,7 +248,7 @@ async function setLesson(
     language: input.language,
   })
 
-  await fs.writeFile(saved.checkpointFilePath, saved.code, "utf8")
+  await fs.writeFile(saved.checkpointFilePath, saved.code, 'utf8')
   return read(directory, sessionID)
 }
 
@@ -245,14 +260,18 @@ async function restore(directory: string, sessionID: string) {
   const nextFiles = await Promise.all(
     synced.record.files!.map(async (file) => {
       const lessonFilePath = TeachingPath.workspaceFile(directory, sessionID, file.relativePath)
-      const checkpointFilePath = TeachingPath.checkpointSnapshotFile(directory, sessionID, file.relativePath)
+      const checkpointFilePath = TeachingPath.checkpointSnapshotFile(
+        directory,
+        sessionID,
+        file.relativePath,
+      )
       const checkpointCode = await readFileOrDefault(checkpointFilePath, initialCode())
       const nextHash = hashContent(checkpointCode)
       if (nextHash !== file.fileHash) {
         changed = true
       }
       await ensureParentDirectory(lessonFilePath)
-      await fs.writeFile(lessonFilePath, checkpointCode, "utf8")
+      await fs.writeFile(lessonFilePath, checkpointCode, 'utf8')
       return {
         ...file,
         fileHash: nextHash,
@@ -291,10 +310,13 @@ async function addFile(
   const code = input.content ?? initialCode()
   const fileHash = hashContent(code)
 
-  await Promise.all([ensureParentDirectory(lessonFilePath), ensureParentDirectory(checkpointFilePath)])
   await Promise.all([
-    fs.writeFile(lessonFilePath, code, "utf8"),
-    fs.writeFile(checkpointFilePath, code, "utf8"),
+    ensureParentDirectory(lessonFilePath),
+    ensureParentDirectory(checkpointFilePath),
+  ])
+  await Promise.all([
+    fs.writeFile(lessonFilePath, code, 'utf8'),
+    fs.writeFile(checkpointFilePath, code, 'utf8'),
   ])
 
   const activate = input.activate !== false
@@ -332,7 +354,7 @@ async function trackExistingFile(
   const fileHash = hashContent(code)
 
   await ensureParentDirectory(checkpointFilePath)
-  await fs.writeFile(checkpointFilePath, code, "utf8")
+  await fs.writeFile(checkpointFilePath, code, 'utf8')
 
   const activate = input.activate !== false
   const nextRecord = syncDerivedFields(directory, {
@@ -347,11 +369,7 @@ async function trackExistingFile(
   return buildResponse(directory, nextRecord)
 }
 
-async function activateFile(
-  directory: string,
-  sessionID: string,
-  relativePath: string,
-) {
+async function activateFile(directory: string, sessionID: string, relativePath: string) {
   const existing = await requireRecord(directory, sessionID)
   const synced = await syncRecord(directory, existing)
   const nextRelativePath = normalizeRequestedRelativePath(relativePath)

@@ -1,15 +1,15 @@
-import { setConfigOverlay } from "@buddy/opencode-adapter/config"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { Config } from "../config.js"
-import { configErrorMessage, isConfigValidationError } from "../contract/errors.js"
-import { readInstalledSystemSkillsFingerprint } from "../../learning/skills/service/system-installer.js"
+import { setConfigOverlay } from '@buddy/opencode-adapter/config'
+import { Instance as OpenCodeInstance } from '@buddy/opencode-adapter/instance'
+import { Config } from '../config.js'
+import { configErrorMessage, isConfigValidationError } from '../contract/errors.js'
+import { readInstalledSystemSkillsFingerprint } from '../../learning/skills/service/system-installer.js'
 import {
   buildOpenCodeConfigOverlay,
   fingerprintOpenCodeConfig,
   mergeBuddyAndConfiguredAgents,
   parseConfiguredModel,
   resolveConfiguredAgentKey,
-} from "../opencode/overlay-builder.js"
+} from '../opencode/overlay-builder.js'
 
 const configFingerprintByDirectory = new Map<string, string>()
 const configSyncTaskByDirectory = new Map<string, Promise<void>>()
@@ -41,11 +41,13 @@ async function buildAndApplyProjectOverlay(directory: string) {
 }
 
 async function resolveProjectConfigFingerprint(config: Config.Info, overlay: unknown) {
-  const installedSystemSkillsFingerprint = await readInstalledSystemSkillsFingerprint().catch(() => undefined)
+  const installedSystemSkillsFingerprint = await readInstalledSystemSkillsFingerprint().catch(
+    () => undefined,
+  )
   return [
     fingerprintOpenCodeConfig(config, overlay),
-    installedSystemSkillsFingerprint ?? "none",
-  ].join("|system-skills:")
+    installedSystemSkillsFingerprint ?? 'none',
+  ].join('|system-skills:')
 }
 
 export async function ensureOpenCodeProjectOverlay(directory: string): Promise<void> {

@@ -1,17 +1,16 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from 'react'
 import {
   authenticateMcpServer,
   connectMcpServer,
   disconnectMcpServer,
   loadMcpStatus,
   loadProjectConfig,
-} from "@/state/chat-actions"
-import { useChatStore } from "@/state/chat-store"
-import type { McpStatusMap } from "@/state/chat-types"
-import { formatMcpError, parseMcpConfigMap, type McpConfig } from "./mcp-config-schema"
+} from '@/state/chat-actions'
+import { useChatStore } from '@/state/chat-store'
+import type { McpStatusMap } from '@/state/chat-types'
+import { formatMcpError, parseMcpConfigMap, type McpConfig } from './mcp-config-schema'
 
 const MCP_SEARCH_VISIBLE_THRESHOLD = 3
-
 
 type UseMcpDirectoryDataProps = {
   directory: string
@@ -40,7 +39,7 @@ export type McpDirectoryDataState = {
 }
 
 export function useMcpDirectoryData(props: UseMcpDirectoryDataProps): McpDirectoryDataState {
-  const [query, setQuery] = useState("")
+  const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | undefined>(undefined)
   const [pendingName, setPendingName] = useState<string | null>(null)
@@ -49,8 +48,8 @@ export function useMcpDirectoryData(props: UseMcpDirectoryDataProps): McpDirecto
 
   const allNames = useMemo(
     () =>
-      Array.from(new Set([...Object.keys(statusByName), ...Object.keys(configByName)])).sort((left, right) =>
-        left.localeCompare(right),
+      Array.from(new Set([...Object.keys(statusByName), ...Object.keys(configByName)])).sort(
+        (left, right) => left.localeCompare(right),
       ),
     [configByName, statusByName],
   )
@@ -64,13 +63,13 @@ export function useMcpDirectoryData(props: UseMcpDirectoryDataProps): McpDirecto
   }, [allNames, query])
 
   const enabledCount = useMemo(
-    () => Object.values(statusByName).filter((entry) => entry.status === "connected").length,
+    () => Object.values(statusByName).filter((entry) => entry.status === 'connected').length,
     [statusByName],
   )
 
   async function enableMcp(name: string) {
     const status = await connectMcpServer(props.directory, name)
-    if (status[name]?.status === "needs_auth") {
+    if (status[name]?.status === 'needs_auth') {
       return authenticateMcpServer(props.directory, name)
     }
     return status
@@ -91,12 +90,14 @@ export function useMcpDirectoryData(props: UseMcpDirectoryDataProps): McpDirecto
       loadProjectConfig(props.directory),
     ])
 
-    if (configResult.status === "fulfilled") {
+    if (configResult.status === 'fulfilled') {
       setConfigByName(parseMcpConfigMap(configResult.value))
     }
 
-    const statusError = statusResult.status === "rejected" ? formatMcpError(statusResult.reason) : undefined
-    const configError = configResult.status === "rejected" ? formatMcpError(configResult.reason) : undefined
+    const statusError =
+      statusResult.status === 'rejected' ? formatMcpError(statusResult.reason) : undefined
+    const configError =
+      configResult.status === 'rejected' ? formatMcpError(configResult.reason) : undefined
     setError(statusError ?? configError)
 
     setLoading(false)
@@ -104,7 +105,7 @@ export function useMcpDirectoryData(props: UseMcpDirectoryDataProps): McpDirecto
 
   useEffect(() => {
     if (!props.open) return
-    setQuery("")
+    setQuery('')
     void refreshData()
   }, [props.directory, props.open])
 
@@ -115,7 +116,7 @@ export function useMcpDirectoryData(props: UseMcpDirectoryDataProps): McpDirecto
     setPendingName(name)
     setError(undefined)
     try {
-      if (current?.status === "connected") {
+      if (current?.status === 'connected') {
         await disconnectMcp(name)
       } else {
         await enableMcp(name)

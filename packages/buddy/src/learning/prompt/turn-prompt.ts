@@ -1,10 +1,10 @@
-import { hasText } from "./utils"
-import type { PromptTurnSnapshot } from "./prompt-context"
+import { hasText } from './utils'
+import type { PromptTurnSnapshot } from './prompt-context'
 
 function isExecutionFocusedState(state: PromptTurnSnapshot): boolean {
-  if (state.intent === "learn") return false
-  if (state.intent === "practice" || state.intent === "assess") return true
-  return state.persona !== "buddy"
+  if (state.intent === 'learn') return false
+  if (state.intent === 'practice' || state.intent === 'assess') return true
+  return state.persona !== 'buddy'
 }
 
 function buildFocusShiftReminder(input: {
@@ -18,8 +18,8 @@ function buildFocusShiftReminder(input: {
   if (previousExecutionFocused === currentExecutionFocused) return undefined
 
   return currentExecutionFocused
-    ? "Teaching focus switch: concept-first -> execution-focused. Use practice, assessment, and editor tools when they materially help."
-    : "Teaching focus switch: execution-focused -> concept-first. Avoid workspace mutation unless the learner explicitly asks for hands-on execution."
+    ? 'Teaching focus switch: concept-first -> execution-focused. Use practice, assessment, and editor tools when they materially help.'
+    : 'Teaching focus switch: execution-focused -> concept-first. Avoid workspace mutation unless the learner explicitly asks for hands-on execution.'
 }
 
 export function buildTurnPrompt(input: {
@@ -44,13 +44,13 @@ export function buildTurnPrompt(input: {
 
   const workspaceTransition =
     input.priorTurn && input.priorTurn.workspaceState !== input.currentTurn.workspaceState
-      ? input.currentTurn.workspaceState === "interactive"
-        ? "Workspace switch: chat -> interactive. Ground help in the active lesson files."
-        : "Workspace switch: interactive -> chat. Continue in chat unless the learner explicitly asks to use the editor."
+      ? input.currentTurn.workspaceState === 'interactive'
+        ? 'Workspace switch: chat -> interactive. Ground help in the active lesson files.'
+        : 'Workspace switch: interactive -> chat. Continue in chat unless the learner explicitly asks to use the editor.'
       : undefined
 
   const checkpointReminder = input.changedSinceCheckpoint
-    ? "There are unaccepted lesson changes since the last checkpoint. Verify before accepting progress."
+    ? 'There are unaccepted lesson changes since the last checkpoint. Verify before accepting progress.'
     : undefined
 
   const reminderLines = [
@@ -63,5 +63,5 @@ export function buildTurnPrompt(input: {
 
   if (reminderLines.length === 0) return undefined
 
-  return `<system-reminder>\n${reminderLines.join("\n")}\n</system-reminder>`
+  return `<system-reminder>\n${reminderLines.join('\n')}\n</system-reminder>`
 }

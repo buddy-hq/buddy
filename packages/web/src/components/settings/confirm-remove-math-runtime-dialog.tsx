@@ -7,7 +7,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@buddy/ui"
+} from '@buddy/ui'
 
 type ConfirmRemoveMathRuntimeDialogProps = {
   open: boolean
@@ -22,7 +22,8 @@ export function ConfirmRemoveMathRuntimeDialog(props: ConfirmRemoveMathRuntimeDi
         <AlertDialogHeader>
           <AlertDialogTitle>Remove advanced math runtime?</AlertDialogTitle>
           <AlertDialogDescription>
-            This will remove the optional advanced math runtime from this device. You can reinstall it at any time.
+            This will remove the optional advanced math runtime from this device. You can reinstall
+            it at any time.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

@@ -1,14 +1,10 @@
-import { recordDecisionArtifact } from "../repository/bridge"
-import type { WorkspaceContextArtifact } from "../repository/types"
-import type { DecisionEngineResult } from "../decisions/engine"
-import type { FeedbackDecision } from "../decisions/types"
-import {
-  closeFeedbackByIds,
-  createFeedbackArtifact,
-  resolveMisconceptionsByIds,
-} from "./helpers"
+import { recordDecisionArtifact } from '../repository/bridge'
+import type { WorkspaceContextArtifact } from '../repository/types'
+import type { DecisionEngineResult } from '../decisions/engine'
+import type { FeedbackDecision } from '../decisions/types'
+import { closeFeedbackByIds, createFeedbackArtifact, resolveMisconceptionsByIds } from './helpers'
 
-type FeedbackSource = "assessment" | "practice"
+type FeedbackSource = 'assessment' | 'practice'
 
 export async function applyFeedbackDecision(input: {
   directory: string
@@ -23,12 +19,12 @@ export async function applyFeedbackDecision(input: {
     directory: input.directory,
     workspaceId: input.workspace.workspaceId,
     goalIds: input.goalIds,
-    kind: "decision-feedback",
-    decisionType: "feedback",
+    kind: 'decision-feedback',
+    decisionType: 'feedback',
     inputHash: input.decisionHash,
-    disposition: input.decision.output?.disposition ?? "abstain",
+    disposition: input.decision.output?.disposition ?? 'abstain',
     confidence: input.decision.output?.confidence ?? 0,
-    rationale: input.decision.output?.rationale ?? [input.decision.error ?? "No decision output."],
+    rationale: input.decision.output?.rationale ?? [input.decision.error ?? 'No decision output.'],
     payload: input.decision.output,
     providerId: input.decision.providerId,
     modelId: input.decision.modelId,
@@ -37,7 +33,7 @@ export async function applyFeedbackDecision(input: {
   })
 
   let feedbackId: string | undefined
-  if (input.decision.output?.disposition === "apply" && input.decision.output.feedbackRecord) {
+  if (input.decision.output?.disposition === 'apply' && input.decision.output.feedbackRecord) {
     const feedback = await createFeedbackArtifact({
       directory: input.directory,
       workspace: input.workspace,
@@ -58,7 +54,7 @@ export async function applyFeedbackDecision(input: {
     directory: input.directory,
     workspaceId: input.workspace.workspaceId,
     feedbackIds: input.decision.output?.closeFeedbackIds ?? [],
-    status: input.decision.output?.closeFeedbackStatus ?? "acted-on",
+    status: input.decision.output?.closeFeedbackStatus ?? 'acted-on',
   })
 
   await resolveMisconceptionsByIds({

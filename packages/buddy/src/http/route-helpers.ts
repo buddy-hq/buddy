@@ -1,7 +1,11 @@
-import { configErrorMessage, isConfigValidationError, syncOpenCodeProjectConfig } from "@buddy/backend/config/runtime"
-import type { Context } from "hono"
-import type { DirectoryRequestContext, DirectoryRequestSource } from "./directory"
-import { resolveDirectoryRequestContext } from "./directory"
+import {
+  configErrorMessage,
+  isConfigValidationError,
+  syncOpenCodeProjectConfig,
+} from '@buddy/backend/config/runtime'
+import type { Context } from 'hono'
+import type { DirectoryRequestContext, DirectoryRequestSource } from './directory'
+import { resolveDirectoryRequestContext } from './directory'
 
 type RouteSuccess<T> = {
   ok: true
@@ -15,7 +19,9 @@ type RouteFailure = {
 
 export type RouteResult<T> = RouteSuccess<T> | RouteFailure
 
-export function withDirectoryContext(source: DirectoryRequestSource): RouteResult<DirectoryRequestContext> {
+export function withDirectoryContext(
+  source: DirectoryRequestSource,
+): RouteResult<DirectoryRequestContext> {
   const contextResult = resolveDirectoryRequestContext(source)
   if (!contextResult.ok) {
     return {

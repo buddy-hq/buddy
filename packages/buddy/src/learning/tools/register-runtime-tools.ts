@@ -1,5 +1,9 @@
-import { registerBuddyTools, unregisterBuddyTools } from "./register-buddy-tools"
-import { assertLearningToolCatalog, getLearningToolGroup, type LearningToolGroup } from "./tool-catalog"
+import { registerBuddyTools, unregisterBuddyTools } from './register-buddy-tools'
+import {
+  assertLearningToolCatalog,
+  getLearningToolGroup,
+  type LearningToolGroup,
+} from './tool-catalog'
 
 type LearningToolRegistrationFlags = {
   registerPedagogyTools: boolean
@@ -61,71 +65,71 @@ async function registerRuntimeTools(
   registerToolGroup({
     enabled: flags.registerPedagogyTools,
     directory,
-    group: "pedagogy",
-    warning: "Failed to register Buddy pedagogy tools into OpenCode runtime:",
+    group: 'pedagogy',
+    warning: 'Failed to register Buddy pedagogy tools into OpenCode runtime:',
     registrations,
   })
 
   registerToolGroup({
     enabled: flags.registerCurriculumTools,
     directory,
-    group: "curriculum",
-    warning: "Failed to register Buddy curriculum tools into OpenCode runtime:",
+    group: 'curriculum',
+    warning: 'Failed to register Buddy curriculum tools into OpenCode runtime:',
     registrations,
   })
 
   registerToolGroup({
     enabled: flags.registerGoalTools,
     directory,
-    group: "goals",
-    warning: "Failed to register Buddy goal tools into OpenCode runtime:",
+    group: 'goals',
+    warning: 'Failed to register Buddy goal tools into OpenCode runtime:',
     registrations,
   })
 
   registerToolGroup({
     enabled: flags.registerLearnerTools,
     directory,
-    group: "learner",
-    warning: "Failed to register Buddy learner tools into OpenCode runtime:",
+    group: 'learner',
+    warning: 'Failed to register Buddy learner tools into OpenCode runtime:',
     registrations,
   })
 
   registerToolGroup({
     enabled: flags.registerTeachingTools,
     directory,
-    group: "teaching",
-    warning: "Failed to register Buddy teaching tools into OpenCode runtime:",
+    group: 'teaching',
+    warning: 'Failed to register Buddy teaching tools into OpenCode runtime:',
     registrations,
   })
 
   registerToolGroup({
     enabled: flags.registerFigureTools,
     directory,
-    group: "figures",
-    warning: "Failed to register Buddy figure tools into OpenCode runtime:",
+    group: 'figures',
+    warning: 'Failed to register Buddy figure tools into OpenCode runtime:',
     registrations,
   })
 
   registerToolGroup({
     enabled: flags.registerFreeformFigureTools,
     directory,
-    group: "freeformFigures",
-    warning: "Failed to register Buddy freeform figure tools into OpenCode runtime:",
+    group: 'freeformFigures',
+    warning: 'Failed to register Buddy freeform figure tools into OpenCode runtime:',
     registrations,
   })
 
   registerToolGroup({
     enabled: flags.registerMathTools,
     directory,
-    group: "math",
-    warning: "Failed to register Buddy math tools into OpenCode runtime:",
+    group: 'math',
+    warning: 'Failed to register Buddy math tools into OpenCode runtime:',
     registrations,
   })
   unregisterToolGroup({
     enabled: flags.registerMathTools,
     directory,
-    group: "math",
-    warning: "Failed to unregister Buddy math tools from OpenCode runtime:",
+    group: 'math',
+    warning: 'Failed to unregister Buddy math tools from OpenCode runtime:',
     registrations,
   })
 
@@ -133,9 +137,5 @@ async function registerRuntimeTools(
   await Promise.all(registrations)
 }
 
-export {
-  registerRuntimeTools,
-}
-export type {
-  LearningToolRegistrationFlags,
-}
+export { registerRuntimeTools }
+export type { LearningToolRegistrationFlags }

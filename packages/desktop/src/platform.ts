@@ -1,14 +1,14 @@
-import { getCurrentWindow } from "@tauri-apps/api/window"
-import { open } from "@tauri-apps/plugin-dialog"
-import { fetch as tauriFetch } from "@tauri-apps/plugin-http"
-import { isPermissionGranted, requestPermission } from "@tauri-apps/plugin-notification"
-import { type as osType } from "@tauri-apps/plugin-os"
-import { relaunch } from "@tauri-apps/plugin-process"
-import { open as shellOpen } from "@tauri-apps/plugin-shell"
-import { Store } from "@tauri-apps/plugin-store"
-import { createBrowserPlatform, type Platform } from "@buddy/web/context/platform"
-import { commands } from "./bindings"
-import { checkForUpdate, installPendingUpdate } from "./updater"
+import { getCurrentWindow } from '@tauri-apps/api/window'
+import { open } from '@tauri-apps/plugin-dialog'
+import { fetch as tauriFetch } from '@tauri-apps/plugin-http'
+import { isPermissionGranted, requestPermission } from '@tauri-apps/plugin-notification'
+import { type as osType } from '@tauri-apps/plugin-os'
+import { relaunch } from '@tauri-apps/plugin-process'
+import { open as shellOpen } from '@tauri-apps/plugin-shell'
+import { Store } from '@tauri-apps/plugin-store'
+import { createBrowserPlatform, type Platform } from '@buddy/web/context/platform'
+import { commands } from './bindings'
+import { checkForUpdate, installPendingUpdate } from './updater'
 
 type BuddyWindow = Window & {
   __BUDDY__?: {
@@ -17,16 +17,16 @@ type BuddyWindow = Window & {
 }
 
 function normalizeDirectory(input: string) {
-  const trimmed = input.trim().split("\\").join("/")
-  if (!trimmed) return ""
-  if (trimmed === "/") return trimmed
-  return trimmed.replace(/\/+$/, "")
+  const trimmed = input.trim().split('\\').join('/')
+  if (!trimmed) return ''
+  if (trimmed === '/') return trimmed
+  return trimmed.replace(/\/+$/, '')
 }
 
 export function createDesktopPlatform(): Platform {
   const os = (() => {
     const type = osType()
-    if (type === "macos" || type === "windows" || type === "linux") return type
+    if (type === 'macos' || type === 'windows' || type === 'linux') return type
     return undefined
   })()
 
@@ -75,8 +75,8 @@ export function createDesktopPlatform(): Platform {
     return store
   }
 
-  function getStore(name = "buddy.global.dat") {
-    const path = name.endsWith(".json") ? name : `${name}.json`
+  function getStore(name = 'buddy.global.dat') {
+    const path = name.endsWith('.json') ? name : `${name}.json`
     const cached = storeCache.get(path)
     if (cached) return cached
 
@@ -140,7 +140,7 @@ export function createDesktopPlatform(): Platform {
 
         const store = await getStore(name)
         const value = await store.get<string>(key).catch(() => null)
-        return typeof value === "string" ? value : null
+        return typeof value === 'string' ? value : null
       },
       async setItem(key: string, value: string) {
         pending.set(key, value)
@@ -159,19 +159,19 @@ export function createDesktopPlatform(): Platform {
     await Promise.all(apis.map((api) => api?.flush?.().catch(() => undefined)))
   }
 
-  if ("addEventListener" in globalThis) {
-    window.addEventListener("pagehide", () => {
+  if ('addEventListener' in globalThis) {
+    window.addEventListener('pagehide', () => {
       void flushAll()
     })
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState !== "hidden") return
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'hidden') return
       void flushAll()
     })
   }
 
   return {
     ...createBrowserPlatform(),
-    platform: "desktop",
+    platform: 'desktop',
     os,
     version: (window as BuddyWindow).__BUDDY__?.version,
     async startWindowDragging() {
@@ -181,7 +181,7 @@ export function createDesktopPlatform(): Platform {
       await getCurrentWindow().toggleMaximize()
     },
     storage(name) {
-      const storeName = name ?? "buddy.global.dat"
+      const storeName = name ?? 'buddy.global.dat'
       const cached = apiCache.get(storeName)
       if (cached) return cached
 
@@ -212,8 +212,8 @@ export function createDesktopPlatform(): Platform {
     },
     async notify(title, description) {
       const granted = await isPermissionGranted().catch(() => false)
-      const permission = granted ? "granted" : await requestPermission().catch(() => "denied")
-      if (permission !== "granted") return
+      const permission = granted ? 'granted' : await requestPermission().catch(() => 'denied')
+      if (permission !== 'granted') return
 
       const win = getCurrentWindow()
       const focused = await win.isFocused().catch(() => document.hasFocus())
@@ -221,7 +221,7 @@ export function createDesktopPlatform(): Platform {
 
       await Promise.resolve()
         .then(() => {
-          if (!("Notification" in window)) return
+          if (!('Notification' in window)) return
           new Notification(title, description ? { body: description } : undefined)
         })
         .catch(() => undefined)
@@ -230,38 +230,38 @@ export function createDesktopPlatform(): Platform {
       return commands.parseMarkdownCommand(markdown)
     },
     async openDirectoryPickerDialog(opts) {
-      const result = await open({
+      const result = (await open({
         directory: true,
         multiple: opts?.multiple ?? false,
-        title: opts?.title ?? "Open project",
-      }) as string | string[] | null
+        title: opts?.title ?? 'Open project',
+      })) as string | string[] | null
 
-      if (typeof result === "string") {
+      if (typeof result === 'string') {
         return normalizeDirectory(result)
       }
 
       if (Array.isArray(result)) {
         return result
-          .filter((value): value is string => typeof value === "string")
+          .filter((value): value is string => typeof value === 'string')
           .map((value: string) => normalizeDirectory(value))
       }
 
       return null
     },
     async openFilePickerDialog(opts) {
-      const result = await open({
+      const result = (await open({
         directory: false,
         multiple: opts?.multiple ?? false,
-        title: opts?.title ?? "Select file",
-      }) as string | string[] | null
+        title: opts?.title ?? 'Select file',
+      })) as string | string[] | null
 
-      if (typeof result === "string") {
+      if (typeof result === 'string') {
         return normalizeDirectory(result)
       }
 
       if (Array.isArray(result)) {
         return result
-          .filter((value): value is string => typeof value === "string")
+          .filter((value): value is string => typeof value === 'string')
           .map((value: string) => normalizeDirectory(value))
       }
 

@@ -1,14 +1,18 @@
-import { useChatStore } from "@/state/chat-store"
+import { useChatStore } from '@/state/chat-store'
 
 export async function copyToClipboard(text: string) {
   if (!text) return false
-  if (!("clipboard" in navigator)) return false
+  if (!('clipboard' in navigator)) return false
   await navigator.clipboard.writeText(text)
   return true
 }
 
 // Uses Zustand escape hatch (getState) — not a hook, safe to call anywhere.
-export function buildSessionTrace(input: { directory: string; sessionID?: string; streamStatus: string }) {
+export function buildSessionTrace(input: {
+  directory: string
+  sessionID?: string
+  streamStatus: string
+}) {
   const state = useChatStore.getState()
   const directoryState = state.directories[input.directory]
   const session = directoryState?.sessions.find((entry) => entry.id === input.sessionID)

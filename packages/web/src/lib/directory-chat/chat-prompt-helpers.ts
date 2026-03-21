@@ -1,10 +1,10 @@
-import { PROMPT_PART_TYPE_FILE, PROMPT_PART_TYPE_TEXT } from "@/components/prompt/prompt-types"
+import { PROMPT_PART_TYPE_FILE, PROMPT_PART_TYPE_TEXT } from '@/components/prompt/prompt-types'
 import type {
   PromptAttachmentPart,
   PromptComposerAttachment,
   PromptComposerPart,
   PromptSubmissionPart,
-} from "@/components/prompt/prompt-types"
+} from '@/components/prompt/prompt-types'
 import {
   type PersonaConfigOption,
   type PromptCommandOption,
@@ -12,34 +12,34 @@ import {
   loadPersonaCatalog,
   loadProjectConfig,
   resolveDefaultPersonaID,
-} from "@/state/chat-actions"
-import type { TeachingIntent } from "@/state/teaching-runtime"
+} from '@/state/chat-actions'
+import type { TeachingIntent } from '@/state/teaching-runtime'
 
 export function readSessionErrorMessage(error: unknown) {
-  if (typeof error === "string" && error.trim()) return error
-  if (!error || typeof error !== "object") return "An error occurred"
+  if (typeof error === 'string' && error.trim()) return error
+  if (!error || typeof error !== 'object') return 'An error occurred'
 
-  const message = "message" in error ? (error as { message?: unknown }).message : undefined
-  if (typeof message === "string" && message.trim()) return message
+  const message = 'message' in error ? (error as { message?: unknown }).message : undefined
+  if (typeof message === 'string' && message.trim()) return message
 
   const dataMessage =
-    "data" in error && error.data && typeof error.data === "object"
+    'data' in error && error.data && typeof error.data === 'object'
       ? (error.data as { message?: unknown }).message
       : undefined
-  if (typeof dataMessage === "string" && dataMessage.trim()) return dataMessage
+  if (typeof dataMessage === 'string' && dataMessage.trim()) return dataMessage
 
-  const name = "name" in error ? (error as { name?: unknown }).name : undefined
-  if (typeof name === "string" && name.trim()) return name
+  const name = 'name' in error ? (error as { name?: unknown }).name : undefined
+  if (typeof name === 'string' && name.trim()) return name
 
-  return "An error occurred"
+  return 'An error occurred'
 }
 
 export function parseConfiguredModel(value: unknown) {
-  if (typeof value !== "string") return undefined
+  if (typeof value !== 'string') return undefined
   const trimmed = value.trim()
   if (!trimmed) return undefined
 
-  const separator = trimmed.indexOf("/")
+  const separator = trimmed.indexOf('/')
   if (separator <= 0 || separator >= trimmed.length - 1) return undefined
 
   return {
@@ -53,7 +53,7 @@ export function modelSelectionKey(input: { providerID: string; modelID: string }
 }
 
 function decodeAttachmentDataUrl(dataUrl: string) {
-  const separator = dataUrl.indexOf(",")
+  const separator = dataUrl.indexOf(',')
   if (separator === -1) return undefined
 
   const metadata = dataUrl.slice(0, separator)
@@ -79,9 +79,11 @@ function decodeAttachmentText(dataUrl: string) {
   }
 }
 
-function buildPromptAttachmentParts(attachments: PromptComposerAttachment[]): PromptAttachmentPart[] {
+function buildPromptAttachmentParts(
+  attachments: PromptComposerAttachment[],
+): PromptAttachmentPart[] {
   return attachments.flatMap((attachment): PromptAttachmentPart[] => {
-    const textLike = attachment.mime === "image/svg+xml" || attachment.mime.startsWith("text/")
+    const textLike = attachment.mime === 'image/svg+xml' || attachment.mime.startsWith('text/')
     if (textLike) {
       const content = decodeAttachmentText(attachment.dataUrl)
       if (content !== undefined) {
@@ -115,7 +117,7 @@ export function buildPromptSubmissionParts(
 export function buildCommandAttachmentParts(attachments: PromptComposerAttachment[]) {
   return attachments.map((attachment) => ({
     type: PROMPT_PART_TYPE_FILE,
-    mime: attachment.mime === "text/plain" ? "application/octet-stream" : attachment.mime,
+    mime: attachment.mime === 'text/plain' ? 'application/octet-stream' : attachment.mime,
     url: attachment.dataUrl,
     filename: attachment.filename,
   }))
@@ -130,8 +132,8 @@ export async function loadComposerConfiguration(directory: string) {
   const configuredDefault =
     resolveDefaultPersonaID(
       personas,
-      typeof config.default_persona === "string" ? config.default_persona : undefined,
-    ) ?? "buddy"
+      typeof config.default_persona === 'string' ? config.default_persona : undefined,
+    ) ?? 'buddy'
 
   return {
     personas,
@@ -139,9 +141,11 @@ export async function loadComposerConfiguration(directory: string) {
     configuredDefault,
     configuredModel: parseConfiguredModel(config.model),
     configuredIntent:
-      config.default_intent === "learn" || config.default_intent === "practice" || config.default_intent === "assess"
+      config.default_intent === 'learn' ||
+      config.default_intent === 'practice' ||
+      config.default_intent === 'assess'
         ? config.default_intent
-        : ("auto" as const),
+        : ('auto' as const),
   } satisfies {
     personas: PersonaConfigOption[]
     commands: PromptCommandOption[]

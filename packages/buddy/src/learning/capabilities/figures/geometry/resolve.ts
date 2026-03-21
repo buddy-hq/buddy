@@ -1,9 +1,5 @@
-import type {
-  GeometryConstraint,
-  GeometryFigureSpec,
-  GeometryPoint,
-} from "./types"
-import type { FigureValidationIssue } from "./validate"
+import type { GeometryConstraint, GeometryFigureSpec, GeometryPoint } from './types'
+import type { FigureValidationIssue } from './validate'
 
 type PointLookup = Map<string, GeometryPoint>
 type Vector = {
@@ -64,10 +60,7 @@ function projectToSegmentPosition(
   return clampUnit(dot(relative, segment) / segmentLengthSquared)
 }
 
-function samePosition(
-  point: GeometryPoint,
-  target: { x: number; y: number },
-): boolean {
+function samePosition(point: GeometryPoint, target: { x: number; y: number }): boolean {
   return (
     Math.abs(point.x - target.x) <= POSITION_EPSILON &&
     Math.abs(point.y - target.y) <= POSITION_EPSILON
@@ -118,30 +111,30 @@ function requirePoint(
   if (point) return point
 
   record({
-    code: "UNKNOWN_CONSTRAINT_POINT",
+    code: 'UNKNOWN_CONSTRAINT_POINT',
     message: `${context} references unknown point '${pointID}'.`,
   })
   return undefined
 }
 
 function resolvePointOnSegment(
-  constraint: Extract<GeometryConstraint, { type: "point-on-segment" }>,
+  constraint: Extract<GeometryConstraint, { type: 'point-on-segment' }>,
   points: PointLookup,
   record: (issue: FigureValidationIssue) => void,
 ): boolean {
-  const point = requirePoint(points, constraint.point, record, "Constraint")
-  const from = requirePoint(points, constraint.from, record, "Constraint")
-  const to = requirePoint(points, constraint.to, record, "Constraint")
+  const point = requirePoint(points, constraint.point, record, 'Constraint')
+  const from = requirePoint(points, constraint.from, record, 'Constraint')
+  const to = requirePoint(points, constraint.to, record, 'Constraint')
   if (!point || !from || !to) return false
 
   const inferredPosition =
-    typeof constraint.position === "number"
+    typeof constraint.position === 'number'
       ? constraint.position
       : projectToSegmentPosition(point, from, to)
 
-  if (typeof inferredPosition !== "number") {
+  if (typeof inferredPosition !== 'number') {
     record({
-      code: "INVALID_CONSTRAINT",
+      code: 'INVALID_CONSTRAINT',
       message: `Constraint '${constraint.type}' needs a non-zero support segment: ${constraint.from} -> ${constraint.to}.`,
     })
     return false
@@ -151,20 +144,20 @@ function resolvePointOnSegment(
 }
 
 function resolvePerpendicularFoot(
-  constraint: Extract<GeometryConstraint, { type: "perpendicular-foot" }>,
+  constraint: Extract<GeometryConstraint, { type: 'perpendicular-foot' }>,
   points: PointLookup,
   record: (issue: FigureValidationIssue) => void,
 ): boolean {
-  const point = requirePoint(points, constraint.point, record, "Constraint")
-  const source = requirePoint(points, constraint.source, record, "Constraint")
-  const from = requirePoint(points, constraint.from, record, "Constraint")
-  const to = requirePoint(points, constraint.to, record, "Constraint")
+  const point = requirePoint(points, constraint.point, record, 'Constraint')
+  const source = requirePoint(points, constraint.source, record, 'Constraint')
+  const from = requirePoint(points, constraint.from, record, 'Constraint')
+  const to = requirePoint(points, constraint.to, record, 'Constraint')
   if (!point || !source || !from || !to) return false
 
   const projectedPosition = projectToSegmentPosition(source, from, to)
-  if (typeof projectedPosition !== "number") {
+  if (typeof projectedPosition !== 'number') {
     record({
-      code: "INVALID_CONSTRAINT",
+      code: 'INVALID_CONSTRAINT',
       message: `Constraint '${constraint.type}' needs a non-zero support segment: ${constraint.from} -> ${constraint.to}.`,
     })
     return false
@@ -174,15 +167,15 @@ function resolvePerpendicularFoot(
 }
 
 function resolveLineIntersection(
-  constraint: Extract<GeometryConstraint, { type: "line-intersection" }>,
+  constraint: Extract<GeometryConstraint, { type: 'line-intersection' }>,
   points: PointLookup,
   record: (issue: FigureValidationIssue) => void,
 ): boolean {
-  const point = requirePoint(points, constraint.point, record, "Constraint")
-  const lineAFrom = requirePoint(points, constraint.lineAFrom, record, "Constraint")
-  const lineATo = requirePoint(points, constraint.lineATo, record, "Constraint")
-  const lineBFrom = requirePoint(points, constraint.lineBFrom, record, "Constraint")
-  const lineBTo = requirePoint(points, constraint.lineBTo, record, "Constraint")
+  const point = requirePoint(points, constraint.point, record, 'Constraint')
+  const lineAFrom = requirePoint(points, constraint.lineAFrom, record, 'Constraint')
+  const lineATo = requirePoint(points, constraint.lineATo, record, 'Constraint')
+  const lineBFrom = requirePoint(points, constraint.lineBFrom, record, 'Constraint')
+  const lineBTo = requirePoint(points, constraint.lineBTo, record, 'Constraint')
   if (!point || !lineAFrom || !lineATo || !lineBFrom || !lineBTo) return false
 
   const dirA = subtract(lineAFrom, lineATo)
@@ -191,7 +184,7 @@ function resolveLineIntersection(
 
   if (Math.abs(determinant) <= PARALLEL_EPSILON) {
     record({
-      code: "INVALID_CONSTRAINT",
+      code: 'INVALID_CONSTRAINT',
       message: `Constraint '${constraint.type}' uses parallel or overlapping lines and cannot resolve point '${constraint.point}'.`,
     })
     return false
@@ -212,20 +205,18 @@ function resolveConstraint(
   points: PointLookup,
   record: (issue: FigureValidationIssue) => void,
 ): boolean {
-  if (constraint.type === "point-on-segment") {
+  if (constraint.type === 'point-on-segment') {
     return resolvePointOnSegment(constraint, points, record)
   }
 
-  if (constraint.type === "perpendicular-foot") {
+  if (constraint.type === 'perpendicular-foot') {
     return resolvePerpendicularFoot(constraint, points, record)
   }
 
   return resolveLineIntersection(constraint, points, record)
 }
 
-function resolveGeometryFigureSpec(
-  spec: GeometryFigureSpec,
-): {
+function resolveGeometryFigureSpec(spec: GeometryFigureSpec): {
   spec: GeometryFigureSpec
   issues: FigureValidationIssue[]
 } {
@@ -264,6 +255,4 @@ function resolveGeometryFigureSpec(
   }
 }
 
-export {
-  resolveGeometryFigureSpec,
-}
+export { resolveGeometryFigureSpec }

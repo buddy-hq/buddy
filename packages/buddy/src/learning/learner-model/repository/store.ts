@@ -3,19 +3,19 @@ import {
   patchProfile as patchProfileStore,
   readProfile as readProfileStore,
   writeProfile as writeProfileStore,
-} from "./store/profile"
+} from './store/profile'
 import {
   listArtifacts as listArtifactsStore,
   readArtifactById as readArtifactByIdStore,
   readArtifacts as readArtifactsStore,
   upsertArtifact as upsertArtifactStore,
-} from "./store/records"
+} from './store/records'
 import {
   ensureWorkspaceContext as ensureWorkspaceContextStore,
   patchWorkspaceContext as patchWorkspaceContextStore,
   readWorkspaceContext as readWorkspaceContextStore,
   writeWorkspaceContext as writeWorkspaceContextStore,
-} from "./store/workspace"
+} from './store/workspace'
 
 export namespace LearnerArtifactStore {
   export const readWorkspaceContext = readWorkspaceContextStore

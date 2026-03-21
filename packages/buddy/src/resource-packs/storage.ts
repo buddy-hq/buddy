@@ -1,7 +1,7 @@
-import { promises as fs } from "node:fs"
-import path from "node:path"
-import matter from "gray-matter"
-import { buildResourcePackEntryMarkdown } from "./markdown"
+import { promises as fs } from 'node:fs'
+import path from 'node:path'
+import matter from 'gray-matter'
+import { buildResourcePackEntryMarkdown } from './markdown'
 import type {
   ResourceChunkFileRecord,
   ResourceExtractionPage,
@@ -10,7 +10,7 @@ import type {
   ResourcePackMetadata,
   ResourcePackResolution,
   ResourcePackStatus,
-} from "./contracts"
+} from './contracts'
 import {
   RESOURCE_PACK_FILE_KIND_FULL_TEXT,
   RESOURCE_PACK_FILE_KIND_PAGE,
@@ -22,7 +22,7 @@ import {
   RESOURCE_PACK_STATUS_READY,
   RESOURCE_PACK_STATUS_UNSUPPORTED,
   RESOURCE_PACK_PREPARING_WARNING,
-} from "./contracts"
+} from './contracts'
 import {
   RESOURCE_PACK_FILENAME_CHAR_LABEL,
   RESOURCE_PACK_FILENAME_CHAR_PAD,
@@ -31,10 +31,13 @@ import {
   RESOURCE_PACK_FILENAME_TOKEN_PAD,
   RESOURCE_PACK_PAGE_FILE_PREFIX,
   estimateTokenCountFromText,
-} from "./chunking-config"
+} from './chunking-config'
 
 export async function exists(filepath: string) {
-  return fs.stat(filepath).then(() => true).catch(() => false)
+  return fs
+    .stat(filepath)
+    .then(() => true)
+    .catch(() => false)
 }
 
 export async function loadFreshResourcePackSnapshot(
@@ -67,7 +70,9 @@ export async function loadFreshResourcePackSnapshot(
   }
 }
 
-export function createPendingResourcePackSnapshot(input: ResourcePackBuildInput): ResourcePackResolution {
+export function createPendingResourcePackSnapshot(
+  input: ResourcePackBuildInput,
+): ResourcePackResolution {
   return {
     sourcePath: input.sourcePath,
     sourceRelpath: input.sourceRelpath,
@@ -94,7 +99,7 @@ export async function writePreparingResourcePackMetadata(input: {
     source_relpath: input.build.sourceRelpath,
     format: input.build.classification.format,
     status: RESOURCE_PACK_STATUS_PREPARING,
-    extractor: "pending",
+    extractor: 'pending',
     prepared_at: new Date().toISOString(),
     source_mtime_ms: Number(input.build.sourceStat.mtimeMs),
     source_size_bytes: Number(input.build.sourceStat.size),
@@ -128,25 +133,31 @@ export async function writeResourcePackFiles(input: {
     rootPath: input.build.packPaths.rootPath,
     keepFilename: fullTextFilename,
   })
-  await writeTextFile(fullTextPath, matter.stringify(fullTextBody, {
-    file_kind: RESOURCE_PACK_FILE_KIND_FULL_TEXT,
-    resource_alias: resourceAlias,
-    source_relpath: input.build.sourceRelpath,
-    format: input.build.classification.format,
-    chars: fullTextChars,
-    est_tokens: fullTextTokens,
-  }))
+  await writeTextFile(
+    fullTextPath,
+    matter.stringify(fullTextBody, {
+      file_kind: RESOURCE_PACK_FILE_KIND_FULL_TEXT,
+      resource_alias: resourceAlias,
+      source_relpath: input.build.sourceRelpath,
+      format: input.build.classification.format,
+      chars: fullTextChars,
+      est_tokens: fullTextTokens,
+    }),
+  )
   if (input.build.packPaths.fullPath !== fullTextPath) {
     await fs.rm(input.build.packPaths.fullPath, { force: true }).catch(() => undefined)
   }
 
   if (input.tocMarkdown && input.tocMarkdown.trim().length > 0) {
-    await writeTextFile(input.build.packPaths.tocPath, matter.stringify(normalizeText(input.tocMarkdown), {
-      file_kind: RESOURCE_PACK_FILE_KIND_TOC,
-      resource_alias: resourceAlias,
-      source_relpath: input.build.sourceRelpath,
-      format: input.build.classification.format,
-    }))
+    await writeTextFile(
+      input.build.packPaths.tocPath,
+      matter.stringify(normalizeText(input.tocMarkdown), {
+        file_kind: RESOURCE_PACK_FILE_KIND_TOC,
+        resource_alias: resourceAlias,
+        source_relpath: input.build.sourceRelpath,
+        format: input.build.classification.format,
+      }),
+    )
   } else {
     await fs.rm(input.build.packPaths.tocPath, { force: true }).catch(() => undefined)
   }
@@ -188,7 +199,7 @@ export async function writeErroredResourcePackMetadata(input: {
     source_relpath: input.build.sourceRelpath,
     format: input.build.classification.format,
     status: RESOURCE_PACK_STATUS_ERROR,
-    extractor: "error",
+    extractor: 'error',
     prepared_at: new Date().toISOString(),
     source_mtime_ms: Number(input.build.sourceStat.mtimeMs),
     source_size_bytes: Number(input.build.sourceStat.size),
@@ -198,27 +209,29 @@ export async function writeErroredResourcePackMetadata(input: {
   })
 }
 
-async function loadResourcePackMetadata(metadataPath: string): Promise<ResourcePackMetadata | undefined> {
-  const existing = await fs.readFile(metadataPath, "utf8").catch(() => undefined)
+async function loadResourcePackMetadata(
+  metadataPath: string,
+): Promise<ResourcePackMetadata | undefined> {
+  const existing = await fs.readFile(metadataPath, 'utf8').catch(() => undefined)
   if (!existing) return undefined
 
   const parsed = matter(existing)
   const data = isPlainObject(parsed.data) ? parsed.data : undefined
   if (!data) return undefined
 
-  const sourcePath = stringValue(data, "source_path")
-  const sourceRelpath = stringValue(data, "source_relpath")
-  const resourceAlias = stringValue(data, "resource_alias") || undefined
-  const format = normalizeResourceFormat(stringValue(data, "format"))
-  const status = normalizeResourcePackStatus(stringValue(data, "status"))
-  const extractor = stringValue(data, "extractor")
-  const preparedAt = stringValue(data, "prepared_at")
-  const sourceMtimeMs = numberValue(data, "source_mtime_ms")
-  const sourceSizeBytes = numberValue(data, "source_size_bytes")
-  const chunkCount = numberValue(data, "chunk_count")
-  const fullTextFile = stringValue(data, "full_text_file") || undefined
-  const warnings = stringArrayValue(data, "warnings")
-  const pageCount = numberValue(data, "page_count", true)
+  const sourcePath = stringValue(data, 'source_path')
+  const sourceRelpath = stringValue(data, 'source_relpath')
+  const resourceAlias = stringValue(data, 'resource_alias') || undefined
+  const format = normalizeResourceFormat(stringValue(data, 'format'))
+  const status = normalizeResourcePackStatus(stringValue(data, 'status'))
+  const extractor = stringValue(data, 'extractor')
+  const preparedAt = stringValue(data, 'prepared_at')
+  const sourceMtimeMs = numberValue(data, 'source_mtime_ms')
+  const sourceSizeBytes = numberValue(data, 'source_size_bytes')
+  const chunkCount = numberValue(data, 'chunk_count')
+  const fullTextFile = stringValue(data, 'full_text_file') || undefined
+  const warnings = stringArrayValue(data, 'warnings')
+  const pageCount = numberValue(data, 'page_count', true)
 
   if (
     !sourcePath ||
@@ -276,14 +289,15 @@ async function writePageMarkdowns(input: {
       const pageBody = normalizeText(page.markdown)
       const chars = pageBody.length
       const estTokens = estimateTokenCountFromText(pageBody)
-      const filename = [
-        RESOURCE_PACK_PAGE_FILE_PREFIX,
-        padNumber(page.pageNumber, RESOURCE_PACK_FILENAME_PAGE_PAD),
-        RESOURCE_PACK_FILENAME_TOKEN_LABEL,
-        padNumber(estTokens, RESOURCE_PACK_FILENAME_TOKEN_PAD),
-        RESOURCE_PACK_FILENAME_CHAR_LABEL,
-        padNumber(chars, RESOURCE_PACK_FILENAME_CHAR_PAD),
-      ].join("-") + ".md"
+      const filename =
+        [
+          RESOURCE_PACK_PAGE_FILE_PREFIX,
+          padNumber(page.pageNumber, RESOURCE_PACK_FILENAME_PAGE_PAD),
+          RESOURCE_PACK_FILENAME_TOKEN_LABEL,
+          padNumber(estTokens, RESOURCE_PACK_FILENAME_TOKEN_PAD),
+          RESOURCE_PACK_FILENAME_CHAR_LABEL,
+          padNumber(chars, RESOURCE_PACK_FILENAME_CHAR_PAD),
+        ].join('-') + '.md'
       const content = matter.stringify(pageBody, {
         file_kind: RESOURCE_PACK_FILE_KIND_PAGE,
         resource_alias: input.resourceAlias,
@@ -304,29 +318,32 @@ async function writeChunkMarkdowns(chunksDirPath: string, chunkFiles: ResourceCh
 
   await Promise.all(
     chunkFiles.map(async (chunkFile) => {
-      await writeTextFile(path.join(chunksDirPath, chunkFile.filename), normalizeText(chunkFile.content))
+      await writeTextFile(
+        path.join(chunksDirPath, chunkFile.filename),
+        normalizeText(chunkFile.content),
+      )
     }),
   )
 }
 
 async function writeTextFile(filepath: string, content: string) {
   await fs.mkdir(path.dirname(filepath), { recursive: true })
-  await fs.writeFile(filepath, content, "utf8")
+  await fs.writeFile(filepath, content, 'utf8')
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value)
+  return !!value && typeof value === 'object' && !Array.isArray(value)
 }
 
 function stringValue(record: Record<string, unknown>, key: string) {
   const value = record[key]
-  return typeof value === "string" ? value : ""
+  return typeof value === 'string' ? value : ''
 }
 
 function numberValue(record: Record<string, unknown>, key: string, optional = false) {
   const value = record[key]
-  if (typeof value === "number") return value
-  if (typeof value === "string" && value.trim().length > 0) {
+  if (typeof value === 'number') return value
+  if (typeof value === 'string' && value.trim().length > 0) {
     const parsed = Number(value)
     if (!Number.isNaN(parsed)) return parsed
   }
@@ -336,9 +353,9 @@ function numberValue(record: Record<string, unknown>, key: string, optional = fa
 function stringArrayValue(record: Record<string, unknown>, key: string) {
   const value = record[key]
   if (Array.isArray(value)) {
-    return value.filter((entry): entry is string => typeof entry === "string")
+    return value.filter((entry): entry is string => typeof entry === 'string')
   }
-  if (typeof value === "string" && value.trim().length > 0) {
+  if (typeof value === 'string' && value.trim().length > 0) {
     return [value]
   }
   return []
@@ -353,47 +370,46 @@ function normalizeResourcePackStatus(value: string) {
 }
 
 function normalizeResourceFormat(value: string): ResourceFormat | undefined {
-  if (value === "pdf") return "pdf"
-  if (value === "epub") return "epub"
-  if (value === "docx") return "docx"
-  if (value === "html") return "html"
-  if (value === "htm") return "htm"
-  if (value === "xhtml") return "xhtml"
-  if (value === "markdown") return "markdown"
-  if (value === "text") return "text"
-  if (value === "json") return "json"
-  if (value === "jsonc") return "jsonc"
-  if (value === "yaml") return "yaml"
-  if (value === "yml") return "yml"
-  if (value === "csv") return "csv"
-  if (value === "code") return "code"
-  if (value === "unknown") return "unknown"
+  if (value === 'pdf') return 'pdf'
+  if (value === 'epub') return 'epub'
+  if (value === 'docx') return 'docx'
+  if (value === 'html') return 'html'
+  if (value === 'htm') return 'htm'
+  if (value === 'xhtml') return 'xhtml'
+  if (value === 'markdown') return 'markdown'
+  if (value === 'text') return 'text'
+  if (value === 'json') return 'json'
+  if (value === 'jsonc') return 'jsonc'
+  if (value === 'yaml') return 'yaml'
+  if (value === 'yml') return 'yml'
+  if (value === 'csv') return 'csv'
+  if (value === 'code') return 'code'
+  if (value === 'unknown') return 'unknown'
   return undefined
 }
 
 function padNumber(value: number, width: number) {
-  return String(Math.max(0, Math.trunc(value))).padStart(width, "0")
+  return String(Math.max(0, Math.trunc(value))).padStart(width, '0')
 }
 
 function normalizeText(value: string) {
-  return value.replace(/\r\n/g, "\n").trim()
+  return value.replace(/\r\n/g, '\n').trim()
 }
 
 function resourcePackKeyFromRootPath(rootPath: string) {
   return path.basename(path.dirname(rootPath))
 }
 
-function buildFullTextFilename(input: {
-  estTokens: number
-  chars: number
-}) {
-  return [
-    RESOURCE_PACK_FULL_TEXT_FILE_PREFIX,
-    RESOURCE_PACK_FILENAME_TOKEN_LABEL,
-    padNumber(input.estTokens, RESOURCE_PACK_FILENAME_TOKEN_PAD),
-    RESOURCE_PACK_FILENAME_CHAR_LABEL,
-    padNumber(input.chars, RESOURCE_PACK_FILENAME_CHAR_PAD),
-  ].join("-") + ".md"
+function buildFullTextFilename(input: { estTokens: number; chars: number }) {
+  return (
+    [
+      RESOURCE_PACK_FULL_TEXT_FILE_PREFIX,
+      RESOURCE_PACK_FILENAME_TOKEN_LABEL,
+      padNumber(input.estTokens, RESOURCE_PACK_FILENAME_TOKEN_PAD),
+      RESOURCE_PACK_FILENAME_CHAR_LABEL,
+      padNumber(input.chars, RESOURCE_PACK_FILENAME_CHAR_PAD),
+    ].join('-') + '.md'
+  )
 }
 
 async function resolveFullTextPath(input: {
@@ -411,9 +427,11 @@ async function resolveFullTextPath(input: {
   const dynamic = entries
     .filter((entry) => entry.isFile())
     .map((entry) => entry.name)
-    .find((name) =>
-      name.startsWith(`${RESOURCE_PACK_FULL_TEXT_FILE_PREFIX}-${RESOURCE_PACK_FILENAME_TOKEN_LABEL}-`) &&
-      name.endsWith(".md"),
+    .find(
+      (name) =>
+        name.startsWith(
+          `${RESOURCE_PACK_FULL_TEXT_FILE_PREFIX}-${RESOURCE_PACK_FILENAME_TOKEN_LABEL}-`,
+        ) && name.endsWith('.md'),
     )
   if (dynamic) {
     return path.join(input.rootPath, dynamic)
@@ -424,24 +442,24 @@ async function resolveFullTextPath(input: {
   return path.join(input.rootPath, RESOURCE_PACK_FULL_TEXT_FILE_NAME)
 }
 
-async function removeStaleFullTextFiles(input: {
-  rootPath: string
-  keepFilename: string
-}) {
+async function removeStaleFullTextFiles(input: { rootPath: string; keepFilename: string }) {
   const entries = await fs.readdir(input.rootPath, { withFileTypes: true }).catch(() => [])
   const staleFiles = entries
     .filter((entry) => entry.isFile())
     .map((entry) => entry.name)
     .filter((name) => name !== input.keepFilename)
-    .filter((name) =>
-      name === RESOURCE_PACK_FULL_TEXT_FILE_NAME ||
-      (
-        name.startsWith(`${RESOURCE_PACK_FULL_TEXT_FILE_PREFIX}-${RESOURCE_PACK_FILENAME_TOKEN_LABEL}-`) &&
-        name.endsWith(".md")
-      ),
+    .filter(
+      (name) =>
+        name === RESOURCE_PACK_FULL_TEXT_FILE_NAME ||
+        (name.startsWith(
+          `${RESOURCE_PACK_FULL_TEXT_FILE_PREFIX}-${RESOURCE_PACK_FILENAME_TOKEN_LABEL}-`,
+        ) &&
+          name.endsWith('.md')),
     )
 
   await Promise.all(
-    staleFiles.map((name) => fs.rm(path.join(input.rootPath, name), { force: true }).catch(() => undefined)),
+    staleFiles.map((name) =>
+      fs.rm(path.join(input.rootPath, name), { force: true }).catch(() => undefined),
+    ),
   )
 }

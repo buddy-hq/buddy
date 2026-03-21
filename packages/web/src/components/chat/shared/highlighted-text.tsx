@@ -1,14 +1,14 @@
-import { useMemo } from "react"
-import { cn } from "@buddy/ui"
-import { isRecord } from "./utils"
-import type { MessagePart } from "@/state/chat-types"
+import { useMemo } from 'react'
+import { cn } from '@buddy/ui'
+import { isRecord } from './utils'
+import type { MessagePart } from '@/state/chat-types'
 
-type HighlightSegment = { text: string; type?: "file" | "agent" }
+type HighlightSegment = { text: string; type?: 'file' | 'agent' }
 
 type HighlightReference = {
   start: number
   end: number
-  type: "file" | "agent"
+  type: 'file' | 'agent'
 }
 
 function readSourceRange(value: unknown): { start: number; end: number } | undefined {
@@ -16,14 +16,15 @@ function readSourceRange(value: unknown): { start: number; end: number } | undef
 
   const start = value.start
   const end = value.end
-  if (typeof start !== "number" || typeof end !== "number") return undefined
-  if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end <= start) return undefined
+  if (typeof start !== 'number' || typeof end !== 'number') return undefined
+  if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end <= start)
+    return undefined
 
   return { start, end }
 }
 
 function readFileHighlightReference(part: MessagePart): HighlightReference | undefined {
-  if (part.type !== "file") return undefined
+  if (part.type !== 'file') return undefined
 
   const source = isRecord(part.source) ? part.source : undefined
   const textSource = source ? readSourceRange(source.text) : undefined
@@ -31,19 +32,19 @@ function readFileHighlightReference(part: MessagePart): HighlightReference | und
 
   return {
     ...textSource,
-    type: "file",
+    type: 'file',
   }
 }
 
 function readAgentHighlightReference(part: MessagePart): HighlightReference | undefined {
-  if (part.type !== "agent") return undefined
+  if (part.type !== 'agent') return undefined
 
   const source = readSourceRange(part.source)
   if (!source) return undefined
 
   return {
     ...source,
-    type: "agent",
+    type: 'agent',
   }
 }
 
@@ -55,7 +56,10 @@ interface HighlightedTextProps {
 
 export function HighlightedText({ text, references, agents }: HighlightedTextProps) {
   const segments = useMemo(() => {
-    const allRefs = [...references.map(readFileHighlightReference), ...agents.map(readAgentHighlightReference)]
+    const allRefs = [
+      ...references.map(readFileHighlightReference),
+      ...agents.map(readAgentHighlightReference),
+    ]
       .filter((ref): ref is HighlightReference => ref !== undefined)
       .sort((a, b) => a.start - b.start)
 
@@ -86,8 +90,8 @@ export function HighlightedText({ text, references, agents }: HighlightedTextPro
         <span
           key={index}
           className={cn(
-            segment.type === "file" && "text-primary",
-            segment.type === "agent" && "text-foreground font-medium",
+            segment.type === 'file' && 'text-primary',
+            segment.type === 'agent' && 'text-foreground font-medium',
           )}
         >
           {segment.text}
@@ -98,10 +102,10 @@ export function HighlightedText({ text, references, agents }: HighlightedTextPro
 }
 
 export function isAttachmentFilePart(part: MessagePart) {
-  if (part.type !== "file") return false
+  if (part.type !== 'file') return false
 
-  const mime = typeof part.mime === "string" ? part.mime : undefined
+  const mime = typeof part.mime === 'string' ? part.mime : undefined
   if (!mime) return false
 
-  return mime.startsWith("image/") || mime === "application/pdf"
+  return mime.startsWith('image/') || mime === 'application/pdf'
 }

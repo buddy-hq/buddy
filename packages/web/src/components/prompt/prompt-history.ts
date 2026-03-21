@@ -1,4 +1,4 @@
-import type { PromptComposerAttachment, PromptComposerPart } from "./prompt-types"
+import type { PromptComposerAttachment, PromptComposerPart } from './prompt-types'
 
 export type PromptHistoryEntry = {
   value: string
@@ -7,7 +7,7 @@ export type PromptHistoryEntry = {
 }
 
 const EMPTY_DRAFT: PromptHistoryEntry = {
-  value: "",
+  value: '',
   attachments: [],
   parts: [],
 }
@@ -23,7 +23,7 @@ export function clonePromptHistoryEntry(entry: PromptHistoryEntry): PromptHistor
 }
 
 export function canNavigateHistoryAtCursor(
-  direction: "up" | "down",
+  direction: 'up' | 'down',
   text: string,
   cursor: number,
   inHistory = false,
@@ -33,7 +33,7 @@ export function canNavigateHistoryAtCursor(
   const atEnd = position === text.length
 
   if (inHistory) return atStart || atEnd
-  if (direction === "up") return atStart
+  if (direction === 'up') return atStart
   return atEnd
 }
 
@@ -57,23 +57,31 @@ function isHistoryEntryEqual(left: PromptHistoryEntry, right: PromptHistoryEntry
     const rightPart = right.parts[index]
     if (!leftPart || !rightPart) return false
     if (leftPart.type !== rightPart.type) return false
-    if ("text" in leftPart && "text" in rightPart && leftPart.text !== rightPart.text) return false
-    if ("name" in leftPart && "name" in rightPart && leftPart.name !== rightPart.name) return false
-    if ("path" in leftPart && "path" in rightPart && leftPart.path !== rightPart.path) return false
-    if ("key" in leftPart && "key" in rightPart && leftPart.key !== rightPart.key) return false
+    if ('text' in leftPart && 'text' in rightPart && leftPart.text !== rightPart.text) return false
+    if ('name' in leftPart && 'name' in rightPart && leftPart.name !== rightPart.name) return false
+    if ('path' in leftPart && 'path' in rightPart && leftPart.path !== rightPart.path) return false
+    if ('key' in leftPart && 'key' in rightPart && leftPart.key !== rightPart.key) return false
   }
 
   return true
 }
 
-export function prependHistoryEntry(entries: PromptHistoryEntry[], entry: PromptHistoryEntry, max = MAX_HISTORY) {
+export function prependHistoryEntry(
+  entries: PromptHistoryEntry[],
+  entry: PromptHistoryEntry,
+  max = MAX_HISTORY,
+) {
   const normalized = {
     value: entry.value.trimEnd(),
     attachments: entry.attachments,
     parts: entry.parts,
   }
 
-  if (!normalized.value.trim() && normalized.attachments.length === 0 && normalized.parts.length === 0) {
+  if (
+    !normalized.value.trim() &&
+    normalized.attachments.length === 0 &&
+    normalized.parts.length === 0
+  ) {
     return entries
   }
 
@@ -87,7 +95,7 @@ export function prependHistoryEntry(entries: PromptHistoryEntry[], entry: Prompt
 }
 
 type HistoryInput = {
-  direction: "up" | "down"
+  direction: 'up' | 'down'
   entries: PromptHistoryEntry[]
   historyIndex: number
   current: PromptHistoryEntry
@@ -105,11 +113,11 @@ type HistoryResult =
       historyIndex: number
       savedDraft: PromptHistoryEntry | null
       entry: PromptHistoryEntry
-      cursor: "start" | "end"
+      cursor: 'start' | 'end'
     }
 
 export function navigatePromptHistory(input: HistoryInput): HistoryResult {
-  if (input.direction === "up") {
+  if (input.direction === 'up') {
     if (input.entries.length === 0) {
       return {
         handled: false,
@@ -124,7 +132,7 @@ export function navigatePromptHistory(input: HistoryInput): HistoryResult {
         historyIndex: 0,
         savedDraft: clonePromptHistoryEntry(input.current),
         entry: clonePromptHistoryEntry(input.entries[0]!),
-        cursor: "start",
+        cursor: 'start',
       }
     }
 
@@ -135,7 +143,7 @@ export function navigatePromptHistory(input: HistoryInput): HistoryResult {
         historyIndex: next,
         savedDraft: input.savedDraft,
         entry: clonePromptHistoryEntry(input.entries[next]!),
-        cursor: "start",
+        cursor: 'start',
       }
     }
 
@@ -153,7 +161,7 @@ export function navigatePromptHistory(input: HistoryInput): HistoryResult {
       historyIndex: next,
       savedDraft: input.savedDraft,
       entry: clonePromptHistoryEntry(input.entries[next]!),
-      cursor: "end",
+      cursor: 'end',
     }
   }
 
@@ -163,7 +171,7 @@ export function navigatePromptHistory(input: HistoryInput): HistoryResult {
       historyIndex: -1,
       savedDraft: null,
       entry: clonePromptHistoryEntry(input.savedDraft ?? EMPTY_DRAFT),
-      cursor: "end",
+      cursor: 'end',
     }
   }
 

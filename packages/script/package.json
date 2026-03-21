@@ -3,10 +3,10 @@
   "name": "@buddy/script",
   "private": true,
   "type": "module",
-  "devDependencies": {
-    "@types/bun": "catalog:"
-  },
   "exports": {
     ".": "./src/index.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:"
   }
 }

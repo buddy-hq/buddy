@@ -1,6 +1,6 @@
-import { cn } from "@buddy/ui"
-import type { MentionOption } from "../mention-autocomplete"
-import type { SlashCommandOption } from "../slash-autocomplete"
+import { cn } from '@buddy/ui'
+import type { MentionOption } from '../mention-autocomplete'
+import type { SlashCommandOption } from '../slash-autocomplete'
 
 type PromptAutocompleteMenuProps = {
   slashVisible: boolean
@@ -29,8 +29,8 @@ export function PromptAutocompleteMenu(props: PromptAutocompleteMenuProps) {
               key={`${command.type}:${command.name}`}
               type="button"
               className={cn(
-                "flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors",
-                active ? "bg-muted text-foreground" : "text-foreground hover:bg-muted/70",
+                'flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors',
+                active ? 'bg-muted text-foreground' : 'text-foreground hover:bg-muted/70',
               )}
               onMouseDown={(event) => {
                 event.preventDefault()
@@ -40,12 +40,14 @@ export function PromptAutocompleteMenu(props: PromptAutocompleteMenuProps) {
               <div className="flex min-w-0 flex-col gap-0.5">
                 <span className="font-medium">{`/${command.name}`}</span>
                 {command.description ? (
-                  <span className="truncate text-xs text-muted-foreground">{command.description}</span>
+                  <span className="truncate text-xs text-muted-foreground">
+                    {command.description}
+                  </span>
                 ) : command.title ? (
                   <span className="truncate text-xs text-muted-foreground">{command.title}</span>
                 ) : null}
               </div>
-              {command.type === "custom" && command.source && command.source !== "command" ? (
+              {command.type === 'custom' && command.source && command.source !== 'command' ? (
                 <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
                   {command.source}
                 </span>
@@ -62,21 +64,23 @@ export function PromptAutocompleteMenu(props: PromptAutocompleteMenuProps) {
             const active = index === props.mentionIndex
             return (
               <button
-                key={option.type === "agent" ? `agent:${option.name}` : `file:${option.path}`}
+                key={option.type === 'agent' ? `agent:${option.name}` : `file:${option.path}`}
                 type="button"
                 className={cn(
-                  "flex w-full flex-col gap-0.5 px-3 py-2 text-left text-sm transition-colors",
-                  active ? "bg-muted text-foreground" : "text-foreground hover:bg-muted/70",
+                  'flex w-full flex-col gap-0.5 px-3 py-2 text-left text-sm transition-colors',
+                  active ? 'bg-muted text-foreground' : 'text-foreground hover:bg-muted/70',
                 )}
                 onMouseDown={(event) => {
                   event.preventDefault()
                   props.onApplyMention(option)
                 }}
               >
-                <span className="font-medium">{option.type === "agent" ? `@${option.name}` : `@${option.path}`}</span>
+                <span className="font-medium">
+                  {option.type === 'agent' ? `@${option.name}` : `@${option.path}`}
+                </span>
                 {option.description ? (
                   <span className="text-xs text-muted-foreground">{option.description}</span>
-                ) : option.type === "file" && option.recent ? (
+                ) : option.type === 'file' && option.recent ? (
                   <span className="text-xs text-muted-foreground">Recent file</span>
                 ) : null}
               </button>

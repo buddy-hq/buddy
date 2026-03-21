@@ -3,22 +3,22 @@ import {
   pedagogyGuidedPracticeTool,
   pedagogyIndependentPracticeTool,
   pedagogyStepwiseSolveTool,
-} from "../../capabilities/pedagogy/tools/definitions"
-import { createIntentCapabilities } from "../capabilities/types"
+} from '../../capabilities/pedagogy/tools/definitions'
+import { createIntentCapabilities } from '../capabilities/types'
 
 export const PRACTICE_INTENT_CAPABILITY_MANIFEST = createIntentCapabilities({
-  intent: "practice",
+  intent: 'practice',
   tools: [
     pedagogyGuidedPracticeTool,
     pedagogyIndependentPracticeTool,
     {
       tool: pedagogyDebugAttemptTool,
-      personas: ["code-buddy"],
-      workspaceStates: ["interactive"],
+      personas: ['code-buddy'],
+      workspaceStates: ['interactive'],
     },
     {
       tool: pedagogyStepwiseSolveTool,
-      personas: ["math-buddy"],
+      personas: ['math-buddy'],
     },
   ],
   skills: [],

@@ -1,4 +1,4 @@
-import { applyThemePreload } from "./preload-runtime"
+import { applyThemePreload } from './preload-runtime'
 
 applyThemePreload({
   document,

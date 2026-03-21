@@ -1,4 +1,4 @@
-import type { AssistantMessageInfo, MessageWithParts, ProviderInfo } from "./chat-types"
+import type { AssistantMessageInfo, MessageWithParts, ProviderInfo } from './chat-types'
 
 export type TokenContextMetrics = {
   used: number
@@ -12,7 +12,7 @@ export type SessionContextMetrics = {
     | {
         message: AssistantMessageInfo
         provider?: ProviderInfo
-        model?: ProviderInfo["models"][number]
+        model?: ProviderInfo['models'][number]
         providerLabel: string
         modelLabel: string
         limit: number | undefined
@@ -41,15 +41,18 @@ function tokenTotal(assistant: AssistantMessageInfo) {
 function lastAssistantWithTokens(messages: MessageWithParts[]) {
   for (let i = messages.length - 1; i >= 0; i -= 1) {
     const message = messages[i]
-    if (message.info.role !== "assistant") continue
+    if (message.info.role !== 'assistant') continue
     if (tokenTotal(message.info) <= 0) continue
     return message.info
   }
 }
 
-export function getSessionContextMetrics(messages: MessageWithParts[] = [], providers: ProviderInfo[] = []): SessionContextMetrics {
+export function getSessionContextMetrics(
+  messages: MessageWithParts[] = [],
+  providers: ProviderInfo[] = [],
+): SessionContextMetrics {
   const totalCost = messages.reduce((sum, message) => {
-    if (message.info.role !== "assistant") return sum
+    if (message.info.role !== 'assistant') return sum
     return sum + message.info.cost
   }, 0)
 
@@ -82,7 +85,7 @@ export function getSessionContextMetrics(messages: MessageWithParts[] = [], prov
       cacheWrite: message.tokens.cache.write,
       total,
       usage: limit ? Math.round((total / limit) * 100) : null,
-      remaining: typeof limit === "number" ? Math.max(limit - total, 0) : undefined,
+      remaining: typeof limit === 'number' ? Math.max(limit - total, 0) : undefined,
     },
   }
 }
@@ -97,7 +100,7 @@ export function computeTokenContextMetrics(input: {
   const model = provider?.models.find((item) => item.id === input.assistant.modelID)
   const limit = model?.limit.context
 
-  if (typeof limit !== "number" || limit <= 0) {
+  if (typeof limit !== 'number' || limit <= 0) {
     return { used }
   }
 

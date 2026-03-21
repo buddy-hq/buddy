@@ -1,31 +1,31 @@
-import { beforeEach, describe, expect, test } from "bun:test"
-import { mkdirSync, readFileSync, realpathSync, rmSync } from "node:fs"
-import path from "node:path"
-import { Project as OpenCodeProject } from "@buddy/opencode-adapter/project"
-import { app } from "../src/index.ts"
-import { Global } from "../src/storage/global"
-import { createGitRepo } from "./helpers/repo"
+import { beforeEach, describe, expect, test } from 'bun:test'
+import { mkdirSync, readFileSync, realpathSync, rmSync } from 'node:fs'
+import path from 'node:path'
+import { Project as OpenCodeProject } from '@buddy/opencode-adapter/project'
+import { app } from '../src/index.ts'
+import { Global } from '../src/storage/global'
+import { createGitRepo } from './helpers/repo'
 
-const registryPath = path.join(Global.Path.state, "desktop-notebooks.json")
+const registryPath = path.join(Global.Path.state, 'desktop-notebooks.json')
 
 function readRegistryFile() {
-  return JSON.parse(readFileSync(registryPath, "utf8")) as string[]
+  return JSON.parse(readFileSync(registryPath, 'utf8')) as string[]
 }
 
-describe("open project routes", () => {
+describe('open project routes', () => {
   beforeEach(() => {
     rmSync(registryPath, { force: true })
   })
 
-  test("returns an empty list when desktop-notebooks.json is missing", async () => {
-    const response = await app.request("/api/open-projects")
+  test('returns an empty list when desktop-notebooks.json is missing', async () => {
+    const response = await app.request('/api/open-projects')
 
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toEqual({ directories: [] })
   })
 
-  test("resolves relative directories against BUDDY_DIRECTORY_BASE when configured", async () => {
-    const repo = createGitRepo("buddy-route-open-project-base")
+  test('resolves relative directories against BUDDY_DIRECTORY_BASE when configured', async () => {
+    const repo = createGitRepo('buddy-route-open-project-base')
     const canonicalRepo = realpathSync(repo)
     const base = path.dirname(repo)
     const relativeDirectory = path.basename(repo)
@@ -36,10 +36,10 @@ describe("open project routes", () => {
     process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS = base
 
     try {
-      const response = await app.request("/api/open-projects", {
-        method: "POST",
+      const response = await app.request('/api/open-projects', {
+        method: 'POST',
         headers: {
-          "content-type": "application/json",
+          'content-type': 'application/json',
         },
         body: JSON.stringify({
           directory: relativeDirectory,
@@ -60,17 +60,17 @@ describe("open project routes", () => {
     }
   })
 
-  test("rejects directories outside allowed roots", async () => {
-    const repo = createGitRepo("buddy-route-open-project-reject")
+  test('rejects directories outside allowed roots', async () => {
+    const repo = createGitRepo('buddy-route-open-project-reject')
     const originalAllowedRoots = process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS
 
-    process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS = path.join(repo, "different-root")
+    process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS = path.join(repo, 'different-root')
 
     try {
-      const response = await app.request("/api/open-projects", {
-        method: "POST",
+      const response = await app.request('/api/open-projects', {
+        method: 'POST',
         headers: {
-          "content-type": "application/json",
+          'content-type': 'application/json',
         },
         body: JSON.stringify({
           directory: repo,
@@ -79,7 +79,7 @@ describe("open project routes", () => {
 
       expect(response.status).toBe(403)
       await expect(response.json()).resolves.toEqual({
-        error: "Directory is outside allowed roots",
+        error: 'Directory is outside allowed roots',
       })
     } finally {
       if (originalAllowedRoots === undefined) delete process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS
@@ -87,28 +87,31 @@ describe("open project routes", () => {
     }
   })
 
-  test("opening is idempotent and preserves existing order", async () => {
-    const firstRepo = realpathSync(createGitRepo("buddy-route-open-project-first"))
-    const secondRepo = realpathSync(createGitRepo("buddy-route-open-project-second"))
+  test('opening is idempotent and preserves existing order', async () => {
+    const firstRepo = realpathSync(createGitRepo('buddy-route-open-project-first'))
+    const secondRepo = realpathSync(createGitRepo('buddy-route-open-project-second'))
     const originalAllowedRoots = process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS
 
-    process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS = [path.dirname(firstRepo), path.dirname(secondRepo)].join(",")
+    process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS = [
+      path.dirname(firstRepo),
+      path.dirname(secondRepo),
+    ].join(',')
 
     try {
-      await app.request("/api/open-projects", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
+      await app.request('/api/open-projects', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ directory: firstRepo }),
       })
-      await app.request("/api/open-projects", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
+      await app.request('/api/open-projects', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ directory: secondRepo }),
       })
 
-      const repeatResponse = await app.request("/api/open-projects", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
+      const repeatResponse = await app.request('/api/open-projects', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ directory: firstRepo }),
       })
 
@@ -120,34 +123,43 @@ describe("open project routes", () => {
     }
   })
 
-  test("closing is idempotent", async () => {
-    const firstRepo = realpathSync(createGitRepo("buddy-route-open-project-close-first"))
-    const secondRepo = realpathSync(createGitRepo("buddy-route-open-project-close-second"))
+  test('closing is idempotent', async () => {
+    const firstRepo = realpathSync(createGitRepo('buddy-route-open-project-close-first'))
+    const secondRepo = realpathSync(createGitRepo('buddy-route-open-project-close-second'))
     const originalAllowedRoots = process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS
 
-    process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS = [path.dirname(firstRepo), path.dirname(secondRepo)].join(",")
+    process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS = [
+      path.dirname(firstRepo),
+      path.dirname(secondRepo),
+    ].join(',')
 
     try {
-      await app.request("/api/open-projects", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
+      await app.request('/api/open-projects', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ directory: firstRepo }),
       })
-      await app.request("/api/open-projects", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
+      await app.request('/api/open-projects', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ directory: secondRepo }),
       })
 
-      const closeResponse = await app.request(`/api/open-projects?directory=${encodeURIComponent(firstRepo)}`, {
-        method: "DELETE",
-      })
+      const closeResponse = await app.request(
+        `/api/open-projects?directory=${encodeURIComponent(firstRepo)}`,
+        {
+          method: 'DELETE',
+        },
+      )
       expect(closeResponse.status).toBe(200)
       expect(readRegistryFile()).toEqual([secondRepo])
 
-      const missingResponse = await app.request(`/api/open-projects?directory=${encodeURIComponent(firstRepo)}`, {
-        method: "DELETE",
-      })
+      const missingResponse = await app.request(
+        `/api/open-projects?directory=${encodeURIComponent(firstRepo)}`,
+        {
+          method: 'DELETE',
+        },
+      )
       expect(missingResponse.status).toBe(200)
       expect(readRegistryFile()).toEqual([secondRepo])
     } finally {
@@ -156,28 +168,31 @@ describe("open project routes", () => {
     }
   })
 
-  test("reorders the current registry and rejects set mismatches", async () => {
-    const firstRepo = realpathSync(createGitRepo("buddy-route-open-project-order-first"))
-    const secondRepo = realpathSync(createGitRepo("buddy-route-open-project-order-second"))
+  test('reorders the current registry and rejects set mismatches', async () => {
+    const firstRepo = realpathSync(createGitRepo('buddy-route-open-project-order-first'))
+    const secondRepo = realpathSync(createGitRepo('buddy-route-open-project-order-second'))
     const originalAllowedRoots = process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS
 
-    process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS = [path.dirname(firstRepo), path.dirname(secondRepo)].join(",")
+    process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS = [
+      path.dirname(firstRepo),
+      path.dirname(secondRepo),
+    ].join(',')
 
     try {
-      await app.request("/api/open-projects", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
+      await app.request('/api/open-projects', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ directory: firstRepo }),
       })
-      await app.request("/api/open-projects", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
+      await app.request('/api/open-projects', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ directory: secondRepo }),
       })
 
-      const reorderResponse = await app.request("/api/open-projects/order", {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
+      const reorderResponse = await app.request('/api/open-projects/order', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ directories: [firstRepo, secondRepo] }),
       })
 
@@ -187,15 +202,15 @@ describe("open project routes", () => {
       })
       expect(readRegistryFile()).toEqual([firstRepo, secondRepo])
 
-      const mismatchResponse = await app.request("/api/open-projects/order", {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
+      const mismatchResponse = await app.request('/api/open-projects/order', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ directories: [firstRepo] }),
       })
 
       expect(mismatchResponse.status).toBe(400)
       await expect(mismatchResponse.json()).resolves.toEqual({
-        error: "Directory order must match the current open-project set",
+        error: 'Directory order must match the current open-project set',
       })
     } finally {
       if (originalAllowedRoots === undefined) delete process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS
@@ -203,8 +218,8 @@ describe("open project routes", () => {
     }
   })
 
-  test("listing open projects does not create a project for the backend cwd", async () => {
-    const repo = createGitRepo("buddy-route-open-project-readonly")
+  test('listing open projects does not create a project for the backend cwd', async () => {
+    const repo = createGitRepo('buddy-route-open-project-readonly')
     const canonicalRepo = realpathSync(repo)
     const originalCwd = process.cwd()
     const before = OpenCodeProject.list().map((project) => project.worktree)
@@ -212,7 +227,7 @@ describe("open project routes", () => {
     process.chdir(repo)
 
     try {
-      const response = await app.request("/api/open-projects")
+      const response = await app.request('/api/open-projects')
 
       expect(response.status).toBe(200)
       expect(OpenCodeProject.list().map((project) => project.worktree)).toEqual(before)
@@ -224,9 +239,9 @@ describe("open project routes", () => {
     }
   })
 
-  test("stores normalized directories from the live desktop-notebooks file format", async () => {
-    const repo = createGitRepo("buddy-route-open-project-normalize")
-    const nested = path.join(repo, "nested")
+  test('stores normalized directories from the live desktop-notebooks file format', async () => {
+    const repo = createGitRepo('buddy-route-open-project-normalize')
+    const nested = path.join(repo, 'nested')
     mkdirSync(nested, { recursive: true })
     const canonicalRepo = realpathSync(repo)
 
@@ -234,9 +249,9 @@ describe("open project routes", () => {
     process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS = path.dirname(repo)
 
     try {
-      await app.request("/api/open-projects", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
+      await app.request('/api/open-projects', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ directory: `${nested}/../` }),
       })
 

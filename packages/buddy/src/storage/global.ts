@@ -1,8 +1,12 @@
-import fs from "node:fs"
-import os from "node:os"
-import path from "node:path"
-import { xdgCache, xdgData, xdgState } from "xdg-basedir"
-import { BUDDY_APP_NAME, resolveConfiguredPath, resolveDefaultBuddyGlobalConfigDir } from "./constants"
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import { xdgCache, xdgData, xdgState } from 'xdg-basedir'
+import {
+  BUDDY_APP_NAME,
+  resolveConfiguredPath,
+  resolveDefaultBuddyGlobalConfigDir,
+} from './constants'
 
 function withFallback(value: string | undefined, fallback: string) {
   return value ?? fallback
@@ -14,34 +18,35 @@ function buildPaths(input: { data: string; cache: string; config: string; state:
     cache: input.cache,
     config: input.config,
     state: input.state,
-    log: path.join(input.data, "log"),
-    bin: path.join(input.data, "bin"),
+    log: path.join(input.data, 'log'),
+    bin: path.join(input.data, 'bin'),
   }
 }
 
 const preferred = buildPaths({
   data: path.resolve(
     process.env.BUDDY_DATA_DIR ??
-      path.join(withFallback(xdgData, path.join(os.homedir(), ".local", "share")), BUDDY_APP_NAME),
+      path.join(withFallback(xdgData, path.join(os.homedir(), '.local', 'share')), BUDDY_APP_NAME),
   ),
   cache: path.resolve(
     process.env.BUDDY_CACHE_DIR ??
-      path.join(withFallback(xdgCache, path.join(os.homedir(), ".cache")), BUDDY_APP_NAME),
+      path.join(withFallback(xdgCache, path.join(os.homedir(), '.cache')), BUDDY_APP_NAME),
   ),
   config: path.resolve(
-    resolveConfiguredPath(process.env.BUDDY_GLOBAL_CONFIG_DIR) ?? resolveDefaultBuddyGlobalConfigDir(),
+    resolveConfiguredPath(process.env.BUDDY_GLOBAL_CONFIG_DIR) ??
+      resolveDefaultBuddyGlobalConfigDir(),
   ),
   state: path.resolve(
     process.env.BUDDY_STATE_DIR ??
-      path.join(withFallback(xdgState, path.join(os.homedir(), ".local", "state")), BUDDY_APP_NAME),
+      path.join(withFallback(xdgState, path.join(os.homedir(), '.local', 'state')), BUDDY_APP_NAME),
   ),
 })
 
 const fallback = buildPaths({
-  data: path.join(os.tmpdir(), BUDDY_APP_NAME, "data"),
-  cache: path.join(os.tmpdir(), BUDDY_APP_NAME, "cache"),
-  config: path.join(os.tmpdir(), BUDDY_APP_NAME, "config"),
-  state: path.join(os.tmpdir(), BUDDY_APP_NAME, "state"),
+  data: path.join(os.tmpdir(), BUDDY_APP_NAME, 'data'),
+  cache: path.join(os.tmpdir(), BUDDY_APP_NAME, 'cache'),
+  config: path.join(os.tmpdir(), BUDDY_APP_NAME, 'config'),
+  state: path.join(os.tmpdir(), BUDDY_APP_NAME, 'state'),
 })
 
 let current = preferred
@@ -57,7 +62,7 @@ function assertPathsWritable(paths: typeof preferred) {
   for (const target of targets) {
     fs.accessSync(target, fs.constants.W_OK | fs.constants.X_OK)
     const probe = path.join(target, `.buddy-write-test-${process.pid}-${Date.now()}`)
-    fs.writeFileSync(probe, "")
+    fs.writeFileSync(probe, '')
     fs.unlinkSync(probe)
   }
 }

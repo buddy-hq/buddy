@@ -1,6 +1,6 @@
-import { useState } from "react"
-import { createAttachmentID, readFileAsDataUrl } from "./attachment-utils"
-import type { PromptComposerAttachment } from "./prompt-types"
+import { useState } from 'react'
+import { createAttachmentID, readFileAsDataUrl } from './attachment-utils'
+import type { PromptComposerAttachment } from './prompt-types'
 
 type UsePromptComposerAttachmentsProps = {
   promptKey: string
@@ -19,10 +19,10 @@ export function usePromptComposerAttachments(props: UsePromptComposerAttachments
     const next = await Promise.all(
       list.map(async (file) => ({
         id: createAttachmentID(),
-        filename: file.name || (file.type.startsWith("image/") ? "image" : "attachment"),
-        mime: file.type || "application/octet-stream",
+        filename: file.name || (file.type.startsWith('image/') ? 'image' : 'attachment'),
+        mime: file.type || 'application/octet-stream',
         dataUrl: await readFileAsDataUrl(file),
-        kind: file.type.startsWith("image/") ? ("image" as const) : ("file" as const),
+        kind: file.type.startsWith('image/') ? ('image' as const) : ('file' as const),
       })),
     ).catch(() => undefined)
 

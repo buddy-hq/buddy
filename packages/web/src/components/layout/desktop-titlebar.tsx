@@ -1,19 +1,27 @@
-import type { MouseEvent } from "react"
-import { useRouterState } from "@tanstack/react-router"
-import { Button } from "@buddy/ui"
-import { usePlatform } from "@/context/platform"
-import { useUiPreferences } from "@/state/ui-preferences"
-import { isTitlebarInteractiveTarget, isTitlebarSystemControlTarget } from "./desktop-titlebar-helpers"
-import { LayoutLeftIcon, LayoutLeftPartialIcon, LayoutRightIcon, LayoutRightPartialIcon } from "./sidebar-icons"
+import type { MouseEvent } from 'react'
+import { useRouterState } from '@tanstack/react-router'
+import { Button } from '@buddy/ui'
+import { usePlatform } from '@/context/platform'
+import { useUiPreferences } from '@/state/ui-preferences'
+import {
+  isTitlebarInteractiveTarget,
+  isTitlebarSystemControlTarget,
+} from './desktop-titlebar-helpers'
+import {
+  LayoutLeftIcon,
+  LayoutLeftPartialIcon,
+  LayoutRightIcon,
+  LayoutRightPartialIcon,
+} from './sidebar-icons'
 
 const RIGHT_SIDEBAR_EDITOR_MIN_WIDTH = 360
 const RIGHT_SIDEBAR_EDITOR_DEFAULT_WIDTH = 640
 
 export function DesktopTitlebar() {
   const platform = usePlatform()
-  const isDesktop = platform.platform === "desktop"
-  const isMac = isDesktop && platform.os === "macos"
-  const isWindows = isDesktop && platform.os === "windows"
+  const isDesktop = platform.platform === 'desktop'
+  const isMac = isDesktop && platform.os === 'macos'
+  const isWindows = isDesktop && platform.os === 'windows'
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   })
@@ -29,7 +37,7 @@ export function DesktopTitlebar() {
     return null
   }
 
-  const showSidebarToggles = pathname !== "/chat" && pathname.endsWith("/chat")
+  const showSidebarToggles = pathname !== '/chat' && pathname.endsWith('/chat')
 
   function onToggleRightSidebar() {
     if (rightSidebarOpen) {
@@ -37,7 +45,7 @@ export function DesktopTitlebar() {
       return
     }
 
-    if (rightSidebarTab === "editor" && rightSidebarWidth < RIGHT_SIDEBAR_EDITOR_MIN_WIDTH) {
+    if (rightSidebarTab === 'editor' && rightSidebarWidth < RIGHT_SIDEBAR_EDITOR_MIN_WIDTH) {
       setRightSidebarWidth(RIGHT_SIDEBAR_EDITOR_DEFAULT_WIDTH)
     }
 
@@ -76,26 +84,36 @@ export function DesktopTitlebar() {
               type="button"
               variant="ghost"
               className="h-6 w-8 p-0 box-border text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-              aria-label={leftSidebarOpen ? "Collapse left panel" : "Expand left panel"}
+              aria-label={leftSidebarOpen ? 'Collapse left panel' : 'Expand left panel'}
               aria-expanded={leftSidebarOpen}
-              title={leftSidebarOpen ? "Collapse left panel" : "Expand left panel"}
+              title={leftSidebarOpen ? 'Collapse left panel' : 'Expand left panel'}
               onClick={() => setLeftSidebarOpen(!leftSidebarOpen)}
             >
-              {leftSidebarOpen ? <LayoutLeftPartialIcon className="size-4" /> : <LayoutLeftIcon className="size-4" />}
+              {leftSidebarOpen ? (
+                <LayoutLeftPartialIcon className="size-4" />
+              ) : (
+                <LayoutLeftIcon className="size-4" />
+              )}
             </Button>
           </div>
         ) : null}
         <div className="min-w-0 flex-1" />
         <div className="flex shrink-0 items-center">
           {showSidebarToggles ? (
-            <div className={isWindows ? "flex shrink-0 items-center gap-1" : "mr-2 flex shrink-0 items-center gap-1"}>
+            <div
+              className={
+                isWindows
+                  ? 'flex shrink-0 items-center gap-1'
+                  : 'mr-2 flex shrink-0 items-center gap-1'
+              }
+            >
               <Button
                 type="button"
                 variant="ghost"
                 className="h-6 w-8 p-0 box-border text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                aria-label={rightSidebarOpen ? "Collapse right panel" : "Expand right panel"}
+                aria-label={rightSidebarOpen ? 'Collapse right panel' : 'Expand right panel'}
                 aria-expanded={rightSidebarOpen}
-                title={rightSidebarOpen ? "Collapse right panel" : "Expand right panel"}
+                title={rightSidebarOpen ? 'Collapse right panel' : 'Expand right panel'}
                 onClick={onToggleRightSidebar}
               >
                 {rightSidebarOpen ? (

@@ -1,18 +1,18 @@
-import path from "node:path"
+import path from 'node:path'
 
 class InvalidFigureIDError extends Error {
   constructor(figureID: string) {
     super(`Invalid figure id '${figureID}'.`)
-    this.name = "InvalidFigureIDError"
+    this.name = 'InvalidFigureIDError'
   }
 }
 
 function root(directory: string): string {
-  return path.join(directory, ".buddy", "figures")
+  return path.join(directory, '.buddy', 'figures')
 }
 
 function glob(directory: string): string {
-  return path.join(root(directory), "*.svg")
+  return path.join(root(directory), '*.svg')
 }
 
 function sanitizeFigureID(figureID: string): string {
@@ -34,7 +34,4 @@ const FigurePath = {
   sanitizeFigureID,
 }
 
-export {
-  FigurePath,
-  InvalidFigureIDError,
-}
+export { FigurePath, InvalidFigureIDError }

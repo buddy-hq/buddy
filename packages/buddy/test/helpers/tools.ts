@@ -1,13 +1,13 @@
-import { ToolRegistry } from "@buddy/opencode-adapter/registry"
-import { MessageID, ModelID, ProviderID, SessionID } from "@buddy/opencode-adapter/id"
-import type { Tool } from "@buddy/opencode-adapter/tool"
+import { ToolRegistry } from '@buddy/opencode-adapter/registry'
+import { MessageID, ModelID, ProviderID, SessionID } from '@buddy/opencode-adapter/id'
+import type { Tool } from '@buddy/opencode-adapter/tool'
 
 type ToolList = Awaited<ReturnType<typeof ToolRegistry.tools>>
 type RuntimeTool = ToolList[number]
 
 export const TEST_TOOL_MODEL = {
   providerID: ProviderID.opencode,
-  modelID: ModelID.make("claude-sonnet"),
+  modelID: ModelID.make('claude-sonnet'),
 }
 
 type ToolContextInput = {
@@ -37,6 +37,6 @@ export function requireTool(tools: RuntimeTool[], id: string): RuntimeTool {
   const available = tools
     .map((entry) => entry.id)
     .sort()
-    .join(", ")
+    .join(', ')
   throw new Error(`Tool "${id}" was not registered. Available tools: ${available}`)
 }

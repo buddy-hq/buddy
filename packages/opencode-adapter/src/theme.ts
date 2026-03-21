@@ -10,7 +10,7 @@ export type {
   CssVarRef,
   TokenCategory,
   ThemeToken,
-} from "../../../vendor/opencode/packages/ui/src/theme/types"
+} from '../../../vendor/opencode/packages/ui/src/theme/types'
 
 export {
   hexToRgb,
@@ -29,9 +29,13 @@ export {
   lighten,
   darken,
   withAlpha,
-} from "../../../vendor/opencode/packages/ui/src/theme/color"
+} from '../../../vendor/opencode/packages/ui/src/theme/color'
 
-export { resolveThemeVariant, resolveTheme, themeToCss } from "../../../vendor/opencode/packages/ui/src/theme/resolve"
+export {
+  resolveThemeVariant,
+  resolveTheme,
+  themeToCss,
+} from '../../../vendor/opencode/packages/ui/src/theme/resolve'
 
-export * from "../../../vendor/opencode/packages/ui/src/theme/default-themes"
-export { DEFAULT_THEMES as defaultThemes } from "../../../vendor/opencode/packages/ui/src/theme/default-themes"
+export * from '../../../vendor/opencode/packages/ui/src/theme/default-themes'
+export { DEFAULT_THEMES as defaultThemes } from '../../../vendor/opencode/packages/ui/src/theme/default-themes'

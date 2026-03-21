@@ -1,6 +1,6 @@
-import { loadConfigFile } from "../contract/document.js"
-import { resolveGlobalConfigFile } from "./config-paths.js"
-import type { Info } from "./types.js"
+import { loadConfigFile } from '../contract/document.js'
+import { resolveGlobalConfigFile } from './config-paths.js'
+import type { Info } from './types.js'
 
 let globalConfigPromise: Promise<Info> | undefined
 

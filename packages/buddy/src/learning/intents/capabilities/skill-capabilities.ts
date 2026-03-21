@@ -1,4 +1,4 @@
-import type { Persona, WorkspaceState } from "@buddy/backend/learning/shared/teaching-vocabulary"
+import type { Persona, WorkspaceState } from '@buddy/backend/learning/shared/teaching-vocabulary'
 
 export type SkillCapability = {
   key: string
@@ -7,29 +7,31 @@ export type SkillCapability = {
   workspaceStates?: WorkspaceState[]
 }
 
-function createSkillCapability<const Key extends string>(capability: SkillCapability & { key: Key }) {
+function createSkillCapability<const Key extends string>(
+  capability: SkillCapability & { key: Key },
+) {
   return capability
 }
 
 export const explanationPlaybookSkillCapability = createSkillCapability({
-  key: "explanation-playbook",
-  skillName: "buddy-pedagogy-explanation",
+  key: 'explanation-playbook',
+  skillName: 'buddy-pedagogy-explanation',
 })
 
 export const workedExamplePlaybookSkillCapability = createSkillCapability({
-  key: "worked-example-playbook",
-  skillName: "buddy-pedagogy-worked-example",
+  key: 'worked-example-playbook',
+  skillName: 'buddy-pedagogy-worked-example',
 })
 
 export const conceptContrastPlaybookSkillCapability = createSkillCapability({
-  key: "concept-contrast-playbook",
-  skillName: "buddy-pedagogy-concept-contrast",
+  key: 'concept-contrast-playbook',
+  skillName: 'buddy-pedagogy-concept-contrast',
 })
 
 export const analogyPlaybookSkillCapability = createSkillCapability({
-  key: "analogy-playbook",
-  skillName: "buddy-pedagogy-analogy",
-  personas: ["buddy", "math-buddy"],
+  key: 'analogy-playbook',
+  skillName: 'buddy-pedagogy-analogy',
+  personas: ['buddy', 'math-buddy'],
 })
 
 export const SKILL_CAPABILITY_REGISTRY = [
@@ -39,7 +41,7 @@ export const SKILL_CAPABILITY_REGISTRY = [
   analogyPlaybookSkillCapability,
 ] as const satisfies readonly SkillCapability[]
 
-export type SkillCapabilityKey = (typeof SKILL_CAPABILITY_REGISTRY)[number]["key"]
+export type SkillCapabilityKey = (typeof SKILL_CAPABILITY_REGISTRY)[number]['key']
 
 export function listSkillCapabilities(): SkillCapability[] {
   return SKILL_CAPABILITY_REGISTRY.map((capability) => ({
@@ -51,7 +53,7 @@ export function listSkillCapabilities(): SkillCapability[] {
 }
 
 export function managedSkillNames(): string[] {
-  return Array.from(new Set(SKILL_CAPABILITY_REGISTRY.map((capability) => capability.skillName))).sort((a, b) =>
-    a.localeCompare(b),
-  )
+  return Array.from(
+    new Set(SKILL_CAPABILITY_REGISTRY.map((capability) => capability.skillName)),
+  ).sort((a, b) => a.localeCompare(b))
 }

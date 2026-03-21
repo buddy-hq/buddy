@@ -1,18 +1,11 @@
-import {
-  Button,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@buddy/ui";
-import { useProjectSettings } from "@/state/project-settings";
-import { SettingsListCard, SettingsRow } from "./settings-primitives";
-import { SettingsPanelContent } from "./settings-page";
+import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@buddy/ui'
+import { useProjectSettings } from '@/state/project-settings'
+import { SettingsListCard, SettingsRow } from './settings-primitives'
+import { SettingsPanelContent } from './settings-page'
 
 export function ModelSettings({ directory }: { directory: string }) {
-  const settings = useProjectSettings(directory, true);
-  const hasConnectedProviders = settings.options.providers.length > 0;
+  const settings = useProjectSettings(directory, true)
+  const hasConnectedProviders = settings.options.providers.length > 0
 
   return (
     <SettingsPanelContent
@@ -25,7 +18,7 @@ export function ModelSettings({ directory }: { directory: string }) {
           onClick={() => void settings.actions.save()}
           disabled={settings.status.loading || settings.status.saving}
         >
-          {settings.status.saving ? "Saving..." : "Save changes"}
+          {settings.status.saving ? 'Saving...' : 'Save changes'}
         </Button>
       </div>
 
@@ -42,9 +35,7 @@ export function ModelSettings({ directory }: { directory: string }) {
               <SelectTrigger className="w-full">
                 <SelectValue
                   placeholder={
-                    hasConnectedProviders
-                      ? "Select provider"
-                      : "Connect a provider first"
+                    hasConnectedProviders ? 'Select provider' : 'Connect a provider first'
                   }
                 />
               </SelectTrigger>
@@ -70,19 +61,12 @@ export function ModelSettings({ directory }: { directory: string }) {
             >
               <SelectTrigger className="w-full">
                 <SelectValue
-                  placeholder={
-                    hasConnectedProviders
-                      ? "Select model"
-                      : "Connect a provider first"
-                  }
+                  placeholder={hasConnectedProviders ? 'Select model' : 'Connect a provider first'}
                 />
               </SelectTrigger>
               <SelectContent>
                 {settings.options.providerModels.map((model) => (
-                  <SelectItem
-                    key={`${settings.selection.provider}:${model.id}`}
-                    value={model.id}
-                  >
+                  <SelectItem key={`${settings.selection.provider}:${model.id}`} value={model.id}>
                     {model.name}
                   </SelectItem>
                 ))}
@@ -93,10 +77,8 @@ export function ModelSettings({ directory }: { directory: string }) {
       </SettingsListCard>
 
       {settings.status.providerMessage ? (
-        <p className="text-sm text-muted-foreground">
-          {settings.status.providerMessage}
-        </p>
+        <p className="text-sm text-muted-foreground">{settings.status.providerMessage}</p>
       ) : null}
     </SettingsPanelContent>
-  );
+  )
 }

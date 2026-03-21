@@ -1,8 +1,16 @@
-import { createContext, useContext, useEffect, useState, useCallback, useMemo, type ReactNode } from "react"
-import type { DesktopTheme, ColorScheme } from "./types"
-import { resolveThemeVariant } from "./resolve"
-import { defaultThemes } from "./default-themes"
-import { toShadcnCss } from "./shadcn-mapper"
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+  type ReactNode,
+} from 'react'
+import type { DesktopTheme, ColorScheme } from './types'
+import { resolveThemeVariant } from './resolve'
+import { defaultThemes } from './default-themes'
+import { toShadcnCss } from './shadcn-mapper'
 import {
   DEFAULT_THEME_ID,
   PRELOAD_STYLE_ID,
@@ -10,10 +18,10 @@ import {
   THEME_CACHE_VERSION,
   THEME_STYLE_ID,
   normalizeThemeID,
-} from "./storage"
+} from './storage'
 
 function isColorScheme(value: string | null): value is ColorScheme {
-  return value === "system" || value === "light" || value === "dark"
+  return value === 'system' || value === 'light' || value === 'dark'
 }
 
 function clearCache() {
@@ -21,40 +29,43 @@ function clearCache() {
   localStorage.removeItem(STORAGE_KEYS.THEME_CSS_DARK)
 }
 
-function applyDocumentState(themeId: string, mode: "light" | "dark") {
+function applyDocumentState(themeId: string, mode: 'light' | 'dark') {
   document.documentElement.dataset.theme = themeId
   document.documentElement.dataset.colorScheme = mode
-  document.documentElement.classList.toggle("dark", mode === "dark")
+  document.documentElement.classList.toggle('dark', mode === 'dark')
   document.documentElement.style.colorScheme = mode
 }
 
 function ensureThemeStyleElement(): HTMLStyleElement {
   const existing = document.getElementById(THEME_STYLE_ID) as HTMLStyleElement | null
   if (existing) return existing
-  const element = document.createElement("style")
+  const element = document.createElement('style')
   element.id = THEME_STYLE_ID
   document.head.appendChild(element)
   return element
 }
 
-function getSystemMode(): "light" | "dark" {
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
+function getSystemMode(): 'light' | 'dark' {
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 }
 
-function applyThemeCss(theme: DesktopTheme, themeId: string, mode: "light" | "dark") {
-  const isDark = mode === "dark"
+function applyThemeCss(theme: DesktopTheme, themeId: string, mode: 'light' | 'dark') {
+  const isDark = mode === 'dark'
   const variant = isDark ? theme.dark : theme.light
   const tokens = resolveThemeVariant(variant, isDark)
   const shadcnCss = toShadcnCss(tokens, isDark)
 
   try {
     localStorage.setItem(STORAGE_KEYS.CACHE_VERSION, THEME_CACHE_VERSION)
-    localStorage.setItem(isDark ? STORAGE_KEYS.THEME_CSS_DARK : STORAGE_KEYS.THEME_CSS_LIGHT, shadcnCss)
+    localStorage.setItem(
+      isDark ? STORAGE_KEYS.THEME_CSS_DARK : STORAGE_KEYS.THEME_CSS_LIGHT,
+      shadcnCss,
+    )
   } catch {}
 
   const fullCss = `:root {
   color-scheme: ${mode};
-  --text-mix-blend-mode: ${isDark ? "plus-lighter" : "multiply"};
+  --text-mix-blend-mode: ${isDark ? 'plus-lighter' : 'multiply'};
   ${shadcnCss}
 }`
 
@@ -64,14 +75,17 @@ function applyThemeCss(theme: DesktopTheme, themeId: string, mode: "light" | "da
 }
 
 function cacheThemeVariants(theme: DesktopTheme) {
-  for (const mode of ["light", "dark"] as const) {
-    const isDark = mode === "dark"
+  for (const mode of ['light', 'dark'] as const) {
+    const isDark = mode === 'dark'
     const variant = isDark ? theme.dark : theme.light
     const tokens = resolveThemeVariant(variant, isDark)
     const shadcnCss = toShadcnCss(tokens, isDark)
     try {
       localStorage.setItem(STORAGE_KEYS.CACHE_VERSION, THEME_CACHE_VERSION)
-      localStorage.setItem(isDark ? STORAGE_KEYS.THEME_CSS_DARK : STORAGE_KEYS.THEME_CSS_LIGHT, shadcnCss)
+      localStorage.setItem(
+        isDark ? STORAGE_KEYS.THEME_CSS_DARK : STORAGE_KEYS.THEME_CSS_LIGHT,
+        shadcnCss,
+      )
     } catch {}
   }
 }
@@ -79,7 +93,7 @@ function cacheThemeVariants(theme: DesktopTheme) {
 export interface ThemeContextValue {
   themeId: string
   colorScheme: ColorScheme
-  mode: "light" | "dark"
+  mode: 'light' | 'dark'
   themes: Record<string, DesktopTheme>
   setTheme: (id: string) => void
   setColorScheme: (scheme: ColorScheme) => void
@@ -94,23 +108,29 @@ const ThemeContext = createContext<ThemeContextValue | null>(null)
 export interface ThemeProviderProps {
   children: ReactNode
   defaultTheme?: string
-  onThemeApplied?: (theme: DesktopTheme, mode: "light" | "dark") => void
+  onThemeApplied?: (theme: DesktopTheme, mode: 'light' | 'dark') => void
 }
 
-export function ThemeProvider({ children, defaultTheme = "oc-2", onThemeApplied }: ThemeProviderProps) {
+export function ThemeProvider({
+  children,
+  defaultTheme = 'oc-2',
+  onThemeApplied,
+}: ThemeProviderProps) {
   const [themeId, setThemeIdState] = useState<string>(() => {
     const saved = normalizeThemeID(localStorage.getItem(STORAGE_KEYS.THEME_ID))
-    return saved && defaultThemes[saved] ? saved : (normalizeThemeID(defaultTheme) ?? DEFAULT_THEME_ID)
+    return saved && defaultThemes[saved]
+      ? saved
+      : (normalizeThemeID(defaultTheme) ?? DEFAULT_THEME_ID)
   })
 
   const [colorScheme, setColorSchemeState] = useState<ColorScheme>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.COLOR_SCHEME)
-    return isColorScheme(saved) ? saved : "system"
+    return isColorScheme(saved) ? saved : 'system'
   })
 
-  const [mode, setMode] = useState<"light" | "dark">(() => {
+  const [mode, setMode] = useState<'light' | 'dark'>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.COLOR_SCHEME)
-    if (saved === "light" || saved === "dark") return saved
+    if (saved === 'light' || saved === 'dark') return saved
     return getSystemMode()
   })
 
@@ -122,13 +142,13 @@ export function ThemeProvider({ children, defaultTheme = "oc-2", onThemeApplied 
   const currentThemeId = previewState.themeId ?? themeId
   const currentMode = useMemo(() => {
     if (previewState.colorScheme) {
-      return previewState.colorScheme === "system" ? getSystemMode() : previewState.colorScheme
+      return previewState.colorScheme === 'system' ? getSystemMode() : previewState.colorScheme
     }
     return mode
   }, [previewState.colorScheme, mode])
 
   const applyTheme = useCallback(
-    (theme: DesktopTheme, id: string, m: "light" | "dark") => {
+    (theme: DesktopTheme, id: string, m: 'light' | 'dark') => {
       applyThemeCss(theme, id, m)
       onThemeApplied?.(theme, m)
     },
@@ -145,14 +165,14 @@ export function ThemeProvider({ children, defaultTheme = "oc-2", onThemeApplied 
 
   // Listen for system color scheme changes
   useEffect(() => {
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
     const handler = () => {
-      if (colorScheme === "system") {
+      if (colorScheme === 'system') {
         setMode(getSystemMode())
       }
     }
-    mediaQuery.addEventListener("change", handler)
-    return () => mediaQuery.removeEventListener("change", handler)
+    mediaQuery.addEventListener('change', handler)
+    return () => mediaQuery.removeEventListener('change', handler)
   }, [colorScheme])
 
   // Sync persisted changes across tabs.
@@ -164,17 +184,18 @@ export function ThemeProvider({ children, defaultTheme = "oc-2", onThemeApplied 
       }
       if (e.key === STORAGE_KEYS.COLOR_SCHEME && isColorScheme(e.newValue)) {
         setColorSchemeState(e.newValue)
-        setMode(e.newValue === "system" ? getSystemMode() : e.newValue)
+        setMode(e.newValue === 'system' ? getSystemMode() : e.newValue)
       }
     }
-    window.addEventListener("storage", handler)
-    return () => window.removeEventListener("storage", handler)
+    window.addEventListener('storage', handler)
+    return () => window.removeEventListener('storage', handler)
   }, [])
 
   useEffect(() => {
     const savedTheme = localStorage.getItem(STORAGE_KEYS.THEME_ID)
     const normalizedThemeId = normalizeThemeID(savedTheme)
-    const nextThemeId = normalizedThemeId && defaultThemes[normalizedThemeId] ? normalizedThemeId : themeId
+    const nextThemeId =
+      normalizedThemeId && defaultThemes[normalizedThemeId] ? normalizedThemeId : themeId
     const savedScheme = localStorage.getItem(STORAGE_KEYS.COLOR_SCHEME)
     const cachedVersion = localStorage.getItem(STORAGE_KEYS.CACHE_VERSION)
 
@@ -194,7 +215,7 @@ export function ThemeProvider({ children, defaultTheme = "oc-2", onThemeApplied 
 
     if (isColorScheme(savedScheme)) {
       setColorSchemeState(savedScheme)
-      setMode(savedScheme === "system" ? getSystemMode() : savedScheme)
+      setMode(savedScheme === 'system' ? getSystemMode() : savedScheme)
     }
 
     const currentTheme = defaultThemes[nextThemeId]
@@ -222,7 +243,7 @@ export function ThemeProvider({ children, defaultTheme = "oc-2", onThemeApplied 
   const setColorScheme = useCallback((scheme: ColorScheme) => {
     setColorSchemeState(scheme)
     localStorage.setItem(STORAGE_KEYS.COLOR_SCHEME, scheme)
-    setMode(scheme === "system" ? getSystemMode() : scheme)
+    setMode(scheme === 'system' ? getSystemMode() : scheme)
   }, [])
 
   const previewTheme = useCallback(
@@ -233,7 +254,7 @@ export function ThemeProvider({ children, defaultTheme = "oc-2", onThemeApplied 
       if (!theme) return
       setPreviewState((prev) => ({ ...prev, themeId: next }))
       const previewMode = previewState.colorScheme
-        ? previewState.colorScheme === "system"
+        ? previewState.colorScheme === 'system'
           ? getSystemMode()
           : previewState.colorScheme
         : mode
@@ -245,7 +266,7 @@ export function ThemeProvider({ children, defaultTheme = "oc-2", onThemeApplied 
   const previewColorScheme = useCallback(
     (scheme: ColorScheme) => {
       setPreviewState((prev) => ({ ...prev, colorScheme: scheme }))
-      const previewMode = scheme === "system" ? getSystemMode() : scheme
+      const previewMode = scheme === 'system' ? getSystemMode() : scheme
       const id = previewState.themeId ?? themeId
       const theme = defaultThemes[id]
       if (theme) {
@@ -292,7 +313,7 @@ export function ThemeProvider({ children, defaultTheme = "oc-2", onThemeApplied 
 export function useTheme() {
   const context = useContext(ThemeContext)
   if (!context) {
-    throw new Error("useTheme must be used within a ThemeProvider")
+    throw new Error('useTheme must be used within a ThemeProvider')
   }
   return context
 }

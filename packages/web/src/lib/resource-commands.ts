@@ -1,24 +1,24 @@
-export const RESOURCE_SIDEBAR_TAB = "resources" as const
-export const RESOURCE_COMMAND_ROOT = "resource" as const
-export const RESOURCE_COMMAND_PANEL = "resources" as const
-export const RESOURCE_COMMAND_ADD = "add" as const
-export const RESOURCE_COMMAND_REBUILD = "rebuild" as const
-export const RESOURCE_COMMAND_REMOVE = "remove" as const
-export const RESOURCE_COMMAND_USE = "use" as const
-export const RESOURCE_COMMAND_ALIAS_KEYWORD = "as" as const
+export const RESOURCE_SIDEBAR_TAB = 'resources' as const
+export const RESOURCE_COMMAND_ROOT = 'resource' as const
+export const RESOURCE_COMMAND_PANEL = 'resources' as const
+export const RESOURCE_COMMAND_ADD = 'add' as const
+export const RESOURCE_COMMAND_REBUILD = 'rebuild' as const
+export const RESOURCE_COMMAND_REMOVE = 'remove' as const
+export const RESOURCE_COMMAND_USE = 'use' as const
+export const RESOURCE_COMMAND_ALIAS_KEYWORD = 'as' as const
 
 export const RESOURCE_LOCAL_SLASH_COMMANDS = [
   {
-    type: "builtin" as const,
+    type: 'builtin' as const,
     name: RESOURCE_COMMAND_PANEL,
-    title: "Open resources panel",
-    description: "Show notebook resources in the right sidebar.",
+    title: 'Open resources panel',
+    description: 'Show notebook resources in the right sidebar.',
   },
   {
-    type: "builtin" as const,
+    type: 'builtin' as const,
     name: RESOURCE_COMMAND_ROOT,
-    title: "Manage resources",
-    description: "Add, rebuild, remove, or use notebook resources.",
+    title: 'Manage resources',
+    description: 'Add, rebuild, remove, or use notebook resources.',
   },
 ]
 
@@ -47,7 +47,7 @@ export type ResourceLocalSlashCommand =
 
 function normalizeSlashCommandInput(value: string) {
   const trimmed = value.trim()
-  if (!trimmed.startsWith("/")) return undefined
+  if (!trimmed.startsWith('/')) return undefined
   return trimmed.slice(1).trim()
 }
 
@@ -55,11 +55,11 @@ function splitCommandBody(value: string) {
   const body = value.trim()
   if (!body) return undefined
 
-  const spaceIndex = body.indexOf(" ")
+  const spaceIndex = body.indexOf(' ')
   if (spaceIndex === -1) {
     return {
       command: body,
-      rest: "",
+      rest: '',
     }
   }
 
@@ -96,7 +96,9 @@ export function isResourceLocalSlashCommandName(name: string) {
   return name === RESOURCE_COMMAND_PANEL || name === RESOURCE_COMMAND_ROOT
 }
 
-export function parseResourceLocalSlashCommand(value: string): ResourceLocalSlashCommand | undefined {
+export function parseResourceLocalSlashCommand(
+  value: string,
+): ResourceLocalSlashCommand | undefined {
   const normalized = normalizeSlashCommandInput(value)
   if (!normalized) return undefined
 

@@ -1,12 +1,12 @@
-import { useCallback } from "react"
-import { MarkdownFileEditor } from "@/components/markdown/markdown-file-editor"
+import { useCallback } from 'react'
+import { MarkdownFileEditor } from '@/components/markdown/markdown-file-editor'
 import {
   GlobalAgentsMdVersionConflictError,
   loadGlobalAgentsMd,
   saveGlobalAgentsMd,
-} from "@/state/global-agents-md-actions"
+} from '@/state/global-agents-md-actions'
 
-const DEFAULT_GLOBAL_AGENTS_MD_CONTENT = "# AGENTS.md\n\nAdd global instructions for Buddy here.\n"
+const DEFAULT_GLOBAL_AGENTS_MD_CONTENT = '# AGENTS.md\n\nAdd global instructions for Buddy here.\n'
 
 export function GlobalAgentsMdSettingsPanel(props: { active: boolean }) {
   const load = useCallback(() => loadGlobalAgentsMd(), [])

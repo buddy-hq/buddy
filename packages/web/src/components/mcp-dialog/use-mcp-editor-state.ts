@@ -1,5 +1,5 @@
-import { useState } from "react"
-import { disconnectMcpServer, saveProjectMcpConfig } from "@/state/chat-actions"
+import { useState } from 'react'
+import { disconnectMcpServer, saveProjectMcpConfig } from '@/state/chat-actions'
 import {
   buildConfigFromDraft,
   buildDraft,
@@ -12,7 +12,7 @@ import {
   type McpFieldErrors,
   type McpFieldName,
   type McpFormDraft,
-} from "./mcp-config-schema"
+} from './mcp-config-schema'
 
 type UseMcpEditorStateProps = {
   directory: string
@@ -37,9 +37,9 @@ export type McpEditorState = {
     field: McpFieldName,
     describedBy?: string,
   ) => {
-    "aria-describedby": string | undefined
-    "aria-errormessage": string | undefined
-    "aria-invalid": true | undefined
+    'aria-describedby': string | undefined
+    'aria-errormessage': string | undefined
+    'aria-invalid': true | undefined
   }
   openCreateEditor: () => void
   openEditEditor: (name: string) => void
@@ -49,7 +49,7 @@ export type McpEditorState = {
 
 export function useMcpEditorState(props: UseMcpEditorStateProps): McpEditorState {
   const [editorOpen, setEditorOpen] = useState(false)
-  const [editorMode, setEditorMode] = useState<McpEditorMode>("create")
+  const [editorMode, setEditorMode] = useState<McpEditorMode>('create')
   const [editorError, setEditorError] = useState<string | undefined>(undefined)
   const [fieldErrors, setFieldErrors] = useState<McpFieldErrors>({})
   const [editorSaving, setEditorSaving] = useState(false)
@@ -68,17 +68,17 @@ export function useMcpEditorState(props: UseMcpEditorStateProps): McpEditorState
   function getFieldProps(field: McpFieldName, describedBy?: string) {
     const error = fieldErrors[field]
     const errorId = error ? getFieldErrorId(field) : undefined
-    const describedByIds = [describedBy, errorId].filter(Boolean).join(" ")
+    const describedByIds = [describedBy, errorId].filter(Boolean).join(' ')
 
     return {
-      "aria-describedby": describedByIds || undefined,
-      "aria-errormessage": errorId,
-      "aria-invalid": error ? true : undefined,
+      'aria-describedby': describedByIds || undefined,
+      'aria-errormessage': errorId,
+      'aria-invalid': error ? true : undefined,
     } as const
   }
 
   function openCreateEditor() {
-    setEditorMode("create")
+    setEditorMode('create')
     setDraft(emptyDraft())
     setShowOAuthClientFields(false)
     setEditorError(undefined)
@@ -89,10 +89,12 @@ export function useMcpEditorState(props: UseMcpEditorStateProps): McpEditorState
   function openEditEditor(name: string) {
     const config = props.configByName[name]
     if (!config) return
-    setEditorMode("edit")
+    setEditorMode('edit')
     setDraft(buildDraft(name, config))
     setShowOAuthClientFields(
-      config.type === "remote" && typeof config.oauth === "object" && Object.keys(config.oauth).length > 0,
+      config.type === 'remote' &&
+        typeof config.oauth === 'object' &&
+        Object.keys(config.oauth).length > 0,
     )
     setEditorError(undefined)
     setFieldErrors({})
@@ -112,7 +114,7 @@ export function useMcpEditorState(props: UseMcpEditorStateProps): McpEditorState
     if (!props.directory) return
 
     const parsed = buildConfigFromDraft(draft)
-    if ("fieldError" in parsed) {
+    if ('fieldError' in parsed) {
       setFieldErrors({
         [parsed.fieldError.field]: parsed.fieldError.message,
       })
@@ -126,7 +128,11 @@ export function useMcpEditorState(props: UseMcpEditorStateProps): McpEditorState
     props.setError(undefined)
 
     try {
-      const updated = await saveProjectMcpConfig(props.directory, parsed.name, parsed.config as Record<string, unknown>)
+      const updated = await saveProjectMcpConfig(
+        props.directory,
+        parsed.name,
+        parsed.config as Record<string, unknown>,
+      )
       props.setConfigByName(parseMcpConfigMap(updated))
       if (parsed.config.enabled === false) {
         await disconnectMcpServer(props.directory, parsed.name)

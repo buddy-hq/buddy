@@ -1,13 +1,13 @@
-import { ASSESS_INTENT_CAPABILITY_MANIFEST } from "../assess/capabilities"
-import { LEARN_INTENT_CAPABILITY_MANIFEST } from "../learn/capabilities"
-import { PRACTICE_INTENT_CAPABILITY_MANIFEST } from "../practice/capabilities"
-import type { SkillCapabilityKey } from "./skill-capabilities"
-import { toolCapabilityKey } from "./tool-capabilities"
-import type { IntentCapabilityManifest } from "./types"
+import { ASSESS_INTENT_CAPABILITY_MANIFEST } from '../assess/capabilities'
+import { LEARN_INTENT_CAPABILITY_MANIFEST } from '../learn/capabilities'
+import { PRACTICE_INTENT_CAPABILITY_MANIFEST } from '../practice/capabilities'
+import type { SkillCapabilityKey } from './skill-capabilities'
+import { toolCapabilityKey } from './tool-capabilities'
+import type { IntentCapabilityManifest } from './types'
 
-type ExplicitIntent = IntentCapabilityManifest["intent"]
+type ExplicitIntent = IntentCapabilityManifest['intent']
 
-export type { IntentCapabilityManifest } from "./types"
+export type { IntentCapabilityManifest } from './types'
 
 export const INTENT_CAPABILITY_MANIFESTS: IntentCapabilityManifest[] = [
   LEARN_INTENT_CAPABILITY_MANIFEST,
@@ -24,7 +24,9 @@ type ListedIntentCapabilityManifest = {
 export function listIntentCapabilityManifests(): ListedIntentCapabilityManifest[] {
   return INTENT_CAPABILITY_MANIFESTS.map((manifest) => ({
     intent: manifest.intent,
-    toolCapabilityKeys: manifest.toolCapabilities.map((capability) => toolCapabilityKey(capability)),
+    toolCapabilityKeys: manifest.toolCapabilities.map((capability) =>
+      toolCapabilityKey(capability),
+    ),
     skillCapabilityKeys: [...manifest.skillCapabilityKeys],
   }))
 }

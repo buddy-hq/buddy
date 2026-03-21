@@ -1,106 +1,106 @@
-import { basename, dirname, titleCase } from "../shared/utils"
-import type { ToolInfo } from "./registry"
+import { basename, dirname, titleCase } from '../shared/utils'
+import type { ToolInfo } from './registry'
 
 export function getToolInfo(tool: string, input: Record<string, unknown>): ToolInfo {
-  const filePath = typeof input.filePath === "string" ? input.filePath : undefined
-  const path = typeof input.path === "string" ? input.path : undefined
-  const pattern = typeof input.pattern === "string" ? input.pattern : undefined
-  const include = typeof input.include === "string" ? input.include : undefined
-  const url = typeof input.url === "string" ? input.url : undefined
-  const query = typeof input.query === "string" ? input.query : undefined
-  const description = typeof input.description === "string" ? input.description : undefined
-  const subagent = typeof input.subagent_type === "string" ? input.subagent_type : undefined
-  const alt = typeof input.alt === "string" ? input.alt : undefined
+  const filePath = typeof input.filePath === 'string' ? input.filePath : undefined
+  const path = typeof input.path === 'string' ? input.path : undefined
+  const pattern = typeof input.pattern === 'string' ? input.pattern : undefined
+  const include = typeof input.include === 'string' ? input.include : undefined
+  const url = typeof input.url === 'string' ? input.url : undefined
+  const query = typeof input.query === 'string' ? input.query : undefined
+  const description = typeof input.description === 'string' ? input.description : undefined
+  const subagent = typeof input.subagent_type === 'string' ? input.subagent_type : undefined
+  const alt = typeof input.alt === 'string' ? input.alt : undefined
 
   switch (tool) {
-    case "read": {
+    case 'read': {
       const args: string[] = []
-      if (typeof input.offset === "number") args.push(`offset=${input.offset}`)
-      if (typeof input.limit === "number") args.push(`limit=${input.limit}`)
+      if (typeof input.offset === 'number') args.push(`offset=${input.offset}`)
+      if (typeof input.limit === 'number') args.push(`limit=${input.limit}`)
       return {
-        title: "Read",
+        title: 'Read',
         subtitle: filePath ? basename(filePath) : undefined,
         detail: filePath ? dirname(filePath) : undefined,
         args,
       }
     }
-    case "list":
+    case 'list':
       return {
-        title: "List",
-        subtitle: path ? dirname(path) : "/",
+        title: 'List',
+        subtitle: path ? dirname(path) : '/',
       }
-    case "glob":
+    case 'glob':
       return {
-        title: "Glob",
-        subtitle: path ? dirname(path) : "/",
+        title: 'Glob',
+        subtitle: path ? dirname(path) : '/',
         args: pattern ? [`pattern=${pattern}`] : [],
       }
-    case "grep": {
+    case 'grep': {
       const args: string[] = []
       if (pattern) args.push(`pattern=${pattern}`)
       if (include) args.push(`include=${include}`)
       return {
-        title: "Grep",
-        subtitle: path ? dirname(path) : "/",
+        title: 'Grep',
+        subtitle: path ? dirname(path) : '/',
         args,
       }
     }
-    case "webfetch":
+    case 'webfetch':
       return {
-        title: "Webfetch",
+        title: 'Webfetch',
         subtitle: url,
       }
-    case "websearch":
+    case 'websearch':
       return {
-        title: "Websearch",
+        title: 'Websearch',
         subtitle: query,
       }
-    case "codesearch":
+    case 'codesearch':
       return {
-        title: "Codesearch",
+        title: 'Codesearch',
         subtitle: query,
       }
-    case "task":
+    case 'task':
       return {
-        title: subagent ? `Agent (${subagent})` : "Agent task",
+        title: subagent ? `Agent (${subagent})` : 'Agent task',
         subtitle: description,
       }
-    case "write":
+    case 'write':
       return {
-        title: "Write",
+        title: 'Write',
         subtitle: filePath ? basename(filePath) : undefined,
         detail: filePath ? dirname(filePath) : undefined,
       }
-    case "edit":
+    case 'edit':
       return {
-        title: "Edit",
+        title: 'Edit',
         subtitle: filePath ? basename(filePath) : undefined,
         detail: filePath ? dirname(filePath) : undefined,
       }
-    case "apply_patch":
+    case 'apply_patch':
       return {
-        title: "Patch",
+        title: 'Patch',
         subtitle: description,
       }
-    case "bash":
+    case 'bash':
       return {
-        title: "Shell",
+        title: 'Shell',
         subtitle: description,
       }
-    case "question":
+    case 'question':
       return {
-        title: "Questions",
+        title: 'Questions',
         subtitle: description,
       }
-    case "python_calculator":
+    case 'python_calculator':
       return {
-        title: "Python calculator",
+        title: 'Python calculator',
         subtitle: description,
       }
-    case "render_figure":
-    case "render_freeform_figure":
+    case 'render_figure':
+    case 'render_freeform_figure':
       return {
-        title: "Figure",
+        title: 'Figure',
         subtitle: alt,
       }
     default:

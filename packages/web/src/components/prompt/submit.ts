@@ -1,6 +1,6 @@
-import { shouldSubmitComposer } from "../../lib/chat-input"
+import { shouldSubmitComposer } from '../../lib/chat-input'
 
-export type PromptSubmitAction = "submit" | "abort" | "none"
+export type PromptSubmitAction = 'submit' | 'abort' | 'none'
 
 type PromptSubmitInput = {
   value: () => string
@@ -24,9 +24,9 @@ type PromptKeydownEvent = {
 }
 
 export function promptSubmitAction(input: { isBusy: boolean; value: string }): PromptSubmitAction {
-  if (input.isBusy) return "abort"
-  if (!input.value.trim()) return "none"
-  return "submit"
+  if (input.isBusy) return 'abort'
+  if (!input.value.trim()) return 'none'
+  return 'submit'
 }
 
 export function createPromptSubmit(input: PromptSubmitInput) {
@@ -36,8 +36,8 @@ export function createPromptSubmit(input: PromptSubmitInput) {
       value: input.value(),
     })
 
-    if (action === "submit") input.onSubmit()
-    if (action === "abort") input.onAbort()
+    if (action === 'submit') input.onSubmit()
+    if (action === 'abort') input.onAbort()
     return action
   }
 
@@ -57,7 +57,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
           isComposing: event.isComposing,
         })
       ) {
-        return "none"
+        return 'none'
       }
       event.preventDefault()
       return run()

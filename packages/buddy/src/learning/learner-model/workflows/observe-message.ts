@@ -1,7 +1,7 @@
-import { hashDecisionInput, recordDecisionArtifact } from "../repository/bridge"
-import { LearnerArtifactStore } from "../repository/store"
-import { LearnerSnapshotCompiler } from "../projections/snapshot"
-import { LearnerDecisionService } from "../decisions/service"
+import { hashDecisionInput, recordDecisionArtifact } from '../repository/bridge'
+import { LearnerArtifactStore } from '../repository/store'
+import { LearnerSnapshotCompiler } from '../projections/snapshot'
+import { LearnerDecisionService } from '../decisions/service'
 import {
   contentDigest,
   createEvidenceArtifact,
@@ -10,13 +10,13 @@ import {
   nowIso,
   normalizeText,
   resolveMisconceptionsByIds,
-} from "./helpers"
-import { ensureWorkspaceContext } from "./workspace"
+} from './helpers'
+import { ensureWorkspaceContext } from './workspace'
 
-function evidenceOutcomeFromStrength(strength: "none" | "weak" | "strong") {
-  if (strength === "strong") return "positive" as const
-  if (strength === "weak") return "mixed" as const
-  return "neutral" as const
+function evidenceOutcomeFromStrength(strength: 'none' | 'weak' | 'strong') {
+  if (strength === 'strong') return 'positive' as const
+  if (strength === 'weak') return 'mixed' as const
+  return 'neutral' as const
 }
 
 export async function recordLearnerMessageEvent(input: {
@@ -36,30 +36,36 @@ export async function recordLearnerMessageEvent(input: {
   }
 
   const dedupeKey = input.sourceMessageId ?? messageId
-  const inputHash = hashDecisionInput([
-    workspace.workspaceId,
-    input.sessionId ?? "",
-    dedupeKey,
-    input.goalIds.join(","),
-    trimmedContent,
-  ].join("::"))
+  const inputHash = hashDecisionInput(
+    [
+      workspace.workspaceId,
+      input.sessionId ?? '',
+      dedupeKey,
+      input.goalIds.join(','),
+      trimmedContent,
+    ].join('::'),
+  )
 
   if (input.sourceMessageId) {
-    const existingDecision = await LearnerArtifactStore.readArtifacts(input.directory, "decision-interpret-message", {
-      workspaceId: workspace.workspaceId,
-      inputHash,
-    })
+    const existingDecision = await LearnerArtifactStore.readArtifacts(
+      input.directory,
+      'decision-interpret-message',
+      {
+        workspaceId: workspace.workspaceId,
+        inputHash,
+      },
+    )
     if (existingDecision.length > 0) {
       return undefined
     }
   }
 
-  await LearnerArtifactStore.upsertArtifact(input.directory, "message", {
+  await LearnerArtifactStore.upsertArtifact(input.directory, 'message', {
     id: messageId,
-    kind: "message",
+    kind: 'message',
     workspaceId: workspace.workspaceId,
     goalIds: [...input.goalIds],
-    role: "learner",
+    role: 'learner',
     sessionId: input.sessionId,
     sourceMessageId: input.sourceMessageId,
     contentDigest: contentDigest(trimmedContent),
@@ -71,8 +77,8 @@ export async function recordLearnerMessageEvent(input: {
   const snapshot = await LearnerSnapshotCompiler.compile({
     directory: input.directory,
     query: {
-      persona: "buddy",
-      intent: "learn",
+      persona: 'buddy',
+      intent: 'learn',
       focusGoalIds: input.goalIds,
       sessionId: input.sessionId,
     },
@@ -91,8 +97,8 @@ export async function recordLearnerMessageEvent(input: {
       directory: input.directory,
       workspaceId: workspace.workspaceId,
       goalIds: input.goalIds,
-      kind: "decision-interpret-message",
-      decisionType: "interpret-message",
+      kind: 'decision-interpret-message',
+      decisionType: 'interpret-message',
       inputHash,
       disposition: decision.output.disposition,
       confidence: decision.output.confidence,
@@ -107,7 +113,7 @@ export async function recordLearnerMessageEvent(input: {
       error: decision.error,
     })
 
-    if (decision.output.disposition === "abstain") {
+    if (decision.output.disposition === 'abstain') {
       return undefined
     }
 
@@ -142,7 +148,7 @@ export async function recordLearnerMessageEvent(input: {
           decision.output.relevantGoalIds.length > 0
             ? decision.output.relevantGoalIds
             : input.goalIds,
-        sourceKind: "message",
+        sourceKind: 'message',
         outcome: evidenceOutcomeFromStrength(decision.output.createEvidence.strength),
         summary: normalizeText(decision.output.createEvidence.summary),
         sourceRefId: messageId,
@@ -161,12 +167,12 @@ export async function recordLearnerMessageEvent(input: {
     directory: input.directory,
     workspaceId: workspace.workspaceId,
     goalIds: input.goalIds,
-    kind: "decision-interpret-message",
-    decisionType: "interpret-message",
+    kind: 'decision-interpret-message',
+    decisionType: 'interpret-message',
     inputHash,
-    disposition: "abstain",
+    disposition: 'abstain',
     confidence: 0,
-    rationale: ["Decision engine failed; no pedagogical state mutation was applied."],
+    rationale: ['Decision engine failed; no pedagogical state mutation was applied.'],
     payload: {
       messageArtifactId: messageId,
     },

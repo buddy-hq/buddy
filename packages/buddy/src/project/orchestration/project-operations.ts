@@ -1,16 +1,16 @@
-import { Project as OpenCodeProject } from "@buddy/opencode-adapter/project"
-import { ProjectID } from "@buddy/opencode-adapter/id"
-import { isAllowedDirectory, resolveDirectory } from "../directory"
+import { Project as OpenCodeProject } from '@buddy/opencode-adapter/project'
+import { ProjectID } from '@buddy/opencode-adapter/id'
+import { isAllowedDirectory, resolveDirectory } from '../directory'
 
 const projectUpdateBodySchema = OpenCodeProject.update.schema.omit({ projectID: true })
 
 export function readOpenProjectDirectory(payload: unknown): string | undefined {
-  if (!payload || typeof payload !== "object" || !("directory" in payload)) {
+  if (!payload || typeof payload !== 'object' || !('directory' in payload)) {
     return undefined
   }
 
   const rawDirectory = (payload as { directory?: unknown }).directory
-  return typeof rawDirectory === "string" ? rawDirectory : undefined
+  return typeof rawDirectory === 'string' ? rawDirectory : undefined
 }
 
 export function parseProjectUpdateBody(payload: unknown) {
@@ -18,17 +18,17 @@ export function parseProjectUpdateBody(payload: unknown) {
 }
 
 export function projectUpdateErrorMessage(error: unknown) {
-  if (error && typeof error === "object") {
+  if (error && typeof error === 'object') {
     const directMessage = projectErrorMessage(error)
     if (directMessage) return directMessage
   }
-  if (typeof error === "string") return error
+  if (typeof error === 'string') return error
   if (error instanceof Error && error.message.trim().length > 0) return error.message
-  return "Invalid project update"
+  return 'Invalid project update'
 }
 
 function projectErrorMessage(payload: unknown, depth = 0): string | undefined {
-  if (!payload || typeof payload !== "object") return undefined
+  if (!payload || typeof payload !== 'object') return undefined
   const value = payload as {
     message?: unknown
     data?: {
@@ -36,12 +36,12 @@ function projectErrorMessage(payload: unknown, depth = 0): string | undefined {
     }
     cause?: unknown
   }
-  if (typeof value.data?.message === "string") return value.data.message
+  if (typeof value.data?.message === 'string') return value.data.message
   if (depth < 10) {
     const causeMessage = projectErrorMessage(value.cause, depth + 1)
     if (causeMessage) return causeMessage
   }
-  if (typeof value.message === "string") return value.message
+  if (typeof value.message === 'string') return value.message
   return undefined
 }
 
@@ -51,16 +51,17 @@ function projectErrorMessage(payload: unknown, depth = 0): string | undefined {
  * - Error-like payloads with `{ data?: { message?: string }, message?: string }`
  */
 function isProjectNotFoundError(error: unknown): boolean {
-  if (!error || typeof error !== "object") return false
+  if (!error || typeof error !== 'object') return false
   const payload = error as {
     name?: unknown
   }
-  if (payload.name === "NotFoundError") return true
+  if (payload.name === 'NotFoundError') return true
 
-  const message = (error instanceof Error ? projectErrorMessage(error.cause) : undefined)
-    ?? projectErrorMessage(error)
-    ?? ""
-  return message.startsWith("Project not found:")
+  const message =
+    (error instanceof Error ? projectErrorMessage(error.cause) : undefined) ??
+    projectErrorMessage(error) ??
+    ''
+  return message.startsWith('Project not found:')
 }
 
 export async function openProjectFromPayload(payload: unknown): Promise<
@@ -75,11 +76,11 @@ export async function openProjectFromPayload(payload: unknown): Promise<
     }
 > {
   const rawDirectory = readOpenProjectDirectory(payload)
-  if (typeof rawDirectory !== "string") {
+  if (typeof rawDirectory !== 'string') {
     return {
       ok: false,
       status: 400,
-      error: "Directory is required",
+      error: 'Directory is required',
     }
   }
 
@@ -89,7 +90,7 @@ export async function openProjectFromPayload(payload: unknown): Promise<
       return {
         ok: false,
         status: 403,
-        error: "Directory is outside allowed roots",
+        error: 'Directory is outside allowed roots',
       }
     }
 
@@ -126,7 +127,7 @@ export async function updateProjectFromPayload(input: {
     return {
       ok: false,
       status: 400,
-      error: "Invalid project update",
+      error: 'Invalid project update',
     }
   }
 

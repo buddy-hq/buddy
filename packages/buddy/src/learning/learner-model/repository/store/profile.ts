@@ -1,14 +1,14 @@
-import { LearnerArtifactPath } from "../path"
-import type { ProfileArtifact } from "../types"
-import { ProfileArtifactSchema } from "../types"
-import { readMarkdownFile, writeMarkdownFile } from "./io"
-import { normalizeList } from "./normalize"
+import { LearnerArtifactPath } from '../path'
+import type { ProfileArtifact } from '../types'
+import { ProfileArtifactSchema } from '../types'
+import { readMarkdownFile, writeMarkdownFile } from './io'
+import { normalizeList } from './normalize'
 
 function defaultProfile(): ProfileArtifact {
   const now = new Date().toISOString()
   return {
-    id: "profile",
-    kind: "profile",
+    id: 'profile',
+    kind: 'profile',
     goalIds: [],
     background: [],
     knownPrerequisites: [],
@@ -29,7 +29,7 @@ export async function readProfile() {
 
 export async function writeProfile(profile: ProfileArtifact) {
   const normalized = ProfileArtifactSchema.parse(profile)
-  await writeMarkdownFile(LearnerArtifactPath.profileFile(), normalized, "")
+  await writeMarkdownFile(LearnerArtifactPath.profileFile(), normalized, '')
   return normalized
 }
 
@@ -46,12 +46,12 @@ export async function patchProfile(
   patch: Partial<
     Pick<
       ProfileArtifact,
-      | "background"
-      | "knownPrerequisites"
-      | "availableTimePatterns"
-      | "toolEnvironmentLimits"
-      | "motivationAnchors"
-      | "learnerPreferences"
+      | 'background'
+      | 'knownPrerequisites'
+      | 'availableTimePatterns'
+      | 'toolEnvironmentLimits'
+      | 'motivationAnchors'
+      | 'learnerPreferences'
     >
   >,
 ) {

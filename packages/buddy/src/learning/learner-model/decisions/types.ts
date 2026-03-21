@@ -1,12 +1,15 @@
-import z from "zod"
-import { ACTIVITY_KINDS, SCAFFOLDING_LEVELS } from "@buddy/backend/learning/shared/teaching-vocabulary"
-import { DecisionDispositionSchema } from "../repository/types"
+import z from 'zod'
+import {
+  ACTIVITY_KINDS,
+  SCAFFOLDING_LEVELS,
+} from '@buddy/backend/learning/shared/teaching-vocabulary'
+import { DecisionDispositionSchema } from '../repository/types'
 
-export const EvidenceStrengthSchema = z.enum(["none", "weak", "strong"])
+export const EvidenceStrengthSchema = z.enum(['none', 'weak', 'strong'])
 export type EvidenceStrength = z.infer<typeof EvidenceStrengthSchema>
 
 export const InterpretMessageDecisionSchema = z.object({
-  disposition: DecisionDispositionSchema.default("apply"),
+  disposition: DecisionDispositionSchema.default('apply'),
   confidence: z.number().min(0).max(1).default(0.5),
   intent: z.string().min(1),
   affect: z.string().min(1),
@@ -24,13 +27,13 @@ export const InterpretMessageDecisionSchema = z.object({
     .optional(),
   resolveMisconceptionIds: z.array(z.string()).default([]),
   requiresClarification: z.boolean().default(false),
-  replyMode: z.enum(["reply-only", "update-state", "ask-question"]),
+  replyMode: z.enum(['reply-only', 'update-state', 'ask-question']),
   rationale: z.array(z.string()).default([]),
 })
 export type InterpretMessageDecision = z.infer<typeof InterpretMessageDecisionSchema>
 
 export const PlanDecisionSchema = z.object({
-  disposition: DecisionDispositionSchema.default("apply"),
+  disposition: DecisionDispositionSchema.default('apply'),
   confidence: z.number().min(0).max(1).default(0.5),
   primaryGoalId: z.string().optional(),
   suggestedActivity: z.enum(ACTIVITY_KINDS),
@@ -45,7 +48,7 @@ export const PlanDecisionSchema = z.object({
 export type PlanDecision = z.infer<typeof PlanDecisionSchema>
 
 export const FeedbackDecisionSchema = z.object({
-  disposition: DecisionDispositionSchema.default("apply"),
+  disposition: DecisionDispositionSchema.default('apply'),
   confidence: z.number().min(0).max(1).default(0.5),
   feedbackRecord: z
     .object({
@@ -57,220 +60,220 @@ export const FeedbackDecisionSchema = z.object({
     })
     .optional(),
   closeFeedbackIds: z.array(z.string()).default([]),
-  closeFeedbackStatus: z.enum(["acted-on", "resolved"]).optional(),
+  closeFeedbackStatus: z.enum(['acted-on', 'resolved']).optional(),
   resolveMisconceptionIds: z.array(z.string()).default([]),
   rationale: z.array(z.string()).default([]),
 })
 export type FeedbackDecision = z.infer<typeof FeedbackDecisionSchema>
 
 export const InterpretMessageJsonSchema = {
-  type: "object",
+  type: 'object',
   additionalProperties: false,
   properties: {
     disposition: {
-      type: "string",
-      enum: ["apply", "abstain"],
+      type: 'string',
+      enum: ['apply', 'abstain'],
     },
     confidence: {
-      type: "number",
+      type: 'number',
       minimum: 0,
       maximum: 1,
     },
     intent: {
-      type: "string",
+      type: 'string',
     },
     affect: {
-      type: "string",
+      type: 'string',
     },
     relevantGoalIds: {
-      type: "array",
-      items: { type: "string" },
+      type: 'array',
+      items: { type: 'string' },
     },
     createEvidence: {
-      type: "object",
+      type: 'object',
       additionalProperties: false,
       properties: {
         strength: {
-          type: "string",
+          type: 'string',
           enum: [...EvidenceStrengthSchema.options],
         },
         summary: {
-          type: "string",
+          type: 'string',
         },
       },
-      required: ["strength", "summary"],
+      required: ['strength', 'summary'],
     },
     createMisconception: {
-      type: "object",
+      type: 'object',
       additionalProperties: false,
       properties: {
         summary: {
-          type: "string",
+          type: 'string',
         },
       },
-      required: ["summary"],
+      required: ['summary'],
     },
     resolveMisconceptionIds: {
-      type: "array",
-      items: { type: "string" },
+      type: 'array',
+      items: { type: 'string' },
     },
     requiresClarification: {
-      type: "boolean",
+      type: 'boolean',
     },
     replyMode: {
-      type: "string",
-      enum: ["reply-only", "update-state", "ask-question"],
+      type: 'string',
+      enum: ['reply-only', 'update-state', 'ask-question'],
     },
     rationale: {
-      type: "array",
-      items: { type: "string" },
+      type: 'array',
+      items: { type: 'string' },
     },
   },
   required: [
-    "disposition",
-    "confidence",
-    "intent",
-    "affect",
-    "relevantGoalIds",
-    "resolveMisconceptionIds",
-    "requiresClarification",
-    "replyMode",
-    "rationale",
+    'disposition',
+    'confidence',
+    'intent',
+    'affect',
+    'relevantGoalIds',
+    'resolveMisconceptionIds',
+    'requiresClarification',
+    'replyMode',
+    'rationale',
   ],
 } as const
 
 export const PlanJsonSchema = {
-  type: "object",
+  type: 'object',
   additionalProperties: false,
   properties: {
     disposition: {
-      type: "string",
-      enum: ["apply", "abstain"],
+      type: 'string',
+      enum: ['apply', 'abstain'],
     },
     confidence: {
-      type: "number",
+      type: 'number',
       minimum: 0,
       maximum: 1,
     },
     primaryGoalId: {
-      type: "string",
+      type: 'string',
     },
     suggestedActivity: {
-      type: "string",
+      type: 'string',
       enum: [...ACTIVITY_KINDS],
     },
     suggestedScaffoldingLevel: {
-      type: "string",
+      type: 'string',
       enum: [...SCAFFOLDING_LEVELS],
     },
     warmupGoalIds: {
-      type: "array",
+      type: 'array',
       items: {
-        type: "string",
+        type: 'string',
       },
     },
     alternatives: {
-      type: "array",
+      type: 'array',
       items: {
-        type: "string",
+        type: 'string',
       },
     },
     rationale: {
-      type: "array",
+      type: 'array',
       items: {
-        type: "string",
+        type: 'string',
       },
     },
     motivationHook: {
-      type: "string",
+      type: 'string',
     },
     riskFlags: {
-      type: "array",
+      type: 'array',
       items: {
-        type: "string",
+        type: 'string',
       },
     },
     followUpQuestions: {
-      type: "array",
+      type: 'array',
       items: {
-        type: "string",
+        type: 'string',
       },
     },
   },
   required: [
-    "disposition",
-    "confidence",
-    "suggestedActivity",
-    "suggestedScaffoldingLevel",
-    "warmupGoalIds",
-    "alternatives",
-    "rationale",
-    "riskFlags",
-    "followUpQuestions",
+    'disposition',
+    'confidence',
+    'suggestedActivity',
+    'suggestedScaffoldingLevel',
+    'warmupGoalIds',
+    'alternatives',
+    'rationale',
+    'riskFlags',
+    'followUpQuestions',
   ],
 } as const
 
 export const FeedbackJsonSchema = {
-  type: "object",
+  type: 'object',
   additionalProperties: false,
   properties: {
     disposition: {
-      type: "string",
-      enum: ["apply", "abstain"],
+      type: 'string',
+      enum: ['apply', 'abstain'],
     },
     confidence: {
-      type: "number",
+      type: 'number',
       minimum: 0,
       maximum: 1,
     },
     feedbackRecord: {
-      type: "object",
+      type: 'object',
       additionalProperties: false,
       properties: {
         strengths: {
-          type: "array",
-          items: { type: "string" },
+          type: 'array',
+          items: { type: 'string' },
         },
         gaps: {
-          type: "array",
-          items: { type: "string" },
+          type: 'array',
+          items: { type: 'string' },
         },
         guidance: {
-          type: "array",
-          items: { type: "string" },
+          type: 'array',
+          items: { type: 'string' },
         },
         requiredAction: {
-          type: "string",
+          type: 'string',
         },
         scaffoldingLevel: {
-          type: "string",
+          type: 'string',
           enum: [...SCAFFOLDING_LEVELS],
         },
       },
-      required: ["strengths", "gaps", "guidance", "requiredAction", "scaffoldingLevel"],
+      required: ['strengths', 'gaps', 'guidance', 'requiredAction', 'scaffoldingLevel'],
     },
     closeFeedbackIds: {
-      type: "array",
-      items: { type: "string" },
+      type: 'array',
+      items: { type: 'string' },
     },
     closeFeedbackStatus: {
-      type: "string",
-      enum: ["acted-on", "resolved"],
+      type: 'string',
+      enum: ['acted-on', 'resolved'],
     },
     resolveMisconceptionIds: {
-      type: "array",
-      items: { type: "string" },
+      type: 'array',
+      items: { type: 'string' },
     },
     rationale: {
-      type: "array",
-      items: { type: "string" },
+      type: 'array',
+      items: { type: 'string' },
     },
   },
   required: [
-    "disposition",
-    "confidence",
-    "closeFeedbackIds",
-    "resolveMisconceptionIds",
-    "rationale",
+    'disposition',
+    'confidence',
+    'closeFeedbackIds',
+    'resolveMisconceptionIds',
+    'rationale',
   ],
 } as const

@@ -4,7 +4,7 @@ import {
   createServerFetchTransport,
   resolveServerApiBaseUrl,
   resolveServerEndpoint,
-} from "./server-client"
+} from './server-client'
 
 export function directoryHeaderValue(directory: string) {
   const isNonASCII = /[^\x00-\x7F]/.test(directory)
@@ -15,7 +15,7 @@ export function stringifyError(error: unknown) {
   if (error instanceof Error) {
     return error.message
   }
-  if (typeof error === "string") {
+  if (typeof error === 'string') {
     return error
   }
   try {
@@ -49,17 +49,17 @@ export async function apiFetch(
   const headers = new Headers(init?.headers)
   const body = init?.body === undefined ? undefined : JSON.stringify(init.body)
 
-  if (body !== undefined && !headers.has("content-type")) {
-    headers.set("content-type", "application/json")
+  if (body !== undefined && !headers.has('content-type')) {
+    headers.set('content-type', 'application/json')
   }
 
   if (init?.directory) {
-    headers.set("x-buddy-directory", directoryHeaderValue(init.directory))
+    headers.set('x-buddy-directory', directoryHeaderValue(init.directory))
   }
 
   const auth = authorizationHeader()
-  if (auth && !headers.has("authorization")) {
-    headers.set("authorization", auth)
+  if (auth && !headers.has('authorization')) {
+    headers.set('authorization', auth)
   }
 
   const transport = createServerFetchTransport(resolveServerApiBaseUrl())
@@ -96,10 +96,10 @@ export async function requestJson<T>(
 }
 
 function readApiErrorMessage(payload: unknown, status: number) {
-  if (typeof payload === "string" && payload.trim().length > 0) {
+  if (typeof payload === 'string' && payload.trim().length > 0) {
     return payload
   }
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
     return `Request failed (${status})`
   }
 
@@ -109,16 +109,16 @@ function readApiErrorMessage(payload: unknown, status: number) {
     issues?: unknown
   }
 
-  if (typeof candidate.error === "string" && candidate.error.trim().length > 0) {
+  if (typeof candidate.error === 'string' && candidate.error.trim().length > 0) {
     return candidate.error
   }
-  if (typeof candidate.message === "string" && candidate.message.trim().length > 0) {
+  if (typeof candidate.message === 'string' && candidate.message.trim().length > 0) {
     return candidate.message
   }
 
-  if (candidate.error && typeof candidate.error === "object" && !Array.isArray(candidate.error)) {
+  if (candidate.error && typeof candidate.error === 'object' && !Array.isArray(candidate.error)) {
     const nested = candidate.error as { message?: unknown; issues?: unknown }
-    if (typeof nested.message === "string" && nested.message.trim().length > 0) {
+    if (typeof nested.message === 'string' && nested.message.trim().length > 0) {
       return nested.message
     }
     if (Array.isArray(nested.issues) && nested.issues.length > 0) {

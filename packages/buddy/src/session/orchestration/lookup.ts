@@ -1,8 +1,8 @@
-import { isJsonContentType, safeReadJson } from "../../http"
-import { isSessionInRequestedProject } from "../../http"
-import { normalizeErrorResponse } from "../../http"
-import { fetchOpenCode } from "../../http"
-import { SessionLookupError } from "./errors"
+import { isJsonContentType, safeReadJson } from '../../http'
+import { isSessionInRequestedProject } from '../../http'
+import { normalizeErrorResponse } from '../../http'
+import { fetchOpenCode } from '../../http'
+import { SessionLookupError } from './errors'
 
 type OpenCodeNotFoundError = {
   name?: unknown
@@ -13,21 +13,21 @@ type OpenCodeNotFoundError = {
 }
 
 function readSessionNotFoundMessage(error: unknown): string | undefined {
-  if (!error || typeof error !== "object") return undefined
+  if (!error || typeof error !== 'object') return undefined
   const payload = error as OpenCodeNotFoundError
   const fromData = payload.data?.message
-  if (typeof fromData === "string") return fromData
-  if (typeof payload.message === "string") return payload.message
+  if (typeof fromData === 'string') return fromData
+  if (typeof payload.message === 'string') return payload.message
   return undefined
 }
 
 export function isSessionNotFoundError(error: unknown): boolean {
-  if (!error || typeof error !== "object") return false
-  const errorName = "name" in error ? (error as OpenCodeNotFoundError).name : undefined
-  if (errorName !== "NotFoundError") return false
+  if (!error || typeof error !== 'object') return false
+  const errorName = 'name' in error ? (error as OpenCodeNotFoundError).name : undefined
+  if (errorName !== 'NotFoundError') return false
 
   const message = readSessionNotFoundMessage(error)
-  return typeof message === "string" && message.startsWith("Session not found:")
+  return typeof message === 'string' && message.startsWith('Session not found:')
 }
 
 export async function ensureSessionExistsInDirectory(input: {
@@ -37,22 +37,22 @@ export async function ensureSessionExistsInDirectory(input: {
 }): Promise<Response | undefined> {
   const response = await fetchOpenCode({
     directory: input.directory,
-    method: "GET",
+    method: 'GET',
     path: `/session/${encodeURIComponent(input.sessionID)}`,
     headers: new Headers(input.request.headers),
   })
   const normalized = await normalizeErrorResponse(response)
   if (!normalized.ok) return normalized
-  if (!isJsonContentType(normalized.headers.get("content-type"))) return undefined
+  if (!isJsonContentType(normalized.headers.get('content-type'))) return undefined
 
   const session = await safeReadJson(normalized)
-  if (!session || typeof session !== "object" || Array.isArray(session)) {
-    return Response.json({ error: "Session not found" }, { status: 404 })
+  if (!session || typeof session !== 'object' || Array.isArray(session)) {
+    return Response.json({ error: 'Session not found' }, { status: 404 })
   }
 
   const matchesProject = await isSessionInRequestedProject(input.directory, session)
   if (!matchesProject) {
-    return Response.json({ error: "Session not found" }, { status: 404 })
+    return Response.json({ error: 'Session not found' }, { status: 404 })
   }
 
   return undefined

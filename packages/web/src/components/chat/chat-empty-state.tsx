@@ -1,10 +1,10 @@
-import buddyIcon from "../../../public/buddy-icon.png"
+import buddyIcon from '../../../public/buddy-icon.png'
 
 type ChatEmptyStateProps = {
   directoryLabel: string
 }
 
-const logoFilter = "saturate(1.06) contrast(1.04)"
+const logoFilter = 'saturate(1.06) contrast(1.04)'
 
 export function ChatEmptyState(props: ChatEmptyStateProps) {
   return (

@@ -1,15 +1,20 @@
-import { ToolCardWithDetails } from "../shared/tool-card"
-import { Markdown } from "@/components/Markdown"
-import { unwrapError } from "../shared/utils"
-import type { ToolPartProps } from "./registry"
+import { ToolCardWithDetails } from '../shared/tool-card'
+import { Markdown } from '@/components/Markdown'
+import { unwrapError } from '../shared/utils'
+import type { ToolPartProps } from './registry'
 
 function SearchTool({ part, state, info, defaultOpen }: ToolPartProps) {
-  const running = state.status === "pending" || state.status === "running"
-  const output = state.output || (state.error ? unwrapError(state.error) : "")
+  const running = state.status === 'pending' || state.status === 'running'
+  const output = state.output || (state.error ? unwrapError(state.error) : '')
   const showOutput = output.trim().length > 0
 
   return (
-    <ToolCardWithDetails info={info} status={state.status} running={running} defaultOpen={defaultOpen}>
+    <ToolCardWithDetails
+      info={info}
+      status={state.status}
+      running={running}
+      defaultOpen={defaultOpen}
+    >
       {showOutput ? (
         <div className="rounded-md border border-border bg-background px-3 py-2">
           <Markdown text={output} cacheKey={`${part.id}:tool-output`} />

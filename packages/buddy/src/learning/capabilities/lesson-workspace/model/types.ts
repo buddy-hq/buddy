@@ -1,46 +1,46 @@
-import z from "zod"
+import z from 'zod'
 
 export const TEACHING_LANGUAGE_VALUES = [
-  "txt",
-  "ts",
-  "tsx",
-  "js",
-  "jsx",
-  "py",
-  "go",
-  "rs",
-  "java",
-  "kt",
-  "php",
-  "rb",
-  "swift",
-  "cs",
-  "fs",
-  "c",
-  "cpp",
-  "sh",
-  "yaml",
-  "json",
-  "md",
-  "html",
-  "css",
-  "sql",
-  "lua",
-  "dart",
-  "zig",
-  "vue",
-  "svelte",
-  "astro",
-  "ml",
-  "ex",
-  "gleam",
-  "nix",
-  "tf",
-  "typ",
-  "clj",
-  "hs",
-  "jl",
-  "xml",
+  'txt',
+  'ts',
+  'tsx',
+  'js',
+  'jsx',
+  'py',
+  'go',
+  'rs',
+  'java',
+  'kt',
+  'php',
+  'rb',
+  'swift',
+  'cs',
+  'fs',
+  'c',
+  'cpp',
+  'sh',
+  'yaml',
+  'json',
+  'md',
+  'html',
+  'css',
+  'sql',
+  'lua',
+  'dart',
+  'zig',
+  'vue',
+  'svelte',
+  'astro',
+  'ml',
+  'ex',
+  'gleam',
+  'nix',
+  'tf',
+  'typ',
+  'clj',
+  'hs',
+  'jl',
+  'xml',
 ] as const
 
 export const TeachingLanguageSchema = z.enum(TEACHING_LANGUAGE_VALUES)
@@ -63,7 +63,7 @@ export const TeachingWorkspaceFileSchema = z.object({
 
 export type TeachingWorkspaceFile = z.infer<typeof TeachingWorkspaceFileSchema>
 
-export const TeachingDiagnosticSeveritySchema = z.enum(["error", "warning", "info", "hint"])
+export const TeachingDiagnosticSeveritySchema = z.enum(['error', 'warning', 'info', 'hint'])
 
 export type TeachingDiagnosticSeverity = z.infer<typeof TeachingDiagnosticSeveritySchema>
 
@@ -127,13 +127,17 @@ export const TeachingWorkspaceCreateFileRequestSchema = z.object({
   activate: z.boolean().optional(),
 })
 
-export type TeachingWorkspaceCreateFileRequest = z.infer<typeof TeachingWorkspaceCreateFileRequestSchema>
+export type TeachingWorkspaceCreateFileRequest = z.infer<
+  typeof TeachingWorkspaceCreateFileRequestSchema
+>
 
 export const TeachingWorkspaceActivateFileRequestSchema = z.object({
   relativePath: z.string().min(1),
 })
 
-export type TeachingWorkspaceActivateFileRequest = z.infer<typeof TeachingWorkspaceActivateFileRequestSchema>
+export type TeachingWorkspaceActivateFileRequest = z.infer<
+  typeof TeachingWorkspaceActivateFileRequestSchema
+>
 
 export const TeachingProvisionRequestSchema = z.object({
   language: TeachingLanguageSchema.optional(),

@@ -1,17 +1,17 @@
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { ModelID, ProviderID, SessionID } from "@buddy/opencode-adapter/id"
-import { Provider } from "@buddy/opencode-adapter/provider"
-import { Session } from "@buddy/opencode-adapter/session"
-import { SessionPrompt } from "@buddy/opencode-adapter/session-prompt"
-import type z from "zod"
+import { Instance as OpenCodeInstance } from '@buddy/opencode-adapter/instance'
+import { ModelID, ProviderID, SessionID } from '@buddy/opencode-adapter/id'
+import { Provider } from '@buddy/opencode-adapter/provider'
+import { Session } from '@buddy/opencode-adapter/session'
+import { SessionPrompt } from '@buddy/opencode-adapter/session-prompt'
+import type z from 'zod'
 import {
   ensureOpenCodeProjectOverlay,
   parseConfiguredModel,
   readProjectConfig,
-} from "@buddy/backend/config/runtime"
+} from '@buddy/backend/config/runtime'
 
 type StructuredSchema = {
-  type: "object"
+  type: 'object'
   properties: Record<string, unknown>
   required?: readonly string[]
   additionalProperties?: boolean
@@ -28,22 +28,22 @@ type ResolvedModel = {
   usedSmallModel: boolean
 }
 
-const DECISION_AGENT = "summary"
+const DECISION_AGENT = 'summary'
 const DECISION_SESSION_PERMISSION = [
   {
-    permission: "*",
-    pattern: "*",
-    action: "deny" as const,
+    permission: '*',
+    pattern: '*',
+    action: 'deny' as const,
   },
 ]
 
 function decisionSystemPrompt(base: string) {
   return [
     base.trim(),
-    "Decision-engine guardrails:",
-    "- You MUST NOT call any tools or subagents except StructuredOutput.",
-    "- Return immediately by calling StructuredOutput exactly once.",
-  ].join("\n")
+    'Decision-engine guardrails:',
+    '- You MUST NOT call any tools or subagents except StructuredOutput.',
+    '- Return immediately by calling StructuredOutput exactly once.',
+  ].join('\n')
 }
 
 export type DecisionEngineResult<T> = {
@@ -59,7 +59,7 @@ function asErrorMessage(error: unknown) {
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
+  return typeof value === 'object' && value !== null
 }
 
 function extractStructuredPayload(message: unknown): unknown {
@@ -70,7 +70,7 @@ function extractStructuredPayload(message: unknown): unknown {
   if (!isObject(info)) {
     return undefined
   }
-  if (info.role !== "assistant") {
+  if (info.role !== 'assistant') {
     return undefined
   }
   return info.structured
@@ -78,8 +78,8 @@ function extractStructuredPayload(message: unknown): unknown {
 
 function parseModelRef(value: unknown): ModelRef | undefined {
   if (!isObject(value)) return undefined
-  if (!("providerID" in value) || !("modelID" in value)) return undefined
-  if (typeof value.providerID !== "string" || typeof value.modelID !== "string") return undefined
+  if (!('providerID' in value) || !('modelID' in value)) return undefined
+  if (typeof value.providerID !== 'string' || typeof value.modelID !== 'string') return undefined
   if (!value.providerID || !value.modelID) return undefined
   return {
     providerID: value.providerID,
@@ -98,7 +98,7 @@ async function resolveSessionModel(sessionID: string): Promise<ModelRef | undefi
     if (!isObject(message)) continue
     const info = message.info
     if (!isObject(info)) continue
-    if (info.role !== "user") continue
+    if (info.role !== 'user') continue
 
     const model = parseModelRef(info.model)
     if (model) {
@@ -155,7 +155,8 @@ export async function runStructuredDecision<T>(input: {
       if (!modelReference) {
         return {
           usedSmallModel: false,
-          error: "Learner decision engine skipped because no session model or configured project model was found.",
+          error:
+            'Learner decision engine skipped because no session model or configured project model was found.',
         }
       }
 
@@ -184,12 +185,12 @@ export async function runStructuredDecision<T>(input: {
           system: decisionSystemPrompt(input.system),
           parts: [
             {
-              type: "text",
+              type: 'text',
               text: input.prompt,
             },
           ],
           format: {
-            type: "json_schema",
+            type: 'json_schema',
             schema: input.jsonSchema,
             retryCount: 1,
           },
@@ -202,7 +203,7 @@ export async function runStructuredDecision<T>(input: {
             providerId: model.providerId,
             modelId: model.modelId,
             usedSmallModel: model.usedSmallModel,
-            error: `Structured output parse failed: ${parsed.error.issues[0]?.message ?? "invalid output"}`,
+            error: `Structured output parse failed: ${parsed.error.issues[0]?.message ?? 'invalid output'}`,
           }
           return decisionResult
         }
@@ -226,7 +227,7 @@ export async function runStructuredDecision<T>(input: {
         try {
           await Session.remove(session.id)
         } catch (error) {
-          console.warn("Failed to remove decision session", error)
+          console.warn('Failed to remove decision session', error)
         }
       }
     },

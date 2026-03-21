@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react"
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
   Badge,
   BookOpenIcon,
@@ -24,7 +24,7 @@ import {
   XIcon,
   cn,
   toast,
-} from "@buddy/ui"
+} from '@buddy/ui'
 import {
   createCustomSkill,
   installLibrarySkill,
@@ -37,7 +37,7 @@ import {
   type SkillLibraryEntry,
   type SkillRuleAction,
   type SkillsCatalog,
-} from "@/state/skills-actions"
+} from '@/state/skills-actions'
 
 type SkillsFormState = {
   name: string
@@ -47,71 +47,71 @@ type SkillsFormState = {
 }
 
 const EMPTY_FORM: SkillsFormState = {
-  name: "",
-  description: "",
-  examplePrompt: "",
-  content: "",
+  name: '',
+  description: '',
+  examplePrompt: '',
+  content: '',
 }
 
-function statusLabel(action: InstalledSkillInfo["permissionAction"]) {
-  if (action === "allow") return "Always available"
-  if (action === "deny") return "Blocked"
-  return "On-demand approval"
+function statusLabel(action: InstalledSkillInfo['permissionAction']) {
+  if (action === 'allow') return 'Always available'
+  if (action === 'deny') return 'Blocked'
+  return 'On-demand approval'
 }
 
-function sourceLabel(source: InstalledSkillInfo["source"]) {
-  if (source === "custom") return "Custom"
-  if (source === "library") return "Library"
-  return "Detected"
+function sourceLabel(source: InstalledSkillInfo['source']) {
+  if (source === 'custom') return 'Custom'
+  if (source === 'library') return 'Library'
+  return 'Detected'
 }
 
-function scopeLabel(scope: InstalledSkillInfo["scope"]) {
-  return scope === "workspace" ? "Workspace" : "Global"
+function scopeLabel(scope: InstalledSkillInfo['scope']) {
+  return scope === 'workspace' ? 'Workspace' : 'Global'
 }
 
-function scopeDescription(scope: InstalledSkillInfo["scope"]) {
-  return scope === "workspace"
-    ? "This skill is discovered from the current workspace."
-    : "This skill is discovered from your global skills directory."
+function scopeDescription(scope: InstalledSkillInfo['scope']) {
+  return scope === 'workspace'
+    ? 'This skill is discovered from the current workspace.'
+    : 'This skill is discovered from your global skills directory.'
 }
 
-function permissionUpdateMessage(name: string, action: InstalledSkillInfo["permissionAction"]) {
+function permissionUpdateMessage(name: string, action: InstalledSkillInfo['permissionAction']) {
   return `Set ${name} to ${statusLabel(action).toLowerCase()}.`
 }
 
 function permissionRuleMessage(name: string, action: SkillRuleAction) {
-  if (action === "inherit") {
+  if (action === 'inherit') {
     return `Reset ${name} to the inherited/default rule.`
   }
 
   return permissionUpdateMessage(name, action)
 }
 
-function permissionSourceLabel(source: InstalledSkillInfo["permissionSource"]) {
-  if (source === "explicit") return "Explicit"
-  if (source === "inherited") return "Inherited"
-  return "Default"
+function permissionSourceLabel(source: InstalledSkillInfo['permissionSource']) {
+  if (source === 'explicit') return 'Explicit'
+  if (source === 'inherited') return 'Inherited'
+  return 'Default'
 }
 
 function permissionSourceDescription(skill: InstalledSkillInfo) {
-  if (skill.permissionSource === "explicit") {
-    return "This skill name has its own explicit permission rule."
+  if (skill.permissionSource === 'explicit') {
+    return 'This skill name has its own explicit permission rule.'
   }
 
-  if (skill.permissionSource === "inherited") {
-    return "This skill name is matching a broader wildcard permission rule."
+  if (skill.permissionSource === 'inherited') {
+    return 'This skill name is matching a broader wildcard permission rule.'
   }
 
-  return "No matching name rule is set. Core behavior falls back to on-demand approval."
+  return 'No matching name rule is set. Core behavior falls back to on-demand approval.'
 }
 
 function resetPermissionLabel() {
-  return "Use inherited/default rule"
+  return 'Use inherited/default rule'
 }
 
 async function copyText(text: string) {
   if (!text) return false
-  if (!("clipboard" in navigator)) return false
+  if (!('clipboard' in navigator)) return false
   await navigator.clipboard.writeText(text)
   return true
 }
@@ -136,7 +136,7 @@ function SectionHeader(props: { title: string; description: string; action?: Rea
 }
 
 function PermissionActionMenu(props: {
-  source: InstalledSkillInfo["permissionSource"]
+  source: InstalledSkillInfo['permissionSource']
   disabled?: boolean
   onSelect: (action: SkillRuleAction) => void
 }) {
@@ -149,18 +149,18 @@ function PermissionActionMenu(props: {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuItem
-          disabled={props.disabled || props.source !== "explicit"}
-          onSelect={() => props.onSelect("inherit")}
+          disabled={props.disabled || props.source !== 'explicit'}
+          onSelect={() => props.onSelect('inherit')}
         >
           {resetPermissionLabel()}
         </DropdownMenuItem>
-        <DropdownMenuItem disabled={props.disabled} onSelect={() => props.onSelect("allow")}>
+        <DropdownMenuItem disabled={props.disabled} onSelect={() => props.onSelect('allow')}>
           Always available
         </DropdownMenuItem>
-        <DropdownMenuItem disabled={props.disabled} onSelect={() => props.onSelect("ask")}>
+        <DropdownMenuItem disabled={props.disabled} onSelect={() => props.onSelect('ask')}>
           On-demand approval
         </DropdownMenuItem>
-        <DropdownMenuItem disabled={props.disabled} onSelect={() => props.onSelect("deny")}>
+        <DropdownMenuItem disabled={props.disabled} onSelect={() => props.onSelect('deny')}>
           Blocked
         </DropdownMenuItem>
       </DropdownMenuContent>
@@ -180,12 +180,14 @@ function SkillCard(props: {
         <div className="flex items-start gap-4">
           <div className="min-w-0 flex-1 space-y-3">
             <div className="flex items-start justify-between gap-3">
-              <p className="truncate pr-2 text-base font-semibold text-foreground">{props.skill.name}</p>
+              <p className="truncate pr-2 text-base font-semibold text-foreground">
+                {props.skill.name}
+              </p>
               <div className="flex shrink-0 items-center gap-3">
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-muted-foreground">Enabled</span>
                   <Switch
-                    checked={props.skill.permissionAction !== "deny"}
+                    checked={props.skill.permissionAction !== 'deny'}
                     onCheckedChange={props.onToggleEnabled}
                     disabled={props.disabled}
                     aria-label={`Toggle ${props.skill.name}`}
@@ -209,12 +211,12 @@ function SkillCard(props: {
               <Badge
                 variant="outline"
                 className={cn(
-                  "h-5",
-                  props.skill.permissionAction === "allow"
-                    ? "border-[color:color-mix(in_oklab,var(--chart-2)_30%,transparent)] bg-[color:color-mix(in_oklab,var(--chart-2)_12%,transparent)] text-[var(--chart-2)]"
-                    : props.skill.permissionAction === "ask"
-                      ? "border-[color:color-mix(in_oklab,var(--chart-5)_30%,transparent)] bg-[color:color-mix(in_oklab,var(--chart-5)_12%,transparent)] text-[var(--chart-5)]"
-                      : "border-destructive/30 bg-destructive/10 text-destructive",
+                  'h-5',
+                  props.skill.permissionAction === 'allow'
+                    ? 'border-[color:color-mix(in_oklab,var(--chart-2)_30%,transparent)] bg-[color:color-mix(in_oklab,var(--chart-2)_12%,transparent)] text-[var(--chart-2)]'
+                    : props.skill.permissionAction === 'ask'
+                      ? 'border-[color:color-mix(in_oklab,var(--chart-5)_30%,transparent)] bg-[color:color-mix(in_oklab,var(--chart-5)_12%,transparent)] text-[var(--chart-5)]'
+                      : 'border-destructive/30 bg-destructive/10 text-destructive',
                 )}
               >
                 {statusLabel(props.skill.permissionAction)}
@@ -237,7 +239,11 @@ function SkillCard(props: {
   )
 }
 
-function LibraryCard(props: { skill: SkillLibraryEntry; disabled?: boolean; onInstall: () => void }) {
+function LibraryCard(props: {
+  skill: SkillLibraryEntry
+  disabled?: boolean
+  onInstall: () => void
+}) {
   return (
     <Card className="border-border/60 bg-card/60">
       <CardContent className="flex h-full flex-col gap-4 p-5">
@@ -256,12 +262,12 @@ function LibraryCard(props: { skill: SkillLibraryEntry; disabled?: boolean; onIn
           </Badge>
           <Button
             type="button"
-            variant={props.skill.installed ? "outline" : "default"}
+            variant={props.skill.installed ? 'outline' : 'default'}
             size="sm"
             disabled={props.disabled || props.skill.installed}
             onClick={props.onInstall}
           >
-            {props.skill.installed ? "Installed" : "Add"}
+            {props.skill.installed ? 'Installed' : 'Add'}
           </Button>
         </div>
       </CardContent>
@@ -274,7 +280,7 @@ export function SkillsPage(props: { directory?: string }) {
   const [catalog, setCatalog] = useState<SkillsCatalog | undefined>(undefined)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
-  const [search, setSearch] = useState("")
+  const [search, setSearch] = useState('')
   const [selectedSkillName, setSelectedSkillName] = useState<string | undefined>(undefined)
   const [newSkillOpen, setNewSkillOpen] = useState(false)
   const [form, setForm] = useState<SkillsFormState>(EMPTY_FORM)
@@ -321,12 +327,18 @@ export function SkillsPage(props: { directory?: string }) {
 
       return {
         ...current,
-        installed: current.installed.map((skill) => (skill.name === nextSkill.name ? nextSkill : skill)),
+        installed: current.installed.map((skill) =>
+          skill.name === nextSkill.name ? nextSkill : skill,
+        ),
       }
     })
   }
 
-  async function refreshCatalog(input?: { preserveSelection?: boolean; force?: boolean; showRefreshToast?: boolean }) {
+  async function refreshCatalog(input?: {
+    preserveSelection?: boolean
+    force?: boolean
+    showRefreshToast?: boolean
+  }) {
     if (!catalog) {
       setLoading(true)
     } else {
@@ -340,7 +352,7 @@ export function SkillsPage(props: { directory?: string }) {
       setCatalog(nextCatalog)
 
       if (input?.force && input.showRefreshToast !== false) {
-        toast.success("Skills refreshed")
+        toast.success('Skills refreshed')
       }
 
       if (nextCatalog.librarySyncError) {
@@ -354,7 +366,7 @@ export function SkillsPage(props: { directory?: string }) {
         }
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to load skills"
+      const message = error instanceof Error ? error.message : 'Failed to load skills'
       toast.error(message)
     } finally {
       setLoading(false)
@@ -366,7 +378,12 @@ export function SkillsPage(props: { directory?: string }) {
     void refreshCatalog()
   }, [currentDirectory])
 
-  async function runMutation<T>(key: string, work: () => Promise<T>, successMessage: string, preserveSelection = true) {
+  async function runMutation<T>(
+    key: string,
+    work: () => Promise<T>,
+    successMessage: string,
+    preserveSelection = true,
+  ) {
     setBusyKey(key)
 
     try {
@@ -375,7 +392,7 @@ export function SkillsPage(props: { directory?: string }) {
       await refreshCatalog({ preserveSelection })
       return true
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Request failed"
+      const message = error instanceof Error ? error.message : 'Request failed'
       toast.error(message)
       return false
     } finally {
@@ -401,11 +418,15 @@ export function SkillsPage(props: { directory?: string }) {
   }
 
   function updateSkillPermission(skill: InstalledSkillInfo, action: SkillRuleAction) {
-    if (action === "inherit" && skill.permissionSource !== "explicit") {
+    if (action === 'inherit' && skill.permissionSource !== 'explicit') {
       return
     }
 
-    if (action !== "inherit" && skill.permissionSource === "explicit" && skill.permissionAction === action) {
+    if (
+      action !== 'inherit' &&
+      skill.permissionSource === 'explicit' &&
+      skill.permissionAction === action
+    ) {
       return
     }
 
@@ -418,7 +439,7 @@ export function SkillsPage(props: { directory?: string }) {
         replaceInstalledSkill(response.skill)
         toast.success(permissionRuleMessage(skill.name, action))
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Request failed"
+        const message = error instanceof Error ? error.message : 'Request failed'
         toast.error(message)
       } finally {
         setBusyKey(undefined)
@@ -427,13 +448,13 @@ export function SkillsPage(props: { directory?: string }) {
   }
 
   function toggleSkillEnabled(skill: InstalledSkillInfo, enabled: boolean) {
-    const nextAction: SkillRuleAction = enabled ? "ask" : "deny"
+    const nextAction: SkillRuleAction = enabled ? 'ask' : 'deny'
 
-    if (enabled && skill.permissionAction !== "deny") {
+    if (enabled && skill.permissionAction !== 'deny') {
       return
     }
 
-    if (!enabled && skill.permissionAction === "deny") {
+    if (!enabled && skill.permissionAction === 'deny') {
       return
     }
 
@@ -449,7 +470,7 @@ export function SkillsPage(props: { directory?: string }) {
     }
 
     void (async () => {
-      const key = "settings:external-roots"
+      const key = 'settings:external-roots'
       const previous = catalog.externalVendorRootsEnabled
       setBusyKey(key)
       setExternalVendorRootsEnabled(enabled)
@@ -463,12 +484,12 @@ export function SkillsPage(props: { directory?: string }) {
         })
         toast.success(
           enabled
-            ? "External .agents/.claude skill discovery is enabled."
-            : "External .agents/.claude skill discovery is disabled.",
+            ? 'External .agents/.claude skill discovery is enabled.'
+            : 'External .agents/.claude skill discovery is disabled.',
         )
       } catch (error) {
         setExternalVendorRootsEnabled(previous)
-        const message = error instanceof Error ? error.message : "Request failed"
+        const message = error instanceof Error ? error.message : 'Request failed'
         toast.error(message)
       } finally {
         setBusyKey(undefined)
@@ -485,9 +506,9 @@ export function SkillsPage(props: { directory?: string }) {
     }
 
     const created = await runMutation(
-      "create-skill",
+      'create-skill',
       () => createCustomSkill(payload, currentDirectory),
-      "Created new skill.",
+      'Created new skill.',
       false,
     )
 
@@ -498,7 +519,10 @@ export function SkillsPage(props: { directory?: string }) {
   }
 
   const createDisabled =
-    busyKey === "create-skill" || !form.name.trim() || !form.description.trim() || !form.content.trim()
+    busyKey === 'create-skill' ||
+    !form.name.trim() ||
+    !form.description.trim() ||
+    !form.content.trim()
 
   return (
     <>
@@ -512,18 +536,23 @@ export function SkillsPage(props: { directory?: string }) {
               </Badge>
             </div>
             <div>
-              <h1 className="text-3xl font-semibold tracking-tight text-foreground">Manage skills</h1>
+              <h1 className="text-3xl font-semibold tracking-tight text-foreground">
+                Manage skills
+              </h1>
               <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-                Manage which skills are available when chatting with Buddy. Installed skills are discovered from your
-                workspace and global skill directories. The library shows curated skills you can install. Set skills to
-                always available, ask before using, or blocked.
+                Manage which skills are available when chatting with Buddy. Installed skills are
+                discovered from your workspace and global skill directories. The library shows
+                curated skills you can install. Set skills to always available, ask before using, or
+                blocked.
               </p>
               {catalog?.directory ? (
                 <div className="mt-3 inline-flex max-w-full items-center gap-2 rounded-full border border-border/60 bg-card/60 px-3 py-1 text-xs text-muted-foreground">
                   <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
                     Workspace
                   </span>
-                  <span className="truncate font-mono text-[11px] text-foreground">{catalog.directory}</span>
+                  <span className="truncate font-mono text-[11px] text-foreground">
+                    {catalog.directory}
+                  </span>
                 </div>
               ) : null}
               <Card className="mt-4 border-border/60 bg-card/60">
@@ -531,25 +560,26 @@ export function SkillsPage(props: { directory?: string }) {
                   <div className="space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="text-sm font-medium text-foreground">
-                        Discover external <code>.agents/.claude</code> skills (restore vendor behavior)
+                        Discover external <code>.agents/.claude</code> skills (restore vendor
+                        behavior)
                       </p>
                       <Badge variant="outline" className="h-5">
-                        {catalog?.externalVendorRootsEnabled ? "Enabled" : "Disabled"}
+                        {catalog?.externalVendorRootsEnabled ? 'Enabled' : 'Disabled'}
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      When enabled for this notebook, Buddy discovers vendor-style skills from home and ancestor
-                      directories.
+                      When enabled for this notebook, Buddy discovers vendor-style skills from home
+                      and ancestor directories.
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-muted-foreground">
-                      {catalog?.externalVendorRootsEnabled ? "On" : "Off"}
+                      {catalog?.externalVendorRootsEnabled ? 'On' : 'Off'}
                     </span>
                     <Switch
                       checked={catalog?.externalVendorRootsEnabled ?? false}
                       onCheckedChange={toggleExternalVendorRoots}
-                      disabled={loading || busyKey === "settings:external-roots"}
+                      disabled={loading || busyKey === 'settings:external-roots'}
                       aria-label="Discover external vendor roots"
                     />
                   </div>
@@ -622,7 +652,8 @@ export function SkillsPage(props: { directory?: string }) {
             ) : (
               <Card className="border-dashed border-border/60 bg-card/30">
                 <CardContent className="p-6 text-sm text-muted-foreground">
-                  No installed skills matched your search. Add a curated skill below or create a new custom one.
+                  No installed skills matched your search. Add a curated skill below or create a new
+                  custom one.
                 </CardContent>
               </Card>
             )}
@@ -679,7 +710,9 @@ export function SkillsPage(props: { directory?: string }) {
                 <div className="flex items-start justify-between gap-4">
                   <div className="space-y-2">
                     <DialogTitle className="text-left text-2xl">{selectedSkill.name}</DialogTitle>
-                    <DialogDescription className="text-left text-sm">{selectedSkill.description}</DialogDescription>
+                    <DialogDescription className="text-left text-sm">
+                      {selectedSkill.description}
+                    </DialogDescription>
                   </div>
                 </div>
               </DialogHeader>
@@ -687,7 +720,9 @@ export function SkillsPage(props: { directory?: string }) {
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="outline">{sourceLabel(selectedSkill.source)}</Badge>
                 <Badge variant="outline">{scopeLabel(selectedSkill.scope)}</Badge>
-                <Badge variant="outline">{permissionSourceLabel(selectedSkill.permissionSource)}</Badge>
+                <Badge variant="outline">
+                  {permissionSourceLabel(selectedSkill.permissionSource)}
+                </Badge>
                 <Badge variant="outline">{statusLabel(selectedSkill.permissionAction)}</Badge>
                 {selectedSkill.libraryID ? (
                   <Badge variant="outline">Library ID: {selectedSkill.libraryID}</Badge>
@@ -695,11 +730,17 @@ export function SkillsPage(props: { directory?: string }) {
               </div>
 
               <div className="space-y-2 rounded-2xl border border-border/60 bg-card/60 p-4">
-                <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Permission</p>
+                <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                  Permission
+                </p>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground">{scopeDescription(selectedSkill.scope)}</p>
-                    <p className="text-sm text-muted-foreground">{permissionSourceDescription(selectedSkill)}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {scopeDescription(selectedSkill.scope)}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {permissionSourceDescription(selectedSkill)}
+                    </p>
                   </div>
                   <PermissionActionMenu
                     source={selectedSkill.permissionSource}
@@ -729,7 +770,9 @@ export function SkillsPage(props: { directory?: string }) {
                       Copy
                     </Button>
                   </div>
-                  <p className="whitespace-pre-wrap text-sm text-foreground">{selectedSkill.examplePrompt}</p>
+                  <p className="whitespace-pre-wrap text-sm text-foreground">
+                    {selectedSkill.examplePrompt}
+                  </p>
                 </div>
               ) : null}
 
@@ -743,7 +786,10 @@ export function SkillsPage(props: { directory?: string }) {
                     variant="ghost"
                     size="xs"
                     onClick={() =>
-                      void copyWithSuccessToast(selectedSkill.content, `Copied skill content for ${selectedSkill.name}.`)
+                      void copyWithSuccessToast(
+                        selectedSkill.content,
+                        `Copied skill content for ${selectedSkill.name}.`,
+                      )
                     }
                   >
                     Copy
@@ -756,13 +802,18 @@ export function SkillsPage(props: { directory?: string }) {
 
               <div className="space-y-2 rounded-2xl border border-border/60 bg-card/60 p-4">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Folder</p>
+                  <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                    Folder
+                  </p>
                   <Button
                     type="button"
                     variant="ghost"
                     size="xs"
                     onClick={() =>
-                      void copyWithSuccessToast(selectedSkill.directory, `Copied folder for ${selectedSkill.name}.`)
+                      void copyWithSuccessToast(
+                        selectedSkill.directory,
+                        `Copied folder for ${selectedSkill.name}.`,
+                      )
                     }
                   >
                     Copy path
@@ -803,7 +854,11 @@ export function SkillsPage(props: { directory?: string }) {
                   />
                 </div>
 
-                <Button type="button" variant="ghost" onClick={() => setSelectedSkillName(undefined)}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setSelectedSkillName(undefined)}
+                >
                   <XIcon className="size-4" />
                   Close
                 </Button>
@@ -877,7 +932,7 @@ export function SkillsPage(props: { directory?: string }) {
               Cancel
             </Button>
             <Button disabled={createDisabled} onClick={() => void submitNewSkill()}>
-              {busyKey === "create-skill" ? "Creating..." : "Create skill"}
+              {busyKey === 'create-skill' ? 'Creating...' : 'Create skill'}
             </Button>
           </DialogFooter>
         </DialogContent>

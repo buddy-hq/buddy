@@ -1,16 +1,16 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router"
-import { useEffect, useState } from "react"
-import { Button, Input, Card, CardContent } from "@buddy/ui"
-import { FolderPlusIcon } from "@/components/layout/sidebar-icons"
-import { usePlatform } from "../context/platform"
-import buddyIcon from "../../public/buddy-icon.png"
-import { stringifyError } from "../lib/api-client"
-import { encodeDirectory } from "../lib/directory-token"
-import { pickProjectDirectory } from "../lib/directory-picker"
-import { bootstrapOpenProjects, openProject } from "../state/chat-actions"
-import { useChatStore } from "../state/chat-store"
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { useEffect, useState } from 'react'
+import { Button, Input, Card, CardContent } from '@buddy/ui'
+import { FolderPlusIcon } from '@/components/layout/sidebar-icons'
+import { usePlatform } from '../context/platform'
+import buddyIcon from '../../public/buddy-icon.png'
+import { stringifyError } from '../lib/api-client'
+import { encodeDirectory } from '../lib/directory-token'
+import { pickProjectDirectory } from '../lib/directory-picker'
+import { bootstrapOpenProjects, openProject } from '../state/chat-actions'
+import { useChatStore } from '../state/chat-store'
 
-export const Route = createFileRoute("/chat")({
+export const Route = createFileRoute('/chat')({
   component: ChatEntryPage,
 })
 
@@ -26,9 +26,9 @@ function ChatEntryPage() {
   }, [])
 
   useEffect(() => {
-    if (!activeDirectory || activeDirectory === "/") return
+    if (!activeDirectory || activeDirectory === '/') return
     navigate({
-      to: "/$directory/chat",
+      to: '/$directory/chat',
       params: { directory: encodeDirectory(activeDirectory) },
       replace: true,
     })
@@ -44,7 +44,7 @@ function ChatEntryPage() {
       const nextDirectory = await openProject(directory)
       setActiveDirectory(nextDirectory)
       navigate({
-        to: "/$directory/chat",
+        to: '/$directory/chat',
         params: { directory: encodeDirectory(nextDirectory) },
       })
     } catch (error) {
@@ -71,8 +71,8 @@ type EmptyProjectsStateProps = {
 
 function EmptyProjectsState(props: EmptyProjectsStateProps) {
   const platform = usePlatform()
-  const [directory, setDirectory] = useState("")
-  const hasNativePicker = typeof platform.openDirectoryPickerDialog === "function"
+  const [directory, setDirectory] = useState('')
+  const hasNativePicker = typeof platform.openDirectoryPickerDialog === 'function'
 
   async function openPickedDirectory() {
     try {
@@ -98,7 +98,12 @@ function EmptyProjectsState(props: EmptyProjectsStateProps) {
         <CardContent className="p-8">
           {hasNativePicker ? (
             <div className="flex flex-col items-center gap-4">
-              <Button type="button" className="w-full" size="lg" onClick={() => void openPickedDirectory()}>
+              <Button
+                type="button"
+                className="w-full"
+                size="lg"
+                onClick={() => void openPickedDirectory()}
+              >
                 <FolderPlusIcon className="mr-2 h-4 w-4" />
                 choose a folder
               </Button>

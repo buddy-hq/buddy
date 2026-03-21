@@ -1,17 +1,17 @@
-import type { Context } from "hono"
-import { ensureAllowedDirectory } from "../../http"
-import { normalizeErrorResponse } from "../../http"
-import { fetchOpenCode } from "../../http"
-import { loadSessionStatus } from "../../http"
+import type { Context } from 'hono'
+import { ensureAllowedDirectory } from '../../http'
+import { normalizeErrorResponse } from '../../http'
+import { fetchOpenCode } from '../../http'
+import { loadSessionStatus } from '../../http'
 
 export async function abortSessionRun(c: Context): Promise<Response> {
   const directoryResult = ensureAllowedDirectory(c)
   if (!directoryResult.ok) return directoryResult.response
 
-  const sessionID = c.req.param("sessionID")
+  const sessionID = c.req.param('sessionID')
   const statuses = await loadSessionStatus(directoryResult.directory, c.req.raw)
   const current = statuses?.[sessionID]
-  if (!current || current.type === "idle") {
+  if (!current || current.type === 'idle') {
     return c.json(false)
   }
 

@@ -1,21 +1,21 @@
-import { McpEditorDialog } from "@/components/mcp-dialog/mcp-editor-dialog";
-import { McpListPanel } from "@/components/mcp-dialog/mcp-list-panel";
-import { useMcpDirectoryData } from "@/components/mcp-dialog/use-mcp-directory-data";
-import { useMcpEditorState } from "@/components/mcp-dialog/use-mcp-editor-state";
-import { SettingsPanelContent } from "./settings-page";
+import { McpEditorDialog } from '@/components/mcp-dialog/mcp-editor-dialog'
+import { McpListPanel } from '@/components/mcp-dialog/mcp-list-panel'
+import { useMcpDirectoryData } from '@/components/mcp-dialog/use-mcp-directory-data'
+import { useMcpEditorState } from '@/components/mcp-dialog/use-mcp-editor-state'
+import { SettingsPanelContent } from './settings-page'
 
 export function McpsSettings({ directory }: { directory: string }) {
   const directoryState = useMcpDirectoryData({
     directory,
     open: true,
-  });
+  })
   const editorState = useMcpEditorState({
     directory,
     configByName: directoryState.configByName,
     setConfigByName: directoryState.setConfigByName,
     setError: directoryState.setError,
     enableMcp: directoryState.enableMcp,
-  });
+  })
 
   return (
     <>
@@ -58,5 +58,5 @@ export function McpsSettings({ directory }: { directory: string }) {
         onSave={editorState.saveConfig}
       />
     </>
-  );
+  )
 }

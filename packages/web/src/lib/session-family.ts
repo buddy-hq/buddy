@@ -1,4 +1,4 @@
-import type { SessionInfo } from "@/state/chat-types"
+import type { SessionInfo } from '@/state/chat-types'
 
 export type SessionFamily = {
   current?: SessionInfo
@@ -7,7 +7,9 @@ export type SessionFamily = {
 }
 
 export function getSessionFamily(sessions: SessionInfo[], activeSessionID?: string): SessionFamily {
-  const current = activeSessionID ? sessions.find((session) => session.id === activeSessionID) : undefined
+  const current = activeSessionID
+    ? sessions.find((session) => session.id === activeSessionID)
+    : undefined
   if (!current) {
     return {
       current: undefined,

@@ -4,14 +4,14 @@ import type {
   ResourceRebuildResponses,
   ResourceRemoveResponses,
   ResourceRenameResponses,
-} from "@buddy/sdk"
-import { getBuddyClient, requireBuddyData } from "../lib/buddy-client"
+} from '@buddy/sdk'
+import { getBuddyClient, requireBuddyData } from '../lib/buddy-client'
 
-export const RESOURCE_API_BASE_PATH = "/api/resource" as const
+export const RESOURCE_API_BASE_PATH = '/api/resource' as const
 
-export type ResourceStatus = "preparing" | "ready" | "unsupported" | "error" | "stale"
+export type ResourceStatus = 'preparing' | 'ready' | 'unsupported' | 'error' | 'stale'
 
-export type ResourceRecord = ResourceListResponses[200]["resources"][number]
+export type ResourceRecord = ResourceListResponses[200]['resources'][number]
 
 export async function loadResources(directory: string) {
   const result = await getBuddyClient(directory).resource.list()

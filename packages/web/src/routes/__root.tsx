@@ -1,9 +1,9 @@
-import { useEffect, useRef } from "react"
-import { createRootRoute, Outlet } from "@tanstack/react-router"
-import { TanStackRouterDevtools } from "@tanstack/router-devtools"
-import { DesktopTitlebar } from "@/components/layout/desktop-titlebar"
-import { usePlatform } from "@/context/platform"
-import { showDesktopUpdateToast } from "../lib/desktop-updates"
+import { useEffect, useRef } from 'react'
+import { createRootRoute, Outlet } from '@tanstack/react-router'
+import { TanStackRouterDevtools } from '@tanstack/router-devtools'
+import { DesktopTitlebar } from '@/components/layout/desktop-titlebar'
+import { usePlatform } from '@/context/platform'
+import { showDesktopUpdateToast } from '../lib/desktop-updates'
 
 function ReleaseUpdateWatcher() {
   const platform = usePlatform()
@@ -17,7 +17,7 @@ function ReleaseUpdateWatcher() {
 
     const poll = async () => {
       const next = await platform.checkUpdate?.().catch(() => null)
-      if (cancelled || next?.status !== "ready" || shownRef.current) return
+      if (cancelled || next?.status !== 'ready' || shownRef.current) return
 
       shownRef.current = true
       showDesktopUpdateToast({
@@ -33,9 +33,12 @@ function ReleaseUpdateWatcher() {
     }
 
     void poll()
-    interval = setInterval(() => {
-      void poll()
-    }, 10 * 60 * 1000)
+    interval = setInterval(
+      () => {
+        void poll()
+      },
+      10 * 60 * 1000,
+    )
 
     return () => {
       cancelled = true

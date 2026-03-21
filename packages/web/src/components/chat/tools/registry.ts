@@ -1,8 +1,8 @@
-import type { MessagePart } from "@/state/chat-types"
-import type { ReactNode } from "react"
+import type { MessagePart } from '@/state/chat-types'
+import type { ReactNode } from 'react'
 
 export interface ToolState {
-  status: "pending" | "running" | "completed" | "error"
+  status: 'pending' | 'running' | 'completed' | 'error'
   input: Record<string, unknown>
   metadata: Record<string, unknown>
   attachments: ToolAttachment[]
@@ -45,7 +45,7 @@ export interface ToolQuestion {
 export interface ApplyPatchFile {
   filePath: string
   relativePath: string
-  type: "add" | "update" | "delete" | "move"
+  type: 'add' | 'update' | 'delete' | 'move'
   before: string
   after: string
   additions: number
@@ -55,7 +55,7 @@ export interface ApplyPatchFile {
 
 export interface RenderFigureToolOutput {
   figureID: string
-  mime: "image/svg+xml"
+  mime: 'image/svg+xml'
   url: string
   alt: string
   caption?: string
@@ -100,5 +100,5 @@ export function clearRegistry(): void {
   registry.clear()
 }
 
-export const CONTEXT_TOOLS = new Set(["read", "list", "glob", "grep"])
-export const HIDDEN_TOOLS = new Set(["todowrite", "todoread"])
+export const CONTEXT_TOOLS = new Set(['read', 'list', 'glob', 'grep'])
+export const HIDDEN_TOOLS = new Set(['todowrite', 'todoread'])

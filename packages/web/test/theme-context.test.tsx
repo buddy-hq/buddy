@@ -1,14 +1,14 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test"
-import { act } from "react"
-import { createRoot, type Root } from "react-dom/client"
-import { ThemeProvider, useTheme } from "../src/theme"
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import { act } from 'react'
+import { createRoot, type Root } from 'react-dom/client'
+import { ThemeProvider, useTheme } from '../src/theme'
 
 type ThemeApi = ReturnType<typeof useTheme>
 
 function createMediaQueryList(matches: boolean): MediaQueryList {
   return {
     matches,
-    media: "(prefers-color-scheme: dark)",
+    media: '(prefers-color-scheme: dark)',
     onchange: null,
     addEventListener: () => undefined,
     removeEventListener: () => undefined,
@@ -25,7 +25,7 @@ async function flushEffects() {
   })
 }
 
-describe("ThemeProvider", () => {
+describe('ThemeProvider', () => {
   let container: HTMLDivElement
   let root: Root
   let themeApi: ThemeApi | null
@@ -38,17 +38,17 @@ describe("ThemeProvider", () => {
   beforeEach(() => {
     ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
     themeApi = null
-    container = document.createElement("div")
+    container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
-    document.head.innerHTML = ""
-    document.documentElement.className = ""
-    document.documentElement.removeAttribute("data-theme")
-    document.documentElement.removeAttribute("data-color-scheme")
-    document.documentElement.style.colorScheme = ""
+    document.head.innerHTML = ''
+    document.documentElement.className = ''
+    document.documentElement.removeAttribute('data-theme')
+    document.documentElement.removeAttribute('data-color-scheme')
+    document.documentElement.style.colorScheme = ''
     localStorage.clear()
 
-    Object.defineProperty(window, "matchMedia", {
+    Object.defineProperty(window, 'matchMedia', {
       value: () => createMediaQueryList(false),
       configurable: true,
     })
@@ -60,8 +60,8 @@ describe("ThemeProvider", () => {
       await flushEffects()
     })
     container.remove()
-    document.getElementById("oc-theme")?.remove()
-    document.getElementById("oc-theme-preload")?.remove()
+    document.getElementById('oc-theme')?.remove()
+    document.getElementById('oc-theme-preload')?.remove()
     ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = undefined
   })
 
@@ -76,53 +76,53 @@ describe("ThemeProvider", () => {
     })
 
     if (!themeApi) {
-      throw new Error("Theme context was not captured")
+      throw new Error('Theme context was not captured')
     }
 
     return themeApi
   }
 
-  test("migrates legacy oc-1 state and refreshes cached css", async () => {
-    localStorage.setItem("opencode-theme-id", "oc-1")
-    localStorage.setItem("opencode-color-scheme", "dark")
-    localStorage.setItem("opencode-theme-css-light", "stale-light")
-    localStorage.setItem("opencode-theme-css-dark", "stale-dark")
+  test('migrates legacy oc-1 state and refreshes cached css', async () => {
+    localStorage.setItem('opencode-theme-id', 'oc-1')
+    localStorage.setItem('opencode-color-scheme', 'dark')
+    localStorage.setItem('opencode-theme-css-light', 'stale-light')
+    localStorage.setItem('opencode-theme-css-dark', 'stale-dark')
 
     await renderThemeProvider()
 
-    expect(localStorage.getItem("opencode-theme-id")).toBe("oc-2")
-    expect(document.documentElement.dataset.theme).toBe("oc-2")
-    expect(document.documentElement.dataset.colorScheme).toBe("dark")
-    expect(document.documentElement.classList.contains("dark")).toBe(true)
-    expect(localStorage.getItem("opencode-theme-css-light")).not.toBe("stale-light")
-    expect(localStorage.getItem("opencode-theme-css-dark")).not.toBe("stale-dark")
-    expect(localStorage.getItem("opencode-theme-css-light")).toContain("--background:")
-    expect(localStorage.getItem("opencode-theme-css-dark")).toContain("--background:")
+    expect(localStorage.getItem('opencode-theme-id')).toBe('oc-2')
+    expect(document.documentElement.dataset.theme).toBe('oc-2')
+    expect(document.documentElement.dataset.colorScheme).toBe('dark')
+    expect(document.documentElement.classList.contains('dark')).toBe(true)
+    expect(localStorage.getItem('opencode-theme-css-light')).not.toBe('stale-light')
+    expect(localStorage.getItem('opencode-theme-css-dark')).not.toBe('stale-dark')
+    expect(localStorage.getItem('opencode-theme-css-light')).toContain('--background:')
+    expect(localStorage.getItem('opencode-theme-css-dark')).toContain('--background:')
   })
 
-  test("caches the default theme and keeps the dark class in sync with scheme changes", async () => {
+  test('caches the default theme and keeps the dark class in sync with scheme changes', async () => {
     const api = await renderThemeProvider()
 
-    expect(localStorage.getItem("opencode-theme-css-light")).toContain("--background:")
-    expect(localStorage.getItem("opencode-theme-css-dark")).toContain("--background:")
-    expect(document.documentElement.classList.contains("dark")).toBe(false)
+    expect(localStorage.getItem('opencode-theme-css-light')).toContain('--background:')
+    expect(localStorage.getItem('opencode-theme-css-dark')).toContain('--background:')
+    expect(document.documentElement.classList.contains('dark')).toBe(false)
 
     await act(async () => {
-      api.setColorScheme("dark")
+      api.setColorScheme('dark')
       await flushEffects()
     })
 
-    expect(localStorage.getItem("opencode-color-scheme")).toBe("dark")
-    expect(document.documentElement.dataset.colorScheme).toBe("dark")
-    expect(document.documentElement.classList.contains("dark")).toBe(true)
+    expect(localStorage.getItem('opencode-color-scheme')).toBe('dark')
+    expect(document.documentElement.dataset.colorScheme).toBe('dark')
+    expect(document.documentElement.classList.contains('dark')).toBe(true)
 
     await act(async () => {
-      api.setColorScheme("light")
+      api.setColorScheme('light')
       await flushEffects()
     })
 
-    expect(localStorage.getItem("opencode-color-scheme")).toBe("light")
-    expect(document.documentElement.dataset.colorScheme).toBe("light")
-    expect(document.documentElement.classList.contains("dark")).toBe(false)
+    expect(localStorage.getItem('opencode-color-scheme')).toBe('light')
+    expect(document.documentElement.dataset.colorScheme).toBe('light')
+    expect(document.documentElement.classList.contains('dark')).toBe(false)
   })
 })

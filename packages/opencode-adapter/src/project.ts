@@ -1,1 +1,1 @@
-export { Project } from "opencode/project/project"
+export { Project } from 'opencode/project/project'

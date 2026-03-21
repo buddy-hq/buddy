@@ -1,12 +1,16 @@
-import { deleteTeachingSessionState, readTeachingSessionState, writeTeachingSessionState } from "../state/session-state"
-import type { TeachingSessionState } from "../../shared/teaching-session-state"
+import {
+  deleteTeachingSessionState,
+  readTeachingSessionState,
+  writeTeachingSessionState,
+} from '../state/session-state'
+import type { TeachingSessionState } from '../../shared/teaching-session-state'
 
 function cloneTracePayload(input: Record<string, unknown>): Record<string, unknown> {
   try {
     return JSON.parse(JSON.stringify(input)) as Record<string, unknown>
   } catch {
     return {
-      _traceError: "failed to clone transformed payload",
+      _traceError: 'failed to clone transformed payload',
     }
   }
 }
@@ -16,7 +20,7 @@ const LLM_OUTBOUND_HISTORY_LIMIT = 120
 export function writeLastLlmOutbound(input: {
   directory: string
   sessionID: string
-  kind: "message" | "command"
+  kind: 'message' | 'command'
   payload: Record<string, unknown>
 }) {
   const state = readTeachingSessionState(input.directory, input.sessionID)

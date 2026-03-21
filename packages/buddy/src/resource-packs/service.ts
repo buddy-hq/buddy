@@ -1,6 +1,6 @@
-import { promises as fs } from "node:fs"
-import path from "node:path"
-import { buildResourceChunkFiles } from "./chunking"
+import { promises as fs } from 'node:fs'
+import path from 'node:path'
+import { buildResourceChunkFiles } from './chunking'
 import {
   RESOURCE_PACK_SPLIT_REASON_FALLBACK_STRUCTURE,
   RESOURCE_PACK_UNIT_KIND_GENERIC,
@@ -11,24 +11,24 @@ import {
   type ResourcePackBuildInput,
   type ResourcePackResolution,
   type ResourcePackService,
-} from "./contracts"
-import { classifyResourcePath } from "./classification"
-import { extractResourcePack } from "./extractors"
-import { createResourcePackPaths } from "./paths"
+} from './contracts'
+import { classifyResourcePath } from './classification'
+import { extractResourcePack } from './extractors'
+import { createResourcePackPaths } from './paths'
 import {
   createPendingResourcePackSnapshot,
   loadFreshResourcePackSnapshot,
   writeErroredResourcePackMetadata,
   writePreparingResourcePackMetadata,
   writeResourcePackFiles,
-} from "./storage"
+} from './storage'
 
 const inFlightBuilds = new Map<string, Promise<void>>()
 
 export class ResourcePackSourceNotFoundError extends Error {
   constructor(public readonly sourcePath: string) {
     super(`Resource source not found: ${sourcePath}`)
-    this.name = "ResourcePackSourceNotFoundError"
+    this.name = 'ResourcePackSourceNotFoundError'
   }
 }
 
@@ -48,7 +48,8 @@ export async function ensureResourcePack(input: {
   const buildInput: ResourcePackBuildInput = {
     directory: input.directory,
     sourcePath: input.sourcePath,
-    sourceRelpath: path.relative(input.directory, input.sourcePath) || path.basename(input.sourcePath),
+    sourceRelpath:
+      path.relative(input.directory, input.sourcePath) || path.basename(input.sourcePath),
     sourceStat,
     packPaths: createResourcePackPaths(input.directory, input.sourcePath),
     classification: classifyResourcePath(input.sourcePath, Number(sourceStat.size)),
@@ -59,7 +60,8 @@ export async function ensureResourcePack(input: {
     current &&
     current.status !== RESOURCE_PACK_STATUS_PREPARING &&
     current.status !== RESOURCE_PACK_STATUS_ERROR
-  ) return current
+  )
+    return current
 
   const build = getOrStartBuild(buildInput)
   const readySnapshot = await Promise.race([
@@ -94,13 +96,15 @@ async function buildResourcePack(input: ResourcePackBuildInput): Promise<void> {
   try {
     const extraction = await extractResourcePack(input.sourcePath, input.classification)
     const resourceAlias = path.basename(path.dirname(input.packPaths.rootPath))
-    const chunkUnits = extraction.chunkUnits ?? extraction.chunkMarkdowns?.map((chunk, index) => ({
-      unitKind: RESOURCE_PACK_UNIT_KIND_GENERIC,
-      unitTitle: `Chunk ${index + 1}`,
-      unitIndex: index + 1,
-      text: chunk,
-      splitReason: RESOURCE_PACK_SPLIT_REASON_FALLBACK_STRUCTURE,
-    }))
+    const chunkUnits =
+      extraction.chunkUnits ??
+      extraction.chunkMarkdowns?.map((chunk, index) => ({
+        unitKind: RESOURCE_PACK_UNIT_KIND_GENERIC,
+        unitTitle: `Chunk ${index + 1}`,
+        unitIndex: index + 1,
+        text: chunk,
+        splitReason: RESOURCE_PACK_SPLIT_REASON_FALLBACK_STRUCTURE,
+      }))
     const chunkFiles = await buildResourceChunkFiles({
       resourceAlias,
       sourceRelpath: input.sourceRelpath,

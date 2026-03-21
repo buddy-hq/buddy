@@ -1,13 +1,17 @@
-import { authorizationHeader, createServerFetchTransport, resolveServerApiBaseUrl } from "../lib/server-client"
+import {
+  authorizationHeader,
+  createServerFetchTransport,
+  resolveServerApiBaseUrl,
+} from '../lib/server-client'
 
 export type AdvancedMathRuntimeState =
-  | "not_installed"
-  | "downloading"
-  | "installing"
-  | "ready"
-  | "repairing"
-  | "removing"
-  | "error"
+  | 'not_installed'
+  | 'downloading'
+  | 'installing'
+  | 'ready'
+  | 'repairing'
+  | 'removing'
+  | 'error'
 
 export type AdvancedMathRuntimeStatus = {
   enabled: boolean
@@ -28,14 +32,17 @@ type RuntimeErrorBody = {
 }
 
 function errorMessage(value: unknown) {
-  if (typeof value === "string" && value.length > 0) return value
-  if (value && typeof value === "object" && "error" in value) {
+  if (typeof value === 'string' && value.length > 0) return value
+  if (value && typeof value === 'object' && 'error' in value) {
     return errorMessage((value as RuntimeErrorBody).error)
   }
   return undefined
 }
 
-async function requestRuntimeStatus(pathname: string, init?: RequestInit): Promise<AdvancedMathRuntimeStatus> {
+async function requestRuntimeStatus(
+  pathname: string,
+  init?: RequestInit,
+): Promise<AdvancedMathRuntimeStatus> {
   const baseUrl = resolveServerApiBaseUrl()
   const transport = createServerFetchTransport(baseUrl)
   const auth = authorizationHeader()
@@ -56,17 +63,17 @@ async function requestRuntimeStatus(pathname: string, init?: RequestInit): Promi
 }
 
 export function loadAdvancedMathRuntimeStatus() {
-  return requestRuntimeStatus("/local-runtimes/advanced-math")
+  return requestRuntimeStatus('/local-runtimes/advanced-math')
 }
 
 export function installAdvancedMathRuntime() {
-  return requestRuntimeStatus("/local-runtimes/advanced-math/install", {
-    method: "POST",
+  return requestRuntimeStatus('/local-runtimes/advanced-math/install', {
+    method: 'POST',
   })
 }
 
 export function removeAdvancedMathRuntime() {
-  return requestRuntimeStatus("/local-runtimes/advanced-math/install", {
-    method: "DELETE",
+  return requestRuntimeStatus('/local-runtimes/advanced-math/install', {
+    method: 'DELETE',
   })
 }

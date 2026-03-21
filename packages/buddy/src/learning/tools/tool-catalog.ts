@@ -1,12 +1,12 @@
-import { freeformFigureTools } from "@buddy/backend/learning/capabilities/figures/freeform/tools/tools"
-import { figureTools } from "@buddy/backend/learning/capabilities/figures/geometry/tools/tools"
-import { teachingTools } from "@buddy/backend/learning/capabilities/lesson-workspace/tools/tools"
-import { mathTools } from "@buddy/backend/learning/capabilities/math/tools/tools"
-import { pedagogyTools } from "@buddy/backend/learning/capabilities/pedagogy/tools/tools"
-import { goalTools } from "@buddy/backend/learning/curriculum/goals/tools/tools"
-import { curriculumTools } from "@buddy/backend/learning/curriculum/planning/tools/tools"
-import { learnerTools } from "@buddy/backend/learning/learner-model/tools/tools"
-import type { BuddyTool } from "./create-buddy-tool"
+import { freeformFigureTools } from '@buddy/backend/learning/capabilities/figures/freeform/tools/tools'
+import { figureTools } from '@buddy/backend/learning/capabilities/figures/geometry/tools/tools'
+import { teachingTools } from '@buddy/backend/learning/capabilities/lesson-workspace/tools/tools'
+import { mathTools } from '@buddy/backend/learning/capabilities/math/tools/tools'
+import { pedagogyTools } from '@buddy/backend/learning/capabilities/pedagogy/tools/tools'
+import { goalTools } from '@buddy/backend/learning/curriculum/goals/tools/tools'
+import { curriculumTools } from '@buddy/backend/learning/curriculum/planning/tools/tools'
+import { learnerTools } from '@buddy/backend/learning/learner-model/tools/tools'
+import type { BuddyTool } from './create-buddy-tool'
 
 const learningToolGroups = {
   pedagogy: pedagogyTools,
@@ -21,7 +21,7 @@ const learningToolGroups = {
 
 type LearningToolGroup = keyof typeof learningToolGroups
 type LearningTool = (typeof learningToolGroups)[keyof typeof learningToolGroups][number]
-export type LearningToolId = LearningTool["id"]
+export type LearningToolId = LearningTool['id']
 
 function findDuplicateLearningToolIds(tools: readonly BuddyTool[]): string[] {
   const ids = tools.map((tool) => tool.id)
@@ -44,7 +44,7 @@ export function assertUniqueLearningToolIds(tools: readonly BuddyTool[]): void {
   }
 
   throw new Error(
-    `Duplicate learning tool IDs detected: ${duplicateToolIds.join(", ")}. Each learning tool must have a unique ID.`,
+    `Duplicate learning tool IDs detected: ${duplicateToolIds.join(', ')}. Each learning tool must have a unique ID.`,
   )
 }
 

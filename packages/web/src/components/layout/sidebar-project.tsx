@@ -1,5 +1,5 @@
-import { ProjectIcon } from "./sidebar-items"
-import { HelpIcon, PlusIcon, SettingsIcon } from "./sidebar-icons"
+import { ProjectIcon } from './sidebar-items'
+import { HelpIcon, PlusIcon, SettingsIcon } from './sidebar-icons'
 
 type SidebarProjectProps = {
   openProjects: string[]

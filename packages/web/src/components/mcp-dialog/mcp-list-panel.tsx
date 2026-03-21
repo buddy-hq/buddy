@@ -1,6 +1,6 @@
-import { Badge, Button, Input, Separator, Switch } from "@buddy/ui"
-import type { McpStatusMap } from "@/state/chat-types"
-import { formatMcpError, getMcpStatusLabel, type McpConfig } from "./mcp-config-schema"
+import { Badge, Button, Input, Separator, Switch } from '@buddy/ui'
+import type { McpStatusMap } from '@/state/chat-types'
+import { formatMcpError, getMcpStatusLabel, type McpConfig } from './mcp-config-schema'
 
 type McpListPanelProps = {
   allNames: string[]
@@ -26,7 +26,7 @@ export function McpListPanel(props: McpListPanelProps) {
           <p className="text-sm font-medium text-foreground">MCP definitions</p>
           <p className="text-xs text-muted-foreground">
             {props.allNames.length > 0
-              ? "Manage saved MCPs here. Use search below to filter the list."
+              ? 'Manage saved MCPs here. Use search below to filter the list.'
               : "Add an MCP to save it to this notebook's buddy.jsonc."}
           </p>
         </div>
@@ -49,15 +49,19 @@ export function McpListPanel(props: McpListPanelProps) {
           props.entries.map((name, index) => {
             const status = props.statusByName[name]
             const config = props.configByName[name]
-            const enabled = status?.status === "connected"
-            const label = status ? getMcpStatusLabel(status.status) : config?.enabled === false ? "Disabled" : "Configured"
+            const enabled = status?.status === 'connected'
+            const label = status
+              ? getMcpStatusLabel(status.status)
+              : config?.enabled === false
+                ? 'Disabled'
+                : 'Configured'
             const isPending = props.pendingName === name
             const pendingLabel =
-              status?.status === "connected"
-                ? "Disconnecting..."
-                : status?.status === "needs_auth"
-                  ? "Signing in..."
-                  : "Connecting..."
+              status?.status === 'connected'
+                ? 'Disconnecting...'
+                : status?.status === 'needs_auth'
+                  ? 'Signing in...'
+                  : 'Connecting...'
 
             return (
               <div key={name}>
@@ -73,24 +77,33 @@ export function McpListPanel(props: McpListPanelProps) {
                           {config.type}
                         </Badge>
                       ) : null}
-                      {isPending ? <span className="text-xs text-muted-foreground">{pendingLabel}</span> : null}
+                      {isPending ? (
+                        <span className="text-xs text-muted-foreground">{pendingLabel}</span>
+                      ) : null}
                     </div>
                     {status?.error ? (
-                      <p className="mt-1 truncate text-xs text-muted-foreground">{formatMcpError(status.error)}</p>
+                      <p className="mt-1 truncate text-xs text-muted-foreground">
+                        {formatMcpError(status.error)}
+                      </p>
                     ) : config ? (
                       <p className="mt-1 truncate text-xs text-muted-foreground">
-                        {config.type === "remote" ? config.url : config.command.join(" ")}
+                        {config.type === 'remote' ? config.url : config.command.join(' ')}
                       </p>
                     ) : null}
                   </div>
 
                   <div className="flex shrink-0 items-center gap-2">
                     {config ? (
-                      <Button type="button" size="xs" variant="outline" onClick={() => props.onEditMcp(name)}>
+                      <Button
+                        type="button"
+                        size="xs"
+                        variant="outline"
+                        onClick={() => props.onEditMcp(name)}
+                      >
                         Edit details
                       </Button>
                     ) : null}
-                    {status?.status === "needs_auth" ? (
+                    {status?.status === 'needs_auth' ? (
                       <Button
                         type="button"
                         size="xs"
@@ -106,7 +119,7 @@ export function McpListPanel(props: McpListPanelProps) {
                     <Switch
                       checked={enabled}
                       disabled={isPending}
-                      aria-label={`${enabled ? "Disable" : "Enable"} ${name}`}
+                      aria-label={`${enabled ? 'Disable' : 'Enable'} ${name}`}
                       onCheckedChange={() => {
                         void props.onToggleMcp(name)
                       }}
@@ -121,10 +134,10 @@ export function McpListPanel(props: McpListPanelProps) {
           <div className="flex flex-col items-start gap-3 px-4 py-8 text-sm text-muted-foreground">
             <p>
               {props.loading
-                ? "Loading MCPs..."
+                ? 'Loading MCPs...'
                 : props.showSearch
-                  ? "No MCPs match your current filter."
-                  : "No MCPs configured yet."}
+                  ? 'No MCPs match your current filter.'
+                  : 'No MCPs configured yet.'}
             </p>
             {!props.loading && !props.showSearch ? (
               <Button type="button" size="sm" variant="outline" onClick={props.onAddMcp}>

@@ -1,17 +1,17 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test"
-import { act } from "react"
-import { createRoot, type Root } from "react-dom/client"
-import { PromptComposer } from "../src/components/prompt/prompt-composer"
-import { getCursorPosition } from "../src/components/prompt/editor-dom"
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import { act } from 'react'
+import { createRoot, type Root } from 'react-dom/client'
+import { PromptComposer } from '../src/components/prompt/prompt-composer'
+import { getCursorPosition } from '../src/components/prompt/editor-dom'
 import {
   getPromptDraft,
   getPromptScopeKey,
   PROMPT_STORE_STORAGE_KEY,
   usePromptStore,
-} from "../src/state/prompt-store"
+} from '../src/state/prompt-store'
 
-const DIRECTORY = "/repo"
-const SESSION_ID = "session-1"
+const DIRECTORY = '/repo'
+const SESSION_ID = 'session-1'
 const PROMPT_KEY = getPromptScopeKey(DIRECTORY, SESSION_ID)
 
 async function flushEffects() {
@@ -39,14 +39,14 @@ function setSelection(node: Node, offset: number) {
   selection?.addRange(range)
 }
 
-describe("PromptComposer", () => {
+describe('PromptComposer', () => {
   let container: HTMLDivElement
   let root: Root
 
   beforeEach(() => {
     ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
     resetPromptStore()
-    container = document.createElement("div")
+    container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
   })
@@ -67,14 +67,14 @@ describe("PromptComposer", () => {
           directory={DIRECTORY}
           sessionID={SESSION_ID}
           isBusy={false}
-          personaOptions={[{ name: "buddy" }]}
+          personaOptions={[{ name: 'buddy' }]}
           mentionableAgents={[]}
-          slashCommands={[{ name: "plan", description: "Run the plan command" }]}
-          modelOptions={[{ key: "auto", label: "Auto" }]}
+          slashCommands={[{ name: 'plan', description: 'Run the plan command' }]}
+          modelOptions={[{ key: 'auto', label: 'Auto' }]}
           selectedPersona="buddy"
           selectedIntent="auto"
           selectedModel="auto"
-          thinkingOptions={[{ key: "default", label: "Default" }]}
+          thinkingOptions={[{ key: 'default', label: 'Default' }]}
           selectedThinking="default"
           onPersonaChange={() => undefined}
           onIntentChange={() => undefined}
@@ -92,64 +92,64 @@ describe("PromptComposer", () => {
   function getEditor() {
     const editor = container.querySelector("[role='textbox']")
     if (!(editor instanceof HTMLDivElement)) {
-      throw new Error("Prompt editor not found")
+      throw new Error('Prompt editor not found')
     }
     return editor
   }
 
-  test("keeps the caret after typing a slash", async () => {
+  test('keeps the caret after typing a slash', async () => {
     await renderComposer()
     const editor = getEditor()
 
     await act(async () => {
       editor.focus()
-      editor.textContent = "/"
+      editor.textContent = '/'
       const node = editor.firstChild
-      if (!node) throw new Error("Missing text node after typing")
+      if (!node) throw new Error('Missing text node after typing')
       setSelection(node, 1)
-      editor.dispatchEvent(new Event("input", { bubbles: true }))
+      editor.dispatchEvent(new Event('input', { bubbles: true }))
       await flushEffects()
     })
 
     expect(getCursorPosition(editor)).toBe(1)
-    expect(getPromptDraft(usePromptStore.getState(), PROMPT_KEY).value).toBe("/")
+    expect(getPromptDraft(usePromptStore.getState(), PROMPT_KEY).value).toBe('/')
   })
 
-  test("keeps the caret after selecting a slash command", async () => {
+  test('keeps the caret after selecting a slash command', async () => {
     await renderComposer()
     const editor = getEditor()
 
     await act(async () => {
       editor.focus()
-      editor.textContent = "/"
+      editor.textContent = '/'
       const node = editor.firstChild
-      if (!node) throw new Error("Missing text node after typing")
+      if (!node) throw new Error('Missing text node after typing')
       setSelection(node, 1)
-      editor.dispatchEvent(new Event("input", { bubbles: true }))
+      editor.dispatchEvent(new Event('input', { bubbles: true }))
       await flushEffects()
     })
 
-    const slashButton = Array.from(container.querySelectorAll("button")).find((button) =>
-      button.textContent?.includes("/plan"),
+    const slashButton = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('/plan'),
     )
     if (!(slashButton instanceof HTMLButtonElement)) {
-      throw new Error("Slash command button not found")
+      throw new Error('Slash command button not found')
     }
 
     await act(async () => {
-      slashButton.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }))
+      slashButton.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
       await flushEffects()
     })
 
-    expect(getCursorPosition(editor)).toBe("/plan ".length)
-    expect(getPromptDraft(usePromptStore.getState(), PROMPT_KEY).value).toBe("/plan ")
+    expect(getCursorPosition(editor)).toBe('/plan '.length)
+    expect(getPromptDraft(usePromptStore.getState(), PROMPT_KEY).value).toBe('/plan ')
   })
 
-  test("restores history drafts without losing the caret position", async () => {
+  test('restores history drafts without losing the caret position', async () => {
     usePromptStore.getState().pushHistoryEntry(DIRECTORY, {
-      value: "saved draft",
+      value: 'saved draft',
       attachments: [],
-      parts: [{ type: "text", text: "saved draft" }],
+      parts: [{ type: 'text', text: 'saved draft' }],
     })
 
     await renderComposer()
@@ -157,19 +157,19 @@ describe("PromptComposer", () => {
 
     await act(async () => {
       editor.focus()
-      editor.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }))
+      editor.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }))
       await flushEffects()
     })
 
-    expect(getPromptDraft(usePromptStore.getState(), PROMPT_KEY).value).toBe("saved draft")
+    expect(getPromptDraft(usePromptStore.getState(), PROMPT_KEY).value).toBe('saved draft')
     expect(getCursorPosition(editor)).toBe(0)
 
     await act(async () => {
-      editor.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }))
+      editor.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }))
       await flushEffects()
     })
 
-    expect(getPromptDraft(usePromptStore.getState(), PROMPT_KEY).value).toBe("")
+    expect(getPromptDraft(usePromptStore.getState(), PROMPT_KEY).value).toBe('')
     expect(getCursorPosition(editor)).toBe(0)
   })
 })

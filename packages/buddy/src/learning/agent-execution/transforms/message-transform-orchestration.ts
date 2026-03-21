@@ -1,10 +1,10 @@
-import { readProjectConfig } from "@buddy/backend/config/runtime"
-import { assertSessionExistsInDirectory } from "../../../session"
-import { syncBuddyRuntimeSessionPermissions } from "../permissions/runtime-session-permissions"
-import { readTeachingSessionState, writeTeachingSessionState } from "../state/session-state"
-import { restoreTeachingSessionState, writeLastLlmOutbound } from "../state/transform-state"
-import type { SessionTransformContext } from "./types"
-import { runMessagePromptPipeline } from "../../prompt/message-prompt-pipeline"
+import { readProjectConfig } from '@buddy/backend/config/runtime'
+import { assertSessionExistsInDirectory } from '../../../session'
+import { syncBuddyRuntimeSessionPermissions } from '../permissions/runtime-session-permissions'
+import { readTeachingSessionState, writeTeachingSessionState } from '../state/session-state'
+import { restoreTeachingSessionState, writeLastLlmOutbound } from '../state/transform-state'
+import type { SessionTransformContext } from './types'
+import { runMessagePromptPipeline } from '../../prompt/message-prompt-pipeline'
 
 export type SessionMessageTransformOrchestrationResult = {
   transformed: Record<string, unknown>
@@ -54,7 +54,7 @@ export async function orchestrateSessionMessageTransform(input: {
   writeLastLlmOutbound({
     directory: input.context.directory,
     sessionID: input.context.sessionID,
-    kind: "message",
+    kind: 'message',
     payload: pipelineResult.transformed,
   })
 

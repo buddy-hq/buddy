@@ -11,12 +11,12 @@ export type MentionableFile = {
 
 export type MentionOption =
   | {
-      type: "agent"
+      type: 'agent'
       name: string
       description?: string
     }
   | {
-      type: "file"
+      type: 'file'
       path: string
       description?: string
       recent?: boolean
@@ -32,7 +32,7 @@ export function getMentionMatch(value: string, cursorOffset: number): MentionMat
   if (cursorOffset <= 0 || cursorOffset > value.length) return undefined
 
   const prefix = value.slice(0, cursorOffset)
-  const trigger = prefix.lastIndexOf("@")
+  const trigger = prefix.lastIndexOf('@')
   if (trigger === -1) return undefined
 
   const beforeTrigger = trigger === 0 ? undefined : prefix[trigger - 1]
@@ -103,14 +103,14 @@ export function filterMentionOptions(
 ): MentionOption[] {
   const agentOptions = filterMentionableAgents(agents, query).map(
     (agent): MentionOption => ({
-      type: "agent",
+      type: 'agent',
       name: agent.name,
       description: agent.description,
     }),
   )
   const fileOptions = filterMentionableFiles(files, query).map(
     (file): MentionOption => ({
-      type: "file",
+      type: 'file',
       path: file.path,
       description: file.description,
       recent: file.recent,

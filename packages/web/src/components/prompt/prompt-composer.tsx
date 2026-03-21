@@ -1,38 +1,51 @@
-import { ArrowUpIcon, Dialog, DialogContent, PlusIcon, SquareIcon } from "@buddy/ui"
-import { useEffect, useMemo, useRef, useState } from "react"
-import { shouldSubmitComposer } from "../../lib/chat-input"
-import { createTextFragment, getCursorPosition, setCursorPosition, setRangeEdge } from "./editor-dom"
-import { canNavigateHistoryAtCursor, navigatePromptHistory, type PromptHistoryEntry } from "./prompt-history"
-import { type MentionOption, type MentionableAgent, type MentionableFile } from "./mention-autocomplete"
+import { ArrowUpIcon, Dialog, DialogContent, PlusIcon, SquareIcon } from '@buddy/ui'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { shouldSubmitComposer } from '../../lib/chat-input'
+import {
+  createTextFragment,
+  getCursorPosition,
+  setCursorPosition,
+  setRangeEdge,
+} from './editor-dom'
+import {
+  canNavigateHistoryAtCursor,
+  navigatePromptHistory,
+  type PromptHistoryEntry,
+} from './prompt-history'
+import {
+  type MentionOption,
+  type MentionableAgent,
+  type MentionableFile,
+} from './mention-autocomplete'
 import {
   clonePromptParts,
   collectPromptParts,
   createPromptPartsFromValue,
   renderPromptParts,
   serializePromptParts,
-} from "./prompt-parts"
-import { type SlashCommandOption, type SlashCommandSource } from "./slash-autocomplete"
-import { PromptAutocompleteMenu } from "./components/prompt-autocomplete-menu"
-import { PromptComposerToolbar } from "./components/prompt-composer-toolbar"
+} from './prompt-parts'
+import { type SlashCommandOption, type SlashCommandSource } from './slash-autocomplete'
+import { PromptAutocompleteMenu } from './components/prompt-autocomplete-menu'
+import { PromptComposerToolbar } from './components/prompt-composer-toolbar'
 import {
   PROMPT_PART_TYPE_AGENT,
   PROMPT_PART_TYPE_TEXT,
   type PromptComposerPart,
   RESOURCE_REFERENCE_PART_TYPE,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
-} from "./prompt-types"
-import { ACCEPTED_FILE_TYPES, cloneAttachments } from "./attachment-utils"
-import { ImageAttachments } from "./image-attachments"
-import { usePromptComposerAttachments } from "./use-prompt-composer-attachments"
-import { usePromptComposerViewState } from "./use-prompt-composer-view-state"
-import { usePromptEditorSync } from "./use-prompt-editor-sync"
+} from './prompt-types'
+import { ACCEPTED_FILE_TYPES, cloneAttachments } from './attachment-utils'
+import { ImageAttachments } from './image-attachments'
+import { usePromptComposerAttachments } from './use-prompt-composer-attachments'
+import { usePromptComposerViewState } from './use-prompt-composer-view-state'
+import { usePromptEditorSync } from './use-prompt-editor-sync'
 import {
   getPromptDraft,
   getPromptHistoryEntries,
   getPromptHistoryNavigation,
   getPromptScopeKey,
   usePromptStore,
-} from "../../state/prompt-store"
+} from '../../state/prompt-store'
 
 type PromptComposerProps = {
   directory: string
@@ -55,7 +68,7 @@ type PromptComposerProps = {
     disabled?: boolean
   }>
   selectedPersona: string
-  selectedIntent: "auto" | "learn" | "practice" | "assess"
+  selectedIntent: 'auto' | 'learn' | 'practice' | 'assess'
   selectedModel: string
   pendingSteerLabel?: string
   thinkingOptions: Array<{
@@ -64,7 +77,7 @@ type PromptComposerProps = {
   }>
   selectedThinking: string
   onPersonaChange: (persona: string) => void
-  onIntentChange: (intent: "auto" | "learn" | "practice" | "assess") => void
+  onIntentChange: (intent: 'auto' | 'learn' | 'practice' | 'assess') => void
   onClearPendingSteer?: () => void
   onModelChange: (model: string) => void
   onThinkingChange: (thinking: string) => void
@@ -105,7 +118,9 @@ export function PromptComposer(props: PromptComposerProps) {
   const clearHistoryNavigation = usePromptStore((state) => state.resetHistoryNavigation)
   const hasSubmittableParts = useMemo(() => hasSubmittablePromptParts(draft.parts), [draft.parts])
   const canSubmit = useMemo(
-    () => !props.isBusy && (draft.value.trim().length > 0 || draft.attachments.length > 0 || hasSubmittableParts),
+    () =>
+      !props.isBusy &&
+      (draft.value.trim().length > 0 || draft.attachments.length > 0 || hasSubmittableParts),
     [draft.attachments.length, draft.value, hasSubmittableParts, props.isBusy],
   )
   const [cursorOffset, setCursorOffset] = useState(() => draft.cursor)
@@ -147,7 +162,7 @@ export function PromptComposer(props: PromptComposerProps) {
     setCursorOffset,
   })
 
-  function replaceDraftFromComposer(draftState: Omit<typeof draft, "updatedAt">) {
+  function replaceDraftFromComposer(draftState: Omit<typeof draft, 'updatedAt'>) {
     mirrorInputRef.current = true
     replaceDraft(promptKey, draftState)
   }
@@ -173,20 +188,21 @@ export function PromptComposer(props: PromptComposerProps) {
     const editor = editorRef.current
     if (!editor) return
     editor.focus()
-    const nextCursor = draft.parts.length > 0 ? serializePromptParts(draft.parts).length : draft.value.length
+    const nextCursor =
+      draft.parts.length > 0 ? serializePromptParts(draft.parts).length : draft.value.length
     setCursorPosition(editor, nextCursor)
     setCursorOffset(nextCursor)
     setDraftCursor(promptKey, nextCursor)
   }
 
-  function applyDraftSnapshot(next: PromptHistoryEntry, cursor: "start" | "end") {
+  function applyDraftSnapshot(next: PromptHistoryEntry, cursor: 'start' | 'end') {
     historyApplyingRef.current = true
     const nextParts =
       next.parts.length > 0
         ? clonePromptParts(next.parts)
         : createPromptPartsFromValue(next.value, viewState.knownAgents)
     const nextValue = next.parts.length > 0 ? serializePromptParts(nextParts) : next.value
-    const nextCursor = cursor === "start" ? 0 : nextValue.length
+    const nextCursor = cursor === 'start' ? 0 : nextValue.length
     renderEditorAtCursor(nextParts, nextCursor, true)
     replaceDraftFromComposer({
       value: nextValue,
@@ -231,7 +247,7 @@ export function PromptComposer(props: PromptComposerProps) {
     if (shouldReset) {
       resetHistoryNavigation()
       replaceDraftFromComposer({
-        value: "",
+        value: '',
         parts: [],
         attachments: draft.attachments,
         cursor: 0,
@@ -294,10 +310,10 @@ export function PromptComposer(props: PromptComposerProps) {
     const range = selection.getRangeAt(0)
     if (!editor.contains(range.startContainer)) return
 
-    const pill = document.createElement("span")
+    const pill = document.createElement('span')
     pill.className =
-      "mx-0.5 inline-flex max-w-full items-center rounded-md border border-border/70 bg-muted px-1.5 py-0.5 text-xs font-medium text-foreground"
-    if (option.type === "agent") {
+      'mx-0.5 inline-flex max-w-full items-center rounded-md border border-border/70 bg-muted px-1.5 py-0.5 text-xs font-medium text-foreground'
+    if (option.type === 'agent') {
       pill.textContent = `@${option.name}`
       pill.dataset.type = PROMPT_PART_TYPE_AGENT
       pill.dataset.name = option.name
@@ -307,13 +323,13 @@ export function PromptComposer(props: PromptComposerProps) {
       pill.dataset.path = option.path
       viewState.appendRecentMentionFile({ path: option.path, recent: true })
     }
-    pill.setAttribute("contenteditable", "false")
+    pill.setAttribute('contenteditable', 'false')
 
-    setRangeEdge(editor, range, "start", viewState.mentionMatch.start)
-    setRangeEdge(editor, range, "end", viewState.mentionMatch.end)
+    setRangeEdge(editor, range, 'start', viewState.mentionMatch.start)
+    setRangeEdge(editor, range, 'end', viewState.mentionMatch.end)
     range.deleteContents()
 
-    const gap = document.createTextNode(" ")
+    const gap = document.createTextNode(' ')
     range.insertNode(gap)
     range.insertNode(pill)
     range.setStartAfter(gap)
@@ -333,28 +349,31 @@ export function PromptComposer(props: PromptComposerProps) {
 
   function runBuiltinSlashCommand(name: string) {
     switch (name) {
-      case "new":
+      case 'new':
         clearComposer()
         props.onNewSession()
         return true
-      case "persona": {
+      case 'persona': {
         if (viewState.personaOptions.length <= 1) return false
-        const currentIndex = viewState.personaOptions.findIndex((option) => option.name === props.selectedPersona)
-        const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % viewState.personaOptions.length : 0
+        const currentIndex = viewState.personaOptions.findIndex(
+          (option) => option.name === props.selectedPersona,
+        )
+        const nextIndex =
+          currentIndex >= 0 ? (currentIndex + 1) % viewState.personaOptions.length : 0
         const nextPersona = viewState.personaOptions[nextIndex]
         if (!nextPersona) return false
         clearComposer()
         props.onPersonaChange(nextPersona.name)
         return true
       }
-      case "model":
+      case 'model':
         clearComposer()
         setModelMenuOpen(true)
         window.requestAnimationFrame(() => {
           modelTriggerRef.current?.focus()
         })
         return true
-      case "mcp":
+      case 'mcp':
         clearComposer()
         props.onOpenMcpDialog?.()
         return true
@@ -364,7 +383,7 @@ export function PromptComposer(props: PromptComposerProps) {
   }
 
   function applySlash(command: SlashCommandOption) {
-    if (command.type === "builtin") {
+    if (command.type === 'builtin') {
       runBuiltinSlashCommand(command.name)
       return
     }
@@ -397,7 +416,7 @@ export function PromptComposer(props: PromptComposerProps) {
   }
 
   return (
-    <div className={props.className ?? "mx-4 mb-4"}>
+    <div className={props.className ?? 'mx-4 mb-4'}>
       <form
         className="group/prompt-input relative z-10 rounded-[12px] border bg-card shadow-sm"
         onSubmit={(event) => {
@@ -491,23 +510,26 @@ export function PromptComposer(props: PromptComposerProps) {
               setDraftCursor(promptKey, currentCursor)
 
               if (viewState.slashVisible) {
-                if (event.key === "ArrowDown") {
+                if (event.key === 'ArrowDown') {
                   event.preventDefault()
-                  viewState.setSlashIndex((current) => (current + 1) % viewState.slashOptions.length)
+                  viewState.setSlashIndex(
+                    (current) => (current + 1) % viewState.slashOptions.length,
+                  )
                   return
                 }
 
-                if (event.key === "ArrowUp") {
+                if (event.key === 'ArrowUp') {
                   event.preventDefault()
                   viewState.setSlashIndex(
-                    (current) => (current - 1 + viewState.slashOptions.length) % viewState.slashOptions.length,
+                    (current) =>
+                      (current - 1 + viewState.slashOptions.length) % viewState.slashOptions.length,
                   )
                   return
                 }
 
                 if (
-                  event.key === "Tab" ||
-                  (event.key === "Enter" &&
+                  event.key === 'Tab' ||
+                  (event.key === 'Enter' &&
                     !event.nativeEvent.isComposing &&
                     !event.shiftKey &&
                     !event.ctrlKey &&
@@ -520,7 +542,7 @@ export function PromptComposer(props: PromptComposerProps) {
                   return
                 }
 
-                if (event.key === "Escape") {
+                if (event.key === 'Escape') {
                   event.preventDefault()
                   viewState.setDismissedSlashKey(viewState.slashKey)
                   return
@@ -528,23 +550,27 @@ export function PromptComposer(props: PromptComposerProps) {
               }
 
               if (viewState.mentionVisible) {
-                if (event.key === "ArrowDown") {
+                if (event.key === 'ArrowDown') {
                   event.preventDefault()
-                  viewState.setMentionIndex((current) => (current + 1) % viewState.mentionOptions.length)
+                  viewState.setMentionIndex(
+                    (current) => (current + 1) % viewState.mentionOptions.length,
+                  )
                   return
                 }
 
-                if (event.key === "ArrowUp") {
+                if (event.key === 'ArrowUp') {
                   event.preventDefault()
                   viewState.setMentionIndex(
-                    (current) => (current - 1 + viewState.mentionOptions.length) % viewState.mentionOptions.length,
+                    (current) =>
+                      (current - 1 + viewState.mentionOptions.length) %
+                      viewState.mentionOptions.length,
                   )
                   return
                 }
 
                 if (
-                  event.key === "Tab" ||
-                  (event.key === "Enter" &&
+                  event.key === 'Tab' ||
+                  (event.key === 'Enter' &&
                     !event.nativeEvent.isComposing &&
                     !event.shiftKey &&
                     !event.ctrlKey &&
@@ -557,7 +583,7 @@ export function PromptComposer(props: PromptComposerProps) {
                   return
                 }
 
-                if (event.key === "Escape") {
+                if (event.key === 'Escape') {
                   event.preventDefault()
                   viewState.setDismissedMentionKey(viewState.mentionKey)
                   return
@@ -565,16 +591,16 @@ export function PromptComposer(props: PromptComposerProps) {
               }
 
               if (
-                (event.key === "ArrowUp" || event.key === "ArrowDown") &&
+                (event.key === 'ArrowUp' || event.key === 'ArrowDown') &&
                 canNavigateHistoryAtCursor(
-                  event.key === "ArrowUp" ? "up" : "down",
+                  event.key === 'ArrowUp' ? 'up' : 'down',
                   draft.value,
                   currentCursor,
                   historyIndex !== -1,
                 )
               ) {
                 const result = navigatePromptHistory({
-                  direction: event.key === "ArrowUp" ? "up" : "down",
+                  direction: event.key === 'ArrowUp' ? 'up' : 'down',
                   entries: historyEntries,
                   historyIndex,
                   current: {
@@ -614,7 +640,7 @@ export function PromptComposer(props: PromptComposerProps) {
               if (!clipboardData) return
 
               const items = Array.from(clipboardData.items)
-              const fileItems = items.filter((item) => item.kind === "file")
+              const fileItems = items.filter((item) => item.kind === 'file')
               const imageItems = fileItems.filter((item) => ACCEPTED_FILE_TYPES.includes(item.type))
 
               if (imageItems.length > 0) {
@@ -626,7 +652,7 @@ export function PromptComposer(props: PromptComposerProps) {
                 return
               }
 
-              const text = clipboardData.getData("text/plain")
+              const text = clipboardData.getData('text/plain')
               if (!text) return
               event.preventDefault()
               insertTextAtSelection(text)
@@ -637,13 +663,13 @@ export function PromptComposer(props: PromptComposerProps) {
             ref={fileInputRef}
             type="file"
             multiple
-            accept={ACCEPTED_FILE_TYPES.join(",")}
+            accept={ACCEPTED_FILE_TYPES.join(',')}
             className="hidden"
             onChange={(event) => {
               const files = event.target.files
               if (!files || files.length === 0) return
               void attachmentState.addAttachments(files)
-              event.currentTarget.value = ""
+              event.currentTarget.value = ''
             }}
           />
 
@@ -664,10 +690,14 @@ export function PromptComposer(props: PromptComposerProps) {
               type="submit"
               className="inline-flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               disabled={!props.isBusy && !canSubmit}
-              aria-label={props.isBusy ? "Stop" : "Send"}
-              title={props.isBusy ? "Stop" : "Send"}
+              aria-label={props.isBusy ? 'Stop' : 'Send'}
+              title={props.isBusy ? 'Stop' : 'Send'}
             >
-              {props.isBusy ? <SquareIcon className="size-3.5" /> : <ArrowUpIcon className="size-4" />}
+              {props.isBusy ? (
+                <SquareIcon className="size-3.5" />
+              ) : (
+                <ArrowUpIcon className="size-4" />
+              )}
             </button>
           </div>
         </div>
@@ -698,7 +728,10 @@ export function PromptComposer(props: PromptComposerProps) {
         onThinkingChange={props.onThinkingChange}
       />
 
-      <Dialog open={!!attachmentState.previewAttachment} onOpenChange={(open) => !open && attachmentState.closePreviewAttachment()}>
+      <Dialog
+        open={!!attachmentState.previewAttachment}
+        onOpenChange={(open) => !open && attachmentState.closePreviewAttachment()}
+      >
         <DialogContent className="max-w-3xl max-h-[80vh] p-0 overflow-hidden">
           {attachmentState.previewAttachment && (
             <img

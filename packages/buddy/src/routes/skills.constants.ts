@@ -1,4 +1,4 @@
-import type { SkillServiceErrorCode } from "../learning/skills"
+import type { SkillServiceErrorCode } from '../learning/skills'
 
 export const HTTP_STATUS = {
   OK: 200,
@@ -10,24 +10,24 @@ export const HTTP_STATUS = {
 } as const
 
 export const SKILL_ROUTE_ERRORS = {
-  fallback: "Skill request failed",
-  invalidSkillPayload: "Invalid skill payload",
-  invalidSkillState: "Invalid skill state",
-  invalidSkillsSettingsPayload: "Invalid skills settings payload",
+  fallback: 'Skill request failed',
+  invalidSkillPayload: 'Invalid skill payload',
+  invalidSkillState: 'Invalid skill state',
+  invalidSkillsSettingsPayload: 'Invalid skills settings payload',
 } as const
 
 export const SKILL_ROUTE_QUERY = {
-  refreshParam: "refresh",
-  refreshValues: new Set(["1", "true"]),
+  refreshParam: 'refresh',
+  refreshValues: new Set(['1', 'true']),
 } as const
 
 export const SKILL_ROUTE_ACTIONS = {
-  whenEnabled: "ask",
-  whenDisabled: "deny",
+  whenEnabled: 'ask',
+  whenDisabled: 'deny',
 } as const
 
 export const SKILL_ROUTE_CONFIG = {
-  externalVendorRootsEnabledKey: "skills_external_vendor_roots_enabled",
+  externalVendorRootsEnabledKey: 'skills_external_vendor_roots_enabled',
 } as const
 
 type SkillErrorStatusMap = Partial<Record<SkillServiceErrorCode, number>>

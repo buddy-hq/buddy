@@ -1,34 +1,30 @@
-import { describe, expect, test } from "bun:test"
-import path from "node:path"
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
+import { describe, expect, test } from 'bun:test'
+import path from 'node:path'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 
-const packageRoot = path.resolve(import.meta.dir, "../..")
-const srcRoot = path.join(packageRoot, "src")
-const testRoot = path.join(packageRoot, "test")
-const allowlistPath = path.join(
-  testRoot,
-  "assets",
-  "module-surface-boundaries-allowlist.json",
-)
+const packageRoot = path.resolve(import.meta.dir, '../..')
+const srcRoot = path.join(packageRoot, 'src')
+const testRoot = path.join(packageRoot, 'test')
+const allowlistPath = path.join(testRoot, 'assets', 'module-surface-boundaries-allowlist.json')
 
 const MODULE_ROOTS = [
-  "config",
-  "flag",
-  "http",
-  "learning/adapters/http",
-  "learning/agent-execution",
-  "learning/capabilities",
-  "learning/curriculum",
-  "learning/personas",
-  "learning/skills",
-  "learning/learner-model",
-  "learning/shared",
-  "openapi",
-  "opencode-runtime",
-  "project",
-  "routes",
-  "session",
-  "storage",
+  'config',
+  'flag',
+  'http',
+  'learning/adapters/http',
+  'learning/agent-execution',
+  'learning/capabilities',
+  'learning/curriculum',
+  'learning/personas',
+  'learning/skills',
+  'learning/learner-model',
+  'learning/shared',
+  'openapi',
+  'opencode-runtime',
+  'project',
+  'routes',
+  'session',
+  'storage',
 ] as const
 
 const importFromRegex = /\b(?:import|export)\b[\s\S]*?\bfrom\s*["']([^"']+)["']/g
@@ -46,7 +42,7 @@ function listTypeScriptFiles(root: string): string[] {
       files.push(...listTypeScriptFiles(fullPath))
       continue
     }
-    if (entry.endsWith(".ts") || entry.endsWith(".tsx")) {
+    if (entry.endsWith('.ts') || entry.endsWith('.tsx')) {
       files.push(fullPath)
     }
   }
@@ -60,7 +56,7 @@ function collectRelativeImports(sourceText: string): string[] {
     regex.lastIndex = 0
     for (const match of sourceText.matchAll(regex)) {
       const specifier = match[1]
-      if (specifier.startsWith(".")) {
+      if (specifier.startsWith('.')) {
         values.add(specifier)
       }
     }
@@ -76,8 +72,8 @@ function resolveImport(filePath: string, specifier: string): string | undefined 
     : [
         `${absoluteBase}.ts`,
         `${absoluteBase}.tsx`,
-        path.join(absoluteBase, "index.ts"),
-        path.join(absoluteBase, "index.tsx"),
+        path.join(absoluteBase, 'index.ts'),
+        path.join(absoluteBase, 'index.tsx'),
       ]
 
   for (const candidate of candidates) {
@@ -91,7 +87,7 @@ function resolveImport(filePath: string, specifier: string): string | undefined 
 
 function resolveModuleRoot(filePath: string): string | undefined {
   if (!filePath.startsWith(`${srcRoot}${path.sep}`)) return undefined
-  const relativePath = path.relative(srcRoot, filePath).split(path.sep).join("/")
+  const relativePath = path.relative(srcRoot, filePath).split(path.sep).join('/')
   for (const root of MODULE_ROOTS) {
     if (relativePath === root || relativePath.startsWith(`${root}/`)) {
       return root
@@ -100,16 +96,14 @@ function resolveModuleRoot(filePath: string): string | undefined {
   return undefined
 }
 
-describe("module boundaries", () => {
-  test("cross-module imports use index entrypoints only", () => {
-    const allowlist = JSON.parse(
-      readFileSync(allowlistPath, "utf8"),
-    ) as string[]
+describe('module boundaries', () => {
+  test('cross-module imports use index entrypoints only', () => {
+    const allowlist = JSON.parse(readFileSync(allowlistPath, 'utf8')) as string[]
     const importers = [...listTypeScriptFiles(srcRoot), ...listTypeScriptFiles(testRoot)]
     const violations: string[] = []
 
     for (const importer of importers) {
-      const sourceText = readFileSync(importer, "utf8")
+      const sourceText = readFileSync(importer, 'utf8')
       const importerModuleRoot = resolveModuleRoot(importer)
       const relativeImports = collectRelativeImports(sourceText)
       for (const specifier of relativeImports) {

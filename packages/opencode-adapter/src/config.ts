@@ -1,8 +1,8 @@
 // Compile-safe bridge to vendored OpenCode config runtime with in-memory overlays.
-import { Config } from "opencode/config/config"
-import { Instance } from "opencode/project/instance"
-import path from "node:path"
-import { realpathSync } from "node:fs"
+import { Config } from 'opencode/config/config'
+import { Instance } from 'opencode/project/instance'
+import path from 'node:path'
+import { realpathSync } from 'node:fs'
 
 type RuntimeConfig = Awaited<ReturnType<typeof Config.get>>
 
@@ -12,7 +12,7 @@ const originalGet = Config.get.bind(Config)
 let patched = false
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value)
+  return !!value && typeof value === 'object' && !Array.isArray(value)
 }
 
 function mergePluginValues(base: unknown, overlay: unknown) {
@@ -25,7 +25,7 @@ function mergePluginValues(base: unknown, overlay: unknown) {
 
 function mergeConfigValue<T>(base: T, overlay: unknown, key?: string): T {
   if (overlay === undefined) return base
-  if (key === "plugin") {
+  if (key === 'plugin') {
     return mergePluginValues(base, overlay) as T
   }
   if (!isPlainObject(base) || !isPlainObject(overlay)) {

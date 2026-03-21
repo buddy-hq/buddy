@@ -4,15 +4,16 @@ type MathFigurePanelProps = {
 
 export function MathFigurePanel(props: MathFigurePanelProps) {
   return (
-    <section className={`flex min-h-0 flex-1 flex-col gap-4 px-6 py-8 ${props.className ?? ""}`}>
+    <section className={`flex min-h-0 flex-1 flex-col gap-4 px-6 py-8 ${props.className ?? ''}`}>
       <div className="space-y-2">
         <h2 className="text-sm font-medium">Figure Surface</h2>
         <p className="text-sm text-muted-foreground">
-          Math Buddy can render figures inline in the transcript when it needs diagrams, graphs, or geometric sketches.
+          Math Buddy can render figures inline in the transcript when it needs diagrams, graphs, or
+          geometric sketches.
         </p>
         <p className="text-xs text-muted-foreground">
-          This surface is a lightweight placeholder for phase 1. There is no dedicated figure canvas or history panel
-          yet.
+          This surface is a lightweight placeholder for phase 1. There is no dedicated figure canvas
+          or history panel yet.
         </p>
       </div>
 

@@ -1,4 +1,8 @@
-import type { TeachingPromptContext, TeachingWorkspace, TeachingWorkspaceState } from "../state/teaching-runtime"
+import type {
+  TeachingPromptContext,
+  TeachingWorkspace,
+  TeachingWorkspaceState,
+} from '../state/teaching-runtime'
 
 type TeachingWorkspaceContextSource = TeachingWorkspace | TeachingWorkspaceState
 
@@ -9,7 +13,7 @@ export function buildTeachingPromptContext(
     return undefined
   }
 
-  const selection = "selection" in workspace ? workspace.selection : undefined
+  const selection = 'selection' in workspace ? workspace.selection : undefined
 
   return {
     active: true,

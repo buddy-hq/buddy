@@ -1,32 +1,32 @@
-import { useState } from "react"
-import { Button } from "@buddy/ui"
-import type { PermissionRequest } from "@/state/chat-types"
+import { useState } from 'react'
+import { Button } from '@buddy/ui'
+import type { PermissionRequest } from '@/state/chat-types'
 
 type PermissionDockProps = {
   request: PermissionRequest
   pendingCount?: number
-  onReply: (reply: "once" | "always" | "reject") => Promise<void>
+  onReply: (reply: 'once' | 'always' | 'reject') => Promise<void>
 }
 
 const TOOL_HINT: Record<string, string> = {
-  read: "Read files from your notebook.",
-  list: "List files and directories.",
-  glob: "Search files by glob pattern.",
-  grep: "Search file contents by pattern.",
-  write: "Write or replace files in your notebook.",
-  edit: "Edit sections of files.",
-  apply_patch: "Apply structured code patches.",
-  bash: "Run shell commands.",
-  task: "Delegate work to a sub-agent.",
-  webfetch: "Fetch content from URLs.",
-  curriculum_update: "Update the generated learning plan.",
+  read: 'Read files from your notebook.',
+  list: 'List files and directories.',
+  glob: 'Search files by glob pattern.',
+  grep: 'Search file contents by pattern.',
+  write: 'Write or replace files in your notebook.',
+  edit: 'Edit sections of files.',
+  apply_patch: 'Apply structured code patches.',
+  bash: 'Run shell commands.',
+  task: 'Delegate work to a sub-agent.',
+  webfetch: 'Fetch content from URLs.',
+  curriculum_update: 'Update the generated learning plan.',
 }
 
 export function PermissionDock(props: PermissionDockProps) {
   const [responding, setResponding] = useState(false)
   const hint = TOOL_HINT[props.request.permission]
 
-  async function onDecide(reply: "once" | "always" | "reject") {
+  async function onDecide(reply: 'once' | 'always' | 'reject') {
     if (responding) return
     setResponding(true)
     try {
@@ -67,7 +67,10 @@ export function PermissionDock(props: PermissionDockProps) {
             {props.request.patterns.length > 0 ? (
               <div className="flex max-h-32 flex-col gap-[0.3rem] overflow-auto">
                 {props.request.patterns.map((pattern) => (
-                  <code key={`${props.request.id}:${pattern}`} className="whitespace-pre-wrap break-words text-[0.74rem] text-muted-foreground">
+                  <code
+                    key={`${props.request.id}:${pattern}`}
+                    className="whitespace-pre-wrap break-words text-[0.74rem] text-muted-foreground"
+                  >
                     {pattern}
                   </code>
                 ))}
@@ -75,7 +78,8 @@ export function PermissionDock(props: PermissionDockProps) {
             ) : null}
             {(props.pendingCount ?? 0) > 0 ? (
               <div className="text-[0.72rem] text-muted-foreground">
-                +{props.pendingCount} more pending request{(props.pendingCount ?? 0) === 1 ? "" : "s"}
+                +{props.pendingCount} more pending request
+                {(props.pendingCount ?? 0) === 1 ? '' : 's'}
               </div>
             ) : null}
           </div>
@@ -85,13 +89,23 @@ export function PermissionDock(props: PermissionDockProps) {
       <div className="flex items-center justify-between border-t border-[color-mix(in_oklab,var(--border)_75%,transparent)] px-[0.65rem] py-[0.45rem]">
         <div />
         <div className="flex items-center gap-[0.45rem]">
-          <Button variant="ghost" size="sm" disabled={responding} onClick={() => void onDecide("reject")}>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={responding}
+            onClick={() => void onDecide('reject')}
+          >
             Reject
           </Button>
-          <Button variant="secondary" size="sm" disabled={responding} onClick={() => void onDecide("always")}>
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={responding}
+            onClick={() => void onDecide('always')}
+          >
             Allow always
           </Button>
-          <Button size="sm" disabled={responding} onClick={() => void onDecide("once")}>
+          <Button size="sm" disabled={responding} onClick={() => void onDecide('once')}>
             Allow once
           </Button>
         </div>

@@ -27,10 +27,10 @@ export type MessageError = {
 
 export type MessageOutputFormat =
   | {
-      type: "text"
+      type: 'text'
     }
   | {
-      type: "json_schema"
+      type: 'json_schema'
       schema: Record<string, unknown>
       retryCount?: number
     }
@@ -38,7 +38,7 @@ export type MessageOutputFormat =
 export type UserMessageInfo = {
   id: string
   sessionID: string
-  role: "user"
+  role: 'user'
   agent: string
   model: MessageModel
   variant?: string
@@ -51,7 +51,7 @@ export type UserMessageInfo = {
 export type AssistantMessageInfo = {
   id: string
   sessionID: string
-  role: "assistant"
+  role: 'assistant'
   parentID: string
   providerID: string
   modelID: string
@@ -123,7 +123,7 @@ export type ProviderModelInfo = {
   family?: string
   releaseDate?: string
   variants: string[]
-  status: "active" | "alpha" | "beta" | "deprecated"
+  status: 'active' | 'alpha' | 'beta' | 'deprecated'
   limit: {
     context: number
     input?: number
@@ -150,20 +150,20 @@ export type ProviderModelInfo = {
     interleaved:
       | boolean
       | {
-          field: "reasoning_content" | "reasoning_details"
+          field: 'reasoning_content' | 'reasoning_details'
         }
   }
 }
 
 export type ProviderMethodInfo = {
-  type: "api" | "oauth"
+  type: 'api' | 'oauth'
   label: string
 }
 
 export type ProviderInfo = {
   id: string
   name: string
-  source: "env" | "config" | "custom" | "api"
+  source: 'env' | 'config' | 'custom' | 'api'
   env: string[]
   connected: boolean
   methods: ProviderMethodInfo[]
@@ -176,7 +176,7 @@ export type ProviderCatalogState = {
 }
 
 export type McpStatusInfo = {
-  status: "connected" | "disabled" | "failed" | "needs_auth" | "needs_client_registration"
+  status: 'connected' | 'disabled' | 'failed' | 'needs_auth' | 'needs_client_registration'
   error?: string
 }
 
@@ -186,7 +186,7 @@ export type DirectoryChatState = {
   sessionID?: string
   sessionTitle: string
   sessions: SessionInfo[]
-  sessionStatusByID: Record<string, "busy" | "idle">
+  sessionStatusByID: Record<string, 'busy' | 'idle'>
   messages: MessageWithParts[]
   pendingPermissions: PermissionRequest[]
   providers: ProviderInfo[]

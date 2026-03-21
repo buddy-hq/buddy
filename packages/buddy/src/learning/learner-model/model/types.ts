@@ -1,5 +1,8 @@
-import z from "zod"
-import { ACTIVITY_KINDS, SCAFFOLDING_LEVELS } from "@buddy/backend/learning/shared/teaching-vocabulary"
+import z from 'zod'
+import {
+  ACTIVITY_KINDS,
+  SCAFFOLDING_LEVELS,
+} from '@buddy/backend/learning/shared/teaching-vocabulary'
 
 export const SessionPlanSchema = z.object({
   warmupReviewGoalIds: z.array(z.string()).default([]),

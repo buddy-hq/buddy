@@ -1,22 +1,24 @@
-import { useMemo } from "react"
-import type { SessionInfo } from "@/state/chat-types"
-import { findRootSessionID, sessionFamilyIDs } from "./thread-helpers"
+import { useMemo } from 'react'
+import type { SessionInfo } from '@/state/chat-types'
+import { findRootSessionID, sessionFamilyIDs } from './thread-helpers'
 
 type UseDirectoryGroupsProps = {
   directories: string[]
   sessionsByDirectory: Record<string, SessionInfo[]>
   pinnedByDirectory: Record<string, string[]>
   unreadByDirectory: Record<string, Record<string, true>>
-  sessionStatusByDirectory: Record<string, Record<string, "busy" | "idle">>
+  sessionStatusByDirectory: Record<string, Record<string, 'busy' | 'idle'>>
   currentDirectory: string
   activeSessionID?: string
-  organizeMode: "project" | "chronological"
-  showMode: "all" | "relevant"
-  sortMode: "created" | "updated"
+  organizeMode: 'project' | 'chronological'
+  showMode: 'all' | 'relevant'
+  sortMode: 'created' | 'updated'
 }
 
-function getSortTimestamp(session: SessionInfo, sortMode: "created" | "updated") {
-  return sortMode === "created" ? session.time.created : (session.time.updated ?? session.time.created)
+function getSortTimestamp(session: SessionInfo, sortMode: 'created' | 'updated') {
+  return sortMode === 'created'
+    ? session.time.created
+    : (session.time.updated ?? session.time.created)
 }
 
 export function useDirectoryGroups(props: UseDirectoryGroupsProps) {
@@ -33,11 +35,11 @@ export function useDirectoryGroups(props: UseDirectoryGroupsProps) {
 
         const visibleSessions = sessions
           .filter((session) => {
-            if (props.showMode !== "relevant") return true
+            if (props.showMode !== 'relevant') return true
             const familyIDs = sessionFamilyIDs(allSessions, session.id)
             const unread = familyIDs.some((id) => !!unreadMap[id])
             const pinned = familyIDs.some((id) => pinnedSet.has(id))
-            const busy = familyIDs.some((id) => statusByID[id] === "busy")
+            const busy = familyIDs.some((id) => statusByID[id] === 'busy')
             const active = directory === props.currentDirectory && session.id === activeRootID
             return unread || pinned || busy || active
           })
@@ -55,9 +57,9 @@ export function useDirectoryGroups(props: UseDirectoryGroupsProps) {
           sessions: visibleSessions,
         }
       })
-      .filter((group) => group.sessions.length > 0 || props.showMode === "all")
+      .filter((group) => group.sessions.length > 0 || props.showMode === 'all')
 
-    if (props.organizeMode === "chronological") {
+    if (props.organizeMode === 'chronological') {
       return groups.sort((a, b) => {
         const aTime = a.sessions[0] ? getSortTimestamp(a.sessions[0], props.sortMode) : 0
         const bTime = b.sessions[0] ? getSortTimestamp(b.sessions[0], props.sortMode) : 0

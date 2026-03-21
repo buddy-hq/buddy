@@ -1,14 +1,14 @@
-import type z from "zod"
-import { LearnerArtifactPath } from "../path"
-import type { LearnerArtifactKind, WorkspaceRecordArtifactKind } from "../types"
-import { parseMarkdownArtifact } from "../markdown"
-import type { ArtifactRecord, ArtifactRecordWithRaw } from "./contracts"
-import { listMarkdownFiles, readIfFound, readMarkdownFile, writeMarkdownFile } from "./io"
-import { WORKSPACE_ARTIFACT_KINDS, schemaForKind } from "./schema"
+import type z from 'zod'
+import { LearnerArtifactPath } from '../path'
+import type { LearnerArtifactKind, WorkspaceRecordArtifactKind } from '../types'
+import { parseMarkdownArtifact } from '../markdown'
+import type { ArtifactRecord, ArtifactRecordWithRaw } from './contracts'
+import { listMarkdownFiles, readIfFound, readMarkdownFile, writeMarkdownFile } from './io'
+import { WORKSPACE_ARTIFACT_KINDS, schemaForKind } from './schema'
 
 async function readKindArtifacts(
   directory: string,
-  kind: Exclude<LearnerArtifactKind, "workspace-context" | "profile">,
+  kind: Exclude<LearnerArtifactKind, 'workspace-context' | 'profile'>,
   input?: {
     includeRaw?: boolean
   },
@@ -49,7 +49,9 @@ export async function upsertArtifact(
   const schema = schemaForKind(kind)
   const parsed = schema.safeParse(artifact)
   if (!parsed.success) {
-    throw new Error(`Invalid ${kind} artifact: ${parsed.error.issues[0]?.message ?? "parse failed"}`)
+    throw new Error(
+      `Invalid ${kind} artifact: ${parsed.error.issues[0]?.message ?? 'parse failed'}`,
+    )
   }
 
   const filepath = LearnerArtifactPath.artifactFile(directory, kind, parsed.data.id)
@@ -69,7 +71,8 @@ export async function readArtifacts(
   const records = await readKindArtifacts(directory, kind, input)
   return records.filter((record) => {
     if (input?.workspaceId && record.workspaceId !== input.workspaceId) return false
-    if (input?.inputHash && "inputHash" in record && record.inputHash !== input.inputHash) return false
+    if (input?.inputHash && 'inputHash' in record && record.inputHash !== input.inputHash)
+      return false
     return true
   })
 }
@@ -110,15 +113,19 @@ export async function listArtifacts(input: {
     ? [input.kind]
     : [...WORKSPACE_ARTIFACT_KINDS]
 
-  const records = (await Promise.all(
-    kinds.map((kind) => readKindArtifacts(input.directory, kind, { includeRaw: input.includeRaw })),
-  )).flat()
+  const records = (
+    await Promise.all(
+      kinds.map((kind) =>
+        readKindArtifacts(input.directory, kind, { includeRaw: input.includeRaw }),
+      ),
+    )
+  ).flat()
 
   return records
     .filter((record) => (input.goalId ? record.goalIds.includes(input.goalId) : true))
     .filter((record) => {
       if (!input.status) return true
-      if ("status" in record) return String(record.status) === input.status
+      if ('status' in record) return String(record.status) === input.status
       return false
     })
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt))

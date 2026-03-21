@@ -1,5 +1,5 @@
-import type { GlobalAgentsMdReadResponses, GlobalAgentsMdSaveResponses } from "@buddy/sdk"
-import { buddyResultMessage, getBuddyClient, requireBuddyData } from "../lib/buddy-client"
+import type { GlobalAgentsMdReadResponses, GlobalAgentsMdSaveResponses } from '@buddy/sdk'
+import { buddyResultMessage, getBuddyClient, requireBuddyData } from '../lib/buddy-client'
 
 export type GlobalAgentsMdState = GlobalAgentsMdReadResponses[200]
 
@@ -8,7 +8,7 @@ export type GlobalAgentsMdSaveResult = GlobalAgentsMdSaveResponses[200]
 export class GlobalAgentsMdVersionConflictError extends Error {
   constructor(message: string) {
     super(message)
-    this.name = "GlobalAgentsMdVersionConflictError"
+    this.name = 'GlobalAgentsMdVersionConflictError'
   }
 }
 
@@ -17,7 +17,10 @@ export async function loadGlobalAgentsMd() {
   return requireBuddyData<GlobalAgentsMdState>(result)
 }
 
-export async function saveGlobalAgentsMd(input: { content: string; expectedVersion?: string | null }) {
+export async function saveGlobalAgentsMd(input: {
+  content: string
+  expectedVersion?: string | null
+}) {
   const result = await getBuddyClient().global.agentsMd.save({
     content: input.content,
     expectedVersion: input.expectedVersion,

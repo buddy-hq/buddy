@@ -1,6 +1,6 @@
-import os from "node:os"
-import path from "node:path"
-import { captureSessionSystemPrompt } from "../system-prompt-capture"
+import os from 'node:os'
+import path from 'node:path'
+import { captureSessionSystemPrompt } from '../system-prompt-capture'
 
 type SystemTransformInput = {
   sessionID?: string
@@ -16,7 +16,10 @@ type PluginInput = {
 }
 
 type PluginHooks = {
-  "experimental.chat.system.transform"?: (input: SystemTransformInput, output: SystemTransformOutput) => Promise<void>
+  'experimental.chat.system.transform'?: (
+    input: SystemTransformInput,
+    output: SystemTransformOutput,
+  ) => Promise<void>
 }
 
 type FilterContext = {
@@ -35,11 +38,11 @@ function decodeAndResolvePath(value: string) {
 
 function normalizeForComparison(value: string) {
   const normalized = path.normalize(value)
-  return process.platform === "win32" ? normalized.toLowerCase() : normalized
+  return process.platform === 'win32' ? normalized.toLowerCase() : normalized
 }
 
 function normalizeOptionalDirectory(directory: string | undefined) {
-  if (!directory || !directory.trim() || directory === "/") return undefined
+  if (!directory || !directory.trim() || directory === '/') return undefined
   const normalized = normalizeForComparison(decodeAndResolvePath(directory))
   const root = normalizeForComparison(path.parse(normalized).root)
   if (normalized === root) return undefined
@@ -50,15 +53,17 @@ function resolveBuddyGlobalAgentsPath() {
   const configured = process.env.BUDDY_GLOBAL_CONFIG_DIR?.trim()
   const home = process.env.BUDDY_TEST_HOME?.trim() || os.homedir()
   const configRoot =
-    configured && configured !== "undefined" ? decodeAndResolvePath(configured) : path.join(home, ".buddy")
-  return normalizeForComparison(path.join(configRoot, "AGENTS.md"))
+    configured && configured !== 'undefined'
+      ? decodeAndResolvePath(configured)
+      : path.join(home, '.buddy')
+  return normalizeForComparison(path.join(configRoot, 'AGENTS.md'))
 }
 
 function normalizeInstructionSourcePath(source: string) {
   const value = source.trim()
   if (!value) return undefined
-  if (value.startsWith("http://") || value.startsWith("https://")) return undefined
-  if (value.includes("://")) return undefined
+  if (value.startsWith('http://') || value.startsWith('https://')) return undefined
+  if (value.includes('://')) return undefined
   if (!path.isAbsolute(value)) return undefined
   return normalizeForComparison(path.resolve(value))
 }
@@ -67,7 +72,7 @@ function isWithinDirectory(root: string | undefined, target: string) {
   if (!root) return false
   if (target === root) return true
   const relative = path.relative(root, target)
-  return relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative)
+  return relative !== '' && !relative.startsWith('..') && !path.isAbsolute(relative)
 }
 
 function shouldKeepInstructionSource(source: string, context: FilterContext) {
@@ -75,10 +80,10 @@ function shouldKeepInstructionSource(source: string, context: FilterContext) {
   if (!sourcePath) return true
 
   const filename = path.basename(sourcePath).toLowerCase()
-  if (filename === "claude.md" || filename === "context.md") {
+  if (filename === 'claude.md' || filename === 'context.md') {
     return false
   }
-  if (filename !== "agents.md") {
+  if (filename !== 'agents.md') {
     return true
   }
 
@@ -104,7 +109,7 @@ function filterInstructionBlocks(input: string, context: FilterContext) {
     return input
   }
 
-  let output = ""
+  let output = ''
   let cursor = 0
 
   for (let index = 0; index < headers.length; index += 1) {
@@ -113,7 +118,7 @@ function filterInstructionBlocks(input: string, context: FilterContext) {
 
     const blockStart = header.index ?? 0
     const blockEnd = headers[index + 1]?.index ?? input.length
-    const source = (header[1] ?? "").trim()
+    const source = (header[1] ?? '').trim()
 
     output += input.slice(cursor, blockStart)
     if (shouldKeepInstructionSource(source, context)) {
@@ -125,7 +130,7 @@ function filterInstructionBlocks(input: string, context: FilterContext) {
   output += input.slice(cursor)
 
   return output
-    .split("\n")
+    .split('\n')
     .reduce<string[]>((lines, line) => {
       const previous = lines[lines.length - 1]
       if (line.trim().length === 0 && previous?.trim().length === 0) {
@@ -133,7 +138,7 @@ function filterInstructionBlocks(input: string, context: FilterContext) {
       }
       return [...lines, line]
     }, [])
-    .join("\n")
+    .join('\n')
     .trim()
 }
 
@@ -149,8 +154,10 @@ async function BuddySystemPromptGuardPlugin(input: PluginInput): Promise<PluginH
   }
 
   return {
-    "experimental.chat.system.transform": async (hookInput, output) => {
-      const filtered = normalizeSystemSegments(output.system.map((segment) => filterInstructionBlocks(segment, context)))
+    'experimental.chat.system.transform': async (hookInput, output) => {
+      const filtered = normalizeSystemSegments(
+        output.system.map((segment) => filterInstructionBlocks(segment, context)),
+      )
       output.system.length = 0
       output.system.push(...filtered)
 
@@ -158,7 +165,7 @@ async function BuddySystemPromptGuardPlugin(input: PluginInput): Promise<PluginH
         return
       }
 
-      const fullSystemPrompt = filtered.join("\n\n").trim()
+      const fullSystemPrompt = filtered.join('\n\n').trim()
       if (!fullSystemPrompt) {
         return
       }

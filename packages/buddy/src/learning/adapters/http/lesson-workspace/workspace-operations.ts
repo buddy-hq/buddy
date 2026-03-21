@@ -2,7 +2,7 @@ import {
   configErrorMessage,
   isConfigValidationError,
   readProjectConfig,
-} from "@buddy/backend/config/runtime"
+} from '@buddy/backend/config/runtime'
 import {
   TeachingService,
   type TeachingProvisionRequest,
@@ -12,9 +12,9 @@ import {
   TeachingWorkspaceFileError,
   TeachingRevisionConflictError,
   TeachingWorkspaceNotFoundError,
-} from "../../../capabilities"
-import { getBuddyPersona, getDefaultBuddyPersona } from "../../../personas"
-import { isPersona } from "../../../personas"
+} from '../../../capabilities'
+import { getBuddyPersona, getDefaultBuddyPersona } from '../../../personas'
+import { isPersona } from '../../../personas'
 
 export function resolveTeachingProvisionPersona(input: {
   config: Awaited<ReturnType<typeof readProjectConfig>>
@@ -71,7 +71,9 @@ type TeachingHandlerResult<T> =
       response: Response
     }
 
-async function runTeachingWorkspaceAction<T>(action: () => Promise<T>): Promise<TeachingHandlerResult<T>> {
+async function runTeachingWorkspaceAction<T>(
+  action: () => Promise<T>,
+): Promise<TeachingHandlerResult<T>> {
   try {
     return {
       ok: true,
@@ -114,11 +116,11 @@ export async function provisionTeachingWorkspace(input: {
   if (!persona) {
     return {
       ok: false,
-      response: Response.json({ error: "Unknown Buddy persona" }, { status: 400 }),
+      response: Response.json({ error: 'Unknown Buddy persona' }, { status: 400 }),
     }
   }
 
-  if (!persona.surfaces.includes("editor")) {
+  if (!persona.surfaces.includes('editor')) {
     return {
       ok: false,
       response: Response.json(
@@ -130,7 +132,11 @@ export async function provisionTeachingWorkspace(input: {
     }
   }
 
-  const workspace = await TeachingService.ensure(input.directory, input.sessionID, input.payload.language ?? "ts")
+  const workspace = await TeachingService.ensure(
+    input.directory,
+    input.sessionID,
+    input.payload.language ?? 'ts',
+  )
   return {
     ok: true,
     value: workspace,
@@ -170,7 +176,9 @@ export async function saveTeachingWorkspace(input: {
   sessionID: string
   payload: TeachingWorkspaceUpdateRequest
 }): Promise<TeachingHandlerResult<Awaited<ReturnType<typeof TeachingService.save>>>> {
-  return runTeachingWorkspaceAction(() => TeachingService.save(input.directory, input.sessionID, input.payload))
+  return runTeachingWorkspaceAction(() =>
+    TeachingService.save(input.directory, input.sessionID, input.payload),
+  )
 }
 
 export async function addTeachingWorkspaceFile(input: {
@@ -178,7 +186,9 @@ export async function addTeachingWorkspaceFile(input: {
   sessionID: string
   payload: TeachingWorkspaceCreateFileRequest
 }): Promise<TeachingHandlerResult<Awaited<ReturnType<typeof TeachingService.addFile>>>> {
-  return runTeachingWorkspaceAction(() => TeachingService.addFile(input.directory, input.sessionID, input.payload))
+  return runTeachingWorkspaceAction(() =>
+    TeachingService.addFile(input.directory, input.sessionID, input.payload),
+  )
 }
 
 export async function activateTeachingWorkspaceFile(input: {
@@ -191,9 +201,12 @@ export async function activateTeachingWorkspaceFile(input: {
   )
 }
 
-export async function checkpointTeachingWorkspace(input: { directory: string; sessionID: string }): Promise<
+export async function checkpointTeachingWorkspace(input: {
+  directory: string
+  sessionID: string
+}): Promise<
   TeachingHandlerResult<{
-    revision: Awaited<ReturnType<typeof TeachingService.checkpoint>>["revision"]
+    revision: Awaited<ReturnType<typeof TeachingService.checkpoint>>['revision']
     lessonFilePath: string
     checkpointFilePath: string
   }>

@@ -1,12 +1,12 @@
-import type { Intent, WorkspaceState } from "@buddy/backend/learning/shared/teaching-vocabulary"
-import type { PersonaDefinition, ToolId } from "../../shared/runtime-types"
-import { INTENT_CAPABILITY_MANIFESTS } from "./intent-manifests"
-import { SKILL_CAPABILITY_REGISTRY, managedSkillNames } from "./skill-capabilities"
-import type { ToolCapability } from "./tool-capabilities"
-import { TOOL_CAPABILITY_REGISTRY, toolCapabilityKey } from "./tool-capabilities"
-import { assertIntentCapabilityBindings } from "./validation"
+import type { Intent, WorkspaceState } from '@buddy/backend/learning/shared/teaching-vocabulary'
+import type { PersonaDefinition, ToolId } from '../../shared/runtime-types'
+import { INTENT_CAPABILITY_MANIFESTS } from './intent-manifests'
+import { SKILL_CAPABILITY_REGISTRY, managedSkillNames } from './skill-capabilities'
+import type { ToolCapability } from './tool-capabilities'
+import { TOOL_CAPABILITY_REGISTRY, toolCapabilityKey } from './tool-capabilities'
+import { assertIntentCapabilityBindings } from './validation'
 
-type PermissionAction = "allow" | "deny"
+type PermissionAction = 'allow' | 'deny'
 
 type IntentPermissionResolution = {
   tools: Partial<Record<ToolId, PermissionAction>>
@@ -31,11 +31,11 @@ function matchesPersonaAndWorkspace(input: {
 }
 
 function resolveIntentScope(intent: Intent) {
-  return intent === "auto" ? ["learn", "practice", "assess"] as const : [intent]
+  return intent === 'auto' ? (['learn', 'practice', 'assess'] as const) : [intent]
 }
 
 function buildDenyMap<T extends string>(values: readonly T[]): Record<T, PermissionAction> {
-  return Object.fromEntries(values.map((value) => [value, "deny"])) as Record<T, PermissionAction>
+  return Object.fromEntries(values.map((value) => [value, 'deny'])) as Record<T, PermissionAction>
 }
 
 function dedupeToolCapabilities(values: readonly ToolCapability[]): ToolCapability[] {
@@ -54,9 +54,13 @@ export function resolveIntentPermissions(input: {
   assertIntentCapabilityBindings()
 
   const selectedIntents = new Set(resolveIntentScope(input.intent))
-  const manifests = INTENT_CAPABILITY_MANIFESTS.filter((manifest) => selectedIntents.has(manifest.intent))
+  const manifests = INTENT_CAPABILITY_MANIFESTS.filter((manifest) =>
+    selectedIntents.has(manifest.intent),
+  )
 
-  const selectedToolCapabilities = dedupeToolCapabilities(manifests.flatMap((manifest) => manifest.toolCapabilities))
+  const selectedToolCapabilities = dedupeToolCapabilities(
+    manifests.flatMap((manifest) => manifest.toolCapabilities),
+  )
   const skillCapabilityKeys = new Set(manifests.flatMap((manifest) => manifest.skillCapabilityKeys))
 
   const allowedToolIds = new Set(
@@ -72,18 +76,17 @@ export function resolveIntentPermissions(input: {
       .map((capability) => capability.tool.id),
   )
 
-  const managedToolIds = TOOL_CAPABILITY_REGISTRY.map((capability) => capability.tool.id).sort((a, b) =>
-    a.localeCompare(b),
+  const managedToolIds = TOOL_CAPABILITY_REGISTRY.map((capability) => capability.tool.id).sort(
+    (a, b) => a.localeCompare(b),
   )
 
   const toolPermissions = buildDenyMap(managedToolIds)
   for (const toolId of allowedToolIds) {
-    toolPermissions[toolId] = "allow"
+    toolPermissions[toolId] = 'allow'
   }
 
   const allowedSkillNames = new Set(
-    SKILL_CAPABILITY_REGISTRY
-      .filter((capability) => skillCapabilityKeys.has(capability.key))
+    SKILL_CAPABILITY_REGISTRY.filter((capability) => skillCapabilityKeys.has(capability.key))
       .filter((capability) =>
         matchesPersonaAndWorkspace({
           personas: capability.personas,
@@ -98,7 +101,7 @@ export function resolveIntentPermissions(input: {
   const managedNames = managedSkillNames()
   const skillPermissions = buildDenyMap(managedNames)
   for (const skillName of allowedSkillNames) {
-    skillPermissions[skillName] = "allow"
+    skillPermissions[skillName] = 'allow'
   }
 
   return {

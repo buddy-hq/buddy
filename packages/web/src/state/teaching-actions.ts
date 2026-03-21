@@ -6,10 +6,10 @@ import type {
   TeachingWorkspaceReadResponses,
   TeachingWorkspaceRestoreResponses,
   TeachingWorkspaceSaveResponses,
-} from "@buddy/sdk"
-import type { TeachingLanguage, TeachingWorkspace } from "./teaching-runtime"
-import { buddyResultMessage, getBuddyClient, requireBuddyData } from "../lib/buddy-client"
-import { stringifyError } from "../lib/api-client"
+} from '@buddy/sdk'
+import type { TeachingLanguage, TeachingWorkspace } from './teaching-runtime'
+import { buddyResultMessage, getBuddyClient, requireBuddyData } from '../lib/buddy-client'
+import { stringifyError } from '../lib/api-client'
 
 export type TeachingConflictPayload = {
   error: string
@@ -19,13 +19,13 @@ export type TeachingConflictPayload = {
 }
 
 function isTeachingConflictPayload(value: unknown): value is TeachingConflictPayload {
-  if (!value || typeof value !== "object") return false
+  if (!value || typeof value !== 'object') return false
   const candidate = value as Partial<TeachingConflictPayload>
   return (
-    typeof candidate.error === "string" &&
-    typeof candidate.revision === "number" &&
-    typeof candidate.code === "string" &&
-    typeof candidate.lessonFilePath === "string"
+    typeof candidate.error === 'string' &&
+    typeof candidate.revision === 'number' &&
+    typeof candidate.code === 'string' &&
+    typeof candidate.lessonFilePath === 'string'
   )
 }
 
@@ -34,7 +34,7 @@ export class TeachingConflictError extends Error {
 
   constructor(payload: TeachingConflictPayload) {
     super(payload.error)
-    this.name = "TeachingConflictError"
+    this.name = 'TeachingConflictError'
     this.payload = payload
   }
 }
@@ -59,7 +59,7 @@ export async function loadTeachingWorkspace(input: { directory: string; sessionI
     sessionID: input.sessionID,
   })
   if (result.response.status === 204 || result.data === undefined) {
-    throw new Error("Teaching workspace is not provisioned for this session.")
+    throw new Error('Teaching workspace is not provisioned for this session.')
   }
   if (!result.response.ok || result.error !== undefined) {
     throw new Error(buddyResultMessage(result))
@@ -70,7 +70,7 @@ export async function loadTeachingWorkspace(input: { directory: string; sessionI
 export async function probeTeachingWorkspace(input: { directory: string; sessionID: string }) {
   const result = await getBuddyClient(input.directory).teaching.workspace.read({
     sessionID: input.sessionID,
-    optional: "1",
+    optional: '1',
   })
 
   if (result.response.status === 204) {

@@ -1,9 +1,9 @@
-import { mergeDeep } from "remeda"
-import { resolveBuddyPersonaProfiles } from "../../learning/personas"
-import type { BuddyPersona } from "../../learning/personas"
-import { isPersona } from "../../learning/personas"
-import { indexBuddyAgents } from "../../learning/register-agents"
-import { Config } from "../config.js"
+import { mergeDeep } from 'remeda'
+import { resolveBuddyPersonaProfiles } from '../../learning/personas'
+import type { BuddyPersona } from '../../learning/personas'
+import { isPersona } from '../../learning/personas'
+import { indexBuddyAgents } from '../../learning/register-agents'
+import { Config } from '../config.js'
 
 function mergeBuddyAgentConfig(base: Config.Agent, override: Config.Agent): Config.Agent {
   const merged: Config.Agent = {
@@ -25,18 +25,26 @@ function mergeBuddyAgentConfig(base: Config.Agent, override: Config.Agent): Conf
   return merged
 }
 
-function permissionRuleEntries(rule: Config.PermissionRule): Array<[string, Config.PermissionAction]> {
-  if (typeof rule === "string") {
-    return [["*", rule]]
+function permissionRuleEntries(
+  rule: Config.PermissionRule,
+): Array<[string, Config.PermissionAction]> {
+  if (typeof rule === 'string') {
+    return [['*', rule]]
   }
 
   return Object.entries(rule)
 }
 
-function mergePermissionRule(base: Config.PermissionRule, override: Config.PermissionRule): Config.PermissionRule {
+function mergePermissionRule(
+  base: Config.PermissionRule,
+  override: Config.PermissionRule,
+): Config.PermissionRule {
   const ordered = new Map<string, Config.PermissionAction>()
 
-  for (const [pattern, action] of [...permissionRuleEntries(base), ...permissionRuleEntries(override)]) {
+  for (const [pattern, action] of [
+    ...permissionRuleEntries(base),
+    ...permissionRuleEntries(override),
+  ]) {
     if (ordered.has(pattern)) {
       ordered.delete(pattern)
     }
@@ -44,7 +52,7 @@ function mergePermissionRule(base: Config.PermissionRule, override: Config.Permi
   }
 
   if (ordered.size === 1) {
-    const wildcard = ordered.get("*")
+    const wildcard = ordered.get('*')
     if (wildcard) {
       return wildcard
     }
@@ -53,7 +61,10 @@ function mergePermissionRule(base: Config.PermissionRule, override: Config.Permi
   return Object.fromEntries(ordered)
 }
 
-function mergePermissionConfig(base: Config.Permission, override: Config.Permission): Config.Permission {
+function mergePermissionConfig(
+  base: Config.Permission,
+  override: Config.Permission,
+): Config.Permission {
   const merged: Config.Permission = { ...base }
 
   for (const [permission, rule] of Object.entries(override)) {
@@ -64,7 +75,9 @@ function mergePermissionConfig(base: Config.Permission, override: Config.Permiss
   return merged
 }
 
-function mergeBuddyAndConfiguredAgents(agentOverlay: Record<string, Config.Agent>): Record<string, Config.Agent> {
+function mergeBuddyAndConfiguredAgents(
+  agentOverlay: Record<string, Config.Agent>,
+): Record<string, Config.Agent> {
   const merged = indexBuddyAgents()
 
   for (const [name, agent] of Object.entries(agentOverlay)) {
@@ -72,8 +85,8 @@ function mergeBuddyAndConfiguredAgents(agentOverlay: Record<string, Config.Agent
     const nextAgent =
       baseAgent && isPersona(name)
         ? (() => {
-          const { disable: _disable, ...rest } = agent
-          return rest as Config.Agent
+            const { disable: _disable, ...rest } = agent
+            return rest as Config.Agent
           })()
         : agent
     merged[name] = baseAgent ? mergeBuddyAgentConfig(baseAgent, nextAgent) : nextAgent
@@ -117,8 +130,4 @@ function resolveConfiguredAgentKey(
   return matches.length === 1 ? matches[0]! : name
 }
 
-export {
-  applyBuddyPersonaHiddenFlags,
-  mergeBuddyAndConfiguredAgents,
-  resolveConfiguredAgentKey,
-}
+export { applyBuddyPersonaHiddenFlags, mergeBuddyAndConfiguredAgents, resolveConfiguredAgentKey }

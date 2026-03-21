@@ -8,5 +8,5 @@ export function isTitlebarInteractiveTarget(target: EventTarget | null) {
 
 export function isTitlebarSystemControlTarget(target: EventTarget | null) {
   if (!(target instanceof Element)) return false
-  return target.closest("[data-tauri-decorum-tb]") !== null
+  return target.closest('[data-tauri-decorum-tb]') !== null
 }

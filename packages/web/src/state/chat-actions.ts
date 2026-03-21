@@ -16,8 +16,8 @@ import type {
   ProviderAuthMethod,
   ProviderAuthResponse,
   ProviderListResponse,
-} from "@buddy/sdk"
-import { useChatStore } from "./chat-store"
+} from '@buddy/sdk'
+import { useChatStore } from './chat-store'
 import type {
   MessageWithParts,
   McpStatusMap,
@@ -25,24 +25,18 @@ import type {
   ProviderCatalogState,
   ProviderInfo,
   SessionInfo,
-} from "./chat-types"
-import type {
-  TeachingIntent,
-  TeachingPromptContext,
-} from "./teaching-runtime"
-import { stringifyError } from "../lib/api-client"
-import { getBuddyClient, requireBuddyData, buddyResultMessage } from "../lib/buddy-client"
-import type {
-  PromptFilePart,
-  PromptSubmissionPart,
-} from "../components/prompt/prompt-types"
+} from './chat-types'
+import type { TeachingIntent, TeachingPromptContext } from './teaching-runtime'
+import { stringifyError } from '../lib/api-client'
+import { getBuddyClient, requireBuddyData, buddyResultMessage } from '../lib/buddy-client'
+import type { PromptFilePart, PromptSubmissionPart } from '../components/prompt/prompt-types'
 
 export type PersonaConfigOption = {
   id: string
   label: string
   description?: string
-  surfaces: Array<"curriculum" | "editor" | "figure">
-  defaultSurface: "curriculum" | "editor" | "figure"
+  surfaces: Array<'curriculum' | 'editor' | 'figure'>
+  defaultSurface: 'curriculum' | 'editor' | 'figure'
   hidden?: boolean
 }
 
@@ -54,7 +48,7 @@ export type LearnerCurriculumView = {
     pinnedGoalIds: string[]
     projectConstraints: string[]
     localToolAvailability: string[]
-    preferredSurfaces: Array<"chat" | "curriculum" | "editor" | "figure" | "quiz">
+    preferredSurfaces: Array<'chat' | 'curriculum' | 'editor' | 'figure' | 'quiz'>
     motivationContext?: string
     opportunities: string[]
     userOverride: boolean
@@ -80,7 +74,7 @@ export type LearnerCurriculumView = {
       practiceCount: number
       assessmentCount: number
       assessmentFormats: string[]
-      coverage: "missing" | "partial" | "complete"
+      coverage: 'missing' | 'partial' | 'complete'
       suiteComplete: boolean
       orphanedRefs: string[]
       recommendation: string
@@ -99,12 +93,12 @@ export type LearnerCurriculumView = {
   }>
   actions: Array<{
     actionId:
-      | "define-goals"
-      | "start-practice"
-      | "run-check"
-      | "review-due"
-      | "resolve-feedback"
-      | "understand-next"
+      | 'define-goals'
+      | 'start-practice'
+      | 'run-check'
+      | 'review-due'
+      | 'resolve-feedback'
+      | 'understand-next'
     label: string
     prompt: string
     intent: TeachingIntent
@@ -123,7 +117,7 @@ export type LearnerCurriculumView = {
 export type LearnerRuntimeCapabilitiesView = {
   persona: string
   intent: TeachingIntent
-  workspaceState: "chat" | "interactive"
+  workspaceState: 'chat' | 'interactive'
   visibleSurfaces: string[]
   defaultSurface: string
   tools: {
@@ -144,7 +138,7 @@ export type LearnerRuntimeCapabilitiesView = {
 export type PromptCommandOption = {
   name: string
   description?: string
-  source?: "command" | "mcp" | "skill"
+  source?: 'command' | 'mcp' | 'skill'
 }
 
 export type TeachingSessionSnapshot = {
@@ -152,24 +146,24 @@ export type TeachingSessionSnapshot = {
   persona: string
   intent: TeachingIntent
   currentSurface: string
-  workspaceState: "chat" | "interactive"
+  workspaceState: 'chat' | 'interactive'
   focusGoalIds: string[]
   lastLlmOutbound?: TeachingLlmOutboundSnapshot
   llmOutboundHistory?: TeachingLlmOutboundSnapshot[]
 }
 
 export type TeachingLlmOutboundSnapshot = {
-  kind: "message" | "command"
+  kind: 'message' | 'command'
   createdAt: string
   payload: Record<string, unknown>
   fullSystemPrompt?: string
 }
 
-const BUDDY_PERSONA_DEFAULT_ORDER = ["buddy", "code-buddy", "math-buddy"] as const
+const BUDDY_PERSONA_DEFAULT_ORDER = ['buddy', 'code-buddy', 'math-buddy'] as const
 
 function normalizeProjectDirectory(directory: string) {
-  const normalized = directory.trim().replace(/\/+$/, "")
-  if (!normalized || normalized === "/") {
+  const normalized = directory.trim().replace(/\/+$/, '')
+  if (!normalized || normalized === '/') {
     return undefined
   }
   return normalized
@@ -187,7 +181,10 @@ export function resolveDefaultPersonaID(
 ): string | undefined {
   const selectablePersonas = personas.filter((persona) => !persona.hidden)
 
-  if (configuredDefaultPersona && selectablePersonas.some((persona) => persona.id === configuredDefaultPersona)) {
+  if (
+    configuredDefaultPersona &&
+    selectablePersonas.some((persona) => persona.id === configuredDefaultPersona)
+  ) {
     return configuredDefaultPersona
   }
 
@@ -200,15 +197,15 @@ export function resolveDefaultPersonaID(
   return selectablePersonas[0]?.id
 }
 
-type RawProvider = ProviderListResponse["all"][number]
-type RawProviderModel = RawProvider["models"][string]
-type LearnerPersona = "buddy" | "code-buddy" | "math-buddy"
+type RawProvider = ProviderListResponse['all'][number]
+type RawProviderModel = RawProvider['models'][string]
+type LearnerPersona = 'buddy' | 'code-buddy' | 'math-buddy'
 
-const LEARNER_PERSONAS = ["buddy", "code-buddy", "math-buddy"] as const
-const PERSONA_SURFACES = ["curriculum", "editor", "figure"] as const
+const LEARNER_PERSONAS = ['buddy', 'code-buddy', 'math-buddy'] as const
+const PERSONA_SURFACES = ['curriculum', 'editor', 'figure'] as const
 type PersonaSurface = (typeof PERSONA_SURFACES)[number]
-const DEFAULT_PERSONA_SURFACE: PersonaConfigOption["defaultSurface"] = "curriculum"
-const EMPTY_ALIGNMENT_SUMMARY: LearnerCurriculumView["alignmentSummary"] = {
+const DEFAULT_PERSONA_SURFACE: PersonaConfigOption['defaultSurface'] = 'curriculum'
+const EMPTY_ALIGNMENT_SUMMARY: LearnerCurriculumView['alignmentSummary'] = {
   records: [],
   incompleteGoalIds: [],
   recommendations: [],
@@ -223,61 +220,61 @@ function toLearnerPersona(persona?: string): LearnerPersona | undefined {
 }
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
   return value as Record<string, unknown>
 }
 
-function asString(value: unknown, fallback = ""): string {
-  return typeof value === "string" ? value : fallback
+function asString(value: unknown, fallback = ''): string {
+  return typeof value === 'string' ? value : fallback
 }
 
 function asStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return []
-  return value.filter((item): item is string => typeof item === "string")
+  return value.filter((item): item is string => typeof item === 'string')
 }
 
 function asBoolean(value: unknown, fallback = false): boolean {
-  return typeof value === "boolean" ? value : fallback
+  return typeof value === 'boolean' ? value : fallback
 }
 
-function parseToolPermissions(value: unknown): Record<string, "allow" | "deny"> {
+function parseToolPermissions(value: unknown): Record<string, 'allow' | 'deny'> {
   const record = asRecord(value)
   if (!record) return {}
 
   return Object.fromEntries(
     Object.entries(record).filter(
-      (entry): entry is [string, "allow" | "deny"] => entry[1] === "allow" || entry[1] === "deny",
+      (entry): entry is [string, 'allow' | 'deny'] => entry[1] === 'allow' || entry[1] === 'deny',
     ),
   )
 }
 
-function parseSubagentPermissions(value: unknown): Record<string, "allow" | "deny" | "prefer"> {
+function parseSubagentPermissions(value: unknown): Record<string, 'allow' | 'deny' | 'prefer'> {
   const record = asRecord(value)
   if (!record) return {}
 
   return Object.fromEntries(
     Object.entries(record).filter(
-      (entry): entry is [string, "allow" | "deny" | "prefer"] =>
-        entry[1] === "allow" || entry[1] === "deny" || entry[1] === "prefer",
+      (entry): entry is [string, 'allow' | 'deny' | 'prefer'] =>
+        entry[1] === 'allow' || entry[1] === 'deny' || entry[1] === 'prefer',
     ),
   )
 }
 
-function parseWorkspaceView(workspace: unknown): LearnerCurriculumView["workspace"] {
+function parseWorkspaceView(workspace: unknown): LearnerCurriculumView['workspace'] {
   const value = asRecord(workspace) ?? {}
 
   const preferredSurfaces = asStringArray(value.preferredSurfaces).filter(
-    (surface): surface is LearnerCurriculumView["workspace"]["preferredSurfaces"][number] =>
-      surface === "chat" ||
-      surface === "curriculum" ||
-      surface === "editor" ||
-      surface === "figure" ||
-      surface === "quiz",
+    (surface): surface is LearnerCurriculumView['workspace']['preferredSurfaces'][number] =>
+      surface === 'chat' ||
+      surface === 'curriculum' ||
+      surface === 'editor' ||
+      surface === 'figure' ||
+      surface === 'quiz',
   )
 
   return {
     workspaceId: asString(value.workspaceId),
-    label: asString(value.label, "Workspace"),
+    label: asString(value.label, 'Workspace'),
     tags: asStringArray(value.tags),
     pinnedGoalIds: asStringArray(value.pinnedGoalIds),
     projectConstraints: asStringArray(value.projectConstraints),
@@ -291,7 +288,9 @@ function parseWorkspaceView(workspace: unknown): LearnerCurriculumView["workspac
   }
 }
 
-function parseOpenFeedbackActions(openFeedback: unknown): LearnerCurriculumView["openFeedbackActions"] {
+function parseOpenFeedbackActions(
+  openFeedback: unknown,
+): LearnerCurriculumView['openFeedbackActions'] {
   if (!Array.isArray(openFeedback)) return []
 
   return openFeedback
@@ -300,15 +299,15 @@ function parseOpenFeedbackActions(openFeedback: unknown): LearnerCurriculumView[
     .map((item) => ({
       feedbackId: asString(item.id),
       goalIds: asStringArray(item.goalIds),
-      requiredAction: asString(item.requiredAction, "Follow up on current gap"),
-      scaffoldingLevel: asString(item.scaffoldingLevel, "guided"),
+      requiredAction: asString(item.requiredAction, 'Follow up on current gap'),
+      scaffoldingLevel: asString(item.scaffoldingLevel, 'guided'),
       pattern: asString(item.pattern) || undefined,
       createdAt: asString(item.createdAt),
     }))
     .filter((item) => item.feedbackId.length > 0)
 }
 
-function parseSections(sections: unknown): LearnerCurriculumView["sections"] {
+function parseSections(sections: unknown): LearnerCurriculumView['sections'] {
   if (!Array.isArray(sections)) return []
   return sections
     .map((section) => asRecord(section))
@@ -320,14 +319,12 @@ function parseSections(sections: unknown): LearnerCurriculumView["sections"] {
     .filter((section) => section.title.length > 0)
 }
 
-function parsePersonaSurfaces(
-  surfaces: string[] | undefined,
-): PersonaConfigOption["surfaces"] {
+function parsePersonaSurfaces(surfaces: string[] | undefined): PersonaConfigOption['surfaces'] {
   if (!surfaces || surfaces.length === 0) return [DEFAULT_PERSONA_SURFACE]
 
   const normalized = surfaces.filter(
-    (surface): surface is PersonaConfigOption["surfaces"][number] =>
-      surface === "curriculum" || surface === "editor" || surface === "figure",
+    (surface): surface is PersonaConfigOption['surfaces'][number] =>
+      surface === 'curriculum' || surface === 'editor' || surface === 'figure',
   )
 
   return normalized.length > 0 ? normalized : [DEFAULT_PERSONA_SURFACE]
@@ -335,9 +332,9 @@ function parsePersonaSurfaces(
 
 function parseDefaultSurface(
   value: string | undefined,
-  surfaces: PersonaConfigOption["surfaces"],
-): PersonaConfigOption["defaultSurface"] {
-  if (value === "curriculum" || value === "editor" || value === "figure") {
+  surfaces: PersonaConfigOption['surfaces'],
+): PersonaConfigOption['defaultSurface'] {
+  if (value === 'curriculum' || value === 'editor' || value === 'figure') {
     return value
   }
   return surfaces[0] ?? DEFAULT_PERSONA_SURFACE
@@ -349,20 +346,23 @@ function normalizeMcpStatusMap(input: McpStatusResponses[200]): McpStatusMap {
       name,
       {
         status: status.status,
-        ...("error" in status && typeof status.error === "string" ? { error: status.error } : {}),
+        ...('error' in status && typeof status.error === 'string' ? { error: status.error } : {}),
       },
     ]),
   )
 }
 
-function normalizeProviderSource(input: unknown, connected: boolean): ProviderInfo["source"] {
-  if (input === "env" || input === "config" || input === "custom" || input === "api") {
+function normalizeProviderSource(input: unknown, connected: boolean): ProviderInfo['source'] {
+  if (input === 'env' || input === 'config' || input === 'custom' || input === 'api') {
     return input
   }
-  return connected ? "api" : "custom"
+  return connected ? 'api' : 'custom'
 }
 
-function normalizeProviderModel(providerID: string, input: RawProviderModel): ProviderInfo["models"][number] {
+function normalizeProviderModel(
+  providerID: string,
+  input: RawProviderModel,
+): ProviderInfo['models'][number] {
   return {
     id: input.id,
     providerID,
@@ -370,7 +370,7 @@ function normalizeProviderModel(providerID: string, input: RawProviderModel): Pr
     family: input.family,
     releaseDate: input.release_date,
     variants: Object.keys(input.variants ?? {}).sort((a, b) => a.localeCompare(b)),
-    status: input.status ?? "active",
+    status: input.status ?? 'active',
     limit: {
       context: input.limit.context,
       input: input.limit.input,
@@ -410,7 +410,10 @@ function normalizeProviderCatalog(
     providers: providers.all
       .map((provider) => {
         const isConnected = connected.has(provider.id)
-        const source = normalizeProviderSource((provider as { source?: unknown }).source, isConnected)
+        const source = normalizeProviderSource(
+          (provider as { source?: unknown }).source,
+          isConnected,
+        )
 
         return {
           id: provider.id,
@@ -423,7 +426,7 @@ function normalizeProviderCatalog(
             label: method.label,
           })),
           models: Object.values(provider.models)
-            .filter((model) => model.status !== "deprecated")
+            .filter((model) => model.status !== 'deprecated')
             .map((model) => normalizeProviderModel(provider.id, model))
             .sort((a, b) => a.name.localeCompare(b.name)),
         }
@@ -434,7 +437,10 @@ function normalizeProviderCatalog(
 
 async function fetchProviderCatalog(directory: string) {
   const client = getBuddyClient(directory)
-  const [providerResult, authResult] = await Promise.all([client.provider.list(), client.provider.auth()])
+  const [providerResult, authResult] = await Promise.all([
+    client.provider.list(),
+    client.provider.auth(),
+  ])
 
   return normalizeProviderCatalog(
     requireBuddyData<ProviderListResponse>(providerResult),
@@ -452,14 +458,16 @@ export async function loadOpenProjects() {
 export async function openProject(directory: string) {
   const normalized = normalizeProjectDirectory(directory)
   if (!normalized) {
-    throw new Error("Please choose a notebook directory, not /")
+    throw new Error('Please choose a notebook directory, not /')
   }
 
-  const opened = requireBuddyData(await getBuddyClient().openProjects.open({ directory: normalized }))
+  const opened = requireBuddyData(
+    await getBuddyClient().openProjects.open({ directory: normalized }),
+  )
   const canonicalDirectory = normalizeProjectDirectory(opened.directory)
 
   if (!canonicalDirectory) {
-    throw new Error("Invalid notebook directory")
+    throw new Error('Invalid notebook directory')
   }
 
   useChatStore.getState().ensureOpenProject(canonicalDirectory)
@@ -483,7 +491,9 @@ export async function closeOpenProject(directory: string) {
   const normalized = normalizeProjectDirectory(directory)
   if (!normalized) return undefined
 
-  const closed = requireBuddyData(await getBuddyClient().openProjects.close({ directory: normalized }))
+  const closed = requireBuddyData(
+    await getBuddyClient().openProjects.close({ directory: normalized }),
+  )
   const canonicalDirectory = normalizeProjectDirectory(closed.directory)
   if (!canonicalDirectory) return undefined
 
@@ -493,7 +503,9 @@ export async function closeOpenProject(directory: string) {
 
 export async function reorderOpenProjects(directories: string[]) {
   const ordered = normalizeDirectoryList(directories)
-  const response = requireBuddyData(await getBuddyClient().openProjects.reorder({ directories: ordered }))
+  const response = requireBuddyData(
+    await getBuddyClient().openProjects.reorder({ directories: ordered }),
+  )
   const knownOpenProjects = normalizeDirectoryList(response.directories)
   useChatStore.getState().setOpenProjects(knownOpenProjects)
   return knownOpenProjects
@@ -502,7 +514,9 @@ export async function reorderOpenProjects(directories: string[]) {
 export async function loadSessions(directory: string) {
   const store = useChatStore.getState()
   try {
-    const sessions = requireBuddyData<SessionInfo[]>(await getBuddyClient(directory).session.list({ directory }))
+    const sessions = requireBuddyData<SessionInfo[]>(
+      await getBuddyClient(directory).session.list({ directory }),
+    )
     store.setSessions(directory, sessions)
     store.setDirectoryError(directory, undefined)
     return sessions
@@ -687,16 +701,16 @@ export async function sendPrompt(
   const state = store.directories[directory]
   const sessionID = state?.sessionID
   if (!sessionID) {
-    throw new Error("No session available")
+    throw new Error('No session available')
   }
 
   store.clearDirectoryError(directory)
-  store.applySessionStatus(directory, sessionID, "busy")
+  store.applySessionStatus(directory, sessionID, 'busy')
 
   try {
-    const intent = input?.intent ?? "auto"
+    const intent = input?.intent ?? 'auto'
 
-    console.info("[chat-action] prompt.start", {
+    console.info('[chat-action] prompt.start', {
       directory,
       contentLength: content.length,
       sessionID,
@@ -709,7 +723,9 @@ export async function sendPrompt(
         ...(input?.parts && input.parts.length > 0 ? { parts: input.parts } : {}),
         ...(input?.persona ? { persona: input.persona } : {}),
         intent,
-        ...(input?.focusGoalIds && input.focusGoalIds.length > 0 ? { focusGoalIds: input.focusGoalIds } : {}),
+        ...(input?.focusGoalIds && input.focusGoalIds.length > 0
+          ? { focusGoalIds: input.focusGoalIds }
+          : {}),
         ...(input?.agent ? { agent: input.agent } : {}),
         ...(input?.model ? { model: input.model } : {}),
         ...(input?.variant ? { variant: input.variant } : {}),
@@ -717,14 +733,14 @@ export async function sendPrompt(
       }),
     )
 
-    console.info("[chat-action] prompt.accepted", { directory, sessionID })
+    console.info('[chat-action] prompt.accepted', { directory, sessionID })
   } catch (error) {
-    console.error("[chat-action] prompt.failed", {
+    console.error('[chat-action] prompt.failed', {
       directory,
       sessionID,
       error: stringifyError(error),
     })
-    store.applySessionStatus(directory, sessionID, "idle")
+    store.applySessionStatus(directory, sessionID, 'idle')
     store.setDirectoryError(directory, stringifyError(error))
     void loadMessages(directory, sessionID).catch(() => undefined)
     void loadSessions(directory).catch(() => undefined)
@@ -752,14 +768,14 @@ export async function sendCommand(
   const state = store.directories[directory]
   const sessionID = state?.sessionID
   if (!sessionID) {
-    throw new Error("No session available")
+    throw new Error('No session available')
   }
 
   store.clearDirectoryError(directory)
-  store.applySessionStatus(directory, sessionID, "busy")
+  store.applySessionStatus(directory, sessionID, 'busy')
 
   try {
-    const intent = input?.intent ?? "auto"
+    const intent = input?.intent ?? 'auto'
 
     requireBuddyData(
       await getBuddyClient(directory).session.command({
@@ -770,14 +786,12 @@ export async function sendCommand(
         ...(input?.persona ? { persona: input.persona } : {}),
         intent,
         ...(input?.agent ? { agent: input.agent } : {}),
-        ...(input?.model
-          ? { model: `${input.model.providerID}/${input.model.modelID}` }
-          : {}),
+        ...(input?.model ? { model: `${input.model.providerID}/${input.model.modelID}` } : {}),
         ...(input?.variant ? { variant: input.variant } : {}),
       }),
     )
   } catch (error) {
-    store.applySessionStatus(directory, sessionID, "idle")
+    store.applySessionStatus(directory, sessionID, 'idle')
     store.setDirectoryError(directory, stringifyError(error))
     void loadMessages(directory, sessionID).catch(() => undefined)
     void loadSessions(directory).catch(() => undefined)
@@ -815,7 +829,7 @@ export async function abortPrompt(directory: string) {
         sessionID,
       }),
     )
-    if (aborted) store.applySessionStatus(directory, sessionID, "idle")
+    if (aborted) store.applySessionStatus(directory, sessionID, 'idle')
     // Always resync once after abort attempt so UI doesn't stay stale if server state drifted.
     void loadMessages(directory, sessionID).catch(() => undefined)
     void loadSessions(directory).catch(() => undefined)
@@ -841,7 +855,7 @@ export async function resyncDirectory(directory: string) {
 export async function replyPermission(input: {
   directory: string
   requestID: string
-  reply: "once" | "always" | "reject"
+  reply: 'once' | 'always' | 'reject'
   message?: string
 }) {
   const result = requireBuddyData(
@@ -905,7 +919,7 @@ export async function loadCurriculumView(
     generateDecision?: boolean
   },
 ) {
-  const intent = input?.intent ?? "auto"
+  const intent = input?.intent ?? 'auto'
 
   const result = requireBuddyData<LearnerPlanResponses[200]>(
     await getBuddyClient(directory).learner.plan({
@@ -917,7 +931,7 @@ export async function loadCurriculumView(
   )
   const snapshot = result.snapshot
   const plan = result.plan
-  const sessionPlan: LearnerCurriculumView["sessionPlan"] = {
+  const sessionPlan: LearnerCurriculumView['sessionPlan'] = {
     warmupReviewGoalIds: plan.warmupReviewGoalIds ?? [],
     primaryGoalId: plan.primaryGoalId,
     suggestedActivity: plan.suggestedActivity,
@@ -946,8 +960,8 @@ export async function loadCurriculumView(
 }
 
 function sortedPermissionKeys(
-  permissions: Record<string, "allow" | "deny">,
-  action: "allow" | "deny",
+  permissions: Record<string, 'allow' | 'deny'>,
+  action: 'allow' | 'deny',
 ) {
   return Object.entries(permissions)
     .filter(([, value]) => value === action)
@@ -956,8 +970,8 @@ function sortedPermissionKeys(
 }
 
 function sortedSubagentKeys(
-  permissions: Record<string, "allow" | "deny" | "prefer">,
-  action: "allow" | "deny" | "prefer",
+  permissions: Record<string, 'allow' | 'deny' | 'prefer'>,
+  action: 'allow' | 'deny' | 'prefer',
 ) {
   return Object.entries(permissions)
     .filter(([, value]) => value === action)
@@ -973,7 +987,7 @@ export async function loadRuntimeCapabilities(
     sessionID?: string
   },
 ) {
-  const requestedIntent = input?.intent ?? "auto"
+  const requestedIntent = input?.intent ?? 'auto'
 
   const snapshot = requireBuddyData<LearnerSnapshotResponses[200]>(
     await getBuddyClient(directory).learner.snapshot({
@@ -986,7 +1000,7 @@ export async function loadRuntimeCapabilities(
   const runtimeProfile = asRecord(snapshot.runtimeProfile)
   const envelope = asRecord(runtimeProfile?.capabilityEnvelope)
   if (!runtimeProfile || !envelope) {
-    throw new Error("Runtime capability profile is unavailable for this session.")
+    throw new Error('Runtime capability profile is unavailable for this session.')
   }
 
   const visibleSurfaces = asStringArray(envelope.visibleSurfaces).sort((left, right) =>
@@ -997,34 +1011,37 @@ export async function loadRuntimeCapabilities(
   const subagents = parseSubagentPermissions(envelope.subagents)
 
   return {
-    persona: asString(runtimeProfile.persona, toLearnerPersona(input?.persona) ?? "buddy"),
+    persona: asString(runtimeProfile.persona, toLearnerPersona(input?.persona) ?? 'buddy'),
     intent: snapshot.runtimeContext?.intent ?? requestedIntent,
-    workspaceState: snapshot.runtimeContext?.workspaceState ?? "chat",
+    workspaceState: snapshot.runtimeContext?.workspaceState ?? 'chat',
     visibleSurfaces,
-    defaultSurface: asString(envelope.defaultSurface, visibleSurfaces[0] ?? DEFAULT_PERSONA_SURFACE),
+    defaultSurface: asString(
+      envelope.defaultSurface,
+      visibleSurfaces[0] ?? DEFAULT_PERSONA_SURFACE,
+    ),
     tools: {
-      allow: sortedPermissionKeys(tools, "allow"),
-      deny: sortedPermissionKeys(tools, "deny"),
+      allow: sortedPermissionKeys(tools, 'allow'),
+      deny: sortedPermissionKeys(tools, 'deny'),
     },
     skills: {
-      allow: sortedPermissionKeys(skills, "allow"),
-      deny: sortedPermissionKeys(skills, "deny"),
+      allow: sortedPermissionKeys(skills, 'allow'),
+      deny: sortedPermissionKeys(skills, 'deny'),
     },
     subagents: {
-      prefer: sortedSubagentKeys(subagents, "prefer"),
-      allow: sortedSubagentKeys(subagents, "allow"),
-      deny: sortedSubagentKeys(subagents, "deny"),
+      prefer: sortedSubagentKeys(subagents, 'prefer'),
+      allow: sortedSubagentKeys(subagents, 'allow'),
+      deny: sortedSubagentKeys(subagents, 'deny'),
     },
   } satisfies LearnerRuntimeCapabilitiesView
 }
 
 export type GoalArtifact = {
   id: string
-  kind: "goal"
+  kind: 'goal'
   workspaceId: string
-  status: "active" | "archived"
+  status: 'active' | 'archived'
   setId?: string
-  scope: "course" | "topic"
+  scope: 'course' | 'topic'
   contextLabel: string
   learnerRequest: string
   rationaleSummary?: string
@@ -1047,8 +1064,8 @@ export type GoalArtifact = {
 export async function loadLearnerGoals(directory: string): Promise<{ goals: GoalArtifact[] }> {
   const result = requireBuddyData(
     await getBuddyClient(directory).learner.artifacts({
-      kind: "goal",
-      status: "active",
+      kind: 'goal',
+      status: 'active',
     }),
   )
   return {
@@ -1064,22 +1081,25 @@ export async function loadLearnerProgress(directory: string) {
 }
 
 export async function loadProjectConfig(directory: string) {
-  return requireBuddyData<ConfigGetResponses[200]>(await getBuddyClient(directory).config.get()) as Record<
-    string,
-    unknown
-  >
+  return requireBuddyData<ConfigGetResponses[200]>(
+    await getBuddyClient(directory).config.get(),
+  ) as Record<string, unknown>
 }
 
 export async function patchProjectConfig(directory: string, patch: Record<string, unknown>) {
-  const configPatch = patch as Partial<NonNullable<ConfigUpdateData["body"]>>
+  const configPatch = patch as Partial<NonNullable<ConfigUpdateData['body']>>
   const result = await getBuddyClient(directory).config.update({
     ...configPatch,
   })
   return requireBuddyData(result) as Record<string, unknown>
 }
 
-export async function saveProjectMcpConfig(directory: string, name: string, config: Record<string, unknown>) {
-  const body = config as ConfigMcpPutData["body"] extends infer T
+export async function saveProjectMcpConfig(
+  directory: string,
+  name: string,
+  config: Record<string, unknown>,
+) {
+  const body = config as ConfigMcpPutData['body'] extends infer T
     ? T extends McpLocalConfig | McpRemoteConfig
       ? T
       : never
@@ -1166,13 +1186,11 @@ export async function findWorkspaceFiles(
   if (!search) return [] as string[]
 
   const includeDirectories = input?.includeDirectories ?? true
-  const response = await getBuddyClient(directory).find.files(
-    {
-      query: search,
-      dirs: includeDirectories ? "true" : "false",
-      limit: input?.limit ?? 20,
-    },
-  )
+  const response = await getBuddyClient(directory).find.files({
+    query: search,
+    dirs: includeDirectories ? 'true' : 'false',
+    limit: input?.limit ?? 20,
+  })
 
   return requireBuddyData<FindFilesResponses[200]>(response)
 }
@@ -1181,7 +1199,7 @@ export function shouldDeferTranscriptReload(directory: string, sessionID?: strin
   const state = useChatStore.getState()
   const snapshot = state.directories[directory]
   if (!snapshot?.isBusy) return false
-  if (state.streamStatus !== "connected") return false
+  if (state.streamStatus !== 'connected') return false
   if (sessionID && snapshot.sessionID !== sessionID) return false
   return true
 }

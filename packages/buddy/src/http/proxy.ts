@@ -1,18 +1,18 @@
-import type { Context } from "hono"
-import { normalizeErrorResponse } from "./error-normalization"
-import { ensureAllowedDirectory } from "./directory"
-import { prepareProxyBody } from "./proxy/body"
-import { fetchOpenCode } from "./proxy/fetch"
-import type { ProxyToOpenCodeInput } from "./proxy/types"
+import type { Context } from 'hono'
+import { normalizeErrorResponse } from './error-normalization'
+import { ensureAllowedDirectory } from './directory'
+import { prepareProxyBody } from './proxy/body'
+import { fetchOpenCode } from './proxy/fetch'
+import type { ProxyToOpenCodeInput } from './proxy/types'
 
 function buildProxyQuery(url: URL, directory: string): string {
   const proxyParams = new URLSearchParams(url.searchParams)
-  if (proxyParams.has("directory")) {
-    proxyParams.set("directory", directory)
+  if (proxyParams.has('directory')) {
+    proxyParams.set('directory', directory)
   }
 
   const query = proxyParams.toString()
-  return query ? `?${query}` : ""
+  return query ? `?${query}` : ''
 }
 
 async function proxyToOpenCode(c: Context, input: ProxyToOpenCodeInput): Promise<Response> {
@@ -46,4 +46,4 @@ async function proxyToOpenCode(c: Context, input: ProxyToOpenCodeInput): Promise
 export { fetchOpenCode, proxyToOpenCode }
 export { prepareProxyBody }
 
-export type { ProxyToOpenCodeInput } from "./proxy/types"
+export type { ProxyToOpenCodeInput } from './proxy/types'

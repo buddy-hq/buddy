@@ -1,8 +1,8 @@
-import { resolveApiUrl } from "../../../lib/api-client"
-import type { ToolAttachment } from "../tools/registry"
+import { resolveApiUrl } from '../../../lib/api-client'
+import type { ToolAttachment } from '../tools/registry'
 
 function resolveAttachmentUrl(url: string) {
-  if (url.startsWith("data:") || url.startsWith("blob:")) {
+  if (url.startsWith('data:') || url.startsWith('blob:')) {
     return url
   }
   return resolveApiUrl(url)
@@ -19,9 +19,9 @@ export function ToolAttachmentGallery({ attachments }: ToolAttachmentGalleryProp
     <div className="mt-2 flex flex-wrap gap-2">
       {attachments.map((attachment) => {
         const url = resolveAttachmentUrl(attachment.url)
-        const label = attachment.filename ?? "attachment"
-        const isImage = attachment.mime.startsWith("image/")
-        const isPdf = attachment.mime === "application/pdf"
+        const label = attachment.filename ?? 'attachment'
+        const isImage = attachment.mime.startsWith('image/')
+        const isPdf = attachment.mime === 'application/pdf'
 
         if (isImage) {
           return (

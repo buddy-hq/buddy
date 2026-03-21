@@ -1,14 +1,14 @@
-import fsp from "node:fs/promises"
-import os from "node:os"
-import path from "node:path"
-import { Config } from "@buddy/backend/config"
-import { Config as OpenCodeConfig } from "@buddy/opencode-adapter/config"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { ensureOpenCodeProjectOverlay } from "@buddy/backend/config/runtime"
-import { fetchOpenCode } from "../../../http"
-import { SkillServiceError, type OpenCodeSkill } from "./contracts"
-import { loadManagedSkillFile } from "./documents"
-import { OPENCODE_SKILL_CACHE_ROOT, isWithinPath, managedSkillsRoot } from "./paths"
+import fsp from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
+import { Config } from '@buddy/backend/config'
+import { Config as OpenCodeConfig } from '@buddy/opencode-adapter/config'
+import { Instance as OpenCodeInstance } from '@buddy/opencode-adapter/instance'
+import { ensureOpenCodeProjectOverlay } from '@buddy/backend/config/runtime'
+import { fetchOpenCode } from '../../../http'
+import { SkillServiceError, type OpenCodeSkill } from './contracts'
+import { loadManagedSkillFile } from './documents'
+import { OPENCODE_SKILL_CACHE_ROOT, isWithinPath, managedSkillsRoot } from './paths'
 
 async function readDirectoryEntries(directory: string) {
   return fsp
@@ -29,7 +29,7 @@ async function collectSkillFiles(root: string) {
       continue
     }
 
-    if (entry.isFile() && entry.name === "SKILL.md") {
+    if (entry.isFile() && entry.name === 'SKILL.md') {
       matches.push(fullPath)
     }
   }
@@ -38,7 +38,9 @@ async function collectSkillFiles(root: string) {
 }
 
 function expandSkillPath(skillPath: string, directory: string) {
-  const expanded = skillPath.startsWith("~/") ? path.join(os.homedir(), skillPath.slice(2)) : skillPath
+  const expanded = skillPath.startsWith('~/')
+    ? path.join(os.homedir(), skillPath.slice(2))
+    : skillPath
   return path.isAbsolute(expanded) ? expanded : path.join(directory, expanded)
 }
 
@@ -68,14 +70,16 @@ async function appendSkillsFromRoot(root: string, skills: Map<string, OpenCodeSk
 async function loadCachedOpenCodeSkills(directory: string): Promise<OpenCodeSkill[]> {
   const response = await fetchOpenCode({
     directory,
-    method: "GET",
-    path: "/skill",
+    method: 'GET',
+    path: '/skill',
   })
 
   if (!response.ok) {
-    const payload = (await response.json().catch(() => undefined)) as { error?: string; message?: string } | undefined
+    const payload = (await response.json().catch(() => undefined)) as
+      | { error?: string; message?: string }
+      | undefined
     throw new SkillServiceError(
-      "upstream_failure",
+      'upstream_failure',
       payload?.error ?? payload?.message ?? `Failed to list skills (${response.status})`,
     )
   }
@@ -100,8 +104,8 @@ async function loadFreshLocalOpenCodeSkills(directory: string): Promise<OpenCode
   const skills = new Map<string, OpenCodeSkill>()
 
   for (const configDirectory of runtimeContext.configDirectories) {
-    await appendSkillsFromRoot(path.join(configDirectory, "skill"), skills)
-    await appendSkillsFromRoot(path.join(configDirectory, "skills"), skills)
+    await appendSkillsFromRoot(path.join(configDirectory, 'skill'), skills)
+    await appendSkillsFromRoot(path.join(configDirectory, 'skills'), skills)
   }
 
   for (const skillPath of runtimeContext.config.skills?.paths ?? []) {
@@ -116,11 +120,11 @@ function isCachedRemoteSkill(skill: OpenCodeSkill) {
   return isWithinPath(OPENCODE_SKILL_CACHE_ROOT, skill.location)
 }
 
-function mergeRefreshedOpenCodeSkills(cachedSkills: OpenCodeSkill[], freshLocalSkills: OpenCodeSkill[]) {
-  return mergeSkillsByName([
-    ...cachedSkills.filter(isCachedRemoteSkill),
-    ...freshLocalSkills,
-  ])
+function mergeRefreshedOpenCodeSkills(
+  cachedSkills: OpenCodeSkill[],
+  freshLocalSkills: OpenCodeSkill[],
+) {
+  return mergeSkillsByName([...cachedSkills.filter(isCachedRemoteSkill), ...freshLocalSkills])
 }
 
 async function loadBuddyManagedSkills() {
@@ -136,7 +140,7 @@ async function loadBuddyManagedSkills() {
 
     for (const skillDir of groupEntries) {
       if (!skillDir.isDirectory()) continue
-      const skill = await loadManagedSkillFile(path.join(groupPath, skillDir.name, "SKILL.md"))
+      const skill = await loadManagedSkillFile(path.join(groupPath, skillDir.name, 'SKILL.md'))
       if (skill) {
         skills.push(skill)
       }
@@ -158,7 +162,10 @@ async function loadOpenCodeSkills(directory: string, refresh: boolean | undefine
   return mergeRefreshedOpenCodeSkills(cachedSkills, freshLocalSkills)
 }
 
-function mergeOpenCodeAndManagedSkills(openCodeSkills: OpenCodeSkill[], managedSkills: OpenCodeSkill[]) {
+function mergeOpenCodeAndManagedSkills(
+  openCodeSkills: OpenCodeSkill[],
+  managedSkills: OpenCodeSkill[],
+) {
   const merged = new Map(openCodeSkills.map((skill) => [skill.name, skill]))
   for (const skill of managedSkills) {
     if (!merged.has(skill.name)) {
@@ -173,7 +180,7 @@ function isExternalVendorSkill(location: string) {
   for (let index = 0; index < segments.length - 1; index += 1) {
     const current = segments[index]
     const next = segments[index + 1]
-    if ((current === ".claude" || current === ".agents") && next === "skills") {
+    if ((current === '.claude' || current === '.agents') && next === 'skills') {
       return true
     }
   }

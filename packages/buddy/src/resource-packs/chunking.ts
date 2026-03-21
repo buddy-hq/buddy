@@ -1,5 +1,5 @@
-import matter from "gray-matter"
-import { RecursiveChunker } from "@chonkiejs/core"
+import matter from 'gray-matter'
+import { RecursiveChunker } from '@chonkiejs/core'
 import type {
   ResourceChunkFileRecord,
   ResourceChunkFileKind,
@@ -7,7 +7,7 @@ import type {
   ResourceChunkUnitKind,
   ResourceChunkUnitSeed,
   ResourceFormat,
-} from "./contracts"
+} from './contracts'
 import {
   RESOURCE_PACK_CHAPTER_MAX_CHARS,
   RESOURCE_PACK_CHAPTER_MAX_TOKENS,
@@ -38,7 +38,7 @@ import {
   RESOURCE_PACK_UNIT_KIND_PAGE_WINDOW,
   RESOURCE_PACK_UNIT_KIND_SECTION,
   estimateTokenCountFromText,
-} from "./chunking-config"
+} from './chunking-config'
 
 type ChunkThreshold = {
   maxTokens: number
@@ -62,21 +62,23 @@ export async function buildResourceChunkFiles(input: {
   const normalizedFullText = normalizeText(input.fullText)
   if (!normalizedFullText) return []
 
-  const seeds = input.chunkUnits && input.chunkUnits.length > 0
-    ? input.chunkUnits.filter((seed) => seed.text.trim().length > 0)
-    : deriveUnitSeedsFromFullText(normalizedFullText)
+  const seeds =
+    input.chunkUnits && input.chunkUnits.length > 0
+      ? input.chunkUnits.filter((seed) => seed.text.trim().length > 0)
+      : deriveUnitSeedsFromFullText(normalizedFullText)
 
-  const normalizedSeeds = seeds.length > 0
-    ? seeds
-    : [
-      {
-        unitKind: RESOURCE_PACK_UNIT_KIND_GENERIC,
-        unitTitle: "Chunk 1",
-        unitIndex: 1,
-        text: normalizedFullText,
-        splitReason: RESOURCE_PACK_SPLIT_REASON_FALLBACK_STRUCTURE,
-      } satisfies ResourceChunkUnitSeed,
-    ]
+  const normalizedSeeds =
+    seeds.length > 0
+      ? seeds
+      : [
+          {
+            unitKind: RESOURCE_PACK_UNIT_KIND_GENERIC,
+            unitTitle: 'Chunk 1',
+            unitIndex: 1,
+            text: normalizedFullText,
+            splitReason: RESOURCE_PACK_SPLIT_REASON_FALLBACK_STRUCTURE,
+          } satisfies ResourceChunkUnitSeed,
+        ]
 
   const chunkFiles: ResourceChunkFileRecord[] = []
   let genericIndex = 1
@@ -87,7 +89,7 @@ export async function buildResourceChunkFiles(input: {
 
     const threshold = chunkThresholdForUnit(seed.unitKind)
     const baseTitle = resolveUnitTitle(seed, seedIndex + 1)
-    const unitIndex = seed.unitIndex ?? (seedIndex + 1)
+    const unitIndex = seed.unitIndex ?? seedIndex + 1
     const parts = await splitSeedIntoParts(seed, threshold, { format: input.format })
     const partCount = parts.length
 
@@ -101,43 +103,41 @@ export async function buildResourceChunkFiles(input: {
       const prevPart = partIndex > 1 ? buildPartKey(unitIndex, partIndex - 1) : null
       const nextPart = partIndex < partCount ? buildPartKey(unitIndex, partIndex + 1) : null
       const fileKind = fileKindForUnit(seed.unitKind)
-      const filename = fileKind === RESOURCE_PACK_FILE_KIND_PAGE_WINDOW
-        ? buildPageWindowFilename({
-            pageStart: seed.pageStart ?? unitIndex,
-            pageEnd: seed.pageEnd ?? (seed.pageStart ?? unitIndex),
-            partIndex,
-            partCount,
-            estTokens,
-            chars,
-          })
-        : fileKind === RESOURCE_PACK_FILE_KIND_GENERIC_CHUNK
-          ? buildGenericFilename({
-              chunkIndex: genericIndex,
-              estTokens,
-              chars,
-            })
-          : buildUnitFilename({
-              unitIndex,
-              unitTitle: baseTitle,
+      const filename =
+        fileKind === RESOURCE_PACK_FILE_KIND_PAGE_WINDOW
+          ? buildPageWindowFilename({
+              pageStart: seed.pageStart ?? unitIndex,
+              pageEnd: seed.pageEnd ?? seed.pageStart ?? unitIndex,
               partIndex,
               partCount,
               estTokens,
               chars,
             })
+          : fileKind === RESOURCE_PACK_FILE_KIND_GENERIC_CHUNK
+            ? buildGenericFilename({
+                chunkIndex: genericIndex,
+                estTokens,
+                chars,
+              })
+            : buildUnitFilename({
+                unitIndex,
+                unitTitle: baseTitle,
+                partIndex,
+                partCount,
+                estTokens,
+                chars,
+              })
 
       if (fileKind === RESOURCE_PACK_FILE_KIND_GENERIC_CHUNK) {
         genericIndex += 1
       }
 
-      const label = partCount > 1
-        ? `${baseTitle} | Part ${partIndex}/${partCount} | chars=${chars} | est_tokens=${estTokens}`
-        : `${baseTitle} | chars=${chars} | est_tokens=${estTokens}`
+      const label =
+        partCount > 1
+          ? `${baseTitle} | Part ${partIndex}/${partCount} | chars=${chars} | est_tokens=${estTokens}`
+          : `${baseTitle} | chars=${chars} | est_tokens=${estTokens}`
 
-      const markdownBody = [
-        `# ${label}`,
-        "",
-        part.text.trim(),
-      ].join("\n")
+      const markdownBody = [`# ${label}`, '', part.text.trim()].join('\n')
 
       const frontmatter: Record<string, unknown> = {
         file_kind: fileKind,
@@ -185,7 +185,7 @@ function deriveUnitSeedsFromFullText(fullText: string): ResourceChunkUnitSeed[] 
   return [
     {
       unitKind: RESOURCE_PACK_UNIT_KIND_GENERIC,
-      unitTitle: "Chunk 1",
+      unitTitle: 'Chunk 1',
       unitIndex: 1,
       text: fullText,
       splitReason: RESOURCE_PACK_SPLIT_REASON_FALLBACK_STRUCTURE,
@@ -198,15 +198,15 @@ function splitMarkdownByHeadingLevel(
   level: number,
   splitReason?: ResourceChunkSplitReason,
 ): ResourceChunkUnitSeed[] {
-  const lines = normalizeText(fullText).split("\n")
+  const lines = normalizeText(fullText).split('\n')
   const units: ResourceChunkUnitSeed[] = []
-  const headingPrefix = `${"#".repeat(level)} `
-  let currentTitle = ""
+  const headingPrefix = `${'#'.repeat(level)} `
+  let currentTitle = ''
   let currentBody: string[] = []
   let fallbackIndex = 1
 
   const flushCurrent = () => {
-    const body = currentBody.join("\n").trim()
+    const body = currentBody.join('\n').trim()
     if (!body) {
       currentBody = []
       return
@@ -220,7 +220,7 @@ function splitMarkdownByHeadingLevel(
       splitReason,
     })
     currentBody = []
-    currentTitle = ""
+    currentTitle = ''
     fallbackIndex += 1
   }
 
@@ -237,15 +237,18 @@ function splitMarkdownByHeadingLevel(
   return units
 }
 
-function splitMarkdownByAnyHeading(fullText: string, splitReason?: ResourceChunkSplitReason): ResourceChunkUnitSeed[] {
-  const lines = normalizeText(fullText).split("\n")
+function splitMarkdownByAnyHeading(
+  fullText: string,
+  splitReason?: ResourceChunkSplitReason,
+): ResourceChunkUnitSeed[] {
+  const lines = normalizeText(fullText).split('\n')
   const units: ResourceChunkUnitSeed[] = []
-  let currentTitle = ""
+  let currentTitle = ''
   let currentBody: string[] = []
   let fallbackIndex = 1
 
   const flushCurrent = () => {
-    const body = currentBody.join("\n").trim()
+    const body = currentBody.join('\n').trim()
     if (!body) {
       currentBody = []
       return
@@ -259,7 +262,7 @@ function splitMarkdownByAnyHeading(fullText: string, splitReason?: ResourceChunk
       splitReason,
     })
     currentBody = []
-    currentTitle = ""
+    currentTitle = ''
     fallbackIndex += 1
   }
 
@@ -267,7 +270,7 @@ function splitMarkdownByAnyHeading(fullText: string, splitReason?: ResourceChunk
     const heading = line.match(/^#{1,6}\s+(.*)$/)
     if (heading) {
       flushCurrent()
-      currentTitle = (heading[1] ?? "").trim()
+      currentTitle = (heading[1] ?? '').trim()
       continue
     }
     currentBody.push(line)
@@ -288,7 +291,7 @@ async function splitSeedIntoParts(
     return [{ text: trimmed, splitReason: seed.splitReason ?? RESOURCE_PACK_SPLIT_REASON_INTACT }]
   }
 
-  if (input.format === "epub" && seed.unitKind === RESOURCE_PACK_UNIT_KIND_CHAPTER) {
+  if (input.format === 'epub' && seed.unitKind === RESOURCE_PACK_UNIT_KIND_CHAPTER) {
     const headingParts = splitByMarkdownHeadingBoundary(trimmed, threshold.maxChars)
     if (headingParts.length > 1) {
       return headingParts.map((text) => ({
@@ -340,7 +343,7 @@ function splitByMarkdownHeadingBoundary(text: string, maxChars: number): string[
     parts.push(part)
     cursor = headingBoundary
 
-    while (cursor < trimmed.length && /\s/.test(trimmed[cursor] ?? "")) {
+    while (cursor < trimmed.length && /\s/.test(trimmed[cursor] ?? '')) {
       cursor += 1
     }
   }
@@ -349,7 +352,7 @@ function splitByMarkdownHeadingBoundary(text: string, maxChars: number): string[
 }
 
 function collectMarkdownHeadingBoundaries(text: string): number[] {
-  const lines = text.split("\n")
+  const lines = text.split('\n')
   const boundaries: number[] = []
   let cursor = 0
 
@@ -368,7 +371,8 @@ function findHeadingBoundaryNearTarget(input: {
   target: number
   headingBoundaries: number[]
 }): number | undefined {
-  const minUsefulBoundary = input.cursor +
+  const minUsefulBoundary =
+    input.cursor +
     Math.floor((input.target - input.cursor) * RESOURCE_PACK_FALLBACK_MIN_BOUNDARY_RATIO)
   let candidate: number | undefined
 
@@ -386,7 +390,9 @@ function findHeadingBoundaryNearTarget(input: {
 async function splitWithRecursiveChunker(text: string, maxChars: number): Promise<string[]> {
   const chunker = await getRecursiveChunker(maxChars)
   const chunks = await chunker.chunk(text)
-  const chunkTexts = chunks.map((chunk) => normalizeText(chunk.text)).filter((entry) => entry.length > 0)
+  const chunkTexts = chunks
+    .map((chunk) => normalizeText(chunk.text))
+    .filter((entry) => entry.length > 0)
 
   if (chunkTexts.length > 1) return chunkTexts
   return splitByCharacterWindow(text, maxChars)
@@ -398,7 +404,7 @@ function getRecursiveChunker(maxChars: number): Promise<RecursiveChunker> {
 
   const created = RecursiveChunker.create({
     chunkSize: maxChars,
-    tokenizer: "character",
+    tokenizer: 'character',
     minCharactersPerChunk: RESOURCE_PACK_RECURSIVE_MIN_CHARS_PER_CHUNK,
   })
   recursiveChunkerCache.set(maxChars, created)
@@ -421,14 +427,14 @@ function splitByCharacterWindow(text: string, maxChars: number): string[] {
     }
 
     const target = cursor + maxChars
-    const boundaryByParagraph = trimmed.lastIndexOf("\n\n", target)
-    const boundaryByLine = trimmed.lastIndexOf("\n", target)
+    const boundaryByParagraph = trimmed.lastIndexOf('\n\n', target)
+    const boundaryByLine = trimmed.lastIndexOf('\n', target)
     const boundary = chooseSplitBoundary(cursor, target, boundaryByParagraph, boundaryByLine)
     const part = normalizeText(trimmed.slice(cursor, boundary))
     if (part) {
       parts.push(part)
       cursor = boundary
-      while (cursor < trimmed.length && /\s/.test(trimmed[cursor] ?? "")) {
+      while (cursor < trimmed.length && /\s/.test(trimmed[cursor] ?? '')) {
         cursor += 1
       }
       continue
@@ -453,7 +459,8 @@ function chooseSplitBoundary(
   paragraphBoundary: number,
   lineBoundary: number,
 ): number {
-  const minUsefulBoundary = cursor + Math.floor((target - cursor) * RESOURCE_PACK_FALLBACK_MIN_BOUNDARY_RATIO)
+  const minUsefulBoundary =
+    cursor + Math.floor((target - cursor) * RESOURCE_PACK_FALLBACK_MIN_BOUNDARY_RATIO)
   if (paragraphBoundary >= minUsefulBoundary) return paragraphBoundary
   if (lineBoundary >= minUsefulBoundary) return lineBoundary
   return target
@@ -501,15 +508,15 @@ function buildUnitFilename(input: {
   const titleSlug = slugify(input.unitTitle)
   const tokens = padNumber(input.estTokens, RESOURCE_PACK_FILENAME_TOKEN_PAD)
   const chars = padNumber(input.chars, RESOURCE_PACK_FILENAME_CHAR_PAD)
-  const partSuffix = input.partCount > 1
-    ? `-${RESOURCE_PACK_FILENAME_PART_LABEL}-${padNumber(input.partIndex, RESOURCE_PACK_FILENAME_INDEX_PAD)}-${RESOURCE_PACK_FILENAME_OF_LABEL}-${padNumber(input.partCount, RESOURCE_PACK_FILENAME_INDEX_PAD)}`
-    : ""
+  const partSuffix =
+    input.partCount > 1
+      ? `-${RESOURCE_PACK_FILENAME_PART_LABEL}-${padNumber(input.partIndex, RESOURCE_PACK_FILENAME_INDEX_PAD)}-${RESOURCE_PACK_FILENAME_OF_LABEL}-${padNumber(input.partCount, RESOURCE_PACK_FILENAME_INDEX_PAD)}`
+      : ''
 
-  return [
-    RESOURCE_PACK_UNIT_FILE_PREFIX,
-    unitIndex,
-    titleSlug,
-  ].join("-") + `${partSuffix}-${RESOURCE_PACK_FILENAME_TOKEN_LABEL}-${tokens}-${RESOURCE_PACK_FILENAME_CHAR_LABEL}-${chars}.md`
+  return (
+    [RESOURCE_PACK_UNIT_FILE_PREFIX, unitIndex, titleSlug].join('-') +
+    `${partSuffix}-${RESOURCE_PACK_FILENAME_TOKEN_LABEL}-${tokens}-${RESOURCE_PACK_FILENAME_CHAR_LABEL}-${chars}.md`
+  )
 }
 
 function buildPageWindowFilename(input: {
@@ -520,29 +527,31 @@ function buildPageWindowFilename(input: {
   estTokens: number
   chars: number
 }) {
-  const partSuffix = input.partCount > 1
-    ? `-${RESOURCE_PACK_FILENAME_PART_LABEL}-${padNumber(input.partIndex, RESOURCE_PACK_FILENAME_INDEX_PAD)}-${RESOURCE_PACK_FILENAME_OF_LABEL}-${padNumber(input.partCount, RESOURCE_PACK_FILENAME_INDEX_PAD)}`
-    : ""
-  return [
-    RESOURCE_PACK_PAGE_WINDOW_FILE_PREFIX,
-    padNumber(input.pageStart, RESOURCE_PACK_FILENAME_PAGE_PAD),
-    padNumber(input.pageEnd, RESOURCE_PACK_FILENAME_PAGE_PAD),
-  ].join("-") + `${partSuffix}-${RESOURCE_PACK_FILENAME_TOKEN_LABEL}-${padNumber(input.estTokens, RESOURCE_PACK_FILENAME_TOKEN_PAD)}-${RESOURCE_PACK_FILENAME_CHAR_LABEL}-${padNumber(input.chars, RESOURCE_PACK_FILENAME_CHAR_PAD)}.md`
+  const partSuffix =
+    input.partCount > 1
+      ? `-${RESOURCE_PACK_FILENAME_PART_LABEL}-${padNumber(input.partIndex, RESOURCE_PACK_FILENAME_INDEX_PAD)}-${RESOURCE_PACK_FILENAME_OF_LABEL}-${padNumber(input.partCount, RESOURCE_PACK_FILENAME_INDEX_PAD)}`
+      : ''
+  return (
+    [
+      RESOURCE_PACK_PAGE_WINDOW_FILE_PREFIX,
+      padNumber(input.pageStart, RESOURCE_PACK_FILENAME_PAGE_PAD),
+      padNumber(input.pageEnd, RESOURCE_PACK_FILENAME_PAGE_PAD),
+    ].join('-') +
+    `${partSuffix}-${RESOURCE_PACK_FILENAME_TOKEN_LABEL}-${padNumber(input.estTokens, RESOURCE_PACK_FILENAME_TOKEN_PAD)}-${RESOURCE_PACK_FILENAME_CHAR_LABEL}-${padNumber(input.chars, RESOURCE_PACK_FILENAME_CHAR_PAD)}.md`
+  )
 }
 
-function buildGenericFilename(input: {
-  chunkIndex: number
-  estTokens: number
-  chars: number
-}) {
-  return [
-    RESOURCE_PACK_GENERIC_FILE_PREFIX,
-    padNumber(input.chunkIndex, RESOURCE_PACK_FILENAME_INDEX_PAD),
-    RESOURCE_PACK_FILENAME_TOKEN_LABEL,
-    padNumber(input.estTokens, RESOURCE_PACK_FILENAME_TOKEN_PAD),
-    RESOURCE_PACK_FILENAME_CHAR_LABEL,
-    padNumber(input.chars, RESOURCE_PACK_FILENAME_CHAR_PAD),
-  ].join("-") + ".md"
+function buildGenericFilename(input: { chunkIndex: number; estTokens: number; chars: number }) {
+  return (
+    [
+      RESOURCE_PACK_GENERIC_FILE_PREFIX,
+      padNumber(input.chunkIndex, RESOURCE_PACK_FILENAME_INDEX_PAD),
+      RESOURCE_PACK_FILENAME_TOKEN_LABEL,
+      padNumber(input.estTokens, RESOURCE_PACK_FILENAME_TOKEN_PAD),
+      RESOURCE_PACK_FILENAME_CHAR_LABEL,
+      padNumber(input.chars, RESOURCE_PACK_FILENAME_CHAR_PAD),
+    ].join('-') + '.md'
+  )
 }
 
 function buildPartKey(unitIndex: number, partIndex: number) {
@@ -550,20 +559,20 @@ function buildPartKey(unitIndex: number, partIndex: number) {
 }
 
 function padNumber(value: number, width: number) {
-  return String(Math.max(0, Math.trunc(value))).padStart(width, "0")
+  return String(Math.max(0, Math.trunc(value))).padStart(width, '0')
 }
 
 function slugify(value: string) {
   const normalized = value
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
 
   const limited = normalized.slice(0, RESOURCE_PACK_TITLE_SLUG_MAX_CHARS)
-  return limited.length > 0 ? limited : "unit"
+  return limited.length > 0 ? limited : 'unit'
 }
 
 function normalizeText(value: string) {
-  return value.replace(/\r\n/g, "\n").trim()
+  return value.replace(/\r\n/g, '\n').trim()
 }

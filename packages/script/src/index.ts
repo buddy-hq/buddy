@@ -1,20 +1,22 @@
-import { $, semver } from "bun"
-import path from "node:path"
+import { $, semver } from 'bun'
+import path from 'node:path'
 
-const rootPkgPath = path.resolve(import.meta.dir, "../../../package.json")
-const rootPkg = await Bun.file(rootPkgPath).json() as {
+const rootPkgPath = path.resolve(import.meta.dir, '../../../package.json')
+const rootPkg = (await Bun.file(rootPkgPath).json()) as {
   packageManager?: string
 }
-const expectedBunVersion = rootPkg.packageManager?.split("@")[1]
+const expectedBunVersion = rootPkg.packageManager?.split('@')[1]
 
 if (!expectedBunVersion) {
-  throw new Error("packageManager field not found in root package.json")
+  throw new Error('packageManager field not found in root package.json')
 }
 
 const expectedBunVersionRange = `^${expectedBunVersion}`
 
 if (!semver.satisfies(process.versions.bun, expectedBunVersionRange)) {
-  throw new Error(`This script requires bun@${expectedBunVersionRange}, but you are using bun@${process.versions.bun}`)
+  throw new Error(
+    `This script requires bun@${expectedBunVersionRange}, but you are using bun@${process.versions.bun}`,
+  )
 }
 
 const env = {
@@ -25,11 +27,11 @@ const env = {
 }
 
 function releaseRepo() {
-  return process.env.BUDDY_REPO || process.env.GITHUB_REPOSITORY || "prashantbhudwal/buddy"
+  return process.env.BUDDY_REPO || process.env.GITHUB_REPOSITORY || 'prashantbhudwal/buddy'
 }
 
 function normalizeVersion(input: string) {
-  const trimmed = input.trim().replace(/^v/, "")
+  const trimmed = input.trim().replace(/^v/, '')
   if (!/^\d+\.\d+\.\d+$/.test(trimmed)) {
     throw new Error(`Invalid version: ${input}`)
   }
@@ -37,7 +39,7 @@ function normalizeVersion(input: string) {
 }
 
 function githubTagVersion() {
-  if (process.env.GITHUB_REF_TYPE !== "tag") {
+  if (process.env.GITHUB_REF_TYPE !== 'tag') {
     return undefined
   }
 
@@ -51,15 +53,16 @@ function githubTagVersion() {
 
 async function getLatestReleaseVersion() {
   const repo = releaseRepo()
-  const releases = await $`gh release list --repo ${repo} --json tagName,isDraft,isPrerelease --limit 100`.json() as Array<{
-    isDraft: boolean
-    isPrerelease: boolean
-    tagName: string
-  }>
+  const releases =
+    (await $`gh release list --repo ${repo} --json tagName,isDraft,isPrerelease --limit 100`.json()) as Array<{
+      isDraft: boolean
+      isPrerelease: boolean
+      tagName: string
+    }>
 
   for (const release of releases) {
     if (release.isDraft || release.isPrerelease) continue
-    const tag = release.tagName.replace(/^v/, "")
+    const tag = release.tagName.replace(/^v/, '')
     if (!/^\d+\.\d+\.\d+$/.test(tag)) continue
     return tag
   }
@@ -68,21 +71,23 @@ async function getLatestReleaseVersion() {
 }
 
 function bumpVersion(version: string, bump: string | undefined) {
-  const [major, minor, patch] = normalizeVersion(version).split(".").map((value) => Number.parseInt(value, 10))
+  const [major, minor, patch] = normalizeVersion(version)
+    .split('.')
+    .map((value) => Number.parseInt(value, 10))
 
-  switch ((bump ?? "patch").toLowerCase()) {
-    case "major":
+  switch ((bump ?? 'patch').toLowerCase()) {
+    case 'major':
       return `${major + 1}.0.0`
-    case "minor":
+    case 'minor':
       return `${major}.${minor + 1}.0`
-    case "patch":
+    case 'patch':
       return `${major}.${minor}.${patch + 1}`
     default:
       throw new Error(`Invalid BUDDY_BUMP value: ${bump}`)
   }
 }
 
-const CHANNEL = "latest"
+const CHANNEL = 'latest'
 const IS_PREVIEW = false
 
 const VERSION = await (async () => {
@@ -101,7 +106,7 @@ const VERSION = await (async () => {
 
   const latest = await getLatestReleaseVersion()
   if (!latest) {
-    return "0.1.0"
+    return '0.1.0'
   }
 
   return bumpVersion(latest, env.BUDDY_BUMP)

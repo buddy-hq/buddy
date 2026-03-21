@@ -1,5 +1,5 @@
-import { getPlatform } from "../context/platform"
-import { getServerConnection } from "../context/server"
+import { getPlatform } from '../context/platform'
+import { getServerConnection } from '../context/server'
 
 type FetchInput = Parameters<typeof fetch>[0]
 type FetchInit = Parameters<typeof fetch>[1]
@@ -7,15 +7,15 @@ type FetchInit = Parameters<typeof fetch>[1]
 export function resolveServerApiBaseUrl() {
   const server = getServerConnection()
   if (server.url) {
-    return `${server.url.replace(/\/+$/, "")}/api`
+    return `${server.url.replace(/\/+$/, '')}/api`
   }
 
-  const origin = typeof window !== "undefined" ? window.location.origin : ""
-  if (origin && origin !== "null") {
-    return `${origin.replace(/\/+$/, "")}/api`
+  const origin = typeof window !== 'undefined' ? window.location.origin : ''
+  if (origin && origin !== 'null') {
+    return `${origin.replace(/\/+$/, '')}/api`
   }
 
-  return "http://localhost/api"
+  return 'http://localhost/api'
 }
 
 export function resolveServerEndpoint(endpoint: string) {
@@ -43,7 +43,7 @@ function toRelativeUrl(url: string, useRelativeTransportUrls: boolean) {
   if (!useRelativeTransportUrls) return url
   try {
     const parsed = new URL(url)
-    if (parsed.origin === "http://localhost") {
+    if (parsed.origin === 'http://localhost') {
       return `${parsed.pathname}${parsed.search}`
     }
   } catch {
@@ -55,12 +55,12 @@ function toRelativeUrl(url: string, useRelativeTransportUrls: boolean) {
 export function createServerFetchTransport(baseUrl: string) {
   const transport = getPlatform().fetch ?? fetch
   const useRelativeTransportUrls =
-    baseUrl === "http://localhost/api" &&
-    typeof window !== "undefined" &&
-    window.location.origin === "null"
+    baseUrl === 'http://localhost/api' &&
+    typeof window !== 'undefined' &&
+    window.location.origin === 'null'
 
   return async (input: FetchInput, init?: FetchInit) => {
-    if (typeof input === "string") {
+    if (typeof input === 'string') {
       return transport(toRelativeUrl(input, useRelativeTransportUrls), init)
     }
     if (input instanceof URL) {
@@ -68,10 +68,7 @@ export function createServerFetchTransport(baseUrl: string) {
     }
     if (input instanceof Request && useRelativeTransportUrls) {
       const method = input.method.toUpperCase()
-      const body =
-        method === "GET" || method === "HEAD"
-          ? undefined
-          : await input.clone().text()
+      const body = method === 'GET' || method === 'HEAD' ? undefined : await input.clone().text()
 
       return transport(toRelativeUrl(input.url, true), {
         method,

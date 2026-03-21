@@ -1,28 +1,19 @@
-import {
-  Button,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@buddy/ui";
-import { resolveDefaultPersonaID } from "@/state/chat-actions";
-import type { LogLevel } from "@/state/project-settings";
-import { useProjectSettings } from "@/state/project-settings";
-import { SettingsListCard, SettingsRow } from "./settings-primitives";
-import { SettingsPanelContent } from "./settings-page";
+import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@buddy/ui'
+import { resolveDefaultPersonaID } from '@/state/chat-actions'
+import type { LogLevel } from '@/state/project-settings'
+import { useProjectSettings } from '@/state/project-settings'
+import { SettingsListCard, SettingsRow } from './settings-primitives'
+import { SettingsPanelContent } from './settings-page'
 
-const DEFAULT_VALUE = "__default__";
+const DEFAULT_VALUE = '__default__'
 
 export function NotebookSettings({ directory }: { directory: string }) {
-  const settings = useProjectSettings(directory, true);
+  const settings = useProjectSettings(directory, true)
 
   const personaSelectValue =
-    resolveDefaultPersonaID(
-      settings.options.personas,
-      settings.selection.persona || undefined,
-    ) || "buddy";
-  const logLevelSelectValue = settings.selection.logLevel || DEFAULT_VALUE;
+    resolveDefaultPersonaID(settings.options.personas, settings.selection.persona || undefined) ||
+    'buddy'
+  const logLevelSelectValue = settings.selection.logLevel || DEFAULT_VALUE
 
   return (
     <SettingsPanelContent
@@ -35,7 +26,7 @@ export function NotebookSettings({ directory }: { directory: string }) {
           onClick={() => void settings.actions.save()}
           disabled={settings.status.loading || settings.status.saving}
         >
-          {settings.status.saving ? "Saving..." : "Save changes"}
+          {settings.status.saving ? 'Saving...' : 'Save changes'}
         </Button>
       </div>
 
@@ -69,9 +60,7 @@ export function NotebookSettings({ directory }: { directory: string }) {
             <Select
               value={settings.selection.intent}
               onValueChange={(value) =>
-                settings.actions.setIntent(
-                  value as "auto" | "learn" | "practice" | "assess",
-                )
+                settings.actions.setIntent(value as 'auto' | 'learn' | 'practice' | 'assess')
               }
               disabled={settings.status.loading}
             >
@@ -95,9 +84,7 @@ export function NotebookSettings({ directory }: { directory: string }) {
             <Select
               value={logLevelSelectValue}
               onValueChange={(value) =>
-                settings.actions.setLogLevel(
-                  value === DEFAULT_VALUE ? "" : (value as LogLevel),
-                )
+                settings.actions.setLogLevel(value === DEFAULT_VALUE ? '' : (value as LogLevel))
               }
               disabled={settings.status.loading}
             >
@@ -106,9 +93,7 @@ export function NotebookSettings({ directory }: { directory: string }) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={DEFAULT_VALUE}>Default</SelectItem>
-                {import.meta.env.DEV && (
-                  <SelectItem value="debug">debug</SelectItem>
-                )}
+                {import.meta.env.DEV && <SelectItem value="debug">debug</SelectItem>}
                 <SelectItem value="info">info</SelectItem>
                 <SelectItem value="warn">warn</SelectItem>
                 <SelectItem value="error">error</SelectItem>
@@ -118,5 +103,5 @@ export function NotebookSettings({ directory }: { directory: string }) {
         />
       </SettingsListCard>
     </SettingsPanelContent>
-  );
+  )
 }

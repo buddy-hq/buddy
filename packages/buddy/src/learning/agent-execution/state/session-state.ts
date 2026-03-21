@@ -1,6 +1,6 @@
-import { realpathSync } from "node:fs"
-import { resolve } from "node:path"
-import type { TeachingSessionState } from "../../shared/teaching-session-state"
+import { realpathSync } from 'node:fs'
+import { resolve } from 'node:path'
+import type { TeachingSessionState } from '../../shared/teaching-session-state'
 
 const RUNTIME_STATE_LIMIT = 512
 const runtimeState = new Map<string, TeachingSessionState>()
@@ -30,7 +30,10 @@ function evictOldestEntriesIfNeeded() {
   }
 }
 
-export function readTeachingSessionState(directory: string, sessionId: string): TeachingSessionState | undefined {
+export function readTeachingSessionState(
+  directory: string,
+  sessionId: string,
+): TeachingSessionState | undefined {
   const key = sessionKey(directory, sessionId)
   const state = runtimeState.get(key)
   if (!state) return undefined

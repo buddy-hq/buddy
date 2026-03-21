@@ -10,7 +10,10 @@ type Entry<T> = {
   touchedAt: number
 }
 
-export function createScopedCache<T>(createValue: (key: string) => T, options: ScopedCacheOptions<T> = {}) {
+export function createScopedCache<T>(
+  createValue: (key: string) => T,
+  options: ScopedCacheOptions<T> = {},
+) {
   const store = new Map<string, Entry<T>>()
   const now = options.now ?? Date.now
 

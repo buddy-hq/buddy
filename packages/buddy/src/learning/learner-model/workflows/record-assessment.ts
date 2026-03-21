@@ -1,8 +1,8 @@
-import { LearnerArtifactPath } from "../repository/path"
-import { hashDecisionInput } from "../repository/bridge"
-import { LearnerArtifactStore } from "../repository/store"
-import { LearnerSnapshotCompiler } from "../projections/snapshot"
-import { LearnerDecisionService } from "../decisions/service"
+import { LearnerArtifactPath } from '../repository/path'
+import { hashDecisionInput } from '../repository/bridge'
+import { LearnerArtifactStore } from '../repository/store'
+import { LearnerSnapshotCompiler } from '../projections/snapshot'
+import { LearnerDecisionService } from '../decisions/service'
 import {
   createEvidenceArtifact,
   ensureGoalIds,
@@ -10,22 +10,31 @@ import {
   nowIso,
   normalizeList,
   normalizeText,
-} from "./helpers"
-import { applyFeedbackDecision } from "./feedback-decision"
-import { ensureWorkspaceContext } from "./workspace"
+} from './helpers'
+import { applyFeedbackDecision } from './feedback-decision'
+import { ensureWorkspaceContext } from './workspace'
 
-function evidenceOutcomeFromAssessmentResult(result: "demonstrated" | "partial" | "not-demonstrated") {
-  if (result === "demonstrated") return "positive" as const
-  if (result === "partial") return "mixed" as const
-  return "negative" as const
+function evidenceOutcomeFromAssessmentResult(
+  result: 'demonstrated' | 'partial' | 'not-demonstrated',
+) {
+  if (result === 'demonstrated') return 'positive' as const
+  if (result === 'partial') return 'mixed' as const
+  return 'negative' as const
 }
 
 export async function recordAssessmentEvent(input: {
   directory: string
   goalIds: string[]
-  format: "concept-check" | "predict-outcome" | "debug-task" | "build-task" | "review-task" | "explain-reasoning" | "transfer-task"
+  format:
+    | 'concept-check'
+    | 'predict-outcome'
+    | 'debug-task'
+    | 'build-task'
+    | 'review-task'
+    | 'explain-reasoning'
+    | 'transfer-task'
   summary: string
-  result: "demonstrated" | "partial" | "not-demonstrated"
+  result: 'demonstrated' | 'partial' | 'not-demonstrated'
   learnerResponseSummary?: string
   evidenceCriteria?: string[]
   followUpAction?: string
@@ -42,9 +51,9 @@ export async function recordAssessmentEvent(input: {
   const now = nowIso()
   const assessmentId = nextId()
 
-  await LearnerArtifactStore.upsertArtifact(input.directory, "assessment", {
+  await LearnerArtifactStore.upsertArtifact(input.directory, 'assessment', {
     id: assessmentId,
-    kind: "assessment",
+    kind: 'assessment',
     workspaceId: workspace.workspaceId,
     goalIds: [...input.goalIds],
     sessionId: input.sessionId,
@@ -64,7 +73,7 @@ export async function recordAssessmentEvent(input: {
     directory: input.directory,
     workspace,
     goalIds: input.goalIds,
-    sourceKind: "assessment",
+    sourceKind: 'assessment',
     outcome: evidenceOutcomeFromAssessmentResult(input.result),
     summary: input.summary,
     sourceRefId: assessmentId,
@@ -74,22 +83,24 @@ export async function recordAssessmentEvent(input: {
   const snapshot = await LearnerSnapshotCompiler.compile({
     directory: input.directory,
     query: {
-      persona: "buddy",
-      intent: "assess",
+      persona: 'buddy',
+      intent: 'assess',
       focusGoalIds: input.goalIds,
       sessionId: input.sessionId,
     },
   })
 
-  const decisionHash = hashDecisionInput([
-    workspace.workspaceId,
-    "assessment",
-    assessmentId,
-    input.goalIds.join(","),
-    input.summary,
-    input.result,
-    snapshot.markdown,
-  ].join("::"))
+  const decisionHash = hashDecisionInput(
+    [
+      workspace.workspaceId,
+      'assessment',
+      assessmentId,
+      input.goalIds.join(','),
+      input.summary,
+      input.result,
+      snapshot.markdown,
+    ].join('::'),
+  )
 
   const decision = await LearnerDecisionService.generateAssessmentFeedback({
     directory: input.directory,
@@ -104,14 +115,14 @@ export async function recordAssessmentEvent(input: {
     directory: input.directory,
     workspace,
     goalIds: input.goalIds,
-    sourceKind: "assessment",
+    sourceKind: 'assessment',
     sourceRefId: assessmentId,
     decisionHash,
     decision,
   })
 
   return {
-    filePath: LearnerArtifactPath.artifactFile(input.directory, "assessment", assessmentId),
+    filePath: LearnerArtifactPath.artifactFile(input.directory, 'assessment', assessmentId),
     assessmentId,
     evidenceId: evidence.id,
     feedbackId,

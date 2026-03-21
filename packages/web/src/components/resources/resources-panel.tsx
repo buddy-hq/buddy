@@ -1,5 +1,5 @@
-import type { CSSProperties } from "react"
-import { useEffect, useMemo, useState } from "react"
+import type { CSSProperties } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,7 +20,7 @@ import {
   DropdownMenuTrigger,
   EllipsisIcon,
   Skeleton,
-} from "@buddy/ui"
+} from '@buddy/ui'
 import {
   FileIcon,
   FileTextIcon,
@@ -31,7 +31,7 @@ import {
   AlertCircleIcon,
   FileCodeIcon,
   FileArchiveIcon,
-} from "lucide-react"
+} from 'lucide-react'
 import {
   addResource,
   loadResources,
@@ -39,8 +39,8 @@ import {
   removeResource,
   renameResource,
   type ResourceRecord,
-} from "@/state/resource-actions"
-import { pickResourceFilePath } from "../../lib/resource-file-picker"
+} from '@/state/resource-actions'
+import { pickResourceFilePath } from '../../lib/resource-file-picker'
 
 type ResourcesPanelProps = {
   directory: string
@@ -50,27 +50,29 @@ type ResourcesPanelProps = {
 }
 
 const RESOURCE_AUTO_REFRESH_INTERVAL_MS = 1500
-const RESOURCE_STATUS_PREPARING = "preparing" as const
+const RESOURCE_STATUS_PREPARING = 'preparing' as const
 
 function titleCaseLabel(value: string) {
   return value
-    .split("-")
+    .split('-')
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ")
+    .join(' ')
 }
 
-function statusVariant(status: ResourceRecord["status"]): "secondary" | "outline" | "destructive" {
-  if (status === "ready") return "secondary"
-  if (status === "error") return "destructive"
-  return "outline"
+function statusVariant(status: ResourceRecord['status']): 'secondary' | 'outline' | 'destructive' {
+  if (status === 'ready') return 'secondary'
+  if (status === 'error') return 'destructive'
+  return 'outline'
 }
 
 function ResourceIcon({ format }: { format: string }) {
   const f = format.toLowerCase()
-  if (['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'].includes(f)) return <ImageIcon className="size-4" />
+  if (['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'].includes(f))
+    return <ImageIcon className="size-4" />
   if (['txt', 'md', 'mdx', 'csv'].includes(f)) return <FileTextIcon className="size-4" />
-  if (['json', 'js', 'ts', 'jsx', 'tsx', 'html', 'css', 'py', 'rs', 'go'].includes(f)) return <FileCodeIcon className="size-4" />
+  if (['json', 'js', 'ts', 'jsx', 'tsx', 'html', 'css', 'py', 'rs', 'go'].includes(f))
+    return <FileCodeIcon className="size-4" />
   if (['zip', 'tar', 'gz'].includes(f)) return <FileArchiveIcon className="size-4" />
   return <FileIcon className="size-4" />
 }
@@ -100,7 +102,9 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | undefined>(undefined)
   const [busyKey, setBusyKey] = useState<string | undefined>(undefined)
-  const [resourcePendingRemoval, setResourcePendingRemoval] = useState<ResourceRecord | undefined>(undefined)
+  const [resourcePendingRemoval, setResourcePendingRemoval] = useState<ResourceRecord | undefined>(
+    undefined,
+  )
 
   async function refreshResources(input?: { silent?: boolean }) {
     const silent = input?.silent === true
@@ -184,16 +188,29 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
   }
 
   return (
-    <div className={`flex h-full min-h-0 flex-col gap-3 p-3 ${props.className ?? ""}`} style={props.style}>
+    <div
+      className={`flex h-full min-h-0 flex-col gap-3 p-3 ${props.className ?? ''}`}
+      style={props.style}
+    >
       <div className="flex items-start justify-between gap-3 pb-2">
         <div className="min-w-0 space-y-1.5">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground leading-none">Resources</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground leading-none">
+            Resources
+          </p>
           <p className="text-xs text-muted-foreground line-clamp-2">
-            Add notebook-local resource packs, refresh their extracted content, and keep aliases stable.
+            Add notebook-local resource packs, refresh their extracted content, and keep aliases
+            stable.
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
-          <Button variant="ghost" size="sm" className="px-2" onClick={() => void refreshResources()} disabled={loading} title="Refresh resources">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="px-2"
+            onClick={() => void refreshResources()}
+            disabled={loading}
+            title="Refresh resources"
+          >
             <RefreshCwIcon className={`size-4 ${loading ? 'animate-spin' : ''}`} />
           </Button>
           <Button size="sm" onClick={() => void onAddResource()} disabled={loading}>
@@ -214,7 +231,11 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
           sortedResources.map((resource) => {
             const isBusy = busyKey === resource.id
             return (
-              <Card key={resource.id} size="sm" className="relative group gap-0 py-0 transition-colors hover:border-border hover:bg-accent/5">
+              <Card
+                key={resource.id}
+                size="sm"
+                className="relative group gap-0 py-0 transition-colors hover:border-border hover:bg-accent/5"
+              >
                 <CardContent className="px-4 py-3">
                   <div className="flex min-w-0 flex-1 items-start gap-4 pr-6">
                     <div className="flex size-10 shrink-0 flex-col items-center justify-between overflow-hidden rounded-md border border-border/50 bg-muted/40 pt-2 text-muted-foreground">
@@ -225,10 +246,17 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
                     </div>
                     <div className="min-w-0 flex-1 space-y-1.5">
                       <div className="flex items-center gap-2">
-                        <p className="truncate text-sm font-medium leading-none">{resource.alias}</p>
-                        {resource.status !== "ready" && (
-                          <Badge variant={statusVariant(resource.status)} className="flex shrink-0 items-center gap-1">
-                            {resource.status === RESOURCE_STATUS_PREPARING && <Loader2Icon className="size-3 animate-spin" />}
+                        <p className="truncate text-sm font-medium leading-none">
+                          {resource.alias}
+                        </p>
+                        {resource.status !== 'ready' && (
+                          <Badge
+                            variant={statusVariant(resource.status)}
+                            className="flex shrink-0 items-center gap-1"
+                          >
+                            {resource.status === RESOURCE_STATUS_PREPARING && (
+                              <Loader2Icon className="size-3 animate-spin" />
+                            )}
                             {titleCaseLabel(resource.status)}
                           </Badge>
                         )}
@@ -242,7 +270,10 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
                             </span>
                           ) : resource.preparedAt ? (
                             <p className="text-[11px] text-muted-foreground">
-                              {new Date(resource.preparedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
+                              {new Date(resource.preparedAt).toLocaleString(undefined, {
+                                dateStyle: 'medium',
+                                timeStyle: 'short',
+                              })}
                             </p>
                           ) : null}
                         </div>
@@ -253,9 +284,9 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
                   <div className="absolute right-1.5 top-1.5 flex items-center gap-0.5">
                     <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
                       {resource.status === 'error' && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           className="size-7 p-0 text-muted-foreground hover:text-foreground"
                           onClick={() => {
                             void runResourceAction(resource.id, async () => {
@@ -284,7 +315,9 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem
                           onSelect={() => {
-                            const nextAlias = window.prompt("Rename resource", resource.alias)?.trim()
+                            const nextAlias = window
+                              .prompt('Rename resource', resource.alias)
+                              ?.trim()
                             if (!nextAlias || nextAlias === resource.alias) return
                             void runResourceAction(resource.id, async () => {
                               await renameResource(props.directory, {
@@ -338,7 +371,12 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
             <p className="mt-1.5 max-w-[200px] text-xs text-muted-foreground">
               Add notebook-local resource packs to give Buddy more context.
             </p>
-            <Button size="sm" className="mt-5" onClick={() => void onAddResource()} disabled={loading}>
+            <Button
+              size="sm"
+              className="mt-5"
+              onClick={() => void onAddResource()}
+              disabled={loading}
+            >
               <PlusIcon className="mr-1.5 size-4" />
               Add Resource
             </Button>
@@ -358,18 +396,23 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
             <AlertDialogDescription className="break-all text-left">
               {resourcePendingRemoval ? (
                 <>
-                  Remove{" "}
-                  <span className="font-mono">
-                    "{resourcePendingRemoval.alias}"
-                  </span>{" "}
-                  and delete its files from notebook resources?
+                  Remove <span className="font-mono">"{resourcePendingRemoval.alias}"</span> and
+                  delete its files from notebook resources?
                 </>
-              ) : "Remove this resource and delete its files?"}
+              ) : (
+                'Remove this resource and delete its files?'
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel variant="outline" size="default">Cancel</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" size="default" onClick={() => void confirmRemovePendingResource()}>
+            <AlertDialogCancel variant="outline" size="default">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              size="default"
+              onClick={() => void confirmRemovePendingResource()}
+            >
               Remove
             </AlertDialogAction>
           </AlertDialogFooter>

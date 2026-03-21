@@ -1,11 +1,15 @@
-import { Hono } from "hono"
-import { describeRoute, resolver, validator } from "hono-openapi"
-import { mapConfigRouteError } from "@buddy/backend/config/orchestration"
-import { Config } from "@buddy/backend/config"
-import z from "zod"
-import { mapAgentsMdConflictError, readGlobalAgentsMd, saveGlobalAgentsMd } from "../agents-md/service"
-import { booleanJsonResponse, routeErrors, runRouteTask } from "../http"
-import { proxyToOpenCode } from "../http"
+import { Hono } from 'hono'
+import { describeRoute, resolver, validator } from 'hono-openapi'
+import { mapConfigRouteError } from '@buddy/backend/config/orchestration'
+import { Config } from '@buddy/backend/config'
+import z from 'zod'
+import {
+  mapAgentsMdConflictError,
+  readGlobalAgentsMd,
+  saveGlobalAgentsMd,
+} from '../agents-md/service'
+import { booleanJsonResponse, routeErrors, runRouteTask } from '../http'
+import { proxyToOpenCode } from '../http'
 
 const globalAgentsMdReadResponseSchema = z.object({
   path: z.string(),
@@ -26,119 +30,119 @@ const globalAgentsMdWriteResponseSchema = z.object({
 })
 
 export const GlobalRoutes = new Hono()
-    .get(
-      "/config",
-      describeRoute({
-        operationId: "global.config.get",
-        summary: "Get global config",
-        responses: {
-          200: {
-            description: "Global configuration payload",
-            content: {
-              "application/json": { schema: resolver(Config.Info) },
-            },
-          },
-          ...routeErrors(400),
-        },
-      }),
-      async (c) =>
-        runRouteTask({
-          task: async () => c.json(await Config.getGlobal()),
-          mapError: mapConfigRouteError,
-        }),
-    )
-    .patch(
-      "/config",
-      describeRoute({
-        operationId: "global.config.patch",
-        summary: "Update global config",
-        responses: {
-          200: {
-            description: "Updated global configuration",
-            content: {
-              "application/json": { schema: resolver(Config.Info) },
-            },
-          },
-          ...routeErrors(400),
-        },
-      }),
-      validator("json", Config.Info),
-      async (c) =>
-        runRouteTask({
-          task: async () => c.json(await Config.updateGlobal(c.req.valid("json"))),
-          mapError: mapConfigRouteError,
-        }),
-    )
-    .post(
-      "/dispose",
-      describeRoute({
-        operationId: "global.dispose",
-        summary: "Dispose all global runtime instances",
-        responses: {
-          200: {
-            description: "Disposal response",
-            content: {
-              "application/json": booleanJsonResponse,
-            },
+  .get(
+    '/config',
+    describeRoute({
+      operationId: 'global.config.get',
+      summary: 'Get global config',
+      responses: {
+        200: {
+          description: 'Global configuration payload',
+          content: {
+            'application/json': { schema: resolver(Config.Info) },
           },
         },
+        ...routeErrors(400),
+      },
+    }),
+    async (c) =>
+      runRouteTask({
+        task: async () => c.json(await Config.getGlobal()),
+        mapError: mapConfigRouteError,
       }),
-      async (c) =>
-        proxyToOpenCode(c, {
-          targetPath: "/global/dispose",
-        }),
-    )
-    .get(
-      "/agents-md",
-      describeRoute({
-        operationId: "global.agentsMd.read",
-        summary: "Read global AGENTS.md",
-        responses: {
-          200: {
-            description: "Global AGENTS.md state",
-            content: {
-              "application/json": {
-                schema: resolver(globalAgentsMdReadResponseSchema),
-              },
+  )
+  .patch(
+    '/config',
+    describeRoute({
+      operationId: 'global.config.patch',
+      summary: 'Update global config',
+      responses: {
+        200: {
+          description: 'Updated global configuration',
+          content: {
+            'application/json': { schema: resolver(Config.Info) },
+          },
+        },
+        ...routeErrors(400),
+      },
+    }),
+    validator('json', Config.Info),
+    async (c) =>
+      runRouteTask({
+        task: async () => c.json(await Config.updateGlobal(c.req.valid('json'))),
+        mapError: mapConfigRouteError,
+      }),
+  )
+  .post(
+    '/dispose',
+    describeRoute({
+      operationId: 'global.dispose',
+      summary: 'Dispose all global runtime instances',
+      responses: {
+        200: {
+          description: 'Disposal response',
+          content: {
+            'application/json': booleanJsonResponse,
+          },
+        },
+      },
+    }),
+    async (c) =>
+      proxyToOpenCode(c, {
+        targetPath: '/global/dispose',
+      }),
+  )
+  .get(
+    '/agents-md',
+    describeRoute({
+      operationId: 'global.agentsMd.read',
+      summary: 'Read global AGENTS.md',
+      responses: {
+        200: {
+          description: 'Global AGENTS.md state',
+          content: {
+            'application/json': {
+              schema: resolver(globalAgentsMdReadResponseSchema),
             },
           },
         },
+      },
+    }),
+    async (c) =>
+      runRouteTask({
+        task: async () => c.json(await readGlobalAgentsMd()),
+        mapError: mapAgentsMdConflictError,
       }),
-      async (c) =>
-        runRouteTask({
-          task: async () => c.json(await readGlobalAgentsMd()),
-          mapError: mapAgentsMdConflictError,
-        }),
-    )
-    .put(
-      "/agents-md",
-      describeRoute({
-        operationId: "global.agentsMd.save",
-        summary: "Create or update global AGENTS.md",
-        responses: {
-          200: {
-            description: "Updated global AGENTS.md",
-            content: {
-              "application/json": {
-                schema: resolver(globalAgentsMdWriteResponseSchema),
-              },
+  )
+  .put(
+    '/agents-md',
+    describeRoute({
+      operationId: 'global.agentsMd.save',
+      summary: 'Create or update global AGENTS.md',
+      responses: {
+        200: {
+          description: 'Updated global AGENTS.md',
+          content: {
+            'application/json': {
+              schema: resolver(globalAgentsMdWriteResponseSchema),
             },
           },
-          ...routeErrors(400, 409),
         },
+        ...routeErrors(400, 409),
+      },
+    }),
+    validator('json', globalAgentsMdWriteBodySchema),
+    async (c) =>
+      runRouteTask({
+        task: async () => {
+          const payload = c.req.valid('json')
+          return c.json(
+            await saveGlobalAgentsMd({
+              content: payload.content,
+              expectedVersion: payload.expectedVersion,
+            }),
+          )
+        },
+        mapError: mapAgentsMdConflictError,
       }),
-      validator("json", globalAgentsMdWriteBodySchema),
-      async (c) =>
-        runRouteTask({
-          task: async () => {
-            const payload = c.req.valid("json")
-            return c.json(
-              await saveGlobalAgentsMd({
-                content: payload.content,
-                expectedVersion: payload.expectedVersion,
-              }),
-            )
-          },
-          mapError: mapAgentsMdConflictError,
-        }),
-    )
+  )

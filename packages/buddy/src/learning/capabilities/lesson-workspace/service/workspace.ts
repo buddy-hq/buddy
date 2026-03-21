@@ -1,7 +1,7 @@
-import { createHash } from "node:crypto"
-import fs from "node:fs/promises"
-import path from "node:path"
-import { TeachingPath } from "../paths/path"
+import { createHash } from 'node:crypto'
+import fs from 'node:fs/promises'
+import path from 'node:path'
+import { TeachingPath } from '../paths/path'
 import type {
   TeachingDiagnostic,
   TeachingLanguage,
@@ -9,33 +9,33 @@ import type {
   TeachingWorkspaceFileRecord,
   TeachingWorkspaceRecord,
   TeachingWorkspaceResponse,
-} from "../model/types"
-import { TeachingWorkspaceRecordSchema } from "../model/types"
+} from '../model/types'
+import { TeachingWorkspaceRecordSchema } from '../model/types'
 
 export type ResolvedTeachingFile = TeachingWorkspaceFile & {
   fileHash: string
 }
 
 export function hashContent(value: string) {
-  return createHash("sha1").update(value).digest("hex")
+  return createHash('sha1').update(value).digest('hex')
 }
 
 function isNotFoundError(error: unknown) {
   return (
-    typeof error === "object" &&
+    typeof error === 'object' &&
     error !== null &&
-    "code" in error &&
-    (error as { code?: unknown }).code === "ENOENT"
+    'code' in error &&
+    (error as { code?: unknown }).code === 'ENOENT'
   )
 }
 
 export function initialCode() {
-  return ""
+  return ''
 }
 
 async function readFileIfPresent(filepath: string) {
   try {
-    return await fs.readFile(filepath, "utf8")
+    return await fs.readFile(filepath, 'utf8')
   } catch (error) {
     if (isNotFoundError(error)) {
       return undefined
@@ -44,18 +44,18 @@ async function readFileIfPresent(filepath: string) {
   }
 }
 
-export async function readFileOrDefault(filepath: string, fallback = "") {
+export async function readFileOrDefault(filepath: string, fallback = '') {
   return (await readFileIfPresent(filepath)) ?? fallback
 }
 
 export async function writeRecord(directory: string, record: TeachingWorkspaceRecord) {
   const filepath = TeachingPath.metadata(directory, record.sessionID)
-  await fs.writeFile(filepath, JSON.stringify(record, null, 2), "utf8")
+  await fs.writeFile(filepath, JSON.stringify(record, null, 2), 'utf8')
 }
 
 async function readRecordRaw(directory: string, sessionID: string) {
   const filepath = TeachingPath.metadata(directory, sessionID)
-  const raw = await fs.readFile(filepath, "utf8").catch(() => undefined)
+  const raw = await fs.readFile(filepath, 'utf8').catch(() => undefined)
   if (!raw) return undefined
 
   const parsed = JSON.parse(raw) as unknown
@@ -95,11 +95,19 @@ function normalizeTrackedFiles(record: TeachingWorkspaceRecord) {
   ]
 }
 
-export function resolveFile(directory: string, sessionID: string, file: TeachingWorkspaceFileRecord): ResolvedTeachingFile {
+export function resolveFile(
+  directory: string,
+  sessionID: string,
+  file: TeachingWorkspaceFileRecord,
+): ResolvedTeachingFile {
   return {
     relativePath: file.relativePath,
     filePath: TeachingPath.workspaceFile(directory, sessionID, file.relativePath),
-    checkpointFilePath: TeachingPath.checkpointSnapshotFile(directory, sessionID, file.relativePath),
+    checkpointFilePath: TeachingPath.checkpointSnapshotFile(
+      directory,
+      sessionID,
+      file.relativePath,
+    ),
     language: TeachingPath.languageFromRelativePath(file.relativePath),
     fileHash: file.fileHash,
   }
@@ -114,11 +122,10 @@ function getActiveResolvedFile(directory: string, record: TeachingWorkspaceRecor
   const resolvedFiles = resolveFiles(directory, record)
   const activeRelativePath = record.activeRelativePath
   const active =
-    resolvedFiles.find((file) => file.relativePath === activeRelativePath) ??
-    resolvedFiles[0]
+    resolvedFiles.find((file) => file.relativePath === activeRelativePath) ?? resolvedFiles[0]
 
   if (!active) {
-    throw new Error("Teaching workspace has no tracked files")
+    throw new Error('Teaching workspace has no tracked files')
   }
 
   return {
@@ -168,15 +175,22 @@ async function migrateLegacyRecord(directory: string, record: TeachingWorkspaceR
 
   const relativePath = buildDefaultRelativePath(record.language)
   const nextLessonFilePath = TeachingPath.workspaceFile(directory, record.sessionID, relativePath)
-  const nextCheckpointFilePath = TeachingPath.checkpointSnapshotFile(directory, record.sessionID, relativePath)
+  const nextCheckpointFilePath = TeachingPath.checkpointSnapshotFile(
+    directory,
+    record.sessionID,
+    relativePath,
+  )
   const lessonCode = await readFileOrDefault(record.lessonFilePath, initialCode())
   const checkpointCode = await readFileOrDefault(record.checkpointFilePath, lessonCode)
   const nextFileHash = hashContent(lessonCode)
 
-  await Promise.all([ensureParentDirectory(nextLessonFilePath), ensureParentDirectory(nextCheckpointFilePath)])
   await Promise.all([
-    fs.writeFile(nextLessonFilePath, lessonCode, "utf8"),
-    fs.writeFile(nextCheckpointFilePath, checkpointCode, "utf8"),
+    ensureParentDirectory(nextLessonFilePath),
+    ensureParentDirectory(nextCheckpointFilePath),
+  ])
+  await Promise.all([
+    fs.writeFile(nextLessonFilePath, lessonCode, 'utf8'),
+    fs.writeFile(nextCheckpointFilePath, checkpointCode, 'utf8'),
   ])
 
   if (record.lessonFilePath !== nextLessonFilePath) {
@@ -222,8 +236,16 @@ export async function syncRecord(directory: string, record: TeachingWorkspaceRec
   const nextFiles = (
     await Promise.all(
       files.map(async (file) => {
-        const filePath = TeachingPath.workspaceFile(directory, normalized.sessionID, file.relativePath)
-        const checkpointFilePath = TeachingPath.checkpointSnapshotFile(directory, normalized.sessionID, file.relativePath)
+        const filePath = TeachingPath.workspaceFile(
+          directory,
+          normalized.sessionID,
+          file.relativePath,
+        )
+        const checkpointFilePath = TeachingPath.checkpointSnapshotFile(
+          directory,
+          normalized.sessionID,
+          file.relativePath,
+        )
         const code = await readFileIfPresent(filePath)
         if (code === undefined) {
           changed = true
@@ -248,15 +270,26 @@ export async function syncRecord(directory: string, record: TeachingWorkspaceRec
 
   if (nextFiles.length === 0) {
     const fallbackRelativePath = buildDefaultRelativePath(normalized.language)
-    const fallbackFilePath = TeachingPath.workspaceFile(directory, normalized.sessionID, fallbackRelativePath)
-    const fallbackCheckpointPath = TeachingPath.checkpointSnapshotFile(directory, normalized.sessionID, fallbackRelativePath)
+    const fallbackFilePath = TeachingPath.workspaceFile(
+      directory,
+      normalized.sessionID,
+      fallbackRelativePath,
+    )
+    const fallbackCheckpointPath = TeachingPath.checkpointSnapshotFile(
+      directory,
+      normalized.sessionID,
+      fallbackRelativePath,
+    )
     const fallbackCode = initialCode()
     const fallbackHash = hashContent(fallbackCode)
 
-    await Promise.all([ensureParentDirectory(fallbackFilePath), ensureParentDirectory(fallbackCheckpointPath)])
     await Promise.all([
-      fs.writeFile(fallbackFilePath, fallbackCode, "utf8"),
-      fs.writeFile(fallbackCheckpointPath, fallbackCode, "utf8"),
+      ensureParentDirectory(fallbackFilePath),
+      ensureParentDirectory(fallbackCheckpointPath),
+    ])
+    await Promise.all([
+      fs.writeFile(fallbackFilePath, fallbackCode, 'utf8'),
+      fs.writeFile(fallbackCheckpointPath, fallbackCode, 'utf8'),
     ])
 
     nextFiles.push({
@@ -268,7 +301,8 @@ export async function syncRecord(directory: string, record: TeachingWorkspaceRec
   }
 
   const activeRelativePath =
-    normalized.activeRelativePath && nextFiles.some((file) => file.relativePath === normalized.activeRelativePath)
+    normalized.activeRelativePath &&
+    nextFiles.some((file) => file.relativePath === normalized.activeRelativePath)
       ? normalized.activeRelativePath
       : nextFiles[0]?.relativePath
 
@@ -299,7 +333,11 @@ export async function syncRecord(directory: string, record: TeachingWorkspaceRec
   }
 
   if (!activeCode && nextRecord.activeRelativePath) {
-    const activePath = TeachingPath.workspaceFile(directory, nextRecord.sessionID, nextRecord.activeRelativePath)
+    const activePath = TeachingPath.workspaceFile(
+      directory,
+      nextRecord.sessionID,
+      nextRecord.activeRelativePath,
+    )
     activeCode = await readFileOrDefault(activePath, initialCode())
   }
 
@@ -342,8 +380,16 @@ export function toWorkspaceResponse(input: {
     checkpointFilePath: input.record.checkpointFilePath,
     files: input.record.files!.map((file) => ({
       relativePath: file.relativePath,
-      filePath: TeachingPath.workspaceFile(input.directory, input.record.sessionID, file.relativePath),
-      checkpointFilePath: TeachingPath.checkpointSnapshotFile(input.directory, input.record.sessionID, file.relativePath),
+      filePath: TeachingPath.workspaceFile(
+        input.directory,
+        input.record.sessionID,
+        file.relativePath,
+      ),
+      checkpointFilePath: TeachingPath.checkpointSnapshotFile(
+        input.directory,
+        input.record.sessionID,
+        file.relativePath,
+      ),
       language: TeachingPath.languageFromRelativePath(file.relativePath),
     })),
     activeRelativePath: input.record.activeRelativePath!,

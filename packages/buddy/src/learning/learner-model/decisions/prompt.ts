@@ -1,12 +1,12 @@
-import type { LearnerSnapshot } from "../projections/snapshot"
+import type { LearnerSnapshot } from '../projections/snapshot'
 
 function trimLine(value: string) {
-  return value.trim().replace(/\s+/g, " ")
+  return value.trim().replace(/\s+/g, ' ')
 }
 
 function goalLines(snapshot: LearnerSnapshot) {
   if (snapshot.goals.length === 0) {
-    return ["- No active goals."]
+    return ['- No active goals.']
   }
 
   return snapshot.goals.slice(0, 8).map((goal) => `- ${goal.id}: ${trimLine(goal.statement)}`)
@@ -14,27 +14,23 @@ function goalLines(snapshot: LearnerSnapshot) {
 
 function feedbackLines(snapshot: LearnerSnapshot) {
   if (snapshot.openFeedback.length === 0) {
-    return ["- No open feedback actions."]
+    return ['- No open feedback actions.']
   }
 
-  return snapshot.openFeedback
-    .slice(0, 8)
-    .map((record) => `- ${trimLine(record.requiredAction)}`)
+  return snapshot.openFeedback.slice(0, 8).map((record) => `- ${trimLine(record.requiredAction)}`)
 }
 
 function misconceptionLines(snapshot: LearnerSnapshot) {
   if (snapshot.activeMisconceptions.length === 0) {
-    return ["- No active misconceptions."]
+    return ['- No active misconceptions.']
   }
 
-  return snapshot.activeMisconceptions
-    .slice(0, 8)
-    .map((record) => `- ${trimLine(record.summary)}`)
+  return snapshot.activeMisconceptions.slice(0, 8).map((record) => `- ${trimLine(record.summary)}`)
 }
 
 function evidenceLines(snapshot: LearnerSnapshot) {
   if (snapshot.recentEvidence.length === 0) {
-    return ["- No recent evidence."]
+    return ['- No recent evidence.']
   }
 
   return snapshot.recentEvidence
@@ -45,12 +41,12 @@ function evidenceLines(snapshot: LearnerSnapshot) {
 export function buildInterpretMessageSystemPrompt() {
   return [
     "You are Buddy's learner interpretation engine.",
-    "Interpret the learner message semantically, not with deterministic keyword rules.",
-    "Return strict JSON matching the schema.",
+    'Interpret the learner message semantically, not with deterministic keyword rules.',
+    'Return strict JSON matching the schema.',
     "If this message does not justify learner-state mutation, set disposition='abstain'.",
-    "Set replyMode to one of: reply-only, update-state, ask-question.",
-    "Only include createEvidence/createMisconception when state mutation is justified by this message.",
-  ].join("\n")
+    'Set replyMode to one of: reply-only, update-state, ask-question.',
+    'Only include createEvidence/createMisconception when state mutation is justified by this message.',
+  ].join('\n')
 }
 
 export function buildInterpretMessageUserPrompt(input: {
@@ -60,37 +56,37 @@ export function buildInterpretMessageUserPrompt(input: {
   sessionId?: string
 }) {
   return [
-    "Interpret this learner message in context.",
-    "",
+    'Interpret this learner message in context.',
+    '',
     `Workspace: ${input.snapshot.workspace.label}`,
-    `Session: ${input.sessionId ?? "unknown"}`,
-    `Focus goal IDs: ${input.focusGoalIds.length > 0 ? input.focusGoalIds.join(", ") : "none provided"}`,
-    "",
-    "Active goals:",
+    `Session: ${input.sessionId ?? 'unknown'}`,
+    `Focus goal IDs: ${input.focusGoalIds.length > 0 ? input.focusGoalIds.join(', ') : 'none provided'}`,
+    '',
+    'Active goals:',
     ...goalLines(input.snapshot),
-    "",
-    "Open feedback:",
+    '',
+    'Open feedback:',
     ...feedbackLines(input.snapshot),
-    "",
-    "Active misconceptions:",
+    '',
+    'Active misconceptions:',
     ...misconceptionLines(input.snapshot),
-    "",
-    "Recent evidence:",
+    '',
+    'Recent evidence:',
     ...evidenceLines(input.snapshot),
-    "",
-    "Learner message:",
+    '',
+    'Learner message:',
     input.message,
-  ].join("\n")
+  ].join('\n')
 }
 
 export function buildPlanSystemPrompt() {
   return [
     "You are Buddy's learner planning engine.",
-    "Choose the next best learning move using current learner artifacts.",
-    "Do not use deterministic scorecards or heuristic sequencing.",
-    "If evidence is insufficient, you may abstain.",
-    "When applying, output a concrete plan aligned to current goals and constraints.",
-  ].join("\n")
+    'Choose the next best learning move using current learner artifacts.',
+    'Do not use deterministic scorecards or heuristic sequencing.',
+    'If evidence is insufficient, you may abstain.',
+    'When applying, output a concrete plan aligned to current goals and constraints.',
+  ].join('\n')
 }
 
 export function buildPlanUserPrompt(input: {
@@ -99,32 +95,30 @@ export function buildPlanUserPrompt(input: {
   sessionId?: string
 }) {
   return [
-    "Create the next learning plan decision.",
-    "",
+    'Create the next learning plan decision.',
+    '',
     `Workspace: ${input.snapshot.workspace.label}`,
-    `Session: ${input.sessionId ?? "unknown"}`,
-    `Focus goal IDs: ${input.focusGoalIds.length > 0 ? input.focusGoalIds.join(", ") : "none provided"}`,
-    "",
-    "Snapshot markdown:",
+    `Session: ${input.sessionId ?? 'unknown'}`,
+    `Focus goal IDs: ${input.focusGoalIds.length > 0 ? input.focusGoalIds.join(', ') : 'none provided'}`,
+    '',
+    'Snapshot markdown:',
     input.snapshot.markdown,
-  ].join("\n")
+  ].join('\n')
 }
 
-export function buildFeedbackSystemPrompt(input: {
-  source: "practice" | "assessment"
-}) {
+export function buildFeedbackSystemPrompt(input: { source: 'practice' | 'assessment' }) {
   return [
     `You are Buddy's ${input.source} feedback decision engine.`,
-    "Decide whether to emit a new feedback record and whether existing feedback should close.",
-    "Use only evidence in provided context.",
-    "Do not infer closure unless the latest artifact explicitly supports it.",
-    "Return strict JSON matching the schema.",
-  ].join("\n")
+    'Decide whether to emit a new feedback record and whether existing feedback should close.',
+    'Use only evidence in provided context.',
+    'Do not infer closure unless the latest artifact explicitly supports it.',
+    'Return strict JSON matching the schema.',
+  ].join('\n')
 }
 
 export function buildFeedbackUserPrompt(input: {
   snapshot: LearnerSnapshot
-  source: "practice" | "assessment"
+  source: 'practice' | 'assessment'
   summary: string
   outcome: string
   goalIds: string[]
@@ -132,21 +126,21 @@ export function buildFeedbackUserPrompt(input: {
   return [
     `Source: ${input.source}`,
     `Outcome: ${input.outcome}`,
-    `Goal IDs: ${input.goalIds.join(", ")}`,
-    "",
-    "Latest artifact summary:",
+    `Goal IDs: ${input.goalIds.join(', ')}`,
+    '',
+    'Latest artifact summary:',
     input.summary,
-    "",
-    "Open feedback:",
+    '',
+    'Open feedback:',
     ...feedbackLines(input.snapshot),
-    "",
-    "Active misconceptions:",
+    '',
+    'Active misconceptions:',
     ...misconceptionLines(input.snapshot),
-    "",
-    "Recent evidence:",
+    '',
+    'Recent evidence:',
     ...evidenceLines(input.snapshot),
-    "",
-    "Snapshot:",
+    '',
+    'Snapshot:',
     input.snapshot.markdown,
-  ].join("\n")
+  ].join('\n')
 }

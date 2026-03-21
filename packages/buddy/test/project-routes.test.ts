@@ -1,19 +1,19 @@
-import { describe, expect, test } from "bun:test"
-import path from "node:path"
-import { mkdirSync, realpathSync } from "node:fs"
-import { app } from "../src/index.ts"
-import { createGitRepo } from "./helpers/repo"
+import { describe, expect, test } from 'bun:test'
+import path from 'node:path'
+import { mkdirSync, realpathSync } from 'node:fs'
+import { app } from '../src/index.ts'
+import { createGitRepo } from './helpers/repo'
 
-describe("project routes", () => {
-  test("returns the canonical project for nested directories", async () => {
-    const repo = createGitRepo("buddy-route-project-current")
+describe('project routes', () => {
+  test('returns the canonical project for nested directories', async () => {
+    const repo = createGitRepo('buddy-route-project-current')
     const canonicalRepo = realpathSync(repo)
-    const nested = path.join(repo, "nested")
+    const nested = path.join(repo, 'nested')
     mkdirSync(nested, { recursive: true })
 
-    const response = await app.request("/api/project/current", {
+    const response = await app.request('/api/project/current', {
       headers: {
-        "x-buddy-directory": nested,
+        'x-buddy-directory': nested,
       },
     })
 
@@ -24,13 +24,13 @@ describe("project routes", () => {
     })
   })
 
-  test("lists and updates projects with the vendored project payload", async () => {
-    const repo = createGitRepo("buddy-route-project-list")
+  test('lists and updates projects with the vendored project payload', async () => {
+    const repo = createGitRepo('buddy-route-project-list')
     const canonicalRepo = realpathSync(repo)
 
-    const currentResponse = await app.request("/api/project/current", {
+    const currentResponse = await app.request('/api/project/current', {
       headers: {
-        "x-buddy-directory": repo,
+        'x-buddy-directory': repo,
       },
     })
 
@@ -41,7 +41,7 @@ describe("project routes", () => {
       name?: string
     }
 
-    const listResponse = await app.request("/api/project")
+    const listResponse = await app.request('/api/project')
     expect(listResponse.status).toBe(200)
     const list = (await listResponse.json()) as Array<{
       id: string
@@ -50,15 +50,17 @@ describe("project routes", () => {
     }>
 
     expect(Array.isArray(list)).toBe(true)
-    expect(list.some((project) => project.id === current.id && project.worktree === canonicalRepo)).toBe(true)
+    expect(
+      list.some((project) => project.id === current.id && project.worktree === canonicalRepo),
+    ).toBe(true)
 
     const updateResponse = await app.request(`/api/project/${encodeURIComponent(current.id)}`, {
-      method: "PATCH",
+      method: 'PATCH',
       headers: {
-        "content-type": "application/json",
+        'content-type': 'application/json',
       },
       body: JSON.stringify({
-        name: "Renamed project",
+        name: 'Renamed project',
       }),
     })
 
@@ -66,18 +68,18 @@ describe("project routes", () => {
     await expect(updateResponse.json()).resolves.toMatchObject({
       id: current.id,
       worktree: canonicalRepo,
-      name: "Renamed project",
+      name: 'Renamed project',
     })
   })
 
-  test("project route no longer accepts project.open POST", async () => {
-    const response = await app.request("/api/project", {
-      method: "POST",
+  test('project route no longer accepts project.open POST', async () => {
+    const response = await app.request('/api/project', {
+      method: 'POST',
       headers: {
-        "content-type": "application/json",
+        'content-type': 'application/json',
       },
       body: JSON.stringify({
-        directory: ".",
+        directory: '.',
       }),
     })
 

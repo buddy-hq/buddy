@@ -1,8 +1,8 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo } from "react";
-import { toast } from "@buddy/ui";
-import { ChatLeftSidebar } from "@/components/layout/chat-left-sidebar";
-import { SkillsPage } from "@/components/skills/skills-page";
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { useEffect, useMemo } from 'react'
+import { toast } from '@buddy/ui'
+import { ChatLeftSidebar } from '@/components/layout/chat-left-sidebar'
+import { SkillsPage } from '@/components/skills/skills-page'
 import {
   bootstrapOpenProjects,
   closeOpenProject,
@@ -12,47 +12,38 @@ import {
   selectSession,
   startNewSession,
   updateSession,
-} from "@/state/chat-actions";
-import { useChatStore } from "@/state/chat-store";
-import { useUiPreferences } from "@/state/ui-preferences";
-import { pickProjectDirectory } from "../lib/directory-picker";
-import { encodeDirectory } from "../lib/directory-token";
+} from '@/state/chat-actions'
+import { useChatStore } from '@/state/chat-store'
+import { useUiPreferences } from '@/state/ui-preferences'
+import { pickProjectDirectory } from '../lib/directory-picker'
+import { encodeDirectory } from '../lib/directory-token'
 
-export const Route = createFileRoute("/skills")({
+export const Route = createFileRoute('/skills')({
   component: SkillsRoute,
-});
+})
 
 function SkillsRoute() {
-  const navigate = useNavigate();
-  const openProjects = useChatStore((state) => state.openProjects);
-  const activeDirectory = useChatStore((state) => state.activeDirectory);
-  const directories = useChatStore((state) => state.directories);
-  const setActiveDirectory = useChatStore((state) => state.setActiveDirectory);
-  const pinnedByDirectory = useUiPreferences(
-    (state) => state.pinnedByDirectory,
-  );
-  const unreadByDirectory = useUiPreferences(
-    (state) => state.unreadByDirectory,
-  );
-  const togglePinned = useUiPreferences((state) => state.togglePinned);
-  const markUnread = useUiPreferences((state) => state.markUnread);
-  const clearUnread = useUiPreferences((state) => state.clearUnread);
+  const navigate = useNavigate()
+  const openProjects = useChatStore((state) => state.openProjects)
+  const activeDirectory = useChatStore((state) => state.activeDirectory)
+  const directories = useChatStore((state) => state.directories)
+  const setActiveDirectory = useChatStore((state) => state.setActiveDirectory)
+  const pinnedByDirectory = useUiPreferences((state) => state.pinnedByDirectory)
+  const unreadByDirectory = useUiPreferences((state) => state.unreadByDirectory)
+  const togglePinned = useUiPreferences((state) => state.togglePinned)
+  const markUnread = useUiPreferences((state) => state.markUnread)
+  const clearUnread = useUiPreferences((state) => state.clearUnread)
 
-  const currentDirectory = activeDirectory ?? openProjects[0] ?? "";
-  const activeSessionID = currentDirectory
-    ? directories[currentDirectory]?.sessionID
-    : undefined;
+  const currentDirectory = activeDirectory ?? openProjects[0] ?? ''
+  const activeSessionID = currentDirectory ? directories[currentDirectory]?.sessionID : undefined
 
   const sessionsByDirectory = useMemo(
     () =>
       Object.fromEntries(
-        openProjects.map((directory) => [
-          directory,
-          directories[directory]?.sessions ?? [],
-        ]),
+        openProjects.map((directory) => [directory, directories[directory]?.sessions ?? []]),
       ),
     [directories, openProjects],
-  );
+  )
 
   const sessionStatusByDirectory = useMemo(
     () =>
@@ -63,123 +54,109 @@ function SkillsRoute() {
         ]),
       ),
     [directories, openProjects],
-  );
+  )
 
   useEffect(() => {
-    void bootstrapOpenProjects().catch(() => undefined);
-  }, []);
+    void bootstrapOpenProjects().catch(() => undefined)
+  }, [])
 
   function openChat(directory: string) {
     navigate({
-      to: "/$directory/chat",
+      to: '/$directory/chat',
       params: { directory: encodeDirectory(directory) },
-    });
+    })
   }
 
   async function onOpenDirectory() {
     try {
-      const picked = await pickProjectDirectory();
-      if (!picked) return;
+      const picked = await pickProjectDirectory()
+      if (!picked) return
 
-      const nextDirectory = await openProject(picked);
-      setActiveDirectory(nextDirectory);
-      await preloadProjectSessions([nextDirectory]);
+      const nextDirectory = await openProject(picked)
+      setActiveDirectory(nextDirectory)
+      await preloadProjectSessions([nextDirectory])
     } catch {
-      toast.error("Couldn't open that notebook. Try again.");
+      toast.error("Couldn't open that notebook. Try again.")
     }
   }
 
   async function onNewSession(targetDirectory?: string) {
-    const nextDirectory = targetDirectory || currentDirectory;
-    if (!nextDirectory) return;
+    const nextDirectory = targetDirectory || currentDirectory
+    if (!nextDirectory) return
 
-    setActiveDirectory(nextDirectory);
+    setActiveDirectory(nextDirectory)
 
     try {
-      await startNewSession(nextDirectory);
-      openChat(nextDirectory);
+      await startNewSession(nextDirectory)
+      openChat(nextDirectory)
     } catch {
-      toast.error("Couldn't start a new thread. Try again.");
+      toast.error("Couldn't start a new thread. Try again.")
     }
   }
 
-  async function onSelectSession(
-    targetDirectory: string,
-    targetSessionID?: string,
-  ) {
-    if (!targetDirectory) return;
+  async function onSelectSession(targetDirectory: string, targetSessionID?: string) {
+    if (!targetDirectory) return
 
-    setActiveDirectory(targetDirectory);
+    setActiveDirectory(targetDirectory)
 
     try {
       if (targetSessionID) {
-        await selectSession(targetDirectory, targetSessionID);
+        await selectSession(targetDirectory, targetSessionID)
       }
-      openChat(targetDirectory);
+      openChat(targetDirectory)
     } catch {
-      toast.error("Couldn't open that thread. Try again.");
+      toast.error("Couldn't open that thread. Try again.")
     }
   }
 
-  function onToggleUnread(
-    targetDirectory: string,
-    targetSessionID: string,
-    unread: boolean,
-  ) {
-    if (!targetDirectory) return;
+  function onToggleUnread(targetDirectory: string, targetSessionID: string, unread: boolean) {
+    if (!targetDirectory) return
 
     if (unread) {
-      markUnread(targetDirectory, targetSessionID);
-      return;
+      markUnread(targetDirectory, targetSessionID)
+      return
     }
 
-    clearUnread(targetDirectory, targetSessionID);
+    clearUnread(targetDirectory, targetSessionID)
   }
 
-  async function onArchiveSession(
-    targetDirectory: string,
-    targetSessionID: string,
-  ) {
-    if (!targetDirectory) return;
+  async function onArchiveSession(targetDirectory: string, targetSessionID: string) {
+    if (!targetDirectory) return
 
     try {
       await updateSession({
         directory: targetDirectory,
         sessionID: targetSessionID,
         archivedAt: Date.now(),
-      });
-      await preloadProjectSessions([targetDirectory]);
+      })
+      await preloadProjectSessions([targetDirectory])
     } catch {
-      toast.error("Couldn't archive that thread. Try again.");
+      toast.error("Couldn't archive that thread. Try again.")
     }
   }
 
-  async function onRenameSession(
-    targetDirectory: string,
-    targetSessionID: string,
-    title: string,
-  ) {
-    if (!targetDirectory) return;
-    const nextTitle = title.trim();
-    if (!nextTitle) return;
+  async function onRenameSession(targetDirectory: string, targetSessionID: string, title: string) {
+    if (!targetDirectory) return
+    const nextTitle = title.trim()
+    if (!nextTitle) return
 
     try {
       const updated = await updateSession({
         directory: targetDirectory,
         sessionID: targetSessionID,
         title: nextTitle,
-      });
-      useChatStore.getState().applySessionUpdated(targetDirectory, updated);
+      })
+      useChatStore.getState().applySessionUpdated(targetDirectory, updated)
     } catch {
-      toast.error("Couldn't rename that thread. Try again.");
+      toast.error("Couldn't rename that thread. Try again.")
     }
   }
 
   async function onCloseDirectory(targetDirectory: string) {
     try {
-      await closeOpenProject(targetDirectory);
+      await closeOpenProject(targetDirectory)
     } catch {
-      toast.error("Couldn't close that notebook. Try again.");
+      toast.error("Couldn't close that notebook. Try again.")
     }
   }
 
@@ -195,34 +172,34 @@ function SkillsRoute() {
           pinnedByDirectory={pinnedByDirectory}
           unreadByDirectory={unreadByDirectory}
           onOpenDirectory={() => {
-            void onOpenDirectory();
+            void onOpenDirectory()
           }}
           onNewSession={(targetDirectory) => {
-            void onNewSession(targetDirectory);
+            void onNewSession(targetDirectory)
           }}
           onSelectSession={(targetDirectory, targetSessionID) => {
-            void onSelectSession(targetDirectory, targetSessionID);
+            void onSelectSession(targetDirectory, targetSessionID)
           }}
           onTogglePin={(targetDirectory, targetSessionID) => {
-            togglePinned(targetDirectory, targetSessionID);
+            togglePinned(targetDirectory, targetSessionID)
           }}
           onToggleUnread={onToggleUnread}
           onArchiveSession={onArchiveSession}
           onRenameSession={onRenameSession}
           onReorderDirectories={(nextOrder) => {
-            void reorderOpenProjects(nextOrder);
+            void reorderOpenProjects(nextOrder)
           }}
           onCloseDirectory={(targetDirectory) => {
-            void onCloseDirectory(targetDirectory);
+            void onCloseDirectory(targetDirectory)
           }}
           onOpenCurriculum={() => {
             if (currentDirectory) {
-              openChat(currentDirectory);
+              openChat(currentDirectory)
             }
           }}
           onOpenSkills={() => undefined}
           onOpenSettings={() => {
-            navigate({ to: "/settings", search: { tab: "instructions" } });
+            navigate({ to: '/settings', search: { tab: 'instructions' } })
           }}
           activeFooterItem="skills"
           className="h-full w-[344px]"
@@ -233,5 +210,5 @@ function SkillsRoute() {
         </main>
       </div>
     </div>
-  );
+  )
 }

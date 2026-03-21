@@ -1,5 +1,5 @@
-import type { LearnerSnapshot } from "../projections/snapshot"
-import { runStructuredDecision } from "./engine"
+import type { LearnerSnapshot } from '../projections/snapshot'
+import { runStructuredDecision } from './engine'
 import {
   type FeedbackDecision,
   FeedbackDecisionSchema,
@@ -10,7 +10,7 @@ import {
   type PlanDecision,
   PlanDecisionSchema,
   PlanJsonSchema,
-} from "./types"
+} from './types'
 import {
   buildInterpretMessageSystemPrompt,
   buildInterpretMessageUserPrompt,
@@ -18,7 +18,7 @@ import {
   buildFeedbackUserPrompt,
   buildPlanSystemPrompt,
   buildPlanUserPrompt,
-} from "./prompt"
+} from './prompt'
 
 export namespace LearnerDecisionService {
   export async function interpretMessage(input: {
@@ -30,7 +30,7 @@ export namespace LearnerDecisionService {
   }) {
     return runStructuredDecision<InterpretMessageDecision>({
       directory: input.directory,
-      title: "Learner interpretation",
+      title: 'Learner interpretation',
       system: buildInterpretMessageSystemPrompt(),
       prompt: buildInterpretMessageUserPrompt({
         snapshot: input.snapshot,
@@ -52,7 +52,7 @@ export namespace LearnerDecisionService {
   }) {
     return runStructuredDecision<PlanDecision>({
       directory: input.directory,
-      title: "Learner plan decision",
+      title: 'Learner plan decision',
       system: buildPlanSystemPrompt(),
       prompt: buildPlanUserPrompt({
         snapshot: input.snapshot,
@@ -70,18 +70,18 @@ export namespace LearnerDecisionService {
     snapshot: LearnerSnapshot
     goalIds: string[]
     summary: string
-    outcome: "assigned" | "partial" | "completed" | "stuck"
+    outcome: 'assigned' | 'partial' | 'completed' | 'stuck'
     sessionId?: string
   }) {
     return runStructuredDecision<FeedbackDecision>({
       directory: input.directory,
-      title: "Learner practice feedback decision",
+      title: 'Learner practice feedback decision',
       system: buildFeedbackSystemPrompt({
-        source: "practice",
+        source: 'practice',
       }),
       prompt: buildFeedbackUserPrompt({
         snapshot: input.snapshot,
-        source: "practice",
+        source: 'practice',
         summary: input.summary,
         outcome: input.outcome,
         goalIds: input.goalIds,
@@ -97,18 +97,18 @@ export namespace LearnerDecisionService {
     snapshot: LearnerSnapshot
     goalIds: string[]
     summary: string
-    outcome: "demonstrated" | "partial" | "not-demonstrated"
+    outcome: 'demonstrated' | 'partial' | 'not-demonstrated'
     sessionId?: string
   }) {
     return runStructuredDecision<FeedbackDecision>({
       directory: input.directory,
-      title: "Learner assessment feedback decision",
+      title: 'Learner assessment feedback decision',
       system: buildFeedbackSystemPrompt({
-        source: "assessment",
+        source: 'assessment',
       }),
       prompt: buildFeedbackUserPrompt({
         snapshot: input.snapshot,
-        source: "assessment",
+        source: 'assessment',
         summary: input.summary,
         outcome: input.outcome,
         goalIds: input.goalIds,

@@ -1,16 +1,21 @@
-import matter from "gray-matter"
-import z from "zod"
+import matter from 'gray-matter'
+import z from 'zod'
 
 export type ParsedMarkdownArtifact<T> = {
   frontmatter: T
   body: string
 }
 
-export function parseMarkdownArtifact<T>(raw: string, schema: z.ZodType<T>): ParsedMarkdownArtifact<T> {
+export function parseMarkdownArtifact<T>(
+  raw: string,
+  schema: z.ZodType<T>,
+): ParsedMarkdownArtifact<T> {
   const parsed = matter(raw)
   const result = schema.safeParse(parsed.data)
   if (!result.success) {
-    throw new Error(`Invalid learner artifact frontmatter: ${result.error.issues[0]?.message ?? "parse failed"}`)
+    throw new Error(
+      `Invalid learner artifact frontmatter: ${result.error.issues[0]?.message ?? 'parse failed'}`,
+    )
   }
 
   return {
@@ -20,7 +25,7 @@ export function parseMarkdownArtifact<T>(raw: string, schema: z.ZodType<T>): Par
 }
 
 export function stringifyMarkdownArtifact(frontmatter: Record<string, unknown>, body?: string) {
-  const normalizedBody = body?.trim() ?? ""
+  const normalizedBody = body?.trim() ?? ''
   const sanitized = sanitizeFrontmatter(frontmatter)
   return matter.stringify(normalizedBody, sanitized)
 }
@@ -34,12 +39,10 @@ function sanitizeFrontmatter(value: Record<string, unknown>) {
 
 function sanitizeValue(value: unknown): unknown {
   if (Array.isArray(value)) {
-    return value
-      .map((item) => sanitizeValue(item))
-      .filter((item) => item !== undefined)
+    return value.map((item) => sanitizeValue(item)).filter((item) => item !== undefined)
   }
 
-  if (!value || typeof value !== "object") {
+  if (!value || typeof value !== 'object') {
     return value
   }
 

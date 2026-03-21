@@ -1,28 +1,28 @@
-import { useEffect, useRef, useLayoutEffect, useMemo } from "react"
-import DOMPurify from "dompurify"
-import morphdom from "morphdom"
-import "katex/dist/katex.min.css"
-import { getServerConnection } from "../context/server"
-import { resolveApiUrl } from "../lib/api-client"
-import { parseMarkdownToHtml } from "../lib/markdown-parser"
+import { useEffect, useRef, useLayoutEffect, useMemo } from 'react'
+import DOMPurify from 'dompurify'
+import morphdom from 'morphdom'
+import 'katex/dist/katex.min.css'
+import { getServerConnection } from '../context/server'
+import { resolveApiUrl } from '../lib/api-client'
+import { parseMarkdownToHtml } from '../lib/markdown-parser'
 
-if (typeof window !== "undefined" && DOMPurify.isSupported) {
-  DOMPurify.addHook("afterSanitizeAttributes", (node: Element) => {
+if (typeof window !== 'undefined' && DOMPurify.isSupported) {
+  DOMPurify.addHook('afterSanitizeAttributes', (node: Element) => {
     if (node instanceof HTMLAnchorElement) {
-      if (node.target !== "_blank") return
+      if (node.target !== '_blank') return
 
-      const rel = node.getAttribute("rel") ?? ""
+      const rel = node.getAttribute('rel') ?? ''
       const set = new Set(rel.split(/\s+/).filter(Boolean))
-      set.add("noopener")
-      set.add("noreferrer")
-      node.setAttribute("rel", Array.from(set).join(" "))
+      set.add('noopener')
+      set.add('noreferrer')
+      node.setAttribute('rel', Array.from(set).join(' '))
       return
     }
 
     if (node instanceof HTMLImageElement) {
-      const src = node.getAttribute("src")
-      if (!src || !src.startsWith("/api/")) return
-      node.setAttribute("src", resolveApiUrl(src))
+      const src = node.getAttribute('src')
+      if (!src || !src.startsWith('/api/')) return
+      node.setAttribute('src', resolveApiUrl(src))
     }
   })
 }
@@ -30,8 +30,8 @@ if (typeof window !== "undefined" && DOMPurify.isSupported) {
 const sanitizeConfig = {
   USE_PROFILES: { html: true, mathMl: true },
   SANITIZE_NAMED_PROPS: true,
-  FORBID_TAGS: ["style"],
-  FORBID_CONTENTS: ["style", "script"],
+  FORBID_TAGS: ['style'],
+  FORBID_CONTENTS: ['style', 'script'],
 }
 
 type MarkdownCacheEntry = {
@@ -43,35 +43,35 @@ const MARKDOWN_CACHE_MAX = 200
 const markdownCache = new Map<string, MarkdownCacheEntry>()
 
 const markdownClassName = [
-  "min-w-0 max-w-full break-words text-sm leading-[1.65] text-foreground",
-  "[&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
-  "[&_h1]:mt-6 [&_h1]:mb-2.5 [&_h1]:text-sm [&_h1]:font-semibold [&_h1]:leading-[1.45] [&_h1]:text-foreground",
-  "[&_h2]:mt-6 [&_h2]:mb-2.5 [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:leading-[1.45] [&_h2]:text-foreground",
-  "[&_h3]:mt-6 [&_h3]:mb-2.5 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:leading-[1.45] [&_h3]:text-foreground",
-  "[&_h4]:mt-6 [&_h4]:mb-2.5 [&_h4]:text-sm [&_h4]:font-semibold [&_h4]:leading-[1.45] [&_h4]:text-foreground",
-  "[&_h5]:mt-6 [&_h5]:mb-2.5 [&_h5]:text-sm [&_h5]:font-semibold [&_h5]:leading-[1.45] [&_h5]:text-foreground",
-  "[&_h6]:mt-6 [&_h6]:mb-2.5 [&_h6]:text-sm [&_h6]:font-semibold [&_h6]:leading-[1.45] [&_h6]:text-foreground",
-  "[&_strong]:font-semibold [&_strong]:text-foreground [&_b]:font-semibold [&_b]:text-foreground",
-  "[&_p]:mb-4",
-  "[&_a]:text-primary [&_a]:no-underline [&_a:hover]:underline [&_a:hover]:underline-offset-2",
-  "[&_ul]:mt-2 [&_ul]:mb-4 [&_ul]:list-outside [&_ul]:list-disc [&_ul]:pl-5",
-  "[&_ol]:mt-2 [&_ol]:mb-4 [&_ol]:list-outside [&_ol]:list-decimal [&_ol]:pl-5",
-  "[&_li]:mb-1.5 [&_li::marker]:text-muted-foreground",
-  "[&_li>p:first-child]:m-0 [&_li>p:first-child]:inline",
-  "[&_li>p+p]:mt-1.5 [&_li>p+p]:block",
-  "[&_li>ul]:my-1 [&_li>ul]:pl-4 [&_li>ol]:my-1 [&_li>ol]:pl-4",
-  "[&_blockquote]:my-5 [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-2.5 [&_blockquote]:text-muted-foreground",
-  "[&_hr]:my-8 [&_hr]:h-0 [&_hr]:border-0",
-  "[&_pre]:my-4 [&_pre]:overflow-auto [&_pre]:[scrollbar-width:none] [&_pre::-webkit-scrollbar]:hidden",
-  "[&_.shiki]:rounded-md [&_.shiki]:border [&_.shiki]:border-border [&_.shiki]:px-3 [&_.shiki]:py-2 [&_.shiki]:text-[13px]",
-  "[&_code]:rounded-[4px] [&_code]:border [&_code]:border-border [&_code]:bg-[color-mix(in_oklab,var(--muted)_70%,transparent)] [&_code]:px-1 [&_code]:py-px [&_code]:font-mono [&_code]:text-[0.83em] [&_code]:text-foreground",
-  "[&_pre_code]:border-0 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-inherit",
-  "[&_table]:my-5 [&_table]:block [&_table]:w-full [&_table]:overflow-x-auto [&_table]:border-collapse [&_table]:text-sm",
-  "[&_th]:border-b [&_th]:border-border [&_th]:px-2 [&_th]:py-2 [&_th]:text-left [&_th]:align-top [&_th]:font-semibold [&_th]:text-foreground",
-  "[&_td]:border-b [&_td]:border-b-[color-mix(in_oklab,var(--border)_70%,transparent)] [&_td]:px-2 [&_td]:py-2 [&_td]:text-left [&_td]:align-top",
-  "[&_img]:my-5 [&_img]:block [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded-md",
-  "[&_a.external-link:hover>code]:underline [&_a.external-link:hover>code]:underline-offset-2",
-].join(" ")
+  'min-w-0 max-w-full break-words text-sm leading-[1.65] text-foreground',
+  '[&>*:first-child]:mt-0 [&>*:last-child]:mb-0',
+  '[&_h1]:mt-6 [&_h1]:mb-2.5 [&_h1]:text-sm [&_h1]:font-semibold [&_h1]:leading-[1.45] [&_h1]:text-foreground',
+  '[&_h2]:mt-6 [&_h2]:mb-2.5 [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:leading-[1.45] [&_h2]:text-foreground',
+  '[&_h3]:mt-6 [&_h3]:mb-2.5 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:leading-[1.45] [&_h3]:text-foreground',
+  '[&_h4]:mt-6 [&_h4]:mb-2.5 [&_h4]:text-sm [&_h4]:font-semibold [&_h4]:leading-[1.45] [&_h4]:text-foreground',
+  '[&_h5]:mt-6 [&_h5]:mb-2.5 [&_h5]:text-sm [&_h5]:font-semibold [&_h5]:leading-[1.45] [&_h5]:text-foreground',
+  '[&_h6]:mt-6 [&_h6]:mb-2.5 [&_h6]:text-sm [&_h6]:font-semibold [&_h6]:leading-[1.45] [&_h6]:text-foreground',
+  '[&_strong]:font-semibold [&_strong]:text-foreground [&_b]:font-semibold [&_b]:text-foreground',
+  '[&_p]:mb-4',
+  '[&_a]:text-primary [&_a]:no-underline [&_a:hover]:underline [&_a:hover]:underline-offset-2',
+  '[&_ul]:mt-2 [&_ul]:mb-4 [&_ul]:list-outside [&_ul]:list-disc [&_ul]:pl-5',
+  '[&_ol]:mt-2 [&_ol]:mb-4 [&_ol]:list-outside [&_ol]:list-decimal [&_ol]:pl-5',
+  '[&_li]:mb-1.5 [&_li::marker]:text-muted-foreground',
+  '[&_li>p:first-child]:m-0 [&_li>p:first-child]:inline',
+  '[&_li>p+p]:mt-1.5 [&_li>p+p]:block',
+  '[&_li>ul]:my-1 [&_li>ul]:pl-4 [&_li>ol]:my-1 [&_li>ol]:pl-4',
+  '[&_blockquote]:my-5 [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-2.5 [&_blockquote]:text-muted-foreground',
+  '[&_hr]:my-8 [&_hr]:h-0 [&_hr]:border-0',
+  '[&_pre]:my-4 [&_pre]:overflow-auto [&_pre]:[scrollbar-width:none] [&_pre::-webkit-scrollbar]:hidden',
+  '[&_.shiki]:rounded-md [&_.shiki]:border [&_.shiki]:border-border [&_.shiki]:px-3 [&_.shiki]:py-2 [&_.shiki]:text-[13px]',
+  '[&_code]:rounded-[4px] [&_code]:border [&_code]:border-border [&_code]:bg-[color-mix(in_oklab,var(--muted)_70%,transparent)] [&_code]:px-1 [&_code]:py-px [&_code]:font-mono [&_code]:text-[0.83em] [&_code]:text-foreground',
+  '[&_pre_code]:border-0 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-inherit',
+  '[&_table]:my-5 [&_table]:block [&_table]:w-full [&_table]:overflow-x-auto [&_table]:border-collapse [&_table]:text-sm',
+  '[&_th]:border-b [&_th]:border-border [&_th]:px-2 [&_th]:py-2 [&_th]:text-left [&_th]:align-top [&_th]:font-semibold [&_th]:text-foreground',
+  '[&_td]:border-b [&_td]:border-b-[color-mix(in_oklab,var(--border)_70%,transparent)] [&_td]:px-2 [&_td]:py-2 [&_td]:text-left [&_td]:align-top',
+  '[&_img]:my-5 [&_img]:block [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded-md',
+  '[&_a.external-link:hover>code]:underline [&_a.external-link:hover>code]:underline-offset-2',
+].join(' ')
 
 type CopyLabels = {
   copy: string
@@ -81,7 +81,7 @@ type CopyLabels = {
 const codeUrlPattern = /^https?:\/\/[^\s<>()`"']+$/u
 
 function codeUrl(text: string) {
-  const href = text.trim().replace(/[),.;!?]+$/g, "")
+  const href = text.trim().replace(/[),.;!?]+$/g, '')
   if (!codeUrlPattern.test(href)) return
   try {
     const url = new URL(href)
@@ -92,30 +92,30 @@ function codeUrl(text: string) {
 }
 
 function createCopyButton(labels: CopyLabels) {
-  const button = document.createElement("button")
-  button.type = "button"
-  button.setAttribute("data-slot", "markdown-copy-button")
-  button.setAttribute("data-copied", "false")
-  button.setAttribute("aria-label", labels.copy)
+  const button = document.createElement('button')
+  button.type = 'button'
+  button.setAttribute('data-slot', 'markdown-copy-button')
+  button.setAttribute('data-copied', 'false')
+  button.setAttribute('aria-label', labels.copy)
   button.className =
-    "mt-2 inline-flex h-6 items-center rounded border border-border bg-background px-2 text-xs text-muted-foreground hover:text-foreground"
+    'mt-2 inline-flex h-6 items-center rounded border border-border bg-background px-2 text-xs text-muted-foreground hover:text-foreground'
   button.textContent = labels.copy
   return button
 }
 
 function setCopyState(button: HTMLButtonElement, labels: CopyLabels, copied: boolean) {
-  button.setAttribute("data-copied", copied ? "true" : "false")
-  button.setAttribute("aria-label", copied ? labels.copied : labels.copy)
+  button.setAttribute('data-copied', copied ? 'true' : 'false')
+  button.setAttribute('aria-label', copied ? labels.copied : labels.copy)
   button.textContent = copied ? labels.copied : labels.copy
 }
 
 function ensureCodeWrapper(block: HTMLPreElement, labels: CopyLabels) {
   const parent = block.parentElement
   if (!parent) return
-  const wrapped = parent.getAttribute("data-component") === "markdown-code"
+  const wrapped = parent.getAttribute('data-component') === 'markdown-code'
   if (!wrapped) {
-    const wrapper = document.createElement("div")
-    wrapper.setAttribute("data-component", "markdown-code")
+    const wrapper = document.createElement('div')
+    wrapper.setAttribute('data-component', 'markdown-code')
     parent.replaceChild(wrapper, block)
     wrapper.appendChild(block)
     wrapper.appendChild(createCopyButton(labels))
@@ -137,11 +137,12 @@ function ensureCodeWrapper(block: HTMLPreElement, labels: CopyLabels) {
 }
 
 function markCodeLinks(root: HTMLDivElement) {
-  const codeNodes = Array.from(root.querySelectorAll(":not(pre) > code"))
+  const codeNodes = Array.from(root.querySelectorAll(':not(pre) > code'))
   for (const code of codeNodes) {
-    const href = codeUrl(code.textContent ?? "")
+    const href = codeUrl(code.textContent ?? '')
     const parentLink =
-      code.parentElement instanceof HTMLAnchorElement && code.parentElement.classList.contains("external-link")
+      code.parentElement instanceof HTMLAnchorElement &&
+      code.parentElement.classList.contains('external-link')
         ? code.parentElement
         : null
 
@@ -155,18 +156,18 @@ function markCodeLinks(root: HTMLDivElement) {
       continue
     }
 
-    const link = document.createElement("a")
+    const link = document.createElement('a')
     link.href = href
-    link.className = "external-link"
-    link.target = "_blank"
-    link.rel = "noopener noreferrer"
+    link.className = 'external-link'
+    link.target = '_blank'
+    link.rel = 'noopener noreferrer'
     code.parentNode?.replaceChild(link, code)
     link.appendChild(code)
   }
 }
 
 function decorateMarkdown(root: HTMLDivElement, labels: CopyLabels) {
-  const blocks = Array.from(root.querySelectorAll("pre"))
+  const blocks = Array.from(root.querySelectorAll('pre'))
   for (const block of blocks) {
     ensureCodeWrapper(block, labels)
   }
@@ -180,7 +181,7 @@ function setupCodeCopy(root: HTMLDivElement, labels: CopyLabels) {
   )
 
   for (const button of buttons) {
-    const copied = button.getAttribute("data-copied") === "true"
+    const copied = button.getAttribute('data-copied') === 'true'
     setCopyState(button, labels, copied)
   }
 
@@ -191,8 +192,8 @@ function setupCodeCopy(root: HTMLDivElement, labels: CopyLabels) {
     const button = target.closest('[data-slot="markdown-copy-button"]')
     if (!(button instanceof HTMLButtonElement)) return
 
-    const code = button.closest('[data-component="markdown-code"]')?.querySelector("code")
-    const content = code?.textContent ?? ""
+    const code = button.closest('[data-component="markdown-code"]')?.querySelector('code')
+    const content = code?.textContent ?? ''
     if (!content) return
     const clipboard = navigator?.clipboard
     if (!clipboard) return
@@ -206,10 +207,10 @@ function setupCodeCopy(root: HTMLDivElement, labels: CopyLabels) {
     timeouts.set(button, timeout)
   }
 
-  root.addEventListener("click", handleClick)
+  root.addEventListener('click', handleClick)
 
   return () => {
-    root.removeEventListener("click", handleClick)
+    root.removeEventListener('click', handleClick)
     for (const timeout of timeouts.values()) {
       clearTimeout(timeout)
     }
@@ -217,13 +218,13 @@ function setupCodeCopy(root: HTMLDivElement, labels: CopyLabels) {
 }
 
 function sanitize(html: string) {
-  if (!DOMPurify.isSupported) return ""
+  if (!DOMPurify.isSupported) return ''
   return DOMPurify.sanitize(html, sanitizeConfig)
 }
 
 function markdownSanitizeContextKey() {
   const server = getServerConnection()
-  return [server.url ?? "", server.username ?? "", server.password ?? ""].join("|")
+  return [server.url ?? '', server.username ?? '', server.password ?? ''].join('|')
 }
 
 function touchMarkdownCache(key: string, value: MarkdownCacheEntry) {
@@ -237,16 +238,27 @@ function touchMarkdownCache(key: string, value: MarkdownCacheEntry) {
   markdownCache.delete(first)
 }
 
-export function Markdown({ text, className, cacheKey }: { text: string; className?: string; cacheKey?: string }) {
+export function Markdown({
+  text,
+  className,
+  cacheKey,
+}: {
+  text: string
+  className?: string
+  cacheKey?: string
+}) {
   const rootRef = useRef<HTMLDivElement | null>(null)
   const renderIdRef = useRef(0)
   const copyCleanupRef = useRef<(() => void) | undefined>(undefined)
   const copySetupTimerRef = useRef<number | undefined>(undefined)
-  const copyLabels = useMemo<CopyLabels>(() => ({ copy: "Copy code", copied: "Copied" }), [])
+  const copyLabels = useMemo<CopyLabels>(() => ({ copy: 'Copy code', copied: 'Copied' }), [])
   const sanitizeContextKey = markdownSanitizeContextKey()
 
   // Compute cache key synchronously
-  const fullCacheKey = useMemo(() => `${cacheKey ?? text}::${sanitizeContextKey}`, [cacheKey, sanitizeContextKey, text])
+  const fullCacheKey = useMemo(
+    () => `${cacheKey ?? text}::${sanitizeContextKey}`,
+    [cacheKey, sanitizeContextKey, text],
+  )
 
   // Check cache synchronously - if we have a hit, we can render immediately
   const cachedEntry = useMemo(() => {
@@ -292,12 +304,12 @@ export function Markdown({ text, className, cacheKey }: { text: string; classNam
     if (!root) return
 
     if (!html) {
-      if (root.innerHTML) root.innerHTML = ""
+      if (root.innerHTML) root.innerHTML = ''
       resetCodeCopy()
       return
     }
 
-    const temp = document.createElement("div")
+    const temp = document.createElement('div')
     temp.innerHTML = html
     decorateMarkdown(temp, copyLabels)
 
@@ -382,6 +394,10 @@ export function Markdown({ text, className, cacheKey }: { text: string; classNam
   }, [])
 
   return (
-    <div data-component="markdown" className={[markdownClassName, className].filter(Boolean).join(" ")} ref={rootRef} />
+    <div
+      data-component="markdown"
+      className={[markdownClassName, className].filter(Boolean).join(' ')}
+      ref={rootRef}
+    />
   )
 }

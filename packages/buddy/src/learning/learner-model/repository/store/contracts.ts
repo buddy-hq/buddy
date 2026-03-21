@@ -7,7 +7,7 @@ import type {
   MessageArtifact,
   MisconceptionArtifact,
   PracticeArtifact,
-} from "../types"
+} from '../types'
 
 export type ArtifactRecord =
   | GoalArtifact
