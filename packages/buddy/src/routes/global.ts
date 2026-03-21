@@ -1,13 +1,31 @@
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
-import { configRouteValidationResponse } from "@buddy/backend/config/orchestration"
-import { configErrorMessage, isConfigValidationError } from "@buddy/backend/config/runtime"
+import { mapConfigRouteError } from "@buddy/backend/config/orchestration"
 import { Config } from "@buddy/backend/config"
-import { booleanJsonResponse, routeErrors } from "../http"
+import z from "zod"
+import { mapAgentsMdConflictError, readGlobalAgentsMd, saveGlobalAgentsMd } from "../agents-md/service"
+import { booleanJsonResponse, routeErrors, runRouteTask } from "../http"
 import { proxyToOpenCode } from "../http"
 
-export const GlobalRoutes = (): Hono =>
-  new Hono()
+const globalAgentsMdReadResponseSchema = z.object({
+  path: z.string(),
+  exists: z.boolean(),
+  content: z.string(),
+  version: z.string().nullable(),
+})
+
+const globalAgentsMdWriteBodySchema = z.object({
+  content: z.string(),
+  expectedVersion: z.string().nullable().optional(),
+})
+
+const globalAgentsMdWriteResponseSchema = z.object({
+  path: z.string(),
+  content: z.string(),
+  version: z.string(),
+})
+
+export const GlobalRoutes = new Hono()
     .get(
       "/config",
       describeRoute({
@@ -23,17 +41,11 @@ export const GlobalRoutes = (): Hono =>
           ...routeErrors(400),
         },
       }),
-      async (c) => {
-        try {
-          const config = await Config.getGlobal()
-          return c.json(config)
-        } catch (error) {
-          if (isConfigValidationError(error)) {
-            return c.json({ error: configErrorMessage(error) }, 400)
-          }
-          throw error
-        }
-      },
+      async (c) =>
+        runRouteTask({
+          task: async () => c.json(await Config.getGlobal()),
+          mapError: mapConfigRouteError,
+        }),
     )
     .patch(
       "/config",
@@ -51,19 +63,11 @@ export const GlobalRoutes = (): Hono =>
         },
       }),
       validator("json", Config.Info),
-      async (c) => {
-        try {
-          const config = await Config.updateGlobal(c.req.valid("json"))
-          return c.json(config)
-        } catch (error) {
-          if (isConfigValidationError(error)) {
-            return c.json({ error: configErrorMessage(error) }, 400)
-          }
-          const validationResponse = configRouteValidationResponse(error)
-          if (validationResponse) return validationResponse
-          throw error
-        }
-      },
+      async (c) =>
+        runRouteTask({
+          task: async () => c.json(await Config.updateGlobal(c.req.valid("json"))),
+          mapError: mapConfigRouteError,
+        }),
     )
     .post(
       "/dispose",
@@ -82,5 +86,59 @@ export const GlobalRoutes = (): Hono =>
       async (c) =>
         proxyToOpenCode(c, {
           targetPath: "/global/dispose",
+        }),
+    )
+    .get(
+      "/agents-md",
+      describeRoute({
+        operationId: "global.agentsMd.read",
+        summary: "Read global AGENTS.md",
+        responses: {
+          200: {
+            description: "Global AGENTS.md state",
+            content: {
+              "application/json": {
+                schema: resolver(globalAgentsMdReadResponseSchema),
+              },
+            },
+          },
+        },
+      }),
+      async (c) =>
+        runRouteTask({
+          task: async () => c.json(await readGlobalAgentsMd()),
+          mapError: mapAgentsMdConflictError,
+        }),
+    )
+    .put(
+      "/agents-md",
+      describeRoute({
+        operationId: "global.agentsMd.save",
+        summary: "Create or update global AGENTS.md",
+        responses: {
+          200: {
+            description: "Updated global AGENTS.md",
+            content: {
+              "application/json": {
+                schema: resolver(globalAgentsMdWriteResponseSchema),
+              },
+            },
+          },
+          ...routeErrors(400, 409),
+        },
+      }),
+      validator("json", globalAgentsMdWriteBodySchema),
+      async (c) =>
+        runRouteTask({
+          task: async () => {
+            const payload = c.req.valid("json")
+            return c.json(
+              await saveGlobalAgentsMd({
+                content: payload.content,
+                expectedVersion: payload.expectedVersion,
+              }),
+            )
+          },
+          mapError: mapAgentsMdConflictError,
         }),
     )
