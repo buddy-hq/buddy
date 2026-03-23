@@ -1,130 +1,173 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Button } from "@buddy/ui"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Button, Input } from "@buddy/ui";
 import {
   loadTeachingSessionState,
   type TeachingLlmOutboundSnapshot,
   type TeachingSessionSnapshot,
-} from "@/state/chat-actions"
-import { useChatStore } from "@/state/chat-store"
+} from "@/state/chat-actions";
+import { useChatStore } from "@/state/chat-store";
 
-type SystemPromptPanelProps = {
-  directory: string
-  sessionID?: string
-  refreshToken?: number
-  className?: string
+function HighlightedText({ text, query }: { text: string; query: string }) {
+  if (!query.trim()) return <>{text}</>;
+
+  const parts = text.split(new RegExp(`(${escapeRegExp(query)})`, "gi"));
+
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.toLowerCase() === query.toLowerCase() ? (
+          <mark
+            key={i}
+            className="rounded-sm bg-yellow-500/30 px-0.5 font-semibold text-yellow-900 dark:bg-yellow-400/30 dark:text-yellow-100"
+          >
+            {part}
+          </mark>
+        ) : (
+          part
+        ),
+      )}
+    </>
+  );
 }
 
+function escapeRegExp(string: string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+type SystemPromptPanelProps = {
+  directory: string;
+  sessionID?: string;
+  refreshToken?: number;
+  className?: string;
+};
+
 function stringifyError(error: unknown) {
-  if (error instanceof Error) return error.message
-  if (typeof error === "string") return error
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
   try {
-    return JSON.stringify(error)
+    return JSON.stringify(error);
   } catch {
-    return String(error)
+    return String(error);
   }
 }
 
 function readSystemPromptText(entry: TeachingLlmOutboundSnapshot | undefined) {
-  if (!entry) return undefined
-  if (typeof entry.fullSystemPrompt === "string" && entry.fullSystemPrompt.trim().length > 0) {
-    return entry.fullSystemPrompt
+  if (!entry) return undefined;
+  if (
+    typeof entry.fullSystemPrompt === "string" &&
+    entry.fullSystemPrompt.trim().length > 0
+  ) {
+    return entry.fullSystemPrompt;
   }
-  return undefined
+  return undefined;
 }
 
 function readLastOutboundEntry(runtime: TeachingSessionSnapshot | undefined) {
-  if (!runtime) return undefined
+  if (!runtime) return undefined;
   if (runtime.lastLlmOutbound) {
-    return runtime.lastLlmOutbound
+    return runtime.lastLlmOutbound;
   }
-  const history = runtime.llmOutboundHistory
+  const history = runtime.llmOutboundHistory;
   if (Array.isArray(history) && history.length > 0) {
-    return history[history.length - 1]
+    return history[history.length - 1];
   }
-  return undefined
+  return undefined;
 }
 
 function formatIsoTime(value?: string) {
-  if (!value) return undefined
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return date.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "medium" })
+  if (!value) return undefined;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "medium",
+  });
 }
 
 export function SystemPromptPanel(props: SystemPromptPanelProps) {
-  const { directory, sessionID, refreshToken, className } = props
-  const [runtime, setRuntime] = useState<TeachingSessionSnapshot | undefined>(undefined)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | undefined>(undefined)
-  const requestCounterRef = useRef(0)
+  const { directory, sessionID, refreshToken, className } = props;
+  const [runtime, setRuntime] = useState<TeachingSessionSnapshot | undefined>(
+    undefined,
+  );
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | undefined>(undefined);
+  const [searchQuery, setSearchQuery] = useState("");
+  const requestCounterRef = useRef(0);
   const activeSessionBusy = useChatStore((state) => {
-    const directoryState = state.directories[directory]
-    if (!directoryState || !sessionID) return false
-    return directoryState.sessionStatusByID[sessionID] === "busy"
-  })
+    const directoryState = state.directories[directory];
+    if (!directoryState || !sessionID) return false;
+    return directoryState.sessionStatusByID[sessionID] === "busy";
+  });
 
-  const lastOutbound = useMemo(() => readLastOutboundEntry(runtime), [runtime])
-  const systemPromptText = useMemo(() => readSystemPromptText(lastOutbound), [lastOutbound])
-  const renderedAt = formatIsoTime(lastOutbound?.createdAt)
-  const charCount = systemPromptText?.length ?? 0
-  const approxTokens = Math.round(charCount / 4)
+  const lastOutbound = useMemo(() => readLastOutboundEntry(runtime), [runtime]);
+  const systemPromptText = useMemo(
+    () => readSystemPromptText(lastOutbound),
+    [lastOutbound],
+  );
+  const renderedAt = formatIsoTime(lastOutbound?.createdAt);
+  const charCount = systemPromptText?.length ?? 0;
+  const approxTokens = Math.round(charCount / 4);
 
   const refresh = useCallback(
     async (input?: { silent?: boolean }) => {
       if (!sessionID) {
-        setRuntime(undefined)
-        setError(undefined)
-        setLoading(false)
-        return
+        setRuntime(undefined);
+        setError(undefined);
+        setLoading(false);
+        return;
       }
 
-      const requestID = requestCounterRef.current + 1
-      requestCounterRef.current = requestID
+      const requestID = requestCounterRef.current + 1;
+      requestCounterRef.current = requestID;
 
       if (!input?.silent) {
-        setLoading(true)
-        setError(undefined)
+        setLoading(true);
+        setError(undefined);
       }
 
       try {
-        const next = await loadTeachingSessionState(directory, sessionID)
-        if (requestID !== requestCounterRef.current) return
+        const next = await loadTeachingSessionState(directory, sessionID);
+        if (requestID !== requestCounterRef.current) return;
         if (next) {
-          setRuntime(next)
+          setRuntime(next);
         } else {
-          setRuntime((current) => (current?.sessionId === sessionID ? current : undefined))
+          setRuntime((current) =>
+            current?.sessionId === sessionID ? current : undefined,
+          );
         }
-        setError(undefined)
+        setError(undefined);
       } catch (runtimeError) {
-        if (requestID !== requestCounterRef.current) return
-        setError(stringifyError(runtimeError))
+        if (requestID !== requestCounterRef.current) return;
+        setError(stringifyError(runtimeError));
       } finally {
         if (requestID === requestCounterRef.current && !input?.silent) {
-          setLoading(false)
+          setLoading(false);
         }
       }
     },
     [directory, sessionID],
-  )
+  );
 
   useEffect(() => {
-    void refresh()
-  }, [refresh, refreshToken])
+    void refresh();
+  }, [refresh, refreshToken]);
 
   useEffect(() => {
-    if (!sessionID || !activeSessionBusy) return
+    if (!sessionID || !activeSessionBusy) return;
 
     const interval = window.setInterval(() => {
-      void refresh({ silent: true })
-    }, 750)
+      void refresh({ silent: true });
+    }, 750);
 
     return () => {
-      window.clearInterval(interval)
-    }
-  }, [activeSessionBusy, refresh, refreshToken, sessionID])
+      window.clearInterval(interval);
+    };
+  }, [activeSessionBusy, refresh, refreshToken, sessionID]);
 
   return (
-    <div className={`flex h-full min-h-0 flex-col gap-3 p-3 ${className ?? ""}`}>
+    <div
+      className={`flex h-full min-h-0 flex-col gap-3 p-3 ${className ?? ""}`}
+    >
       <div className="flex items-start justify-between gap-3 pb-2">
         <div className="min-w-0 space-y-1.5">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground leading-none">
@@ -163,12 +206,26 @@ export function SystemPromptPanel(props: SystemPromptPanelProps) {
             <div className="flex h-full min-h-0 flex-col">
               <div className="border-b border-border/60 px-3 py-2 text-[11px] text-muted-foreground">
                 <span>Turn: {lastOutbound?.kind ?? "unknown"}</span>
-                {renderedAt ? <span className="ml-3">Captured: {renderedAt}</span> : null}
-                <span className="ml-3">~{approxTokens.toLocaleString()} tokens</span>
-                <span className="ml-1">({charCount.toLocaleString()} chars)</span>
+                {renderedAt ? (
+                  <span className="ml-3">Captured: {renderedAt}</span>
+                ) : null}
+                <span className="ml-3">
+                  ~{approxTokens.toLocaleString()} tokens
+                </span>
+                <span className="ml-1">
+                  ({charCount.toLocaleString()} chars)
+                </span>
+              </div>
+              <div className="border-b border-border/60 px-3 py-2">
+                <Input
+                  placeholder="Search in prompt..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-8 text-xs"
+                />
               </div>
               <pre className="min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap break-words p-3 text-[12px] leading-5 text-foreground font-mono">
-                {systemPromptText}
+                <HighlightedText text={systemPromptText} query={searchQuery} />
               </pre>
             </div>
           ) : (
@@ -181,5 +238,5 @@ export function SystemPromptPanel(props: SystemPromptPanelProps) {
         </div>
       ) : null}
     </div>
-  )
+  );
 }
