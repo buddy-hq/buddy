@@ -38,14 +38,14 @@ export function PermissionDock(props: PermissionDockProps) {
 
   return (
     <div
-      className="flex flex-col overflow-hidden rounded-lg border border-[color-mix(in_oklab,var(--chart-3)_40%,var(--border))] bg-[color-mix(in_oklab,var(--card)_94%,var(--chart-3)_6%)] shadow-[0_0_0_1px_color-mix(in_oklab,var(--chart-3)_14%,transparent)]"
+      className="flex flex-col overflow-hidden rounded-lg border border-[color-mix(in_oklab,var(--warning)_40%,var(--border))] bg-[color-mix(in_oklab,var(--card)_94%,var(--warning)_6%)] shadow-[0_0_0_1px_color-mix(in_oklab,var(--warning)_14%,transparent)]"
       role="alert"
       aria-live="assertive"
     >
       <div className="flex flex-col gap-[0.55rem] px-[0.8rem] py-[0.7rem] pb-[0.4rem]">
         <div className="grid grid-cols-[1.1rem_1fr] items-center gap-x-[0.55rem]">
           <span
-            className="inline-flex size-[1.1rem] items-center justify-center rounded-full border border-[color-mix(in_oklab,var(--chart-3)_28%,transparent)] bg-[color-mix(in_oklab,var(--chart-3)_16%,transparent)] text-[0.72rem] font-bold text-chart-3"
+            className="inline-flex size-[1.1rem] items-center justify-center rounded-full border border-[color-mix(in_oklab,var(--warning)_28%,transparent)] bg-[color-mix(in_oklab,var(--warning)_16%,transparent)] text-[0.72rem] font-bold text-warning"
             aria-hidden="true"
           >
             !

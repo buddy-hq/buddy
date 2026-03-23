@@ -82,8 +82,8 @@ export function ThreadStatusIndicator(props: { status: "busy" | "unread" | "idle
         className="relative inline-flex size-2.5 shrink-0 items-center justify-center"
         aria-hidden="true"
       >
-        <span className="absolute inset-0 rounded-full border border-[color:color-mix(in_oklab,var(--chart-3)_72%,transparent)]" />
-        <span className="size-1 animate-pulse rounded-full bg-[var(--chart-3)]" />
+        <span className="absolute inset-0 rounded-full border border-[color:color-mix(in_oklab,var(--warning)_72%,transparent)]" />
+        <span className="size-1 animate-pulse rounded-full bg-warning" />
       </span>
     )
   }
@@ -91,16 +91,13 @@ export function ThreadStatusIndicator(props: { status: "busy" | "unread" | "idle
   if (props.status === "unread") {
     return (
       <span
-        className="inline-block size-2 shrink-0 rotate-45 rounded-[1px] bg-[var(--chart-5)]"
+        className="inline-block size-2 shrink-0 rotate-45 rounded-[1px] bg-info"
         aria-hidden="true"
       />
     )
   }
 
   return (
-    <span
-      className="inline-block size-1.5 shrink-0 rounded-full bg-[var(--chart-2)]"
-      aria-hidden="true"
-    />
+    <span className="inline-block size-1.5 shrink-0 rounded-full bg-success" aria-hidden="true" />
   )
 }

@@ -9,9 +9,9 @@ type SessionContextUsageProps = {
 }
 
 function usageColor(usage: number) {
-  if (usage >= 90) return "var(--chart-4)"
-  if (usage >= 70) return "var(--chart-3)"
-  return "var(--chart-2)"
+  if (usage >= 90) return "var(--destructive)"
+  if (usage >= 70) return "var(--warning)"
+  return "var(--success)"
 }
 
 export function SessionContextUsage(props: SessionContextUsageProps) {

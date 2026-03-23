@@ -1,4 +1,4 @@
-import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from "react"
+import type { PointerEvent as ReactPointerEvent, ReactNode } from "react"
 import { useCallback, useRef, useState } from "react"
 import {
   Button,
@@ -40,7 +40,6 @@ import {
   FolderPlusIcon,
   PencilIcon,
   PinIcon,
-  SparklesIcon,
   SlidersHorizontalIcon,
   SquarePenIcon,
   SettingsIcon,
@@ -65,13 +64,10 @@ type ChatLeftSidebarProps = {
   onReorderDirectories: (newOrder: string[]) => void
   onCloseDirectory: (directory: string) => void
   onOpenCurriculum: () => void
-  onOpenSkills: () => void
   onOpenSettings: () => void
-  activeFooterItem?: "skills" | "settings"
   footer?: ReactNode
   children?: ReactNode
   className?: string
-  style?: CSSProperties
 }
 
 type RenameState = {
@@ -241,7 +237,6 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
       className={`shrink-0 border-r border-sidebar-border bg-sidebar text-sidebar-foreground flex flex-col min-h-0 ${
         props.className ?? ""
       }`}
-      style={props.style}
     >
       {props.children ? (
         <div className="flex-1 min-h-0 overflow-y-auto px-3 pt-2 pb-3">{props.children}</div>
@@ -491,7 +486,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
                               </div>
                               <span
                                 className={`ml-auto shrink-0 text-[12px] ${
-                                  busy ? "text-chart-3" : "text-muted-foreground"
+                                  busy ? "text-warning" : "text-muted-foreground"
                                 }`}
                               >
                                 {busy ? "live" : formatThreadAge(session.time.updated)}
@@ -592,34 +587,15 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
         {props.footer !== undefined ? (
           props.footer
         ) : (
-          <>
-            <Button
-              variant="ghost"
-              size="sm"
-              className={`mb-1 h-9 w-full justify-start rounded-lg px-2 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground ${
-                props.activeFooterItem === "skills"
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                  : ""
-              }`}
-              onClick={props.onOpenSkills}
-            >
-              <SparklesIcon className="size-3.5" />
-              Skills
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className={`h-9 w-full justify-start rounded-lg px-2 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground ${
-                props.activeFooterItem === "settings"
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                  : ""
-              }`}
-              onClick={props.onOpenSettings}
-            >
-              <SettingsIcon className="size-3.5" />
-              Settings
-            </Button>
-          </>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-9 w-full justify-start rounded-lg px-2 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            onClick={props.onOpenSettings}
+          >
+            <SettingsIcon className="size-3.5" />
+            Settings
+          </Button>
         )}
       </footer>
 
