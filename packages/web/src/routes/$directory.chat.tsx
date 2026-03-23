@@ -506,10 +506,6 @@ function DirectoryChatPage() {
     navigate({ to: "/settings", search: { tab: "instructions" } })
   }
 
-  function openSkillsPage() {
-    navigate({ to: "/skills" })
-  }
-
   function onToggleRightSidebar() {
     if (cs.rightSidebarOpen) {
       cs.setRightSidebarOpen(false)
@@ -843,7 +839,6 @@ function DirectoryChatPage() {
                 void onCloseDirectory(targetDirectory)
               }}
               onOpenCurriculum={openCurriculumPanel}
-              onOpenSkills={openSkillsPage}
               onOpenSettings={openSettingsPanel}
               className="w-full h-full"
             />

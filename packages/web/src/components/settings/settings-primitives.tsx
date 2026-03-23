@@ -9,6 +9,8 @@ export type SettingsTab =
   | "model"
   | "providers"
   | "mcps"
+  | "skills"
+  | "advanced"
 
 const PROVIDER_SOURCE_LABELS: Record<string, string> = {
   env: "Environment",

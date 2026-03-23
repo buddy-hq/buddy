@@ -6,9 +6,11 @@ import {
   BlocksIcon,
   BookOpenIcon,
   BrainIcon,
+  CogIcon,
   FileTextIcon,
   PaletteIcon,
   SettingsIcon,
+  SparklesIcon,
 } from "lucide-react"
 import { ChatLeftSidebar } from "@/components/layout/chat-left-sidebar"
 import { ResizeHandle } from "@/components/layout/resize-handle"
@@ -36,6 +38,8 @@ const VALID_TABS: SettingsTab[] = [
   "model",
   "providers",
   "mcps",
+  "skills",
+  "advanced",
 ]
 
 export const Route = createFileRoute("/settings")({
@@ -212,7 +216,6 @@ function SettingsRoute() {
             onOpenCurriculum={() => {
               if (currentDirectory) openChat(currentDirectory)
             }}
-            onOpenSkills={() => navigate({ to: "/skills" })}
             onOpenSettings={() => undefined}
             footer={null}
             className="h-full w-full"
@@ -264,6 +267,8 @@ const NAV_ITEMS: {
   { tab: "model", label: "Model", icon: BrainIcon },
   { tab: "providers", label: "Providers", icon: SettingsIcon },
   { tab: "mcps", label: "MCPs", icon: BlocksIcon },
+  { tab: "skills", label: "Skills", icon: SparklesIcon },
+  { tab: "advanced", label: "Advanced", icon: CogIcon },
 ]
 
 function SettingsNavContent(props: {

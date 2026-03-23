@@ -6,6 +6,8 @@ import { NotebookSettings } from "./settings-notebook"
 import { ModelSettings } from "./settings-model"
 import { ProvidersSettings } from "./settings-providers"
 import { McpsSettings } from "./settings-mcps"
+import { SkillsPage } from "@/components/skills/skills-page"
+import { AdvancedSettings } from "./settings-advanced"
 
 type SettingsPageProps = {
   directory: string
@@ -21,6 +23,12 @@ export function SettingsPage(props: SettingsPageProps) {
       {props.activeTab === "model" && <ModelSettings directory={props.directory} />}
       {props.activeTab === "providers" && <ProvidersSettings directory={props.directory} />}
       {props.activeTab === "mcps" && <McpsSettings directory={props.directory} />}
+      {props.activeTab === "skills" && (
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto">
+          <SkillsPage directory={props.directory} />
+        </div>
+      )}
+      {props.activeTab === "advanced" && <AdvancedSettings directory={props.directory} />}
     </div>
   )
 }

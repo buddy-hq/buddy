@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import {
   Badge,
-  BookOpenIcon,
   Button,
   Card,
   CardContent,
@@ -25,13 +24,13 @@ import {
   cn,
   toast,
 } from "@buddy/ui"
+import { PlusIcon, RefreshCwIcon } from "lucide-react"
 import {
   createCustomSkill,
   installLibrarySkill,
   loadSkillsCatalog,
   removeSkill,
   setSkillPermissionAction,
-  updateSkillsSettings,
   type CreateCustomSkillInput,
   type InstalledSkillInfo,
   type SkillLibraryEntry,
@@ -182,7 +181,7 @@ function SkillCard(props: {
   onManage: () => void
 }) {
   return (
-    <Card className="h-full border-border/60 bg-card/70">
+    <Card className="h-full border-border/60 bg-card/70 transition-colors hover:border-border">
       <CardContent className="flex h-full flex-col gap-4 p-5">
         <div className="flex items-start gap-4">
           <div className="min-w-0 flex-1 space-y-3">
@@ -191,15 +190,12 @@ function SkillCard(props: {
                 {props.skill.name}
               </p>
               <div className="flex shrink-0 items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">Enabled</span>
-                  <Switch
-                    checked={props.skill.permissionAction !== "deny"}
-                    onCheckedChange={props.onToggleEnabled}
-                    disabled={props.disabled}
-                    aria-label={`Toggle ${props.skill.name}`}
-                  />
-                </div>
+                <Switch
+                  checked={props.skill.permissionAction !== "deny"}
+                  onCheckedChange={props.onToggleEnabled}
+                  disabled={props.disabled}
+                  aria-label={`Toggle ${props.skill.name}`}
+                />
                 <Button
                   type="button"
                   variant="ghost"
@@ -220,19 +216,13 @@ function SkillCard(props: {
                 className={cn(
                   "h-5",
                   props.skill.permissionAction === "allow"
-                    ? "border-[color:color-mix(in_oklab,var(--chart-2)_30%,transparent)] bg-[color:color-mix(in_oklab,var(--chart-2)_12%,transparent)] text-[var(--chart-2)]"
+                    ? "border-success bg-success/10 text-success"
                     : props.skill.permissionAction === "ask"
-                      ? "border-[color:color-mix(in_oklab,var(--chart-5)_30%,transparent)] bg-[color:color-mix(in_oklab,var(--chart-5)_12%,transparent)] text-[var(--chart-5)]"
-                      : "border-destructive/30 bg-destructive/10 text-destructive",
+                      ? "border-info bg-info/10 text-info"
+                      : "border-destructive bg-destructive/10 text-destructive",
                 )}
               >
                 {statusLabel(props.skill.permissionAction)}
-              </Badge>
-              <Badge variant="outline" className="h-5">
-                {scopeLabel(props.skill.scope)}
-              </Badge>
-              <Badge variant="outline" className="h-5">
-                {sourceLabel(props.skill.source)}
               </Badge>
             </div>
 
@@ -252,11 +242,11 @@ function LibraryCard(props: {
   onInstall: () => void
 }) {
   return (
-    <Card className="border-border/60 bg-card/60">
+    <Card className="border-border/60 bg-card/60 transition-colors hover:border-border">
       <CardContent className="flex h-full flex-col gap-4 p-5">
         <div className="space-y-2">
           <div className="flex items-center gap-2">
-            <SparklesIcon className="size-4 text-primary" />
+            <SparklesIcon className="size-4 text-info" />
             <p className="text-sm font-semibold text-foreground">{props.skill.name}</p>
           </div>
           <p className="text-sm text-muted-foreground">{props.skill.description}</p>
@@ -264,7 +254,7 @@ function LibraryCard(props: {
         </div>
 
         <div className="mt-auto flex items-center justify-between gap-3">
-          <Badge variant="outline" className="h-5">
+          <Badge variant="outline" className="h-5 border-info bg-info/10 text-info">
             Curated
           </Badge>
           <Button
@@ -423,16 +413,6 @@ export function SkillsPage(props: { directory?: string }) {
     }))
   }
 
-  function setExternalVendorRootsEnabled(enabled: boolean) {
-    setCatalog((current) => {
-      if (!current) return current
-      return {
-        ...current,
-        externalVendorRootsEnabled: enabled,
-      }
-    })
-  }
-
   function updateSkillPermission(skill: InstalledSkillInfo, action: SkillRuleAction) {
     if (action === "inherit" && skill.permissionSource !== "explicit") {
       return
@@ -477,42 +457,6 @@ export function SkillsPage(props: { directory?: string }) {
     updateSkillPermission(skill, nextAction)
   }
 
-  function toggleExternalVendorRoots(enabled: boolean) {
-    if (!catalog) {
-      return
-    }
-    if (catalog.externalVendorRootsEnabled === enabled) {
-      return
-    }
-
-    void (async () => {
-      const key = "settings:external-roots"
-      const previous = catalog.externalVendorRootsEnabled
-      setBusyKey(key)
-      setExternalVendorRootsEnabled(enabled)
-
-      try {
-        await updateSkillsSettings(enabled, currentDirectory)
-        await refreshCatalog({
-          preserveSelection: true,
-          force: true,
-          showRefreshToast: false,
-        })
-        toast.success(
-          enabled
-            ? "External .agents/.claude skill discovery is enabled."
-            : "External .agents/.claude skill discovery is disabled.",
-        )
-      } catch (error) {
-        setExternalVendorRootsEnabled(previous)
-        const message = error instanceof Error ? error.message : "Request failed"
-        toast.error(message)
-      } finally {
-        setBusyKey(undefined)
-      }
-    })()
-  }
-
   async function submitNewSkill() {
     const payload: CreateCustomSkillInput = {
       name: form.name,
@@ -543,85 +487,26 @@ export function SkillsPage(props: { directory?: string }) {
   return (
     <>
       <div className="mx-auto flex min-h-full w-full max-w-7xl flex-col gap-6 px-6 py-6 md:px-8">
-        <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="h-6 bg-muted/20 px-2.5">
-                <BookOpenIcon className="size-3.5" />
-                Skills
-              </Badge>
-            </div>
-            <div>
-              <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-                Manage skills
-              </h1>
-              <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-                Manage which skills are available when chatting with Buddy. Installed skills are
-                discovered from your workspace and global skill directories. The library shows
-                curated skills you can install. Set skills to always available, ask before using, or
-                blocked.
-              </p>
-              {catalog?.directory ? (
-                <div className="mt-3 inline-flex max-w-full items-center gap-2 rounded-full border border-border/60 bg-card/60 px-3 py-1 text-xs text-muted-foreground">
-                  <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                    Workspace
-                  </span>
-                  <span className="truncate font-mono text-[11px] text-foreground">
-                    {catalog.directory}
-                  </span>
-                </div>
-              ) : null}
-              <Card className="mt-4 border-border/60 bg-card/60">
-                <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="space-y-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm font-medium text-foreground">
-                        Discover external <code>.agents/.claude</code> skills (restore vendor
-                        behavior)
-                      </p>
-                      <Badge variant="outline" className="h-5">
-                        {catalog?.externalVendorRootsEnabled ? "Enabled" : "Disabled"}
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      When enabled for this notebook, Buddy discovers vendor-style skills from home
-                      and ancestor directories.
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">
-                      {catalog?.externalVendorRootsEnabled ? "On" : "Off"}
-                    </span>
-                    <Switch
-                      checked={catalog?.externalVendorRootsEnabled ?? false}
-                      onCheckedChange={toggleExternalVendorRoots}
-                      disabled={loading || busyKey === "settings:external-roots"}
-                      aria-label="Discover external vendor roots"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <Button
-              type="button"
-              variant="outline"
-              className="min-w-28"
-              onClick={() => void refreshCatalog({ preserveSelection: true, force: true })}
-            >
-              Refresh
-            </Button>
+        <header className="flex flex-col gap-4">
+          <div className="flex flex-wrap gap-3">
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search skills"
-              className="w-full sm:w-64"
+              className="min-w-0 flex-1"
             />
-            <Button type="button" onClick={() => setNewSkillOpen(true)}>
-              <SparklesIcon className="size-4" />
+            <Button type="button" className="shrink-0" onClick={() => setNewSkillOpen(true)}>
+              <PlusIcon className="size-4" />
               New skill
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="shrink-0"
+              onClick={() => void refreshCatalog({ preserveSelection: true, force: true })}
+            >
+              <RefreshCwIcon className="size-4" />
+              Refresh
             </Button>
           </div>
         </header>
