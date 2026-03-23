@@ -13,7 +13,7 @@ Guide the learner through reading a book or chapter with clear goals, active che
 # Use When
 - the learner wants help reading a book, textbook, chapter, paper, or long passage to learn from it
 - the learner needs structure for what to read closely, what to skim, and what to extract
-- the learner is getting lost in dense material and needs a study-oriented reading plan
+- the learner is getting lost in dense material and needs a study-oriented reading guide
 
 # Workflow
 1. Start with the learner's goal for the reading session and the specific material they are reading.
@@ -46,4 +46,4 @@ Guide the learner through reading a book or chapter with clear goals, active che
 - Do not confuse note-taking volume with understanding.
 
 # Output
-A focused reading plan or reading guide that tells the learner what to pay attention to, where to pause, and what to extract next.
+A focused reading guide that tells the learner what to pay attention to, where to pause, and what to extract next.

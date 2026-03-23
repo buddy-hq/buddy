@@ -57,7 +57,7 @@ describe("session route helper modules", () => {
     expect(() =>
       assertNoLegacyRuntimeOverrides({
         focusGoalIds: ["goal_1"],
-        activityBundleId: "legacy",
+        currentGoalIds: ["goal_legacy"],
       }),
     ).toThrow(SessionTransformValidationError)
 

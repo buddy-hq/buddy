@@ -71,9 +71,6 @@ function buildLearnerContextSections(snapshot: LearnerSnapshotContext): {
   const summary = buildLearnerSummaryText(snapshot)
 
   const progressLines = [
-    ...(snapshot.sections.find((section) => section.title === "Next Step")?.items ?? [
-      "No active plan decision is available yet.",
-    ]),
     `Goals in scope: ${snapshot.goals.length}`,
     `Evidence records: ${snapshot.recentEvidence.length}`,
     `Open feedback items: ${snapshot.openFeedback.length}`,

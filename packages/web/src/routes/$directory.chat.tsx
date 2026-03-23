@@ -694,7 +694,7 @@ function DirectoryChatPage() {
     }
   }
 
-  async function onRunLearningPlanAction(action: LearnerCurriculumView["actions"][number]) {
+  async function onRunCurriculumAction(action: LearnerCurriculumView["actions"][number]) {
     const override = {
       label: `${action.label}: ${action.reason}`,
       prompt: action.prompt,
@@ -1083,7 +1083,7 @@ function DirectoryChatPage() {
               persona={cs.selectedPersona}
               intent={intentFromSelection(cs.storedIntent)}
               onRunAction={(action) => {
-                void onRunLearningPlanAction(action)
+                void onRunCurriculumAction(action)
               }}
               editorPanel={
                 cs.selectedPersonaSupportsEditor ? (

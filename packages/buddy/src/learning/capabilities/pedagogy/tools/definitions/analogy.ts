@@ -60,7 +60,7 @@ const buildOutput = (params: PedagogyToolParams, context: PedagogyToolContext) =
     learnerContext: summarizeLearnerContext(context),
     sections: [
       [
-        "Analogy plan",
+        "Analogy guide",
         [
           `Choose one bounded analogy from ${analogyDomain}.`,
           `Map the analogy to ${target}.`,
@@ -78,7 +78,7 @@ const buildOutput = (params: PedagogyToolParams, context: PedagogyToolContext) =
 }
 
 export const pedagogyAnalogyTool = createBuddyTool("pedagogy_analogy", {
-  description: "Build a bounded-analogy teaching plan for the current learning goal.",
+  description: "Build a bounded-analogy teaching guide for the current learning goal.",
   parameters: PedagogyToolParameters,
   async execute(params, ctx) {
     await ctx.ask({

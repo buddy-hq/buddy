@@ -573,8 +573,18 @@ describe("loadCurriculumView", () => {
     const view = await loadCurriculumView("/repo")
 
     expect(view.coldStart).toBe(false)
-    expect("recommendedNextAction" in view).toBe(false)
-    expect("sessionPlan" in view).toBe(false)
+    expect(Object.keys(view).toSorted()).toEqual([
+      "actions",
+      "actionsUnavailable",
+      "alignmentSummary",
+      "alignmentSummaryUnavailable",
+      "coldStart",
+      "constraintsSummary",
+      "markdown",
+      "openFeedbackActions",
+      "sections",
+      "workspace",
+    ])
   })
 })
 

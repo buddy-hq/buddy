@@ -81,7 +81,7 @@ const buildOutput = (params: PedagogyToolParams, context: PedagogyToolContext) =
 }
 
 export const pedagogyDebugAttemptTool = createBuddyTool("pedagogy_debug_attempt", {
-  description: "Generate a structured debug-attempt plan for code practice.",
+  description: "Generate structured debug-attempt guidance for code practice.",
   parameters: PedagogyToolParameters,
   async execute(params, ctx) {
     await ctx.ask({

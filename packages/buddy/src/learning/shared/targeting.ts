@@ -108,13 +108,7 @@ export function resolveFocusGoalIds(body: Record<string, unknown>): string[] {
 }
 
 export function assertNoLegacyRuntimeOverrides(body: Record<string, unknown>) {
-  const legacyFields = [
-    "activity",
-    "strategy",
-    "adaptivity",
-    "currentGoalIds",
-    "activityBundleId",
-  ] as const
+  const legacyFields = ["strategy", "adaptivity", "currentGoalIds"] as const
   const present = legacyFields.filter((field) => field in body)
   if (present.length === 0) return
 

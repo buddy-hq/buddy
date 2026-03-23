@@ -60,7 +60,7 @@ const buildOutput = (params: PedagogyToolParams, context: PedagogyToolContext) =
     learnerContext: summarizeLearnerContext(context),
     sections: [
       [
-        "Contrast plan",
+        "Contrast guide",
         [
           `Name ${conceptA} and ${conceptB} explicitly.`,
           "Contrast their purpose, shape, and common failure cases.",
@@ -78,7 +78,7 @@ const buildOutput = (params: PedagogyToolParams, context: PedagogyToolContext) =
 }
 
 export const pedagogyConceptContrastTool = createBuddyTool("pedagogy_concept_contrast", {
-  description: "Build a concept-contrast teaching plan for two nearby ideas.",
+  description: "Build a concept-contrast teaching guide for two nearby ideas.",
   parameters: PedagogyToolParameters,
   async execute(params, ctx) {
     await ctx.ask({

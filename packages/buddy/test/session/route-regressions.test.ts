@@ -109,7 +109,7 @@ describe("session route regressions", () => {
       body: JSON.stringify({
         content: "Give me a practice task.",
         persona: "code-buddy",
-        activityBundleId: "not-a-real-bundle",
+        currentGoalIds: committed.goalIds,
         focusGoalIds: committed.goalIds,
       }),
     })

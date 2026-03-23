@@ -42,7 +42,7 @@ const goalDecideScopeTool = createBuddyTool("goal_decide_scope", {
       "program",
       "overall",
       "whole course",
-      "learning plan",
+      "learning path",
       "roadmap",
       "outcomes",
     ]

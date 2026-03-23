@@ -109,7 +109,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
   const [capabilitiesView, setCapabilitiesView] = useState<
     LearnerRuntimeCapabilitiesView | undefined
   >(undefined)
-  const [rawPlanOpen, setRawPlanOpen] = useState(false)
+  const [rawSnapshotOpen, setRawSnapshotOpen] = useState(false)
   const capabilitiesTabEnabled = props.showCapabilitiesTab === true
   const systemPromptTabEnabled = props.showSystemPromptTab === true
 
@@ -217,7 +217,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
             size="sm"
             onClick={() => props.onTabChange("curriculum")}
           >
-            Plan
+            Snapshot
           </Button>
           {props.surfaces.includes("editor") ? (
             <Button
@@ -498,7 +498,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                 />
               </div>
 
-              <Collapsible open={rawPlanOpen} onOpenChange={setRawPlanOpen}>
+              <Collapsible open={rawSnapshotOpen} onOpenChange={setRawSnapshotOpen}>
                 <Card size="sm" className="gap-0 py-0">
                   <CardContent className="px-3 py-3">
                     <div className="flex items-center justify-between gap-2">
@@ -512,9 +512,9 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                       </div>
                       <CollapsibleTrigger asChild>
                         <Button variant="ghost" size="sm" className="gap-1.5">
-                          {rawPlanOpen ? "Hide raw snapshot" : "Show raw snapshot"}
+                          {rawSnapshotOpen ? "Hide raw snapshot" : "Show raw snapshot"}
                           <ChevronDownIcon
-                            className={`size-3.5 transition-transform ${rawPlanOpen ? "rotate-180" : ""}`}
+                            className={`size-3.5 transition-transform ${rawSnapshotOpen ? "rotate-180" : ""}`}
                           />
                         </Button>
                       </CollapsibleTrigger>

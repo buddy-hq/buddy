@@ -28,9 +28,7 @@ describe("learner route regressions", () => {
     expect(chatResponse.status).toBe(200)
     const chatBody = (await chatResponse.json()) as {
       decisionInputFingerprint: string
-      activityBundles?: unknown
     }
-    expect(chatBody.activityBundles).toBeUndefined()
     expect(chatBody.decisionInputFingerprint).toContain("workspaceState:chat")
 
     const interactiveResponse = await app.request(
@@ -44,9 +42,7 @@ describe("learner route regressions", () => {
     expect(interactiveResponse.status).toBe(200)
     const interactiveBody = (await interactiveResponse.json()) as {
       decisionInputFingerprint: string
-      activityBundles?: unknown
     }
-    expect(interactiveBody.activityBundles).toBeUndefined()
     expect(interactiveBody.decisionInputFingerprint).toContain("workspaceState:interactive")
   })
 

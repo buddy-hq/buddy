@@ -88,7 +88,7 @@ const buildOutput = (params: PedagogyToolParams, context: PedagogyToolContext) =
 }
 
 export const pedagogyGuidedPracticeTool = createBuddyTool("pedagogy_guided_practice", {
-  description: "Generate a guided-practice plan for the active learning goal.",
+  description: "Generate guided-practice guidance for the active learning goal.",
   parameters: PedagogyToolParameters,
   async execute(params, ctx) {
     await ctx.ask({

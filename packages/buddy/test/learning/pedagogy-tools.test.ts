@@ -29,7 +29,7 @@ describe("pedagogy tools", () => {
         expect(toolIds).toContain("pedagogy_guided_practice")
         expect(toolIds).toContain("pedagogy_mastery_check")
         expect(toolIds).not.toContain("pedagogy_explanation")
-        expect(toolIds.some((id) => id.startsWith("activity_"))).toBe(false)
+        expect(toolIds.every((id) => !id.startsWith("legacy_"))).toBe(true)
 
         const guidedPractice = requireTool(tools, "pedagogy_guided_practice")
         const masteryCheck = requireTool(tools, "pedagogy_mastery_check")

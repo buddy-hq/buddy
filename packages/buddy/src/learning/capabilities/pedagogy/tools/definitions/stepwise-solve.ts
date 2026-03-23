@@ -59,7 +59,7 @@ const buildOutput = (params: PedagogyToolParams, context: PedagogyToolContext) =
     learnerContext: summarizeLearnerContext(context),
     sections: [
       [
-        "Solve plan",
+        "Solve guide",
         [
           `Restate the target quantity or proof goal for ${target}.`,
           "Ask for the next justified step, not the whole solve.",
@@ -75,7 +75,7 @@ const buildOutput = (params: PedagogyToolParams, context: PedagogyToolContext) =
 }
 
 export const pedagogyStepwiseSolveTool = createBuddyTool("pedagogy_stepwise_solve", {
-  description: "Generate a stepwise mathematical solve plan for the active goal.",
+  description: "Generate stepwise mathematical guidance for the active goal.",
   parameters: PedagogyToolParameters,
   async execute(params, ctx) {
     await ctx.ask({

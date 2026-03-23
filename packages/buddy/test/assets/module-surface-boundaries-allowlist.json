@@ -19,7 +19,7 @@
   "src/session/orchestration/interaction-actions.ts -> ../../learning/agent-execution/transforms/message-transform (src/learning/agent-execution/transforms/message-transform.ts)",
   "src/session/orchestration/interaction-actions.ts -> ../../learning/agent-execution/transforms/types (src/learning/agent-execution/transforms/types.ts)",
   "src/session/orchestration/proxy-transform.ts -> ../../http/proxy (src/http/proxy.ts)",
-  "test/learning/activity-tools.test.ts -> ../../src/learning/agent-execution/state/session-state (src/learning/agent-execution/state/session-state.ts)",
+  "test/learning/pedagogy-tools.test.ts -> ../../src/learning/agent-execution/state/session-state (src/learning/agent-execution/state/session-state.ts)",
   "test/learning/learner-route-regressions.test.ts -> ../../src/learning/agent-execution/state/session-state (src/learning/agent-execution/state/session-state.ts)",
   "test/learning/learning-tool-contract.test.ts -> ../../src/learning/agent-execution/permissions/session-permissions (src/learning/agent-execution/permissions/session-permissions.ts)",
   "test/learning/runtime-session-permissions.test.ts -> ../../src/learning/agent-execution/permissions/session-permissions (src/learning/agent-execution/permissions/session-permissions.ts)",

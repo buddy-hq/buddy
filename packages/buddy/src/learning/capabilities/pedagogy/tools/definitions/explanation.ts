@@ -58,7 +58,7 @@ const buildOutput = (params: PedagogyToolParams, context: PedagogyToolContext) =
     learnerContext: summarizeLearnerContext(context),
     sections: [
       [
-        "Teaching plan",
+        "Teaching guide",
         [
           `State ${target} in plain language before using jargon.`,
           `Connect the explanation to ${goal?.task ?? "the learner's current task"}.`,
@@ -83,7 +83,7 @@ const buildOutput = (params: PedagogyToolParams, context: PedagogyToolContext) =
 
 export const pedagogyExplanationTool = createBuddyTool("pedagogy_explanation", {
   description:
-    "Build a concise explanation plan grounded in the current learner state and active goals.",
+    "Build a concise explanation guide grounded in the current learner state and active goals.",
   parameters: PedagogyToolParameters,
   async execute(params, ctx) {
     await ctx.ask({

@@ -76,7 +76,7 @@ const buildOutput = (params: PedagogyToolParams, context: PedagogyToolContext) =
 }
 
 export const pedagogyWorkedExampleTool = createBuddyTool("pedagogy_worked_example", {
-  description: "Build a worked-example teaching plan for the current learning goal.",
+  description: "Build a worked-example teaching guide for the current learning goal.",
   parameters: PedagogyToolParameters,
   async execute(params, ctx) {
     await ctx.ask({

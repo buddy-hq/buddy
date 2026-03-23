@@ -15,7 +15,7 @@ Buddy learner is a file-first, artifact-based pedagogy system: every learner rec
    - There is no authoritative blob store and no persistent projection pipeline.
    - Snapshot and prompt context are compiled directly from artifact files.
 3. **Decision engine for pedagogy**
-   - Message interpretation, feedback generation, and next-step planning are decision-engine operations.
+   - Message interpretation and feedback generation are decision-engine operations.
    - No silent regex/heuristic fallback for pedagogical state mutation.
 4. **Explicit goal relationships only**
    - No auto-derived prerequisite/build/reinforce edges.
@@ -40,7 +40,6 @@ Buddy learner is a file-first, artifact-based pedagogy system: every learner rec
 - `misconceptions/<misconceptionId>.md`
 - `decisions/interpret-message/<decisionId>.md`
 - `decisions/feedback/<decisionId>.md`
-- `decisions/plan/<decisionId>.md`
 
 ### User-wide profile root
 
@@ -89,7 +88,6 @@ Learner is split into focused Buddy-owned modules:
   - `observe-message.ts`: learner message observation workflow
   - `record-practice.ts`: practice workflow
   - `record-assessment.ts`: assessment workflow
-  - `plan.ts`: plan decision caching and generation
   - `helpers.ts`: shared normalization + mutation helpers
 - `learning/learner-model/api.ts`
   - explicit named exports for learner API entrypoints
@@ -170,7 +168,6 @@ It compiles:
 - active misconceptions
 - open feedback
 - recent evidence
-- latest plan decision
 - constraints summary
 - intent-bound capability permissions (tools + skills)
 - sections and markdown digest
@@ -186,7 +183,6 @@ Decision engine contracts are schema-driven structured outputs for:
 - `interpretMessage`
 - `generatePracticeFeedback`
 - `generateAssessmentFeedback`
-- `planSession` (plan-next-step)
 
 ### Model resolution strategy
 
@@ -242,15 +238,6 @@ If model resolution fails or structured output parsing fails:
 4. Call `generateAssessmentFeedback`
 5. Persist feedback decision
 6. Apply explicit close/resolve IDs only
-
-### Plan generation
-
-1. Compile scoped plan context
-2. Hash exact input context
-3. Reuse existing plan decision when hash matches
-4. Else call plan decision engine and persist
-
----
 
 ## Prompt Integration
 

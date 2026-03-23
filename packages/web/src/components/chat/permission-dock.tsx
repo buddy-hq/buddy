@@ -19,7 +19,7 @@ const TOOL_HINT: Record<string, string> = {
   bash: "Run shell commands.",
   task: "Delegate work to a sub-agent.",
   webfetch: "Fetch content from URLs.",
-  curriculum_update: "Update the generated learning plan.",
+  curriculum_update: "Update the generated learner snapshot.",
 }
 
 export function PermissionDock(props: PermissionDockProps) {
