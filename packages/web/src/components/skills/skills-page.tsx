@@ -133,8 +133,8 @@ function SectionHeader(props: { title: string; description: string; action?: Rea
   return (
     <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
       <div className="space-y-1">
-        <h2 className="text-lg font-semibold text-foreground">{props.title}</h2>
-        <p className="text-sm text-muted-foreground">{props.description}</p>
+        <h2 className="text-lg font-semibold text-text-base">{props.title}</h2>
+        <p className="text-sm text-text-weak">{props.description}</p>
       </div>
       {props.action}
     </div>
@@ -181,12 +181,12 @@ function SkillCard(props: {
   onManage: () => void
 }) {
   return (
-    <Card className="h-full border-border/60 bg-card/70 transition-colors hover:border-border">
+    <Card className="h-full border-border-base/60 bg-surface-raised-base/70 transition-colors hover:border-border-base">
       <CardContent className="flex h-full flex-col gap-4 p-5">
         <div className="flex items-start gap-4">
           <div className="min-w-0 flex-1 space-y-3">
             <div className="flex items-start justify-between gap-3">
-              <p className="truncate pr-2 text-base font-semibold text-foreground">
+              <p className="truncate pr-2 text-base font-semibold text-text-base">
                 {props.skill.name}
               </p>
               <div className="flex shrink-0 items-center gap-3">
@@ -200,7 +200,7 @@ function SkillCard(props: {
                   type="button"
                   variant="ghost"
                   size="icon-sm"
-                  className="rounded-full text-muted-foreground"
+                  className="rounded-full text-text-weak"
                   onClick={props.onManage}
                   disabled={props.disabled}
                   aria-label={`Manage ${props.skill.name}`}
@@ -216,17 +216,17 @@ function SkillCard(props: {
                 className={cn(
                   "h-5",
                   props.skill.permissionAction === "allow"
-                    ? "border-success bg-success/10 text-success"
+                    ? "border-border-success-base bg-surface-success-base/10 text-icon-success-base"
                     : props.skill.permissionAction === "ask"
-                      ? "border-info bg-info/10 text-info"
-                      : "border-destructive bg-destructive/10 text-destructive",
+                      ? "border-border-info-base bg-surface-info-base/10 text-icon-info-base"
+                      : "border-border-critical-base bg-surface-critical-base/10 text-icon-critical-base",
                 )}
               >
                 {statusLabel(props.skill.permissionAction)}
               </Badge>
             </div>
 
-            <p className="min-h-[4.5rem] line-clamp-3 text-sm leading-6 text-muted-foreground">
+            <p className="min-h-[4.5rem] line-clamp-3 text-sm leading-6 text-text-weak">
               {props.skill.description}
             </p>
           </div>
@@ -242,19 +242,22 @@ function LibraryCard(props: {
   onInstall: () => void
 }) {
   return (
-    <Card className="border-border/60 bg-card/60 transition-colors hover:border-border">
+    <Card className="border-border-base/60 bg-surface-raised-base/60 transition-colors hover:border-border-base">
       <CardContent className="flex h-full flex-col gap-4 p-5">
         <div className="space-y-2">
           <div className="flex items-center gap-2">
-            <SparklesIcon className="size-4 text-info" />
-            <p className="text-sm font-semibold text-foreground">{props.skill.name}</p>
+            <SparklesIcon className="size-4 text-icon-info-base" />
+            <p className="text-sm font-semibold text-text-base">{props.skill.name}</p>
           </div>
-          <p className="text-sm text-muted-foreground">{props.skill.description}</p>
-          <p className="text-xs text-muted-foreground">{props.skill.summary}</p>
+          <p className="text-sm text-text-weak">{props.skill.description}</p>
+          <p className="text-xs text-text-weak">{props.skill.summary}</p>
         </div>
 
         <div className="mt-auto flex items-center justify-between gap-3">
-          <Badge variant="outline" className="h-5 border-info bg-info/10 text-info">
+          <Badge
+            variant="outline"
+            className="h-5 border-border-info-base bg-surface-info-base/10 text-icon-info-base"
+          >
             Curated
           </Badge>
           <Button
@@ -512,7 +515,7 @@ export function SkillsPage(props: { directory?: string }) {
         </header>
 
         <div className="space-y-6" aria-busy={refreshing || loading}>
-          {loading ? <p className="text-sm text-muted-foreground">Loading skills...</p> : null}
+          {loading ? <p className="text-sm text-text-weak">Loading skills...</p> : null}
           <section className="space-y-4">
             <SectionHeader
               title="Installed"
@@ -522,17 +525,20 @@ export function SkillsPage(props: { directory?: string }) {
             {loading ? (
               <div className="grid gap-4 lg:grid-cols-2">
                 {SKELETON_CARD_KEYS.map((key) => (
-                  <Card key={key} className="h-full border-border/60 bg-card/50">
+                  <Card
+                    key={key}
+                    className="h-full border-border-base/60 bg-surface-raised-base/50"
+                  >
                     <CardContent className="flex h-full flex-col gap-4 p-5">
-                      <div className="h-5 w-2/5 rounded-md bg-muted/60" />
+                      <div className="h-5 w-2/5 rounded-md bg-surface-weak/60" />
                       <div className="flex gap-2">
-                        <div className="h-5 w-28 rounded-full bg-muted/50" />
-                        <div className="h-5 w-20 rounded-full bg-muted/40" />
+                        <div className="h-5 w-28 rounded-full bg-surface-weak/50" />
+                        <div className="h-5 w-20 rounded-full bg-surface-weak/40" />
                       </div>
                       <div className="space-y-2">
-                        <div className="h-4 w-full rounded-md bg-muted/40" />
-                        <div className="h-4 w-full rounded-md bg-muted/40" />
-                        <div className="h-4 w-4/5 rounded-md bg-muted/40" />
+                        <div className="h-4 w-full rounded-md bg-surface-weak/40" />
+                        <div className="h-4 w-full rounded-md bg-surface-weak/40" />
+                        <div className="h-4 w-4/5 rounded-md bg-surface-weak/40" />
                       </div>
                     </CardContent>
                   </Card>
@@ -551,8 +557,8 @@ export function SkillsPage(props: { directory?: string }) {
                 ))}
               </div>
             ) : (
-              <Card className="border-dashed border-border/60 bg-card/30">
-                <CardContent className="p-6 text-sm text-muted-foreground">
+              <Card className="border-dashed border-border-base/60 bg-surface-raised-base/30">
+                <CardContent className="p-6 text-sm text-text-weak">
                   No installed skills matched your search. Add a curated skill below or create a new
                   custom one.
                 </CardContent>
@@ -586,8 +592,8 @@ export function SkillsPage(props: { directory?: string }) {
                 ))}
               </div>
             ) : (
-              <Card className="border-dashed border-border/60 bg-card/30">
-                <CardContent className="p-6 text-sm text-muted-foreground">
+              <Card className="border-dashed border-border-base/60 bg-surface-raised-base/30">
+                <CardContent className="p-6 text-sm text-text-weak">
                   No library skills matched your search.
                 </CardContent>
               </Card>
@@ -630,16 +636,16 @@ export function SkillsPage(props: { directory?: string }) {
                 ) : null}
               </div>
 
-              <div className="space-y-2 rounded-2xl border border-border/60 bg-card/60 p-4">
-                <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+              <div className="space-y-2 rounded-2xl border border-border-base/60 bg-surface-raised-base/60 p-4">
+                <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-text-weak">
                   Permission
                 </p>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-text-weak">
                       {scopeDescription(selectedSkill.scope)}
                     </p>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-text-weak">
                       {permissionSourceDescription(selectedSkill)}
                     </p>
                   </div>
@@ -652,9 +658,9 @@ export function SkillsPage(props: { directory?: string }) {
               </div>
 
               {selectedSkill.examplePrompt ? (
-                <div className="space-y-2 rounded-2xl border border-border/60 bg-muted/20 p-4">
+                <div className="space-y-2 rounded-2xl border border-border-base/60 bg-surface-weak/20 p-4">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-text-weak">
                       Example prompt
                     </p>
                     <Button
@@ -671,15 +677,15 @@ export function SkillsPage(props: { directory?: string }) {
                       Copy
                     </Button>
                   </div>
-                  <p className="whitespace-pre-wrap text-sm text-foreground">
+                  <p className="whitespace-pre-wrap text-sm text-text-base">
                     {selectedSkill.examplePrompt}
                   </p>
                 </div>
               ) : null}
 
-              <div className="space-y-2 rounded-2xl border border-border/60 bg-card/60 p-4">
+              <div className="space-y-2 rounded-2xl border border-border-base/60 bg-surface-raised-base/60 p-4">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                  <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-text-weak">
                     Skill content
                   </p>
                   <Button
@@ -696,14 +702,14 @@ export function SkillsPage(props: { directory?: string }) {
                     Copy
                   </Button>
                 </div>
-                <pre className="max-h-[320px] overflow-auto whitespace-pre-wrap rounded-xl bg-muted/30 p-3 text-sm text-foreground">
+                <pre className="max-h-[320px] overflow-auto whitespace-pre-wrap rounded-xl bg-surface-weak/30 p-3 text-sm text-text-base">
                   {selectedSkill.content}
                 </pre>
               </div>
 
-              <div className="space-y-2 rounded-2xl border border-border/60 bg-card/60 p-4">
+              <div className="space-y-2 rounded-2xl border border-border-base/60 bg-surface-raised-base/60 p-4">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                  <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-text-weak">
                     Folder
                   </p>
                   <Button
@@ -720,7 +726,7 @@ export function SkillsPage(props: { directory?: string }) {
                     Copy path
                   </Button>
                 </div>
-                <p className="break-all text-sm text-foreground">{selectedSkill.directory}</p>
+                <p className="break-all text-sm text-text-base">{selectedSkill.directory}</p>
               </div>
 
               <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-between">
@@ -789,7 +795,7 @@ export function SkillsPage(props: { directory?: string }) {
           <div className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <p className="text-sm font-medium text-foreground">Name</p>
+                <p className="text-sm font-medium text-text-base">Name</p>
                 <Input
                   value={form.name}
                   onChange={(event) => updateForm({ name: event.target.value })}
@@ -798,7 +804,7 @@ export function SkillsPage(props: { directory?: string }) {
               </div>
 
               <div className="space-y-2">
-                <p className="text-sm font-medium text-foreground">Description</p>
+                <p className="text-sm font-medium text-text-base">Description</p>
                 <Input
                   value={form.description}
                   onChange={(event) => updateForm({ description: event.target.value })}
@@ -808,7 +814,7 @@ export function SkillsPage(props: { directory?: string }) {
             </div>
 
             <div className="space-y-2">
-              <p className="text-sm font-medium text-foreground">Example prompt</p>
+              <p className="text-sm font-medium text-text-base">Example prompt</p>
               <Textarea
                 value={form.examplePrompt}
                 onChange={(event) => updateForm({ examplePrompt: event.target.value })}
@@ -818,7 +824,7 @@ export function SkillsPage(props: { directory?: string }) {
             </div>
 
             <div className="space-y-2">
-              <p className="text-sm font-medium text-foreground">Instructions</p>
+              <p className="text-sm font-medium text-text-base">Instructions</p>
               <Textarea
                 value={form.content}
                 onChange={(event) => updateForm({ content: event.target.value })}

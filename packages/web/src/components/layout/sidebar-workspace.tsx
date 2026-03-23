@@ -22,12 +22,12 @@ export function SidebarWorkspace(props: SidebarWorkspaceProps) {
   const open = workspaceOpenState(expanded, props.directory, true)
 
   return (
-    <aside className="w-full md:w-[320px] shrink-0 max-h-[45vh] md:max-h-none border-b md:border-b-0 md:border-r bg-background/20 flex flex-col min-h-0">
+    <aside className="w-full md:w-[320px] shrink-0 max-h-[45vh] md:max-h-none border-b md:border-b-0 md:border-r bg-background-base/20 flex flex-col min-h-0">
       <div className="px-3 py-2 border-b">
         <div className="group/workspace relative rounded-md">
           <button
             type="button"
-            className="w-full rounded-md px-2 py-1.5 text-left hover:bg-muted/40 transition-colors"
+            className="w-full rounded-md px-2 py-1.5 text-left hover:bg-surface-weak/40 transition-colors"
             onClick={() =>
               setExpanded((current) => ({
                 ...current,
@@ -37,11 +37,11 @@ export function SidebarWorkspace(props: SidebarWorkspaceProps) {
           >
             <div className="flex items-center gap-2 min-w-0 pr-12">
               {open ? (
-                <ChevronDownIcon className="size-3.5 text-muted-foreground" />
+                <ChevronDownIcon className="size-3.5 text-text-weak" />
               ) : (
-                <ChevronRightIcon className="size-3.5 text-muted-foreground" />
+                <ChevronRightIcon className="size-3.5 text-text-weak" />
               )}
-              <span className="text-sm text-muted-foreground shrink-0">local:</span>
+              <span className="text-sm text-text-weak shrink-0">local:</span>
               <span className="text-sm truncate">{workspaceLabel}</span>
             </div>
           </button>
@@ -61,7 +61,7 @@ export function SidebarWorkspace(props: SidebarWorkspaceProps) {
         <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-2 space-y-1">
           <NewSessionItem onClick={props.onNewSession} />
           {props.sessions.length === 0 ? (
-            <p className="px-2 py-2 text-xs text-muted-foreground">No sessions yet.</p>
+            <p className="px-2 py-2 text-xs text-text-weak">No sessions yet.</p>
           ) : (
             props.sessions.map((session) => (
               <SessionItem

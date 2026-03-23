@@ -10,7 +10,7 @@ type SidebarProjectProps = {
 
 export function SidebarProject(props: SidebarProjectProps) {
   return (
-    <aside className="hidden md:flex w-16 shrink-0 bg-background flex-col items-center border-r">
+    <aside className="hidden md:flex w-16 shrink-0 bg-background-base flex-col items-center border-r">
       <div className="flex-1 min-h-0 w-full overflow-y-auto py-3 px-2 flex flex-col items-center gap-3">
         {props.openProjects.map((project) => (
           <ProjectIcon
@@ -24,7 +24,7 @@ export function SidebarProject(props: SidebarProjectProps) {
         <button
           type="button"
           onClick={props.onOpenProject}
-          className="size-10 rounded-lg border border-dashed border-border text-lg leading-none hover:bg-muted/60 transition-colors"
+          className="size-10 rounded-lg border border-dashed border-border-base text-lg leading-none hover:bg-surface-weak/60 transition-colors"
           title="Open project"
         >
           <PlusIcon className="size-4 mx-auto" />
@@ -34,7 +34,7 @@ export function SidebarProject(props: SidebarProjectProps) {
       <div className="w-full py-4 flex flex-col items-center gap-2 border-t">
         <button
           type="button"
-          className="size-8 rounded-md text-xs text-muted-foreground hover:bg-muted/60"
+          className="size-8 rounded-md text-xs text-text-weak hover:bg-surface-weak/60"
           title="Settings"
           aria-label="Settings"
         >
@@ -42,7 +42,7 @@ export function SidebarProject(props: SidebarProjectProps) {
         </button>
         <button
           type="button"
-          className="size-8 rounded-md text-xs text-muted-foreground hover:bg-muted/60"
+          className="size-8 rounded-md text-xs text-text-weak hover:bg-surface-weak/60"
           title="Help"
           aria-label="Help"
         >

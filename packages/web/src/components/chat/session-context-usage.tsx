@@ -9,9 +9,9 @@ type SessionContextUsageProps = {
 }
 
 function usageColor(usage: number) {
-  if (usage >= 90) return "var(--destructive)"
-  if (usage >= 70) return "var(--warning)"
-  return "var(--success)"
+  if (usage >= 90) return "var(--surface-critical-base)"
+  if (usage >= 70) return "var(--surface-warning-base)"
+  return "var(--surface-success-base)"
 }
 
 export function SessionContextUsage(props: SessionContextUsageProps) {
@@ -32,19 +32,16 @@ export function SessionContextUsage(props: SessionContextUsageProps) {
     <Tooltip>
       <TooltipTrigger
         aria-label="Session context usage"
-        className={cn(
-          buttonVariants({ variant: "ghost", size: "icon-xs" }),
-          "text-muted-foreground",
-        )}
+        className={cn(buttonVariants({ variant: "ghost", size: "icon-xs" }), "text-text-weak")}
       >
         <span className="relative size-4">
           <span
             className="absolute inset-0 rounded-full"
             style={{
-              background: `conic-gradient(${color} ${usage * 3.6}deg, color-mix(in oklab, var(--muted-foreground) 28%, transparent) ${usage * 3.6}deg 360deg)`,
+              background: `conic-gradient(${color} ${usage * 3.6}deg, color-mix(in oklab, var(--text-weak) 28%, transparent) ${usage * 3.6}deg 360deg)`,
             }}
           />
-          <span className="absolute inset-[3px] rounded-full bg-background" />
+          <span className="absolute inset-[3px] rounded-full bg-background-base" />
         </span>
       </TooltipTrigger>
       <TooltipContent side="top" sideOffset={6} className="px-2 py-1 text-[11px]">

@@ -78,24 +78,24 @@ export function AdvancedSettings(props: AdvancedSettingsProps) {
 
   return (
     <SettingsPanelContent title="Advanced" description="Advanced settings for power users.">
-      <Card className="border-border/60 bg-card/60">
+      <Card className="border-border-base/60 bg-surface-raised-base/60">
         <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="text-sm font-medium text-foreground">
+              <p className="text-sm font-medium text-text-base">
                 Discover external <code>.agents/.claude</code> skills (restore vendor behavior)
               </p>
               <Badge variant="outline" className="h-5">
                 {catalog?.externalVendorRootsEnabled ? "Enabled" : "Disabled"}
               </Badge>
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-text-weak">
               When enabled for this notebook, Buddy discovers vendor-style skills from home and
               ancestor directories.
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">
+            <span className="text-xs text-text-weak">
               {catalog?.externalVendorRootsEnabled ? "On" : "Off"}
             </span>
             <Switch

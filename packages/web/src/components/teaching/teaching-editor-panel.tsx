@@ -144,7 +144,7 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
   const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null)
   const monacoRef = useRef<typeof import("monaco-editor") | null>(null)
   const rootClassName = [
-    "flex min-h-0 flex-1 flex-col border-t bg-card/60 lg:border-t-0 lg:border-l",
+    "flex min-h-0 flex-1 flex-col border-t bg-surface-raised-base/60 lg:border-t-0 lg:border-l",
     props.className,
   ]
     .filter(Boolean)
@@ -218,7 +218,7 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
         return (
           <div key={node.key}>
             <div
-              className="flex items-center gap-2 py-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground"
+              className="flex items-center gap-2 py-1 text-[11px] font-medium uppercase tracking-wide text-text-weak"
               style={{ paddingLeft }}
             >
               <span className="text-[10px]">/</span>
@@ -238,14 +238,14 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
           onClick={() => props.onSelectFile(node.file.relativePath)}
           className={`flex w-full items-center gap-2 rounded-md py-1.5 pr-2 text-left text-xs ${
             isActive
-              ? "bg-background text-foreground shadow-sm"
-              : "text-muted-foreground hover:bg-background/60 hover:text-foreground"
+              ? "bg-background-base text-text-base shadow-sm"
+              : "text-text-weak hover:bg-background-base/60 hover:text-text-base"
           }`}
           style={{ paddingLeft }}
           title={node.file.relativePath}
         >
           <span className="min-w-0 flex-1 truncate">{node.name}</span>
-          <span className="shrink-0 rounded border border-border/70 px-1 py-0.5 text-[10px] uppercase text-muted-foreground">
+          <span className="shrink-0 rounded border border-border-base/70 px-1 py-0.5 text-[10px] uppercase text-text-weak">
             {node.file.language}
           </span>
         </button>
@@ -257,7 +257,7 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
     <section className={rootClassName}>
       <div className="flex flex-wrap items-center gap-2 border-b px-3 py-2">
         <select
-          className="h-8 rounded-md border bg-background px-2 text-xs"
+          className="h-8 rounded-md border bg-background-base px-2 text-xs"
           value={props.workspace.language}
           onChange={(event) => props.onLanguageChange(event.target.value as TeachingLanguage)}
           disabled={props.isBusy}
@@ -270,14 +270,14 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
           ))}
         </select>
 
-        <div className="min-w-0 flex-1 text-xs text-muted-foreground truncate">
+        <div className="min-w-0 flex-1 text-xs text-text-weak truncate">
           {props.workspace.lessonFilePath}
         </div>
 
-        <span className="rounded-md border bg-background px-2 py-1 text-[11px] text-muted-foreground">
+        <span className="rounded-md border bg-background-base px-2 py-1 text-[11px] text-text-weak">
           rev {props.workspace.revision}
         </span>
-        <span className="rounded-md border bg-background px-2 py-1 text-[11px] text-muted-foreground">
+        <span className="rounded-md border bg-background-base px-2 py-1 text-[11px] text-text-weak">
           {status}
         </span>
 
@@ -302,7 +302,7 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
       </div>
 
       {props.workspace.conflict ? (
-        <div className="flex flex-wrap items-center gap-2 border-b border-b-[color:color-mix(in_oklab,var(--warning)_38%,transparent)] bg-[color:color-mix(in_oklab,var(--warning)_12%,transparent)] px-3 py-2 text-xs text-foreground">
+        <div className="flex flex-wrap items-center gap-2 border-b border-b-[color:color-mix(in_oklab,var(--surface-warning-base)_38%,transparent)] bg-[color:color-mix(in_oklab,var(--surface-warning-base)_12%,transparent)] px-3 py-2 text-xs text-text-base">
           <span className="min-w-0 flex-1">
             The lesson file changed outside the editor. Choose which version to keep.
           </span>
@@ -316,7 +316,7 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
       ) : null}
 
       {props.workspace.saveError ? (
-        <div className="border-b border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+        <div className="border-b border-border-critical-base/40 bg-surface-critical-base/10 px-3 py-2 text-xs text-icon-critical-base">
           {props.workspace.saveError}
         </div>
       ) : null}
@@ -324,9 +324,9 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
       <div className="min-h-0 flex-1">
         <div className="flex h-full min-h-0">
           <div className="min-w-0 flex min-h-0 flex-1 flex-col">
-            <div className="border-b px-3 py-2 text-xs text-muted-foreground">
+            <div className="border-b px-3 py-2 text-xs text-text-weak">
               Editing:{" "}
-              <span className="font-medium text-foreground">
+              <span className="font-medium text-text-base">
                 {props.workspace.activeRelativePath}
               </span>
             </div>
@@ -352,17 +352,17 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
               />
             </div>
 
-            <div className="max-h-44 shrink-0 border-t bg-background/40">
-              <div className="border-b px-3 py-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            <div className="max-h-44 shrink-0 border-t bg-background-base/40">
+              <div className="border-b px-3 py-2 text-[11px] font-medium uppercase tracking-wide text-text-weak">
                 LSP Diagnostics
               </div>
 
               {!props.workspace.lspAvailable ? (
-                <div className="px-3 py-2 text-xs text-muted-foreground">
+                <div className="px-3 py-2 text-xs text-text-weak">
                   No LSP server is available for the active teaching file.
                 </div>
               ) : props.workspace.diagnostics.length === 0 ? (
-                <div className="px-3 py-2 text-xs text-muted-foreground">
+                <div className="px-3 py-2 text-xs text-text-weak">
                   No diagnostics in the active file.
                 </div>
               ) : (
@@ -371,22 +371,20 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
                     {props.workspace.diagnostics.map((diagnostic) => (
                       <div
                         key={`${diagnostic.startLine}:${diagnostic.startColumn}:${diagnostic.severity}:${diagnostic.message}`}
-                        className="rounded-md border border-border/70 bg-background px-2 py-1.5 text-xs"
+                        className="rounded-md border border-border-base/70 bg-background-base px-2 py-1.5 text-xs"
                       >
                         <div className="flex items-center gap-2">
-                          <span className="rounded border border-border/70 px-1 py-0.5 text-[10px] uppercase text-muted-foreground">
+                          <span className="rounded border border-border-base/70 px-1 py-0.5 text-[10px] uppercase text-text-weak">
                             {diagnostic.severity}
                           </span>
-                          <span className="text-muted-foreground">
+                          <span className="text-text-weak">
                             L{diagnostic.startLine}:C{diagnostic.startColumn}
                           </span>
                           {diagnostic.source ? (
-                            <span className="truncate text-muted-foreground">
-                              {diagnostic.source}
-                            </span>
+                            <span className="truncate text-text-weak">{diagnostic.source}</span>
                           ) : null}
                         </div>
-                        <p className="mt-1 text-foreground">{diagnostic.message}</p>
+                        <p className="mt-1 text-text-base">{diagnostic.message}</p>
                       </div>
                     ))}
                   </div>
@@ -395,15 +393,13 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
             </div>
           </div>
 
-          <aside className="flex min-h-0 w-56 shrink-0 flex-col border-l bg-background/30">
+          <aside className="flex min-h-0 w-56 shrink-0 flex-col border-l bg-background-base/30">
             <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
               <div className="min-w-0">
-                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-text-weak">
                   Files
                 </p>
-                <p className="text-[11px] text-muted-foreground">
-                  {props.workspace.files.length} tracked
-                </p>
+                <p className="text-[11px] text-text-weak">{props.workspace.files.length} tracked</p>
               </div>
               <Button
                 size="sm"
@@ -419,7 +415,7 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
               {fileTree.length > 0 ? (
                 <div className="space-y-0.5">{renderTree(fileTree)}</div>
               ) : (
-                <p className="px-2 py-2 text-xs text-muted-foreground">No teaching files yet.</p>
+                <p className="px-2 py-2 text-xs text-text-weak">No teaching files yet.</p>
               )}
             </div>
           </aside>

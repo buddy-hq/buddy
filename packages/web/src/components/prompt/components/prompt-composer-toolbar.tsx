@@ -88,7 +88,7 @@ type PromptComposerToolbarProps = {
 
 export function PromptComposerToolbar(props: PromptComposerToolbarProps) {
   return (
-    <div className="-mt-3.5 rounded-[12px] rounded-tl-none rounded-tr-none border border-t-0 bg-card/95 px-2 pt-5 pb-2">
+    <div className="-mt-3.5 rounded-[12px] rounded-tl-none rounded-tr-none border border-t-0 bg-surface-raised-base/95 px-2 pt-5 pb-2">
       {props.pendingSteerLabel ? (
         <div className="mb-2 flex min-w-0 items-center gap-2 px-1">
           <Badge variant="secondary" className="max-w-full gap-1.5 px-2 py-1 text-[11px]">
@@ -96,7 +96,7 @@ export function PromptComposerToolbar(props: PromptComposerToolbarProps) {
             {props.onClearPendingSteer ? (
               <button
                 type="button"
-                className="shrink-0 rounded-sm text-muted-foreground hover:text-foreground"
+                className="shrink-0 rounded-sm text-text-weak hover:text-text-base"
                 aria-label="Clear pending teaching steer"
                 onClick={props.onClearPendingSteer}
               >
@@ -124,7 +124,10 @@ export function PromptComposerToolbar(props: PromptComposerToolbarProps) {
               }}
               className="w-auto"
             >
-              <TabsList variant="default" className="h-7 bg-muted/50 p-0.5">
+              <TabsList
+                variant="default"
+                className="h-7 bg-surface-raised-base/85 ring-border-base/70 p-0.5 ring-1"
+              >
                 {INTENT_OPTIONS.map((intent) => {
                   const Icon = intent.icon
                   const isSelected = props.selectedIntent === intent.key
@@ -133,7 +136,7 @@ export function PromptComposerToolbar(props: PromptComposerToolbarProps) {
                       <TooltipTrigger asChild>
                         <TabsTrigger
                           value={intent.key}
-                          className="h-6 gap-1.5 px-2 text-[11px] text-muted-foreground hover:text-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-none [&_svg]:size-3.5 border-0 shadow-none"
+                          className="h-6 gap-1.5 border border-transparent px-2 text-[11px] text-text-weak hover:bg-surface-raised-base-hover hover:text-text-strong data-[state=active]:border-border-interactive-base data-[state=active]:bg-surface-interactive-base data-[state=active]:text-text-on-interactive-base data-[state=active]:shadow-xs [&_svg]:size-3.5 shadow-none"
                         >
                           <Icon className="shrink-0" />
                           <span
@@ -161,7 +164,7 @@ export function PromptComposerToolbar(props: PromptComposerToolbarProps) {
           <Select value={props.selectedPersona} onValueChange={props.onPersonaChange}>
             <SelectTrigger
               size="sm"
-              className="h-7 max-w-[140px] min-w-0 border-transparent bg-transparent px-2 text-xs text-foreground shadow-none hover:bg-muted/50 focus-visible:ring-0"
+              className="h-7 max-w-[140px] min-w-0 border-border-base/70 bg-input-base px-2 text-xs text-text-strong shadow-xs hover:border-border-hover hover:bg-input-hover"
               aria-label="Persona"
             >
               <SelectValue placeholder="Persona" />
@@ -190,7 +193,7 @@ export function PromptComposerToolbar(props: PromptComposerToolbarProps) {
             <SelectTrigger
               ref={props.modelTriggerRef}
               size="sm"
-              className="h-7 max-w-[180px] min-w-0 border-transparent bg-transparent px-2 text-xs text-foreground shadow-none hover:bg-muted/50 focus-visible:ring-0"
+              className="h-7 max-w-[180px] min-w-0 border-border-base/70 bg-input-base px-2 text-xs text-text-strong shadow-xs hover:border-border-hover hover:bg-input-hover"
               aria-label="Model"
             >
               <SelectValue placeholder="Auto" />
@@ -223,7 +226,7 @@ export function PromptComposerToolbar(props: PromptComposerToolbarProps) {
           <Select value={props.selectedThinking} onValueChange={props.onThinkingChange}>
             <SelectTrigger
               size="sm"
-              className="h-7 max-w-[160px] min-w-0 border-transparent bg-transparent px-2 text-xs text-foreground shadow-none hover:bg-muted/50 focus-visible:ring-0"
+              className="h-7 max-w-[160px] min-w-0 border-border-base/70 bg-input-base px-2 text-xs text-text-strong shadow-xs hover:border-border-hover hover:bg-input-hover"
               aria-label="Thinking"
             >
               <SelectValue placeholder="Thinking" />

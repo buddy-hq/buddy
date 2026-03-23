@@ -18,7 +18,7 @@ function HighlightedText({ text, query }: { text: string; query: string }) {
         part.toLowerCase() === query.toLowerCase() ? (
           <mark
             key={i}
-            className="rounded-sm bg-yellow-500/30 px-0.5 font-semibold text-yellow-900 dark:bg-yellow-400/30 dark:text-yellow-100"
+            className="rounded-sm bg-surface-warning-base/30 px-0.5 font-semibold text-icon-warning-base"
           >
             {part}
           </mark>
@@ -158,10 +158,10 @@ export function SystemPromptPanel(props: SystemPromptPanelProps) {
     <div className={`flex h-full min-h-0 flex-col gap-3 p-3 ${className ?? ""}`}>
       <div className="flex items-start justify-between gap-3 pb-2">
         <div className="min-w-0 space-y-1.5">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground leading-none">
+          <p className="text-xs font-medium uppercase tracking-wide text-text-weak leading-none">
             System Prompt
           </p>
-          <p className="text-xs text-muted-foreground line-clamp-2">
+          <p className="text-xs text-text-weak line-clamp-2">
             Exact system prompt from the most recent outbound LLM turn.
           </p>
         </div>
@@ -177,28 +177,28 @@ export function SystemPromptPanel(props: SystemPromptPanelProps) {
       </div>
 
       {!sessionID ? (
-        <div className="rounded-md border border-border/70 bg-background p-3 text-sm text-muted-foreground">
+        <div className="rounded-md border border-border-base/70 bg-background-base p-3 text-sm text-text-weak">
           Select a session to inspect system prompts.
         </div>
       ) : null}
 
       {error ? (
-        <p className="rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1.5 text-xs text-destructive">
+        <p className="rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 px-2 py-1.5 text-xs text-icon-critical-base">
           {error}
         </p>
       ) : null}
 
       {sessionID ? (
-        <div className="min-h-0 flex-1 rounded-md border border-border/70 bg-background">
+        <div className="min-h-0 flex-1 rounded-md border border-border-base/70 bg-background-base">
           {systemPromptText ? (
             <div className="flex h-full min-h-0 flex-col">
-              <div className="border-b border-border/60 px-3 py-2 text-[11px] text-muted-foreground">
+              <div className="border-b border-border-base/60 px-3 py-2 text-[11px] text-text-weak">
                 <span>Turn: {lastOutbound?.kind ?? "unknown"}</span>
                 {renderedAt ? <span className="ml-3">Captured: {renderedAt}</span> : null}
                 <span className="ml-3">~{approxTokens.toLocaleString()} tokens</span>
                 <span className="ml-1">({charCount.toLocaleString()} chars)</span>
               </div>
-              <div className="border-b border-border/60 px-3 py-2">
+              <div className="border-b border-border-base/60 px-3 py-2">
                 <Input
                   placeholder="Search in prompt..."
                   value={searchQuery}
@@ -206,12 +206,12 @@ export function SystemPromptPanel(props: SystemPromptPanelProps) {
                   className="h-8 text-xs"
                 />
               </div>
-              <pre className="min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap break-words p-3 text-[12px] leading-5 text-foreground font-mono">
+              <pre className="min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap break-words p-3 text-[12px] leading-5 text-text-base font-mono">
                 <HighlightedText text={systemPromptText} query={searchQuery} />
               </pre>
             </div>
           ) : (
-            <div className="p-3 text-sm text-muted-foreground">
+            <div className="p-3 text-sm text-text-weak">
               {loading || activeSessionBusy
                 ? "Capturing the latest system prompt..."
                 : "No system prompt has been recorded for this session yet."}

@@ -249,13 +249,13 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
         </DialogHeader>
 
         {props.providers.length === 0 ? (
-          <p className="py-2 text-sm text-muted-foreground">
+          <p className="py-2 text-sm text-text-weak">
             No providers are available for this notebook.
           </p>
         ) : (
           <div className="min-w-0 space-y-4 py-2">
             <div className="space-y-1.5">
-              <label className="text-xs text-muted-foreground">Provider</label>
+              <label className="text-xs text-text-weak">Provider</label>
               <Select
                 value={providerID}
                 onValueChange={(value) => {
@@ -279,7 +279,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
 
             {selectedProvider ? (
               <>
-                <div className="rounded-md border px-3 py-2 text-xs text-muted-foreground">
+                <div className="rounded-md border px-3 py-2 text-xs text-text-weak">
                   {selectedProvider.connected
                     ? envManaged
                       ? "Connected via environment variables."
@@ -288,7 +288,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-muted-foreground">Auth method</label>
+                  <label className="text-xs text-text-weak">Auth method</label>
                   <Select
                     value={String(methodIndex)}
                     onValueChange={(value) => resetAuthState(Number(value))}
@@ -310,7 +310,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
                 {selectedMethod?.type === "api" ? (
                   <form className="space-y-3" onSubmit={(event) => void handleApiSubmit(event)}>
                     <div className="space-y-1.5">
-                      <label className="text-xs text-muted-foreground">API key</label>
+                      <label className="text-xs text-text-weak">API key</label>
                       <Input
                         type="password"
                         value={apiKey}
@@ -335,7 +335,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
                       ) : null}
                     </div>
                     {envManaged ? (
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-text-weak">
                         Remove the provider environment variable to disconnect this provider.
                       </p>
                     ) : null}
@@ -351,13 +351,13 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
                     {authorization ? (
                       <div className="min-w-0 space-y-3 rounded-md border px-3 py-3">
                         <div className="min-w-0 space-y-2">
-                          <p className="text-xs text-muted-foreground">Authorization link</p>
-                          <p className="text-sm text-muted-foreground">
+                          <p className="text-xs text-text-weak">Authorization link</p>
+                          <p className="text-sm text-text-weak">
                             Open the authorization page in your browser to continue connecting{" "}
                             {selectedProvider.name}.
                           </p>
                           <a
-                            className="inline-flex max-w-full text-sm text-primary underline-offset-4 hover:underline"
+                            className="inline-flex max-w-full text-sm text-text-interactive-base underline-offset-4 hover:underline"
                             href={authorization.url}
                             target="_blank"
                             rel="noreferrer"
@@ -373,9 +373,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
                             onSubmit={(event) => void submitOAuthCode(event)}
                           >
                             <div className="space-y-1.5">
-                              <label className="text-xs text-muted-foreground">
-                                Authorization code
-                              </label>
+                              <label className="text-xs text-text-weak">Authorization code</label>
                               <Input
                                 type="text"
                                 value={code}
@@ -392,7 +390,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
                           <div className="space-y-2">
                             {confirmationCode ? (
                               <div className="space-y-1 min-w-0">
-                                <p className="text-xs text-muted-foreground">Confirmation code</p>
+                                <p className="text-xs text-text-weak">Confirmation code</p>
                                 <Input
                                   readOnly
                                   value={confirmationCode}
@@ -401,7 +399,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
                                 />
                               </div>
                             ) : null}
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-xs text-text-weak">
                               Waiting for the provider to finish authorization.
                             </p>
                           </div>
@@ -423,7 +421,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
                         <span />
                       )}
                       {envManaged ? (
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-xs text-text-weak">
                           This provider is connected from the environment.
                         </span>
                       ) : null}
@@ -434,7 +432,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
             ) : null}
 
             {error ? (
-              <p className="rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1.5 text-xs text-destructive">
+              <p className="rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 px-2 py-1.5 text-xs text-icon-critical-base">
                 {error}
               </p>
             ) : null}

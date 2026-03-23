@@ -232,7 +232,7 @@ export function renderPromptParts(root: HTMLElement, parts: PromptComposerPart[]
 
     const pill = document.createElement("span")
     pill.className =
-      "mx-0.5 inline-flex max-w-full items-center rounded-md border border-border/70 bg-muted px-1.5 py-0.5 text-xs font-medium text-foreground"
+      "mx-0.5 inline-flex max-w-full items-center rounded-md border border-border-base/70 bg-surface-weak px-1.5 py-0.5 text-xs font-medium text-text-base"
     pill.setAttribute("contenteditable", "false")
     pill.dataset.type = part.type
 

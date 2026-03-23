@@ -141,7 +141,7 @@ export function ResizeHandle(props: ResizeHandleProps) {
 
   const edge = edgeProp ?? (direction === "vertical" ? "start" : "end")
   const handleClassName = [
-    "absolute z-10 after:absolute after:content-[''] after:opacity-0 after:transition-opacity after:duration-150 after:ease-in-out after:bg-[color-mix(in_oklab,var(--muted-foreground)_45%,transparent)] hover:after:opacity-100 active:after:opacity-100",
+    "absolute z-10 after:absolute after:content-[''] after:opacity-0 after:transition-opacity after:duration-150 after:ease-in-out after:bg-[color-mix(in_oklab,var(--text-weak)_45%,transparent)] hover:after:opacity-100 active:after:opacity-100",
     direction === "horizontal"
       ? edge === "start"
         ? "inset-y-0 left-0 w-2 -translate-x-1/2 cursor-col-resize after:inset-y-0 after:left-1/2 after:w-[3px] after:-translate-x-1/2"

@@ -53,32 +53,27 @@ export function BasicTool({
     <Collapsible
       open={open}
       onOpenChange={setOpen}
-      className="w-full rounded-lg border border-border bg-card p-3"
+      className="w-full rounded-lg border border-border-base bg-surface-raised-base p-3"
     >
       <CollapsibleTrigger asChild>
         <button type="button" className="w-full text-left">
           <div className="flex items-start justify-between gap-2">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
-              {icon ? <span className="shrink-0 text-muted-foreground">{icon}</span> : null}
+              {icon ? <span className="shrink-0 text-text-weak">{icon}</span> : null}
               {isTriggerTitle(trigger) ? (
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
                   <span
-                    className={cn(
-                      "text-sm font-medium text-foreground",
-                      running && "animate-pulse",
-                    )}
+                    className={cn("text-sm font-medium text-text-base", running && "animate-pulse")}
                   >
                     {trigger.title}
                   </span>
                   {trigger.subtitle && !running ? (
-                    <span className="truncate text-sm text-muted-foreground">
-                      {trigger.subtitle}
-                    </span>
+                    <span className="truncate text-sm text-text-weak">{trigger.subtitle}</span>
                   ) : null}
                   {trigger.args?.map((arg) => (
                     <span
                       key={arg}
-                      className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
+                      className="rounded bg-surface-weak px-1.5 py-0.5 text-xs text-text-weak"
                     >
                       {arg}
                     </span>
@@ -94,7 +89,7 @@ export function BasicTool({
               {!hideDetails && !running && children ? (
                 <ChevronRightIcon
                   className={cn(
-                    "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
+                    "h-4 w-4 shrink-0 text-text-weak transition-transform",
                     open && "rotate-90",
                   )}
                 />

@@ -337,20 +337,18 @@ export function MarkdownFileEditor(props: MarkdownFileEditorProps) {
       ) : null}
 
       {loading && !exists ? (
-        <div className="rounded-md border border-border/70 bg-background p-3 text-sm text-muted-foreground">
+        <div className="rounded-md border border-border-base/70 bg-background-base p-3 text-sm text-text-weak">
           Loading...
         </div>
       ) : null}
 
       {!exists && !loading ? (
-        <div className="flex min-h-0 flex-1 flex-col items-center justify-center rounded-lg border border-dashed border-border/70 bg-background/50 px-4 py-10 text-center">
-          <div className="flex size-12 items-center justify-center rounded-full bg-muted">
-            <FileTextIcon className="size-6 text-muted-foreground" />
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center rounded-lg border border-dashed border-border-base/70 bg-background-base/50 px-4 py-10 text-center">
+          <div className="flex size-12 items-center justify-center rounded-full bg-surface-weak">
+            <FileTextIcon className="size-6 text-text-weak" />
           </div>
           <h3 className="mt-4 text-sm font-medium leading-none">{props.emptyTitle}</h3>
-          <p className="mt-1.5 max-w-[260px] text-xs text-muted-foreground">
-            {props.emptyDescription}
-          </p>
+          <p className="mt-1.5 max-w-[260px] text-xs text-text-weak">{props.emptyDescription}</p>
           <Button
             size="sm"
             className="mt-5"
@@ -364,7 +362,7 @@ export function MarkdownFileEditor(props: MarkdownFileEditorProps) {
           </Button>
         </div>
       ) : exists ? (
-        <div className="min-h-[260px] flex-1 overflow-hidden rounded-md border border-border/70 bg-background">
+        <div className="min-h-[260px] flex-1 overflow-hidden rounded-md border border-border-base/70 bg-background-base">
           <div ref={editorContainerRef} className="h-full min-h-[260px]">
             <Editor
               height="100%"

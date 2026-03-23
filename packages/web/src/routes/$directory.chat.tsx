@@ -792,7 +792,7 @@ function DirectoryChatPage() {
 
   // ── JSX ──────────────────────────────────────────────────────────────────────
   return (
-    <div className="h-full w-full overflow-hidden bg-card">
+    <div className="h-full w-full overflow-hidden bg-surface-raised-base">
       <div className="h-full w-full flex min-w-0">
         {/* Left sidebar */}
         <div
@@ -857,7 +857,7 @@ function DirectoryChatPage() {
         </div>
 
         {/* Main */}
-        <main className="flex-1 min-w-0 min-h-0 flex flex-col bg-background/20">
+        <main className="flex-1 min-w-0 min-h-0 flex flex-col bg-background-base/20">
           <header className="border-b px-3 py-2">
             <div className="mx-auto flex w-full max-w-full items-center justify-between gap-2 md:max-w-200 2xl:max-w-[1000px]">
               <div className="min-w-0 flex items-center gap-1.5">
@@ -888,8 +888,10 @@ function DirectoryChatPage() {
                   </Button>
                 ) : null}
                 <div className="min-w-0">
-                  <h1 className="text-sm md:text-base font-medium truncate">{cs.sessionTitle}</h1>
-                  <p className="text-xs text-muted-foreground truncate">
+                  <h1 className="text-sm md:text-base font-medium text-text-strong truncate">
+                    {cs.sessionTitle}
+                  </h1>
+                  <p className="text-xs text-text-weak truncate">
                     local: {getFilename(decodedDirectory)}
                   </p>
                 </div>
@@ -957,7 +959,7 @@ function DirectoryChatPage() {
                   }`}
                 >
                   {!cs.isReady ? (
-                    <p className="text-sm text-muted-foreground">Loading conversation history...</p>
+                    <p className="text-sm text-text-weak">Loading conversation history...</p>
                   ) : cs.messages.length === 0 ? (
                     <div className="h-full flex flex-col">
                       <ChatEmptyState directoryLabel={getFilename(decodedDirectory)} />
@@ -977,7 +979,7 @@ function DirectoryChatPage() {
 
               {cs.error ? (
                 <div className="mx-auto w-full max-w-full px-4 pb-2 md:max-w-200 2xl:max-w-[1000px]">
-                  <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+                  <div className="rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 p-3 text-sm text-icon-critical-base">
                     {cs.error}
                   </div>
                 </div>
@@ -1112,7 +1114,7 @@ function DirectoryChatPage() {
                         onForceOverwrite={teachingWs.onForceOverwrite}
                       />
                     ) : (
-                      <section className="flex min-h-0 flex-1 items-center justify-center px-6 py-8 text-sm text-muted-foreground">
+                      <section className="flex min-h-0 flex-1 items-center justify-center px-6 py-8 text-sm text-text-weak">
                         Preparing lesson workspace...
                       </section>
                     )
@@ -1120,22 +1122,19 @@ function DirectoryChatPage() {
                     <section className="flex min-h-0 flex-1 flex-col justify-center gap-4 px-6 py-8">
                       <div className="space-y-2">
                         <h2 className="text-sm font-medium">Interactive Lesson</h2>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-sm text-text-weak">
                           Start an interactive session to create a tracked workspace with files,
                           checkpoints, and server-backed editor diagnostics.
                         </p>
                       </div>
 
                       <div className="flex flex-wrap items-center gap-2">
-                        <label
-                          className="text-xs text-muted-foreground"
-                          htmlFor="interactive-language"
-                        >
+                        <label className="text-xs text-text-weak" htmlFor="interactive-language">
                           Language
                         </label>
                         <select
                           id="interactive-language"
-                          className="h-8 rounded-md border bg-background px-2 text-xs"
+                          className="h-8 rounded-md border bg-background-base px-2 text-xs"
                           value={cs.preferredLanguage}
                           onChange={(event) =>
                             teachingWs.onTeachingPreferredLanguageChange(
@@ -1180,7 +1179,7 @@ function DirectoryChatPage() {
                         </Button>
                       </div>
 
-                      <div className="rounded-lg border border-border/70 bg-background p-3 text-xs text-muted-foreground">
+                      <div className="rounded-lg border border-border-base/70 bg-background-base p-3 text-xs text-text-weak">
                         Current workspace:{" "}
                         {isStartingInteractiveLesson ? "starting..." : "not started"}
                         <br />

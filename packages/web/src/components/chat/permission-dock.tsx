@@ -38,38 +38,38 @@ export function PermissionDock(props: PermissionDockProps) {
 
   return (
     <div
-      className="flex flex-col overflow-hidden rounded-lg border border-[color-mix(in_oklab,var(--warning)_40%,var(--border))] bg-[color-mix(in_oklab,var(--card)_94%,var(--warning)_6%)] shadow-[0_0_0_1px_color-mix(in_oklab,var(--warning)_14%,transparent)]"
+      className="flex flex-col overflow-hidden rounded-lg border border-[color-mix(in_oklab,var(--surface-warning-base)_40%,var(--border-base))] bg-[color-mix(in_oklab,var(--surface-raised-base)_94%,var(--surface-warning-base)_6%)] shadow-[0_0_0_1px_color-mix(in_oklab,var(--surface-warning-base)_14%,transparent)]"
       role="alert"
       aria-live="assertive"
     >
       <div className="flex flex-col gap-[0.55rem] px-[0.8rem] py-[0.7rem] pb-[0.4rem]">
         <div className="grid grid-cols-[1.1rem_1fr] items-center gap-x-[0.55rem]">
           <span
-            className="inline-flex size-[1.1rem] items-center justify-center rounded-full border border-[color-mix(in_oklab,var(--warning)_28%,transparent)] bg-[color-mix(in_oklab,var(--warning)_16%,transparent)] text-[0.72rem] font-bold text-warning"
+            className="inline-flex size-[1.1rem] items-center justify-center rounded-full border border-[color-mix(in_oklab,var(--surface-warning-base)_28%,transparent)] bg-[color-mix(in_oklab,var(--surface-warning-base)_16%,transparent)] text-[0.72rem] font-bold text-icon-warning-base"
             aria-hidden="true"
           >
             !
           </span>
-          <div className="text-[0.87rem] font-semibold text-foreground">Permission required</div>
+          <div className="text-[0.87rem] font-semibold text-text-base">Permission required</div>
         </div>
 
         {hint ? (
           <div className="grid grid-cols-[1.1rem_1fr] items-start gap-x-[0.55rem]">
             <span aria-hidden="true" />
-            <div className="text-[0.8rem] text-muted-foreground">{hint}</div>
+            <div className="text-[0.8rem] text-text-weak">{hint}</div>
           </div>
         ) : null}
 
         <div className="grid grid-cols-[1.1rem_1fr] items-start gap-x-[0.55rem]">
           <span aria-hidden="true" />
           <div className="flex min-w-0 flex-col gap-[0.4rem]">
-            <div className="text-[0.82rem] text-foreground">Tool: {props.request.permission}</div>
+            <div className="text-[0.82rem] text-text-base">Tool: {props.request.permission}</div>
             {props.request.patterns.length > 0 ? (
               <div className="flex max-h-32 flex-col gap-[0.3rem] overflow-auto">
                 {props.request.patterns.map((pattern) => (
                   <code
                     key={`${props.request.id}:${pattern}`}
-                    className="whitespace-pre-wrap break-words text-[0.74rem] text-muted-foreground"
+                    className="whitespace-pre-wrap break-words text-[0.74rem] text-text-weak"
                   >
                     {pattern}
                   </code>
@@ -77,7 +77,7 @@ export function PermissionDock(props: PermissionDockProps) {
               </div>
             ) : null}
             {(props.pendingCount ?? 0) > 0 ? (
-              <div className="text-[0.72rem] text-muted-foreground">
+              <div className="text-[0.72rem] text-text-weak">
                 +{props.pendingCount} more pending request
                 {(props.pendingCount ?? 0) === 1 ? "" : "s"}
               </div>
@@ -86,7 +86,7 @@ export function PermissionDock(props: PermissionDockProps) {
         </div>
       </div>
 
-      <div className="flex items-center justify-between border-t border-[color-mix(in_oklab,var(--border)_75%,transparent)] px-[0.65rem] py-[0.45rem]">
+      <div className="flex items-center justify-between border-t border-[color-mix(in_oklab,var(--border-base)_75%,transparent)] px-[0.65rem] py-[0.45rem]">
         <div />
         <div className="flex items-center gap-[0.45rem]">
           <Button

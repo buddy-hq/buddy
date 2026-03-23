@@ -94,7 +94,7 @@ export function AppearanceSettings() {
         description="Adjust Buddy interface and desktop app settings."
       >
         <div className="space-y-2">
-          <h3 className="text-sm font-medium text-foreground">Theme</h3>
+          <h3 className="text-sm font-medium text-text-base">Theme</h3>
           <SettingsListCard>
             <SettingsRow
               title="Color scheme"
@@ -140,7 +140,7 @@ export function AppearanceSettings() {
 
         {showAdvancedMathControls || showDesktopUpdateControls ? (
           <div className="space-y-2">
-            <h3 className="text-sm font-medium text-foreground">Desktop app</h3>
+            <h3 className="text-sm font-medium text-text-base">Desktop app</h3>
             <SettingsListCard>
               {showAdvancedMathControls ? (
                 <>
@@ -150,7 +150,7 @@ export function AppearanceSettings() {
                     control={
                       <div className="space-y-2">
                         <div className="flex items-center justify-between gap-3">
-                          <span className="text-xs text-muted-foreground">
+                          <span className="text-xs text-text-weak">
                             {advancedMathStatusLabel(advancedMathStatus, advancedMathLoading)}
                           </span>
                           <Switch
@@ -163,7 +163,7 @@ export function AppearanceSettings() {
                         {advancedMathStatus?.progressMessage ||
                         typeof advancedMathStatus?.progressPercent === "number" ? (
                           <div className="space-y-1">
-                            <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                            <div className="flex items-center justify-between gap-2 text-[11px] text-text-weak">
                               <span className="truncate">
                                 {advancedMathStatus?.progressMessage ?? "Working..."}
                               </span>
@@ -178,7 +178,9 @@ export function AppearanceSettings() {
                           </div>
                         ) : null}
                         {advancedMathStatus?.lastError ? (
-                          <p className="text-xs text-destructive">{advancedMathStatus.lastError}</p>
+                          <p className="text-xs text-icon-critical-base">
+                            {advancedMathStatus.lastError}
+                          </p>
                         ) : null}
                       </div>
                     }

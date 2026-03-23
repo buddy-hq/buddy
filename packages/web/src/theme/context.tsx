@@ -8,9 +8,8 @@ import {
   type ReactNode,
 } from "react"
 import type { DesktopTheme, ColorScheme } from "./types"
-import { resolveThemeVariant } from "./resolve"
+import { resolveThemeVariant, themeToCss } from "./resolve"
 import { defaultThemes } from "./default-themes"
-import { toShadcnCss } from "./shadcn-mapper"
 import {
   DEFAULT_THEME_ID,
   PRELOAD_STYLE_ID,
@@ -53,20 +52,17 @@ function applyThemeCss(theme: DesktopTheme, themeId: string, mode: "light" | "da
   const isDark = mode === "dark"
   const variant = isDark ? theme.dark : theme.light
   const tokens = resolveThemeVariant(variant, isDark)
-  const shadcnCss = toShadcnCss(tokens, isDark)
+  const css = themeToCss(tokens)
 
   try {
     localStorage.setItem(STORAGE_KEYS.CACHE_VERSION, THEME_CACHE_VERSION)
-    localStorage.setItem(
-      isDark ? STORAGE_KEYS.THEME_CSS_DARK : STORAGE_KEYS.THEME_CSS_LIGHT,
-      shadcnCss,
-    )
+    localStorage.setItem(isDark ? STORAGE_KEYS.THEME_CSS_DARK : STORAGE_KEYS.THEME_CSS_LIGHT, css)
   } catch {}
 
   const fullCss = `:root {
   color-scheme: ${mode};
   --text-mix-blend-mode: ${isDark ? "plus-lighter" : "multiply"};
-  ${shadcnCss}
+  ${css}
 }`
 
   document.getElementById(PRELOAD_STYLE_ID)?.remove()
@@ -79,13 +75,10 @@ function cacheThemeVariants(theme: DesktopTheme) {
     const isDark = mode === "dark"
     const variant = isDark ? theme.dark : theme.light
     const tokens = resolveThemeVariant(variant, isDark)
-    const shadcnCss = toShadcnCss(tokens, isDark)
+    const css = themeToCss(tokens)
     try {
       localStorage.setItem(STORAGE_KEYS.CACHE_VERSION, THEME_CACHE_VERSION)
-      localStorage.setItem(
-        isDark ? STORAGE_KEYS.THEME_CSS_DARK : STORAGE_KEYS.THEME_CSS_LIGHT,
-        shadcnCss,
-      )
+      localStorage.setItem(isDark ? STORAGE_KEYS.THEME_CSS_DARK : STORAGE_KEYS.THEME_CSS_LIGHT, css)
     } catch {}
   }
 }

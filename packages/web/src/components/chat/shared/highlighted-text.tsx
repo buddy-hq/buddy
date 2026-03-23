@@ -102,8 +102,8 @@ export function HighlightedText({ text, references, agents }: HighlightedTextPro
         <span
           key={key}
           className={cn(
-            segment.type === "file" && "text-primary",
-            segment.type === "agent" && "text-foreground font-medium",
+            segment.type === "file" && "text-text-interactive-base",
+            segment.type === "agent" && "text-text-base font-medium",
           )}
         >
           {segment.text}

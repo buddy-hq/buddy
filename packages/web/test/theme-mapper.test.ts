@@ -1,36 +1,31 @@
 import { describe, expect, test } from "bun:test"
 import { defaultThemes } from "../src/theme/default-themes"
-import { resolveThemeVariant } from "../src/theme/resolve"
-import { toShadcnCss } from "../src/theme/shadcn-mapper"
+import { resolveThemeVariant, themeToCss } from "../src/theme/resolve"
 
 function cssValue(css: string, key: string) {
   const match = css.match(new RegExp(`${key}:\\s*([^;]+);`))
   return match?.[1]
 }
 
-describe("toShadcnCss", () => {
-  test("maps dark control surfaces to visible shadcn neutrals", () => {
+describe("themeToCss", () => {
+  test("serializes dark theme tokens as raw css custom properties", () => {
     const tokens = resolveThemeVariant(defaultThemes["oc-2"].dark, true)
-    const css = toShadcnCss(tokens, true)
+    const css = themeToCss(tokens)
 
-    expect(cssValue(css, "--foreground")).toBe(tokens["text-base"])
-    expect(cssValue(css, "--card-foreground")).toBe(tokens["text-base"])
-    expect(cssValue(css, "--popover-foreground")).toBe(tokens["text-base"])
-    expect(cssValue(css, "--secondary")).toBe(tokens["surface-raised-strong"])
-    expect(cssValue(css, "--secondary-foreground")).toBe(tokens["text-base"])
-    expect(cssValue(css, "--accent")).toBe(tokens["surface-strong"])
-    expect(cssValue(css, "--accent-foreground")).toBe(tokens["text-strong"])
-    expect(cssValue(css, "--sidebar-foreground")).toBe(tokens["text-base"])
-    expect(cssValue(css, "--input")).toBe(tokens["border-base"])
-    expect(cssValue(css, "--accent")).not.toBe(cssValue(css, "--popover"))
+    expect(cssValue(css, "--background-base")).toBe(tokens["background-base"])
+    expect(cssValue(css, "--surface-raised-stronger-non-alpha")).toBe(
+      tokens["surface-raised-stronger-non-alpha"],
+    )
+    expect(cssValue(css, "--text-base")).toBe(tokens["text-base"])
+    expect(cssValue(css, "--border-interactive-base")).toBe(tokens["border-interactive-base"])
   })
 
-  test("keeps light control surfaces on the softer neutral step", () => {
+  test("serializes light theme tokens", () => {
     const tokens = resolveThemeVariant(defaultThemes["oc-2"].light, false)
-    const css = toShadcnCss(tokens, false)
+    const css = themeToCss(tokens)
 
-    expect(cssValue(css, "--secondary")).toBe(tokens["surface-weak"])
-    expect(cssValue(css, "--accent")).toBe(tokens["surface-weak"])
-    expect(cssValue(css, "--input")).toBe(tokens["border-base"])
+    expect(cssValue(css, "--background-base")).toBe(tokens["background-base"])
+    expect(cssValue(css, "--surface-weak")).toBe(tokens["surface-weak"])
+    expect(cssValue(css, "--border-base")).toBe(tokens["border-base"])
   })
 })

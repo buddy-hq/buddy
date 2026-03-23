@@ -16,15 +16,15 @@ function statusLabel(status: ToolState["status"]): string {
 
 function toolStatusTone(status: ToolState["status"]): string {
   if (status === "completed") {
-    return "border-primary/40 bg-primary/10 text-primary"
+    return "border-border-interactive-base/40 bg-surface-interactive-base/10 text-text-interactive-base"
   }
   if (status === "error") {
-    return "border-destructive/40 bg-destructive/10 text-destructive"
+    return "border-border-critical-base/40 bg-surface-critical-base/10 text-icon-critical-base"
   }
   if (status === "running" || status === "pending") {
-    return "border-border bg-muted text-muted-foreground"
+    return "border-border-base bg-surface-weak text-text-weak"
   }
-  return "border-border bg-muted text-muted-foreground"
+  return "border-border-base bg-surface-weak text-text-weak"
 }
 
 export function ToolStatusBadge({ status }: { status: ToolState["status"] }) {
@@ -45,17 +45,17 @@ export function ToolHeader({ info, status, running }: ToolHeaderProps) {
   return (
     <div className="flex items-start justify-between gap-2">
       <div className="flex min-w-0 flex-wrap items-center gap-2">
-        <span className={cn("text-sm font-medium text-foreground", running && "animate-pulse")}>
+        <span className={cn("text-sm font-medium text-text-base", running && "animate-pulse")}>
           {info.title}
         </span>
         {info.subtitle ? (
-          <span className="truncate text-sm text-muted-foreground">{info.subtitle}</span>
+          <span className="truncate text-sm text-text-weak">{info.subtitle}</span>
         ) : null}
         {info.detail ? (
-          <span className="truncate text-sm text-muted-foreground">{info.detail}</span>
+          <span className="truncate text-sm text-text-weak">{info.detail}</span>
         ) : null}
         {info.args?.map((arg) => (
-          <span key={arg} className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+          <span key={arg} className="rounded bg-surface-weak px-1.5 py-0.5 text-xs text-text-weak">
             {arg}
           </span>
         ))}

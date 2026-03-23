@@ -16,7 +16,7 @@ export function SidebarShell(props: SidebarShellProps) {
   const expanded = sidebarExpanded(false, props.sidebarOpen)
 
   return (
-    <div className="h-screen w-full overflow-hidden bg-card flex flex-col md:flex-row">
+    <div className="h-screen w-full overflow-hidden bg-surface-raised-base flex flex-col md:flex-row">
       <SidebarProject
         openProjects={props.openProjects}
         currentDirectory={props.currentDirectory}

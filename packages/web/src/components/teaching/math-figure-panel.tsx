@@ -7,17 +7,17 @@ export function MathFigurePanel(props: MathFigurePanelProps) {
     <section className={`flex min-h-0 flex-1 flex-col gap-4 px-6 py-8 ${props.className ?? ""}`}>
       <div className="space-y-2">
         <h2 className="text-sm font-medium">Figure Surface</h2>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-text-weak">
           Math Buddy can render figures inline in the transcript when it needs diagrams, graphs, or
           geometric sketches.
         </p>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-text-weak">
           This surface is a lightweight placeholder for phase 1. There is no dedicated figure canvas
           or history panel yet.
         </p>
       </div>
 
-      <div className="rounded-lg border border-border/70 bg-background p-3 text-xs text-muted-foreground">
+      <div className="rounded-lg border border-border-base/70 bg-background-base p-3 text-xs text-text-weak">
         Available tools: <code>render_figure</code>, <code>render_freeform_figure</code>.
         <br />
         Ask Math Buddy to draw the next figure and it will appear inline in the chat.

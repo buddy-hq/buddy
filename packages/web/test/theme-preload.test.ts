@@ -48,9 +48,9 @@ describe("theme preload", () => {
     expect(document.documentElement.classList.contains("dark")).toBe(false)
     expect(document.documentElement.style.colorScheme).toBe("light")
     expect(localStorage.getItem("opencode-theme-id")).toBe("oc-2")
-    expect(localStorage.getItem("opencode-theme-css-light")).toBeNull()
-    expect(localStorage.getItem("opencode-theme-css-dark")).toBeNull()
-    expect(document.getElementById("oc-theme-preload")).toBeNull()
+    expect(localStorage.getItem("opencode-theme-css-light")).toContain("--background-base:")
+    expect(localStorage.getItem("opencode-theme-css-dark")).toContain("--background-base:")
+    expect(document.getElementById("oc-theme-preload")?.textContent).toContain("--background-base:")
   })
 
   test("applies the cached dark theme when system mode resolves dark", () => {
@@ -61,7 +61,7 @@ describe("theme preload", () => {
 
     localStorage.setItem("opencode-theme-id", "nightowl")
     localStorage.setItem("opencode-color-scheme", "system")
-    localStorage.setItem("opencode-theme-cache-version", "3")
+    localStorage.setItem("opencode-theme-cache-version", "4")
     localStorage.setItem("opencode-theme-css-dark", "--background:#000;")
 
     run()
@@ -80,9 +80,9 @@ describe("theme preload", () => {
 
     run()
 
-    expect(localStorage.getItem("opencode-theme-cache-version")).toBe("3")
-    expect(localStorage.getItem("opencode-theme-css-light")).toBeNull()
-    expect(localStorage.getItem("opencode-theme-css-dark")).toBeNull()
-    expect(document.getElementById("oc-theme-preload")).toBeNull()
+    expect(localStorage.getItem("opencode-theme-cache-version")).toBe("4")
+    expect(localStorage.getItem("opencode-theme-css-light")).toContain("--background-base:")
+    expect(localStorage.getItem("opencode-theme-css-dark")).toContain("--background-base:")
+    expect(document.getElementById("oc-theme-preload")?.textContent).toContain("--background-base:")
   })
 })

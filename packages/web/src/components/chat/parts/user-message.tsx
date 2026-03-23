@@ -80,14 +80,14 @@ export const UserMessagePart = memo(function UserMessagePart({
       <div className="ml-auto flex w-fit max-w-[min(82%,64ch)] flex-col items-end">
         <div
           className={cn(
-            "inline-block max-w-full rounded-md border border-border bg-background px-3 py-2 whitespace-pre-wrap break-words",
+            "inline-block max-w-full rounded-md border border-border-base bg-background-base px-3 py-2 whitespace-pre-wrap break-words",
             queued && "opacity-60",
           )}
         >
           <HighlightedText text={text} references={references} agents={agents} />
         </div>
         {queued && (
-          <div className="mt-1.5 mr-0.5 text-xs text-muted-foreground">
+          <div className="mt-1.5 mr-0.5 text-xs text-text-weak">
             <span className="animate-pulse">Queued</span>
           </div>
         )}
@@ -95,14 +95,12 @@ export const UserMessagePart = memo(function UserMessagePart({
       <div className="mt-1 flex min-h-6 w-full items-center justify-end gap-2.5 opacity-0 pointer-events-none transition-opacity group-hover/user:opacity-100 group-hover/user:pointer-events-auto group-focus-within/user:opacity-100 group-focus-within/user:pointer-events-auto">
         {(metaHead || metaTail) && (
           <span className="flex min-w-0 flex-1 items-center justify-end gap-1.5 overflow-hidden">
-            {metaHead && <span className="truncate text-xs text-muted-foreground">{metaHead}</span>}
+            {metaHead && <span className="truncate text-xs text-text-weak">{metaHead}</span>}
             {metaHead && metaTail && (
-              <span className="text-xs text-muted-foreground">{"\u00A0\u00B7\u00A0"}</span>
+              <span className="text-xs text-text-weak">{"\u00A0\u00B7\u00A0"}</span>
             )}
             {metaTail && (
-              <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground">
-                {metaTail}
-              </span>
+              <span className="shrink-0 whitespace-nowrap text-xs text-text-weak">{metaTail}</span>
             )}
           </span>
         )}

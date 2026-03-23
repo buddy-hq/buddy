@@ -39,7 +39,7 @@ export function McpsSettings({ directory }: { directory: string }) {
           onConnectMcp={directoryState.connectMcp}
         />
         {directoryState.error ? (
-          <p className="text-sm text-destructive">{directoryState.error}</p>
+          <p className="text-sm text-icon-critical-base">{directoryState.error}</p>
         ) : null}
       </SettingsPanelContent>
       <McpEditorDialog

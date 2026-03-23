@@ -21,10 +21,10 @@ type McpListPanelProps = {
 export function McpListPanel(props: McpListPanelProps) {
   return (
     <>
-      <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/20 px-3 py-2">
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-border-base/60 bg-surface-weak/20 px-3 py-2">
         <div className="min-w-0">
-          <p className="text-sm font-medium text-foreground">MCP definitions</p>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-sm font-medium text-text-base">MCP definitions</p>
+          <p className="text-xs text-text-weak">
             {props.allNames.length > 0
               ? "Manage saved MCPs here. Use search below to filter the list."
               : "Add an MCP to save it to this notebook's buddy.jsonc."}
@@ -68,7 +68,7 @@ export function McpListPanel(props: McpListPanelProps) {
                 <div className="flex items-center justify-between gap-3 px-4 py-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="truncate text-sm font-medium text-foreground">{name}</p>
+                      <p className="truncate text-sm font-medium text-text-base">{name}</p>
                       <Badge variant="outline" className="h-5">
                         {label}
                       </Badge>
@@ -78,15 +78,15 @@ export function McpListPanel(props: McpListPanelProps) {
                         </Badge>
                       ) : null}
                       {isPending ? (
-                        <span className="text-xs text-muted-foreground">{pendingLabel}</span>
+                        <span className="text-xs text-text-weak">{pendingLabel}</span>
                       ) : null}
                     </div>
                     {status?.error ? (
-                      <p className="mt-1 truncate text-xs text-muted-foreground">
+                      <p className="mt-1 truncate text-xs text-text-weak">
                         {formatMcpError(status.error)}
                       </p>
                     ) : config ? (
-                      <p className="mt-1 truncate text-xs text-muted-foreground">
+                      <p className="mt-1 truncate text-xs text-text-weak">
                         {config.type === "remote" ? config.url : config.command.join(" ")}
                       </p>
                     ) : null}
@@ -131,7 +131,7 @@ export function McpListPanel(props: McpListPanelProps) {
             )
           })
         ) : (
-          <div className="flex flex-col items-start gap-3 px-4 py-8 text-sm text-muted-foreground">
+          <div className="flex flex-col items-start gap-3 px-4 py-8 text-sm text-text-weak">
             <p>
               {props.loading
                 ? "Loading MCPs..."

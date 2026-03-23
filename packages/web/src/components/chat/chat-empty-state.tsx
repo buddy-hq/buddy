@@ -17,8 +17,8 @@ export function ChatEmptyState(props: ChatEmptyStateProps) {
           style={{ filter: logoFilter }}
         />
 
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Let&apos;s understand</h1>
-        <p className="mt-1 text-lg font-medium text-muted-foreground">{props.directoryLabel}</p>
+        <h1 className="text-2xl font-bold tracking-tight text-text-base">Let&apos;s understand</h1>
+        <p className="mt-1 text-lg font-medium text-text-weak">{props.directoryLabel}</p>
       </div>
     </div>
   )

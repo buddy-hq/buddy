@@ -28,7 +28,7 @@ export function ToolAttachmentGallery({ attachments }: ToolAttachmentGalleryProp
             <figure
               key={attachment.id}
               data-slot="tool-attachment"
-              className="flex max-w-sm flex-col gap-1 rounded-lg border border-border bg-background p-2"
+              className="flex max-w-sm flex-col gap-1 rounded-lg border border-border-base bg-background-base p-2"
             >
               <img
                 data-slot="tool-attachment-image"
@@ -37,7 +37,7 @@ export function ToolAttachmentGallery({ attachments }: ToolAttachmentGalleryProp
                 alt={label}
                 loading="lazy"
               />
-              <figcaption className="truncate text-xs text-muted-foreground">{label}</figcaption>
+              <figcaption className="truncate text-xs text-text-weak">{label}</figcaption>
             </figure>
           )
         }
@@ -46,7 +46,7 @@ export function ToolAttachmentGallery({ attachments }: ToolAttachmentGalleryProp
           <a
             key={attachment.id}
             data-slot="tool-attachment-link"
-            className="inline-flex rounded-md border border-border bg-muted px-2 py-1 text-xs text-foreground hover:bg-muted/80"
+            className="inline-flex rounded-md border border-border-base bg-surface-weak px-2 py-1 text-xs text-text-base hover:bg-surface-weak/80"
             href={url}
             target="_blank"
             rel="noreferrer"

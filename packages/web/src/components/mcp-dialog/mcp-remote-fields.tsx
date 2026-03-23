@@ -19,7 +19,7 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
   return (
     <>
       <div className="grid gap-2">
-        <label className="text-sm font-medium text-foreground" htmlFor="mcp-url">
+        <label className="text-sm font-medium text-text-base" htmlFor="mcp-url">
           Remote URL
         </label>
         <Input
@@ -37,14 +37,14 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
           {...props.getFieldProps("url")}
         />
         {props.fieldErrors.url ? (
-          <p id={getFieldErrorId("url")} className="text-xs text-destructive">
+          <p id={getFieldErrorId("url")} className="text-xs text-icon-critical-base">
             {props.fieldErrors.url}
           </p>
         ) : null}
       </div>
 
       <div className="grid gap-2">
-        <label className="text-sm font-medium text-foreground" htmlFor="mcp-headers">
+        <label className="text-sm font-medium text-text-base" htmlFor="mcp-headers">
           Headers (JSON)
         </label>
         <Textarea
@@ -63,7 +63,7 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
           {...props.getFieldProps("headers")}
         />
         {props.fieldErrors.headers ? (
-          <p id={getFieldErrorId("headers")} className="text-xs text-destructive">
+          <p id={getFieldErrorId("headers")} className="text-xs text-icon-critical-base">
             {props.fieldErrors.headers}
           </p>
         ) : null}
@@ -71,8 +71,8 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
 
       <div className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
         <div>
-          <p className="text-sm font-medium text-foreground">OAuth</p>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-sm font-medium text-text-base">OAuth</p>
+          <p className="text-xs text-text-weak">
             Remote MCPs use browser sign-in by default. Leave headers empty for browser login, or
             turn browser sign-in off to use an Authorization header instead.
           </p>
@@ -94,8 +94,8 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
       {props.draft.oauthEnabled ? (
         <div className="grid gap-4 rounded-lg border p-3">
           <div className="space-y-1">
-            <p className="text-sm font-medium text-foreground">Browser login</p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-sm font-medium text-text-base">Browser login</p>
+            <p className="text-xs text-text-weak">
               Most hosted MCPs, including Linear, work without any client details here. Save with
               browser sign-in on, then turn the MCP on to start the browser login flow.
             </p>
@@ -103,8 +103,8 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
 
           <div className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
             <div>
-              <p className="text-sm font-medium text-foreground">Custom client details</p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-sm font-medium text-text-base">Custom client details</p>
+              <p className="text-xs text-text-weak">
                 Optional. Only use these if the MCP provider gave you a client ID/secret or
                 automatic registration fails.
               </p>
@@ -122,7 +122,7 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
           {props.showOAuthClientFields ? (
             <>
               <div className="grid gap-2">
-                <label className="text-sm font-medium text-foreground" htmlFor="mcp-client-id">
+                <label className="text-sm font-medium text-text-base" htmlFor="mcp-client-id">
                   Client ID (optional)
                 </label>
                 <Input
@@ -138,7 +138,7 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
               </div>
 
               <div className="grid gap-2">
-                <label className="text-sm font-medium text-foreground" htmlFor="mcp-client-secret">
+                <label className="text-sm font-medium text-text-base" htmlFor="mcp-client-secret">
                   Client secret (optional)
                 </label>
                 <Input
@@ -154,7 +154,7 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
               </div>
 
               <div className="grid gap-2">
-                <label className="text-sm font-medium text-foreground" htmlFor="mcp-scope">
+                <label className="text-sm font-medium text-text-base" htmlFor="mcp-scope">
                   Scope (optional)
                 </label>
                 <Input

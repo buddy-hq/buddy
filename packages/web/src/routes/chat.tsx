@@ -57,7 +57,7 @@ function ChatEntryPage() {
       <EmptyProjectsState onOpenDirectory={openDirectory} />
 
       {entryError ? (
-        <div className="mt-4 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="mt-4 rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 p-3 text-sm text-icon-critical-base">
           {entryError}
         </div>
       ) : null}
@@ -90,7 +90,7 @@ function EmptyProjectsState(props: EmptyProjectsStateProps) {
         <img src={buddyIcon} alt="Buddy" className="h-32 w-32 rounded-3xl shadow-xl" />
         <div className="space-y-4">
           <h1 className="text-5xl font-bold tracking-tight">Buddy</h1>
-          <p className="text-base text-muted-foreground">learn something new today</p>
+          <p className="text-base text-text-weak">learn something new today</p>
         </div>
       </div>
 
@@ -107,7 +107,7 @@ function EmptyProjectsState(props: EmptyProjectsStateProps) {
                 <FolderPlusIcon className="mr-2 h-4 w-4" />
                 choose a folder
               </Button>
-              <span className="text-xs text-muted-foreground">to start your learning journey</span>
+              <span className="text-xs text-text-weak">to start your learning journey</span>
             </div>
           ) : (
             <form
@@ -129,7 +129,7 @@ function EmptyProjectsState(props: EmptyProjectsStateProps) {
                   Open
                 </Button>
               </div>
-              <span className="text-xs text-muted-foreground">to start your learning journey</span>
+              <span className="text-xs text-text-weak">to start your learning journey</span>
             </form>
           )}
         </CardContent>

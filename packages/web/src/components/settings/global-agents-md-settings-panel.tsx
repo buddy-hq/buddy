@@ -22,7 +22,7 @@ export function GlobalAgentsMdSettingsPanel(props: { active: boolean }) {
   return (
     <MarkdownFileEditor
       active={props.active}
-      className="h-full min-h-0 flex-1 rounded-lg border border-border/70 bg-background"
+      className="h-full min-h-0 flex-1 rounded-lg border border-border-base/70 bg-background-base"
       fallbackPath="global/AGENTS.md"
       emptyTitle="No global AGENTS.md file"
       emptyDescription="Create one to define baseline instructions for Buddy across notebooks."

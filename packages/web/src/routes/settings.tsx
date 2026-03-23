@@ -186,7 +186,7 @@ function SettingsRoute() {
   }
 
   return (
-    <div className="h-full w-full overflow-hidden bg-card">
+    <div className="h-full w-full overflow-hidden bg-surface-raised-base">
       <div className="flex h-full w-full min-w-0">
         <div
           className="relative min-h-0 shrink-0 overflow-hidden"
@@ -242,11 +242,11 @@ function SettingsRoute() {
             onResize={setLeftSidebarWidth}
           />
         </div>
-        <main className="min-h-0 min-w-0 flex-1 overflow-hidden bg-background/20">
+        <main className="min-h-0 min-w-0 flex-1 overflow-hidden bg-background-base/20">
           {currentDirectory ? (
             <SettingsPage directory={currentDirectory} activeTab={tab} />
           ) : (
-            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+            <div className="flex h-full items-center justify-center text-sm text-text-weak">
               Open a notebook to configure settings.
             </div>
           )}
@@ -282,7 +282,7 @@ function SettingsNavContent(props: {
         <Button
           type="button"
           variant="ghost"
-          className="h-9 w-full justify-start rounded-lg px-2 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          className="h-9 w-full justify-start rounded-lg px-2 text-sm font-medium text-text-base hover:bg-surface-raised-base-hover hover:text-text-strong"
           onClick={props.onBack}
         >
           <ArrowLeftIcon className="mr-2 size-4" />
@@ -300,8 +300,8 @@ function SettingsNavContent(props: {
               className={cn(
                 "flex h-9 w-full items-center gap-2 rounded-lg px-2 text-sm",
                 active
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                  : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                  ? "bg-surface-raised-base-hover text-text-strong font-medium"
+                  : "text-text-base hover:bg-surface-raised-base-hover hover:text-text-strong",
               )}
             >
               <item.icon className="size-4" />

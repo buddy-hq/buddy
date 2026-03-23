@@ -20,7 +20,7 @@ export function FileAttachmentPart({ part, queued }: FileAttachmentPartProps) {
     <>
       <div
         className={cn(
-          "flex h-12 w-12 cursor-pointer items-center justify-center overflow-hidden rounded-md border border-border bg-muted transition-colors hover:border-foreground",
+          "flex h-12 w-12 cursor-pointer items-center justify-center overflow-hidden rounded-md border border-border-base bg-surface-weak transition-colors hover:border-border-hover",
           queued && "opacity-60",
         )}
         onClick={() => isImage && setPreviewOpen(true)}
@@ -29,7 +29,7 @@ export function FileAttachmentPart({ part, queued }: FileAttachmentPartProps) {
         {isImage ? (
           <img className="h-full w-full object-cover" src={url} alt={filename} />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+          <div className="flex h-full w-full items-center justify-center text-text-weak">
             <FolderIcon className="h-5 w-5" />
           </div>
         )}

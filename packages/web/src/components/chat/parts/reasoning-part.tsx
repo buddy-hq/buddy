@@ -15,12 +15,12 @@ export const ReasoningPart = memo(function ReasoningPart({ part }: ReasoningPart
 
   return (
     <div className="w-full">
-      <div className="mt-3 rounded-lg border border-border bg-muted/40 px-4 py-3">
-        <div className="mb-2 flex items-center gap-2 text-xs font-medium text-muted-foreground">
+      <div className="mt-3 rounded-lg border border-border-base bg-surface-weak/40 px-4 py-3">
+        <div className="mb-2 flex items-center gap-2 text-xs font-medium text-text-weak">
           <BrainIcon size={14} className="opacity-70" />
           <span>Thinking</span>
         </div>
-        <Markdown text={throttledText} cacheKey={part.id} className="text-muted-foreground" />
+        <Markdown text={throttledText} cacheKey={part.id} className="text-text-weak" />
       </div>
     </div>
   )

@@ -20,7 +20,7 @@ export function McpLocalFields(props: McpLocalFieldsProps) {
   return (
     <>
       <div className="grid gap-2">
-        <label className="text-sm font-medium text-foreground" htmlFor="mcp-command">
+        <label className="text-sm font-medium text-text-base" htmlFor="mcp-command">
           Local command
         </label>
         <Textarea
@@ -38,19 +38,19 @@ export function McpLocalFields(props: McpLocalFieldsProps) {
           className="min-h-24"
           {...props.getFieldProps("command", "mcp-command-help")}
         />
-        <p id="mcp-command-help" className="text-xs text-muted-foreground">
+        <p id="mcp-command-help" className="text-xs text-text-weak">
           Use a JSON array to preserve exact argv values, especially when arguments contain spaces.
           Plain text still works for simple commands.
         </p>
         {props.fieldErrors.command ? (
-          <p id={getFieldErrorId("command")} className="text-xs text-destructive">
+          <p id={getFieldErrorId("command")} className="text-xs text-icon-critical-base">
             {props.fieldErrors.command}
           </p>
         ) : null}
       </div>
 
       <div className="grid gap-2">
-        <label className="text-sm font-medium text-foreground" htmlFor="mcp-environment">
+        <label className="text-sm font-medium text-text-base" htmlFor="mcp-environment">
           Environment (JSON)
         </label>
         <Textarea
@@ -69,7 +69,7 @@ export function McpLocalFields(props: McpLocalFieldsProps) {
           {...props.getFieldProps("environment")}
         />
         {props.fieldErrors.environment ? (
-          <p id={getFieldErrorId("environment")} className="text-xs text-destructive">
+          <p id={getFieldErrorId("environment")} className="text-xs text-icon-critical-base">
             {props.fieldErrors.environment}
           </p>
         ) : null}

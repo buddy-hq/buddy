@@ -58,7 +58,7 @@ export const AssistantTextPart = memo(function AssistantTextPart({
           )}
         >
           <CopyAction value={throttledText} label="Copy response" />
-          {metaText ? <span className="text-xs text-muted-foreground">{metaText}</span> : null}
+          {metaText ? <span className="text-xs text-text-weak">{metaText}</span> : null}
         </div>
       ) : null}
     </div>

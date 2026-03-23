@@ -1,3 +1,5 @@
+import { defaultThemes } from "./default-themes"
+import { resolveThemeVariant, themeToCss } from "./resolve"
 import {
   DEFAULT_THEME_ID,
   PRELOAD_STYLE_ID,
@@ -15,6 +17,16 @@ type ThemePreloadEnvironment = {
 function clearThemeCache(storage: Storage) {
   storage.removeItem(STORAGE_KEYS.THEME_CSS_LIGHT)
   storage.removeItem(STORAGE_KEYS.THEME_CSS_DARK)
+}
+
+function cacheThemeCss(storage: Storage, themeId: string) {
+  const theme = defaultThemes[themeId]
+  if (!theme) return
+
+  const lightCss = themeToCss(resolveThemeVariant(theme.light, false))
+  const darkCss = themeToCss(resolveThemeVariant(theme.dark, true))
+  storage.setItem(STORAGE_KEYS.THEME_CSS_LIGHT, lightCss)
+  storage.setItem(STORAGE_KEYS.THEME_CSS_DARK, darkCss)
 }
 
 export function applyThemePreload(environment: ThemePreloadEnvironment) {
@@ -42,9 +54,15 @@ export function applyThemePreload(environment: ThemePreloadEnvironment) {
   environment.document.documentElement.classList.toggle("dark", isDark)
   environment.document.documentElement.style.colorScheme = mode
 
-  const css = environment.storage.getItem(
+  let css = environment.storage.getItem(
     isDark ? STORAGE_KEYS.THEME_CSS_DARK : STORAGE_KEYS.THEME_CSS_LIGHT,
   )
+  if (!css) {
+    cacheThemeCss(environment.storage, themeID)
+    css = environment.storage.getItem(
+      isDark ? STORAGE_KEYS.THEME_CSS_DARK : STORAGE_KEYS.THEME_CSS_LIGHT,
+    )
+  }
   if (!css) return
 
   const style = environment.document.createElement("style")

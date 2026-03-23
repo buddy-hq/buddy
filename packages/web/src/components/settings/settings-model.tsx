@@ -67,7 +67,7 @@ export function ModelSettings({ directory }: { directory: string }) {
       </SettingsListCard>
 
       {settings.status.providerMessage ? (
-        <p className="text-sm text-muted-foreground">{settings.status.providerMessage}</p>
+        <p className="text-sm text-text-weak">{settings.status.providerMessage}</p>
       ) : null}
     </SettingsPanelContent>
   )

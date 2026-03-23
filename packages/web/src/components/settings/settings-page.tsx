@@ -42,7 +42,7 @@ export function SettingsPanelContent(props: {
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-6 overflow-x-hidden overflow-y-auto p-6">
       <div>
         <h1 className="text-lg font-semibold">{props.title}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{props.description}</p>
+        <p className="mt-1 text-sm text-text-weak">{props.description}</p>
       </div>
       {props.children}
     </div>

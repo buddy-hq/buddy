@@ -68,7 +68,7 @@ function SidebarSection(props: { title: string; items: string[]; empty?: string 
   return (
     <Card size="sm" className="gap-0 py-0">
       <CardContent className="px-3 py-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <p className="text-xs font-semibold uppercase tracking-wide text-text-weak">
           {props.title}
         </p>
         <ul className="mt-2 list-disc space-y-1.5 pl-4 text-sm">
@@ -76,7 +76,7 @@ function SidebarSection(props: { title: string; items: string[]; empty?: string 
             const occurrence = seen.get(item) ?? 0
             seen.set(item, occurrence + 1)
             return (
-              <li key={`${props.title}:${item}:${occurrence}`} className="text-foreground">
+              <li key={`${props.title}:${item}:${occurrence}`} className="text-text-base">
                 {item}
               </li>
             )
@@ -208,7 +208,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
 
   return (
     <aside
-      className={`shrink-0 overflow-hidden border-l bg-card flex flex-col min-h-0 ${props.className ?? ""}`}
+      className={`shrink-0 overflow-hidden border-l bg-surface-raised-base flex flex-col min-h-0 ${props.className ?? ""}`}
     >
       <header className="border-b px-3 py-2 flex items-center justify-between gap-2">
         <div className="flex items-center gap-1">
@@ -280,7 +280,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
       {activeTab === "editor" ? (
         <div className="flex-1 min-h-0 flex flex-col">
           {props.editorPanel ?? (
-            <div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">
+            <div className="flex flex-1 items-center justify-center p-4 text-sm text-text-weak">
               Teaching editor is not available for this session.
             </div>
           )}
@@ -288,7 +288,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
       ) : activeTab === "figure" ? (
         <div className="flex-1 min-h-0 flex flex-col">
           {props.figurePanel ?? (
-            <div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">
+            <div className="flex flex-1 items-center justify-center p-4 text-sm text-text-weak">
               Figure tools are not available for this session.
             </div>
           )}
@@ -296,7 +296,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
       ) : activeTab === "resources" ? (
         <div className="flex-1 min-h-0 flex flex-col">
           {props.resourcesPanel ?? (
-            <div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">
+            <div className="flex flex-1 items-center justify-center p-4 text-sm text-text-weak">
               Resource management is not available for this session.
             </div>
           )}
@@ -304,7 +304,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
       ) : activeTab === "agents-md" ? (
         <div className="flex-1 min-h-0 flex flex-col">
           {props.agentsPanel ?? (
-            <div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">
+            <div className="flex flex-1 items-center justify-center p-4 text-sm text-text-weak">
               AGENTS.md editing is not available for this notebook.
             </div>
           )}
@@ -314,7 +314,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
           <div className="mb-2 flex items-center justify-between gap-2">
             <div>
               <p className="text-xs font-medium">Runtime Capabilities</p>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-[11px] text-text-weak">
                 Live capability state for the current teaching context.
               </p>
             </div>
@@ -330,7 +330,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
           </div>
 
           {capabilitiesLoading ? (
-            <div className="text-sm text-muted-foreground">Loading runtime capabilities...</div>
+            <div className="text-sm text-text-weak">Loading runtime capabilities...</div>
           ) : capabilitiesView ? (
             <div className="flex-1 min-h-0 overflow-y-auto space-y-3">
               <Card size="sm" className="gap-0 py-0">
@@ -343,22 +343,22 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                     </Badge>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-sm font-medium text-foreground">Surface policy</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-sm font-medium text-text-base">Surface policy</p>
+                    <p className="text-xs text-text-weak">
                       Visible: {capabilitiesView.visibleSurfaces.join(", ") || "none"} | Default:{" "}
                       {capabilitiesView.defaultSurface || "n/a"}
                     </p>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="rounded-md border border-border/60 px-2 py-1.5">
+                    <div className="rounded-md border border-border-base/60 px-2 py-1.5">
                       Tools: {capabilitiesView.tools.allow.length} allow /{" "}
                       {capabilitiesView.tools.deny.length} deny
                     </div>
-                    <div className="rounded-md border border-border/60 px-2 py-1.5">
+                    <div className="rounded-md border border-border-base/60 px-2 py-1.5">
                       Skills: {capabilitiesView.skills.allow.length} allow /{" "}
                       {capabilitiesView.skills.deny.length} deny
                     </div>
-                    <div className="rounded-md border border-border/60 px-2 py-1.5 col-span-2">
+                    <div className="rounded-md border border-border-base/60 px-2 py-1.5 col-span-2">
                       Subagents: {capabilitiesView.subagents.prefer.length} prefer /{" "}
                       {capabilitiesView.subagents.allow.length} allow /{" "}
                       {capabilitiesView.subagents.deny.length} deny
@@ -399,13 +399,13 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
               />
             </div>
           ) : (
-            <div className="flex-1 min-h-0 overflow-y-auto rounded-lg border border-border/70 bg-background p-3 text-sm text-muted-foreground">
+            <div className="flex-1 min-h-0 overflow-y-auto rounded-lg border border-border-base/70 bg-background-base p-3 text-sm text-text-weak">
               Runtime capabilities are not available for this session yet.
             </div>
           )}
 
           {capabilitiesError ? (
-            <p className="mt-2 rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1.5 text-xs text-destructive">
+            <p className="mt-2 rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 px-2 py-1.5 text-xs text-icon-critical-base">
               {capabilitiesError}
             </p>
           ) : null}
@@ -413,7 +413,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
       ) : activeTab === "system-prompt" ? (
         <div className="flex-1 min-h-0 flex flex-col">
           {props.systemPromptPanel ?? (
-            <div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">
+            <div className="flex flex-1 items-center justify-center p-4 text-sm text-text-weak">
               System prompt inspection is not available for this session.
             </div>
           )}
@@ -423,7 +423,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
           <div className="mb-2 flex items-center justify-between gap-2">
             <div>
               <p className="text-xs font-medium">Learning Snapshot</p>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-[11px] text-text-weak">
                 {curriculumView?.workspace.label ?? "Workspace"}{" "}
                 {curriculumView?.coldStart ? "(cold start)" : ""}
               </p>
@@ -440,14 +440,14 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
           </div>
 
           {curriculumLoading ? (
-            <div className="text-sm text-muted-foreground">Loading learning snapshot...</div>
+            <div className="text-sm text-text-weak">Loading learning snapshot...</div>
           ) : curriculumView ? (
             <div className="flex-1 min-h-0 overflow-y-auto space-y-3">
               <Card size="sm" className="gap-0 py-0">
                 <CardContent className="space-y-3 px-3 py-3">
                   <div className="space-y-1">
-                    <p className="text-sm font-medium text-foreground">Workspace state</p>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm font-medium text-text-base">Workspace state</p>
+                    <p className="text-sm text-text-weak">
                       {curriculumView.coldStart
                         ? "No active goals have been defined for this workspace yet."
                         : "Buddy is showing the current learner state without generating a next-step suggestion."}
@@ -460,10 +460,10 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                 <Card size="sm" className="gap-0 py-0">
                   <CardContent className="space-y-3 px-3 py-3">
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-text-weak">
                         Actions
                       </p>
-                      <p className="mt-1 text-xs text-muted-foreground">
+                      <p className="mt-1 text-xs text-text-weak">
                         Run a teaching move directly from the current learner state.
                       </p>
                     </div>
@@ -473,15 +473,15 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                           key={action.actionId}
                           type="button"
                           onClick={() => props.onRunAction?.(action)}
-                          className="rounded-lg border border-border/70 bg-background/50 px-3 py-2 text-left transition-colors hover:bg-muted/60"
+                          className="rounded-lg border border-border-base/70 bg-background-base/50 px-3 py-2 text-left transition-colors hover:bg-surface-weak/60"
                         >
                           <div className="flex items-center justify-between gap-2">
-                            <span className="text-sm font-medium text-foreground">
+                            <span className="text-sm font-medium text-text-base">
                               {action.label}
                             </span>
-                            <span className="text-xs text-muted-foreground">{action.intent}</span>
+                            <span className="text-xs text-text-weak">{action.intent}</span>
                           </div>
-                          <p className="mt-1 text-xs text-muted-foreground">{action.reason}</p>
+                          <p className="mt-1 text-xs text-text-weak">{action.reason}</p>
                         </button>
                       ))}
                     </div>
@@ -505,10 +505,10 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                   <CardContent className="px-3 py-3">
                     <div className="flex items-center justify-between gap-2">
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-text-weak">
                           Raw Snapshot
                         </p>
-                        <p className="mt-1 text-xs text-muted-foreground">
+                        <p className="mt-1 text-xs text-text-weak">
                           Inspect the learner snapshot markdown Buddy is using for this workspace.
                         </p>
                       </div>
@@ -529,13 +529,13 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
               </Collapsible>
             </div>
           ) : (
-            <div className="flex-1 min-h-0 overflow-y-auto rounded-lg border border-border/70 bg-background p-3 text-sm text-muted-foreground">
+            <div className="flex-1 min-h-0 overflow-y-auto rounded-lg border border-border-base/70 bg-background-base p-3 text-sm text-text-weak">
               No learner snapshot is available for this workspace yet.
             </div>
           )}
 
           {curriculumError ? (
-            <p className="mt-2 rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1.5 text-xs text-destructive">
+            <p className="mt-2 rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 px-2 py-1.5 text-xs text-icon-critical-base">
               {curriculumError}
             </p>
           ) : null}

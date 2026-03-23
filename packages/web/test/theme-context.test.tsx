@@ -96,15 +96,15 @@ describe("ThemeProvider", () => {
     expect(document.documentElement.classList.contains("dark")).toBe(true)
     expect(localStorage.getItem("opencode-theme-css-light")).not.toBe("stale-light")
     expect(localStorage.getItem("opencode-theme-css-dark")).not.toBe("stale-dark")
-    expect(localStorage.getItem("opencode-theme-css-light")).toContain("--background:")
-    expect(localStorage.getItem("opencode-theme-css-dark")).toContain("--background:")
+    expect(localStorage.getItem("opencode-theme-css-light")).toContain("--background-base:")
+    expect(localStorage.getItem("opencode-theme-css-dark")).toContain("--background-base:")
   })
 
   test("caches the default theme and keeps the dark class in sync with scheme changes", async () => {
     const api = await renderThemeProvider()
 
-    expect(localStorage.getItem("opencode-theme-css-light")).toContain("--background:")
-    expect(localStorage.getItem("opencode-theme-css-dark")).toContain("--background:")
+    expect(localStorage.getItem("opencode-theme-css-light")).toContain("--background-base:")
+    expect(localStorage.getItem("opencode-theme-css-dark")).toContain("--background-base:")
     expect(document.documentElement.classList.contains("dark")).toBe(false)
 
     await act(async () => {

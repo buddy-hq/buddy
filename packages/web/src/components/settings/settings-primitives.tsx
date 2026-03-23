@@ -32,9 +32,9 @@ export function SettingsPanel(props: {
       forceMount={props.forceMount ? true : undefined}
       className="flex min-h-0 flex-1 flex-col outline-none data-[state=inactive]:hidden"
     >
-      <div className="border-b border-border/60 px-5 py-5">
-        <h2 className="text-base font-medium text-foreground">{props.title}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">{props.description}</p>
+      <div className="border-b border-border-base/60 px-5 py-5">
+        <h2 className="text-base font-medium text-text-base">{props.title}</h2>
+        <p className="mt-1 text-sm text-text-weak">{props.description}</p>
       </div>
       <div
         className={cn(
@@ -74,8 +74,8 @@ export function SettingsRow(props: {
       <div className="px-4 py-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-foreground">{props.title}</p>
-            <p className="mt-1 text-xs text-muted-foreground">{props.description}</p>
+            <p className="text-sm font-medium text-text-base">{props.title}</p>
+            <p className="mt-1 text-xs text-text-weak">{props.description}</p>
           </div>
           <div className="min-w-0 lg:w-[260px] lg:max-w-[260px]">{props.control}</div>
         </div>

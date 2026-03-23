@@ -301,7 +301,7 @@ export function PromptComposer(props: PromptComposerProps) {
 
     const pill = document.createElement("span")
     pill.className =
-      "mx-0.5 inline-flex max-w-full items-center rounded-md border border-border/70 bg-muted px-1.5 py-0.5 text-xs font-medium text-foreground"
+      "mx-0.5 inline-flex max-w-full items-center rounded-md border border-border-base/70 bg-surface-weak px-1.5 py-0.5 text-xs font-medium text-text-base"
     if (option.type === "agent") {
       pill.textContent = `@${option.name}`
       pill.dataset.type = PROMPT_PART_TYPE_AGENT
@@ -407,7 +407,7 @@ export function PromptComposer(props: PromptComposerProps) {
   return (
     <div className={props.className ?? "mx-4 mb-4"}>
       <form
-        className="group/prompt-input relative z-10 rounded-[12px] border bg-card shadow-sm"
+        className="group/prompt-input relative z-10 rounded-[12px] border bg-surface-raised-base shadow-sm"
         onSubmit={(event) => {
           event.preventDefault()
           handleSubmit()
@@ -444,14 +444,14 @@ export function PromptComposer(props: PromptComposerProps) {
           />
 
           {dragging ? (
-            <div className="absolute inset-2 z-10 flex items-center justify-center rounded-xl border border-dashed border-primary/40 bg-background/95 text-sm text-foreground shadow-sm">
+            <div className="absolute inset-2 z-10 flex items-center justify-center rounded-xl border border-dashed border-border-interactive-base/40 bg-background-base/95 text-sm text-text-base shadow-sm">
               Drop files to attach or @-mention them in this prompt.
             </div>
           ) : null}
 
           {!draft.value && draft.attachments.length === 0 && !hasSubmittableParts ? (
             <div
-              className="pointer-events-none absolute left-3 top-3 right-20 text-sm leading-6 text-muted-foreground transition-opacity duration-250 ease-out"
+              className="pointer-events-none absolute left-3 top-3 right-20 text-sm leading-6 text-text-weak transition-opacity duration-250 ease-out"
               style={{ opacity: viewState.placeholderOpacity }}
             >
               {viewState.displayedPlaceholder}
@@ -464,7 +464,7 @@ export function PromptComposer(props: PromptComposerProps) {
             suppressContentEditableWarning
             role="textbox"
             aria-multiline="true"
-            className="min-h-[84px] max-h-[240px] w-full overflow-y-auto rounded-[12px] border-0 bg-transparent px-3 pt-3 pb-12 text-sm leading-6 text-foreground focus:outline-none"
+            className="min-h-[84px] max-h-[240px] w-full overflow-y-auto rounded-[12px] border-0 bg-transparent px-3 pt-3 pb-12 text-sm leading-6 text-text-base focus:outline-none"
             onInput={() => {
               handleEditorInput()
             }}
@@ -665,7 +665,7 @@ export function PromptComposer(props: PromptComposerProps) {
           <div className="absolute bottom-2 right-2 flex items-center gap-1">
             <button
               type="button"
-              className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+              className="inline-flex size-8 items-center justify-center rounded-md text-text-weak transition-colors hover:bg-surface-weak/60 hover:text-text-base"
               title="Attach files"
               aria-label="Attach files"
               onClick={() => {
@@ -677,7 +677,7 @@ export function PromptComposer(props: PromptComposerProps) {
 
             <button
               type="submit"
-              className="inline-flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex size-8 items-center justify-center rounded-md bg-surface-interactive-base text-text-on-interactive-base transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               disabled={!props.isBusy && !canSubmit}
               aria-label={props.isBusy ? "Stop" : "Send"}
               title={props.isBusy ? "Stop" : "Send"}

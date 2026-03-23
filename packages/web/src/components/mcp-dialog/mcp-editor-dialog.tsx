@@ -62,7 +62,7 @@ export function McpEditorDialog(props: McpEditorDialogProps) {
 
         <div className="grid gap-4">
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-foreground" htmlFor="mcp-name">
+            <label className="text-sm font-medium text-text-base" htmlFor="mcp-name">
               Name
             </label>
             <Input
@@ -81,14 +81,14 @@ export function McpEditorDialog(props: McpEditorDialogProps) {
               {...props.getFieldProps("name")}
             />
             {props.fieldErrors.name ? (
-              <p id={getFieldErrorId("name")} className="text-xs text-destructive">
+              <p id={getFieldErrorId("name")} className="text-xs text-icon-critical-base">
                 {props.fieldErrors.name}
               </p>
             ) : null}
           </div>
 
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-foreground" htmlFor="mcp-type">
+            <label className="text-sm font-medium text-text-base" htmlFor="mcp-type">
               Type
             </label>
             <Select
@@ -114,10 +114,8 @@ export function McpEditorDialog(props: McpEditorDialogProps) {
 
           <div className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
             <div>
-              <p className="text-sm font-medium text-foreground">Enabled by default</p>
-              <p className="text-xs text-muted-foreground">
-                Saved as the MCP's initial enabled state.
-              </p>
+              <p className="text-sm font-medium text-text-base">Enabled by default</p>
+              <p className="text-xs text-text-weak">Saved as the MCP's initial enabled state.</p>
             </div>
             <Switch
               checked={props.draft.enabled}
@@ -131,7 +129,7 @@ export function McpEditorDialog(props: McpEditorDialogProps) {
           </div>
 
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-foreground" htmlFor="mcp-timeout">
+            <label className="text-sm font-medium text-text-base" htmlFor="mcp-timeout">
               Timeout (seconds)
             </label>
             <Input
@@ -150,7 +148,7 @@ export function McpEditorDialog(props: McpEditorDialogProps) {
               {...props.getFieldProps("timeout")}
             />
             {props.fieldErrors.timeout ? (
-              <p id={getFieldErrorId("timeout")} className="text-xs text-destructive">
+              <p id={getFieldErrorId("timeout")} className="text-xs text-icon-critical-base">
                 {props.fieldErrors.timeout}
               </p>
             ) : null}
@@ -183,7 +181,9 @@ export function McpEditorDialog(props: McpEditorDialogProps) {
           )}
         </div>
 
-        {props.editorError ? <p className="text-sm text-destructive">{props.editorError}</p> : null}
+        {props.editorError ? (
+          <p className="text-sm text-icon-critical-base">{props.editorError}</p>
+        ) : null}
 
         <DialogFooter className="gap-2">
           <Button

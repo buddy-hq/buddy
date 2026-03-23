@@ -193,10 +193,10 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
     <div className={`flex h-full min-h-0 flex-col gap-3 p-3 ${className ?? ""}`}>
       <div className="flex items-start justify-between gap-3 pb-2">
         <div className="min-w-0 space-y-1.5">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground leading-none">
+          <p className="text-xs font-medium uppercase tracking-wide text-text-weak leading-none">
             Resources
           </p>
-          <p className="text-xs text-muted-foreground line-clamp-2">
+          <p className="text-xs text-text-weak line-clamp-2">
             Add notebook-local resource packs, refresh their extracted content, and keep aliases
             stable.
           </p>
@@ -220,7 +220,7 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
       </div>
 
       {error ? (
-        <p className="rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1.5 text-xs text-destructive">
+        <p className="rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 px-2 py-1.5 text-xs text-icon-critical-base">
           {error}
         </p>
       ) : null}
@@ -233,13 +233,13 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
               <Card
                 key={resource.id}
                 size="sm"
-                className="relative group gap-0 py-0 transition-colors hover:border-border hover:bg-accent/5"
+                className="relative group gap-0 py-0 transition-colors hover:border-border-base hover:bg-surface-base-hover/5"
               >
                 <CardContent className="px-4 py-3">
                   <div className="flex min-w-0 flex-1 items-start gap-4 pr-6">
-                    <div className="flex size-10 shrink-0 flex-col items-center justify-between overflow-hidden rounded-md border border-border/50 bg-muted/40 pt-2 text-muted-foreground">
+                    <div className="flex size-10 shrink-0 flex-col items-center justify-between overflow-hidden rounded-md border border-border-base/50 bg-surface-weak/40 pt-2 text-text-weak">
                       <ResourceIcon format={resource.format} />
-                      <div className="flex w-full items-center justify-center bg-secondary py-[3px] text-[8px] font-bold uppercase leading-none text-secondary-foreground">
+                      <div className="flex w-full items-center justify-center bg-button-secondary-base py-[3px] text-[8px] font-bold uppercase leading-none text-text-strong">
                         {resource.format}
                       </div>
                     </div>
@@ -263,12 +263,12 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
                       {(resource.preparedAt || resource.status === "error") && (
                         <div className="flex items-center gap-2">
                           {resource.status === "error" ? (
-                            <span className="flex items-center gap-1 text-[11px] font-medium text-destructive">
+                            <span className="flex items-center gap-1 text-[11px] font-medium text-icon-critical-base">
                               <AlertCircleIcon className="size-3" />
                               Processing failed
                             </span>
                           ) : resource.preparedAt ? (
-                            <p className="text-[11px] text-muted-foreground">
+                            <p className="text-[11px] text-text-weak">
                               {new Date(resource.preparedAt).toLocaleString(undefined, {
                                 dateStyle: "medium",
                                 timeStyle: "short",
@@ -286,7 +286,7 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="size-7 p-0 text-muted-foreground hover:text-foreground"
+                          className="size-7 p-0 text-text-weak hover:text-text-base"
                           onClick={() => {
                             void runResourceAction(resource.id, async () => {
                               await rebuildResource(directory, { resourceKey: resource.id })
@@ -304,7 +304,7 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
                       <DropdownMenuTrigger asChild>
                         <button
                           type="button"
-                          className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+                          className="inline-flex size-7 items-center justify-center rounded-md text-text-weak transition-colors hover:bg-surface-base-hover hover:text-text-base disabled:pointer-events-none disabled:opacity-50"
                           aria-label={`Options for ${resource.alias}`}
                           disabled={isBusy}
                         >
@@ -362,12 +362,12 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
             <SkeletonCard />
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border/70 bg-background/50 px-4 py-10 text-center">
-            <div className="flex size-12 items-center justify-center rounded-full bg-muted">
-              <PlusIcon className="size-6 text-muted-foreground" />
+          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border-base/70 bg-background-base/50 px-4 py-10 text-center">
+            <div className="flex size-12 items-center justify-center rounded-full bg-surface-weak">
+              <PlusIcon className="size-6 text-text-weak" />
             </div>
             <h3 className="mt-4 text-sm font-medium leading-none">No resources added</h3>
-            <p className="mt-1.5 max-w-[200px] text-xs text-muted-foreground">
+            <p className="mt-1.5 max-w-[200px] text-xs text-text-weak">
               Add notebook-local resource packs to give Buddy more context.
             </p>
             <Button

@@ -70,8 +70,8 @@ export function NotebookSettings({ directory }: { directory: string }) {
           title="Whole-book full-text reading"
           description="Allow Buddy to ingest an entire prepared resource into context when there is enough live context budget. Turn this off to avoid expensive full-book reads."
           control={
-            <div className="flex items-center justify-between gap-3 rounded-md border border-border/60 px-3 py-2">
-              <span className="text-sm text-muted-foreground">
+            <div className="flex items-center justify-between gap-3 rounded-md border border-border-base/60 px-3 py-2">
+              <span className="text-sm text-text-weak">
                 {settings.selection.fullTextReadingEnabled ? "On" : "Off"}
               </span>
               <Switch

@@ -20,7 +20,7 @@ export function PromptAutocompleteMenu(props: PromptAutocompleteMenuProps) {
   }
 
   return (
-    <div className="absolute inset-x-2 bottom-16 z-20 max-h-80 overflow-y-auto rounded-xl border bg-popover/95 shadow-lg backdrop-blur">
+    <div className="absolute inset-x-2 bottom-16 z-20 max-h-80 overflow-y-auto rounded-xl border bg-surface-raised-stronger-non-alpha/95 shadow-lg backdrop-blur">
       {props.slashVisible ? (
         props.slashOptions.map((command, index) => {
           const active = index === props.slashIndex
@@ -30,7 +30,9 @@ export function PromptAutocompleteMenu(props: PromptAutocompleteMenuProps) {
               type="button"
               className={cn(
                 "flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors",
-                active ? "bg-muted text-foreground" : "text-foreground hover:bg-muted/70",
+                active
+                  ? "bg-surface-weak text-text-base"
+                  : "text-text-base hover:bg-surface-weak/70",
               )}
               onMouseDown={(event) => {
                 event.preventDefault()
@@ -40,15 +42,13 @@ export function PromptAutocompleteMenu(props: PromptAutocompleteMenuProps) {
               <div className="flex min-w-0 flex-col gap-0.5">
                 <span className="font-medium">{`/${command.name}`}</span>
                 {command.description ? (
-                  <span className="truncate text-xs text-muted-foreground">
-                    {command.description}
-                  </span>
+                  <span className="truncate text-xs text-text-weak">{command.description}</span>
                 ) : command.title ? (
-                  <span className="truncate text-xs text-muted-foreground">{command.title}</span>
+                  <span className="truncate text-xs text-text-weak">{command.title}</span>
                 ) : null}
               </div>
               {command.type === "custom" && command.source && command.source !== "command" ? (
-                <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                <span className="shrink-0 rounded bg-surface-weak px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em] text-text-weak">
                   {command.source}
                 </span>
               ) : null}
@@ -58,7 +58,7 @@ export function PromptAutocompleteMenu(props: PromptAutocompleteMenuProps) {
       ) : (
         <>
           {props.showMentionLoading ? (
-            <div className="px-3 py-2 text-xs text-muted-foreground">Searching files...</div>
+            <div className="px-3 py-2 text-xs text-text-weak">Searching files...</div>
           ) : null}
           {props.mentionOptions.map((option, index) => {
             const active = index === props.mentionIndex
@@ -68,7 +68,9 @@ export function PromptAutocompleteMenu(props: PromptAutocompleteMenuProps) {
                 type="button"
                 className={cn(
                   "flex w-full flex-col gap-0.5 px-3 py-2 text-left text-sm transition-colors",
-                  active ? "bg-muted text-foreground" : "text-foreground hover:bg-muted/70",
+                  active
+                    ? "bg-surface-weak text-text-base"
+                    : "text-text-base hover:bg-surface-weak/70",
                 )}
                 onMouseDown={(event) => {
                   event.preventDefault()
@@ -79,9 +81,9 @@ export function PromptAutocompleteMenu(props: PromptAutocompleteMenuProps) {
                   {option.type === "agent" ? `@${option.name}` : `@${option.path}`}
                 </span>
                 {option.description ? (
-                  <span className="text-xs text-muted-foreground">{option.description}</span>
+                  <span className="text-xs text-text-weak">{option.description}</span>
                 ) : option.type === "file" && option.recent ? (
-                  <span className="text-xs text-muted-foreground">Recent file</span>
+                  <span className="text-xs text-text-weak">Recent file</span>
                 ) : null}
               </button>
             )

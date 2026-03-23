@@ -72,7 +72,7 @@ export function DesktopTitlebar() {
 
   return (
     <header
-      className="h-10 shrink-0 border-b border-border/60 bg-background text-foreground"
+      className="h-10 shrink-0 border-b border-border-base/60 bg-background-base text-text-base"
       onMouseDown={onMouseDown}
       onDoubleClick={onDoubleClick}
     >
@@ -83,7 +83,7 @@ export function DesktopTitlebar() {
             <Button
               type="button"
               variant="ghost"
-              className="h-6 w-8 p-0 box-border text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              className="h-6 w-8 p-0 box-border text-text-weak hover:bg-surface-base-hover hover:text-text-strong"
               aria-label={leftSidebarOpen ? "Collapse left panel" : "Expand left panel"}
               aria-expanded={leftSidebarOpen}
               title={leftSidebarOpen ? "Collapse left panel" : "Expand left panel"}
@@ -110,7 +110,7 @@ export function DesktopTitlebar() {
               <Button
                 type="button"
                 variant="ghost"
-                className="h-6 w-8 p-0 box-border text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                className="h-6 w-8 p-0 box-border text-text-weak hover:bg-surface-base-hover hover:text-text-strong"
                 aria-label={rightSidebarOpen ? "Collapse right panel" : "Expand right panel"}
                 aria-expanded={rightSidebarOpen}
                 title={rightSidebarOpen ? "Collapse right panel" : "Expand right panel"}

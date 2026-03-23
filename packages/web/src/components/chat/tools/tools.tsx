@@ -46,7 +46,7 @@ function renderSkillTool({ state }: ToolPartProps) {
     >
       {skillName ? (
         <div>
-          <Badge variant="outline" className="text-xs text-muted-foreground">
+          <Badge variant="outline" className="text-xs text-text-weak">
             {skillName}
           </Badge>
         </div>
@@ -76,7 +76,7 @@ function renderBashTool({ state, defaultOpen }: ToolPartProps) {
         <ToolOutputPanel output={shellText} status={state.status} copyLabel="Copy shell output" />
       ) : null}
       {!shellText && state.status === "completed" ? (
-        <div className="text-xs text-muted-foreground">No output</div>
+        <div className="text-xs text-text-weak">No output</div>
       ) : null}
     </BasicTool>
   )
@@ -99,7 +99,7 @@ function renderPythonCalculatorTool({ state, defaultOpen }: ToolPartProps) {
         <ToolOutputPanel output={output} status={state.status} copyLabel="Copy result" />
       ) : null}
       {!showOutput && valueText ? (
-        <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-background p-2 text-xs text-muted-foreground">
+        <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border-base bg-background-base p-2 text-xs text-text-weak">
           {valueText}
         </pre>
       ) : null}
@@ -121,7 +121,7 @@ function renderReadTool({ state, info }: ToolPartProps) {
       hideDetails
     >
       {loadedFiles.length > 0 ? (
-        <div className="space-y-1 text-xs text-muted-foreground">
+        <div className="space-y-1 text-xs text-text-weak">
           {loadedFiles.map((loadedFile) => (
             <div key={loadedFile}>Loaded {loadedFile}</div>
           ))}
@@ -186,21 +186,21 @@ function renderEditTool({ state, defaultOpen }: ToolPartProps) {
       {beforeText !== undefined || afterText !== undefined ? (
         <div className="grid gap-2 md:grid-cols-2">
           <div>
-            <div className="mb-1 text-xs font-semibold text-muted-foreground">Before</div>
-            <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-muted/40 p-2 text-xs text-muted-foreground">
+            <div className="mb-1 text-xs font-semibold text-text-weak">Before</div>
+            <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border-base bg-surface-weak/40 p-2 text-xs text-text-weak">
               {beforeText || "(empty)"}
             </pre>
           </div>
           <div>
-            <div className="mb-1 text-xs font-semibold text-muted-foreground">After</div>
-            <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-muted/40 p-2 text-xs text-muted-foreground">
+            <div className="mb-1 text-xs font-semibold text-text-weak">After</div>
+            <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border-base bg-surface-weak/40 p-2 text-xs text-text-weak">
               {afterText || "(empty)"}
             </pre>
           </div>
         </div>
       ) : null}
       {writeContent ? (
-        <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-background p-2 text-xs text-muted-foreground">
+        <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border-base bg-background-base p-2 text-xs text-text-weak">
           {writeContent}
         </pre>
       ) : null}
@@ -237,7 +237,7 @@ function renderTaskTool({ state, onOpenSession }: ToolPartProps) {
       <button
         type="button"
         className={cn(
-          "w-full rounded-lg border border-border bg-card p-3 text-left transition-colors hover:border-foreground/30",
+          "w-full rounded-lg border border-border-base bg-surface-raised-base p-3 text-left transition-colors hover:border-border-hover",
         )}
         onClick={openChildSession}
       >
@@ -330,7 +330,7 @@ function renderSearchTool({ part, state, defaultOpen, info }: ToolPartProps) {
       defaultOpen={defaultOpen}
     >
       {showOutput ? (
-        <div className="rounded-md border border-border bg-background px-3 py-2">
+        <div className="rounded-md border border-border-base bg-background-base px-3 py-2">
           <Markdown text={output} cacheKey={`${part.id}:tool-output`} />
         </div>
       ) : null}
@@ -352,7 +352,7 @@ function renderWebfetchTool({ state, info }: ToolPartProps) {
           href={link}
           target="_blank"
           rel="noreferrer"
-          className="inline-flex text-sm text-primary underline-offset-2 hover:underline"
+          className="inline-flex text-sm text-text-interactive-base underline-offset-2 hover:underline"
         >
           {link}
         </a>
@@ -397,7 +397,7 @@ function renderExaSearchTool({ state, defaultOpen, info }: ToolPartProps) {
               href={link}
               target="_blank"
               rel="noopener noreferrer"
-              className="block truncate text-sm text-primary underline-offset-2 hover:underline"
+              className="block truncate text-sm text-text-interactive-base underline-offset-2 hover:underline"
             >
               {link}
             </a>
@@ -472,7 +472,7 @@ function renderRenderFigureTool({ state, info }: ToolPartProps) {
       status={state.status}
       hideDetails
     >
-      <figure className="rounded-lg border border-border bg-background p-2">
+      <figure className="rounded-lg border border-border-base bg-background-base p-2">
         <img
           src={imageUrl}
           alt={renderFigure.alt}
@@ -481,11 +481,11 @@ function renderRenderFigureTool({ state, info }: ToolPartProps) {
         />
       </figure>
       {renderFigure.caption ? (
-        <div className="mt-1 text-sm text-muted-foreground">{renderFigure.caption}</div>
+        <div className="mt-1 text-sm text-text-weak">{renderFigure.caption}</div>
       ) : null}
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <CopyAction value={copyableImageUrl} label="Copy image URL" />
-        <span className="text-xs text-muted-foreground">
+        <span className="text-xs text-text-weak">
           {renderFigure.repairAttempts > 0
             ? `repaired ${renderFigure.repairAttempts} ${renderFigure.repairAttempts === 1 ? "time" : "times"}`
             : "rendered automatically from tool output"}
@@ -543,9 +543,12 @@ function renderQuestionTool({ state, info, defaultOpen }: ToolPartProps) {
             const answers = questionAnswers[index] ?? []
             const questionKey = `${question.question}:${answers.join("|")}`
             return (
-              <div key={questionKey} className="rounded-md border border-border bg-background p-2">
-                <div className="text-sm text-foreground">{question.question}</div>
-                <div className="mt-1 text-xs text-muted-foreground">
+              <div
+                key={questionKey}
+                className="rounded-md border border-border-base bg-background-base p-2"
+              >
+                <div className="text-sm text-text-base">{question.question}</div>
+                <div className="mt-1 text-xs text-text-weak">
                   {answers.join(", ") || "(no answer)"}
                 </div>
               </div>
@@ -576,7 +579,7 @@ function renderBuddyCustomTool({ state, tool, defaultOpen }: ToolPartProps) {
     >
       {artifact ? (
         <div>
-          <Badge variant="outline" className="text-xs text-muted-foreground">
+          <Badge variant="outline" className="text-xs text-text-weak">
             {artifact}
           </Badge>
         </div>
@@ -585,7 +588,7 @@ function renderBuddyCustomTool({ state, tool, defaultOpen }: ToolPartProps) {
         <ToolOutputPanel output={output} status={state.status} copyLabel="Copy output" />
       ) : null}
       {!showOutput && valueText ? (
-        <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-background p-2 text-xs text-muted-foreground">
+        <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border-base bg-background-base p-2 text-xs text-text-weak">
           {valueText}
         </pre>
       ) : null}

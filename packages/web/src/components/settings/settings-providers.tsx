@@ -27,7 +27,7 @@ export function ProvidersSettings({ directory }: { directory: string }) {
         description="Connect provider accounts and choose which connected provider is used for model selection. Changes save automatically."
       >
         <div className="space-y-2">
-          <h3 className="text-sm font-medium text-foreground">Connected providers</h3>
+          <h3 className="text-sm font-medium text-text-base">Connected providers</h3>
           <SettingsListCard>
             {settings.options.providers.length > 0 ? (
               settings.options.providers.map((provider, index) => {
@@ -38,11 +38,11 @@ export function ProvidersSettings({ directory }: { directory: string }) {
                       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
-                            <p className="text-sm font-medium text-foreground">{provider.name}</p>
+                            <p className="text-sm font-medium text-text-base">{provider.name}</p>
                             <ProviderSourceBadge provider={provider} />
                             {selected ? <Badge variant="secondary">Selected</Badge> : null}
                           </div>
-                          <p className="mt-1 text-xs text-muted-foreground">
+                          <p className="mt-1 text-xs text-text-weak">
                             {provider.source === "env"
                               ? "Connected from environment variables."
                               : "Connected and available for this notebook."}
@@ -75,7 +75,7 @@ export function ProvidersSettings({ directory }: { directory: string }) {
                 )
               })
             ) : (
-              <div className="px-4 py-8 text-sm text-muted-foreground">
+              <div className="px-4 py-8 text-sm text-text-weak">
                 No providers are connected yet.
               </div>
             )}
@@ -84,7 +84,7 @@ export function ProvidersSettings({ directory }: { directory: string }) {
 
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-3">
-            <h3 className="text-sm font-medium text-foreground">Available providers</h3>
+            <h3 className="text-sm font-medium text-text-base">Available providers</h3>
             <Button
               type="button"
               size="xs"
@@ -101,10 +101,10 @@ export function ProvidersSettings({ directory }: { directory: string }) {
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-sm font-medium text-foreground">{provider.name}</p>
+                          <p className="text-sm font-medium text-text-base">{provider.name}</p>
                           <ProviderSourceBadge provider={provider} />
                         </div>
-                        <p className="mt-1 text-xs text-muted-foreground">
+                        <p className="mt-1 text-xs text-text-weak">
                           {provider.methods.length > 0
                             ? provider.methods.map((method) => method.label).join(" or ")
                             : "Connection available"}
@@ -124,7 +124,7 @@ export function ProvidersSettings({ directory }: { directory: string }) {
                 </div>
               ))
             ) : (
-              <div className="px-4 py-8 text-sm text-muted-foreground">
+              <div className="px-4 py-8 text-sm text-text-weak">
                 All available providers are already connected.
               </div>
             )}

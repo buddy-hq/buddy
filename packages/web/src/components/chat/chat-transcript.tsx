@@ -303,8 +303,8 @@ const AssistantPartRenderer = memo(function AssistantPartRenderer({
   }
 
   return (
-    <div className="w-full rounded-md border border-border bg-background p-2">
-      <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words text-xs text-muted-foreground">
+    <div className="w-full rounded-md border border-border-base bg-background-base p-2">
+      <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words text-xs text-text-weak">
         {JSON.stringify(part, null, 2)}
       </pre>
     </div>
@@ -541,10 +541,10 @@ const TurnRenderer = memo(function TurnRenderer({
             )
           })}
           {showThinking ? (
-            <div className="flex min-h-5 w-full items-center gap-2 text-sm font-medium text-muted-foreground">
+            <div className="flex min-h-5 w-full items-center gap-2 text-sm font-medium text-text-weak">
               <span className="animate-pulse">Thinking</span>
               {!showReasoningSummaries && currentReasoningHeading ? (
-                <span className="truncate text-muted-foreground/90">{currentReasoningHeading}</span>
+                <span className="truncate text-text-weak/90">{currentReasoningHeading}</span>
               ) : null}
             </div>
           ) : null}

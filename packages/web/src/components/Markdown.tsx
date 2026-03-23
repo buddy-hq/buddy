@@ -43,32 +43,32 @@ const MARKDOWN_CACHE_MAX = 200
 const markdownCache = new Map<string, MarkdownCacheEntry>()
 
 const markdownClassName = [
-  "min-w-0 max-w-full break-words text-sm leading-[1.65] text-foreground",
+  "min-w-0 max-w-full break-words text-sm leading-[1.65] text-text-base",
   "[&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
-  "[&_h1]:mt-6 [&_h1]:mb-2.5 [&_h1]:text-sm [&_h1]:font-semibold [&_h1]:leading-[1.45] [&_h1]:text-foreground",
-  "[&_h2]:mt-6 [&_h2]:mb-2.5 [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:leading-[1.45] [&_h2]:text-foreground",
-  "[&_h3]:mt-6 [&_h3]:mb-2.5 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:leading-[1.45] [&_h3]:text-foreground",
-  "[&_h4]:mt-6 [&_h4]:mb-2.5 [&_h4]:text-sm [&_h4]:font-semibold [&_h4]:leading-[1.45] [&_h4]:text-foreground",
-  "[&_h5]:mt-6 [&_h5]:mb-2.5 [&_h5]:text-sm [&_h5]:font-semibold [&_h5]:leading-[1.45] [&_h5]:text-foreground",
-  "[&_h6]:mt-6 [&_h6]:mb-2.5 [&_h6]:text-sm [&_h6]:font-semibold [&_h6]:leading-[1.45] [&_h6]:text-foreground",
-  "[&_strong]:font-semibold [&_strong]:text-foreground [&_b]:font-semibold [&_b]:text-foreground",
+  "[&_h1]:mt-6 [&_h1]:mb-2.5 [&_h1]:text-sm [&_h1]:font-semibold [&_h1]:leading-[1.45] [&_h1]:text-text-base",
+  "[&_h2]:mt-6 [&_h2]:mb-2.5 [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:leading-[1.45] [&_h2]:text-text-base",
+  "[&_h3]:mt-6 [&_h3]:mb-2.5 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:leading-[1.45] [&_h3]:text-text-base",
+  "[&_h4]:mt-6 [&_h4]:mb-2.5 [&_h4]:text-sm [&_h4]:font-semibold [&_h4]:leading-[1.45] [&_h4]:text-text-base",
+  "[&_h5]:mt-6 [&_h5]:mb-2.5 [&_h5]:text-sm [&_h5]:font-semibold [&_h5]:leading-[1.45] [&_h5]:text-text-base",
+  "[&_h6]:mt-6 [&_h6]:mb-2.5 [&_h6]:text-sm [&_h6]:font-semibold [&_h6]:leading-[1.45] [&_h6]:text-text-base",
+  "[&_strong]:font-semibold [&_strong]:text-text-base [&_b]:font-semibold [&_b]:text-text-base",
   "[&_p]:mb-4",
-  "[&_a]:text-primary [&_a]:no-underline [&_a:hover]:underline [&_a:hover]:underline-offset-2",
+  "[&_a]:text-text-interactive-base [&_a]:no-underline [&_a:hover]:underline [&_a:hover]:underline-offset-2",
   "[&_ul]:mt-2 [&_ul]:mb-4 [&_ul]:list-outside [&_ul]:list-disc [&_ul]:pl-5",
   "[&_ol]:mt-2 [&_ol]:mb-4 [&_ol]:list-outside [&_ol]:list-decimal [&_ol]:pl-5",
-  "[&_li]:mb-1.5 [&_li::marker]:text-muted-foreground",
+  "[&_li]:mb-1.5 [&_li::marker]:text-text-weak",
   "[&_li>p:first-child]:m-0 [&_li>p:first-child]:inline",
   "[&_li>p+p]:mt-1.5 [&_li>p+p]:block",
   "[&_li>ul]:my-1 [&_li>ul]:pl-4 [&_li>ol]:my-1 [&_li>ol]:pl-4",
-  "[&_blockquote]:my-5 [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-2.5 [&_blockquote]:text-muted-foreground",
+  "[&_blockquote]:my-5 [&_blockquote]:border-l-2 [&_blockquote]:border-border-base [&_blockquote]:pl-2.5 [&_blockquote]:text-text-weak",
   "[&_hr]:my-8 [&_hr]:h-0 [&_hr]:border-0",
   "[&_pre]:my-4 [&_pre]:overflow-auto [&_pre]:[scrollbar-width:none] [&_pre::-webkit-scrollbar]:hidden",
-  "[&_.shiki]:rounded-md [&_.shiki]:border [&_.shiki]:border-border [&_.shiki]:px-3 [&_.shiki]:py-2 [&_.shiki]:text-[13px]",
-  "[&_code]:rounded-[4px] [&_code]:border [&_code]:border-border [&_code]:bg-[color-mix(in_oklab,var(--muted)_70%,transparent)] [&_code]:px-1 [&_code]:py-px [&_code]:font-mono [&_code]:text-[0.83em] [&_code]:text-foreground",
+  "[&_.shiki]:rounded-md [&_.shiki]:border [&_.shiki]:border-border-base [&_.shiki]:px-3 [&_.shiki]:py-2 [&_.shiki]:text-[13px]",
+  "[&_code]:rounded-[4px] [&_code]:border [&_code]:border-border-base [&_code]:bg-[color-mix(in_oklab,var(--surface-weak)_70%,transparent)] [&_code]:px-1 [&_code]:py-px [&_code]:font-mono [&_code]:text-[0.83em] [&_code]:text-text-base",
   "[&_pre_code]:border-0 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-inherit",
   "[&_table]:my-5 [&_table]:block [&_table]:w-full [&_table]:overflow-x-auto [&_table]:border-collapse [&_table]:text-sm",
-  "[&_th]:border-b [&_th]:border-border [&_th]:px-2 [&_th]:py-2 [&_th]:text-left [&_th]:align-top [&_th]:font-semibold [&_th]:text-foreground",
-  "[&_td]:border-b [&_td]:border-b-[color-mix(in_oklab,var(--border)_70%,transparent)] [&_td]:px-2 [&_td]:py-2 [&_td]:text-left [&_td]:align-top",
+  "[&_th]:border-b [&_th]:border-border-base [&_th]:px-2 [&_th]:py-2 [&_th]:text-left [&_th]:align-top [&_th]:font-semibold [&_th]:text-text-base",
+  "[&_td]:border-b [&_td]:border-b-[color-mix(in_oklab,var(--border-base)_70%,transparent)] [&_td]:px-2 [&_td]:py-2 [&_td]:text-left [&_td]:align-top",
   "[&_img]:my-5 [&_img]:block [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded-md",
   "[&_a.external-link:hover>code]:underline [&_a.external-link:hover>code]:underline-offset-2",
 ].join(" ")
@@ -98,7 +98,7 @@ function createCopyButton(labels: CopyLabels) {
   button.setAttribute("data-copied", "false")
   button.setAttribute("aria-label", labels.copy)
   button.className =
-    "mt-2 inline-flex h-6 items-center rounded border border-border bg-background px-2 text-xs text-muted-foreground hover:text-foreground"
+    "mt-2 inline-flex h-6 items-center rounded border border-border-base bg-background-base px-2 text-xs text-text-weak hover:text-text-base"
   button.textContent = labels.copy
   return button
 }
