@@ -79,33 +79,6 @@ export function buildInterpretMessageUserPrompt(input: {
   ].join("\n")
 }
 
-export function buildPlanSystemPrompt() {
-  return [
-    "You are Buddy's learner planning engine.",
-    "Choose the next best learning move using current learner artifacts.",
-    "Do not use deterministic scorecards or heuristic sequencing.",
-    "If evidence is insufficient, you may abstain.",
-    "When applying, output a concrete plan aligned to current goals and constraints.",
-  ].join("\n")
-}
-
-export function buildPlanUserPrompt(input: {
-  snapshot: LearnerSnapshot
-  focusGoalIds: string[]
-  sessionId?: string
-}) {
-  return [
-    "Create the next learning plan decision.",
-    "",
-    `Workspace: ${input.snapshot.workspace.label}`,
-    `Session: ${input.sessionId ?? "unknown"}`,
-    `Focus goal IDs: ${input.focusGoalIds.length > 0 ? input.focusGoalIds.join(", ") : "none provided"}`,
-    "",
-    "Snapshot markdown:",
-    input.snapshot.markdown,
-  ].join("\n")
-}
-
 export function buildFeedbackSystemPrompt(input: { source: "practice" | "assessment" }) {
   return [
     `You are Buddy's ${input.source} feedback decision engine.`,

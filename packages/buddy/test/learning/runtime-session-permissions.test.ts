@@ -99,8 +99,8 @@ describe("buildBuddyRuntimeSessionPermissions", () => {
           action: "allow",
         },
         {
-          permission: "curriculum_read",
-          pattern: ".buddy/**",
+          permission: "custom_review_tool",
+          pattern: "*",
           action: "allow",
         },
         {
@@ -118,8 +118,8 @@ describe("buildBuddyRuntimeSessionPermissions", () => {
 
     expect(permissions).toEqual([
       {
-        permission: "curriculum_read",
-        pattern: ".buddy/**",
+        permission: "custom_review_tool",
+        pattern: "*",
         action: "allow",
       },
       {

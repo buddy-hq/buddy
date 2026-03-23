@@ -5,7 +5,6 @@ import type {
   ConfigPersonasResponses,
   ConfigUpdateData,
   FindFilesResponses,
-  LearnerPlanResponses,
   LearnerSnapshotResponses,
   McpLocalConfig,
   McpRemoteConfig,
@@ -56,18 +55,6 @@ export type LearnerCurriculumView = {
     updatedAt: string
   }
   coldStart: boolean
-  recommendedNextAction: string
-  sessionPlan: {
-    warmupReviewGoalIds: string[]
-    primaryGoalId?: string
-    suggestedActivity: string
-    suggestedScaffoldingLevel: string
-    alternatives: string[]
-    rationale: string[]
-    motivationHook?: string
-    constraintsConsidered: string[]
-    prerequisiteWarnings: string[]
-  }
   alignmentSummary: {
     records: Array<{
       goalId: string
@@ -914,38 +901,21 @@ export async function loadCurriculumView(
     persona?: string
     intent?: TeachingIntent
     sessionID?: string
-    generateDecision?: boolean
   },
 ) {
   const intent = input?.intent ?? "auto"
 
-  const result = requireBuddyData<LearnerPlanResponses[200]>(
-    await getBuddyClient(directory).learner.plan({
-      query_persona: toLearnerPersona(input?.persona),
-      query_intent: intent,
-      query_sessionId: input?.sessionID,
-      generateDecision: input?.generateDecision ? true : undefined,
+  const snapshot = requireBuddyData<LearnerSnapshotResponses[200]>(
+    await getBuddyClient(directory).learner.snapshot({
+      persona: toLearnerPersona(input?.persona),
+      intent,
+      sessionId: input?.sessionID,
     }),
   )
-  const snapshot = result.snapshot
-  const plan = result.plan
-  const sessionPlan: LearnerCurriculumView["sessionPlan"] = {
-    warmupReviewGoalIds: plan.warmupReviewGoalIds ?? [],
-    primaryGoalId: plan.primaryGoalId,
-    suggestedActivity: plan.suggestedActivity,
-    suggestedScaffoldingLevel: plan.suggestedScaffoldingLevel,
-    alternatives: plan.alternatives ?? [],
-    rationale: plan.rationale ?? [],
-    motivationHook: plan.motivationHook,
-    constraintsConsidered: plan.constraintsConsidered ?? [],
-    prerequisiteWarnings: plan.prerequisiteWarnings ?? [],
-  }
 
   return {
     workspace: parseWorkspaceView(snapshot.workspace),
     coldStart: snapshot.goals.length === 0,
-    recommendedNextAction: plan.suggestedActivity,
-    sessionPlan,
     alignmentSummary: EMPTY_ALIGNMENT_SUMMARY,
     alignmentSummaryUnavailable: true,
     openFeedbackActions: parseOpenFeedbackActions(snapshot.openFeedback),
@@ -1072,9 +1042,9 @@ export async function loadLearnerGoals(directory: string): Promise<{ goals: Goal
 }
 
 export async function loadLearnerProgress(directory: string) {
-  const result = requireBuddyData(await getBuddyClient(directory).learner.plan())
+  const result = requireBuddyData(await getBuddyClient(directory).learner.snapshot())
   return {
-    progress: [{ suggestedActivity: result.plan.suggestedActivity }],
+    progress: [{ activeGoalCount: Array.isArray(result.goals) ? result.goals.length : 0 }],
   }
 }
 

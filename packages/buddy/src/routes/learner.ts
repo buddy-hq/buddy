@@ -9,9 +9,7 @@ import {
 } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import { directoryQuerySchema, routeErrors, withDirectoryRoute, zodIssuesResponse } from "../http"
 import {
-  DecisionArtifactSchema,
   EvidenceArtifactSchema,
-  ensurePlanDecision,
   FeedbackArtifactSchema,
   getWorkspaceSnapshot,
   GoalArtifactSchema,
@@ -20,14 +18,12 @@ import {
   MisconceptionArtifactSchema,
   patchWorkspace,
   ProfileArtifactSchema,
-  SessionPlanSchema,
   WorkspaceContextArtifactSchema,
   WorkspaceRecordArtifactKindSchema,
 } from "../learning/learner-model"
 import {
   LearnerWorkspacePatchSchema,
   parseArtifactListQuery,
-  parseDecisionPlanRequest,
   parseSnapshotQuery,
   readWorkspaceStateFromSession,
 } from "../learning/adapters/http"
@@ -39,17 +35,6 @@ const learnerSnapshotQuerySchema = directoryQuerySchema.extend({
   sessionId: z.string().optional(),
   workspaceState: z.enum(WORKSPACE_STATES).optional(),
 })
-
-const learnerPlanBodySchema = z
-  .object({
-    persona: z.enum(PERSONAS).optional(),
-    intent: z.enum(INTENTS).optional(),
-    goalIds: z.array(z.string()).optional(),
-    sessionId: z.string().optional(),
-    workspaceState: z.enum(WORKSPACE_STATES).optional(),
-    generateDecision: z.boolean().optional(),
-  })
-  .optional()
 
 const runtimeProfileSchema = z.object({
   persona: z.enum(PERSONAS),
@@ -69,7 +54,6 @@ const learnerSnapshotResponseSchema = z.object({
   activeMisconceptions: z.array(MisconceptionArtifactSchema),
   openFeedback: z.array(FeedbackArtifactSchema),
   recentEvidence: z.array(EvidenceArtifactSchema),
-  latestPlan: DecisionArtifactSchema.optional(),
   constraintsSummary: z.array(z.string()),
   sections: z.array(
     z.object({
@@ -84,12 +68,6 @@ const learnerSnapshotResponseSchema = z.object({
     workspaceState: z.enum(WORKSPACE_STATES),
   }),
   runtimeProfile: runtimeProfileSchema,
-})
-
-const learnerPlanResponseSchema = z.object({
-  snapshot: learnerSnapshotResponseSchema,
-  plan: SessionPlanSchema,
-  decision: DecisionArtifactSchema.optional(),
 })
 
 const learnerArtifactsResponseSchema = z.object({
@@ -136,48 +114,6 @@ export const LearnerRoutes = new Hono()
           },
         })
         return c.json(snapshot)
-      }),
-  )
-  .post(
-    "/plan",
-    describeRoute({
-      operationId: "learner.plan",
-      summary: "Create or reuse plan decision",
-      responses: {
-        200: {
-          description: "Plan decision",
-          content: { "application/json": { schema: resolver(learnerPlanResponseSchema) } },
-        },
-        ...routeErrors(400, 403),
-      },
-    }),
-    validator("query", learnerSnapshotQuerySchema),
-    validator("json", learnerPlanBodySchema),
-    async (c) =>
-      withDirectoryRoute(c, async (context) => {
-        const requestBody = c.req.valid("json") ?? {}
-        const parsed = parseDecisionPlanRequest({
-          requestURL: context.requestURL,
-          body: requestBody,
-        })
-        if (!parsed.success) {
-          return zodIssuesResponse(parsed.error)
-        }
-
-        const decision = await ensurePlanDecision({
-          directory: context.directory,
-          query: {
-            ...parsed.data,
-            workspaceState:
-              parsed.data.workspaceState ??
-              readWorkspaceStateFromSession({
-                directory: context.directory,
-                sessionId: parsed.data.sessionId,
-              }),
-          },
-          allowGenerate: requestBody.generateDecision === true,
-        })
-        return c.json(decision)
       }),
   )
   .get(

@@ -29,7 +29,6 @@ export const GOAL_WRITER = registerBuddyAgent({
       lsp: "deny",
       batch: "deny",
       plan_exit: "deny",
-      curriculum_read: "deny",
       teaching_start_lesson: "deny",
       teaching_checkpoint: "deny",
       teaching_add_file: "deny",

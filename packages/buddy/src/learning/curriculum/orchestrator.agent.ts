@@ -11,7 +11,6 @@ export const CURRICULUM_ORCHESTRATOR = registerBuddyAgent({
     steps: 8,
     permission: {
       "*": "deny",
-      curriculum_read: "allow",
       learner_snapshot_read: "allow",
       task: {
         "*": "deny",

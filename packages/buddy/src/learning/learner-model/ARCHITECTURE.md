@@ -109,7 +109,6 @@ Learner is split into focused Buddy-owned modules:
 - `recordLearnerMessageEvent(input)`
 - `recordPracticeEvent(input)`
 - `recordAssessmentEvent(input)`
-- `ensurePlanDecision(input)`
 - `runSafetySweep()`
 
 These are exported as named functions; `LearnerService` object export remains as a compatibility alias for existing call sites.
@@ -123,7 +122,6 @@ Legacy facade methods (`readState`, `queryState`, `rebuild*`, `getSessionPlan`, 
 Learner API surface:
 
 - `GET /api/learner/snapshot`
-- `POST /api/learner/plan`
 - `GET /api/learner/artifacts`
 - `PATCH /api/learner/workspace`
 

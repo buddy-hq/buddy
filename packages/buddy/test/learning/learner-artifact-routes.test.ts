@@ -4,7 +4,7 @@ import { LearnerService } from "../../src/learning/learner-model"
 import { tmpdir } from "../helpers/tmpdir"
 
 describe("learner artifact routes", () => {
-  test("serves snapshot, plan, artifacts, and workspace endpoints", async () => {
+  test("serves snapshot, artifacts, and workspace endpoints", async () => {
     await using project = await tmpdir({ git: true })
 
     const committed = await LearnerService.replaceGoalSet({
@@ -48,26 +48,6 @@ describe("learner artifact routes", () => {
     }
     expect(snapshotBody.markdown).toContain("# Learning Snapshot")
     expect(snapshotBody.goals.map((goal) => goal.id)).toContain(committed.goalIds[0]!)
-
-    const planResponse = await app.request("/api/learner/plan?persona=code-buddy&intent=practice", {
-      method: "POST",
-      headers: {
-        "x-buddy-directory": project.path,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({}),
-    })
-    expect(planResponse.status).toBe(200)
-    const planBody = (await planResponse.json()) as {
-      plan: {
-        suggestedActivity: string
-      }
-      snapshot: {
-        markdown: string
-      }
-    }
-    expect(planBody.plan.suggestedActivity.length).toBeGreaterThan(0)
-    expect(planBody.snapshot.markdown).toContain("# Learning Snapshot")
 
     const artifactsResponse = await app.request("/api/learner/artifacts?kind=goal", {
       headers: {

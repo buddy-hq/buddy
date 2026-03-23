@@ -5,7 +5,6 @@ import {
   INTENTS,
   PERSONAS,
   WORKSPACE_STATES,
-  ACTIVITY_KINDS,
 } from "@buddy/backend/learning/shared/teaching-vocabulary"
 
 const TimestampSchema = z.string().datetime()
@@ -22,7 +21,6 @@ export const LearnerArtifactKindSchema = z.enum([
   "misconception",
   "decision-interpret-message",
   "decision-feedback",
-  "decision-plan",
 ])
 export type LearnerArtifactKind = z.infer<typeof LearnerArtifactKindSchema>
 
@@ -36,7 +34,6 @@ export const WorkspaceRecordArtifactKindSchema = z.enum([
   "misconception",
   "decision-interpret-message",
   "decision-feedback",
-  "decision-plan",
 ])
 export type WorkspaceRecordArtifactKind = z.infer<typeof WorkspaceRecordArtifactKindSchema>
 
@@ -191,8 +188,8 @@ export const MisconceptionArtifactSchema = BaseArtifactSchema.extend({
 export type MisconceptionArtifact = z.infer<typeof MisconceptionArtifactSchema>
 
 export const DecisionArtifactSchema = BaseArtifactSchema.extend({
-  kind: z.enum(["decision-interpret-message", "decision-feedback", "decision-plan"]),
-  decisionType: z.enum(["interpret-message", "feedback", "plan"]),
+  kind: z.enum(["decision-interpret-message", "decision-feedback"]),
+  decisionType: z.enum(["interpret-message", "feedback"]),
   providerId: z.string().optional(),
   modelId: z.string().optional(),
   usedSmallModel: z.boolean().default(false),
@@ -228,19 +225,3 @@ const SharedSnapshotDecisionSchema = z.object({
 })
 export const SnapshotQuerySchema = SharedSnapshotDecisionSchema
 export type SnapshotQuery = z.infer<typeof SnapshotQuerySchema>
-
-export const DecisionPlanRequestSchema = SharedSnapshotDecisionSchema
-export type DecisionPlanRequest = z.infer<typeof DecisionPlanRequestSchema>
-
-export const SnapshotPlanSchema = z.object({
-  primaryGoalId: z.string().optional(),
-  suggestedActivity: z.enum(ACTIVITY_KINDS),
-  suggestedScaffoldingLevel: z.enum(SCAFFOLDING_LEVELS),
-  warmupGoalIds: z.array(z.string()).default([]),
-  alternatives: z.array(z.string()).default([]),
-  rationale: z.array(z.string()).default([]),
-  motivationHook: z.string().optional(),
-  riskFlags: z.array(z.string()).default([]),
-  followUpQuestions: z.array(z.string()).default([]),
-})
-export type SnapshotPlan = z.infer<typeof SnapshotPlanSchema>

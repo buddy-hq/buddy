@@ -1,14 +1,5 @@
 import z from "zod"
-import {
-  PERSONAS,
-  INTENTS,
-  WORKSPACE_STATES,
-} from "@buddy/backend/learning/shared/teaching-vocabulary"
-import {
-  DecisionPlanRequestSchema,
-  SnapshotQuerySchema,
-  WorkspaceRecordArtifactKindSchema,
-} from "../../../learner-model"
+import { SnapshotQuerySchema, WorkspaceRecordArtifactKindSchema } from "../../../learner-model"
 import { readTeachingSessionState } from "../../../agent-execution/state/session-state"
 
 export const LearnerWorkspacePatchSchema = z.object({
@@ -46,19 +37,6 @@ export const LearnerArtifactListQuerySchema = z.object({
   includeRaw: z.boolean().optional(),
 })
 
-const BaseLearnerRequestSchema = z.object({
-  persona: z.enum(PERSONAS).optional(),
-  intent: z.enum(INTENTS).default("auto"),
-  goalIds: z.array(z.string()).optional(),
-  sessionId: z.string().optional(),
-  workspaceState: z.enum(WORKSPACE_STATES).optional(),
-})
-
-const SnapshotQueryRequestSchema = BaseLearnerRequestSchema
-const PlanRequestBodySchema = BaseLearnerRequestSchema.extend({
-  generateDecision: z.boolean().optional(),
-})
-
 export function parseSnapshotQuery(requestURL: URL) {
   const query = requestURL.searchParams
   return SnapshotQuerySchema.safeParse({
@@ -78,38 +56,6 @@ export function parseArtifactListQuery(requestURL: URL) {
     goalId: query.get("goalId") ?? undefined,
     status: query.get("status") ?? undefined,
     includeRaw: includeRaw === null ? undefined : includeRaw === "true",
-  })
-}
-
-export function parseDecisionPlanRequest(input: { requestURL: URL; body: unknown }) {
-  const queryResult = SnapshotQueryRequestSchema.safeParse({
-    persona: input.requestURL.searchParams.get("persona") ?? undefined,
-    intent: input.requestURL.searchParams.get("intent") ?? undefined,
-    goalIds: input.requestURL.searchParams.has("goalId")
-      ? input.requestURL.searchParams.getAll("goalId")
-      : undefined,
-    sessionId: input.requestURL.searchParams.get("sessionId") ?? undefined,
-    workspaceState: input.requestURL.searchParams.get("workspaceState") ?? undefined,
-  })
-  if (!queryResult.success) {
-    return queryResult
-  }
-
-  const bodyResult = PlanRequestBodySchema.safeParse(input.body)
-  if (!bodyResult.success) {
-    return bodyResult
-  }
-
-  const rawBody = input.body
-  const hasBodyIntent =
-    !!rawBody && typeof rawBody === "object" && !Array.isArray(rawBody) && "intent" in rawBody
-
-  return DecisionPlanRequestSchema.safeParse({
-    persona: bodyResult.data.persona ?? queryResult.data.persona,
-    intent: hasBodyIntent ? bodyResult.data.intent : queryResult.data.intent,
-    focusGoalIds: bodyResult.data.goalIds ?? queryResult.data.goalIds,
-    sessionId: bodyResult.data.sessionId ?? queryResult.data.sessionId,
-    workspaceState: bodyResult.data.workspaceState ?? queryResult.data.workspaceState,
   })
 }
 

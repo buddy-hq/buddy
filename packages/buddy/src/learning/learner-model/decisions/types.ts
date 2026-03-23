@@ -1,8 +1,5 @@
 import z from "zod"
-import {
-  ACTIVITY_KINDS,
-  SCAFFOLDING_LEVELS,
-} from "@buddy/backend/learning/shared/teaching-vocabulary"
+import { SCAFFOLDING_LEVELS } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import { DecisionDispositionSchema } from "../repository/types"
 
 export const EvidenceStrengthSchema = z.enum(["none", "weak", "strong"])
@@ -31,21 +28,6 @@ export const InterpretMessageDecisionSchema = z.object({
   rationale: z.array(z.string()).default([]),
 })
 export type InterpretMessageDecision = z.infer<typeof InterpretMessageDecisionSchema>
-
-export const PlanDecisionSchema = z.object({
-  disposition: DecisionDispositionSchema.default("apply"),
-  confidence: z.number().min(0).max(1).default(0.5),
-  primaryGoalId: z.string().optional(),
-  suggestedActivity: z.enum(ACTIVITY_KINDS),
-  suggestedScaffoldingLevel: z.enum(SCAFFOLDING_LEVELS),
-  warmupGoalIds: z.array(z.string()).default([]),
-  alternatives: z.array(z.string()).default([]),
-  rationale: z.array(z.string()).default([]),
-  motivationHook: z.string().optional(),
-  riskFlags: z.array(z.string()).default([]),
-  followUpQuestions: z.array(z.string()).default([]),
-})
-export type PlanDecision = z.infer<typeof PlanDecisionSchema>
 
 export const FeedbackDecisionSchema = z.object({
   disposition: DecisionDispositionSchema.default("apply"),
@@ -139,77 +121,6 @@ export const InterpretMessageJsonSchema = {
     "requiresClarification",
     "replyMode",
     "rationale",
-  ],
-} as const
-
-export const PlanJsonSchema = {
-  type: "object",
-  additionalProperties: false,
-  properties: {
-    disposition: {
-      type: "string",
-      enum: ["apply", "abstain"],
-    },
-    confidence: {
-      type: "number",
-      minimum: 0,
-      maximum: 1,
-    },
-    primaryGoalId: {
-      type: "string",
-    },
-    suggestedActivity: {
-      type: "string",
-      enum: [...ACTIVITY_KINDS],
-    },
-    suggestedScaffoldingLevel: {
-      type: "string",
-      enum: [...SCAFFOLDING_LEVELS],
-    },
-    warmupGoalIds: {
-      type: "array",
-      items: {
-        type: "string",
-      },
-    },
-    alternatives: {
-      type: "array",
-      items: {
-        type: "string",
-      },
-    },
-    rationale: {
-      type: "array",
-      items: {
-        type: "string",
-      },
-    },
-    motivationHook: {
-      type: "string",
-    },
-    riskFlags: {
-      type: "array",
-      items: {
-        type: "string",
-      },
-    },
-    followUpQuestions: {
-      type: "array",
-      items: {
-        type: "string",
-      },
-    },
-  },
-  required: [
-    "disposition",
-    "confidence",
-    "suggestedActivity",
-    "suggestedScaffoldingLevel",
-    "warmupGoalIds",
-    "alternatives",
-    "rationale",
-    "riskFlags",
-    "followUpQuestions",
   ],
 } as const
 

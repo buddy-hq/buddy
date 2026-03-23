@@ -1,5 +1,3 @@
-import { curriculumReadTool } from "./read"
-
-const curriculumTools = [curriculumReadTool] as const
+const curriculumTools = [] as const
 
 export { curriculumTools }

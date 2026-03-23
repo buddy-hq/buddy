@@ -3,9 +3,8 @@ import { PermissionNext } from "@buddy/opencode-adapter/permission"
 import { Config } from "@buddy/backend/config"
 
 describe("custom permission contract", () => {
-  test("must accept curriculum_read, learner_snapshot_read, python_calculator, render_figure, and render_freeform_figure custom permissions", async () => {
+  test("must accept learner_snapshot_read, python_calculator, render_figure, and render_freeform_figure custom permissions", async () => {
     const customPermissionConfig = {
-      curriculum_read: "allow",
       learner_snapshot_read: "allow",
       python_calculator: "allow",
       render_figure: "allow",
@@ -14,7 +13,6 @@ describe("custom permission contract", () => {
 
     const parsed = Config.Permission.parse(customPermissionConfig)
 
-    expect(parsed).toHaveProperty("curriculum_read")
     expect(parsed).toHaveProperty("learner_snapshot_read")
     expect(parsed).toHaveProperty("python_calculator")
     expect(parsed).toHaveProperty("render_figure")
@@ -25,7 +23,6 @@ describe("custom permission contract", () => {
       ruleset
         .filter(
           (rule) =>
-            rule.permission === "curriculum_read" ||
             rule.permission === "learner_snapshot_read" ||
             rule.permission === "python_calculator" ||
             rule.permission === "render_figure" ||
@@ -34,16 +31,15 @@ describe("custom permission contract", () => {
         .map((rule) => [rule.permission, rule.action]),
     )
 
-    expect(customRuleActions.get("curriculum_read")).toBe("allow")
     expect(customRuleActions.get("learner_snapshot_read")).toBe("allow")
     expect(customRuleActions.get("python_calculator")).toBe("allow")
     expect(customRuleActions.get("render_figure")).toBe("allow")
     expect(customRuleActions.get("render_freeform_figure")).toBe("allow")
   })
 
-  test("must accept curriculum_read with pattern-based rules", async () => {
+  test("must accept learner_snapshot_read with pattern-based rules", async () => {
     const customPermissionConfig = {
-      curriculum_read: {
+      learner_snapshot_read: {
         ".buddy/context.json": "allow",
         ".buddy/**": "ask",
       },
@@ -51,12 +47,14 @@ describe("custom permission contract", () => {
 
     const parsed = Config.Permission.parse(customPermissionConfig)
 
-    expect(parsed).toHaveProperty("curriculum_read")
-    expect(typeof parsed.curriculum_read).toBe("object")
+    expect(parsed).toHaveProperty("learner_snapshot_read")
+    expect(typeof parsed.learner_snapshot_read).toBe("object")
 
     const ruleset = PermissionNext.fromConfig(parsed)
-    const curriculumReadRules = ruleset.filter((rule) => rule.permission === "curriculum_read")
-    const byPattern = new Map(curriculumReadRules.map((rule) => [rule.pattern, rule.action]))
+    const learnerSnapshotRules = ruleset.filter(
+      (rule) => rule.permission === "learner_snapshot_read",
+    )
+    const byPattern = new Map(learnerSnapshotRules.map((rule) => [rule.pattern, rule.action]))
 
     expect(byPattern.get(".buddy/context.json")).toBe("allow")
     expect(byPattern.get(".buddy/**")).toBe("ask")
@@ -64,7 +62,6 @@ describe("custom permission contract", () => {
 
   test("custom permissions must survive round-trip through Config.Permission parsing", async () => {
     const input = {
-      curriculum_read: "ask",
       learner_snapshot_read: "deny",
       python_calculator: "allow",
       render_figure: "allow",
@@ -75,7 +72,6 @@ describe("custom permission contract", () => {
     const parsed = Config.Permission.parse(input)
     const reParsed = Config.Permission.parse(parsed)
 
-    expect(reParsed.curriculum_read).toBe("ask")
     expect(reParsed.learner_snapshot_read).toBe("deny")
     expect(reParsed.python_calculator).toBe("allow")
     expect(reParsed.render_figure).toBe("allow")

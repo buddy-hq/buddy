@@ -6,7 +6,7 @@ Generate one inline mastery check whose job is to produce evidence and a follow-
 
 # Available context
 
-- The system prompt may include learning-plan context, active goals, prior evidence, open feedback actions, and constraints.
+- The system prompt may include learner snapshot context, active goals, prior evidence, open feedback actions, and constraints.
 - Use that context to pick the right target and avoid trivia.
 - If the scoped learner state is missing or stale, use `learner_snapshot_read`.
 

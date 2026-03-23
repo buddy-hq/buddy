@@ -60,7 +60,7 @@ describe("learning tool contract", () => {
     expect(runtimePermissions).toEqual(runtimeToolIds)
   })
 
-  test("registers curriculum_read and learner_snapshot_read as distinct callable tools", async () => {
+  test("registers learner_snapshot_read and omits the legacy curriculum_read tool", async () => {
     await using project = await tmpdir({ git: true })
 
     const result = await OpenCodeInstance.provide({
@@ -71,7 +71,6 @@ describe("learning tool contract", () => {
 
         const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
 
-        const curriculumRead = requireTool(tools, "curriculum_read")
         const learnerRead = requireTool(tools, "learner_snapshot_read")
 
         const ctx = createToolContext({
@@ -80,20 +79,17 @@ describe("learning tool contract", () => {
           agent: "buddy",
         })
 
-        const curriculumResult = await curriculumRead.execute({}, ctx)
         const learnerResult = await learnerRead.execute({}, ctx)
 
         return {
-          curriculumTitle: curriculumResult.title,
-          curriculumOutput: curriculumResult.output,
+          hasCurriculumRead: tools.some((tool) => tool.id === "curriculum_read"),
           learnerTitle: learnerResult.title,
           learnerOutput: learnerResult.output,
         }
       },
     })
 
-    expect(result.curriculumTitle).toBe("learning-plan")
-    expect(result.curriculumOutput).toContain("# Learning Snapshot")
+    expect(result.hasCurriculumRead).toBe(false)
     expect(result.learnerTitle).toBe("learner_state")
     expect(result.learnerOutput).toContain("# Learning Snapshot")
   })

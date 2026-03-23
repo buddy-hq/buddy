@@ -3,7 +3,7 @@ import { LearnerService } from "../../src/learning/learner-model"
 import { tmpdir } from "../helpers/tmpdir"
 
 describe("learner curriculum intent view", () => {
-  test("builds factual snapshot and plan context for the requested intent", async () => {
+  test("builds factual snapshot context for the requested intent", async () => {
     await using project = await tmpdir({ git: true })
 
     await LearnerService.patchWorkspace({
@@ -57,18 +57,8 @@ describe("learner curriculum intent view", () => {
         focusGoalIds: committed.goalIds,
       },
     })
-    const planResult = await LearnerService.ensurePlanDecision({
-      directory: project.path,
-      query: {
-        persona: "code-buddy",
-        intent: "practice",
-        focusGoalIds: committed.goalIds,
-      },
-    })
-
     expect(snapshot.constraintsSummary.some((item) => item.includes("30 minutes"))).toBe(true)
     expect(snapshot.goals.map((goal) => goal.id)).toEqual(expect.arrayContaining(committed.goalIds))
-    expect(planResult.plan.suggestedActivity.length).toBeGreaterThan(0)
     expect(snapshot.decisionInputFingerprint).toContain("intent:practice")
     expect(snapshot.decisionInputFingerprint).toContain("workspaceState:")
     expect(snapshot.markdown).toContain("Constraints")

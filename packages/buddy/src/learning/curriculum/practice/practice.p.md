@@ -6,7 +6,7 @@ Generate one deliberate-practice task that is aligned to the learner's current g
 
 # Available context
 
-- The system prompt may include learning-plan context, current goals, prior evidence, constraints, motivation hooks, and the current runtime strategy/capability context.
+- The system prompt may include learner snapshot context, current goals, prior evidence, constraints, and the current runtime strategy/capability context.
 - Use that context to calibrate the task.
 - If the scoped learner state is missing or stale, use `learner_snapshot_read`.
 

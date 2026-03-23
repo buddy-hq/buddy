@@ -13,7 +13,6 @@ export const PRACTICE_AGENT = registerBuddyAgent({
       learner_snapshot_read: "allow",
       learner_practice_record: "allow",
       learner_assessment_record: "deny",
-      curriculum_read: "allow",
       task: "deny",
       todoread: "deny",
       todowrite: "deny",

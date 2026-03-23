@@ -2,14 +2,11 @@ import { resolveCapabilityProfile } from "../../resolve-capability-profile"
 import type { WorkspaceState } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import { getBuddyPersona } from "../../personas"
 import { LearnerArtifactStore } from "../repository/store"
-import { SnapshotPlanSchema } from "../repository/types"
 import type {
-  DecisionArtifact,
   EvidenceArtifact,
   FeedbackArtifact,
   GoalArtifact,
   MisconceptionArtifact,
-  SnapshotPlan,
   SnapshotQuery,
   WorkspaceContextArtifact,
 } from "../repository/types"
@@ -23,7 +20,6 @@ export type LearnerSnapshot = {
   activeMisconceptions: MisconceptionArtifact[]
   openFeedback: FeedbackArtifact[]
   recentEvidence: EvidenceArtifact[]
-  latestPlan?: DecisionArtifact
   constraintsSummary: string[]
   sections: Array<{
     title: string
@@ -67,23 +63,10 @@ function summarizeConstraints(input: {
   ].slice(0, 8)
 }
 
-function fallbackPlan(): SnapshotPlan {
-  return {
-    suggestedActivity: "goal-setting",
-    suggestedScaffoldingLevel: "guided",
-    warmupGoalIds: [],
-    alternatives: [],
-    rationale: ["No current plan decision exists yet."],
-    riskFlags: [],
-    followUpQuestions: [],
-  }
-}
-
 function buildSections(input: {
   goals: GoalArtifact[]
   openFeedback: FeedbackArtifact[]
   activeMisconceptions: MisconceptionArtifact[]
-  plan: SnapshotPlan
   constraintsSummary: string[]
 }) {
   return [
@@ -93,14 +76,6 @@ function buildSections(input: {
         input.goals.length > 0
           ? input.goals.map((goal) => goal.statement)
           : ["No active goals in this workspace yet."],
-    },
-    {
-      title: "Next Step",
-      items: [
-        `Suggested next step: ${input.plan.suggestedActivity}`,
-        `Scaffolding: ${input.plan.suggestedScaffoldingLevel}`,
-        ...input.plan.rationale,
-      ],
     },
     {
       title: "Open Feedback",
@@ -215,19 +190,6 @@ export namespace LearnerSnapshotCompiler {
         (record) =>
           record.goalIds.length === 0 || record.goalIds.some((goalId) => scopedGoalIds.has(goalId)),
       )
-    const decisionPlans = (
-      await LearnerArtifactStore.readArtifacts(input.directory, "decision-plan")
-    ).filter((record): record is DecisionArtifact => record.kind === "decision-plan")
-    const latestPlan = decisionPlans
-      .filter((record) => {
-        if (input.query.focusGoalIds.length === 0) return true
-        if (record.goalIds.length === 0) return false
-        return input.query.focusGoalIds.every((goalId) => record.goalIds.includes(goalId))
-      })
-      .toSorted((left, right) => right.createdAt.localeCompare(left.createdAt))[0]
-
-    const planResult = SnapshotPlanSchema.safeParse(latestPlan?.payload)
-    const plan = planResult.success ? planResult.data : fallbackPlan()
 
     const workspaceState: WorkspaceState = input.query.workspaceState ?? "chat"
     const runtimeProfile = resolveCapabilityProfile({
@@ -244,7 +206,6 @@ export namespace LearnerSnapshotCompiler {
       goals: scopedGoals,
       openFeedback,
       activeMisconceptions,
-      plan,
       constraintsSummary,
     })
     const recentEvidence = evidence
@@ -273,7 +234,6 @@ export namespace LearnerSnapshotCompiler {
       activeMisconceptions,
       openFeedback,
       recentEvidence,
-      latestPlan,
       constraintsSummary,
       sections,
       markdown: buildMarkdown(workspace.label, sections),

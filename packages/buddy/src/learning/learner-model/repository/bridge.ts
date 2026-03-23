@@ -2,33 +2,6 @@ import { createHash } from "node:crypto"
 import { ulid } from "ulid"
 import { LearnerArtifactStore } from "./store"
 import type { DecisionArtifact } from "./types"
-import type { SessionPlan } from "../model/types"
-
-export function buildSessionPlanFromDecision(input: {
-  decision: {
-    primaryGoalId?: string
-    suggestedActivity: SessionPlan["suggestedActivity"]
-    suggestedScaffoldingLevel: SessionPlan["suggestedScaffoldingLevel"]
-    warmupGoalIds: string[]
-    alternatives: string[]
-    rationale: string[]
-    motivationHook?: string
-    riskFlags: string[]
-  }
-  constraintsSummary: string[]
-}): SessionPlan {
-  return {
-    warmupReviewGoalIds: [...input.decision.warmupGoalIds],
-    primaryGoalId: input.decision.primaryGoalId,
-    suggestedActivity: input.decision.suggestedActivity,
-    suggestedScaffoldingLevel: input.decision.suggestedScaffoldingLevel,
-    alternatives: [...input.decision.alternatives],
-    rationale: [...input.decision.rationale],
-    motivationHook: input.decision.motivationHook,
-    constraintsConsidered: [...input.constraintsSummary],
-    prerequisiteWarnings: [...input.decision.riskFlags],
-  }
-}
 
 export function hashDecisionInput(content: string) {
   return createHash("sha1").update(content).digest("hex")
@@ -38,8 +11,8 @@ export async function recordDecisionArtifact(input: {
   directory: string
   workspaceId: string
   goalIds: string[]
-  kind: "decision-interpret-message" | "decision-feedback" | "decision-plan"
-  decisionType: "interpret-message" | "feedback" | "plan"
+  kind: "decision-interpret-message" | "decision-feedback"
+  decisionType: "interpret-message" | "feedback"
   inputHash: string
   disposition: "apply" | "abstain"
   confidence: number

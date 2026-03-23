@@ -7,17 +7,12 @@ import {
   type InterpretMessageDecision,
   InterpretMessageDecisionSchema,
   InterpretMessageJsonSchema,
-  type PlanDecision,
-  PlanDecisionSchema,
-  PlanJsonSchema,
 } from "./types"
 import {
   buildInterpretMessageSystemPrompt,
   buildInterpretMessageUserPrompt,
   buildFeedbackSystemPrompt,
   buildFeedbackUserPrompt,
-  buildPlanSystemPrompt,
-  buildPlanUserPrompt,
 } from "./prompt"
 
 export namespace LearnerDecisionService {
@@ -40,27 +35,6 @@ export namespace LearnerDecisionService {
       }),
       schema: InterpretMessageDecisionSchema,
       jsonSchema: InterpretMessageJsonSchema,
-      sessionId: input.sessionId,
-    })
-  }
-
-  export async function planSession(input: {
-    directory: string
-    snapshot: LearnerSnapshot
-    focusGoalIds: string[]
-    sessionId?: string
-  }) {
-    return runStructuredDecision<PlanDecision>({
-      directory: input.directory,
-      title: "Learner plan decision",
-      system: buildPlanSystemPrompt(),
-      prompt: buildPlanUserPrompt({
-        snapshot: input.snapshot,
-        focusGoalIds: input.focusGoalIds,
-        sessionId: input.sessionId,
-      }),
-      schema: PlanDecisionSchema,
-      jsonSchema: PlanJsonSchema,
       sessionId: input.sessionId,
     })
   }

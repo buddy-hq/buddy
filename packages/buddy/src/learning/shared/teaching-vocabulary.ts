@@ -38,24 +38,6 @@ export type PersonaSurface = (typeof PERSONA_SURFACES)[number]
 export const WORKSPACE_STATES = ["chat", "interactive"] as const
 export type WorkspaceState = (typeof WORKSPACE_STATES)[number]
 
-export const ACTIVITY_KINDS = [
-  "goal-setting",
-  "explanation",
-  "worked-example",
-  "analogy",
-  "concept-contrast",
-  "guided-practice",
-  "independent-practice",
-  "debug-attempt",
-  "stepwise-solve",
-  "mastery-check",
-  "retrieval-check",
-  "transfer-check",
-  "review",
-  "reflection",
-] as const
-export type ActivityKind = (typeof ACTIVITY_KINDS)[number]
-
 export const SCAFFOLDING_LEVELS = ["worked-example", "guided", "independent", "transfer"] as const
 export type ScaffoldingLevel = (typeof SCAFFOLDING_LEVELS)[number]
 

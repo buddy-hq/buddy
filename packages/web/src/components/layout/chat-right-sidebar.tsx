@@ -127,12 +127,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
               : (props.surfaces[0] ?? "curriculum")
 
   const loadSidebarData = useCallback(
-    async (
-      isDisposed?: () => boolean,
-      options?: {
-        generateDecision?: boolean
-      },
-    ) => {
+    async (isDisposed?: () => boolean) => {
       const disposed = isDisposed ?? (() => false)
 
       if (!disposed()) {
@@ -145,7 +140,6 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
           persona,
           intent,
           sessionID,
-          generateDecision: options?.generateDecision,
         })
         if (disposed()) return
         setCurriculumView(view)
@@ -426,7 +420,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
         <div className="flex-1 min-h-0 p-3 flex flex-col">
           <div className="mb-2 flex items-center justify-between gap-2">
             <div>
-              <p className="text-xs font-medium">Learning Plan</p>
+              <p className="text-xs font-medium">Learning Snapshot</p>
               <p className="text-[11px] text-muted-foreground">
                 {curriculumView?.workspace.label ?? "Workspace"}{" "}
                 {curriculumView?.coldStart ? "(cold start)" : ""}
@@ -436,7 +430,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
               variant="ghost"
               size="sm"
               onClick={() => {
-                void loadSidebarData(undefined, { generateDecision: true })
+                void loadSidebarData()
               }}
             >
               Refresh
@@ -444,25 +438,17 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
           </div>
 
           {curriculumLoading ? (
-            <div className="text-sm text-muted-foreground">Loading learning plan...</div>
+            <div className="text-sm text-muted-foreground">Loading learning snapshot...</div>
           ) : curriculumView ? (
             <div className="flex-1 min-h-0 overflow-y-auto space-y-3">
               <Card size="sm" className="gap-0 py-0">
                 <CardContent className="space-y-3 px-3 py-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="secondary">
-                      {titleCaseLabel(curriculumView.recommendedNextAction)}
-                    </Badge>
-                    <Badge variant="outline">
-                      {titleCaseLabel(curriculumView.sessionPlan.suggestedScaffoldingLevel)}
-                    </Badge>
-                    {curriculumView.coldStart ? <Badge variant="outline">Cold start</Badge> : null}
-                  </div>
                   <div className="space-y-1">
-                    <p className="text-sm font-medium text-foreground">Recommended next step</p>
+                    <p className="text-sm font-medium text-foreground">Workspace state</p>
                     <p className="text-sm text-muted-foreground">
-                      {curriculumView.sessionPlan.motivationHook ??
-                        "Buddy is using the current learner evidence to choose the next move."}
+                      {curriculumView.coldStart
+                        ? "No active goals have been defined for this workspace yet."
+                        : "Buddy is showing the current learner state without generating a next-step suggestion."}
                     </p>
                   </div>
                 </CardContent>
@@ -476,7 +462,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                         Actions
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        Run the next teaching move directly from the learning plan.
+                        Run a teaching move directly from the current learner state.
                       </p>
                     </div>
                     <div className="grid gap-2">
@@ -491,9 +477,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                             <span className="text-sm font-medium text-foreground">
                               {action.label}
                             </span>
-                            <div className="flex items-center gap-1">
-                              <Badge variant="outline">{titleCaseLabel(action.intent)}</Badge>
-                            </div>
+                            <span className="text-xs text-muted-foreground">{action.intent}</span>
                           </div>
                           <p className="mt-1 text-xs text-muted-foreground">{action.reason}</p>
                         </button>
@@ -510,7 +494,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                 <SidebarSection
                   title="Constraints"
                   items={curriculumView.constraintsSummary}
-                  empty="No workspace or learner constraints are shaping the plan right now."
+                  empty="No workspace or learner constraints are shaping the snapshot right now."
                 />
               </div>
 
@@ -520,15 +504,15 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                     <div className="flex items-center justify-between gap-2">
                       <div>
                         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                          Raw Plan
+                          Raw Snapshot
                         </p>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          Inspect the generated markdown Buddy is using behind this learning plan.
+                          Inspect the learner snapshot markdown Buddy is using for this workspace.
                         </p>
                       </div>
                       <CollapsibleTrigger asChild>
                         <Button variant="ghost" size="sm" className="gap-1.5">
-                          {rawPlanOpen ? "Hide raw plan" : "Show raw plan"}
+                          {rawPlanOpen ? "Hide raw snapshot" : "Show raw snapshot"}
                           <ChevronDownIcon
                             className={`size-3.5 transition-transform ${rawPlanOpen ? "rotate-180" : ""}`}
                           />
@@ -544,7 +528,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
             </div>
           ) : (
             <div className="flex-1 min-h-0 overflow-y-auto rounded-lg border border-border/70 bg-background p-3 text-sm text-muted-foreground">
-              No learning plan is available for this workspace yet.
+              No learner snapshot is available for this workspace yet.
             </div>
           )}
 

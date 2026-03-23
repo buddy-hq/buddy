@@ -1,7 +1,7 @@
 import z from "zod"
 import { PERSONAS, INTENTS } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import { createBuddyTool, type BuddyToolContext } from "../../tools"
-import { ensurePlanDecision } from ".."
+import { getWorkspaceSnapshot } from ".."
 
 const learnerStateQueryTool = createBuddyTool("learner_snapshot_read", {
   description:
@@ -21,7 +21,7 @@ const learnerStateQueryTool = createBuddyTool("learner_snapshot_read", {
       },
     })
 
-    const planDecision = await ensurePlanDecision({
+    const snapshot = await getWorkspaceSnapshot({
       directory: ctx.directory,
       query: {
         persona: params.persona ?? "buddy",
@@ -29,15 +29,14 @@ const learnerStateQueryTool = createBuddyTool("learner_snapshot_read", {
         focusGoalIds: params.focusGoalIds ?? [],
       },
     })
-    const relevantGoalIds = planDecision.snapshot.goals.map((goal) => goal.id)
+    const relevantGoalIds = snapshot.goals.map((goal) => goal.id)
 
     return {
       title: "learner_state",
-      output: planDecision.snapshot.markdown,
+      output: snapshot.markdown,
       metadata: {
-        workspaceId: planDecision.snapshot.workspace.workspaceId,
+        workspaceId: snapshot.workspace.workspaceId,
         relevantGoalIds,
-        latestPlanDecisionId: planDecision.decision?.id,
       },
     }
   },

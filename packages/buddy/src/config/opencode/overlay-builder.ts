@@ -11,7 +11,6 @@ import { getDefaultBuddyPersona } from "../../learning/personas"
 import { resolveBuddySystemPromptGuardPluginUrl } from "../../opencode-runtime"
 
 const BUDDY_RUNTIME_PERMISSION_OVERLAY: Config.Permission = {
-  curriculum_read: "deny",
   "goal_*": "deny",
   "learner_*": "deny",
   "pedagogy_*": "deny",

@@ -15,7 +15,6 @@ const KINDS_WITH_DIRECTORIES: Record<
   misconception: "misconceptions",
   "decision-interpret-message": path.join("decisions", "interpret-message"),
   "decision-feedback": path.join("decisions", "feedback"),
-  "decision-plan": path.join("decisions", "plan"),
 }
 
 export namespace LearnerArtifactPath {
