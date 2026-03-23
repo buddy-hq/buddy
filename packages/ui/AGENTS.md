@@ -5,25 +5,22 @@
 - Shared components: `packages/ui/src/components/ui`; export from `packages/ui/src/index.ts`, consume via `@buddy/ui`.
 - Tailwind v4 scanning enabled via `@source "./**/*.{ts,tsx}";` in `packages/ui/src/index.css` — do not remove.
 
-- Components library: shadcn
-- Styling: tailwind v4
+- Component foundation: shadcn primitives/components
+- Styling system: Buddy-owned token layer + Tailwind v4 (not shadcn out-of-the-box styles)
 
 ## How to build ui components
 
-- first look into existing shadcn components.
-  - if found: use it directly
+- first look into existing `packages/ui/src/components/ui` components.
+  - many started from shadcn but are now Buddy-owned extensions
+  - if found: use and adapt the Buddy component directly
 - else
-  - create a component with in similar style, taste, and theme using base theme in `packages/ui/src/index.css`
+  - create a component in similar style/taste using Buddy tokens from `packages/ui/src/index.css`
 
 ## DON'T DO
 
 - Never modify the theme file `packages/ui/src/index.css` without the consent of the user.
 - Never write raw css, use tailwind v4, or tailwind plugins
-- Never modify the core shadcn components without user's explicit consent.
-  - if consent to modify is given
-    - copy the component in `components/ui/custom`
-    - modify the copy
-    - use the copy
+- Do not re-introduce shadcn default theme mappings/classes; keep using Buddy token classes and generated token CSS.
 
 ## Misc
 
