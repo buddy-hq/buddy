@@ -16,6 +16,7 @@ describe("resolveIntentPermissions", () => {
     expect(permissions.skills["buddy-pedagogy-explanation"]).toBe("allow")
     expect(permissions.skills["buddy-pedagogy-worked-example"]).toBe("allow")
     expect(permissions.skills["buddy-pedagogy-concept-contrast"]).toBe("allow")
+    expect(permissions.skills["buddy-pedagogy-reading-assistant"]).toBe("allow")
   })
 
   test("auto returns deduped union scoped by persona and workspace", () => {
@@ -34,6 +35,7 @@ describe("resolveIntentPermissions", () => {
     expect(permissions.skills["buddy-pedagogy-worked-example"]).toBe("allow")
     expect(permissions.skills["buddy-pedagogy-concept-contrast"]).toBe("allow")
     expect(permissions.skills["buddy-pedagogy-analogy"]).toBe("allow")
+    expect(permissions.skills["buddy-pedagogy-reading-assistant"]).toBe("allow")
     expect(Object.keys(permissions.tools).every((toolId) => !toolId.startsWith("activity_"))).toBe(
       true,
     )
@@ -56,5 +58,6 @@ describe("resolveIntentPermissions", () => {
     expect(permissions.skills["buddy-pedagogy-worked-example"]).toBe("deny")
     expect(permissions.skills["buddy-pedagogy-concept-contrast"]).toBe("deny")
     expect(permissions.skills["buddy-pedagogy-analogy"]).toBe("deny")
+    expect(permissions.skills["buddy-pedagogy-reading-assistant"]).toBe("deny")
   })
 })

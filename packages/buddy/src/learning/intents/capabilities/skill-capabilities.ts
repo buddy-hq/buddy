@@ -34,11 +34,17 @@ export const analogyPlaybookSkillCapability = createSkillCapability({
   personas: ["buddy", "math-buddy"],
 })
 
+export const readingAssistantPlaybookSkillCapability = createSkillCapability({
+  key: "reading-assistant-playbook",
+  skillName: "buddy-pedagogy-reading-assistant",
+})
+
 export const SKILL_CAPABILITY_REGISTRY = [
   explanationPlaybookSkillCapability,
   workedExamplePlaybookSkillCapability,
   conceptContrastPlaybookSkillCapability,
   analogyPlaybookSkillCapability,
+  readingAssistantPlaybookSkillCapability,
 ] as const satisfies readonly SkillCapability[]
 
 export type SkillCapabilityKey = (typeof SKILL_CAPABILITY_REGISTRY)[number]["key"]

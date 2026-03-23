@@ -37,6 +37,9 @@ describe("buildBuddyRuntimeSessionPermissions", () => {
     expect(PermissionNext.evaluate("skill", "buddy-pedagogy-analogy", permissions).action).toBe(
       "allow",
     )
+    expect(
+      PermissionNext.evaluate("skill", "buddy-pedagogy-reading-assistant", permissions).action,
+    ).toBe("allow")
     expect(PermissionNext.evaluate("task", "goal-writer", permissions).action).toBe("allow")
     expect(PermissionNext.evaluate("task", "practice-agent", permissions).action).toBe("deny")
   })
@@ -70,6 +73,9 @@ describe("buildBuddyRuntimeSessionPermissions", () => {
     expect(PermissionNext.evaluate("skill", "buddy-pedagogy-analogy", permissions).action).toBe(
       "deny",
     )
+    expect(
+      PermissionNext.evaluate("skill", "buddy-pedagogy-reading-assistant", permissions).action,
+    ).toBe("deny")
     expect(PermissionNext.evaluate("pedagogy_guided_practice", "*", permissions).action).toBe(
       "allow",
     )

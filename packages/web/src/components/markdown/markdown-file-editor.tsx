@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import Editor, { type OnMount } from "@monaco-editor/react"
-import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@buddy/ui"
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@buddy/ui"
 import { AlertTriangleIcon, FileTextIcon, PlusIcon } from "lucide-react"
 import type { editor as MonacoEditor } from "monaco-editor"
 
@@ -217,9 +225,7 @@ export function MarkdownFileEditor(props: MarkdownFileEditorProps) {
 
   const hasUnsaved = exists && !conflictMessage && content !== savedContent && !saving
 
-  const saveStateLabel = conflictMessage
-    ? "Conflict"
-    : undefined
+  const saveStateLabel = conflictMessage ? "Conflict" : undefined
 
   function layoutEditor() {
     const editor = editorRef.current
@@ -281,7 +287,12 @@ export function MarkdownFileEditor(props: MarkdownFileEditorProps) {
         </div>
       ) : null}
       {error ? (
-        <Dialog open={!!error} onOpenChange={(open) => { if (!open) setError(undefined) }}>
+        <Dialog
+          open={!!error}
+          onOpenChange={(open) => {
+            if (!open) setError(undefined)
+          }}
+        >
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Save error</DialogTitle>

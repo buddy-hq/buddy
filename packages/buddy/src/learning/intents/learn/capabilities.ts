@@ -8,5 +8,6 @@ export const LEARN_INTENT_CAPABILITY_MANIFEST = createIntentCapabilities({
     "worked-example-playbook",
     "concept-contrast-playbook",
     "analogy-playbook",
+    "reading-assistant-playbook",
   ],
 })
