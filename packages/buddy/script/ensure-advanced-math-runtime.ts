@@ -5,7 +5,6 @@ import { spawnSync } from "node:child_process"
 const BACKEND_DIR = path.resolve(import.meta.dir, "..")
 const BUILD_SCRIPT = path.resolve(BACKEND_DIR, "script/build-advanced-math-runtime.ts")
 const RUNTIME_SOURCE = path.resolve(BACKEND_DIR, "src/local-runtimes/advanced-math/runtime/main.py")
-const PACKAGE_JSON = path.resolve(BACKEND_DIR, "package.json")
 const DIST_DIR = path.resolve(BACKEND_DIR, "dist/advanced-math-runtime")
 const VERSION =
   process.env.BUDDY_VERSION?.trim() || process.env.npm_package_version?.trim() || "0.0.1"
@@ -46,16 +45,25 @@ function mtimeMs(filepath: string) {
   return fs.statSync(filepath).mtimeMs
 }
 
-function outputsAreFresh() {
+function outputsAreFresh(): { fresh: true } | { fresh: false; reason: string } {
   const archive = outputArchivePath()
   const checksum = outputChecksumPath()
   if (!fs.existsSync(archive) || !fs.existsSync(checksum)) {
-    return false
+    return { fresh: false, reason: "no cached output found" }
   }
 
   const outputTime = Math.min(mtimeMs(archive), mtimeMs(checksum))
-  const sourceTime = Math.max(mtimeMs(BUILD_SCRIPT), mtimeMs(RUNTIME_SOURCE), mtimeMs(PACKAGE_JSON))
-  return outputTime >= sourceTime
+  const sources: [string, string][] = [
+    ["main.py", RUNTIME_SOURCE],
+    ["build script", BUILD_SCRIPT],
+  ]
+  const sourceTime = Math.max(...sources.map(([, p]) => mtimeMs(p)))
+  if (outputTime >= sourceTime) {
+    return { fresh: true }
+  }
+
+  const stale = sources.find(([, p]) => mtimeMs(p) > outputTime)
+  return { fresh: false, reason: stale ? `${stale[0]} changed` : "sources newer than output" }
 }
 
 function runBuild() {
@@ -95,10 +103,11 @@ if (disabledByEnvironment()) {
   process.exit(0)
 }
 
-if (outputsAreFresh()) {
+const cacheResult = outputsAreFresh()
+if (cacheResult.fresh) {
   console.log(`[advanced-math-runtime] using cached local asset for ${TARGET}`)
   process.exit(0)
 }
 
-console.log(`[advanced-math-runtime] building local asset for ${TARGET}`)
+console.log(`[advanced-math-runtime] building local asset for ${TARGET} (${cacheResult.reason})`)
 runBuild()
