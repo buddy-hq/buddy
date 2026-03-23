@@ -23,7 +23,7 @@ import { isAttachmentFilePart } from "./shared/highlighted-text"
 
 // Import tool utilities
 import { parseToolState } from "./tools/parse-tool-state"
-import { parseRenderFigureToolOutput } from "./tools/render-figure-tool"
+import { parseRenderFigureOutput } from "./tools/tools"
 import { CONTEXT_TOOLS, HIDDEN_TOOLS } from "./tools/registry"
 
 export type { MessageWithParts, ProviderInfo } from "@/state/chat-types"
@@ -517,7 +517,7 @@ const TurnRenderer = memo(function TurnRenderer({
               (String(previousPart.tool ?? "") === "render_figure" ||
                 String(previousPart.tool ?? "") === "render_freeform_figure") &&
               previousPartState?.status === "completed" &&
-              !!parseRenderFigureToolOutput(previousPartState)
+              !!parseRenderFigureOutput(previousPartState)
 
             return (
               <AssistantPartRenderer

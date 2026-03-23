@@ -97,6 +97,11 @@ export function getToolInfo(tool: string, input: Record<string, unknown>): ToolI
         title: "Python calculator",
         subtitle: description,
       }
+    case "skill":
+      return {
+        title: "Skill",
+        subtitle: typeof input.name === "string" ? input.name : description,
+      }
     case "render_figure":
     case "render_freeform_figure":
       return {

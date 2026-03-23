@@ -1,14 +1,11 @@
 import { memo } from "react"
-import { GenericTool } from "../tools/generic-tool"
+import { GenericTool, BuddyCustomTool } from "../tools"
 import { getToolRenderer, isContextTool, HIDDEN_TOOLS } from "../tools/registry"
 import { parseToolState } from "../tools/parse-tool-state"
 import { getToolInfo } from "../tools/tool-info"
 import { isBuddyCustomTool } from "../shared/utils"
 import type { MessagePart } from "@/state/chat-types"
 import type { ToolPartProps } from "../tools/registry"
-
-// Import BuddyCustomTool separately to avoid circular dependency
-import { BuddyCustomTool } from "../tools/python-calculator-tool"
 
 interface ToolPartRendererProps {
   part: MessagePart
@@ -50,7 +47,14 @@ export const ToolPartCard = memo(function ToolPartCard({
 
   const state = parseToolState(part)
   const info = getToolInfo(tool, state.input)
-  const props: ToolPartProps = { part, state, info, tool, onOpenSession, defaultOpen }
+  const props: ToolPartProps = {
+    part,
+    state,
+    info,
+    tool,
+    onOpenSession,
+    defaultOpen,
+  }
 
   // Check if this is a Buddy custom tool (but not python_calculator which is registered separately)
   if (isBuddyCustomTool(tool) && tool !== "python_calculator") {
