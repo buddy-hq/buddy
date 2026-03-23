@@ -24,18 +24,8 @@ export function ProvidersSettings({ directory }: { directory: string }) {
     <>
       <SettingsPanelContent
         title="Providers"
-        description="Connect provider accounts and choose which connected provider is used for model selection."
+        description="Connect provider accounts and choose which connected provider is used for model selection. Changes save automatically."
       >
-        <div className="flex items-center justify-end gap-3">
-          <Button
-            type="button"
-            onClick={() => void settings.actions.save()}
-            disabled={settings.status.loading || settings.status.saving}
-          >
-            {settings.status.saving ? "Saving..." : "Save changes"}
-          </Button>
-        </div>
-
         <div className="space-y-2">
           <h3 className="text-sm font-medium text-foreground">Connected providers</h3>
           <SettingsListCard>

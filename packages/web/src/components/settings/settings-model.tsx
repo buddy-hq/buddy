@@ -1,4 +1,4 @@
-import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@buddy/ui"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@buddy/ui"
 import { useProjectSettings } from "@/state/project-settings"
 import { SettingsListCard, SettingsRow } from "./settings-primitives"
 import { SettingsPanelContent } from "./settings-page"
@@ -10,18 +10,8 @@ export function ModelSettings({ directory }: { directory: string }) {
   return (
     <SettingsPanelContent
       title="Model"
-      description="Choose which provider and model Buddy uses in this notebook."
+      description="Choose which provider and model Buddy uses in this notebook. Changes save automatically."
     >
-      <div className="flex items-center justify-end gap-3">
-        <Button
-          type="button"
-          onClick={() => void settings.actions.save()}
-          disabled={settings.status.loading || settings.status.saving}
-        >
-          {settings.status.saving ? "Saving..." : "Save changes"}
-        </Button>
-      </div>
-
       <SettingsListCard>
         <SettingsRow
           title="Provider"

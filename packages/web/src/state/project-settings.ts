@@ -17,6 +17,7 @@ type ProjectSettingsDraft = {
   provider: string
   model: string
   logLevel: LogLevel | ""
+  fullTextReadingEnabled: boolean
 }
 
 type ProjectSettingsState = {
@@ -30,6 +31,8 @@ type ProjectSettingsState = {
   modelSelectionDirty: boolean
 }
 
+type ProjectSettingsPatch = Record<string, unknown>
+
 const EMPTY_PROVIDER_CATALOG: ProviderCatalogState = {
   providers: [],
   default: {},
@@ -41,6 +44,7 @@ const EMPTY_DRAFT: ProjectSettingsDraft = {
   provider: "",
   model: "",
   logLevel: "",
+  fullTextReadingEnabled: true,
 }
 
 function stringifyError(error: unknown) {
@@ -56,6 +60,20 @@ function stringifyError(error: unknown) {
 function readString(input: Record<string, unknown>, key: string) {
   const value = input[key]
   return typeof value === "string" ? value : ""
+}
+
+function readRecord(input: Record<string, unknown>, key: string) {
+  const value = input[key]
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined
+  }
+  return value as Record<string, unknown>
+}
+
+function readToolToggle(input: Record<string, unknown>, toolId: string, fallback: boolean) {
+  const tools = readRecord(input, "tools")
+  const value = tools?.[toolId]
+  return typeof value === "boolean" ? value : fallback
 }
 
 function parseModel(model: string) {
@@ -124,7 +142,58 @@ function buildDraft(input: {
       logLevel === "debug" || logLevel === "info" || logLevel === "warn" || logLevel === "error"
         ? logLevel
         : "",
+    fullTextReadingEnabled: readToolToggle(
+      input.config,
+      "pedagogy_resource_ingest_full_text",
+      true,
+    ),
   }
+}
+
+function buildProjectSettingsPatch(input: {
+  projectConfig: Record<string, unknown>
+  draft: ProjectSettingsDraft
+  modelSelectionDirty: boolean
+}): ProjectSettingsPatch | undefined {
+  const patch: ProjectSettingsPatch = {}
+  const currentPersona = readString(input.projectConfig, "default_persona")
+  const currentIntent = readString(input.projectConfig, "default_intent")
+  const currentModel = readString(input.projectConfig, "model")
+  const currentLogLevel = readString(input.projectConfig, "logLevel")
+  const currentFullTextReadingEnabled = readToolToggle(
+    input.projectConfig,
+    "pedagogy_resource_ingest_full_text",
+    true,
+  )
+  const nextPersona = input.draft.persona.trim()
+
+  if (nextPersona && nextPersona !== currentPersona) {
+    patch.default_persona = nextPersona
+  }
+
+  const nextIntent = input.draft.intent === "auto" ? "" : input.draft.intent
+  if (nextIntent !== currentIntent) {
+    patch.default_intent = nextIntent || null
+  }
+
+  if (input.modelSelectionDirty && input.draft.provider && input.draft.model) {
+    const nextModel = `${input.draft.provider}/${input.draft.model}`
+    if (nextModel !== currentModel) {
+      patch.model = nextModel
+    }
+  }
+
+  if (input.draft.logLevel !== currentLogLevel) {
+    patch.logLevel = input.draft.logLevel
+  }
+
+  if (input.draft.fullTextReadingEnabled !== currentFullTextReadingEnabled) {
+    patch.tools = {
+      pedagogy_resource_ingest_full_text: input.draft.fullTextReadingEnabled,
+    }
+  }
+
+  return Object.keys(patch).length > 0 ? patch : undefined
 }
 
 function emptyState(): ProjectSettingsState {
@@ -199,35 +268,14 @@ export function useProjectSettings(directory: string, open: boolean) {
     void reload()
   }, [open, reload])
 
-  async function save() {
-    const patch: Record<string, unknown> = {}
-    const currentPersona = readString(state.projectConfig, "default_persona")
-    const currentIntent = readString(state.projectConfig, "default_intent")
-    const currentModel = readString(state.projectConfig, "model")
-    const currentLogLevel = readString(state.projectConfig, "logLevel")
-    const nextPersona = state.draft.persona.trim()
+  const save = useCallback(async () => {
+    const patch = buildProjectSettingsPatch({
+      projectConfig: state.projectConfig,
+      draft: state.draft,
+      modelSelectionDirty: state.modelSelectionDirty,
+    })
 
-    if (nextPersona && nextPersona !== currentPersona) {
-      patch.default_persona = nextPersona
-    }
-
-    const nextIntent = state.draft.intent === "auto" ? "" : state.draft.intent
-    if (nextIntent !== currentIntent) {
-      patch.default_intent = nextIntent || null
-    }
-
-    if (state.modelSelectionDirty && state.draft.provider && state.draft.model) {
-      const nextModel = `${state.draft.provider}/${state.draft.model}`
-      if (nextModel !== currentModel) {
-        patch.model = nextModel
-      }
-    }
-
-    if (state.draft.logLevel !== currentLogLevel) {
-      patch.logLevel = state.draft.logLevel
-    }
-
-    if (Object.keys(patch).length === 0) {
+    if (!patch) {
       return true
     }
 
@@ -254,7 +302,38 @@ export function useProjectSettings(directory: string, open: boolean) {
       }))
       return false
     }
-  }
+  }, [directory, state.draft, state.modelSelectionDirty, state.projectConfig])
+
+  useEffect(() => {
+    if (!open || state.loading || state.saving) {
+      return
+    }
+
+    const patch = buildProjectSettingsPatch({
+      projectConfig: state.projectConfig,
+      draft: state.draft,
+      modelSelectionDirty: state.modelSelectionDirty,
+    })
+    if (!patch) {
+      return
+    }
+
+    const timeout = window.setTimeout(() => {
+      void save()
+    }, 250)
+
+    return () => {
+      window.clearTimeout(timeout)
+    }
+  }, [
+    open,
+    save,
+    state.draft,
+    state.loading,
+    state.modelSelectionDirty,
+    state.projectConfig,
+    state.saving,
+  ])
 
   return {
     status: {
@@ -275,6 +354,7 @@ export function useProjectSettings(directory: string, open: boolean) {
       provider: state.draft.provider,
       model: state.draft.model,
       logLevel: state.draft.logLevel,
+      fullTextReadingEnabled: state.draft.fullTextReadingEnabled,
     },
     actions: {
       setPersona(persona: string) {
@@ -328,6 +408,15 @@ export function useProjectSettings(directory: string, open: boolean) {
           draft: {
             ...current.draft,
             logLevel,
+          },
+        }))
+      },
+      setFullTextReadingEnabled(fullTextReadingEnabled: boolean) {
+        setState((current) => ({
+          ...current,
+          draft: {
+            ...current.draft,
+            fullTextReadingEnabled,
           },
         }))
       },

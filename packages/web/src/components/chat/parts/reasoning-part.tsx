@@ -1,4 +1,5 @@
 import { memo } from "react"
+import { BrainIcon } from "lucide-react"
 import { Markdown } from "@/components/Markdown"
 import { useThrottledText } from "../shared/hooks"
 import type { MessagePart } from "@/state/chat-types"
@@ -13,9 +14,13 @@ export const ReasoningPart = memo(function ReasoningPart({ part }: ReasoningPart
   if (!throttledText.trim()) return null
 
   return (
-    <div className="w-full text-muted-foreground">
-      <div className="mt-3">
-        <Markdown text={throttledText} cacheKey={part.id} />
+    <div className="w-full">
+      <div className="mt-3 rounded-lg border border-border bg-muted/40 px-4 py-3">
+        <div className="mb-2 flex items-center gap-2 text-xs font-medium text-muted-foreground">
+          <BrainIcon size={14} className="opacity-70" />
+          <span>Thinking</span>
+        </div>
+        <Markdown text={throttledText} cacheKey={part.id} className="text-muted-foreground" />
       </div>
     </div>
   )

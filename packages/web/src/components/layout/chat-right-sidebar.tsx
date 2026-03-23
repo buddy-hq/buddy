@@ -256,6 +256,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
               variant={activeTab === "capabilities" ? "secondary" : "ghost"}
               size="sm"
               onClick={() => props.onTabChange("capabilities")}
+              className="border border-dashed border-yellow-500/60"
             >
               Capabilities
             </Button>
@@ -265,6 +266,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
               variant={activeTab === "system-prompt" ? "secondary" : "ghost"}
               size="sm"
               onClick={() => props.onTabChange("system-prompt")}
+              className="border border-dashed border-yellow-500/60"
             >
               System
             </Button>

@@ -1,4 +1,4 @@
-import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@buddy/ui"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Switch } from "@buddy/ui"
 import { resolveDefaultPersonaID } from "@/state/chat-actions"
 import type { LogLevel } from "@/state/project-settings"
 import { useProjectSettings } from "@/state/project-settings"
@@ -18,18 +18,8 @@ export function NotebookSettings({ directory }: { directory: string }) {
   return (
     <SettingsPanelContent
       title="Notebook"
-      description="Set defaults for this notebook's persona, teaching intent, and logging."
+      description="Set defaults for this notebook's persona, teaching intent, and logging. Changes save automatically."
     >
-      <div className="flex items-center justify-end gap-3">
-        <Button
-          type="button"
-          onClick={() => void settings.actions.save()}
-          disabled={settings.status.loading || settings.status.saving}
-        >
-          {settings.status.saving ? "Saving..." : "Save changes"}
-        </Button>
-      </div>
-
       <SettingsListCard>
         <SettingsRow
           title="Default persona"
@@ -74,6 +64,23 @@ export function NotebookSettings({ directory }: { directory: string }) {
                 <SelectItem value="assess">Assess</SelectItem>
               </SelectContent>
             </Select>
+          }
+        />
+        <SettingsRow
+          title="Whole-book full-text reading"
+          description="Allow Buddy to ingest an entire prepared resource into context when there is enough live context budget. Turn this off to avoid expensive full-book reads."
+          control={
+            <div className="flex items-center justify-between gap-3 rounded-md border border-border/60 px-3 py-2">
+              <span className="text-sm text-muted-foreground">
+                {settings.selection.fullTextReadingEnabled ? "On" : "Off"}
+              </span>
+              <Switch
+                checked={settings.selection.fullTextReadingEnabled}
+                onCheckedChange={settings.actions.setFullTextReadingEnabled}
+                disabled={settings.status.loading}
+                aria-label="Enable whole-book full-text reading"
+              />
+            </div>
           }
         />
         <SettingsRow
