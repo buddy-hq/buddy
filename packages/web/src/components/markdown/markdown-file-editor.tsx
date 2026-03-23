@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import Editor, { type OnMount } from "@monaco-editor/react"
 import { Button } from "@buddy/ui"
-import { AlertTriangleIcon, FileTextIcon, PlusIcon } from "lucide-react"
+import { AlertTriangleIcon, FileTextIcon, PlusIcon, RefreshCwIcon } from "lucide-react"
 import type { editor as MonacoEditor } from "monaco-editor"
 
 type MarkdownFileState = {
@@ -287,6 +287,18 @@ export function MarkdownFileEditor(props: MarkdownFileEditorProps) {
               className={`size-2 rounded-full ${hasUnsaved ? "bg-amber-500" : "bg-emerald-500"}`}
               title={hasUnsaved ? "Unsaved changes" : "Saved"}
             />
+          ) : null}
+          {hasUnsaved ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="px-2"
+              onClick={() => void refresh()}
+              disabled={loading || saving}
+              title="Discard changes and reload"
+            >
+              <RefreshCwIcon className="size-4" />
+            </Button>
           ) : null}
         </div>
       </div>
