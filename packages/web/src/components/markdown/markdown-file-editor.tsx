@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import Editor, { type OnMount } from "@monaco-editor/react"
 import { Button } from "@buddy/ui"
-import { AlertTriangleIcon, FileTextIcon, PlusIcon, RefreshCwIcon } from "lucide-react"
+import { AlertTriangleIcon, FileTextIcon, PlusIcon } from "lucide-react"
 import type { editor as MonacoEditor } from "monaco-editor"
 
 type MarkdownFileState = {
@@ -210,13 +210,11 @@ export function MarkdownFileEditor(props: MarkdownFileEditorProps) {
     }
   }, [conflictMessage, content, exists, isActive, savedContent, saving])
 
+  const hasUnsaved = exists && !conflictMessage && content !== savedContent && !saving
+
   const saveStateLabel = conflictMessage
     ? "Conflict"
-    : saving
-      ? "Saving..."
-      : content === savedContent
-        ? "Saved"
-        : "Pending..."
+    : undefined
 
   function layoutEditor() {
     const editor = editorRef.current
@@ -281,17 +279,15 @@ export function MarkdownFileEditor(props: MarkdownFileEditorProps) {
           ) : null}
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-[11px] text-muted-foreground">{saveStateLabel}</span>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="px-2"
-            onClick={() => void refresh()}
-            disabled={loading || saving}
-            title="Reload"
-          >
-            <RefreshCwIcon className={`size-4 ${loading ? "animate-spin" : ""}`} />
-          </Button>
+          {saveStateLabel ? (
+            <span className="text-[11px] text-muted-foreground">{saveStateLabel}</span>
+          ) : null}
+          {exists && !conflictMessage ? (
+            <span
+              className={`size-2 rounded-full ${hasUnsaved ? "bg-amber-500" : "bg-emerald-500"}`}
+              title={hasUnsaved ? "Unsaved changes" : "Saved"}
+            />
+          ) : null}
         </div>
       </div>
 
