@@ -1,4 +1,5 @@
 import { resolveCapabilityProfile } from "../../resolve-capability-profile"
+import { readProjectConfig } from "@buddy/backend/config/runtime"
 import type { WorkspaceState } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import { getBuddyPersona } from "../../personas"
 import { LearnerArtifactStore } from "../repository/store"
@@ -160,6 +161,7 @@ export namespace LearnerSnapshotCompiler {
     directory: string
     query: SnapshotQuery
   }): Promise<LearnerSnapshot> {
+    const projectConfig = await readProjectConfig(input.directory)
     const workspace = await LearnerArtifactStore.ensureWorkspaceContext(input.directory)
     const profile = await LearnerArtifactStore.ensureProfile()
     const goals = (await LearnerArtifactStore.readArtifacts(input.directory, "goal")).filter(
@@ -196,6 +198,7 @@ export namespace LearnerSnapshotCompiler {
       persona: getBuddyPersona(input.query.persona),
       workspaceState,
       intent: input.query.intent,
+      configuredToolToggles: projectConfig.tools,
     })
 
     const constraintsSummary = summarizeConstraints({

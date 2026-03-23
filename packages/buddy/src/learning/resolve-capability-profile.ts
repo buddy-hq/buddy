@@ -3,9 +3,11 @@ import {
   type Intent,
   type WorkspaceState,
 } from "@buddy/backend/learning/shared/teaching-vocabulary"
+import type { Config } from "@buddy/backend/config"
 import { AdvancedMathRuntimeService } from "../local-runtimes/advanced-math/service"
 import { resolveIntentPermissions } from "./intents/capabilities"
 import type { PersonaDefinition, RuntimeProfile, ToolId } from "./shared/runtime-types"
+import { allLearningToolIds } from "./tools/tool-catalog"
 
 const INTERACTIVE_ONLY_EDITOR_TOOLS: ToolId[] = [
   "teaching_checkpoint",
@@ -86,10 +88,26 @@ function applyRuntimeToolConstraints(tools: Record<ToolId, "allow" | "deny">) {
   }
 }
 
+function applyConfiguredToolToggles(
+  tools: Record<ToolId, "allow" | "deny">,
+  configuredToolToggles: Config.Info["tools"] | undefined,
+) {
+  if (!configuredToolToggles) {
+    return
+  }
+
+  for (const toolId of allLearningToolIds()) {
+    if (configuredToolToggles[toolId] === false) {
+      tools[toolId] = "deny"
+    }
+  }
+}
+
 function buildEffectiveTools(input: {
   persona: PersonaDefinition
   workspaceState: WorkspaceState
   intentToolPermissions: Partial<Record<ToolId, "allow" | "deny">>
+  configuredToolToggles?: Config.Info["tools"]
 }): Record<ToolId, "allow" | "deny"> {
   const tools = createDenyToolMap()
   applyPersonaDefaultTools(tools, input.persona)
@@ -103,6 +121,7 @@ function buildEffectiveTools(input: {
     intentToolPermissions: input.intentToolPermissions,
   })
   applyRuntimeToolConstraints(tools)
+  applyConfiguredToolToggles(tools, input.configuredToolToggles)
   return tools
 }
 
@@ -123,6 +142,7 @@ export function resolveCapabilityProfile(input: {
   persona: PersonaDefinition
   workspaceState: WorkspaceState
   intent: Intent
+  configuredToolToggles?: Config.Info["tools"]
 }): RuntimeProfile {
   const intentPermissions = resolveIntentPermissions({
     persona: input.persona,
@@ -134,6 +154,7 @@ export function resolveCapabilityProfile(input: {
     persona: input.persona,
     workspaceState: input.workspaceState,
     intentToolPermissions: intentPermissions.tools,
+    configuredToolToggles: input.configuredToolToggles,
   })
   const subagents = buildEffectiveSubagents(input.persona)
 

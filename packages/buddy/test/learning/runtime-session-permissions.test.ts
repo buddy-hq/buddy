@@ -85,6 +85,24 @@ describe("buildBuddyRuntimeSessionPermissions", () => {
     expect(PermissionNext.evaluate("question", "*", permissions).action).toBe("allow")
   })
 
+  test("respects configured tool toggles for Buddy-managed tools", () => {
+    const runtimeProfile = resolveCapabilityProfile({
+      persona: getBuddyPersona("buddy"),
+      workspaceState: "chat",
+      intent: "learn",
+      configuredToolToggles: {
+        pedagogy_resource_ingest_full_text: false,
+      },
+    })
+    const permissions = buildBuddyRuntimeSessionPermissions({
+      runtimeProfile,
+    })
+
+    expect(
+      PermissionNext.evaluate("pedagogy_resource_ingest_full_text", "*", permissions).action,
+    ).toBe("deny")
+  })
+
   test("clears the Buddy runtime overlay while keeping unrelated approvals", () => {
     const permissions = buildBuddyRuntimeSessionPermissions({
       existing: [

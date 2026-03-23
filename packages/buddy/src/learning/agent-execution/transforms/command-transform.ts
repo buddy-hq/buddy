@@ -45,6 +45,7 @@ export function createSessionCommandTransform(input: {
           persona,
           workspaceState,
           intent,
+          configuredToolToggles: projectConfig.tools,
         })
         const focusGoalIds = resolveFocusGoalIds(body)
         await assertSessionExistsInDirectory({
