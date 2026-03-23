@@ -41,6 +41,7 @@
   "scripts": {
     "dev": "bun --env-file=.env run --cwd packages/buddy dev",
     "dev:web": "bun run --cwd packages/web dev",
+    "dev:storybook": "bun run --cwd packages/storybook storybook",
     "dev:desktop": "bun run --cwd packages/desktop tauri dev",
     "dev:all": "(bun run dev & BACKEND_PID=$!; trap \"kill $BACKEND_PID\" EXIT INT TERM; bun run dev:web)",
     "build": "turbo run build --filter=@buddy/* --only",
