@@ -24,9 +24,6 @@ export function GlobalAgentsMdSettingsPanel(props: { active: boolean }) {
       active={props.active}
       className="h-full min-h-0 flex-1 rounded-lg border border-border/70 bg-background"
       fallbackPath="global/AGENTS.md"
-      showResolvedPath
-      headerTitle="AGENTS.md"
-      headerDescription="Global instructions loaded for every notebook session. Autosaves after 1s."
       emptyTitle="No global AGENTS.md file"
       emptyDescription="Create one to define baseline instructions for Buddy across notebooks."
       createLabel="Create AGENTS.md"

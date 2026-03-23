@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import Editor, { type OnMount } from "@monaco-editor/react"
-import { Button } from "@buddy/ui"
-import { AlertTriangleIcon, FileTextIcon, PlusIcon, RefreshCwIcon } from "lucide-react"
+import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@buddy/ui"
+import { AlertTriangleIcon, FileTextIcon, PlusIcon } from "lucide-react"
 import type { editor as MonacoEditor } from "monaco-editor"
 
 type MarkdownFileState = {
@@ -22,9 +22,6 @@ type MarkdownFileEditorProps = {
   reloadKey?: string | number
   className?: string
   fallbackPath: string
-  showResolvedPath?: boolean
-  headerTitle: string
-  headerDescription: string
   emptyTitle: string
   emptyDescription: string
   createLabel: string
@@ -63,6 +60,7 @@ export function MarkdownFileEditor(props: MarkdownFileEditorProps) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | undefined>(undefined)
   const [conflictMessage, setConflictMessage] = useState<string | undefined>(undefined)
+  const [showSaved, setShowSaved] = useState(false)
 
   const requestCounterRef = useRef(0)
   const contentRef = useRef(content)
@@ -210,6 +208,13 @@ export function MarkdownFileEditor(props: MarkdownFileEditorProps) {
     }
   }, [conflictMessage, content, exists, isActive, savedContent, saving])
 
+  useEffect(() => {
+    if (!savedContent) return
+    setShowSaved(true)
+    const timer = window.setTimeout(() => setShowSaved(false), 1000)
+    return () => window.clearTimeout(timer)
+  }, [savedContent])
+
   const hasUnsaved = exists && !conflictMessage && content !== savedContent && !saving
 
   const saveStateLabel = conflictMessage
@@ -268,45 +273,27 @@ export function MarkdownFileEditor(props: MarkdownFileEditorProps) {
 
   return (
     <div className={`flex h-full min-h-0 flex-1 flex-col gap-3 p-3 ${props.className ?? ""}`}>
-      <div className="flex items-start justify-between gap-3 pb-2">
-        <div className="min-w-0 space-y-1.5">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground leading-none">
-            {props.headerTitle}
-          </p>
-          <p className="text-xs text-muted-foreground">{props.headerDescription}</p>
-          {props.showResolvedPath && path ? (
-            <p className="font-mono text-[11px] text-muted-foreground">{path}</p>
-          ) : null}
+      {exists && !conflictMessage ? (
+        <div className="flex justify-end">
+          <span
+            className={`size-2 rounded-full ${hasUnsaved ? "bg-amber-500" : showSaved ? "bg-emerald-500" : "bg-transparent"}`}
+          />
         </div>
-        <div className="flex items-center gap-2">
-          {saveStateLabel ? (
-            <span className="text-[11px] text-muted-foreground">{saveStateLabel}</span>
-          ) : null}
-          {exists && !conflictMessage ? (
-            <span
-              className={`size-2 rounded-full ${hasUnsaved ? "bg-amber-500" : "bg-emerald-500"}`}
-              title={hasUnsaved ? "Unsaved changes" : "Saved"}
-            />
-          ) : null}
-          {hasUnsaved ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="px-2"
-              onClick={() => void refresh()}
-              disabled={loading || saving}
-              title="Discard changes and reload"
-            >
-              <RefreshCwIcon className="size-4" />
-            </Button>
-          ) : null}
-        </div>
-      </div>
-
+      ) : null}
       {error ? (
-        <p className="rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1.5 text-xs text-destructive">
-          {error}
-        </p>
+        <Dialog open={!!error} onOpenChange={(open) => { if (!open) setError(undefined) }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Save error</DialogTitle>
+              <DialogDescription>{error}</DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setError(undefined)}>
+                Dismiss
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       ) : null}
 
       {conflictMessage ? (
@@ -340,7 +327,7 @@ export function MarkdownFileEditor(props: MarkdownFileEditorProps) {
 
       {loading && !exists ? (
         <div className="rounded-md border border-border/70 bg-background p-3 text-sm text-muted-foreground">
-          Loading {props.headerTitle}...
+          Loading...
         </div>
       ) : null}
 

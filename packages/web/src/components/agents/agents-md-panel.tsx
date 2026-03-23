@@ -33,8 +33,6 @@ export function AgentsMdPanel(props: AgentsMdPanelProps) {
       reloadKey={reloadKey}
       className={props.className}
       fallbackPath={`${props.directory}/AGENTS.md`}
-      headerTitle="AGENTS.md"
-      headerDescription="Notebook-specific instructions loaded before each session. Autosaves after 1s."
       emptyTitle="No AGENTS.md file"
       emptyDescription="Create one to add notebook-local behavior and constraints."
       createLabel="Create AGENTS.md"
