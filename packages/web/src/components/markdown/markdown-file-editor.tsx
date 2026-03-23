@@ -1,4 +1,3 @@
-import type { CSSProperties } from "react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import Editor, { type OnMount } from "@monaco-editor/react"
 import { Button } from "@buddy/ui"
@@ -22,7 +21,6 @@ type MarkdownFileEditorProps = {
   active?: boolean
   reloadKey?: string | number
   className?: string
-  style?: CSSProperties
   fallbackPath: string
   showResolvedPath?: boolean
   headerTitle: string
@@ -271,10 +269,7 @@ export function MarkdownFileEditor(props: MarkdownFileEditorProps) {
   const editorPath = path || props.fallbackPath
 
   return (
-    <div
-      className={`flex h-full min-h-0 flex-1 flex-col gap-3 p-3 ${props.className ?? ""}`}
-      style={props.style}
-    >
+    <div className={`flex h-full min-h-0 flex-1 flex-col gap-3 p-3 ${props.className ?? ""}`}>
       <div className="flex items-start justify-between gap-3 pb-2">
         <div className="min-w-0 space-y-1.5">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground leading-none">

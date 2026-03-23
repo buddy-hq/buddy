@@ -1,4 +1,3 @@
-import type { CSSProperties } from "react"
 import { useCallback } from "react"
 import { MarkdownFileEditor } from "@/components/markdown/markdown-file-editor"
 import {
@@ -11,7 +10,6 @@ type AgentsMdPanelProps = {
   directory: string
   refreshToken?: number
   className?: string
-  style?: CSSProperties
 }
 
 const DEFAULT_AGENTS_MD_CONTENT =
@@ -34,7 +32,6 @@ export function AgentsMdPanel(props: AgentsMdPanelProps) {
     <MarkdownFileEditor
       reloadKey={reloadKey}
       className={props.className}
-      style={props.style}
       fallbackPath={`${props.directory}/AGENTS.md`}
       headerTitle="AGENTS.md"
       headerDescription="Notebook-specific instructions loaded before each session. Autosaves after 1s."

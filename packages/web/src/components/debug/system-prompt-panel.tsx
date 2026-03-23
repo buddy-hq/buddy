@@ -1,4 +1,3 @@
-import type { CSSProperties } from "react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@buddy/ui"
 import {
@@ -13,7 +12,6 @@ type SystemPromptPanelProps = {
   sessionID?: string
   refreshToken?: number
   className?: string
-  style?: CSSProperties
 }
 
 function stringifyError(error: unknown) {
@@ -54,7 +52,7 @@ function formatIsoTime(value?: string) {
 }
 
 export function SystemPromptPanel(props: SystemPromptPanelProps) {
-  const { directory, sessionID, refreshToken, className, style } = props
+  const { directory, sessionID, refreshToken, className } = props
   const [runtime, setRuntime] = useState<TeachingSessionSnapshot | undefined>(undefined)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | undefined>(undefined)
@@ -126,7 +124,7 @@ export function SystemPromptPanel(props: SystemPromptPanelProps) {
   }, [activeSessionBusy, refresh, refreshToken, sessionID])
 
   return (
-    <div className={`flex h-full min-h-0 flex-col gap-3 p-3 ${className ?? ""}`} style={style}>
+    <div className={`flex h-full min-h-0 flex-col gap-3 p-3 ${className ?? ""}`}>
       <div className="flex items-start justify-between gap-3 pb-2">
         <div className="min-w-0 space-y-1.5">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground leading-none">

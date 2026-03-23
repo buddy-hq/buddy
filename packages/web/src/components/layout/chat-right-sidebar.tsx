@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from "react"
+import type { ReactNode } from "react"
 import { useCallback, useEffect, useState } from "react"
 import {
   Badge,
@@ -47,7 +47,6 @@ type ChatRightSidebarProps = {
   intent?: TeachingIntent
   onRunAction?: (action: LearnerCurriculumView["actions"][number]) => void
   className?: string
-  style?: CSSProperties
   showCapabilitiesTab?: boolean
   showSystemPromptTab?: boolean
 }
@@ -216,7 +215,6 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
   return (
     <aside
       className={`shrink-0 overflow-hidden border-l bg-card flex flex-col min-h-0 ${props.className ?? ""}`}
-      style={props.style}
     >
       <header className="border-b px-3 py-2 flex items-center justify-between gap-2">
         <div className="flex items-center gap-1">

@@ -1,4 +1,3 @@
-import type { CSSProperties } from "react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   AlertDialog,
@@ -46,7 +45,6 @@ type ResourcesPanelProps = {
   directory: string
   refreshToken?: number
   className?: string
-  style?: CSSProperties
 }
 
 const RESOURCE_AUTO_REFRESH_INTERVAL_MS = 1500
@@ -98,7 +96,7 @@ function SkeletonCard() {
 }
 
 export function ResourcesPanel(props: ResourcesPanelProps) {
-  const { directory, refreshToken, className, style } = props
+  const { directory, refreshToken, className } = props
   const [resources, setResources] = useState<ResourceRecord[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | undefined>(undefined)
@@ -192,7 +190,7 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
   }
 
   return (
-    <div className={`flex h-full min-h-0 flex-col gap-3 p-3 ${className ?? ""}`} style={style}>
+    <div className={`flex h-full min-h-0 flex-col gap-3 p-3 ${className ?? ""}`}>
       <div className="flex items-start justify-between gap-3 pb-2">
         <div className="min-w-0 space-y-1.5">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground leading-none">
