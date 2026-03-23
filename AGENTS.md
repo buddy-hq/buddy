@@ -32,7 +32,7 @@ Long term maintainability is a core priority. If you add new functionality, firs
 - `packages/buddy`: backend (Bun + Hono + hono-openapi)
 - `packages/web`: frontend (React + Vite + TanStack Router + TanStack Query)
 - `packages/desktop`: Tauri desktop app (wraps `packages/web`)
-- `packages/ui`: shared UI (shadcn/ui + Tailwind v4)
+- `packages/ui`: shared UI (Buddy-owned design system built on shadcn primitives + Tailwind v4)
 - `packages/sdk`: OpenAPI-generated client (hey-api/openapi-ts)
 - `packages/opencode-adapter`: Buddy compatibility bridge over vendored OpenCode modules
 
@@ -71,6 +71,7 @@ refer to: `packages/ui/AGENTS.md`; it has instructions on:
 
 - how to create components
 - how to style them
+- how to treat shadcn as a foundation, not an out-of-the-box theme/style contract
 
 ## Scripts/Commands
 
