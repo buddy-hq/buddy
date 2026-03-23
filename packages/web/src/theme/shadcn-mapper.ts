@@ -35,6 +35,14 @@ export function toShadcnCss(tokens: ResolvedTheme, isDark: boolean): string {
     "--accent": accentSurface,
     "--accent-foreground": tokens["text-strong"],
 
+    // Status colors
+    "--success": tokens["surface-success-base"] || tokens["icon-success-base"],
+    "--success-foreground": tokens["text-on-success-base"],
+    "--info": tokens["surface-info-base"] || tokens["icon-info-base"],
+    "--info-foreground": tokens["text-on-info-base"],
+    "--warning": tokens["surface-warning-base"] || tokens["icon-warning-base"],
+    "--warning-foreground": tokens["text-on-warning-base"],
+
     // Destructive (error/critical)
     "--destructive": tokens["surface-critical-base"] || tokens["icon-critical-base"],
     "--destructive-foreground": tokens["text-on-critical-base"],
@@ -57,16 +65,6 @@ export function toShadcnCss(tokens: ResolvedTheme, isDark: boolean): string {
 
     // Radius
     "--radius": "0.45rem",
-
-    // Charts - use accent colors
-    "--chart-1":
-      tokens["surface-interactive-base"] ||
-      tokens["surface-brand-base"] ||
-      tokens["icon-interactive-base"],
-    "--chart-2": tokens["surface-success-base"] || tokens["icon-success-base"],
-    "--chart-3": tokens["surface-warning-base"] || tokens["icon-warning-base"],
-    "--chart-4": tokens["surface-critical-base"] || tokens["icon-critical-base"],
-    "--chart-5": tokens["surface-info-base"] || tokens["icon-info-base"],
   }
 
   return Object.entries(map)
