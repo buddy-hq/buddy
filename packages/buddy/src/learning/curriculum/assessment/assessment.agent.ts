@@ -7,7 +7,6 @@ export const ASSESSMENT_AGENT = registerBuddyAgent({
   agent: createSubagent({
     description: "Runs inline mastery checks tied to learner goals and records the evidence.",
     prompt: ASSESSMENT_AGENT_PROMPT.trim(),
-    steps: 8,
     permission: {
       question: "allow",
       learner_snapshot_read: "allow",

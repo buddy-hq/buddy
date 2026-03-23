@@ -8,7 +8,6 @@ export const CURRICULUM_ORCHESTRATOR = registerBuddyAgent({
     description:
       "Routes curriculum work to goals, practice, assessment, and learner-state services.",
     prompt: CURRICULUM_ORCHESTRATOR_PROMPT.trim(),
-    steps: 8,
     permission: {
       "*": "deny",
       learner_snapshot_read: "allow",

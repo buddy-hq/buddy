@@ -7,7 +7,6 @@ export const PRACTICE_AGENT = registerBuddyAgent({
   agent: createSubagent({
     description: "Generates deliberate practice tasks aligned to learner goals and records them.",
     prompt: PRACTICE_AGENT_PROMPT.trim(),
-    steps: 8,
     permission: {
       question: "allow",
       learner_snapshot_read: "allow",

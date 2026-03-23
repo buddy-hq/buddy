@@ -8,7 +8,6 @@ export const GOAL_WRITER = registerBuddyAgent({
     description:
       "Writes CWSEI-style course/topic learning goals using a deterministic lint + commit workflow.",
     prompt: GOAL_WRITER_PROMPT.trim(),
-    steps: 10,
     permission: {
       question: "allow",
       plan_enter: "allow",

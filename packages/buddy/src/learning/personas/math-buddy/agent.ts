@@ -9,7 +9,6 @@ export const MATH_BUDDY = registerBuddyAgent({
     description:
       "Chat-first math Buddy persona with inline constrained geometry and unrestricted SVG figures.",
     prompt: [BUDDY_BASE_PROMPT.trim(), MATH_BUDDY_OVERLAY.trim()].join("\n\n"),
-    steps: 8,
     availableSubagents: [
       "curriculum-orchestrator",
       "goal-writer",

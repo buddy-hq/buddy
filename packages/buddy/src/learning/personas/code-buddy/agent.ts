@@ -8,7 +8,6 @@ export const CODE_BUDDY = registerBuddyAgent({
   agent: createPrimaryAgent({
     description: "Interactive code Buddy persona for the in-app lesson editor.",
     prompt: [BUDDY_BASE_PROMPT.trim(), CODE_BUDDY_OVERLAY.trim()].join("\n\n"),
-    steps: 8,
     availableSubagents: [
       "curriculum-orchestrator",
       "goal-writer",

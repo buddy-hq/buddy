@@ -7,7 +7,6 @@ export const BUDDY_AGENT = registerBuddyAgent({
   agent: createBuildAgent({
     description: "The default Buddy persona for learning conversations and project help.",
     prompt: BUDDY_BASE_PROMPT.trim(),
-    steps: 8,
     availableSubagents: [
       "curriculum-orchestrator",
       "goal-writer",
