@@ -21,6 +21,17 @@ export type PromptResourceSnapshot = {
   format: string
   status: PromptResourceStatus
   warnings: string[]
+  fullTextPath?: string
+  fullTextEstTokens?: number
+  fullTextChars?: number
+}
+
+export type PromptModelSnapshot = {
+  providerID: string
+  modelID: string
+  contextWindow: number
+  inputWindow?: number
+  outputWindow: number
 }
 
 export type SystemPromptCtx = {
@@ -31,6 +42,7 @@ export type SystemPromptCtx = {
   learnerSnapshot: LearnerSnapshot
   focusGoalIds: string[]
   resources: PromptResourceSnapshot[]
+  model?: PromptModelSnapshot
   teachingContext?: TeachingPromptContext
   priorTurn?: PromptTurnSnapshot
 }

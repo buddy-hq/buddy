@@ -1,4 +1,6 @@
 import { parseConfiguredModel, type readProjectConfig } from "@buddy/backend/config/runtime"
+import { ModelID, ProviderID } from "@buddy/opencode-adapter/id"
+import { Provider } from "@buddy/opencode-adapter/provider"
 import { TeachingPromptContextSchema } from "../capabilities"
 import { getBuddyPersona } from "../personas"
 import { buildLearningSystemPrompt } from "./learning-prompt"
@@ -17,6 +19,7 @@ import {
   resolveFocusGoalIds,
   resolveIntent,
 } from "../shared/targeting"
+import { resolveResourcePackFullTextMetadata } from "../../resource-packs"
 
 export type MessagePromptPipelineContext = {
   directory: string
@@ -27,6 +30,45 @@ export type MessagePromptPipelineResult = {
   transformed: Record<string, unknown>
   runtimeProfileForPermissions?: ReturnType<typeof resolveCapabilityProfile>
   nextTeachingState?: TeachingSessionState
+}
+
+async function resolvePromptModelInfo(input: {
+  body: Record<string, unknown>
+  projectConfig: Awaited<ReturnType<typeof readProjectConfig>>
+}): Promise<SystemPromptCtx["model"] | undefined> {
+  const explicitModel = hasExplicitModel(input.body.model) ? input.body.model : undefined
+  const configuredModel = parseConfiguredModel(input.projectConfig.model)
+  const modelRef = explicitModel ?? configuredModel
+  if (!modelRef) return undefined
+
+  const resolvedModel = await Provider.getModel(
+    ProviderID.make(modelRef.providerID),
+    ModelID.make(modelRef.modelID),
+  ).catch(() => undefined)
+  if (!resolvedModel) return undefined
+
+  return {
+    providerID: resolvedModel.providerID,
+    modelID: resolvedModel.id,
+    contextWindow: resolvedModel.limit.context,
+    ...(resolvedModel.limit.input !== undefined ? { inputWindow: resolvedModel.limit.input } : {}),
+    outputWindow: resolvedModel.limit.output,
+  }
+}
+
+async function resolvePromptResourceMetadata(input: {
+  directory: string
+  packKey?: string
+}): Promise<
+  Pick<SystemPromptCtx["resources"][number], "fullTextPath" | "fullTextEstTokens" | "fullTextChars">
+> {
+  const metadata = await resolveResourcePackFullTextMetadata(input)
+  if (!metadata) return {}
+  return {
+    fullTextPath: metadata.fullTextPath,
+    fullTextEstTokens: metadata.fullTextEstTokens,
+    fullTextChars: metadata.fullTextChars,
+  }
 }
 
 export async function runMessagePromptPipeline(input: {
@@ -83,8 +125,35 @@ export async function runMessagePromptPipeline(input: {
       persona,
       workspaceState,
       intent,
+      configuredToolToggles: input.projectConfig.tools,
     })
     runtimeProfileForPermissions = runtimeProfile
+
+    const [promptModel, promptResources] = await Promise.all([
+      resolvePromptModelInfo({
+        body: input.body,
+        projectConfig: input.projectConfig,
+      }),
+      Promise.all(
+        resources.map(async (resource) => {
+          const metadata = await resolvePromptResourceMetadata({
+            directory: input.context.directory,
+            packKey: resource.packKey,
+          })
+
+          return {
+            alias: resource.alias,
+            sourceRelpath: resource.sourceRelpath,
+            format: resource.format,
+            status: resource.status,
+            warnings: resource.warnings,
+            fullTextPath: metadata.fullTextPath,
+            fullTextEstTokens: metadata.fullTextEstTokens,
+            fullTextChars: metadata.fullTextChars,
+          }
+        }),
+      ),
+    ])
 
     const promptBuildContext: SystemPromptCtx = {
       directory: input.context.directory,
@@ -93,13 +162,8 @@ export async function runMessagePromptPipeline(input: {
       intent: intent,
       learnerSnapshot: learnerSnapshot,
       focusGoalIds,
-      resources: resources.map((resource) => ({
-        alias: resource.alias,
-        sourceRelpath: resource.sourceRelpath,
-        format: resource.format,
-        status: resource.status,
-        warnings: resource.warnings,
-      })),
+      resources: promptResources,
+      ...(promptModel ? { model: promptModel } : {}),
       teachingContext,
       ...(input.previousState
         ? {

@@ -15,6 +15,7 @@ type LearnerSnapshotContext = SystemPromptCtx["learnerSnapshot"]
 type RuntimePromptProfile = Pick<SystemPromptCtx, "persona" | "capabilityEnvelope">
 type TeachingContext = NonNullable<SystemPromptCtx["teachingContext"]>
 type ResourceContext = SystemPromptCtx["resources"][number]
+type ModelContext = SystemPromptCtx["model"]
 
 const RESOURCE_CONTEXT_TAG_OPEN = "<notebook_resources>" as const
 const RESOURCE_CONTEXT_TAG_CLOSE = "</notebook_resources>" as const
@@ -140,6 +141,21 @@ function buildCalculatorRuntimeText(profile: RuntimePromptProfile): string | und
   ].join("\n")
 }
 
+function buildModelRuntimeText(model: ModelContext): string | undefined {
+  if (!model) {
+    return undefined
+  }
+
+  return [
+    "<model_limits>",
+    `Active model: ${model.providerID}/${model.modelID}`,
+    `Context window: ${model.contextWindow}`,
+    ...(model.inputWindow !== undefined ? [`Input window: ${model.inputWindow}`] : []),
+    `Output window: ${model.outputWindow}`,
+    "</model_limits>",
+  ].join("\n")
+}
+
 function clampText(value: string, maxLength: number): string {
   if (value.length <= maxLength) return value
   return `${value.slice(0, Math.max(0, maxLength - 3))}...`
@@ -161,6 +177,16 @@ function formatResourceInventoryLine(resource: ResourceContext): string {
     `source=${sourcePreview}`,
     `pack=${packPath}`,
   ]
+
+  if (resource.fullTextPath) {
+    segments.push(`full_text=${resource.fullTextPath}`)
+  }
+  if (resource.fullTextEstTokens !== undefined) {
+    segments.push(`full_text_est_tokens=${resource.fullTextEstTokens}`)
+  }
+  if (resource.fullTextChars !== undefined) {
+    segments.push(`full_text_chars=${resource.fullTextChars}`)
+  }
 
   const warning = firstWarningText(resource.warnings)
   if (warning) {
@@ -258,6 +284,10 @@ async function buildRuntimeContext(input: SystemPromptCtx): Promise<RuntimeConte
   const runtimeSections: string[] = []
 
   runtimeSections.push(buildWorkspaceStateText(profile, workspaceState))
+  const modelRuntime = buildModelRuntimeText(input.model)
+  if (modelRuntime) {
+    runtimeSections.push(modelRuntime)
+  }
   const calculatorRuntime = buildCalculatorRuntimeText(profile)
   if (calculatorRuntime) {
     runtimeSections.push(calculatorRuntime)
