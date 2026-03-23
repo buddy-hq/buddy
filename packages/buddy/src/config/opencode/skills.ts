@@ -21,6 +21,10 @@ const BUNDLED_SKILL_RELATIVE_PATHS = [
 ]
 
 const EXTERNAL_VENDOR_SKILL_DIRS = [".claude", ".agents"] as const
+const WORKSPACE_BUNDLED_SKILL_RELATIVE_PATHS = [
+  "packages/buddy/src/learning/capabilities/pedagogy/skills",
+  "src/learning/capabilities/pedagogy/skills",
+] as const
 
 function uniqueResolvedPaths(entries: string[]) {
   return Array.from(new Set(entries.map((entry) => path.resolve(entry))))
@@ -33,8 +37,49 @@ async function directoryExists(candidate: string) {
 
 function resolveBundledSkillRootCandidates() {
   const moduleDirectory = path.dirname(fileURLToPath(import.meta.url))
-  return BUNDLED_SKILL_RELATIVE_PATHS.map((relativePath) =>
-    path.resolve(moduleDirectory, relativePath),
+  return uniqueResolvedPaths([
+    ...resolveWorkspaceBundledSkillRootCandidates(moduleDirectory),
+    ...BUNDLED_SKILL_RELATIVE_PATHS.map((relativePath) =>
+      path.resolve(moduleDirectory, relativePath),
+    ),
+  ])
+}
+
+function walkUpToFilesystemRoot(start: string) {
+  const directories: string[] = []
+  let current = path.resolve(start)
+
+  while (true) {
+    directories.push(current)
+    const parent = path.dirname(current)
+    if (parent === current) {
+      break
+    }
+    current = parent
+  }
+
+  return directories
+}
+
+function resolveWorkspaceBundledSkillRootCandidates(moduleDirectory: string) {
+  const candidates: string[] = []
+  const starts = uniqueResolvedPaths([moduleDirectory, process.cwd()])
+
+  for (const start of starts) {
+    for (const directory of walkUpToFilesystemRoot(start)) {
+      for (const relativePath of WORKSPACE_BUNDLED_SKILL_RELATIVE_PATHS) {
+        candidates.push(path.join(directory, relativePath))
+      }
+    }
+  }
+
+  return candidates
+}
+
+function isSourceBundledSkillRoot(candidate: string) {
+  const normalized = path.resolve(candidate)
+  return WORKSPACE_BUNDLED_SKILL_RELATIVE_PATHS.some((relativePath) =>
+    normalized.endsWith(path.normalize(relativePath)),
   )
 }
 
@@ -45,6 +90,11 @@ async function resolveBuddyBundledSkillRoots(): Promise<string[]> {
     roots.push(candidate)
   }
   return uniqueResolvedPaths(roots)
+}
+
+async function resolveBuddySourceBundledSkillRoots(): Promise<string[]> {
+  const bundledRoots = await resolveBuddyBundledSkillRoots()
+  return bundledRoots.filter(isSourceBundledSkillRoot)
 }
 
 function walkUpDirectories(start: string, stop: string) {
@@ -162,9 +212,13 @@ async function resolveOpenCodeSkillPaths(
   )
 
   const bundledRoots = await resolveBuddyBundledSkillRoots()
+  const sourceBundledRoots = bundledRoots.filter(isSourceBundledSkillRoot)
   await ensureBundledSystemSkillsInstalled(bundledRoots)
   for (const managedPath of [managedSkillsRoot(), managedSystemRoot()]) {
     await appendIfDirectory(paths, managedPath)
+  }
+  for (const sourceBundledRoot of sourceBundledRoots) {
+    await appendIfDirectory(paths, sourceBundledRoot)
   }
 
   if (config.skills_external_vendor_roots_enabled) {
@@ -177,4 +231,8 @@ async function resolveOpenCodeSkillPaths(
   return paths.length > 0 ? uniqueResolvedPaths(paths) : undefined
 }
 
-export { resolveBuddyBundledSkillRoots, resolveOpenCodeSkillPaths }
+export {
+  resolveBuddyBundledSkillRoots,
+  resolveBuddySourceBundledSkillRoots,
+  resolveOpenCodeSkillPaths,
+}

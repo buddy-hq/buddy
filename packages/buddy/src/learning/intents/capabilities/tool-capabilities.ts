@@ -5,6 +5,7 @@ import {
   pedagogyIndependentPracticeTool,
   pedagogyMasteryCheckTool,
   pedagogyReflectionTool,
+  pedagogyResourceIngestFullTextTool,
   pedagogyRetrievalCheckTool,
   pedagogyStepwiseSolveTool,
   pedagogyTransferCheckTool,
@@ -61,6 +62,7 @@ export const TOOL_CAPABILITY_REGISTRY = [
   }),
   createToolCapability(pedagogyMasteryCheckTool),
   createToolCapability(pedagogyReflectionTool),
+  createToolCapability(pedagogyResourceIngestFullTextTool),
   createToolCapability(pedagogyRetrievalCheckTool),
   createToolCapability(pedagogyTransferCheckTool),
 ] as const satisfies readonly ToolCapability[]
