@@ -1,6 +1,13 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useCallback, useEffect, useMemo, useRef, useState, type UIEvent } from "react"
-import { Button } from "@buddy/ui"
+import {
+  Button,
+  SquarePenIcon,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@buddy/ui"
 import { ChatEmptyState } from "@/components/chat/chat-empty-state"
 import { SessionContextUsage } from "@/components/chat/session-context-usage"
 import { ChatTranscript } from "@/components/chat/chat-transcript"
@@ -789,7 +796,7 @@ function DirectoryChatPage() {
     return <div className="p-6">Opening notebook...</div>
   }
 
-  const showHeaderSidebarToggle = !(platform.platform === "desktop" && platform.os === "macos")
+
 
   // ── JSX ──────────────────────────────────────────────────────────────────────
   return (
@@ -860,22 +867,9 @@ function DirectoryChatPage() {
         {/* Main */}
         <main className="flex-1 min-w-0 min-h-0 flex flex-col bg-background-base/20">
           <header className="border-b px-3 py-2">
-            <div className="mx-auto flex w-full max-w-full items-center justify-between gap-2 md:max-w-200 2xl:max-w-[1000px]">
+            <div className="flex w-full items-center justify-between gap-2 px-1">
               <div className="min-w-0 flex items-center gap-1.5">
-                {showHeaderSidebarToggle ? (
-                  <Button
-                    variant="ghost"
-                    size="icon-xs"
-                    onClick={() => cs.setLeftSidebarOpen(!cs.leftSidebarOpen)}
-                    title={cs.leftSidebarOpen ? "Collapse left panel" : "Expand left panel"}
-                  >
-                    {cs.leftSidebarOpen ? (
-                      <LayoutLeftPartialIcon className="size-3.5" />
-                    ) : (
-                      <LayoutLeftIcon className="size-3.5" />
-                    )}
-                  </Button>
-                ) : null}
+
                 {cs.parentSession ? (
                   <Button
                     variant="ghost"
@@ -889,60 +883,23 @@ function DirectoryChatPage() {
                   </Button>
                 ) : null}
                 <div className="min-w-0">
-                  <h1 className="text-sm md:text-base font-medium text-text-strong truncate">
+                  <h1 className="text-xs font-normal text-text-weak truncate">
                     {cs.sessionTitle}
                   </h1>
-                  <p className="text-xs text-text-weak truncate">
-                    local: {getFilename(decodedDirectory)}
-                  </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-1.5">
-                <SessionContextUsage messages={cs.messages} providers={cs.providers} />
+              <div className="flex items-center gap-1.5 px-1">
                 <Button
-                  variant={cs.hasMcpError ? "secondary" : "ghost"}
+                  type="button"
+                  variant="ghost"
                   size="sm"
-                  onClick={() => navigate({ to: "/settings", search: { tab: "mcps" } })}
-                  title="View and manage MCPs"
+                  className="text-text-weak hover:text-text-strong"
+                  onClick={() => startNewSession(decodedDirectory)}
                 >
-                  {cs.mcpEntries.length > 0
-                    ? cs.hasMcpError
-                      ? "MCP error"
-                      : `MCP ${cs.connectedMcpCount}/${cs.mcpEntries.length}`
-                    : "MCP"}
+                  <SquarePenIcon className="size-4 mr-1.5" />
+                  New thread
                 </Button>
-                {showHeaderSidebarToggle ? (
-                  <Button
-                    variant="ghost"
-                    size="icon-xs"
-                    onClick={onToggleRightSidebar}
-                    title={cs.rightSidebarOpen ? "Collapse right panel" : "Expand right panel"}
-                  >
-                    {cs.rightSidebarOpen ? (
-                      <LayoutRightPartialIcon className="size-3.5" />
-                    ) : (
-                      <LayoutRightIcon className="size-3.5" />
-                    )}
-                  </Button>
-                ) : null}
-                {showDevSessionTrace && cs.sessionID ? (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => {
-                      void copyToClipboard(
-                        buildSessionTrace({
-                          directory: decodedDirectory,
-                          sessionID: cs.sessionID!,
-                          streamStatus: cs.streamStatus,
-                        }),
-                      )
-                    }}
-                  >
-                    Copy Trace
-                  </Button>
-                ) : null}
               </div>
             </div>
           </header>
@@ -1042,6 +999,9 @@ function DirectoryChatPage() {
                   onSubmit={() => {
                     void onSend()
                   }}
+                  sessionContextUsage={
+                    <SessionContextUsage messages={cs.messages} providers={cs.providers} />
+                  }
                 />
               </div>
             </div>
