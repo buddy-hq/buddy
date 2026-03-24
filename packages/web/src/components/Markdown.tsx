@@ -5,6 +5,7 @@ import "katex/dist/katex.min.css"
 import { getServerConnection } from "../context/server"
 import { resolveApiUrl } from "../lib/api-client"
 import { parseMarkdownToHtml } from "../lib/markdown-parser"
+import { enhanceMermaidPlaceholders } from "../lib/mermaid/render"
 
 if (typeof window !== "undefined" && DOMPurify.isSupported) {
   DOMPurify.addHook("afterSanitizeAttributes", (node: Element) => {
@@ -251,6 +252,7 @@ export function Markdown({
   const renderIdRef = useRef(0)
   const copyCleanupRef = useRef<(() => void) | undefined>(undefined)
   const copySetupTimerRef = useRef<number | undefined>(undefined)
+  const mermaidEnhancementRef = useRef<AbortController | undefined>(undefined)
   const copyLabels = useMemo<CopyLabels>(() => ({ copy: "Copy code", copied: "Copied" }), [])
   const sanitizeContextKey = markdownSanitizeContextKey()
 
@@ -299,6 +301,23 @@ export function Markdown({
     }, 150)
   }, [copyLabels])
 
+  const resetMermaidEnhancement = useCallback(() => {
+    mermaidEnhancementRef.current?.abort()
+    mermaidEnhancementRef.current = undefined
+  }, [])
+
+  const runMermaidEnhancement = useCallback(() => {
+    const root = rootRef.current
+    if (!root) return
+
+    resetMermaidEnhancement()
+    const controller = new AbortController()
+    mermaidEnhancementRef.current = controller
+    void enhanceMermaidPlaceholders(root, {
+      signal: controller.signal,
+    })
+  }, [resetMermaidEnhancement])
+
   const applyHtml = useCallback(
     (html: string) => {
       const root = rootRef.current
@@ -307,6 +326,7 @@ export function Markdown({
       if (!html) {
         if (root.innerHTML) root.innerHTML = ""
         resetCodeCopy()
+        resetMermaidEnhancement()
         return
       }
 
@@ -323,8 +343,9 @@ export function Markdown({
       })
 
       scheduleCodeCopy()
+      runMermaidEnhancement()
     },
-    [copyLabels, resetCodeCopy, scheduleCodeCopy],
+    [copyLabels, resetCodeCopy, resetMermaidEnhancement, runMermaidEnhancement, scheduleCodeCopy],
   )
 
   useLayoutEffect(() => {
@@ -393,8 +414,9 @@ export function Markdown({
   useEffect(() => {
     return () => {
       resetCodeCopy()
+      resetMermaidEnhancement()
     }
-  }, [resetCodeCopy])
+  }, [resetCodeCopy, resetMermaidEnhancement])
 
   return (
     <div

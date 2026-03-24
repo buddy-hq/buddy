@@ -1,9 +1,10 @@
 import katex from "katex"
-import { marked } from "marked"
+import { Marked, type Token } from "marked"
 import markedKatex from "marked-katex-extension"
 import markedShiki from "marked-shiki"
 import { bundledLanguages, createHighlighter, type BundledLanguage } from "shiki"
 import { getPlatform } from "../context/platform"
+import { createMermaidPlaceholderHtml } from "./mermaid/render"
 
 let highlighterPromise: ReturnType<typeof createHighlighter> | undefined
 
@@ -95,15 +96,75 @@ async function highlightCodeBlocks(html: string) {
   return result
 }
 
-const parser = marked.use(
-  {
-    renderer: {
-      link({ href, title, text }) {
-        const titleAttr = title ? ` title="${title}"` : ""
-        return `<a href="${href}"${titleAttr} class="external-link" target="_blank" rel="noopener noreferrer">${text}</a>`
+type MermaidBlockToken = Token & {
+  type: "mermaidBlock"
+  raw: string
+  text: string
+}
+
+const MERMAID_BLOCK_PATTERN =
+  /^([ \t]{0,3})(`{3,}|~{3,})[ \t]*mermaid(?:[ \t][^\n\r]*)?[ \t]*\r?\n([\s\S]*?)(?:\r?\n|\n)\1\2[ \t]*(?:\r?\n|$)/u
+
+function createMermaidBlockExtension() {
+  return {
+    extensions: [
+      {
+        name: "mermaidBlock",
+        level: "block" as const,
+        start(src: string) {
+          const match = /[ \t]{0,3}(`{3,}|~{3,})[ \t]*mermaid\b/iu.exec(src)
+          return match?.index
+        },
+        tokenizer(src: string): MermaidBlockToken | undefined {
+          const match = MERMAID_BLOCK_PATTERN.exec(src)
+          if (!match) {
+            return undefined
+          }
+
+          return {
+            type: "mermaidBlock",
+            raw: match[0],
+            text: match[3] ?? "",
+          }
+        },
+        renderer(token: MermaidBlockToken) {
+          return createMermaidPlaceholderHtml(token.text)
+        },
       },
-    },
-  },
+    ],
+  }
+}
+
+function tokensContainMermaidCodeBlocks(tokens: readonly Token[]): boolean {
+  for (const token of tokens) {
+    if (token.type === "mermaidBlock") {
+      return true
+    }
+
+    if (token.type === "blockquote") {
+      if (tokensContainMermaidCodeBlocks(token.tokens ?? [])) {
+        return true
+      }
+    }
+
+    if (token.type === "list") {
+      for (const item of token.items) {
+        if (tokensContainMermaidCodeBlocks(item.tokens ?? [])) {
+          return true
+        }
+      }
+    }
+  }
+
+  return false
+}
+
+function containsMermaidCodeBlocks(parser: Marked, markdown: string): boolean {
+  return tokensContainMermaidCodeBlocks(parser.lexer(markdown))
+}
+
+const parser = new Marked(
+  createMermaidBlockExtension(),
   markedKatex({
     throwOnError: false,
     nonStandard: true,
@@ -124,12 +185,21 @@ const parser = marked.use(
       })
     },
   }),
+  {
+    renderer: {
+      link({ href, title, text }) {
+        const titleAttr = title ? ` title="${title}"` : ""
+        return `<a href="${href}"${titleAttr} class="external-link" target="_blank" rel="noopener noreferrer">${text}</a>`
+      },
+    },
+  },
 )
 
 export async function parseMarkdownToHtml(markdown: string) {
+  const containsMermaidFence = containsMermaidCodeBlocks(parser, markdown)
   const nativeParser = getPlatform().parseMarkdown
 
-  if (nativeParser) {
+  if (nativeParser && !containsMermaidFence) {
     try {
       const html = await nativeParser(markdown)
       const withMath = renderMathExpressions(html)
