@@ -1,8 +1,11 @@
 import type { MouseEvent } from "react"
+import { useState, useEffect } from "react"
 import { useRouterState } from "@tanstack/react-router"
-import { Button } from "@buddy/ui"
+import { CopyIcon, CheckIcon, toast, Button } from "@buddy/ui"
 import { usePlatform } from "@/context/platform"
 import { useUiPreferences } from "@/state/ui-preferences"
+import { useChatStore } from "@/state/chat-store"
+import { buildSessionTrace, copyToClipboard } from "@/lib/directory-chat/chat-debug-helpers"
 import {
   isTitlebarInteractiveTarget,
   isTitlebarSystemControlTarget,
@@ -22,6 +25,7 @@ export function DesktopTitlebar() {
   const isDesktop = platform.platform === "desktop"
   const isMac = isDesktop && platform.os === "macos"
   const isWindows = isDesktop && platform.os === "windows"
+  const [isCopied, setIsCopied] = useState(false)
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   })
@@ -32,6 +36,21 @@ export function DesktopTitlebar() {
   const rightSidebarTab = useUiPreferences((state) => state.rightSidebarTab)
   const setRightSidebarOpen = useUiPreferences((state) => state.setRightSidebarOpen)
   const setRightSidebarWidth = useUiPreferences((state) => state.setRightSidebarWidth)
+  const activeDirectory = useChatStore((state) => state.activeDirectory)
+  const streamStatus = useChatStore((state) => state.streamStatus)
+  const activeSessionID = useChatStore((state) =>
+    activeDirectory ? state.directories[activeDirectory]?.sessionID : undefined,
+  )
+  const [isFullscreen, setIsFullscreen] = useState(false)
+
+  useEffect(() => {
+    if (!isMac) return
+    const media = window.matchMedia("(display-mode: fullscreen)")
+    const handler = (e: MediaQueryListEvent | MediaQueryList) => setIsFullscreen(e.matches)
+    handler(media)
+    media.addEventListener("change", handler)
+    return () => media.removeEventListener("change", handler)
+  }, [isMac])
 
   if (!isMac && !isWindows) {
     return null
@@ -77,7 +96,7 @@ export function DesktopTitlebar() {
       onDoubleClick={onDoubleClick}
     >
       <div className="flex h-full items-center">
-        {isMac ? <div className="w-[72px] shrink-0" /> : null}
+        {isMac && !isFullscreen ? <div className="w-[72px] shrink-0" /> : null}
         {showSidebarToggles ? (
           <div className="ml-2 flex shrink-0 items-center gap-1">
             <Button
@@ -98,7 +117,36 @@ export function DesktopTitlebar() {
           </div>
         ) : null}
         <div className="min-w-0 flex-1" />
-        <div className="flex shrink-0 items-center">
+        <div className="flex shrink-0 items-center gap-1 mr-2 ml-auto">
+          {import.meta.env.DEV && activeDirectory ? (
+            <div className="flex shrink-0 items-center">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                className="h-6 w-8 p-0 box-border text-text-weak hover:bg-surface-base-hover hover:text-text-strong"
+                title="Copy Session Trace (Dev Only)"
+                onClick={() => {
+                  void copyToClipboard(
+                    buildSessionTrace({
+                      directory: activeDirectory,
+                      sessionID: activeSessionID,
+                      streamStatus,
+                    }),
+                  )
+                  setIsCopied(true)
+                  toast.success("Session trace copied to clipboard")
+                  setTimeout(() => setIsCopied(false), 2000)
+                }}
+              >
+                {isCopied ? (
+                  <CheckIcon className="size-4 text-text-success-base" />
+                ) : (
+                  <CopyIcon className="size-4" />
+                )}
+              </Button>
+            </div>
+          ) : null}
           {showSidebarToggles ? (
             <div
               className={
@@ -124,6 +172,7 @@ export function DesktopTitlebar() {
               </Button>
             </div>
           ) : null}
+
           {isWindows ? (
             <>
               <div className="w-6 shrink-0" />
