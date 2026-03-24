@@ -29,7 +29,7 @@ export const MermaidArtifactRoutes = new Hono()
     "/",
     describeRoute({
       operationId: "mermaidArtifacts.list",
-      summary: "List persisted Mermaid artifacts for a workspace",
+      summary: "List persisted Mermaid artifacts",
       responses: {
         200: {
           description: "Workspace Mermaid artifacts",
@@ -39,7 +39,7 @@ export const MermaidArtifactRoutes = new Hono()
             },
           },
         },
-        ...routeErrors(400, 403),
+        ...routeErrors(403),
       },
     }),
     validator("query", directoryQuerySchema),

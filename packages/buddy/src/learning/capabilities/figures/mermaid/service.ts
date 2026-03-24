@@ -64,11 +64,6 @@ type MermaidArtifactListResult = MermaidArtifactReadResult[]
 
 type MermaidArtifactIdentityInput = Omit<MermaidArtifactManifest, "artifactID" | "version">
 
-type MermaidValidationRuntime = {
-  initialize(config: unknown): void
-  parse(source: string): Promise<unknown>
-}
-
 const KNOWN_MERMAID_DIAGRAM_TYPES = new Set([
   "architecture",
   "architecture-beta",
@@ -104,7 +99,13 @@ const KNOWN_MERMAID_DIAGRAM_TYPES = new Set([
   "zenuml",
 ])
 
-let mermaidValidationRuntimePromise: Promise<MermaidValidationRuntime> | undefined
+const INCOMPLETE_CONNECTOR_PATTERN = /(?:-->|--|==>|==|-.->|-.|<-->|<--|->>|->|<->|<=>|=>)\s*$/u
+
+const DELIMITER_PAIRS = {
+  "[": "]",
+  "(": ")",
+  "{": "}",
+} as const
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value)
@@ -138,38 +139,130 @@ function toParserDiagramType(diagramType: string): MermaidParserDiagramType | un
   }
 }
 
-async function loadMermaidValidationRuntime(): Promise<MermaidValidationRuntime> {
-  if (!mermaidValidationRuntimePromise) {
-    mermaidValidationRuntimePromise = (async () => {
-      if (typeof document === "undefined" || typeof window === "undefined") {
-        const { GlobalRegistrator } = await import("@happy-dom/global-registrator")
-        GlobalRegistrator.register()
-      }
-
-      const { default: mermaid } = await import("mermaid/dist/mermaid.esm.mjs")
-      mermaid.initialize({
-        startOnLoad: false,
-        securityLevel: "strict",
-        suppressErrorRendering: true,
-      })
-      return mermaid
-    })()
-  }
-
-  return mermaidValidationRuntimePromise
+function nonCommentLines(source: string): string[] {
+  return source
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith("%%"))
 }
 
-async function validateWithFullMermaidRuntime(source: string): Promise<MermaidValidationResult> {
-  try {
-    const runtime = await loadMermaidValidationRuntime()
-    await runtime.parse(source)
-    return { ok: true }
-  } catch (error) {
-    return {
-      ok: false,
-      diagnostics: errorDiagnostics(error),
+function validateBalancedDelimiters(source: string): MermaidValidationResult {
+  let squareDepth = 0
+  let roundDepth = 0
+  let curlyDepth = 0
+
+  for (const character of source) {
+    switch (character) {
+      case "[": {
+        squareDepth += 1
+        break
+      }
+      case "]": {
+        squareDepth -= 1
+        if (squareDepth < 0) {
+          return {
+            ok: false,
+            diagnostics: [`Unbalanced Mermaid delimiters: unexpected '${character}'.`],
+          }
+        }
+        break
+      }
+      case "(": {
+        roundDepth += 1
+        break
+      }
+      case ")": {
+        roundDepth -= 1
+        if (roundDepth < 0) {
+          return {
+            ok: false,
+            diagnostics: [`Unbalanced Mermaid delimiters: unexpected '${character}'.`],
+          }
+        }
+        break
+      }
+      case "{": {
+        curlyDepth += 1
+        break
+      }
+      case "}": {
+        curlyDepth -= 1
+        if (curlyDepth < 0) {
+          return {
+            ok: false,
+            diagnostics: [`Unbalanced Mermaid delimiters: unexpected '${character}'.`],
+          }
+        }
+        break
+      }
+      default:
+        break
     }
   }
+
+  const missing: string[] = []
+  if (squareDepth > 0) {
+    missing.push(DELIMITER_PAIRS["["].repeat(squareDepth))
+  }
+  if (roundDepth > 0) {
+    missing.push(DELIMITER_PAIRS["("].repeat(roundDepth))
+  }
+  if (curlyDepth > 0) {
+    missing.push(DELIMITER_PAIRS["{"].repeat(curlyDepth))
+  }
+
+  if (missing.length > 0) {
+    return {
+      ok: false,
+      diagnostics: [`Unbalanced Mermaid delimiters: missing '${missing.join(" ")}'.`],
+    }
+  }
+
+  return { ok: true }
+}
+
+function validateFallbackMermaidSource(
+  source: string,
+  diagramType: string,
+): MermaidValidationResult {
+  const normalizedType = normalizeDiagramTypeToken(diagramType)
+  if (!KNOWN_MERMAID_DIAGRAM_TYPES.has(normalizedType)) {
+    return {
+      ok: false,
+      diagnostics: [`Unknown Mermaid diagram type: ${diagramType}`],
+    }
+  }
+
+  const lines = nonCommentLines(source)
+  if (lines.length === 0) {
+    return {
+      ok: false,
+      diagnostics: ["Mermaid source is empty."],
+    }
+  }
+
+  const bodyLines = lines.slice(1)
+  if (bodyLines.length === 0 && !/[-=<>:{}()[\]|]/u.test(lines[0] ?? "")) {
+    return {
+      ok: false,
+      diagnostics: ["Mermaid diagram has no body content after the diagram header."],
+    }
+  }
+
+  const incompleteLine = bodyLines.find((line) => INCOMPLETE_CONNECTOR_PATTERN.test(line))
+  if (incompleteLine) {
+    return {
+      ok: false,
+      diagnostics: [`Incomplete Mermaid connector expression: '${incompleteLine}'`],
+    }
+  }
+
+  const delimiterValidation = validateBalancedDelimiters(source)
+  if (!delimiterValidation.ok) {
+    return delimiterValidation
+  }
+
+  return { ok: true }
 }
 
 function errorDiagnostics(error: unknown): string[] {
@@ -208,7 +301,7 @@ async function validateSource(source: string): Promise<MermaidValidationResult> 
 
   const parserType = toParserDiagramType(diagramType)
   if (!parserType) {
-    return validateWithFullMermaidRuntime(source)
+    return validateFallbackMermaidSource(source, diagramType)
   }
 
   try {
