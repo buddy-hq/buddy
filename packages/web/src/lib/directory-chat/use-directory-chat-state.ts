@@ -294,11 +294,13 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
       ? "system-prompt"
       : rightSidebarTab === "capabilities" && props.showCapabilitiesSidebarTab
         ? "capabilities"
-        : rightSidebarTab === RESOURCE_SIDEBAR_TAB
-          ? RESOURCE_SIDEBAR_TAB
-          : rightSidebarTab === "agents-md"
-            ? "agents-md"
-            : selectedSurfaceTab
+        : rightSidebarTab === "diagrams"
+          ? "diagrams"
+          : rightSidebarTab === RESOURCE_SIDEBAR_TAB
+            ? RESOURCE_SIDEBAR_TAB
+            : rightSidebarTab === "agents-md"
+              ? "agents-md"
+              : selectedSurfaceTab
   const editorPanelSizing = rightSidebarActiveTab === "editor"
   const rightSidebarMinWidth = editorPanelSizing ? RIGHT_SIDEBAR_EDITOR_MIN_WIDTH : 200
   const rightSidebarMaxWidth = editorPanelSizing ? 960 : 480

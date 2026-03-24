@@ -53,7 +53,7 @@ function ReleaseUpdateWatcher() {
 
 function RootLayout() {
   return (
-    <div className="h-screen bg-background-base text-text-base flex min-h-0 flex-col">
+    <div className="h-full overflow-hidden bg-background-base text-text-base flex min-h-0 flex-col">
       <ReleaseUpdateWatcher />
       <DesktopTitlebar />
       <div className="min-h-0 flex-1">

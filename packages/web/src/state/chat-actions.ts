@@ -26,7 +26,7 @@ import type {
   SessionInfo,
 } from "./chat-types"
 import type { TeachingIntent, TeachingPromptContext } from "./teaching-runtime"
-import { stringifyError } from "../lib/api-client"
+import { requestJson, stringifyError } from "../lib/api-client"
 import { getBuddyClient, requireBuddyData, buddyResultMessage } from "../lib/buddy-client"
 import type { PromptFilePart, PromptSubmissionPart } from "../components/prompt/prompt-types"
 
@@ -120,6 +120,18 @@ export type LearnerRuntimeCapabilitiesView = {
     allow: string[]
     deny: string[]
   }
+}
+
+export type WorkspaceMermaidArtifactView = {
+  artifactID: string
+  kind: "mermaid.v1"
+  diagramType: string
+  alt: string
+  caption?: string
+  repairAttempts: number
+  repairLog: string[]
+  source: string
+  createdAt: string
 }
 
 export type PromptCommandOption = {
@@ -1001,6 +1013,19 @@ export async function loadRuntimeCapabilities(
       deny: sortedSubagentKeys(subagents, "deny"),
     },
   } satisfies LearnerRuntimeCapabilitiesView
+}
+
+export async function loadWorkspaceMermaidArtifacts(
+  directory: string,
+): Promise<{ artifacts: WorkspaceMermaidArtifactView[] }> {
+  const result = await requestJson<{ artifacts?: WorkspaceMermaidArtifactView[] }>(
+    directory,
+    "/api/mermaid-artifacts",
+  )
+
+  return {
+    artifacts: Array.isArray(result.artifacts) ? result.artifacts : [],
+  }
 }
 
 export type GoalArtifact = {

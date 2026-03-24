@@ -13,6 +13,7 @@ type UiPreferencesStore = {
   rightSidebarWidth: number
   rightSidebarTab:
     | "curriculum"
+    | "diagrams"
     | "editor"
     | "figure"
     | "resources"
@@ -33,6 +34,7 @@ type UiPreferencesStore = {
   setRightSidebarTab: (
     tab:
       | "curriculum"
+      | "diagrams"
       | "editor"
       | "figure"
       | "resources"
@@ -156,7 +158,9 @@ export const useUiPreferences = create<UiPreferencesStore>()(
                         ? "figure"
                         : state?.rightSidebarTab === "editor"
                           ? "editor"
-                          : "curriculum",
+                          : state?.rightSidebarTab === "diagrams"
+                            ? "diagrams"
+                            : "curriculum",
         }
       },
       partialize(state) {

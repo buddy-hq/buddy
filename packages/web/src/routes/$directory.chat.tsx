@@ -756,6 +756,7 @@ function DirectoryChatPage() {
     if (cs.rightSidebarActiveTab === "capabilities" && showCapabilitiesSidebarTab) return
     if (cs.rightSidebarActiveTab === RESOURCE_SIDEBAR_TAB) return
     if (cs.rightSidebarActiveTab === "agents-md") return
+    if (cs.rightSidebarActiveTab === "diagrams") return
 
     if (nextPersona.surfaces.includes("editor") && cs.teachingWorkspace) {
       cs.setRightSidebarTab("editor")
@@ -967,6 +968,7 @@ function DirectoryChatPage() {
                   ) : (
                     <ChatTranscript
                       messages={cs.messages}
+                      directory={decodedDirectory}
                       providers={cs.providers}
                       isBusy={cs.isBusy}
                       onOpenSession={(targetSessionID) => {
