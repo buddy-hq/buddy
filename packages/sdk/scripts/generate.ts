@@ -50,7 +50,7 @@ async function loadSchema() {
     const schema = (await response.json()) as OpenAPISchema
     return normalizePaths(schema)
   } catch {
-    const { app } = await import("../../buddy/src/index.ts")
+    const { app } = await import("@buddy/backend")
     const schema = (await generateSpecs(app, {
       documentation: {
         info: {
