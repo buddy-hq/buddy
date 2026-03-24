@@ -295,7 +295,7 @@ function DirectoryThreadRow(props: DirectoryThreadRowProps) {
 
   return (
     <div
-      className={`group/thread relative ml-1.5 rounded-lg ${
+      className={`group/thread relative ml-2 rounded-lg ${
         active ? "bg-surface-raised-base-hover" : "hover:bg-surface-raised-base-hover"
       }`}
     >
