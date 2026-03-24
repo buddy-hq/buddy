@@ -10,6 +10,7 @@ import {
   pedagogyStepwiseSolveTool,
   pedagogyTransferCheckTool,
 } from "../../capabilities/pedagogy/tools/definitions"
+import { renderMermaidTool } from "../../capabilities/figures/mermaid/tools/render-mermaid"
 import type { BuddyTool } from "../../tools"
 
 export type ToolCapability = {
@@ -65,6 +66,7 @@ export const TOOL_CAPABILITY_REGISTRY = [
   createToolCapability(pedagogyResourceIngestFullTextTool),
   createToolCapability(pedagogyRetrievalCheckTool),
   createToolCapability(pedagogyTransferCheckTool),
+  createToolCapability(renderMermaidTool),
 ] as const satisfies readonly ToolCapability[]
 
 type ListedToolCapability = {
