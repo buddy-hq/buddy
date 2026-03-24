@@ -1,6 +1,7 @@
 import { useMemo } from "react"
 import type { SessionInfo } from "@/state/chat-types"
 import { findRootSessionID, sessionFamilyIDs } from "./thread-helpers"
+import type { DirectoryGroup, OrganizeMode, ShowMode, SortMode } from "./types"
 
 type UseDirectoryGroupsProps = {
   directories: string[]
@@ -10,9 +11,9 @@ type UseDirectoryGroupsProps = {
   sessionStatusByDirectory: Record<string, Record<string, "busy" | "idle">>
   currentDirectory: string
   activeSessionID?: string
-  organizeMode: "project" | "chronological"
-  showMode: "all" | "relevant"
-  sortMode: "created" | "updated"
+  organizeMode: OrganizeMode
+  showMode: ShowMode
+  sortMode: SortMode
 }
 
 function getSortTimestamp(session: SessionInfo, sortMode: "created" | "updated") {
@@ -21,7 +22,7 @@ function getSortTimestamp(session: SessionInfo, sortMode: "created" | "updated")
     : (session.time.updated ?? session.time.created)
 }
 
-export function useDirectoryGroups(props: UseDirectoryGroupsProps) {
+export function useDirectoryGroups(props: UseDirectoryGroupsProps): DirectoryGroup[] {
   return useMemo(() => {
     const groups = props.directories
       .map((directory) => {
