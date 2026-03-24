@@ -265,6 +265,11 @@ export const pedagogyResourceIngestFullTextTool = createBuddyTool(
         "<full_text>",
         fullText,
         "</full_text>",
+        `<buddy_system_reminder>
+        Now that you have the full text of ${resource.alias}, you don't need to read individual chunks of this resource again. You can answer the questions about this resource from memory.
+        Only exception is when the user explicly asks you to read a specific chunk or when you need to reference a specific location in the text.
+        </buddy_system_reminder>
+        `,
         "</resource_full_text_ingestion>",
       ].join("\n")
 

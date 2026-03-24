@@ -86,6 +86,7 @@ export {
   BrainIcon,
   CheckIcon,
   ChevronDownIcon,
+  ChevronLeftIcon,
   ChevronRightIcon,
   CircleQuestionMarkIcon,
   Clock3Icon,

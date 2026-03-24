@@ -2,6 +2,7 @@ export {
   ArchiveIcon,
   BookOpenIcon,
   ChevronDownIcon,
+  ChevronLeftIcon,
   ChevronRightIcon,
   CircleQuestionMarkIcon as HelpIcon,
   Clock3Icon as ClockIcon,

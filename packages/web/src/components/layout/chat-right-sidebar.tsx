@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import {
   Badge,
   Button,
@@ -19,7 +19,7 @@ import {
 } from "@/state/chat-actions"
 import type { TeachingIntent } from "@/state/teaching-runtime"
 import { WorkspaceMermaidPanel } from "./workspace-mermaid-panel"
-import { XIcon } from "./sidebar-icons"
+import { ChevronRightIcon, ChevronLeftIcon } from "./sidebar-icons"
 
 export type ChatRightSidebarTab =
   | "curriculum"
@@ -112,8 +112,37 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
     LearnerRuntimeCapabilitiesView | undefined
   >(undefined)
   const [rawSnapshotOpen, setRawSnapshotOpen] = useState(false)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [showLeftArrow, setShowLeftArrow] = useState(false)
+  const [showRightArrow, setShowRightArrow] = useState(false)
   const capabilitiesTabEnabled = props.showCapabilitiesTab === true
   const systemPromptTabEnabled = props.showSystemPromptTab === true
+
+  const checkScroll = useCallback(() => {
+    if (scrollRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current
+      setShowLeftArrow(scrollLeft > 0)
+      setShowRightArrow(Math.ceil(scrollLeft + clientWidth) < scrollWidth - 1)
+    }
+  }, [])
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+
+    checkScroll()
+    el.addEventListener("scroll", checkScroll)
+    const observer = new ResizeObserver(checkScroll)
+    observer.observe(el)
+    const contentEl = el.firstElementChild
+    if (contentEl) {
+      observer.observe(contentEl)
+    }
+    return () => {
+      el.removeEventListener("scroll", checkScroll)
+      observer.disconnect()
+    }
+  }, [checkScroll])
 
   const activeTab =
     props.activeTab === "system-prompt" && systemPromptTabEnabled
@@ -214,9 +243,27 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
     <aside
       className={`shrink-0 overflow-hidden border-l bg-surface-raised-base flex flex-col min-h-0 ${props.className ?? ""}`}
     >
-      <header className="flex items-center justify-between gap-2 border-b px-3 py-2">
-        <div className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <div className="flex w-max items-center gap-1 pr-1">
+      <header className="flex items-center justify-between gap-1 border-b px-2 py-2">
+        <div className="flex w-6 shrink-0 items-center justify-center">
+          {showLeftArrow && (
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              className="shrink-0"
+              onClick={() => {
+                const el = scrollRef.current
+                if (el) el.scrollBy({ left: -el.clientWidth, behavior: "smooth" })
+              }}
+            >
+              <ChevronLeftIcon className="size-4 text-text-weak" />
+            </Button>
+          )}
+        </div>
+        <div
+          ref={scrollRef}
+          className="min-w-0 flex-1 overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          <div className="flex w-max items-center gap-1 px-1">
             <Button
               variant={activeTab === "curriculum" ? "secondary" : "ghost"}
               size="sm"
@@ -285,15 +332,21 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
             ) : null}
           </div>
         </div>
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          onClick={props.onClose}
-          title="Close panel"
-          className="shrink-0"
-        >
-          <XIcon className="size-3.5" />
-        </Button>
+        <div className="flex w-6 shrink-0 items-center justify-center">
+          {showRightArrow && (
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              className="shrink-0"
+              onClick={() => {
+                const el = scrollRef.current
+                if (el) el.scrollBy({ left: el.clientWidth, behavior: "smooth" })
+              }}
+            >
+              <ChevronRightIcon className="size-4 text-text-weak" />
+            </Button>
+          )}
+        </div>
       </header>
 
       {activeTab === "editor" ? (
