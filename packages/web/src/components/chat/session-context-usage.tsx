@@ -8,12 +8,6 @@ type SessionContextUsageProps = {
   providers: ProviderInfo[]
 }
 
-function usageColor(usage: number) {
-  if (usage >= 90) return "var(--surface-critical-base)"
-  if (usage >= 70) return "var(--surface-warning-base)"
-  return "var(--surface-success-base)"
-}
-
 export function SessionContextUsage(props: SessionContextUsageProps) {
   const metrics = useMemo(
     () => getSessionContextMetrics(props.messages, props.providers),
@@ -22,7 +16,7 @@ export function SessionContextUsage(props: SessionContextUsageProps) {
 
   const context = metrics.context
   const usage = Math.max(0, Math.min(context?.usage ?? 0, 100))
-  const color = usageColor(usage)
+  const color = "var(--text-base)"
   const cost = new Intl.NumberFormat(undefined, {
     style: "currency",
     currency: "USD",
@@ -44,14 +38,22 @@ export function SessionContextUsage(props: SessionContextUsageProps) {
           <span className="absolute inset-[3px] rounded-full bg-background-base" />
         </span>
       </TooltipTrigger>
-      <TooltipContent side="top" sideOffset={6} className="px-2 py-1 text-[11px]">
-        {context ? (
-          <div>{context.total.toLocaleString()} tokens</div>
-        ) : (
-          <div>No token usage yet</div>
-        )}
-        <div>{context?.usage ?? 0}% usage</div>
-        <div>{cost} cost</div>
+      <TooltipContent side="top" sideOffset={6} className="flex min-w-32 flex-col gap-1.5 p-2.5 text-[11px]">
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-text-weak">Tokens Used</span>
+          <span className="font-medium text-text-strong">
+            {context ? context.total.toLocaleString() : "0"}
+          </span>
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-text-weak">Context Usage</span>
+          <span className="font-medium text-text-strong">{context?.usage ?? 0}%</span>
+        </div>
+        <div className="my-0.5 h-px bg-border-base/40" />
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-text-weak">Session Cost</span>
+          <span className="font-semibold text-text-strong">{cost}</span>
+        </div>
       </TooltipContent>
     </Tooltip>
   )
