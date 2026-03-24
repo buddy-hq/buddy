@@ -84,6 +84,7 @@ type PromptComposerToolbarProps = {
   selectedThinking: string
   thinkingOptions: Array<{ key: string; label: string }>
   onThinkingChange: (thinking: string) => void
+  sessionContextUsage?: React.ReactNode
 }
 
 export function PromptComposerToolbar(props: PromptComposerToolbarProps) {
@@ -245,6 +246,8 @@ export function PromptComposerToolbar(props: PromptComposerToolbarProps) {
               ))}
             </SelectContent>
           </Select>
+
+          {props.sessionContextUsage}
         </div>
       </div>
     </div>

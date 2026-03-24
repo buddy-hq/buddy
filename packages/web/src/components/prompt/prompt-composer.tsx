@@ -88,6 +88,7 @@ type PromptComposerProps = {
   onSearchFiles?: (query: string) => Promise<MentionableFile[]>
   onRefreshSlashCommands?: () => void
   className?: string
+  sessionContextUsage?: React.ReactNode
 }
 
 const NON_EMPTY_TEXT = /[^\s\u200B]/
@@ -715,6 +716,7 @@ export function PromptComposer(props: PromptComposerProps) {
         selectedThinking={props.selectedThinking}
         thinkingOptions={props.thinkingOptions}
         onThinkingChange={props.onThinkingChange}
+        sessionContextUsage={props.sessionContextUsage}
       />
 
       <Dialog
