@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react"
 import { Badge } from "@buddy/ui"
 import { Markdown } from "@/components/Markdown"
 import {
@@ -7,6 +8,7 @@ import {
   DiagnosticList,
   ApplyPatchFileItem,
   CopyAction,
+  MermaidDiagram,
 } from "../shared"
 import {
   isRecord,
@@ -20,8 +22,15 @@ import {
   unwrapError,
 } from "../shared/utils"
 import { resolveApiUrl } from "../../../lib/api-client"
+import { getBuddyClient, requireBuddyData } from "../../../lib/buddy-client"
 import type { ToolPartProps } from "./registry"
-import type { ToolDiagnostic, ApplyPatchFile, RenderFigureToolOutput, ToolQuestion } from "./types"
+import type {
+  ToolDiagnostic,
+  ApplyPatchFile,
+  RenderFigureToolOutput,
+  RenderMermaidToolOutput,
+  ToolQuestion,
+} from "./types"
 import { registerTool } from "./registry"
 import { cn } from "@buddy/ui"
 
@@ -422,6 +431,14 @@ function stripUrlCredentials(value: string): string {
   }
 }
 
+function resolveCopyableApiUrl(value: string): string {
+  try {
+    return stripUrlCredentials(resolveApiUrl(value))
+  } catch {
+    return value
+  }
+}
+
 export function parseRenderFigureOutput(
   state: ToolPartProps["state"],
 ): RenderFigureToolOutput | undefined {
@@ -491,6 +508,305 @@ function renderRenderFigureTool({ state, info }: ToolPartProps) {
             : "rendered automatically from tool output"}
         </span>
       </div>
+    </BasicTool>
+  )
+}
+
+type RenderMermaidToolReference = Omit<RenderMermaidToolOutput, "source"> & {
+  source?: string
+}
+
+type MermaidArtifactRoutePayload = {
+  artifactID: string
+  diagramType: string
+  alt: string
+  caption?: string
+  repairAttempts: number
+  repairLog: string[]
+  source: string
+}
+
+const MERMAID_ARTIFACT_CACHE_LIMIT = 200
+const mermaidArtifactCache = new Map<string, MermaidArtifactRoutePayload>()
+const mermaidArtifactRequests = new Map<string, Promise<MermaidArtifactRoutePayload>>()
+
+function touchMermaidArtifactCache(key: string, value: MermaidArtifactRoutePayload): void {
+  mermaidArtifactCache.delete(key)
+  mermaidArtifactCache.set(key, value)
+
+  if (mermaidArtifactCache.size <= MERMAID_ARTIFACT_CACHE_LIMIT) {
+    return
+  }
+
+  const oldest = mermaidArtifactCache.keys().next().value
+  if (typeof oldest === "string") {
+    mermaidArtifactCache.delete(oldest)
+  }
+}
+
+function parseRenderMermaidReference(
+  state: ToolPartProps["state"],
+): RenderMermaidToolReference | undefined {
+  if (readString(state.metadata.artifact) !== "RenderMermaidOutput") {
+    return undefined
+  }
+
+  const value = isRecord(state.metadata.value) ? state.metadata.value : undefined
+  if (!value) {
+    return undefined
+  }
+
+  const artifactID = readNonEmptyString(value.artifactID)
+  const artifactUrl =
+    readNonEmptyString(value.artifactUrl) ?? `/api/mermaid-artifacts/${artifactID ?? "unknown"}`
+  const diagramType = readNonEmptyString(value.diagramType) ?? "mermaid"
+  const alt = readNonEmptyString(value.alt) ?? "Mermaid diagram"
+  const caption = readNonEmptyString(value.caption)
+  const repairAttempts = readNonNegativeInt(value.repairAttempts) ?? 0
+  const source = readNonEmptyString(value.source)
+  const repairLog = Array.isArray(value.repairLog)
+    ? value.repairLog.filter((entry): entry is string => typeof entry === "string")
+    : []
+
+  if (!artifactID) {
+    return undefined
+  }
+
+  return {
+    artifactID,
+    artifactUrl,
+    diagramType,
+    repairAttempts,
+    repairLog,
+    alt,
+    ...(caption ? { caption } : {}),
+    ...(source ? { source } : {}),
+  }
+}
+
+export function parseRenderMermaidOutput(
+  state: ToolPartProps["state"],
+): RenderMermaidToolOutput | undefined {
+  const parsed = parseRenderMermaidReference(state)
+  if (!parsed?.source) {
+    return undefined
+  }
+
+  return {
+    artifactID: parsed.artifactID,
+    artifactUrl: parsed.artifactUrl,
+    source: parsed.source,
+    diagramType: parsed.diagramType,
+    repairAttempts: parsed.repairAttempts,
+    repairLog: [...parsed.repairLog],
+    alt: parsed.alt,
+    ...(parsed.caption ? { caption: parsed.caption } : {}),
+  }
+}
+
+function parseMermaidArtifactResponse(value: unknown): MermaidArtifactRoutePayload | undefined {
+  if (!isRecord(value)) {
+    return undefined
+  }
+
+  const artifactID = readNonEmptyString(value.artifactID)
+  const diagramType = readNonEmptyString(value.diagramType)
+  const alt = readNonEmptyString(value.alt)
+  const caption = readNonEmptyString(value.caption)
+  const repairAttempts = readNonNegativeInt(value.repairAttempts)
+  const source = readNonEmptyString(value.source)
+  const repairLog = Array.isArray(value.repairLog)
+    ? value.repairLog.filter((entry): entry is string => typeof entry === "string")
+    : []
+
+  if (!artifactID || !diagramType || !alt || repairAttempts === undefined || !source) {
+    return undefined
+  }
+
+  return {
+    artifactID,
+    diagramType,
+    alt,
+    repairAttempts,
+    repairLog,
+    source,
+    ...(caption ? { caption } : {}),
+  }
+}
+
+async function fetchMermaidArtifact(
+  directory: string,
+  artifactID: string,
+): Promise<MermaidArtifactRoutePayload> {
+  const key = `${directory}::${artifactID}`
+  const cached = mermaidArtifactCache.get(key)
+  if (cached) {
+    touchMermaidArtifactCache(key, cached)
+    return cached
+  }
+
+  const existing = mermaidArtifactRequests.get(key)
+  if (existing) {
+    return existing
+  }
+
+  const request = getBuddyClient(directory)
+    .mermaidArtifacts.read({
+      artifactID,
+    })
+    .then((result) => {
+      const payload = parseMermaidArtifactResponse(requireBuddyData(result))
+      if (!payload) {
+        throw new Error("Mermaid artifact payload is missing required fields.")
+      }
+      touchMermaidArtifactCache(key, payload)
+      return payload
+    })
+    .finally(() => {
+      mermaidArtifactRequests.delete(key)
+    })
+
+  mermaidArtifactRequests.set(key, request)
+  return request
+}
+
+function renderRenderMermaidTool(props: ToolPartProps) {
+  return <RenderMermaidToolCard {...props} />
+}
+
+function RenderMermaidToolCard({ state, info, directory }: ToolPartProps) {
+  const output = state.output || (state.error ? unwrapError(state.error) : "")
+  const showOutput = output.trim().length > 0
+  const parsed = state.status === "completed" ? parseRenderMermaidReference(state) : undefined
+  const parsedArtifactID = parsed?.artifactID
+  const parsedSource = parsed?.source
+  const parsedArtifactUrl = parsed?.artifactUrl
+  const parsedKey = parsed ? `${parsed.artifactID}:${parsedSource ?? ""}` : ""
+
+  const [rehydrated, setRehydrated] = useState<MermaidArtifactRoutePayload | undefined>(undefined)
+  const [rehydrationError, setRehydrationError] = useState<string | undefined>(undefined)
+
+  useEffect(() => {
+    setRehydrated(undefined)
+    setRehydrationError(undefined)
+
+    if (state.status !== "completed") {
+      return
+    }
+    if (!parsedKey || parsedSource || !parsedArtifactID) {
+      return
+    }
+    if (!directory) {
+      setRehydrationError("Mermaid source was compacted and no workspace directory is available.")
+      return
+    }
+
+    let cancelled = false
+    void fetchMermaidArtifact(directory, parsedArtifactID)
+      .then((artifact) => {
+        if (cancelled) return
+        setRehydrated(artifact)
+      })
+      .catch((error) => {
+        if (cancelled) return
+        setRehydrationError(error instanceof Error ? error.message : String(error))
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [directory, parsedArtifactID, parsedKey, parsedSource, state.status])
+
+  if (!parsed) {
+    return (
+      <BasicTool
+        trigger={{ title: info.title, subtitle: info.subtitle }}
+        status={state.status}
+        hideDetails
+      >
+        {state.status === "error" && showOutput ? (
+          <ToolOutputPanel output={output} status={state.status} copyLabel="Copy output" />
+        ) : null}
+      </BasicTool>
+    )
+  }
+
+  const source = parsedSource ?? rehydrated?.source
+  const diagramType = parsedSource
+    ? parsed.diagramType
+    : (rehydrated?.diagramType ?? parsed.diagramType)
+  const caption = parsed.caption ?? rehydrated?.caption
+  const alt = parsedSource ? parsed.alt : (rehydrated?.alt ?? parsed.alt)
+  const repairAttempts = parsedSource
+    ? parsed.repairAttempts
+    : (rehydrated?.repairAttempts ?? parsed.repairAttempts)
+  const repairLog = parsed.repairLog.length > 0 ? parsed.repairLog : (rehydrated?.repairLog ?? [])
+  const copyableArtifactUrl = parsedArtifactUrl
+    ? resolveCopyableApiUrl(parsedArtifactUrl)
+    : undefined
+
+  const isRehydrating =
+    state.status === "completed" &&
+    !source &&
+    !!parsedArtifactID &&
+    !!directory &&
+    !rehydrationError &&
+    !rehydrated
+
+  return (
+    <BasicTool
+      trigger={{ title: info.title, subtitle: info.subtitle }}
+      status={state.status}
+      hideDetails
+    >
+      {source ? (
+        <MermaidDiagram
+          source={source}
+          artifactID={parsed.artifactID}
+          alt={alt}
+          className="rounded-lg border border-border-base bg-background-base p-3"
+          failureClassName="rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 p-3 text-sm text-icon-critical-base"
+          showRawSourceOnError
+        />
+      ) : null}
+
+      {isRehydrating ? (
+        <div className="rounded-lg border border-border-base bg-background-base p-3 text-sm text-text-weak">
+          Rehydrating Mermaid source from durable artifact...
+        </div>
+      ) : null}
+
+      {!source && !isRehydrating ? (
+        <div className="rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 p-3 text-sm text-icon-critical-base">
+          Mermaid source is unavailable for rendering.
+        </div>
+      ) : null}
+
+      {caption ? <div className="mt-1 text-sm text-text-weak">{caption}</div> : null}
+
+      {rehydrationError ? (
+        <div className="mt-2 text-sm text-text-weak">{rehydrationError}</div>
+      ) : null}
+
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <CopyAction value={parsed.artifactID} label="Copy artifact ID" />
+        {copyableArtifactUrl ? (
+          <CopyAction value={copyableArtifactUrl} label="Copy artifact URL" />
+        ) : null}
+        <span className="text-xs text-text-weak">
+          {repairAttempts > 0
+            ? `repaired ${repairAttempts} ${repairAttempts === 1 ? "time" : "times"}`
+            : `rendered as ${diagramType}`}
+        </span>
+      </div>
+
+      {repairLog.length > 0 ? (
+        <div className="mt-2 text-xs text-text-weak">{repairLog.join(" ")}</div>
+      ) : null}
+
+      {state.status === "error" && showOutput ? (
+        <ToolOutputPanel output={output} status={state.status} copyLabel="Copy output" />
+      ) : null}
     </BasicTool>
   )
 }
@@ -665,6 +981,10 @@ registerTool({ name: "render_figure", render: renderRenderFigureTool })
 registerTool({
   name: "render_freeform_figure",
   render: renderRenderFigureTool,
+})
+registerTool({
+  name: "render_mermaid",
+  render: renderRenderMermaidTool,
 })
 
 // Interactive tools
