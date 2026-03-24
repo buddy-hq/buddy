@@ -8,6 +8,7 @@ export {
   Clock3Icon as ClockIcon,
   EllipsisIcon as EllipsisHorizontalIcon,
   FolderIcon,
+  FolderOpenIcon,
   FolderPlusIcon,
   PanelLeftCloseIcon as LayoutLeftPartialIcon,
   PanelLeftOpenIcon as LayoutLeftIcon,

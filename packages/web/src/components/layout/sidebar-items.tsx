@@ -1,6 +1,7 @@
 import type { SessionInfo } from "@/state/chat-types"
 import { projectInitials, relativeTime } from "./sidebar-helpers"
 import { PlusIcon } from "./sidebar-icons"
+import { LoaderCircleIcon } from "lucide-react"
 
 type ProjectIconProps = {
   project: string
@@ -37,16 +38,21 @@ export function SessionItem(props: SessionItemProps) {
     <button
       type="button"
       onClick={props.onSelect}
-      className={`group/session relative w-full rounded-md pl-2 pr-2 py-1 text-left transition-colors ${
+      className={`group/session relative w-full rounded-md pl-6 pr-2 py-1 text-left transition-colors ${
         props.active
           ? "bg-surface-weak border border-border-base"
           : "border border-transparent hover:bg-surface-weak/40 hover:border-border-base/70"
       }`}
     >
-      <div className="flex items-center gap-2 min-w-0">
-        <span
-          className={`inline-block size-1.5 rounded-full shrink-0 ${props.busy ? "bg-surface-warning-base" : "bg-surface-success-base"}`}
-        />
+      <div className="absolute left-2 top-1.5 flex items-center justify-center">
+        {props.busy ? (
+          <LoaderCircleIcon
+            className="size-3 shrink-0 animate-spin text-icon-warning-base"
+            aria-hidden="true"
+          />
+        ) : null}
+      </div>
+      <div className="flex items-center min-w-0">
         <span className="text-sm truncate">{props.session.title || "New chat"}</span>
       </div>
       <div className="mt-0.5 flex items-center justify-between text-[11px] text-text-weak">
