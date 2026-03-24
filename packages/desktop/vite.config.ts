@@ -14,14 +14,6 @@ export default defineConfig({
   resolve: {
     alias: [
       {
-        find: /^@\/lib\//,
-        replacement: `${path.resolve(__dirname, "../ui/src/lib")}/`,
-      },
-      {
-        find: /^@\/components\/ui\//,
-        replacement: `${path.resolve(__dirname, "../ui/src/components/ui")}/`,
-      },
-      {
         find: "@",
         replacement: path.resolve(__dirname, "../web/src"),
       },

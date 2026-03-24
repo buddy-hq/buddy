@@ -7,7 +7,7 @@
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*", "../web/src/*", "../ui/src/*"]
+      "@/*": ["./src/*", "../web/src/*"]
     },
     "outDir": "./dist"
   },
