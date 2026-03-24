@@ -26,7 +26,7 @@ import type {
   SessionInfo,
 } from "./chat-types"
 import type { TeachingIntent, TeachingPromptContext } from "./teaching-runtime"
-import { requestJson, stringifyError } from "../lib/api-client"
+import { stringifyError } from "../lib/api-client"
 import { getBuddyClient, requireBuddyData, buddyResultMessage } from "../lib/buddy-client"
 import type { PromptFilePart, PromptSubmissionPart } from "../components/prompt/prompt-types"
 
@@ -228,6 +228,31 @@ function asString(value: unknown, fallback = ""): string {
 function asStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return []
   return value.filter((item): item is string => typeof item === "string")
+}
+
+function isMessageWithParts(value: unknown): value is MessageWithParts {
+  const record = asRecord(value)
+  if (!record) return false
+  if (!("info" in record)) return false
+  if (!Array.isArray(record.parts)) return false
+  return true
+}
+
+function isMessageWithPartsArray(value: unknown): value is MessageWithParts[] {
+  return Array.isArray(value) && value.every((entry) => isMessageWithParts(entry))
+}
+
+function parseSessionMessagesPayload(value: unknown): MessageWithParts[] {
+  if (isMessageWithPartsArray(value)) {
+    return value
+  }
+
+  const record = asRecord(value)
+  if (record && isMessageWithPartsArray(record.messages)) {
+    return record.messages
+  }
+
+  throw new Error("Session messages payload must be an array of message parts.")
 }
 
 function asBoolean(value: unknown, fallback = false): boolean {
@@ -526,11 +551,12 @@ export async function loadSessions(directory: string) {
 export async function loadMessages(directory: string, sessionID: string) {
   const store = useChatStore.getState()
   try {
-    const messages = requireBuddyData<SessionMessagesResponses[200]>(
+    const payload = requireBuddyData<SessionMessagesResponses[200]>(
       await getBuddyClient(directory).session.messages({
         sessionID,
       }),
-    ) as MessageWithParts[]
+    )
+    const messages = parseSessionMessagesPayload(payload)
     store.setMessages(directory, sessionID, messages)
     store.setDirectoryError(directory, undefined)
     return messages
@@ -1018,9 +1044,10 @@ export async function loadRuntimeCapabilities(
 export async function loadWorkspaceMermaidArtifacts(
   directory: string,
 ): Promise<{ artifacts: WorkspaceMermaidArtifactView[] }> {
-  const result = await requestJson<{ artifacts?: WorkspaceMermaidArtifactView[] }>(
-    directory,
-    "/api/mermaid-artifacts",
+  const result = requireBuddyData(
+    await getBuddyClient(directory).mermaidArtifacts.list({
+      directory,
+    }),
   )
 
   return {

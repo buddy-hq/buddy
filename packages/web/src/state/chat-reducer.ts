@@ -7,6 +7,10 @@ function isAssistantMessage(
 }
 
 export function inferBusyFromMessages(messages: MessageWithParts[]) {
+  if (!Array.isArray(messages)) {
+    return false
+  }
+
   const assistantMessages = messages.filter(isAssistantMessage)
   const lastAssistant = assistantMessages[assistantMessages.length - 1]
   if (!lastAssistant) return false

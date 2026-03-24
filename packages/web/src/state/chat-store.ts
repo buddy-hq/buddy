@@ -325,9 +325,10 @@ export const useChatStore = create<ChatStore>()(
             return state
           }
 
+          const nextMessages = Array.isArray(messages) ? messages : []
           const nextSessionID = current.sessionID ?? sessionID
           const activeInfo = current.sessions.find((session) => session.id === nextSessionID)
-          const inferredBusy = inferBusyFromMessages(messages)
+          const inferredBusy = inferBusyFromMessages(nextMessages)
           return {
             directories: {
               ...state.directories,
@@ -335,7 +336,7 @@ export const useChatStore = create<ChatStore>()(
                 ...current,
                 sessionID: nextSessionID,
                 sessionTitle: activeInfo?.title ?? current.sessionTitle,
-                messages,
+                messages: nextMessages,
                 isBusy: inferredBusy,
                 sessionStatusByID: {
                   ...current.sessionStatusByID,
