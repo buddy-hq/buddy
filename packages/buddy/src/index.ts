@@ -10,6 +10,7 @@ import { ConfigRoutes } from "./routes"
 import { FigureRoutes } from "./routes"
 import { FreeformFigureRoutes } from "./routes"
 import { LearnerRoutes } from "./routes"
+import { MermaidArtifactRoutes } from "./routes"
 import { runSafetySweep } from "./learning/learner-model"
 import { GlobalRoutes } from "./routes"
 import { McpRoutes } from "./routes"
@@ -60,6 +61,7 @@ api.use("*", async (c, next) => {
 
 api.route("/figures", FigureRoutes)
 api.route("/freeform-figures", FreeformFigureRoutes)
+api.route("/mermaid-artifacts", MermaidArtifactRoutes)
 api.route("/learner", LearnerRoutes)
 api.route("/teaching", TeachingRoutes)
 api.route("/agents-md", AgentsMdRoutes)

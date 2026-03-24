@@ -33,6 +33,7 @@ export async function runSessionTransformProxy(input: {
     registerCurriculumTools: true,
     registerFigureTools: true,
     registerFreeformFigureTools: true,
+    registerMermaidTools: true,
     registerGoalTools: true,
     registerLearnerTools: true,
     registerTeachingTools: true,
