@@ -55,7 +55,7 @@
     "check:vendor": "bun run typecheck && bun run test",
     "vendor:sync": "git subtree pull --prefix vendor/opencode opencode-upstream dev --squash -m \"chore(vendor): sync opencode mirror\"",
     "hooks:install": "git config core.hooksPath .githooks",
-    "lint": "oxlint --report-unused-disable-directives",
+    "lint": "bun ./script/check-import-contract.ts && oxlint --report-unused-disable-directives",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
     "sdk:generate": "bun run --cwd packages/sdk generate",
