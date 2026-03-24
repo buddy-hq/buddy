@@ -21,6 +21,7 @@ const BUILTIN_BUDDY_PERSONAS = {
       learner_snapshot_read: "allow",
       learner_practice_record: "allow",
       learner_assessment_record: "allow",
+      render_mermaid: "allow",
     },
     subagentDefaults: {
       "curriculum-orchestrator": "prefer",
@@ -53,6 +54,7 @@ const BUILTIN_BUDDY_PERSONAS = {
       teaching_add_file: "allow",
       teaching_set_lesson: "allow",
       teaching_restore_checkpoint: "allow",
+      render_mermaid: "allow",
     },
     subagentDefaults: {
       "practice-agent": "prefer",
@@ -83,6 +85,7 @@ const BUILTIN_BUDDY_PERSONAS = {
       learner_assessment_record: "allow",
       render_figure: "allow",
       render_freeform_figure: "allow",
+      render_mermaid: "allow",
       python_calculator: "allow",
     },
     subagentDefaults: {

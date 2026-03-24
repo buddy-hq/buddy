@@ -17,6 +17,7 @@ export const BUDDY_AGENT = registerBuddyAgent({
       learner_snapshot_read: "allow",
       learner_practice_record: "allow",
       learner_assessment_record: "allow",
+      render_mermaid: "allow",
       python_calculator: "deny",
       todoread: "deny",
       todowrite: "deny",
