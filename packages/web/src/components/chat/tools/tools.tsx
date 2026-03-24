@@ -431,14 +431,6 @@ function stripUrlCredentials(value: string): string {
   }
 }
 
-function resolveCopyableApiUrl(value: string): string {
-  try {
-    return stripUrlCredentials(resolveApiUrl(value))
-  } catch {
-    return value
-  }
-}
-
 export function parseRenderFigureOutput(
   state: ToolPartProps["state"],
 ): RenderFigureToolOutput | undefined {
@@ -680,7 +672,6 @@ function RenderMermaidToolCard({ state, info, directory }: ToolPartProps) {
   const parsed = state.status === "completed" ? parseRenderMermaidReference(state) : undefined
   const parsedArtifactID = parsed?.artifactID
   const parsedSource = parsed?.source
-  const parsedArtifactUrl = parsed?.artifactUrl
   const parsedKey = parsed ? `${parsed.artifactID}:${parsedSource ?? ""}` : ""
 
   const [rehydrated, setRehydrated] = useState<MermaidArtifactRoutePayload | undefined>(undefined)
@@ -735,16 +726,8 @@ function RenderMermaidToolCard({ state, info, directory }: ToolPartProps) {
   const diagramType = parsedSource
     ? parsed.diagramType
     : (rehydrated?.diagramType ?? parsed.diagramType)
-  const caption = parsed.caption ?? rehydrated?.caption
   const alt = parsedSource ? parsed.alt : (rehydrated?.alt ?? parsed.alt)
-  const repairAttempts = parsedSource
-    ? parsed.repairAttempts
-    : (rehydrated?.repairAttempts ?? parsed.repairAttempts)
   const repairLog = parsed.repairLog.length > 0 ? parsed.repairLog : (rehydrated?.repairLog ?? [])
-  const copyableArtifactUrl = parsedArtifactUrl
-    ? resolveCopyableApiUrl(parsedArtifactUrl)
-    : undefined
-
   const isRehydrating =
     state.status === "completed" &&
     !source &&
@@ -755,8 +738,16 @@ function RenderMermaidToolCard({ state, info, directory }: ToolPartProps) {
 
   return (
     <BasicTool
-      trigger={{ title: info.title, subtitle: info.subtitle }}
+      trigger={{
+        title: alt,
+        trailing: (
+          <Badge variant="outline" className="text-[11px] text-text-weak">
+            {diagramType}
+          </Badge>
+        ),
+      }}
       status={state.status}
+      hideStatus
       hideDetails
     >
       {source ? (
@@ -782,23 +773,9 @@ function RenderMermaidToolCard({ state, info, directory }: ToolPartProps) {
         </div>
       ) : null}
 
-      {caption ? <div className="mt-1 text-sm text-text-weak">{caption}</div> : null}
-
       {rehydrationError ? (
         <div className="mt-2 text-sm text-text-weak">{rehydrationError}</div>
       ) : null}
-
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        <CopyAction value={parsed.artifactID} label="Copy artifact ID" />
-        {copyableArtifactUrl ? (
-          <CopyAction value={copyableArtifactUrl} label="Copy artifact URL" />
-        ) : null}
-        <span className="text-xs text-text-weak">
-          {repairAttempts > 0
-            ? `repaired ${repairAttempts} ${repairAttempts === 1 ? "time" : "times"}`
-            : `rendered as ${diagramType}`}
-        </span>
-      </div>
 
       {repairLog.length > 0 ? (
         <div className="mt-2 text-xs text-text-weak">{repairLog.join(" ")}</div>
