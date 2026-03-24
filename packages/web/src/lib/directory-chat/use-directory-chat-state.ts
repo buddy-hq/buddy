@@ -239,22 +239,21 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
   )
   const sessionsByDirectory = useMemo(
     () =>
-      Object.fromEntries(
-        validOpenProjects.map((directory) => [
-          directory,
-          allDirectoryStates[directory]?.sessions ?? [],
-        ]),
-      ) as Record<string, SessionInfo[]>,
+      validOpenProjects.reduce<Record<string, SessionInfo[]>>((acc, directory) => {
+        acc[directory] = allDirectoryStates[directory]?.sessions ?? []
+        return acc
+      }, {}),
     [allDirectoryStates, validOpenProjects],
   )
   const sessionStatusByDirectory = useMemo(
     () =>
-      Object.fromEntries(
-        validOpenProjects.map((directory) => [
-          directory,
-          allDirectoryStates[directory]?.sessionStatusByID ?? {},
-        ]),
-      ) as Record<string, Record<string, "busy" | "idle">>,
+      validOpenProjects.reduce<Record<string, Record<string, "busy" | "idle">>>(
+        (acc, directory) => {
+          acc[directory] = allDirectoryStates[directory]?.sessionStatusByID ?? {}
+          return acc
+        },
+        {},
+      ),
     [allDirectoryStates, validOpenProjects],
   )
   const sidebarDirectories = validOpenProjects
@@ -401,3 +400,5 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
     mcpEntries,
   }
 }
+
+export type DirectoryChatState = ReturnType<typeof useDirectoryChatState>

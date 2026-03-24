@@ -489,3 +489,5 @@ export function useTeachingWorkspace(props: UseTeachingWorkspaceProps) {
     onStartInteractiveLesson,
   }
 }
+
+export type TeachingWorkspaceController = ReturnType<typeof useTeachingWorkspace>
