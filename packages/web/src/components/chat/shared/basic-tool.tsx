@@ -14,12 +14,14 @@ export interface BasicToolTrigger {
   subtitle?: string
   args?: string[]
   action?: ReactNode
+  trailing?: ReactNode
 }
 
 export interface BasicToolProps {
   icon?: ReactNode
   trigger: BasicToolTrigger | ReactNode
   status?: ToolState["status"]
+  hideStatus?: boolean
   defaultOpen?: boolean
   hideDetails?: boolean
   children?: ReactNode
@@ -38,6 +40,7 @@ export function BasicTool({
   icon,
   trigger,
   status,
+  hideStatus = false,
   defaultOpen = false,
   hideDetails = false,
   children,
@@ -85,7 +88,8 @@ export function BasicTool({
               )}
             </div>
             <div className="flex items-center gap-2">
-              {status ? <ToolStatusBadge status={status} /> : null}
+              {isTriggerTitle(trigger) ? trigger.trailing : null}
+              {!hideStatus && status ? <ToolStatusBadge status={status} /> : null}
               {!hideDetails && !running && children ? (
                 <ChevronRightIcon
                   className={cn(
