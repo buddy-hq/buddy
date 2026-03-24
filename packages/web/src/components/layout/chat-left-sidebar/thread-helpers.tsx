@@ -81,7 +81,7 @@ export function ThreadStatusIndicator(props: { status: "busy" | "unread" | "idle
   if (props.status === "busy") {
     return (
       <LoaderCircleIcon
-        className="size-3 shrink-0 animate-spin text-icon-warning-base"
+        className="size-3 shrink-0 animate-spin text-text-weaker group-hover/thread:text-text-base transition-colors"
         aria-hidden="true"
       />
     )

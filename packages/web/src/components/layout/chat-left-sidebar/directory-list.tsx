@@ -295,18 +295,16 @@ function DirectoryThreadRow(props: DirectoryThreadRowProps) {
 
   return (
     <div
-      className={`group/thread relative ml-3 rounded-lg ${
-        active
-          ? "bg-[color:color-mix(in_oklab,var(--surface-raised-base-hover)_58%,var(--surface-raised-base)_42%)] ring-1 ring-border-base"
-          : "hover:bg-surface-raised-base-hover"
+      className={`group/thread relative ml-1.5 rounded-lg ${
+        active ? "bg-surface-raised-base-hover" : "hover:bg-surface-raised-base-hover"
       }`}
     >
       <button
         type="button"
         onClick={props.onSelect}
-        className="relative w-full py-2 pr-3 pl-6 text-left"
+        className="relative w-full py-2 pr-3 pl-5 text-left"
       >
-        <div className="absolute top-1/2 left-2 flex -translate-y-1/2 items-center justify-center">
+        <div className="absolute top-1/2 left-1 flex -translate-y-1/2 items-center justify-center">
           <ThreadStatusIndicator status={threadStatus} />
         </div>
         <div className="flex min-w-0 items-center gap-3">
@@ -323,7 +321,7 @@ function DirectoryThreadRow(props: DirectoryThreadRowProps) {
             </span>
             {pinned ? <PinIcon className="size-3 shrink-0 text-text-weaker" /> : null}
           </div>
-          <span className="ml-auto shrink-0 text-[12px] text-text-weaker transition-opacity group-hover/thread:opacity-0 group-focus-within/thread:opacity-0">
+          <span className="ml-auto shrink-0 text-[11px] text-text-weaker opacity-70 transition-opacity group-hover/thread:opacity-0 group-focus-within/thread:opacity-0">
             {formatThreadAge(props.session.time.updated)}
           </span>
         </div>
