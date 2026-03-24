@@ -34,6 +34,7 @@ async function proxyToOpenCode(c: Context, input: ProxyToOpenCodeInput): Promise
     registerCurriculumTools: prepared.registrationFlags.registerCurriculumTools,
     registerFigureTools: prepared.registrationFlags.registerFigureTools,
     registerFreeformFigureTools: prepared.registrationFlags.registerFreeformFigureTools,
+    registerMermaidTools: prepared.registrationFlags.registerMermaidTools,
     registerGoalTools: prepared.registrationFlags.registerGoalTools,
     registerLearnerTools: prepared.registrationFlags.registerLearnerTools,
     registerTeachingTools: prepared.registrationFlags.registerTeachingTools,

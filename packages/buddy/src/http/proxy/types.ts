@@ -7,6 +7,7 @@ export type ProxyRegistrationFlags = {
   registerCurriculumTools: boolean
   registerFigureTools: boolean
   registerFreeformFigureTools: boolean
+  registerMermaidTools: boolean
   registerGoalTools: boolean
   registerLearnerTools: boolean
   registerTeachingTools: boolean
@@ -23,6 +24,7 @@ export type ProxyToOpenCodeInput = {
   registerCurriculumTools?: ProxyRegistrationOption
   registerFigureTools?: ProxyRegistrationOption
   registerFreeformFigureTools?: ProxyRegistrationOption
+  registerMermaidTools?: ProxyRegistrationOption
   registerGoalTools?: ProxyRegistrationOption
   registerLearnerTools?: ProxyRegistrationOption
   registerTeachingTools?: ProxyRegistrationOption
@@ -40,6 +42,7 @@ export type FetchOpenCodeInput = {
   registerCurriculumTools?: boolean
   registerFigureTools?: boolean
   registerFreeformFigureTools?: boolean
+  registerMermaidTools?: boolean
   registerGoalTools?: boolean
   registerLearnerTools?: boolean
   registerTeachingTools?: boolean

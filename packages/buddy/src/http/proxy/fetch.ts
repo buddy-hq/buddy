@@ -8,6 +8,7 @@ async function fetchOpenCode(input: FetchOpenCodeInput): Promise<Response> {
     registerCurriculumTools: input.registerCurriculumTools ?? false,
     registerFigureTools: input.registerFigureTools ?? false,
     registerFreeformFigureTools: input.registerFreeformFigureTools ?? false,
+    registerMermaidTools: input.registerMermaidTools ?? false,
     registerGoalTools: input.registerGoalTools ?? false,
     registerLearnerTools: input.registerLearnerTools ?? false,
     registerTeachingTools: input.registerTeachingTools ?? false,

@@ -29,6 +29,8 @@ function resolveInitialRegistrationFlags(input: ProxyToOpenCodeInput): ProxyRegi
       typeof input.registerFreeformFigureTools === "boolean"
         ? input.registerFreeformFigureTools
         : false,
+    registerMermaidTools:
+      typeof input.registerMermaidTools === "boolean" ? input.registerMermaidTools : false,
     registerGoalTools:
       typeof input.registerGoalTools === "boolean" ? input.registerGoalTools : false,
     registerLearnerTools:
@@ -49,6 +51,7 @@ function resolveBodyRegistrationFlags(
     registerCurriculumTools: resolveRegistration(body, input.registerCurriculumTools),
     registerFigureTools: resolveRegistration(body, input.registerFigureTools),
     registerFreeformFigureTools: resolveRegistration(body, input.registerFreeformFigureTools),
+    registerMermaidTools: resolveRegistration(body, input.registerMermaidTools),
     registerGoalTools: resolveRegistration(body, input.registerGoalTools),
     registerLearnerTools: resolveRegistration(body, input.registerLearnerTools),
     registerTeachingTools: resolveRegistration(body, input.registerTeachingTools),
