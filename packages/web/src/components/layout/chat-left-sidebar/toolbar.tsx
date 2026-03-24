@@ -29,8 +29,6 @@ type ChatLeftSidebarToolbarProps = {
 export function ChatLeftSidebarToolbar(props: ChatLeftSidebarToolbarProps) {
   return (
     <>
-
-
       <div className="mb-2 flex items-center justify-between px-2 text-text-weaker">
         <p className="text-[13px] font-medium">Threads</p>
         <div className="flex items-center gap-1">

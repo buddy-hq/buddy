@@ -196,9 +196,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
               ) : (
                 <FolderOpenIcon className="size-3.5 shrink-0" />
               )}
-              <span className="truncate">
-                {directoryLabel}
-              </span>
+              <span className="truncate">{directoryLabel}</span>
             </button>
           </CollapsibleTrigger>
 
@@ -271,7 +269,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
           {hasMore && !props.collapsed ? (
             <button
               type="button"
-              className="ml-6 text-sm text-text-weak hover:text-text-base"
+              className="ml-3 pl-6 py-1 text-xs text-text-weaker opacity-70 hover:opacity-100 hover:text-text-base"
               onClick={props.onToggleExpanded}
             >
               {props.expanded ? "Show less" : "Show more"}

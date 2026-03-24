@@ -38,7 +38,11 @@ export function SessionContextUsage(props: SessionContextUsageProps) {
           <span className="absolute inset-[3px] rounded-full bg-background-base" />
         </span>
       </TooltipTrigger>
-      <TooltipContent side="top" sideOffset={6} className="flex min-w-32 flex-col gap-1.5 p-2.5 text-[11px]">
+      <TooltipContent
+        side="top"
+        sideOffset={6}
+        className="flex min-w-32 flex-col gap-1.5 p-2.5 text-[11px]"
+      >
         <div className="flex items-center justify-between gap-4">
           <span className="text-text-weak">Tokens Used</span>
           <span className="font-medium text-text-strong">
