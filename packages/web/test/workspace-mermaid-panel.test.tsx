@@ -66,9 +66,11 @@ describe("WorkspaceMermaidPanel", () => {
     globalThis.fetch = (async (input, init) => {
       const url =
         typeof input === "string" ? input : input instanceof URL ? input.toString() : String(input)
+      const requestUrl = new URL(url, "http://localhost")
 
-      if (url.endsWith("/api/mermaid-artifacts")) {
+      if (requestUrl.pathname === "/api/mermaid-artifacts") {
         expect(new Headers(init?.headers).get("x-buddy-directory")).toBe("/repo")
+        expect(requestUrl.searchParams.get("directory")).toBe("/repo")
         return new Response(
           JSON.stringify({
             artifacts: [

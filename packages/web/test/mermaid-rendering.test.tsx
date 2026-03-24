@@ -28,6 +28,10 @@ async function waitForAssertion(assertion: () => void, timeoutMs = 1500) {
   }
 }
 
+function readMermaidZoomLabel() {
+  return document.querySelector('[aria-label="Mermaid zoom level"]')?.textContent ?? ""
+}
+
 function assistantMessage(parts: MessagePart[]): MessageWithParts {
   return {
     info: {
@@ -325,6 +329,57 @@ describe("mermaid rendering", () => {
     expect(revokedObjectUrls).toEqual(["blob:mermaid-test-1"])
     expect(createdSvgBlobs).toHaveLength(1)
     expect(await createdSvgBlobs[0].text()).toContain("<svg")
+  })
+
+  test("opens Mermaid fullscreen with zoom controls and a scrollable canvas", async () => {
+    const source = "flowchart TD\nA --> B"
+    const messages: MessageWithParts[] = [
+      userMessage("open fullscreen"),
+      assistantMessage([
+        mermaidToolPart({
+          artifactID: ARTIFACT_ID,
+          source,
+        }),
+      ]),
+    ]
+
+    await act(async () => {
+      root.render(<ChatTranscript messages={messages} directory="/repo" />)
+      await flushEffects(20)
+    })
+
+    await waitForAssertion(() => {
+      expect(container.querySelector('[aria-label="Open Mermaid fullscreen"]')).not.toBeNull()
+    })
+
+    await act(async () => {
+      ;(
+        container.querySelector('[aria-label="Open Mermaid fullscreen"]') as HTMLButtonElement
+      ).click()
+      await flushEffects(20)
+    })
+
+    await waitForAssertion(() => {
+      expect(
+        document.querySelector('[data-component="mermaid-diagram-fullscreen"] svg'),
+      ).not.toBeNull()
+      expect(readMermaidZoomLabel()).toContain("%")
+    })
+
+    const initialZoom = readMermaidZoomLabel()
+
+    await act(async () => {
+      ;(document.querySelector('[aria-label="Zoom in Mermaid"]') as HTMLButtonElement).click()
+      await flushEffects()
+    })
+
+    const afterZoom = readMermaidZoomLabel()
+    expect(afterZoom).toContain("%")
+    expect(afterZoom).not.toBe(initialZoom)
+    expect(
+      (document.querySelector('[data-component="mermaid-diagram-fullscreen"]') as HTMLElement)
+        ?.style.width,
+    ).not.toBe("")
   })
 
   test("normalizes Mermaid foreignObject line breaks before downloading SVG", async () => {
