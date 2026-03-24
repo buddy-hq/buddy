@@ -10,6 +10,7 @@ type LearningToolRegistrationFlags = {
   registerCurriculumTools: boolean
   registerFigureTools: boolean
   registerFreeformFigureTools: boolean
+  registerMermaidTools: boolean
   registerGoalTools: boolean
   registerLearnerTools: boolean
   registerTeachingTools: boolean
@@ -115,6 +116,14 @@ async function registerRuntimeTools(
     directory,
     group: "freeformFigures",
     warning: "Failed to register Buddy freeform figure tools into OpenCode runtime:",
+    registrations,
+  })
+
+  registerToolGroup({
+    enabled: flags.registerMermaidTools,
+    directory,
+    group: "mermaid",
+    warning: "Failed to register Buddy Mermaid tools into OpenCode runtime:",
     registrations,
   })
 
