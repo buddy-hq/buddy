@@ -18,10 +18,12 @@ import {
   type LearnerRuntimeCapabilitiesView,
 } from "@/state/chat-actions"
 import type { TeachingIntent } from "@/state/teaching-runtime"
+import { WorkspaceMermaidPanel } from "./workspace-mermaid-panel"
 import { XIcon } from "./sidebar-icons"
 
 export type ChatRightSidebarTab =
   | "curriculum"
+  | "diagrams"
   | "editor"
   | "figure"
   | "resources"
@@ -118,13 +120,15 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
       ? "system-prompt"
       : props.activeTab === "capabilities" && capabilitiesTabEnabled
         ? "capabilities"
-        : props.activeTab === "resources"
-          ? "resources"
-          : props.activeTab === "agents-md"
-            ? "agents-md"
-            : props.surfaces.includes(props.activeTab as ChatRightSidebarSurface)
-              ? (props.activeTab as ChatRightSidebarSurface)
-              : (props.surfaces[0] ?? "curriculum")
+        : props.activeTab === "diagrams"
+          ? "diagrams"
+          : props.activeTab === "resources"
+            ? "resources"
+            : props.activeTab === "agents-md"
+              ? "agents-md"
+              : props.surfaces.includes(props.activeTab as ChatRightSidebarSurface)
+                ? (props.activeTab as ChatRightSidebarSurface)
+                : (props.surfaces[0] ?? "curriculum")
 
   const loadSidebarData = useCallback(
     async (isDisposed?: () => boolean) => {
@@ -210,69 +214,84 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
     <aside
       className={`shrink-0 overflow-hidden border-l bg-surface-raised-base flex flex-col min-h-0 ${props.className ?? ""}`}
     >
-      <header className="border-b px-3 py-2 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1">
-          <Button
-            variant={activeTab === "curriculum" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => props.onTabChange("curriculum")}
-          >
-            Snapshot
-          </Button>
-          {props.surfaces.includes("editor") ? (
+      <header className="flex items-center justify-between gap-2 border-b px-3 py-2">
+        <div className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex w-max items-center gap-1 pr-1">
             <Button
-              variant={activeTab === "editor" ? "secondary" : "ghost"}
+              variant={activeTab === "curriculum" ? "secondary" : "ghost"}
               size="sm"
-              onClick={() => props.onTabChange("editor")}
+              onClick={() => props.onTabChange("curriculum")}
             >
-              Editor
+              Snapshot
             </Button>
-          ) : null}
-          {props.surfaces.includes("figure") ? (
+            {props.surfaces.includes("editor") ? (
+              <Button
+                variant={activeTab === "editor" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => props.onTabChange("editor")}
+              >
+                Editor
+              </Button>
+            ) : null}
+            {props.surfaces.includes("figure") ? (
+              <Button
+                variant={activeTab === "figure" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => props.onTabChange("figure")}
+              >
+                Figure
+              </Button>
+            ) : null}
             <Button
-              variant={activeTab === "figure" ? "secondary" : "ghost"}
+              variant={activeTab === "diagrams" ? "secondary" : "ghost"}
               size="sm"
-              onClick={() => props.onTabChange("figure")}
+              onClick={() => props.onTabChange("diagrams")}
             >
-              Figure
+              Diagrams
             </Button>
-          ) : null}
-          <Button
-            variant={activeTab === "resources" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => props.onTabChange("resources")}
-          >
-            Resources
-          </Button>
-          <Button
-            variant={activeTab === "agents-md" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => props.onTabChange("agents-md")}
-          >
-            Agents
-          </Button>
-          {capabilitiesTabEnabled ? (
             <Button
-              variant={activeTab === "capabilities" ? "secondary" : "ghost"}
+              variant={activeTab === "resources" ? "secondary" : "ghost"}
               size="sm"
-              onClick={() => props.onTabChange("capabilities")}
-              className="border border-dashed border-yellow-500/60"
+              onClick={() => props.onTabChange("resources")}
             >
-              Capabilities
+              Resources
             </Button>
-          ) : null}
-          {systemPromptTabEnabled ? (
             <Button
-              variant={activeTab === "system-prompt" ? "secondary" : "ghost"}
+              variant={activeTab === "agents-md" ? "secondary" : "ghost"}
               size="sm"
-              onClick={() => props.onTabChange("system-prompt")}
-              className="border border-dashed border-yellow-500/60"
+              onClick={() => props.onTabChange("agents-md")}
             >
-              System
+              Agents
             </Button>
-          ) : null}
+            {capabilitiesTabEnabled ? (
+              <Button
+                variant={activeTab === "capabilities" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => props.onTabChange("capabilities")}
+                className="border border-dashed border-yellow-500/60"
+              >
+                Capabilities
+              </Button>
+            ) : null}
+            {systemPromptTabEnabled ? (
+              <Button
+                variant={activeTab === "system-prompt" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => props.onTabChange("system-prompt")}
+                className="border border-dashed border-yellow-500/60"
+              >
+                System
+              </Button>
+            ) : null}
+          </div>
         </div>
-        <Button variant="ghost" size="icon-xs" onClick={props.onClose} title="Close panel">
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          onClick={props.onClose}
+          title="Close panel"
+          className="shrink-0"
+        >
           <XIcon className="size-3.5" />
         </Button>
       </header>
@@ -292,6 +311,10 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
               Figure tools are not available for this session.
             </div>
           )}
+        </div>
+      ) : activeTab === "diagrams" ? (
+        <div className="flex-1 min-h-0 flex flex-col">
+          <WorkspaceMermaidPanel directory={directory} />
         </div>
       ) : activeTab === "resources" ? (
         <div className="flex-1 min-h-0 flex flex-col">
