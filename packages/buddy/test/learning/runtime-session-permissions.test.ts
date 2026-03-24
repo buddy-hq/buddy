@@ -31,6 +31,7 @@ describe("buildBuddyRuntimeSessionPermissions", () => {
     expect(PermissionNext.evaluate("pedagogy_guided_practice", "*", permissions).action).toBe(
       "allow",
     )
+    expect(PermissionNext.evaluate("render_mermaid", "*", permissions).action).toBe("allow")
     expect(PermissionNext.evaluate("skill", "buddy-pedagogy-explanation", permissions).action).toBe(
       "allow",
     )
@@ -81,6 +82,7 @@ describe("buildBuddyRuntimeSessionPermissions", () => {
     )
     expect(PermissionNext.evaluate("pedagogy_debug_attempt", "*", permissions).action).toBe("allow")
     expect(PermissionNext.evaluate("pedagogy_mastery_check", "*", permissions).action).toBe("deny")
+    expect(PermissionNext.evaluate("render_mermaid", "*", permissions).action).toBe("allow")
     expect(PermissionNext.evaluate("pedagogy_explanation", "*", permissions).action).toBe("ask")
     expect(PermissionNext.evaluate("question", "*", permissions).action).toBe("allow")
   })

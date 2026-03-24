@@ -40,6 +40,7 @@ describe("learning tool contract", () => {
     const runtimeToolIds = allLearningToolIds().toSorted((left, right) => left.localeCompare(right))
 
     expect(registeredToolIds).toEqual(runtimeToolIds)
+    expect(runtimeToolIds).toContain("render_mermaid")
 
     const runtimeProfile = resolveCapabilityProfile({
       persona: getBuddyPersona("code-buddy"),

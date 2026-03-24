@@ -12,6 +12,7 @@ describe("resolveIntentPermissions", () => {
 
     expect(permissions.tools.pedagogy_guided_practice).toBe("deny")
     expect(permissions.tools.pedagogy_mastery_check).toBe("deny")
+    expect(permissions.tools.render_mermaid).toBe("allow")
 
     expect(permissions.skills["buddy-pedagogy-explanation"]).toBe("allow")
     expect(permissions.skills["buddy-pedagogy-worked-example"]).toBe("allow")
@@ -30,6 +31,7 @@ describe("resolveIntentPermissions", () => {
     expect(permissions.tools.pedagogy_mastery_check).toBe("allow")
     expect(permissions.tools.pedagogy_stepwise_solve).toBe("allow")
     expect(permissions.tools.pedagogy_debug_attempt).toBe("deny")
+    expect(permissions.tools.render_mermaid).toBe("allow")
 
     expect(permissions.skills["buddy-pedagogy-explanation"]).toBe("allow")
     expect(permissions.skills["buddy-pedagogy-worked-example"]).toBe("allow")

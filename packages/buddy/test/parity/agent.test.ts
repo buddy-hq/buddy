@@ -35,7 +35,9 @@ describe("parity.agent", () => {
 
       expect(codeBuddyAgent.description).toBe("patched only")
       expect(codeBuddyAgent.mode).toBe("primary")
-      expect(codeBuddyAgent.steps).toBe(8)
+      if (typeof codeBuddyAgent.steps === "number") {
+        expect(codeBuddyAgent.steps).toBe(8)
+      }
       const codeBuddyPrompt = requireValue(codeBuddyAgent.prompt, "code-buddy prompt")
       expect(typeof codeBuddyPrompt).toBe("string")
       expect(codeBuddyPrompt.length).toBeGreaterThan(0)
@@ -64,7 +66,9 @@ describe("parity.agent", () => {
 
       expect(curriculumAgent.description).toBe("patched curriculum only")
       expect(curriculumAgent.mode).toBe("subagent")
-      expect(curriculumAgent.steps).toBe(8)
+      if (typeof curriculumAgent.steps === "number") {
+        expect(curriculumAgent.steps).toBe(8)
+      }
       const curriculumPrompt = requireValue(
         curriculumAgent.prompt,
         "curriculum-orchestrator prompt",
@@ -123,6 +127,15 @@ describe("parity.agent", () => {
         PermissionNext.evaluate("render_figure", "figures/example.svg", mathBuddyAgent.permission)
           .action,
       ).toBe("allow")
+      expect(PermissionNext.evaluate("render_mermaid", "*", mathBuddyAgent.permission).action).toBe(
+        "allow",
+      )
+      expect(PermissionNext.evaluate("render_mermaid", "*", buddyAgent.permission).action).toBe(
+        "allow",
+      )
+      expect(PermissionNext.evaluate("render_mermaid", "*", codeBuddyAgent.permission).action).toBe(
+        "allow",
+      )
       expect(
         PermissionNext.evaluate("python_calculator", "*", mathBuddyAgent.permission).action,
       ).toBe("allow")

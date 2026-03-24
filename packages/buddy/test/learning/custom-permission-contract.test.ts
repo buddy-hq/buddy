@@ -3,12 +3,13 @@ import { PermissionNext } from "@buddy/opencode-adapter/permission"
 import { Config } from "@buddy/backend/config"
 
 describe("custom permission contract", () => {
-  test("must accept learner_snapshot_read, python_calculator, render_figure, and render_freeform_figure custom permissions", async () => {
+  test("must accept learner_snapshot_read, python_calculator, render_figure, render_freeform_figure, and render_mermaid custom permissions", async () => {
     const customPermissionConfig = {
       learner_snapshot_read: "allow",
       python_calculator: "allow",
       render_figure: "allow",
       render_freeform_figure: "allow",
+      render_mermaid: "allow",
     }
 
     const parsed = Config.Permission.parse(customPermissionConfig)
@@ -17,6 +18,7 @@ describe("custom permission contract", () => {
     expect(parsed).toHaveProperty("python_calculator")
     expect(parsed).toHaveProperty("render_figure")
     expect(parsed).toHaveProperty("render_freeform_figure")
+    expect(parsed).toHaveProperty("render_mermaid")
 
     const ruleset = PermissionNext.fromConfig(parsed)
     const customRuleActions = new Map(
@@ -26,7 +28,8 @@ describe("custom permission contract", () => {
             rule.permission === "learner_snapshot_read" ||
             rule.permission === "python_calculator" ||
             rule.permission === "render_figure" ||
-            rule.permission === "render_freeform_figure",
+            rule.permission === "render_freeform_figure" ||
+            rule.permission === "render_mermaid",
         )
         .map((rule) => [rule.permission, rule.action]),
     )
@@ -35,6 +38,7 @@ describe("custom permission contract", () => {
     expect(customRuleActions.get("python_calculator")).toBe("allow")
     expect(customRuleActions.get("render_figure")).toBe("allow")
     expect(customRuleActions.get("render_freeform_figure")).toBe("allow")
+    expect(customRuleActions.get("render_mermaid")).toBe("allow")
   })
 
   test("must accept learner_snapshot_read with pattern-based rules", async () => {
@@ -66,6 +70,7 @@ describe("custom permission contract", () => {
       python_calculator: "allow",
       render_figure: "allow",
       render_freeform_figure: "ask",
+      render_mermaid: "allow",
       other_standard_permission: "allow",
     }
 
@@ -76,6 +81,7 @@ describe("custom permission contract", () => {
     expect(reParsed.python_calculator).toBe("allow")
     expect(reParsed.render_figure).toBe("allow")
     expect(reParsed.render_freeform_figure).toBe("ask")
+    expect(reParsed.render_mermaid).toBe("allow")
     expect(reParsed.other_standard_permission).toBe("allow")
   })
 })
