@@ -98,10 +98,14 @@ export function BasicTool({
           </div>
         </button>
       </CollapsibleTrigger>
-      {children && !hideDetails ? (
-        <CollapsibleContent>
+      {children ? (
+        hideDetails ? (
           <div className="mt-2">{children}</div>
-        </CollapsibleContent>
+        ) : (
+          <CollapsibleContent>
+            <div className="mt-2">{children}</div>
+          </CollapsibleContent>
+        )
       ) : null}
     </Collapsible>
   )

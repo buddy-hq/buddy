@@ -7,6 +7,7 @@ export interface ToolPartProps {
   state: ToolState
   info: ToolInfo
   tool: string
+  directory?: string
   onOpenSession?: (sessionID: string) => void
   defaultOpen?: boolean
 }
@@ -52,4 +53,5 @@ export type {
   ToolQuestion,
   ApplyPatchFile,
   RenderFigureToolOutput,
+  RenderMermaidToolOutput,
 } from "./types"

@@ -108,6 +108,11 @@ export function getToolInfo(tool: string, input: Record<string, unknown>): ToolI
         title: "Figure",
         subtitle: alt,
       }
+    case "render_mermaid":
+      return {
+        title: "Mermaid",
+        subtitle: alt,
+      }
     default:
       return {
         title: tool,

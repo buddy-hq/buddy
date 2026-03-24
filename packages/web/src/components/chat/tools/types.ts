@@ -58,3 +58,14 @@ export interface RenderFigureToolOutput {
   caption?: string
   repairAttempts: number
 }
+
+export interface RenderMermaidToolOutput {
+  artifactID: string
+  artifactUrl: string
+  source: string
+  diagramType: string
+  repairAttempts: number
+  repairLog: string[]
+  alt: string
+  caption?: string
+}
