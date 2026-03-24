@@ -23,13 +23,14 @@ import { isAttachmentFilePart } from "./shared/highlighted-text"
 
 // Import tool utilities
 import { parseToolState } from "./tools/parse-tool-state"
-import { parseRenderFigureOutput } from "./tools/tools"
+import { parseRenderFigureOutput, parseRenderMermaidOutput } from "./tools/tools"
 import { CONTEXT_TOOLS, HIDDEN_TOOLS } from "./tools/registry"
 
 export type { MessageWithParts, ProviderInfo } from "@/state/chat-types"
 
 interface ChatTranscriptProps {
   messages: MessageWithParts[]
+  directory?: string
   providers?: ProviderInfo[]
   isBusy?: boolean
   onOpenSession?: (sessionID: string) => void
@@ -238,6 +239,8 @@ function assistantPartRendererEqual(
   if (prevProps.metaText !== nextProps.metaText) return false
   if (prevProps.interrupted !== nextProps.interrupted) return false
   if (prevProps.stripLeadingFigureImage !== nextProps.stripLeadingFigureImage) return false
+  if (prevProps.stripLeadingMermaidSource !== nextProps.stripLeadingMermaidSource) return false
+  if (prevProps.directory !== nextProps.directory) return false
   if (prevProps.onOpenSession !== nextProps.onOpenSession) return false
   if (prevProps.defaultOpen !== nextProps.defaultOpen) return false
 
@@ -262,6 +265,8 @@ interface AssistantPartRendererProps {
   interrupted?: boolean
   onOpenSession?: (sessionID: string) => void
   stripLeadingFigureImage?: boolean
+  stripLeadingMermaidSource?: string
+  directory?: string
   defaultOpen?: boolean
 }
 
@@ -272,6 +277,8 @@ const AssistantPartRenderer = memo(function AssistantPartRenderer({
   interrupted,
   onOpenSession,
   stripLeadingFigureImage,
+  stripLeadingMermaidSource,
+  directory,
   defaultOpen,
 }: AssistantPartRendererProps) {
   if (part.type === "step-start" || part.type === "step-finish") {
@@ -286,6 +293,7 @@ const AssistantPartRenderer = memo(function AssistantPartRenderer({
         metaText={metaText}
         interrupted={interrupted}
         stripLeadingFigureImage={stripLeadingFigureImage}
+        stripLeadingMermaidSource={stripLeadingMermaidSource}
       />
     )
   }
@@ -295,7 +303,14 @@ const AssistantPartRenderer = memo(function AssistantPartRenderer({
   }
 
   if (part.type === "tool") {
-    return <ToolPartCard part={part} onOpenSession={onOpenSession} defaultOpen={defaultOpen} />
+    return (
+      <ToolPartCard
+        part={part}
+        directory={directory}
+        onOpenSession={onOpenSession}
+        defaultOpen={defaultOpen}
+      />
+    )
   }
 
   if (part.type === "compaction") {
@@ -318,6 +333,7 @@ interface TurnRendererProps {
   totalTurns: number
   providers: ProviderInfo[]
   isBusy: boolean
+  directory?: string
   onOpenSession?: (sessionID: string) => void
   onForkMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
   onRevertMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
@@ -331,6 +347,7 @@ function turnRendererEqual(prevProps: TurnRendererProps, nextProps: TurnRenderer
   if (prevProps.turnIndex !== nextProps.turnIndex) return false
   if (prevProps.totalTurns !== nextProps.totalTurns) return false
   if (prevProps.isBusy !== nextProps.isBusy) return false
+  if (prevProps.directory !== nextProps.directory) return false
   if (prevProps.onOpenSession !== nextProps.onOpenSession) return false
   if (prevProps.onForkMessage !== nextProps.onForkMessage) return false
   if (prevProps.onRevertMessage !== nextProps.onRevertMessage) return false
@@ -359,6 +376,7 @@ const TurnRenderer = memo(function TurnRenderer({
   totalTurns,
   providers,
   isBusy,
+  directory,
   onOpenSession,
   onForkMessage,
   onRevertMessage,
@@ -518,6 +536,13 @@ const TurnRenderer = memo(function TurnRenderer({
                 String(previousPart.tool ?? "") === "render_freeform_figure") &&
               previousPartState?.status === "completed" &&
               !!parseRenderFigureOutput(previousPartState)
+            const stripLeadingMermaidSource =
+              item.part.type === "text" &&
+              previousPart?.type === "tool" &&
+              String(previousPart.tool ?? "") === "render_mermaid" &&
+              previousPartState?.status === "completed"
+                ? parseRenderMermaidOutput(previousPartState)?.source
+                : undefined
 
             return (
               <AssistantPartRenderer
@@ -528,6 +553,8 @@ const TurnRenderer = memo(function TurnRenderer({
                 interrupted={assistantAborted}
                 onOpenSession={onOpenSession}
                 stripLeadingFigureImage={stripLeadingFigureImage}
+                stripLeadingMermaidSource={stripLeadingMermaidSource}
+                directory={directory}
                 defaultOpen={
                   item.part.type === "tool"
                     ? toolDefaultOpen(
@@ -569,6 +596,7 @@ export function ChatTranscript(props: ChatTranscriptProps) {
             totalTurns={turns.length}
             providers={providers}
             isBusy={props.isBusy ?? false}
+            directory={props.directory}
             onOpenSession={props.onOpenSession}
             onForkMessage={props.onForkMessage}
             onRevertMessage={props.onRevertMessage}

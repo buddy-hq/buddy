@@ -9,6 +9,7 @@ import type { ToolPartProps } from "../tools/registry"
 
 interface ToolPartRendererProps {
   part: MessagePart
+  directory?: string
   onOpenSession?: (sessionID: string) => void
   defaultOpen?: boolean
 }
@@ -18,6 +19,7 @@ function toolPartCardEqual(
   nextProps: ToolPartRendererProps,
 ): boolean {
   if (prevProps.part.id !== nextProps.part.id) return false
+  if (prevProps.directory !== nextProps.directory) return false
   if (prevProps.onOpenSession !== nextProps.onOpenSession) return false
   if (prevProps.defaultOpen !== nextProps.defaultOpen) return false
   if (prevProps.part.type !== "tool" || nextProps.part.type !== "tool") return false
@@ -35,6 +37,7 @@ function toolPartCardEqual(
 
 export const ToolPartCard = memo(function ToolPartCard({
   part,
+  directory,
   onOpenSession,
   defaultOpen,
 }: ToolPartRendererProps) {
@@ -52,6 +55,7 @@ export const ToolPartCard = memo(function ToolPartCard({
     state,
     info,
     tool,
+    directory,
     onOpenSession,
     defaultOpen,
   }

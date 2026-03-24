@@ -11,6 +11,7 @@ interface AssistantTextPartProps {
   metaText?: string
   interrupted?: boolean
   stripLeadingFigureImage?: boolean
+  stripLeadingMermaidSource?: string
 }
 
 function stripLeadingRenderFigureMarkdown(text: string): string {
@@ -18,6 +19,31 @@ function stripLeadingRenderFigureMarkdown(text: string): string {
     /^\s*!\[[^\]]*\]\((\/api\/(?:figures|freeform-figures)\/[^)\s]+)\)(?:\r?\n\s*)*/u,
     "",
   )
+}
+
+function normalizeMermaidSource(source: string): string {
+  return source.replace(/\r\n?/gu, "\n").trim()
+}
+
+function stripLeadingRenderMermaidMarkdown(text: string, source: string): string {
+  const expectedSource = normalizeMermaidSource(source)
+  if (!expectedSource) {
+    return text
+  }
+
+  const match = text.match(
+    /^\s*(`{3,}|~{3,})\s*mermaid(?:[ \t][^\n]*)?\r?\n([\s\S]*?)\r?\n\1(?:\r?\n\s*)*/u,
+  )
+  if (!match?.[0] || typeof match[2] !== "string") {
+    return text
+  }
+
+  const blockSource = normalizeMermaidSource(match[2])
+  if (blockSource !== expectedSource) {
+    return text
+  }
+
+  return text.slice(match[0].length)
 }
 
 function assistantTextPartEqual(
@@ -29,6 +55,7 @@ function assistantTextPartEqual(
   if (prevProps.metaText !== nextProps.metaText) return false
   if (prevProps.interrupted !== nextProps.interrupted) return false
   if (prevProps.stripLeadingFigureImage !== nextProps.stripLeadingFigureImage) return false
+  if (prevProps.stripLeadingMermaidSource !== nextProps.stripLeadingMermaidSource) return false
   return prevProps.part.text === nextProps.part.text
 }
 
@@ -38,9 +65,15 @@ export const AssistantTextPart = memo(function AssistantTextPart({
   metaText,
   interrupted,
   stripLeadingFigureImage,
+  stripLeadingMermaidSource,
 }: AssistantTextPartProps) {
   const text = String(part.text ?? "")
-  const visibleText = stripLeadingFigureImage ? stripLeadingRenderFigureMarkdown(text) : text
+  const withoutLeadingFigure = stripLeadingFigureImage
+    ? stripLeadingRenderFigureMarkdown(text)
+    : text
+  const visibleText = stripLeadingMermaidSource
+    ? stripLeadingRenderMermaidMarkdown(withoutLeadingFigure, stripLeadingMermaidSource)
+    : withoutLeadingFigure
   const throttledText = useThrottledText(visibleText)
   if (!throttledText.trim()) return null
 
