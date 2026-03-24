@@ -1,3 +1,5 @@
+import { LoaderCircleIcon } from "lucide-react"
+
 const ONE_MINUTE_MS = 60_000
 const ONE_HOUR_MS = 3_600_000
 const ONE_DAY_MS = 86_400_000
@@ -78,29 +80,21 @@ export function threadStatusLabel(status: "busy" | "unread" | "idle") {
 export function ThreadStatusIndicator(props: { status: "busy" | "unread" | "idle" }) {
   if (props.status === "busy") {
     return (
-      <span
-        className="relative inline-flex size-2.5 shrink-0 items-center justify-center"
+      <LoaderCircleIcon
+        className="size-3 shrink-0 animate-spin text-icon-warning-base"
         aria-hidden="true"
-      >
-        <span className="absolute inset-0 rounded-full border border-[color:color-mix(in_oklab,var(--surface-warning-base)_72%,transparent)]" />
-        <span className="size-1 animate-pulse rounded-full bg-surface-warning-base" />
-      </span>
+      />
     )
   }
 
   if (props.status === "unread") {
     return (
       <span
-        className="inline-block size-2 shrink-0 rotate-45 rounded-[1px] bg-surface-info-base"
+        className="inline-block size-1.5 shrink-0 rounded-full bg-surface-success-base"
         aria-hidden="true"
       />
     )
   }
 
-  return (
-    <span
-      className="inline-block size-1.5 shrink-0 rounded-full bg-surface-success-base"
-      aria-hidden="true"
-    />
-  )
+  return null
 }

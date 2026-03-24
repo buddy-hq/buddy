@@ -20,6 +20,9 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
 } from "@buddy/ui"
 import type { SessionInfo } from "@/state/chat-types"
 import { getFilename } from "./sidebar-helpers"
@@ -37,6 +40,7 @@ import {
   ChevronRightIcon,
   EllipsisHorizontalIcon,
   FolderIcon,
+  FolderOpenIcon,
   FolderPlusIcon,
   PencilIcon,
   PinIcon,
@@ -334,7 +338,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
             </div>
           </div>
 
-          <div className="space-y-5">
+          <div className="px-1.5 space-y-1 mt-1">
             {directoryGroups.map((group) => {
               const isCurrentDirectory = group.directory === props.currentDirectory
               const directoryLabel = getFilename(group.directory)
@@ -355,228 +359,241 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
               const canDrag = organizeMode === "project"
 
               return (
-                <section
+                <Collapsible
                   key={group.directory}
-                  ref={sectionRefCallback(group.directory)}
-                  className={`space-y-1 relative transition-opacity duration-150 ${
-                    isDragging ? "opacity-40" : "opacity-100"
-                  }`}
-                >
-                  {isDragOver && dragOverPosition === "before" ? (
-                    <div className="h-0.5 rounded-full bg-surface-interactive-base/70 mx-2 mb-1" />
-                  ) : null}
-                  <div className="group/directory flex items-center gap-1 rounded-xl px-1 py-0.5">
-                    <button
-                      type="button"
-                      className={`flex min-w-0 flex-1 items-center gap-1.5 rounded-lg px-1.5 py-1 text-left text-sm ${
-                        isCurrentDirectory
-                          ? "text-text-strong"
-                          : "text-text-weak hover:text-text-base"
-                      } ${canDrag ? "cursor-grab active:cursor-grabbing" : ""}`}
-                      onPointerDown={
-                        canDrag ? (e) => handleLabelPointerDown(e, group.directory) : undefined
+                  open={!collapsed}
+                  onOpenChange={(isOpen) => {
+                    setCollapsedDirectories((current) => {
+                      const next = { ...current }
+                      if (isOpen) {
+                        delete next[group.directory]
+                      } else {
+                        next[group.directory] = true
                       }
-                      onClick={() => {
-                        setCollapsedDirectories((current) => {
-                          const next = { ...current }
-                          if (next[group.directory]) {
-                            delete next[group.directory]
-                          } else {
-                            next[group.directory] = true
-                          }
-                          return next
-                        })
-                      }}
-                    >
-                      {collapsed ? (
-                        <ChevronRightIcon className="size-3.5 shrink-0 text-text-weak" />
-                      ) : (
-                        <ChevronDownIcon className="size-3.5 shrink-0 text-text-weak" />
-                      )}
-                      <span className={`truncate ${isCurrentDirectory ? "font-medium" : ""}`}>
-                        {directoryLabel}
-                      </span>
-                    </button>
-
-                    <div className="flex items-center gap-0.5 pr-1 opacity-0 pointer-events-none transition-opacity group-hover/directory:opacity-100 group-hover/directory:pointer-events-auto group-focus-within/directory:opacity-100 group-focus-within/directory:pointer-events-auto">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button
-                            type="button"
-                            className="inline-flex size-6 items-center justify-center rounded-md text-text-weak transition-colors hover:bg-surface-raised-base-hover hover:text-text-strong"
-                            aria-label={`Options for ${directoryLabel}`}
-                          >
-                            <EllipsisHorizontalIcon className="size-3.5" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-44">
-                          <DropdownMenuItem onSelect={() => props.onSelectSession(group.directory)}>
-                            <FolderIcon className="size-3.5 mr-2" />
-                            Open notebook
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onSelect={() => props.onCloseDirectory(group.directory)}
-                          >
-                            <XIcon className="size-3.5 mr-2" />
-                            Close notebook
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button
-                            type="button"
-                            className="inline-flex size-6 items-center justify-center rounded-md text-text-weak transition-colors hover:bg-surface-raised-base-hover hover:text-text-strong"
-                            aria-label={`Start new thread in ${directoryLabel}`}
-                            onClick={() => props.onNewSession(group.directory)}
-                          >
-                            <SquarePenIcon className="size-3.5" />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" sideOffset={8} className="px-2 py-1 text-[11px]">
-                          {`Start new thread in ${directoryLabel}`}
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
-                  </div>
-
-                  {group.sessions.length === 0 ? (
-                    <p className="pl-6 text-sm text-text-weak">No threads</p>
-                  ) : collapsed ? null : (
-                    visibleSessions.map((session) => {
-                      const familyIDs = sessionFamilyIDs(allSessions, session.id)
-                      const active =
-                        group.directory === props.currentDirectory && session.id === activeRootID
-                      const busy = familyIDs.some((id) => sessionStatusByID[id] === "busy")
-                      const pinned = familyIDs.some((id) => pinnedSet.has(id))
-                      const unread = familyIDs.some((id) => !!unreadMap[id])
-                      const threadStatus = busy ? "busy" : unread ? "unread" : "idle"
-
-                      return (
-                        <div
-                          key={`${group.directory}:${session.id}`}
-                          className={`group/thread relative ml-3 rounded-xl ${
-                            active
-                              ? "bg-[color:color-mix(in_oklab,var(--surface-raised-base-hover)_58%,var(--surface-raised-base)_42%)] ring-1 ring-border-base"
-                              : "hover:bg-surface-raised-base-hover"
-                          }`}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => props.onSelectSession(group.directory, session.id)}
-                            className="w-full px-3 py-2 text-left"
-                          >
-                            <div className="flex min-w-0 items-center gap-2 pr-8">
-                              <ThreadStatusIndicator status={threadStatus} />
-                              <span className="sr-only">{threadStatusLabel(threadStatus)}</span>
-                              <div className="flex min-w-0 items-center gap-1">
-                                <span
-                                  className={`truncate text-xs ${
-                                    active || unread
-                                      ? "font-medium text-text-strong"
-                                      : "text-text-weak"
-                                  }`}
-                                >
-                                  {session.title || "New thread"}
-                                </span>
-                                {pinned ? (
-                                  <PinIcon className="size-3 shrink-0 text-text-weak" />
-                                ) : null}
-                              </div>
-                              <span
-                                className={`ml-auto shrink-0 text-[12px] ${
-                                  busy ? "text-icon-warning-base" : "text-text-weak"
-                                }`}
-                              >
-                                {busy ? "live" : formatThreadAge(session.time.updated)}
-                              </span>
-                            </div>
-                          </button>
-
-                          <div className="absolute right-1 top-1.5 opacity-0 pointer-events-none transition-opacity group-hover/thread:opacity-100 group-hover/thread:pointer-events-auto group-focus-within/thread:opacity-100 group-focus-within/thread:pointer-events-auto">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <button
-                                  type="button"
-                                  className="inline-flex size-6 items-center justify-center rounded-md text-text-weak hover:bg-surface-weak/70 hover:text-text-base"
-                                  aria-label="Thread options"
-                                  onClick={(event) => event.stopPropagation()}
-                                >
-                                  <EllipsisHorizontalIcon className="size-3.5" />
-                                </button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-44">
-                                <DropdownMenuItem
-                                  onSelect={() => {
-                                    props.onTogglePin(group.directory, session.id)
-                                  }}
-                                >
-                                  <PinIcon className="size-3.5 mr-2" />
-                                  {pinned ? "Unpin thread" : "Pin thread"}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onSelect={() => {
-                                    setRenameState({
-                                      directory: group.directory,
-                                      sessionID: session.id,
-                                      title: session.title,
-                                    })
-                                  }}
-                                >
-                                  <PencilIcon className="size-3.5 mr-2" />
-                                  Rename thread
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onSelect={() => {
-                                    setArchiveState({
-                                      directory: group.directory,
-                                      sessionID: session.id,
-                                      title: session.title || "Untitled thread",
-                                    })
-                                  }}
-                                >
-                                  <ArchiveIcon className="size-3.5 mr-2" />
-                                  Archive thread
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onSelect={() => {
-                                    props.onToggleUnread(group.directory, session.id, !unread)
-                                  }}
-                                >
-                                  {unread ? "Mark as read" : "Mark as unread"}
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        </div>
-                      )
+                      return next
                     })
-                  )}
-
-                  {hasMore && !collapsed ? (
-                    <button
-                      type="button"
-                      className="ml-6 text-sm text-text-weak hover:text-text-base"
-                      onClick={() =>
-                        setExpandedDirectories((current) => {
-                          const next = { ...current }
-                          if (next[group.directory]) {
-                            delete next[group.directory]
-                          } else {
-                            next[group.directory] = true
+                  }}
+                  asChild
+                >
+                  <section
+                    ref={sectionRefCallback(group.directory)}
+                    className={`space-y-1 relative transition-opacity duration-150 ${
+                      isDragging ? "opacity-40" : "opacity-100"
+                    }`}
+                  >
+                    {isDragOver && dragOverPosition === "before" ? (
+                      <div className="h-0.5 rounded-full bg-surface-interactive-base/70 mx-2 mb-1" />
+                    ) : null}
+                    <div className="group/directory flex items-center gap-1 rounded-xl px-0 py-0.5">
+                      <CollapsibleTrigger asChild>
+                        <button
+                          type="button"
+                          className={`flex min-w-0 flex-1 items-center gap-1.5 rounded-lg px-1.5 py-1 text-left text-sm ${
+                            isCurrentDirectory
+                              ? "text-text-strong"
+                              : "text-text-weak hover:text-text-base"
+                          } ${canDrag ? "cursor-grab active:cursor-grabbing" : ""}`}
+                          onPointerDown={
+                            canDrag ? (e) => handleLabelPointerDown(e, group.directory) : undefined
                           }
-                          return next
+                        >
+                          {collapsed ? (
+                            <FolderIcon className="size-3.5 shrink-0 text-text-weak" />
+                          ) : (
+                            <FolderOpenIcon className="size-3.5 shrink-0 text-text-weak" />
+                          )}
+                          <span className={`truncate ${isCurrentDirectory ? "font-medium" : ""}`}>
+                            {directoryLabel}
+                          </span>
+                        </button>
+                      </CollapsibleTrigger>
+
+                      <div className="flex items-center gap-0.5 pr-1 opacity-0 pointer-events-none transition-opacity group-hover/directory:opacity-100 group-hover/directory:pointer-events-auto group-focus-within/directory:opacity-100 group-focus-within/directory:pointer-events-auto">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              type="button"
+                              className="inline-flex size-6 items-center justify-center rounded-md text-text-weak transition-colors hover:bg-surface-raised-base-hover hover:text-text-strong"
+                              aria-label={`Options for ${directoryLabel}`}
+                            >
+                              <EllipsisHorizontalIcon className="size-3.5" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-44">
+                            <DropdownMenuItem
+                              onSelect={() => props.onSelectSession(group.directory)}
+                            >
+                              <FolderIcon className="size-3.5 mr-2" />
+                              Open notebook
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onSelect={() => props.onCloseDirectory(group.directory)}
+                            >
+                              <XIcon className="size-3.5 mr-2" />
+                              Close notebook
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              className="inline-flex size-6 items-center justify-center rounded-md text-text-weak transition-colors hover:bg-surface-raised-base-hover hover:text-text-strong"
+                              aria-label={`Start new thread in ${directoryLabel}`}
+                              onClick={() => props.onNewSession(group.directory)}
+                            >
+                              <SquarePenIcon className="size-3.5" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent
+                            side="top"
+                            sideOffset={8}
+                            className="px-2 py-1 text-[11px]"
+                          >
+                            {`Start new thread in ${directoryLabel}`}
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </div>
+
+                    <CollapsibleContent className="space-y-1 overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down p-[2px] -m-[2px]">
+                      {group.sessions.length === 0 ? (
+                        <p className="pl-6 text-sm text-text-weak py-1">No threads</p>
+                      ) : (
+                        visibleSessions.map((session) => {
+                          const familyIDs = sessionFamilyIDs(allSessions, session.id)
+                          const active =
+                            group.directory === props.currentDirectory &&
+                            session.id === activeRootID
+                          const busy = familyIDs.some((id) => sessionStatusByID[id] === "busy")
+                          const pinned = familyIDs.some((id) => pinnedSet.has(id))
+                          const unread = familyIDs.some((id) => !!unreadMap[id])
+                          const threadStatus = busy ? "busy" : unread ? "unread" : "idle"
+
+                          return (
+                            <div
+                              key={`${group.directory}:${session.id}`}
+                              className={`group/thread relative ml-3 rounded-lg ${
+                                active
+                                  ? "bg-[color:color-mix(in_oklab,var(--surface-raised-base-hover)_58%,var(--surface-raised-base)_42%)] ring-1 ring-border-base"
+                                  : "hover:bg-surface-raised-base-hover"
+                              }`}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => props.onSelectSession(group.directory, session.id)}
+                                className="relative w-full py-2 pr-3 pl-6 text-left"
+                              >
+                                <div className="absolute top-1/2 left-2 flex -translate-y-1/2 items-center justify-center">
+                                  <ThreadStatusIndicator status={threadStatus} />
+                                </div>
+                                <div className="flex min-w-0 items-center gap-3">
+                                  <span className="sr-only">{threadStatusLabel(threadStatus)}</span>
+                                  <div className="flex min-w-0 items-center gap-1">
+                                    <span
+                                      className={`truncate text-xs ${
+                                        active || unread
+                                          ? "font-medium text-text-strong"
+                                          : "text-text-weak"
+                                      }`}
+                                    >
+                                      {session.title || "New thread"}
+                                    </span>
+                                    {pinned ? (
+                                      <PinIcon className="size-3 shrink-0 text-text-weak" />
+                                    ) : null}
+                                  </div>
+                                  <span className="ml-auto shrink-0 text-[12px] text-text-weak transition-opacity group-hover/thread:opacity-0 group-focus-within/thread:opacity-0">
+                                    {formatThreadAge(session.time.updated)}
+                                  </span>
+                                </div>
+                              </button>
+
+                              <div className="pointer-events-none absolute top-0 right-3 flex h-full items-center opacity-0 transition-opacity group-hover/thread:pointer-events-auto group-hover/thread:opacity-100 group-focus-within/thread:pointer-events-auto group-focus-within/thread:opacity-100">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <button
+                                      type="button"
+                                      className="inline-flex size-6 items-center justify-center rounded-md text-text-weak hover:bg-surface-weak/70 hover:text-text-base"
+                                      aria-label="Thread options"
+                                      onClick={(event) => event.stopPropagation()}
+                                    >
+                                      <EllipsisHorizontalIcon className="size-3.5" />
+                                    </button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="w-44">
+                                    <DropdownMenuItem
+                                      onSelect={() => {
+                                        props.onTogglePin(group.directory, session.id)
+                                      }}
+                                    >
+                                      <PinIcon className="mr-2 size-3.5" />
+                                      {pinned ? "Unpin thread" : "Pin thread"}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onSelect={() => {
+                                        setRenameState({
+                                          directory: group.directory,
+                                          sessionID: session.id,
+                                          title: session.title,
+                                        })
+                                      }}
+                                    >
+                                      <PencilIcon className="mr-2 size-3.5" />
+                                      Rename thread
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onSelect={() => {
+                                        setArchiveState({
+                                          directory: group.directory,
+                                          sessionID: session.id,
+                                          title: session.title || "Untitled thread",
+                                        })
+                                      }}
+                                    >
+                                      <ArchiveIcon className="mr-2 size-3.5" />
+                                      Archive thread
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onSelect={() => {
+                                        props.onToggleUnread(group.directory, session.id, !unread)
+                                      }}
+                                    >
+                                      {unread ? "Mark as read" : "Mark as unread"}
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                            </div>
+                          )
                         })
-                      }
-                    >
-                      {expanded ? "Show less" : "Show more"}
-                    </button>
-                  ) : null}
-                  {isDragOver && dragOverPosition === "after" ? (
-                    <div className="h-0.5 rounded-full bg-surface-interactive-base/70 mx-2 mt-1" />
-                  ) : null}
-                </section>
+                      )}
+                      {hasMore && !collapsed ? (
+                        <button
+                          type="button"
+                          className="ml-6 text-sm text-text-weak hover:text-text-base"
+                          onClick={() =>
+                            setExpandedDirectories((current) => {
+                              const next = { ...current }
+                              if (next[group.directory]) {
+                                delete next[group.directory]
+                              } else {
+                                next[group.directory] = true
+                              }
+                              return next
+                            })
+                          }
+                        >
+                          {expanded ? "Show less" : "Show more"}
+                        </button>
+                      ) : null}
+                    </CollapsibleContent>
+                    {isDragOver && dragOverPosition === "after" ? (
+                      <div className="h-0.5 rounded-full bg-surface-interactive-base/70 mx-2 mt-1" />
+                    ) : null}
+                  </section>
+                </Collapsible>
               )
             })}
           </div>
