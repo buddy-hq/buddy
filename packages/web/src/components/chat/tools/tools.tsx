@@ -857,6 +857,32 @@ function renderQuestionTool({ state, info, defaultOpen }: ToolPartProps) {
 }
 
 function renderBuddyCustomTool({ state, tool, defaultOpen }: ToolPartProps) {
+  if (tool === "pedagogy_resource_ingest_full_text") {
+    const resource = readNonEmptyString(state.metadata.resource)
+    const fullTextEstTokens = readNonNegativeInt(state.metadata.fullTextEstTokens)
+    const showOutput =
+      (state.output || (state.error ? unwrapError(state.error) : "")).trim().length > 0
+    const output = state.output || (state.error ? unwrapError(state.error) : "")
+
+    return (
+      <BasicTool
+        trigger={{ title: "Full text", subtitle: resource }}
+        status={state.status}
+        defaultOpen={defaultOpen ?? state.status === "error"}
+        hideDetails
+      >
+        {fullTextEstTokens !== undefined ? (
+          <div className="text-xs text-text-weak">
+            {fullTextEstTokens.toLocaleString()} tokens loaded into context
+          </div>
+        ) : null}
+        {state.status === "error" && showOutput ? (
+          <ToolOutputPanel output={output} status={state.status} copyLabel="Copy output" />
+        ) : null}
+      </BasicTool>
+    )
+  }
+
   const showOutput =
     (state.output || (state.error ? unwrapError(state.error) : "")).trim().length > 0
   const output = state.output || (state.error ? unwrapError(state.error) : "")
