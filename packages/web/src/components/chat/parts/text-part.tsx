@@ -78,7 +78,7 @@ export const AssistantTextPart = memo(function AssistantTextPart({
   if (!throttledText.trim()) return null
 
   return (
-    <div className="group/text-part mt-6 w-full">
+    <div className="group/text-part mt-4 w-full">
       <div>
         <Markdown text={throttledText} cacheKey={part.id} />
       </div>

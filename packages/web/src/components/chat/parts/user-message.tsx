@@ -80,7 +80,7 @@ export const UserMessagePart = memo(function UserMessagePart({
       <div className="ml-auto flex w-fit max-w-[min(82%,64ch)] flex-col items-end">
         <div
           className={cn(
-            "inline-block max-w-full rounded-md border border-border-base bg-background-base px-3 py-2 whitespace-pre-wrap break-words",
+            "inline-block max-w-full rounded-lg bg-surface-weak/40 px-3 py-2 whitespace-pre-wrap break-words text-sm",
             queued && "opacity-60",
           )}
         >
