@@ -355,7 +355,7 @@ export function MermaidDiagram(props: {
             data-component="mermaid-diagram"
             role="img"
             aria-label={props.alt}
-            className="overflow-auto pr-2"
+            className="max-h-[60vh] overflow-auto pr-2"
           />
           <TooltipProvider>
             <div className="mt-4 flex justify-end">
