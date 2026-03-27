@@ -303,10 +303,20 @@ export function useDirectoryChatPageController(
     clearUnread(decodedDirectory, sessionID)
   }, [clearUnread, decodedDirectory, sessionID])
 
+  const wasBusyRef = useRef(false)
+
   useEffect(() => {
+    const wasBusy = wasBusyRef.current
+    wasBusyRef.current = cs.isBusy
+
     if (!stickToBottom) return
     const container = transcriptRef.current
     if (!container) return
+
+    // When generation completes (busy→not busy), the spacer grows from 0→30vh.
+    // Skip the scroll so it grows invisibly below the viewport — content stays put.
+    if (wasBusy && !cs.isBusy) return
+
     container.scrollTo({ top: container.scrollHeight, behavior: "auto" })
   }, [cs.messages, cs.isBusy, stickToBottom])
 
@@ -613,6 +623,8 @@ export function useDirectoryChatPageController(
     const rawAttachments = draftSnapshot.attachments
     const content = rawContent.trim()
     if (!content && rawAttachments.length === 0 && promptParts.length === 0) return
+
+    setStickToBottom(true)
 
     const variant = selectedThinking !== "default" ? selectedThinking : undefined
     const slashCommand = parseSlashCommandInput(rawContent, slashCommandCandidates)
