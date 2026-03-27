@@ -1,4 +1,5 @@
 import { useState, useEffect, type ReactNode } from "react"
+import { motion } from "motion/react"
 import {
   Collapsible,
   CollapsibleTrigger,
@@ -53,61 +54,54 @@ export function BasicTool({
   }, [status])
 
   return (
-    <Collapsible
-      open={open}
-      onOpenChange={setOpen}
-      className="w-full rounded-lg border border-border-base bg-surface-raised-base p-3"
-    >
+    <Collapsible open={open} onOpenChange={setOpen} className="w-full">
       <CollapsibleTrigger asChild>
-        <button type="button" className="w-full text-left">
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
-              {icon ? <span className="shrink-0 text-text-weak">{icon}</span> : null}
-              {isTriggerTitle(trigger) ? (
-                <div className="flex min-w-0 flex-wrap items-center gap-2">
-                  <span
-                    className={cn("text-sm font-medium text-text-base", running && "animate-pulse")}
-                  >
-                    {trigger.title}
-                  </span>
-                  {trigger.subtitle && !running ? (
-                    <span className="truncate text-sm text-text-weak">{trigger.subtitle}</span>
-                  ) : null}
-                  {trigger.args?.map((arg) => (
-                    <span
-                      key={arg}
-                      className="rounded bg-surface-weak px-1.5 py-0.5 text-xs text-text-weak"
-                    >
-                      {arg}
-                    </span>
-                  ))}
-                  {trigger.action}
-                </div>
-              ) : (
-                trigger
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              {isTriggerTitle(trigger) ? trigger.trailing : null}
-              {!hideStatus && status ? <ToolStatusBadge status={status} /> : null}
-              {!hideDetails && !running && children ? (
-                <ChevronRightIcon
-                  className={cn(
-                    "h-4 w-4 shrink-0 text-text-weak transition-transform",
-                    open && "rotate-90",
-                  )}
-                />
+        <button type="button" className="group flex w-full items-center gap-2 py-1 text-left">
+          {icon ? <span className="shrink-0 text-text-weak">{icon}</span> : null}
+          {isTriggerTitle(trigger) ? (
+            <>
+              <span
+                className={cn("text-xs font-medium text-text-weak", running && "animate-pulse")}
+              >
+                {trigger.title}
+              </span>
+              {trigger.subtitle && !running ? (
+                <span className="min-w-0 truncate text-xs text-text-weak/50">
+                  {trigger.subtitle}
+                </span>
               ) : null}
-            </div>
-          </div>
+              {trigger.args?.map((arg) => (
+                <span
+                  key={arg}
+                  className="rounded bg-surface-weak/60 px-1 py-px text-[11px] text-text-weak/50"
+                >
+                  {arg}
+                </span>
+              ))}
+              {trigger.action}
+              {trigger.trailing}
+            </>
+          ) : (
+            trigger
+          )}
+          {!hideStatus && status ? <ToolStatusBadge status={status} /> : null}
+          {!hideDetails && !running && children ? (
+            <motion.div
+              animate={{ rotate: open ? 90 : 0 }}
+              transition={{ type: "spring", stiffness: 500, damping: 35, mass: 0.8 }}
+              className="ml-auto"
+            >
+              <ChevronRightIcon className="h-3 w-3 shrink-0 text-text-weak/50 group-hover:text-text-weak" />
+            </motion.div>
+          ) : null}
         </button>
       </CollapsibleTrigger>
       {children ? (
         hideDetails ? (
-          <div className="mt-2">{children}</div>
+          <div className="mt-2 pl-3">{children}</div>
         ) : (
           <CollapsibleContent>
-            <div className="mt-2">{children}</div>
+            <div className="mt-2 pl-3">{children}</div>
           </CollapsibleContent>
         )
       ) : null}

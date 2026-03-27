@@ -1,4 +1,5 @@
 import { useState, useEffect, type ReactNode } from "react"
+import { motion } from "motion/react"
 import {
   Collapsible,
   CollapsibleTrigger,
@@ -32,18 +33,14 @@ export function ToolCardWithDetails({
   }, [status])
 
   return (
-    <Collapsible
-      open={open}
-      onOpenChange={setOpen}
-      className="w-full rounded-lg border border-border-base bg-surface-raised-base p-3"
-    >
+    <Collapsible open={open} onOpenChange={setOpen} className="w-full">
       <CollapsibleTrigger asChild>
         <button type="button" className="w-full text-left">
           <ToolHeader info={info} status={status} running={running} />
         </button>
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <div className="mt-2">{children}</div>
+        <div className="mt-1.5">{children}</div>
       </CollapsibleContent>
     </Collapsible>
   )
@@ -138,12 +135,12 @@ export function ApplyPatchFileItem({ file }: ApplyPatchFileItemProps) {
               <span className="capitalize">{file.type}</span>
             </div>
           </div>
-          <ChevronRightIcon
-            className={cn(
-              "h-4 w-4 shrink-0 text-text-weak transition-transform",
-              open && "rotate-90",
-            )}
-          />
+          <motion.div
+            animate={{ rotate: open ? 90 : 0 }}
+            transition={{ type: "spring", stiffness: 500, damping: 35, mass: 0.8 }}
+          >
+            <ChevronRightIcon className="h-4 w-4 shrink-0 text-text-weak" />
+          </motion.div>
         </button>
       </CollapsibleTrigger>
       <CollapsibleContent>
