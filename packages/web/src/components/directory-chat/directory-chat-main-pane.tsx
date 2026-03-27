@@ -95,13 +95,20 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
                   <ChatEmptyState directoryLabel={getFilename(directory)} />
                 </div>
               ) : (
-                <ChatTranscript
-                  messages={chatState.messages}
-                  directory={directory}
-                  providers={chatState.providers}
-                  isBusy={chatState.isBusy}
-                  onOpenSession={onOpenSession}
-                />
+                <>
+                  <ChatTranscript
+                    messages={chatState.messages}
+                    directory={directory}
+                    providers={chatState.providers}
+                    isBusy={chatState.isBusy}
+                    onOpenSession={onOpenSession}
+                  />
+                  <div
+                    className="shrink-0"
+                    style={{ minHeight: chatState.isBusy ? "0px" : "30vh" }}
+                    aria-hidden="true"
+                  />
+                </>
               )}
             </div>
           </section>
