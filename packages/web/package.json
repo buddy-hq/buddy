@@ -37,6 +37,7 @@
     "mermaid": "^11.12.0",
     "monaco-editor": "^0.52.2",
     "morphdom": "^2.7.8",
+    "motion": "^12.38.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "shiki": "^3.20.0",
