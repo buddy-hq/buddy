@@ -21,6 +21,7 @@ export interface ToolInfo {
   title: string
   subtitle?: string
   detail?: string
+  summary?: string
   args?: string[]
 }
 

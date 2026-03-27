@@ -49,7 +49,7 @@ export const ToolPartCard = memo(function ToolPartCard({
   }
 
   const state = parseToolState(part)
-  const info = getToolInfo(tool, state.input)
+  const info = getToolInfo(tool, state)
   const props: ToolPartProps = {
     part,
     state,
