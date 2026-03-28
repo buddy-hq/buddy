@@ -10,6 +10,8 @@ export const RELEASE_VERSION_PACKAGE_FILES = [
   "packages/opencode-adapter/package.json",
 ] as const
 
+export const RELEASE_VERSION_GIT_FILES = [...RELEASE_VERSION_PACKAGE_FILES, "bun.lock"] as const
+
 export async function updateReleaseVersionPackageFiles(rootDir: string, version: string) {
   for (const relativePath of RELEASE_VERSION_PACKAGE_FILES) {
     const target = path.join(rootDir, relativePath)
@@ -19,10 +21,12 @@ export async function updateReleaseVersionPackageFiles(rootDir: string, version:
     pkg.version = version
     await Bun.write(target, `${JSON.stringify(pkg, null, 2)}\n`)
   }
+
+  await $`bun install --lockfile-only`.cwd(rootDir)
 }
 
 export async function stageReleaseVersionPackageFiles(rootDir: string) {
-  for (const relativePath of RELEASE_VERSION_PACKAGE_FILES) {
+  for (const relativePath of RELEASE_VERSION_GIT_FILES) {
     await $`git add ${relativePath}`.cwd(rootDir)
   }
 }

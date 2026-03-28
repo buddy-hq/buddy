@@ -4,6 +4,7 @@ import { $ } from "bun"
 import path from "node:path"
 import { Script } from "@buddy/script"
 import {
+  RELEASE_VERSION_GIT_FILES,
   stageReleaseVersionPackageFiles,
   updateReleaseVersionPackageFiles,
 } from "./release-version-files"
@@ -31,18 +32,23 @@ async function configureReleaseCommitter() {
   await $`git config user.email 41898282+github-actions[bot]@users.noreply.github.com`.cwd(ROOT_DIR)
 }
 
+function parseStatusPaths(output: string) {
+  return output
+    .split(/\r?\n/)
+    .map((line) => line.trimEnd())
+    .filter(Boolean)
+    .map((line) => line.slice(3))
+    .map((path) => {
+      const renamed = path.split(" -> ")
+      return renamed[renamed.length - 1] ?? path
+    })
+}
+
 async function persistWorkflowDispatchReleaseVersion(tag: string) {
   const branch = currentBranch()
 
   if (branch !== "main") {
     throw new Error(`Stable releases must sync version files back to main, received '${branch}'`)
-  }
-
-  const dirty = await $`git status --porcelain`.cwd(ROOT_DIR).text()
-  if (dirty.trim()) {
-    throw new Error(
-      "Publish job must start from a clean checkout before persisting release versions",
-    )
   }
 
   await configureReleaseCommitter()
@@ -68,6 +74,18 @@ async function persistWorkflowDispatchReleaseVersion(tag: string) {
 
   await $`git switch -c ${`release-sync-${tag}`}`.cwd(ROOT_DIR)
   await updateReleaseVersionPackageFiles(ROOT_DIR, Script.version)
+
+  const dirtyPaths = parseStatusPaths(await $`git status --porcelain`.cwd(ROOT_DIR).text())
+  const unexpectedDirtyPaths = dirtyPaths.filter(
+    (path) =>
+      !RELEASE_VERSION_GIT_FILES.includes(path as (typeof RELEASE_VERSION_GIT_FILES)[number]),
+  )
+  if (unexpectedDirtyPaths.length > 0) {
+    throw new Error(
+      `Publish job produced unexpected dirty files: ${unexpectedDirtyPaths.join(", ")}`,
+    )
+  }
+
   await stageReleaseVersionPackageFiles(ROOT_DIR)
 
   const staged = await $`git diff --cached --name-only`.cwd(ROOT_DIR).text()
