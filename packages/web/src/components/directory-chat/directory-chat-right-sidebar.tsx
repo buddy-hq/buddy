@@ -11,6 +11,7 @@ type DirectoryChatRightSidebarProps = {
   teachingWorkspace: TeachingWorkspaceController
   showCapabilitiesTab: boolean
   showSystemPromptTab: boolean
+  showSnapshotTab: boolean
   resourcesRefreshToken: number
   systemPromptRefreshToken: number
   isStartingInteractiveLesson: boolean
@@ -26,6 +27,7 @@ export function DirectoryChatRightSidebar(props: DirectoryChatRightSidebarProps)
     teachingWorkspace,
     showCapabilitiesTab,
     showSystemPromptTab,
+    showSnapshotTab,
     resourcesRefreshToken,
     systemPromptRefreshToken,
     isStartingInteractiveLesson,
@@ -54,6 +56,7 @@ export function DirectoryChatRightSidebar(props: DirectoryChatRightSidebarProps)
       surfaces={chatState.selectedPersonaSurfaces}
       showCapabilitiesTab={showCapabilitiesTab}
       showSystemPromptTab={showSystemPromptTab}
+      showSnapshotTab={showSnapshotTab}
       resourcesPanel={panels.resourcesPanel}
       agentsPanel={panels.agentsPanel}
       systemPromptPanel={panels.systemPromptPanel}

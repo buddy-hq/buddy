@@ -51,6 +51,7 @@ type ChatRightSidebarProps = {
   className?: string
   showCapabilitiesTab?: boolean
   showSystemPromptTab?: boolean
+  showSnapshotTab?: boolean
 }
 
 function stringifyError(error: unknown) {
@@ -117,6 +118,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
   const [showRightArrow, setShowRightArrow] = useState(false)
   const capabilitiesTabEnabled = props.showCapabilitiesTab === true
   const systemPromptTabEnabled = props.showSystemPromptTab === true
+  const snapshotTabEnabled = props.showSnapshotTab === true
 
   const checkScroll = useCallback(() => {
     if (scrollRef.current) {
@@ -149,15 +151,18 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
       ? "system-prompt"
       : props.activeTab === "capabilities" && capabilitiesTabEnabled
         ? "capabilities"
-        : props.activeTab === "diagrams"
-          ? "diagrams"
-          : props.activeTab === "resources"
-            ? "resources"
-            : props.activeTab === "agents-md"
-              ? "agents-md"
-              : props.surfaces.includes(props.activeTab as ChatRightSidebarSurface)
-                ? (props.activeTab as ChatRightSidebarSurface)
-                : (props.surfaces[0] ?? "curriculum")
+        : props.activeTab === "curriculum" && snapshotTabEnabled
+          ? "curriculum"
+          : props.activeTab === "diagrams"
+            ? "diagrams"
+            : props.activeTab === "resources"
+              ? "resources"
+              : props.activeTab === "agents-md"
+                ? "agents-md"
+                : props.surfaces.includes(props.activeTab as ChatRightSidebarSurface) &&
+                    props.activeTab !== "curriculum"
+                  ? (props.activeTab as ChatRightSidebarSurface)
+                  : (props.surfaces.find((s) => s !== "curriculum") ?? "diagrams")
 
   const loadSidebarData = useCallback(
     async (isDisposed?: () => boolean) => {
@@ -264,13 +269,6 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
           className="min-w-0 flex-1 overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           <div className="flex w-max items-center gap-1 px-1">
-            <Button
-              variant={activeTab === "curriculum" ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => props.onTabChange("curriculum")}
-            >
-              Snapshot
-            </Button>
             {props.surfaces.includes("editor") ? (
               <Button
                 variant={activeTab === "editor" ? "secondary" : "ghost"}
@@ -290,13 +288,6 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
               </Button>
             ) : null}
             <Button
-              variant={activeTab === "diagrams" ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => props.onTabChange("diagrams")}
-            >
-              Diagrams
-            </Button>
-            <Button
               variant={activeTab === "resources" ? "secondary" : "ghost"}
               size="sm"
               onClick={() => props.onTabChange("resources")}
@@ -310,6 +301,23 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
             >
               Agents
             </Button>
+            <Button
+              variant={activeTab === "diagrams" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => props.onTabChange("diagrams")}
+            >
+              Diagrams
+            </Button>
+            {snapshotTabEnabled ? (
+              <Button
+                variant={activeTab === "curriculum" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => props.onTabChange("curriculum")}
+                className="border border-dashed border-yellow-500/60"
+              >
+                Snapshot
+              </Button>
+            ) : null}
             {capabilitiesTabEnabled ? (
               <Button
                 variant={activeTab === "capabilities" ? "secondary" : "ghost"}

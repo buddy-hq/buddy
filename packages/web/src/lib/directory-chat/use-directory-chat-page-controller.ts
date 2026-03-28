@@ -142,6 +142,7 @@ export function useDirectoryChatPageController(
   const showDevSessionTrace = import.meta.env.DEV
   const showCapabilitiesSidebarTab = showDevSessionTrace
   const showSystemPromptSidebarTab = showDevSessionTrace
+  const showSnapshotSidebarTab = showDevSessionTrace
 
   const openProjects = useChatStore((state) => state.openProjects)
   const hasRegisteredProject = useMemo(
@@ -1013,6 +1014,7 @@ export function useDirectoryChatPageController(
     teachingWorkspace: teachingWs,
     showCapabilitiesTab: showCapabilitiesSidebarTab,
     showSystemPromptTab: showSystemPromptSidebarTab,
+    showSnapshotTab: showSnapshotSidebarTab,
     resourcesRefreshToken,
     systemPromptRefreshToken,
     isStartingInteractiveLesson,
