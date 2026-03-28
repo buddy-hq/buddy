@@ -7,12 +7,19 @@ import type { MessageInfo, MessagePart, MessageWithParts, ProviderInfo } from "@
 import "./tools"
 
 // Import shared utilities
-import { titleCase, formatDuration, reasoningHeading } from "./shared/utils"
+import {
+  titleCase,
+  formatDuration,
+  reasoningHeading,
+  formatMessageError,
+  isMessageAbortError,
+} from "./shared/utils"
 
 // Import parts
 import {
   UserMessagePart,
   AbstractedToolGroup,
+  AssistantErrorCard,
   AssistantPartRenderer,
   FileAttachmentPart,
   MessageDivider,
@@ -353,12 +360,25 @@ const TurnRenderer = memo(function TurnRenderer({
 
   const lastAssistantTextID = assistantTextParts[assistantTextParts.length - 1]?.id
   const lastAssistantInfo = assistantMessages[assistantMessages.length - 1]?.info
+  const assistantError = useMemo(
+    () =>
+      assistantMessages
+        .map((message) => (message.info.role === "assistant" ? message.info.error : undefined))
+        .findLast((error) => !!error && !isMessageAbortError(error)),
+    [assistantMessages],
+  )
+  const assistantErrorText = useMemo(() => formatMessageError(assistantError), [assistantError])
+  const assistantErrorName =
+    assistantError &&
+    typeof assistantError.name === "string" &&
+    assistantError.name !== "UnknownError"
+      ? assistantError.name
+      : undefined
   const assistantCopyPartID = isBusy && isLastTurn ? undefined : lastAssistantTextID
   const assistantAborted =
-    lastAssistantInfo?.role === "assistant" && lastAssistantInfo.finish === "aborted"
-  const assistantErrored = Boolean(
-    lastAssistantInfo?.role === "assistant" && lastAssistantInfo.error,
-  )
+    lastAssistantInfo?.role === "assistant" &&
+    (lastAssistantInfo.finish === "aborted" || isMessageAbortError(lastAssistantInfo.error))
+  const assistantErrored = assistantErrorText.length > 0
   const assistantCompleted = assistantMessages.reduce<number | undefined>((max, message) => {
     const completed = message.info.time?.completed
     if (typeof completed !== "number") return max
@@ -506,6 +526,10 @@ const TurnRenderer = memo(function TurnRenderer({
             </div>
           ) : null}
         </div>
+      ) : null}
+
+      {assistantErrorText ? (
+        <AssistantErrorCard message={assistantErrorText} errorName={assistantErrorName} />
       ) : null}
     </article>
   )
