@@ -1,16 +1,9 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router"
-import { useEffect } from "react"
+import { createFileRoute, redirect } from "@tanstack/react-router"
+import { resolveCurrentDesktopEntryPath } from "@/lib/desktop-onboarding"
 
 export const Route = createFileRoute("/")({
-  component: IndexComponent,
+  beforeLoad: () => {
+    throw redirect({ to: resolveCurrentDesktopEntryPath() })
+  },
+  component: () => null,
 })
-
-function IndexComponent() {
-  const navigate = useNavigate()
-
-  useEffect(() => {
-    navigate({ to: "/chat", replace: true })
-  }, [navigate])
-
-  return null
-}

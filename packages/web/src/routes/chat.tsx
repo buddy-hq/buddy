@@ -1,16 +1,22 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router"
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 import { Button, Input, Card, CardContent } from "@buddy/ui"
 import { FolderPlusIcon } from "@/components/layout/sidebar-icons"
 import { usePlatform } from "../context/platform"
 import buddyIcon from "../../public/buddy-icon.png"
 import { stringifyError } from "../lib/api-client"
+import { shouldShowCurrentDesktopOnboarding } from "../lib/desktop-onboarding"
 import { encodeDirectory } from "../lib/directory-token"
 import { pickProjectDirectory } from "../lib/directory-picker"
 import { bootstrapOpenProjects, openProject } from "../state/chat-actions"
 import { useChatStore } from "../state/chat-store"
 
 export const Route = createFileRoute("/chat")({
+  beforeLoad: () => {
+    if (shouldShowCurrentDesktopOnboarding()) {
+      throw redirect({ to: "/onboarding" })
+    }
+  },
   component: ChatEntryPage,
 })
 
