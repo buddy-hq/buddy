@@ -9,6 +9,7 @@ import type { SessionInfo } from "@/state/chat-types"
 import type { PersonaConfigOption } from "@/state/chat-actions"
 import { RESOURCE_SIDEBAR_TAB } from "../resource-commands"
 import type { ChatRightSidebarTab } from "@/components/layout/chat-right-sidebar"
+import { getConnectedProviders, resolveAutoModelSelection } from "@/lib/provider-catalog"
 
 const MODEL_VISIBILITY_WINDOW_MS = 1000 * 60 * 60 * 24 * 31 * 6
 const EMPTY_LIST: never[] = []
@@ -112,28 +113,14 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
   const messages = directoryState?.messages ?? EMPTY_LIST
   const providers = directoryState?.providers ?? EMPTY_LIST
   const providerDefault = directoryState?.providerDefault ?? EMPTY_RECORD
-  const connectedProviders = useMemo(
-    () => providers.filter((provider) => provider.connected),
-    [providers],
-  )
+  const connectedProviders = useMemo(() => getConnectedProviders(providers), [providers])
   const autoModelSelection = useMemo(() => {
-    if (props.configuredModel) return props.configuredModel
-
-    for (const provider of connectedProviders) {
-      const configuredDefaultModel = providerDefault[provider.id]
-      if (
-        configuredDefaultModel &&
-        provider.models.some((model) => model.id === configuredDefaultModel)
-      ) {
-        return { providerID: provider.id, modelID: configuredDefaultModel }
-      }
-    }
-
-    const firstProvider = connectedProviders[0]
-    const firstModel = firstProvider?.models[0]
-    if (!firstProvider || !firstModel) return undefined
-    return { providerID: firstProvider.id, modelID: firstModel.id }
-  }, [props.configuredModel, connectedProviders, providerDefault])
+    return resolveAutoModelSelection({
+      providers,
+      providerDefault,
+      configuredModel: props.configuredModel,
+    })
+  }, [props.configuredModel, providerDefault, providers])
   const visibleModelKeys = useMemo(() => {
     const visible = new Set<string>()
     const latestByFamily = new Map<string, { key: string; releaseTime: number }>()
