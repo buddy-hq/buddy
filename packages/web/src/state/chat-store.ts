@@ -11,7 +11,7 @@ import type {
   ProviderCatalogState,
   SessionInfo,
 } from "./chat-types"
-import { appendPartDelta, inferBusyFromMessages, upsertMessage, upsertPart } from "./chat-reducer"
+import { appendPartDelta, upsertMessage, upsertPart } from "./chat-reducer"
 
 type StreamStatus = "idle" | "connecting" | "connected" | "error"
 
@@ -247,6 +247,10 @@ export const useChatStore = create<ChatStore>()(
         set((state) => {
           const current = ensureDirectoryState(state as ChatStore, directory)
           const sortedSessions = sortSessions(sessions)
+          const nextSessionStatusByID: Record<string, "busy" | "idle"> = {}
+          for (const session of sortedSessions) {
+            nextSessionStatusByID[session.id] = current.sessionStatusByID[session.id] ?? "idle"
+          }
           const activeSessionID =
             current.sessionID && sortedSessions.some((session) => session.id === current.sessionID)
               ? current.sessionID
@@ -255,6 +259,9 @@ export const useChatStore = create<ChatStore>()(
           const activeInfo = activeSessionID
             ? sortedSessions.find((session) => session.id === activeSessionID)
             : undefined
+          const nextBusy = activeSessionID
+            ? nextSessionStatusByID[activeSessionID] === "busy"
+            : false
 
           return {
             directories: {
@@ -264,6 +271,8 @@ export const useChatStore = create<ChatStore>()(
                 sessions: sortedSessions,
                 sessionID: activeSessionID,
                 sessionTitle: activeInfo?.title ?? DEFAULT_TITLE,
+                sessionStatusByID: nextSessionStatusByID,
+                isBusy: nextBusy,
               },
             },
             lastSessionByDirectory: activeSessionID
@@ -328,7 +337,11 @@ export const useChatStore = create<ChatStore>()(
           const nextMessages = Array.isArray(messages) ? messages : []
           const nextSessionID = current.sessionID ?? sessionID
           const activeInfo = current.sessions.find((session) => session.id === nextSessionID)
-          const inferredBusy = inferBusyFromMessages(nextMessages)
+          const nextSessionStatusByID = {
+            ...current.sessionStatusByID,
+            [nextSessionID]: current.sessionStatusByID[nextSessionID] ?? ("idle" as const),
+          }
+          const nextBusy = nextSessionStatusByID[nextSessionID] === "busy"
           return {
             directories: {
               ...state.directories,
@@ -337,11 +350,8 @@ export const useChatStore = create<ChatStore>()(
                 sessionID: nextSessionID,
                 sessionTitle: activeInfo?.title ?? current.sessionTitle,
                 messages: nextMessages,
-                isBusy: inferredBusy,
-                sessionStatusByID: {
-                  ...current.sessionStatusByID,
-                  [nextSessionID]: inferredBusy ? "busy" : "idle",
-                },
+                isBusy: nextBusy,
+                sessionStatusByID: nextSessionStatusByID,
               },
             },
           }
@@ -418,18 +428,17 @@ export const useChatStore = create<ChatStore>()(
             return state
           }
           const messages = upsertMessage(current.messages, info)
-          const inferredBusy = inferBusyFromMessages(messages)
+          const nextBusy =
+            current.sessionID !== undefined
+              ? current.sessionStatusByID[current.sessionID] === "busy"
+              : current.isBusy
           return {
             directories: {
               ...state.directories,
               [directory]: {
                 ...current,
                 messages,
-                isBusy: inferredBusy,
-                sessionStatusByID: {
-                  ...current.sessionStatusByID,
-                  [info.sessionID]: inferredBusy ? "busy" : "idle",
-                },
+                isBusy: nextBusy,
               },
             },
           }
@@ -442,18 +451,17 @@ export const useChatStore = create<ChatStore>()(
             return state
           }
           const messages = upsertPart(current.messages, part)
-          const inferredBusy = inferBusyFromMessages(messages)
+          const nextBusy =
+            current.sessionID !== undefined
+              ? current.sessionStatusByID[current.sessionID] === "busy"
+              : current.isBusy
           return {
             directories: {
               ...state.directories,
               [directory]: {
                 ...current,
                 messages,
-                isBusy: inferredBusy,
-                sessionStatusByID: {
-                  ...current.sessionStatusByID,
-                  [part.sessionID]: inferredBusy ? "busy" : "idle",
-                },
+                isBusy: nextBusy,
               },
             },
           }
@@ -466,18 +474,17 @@ export const useChatStore = create<ChatStore>()(
             return state
           }
           const messages = appendPartDelta(current.messages, input)
-          const inferredBusy = inferBusyFromMessages(messages)
+          const nextBusy =
+            current.sessionID !== undefined
+              ? current.sessionStatusByID[current.sessionID] === "busy"
+              : current.isBusy
           return {
             directories: {
               ...state.directories,
               [directory]: {
                 ...current,
                 messages,
-                isBusy: inferredBusy,
-                sessionStatusByID: {
-                  ...current.sessionStatusByID,
-                  [input.sessionID]: inferredBusy ? "busy" : "idle",
-                },
+                isBusy: nextBusy,
               },
             },
           }

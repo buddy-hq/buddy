@@ -191,9 +191,15 @@ describe("chat-store parity events", () => {
     store.applyMessageUpdated(directory, assistantMessage("message_active", "session_1"))
     const next = useChatStore.getState().directories[directory]
     expect(next?.messages.map((message) => message.info.id)).toEqual(["message_active"])
-    expect(next?.isBusy).toBe(true)
+    expect(next?.isBusy).toBe(false)
+
+    store.applySessionStatus(directory, "session_1", "busy")
+    expect(useChatStore.getState().directories[directory]?.isBusy).toBe(true)
 
     store.applyMessageUpdated(directory, assistantMessage("message_active", "session_1", "stop"))
+    expect(useChatStore.getState().directories[directory]?.isBusy).toBe(true)
+
+    store.applySessionStatus(directory, "session_1", "idle")
     expect(useChatStore.getState().directories[directory]?.isBusy).toBe(false)
   })
 

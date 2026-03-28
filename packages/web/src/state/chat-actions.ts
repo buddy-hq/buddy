@@ -26,7 +26,7 @@ import type {
   SessionInfo,
 } from "./chat-types"
 import type { TeachingIntent, TeachingPromptContext } from "./teaching-runtime"
-import { stringifyError } from "../lib/api-client"
+import { requestJson, stringifyError } from "../lib/api-client"
 import { getBuddyClient, requireBuddyData, buddyResultMessage } from "../lib/buddy-client"
 import type { PromptFilePart, PromptSubmissionPart } from "../components/prompt/prompt-types"
 
@@ -172,6 +172,15 @@ function normalizeDirectoryList(directories: string[]) {
   return Array.from(
     new Set(directories.map((directory) => normalizeProjectDirectory(directory)).filter(Boolean)),
   ) as string[]
+}
+
+function normalizeSessionStatusValue(value: unknown): "busy" | "idle" {
+  if (value === "busy" || value === "retry") return "busy"
+  if (value === "idle") return "idle"
+  if (!value || typeof value !== "object" || Array.isArray(value)) return "idle"
+
+  const statusRecord = value as { type?: unknown }
+  return statusRecord.type === "busy" || statusRecord.type === "retry" ? "busy" : "idle"
 }
 
 export function resolveDefaultPersonaID(
@@ -457,7 +466,7 @@ function normalizeProviderCatalog(
   }
 }
 
-async function fetchProviderCatalog(directory: string) {
+async function fetchProviderCatalog(directory?: string) {
   const client = getBuddyClient(directory)
   const [providerResult, authResult] = await Promise.all([
     client.provider.list(),
@@ -468,6 +477,10 @@ async function fetchProviderCatalog(directory: string) {
     requireBuddyData<ProviderListResponse>(providerResult),
     requireBuddyData<ProviderAuthResponse>(authResult),
   )
+}
+
+export async function loadProviderCatalogSnapshot(directory?: string) {
+  return fetchProviderCatalog(directory)
 }
 
 export async function loadOpenProjects() {
@@ -546,6 +559,31 @@ export async function loadSessions(directory: string) {
     store.setDirectoryError(directory, stringifyError(error))
     throw error
   }
+}
+
+async function loadSessionStatuses(directory: string) {
+  const statusBySession = await requestJson<Record<string, unknown>>(directory, "/session/status")
+  const store = useChatStore.getState()
+  const snapshot = store.directories[directory]
+  if (!snapshot) return statusBySession
+
+  const sessionIDs = new Set<string>()
+  for (const session of snapshot.sessions) {
+    sessionIDs.add(session.id)
+  }
+  if (snapshot.sessionID) {
+    sessionIDs.add(snapshot.sessionID)
+  }
+
+  for (const sessionID of sessionIDs) {
+    store.applySessionStatus(
+      directory,
+      sessionID,
+      normalizeSessionStatusValue(statusBySession[sessionID]),
+    )
+  }
+
+  return statusBySession
 }
 
 export async function loadMessages(directory: string, sessionID: string) {
@@ -660,6 +698,7 @@ export async function ensureDirectorySession(directory: string) {
     }
 
     await loadMessages(targetDirectory, info.id)
+    await loadSessionStatuses(targetDirectory).catch(() => undefined)
     await loadPermissions(targetDirectory)
     await loadProviderCatalog(targetDirectory)
     await loadMcpStatus(targetDirectory).catch(() => undefined)
@@ -864,15 +903,16 @@ export async function abortPrompt(directory: string) {
 }
 
 export async function resyncDirectory(directory: string) {
-  const store = useChatStore.getState()
-  const sessionID = store.directories[directory]?.sessionID
   await loadSessions(directory)
+  await loadSessionStatuses(directory).catch(() => undefined)
   await loadPermissions(directory)
   await loadProviderCatalog(directory)
   await loadMcpStatus(directory).catch(() => undefined)
+  const sessionID = useChatStore.getState().directories[directory]?.sessionID
   if (!sessionID) return
   if (shouldDeferTranscriptReload(directory, sessionID)) return
   await loadMessages(directory, sessionID)
+  await loadSessionStatuses(directory).catch(() => undefined)
 }
 
 export async function replyPermission(input: {
