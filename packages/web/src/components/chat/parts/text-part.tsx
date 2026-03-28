@@ -1,7 +1,7 @@
 import { memo } from "react"
 import { Markdown } from "@/components/Markdown"
 import { CopyAction } from "../shared/copy-action"
-import { useThrottledText } from "../shared/hooks"
+import { useSmoothStreamingText } from "../shared/hooks"
 import { cn } from "@buddy/ui"
 import type { MessagePart } from "@/state/chat-types"
 
@@ -12,6 +12,7 @@ interface AssistantTextPartProps {
   interrupted?: boolean
   stripLeadingFigureImage?: boolean
   stripLeadingMermaidSource?: string
+  onFinalRender?: () => void
 }
 
 function stripLeadingRenderFigureMarkdown(text: string): string {
@@ -56,6 +57,7 @@ function assistantTextPartEqual(
   if (prevProps.interrupted !== nextProps.interrupted) return false
   if (prevProps.stripLeadingFigureImage !== nextProps.stripLeadingFigureImage) return false
   if (prevProps.stripLeadingMermaidSource !== nextProps.stripLeadingMermaidSource) return false
+  if (prevProps.onFinalRender !== nextProps.onFinalRender) return false
   return prevProps.part.text === nextProps.part.text
 }
 
@@ -66,6 +68,7 @@ export const AssistantTextPart = memo(function AssistantTextPart({
   interrupted,
   stripLeadingFigureImage,
   stripLeadingMermaidSource,
+  onFinalRender,
 }: AssistantTextPartProps) {
   const text = String(part.text ?? "")
   const withoutLeadingFigure = stripLeadingFigureImage
@@ -74,13 +77,13 @@ export const AssistantTextPart = memo(function AssistantTextPart({
   const visibleText = stripLeadingMermaidSource
     ? stripLeadingRenderMermaidMarkdown(withoutLeadingFigure, stripLeadingMermaidSource)
     : withoutLeadingFigure
-  const throttledText = useThrottledText(visibleText)
-  if (!throttledText.trim()) return null
+  const displayedText = useSmoothStreamingText(visibleText, onFinalRender)
+  if (!displayedText.trim()) return null
 
   return (
     <div className="group/text-part mt-4 w-full">
-      <div>
-        <Markdown text={throttledText} cacheKey={part.id} />
+      <div className="transition-opacity duration-75 ease-out">
+        <Markdown text={displayedText} cacheKey={part.id} />
       </div>
       {copyEnabled ? (
         <div
@@ -90,7 +93,7 @@ export const AssistantTextPart = memo(function AssistantTextPart({
             interrupted && "w-full justify-end",
           )}
         >
-          <CopyAction value={throttledText} label="Copy response" />
+          <CopyAction value={displayedText} label="Copy response" />
           {metaText ? <span className="text-xs text-text-weak">{metaText}</span> : null}
         </div>
       ) : null}
