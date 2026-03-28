@@ -3,7 +3,11 @@ import {
   configureNotebookForOnboarding,
   connectChatGptPlusForOnboarding,
 } from "../src/lib/onboarding-flow"
-import { resolveDesktopEntryPath } from "../src/lib/desktop-onboarding"
+import {
+  resolveDesktopEntryPath,
+  resolveDesktopOnboardingAutoContinueDirectory,
+  resolveDesktopEntryPathWithSnapshots,
+} from "../src/lib/desktop-onboarding"
 import type {
   ProviderCatalogState,
   ProviderInfo,
@@ -78,7 +82,9 @@ function createCatalog(input: {
 }
 
 beforeEach(() => {
-  localStorage.clear()
+  if (typeof localStorage !== "undefined") {
+    localStorage.clear()
+  }
   useOnboardingStore.getState().reset()
 })
 
@@ -121,6 +127,130 @@ describe("desktop onboarding entry routing", () => {
         directories: {},
       }),
     ).toBe("/chat")
+  })
+
+  test("skips onboarding when open projects already exist in the backend registry", async () => {
+    let markedCompleted = false
+
+    await expect(
+      resolveDesktopEntryPathWithSnapshots({
+        state: {
+          platform: "desktop",
+          completed: false,
+          openProjects: [],
+          activeDirectory: undefined,
+          pendingActiveDirectory: undefined,
+          lastSessionByDirectory: {},
+          directories: {},
+        },
+        async loadOpenProjectsSnapshot() {
+          return ["/repo"]
+        },
+        async loadProviderCatalogSnapshot() {
+          return createCatalog({
+            providers: [],
+          })
+        },
+        markOnboardingCompleted() {
+          markedCompleted = true
+        },
+      }),
+    ).resolves.toBe("/chat")
+
+    expect(markedCompleted).toBe(false)
+  })
+
+  test("skips onboarding when OpenAI is already connected", async () => {
+    let markedCompleted = false
+
+    await expect(
+      resolveDesktopEntryPathWithSnapshots({
+        state: {
+          platform: "desktop",
+          completed: false,
+          openProjects: [],
+          activeDirectory: undefined,
+          pendingActiveDirectory: undefined,
+          lastSessionByDirectory: {},
+          directories: {},
+        },
+        async loadOpenProjectsSnapshot() {
+          return []
+        },
+        async loadProviderCatalogSnapshot() {
+          return createCatalog({
+            providers: [
+              createProvider({
+                id: "openai",
+                name: "OpenAI",
+                connected: true,
+                methods: [{ type: "oauth", label: "ChatGPT Pro/Plus (browser)" }],
+              }),
+            ],
+          })
+        },
+        markOnboardingCompleted() {
+          markedCompleted = true
+        },
+      }),
+    ).resolves.toBe("/chat")
+
+    expect(markedCompleted).toBe(true)
+  })
+
+  test("keeps onboarding when provider catalog cannot be read", async () => {
+    let markedCompleted = false
+
+    await expect(
+      resolveDesktopEntryPathWithSnapshots({
+        state: {
+          platform: "desktop",
+          completed: false,
+          openProjects: [],
+          activeDirectory: undefined,
+          pendingActiveDirectory: undefined,
+          lastSessionByDirectory: {},
+          directories: {},
+        },
+        async loadOpenProjectsSnapshot() {
+          return []
+        },
+        async loadProviderCatalogSnapshot() {
+          throw new Error("network down")
+        },
+        markOnboardingCompleted() {
+          markedCompleted = true
+        },
+      }),
+    ).resolves.toBe("/onboarding")
+
+    expect(markedCompleted).toBe(false)
+  })
+
+  test("auto-continues onboarding to the active open project when OpenAI is connected", () => {
+    expect(
+      resolveDesktopOnboardingAutoContinueDirectory({
+        connectedOpenAiProvider: true,
+        openProjects: ["/repo-a", "/repo-b"],
+        activeDirectory: "/repo-b",
+      }),
+    ).toBe("/repo-b")
+
+    expect(
+      resolveDesktopOnboardingAutoContinueDirectory({
+        connectedOpenAiProvider: true,
+        openProjects: ["/repo-a", "/repo-b"],
+        activeDirectory: undefined,
+      }),
+    ).toBe("/repo-a")
+
+    expect(
+      resolveDesktopOnboardingAutoContinueDirectory({
+        connectedOpenAiProvider: false,
+        openProjects: ["/repo-a"],
+        activeDirectory: "/repo-a",
+      }),
+    ).toBeUndefined()
   })
 })
 
@@ -249,6 +379,51 @@ describe("ChatGPT Plus onboarding auth", () => {
         async reloadProviderRuntime() {},
       }),
     ).rejects.toThrow("Authorization cancelled")
+  })
+
+  test("reuses the existing OpenAI connection without restarting OAuth", async () => {
+    let authorizeCalled = false
+    let openLinkCalled = false
+    let completeCalled = false
+    let reloadCalled = false
+
+    await expect(
+      connectChatGptPlusForOnboarding({
+        openLink() {
+          openLinkCalled = true
+        },
+        async loadProviderCatalogSnapshot() {
+          return createCatalog({
+            providers: [
+              createProvider({
+                id: "openai",
+                name: "OpenAI",
+                connected: true,
+                models: [createModel("gpt-5", "GPT-5")],
+              }),
+            ],
+            default: {
+              openai: "gpt-5",
+            },
+          })
+        },
+        async authorizeProviderOAuth() {
+          authorizeCalled = true
+          return undefined
+        },
+        async completeProviderOAuth() {
+          completeCalled = true
+        },
+        async reloadProviderRuntime() {
+          reloadCalled = true
+        },
+      }),
+    ).resolves.toBeUndefined()
+
+    expect(authorizeCalled).toBe(false)
+    expect(openLinkCalled).toBe(false)
+    expect(completeCalled).toBe(false)
+    expect(reloadCalled).toBe(false)
   })
 })
 

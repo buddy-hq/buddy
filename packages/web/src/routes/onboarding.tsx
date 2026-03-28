@@ -1,15 +1,14 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router"
-import { useMemo, useState } from "react"
-import {
-  OnboardingAuthChoiceStep,
-  OnboardingFolderStep,
-  OnboardingSplashStep,
-  type OnboardingAuthChoice,
-} from "@/components/onboarding"
+import { useEffect, useState } from "react"
+import { type OnboardingAuthChoice, OnboardingSetup } from "@/components/onboarding"
 import { usePlatform } from "@/context/platform"
-import { shouldShowCurrentDesktopOnboarding } from "@/lib/desktop-onboarding"
+import {
+  hasConnectedOpenAiProvider,
+  resolveDesktopOnboardingAutoContinueDirectory,
+  shouldShowCurrentDesktopOnboarding,
+} from "@/lib/desktop-onboarding"
 import { encodeDirectory } from "@/lib/directory-token"
-import { hasAbsolutePath, normalizeDirectory, pickProjectDirectory } from "@/lib/directory-picker"
+import { normalizeDirectory, pickProjectDirectory } from "@/lib/directory-picker"
 import {
   authorizeProviderOAuth,
   completeProviderOAuth,
@@ -23,6 +22,7 @@ import {
 import {
   loadProviderCatalog,
   loadProviderCatalogSnapshot,
+  loadOpenProjects,
   openProject,
   patchProjectConfig,
 } from "@/state/chat-actions"
@@ -30,8 +30,8 @@ import { useChatStore } from "@/state/chat-store"
 import { useOnboardingStore } from "@/state/onboarding-store"
 
 export const Route = createFileRoute("/onboarding")({
-  beforeLoad: () => {
-    if (!shouldShowCurrentDesktopOnboarding()) {
+  beforeLoad: async () => {
+    if (!(await shouldShowCurrentDesktopOnboarding())) {
       throw redirect({ to: "/chat" })
     }
   },
@@ -41,96 +41,79 @@ export const Route = createFileRoute("/onboarding")({
 function OnboardingRoute() {
   const navigate = useNavigate()
   const platform = usePlatform()
-  const phase = useOnboardingStore((state) => state.phase)
-  const authChoice = useOnboardingStore((state) => state.authChoice)
-  const resumeDirectory = useOnboardingStore((state) => state.resumeDirectory)
-  const setPhase = useOnboardingStore((state) => state.setPhase)
   const setAuthChoice = useOnboardingStore((state) => state.setAuthChoice)
   const setResumeDirectory = useOnboardingStore((state) => state.setResumeDirectory)
   const markCompleted = useOnboardingStore((state) => state.markCompleted)
   const setActiveDirectory = useChatStore((state) => state.setActiveDirectory)
   const setSelectedModel = useChatStore((state) => state.setSelectedModel)
 
-  const [directory, setDirectory] = useState(() => resumeDirectory ?? "")
-  const [authError, setAuthError] = useState<string | undefined>(undefined)
-  const [folderError, setFolderError] = useState<string | undefined>(undefined)
+  const [authChoice, setLocalAuthChoice] = useState<OnboardingAuthChoice | undefined>(undefined)
+  const [connectedAuthChoice, setConnectedAuthChoice] = useState<OnboardingAuthChoice | undefined>(
+    undefined,
+  )
+  const [error, setError] = useState<string | undefined>(undefined)
   const [busyChoice, setBusyChoice] = useState<OnboardingAuthChoice | undefined>(undefined)
   const [folderBusy, setFolderBusy] = useState(false)
+  const [authAbort, setAuthAbort] = useState<AbortController | undefined>(undefined)
 
-  const activePhase = useMemo(() => {
-    if (phase !== "folder") return phase
-    return authChoice ? "folder" : "auth"
-  }, [authChoice, phase])
+  useEffect(() => {
+    let cancelled = false
 
-  function updateDirectory(value: string) {
-    setDirectory(value)
-    const normalized = normalizeDirectory(value)
-    setResumeDirectory(normalized || undefined)
-    setFolderError(undefined)
-  }
+    void Promise.allSettled([loadOpenProjects(), loadProviderCatalogSnapshot()]).then(
+      ([openProjectsResult, providersResult]) => {
+        if (cancelled) return
+
+        const openProjects =
+          openProjectsResult.status === "fulfilled" ? openProjectsResult.value : []
+        const openAiConnected =
+          providersResult.status === "fulfilled" &&
+          hasConnectedOpenAiProvider(providersResult.value)
+
+        if (openAiConnected) {
+          const nextDirectory = resolveDesktopOnboardingAutoContinueDirectory({
+            connectedOpenAiProvider: true,
+            openProjects,
+            activeDirectory: useChatStore.getState().activeDirectory,
+          })
+
+          if (nextDirectory) {
+            markCompleted()
+            navigate({
+              to: "/$directory/chat",
+              params: { directory: encodeDirectory(nextDirectory) },
+              replace: true,
+            })
+            return
+          }
+
+          setConnectedAuthChoice("chatgpt_plus")
+          setLocalAuthChoice("chatgpt_plus")
+          setAuthChoice("chatgpt_plus")
+        }
+      },
+    )
+
+    return () => {
+      cancelled = true
+    }
+  }, [markCompleted, navigate, setAuthChoice])
 
   async function handlePickFolder() {
+    if (!authChoice) {
+      setError("Pick an AI provider first.")
+      return
+    }
+
     try {
       const picked = await pickProjectDirectory()
       if (!picked) return
-      updateDirectory(picked)
-    } catch (error) {
-      setFolderError(formatProviderAuthError(error, "Failed to open the folder picker"))
-    }
-  }
 
-  async function handleChoose(choice: OnboardingAuthChoice) {
-    setAuthError(undefined)
+      const normalized = normalizeDirectory(picked)
+      if (!normalized) return
 
-    if (choice === "free_models") {
-      setAuthChoice(choice)
-      setPhase("folder")
-      return
-    }
+      setFolderBusy(true)
+      setError(undefined)
 
-    setBusyChoice(choice)
-
-    try {
-      await connectChatGptPlusForOnboarding({
-        openLink: (url) => platform.openLink(url),
-        loadProviderCatalogSnapshot,
-        authorizeProviderOAuth,
-        completeProviderOAuth,
-        reloadProviderRuntime: () => reloadProviderRuntime(),
-      })
-
-      setAuthChoice(choice)
-      setPhase("folder")
-    } catch (error) {
-      setAuthError(formatProviderAuthError(error, "ChatGPT Plus sign-in failed"))
-      setPhase("auth")
-    } finally {
-      setBusyChoice(undefined)
-    }
-  }
-
-  async function handleContinue() {
-    const normalized = normalizeDirectory(directory)
-    if (!normalized) {
-      setFolderError("Choose a notebook folder to continue.")
-      return
-    }
-
-    if (!hasAbsolutePath(normalized)) {
-      setFolderError("Enter an absolute notebook path.")
-      return
-    }
-
-    if (!authChoice) {
-      setPhase("auth")
-      setFolderError("Choose an account path before opening a notebook.")
-      return
-    }
-
-    setFolderBusy(true)
-    setFolderError(undefined)
-
-    try {
       const result = await configureNotebookForOnboarding({
         authChoice,
         directory: normalized,
@@ -149,55 +132,77 @@ function OnboardingRoute() {
         params: { directory: encodeDirectory(result.directory) },
         replace: true,
       })
-    } catch (error) {
-      setFolderError(formatProviderAuthError(error, "Failed to finish Buddy setup"))
+    } catch (err) {
+      setError(formatProviderAuthError(err, "Could not open notebook"))
     } finally {
       setFolderBusy(false)
     }
   }
 
-  if (activePhase === "splash") {
-    return (
-      <OnboardingSplashStep
-        onContinue={() => {
-          setAuthError(undefined)
-          setFolderError(undefined)
-          setPhase("auth")
-        }}
-      />
-    )
-  }
+  async function handleChoose(choice: OnboardingAuthChoice) {
+    setError(undefined)
 
-  if (activePhase === "auth") {
-    return (
-      <OnboardingAuthChoiceStep
-        onChoose={(choice) => {
-          void handleChoose(choice)
-        }}
-        busyChoice={busyChoice}
-        error={authError}
-      />
-    )
+    if (choice === "free_models") {
+      setLocalAuthChoice(choice)
+      setAuthChoice(choice)
+      return
+    }
+
+    if (connectedAuthChoice === "chatgpt_plus") {
+      setLocalAuthChoice(choice)
+      setAuthChoice(choice)
+      return
+    }
+
+    setBusyChoice(choice)
+
+    const abort = new AbortController()
+    setAuthAbort(abort)
+
+    try {
+      await Promise.race([
+        connectChatGptPlusForOnboarding({
+          openLink: (url) => platform.openLink(url),
+          loadProviderCatalogSnapshot,
+          authorizeProviderOAuth,
+          completeProviderOAuth,
+          reloadProviderRuntime: () => reloadProviderRuntime(),
+        }),
+        new Promise<void>((_, reject) => {
+          abort.signal.addEventListener("abort", () => reject(new Error("Sign-in cancelled.")))
+        }),
+      ])
+
+      setLocalAuthChoice(choice)
+      setAuthChoice(choice)
+    } catch (err) {
+      if (!abort.signal.aborted) {
+        abort.abort()
+      }
+      if (err instanceof Error && err.message === "Sign-in cancelled.") {
+        return
+      }
+      setError(formatProviderAuthError(err, "Sign-in failed"))
+    } finally {
+      setBusyChoice(undefined)
+      setAuthAbort(undefined)
+    }
   }
 
   return (
-    <OnboardingFolderStep
-      directory={directory}
-      onDirectoryChange={updateDirectory}
+    <OnboardingSetup
+      authChoice={authChoice}
+      connectedAuthChoice={connectedAuthChoice}
+      busyChoice={busyChoice}
+      folderBusy={folderBusy}
+      error={error}
+      onChoose={handleChoose}
       onPickFolder={() => {
         void handlePickFolder()
       }}
-      onContinue={() => {
-        void handleContinue()
+      onCancelAuth={() => {
+        authAbort?.abort()
       }}
-      onBack={() => {
-        setFolderError(undefined)
-        setPhase("auth")
-      }}
-      continueLabel={folderBusy ? "Opening Buddy..." : "Open Buddy"}
-      canContinue={Boolean(directory.trim()) && !folderBusy}
-      busy={folderBusy}
-      error={folderError}
     />
   )
 }

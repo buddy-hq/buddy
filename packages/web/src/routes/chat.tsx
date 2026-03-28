@@ -12,8 +12,8 @@ import { bootstrapOpenProjects, openProject } from "../state/chat-actions"
 import { useChatStore } from "../state/chat-store"
 
 export const Route = createFileRoute("/chat")({
-  beforeLoad: () => {
-    if (shouldShowCurrentDesktopOnboarding()) {
+  beforeLoad: async () => {
+    if (await shouldShowCurrentDesktopOnboarding()) {
       throw redirect({ to: "/onboarding" })
     }
   },

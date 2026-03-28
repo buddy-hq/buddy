@@ -25,7 +25,7 @@ declare module "@tanstack/react-router" {
 export function AppBaseProviders(props: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider defaultTheme="oc-2">
+      <ThemeProvider defaultTheme="dracula">
         <TooltipProvider>
           {props.children}
           <Toaster position="bottom-right" />

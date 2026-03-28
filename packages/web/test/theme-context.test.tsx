@@ -90,8 +90,8 @@ describe("ThemeProvider", () => {
 
     await renderThemeProvider()
 
-    expect(localStorage.getItem("opencode-theme-id")).toBe("oc-2")
-    expect(document.documentElement.dataset.theme).toBe("oc-2")
+    expect(localStorage.getItem("opencode-theme-id")).toBe("dracula")
+    expect(document.documentElement.dataset.theme).toBe("dracula")
     expect(document.documentElement.dataset.colorScheme).toBe("dark")
     expect(document.documentElement.classList.contains("dark")).toBe(true)
     expect(localStorage.getItem("opencode-theme-css-light")).not.toBe("stale-light")

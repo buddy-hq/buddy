@@ -1,5 +1,2 @@
-export type { OnboardingAuthChoice, OnboardingPhase, OnboardingShellProps } from "./types"
-export { OnboardingShell } from "./onboarding-shell"
-export { OnboardingSplashStep } from "./onboarding-splash-step"
-export { OnboardingAuthChoiceStep } from "./onboarding-auth-choice-step"
-export { OnboardingFolderStep } from "./onboarding-folder-step"
+export type { OnboardingAuthChoice } from "./types"
+export { OnboardingSetup } from "./onboarding-setup"

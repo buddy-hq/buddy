@@ -43,11 +43,11 @@ describe("theme preload", () => {
 
     run()
 
-    expect(document.documentElement.dataset.theme).toBe("oc-2")
+    expect(document.documentElement.dataset.theme).toBe("dracula")
     expect(document.documentElement.dataset.colorScheme).toBe("light")
     expect(document.documentElement.classList.contains("dark")).toBe(false)
     expect(document.documentElement.style.colorScheme).toBe("light")
-    expect(localStorage.getItem("opencode-theme-id")).toBe("oc-2")
+    expect(localStorage.getItem("opencode-theme-id")).toBe("dracula")
     expect(localStorage.getItem("opencode-theme-css-light")).toContain("--background-base:")
     expect(localStorage.getItem("opencode-theme-css-dark")).toContain("--background-base:")
     expect(document.getElementById("oc-theme-preload")?.textContent).toContain("--background-base:")

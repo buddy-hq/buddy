@@ -27,6 +27,10 @@ export async function connectChatGptPlusForOnboarding(input: {
     throw new Error("OpenAI sign-in is unavailable in this build.")
   }
 
+  if (provider.connected) {
+    return
+  }
+
   const methodIndex = findPreferredOAuthMethodIndex(provider)
   if (methodIndex === undefined) {
     throw new Error("ChatGPT Plus sign-in is unavailable right now.")

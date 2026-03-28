@@ -106,7 +106,7 @@ export interface ThemeProviderProps {
 
 export function ThemeProvider({
   children,
-  defaultTheme = "oc-2",
+  defaultTheme = "dracula",
   onThemeApplied,
 }: ThemeProviderProps) {
   const [themeId, setThemeIdState] = useState<string>(() => {

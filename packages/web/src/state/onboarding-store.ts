@@ -1,7 +1,9 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { createPlatformJsonStorage } from "../context/platform"
-import type { OnboardingAuthChoice, OnboardingPhase } from "@/components/onboarding"
+import type { OnboardingAuthChoice } from "@/components/onboarding"
+
+type OnboardingPhase = "splash" | "folder"
 
 export const ONBOARDING_STORAGE_KEY = "buddy.onboarding.v1"
 
