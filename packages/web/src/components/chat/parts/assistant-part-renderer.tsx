@@ -23,6 +23,7 @@ export interface AssistantPartRendererProps {
   stripLeadingMermaidSource?: string
   directory?: string
   defaultOpen?: boolean
+  onTextFinalRender?: () => void
 }
 
 // Custom equality check for AssistantPartRenderer props
@@ -39,6 +40,7 @@ function assistantPartRendererEqual(
   if (prevProps.directory !== nextProps.directory) return false
   if (prevProps.onOpenSession !== nextProps.onOpenSession) return false
   if (prevProps.defaultOpen !== nextProps.defaultOpen) return false
+  if (prevProps.onTextFinalRender !== nextProps.onTextFinalRender) return false
 
   // Deep comparison for part content
   if (prevProps.part.type === "text" && nextProps.part.type === "text") {
@@ -64,6 +66,7 @@ export const AssistantPartRenderer = memo(function AssistantPartRenderer({
   stripLeadingMermaidSource,
   directory,
   defaultOpen,
+  onTextFinalRender,
 }: AssistantPartRendererProps) {
   if (part.type === "step-start" || part.type === "step-finish") {
     return null
@@ -78,6 +81,7 @@ export const AssistantPartRenderer = memo(function AssistantPartRenderer({
         interrupted={interrupted}
         stripLeadingFigureImage={stripLeadingFigureImage}
         stripLeadingMermaidSource={stripLeadingMermaidSource}
+        onFinalRender={onTextFinalRender}
       />
     )
   }

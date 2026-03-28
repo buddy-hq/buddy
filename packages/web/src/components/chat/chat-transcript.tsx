@@ -51,6 +51,7 @@ interface ChatTranscriptProps {
   directory?: string
   providers?: ProviderInfo[]
   isBusy?: boolean
+  onAssistantTextFinalRender?: () => void
   onOpenSession?: (sessionID: string) => void
   onForkMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
   onRevertMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
@@ -234,6 +235,7 @@ interface TurnRendererProps {
   providers: ProviderInfo[]
   isBusy: boolean
   directory?: string
+  onAssistantTextFinalRender?: () => void
   onOpenSession?: (sessionID: string) => void
   onForkMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
   onRevertMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
@@ -248,6 +250,7 @@ function turnRendererEqual(prevProps: TurnRendererProps, nextProps: TurnRenderer
   if (prevProps.totalTurns !== nextProps.totalTurns) return false
   if (prevProps.isBusy !== nextProps.isBusy) return false
   if (prevProps.directory !== nextProps.directory) return false
+  if (prevProps.onAssistantTextFinalRender !== nextProps.onAssistantTextFinalRender) return false
   if (prevProps.onOpenSession !== nextProps.onOpenSession) return false
   if (prevProps.onForkMessage !== nextProps.onForkMessage) return false
   if (prevProps.onRevertMessage !== nextProps.onRevertMessage) return false
@@ -277,6 +280,7 @@ const TurnRenderer = memo(function TurnRenderer({
   providers,
   isBusy,
   directory,
+  onAssistantTextFinalRender,
   onOpenSession,
   onForkMessage,
   onRevertMessage,
@@ -505,6 +509,11 @@ const TurnRenderer = memo(function TurnRenderer({
                 stripLeadingFigureImage={stripLeadingFigureImage}
                 stripLeadingMermaidSource={stripLeadingMermaidSource}
                 directory={directory}
+                onTextFinalRender={
+                  isLastTurn && item.part.type === "text" && item.part.id === lastAssistantTextID
+                    ? onAssistantTextFinalRender
+                    : undefined
+                }
                 defaultOpen={
                   item.part.type === "tool"
                     ? toolDefaultOpen(
@@ -556,6 +565,7 @@ export function ChatTranscript(props: ChatTranscriptProps) {
             providers={providers}
             isBusy={isLastTurnBusy && turnIndex === turns.length - 1}
             directory={props.directory}
+            onAssistantTextFinalRender={props.onAssistantTextFinalRender}
             onOpenSession={props.onOpenSession}
             onForkMessage={props.onForkMessage}
             onRevertMessage={props.onRevertMessage}
