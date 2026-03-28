@@ -65,24 +65,33 @@ Critical rule:
 The workflow jobs are:
 
 1. `version`
-2. `build-sidecar`
-3. `build-tauri`
-4. `publish`
+2. `verify-updater-signing`
+3. `build-sidecar`
+4. `build-tauri`
+5. `build-advanced-math`
+6. `publish`
 
 In short:
 
 - `version` computes the version and creates a draft GitHub release
+- `verify-updater-signing` fails the release if updater signing is missing
 - `build-sidecar` builds the backend sidecars
-- `build-tauri` packages the desktop apps and uploads them into the draft release
+- `build-tauri` packages the macOS desktop apps and uploads them into the draft release
+- `build-advanced-math` uploads the macOS advanced math runtime bundles
 - `publish` undrafts the release
 
 The current release targets are:
 
 - macOS arm64
 - macOS x64
-- Windows x64
 
-If `TAURI_SIGNING_PRIVATE_KEY` is configured, the workflow also publishes updater metadata and release builds can auto-update. If it is not configured, the release still ships, just without in-app updater support.
+Updater support is required for release success. If `TAURI_SIGNING_PRIVATE_KEY` is missing, the workflow fails before packaging starts. `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` should be set when the signing key is encrypted.
+
+The release uploads only GitHub-hosted macOS artifacts:
+
+- the installable app bundles
+- the updater metadata and signatures
+- the advanced math runtime bundles
 
 ## Normal Release Steps
 
@@ -167,6 +176,6 @@ The current pipeline does not include:
 - Linux desktop releases
 - beta or preview channels
 - Apple signing or notarization
-- Windows code signing
+- Windows desktop releases
 - store publishing
 - non-desktop package publishing

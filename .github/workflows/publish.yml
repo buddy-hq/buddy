@@ -52,8 +52,24 @@ jobs:
       tag: ${{ steps.version.outputs.tag }}
       repo: ${{ steps.version.outputs.repo }}
 
-  build-sidecar:
+  verify-updater-signing:
     needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require updater signing
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "TAURI_SIGNING_PRIVATE_KEY is required for Buddy releases because auto-update support is mandatory."
+            exit 1
+          fi
+
+  build-sidecar:
+    needs:
+      - version
+      - verify-updater-signing
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -77,6 +93,7 @@ jobs:
   build-tauri:
     needs:
       - version
+      - verify-updater-signing
       - build-sidecar
     strategy:
       fail-fast: false
@@ -86,8 +103,6 @@ jobs:
             target: aarch64-apple-darwin
           - host: macos-latest
             target: x86_64-apple-darwin
-          - host: windows-latest
-            target: x86_64-pc-windows-msvc
     runs-on: ${{ matrix.settings.host }}
     steps:
       - uses: actions/checkout@v4
@@ -120,20 +135,7 @@ jobs:
           BUDDY_VERSION: ${{ needs.version.outputs.version }}
           BUDDY_RUST_TARGET: ${{ matrix.settings.target }}
           BUDDY_SIDECAR_ARTIFACT_DIR: ${{ github.workspace }}/packages/buddy/dist/release-sidecars
-
-      - id: updater
-        shell: bash
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-        run: |
-          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-          fi
-
       - uses: tauri-apps/tauri-action@390cbe447412ced1303d35abe75287949e43437a
-        if: steps.updater.outputs.enabled == 'true'
         timeout-minutes: 60
         with:
           projectPath: packages/desktop
@@ -150,24 +152,10 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
-      - uses: tauri-apps/tauri-action@390cbe447412ced1303d35abe75287949e43437a
-        if: steps.updater.outputs.enabled != 'true'
-        timeout-minutes: 60
-        with:
-          projectPath: packages/desktop
-          uploadWorkflowArtifacts: true
-          args: --target ${{ matrix.settings.target }} --config ./src-tauri/tauri.prod.noupdater.conf.json --verbose
-          releaseId: ${{ needs.version.outputs.release }}
-          tagName: ${{ needs.version.outputs.tag }}
-          releaseDraft: true
-          releaseAssetNamePattern: buddy-desktop-[platform]-[arch][ext]
-          releaseCommitish: ${{ github.sha }}
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-
   build-advanced-math:
     needs:
       - version
+      - verify-updater-signing
     strategy:
       fail-fast: false
       matrix:
@@ -176,8 +164,6 @@ jobs:
             target: aarch64-apple-darwin
           - host: macos-latest
             target: x86_64-apple-darwin
-          - host: windows-latest
-            target: x86_64-pc-windows-msvc
     runs-on: ${{ matrix.settings.host }}
     steps:
       - uses: actions/checkout@v4

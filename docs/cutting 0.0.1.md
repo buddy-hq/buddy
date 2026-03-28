@@ -10,5 +10,3 @@
 				- log in with chatgpt plus
 					- triggers the chatgpt auth flow(same one as in settings)
 				- test with free models
-		- first chat
-			- 
