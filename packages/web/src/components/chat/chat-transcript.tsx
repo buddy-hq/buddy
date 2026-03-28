@@ -19,6 +19,7 @@ import {
 import {
   UserMessagePart,
   AbstractedToolGroup,
+  AbstractedThinkingPlaceholder,
   AssistantErrorCard,
   AssistantPartRenderer,
   FileAttachmentPart,
@@ -527,12 +528,9 @@ const TurnRenderer = memo(function TurnRenderer({
             )
           })}
           {showThinking ? (
-            <div className="flex min-h-5 w-full items-center gap-2 text-sm font-medium text-text-weak">
-              <span className="animate-pulse">Thinking</span>
-              {!showReasoningSummaries && currentReasoningHeading ? (
-                <span className="truncate text-text-weak/90">{currentReasoningHeading}</span>
-              ) : null}
-            </div>
+            <AbstractedThinkingPlaceholder
+              detail={!showReasoningSummaries ? currentReasoningHeading : undefined}
+            />
           ) : null}
         </div>
       ) : null}
