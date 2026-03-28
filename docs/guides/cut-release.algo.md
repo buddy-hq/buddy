@@ -8,7 +8,9 @@ The current release shape is:
 - downloadable from GitHub Releases
 - auto-update required
 - advanced math runtime downloadable from the same GitHub release
-- unsigned and not notarized
+- ad-hoc signed only
+- not Apple Developer signed
+- not notarized
 
 ## Inputs
 - Repo root: `/Users/prashantbhudwal/Code/buddy`
@@ -50,6 +52,7 @@ The current release shape is:
    - desktop onboarding flow works
    - updater banner works in packaged builds
    - advanced math runtime installs from release assets
+   - packaged app launches the bundled backend successfully
 
 5. Run final validations from repo root.
    - `bun fmt`
@@ -108,6 +111,13 @@ The current release shape is:
 
 8. Run post-release smoke checks.
    - Download and install from GitHub Release.
+   - Confirm the installed helper is executable:
+     - `stat -f '%Sp %N' /Applications/Buddy.app/Contents/MacOS/buddy-backend`
+     - expected mode includes execute bits such as `-rwxr-xr-x`
+   - Launch the installed app and confirm the bundled backend process actually starts.
+     - expected:
+       - no `Permission denied (os error 13)` on startup
+       - `/Applications/Buddy.app/Contents/MacOS/buddy-backend` is running
    - Confirm first-run onboarding appears on a fresh install.
    - Confirm `Log in with ChatGPT Plus` opens the same provider auth flow as settings.
    - Confirm `Test with free models` resolves to the `opencode` free-model path.
@@ -125,6 +135,11 @@ Use this when you want GitHub to compute and build the release without first cre
 4. Wait for the workflow to build the draft release.
 5. Verify the draft release contents and artifacts.
 6. If the workflow succeeds, the release is published automatically by the final job.
+7. The final publish job also persists the release version back to `main`.
+   - It updates the tracked package versions in git.
+   - It creates a follow-up sync commit named `chore(release): sync package versions to vX.Y.Z`.
+   - The release tag still points at the original release commit that produced the published artifacts.
+   - If `main` advanced while the release was building, the sync step stops instead of rewriting branch history. Rerun the release from the new `main` head.
 
 ## Stop Conditions
 Stop immediately if any of these happen:
@@ -136,6 +151,7 @@ Stop immediately if any of these happen:
 - targeted release tests fail
 - `verify-updater-signing` fails in CI
 - the release draft is missing updater metadata or mac runtime assets
+- `main` advanced during a `workflow_dispatch` release before the final version-sync commit
 
 ## Recovery
 1. If `bun run release:tag` created the commit/tag locally but you have not pushed:
@@ -155,6 +171,8 @@ Stop immediately if any of these happen:
    - do not mark it final until the artifact set is correct
 
 ## Notes
-- The app is currently unsigned and not notarized. Expect normal macOS Gatekeeper friction on first install.
+- The app is currently ad-hoc signed, but not Apple Developer signed or notarized. Expect normal macOS Gatekeeper friction on first install.
 - Updater support is mandatory for release success in the current pipeline.
 - The first stable release at `0.0.1` must use explicit `BUDDY_VERSION=0.0.1`; otherwise the helper may choose `0.1.0`.
+- GitHub Actions artifact upload/download can strip execute bits from bundled sidecars. Release validation must confirm `Buddy.app/Contents/MacOS/buddy-backend` is still executable in the published DMG/app.
+- `workflow_dispatch` releases now add a follow-up version-sync commit on `main`, so local git state stays aligned with the shipped release without rewriting branch history.

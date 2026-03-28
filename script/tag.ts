@@ -3,16 +3,12 @@
 import { $ } from "bun"
 import path from "node:path"
 import { Script } from "@buddy/script"
+import {
+  stageReleaseVersionPackageFiles,
+  updateReleaseVersionPackageFiles,
+} from "./release-version-files"
 
 const ROOT_DIR = path.resolve(import.meta.dir, "..")
-const PACKAGE_FILES = [
-  "packages/desktop/package.json",
-  "packages/buddy/package.json",
-  "packages/web/package.json",
-  "packages/ui/package.json",
-  "packages/sdk/package.json",
-  "packages/opencode-adapter/package.json",
-]
 
 async function currentBranch() {
   if (process.env.GITHUB_REF_TYPE === "branch" && process.env.GITHUB_REF_NAME?.trim()) {
@@ -37,18 +33,8 @@ if (dirty.trim()) {
   throw new Error("Working tree must be clean before creating a release tag")
 }
 
-for (const relativePath of PACKAGE_FILES) {
-  const target = path.join(ROOT_DIR, relativePath)
-  const pkg = (await Bun.file(target).json()) as {
-    version: string
-  }
-  pkg.version = Script.version
-  await Bun.write(target, `${JSON.stringify(pkg, null, 2)}\n`)
-}
-
-for (const relativePath of PACKAGE_FILES) {
-  await $`git add ${relativePath}`.cwd(ROOT_DIR)
-}
+await updateReleaseVersionPackageFiles(ROOT_DIR, Script.version)
+await stageReleaseVersionPackageFiles(ROOT_DIR)
 
 const staged = await $`git diff --cached --name-only`.cwd(ROOT_DIR).text()
 if (!staged.trim()) {
