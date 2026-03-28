@@ -135,12 +135,25 @@ jobs:
           BUDDY_VERSION: ${{ needs.version.outputs.version }}
           BUDDY_RUST_TARGET: ${{ matrix.settings.target }}
           BUDDY_SIDECAR_ARTIFACT_DIR: ${{ github.workspace }}/packages/buddy/dist/release-sidecars
-      - name: Default to ad-hoc Apple signing when no macOS signing secrets are configured
+      - name: Configure macOS signing for the release build
         shell: bash
         env:
           APPLE_SIGNING_IDENTITY_SECRET: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_CERTIFICATE_SECRET: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD_SECRET: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
         run: |
+          if [ -n "$APPLE_CERTIFICATE_SECRET" ]; then
+            {
+              echo "APPLE_CERTIFICATE<<EOF"
+              echo "$APPLE_CERTIFICATE_SECRET"
+              echo "EOF"
+            } >> "$GITHUB_ENV"
+
+            if [ -n "$APPLE_CERTIFICATE_PASSWORD_SECRET" ]; then
+              echo "APPLE_CERTIFICATE_PASSWORD=$APPLE_CERTIFICATE_PASSWORD_SECRET" >> "$GITHUB_ENV"
+            fi
+          fi
+
           if [ -n "$APPLE_SIGNING_IDENTITY_SECRET" ]; then
             echo "APPLE_SIGNING_IDENTITY=$APPLE_SIGNING_IDENTITY_SECRET" >> "$GITHUB_ENV"
           elif [ -z "$APPLE_CERTIFICATE_SECRET" ]; then
@@ -163,8 +176,6 @@ jobs:
           releaseCommitish: ${{ github.sha }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
