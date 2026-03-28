@@ -1,0 +1,14 @@
+- i want to cut my first release.
+	- the release should me mac only
+	- the app should be downloadable from git hub
+	- the app should auto update and show the auto update banner
+	- the math run time should be installable from git hub
+	- onboarding flow
+		- splash screen
+		- auth flow
+			- two options
+				- log in with chatgpt plus
+					- triggers the chatgpt auth flow(same one as in settings)
+				- test with free models
+		- first chat
+			- 
