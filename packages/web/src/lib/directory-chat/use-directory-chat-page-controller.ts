@@ -3,6 +3,7 @@ import { animate, type AnimationPlaybackControls } from "motion"
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -76,13 +77,9 @@ import { useTeachingWorkspace } from "./use-teaching-workspace"
 const BOTTOM_THRESHOLD_PX = 96
 const SIDEBAR_MIN_WIDTH = 244
 const EMPTY_MENTIONABLE_AGENTS: MentionableAgent[] = []
-const TRANSCRIPT_SCROLL_SPRING = {
-  type: "spring" as const,
-  stiffness: 320,
-  damping: 38,
-  mass: 0.9,
-  restDelta: 0.5,
-}
+const MIN_TRANSCRIPT_SCROLL_DURATION_S = 0.08
+const MAX_TRANSCRIPT_SCROLL_DURATION_S = 0.24
+const TRANSCRIPT_SCROLL_SPEED_PX_PER_S = 1200
 
 type DirectoryChatPageControllerProps = {
   directoryToken: string
@@ -115,6 +112,8 @@ export function useDirectoryChatPageController(
   const navigate = useNavigate()
   const transcriptRef = useRef<HTMLElement>(null)
   const transcriptScrollAnimationRef = useRef<AnimationPlaybackControls | null>(null)
+  const stickToBottomRef = useRef(true)
+  const transcriptBusyRef = useRef(false)
 
   const [stickToBottom, setStickToBottom] = useState(true)
   const [selectedThinking, setSelectedThinking] = useState("default")
@@ -248,6 +247,20 @@ export function useDirectoryChatPageController(
     transcriptScrollAnimationRef.current = null
   }, [])
 
+  const jumpTranscriptToBottom = useCallback(() => {
+    const container = transcriptRef.current
+    if (!container) return
+
+    const targetScrollTop = Math.max(0, container.scrollHeight - container.clientHeight)
+    if (Math.abs(targetScrollTop - container.scrollTop) < 1) {
+      stopTranscriptScrollAnimation()
+      return
+    }
+
+    stopTranscriptScrollAnimation()
+    container.scrollTop = targetScrollTop
+  }, [stopTranscriptScrollAnimation])
+
   const animateTranscriptScrollToBottom = useCallback(() => {
     const container = transcriptRef.current
     if (!container) return
@@ -260,19 +273,42 @@ export function useDirectoryChatPageController(
       return
     }
 
+    if (targetScrollTop <= currentScrollTop) {
+      stopTranscriptScrollAnimation()
+      container.scrollTop = targetScrollTop
+      return
+    }
+
     stopTranscriptScrollAnimation()
+    const duration = Math.max(
+      MIN_TRANSCRIPT_SCROLL_DURATION_S,
+      Math.min(
+        MAX_TRANSCRIPT_SCROLL_DURATION_S,
+        Math.abs(targetScrollTop - currentScrollTop) / TRANSCRIPT_SCROLL_SPEED_PX_PER_S,
+      ),
+    )
     transcriptScrollAnimationRef.current = animate(currentScrollTop, targetScrollTop, {
-      ...TRANSCRIPT_SCROLL_SPRING,
+      duration,
+      ease: "linear",
       onUpdate: (latest) => {
         const nextContainer = transcriptRef.current
         if (!nextContainer) return
-        nextContainer.scrollTop = latest
+        nextContainer.scrollTop = Math.max(currentScrollTop, Math.min(targetScrollTop, latest))
       },
       onComplete: () => {
         transcriptScrollAnimationRef.current = null
       },
     })
   }, [stopTranscriptScrollAnimation])
+
+  const syncTranscriptToBottom = useCallback(() => {
+    if (!stickToBottomRef.current) return
+    if (transcriptBusyRef.current) {
+      jumpTranscriptToBottom()
+      return
+    }
+    animateTranscriptScrollToBottom()
+  }, [animateTranscriptScrollToBottom, jumpTranscriptToBottom])
 
   useEffect(() => {
     setPendingSuggestionOverride(undefined)
@@ -344,14 +380,37 @@ export function useDirectoryChatPageController(
   }, [clearUnread, decodedDirectory, sessionID])
 
   useEffect(() => {
-    if (!stickToBottom) return
-    animateTranscriptScrollToBottom()
-  }, [animateTranscriptScrollToBottom, cs.messages, cs.isBusy, stickToBottom])
+    stickToBottomRef.current = stickToBottom
+  }, [stickToBottom])
+
+  useEffect(() => {
+    transcriptBusyRef.current = cs.isBusy
+  }, [cs.isBusy])
+
+  useLayoutEffect(() => {
+    syncTranscriptToBottom()
+  }, [cs.messages, cs.isBusy, syncTranscriptToBottom])
 
   const scrollTranscriptToBottom = useCallback(() => {
-    if (!stickToBottom) return
-    animateTranscriptScrollToBottom()
-  }, [animateTranscriptScrollToBottom, stickToBottom])
+    syncTranscriptToBottom()
+  }, [syncTranscriptToBottom])
+
+  useLayoutEffect(() => {
+    const container = transcriptRef.current
+    if (!container) return
+    const content = container.firstElementChild
+    if (!(content instanceof HTMLElement)) return
+
+    const observer = new ResizeObserver(() => {
+      syncTranscriptToBottom()
+    })
+    observer.observe(container)
+    observer.observe(content)
+
+    return () => {
+      observer.disconnect()
+    }
+  }, [syncTranscriptToBottom])
 
   useEffect(() => {
     if (stickToBottom) return
