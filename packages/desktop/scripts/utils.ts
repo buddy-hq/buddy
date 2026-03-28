@@ -1,4 +1,5 @@
 import {
+  chmodSync,
   copyFileSync,
   cpSync,
   existsSync,
@@ -239,6 +240,11 @@ export function copyBinaryToSidecarFolder(
   mkdirSync(SIDECARS_DIR, { recursive: true })
   copyFileSync(source, primaryTarget)
   copyFileSync(source, compatibilityTarget)
+
+  if (!isWindowsTarget(target)) {
+    chmodSync(primaryTarget, 0o755)
+    chmodSync(compatibilityTarget, 0o755)
+  }
 
   return {
     compatibilityTarget,
