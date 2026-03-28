@@ -23,7 +23,12 @@ const ABSTRACTED_STEP_LABELS = {
   singular: "step",
   plural: "steps",
 } as const
-const SUMMARY_ONLY_PREVIEW_TOOLS = new Set(["read", "pedagogy_resource_ingest_full_text", "skill"])
+const SUMMARY_ONLY_PREVIEW_TOOLS = new Set([
+  "read",
+  "learner_snapshot_read",
+  "pedagogy_resource_ingest_full_text",
+  "skill",
+])
 const ABSTRACTED_CONTAINER_CLASS_NAME = "mt-3 w-full"
 const ABSTRACTED_HEADER_TRIGGER_CLASS_NAME =
   "group flex w-full flex-col items-stretch py-1 text-left"

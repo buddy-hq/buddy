@@ -61,12 +61,15 @@ export function BasicTool({
           {isTriggerTitle(trigger) ? (
             <>
               <span
-                className={cn("text-xs font-medium text-text-weak", running && "animate-pulse")}
+                className={cn(
+                  "shrink-0 whitespace-nowrap text-xs font-medium text-text-weak",
+                  running && "animate-pulse",
+                )}
               >
                 {trigger.title}
               </span>
               {trigger.subtitle && !running ? (
-                <span className="min-w-0 truncate text-xs text-text-weak/50">
+                <span className="min-w-0 flex-1 truncate text-xs text-text-weak/50">
                   {trigger.subtitle}
                 </span>
               ) : null}

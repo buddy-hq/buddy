@@ -889,12 +889,16 @@ function renderBuddyCustomTool({ state, tool, defaultOpen }: ToolPartProps) {
   const artifact = readString(state.metadata.artifact)
   const value = state.metadata.value
   const valueText = value === undefined ? "" : JSON.stringify(value, null, 2)
+  const shouldDefaultOpen =
+    tool === "learner_snapshot_read"
+      ? (defaultOpen ?? false)
+      : (defaultOpen ?? state.status !== "pending")
 
   return (
     <BasicTool
       trigger={{ title: titleFromToolName(tool) }}
       status={state.status}
-      defaultOpen={defaultOpen ?? state.status !== "pending"}
+      defaultOpen={shouldDefaultOpen}
     >
       {artifact ? (
         <div>
