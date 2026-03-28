@@ -5,16 +5,16 @@
   "type": "module",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./src/index.ts",
       "default": "./src/index.ts"
     },
     "./components/*": {
-      "types": "./dist/components/*.d.ts",
-      "default": "./src/components/*"
+      "types": "./src/components/*.tsx",
+      "default": "./src/components/*.tsx"
     },
     "./lib/*": {
-      "types": "./dist/lib/*.d.ts",
-      "default": "./src/lib/*"
+      "types": "./src/lib/*.ts",
+      "default": "./src/lib/*.ts"
     },
     "./styles": "./src/index.css"
   },
