@@ -57,6 +57,22 @@ function entryIsActive(entry: AbstractedEntry): boolean {
   return false
 }
 
+function entryHasError(entry: AbstractedEntry): boolean {
+  return entry.part.type === "tool" && entry.state?.status === "error"
+}
+
+function entryErrorText(entry: AbstractedEntry): string | undefined {
+  if (!entryHasError(entry)) return undefined
+
+  const errorText = stripAnsi(String(entry.state?.error ?? "")).trim()
+  if (errorText) return errorText
+
+  const outputText = stripAnsi(String(entry.state?.output ?? "")).trim()
+  if (outputText) return outputText
+
+  return entry.info?.title ? `${entry.info.title} failed.` : "Step failed."
+}
+
 function buildSummary(entries: AbstractedEntry[]): string | undefined {
   const labels = new Set<string>()
 
@@ -86,12 +102,15 @@ function buildPreview(entry: AbstractedEntry | undefined): { title: string; deta
 
   if (entry.part.type === "tool" && entry.info) {
     const toolName = String(entry.part.tool ?? "")
+    const errorText = entryErrorText(entry)
     const output = stripAnsi(entry.state?.output?.trim() ?? "")
     return {
       title: entry.info.title,
-      detail: SUMMARY_ONLY_PREVIEW_TOOLS.has(toolName)
-        ? entry.info.summary || entry.info.subtitle
-        : output || entry.info.summary || entry.info.subtitle,
+      detail: errorText
+        ? errorText
+        : SUMMARY_ONLY_PREVIEW_TOOLS.has(toolName)
+          ? entry.info.summary || entry.info.subtitle
+          : output || entry.info.summary || entry.info.subtitle,
     }
   }
 
@@ -125,6 +144,11 @@ export function AbstractedToolGroup({
   const [previewOffset, setPreviewOffset] = useState(0)
   const entries = useMemo(() => parts.map((part) => createEntry(part)), [parts])
   const activeEntry = useMemo(() => entries.findLast((entry) => entryIsActive(entry)), [entries])
+  const lastErrorEntry = useMemo(() => entries.findLast((entry) => entryHasError(entry)), [entries])
+  const errorCount = useMemo(
+    () => entries.filter((entry) => entryHasError(entry)).length,
+    [entries],
+  )
   const lastActiveEntryRef = useRef<AbstractedEntry | undefined>(undefined)
   const previewViewportRef = useRef<HTMLDivElement>(null)
   const previewContentRef = useRef<HTMLDivElement>(null)
@@ -140,16 +164,18 @@ export function AbstractedToolGroup({
     }
   }, [activeEntry, isBusy])
 
-  const previewEntry = activeEntry ?? (isBusy ? lastActiveEntryRef.current : undefined)
-  const isWorking = Boolean(activeEntry || (isBusy && previewEntry))
-  const showLivePreview = isWorking && !collapsePreview
+  const lingeringLivePreview =
+    !activeEntry && !lastErrorEntry && isBusy ? lastActiveEntryRef.current : undefined
+  const previewEntry = activeEntry ?? lastErrorEntry ?? lingeringLivePreview
+  const showLivePreview = Boolean(activeEntry || lingeringLivePreview) && !collapsePreview
+  const showErrorPreview = Boolean(!activeEntry && lastErrorEntry) && !collapsePreview
   const stepCount = entries.length
   const summaryTitle = `${stepCount} ${stepCount === 1 ? "step" : "steps"}`
   const summaryDetail = useMemo(() => buildSummary(entries), [entries])
   const preview = useMemo(() => buildPreview(previewEntry), [previewEntry])
   const previewText = useThrottledText(preview.detail ?? "")
-  const showPreview = showLivePreview && previewText.trim().length > 0
-  const title = showLivePreview ? preview.title : summaryTitle
+  const showPreview = (showLivePreview || showErrorPreview) && previewText.trim().length > 0
+  const title = showLivePreview || showErrorPreview ? preview.title : summaryTitle
 
   useLayoutEffect(() => {
     if (!showPreview) {
@@ -187,11 +213,20 @@ export function AbstractedToolGroup({
             <span
               className={cn(
                 "min-w-0 truncate text-xs",
-                showLivePreview ? "text-text-weak" : "text-text-weak/50",
+                showLivePreview
+                  ? "text-text-weak"
+                  : errorCount > 0
+                    ? "text-icon-critical-base/80"
+                    : "text-text-weak/50",
               )}
             >
               {title}
             </span>
+            {!showLivePreview && errorCount > 0 ? (
+              <span className="shrink-0 text-xs text-icon-critical-base/70">
+                {errorCount} {errorCount === 1 ? "error" : "errors"}
+              </span>
+            ) : null}
             {!showLivePreview && summaryDetail ? (
               <span className="min-w-0 truncate text-xs text-text-weak/30">{summaryDetail}</span>
             ) : null}
@@ -224,7 +259,12 @@ export function AbstractedToolGroup({
                     animate={{ y: previewOffset }}
                     transition={SPRING_GENTLE}
                   >
-                    <p className="whitespace-pre-wrap break-words font-mono text-[11px] leading-[1.6] text-text-weak/40">
+                    <p
+                      className={cn(
+                        "whitespace-pre-wrap break-words font-mono text-[11px] leading-[1.6]",
+                        showErrorPreview ? "text-icon-critical-base/80" : "text-text-weak/40",
+                      )}
+                    >
                       {previewText}
                     </p>
                   </motion.div>
