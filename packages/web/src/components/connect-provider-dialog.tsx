@@ -17,10 +17,17 @@ import {
 import { type FormEvent, useEffect, useState } from "react"
 import { usePlatform } from "@/context/platform"
 import { getOpenCodeClient } from "../lib/opencode-client"
+import {
+  authorizeProviderOAuth,
+  completeProviderOAuth,
+  formatProviderAuthError,
+  parseProviderConfirmationCode,
+  reloadProviderRuntime,
+} from "../lib/provider-auth"
 import type { ProviderInfo } from "@/state/chat-types"
 
 type ConnectProviderDialogProps = {
-  directory: string
+  directory?: string
   open: boolean
   providers: ProviderInfo[]
   initialProvider?: string
@@ -32,30 +39,6 @@ const FALLBACK_API_METHOD = {
   type: "api",
   label: "API key",
 } as const
-
-function formatError(error: unknown, fallback: string): string {
-  if (error && typeof error === "object" && "data" in error) {
-    const data = (error as { data?: { message?: unknown } }).data
-    if (typeof data?.message === "string" && data.message) return data.message
-  }
-  if (error && typeof error === "object" && "error" in error) {
-    const nested: string = formatError((error as { error?: unknown }).error, "")
-    if (nested) return nested
-  }
-  if (error && typeof error === "object" && "message" in error) {
-    const message = (error as { message?: unknown }).message
-    if (typeof message === "string" && message) return message
-  }
-  if (error instanceof Error && error.message) return error.message
-  if (typeof error === "string" && error) return error
-  return fallback
-}
-
-function parseConfirmationCode(input?: string) {
-  if (!input) return ""
-  if (!input.includes(":")) return input
-  return input.split(":")[1]?.trim() ?? input
-}
 
 export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
   const platform = usePlatform()
@@ -96,7 +79,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
   const selectedMethod = methods[methodIndex] ?? methods[0]
   const canDisconnect = selectedProvider?.connected && selectedProvider.source !== "env"
   const envManaged = selectedProvider?.connected && selectedProvider.source === "env"
-  const confirmationCode = parseConfirmationCode(authorization?.instructions)
+  const confirmationCode = parseProviderConfirmationCode(authorization?.instructions)
 
   function resetAuthState(nextMethodIndex = 0) {
     setMethodIndex(nextMethodIndex)
@@ -108,8 +91,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
   }
 
   async function disposeAndReload() {
-    const client = getOpenCodeClient(props.directory)
-    await client.global.dispose({ throwOnError: true })
+    await reloadProviderRuntime(props.directory)
     await props.onUpdated()
     props.onOpenChange(false)
   }
@@ -139,7 +121,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
       await disposeAndReload()
     } catch (error) {
       setBusy(false)
-      setError(formatError(error, "Failed to save provider credentials"))
+      setError(formatProviderAuthError(error, "Failed to save provider credentials"))
     }
   }
 
@@ -160,7 +142,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
       await disposeAndReload()
     } catch (error) {
       setBusy(false)
-      setError(formatError(error, "Failed to remove provider credentials"))
+      setError(formatProviderAuthError(error, "Failed to remove provider credentials"))
     }
   }
 
@@ -173,15 +155,11 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
     setCode("")
 
     try {
-      const client = getOpenCodeClient(props.directory)
-      const result = await client.provider.oauth.authorize(
-        {
-          providerID,
-          method: methodIndex,
-        },
-        { throwOnError: true },
-      )
-      const nextAuthorization = result.data
+      const nextAuthorization = await authorizeProviderOAuth({
+        directory: props.directory,
+        providerID,
+        methodIndex,
+      })
 
       if (!nextAuthorization) {
         setBusy(false)
@@ -192,13 +170,11 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
       platform.openLink(nextAuthorization.url)
 
       if (nextAuthorization.method === "auto") {
-        await client.provider.oauth.callback(
-          {
-            providerID,
-            method: methodIndex,
-          },
-          { throwOnError: true },
-        )
+        await completeProviderOAuth({
+          directory: props.directory,
+          providerID,
+          methodIndex,
+        })
         await disposeAndReload()
         return
       }
@@ -207,7 +183,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
     } catch (error) {
       setBusy(false)
       setAuthorization(undefined)
-      setError(formatError(error, "Failed to start provider login"))
+      setError(formatProviderAuthError(error, "Failed to start provider login"))
     }
   }
 
@@ -222,19 +198,16 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
     setError(undefined)
 
     try {
-      const client = getOpenCodeClient(props.directory)
-      await client.provider.oauth.callback(
-        {
-          providerID,
-          method: methodIndex,
-          code: code.trim(),
-        },
-        { throwOnError: true },
-      )
+      await completeProviderOAuth({
+        directory: props.directory,
+        providerID,
+        methodIndex,
+        code: code.trim(),
+      })
       await disposeAndReload()
     } catch (error) {
       setBusy(false)
-      setError(formatError(error, "Invalid authorization code"))
+      setError(formatProviderAuthError(error, "Invalid authorization code"))
     }
   }
 
