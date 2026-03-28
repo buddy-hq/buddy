@@ -60,3 +60,6 @@ packages/desktop/*.tsbuildinfo
 packages/sdk/.buddy-runtime/
 packages/web/.tanstack/
 docs/audits/
+# Claude Code
+.claude/
+.config/
