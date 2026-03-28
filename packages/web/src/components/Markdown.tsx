@@ -79,6 +79,11 @@ type CopyLabels = {
   copied: string
 }
 
+const copyIconPath =
+  '<path d="M6.2513 6.24935V2.91602H17.0846V13.7493H13.7513M13.7513 6.24935V17.0827H2.91797V6.24935H13.7513Z" stroke="currentColor" stroke-linecap="round"/>'
+const checkIconPath =
+  '<path d="M5 11.9657L8.37838 14.7529L15 5.83398" stroke="currentColor" stroke-linecap="square"/>'
+
 const codeUrlPattern = /^https?:\/\/[^\s<>()`"']+$/u
 
 function codeUrl(text: string) {
@@ -92,22 +97,53 @@ function codeUrl(text: string) {
   }
 }
 
+function createCopyIcon(path: string, slot: string) {
+  const icon = document.createElement("span")
+  icon.setAttribute("data-slot", slot)
+  icon.className = "pointer-events-none inline-flex h-4 w-4 items-center justify-center"
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg")
+  svg.setAttribute("viewBox", "0 0 20 20")
+  svg.setAttribute("fill", "none")
+  svg.setAttribute("aria-hidden", "true")
+  svg.setAttribute("class", "h-4 w-4")
+  svg.innerHTML = path
+  icon.appendChild(svg)
+  return icon
+}
+
 function createCopyButton(labels: CopyLabels) {
   const button = document.createElement("button")
   button.type = "button"
   button.setAttribute("data-slot", "markdown-copy-button")
   button.setAttribute("data-copied", "false")
   button.setAttribute("aria-label", labels.copy)
+  button.setAttribute("title", labels.copy)
   button.className =
-    "mt-2 inline-flex h-6 items-center rounded border border-border-base bg-background-base px-2 text-xs text-text-weak hover:text-text-base"
-  button.textContent = labels.copy
+    "group absolute right-1 top-1 z-10 inline-flex h-7 w-7 items-center justify-center rounded-md border border-border-base bg-background-base/90 text-text-weak opacity-0 shadow-sm transition-opacity hover:text-text-base focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-base group-hover/markdown-code:opacity-100"
+  button.appendChild(createCopyIcon(copyIconPath, "copy-icon"))
+  const checkIcon = createCopyIcon(checkIconPath, "check-icon")
+  checkIcon.style.display = "none"
+  button.appendChild(checkIcon)
   return button
 }
 
 function setCopyState(button: HTMLButtonElement, labels: CopyLabels, copied: boolean) {
   button.setAttribute("data-copied", copied ? "true" : "false")
   button.setAttribute("aria-label", copied ? labels.copied : labels.copy)
-  button.textContent = copied ? labels.copied : labels.copy
+  button.setAttribute("title", copied ? labels.copied : labels.copy)
+
+  const copyIcon = button.querySelector('[data-slot="copy-icon"]')
+  const checkIcon = button.querySelector('[data-slot="check-icon"]')
+  if (!(copyIcon instanceof HTMLElement) || !(checkIcon instanceof HTMLElement)) return
+
+  if (copied) {
+    copyIcon.style.display = "none"
+    checkIcon.style.display = "inline-flex"
+    return
+  }
+
+  copyIcon.style.display = "inline-flex"
+  checkIcon.style.display = "none"
 }
 
 function ensureCodeWrapper(block: HTMLPreElement, labels: CopyLabels) {
@@ -117,11 +153,14 @@ function ensureCodeWrapper(block: HTMLPreElement, labels: CopyLabels) {
   if (!wrapped) {
     const wrapper = document.createElement("div")
     wrapper.setAttribute("data-component", "markdown-code")
+    wrapper.className = "group/markdown-code relative"
     parent.replaceChild(wrapper, block)
     wrapper.appendChild(block)
     wrapper.appendChild(createCopyButton(labels))
     return
   }
+
+  parent.classList.add("group/markdown-code", "relative")
 
   const buttons = Array.from(parent.querySelectorAll('[data-slot="markdown-copy-button"]')).filter(
     (element): element is HTMLButtonElement => element instanceof HTMLButtonElement,
