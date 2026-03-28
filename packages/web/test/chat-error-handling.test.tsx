@@ -162,6 +162,21 @@ describe("chat error handling", () => {
     expect(alert?.textContent).toContain("Request failed.")
   })
 
+  test("uses the shared abstracted thinking placeholder while the assistant is busy", async () => {
+    await act(async () => {
+      root.render(<ChatTranscript messages={[userMessage()]} isBusy />)
+      await flushEffects()
+    })
+
+    const placeholder = container.querySelector("[data-abstracted-thinking-placeholder]")
+    expect(placeholder).not.toBeNull()
+    expect(placeholder?.textContent).toContain("Thinking")
+
+    const title = placeholder?.querySelector("span")
+    expect(title?.className).toContain("text-xs")
+    expect(title?.className).not.toContain("text-sm")
+  })
+
   test("prefers the latest abstracted tool error over stale live preview state", async () => {
     await act(async () => {
       root.render(
@@ -194,6 +209,28 @@ describe("chat error handling", () => {
     })
 
     expect(container.textContent).toContain("command failed")
+  })
+
+  test("keeps the live abstracted preview at a fixed viewport height while running", async () => {
+    await act(async () => {
+      root.render(
+        <AbstractedToolGroup
+          parts={[
+            shellToolPart({
+              status: "running",
+              output: "searching the workspace\ncollecting files\nsummarizing results",
+            }),
+          ]}
+          isBusy
+        />,
+      )
+      await flushEffects()
+    })
+
+    const previewViewport = container.querySelector("[data-preview-viewport]")
+    expect(previewViewport).not.toBeNull()
+    expect((previewViewport as HTMLDivElement).style.height).toBe("80px")
+    expect((previewViewport as HTMLDivElement).style.maxHeight).toBe("80px")
   })
 
   test("shows a generic abstracted tool failure message when the tool provides no text", async () => {
