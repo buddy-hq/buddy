@@ -136,6 +136,22 @@ export function unwrapError(message: string): string {
   return message
 }
 
+export function isMessageAbortError(value: unknown): boolean {
+  return isRecord(value) && value.name === "MessageAbortedError"
+}
+
+export function formatMessageError(value: unknown): string {
+  if (!isRecord(value)) return ""
+
+  const data = isRecord(value.data) ? value.data : undefined
+  const message =
+    readNonEmptyString(value.message) ??
+    (data ? readNonEmptyString(data.message) : undefined) ??
+    readNonEmptyString(value.name)
+
+  return message ? unwrapError(message) : ""
+}
+
 export function readStringList(value: unknown): string[] {
   if (!Array.isArray(value)) return []
   return value.filter((entry): entry is string => typeof entry === "string")
