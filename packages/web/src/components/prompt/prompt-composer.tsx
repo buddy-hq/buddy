@@ -215,6 +215,8 @@ export function PromptComposer(props: PromptComposerProps) {
   }
 
   function handleEditorInput() {
+    if (props.isBusy) return
+
     const editor = editorRef.current
     if (!editor) return
 
@@ -258,16 +260,19 @@ export function PromptComposer(props: PromptComposerProps) {
     const editor = editorRef.current
     if (!editor) return
 
-    const selection = window.getSelection()
+    let selection = window.getSelection()
     if (!selection) return
 
     if (selection.rangeCount === 0 || !editor.contains(selection.anchorNode)) {
       editor.focus()
       setCursorPosition(editor, draft.cursor)
+      selection = window.getSelection()
+      if (!selection) return
     }
 
     if (selection.rangeCount === 0) return
     const range = selection.getRangeAt(0)
+    if (!editor.contains(range.startContainer)) return
     const fragment = createTextFragment(text)
     const lastNode = fragment.lastChild
     range.deleteContents()
@@ -626,6 +631,11 @@ export function PromptComposer(props: PromptComposerProps) {
               }
             }}
             onPaste={(event) => {
+              if (props.isBusy) {
+                event.preventDefault()
+                return
+              }
+
               const clipboardData = event.clipboardData
               if (!clipboardData) return
 
