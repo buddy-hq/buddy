@@ -1,7 +1,7 @@
 import { memo } from "react"
 import { Markdown } from "@/components/Markdown"
 import { CopyAction } from "../shared/copy-action"
-import { useSmoothStreamingText } from "../shared/hooks"
+import { useAdaptiveStreamingText } from "../shared/hooks"
 import { cn } from "@buddy/ui"
 import type { MessagePart } from "@/state/chat-types"
 
@@ -77,7 +77,7 @@ export const AssistantTextPart = memo(function AssistantTextPart({
   const visibleText = stripLeadingMermaidSource
     ? stripLeadingRenderMermaidMarkdown(withoutLeadingFigure, stripLeadingMermaidSource)
     : withoutLeadingFigure
-  const displayedText = useSmoothStreamingText(visibleText, onFinalRender)
+  const displayedText = useAdaptiveStreamingText(visibleText, onFinalRender)
   if (!displayedText.trim()) return null
 
   return (
