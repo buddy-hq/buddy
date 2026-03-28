@@ -17,7 +17,19 @@ import { AssistantPartRenderer } from "./assistant-part-renderer"
 import { isRecord, reasoningHeading, stripAnsi } from "../shared/utils"
 
 const PREVIEW_MAX_HEIGHT_PX = 80
+const ABSTRACTED_THINKING_LABEL = "Thinking"
+const ABSTRACTED_WORKING_LABEL = "Working"
+const ABSTRACTED_STEP_LABELS = {
+  singular: "step",
+  plural: "steps",
+} as const
 const SUMMARY_ONLY_PREVIEW_TOOLS = new Set(["read", "pedagogy_resource_ingest_full_text", "skill"])
+const ABSTRACTED_CONTAINER_CLASS_NAME = "mt-3 w-full"
+const ABSTRACTED_HEADER_TRIGGER_CLASS_NAME =
+  "group flex w-full flex-col items-stretch py-1 text-left"
+const ABSTRACTED_HEADER_ROW_CLASS_NAME = "flex min-w-0 items-center gap-2"
+const ABSTRACTED_TITLE_CLASS_NAME = "min-w-0 truncate text-xs"
+const ABSTRACTED_DETAIL_CLASS_NAME = "min-w-0 truncate text-xs text-text-weak/30"
 
 const SPRING_SNAPPY = { type: "spring", stiffness: 500, damping: 35, mass: 0.8 } as const
 const SPRING_GENTLE = { type: "spring", stiffness: 300, damping: 30, mass: 1 } as const
@@ -77,7 +89,7 @@ function buildSummary(entries: AbstractedEntry[]): string | undefined {
   const labels = new Set<string>()
 
   for (const entry of entries) {
-    const label = entry.part.type === "reasoning" ? "Thinking" : entry.info?.title
+    const label = entry.part.type === "reasoning" ? ABSTRACTED_THINKING_LABEL : entry.info?.title
     if (!label) continue
     labels.add(label)
   }
@@ -89,13 +101,13 @@ function buildSummary(entries: AbstractedEntry[]): string | undefined {
 
 function buildPreview(entry: AbstractedEntry | undefined): { title: string; detail?: string } {
   if (!entry) {
-    return { title: "Working" }
+    return { title: ABSTRACTED_WORKING_LABEL }
   }
 
   if (entry.part.type === "reasoning") {
     const text = String(entry.part.text ?? "").trim()
     return {
-      title: reasoningHeading(text) ?? "Thinking",
+      title: reasoningHeading(text) ?? ABSTRACTED_THINKING_LABEL,
       detail: text || undefined,
     }
   }
@@ -114,7 +126,28 @@ function buildPreview(entry: AbstractedEntry | undefined): { title: string; deta
     }
   }
 
-  return { title: "Working" }
+  return { title: ABSTRACTED_WORKING_LABEL }
+}
+
+type AbstractedThinkingPlaceholderProps = {
+  detail?: string
+}
+
+export function AbstractedThinkingPlaceholder(props: AbstractedThinkingPlaceholderProps) {
+  return (
+    <div className={ABSTRACTED_CONTAINER_CLASS_NAME} data-abstracted-thinking-placeholder="">
+      <div className={ABSTRACTED_HEADER_TRIGGER_CLASS_NAME}>
+        <div className={ABSTRACTED_HEADER_ROW_CLASS_NAME}>
+          <span className={cn(ABSTRACTED_TITLE_CLASS_NAME, "animate-pulse text-text-weak")}>
+            {ABSTRACTED_THINKING_LABEL}
+          </span>
+          {props.detail ? (
+            <span className={ABSTRACTED_DETAIL_CLASS_NAME}>{props.detail}</span>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  )
 }
 
 interface AbstractedToolGroupProps {
@@ -141,7 +174,6 @@ export function AbstractedToolGroup({
   shellToolDefaultOpen,
 }: AbstractedToolGroupProps) {
   const [isOpen, setIsOpen] = useState(false)
-  const [previewOffset, setPreviewOffset] = useState(0)
   const entries = useMemo(() => parts.map((part) => createEntry(part)), [parts])
   const activeEntry = useMemo(() => entries.findLast((entry) => entryIsActive(entry)), [entries])
   const lastErrorEntry = useMemo(() => entries.findLast((entry) => entryHasError(entry)), [entries])
@@ -169,8 +201,11 @@ export function AbstractedToolGroup({
   const previewEntry = activeEntry ?? lastErrorEntry ?? lingeringLivePreview
   const showLivePreview = Boolean(activeEntry || lingeringLivePreview) && !collapsePreview
   const showErrorPreview = Boolean(!activeEntry && lastErrorEntry) && !collapsePreview
+  const previewViewportHeight = showLivePreview ? PREVIEW_MAX_HEIGHT_PX : undefined
   const stepCount = entries.length
-  const summaryTitle = `${stepCount} ${stepCount === 1 ? "step" : "steps"}`
+  const summaryTitle = `${stepCount} ${
+    stepCount === 1 ? ABSTRACTED_STEP_LABELS.singular : ABSTRACTED_STEP_LABELS.plural
+  }`
   const summaryDetail = useMemo(() => buildSummary(entries), [entries])
   const preview = useMemo(() => buildPreview(previewEntry), [previewEntry])
   const previewText = useThrottledText(preview.detail ?? "")
@@ -179,7 +214,10 @@ export function AbstractedToolGroup({
 
   useLayoutEffect(() => {
     if (!showPreview) {
-      setPreviewOffset(0)
+      const viewport = previewViewportRef.current
+      if (viewport) {
+        viewport.scrollTop = 0
+      }
       return
     }
 
@@ -187,15 +225,14 @@ export function AbstractedToolGroup({
     const content = previewContentRef.current
     if (!viewport || !content) return
 
-    const update = () => {
-      const nextOffset = Math.min(0, viewport.clientHeight - content.scrollHeight)
-      setPreviewOffset(nextOffset)
+    const pinPreviewToBottom = () => {
+      viewport.scrollTop = Math.max(0, content.scrollHeight - viewport.clientHeight)
     }
 
-    update()
+    pinPreviewToBottom()
 
     const observer = new ResizeObserver(() => {
-      update()
+      pinPreviewToBottom()
     })
 
     observer.observe(viewport)
@@ -206,13 +243,13 @@ export function AbstractedToolGroup({
   }, [previewText, showPreview])
 
   return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen} className="mt-3 w-full">
+    <Collapsible open={isOpen} onOpenChange={setIsOpen} className={ABSTRACTED_CONTAINER_CLASS_NAME}>
       <CollapsibleTrigger asChild>
-        <button type="button" className="group flex w-full flex-col items-stretch py-1 text-left">
-          <div className="flex min-w-0 items-center gap-2">
+        <button type="button" className={ABSTRACTED_HEADER_TRIGGER_CLASS_NAME}>
+          <div className={ABSTRACTED_HEADER_ROW_CLASS_NAME}>
             <span
               className={cn(
-                "min-w-0 truncate text-xs",
+                ABSTRACTED_TITLE_CLASS_NAME,
                 showLivePreview
                   ? "text-text-weak"
                   : errorCount > 0
@@ -228,7 +265,7 @@ export function AbstractedToolGroup({
               </span>
             ) : null}
             {!showLivePreview && summaryDetail ? (
-              <span className="min-w-0 truncate text-xs text-text-weak/30">{summaryDetail}</span>
+              <span className={ABSTRACTED_DETAIL_CLASS_NAME}>{summaryDetail}</span>
             ) : null}
             <motion.div
               animate={{ rotate: isOpen ? 90 : 0 }}
@@ -251,14 +288,16 @@ export function AbstractedToolGroup({
               >
                 <div
                   ref={previewViewportRef}
+                  data-preview-viewport=""
                   className="mt-1.5 overflow-hidden"
-                  style={{ maxHeight: `${PREVIEW_MAX_HEIGHT_PX}px` }}
+                  style={{
+                    ...(typeof previewViewportHeight === "number"
+                      ? { height: `${previewViewportHeight}px` }
+                      : {}),
+                    maxHeight: `${PREVIEW_MAX_HEIGHT_PX}px`,
+                  }}
                 >
-                  <motion.div
-                    ref={previewContentRef}
-                    animate={{ y: previewOffset }}
-                    transition={SPRING_GENTLE}
-                  >
+                  <div ref={previewContentRef} className="flex min-h-full flex-col justify-end">
                     <p
                       className={cn(
                         "whitespace-pre-wrap break-words font-mono text-[11px] leading-[1.6]",
@@ -267,7 +306,7 @@ export function AbstractedToolGroup({
                     >
                       {previewText}
                     </p>
-                  </motion.div>
+                  </div>
                 </div>
               </motion.div>
             ) : null}
