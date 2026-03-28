@@ -1,9 +1,128 @@
+import { animate, type AnimationPlaybackControls } from "motion"
 import { useCallback, useEffect, useRef, useState } from "react"
 
 const TEXT_RENDER_THROTTLE_MS = 100
-const STREAM_FRAME_INTERVAL_MS = 1000 / 30
 const MIN_STREAM_CHARS = 2
 const STREAM_BUFFER_DIVISOR = 10
+const MAX_SMOOTH_STREAM_CHARS = 48
+const LINE_STREAM_CHARS = 64
+const SOFT_BOUNDARY_LOOKBACK = 8
+const STREAM_REALTIME_GAP_MS = 180
+const FAST_STREAM_GAP_MS = 60
+const FAST_STREAM_DELTA_CHARS = 64
+const FAST_STREAM_CHARS_PER_SECOND = 420
+const SMOOTH_STREAM_STEP_DURATION_S = 0.024
+const LINE_STREAM_STEP_DURATION_S = 0.08
+const MIN_STREAM_DURATION_S = 0.08
+const MAX_STREAM_DURATION_S = 0.52
+
+type StreamingTextMode = "realtime" | "smooth" | "line"
+type StreamingTextStrategy = StreamingTextMode | "auto"
+
+function isSoftBoundary(char: string | undefined) {
+  return (
+    char === " " ||
+    char === "\n" ||
+    char === "\t" ||
+    char === "." ||
+    char === "," ||
+    char === ":" ||
+    char === ";" ||
+    char === "!" ||
+    char === "?"
+  )
+}
+
+function snapToSoftBoundary(text: string, candidateIndex: number, currentIndex: number) {
+  if (candidateIndex >= text.length) return text.length
+
+  for (
+    let offset = 0;
+    offset < SOFT_BOUNDARY_LOOKBACK && candidateIndex - offset > currentIndex;
+    offset += 1
+  ) {
+    const boundaryIndex = candidateIndex - offset
+    if (isSoftBoundary(text[boundaryIndex - 1])) {
+      return boundaryIndex
+    }
+  }
+
+  return candidateIndex
+}
+
+function nextSmoothChunkEnd(text: string, currentIndex: number) {
+  const remainingChars = text.length - currentIndex
+  const charsToAdd = Math.min(
+    Math.max(MIN_STREAM_CHARS, Math.floor(remainingChars / STREAM_BUFFER_DIVISOR)),
+    Math.min(remainingChars, MAX_SMOOTH_STREAM_CHARS),
+  )
+  const candidateIndex = Math.min(text.length, currentIndex + charsToAdd)
+  return snapToSoftBoundary(text, candidateIndex, currentIndex)
+}
+
+function nextLineChunkEnd(text: string, currentIndex: number) {
+  const nextNewlineIndex = text.indexOf("\n", currentIndex)
+  if (nextNewlineIndex !== -1) {
+    return nextNewlineIndex + 1
+  }
+
+  const candidateIndex = Math.min(text.length, currentIndex + LINE_STREAM_CHARS)
+  return snapToSoftBoundary(text, candidateIndex, currentIndex)
+}
+
+function inferStreamingTextMode(input: {
+  deltaChars: number
+  deltaMs: number
+  currentText: string
+  nextText: string
+}): StreamingTextMode {
+  const growthChars = input.nextText.length - input.currentText.length
+  if (growthChars <= MIN_STREAM_CHARS) return "realtime"
+
+  if (input.deltaMs >= STREAM_REALTIME_GAP_MS && input.deltaChars <= FAST_STREAM_DELTA_CHARS / 2) {
+    return "realtime"
+  }
+
+  const charsPerSecond =
+    input.deltaMs > 0 ? (input.deltaChars * 1000) / input.deltaMs : input.deltaChars * 1000
+
+  if (
+    input.deltaMs <= FAST_STREAM_GAP_MS ||
+    input.deltaChars >= FAST_STREAM_DELTA_CHARS ||
+    charsPerSecond >= FAST_STREAM_CHARS_PER_SECOND
+  ) {
+    return "line"
+  }
+
+  return "smooth"
+}
+
+function buildStreamingRevealSteps(
+  text: string,
+  currentIndex: number,
+  mode: Exclude<StreamingTextMode, "realtime">,
+) {
+  const steps: number[] = []
+  let nextIndex = currentIndex
+
+  while (nextIndex < text.length) {
+    const candidateIndex =
+      mode === "line" ? nextLineChunkEnd(text, nextIndex) : nextSmoothChunkEnd(text, nextIndex)
+    const resolvedIndex =
+      candidateIndex > nextIndex
+        ? candidateIndex
+        : Math.min(text.length, nextIndex + MIN_STREAM_CHARS)
+    steps.push(resolvedIndex)
+    nextIndex = resolvedIndex
+  }
+
+  return steps
+}
+
+function streamingDurationSeconds(mode: Exclude<StreamingTextMode, "realtime">, stepCount: number) {
+  const stepDuration = mode === "line" ? LINE_STREAM_STEP_DURATION_S : SMOOTH_STREAM_STEP_DURATION_S
+  return Math.max(MIN_STREAM_DURATION_S, Math.min(MAX_STREAM_DURATION_S, stepCount * stepDuration))
+}
 
 export function useThrottledText(value: string) {
   const [throttled, setThrottled] = useState(value)
@@ -46,28 +165,36 @@ export function useThrottledText(value: string) {
 }
 
 /**
- * Hook for smooth streaming text.
- * - Streams text progressively for visual effect (raw text, no markdown parse)
- * - Upgrades to full markdown when stream completes
- * - Triggers onFinalRender callback for auto-scroll
+ * Hook for adaptive streaming text.
+ * - Slow streams render immediately
+ * - Medium streams smooth in chunked steps
+ * - Fast streams reveal a line at a time to avoid parse storms
+ * - Triggers onFinalRender callback when the current render catches up
  */
-export function useSmoothStreamingText(value: string, onFinalRender?: () => void) {
+function useStreamingText(
+  value: string,
+  input?: {
+    mode?: StreamingTextStrategy
+    onFinalRender?: () => void
+  },
+) {
   const [visibleText, setVisibleText] = useState(value)
   const visibleTextRef = useRef(value)
   const targetTextRef = useRef(value)
-  const animationFrameRef = useRef<number | undefined>(undefined)
+  const incomingTextRef = useRef(value)
+  const animationRef = useRef<AnimationPlaybackControls | null>(null)
   const finalRenderTimeoutRef = useRef<number | undefined>(undefined)
-  const lastFrameAtRef = useRef(0)
-  const onFinalRenderRef = useRef(onFinalRender)
+  const lastIncomingAtRef = useRef(Date.now())
+  const animationTokenRef = useRef(0)
+  const onFinalRenderRef = useRef(input?.onFinalRender)
 
   useEffect(() => {
-    onFinalRenderRef.current = onFinalRender
-  }, [onFinalRender])
+    onFinalRenderRef.current = input?.onFinalRender
+  }, [input?.onFinalRender])
 
   const clearAnimation = useCallback(() => {
-    if (animationFrameRef.current === undefined) return
-    cancelAnimationFrame(animationFrameRef.current)
-    animationFrameRef.current = undefined
+    animationRef.current?.stop()
+    animationRef.current = null
   }, [])
 
   const clearFinalRenderTimeout = useCallback(() => {
@@ -90,11 +217,11 @@ export function useSmoothStreamingText(value: string, onFinalRender?: () => void
   }, [clearFinalRenderTimeout])
 
   const finishStreaming = useCallback(
-    (nextText: string) => {
+    (nextText: string, forceFinalRender = false) => {
       clearAnimation()
       const didChange = visibleTextRef.current !== nextText
       commitVisibleText(nextText)
-      if (didChange) {
+      if (didChange || forceFinalRender) {
         scheduleFinalRender()
       }
     },
@@ -103,56 +230,73 @@ export function useSmoothStreamingText(value: string, onFinalRender?: () => void
 
   useEffect(() => {
     targetTextRef.current = value
+    const now = Date.now()
+    const previousIncomingText = incomingTextRef.current
+    const incomingDeltaChars = Math.max(0, value.length - previousIncomingText.length)
+    const incomingDeltaMs = Math.max(1, now - lastIncomingAtRef.current)
+    incomingTextRef.current = value
+    lastIncomingAtRef.current = now
+
     const currentText = visibleTextRef.current
     const shouldStream =
       value.length > currentText.length &&
       value.startsWith(currentText) &&
       value.length - currentText.length > MIN_STREAM_CHARS
 
-    if (!shouldStream) {
+    const mode =
+      input?.mode && input.mode !== "auto"
+        ? input.mode
+        : inferStreamingTextMode({
+            deltaChars: incomingDeltaChars || value.length - currentText.length,
+            deltaMs: incomingDeltaMs,
+            currentText,
+            nextText: value,
+          })
+
+    if (!shouldStream || mode === "realtime") {
+      finishStreaming(value)
+      return
+    }
+
+    const steps = buildStreamingRevealSteps(value, currentText.length, mode)
+    if (steps.length === 0) {
       finishStreaming(value)
       return
     }
 
     clearAnimation()
     clearFinalRenderTimeout()
-    lastFrameAtRef.current = 0
-
-    const animate = (timestamp: number) => {
-      const current = visibleTextRef.current
-      const target = targetTextRef.current
-
-      if (current.length >= target.length) {
-        finishStreaming(target)
-        return
-      }
-
-      if (timestamp - lastFrameAtRef.current < STREAM_FRAME_INTERVAL_MS) {
-        animationFrameRef.current = requestAnimationFrame(animate)
-        return
-      }
-
-      lastFrameAtRef.current = timestamp
-      const remainingChars = target.length - current.length
-      const charsToAdd = Math.min(
-        Math.max(MIN_STREAM_CHARS, Math.floor(remainingChars / STREAM_BUFFER_DIVISOR)),
-        remainingChars,
-      )
-      const nextText = target.slice(0, current.length + charsToAdd)
-      commitVisibleText(nextText)
-
-      if (nextText.length >= target.length) {
-        animationFrameRef.current = undefined
-        if (nextText !== current) {
-          scheduleFinalRender()
-        }
-        return
-      }
-
-      animationFrameRef.current = requestAnimationFrame(animate)
+    const animationToken = animationTokenRef.current + 1
+    animationTokenRef.current = animationToken
+    const firstStep = steps[0]
+    const remainingSteps = steps.slice(1)
+    if (typeof firstStep === "number") {
+      commitVisibleText(value.slice(0, firstStep))
     }
 
-    animationFrameRef.current = requestAnimationFrame(animate)
+    if (remainingSteps.length === 0) {
+      scheduleFinalRender()
+      return
+    }
+
+    const finalStepIndex = remainingSteps.length - 1
+    animationRef.current = animate(0, finalStepIndex, {
+      duration: streamingDurationSeconds(mode, steps.length),
+      ease: "linear",
+      onUpdate: (latest) => {
+        if (animationTokenRef.current !== animationToken) return
+        const stepIndex = Math.min(finalStepIndex, Math.floor(latest))
+        const nextIndex = remainingSteps[stepIndex]
+        if (typeof nextIndex !== "number") return
+        if (nextIndex <= visibleTextRef.current.length) return
+        commitVisibleText(targetTextRef.current.slice(0, nextIndex))
+      },
+      onComplete: () => {
+        if (animationTokenRef.current !== animationToken) return
+        animationRef.current = null
+        finishStreaming(targetTextRef.current, true)
+      },
+    })
 
     return () => {
       clearAnimation()
@@ -163,6 +307,7 @@ export function useSmoothStreamingText(value: string, onFinalRender?: () => void
     commitVisibleText,
     finishStreaming,
     scheduleFinalRender,
+    input?.mode,
     value,
   ])
 
@@ -176,5 +321,14 @@ export function useSmoothStreamingText(value: string, onFinalRender?: () => void
   return visibleText
 }
 
-// Export for backwards compatibility
-export const useLineByLineText = useSmoothStreamingText
+export function useAdaptiveStreamingText(value: string, onFinalRender?: () => void) {
+  return useStreamingText(value, { mode: "auto", onFinalRender })
+}
+
+export function useSmoothStreamingText(value: string, onFinalRender?: () => void) {
+  return useStreamingText(value, { mode: "smooth", onFinalRender })
+}
+
+export function useLineByLineText(value: string, onFinalRender?: () => void) {
+  return useStreamingText(value, { mode: "line", onFinalRender })
+}
