@@ -1,4 +1,5 @@
 import { useNavigate } from "@tanstack/react-router"
+import { animate, type AnimationPlaybackControls } from "motion"
 import {
   useCallback,
   useEffect,
@@ -75,6 +76,13 @@ import { useTeachingWorkspace } from "./use-teaching-workspace"
 const BOTTOM_THRESHOLD_PX = 96
 const SIDEBAR_MIN_WIDTH = 244
 const EMPTY_MENTIONABLE_AGENTS: MentionableAgent[] = []
+const TRANSCRIPT_SCROLL_SPRING = {
+  type: "spring" as const,
+  stiffness: 320,
+  damping: 38,
+  mass: 0.9,
+  restDelta: 0.5,
+}
 
 type DirectoryChatPageControllerProps = {
   directoryToken: string
@@ -106,6 +114,7 @@ export function useDirectoryChatPageController(
 ): DirectoryChatPageControllerState {
   const navigate = useNavigate()
   const transcriptRef = useRef<HTMLElement>(null)
+  const transcriptScrollAnimationRef = useRef<AnimationPlaybackControls | null>(null)
 
   const [stickToBottom, setStickToBottom] = useState(true)
   const [selectedThinking, setSelectedThinking] = useState("default")
@@ -234,6 +243,37 @@ export function useDirectoryChatPageController(
     cs.setPromptDraft(cs.promptKey, nextDraft)
   }
 
+  const stopTranscriptScrollAnimation = useCallback(() => {
+    transcriptScrollAnimationRef.current?.stop()
+    transcriptScrollAnimationRef.current = null
+  }, [])
+
+  const animateTranscriptScrollToBottom = useCallback(() => {
+    const container = transcriptRef.current
+    if (!container) return
+
+    const targetScrollTop = Math.max(0, container.scrollHeight - container.clientHeight)
+    const currentScrollTop = container.scrollTop
+
+    if (Math.abs(targetScrollTop - currentScrollTop) < 1) {
+      stopTranscriptScrollAnimation()
+      return
+    }
+
+    stopTranscriptScrollAnimation()
+    transcriptScrollAnimationRef.current = animate(currentScrollTop, targetScrollTop, {
+      ...TRANSCRIPT_SCROLL_SPRING,
+      onUpdate: (latest) => {
+        const nextContainer = transcriptRef.current
+        if (!nextContainer) return
+        nextContainer.scrollTop = latest
+      },
+      onComplete: () => {
+        transcriptScrollAnimationRef.current = null
+      },
+    })
+  }, [stopTranscriptScrollAnimation])
+
   useEffect(() => {
     setPendingSuggestionOverride(undefined)
   }, [sessionKey])
@@ -305,11 +345,24 @@ export function useDirectoryChatPageController(
 
   useEffect(() => {
     if (!stickToBottom) return
-    const container = transcriptRef.current
-    if (!container) return
+    animateTranscriptScrollToBottom()
+  }, [animateTranscriptScrollToBottom, cs.messages, cs.isBusy, stickToBottom])
 
-    container.scrollTo({ top: container.scrollHeight, behavior: "auto" })
-  }, [cs.messages, cs.isBusy, stickToBottom])
+  const scrollTranscriptToBottom = useCallback(() => {
+    if (!stickToBottom) return
+    animateTranscriptScrollToBottom()
+  }, [animateTranscriptScrollToBottom, stickToBottom])
+
+  useEffect(() => {
+    if (stickToBottom) return
+    stopTranscriptScrollAnimation()
+  }, [stickToBottom, stopTranscriptScrollAnimation])
+
+  useEffect(() => {
+    return () => {
+      stopTranscriptScrollAnimation()
+    }
+  }, [stopTranscriptScrollAnimation])
 
   useEffect(() => {
     if (selectedModelKey === "auto") return
@@ -726,7 +779,15 @@ export function useDirectoryChatPageController(
   function onTranscriptScroll(event: UIEvent<HTMLElement>) {
     const node = event.currentTarget
     const distanceFromBottom = node.scrollHeight - (node.scrollTop + node.clientHeight)
-    setStickToBottom(distanceFromBottom <= BOTTOM_THRESHOLD_PX)
+
+    if (transcriptScrollAnimationRef.current && stickToBottom) {
+      return
+    }
+    const shouldStick = distanceFromBottom <= BOTTOM_THRESHOLD_PX
+    if (!shouldStick) {
+      stopTranscriptScrollAnimation()
+    }
+    setStickToBottom(shouldStick)
   }
 
   function onPersonaChange(persona: string) {
@@ -873,6 +934,7 @@ export function useDirectoryChatPageController(
     chatState: cs,
     transcriptRef,
     onTranscriptScroll,
+    onAssistantTextFinalRender: scrollTranscriptToBottom,
     onOpenSession: (targetSessionID) => {
       void onSelectSession(decodedDirectory, targetSessionID)
     },
