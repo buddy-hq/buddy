@@ -1,6 +1,5 @@
 import { useMemo, memo } from "react"
 import { TooltipProvider } from "@buddy/ui"
-import { computeTokenContextMetrics } from "@/state/context-metrics"
 import type { MessageInfo, MessagePart, MessageWithParts, ProviderInfo } from "@/state/chat-types"
 
 // Import all tool components (this registers them)
@@ -41,6 +40,7 @@ const ABSTRACTABLE_TOOLS = new Set([
   "websearch",
   "codesearch",
   "webfetch",
+  "learner_snapshot_read",
   "pedagogy_resource_ingest_full_text",
   "skill",
 ])
@@ -87,18 +87,6 @@ function modelLabel(info: MessageInfo): string {
     return info.model.modelID
   }
   return ""
-}
-
-function tokenContextLabel(info: MessageInfo, providers: ProviderInfo[]): string {
-  if (info.role !== "assistant") return ""
-  const metrics = computeTokenContextMetrics({
-    assistant: info,
-    providers,
-  })
-  if (typeof metrics.remaining === "number") {
-    return `${metrics.used.toLocaleString()} used · ${metrics.remaining.toLocaleString()} remaining`
-  }
-  return `${metrics.used.toLocaleString()} used`
 }
 
 function assistantPartRenderable(part: MessagePart, showReasoningSummaries: boolean): boolean {
@@ -400,11 +388,26 @@ const TurnRenderer = memo(function TurnRenderer({
   const assistantMetaText = useMemo(() => {
     const info = assistantMessages[assistantMessages.length - 1]?.info
     if (!info) return ""
-    const tokenContext = tokenContextLabel(info, providers)
+
+    // Try to find the model name from the provider list
+    let modelName = modelLabel(info)
+    const providerID = "providerID" in info ? info.providerID : undefined
+    const modelID = "modelID" in info ? info.modelID : undefined
+
+    if (providerID && modelID) {
+      const match = providers.find((p) => p.id === providerID)
+      const models = match?.models
+      if (models && modelID in models) {
+        const entry = models[modelID as keyof typeof models]
+        if (entry && typeof entry === "object" && "name" in entry && entry.name) {
+          modelName = String(entry.name)
+        }
+      }
+    }
+
     return [
       titleCase(info.agent),
-      modelLabel(info),
-      tokenContext,
+      modelName,
       formatDuration(turnDurationMs),
       assistantAborted ? "Interrupted" : "",
     ]
@@ -421,41 +424,44 @@ const TurnRenderer = memo(function TurnRenderer({
   return (
     <article className="relative w-full px-4 md:px-5">
       {userMessage ? (
-        <div className="group/user flex w-full flex-col items-end gap-2 text-sm">
-          {userAttachmentParts.length > 0 ? (
-            <div className="ml-auto flex w-fit max-w-[min(82%,64ch)] flex-wrap justify-end gap-2">
-              {userAttachmentParts.map((part) => (
-                <FileAttachmentPart key={part.id} part={part} />
-              ))}
-            </div>
-          ) : null}
-          {userTextParts.map((part) => (
-            <UserMessagePart
-              key={part.id}
-              part={part}
-              info={userMessage.info}
-              references={userInlineFileParts}
-              agents={userAgentParts}
-              onForkMessage={
-                onForkMessage
-                  ? () =>
-                      onForkMessage({
-                        sessionID: userMessage.info.sessionID,
-                        messageID: userMessage.info.id,
-                      })
-                  : undefined
-              }
-              onRevertMessage={
-                onRevertMessage
-                  ? () =>
-                      onRevertMessage({
-                        sessionID: userMessage.info.sessionID,
-                        messageID: userMessage.info.id,
-                      })
-                  : undefined
-              }
-            />
-          ))}
+        <div className="ml-auto flex w-fit flex-col items-end gap-2 text-sm">
+          <div className="group/user flex w-full flex-col items-end gap-2">
+            {userAttachmentParts.length > 0 ? (
+              <div className="flex w-fit max-w-[min(82%,64ch)] flex-wrap justify-end gap-2">
+                {userAttachmentParts.map((part) => (
+                  <FileAttachmentPart key={part.id} part={part} />
+                ))}
+              </div>
+            ) : null}
+            {userTextParts.map((part) => (
+              <UserMessagePart
+                key={part.id}
+                part={part}
+                info={userMessage.info}
+                references={userInlineFileParts}
+                agents={userAgentParts}
+                providers={providers}
+                onForkMessage={
+                  onForkMessage
+                    ? () =>
+                        onForkMessage({
+                          sessionID: userMessage.info.sessionID,
+                          messageID: userMessage.info.id,
+                        })
+                    : undefined
+                }
+                onRevertMessage={
+                  onRevertMessage
+                    ? () =>
+                        onRevertMessage({
+                          sessionID: userMessage.info.sessionID,
+                          messageID: userMessage.info.id,
+                        })
+                    : undefined
+                }
+              />
+            ))}
+          </div>
         </div>
       ) : null}
 

@@ -1,29 +1,37 @@
 import { memo } from "react"
 import { HighlightedText } from "../shared/highlighted-text"
 import { CopyAction } from "../shared/copy-action"
-import { titleCase } from "../shared/utils"
 import { Button, cn } from "@buddy/ui"
-import { formatTime } from "../shared/utils"
-import type { MessageInfo, MessagePart } from "@/state/chat-types"
+import { formatTime, titleCase } from "../shared/utils"
+import type { MessageInfo, MessagePart, ProviderInfo } from "@/state/chat-types"
 
 interface UserMessagePartProps {
   part: MessagePart
   info: MessageInfo
   references: MessagePart[]
   agents: MessagePart[]
+  providers?: ProviderInfo[]
   queued?: boolean
   onForkMessage?: () => Promise<void> | void
   onRevertMessage?: () => Promise<void> | void
 }
 
-function modelLabel(info: MessageInfo): string {
-  if ("modelID" in info && info.modelID) {
-    return info.modelID
+function getModelLabel(info: MessageInfo, providers?: ProviderInfo[]): string {
+  const providerID = "providerID" in info ? info.providerID : undefined
+  const modelID = "modelID" in info ? info.modelID : info.model?.modelID
+
+  if (providerID && modelID && providers) {
+    const match = providers.find((p) => p.id === providerID)
+    const models = match?.models
+    if (models && modelID in models) {
+      const entry = models[modelID as keyof typeof models]
+      if (entry && typeof entry === "object" && "name" in entry && entry.name) {
+        return String(entry.name)
+      }
+    }
   }
-  if ("model" in info && info.model?.modelID) {
-    return info.model.modelID
-  }
-  return ""
+
+  return modelID ?? ""
 }
 
 function userMessagePartEqual(
@@ -48,6 +56,7 @@ function userMessagePartEqual(
   // Compare arrays by reference (they're memoized in parent)
   if (prevProps.references !== nextProps.references) return false
   if (prevProps.agents !== nextProps.agents) return false
+  if (prevProps.providers !== nextProps.providers) return false
   if (prevProps.onForkMessage !== nextProps.onForkMessage) return false
   if (prevProps.onRevertMessage !== nextProps.onRevertMessage) return false
 
@@ -59,6 +68,7 @@ export const UserMessagePart = memo(function UserMessagePart({
   info,
   references,
   agents,
+  providers,
   queued,
   onForkMessage,
   onRevertMessage,
@@ -70,7 +80,7 @@ export const UserMessagePart = memo(function UserMessagePart({
   if (!text.trim()) return null
 
   const agent = "agent" in info ? info.agent : undefined
-  const metaHead = [titleCase(agent), modelLabel(info)]
+  const metaHead = [titleCase(agent), getModelLabel(info, providers)]
     .filter((value) => !!value)
     .join("\u00A0\u00B7\u00A0")
   const metaTail = formatTime(info.time?.created)
