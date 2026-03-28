@@ -1,4 +1,4 @@
-import { Button, SquarePenIcon } from "@buddy/ui"
+import { Button, SquarePenIcon, ScrollArea } from "@buddy/ui"
 import type { ComponentProps, RefObject, UIEvent } from "react"
 import { ChatEmptyState } from "@/components/chat/chat-empty-state"
 import { SessionContextUsage } from "@/components/chat/session-context-usage"
@@ -78,13 +78,13 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
 
       <div className="flex-1 min-h-0 flex flex-col">
         <div className="flex min-h-0 flex-1 flex-col">
-          <section
-            ref={transcriptRef}
-            onScroll={onTranscriptScroll}
-            className="flex-1 min-h-0 overflow-y-auto"
+          <ScrollArea
+            viewportRef={transcriptRef as React.Ref<HTMLDivElement>}
+            onScroll={onTranscriptScroll as React.UIEventHandler<HTMLDivElement>}
+            className="flex-1 min-h-0"
           >
             <div
-              className={`mx-auto w-full max-w-full px-4 py-4 space-y-4 md:max-w-200 2xl:max-w-[1000px] ${
+              className={`mx-auto w-full max-w-full px-4 pt-4 pb-12 space-y-4 md:max-w-200 2xl:max-w-[1000px] ${
                 chatState.messages.length === 0 && chatState.isReady ? "h-full" : ""
               }`}
             >
@@ -103,15 +103,10 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
                     isBusy={chatState.isBusy}
                     onOpenSession={onOpenSession}
                   />
-                  <div
-                    className="shrink-0"
-                    style={{ minHeight: chatState.isBusy ? "0px" : "30vh" }}
-                    aria-hidden="true"
-                  />
                 </>
               )}
             </div>
-          </section>
+          </ScrollArea>
 
           {chatState.error ? (
             <div className="mx-auto w-full max-w-full px-4 pb-2 md:max-w-200 2xl:max-w-[1000px]">
