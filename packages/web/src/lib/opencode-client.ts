@@ -5,14 +5,14 @@ import {
   resolveServerApiBaseUrl,
 } from "./server-client"
 
-export function getOpenCodeClient(directory: string) {
+export function getOpenCodeClient(directory?: string) {
   const auth = authorizationHeader()
   const baseUrl = resolveServerApiBaseUrl()
   const transport = createServerFetchTransport(baseUrl)
 
   return createOpencodeClient({
     baseUrl,
-    directory,
+    ...(directory ? { directory } : {}),
     headers: auth
       ? {
           authorization: auth,
