@@ -12,8 +12,10 @@ function hasConfigResolved(plugin: Plugin): plugin is ConfigResolvedPlugin {
 }
 
 const webDir = path.resolve(import.meta.dir, "..")
+const sdkDir = path.resolve(webDir, "../sdk")
 const uiDir = path.resolve(webDir, "../ui")
 
+await $`bun run --cwd ${sdkDir} generate`
 await $`bun run --cwd ${uiDir} build`
 
 const generatedPlugins = tanstackRouterGenerator()

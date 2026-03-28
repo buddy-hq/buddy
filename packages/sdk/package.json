@@ -10,9 +10,9 @@
     "./sdk": "./src/gen/sdk.gen.ts"
   },
   "scripts": {
-    "generate": "bun run scripts/generate.ts && tsc -b",
+    "generate": "bun run scripts/generate.ts && tsc -b --force",
     "typecheck": "tsc --noEmit",
-    "build": "tsc"
+    "build": "tsc -b --force"
   },
   "dependencies": {},
   "devDependencies": {
