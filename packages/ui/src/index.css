@@ -58,3 +58,33 @@
     @apply font-sans;
   }
 }
+
+@utility scrollbar-hover {
+  scrollbar-gutter: stable;
+  scrollbar-color: transparent transparent;
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-color: transparent;
+  }
+
+  &:hover {
+    scrollbar-color: color-mix(in oklab, var(--text-weak) 30%, transparent) transparent;
+  }
+
+  &:hover::-webkit-scrollbar-track {
+    background: color-mix(in oklab, var(--background-base) 86%, transparent);
+  }
+
+  &:hover::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--text-weak) 30%, transparent);
+  }
+
+  &:hover::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklab, var(--text-weak) 48%, transparent);
+  }
+}
