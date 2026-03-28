@@ -19,6 +19,7 @@ type DirectoryChatMainPaneProps = {
   chatState: DirectoryChatState
   transcriptRef: RefObject<HTMLElement>
   onTranscriptScroll: (event: UIEvent<HTMLElement>) => void
+  onAssistantTextFinalRender?: () => void
   onOpenSession: (sessionID: string) => void
   onNewSession: () => void
   onPermissionReply: (reply: "once" | "always" | "reject") => Promise<void>
@@ -31,6 +32,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
     chatState,
     transcriptRef,
     onTranscriptScroll,
+    onAssistantTextFinalRender,
     onOpenSession,
     onNewSession,
     onPermissionReply,
@@ -101,6 +103,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
                     directory={directory}
                     providers={chatState.providers}
                     isBusy={chatState.isBusy}
+                    onAssistantTextFinalRender={onAssistantTextFinalRender}
                     onOpenSession={onOpenSession}
                   />
                 </>
