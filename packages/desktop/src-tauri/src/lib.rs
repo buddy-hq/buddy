@@ -81,9 +81,8 @@ fn ensure_main_window(app: &AppHandle) -> tauri::Result<()> {
             window.__BUDDY__ ??= {{}};
             window.__BUDDY__.updaterEnabled = {UPDATER_ENABLED};
             window.__BUDDY__.version = "{version}";
-          "#
-          ,
-          version = app.package_info().version
+          "#,
+            version = app.package_info().version
         ));
 
     #[cfg(target_os = "windows")]
@@ -133,14 +132,19 @@ fn sidecar_path() -> Result<std::path::PathBuf, String> {
             return Ok(windows_path);
         }
     }
-    Err(format!("Buddy backend sidecar not found at {}", path.display()))
+    Err(format!(
+        "Buddy backend sidecar not found at {}",
+        path.display()
+    ))
 }
 
 fn sidecar_entrypoint_path(app: &AppHandle) -> Result<PathBuf, String> {
     if let Ok(resource_dir) = app.path().resource_dir() {
-        let path = resource_dir.join("backend").join("buddy-backend.js");
-        if path.exists() {
-            return Ok(path);
+        for root in [resource_dir.clone(), resource_dir.join("resources")] {
+            let path = root.join("backend").join("buddy-backend.js");
+            if path.exists() {
+                return Ok(path);
+            }
         }
     }
 
@@ -157,9 +161,11 @@ fn sidecar_entrypoint_path(app: &AppHandle) -> Result<PathBuf, String> {
 
 fn resource_migrations_root(app: &AppHandle) -> Result<PathBuf, String> {
     if let Ok(resource_dir) = app.path().resource_dir() {
-        let root = resource_dir.join("migrations");
-        if root.exists() {
-            return Ok(root);
+        for root in [resource_dir.clone(), resource_dir.join("resources")] {
+            let path = root.join("migrations");
+            if path.exists() {
+                return Ok(path);
+            }
         }
     }
 

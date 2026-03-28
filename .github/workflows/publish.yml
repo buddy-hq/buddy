@@ -135,6 +135,20 @@ jobs:
           BUDDY_VERSION: ${{ needs.version.outputs.version }}
           BUDDY_RUST_TARGET: ${{ matrix.settings.target }}
           BUDDY_SIDECAR_ARTIFACT_DIR: ${{ github.workspace }}/packages/buddy/dist/release-sidecars
+      - name: Default to ad-hoc Apple signing when no macOS signing secrets are configured
+        shell: bash
+        env:
+          APPLE_SIGNING_IDENTITY_SECRET: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_CERTIFICATE_SECRET: ${{ secrets.APPLE_CERTIFICATE }}
+        run: |
+          if [ -n "$APPLE_SIGNING_IDENTITY_SECRET" ]; then
+            echo "APPLE_SIGNING_IDENTITY=$APPLE_SIGNING_IDENTITY_SECRET" >> "$GITHUB_ENV"
+          elif [ -z "$APPLE_CERTIFICATE_SECRET" ]; then
+            echo "APPLE_SIGNING_IDENTITY=-" >> "$GITHUB_ENV"
+            echo "Defaulting to ad-hoc Apple signing for unsigned macOS release bundles."
+          else
+            echo "APPLE_CERTIFICATE is configured; leaving APPLE_SIGNING_IDENTITY unset."
+          fi
       - uses: tauri-apps/tauri-action@390cbe447412ced1303d35abe75287949e43437a
         timeout-minutes: 60
         with:
@@ -149,6 +163,8 @@ jobs:
           releaseCommitish: ${{ github.sha }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 

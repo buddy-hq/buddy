@@ -177,6 +177,30 @@ export function currentTargetTriple() {
   throw new Error(`Unsupported desktop target: ${process.platform}/${process.arch}`)
 }
 
+export function isAppleTarget(target = BUDDY_RUST_TARGET ?? currentTargetTriple()) {
+  return target.includes("apple-darwin")
+}
+
+export function resolveAppleSigningIdentity(
+  env: NodeJS.ProcessEnv,
+  target = BUDDY_RUST_TARGET ?? currentTargetTriple(),
+) {
+  if (!isAppleTarget(target)) {
+    return undefined
+  }
+
+  const identity = env.APPLE_SIGNING_IDENTITY?.trim()
+  if (identity) {
+    return identity
+  }
+
+  if (env.APPLE_CERTIFICATE?.trim()) {
+    return undefined
+  }
+
+  return "-"
+}
+
 export function getCurrentSidecar(target = BUDDY_RUST_TARGET ?? currentTargetTriple()) {
   const binary = SIDECAR_BINARIES.find((item) => item.rustTarget === target)
   if (!binary) {

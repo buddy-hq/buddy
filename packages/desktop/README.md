@@ -28,6 +28,7 @@ This build:
 - builds the Buddy backend sidecar for the current host target
 - stages the sidecar and bundled migrations
 - runs a production-style Tauri build
+- defaults to ad-hoc app signing on macOS when no Apple signing identity or certificate is configured
 - copies the final app bundles into `packages/desktop/src-tauri/target/bundles`
 
 Important:
@@ -86,6 +87,8 @@ The current release targets are:
 - macOS x64
 
 Updater support is required for release success. If `TAURI_SIGNING_PRIVATE_KEY` is missing, the workflow fails before packaging starts. `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` should be set when the signing key is encrypted.
+
+On macOS, release packaging defaults to ad-hoc app signing when no Apple signing identity or certificate is configured. That keeps unsigned GitHub builds manually installable without forcing Apple Developer signing or notarization.
 
 The release uploads only GitHub-hosted macOS artifacts:
 
@@ -175,7 +178,7 @@ The current pipeline does not include:
 
 - Linux desktop releases
 - beta or preview channels
-- Apple signing or notarization
+- Apple Developer signing or notarization
 - Windows desktop releases
 - store publishing
 - non-desktop package publishing

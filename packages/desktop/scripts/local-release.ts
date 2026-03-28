@@ -4,6 +4,7 @@ import path from "node:path"
 import {
   currentTargetTriple,
   readDesktopPackageVersion,
+  resolveAppleSigningIdentity,
   updateDesktopPackageVersion,
 } from "./utils"
 
@@ -31,6 +32,7 @@ const localUpdaterKeyPassword =
   (existsSync(localUpdaterKeyPasswordPath)
     ? readFileSync(localUpdaterKeyPasswordPath, "utf8").trim()
     : undefined)
+const appleSigningIdentity = resolveAppleSigningIdentity(process.env, target)
 
 const tauriBuildEnv = {
   ...process.env,
@@ -38,6 +40,7 @@ const tauriBuildEnv = {
   ...(localUpdaterKeyPassword
     ? { TAURI_SIGNING_PRIVATE_KEY_PASSWORD: localUpdaterKeyPassword }
     : {}),
+  ...(appleSigningIdentity ? { APPLE_SIGNING_IDENTITY: appleSigningIdentity } : {}),
 }
 const hasUpdaterSigning = !!tauriBuildEnv.TAURI_SIGNING_PRIVATE_KEY
 const tauriConfig = hasUpdaterSigning
@@ -45,6 +48,10 @@ const tauriConfig = hasUpdaterSigning
   : "./src-tauri/tauri.prod.noupdater.conf.json"
 
 try {
+  if (appleSigningIdentity === "-") {
+    console.log("No Apple signing identity configured. Using ad-hoc signing for this macOS build.")
+  }
+
   await $`bun run --cwd ${backendDir} build:release-sidecar --target ${target}`
 
   await $`bun ./scripts/prepare.ts`.cwd(desktopDir).env({
