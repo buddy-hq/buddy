@@ -30,6 +30,7 @@ The current release shape is:
 4. Do not publish if the updater signing secret is missing.
 5. Treat GitHub Releases as the source of truth for desktop artifacts, updater metadata, and advanced math runtime assets.
 6. For the first `0.0.1` release, set the version explicitly. If no previous stable release exists, the helper defaults to `0.1.0`.
+7. Prefer `workflow_dispatch` over tag-push releases for this repo. The remote vendor guard can reject tag pushes when the release range includes protected `vendor/opencode/**` changes.
 
 ## Preconditions
 1. Ensure local state is clean.
@@ -60,7 +61,31 @@ The current release shape is:
    - `bun typecheck`
    - run only targeted package tests for the release changes
 
-## Preferred Algorithm: Tagged Stable Release
+## Preferred Algorithm: Draft Release by Workflow Dispatch
+Use this when you want GitHub to compute and build the release without first pushing a local tag. This is the normal stable-release path for this repo.
+
+1. Sync local `main`.
+   - `git checkout main`
+   - `git pull --ff-only origin main`
+
+2. Open the `publish` workflow in GitHub Actions.
+3. Use `Run workflow`.
+4. Provide one of:
+   - `version: 0.0.1`
+   - `bump: patch|minor|major`
+5. Wait for the workflow to build the draft release.
+6. Verify the draft release contents and artifacts.
+7. If the workflow succeeds, the release is published automatically by the final job.
+8. The final publish job also persists the release version back to `main`.
+   - It updates the tracked package versions in git.
+   - It updates `bun.lock` so the lockfile stays aligned with the versioned workspace packages.
+   - It creates a follow-up sync commit named `chore(release): sync package versions to vX.Y.Z`.
+   - If `main` advanced while the release was building, the sync step stops instead of rewriting branch history. Rerun the release from the new `main` head.
+9. If you rerun the same version after fixing `main`, GitHub reuses the existing draft release.
+   - This is the normal recovery path after a failed `workflow_dispatch` run.
+   - If a previous attempt already created the release tag at an older commit, rerunning the workflow does not move that tag.
+
+## Alternate Algorithm: Tagged Stable Release
 1. Sync local `main`.
    - `git checkout main`
    - `git pull --ff-only origin main`
@@ -75,7 +100,7 @@ The current release shape is:
 3. Create the local release commit and tag.
    - `bun run release:tag`
    - This script:
-     - updates package versions
+     - updates package versions and `bun.lock`
      - creates commit `release: vX.Y.Z`
      - creates git tag `vX.Y.Z`
 
@@ -87,6 +112,8 @@ The current release shape is:
 5. Push branch and tag.
    - `git push origin main`
    - `git push origin vX.Y.Z`
+   - This may be rejected by the remote vendor guard if the release range includes protected `vendor/opencode/**` changes.
+   - If that happens, stop using the tag-push flow for that version and finish the release with `workflow_dispatch` instead.
 
 6. Let GitHub Actions run the `publish` workflow on the tag.
    - The workflow will:
@@ -124,23 +151,6 @@ The current release shape is:
    - Confirm advanced math runtime installs from Settings.
    - Confirm updater detection and banner behavior using a newer tagged release.
 
-## Alternate Algorithm: Draft Release by Workflow Dispatch
-Use this when you want GitHub to compute and build the release without first creating a local tag.
-
-1. Open the `publish` workflow in GitHub Actions.
-2. Use `Run workflow`.
-3. Provide one of:
-   - `version: 0.0.1`
-   - `bump: patch|minor|major`
-4. Wait for the workflow to build the draft release.
-5. Verify the draft release contents and artifacts.
-6. If the workflow succeeds, the release is published automatically by the final job.
-7. The final publish job also persists the release version back to `main`.
-   - It updates the tracked package versions in git.
-   - It creates a follow-up sync commit named `chore(release): sync package versions to vX.Y.Z`.
-   - The release tag still points at the original release commit that produced the published artifacts.
-   - If `main` advanced while the release was building, the sync step stops instead of rewriting branch history. Rerun the release from the new `main` head.
-
 ## Stop Conditions
 Stop immediately if any of these happen:
 
@@ -152,6 +162,7 @@ Stop immediately if any of these happen:
 - `verify-updater-signing` fails in CI
 - the release draft is missing updater metadata or mac runtime assets
 - `main` advanced during a `workflow_dispatch` release before the final version-sync commit
+- `git push origin vX.Y.Z` is rejected by the vendor guard because the release range includes protected vendored source
 
 ## Recovery
 1. If `bun run release:tag` created the commit/tag locally but you have not pushed:
@@ -170,9 +181,16 @@ Stop immediately if any of these happen:
    - delete or edit the draft release in GitHub
    - do not mark it final until the artifact set is correct
 
+4. If a `workflow_dispatch` release failed after creating the draft:
+   - fix the issue on `main`
+   - rerun the `publish` workflow with the same `version`
+   - the workflow will reuse the existing draft release instead of creating a second one
+
 ## Notes
 - The app is currently ad-hoc signed, but not Apple Developer signed or notarized. Expect normal macOS Gatekeeper friction on first install.
 - Updater support is mandatory for release success in the current pipeline.
 - The first stable release at `0.0.1` must use explicit `BUDDY_VERSION=0.0.1`; otherwise the helper may choose `0.1.0`.
 - GitHub Actions artifact upload/download can strip execute bits from bundled sidecars. Release validation must confirm `Buddy.app/Contents/MacOS/buddy-backend` is still executable in the published DMG/app.
 - `workflow_dispatch` releases now add a follow-up version-sync commit on `main`, so local git state stays aligned with the shipped release without rewriting branch history.
+- The version-sync logic updates both the package version files and `bun.lock`.
+- If you mix flows for the same version, the GitHub release tag may already point at an older commit even though the published artifacts came from a later `workflow_dispatch` run. Avoid mixing flows unless you are intentionally recovering an existing draft.
