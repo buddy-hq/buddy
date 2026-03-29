@@ -51,7 +51,7 @@ import {
   selectSession,
   sendCommand,
   sendPrompt,
-  startNewSession,
+  startNewSessionDraft,
   updateSession,
 } from "../../state/chat-actions"
 import { addResource, rebuildResource, removeResource } from "../../state/resource-actions"
@@ -471,7 +471,7 @@ export function useDirectoryChatPageController(
   async function onNewSession(targetDirectory = decodedDirectory) {
     if (!targetDirectory) return
     try {
-      await startNewSession(targetDirectory)
+      startNewSessionDraft(targetDirectory)
       if (targetDirectory !== decodedDirectory) onSwitchDirectory(targetDirectory)
     } catch {
       // Store already captures and displays errors.
@@ -535,7 +535,7 @@ export function useDirectoryChatPageController(
 
       const activeSessionID = useChatStore.getState().directories[targetDirectory]?.sessionID
       if (!activeSessionID) {
-        await startNewSession(targetDirectory)
+        startNewSessionDraft(targetDirectory)
         await loadPermissions(targetDirectory)
         return
       }

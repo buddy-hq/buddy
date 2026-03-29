@@ -1,4 +1,5 @@
 import { toast } from "@buddy/ui"
+import { language } from "@/context/language"
 import type { Platform } from "@/context/platform"
 
 const UPDATE_READY_TOAST_ID = "buddy-desktop-update-ready"
@@ -20,14 +21,14 @@ export function showDesktopUpdateToast(args: {
     activeHandlers.onInstallFailed = args.onInstallFailed
   }
 
-  toast("Update ready to install", {
+  toast(language.t("desktopUpdates.updateReadyTitle"), {
     id: UPDATE_READY_TOAST_ID,
     description: args.version
-      ? `Buddy ${args.version} has been downloaded.`
-      : "A new Buddy release has been downloaded.",
+      ? language.t("desktopUpdates.updateReadyWithVersion", { version: args.version })
+      : language.t("desktopUpdates.updateReadyNoVersion"),
     duration: Number.POSITIVE_INFINITY,
     action: {
-      label: "Install & restart",
+      label: language.t("desktopUpdates.installAndRestart"),
       onClick: async () => {
         toast.dismiss(UPDATE_READY_TOAST_ID)
 
@@ -37,14 +38,14 @@ export function showDesktopUpdateToast(args: {
         } catch {
           activeHandlers.onInstallFailed?.()
           activeHandlers = {}
-          toast.error("Update install failed", {
-            description: "Buddy is still running the current version. Try again in a moment.",
+          toast.error(language.t("desktopUpdates.updateInstallFailedTitle"), {
+            description: language.t("desktopUpdates.updateInstallFailedDescription"),
           })
         }
       },
     },
     cancel: {
-      label: "Later",
+      label: language.t("desktopUpdates.later"),
       onClick: () => {
         toast.dismiss(UPDATE_READY_TOAST_ID)
         activeHandlers.onDeferred?.()

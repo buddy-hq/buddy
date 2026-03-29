@@ -1,6 +1,7 @@
 import { getPlatform } from "../context/platform"
+import { language } from "@/context/language"
 
-const RESOURCE_PICKER_TITLE = "Select resource file" as const
+const RESOURCE_PICKER_TITLE = language.t("pickers.resourcePickerTitle")
 
 type TauriDialogWindow = Window & {
   __TAURI__?: {
@@ -56,5 +57,5 @@ export async function pickResourceFilePath(): Promise<string | null> {
     return electronPath
   }
 
-  throw new Error("File picker is unavailable in this runtime.")
+  throw new Error(language.t("pickers.filePickerUnavailable"))
 }

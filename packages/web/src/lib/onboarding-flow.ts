@@ -1,5 +1,6 @@
 import type { ProviderAuthAuthorization } from "@opencode-ai/sdk/v2/client"
 import type { OnboardingAuthChoice } from "@/components/onboarding"
+import { language } from "@/context/language"
 import type { ProviderCatalogState } from "@/state/chat-types"
 import { resolveCatalogProviderModelSelection } from "./provider-catalog"
 import { findPreferredOAuthMethodIndex } from "./provider-auth"
@@ -24,7 +25,7 @@ export async function connectChatGptPlusForOnboarding(input: {
   const catalog = await input.loadProviderCatalogSnapshot()
   const provider = catalog.providers.find((entry) => entry.id === CHATGPT_PROVIDER_ID)
   if (!provider) {
-    throw new Error("OpenAI sign-in is unavailable in this build.")
+    throw new Error(language.t("onboardingFlow.openAiUnavailable"))
   }
 
   if (provider.connected) {
@@ -33,7 +34,7 @@ export async function connectChatGptPlusForOnboarding(input: {
 
   const methodIndex = findPreferredOAuthMethodIndex(provider)
   if (methodIndex === undefined) {
-    throw new Error("ChatGPT Plus sign-in is unavailable right now.")
+    throw new Error(language.t("onboardingFlow.chatGptUnavailable"))
   }
 
   const authorization = await input.authorizeProviderOAuth({
@@ -42,13 +43,13 @@ export async function connectChatGptPlusForOnboarding(input: {
   })
 
   if (!authorization) {
-    throw new Error("Buddy could not start the ChatGPT Plus sign-in flow.")
+    throw new Error(language.t("onboardingFlow.startFlowFailed"))
   }
 
   input.openLink(authorization.url)
 
   if (authorization.method !== "auto") {
-    throw new Error("Buddy could not complete browser sign-in automatically.")
+    throw new Error(language.t("onboardingFlow.completeBrowserSignInFailed"))
   }
 
   await input.completeProviderOAuth({
@@ -63,7 +64,7 @@ export async function connectChatGptPlusForOnboarding(input: {
   )
 
   if (!connectedProvider) {
-    throw new Error("Buddy could not confirm your ChatGPT Plus connection.")
+    throw new Error(language.t("onboardingFlow.confirmConnectionFailed"))
   }
 }
 
@@ -87,8 +88,8 @@ export async function configureNotebookForOnboarding(input: {
   if (!model) {
     throw new Error(
       input.authChoice === "chatgpt_plus"
-        ? "OpenAI sign-in is not ready yet. Try signing in again or switch to free models."
-        : "Buddy could not find an Opencode free model for this notebook.",
+        ? language.t("onboardingFlow.openAiNotReady")
+        : language.t("onboardingFlow.freeModelUnavailable"),
     )
   }
 

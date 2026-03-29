@@ -1,4 +1,5 @@
 import { getPlatform } from "../context/platform"
+import { language } from "@/context/language"
 
 export function normalizeDirectory(input: string) {
   const trimmed = input.trim().split("\\").join("/")
@@ -35,7 +36,7 @@ async function openDesktopDirectoryPicker() {
   if (typeof platform.openDirectoryPickerDialog === "function") {
     try {
       const platformResult = await platform.openDirectoryPickerDialog({
-        title: "Open notebook",
+        title: language.t("pickers.openNotebookTitle"),
         multiple: false,
       })
 
@@ -49,14 +50,14 @@ async function openDesktopDirectoryPicker() {
         return null
       }
     } catch (error) {
-      console.error("Failed to open native directory picker", error)
+      console.error(language.t("pickers.openDirectoryPickerFailed"), error)
     }
   }
 
   const tauriResult = await window.__TAURI__?.dialog?.open?.({
     directory: true,
     multiple: false,
-    title: "Open notebook",
+    title: language.t("pickers.openNotebookTitle"),
   })
 
   if (typeof tauriResult === "string") {
@@ -89,14 +90,14 @@ export async function pickProjectDirectory() {
   if (picked) return picked
   if (hasDesktopBridge) return null
 
-  const input = window.prompt("Enter the absolute notebook directory path")
+  const input = window.prompt(language.t("pickers.enterAbsoluteNotebookPath"))
   if (!input) return null
 
   const normalized = normalizeDirectory(input)
   if (!normalized) return null
 
   if (!hasAbsolutePath(normalized)) {
-    throw new Error("Please enter an absolute directory path")
+    throw new Error(language.t("pickers.absoluteDirectoryRequired"))
   }
 
   return normalized
