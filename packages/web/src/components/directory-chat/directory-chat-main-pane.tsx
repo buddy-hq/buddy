@@ -108,6 +108,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
                     directory={directory}
                     providers={chatState.providers}
                     isBusy={chatState.isBusy}
+                    scrollViewportRef={transcriptRef}
                     onAssistantTextFinalRender={onAssistantTextFinalRender}
                     onOpenSession={onOpenSession}
                   />

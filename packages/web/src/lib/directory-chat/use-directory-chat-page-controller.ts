@@ -396,6 +396,22 @@ export function useDirectoryChatPageController(
     syncTranscriptToBottom()
   }, [syncTranscriptToBottom])
 
+  const handleOpenCurrentDirectorySession = useCallback(
+    (targetSessionID: string) => {
+      if (!decodedDirectory) return
+
+      void (async () => {
+        try {
+          await selectSession(decodedDirectory, targetSessionID)
+          clearUnread(decodedDirectory, targetSessionID)
+        } catch {
+          // Store already captures and displays errors.
+        }
+      })()
+    },
+    [clearUnread, decodedDirectory],
+  )
+
   useLayoutEffect(() => {
     const container = transcriptRef.current
     if (!container) return
@@ -804,12 +820,13 @@ export function useDirectoryChatPageController(
 
     setPendingSuggestionOverride(override)
 
+    const currentDraft = getPromptDraft(usePromptStore.getState(), cs.promptKey)
     const canSendImmediately =
       !!decodedDirectory &&
       !!cs.sessionKey &&
       !cs.isBusy &&
-      cs.draftState.value.trim().length === 0 &&
-      cs.draftState.attachments.length === 0
+      currentDraft.value.trim().length === 0 &&
+      currentDraft.attachments.length === 0
 
     if (canSendImmediately) {
       try {
@@ -995,9 +1012,7 @@ export function useDirectoryChatPageController(
     transcriptRef,
     onTranscriptScroll,
     onAssistantTextFinalRender: scrollTranscriptToBottom,
-    onOpenSession: (targetSessionID) => {
-      void onSelectSession(decodedDirectory, targetSessionID)
-    },
+    onOpenSession: handleOpenCurrentDirectorySession,
     onNewSession: () => {
       void onNewSession()
     },

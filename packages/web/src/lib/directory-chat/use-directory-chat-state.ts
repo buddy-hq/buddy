@@ -2,7 +2,7 @@ import { useMemo } from "react"
 import { useChatStore } from "@/state/chat-store"
 import { useUiPreferences } from "@/state/ui-preferences"
 import { useTeachingRuntime, teachingSessionKey } from "@/state/teaching-runtime"
-import { usePromptStore, getPromptDraft, getPromptScopeKey } from "@/state/prompt-store"
+import { usePromptStore, getPromptScopeKey } from "@/state/prompt-store"
 import { getSessionFamily } from "../session-family"
 import { modelSelectionKey, parseConfiguredModel } from "./chat-prompt-helpers"
 import type { SessionInfo } from "@/state/chat-types"
@@ -114,7 +114,6 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
     () => getPromptScopeKey(decodedDirectory, sessionID),
     [decodedDirectory, sessionID],
   )
-  const draftState = usePromptStore((state) => getPromptDraft(state, promptKey))
   const setPromptDraft = usePromptStore((state) => state.replaceDraft)
   const clearPromptDraft = usePromptStore((state) => state.clearDraft)
   const migrateWorkspaceDraft = usePromptStore((state) => state.migrateWorkspaceDraft)
@@ -354,7 +353,6 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
     // Session & routing
     sessionID,
     promptKey,
-    draftState,
     sessionTitle,
     parentSession,
     sessions,
