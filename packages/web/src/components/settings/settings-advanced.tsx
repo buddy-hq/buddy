@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { Badge, Card, CardContent, Switch, toast } from "@buddy/ui"
+import { language } from "@/context/language"
 import { loadSkillsCatalog, updateSkillsSettings, type SkillsCatalog } from "@/state/skills-actions"
 import { SettingsPanelContent } from "./settings-page"
 
@@ -20,7 +21,8 @@ export function AdvancedSettings(props: AdvancedSettingsProps) {
       const nextCatalog = await loadSkillsCatalog(currentDirectory)
       setCatalog(nextCatalog)
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to load settings"
+      const message =
+        error instanceof Error ? error.message : language.t("settings.advanced.loadSettingsFailed")
       toast.error(message)
     } finally {
       setLoading(false)
@@ -63,12 +65,13 @@ export function AdvancedSettings(props: AdvancedSettingsProps) {
         setCatalog(nextCatalog)
         toast.success(
           enabled
-            ? "External .agents/.claude skill discovery is enabled."
-            : "External .agents/.claude skill discovery is disabled.",
+            ? language.t("settings.advanced.externalRootsEnabled")
+            : language.t("settings.advanced.externalRootsDisabled"),
         )
       } catch (error) {
         setExternalVendorRootsEnabled(previous)
-        const message = error instanceof Error ? error.message : "Request failed"
+        const message =
+          error instanceof Error ? error.message : language.t("settings.advanced.requestFailed")
         toast.error(message)
       } finally {
         setBusyKey(undefined)
@@ -77,32 +80,38 @@ export function AdvancedSettings(props: AdvancedSettingsProps) {
   }
 
   return (
-    <SettingsPanelContent title="Advanced" description="Advanced settings for power users.">
+    <SettingsPanelContent
+      title={language.t("settings.advanced.title")}
+      description={language.t("settings.advanced.description")}
+    >
       <Card className="border-border-base/60 bg-surface-raised-base/60">
         <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-sm font-medium text-text-base">
-                Discover external <code>.agents/.claude</code> skills (restore vendor behavior)
+                {language.t("settings.advanced.discoverExternalSkills")}
               </p>
               <Badge variant="outline" className="h-5">
-                {catalog?.externalVendorRootsEnabled ? "Enabled" : "Disabled"}
+                {catalog?.externalVendorRootsEnabled
+                  ? language.t("settings.advanced.enabled")
+                  : language.t("settings.advanced.disabled")}
               </Badge>
             </div>
             <p className="text-xs text-text-weak">
-              When enabled for this notebook, Buddy discovers vendor-style skills from home and
-              ancestor directories.
+              {language.t("settings.advanced.externalSkillsDescription")}
             </p>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-text-weak">
-              {catalog?.externalVendorRootsEnabled ? "On" : "Off"}
+              {catalog?.externalVendorRootsEnabled
+                ? language.t("settings.advanced.on")
+                : language.t("settings.advanced.off")}
             </span>
             <Switch
               checked={catalog?.externalVendorRootsEnabled ?? false}
               onCheckedChange={toggleExternalVendorRoots}
               disabled={loading || busyKey === "settings:external-roots"}
-              aria-label="Discover external vendor roots"
+              aria-label={language.t("settings.advanced.discoverExternalRootsAria")}
             />
           </div>
         </CardContent>

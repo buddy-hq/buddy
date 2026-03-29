@@ -1,5 +1,6 @@
 import { McpEditorDialog } from "@/components/mcp-dialog/mcp-editor-dialog"
 import { McpListPanel } from "@/components/mcp-dialog/mcp-list-panel"
+import { language } from "@/context/language"
 import { useMcpDirectoryData } from "@/components/mcp-dialog/use-mcp-directory-data"
 import { useMcpEditorState } from "@/components/mcp-dialog/use-mcp-editor-state"
 import { SettingsPanelContent } from "./settings-page"
@@ -20,8 +21,11 @@ export function McpsSettings({ directory }: { directory: string }) {
   return (
     <>
       <SettingsPanelContent
-        title="MCPs"
-        description={`${directoryState.enabledCount} of ${directoryState.totalCount} enabled. MCP definitions saved here override or extend this notebook's config.`}
+        title={language.t("settings.mcps.title")}
+        description={language.t("settings.mcps.description", {
+          enabledCount: directoryState.enabledCount,
+          totalCount: directoryState.totalCount,
+        })}
       >
         <McpListPanel
           allNames={directoryState.allNames}

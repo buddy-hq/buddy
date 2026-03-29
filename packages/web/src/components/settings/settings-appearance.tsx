@@ -11,6 +11,7 @@ import {
   Switch,
   toast,
 } from "@buddy/ui"
+import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { showDesktopUpdateToast } from "../../lib/desktop-updates"
 import { useTheme, type ColorScheme } from "@/theme"
@@ -44,9 +45,9 @@ export function AppearanceSettings() {
   const { themeId, colorScheme, themes, setTheme, setColorScheme } = useTheme()
 
   const colorSchemeOptions: { value: ColorScheme; label: string }[] = [
-    { value: "system", label: "System" },
-    { value: "light", label: "Light" },
-    { value: "dark", label: "Dark" },
+    { value: "system", label: language.t("settings.appearance.colorSchemes.system") },
+    { value: "light", label: language.t("settings.appearance.colorSchemes.light") },
+    { value: "dark", label: language.t("settings.appearance.colorSchemes.dark") },
   ]
 
   const themeOptions = useMemo(() => {
@@ -72,16 +73,16 @@ export function AppearanceSettings() {
         showDesktopUpdateToast({ platform, version: result.version })
         return
       case "up-to-date":
-        toast("Buddy is up to date")
+        toast(language.t("settings.appearance.upToDate"))
         return
       case "disabled":
-        toast("Updates are unavailable in this build")
+        toast(language.t("settings.appearance.updatesUnavailable"))
         return
       case "error":
         toast.error(
           result.stage === "download"
-            ? "Found an update, but download failed"
-            : "Failed to check for updates",
+            ? language.t("settings.appearance.updateDownloadFailed")
+            : language.t("settings.appearance.updateCheckFailed"),
         )
         return
     }
@@ -90,22 +91,26 @@ export function AppearanceSettings() {
   return (
     <>
       <SettingsPanelContent
-        title="Appearance"
-        description="Adjust Buddy interface and desktop app settings."
+        title={language.t("settings.appearance.title")}
+        description={language.t("settings.appearance.description")}
       >
         <div className="space-y-2">
-          <h3 className="text-sm font-medium text-text-base">Theme</h3>
+          <h3 className="text-sm font-medium text-text-base">
+            {language.t("settings.appearance.themeSection")}
+          </h3>
           <SettingsListCard>
             <SettingsRow
-              title="Color scheme"
-              description="Choose how Buddy should render on this machine. System follows your OS setting."
+              title={language.t("settings.appearance.colorSchemeTitle")}
+              description={language.t("settings.appearance.colorSchemeDescription")}
               control={
                 <Select
                   value={colorScheme}
                   onValueChange={(value) => isColorScheme(value) && setColorScheme(value)}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select color scheme" />
+                    <SelectValue
+                      placeholder={language.t("settings.appearance.colorSchemePlaceholder")}
+                    />
                   </SelectTrigger>
                   <SelectContent>
                     {colorSchemeOptions.map((option) => (
@@ -118,12 +123,12 @@ export function AppearanceSettings() {
               }
             />
             <SettingsRow
-              title="Theme"
-              description="Choose your preferred theme for the interface."
+              title={language.t("settings.appearance.themeTitle")}
+              description={language.t("settings.appearance.themeDescription")}
               control={
                 <Select value={themeId} onValueChange={setTheme}>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select theme" />
+                    <SelectValue placeholder={language.t("settings.appearance.themePlaceholder")} />
                   </SelectTrigger>
                   <SelectContent>
                     {themeOptions.map((option) => (
@@ -140,13 +145,15 @@ export function AppearanceSettings() {
 
         {showAdvancedMathControls || showDesktopUpdateControls ? (
           <div className="space-y-2">
-            <h3 className="text-sm font-medium text-text-base">Desktop app</h3>
+            <h3 className="text-sm font-medium text-text-base">
+              {language.t("settings.appearance.desktopSection")}
+            </h3>
             <SettingsListCard>
               {showAdvancedMathControls ? (
                 <>
                   <SettingsRow
-                    title="Advanced math runtime"
-                    description="Optional machine-wide runtime for Python-based math and plotting."
+                    title={language.t("settings.appearance.advancedMathTitle")}
+                    description={language.t("settings.appearance.advancedMathDescription")}
                     control={
                       <div className="space-y-2">
                         <div className="flex items-center justify-between gap-3">
@@ -154,7 +161,7 @@ export function AppearanceSettings() {
                             {advancedMathStatusLabel(advancedMathStatus, advancedMathLoading)}
                           </span>
                           <Switch
-                            aria-label="Toggle advanced math runtime"
+                            aria-label={language.t("settings.appearance.advancedMathToggleAria")}
                             checked={advancedMathEnabled}
                             disabled={advancedMathBusy || advancedMathStatus === null}
                             onCheckedChange={onToggleAdvancedMathRuntime}
@@ -165,7 +172,8 @@ export function AppearanceSettings() {
                           <div className="space-y-1">
                             <div className="flex items-center justify-between gap-2 text-[11px] text-text-weak">
                               <span className="truncate">
-                                {advancedMathStatus?.progressMessage ?? "Working..."}
+                                {advancedMathStatus?.progressMessage ??
+                                  language.t("settings.appearance.working")}
                               </span>
                               {typeof advancedMathStatus?.progressPercent === "number" ? (
                                 <span>{Math.round(advancedMathStatus.progressPercent)}%</span>
@@ -189,8 +197,8 @@ export function AppearanceSettings() {
                 </>
               ) : null}
               <SettingsRow
-                title="App updates"
-                description="Check for and install desktop app updates. This applies to Buddy itself, not this notebook."
+                title={language.t("settings.appearance.updatesTitle")}
+                description={language.t("settings.appearance.updatesDescription")}
                 last
                 control={
                   <Button
@@ -200,7 +208,9 @@ export function AppearanceSettings() {
                     onClick={() => void onCheckForUpdates()}
                     disabled={checkingForUpdates}
                   >
-                    {checkingForUpdates ? "Checking..." : "Check for updates"}
+                    {checkingForUpdates
+                      ? language.t("settings.appearance.checking")
+                      : language.t("settings.appearance.checkForUpdates")}
                   </Button>
                 }
               />

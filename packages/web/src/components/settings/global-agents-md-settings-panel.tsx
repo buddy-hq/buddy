@@ -1,5 +1,6 @@
 import { useCallback } from "react"
 import { MarkdownFileEditor } from "@/components/markdown/markdown-file-editor"
+import { language } from "@/context/language"
 import {
   GlobalAgentsMdVersionConflictError,
   loadGlobalAgentsMd,
@@ -24,9 +25,9 @@ export function GlobalAgentsMdSettingsPanel(props: { active: boolean }) {
       active={props.active}
       className="h-full min-h-0 flex-1 rounded-lg border border-border-base/70 bg-background-base"
       fallbackPath="global/AGENTS.md"
-      emptyTitle="No global AGENTS.md file"
-      emptyDescription="Create one to define baseline instructions for Buddy across notebooks."
-      createLabel="Create AGENTS.md"
+      emptyTitle={language.t("agentsMd.globalEmptyTitle")}
+      emptyDescription={language.t("agentsMd.globalEmptyDescription")}
+      createLabel={language.t("agentsMd.createLabel")}
       defaultContent={DEFAULT_GLOBAL_AGENTS_MD_CONTENT}
       load={load}
       save={save}

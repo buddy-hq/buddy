@@ -1,4 +1,5 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@buddy/ui"
+import { language } from "@/context/language"
 import { useProjectSettings } from "@/state/project-settings"
 import { SettingsListCard, SettingsRow } from "./settings-primitives"
 import { SettingsPanelContent } from "./settings-page"
@@ -9,13 +10,13 @@ export function ModelSettings({ directory }: { directory: string }) {
 
   return (
     <SettingsPanelContent
-      title="Model"
-      description="Choose which provider and model Buddy uses in this notebook. Changes save automatically."
+      title={language.t("common.model")}
+      description={language.t("settings.model.description")}
     >
       <SettingsListCard>
         <SettingsRow
-          title="Provider"
-          description="Choose which connected provider Buddy uses for notebook-level model selection."
+          title={language.t("settings.model.providerTitle")}
+          description={language.t("settings.model.providerDescription")}
           control={
             <Select
               value={settings.selection.provider}
@@ -25,7 +26,9 @@ export function ModelSettings({ directory }: { directory: string }) {
               <SelectTrigger className="w-full">
                 <SelectValue
                   placeholder={
-                    hasConnectedProviders ? "Select provider" : "Connect a provider first"
+                    hasConnectedProviders
+                      ? language.t("settings.model.selectProvider")
+                      : language.t("settings.model.connectProviderFirst")
                   }
                 />
               </SelectTrigger>
@@ -40,8 +43,8 @@ export function ModelSettings({ directory }: { directory: string }) {
           }
         />
         <SettingsRow
-          title="Model"
-          description="Pick the default model Buddy uses in this notebook. This does not control model visibility."
+          title={language.t("common.model")}
+          description={language.t("settings.model.modelDescription")}
           last
           control={
             <Select
@@ -51,7 +54,11 @@ export function ModelSettings({ directory }: { directory: string }) {
             >
               <SelectTrigger className="w-full">
                 <SelectValue
-                  placeholder={hasConnectedProviders ? "Select model" : "Connect a provider first"}
+                  placeholder={
+                    hasConnectedProviders
+                      ? language.t("settings.model.selectModel")
+                      : language.t("settings.model.connectProviderFirst")
+                  }
                 />
               </SelectTrigger>
               <SelectContent>

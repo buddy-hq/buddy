@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react"
 import { Badge, Button, Separator } from "@buddy/ui"
 import { ConnectProviderDialog } from "@/components/connect-provider-dialog"
+import { language } from "@/context/language"
 import { useProjectSettings } from "@/state/project-settings"
 import { ProviderSourceBadge, SettingsListCard } from "./settings-primitives"
 import { SettingsPanelContent } from "./settings-page"
@@ -23,11 +24,13 @@ export function ProvidersSettings({ directory }: { directory: string }) {
   return (
     <>
       <SettingsPanelContent
-        title="Providers"
-        description="Connect provider accounts and choose which connected provider is used for model selection. Changes save automatically."
+        title={language.t("settings.providers.title")}
+        description={language.t("settings.providers.description")}
       >
         <div className="space-y-2">
-          <h3 className="text-sm font-medium text-text-base">Connected providers</h3>
+          <h3 className="text-sm font-medium text-text-base">
+            {language.t("settings.providers.connectedProviders")}
+          </h3>
           <SettingsListCard>
             {settings.options.providers.length > 0 ? (
               settings.options.providers.map((provider, index) => {
@@ -40,12 +43,16 @@ export function ProvidersSettings({ directory }: { directory: string }) {
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="text-sm font-medium text-text-base">{provider.name}</p>
                             <ProviderSourceBadge provider={provider} />
-                            {selected ? <Badge variant="secondary">Selected</Badge> : null}
+                            {selected ? (
+                              <Badge variant="secondary">
+                                {language.t("settings.providers.selected")}
+                              </Badge>
+                            ) : null}
                           </div>
                           <p className="mt-1 text-xs text-text-weak">
                             {provider.source === "env"
-                              ? "Connected from environment variables."
-                              : "Connected and available for this notebook."}
+                              ? language.t("settings.providers.connectedFromEnv")
+                              : language.t("settings.providers.connectedForNotebook")}
                           </p>
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
@@ -56,7 +63,7 @@ export function ProvidersSettings({ directory }: { directory: string }) {
                               variant="outline"
                               onClick={() => settings.actions.setProvider(provider.id)}
                             >
-                              Set as default
+                              {language.t("settings.providers.setAsDefault")}
                             </Button>
                           ) : null}
                           <Button
@@ -65,7 +72,7 @@ export function ProvidersSettings({ directory }: { directory: string }) {
                             variant="outline"
                             onClick={() => openProviderDialog(provider.id)}
                           >
-                            Edit connection
+                            {language.t("settings.providers.editConnection")}
                           </Button>
                         </div>
                       </div>
@@ -76,7 +83,7 @@ export function ProvidersSettings({ directory }: { directory: string }) {
               })
             ) : (
               <div className="px-4 py-8 text-sm text-text-weak">
-                No providers are connected yet.
+                {language.t("settings.providers.noProvidersConnected")}
               </div>
             )}
           </SettingsListCard>
@@ -84,13 +91,15 @@ export function ProvidersSettings({ directory }: { directory: string }) {
 
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-3">
-            <h3 className="text-sm font-medium text-text-base">Available providers</h3>
+            <h3 className="text-sm font-medium text-text-base">
+              {language.t("settings.providers.availableProviders")}
+            </h3>
             <Button
               type="button"
               size="xs"
               onClick={() => openProviderDialog(settings.selection.provider || undefined)}
             >
-              Connect provider
+              {language.t("settings.providers.connectProvider")}
             </Button>
           </div>
           <SettingsListCard>
@@ -107,7 +116,7 @@ export function ProvidersSettings({ directory }: { directory: string }) {
                         <p className="mt-1 text-xs text-text-weak">
                           {provider.methods.length > 0
                             ? provider.methods.map((method) => method.label).join(" or ")
-                            : "Connection available"}
+                            : language.t("settings.providers.connectionAvailable")}
                         </p>
                       </div>
                       <Button
@@ -116,7 +125,7 @@ export function ProvidersSettings({ directory }: { directory: string }) {
                         variant="outline"
                         onClick={() => openProviderDialog(provider.id)}
                       >
-                        Connect provider
+                        {language.t("settings.providers.connectProvider")}
                       </Button>
                     </div>
                   </div>
@@ -125,7 +134,7 @@ export function ProvidersSettings({ directory }: { directory: string }) {
               ))
             ) : (
               <div className="px-4 py-8 text-sm text-text-weak">
-                All available providers are already connected.
+                {language.t("settings.providers.allConnected")}
               </div>
             )}
           </SettingsListCard>

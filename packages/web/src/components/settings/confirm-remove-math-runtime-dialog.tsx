@@ -8,6 +8,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@buddy/ui"
+import { language } from "@/context/language"
 
 type ConfirmRemoveMathRuntimeDialogProps = {
   open: boolean
@@ -20,15 +21,16 @@ export function ConfirmRemoveMathRuntimeDialog(props: ConfirmRemoveMathRuntimeDi
     <AlertDialog open={props.open} onOpenChange={props.onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Remove advanced math runtime?</AlertDialogTitle>
+          <AlertDialogTitle>
+            {language.t("settings.advanced.removeAdvancedMathTitle")}
+          </AlertDialogTitle>
           <AlertDialogDescription>
-            This will remove the optional advanced math runtime from this device. You can reinstall
-            it at any time.
+            {language.t("settings.advanced.removeAdvancedMathDescription")}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel variant="outline" size="default">
-            Cancel
+            {language.t("common.cancel")}
           </AlertDialogCancel>
           <AlertDialogAction
             variant="default"
@@ -38,7 +40,7 @@ export function ConfirmRemoveMathRuntimeDialog(props: ConfirmRemoveMathRuntimeDi
               props.onOpenChange(false)
             }}
           >
-            Remove
+            {language.t("settings.advanced.remove")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
