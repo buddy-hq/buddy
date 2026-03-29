@@ -166,6 +166,7 @@ export function MermaidDiagram(props: {
   rawSourceClassName?: string
   hideLoadingPlaceholder?: boolean
 }) {
+  const { artifactID, source } = props
   const [state, setState] = useState<MermaidDiagramState>({ status: "loading" })
   const [copyFeedback, setCopyFeedback] = useState<"idle" | "copied">("idle")
   const [downloadFeedback, setDownloadFeedback] = useState<"idle" | "downloaded">("idle")
@@ -196,8 +197,8 @@ export function MermaidDiagram(props: {
     setZoom(1)
 
     void renderMermaidSvg({
-      source: props.source,
-      artifactID: props.artifactID,
+      source,
+      artifactID,
     })
       .then((value) => {
         if (cancelled) return
@@ -218,7 +219,7 @@ export function MermaidDiagram(props: {
     return () => {
       cancelled = true
     }
-  }, [props.artifactID, props.source])
+  }, [artifactID, source])
 
   useEffect(() => {
     if (state.status !== "ready") {

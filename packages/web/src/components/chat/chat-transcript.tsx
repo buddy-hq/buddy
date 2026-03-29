@@ -1,6 +1,14 @@
-import { useMemo, memo } from "react"
+import { measureElement as measureVirtualElement, useVirtualizer } from "@tanstack/react-virtual"
+import { memo, useCallback, useEffect, useMemo, type RefObject } from "react"
 import { TooltipProvider } from "@buddy/ui"
 import type { MessageInfo, MessagePart, MessageWithParts, ProviderInfo } from "@/state/chat-types"
+import {
+  VIRTUAL_CHAT_BUSY_TAIL_TURNS,
+  VIRTUAL_CHAT_MIN_TURNS,
+  VIRTUAL_CHAT_OVERSCAN,
+  VIRTUAL_CHAT_TAIL_TURNS,
+  VIRTUAL_CHAT_TURN_ESTIMATE_PX,
+} from "@/components/virtualization/virtualization-defaults"
 
 // Import all tool components (this registers them)
 import "./tools"
@@ -52,6 +60,7 @@ interface ChatTranscriptProps {
   directory?: string
   providers?: ProviderInfo[]
   isBusy?: boolean
+  scrollViewportRef?: RefObject<HTMLElement>
   onAssistantTextFinalRender?: () => void
   onOpenSession?: (sessionID: string) => void
   onForkMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
@@ -59,6 +68,23 @@ interface ChatTranscriptProps {
   showReasoningSummaries?: boolean
   shellToolDefaultOpen?: boolean
   editToolDefaultOpen?: boolean
+}
+
+function chatTranscriptEqual(prevProps: ChatTranscriptProps, nextProps: ChatTranscriptProps) {
+  return (
+    prevProps.messages === nextProps.messages &&
+    prevProps.directory === nextProps.directory &&
+    prevProps.providers === nextProps.providers &&
+    prevProps.isBusy === nextProps.isBusy &&
+    prevProps.scrollViewportRef === nextProps.scrollViewportRef &&
+    prevProps.onAssistantTextFinalRender === nextProps.onAssistantTextFinalRender &&
+    prevProps.onOpenSession === nextProps.onOpenSession &&
+    prevProps.onForkMessage === nextProps.onForkMessage &&
+    prevProps.onRevertMessage === nextProps.onRevertMessage &&
+    prevProps.showReasoningSummaries === nextProps.showReasoningSummaries &&
+    prevProps.shellToolDefaultOpen === nextProps.shellToolDefaultOpen &&
+    prevProps.editToolDefaultOpen === nextProps.editToolDefaultOpen
+  )
 }
 
 type AssistantRenderItem =
@@ -78,6 +104,8 @@ type ChatTurn = {
   user?: MessageWithParts
   assistants: MessageWithParts[]
 }
+
+const CHAT_SCROLL_ANCHOR_THRESHOLD_PX = 96
 
 function modelLabel(info: MessageInfo): string {
   if ("modelID" in info && info.modelID) {
@@ -202,6 +230,20 @@ function buildTurns(messages: MessageWithParts[]): ChatTurn[] {
   }
 
   return turns
+}
+
+function estimateTurnHeight(turn: ChatTurn): number {
+  const userPartCount = turn.user?.parts.length ?? 0
+  const assistantPartCount = turn.assistants.reduce(
+    (count, message) => count + message.parts.length,
+    0,
+  )
+  const assistantMessageCount = turn.assistants.length
+
+  return Math.max(
+    VIRTUAL_CHAT_TURN_ESTIMATE_PX,
+    180 + userPartCount * 36 + assistantPartCount * 40 + assistantMessageCount * 48,
+  )
 }
 
 function toolDefaultOpen(
@@ -548,37 +590,140 @@ const TurnRenderer = memo(function TurnRenderer({
   )
 }, turnRendererEqual)
 
-export function ChatTranscript(props: ChatTranscriptProps) {
-  const providers = props.providers ?? []
-  const turns = useMemo(() => buildTurns(props.messages), [props.messages])
+export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscriptProps) {
+  const {
+    directory,
+    editToolDefaultOpen: editToolDefaultOpenProp,
+    isBusy,
+    messages,
+    onAssistantTextFinalRender,
+    onForkMessage,
+    onOpenSession,
+    onRevertMessage,
+    providers: providersProp,
+    scrollViewportRef,
+    shellToolDefaultOpen: shellToolDefaultOpenProp,
+    showReasoningSummaries: showReasoningSummariesProp,
+  } = props
+  const providers = providersProp ?? []
+  const turns = useMemo(() => buildTurns(messages), [messages])
 
-  const lastMessage = props.messages[props.messages.length - 1]
+  const lastMessage = messages[messages.length - 1]
   const isLastTurnBusy =
-    (props.isBusy ?? false) &&
+    (isBusy ?? false) &&
     (lastMessage?.info.role === "assistant" || lastMessage?.info.role === "user")
+
+  const showReasoningSummaries = showReasoningSummariesProp ?? true
+  const shellToolDefaultOpen = shellToolDefaultOpenProp ?? false
+  const editToolDefaultOpen = editToolDefaultOpenProp ?? false
+
+  const unvirtualizedTailTurns = isLastTurnBusy
+    ? VIRTUAL_CHAT_BUSY_TAIL_TURNS
+    : VIRTUAL_CHAT_TAIL_TURNS
+  const firstUnvirtualizedTurnIndex = Math.max(turns.length - unvirtualizedTailTurns, 0)
+  const virtualizedTurns = turns.slice(0, firstUnvirtualizedTurnIndex)
+  const liveTurns = turns.slice(firstUnvirtualizedTurnIndex)
+  const shouldVirtualizeTurns =
+    !!scrollViewportRef && turns.length >= VIRTUAL_CHAT_MIN_TURNS && virtualizedTurns.length > 0
+
+  const rowVirtualizer = useVirtualizer<HTMLElement, HTMLDivElement>({
+    count: shouldVirtualizeTurns ? virtualizedTurns.length : 0,
+    getScrollElement: () => scrollViewportRef?.current ?? null,
+    getItemKey: (index) => virtualizedTurns[index]?.key ?? index,
+    estimateSize: (index) => {
+      const turn = virtualizedTurns[index]
+      return turn ? estimateTurnHeight(turn) : VIRTUAL_CHAT_TURN_ESTIMATE_PX
+    },
+    measureElement: measureVirtualElement,
+    enabled: shouldVirtualizeTurns,
+    overscan: VIRTUAL_CHAT_OVERSCAN,
+    useAnimationFrameWithResizeObserver: true,
+  })
+
+  useEffect(() => {
+    if (!shouldVirtualizeTurns) return
+
+    rowVirtualizer.shouldAdjustScrollPositionOnItemSizeChange = (_item, _delta, instance) => {
+      const scrollElement = instance.scrollElement
+      if (!(scrollElement instanceof HTMLElement)) return true
+
+      const remainingDistance =
+        scrollElement.scrollHeight - (scrollElement.scrollTop + scrollElement.clientHeight)
+      return remainingDistance > CHAT_SCROLL_ANCHOR_THRESHOLD_PX
+    }
+
+    return () => {
+      rowVirtualizer.shouldAdjustScrollPositionOnItemSizeChange = undefined
+    }
+  }, [rowVirtualizer, shouldVirtualizeTurns])
+
+  const handleAssistantTextFinalRender = useCallback(() => {
+    onAssistantTextFinalRender?.()
+  }, [onAssistantTextFinalRender])
+
+  const renderTurn = (turn: ChatTurn, turnIndex: number) => (
+    <div className={turnIndex === turns.length - 1 ? "" : "pb-12"}>
+      <TurnRenderer
+        turn={turn}
+        turnIndex={turnIndex}
+        totalTurns={turns.length}
+        providers={providers}
+        isBusy={isLastTurnBusy && turnIndex === turns.length - 1}
+        directory={directory}
+        onAssistantTextFinalRender={
+          turnIndex === turns.length - 1 ? handleAssistantTextFinalRender : undefined
+        }
+        onOpenSession={onOpenSession}
+        onForkMessage={onForkMessage}
+        onRevertMessage={onRevertMessage}
+        showReasoningSummaries={showReasoningSummaries}
+        shellToolDefaultOpen={shellToolDefaultOpen}
+        editToolDefaultOpen={editToolDefaultOpen}
+      />
+    </div>
+  )
 
   return (
     <TooltipProvider>
-      <div className="flex w-full flex-col items-start gap-12">
-        {turns.map((turn, turnIndex) => (
-          <TurnRenderer
-            key={turn.key}
-            turn={turn}
-            turnIndex={turnIndex}
-            totalTurns={turns.length}
-            providers={providers}
-            isBusy={isLastTurnBusy && turnIndex === turns.length - 1}
-            directory={props.directory}
-            onAssistantTextFinalRender={props.onAssistantTextFinalRender}
-            onOpenSession={props.onOpenSession}
-            onForkMessage={props.onForkMessage}
-            onRevertMessage={props.onRevertMessage}
-            showReasoningSummaries={props.showReasoningSummaries ?? true}
-            shellToolDefaultOpen={props.shellToolDefaultOpen ?? false}
-            editToolDefaultOpen={props.editToolDefaultOpen ?? false}
-          />
-        ))}
+      <div className="flex w-full flex-col items-start">
+        {shouldVirtualizeTurns ? (
+          <>
+            <div
+              className="relative w-full"
+              style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
+            >
+              {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                const turn = virtualizedTurns[virtualRow.index]
+                if (!turn) return null
+
+                return (
+                  <div
+                    key={virtualRow.key}
+                    data-index={virtualRow.index}
+                    ref={rowVirtualizer.measureElement}
+                    className="absolute top-0 left-0 w-full"
+                    style={{ transform: `translateY(${virtualRow.start}px)` }}
+                  >
+                    {renderTurn(turn, virtualRow.index)}
+                  </div>
+                )
+              })}
+            </div>
+
+            {liveTurns.map((turn, offset) => (
+              <div key={turn.key} className="w-full">
+                {renderTurn(turn, firstUnvirtualizedTurnIndex + offset)}
+              </div>
+            ))}
+          </>
+        ) : (
+          turns.map((turn, turnIndex) => (
+            <div key={turn.key} className="w-full">
+              {renderTurn(turn, turnIndex)}
+            </div>
+          ))
+        )}
       </div>
     </TooltipProvider>
   )
-}
+}, chatTranscriptEqual)
