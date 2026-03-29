@@ -18,6 +18,7 @@ The current release shape is:
 - GitHub repo: `prashantbhudwal/buddy`
 - Release workflow: [`.github/workflows/publish.yml`](/Users/prashantbhudwal/Code/buddy/.github/workflows/publish.yml)
 - Release scripts:
+  - [`script/cut-release.ts`](/Users/prashantbhudwal/Code/buddy/script/cut-release.ts)
   - [`script/tag.ts`](/Users/prashantbhudwal/Code/buddy/script/tag.ts)
   - [`script/version.ts`](/Users/prashantbhudwal/Code/buddy/script/version.ts)
   - [`script/changelog.ts`](/Users/prashantbhudwal/Code/buddy/script/changelog.ts)
@@ -33,6 +34,19 @@ The current release shape is:
 7. Prefer `workflow_dispatch` over tag-push releases for this repo. The remote vendor guard can reject tag pushes when the release range includes protected `vendor/opencode/**` changes.
 
 ## Preconditions
+0. Preferred local entrypoint:
+   - `bun run release:cut`
+   - This interactive wizard:
+     - requires a clean working tree
+     - checks GitHub auth and updater-signing secret presence
+     - syncs local `main` with `origin/main`
+     - suggests the next release version
+     - lets you edit the draft release title and notes in your editor
+     - creates or updates the GitHub draft release before dispatch
+     - runs `bun fmt`, `bun lint`, and `bun typecheck`
+     - triggers the GitHub `publish` workflow with `workflow_dispatch`
+     - can watch the workflow and then pull the release-sync commit back to local `main`
+
 1. Ensure local state is clean.
    - `git branch --show-current`
    - `git status --short`
