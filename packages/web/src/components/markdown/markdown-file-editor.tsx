@@ -342,24 +342,24 @@ export function MarkdownFileEditor(props: MarkdownFileEditorProps) {
       ) : null}
 
       {!exists && !loading ? (
-        <div className="flex min-h-0 flex-1 flex-col items-center justify-center rounded-lg border border-dashed border-border-base/70 bg-background-base/50 px-4 py-10 text-center">
-          <div className="flex size-12 items-center justify-center rounded-full bg-surface-weak">
-            <FileTextIcon className="size-6 text-text-weak" />
+        <button
+          type="button"
+          onClick={() => {
+            void save(props.defaultContent)
+          }}
+          disabled={loading || saving}
+          className="group flex w-full min-h-0 flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-border-base/40 bg-surface-weak/5 px-4 py-10 text-center transition-all hover:border-border-base/80 hover:bg-surface-weak/30"
+        >
+          <div className="mb-4 flex size-10 items-center justify-center rounded-full bg-surface-weak transition-transform group-hover:scale-105 group-hover:shadow-sm">
+            <PlusIcon className="size-4 text-text-weak transition-colors group-hover:text-text-base" />
           </div>
-          <h3 className="mt-4 text-sm font-medium leading-none">{props.emptyTitle}</h3>
-          <p className="mt-1.5 max-w-[260px] text-xs text-text-weak">{props.emptyDescription}</p>
-          <Button
-            size="sm"
-            className="mt-5"
-            onClick={() => {
-              void save(props.defaultContent)
-            }}
-            disabled={loading || saving}
-          >
-            <PlusIcon className="mr-1.5 size-4" />
+          <h3 className="text-[13px] font-medium text-text-base transition-colors group-hover:text-text-strong">
             {props.createLabel}
-          </Button>
-        </div>
+          </h3>
+          <p className="mt-1.5 max-w-[260px] text-[12px] leading-relaxed text-text-weak transition-colors group-hover:text-text-weak/90">
+            {props.emptyDescription}
+          </p>
+        </button>
       ) : exists ? (
         <div className="min-h-[260px] flex-1 overflow-hidden rounded-md border border-border-base/70 bg-background-base">
           <div ref={editorContainerRef} className="h-full min-h-[260px]">

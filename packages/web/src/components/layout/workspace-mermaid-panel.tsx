@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react"
 import { Badge, Button, Card, CardContent } from "@buddy/ui"
 import { language } from "@/context/language"
 import { MermaidDiagram } from "@/components/chat/shared"
+import { RefreshCwIcon, LayoutTemplateIcon } from "lucide-react"
 import {
   loadWorkspaceMermaidArtifacts,
   type WorkspaceMermaidArtifactView,
@@ -59,20 +60,27 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col p-3">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <div>
-          <p className="text-xs font-medium">{language.t("workspaceMermaid.title")}</p>
-          <p className="text-[11px] text-text-weak">{artifactLabel(artifacts.length)}</p>
+      <div className="flex items-start justify-between gap-3 pb-2">
+        <div className="min-w-0 space-y-1">
+          <p className="text-[11px] font-bold uppercase tracking-wider leading-none text-text-weak">
+            {language.t("workspaceMermaid.title")}
+          </p>
+          <p className="line-clamp-2 text-xs text-text-weak">
+            {artifactLabel(artifacts.length)}
+          </p>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            void loadArtifacts()
-          }}
-        >
-          {language.t("common.refresh")}
-        </Button>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="px-2"
+            onClick={() => void loadArtifacts()}
+            disabled={loading}
+            title={language.t("common.refresh")}
+          >
+            <RefreshCwIcon className={`size-4 ${loading ? "animate-spin" : ""}`} />
+          </Button>
+        </div>
       </div>
 
       {loading ? (
@@ -80,8 +88,16 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
       ) : null}
 
       {!loading && artifacts.length === 0 ? (
-        <div className="flex-1 min-h-0 overflow-y-auto rounded-lg border border-border-base/70 bg-background-base p-3 text-sm text-text-weak">
-          {language.t("workspaceMermaid.emptyState")}
+        <div className="flex w-full min-h-0 flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-border-base/40 bg-surface-weak/5 px-4 py-10 text-center">
+          <div className="mb-4 flex size-10 items-center justify-center rounded-full bg-surface-weak shadow-sm">
+            <LayoutTemplateIcon className="size-4 text-text-weak" />
+          </div>
+          <h3 className="text-[13px] font-medium text-text-base">
+            No Diagrams Yet
+          </h3>
+          <p className="mt-1.5 max-w-[220px] text-[12px] leading-relaxed text-text-weak">
+            {language.t("workspaceMermaid.emptyState")}
+          </p>
         </div>
       ) : null}
 

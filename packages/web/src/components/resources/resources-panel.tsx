@@ -192,34 +192,24 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
 
   return (
     <div className={`flex h-full min-h-0 flex-col gap-3 p-3 ${className ?? ""}`}>
-      <div className="flex items-start justify-between gap-3 pb-2">
-        <div className="min-w-0 space-y-1">
-          <p className="text-[11px] font-bold uppercase tracking-wider leading-none text-text-weak">
-            {language.t("resourcesPanel.title")}
-          </p>
-          <p className="line-clamp-2 text-xs text-text-weak">
-            {language.t("resourcesPanel.description")}
-          </p>
+      {sortedResources.length > 0 && (
+        <div className="flex w-full shrink-0 items-center justify-end gap-1.5 pb-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="px-2"
+            onClick={() => void refreshResources()}
+            disabled={loading}
+            title={language.t("resourcesPanel.refreshResources")}
+          >
+            <RefreshCwIcon className={`size-4 ${loading ? "animate-spin" : ""}`} />
+          </Button>
+          <Button size="sm" onClick={() => void onAddResource()} disabled={loading}>
+            <PlusIcon className="mr-1.5 size-4" />
+            {language.t("resourcesPanel.add")}
+          </Button>
         </div>
-        {sortedResources.length > 0 && (
-          <div className="flex shrink-0 items-center gap-1.5">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="px-2"
-              onClick={() => void refreshResources()}
-              disabled={loading}
-              title={language.t("resourcesPanel.refreshResources")}
-            >
-              <RefreshCwIcon className={`size-4 ${loading ? "animate-spin" : ""}`} />
-            </Button>
-            <Button size="sm" onClick={() => void onAddResource()} disabled={loading}>
-              <PlusIcon className="mr-1.5 size-4" />
-              {language.t("resourcesPanel.add")}
-            </Button>
-          </div>
-        )}
-      </div>
+      )}
 
       {error ? (
         <p className="rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 px-2 py-1.5 text-xs text-icon-critical-base">
@@ -227,7 +217,7 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
         </p>
       ) : null}
 
-      <div className="min-h-0 flex-1 overflow-y-auto space-y-2 pb-2">
+      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pb-2">
         {sortedResources.length > 0 ? (
           sortedResources.map((resource) => {
             const isBusy = busyKey === resource.id
@@ -373,7 +363,7 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
             type="button"
             onClick={() => void onAddResource()}
             disabled={loading}
-            className="group mt-1 flex w-full flex-col items-center justify-center rounded-xl border border-dashed border-border-base/40 bg-surface-weak/5 px-4 py-10 text-center transition-all hover:border-border-base/80 hover:bg-surface-weak/30"
+            className="group mt-1 flex w-full min-h-0 flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-border-base/40 bg-surface-weak/5 px-4 py-10 text-center transition-all hover:border-border-base/80 hover:bg-surface-weak/30"
           >
             <div className="mb-4 flex size-10 items-center justify-center rounded-full bg-surface-weak transition-transform group-hover:scale-105 group-hover:shadow-sm">
               <PlusIcon className="size-4 text-text-weak transition-colors group-hover:text-text-base" />
