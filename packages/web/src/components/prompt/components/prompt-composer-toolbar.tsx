@@ -22,6 +22,7 @@ import {
   XIcon,
 } from "@buddy/ui"
 import type { ComponentType, RefObject } from "react"
+import { language } from "@/context/language"
 import type { TeachingIntent } from "@/state/teaching-runtime"
 
 const INTENT_OPTIONS: Array<{
@@ -33,31 +34,31 @@ const INTENT_OPTIONS: Array<{
 }> = [
   {
     key: "auto",
-    label: "Auto",
+    label: language.t("prompt.toolbar.intents.auto.label"),
     icon: SparklesIcon,
-    description: "Adaptive mode – Buddy decides the best approach",
-    tooltip: "Buddy decides the best approach",
+    description: language.t("prompt.toolbar.intents.auto.description"),
+    tooltip: language.t("prompt.toolbar.intents.auto.tooltip"),
   },
   {
     key: "learn",
-    label: "Learn",
+    label: language.t("prompt.toolbar.intents.learn.label"),
     icon: BookOpenIcon,
-    description: "Study mode – Explanations, examples, and deep dives",
-    tooltip: "Explanations, examples, and deep dives",
+    description: language.t("prompt.toolbar.intents.learn.description"),
+    tooltip: language.t("prompt.toolbar.intents.learn.tooltip"),
   },
   {
     key: "practice",
-    label: "Practice",
+    label: language.t("prompt.toolbar.intents.practice.label"),
     icon: TargetIcon,
-    description: "Drill mode – Exercises and hands-on problems",
-    tooltip: "Exercises and hands-on problems",
+    description: language.t("prompt.toolbar.intents.practice.description"),
+    tooltip: language.t("prompt.toolbar.intents.practice.tooltip"),
   },
   {
     key: "assess",
-    label: "Assess",
+    label: language.t("prompt.toolbar.intents.assess.label"),
     icon: BrainIcon,
-    description: "Quiz mode – Questions to test your understanding",
-    tooltip: "Questions to test your understanding",
+    description: language.t("prompt.toolbar.intents.assess.description"),
+    tooltip: language.t("prompt.toolbar.intents.assess.tooltip"),
   },
 ]
 
@@ -98,7 +99,7 @@ export function PromptComposerToolbar(props: PromptComposerToolbarProps) {
               <button
                 type="button"
                 className="shrink-0 rounded-sm text-text-weak hover:text-text-base"
-                aria-label="Clear pending teaching steer"
+                aria-label={language.t("prompt.toolbar.clearPendingSteerAria")}
                 onClick={props.onClearPendingSteer}
               >
                 <XIcon className="size-3" />
@@ -166,9 +167,9 @@ export function PromptComposerToolbar(props: PromptComposerToolbarProps) {
             <SelectTrigger
               size="sm"
               className="h-7 max-w-[140px] min-w-0 border-border-base/70 bg-input-base px-2 text-xs text-text-strong shadow-xs hover:border-border-hover hover:bg-input-hover"
-              aria-label="Persona"
+              aria-label={language.t("prompt.toolbar.aria.persona")}
             >
-              <SelectValue placeholder="Persona" />
+              <SelectValue placeholder={language.t("prompt.toolbar.placeholders.persona")} />
             </SelectTrigger>
             <SelectContent
               side="top"
@@ -195,9 +196,9 @@ export function PromptComposerToolbar(props: PromptComposerToolbarProps) {
               ref={props.modelTriggerRef}
               size="sm"
               className="h-7 max-w-[180px] min-w-0 border-border-base/70 bg-input-base px-2 text-xs text-text-strong shadow-xs hover:border-border-hover hover:bg-input-hover"
-              aria-label="Model"
+              aria-label={language.t("prompt.toolbar.aria.model")}
             >
-              <SelectValue placeholder="Auto" />
+              <SelectValue placeholder={language.t("prompt.toolbar.placeholders.model")} />
             </SelectTrigger>
             <SelectContent
               side="top"
@@ -228,9 +229,9 @@ export function PromptComposerToolbar(props: PromptComposerToolbarProps) {
             <SelectTrigger
               size="sm"
               className="h-7 max-w-[160px] min-w-0 border-border-base/70 bg-input-base px-2 text-xs text-text-strong shadow-xs hover:border-border-hover hover:bg-input-hover"
-              aria-label="Thinking"
+              aria-label={language.t("prompt.toolbar.aria.thinking")}
             >
-              <SelectValue placeholder="Thinking" />
+              <SelectValue placeholder={language.t("prompt.toolbar.placeholders.thinking")} />
             </SelectTrigger>
             <SelectContent
               side="top"

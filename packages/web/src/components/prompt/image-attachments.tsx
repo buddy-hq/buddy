@@ -1,4 +1,5 @@
 import { XIcon, FolderIcon } from "@buddy/ui"
+import { language } from "@/context/language"
 import type { PromptComposerAttachment } from "./prompt-types"
 
 type ImageAttachmentsProps = {
@@ -31,7 +32,9 @@ export function ImageAttachments({ attachments, onRemove, onOpen }: ImageAttachm
             type="button"
             onClick={() => onRemove(attachment.id)}
             className="absolute -top-1.5 -right-1.5 size-5 rounded-full bg-background-base border border-border-base flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-surface-weak"
-            aria-label={`Remove ${attachment.filename}`}
+            aria-label={language.t("prompt.composer.removeAttachmentAria", {
+              filename: attachment.filename,
+            })}
           >
             <XIcon className="size-3 text-text-weak" />
           </button>

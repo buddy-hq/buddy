@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
+import { language } from "@/context/language"
 import { RESOURCE_LOCAL_SLASH_COMMANDS } from "../../lib/resource-commands"
 import {
   filterMentionOptions,
@@ -21,41 +22,35 @@ const BUILTIN_SLASH_COMMANDS: SlashCommandOption[] = [
   {
     type: "builtin",
     name: "new",
-    title: "Start new thread",
-    description: "Create a fresh session in this notebook.",
+    title: language.t("prompt.slash.new.title"),
+    description: language.t("prompt.slash.new.description"),
   },
   {
     type: "builtin",
     name: "persona",
-    title: "Cycle persona",
-    description: "Switch to the next available Buddy persona.",
+    title: language.t("prompt.slash.persona.title"),
+    description: language.t("prompt.slash.persona.description"),
   },
   {
     type: "builtin",
     name: "model",
-    title: "Choose model",
-    description: "Open the model picker.",
+    title: language.t("prompt.slash.model.title"),
+    description: language.t("prompt.slash.model.description"),
   },
   {
     type: "builtin",
     name: "mcp",
-    title: "Open MCPs",
-    description: "Open MCP controls.",
+    title: language.t("prompt.slash.mcp.title"),
+    description: language.t("prompt.slash.mcp.description"),
   },
 ]
 
-const PLACEHOLDER_KEYS: Record<string, string> = {
-  "prompt.placeholder.shell": "Run a shell command",
-  "prompt.placeholder.summarizeComments": "Summarize these comments",
-  "prompt.placeholder.summarizeComment": "Summarize this comment",
-}
-
 function translatePromptPlaceholder(key: string, params?: Record<string, string>) {
   if (key === "prompt.placeholder.normal") {
-    if (params?.example) return `Try: ${params.example}`
-    return "Ask Buddy"
+    if (params?.example) return language.t(key, params)
+    return language.t("prompt.placeholder.simple")
   }
-  return PLACEHOLDER_KEYS[key] ?? "Ask Buddy"
+  return language.t(key)
 }
 
 function dedupeMentionFiles(files: MentionableFile[]) {
@@ -101,7 +96,9 @@ export function usePromptComposerViewState(props: UsePromptComposerViewStateProp
   const [searchMentionFiles, setSearchMentionFiles] = useState<MentionableFile[]>([])
   const [searchingFiles, setSearchingFiles] = useState(false)
   const [recentMentionFiles, setRecentMentionFiles] = useState<MentionableFile[]>([])
-  const [displayedPlaceholder, setDisplayedPlaceholder] = useState("Ask Buddy...")
+  const [displayedPlaceholder, setDisplayedPlaceholder] = useState(
+    language.t("prompt.placeholder.initial"),
+  )
   const [placeholderOpacity, setPlaceholderOpacity] = useState(1)
   // useRef: changing this doesn't need a re-render — it's only read inside useEffect.
   const slashRefreshRequestedRef = useRef(false)

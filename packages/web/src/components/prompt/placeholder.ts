@@ -1,3 +1,5 @@
+import { language } from "@/context/language"
+
 type TeachingIntent = "auto" | "learn" | "practice" | "assess"
 
 type PromptPlaceholderInput = {
@@ -10,10 +12,10 @@ type PromptPlaceholderInput = {
 }
 
 const INTENT_PLACEHOLDERS: Record<TeachingIntent, string> = {
-  auto: "Ask Buddy...",
-  learn: "Teach me about...",
-  practice: "Help me practice...",
-  assess: "Quiz me on...",
+  auto: language.t("prompt.placeholder.intents.auto"),
+  learn: language.t("prompt.placeholder.intents.learn"),
+  practice: language.t("prompt.placeholder.intents.practice"),
+  assess: language.t("prompt.placeholder.intents.assess"),
 }
 
 export function promptPlaceholder(input: PromptPlaceholderInput): string {

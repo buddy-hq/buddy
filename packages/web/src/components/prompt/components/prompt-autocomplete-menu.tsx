@@ -1,4 +1,5 @@
 import { cn } from "@buddy/ui"
+import { language } from "@/context/language"
 import type { MentionOption } from "../mention-autocomplete"
 import type { SlashCommandOption } from "../slash-autocomplete"
 
@@ -58,7 +59,9 @@ export function PromptAutocompleteMenu(props: PromptAutocompleteMenuProps) {
       ) : (
         <>
           {props.showMentionLoading ? (
-            <div className="px-3 py-2 text-xs text-text-weak">Searching files...</div>
+            <div className="px-3 py-2 text-xs text-text-weak">
+              {language.t("prompt.autocomplete.searchingFiles")}
+            </div>
           ) : null}
           {props.mentionOptions.map((option, index) => {
             const active = index === props.mentionIndex
@@ -83,7 +86,9 @@ export function PromptAutocompleteMenu(props: PromptAutocompleteMenuProps) {
                 {option.description ? (
                   <span className="text-xs text-text-weak">{option.description}</span>
                 ) : option.type === "file" && option.recent ? (
-                  <span className="text-xs text-text-weak">Recent file</span>
+                  <span className="text-xs text-text-weak">
+                    {language.t("prompt.autocomplete.recentFile")}
+                  </span>
                 ) : null}
               </button>
             )

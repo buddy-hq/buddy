@@ -1,5 +1,6 @@
 import { ArrowUpIcon, Dialog, DialogContent, PlusIcon, SquareIcon } from "@buddy/ui"
 import { useEffect, useMemo, useRef, useState } from "react"
+import { language } from "@/context/language"
 import { shouldSubmitComposer } from "../../lib/chat-input"
 import {
   createTextFragment,
@@ -451,7 +452,7 @@ export function PromptComposer(props: PromptComposerProps) {
 
           {dragging ? (
             <div className="absolute inset-2 z-10 flex items-center justify-center rounded-xl border border-dashed border-border-interactive-base/40 bg-background-base/95 text-sm text-text-base shadow-sm">
-              Drop files to attach or @-mention them in this prompt.
+              {language.t("prompt.composer.draggingHint")}
             </div>
           ) : null}
 
@@ -677,8 +678,8 @@ export function PromptComposer(props: PromptComposerProps) {
             <button
               type="button"
               className="inline-flex size-8 items-center justify-center rounded-md text-text-weak transition-colors hover:bg-surface-weak/60 hover:text-text-base"
-              title="Attach files"
-              aria-label="Attach files"
+              title={language.t("prompt.composer.attachFilesTitle")}
+              aria-label={language.t("prompt.composer.attachFilesAria")}
               onClick={() => {
                 fileInputRef.current?.click()
               }}
@@ -690,8 +691,16 @@ export function PromptComposer(props: PromptComposerProps) {
               type="submit"
               className="inline-flex size-8 items-center justify-center rounded-md bg-surface-interactive-base text-text-on-interactive-base transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               disabled={!props.isBusy && !canSubmit}
-              aria-label={props.isBusy ? "Stop" : "Send"}
-              title={props.isBusy ? "Stop" : "Send"}
+              aria-label={
+                props.isBusy
+                  ? language.t("prompt.composer.stop")
+                  : language.t("prompt.composer.send")
+              }
+              title={
+                props.isBusy
+                  ? language.t("prompt.composer.stop")
+                  : language.t("prompt.composer.send")
+              }
             >
               {props.isBusy ? (
                 <SquareIcon className="size-3.5" />
