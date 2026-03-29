@@ -1,4 +1,5 @@
 import { Textarea } from "@buddy/ui"
+import { language } from "@/context/language"
 import { getFieldErrorId, type McpFormDraft } from "./mcp-config-schema"
 
 type McpLocalFieldsProps = {
@@ -21,7 +22,7 @@ export function McpLocalFields(props: McpLocalFieldsProps) {
     <>
       <div className="grid gap-2">
         <label className="text-sm font-medium text-text-base" htmlFor="mcp-command">
-          Local command
+          {language.t("mcp.localFields.commandLabel")}
         </label>
         <Textarea
           id="mcp-command"
@@ -34,13 +35,12 @@ export function McpLocalFields(props: McpLocalFieldsProps) {
             }))
             props.clearFieldError("command")
           }}
-          placeholder={`[\n  "npx",\n  "-y",\n  "@modelcontextprotocol/server-filesystem",\n  "/path with spaces"\n]`}
+          placeholder={language.t("mcp.localFields.commandPlaceholder")}
           className="min-h-24"
           {...props.getFieldProps("command", "mcp-command-help")}
         />
         <p id="mcp-command-help" className="text-xs text-text-weak">
-          Use a JSON array to preserve exact argv values, especially when arguments contain spaces.
-          Plain text still works for simple commands.
+          {language.t("mcp.localFields.commandHelp")}
         </p>
         {props.fieldErrors.command ? (
           <p id={getFieldErrorId("command")} className="text-xs text-icon-critical-base">
@@ -51,7 +51,7 @@ export function McpLocalFields(props: McpLocalFieldsProps) {
 
       <div className="grid gap-2">
         <label className="text-sm font-medium text-text-base" htmlFor="mcp-environment">
-          Environment (JSON)
+          {language.t("mcp.localFields.environmentLabel")}
         </label>
         <Textarea
           id="mcp-environment"
@@ -64,7 +64,7 @@ export function McpLocalFields(props: McpLocalFieldsProps) {
             }))
             props.clearFieldError("environment")
           }}
-          placeholder={`{\n  "NODE_NO_WARNINGS": "1"\n}`}
+          placeholder={language.t("mcp.localFields.environmentPlaceholder")}
           className="min-h-24"
           {...props.getFieldProps("environment")}
         />

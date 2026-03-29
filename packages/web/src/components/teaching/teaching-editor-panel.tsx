@@ -2,6 +2,7 @@ import { useEffect, useRef, type ReactNode } from "react"
 import Editor, { type OnMount } from "@monaco-editor/react"
 import type { editor as MonacoEditor } from "monaco-editor"
 import { Button } from "@buddy/ui"
+import { language } from "@/context/language"
 import type {
   TeachingDiagnostic,
   TeachingLanguage,
@@ -200,14 +201,14 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
   }, [props.workspace.diagnostics, props.workspace.lessonFilePath])
 
   const status = props.workspace.conflict
-    ? "Conflict"
+    ? language.t("teaching.editor.conflict")
     : props.workspace.pendingSave
-      ? "Saving..."
+      ? language.t("common.saving")
       : props.workspace.saveError
-        ? "Save failed"
+        ? language.t("teaching.editor.saveFailed")
         : props.workspace.code === props.workspace.savedCode
-          ? "Saved"
-          : "Unsaved"
+          ? language.t("teaching.editor.saved")
+          : language.t("teaching.editor.unsaved")
   const fileTree = buildFileTree(props.workspace.files)
 
   function renderTree(nodes: TeachingFileTreeNode[], depth = 0): ReactNode {
@@ -261,7 +262,7 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
           value={props.workspace.language}
           onChange={(event) => props.onLanguageChange(event.target.value as TeachingLanguage)}
           disabled={props.isBusy}
-          aria-label="Lesson language"
+          aria-label={language.t("teaching.editor.lessonLanguageAria")}
         >
           {TEACHING_LANGUAGE_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
@@ -275,7 +276,7 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
         </div>
 
         <span className="rounded-md border bg-background-base px-2 py-1 text-[11px] text-text-weak">
-          rev {props.workspace.revision}
+          {language.t("teaching.editor.revisionPrefix")} {props.workspace.revision}
         </span>
         <span className="rounded-md border bg-background-base px-2 py-1 text-[11px] text-text-weak">
           {status}
@@ -286,31 +287,29 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
           variant="secondary"
           onClick={props.onCheckpoint}
           disabled={props.isBusy}
-          title="Mark the current lesson state as accepted"
+          title={language.t("teaching.editor.acceptStepTitle")}
         >
-          Accept Step
+          {language.t("teaching.editor.acceptStep")}
         </Button>
         <Button
           size="sm"
           variant="secondary"
           onClick={props.onRestoreAccepted}
           disabled={props.isBusy}
-          title="Restore the lesson file to the last accepted state"
+          title={language.t("teaching.editor.restoreStepTitle")}
         >
-          Restore Step
+          {language.t("teaching.editor.restoreStep")}
         </Button>
       </div>
 
       {props.workspace.conflict ? (
         <div className="flex flex-wrap items-center gap-2 border-b border-b-[color:color-mix(in_oklab,var(--surface-warning-base)_38%,transparent)] bg-[color:color-mix(in_oklab,var(--surface-warning-base)_12%,transparent)] px-3 py-2 text-xs text-text-base">
-          <span className="min-w-0 flex-1">
-            The lesson file changed outside the editor. Choose which version to keep.
-          </span>
+          <span className="min-w-0 flex-1">{language.t("teaching.editor.conflictMessage")}</span>
           <Button size="sm" variant="secondary" onClick={props.onLoadExternalChanges}>
-            Load external changes
+            {language.t("teaching.editor.loadExternalChanges")}
           </Button>
           <Button size="sm" onClick={props.onForceOverwrite}>
-            Force overwrite
+            {language.t("teaching.editor.forceOverwrite")}
           </Button>
         </div>
       ) : null}
@@ -325,7 +324,7 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
         <div className="flex h-full min-h-0">
           <div className="min-w-0 flex min-h-0 flex-1 flex-col">
             <div className="border-b px-3 py-2 text-xs text-text-weak">
-              Editing:{" "}
+              {language.t("teaching.editor.editingPrefix")}{" "}
               <span className="font-medium text-text-base">
                 {props.workspace.activeRelativePath}
               </span>
@@ -354,16 +353,16 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
 
             <div className="max-h-44 shrink-0 border-t bg-background-base/40">
               <div className="border-b px-3 py-2 text-[11px] font-medium uppercase tracking-wide text-text-weak">
-                LSP Diagnostics
+                {language.t("teaching.editor.diagnosticsTitle")}
               </div>
 
               {!props.workspace.lspAvailable ? (
                 <div className="px-3 py-2 text-xs text-text-weak">
-                  No LSP server is available for the active teaching file.
+                  {language.t("teaching.editor.noLsp")}
                 </div>
               ) : props.workspace.diagnostics.length === 0 ? (
                 <div className="px-3 py-2 text-xs text-text-weak">
-                  No diagnostics in the active file.
+                  {language.t("teaching.editor.noDiagnostics")}
                 </div>
               ) : (
                 <div className="max-h-32 overflow-y-auto px-2 py-2">
@@ -378,7 +377,10 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
                             {diagnostic.severity}
                           </span>
                           <span className="text-text-weak">
-                            L{diagnostic.startLine}:C{diagnostic.startColumn}
+                            {language.t("teaching.editor.lineColumn", {
+                              line: diagnostic.startLine,
+                              column: diagnostic.startColumn,
+                            })}
                           </span>
                           {diagnostic.source ? (
                             <span className="truncate text-text-weak">{diagnostic.source}</span>
@@ -397,9 +399,11 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
             <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
               <div className="min-w-0">
                 <p className="text-[11px] font-medium uppercase tracking-wide text-text-weak">
-                  Files
+                  {language.t("teaching.editor.files")}
                 </p>
-                <p className="text-[11px] text-text-weak">{props.workspace.files.length} tracked</p>
+                <p className="text-[11px] text-text-weak">
+                  {language.t("teaching.editor.tracked", { count: props.workspace.files.length })}
+                </p>
               </div>
               <Button
                 size="sm"
@@ -407,7 +411,7 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
                 onClick={props.onCreateFile}
                 disabled={props.isBusy}
               >
-                New File
+                {language.t("teaching.editor.newFile")}
               </Button>
             </div>
 
@@ -415,7 +419,9 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
               {fileTree.length > 0 ? (
                 <div className="space-y-0.5">{renderTree(fileTree)}</div>
               ) : (
-                <p className="px-2 py-2 text-xs text-text-weak">No teaching files yet.</p>
+                <p className="px-2 py-2 text-xs text-text-weak">
+                  {language.t("teaching.editor.noFiles")}
+                </p>
               )}
             </div>
           </aside>

@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@buddy/ui"
 import { type FormEvent, useEffect, useState } from "react"
+import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { getOpenCodeClient } from "../lib/opencode-client"
 import {
@@ -37,7 +38,7 @@ type ConnectProviderDialogProps = {
 
 const FALLBACK_API_METHOD = {
   type: "api",
-  label: "API key",
+  label: language.t("connectProviderDialog.fallbackApiMethodLabel"),
 } as const
 
 export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
@@ -99,7 +100,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
   async function handleApiSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!providerID || !apiKey.trim()) {
-      setError("API key is required")
+      setError(language.t("connectProviderDialog.apiKeyRequired"))
       return
     }
 
@@ -121,7 +122,9 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
       await disposeAndReload()
     } catch (error) {
       setBusy(false)
-      setError(formatProviderAuthError(error, "Failed to save provider credentials"))
+      setError(
+        formatProviderAuthError(error, language.t("connectProviderDialog.saveCredentialsFailed")),
+      )
     }
   }
 
@@ -142,7 +145,9 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
       await disposeAndReload()
     } catch (error) {
       setBusy(false)
-      setError(formatProviderAuthError(error, "Failed to remove provider credentials"))
+      setError(
+        formatProviderAuthError(error, language.t("connectProviderDialog.removeCredentialsFailed")),
+      )
     }
   }
 
@@ -183,14 +188,19 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
     } catch (error) {
       setBusy(false)
       setAuthorization(undefined)
-      setError(formatProviderAuthError(error, "Failed to start provider login"))
+      setError(
+        formatProviderAuthError(
+          error,
+          language.t("connectProviderDialog.startProviderLoginFailed"),
+        ),
+      )
     }
   }
 
   async function submitOAuthCode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!providerID || !code.trim()) {
-      setError("Authorization code is required")
+      setError(language.t("connectProviderDialog.authCodeRequired"))
       return
     }
 
@@ -207,7 +217,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
       await disposeAndReload()
     } catch (error) {
       setBusy(false)
-      setError(formatProviderAuthError(error, "Invalid authorization code"))
+      setError(formatProviderAuthError(error, language.t("connectProviderDialog.invalidAuthCode")))
     }
   }
 
@@ -215,20 +225,20 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       <DialogContent className="overflow-hidden sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Connect provider</DialogTitle>
-          <DialogDescription>
-            Use your own provider account, subscription, or API key.
-          </DialogDescription>
+          <DialogTitle>{language.t("connectProviderDialog.title")}</DialogTitle>
+          <DialogDescription>{language.t("connectProviderDialog.description")}</DialogDescription>
         </DialogHeader>
 
         {props.providers.length === 0 ? (
           <p className="py-2 text-sm text-text-weak">
-            No providers are available for this notebook.
+            {language.t("connectProviderDialog.noProvidersForNotebook")}
           </p>
         ) : (
           <div className="min-w-0 space-y-4 py-2">
             <div className="space-y-1.5">
-              <label className="text-xs text-text-weak">Provider</label>
+              <label className="text-xs text-text-weak">
+                {language.t("connectProviderDialog.providerLabel")}
+              </label>
               <Select
                 value={providerID}
                 onValueChange={(value) => {
@@ -255,13 +265,15 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
                 <div className="rounded-md border px-3 py-2 text-xs text-text-weak">
                   {selectedProvider.connected
                     ? envManaged
-                      ? "Connected via environment variables."
-                      : "Connected."
-                    : "Not connected."}
+                      ? language.t("connectProviderDialog.connectedViaEnv")
+                      : language.t("connectProviderDialog.connected")
+                    : language.t("connectProviderDialog.notConnected")}
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-text-weak">Auth method</label>
+                  <label className="text-xs text-text-weak">
+                    {language.t("connectProviderDialog.authMethodLabel")}
+                  </label>
                   <Select
                     value={String(methodIndex)}
                     onValueChange={(value) => resetAuthState(Number(value))}
@@ -283,18 +295,24 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
                 {selectedMethod?.type === "api" ? (
                   <form className="space-y-3" onSubmit={(event) => void handleApiSubmit(event)}>
                     <div className="space-y-1.5">
-                      <label className="text-xs text-text-weak">API key</label>
+                      <label className="text-xs text-text-weak">
+                        {language.t("connectProviderDialog.apiKeyLabel")}
+                      </label>
                       <Input
                         type="password"
                         value={apiKey}
                         onChange={(event) => setApiKey(event.target.value)}
-                        placeholder={`Enter your ${selectedProvider.name} API key`}
+                        placeholder={language.t("connectProviderDialog.apiKeyPlaceholder", {
+                          providerName: selectedProvider.name,
+                        })}
                         disabled={busy}
                       />
                     </div>
                     <div className="flex gap-2">
                       <Button className="flex-1" type="submit" disabled={busy}>
-                        {busy ? "Saving..." : "Save credentials"}
+                        {busy
+                          ? language.t("common.saving")
+                          : language.t("connectProviderDialog.saveCredentials")}
                       </Button>
                       {canDisconnect ? (
                         <Button
@@ -303,13 +321,13 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
                           onClick={() => void handleDisconnect()}
                           disabled={busy}
                         >
-                          Disconnect
+                          {language.t("connectProviderDialog.disconnect")}
                         </Button>
                       ) : null}
                     </div>
                     {envManaged ? (
                       <p className="text-xs text-text-weak">
-                        Remove the provider environment variable to disconnect this provider.
+                        {language.t("connectProviderDialog.envDisconnectHelp")}
                       </p>
                     ) : null}
                   </form>
@@ -317,16 +335,20 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
                   <div className="space-y-3">
                     {!authorization || authorization.method !== "code" ? (
                       <Button className="w-full" onClick={() => void startOAuth()} disabled={busy}>
-                        {busy ? "Waiting for authorization..." : "Start login"}
+                        {busy
+                          ? language.t("connectProviderDialog.waitingForAuthorization")
+                          : language.t("connectProviderDialog.startLogin")}
                       </Button>
                     ) : null}
 
                     {authorization ? (
                       <div className="min-w-0 space-y-3 rounded-md border px-3 py-3">
                         <div className="min-w-0 space-y-2">
-                          <p className="text-xs text-text-weak">Authorization link</p>
+                          <p className="text-xs text-text-weak">
+                            {language.t("connectProviderDialog.authorizationLinkLabel")}
+                          </p>
                           <p className="text-sm text-text-weak">
-                            Open the authorization page in your browser to continue connecting{" "}
+                            {language.t("connectProviderDialog.authorizationHelpPrefix")}{" "}
                             {selectedProvider.name}.
                           </p>
                           <a
@@ -336,7 +358,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
                             rel="noreferrer"
                             title={authorization.url}
                           >
-                            Open authorization page
+                            {language.t("connectProviderDialog.openAuthorizationPage")}
                           </a>
                         </div>
 
@@ -346,24 +368,32 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
                             onSubmit={(event) => void submitOAuthCode(event)}
                           >
                             <div className="space-y-1.5">
-                              <label className="text-xs text-text-weak">Authorization code</label>
+                              <label className="text-xs text-text-weak">
+                                {language.t("connectProviderDialog.authorizationCodeLabel")}
+                              </label>
                               <Input
                                 type="text"
                                 value={code}
                                 onChange={(event) => setCode(event.target.value)}
-                                placeholder="Paste the code from the provider"
+                                placeholder={language.t(
+                                  "connectProviderDialog.authorizationCodePlaceholder",
+                                )}
                                 disabled={busy}
                               />
                             </div>
                             <Button className="w-full" type="submit" disabled={busy}>
-                              {busy ? "Finishing login..." : "Complete login"}
+                              {busy
+                                ? language.t("connectProviderDialog.continueInBrowser")
+                                : language.t("connectProviderDialog.submitCode")}
                             </Button>
                           </form>
                         ) : (
                           <div className="space-y-2">
                             {confirmationCode ? (
                               <div className="space-y-1 min-w-0">
-                                <p className="text-xs text-text-weak">Confirmation code</p>
+                                <p className="text-xs text-text-weak">
+                                  {language.t("connectProviderDialog.confirmationCodeLabel")}
+                                </p>
                                 <Input
                                   readOnly
                                   value={confirmationCode}
@@ -373,7 +403,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
                               </div>
                             ) : null}
                             <p className="text-xs text-text-weak">
-                              Waiting for the provider to finish authorization.
+                              {language.t("connectProviderDialog.waitingForAuthorization")}
                             </p>
                           </div>
                         )}
@@ -388,14 +418,14 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
                           onClick={() => void handleDisconnect()}
                           disabled={busy}
                         >
-                          Disconnect
+                          {language.t("connectProviderDialog.disconnect")}
                         </Button>
                       ) : (
                         <span />
                       )}
                       {envManaged ? (
                         <span className="text-xs text-text-weak">
-                          This provider is connected from the environment.
+                          {language.t("connectProviderDialog.connectedAsReadOnly")}
                         </span>
                       ) : null}
                     </DialogFooter>

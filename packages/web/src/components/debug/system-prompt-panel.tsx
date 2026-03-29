@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Button, Input } from "@buddy/ui"
+import { language } from "@/context/language"
 import {
   loadTeachingSessionState,
   type TeachingLlmOutboundSnapshot,
@@ -11,21 +12,25 @@ function HighlightedText({ text, query }: { text: string; query: string }) {
   if (!query.trim()) return <>{text}</>
 
   const parts = text.split(new RegExp(`(${escapeRegExp(query)})`, "gi"))
+  const seen = new Map<string, number>()
 
   return (
     <>
-      {parts.map((part, i) =>
-        part.toLowerCase() === query.toLowerCase() ? (
+      {parts.map((part) => {
+        const occurrence = seen.get(part) ?? 0
+        seen.set(part, occurrence + 1)
+        const key = `${part}:${occurrence}`
+        return part.toLowerCase() === query.toLowerCase() ? (
           <mark
-            key={i}
+            key={key}
             className="rounded-sm bg-surface-warning-base/30 px-0.5 font-semibold text-icon-warning-base"
           >
             {part}
           </mark>
         ) : (
-          part
-        ),
-      )}
+          <span key={key}>{part}</span>
+        )
+      })}
     </>
   )
 }
@@ -159,10 +164,10 @@ export function SystemPromptPanel(props: SystemPromptPanelProps) {
       <div className="flex items-start justify-between gap-3 pb-2">
         <div className="min-w-0 space-y-1.5">
           <p className="text-xs font-medium uppercase tracking-wide text-text-weak leading-none">
-            System Prompt
+            {language.t("debug.systemPrompt.title")}
           </p>
           <p className="text-xs text-text-weak line-clamp-2">
-            Exact system prompt from the most recent outbound LLM turn.
+            {language.t("debug.systemPrompt.description")}
           </p>
         </div>
         <Button
@@ -172,13 +177,13 @@ export function SystemPromptPanel(props: SystemPromptPanelProps) {
           onClick={() => void refresh()}
           disabled={loading}
         >
-          Refresh
+          {language.t("common.refresh")}
         </Button>
       </div>
 
       {!sessionID ? (
         <div className="rounded-md border border-border-base/70 bg-background-base p-3 text-sm text-text-weak">
-          Select a session to inspect system prompts.
+          {language.t("debug.systemPrompt.selectSession")}
         </div>
       ) : null}
 
@@ -193,14 +198,25 @@ export function SystemPromptPanel(props: SystemPromptPanelProps) {
           {systemPromptText ? (
             <div className="flex h-full min-h-0 flex-col">
               <div className="border-b border-border-base/60 px-3 py-2 text-[11px] text-text-weak">
-                <span>Turn: {lastOutbound?.kind ?? "unknown"}</span>
-                {renderedAt ? <span className="ml-3">Captured: {renderedAt}</span> : null}
-                <span className="ml-3">~{approxTokens.toLocaleString()} tokens</span>
-                <span className="ml-1">({charCount.toLocaleString()} chars)</span>
+                <span>
+                  {language.t("debug.systemPrompt.turnPrefix")}{" "}
+                  {lastOutbound?.kind ?? language.t("debug.systemPrompt.unknown")}
+                </span>
+                {renderedAt ? (
+                  <span className="ml-3">
+                    {language.t("debug.systemPrompt.capturedPrefix")} {renderedAt}
+                  </span>
+                ) : null}
+                <span className="ml-3">
+                  ~{approxTokens.toLocaleString()} {language.t("debug.systemPrompt.tokensSuffix")}
+                </span>
+                <span className="ml-1">
+                  ({charCount.toLocaleString()} {language.t("debug.systemPrompt.charsSuffix")})
+                </span>
               </div>
               <div className="border-b border-border-base/60 px-3 py-2">
                 <Input
-                  placeholder="Search in prompt..."
+                  placeholder={language.t("debug.systemPrompt.searchPlaceholder")}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="h-8 text-xs"
@@ -213,8 +229,8 @@ export function SystemPromptPanel(props: SystemPromptPanelProps) {
           ) : (
             <div className="p-3 text-sm text-text-weak">
               {loading || activeSessionBusy
-                ? "Capturing the latest system prompt..."
-                : "No system prompt has been recorded for this session yet."}
+                ? language.t("debug.systemPrompt.capturing")
+                : language.t("debug.systemPrompt.noneRecorded")}
             </div>
           )}
         </div>

@@ -25,6 +25,7 @@ import {
   toast,
 } from "@buddy/ui"
 import { PlusIcon, RefreshCwIcon } from "lucide-react"
+import { language } from "@/context/language"
 import {
   createCustomSkill,
   installLibrarySkill,
@@ -60,59 +61,64 @@ const SKELETON_CARD_KEYS = [
 ] as const
 
 function statusLabel(action: InstalledSkillInfo["permissionAction"]) {
-  if (action === "allow") return "Always available"
-  if (action === "deny") return "Blocked"
-  return "On-demand approval"
+  if (action === "allow") return language.t("skills.status.allow")
+  if (action === "deny") return language.t("skills.status.deny")
+  return language.t("skills.status.ask")
 }
 
 function sourceLabel(source: InstalledSkillInfo["source"]) {
-  if (source === "custom") return "Custom"
-  if (source === "library") return "Library"
-  return "Detected"
+  if (source === "custom") return language.t("skills.source.custom")
+  if (source === "library") return language.t("skills.source.library")
+  return language.t("skills.source.detected")
 }
 
 function scopeLabel(scope: InstalledSkillInfo["scope"]) {
-  return scope === "workspace" ? "Workspace" : "Global"
+  return scope === "workspace"
+    ? language.t("skills.scope.workspace")
+    : language.t("skills.scope.global")
 }
 
 function scopeDescription(scope: InstalledSkillInfo["scope"]) {
   return scope === "workspace"
-    ? "This skill is discovered from the current workspace."
-    : "This skill is discovered from your global skills directory."
+    ? language.t("skills.scope.workspaceDescription")
+    : language.t("skills.scope.globalDescription")
 }
 
 function permissionUpdateMessage(name: string, action: InstalledSkillInfo["permissionAction"]) {
-  return `Set ${name} to ${statusLabel(action).toLowerCase()}.`
+  return language.t("skills.permissionUpdated", {
+    name: name,
+    statusLabel: statusLabel(action).toLowerCase(),
+  })
 }
 
 function permissionRuleMessage(name: string, action: SkillRuleAction) {
   if (action === "inherit") {
-    return `Reset ${name} to the inherited/default rule.`
+    return language.t("skills.permissionReset", { name: name })
   }
 
   return permissionUpdateMessage(name, action)
 }
 
 function permissionSourceLabel(source: InstalledSkillInfo["permissionSource"]) {
-  if (source === "explicit") return "Explicit"
-  if (source === "inherited") return "Inherited"
-  return "Default"
+  if (source === "explicit") return language.t("skills.permissionSource.explicit")
+  if (source === "inherited") return language.t("skills.permissionSource.inherited")
+  return language.t("skills.permissionSource.default")
 }
 
 function permissionSourceDescription(skill: InstalledSkillInfo) {
   if (skill.permissionSource === "explicit") {
-    return "This skill name has its own explicit permission rule."
+    return language.t("skills.permissionSource.explicitDescription")
   }
 
   if (skill.permissionSource === "inherited") {
-    return "This skill name is matching a broader wildcard permission rule."
+    return language.t("skills.permissionSource.inheritedDescription")
   }
 
-  return "No matching name rule is set. Core behavior falls back to on-demand approval."
+  return language.t("skills.permissionSource.defaultDescription")
 }
 
 function resetPermissionLabel() {
-  return "Use inherited/default rule"
+  return language.t("skills.resetPermissionLabel")
 }
 
 async function copyText(text: string) {
@@ -150,7 +156,7 @@ function PermissionActionMenu(props: {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button type="button" variant="outline" size="sm" disabled={props.disabled}>
-          Permissions
+          {language.t("skills.actionsMenu")}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
@@ -161,13 +167,13 @@ function PermissionActionMenu(props: {
           {resetPermissionLabel()}
         </DropdownMenuItem>
         <DropdownMenuItem disabled={props.disabled} onSelect={() => props.onSelect("allow")}>
-          Always available
+          {language.t("skills.status.allow")}
         </DropdownMenuItem>
         <DropdownMenuItem disabled={props.disabled} onSelect={() => props.onSelect("ask")}>
-          On-demand approval
+          {language.t("skills.status.ask")}
         </DropdownMenuItem>
         <DropdownMenuItem disabled={props.disabled} onSelect={() => props.onSelect("deny")}>
-          Blocked
+          {language.t("skills.status.deny")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -194,7 +200,7 @@ function SkillCard(props: {
                   checked={props.skill.permissionAction !== "deny"}
                   onCheckedChange={props.onToggleEnabled}
                   disabled={props.disabled}
-                  aria-label={`Toggle ${props.skill.name}`}
+                  aria-label={language.t("skills.toggleAria", { name: props.skill.name })}
                 />
                 <Button
                   type="button"
@@ -203,7 +209,7 @@ function SkillCard(props: {
                   className="rounded-full text-text-weak"
                   onClick={props.onManage}
                   disabled={props.disabled}
-                  aria-label={`Manage ${props.skill.name}`}
+                  aria-label={language.t("skills.manageAria", { name: props.skill.name })}
                 >
                   <SettingsIcon className="size-4" />
                 </Button>
@@ -258,7 +264,7 @@ function LibraryCard(props: {
             variant="outline"
             className="h-5 border-border-info-base bg-surface-info-base/10 text-icon-info-base"
           >
-            Curated
+            {language.t("skills.curated")}
           </Badge>
           <Button
             type="button"
@@ -267,7 +273,7 @@ function LibraryCard(props: {
             disabled={props.disabled || props.skill.installed}
             onClick={props.onInstall}
           >
-            {props.skill.installed ? "Installed" : "Add"}
+            {props.skill.installed ? language.t("skills.installed") : language.t("skills.add")}
           </Button>
         </div>
       </CardContent>
@@ -358,11 +364,13 @@ export function SkillsPage(props: { directory?: string }) {
         setCatalog(nextCatalog)
 
         if (input?.force && input.showRefreshToast !== false) {
-          toast.success("Skills refreshed")
+          toast.success(language.t("skills.refreshed"))
         }
 
         if (nextCatalog.librarySyncError) {
-          toast.error(`Curated library sync failed: ${nextCatalog.librarySyncError}`)
+          toast.error(
+            language.t("skills.curatedSyncFailed", { error: nextCatalog.librarySyncError }),
+          )
         }
 
         if (input?.preserveSelection) {
@@ -373,7 +381,7 @@ export function SkillsPage(props: { directory?: string }) {
           })
         }
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Failed to load skills"
+        const message = error instanceof Error ? error.message : language.t("skills.loadFailed")
         toast.error(message)
       } finally {
         setLoading(false)
@@ -401,7 +409,7 @@ export function SkillsPage(props: { directory?: string }) {
       await refreshCatalog({ preserveSelection })
       return true
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Request failed"
+      const message = error instanceof Error ? error.message : language.t("skills.requestFailed")
       toast.error(message)
       return false
     } finally {
@@ -438,7 +446,7 @@ export function SkillsPage(props: { directory?: string }) {
         replaceInstalledSkill(response.skill)
         toast.success(permissionRuleMessage(skill.name, action))
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Request failed"
+        const message = error instanceof Error ? error.message : language.t("skills.requestFailed")
         toast.error(message)
       } finally {
         setBusyKey(undefined)
@@ -471,7 +479,7 @@ export function SkillsPage(props: { directory?: string }) {
     const created = await runMutation(
       "create-skill",
       () => createCustomSkill(payload, currentDirectory),
-      "Created new skill.",
+      language.t("skills.createdNewSkill"),
       false,
     )
 
@@ -495,12 +503,12 @@ export function SkillsPage(props: { directory?: string }) {
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search skills"
+              placeholder={language.t("skills.searchPlaceholder")}
               className="min-w-0 flex-1"
             />
             <Button type="button" className="shrink-0" onClick={() => setNewSkillOpen(true)}>
               <PlusIcon className="size-4" />
-              New skill
+              {language.t("skills.newSkill")}
             </Button>
             <Button
               type="button"
@@ -509,17 +517,19 @@ export function SkillsPage(props: { directory?: string }) {
               onClick={() => void refreshCatalog({ preserveSelection: true, force: true })}
             >
               <RefreshCwIcon className="size-4" />
-              Refresh
+              {language.t("common.refresh")}
             </Button>
           </div>
         </header>
 
         <div className="space-y-6" aria-busy={refreshing || loading}>
-          {loading ? <p className="text-sm text-text-weak">Loading skills...</p> : null}
+          {loading ? (
+            <p className="text-sm text-text-weak">{language.t("skills.loadingSkills")}</p>
+          ) : null}
           <section className="space-y-4">
             <SectionHeader
-              title="Installed"
-              description="Set allow, ask, or block rules for each skill name, inspect details, and remove Buddy-managed skills."
+              title={language.t("skills.installedSection.title")}
+              description={language.t("skills.installedSection.description")}
             />
 
             {loading ? (
@@ -559,8 +569,7 @@ export function SkillsPage(props: { directory?: string }) {
             ) : (
               <Card className="border-dashed border-border-base/60 bg-surface-raised-base/30">
                 <CardContent className="p-6 text-sm text-text-weak">
-                  No installed skills matched your search. Add a curated skill below or create a new
-                  custom one.
+                  {language.t("skills.installedSection.empty")}
                 </CardContent>
               </Card>
             )}
@@ -570,8 +579,8 @@ export function SkillsPage(props: { directory?: string }) {
 
           <section className="space-y-4 pb-4">
             <SectionHeader
-              title="Library"
-              description="Install curated skills from the synced catalog."
+              title={language.t("skills.librarySection.title")}
+              description={language.t("skills.librarySection.description")}
             />
 
             {filteredLibrary.length > 0 ? (
@@ -585,7 +594,7 @@ export function SkillsPage(props: { directory?: string }) {
                       void runMutation(
                         `install:${skill.id}`,
                         () => installLibrarySkill(skill.id, currentDirectory),
-                        `Added ${skill.name}.`,
+                        language.t("skills.librarySection.addedSkill", { name: skill.name }),
                       )
                     }
                   />
@@ -594,7 +603,7 @@ export function SkillsPage(props: { directory?: string }) {
             ) : (
               <Card className="border-dashed border-border-base/60 bg-surface-raised-base/30">
                 <CardContent className="p-6 text-sm text-text-weak">
-                  No library skills matched your search.
+                  {language.t("skills.librarySection.empty")}
                 </CardContent>
               </Card>
             )}
@@ -632,13 +641,15 @@ export function SkillsPage(props: { directory?: string }) {
                 </Badge>
                 <Badge variant="outline">{statusLabel(selectedSkill.permissionAction)}</Badge>
                 {selectedSkill.libraryID ? (
-                  <Badge variant="outline">Library ID: {selectedSkill.libraryID}</Badge>
+                  <Badge variant="outline">
+                    {language.t("skills.detail.libraryIdPrefix")} {selectedSkill.libraryID}
+                  </Badge>
                 ) : null}
               </div>
 
               <div className="space-y-2 rounded-2xl border border-border-base/60 bg-surface-raised-base/60 p-4">
                 <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-text-weak">
-                  Permission
+                  {language.t("skills.detail.permission")}
                 </p>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="space-y-1">
@@ -661,7 +672,7 @@ export function SkillsPage(props: { directory?: string }) {
                 <div className="space-y-2 rounded-2xl border border-border-base/60 bg-surface-weak/20 p-4">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-text-weak">
-                      Example prompt
+                      {language.t("skills.detail.examplePrompt")}
                     </p>
                     <Button
                       type="button"
@@ -670,11 +681,11 @@ export function SkillsPage(props: { directory?: string }) {
                       onClick={() =>
                         void copyWithSuccessToast(
                           selectedSkill.examplePrompt!,
-                          `Copied prompt for ${selectedSkill.name}.`,
+                          language.t("skills.detail.copiedPrompt", { name: selectedSkill.name }),
                         )
                       }
                     >
-                      Copy
+                      {language.t("skills.detail.copy")}
                     </Button>
                   </div>
                   <p className="whitespace-pre-wrap text-sm text-text-base">
@@ -686,7 +697,7 @@ export function SkillsPage(props: { directory?: string }) {
               <div className="space-y-2 rounded-2xl border border-border-base/60 bg-surface-raised-base/60 p-4">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-text-weak">
-                    Skill content
+                    {language.t("skills.detail.skillContent")}
                   </p>
                   <Button
                     type="button"
@@ -695,11 +706,13 @@ export function SkillsPage(props: { directory?: string }) {
                     onClick={() =>
                       void copyWithSuccessToast(
                         selectedSkill.content,
-                        `Copied skill content for ${selectedSkill.name}.`,
+                        language.t("skills.detail.copiedSkillContent", {
+                          name: selectedSkill.name,
+                        }),
                       )
                     }
                   >
-                    Copy
+                    {language.t("skills.detail.copy")}
                   </Button>
                 </div>
                 <pre className="max-h-[320px] overflow-auto whitespace-pre-wrap rounded-xl bg-surface-weak/30 p-3 text-sm text-text-base">
@@ -710,7 +723,7 @@ export function SkillsPage(props: { directory?: string }) {
               <div className="space-y-2 rounded-2xl border border-border-base/60 bg-surface-raised-base/60 p-4">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-text-weak">
-                    Folder
+                    {language.t("skills.detail.folder")}
                   </p>
                   <Button
                     type="button"
@@ -719,11 +732,11 @@ export function SkillsPage(props: { directory?: string }) {
                     onClick={() =>
                       void copyWithSuccessToast(
                         selectedSkill.directory,
-                        `Copied folder for ${selectedSkill.name}.`,
+                        language.t("skills.detail.copiedFolder", { name: selectedSkill.name }),
                       )
                     }
                   >
-                    Copy path
+                    {language.t("skills.detail.copyPath")}
                   </Button>
                 </div>
                 <p className="break-all text-sm text-text-base">{selectedSkill.directory}</p>
@@ -741,7 +754,7 @@ export function SkillsPage(props: { directory?: string }) {
                           const removed = await runMutation(
                             `remove:${selectedSkill.name}`,
                             () => removeSkill(selectedSkill.name, currentDirectory),
-                            `Removed ${selectedSkill.name}.`,
+                            language.t("skills.detail.removedSkill", { name: selectedSkill.name }),
                           )
 
                           if (removed) {
@@ -750,7 +763,7 @@ export function SkillsPage(props: { directory?: string }) {
                         })()
                       }
                     >
-                      Remove
+                      {language.t("skills.detail.remove")}
                     </Button>
                   ) : null}
 
@@ -767,7 +780,7 @@ export function SkillsPage(props: { directory?: string }) {
                   onClick={() => setSelectedSkillName(undefined)}
                 >
                   <XIcon className="size-4" />
-                  Close
+                  {language.t("skills.detail.close")}
                 </Button>
               </DialogFooter>
             </div>
@@ -786,60 +799,68 @@ export function SkillsPage(props: { directory?: string }) {
       >
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Create skill</DialogTitle>
-            <DialogDescription>
-              Save a new Buddy-managed skill and wire it into the local skill path automatically.
-            </DialogDescription>
+            <DialogTitle>{language.t("skills.createDialog.title")}</DialogTitle>
+            <DialogDescription>{language.t("skills.createDialog.description")}</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <p className="text-sm font-medium text-text-base">Name</p>
+                <p className="text-sm font-medium text-text-base">
+                  {language.t("skills.createDialog.name")}
+                </p>
                 <Input
                   value={form.name}
                   onChange={(event) => updateForm({ name: event.target.value })}
-                  placeholder="release-check"
+                  placeholder={language.t("skills.createDialog.namePlaceholder")}
                 />
               </div>
 
               <div className="space-y-2">
-                <p className="text-sm font-medium text-text-base">Description</p>
+                <p className="text-sm font-medium text-text-base">
+                  {language.t("skills.createDialog.descriptionLabel")}
+                </p>
                 <Input
                   value={form.description}
                   onChange={(event) => updateForm({ description: event.target.value })}
-                  placeholder="What this skill does"
+                  placeholder={language.t("skills.createDialog.descriptionPlaceholder")}
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <p className="text-sm font-medium text-text-base">Example prompt</p>
+              <p className="text-sm font-medium text-text-base">
+                {language.t("skills.createDialog.examplePrompt")}
+              </p>
               <Textarea
                 value={form.examplePrompt}
                 onChange={(event) => updateForm({ examplePrompt: event.target.value })}
                 rows={3}
-                placeholder="Optional. Give the user a strong starting prompt."
+                placeholder={language.t("skills.createDialog.examplePromptPlaceholder")}
               />
             </div>
 
             <div className="space-y-2">
-              <p className="text-sm font-medium text-text-base">Instructions</p>
+              <p className="text-sm font-medium text-text-base">
+                {language.t("skills.createDialog.instructions")}
+              </p>
               <Textarea
                 value={form.content}
                 onChange={(event) => updateForm({ content: event.target.value })}
                 rows={10}
-                placeholder="Write the actual skill instructions here."
+                placeholder={language.t("skills.createDialog.instructionsPlaceholder")}
               />
             </div>
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setNewSkillOpen(false)}>
-              Cancel
+              {language.t("common.cancel")}
             </Button>
             <Button disabled={createDisabled} onClick={() => void submitNewSkill()}>
-              {busyKey === "create-skill" ? "Creating..." : "Create skill"}
+              {busyKey === "create-skill"
+                ? language.t("skills.createDialog.creating")
+                : language.t("skills.createDialog.create")}
             </Button>
           </DialogFooter>
         </DialogContent>

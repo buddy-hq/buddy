@@ -1,4 +1,5 @@
 import { Badge, Button, Input, Separator, Switch } from "@buddy/ui"
+import { language } from "@/context/language"
 import type { McpStatusMap } from "@/state/chat-types"
 import { formatMcpError, getMcpStatusLabel, type McpConfig } from "./mcp-config-schema"
 
@@ -23,15 +24,15 @@ export function McpListPanel(props: McpListPanelProps) {
     <>
       <div className="flex items-center justify-between gap-3 rounded-xl border border-border-base/60 bg-surface-weak/20 px-3 py-2">
         <div className="min-w-0">
-          <p className="text-sm font-medium text-text-base">MCP definitions</p>
+          <p className="text-sm font-medium text-text-base">{language.t("mcp.listPanel.title")}</p>
           <p className="text-xs text-text-weak">
             {props.allNames.length > 0
-              ? "Manage saved MCPs here. Use search below to filter the list."
-              : "Add an MCP to save it to this notebook's buddy.jsonc."}
+              ? language.t("mcp.listPanel.descriptionWithItems")
+              : language.t("mcp.listPanel.descriptionEmpty")}
           </p>
         </div>
         <Button type="button" size="sm" className="shrink-0" onClick={props.onAddMcp}>
-          Add MCP
+          {language.t("mcp.listPanel.addMcp")}
         </Button>
       </div>
 
@@ -39,7 +40,7 @@ export function McpListPanel(props: McpListPanelProps) {
         <Input
           value={props.query}
           onChange={(event) => props.setQuery(event.target.value)}
-          placeholder="Filter MCPs"
+          placeholder={language.t("mcp.listPanel.filterPlaceholder")}
           autoFocus
         />
       ) : null}
@@ -53,15 +54,15 @@ export function McpListPanel(props: McpListPanelProps) {
             const label = status
               ? getMcpStatusLabel(status.status)
               : config?.enabled === false
-                ? "Disabled"
-                : "Configured"
+                ? language.t("mcp.statusLabels.disabled")
+                : language.t("mcp.listPanel.configured")
             const isPending = props.pendingName === name
             const pendingLabel =
               status?.status === "connected"
-                ? "Disconnecting..."
+                ? language.t("mcp.listPanel.disconnecting")
                 : status?.status === "needs_auth"
-                  ? "Signing in..."
-                  : "Connecting..."
+                  ? language.t("mcp.listPanel.signingIn")
+                  : language.t("mcp.listPanel.connecting")
 
             return (
               <div key={name}>
@@ -100,7 +101,7 @@ export function McpListPanel(props: McpListPanelProps) {
                         variant="outline"
                         onClick={() => props.onEditMcp(name)}
                       >
-                        Edit details
+                        {language.t("mcp.listPanel.editDetails")}
                       </Button>
                     ) : null}
                     {status?.status === "needs_auth" ? (
@@ -113,13 +114,18 @@ export function McpListPanel(props: McpListPanelProps) {
                           void props.onConnectMcp(name)
                         }}
                       >
-                        Connect
+                        {language.t("mcp.listPanel.connect")}
                       </Button>
                     ) : null}
                     <Switch
                       checked={enabled}
                       disabled={isPending}
-                      aria-label={`${enabled ? "Disable" : "Enable"} ${name}`}
+                      aria-label={language.t(
+                        enabled
+                          ? "mcp.listPanel.switchAria.disable"
+                          : "mcp.listPanel.switchAria.enable",
+                        { name: name },
+                      )}
                       onCheckedChange={() => {
                         void props.onToggleMcp(name)
                       }}
@@ -134,14 +140,14 @@ export function McpListPanel(props: McpListPanelProps) {
           <div className="flex flex-col items-start gap-3 px-4 py-8 text-sm text-text-weak">
             <p>
               {props.loading
-                ? "Loading MCPs..."
+                ? language.t("mcp.listPanel.loading")
                 : props.showSearch
-                  ? "No MCPs match your current filter."
-                  : "No MCPs configured yet."}
+                  ? language.t("mcp.listPanel.noMatch")
+                  : language.t("mcp.listPanel.noneConfigured")}
             </p>
             {!props.loading && !props.showSearch ? (
               <Button type="button" size="sm" variant="outline" onClick={props.onAddMcp}>
-                Add your first MCP
+                {language.t("mcp.listPanel.addFirstMcp")}
               </Button>
             ) : null}
           </div>

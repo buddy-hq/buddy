@@ -1,4 +1,5 @@
 import { stringifyError } from "../../lib/api-client"
+import { language } from "@/context/language"
 import type { McpStatusInfo } from "@/state/chat-types"
 
 export type McpLocalConfig = {
@@ -62,11 +63,11 @@ export type McpDraftParseResult =
     }
 
 export const STATUS_LABELS: Record<McpStatusInfo["status"], string> = {
-  connected: "Connected",
-  disabled: "Disabled",
-  failed: "Failed",
-  needs_auth: "Sign in required",
-  needs_client_registration: "Needs setup",
+  connected: language.t("mcp.statusLabels.connected"),
+  disabled: language.t("mcp.statusLabels.disabled"),
+  failed: language.t("mcp.statusLabels.failed"),
+  needs_auth: language.t("mcp.statusLabels.needsAuth"),
+  needs_client_registration: language.t("mcp.statusLabels.needsClientRegistration"),
 }
 
 export function getMcpStatusLabel(status: McpStatusInfo["status"]) {
@@ -82,11 +83,11 @@ export function formatMcpError(error: unknown) {
     normalized.includes("fetch failed") ||
     normalized.includes("failed to fetch")
   ) {
-    return "Could not connect to this MCP. Check the address and try again."
+    return language.t("mcp.errors.connectFailed")
   }
 
   if (normalized.includes("timeout") || normalized.includes("timed out")) {
-    return "The connection timed out. The server may be busy or unavailable."
+    return language.t("mcp.errors.timeout")
   }
 
   if (
@@ -95,7 +96,7 @@ export function formatMcpError(error: unknown) {
     normalized.includes("unauthorized") ||
     normalized.includes("forbidden")
   ) {
-    return "Authentication failed. Verify your credentials and try again."
+    return language.t("mcp.errors.authFailed")
   }
 
   return message
@@ -250,7 +251,10 @@ function parseOptionalStringMap(label: string, field: McpFieldName, value: strin
     const parsed = JSON.parse(trimmed) as unknown
     if (!isStringRecord(parsed)) {
       return {
-        fieldError: createFieldError(field, `${label} must be a JSON object with text values.`),
+        fieldError: createFieldError(
+          field,
+          language.t("mcp.validation.jsonObjectTextValues", { label: label }),
+        ),
       } as const
     }
     return {
@@ -258,7 +262,7 @@ function parseOptionalStringMap(label: string, field: McpFieldName, value: strin
     } as const
   } catch {
     return {
-      fieldError: createFieldError(field, `${label} must be valid JSON.`),
+      fieldError: createFieldError(field, language.t("mcp.validation.validJson", { label: label })),
     } as const
   }
 }
@@ -267,7 +271,7 @@ export function buildConfigFromDraft(draft: McpFormDraft): McpDraftParseResult {
   const name = draft.name.trim()
   if (!name) {
     return {
-      fieldError: createFieldError("name", "Name is required."),
+      fieldError: createFieldError("name", language.t("mcp.validation.nameRequired")),
     } as const
   }
 
@@ -276,7 +280,7 @@ export function buildConfigFromDraft(draft: McpFormDraft): McpDraftParseResult {
 
   if (timeoutValue.length > 0 && (!Number.isInteger(timeout) || !timeout || timeout <= 0)) {
     return {
-      fieldError: createFieldError("timeout", "Timeout must be a positive whole number."),
+      fieldError: createFieldError("timeout", language.t("mcp.validation.timeoutPositiveWhole")),
     } as const
   }
 
@@ -284,7 +288,7 @@ export function buildConfigFromDraft(draft: McpFormDraft): McpDraftParseResult {
     const commandInput = draft.command.trim()
     if (!commandInput) {
       return {
-        fieldError: createFieldError("command", "Local command is required."),
+        fieldError: createFieldError("command", language.t("mcp.validation.localCommandRequired")),
       } as const
     }
 
@@ -299,7 +303,7 @@ export function buildConfigFromDraft(draft: McpFormDraft): McpDraftParseResult {
         return {
           fieldError: createFieldError(
             "command",
-            "Command list must be a JSON array of text values.",
+            language.t("mcp.validation.commandArrayRequired"),
           ),
         } as const
       } catch {
@@ -315,7 +319,11 @@ export function buildConfigFromDraft(draft: McpFormDraft): McpDraftParseResult {
       } as const
     }
 
-    const environment = parseOptionalStringMap("Environment", "environment", draft.environmentText)
+    const environment = parseOptionalStringMap(
+      language.t("mcp.localFields.environmentLabel"),
+      "environment",
+      draft.environmentText,
+    )
     if ("fieldError" in environment && environment.fieldError) {
       return {
         fieldError: environment.fieldError,
@@ -337,7 +345,7 @@ export function buildConfigFromDraft(draft: McpFormDraft): McpDraftParseResult {
   const url = draft.url.trim()
   if (!url) {
     return {
-      fieldError: createFieldError("url", "Remote URL is required."),
+      fieldError: createFieldError("url", language.t("mcp.validation.remoteUrlRequired")),
     } as const
   }
 
@@ -346,11 +354,15 @@ export function buildConfigFromDraft(draft: McpFormDraft): McpDraftParseResult {
     void parsedUrl
   } catch {
     return {
-      fieldError: createFieldError("url", "Remote URL must be valid."),
+      fieldError: createFieldError("url", language.t("mcp.validation.remoteUrlValid")),
     } as const
   }
 
-  const headers = parseOptionalStringMap("Headers", "headers", draft.headersText)
+  const headers = parseOptionalStringMap(
+    language.t("mcp.remoteFields.headersJson"),
+    "headers",
+    draft.headersText,
+  )
   if ("fieldError" in headers && headers.fieldError) {
     return {
       fieldError: headers.fieldError,
@@ -361,7 +373,7 @@ export function buildConfigFromDraft(draft: McpFormDraft): McpDraftParseResult {
     return {
       fieldError: createFieldError(
         "headers",
-        "Remove the Authorization header when browser sign-in is enabled. Use either browser sign-in or header-based auth, not both.",
+        language.t("mcp.validation.removeAuthHeaderWithOAuth"),
       ),
     } as const
   }

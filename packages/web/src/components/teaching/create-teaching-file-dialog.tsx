@@ -9,6 +9,7 @@ import {
   DialogTitle,
   Input,
 } from "@buddy/ui"
+import { language } from "@/context/language"
 
 type CreateTeachingFileDialogProps = {
   open: boolean
@@ -17,7 +18,7 @@ type CreateTeachingFileDialogProps = {
 }
 
 export function CreateTeachingFileDialog(props: CreateTeachingFileDialogProps) {
-  const [value, setValue] = useState("helpers.ts")
+  const [value, setValue] = useState<string>(language.t("teaching.createFileDialog.defaultPath"))
   const inputRef = useRef<HTMLInputElement>(null)
 
   function handleConfirm() {
@@ -25,7 +26,7 @@ export function CreateTeachingFileDialog(props: CreateTeachingFileDialogProps) {
     if (!trimmed) return
     props.onConfirm(trimmed)
     props.onOpenChange(false)
-    setValue("helpers.ts")
+    setValue(language.t("teaching.createFileDialog.defaultPath"))
   }
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
@@ -39,31 +40,33 @@ export function CreateTeachingFileDialog(props: CreateTeachingFileDialogProps) {
     <Dialog
       open={props.open}
       onOpenChange={(next) => {
-        if (!next) setValue("helpers.ts")
+        if (!next) setValue(language.t("teaching.createFileDialog.defaultPath"))
         props.onOpenChange(next)
       }}
     >
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>New teaching file</DialogTitle>
-          <DialogDescription>Enter a path relative to the workspace root.</DialogDescription>
+          <DialogTitle>{language.t("teaching.createFileDialog.title")}</DialogTitle>
+          <DialogDescription>
+            {language.t("teaching.createFileDialog.description")}
+          </DialogDescription>
         </DialogHeader>
         <Input
           ref={inputRef}
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="helpers.ts"
+          placeholder={language.t("teaching.createFileDialog.defaultPath")}
           autoFocus
           className="mt-1"
-          aria-label="File path"
+          aria-label={language.t("teaching.createFileDialog.filePathAria")}
         />
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => props.onOpenChange(false)}>
-            Cancel
+            {language.t("common.cancel")}
           </Button>
           <Button type="button" onClick={handleConfirm} disabled={!value.trim()}>
-            Create
+            {language.t("teaching.createFileDialog.create")}
           </Button>
         </DialogFooter>
       </DialogContent>

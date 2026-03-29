@@ -14,6 +14,7 @@ import {
   SelectValue,
   Switch,
 } from "@buddy/ui"
+import { language } from "@/context/language"
 import {
   getFieldErrorId,
   type McpEditorMode,
@@ -53,17 +54,17 @@ export function McpEditorDialog(props: McpEditorDialogProps) {
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>
-            {props.mode === "create" ? "Add MCP" : `Edit ${props.draft.name}`}
+            {props.mode === "create"
+              ? language.t("mcp.editorDialog.addTitle")
+              : language.t("mcp.editorDialog.editTitle", { name: props.draft.name })}
           </DialogTitle>
-          <DialogDescription>
-            Save a notebook-level MCP definition in this repository's config.
-          </DialogDescription>
+          <DialogDescription>{language.t("mcp.editorDialog.description")}</DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4">
           <div className="grid gap-2">
             <label className="text-sm font-medium text-text-base" htmlFor="mcp-name">
-              Name
+              {language.t("mcp.editorDialog.name")}
             </label>
             <Input
               id="mcp-name"
@@ -77,7 +78,7 @@ export function McpEditorDialog(props: McpEditorDialogProps) {
                 }))
                 props.clearFieldError("name")
               }}
-              placeholder="docs"
+              placeholder={language.t("mcp.editorDialog.namePlaceholder")}
               {...props.getFieldProps("name")}
             />
             {props.fieldErrors.name ? (
@@ -89,7 +90,7 @@ export function McpEditorDialog(props: McpEditorDialogProps) {
 
           <div className="grid gap-2">
             <label className="text-sm font-medium text-text-base" htmlFor="mcp-type">
-              Type
+              {language.t("mcp.editorDialog.type")}
             </label>
             <Select
               value={props.draft.type}
@@ -106,16 +107,20 @@ export function McpEditorDialog(props: McpEditorDialogProps) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="remote">Remote</SelectItem>
-                <SelectItem value="local">Local</SelectItem>
+                <SelectItem value="remote">{language.t("mcp.editorDialog.remote")}</SelectItem>
+                <SelectItem value="local">{language.t("mcp.editorDialog.local")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
             <div>
-              <p className="text-sm font-medium text-text-base">Enabled by default</p>
-              <p className="text-xs text-text-weak">Saved as the MCP's initial enabled state.</p>
+              <p className="text-sm font-medium text-text-base">
+                {language.t("mcp.editorDialog.enabledByDefault")}
+              </p>
+              <p className="text-xs text-text-weak">
+                {language.t("mcp.editorDialog.enabledByDefaultDescription")}
+              </p>
             </div>
             <Switch
               checked={props.draft.enabled}
@@ -130,7 +135,7 @@ export function McpEditorDialog(props: McpEditorDialogProps) {
 
           <div className="grid gap-2">
             <label className="text-sm font-medium text-text-base" htmlFor="mcp-timeout">
-              Timeout (seconds)
+              {language.t("mcp.editorDialog.timeoutSeconds")}
             </label>
             <Input
               id="mcp-timeout"
@@ -143,7 +148,7 @@ export function McpEditorDialog(props: McpEditorDialogProps) {
                 }))
                 props.clearFieldError("timeout")
               }}
-              placeholder="30"
+              placeholder={language.t("mcp.editorDialog.timeoutPlaceholder")}
               inputMode="numeric"
               {...props.getFieldProps("timeout")}
             />
@@ -192,7 +197,7 @@ export function McpEditorDialog(props: McpEditorDialogProps) {
             onClick={() => props.onOpenChange(false)}
             disabled={props.editorSaving}
           >
-            Cancel
+            {language.t("common.cancel")}
           </Button>
           <Button
             type="button"
@@ -202,10 +207,10 @@ export function McpEditorDialog(props: McpEditorDialogProps) {
             disabled={props.editorSaving}
           >
             {props.editorSaving
-              ? "Saving..."
+              ? language.t("common.saving")
               : props.mode === "create"
-                ? "Add MCP"
-                : "Save changes"}
+                ? language.t("mcp.editorDialog.saveAdd")
+                : language.t("mcp.editorDialog.saveChanges")}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -31,6 +31,7 @@ import {
   FileCodeIcon,
   FileArchiveIcon,
 } from "lucide-react"
+import { language } from "@/context/language"
 import {
   addResource,
   loadResources,
@@ -194,11 +195,10 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
       <div className="flex items-start justify-between gap-3 pb-2">
         <div className="min-w-0 space-y-1.5">
           <p className="text-xs font-medium uppercase tracking-wide text-text-weak leading-none">
-            Resources
+            {language.t("resourcesPanel.title")}
           </p>
           <p className="text-xs text-text-weak line-clamp-2">
-            Add notebook-local resource packs, refresh their extracted content, and keep aliases
-            stable.
+            {language.t("resourcesPanel.description")}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
@@ -208,13 +208,13 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
             className="px-2"
             onClick={() => void refreshResources()}
             disabled={loading}
-            title="Refresh resources"
+            title={language.t("resourcesPanel.refreshResources")}
           >
             <RefreshCwIcon className={`size-4 ${loading ? "animate-spin" : ""}`} />
           </Button>
           <Button size="sm" onClick={() => void onAddResource()} disabled={loading}>
             <PlusIcon className="mr-1.5 size-4" />
-            Add
+            {language.t("resourcesPanel.add")}
           </Button>
         </div>
       </div>
@@ -265,7 +265,7 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
                           {resource.status === "error" ? (
                             <span className="flex items-center gap-1 text-[11px] font-medium text-icon-critical-base">
                               <AlertCircleIcon className="size-3" />
-                              Processing failed
+                              {language.t("resourcesPanel.processingFailed")}
                             </span>
                           ) : resource.preparedAt ? (
                             <p className="text-[11px] text-text-weak">
@@ -292,7 +292,7 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
                               await rebuildResource(directory, { resourceKey: resource.id })
                             })
                           }}
-                          title="Retry"
+                          title={language.t("resourcesPanel.retry")}
                           disabled={isBusy}
                         >
                           <RefreshCwIcon className="size-3.5" />
@@ -305,7 +305,9 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
                         <button
                           type="button"
                           className="inline-flex size-7 items-center justify-center rounded-md text-text-weak transition-colors hover:bg-surface-base-hover hover:text-text-base disabled:pointer-events-none disabled:opacity-50"
-                          aria-label={`Options for ${resource.alias}`}
+                          aria-label={language.t("resourcesPanel.optionsForResource", {
+                            alias: resource.alias,
+                          })}
                           disabled={isBusy}
                         >
                           <EllipsisIcon className="size-4" />
@@ -315,7 +317,10 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
                         <DropdownMenuItem
                           onSelect={() => {
                             const nextAlias = window
-                              .prompt("Rename resource", resource.alias)
+                              .prompt(
+                                language.t("resourcesPanel.renamePromptTitle"),
+                                resource.alias,
+                              )
                               ?.trim()
                             if (!nextAlias || nextAlias === resource.alias) return
                             void runResourceAction(resource.id, async () => {
@@ -326,7 +331,7 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
                             })
                           }}
                         >
-                          Rename
+                          {language.t("resourcesPanel.rename")}
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onSelect={() => {
@@ -337,7 +342,7 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
                             })
                           }}
                         >
-                          Rebuild
+                          {language.t("resourcesPanel.rebuild")}
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
@@ -346,7 +351,7 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
                             setResourcePendingRemoval(resource)
                           }}
                         >
-                          Remove
+                          {language.t("resourcesPanel.remove")}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -366,9 +371,11 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
             <div className="flex size-12 items-center justify-center rounded-full bg-surface-weak">
               <PlusIcon className="size-6 text-text-weak" />
             </div>
-            <h3 className="mt-4 text-sm font-medium leading-none">No resources added</h3>
+            <h3 className="mt-4 text-sm font-medium leading-none">
+              {language.t("resourcesPanel.emptyTitle")}
+            </h3>
             <p className="mt-1.5 max-w-[200px] text-xs text-text-weak">
-              Add notebook-local resource packs to give Buddy more context.
+              {language.t("resourcesPanel.emptyDescription")}
             </p>
             <Button
               size="sm"
@@ -377,7 +384,7 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
               disabled={loading}
             >
               <PlusIcon className="mr-1.5 size-4" />
-              Add Resource
+              {language.t("resourcesPanel.addResource")}
             </Button>
           </div>
         )}
@@ -391,28 +398,25 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove resource</AlertDialogTitle>
+            <AlertDialogTitle>{language.t("resourcesPanel.removeResourceTitle")}</AlertDialogTitle>
             <AlertDialogDescription className="break-all text-left">
-              {resourcePendingRemoval ? (
-                <>
-                  Remove <span className="font-mono">"{resourcePendingRemoval.alias}"</span> and
-                  delete its files from notebook resources?
-                </>
-              ) : (
-                "Remove this resource and delete its files?"
-              )}
+              {resourcePendingRemoval
+                ? language.t("resourcesPanel.removeResourceQuestion", {
+                    alias: resourcePendingRemoval.alias,
+                  })
+                : language.t("resourcesPanel.removeResourceFallbackQuestion")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel variant="outline" size="default">
-              Cancel
+              {language.t("common.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               size="default"
               onClick={() => void confirmRemovePendingResource()}
             >
-              Remove
+              {language.t("resourcesPanel.remove")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

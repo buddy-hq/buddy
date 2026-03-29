@@ -1,4 +1,5 @@
 import { Button, Input, Switch, Textarea } from "@buddy/ui"
+import { language } from "@/context/language"
 import { getFieldErrorId, type McpFormDraft } from "./mcp-config-schema"
 
 type McpRemoteFieldsProps = {
@@ -20,7 +21,7 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
     <>
       <div className="grid gap-2">
         <label className="text-sm font-medium text-text-base" htmlFor="mcp-url">
-          Remote URL
+          {language.t("mcp.remoteFields.remoteUrl")}
         </label>
         <Input
           id="mcp-url"
@@ -33,7 +34,7 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
             }))
             props.clearFieldError("url")
           }}
-          placeholder="https://example.com/mcp"
+          placeholder={language.t("mcp.remoteFields.urlPlaceholder")}
           {...props.getFieldProps("url")}
         />
         {props.fieldErrors.url ? (
@@ -45,7 +46,7 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
 
       <div className="grid gap-2">
         <label className="text-sm font-medium text-text-base" htmlFor="mcp-headers">
-          Headers (JSON)
+          {language.t("mcp.remoteFields.headersJson")}
         </label>
         <Textarea
           id="mcp-headers"
@@ -58,7 +59,7 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
             }))
             props.clearFieldError("headers")
           }}
-          placeholder={`{\n  "Authorization": "Bearer ..."\n}`}
+          placeholder={language.t("mcp.remoteFields.headersPlaceholder")}
           className="min-h-24"
           {...props.getFieldProps("headers")}
         />
@@ -71,10 +72,11 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
 
       <div className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
         <div>
-          <p className="text-sm font-medium text-text-base">OAuth</p>
+          <p className="text-sm font-medium text-text-base">
+            {language.t("mcp.remoteFields.oauth")}
+          </p>
           <p className="text-xs text-text-weak">
-            Remote MCPs use browser sign-in by default. Leave headers empty for browser login, or
-            turn browser sign-in off to use an Authorization header instead.
+            {language.t("mcp.remoteFields.oauthDescription")}
           </p>
         </div>
         <Switch
@@ -94,19 +96,21 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
       {props.draft.oauthEnabled ? (
         <div className="grid gap-4 rounded-lg border p-3">
           <div className="space-y-1">
-            <p className="text-sm font-medium text-text-base">Browser login</p>
+            <p className="text-sm font-medium text-text-base">
+              {language.t("mcp.remoteFields.browserLogin")}
+            </p>
             <p className="text-xs text-text-weak">
-              Most hosted MCPs, including Linear, work without any client details here. Save with
-              browser sign-in on, then turn the MCP on to start the browser login flow.
+              {language.t("mcp.remoteFields.browserLoginDescription")}
             </p>
           </div>
 
           <div className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
             <div>
-              <p className="text-sm font-medium text-text-base">Custom client details</p>
+              <p className="text-sm font-medium text-text-base">
+                {language.t("mcp.remoteFields.customClientDetails")}
+              </p>
               <p className="text-xs text-text-weak">
-                Optional. Only use these if the MCP provider gave you a client ID/secret or
-                automatic registration fails.
+                {language.t("mcp.remoteFields.customClientDetailsDescription")}
               </p>
             </div>
             <Button
@@ -115,7 +119,9 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
               variant="outline"
               onClick={() => props.setShowOAuthClientFields((current) => !current)}
             >
-              {props.showOAuthClientFields ? "Hide details" : "Add details"}
+              {props.showOAuthClientFields
+                ? language.t("mcp.remoteFields.hideDetails")
+                : language.t("mcp.remoteFields.addDetails")}
             </Button>
           </div>
 
@@ -123,7 +129,7 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
             <>
               <div className="grid gap-2">
                 <label className="text-sm font-medium text-text-base" htmlFor="mcp-client-id">
-                  Client ID (optional)
+                  {language.t("mcp.remoteFields.clientIdOptional")}
                 </label>
                 <Input
                   id="mcp-client-id"
@@ -139,7 +145,7 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
 
               <div className="grid gap-2">
                 <label className="text-sm font-medium text-text-base" htmlFor="mcp-client-secret">
-                  Client secret (optional)
+                  {language.t("mcp.remoteFields.clientSecretOptional")}
                 </label>
                 <Input
                   id="mcp-client-secret"
@@ -155,7 +161,7 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
 
               <div className="grid gap-2">
                 <label className="text-sm font-medium text-text-base" htmlFor="mcp-scope">
-                  Scope (optional)
+                  {language.t("mcp.remoteFields.scopeOptional")}
                 </label>
                 <Input
                   id="mcp-scope"
@@ -166,7 +172,7 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
                       scope: event.target.value,
                     }))
                   }}
-                  placeholder="Leave blank to use the server default"
+                  placeholder={language.t("mcp.remoteFields.scopePlaceholder")}
                 />
               </div>
             </>
