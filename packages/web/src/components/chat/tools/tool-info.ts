@@ -1,4 +1,5 @@
 import { basename, dirname } from "../shared/utils"
+import { language } from "@/context/language"
 import type { ToolInfo, ToolState } from "./types"
 
 function countNonEmptyLines(value: string): number {
@@ -31,9 +32,12 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
       tool === "websearch"
     ) {
       const matchCount = countNonEmptyLines(output)
-      summary = `${matchCount} ${matchCount === 1 ? "result" : "results"}`
+      summary = language.t(
+        matchCount === 1 ? "chatTools.info.resultCount.one" : "chatTools.info.resultCount.other",
+        { count: matchCount },
+      )
     } else if (tool === "bash") {
-      summary = "Command executed"
+      summary = language.t("chatTools.commandExecuted")
     }
   }
 
@@ -43,7 +47,7 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
       if (typeof input.offset === "number") args.push(`offset=${input.offset}`)
       if (typeof input.limit === "number") args.push(`limit=${input.limit}`)
       return {
-        title: "Read",
+        title: language.t("chatTools.info.read"),
         subtitle: filePath ? basename(filePath) : undefined,
         detail: filePath ? dirname(filePath) : undefined,
         summary,
@@ -52,13 +56,13 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
     }
     case "list":
       return {
-        title: "List",
+        title: language.t("chatTools.info.list"),
         subtitle: path ? dirname(path) : "/",
         summary,
       }
     case "glob":
       return {
-        title: "Glob",
+        title: language.t("chatTools.info.glob"),
         subtitle: path ? dirname(path) : "/",
         summary,
         args: pattern ? [`pattern=${pattern}`] : [],
@@ -68,7 +72,7 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
       if (pattern) args.push(`pattern=${pattern}`)
       if (include) args.push(`include=${include}`)
       return {
-        title: "Grep",
+        title: language.t("chatTools.info.grep"),
         subtitle: path ? dirname(path) : "/",
         summary,
         args,
@@ -76,60 +80,62 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
     }
     case "webfetch":
       return {
-        title: "Webfetch",
+        title: language.t("chatTools.info.webfetch"),
         subtitle: url,
         summary,
       }
     case "websearch":
       return {
-        title: "Websearch",
+        title: language.t("chatTools.info.websearch"),
         subtitle: query,
         summary,
       }
     case "codesearch":
       return {
-        title: "Codesearch",
+        title: language.t("chatTools.info.codesearch"),
         subtitle: query,
         summary,
       }
     case "task":
       return {
-        title: subagent ? `Agent (${subagent})` : "Agent task",
+        title: subagent
+          ? language.t("chatTools.info.agent", { subagent: subagent })
+          : language.t("chatTools.info.agentTask"),
         subtitle: description,
       }
     case "write":
       return {
-        title: "Write",
+        title: language.t("chatTools.info.write"),
         subtitle: filePath ? basename(filePath) : undefined,
         detail: filePath ? dirname(filePath) : undefined,
       }
     case "edit":
       return {
-        title: "Edit",
+        title: language.t("chatTools.info.edit"),
         subtitle: filePath ? basename(filePath) : undefined,
         detail: filePath ? dirname(filePath) : undefined,
       }
     case "apply_patch":
       return {
-        title: "Patch",
+        title: language.t("chatTools.info.patch"),
         subtitle: description,
       }
     case "bash":
       return {
-        title: "Shell",
+        title: language.t("chatTools.info.shell"),
         subtitle: description,
         summary,
       }
     case "question":
       return {
-        title: "Questions",
+        title: language.t("chatTools.info.questions"),
         subtitle: description,
       }
     case "python_calculator":
       return {
-        title: "Python calculator",
+        title: language.t("chatTools.info.pythonCalculator"),
         subtitle: description,
-        summary: output ? `Result: ${output.trim()}` : undefined,
+        summary: output ? language.t("chatTools.info.result", { value: output.trim() }) : undefined,
       }
     case "pedagogy_resource_ingest_full_text": {
       const resource =
@@ -139,28 +145,30 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
           ? state.metadata.fullTextEstTokens
           : undefined
       return {
-        title: "Full text",
+        title: language.t("chatTools.info.fullText"),
         subtitle: resource,
         summary:
           fullTextEstTokens !== undefined
-            ? `${fullTextEstTokens.toLocaleString()} tokens loaded`
+            ? language.t("chatTools.info.tokensLoaded", {
+                count: fullTextEstTokens.toLocaleString(),
+              })
             : summary,
       }
     }
     case "skill":
       return {
-        title: "Skill",
+        title: language.t("chatTools.info.skill"),
         subtitle: typeof input.name === "string" ? input.name : description,
       }
     case "render_figure":
     case "render_freeform_figure":
       return {
-        title: "Figure",
+        title: language.t("chatTools.info.figure"),
         subtitle: alt,
       }
     case "render_mermaid":
       return {
-        title: "Mermaid",
+        title: language.t("chatTools.info.mermaid"),
         subtitle: alt,
       }
     default:

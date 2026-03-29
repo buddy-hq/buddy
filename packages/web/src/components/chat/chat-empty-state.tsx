@@ -1,3 +1,4 @@
+import { language } from "@/context/language"
 import buddyIcon from "../../../public/buddy-icon.png"
 
 type ChatEmptyStateProps = {
@@ -12,12 +13,14 @@ export function ChatEmptyState(props: ChatEmptyStateProps) {
       <div className="flex flex-col items-center text-center">
         <img
           src={buddyIcon}
-          alt="Buddy"
+          alt={language.t("routes.chat.productName")}
           className="mb-6 size-12 rounded-xl opacity-90 transition-all duration-300 hover:scale-[1.02] hover:opacity-100 [mix-blend-mode:var(--text-mix-blend-mode)]"
           style={{ filter: logoFilter }}
         />
 
-        <h1 className="text-2xl font-bold tracking-tight text-text-base">Let&apos;s understand</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-text-base">
+          {language.t("chat.emptyState.title")}
+        </h1>
         <p className="mt-1 text-lg font-medium text-text-weak">{props.directoryLabel}</p>
       </div>
     </div>

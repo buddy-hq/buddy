@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { Button } from "@buddy/ui"
+import { language } from "@/context/language"
 import type { PermissionRequest } from "@/state/chat-types"
 
 type PermissionDockProps = {
@@ -9,17 +10,17 @@ type PermissionDockProps = {
 }
 
 const TOOL_HINT: Record<string, string> = {
-  read: "Read files from your notebook.",
-  list: "List files and directories.",
-  glob: "Search files by glob pattern.",
-  grep: "Search file contents by pattern.",
-  write: "Write or replace files in your notebook.",
-  edit: "Edit sections of files.",
-  apply_patch: "Apply structured code patches.",
-  bash: "Run shell commands.",
-  task: "Delegate work to a sub-agent.",
-  webfetch: "Fetch content from URLs.",
-  curriculum_update: "Update the generated learner snapshot.",
+  read: language.t("chat.permissionDock.toolHint.read"),
+  list: language.t("chat.permissionDock.toolHint.list"),
+  glob: language.t("chat.permissionDock.toolHint.glob"),
+  grep: language.t("chat.permissionDock.toolHint.grep"),
+  write: language.t("chat.permissionDock.toolHint.write"),
+  edit: language.t("chat.permissionDock.toolHint.edit"),
+  apply_patch: language.t("chat.permissionDock.toolHint.applyPatch"),
+  bash: language.t("chat.permissionDock.toolHint.bash"),
+  task: language.t("chat.permissionDock.toolHint.task"),
+  webfetch: language.t("chat.permissionDock.toolHint.webfetch"),
+  curriculum_update: language.t("chat.permissionDock.toolHint.curriculumUpdate"),
 }
 
 export function PermissionDock(props: PermissionDockProps) {
@@ -50,7 +51,9 @@ export function PermissionDock(props: PermissionDockProps) {
           >
             !
           </span>
-          <div className="text-[0.87rem] font-semibold text-text-base">Permission required</div>
+          <div className="text-[0.87rem] font-semibold text-text-base">
+            {language.t("chat.permissionDock.permissionRequired")}
+          </div>
         </div>
 
         {hint ? (
@@ -63,7 +66,9 @@ export function PermissionDock(props: PermissionDockProps) {
         <div className="grid grid-cols-[1.1rem_1fr] items-start gap-x-[0.55rem]">
           <span aria-hidden="true" />
           <div className="flex min-w-0 flex-col gap-[0.4rem]">
-            <div className="text-[0.82rem] text-text-base">Tool: {props.request.permission}</div>
+            <div className="text-[0.82rem] text-text-base">
+              {language.t("chat.permissionDock.toolLabel")}: {props.request.permission}
+            </div>
             {props.request.patterns.length > 0 ? (
               <div className="flex max-h-32 flex-col gap-[0.3rem] overflow-auto">
                 {props.request.patterns.map((pattern) => (
@@ -78,8 +83,12 @@ export function PermissionDock(props: PermissionDockProps) {
             ) : null}
             {(props.pendingCount ?? 0) > 0 ? (
               <div className="text-[0.72rem] text-text-weak">
-                +{props.pendingCount} more pending request
-                {(props.pendingCount ?? 0) === 1 ? "" : "s"}
+                {language.t(
+                  (props.pendingCount ?? 0) === 1
+                    ? "chat.permissionDock.pendingRequests.one"
+                    : "chat.permissionDock.pendingRequests.other",
+                  { count: props.pendingCount ?? 0 },
+                )}
               </div>
             ) : null}
           </div>
@@ -95,7 +104,7 @@ export function PermissionDock(props: PermissionDockProps) {
             disabled={responding}
             onClick={() => void onDecide("reject")}
           >
-            Reject
+            {language.t("chat.permissionDock.reject")}
           </Button>
           <Button
             variant="secondary"
@@ -103,10 +112,10 @@ export function PermissionDock(props: PermissionDockProps) {
             disabled={responding}
             onClick={() => void onDecide("always")}
           >
-            Allow always
+            {language.t("chat.permissionDock.allowAlways")}
           </Button>
           <Button size="sm" disabled={responding} onClick={() => void onDecide("once")}>
-            Allow once
+            {language.t("chat.permissionDock.allowOnce")}
           </Button>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import { memo } from "react"
+import { language } from "@/context/language"
 import { HighlightedText } from "../shared/highlighted-text"
 import { CopyAction } from "../shared/copy-action"
 import { Button, cn } from "@buddy/ui"
@@ -98,7 +99,7 @@ export const UserMessagePart = memo(function UserMessagePart({
         </div>
         {queued && (
           <div className="mt-1.5 mr-0.5 text-xs text-text-weak">
-            <span className="animate-pulse">Queued</span>
+            <span className="animate-pulse">{language.t("chat.userMessage.queued")}</span>
           </div>
         )}
       </div>
@@ -121,7 +122,7 @@ export const UserMessagePart = memo(function UserMessagePart({
             className="h-7 px-2 text-xs"
             onClick={() => void onForkMessage()}
           >
-            Fork
+            {language.t("chat.userMessage.fork")}
           </Button>
         ) : null}
         {onRevertMessage ? (
@@ -131,10 +132,10 @@ export const UserMessagePart = memo(function UserMessagePart({
             className="h-7 px-2 text-xs"
             onClick={() => void onRevertMessage()}
           >
-            Revert
+            {language.t("chat.userMessage.revert")}
           </Button>
         ) : null}
-        <CopyAction value={text} label="Copy message" />
+        <CopyAction value={text} label={language.t("chat.userMessage.copyMessage")} />
       </div>
     </>
   )

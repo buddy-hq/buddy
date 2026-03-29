@@ -16,6 +16,7 @@ import {
   TooltipTrigger,
 } from "@buddy/ui"
 import { useCallback, useEffect, useRef, useState } from "react"
+import { language } from "@/context/language"
 import { renderMermaidSvg, type MermaidRenderResult } from "../../../lib/mermaid/render"
 
 const VOID_HTML_TAG_PATTERN =
@@ -50,7 +51,7 @@ function errorMessage(error: unknown): string {
   if (typeof error === "string" && error.trim()) {
     return error.trim()
   }
-  return "Unable to render Mermaid diagram."
+  return language.t("chatTools.mermaidDiagram.renderErrorDefault")
 }
 
 function normalizeSvgMarkupForDownload(svgMarkup: string): string {
@@ -291,7 +292,9 @@ export function MermaidDiagram(props: {
   }
 
   function downloadFileName() {
-    const suffix = props.artifactID ? props.artifactID.slice(0, 8) : "diagram"
+    const suffix = props.artifactID
+      ? props.artifactID.slice(0, 8)
+      : language.t("chatTools.mermaidDiagram.downloadFallbackSuffix")
     return `mermaid-${suffix}.svg`
   }
 
@@ -344,7 +347,7 @@ export function MermaidDiagram(props: {
     <div className={props.className}>
       {state.status === "loading" ? (
         <div className="flex min-h-48 items-center justify-center text-sm text-text-weak">
-          Rendering Mermaid diagram...
+          {language.t("chatTools.mermaidDiagram.rendering")}
         </div>
       ) : null}
 
@@ -361,7 +364,11 @@ export function MermaidDiagram(props: {
             <div className="mt-4 flex justify-end">
               <div className="flex items-center gap-1.5 rounded-full border border-border-base/70 bg-surface-raised-base/82 p-1.5 shadow-[0_20px_60px_rgba(0,0,0,0.18)] backdrop-blur-xl">
                 <DiagramActionButton
-                  label={copyFeedback === "copied" ? "Copied" : "Copy Mermaid"}
+                  label={
+                    copyFeedback === "copied"
+                      ? language.t("chatTools.mermaidDiagram.copied")
+                      : language.t("chatTools.mermaidDiagram.copyMermaid")
+                  }
                   onClick={() => {
                     void copyMermaidSource()
                   }}
@@ -374,7 +381,11 @@ export function MermaidDiagram(props: {
                   }
                 />
                 <DiagramActionButton
-                  label={downloadFeedback === "downloaded" ? "Downloaded" : "Download SVG"}
+                  label={
+                    downloadFeedback === "downloaded"
+                      ? language.t("chatTools.mermaidDiagram.downloaded")
+                      : language.t("chatTools.mermaidDiagram.downloadSvg")
+                  }
                   onClick={downloadRenderedSvg}
                   icon={
                     downloadFeedback === "downloaded" ? (
@@ -385,7 +396,7 @@ export function MermaidDiagram(props: {
                   }
                 />
                 <DiagramActionButton
-                  label="Open Mermaid fullscreen"
+                  label={language.t("chatTools.mermaidDiagram.openFullscreen")}
                   onClick={() => setFullscreenOpen(true)}
                   icon={<ExpandIcon className="size-4" />}
                 />
@@ -403,7 +414,7 @@ export function MermaidDiagram(props: {
               "rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 p-3 text-sm text-icon-critical-base"
             }
           >
-            Unable to render Mermaid diagram: {state.message}
+            {language.t("chatTools.mermaidDiagram.renderErrorPrefix")} {state.message}
           </div>
           {props.showRawSourceOnError ? (
             <pre
@@ -434,7 +445,7 @@ export function MermaidDiagram(props: {
           <DialogHeader className="sr-only">
             <DialogTitle>{props.alt}</DialogTitle>
             <DialogDescription>
-              Fullscreen Mermaid diagram with zoom and pan controls.
+              {language.t("chatTools.mermaidDiagram.fullscreenDescription")}
             </DialogDescription>
           </DialogHeader>
 
@@ -445,7 +456,7 @@ export function MermaidDiagram(props: {
               <div className="max-w-sm rounded-2xl border border-border-base/70 bg-background-base/78 px-4 py-3 shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur-xl">
                 <p className="truncate text-lg font-semibold text-text-base">{props.alt}</p>
                 <p className="mt-1 text-sm text-text-weak">
-                  Fit-to-view on open. Scroll to pan wide diagrams and zoom for detail.
+                  {language.t("chatTools.mermaidDiagram.fullscreenHint")}
                 </p>
               </div>
 
@@ -454,7 +465,7 @@ export function MermaidDiagram(props: {
                   type="button"
                   size="sm"
                   variant="outline"
-                  aria-label="Zoom out Mermaid"
+                  aria-label={language.t("chatTools.mermaidDiagram.zoomOutAria")}
                   onClick={zoomOut}
                   disabled={zoom <= MIN_ZOOM}
                 >
@@ -462,7 +473,7 @@ export function MermaidDiagram(props: {
                 </Button>
                 <div
                   className="rounded-xl border border-border-base/60 bg-surface-raised-base/60 px-3 py-1.5 text-sm font-medium text-text-base"
-                  aria-label="Mermaid zoom level"
+                  aria-label={language.t("chatTools.mermaidDiagram.zoomLevelAria")}
                 >
                   {zoomLabel()}
                 </div>
@@ -470,7 +481,7 @@ export function MermaidDiagram(props: {
                   type="button"
                   size="sm"
                   variant="outline"
-                  aria-label="Zoom in Mermaid"
+                  aria-label={language.t("chatTools.mermaidDiagram.zoomInAria")}
                   onClick={zoomIn}
                   disabled={zoom >= MAX_ZOOM}
                 >
@@ -480,19 +491,19 @@ export function MermaidDiagram(props: {
                   type="button"
                   size="sm"
                   variant="outline"
-                  aria-label="Reset Mermaid zoom"
+                  aria-label={language.t("chatTools.mermaidDiagram.resetZoomAria")}
                   onClick={resetZoom}
                 >
-                  Fit
+                  {language.t("chatTools.mermaidDiagram.fit")}
                 </Button>
                 <DialogClose asChild>
                   <Button
                     type="button"
                     size="sm"
                     variant="outline"
-                    aria-label="Close Mermaid fullscreen"
+                    aria-label={language.t("chatTools.mermaidDiagram.closeFullscreenAria")}
                   >
-                    Close
+                    {language.t("chatTools.mermaidDiagram.close")}
                   </Button>
                 </DialogClose>
               </div>
@@ -500,7 +511,7 @@ export function MermaidDiagram(props: {
 
             {state.status === "loading" ? (
               <div className="flex h-full items-center justify-center p-8 text-sm text-text-weak">
-                Rendering Mermaid diagram...
+                {language.t("chatTools.mermaidDiagram.rendering")}
               </div>
             ) : null}
 
@@ -517,7 +528,7 @@ export function MermaidDiagram(props: {
                           ref={fullscreenSvgHostRef}
                           data-component="mermaid-diagram-fullscreen"
                           role="img"
-                          aria-label={`${props.alt} fullscreen`}
+                          aria-label={`${props.alt} ${language.t("chatTools.mermaidDiagram.fullscreenAriaSuffix")}`}
                           className="w-max [&_svg]:block [&_svg]:h-full [&_svg]:w-full"
                           style={{
                             width: `${svgBounds.width * zoom}px`,
@@ -534,7 +545,7 @@ export function MermaidDiagram(props: {
 
             {state.status === "error" ? (
               <div className="m-6 rounded-2xl border border-border-critical-base/40 bg-surface-critical-base/10 p-4 text-sm text-icon-critical-base shadow-[0_16px_40px_rgba(0,0,0,0.35)]">
-                Unable to render Mermaid diagram: {state.message}
+                {language.t("chatTools.mermaidDiagram.renderErrorPrefix")} {state.message}
               </div>
             ) : null}
           </div>

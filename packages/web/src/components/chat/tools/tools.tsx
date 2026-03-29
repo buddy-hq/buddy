@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { Badge } from "@buddy/ui"
 import { Markdown } from "@/components/Markdown"
+import { language } from "@/context/language"
 import {
   BasicTool,
   ToolOutputPanel,
@@ -49,7 +50,7 @@ function renderSkillTool({ state }: ToolPartProps) {
 
   return (
     <BasicTool
-      trigger={{ title: "Skill", subtitle: skillName }}
+      trigger={{ title: language.t("chatTools.skill"), subtitle: skillName }}
       status={state.status}
       defaultOpen={false}
     >
@@ -61,7 +62,11 @@ function renderSkillTool({ state }: ToolPartProps) {
         </div>
       ) : null}
       {showOutput ? (
-        <ToolOutputPanel output={output} status={state.status} copyLabel="Copy skill" />
+        <ToolOutputPanel
+          output={output}
+          status={state.status}
+          copyLabel={language.t("chatTools.copySkill")}
+        />
       ) : null}
       <ToolAttachmentGallery attachments={state.attachments} />
     </BasicTool>
@@ -77,15 +82,19 @@ function renderBashTool({ state, defaultOpen }: ToolPartProps) {
 
   return (
     <BasicTool
-      trigger={{ title: "Shell", subtitle: shellCommand || undefined }}
+      trigger={{ title: language.t("chatTools.shell"), subtitle: shellCommand || undefined }}
       status={state.status}
       defaultOpen={defaultOpen}
     >
       {shellText ? (
-        <ToolOutputPanel output={shellText} status={state.status} copyLabel="Copy shell output" />
+        <ToolOutputPanel
+          output={shellText}
+          status={state.status}
+          copyLabel={language.t("chatTools.copyShellOutput")}
+        />
       ) : null}
       {!shellText && state.status === "completed" ? (
-        <div className="text-xs text-text-weak">No output</div>
+        <div className="text-xs text-text-weak">{language.t("chatTools.noOutput")}</div>
       ) : null}
     </BasicTool>
   )
@@ -100,12 +109,16 @@ function renderPythonCalculatorTool({ state, defaultOpen }: ToolPartProps) {
 
   return (
     <BasicTool
-      trigger={{ title: "Python" }}
+      trigger={{ title: language.t("chatTools.python") }}
       status={state.status}
       defaultOpen={defaultOpen ?? state.status !== "pending"}
     >
       {showOutput ? (
-        <ToolOutputPanel output={output} status={state.status} copyLabel="Copy result" />
+        <ToolOutputPanel
+          output={output}
+          status={state.status}
+          copyLabel={language.t("chatTools.copyResult")}
+        />
       ) : null}
       {!showOutput && valueText ? (
         <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border-base bg-background-base p-2 text-xs text-text-weak">
@@ -132,12 +145,18 @@ function renderReadTool({ state, info }: ToolPartProps) {
       {loadedFiles.length > 0 ? (
         <div className="space-y-1 text-xs text-text-weak">
           {loadedFiles.map((loadedFile) => (
-            <div key={loadedFile}>Loaded {loadedFile}</div>
+            <div key={loadedFile}>
+              {language.t("chatTools.loadedPrefix")} {loadedFile}
+            </div>
           ))}
         </div>
       ) : null}
       {state.status === "error" && showOutput ? (
-        <ToolOutputPanel output={output} status={state.status} copyLabel="Copy output" />
+        <ToolOutputPanel
+          output={output}
+          status={state.status}
+          copyLabel={language.t("chatTools.copyOutput")}
+        />
       ) : null}
     </BasicTool>
   )
@@ -186,7 +205,10 @@ function renderEditTool({ state, defaultOpen }: ToolPartProps) {
   return (
     <BasicTool
       trigger={{
-        title: state.input.oldString !== undefined ? "Edit" : "Write",
+        title:
+          state.input.oldString !== undefined
+            ? language.t("chatTools.edit")
+            : language.t("chatTools.write"),
         subtitle: filePath ? dirname(filePath) : undefined,
       }}
       status={state.status}
@@ -195,15 +217,19 @@ function renderEditTool({ state, defaultOpen }: ToolPartProps) {
       {beforeText !== undefined || afterText !== undefined ? (
         <div className="grid gap-2 md:grid-cols-2">
           <div>
-            <div className="mb-1 text-xs font-semibold text-text-weak">Before</div>
+            <div className="mb-1 text-xs font-semibold text-text-weak">
+              {language.t("chatTools.before")}
+            </div>
             <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border-base bg-surface-weak/40 p-2 text-xs text-text-weak">
-              {beforeText || "(empty)"}
+              {beforeText || language.t("chatTools.empty")}
             </pre>
           </div>
           <div>
-            <div className="mb-1 text-xs font-semibold text-text-weak">After</div>
+            <div className="mb-1 text-xs font-semibold text-text-weak">
+              {language.t("chatTools.after")}
+            </div>
             <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border-base bg-surface-weak/40 p-2 text-xs text-text-weak">
-              {afterText || "(empty)"}
+              {afterText || language.t("chatTools.empty")}
             </pre>
           </div>
         </div>
@@ -215,7 +241,11 @@ function renderEditTool({ state, defaultOpen }: ToolPartProps) {
       ) : null}
       <DiagnosticList diagnostics={diagnostics.filter((d) => d.severity === 1).slice(0, 3)} />
       {showOutput ? (
-        <ToolOutputPanel output={output} status={state.status} copyLabel="Copy output" />
+        <ToolOutputPanel
+          output={output}
+          status={state.status}
+          copyLabel={language.t("chatTools.copyOutput")}
+        />
       ) : null}
     </BasicTool>
   )
@@ -231,12 +261,16 @@ function renderTaskTool({ state, onOpenSession }: ToolPartProps) {
 
   const content = (
     <BasicTool
-      trigger={{ title: "Task" }}
+      trigger={{ title: language.t("chatTools.task") }}
       status={state.status}
       hideDetails={!showOutput || state.status !== "error"}
     >
       {state.status === "error" && showOutput ? (
-        <ToolOutputPanel output={output} status={state.status} copyLabel="Copy output" />
+        <ToolOutputPanel
+          output={output}
+          status={state.status}
+          copyLabel={language.t("chatTools.copyOutput")}
+        />
       ) : null}
     </BasicTool>
   )
@@ -293,12 +327,15 @@ function renderApplyPatchTool({ state, defaultOpen }: ToolPartProps) {
 
   const subtitle =
     applyPatchFiles.length > 0
-      ? `${applyPatchFiles.length} ${applyPatchFiles.length === 1 ? "file" : "files"}`
+      ? language.t(
+          applyPatchFiles.length === 1 ? "chatTools.fileCount.one" : "chatTools.fileCount.other",
+          { count: applyPatchFiles.length },
+        )
       : undefined
 
   return (
     <BasicTool
-      trigger={{ title: "Apply Patch", subtitle }}
+      trigger={{ title: language.t("chatTools.applyPatch"), subtitle }}
       status={state.status}
       defaultOpen={defaultOpen}
     >
@@ -321,7 +358,11 @@ function renderApplyPatchTool({ state, defaultOpen }: ToolPartProps) {
           </div>
         ) : null}
         {showOutput ? (
-          <ToolOutputPanel output={output} status={state.status} copyLabel="Copy output" />
+          <ToolOutputPanel
+            output={output}
+            status={state.status}
+            copyLabel={language.t("chatTools.copyOutput")}
+          />
         ) : null}
       </div>
     </BasicTool>
@@ -370,7 +411,7 @@ function renderWebfetchTool({ state, info }: ToolPartProps) {
   )
 }
 
-const URL_PATTERN = /https?:\/\/[^\s<>"'`\)\]]+/g
+const URL_PATTERN = /https?:\/\/[^\s<>"'`)\]]+/g
 
 function extractUrls(text: string): string[] {
   const seen = new Set<string>()
@@ -414,7 +455,11 @@ function renderExaSearchTool({ state, defaultOpen, info }: ToolPartProps) {
         </div>
       ) : null}
       {state.status === "error" && hasOutput ? (
-        <ToolOutputPanel output={output} status={state.status} copyLabel="Copy output" />
+        <ToolOutputPanel
+          output={output}
+          status={state.status}
+          copyLabel={language.t("chatTools.copyOutput")}
+        />
       ) : null}
     </BasicTool>
   )
@@ -466,7 +511,11 @@ function renderRenderFigureTool({ state, info }: ToolPartProps) {
         hideDetails
       >
         {state.status === "error" && showOutput ? (
-          <ToolOutputPanel output={output} status={state.status} copyLabel="Copy output" />
+          <ToolOutputPanel
+            output={output}
+            status={state.status}
+            copyLabel={language.t("chatTools.copyOutput")}
+          />
         ) : null}
       </BasicTool>
     )
@@ -493,11 +542,16 @@ function renderRenderFigureTool({ state, info }: ToolPartProps) {
         <div className="mt-1 text-sm text-text-weak">{renderFigure.caption}</div>
       ) : null}
       <div className="mt-2 flex flex-wrap items-center gap-2">
-        <CopyAction value={copyableImageUrl} label="Copy image URL" />
+        <CopyAction value={copyableImageUrl} label={language.t("chatTools.copyImageUrl")} />
         <span className="text-xs text-text-weak">
           {renderFigure.repairAttempts > 0
-            ? `repaired ${renderFigure.repairAttempts} ${renderFigure.repairAttempts === 1 ? "time" : "times"}`
-            : "rendered automatically from tool output"}
+            ? language.t(
+                renderFigure.repairAttempts === 1
+                  ? "chatTools.repairedLabel.one"
+                  : "chatTools.repairedLabel.other",
+                { attempts: renderFigure.repairAttempts },
+              )
+            : language.t("chatTools.renderedAutomatically")}
         </span>
       </div>
     </BasicTool>
@@ -550,9 +604,11 @@ function parseRenderMermaidReference(
 
   const artifactID = readNonEmptyString(value.artifactID)
   const artifactUrl =
-    readNonEmptyString(value.artifactUrl) ?? `/api/mermaid-artifacts/${artifactID ?? "unknown"}`
-  const diagramType = readNonEmptyString(value.diagramType) ?? "mermaid"
-  const alt = readNonEmptyString(value.alt) ?? "Mermaid diagram"
+    readNonEmptyString(value.artifactUrl) ??
+    `/api/mermaid-artifacts/${artifactID ?? language.t("rightSidebar.snapshot.unknown")}`
+  const diagramType =
+    readNonEmptyString(value.diagramType) ?? language.t("chatTools.defaultMermaidType")
+  const alt = readNonEmptyString(value.alt) ?? language.t("chatTools.defaultMermaidAlt")
   const caption = readNonEmptyString(value.caption)
   const repairAttempts = readNonNegativeInt(value.repairAttempts) ?? 0
   const source = readNonEmptyString(value.source)
@@ -649,7 +705,7 @@ async function fetchMermaidArtifact(
     .then((result) => {
       const payload = parseMermaidArtifactResponse(requireBuddyData(result))
       if (!payload) {
-        throw new Error("Mermaid artifact payload is missing required fields.")
+        throw new Error(language.t("chatTools.mermaidArtifactMissingFields"))
       }
       touchMermaidArtifactCache(key, payload)
       return payload
@@ -688,7 +744,7 @@ function RenderMermaidToolCard({ state, info, directory }: ToolPartProps) {
       return
     }
     if (!directory) {
-      setRehydrationError("Mermaid source was compacted and no workspace directory is available.")
+      setRehydrationError(language.t("chatTools.mermaidNoWorkspaceDirectory"))
       return
     }
 
@@ -716,7 +772,11 @@ function RenderMermaidToolCard({ state, info, directory }: ToolPartProps) {
         hideDetails
       >
         {state.status === "error" && showOutput ? (
-          <ToolOutputPanel output={output} status={state.status} copyLabel="Copy output" />
+          <ToolOutputPanel
+            output={output}
+            status={state.status}
+            copyLabel={language.t("chatTools.copyOutput")}
+          />
         ) : null}
       </BasicTool>
     )
@@ -763,13 +823,13 @@ function RenderMermaidToolCard({ state, info, directory }: ToolPartProps) {
 
       {isRehydrating ? (
         <div className="rounded-lg border border-border-base bg-background-base p-3 text-sm text-text-weak">
-          Rehydrating Mermaid source from durable artifact...
+          {language.t("chatTools.rehydratingMermaid")}
         </div>
       ) : null}
 
       {!source && !isRehydrating ? (
         <div className="rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 p-3 text-sm text-icon-critical-base">
-          Mermaid source is unavailable for rendering.
+          {language.t("chatTools.mermaidSourceUnavailable")}
         </div>
       ) : null}
 
@@ -782,7 +842,11 @@ function RenderMermaidToolCard({ state, info, directory }: ToolPartProps) {
       ) : null}
 
       {state.status === "error" && showOutput ? (
-        <ToolOutputPanel output={output} status={state.status} copyLabel="Copy output" />
+        <ToolOutputPanel
+          output={output}
+          status={state.status}
+          copyLabel={language.t("chatTools.copyOutput")}
+        />
       ) : null}
     </BasicTool>
   )
@@ -821,8 +885,13 @@ function renderQuestionTool({ state, info, defaultOpen }: ToolPartProps) {
     questions.length === 0
       ? info.subtitle
       : hasAnswers
-        ? `${questions.length} answered`
-        : `${questions.length} ${questions.length === 1 ? "question" : "questions"}`
+        ? language.t("chatTools.answeredCount", { count: questions.length })
+        : language.t(
+            questions.length === 1
+              ? "chatTools.questionCount.one"
+              : "chatTools.questionCount.other",
+            { count: questions.length },
+          )
 
   return (
     <BasicTool
@@ -842,7 +911,7 @@ function renderQuestionTool({ state, info, defaultOpen }: ToolPartProps) {
               >
                 <div className="text-sm text-text-base">{question.question}</div>
                 <div className="mt-1 text-xs text-text-weak">
-                  {answers.join(", ") || "(no answer)"}
+                  {answers.join(", ") || language.t("chatTools.noAnswer")}
                 </div>
               </div>
             )
@@ -850,7 +919,11 @@ function renderQuestionTool({ state, info, defaultOpen }: ToolPartProps) {
         </div>
       ) : null}
       {showOutput ? (
-        <ToolOutputPanel output={output} status={state.status} copyLabel="Copy output" />
+        <ToolOutputPanel
+          output={output}
+          status={state.status}
+          copyLabel={language.t("chatTools.copyOutput")}
+        />
       ) : null}
     </BasicTool>
   )
@@ -866,18 +939,22 @@ function renderBuddyCustomTool({ state, tool, defaultOpen }: ToolPartProps) {
 
     return (
       <BasicTool
-        trigger={{ title: "Full text", subtitle: resource }}
+        trigger={{ title: language.t("chatTools.fullText"), subtitle: resource }}
         status={state.status}
         defaultOpen={defaultOpen ?? state.status === "error"}
         hideDetails
       >
         {fullTextEstTokens !== undefined ? (
           <div className="text-xs text-text-weak">
-            {fullTextEstTokens.toLocaleString()} tokens loaded into context
+            {language.t("chatTools.tokensLoaded", { count: fullTextEstTokens.toLocaleString() })}
           </div>
         ) : null}
         {state.status === "error" && showOutput ? (
-          <ToolOutputPanel output={output} status={state.status} copyLabel="Copy output" />
+          <ToolOutputPanel
+            output={output}
+            status={state.status}
+            copyLabel={language.t("chatTools.copyOutput")}
+          />
         ) : null}
       </BasicTool>
     )
@@ -908,7 +985,11 @@ function renderBuddyCustomTool({ state, tool, defaultOpen }: ToolPartProps) {
         </div>
       ) : null}
       {showOutput ? (
-        <ToolOutputPanel output={output} status={state.status} copyLabel="Copy output" />
+        <ToolOutputPanel
+          output={output}
+          status={state.status}
+          copyLabel={language.t("chatTools.copyOutput")}
+        />
       ) : null}
       {!showOutput && valueText ? (
         <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border-base bg-background-base p-2 text-xs text-text-weak">
@@ -932,7 +1013,11 @@ function renderGenericTool({ state, info }: ToolPartProps) {
       hideDetails
     >
       {state.status === "error" && showOutput ? (
-        <ToolOutputPanel output={output} status={state.status} copyLabel="Copy output" />
+        <ToolOutputPanel
+          output={output}
+          status={state.status}
+          copyLabel={language.t("chatTools.copyOutput")}
+        />
       ) : null}
     </BasicTool>
   )

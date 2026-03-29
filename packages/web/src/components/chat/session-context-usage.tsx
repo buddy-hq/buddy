@@ -1,5 +1,6 @@
 import { useMemo } from "react"
 import { Tooltip, TooltipContent, TooltipTrigger, buttonVariants, cn } from "@buddy/ui"
+import { language } from "@/context/language"
 import { getSessionContextMetrics } from "@/state/context-metrics"
 import type { MessageWithParts, ProviderInfo } from "@/state/chat-types"
 
@@ -25,7 +26,7 @@ export function SessionContextUsage(props: SessionContextUsageProps) {
   return (
     <Tooltip>
       <TooltipTrigger
-        aria-label="Session context usage"
+        aria-label={language.t("chat.sessionContextUsage.ariaLabel")}
         className={cn(buttonVariants({ variant: "ghost", size: "icon-xs" }), "text-text-weak")}
       >
         <span className="relative size-4">
@@ -44,18 +45,24 @@ export function SessionContextUsage(props: SessionContextUsageProps) {
         className="flex min-w-32 flex-col gap-1.5 p-2.5 text-[11px]"
       >
         <div className="flex items-center justify-between gap-4">
-          <span className="text-text-weak">Tokens Used</span>
+          <span className="text-text-weak">
+            {language.t("chat.sessionContextUsage.tokensUsed")}
+          </span>
           <span className="font-medium text-text-strong">
             {context ? context.total.toLocaleString() : "0"}
           </span>
         </div>
         <div className="flex items-center justify-between gap-4">
-          <span className="text-text-weak">Context Usage</span>
+          <span className="text-text-weak">
+            {language.t("chat.sessionContextUsage.contextUsage")}
+          </span>
           <span className="font-medium text-text-strong">{context?.usage ?? 0}%</span>
         </div>
         <div className="my-0.5 h-px bg-border-base/40" />
         <div className="flex items-center justify-between gap-4">
-          <span className="text-text-weak">Session Cost</span>
+          <span className="text-text-weak">
+            {language.t("chat.sessionContextUsage.sessionCost")}
+          </span>
           <span className="font-semibold text-text-strong">{cost}</span>
         </div>
       </TooltipContent>

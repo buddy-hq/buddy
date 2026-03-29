@@ -7,6 +7,7 @@ import {
   ChevronRightIcon,
   cn,
 } from "@buddy/ui"
+import { language } from "@/context/language"
 import { ToolHeader } from "./tool-header"
 import { CopyAction } from "./copy-action"
 import type { ToolInfo, ToolState } from "../tools/registry"
@@ -90,7 +91,7 @@ export function DiagnosticList({ diagnostics }: DiagnosticListProps) {
           className="flex items-baseline gap-2 text-xs"
         >
           <span className="font-semibold uppercase tracking-wide text-icon-critical-base">
-            error
+            {language.t("chatTools.toolCard.error")}
           </span>
           <span className="shrink-0 text-icon-critical-base/80">
             [{diagnostic.range.start.line + 1}:{diagnostic.range.start.character + 1}]
@@ -146,15 +147,19 @@ export function ApplyPatchFileItem({ file }: ApplyPatchFileItemProps) {
       <CollapsibleContent>
         <div className="grid gap-2 border-t border-border-base p-3 md:grid-cols-2">
           <div>
-            <div className="mb-1 text-xs font-semibold text-text-weak">Before</div>
+            <div className="mb-1 text-xs font-semibold text-text-weak">
+              {language.t("chatTools.before")}
+            </div>
             <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border-base bg-surface-weak/40 p-2 text-xs text-text-weak">
-              {file.before || "(empty)"}
+              {file.before || language.t("chatTools.empty")}
             </pre>
           </div>
           <div>
-            <div className="mb-1 text-xs font-semibold text-text-weak">After</div>
+            <div className="mb-1 text-xs font-semibold text-text-weak">
+              {language.t("chatTools.after")}
+            </div>
             <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border-base bg-surface-weak/40 p-2 text-xs text-text-weak">
-              {file.after || "(empty)"}
+              {file.after || language.t("chatTools.empty")}
             </pre>
           </div>
         </div>

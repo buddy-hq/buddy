@@ -1,5 +1,6 @@
 import { cn } from "@buddy/ui"
 import { AnimatePresence, motion } from "motion/react"
+import { language } from "@/context/language"
 import type { ToolInfo, ToolState } from "../tools/registry"
 
 interface ToolHeaderProps {
@@ -9,10 +10,10 @@ interface ToolHeaderProps {
 }
 
 function statusLabel(status: ToolState["status"]): string {
-  if (status === "completed") return "completed"
-  if (status === "running") return "running"
-  if (status === "error") return "error"
-  return "pending"
+  if (status === "completed") return language.t("chatTools.status.completed")
+  if (status === "running") return language.t("chatTools.status.running")
+  if (status === "error") return language.t("chatTools.status.error")
+  return language.t("chatTools.status.pending")
 }
 
 function statusDotColor(status: ToolState["status"]): string {
