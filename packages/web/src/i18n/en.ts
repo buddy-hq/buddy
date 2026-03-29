@@ -1,10 +1,10 @@
 export const dict = {
-  "agentsMd.createLabel": "Create AGENTS.md",
+  "agentsMd.createLabel": "Create AGENTS file.",
   "agentsMd.globalEmptyDescription":
     "Create one to define baseline instructions for Buddy across notebooks.",
-  "agentsMd.globalEmptyTitle": "No global AGENTS.md file",
-  "agentsMd.notebookEmptyDescription": "Create one to add notebook-local behavior and constraints.",
-  "agentsMd.notebookEmptyTitle": "No AGENTS.md file",
+  "agentsMd.globalEmptyTitle": "No global AGENTS file",
+  "agentsMd.notebookEmptyDescription": "Agents file allows you to change buddy's behaviour.",
+  "agentsMd.notebookEmptyTitle": "No AGENTS file",
   "common.cancel": "Cancel",
   "common.model": "Model",
   "common.refresh": "Refresh",
@@ -351,11 +351,8 @@ export const dict = {
   "prompt.toolbar.placeholders.thinking": "Thinking",
   "resourcesPanel.add": "Add",
   "resourcesPanel.addResource": "Add Resource",
-  "resourcesPanel.description":
-    "Add a pdf, doc, or an epub",
   "resourcesPanel.emptyDescription":
-    "Buddy automatically loads, and uses them as context.",
-  "resourcesPanel.emptyTitle": "No resources added",
+    "Buddy can load PDFs, EPUBs and DOCs.",
   "resourcesPanel.processingFailed": "Processing failed",
   "resourcesPanel.rebuild": "Rebuild",
   "resourcesPanel.refreshResources": "Refresh resources",
@@ -365,7 +362,6 @@ export const dict = {
   "resourcesPanel.rename": "Rename",
   "resourcesPanel.renamePromptTitle": "Rename resource",
   "resourcesPanel.retry": "Retry",
-  "resourcesPanel.title": "Resources",
   "rightSidebar.capabilities.allow": "allow",
   "rightSidebar.capabilities.allowedSubagents": "Allowed Subagents",
   "rightSidebar.capabilities.defaultPrefix": "Default:",
@@ -699,7 +695,7 @@ export const dict = {
   "teaching.mathFigure.toolsHint":
     "Ask Math Buddy to draw the next figure and it will appear inline in the chat.",
   "teaching.mathFigure.toolsPrefix": "Available tools:",
-  "workspaceMermaid.emptyState": "No Mermaid diagrams have been stored for this workspace yet.",
+  "workspaceMermaid.emptyState": "No diagrams yet. Ask buddy to create one.",
   "workspaceMermaid.loading": "Loading Mermaid diagrams...",
   "workspaceMermaid.repairedPrefix": "repaired",
   "workspaceMermaid.repairedTime": "time",
