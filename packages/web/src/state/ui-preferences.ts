@@ -72,18 +72,23 @@ export const useUiPreferences = create<UiPreferencesStore>()(
         })
       },
       markUnread(directory, sessionID) {
-        set((state) => ({
-          unreadByDirectory: {
-            ...state.unreadByDirectory,
-            [directory]: {
-              ...state.unreadByDirectory[directory],
-              [sessionID]: true,
+        set((state) => {
+          if (state.unreadByDirectory[directory]?.[sessionID]) return state
+
+          return {
+            unreadByDirectory: {
+              ...state.unreadByDirectory,
+              [directory]: {
+                ...state.unreadByDirectory[directory],
+                [sessionID]: true,
+              },
             },
-          },
-        }))
+          }
+        })
       },
       clearUnread(directory, sessionID) {
         set((state) => {
+          if (!state.unreadByDirectory[directory]?.[sessionID]) return state
           const current = { ...state.unreadByDirectory[directory] }
           delete current[sessionID]
           return {

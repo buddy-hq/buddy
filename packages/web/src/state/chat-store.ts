@@ -459,6 +459,7 @@ export const useChatStore = create<ChatStore>()(
       applySessionStatus(directory, sessionID, status) {
         set((state) => {
           const current = ensureDirectoryState(state as ChatStore, directory)
+          if (current.sessionStatusByID[sessionID] === status) return state
           return {
             directories: {
               ...state.directories,
@@ -636,7 +637,7 @@ export const useChatStore = create<ChatStore>()(
         set({ entryError: error })
       },
       setStreamStatus(status) {
-        set({ streamStatus: status })
+        set((state) => (state.streamStatus === status ? state : { streamStatus: status }))
       },
     }),
     {
