@@ -64,7 +64,8 @@
     "release:tag": "bun ./script/tag.ts",
     "release:notes": "bun ./script/changelog.ts",
     "release:version": "bun ./script/version.ts",
-    "release:publish": "bun ./script/publish.ts"
+    "release:publish": "bun ./script/publish.ts",
+    "install:release": "bash ./script/install-latest-release.sh"
   },
   "dependencies": {
     "@buddy/script": "workspace:*"

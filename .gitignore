@@ -63,3 +63,7 @@ docs/audits/
 # Claude Code
 .claude/
 .config/
+
+# Misc
+docs/todo.md
+script/install-latest-release.sh
