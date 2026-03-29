@@ -136,6 +136,35 @@ function mermaidToolPart(input: {
   }
 }
 
+function mermaidToolInFlightPart(input: {
+  source?: string
+  alt?: string
+  partID?: string
+  status?: "pending" | "running"
+}): MessagePart {
+  return {
+    id: input.partID ?? "prt_tool_mermaid_in_flight",
+    sessionID: "ses_mermaid",
+    messageID: "msg_assistant",
+    type: "tool",
+    tool: "render_mermaid",
+    callID: "call_mermaid_in_flight",
+    state: {
+      status: input.status ?? "running",
+      input: {
+        kind: "mermaid.v1",
+        alt: input.alt ?? "Mermaid diagram",
+        source: input.source ?? "flowchart TD\nA --> B",
+      },
+      output: "",
+      metadata: {},
+      time: {
+        start: 2,
+      },
+    },
+  }
+}
+
 describe("mermaid rendering", () => {
   let container: HTMLDivElement
   let root: Root
@@ -282,9 +311,34 @@ describe("mermaid rendering", () => {
     })
 
     expect(container.querySelector('[data-component="mermaid-diagram"] svg')).not.toBeNull()
+    expect(container.querySelector('[data-component="mermaid-diagram"]')?.className).toContain(
+      "max-h-[48vh]",
+    )
     expect(fetchCalls.some((url) => url.includes(`/api/mermaid-artifacts/${ARTIFACT_ID}`))).toBe(
       false,
     )
+  })
+
+  test("shows Mermaid loading skeleton while render_mermaid is pending", async () => {
+    const messages: MessageWithParts[] = [
+      userMessage("draw this"),
+      assistantMessage([
+        mermaidToolInFlightPart({
+          status: "pending",
+          source: "flowchart TD\nA --> B",
+          alt: "Pending diagram",
+        }),
+      ]),
+    ]
+
+    await act(async () => {
+      root.render(<ChatTranscript messages={messages} directory="/repo" />)
+      await flushEffects(10)
+    })
+
+    expect(container.querySelector('[data-component="mermaid-tool-loading"]')).not.toBeNull()
+    expect(container.textContent).toContain("Generating Mermaid diagram...")
+    expect(container.querySelector('[data-component="mermaid-diagram"] svg')).toBeNull()
   })
 
   test("shows Mermaid copy and download actions on the rendered diagram", async () => {

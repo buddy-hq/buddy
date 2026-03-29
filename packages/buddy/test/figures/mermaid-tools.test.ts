@@ -19,7 +19,6 @@ import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tool
 
 function baseMermaidInput(): RenderMermaidInput {
   return {
-    kind: "mermaid.v1",
     alt: "Simple dependency flow",
     source: ["flowchart TD", "A[Start] --> B{Decision}", "B -->|Yes| C[Done]", "B -->|No| A"].join(
       "\n",
@@ -163,7 +162,6 @@ describe("mermaid tools", () => {
         const renderMermaid = requireTool(tools, "render_mermaid")
 
         const repairedInput: RenderMermaidInput = {
-          kind: "mermaid.v1",
           alt: "Wrapped mermaid",
           source: [
             "Please draw this Mermaid diagram.",
@@ -211,7 +209,6 @@ describe("mermaid tools", () => {
             (
               await renderMermaid.execute(
                 {
-                  kind: "mermaid.v1",
                   alt: "First alt",
                   source: "flowchart TD\nA --> B",
                 },
@@ -229,7 +226,6 @@ describe("mermaid tools", () => {
             (
               await renderMermaid.execute(
                 {
-                  kind: "mermaid.v1",
                   alt: "Second alt",
                   source: "flowchart TD\nA --> B",
                 },
@@ -277,7 +273,6 @@ describe("mermaid tools", () => {
 
           await renderMermaid.execute(
             {
-              kind: "mermaid.v1",
               alt: "Invalid graph",
               source: "flowchart TD\nA -->",
             } satisfies RenderMermaidInput,
@@ -295,5 +290,157 @@ describe("mermaid tools", () => {
       .readdir(path.join(project.path, ".buddy", "mermaid-artifacts"))
       .catch(() => [] as string[])
     expect(artifactEntries).toHaveLength(0)
+  })
+
+  test("accepts legacy kind values and still emits canonical mermaid.v1 artifacts", async () => {
+    await using project = await tmpdir({ git: true })
+
+    const payload = await OpenCodeInstance.provide({
+      directory: project.path,
+      async fn() {
+        await ensureMermaidToolsRegistered(project.path)
+        const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
+        const renderMermaid = requireTool(tools, "render_mermaid")
+        const result = await renderMermaid.execute(
+          {
+            kind: "flowchart",
+            alt: "Legacy kind input",
+            source: "flowchart TD\nA --> B",
+          },
+          createToolContext({
+            sessionID: "ses_legacy_kind",
+            messageID: "msg_legacy_kind",
+            agent: "buddy",
+          }),
+        )
+
+        return RenderMermaidOutputSchema.parse(JSON.parse(result.output))
+      },
+    })
+
+    expect(payload.kind).toBe("mermaid.v1")
+    expect(payload.diagramType).toBe("flowchart")
+  })
+
+  test("repairs timeline period labels that include colon timestamps", async () => {
+    await using project = await tmpdir({ git: true })
+
+    const payload = await OpenCodeInstance.provide({
+      directory: project.path,
+      async fn() {
+        await ensureMermaidToolsRegistered(project.path)
+        const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
+        const renderMermaid = requireTool(tools, "render_mermaid")
+        const result = await renderMermaid.execute(
+          {
+            alt: "Timeline with clock labels",
+            source: [
+              "timeline",
+              "  title My Morning Routine",
+              "  section Wake Up",
+              "    6:30 : Alarm rings",
+              "         : Hit snooze twice",
+              "    6:45 : Actually get up",
+            ].join("\n"),
+          },
+          createToolContext({
+            sessionID: "ses_timeline_repair",
+            messageID: "msg_timeline_repair",
+            agent: "buddy",
+          }),
+        )
+
+        return RenderMermaidOutputSchema.parse(JSON.parse(result.output))
+      },
+    })
+
+    expect(payload.diagramType).toBe("timeline")
+    expect(payload.source).toContain("6.30 : Alarm rings")
+    expect(payload.source).toContain("6.45 : Actually get up")
+    expect(
+      payload.repairLog.some((entry) =>
+        entry.includes("Normalized timeline period labels by replacing ':' with '.'."),
+      ),
+    ).toBe(true)
+  })
+
+  test("repairs quoted timeline period labels that include colon timestamps", async () => {
+    await using project = await tmpdir({ git: true })
+
+    const payload = await OpenCodeInstance.provide({
+      directory: project.path,
+      async fn() {
+        await ensureMermaidToolsRegistered(project.path)
+        const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
+        const renderMermaid = requireTool(tools, "render_mermaid")
+        const result = await renderMermaid.execute(
+          {
+            alt: "Simple school day timeline",
+            source: [
+              "timeline",
+              "  title A Simple School Day",
+              '  "8:00 AM" : Arrive',
+              '  "8:30 AM" : First class',
+              '  "10:00 AM" : Break',
+            ].join("\n"),
+          },
+          createToolContext({
+            sessionID: "ses_timeline_quoted_repair",
+            messageID: "msg_timeline_quoted_repair",
+            agent: "buddy",
+          }),
+        )
+
+        return RenderMermaidOutputSchema.parse(JSON.parse(result.output))
+      },
+    })
+
+    expect(payload.diagramType).toBe("timeline")
+    expect(payload.source).toContain("8.00 AM : Arrive")
+    expect(payload.source).toContain("8.30 AM : First class")
+    expect(payload.source).toContain("10.00 AM : Break")
+  })
+
+  test("canonicalizes quadrant-chart headers to quadrantChart for Mermaid compatibility", async () => {
+    await using project = await tmpdir({ git: true })
+
+    const payload = await OpenCodeInstance.provide({
+      directory: project.path,
+      async fn() {
+        await ensureMermaidToolsRegistered(project.path)
+        const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
+        const renderMermaid = requireTool(tools, "render_mermaid")
+        const result = await renderMermaid.execute(
+          {
+            alt: "Quadrant chart aliases",
+            source: [
+              "quadrant-chart",
+              "  title Prioritize Work",
+              "  x-axis Low Urgency --> High Urgency",
+              "  y-axis Low Importance --> High Importance",
+              "  quadrant-1 Do now",
+              "  quadrant-2 Plan",
+              "  quadrant-3 Delegate",
+              "  quadrant-4 Drop",
+            ].join("\n"),
+          },
+          createToolContext({
+            sessionID: "ses_quadrant_alias",
+            messageID: "msg_quadrant_alias",
+            agent: "buddy",
+          }),
+        )
+
+        return RenderMermaidOutputSchema.parse(JSON.parse(result.output))
+      },
+    })
+
+    expect(payload.diagramType.toLowerCase()).toBe("quadrantchart")
+    expect(payload.source.startsWith("quadrantChart\n")).toBe(true)
+    expect(
+      payload.repairLog.some((entry) =>
+        entry.includes("Canonicalized Mermaid diagram header 'quadrant-chart' to 'quadrantChart'."),
+      ),
+    ).toBe(true)
   })
 })
