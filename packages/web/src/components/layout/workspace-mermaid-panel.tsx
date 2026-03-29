@@ -65,9 +65,7 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
           <p className="text-[11px] font-bold uppercase tracking-wider leading-none text-text-weak">
             {language.t("workspaceMermaid.title")}
           </p>
-          <p className="line-clamp-2 text-xs text-text-weak">
-            {artifactLabel(artifacts.length)}
-          </p>
+          <p className="line-clamp-2 text-xs text-text-weak">{artifactLabel(artifacts.length)}</p>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           <Button
@@ -92,9 +90,7 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
           <div className="mb-4 flex size-10 items-center justify-center rounded-full bg-surface-weak shadow-sm">
             <LayoutTemplateIcon className="size-4 text-text-weak" />
           </div>
-          <h3 className="text-[13px] font-medium text-text-base">
-            No Diagrams Yet
-          </h3>
+          <h3 className="text-[13px] font-medium text-text-base">No Diagrams Yet</h3>
           <p className="mt-1.5 max-w-[220px] text-[12px] leading-relaxed text-text-weak">
             {language.t("workspaceMermaid.emptyState")}
           </p>

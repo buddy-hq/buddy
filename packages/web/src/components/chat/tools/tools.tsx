@@ -718,6 +718,32 @@ async function fetchMermaidArtifact(
   return request
 }
 
+function inferMermaidDiagramTypeFromSource(source: string | undefined): string | undefined {
+  if (!source) {
+    return undefined
+  }
+
+  for (const line of source.split("\n")) {
+    const trimmed = line.trim()
+    if (!trimmed || trimmed.startsWith("%%")) {
+      continue
+    }
+
+    const [token] = trimmed.split(/\s+/u)
+    if (!token) {
+      continue
+    }
+
+    if (token.toLowerCase() === "graph") {
+      return "flowchart"
+    }
+
+    return token
+  }
+
+  return undefined
+}
+
 function renderRenderMermaidTool(props: ToolPartProps) {
   return <RenderMermaidToolCard {...props} />
 }
@@ -725,6 +751,13 @@ function renderRenderMermaidTool(props: ToolPartProps) {
 function RenderMermaidToolCard({ state, info, directory }: ToolPartProps) {
   const output = state.output || (state.error ? unwrapError(state.error) : "")
   const showOutput = output.trim().length > 0
+  const running = state.status === "pending" || state.status === "running"
+  const pendingSource = readNonEmptyString(state.input.source)
+  const pendingAlt =
+    readNonEmptyString(state.input.alt) ??
+    info.subtitle ??
+    language.t("chatTools.defaultMermaidAlt")
+  const pendingDiagramType = inferMermaidDiagramTypeFromSource(pendingSource)
   const parsed = state.status === "completed" ? parseRenderMermaidReference(state) : undefined
   const parsedArtifactID = parsed?.artifactID
   const parsedSource = parsed?.source
@@ -763,6 +796,44 @@ function RenderMermaidToolCard({ state, info, directory }: ToolPartProps) {
       cancelled = true
     }
   }, [directory, parsedArtifactID, parsedKey, parsedSource, state.status])
+
+  if (running) {
+    return (
+      <BasicTool
+        trigger={{
+          title: pendingAlt,
+          ...(pendingDiagramType
+            ? {
+                trailing: (
+                  <Badge variant="outline" className="text-[11px] text-text-weak">
+                    {pendingDiagramType}
+                  </Badge>
+                ),
+              }
+            : {}),
+        }}
+        status={state.status}
+        hideDetails
+      >
+        <div
+          data-component="mermaid-tool-loading"
+          role="status"
+          aria-live="polite"
+          className="rounded-lg border border-border-base bg-background-base p-3"
+        >
+          <div className="flex items-center gap-2 text-sm text-text-weak">
+            <span className="size-2 rounded-full bg-text-weak/60 animate-pulse" />
+            <span>{language.t("chatTools.generatingMermaid")}</span>
+          </div>
+          <div className="mt-3 space-y-2">
+            <div className="h-3 w-2/5 animate-pulse rounded bg-surface-weak/70" />
+            <div className="h-24 w-full animate-pulse rounded-md bg-surface-weak/55" />
+            <div className="h-3 w-1/3 animate-pulse rounded bg-surface-weak/70" />
+          </div>
+        </div>
+      </BasicTool>
+    )
+  }
 
   if (!parsed) {
     return (
@@ -815,6 +886,7 @@ function RenderMermaidToolCard({ state, info, directory }: ToolPartProps) {
           source={source}
           artifactID={parsed.artifactID}
           alt={alt}
+          hideLoadingPlaceholder
           className="rounded-lg border border-border-base bg-background-base p-3"
           failureClassName="rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 p-3 text-sm text-icon-critical-base"
           showRawSourceOnError

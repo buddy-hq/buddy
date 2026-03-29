@@ -54,6 +54,7 @@ export const dict = {
   "chatTools.edit": "Edit",
   "chatTools.empty": "(empty)",
   "chatTools.fullText": "Full text",
+  "chatTools.generatingMermaid": "Generating Mermaid diagram...",
   "chatTools.info.agentTask": "Agent task",
   "chatTools.info.codesearch": "Codesearch",
   "chatTools.info.edit": "Edit",
@@ -351,8 +352,7 @@ export const dict = {
   "prompt.toolbar.placeholders.thinking": "Thinking",
   "resourcesPanel.add": "Add",
   "resourcesPanel.addResource": "Add Resource",
-  "resourcesPanel.emptyDescription":
-    "Buddy can load PDFs, EPUBs and DOCs.",
+  "resourcesPanel.emptyDescription": "Buddy can load PDFs, EPUBs and DOCs.",
   "resourcesPanel.processingFailed": "Processing failed",
   "resourcesPanel.rebuild": "Rebuild",
   "resourcesPanel.refreshResources": "Refresh resources",

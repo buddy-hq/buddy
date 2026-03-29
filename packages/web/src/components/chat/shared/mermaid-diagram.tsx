@@ -15,6 +15,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@buddy/ui"
+import { motion } from "motion/react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { language } from "@/context/language"
 import { renderMermaidSvg, type MermaidRenderResult } from "../../../lib/mermaid/render"
@@ -43,6 +44,7 @@ const MIN_ZOOM = 0.5
 const MAX_ZOOM = 3.5
 const ZOOM_STEP = 0.2
 type MermaidSvgBounds = typeof DEFAULT_SVG_BOUNDS
+const DIAGRAM_REVEAL_SPRING = { type: "spring", stiffness: 300, damping: 30, mass: 1 } as const
 
 function errorMessage(error: unknown): string {
   if (error instanceof Error && error.message.trim()) {
@@ -162,6 +164,7 @@ export function MermaidDiagram(props: {
   failureClassName?: string
   showRawSourceOnError?: boolean
   rawSourceClassName?: string
+  hideLoadingPlaceholder?: boolean
 }) {
   const [state, setState] = useState<MermaidDiagramState>({ status: "loading" })
   const [copyFeedback, setCopyFeedback] = useState<"idle" | "copied">("idle")
@@ -346,19 +349,28 @@ export function MermaidDiagram(props: {
   return (
     <div className={props.className}>
       {state.status === "loading" ? (
-        <div className="flex min-h-48 items-center justify-center text-sm text-text-weak">
-          {language.t("chatTools.mermaidDiagram.rendering")}
-        </div>
+        props.hideLoadingPlaceholder ? (
+          <div aria-hidden className="min-h-6" />
+        ) : (
+          <div className="flex min-h-48 items-center justify-center text-sm text-text-weak">
+            {language.t("chatTools.mermaidDiagram.rendering")}
+          </div>
+        )
       ) : null}
 
       {state.status === "ready" ? (
-        <div className="overflow-hidden rounded-[14px]">
+        <motion.div
+          className="overflow-hidden rounded-[14px]"
+          initial={{ opacity: 0, y: 8, scale: 0.995 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={DIAGRAM_REVEAL_SPRING}
+        >
           <div
             ref={svgHostRef}
             data-component="mermaid-diagram"
             role="img"
             aria-label={props.alt}
-            className="max-h-[60vh] overflow-auto pr-2"
+            className="max-h-[48vh] overflow-auto pr-2"
           />
           <TooltipProvider>
             <div className="mt-4 flex justify-end">
@@ -403,7 +415,7 @@ export function MermaidDiagram(props: {
               </div>
             </div>
           </TooltipProvider>
-        </div>
+        </motion.div>
       ) : null}
 
       {state.status === "error" ? (
