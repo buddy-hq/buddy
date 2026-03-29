@@ -6,6 +6,7 @@ import { normalizeMermaidSource } from "../normalize"
 import { MAX_REPAIR_PASSES, runMermaidRepairPass } from "../repair"
 import { MermaidArtifactService, MermaidRenderError } from "../service"
 import {
+  MERMAID_ARTIFACT_KIND,
   MermaidArtifactManifestSchema,
   RenderMermaidInputSchema,
   RenderMermaidOutputSchema,
@@ -74,12 +75,13 @@ const renderMermaidTool = createBuddyTool("render_mermaid", {
     "Render Mermaid diagrams for inline chat display, including flowcharts, sequence diagrams, class diagrams, state diagrams, ER diagrams, gantt, pie, journey, mindmap, timeline, and related Mermaid-supported UML and architecture families. The UI renders the returned diagram automatically after the tool call, so continue the explanation in normal text.",
   parameters: RenderMermaidInputSchema,
   async execute(params: RenderMermaidInput, ctx: BuddyToolContext) {
+    const kind = MERMAID_ARTIFACT_KIND
     await ctx.ask({
       permission: "render_mermaid",
       patterns: ["*"],
       always: ["*"],
       metadata: {
-        kind: params.kind,
+        kind,
       },
     })
 
@@ -93,7 +95,7 @@ const renderMermaidTool = createBuddyTool("render_mermaid", {
     const diagramType = MermaidArtifactService.inferDiagramType(source)
     const createdAt = new Date().toISOString()
     const artifactID = MermaidArtifactService.hashArtifact({
-      kind: parsed.kind,
+      kind,
       diagramType,
       alt: parsed.alt,
       ...(parsed.caption ? { caption: parsed.caption } : {}),
@@ -113,7 +115,7 @@ const renderMermaidTool = createBuddyTool("render_mermaid", {
     const manifest = MermaidArtifactManifestSchema.parse({
       version: 1,
       artifactID,
-      kind: parsed.kind,
+      kind,
       diagramType,
       alt: parsed.alt,
       ...(parsed.caption ? { caption: parsed.caption } : {}),
@@ -136,7 +138,7 @@ const renderMermaidTool = createBuddyTool("render_mermaid", {
 
     const output: RenderMermaidOutput = RenderMermaidOutputSchema.parse({
       artifactID,
-      kind: parsed.kind,
+      kind,
       mime: "application/vnd.mermaid",
       alt: parsed.alt,
       ...(parsed.caption ? { caption: parsed.caption } : {}),

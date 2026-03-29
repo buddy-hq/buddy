@@ -7,6 +7,11 @@ const DIAGRAM_START_LINE =
 
 const DIRECTIVE_LINE = /^%%\{.*\}%%$/u
 const COMMENT_LINE = /^%%.*$/u
+const DIAGRAM_HEADER_ALIASES: Record<string, string> = {
+  "quadrant-chart": "quadrantChart",
+  quadrantchart: "quadrantChart",
+  quadrant_chart: "quadrantChart",
+}
 
 function trimBlankBoundaryLines(source: string): string {
   return source.replace(/^\s*\n+/u, "").replace(/\n+\s*$/u, "")
@@ -134,6 +139,101 @@ function normalizeSmartPunctuation(source: string, repairLog: string[]): string 
   return next
 }
 
+function inferDiagramTypeToken(source: string): string | undefined {
+  const lines = source.split("\n")
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (!trimmed || COMMENT_LINE.test(trimmed) || DIRECTIVE_LINE.test(trimmed)) {
+      continue
+    }
+
+    const [token] = trimmed.split(/\s+/u)
+    if (!token) {
+      continue
+    }
+
+    return token.toLowerCase()
+  }
+
+  return undefined
+}
+
+const TIMELINE_NON_PERIOD_PREFIX = /^(?:title|section|accTitle|accDescr)\b/iu
+
+function normalizeTimelinePeriodLabelsWithColon(source: string, repairLog: string[]): string {
+  if (inferDiagramTypeToken(source) !== "timeline") {
+    return source
+  }
+
+  let changed = false
+  const repaired = source
+    .split("\n")
+    .map((line) => {
+      const match = line.match(/^(\s*)(.+?)(\s+:\s+)(.+)$/u)
+      if (!match) {
+        return line
+      }
+
+      const [, indent, rawPeriod, separator, eventText] = match
+      const period = rawPeriod.trim()
+      if (period.length === 0 || period.startsWith(":")) {
+        return line
+      }
+      if (TIMELINE_NON_PERIOD_PREFIX.test(period)) {
+        return line
+      }
+      if (!period.includes(":")) {
+        return line
+      }
+
+      const unquotedPeriod =
+        (period.startsWith('"') && period.endsWith('"')) ||
+        (period.startsWith("'") && period.endsWith("'"))
+          ? period.slice(1, -1)
+          : period
+      const normalizedPeriod = unquotedPeriod.replaceAll(":", ".")
+
+      changed = true
+      return `${indent}${normalizedPeriod}${separator}${eventText}`
+    })
+    .join("\n")
+
+  if (changed) {
+    repairLog.push("Normalized timeline period labels by replacing ':' with '.'.")
+  }
+
+  return repaired
+}
+
+function canonicalizeDiagramHeaderAlias(source: string, repairLog: string[]): string {
+  const lines = source.split("\n")
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index] ?? ""
+    const trimmed = line.trim()
+    if (!trimmed || COMMENT_LINE.test(trimmed) || DIRECTIVE_LINE.test(trimmed)) {
+      continue
+    }
+
+    const [token] = trimmed.split(/\s+/u)
+    if (!token) {
+      return source
+    }
+
+    const canonical = DIAGRAM_HEADER_ALIASES[token.toLowerCase()]
+    if (!canonical || token === canonical) {
+      return source
+    }
+
+    const indentation = line.match(/^\s*/u)?.[0] ?? ""
+    const remainder = trimmed.slice(token.length)
+    lines[index] = `${indentation}${canonical}${remainder}`
+    repairLog.push(`Canonicalized Mermaid diagram header '${token}' to '${canonical}'.`)
+    return lines.join("\n")
+  }
+
+  return source
+}
+
 function findDiagramStartLine(lines: string[]): number {
   for (let index = 0; index < lines.length; index += 1) {
     const trimmed = lines[index]?.trim() ?? ""
@@ -217,7 +317,9 @@ function runMermaidRepairPass(source: string): MermaidRepairPassResult {
   repaired = stripSurroundingFence(repaired, repairLog)
   repaired = removeFenceLines(repaired, repairLog)
   repaired = removeDuplicateLeadingMermaidMarkers(repaired, repairLog)
+  repaired = canonicalizeDiagramHeaderAlias(repaired, repairLog)
   repaired = normalizeSmartPunctuation(repaired, repairLog)
+  repaired = normalizeTimelinePeriodLabelsWithColon(repaired, repairLog)
   repaired = trimProseOutsideDiagram(repaired, repairLog)
   repaired = normalizeMermaidSource(trimBlankBoundaryLines(repaired))
 

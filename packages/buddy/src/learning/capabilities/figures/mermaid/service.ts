@@ -146,6 +146,36 @@ function nonCommentLines(source: string): string[] {
     .filter((line) => line.length > 0 && !line.startsWith("%%"))
 }
 
+const TIMELINE_NON_PERIOD_PREFIX = /^(?:title|section|accTitle|accDescr)\b/iu
+
+function validateTimelinePeriodLabels(source: string): MermaidValidationResult {
+  for (const line of nonCommentLines(source)) {
+    const eventLine = line.match(/^(.+?)\s+:\s+(.+)$/u)
+    if (!eventLine) {
+      continue
+    }
+
+    const period = eventLine[1]?.trim() ?? ""
+    if (period.length === 0 || period.startsWith(":")) {
+      continue
+    }
+    if (TIMELINE_NON_PERIOD_PREFIX.test(period)) {
+      continue
+    }
+
+    if (!period.includes(":")) {
+      continue
+    }
+
+    return {
+      ok: false,
+      diagnostics: [`Timeline period labels cannot contain ':'. Invalid timeline line: '${line}'`],
+    }
+  }
+
+  return { ok: true }
+}
+
 function validateBalancedDelimiters(source: string): MermaidValidationResult {
   let squareDepth = 0
   let roundDepth = 0
@@ -260,6 +290,10 @@ function validateFallbackMermaidSource(
   const delimiterValidation = validateBalancedDelimiters(source)
   if (!delimiterValidation.ok) {
     return delimiterValidation
+  }
+
+  if (normalizedType === "timeline") {
+    return validateTimelinePeriodLabels(source)
   }
 
   return { ok: true }
