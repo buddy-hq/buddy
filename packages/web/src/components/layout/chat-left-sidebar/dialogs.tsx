@@ -8,6 +8,7 @@ import {
   DialogTitle,
   Input,
 } from "@buddy/ui"
+import { language } from "@/context/language"
 import type { ArchiveState, RenameState } from "./types"
 
 type ChatLeftSidebarDialogsProps = {
@@ -35,11 +36,11 @@ export function ChatLeftSidebarDialogs(props: ChatLeftSidebarDialogsProps) {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Archive thread?</DialogTitle>
+            <DialogTitle>{language.t("sidebar.archiveThreadTitle")}</DialogTitle>
             <DialogDescription>
               {props.archiveState
-                ? `Archive "${props.archiveState.title}" and remove it from the active thread list?`
-                : "Archive this thread and remove it from the active thread list?"}
+                ? language.t("sidebar.archiveThreadQuestion", { title: props.archiveState.title })
+                : language.t("sidebar.archiveThreadFallback")}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -48,14 +49,16 @@ export function ChatLeftSidebarDialogs(props: ChatLeftSidebarDialogsProps) {
               onClick={props.onArchiveCancel}
               disabled={props.archiveSaving}
             >
-              Cancel
+              {language.t("common.cancel")}
             </Button>
             <Button
               variant="destructive"
               onClick={props.onArchiveConfirm}
               disabled={props.archiveSaving}
             >
-              {props.archiveSaving ? "Archiving..." : "Archive"}
+              {props.archiveSaving
+                ? language.t("sidebar.archiving")
+                : language.t("sidebar.archive")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -71,8 +74,8 @@ export function ChatLeftSidebarDialogs(props: ChatLeftSidebarDialogsProps) {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Rename thread</DialogTitle>
-            <DialogDescription>Use a short, meaningful title.</DialogDescription>
+            <DialogTitle>{language.t("sidebar.renameThread")}</DialogTitle>
+            <DialogDescription>{language.t("sidebar.renameThreadHint")}</DialogDescription>
           </DialogHeader>
           <Input
             autoFocus
@@ -87,13 +90,13 @@ export function ChatLeftSidebarDialogs(props: ChatLeftSidebarDialogsProps) {
           />
           <DialogFooter>
             <Button variant="outline" onClick={props.onRenameCancel}>
-              Cancel
+              {language.t("common.cancel")}
             </Button>
             <Button
               disabled={props.renameSaving || !props.renameState?.title.trim()}
               onClick={props.onRenameConfirm}
             >
-              {props.renameSaving ? "Saving..." : "Save"}
+              {props.renameSaving ? language.t("common.saving") : language.t("sidebar.save")}
             </Button>
           </DialogFooter>
         </DialogContent>

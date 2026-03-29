@@ -10,6 +10,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@buddy/ui"
+import { language } from "@/context/language"
 import { Markdown } from "@/components/Markdown"
 import {
   loadCurriculumView,
@@ -248,13 +249,13 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
     <aside
       className={`shrink-0 overflow-hidden border-l bg-surface-raised-base flex flex-col min-h-0 ${props.className ?? ""}`}
     >
-      <header className="flex items-center justify-between gap-1 border-b px-2 py-2">
-        <div className="flex w-6 shrink-0 items-center justify-center">
-          {showLeftArrow && (
+      <header className="relative flex items-center border-b px-1 py-1.5">
+        {showLeftArrow && (
+          <div className="absolute left-1 top-1.5 bottom-1.5 z-10 flex items-center bg-surface-raised-base pr-1">
             <Button
               variant="ghost"
               size="icon-xs"
-              className="shrink-0"
+              className="shrink-0 bg-surface-raised-base"
               onClick={() => {
                 const el = scrollRef.current
                 if (el) el.scrollBy({ left: -el.clientWidth, behavior: "smooth" })
@@ -262,20 +263,21 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
             >
               <ChevronLeftIcon className="size-4 text-text-weak" />
             </Button>
-          )}
-        </div>
+            <div className="pointer-events-none absolute -right-4 top-0 bottom-0 w-4 bg-gradient-to-r from-surface-raised-base to-transparent" />
+          </div>
+        )}
         <div
           ref={scrollRef}
-          className="min-w-0 flex-1 overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="min-w-0 flex-1 overflow-x-auto scroll-smooth px-1 py-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
-          <div className="flex w-max items-center gap-1 px-1">
+          <div className="flex w-max items-center gap-1">
             {props.surfaces.includes("editor") ? (
               <Button
                 variant={activeTab === "editor" ? "secondary" : "ghost"}
                 size="sm"
                 onClick={() => props.onTabChange("editor")}
               >
-                Editor
+                {language.t("rightSidebar.tabs.editor")}
               </Button>
             ) : null}
             {props.surfaces.includes("figure") ? (
@@ -284,7 +286,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                 size="sm"
                 onClick={() => props.onTabChange("figure")}
               >
-                Figure
+                {language.t("rightSidebar.tabs.figure")}
               </Button>
             ) : null}
             <Button
@@ -292,21 +294,21 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
               size="sm"
               onClick={() => props.onTabChange("resources")}
             >
-              Resources
+              {language.t("rightSidebar.tabs.resources")}
             </Button>
             <Button
               variant={activeTab === "agents-md" ? "secondary" : "ghost"}
               size="sm"
               onClick={() => props.onTabChange("agents-md")}
             >
-              Agents
+              {language.t("rightSidebar.tabs.agents")}
             </Button>
             <Button
               variant={activeTab === "diagrams" ? "secondary" : "ghost"}
               size="sm"
               onClick={() => props.onTabChange("diagrams")}
             >
-              Diagrams
+              {language.t("rightSidebar.tabs.diagrams")}
             </Button>
             {snapshotTabEnabled ? (
               <Button
@@ -315,7 +317,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                 onClick={() => props.onTabChange("curriculum")}
                 className="border border-dashed border-yellow-500/60"
               >
-                Snapshot
+                {language.t("rightSidebar.tabs.snapshot")}
               </Button>
             ) : null}
             {capabilitiesTabEnabled ? (
@@ -325,7 +327,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                 onClick={() => props.onTabChange("capabilities")}
                 className="border border-dashed border-yellow-500/60"
               >
-                Capabilities
+                {language.t("rightSidebar.tabs.capabilities")}
               </Button>
             ) : null}
             {systemPromptTabEnabled ? (
@@ -335,17 +337,18 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                 onClick={() => props.onTabChange("system-prompt")}
                 className="border border-dashed border-yellow-500/60"
               >
-                System
+                {language.t("rightSidebar.tabs.system")}
               </Button>
             ) : null}
           </div>
         </div>
-        <div className="flex w-6 shrink-0 items-center justify-center">
-          {showRightArrow && (
+        {showRightArrow && (
+          <div className="absolute right-1 top-1.5 bottom-1.5 z-10 flex items-center bg-surface-raised-base pl-1">
+            <div className="pointer-events-none absolute -left-4 top-0 bottom-0 w-4 bg-gradient-to-l from-surface-raised-base to-transparent" />
             <Button
               variant="ghost"
               size="icon-xs"
-              className="shrink-0"
+              className="shrink-0 bg-surface-raised-base"
               onClick={() => {
                 const el = scrollRef.current
                 if (el) el.scrollBy({ left: el.clientWidth, behavior: "smooth" })
@@ -353,15 +356,15 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
             >
               <ChevronRightIcon className="size-4 text-text-weak" />
             </Button>
-          )}
-        </div>
+          </div>
+        )}
       </header>
 
       {activeTab === "editor" ? (
         <div className="flex-1 min-h-0 flex flex-col">
           {props.editorPanel ?? (
             <div className="flex flex-1 items-center justify-center p-4 text-sm text-text-weak">
-              Teaching editor is not available for this session.
+              {language.t("rightSidebar.unavailable.editor")}
             </div>
           )}
         </div>
@@ -369,7 +372,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
         <div className="flex-1 min-h-0 flex flex-col">
           {props.figurePanel ?? (
             <div className="flex flex-1 items-center justify-center p-4 text-sm text-text-weak">
-              Figure tools are not available for this session.
+              {language.t("rightSidebar.unavailable.figure")}
             </div>
           )}
         </div>
@@ -381,7 +384,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
         <div className="flex-1 min-h-0 flex flex-col">
           {props.resourcesPanel ?? (
             <div className="flex flex-1 items-center justify-center p-4 text-sm text-text-weak">
-              Resource management is not available for this session.
+              {language.t("rightSidebar.unavailable.resources")}
             </div>
           )}
         </div>
@@ -389,7 +392,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
         <div className="flex-1 min-h-0 flex flex-col">
           {props.agentsPanel ?? (
             <div className="flex flex-1 items-center justify-center p-4 text-sm text-text-weak">
-              AGENTS.md editing is not available for this notebook.
+              {language.t("rightSidebar.unavailable.agentsMd")}
             </div>
           )}
         </div>
@@ -397,9 +400,9 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
         <div className="flex-1 min-h-0 p-3 flex flex-col">
           <div className="mb-2 flex items-center justify-between gap-2">
             <div>
-              <p className="text-xs font-medium">Runtime Capabilities</p>
+              <p className="text-xs font-medium">{language.t("rightSidebar.capabilities.title")}</p>
               <p className="text-[11px] text-text-weak">
-                Live capability state for the current teaching context.
+                {language.t("rightSidebar.capabilities.description")}
               </p>
             </div>
             <Button
@@ -409,12 +412,14 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                 void loadCapabilitiesData()
               }}
             >
-              Refresh
+              {language.t("common.refresh")}
             </Button>
           </div>
 
           {capabilitiesLoading ? (
-            <div className="text-sm text-text-weak">Loading runtime capabilities...</div>
+            <div className="text-sm text-text-weak">
+              {language.t("rightSidebar.capabilities.loading")}
+            </div>
           ) : capabilitiesView ? (
             <div className="flex-1 min-h-0 overflow-y-auto space-y-3">
               <Card size="sm" className="gap-0 py-0">
@@ -427,64 +432,80 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                     </Badge>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-sm font-medium text-text-base">Surface policy</p>
+                    <p className="text-sm font-medium text-text-base">
+                      {language.t("rightSidebar.capabilities.surfacePolicy")}
+                    </p>
                     <p className="text-xs text-text-weak">
-                      Visible: {capabilitiesView.visibleSurfaces.join(", ") || "none"} | Default:{" "}
-                      {capabilitiesView.defaultSurface || "n/a"}
+                      {language.t("rightSidebar.capabilities.visiblePrefix")}{" "}
+                      {capabilitiesView.visibleSurfaces.join(", ") ||
+                        language.t("rightSidebar.capabilities.none")}{" "}
+                      | {language.t("rightSidebar.capabilities.defaultPrefix")}{" "}
+                      {capabilitiesView.defaultSurface ||
+                        language.t("rightSidebar.capabilities.na")}
                     </p>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div className="rounded-md border border-border-base/60 px-2 py-1.5">
-                      Tools: {capabilitiesView.tools.allow.length} allow /{" "}
-                      {capabilitiesView.tools.deny.length} deny
+                      {language.t("rightSidebar.capabilities.tools")}:{" "}
+                      {capabilitiesView.tools.allow.length}{" "}
+                      {language.t("rightSidebar.capabilities.allow")} /{" "}
+                      {capabilitiesView.tools.deny.length}{" "}
+                      {language.t("rightSidebar.capabilities.deny")}
                     </div>
                     <div className="rounded-md border border-border-base/60 px-2 py-1.5">
-                      Skills: {capabilitiesView.skills.allow.length} allow /{" "}
-                      {capabilitiesView.skills.deny.length} deny
+                      {language.t("rightSidebar.capabilities.skills")}:{" "}
+                      {capabilitiesView.skills.allow.length}{" "}
+                      {language.t("rightSidebar.capabilities.allow")} /{" "}
+                      {capabilitiesView.skills.deny.length}{" "}
+                      {language.t("rightSidebar.capabilities.deny")}
                     </div>
                     <div className="rounded-md border border-border-base/60 px-2 py-1.5 col-span-2">
-                      Subagents: {capabilitiesView.subagents.prefer.length} prefer /{" "}
-                      {capabilitiesView.subagents.allow.length} allow /{" "}
-                      {capabilitiesView.subagents.deny.length} deny
+                      {language.t("rightSidebar.capabilities.subagents")}:{" "}
+                      {capabilitiesView.subagents.prefer.length}{" "}
+                      {language.t("rightSidebar.capabilities.prefer")} /{" "}
+                      {capabilitiesView.subagents.allow.length}{" "}
+                      {language.t("rightSidebar.capabilities.allow")} /{" "}
+                      {capabilitiesView.subagents.deny.length}{" "}
+                      {language.t("rightSidebar.capabilities.deny")}
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
               <RuntimeListSection
-                title="Enabled Tools"
+                title={language.t("rightSidebar.capabilities.enabledTools")}
                 items={capabilitiesView.tools.allow}
-                empty="No tools are currently enabled."
+                empty={language.t("rightSidebar.capabilities.noToolsEnabled")}
               />
               <RuntimeListSection
-                title="Enabled Skills"
+                title={language.t("rightSidebar.capabilities.enabledSkills")}
                 items={capabilitiesView.skills.allow}
-                empty="No skills are currently enabled."
+                empty={language.t("rightSidebar.capabilities.noSkillsEnabled")}
               />
               <RuntimeListSection
-                title="Preferred Subagents"
+                title={language.t("rightSidebar.capabilities.preferredSubagents")}
                 items={capabilitiesView.subagents.prefer}
-                empty="No subagents are marked preferred."
+                empty={language.t("rightSidebar.capabilities.noSubagentsPreferred")}
               />
               <RuntimeListSection
-                title="Allowed Subagents"
+                title={language.t("rightSidebar.capabilities.allowedSubagents")}
                 items={capabilitiesView.subagents.allow}
-                empty="No subagents are explicitly allowed."
+                empty={language.t("rightSidebar.capabilities.noSubagentsAllowed")}
               />
               <RuntimeListSection
-                title="Denied Tools"
+                title={language.t("rightSidebar.capabilities.deniedTools")}
                 items={capabilitiesView.tools.deny}
-                empty="No tools are denied."
+                empty={language.t("rightSidebar.capabilities.noToolsDenied")}
               />
               <RuntimeListSection
-                title="Denied Skills"
+                title={language.t("rightSidebar.capabilities.deniedSkills")}
                 items={capabilitiesView.skills.deny}
-                empty="No skills are denied."
+                empty={language.t("rightSidebar.capabilities.noSkillsDenied")}
               />
             </div>
           ) : (
             <div className="flex-1 min-h-0 overflow-y-auto rounded-lg border border-border-base/70 bg-background-base p-3 text-sm text-text-weak">
-              Runtime capabilities are not available for this session yet.
+              {language.t("rightSidebar.unavailable.capabilities")}
             </div>
           )}
 
@@ -498,7 +519,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
         <div className="flex-1 min-h-0 flex flex-col">
           {props.systemPromptPanel ?? (
             <div className="flex flex-1 items-center justify-center p-4 text-sm text-text-weak">
-              System prompt inspection is not available for this session.
+              {language.t("rightSidebar.unavailable.systemPrompt")}
             </div>
           )}
         </div>
@@ -506,10 +527,13 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
         <div className="flex-1 min-h-0 p-3 flex flex-col">
           <div className="mb-2 flex items-center justify-between gap-2">
             <div>
-              <p className="text-xs font-medium">Learning Snapshot</p>
+              <p className="text-xs font-medium">{language.t("rightSidebar.snapshot.title")}</p>
               <p className="text-[11px] text-text-weak">
-                {curriculumView?.workspace.label ?? "Workspace"}{" "}
-                {curriculumView?.coldStart ? "(cold start)" : ""}
+                {curriculumView?.workspace.label ??
+                  language.t("rightSidebar.snapshot.workspaceFallback")}{" "}
+                {curriculumView?.coldStart
+                  ? language.t("rightSidebar.snapshot.coldStartBadge")
+                  : ""}
               </p>
             </div>
             <Button
@@ -519,22 +543,26 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                 void loadSidebarData()
               }}
             >
-              Refresh
+              {language.t("common.refresh")}
             </Button>
           </div>
 
           {curriculumLoading ? (
-            <div className="text-sm text-text-weak">Loading learning snapshot...</div>
+            <div className="text-sm text-text-weak">
+              {language.t("rightSidebar.snapshot.loading")}
+            </div>
           ) : curriculumView ? (
             <div className="flex-1 min-h-0 overflow-y-auto space-y-3">
               <Card size="sm" className="gap-0 py-0">
                 <CardContent className="space-y-3 px-3 py-3">
                   <div className="space-y-1">
-                    <p className="text-sm font-medium text-text-base">Workspace state</p>
+                    <p className="text-sm font-medium text-text-base">
+                      {language.t("rightSidebar.snapshot.workspaceState")}
+                    </p>
                     <p className="text-sm text-text-weak">
                       {curriculumView.coldStart
-                        ? "No active goals have been defined for this workspace yet."
-                        : "Buddy is showing the current learner state without generating a next-step suggestion."}
+                        ? language.t("rightSidebar.snapshot.noGoals")
+                        : language.t("rightSidebar.snapshot.showingCurrentState")}
                     </p>
                   </div>
                 </CardContent>
@@ -545,10 +573,10 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                   <CardContent className="space-y-3 px-3 py-3">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-wide text-text-weak">
-                        Actions
+                        {language.t("rightSidebar.snapshot.actionsTitle")}
                       </p>
                       <p className="mt-1 text-xs text-text-weak">
-                        Run a teaching move directly from the current learner state.
+                        {language.t("rightSidebar.snapshot.actionsDescription")}
                       </p>
                     </div>
                     <div className="grid gap-2">
@@ -578,9 +606,9 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                   <SidebarSection key={section.title} title={section.title} items={section.items} />
                 ))}
                 <SidebarSection
-                  title="Constraints"
+                  title={language.t("rightSidebar.snapshot.constraints")}
                   items={curriculumView.constraintsSummary}
-                  empty="No workspace or learner constraints are shaping the snapshot right now."
+                  empty={language.t("rightSidebar.snapshot.noConstraints")}
                 />
               </div>
 
@@ -590,15 +618,17 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                     <div className="flex items-center justify-between gap-2">
                       <div>
                         <p className="text-xs font-semibold uppercase tracking-wide text-text-weak">
-                          Raw Snapshot
+                          {language.t("rightSidebar.snapshot.rawSnapshotTitle")}
                         </p>
                         <p className="mt-1 text-xs text-text-weak">
-                          Inspect the learner snapshot markdown Buddy is using for this workspace.
+                          {language.t("rightSidebar.snapshot.rawSnapshotDescription")}
                         </p>
                       </div>
                       <CollapsibleTrigger asChild>
                         <Button variant="ghost" size="sm" className="gap-1.5">
-                          {rawSnapshotOpen ? "Hide raw snapshot" : "Show raw snapshot"}
+                          {rawSnapshotOpen
+                            ? language.t("rightSidebar.snapshot.hideRawSnapshot")
+                            : language.t("rightSidebar.snapshot.showRawSnapshot")}
                           <ChevronDownIcon
                             className={`size-3.5 transition-transform ${rawSnapshotOpen ? "rotate-180" : ""}`}
                           />
@@ -614,7 +644,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
             </div>
           ) : (
             <div className="flex-1 min-h-0 overflow-y-auto rounded-lg border border-border-base/70 bg-background-base p-3 text-sm text-text-weak">
-              No learner snapshot is available for this workspace yet.
+              {language.t("rightSidebar.unavailable.snapshot")}
             </div>
           )}
 

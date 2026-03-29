@@ -2,6 +2,7 @@ import type { MouseEvent } from "react"
 import { useState, useEffect } from "react"
 import { useRouterState } from "@tanstack/react-router"
 import { CopyIcon, CheckIcon, toast, Button } from "@buddy/ui"
+import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { useUiPreferences } from "@/state/ui-preferences"
 import { useChatStore } from "@/state/chat-store"
@@ -103,9 +104,17 @@ export function DesktopTitlebar() {
               type="button"
               variant="ghost"
               className="h-6 w-8 p-0 box-border text-text-weak hover:bg-surface-base-hover hover:text-text-strong"
-              aria-label={leftSidebarOpen ? "Collapse left panel" : "Expand left panel"}
+              aria-label={
+                leftSidebarOpen
+                  ? language.t("desktopTitlebar.collapseLeftPanel")
+                  : language.t("desktopTitlebar.expandLeftPanel")
+              }
               aria-expanded={leftSidebarOpen}
-              title={leftSidebarOpen ? "Collapse left panel" : "Expand left panel"}
+              title={
+                leftSidebarOpen
+                  ? language.t("desktopTitlebar.collapseLeftPanel")
+                  : language.t("desktopTitlebar.expandLeftPanel")
+              }
               onClick={() => setLeftSidebarOpen(!leftSidebarOpen)}
             >
               {leftSidebarOpen ? (
@@ -125,7 +134,7 @@ export function DesktopTitlebar() {
                 variant="ghost"
                 size="icon-xs"
                 className="h-6 w-8 p-0 box-border text-text-weak hover:bg-surface-base-hover hover:text-text-strong"
-                title="Copy Session Trace (Dev Only)"
+                title={language.t("desktopTitlebar.copySessionTrace")}
                 onClick={() => {
                   void copyToClipboard(
                     buildSessionTrace({
@@ -135,7 +144,7 @@ export function DesktopTitlebar() {
                     }),
                   )
                   setIsCopied(true)
-                  toast.success("Session trace copied to clipboard")
+                  toast.success(language.t("desktopTitlebar.sessionTraceCopied"))
                   setTimeout(() => setIsCopied(false), 2000)
                 }}
               >
@@ -159,9 +168,17 @@ export function DesktopTitlebar() {
                 type="button"
                 variant="ghost"
                 className="h-6 w-8 p-0 box-border text-text-weak hover:bg-surface-base-hover hover:text-text-strong"
-                aria-label={rightSidebarOpen ? "Collapse right panel" : "Expand right panel"}
+                aria-label={
+                  rightSidebarOpen
+                    ? language.t("desktopTitlebar.collapseRightPanel")
+                    : language.t("desktopTitlebar.expandRightPanel")
+                }
                 aria-expanded={rightSidebarOpen}
-                title={rightSidebarOpen ? "Collapse right panel" : "Expand right panel"}
+                title={
+                  rightSidebarOpen
+                    ? language.t("desktopTitlebar.collapseRightPanel")
+                    : language.t("desktopTitlebar.expandRightPanel")
+                }
                 onClick={onToggleRightSidebar}
               >
                 {rightSidebarOpen ? (

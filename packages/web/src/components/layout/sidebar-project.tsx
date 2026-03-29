@@ -1,3 +1,4 @@
+import { language } from "@/context/language"
 import { ProjectIcon } from "./sidebar-items"
 import { HelpIcon, PlusIcon, SettingsIcon } from "./sidebar-icons"
 
@@ -25,7 +26,7 @@ export function SidebarProject(props: SidebarProjectProps) {
           type="button"
           onClick={props.onOpenProject}
           className="size-10 rounded-lg border border-dashed border-border-base text-lg leading-none hover:bg-surface-weak/60 transition-colors"
-          title="Open project"
+          title={language.t("sidebar.openProject")}
         >
           <PlusIcon className="size-4 mx-auto" />
         </button>
@@ -35,16 +36,16 @@ export function SidebarProject(props: SidebarProjectProps) {
         <button
           type="button"
           className="size-8 rounded-md text-xs text-text-weak hover:bg-surface-weak/60"
-          title="Settings"
-          aria-label="Settings"
+          title={language.t("sidebar.settings")}
+          aria-label={language.t("sidebar.settings")}
         >
           <SettingsIcon className="size-3.5 mx-auto" />
         </button>
         <button
           type="button"
           className="size-8 rounded-md text-xs text-text-weak hover:bg-surface-weak/60"
-          title="Help"
-          aria-label="Help"
+          title={language.t("sidebar.help")}
+          aria-label={language.t("sidebar.help")}
         >
           <HelpIcon className="size-3.5 mx-auto" />
         </button>

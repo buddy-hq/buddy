@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react"
 import { Button } from "@buddy/ui"
+import { language } from "@/context/language"
 import type { SessionInfo } from "@/state/chat-types"
 import { getFilename } from "./sidebar-helpers"
 import { ChevronDownIcon, ChevronRightIcon, PlusIcon } from "./sidebar-icons"
@@ -41,7 +42,9 @@ export function SidebarWorkspace(props: SidebarWorkspaceProps) {
               ) : (
                 <ChevronRightIcon className="size-3.5 text-text-weak" />
               )}
-              <span className="text-sm text-text-weak shrink-0">local:</span>
+              <span className="text-sm text-text-weak shrink-0">
+                {language.t("sidebar.localLabel")}
+              </span>
               <span className="text-sm truncate">{workspaceLabel}</span>
             </div>
           </button>
@@ -50,7 +53,7 @@ export function SidebarWorkspace(props: SidebarWorkspaceProps) {
             size="icon-xs"
             className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 pointer-events-none group-hover/workspace:opacity-100 group-hover/workspace:pointer-events-auto"
             onClick={props.onNewSession}
-            title="New chat"
+            title={language.t("sidebar.newChat")}
           >
             <PlusIcon className="size-3.5" />
           </Button>
@@ -61,7 +64,9 @@ export function SidebarWorkspace(props: SidebarWorkspaceProps) {
         <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-2 space-y-1">
           <NewSessionItem onClick={props.onNewSession} />
           {props.sessions.length === 0 ? (
-            <p className="px-2 py-2 text-xs text-text-weak">No sessions yet.</p>
+            <p className="px-2 py-2 text-xs text-text-weak">
+              {language.t("sidebar.noSessionsYet")}
+            </p>
           ) : (
             props.sessions.map((session) => (
               <SessionItem
@@ -83,7 +88,7 @@ export function SidebarWorkspace(props: SidebarWorkspaceProps) {
           onClick={props.onRemoveProject}
           className="w-full justify-start"
         >
-          Close project
+          {language.t("sidebar.closeProject")}
         </Button>
       </div>
     </aside>

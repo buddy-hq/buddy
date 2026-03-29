@@ -1,5 +1,6 @@
 import { useCallback } from "react"
 import { MarkdownFileEditor } from "@/components/markdown/markdown-file-editor"
+import { language } from "@/context/language"
 import {
   loadNotebookAgentsMd,
   NotebookAgentsMdVersionConflictError,
@@ -33,9 +34,9 @@ export function AgentsMdPanel(props: AgentsMdPanelProps) {
       reloadKey={reloadKey}
       className={props.className}
       fallbackPath={`${props.directory}/AGENTS.md`}
-      emptyTitle="No AGENTS.md file"
-      emptyDescription="Create one to add notebook-local behavior and constraints."
-      createLabel="Create AGENTS.md"
+      emptyTitle={language.t("agentsMd.notebookEmptyTitle")}
+      emptyDescription={language.t("agentsMd.notebookEmptyDescription")}
+      createLabel={language.t("agentsMd.createLabel")}
       defaultContent={DEFAULT_AGENTS_MD_CONTENT}
       load={load}
       save={save}

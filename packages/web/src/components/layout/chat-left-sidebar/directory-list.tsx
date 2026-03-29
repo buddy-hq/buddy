@@ -18,6 +18,7 @@ import {
   TooltipTrigger,
   XIcon,
 } from "@buddy/ui"
+import { language } from "@/context/language"
 import type { SessionInfo } from "@/state/chat-types"
 import { getFilename } from "../sidebar-helpers"
 import { EllipsisHorizontalIcon } from "../sidebar-icons"
@@ -206,7 +207,9 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                 <button
                   type="button"
                   className="inline-flex size-6 items-center justify-center rounded-md text-text-weak transition-colors hover:bg-surface-raised-base-hover hover:text-text-strong"
-                  aria-label={`Options for ${directoryLabel}`}
+                  aria-label={language.t("sidebar.optionsForDirectory", {
+                    directoryLabel: directoryLabel,
+                  })}
                 >
                   <EllipsisHorizontalIcon className="size-3.5" />
                 </button>
@@ -214,11 +217,11 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
               <DropdownMenuContent align="end" className="w-44">
                 <DropdownMenuItem onSelect={props.onOpenNotebook}>
                   <FolderIcon className="size-3.5 mr-2" />
-                  Open notebook
+                  {language.t("sidebar.openNotebook")}
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={props.onCloseNotebook}>
                   <XIcon className="size-3.5 mr-2" />
-                  Close notebook
+                  {language.t("sidebar.closeNotebook")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -228,14 +231,16 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                 <button
                   type="button"
                   className="inline-flex size-6 items-center justify-center rounded-md text-text-weak transition-colors hover:bg-surface-raised-base-hover hover:text-text-strong"
-                  aria-label={`Start new thread in ${directoryLabel}`}
+                  aria-label={language.t("sidebar.startNewThreadIn", {
+                    directoryLabel: directoryLabel,
+                  })}
                   onClick={props.onNewSession}
                 >
                   <SquarePenIcon className="size-3.5" />
                 </button>
               </TooltipTrigger>
               <TooltipContent side="top" sideOffset={8} className="px-2 py-1 text-[11px]">
-                {`Start new thread in ${directoryLabel}`}
+                {language.t("sidebar.startNewThreadIn", { directoryLabel: directoryLabel })}
               </TooltipContent>
             </Tooltip>
           </div>
@@ -243,7 +248,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
 
         <CollapsibleContent className="space-y-1 overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down p-[2px] -m-[2px]">
           {props.group.sessions.length === 0 ? (
-            <p className="pl-6 text-sm text-text-weak py-1">No threads</p>
+            <p className="pl-6 text-sm text-text-weak py-1">{language.t("sidebar.noThreads")}</p>
           ) : (
             visibleSessions.map((session) => (
               <DirectoryThreadRow
@@ -261,7 +266,10 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                 onToggleUnread={(unread) => props.onToggleUnread(session.id, unread)}
                 onRequestRename={() => props.onRequestRename(session.id, session.title)}
                 onRequestArchive={() =>
-                  props.onRequestArchive(session.id, session.title || "Untitled thread")
+                  props.onRequestArchive(
+                    session.id,
+                    session.title || language.t("sidebar.untitledThread"),
+                  )
                 }
               />
             ))
@@ -272,7 +280,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
               className="ml-3 pl-6 py-1 text-xs text-text-weaker opacity-70 hover:opacity-100 hover:text-text-base"
               onClick={props.onToggleExpanded}
             >
-              {props.expanded ? "Show less" : "Show more"}
+              {props.expanded ? language.t("sidebar.showLess") : language.t("sidebar.showMore")}
             </button>
           ) : null}
         </CollapsibleContent>
@@ -317,7 +325,7 @@ function DirectoryThreadRow(props: DirectoryThreadRowProps) {
                   : "text-text-weaker group-hover/thread:text-text-base"
               }`}
             >
-              {props.session.title || "New thread"}
+              {props.session.title || language.t("sidebar.newThread")}
             </span>
             {pinned ? <PinIcon className="size-3 shrink-0 text-text-weaker" /> : null}
           </div>
@@ -333,7 +341,7 @@ function DirectoryThreadRow(props: DirectoryThreadRowProps) {
             <button
               type="button"
               className="inline-flex size-6 items-center justify-center rounded-md text-text-weak hover:bg-surface-weak/70 hover:text-text-base"
-              aria-label="Thread options"
+              aria-label={language.t("sidebar.threadOptions")}
               onClick={(event) => event.stopPropagation()}
             >
               <EllipsisHorizontalIcon className="size-3.5" />
@@ -342,18 +350,18 @@ function DirectoryThreadRow(props: DirectoryThreadRowProps) {
           <DropdownMenuContent align="end" className="w-44">
             <DropdownMenuItem onSelect={props.onTogglePin}>
               <PinIcon className="mr-2 size-3.5" />
-              {pinned ? "Unpin thread" : "Pin thread"}
+              {pinned ? language.t("sidebar.unpinThread") : language.t("sidebar.pinThread")}
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={props.onRequestRename}>
               <PencilIcon className="mr-2 size-3.5" />
-              Rename thread
+              {language.t("sidebar.renameThreadAction")}
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={props.onRequestArchive}>
               <ArchiveIcon className="mr-2 size-3.5" />
-              Archive thread
+              {language.t("sidebar.archiveThreadAction")}
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => props.onToggleUnread(!unread)}>
-              {unread ? "Mark as read" : "Mark as unread"}
+              {unread ? language.t("sidebar.markAsRead") : language.t("sidebar.markAsUnread")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

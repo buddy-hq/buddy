@@ -11,7 +11,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@buddy/ui"
-import { FolderPlusIcon, SlidersHorizontalIcon, SquarePenIcon } from "../sidebar-icons"
+import { language } from "@/context/language"
+import { FolderPlusIcon, SlidersHorizontalIcon } from "../sidebar-icons"
 import type { OrganizeMode, ShowMode, SortMode } from "./types"
 
 type ChatLeftSidebarToolbarProps = {
@@ -30,7 +31,7 @@ export function ChatLeftSidebarToolbar(props: ChatLeftSidebarToolbarProps) {
   return (
     <>
       <div className="mb-2 flex items-center justify-between px-2 text-text-weaker">
-        <p className="text-[13px] font-medium">Threads</p>
+        <p className="text-[13px] font-medium">{language.t("sidebar.threads")}</p>
         <div className="flex items-center gap-1">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -39,15 +40,15 @@ export function ChatLeftSidebarToolbar(props: ChatLeftSidebarToolbarProps) {
                 variant="ghost"
                 size="icon-xs"
                 className="text-text-weak hover:bg-surface-raised-base-hover hover:text-text-strong"
-                aria-label="Add notebook"
-                title="Add notebook"
+                aria-label={language.t("sidebar.addNotebook")}
+                title={language.t("sidebar.addNotebook")}
                 onClick={props.onOpenDirectory}
               >
                 <FolderPlusIcon className="size-3.5" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="top" sideOffset={8} className="px-2 py-1 text-[11px]">
-              Add notebook
+              {language.t("sidebar.addNotebook")}
             </TooltipContent>
           </Tooltip>
 
@@ -56,14 +57,14 @@ export function ChatLeftSidebarToolbar(props: ChatLeftSidebarToolbarProps) {
               <button
                 type="button"
                 className="inline-flex size-6 items-center justify-center rounded-md text-text-weak transition-colors hover:bg-surface-raised-base-hover hover:text-text-strong"
-                aria-label="Organize threads"
-                title="Organize threads"
+                aria-label={language.t("sidebar.organizeThreads")}
+                title={language.t("sidebar.organizeThreads")}
               >
                 <SlidersHorizontalIcon className="size-3.5" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" sideOffset={6} className="w-56 min-w-56">
-              <DropdownMenuLabel>Organize</DropdownMenuLabel>
+              <DropdownMenuLabel>{language.t("sidebar.organize")}</DropdownMenuLabel>
               <DropdownMenuRadioGroup
                 value={props.organizeMode}
                 onValueChange={(value) => {
@@ -72,13 +73,15 @@ export function ChatLeftSidebarToolbar(props: ChatLeftSidebarToolbarProps) {
                   }
                 }}
               >
-                <DropdownMenuRadioItem value="project">By notebook</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="project">
+                  {language.t("sidebar.organizeByNotebook")}
+                </DropdownMenuRadioItem>
                 <DropdownMenuRadioItem value="chronological">
-                  Chronological list
+                  {language.t("sidebar.organizeChronological")}
                 </DropdownMenuRadioItem>
               </DropdownMenuRadioGroup>
               <DropdownMenuSeparator />
-              <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+              <DropdownMenuLabel>{language.t("sidebar.sortBy")}</DropdownMenuLabel>
               <DropdownMenuRadioGroup
                 value={props.sortMode}
                 onValueChange={(value) => {
@@ -87,11 +90,15 @@ export function ChatLeftSidebarToolbar(props: ChatLeftSidebarToolbarProps) {
                   }
                 }}
               >
-                <DropdownMenuRadioItem value="created">Created</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="updated">Updated</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="created">
+                  {language.t("sidebar.sortCreated")}
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="updated">
+                  {language.t("sidebar.sortUpdated")}
+                </DropdownMenuRadioItem>
               </DropdownMenuRadioGroup>
               <DropdownMenuSeparator />
-              <DropdownMenuLabel>Show</DropdownMenuLabel>
+              <DropdownMenuLabel>{language.t("sidebar.show")}</DropdownMenuLabel>
               <DropdownMenuRadioGroup
                 value={props.showMode}
                 onValueChange={(value) => {
@@ -100,8 +107,12 @@ export function ChatLeftSidebarToolbar(props: ChatLeftSidebarToolbarProps) {
                   }
                 }}
               >
-                <DropdownMenuRadioItem value="all">All threads</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="relevant">Relevant</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="all">
+                  {language.t("sidebar.showAllThreads")}
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="relevant">
+                  {language.t("sidebar.showRelevant")}
+                </DropdownMenuRadioItem>
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>

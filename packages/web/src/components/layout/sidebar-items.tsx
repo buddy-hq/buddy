@@ -1,4 +1,5 @@
 import type { SessionInfo } from "@/state/chat-types"
+import { language } from "@/context/language"
 import { projectInitials, relativeTime } from "./sidebar-helpers"
 import { PlusIcon } from "./sidebar-icons"
 import { LoaderCircleIcon } from "lucide-react"
@@ -53,7 +54,9 @@ export function SessionItem(props: SessionItemProps) {
         ) : null}
       </div>
       <div className="flex items-center min-w-0">
-        <span className="text-sm truncate">{props.session.title || "New chat"}</span>
+        <span className="text-sm truncate">
+          {props.session.title || language.t("sidebar.newChat")}
+        </span>
       </div>
       <div className="mt-0.5 flex items-center justify-between text-[11px] text-text-weak">
         <span className="truncate">{props.session.id.slice(0, 10)}</span>
@@ -76,7 +79,7 @@ export function NewSessionItem(props: NewSessionItemProps) {
     >
       <span className="inline-flex items-center gap-2">
         <PlusIcon className="size-3.5 text-text-weak" />
-        <span>New chat</span>
+        <span>{language.t("sidebar.newChat")}</span>
       </span>
     </button>
   )

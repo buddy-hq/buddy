@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { Badge, Button, Card, CardContent } from "@buddy/ui"
+import { language } from "@/context/language"
 import { MermaidDiagram } from "@/components/chat/shared"
 import {
   loadWorkspaceMermaidArtifacts,
@@ -60,7 +61,7 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
     <div className="flex min-h-0 flex-1 flex-col p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
         <div>
-          <p className="text-xs font-medium">Workspace Diagrams</p>
+          <p className="text-xs font-medium">{language.t("workspaceMermaid.title")}</p>
           <p className="text-[11px] text-text-weak">{artifactLabel(artifacts.length)}</p>
         </div>
         <Button
@@ -70,15 +71,17 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
             void loadArtifacts()
           }}
         >
-          Refresh
+          {language.t("common.refresh")}
         </Button>
       </div>
 
-      {loading ? <div className="text-sm text-text-weak">Loading Mermaid diagrams...</div> : null}
+      {loading ? (
+        <div className="text-sm text-text-weak">{language.t("workspaceMermaid.loading")}</div>
+      ) : null}
 
       {!loading && artifacts.length === 0 ? (
         <div className="flex-1 min-h-0 overflow-y-auto rounded-lg border border-border-base/70 bg-background-base p-3 text-sm text-text-weak">
-          No Mermaid diagrams have been stored for this workspace yet.
+          {language.t("workspaceMermaid.emptyState")}
         </div>
       ) : null}
 
@@ -92,8 +95,10 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
                   <Badge variant="outline">{formatCreatedAt(artifact.createdAt)}</Badge>
                   {artifact.repairAttempts > 0 ? (
                     <Badge variant="outline">
-                      repaired {artifact.repairAttempts}{" "}
-                      {artifact.repairAttempts === 1 ? "time" : "times"}
+                      {language.t("workspaceMermaid.repairedPrefix")} {artifact.repairAttempts}{" "}
+                      {artifact.repairAttempts === 1
+                        ? language.t("workspaceMermaid.repairedTime")
+                        : language.t("workspaceMermaid.repairedTimes")}
                     </Badge>
                   ) : null}
                 </div>
