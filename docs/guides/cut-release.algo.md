@@ -19,7 +19,6 @@ The current release shape is:
 - Release workflow: [`.github/workflows/publish.yml`](/Users/prashantbhudwal/Code/buddy/.github/workflows/publish.yml)
 - Release scripts:
   - [`script/cut-release.ts`](/Users/prashantbhudwal/Code/buddy/script/cut-release.ts)
-  - [`script/tag.ts`](/Users/prashantbhudwal/Code/buddy/script/tag.ts)
   - [`script/version.ts`](/Users/prashantbhudwal/Code/buddy/script/version.ts)
   - [`script/changelog.ts`](/Users/prashantbhudwal/Code/buddy/script/changelog.ts)
   - [`script/publish.ts`](/Users/prashantbhudwal/Code/buddy/script/publish.ts)
@@ -31,7 +30,7 @@ The current release shape is:
 4. Do not publish if the updater signing secret is missing.
 5. Treat GitHub Releases as the source of truth for desktop artifacts, updater metadata, and advanced math runtime assets.
 6. For the first `0.0.1` release, set the version explicitly. If no previous stable release exists, the helper defaults to `0.1.0`.
-7. Prefer `workflow_dispatch` over tag-push releases for this repo. The remote vendor guard can reject tag pushes when the release range includes protected `vendor/opencode/**` changes.
+7. Use `workflow_dispatch` for stable releases in this repo. The old local tag-push path is retired.
 
 ## Preconditions
 0. Preferred local entrypoint:
@@ -99,71 +98,15 @@ Use this when you want GitHub to compute and build the release without first pus
    - This is the normal recovery path after a failed `workflow_dispatch` run.
    - If a previous attempt already created the release tag at an older commit, rerunning the workflow does not move that tag.
 
-## Alternate Algorithm: Tagged Stable Release
-1. Sync local `main`.
-   - `git checkout main`
-   - `git pull --ff-only origin main`
+## Local Tag Flow
+Do not use a local tag-driven stable release flow in this repo.
 
-2. Choose the exact version.
-   - First release:
-     - `export BUDDY_VERSION=0.0.1`
-   - Later releases:
-     - either set `BUDDY_VERSION=x.y.z`
-     - or set `BUDDY_BUMP=patch|minor|major`
+Why:
+- It creates local `vX.Y.Z` tags that can drift from the GitHub release tag.
+- When they drift, normal pulls can fail with `would clobber existing tag`.
+- The supported `workflow_dispatch` flow already creates the stable release tag on GitHub from the published release, so a separate local stable tag path only adds failure modes.
 
-3. Create the local release commit and tag.
-   - `bun run release:tag`
-   - This script:
-     - updates package versions and `bun.lock`
-     - creates commit `release: vX.Y.Z`
-     - creates git tag `vX.Y.Z`
-
-4. Verify the result before pushing.
-   - `git log --oneline -n 3`
-   - `git tag --list 'v*' | tail`
-   - `git show --stat --no-patch HEAD`
-
-5. Push branch and tag.
-   - `git push origin main`
-   - `git push origin vX.Y.Z`
-   - This may be rejected by the remote vendor guard if the release range includes protected `vendor/opencode/**` changes.
-   - If that happens, stop using the tag-push flow for that version and finish the release with `workflow_dispatch` instead.
-
-6. Let GitHub Actions run the `publish` workflow on the tag.
-   - The workflow will:
-     - create or reuse a draft GitHub release
-     - fail fast if updater signing is missing
-     - build macOS arm64 and x64 desktop artifacts
-     - upload updater metadata and signatures
-     - upload advanced math runtime bundles for both mac targets
-     - undraft the release when all build jobs succeed
-
-7. Verify the GitHub release contents.
-   - Expected desktop artifacts:
-     - macOS arm64 installer/bundle
-     - macOS x64 installer/bundle
-     - updater metadata such as `latest.json`
-     - updater signatures
-   - Expected advanced math assets:
-     - `buddy-advanced-math-vX.Y.Z-aarch64-apple-darwin.zip`
-     - `buddy-advanced-math-vX.Y.Z-aarch64-apple-darwin.zip.sha256`
-     - `buddy-advanced-math-vX.Y.Z-x86_64-apple-darwin.zip`
-     - `buddy-advanced-math-vX.Y.Z-x86_64-apple-darwin.zip.sha256`
-
-8. Run post-release smoke checks.
-   - Download and install from GitHub Release.
-   - Confirm the installed helper is executable:
-     - `stat -f '%Sp %N' /Applications/Buddy.app/Contents/MacOS/buddy-backend`
-     - expected mode includes execute bits such as `-rwxr-xr-x`
-   - Launch the installed app and confirm the bundled backend process actually starts.
-     - expected:
-       - no `Permission denied (os error 13)` on startup
-       - `/Applications/Buddy.app/Contents/MacOS/buddy-backend` is running
-   - Confirm first-run onboarding appears on a fresh install.
-   - Confirm `Log in with ChatGPT Plus` opens the same provider auth flow as settings.
-   - Confirm `Test with free models` resolves to the `opencode` free-model path.
-   - Confirm advanced math runtime installs from Settings.
-   - Confirm updater detection and banner behavior using a newer tagged release.
+`bun run release:tag` is now a compatibility alias for `bun run release:cut`, and [`script/tag.ts`](/Users/prashantbhudwal/Code/buddy/script/tag.ts) exits with instructions instead of creating a local stable tag.
 
 ## Stop Conditions
 Stop immediately if any of these happen:
@@ -176,29 +119,24 @@ Stop immediately if any of these happen:
 - `verify-updater-signing` fails in CI
 - the release draft is missing updater metadata or mac runtime assets
 - `main` advanced during a `workflow_dispatch` release before the final version-sync commit
-- `git push origin vX.Y.Z` is rejected by the vendor guard because the release range includes protected vendored source
+- a local `vX.Y.Z` tag disagrees with `origin` and `git fetch --tags` reports `would clobber existing tag`
 
 ## Recovery
-1. If `bun run release:tag` created the commit/tag locally but you have not pushed:
-   - delete the local tag:
-     - `git tag -d vX.Y.Z`
-   - drop or replace the local release commit using normal non-destructive git workflow
-
-2. If the tag was pushed and CI failed:
-   - fix the issue on `main`
-   - delete the failed tag locally and remotely only if you intend to re-use the same version:
-     - `git tag -d vX.Y.Z`
-     - `git push --delete origin vX.Y.Z`
-   - otherwise cut a new version
-
-3. If GitHub created a draft release with bad assets:
+1. If GitHub created a draft release with bad assets:
    - delete or edit the draft release in GitHub
    - do not mark it final until the artifact set is correct
 
-4. If a `workflow_dispatch` release failed after creating the draft:
+2. If a `workflow_dispatch` release failed after creating the draft:
    - fix the issue on `main`
    - rerun the `publish` workflow with the same `version`
    - the workflow will reuse the existing draft release instead of creating a second one
+
+3. If a local Buddy release tag already drifted from `origin`:
+   - resync tags from `origin`:
+     - `git fetch --tags origin`
+   - if your clone still rejects tag updates, add the repo-local tag refspec once:
+     - `git config --add remote.origin.fetch '+refs/tags/*:refs/tags/*'`
+     - then rerun `git fetch --tags origin`
 
 ## Notes
 - The app is currently ad-hoc signed, but not Apple Developer signed or notarized. Expect normal macOS Gatekeeper friction on first install.
@@ -207,4 +145,4 @@ Stop immediately if any of these happen:
 - GitHub Actions artifact upload/download can strip execute bits from bundled sidecars. Release validation must confirm `Buddy.app/Contents/MacOS/buddy-backend` is still executable in the published DMG/app.
 - `workflow_dispatch` releases now add a follow-up version-sync commit on `main`, so local git state stays aligned with the shipped release without rewriting branch history.
 - The version-sync logic updates both the package version files and `bun.lock`.
-- If you mix flows for the same version, the GitHub release tag may already point at an older commit even though the published artifacts came from a later `workflow_dispatch` run. Avoid mixing flows unless you are intentionally recovering an existing draft.
+- Stable release tags should come from GitHub only. Creating or reusing local stable tags is the root cause of the recurring pull conflict dialog.
