@@ -12,6 +12,7 @@ type SyncHandlers = {
 }
 
 const FRAME_MS = 16
+const STREAM_YIELD_MS = 8
 
 function findSseEventBoundary(buffer: string) {
   const match = /\r?\n\r?\n/.exec(buffer)
@@ -249,6 +250,13 @@ export function startChatSync(handlers: SyncHandlers) {
           const reader = response.body.getReader()
           const decoder = new TextDecoder()
           let buffer = ""
+          let yieldedAt = Date.now()
+
+          const yieldToMainThread = async () => {
+            if (Date.now() - yieldedAt < STREAM_YIELD_MS) return
+            yieldedAt = Date.now()
+            await new Promise<void>((resolve) => window.setTimeout(resolve, 0))
+          }
 
           for (;;) {
             if (disposed) break
@@ -264,12 +272,14 @@ export function startChatSync(handlers: SyncHandlers) {
 
             for (const message of parsed.messages) {
               handleParsedEvent(message)
+              await yieldToMainThread()
             }
           }
 
           const parsed = consumeSseBuffer(buffer)
           for (const message of parsed.messages) {
             handleParsedEvent(message)
+            await yieldToMainThread()
           }
         } catch {
           if (disposed) return
