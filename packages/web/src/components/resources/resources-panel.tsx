@@ -193,30 +193,32 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
   return (
     <div className={`flex h-full min-h-0 flex-col gap-3 p-3 ${className ?? ""}`}>
       <div className="flex items-start justify-between gap-3 pb-2">
-        <div className="min-w-0 space-y-1.5">
-          <p className="text-xs font-medium uppercase tracking-wide text-text-weak leading-none">
+        <div className="min-w-0 space-y-1">
+          <p className="text-[11px] font-bold uppercase tracking-wider leading-none text-text-weak">
             {language.t("resourcesPanel.title")}
           </p>
-          <p className="text-xs text-text-weak line-clamp-2">
+          <p className="line-clamp-2 text-xs text-text-weak">
             {language.t("resourcesPanel.description")}
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-1.5">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="px-2"
-            onClick={() => void refreshResources()}
-            disabled={loading}
-            title={language.t("resourcesPanel.refreshResources")}
-          >
-            <RefreshCwIcon className={`size-4 ${loading ? "animate-spin" : ""}`} />
-          </Button>
-          <Button size="sm" onClick={() => void onAddResource()} disabled={loading}>
-            <PlusIcon className="mr-1.5 size-4" />
-            {language.t("resourcesPanel.add")}
-          </Button>
-        </div>
+        {sortedResources.length > 0 && (
+          <div className="flex shrink-0 items-center gap-1.5">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="px-2"
+              onClick={() => void refreshResources()}
+              disabled={loading}
+              title={language.t("resourcesPanel.refreshResources")}
+            >
+              <RefreshCwIcon className={`size-4 ${loading ? "animate-spin" : ""}`} />
+            </Button>
+            <Button size="sm" onClick={() => void onAddResource()} disabled={loading}>
+              <PlusIcon className="mr-1.5 size-4" />
+              {language.t("resourcesPanel.add")}
+            </Button>
+          </div>
+        )}
       </div>
 
       {error ? (
@@ -367,26 +369,22 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
             <SkeletonCard />
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border-base/70 bg-background-base/50 px-4 py-10 text-center">
-            <div className="flex size-12 items-center justify-center rounded-full bg-surface-weak">
-              <PlusIcon className="size-6 text-text-weak" />
+          <button
+            type="button"
+            onClick={() => void onAddResource()}
+            disabled={loading}
+            className="group mt-1 flex w-full flex-col items-center justify-center rounded-xl border border-dashed border-border-base/40 bg-surface-weak/5 px-4 py-10 text-center transition-all hover:border-border-base/80 hover:bg-surface-weak/30"
+          >
+            <div className="mb-4 flex size-10 items-center justify-center rounded-full bg-surface-weak transition-transform group-hover:scale-105 group-hover:shadow-sm">
+              <PlusIcon className="size-4 text-text-weak transition-colors group-hover:text-text-base" />
             </div>
-            <h3 className="mt-4 text-sm font-medium leading-none">
-              {language.t("resourcesPanel.emptyTitle")}
+            <h3 className="text-[13px] font-medium text-text-base transition-colors group-hover:text-text-strong">
+              {language.t("resourcesPanel.addResource")}
             </h3>
-            <p className="mt-1.5 max-w-[200px] text-xs text-text-weak">
+            <p className="mt-1.5 max-w-[180px] text-[12px] leading-relaxed text-text-weak transition-colors group-hover:text-text-weak/90">
               {language.t("resourcesPanel.emptyDescription")}
             </p>
-            <Button
-              size="sm"
-              className="mt-5"
-              onClick={() => void onAddResource()}
-              disabled={loading}
-            >
-              <PlusIcon className="mr-1.5 size-4" />
-              {language.t("resourcesPanel.addResource")}
-            </Button>
-          </div>
+          </button>
         )}
       </div>
 

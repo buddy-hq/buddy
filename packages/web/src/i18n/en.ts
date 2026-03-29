@@ -352,9 +352,9 @@ export const dict = {
   "resourcesPanel.add": "Add",
   "resourcesPanel.addResource": "Add Resource",
   "resourcesPanel.description":
-    "Add notebook-local resource packs, refresh their extracted content, and keep aliases stable.",
+    "Add a pdf, doc, or an epub",
   "resourcesPanel.emptyDescription":
-    "Add notebook-local resource packs to give Buddy more context.",
+    "Buddy automatically loads, and uses them as context.",
   "resourcesPanel.emptyTitle": "No resources added",
   "resourcesPanel.processingFailed": "Processing failed",
   "resourcesPanel.rebuild": "Rebuild",
