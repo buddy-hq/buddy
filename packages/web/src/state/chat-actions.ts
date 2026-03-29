@@ -216,6 +216,7 @@ const EMPTY_ALIGNMENT_SUMMARY: LearnerCurriculumView["alignmentSummary"] = {
   incompleteGoalIds: [],
   recommendations: [],
 }
+const pendingSessionCreations = new Map<string, Promise<SessionInfo>>()
 
 function toLearnerPersona(persona?: string): LearnerPersona | undefined {
   if (!persona) return undefined
@@ -633,11 +634,27 @@ export async function loadProviderCatalog(directory: string) {
 }
 
 async function createSession(directory: string) {
+  const pendingCreation = pendingSessionCreations.get(directory)
+  if (pendingCreation) {
+    return pendingCreation
+  }
+
   const store = useChatStore.getState()
-  const info = requireBuddyData<SessionInfo>(await getBuddyClient(directory).session.create())
-  store.setSessionInfo(directory, info)
-  store.setMessages(directory, info.id, [])
-  return info
+  const createPromise = (async () => {
+    const info = requireBuddyData<SessionInfo>(await getBuddyClient(directory).session.create())
+    store.setSessionInfo(directory, info)
+    store.setMessages(directory, info.id, [])
+    return info
+  })()
+
+  pendingSessionCreations.set(directory, createPromise)
+  try {
+    return await createPromise
+  } finally {
+    if (pendingSessionCreations.get(directory) === createPromise) {
+      pendingSessionCreations.delete(directory)
+    }
+  }
 }
 
 export async function ensureDirectorySession(directory: string) {
@@ -651,6 +668,13 @@ export async function ensureDirectorySession(directory: string) {
       ? normalizedDirectory
       : await openProject(normalizedDirectory)
     const readyState = useChatStore.getState().directories[targetDirectory]
+    if (readyState?.isReady && readyState.isDraft) {
+      store.clearDirectoryError(targetDirectory)
+      return {
+        directory: targetDirectory,
+        info: undefined,
+      }
+    }
     const readyInfo = readyState?.isReady
       ? readyState.sessions.find((session) => session.id === readyState.sessionID)
       : undefined
@@ -668,7 +692,10 @@ export async function ensureDirectorySession(directory: string) {
 
     const state = useChatStore.getState()
     const current = state.directories[targetDirectory]
-    const storedSession = current?.sessionID ?? state.lastSessionByDirectory[targetDirectory]
+    const preserveDraft = current?.isDraft === true
+    const storedSession = preserveDraft
+      ? undefined
+      : (current?.sessionID ?? state.lastSessionByDirectory[targetDirectory])
     const sessions = await loadSessions(targetDirectory)
     const sessionByID = new Map(sessions.map((session) => [session.id, session]))
 
@@ -677,7 +704,7 @@ export async function ensureDirectorySession(directory: string) {
       info = sessionByID.get(storedSession)
     }
 
-    if (!info) {
+    if (!info && !preserveDraft) {
       info = sessions[0]
     }
 
@@ -691,13 +718,34 @@ export async function ensureDirectorySession(directory: string) {
     }
 
     if (!info) {
-      info = await createSession(targetDirectory)
-      void loadSessions(targetDirectory).catch(() => undefined)
-    } else {
-      store.setSessionInfo(targetDirectory, info)
+      const latestStoreState = useChatStore.getState()
+      const latestState = latestStoreState.directories[targetDirectory]
+      const latestSessionID =
+        latestState?.sessionID ?? latestStoreState.lastSessionByDirectory[targetDirectory]
+      if (latestSessionID) {
+        info =
+          latestState?.sessions.find((session) => session.id === latestSessionID) ??
+          (await getBuddyClient(targetDirectory)
+            .session.get({
+              sessionID: latestSessionID,
+            })
+            .then((result) => requireBuddyData(result))
+            .catch(() => undefined))
+      }
     }
 
-    await loadMessages(targetDirectory, info.id)
+    if (info) {
+      store.setSessionInfo(targetDirectory, info)
+      await loadMessages(targetDirectory, info.id)
+    } else {
+      const currentSessionID = useChatStore.getState().directories[targetDirectory]?.sessionID
+      if (currentSessionID) {
+        await loadMessages(targetDirectory, currentSessionID).catch(() => undefined)
+      } else {
+        store.startSessionDraft(targetDirectory)
+      }
+    }
+
     await loadSessionStatuses(targetDirectory).catch(() => undefined)
     await loadPermissions(targetDirectory)
     await loadProviderCatalog(targetDirectory)
@@ -742,6 +790,22 @@ export async function startNewSession(directory: string) {
   return info
 }
 
+export function startNewSessionDraft(directory: string) {
+  const store = useChatStore.getState()
+  store.clearDirectoryError(directory)
+  store.startSessionDraft(directory)
+}
+
+async function resolveSessionForSend(directory: string) {
+  const store = useChatStore.getState()
+  const existing = store.directories[directory]?.sessionID
+  if (existing) return existing
+
+  const created = await createSession(directory)
+  void loadSessions(directory).catch(() => undefined)
+  return created.id
+}
+
 export async function sendPrompt(
   directory: string,
   content: string,
@@ -760,27 +824,25 @@ export async function sendPrompt(
   },
 ) {
   const store = useChatStore.getState()
-  const state = store.directories[directory]
-  const sessionID = state?.sessionID
-  if (!sessionID) {
-    throw new Error("No session available")
-  }
-
   store.clearDirectoryError(directory)
-  store.applySessionStatus(directory, sessionID, "busy")
+  let sessionID: string | undefined
 
   try {
+    const resolvedSessionID = await resolveSessionForSend(directory)
+    sessionID = resolvedSessionID
+    store.applySessionStatus(directory, resolvedSessionID, "busy")
+
     const intent = input?.intent ?? "auto"
 
     console.info("[chat-action] prompt.start", {
       directory,
       contentLength: content.length,
-      sessionID,
+      sessionID: resolvedSessionID,
     })
 
     requireBuddyData(
       await getBuddyClient(directory).session.prompt({
-        sessionID,
+        sessionID: resolvedSessionID,
         content,
         ...(input?.parts && input.parts.length > 0 ? { parts: input.parts } : {}),
         ...(input?.persona ? { persona: input.persona } : {}),
@@ -795,17 +857,28 @@ export async function sendPrompt(
       }),
     )
 
-    console.info("[chat-action] prompt.accepted", { directory, sessionID })
+    console.info("[chat-action] prompt.accepted", { directory, sessionID: resolvedSessionID })
   } catch (error) {
-    console.error("[chat-action] prompt.failed", {
-      directory,
-      sessionID,
-      error: stringifyError(error),
-    })
-    store.applySessionStatus(directory, sessionID, "idle")
+    if (sessionID) {
+      console.error("[chat-action] prompt.failed", {
+        directory,
+        sessionID,
+        error: stringifyError(error),
+      })
+    } else {
+      console.error("[chat-action] prompt.failed.before-session", {
+        directory,
+        error: stringifyError(error),
+      })
+    }
+
+    if (sessionID) {
+      store.applySessionStatus(directory, sessionID, "idle")
+      void loadMessages(directory, sessionID).catch(() => undefined)
+      void loadSessions(directory).catch(() => undefined)
+    }
+
     store.setDirectoryError(directory, stringifyError(error))
-    void loadMessages(directory, sessionID).catch(() => undefined)
-    void loadSessions(directory).catch(() => undefined)
     throw error
   }
 }
@@ -827,21 +900,19 @@ export async function sendCommand(
   },
 ) {
   const store = useChatStore.getState()
-  const state = store.directories[directory]
-  const sessionID = state?.sessionID
-  if (!sessionID) {
-    throw new Error("No session available")
-  }
-
   store.clearDirectoryError(directory)
-  store.applySessionStatus(directory, sessionID, "busy")
+  let sessionID: string | undefined
 
   try {
+    const resolvedSessionID = await resolveSessionForSend(directory)
+    sessionID = resolvedSessionID
+    store.applySessionStatus(directory, resolvedSessionID, "busy")
+
     const intent = input?.intent ?? "auto"
 
     requireBuddyData(
       await getBuddyClient(directory).session.command({
-        sessionID,
+        sessionID: resolvedSessionID,
         command,
         arguments: argumentsText,
         ...(input?.parts && input.parts.length > 0 ? { parts: input.parts } : {}),
@@ -853,10 +924,13 @@ export async function sendCommand(
       }),
     )
   } catch (error) {
-    store.applySessionStatus(directory, sessionID, "idle")
+    if (sessionID) {
+      store.applySessionStatus(directory, sessionID, "idle")
+      void loadMessages(directory, sessionID).catch(() => undefined)
+      void loadSessions(directory).catch(() => undefined)
+    }
+
     store.setDirectoryError(directory, stringifyError(error))
-    void loadMessages(directory, sessionID).catch(() => undefined)
-    void loadSessions(directory).catch(() => undefined)
     throw error
   }
 }

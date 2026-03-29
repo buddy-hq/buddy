@@ -10,6 +10,7 @@ import {
   reorderOpenProjects,
   resolveDefaultPersonaID,
   sendPrompt,
+  startNewSession,
   shouldDeferTranscriptReload,
 } from "../src/state/chat-actions"
 import { useChatStore } from "../src/state/chat-store"
@@ -62,6 +63,22 @@ function resetStore() {
     directories: {},
     streamStatus: "idle",
   })
+}
+
+type Deferred<T> = {
+  promise: Promise<T>
+  resolve: (value: T) => void
+  reject: (error: unknown) => void
+}
+
+function createDeferred<T>(): Deferred<T> {
+  let resolve!: (value: T) => void
+  let reject!: (error: unknown) => void
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve
+    reject = nextReject
+  })
+  return { promise, resolve, reject }
 }
 
 beforeEach(() => {
@@ -310,6 +327,345 @@ describe("ensureDirectorySession", () => {
       info: existingSession,
     })
   })
+
+  test("keeps the directory in draft mode when no sessions exist", async () => {
+    useChatStore.setState({
+      openProjects: ["/repo"],
+      activeDirectory: "/repo",
+      lastSessionByDirectory: {},
+      directories: {},
+    })
+
+    let createRequests = 0
+
+    globalThis.fetch = (async (input, init) => {
+      const url = new URL(requestUrl(input), "http://localhost")
+      const method = requestMethod(input, init) ?? "GET"
+
+      if (method === "GET" && url.pathname === "/api/session") {
+        return new Response(JSON.stringify([]), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "POST" && url.pathname === "/api/session") {
+        createRequests += 1
+        return new Response(JSON.stringify({}), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "GET" && url.pathname === "/api/permission") {
+        return new Response(JSON.stringify([]), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "GET" && url.pathname === "/api/provider") {
+        return new Response(
+          JSON.stringify({
+            default: "",
+            connected: [],
+            all: [],
+          }),
+          {
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        )
+      }
+
+      if (method === "GET" && url.pathname === "/api/provider/auth") {
+        return new Response(JSON.stringify({}), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "GET" && url.pathname === "/api/config/mcp/status") {
+        return new Response(JSON.stringify({}), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "GET" && url.pathname === "/session/status") {
+        return new Response(JSON.stringify({}), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      throw new Error(`Unexpected request: ${method} ${url.pathname}${url.search}`)
+    }) as typeof fetch
+
+    const result = await ensureDirectorySession("/repo")
+
+    expect(createRequests).toBe(0)
+    expect(result).toEqual({
+      directory: "/repo",
+      info: undefined,
+    })
+    expect(useChatStore.getState().directories["/repo"]?.sessionID).toBeUndefined()
+    expect(useChatStore.getState().directories["/repo"]?.isDraft).toBe(true)
+  })
+
+  test("does not create duplicate sessions when bootstrapping and creating concurrently", async () => {
+    const sessionInfo = {
+      id: "session-1",
+      title: "New session",
+      time: {
+        created: 1,
+        updated: 1,
+      },
+    }
+
+    useChatStore.setState({
+      openProjects: ["/repo"],
+      activeDirectory: "/repo",
+      lastSessionByDirectory: {},
+      directories: {},
+    })
+
+    let createRequests = 0
+    let sessionWasCreated = false
+    const createGate = createDeferred<void>()
+
+    globalThis.fetch = (async (input, init) => {
+      const url = new URL(requestUrl(input), "http://localhost")
+      const method = requestMethod(input, init) ?? "GET"
+
+      if (method === "GET" && url.pathname === "/api/session") {
+        return new Response(JSON.stringify(sessionWasCreated ? [sessionInfo] : []), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "POST" && url.pathname === "/api/session") {
+        createRequests += 1
+        await createGate.promise
+        sessionWasCreated = true
+        return new Response(JSON.stringify(sessionInfo), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "GET" && url.pathname === "/api/session/session-1/message") {
+        return new Response(JSON.stringify([]), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "GET" && url.pathname === "/api/session/session-1") {
+        return new Response(JSON.stringify(sessionInfo), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "GET" && url.pathname === "/api/permission") {
+        return new Response(JSON.stringify([]), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "GET" && url.pathname === "/api/provider") {
+        return new Response(
+          JSON.stringify({
+            default: "",
+            connected: [],
+            all: [],
+          }),
+          {
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        )
+      }
+
+      if (method === "GET" && url.pathname === "/api/provider/auth") {
+        return new Response(JSON.stringify({}), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "GET" && url.pathname === "/api/config/mcp/status") {
+        return new Response(JSON.stringify({}), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "GET" && url.pathname === "/session/status") {
+        return new Response(JSON.stringify({}), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      throw new Error(`Unexpected request: ${method} ${url.pathname}${url.search}`)
+    }) as typeof fetch
+
+    const ensurePromise = ensureDirectorySession("/repo")
+    const startPromise = startNewSession("/repo")
+
+    await new Promise<void>((resolve) => setTimeout(resolve, 0))
+    createGate.resolve()
+
+    const [ensured, started] = await Promise.all([ensurePromise, startPromise])
+
+    expect(createRequests).toBe(1)
+    expect(ensured.directory).toBe("/repo")
+    expect(ensured.info).toBeUndefined()
+    expect(started.id).toBe("session-1")
+  })
+
+  test("does not reset to draft when a concurrent session is created during bootstrap", async () => {
+    const sessionInfo = {
+      id: "session-1",
+      title: "New session",
+      time: {
+        created: 1,
+        updated: 1,
+      },
+    }
+
+    useChatStore.setState({
+      openProjects: ["/repo"],
+      activeDirectory: "/repo",
+      lastSessionByDirectory: {},
+      directories: {},
+    })
+
+    let sessionListRequests = 0
+    let sessionWasCreated = false
+    const staleSessionListGate = createDeferred<void>()
+
+    globalThis.fetch = (async (input, init) => {
+      const url = new URL(requestUrl(input), "http://localhost")
+      const method = requestMethod(input, init) ?? "GET"
+
+      if (method === "GET" && url.pathname === "/api/session") {
+        sessionListRequests += 1
+        if (sessionListRequests === 1) {
+          await staleSessionListGate.promise
+          return new Response(JSON.stringify([]), {
+            headers: {
+              "content-type": "application/json",
+            },
+          })
+        }
+
+        return new Response(JSON.stringify(sessionWasCreated ? [sessionInfo] : []), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "POST" && url.pathname === "/api/session") {
+        sessionWasCreated = true
+        return new Response(JSON.stringify(sessionInfo), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "GET" && url.pathname === "/api/session/session-1/message") {
+        return new Response(JSON.stringify([]), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "GET" && url.pathname === "/api/permission") {
+        return new Response(JSON.stringify([]), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "GET" && url.pathname === "/api/provider") {
+        return new Response(
+          JSON.stringify({
+            default: "",
+            connected: [],
+            all: [],
+          }),
+          {
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        )
+      }
+
+      if (method === "GET" && url.pathname === "/api/provider/auth") {
+        return new Response(JSON.stringify({}), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "GET" && url.pathname === "/api/config/mcp/status") {
+        return new Response(JSON.stringify({}), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "GET" && url.pathname === "/session/status") {
+        return new Response(JSON.stringify({}), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      throw new Error(`Unexpected request: ${method} ${url.pathname}${url.search}`)
+    }) as typeof fetch
+
+    const ensurePromise = ensureDirectorySession("/repo")
+    const startPromise = startNewSession("/repo")
+
+    const started = await startPromise
+    staleSessionListGate.resolve()
+    const ensured = await ensurePromise
+
+    expect(started.id).toBe("session-1")
+    expect(ensured.directory).toBe("/repo")
+    expect(useChatStore.getState().directories["/repo"]?.sessionID).toBe("session-1")
+    expect(useChatStore.getState().directories["/repo"]?.isDraft).toBe(false)
+  })
 })
 
 describe("loadSessions", () => {
@@ -376,6 +732,122 @@ describe("shouldDeferTranscriptReload", () => {
 })
 
 describe("sendPrompt", () => {
+  test("creates a session lazily when sending from draft mode", async () => {
+    let createRequests = 0
+    let promptRequests = 0
+
+    useChatStore.setState({
+      openProjects: ["/repo"],
+      activeDirectory: "/repo",
+      directories: {
+        "/repo": {
+          isDraft: true,
+          sessionTitle: "New chat",
+          sessions: [],
+          sessionStatusByID: {},
+          messages: [],
+          pendingPermissions: [],
+          providers: [],
+          providerDefault: {},
+          mcpStatus: {},
+          isBusy: false,
+          isReady: true,
+        },
+      },
+    })
+
+    const sessionInfo = {
+      id: "session_1",
+      title: "New thread",
+      time: {
+        created: 1,
+        updated: 1,
+      },
+    }
+
+    globalThis.fetch = (async (input, init) => {
+      const url = new URL(requestUrl(input), "http://localhost")
+      const method = requestMethod(input, init) ?? "GET"
+
+      if (method === "POST" && url.pathname === "/api/session") {
+        createRequests += 1
+        return new Response(JSON.stringify(sessionInfo), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "POST" && url.pathname === "/api/session/session_1/message") {
+        promptRequests += 1
+        return new Response(JSON.stringify({}), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "GET" && url.pathname === "/api/session") {
+        return new Response(JSON.stringify([sessionInfo]), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      throw new Error(`Unexpected request: ${method} ${url.pathname}${url.search}`)
+    }) as typeof fetch
+
+    await sendPrompt("/repo", "hello")
+
+    expect(createRequests).toBe(1)
+    expect(promptRequests).toBe(1)
+    expect(useChatStore.getState().directories["/repo"]?.sessionID).toBe("session_1")
+    expect(useChatStore.getState().directories["/repo"]?.isDraft).toBe(false)
+  })
+
+  test("stores a directory error when lazy session creation fails", async () => {
+    useChatStore.setState({
+      openProjects: ["/repo"],
+      activeDirectory: "/repo",
+      directories: {
+        "/repo": {
+          isDraft: true,
+          sessionTitle: "New chat",
+          sessions: [],
+          sessionStatusByID: {},
+          messages: [],
+          pendingPermissions: [],
+          providers: [],
+          providerDefault: {},
+          mcpStatus: {},
+          isBusy: false,
+          isReady: true,
+        },
+      },
+    })
+
+    globalThis.fetch = (async (input, init) => {
+      const url = new URL(requestUrl(input), "http://localhost")
+      const method = requestMethod(input, init) ?? "GET"
+
+      if (method === "POST" && url.pathname === "/api/session") {
+        return new Response(JSON.stringify({ error: "session create failed" }), {
+          status: 500,
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      throw new Error(`Unexpected request: ${method} ${url.pathname}${url.search}`)
+    }) as typeof fetch
+
+    await expect(sendPrompt("/repo", "hello")).rejects.toThrow("session create failed")
+    expect(useChatStore.getState().directories["/repo"]?.error).toContain("session create failed")
+    expect(useChatStore.getState().directories["/repo"]?.sessionID).toBeUndefined()
+  })
+
   test("does not start a transcript polling loop after prompt submission", async () => {
     let requests = 0
 
