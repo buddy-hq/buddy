@@ -2,6 +2,15 @@
 - Buddy is a Bun + TypeScript monorepo managed with Turborepo.
 - It is single-user and single-machine by design: one OS user, one home-directory state, one active config/credential/session set, with no built-in multi-user accounts, profiles, or permissions.
 - Buddy is local-first: the main agent loop usually runs locally on the host that launched it. It is not strictly local-only, and may expose server/client or remote-agent surfaces or use the network beyond LLM calls, web search, MCP, and third-party APIs, including for auth, remote config/admin policy, and remote subagent/client connections.
+
+<!-- intent-skills:start -->
+skills:
+  - task: "Virtualize long scroll lists in packages/web with @tanstack/react-virtual"
+    load: ".agents/skills/tanstack-react-virtual/SKILL.md"
+  - task: "Adjust TanStack Router plugin route generation behavior"
+    load: "packages/web/node_modules/@tanstack/router-plugin/skills/router-plugin/SKILL.md"
+<!-- intent-skills:end -->
+
 ## Task Completion Requirements
 - All of `bun fmt`, `bun lint`, and `bun typecheck` must pass before considering tasks completed.
 ## Breaking Changes & Backward Compatibility
