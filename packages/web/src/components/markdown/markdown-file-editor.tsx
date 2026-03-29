@@ -11,6 +11,7 @@ import {
 } from "@buddy/ui"
 import { AlertTriangleIcon, FileTextIcon, PlusIcon } from "lucide-react"
 import type { editor as MonacoEditor } from "monaco-editor"
+import { language } from "@/context/language"
 
 type MarkdownFileState = {
   path: string
@@ -225,8 +226,6 @@ export function MarkdownFileEditor(props: MarkdownFileEditorProps) {
 
   const hasUnsaved = exists && !conflictMessage && content !== savedContent && !saving
 
-  const saveStateLabel = conflictMessage ? "Conflict" : undefined
-
   function layoutEditor() {
     const editor = editorRef.current
     const container = editorContainerRef.current
@@ -295,12 +294,12 @@ export function MarkdownFileEditor(props: MarkdownFileEditorProps) {
         >
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Save error</DialogTitle>
+              <DialogTitle>{language.t("markdownEditor.saveError")}</DialogTitle>
               <DialogDescription>{error}</DialogDescription>
             </DialogHeader>
             <DialogFooter>
               <Button variant="outline" onClick={() => setError(undefined)}>
-                Dismiss
+                {language.t("markdownEditor.dismiss")}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -320,7 +319,7 @@ export function MarkdownFileEditor(props: MarkdownFileEditorProps) {
               onClick={() => void refresh()}
               disabled={loading || saving}
             >
-              Reload
+              {language.t("markdownEditor.reload")}
             </Button>
             <Button
               size="sm"
@@ -330,7 +329,7 @@ export function MarkdownFileEditor(props: MarkdownFileEditorProps) {
               }}
               disabled={loading || saving}
             >
-              Overwrite
+              {language.t("markdownEditor.overwrite")}
             </Button>
           </div>
         </div>
@@ -338,7 +337,7 @@ export function MarkdownFileEditor(props: MarkdownFileEditorProps) {
 
       {loading && !exists ? (
         <div className="rounded-md border border-border-base/70 bg-background-base p-3 text-sm text-text-weak">
-          Loading...
+          {language.t("markdownEditor.loading")}
         </div>
       ) : null}
 

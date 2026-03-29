@@ -1,6 +1,7 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 import { type OnboardingAuthChoice, OnboardingSetup } from "@/components/onboarding"
+import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import {
   hasConnectedOpenAiProvider,
@@ -100,7 +101,7 @@ function OnboardingRoute() {
 
   async function handlePickFolder() {
     if (!authChoice) {
-      setError("Pick an AI provider first.")
+      setError(language.t("routes.onboarding.pickProviderFirst"))
       return
     }
 
@@ -133,7 +134,7 @@ function OnboardingRoute() {
         replace: true,
       })
     } catch (err) {
-      setError(formatProviderAuthError(err, "Could not open notebook"))
+      setError(formatProviderAuthError(err, language.t("routes.onboarding.openNotebookFailed")))
     } finally {
       setFolderBusy(false)
     }
@@ -169,7 +170,9 @@ function OnboardingRoute() {
           reloadProviderRuntime: () => reloadProviderRuntime(),
         }),
         new Promise<void>((_, reject) => {
-          abort.signal.addEventListener("abort", () => reject(new Error("Sign-in cancelled.")))
+          abort.signal.addEventListener("abort", () =>
+            reject(new Error(language.t("routes.onboarding.signInCancelled"))),
+          )
         }),
       ])
 
@@ -179,10 +182,10 @@ function OnboardingRoute() {
       if (!abort.signal.aborted) {
         abort.abort()
       }
-      if (err instanceof Error && err.message === "Sign-in cancelled.") {
+      if (err instanceof Error && err.message === language.t("routes.onboarding.signInCancelled")) {
         return
       }
-      setError(formatProviderAuthError(err, "Sign-in failed"))
+      setError(formatProviderAuthError(err, language.t("routes.onboarding.signInFailed")))
     } finally {
       setBusyChoice(undefined)
       setAuthAbort(undefined)

@@ -3,6 +3,7 @@ import { CreateTeachingFileDialog } from "@/components/teaching/create-teaching-
 import { DirectoryChatMainPane } from "@/components/directory-chat/directory-chat-main-pane"
 import { DirectoryChatRightSidebar } from "@/components/directory-chat/directory-chat-right-sidebar"
 import { DirectoryChatShell } from "@/components/directory-chat/directory-chat-shell"
+import { language } from "@/context/language"
 import { useDirectoryChatPageController } from "@/lib/directory-chat/use-directory-chat-page-controller"
 
 type DirectoryChatPageProps = {
@@ -15,11 +16,11 @@ export function DirectoryChatPage(props: DirectoryChatPageProps) {
   })
 
   if (controller.status === "invalid") {
-    return <div className="p-6">Invalid notebook identifier in URL.</div>
+    return <div className="p-6">{language.t("directoryChat.invalidNotebookIdentifier")}</div>
   }
 
   if (controller.status === "opening") {
-    return <div className="p-6">Opening notebook...</div>
+    return <div className="p-6">{language.t("directoryChat.openingNotebook")}</div>
   }
 
   return (

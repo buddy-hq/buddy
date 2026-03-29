@@ -2,6 +2,7 @@ import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 import { Button, Input, Card, CardContent } from "@buddy/ui"
 import { FolderPlusIcon } from "@/components/layout/sidebar-icons"
+import { language } from "@/context/language"
 import { usePlatform } from "../context/platform"
 import buddyIcon from "../../public/buddy-icon.png"
 import { stringifyError } from "../lib/api-client"
@@ -93,10 +94,16 @@ function EmptyProjectsState(props: EmptyProjectsStateProps) {
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-20">
       <div className="flex flex-col items-center gap-6 text-center">
-        <img src={buddyIcon} alt="Buddy" className="h-32 w-32 rounded-3xl shadow-xl" />
+        <img
+          src={buddyIcon}
+          alt={language.t("routes.chat.productName")}
+          className="h-32 w-32 rounded-3xl shadow-xl"
+        />
         <div className="space-y-4">
-          <h1 className="text-5xl font-bold tracking-tight">Buddy</h1>
-          <p className="text-base text-text-weak">learn something new today</p>
+          <h1 className="text-5xl font-bold tracking-tight">
+            {language.t("routes.chat.productName")}
+          </h1>
+          <p className="text-base text-text-weak">{language.t("routes.chat.tagline")}</p>
         </div>
       </div>
 
@@ -111,9 +118,11 @@ function EmptyProjectsState(props: EmptyProjectsStateProps) {
                 onClick={() => void openPickedDirectory()}
               >
                 <FolderPlusIcon className="mr-2 h-4 w-4" />
-                choose a folder
+                {language.t("routes.chat.chooseFolder")}
               </Button>
-              <span className="text-xs text-text-weak">to start your learning journey</span>
+              <span className="text-xs text-text-weak">
+                {language.t("routes.chat.startJourney")}
+              </span>
             </div>
           ) : (
             <form
@@ -127,15 +136,17 @@ function EmptyProjectsState(props: EmptyProjectsStateProps) {
                 <Input
                   value={directory}
                   onChange={(event) => setDirectory(event.target.value)}
-                  placeholder="/path/to/your/project"
+                  placeholder={language.t("routes.chat.pathPlaceholder")}
                   className="flex-1"
                 />
                 <Button type="submit">
                   <FolderPlusIcon className="mr-2 h-4 w-4" />
-                  Open
+                  {language.t("routes.chat.open")}
                 </Button>
               </div>
-              <span className="text-xs text-text-weak">to start your learning journey</span>
+              <span className="text-xs text-text-weak">
+                {language.t("routes.chat.startJourney")}
+              </span>
             </form>
           )}
         </CardContent>

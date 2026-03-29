@@ -1,36 +1,7 @@
 import { Button, CheckIcon, FolderOpenIcon } from "@buddy/ui"
 import { cn } from "@buddy/ui"
+import { language } from "@/context/language"
 import type { OnboardingAuthChoice } from "./types"
-
-const ONBOARDING_CONTENT = {
-  header: {
-    title: "Buddy",
-    subtitle: "Your intelligent learning companion.",
-  },
-  engineSelection: {
-    heading: "Select AI Engine",
-    chatGpt: {
-      title: "ChatGPT",
-      description: "Use your active subscription.",
-    },
-    freeModels: {
-      title: "Free Models",
-      description: "Start instantly with free models.",
-    },
-  },
-  notebookSelection: {
-    heading: "Open a Notebook",
-    buttonIdle: "Choose Folder",
-    buttonBusy: "Initializing Notebook...",
-  },
-  chatGptModal: {
-    title: "Connecting ChatGPT",
-    description:
-      "We've opened a browser window for you to sign in. Please complete authorization to continue.",
-    waitingLabel: "Waiting for browser...",
-    cancelButton: "Cancel Sign-in",
-  },
-}
 
 type OnboardingSetupProps = {
   authChoice?: OnboardingAuthChoice
@@ -52,6 +23,37 @@ function OpenAIIcon({ className }: { className?: string }) {
 }
 
 export function OnboardingSetup(props: OnboardingSetupProps) {
+  const content = {
+    header: {
+      title: language.t("onboardingSetup.header.title"),
+      badge: language.t("onboardingSetup.header.badge"),
+      subtitle: language.t("onboardingSetup.header.subtitle"),
+      logoAlt: language.t("onboardingSetup.header.logoAlt"),
+    },
+    engineSelection: {
+      heading: language.t("onboardingSetup.engineSelection.heading"),
+      connected: language.t("onboardingSetup.engineSelection.connected"),
+      chatGpt: {
+        title: language.t("onboardingSetup.engineSelection.chatGpt.title"),
+        description: language.t("onboardingSetup.engineSelection.chatGpt.description"),
+      },
+      freeModels: {
+        title: language.t("onboardingSetup.engineSelection.freeModels.title"),
+        description: language.t("onboardingSetup.engineSelection.freeModels.description"),
+      },
+    },
+    notebookSelection: {
+      heading: language.t("onboardingSetup.notebookSelection.heading"),
+      buttonIdle: language.t("onboardingSetup.notebookSelection.buttonIdle"),
+      buttonBusy: language.t("onboardingSetup.notebookSelection.buttonBusy"),
+    },
+    chatGptModal: {
+      title: language.t("onboardingSetup.chatGptModal.title"),
+      description: language.t("onboardingSetup.chatGptModal.description"),
+      waitingLabel: language.t("onboardingSetup.chatGptModal.waitingLabel"),
+      cancelButton: language.t("onboardingSetup.chatGptModal.cancelButton"),
+    },
+  }
   const hasProvider = Boolean(props.authChoice)
   const isChatGptConnected = props.connectedAuthChoice === "chatgpt_plus"
 
@@ -64,10 +66,10 @@ export function OnboardingSetup(props: OnboardingSetupProps) {
               <OpenAIIcon className="size-6 text-emerald-500 animate-pulse" />
             </div>
             <h3 className="text-xl font-bold tracking-tight text-text-strong">
-              {ONBOARDING_CONTENT.chatGptModal.title}
+              {content.chatGptModal.title}
             </h3>
             <p className="mt-2 text-[14px] font-medium text-text-weak leading-relaxed">
-              {ONBOARDING_CONTENT.chatGptModal.description}
+              {content.chatGptModal.description}
             </p>
             <div className="mt-8 flex items-center justify-center gap-3 rounded-full bg-emerald-500/10 px-4 py-2 text-[13px] font-semibold text-emerald-500 border border-emerald-500/20">
               <svg className="size-4 animate-spin text-emerald-500" fill="none" viewBox="0 0 24 24">
@@ -81,14 +83,14 @@ export function OnboardingSetup(props: OnboardingSetupProps) {
                 />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
               </svg>
-              {ONBOARDING_CONTENT.chatGptModal.waitingLabel}
+              {content.chatGptModal.waitingLabel}
             </div>
             <Button
               variant="outline"
               className="mt-8 w-full rounded-xl hover:bg-surface-raised-base hover:text-text-strong transition-all"
               onClick={props.onCancelAuth}
             >
-              {ONBOARDING_CONTENT.chatGptModal.cancelButton}
+              {content.chatGptModal.cancelButton}
             </Button>
           </div>
         </div>
@@ -98,20 +100,20 @@ export function OnboardingSetup(props: OnboardingSetupProps) {
         <div className="mb-4 flex items-center gap-6 text-left">
           <img
             src="/buddy-icon.png"
-            alt="Buddy Logo"
+            alt={content.header.logoAlt}
             className="size-[64px] shrink-0 rounded-2xl opacity-90 shadow-[0_2px_10px_0_rgba(0,0,0,0.05)] [mix-blend-mode:var(--text-mix-blend-mode)]"
           />
           <div className="flex flex-col justify-center">
             <div className="flex items-center gap-4">
               <h1 className="text-4xl font-bold tracking-tight text-text-strong leading-none">
-                {ONBOARDING_CONTENT.header.title}
+                {content.header.title}
               </h1>
               <span className="translate-y-[-2px] rounded-lg border border-border-base bg-surface-raised-base px-2 py-0.5 text-[11px] font-bold uppercase tracking-widest text-text-weaker shadow-sm">
-                Alpha
+                {content.header.badge}
               </span>
             </div>
             <p className="mt-3 text-[15px] font-medium text-text-weak leading-tight">
-              {ONBOARDING_CONTENT.header.subtitle}
+              {content.header.subtitle}
             </p>
           </div>
         </div>
@@ -119,7 +121,7 @@ export function OnboardingSetup(props: OnboardingSetupProps) {
         <div className="space-y-4">
           <div className="flex justify-between items-end mb-2">
             <h2 className="text-sm font-medium text-text-weaker">
-              {ONBOARDING_CONTENT.engineSelection.heading}
+              {content.engineSelection.heading}
             </h2>
             {props.error && !hasProvider && (
               <span className="text-sm font-medium text-text-critical-base animate-in fade-in">
@@ -150,16 +152,16 @@ export function OnboardingSetup(props: OnboardingSetupProps) {
               <OpenAIIcon className="size-5 shrink-0 text-emerald-500" />
               <div className="flex-1">
                 <p className="text-[15px] font-medium text-text-strong">
-                  {ONBOARDING_CONTENT.engineSelection.chatGpt.title}
+                  {content.engineSelection.chatGpt.title}
                 </p>
                 <p className="text-[13px] text-text-weak mt-0.5">
-                  {ONBOARDING_CONTENT.engineSelection.chatGpt.description}
+                  {content.engineSelection.chatGpt.description}
                 </p>
               </div>
               {isChatGptConnected ? (
                 <span className="inline-flex items-center gap-1 rounded-full border border-border-success-base bg-surface-success-base/10 px-2 py-0.5 text-[11px] font-medium text-text-success-base">
                   <CheckIcon className="size-3.5" />
-                  Connected
+                  {content.engineSelection.connected}
                 </span>
               ) : null}
             </button>
@@ -183,10 +185,10 @@ export function OnboardingSetup(props: OnboardingSetupProps) {
               >
                 <div className="flex-1">
                   <p className="text-[15px] font-medium text-text-strong">
-                    {ONBOARDING_CONTENT.engineSelection.freeModels.title}
+                    {content.engineSelection.freeModels.title}
                   </p>
                   <p className="text-[13px] text-text-weak mt-0.5">
-                    {ONBOARDING_CONTENT.engineSelection.freeModels.description}
+                    {content.engineSelection.freeModels.description}
                   </p>
                 </div>
               </button>
@@ -204,7 +206,7 @@ export function OnboardingSetup(props: OnboardingSetupProps) {
         >
           <div className="flex justify-between items-end mb-2">
             <h2 className="text-sm font-medium text-text-weaker">
-              {ONBOARDING_CONTENT.notebookSelection.heading}
+              {content.notebookSelection.heading}
             </h2>
             {props.error && hasProvider && (
               <span className="text-sm font-medium text-text-critical-base animate-in fade-in">
@@ -222,14 +224,12 @@ export function OnboardingSetup(props: OnboardingSetupProps) {
           >
             {props.folderBusy ? (
               <span className="animate-pulse font-medium">
-                {ONBOARDING_CONTENT.notebookSelection.buttonBusy}
+                {content.notebookSelection.buttonBusy}
               </span>
             ) : (
               <div className="flex w-full items-center gap-3">
                 <FolderOpenIcon className="size-5 shrink-0" />
-                <span className="font-medium">
-                  {ONBOARDING_CONTENT.notebookSelection.buttonIdle}
-                </span>
+                <span className="font-medium">{content.notebookSelection.buttonIdle}</span>
               </div>
             )}
           </Button>

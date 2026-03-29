@@ -2,6 +2,7 @@ import type { ReactNode } from "react"
 import { RouterProvider, createRouter } from "@tanstack/react-router"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { Toaster, TooltipProvider } from "@buddy/ui"
+import { LanguageProvider } from "@/context/language"
 import { ThemeProvider } from "@/theme"
 import { routeTree } from "./routeTree.gen"
 
@@ -24,14 +25,16 @@ declare module "@tanstack/react-router" {
 
 export function AppBaseProviders(props: { children: ReactNode }) {
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider defaultTheme="dracula">
-        <TooltipProvider>
-          {props.children}
-          <Toaster position="bottom-right" />
-        </TooltipProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
+    <LanguageProvider>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider defaultTheme="dracula">
+          <TooltipProvider>
+            {props.children}
+            <Toaster position="bottom-right" />
+          </TooltipProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </LanguageProvider>
   )
 }
 

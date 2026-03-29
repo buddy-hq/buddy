@@ -4,6 +4,7 @@ import { ChatEmptyState } from "@/components/chat/chat-empty-state"
 import { SessionContextUsage } from "@/components/chat/session-context-usage"
 import { ChatTranscript } from "@/components/chat/chat-transcript"
 import { PermissionDock } from "@/components/chat/permission-dock"
+import { language } from "@/context/language"
 import { getFilename } from "@/components/layout/sidebar-helpers"
 import { ChevronRightIcon } from "@/components/layout/sidebar-icons"
 import { PromptComposer } from "@/components/prompt/prompt-composer"
@@ -51,7 +52,9 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
                 onClick={() => {
                   onOpenSession(chatState.parentSession!.id)
                 }}
-                title={`Back to ${chatState.parentSession.title || "parent thread"}`}
+                title={`Back to ${
+                  chatState.parentSession.title || language.t("directoryChat.backToParentThread")
+                }`}
               >
                 <ChevronRightIcon className="size-3.5 rotate-180" />
               </Button>
@@ -72,7 +75,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
               onClick={onNewSession}
             >
               <SquarePenIcon className="size-4 mr-1.5" />
-              New thread
+              {language.t("directoryChat.newThread")}
             </Button>
           </div>
         </div>
@@ -91,7 +94,9 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
               }`}
             >
               {!chatState.isReady ? (
-                <p className="text-sm text-text-weak">Loading conversation history...</p>
+                <p className="text-sm text-text-weak">
+                  {language.t("directoryChat.loadingConversationHistory")}
+                </p>
               ) : chatState.messages.length === 0 ? (
                 <div className="h-full flex flex-col">
                   <ChatEmptyState directoryLabel={getFilename(directory)} />

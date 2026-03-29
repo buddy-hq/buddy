@@ -1,5 +1,6 @@
 import { Button } from "@buddy/ui"
 import { Loader2Icon } from "lucide-react"
+import { language } from "@/context/language"
 import { TEACHING_LANGUAGE_OPTIONS, type TeachingLanguage } from "@/state/teaching-runtime"
 
 type InteractiveLessonEmptyStateProps = {
@@ -26,16 +27,17 @@ export function InteractiveLessonEmptyState(props: InteractiveLessonEmptyStatePr
   return (
     <section className="flex min-h-0 flex-1 flex-col justify-center gap-4 px-6 py-8">
       <div className="space-y-2">
-        <h2 className="text-sm font-medium">Interactive Lesson</h2>
+        <h2 className="text-sm font-medium">
+          {language.t("directoryChat.interactiveLesson.title")}
+        </h2>
         <p className="text-sm text-text-weak">
-          Start an interactive session to create a tracked workspace with files, checkpoints, and
-          server-backed editor diagnostics.
+          {language.t("directoryChat.interactiveLesson.description")}
         </p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
         <label className="text-xs text-text-weak" htmlFor="interactive-language">
-          Language
+          {language.t("directoryChat.interactiveLesson.language")}
         </label>
         <select
           id="interactive-language"
@@ -63,18 +65,21 @@ export function InteractiveLessonEmptyState(props: InteractiveLessonEmptyStatePr
           {isStartingInteractiveLesson ? (
             <>
               <Loader2Icon className="mr-2 size-4 animate-spin" />
-              Starting...
+              {language.t("directoryChat.interactiveLesson.starting")}
             </>
           ) : (
-            "Start Interactive Lesson"
+            language.t("directoryChat.interactiveLesson.start")
           )}
         </Button>
       </div>
 
       <div className="rounded-lg border border-border-base/70 bg-background-base p-3 text-xs text-text-weak">
-        Current workspace: {isStartingInteractiveLesson ? "starting..." : "not started"}
+        {language.t("directoryChat.interactiveLesson.workspacePrefix")}{" "}
+        {isStartingInteractiveLesson
+          ? language.t("directoryChat.interactiveLesson.workspaceStarting")
+          : language.t("directoryChat.interactiveLesson.workspaceNotStarted")}
         <br />
-        Selected persona: {selectedPersona}
+        {language.t("directoryChat.interactiveLesson.selectedPersonaPrefix")} {selectedPersona}
       </div>
     </section>
   )

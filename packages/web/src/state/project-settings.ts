@@ -6,6 +6,7 @@ import {
   patchProjectConfig,
   type PersonaConfigOption,
 } from "./chat-actions"
+import { language } from "@/context/language"
 import type { TeachingIntent } from "./teaching-runtime"
 import type { ProviderCatalogState } from "./chat-types"
 
@@ -340,7 +341,8 @@ export function useProjectSettings(directory: string, open: boolean) {
       loading: state.loading,
       saving: state.saving,
       error: state.error,
-      providerMessage: connected.length === 0 ? "Connect a provider to choose a model." : undefined,
+      providerMessage:
+        connected.length === 0 ? language.t("projectSettings.connectProviderForModel") : undefined,
     },
     options: {
       personas: state.personaCatalog,

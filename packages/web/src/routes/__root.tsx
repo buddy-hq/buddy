@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react"
 import { createRootRoute, Outlet } from "@tanstack/react-router"
 import { TanStackRouterDevtools } from "@tanstack/router-devtools"
 import { DesktopTitlebar } from "@/components/layout/desktop-titlebar"
+import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { showDesktopUpdateToast } from "../lib/desktop-updates"
 
@@ -66,5 +67,5 @@ function RootLayout() {
 
 export const Route = createRootRoute({
   component: RootLayout,
-  notFoundComponent: () => <div className="p-6">404 Not Found</div>,
+  notFoundComponent: () => <div className="p-6">{language.t("routes.root.notFound")}</div>,
 })

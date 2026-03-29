@@ -13,6 +13,7 @@ import {
   SparklesIcon,
 } from "lucide-react"
 import { ChatLeftSidebar } from "@/components/layout/chat-left-sidebar"
+import { language } from "@/context/language"
 import { ResizeHandle } from "@/components/layout/resize-handle"
 import { SettingsPage } from "@/components/settings/settings-page"
 import type { SettingsTab } from "@/components/settings/settings-primitives"
@@ -24,7 +25,7 @@ import {
   preloadProjectSessions,
   reorderOpenProjects,
   selectSession,
-  startNewSession,
+  startNewSessionDraft,
   updateSession,
 } from "@/state/chat-actions"
 import { useChatStore } from "@/state/chat-store"
@@ -109,20 +110,16 @@ function SettingsRoute() {
       setActiveDirectory(nextDirectory)
       await preloadProjectSessions([nextDirectory])
     } catch {
-      toast.error("Couldn't open that notebook. Try again.")
+      toast.error(language.t("routes.settings.openNotebookFailed"))
     }
   }
 
-  async function onNewSession(targetDirectory?: string) {
+  function onNewSession(targetDirectory?: string) {
     const nextDirectory = targetDirectory || currentDirectory
     if (!nextDirectory) return
     setActiveDirectory(nextDirectory)
-    try {
-      await startNewSession(nextDirectory)
-      openChat(nextDirectory)
-    } catch {
-      toast.error("Couldn't start a new thread. Try again.")
-    }
+    startNewSessionDraft(nextDirectory)
+    openChat(nextDirectory)
   }
 
   async function onSelectSession(targetDirectory: string, targetSessionID?: string) {
@@ -134,7 +131,7 @@ function SettingsRoute() {
       }
       openChat(targetDirectory)
     } catch {
-      toast.error("Couldn't open that thread. Try again.")
+      toast.error(language.t("routes.settings.openThreadFailed"))
     }
   }
 
@@ -157,7 +154,7 @@ function SettingsRoute() {
       })
       await preloadProjectSessions([targetDirectory])
     } catch {
-      toast.error("Couldn't archive that thread. Try again.")
+      toast.error(language.t("routes.settings.archiveThreadFailed"))
     }
   }
 
@@ -173,7 +170,7 @@ function SettingsRoute() {
       })
       useChatStore.getState().applySessionUpdated(targetDirectory, updated)
     } catch {
-      toast.error("Couldn't rename that thread. Try again.")
+      toast.error(language.t("routes.settings.renameThreadFailed"))
     }
   }
 
@@ -181,7 +178,7 @@ function SettingsRoute() {
     try {
       await closeOpenProject(targetDirectory)
     } catch {
-      toast.error("Couldn't close that notebook. Try again.")
+      toast.error(language.t("routes.settings.closeNotebookFailed"))
     }
   }
 
@@ -247,7 +244,7 @@ function SettingsRoute() {
             <SettingsPage directory={currentDirectory} activeTab={tab} />
           ) : (
             <div className="flex h-full items-center justify-center text-sm text-text-weak">
-              Open a notebook to configure settings.
+              {language.t("routes.settings.emptyState")}
             </div>
           )}
         </main>
@@ -261,14 +258,18 @@ const NAV_ITEMS: {
   label: string
   icon: typeof FileTextIcon
 }[] = [
-  { tab: "instructions", label: "Instructions", icon: FileTextIcon },
-  { tab: "appearance", label: "Appearance", icon: PaletteIcon },
-  { tab: "notebook", label: "Notebook", icon: BookOpenIcon },
-  { tab: "model", label: "Model", icon: BrainIcon },
-  { tab: "providers", label: "Providers", icon: SettingsIcon },
-  { tab: "mcps", label: "MCPs", icon: BlocksIcon },
-  { tab: "skills", label: "Skills", icon: SparklesIcon },
-  { tab: "advanced", label: "Advanced", icon: CogIcon },
+  {
+    tab: "instructions",
+    label: language.t("routes.settings.nav.instructions"),
+    icon: FileTextIcon,
+  },
+  { tab: "appearance", label: language.t("routes.settings.nav.appearance"), icon: PaletteIcon },
+  { tab: "notebook", label: language.t("routes.settings.nav.notebook"), icon: BookOpenIcon },
+  { tab: "model", label: language.t("common.model"), icon: BrainIcon },
+  { tab: "providers", label: language.t("routes.settings.nav.providers"), icon: SettingsIcon },
+  { tab: "mcps", label: language.t("routes.settings.nav.mcps"), icon: BlocksIcon },
+  { tab: "skills", label: language.t("routes.settings.nav.skills"), icon: SparklesIcon },
+  { tab: "advanced", label: language.t("routes.settings.nav.advanced"), icon: CogIcon },
 ]
 
 function SettingsNavContent(props: {
@@ -286,7 +287,7 @@ function SettingsNavContent(props: {
           onClick={props.onBack}
         >
           <ArrowLeftIcon className="mr-2 size-4" />
-          Back to chat
+          {language.t("routes.settings.backToChat")}
         </Button>
       </div>
       <div className="space-y-1">
