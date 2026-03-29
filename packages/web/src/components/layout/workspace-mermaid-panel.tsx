@@ -1,8 +1,14 @@
-import { useCallback, useEffect, useState } from "react"
+import { measureElement as measureVirtualElement, useVirtualizer } from "@tanstack/react-virtual"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Badge, Button, Card, CardContent } from "@buddy/ui"
 import { language } from "@/context/language"
 import { MermaidDiagram } from "@/components/chat/shared"
 import { RefreshCwIcon, LayoutTemplateIcon } from "lucide-react"
+import {
+  VIRTUAL_MERMAID_CARD_ESTIMATE_PX,
+  VIRTUAL_MERMAID_MIN_ITEMS,
+  VIRTUAL_MERMAID_OVERSCAN,
+} from "@/components/virtualization/virtualization-defaults"
 import {
   loadWorkspaceMermaidArtifacts,
   type WorkspaceMermaidArtifactView,
@@ -24,6 +30,7 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
   const [artifacts, setArtifacts] = useState<WorkspaceMermaidArtifactView[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | undefined>(undefined)
+  const artifactsListRef = useRef<HTMLDivElement>(null)
 
   const loadArtifacts = useCallback(
     async (isDisposed?: () => boolean) => {
@@ -48,6 +55,56 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
     },
     [props.directory],
   )
+
+  const shouldVirtualizeArtifacts = artifacts.length >= VIRTUAL_MERMAID_MIN_ITEMS
+  const artifactsVirtualizer = useVirtualizer<HTMLDivElement, HTMLDivElement>({
+    count: shouldVirtualizeArtifacts ? artifacts.length : 0,
+    getScrollElement: () => artifactsListRef.current,
+    getItemKey: (index) => artifacts[index]?.artifactID ?? index,
+    estimateSize: () => VIRTUAL_MERMAID_CARD_ESTIMATE_PX,
+    measureElement: measureVirtualElement,
+    enabled: shouldVirtualizeArtifacts,
+    overscan: VIRTUAL_MERMAID_OVERSCAN,
+  })
+
+  function renderArtifactCard(artifact: WorkspaceMermaidArtifactView, index: number) {
+    return (
+      <div className={index === artifacts.length - 1 ? "" : "pb-3"}>
+        <Card size="sm" className="gap-0 py-0">
+          <CardContent className="space-y-3 px-3 py-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="secondary">{artifact.diagramType}</Badge>
+              <Badge variant="outline">{formatCreatedAt(artifact.createdAt)}</Badge>
+              {artifact.repairAttempts > 0 ? (
+                <Badge variant="outline">
+                  {language.t("workspaceMermaid.repairedPrefix")} {artifact.repairAttempts}{" "}
+                  {artifact.repairAttempts === 1
+                    ? language.t("workspaceMermaid.repairedTime")
+                    : language.t("workspaceMermaid.repairedTimes")}
+                </Badge>
+              ) : null}
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-text-base">{artifact.alt}</p>
+              {artifact.caption ? (
+                <p className="text-sm text-text-weak">{artifact.caption}</p>
+              ) : null}
+            </div>
+
+            <MermaidDiagram
+              source={artifact.source}
+              artifactID={artifact.artifactID}
+              alt={artifact.alt}
+              className="rounded-lg border border-border-base bg-background-base p-3"
+              failureClassName="rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 p-3 text-sm text-icon-critical-base"
+              showRawSourceOnError
+            />
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   useEffect(() => {
     let disposed = false
@@ -98,41 +155,36 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
       ) : null}
 
       {artifacts.length > 0 ? (
-        <div className="flex-1 min-h-0 space-y-3 overflow-y-auto">
-          {artifacts.map((artifact) => (
-            <Card key={artifact.artifactID} size="sm" className="gap-0 py-0">
-              <CardContent className="space-y-3 px-3 py-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="secondary">{artifact.diagramType}</Badge>
-                  <Badge variant="outline">{formatCreatedAt(artifact.createdAt)}</Badge>
-                  {artifact.repairAttempts > 0 ? (
-                    <Badge variant="outline">
-                      {language.t("workspaceMermaid.repairedPrefix")} {artifact.repairAttempts}{" "}
-                      {artifact.repairAttempts === 1
-                        ? language.t("workspaceMermaid.repairedTime")
-                        : language.t("workspaceMermaid.repairedTimes")}
-                    </Badge>
-                  ) : null}
-                </div>
+        <div ref={artifactsListRef} className="flex-1 min-h-0 overflow-y-auto">
+          {shouldVirtualizeArtifacts ? (
+            <div
+              className="relative w-full"
+              style={{ height: `${artifactsVirtualizer.getTotalSize()}px` }}
+            >
+              {artifactsVirtualizer.getVirtualItems().map((virtualRow) => {
+                const artifact = artifacts[virtualRow.index]
+                if (!artifact) return null
 
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-text-base">{artifact.alt}</p>
-                  {artifact.caption ? (
-                    <p className="text-sm text-text-weak">{artifact.caption}</p>
-                  ) : null}
-                </div>
-
-                <MermaidDiagram
-                  source={artifact.source}
-                  artifactID={artifact.artifactID}
-                  alt={artifact.alt}
-                  className="rounded-lg border border-border-base bg-background-base p-3"
-                  failureClassName="rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 p-3 text-sm text-icon-critical-base"
-                  showRawSourceOnError
-                />
-              </CardContent>
-            </Card>
-          ))}
+                return (
+                  <div
+                    key={virtualRow.key}
+                    data-index={virtualRow.index}
+                    ref={artifactsVirtualizer.measureElement}
+                    className="absolute top-0 left-0 w-full"
+                    style={{ transform: `translateY(${virtualRow.start}px)` }}
+                  >
+                    {renderArtifactCard(artifact, virtualRow.index)}
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div>
+              {artifacts.map((artifact, index) => (
+                <div key={artifact.artifactID}>{renderArtifactCard(artifact, index)}</div>
+              ))}
+            </div>
+          )}
         </div>
       ) : null}
 
