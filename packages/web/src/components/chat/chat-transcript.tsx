@@ -34,6 +34,8 @@ import {
   VIRTUAL_CHAT_TAIL_TURNS,
   VIRTUAL_CHAT_TURN_ESTIMATE_PX,
 } from "@/components/virtualization/virtualization-defaults"
+import { useChatStore } from "@/state/chat-store"
+import type { MessageWithParts, ProviderInfo } from "@/state/chat-types"
 import type {
   ChatTranscriptProps,
   TurnRowProps,
@@ -41,6 +43,9 @@ import type {
   AssistantSectionProps,
   UserSectionProps,
 } from "./types"
+
+const EMPTY_MESSAGES: MessageWithParts[] = []
+const EMPTY_PROVIDERS: ProviderInfo[] = []
 
 const TurnRow = memo(function TurnRow({
   turn,
@@ -163,11 +168,7 @@ const AssistantSection = memo(function AssistantSection({
           />
         )
       })}
-      {showThinking ? (
-        <AbstractedThinkingPlaceholder
-          detail={currentReasoningHeading}
-        />
-      ) : null}
+      {showThinking ? <AbstractedThinkingPlaceholder detail={currentReasoningHeading} /> : null}
     </div>
   )
 })
@@ -352,8 +353,8 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
   const {
     directory,
     editToolDefaultOpen: editToolDefaultOpenProp,
-    isBusy,
-    messages,
+    isBusy: isBusyProp,
+    messages: messagesProp,
     onAssistantTextFinalRender,
     onForkMessage,
     onOpenSession,
@@ -363,13 +364,17 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     shellToolDefaultOpen: shellToolDefaultOpenProp,
     showReasoningSummaries: showReasoningSummariesProp,
   } = props
-  const providers = providersProp ?? []
+  const directoryState = useChatStore((state) =>
+    directory ? state.directories[directory] : undefined,
+  )
+  const messages = messagesProp ?? directoryState?.messages ?? EMPTY_MESSAGES
+  const providers = providersProp ?? directoryState?.providers ?? EMPTY_PROVIDERS
+  const isBusy = isBusyProp ?? directoryState?.isBusy ?? false
   const turns = useMemo(() => buildTurns(messages), [messages])
 
   const lastMessage = messages[messages.length - 1]
   const isLastTurnBusy =
-    (isBusy ?? false) &&
-    (lastMessage?.info.role === "assistant" || lastMessage?.info.role === "user")
+    isBusy && (lastMessage?.info.role === "assistant" || lastMessage?.info.role === "user")
 
   const showReasoningSummaries = showReasoningSummariesProp ?? true
   const shellToolDefaultOpen = shellToolDefaultOpenProp ?? false

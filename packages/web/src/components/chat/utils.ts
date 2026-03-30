@@ -1,5 +1,4 @@
-import type { RefObject } from "react"
-import type { MessageInfo, MessagePart, MessageWithParts, ProviderInfo } from "@/state/chat-types"
+import type { MessageInfo, MessagePart, MessageWithParts } from "@/state/chat-types"
 import {
   VIRTUAL_CHAT_BUSY_TAIL_TURNS,
   VIRTUAL_CHAT_MIN_TURNS,
@@ -8,14 +7,32 @@ import {
   VIRTUAL_CHAT_TURN_ESTIMATE_PX,
 } from "@/components/virtualization/virtualization-defaults"
 
-import { titleCase, formatDuration, reasoningHeading, formatMessageError, isMessageAbortError } from "./shared/utils"
+import {
+  titleCase,
+  formatDuration,
+  reasoningHeading,
+  formatMessageError,
+  isMessageAbortError,
+} from "./shared/utils"
 import { parseToolState } from "./tools/parse-tool-state"
 import { HIDDEN_TOOLS } from "./tools/registry"
-import type { AssistantRenderItem, ChatTurn } from "./types"
+import type { AssistantRenderItem, ChatTranscriptProps, ChatTurn, TurnRendererProps } from "./types"
 
-export { VIRTUAL_CHAT_BUSY_TAIL_TURNS, VIRTUAL_CHAT_MIN_TURNS, VIRTUAL_CHAT_OVERSCAN, VIRTUAL_CHAT_TAIL_TURNS, VIRTUAL_CHAT_TURN_ESTIMATE_PX } from "@/components/virtualization/virtualization-defaults"
+export {
+  VIRTUAL_CHAT_BUSY_TAIL_TURNS,
+  VIRTUAL_CHAT_MIN_TURNS,
+  VIRTUAL_CHAT_OVERSCAN,
+  VIRTUAL_CHAT_TAIL_TURNS,
+  VIRTUAL_CHAT_TURN_ESTIMATE_PX,
+} from "@/components/virtualization/virtualization-defaults"
 
-export { titleCase, formatDuration, reasoningHeading, formatMessageError, isMessageAbortError } from "./shared/utils"
+export {
+  titleCase,
+  formatDuration,
+  reasoningHeading,
+  formatMessageError,
+  isMessageAbortError,
+} from "./shared/utils"
 
 const ABSTRACTABLE_TOOLS = new Set([
   "read",
@@ -45,7 +62,10 @@ export function modelLabel(info: MessageInfo): string {
   return ""
 }
 
-export function assistantPartRenderable(part: MessagePart, showReasoningSummaries: boolean): boolean {
+export function assistantPartRenderable(
+  part: MessagePart,
+  showReasoningSummaries: boolean,
+): boolean {
   if (part.type === "text") return String(part.text ?? "").trim().length > 0
   if (part.type === "reasoning")
     return showReasoningSummaries && String(part.text ?? "").trim().length > 0
@@ -184,7 +204,10 @@ export function toolDefaultOpen(
   return undefined
 }
 
-export function chatTranscriptEqual(prevProps: { messages: MessageWithParts[]; directory?: string; providers?: ProviderInfo[]; isBusy?: boolean; scrollViewportRef?: RefObject<HTMLElement>; onAssistantTextFinalRender?: () => void; onOpenSession?: (sessionID: string) => void; onForkMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void; onRevertMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void; showReasoningSummaries?: boolean; shellToolDefaultOpen?: boolean; editToolDefaultOpen?: boolean }, nextProps: { messages: MessageWithParts[]; directory?: string; providers?: ProviderInfo[]; isBusy?: boolean; scrollViewportRef?: RefObject<HTMLElement>; onAssistantTextFinalRender?: () => void; onOpenSession?: (sessionID: string) => void; onForkMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void; onRevertMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void; showReasoningSummaries?: boolean; shellToolDefaultOpen?: boolean; editToolDefaultOpen?: boolean }): boolean {
+export function chatTranscriptEqual(
+  prevProps: ChatTranscriptProps,
+  nextProps: ChatTranscriptProps,
+): boolean {
   return (
     prevProps.messages === nextProps.messages &&
     prevProps.directory === nextProps.directory &&
@@ -201,7 +224,10 @@ export function chatTranscriptEqual(prevProps: { messages: MessageWithParts[]; d
   )
 }
 
-export function turnRendererEqual(prevProps: { turn: ChatTurn; turnIndex: number; totalTurns: number; isBusy: boolean; directory?: string; onAssistantTextFinalRender?: () => void; onOpenSession?: (sessionID: string) => void; onForkMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void; onRevertMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void; providers: ProviderInfo[]; showReasoningSummaries: boolean; shellToolDefaultOpen: boolean; editToolDefaultOpen: boolean }, nextProps: { turn: ChatTurn; turnIndex: number; totalTurns: number; isBusy: boolean; directory?: string; onAssistantTextFinalRender?: () => void; onOpenSession?: (sessionID: string) => void; onForkMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void; onRevertMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void; providers: ProviderInfo[]; showReasoningSummaries: boolean; shellToolDefaultOpen: boolean; editToolDefaultOpen: boolean }): boolean {
+export function turnRendererEqual(
+  prevProps: TurnRendererProps,
+  nextProps: TurnRendererProps,
+): boolean {
   if (prevProps.turnIndex !== nextProps.turnIndex) return false
   if (prevProps.totalTurns !== nextProps.totalTurns) return false
   if (prevProps.isBusy !== nextProps.isBusy) return false

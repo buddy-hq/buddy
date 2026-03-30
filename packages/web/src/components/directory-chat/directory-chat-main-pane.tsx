@@ -109,10 +109,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
               ) : (
                 <>
                   <ChatTranscript
-                    messages={chatState.messages}
                     directory={directory}
-                    providers={chatState.providers}
-                    isBusy={chatState.isBusy}
                     scrollViewportRef={transcriptRef}
                     onAssistantTextFinalRender={onAssistantTextFinalRender}
                     onOpenSession={onOpenSession}
