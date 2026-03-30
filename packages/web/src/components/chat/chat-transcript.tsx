@@ -1,7 +1,7 @@
 import { measureElement as measureVirtualElement, useVirtualizer } from "@tanstack/react-virtual"
 import { memo, useCallback, useEffect, useMemo, type RefObject } from "react"
 import { TooltipProvider } from "@buddy/ui"
-import type { MessageInfo, MessagePart, MessageWithParts, ProviderInfo } from "@/state/chat-types"
+import type { MessageError, MessageInfo, MessagePart, MessageWithParts, ProviderInfo } from "@/state/chat-types"
 import {
   VIRTUAL_CHAT_BUSY_TAIL_TURNS,
   VIRTUAL_CHAT_MIN_TURNS,
@@ -106,6 +106,60 @@ type ChatTurn = {
 }
 
 const CHAT_SCROLL_ANCHOR_THRESHOLD_PX = 96
+
+interface TurnRowProps {
+  turn: ChatTurn
+  turnIndex: number
+  totalTurns: number
+  providers: ProviderInfo[]
+  isLastTurnBusy: boolean
+  directory: string | undefined
+  onAssistantTextFinalRender: () => void
+  onOpenSession: ((sessionID: string) => void) | undefined
+  onForkMessage: ((input: { sessionID: string; messageID: string }) => Promise<void> | void) | undefined
+  onRevertMessage: ((input: { sessionID: string; messageID: string }) => Promise<void> | void) | undefined
+  showReasoningSummaries: boolean
+  shellToolDefaultOpen: boolean
+  editToolDefaultOpen: boolean
+}
+
+const TurnRow = memo(function TurnRow({
+  turn,
+  turnIndex,
+  totalTurns,
+  providers,
+  isLastTurnBusy,
+  directory,
+  onAssistantTextFinalRender,
+  onOpenSession,
+  onForkMessage,
+  onRevertMessage,
+  showReasoningSummaries,
+  shellToolDefaultOpen,
+  editToolDefaultOpen,
+}: TurnRowProps) {
+  return (
+    <div className={turnIndex === totalTurns - 1 ? "" : "pb-12"}>
+      <TurnRenderer
+        turn={turn}
+        turnIndex={turnIndex}
+        totalTurns={totalTurns}
+        providers={providers}
+        isBusy={isLastTurnBusy && turnIndex === totalTurns - 1}
+        directory={directory}
+        onAssistantTextFinalRender={
+          turnIndex === totalTurns - 1 ? onAssistantTextFinalRender : undefined
+        }
+        onOpenSession={onOpenSession}
+        onForkMessage={onForkMessage}
+        onRevertMessage={onRevertMessage}
+        showReasoningSummaries={showReasoningSummaries}
+        shellToolDefaultOpen={shellToolDefaultOpen}
+        editToolDefaultOpen={editToolDefaultOpen}
+      />
+    </div>
+  )
+})
 
 function modelLabel(info: MessageInfo): string {
   if ("modelID" in info && info.modelID) {
@@ -304,6 +358,248 @@ function turnRendererEqual(prevProps: TurnRendererProps, nextProps: TurnRenderer
   return true
 }
 
+
+
+// Custom hook for computing assistant metadata
+function useAssistantMeta(
+  assistantMessages: MessageWithParts[],
+  providers: ProviderInfo[],
+  turnDurationMs: number | undefined,
+  assistantAborted: boolean,
+): string {
+  return useMemo(() => {
+    const info = assistantMessages[assistantMessages.length - 1]?.info
+    if (!info) return ""
+
+    // Try to find the model name from the provider list
+    let modelName = modelLabel(info)
+    const providerID = "providerID" in info ? info.providerID : undefined
+    const modelID = "modelID" in info ? info.modelID : undefined
+
+    if (providerID && modelID) {
+      const match = providers.find((p) => p.id === providerID)
+      const models = match?.models
+      if (models && modelID in models) {
+        const entry = models[modelID as keyof typeof models]
+        if (entry && typeof entry === "object" && "name" in entry && entry.name) {
+          modelName = String(entry.name)
+        }
+      }
+    }
+
+    return [
+      titleCase(info.agent),
+      modelName,
+      formatDuration(turnDurationMs),
+      assistantAborted ? "Interrupted" : "",
+    ]
+      .filter((value) => !!value)
+      .join(" · ")
+  }, [assistantMessages, providers, turnDurationMs, assistantAborted])
+}
+
+// Custom hook for computing assistant-derived state
+interface AssistantDerivedState {
+  assistantItems: ReturnType<typeof groupAssistantParts>
+  collapsedAbstractedKeys: Set<string>
+  assistantTextParts: MessagePart[]
+  currentReasoningHeading: string | undefined
+  assistantError: MessageError | undefined
+  assistantErrorName: string | undefined
+}
+
+function useAssistantDerivedState(
+  assistantParts: MessagePart[],
+  showReasoningSummaries: boolean,
+  assistantMessages: MessageWithParts[],
+): AssistantDerivedState {
+  const assistantItems = useMemo(
+    () => groupAssistantParts(assistantParts, showReasoningSummaries),
+    [assistantParts, showReasoningSummaries],
+  )
+
+  const collapsedAbstractedKeys = useMemo(() => {
+    const partIndexByID = new Map(assistantParts.map((part, index) => [part.id, index]))
+    const keys = new Set<string>()
+
+    for (const item of assistantItems) {
+      if (item.type !== "abstracted") continue
+
+      const lastPartID = item.parts[item.parts.length - 1]?.id
+      if (!lastPartID) continue
+
+      const rawEndIndex = partIndexByID.get(lastPartID)
+      if (rawEndIndex === undefined) continue
+
+      const hasFollowup = assistantParts
+        .slice(rawEndIndex + 1)
+        .some((part) => assistantPartStartsFollowup(part))
+
+      if (hasFollowup) {
+        keys.add(item.key)
+      }
+    }
+
+    return keys
+  }, [assistantItems, assistantParts])
+
+  const assistantTextParts = useMemo(
+    () =>
+      assistantParts.filter(
+        (part) => part.type === "text" && String(part.text ?? "").trim().length > 0,
+      ),
+    [assistantParts],
+  )
+
+  const currentReasoningHeading = useMemo(
+    () =>
+      assistantParts
+        .filter(
+          (part): part is MessagePart & { type: "reasoning"; text: string } =>
+            part.type === "reasoning",
+        )
+        .map((part) => reasoningHeading(String(part.text ?? "")))
+        .filter((value): value is string => Boolean(value))
+        .slice(-1)[0],
+    [assistantParts],
+  )
+
+  const assistantError = useMemo(
+    () =>
+      assistantMessages
+        .map((message) => (message.info.role === "assistant" ? message.info.error : undefined))
+        .findLast((error) => !!error && !isMessageAbortError(error)),
+    [assistantMessages],
+  )
+
+  const assistantErrorName =
+    assistantError &&
+    typeof assistantError.name === "string" &&
+    assistantError.name !== "UnknownError"
+      ? assistantError.name
+      : undefined
+
+  return {
+    assistantItems,
+    collapsedAbstractedKeys,
+    assistantTextParts,
+    currentReasoningHeading,
+    assistantError,
+    assistantErrorName,
+  }
+}
+
+// Props for AssistantSection
+interface AssistantSectionProps {
+  assistantItems: ReturnType<typeof groupAssistantParts>
+  collapsedAbstractedKeys: Set<string>
+  assistantCopyPartID: string | undefined
+  assistantMetaText: string
+  assistantAborted: boolean
+  isBusy: boolean
+  shellToolDefaultOpen: boolean
+  editToolDefaultOpen: boolean
+  directory?: string
+  onOpenSession?: (sessionID: string) => void
+  onAssistantTextFinalRender?: () => void
+  isLastTurn: boolean
+  lastAssistantTextID: string | undefined
+  showThinking: boolean
+  currentReasoningHeading?: string
+}
+
+const AssistantSection = memo(function AssistantSection({
+  assistantItems,
+  collapsedAbstractedKeys,
+  assistantCopyPartID,
+  assistantMetaText,
+  assistantAborted,
+  isBusy,
+  shellToolDefaultOpen,
+  editToolDefaultOpen,
+  directory,
+  onOpenSession,
+  onAssistantTextFinalRender,
+  isLastTurn,
+  lastAssistantTextID,
+  showThinking,
+  currentReasoningHeading,
+}: AssistantSectionProps) {
+  return (
+    <div className="mt-[18px] flex w-full flex-col items-start gap-3">
+      {assistantItems.map((item, itemIndex) => {
+        if (item.type === "abstracted") {
+          return (
+            <AbstractedToolGroup
+              key={item.key}
+              parts={item.parts}
+              onOpenSession={onOpenSession}
+              directory={directory}
+              copyPartID={assistantCopyPartID}
+              metaText={assistantMetaText}
+              interrupted={assistantAborted}
+              isBusy={isBusy}
+              collapsePreview={collapsedAbstractedKeys.has(item.key)}
+              shellToolDefaultOpen={shellToolDefaultOpen}
+            />
+          )
+        }
+
+        const previousItem = assistantItems[itemIndex - 1]
+        const previousPart = previousItem?.type === "part" ? previousItem.part : undefined
+        const previousPartState = previousPart ? parseToolState(previousPart) : undefined
+        const stripLeadingFigureImage =
+          item.part.type === "text" &&
+          previousPart?.type === "tool" &&
+          (String(previousPart.tool ?? "") === "render_figure" ||
+            String(previousPart.tool ?? "") === "render_freeform_figure") &&
+          previousPartState?.status === "completed" &&
+          !!parseRenderFigureOutput(previousPartState)
+        const stripLeadingMermaidSource =
+          item.part.type === "text" &&
+          previousPart?.type === "tool" &&
+          String(previousPart.tool ?? "") === "render_mermaid" &&
+          previousPartState?.status === "completed"
+            ? parseRenderMermaidOutput(previousPartState)?.source
+            : undefined
+
+        return (
+          <AssistantPartRenderer
+            key={item.key}
+            part={item.part}
+            copyPartID={assistantCopyPartID}
+            metaText={assistantMetaText}
+            interrupted={assistantAborted}
+            onOpenSession={onOpenSession}
+            stripLeadingFigureImage={stripLeadingFigureImage}
+            stripLeadingMermaidSource={stripLeadingMermaidSource}
+            directory={directory}
+            onTextFinalRender={
+              isLastTurn && item.part.type === "text" && item.part.id === lastAssistantTextID
+                ? onAssistantTextFinalRender
+                : undefined
+            }
+            defaultOpen={
+              item.part.type === "tool"
+                ? toolDefaultOpen(
+                    String(item.part.tool ?? ""),
+                    shellToolDefaultOpen,
+                    editToolDefaultOpen,
+                  )
+                : undefined
+            }
+          />
+        )
+      })}
+      {showThinking ? (
+        <AbstractedThinkingPlaceholder
+          detail={currentReasoningHeading}
+        />
+      ) : null}
+    </div>
+  )
+})
+
 // Props for UserSection
 interface UserSectionProps {
   userMessage?: MessageWithParts
@@ -396,82 +692,36 @@ const TurnRenderer = memo(function TurnRenderer({
 }: TurnRendererProps) {
   const isLastTurn = turnIndex === totalTurns - 1
   const userMessage = turn.user
-
-  // Memoize assistant computations
   const assistantMessages = turn.assistants
+
+  // Get assistant parts
   const assistantParts = useMemo(
     () => assistantMessages.flatMap((message) => message.parts),
     [assistantMessages],
   )
-  const assistantItems = useMemo(
-    () => groupAssistantParts(assistantParts, showReasoningSummaries),
-    [assistantParts, showReasoningSummaries],
-  )
-  const collapsedAbstractedKeys = useMemo(() => {
-    const partIndexByID = new Map(assistantParts.map((part, index) => [part.id, index]))
-    const keys = new Set<string>()
 
-    for (const item of assistantItems) {
-      if (item.type !== "abstracted") continue
+  // Use custom hook for derived state
+  const {
+    assistantItems,
+    collapsedAbstractedKeys,
+    assistantTextParts,
+    currentReasoningHeading,
+    assistantError,
+    assistantErrorName,
+  } = useAssistantDerivedState(assistantParts, showReasoningSummaries, assistantMessages)
 
-      const lastPartID = item.parts[item.parts.length - 1]?.id
-      if (!lastPartID) continue
+  const assistantErrorText = useMemo(() => formatMessageError(assistantError), [assistantError])
 
-      const rawEndIndex = partIndexByID.get(lastPartID)
-      if (rawEndIndex === undefined) continue
-
-      const hasFollowup = assistantParts
-        .slice(rawEndIndex + 1)
-        .some((part) => assistantPartStartsFollowup(part))
-
-      if (hasFollowup) {
-        keys.add(item.key)
-      }
-    }
-
-    return keys
-  }, [assistantItems, assistantParts])
-  const assistantTextParts = useMemo(
-    () =>
-      assistantParts.filter(
-        (part) => part.type === "text" && String(part.text ?? "").trim().length > 0,
-      ),
-    [assistantParts],
-  )
-  const currentReasoningHeading = useMemo(
-    () =>
-      assistantParts
-        .filter(
-          (part): part is MessagePart & { type: "reasoning"; text: string } =>
-            part.type === "reasoning",
-        )
-        .map((part) => reasoningHeading(String(part.text ?? "")))
-        .filter((value): value is string => Boolean(value))
-        .slice(-1)[0],
-    [assistantParts],
-  )
-
+  // Derived values
   const lastAssistantTextID = assistantTextParts[assistantTextParts.length - 1]?.id
   const lastAssistantInfo = assistantMessages[assistantMessages.length - 1]?.info
-  const assistantError = useMemo(
-    () =>
-      assistantMessages
-        .map((message) => (message.info.role === "assistant" ? message.info.error : undefined))
-        .findLast((error) => !!error && !isMessageAbortError(error)),
-    [assistantMessages],
-  )
-  const assistantErrorText = useMemo(() => formatMessageError(assistantError), [assistantError])
-  const assistantErrorName =
-    assistantError &&
-    typeof assistantError.name === "string" &&
-    assistantError.name !== "UnknownError"
-      ? assistantError.name
-      : undefined
   const assistantCopyPartID = isBusy && isLastTurn ? undefined : lastAssistantTextID
   const assistantAborted =
     lastAssistantInfo?.role === "assistant" &&
     (lastAssistantInfo.finish === "aborted" || isMessageAbortError(lastAssistantInfo.error))
   const assistantErrored = assistantErrorText.length > 0
+
+  // Compute turn duration
   const assistantCompleted = assistantMessages.reduce<number | undefined>((max, message) => {
     const completed = message.info.time?.completed
     if (typeof completed !== "number") return max
@@ -485,35 +735,15 @@ const TurnRenderer = memo(function TurnRenderer({
     assistantCompleted >= turnStart
       ? assistantCompleted - turnStart
       : undefined
-  const assistantMetaText = useMemo(() => {
-    const info = assistantMessages[assistantMessages.length - 1]?.info
-    if (!info) return ""
 
-    // Try to find the model name from the provider list
-    let modelName = modelLabel(info)
-    const providerID = "providerID" in info ? info.providerID : undefined
-    const modelID = "modelID" in info ? info.modelID : undefined
+  // Use custom hook for assistant metadata
+  const assistantMetaText = useAssistantMeta(
+    assistantMessages,
+    providers,
+    turnDurationMs,
+    assistantAborted,
+  )
 
-    if (providerID && modelID) {
-      const match = providers.find((p) => p.id === providerID)
-      const models = match?.models
-      if (models && modelID in models) {
-        const entry = models[modelID as keyof typeof models]
-        if (entry && typeof entry === "object" && "name" in entry && entry.name) {
-          modelName = String(entry.name)
-        }
-      }
-    }
-
-    return [
-      titleCase(info.agent),
-      modelName,
-      formatDuration(turnDurationMs),
-      assistantAborted ? "Interrupted" : "",
-    ]
-      .filter((value) => !!value)
-      .join(" · ")
-  }, [assistantMessages, providers, turnDurationMs, assistantAborted])
   const showAssistantSection = assistantMessages.length > 0 || (isBusy && isLastTurn)
   const showThinking =
     isBusy &&
@@ -533,77 +763,23 @@ const TurnRenderer = memo(function TurnRenderer({
       {assistantAborted ? <MessageDivider label="Interrupted" /> : null}
 
       {showAssistantSection ? (
-        <div className="mt-[18px] flex w-full flex-col items-start gap-3">
-          {assistantItems.map((item, itemIndex) => {
-            if (item.type === "abstracted") {
-              return (
-                <AbstractedToolGroup
-                  key={item.key}
-                  parts={item.parts}
-                  onOpenSession={onOpenSession}
-                  directory={directory}
-                  copyPartID={assistantCopyPartID}
-                  metaText={assistantMetaText}
-                  interrupted={assistantAborted}
-                  isBusy={isBusy}
-                  collapsePreview={collapsedAbstractedKeys.has(item.key)}
-                  shellToolDefaultOpen={shellToolDefaultOpen}
-                />
-              )
-            }
-
-            const previousItem = assistantItems[itemIndex - 1]
-            const previousPart = previousItem?.type === "part" ? previousItem.part : undefined
-            const previousPartState = previousPart ? parseToolState(previousPart) : undefined
-            const stripLeadingFigureImage =
-              item.part.type === "text" &&
-              previousPart?.type === "tool" &&
-              (String(previousPart.tool ?? "") === "render_figure" ||
-                String(previousPart.tool ?? "") === "render_freeform_figure") &&
-              previousPartState?.status === "completed" &&
-              !!parseRenderFigureOutput(previousPartState)
-            const stripLeadingMermaidSource =
-              item.part.type === "text" &&
-              previousPart?.type === "tool" &&
-              String(previousPart.tool ?? "") === "render_mermaid" &&
-              previousPartState?.status === "completed"
-                ? parseRenderMermaidOutput(previousPartState)?.source
-                : undefined
-
-            return (
-              <AssistantPartRenderer
-                key={item.key}
-                part={item.part}
-                copyPartID={assistantCopyPartID}
-                metaText={assistantMetaText}
-                interrupted={assistantAborted}
-                onOpenSession={onOpenSession}
-                stripLeadingFigureImage={stripLeadingFigureImage}
-                stripLeadingMermaidSource={stripLeadingMermaidSource}
-                directory={directory}
-                onTextFinalRender={
-                  isLastTurn && item.part.type === "text" && item.part.id === lastAssistantTextID
-                    ? onAssistantTextFinalRender
-                    : undefined
-                }
-                defaultOpen={
-                  item.part.type === "tool"
-                    ? toolDefaultOpen(
-                        String(item.part.tool ?? ""),
-                        shellToolDefaultOpen,
-                        editToolDefaultOpen,
-                      )
-                    : undefined
-                }
-              />
-            )
-          })}
-          {showThinking ? (
-            <AbstractedThinkingPlaceholder
-              detail={!showReasoningSummaries ? currentReasoningHeading : undefined}
-            />
-          ) : null}
-        </div>
+        <AssistantSection
+          assistantItems={assistantItems}
+          collapsedAbstractedKeys={collapsedAbstractedKeys}
+          assistantCopyPartID={assistantCopyPartID}
+          assistantMetaText={assistantMetaText}
+          assistantAborted={assistantAborted}
+          isBusy={isBusy}
+          shellToolDefaultOpen={shellToolDefaultOpen}
+          editToolDefaultOpen={editToolDefaultOpen}
+          directory={directory}
+          onOpenSession={onOpenSession}
+          onAssistantTextFinalRender={onAssistantTextFinalRender}
+          isLastTurn={isLastTurn}
+          lastAssistantTextID={lastAssistantTextID}
+          showThinking={showThinking}
+          currentReasoningHeading={!showReasoningSummaries ? currentReasoningHeading : undefined}
+        />
       ) : null}
 
       {assistantErrorText ? (
@@ -684,28 +860,6 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     onAssistantTextFinalRender?.()
   }, [onAssistantTextFinalRender])
 
-  const renderTurn = (turn: ChatTurn, turnIndex: number) => (
-    <div className={turnIndex === turns.length - 1 ? "" : "pb-12"}>
-      <TurnRenderer
-        turn={turn}
-        turnIndex={turnIndex}
-        totalTurns={turns.length}
-        providers={providers}
-        isBusy={isLastTurnBusy && turnIndex === turns.length - 1}
-        directory={directory}
-        onAssistantTextFinalRender={
-          turnIndex === turns.length - 1 ? handleAssistantTextFinalRender : undefined
-        }
-        onOpenSession={onOpenSession}
-        onForkMessage={onForkMessage}
-        onRevertMessage={onRevertMessage}
-        showReasoningSummaries={showReasoningSummaries}
-        shellToolDefaultOpen={shellToolDefaultOpen}
-        editToolDefaultOpen={editToolDefaultOpen}
-      />
-    </div>
-  )
-
   return (
     <TooltipProvider>
       <div className="flex w-full flex-col items-start">
@@ -727,7 +881,21 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
                     className="absolute top-0 left-0 w-full"
                     style={{ transform: `translateY(${virtualRow.start}px)` }}
                   >
-                    {renderTurn(turn, virtualRow.index)}
+                    <TurnRow
+                      turn={turn}
+                      turnIndex={virtualRow.index}
+                      totalTurns={turns.length}
+                      providers={providers}
+                      isLastTurnBusy={isLastTurnBusy}
+                      directory={directory}
+                      onAssistantTextFinalRender={handleAssistantTextFinalRender}
+                      onOpenSession={onOpenSession}
+                      onForkMessage={onForkMessage}
+                      onRevertMessage={onRevertMessage}
+                      showReasoningSummaries={showReasoningSummaries}
+                      shellToolDefaultOpen={shellToolDefaultOpen}
+                      editToolDefaultOpen={editToolDefaultOpen}
+                    />
                   </div>
                 )
               })}
@@ -735,14 +903,42 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
 
             {liveTurns.map((turn, offset) => (
               <div key={turn.key} className="w-full">
-                {renderTurn(turn, firstUnvirtualizedTurnIndex + offset)}
+                <TurnRow
+                  turn={turn}
+                  turnIndex={firstUnvirtualizedTurnIndex + offset}
+                  totalTurns={turns.length}
+                  providers={providers}
+                  isLastTurnBusy={isLastTurnBusy}
+                  directory={directory}
+                  onAssistantTextFinalRender={handleAssistantTextFinalRender}
+                  onOpenSession={onOpenSession}
+                  onForkMessage={onForkMessage}
+                  onRevertMessage={onRevertMessage}
+                  showReasoningSummaries={showReasoningSummaries}
+                  shellToolDefaultOpen={shellToolDefaultOpen}
+                  editToolDefaultOpen={editToolDefaultOpen}
+                />
               </div>
             ))}
           </>
         ) : (
           turns.map((turn, turnIndex) => (
             <div key={turn.key} className="w-full">
-              {renderTurn(turn, turnIndex)}
+              <TurnRow
+                turn={turn}
+                turnIndex={turnIndex}
+                totalTurns={turns.length}
+                providers={providers}
+                isLastTurnBusy={isLastTurnBusy}
+                directory={directory}
+                onAssistantTextFinalRender={handleAssistantTextFinalRender}
+                onOpenSession={onOpenSession}
+                onForkMessage={onForkMessage}
+                onRevertMessage={onRevertMessage}
+                showReasoningSummaries={showReasoningSummaries}
+                shellToolDefaultOpen={shellToolDefaultOpen}
+                editToolDefaultOpen={editToolDefaultOpen}
+              />
             </div>
           ))
         )}
