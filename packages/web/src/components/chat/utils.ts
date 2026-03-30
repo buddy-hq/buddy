@@ -1,4 +1,5 @@
 import type { MessageInfo, MessagePart, MessageWithParts } from "@/state/chat-types"
+
 import {
   VIRTUAL_CHAT_BUSY_TAIL_TURNS,
   VIRTUAL_CHAT_MIN_TURNS,
@@ -16,7 +17,7 @@ import {
 } from "./shared/utils"
 import { parseToolState } from "./tools/parse-tool-state"
 import { HIDDEN_TOOLS } from "./tools/registry"
-import type { AssistantRenderItem, ChatTranscriptProps, ChatTurn, TurnRendererProps } from "./types"
+import type { AssistantRenderItem, ChatTranscriptProps, ChatTurn } from "./types"
 
 export {
   VIRTUAL_CHAT_BUSY_TAIL_TURNS,
@@ -222,35 +223,4 @@ export function chatTranscriptEqual(
     prevProps.shellToolDefaultOpen === nextProps.shellToolDefaultOpen &&
     prevProps.editToolDefaultOpen === nextProps.editToolDefaultOpen
   )
-}
-
-export function turnRendererEqual(
-  prevProps: TurnRendererProps,
-  nextProps: TurnRendererProps,
-): boolean {
-  if (prevProps.turnIndex !== nextProps.turnIndex) return false
-  if (prevProps.totalTurns !== nextProps.totalTurns) return false
-  if (prevProps.isBusy !== nextProps.isBusy) return false
-  if (prevProps.directory !== nextProps.directory) return false
-  if (prevProps.onAssistantTextFinalRender !== nextProps.onAssistantTextFinalRender) return false
-  if (prevProps.onOpenSession !== nextProps.onOpenSession) return false
-  if (prevProps.onForkMessage !== nextProps.onForkMessage) return false
-  if (prevProps.onRevertMessage !== nextProps.onRevertMessage) return false
-  if (prevProps.providers !== nextProps.providers) return false
-  if (prevProps.showReasoningSummaries !== nextProps.showReasoningSummaries) return false
-  if (prevProps.shellToolDefaultOpen !== nextProps.shellToolDefaultOpen) return false
-  if (prevProps.editToolDefaultOpen !== nextProps.editToolDefaultOpen) return false
-
-  const prevTurn = prevProps.turn
-  const nextTurn = nextProps.turn
-
-  if (prevTurn.key !== nextTurn.key) return false
-  if (prevTurn.user !== nextTurn.user) return false
-  if (prevTurn.assistants.length !== nextTurn.assistants.length) return false
-
-  for (let index = 0; index < prevTurn.assistants.length; index += 1) {
-    if (prevTurn.assistants[index] !== nextTurn.assistants[index]) return false
-  }
-
-  return true
 }

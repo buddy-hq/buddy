@@ -1,5 +1,6 @@
 export * from "./utils"
-export * from "./hooks"
+export * from "../use-assistant-meta"
+export * from "../use-assistant-derived-state"
 export * from "./copy-action"
 export * from "./tool-header"
 export * from "./tool-card"

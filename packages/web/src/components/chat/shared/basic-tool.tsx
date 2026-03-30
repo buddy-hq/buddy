@@ -54,15 +54,18 @@ export function BasicTool({
   }, [status])
 
   return (
-    <Collapsible open={open} onOpenChange={setOpen} className="w-full">
+    <Collapsible open={open} onOpenChange={setOpen} className="min-w-0 w-full max-w-full">
       <CollapsibleTrigger asChild>
-        <button type="button" className="group flex w-full items-center gap-2 py-1 text-left">
+        <button
+          type="button"
+          className="group flex min-w-0 w-full max-w-full items-start gap-2 py-1 text-left"
+        >
           {icon ? <span className="shrink-0 text-text-weak">{icon}</span> : null}
           {isTriggerTitle(trigger) ? (
             <>
               <span
                 className={cn(
-                  "shrink-0 whitespace-nowrap text-xs font-medium text-text-weak",
+                  "min-w-0 whitespace-normal break-words text-xs font-medium text-text-weak",
                   running && "animate-pulse",
                 )}
               >
@@ -101,10 +104,10 @@ export function BasicTool({
       </CollapsibleTrigger>
       {children ? (
         hideDetails ? (
-          <div className="mt-2 pl-3">{children}</div>
+          <div className="mt-2 min-w-0 w-full max-w-full pl-3">{children}</div>
         ) : (
-          <CollapsibleContent>
-            <div className="mt-2 pl-3">{children}</div>
+          <CollapsibleContent className="min-w-0 w-full max-w-full">
+            <div className="mt-2 min-w-0 w-full max-w-full pl-3">{children}</div>
           </CollapsibleContent>
         )
       ) : null}

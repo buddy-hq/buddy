@@ -40,6 +40,7 @@ export interface TurnRowProps {
   turn: ChatTurn
   turnIndex: number
   totalTurns: number
+  addBottomSpacing?: boolean
   providers: ProviderInfo[]
   isLastTurnBusy: boolean
   directory: string | undefined

@@ -91,10 +91,10 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
             data-component="chat-transcript-scroll-area"
             viewportRef={transcriptRef as React.Ref<HTMLDivElement>}
             onScroll={onTranscriptScroll as React.UIEventHandler<HTMLDivElement>}
-            className="flex-1 min-h-0"
+            className="min-w-0 flex-1 min-h-0"
           >
             <div
-              className={`mx-auto w-full max-w-full px-4 pt-4 pb-12 space-y-4 md:max-w-200 2xl:max-w-[1000px] ${
+              className={`mx-auto min-w-0 w-full max-w-full px-4 pt-4 pb-12 space-y-4 md:max-w-200 2xl:max-w-[1000px] ${
                 chatState.messages.length === 0 && chatState.isReady ? "h-full" : ""
               }`}
             >
