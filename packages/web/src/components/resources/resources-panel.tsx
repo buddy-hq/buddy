@@ -202,6 +202,9 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
     return (
       <Card
         size="sm"
+        data-component="resources-item"
+        data-resource-id={resource.id}
+        data-resource-status={resource.status}
         className="relative group gap-0 py-0 transition-colors hover:border-border-base hover:bg-surface-base-hover/5"
       >
         <CardContent className="px-4 py-3">
@@ -251,6 +254,8 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
             <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
               {resource.status === "error" && (
                 <Button
+                  data-action="resources-retry"
+                  data-resource-id={resource.id}
                   variant="ghost"
                   size="sm"
                   className="size-7 p-0 text-text-weak hover:text-text-base"
@@ -271,6 +276,8 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
+                  data-action="resources-item-menu"
+                  data-resource-id={resource.id}
                   className="inline-flex size-7 items-center justify-center rounded-md text-text-weak transition-colors hover:bg-surface-base-hover hover:text-text-base disabled:pointer-events-none disabled:opacity-50"
                   aria-label={language.t("resourcesPanel.optionsForResource", {
                     alias: resource.alias,
@@ -282,6 +289,7 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem
+                  data-action="resources-rename"
                   onSelect={() => {
                     const nextAlias = window
                       .prompt(language.t("resourcesPanel.renamePromptTitle"), resource.alias)
@@ -298,6 +306,7 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
                   {language.t("resourcesPanel.rename")}
                 </DropdownMenuItem>
                 <DropdownMenuItem
+                  data-action="resources-rebuild"
                   onSelect={() => {
                     void runResourceAction(resource.id, async () => {
                       await rebuildResource(directory, {
@@ -310,6 +319,7 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
+                  data-action="resources-remove"
                   variant="destructive"
                   onSelect={() => {
                     setResourcePendingRemoval(resource)
@@ -326,10 +336,14 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
   }
 
   return (
-    <div className={`flex h-full min-h-0 flex-col gap-3 p-3 ${className ?? ""}`}>
+    <div
+      data-component="resources-panel"
+      className={`flex h-full min-h-0 flex-col gap-3 p-3 ${className ?? ""}`}
+    >
       {sortedResources.length > 0 && (
         <div className="flex w-full shrink-0 items-center justify-end gap-1.5 pb-2">
           <Button
+            data-action="resources-refresh"
             variant="ghost"
             size="sm"
             className="px-2"
@@ -339,7 +353,12 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
           >
             <RefreshCwIcon className={`size-4 ${loading ? "animate-spin" : ""}`} />
           </Button>
-          <Button size="sm" onClick={() => void onAddResource()} disabled={loading}>
+          <Button
+            data-action="resources-add"
+            size="sm"
+            onClick={() => void onAddResource()}
+            disabled={loading}
+          >
             <PlusIcon className="mr-1.5 size-4" />
             {language.t("resourcesPanel.add")}
           </Button>
@@ -384,6 +403,7 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
         ) : (
           <button
             type="button"
+            data-action="resources-empty-add"
             onClick={() => void onAddResource()}
             disabled={loading}
             className="group mt-1 flex w-full min-h-0 flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-border-base/40 bg-surface-weak/5 px-4 py-10 text-center transition-all hover:border-border-base/80 hover:bg-surface-weak/30"
@@ -407,7 +427,7 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
           if (!open) setResourcePendingRemoval(undefined)
         }}
       >
-        <AlertDialogContent>
+        <AlertDialogContent data-component="resources-remove-dialog">
           <AlertDialogHeader>
             <AlertDialogTitle>{language.t("resourcesPanel.removeResourceTitle")}</AlertDialogTitle>
             <AlertDialogDescription className="break-all text-left">
@@ -419,10 +439,15 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel variant="outline" size="default">
+            <AlertDialogCancel
+              data-action="resources-remove-cancel"
+              variant="outline"
+              size="default"
+            >
               {language.t("common.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
+              data-action="resources-remove-confirm"
               variant="destructive"
               size="default"
               onClick={() => void confirmRemovePendingResource()}

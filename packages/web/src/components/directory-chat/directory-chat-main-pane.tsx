@@ -41,7 +41,10 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
   } = props
 
   return (
-    <main className="flex-1 min-w-0 min-h-0 flex flex-col bg-background-base/20">
+    <main
+      data-component="directory-chat-main-pane"
+      className="flex-1 min-w-0 min-h-0 flex flex-col bg-background-base/20"
+    >
       <header className="border-b px-3 py-2">
         <div className="flex w-full items-center justify-between gap-2 px-1">
           <div className="min-w-0 flex items-center gap-1.5">
@@ -69,6 +72,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
           <div className="flex items-center gap-1.5 px-1">
             <Button
               type="button"
+              data-action="chat-new-thread"
               variant="ghost"
               size="sm"
               className="text-text-weak hover:text-text-strong"
@@ -84,6 +88,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
       <div className="flex-1 min-h-0 flex flex-col">
         <div className="flex min-h-0 flex-1 flex-col">
           <ScrollArea
+            data-component="chat-transcript-scroll-area"
             viewportRef={transcriptRef as React.Ref<HTMLDivElement>}
             onScroll={onTranscriptScroll as React.UIEventHandler<HTMLDivElement>}
             className="flex-1 min-h-0"

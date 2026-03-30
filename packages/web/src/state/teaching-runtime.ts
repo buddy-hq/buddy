@@ -3,6 +3,7 @@ import { persist } from "zustand/middleware"
 import { createPlatformJsonStorage } from "../context/platform"
 
 export const TEACHING_RUNTIME_STORAGE_KEY = "buddy.teaching.runtime.v1"
+export const TEACHING_WORKSPACE_SCOPE = "__workspace__"
 
 export const TEACHING_LANGUAGE_OPTIONS = [
   { value: "txt", label: "Plain Text", monacoLanguage: "plaintext" },
@@ -149,6 +150,7 @@ export type TeachingRuntimeState = {
   setSessionPersona: (sessionKey: string, persona: string) => void
   setSessionIntent: (sessionKey: string, intent: TeachingIntent) => void
   setPreferredLanguage: (sessionKey: string, language: TeachingLanguage) => void
+  migrateWorkspaceSelection: (directory: string, sessionID: string) => void
   setWorkspace: (sessionKey: string, workspace: TeachingWorkspace) => void
   updateWorkspaceCode: (sessionKey: string, code: string) => void
   setSelection: (sessionKey: string, selection?: TeachingSelection) => void
@@ -165,6 +167,10 @@ export type TeachingRuntimeState = {
 
 export function teachingSessionKey(directory: string, sessionID: string) {
   return `${directory}::${sessionID}`
+}
+
+export function teachingSelectionKey(directory: string, sessionID?: string) {
+  return `${directory}::${sessionID ?? TEACHING_WORKSPACE_SCOPE}`
 }
 
 function withWorkspace(
@@ -210,6 +216,48 @@ export const useTeachingRuntime = create<TeachingRuntimeState>()(
             [sessionKey]: language,
           },
         }))
+      },
+      migrateWorkspaceSelection(directory, sessionID) {
+        const sourceKey = teachingSelectionKey(directory)
+        const targetKey = teachingSessionKey(directory, sessionID)
+
+        set((state) => {
+          const nextSelectedPersonaBySession = { ...state.selectedPersonaBySession }
+          const nextSelectedIntentBySession = { ...state.selectedIntentBySession }
+          const nextPreferredLanguageBySession = { ...state.preferredLanguageBySession }
+
+          if (
+            sourceKey in nextSelectedPersonaBySession &&
+            !(targetKey in nextSelectedPersonaBySession)
+          ) {
+            nextSelectedPersonaBySession[targetKey] = nextSelectedPersonaBySession[sourceKey] ?? ""
+          }
+          delete nextSelectedPersonaBySession[sourceKey]
+
+          if (
+            sourceKey in nextSelectedIntentBySession &&
+            !(targetKey in nextSelectedIntentBySession)
+          ) {
+            nextSelectedIntentBySession[targetKey] =
+              nextSelectedIntentBySession[sourceKey] ?? "auto"
+          }
+          delete nextSelectedIntentBySession[sourceKey]
+
+          if (
+            sourceKey in nextPreferredLanguageBySession &&
+            !(targetKey in nextPreferredLanguageBySession)
+          ) {
+            nextPreferredLanguageBySession[targetKey] =
+              nextPreferredLanguageBySession[sourceKey] ?? "ts"
+          }
+          delete nextPreferredLanguageBySession[sourceKey]
+
+          return {
+            selectedPersonaBySession: nextSelectedPersonaBySession,
+            selectedIntentBySession: nextSelectedIntentBySession,
+            preferredLanguageBySession: nextPreferredLanguageBySession,
+          }
+        })
       },
       setWorkspace(sessionKey, workspace) {
         set((state) => {

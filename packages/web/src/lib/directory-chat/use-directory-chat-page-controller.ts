@@ -12,7 +12,10 @@ import {
 } from "react"
 import { ChatLeftSidebar } from "@/components/layout/chat-left-sidebar"
 import { CreateTeachingFileDialog } from "@/components/teaching/create-teaching-file-dialog"
-import { RESOURCE_REFERENCE_PART_TYPE } from "@/components/prompt/prompt-types"
+import {
+  PROMPT_PART_TYPE_TEXT,
+  RESOURCE_REFERENCE_PART_TYPE,
+} from "@/components/prompt/prompt-types"
 import type { PromptComposerAttachment, PromptComposerPart } from "@/components/prompt/prompt-types"
 import { parseSlashCommandInput } from "@/components/prompt/slash-autocomplete"
 import type { MentionableAgent } from "@/components/prompt/mention-autocomplete"
@@ -59,6 +62,7 @@ import {
   clonePromptDraft,
   createTextPromptDraft,
   getPromptDraft,
+  getPromptScopeKey,
   usePromptStore,
 } from "../../state/prompt-store"
 import { useChatStore } from "../../state/chat-store"
@@ -73,6 +77,7 @@ import { useDirectoryChatState } from "./use-directory-chat-state"
 import { useChatSync } from "./use-chat-sync"
 import { useChatConfig } from "./use-chat-config"
 import { useTeachingWorkspace } from "./use-teaching-workspace"
+import { publishPromptSubmissionProbe } from "@/e2e/driver"
 
 const BOTTOM_THRESHOLD_PX = 96
 const SIDEBAR_MIN_WIDTH = 244
@@ -80,6 +85,8 @@ const EMPTY_MENTIONABLE_AGENTS: MentionableAgent[] = []
 const MIN_TRANSCRIPT_SCROLL_DURATION_S = 0.08
 const MAX_TRANSCRIPT_SCROLL_DURATION_S = 0.24
 const TRANSCRIPT_SCROLL_SPEED_PX_PER_S = 1200
+const BUILTIN_LOCAL_SLASH_COMMAND_NAMES = ["new", "persona", "model", "mcp"] as const
+const E2E_BACKEND_COMMAND_NAME = "e2e-backend-command"
 
 type DirectoryChatPageControllerProps = {
   directoryToken: string
@@ -114,6 +121,7 @@ export function useDirectoryChatPageController(
   const transcriptScrollAnimationRef = useRef<AnimationPlaybackControls | null>(null)
   const stickToBottomRef = useRef(true)
   const transcriptBusyRef = useRef(false)
+  const closingDirectoryRef = useRef<string | undefined>(undefined)
 
   const [stickToBottom, setStickToBottom] = useState(true)
   const [selectedThinking, setSelectedThinking] = useState("default")
@@ -177,15 +185,22 @@ export function useDirectoryChatPageController(
   } = cs
 
   const { slashCommands } = chatConfig
-  const slashCommandCandidates = useMemo(
-    () => [
-      ...RESOURCE_LOCAL_SLASH_COMMANDS.map((command) => ({
-        name: command.name,
-      })),
-      ...slashCommands,
-    ],
-    [slashCommands],
-  )
+  const slashCommandCandidates = useMemo(() => {
+    const candidates = new Map<string, { name: string }>()
+    for (const name of BUILTIN_LOCAL_SLASH_COMMAND_NAMES) {
+      candidates.set(name, { name })
+    }
+    if (import.meta.env.VITE_BUDDY_E2E === "1") {
+      candidates.set(E2E_BACKEND_COMMAND_NAME, { name: E2E_BACKEND_COMMAND_NAME })
+    }
+    for (const command of RESOURCE_LOCAL_SLASH_COMMANDS) {
+      candidates.set(command.name, { name: command.name })
+    }
+    for (const command of slashCommands) {
+      candidates.set(command.name, { name: command.name })
+    }
+    return Array.from(candidates.values())
+  }, [slashCommands])
 
   const teachingWs = useTeachingWorkspace({
     decodedDirectory,
@@ -225,17 +240,33 @@ export function useDirectoryChatPageController(
     refreshMcpStatus: chatConfig.refreshMcpStatus,
   })
 
-  function readPromptSnapshot() {
-    return clonePromptDraft(getPromptDraft(usePromptStore.getState(), cs.promptKey))
+  type PromptSnapshot = ReturnType<typeof clonePromptDraft> & {
+    key: string
   }
 
-  function restorePromptSnapshot(snapshot: ReturnType<typeof readPromptSnapshot>) {
-    cs.setPromptDraft(cs.promptKey, {
+  function readPromptSnapshot() {
+    return {
+      key: cs.promptKey,
+      ...clonePromptDraft(getPromptDraft(usePromptStore.getState(), cs.promptKey)),
+    } satisfies PromptSnapshot
+  }
+
+  function restorePromptSnapshot(snapshot: PromptSnapshot) {
+    const liveSessionID = decodedDirectory
+      ? useChatStore.getState().directories[decodedDirectory]?.sessionID
+      : undefined
+    const livePromptKey = getPromptScopeKey(decodedDirectory, liveSessionID)
+    const restoreKeys = new Set([snapshot.key, livePromptKey])
+    const nextDraft = {
       value: snapshot.value,
       parts: snapshot.parts,
       attachments: snapshot.attachments,
       cursor: snapshot.cursor,
-    })
+    }
+
+    for (const key of restoreKeys) {
+      cs.setPromptDraft(key, nextDraft)
+    }
   }
 
   function stagePromptText(value: string) {
@@ -318,6 +349,7 @@ export function useDirectoryChatPageController(
   useEffect(() => {
     if (!decodedDirectory || !sessionID) return
     migrateWorkspaceDraft(decodedDirectory, sessionID)
+    useTeachingRuntime.getState().migrateWorkspaceSelection(decodedDirectory, sessionID)
   }, [decodedDirectory, migrateWorkspaceDraft, sessionID])
 
   useEffect(() => {
@@ -340,6 +372,20 @@ export function useDirectoryChatPageController(
     }
 
     if (!decodedDirectory) return
+
+    if (closingDirectoryRef.current === decodedDirectory && !hasRegisteredProject) {
+      const fallback = validOpenProjects[0]
+      if (fallback) {
+        navigate({
+          to: "/$directory/chat",
+          params: { directory: encodeDirectory(fallback) },
+          replace: true,
+        })
+      } else {
+        navigate({ to: "/chat", replace: true })
+      }
+      return
+    }
 
     void ensureDirectorySession(decodedDirectory)
       .then((result) => {
@@ -369,7 +415,7 @@ export function useDirectoryChatPageController(
         state.setEntryError(stringifyError(error))
         navigate({ to: "/chat", replace: true })
       })
-  }, [decodedDirectory, navigate, setActiveDirectory, validOpenProjects])
+  }, [decodedDirectory, hasRegisteredProject, navigate, setActiveDirectory, validOpenProjects])
 
   useEffect(() => {
     setStickToBottom(true)
@@ -501,9 +547,10 @@ export function useDirectoryChatPageController(
       return
     }
     try {
-      await selectSession(targetDirectory, nextSessionID)
-      cs.clearUnread(targetDirectory, nextSessionID)
+      const selection = selectSession(targetDirectory, nextSessionID)
       if (targetDirectory !== decodedDirectory) onSwitchDirectory(targetDirectory)
+      await selection
+      cs.clearUnread(targetDirectory, nextSessionID)
     } catch {
       // Store already captures and displays errors.
     }
@@ -582,8 +629,14 @@ export function useDirectoryChatPageController(
   }
 
   async function onCloseDirectory(targetDirectory: string) {
+    closingDirectoryRef.current = targetDirectory
     const closedDirectory = await closeOpenProject(targetDirectory)
-    if (!closedDirectory) return
+    if (!closedDirectory) {
+      if (closingDirectoryRef.current === targetDirectory) {
+        closingDirectoryRef.current = undefined
+      }
+      return
+    }
     if (closedDirectory !== decodedDirectory) return
 
     const nextDirectory = useChatStore.getState().openProjects[0]
@@ -703,7 +756,12 @@ export function useDirectoryChatPageController(
     const rawAttachments = input.attachments ?? []
     const promptParts = input.parts ?? []
     const content = input.content.trim()
-    if (!content && rawAttachments.length === 0 && promptParts.length === 0) return false
+    const hasStructuredPromptParts = promptParts.some((part) => part.type !== PROMPT_PART_TYPE_TEXT)
+    const promptPartsForSubmission = hasStructuredPromptParts ? promptParts : []
+    const submissionParts = buildPromptSubmissionParts(promptPartsForSubmission, rawAttachments)
+    const contentForSubmission = hasStructuredPromptParts ? "" : content
+
+    if (!contentForSubmission && submissionParts.length === 0) return false
 
     if (cs.selectedPersonaSupportsEditor && cs.isInteractiveMode) {
       const ready = await teachingWs.flushTeachingWorkspace()
@@ -711,6 +769,7 @@ export function useDirectoryChatPageController(
     }
 
     const variant = selectedThinking !== "default" ? selectedThinking : undefined
+    const intent = input.intent ?? intentFromSelection(cs.storedIntent)
     const activeWorkspace = cs.sessionKey
       ? useTeachingRuntime.getState().workspaceBySession[cs.sessionKey]
       : undefined
@@ -721,15 +780,27 @@ export function useDirectoryChatPageController(
         : undefined,
     })
 
-    await sendPrompt(decodedDirectory, promptParts.length > 0 ? "" : content, {
-      parts: buildPromptSubmissionParts(promptParts, rawAttachments),
+    await sendPrompt(decodedDirectory, contentForSubmission, {
+      parts: submissionParts,
       persona: cs.selectedPersona,
-      intent: input.intent ?? intentFromSelection(cs.storedIntent),
+      intent,
       focusGoalIds: input.focusGoalIds,
       model: cs.effectiveModelSelection,
       variant,
       teaching: teachingContext,
     })
+
+    publishPromptSubmissionProbe({
+      kind: "prompt",
+      intent,
+      persona: cs.selectedPersona,
+      model: cs.effectiveModelSelection
+        ? `${cs.effectiveModelSelection.providerID}/${cs.effectiveModelSelection.modelID}`
+        : "auto",
+      contentLength: content.length,
+      hasTeachingContext: Boolean(teachingContext?.active),
+    })
+
     setSystemPromptRefreshToken((token) => token + 1)
     void syncTeachingRuntimeSelection()
     return true
@@ -750,7 +821,41 @@ export function useDirectoryChatPageController(
     const slashCommand = parseSlashCommandInput(rawContent, slashCommandCandidates)
 
     if (slashCommand) {
+      const intent = intentFromSelection(cs.storedIntent)
+      const publishCommandSubmission = () => {
+        publishPromptSubmissionProbe({
+          kind: "command",
+          intent,
+          persona: cs.selectedPersona,
+          model: cs.effectiveModelSelection
+            ? `${cs.effectiveModelSelection.providerID}/${cs.effectiveModelSelection.modelID}`
+            : "auto",
+          command: slashCommand.command.name,
+          contentLength: slashCommand.arguments.length,
+          hasTeachingContext: false,
+        })
+      }
+
+      if (slashCommand.command.name === "new") {
+        publishCommandSubmission()
+        cs.clearPromptDraft(cs.promptKey)
+        try {
+          await onNewSession()
+        } catch {
+          restorePromptSnapshot(draftSnapshot)
+        }
+        return
+      }
+
+      if (slashCommand.command.name === "mcp") {
+        publishCommandSubmission()
+        cs.clearPromptDraft(cs.promptKey)
+        navigate({ to: "/settings", search: { tab: "mcps" } })
+        return
+      }
+
       if (isResourceLocalSlashCommandName(slashCommand.command.name)) {
+        publishCommandSubmission()
         const resourceCommand = parseResourceLocalSlashCommand(rawContent)
         cs.clearPromptDraft(cs.promptKey)
         if (!resourceCommand) {
@@ -772,10 +877,11 @@ export function useDirectoryChatPageController(
       const attachmentParts = buildCommandAttachmentParts(rawAttachments)
       cs.clearPromptDraft(cs.promptKey)
       try {
+        publishCommandSubmission()
         await sendCommand(decodedDirectory, slashCommand.command.name, slashCommand.arguments, {
           parts: attachmentParts,
           persona: cs.selectedPersona,
-          intent: intentFromSelection(cs.storedIntent),
+          intent,
           model: cs.effectiveModelSelection,
           variant,
         })
@@ -868,7 +974,6 @@ export function useDirectoryChatPageController(
   }
 
   function onPersonaChange(persona: string) {
-    if (!cs.sessionKey) return
     cs.teachingRuntime.setSessionPersona(cs.sessionKey, persona)
 
     const nextPersona = cs.primaryPersonaOptions.find((option) => option.id === persona)
@@ -892,7 +997,6 @@ export function useDirectoryChatPageController(
   }
 
   function onIntentChange(intent: TeachingIntent) {
-    if (!cs.sessionKey) return
     cs.teachingRuntime.setSessionIntent(cs.sessionKey, intent)
   }
 

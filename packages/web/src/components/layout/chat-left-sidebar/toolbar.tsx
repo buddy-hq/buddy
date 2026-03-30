@@ -37,6 +37,7 @@ export function ChatLeftSidebarToolbar(props: ChatLeftSidebarToolbarProps) {
             <TooltipTrigger asChild>
               <Button
                 type="button"
+                data-action="left-sidebar-open-directory"
                 variant="ghost"
                 size="icon-xs"
                 className="text-text-weak hover:bg-surface-raised-base-hover hover:text-text-strong"
@@ -56,6 +57,7 @@ export function ChatLeftSidebarToolbar(props: ChatLeftSidebarToolbarProps) {
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
+                data-action="left-sidebar-organize-menu"
                 className="inline-flex size-6 items-center justify-center rounded-md text-text-weak transition-colors hover:bg-surface-raised-base-hover hover:text-text-strong"
                 aria-label={language.t("sidebar.organizeThreads")}
                 title={language.t("sidebar.organizeThreads")}

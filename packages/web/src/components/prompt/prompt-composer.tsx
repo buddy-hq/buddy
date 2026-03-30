@@ -47,6 +47,7 @@ import {
   getPromptScopeKey,
   usePromptStore,
 } from "../../state/prompt-store"
+import { publishPromptProbe } from "@/e2e/driver"
 
 type PromptComposerProps = {
   directory: string
@@ -128,6 +129,8 @@ export function PromptComposer(props: PromptComposerProps) {
   const [cursorOffset, setCursorOffset] = useState(() => draft.cursor)
   const [dragging, setDragging] = useState(false)
   const [modelMenuOpen, setModelMenuOpen] = useState(false)
+  const [selectionCount, setSelectionCount] = useState(0)
+  const [lastSelection, setLastSelection] = useState<string | undefined>(undefined)
   const historyIndex = historyNavigation.historyIndex
   const savedHistoryDraft = historyNavigation.savedDraft
 
@@ -148,6 +151,42 @@ export function PromptComposer(props: PromptComposerProps) {
     if (cursorOffset <= draft.value.length) return
     setCursorOffset(draft.value.length)
   }, [cursorOffset, draft.value])
+
+  useEffect(() => {
+    const slashActive = viewState.slashOptions[viewState.slashIndex]?.name
+    const mentionActiveOption = viewState.mentionOptions[viewState.mentionIndex]
+    const mentionActive =
+      mentionActiveOption?.type === "agent"
+        ? `agent:${mentionActiveOption.name}`
+        : mentionActiveOption
+          ? `file:${mentionActiveOption.path}`
+          : undefined
+
+    publishPromptProbe({
+      popover: viewState.slashVisible ? "slash" : viewState.mentionVisible ? "mention" : "none",
+      slash: {
+        ids: viewState.slashOptions.map((option) => option.name),
+        active: slashActive,
+      },
+      mention: {
+        ids: viewState.mentionOptions.map((option) =>
+          option.type === "agent" ? `agent:${option.name}` : `file:${option.path}`,
+        ),
+        active: mentionActive,
+      },
+      selected: lastSelection,
+      selects: selectionCount,
+    })
+  }, [
+    lastSelection,
+    selectionCount,
+    viewState.mentionIndex,
+    viewState.mentionOptions,
+    viewState.mentionVisible,
+    viewState.slashIndex,
+    viewState.slashOptions,
+    viewState.slashVisible,
+  ])
 
   const attachmentState = usePromptComposerAttachments({
     promptKey,
@@ -335,6 +374,8 @@ export function PromptComposer(props: PromptComposerProps) {
 
     viewState.setDismissedMentionKey(undefined)
     handleEditorInput()
+    setLastSelection(option.type === "agent" ? `agent:${option.name}` : `file:${option.path}`)
+    setSelectionCount((current) => current + 1)
   }
 
   function clearComposer() {
@@ -379,6 +420,9 @@ export function PromptComposer(props: PromptComposerProps) {
   }
 
   function applySlash(command: SlashCommandOption) {
+    setLastSelection(`slash:${command.name}`)
+    setSelectionCount((current) => current + 1)
+
     if (command.type === "builtin") {
       runBuiltinSlashCommand(command.name)
       return
@@ -414,6 +458,7 @@ export function PromptComposer(props: PromptComposerProps) {
   return (
     <div className={props.className ?? "mx-4 mb-4"}>
       <form
+        data-component="prompt-composer"
         className="group/prompt-input relative z-10 rounded-[12px] border bg-surface-raised-base shadow-sm"
         onSubmit={(event) => {
           event.preventDefault()
@@ -467,6 +512,7 @@ export function PromptComposer(props: PromptComposerProps) {
 
           <div
             ref={editorRef}
+            data-component="prompt-editor"
             contentEditable={!props.isBusy}
             suppressContentEditableWarning
             role="textbox"
@@ -662,6 +708,7 @@ export function PromptComposer(props: PromptComposerProps) {
 
           <input
             ref={fileInputRef}
+            data-action="prompt-file-input"
             type="file"
             multiple
             accept={ACCEPTED_FILE_TYPES.join(",")}
@@ -677,6 +724,7 @@ export function PromptComposer(props: PromptComposerProps) {
           <div className="absolute bottom-2 right-2 flex items-center gap-1">
             <button
               type="button"
+              data-action="prompt-attach"
               className="inline-flex size-8 items-center justify-center rounded-md text-text-weak transition-colors hover:bg-surface-weak/60 hover:text-text-base"
               title={language.t("prompt.composer.attachFilesTitle")}
               aria-label={language.t("prompt.composer.attachFilesAria")}
@@ -689,6 +737,7 @@ export function PromptComposer(props: PromptComposerProps) {
 
             <button
               type="submit"
+              data-action="prompt-submit"
               className="inline-flex size-8 items-center justify-center rounded-md bg-surface-interactive-base text-text-on-interactive-base transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               disabled={!props.isBusy && !canSubmit}
               aria-label={

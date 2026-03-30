@@ -126,15 +126,25 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
     }
   }, [props.workspace.diagnostics, props.workspace.lessonFilePath])
 
-  const status = props.workspace.conflict
-    ? language.t("teaching.editor.conflict")
+  const saveStatusState = props.workspace.conflict
+    ? "conflict"
     : props.workspace.pendingSave
-      ? language.t("common.saving")
+      ? "saving"
       : props.workspace.saveError
-        ? language.t("teaching.editor.saveFailed")
+        ? "save-error"
         : props.workspace.code === props.workspace.savedCode
-          ? language.t("teaching.editor.saved")
-          : language.t("teaching.editor.unsaved")
+          ? "saved"
+          : "unsaved"
+  const status =
+    saveStatusState === "conflict"
+      ? language.t("teaching.editor.conflict")
+      : saveStatusState === "saving"
+        ? language.t("common.saving")
+        : saveStatusState === "save-error"
+          ? language.t("teaching.editor.saveFailed")
+          : saveStatusState === "saved"
+            ? language.t("teaching.editor.saved")
+            : language.t("teaching.editor.unsaved")
   const fileTree = buildFileTree(props.workspace.files)
   const fileTreeRows = flattenFileTree(fileTree)
 
@@ -163,6 +173,9 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
       <div className={index === fileTreeRows.length - 1 ? "" : "pb-0.5"}>
         <button
           type="button"
+          data-action="teaching-select-file"
+          data-relative-path={node.file.relativePath}
+          data-active={isActive ? "true" : "false"}
           onClick={() => props.onSelectFile(node.file.relativePath)}
           className={`flex w-full items-center gap-2 rounded-md py-1.5 pr-2 text-left text-xs ${
             isActive
@@ -182,9 +195,10 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
   }
 
   return (
-    <section className={rootClassName}>
+    <section data-component="teaching-editor-panel" className={rootClassName}>
       <div className="flex flex-wrap items-center gap-2 border-b px-3 py-2">
         <select
+          data-action="teaching-language"
           className="h-8 rounded-md border bg-background-base px-2 text-xs"
           value={props.workspace.language}
           onChange={(event) => props.onLanguageChange(event.target.value as TeachingLanguage)}
@@ -205,11 +219,16 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
         <span className="rounded-md border bg-background-base px-2 py-1 text-[11px] text-text-weak">
           {language.t("teaching.editor.revisionPrefix")} {props.workspace.revision}
         </span>
-        <span className="rounded-md border bg-background-base px-2 py-1 text-[11px] text-text-weak">
+        <span
+          data-component="teaching-editor-save-status"
+          data-state={saveStatusState}
+          className="rounded-md border bg-background-base px-2 py-1 text-[11px] text-text-weak"
+        >
           {status}
         </span>
 
         <Button
+          data-action="teaching-checkpoint"
           size="sm"
           variant="secondary"
           onClick={props.onCheckpoint}
@@ -219,6 +238,7 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
           {language.t("teaching.editor.acceptStep")}
         </Button>
         <Button
+          data-action="teaching-restore-checkpoint"
           size="sm"
           variant="secondary"
           onClick={props.onRestoreAccepted}
@@ -235,7 +255,7 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
           <Button size="sm" variant="secondary" onClick={props.onLoadExternalChanges}>
             {language.t("teaching.editor.loadExternalChanges")}
           </Button>
-          <Button size="sm" onClick={props.onForceOverwrite}>
+          <Button data-action="teaching-force-overwrite" size="sm" onClick={props.onForceOverwrite}>
             {language.t("teaching.editor.forceOverwrite")}
           </Button>
         </div>
@@ -369,6 +389,7 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
                 </p>
               </div>
               <Button
+                data-action="teaching-create-file"
                 size="sm"
                 variant="secondary"
                 onClick={props.onCreateFile}

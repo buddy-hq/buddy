@@ -843,17 +843,19 @@ export async function sendPrompt(
     requireBuddyData(
       await getBuddyClient(directory).session.prompt({
         sessionID: resolvedSessionID,
-        content,
-        ...(input?.parts && input.parts.length > 0 ? { parts: input.parts } : {}),
-        ...(input?.persona ? { persona: input.persona } : {}),
-        intent,
-        ...(input?.focusGoalIds && input.focusGoalIds.length > 0
-          ? { focusGoalIds: input.focusGoalIds }
-          : {}),
-        ...(input?.agent ? { agent: input.agent } : {}),
-        ...(input?.model ? { model: input.model } : {}),
-        ...(input?.variant ? { variant: input.variant } : {}),
-        ...(input?.teaching ? { teaching: input.teaching } : {}),
+        body: {
+          content,
+          ...(input?.parts && input.parts.length > 0 ? { parts: input.parts } : {}),
+          ...(input?.persona ? { persona: input.persona } : {}),
+          intent,
+          ...(input?.focusGoalIds && input.focusGoalIds.length > 0
+            ? { focusGoalIds: input.focusGoalIds }
+            : {}),
+          ...(input?.agent ? { agent: input.agent } : {}),
+          ...(input?.model ? { model: input.model } : {}),
+          ...(input?.variant ? { variant: input.variant } : {}),
+          ...(input?.teaching ? { teaching: input.teaching } : {}),
+        },
       }),
     )
 
@@ -913,14 +915,16 @@ export async function sendCommand(
     requireBuddyData(
       await getBuddyClient(directory).session.command({
         sessionID: resolvedSessionID,
-        command,
-        arguments: argumentsText,
-        ...(input?.parts && input.parts.length > 0 ? { parts: input.parts } : {}),
-        ...(input?.persona ? { persona: input.persona } : {}),
-        intent,
-        ...(input?.agent ? { agent: input.agent } : {}),
-        ...(input?.model ? { model: `${input.model.providerID}/${input.model.modelID}` } : {}),
-        ...(input?.variant ? { variant: input.variant } : {}),
+        body: {
+          command,
+          arguments: argumentsText,
+          ...(input?.parts && input.parts.length > 0 ? { parts: input.parts } : {}),
+          ...(input?.persona ? { persona: input.persona } : {}),
+          intent,
+          ...(input?.agent ? { agent: input.agent } : {}),
+          ...(input?.model ? { model: `${input.model.providerID}/${input.model.modelID}` } : {}),
+          ...(input?.variant ? { variant: input.variant } : {}),
+        },
       }),
     )
   } catch (error) {
@@ -1221,9 +1225,9 @@ export async function loadProjectConfig(directory: string) {
 }
 
 export async function patchProjectConfig(directory: string, patch: Record<string, unknown>) {
-  const configPatch = patch as Partial<NonNullable<ConfigUpdateData["body"]>>
+  const configPatch = patch as NonNullable<ConfigUpdateData["body"]>
   const result = await getBuddyClient(directory).config.update({
-    ...configPatch,
+    body: configPatch,
   })
   return requireBuddyData(result) as Record<string, unknown>
 }

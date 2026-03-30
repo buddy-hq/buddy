@@ -133,11 +133,13 @@ function DiagramActionButton(props: {
   onClick: () => void
   icon: JSX.Element
   disabled?: boolean
+  dataAction?: string
 }) {
   return (
     <Tooltip>
       <TooltipTrigger
         type="button"
+        {...(props.dataAction ? { "data-action": props.dataAction } : {})}
         disabled={props.disabled}
         aria-label={props.label}
         onClick={(event) => {
@@ -411,6 +413,7 @@ export function MermaidDiagram(props: {
                 <DiagramActionButton
                   label={language.t("chatTools.mermaidDiagram.openFullscreen")}
                   onClick={() => setFullscreenOpen(true)}
+                  dataAction="mermaid-open-fullscreen"
                   icon={<ExpandIcon className="size-4" />}
                 />
               </div>
@@ -476,6 +479,7 @@ export function MermaidDiagram(props: {
               <div className="flex items-center gap-2 rounded-2xl border border-border-base/70 bg-background-base/82 p-2 shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur-xl">
                 <Button
                   type="button"
+                  data-action="mermaid-zoom-out"
                   size="sm"
                   variant="outline"
                   aria-label={language.t("chatTools.mermaidDiagram.zoomOutAria")}
@@ -492,6 +496,7 @@ export function MermaidDiagram(props: {
                 </div>
                 <Button
                   type="button"
+                  data-action="mermaid-zoom-in"
                   size="sm"
                   variant="outline"
                   aria-label={language.t("chatTools.mermaidDiagram.zoomInAria")}
@@ -502,6 +507,7 @@ export function MermaidDiagram(props: {
                 </Button>
                 <Button
                   type="button"
+                  data-action="mermaid-fit"
                   size="sm"
                   variant="outline"
                   aria-label={language.t("chatTools.mermaidDiagram.resetZoomAria")}
@@ -512,6 +518,7 @@ export function MermaidDiagram(props: {
                 <DialogClose asChild>
                   <Button
                     type="button"
+                    data-action="mermaid-close-fullscreen"
                     size="sm"
                     variant="outline"
                     aria-label={language.t("chatTools.mermaidDiagram.closeFullscreenAria")}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   loadPersonaCatalog,
   loadProjectConfig,
@@ -177,7 +177,12 @@ function buildProjectSettingsPatch(input: {
     patch.default_intent = nextIntent || null
   }
 
-  if (input.modelSelectionDirty && input.draft.provider && input.draft.model) {
+  const shouldPersistModel =
+    input.draft.provider.length > 0 &&
+    input.draft.model.length > 0 &&
+    (input.modelSelectionDirty || currentModel.length === 0)
+
+  if (shouldPersistModel) {
     const nextModel = `${input.draft.provider}/${input.draft.model}`
     if (nextModel !== currentModel) {
       patch.model = nextModel
@@ -212,6 +217,18 @@ function emptyState(): ProjectSettingsState {
 
 export function useProjectSettings(directory: string, open: boolean) {
   const [state, setState] = useState<ProjectSettingsState>(() => emptyState())
+  const latestPersistRef = useRef<{
+    directory: string
+    open: boolean
+    loading: boolean
+    saving: boolean
+    patch?: ProjectSettingsPatch
+  }>({
+    directory,
+    open,
+    loading: false,
+    saving: false,
+  })
 
   const connected = useMemo(
     () => connectedProviders(state.providerCatalog),
@@ -335,6 +352,36 @@ export function useProjectSettings(directory: string, open: boolean) {
     state.projectConfig,
     state.saving,
   ])
+
+  useEffect(() => {
+    latestPersistRef.current = {
+      directory,
+      open,
+      loading: state.loading,
+      saving: state.saving,
+      patch: buildProjectSettingsPatch({
+        projectConfig: state.projectConfig,
+        draft: state.draft,
+        modelSelectionDirty: state.modelSelectionDirty,
+      }),
+    }
+  }, [
+    directory,
+    open,
+    state.draft,
+    state.loading,
+    state.modelSelectionDirty,
+    state.projectConfig,
+    state.saving,
+  ])
+
+  useEffect(() => {
+    return () => {
+      const latest = latestPersistRef.current
+      if (!latest.open || latest.loading || latest.saving || !latest.patch) return
+      void patchProjectConfig(latest.directory, latest.patch).catch(() => undefined)
+    }
+  }, [directory, open])
 
   return {
     status: {

@@ -70,7 +70,12 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
   function renderArtifactCard(artifact: WorkspaceMermaidArtifactView, index: number) {
     return (
       <div className={index === artifacts.length - 1 ? "" : "pb-3"}>
-        <Card size="sm" className="gap-0 py-0">
+        <Card
+          size="sm"
+          data-component="mermaid-artifact-item"
+          data-artifact-id={artifact.artifactID}
+          className="gap-0 py-0"
+        >
           <CardContent className="space-y-3 px-3 py-3">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="secondary">{artifact.diagramType}</Badge>
@@ -116,7 +121,7 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
   }, [loadArtifacts])
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col p-3">
+    <div data-component="workspace-mermaid-panel" className="flex min-h-0 flex-1 flex-col p-3">
       <div className="flex items-start justify-between gap-3 pb-2">
         <div className="min-w-0 space-y-1">
           <p className="text-[11px] font-bold uppercase tracking-wider leading-none text-text-weak">
@@ -126,6 +131,7 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           <Button
+            data-action="workspace-mermaid-refresh"
             variant="ghost"
             size="sm"
             className="px-2"

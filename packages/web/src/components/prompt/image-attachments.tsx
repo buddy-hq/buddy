@@ -12,9 +12,15 @@ export function ImageAttachments({ attachments, onRemove, onOpen }: ImageAttachm
   if (attachments.length === 0) return null
 
   return (
-    <div className="flex flex-wrap gap-2 px-3 pt-3">
+    <div data-component="prompt-attachments" className="flex flex-wrap gap-2 px-3 pt-3">
       {attachments.map((attachment) => (
-        <div key={attachment.id} className="relative group">
+        <div
+          key={attachment.id}
+          data-component="prompt-attachment-item"
+          data-kind={attachment.kind}
+          data-filename={attachment.filename}
+          className="relative group"
+        >
           {attachment.mime.startsWith("image/") ? (
             <img
               src={attachment.dataUrl}
@@ -30,6 +36,7 @@ export function ImageAttachments({ attachments, onRemove, onOpen }: ImageAttachm
 
           <button
             type="button"
+            data-action="prompt-attachment-remove"
             onClick={() => onRemove(attachment.id)}
             className="absolute -top-1.5 -right-1.5 size-5 rounded-full bg-background-base border border-border-base flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-surface-weak"
             aria-label={language.t("prompt.composer.removeAttachmentAria", {

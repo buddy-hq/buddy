@@ -43,9 +43,14 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
   } = props
 
   return (
-    <div className="h-full w-full overflow-hidden bg-surface-raised-base">
+    <div
+      data-component="directory-chat-shell"
+      className="h-full w-full overflow-hidden bg-surface-raised-base"
+    >
       <div className="h-full w-full flex min-w-0">
         <div
+          data-component="directory-chat-left-sidebar-shell"
+          data-open={leftSidebarOpen ? "true" : "false"}
           className={`relative shrink-0 min-h-0 overflow-hidden transition-[width] duration-200 ease-out ${
             leftSidebarOpen ? "" : "pointer-events-none"
           }`}
@@ -77,6 +82,8 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
         {mainPane}
 
         <div
+          data-component="directory-chat-right-sidebar-shell"
+          data-open={rightSidebarOpen ? "true" : "false"}
           className={`relative shrink-0 min-h-0 overflow-hidden transition-[width] duration-200 ease-out ${
             rightSidebarOpen ? "" : "pointer-events-none"
           }`}

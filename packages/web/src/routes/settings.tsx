@@ -183,7 +183,10 @@ function SettingsRoute() {
   }
 
   return (
-    <div className="h-full w-full overflow-hidden bg-surface-raised-base">
+    <div
+      data-component="settings-route"
+      className="h-full w-full overflow-hidden bg-surface-raised-base"
+    >
       <div className="flex h-full w-full min-w-0">
         <div
           className="relative min-h-0 shrink-0 overflow-hidden"
@@ -281,6 +284,7 @@ function SettingsNavContent(props: {
     <>
       <div className="mb-3 px-1">
         <Button
+          data-action="settings-nav-back"
           type="button"
           variant="ghost"
           className="h-9 w-full justify-start rounded-lg px-2 text-sm font-medium text-text-base hover:bg-surface-raised-base-hover hover:text-text-strong"
@@ -297,6 +301,8 @@ function SettingsNavContent(props: {
             <button
               key={item.tab}
               type="button"
+              data-action={`settings-tab-${item.tab}`}
+              data-active={active ? "true" : "false"}
               onClick={() => props.onTabChange(item.tab)}
               className={cn(
                 "flex h-9 w-full items-center gap-2 rounded-lg px-2 text-sm",

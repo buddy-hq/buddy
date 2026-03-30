@@ -36,7 +36,12 @@ export function ProvidersSettings({ directory }: { directory: string }) {
               settings.options.providers.map((provider, index) => {
                 const selected = provider.id === settings.selection.provider
                 return (
-                  <div key={provider.id}>
+                  <div
+                    key={provider.id}
+                    data-component="settings-provider-item"
+                    data-provider-id={provider.id}
+                    data-connected="true"
+                  >
                     <div className="px-4 py-4">
                       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                         <div className="min-w-0 flex-1">
@@ -58,6 +63,7 @@ export function ProvidersSettings({ directory }: { directory: string }) {
                         <div className="flex flex-wrap items-center gap-2">
                           {!selected ? (
                             <Button
+                              data-action={`settings-provider-set-default-${provider.id}`}
                               type="button"
                               size="xs"
                               variant="outline"
@@ -67,6 +73,7 @@ export function ProvidersSettings({ directory }: { directory: string }) {
                             </Button>
                           ) : null}
                           <Button
+                            data-action={`settings-provider-edit-${provider.id}`}
                             type="button"
                             size="xs"
                             variant="outline"
@@ -95,6 +102,7 @@ export function ProvidersSettings({ directory }: { directory: string }) {
               {language.t("settings.providers.availableProviders")}
             </h3>
             <Button
+              data-action="settings-provider-connect"
               type="button"
               size="xs"
               onClick={() => openProviderDialog(settings.selection.provider || undefined)}
@@ -105,7 +113,12 @@ export function ProvidersSettings({ directory }: { directory: string }) {
           <SettingsListCard>
             {availableProviders.length > 0 ? (
               availableProviders.map((provider, index) => (
-                <div key={provider.id}>
+                <div
+                  key={provider.id}
+                  data-component="settings-provider-item"
+                  data-provider-id={provider.id}
+                  data-connected="false"
+                >
                   <div className="px-4 py-4">
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                       <div className="min-w-0 flex-1">
@@ -120,6 +133,7 @@ export function ProvidersSettings({ directory }: { directory: string }) {
                         </p>
                       </div>
                       <Button
+                        data-action={`settings-provider-connect-${provider.id}`}
                         type="button"
                         size="xs"
                         variant="outline"

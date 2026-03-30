@@ -31,7 +31,7 @@ export function NotebookSettings({ directory }: { directory: string }) {
               onValueChange={settings.actions.setPersona}
               disabled={settings.status.loading}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger data-action="settings-notebook-default-persona" className="w-full">
                 <SelectValue
                   placeholder={language.t("settings.notebook.defaultPersonaPlaceholder")}
                 />
@@ -57,7 +57,7 @@ export function NotebookSettings({ directory }: { directory: string }) {
               }
               disabled={settings.status.loading}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger data-action="settings-notebook-default-intent" className="w-full">
                 <SelectValue
                   placeholder={language.t("settings.notebook.defaultIntentPlaceholder")}
                 />
@@ -88,6 +88,7 @@ export function NotebookSettings({ directory }: { directory: string }) {
                   : language.t("settings.notebook.off")}
               </span>
               <Switch
+                data-action="settings-notebook-full-text"
                 checked={settings.selection.fullTextReadingEnabled}
                 onCheckedChange={settings.actions.setFullTextReadingEnabled}
                 disabled={settings.status.loading}
@@ -108,7 +109,7 @@ export function NotebookSettings({ directory }: { directory: string }) {
               }
               disabled={settings.status.loading}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger data-action="settings-notebook-log-level" className="w-full">
                 <SelectValue placeholder={language.t("settings.notebook.defaultLogLevel")} />
               </SelectTrigger>
               <SelectContent>

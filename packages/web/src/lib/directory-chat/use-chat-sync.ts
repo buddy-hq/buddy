@@ -117,6 +117,12 @@ export function useChatSync(props: UseChatSyncProps) {
           return
         }
 
+        if (payload.type === "server.instance.disposed") {
+          setDirectoryError(directory, "Buddy backend restarted. Reconnecting notebook state.")
+          void resyncDirectory(directory).catch(() => undefined)
+          return
+        }
+
         if (payload.type === "message.updated") {
           const info = properties.info as MessageInfo
           applyMessageUpdated(directory, info)

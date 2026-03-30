@@ -1,7 +1,7 @@
 import { useMemo } from "react"
 import { useChatStore } from "@/state/chat-store"
 import { useUiPreferences } from "@/state/ui-preferences"
-import { useTeachingRuntime, teachingSessionKey } from "@/state/teaching-runtime"
+import { useTeachingRuntime, teachingSelectionKey } from "@/state/teaching-runtime"
 import { usePromptStore, getPromptScopeKey } from "@/state/prompt-store"
 import { getSessionFamily } from "../session-family"
 import { modelSelectionKey, parseConfiguredModel } from "./chat-prompt-helpers"
@@ -269,7 +269,7 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
   )
   const sidebarDirectories = validOpenProjects
   const sessionKey = useMemo(
-    () => (decodedDirectory && sessionID ? teachingSessionKey(decodedDirectory, sessionID) : ""),
+    () => (decodedDirectory ? teachingSelectionKey(decodedDirectory, sessionID) : ""),
     [decodedDirectory, sessionID],
   )
   const storedPersona = sessionKey

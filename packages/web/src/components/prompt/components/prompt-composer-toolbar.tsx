@@ -137,6 +137,7 @@ export function PromptComposerToolbar(props: PromptComposerToolbarProps) {
                     <Tooltip key={intent.key}>
                       <TooltipTrigger asChild>
                         <TabsTrigger
+                          data-action={`prompt-intent-${intent.key}`}
                           value={intent.key}
                           className="h-6 gap-1.5 border border-transparent px-2 text-[11px] text-text-weak hover:bg-surface-raised-base-hover hover:text-text-strong data-[state=active]:border-border-interactive-base data-[state=active]:bg-surface-interactive-base data-[state=active]:text-text-on-interactive-base data-[state=active]:shadow-xs [&_svg]:size-3.5 shadow-none"
                         >
@@ -165,6 +166,7 @@ export function PromptComposerToolbar(props: PromptComposerToolbarProps) {
         <div className="flex items-center gap-1">
           <Select value={props.selectedPersona} onValueChange={props.onPersonaChange}>
             <SelectTrigger
+              data-action="prompt-persona-select"
               size="sm"
               className="h-7 max-w-[140px] min-w-0 border-border-base/70 bg-input-base px-2 text-xs text-text-strong shadow-xs hover:border-border-hover hover:bg-input-hover"
               aria-label={language.t("prompt.toolbar.aria.persona")}
@@ -193,6 +195,7 @@ export function PromptComposerToolbar(props: PromptComposerToolbarProps) {
             onOpenChange={props.onModelMenuOpenChange}
           >
             <SelectTrigger
+              data-action="prompt-model-select"
               ref={props.modelTriggerRef}
               size="sm"
               className="h-7 max-w-[180px] min-w-0 border-border-base/70 bg-input-base px-2 text-xs text-text-strong shadow-xs hover:border-border-hover hover:bg-input-hover"
@@ -227,6 +230,7 @@ export function PromptComposerToolbar(props: PromptComposerToolbarProps) {
 
           <Select value={props.selectedThinking} onValueChange={props.onThinkingChange}>
             <SelectTrigger
+              data-action="prompt-thinking-select"
               size="sm"
               className="h-7 max-w-[160px] min-w-0 border-border-base/70 bg-input-base px-2 text-xs text-text-strong shadow-xs hover:border-border-hover hover:bg-input-hover"
               aria-label={language.t("prompt.toolbar.aria.thinking")}

@@ -31,7 +31,10 @@ export function McpListPanel(props: McpListPanelProps) {
 
   return (
     <>
-      <div className="flex items-center justify-between gap-3 rounded-xl border border-border-base/60 bg-surface-weak/20 px-3 py-2">
+      <div
+        data-component="mcp-list-panel"
+        className="flex items-center justify-between gap-3 rounded-xl border border-border-base/60 bg-surface-weak/20 px-3 py-2"
+      >
         <div className="min-w-0">
           <p className="text-sm font-medium text-text-base">{language.t("mcp.listPanel.title")}</p>
           <p className="text-xs text-text-weak">
@@ -40,13 +43,20 @@ export function McpListPanel(props: McpListPanelProps) {
               : language.t("mcp.listPanel.descriptionEmpty")}
           </p>
         </div>
-        <Button type="button" size="sm" className="shrink-0" onClick={props.onAddMcp}>
+        <Button
+          data-action="mcp-add"
+          type="button"
+          size="sm"
+          className="shrink-0"
+          onClick={props.onAddMcp}
+        >
           {language.t("mcp.listPanel.addMcp")}
         </Button>
       </div>
 
       {props.showSearch ? (
         <Input
+          data-action="mcp-filter-input"
           value={props.query}
           onChange={(event) => props.setQuery(event.target.value)}
           placeholder={language.t("mcp.listPanel.filterPlaceholder")}
@@ -86,7 +96,12 @@ export function McpListPanel(props: McpListPanelProps) {
 
                 return (
                   <div>
-                    <div className="flex items-center justify-between gap-3 px-4 py-3">
+                    <div
+                      data-component="mcp-item"
+                      data-mcp-name={name}
+                      data-mcp-status={status?.status ?? "configured"}
+                      className="flex items-center justify-between gap-3 px-4 py-3"
+                    >
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="truncate text-sm font-medium text-text-base">{name}</p>
@@ -116,6 +131,8 @@ export function McpListPanel(props: McpListPanelProps) {
                       <div className="flex shrink-0 items-center gap-2">
                         {config ? (
                           <Button
+                            data-action="mcp-edit"
+                            data-mcp-name={name}
                             type="button"
                             size="xs"
                             variant="outline"
@@ -126,6 +143,8 @@ export function McpListPanel(props: McpListPanelProps) {
                         ) : null}
                         {status?.status === "needs_auth" ? (
                           <Button
+                            data-action="mcp-connect"
+                            data-mcp-name={name}
                             type="button"
                             size="xs"
                             variant="outline"
@@ -138,6 +157,8 @@ export function McpListPanel(props: McpListPanelProps) {
                           </Button>
                         ) : null}
                         <Switch
+                          data-action="mcp-toggle"
+                          data-mcp-name={name}
                           checked={enabled}
                           disabled={isPending}
                           aria-label={language.t(
@@ -177,7 +198,12 @@ export function McpListPanel(props: McpListPanelProps) {
 
               return (
                 <div key={name}>
-                  <div className="flex items-center justify-between gap-3 px-4 py-3">
+                  <div
+                    data-component="mcp-item"
+                    data-mcp-name={name}
+                    data-mcp-status={status?.status ?? "configured"}
+                    className="flex items-center justify-between gap-3 px-4 py-3"
+                  >
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="truncate text-sm font-medium text-text-base">{name}</p>
@@ -207,6 +233,8 @@ export function McpListPanel(props: McpListPanelProps) {
                     <div className="flex shrink-0 items-center gap-2">
                       {config ? (
                         <Button
+                          data-action="mcp-edit"
+                          data-mcp-name={name}
                           type="button"
                           size="xs"
                           variant="outline"
@@ -217,6 +245,8 @@ export function McpListPanel(props: McpListPanelProps) {
                       ) : null}
                       {status?.status === "needs_auth" ? (
                         <Button
+                          data-action="mcp-connect"
+                          data-mcp-name={name}
                           type="button"
                           size="xs"
                           variant="outline"
@@ -229,6 +259,8 @@ export function McpListPanel(props: McpListPanelProps) {
                         </Button>
                       ) : null}
                       <Switch
+                        data-action="mcp-toggle"
+                        data-mcp-name={name}
                         checked={enabled}
                         disabled={isPending}
                         aria-label={language.t(

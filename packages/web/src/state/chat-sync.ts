@@ -2,6 +2,7 @@ import type { GlobalEvent } from "./chat-types"
 import { getPlatform } from "../context/platform"
 import { apiFetch, createEventStreamUrl } from "../lib/api-client"
 import { getServerConnection } from "../context/server"
+import { publishChatSyncProbeStatus, registerChatSyncProbe } from "@/e2e/driver"
 
 type SyncHandlers = {
   directory?: string
@@ -102,6 +103,11 @@ export function startChatSync(handlers: SyncHandlers) {
   const staleDeltas = new Set<string>()
   let flushTimer: number | undefined
 
+  const reportStatus = (status: "connecting" | "connected" | "error") => {
+    handlers.onStatus?.(status)
+    publishChatSyncProbeStatus(status)
+  }
+
   const clearReconnect = () => {
     if (reconnectTimer === undefined) return
     window.clearTimeout(reconnectTimer)
@@ -161,7 +167,7 @@ export function startChatSync(handlers: SyncHandlers) {
   const connect = () => {
     if (disposed) return
     console.info("[chat-sync] connect")
-    handlers.onStatus?.("connecting")
+    reportStatus("connecting")
     closeSource()
     closeStream()
     clearReconnect()
@@ -216,7 +222,7 @@ export function startChatSync(handlers: SyncHandlers) {
       reconnectTimer = window.setTimeout(() => {
         connect()
       }, delay)
-      handlers.onStatus?.("error")
+      reportStatus("error")
       if (notifyError) {
         handlers.onError?.(new Error(`Event stream disconnected (attempt ${attempt})`))
       }
@@ -245,7 +251,7 @@ export function startChatSync(handlers: SyncHandlers) {
             opened = true
             handlers.onOpen?.()
           }
-          handlers.onStatus?.("connected")
+          reportStatus("connected")
 
           const reader = response.body.getReader()
           const decoder = new TextDecoder()
@@ -308,7 +314,7 @@ export function startChatSync(handlers: SyncHandlers) {
         opened = true
         handlers.onOpen?.()
       }
-      handlers.onStatus?.("connected")
+      reportStatus("connected")
     })
 
     source.addEventListener("message", (messageEvent) => {
@@ -324,6 +330,25 @@ export function startChatSync(handlers: SyncHandlers) {
 
   connect()
 
+  const disconnect = () => {
+    closeSource()
+    closeStream()
+    clearReconnect()
+    reportStatus("error")
+  }
+
+  const reconnect = () => {
+    closeSource()
+    closeStream()
+    clearReconnect()
+    connect()
+  }
+
+  const unregisterProbe = registerChatSyncProbe({
+    disconnect,
+    reconnect,
+  })
+
   return {
     stop() {
       disposed = true
@@ -331,6 +356,8 @@ export function startChatSync(handlers: SyncHandlers) {
       closeSource()
       closeStream()
       flush()
+      unregisterProbe()
+      publishChatSyncProbeStatus("idle")
     },
   }
 }

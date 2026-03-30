@@ -1,5 +1,5 @@
 import { language } from "@/context/language"
-import buddyIcon from "../../../public/buddy-icon.png"
+import buddyIcon from "/buddy-icon.png"
 
 type ChatEmptyStateProps = {
   directoryLabel: string
