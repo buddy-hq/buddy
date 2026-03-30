@@ -80,7 +80,7 @@ Build Buddy core by executing vendored OpenCode core, not by re-implementing it.
 - Ignored build artifacts: `dist/`, `.turbo/`, `*.tsbuildinfo`, `*.log`
 
 ## Buddy Architectural Concepts
-- Core vocabulary lives in `buddy/packages/buddy/src/learning/shared/teaching-vocabulary.ts`.
+- Core vocabulary lives in `packages/buddy/src/learning/shared/teaching-vocabulary.ts`.
 - **Persona**: the core Buddy agent.
 - **Intent**: selects a persona’s capabilities for a single turn (for teaching, e.g. `learn`, `assess`, `practice`, `auto`).
 - Capabilities come in three forms:
