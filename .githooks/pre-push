@@ -2,7 +2,6 @@
 set -eu
 
 ZERO_SHA="0000000000000000000000000000000000000000"
-EMPTY_TREE_SHA="$(git hash-object -t tree /dev/null)"
 
 tmp_file="$(mktemp)"
 cleanup() {
@@ -10,13 +9,38 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
+resolve_new_ref_range() {
+  new_sha="$1"
+  default_ref=""
+
+  if default_ref="$(git symbolic-ref --quiet refs/remotes/origin/HEAD 2>/dev/null)"; then
+    :
+  elif default_ref="$(git symbolic-ref --quiet HEAD 2>/dev/null)"; then
+    :
+  elif git rev-parse --verify --quiet refs/heads/main >/dev/null; then
+    default_ref="refs/heads/main"
+  elif git rev-parse --verify --quiet refs/remotes/origin/main >/dev/null; then
+    default_ref="refs/remotes/origin/main"
+  else
+    empty_tree="$(git hash-object -t tree /dev/null)"
+    printf "%s..%s" "$empty_tree" "$new_sha"
+    return
+  fi
+
+  if merge_base="$(git merge-base "$default_ref" "$new_sha" 2>/dev/null)"; then
+    printf "%s..%s" "$merge_base" "$new_sha"
+  else
+    printf "%s..%s" "$default_ref" "$new_sha"
+  fi
+}
+
 while read -r local_ref local_sha remote_ref remote_sha
 do
   [ -z "${local_sha:-}" ] && continue
   [ "$local_sha" = "$ZERO_SHA" ] && continue
 
   if [ "${remote_sha:-$ZERO_SHA}" = "$ZERO_SHA" ]; then
-    range="$EMPTY_TREE_SHA..$local_sha"
+    range="$(resolve_new_ref_range "$local_sha")"
   else
     range="$remote_sha..$local_sha"
   fi
