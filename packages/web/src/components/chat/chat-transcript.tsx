@@ -304,6 +304,81 @@ function turnRendererEqual(prevProps: TurnRendererProps, nextProps: TurnRenderer
   return true
 }
 
+// Props for UserSection
+interface UserSectionProps {
+  userMessage?: MessageWithParts
+  providers: ProviderInfo[]
+  onForkMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
+  onRevertMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
+}
+
+const UserSection = memo(function UserSection({
+  userMessage,
+  providers,
+  onForkMessage,
+  onRevertMessage,
+}: UserSectionProps) {
+  const userParts = useMemo(() => userMessage?.parts ?? [], [userMessage?.parts])
+  const userFileParts = useMemo(() => userParts.filter((part) => part.type === "file"), [userParts])
+  const userAttachmentParts = useMemo(
+    () => userFileParts.filter(isAttachmentFilePart),
+    [userFileParts],
+  )
+  const userInlineFileParts = useMemo(
+    () => userFileParts.filter((part) => !isAttachmentFilePart(part)),
+    [userFileParts],
+  )
+  const userAgentParts = useMemo(
+    () => userParts.filter((part) => part.type === "agent"),
+    [userParts],
+  )
+  const userTextParts = useMemo(() => userParts.filter((part) => part.type === "text"), [userParts])
+
+  if (!userMessage) return null
+
+  return (
+    <div className="ml-auto flex w-fit flex-col items-end gap-2 text-sm">
+      <div className="group/user flex w-full flex-col items-end gap-2">
+        {userAttachmentParts.length > 0 ? (
+          <div className="flex w-fit max-w-[min(82%,64ch)] flex-wrap justify-end gap-2">
+            {userAttachmentParts.map((part) => (
+              <FileAttachmentPart key={part.id} part={part} />
+            ))}
+          </div>
+        ) : null}
+        {userTextParts.map((part) => (
+          <UserMessagePart
+            key={part.id}
+            part={part}
+            info={userMessage.info}
+            references={userInlineFileParts}
+            agents={userAgentParts}
+            providers={providers}
+            onForkMessage={
+              onForkMessage
+                ? () =>
+                    onForkMessage({
+                      sessionID: userMessage.info.sessionID,
+                      messageID: userMessage.info.id,
+                    })
+                : undefined
+            }
+            onRevertMessage={
+              onRevertMessage
+                ? () =>
+                    onRevertMessage({
+                      sessionID: userMessage.info.sessionID,
+                      messageID: userMessage.info.id,
+                    })
+                : undefined
+            }
+          />
+        ))}
+      </div>
+    </div>
+  )
+})
+
 const TurnRenderer = memo(function TurnRenderer({
   turn,
   turnIndex,
@@ -321,23 +396,6 @@ const TurnRenderer = memo(function TurnRenderer({
 }: TurnRendererProps) {
   const isLastTurn = turnIndex === totalTurns - 1
   const userMessage = turn.user
-
-  // Memoize user parts filtering
-  const userParts = useMemo(() => userMessage?.parts ?? [], [userMessage?.parts])
-  const userFileParts = useMemo(() => userParts.filter((part) => part.type === "file"), [userParts])
-  const userAttachmentParts = useMemo(
-    () => userFileParts.filter(isAttachmentFilePart),
-    [userFileParts],
-  )
-  const userInlineFileParts = useMemo(
-    () => userFileParts.filter((part) => !isAttachmentFilePart(part)),
-    [userFileParts],
-  )
-  const userAgentParts = useMemo(
-    () => userParts.filter((part) => part.type === "agent"),
-    [userParts],
-  )
-  const userTextParts = useMemo(() => userParts.filter((part) => part.type === "text"), [userParts])
 
   // Memoize assistant computations
   const assistantMessages = turn.assistants
@@ -465,47 +523,12 @@ const TurnRenderer = memo(function TurnRenderer({
 
   return (
     <article className="relative w-full px-4 md:px-5">
-      {userMessage ? (
-        <div className="ml-auto flex w-fit flex-col items-end gap-2 text-sm">
-          <div className="group/user flex w-full flex-col items-end gap-2">
-            {userAttachmentParts.length > 0 ? (
-              <div className="flex w-fit max-w-[min(82%,64ch)] flex-wrap justify-end gap-2">
-                {userAttachmentParts.map((part) => (
-                  <FileAttachmentPart key={part.id} part={part} />
-                ))}
-              </div>
-            ) : null}
-            {userTextParts.map((part) => (
-              <UserMessagePart
-                key={part.id}
-                part={part}
-                info={userMessage.info}
-                references={userInlineFileParts}
-                agents={userAgentParts}
-                providers={providers}
-                onForkMessage={
-                  onForkMessage
-                    ? () =>
-                        onForkMessage({
-                          sessionID: userMessage.info.sessionID,
-                          messageID: userMessage.info.id,
-                        })
-                    : undefined
-                }
-                onRevertMessage={
-                  onRevertMessage
-                    ? () =>
-                        onRevertMessage({
-                          sessionID: userMessage.info.sessionID,
-                          messageID: userMessage.info.id,
-                        })
-                    : undefined
-                }
-              />
-            ))}
-          </div>
-        </div>
-      ) : null}
+      <UserSection
+        userMessage={userMessage}
+        providers={providers}
+        onForkMessage={onForkMessage}
+        onRevertMessage={onRevertMessage}
+      />
 
       {assistantAborted ? <MessageDivider label="Interrupted" /> : null}
 
