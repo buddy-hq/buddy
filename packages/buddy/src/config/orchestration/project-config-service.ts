@@ -10,6 +10,7 @@ import {
   syncOpenCodeProjectConfig,
 } from "../runtime/opencode-sync.js"
 import { resolveProjectConfigContext, resolveProjectConfigFile } from "../store/config-paths.js"
+import { InvalidError } from "../contract/errors.js"
 
 export async function listProjectPersonas(directory: string) {
   const config = await readProjectConfig(directory)
@@ -137,13 +138,62 @@ async function applyAndSyncProjectConfigChange(input: {
 }
 
 export async function patchProjectConfig(input: { directory: string; payload: unknown }) {
-  const parsed = Config.Info.parse(input.payload)
+  const parsed = mergeAndValidateProjectConfigPatch({
+    current: await readProjectConfig(input.directory),
+    patch: input.payload,
+  })
   await applyAndSyncProjectConfigChange({
     directory: input.directory,
     apply: () => Config.updateProject(input.directory, parsed),
   })
 
   return readProjectConfig(input.directory)
+}
+
+const DELETE_PATCH_SENTINEL = Symbol("delete_patch_value")
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value))
+}
+
+function mergePatchValue(current: unknown, patch: unknown): unknown | typeof DELETE_PATCH_SENTINEL {
+  if (patch === null) return DELETE_PATCH_SENTINEL
+  if (!isRecord(patch)) return patch
+
+  const base = isRecord(current) ? { ...current } : {}
+
+  for (const [key, patchValue] of Object.entries(patch)) {
+    const merged = mergePatchValue(base[key], patchValue)
+    if (merged === DELETE_PATCH_SENTINEL) {
+      delete base[key]
+      continue
+    }
+    base[key] = merged
+  }
+
+  return base
+}
+
+function mergeAndValidateProjectConfigPatch(input: {
+  current: Config.Info
+  patch: unknown
+}): Config.Info {
+  if (!isRecord(input.patch)) {
+    throw new InvalidError({
+      path: "<request>",
+      message: "Config patch payload must be an object",
+    })
+  }
+
+  const merged = mergePatchValue(input.current, input.patch)
+  if (!isRecord(merged)) {
+    throw new InvalidError({
+      path: "<request>",
+      message: "Config patch payload must resolve to an object",
+    })
+  }
+
+  return Config.Info.parse(merged)
 }
 
 export async function putProjectMcpConfig(input: {

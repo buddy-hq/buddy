@@ -49,3 +49,7 @@ export function writeTeachingSessionState(directory: string, state: TeachingSess
 export function deleteTeachingSessionState(directory: string, sessionId: string) {
   runtimeState.delete(sessionKey(directory, sessionId))
 }
+
+export function clearAllTeachingSessionState() {
+  runtimeState.clear()
+}

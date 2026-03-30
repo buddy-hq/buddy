@@ -151,6 +151,24 @@ export async function reorderOpenProjectRegistryEntries(rawDirectories: string[]
   })
 }
 
+export async function setOpenProjectRegistryEntries(rawDirectories: string[]) {
+  const directories = normalizeRegistryDirectories(rawDirectories)
+
+  for (const directory of directories) {
+    if (!isAllowedDirectory(directory, allowedDirectoryRoots())) {
+      throw new OpenProjectRegistryError(403, "Directory is outside allowed roots")
+    }
+
+    try {
+      await OpenCodeProject.fromDirectory(directory)
+    } catch (error) {
+      throw new OpenProjectRegistryError(400, projectUpdateErrorMessage(error))
+    }
+  }
+
+  return updateRegistry(() => directories)
+}
+
 export function isOpenProjectRegistryError(error: unknown): error is OpenProjectRegistryError {
   return error instanceof OpenProjectRegistryError
 }

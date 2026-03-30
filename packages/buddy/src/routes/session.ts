@@ -128,6 +128,8 @@ const sessionCommandBodyOpenApiSchema = {
   },
 }
 
+const sessionInteractionBodySchema = z.record(z.string(), z.unknown())
+
 const teachingSessionStateOutboundSchema = z.object({
   kind: z.enum(["message", "command"]),
   createdAt: z.string(),
@@ -269,6 +271,7 @@ export const SessionRoutes = new Hono()
     }),
     validator("query", directoryQuerySchema),
     validator("param", SessionIDParamSchema),
+    validator("json", sessionInteractionBodySchema),
     postSessionPromptHandler,
   )
   .post(
@@ -294,6 +297,7 @@ export const SessionRoutes = new Hono()
     }),
     validator("query", directoryQuerySchema),
     validator("param", SessionIDParamSchema),
+    validator("json", sessionInteractionBodySchema),
     postSessionCommandHandler,
   )
   .get(
