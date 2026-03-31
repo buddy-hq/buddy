@@ -8,6 +8,7 @@ import { AssistantSection } from "./sections/assistant-section"
 import { MessageDivider } from "./parts/assistant-part/message-divider"
 import { AssistantErrorCard } from "./assistant-error-card"
 import { useChatSettings } from "@/state/chat-settings"
+import { shallow } from "zustand/shallow"
 import type { TurnRendererProps } from "./types"
 
 export function areTurnRendererPropsEqual(
@@ -50,7 +51,14 @@ export const TurnRenderer = memo(function TurnRenderer({
   onForkMessage,
   onRevertMessage,
 }: TurnRendererProps) {
-  const { showReasoningSummaries, shellToolDefaultOpen, editToolDefaultOpen } = useChatSettings()
+  const { showReasoningSummaries, shellToolDefaultOpen, editToolDefaultOpen } = useChatSettings(
+    (state) => ({
+      showReasoningSummaries: state.showReasoningSummaries,
+      shellToolDefaultOpen: state.shellToolDefaultOpen,
+      editToolDefaultOpen: state.editToolDefaultOpen,
+    }),
+    shallow,
+  )
 
   const isLastTurn = turnIndex === totalTurns - 1
   const userMessage = turn.user
