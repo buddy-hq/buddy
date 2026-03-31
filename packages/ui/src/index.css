@@ -59,6 +59,17 @@
   }
 }
 
+@utility no-scrollbar {
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  & {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
 @utility scrollbar-hover {
   scrollbar-gutter: stable;
   scrollbar-color: transparent transparent;
