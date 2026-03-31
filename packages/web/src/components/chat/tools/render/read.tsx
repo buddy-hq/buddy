@@ -1,0 +1,35 @@
+import { BasicTool, ToolOutputPanel } from "../../shared"
+import { language } from "@/context/language"
+import { readStringList } from "../../shared/utils"
+import type { ToolPartProps } from "../registry"
+
+export function renderReadTool({ state, info }: ToolPartProps) {
+  const loadedFiles = readStringList(state.metadata.loaded)
+  const output = state.output || (state.error ?? "")
+  const showOutput = output.trim().length > 0
+
+  return (
+    <BasicTool
+      trigger={{ title: info.title, subtitle: info.subtitle, args: info.args }}
+      status={state.status}
+      hideDetails
+    >
+      {loadedFiles.length > 0 ? (
+        <div className="space-y-1 text-xs text-text-weak">
+          {loadedFiles.map((loadedFile) => (
+            <div key={loadedFile}>
+              {language.t("chatTools.loadedPrefix")} {loadedFile}
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {state.status === "error" && showOutput ? (
+        <ToolOutputPanel
+          output={output}
+          status={state.status}
+          copyLabel={language.t("chatTools.copyOutput")}
+        />
+      ) : null}
+    </BasicTool>
+  )
+}
