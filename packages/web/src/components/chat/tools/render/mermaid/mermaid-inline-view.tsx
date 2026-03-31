@@ -25,7 +25,7 @@ export function MermaidInlineView({ value, ariaLabel, svgRef }: MermaidInlineVie
       data-component="mermaid-diagram"
       role="img"
       aria-label={ariaLabel}
-      className="max-h-[48vh] overflow-auto pr-2"
+      className="h-[32rem] overflow-auto pr-2"
     />
   )
 }
