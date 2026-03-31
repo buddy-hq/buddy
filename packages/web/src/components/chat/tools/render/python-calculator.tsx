@@ -1,6 +1,7 @@
-import { BasicTool, ToolOutputPanel, ToolAttachmentGallery } from "../../shared"
+import { BasicTool } from "../../tools/basic-tool"
+import { ToolOutputPanel } from "../../tools/tool-output-panel"
+import { ToolAttachmentGallery } from "../tool-attachments"
 import { language } from "@/context/language"
-import { readNonEmptyString } from "../../shared/utils"
 import type { ToolPartProps } from "../registry"
 
 export function renderPythonCalculatorTool({ state, defaultOpen }: ToolPartProps) {

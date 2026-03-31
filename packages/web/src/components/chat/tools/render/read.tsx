@@ -1,7 +1,12 @@
-import { BasicTool, ToolOutputPanel } from "../../shared"
+import { BasicTool } from "../../tools/basic-tool"
+import { ToolOutputPanel } from "../../tools/tool-output-panel"
 import { language } from "@/context/language"
-import { readStringList } from "../../shared/utils"
 import type { ToolPartProps } from "../registry"
+
+function readStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((entry): entry is string => typeof entry === "string")
+}
 
 export function renderReadTool({ state, info }: ToolPartProps) {
   const loadedFiles = readStringList(state.metadata.loaded)

@@ -1,6 +1,5 @@
-import { BasicTool } from "../../shared"
-import { language } from "@/context/language"
-import { readString } from "../../shared/utils"
+import { BasicTool } from "../../tools/basic-tool"
+import { readString } from "../../tools/types"
 import type { ToolPartProps } from "../registry"
 
 export function renderWebfetchTool({ state, info }: ToolPartProps) {

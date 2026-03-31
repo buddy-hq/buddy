@@ -1,8 +1,11 @@
-import { BasicTool, ToolOutputPanel } from "../../shared"
+import { BasicTool } from "../../tools/basic-tool"
+import { ToolOutputPanel } from "../../tools/tool-output-panel"
 import { language } from "@/context/language"
-import { isRecord, readNonEmptyString } from "../../shared/utils"
+import { isRecord } from "../../tools/types"
 import type { ToolPartProps } from "../registry"
-import type { ToolQuestion } from "../types"
+interface ToolQuestion {
+  question: string
+}
 
 function readQuestions(input: Record<string, unknown>): ToolQuestion[] {
   const value = input.questions

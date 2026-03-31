@@ -1,9 +1,19 @@
-import { BasicTool, ToolOutputPanel } from "../../shared"
-import { ApplyPatchFileItem } from "../../shared"
+import { BasicTool } from "../../tools/basic-tool"
+import { ToolOutputPanel } from "../../tools/tool-output-panel"
+import { ApplyPatchFileItem } from "./apply-patch-item"
 import { language } from "@/context/language"
-import { isRecord } from "../../shared/utils"
+import { isRecord } from "../../tools/types"
 import type { ToolPartProps } from "../registry"
-import type { ApplyPatchFile } from "../types"
+interface ApplyPatchFile {
+  filePath: string
+  relativePath: string
+  type: "add" | "update" | "delete" | "move"
+  before: string
+  after: string
+  additions: number
+  deletions: number
+  movePath?: string
+}
 
 export function renderApplyPatchTool({ state, defaultOpen }: ToolPartProps) {
   const output = state.output || (state.error ?? "")

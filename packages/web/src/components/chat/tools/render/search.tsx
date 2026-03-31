@@ -1,6 +1,5 @@
-import { BasicTool, ToolOutputPanel } from "../../shared"
+import { BasicTool } from "../../tools/basic-tool"
 import { Markdown } from "@/components/Markdown"
-import { language } from "@/context/language"
 import type { ToolPartProps } from "../registry"
 
 export function renderSearchTool({ part, state, defaultOpen, info }: ToolPartProps) {

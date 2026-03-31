@@ -1,6 +1,7 @@
-import { BasicTool, ToolOutputPanel } from "../../shared"
+import { BasicTool } from "../../tools/basic-tool"
+import { ToolOutputPanel } from "../../tools/tool-output-panel"
 import { language } from "@/context/language"
-import { readString } from "../../shared/utils"
+import { readString } from "../../tools/types"
 import type { ToolPartProps } from "../registry"
 import { cn } from "@buddy/ui"
 

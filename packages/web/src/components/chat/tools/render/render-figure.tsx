@@ -1,9 +1,18 @@
-import { BasicTool, ToolOutputPanel, CopyAction } from "../../shared"
+import { BasicTool } from "../../tools/basic-tool"
+import { ToolOutputPanel } from "../../tools/tool-output-panel"
+import { CopyAction } from "../../copy-action"
 import { language } from "@/context/language"
-import { isRecord, readString, readNonEmptyString, readNonNegativeInt } from "../../shared/utils"
+import { isRecord, readString, readNonEmptyString, readNonNegativeInt } from "../../tools/types"
 import { resolveApiUrl } from "@/lib/api-client"
 import type { ToolPartProps } from "../registry"
-import type { RenderFigureToolOutput } from "../types"
+interface RenderFigureToolOutput {
+  figureID: string
+  mime: "image/svg+xml"
+  url: string
+  alt: string
+  caption?: string
+  repairAttempts: number
+}
 
 function stripUrlCredentials(value: string): string {
   try {

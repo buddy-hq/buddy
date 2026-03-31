@@ -1,6 +1,8 @@
-import { BasicTool, ToolOutputPanel } from "../../shared"
+import { BasicTool } from "../../tools/basic-tool"
+import { ToolOutputPanel } from "../../tools/tool-output-panel"
 import { language } from "@/context/language"
-import { readString, stripAnsi } from "../../shared/utils"
+import { readString } from "../../tools/types"
+import { stripAnsi } from "../../utils/path"
 import type { ToolPartProps } from "../registry"
 
 export function renderBashTool({ state, defaultOpen }: ToolPartProps) {

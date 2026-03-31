@@ -1,9 +1,19 @@
-import { BasicTool, ToolOutputPanel, DiagnosticList } from "../../shared"
-import { ApplyPatchFileItem } from "../../shared"
+import { BasicTool } from "../../tools/basic-tool"
+import { ToolOutputPanel } from "../../tools/tool-output-panel"
+import { DiagnosticList } from "./diagnostic-list"
 import { language } from "@/context/language"
-import { isRecord, readString } from "../../shared/utils"
+import { isRecord, readString } from "../../tools/types"
 import type { ToolPartProps } from "../registry"
-import type { ApplyPatchFile, ToolDiagnostic } from "../types"
+interface ToolDiagnostic {
+  range: {
+    start: {
+      line: number
+      character: number
+    }
+  }
+  message: string
+  severity?: number
+}
 
 export function renderEditTool({ state, defaultOpen }: ToolPartProps) {
   const filePath = readString(state.input.filePath)

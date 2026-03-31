@@ -1,17 +1,23 @@
 import { useEffect, useState } from "react"
 import { Badge } from "@buddy/ui"
-import { BasicTool, ToolOutputPanel } from "../../shared"
-import { MermaidDiagram } from "../mermaid-diagram"
+import { BasicTool } from "../../../tools/basic-tool"
+import { ToolOutputPanel } from "../../../tools/tool-output-panel"
+import { MermaidDiagram } from "./mermaid-diagram"
 import { language } from "@/context/language"
-import {
-  isRecord,
-  readNonEmptyString,
-  readNonNegativeInt,
-  unwrapError,
-} from "../../shared/utils"
+import { isRecord, readNonEmptyString, readNonNegativeInt } from "../../../tools/types"
+import { unwrapError } from "../../../utils/error"
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
-import type { ToolPartProps } from "../registry"
-import type { RenderMermaidToolOutput } from "../types"
+import type { ToolPartProps } from "../../registry"
+interface RenderMermaidToolOutput {
+  artifactID: string
+  artifactUrl: string
+  source: string
+  diagramType: string
+  repairAttempts: number
+  repairLog: string[]
+  alt: string
+  caption?: string
+}
 
 type RenderMermaidToolReference = Omit<RenderMermaidToolOutput, "source"> & {
   source?: string

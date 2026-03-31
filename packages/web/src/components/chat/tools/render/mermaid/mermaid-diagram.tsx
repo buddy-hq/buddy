@@ -18,7 +18,7 @@ import {
 import { motion } from "motion/react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { language } from "@/context/language"
-import { renderMermaidSvg, type MermaidRenderResult } from "../../../lib/mermaid/render"
+import { renderMermaidSvg, type MermaidRenderResult } from "../../../../../lib/mermaid/render"
 
 const VOID_HTML_TAG_PATTERN =
   /<(area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)(\s[^>]*?)?\s*\/?>/giu
