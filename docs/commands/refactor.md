@@ -23,15 +23,9 @@ Dispatch a second `general` subagent to verify:
 - Typecheck passes
 - Lint passes
 - **No dangling references to old paths** (grep for old import patterns)
+  
 
-### 3. Fix
-If review finds issues, dispatch a fix subagent for that specific problem only.
-
-Repeat Do → Review → Fix until review passes.
-
----
-
-## Code Diff Verification (Required for Logic Changes)
+#### Code Diff Verification (Required for Logic Changes)
 
 When splitting files (not just moving them), a typecheck/lint pass is **not enough**. The review must also:
 
@@ -42,8 +36,17 @@ When splitting files (not just moving them), a typecheck/lint pass is **not enou
 
 This step is required because typecheck only proves syntactic validity, not behavioral preservation.
 
----
 
+#### Tailwind and Compoenent Verification
+1. verify UI components are the same.
+2. Verify all tailwind classes and styles are the same.
+3. Verify the whole component tree remains consistent.
+
+
+### 3. Fix
+If review finds issues, dispatch a fix subagent for that specific problem only.
+
+Repeat Do → Review → Fix until review passes.
 
 ## What to Check Before Dispatching
 
