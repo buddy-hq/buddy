@@ -45,8 +45,4 @@ export const CONTEXT_TOOLS = new Set(["read", "list", "glob", "grep"])
 export const HIDDEN_TOOLS = new Set(["todowrite", "todoread"])
 
 // Re-export types from types.ts for convenience
-export type {
-  ToolState,
-  ToolInfo,
-  ToolAttachment,
-} from "./types"
+export type { ToolState, ToolInfo, ToolAttachment } from "./types"

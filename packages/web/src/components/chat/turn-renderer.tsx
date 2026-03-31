@@ -7,6 +7,7 @@ import { UserSection } from "./sections/user-section"
 import { AssistantSection } from "./sections/assistant-section"
 import { MessageDivider } from "./parts/assistant-part/message-divider"
 import { AssistantErrorCard } from "./assistant-error-card"
+import { useChatSettings } from "@/state/chat-settings"
 import type { TurnRendererProps } from "./types"
 
 export function areTurnRendererPropsEqual(
@@ -22,9 +23,6 @@ export function areTurnRendererPropsEqual(
   if (prevProps.onForkMessage !== nextProps.onForkMessage) return false
   if (prevProps.onRevertMessage !== nextProps.onRevertMessage) return false
   if (prevProps.providers !== nextProps.providers) return false
-  if (prevProps.showReasoningSummaries !== nextProps.showReasoningSummaries) return false
-  if (prevProps.shellToolDefaultOpen !== nextProps.shellToolDefaultOpen) return false
-  if (prevProps.editToolDefaultOpen !== nextProps.editToolDefaultOpen) return false
 
   const prevTurn = prevProps.turn
   const nextTurn = nextProps.turn
@@ -51,10 +49,9 @@ export const TurnRenderer = memo(function TurnRenderer({
   onOpenSession,
   onForkMessage,
   onRevertMessage,
-  showReasoningSummaries,
-  shellToolDefaultOpen,
-  editToolDefaultOpen,
 }: TurnRendererProps) {
+  const { showReasoningSummaries, shellToolDefaultOpen, editToolDefaultOpen } = useChatSettings()
+
   const isLastTurn = turnIndex === totalTurns - 1
   const userMessage = turn.user
   const assistantMessages = turn.assistants

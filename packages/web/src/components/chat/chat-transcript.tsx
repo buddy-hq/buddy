@@ -14,12 +14,8 @@ import {
   VIRTUAL_CHAT_TURN_ESTIMATE_PX,
 } from "@/components/virtualization/virtualization-defaults"
 import { useChatStore } from "@/state/chat-store"
-import type { MessageWithParts, ProviderInfo } from "@/state/chat-types"
 import type { ChatTranscriptProps, TurnRowProps } from "./types"
 import { TurnRenderer } from "./turn-renderer"
-
-const EMPTY_MESSAGES: MessageWithParts[] = []
-const EMPTY_PROVIDERS: ProviderInfo[] = []
 
 const TurnRow = memo(function TurnRow({
   turn,
@@ -33,9 +29,6 @@ const TurnRow = memo(function TurnRow({
   onOpenSession,
   onForkMessage,
   onRevertMessage,
-  showReasoningSummaries,
-  shellToolDefaultOpen,
-  editToolDefaultOpen,
 }: TurnRowProps) {
   return (
     <div
@@ -58,9 +51,6 @@ const TurnRow = memo(function TurnRow({
         onOpenSession={onOpenSession}
         onForkMessage={onForkMessage}
         onRevertMessage={onRevertMessage}
-        showReasoningSummaries={showReasoningSummaries}
-        shellToolDefaultOpen={shellToolDefaultOpen}
-        editToolDefaultOpen={editToolDefaultOpen}
       />
     </div>
   )
@@ -69,33 +59,23 @@ const TurnRow = memo(function TurnRow({
 export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscriptProps) {
   const {
     directory,
-    editToolDefaultOpen: editToolDefaultOpenProp,
-    isBusy: isBusyProp,
-    messages: messagesProp,
     onAssistantTextFinalRender,
     onForkMessage,
     onOpenSession,
     onRevertMessage,
-    providers: providersProp,
     scrollViewportRef,
-    shellToolDefaultOpen: shellToolDefaultOpenProp,
-    showReasoningSummaries: showReasoningSummariesProp,
   } = props
   const directoryState = useChatStore((state) =>
     directory ? state.directories[directory] : undefined,
   )
-  const messages = messagesProp ?? directoryState?.messages ?? EMPTY_MESSAGES
-  const providers = providersProp ?? directoryState?.providers ?? EMPTY_PROVIDERS
-  const isBusy = isBusyProp ?? directoryState?.isBusy ?? false
+  const messages = directoryState?.messages ?? []
+  const providers = directoryState?.providers ?? []
+  const isBusy = directoryState?.isBusy ?? false
   const turns = useMemo(() => buildTurns(messages), [messages])
 
   const lastMessage = messages[messages.length - 1]
   const isLastTurnBusy =
     isBusy && (lastMessage?.info.role === "assistant" || lastMessage?.info.role === "user")
-
-  const showReasoningSummaries = showReasoningSummariesProp ?? true
-  const shellToolDefaultOpen = shellToolDefaultOpenProp ?? false
-  const editToolDefaultOpen = editToolDefaultOpenProp ?? false
 
   const unvirtualizedTailTurns = isLastTurnBusy
     ? VIRTUAL_CHAT_BUSY_TAIL_TURNS
@@ -174,9 +154,6 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
                       onOpenSession={onOpenSession}
                       onForkMessage={onForkMessage}
                       onRevertMessage={onRevertMessage}
-                      showReasoningSummaries={showReasoningSummaries}
-                      shellToolDefaultOpen={shellToolDefaultOpen}
-                      editToolDefaultOpen={editToolDefaultOpen}
                     />
                   </div>
                 )
@@ -198,9 +175,6 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
                       onOpenSession={onOpenSession}
                       onForkMessage={onForkMessage}
                       onRevertMessage={onRevertMessage}
-                      showReasoningSummaries={showReasoningSummaries}
-                      shellToolDefaultOpen={shellToolDefaultOpen}
-                      editToolDefaultOpen={editToolDefaultOpen}
                     />
                   </div>
                 ))}
@@ -222,9 +196,6 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
                 onOpenSession={onOpenSession}
                 onForkMessage={onForkMessage}
                 onRevertMessage={onRevertMessage}
-                showReasoningSummaries={showReasoningSummaries}
-                shellToolDefaultOpen={shellToolDefaultOpen}
-                editToolDefaultOpen={editToolDefaultOpen}
               />
             </div>
           ))

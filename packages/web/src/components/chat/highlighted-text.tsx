@@ -112,4 +112,3 @@ export function HighlightedText({ text, references, agents }: HighlightedTextPro
     </>
   )
 }
-

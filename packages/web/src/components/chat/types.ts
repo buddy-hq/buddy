@@ -22,18 +22,12 @@ export type ChatTurn = {
 }
 
 export interface ChatTranscriptProps {
-  messages?: MessageWithParts[]
   directory?: string
-  providers?: ProviderInfo[]
-  isBusy?: boolean
   scrollViewportRef?: RefObject<HTMLElement>
   onAssistantTextFinalRender?: () => void
   onOpenSession?: (sessionID: string) => void
   onForkMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
   onRevertMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
-  showReasoningSummaries?: boolean
-  shellToolDefaultOpen?: boolean
-  editToolDefaultOpen?: boolean
 }
 
 export interface TurnRowProps {
@@ -52,9 +46,6 @@ export interface TurnRowProps {
   onRevertMessage:
     | ((input: { sessionID: string; messageID: string }) => Promise<void> | void)
     | undefined
-  showReasoningSummaries: boolean
-  shellToolDefaultOpen: boolean
-  editToolDefaultOpen: boolean
 }
 
 export interface TurnRendererProps {
@@ -68,9 +59,6 @@ export interface TurnRendererProps {
   onOpenSession?: (sessionID: string) => void
   onForkMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
   onRevertMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
-  showReasoningSummaries: boolean
-  shellToolDefaultOpen: boolean
-  editToolDefaultOpen: boolean
 }
 
 export interface AssistantSectionProps {

@@ -64,9 +64,7 @@ function createProvider(input: {
     env: [],
     connected: input.connected ?? false,
     methods: input.methods ?? [],
-    models: (input.models ?? []).map((model) =>
-      Object.assign({}, model, { providerID: input.id }),
-    ),
+    models: (input.models ?? []).map((model) => Object.assign({}, model, { providerID: input.id })),
   }
 }
 

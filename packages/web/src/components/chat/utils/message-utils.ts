@@ -154,17 +154,11 @@ export function chatTranscriptEqual(
   nextProps: ChatTranscriptProps,
 ): boolean {
   return (
-    prevProps.messages === nextProps.messages &&
     prevProps.directory === nextProps.directory &&
-    prevProps.providers === nextProps.providers &&
-    prevProps.isBusy === nextProps.isBusy &&
     prevProps.scrollViewportRef === nextProps.scrollViewportRef &&
     prevProps.onAssistantTextFinalRender === nextProps.onAssistantTextFinalRender &&
     prevProps.onOpenSession === nextProps.onOpenSession &&
     prevProps.onForkMessage === nextProps.onForkMessage &&
-    prevProps.onRevertMessage === nextProps.onRevertMessage &&
-    prevProps.showReasoningSummaries === nextProps.showReasoningSummaries &&
-    prevProps.shellToolDefaultOpen === nextProps.shellToolDefaultOpen &&
-    prevProps.editToolDefaultOpen === nextProps.editToolDefaultOpen
+    prevProps.onRevertMessage === nextProps.onRevertMessage
   )
 }
