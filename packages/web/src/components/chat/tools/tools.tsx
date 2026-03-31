@@ -1,22 +1,20 @@
 import { registerTool } from "./registry"
 
-import {
-  renderSkillTool,
-  renderBashTool,
-  renderPythonCalculatorTool,
-  renderReadTool,
-  renderEditTool,
-  renderTaskTool,
-  renderApplyPatchTool,
-  renderSearchTool,
-  renderWebfetchTool,
-  renderExaSearchTool,
-  renderRenderFigureTool,
-  renderRenderMermaidTool,
-  renderQuestionTool,
-  renderBuddyCustomTool,
-  renderGenericTool,
-} from "./render"
+import { renderSkillTool } from "./render/skill"
+import { renderBashTool } from "./render/bash"
+import { renderPythonCalculatorTool } from "./render/python-calculator"
+import { renderReadTool } from "./render/read"
+import { renderEditTool } from "./render/edit"
+import { renderTaskTool } from "./render/task"
+import { renderApplyPatchTool } from "./render/apply-patch"
+import { renderSearchTool } from "./render/search"
+import { renderWebfetchTool } from "./render/webfetch"
+import { renderExaSearchTool } from "./render/exa-search"
+import { renderRenderFigureTool } from "./render/render-figure"
+import { renderRenderMermaidTool } from "./render/mermaid"
+import { renderQuestionTool } from "./render/question"
+import { renderBuddyCustomTool } from "./render/buddy-custom"
+import { renderGenericTool } from "./render/generic"
 
 // ============================================================================
 // Tool Registration

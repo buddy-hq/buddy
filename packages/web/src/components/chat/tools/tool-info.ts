@@ -1,4 +1,4 @@
-import { basename, dirname } from "../shared/utils"
+import { basename, dirname } from "../utils/path"
 import { language } from "@/context/language"
 import type { ToolInfo, ToolState } from "./types"
 

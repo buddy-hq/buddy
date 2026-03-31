@@ -25,48 +25,21 @@ export interface ToolInfo {
   args?: string[]
 }
 
-export interface ToolDiagnostic {
-  range: {
-    start: {
-      line: number
-      character: number
-    }
-  }
-  message: string
-  severity?: number
+export function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value)
 }
 
-export interface ToolQuestion {
-  question: string
+export function readString(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined
 }
 
-export interface ApplyPatchFile {
-  filePath: string
-  relativePath: string
-  type: "add" | "update" | "delete" | "move"
-  before: string
-  after: string
-  additions: number
-  deletions: number
-  movePath?: string
+export function readNonEmptyString(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : undefined
 }
 
-export interface RenderFigureToolOutput {
-  figureID: string
-  mime: "image/svg+xml"
-  url: string
-  alt: string
-  caption?: string
-  repairAttempts: number
+export function readNonNegativeInt(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : undefined
 }
 
-export interface RenderMermaidToolOutput {
-  artifactID: string
-  artifactUrl: string
-  source: string
-  diagramType: string
-  repairAttempts: number
-  repairLog: string[]
-  alt: string
-  caption?: string
-}

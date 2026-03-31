@@ -49,9 +49,4 @@ export type {
   ToolState,
   ToolInfo,
   ToolAttachment,
-  ToolDiagnostic,
-  ToolQuestion,
-  ApplyPatchFile,
-  RenderFigureToolOutput,
-  RenderMermaidToolOutput,
 } from "./types"
