@@ -10,7 +10,9 @@
     "bun.lock",
     "*.tsbuildinfo",
     "**/routeTree.gen.ts",
-    "**/bindings.ts"
+    "**/bindings.ts",
+    "packages/web/e2e/playwright-report",
+    "packages/web/e2e/test-results"
   ],
   "plugins": ["eslint", "oxc", "react", "unicorn", "typescript"],
   "categories": {

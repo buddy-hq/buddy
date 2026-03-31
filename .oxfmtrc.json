@@ -12,7 +12,9 @@
     "**/routeTree.gen.ts",
     "**/bindings.ts",
     "**/*.md",
-    "**/*.txt"
+    "**/*.txt",
+    "packages/web/e2e/playwright-report",
+    "packages/web/e2e/test-results"
   ],
   "singleQuote": false,
   "semi": false,

@@ -72,6 +72,8 @@
       "devDependencies": {
         "@tailwindcss/vite": "^4.1.18",
         "@tauri-apps/cli": "^2",
+        "@types/bun": "catalog:",
+        "@types/node": "catalog:",
         "@types/react": "^18.2.0",
         "@types/react-dom": "^18.2.0",
         "@vitejs/plugin-react": "^4.2.0",
@@ -102,6 +104,7 @@
       "version": "0.0.7",
       "devDependencies": {
         "@hey-api/openapi-ts": "0.90.10",
+        "@types/node": "catalog:",
         "hono-openapi": "1.1.2",
         "typescript": "^5.0.0",
       },
@@ -191,6 +194,7 @@
         "@playwright/test": "^1.57.0",
         "@tailwindcss/vite": "^4.1.18",
         "@tanstack/router-plugin": "^1.167.8",
+        "@types/bun": "catalog:",
         "@types/dompurify": "^3.2.0",
         "@types/node": "22.13.9",
         "@types/react": "^18.2.0",
