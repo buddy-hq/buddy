@@ -1,11 +1,6 @@
 import { useState } from "react"
 import { motion } from "motion/react"
-import {
-  Collapsible,
-  CollapsibleTrigger,
-  CollapsibleContent,
-  ChevronRightIcon,
-} from "@buddy/ui"
+import { Collapsible, CollapsibleTrigger, CollapsibleContent, ChevronRightIcon } from "@buddy/ui"
 import { language } from "@/context/language"
 
 interface ApplyPatchFileItemProps {

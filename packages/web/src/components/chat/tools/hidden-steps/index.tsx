@@ -1,11 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-  ChevronRightIcon,
-} from "@buddy/ui"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger, ChevronRightIcon } from "@buddy/ui"
 
 import { useThrottledText } from "../../hooks/use-throttled-text"
 import { parseToolState } from "../parse-tool-state"
