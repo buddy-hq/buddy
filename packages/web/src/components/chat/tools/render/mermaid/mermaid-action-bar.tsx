@@ -7,6 +7,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  cn,
 } from "@buddy/ui"
 import { useCallback, useEffect, useRef, useState, memo } from "react"
 import { language } from "@/context/language"
@@ -18,6 +19,7 @@ type MermaidActionBarProps = {
   svgRef: React.RefObject<HTMLDivElement | null>
   originalSvg: string
   artifactID?: string
+  minimal?: boolean
 }
 
 const DiagramActionButton = memo(function DiagramActionButton(props: {
@@ -26,6 +28,7 @@ const DiagramActionButton = memo(function DiagramActionButton(props: {
   icon: JSX.Element
   disabled?: boolean
   dataAction?: string
+  minimal?: boolean
 }) {
   return (
     <Tooltip>
@@ -39,7 +42,12 @@ const DiagramActionButton = memo(function DiagramActionButton(props: {
           props.onClick()
         }}
         onMouseDown={(event) => event.preventDefault()}
-        className="inline-flex size-9 items-center justify-center rounded-full border border-border-base/70 bg-background-base/88 text-text-weak shadow-[0_12px_32px_rgba(0,0,0,0.24)] backdrop-blur-xl transition-colors hover:bg-surface-raised-base hover:text-text-base disabled:pointer-events-none disabled:opacity-50"
+        className={cn(
+          "inline-flex items-center justify-center rounded-full transition-colors disabled:pointer-events-none disabled:opacity-50",
+          props.minimal
+            ? "size-7 text-text-weak/70 hover:bg-surface-raised-base hover:text-text-base"
+            : "size-9 border border-border-base/70 bg-background-base/88 text-text-weak shadow-[0_12px_32px_rgba(0,0,0,0.24)] backdrop-blur-xl hover:bg-surface-raised-base hover:text-text-base",
+        )}
       >
         {props.icon}
       </TooltipTrigger>
@@ -65,6 +73,7 @@ export const MermaidActionBar = memo(function MermaidActionBar({
   svgRef,
   originalSvg,
   artifactID,
+  minimal,
 }: MermaidActionBarProps) {
   const [copyFeedback, setCopyFeedback] = useState<"idle" | "copied">("idle")
   const [downloadFeedback, setDownloadFeedback] = useState<"idle" | "downloaded">("idle")
@@ -136,49 +145,52 @@ export const MermaidActionBar = memo(function MermaidActionBar({
     )
   }, [svgRef, originalSvg, downloadFileName])
 
+  const iconSize = minimal ? "size-3.5" : "size-4"
+
   return (
     <TooltipProvider>
-      <div className="mt-4 flex justify-end">
-        <div className="flex items-center gap-1.5 rounded-full border border-border-base/70 bg-surface-raised-base/82 p-1.5 shadow-[0_20px_60px_rgba(0,0,0,0.18)] backdrop-blur-xl">
-          <DiagramActionButton
-            label={
-              copyFeedback === "copied"
-                ? language.t("chatTools.mermaidDiagram.copied")
-                : language.t("chatTools.mermaidDiagram.copyMermaid")
-            }
-            onClick={() => {
-              void copyMermaidSource()
-            }}
-            icon={
-              copyFeedback === "copied" ? (
-                <CheckIcon className="size-4" />
-              ) : (
-                <CopyIcon className="size-4" />
-              )
-            }
-          />
-          <DiagramActionButton
-            label={
-              downloadFeedback === "downloaded"
-                ? language.t("chatTools.mermaidDiagram.downloaded")
-                : language.t("chatTools.mermaidDiagram.downloadSvg")
-            }
-            onClick={downloadRenderedSvg}
-            icon={
-              downloadFeedback === "downloaded" ? (
-                <CheckIcon className="size-4" />
-              ) : (
-                <DownloadIcon className="size-4" />
-              )
-            }
-          />
-          <DiagramActionButton
-            label={language.t("chatTools.mermaidDiagram.openFullscreen")}
-            onClick={onFullscreenOpen}
-            dataAction="mermaid-open-fullscreen"
-            icon={<ExpandIcon className="size-4" />}
-          />
-        </div>
+      <div className="flex items-center gap-1">
+        <DiagramActionButton
+          label={
+            copyFeedback === "copied"
+              ? language.t("chatTools.mermaidDiagram.copied")
+              : language.t("chatTools.mermaidDiagram.copyMermaid")
+          }
+          onClick={() => {
+            void copyMermaidSource()
+          }}
+          icon={
+            copyFeedback === "copied" ? (
+              <CheckIcon className={iconSize} />
+            ) : (
+              <CopyIcon className={iconSize} />
+            )
+          }
+          minimal={minimal}
+        />
+        <DiagramActionButton
+          label={
+            downloadFeedback === "downloaded"
+              ? language.t("chatTools.mermaidDiagram.downloaded")
+              : language.t("chatTools.mermaidDiagram.downloadSvg")
+          }
+          onClick={downloadRenderedSvg}
+          icon={
+            downloadFeedback === "downloaded" ? (
+              <CheckIcon className={iconSize} />
+            ) : (
+              <DownloadIcon className={iconSize} />
+            )
+          }
+          minimal={minimal}
+        />
+        <DiagramActionButton
+          label={language.t("chatTools.mermaidDiagram.openFullscreen")}
+          onClick={onFullscreenOpen}
+          dataAction="mermaid-open-fullscreen"
+          icon={<ExpandIcon className={iconSize} />}
+          minimal={minimal}
+        />
       </div>
     </TooltipProvider>
   )

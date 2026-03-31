@@ -9,11 +9,11 @@ export const mermaidConstants = {
     ARTIFACT_ID_SLICE: 8,
   },
   zoom: {
-    MIN: 0.5,
-    MAX: 3.5,
-    STEP: 0.2,
-    DEFAULT: 1,
-    MAX_AUTO_FIT: 2.25,
+    MIN: 0.05,
+    MAX: 50.0,
+    STEP: 0.1,
+    DEFAULT: 1.0,
+    MAX_AUTO_FIT: 10.0,
   },
   layout: {
     BREAKPOINT_LG: 1024,

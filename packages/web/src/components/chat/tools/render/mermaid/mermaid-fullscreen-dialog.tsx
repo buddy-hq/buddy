@@ -6,6 +6,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  cn,
 } from "@buddy/ui"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { language } from "@/context/language"
@@ -104,6 +105,9 @@ export function MermaidFullscreenDialog({
     width: mermaidConstants.svg.DEFAULT_WIDTH,
     height: mermaidConstants.svg.DEFAULT_HEIGHT,
   })
+  const [isDragging, setIsDragging] = useState(false)
+  const dragStartRef = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 })
+
   const fullscreenSvgHostRef = useRef<HTMLDivElement | null>(null)
   const fullscreenViewportRef = useRef<HTMLDivElement | null>(null)
 
@@ -173,6 +177,40 @@ export function MermaidFullscreenDialog({
     return () => window.clearTimeout(timeout)
   }, [fitZoom, open, value])
 
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (!fullscreenViewportRef.current) return
+    setIsDragging(true)
+    dragStartRef.current = {
+      x: e.pageX,
+      y: e.pageY,
+      scrollLeft: fullscreenViewportRef.current.scrollLeft,
+      scrollTop: fullscreenViewportRef.current.scrollTop,
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!open || !isDragging) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!fullscreenViewportRef.current) return
+      const dx = e.pageX - dragStartRef.current.x
+      const dy = e.pageY - dragStartRef.current.y
+      fullscreenViewportRef.current.scrollLeft = dragStartRef.current.scrollLeft + dx
+      fullscreenViewportRef.current.scrollTop = dragStartRef.current.scrollTop + dy
+    }
+
+    const handleMouseUp = () => {
+      setIsDragging(false)
+    }
+
+    window.addEventListener("mousemove", handleMouseMove)
+    window.addEventListener("mouseup", handleMouseUp)
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove)
+      window.removeEventListener("mouseup", handleMouseUp)
+    }
+  }, [isDragging, open])
+
   const zoomIn = useCallback(() => {
     setZoom((current) => clampZoom(current + mermaidConstants.zoom.STEP))
   }, [])
@@ -199,9 +237,10 @@ export function MermaidFullscreenDialog({
         }
       }}
     >
+      {/* TODO: Portal inheritance hack - see header comment below */}
       <DialogContent
         showCloseButton={false}
-        className="h-[100dvh] w-[100vw] max-w-none gap-0 overflow-hidden border-0 bg-background-base/96 p-0 ring-0 sm:max-w-none"
+        className="dark h-[100dvh] w-[100vw] max-w-none gap-0 overflow-hidden border-0 bg-background-base p-0 ring-0 sm:max-w-none"
       >
         <DialogHeader className="sr-only">
           <DialogTitle>{alt}</DialogTitle>
@@ -210,23 +249,33 @@ export function MermaidFullscreenDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="relative h-full overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.06),transparent_18%),radial-gradient(circle_at_top_right,rgba(255,255,255,0.04),transparent_16%),radial-gradient(circle_at_bottom_center,rgba(52,211,153,0.08),transparent_22%),linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0))]">
-          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:48px_48px] opacity-20" />
+        <div className="relative h-full overflow-hidden bg-background-base">
+          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(0,0,0,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[size:40px_40px] dark:bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)]" />
 
-          <div className="absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-4 p-4 md:p-6">
-            <div className="max-w-sm rounded-2xl border border-border-base/70 bg-background-base/78 px-4 py-3 shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur-xl">
-              <p className="truncate text-lg font-semibold text-text-base">{alt}</p>
-              <p className="mt-1 text-sm text-text-weak">
+          {/* TODO: Root cause investigation needed - text tokens are resolving to light-mode values inside the Portal. Forcing dark class & inline colors as a workaround. */}
+          <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-4 p-4 md:px-6 md:py-6 dark">
+            <div className="flex min-w-0 flex-col">
+              <p
+                className="truncate text-sm font-bold text-text-invert-base md:text-base"
+                style={{ color: "white" }}
+              >
+                {alt}
+              </p>
+              <p
+                className="truncate text-xs font-medium text-text-invert-base/60"
+                style={{ color: "rgba(255, 255, 255, 0.6)" }}
+              >
                 {language.t("chatTools.mermaidDiagram.fullscreenHint")}
               </p>
             </div>
 
-            <div className="flex items-center gap-2 rounded-2xl border border-border-base/70 bg-background-base/82 p-2 shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+            <div className="flex items-center gap-1 rounded-xl border border-border-base/60 bg-surface-base/80 p-1 shadow-sm backdrop-blur-md">
               <Button
                 type="button"
                 data-action="mermaid-zoom-out"
                 size="sm"
-                variant="outline"
+                variant="ghost"
+                className="h-8 w-8 rounded-lg"
                 aria-label={language.t("chatTools.mermaidDiagram.zoomOutAria")}
                 onClick={zoomOut}
                 disabled={zoom <= mermaidConstants.zoom.MIN}
@@ -234,7 +283,7 @@ export function MermaidFullscreenDialog({
                 -
               </Button>
               <div
-                className="rounded-xl border border-border-base/60 bg-surface-raised-base/60 px-3 py-1.5 text-sm font-medium text-text-base"
+                className="px-2 text-[13px] font-medium text-text-base"
                 aria-label={language.t("chatTools.mermaidDiagram.zoomLevelAria")}
               >
                 {zoomLabel()}
@@ -243,18 +292,21 @@ export function MermaidFullscreenDialog({
                 type="button"
                 data-action="mermaid-zoom-in"
                 size="sm"
-                variant="outline"
+                variant="ghost"
+                className="h-8 w-8 rounded-lg"
                 aria-label={language.t("chatTools.mermaidDiagram.zoomInAria")}
                 onClick={zoomIn}
                 disabled={zoom >= mermaidConstants.zoom.MAX}
               >
                 +
               </Button>
+              <div className="mx-1 h-4 w-px bg-border-base/50" />
               <Button
                 type="button"
                 data-action="mermaid-fit"
                 size="sm"
-                variant="outline"
+                variant="ghost"
+                className="h-8 px-3 rounded-lg text-[13px]"
                 aria-label={language.t("chatTools.mermaidDiagram.resetZoomAria")}
                 onClick={resetZoom}
               >
@@ -265,7 +317,8 @@ export function MermaidFullscreenDialog({
                   type="button"
                   data-action="mermaid-close-fullscreen"
                   size="sm"
-                  variant="outline"
+                  variant="ghost"
+                  className="h-8 px-3 rounded-lg text-[13px]"
                   aria-label={language.t("chatTools.mermaidDiagram.closeFullscreenAria")}
                 >
                   {language.t("chatTools.mermaidDiagram.close")}
@@ -281,27 +334,25 @@ export function MermaidFullscreenDialog({
           ) : (
             <div
               ref={fullscreenViewportRef}
-              className="relative h-full overflow-auto px-5 pb-6 pt-28 md:px-8 md:pt-32"
+              className={cn(
+                "relative h-full overflow-auto px-5 pb-6 pt-28 md:px-8 md:pt-32",
+                isDragging ? "cursor-grabbing select-none" : "cursor-grab",
+              )}
+              onMouseDown={handleMouseDown}
             >
-              <div className="flex min-h-full w-max min-w-full items-center justify-center">
-                <div className="rounded-[28px] border border-border-base/60 bg-surface-raised-base/18 p-4 shadow-[0_32px_100px_rgba(0,0,0,0.5)] backdrop-blur-sm md:p-6">
-                  <div className="rounded-[22px] border border-border-base/60 bg-background-base/96 p-3 md:p-5">
-                    <div data-component="mermaid-diagram-fullscreen-scale" className="w-max">
-                      <div
-                        ref={fullscreenSvgHostRef}
-                        data-component="mermaid-diagram-fullscreen"
-                        role="img"
-                        aria-label={`${alt} ${language.t("chatTools.mermaidDiagram.fullscreenAriaSuffix")}`}
-                        className="w-max [&_svg]:block [&_svg]:h-full [&_svg]:w-full"
-                        style={{
-                          width: `${svgBounds.width * zoom}px`,
-                          height: `${svgBounds.height * zoom}px`,
-                        }}
-                        dangerouslySetInnerHTML={{ __html: value.svg }}
-                      />
-                    </div>
-                  </div>
-                </div>
+              <div className="relative flex min-h-full min-w-full overflow-visible">
+                <div
+                  ref={fullscreenSvgHostRef}
+                  data-component="mermaid-diagram-fullscreen"
+                  role="img"
+                  aria-label={`${alt} ${language.t("chatTools.mermaidDiagram.fullscreenAriaSuffix")}`}
+                  className="m-auto flex shrink-0 items-center justify-center p-10 md:p-20 [&_svg]:!block [&_svg]:!h-full [&_svg]:!w-full [&_svg]:!max-w-none"
+                  style={{
+                    width: `calc(${svgBounds.width * zoom}px + (var(--p-v, 80px) * 2))`,
+                    height: `calc(${svgBounds.height * zoom}px + (var(--p-h, 160px) * 2))`,
+                  }}
+                  dangerouslySetInnerHTML={{ __html: value.svg }}
+                />
               </div>
             </div>
           )}

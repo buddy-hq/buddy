@@ -23,6 +23,11 @@ export function MermaidDiagram(props: {
   showRawSourceOnError?: boolean
   rawSourceClassName?: string
   hideLoadingPlaceholder?: string | boolean
+  renderWrapper?: (
+    diagramElement: React.ReactNode,
+    actions: React.ReactNode | null,
+  ) => React.ReactNode
+  minimalActions?: boolean
 }) {
   const { artifactID, source } = props
   const [fullscreenOpen, setFullscreenOpen] = useState(false)
@@ -36,7 +41,19 @@ export function MermaidDiagram(props: {
 
   const readyValue = state.status === "ready" ? state.value : undefined
 
-  return (
+  const actions =
+    state.status === "ready" ? (
+      <MermaidActionBar
+        source={source}
+        onFullscreenOpen={handleFullscreenOpen}
+        svgRef={svgHostRef}
+        originalSvg={state.value.svg}
+        artifactID={artifactID}
+        minimal={props.minimalActions}
+      />
+    ) : null
+
+  const content = (
     <div className={props.className}>
       {state.status === "loading" ? (
         props.hideLoadingPlaceholder ? (
@@ -60,13 +77,6 @@ export function MermaidDiagram(props: {
           transition={DIAGRAM_REVEAL_SPRING}
         >
           <MermaidInlineView value={state.value} ariaLabel={props.alt} svgRef={svgHostRef} />
-          <MermaidActionBar
-            source={source}
-            onFullscreenOpen={handleFullscreenOpen}
-            svgRef={svgHostRef}
-            originalSvg={state.value.svg}
-            artifactID={artifactID}
-          />
         </motion.div>
       ) : null}
 
@@ -100,5 +110,16 @@ export function MermaidDiagram(props: {
         alt={props.alt}
       />
     </div>
+  )
+
+  if (props.renderWrapper) {
+    return <>{props.renderWrapper(content, actions)}</>
+  }
+
+  return (
+    <>
+      {content}
+      {actions}
+    </>
   )
 }

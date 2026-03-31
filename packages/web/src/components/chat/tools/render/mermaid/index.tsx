@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react"
-import { Badge } from "@buddy/ui"
-import { BasicTool } from "../../../tools/basic-tool"
 import { ToolOutputPanel } from "../../../tools/tool-output-panel"
 import { MermaidDiagram } from "./mermaid-diagram"
+import { MermaidToolCard } from "./mermaid-tool-card"
 import { language } from "@/context/language"
 import { isRecord, readNonEmptyString, readNonNegativeInt } from "../../../tools/types"
 import { unwrapError } from "../../../utils/error"
@@ -256,27 +255,12 @@ function RenderMermaidToolCard({ state, info, directory }: ToolPartProps) {
 
   if (running) {
     return (
-      <BasicTool
-        trigger={{
-          title: pendingAlt,
-          ...(pendingDiagramType
-            ? {
-                trailing: (
-                  <Badge variant="outline" className="text-[11px] text-text-weak">
-                    {pendingDiagramType}
-                  </Badge>
-                ),
-              }
-            : {}),
-        }}
-        status={state.status}
-        hideDetails
-      >
+      <MermaidToolCard title={pendingAlt} diagramType={pendingDiagramType} status={state.status}>
         <div
           data-component="mermaid-tool-loading"
           role="status"
           aria-live="polite"
-          className="rounded-lg border border-border-base bg-background-base p-3"
+          className="w-full min-w-[300px] p-4 sm:w-[450px]"
         >
           <div className="flex items-center gap-2 text-sm text-text-weak">
             <span className="size-2 rounded-full bg-text-weak/60 animate-pulse" />
@@ -288,17 +272,13 @@ function RenderMermaidToolCard({ state, info, directory }: ToolPartProps) {
             <div className="h-3 w-1/3 animate-pulse rounded bg-surface-weak/70" />
           </div>
         </div>
-      </BasicTool>
+      </MermaidToolCard>
     )
   }
 
   if (!parsed) {
     return (
-      <BasicTool
-        trigger={{ title: info.title, subtitle: info.subtitle }}
-        status={state.status}
-        hideDetails
-      >
+      <MermaidToolCard title={info.title} status={state.status}>
         {state.status === "error" && showOutput ? (
           <ToolOutputPanel
             output={output}
@@ -306,7 +286,7 @@ function RenderMermaidToolCard({ state, info, directory }: ToolPartProps) {
             copyLabel={language.t("chatTools.copyOutput")}
           />
         ) : null}
-      </BasicTool>
+      </MermaidToolCard>
     )
   }
 
@@ -324,50 +304,26 @@ function RenderMermaidToolCard({ state, info, directory }: ToolPartProps) {
     !rehydrationError &&
     !rehydrated
 
-  return (
-    <BasicTool
-      trigger={{
-        title: alt,
-        trailing: (
-          <Badge variant="outline" className="text-[11px] text-text-weak">
-            {diagramType}
-          </Badge>
-        ),
-      }}
-      status={state.status}
-      hideStatus
-      hideDetails
-    >
-      {source ? (
-        <MermaidDiagram
-          source={source}
-          artifactID={parsed.artifactID}
-          alt={alt}
-          hideLoadingPlaceholder
-          className="rounded-lg border border-border-base bg-background-base p-3"
-          failureClassName="rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 p-3 text-sm text-icon-critical-base"
-          showRawSourceOnError
-        />
-      ) : null}
-
+  const errorElements = (
+    <>
       {isRehydrating ? (
-        <div className="rounded-lg border border-border-base bg-background-base p-3 text-sm text-text-weak">
+        <div className="p-4 text-sm text-text-weak">
           {language.t("chatTools.rehydratingMermaid")}
         </div>
       ) : null}
 
       {!source && !isRehydrating ? (
-        <div className="rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 p-3 text-sm text-icon-critical-base">
+        <div className="p-4 text-sm bg-surface-critical-base/10 text-icon-critical-base">
           {language.t("chatTools.mermaidSourceUnavailable")}
         </div>
       ) : null}
 
       {rehydrationError ? (
-        <div className="mt-2 text-sm text-text-weak">{rehydrationError}</div>
+        <div className="px-4 pb-3 pt-1 text-sm text-text-weak">{rehydrationError}</div>
       ) : null}
 
       {repairLog.length > 0 ? (
-        <div className="mt-2 text-xs text-text-weak">{repairLog.join(" ")}</div>
+        <div className="px-4 pb-3 pt-1 text-xs text-text-weak">{repairLog.join(" ")}</div>
       ) : null}
 
       {state.status === "error" && showOutput ? (
@@ -377,7 +333,40 @@ function RenderMermaidToolCard({ state, info, directory }: ToolPartProps) {
           copyLabel={language.t("chatTools.copyOutput")}
         />
       ) : null}
-    </BasicTool>
+    </>
+  )
+
+  if (source) {
+    return (
+      <MermaidDiagram
+        source={source}
+        artifactID={parsed.artifactID}
+        alt={alt}
+        hideLoadingPlaceholder
+        className="p-4"
+        failureClassName="p-4 text-sm bg-surface-critical-base/10 text-icon-critical-base"
+        showRawSourceOnError
+        renderWrapper={(diagramElement, actions) => (
+          <MermaidToolCard
+            title={alt}
+            diagramType={diagramType}
+            status={state.status}
+            hideStatus
+            actions={actions}
+            contentClassName="h-[32rem]"
+          >
+            {diagramElement}
+            {errorElements}
+          </MermaidToolCard>
+        )}
+      />
+    )
+  }
+
+  return (
+    <MermaidToolCard title={alt} diagramType={diagramType} status={state.status} hideStatus>
+      {errorElements}
+    </MermaidToolCard>
   )
 }
 
