@@ -66,6 +66,7 @@ import {
   usePromptStore,
 } from "../../state/prompt-store"
 import { useChatStore } from "../../state/chat-store"
+import { shallow } from "zustand/shallow"
 import { stringifyError } from "../../state/teaching-actions"
 import {
   intentFromSelection,
@@ -152,7 +153,7 @@ export function useDirectoryChatPageController(
   const showSystemPromptSidebarTab = showDevSessionTrace
   const showSnapshotSidebarTab = showDevSessionTrace
 
-  const openProjects = useChatStore((state) => state.openProjects)
+  const openProjects = useChatStore((state) => state.openProjects, shallow)
   const hasRegisteredProject = useMemo(
     () =>
       !!decodedDirectory && openProjects.filter((d) => d && d !== "/").includes(decodedDirectory),

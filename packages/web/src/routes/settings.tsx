@@ -29,6 +29,7 @@ import {
   updateSession,
 } from "@/state/chat-actions"
 import { useChatStore } from "@/state/chat-store"
+import { shallow } from "zustand/shallow"
 import { useUiPreferences } from "@/state/ui-preferences"
 import { pickProjectDirectory } from "../lib/directory-picker"
 
@@ -57,9 +58,9 @@ export const Route = createFileRoute("/settings")({
 function SettingsRoute() {
   const navigate = useNavigate()
   const { tab } = useSearch({ from: "/settings" })
-  const openProjects = useChatStore((state) => state.openProjects)
+  const openProjects = useChatStore((state) => state.openProjects, shallow)
   const activeDirectory = useChatStore((state) => state.activeDirectory)
-  const directories = useChatStore((state) => state.directories)
+  const directories = useChatStore((state) => state.directories, shallow)
   const setActiveDirectory = useChatStore((state) => state.setActiveDirectory)
   const pinnedByDirectory = useUiPreferences((state) => state.pinnedByDirectory)
   const unreadByDirectory = useUiPreferences((state) => state.unreadByDirectory)
