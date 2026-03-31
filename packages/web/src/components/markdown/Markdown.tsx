@@ -2,10 +2,9 @@ import { useCallback, useEffect, useRef, useLayoutEffect, useMemo } from "react"
 import DOMPurify from "dompurify"
 import morphdom from "morphdom"
 import "katex/dist/katex.min.css"
-import { getServerConnection } from "../context/server"
-import { resolveApiUrl } from "../lib/api-client"
-import { parseMarkdownToHtml } from "../lib/markdown-parser"
-import { enhanceMermaidPlaceholders } from "../lib/mermaid/render"
+import { getServerConnection } from "@/context/server"
+import { resolveApiUrl } from "@/lib/api-client"
+import { parseMarkdownToHtml, enhanceMermaidPlaceholders } from "./markdown-parser"
 
 if (typeof window !== "undefined" && DOMPurify.isSupported) {
   DOMPurify.addHook("afterSanitizeAttributes", (node: Element) => {

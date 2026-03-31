@@ -3,8 +3,131 @@ import { Marked, type Token } from "marked"
 import markedKatex from "marked-katex-extension"
 import markedShiki from "marked-shiki"
 import { bundledLanguages, createHighlighter, type BundledLanguage } from "shiki"
-import { getPlatform } from "../context/platform"
-import { createMermaidPlaceholderHtml } from "./mermaid/render"
+import { getPlatform } from "@/context/platform"
+import {
+  renderMermaidSvg,
+  type MermaidRenderResult,
+} from "@/components/chat/tools/render/mermaid/lib/render"
+
+const MERMAID_PLACEHOLDER_ATTRIBUTE = "data-buddy-mermaid-placeholder"
+const MERMAID_SOURCE_ATTRIBUTE = "data-buddy-mermaid-source"
+const MERMAID_ENHANCED_ATTRIBUTE = "data-buddy-mermaid-enhanced"
+
+const MARKDOWN_MERMAID_WRAPPER_CLASS =
+  "my-5 rounded-lg border border-border-base bg-background-base p-3"
+const MARKDOWN_MERMAID_ERROR_CLASS =
+  "rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 p-3 text-sm text-icon-critical-base"
+const MARKDOWN_MERMAID_META_CLASS = "mt-2 text-sm text-text-weak"
+
+function normalizeMermaidSource(source: string): string {
+  return source.replace(/\r\n?/gu, "\n").trim()
+}
+
+function sourceFromPlaceholder(node: Element): string | undefined {
+  const encoded = node.getAttribute(MERMAID_SOURCE_ATTRIBUTE)
+  if (!encoded) {
+    return undefined
+  }
+
+  try {
+    const decoded = decodeURIComponent(encoded)
+    const normalized = normalizeMermaidSource(decoded)
+    return normalized.length > 0 ? normalized : undefined
+  } catch {
+    return undefined
+  }
+}
+
+function createRawSourceBlock(source: string): HTMLPreElement {
+  const pre = document.createElement("pre")
+  pre.className =
+    "mt-2 max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border-base bg-surface-weak/40 p-2 text-xs text-text-base"
+  const code = document.createElement("code")
+  code.textContent = source
+  pre.appendChild(code)
+  return pre
+}
+
+function renderInlineMermaidSuccess(
+  node: HTMLElement,
+  source: string,
+  rendered: MermaidRenderResult,
+): void {
+  node.className = MARKDOWN_MERMAID_WRAPPER_CLASS
+  node.setAttribute(MERMAID_ENHANCED_ATTRIBUTE, "true")
+  node.setAttribute(MERMAID_SOURCE_ATTRIBUTE, encodeURIComponent(source))
+
+  const diagram = document.createElement("div")
+  diagram.className = "overflow-auto"
+  diagram.innerHTML = rendered.svg
+  rendered.bindFunctions?.(diagram)
+
+  node.replaceChildren(diagram)
+}
+
+function renderInlineMermaidFailure(node: HTMLElement, source: string, message: string): void {
+  node.className = MARKDOWN_MERMAID_WRAPPER_CLASS
+  node.setAttribute(MERMAID_ENHANCED_ATTRIBUTE, "true")
+  node.setAttribute(MERMAID_SOURCE_ATTRIBUTE, encodeURIComponent(source))
+
+  const panel = document.createElement("div")
+  panel.className = MARKDOWN_MERMAID_ERROR_CLASS
+  panel.textContent = `Unable to render Mermaid diagram: ${message}`
+
+  const helper = document.createElement("div")
+  helper.className = MARKDOWN_MERMAID_META_CLASS
+  helper.textContent = "Showing raw Mermaid source instead."
+
+  node.replaceChildren(panel, helper, createRawSourceBlock(source))
+}
+
+function errorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message.trim()
+  }
+  if (typeof error === "string" && error.trim()) {
+    return error.trim()
+  }
+  return "Mermaid rendering failed."
+}
+
+export function createMermaidPlaceholderHtml(source: string): string {
+  const encodedSource = encodeURIComponent(source)
+  return `<div ${MERMAID_PLACEHOLDER_ATTRIBUTE}="true" ${MERMAID_SOURCE_ATTRIBUTE}="${encodedSource}"></div>`
+}
+
+export async function enhanceMermaidPlaceholders(
+  root: ParentNode,
+  input?: { signal?: AbortSignal },
+): Promise<void> {
+  const MERMAID_PLACEHOLDER_SELECTOR = `[${MERMAID_PLACEHOLDER_ATTRIBUTE}="true"]`
+  const placeholders = Array.from(root.querySelectorAll<HTMLElement>(MERMAID_PLACEHOLDER_SELECTOR))
+
+  for (const placeholder of placeholders) {
+    if (input?.signal?.aborted) {
+      return
+    }
+
+    const source = sourceFromPlaceholder(placeholder)
+    if (!source) {
+      renderInlineMermaidFailure(placeholder, "", "missing Mermaid source")
+      continue
+    }
+
+    try {
+      const rendered = await renderMermaidSvg({ source })
+      if (input?.signal?.aborted) {
+        return
+      }
+      renderInlineMermaidSuccess(placeholder, source, rendered)
+    } catch (error) {
+      if (input?.signal?.aborted) {
+        return
+      }
+      renderInlineMermaidFailure(placeholder, source, errorMessage(error))
+    }
+  }
+}
 
 let highlighterPromise: ReturnType<typeof createHighlighter> | undefined
 
