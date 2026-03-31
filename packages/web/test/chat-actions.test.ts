@@ -14,6 +14,7 @@ import {
   shouldDeferTranscriptReload,
 } from "../src/state/chat-actions"
 import { useChatStore } from "../src/state/chat-store"
+import { createDirectoryChatState, createFetchStub } from "./test-utils"
 
 const originalFetch = globalThis.fetch
 
@@ -103,7 +104,7 @@ describe("loadOpenProjects", () => {
       }),
     )
 
-    globalThis.fetch = (async (input, init) => {
+    globalThis.fetch = createFetchStub(async (input, init) => {
       expect(new URL(requestUrl(input), "http://localhost").pathname).toBe("/api/open-projects")
       expect(requestMethod(input, init)).toBe("GET")
       expect(requestHeaders(input, init).get("x-buddy-directory")).toBeNull()
@@ -117,7 +118,7 @@ describe("loadOpenProjects", () => {
           },
         },
       )
-    }) as typeof fetch
+    })
 
     const projects = await loadOpenProjects()
 
@@ -143,7 +144,7 @@ describe("chat store model selection", () => {
 
 describe("openProject", () => {
   test("stores the canonical directory returned by the backend", async () => {
-    globalThis.fetch = (async (_input, init) => {
+    globalThis.fetch = createFetchStub(async (_input, init) => {
       expect(init?.method).toBe("POST")
       expect(new Headers(init?.headers).get("x-buddy-directory")).toBeNull()
       expect(init?.body).toBe(JSON.stringify({ directory: "/repo/nested" }))
@@ -157,7 +158,7 @@ describe("openProject", () => {
           },
         },
       )
-    }) as typeof fetch
+    })
 
     const nextDirectory = await openProject("/repo/nested/")
 
@@ -166,17 +167,19 @@ describe("openProject", () => {
   })
 
   test("allows non-git folders", async () => {
-    globalThis.fetch = (async () =>
-      new Response(
-        JSON.stringify({
-          directory: "/tmp",
-        }),
-        {
-          headers: {
-            "content-type": "application/json",
+    globalThis.fetch = createFetchStub(
+      async () =>
+        new Response(
+          JSON.stringify({
+            directory: "/tmp",
+          }),
+          {
+            headers: {
+              "content-type": "application/json",
+            },
           },
-        },
-      )) as typeof fetch
+        ),
+    )
 
     const nextDirectory = await openProject("/tmp")
 
@@ -185,13 +188,15 @@ describe("openProject", () => {
   })
 
   test("surfaces backend validation failures without opening the project", async () => {
-    globalThis.fetch = (async () =>
-      new Response(JSON.stringify({ error: "Directory is outside allowed roots" }), {
-        status: 403,
-        headers: {
-          "content-type": "application/json",
-        },
-      })) as typeof fetch
+    globalThis.fetch = createFetchStub(
+      async () =>
+        new Response(JSON.stringify({ error: "Directory is outside allowed roots" }), {
+          status: 403,
+          headers: {
+            "content-type": "application/json",
+          },
+        }),
+    )
 
     await expect(openProject("../repo")).rejects.toThrow("Directory is outside allowed roots")
     expect(useChatStore.getState().openProjects).toEqual([])
@@ -236,7 +241,7 @@ describe("closeOpenProject", () => {
       },
     })
 
-    globalThis.fetch = (async (input, init) => {
+    globalThis.fetch = createFetchStub(async (input, init) => {
       expect(String(input)).toBe("/api/open-projects?directory=%2Frepo")
       expect(init?.method).toBe("DELETE")
       return new Response(JSON.stringify({ directory: "/repo" }), {
@@ -244,7 +249,7 @@ describe("closeOpenProject", () => {
           "content-type": "application/json",
         },
       })
-    }) as typeof fetch
+    })
 
     await expect(closeOpenProject("/repo")).resolves.toBe("/repo")
     expect(useChatStore.getState().openProjects).toEqual(["/other"])
@@ -258,7 +263,7 @@ describe("reorderOpenProjects", () => {
       openProjects: ["/repo/one", "/repo/two"],
     })
 
-    globalThis.fetch = (async (input, init) => {
+    globalThis.fetch = createFetchStub(async (input, init) => {
       expect(String(input)).toBe("/api/open-projects/order")
       expect(init?.method).toBe("PUT")
       expect(init?.body).toBe(JSON.stringify({ directories: ["/repo/two", "/repo/one"] }))
@@ -272,7 +277,7 @@ describe("reorderOpenProjects", () => {
           },
         },
       )
-    }) as typeof fetch
+    })
 
     await expect(reorderOpenProjects(["/repo/two", "/repo/one"])).resolves.toEqual([
       "/repo/two",
@@ -316,11 +321,11 @@ describe("ensureDirectorySession", () => {
       },
     })
 
-    globalThis.fetch = (async () => {
+    globalThis.fetch = createFetchStub(async () => {
       throw new Error(
         "ensureDirectorySession should not fetch when directory state is already ready",
       )
-    }) as typeof fetch
+    })
 
     await expect(ensureDirectorySession("/repo")).resolves.toEqual({
       directory: "/repo",
@@ -338,7 +343,7 @@ describe("ensureDirectorySession", () => {
 
     let createRequests = 0
 
-    globalThis.fetch = (async (input, init) => {
+    globalThis.fetch = createFetchStub(async (input, init) => {
       const url = new URL(requestUrl(input), "http://localhost")
       const method = requestMethod(input, init) ?? "GET"
 
@@ -407,7 +412,7 @@ describe("ensureDirectorySession", () => {
       }
 
       throw new Error(`Unexpected request: ${method} ${url.pathname}${url.search}`)
-    }) as typeof fetch
+    })
 
     const result = await ensureDirectorySession("/repo")
 
@@ -441,7 +446,7 @@ describe("ensureDirectorySession", () => {
     let sessionWasCreated = false
     const createGate = createDeferred<void>()
 
-    globalThis.fetch = (async (input, init) => {
+    globalThis.fetch = createFetchStub(async (input, init) => {
       const url = new URL(requestUrl(input), "http://localhost")
       const method = requestMethod(input, init) ?? "GET"
 
@@ -528,7 +533,7 @@ describe("ensureDirectorySession", () => {
       }
 
       throw new Error(`Unexpected request: ${method} ${url.pathname}${url.search}`)
-    }) as typeof fetch
+    })
 
     const ensurePromise = ensureDirectorySession("/repo")
     const startPromise = startNewSession("/repo")
@@ -565,7 +570,7 @@ describe("ensureDirectorySession", () => {
     let sessionWasCreated = false
     const staleSessionListGate = createDeferred<void>()
 
-    globalThis.fetch = (async (input, init) => {
+    globalThis.fetch = createFetchStub(async (input, init) => {
       const url = new URL(requestUrl(input), "http://localhost")
       const method = requestMethod(input, init) ?? "GET"
 
@@ -652,7 +657,7 @@ describe("ensureDirectorySession", () => {
       }
 
       throw new Error(`Unexpected request: ${method} ${url.pathname}${url.search}`)
-    }) as typeof fetch
+    })
 
     const ensurePromise = ensureDirectorySession("/repo")
     const startPromise = startNewSession("/repo")
@@ -670,7 +675,7 @@ describe("ensureDirectorySession", () => {
 
 describe("loadSessions", () => {
   test("scopes session listing to the requested directory", async () => {
-    globalThis.fetch = (async (input, init) => {
+    globalThis.fetch = createFetchStub(async (input, init) => {
       expect(String(input)).toBe("/api/session?directory=%2Frepo%2Ftauri")
       expect(init?.method).toBe("GET")
       expect(new Headers(init?.headers).get("x-buddy-directory")).toBe("/repo/tauri")
@@ -679,7 +684,7 @@ describe("loadSessions", () => {
           "content-type": "application/json",
         },
       })
-    }) as typeof fetch
+    })
 
     await loadSessions("/repo/tauri")
   })
@@ -689,18 +694,13 @@ describe("shouldDeferTranscriptReload", () => {
   test("defers transcript reload while the current session is streaming", () => {
     useChatStore.setState({
       directories: {
-        "/repo": {
+        "/repo": createDirectoryChatState({
           sessionTitle: "New chat",
-          sessions: [],
           sessionStatusByID: { session_1: "busy" },
-          messages: [],
-          pendingPermissions: [],
-          providers: [],
-          providerDefault: {},
           isBusy: true,
           isReady: true,
           sessionID: "session_1",
-        },
+        }),
       },
       streamStatus: "connected",
     })
@@ -711,18 +711,13 @@ describe("shouldDeferTranscriptReload", () => {
   test("does not defer transcript reload when the stream is not active", () => {
     useChatStore.setState({
       directories: {
-        "/repo": {
+        "/repo": createDirectoryChatState({
           sessionTitle: "New chat",
-          sessions: [],
           sessionStatusByID: { session_1: "busy" },
-          messages: [],
-          pendingPermissions: [],
-          providers: [],
-          providerDefault: {},
           isBusy: true,
           isReady: true,
           sessionID: "session_1",
-        },
+        }),
       },
       streamStatus: "idle",
     })
@@ -765,7 +760,7 @@ describe("sendPrompt", () => {
       },
     }
 
-    globalThis.fetch = (async (input, init) => {
+    globalThis.fetch = createFetchStub(async (input, init) => {
       const url = new URL(requestUrl(input), "http://localhost")
       const method = requestMethod(input, init) ?? "GET"
 
@@ -796,7 +791,7 @@ describe("sendPrompt", () => {
       }
 
       throw new Error(`Unexpected request: ${method} ${url.pathname}${url.search}`)
-    }) as typeof fetch
+    })
 
     await sendPrompt("/repo", "hello")
 
@@ -827,7 +822,7 @@ describe("sendPrompt", () => {
       },
     })
 
-    globalThis.fetch = (async (input, init) => {
+    globalThis.fetch = createFetchStub(async (input, init) => {
       const url = new URL(requestUrl(input), "http://localhost")
       const method = requestMethod(input, init) ?? "GET"
 
@@ -841,7 +836,7 @@ describe("sendPrompt", () => {
       }
 
       throw new Error(`Unexpected request: ${method} ${url.pathname}${url.search}`)
-    }) as typeof fetch
+    })
 
     await expect(sendPrompt("/repo", "hello")).rejects.toThrow("session create failed")
     expect(useChatStore.getState().directories["/repo"]?.error).toContain("session create failed")
@@ -853,29 +848,23 @@ describe("sendPrompt", () => {
 
     useChatStore.setState({
       directories: {
-        "/repo": {
+        "/repo": createDirectoryChatState({
           sessionTitle: "New chat",
-          sessions: [],
-          sessionStatusByID: {},
-          messages: [],
-          pendingPermissions: [],
-          providers: [],
-          providerDefault: {},
           isBusy: false,
           isReady: true,
           sessionID: "session_1",
-        },
+        }),
       },
     })
 
-    globalThis.fetch = (async () => {
+    globalThis.fetch = createFetchStub(async () => {
       requests += 1
       return new Response(JSON.stringify({}), {
         headers: {
           "content-type": "application/json",
         },
       })
-    }) as typeof fetch
+    })
 
     await sendPrompt("/repo", "hello")
     await new Promise<void>((resolve) => {
@@ -888,22 +877,16 @@ describe("sendPrompt", () => {
   test("sends explicit focus-goal targeting when provided", async () => {
     useChatStore.setState({
       directories: {
-        "/repo": {
+        "/repo": createDirectoryChatState({
           sessionTitle: "New chat",
-          sessions: [],
-          sessionStatusByID: {},
-          messages: [],
-          pendingPermissions: [],
-          providers: [],
-          providerDefault: {},
           isBusy: false,
           isReady: true,
           sessionID: "session_1",
-        },
+        }),
       },
     })
 
-    globalThis.fetch = (async (_input, init) => {
+    globalThis.fetch = createFetchStub(async (_input, init) => {
       expect(init?.body).toBe(
         JSON.stringify({
           content: "give me a practice task",
@@ -916,7 +899,7 @@ describe("sendPrompt", () => {
           "content-type": "application/json",
         },
       })
-    }) as typeof fetch
+    })
 
     await sendPrompt("/repo", "give me a practice task", {
       intent: "practice",
@@ -927,22 +910,16 @@ describe("sendPrompt", () => {
   test("forwards workspace file references alongside attachment parts", async () => {
     useChatStore.setState({
       directories: {
-        "/repo": {
+        "/repo": createDirectoryChatState({
           sessionTitle: "New chat",
-          sessions: [],
-          sessionStatusByID: {},
-          messages: [],
-          pendingPermissions: [],
-          providers: [],
-          providerDefault: {},
           isBusy: false,
           isReady: true,
           sessionID: "session_1",
-        },
+        }),
       },
     })
 
-    globalThis.fetch = (async (_input, init) => {
+    globalThis.fetch = createFetchStub(async (_input, init) => {
       expect(JSON.parse(String(init?.body))).toMatchObject({
         content: "Read @docs/book with spaces.pdf",
         parts: [
@@ -957,7 +934,7 @@ describe("sendPrompt", () => {
           "content-type": "application/json",
         },
       })
-    }) as typeof fetch
+    })
 
     await sendPrompt("/repo", "Read @docs/book with spaces.pdf", {
       parts: [{ type: "workspace-file-reference", path: "docs/book with spaces.pdf" }],
@@ -968,7 +945,7 @@ describe("sendPrompt", () => {
 
 describe("loadCurriculumView", () => {
   test("forwards the current session id when loading the learner snapshot", async () => {
-    globalThis.fetch = (async (input, init) => {
+    globalThis.fetch = createFetchStub(async (input, init) => {
       expect(String(input)).toBe(
         "/api/learner/snapshot?persona=code-buddy&intent=practice&sessionId=session_1",
       )
@@ -999,7 +976,7 @@ describe("loadCurriculumView", () => {
           "content-type": "application/json",
         },
       })
-    }) as typeof fetch
+    })
 
     const view = await loadCurriculumView("/repo", {
       persona: "code-buddy",
@@ -1013,7 +990,7 @@ describe("loadCurriculumView", () => {
   })
 
   test("returns the current snapshot without any generated next-step fields", async () => {
-    globalThis.fetch = (async (_input, init) => {
+    globalThis.fetch = createFetchStub(async (_input, init) => {
       expect(init?.method).toBe("GET")
       const payload = {
         workspace: {
@@ -1040,7 +1017,7 @@ describe("loadCurriculumView", () => {
           "content-type": "application/json",
         },
       })
-    }) as typeof fetch
+    })
 
     const view = await loadCurriculumView("/repo")
 
@@ -1062,7 +1039,7 @@ describe("loadCurriculumView", () => {
 
 describe("loadRuntimeCapabilities", () => {
   test("returns allowed and denied tool/skill state for the current intent", async () => {
-    globalThis.fetch = (async (input) => {
+    globalThis.fetch = createFetchStub(async (input) => {
       expect(String(input)).toBe(
         "/api/learner/snapshot?persona=code-buddy&intent=practice&sessionId=session_1",
       )
@@ -1098,7 +1075,7 @@ describe("loadRuntimeCapabilities", () => {
           "content-type": "application/json",
         },
       })
-    }) as typeof fetch
+    })
 
     const capabilities = await loadRuntimeCapabilities("/repo", {
       persona: "code-buddy",
