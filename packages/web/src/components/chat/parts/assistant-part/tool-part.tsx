@@ -1,11 +1,11 @@
 import { memo } from "react"
-import { GenericTool, BuddyCustomTool } from "../tools"
-import { getToolRenderer, isContextTool, HIDDEN_TOOLS } from "../tools/registry"
-import { parseToolState } from "../tools/parse-tool-state"
-import { getToolInfo } from "../tools/tool-info"
-import { isBuddyCustomTool } from "../shared/utils"
+import { GenericTool, BuddyCustomTool } from "../../tools"
+import { getToolRenderer, isContextTool, HIDDEN_TOOLS } from "../../tools/registry"
+import { parseToolState } from "../../tools/parse-tool-state"
+import { getToolInfo } from "../../tools/tool-info"
+import { isBuddyCustomTool } from "../../shared/utils"
 import type { MessagePart } from "@/state/chat-types"
-import type { ToolPartProps } from "../tools/registry"
+import type { ToolPartProps } from "../../tools/registry"
 
 interface ToolPartRendererProps {
   part: MessagePart

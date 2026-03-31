@@ -13,7 +13,7 @@ import { parseToolState } from "../tools/parse-tool-state"
 import { getToolInfo } from "../tools/tool-info"
 import type { ToolInfo, ToolState } from "../tools/types"
 import type { MessagePart } from "@/state/chat-types"
-import { AssistantPartRenderer } from "./assistant-part-renderer"
+import { AssistantPartRenderer } from "../parts/assistant-part"
 import { isRecord, reasoningHeading, stripAnsi } from "../shared/utils"
 
 const PREVIEW_MAX_HEIGHT_PX = 80

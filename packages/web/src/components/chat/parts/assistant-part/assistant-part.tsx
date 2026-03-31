@@ -1,5 +1,5 @@
 import { memo } from "react"
-import { parseToolState } from "../tools/parse-tool-state"
+import { parseToolState } from "../../tools/parse-tool-state"
 import { AssistantTextPart } from "./text-part"
 import { ReasoningPart } from "./reasoning-part"
 import { ToolPartCard } from "./tool-part"

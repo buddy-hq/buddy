@@ -1,7 +1,7 @@
 import { memo, useMemo } from "react"
 import type { MessageWithParts, ProviderInfo } from "@/state/chat-types"
-import { FileAttachmentPart } from "./file-attachment"
-import { UserMessagePart } from "./user-message"
+import { FileAttachmentPart } from "../parts/file-attachment"
+import { UserMessagePart } from "../parts/user-message"
 import { isAttachmentFilePart } from "../shared/highlighted-text"
 import type { UserSectionProps } from "../types"
 
