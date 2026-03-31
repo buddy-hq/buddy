@@ -1,6 +1,6 @@
 import { memo } from "react"
-import { AbstractedThinkingPlaceholder } from "../tools/abstracted-tool-group"
-import { AbstractedToolGroup } from "../tools/abstracted-tool-group"
+import { HiddenStepsPlaceholder } from "../tools/hidden-steps/thinking-placeholder"
+import { HiddenSteps } from "../tools/hidden-steps/index"
 import { AssistantPartRenderer } from "../parts/assistant-part/assistant-part"
 import { parseToolState } from "../tools/parse-tool-state"
 import { parseRenderFigureOutput } from "../tools/render/render-figure"
@@ -30,7 +30,7 @@ export const AssistantSection = memo(function AssistantSection({
       {assistantItems.map((item, itemIndex) => {
         if (item.type === "abstracted") {
           return (
-            <AbstractedToolGroup
+            <HiddenSteps
               key={item.key}
               parts={item.parts}
               onOpenSession={onOpenSession}
@@ -91,7 +91,7 @@ export const AssistantSection = memo(function AssistantSection({
           />
         )
       })}
-      {showThinking ? <AbstractedThinkingPlaceholder detail={currentReasoningHeading} /> : null}
+      {showThinking ? <HiddenStepsPlaceholder detail={currentReasoningHeading} /> : null}
     </div>
   )
 })
