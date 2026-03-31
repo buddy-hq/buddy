@@ -10,23 +10,15 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react"
 import { language } from "@/context/language"
 import type { MermaidRenderResult } from "../../../../../lib/mermaid/render"
-
-export const DEFAULT_SVG_BOUNDS = {
-  width: 1200,
-  height: 800,
-} as const
+import { mermaidConstants } from "./constants"
 
 export type MermaidSvgBounds = {
   width: number
   height: number
 }
 
-export const MIN_ZOOM = 0.5
-export const MAX_ZOOM = 3.5
-export const ZOOM_STEP = 0.2
-
 function clampZoom(input: number) {
-  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, input))
+  return Math.min(mermaidConstants.zoom.MAX, Math.max(mermaidConstants.zoom.MIN, input))
 }
 
 function parseSvgDimension(value: string | null): number | undefined {
@@ -45,14 +37,20 @@ function parseSvgDimension(value: string | null): number | undefined {
 
 function measureSvgBounds(svgMarkup: string): MermaidSvgBounds {
   if (typeof DOMParser === "undefined") {
-    return DEFAULT_SVG_BOUNDS
+    return {
+      width: mermaidConstants.svg.DEFAULT_WIDTH,
+      height: mermaidConstants.svg.DEFAULT_HEIGHT,
+    }
   }
 
   try {
     const parsed = new DOMParser().parseFromString(svgMarkup, "image/svg+xml")
     const svg = parsed.querySelector("svg")
     if (!svg) {
-      return DEFAULT_SVG_BOUNDS
+      return {
+        width: mermaidConstants.svg.DEFAULT_WIDTH,
+        height: mermaidConstants.svg.DEFAULT_HEIGHT,
+      }
     }
 
     const viewBox = svg.getAttribute("viewBox")
@@ -76,13 +74,19 @@ function measureSvgBounds(svgMarkup: string): MermaidSvgBounds {
       return { width, height }
     }
   } catch {
-    return DEFAULT_SVG_BOUNDS
+    return {
+      width: mermaidConstants.svg.DEFAULT_WIDTH,
+      height: mermaidConstants.svg.DEFAULT_HEIGHT,
+    }
   }
 
-  return DEFAULT_SVG_BOUNDS
+  return {
+    width: mermaidConstants.svg.DEFAULT_WIDTH,
+    height: mermaidConstants.svg.DEFAULT_HEIGHT,
+  }
 }
 
-interface MermaidFullscreenDialogProps {
+type MermaidFullscreenDialogProps = {
   value: MermaidRenderResult | undefined
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -95,8 +99,11 @@ export function MermaidFullscreenDialog({
   onOpenChange,
   alt,
 }: MermaidFullscreenDialogProps) {
-  const [zoom, setZoom] = useState(1)
-  const [svgBounds, setSvgBounds] = useState<MermaidSvgBounds>(DEFAULT_SVG_BOUNDS)
+  const [zoom, setZoom] = useState<number>(mermaidConstants.zoom.DEFAULT)
+  const [svgBounds, setSvgBounds] = useState<MermaidSvgBounds>({
+    width: mermaidConstants.svg.DEFAULT_WIDTH,
+    height: mermaidConstants.svg.DEFAULT_HEIGHT,
+  })
   const fullscreenSvgHostRef = useRef<HTMLDivElement | null>(null)
   const fullscreenViewportRef = useRef<HTMLDivElement | null>(null)
 
@@ -121,19 +128,31 @@ export function MermaidFullscreenDialog({
         ? fullscreenViewportRef.current.clientHeight
         : window.innerHeight
 
-    const horizontalPadding = viewportWidth >= 1024 ? 220 : viewportWidth >= 768 ? 160 : 96
-    const verticalPadding = viewportHeight >= 768 ? 190 : 128
+    const horizontalPadding =
+      viewportWidth >= mermaidConstants.layout.BREAKPOINT_LG
+        ? mermaidConstants.layout.PADDING_LG_H
+        : viewportWidth >= mermaidConstants.layout.BREAKPOINT_MD
+          ? mermaidConstants.layout.PADDING_MD_H
+          : mermaidConstants.layout.PADDING_SM_H
+    const verticalPadding =
+      viewportHeight >= mermaidConstants.layout.BREAKPOINT_MD
+        ? mermaidConstants.layout.PADDING_LG_V
+        : mermaidConstants.layout.PADDING_SM_V
     const availableWidth = viewportWidth - horizontalPadding
     const availableHeight = viewportHeight - verticalPadding
 
     if (availableWidth <= 0 || availableHeight <= 0) {
-      setZoom(1)
+      setZoom(mermaidConstants.zoom.DEFAULT)
       return
     }
 
     setZoom(
       clampZoom(
-        Math.min(availableWidth / svgBounds.width, availableHeight / svgBounds.height, 2.25),
+        Math.min(
+          availableWidth / svgBounds.width,
+          availableHeight / svgBounds.height,
+          mermaidConstants.zoom.MAX_AUTO_FIT,
+        ),
       ),
     )
   }, [svgBounds.height, svgBounds.width])
@@ -155,11 +174,11 @@ export function MermaidFullscreenDialog({
   }, [fitZoom, open, value])
 
   const zoomIn = useCallback(() => {
-    setZoom((current) => clampZoom(current + ZOOM_STEP))
+    setZoom((current) => clampZoom(current + mermaidConstants.zoom.STEP))
   }, [])
 
   const zoomOut = useCallback(() => {
-    setZoom((current) => clampZoom(current - ZOOM_STEP))
+    setZoom((current) => clampZoom(current - mermaidConstants.zoom.STEP))
   }, [])
 
   const resetZoom = useCallback(() => {
@@ -176,7 +195,7 @@ export function MermaidFullscreenDialog({
       onOpenChange={(next) => {
         onOpenChange(next)
         if (!next) {
-          setZoom(1)
+          setZoom(mermaidConstants.zoom.DEFAULT)
         }
       }}
     >
@@ -210,7 +229,7 @@ export function MermaidFullscreenDialog({
                 variant="outline"
                 aria-label={language.t("chatTools.mermaidDiagram.zoomOutAria")}
                 onClick={zoomOut}
-                disabled={zoom <= MIN_ZOOM}
+                disabled={zoom <= mermaidConstants.zoom.MIN}
               >
                 -
               </Button>
@@ -227,7 +246,7 @@ export function MermaidFullscreenDialog({
                 variant="outline"
                 aria-label={language.t("chatTools.mermaidDiagram.zoomInAria")}
                 onClick={zoomIn}
-                disabled={zoom >= MAX_ZOOM}
+                disabled={zoom >= mermaidConstants.zoom.MAX}
               >
                 +
               </Button>
@@ -291,3 +310,4 @@ export function MermaidFullscreenDialog({
     </Dialog>
   )
 }
+

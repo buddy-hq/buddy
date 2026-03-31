@@ -10,8 +10,9 @@ import {
 } from "@buddy/ui"
 import { useCallback, useEffect, useRef, useState, memo } from "react"
 import { language } from "@/context/language"
+import { mermaidConstants } from "./constants"
 
-interface MermaidActionBarProps {
+type MermaidActionBarProps = {
   source: string
   onFullscreenOpen: () => void
   svgRef: React.RefObject<HTMLDivElement | null>
@@ -49,11 +50,8 @@ const DiagramActionButton = memo(function DiagramActionButton(props: {
   )
 })
 
-const VOID_HTML_TAG_PATTERN =
-  /<(area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)(\s[^>]*?)?\s*\/?>/giu
-
 function normalizeSvgMarkupForDownload(svgMarkup: string): string {
-  return svgMarkup.replace(VOID_HTML_TAG_PATTERN, (_fullMatch, tagName, attributes = "") => {
+  return svgMarkup.replace(mermaidConstants.patterns.VOID_HTML_TAG, (_fullMatch, tagName, attributes = "") => {
     return `<${String(tagName).toLowerCase()}${String(attributes)} />`
   })
 }
@@ -91,7 +89,10 @@ export const MermaidActionBar = memo(function MermaidActionBar({
       if (copyResetTimeoutRef.current !== undefined) {
         window.clearTimeout(copyResetTimeoutRef.current)
       }
-      copyResetTimeoutRef.current = window.setTimeout(() => setCopyFeedback("idle"), 2000)
+      copyResetTimeoutRef.current = window.setTimeout(
+        () => setCopyFeedback("idle"),
+        mermaidConstants.timeouts.FEEDBACK_RESET,
+      )
     } catch {
       // ignore clipboard failures
     }
@@ -99,7 +100,7 @@ export const MermaidActionBar = memo(function MermaidActionBar({
 
   const downloadFileName = useCallback(() => {
     const suffix = artifactID
-      ? artifactID.slice(0, 8)
+      ? artifactID.slice(0, mermaidConstants.svg.ARTIFACT_ID_SLICE)
       : language.t("chatTools.mermaidDiagram.downloadFallbackSuffix")
     return `mermaid-${suffix}.svg`
   }, [artifactID])
@@ -122,7 +123,7 @@ export const MermaidActionBar = memo(function MermaidActionBar({
     document.body.appendChild(link)
     link.click()
     link.remove()
-    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0)
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), mermaidConstants.timeouts.REVOKE_URL)
 
     setDownloadFeedback("downloaded")
     if (downloadResetTimeoutRef.current !== undefined) {
@@ -130,7 +131,7 @@ export const MermaidActionBar = memo(function MermaidActionBar({
     }
     downloadResetTimeoutRef.current = window.setTimeout(
       () => setDownloadFeedback("idle"),
-      2000,
+      mermaidConstants.timeouts.FEEDBACK_RESET,
     )
   }, [svgRef, originalSvg, downloadFileName])
 
@@ -175,3 +176,4 @@ export const MermaidActionBar = memo(function MermaidActionBar({
     </TooltipProvider>
   )
 })
+

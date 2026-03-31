@@ -1,7 +1,7 @@
 import { useEffect } from "react"
 import type { MermaidRenderResult } from "../../../../../lib/mermaid/render"
 
-interface MermaidInlineViewProps {
+type MermaidInlineViewProps = {
   value: MermaidRenderResult
   ariaLabel: string
   svgRef: React.RefObject<HTMLDivElement>

@@ -25,12 +25,12 @@ function errorMessage(error: unknown): string {
   return language.t("chatTools.mermaidDiagram.renderErrorDefault")
 }
 
-interface UseMermaidRenderOptions {
+type UseMermaidRenderOptions = {
   source: string
   artifactID?: string
 }
 
-interface UseMermaidRenderResult {
+type UseMermaidRenderResult = {
   state: MermaidRenderState
 }
 

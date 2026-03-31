@@ -5,6 +5,7 @@ import { useMermaidRender } from "./use-mermaid-render"
 import { MermaidInlineView } from "./mermaid-inline-view"
 import { MermaidActionBar } from "./mermaid-action-bar"
 import { MermaidFullscreenDialog } from "./mermaid-fullscreen-dialog"
+import { mermaidConstants } from "./constants"
 
 export const DIAGRAM_REVEAL_SPRING = { type: "spring", stiffness: 300, damping: 30, mass: 1 } as const
 
@@ -45,7 +46,7 @@ export function MermaidDiagram(props: {
       {state.status === "ready" ? (
         <motion.div
           className="overflow-hidden rounded-[14px]"
-          initial={{ opacity: 0, y: 8, scale: 0.995 }}
+          initial={{ opacity: 0, y: mermaidConstants.animation.Y_OFFSET, scale: mermaidConstants.animation.SCALE_START }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={DIAGRAM_REVEAL_SPRING}
         >
