@@ -12,10 +12,11 @@
   "scripts": {
     "dev": "vite",
     "predev": "bun run prepare:web",
-    "prepare:web": "bun ./scripts/prepare.ts",
+    "prepare:web": "bun ./scripts/prepare.ts full",
+    "prepare:web:typecheck": "bun ./scripts/prepare.ts typecheck",
     "prebuild": "bun run prepare:web",
     "build": "tsc -p tsconfig.app.json && vite build",
-    "pretypecheck": "bun run prepare:web",
+    "pretypecheck": "bun run prepare:web:typecheck",
     "typecheck": "tsgo -b",
     "preview": "vite preview",
     "test": "bun test --preload ./happydom.ts test",
