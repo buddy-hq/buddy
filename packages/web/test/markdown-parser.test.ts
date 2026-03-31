@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { parseMarkdownToHtml } from "../src/lib/markdown-parser"
+import { parseMarkdownToHtml } from "../src/components/markdown/markdown-parser"
 
 describe("markdown parser", () => {
   test("renders external links like OpenCode", async () => {

@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
-import { useAdaptiveStreamingText, useLineByLineText } from "../src/components/chat/shared/hooks"
+import {
+  useAdaptiveStreamingText,
+  useLineByLineText,
+} from "../src/components/chat/hooks/use-streaming-text"
 
 async function flushEffects(delay = 0) {
   await Promise.resolve()

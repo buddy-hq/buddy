@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { ChatTranscript } from "../src/components/chat/chat-transcript"
-import { AbstractedToolGroup } from "../src/components/chat/parts/abstracted-tool-group"
+import { HiddenSteps } from "../src/components/chat/tools/hidden-steps"
 import type { MessagePart, MessageWithParts } from "../src/state/chat-types"
 
 async function flushEffects(delay = 0) {
@@ -180,7 +180,7 @@ describe("chat error handling", () => {
   test("prefers the latest abstracted tool error over stale live preview state", async () => {
     await act(async () => {
       root.render(
-        <AbstractedToolGroup
+        <HiddenSteps
           parts={[
             shellToolPart({
               status: "running",
@@ -195,7 +195,7 @@ describe("chat error handling", () => {
 
     await act(async () => {
       root.render(
-        <AbstractedToolGroup
+        <HiddenSteps
           parts={[
             shellToolPart({
               status: "error",
@@ -214,7 +214,7 @@ describe("chat error handling", () => {
   test("keeps the live abstracted preview at a fixed viewport height while running", async () => {
     await act(async () => {
       root.render(
-        <AbstractedToolGroup
+        <HiddenSteps
           parts={[
             shellToolPart({
               status: "running",
@@ -236,7 +236,7 @@ describe("chat error handling", () => {
   test("shows a generic abstracted tool failure message when the tool provides no text", async () => {
     await act(async () => {
       root.render(
-        <AbstractedToolGroup
+        <HiddenSteps
           parts={[
             shellToolPart({
               status: "error",

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { questionSubtitle } from "../../../src/components/chat/prompt-dock-helpers"
+import { questionSubtitle } from "../../../src/components/chat/utils/prompt-dock-helpers"
 
 const t = (key: string) => {
   if (key === "ui.common.question.one") return "question"
