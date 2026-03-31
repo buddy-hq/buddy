@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { language } from "@/context/language"
-import { renderMermaidSvg, type MermaidRenderResult } from "../../../../../lib/mermaid/render"
+import { renderMermaidSvg, type MermaidRenderResult } from "./lib/render"
 
 export type MermaidRenderState =
   | {

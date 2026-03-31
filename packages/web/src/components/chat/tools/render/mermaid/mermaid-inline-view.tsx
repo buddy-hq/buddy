@@ -1,5 +1,5 @@
 import { useEffect } from "react"
-import type { MermaidRenderResult } from "../../../../../lib/mermaid/render"
+import type { MermaidRenderResult } from "./lib/render"
 
 type MermaidInlineViewProps = {
   value: MermaidRenderResult

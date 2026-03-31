@@ -51,9 +51,12 @@ const DiagramActionButton = memo(function DiagramActionButton(props: {
 })
 
 function normalizeSvgMarkupForDownload(svgMarkup: string): string {
-  return svgMarkup.replace(mermaidConstants.patterns.VOID_HTML_TAG, (_fullMatch, tagName, attributes = "") => {
-    return `<${String(tagName).toLowerCase()}${String(attributes)} />`
-  })
+  return svgMarkup.replace(
+    mermaidConstants.patterns.VOID_HTML_TAG,
+    (_fullMatch, tagName, attributes = "") => {
+      return `<${String(tagName).toLowerCase()}${String(attributes)} />`
+    },
+  )
 }
 
 export const MermaidActionBar = memo(function MermaidActionBar({
@@ -65,7 +68,7 @@ export const MermaidActionBar = memo(function MermaidActionBar({
 }: MermaidActionBarProps) {
   const [copyFeedback, setCopyFeedback] = useState<"idle" | "copied">("idle")
   const [downloadFeedback, setDownloadFeedback] = useState<"idle" | "downloaded">("idle")
-  
+
   const copyResetTimeoutRef = useRef<number | undefined>(undefined)
   const downloadResetTimeoutRef = useRef<number | undefined>(undefined)
 
@@ -107,9 +110,7 @@ export const MermaidActionBar = memo(function MermaidActionBar({
 
   const downloadRenderedSvg = useCallback(() => {
     const renderedSvg =
-      svgRef.current?.querySelector("svg")?.outerHTML ??
-      svgRef.current?.innerHTML ??
-      originalSvg
+      svgRef.current?.querySelector("svg")?.outerHTML ?? svgRef.current?.innerHTML ?? originalSvg
     const normalizedSvg = normalizeSvgMarkupForDownload(renderedSvg)
 
     const blob = new Blob([normalizedSvg], {
@@ -148,7 +149,13 @@ export const MermaidActionBar = memo(function MermaidActionBar({
             onClick={() => {
               void copyMermaidSource()
             }}
-            icon={copyFeedback === "copied" ? <CheckIcon className="size-4" /> : <CopyIcon className="size-4" />}
+            icon={
+              copyFeedback === "copied" ? (
+                <CheckIcon className="size-4" />
+              ) : (
+                <CopyIcon className="size-4" />
+              )
+            }
           />
           <DiagramActionButton
             label={
@@ -176,4 +183,3 @@ export const MermaidActionBar = memo(function MermaidActionBar({
     </TooltipProvider>
   )
 })
-

@@ -9,7 +9,7 @@ import {
 } from "@buddy/ui"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { language } from "@/context/language"
-import type { MermaidRenderResult } from "../../../../../lib/mermaid/render"
+import type { MermaidRenderResult } from "./lib/render"
 import { mermaidConstants } from "./constants"
 
 export type MermaidSvgBounds = {
@@ -310,4 +310,3 @@ export function MermaidFullscreenDialog({
     </Dialog>
   )
 }
-

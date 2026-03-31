@@ -29,6 +29,7 @@ export const mermaidConstants = {
     SCALE_START: 0.995,
   },
   patterns: {
-    VOID_HTML_TAG: /<(area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)(\s[^>]*?)?\s*\/?>/giu,
+    VOID_HTML_TAG:
+      /<(area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)(\s[^>]*?)?\s*\/?>/giu,
   },
 } as const
