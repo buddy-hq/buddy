@@ -284,8 +284,6 @@ export class BuddyE2EApi {
 }
 
 type TestFixtures = {
-  backendUrl: string
-  e2e: BuddyE2EApi
   createNotebook: (input?: { name?: string; files?: Record<string, string> }) => Promise<string>
   createNotebookFile: (directory: string, relativePath: string, content: string) => Promise<string>
   gotoChat: () => Promise<void>
@@ -295,6 +293,8 @@ type TestFixtures = {
 
 type WorkerFixtures = {
   workspaceRoot: string
+  backendUrl: string
+  e2e: BuddyE2EApi
 }
 
 async function writeNotebookFiles(directory: string, files: Record<string, string>) {

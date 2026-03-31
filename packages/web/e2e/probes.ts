@@ -93,10 +93,10 @@ export async function setDesktopPlatformOverrides(page: Page, overrides: E2EPlat
       if (!driver) return
 
       const current = driver.platform?.overrides ?? {}
-      const merged = {
+      const merged: E2EPlatformOverrides = {
         ...current,
-        mode: "desktop",
         ...next,
+        mode: "desktop",
       }
       driver.platform = driver.platform ?? { overrides: {}, calls: {} as E2EPlatformCalls }
       driver.platform.overrides = merged
@@ -114,7 +114,7 @@ export async function setWebPlatformMode(page: Page) {
     const driver = window.__BUDDY_E2E__
     if (!driver) return
     driver.platform = driver.platform ?? { overrides: {}, calls: {} as E2EPlatformCalls }
-    const next = {
+    const next: E2EPlatformOverrides = {
       ...driver.platform.overrides,
       mode: "web",
     }
