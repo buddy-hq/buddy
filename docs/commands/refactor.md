@@ -44,38 +44,6 @@ This step is required because typecheck only proves syntactic validity, not beha
 
 ---
 
-## Structure Conventions
-
-### `components/chat/` organization
-
-```
-chat/
-  parts/           # Renders a single MessagePart (text, reasoning, tool, file)
-  sections/        # Orchestrators — compose parts into complete message turns
-  shared/          # UI primitives not tied to a MessagePart type
-```
-
-- **parts/** — single-purpose part renderers (one component per file)
-- **sections/** — compound components that own a message turn (user-section, assistant-section)
-- **shared/** — reusable primitives (hooks, utils, dividers, error cards)
-
-
-
-### Folder vs File
-
-- If components are tightly coupled and would exceed ~150 lines together → use a folder with `index.ts` as the manifest
-- Otherwise → single component per file
-
----
-
-## Import Rules
-
-- Always update imports when moving files
-- Use relative paths (`../shared/` not aliases)
-- `parts/index.ts` — barrel export for part subsystem only (no sections, no shared)
-- `sections/` and `shared/` — no index.ts barrel exports (import directly from files)
-
----
 
 ## What to Check Before Dispatching
 
