@@ -6,6 +6,7 @@ import {
   removeResource,
   renameResource,
 } from "../src/state/resource-actions"
+import { createFetchStub } from "./test-utils"
 
 const originalFetch = globalThis.fetch
 
@@ -19,7 +20,7 @@ afterEach(() => {
 
 describe("resource actions", () => {
   test("loads the resource registry from the resource endpoint", async () => {
-    globalThis.fetch = (async (input, init) => {
+    globalThis.fetch = createFetchStub(async (input, init) => {
       expect(String(input)).toBe("/api/resource")
       expect(init?.method).toBe("GET")
       expect(new Headers(init?.headers).get("x-buddy-directory")).toBe("/repo")
@@ -42,7 +43,7 @@ describe("resource actions", () => {
           },
         },
       )
-    }) as typeof fetch
+    })
 
     await expect(loadResources("/repo")).resolves.toEqual([
       {
@@ -59,7 +60,7 @@ describe("resource actions", () => {
   test("posts resource mutations to their dedicated endpoints", async () => {
     const requests: Array<{ url: string; method?: string; body?: string | undefined }> = []
 
-    globalThis.fetch = (async (input, init) => {
+    globalThis.fetch = createFetchStub(async (input, init) => {
       requests.push({
         url: String(input),
         method: init?.method,
@@ -80,7 +81,7 @@ describe("resource actions", () => {
           },
         },
       )
-    }) as typeof fetch
+    })
 
     await addResource("/repo", { sourcePath: "/Users/me/Downloads/book.pdf", alias: "book" })
     await renameResource("/repo", { resourceKey: "resource-1", alias: "book-2" })

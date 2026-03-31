@@ -1,6 +1,13 @@
 import { describe, expect, test } from "bun:test"
 import type { MessageWithParts, ProviderInfo } from "../../../src/state/chat-types"
 import { getSessionContextMetrics } from "../../../src/state/context-metrics"
+import {
+  createAssistantMessageInfo,
+  createMessageWithParts,
+  createProviderInfo,
+  createProviderModelInfo,
+  createUserMessageInfo,
+} from "../../test-utils"
 
 const assistant = (
   id: string,
@@ -9,10 +16,9 @@ const assistant = (
   providerID = "anthropic",
   modelID = "k2p5",
 ): MessageWithParts => ({
-  info: {
+  info: createAssistantMessageInfo({
     id,
     sessionID: "session_1",
-    role: "assistant",
     parentID: "user_1",
     providerID,
     modelID,
@@ -33,24 +39,23 @@ const assistant = (
         write: tokens.write,
       },
     },
-  },
+  }),
   parts: [],
 })
 
-const user = (id: string): MessageWithParts => ({
-  info: {
-    id,
-    sessionID: "session_1",
-    role: "user",
-    agent: "build",
-    model: {
-      providerID: "anthropic",
-      modelID: "k2p5",
-    },
-    time: { created: 1 },
-  },
-  parts: [],
-})
+const user = (id: string): MessageWithParts =>
+  createMessageWithParts(
+    createUserMessageInfo({
+      id,
+      sessionID: "session_1",
+      agent: "build",
+      model: {
+        providerID: "anthropic",
+        modelID: "k2p5",
+      },
+      time: { created: 1 },
+    }),
+  )
 
 describe("getSessionContextMetrics", () => {
   test("computes totals and usage from latest assistant with tokens", () => {
@@ -61,22 +66,18 @@ describe("getSessionContextMetrics", () => {
     ]
 
     const providers: ProviderInfo[] = [
-      {
+      createProviderInfo({
         id: "anthropic",
         name: "Anthropic",
-        env: [],
         models: [
-          {
+          createProviderModelInfo({
             id: "k2p5",
             providerID: "anthropic",
             name: "Kimi K2.5",
-            api: { id: "k2p5" },
             limit: { context: 1_000, output: 32_000 },
-            reasoning: true,
-            options: {},
-          },
+          }),
         ],
-      },
+      }),
     ]
 
     const metrics = getSessionContextMetrics(messages, providers)
@@ -99,7 +100,7 @@ describe("getSessionContextMetrics", () => {
         "m-1",
       ),
     ]
-    const providers: ProviderInfo[] = [{ id: "p-1", name: "p-1", env: [], models: [] }]
+    const providers: ProviderInfo[] = [createProviderInfo({ id: "p-1", name: "p-1" })]
 
     const metrics = getSessionContextMetrics(messages, providers)
     expect(metrics.context?.providerLabel).toBe("p-1")

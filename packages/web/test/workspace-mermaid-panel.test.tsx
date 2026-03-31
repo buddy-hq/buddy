@@ -4,6 +4,7 @@ import { createRoot, type Root } from "react-dom/client"
 import { WorkspaceMermaidPanel } from "../src/components/layout/workspace-mermaid-panel"
 import { PlatformProvider, createBrowserPlatform } from "../src/context/platform"
 import { ServerProvider } from "../src/context/server"
+import { createFetchStub } from "./test-utils"
 
 const originalFetch = globalThis.fetch
 
@@ -63,7 +64,7 @@ describe("WorkspaceMermaidPanel", () => {
   })
 
   test("loads and renders persisted Mermaid artifacts for the workspace", async () => {
-    globalThis.fetch = (async (input, init) => {
+    globalThis.fetch = createFetchStub(async (input, init) => {
       const url =
         typeof input === "string" ? input : input instanceof URL ? input.toString() : String(input)
       const requestUrl = new URL(url, "http://localhost")
@@ -97,7 +98,7 @@ describe("WorkspaceMermaidPanel", () => {
       }
 
       throw new Error(`Unexpected request: ${url}`)
-    }) as typeof fetch
+    })
 
     await act(async () => {
       root.render(

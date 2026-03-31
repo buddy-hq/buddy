@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import { useChatStore } from "../../../src/state/chat-store"
 import type { MessageInfo, PermissionRequest, SessionInfo } from "../../../src/state/chat-types"
+import { createAssistantMessageInfo, createUserMessageInfo } from "../../test-utils"
 
 const directory = "/tmp/parity"
 
@@ -14,18 +15,20 @@ const session = (id: string, updated: number): SessionInfo => ({
 })
 
 const userMessage = (id: string, sessionID: string): MessageInfo => ({
-  id,
-  sessionID,
-  role: "user",
-  time: { created: Date.now() },
+  ...createUserMessageInfo({
+    id,
+    sessionID,
+    time: { created: Date.now() },
+  }),
 })
 
 const assistantMessage = (id: string, sessionID: string, finish?: string): MessageInfo => ({
-  id,
-  sessionID,
-  role: "assistant",
-  time: { created: Date.now() },
-  finish,
+  ...createAssistantMessageInfo({
+    id,
+    sessionID,
+    time: { created: Date.now() },
+    finish,
+  }),
 })
 
 const permissionRequest = (id: string, sessionID: string, permission = id): PermissionRequest => ({

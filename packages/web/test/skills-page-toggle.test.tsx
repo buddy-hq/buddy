@@ -4,6 +4,7 @@ import { createRoot, type Root } from "react-dom/client"
 import { SkillsPage } from "../src/components/skills/skills-page"
 import { PlatformProvider, createBrowserPlatform } from "../src/context/platform"
 import { ServerProvider } from "../src/context/server"
+import { createFetchStub } from "./test-utils"
 
 const originalFetch = globalThis.fetch
 
@@ -92,7 +93,7 @@ describe("SkillsPage external vendor roots toggle", () => {
       library: [],
     }
 
-    globalThis.fetch = (async (input, init) => {
+    globalThis.fetch = createFetchStub(async (input, init) => {
       const url = String(input)
       const method = init?.method ?? "GET"
       const body = typeof init?.body === "string" ? JSON.parse(init.body) : undefined
@@ -118,7 +119,7 @@ describe("SkillsPage external vendor roots toggle", () => {
       }
 
       throw new Error(`Unexpected request ${method} ${url}`)
-    }) as typeof fetch
+    })
 
     await act(async () => {
       root.render(

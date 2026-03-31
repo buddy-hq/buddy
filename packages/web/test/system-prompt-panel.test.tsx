@@ -5,6 +5,7 @@ import { SystemPromptPanel } from "../src/components/debug/system-prompt-panel"
 import { PlatformProvider, createBrowserPlatform } from "../src/context/platform"
 import { ServerProvider } from "../src/context/server"
 import { useChatStore } from "../src/state/chat-store"
+import { createFetchStub } from "./test-utils"
 
 const originalFetch = globalThis.fetch
 
@@ -86,7 +87,7 @@ describe("SystemPromptPanel", () => {
     })
     store.applySessionStatus(directory, sessionID, "busy")
 
-    globalThis.fetch = (async (input, init) => {
+    globalThis.fetch = createFetchStub(async (input, init) => {
       const url =
         typeof input === "string" ? input : input instanceof URL ? input.toString() : String(input)
       const method = init?.method ?? "GET"
@@ -126,7 +127,7 @@ describe("SystemPromptPanel", () => {
       }
 
       throw new Error(`Unexpected request ${method} ${url}`)
-    }) as typeof fetch
+    })
 
     await act(async () => {
       root.render(

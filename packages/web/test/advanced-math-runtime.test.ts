@@ -4,6 +4,7 @@ import {
   loadAdvancedMathRuntimeStatus,
   removeAdvancedMathRuntime,
 } from "../src/state/advanced-math-runtime"
+import { createFetchStub } from "./test-utils"
 
 const originalFetch = globalThis.fetch
 
@@ -28,7 +29,7 @@ describe("advanced math runtime state", () => {
   test("uses the advanced math runtime lifecycle endpoints", async () => {
     const requests: Array<{ url: string; method: string }> = []
 
-    globalThis.fetch = (async (input, init) => {
+    globalThis.fetch = createFetchStub(async (input, init) => {
       requests.push({
         url: String(input),
         method: init?.method ?? "GET",
@@ -72,7 +73,7 @@ describe("advanced math runtime state", () => {
       }
 
       throw new Error(`Unexpected request ${init?.method ?? "GET"} ${String(input)}`)
-    }) as typeof fetch
+    })
 
     await expect(loadAdvancedMathRuntimeStatus()).resolves.toMatchObject({
       state: "not_installed",
@@ -98,13 +99,14 @@ describe("advanced math runtime state", () => {
   })
 
   test("surfaces backend error messages", async () => {
-    globalThis.fetch = (async () =>
+    globalThis.fetch = createFetchStub(async () =>
       jsonResponse(
         {
           error: "install failed",
         },
         500,
-      )) as typeof fetch
+      ),
+    )
 
     await expect(installAdvancedMathRuntime()).rejects.toThrow("install failed")
   })
