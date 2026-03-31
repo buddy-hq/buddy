@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "prebuild": "bun ./scripts/prebuild.ts",
-    "typecheck": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.scripts.json --noEmit",
+    "typecheck": "tsgo -b",
     "predev": "bun ./scripts/predev.ts",
     "pretauri": "bun ./scripts/pretauri.ts",
     "prepare:release": "bun ./scripts/prepare.ts",

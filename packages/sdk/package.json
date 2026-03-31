@@ -11,7 +11,7 @@
   },
   "scripts": {
     "generate": "bun run scripts/generate.ts && tsc -b --force",
-    "typecheck": "tsc --noEmit && tsc -p tsconfig.scripts.json --noEmit",
+    "typecheck": "tsgo --noEmit && tsgo -p tsconfig.scripts.json --noEmit",
     "build": "tsc -b --force"
   },
   "dependencies": {},
