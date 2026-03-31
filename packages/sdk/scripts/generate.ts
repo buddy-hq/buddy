@@ -15,6 +15,26 @@ type OpenAPISchema = {
   [key: string]: unknown
 }
 
+type OpenApiApp = Parameters<typeof generateSpecs>[0]
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value)
+}
+
+function isOpenApiApp(value: unknown): value is OpenApiApp {
+  return isRecord(value) && typeof value.fetch === "function"
+}
+
+async function loadBackendApp() {
+  const backendModuleName: string = "@buddy/backend"
+  const loaded = await import(backendModuleName)
+  if (isRecord(loaded) && "app" in loaded && isOpenApiApp(loaded.app)) {
+    return loaded.app
+  }
+
+  throw new Error("Unable to load Buddy backend app for OpenAPI generation.")
+}
+
 function normalizePaths(schema: OpenAPISchema) {
   if (!schema.paths) {
     return schema
@@ -50,7 +70,7 @@ async function loadSchema() {
     const schema = (await response.json()) as OpenAPISchema
     return normalizePaths(schema)
   } catch {
-    const { app } = await import("@buddy/backend")
+    const app = await loadBackendApp()
     const schema = (await generateSpecs(app, {
       documentation: {
         info: {
