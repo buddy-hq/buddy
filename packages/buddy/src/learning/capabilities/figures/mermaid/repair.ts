@@ -205,6 +205,41 @@ function normalizeTimelinePeriodLabelsWithColon(source: string, repairLog: strin
   return repaired
 }
 
+const XYCHART_CONNECTOR_TRAILING_PATTERN = /\s+(?:-->|--|->>|->|==>|==|-.->|-.)\s*$/gu
+
+function removeTrailingConnectorsFromXychartLines(source: string, repairLog: string[]): string {
+  if (inferDiagramTypeToken(source) !== "xychart-beta") {
+    return source
+  }
+
+  let changed = false
+  const repaired = source
+    .split("\n")
+    .map((line) => {
+      const trimmed = line.trim()
+      if (
+        trimmed.startsWith("y-axis") ||
+        trimmed.startsWith("x-axis") ||
+        trimmed.startsWith("axis") ||
+        trimmed.startsWith("title")
+      ) {
+        const cleaned = line.replace(XYCHART_CONNECTOR_TRAILING_PATTERN, "")
+        if (cleaned !== line) {
+          changed = true
+          return cleaned
+        }
+      }
+      return line
+    })
+    .join("\n")
+
+  if (changed) {
+    repairLog.push("Removed trailing flowchart connectors from xychart lines.")
+  }
+
+  return repaired
+}
+
 function canonicalizeDiagramHeaderAlias(source: string, repairLog: string[]): string {
   const lines = source.split("\n")
   for (let index = 0; index < lines.length; index += 1) {
@@ -320,6 +355,7 @@ function runMermaidRepairPass(source: string): MermaidRepairPassResult {
   repaired = canonicalizeDiagramHeaderAlias(repaired, repairLog)
   repaired = normalizeSmartPunctuation(repaired, repairLog)
   repaired = normalizeTimelinePeriodLabelsWithColon(repaired, repairLog)
+  repaired = removeTrailingConnectorsFromXychartLines(repaired, repairLog)
   repaired = trimProseOutsideDiagram(repaired, repairLog)
   repaired = normalizeMermaidSource(trimBlankBoundaryLines(repaired))
 

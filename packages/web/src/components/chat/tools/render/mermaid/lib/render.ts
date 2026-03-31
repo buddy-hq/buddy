@@ -31,7 +31,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function normalizeMermaidSource(source: string): string {
-  return source.replace(/\r\n?/gu, "\n").trim()
+  return source.replace(/\r\n?/gu, "\n").trim().replace(/"/gu, "'")
 }
 
 function hashSource(source: string): string {
