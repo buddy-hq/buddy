@@ -6,27 +6,28 @@ import {
   upsertPart,
 } from "../src/state/chat-reducer"
 import type { MessageWithParts } from "../src/state/chat-types"
+import { createAssistantMessageInfo, createMessageWithParts } from "./test-utils"
 
 function makeMessages(): MessageWithParts[] {
   return [
-    {
-      info: {
+    createMessageWithParts(
+      createAssistantMessageInfo({
         id: "message_1",
         sessionID: "session_1",
-        role: "assistant",
-      },
-      parts: [],
-    },
+      }),
+    ),
   ]
 }
 
 describe("chat reducer", () => {
   test("upsertMessage appends new message", () => {
-    const next = upsertMessage([], {
-      id: "message_1",
-      sessionID: "session_1",
-      role: "assistant",
-    })
+    const next = upsertMessage(
+      [],
+      createAssistantMessageInfo({
+        id: "message_1",
+        sessionID: "session_1",
+      }),
+    )
 
     expect(next).toHaveLength(1)
     expect(next[0]?.info.id).toBe("message_1")
@@ -68,28 +69,24 @@ describe("chat reducer", () => {
   test("inferBusyFromMessages checks assistant finish state", () => {
     expect(
       inferBusyFromMessages([
-        {
-          info: {
+        createMessageWithParts(
+          createAssistantMessageInfo({
             id: "message_1",
             sessionID: "session_1",
-            role: "assistant",
-          },
-          parts: [],
-        },
+          }),
+        ),
       ]),
     ).toBe(true)
 
     expect(
       inferBusyFromMessages([
-        {
-          info: {
+        createMessageWithParts(
+          createAssistantMessageInfo({
             id: "message_1",
             sessionID: "session_1",
-            role: "assistant",
             finish: "stop",
-          },
-          parts: [],
-        },
+          }),
+        ),
       ]),
     ).toBe(false)
   })

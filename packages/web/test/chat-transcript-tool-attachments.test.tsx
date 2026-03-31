@@ -3,6 +3,7 @@ import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { ChatTranscript } from "../src/components/chat/chat-transcript"
 import type { MessageWithParts } from "../src/state/chat-types"
+import { seedDirectoryChatState } from "./test-utils"
 
 const PLOT_DATA_URL =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9p3xK+QAAAAASUVORK5CYII="
@@ -130,7 +131,8 @@ describe("ChatTranscript tool attachments", () => {
     ]
 
     await act(async () => {
-      root.render(<ChatTranscript messages={messages} />)
+      seedDirectoryChatState("/repo", { messages })
+      root.render(<ChatTranscript directory="/repo" />)
       await flushEffects()
     })
 

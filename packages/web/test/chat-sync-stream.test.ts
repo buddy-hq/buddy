@@ -3,6 +3,7 @@ import { ServerProvider } from "../src/context/server"
 import { setRuntimePlatform, type Platform } from "../src/context/platform"
 import { startChatSync } from "../src/state/chat-sync"
 import type { GlobalEvent } from "../src/state/chat-types"
+import { createFetchStub } from "./test-utils"
 
 const originalFetch = globalThis.fetch
 
@@ -52,8 +53,9 @@ describe("startChatSync fetch stream", () => {
       '"sessionID":"s1","role":"assistant","time":{"created":1}}}}}\r\n\r\n',
     ]
 
-    globalThis.fetch = (async (input, init) => {
-      receivedPath = typeof input === "string" ? input : input.url
+    globalThis.fetch = createFetchStub(async (input, init) => {
+      receivedPath =
+        typeof input === "string" ? input : input instanceof Request ? input.url : input.toString()
       const headers = new Headers(init?.headers)
       receivedAuth = headers.get("authorization") ?? ""
       receivedAccept = headers.get("accept") ?? ""
@@ -76,7 +78,7 @@ describe("startChatSync fetch stream", () => {
           "content-type": "text/event-stream",
         },
       })
-    }) as typeof fetch
+    })
 
     setRuntimePlatform({
       platform: "desktop",
@@ -117,7 +119,7 @@ describe("startChatSync fetch stream", () => {
   })
 
   test("drops stale part deltas when a newer part update is coalesced", async () => {
-    globalThis.fetch = (async () => {
+    globalThis.fetch = createFetchStub(async () => {
       const body = new ReadableStream({
         start(controller) {
           controller.enqueue(
@@ -143,7 +145,7 @@ describe("startChatSync fetch stream", () => {
           "content-type": "text/event-stream",
         },
       })
-    }) as typeof fetch
+    })
 
     setRuntimePlatform({
       platform: "desktop",
