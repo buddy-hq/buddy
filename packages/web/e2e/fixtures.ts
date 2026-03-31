@@ -340,7 +340,7 @@ async function seedDriver(page: Page) {
         platform: {
           overrides: {
             ...persistedOverrides,
-            ...(current.platform?.overrides ?? {}),
+            ...current.platform?.overrides,
           },
           calls: current.platform?.calls ?? {
             startWindowDragging: 0,
