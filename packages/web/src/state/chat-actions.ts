@@ -217,6 +217,11 @@ const EMPTY_ALIGNMENT_SUMMARY: LearnerCurriculumView["alignmentSummary"] = {
   recommendations: [],
 }
 const pendingSessionCreations = new Map<string, Promise<SessionInfo>>()
+type DirectorySessionLoadResult = {
+  directory: string
+  info: SessionInfo | undefined
+}
+const pendingDirectorySessionLoads = new Map<string, Promise<DirectorySessionLoadResult>>()
 
 function toLearnerPersona(persona?: string): LearnerPersona | undefined {
   if (!persona) return undefined
@@ -658,107 +663,143 @@ async function createSession(directory: string) {
 }
 
 export async function ensureDirectorySession(directory: string) {
-  const store = useChatStore.getState()
   const normalizedDirectory = normalizeProjectDirectory(directory) ?? directory
-  let targetDirectory = normalizedDirectory
+  const existingLoad =
+    pendingDirectorySessionLoads.get(normalizedDirectory) ??
+    pendingDirectorySessionLoads.get(directory)
+  if (existingLoad) {
+    return existingLoad
+  }
+
+  const loadKeys = new Set<string>([normalizedDirectory, directory])
+  let loadingPromise: Promise<DirectorySessionLoadResult>
+
+  loadingPromise = (async () => {
+    const store = useChatStore.getState()
+    let targetDirectory = normalizedDirectory
+
+    try {
+      const knownOpenProjects = store.openProjects
+      targetDirectory = knownOpenProjects.includes(normalizedDirectory)
+        ? normalizedDirectory
+        : await openProject(normalizedDirectory)
+      if (!loadKeys.has(targetDirectory)) {
+        loadKeys.add(targetDirectory)
+        const currentLoad = pendingDirectorySessionLoads.get(normalizedDirectory)
+        if (currentLoad) {
+          pendingDirectorySessionLoads.set(targetDirectory, currentLoad)
+        }
+      }
+
+      const readyState = useChatStore.getState().directories[targetDirectory]
+      if (readyState?.isReady && readyState.isDraft) {
+        store.clearDirectoryError(targetDirectory)
+        return {
+          directory: targetDirectory,
+          info: undefined,
+        }
+      }
+      const readyInfo = readyState?.isReady
+        ? readyState.sessions.find((session) => session.id === readyState.sessionID)
+        : undefined
+
+      if (readyInfo) {
+        store.clearDirectoryError(targetDirectory)
+        return {
+          directory: targetDirectory,
+          info: readyInfo,
+        }
+      }
+
+      store.setDirectoryReady(targetDirectory, false)
+      store.clearDirectoryError(targetDirectory)
+
+      const state = useChatStore.getState()
+      const current = state.directories[targetDirectory]
+      const preserveDraft = current?.isDraft === true
+      const storedSession = preserveDraft
+        ? undefined
+        : (current?.sessionID ?? state.lastSessionByDirectory[targetDirectory])
+      const sessions = await loadSessions(targetDirectory)
+      const sessionByID = new Map(sessions.map((session) => [session.id, session]))
+
+      let info: SessionInfo | undefined
+      if (storedSession && sessionByID.has(storedSession)) {
+        info = sessionByID.get(storedSession)
+      }
+
+      if (!info && !preserveDraft) {
+        info = sessions[0]
+      }
+
+      if (!info && storedSession) {
+        info = await getBuddyClient(targetDirectory)
+          .session.get({
+            sessionID: storedSession,
+          })
+          .then((result) => requireBuddyData(result))
+          .catch(() => undefined)
+      }
+
+      if (!info) {
+        const latestStoreState = useChatStore.getState()
+        const latestState = latestStoreState.directories[targetDirectory]
+        const latestSessionID =
+          latestState?.sessionID ?? latestStoreState.lastSessionByDirectory[targetDirectory]
+        if (latestSessionID) {
+          info =
+            latestState?.sessions.find((session) => session.id === latestSessionID) ??
+            (await getBuddyClient(targetDirectory)
+              .session.get({
+                sessionID: latestSessionID,
+              })
+              .then((result) => requireBuddyData(result))
+              .catch(() => undefined))
+        }
+      }
+
+      if (info) {
+        store.setSessionInfo(targetDirectory, info)
+        await loadMessages(targetDirectory, info.id)
+      } else {
+        const currentSessionID = useChatStore.getState().directories[targetDirectory]?.sessionID
+        if (currentSessionID) {
+          await loadMessages(targetDirectory, currentSessionID).catch(() => undefined)
+        } else {
+          store.startSessionDraft(targetDirectory)
+        }
+      }
+
+      store.setDirectoryReady(targetDirectory, true)
+      void Promise.all([
+        loadSessionStatuses(targetDirectory).catch(() => undefined),
+        loadPermissions(targetDirectory),
+        loadProviderCatalog(targetDirectory),
+        loadMcpStatus(targetDirectory).catch(() => undefined),
+      ]).catch(() => undefined)
+      return {
+        directory: targetDirectory,
+        info,
+      }
+    } catch (error) {
+      store.setDirectoryReady(targetDirectory, true)
+      store.setDirectoryError(targetDirectory, stringifyError(error))
+      throw error
+    }
+  })()
+
+  for (const key of loadKeys) {
+    pendingDirectorySessionLoads.set(key, loadingPromise)
+  }
 
   try {
-    const knownOpenProjects = store.openProjects
-    targetDirectory = knownOpenProjects.includes(normalizedDirectory)
-      ? normalizedDirectory
-      : await openProject(normalizedDirectory)
-    const readyState = useChatStore.getState().directories[targetDirectory]
-    if (readyState?.isReady && readyState.isDraft) {
-      store.clearDirectoryError(targetDirectory)
-      return {
-        directory: targetDirectory,
-        info: undefined,
+    return await loadingPromise
+  } finally {
+    for (const key of loadKeys) {
+      if (pendingDirectorySessionLoads.get(key) === loadingPromise) {
+        pendingDirectorySessionLoads.delete(key)
       }
     }
-    const readyInfo = readyState?.isReady
-      ? readyState.sessions.find((session) => session.id === readyState.sessionID)
-      : undefined
-
-    if (readyInfo) {
-      store.clearDirectoryError(targetDirectory)
-      return {
-        directory: targetDirectory,
-        info: readyInfo,
-      }
-    }
-
-    store.setDirectoryReady(targetDirectory, false)
-    store.clearDirectoryError(targetDirectory)
-
-    const state = useChatStore.getState()
-    const current = state.directories[targetDirectory]
-    const preserveDraft = current?.isDraft === true
-    const storedSession = preserveDraft
-      ? undefined
-      : (current?.sessionID ?? state.lastSessionByDirectory[targetDirectory])
-    const sessions = await loadSessions(targetDirectory)
-    const sessionByID = new Map(sessions.map((session) => [session.id, session]))
-
-    let info: SessionInfo | undefined
-    if (storedSession && sessionByID.has(storedSession)) {
-      info = sessionByID.get(storedSession)
-    }
-
-    if (!info && !preserveDraft) {
-      info = sessions[0]
-    }
-
-    if (!info && storedSession) {
-      info = await getBuddyClient(targetDirectory)
-        .session.get({
-          sessionID: storedSession,
-        })
-        .then((result) => requireBuddyData(result))
-        .catch(() => undefined)
-    }
-
-    if (!info) {
-      const latestStoreState = useChatStore.getState()
-      const latestState = latestStoreState.directories[targetDirectory]
-      const latestSessionID =
-        latestState?.sessionID ?? latestStoreState.lastSessionByDirectory[targetDirectory]
-      if (latestSessionID) {
-        info =
-          latestState?.sessions.find((session) => session.id === latestSessionID) ??
-          (await getBuddyClient(targetDirectory)
-            .session.get({
-              sessionID: latestSessionID,
-            })
-            .then((result) => requireBuddyData(result))
-            .catch(() => undefined))
-      }
-    }
-
-    if (info) {
-      store.setSessionInfo(targetDirectory, info)
-      await loadMessages(targetDirectory, info.id)
-    } else {
-      const currentSessionID = useChatStore.getState().directories[targetDirectory]?.sessionID
-      if (currentSessionID) {
-        await loadMessages(targetDirectory, currentSessionID).catch(() => undefined)
-      } else {
-        store.startSessionDraft(targetDirectory)
-      }
-    }
-
-    await loadSessionStatuses(targetDirectory).catch(() => undefined)
-    await loadPermissions(targetDirectory)
-    await loadProviderCatalog(targetDirectory)
-    await loadMcpStatus(targetDirectory).catch(() => undefined)
-    store.setDirectoryReady(targetDirectory, true)
-    return {
-      directory: targetDirectory,
-      info,
-    }
-  } catch (error) {
-    store.setDirectoryReady(targetDirectory, true)
-    store.setDirectoryError(targetDirectory, stringifyError(error))
-    throw error
   }
 }
 
