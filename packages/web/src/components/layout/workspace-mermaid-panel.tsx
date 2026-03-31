@@ -1,8 +1,9 @@
 import { measureElement as measureVirtualElement, useVirtualizer } from "@tanstack/react-virtual"
 import { useCallback, useEffect, useRef, useState } from "react"
-import { Badge, Button, Card, CardContent } from "@buddy/ui"
+import { Button } from "@buddy/ui"
 import { language } from "@/context/language"
 import { MermaidDiagram } from "@/components/chat/tools/render/mermaid/mermaid-diagram"
+import { MermaidToolCard } from "@/components/chat/tools/render/mermaid/mermaid-tool-card"
 import { RefreshCwIcon, LayoutTemplateIcon } from "lucide-react"
 import {
   VIRTUAL_MERMAID_CARD_ESTIMATE_PX,
@@ -13,14 +14,6 @@ import {
   loadWorkspaceMermaidArtifacts,
   type WorkspaceMermaidArtifactView,
 } from "@/state/chat-actions"
-
-function formatCreatedAt(value: string): string {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return value
-  }
-  return date.toLocaleString()
-}
 
 function artifactLabel(count: number): string {
   return `${count} diagram${count === 1 ? "" : "s"}`
@@ -69,44 +62,25 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
 
   function renderArtifactCard(artifact: WorkspaceMermaidArtifactView, index: number) {
     return (
-      <div className={index === artifacts.length - 1 ? "" : "pb-3"}>
-        <Card
-          size="sm"
-          data-component="mermaid-artifact-item"
-          data-artifact-id={artifact.artifactID}
-          className="gap-0 py-0"
-        >
-          <CardContent className="space-y-3 px-3 py-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="secondary">{artifact.diagramType}</Badge>
-              <Badge variant="outline">{formatCreatedAt(artifact.createdAt)}</Badge>
-              {artifact.repairAttempts > 0 ? (
-                <Badge variant="outline">
-                  {language.t("workspaceMermaid.repairedPrefix")} {artifact.repairAttempts}{" "}
-                  {artifact.repairAttempts === 1
-                    ? language.t("workspaceMermaid.repairedTime")
-                    : language.t("workspaceMermaid.repairedTimes")}
-                </Badge>
-              ) : null}
-            </div>
-
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-text-base">{artifact.alt}</p>
-              {artifact.caption ? (
-                <p className="text-sm text-text-weak">{artifact.caption}</p>
-              ) : null}
-            </div>
-
-            <MermaidDiagram
-              source={artifact.source}
-              artifactID={artifact.artifactID}
-              alt={artifact.alt}
-              className="rounded-lg border border-border-base bg-background-base p-3"
-              failureClassName="rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 p-3 text-sm text-icon-critical-base"
-              showRawSourceOnError
-            />
-          </CardContent>
-        </Card>
+      <div className={index === artifacts.length - 1 ? "" : "pb-4"}>
+        <MermaidDiagram
+          source={artifact.source}
+          artifactID={artifact.artifactID}
+          alt={artifact.alt}
+          showRawSourceOnError
+          minimalActions
+          renderWrapper={(diagramElement, actions) => (
+            <MermaidToolCard
+              title={artifact.alt}
+              diagramType={artifact.diagramType}
+              hideStatus
+              contentClassName="h-[20rem]"
+              actions={actions}
+            >
+              <div className="p-3 w-full">{diagramElement}</div>
+            </MermaidToolCard>
+          )}
+        />
       </div>
     )
   }

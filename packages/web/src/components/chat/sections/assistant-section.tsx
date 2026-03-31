@@ -26,7 +26,7 @@ export const AssistantSection = memo(function AssistantSection({
   currentReasoningHeading,
 }: AssistantSectionProps) {
   return (
-    <div className="mt-[18px] flex min-w-0 w-full max-w-full flex-col items-start gap-3">
+    <div className="mt-[18px] flex min-w-0 w-full max-w-full flex-col items-start gap-4">
       {assistantItems.map((item, itemIndex) => {
         if (item.type === "abstracted") {
           return (
