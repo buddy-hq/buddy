@@ -1,5 +1,5 @@
 import { BasicTool } from "../../tools/basic-tool"
-import { Markdown } from "@/components/Markdown"
+import { Markdown } from "@/components/markdown/Markdown"
 import type { ToolPartProps } from "../registry"
 
 export function renderSearchTool({ part, state, defaultOpen, info }: ToolPartProps) {

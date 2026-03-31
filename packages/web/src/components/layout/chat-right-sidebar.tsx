@@ -11,7 +11,7 @@ import {
   CollapsibleTrigger,
 } from "@buddy/ui"
 import { language } from "@/context/language"
-import { Markdown } from "@/components/Markdown"
+import { Markdown } from "@/components/markdown/Markdown"
 import {
   loadCurriculumView,
   loadRuntimeCapabilities,

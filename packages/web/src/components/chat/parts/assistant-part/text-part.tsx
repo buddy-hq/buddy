@@ -1,5 +1,5 @@
 import { memo } from "react"
-import { Markdown } from "@/components/Markdown"
+import { Markdown } from "@/components/markdown/Markdown"
 import { CopyAction } from "../../copy-action"
 import { useAdaptiveStreamingText } from "../../hooks/use-streaming-text"
 import { cn } from "@buddy/ui"

@@ -1,5 +1,5 @@
 import { memo } from "react"
-import { Markdown } from "@/components/Markdown"
+import { Markdown } from "@/components/markdown/Markdown"
 import { useThrottledText } from "../../hooks/use-throttled-text"
 import type { MessagePart } from "@/state/chat-types"
 
