@@ -115,7 +115,7 @@ export function registerE2EInteraction(type: E2EInteractionType): string | undef
 
 export function setE2EMcpStatus(directory: string, name: string, status: E2EMcpStatus) {
   runtimeState.mcp[directory] = {
-    ...(runtimeState.mcp[directory] ?? {}),
+    ...runtimeState.mcp[directory],
     [name]: status,
   }
 }

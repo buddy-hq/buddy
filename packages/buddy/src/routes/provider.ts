@@ -142,7 +142,7 @@ function tryOpenAIConnectionOverride(payload: unknown, connected: boolean) {
     default:
       connected && nextDefaultModelID
         ? {
-            ...(nextDefault ?? {}),
+            ...nextDefault,
             [OPENAI_PROVIDER_ID]: nextDefaultModelID,
           }
         : candidate.default,
