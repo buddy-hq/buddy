@@ -2,7 +2,7 @@ import { measureElement as measureVirtualElement, useVirtualizer } from "@tansta
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Badge, Button, Card, CardContent } from "@buddy/ui"
 import { language } from "@/context/language"
-import { MermaidDiagram } from "@/components/chat/tools/mermaid-diagram"
+import { MermaidDiagram } from "@/components/chat/tools/render/mermaid/mermaid-diagram"
 import { RefreshCwIcon, LayoutTemplateIcon } from "lucide-react"
 import {
   VIRTUAL_MERMAID_CARD_ESTIMATE_PX,

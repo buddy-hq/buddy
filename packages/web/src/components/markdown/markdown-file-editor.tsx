@@ -9,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@buddy/ui"
-import { AlertTriangleIcon, FileTextIcon, PlusIcon } from "lucide-react"
+import { AlertTriangleIcon, PlusIcon } from "lucide-react"
 import type { editor as MonacoEditor } from "monaco-editor"
 import { language } from "@/context/language"
 
