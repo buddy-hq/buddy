@@ -1,8 +1,11 @@
 import { getPlatform } from "../context/platform"
 import { getServerConnection } from "../context/server"
-
-type FetchInput = Parameters<typeof fetch>[0]
-type FetchInit = Parameters<typeof fetch>[1]
+import {
+  type FetchTransport,
+  type FetchTransportInit,
+  type FetchTransportInput,
+  withFetchPreconnect,
+} from "./fetch-transport"
 
 export function resolveServerApiBaseUrl() {
   const server = getServerConnection()
@@ -52,14 +55,14 @@ function toRelativeUrl(url: string, useRelativeTransportUrls: boolean) {
   return url
 }
 
-export function createServerFetchTransport(baseUrl: string) {
+export function createServerFetchTransport(baseUrl: string): FetchTransport {
   const transport = getPlatform().fetch ?? fetch
   const useRelativeTransportUrls =
     baseUrl === "http://localhost/api" &&
     typeof window !== "undefined" &&
     window.location.origin === "null"
 
-  return async (input: FetchInput, init?: FetchInit) => {
+  const wrappedTransport = async (input: FetchTransportInput, init?: FetchTransportInit) => {
     if (typeof input === "string") {
       return transport(toRelativeUrl(input, useRelativeTransportUrls), init)
     }
@@ -88,4 +91,6 @@ export function createServerFetchTransport(baseUrl: string) {
     }
     return transport(input, init)
   }
+
+  return withFetchPreconnect(wrappedTransport, transport)
 }
