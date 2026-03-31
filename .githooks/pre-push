@@ -15,8 +15,6 @@ resolve_new_ref_range() {
 
   if default_ref="$(git symbolic-ref --quiet refs/remotes/origin/HEAD 2>/dev/null)"; then
     :
-  elif default_ref="$(git symbolic-ref --quiet HEAD 2>/dev/null)"; then
-    :
   elif git rev-parse --verify --quiet refs/heads/main >/dev/null; then
     default_ref="refs/heads/main"
   elif git rev-parse --verify --quiet refs/remotes/origin/main >/dev/null; then

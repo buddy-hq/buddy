@@ -58,7 +58,6 @@ function isNullSha(value: string): boolean {
 function getDefaultBranchRef(): string | null {
   const candidates = [
     ["symbolic-ref", "--quiet", "refs/remotes/origin/HEAD"],
-    ["symbolic-ref", "--quiet", "HEAD"],
     ["rev-parse", "--verify", "--symbolic-full-name", "refs/heads/main"],
     ["rev-parse", "--verify", "--symbolic-full-name", "refs/remotes/origin/main"],
   ] as const

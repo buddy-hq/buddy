@@ -86,7 +86,7 @@ const EMPTY_MENTIONABLE_AGENTS: MentionableAgent[] = []
 const MIN_TRANSCRIPT_SCROLL_DURATION_S = 0.08
 const MAX_TRANSCRIPT_SCROLL_DURATION_S = 0.24
 const TRANSCRIPT_SCROLL_SPEED_PX_PER_S = 1200
-const BUILTIN_LOCAL_SLASH_COMMAND_NAMES = ["new", "persona", "model", "mcp"] as const
+const BUILTIN_LOCAL_SLASH_COMMAND_NAMES = ["new", "mcp"] as const
 const E2E_BACKEND_COMMAND_NAME = "e2e-backend-command"
 
 type DirectoryChatPageControllerProps = {
@@ -385,6 +385,7 @@ export function useDirectoryChatPageController(
       } else {
         navigate({ to: "/chat", replace: true })
       }
+      closingDirectoryRef.current = undefined
       return
     }
 
@@ -417,6 +418,13 @@ export function useDirectoryChatPageController(
         navigate({ to: "/chat", replace: true })
       })
   }, [decodedDirectory, hasRegisteredProject, navigate, setActiveDirectory, validOpenProjects])
+
+  useEffect(() => {
+    const closingDirectory = closingDirectoryRef.current
+    if (!closingDirectory) return
+    if (closingDirectory === decodedDirectory) return
+    closingDirectoryRef.current = undefined
+  }, [decodedDirectory])
 
   useEffect(() => {
     setStickToBottom(true)
@@ -638,7 +646,12 @@ export function useDirectoryChatPageController(
       }
       return
     }
-    if (closedDirectory !== decodedDirectory) return
+    if (closedDirectory !== decodedDirectory) {
+      if (closingDirectoryRef.current === targetDirectory) {
+        closingDirectoryRef.current = undefined
+      }
+      return
+    }
 
     const nextDirectory = useChatStore.getState().openProjects[0]
     if (nextDirectory) {
