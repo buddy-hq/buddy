@@ -11,12 +11,13 @@
   },
   "scripts": {
     "generate": "bun run scripts/generate.ts && tsc -b --force",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.scripts.json --noEmit",
     "build": "tsc -b --force"
   },
   "dependencies": {},
   "devDependencies": {
     "@hey-api/openapi-ts": "0.90.10",
+    "@types/node": "catalog:",
     "hono-openapi": "1.1.2",
     "typescript": "^5.0.0"
   }

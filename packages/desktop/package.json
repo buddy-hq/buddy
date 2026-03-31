@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "prebuild": "bun ./scripts/prebuild.ts",
-    "typecheck": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit",
+    "typecheck": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.scripts.json --noEmit",
     "predev": "bun ./scripts/predev.ts",
     "pretauri": "bun ./scripts/pretauri.ts",
     "prepare:release": "bun ./scripts/prepare.ts",
@@ -38,6 +38,8 @@
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.18",
     "@tauri-apps/cli": "^2",
+    "@types/bun": "catalog:",
+    "@types/node": "catalog:",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "@vitejs/plugin-react": "^4.2.0",
