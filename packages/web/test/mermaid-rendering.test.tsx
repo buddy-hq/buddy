@@ -3,6 +3,7 @@ import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { ChatTranscript } from "../src/components/chat/chat-transcript"
 import type { MessagePart, MessageWithParts } from "../src/state/chat-types"
+import { createFetchStub, seedDirectoryChatState } from "./test-utils"
 
 const ARTIFACT_ID = "a".repeat(64)
 
@@ -180,6 +181,13 @@ describe("mermaid rendering", () => {
   let mermaidRenderCalls: number
   let mermaidBindCalls: number
 
+  function renderTranscript(messages: MessageWithParts[]) {
+    seedDirectoryChatState("/repo", {
+      messages,
+    })
+    root.render(<ChatTranscript directory="/repo" />)
+  }
+
   beforeEach(() => {
     ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
     container = document.createElement("div")
@@ -197,7 +205,7 @@ describe("mermaid rendering", () => {
     originalClipboard = navigator.clipboard
     originalCreateObjectURL = URL.createObjectURL
     originalRevokeObjectURL = URL.revokeObjectURL
-    const mockFetch: typeof fetch = async (input: RequestInfo | URL) => {
+    const mockFetch = createFetchStub(async (input: RequestInfo | URL) => {
       const url =
         typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
       fetchCalls.push(url)
@@ -224,7 +232,7 @@ describe("mermaid rendering", () => {
       }
 
       return new Response("not found", { status: 404 })
-    }
+    })
     globalThis.fetch = mockFetch
 
     Object.defineProperty(navigator, "clipboard", {
@@ -306,7 +314,7 @@ describe("mermaid rendering", () => {
     ]
 
     await act(async () => {
-      root.render(<ChatTranscript messages={messages} directory="/repo" />)
+      renderTranscript(messages)
       await flushEffects(10)
     })
 
@@ -332,7 +340,7 @@ describe("mermaid rendering", () => {
     ]
 
     await act(async () => {
-      root.render(<ChatTranscript messages={messages} directory="/repo" />)
+      renderTranscript(messages)
       await flushEffects(10)
     })
 
@@ -354,7 +362,7 @@ describe("mermaid rendering", () => {
     ]
 
     await act(async () => {
-      root.render(<ChatTranscript messages={messages} directory="/repo" />)
+      renderTranscript(messages)
       await flushEffects(20)
     })
 
@@ -398,7 +406,7 @@ describe("mermaid rendering", () => {
     ]
 
     await act(async () => {
-      root.render(<ChatTranscript messages={messages} directory="/repo" />)
+      renderTranscript(messages)
       await flushEffects(20)
     })
 
@@ -464,7 +472,7 @@ describe("mermaid rendering", () => {
     ]
 
     await act(async () => {
-      root.render(<ChatTranscript messages={messages} directory="/repo" />)
+      renderTranscript(messages)
       await flushEffects(20)
     })
 
@@ -496,7 +504,7 @@ describe("mermaid rendering", () => {
     ]
 
     await act(async () => {
-      root.render(<ChatTranscript messages={messages} directory="/repo" />)
+      renderTranscript(messages)
       await flushEffects(20)
     })
 
@@ -521,7 +529,7 @@ describe("mermaid rendering", () => {
     ]
 
     await act(async () => {
-      root.render(<ChatTranscript messages={messages} directory="/repo" />)
+      renderTranscript(messages)
       await flushEffects(20)
     })
 
@@ -544,7 +552,7 @@ describe("mermaid rendering", () => {
     ]
 
     await act(async () => {
-      root.render(<ChatTranscript messages={messages} directory="/repo" />)
+      renderTranscript(messages)
       await flushEffects(20)
     })
 
@@ -566,7 +574,7 @@ describe("mermaid rendering", () => {
     ]
 
     await act(async () => {
-      root.render(<ChatTranscript messages={messages} directory="/repo" />)
+      renderTranscript(messages)
       await flushEffects(20)
     })
 
@@ -593,7 +601,7 @@ describe("mermaid rendering", () => {
     ]
 
     await act(async () => {
-      root.render(<ChatTranscript messages={messages} directory="/repo" />)
+      renderTranscript(messages)
       await flushEffects(20)
     })
 
@@ -622,7 +630,7 @@ describe("mermaid rendering", () => {
     ]
 
     await act(async () => {
-      root.render(<ChatTranscript messages={messages} directory="/repo" />)
+      renderTranscript(messages)
       await flushEffects(20)
     })
 
@@ -635,40 +643,30 @@ describe("mermaid rendering", () => {
     const cacheArtifactID = "b".repeat(64)
 
     await act(async () => {
-      root.render(
-        <ChatTranscript
-          messages={[
-            userMessage("first render"),
-            assistantMessage([
-              mermaidToolPart({
-                artifactID: cacheArtifactID,
-                source,
-                partID: "prt_tool_mermaid_first",
-              }),
-            ]),
-          ]}
-          directory="/repo"
-        />,
-      )
+      renderTranscript([
+        userMessage("first render"),
+        assistantMessage([
+          mermaidToolPart({
+            artifactID: cacheArtifactID,
+            source,
+            partID: "prt_tool_mermaid_first",
+          }),
+        ]),
+      ])
       await flushEffects(20)
     })
 
     await act(async () => {
-      root.render(
-        <ChatTranscript
-          messages={[
-            userMessage("second render"),
-            assistantMessage([
-              mermaidToolPart({
-                artifactID: cacheArtifactID,
-                source,
-                partID: "prt_tool_mermaid_second",
-              }),
-            ]),
-          ]}
-          directory="/repo"
-        />,
-      )
+      renderTranscript([
+        userMessage("second render"),
+        assistantMessage([
+          mermaidToolPart({
+            artifactID: cacheArtifactID,
+            source,
+            partID: "prt_tool_mermaid_second",
+          }),
+        ]),
+      ])
       await flushEffects(20)
     })
 

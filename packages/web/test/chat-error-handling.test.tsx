@@ -4,6 +4,7 @@ import { createRoot, type Root } from "react-dom/client"
 import { ChatTranscript } from "../src/components/chat/chat-transcript"
 import { HiddenSteps } from "../src/components/chat/tools/hidden-steps"
 import type { MessagePart, MessageWithParts } from "../src/state/chat-types"
+import { seedDirectoryChatState } from "./test-utils"
 
 async function flushEffects(delay = 0) {
   await Promise.resolve()
@@ -134,25 +135,28 @@ describe("chat error handling", () => {
       await flushEffects()
     })
     container.remove()
-    globalThis.ResizeObserver = originalResizeObserver
+    if (originalResizeObserver) {
+      globalThis.ResizeObserver = originalResizeObserver
+    } else {
+      Reflect.deleteProperty(globalThis, "ResizeObserver")
+    }
     ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = undefined
   })
 
   test("renders assistant errors as accessible alerts", async () => {
     await act(async () => {
-      root.render(
-        <ChatTranscript
-          messages={[
-            userMessage(),
-            assistantMessage({
-              error: {
-                name: "UpstreamError",
-                message: "Request failed.",
-              },
-            }),
-          ]}
-        />,
-      )
+      seedDirectoryChatState("/repo", {
+        messages: [
+          userMessage(),
+          assistantMessage({
+            error: {
+              name: "UpstreamError",
+              message: "Request failed.",
+            },
+          }),
+        ],
+      })
+      root.render(<ChatTranscript directory="/repo" />)
       await flushEffects()
     })
 
@@ -163,8 +167,13 @@ describe("chat error handling", () => {
   })
 
   test("uses the shared abstracted thinking placeholder while the assistant is busy", async () => {
+    seedDirectoryChatState("/repo", {
+      messages: [userMessage()],
+      isBusy: true,
+    })
+
     await act(async () => {
-      root.render(<ChatTranscript messages={[userMessage()]} isBusy />)
+      root.render(<ChatTranscript directory="/repo" />)
       await flushEffects()
     })
 
