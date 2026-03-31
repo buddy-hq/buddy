@@ -16,10 +16,10 @@ const meta: Meta<typeof Carousel> = {
   render: (args) => (
     <Carousel {...args}>
       <CarouselContent>
-        {Array.from({ length: 5 }).map((_, index) => (
-          <CarouselItem key={index}>
+        {Array.from({ length: 5 }).map((_, i) => (
+          <CarouselItem key={crypto.randomUUID()}>
             <div className="flex aspect-square items-center justify-center rounded border bg-card p-6">
-              <span className="font-semibold text-4xl">{index + 1}</span>
+              <span className="font-semibold text-4xl">{i + 1}</span>
             </div>
           </CarouselItem>
         ))}
@@ -49,10 +49,10 @@ export const Size: Story = {
   render: (args) => (
     <Carousel {...args} className="mx-12 w-full max-w-xs">
       <CarouselContent>
-        {Array.from({ length: 5 }).map((_, index) => (
-          <CarouselItem key={index} className="basis-1/3">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <CarouselItem key={crypto.randomUUID()} className="basis-1/3">
             <div className="flex aspect-square items-center justify-center rounded border bg-card p-6">
-              <span className="font-semibold text-4xl">{index + 1}</span>
+              <span className="font-semibold text-4xl">{i + 1}</span>
             </div>
           </CarouselItem>
         ))}
@@ -61,9 +61,6 @@ export const Size: Story = {
       <CarouselNext />
     </Carousel>
   ),
-  args: {
-    className: "mx-12 w-full max-w-xs",
-  },
 }
 
 export const ShouldNavigate: Story = {
