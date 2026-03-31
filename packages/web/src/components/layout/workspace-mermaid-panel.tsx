@@ -14,6 +14,7 @@ import {
   loadWorkspaceMermaidArtifacts,
   type WorkspaceMermaidArtifactView,
 } from "@/state/chat-actions"
+import { useChatStore } from "@/state/chat-store"
 
 function artifactLabel(count: number): string {
   return `${count} diagram${count === 1 ? "" : "s"}`
@@ -93,6 +94,22 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
       disposed = true
     }
   }, [loadArtifacts])
+
+  useEffect(() => {
+    let prevBusy = useChatStore.getState().directories[props.directory]?.isBusy ?? false
+
+    const unsubscribe = useChatStore.subscribe((state) => {
+      const currDir = state.directories[props.directory]
+      const currBusy = currDir?.isBusy ?? false
+
+      if (prevBusy && !currBusy) {
+        void loadArtifacts()
+      }
+      prevBusy = currBusy
+    })
+
+    return () => unsubscribe()
+  }, [props.directory, loadArtifacts])
 
   return (
     <div data-component="workspace-mermaid-panel" className="flex min-h-0 flex-1 flex-col p-3">
