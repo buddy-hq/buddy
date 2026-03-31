@@ -1,6 +1,6 @@
 import { memo } from "react"
 import { Markdown } from "@/components/Markdown"
-import { useThrottledText } from "../../shared/hooks"
+import { useThrottledText } from "../../shared/use-throttled-text"
 import type { MessagePart } from "@/state/chat-types"
 
 interface ReasoningPartProps {

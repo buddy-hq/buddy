@@ -8,7 +8,7 @@ import {
   cn,
 } from "@buddy/ui"
 
-import { useThrottledText } from "../shared/hooks"
+import { useThrottledText } from "../shared/use-throttled-text"
 import { parseToolState } from "../tools/parse-tool-state"
 import { getToolInfo } from "../tools/tool-info"
 import type { ToolInfo, ToolState } from "../tools/types"

@@ -1,7 +1,7 @@
 import { memo } from "react"
 import { Markdown } from "@/components/Markdown"
 import { CopyAction } from "../../shared/copy-action"
-import { useAdaptiveStreamingText } from "../../shared/hooks"
+import { useAdaptiveStreamingText } from "../../shared/use-streaming-text"
 import { cn } from "@buddy/ui"
 import type { MessagePart } from "@/state/chat-types"
 
