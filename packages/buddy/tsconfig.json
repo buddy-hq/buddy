@@ -9,5 +9,12 @@
     "allowImportingTsExtensions": true,
     "types": ["bun"]
   },
-  "include": ["src/**/*", "script/**/*", "test/**/*", "test-typings.ts", "../../docs/config"]
+  "include": [
+    "src/**/*",
+    "script/**/*",
+    "test/**/*",
+    "test-typings.ts",
+    "drizzle.config.ts",
+    "../../docs/config"
+  ]
 }

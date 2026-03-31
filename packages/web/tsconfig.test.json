@@ -1,0 +1,24 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+    "moduleResolution": "bundler",
+    "composite": false,
+    "noEmit": true,
+    "types": ["bun", "vite/client"]
+  },
+  "include": [
+    "test/markdown-parser.test.ts",
+    "happydom.ts",
+    "playwright.config.ts",
+    "scripts/**/*.ts",
+    "e2e/**/*.ts"
+  ],
+  "references": [{ "path": "../sdk" }]
+}
