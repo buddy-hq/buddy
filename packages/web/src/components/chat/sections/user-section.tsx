@@ -1,9 +1,18 @@
 import { memo, useMemo } from "react"
-import type { MessageWithParts, ProviderInfo } from "@/state/chat-types"
+import type { MessagePart } from "@/state/chat-types"
 import { FileAttachmentPart } from "../parts/file-attachment"
 import { UserMessagePart } from "../parts/user-message"
-import { isAttachmentFilePart } from "../shared/highlighted-text"
+
 import type { UserSectionProps } from "../types"
+
+function isAttachmentFilePart(part: MessagePart) {
+  if (part.type !== "file") return false
+
+  const mime = typeof part.mime === "string" ? part.mime : undefined
+  if (!mime) return false
+
+  return mime.startsWith("image/") || mime === "application/pdf"
+}
 
 export const UserSection = memo(function UserSection({
   userMessage,

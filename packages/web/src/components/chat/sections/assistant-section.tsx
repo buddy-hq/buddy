@@ -1,11 +1,11 @@
 import { memo } from "react"
-import { AbstractedThinkingPlaceholder } from "../shared/abstracted-tool-group"
-import { AbstractedToolGroup } from "../shared/abstracted-tool-group"
-import { AssistantPartRenderer } from "../parts/assistant-part"
+import { AbstractedThinkingPlaceholder } from "../tools/abstracted-tool-group"
+import { AbstractedToolGroup } from "../tools/abstracted-tool-group"
+import { AssistantPartRenderer } from "../parts/assistant-part/assistant-part"
 import { parseToolState } from "../tools/parse-tool-state"
 import { parseRenderFigureOutput } from "../tools/render/render-figure"
-import { parseRenderMermaidOutput } from "../tools/render/render-mermaid"
-import { toolDefaultOpen } from "../utils"
+import { parseRenderMermaidOutput } from "../tools/render/mermaid"
+import { toolDefaultOpen } from "../utils/constants"
 import type { AssistantSectionProps } from "../types"
 
 export const AssistantSection = memo(function AssistantSection({

@@ -1,12 +1,12 @@
 import { memo, useMemo } from "react"
 
-import { formatMessageError, isMessageAbortError } from "./utils"
-import { useAssistantDerivedState } from "./use-assistant-derived-state"
-import { useAssistantMeta } from "./use-assistant-meta"
+import { formatMessageError, isMessageAbortError } from "./utils/error"
+import { useAssistantDerivedState } from "./hooks/use-assistant-derived-state"
+import { useAssistantMeta } from "./hooks/use-assistant-meta"
 import { UserSection } from "./sections/user-section"
 import { AssistantSection } from "./sections/assistant-section"
 import { MessageDivider } from "./parts/assistant-part/message-divider"
-import { AssistantErrorCard } from "./shared/assistant-error-card"
+import { AssistantErrorCard } from "./assistant-error-card"
 import type { TurnRendererProps } from "./types"
 
 export function areTurnRendererPropsEqual(

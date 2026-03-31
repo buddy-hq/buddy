@@ -1,9 +1,9 @@
 import { memo } from "react"
-import { GenericTool, BuddyCustomTool } from "../../tools"
+import { GenericTool, BuddyCustomTool } from "../../tools/tools"
 import { getToolRenderer, isContextTool, HIDDEN_TOOLS } from "../../tools/registry"
 import { parseToolState } from "../../tools/parse-tool-state"
 import { getToolInfo } from "../../tools/tool-info"
-import { isBuddyCustomTool } from "../../shared/utils"
+import { isBuddyCustomTool } from "../../utils/tool"
 import type { MessagePart } from "@/state/chat-types"
 import type { ToolPartProps } from "../../tools/registry"
 
