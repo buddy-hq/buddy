@@ -1,8 +1,9 @@
 import { useMemo } from "react"
+import { useShallow } from "zustand/react/shallow"
 import { useChatStore } from "@/state/chat-store"
 import { useUiPreferences } from "@/state/ui-preferences"
-import { useTeachingRuntime, teachingSessionKey } from "@/state/teaching-runtime"
-import { usePromptStore, getPromptDraft, getPromptScopeKey } from "@/state/prompt-store"
+import { useTeachingRuntime, teachingSelectionKey } from "@/state/teaching-runtime"
+import { usePromptStore, getPromptScopeKey } from "@/state/prompt-store"
 import { getSessionFamily } from "../session-family"
 import { modelSelectionKey, parseConfiguredModel } from "./chat-prompt-helpers"
 import type { SessionInfo } from "@/state/chat-types"
@@ -16,34 +17,6 @@ const EMPTY_LIST: never[] = []
 const EMPTY_RECORD: Record<string, never> = {}
 const EMPTY_SESSIONS: SessionInfo[] = []
 const EMPTY_SESSION_STATUS: Record<string, "busy" | "idle"> = {}
-
-type SidebarDirectoryCollections = {
-  sessionsByDirectory: Record<string, SessionInfo[]>
-  sessionStatusByDirectory: Record<string, Record<string, "busy" | "idle">>
-}
-
-function areRecordReferencesEqual<T>(left: Record<string, T>, right: Record<string, T>) {
-  const leftKeys = Object.keys(left)
-  const rightKeys = Object.keys(right)
-  if (leftKeys.length !== rightKeys.length) return false
-
-  for (const key of leftKeys) {
-    if (!(key in right)) return false
-    if (left[key] !== right[key]) return false
-  }
-
-  return true
-}
-
-function areSidebarDirectoryCollectionsEqual(
-  left: SidebarDirectoryCollections,
-  right: SidebarDirectoryCollections,
-) {
-  return (
-    areRecordReferencesEqual(left.sessionsByDirectory, right.sessionsByDirectory) &&
-    areRecordReferencesEqual(left.sessionStatusByDirectory, right.sessionStatusByDirectory)
-  )
-}
 
 function isSidebarSurface(value: string): value is PersonaConfigOption["surfaces"][number] {
   return value === "curriculum" || value === "editor" || value === "figure"
@@ -66,7 +39,7 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
   const { decodedDirectory } = props
 
   // ── Chat store ─────────────────────────────────────────────────────────────
-  const openProjects = useChatStore((state) => state.openProjects)
+  const openProjects = useChatStore(useShallow((state) => state.openProjects))
   const streamStatus = useChatStore((state) => state.streamStatus)
   const directoryState = useChatStore((state) =>
     decodedDirectory ? state.directories[decodedDirectory] : undefined,
@@ -114,7 +87,6 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
     () => getPromptScopeKey(decodedDirectory, sessionID),
     [decodedDirectory, sessionID],
   )
-  const draftState = usePromptStore((state) => getPromptDraft(state, promptKey))
   const setPromptDraft = usePromptStore((state) => state.replaceDraft)
   const clearPromptDraft = usePromptStore((state) => state.clearDraft)
   const migrateWorkspaceDraft = usePromptStore((state) => state.migrateWorkspaceDraft)
@@ -129,21 +101,25 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
     () => !!decodedDirectory && validOpenProjects.includes(decodedDirectory),
     [decodedDirectory, validOpenProjects],
   )
-  const { sessionsByDirectory, sessionStatusByDirectory } = useChatStore((state) => {
-    const next: SidebarDirectoryCollections = {
-      sessionsByDirectory: {},
-      sessionStatusByDirectory: {},
-    }
+  const sessionsByDirectory = useChatStore(
+    useShallow((state) => {
+      const result: Record<string, SessionInfo[]> = {}
+      for (const directory of validOpenProjects) {
+        result[directory] = state.directories[directory]?.sessions ?? EMPTY_SESSIONS
+      }
+      return result
+    }),
+  )
 
-    for (const directory of validOpenProjects) {
-      const directoryState = state.directories[directory]
-      next.sessionsByDirectory[directory] = directoryState?.sessions ?? EMPTY_SESSIONS
-      next.sessionStatusByDirectory[directory] =
-        directoryState?.sessionStatusByID ?? EMPTY_SESSION_STATUS
-    }
-
-    return next
-  }, areSidebarDirectoryCollectionsEqual)
+  const sessionStatusByDirectory = useChatStore(
+    useShallow((state) => {
+      const result: Record<string, Record<string, "busy" | "idle">> = {}
+      for (const directory of validOpenProjects) {
+        result[directory] = state.directories[directory]?.sessionStatusByID ?? EMPTY_SESSION_STATUS
+      }
+      return result
+    }),
+  )
   const sessions = directoryState?.sessions ?? EMPTY_LIST
   const sessionFamily = useMemo(() => getSessionFamily(sessions, sessionID), [sessionID, sessions])
   const sessionTitle = sessionFamily.current?.title ?? directoryState?.sessionTitle ?? "New thread"
@@ -270,7 +246,7 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
   )
   const sidebarDirectories = validOpenProjects
   const sessionKey = useMemo(
-    () => (decodedDirectory && sessionID ? teachingSessionKey(decodedDirectory, sessionID) : ""),
+    () => (decodedDirectory ? teachingSelectionKey(decodedDirectory, sessionID) : ""),
     [decodedDirectory, sessionID],
   )
   const storedPersona = sessionKey
@@ -354,7 +330,6 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
     // Session & routing
     sessionID,
     promptKey,
-    draftState,
     sessionTitle,
     parentSession,
     sessions,

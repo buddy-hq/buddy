@@ -60,7 +60,10 @@ export function OnboardingSetup(props: OnboardingSetupProps) {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background-base px-6 py-20 text-text-base">
       {props.busyChoice === "chatgpt_plus" && (
-        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background-base/80 backdrop-blur-sm animate-in fade-in duration-300">
+        <div
+          data-component="onboarding-auth-modal"
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background-base/80 backdrop-blur-sm animate-in fade-in duration-300"
+        >
           <div className="flex w-full max-w-sm flex-col items-center text-center bg-surface-base border border-border-base p-8 rounded-3xl shadow-xl">
             <div className="flex size-14 items-center justify-center rounded-2xl bg-emerald-500/10 mb-6 border border-emerald-500/20">
               <OpenAIIcon className="size-6 text-emerald-500 animate-pulse" />
@@ -86,6 +89,7 @@ export function OnboardingSetup(props: OnboardingSetupProps) {
               {content.chatGptModal.waitingLabel}
             </div>
             <Button
+              data-action="onboarding-cancel-auth"
               variant="outline"
               className="mt-8 w-full rounded-xl hover:bg-surface-raised-base hover:text-text-strong transition-all"
               onClick={props.onCancelAuth}
@@ -96,7 +100,7 @@ export function OnboardingSetup(props: OnboardingSetupProps) {
         </div>
       )}
 
-      <div className="flex w-full max-w-[440px] flex-col gap-12">
+      <div data-component="onboarding-setup" className="flex w-full max-w-[440px] flex-col gap-12">
         <div className="mb-4 flex items-center gap-6 text-left">
           <img
             src="/buddy-icon.png"
@@ -133,6 +137,7 @@ export function OnboardingSetup(props: OnboardingSetupProps) {
           <div className="space-y-4">
             <button
               type="button"
+              data-action="onboarding-select-chatgpt-plus"
               onClick={() => props.onChoose("chatgpt_plus")}
               disabled={Boolean(props.busyChoice)}
               className={cn(
@@ -169,6 +174,7 @@ export function OnboardingSetup(props: OnboardingSetupProps) {
             {!isChatGptConnected ? (
               <button
                 type="button"
+                data-action="onboarding-select-free-models"
                 onClick={() => props.onChoose("free_models")}
                 disabled={Boolean(props.busyChoice)}
                 className={cn(
@@ -217,6 +223,7 @@ export function OnboardingSetup(props: OnboardingSetupProps) {
 
           <Button
             type="button"
+            data-action="onboarding-pick-folder"
             onClick={props.onPickFolder}
             disabled={props.folderBusy || !hasProvider}
             size="lg"

@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react"
+import { useEffect, useRef } from "react"
 import Editor, { type OnMount } from "@monaco-editor/react"
 import type { editor as MonacoEditor } from "monaco-editor"
 import { Button } from "@buddy/ui"
@@ -7,10 +7,18 @@ import type {
   TeachingDiagnostic,
   TeachingLanguage,
   TeachingSelection,
-  TeachingWorkspaceFile,
   TeachingWorkspaceState,
 } from "@/state/teaching-runtime"
 import { TEACHING_LANGUAGE_OPTIONS, teachingMonacoLanguage } from "@/state/teaching-runtime"
+import {
+  VIRTUAL_DEFAULT_OVERSCAN,
+  VIRTUAL_TEACHING_DIAGNOSTIC_MIN_ITEMS,
+  VIRTUAL_TEACHING_DIAGNOSTIC_ROW_ESTIMATE_PX,
+  VIRTUAL_TEACHING_FILE_MIN_ITEMS,
+  VIRTUAL_TEACHING_FILE_ROW_ESTIMATE_PX,
+} from "@/components/virtualization/virtualization-defaults"
+import { VirtualizedRows } from "@/components/virtualization/virtualized-rows"
+import { buildFileTree, flattenFileTree, type TeachingFileTreeRow } from "./teaching-editor-tree"
 
 type TeachingEditorPanelProps = {
   workspace: TeachingWorkspaceState
@@ -27,56 +35,6 @@ type TeachingEditorPanelProps = {
   className?: string
 }
 
-type TeachingFileTreeNode =
-  | {
-      type: "directory"
-      key: string
-      name: string
-      children: TeachingFileTreeNode[]
-    }
-  | {
-      type: "file"
-      key: string
-      name: string
-      file: TeachingWorkspaceFile
-    }
-
-type TeachingFileTreeBucket = {
-  directories: Map<string, TeachingFileTreeBucket>
-  files: TeachingWorkspaceFile[]
-}
-
-function fileTreeNodesFromBucket(
-  bucket: TeachingFileTreeBucket,
-  prefix = "",
-): TeachingFileTreeNode[] {
-  const directoryNodes = Array.from(bucket.directories.entries())
-    .toSorted(([left], [right]) => left.localeCompare(right))
-    .map(([segment, child]) => {
-      const key = prefix ? `${prefix}/${segment}` : segment
-      return {
-        type: "directory" as const,
-        key,
-        name: segment,
-        children: fileTreeNodesFromBucket(child, key),
-      }
-    })
-
-  const fileNodes = [...bucket.files]
-    .toSorted((left, right) => left.relativePath.localeCompare(right.relativePath))
-    .map((file) => {
-      const segments = file.relativePath.split("/")
-      return {
-        type: "file" as const,
-        key: file.relativePath,
-        name: segments[segments.length - 1] ?? file.relativePath,
-        file,
-      }
-    })
-
-  return [...directoryNodes, ...fileNodes]
-}
-
 function selectionFromEditor(
   editor: MonacoEditor.IStandaloneCodeEditor,
 ): TeachingSelection | undefined {
@@ -89,40 +47,6 @@ function selectionFromEditor(
     selectionEndLine: selection.endLineNumber,
     selectionEndColumn: selection.endColumn,
   }
-}
-
-function buildFileTree(files: TeachingWorkspaceFile[]): TeachingFileTreeNode[] {
-  const root: TeachingFileTreeBucket = {
-    directories: new Map(),
-    files: [],
-  }
-
-  function ensureDirectory(bucket: TeachingFileTreeBucket, segment: string) {
-    const existing = bucket.directories.get(segment)
-    if (existing) return existing
-
-    const created: TeachingFileTreeBucket = {
-      directories: new Map(),
-      files: [],
-    }
-    bucket.directories.set(segment, created)
-    return created
-  }
-
-  for (const file of files) {
-    const segments = file.relativePath.split("/").filter(Boolean)
-    if (segments.length === 0) continue
-
-    let bucket = root
-
-    for (let index = 0; index < segments.length - 1; index += 1) {
-      bucket = ensureDirectory(bucket, segments[index]!)
-    }
-
-    bucket.files.push(file)
-  }
-
-  return fileTreeNodesFromBucket(root)
 }
 
 function toMonacoSeverity(
@@ -144,6 +68,8 @@ function toMonacoSeverity(
 export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
   const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null)
   const monacoRef = useRef<typeof import("monaco-editor") | null>(null)
+  const diagnosticsListRef = useRef<HTMLDivElement>(null)
+  const fileTreeListRef = useRef<HTMLDivElement>(null)
   const rootClassName = [
     "flex min-h-0 flex-1 flex-col border-t bg-surface-raised-base/60 lg:border-t-0 lg:border-l",
     props.className,
@@ -200,42 +126,56 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
     }
   }, [props.workspace.diagnostics, props.workspace.lessonFilePath])
 
-  const status = props.workspace.conflict
-    ? language.t("teaching.editor.conflict")
+  const saveStatusState = props.workspace.conflict
+    ? "conflict"
     : props.workspace.pendingSave
-      ? language.t("common.saving")
+      ? "saving"
       : props.workspace.saveError
-        ? language.t("teaching.editor.saveFailed")
+        ? "save-error"
         : props.workspace.code === props.workspace.savedCode
-          ? language.t("teaching.editor.saved")
-          : language.t("teaching.editor.unsaved")
+          ? "saved"
+          : "unsaved"
+  const status =
+    saveStatusState === "conflict"
+      ? language.t("teaching.editor.conflict")
+      : saveStatusState === "saving"
+        ? language.t("common.saving")
+        : saveStatusState === "save-error"
+          ? language.t("teaching.editor.saveFailed")
+          : saveStatusState === "saved"
+            ? language.t("teaching.editor.saved")
+            : language.t("teaching.editor.unsaved")
   const fileTree = buildFileTree(props.workspace.files)
+  const fileTreeRows = flattenFileTree(fileTree)
 
-  function renderTree(nodes: TeachingFileTreeNode[], depth = 0): ReactNode {
-    return nodes.map((node) => {
-      const paddingLeft = `${depth * 14 + 10}px`
+  function renderFileTreeRow(row: TeachingFileTreeRow, index: number) {
+    const node = row.node
+    const paddingLeft = `${row.depth * 14 + 10}px`
 
-      if (node.type === "directory") {
-        return (
-          <div key={node.key}>
-            <div
-              className="flex items-center gap-2 py-1 text-[11px] font-medium uppercase tracking-wide text-text-weak"
-              style={{ paddingLeft }}
-            >
-              <span className="text-[10px]">/</span>
-              <span className="truncate">{node.name}</span>
-            </div>
-            {renderTree(node.children, depth + 1)}
-          </div>
-        )
-      }
-
-      const isActive = node.file.relativePath === props.workspace.activeRelativePath
-
+    if (node.type === "directory") {
       return (
+        <div
+          className={index === fileTreeRows.length - 1 ? "" : "pb-0.5"}
+          style={{ paddingLeft }}
+          title={node.key}
+        >
+          <div className="flex items-center gap-2 py-1 text-[11px] font-medium uppercase tracking-wide text-text-weak">
+            <span className="text-[10px]">/</span>
+            <span className="truncate">{node.name}</span>
+          </div>
+        </div>
+      )
+    }
+
+    const isActive = node.file.relativePath === props.workspace.activeRelativePath
+
+    return (
+      <div className={index === fileTreeRows.length - 1 ? "" : "pb-0.5"}>
         <button
-          key={node.key}
           type="button"
+          data-action="teaching-select-file"
+          data-relative-path={node.file.relativePath}
+          data-active={isActive ? "true" : "false"}
           onClick={() => props.onSelectFile(node.file.relativePath)}
           className={`flex w-full items-center gap-2 rounded-md py-1.5 pr-2 text-left text-xs ${
             isActive
@@ -250,14 +190,15 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
             {node.file.language}
           </span>
         </button>
-      )
-    })
+      </div>
+    )
   }
 
   return (
-    <section className={rootClassName}>
+    <section data-component="teaching-editor-panel" className={rootClassName}>
       <div className="flex flex-wrap items-center gap-2 border-b px-3 py-2">
         <select
+          data-action="teaching-language"
           className="h-8 rounded-md border bg-background-base px-2 text-xs"
           value={props.workspace.language}
           onChange={(event) => props.onLanguageChange(event.target.value as TeachingLanguage)}
@@ -278,11 +219,16 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
         <span className="rounded-md border bg-background-base px-2 py-1 text-[11px] text-text-weak">
           {language.t("teaching.editor.revisionPrefix")} {props.workspace.revision}
         </span>
-        <span className="rounded-md border bg-background-base px-2 py-1 text-[11px] text-text-weak">
+        <span
+          data-component="teaching-editor-save-status"
+          data-state={saveStatusState}
+          className="rounded-md border bg-background-base px-2 py-1 text-[11px] text-text-weak"
+        >
           {status}
         </span>
 
         <Button
+          data-action="teaching-checkpoint"
           size="sm"
           variant="secondary"
           onClick={props.onCheckpoint}
@@ -292,6 +238,7 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
           {language.t("teaching.editor.acceptStep")}
         </Button>
         <Button
+          data-action="teaching-restore-checkpoint"
           size="sm"
           variant="secondary"
           onClick={props.onRestoreAccepted}
@@ -308,7 +255,7 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
           <Button size="sm" variant="secondary" onClick={props.onLoadExternalChanges}>
             {language.t("teaching.editor.loadExternalChanges")}
           </Button>
-          <Button size="sm" onClick={props.onForceOverwrite}>
+          <Button data-action="teaching-force-overwrite" size="sm" onClick={props.onForceOverwrite}>
             {language.t("teaching.editor.forceOverwrite")}
           </Button>
         </div>
@@ -365,31 +312,67 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
                   {language.t("teaching.editor.noDiagnostics")}
                 </div>
               ) : (
-                <div className="max-h-32 overflow-y-auto px-2 py-2">
-                  <div className="space-y-1">
-                    {props.workspace.diagnostics.map((diagnostic) => (
-                      <div
-                        key={`${diagnostic.startLine}:${diagnostic.startColumn}:${diagnostic.severity}:${diagnostic.message}`}
-                        className="rounded-md border border-border-base/70 bg-background-base px-2 py-1.5 text-xs"
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="rounded border border-border-base/70 px-1 py-0.5 text-[10px] uppercase text-text-weak">
-                            {diagnostic.severity}
-                          </span>
-                          <span className="text-text-weak">
-                            {language.t("teaching.editor.lineColumn", {
-                              line: diagnostic.startLine,
-                              column: diagnostic.startColumn,
-                            })}
-                          </span>
-                          {diagnostic.source ? (
-                            <span className="truncate text-text-weak">{diagnostic.source}</span>
-                          ) : null}
+                <div ref={diagnosticsListRef} className="max-h-32 overflow-y-auto px-2 py-2">
+                  {props.workspace.diagnostics.length >= VIRTUAL_TEACHING_DIAGNOSTIC_MIN_ITEMS ? (
+                    <VirtualizedRows
+                      items={props.workspace.diagnostics}
+                      getItemKey={(diagnostic) =>
+                        `${diagnostic.startLine}:${diagnostic.startColumn}:${diagnostic.severity}:${diagnostic.message}`
+                      }
+                      estimateSize={() => VIRTUAL_TEACHING_DIAGNOSTIC_ROW_ESTIMATE_PX}
+                      getScrollElement={() => diagnosticsListRef.current}
+                      overscan={VIRTUAL_DEFAULT_OVERSCAN}
+                      measure
+                      renderItem={(diagnostic, index) => (
+                        <div
+                          className={index === props.workspace.diagnostics.length - 1 ? "" : "pb-1"}
+                        >
+                          <div className="rounded-md border border-border-base/70 bg-background-base px-2 py-1.5 text-xs">
+                            <div className="flex items-center gap-2">
+                              <span className="rounded border border-border-base/70 px-1 py-0.5 text-[10px] uppercase text-text-weak">
+                                {diagnostic.severity}
+                              </span>
+                              <span className="text-text-weak">
+                                {language.t("teaching.editor.lineColumn", {
+                                  line: diagnostic.startLine,
+                                  column: diagnostic.startColumn,
+                                })}
+                              </span>
+                              {diagnostic.source ? (
+                                <span className="truncate text-text-weak">{diagnostic.source}</span>
+                              ) : null}
+                            </div>
+                            <p className="mt-1 text-text-base">{diagnostic.message}</p>
+                          </div>
                         </div>
-                        <p className="mt-1 text-text-base">{diagnostic.message}</p>
-                      </div>
-                    ))}
-                  </div>
+                      )}
+                    />
+                  ) : (
+                    <div className="space-y-1">
+                      {props.workspace.diagnostics.map((diagnostic) => (
+                        <div
+                          key={`${diagnostic.startLine}:${diagnostic.startColumn}:${diagnostic.severity}:${diagnostic.message}`}
+                          className="rounded-md border border-border-base/70 bg-background-base px-2 py-1.5 text-xs"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="rounded border border-border-base/70 px-1 py-0.5 text-[10px] uppercase text-text-weak">
+                              {diagnostic.severity}
+                            </span>
+                            <span className="text-text-weak">
+                              {language.t("teaching.editor.lineColumn", {
+                                line: diagnostic.startLine,
+                                column: diagnostic.startColumn,
+                              })}
+                            </span>
+                            {diagnostic.source ? (
+                              <span className="truncate text-text-weak">{diagnostic.source}</span>
+                            ) : null}
+                          </div>
+                          <p className="mt-1 text-text-base">{diagnostic.message}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -406,6 +389,7 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
                 </p>
               </div>
               <Button
+                data-action="teaching-create-file"
                 size="sm"
                 variant="secondary"
                 onClick={props.onCreateFile}
@@ -415,9 +399,25 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
               </Button>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
-              {fileTree.length > 0 ? (
-                <div className="space-y-0.5">{renderTree(fileTree)}</div>
+            <div ref={fileTreeListRef} className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
+              {fileTreeRows.length > 0 ? (
+                fileTreeRows.length >= VIRTUAL_TEACHING_FILE_MIN_ITEMS ? (
+                  <VirtualizedRows
+                    items={fileTreeRows}
+                    getItemKey={(row) => row.node.key}
+                    estimateSize={() => VIRTUAL_TEACHING_FILE_ROW_ESTIMATE_PX}
+                    getScrollElement={() => fileTreeListRef.current}
+                    overscan={VIRTUAL_DEFAULT_OVERSCAN}
+                    measure
+                    renderItem={renderFileTreeRow}
+                  />
+                ) : (
+                  <div className="space-y-0.5">
+                    {fileTreeRows.map((row, index) => (
+                      <div key={row.node.key}>{renderFileTreeRow(row, index)}</div>
+                    ))}
+                  </div>
+                )
               ) : (
                 <p className="px-2 py-2 text-xs text-text-weak">
                   {language.t("teaching.editor.noFiles")}

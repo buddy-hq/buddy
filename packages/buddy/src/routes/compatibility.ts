@@ -2,10 +2,13 @@ import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
 import { Command as OpenCodeCommand } from "@buddy/opencode-adapter/command"
+import { File as OpenCodeFile } from "@buddy/opencode-adapter/file"
+import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import {
   routeErrors,
   directoryForbiddenResponse,
   directoryQuerySchema,
+  resolveDirectoryRequestContext,
   withConfigSync,
 } from "../http"
 import { proxyToOpenCode } from "../http"
@@ -87,6 +90,14 @@ export const CompatibilityRoutes = new Hono()
     }),
     validator("query", findFileQuerySchema),
     async (c) => {
+      const directoryContext = resolveDirectoryRequestContext(c)
+      if (!directoryContext.ok) return directoryContext.response
+      await OpenCodeInstance.provide({
+        directory: directoryContext.context.directory,
+        fn: async () => {
+          await OpenCodeFile.init()
+        },
+      }).catch(() => undefined)
       return proxyToOpenCode(c, {
         targetPath: "/find/file",
       })

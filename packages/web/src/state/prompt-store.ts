@@ -1,5 +1,6 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
+import { immer } from "zustand/middleware/immer"
 import {
   createPromptPartsFromValue,
   clonePromptParts,
@@ -72,13 +73,6 @@ export function clonePromptDraft(draft: PromptDraftState): PromptDraftState {
   }
 }
 
-function omitRecordKey<T>(record: Record<string, T>, key: string) {
-  if (!(key in record)) return record
-  const next = { ...record }
-  delete next[key]
-  return next
-}
-
 function isDraftEmpty(draft: PromptDraftState) {
   return !draft.value.trim() && draft.attachments.length === 0 && draft.parts.length === 0
 }
@@ -149,22 +143,20 @@ export function getPromptHistoryNavigation(
 
 export const usePromptStore = create<PromptStore>()(
   persist(
-    (set, get) => ({
-      draftsByKey: {},
-      historyByDirectory: {},
-      historyNavigationByKey: {},
+    immer((set, get) => ({
+      draftsByKey: {} as Record<string, PromptDraftState>,
+      historyByDirectory: {} as Record<string, PromptHistoryEntry[]>,
+      historyNavigationByKey: {} as Record<string, PromptHistoryNavigationState>,
       replaceDraft(key, draft) {
         set((state) => {
           const nextDraft = normalizePromptDraft(draft)
-          const draftsByKey = isDraftEmpty(nextDraft)
-            ? omitRecordKey(state.draftsByKey, key)
-            : pruneDraftEntries({
-                ...state.draftsByKey,
-                [key]: nextDraft,
-              })
-
-          return {
-            draftsByKey,
+          if (isDraftEmpty(nextDraft)) {
+            delete state.draftsByKey[key]
+          } else {
+            state.draftsByKey = pruneDraftEntries({
+              ...state.draftsByKey,
+              [key]: nextDraft,
+            })
           }
         })
       },
@@ -187,34 +179,31 @@ export const usePromptStore = create<PromptStore>()(
         })
       },
       clearDraft(key) {
-        set((state) => ({
-          draftsByKey: omitRecordKey(state.draftsByKey, key),
-          historyNavigationByKey: omitRecordKey(state.historyNavigationByKey, key),
-        }))
+        set((state) => {
+          delete state.draftsByKey[key]
+          delete state.historyNavigationByKey[key]
+        })
       },
       pushHistoryEntry(directory, entry) {
-        set((state) => ({
-          historyByDirectory: {
-            ...state.historyByDirectory,
-            [directory]: prependHistoryEntry(getPromptHistoryEntries(state, directory), entry),
-          },
-        }))
+        set((state) => {
+          state.historyByDirectory[directory] = prependHistoryEntry(
+            state.historyByDirectory[directory] ?? EMPTY_HISTORY_ENTRIES,
+            entry,
+          )
+        })
       },
       setHistoryNavigation(key, input) {
-        set((state) => ({
-          historyNavigationByKey: {
-            ...state.historyNavigationByKey,
-            [key]: {
-              historyIndex: input.historyIndex,
-              savedDraft: input.savedDraft ? clonePromptHistoryEntry(input.savedDraft) : null,
-            },
-          },
-        }))
+        set((state) => {
+          state.historyNavigationByKey[key] = {
+            historyIndex: input.historyIndex,
+            savedDraft: input.savedDraft ? clonePromptHistoryEntry(input.savedDraft) : null,
+          }
+        })
       },
       resetHistoryNavigation(key) {
-        set((state) => ({
-          historyNavigationByKey: omitRecordKey(state.historyNavigationByKey, key),
-        }))
+        set((state) => {
+          delete state.historyNavigationByKey[key]
+        })
       },
       migrateWorkspaceDraft(directory, sessionID) {
         const sourceKey = getPromptScopeKey(directory)
@@ -224,21 +213,21 @@ export const usePromptStore = create<PromptStore>()(
 
         if (isDraftEmpty(source) || !isDraftEmpty(target)) return
 
-        set((state) => ({
-          draftsByKey: pruneDraftEntries({
-            ...omitRecordKey(state.draftsByKey, sourceKey),
-            [targetKey]: {
-              ...clonePromptDraft(source),
-              updatedAt: Date.now(),
-            },
-          }),
-          historyNavigationByKey: omitRecordKey(state.historyNavigationByKey, sourceKey),
-        }))
+        set((state) => {
+          const clonedSource = clonePromptDraft(source)
+          clonedSource.updatedAt = Date.now()
+          delete state.draftsByKey[sourceKey]
+          delete state.historyNavigationByKey[sourceKey]
+          state.draftsByKey = pruneDraftEntries({
+            ...state.draftsByKey,
+            [targetKey]: clonedSource,
+          })
+        })
       },
       removeSessionDraft(key) {
         get().clearDraft(key)
       },
-    }),
+    })),
     {
       name: PROMPT_STORE_STORAGE_KEY,
       version: 1,

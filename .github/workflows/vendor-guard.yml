@@ -25,6 +25,32 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
+          resolve_new_ref_range() {
+            local new_sha="$1"
+            local default_ref=""
+
+            if default_ref="$(git symbolic-ref --quiet refs/remotes/origin/HEAD 2>/dev/null)"; then
+              :
+            elif git rev-parse --verify --quiet refs/heads/main >/dev/null; then
+              default_ref="refs/heads/main"
+            elif git rev-parse --verify --quiet refs/remotes/origin/main >/dev/null; then
+              default_ref="refs/remotes/origin/main"
+            else
+              local empty_tree
+              empty_tree="$(git hash-object -t tree /dev/null)"
+              echo "$empty_tree..$new_sha"
+              return
+            fi
+
+            local merge_base
+            if merge_base="$(git merge-base "$default_ref" "$new_sha" 2>/dev/null)"; then
+              echo "$merge_base..$new_sha"
+            else
+              echo "$default_ref..$new_sha"
+            fi
+          }
+
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             echo "range=${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
             exit 0
@@ -32,8 +58,7 @@ jobs:
 
           before_sha="${{ github.event.before }}"
           if [ "$before_sha" = "0000000000000000000000000000000000000000" ]; then
-            empty_tree="$(git hash-object -t tree /dev/null)"
-            echo "range=$empty_tree..${{ github.sha }}" >> "$GITHUB_OUTPUT"
+            echo "range=$(resolve_new_ref_range "${{ github.sha }}")" >> "$GITHUB_OUTPUT"
           else
             echo "range=$before_sha..${{ github.sha }}" >> "$GITHUB_OUTPUT"
           fi

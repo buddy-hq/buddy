@@ -106,7 +106,7 @@ const COLLAPSED_COUNT = 9
 
 export function ChatLeftSidebarDirectoryList(props: ChatLeftSidebarDirectoryListProps) {
   return (
-    <div className="space-y-1 mt-1">
+    <div data-component="left-sidebar-directory-list" className="space-y-1 mt-1">
       {props.directoryGroups.map((group) => {
         const allSessions = props.sessionsByDirectory[group.directory] ?? []
         const activeRootID = findRootSessionID(allSessions, props.activeSessionID)
@@ -175,6 +175,9 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
   return (
     <Collapsible open={!props.collapsed} onOpenChange={props.onToggleCollapsed} asChild>
       <section
+        data-component="left-sidebar-directory-group"
+        data-directory={props.group.directory}
+        data-current={isCurrentDirectory ? "true" : "false"}
         ref={props.onSectionRef}
         className={`space-y-1 relative transition-opacity duration-150 ${
           isDragging ? "opacity-40" : "opacity-100"
@@ -187,6 +190,8 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
           <CollapsibleTrigger asChild>
             <button
               type="button"
+              data-action="left-sidebar-directory-toggle"
+              data-directory={props.group.directory}
               className={`flex min-w-0 flex-1 items-center gap-1.5 rounded-lg px-2 py-1 text-left text-sm text-text-weaker hover:text-text-base ${
                 isCurrentDirectory ? "" : ""
               } ${canDrag ? "cursor-grab active:cursor-grabbing" : ""}`}
@@ -206,6 +211,8 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
+                  data-action="left-sidebar-directory-menu"
+                  data-directory={props.group.directory}
                   className="inline-flex size-6 items-center justify-center rounded-md text-text-weak transition-colors hover:bg-surface-raised-base-hover hover:text-text-strong"
                   aria-label={language.t("sidebar.optionsForDirectory", {
                     directoryLabel: directoryLabel,
@@ -215,11 +222,17 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-44">
-                <DropdownMenuItem onSelect={props.onOpenNotebook}>
+                <DropdownMenuItem
+                  data-action="left-sidebar-directory-open"
+                  onSelect={props.onOpenNotebook}
+                >
                   <FolderIcon className="size-3.5 mr-2" />
                   {language.t("sidebar.openNotebook")}
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={props.onCloseNotebook}>
+                <DropdownMenuItem
+                  data-action="left-sidebar-directory-close"
+                  onSelect={props.onCloseNotebook}
+                >
                   <XIcon className="size-3.5 mr-2" />
                   {language.t("sidebar.closeNotebook")}
                 </DropdownMenuItem>
@@ -230,6 +243,8 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
               <TooltipTrigger asChild>
                 <button
                   type="button"
+                  data-action="left-sidebar-directory-new-thread"
+                  data-directory={props.group.directory}
                   className="inline-flex size-6 items-center justify-center rounded-md text-text-weak transition-colors hover:bg-surface-raised-base-hover hover:text-text-strong"
                   aria-label={language.t("sidebar.startNewThreadIn", {
                     directoryLabel: directoryLabel,
@@ -309,6 +324,10 @@ function DirectoryThreadRow(props: DirectoryThreadRowProps) {
     >
       <button
         type="button"
+        data-action="left-sidebar-thread-select"
+        data-directory={props.directory}
+        data-session-id={props.session.id}
+        data-active={active ? "true" : "false"}
         onClick={props.onSelect}
         className="relative w-full py-2 pr-3 pl-5 text-left"
       >
@@ -340,6 +359,9 @@ function DirectoryThreadRow(props: DirectoryThreadRowProps) {
           <DropdownMenuTrigger asChild>
             <button
               type="button"
+              data-action="left-sidebar-thread-menu"
+              data-directory={props.directory}
+              data-session-id={props.session.id}
               className="inline-flex size-6 items-center justify-center rounded-md text-text-weak hover:bg-surface-weak/70 hover:text-text-base"
               aria-label={language.t("sidebar.threadOptions")}
               onClick={(event) => event.stopPropagation()}
@@ -348,19 +370,28 @@ function DirectoryThreadRow(props: DirectoryThreadRowProps) {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuItem onSelect={props.onTogglePin}>
+            <DropdownMenuItem data-action="left-sidebar-thread-pin" onSelect={props.onTogglePin}>
               <PinIcon className="mr-2 size-3.5" />
               {pinned ? language.t("sidebar.unpinThread") : language.t("sidebar.pinThread")}
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={props.onRequestRename}>
+            <DropdownMenuItem
+              data-action="left-sidebar-thread-rename"
+              onSelect={props.onRequestRename}
+            >
               <PencilIcon className="mr-2 size-3.5" />
               {language.t("sidebar.renameThreadAction")}
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={props.onRequestArchive}>
+            <DropdownMenuItem
+              data-action="left-sidebar-thread-archive"
+              onSelect={props.onRequestArchive}
+            >
               <ArchiveIcon className="mr-2 size-3.5" />
               {language.t("sidebar.archiveThreadAction")}
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => props.onToggleUnread(!unread)}>
+            <DropdownMenuItem
+              data-action="left-sidebar-thread-unread"
+              onSelect={() => props.onToggleUnread(!unread)}
+            >
               {unread ? language.t("sidebar.markAsRead") : language.t("sidebar.markAsUnread")}
             </DropdownMenuItem>
           </DropdownMenuContent>

@@ -25,7 +25,10 @@ export function InteractiveLessonEmptyState(props: InteractiveLessonEmptyStatePr
   } = props
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col justify-center gap-4 px-6 py-8">
+    <section
+      data-component="interactive-lesson-empty-state"
+      className="flex min-h-0 flex-1 flex-col justify-center gap-4 px-6 py-8"
+    >
       <div className="space-y-2">
         <h2 className="text-sm font-medium">
           {language.t("directoryChat.interactiveLesson.title")}
@@ -40,6 +43,7 @@ export function InteractiveLessonEmptyState(props: InteractiveLessonEmptyStatePr
           {language.t("directoryChat.interactiveLesson.language")}
         </label>
         <select
+          data-action="interactive-lesson-language"
           id="interactive-language"
           className="h-8 rounded-md border bg-background-base px-2 text-xs"
           value={preferredLanguage}
@@ -58,6 +62,7 @@ export function InteractiveLessonEmptyState(props: InteractiveLessonEmptyStatePr
           ))}
         </select>
         <Button
+          data-action="interactive-lesson-start"
           size="sm"
           onClick={onStartInteractiveLesson}
           disabled={!canStartInteractiveLesson || isBusy || isStartingInteractiveLesson}

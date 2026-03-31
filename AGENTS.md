@@ -2,6 +2,7 @@
 - Buddy is a Bun + TypeScript monorepo managed with Turborepo.
 - It is single-user and single-machine by design: one OS user, one home-directory state, one active config/credential/session set, with no built-in multi-user accounts, profiles, or permissions.
 - Buddy is local-first: the main agent loop usually runs locally on the host that launched it. It is not strictly local-only, and may expose server/client or remote-agent surfaces or use the network beyond LLM calls, web search, MCP, and third-party APIs, including for auth, remote config/admin policy, and remote subagent/client connections.
+
 ## Task Completion Requirements
 - All of `bun fmt`, `bun lint`, and `bun typecheck` must pass before considering tasks completed.
 ## Breaking Changes & Backward Compatibility
@@ -79,7 +80,7 @@ Build Buddy core by executing vendored OpenCode core, not by re-implementing it.
 - Ignored build artifacts: `dist/`, `.turbo/`, `*.tsbuildinfo`, `*.log`
 
 ## Buddy Architectural Concepts
-- Core vocabulary lives in `buddy/packages/buddy/src/learning/shared/teaching-vocabulary.ts`.
+- Core vocabulary lives in `packages/buddy/src/learning/shared/teaching-vocabulary.ts`.
 - **Persona**: the core Buddy agent.
 - **Intent**: selects a persona’s capabilities for a single turn (for teaching, e.g. `learn`, `assess`, `practice`, `auto`).
 - Capabilities come in three forms:

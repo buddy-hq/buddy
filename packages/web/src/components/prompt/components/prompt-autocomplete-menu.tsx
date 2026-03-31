@@ -21,7 +21,10 @@ export function PromptAutocompleteMenu(props: PromptAutocompleteMenuProps) {
   }
 
   return (
-    <div className="absolute inset-x-2 bottom-16 z-20 max-h-80 overflow-y-auto rounded-xl border bg-surface-raised-stronger-non-alpha/95 shadow-lg backdrop-blur">
+    <div
+      data-component="prompt-autocomplete-menu"
+      className="absolute inset-x-2 bottom-16 z-20 max-h-80 overflow-y-auto rounded-xl border bg-surface-raised-stronger-non-alpha/95 shadow-lg backdrop-blur"
+    >
       {props.slashVisible ? (
         props.slashOptions.map((command, index) => {
           const active = index === props.slashIndex
@@ -29,6 +32,9 @@ export function PromptAutocompleteMenu(props: PromptAutocompleteMenuProps) {
             <button
               key={`${command.type}:${command.name}`}
               type="button"
+              data-component="prompt-slash-option"
+              data-key={command.name}
+              data-active={active ? "true" : "false"}
               className={cn(
                 "flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors",
                 active
@@ -65,10 +71,14 @@ export function PromptAutocompleteMenu(props: PromptAutocompleteMenuProps) {
           ) : null}
           {props.mentionOptions.map((option, index) => {
             const active = index === props.mentionIndex
+            const key = option.type === "agent" ? `agent:${option.name}` : `file:${option.path}`
             return (
               <button
-                key={option.type === "agent" ? `agent:${option.name}` : `file:${option.path}`}
+                key={key}
                 type="button"
+                data-component="prompt-mention-option"
+                data-key={key}
+                data-active={active ? "true" : "false"}
                 className={cn(
                   "flex w-full flex-col gap-0.5 px-3 py-2 text-left text-sm transition-colors",
                   active

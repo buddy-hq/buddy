@@ -7,6 +7,12 @@ const VENDOR_PREFIX = "vendor/opencode/"
 
 type Mode = { kind: "staged" } | { kind: "range"; range: string } | { kind: "stdin" }
 
+type RefUpdate = {
+  oldSha: string
+  newSha: string
+  refName: string
+}
+
 function parseMode(argv: string[]): Mode {
   if (argv.length === 0) return { kind: "staged" }
 
@@ -27,6 +33,93 @@ function parseMode(argv: string[]): Mode {
   )
 }
 
+function gitOutput(args: string[]): string {
+  return execFileSync("git", args, { encoding: "utf8" }).trim()
+}
+
+function gitChangedFilesForRange(range: string): string[] {
+  const output = execFileSync("git", ["diff", "--name-only", "--diff-filter=ACMR", range], {
+    encoding: "utf8",
+  })
+  return output
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+}
+
+function isGitSha(value: string): boolean {
+  return /^[0-9a-f]{40,64}$/i.test(value)
+}
+
+function isNullSha(value: string): boolean {
+  return /^0{40,64}$/.test(value)
+}
+
+function getDefaultBranchRef(): string | null {
+  const candidates = [
+    ["symbolic-ref", "--quiet", "refs/remotes/origin/HEAD"],
+    ["rev-parse", "--verify", "--symbolic-full-name", "refs/heads/main"],
+    ["rev-parse", "--verify", "--symbolic-full-name", "refs/remotes/origin/main"],
+  ] as const
+
+  for (const args of candidates) {
+    try {
+      const output = gitOutput([...args])
+      if (output.length > 0) return output
+    } catch {
+      continue
+    }
+  }
+
+  return null
+}
+
+function getEmptyTreeSha(): string {
+  return gitOutput(["hash-object", "-t", "tree", "/dev/null"])
+}
+
+function getChangedFilesForNewRef(newSha: string): string[] {
+  const defaultBranchRef = getDefaultBranchRef()
+  if (!defaultBranchRef) {
+    return gitChangedFilesForRange(`${getEmptyTreeSha()}..${newSha}`)
+  }
+
+  try {
+    const mergeBase = gitOutput(["merge-base", defaultBranchRef, newSha])
+    return gitChangedFilesForRange(`${mergeBase}..${newSha}`)
+  } catch {
+    return gitChangedFilesForRange(`${defaultBranchRef}..${newSha}`)
+  }
+}
+
+function parseRefUpdate(line: string): RefUpdate | null {
+  const parts = line.trim().split(/\s+/)
+  if (parts.length !== 3) return null
+
+  const [oldSha, newSha, refName] = parts
+  if (!isGitSha(oldSha) || !isGitSha(newSha) || refName.length === 0) return null
+
+  return { oldSha, newSha, refName }
+}
+
+function gitChangedFilesForRefUpdates(updates: RefUpdate[]): string[] {
+  const changedPaths = new Set<string>()
+
+  for (const update of updates) {
+    if (isNullSha(update.newSha)) continue
+
+    const paths = isNullSha(update.oldSha)
+      ? getChangedFilesForNewRef(update.newSha)
+      : gitChangedFilesForRange(`${update.oldSha}..${update.newSha}`)
+
+    for (const path of paths) {
+      changedPaths.add(path)
+    }
+  }
+
+  return [...changedPaths]
+}
+
 function gitChangedFilesForMode(mode: Mode): string[] {
   if (mode.kind === "staged") {
     const output = execFileSync("git", ["diff", "--cached", "--name-only", "--diff-filter=ACMR"], {
@@ -39,20 +132,21 @@ function gitChangedFilesForMode(mode: Mode): string[] {
   }
 
   if (mode.kind === "range") {
-    const output = execFileSync("git", ["diff", "--name-only", "--diff-filter=ACMR", mode.range], {
-      encoding: "utf8",
-    })
-    return output
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean)
+    return gitChangedFilesForRange(mode.range)
   }
 
   const input = readFileSync(0, "utf8")
-  return input
+  const lines = input
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean)
+
+  const updates = lines.map(parseRefUpdate)
+  if (updates.every((update) => update !== null)) {
+    return gitChangedFilesForRefUpdates(updates)
+  }
+
+  return lines
 }
 
 function printFailure(vendorPaths: string[], mode: Mode): void {

@@ -22,8 +22,11 @@
     "./agent": "./src/agent.ts",
     "./registry": "./src/registry.ts",
     "./config": "./src/config.ts",
+    "./bus": "./src/bus.ts",
     "./session": "./src/session.ts",
+    "./session-status": "./src/session-status.ts",
     "./session-prompt": "./src/session-prompt.ts",
+    "./file": "./src/file.ts",
     "./provider": "./src/provider.ts",
     "./theme": "./src/theme.ts"
   },

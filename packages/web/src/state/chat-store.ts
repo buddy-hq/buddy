@@ -1,5 +1,6 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
+import { immer } from "zustand/middleware/immer"
 import { createPlatformJsonStorage } from "../context/platform"
 import type {
   DirectoryChatState,
@@ -81,10 +82,6 @@ function emptyDirectoryState(): DirectoryChatState {
   }
 }
 
-function ensureDirectoryState(store: ChatStore, directory: string) {
-  return store.directories[directory] ?? emptyDirectoryState()
-}
-
 function sortSessions(sessions: SessionInfo[]) {
   return sessions
     .filter((session) => !session.time.archived)
@@ -109,29 +106,25 @@ function upsertSession(sessions: SessionInfo[], incoming: SessionInfo) {
 
 export const useChatStore = create<ChatStore>()(
   persist(
-    (set, get) => ({
-      openProjects: [],
-      activeDirectory: undefined,
-      pendingActiveDirectory: undefined,
-      entryError: undefined,
-      lastSessionByDirectory: {},
-      selectedModelByDirectory: {},
-      directories: {},
-      streamStatus: "idle",
+    immer((set, get) => ({
+      openProjects: [] as string[],
+      activeDirectory: undefined as string | undefined,
+      pendingActiveDirectory: undefined as string | undefined,
+      entryError: undefined as string | undefined,
+      lastSessionByDirectory: {} as Record<string, string>,
+      selectedModelByDirectory: {} as Record<string, string>,
+      directories: {} as Record<string, DirectoryChatState>,
+      streamStatus: "idle" as StreamStatus,
       ensureOpenProject(directory) {
         const normalized = normalizeProjectDirectory(directory)
         if (!normalized) return
 
         set((state) => {
-          const openProjects = state.openProjects.includes(normalized)
-            ? state.openProjects
-            : [normalized, ...state.openProjects]
-          return {
-            openProjects,
-            directories: {
-              ...state.directories,
-              [normalized]: ensureDirectoryState(state as ChatStore, normalized),
-            },
+          if (!state.openProjects.includes(normalized)) {
+            state.openProjects.unshift(normalized)
+          }
+          if (!state.directories[normalized]) {
+            state.directories[normalized] = emptyDirectoryState()
           }
         })
       },
@@ -142,32 +135,30 @@ export const useChatStore = create<ChatStore>()(
               directories.map((directory) => normalizeProjectDirectory(directory)).filter(Boolean),
             ),
           ) as string[]
-          const openProjects = unique
-          const nextLastSession = Object.fromEntries(
-            Object.entries(state.lastSessionByDirectory).filter(([directory]) =>
-              openProjects.includes(directory),
-            ),
-          )
+
           const preferredActiveDirectory = state.pendingActiveDirectory ?? state.activeDirectory
           const nextActiveDirectory =
-            preferredActiveDirectory && openProjects.includes(preferredActiveDirectory)
+            preferredActiveDirectory && unique.includes(preferredActiveDirectory)
               ? preferredActiveDirectory
-              : openProjects[0]
+              : unique[0]
 
-          return {
-            openProjects,
-            activeDirectory: nextActiveDirectory,
-            pendingActiveDirectory: undefined,
-            lastSessionByDirectory: nextLastSession,
-            directories: {
-              ...state.directories,
-              ...Object.fromEntries(
-                openProjects.map((directory) => [
-                  directory,
-                  state.directories[directory] ?? emptyDirectoryState(),
-                ]),
-              ),
-            },
+          state.openProjects = unique
+          state.activeDirectory = nextActiveDirectory ?? undefined
+          state.pendingActiveDirectory = undefined
+          state.lastSessionByDirectory = Object.fromEntries(
+            Object.entries(state.lastSessionByDirectory).filter(([directory]) =>
+              unique.includes(directory),
+            ),
+          )
+          for (const directory of unique) {
+            if (!state.directories[directory]) {
+              state.directories[directory] = emptyDirectoryState()
+            }
+          }
+          for (const directory of Object.keys(state.directories)) {
+            if (!unique.includes(directory)) {
+              delete state.directories[directory]
+            }
           }
         })
       },
@@ -176,33 +167,24 @@ export const useChatStore = create<ChatStore>()(
         if (!normalized) return
 
         set((state) => {
-          const hasOpenProject = state.openProjects.includes(normalized)
-          const hasDirectoryState = normalized in state.directories
-          const hasLastSession = normalized in state.lastSessionByDirectory
-          const hasActiveDirectory = state.activeDirectory === normalized
-
-          if (!hasOpenProject && !hasDirectoryState && !hasLastSession && !hasActiveDirectory) {
-            return state
+          if (
+            !state.openProjects.includes(normalized) &&
+            !(normalized in state.directories) &&
+            !(normalized in state.lastSessionByDirectory) &&
+            state.activeDirectory !== normalized
+          ) {
+            return
           }
 
-          const openProjects = state.openProjects.filter((entry) => entry !== normalized)
-          const directories = { ...state.directories }
-          delete directories[normalized]
+          state.openProjects = state.openProjects.filter((entry: string) => entry !== normalized)
+          delete state.directories[normalized]
+          delete state.lastSessionByDirectory[normalized]
 
-          const nextLastSession = { ...state.lastSessionByDirectory }
-          delete nextLastSession[normalized]
-
-          const nextPendingActive =
-            state.pendingActiveDirectory === normalized ? undefined : state.pendingActiveDirectory
-          const nextActive =
-            state.activeDirectory === normalized ? openProjects[0] : state.activeDirectory
-
-          return {
-            openProjects,
-            directories,
-            activeDirectory: nextActive,
-            pendingActiveDirectory: nextPendingActive,
-            lastSessionByDirectory: nextLastSession,
+          if (state.pendingActiveDirectory === normalized) {
+            state.pendingActiveDirectory = undefined
+          }
+          if (state.activeDirectory === normalized) {
+            state.activeDirectory = state.openProjects[0] ?? undefined
           }
         })
       },
@@ -210,44 +192,36 @@ export const useChatStore = create<ChatStore>()(
         const normalized = normalizeProjectDirectory(directory)
         if (!normalized) return
 
-        set((state) => ({
-          activeDirectory: normalized,
-          pendingActiveDirectory: undefined,
-          directories: {
-            ...state.directories,
-            [normalized]: ensureDirectoryState(state as ChatStore, normalized),
-          },
-        }))
+        set((state) => {
+          state.activeDirectory = normalized
+          state.pendingActiveDirectory = undefined
+          if (!state.directories[normalized]) {
+            state.directories[normalized] = emptyDirectoryState()
+          }
+        })
       },
       setDirectoryReady(directory, ready) {
-        set((state) => ({
-          directories: {
-            ...state.directories,
-            [directory]: {
-              ...ensureDirectoryState(state as ChatStore, directory),
-              isReady: ready,
-            },
-          },
-        }))
+        set((state) => {
+          if (!state.directories[directory]) {
+            state.directories[directory] = emptyDirectoryState()
+          }
+          state.directories[directory]!.isReady = ready
+        })
       },
       setDirectoryError(directory, error) {
-        set((state) => ({
-          directories: {
-            ...state.directories,
-            [directory]: {
-              ...ensureDirectoryState(state as ChatStore, directory),
-              error,
-            },
-          },
-        }))
+        set((state) => {
+          if (!state.directories[directory]) {
+            state.directories[directory] = emptyDirectoryState()
+          }
+          state.directories[directory]!.error = error
+        })
       },
       clearDirectoryError(directory) {
-        const state = get()
-        state.setDirectoryError(directory, undefined)
+        get().setDirectoryError(directory, undefined)
       },
       setSessions(directory, sessions) {
         set((state) => {
-          const current = ensureDirectoryState(state as ChatStore, directory)
+          const current = state.directories[directory] ?? emptyDirectoryState()
           const sortedSessions = sortSessions(sessions)
           const nextSessionStatusByID: Record<string, "busy" | "idle"> = {}
           for (const session of sortedSessions) {
@@ -277,139 +251,112 @@ export const useChatStore = create<ChatStore>()(
             : false
           const switchedSession = activeSessionID !== current.sessionID
 
-          return {
-            directories: {
-              ...state.directories,
-              [directory]: {
-                ...current,
-                isDraft: activeSessionID ? false : (current.isDraft ?? false),
-                sessions: sortedSessions,
-                sessionID: activeSessionID,
-                sessionTitle: activeInfo?.title ?? DEFAULT_TITLE,
-                sessionStatusByID: nextSessionStatusByID,
-                messages: switchedSession ? [] : current.messages,
-                pendingPermissions: switchedSession
-                  ? current.pendingPermissions.filter(
-                      (request) => request.sessionID === activeSessionID,
-                    )
-                  : current.pendingPermissions,
-                isBusy: nextBusy,
-              },
-            },
-            lastSessionByDirectory: activeSessionID
-              ? {
-                  ...state.lastSessionByDirectory,
-                  [directory]: activeSessionID,
-                }
-              : state.lastSessionByDirectory,
+          state.directories[directory] = {
+            ...current,
+            isDraft: activeSessionID ? false : (current.isDraft ?? false),
+            sessions: sortedSessions,
+            sessionID: activeSessionID,
+            sessionTitle: activeInfo?.title ?? DEFAULT_TITLE,
+            sessionStatusByID: nextSessionStatusByID,
+            messages: switchedSession ? [] : current.messages,
+            pendingPermissions: switchedSession
+              ? current.pendingPermissions.filter(
+                  (request: PermissionRequest) => request.sessionID === activeSessionID,
+                )
+              : current.pendingPermissions,
+            isBusy: nextBusy,
+          }
+
+          if (activeSessionID) {
+            state.lastSessionByDirectory[directory] = activeSessionID
           }
         })
       },
       setActiveSession(directory, sessionID) {
         set((state) => {
-          const current = ensureDirectoryState(state as ChatStore, directory)
+          const current = state.directories[directory] ?? emptyDirectoryState()
           if (!sessionID) {
-            return {
-              directories: {
-                ...state.directories,
-                [directory]: {
-                  ...current,
-                  isDraft: true,
-                  sessionID: undefined,
-                  sessionTitle: DEFAULT_TITLE,
-                  messages: [],
-                  pendingPermissions: [],
-                  isBusy: false,
-                },
-              },
+            state.directories[directory] = {
+              ...current,
+              isDraft: true,
+              sessionID: undefined,
+              sessionTitle: DEFAULT_TITLE,
+              messages: [],
+              pendingPermissions: [],
+              isBusy: false,
             }
+            return
           }
 
-          const activeInfo = current.sessions.find((session) => session.id === sessionID)
+          const activeInfo = current.sessions.find(
+            (session: SessionInfo) => session.id === sessionID,
+          )
           const switchedSession = current.sessionID !== sessionID
-          return {
-            directories: {
-              ...state.directories,
-              [directory]: {
-                ...current,
-                isDraft: false,
-                sessionID,
-                sessionTitle: activeInfo?.title ?? current.sessionTitle,
-                messages: switchedSession ? [] : current.messages,
-                pendingPermissions: switchedSession
-                  ? current.pendingPermissions.filter((request) => request.sessionID === sessionID)
-                  : current.pendingPermissions,
-                isBusy: current.sessionStatusByID[sessionID] === "busy",
-              },
-            },
-            lastSessionByDirectory: {
-              ...state.lastSessionByDirectory,
-              [directory]: sessionID,
-            },
+          state.directories[directory] = {
+            ...current,
+            isDraft: false,
+            sessionID,
+            sessionTitle: activeInfo?.title ?? current.sessionTitle,
+            messages: switchedSession ? [] : current.messages,
+            pendingPermissions: switchedSession
+              ? current.pendingPermissions.filter(
+                  (request: PermissionRequest) => request.sessionID === sessionID,
+                )
+              : current.pendingPermissions,
+            isBusy: current.sessionStatusByID[sessionID] === "busy",
           }
+          state.lastSessionByDirectory[directory] = sessionID
         })
       },
       startSessionDraft(directory) {
-        const state = get()
-        state.setActiveSession(directory, undefined)
+        get().setActiveSession(directory, undefined)
       },
       setSessionInfo(directory, info) {
         set((state) => {
-          const current = ensureDirectoryState(state as ChatStore, directory)
+          const current = state.directories[directory] ?? emptyDirectoryState()
           const nextSessions = upsertSession(current.sessions, info)
-          return {
-            lastSessionByDirectory: {
-              ...state.lastSessionByDirectory,
-              [directory]: info.id,
-            },
-            directories: {
-              ...state.directories,
-              [directory]: {
-                ...current,
-                isDraft: false,
-                sessions: nextSessions,
-                sessionID: info.id,
-                sessionTitle: info.title || DEFAULT_TITLE,
-                isBusy: current.sessionStatusByID[info.id] === "busy",
-              },
-            },
+          state.lastSessionByDirectory[directory] = info.id
+          state.directories[directory] = {
+            ...current,
+            isDraft: false,
+            sessions: nextSessions,
+            sessionID: info.id,
+            sessionTitle: info.title || DEFAULT_TITLE,
+            isBusy: current.sessionStatusByID[info.id] === "busy",
           }
         })
       },
       setMessages(directory, sessionID, messages) {
         set((state) => {
-          const current = ensureDirectoryState(state as ChatStore, directory)
+          const current = state.directories[directory] ?? emptyDirectoryState()
           if (!current.sessionID || current.sessionID !== sessionID) {
-            return state
+            return
           }
 
           const nextMessages = Array.isArray(messages) ? messages : []
           const nextSessionID = current.sessionID
-          const activeInfo = current.sessions.find((session) => session.id === nextSessionID)
+          const activeInfo = current.sessions.find(
+            (session: SessionInfo) => session.id === nextSessionID,
+          )
           const nextSessionStatusByID = {
             ...current.sessionStatusByID,
             [nextSessionID]: current.sessionStatusByID[nextSessionID] ?? ("idle" as const),
           }
           const nextBusy = nextSessionStatusByID[nextSessionID] === "busy"
-          return {
-            directories: {
-              ...state.directories,
-              [directory]: {
-                ...current,
-                isDraft: false,
-                sessionID: nextSessionID,
-                sessionTitle: activeInfo?.title ?? current.sessionTitle,
-                messages: nextMessages,
-                isBusy: nextBusy,
-                sessionStatusByID: nextSessionStatusByID,
-              },
-            },
+          state.directories[directory] = {
+            ...current,
+            isDraft: false,
+            sessionID: nextSessionID,
+            sessionTitle: activeInfo?.title ?? current.sessionTitle,
+            messages: nextMessages,
+            isBusy: nextBusy,
+            sessionStatusByID: nextSessionStatusByID,
           }
         })
       },
       applySessionUpdated(directory, info) {
         set((state) => {
-          const current = ensureDirectoryState(state as ChatStore, directory)
+          const current = state.directories[directory] ?? emptyDirectoryState()
           const nextSessions = upsertSession(current.sessions, info)
           const nextSessionID =
             current.sessionID === info.id && info.time.archived
@@ -418,9 +365,7 @@ export const useChatStore = create<ChatStore>()(
                 : nextSessions[0]?.id
               : current.sessionID
           const switchedActiveSession = nextSessionID !== current.sessionID
-          const nextSessionStatusByID = {
-            ...current.sessionStatusByID,
-          }
+          const nextSessionStatusByID = { ...current.sessionStatusByID }
           if (info.time.archived) {
             delete nextSessionStatusByID[info.id]
           }
@@ -428,196 +373,150 @@ export const useChatStore = create<ChatStore>()(
             ? nextSessions.find((session) => session.id === nextSessionID)
             : undefined
           const nextBusy = nextSessionID ? nextSessionStatusByID[nextSessionID] === "busy" : false
-          return {
-            directories: {
-              ...state.directories,
-              [directory]: {
-                ...current,
-                isDraft: nextSessionID === undefined,
-                sessions: nextSessions,
-                sessionID: nextSessionID,
-                sessionTitle: nextActiveInfo?.title ?? DEFAULT_TITLE,
-                messages: switchedActiveSession ? [] : current.messages,
-                pendingPermissions: switchedActiveSession
-                  ? current.pendingPermissions.filter(
-                      (request) => request.sessionID === nextSessionID,
-                    )
-                  : current.pendingPermissions,
-                isBusy: nextBusy,
-                sessionStatusByID: nextSessionStatusByID,
-              },
-            },
-            lastSessionByDirectory: nextSessionID
-              ? {
-                  ...state.lastSessionByDirectory,
-                  [directory]: nextSessionID,
-                }
-              : state.lastSessionByDirectory,
+
+          state.directories[directory] = {
+            ...current,
+            isDraft: nextSessionID === undefined,
+            sessions: nextSessions,
+            sessionID: nextSessionID,
+            sessionTitle: nextActiveInfo?.title ?? DEFAULT_TITLE,
+            messages: switchedActiveSession ? [] : current.messages,
+            pendingPermissions: switchedActiveSession
+              ? current.pendingPermissions.filter(
+                  (request: PermissionRequest) => request.sessionID === nextSessionID,
+                )
+              : current.pendingPermissions,
+            isBusy: nextBusy,
+            sessionStatusByID: nextSessionStatusByID,
+          }
+
+          if (nextSessionID) {
+            state.lastSessionByDirectory[directory] = nextSessionID
           }
         })
       },
       applySessionStatus(directory, sessionID, status) {
         set((state) => {
-          const current = ensureDirectoryState(state as ChatStore, directory)
-          if (current.sessionStatusByID[sessionID] === status) return state
-          return {
-            directories: {
-              ...state.directories,
-              [directory]: {
-                ...current,
-                sessionStatusByID: {
-                  ...current.sessionStatusByID,
-                  [sessionID]: status,
-                },
-                isBusy: current.sessionID === sessionID ? status === "busy" : current.isBusy,
-              },
+          const current = state.directories[directory] ?? emptyDirectoryState()
+          if (current.sessionStatusByID[sessionID] === status) return
+          state.directories[directory] = {
+            ...current,
+            sessionStatusByID: {
+              ...current.sessionStatusByID,
+              [sessionID]: status,
             },
+            isBusy: current.sessionID === sessionID ? status === "busy" : current.isBusy,
           }
         })
       },
       applyMessageUpdated(directory, info) {
         set((state) => {
-          const current = ensureDirectoryState(state as ChatStore, directory)
+          const current = state.directories[directory] ?? emptyDirectoryState()
           if (!current.sessionID || current.sessionID !== info.sessionID) {
-            return state
+            return
           }
           const messages = upsertMessage(current.messages, info)
           const nextBusy =
             current.sessionID !== undefined
               ? current.sessionStatusByID[current.sessionID] === "busy"
               : current.isBusy
-          return {
-            directories: {
-              ...state.directories,
-              [directory]: {
-                ...current,
-                isDraft: false,
-                messages,
-                isBusy: nextBusy,
-              },
-            },
+          state.directories[directory] = {
+            ...current,
+            isDraft: false,
+            messages,
+            isBusy: nextBusy,
           }
         })
       },
       applyPartUpdated(directory, part) {
         set((state) => {
-          const current = ensureDirectoryState(state as ChatStore, directory)
+          const current = state.directories[directory] ?? emptyDirectoryState()
           if (!current.sessionID || current.sessionID !== part.sessionID) {
-            return state
+            return
           }
           const messages = upsertPart(current.messages, part)
           const nextBusy =
             current.sessionID !== undefined
               ? current.sessionStatusByID[current.sessionID] === "busy"
               : current.isBusy
-          return {
-            directories: {
-              ...state.directories,
-              [directory]: {
-                ...current,
-                isDraft: false,
-                messages,
-                isBusy: nextBusy,
-              },
-            },
+          state.directories[directory] = {
+            ...current,
+            isDraft: false,
+            messages,
+            isBusy: nextBusy,
           }
         })
       },
       applyPartDelta(directory, input) {
         set((state) => {
-          const current = ensureDirectoryState(state as ChatStore, directory)
+          const current = state.directories[directory] ?? emptyDirectoryState()
           if (!current.sessionID || current.sessionID !== input.sessionID) {
-            return state
+            return
           }
           const messages = appendPartDelta(current.messages, input)
           const nextBusy =
             current.sessionID !== undefined
               ? current.sessionStatusByID[current.sessionID] === "busy"
               : current.isBusy
-          return {
-            directories: {
-              ...state.directories,
-              [directory]: {
-                ...current,
-                isDraft: false,
-                messages,
-                isBusy: nextBusy,
-              },
-            },
+          state.directories[directory] = {
+            ...current,
+            isDraft: false,
+            messages,
+            isBusy: nextBusy,
           }
         })
       },
       setPendingPermissions(directory, requests) {
-        set((state) => ({
-          directories: {
-            ...state.directories,
-            [directory]: {
-              ...ensureDirectoryState(state as ChatStore, directory),
-              pendingPermissions: requests,
-            },
-          },
-        }))
+        set((state) => {
+          if (!state.directories[directory]) {
+            state.directories[directory] = emptyDirectoryState()
+          }
+          state.directories[directory]!.pendingPermissions = requests
+        })
       },
       setProviders(directory, input) {
-        set((state) => ({
-          directories: {
-            ...state.directories,
-            [directory]: {
-              ...ensureDirectoryState(state as ChatStore, directory),
-              providers: input.providers,
-              providerDefault: input.default,
-            },
-          },
-        }))
+        set((state) => {
+          if (!state.directories[directory]) {
+            state.directories[directory] = emptyDirectoryState()
+          }
+          state.directories[directory]!.providers = input.providers
+          state.directories[directory]!.providerDefault = input.default
+        })
       },
       setMcpStatus(directory, input) {
-        set((state) => ({
-          directories: {
-            ...state.directories,
-            [directory]: {
-              ...ensureDirectoryState(state as ChatStore, directory),
-              mcpStatus: input,
-            },
-          },
-        }))
+        set((state) => {
+          if (!state.directories[directory]) {
+            state.directories[directory] = emptyDirectoryState()
+          }
+          state.directories[directory]!.mcpStatus = input
+        })
       },
       applyPermissionAsked(directory, request) {
         set((state) => {
-          const current = ensureDirectoryState(state as ChatStore, directory)
+          const current = state.directories[directory] ?? emptyDirectoryState()
           const existingIndex = current.pendingPermissions.findIndex(
-            (item) => item.id === request.id,
+            (item: PermissionRequest) => item.id === request.id,
           )
           const nextPending =
             existingIndex === -1
               ? [...current.pendingPermissions, request]
-              : current.pendingPermissions.map((item, index) =>
+              : current.pendingPermissions.map((item: PermissionRequest, index: number) =>
                   index === existingIndex ? request : item,
                 )
-
-          return {
-            directories: {
-              ...state.directories,
-              [directory]: {
-                ...current,
-                pendingPermissions: nextPending,
-              },
-            },
+          state.directories[directory] = {
+            ...current,
+            pendingPermissions: nextPending,
           }
         })
       },
       applyPermissionReplied(directory, requestID) {
         set((state) => {
-          const current = ensureDirectoryState(state as ChatStore, directory)
-          return {
-            directories: {
-              ...state.directories,
-              [directory]: {
-                ...current,
-                pendingPermissions: current.pendingPermissions.filter(
-                  (item) => item.id !== requestID,
-                ),
-              },
-            },
+          const current = state.directories[directory] ?? emptyDirectoryState()
+          state.directories[directory] = {
+            ...current,
+            pendingPermissions: current.pendingPermissions.filter(
+              (item: PermissionRequest) => item.id !== requestID,
+            ),
           }
         })
       },
@@ -626,20 +525,23 @@ export const useChatStore = create<ChatStore>()(
         if (!normalized) return
 
         const nextModel = model.trim() || "auto"
-        set((state) => ({
-          selectedModelByDirectory: {
-            ...state.selectedModelByDirectory,
-            [normalized]: nextModel,
-          },
-        }))
+        set((state) => {
+          state.selectedModelByDirectory[normalized] = nextModel
+        })
       },
       setEntryError(error) {
-        set({ entryError: error })
+        set((state) => {
+          state.entryError = error
+        })
       },
       setStreamStatus(status) {
-        set((state) => (state.streamStatus === status ? state : { streamStatus: status }))
+        set((state) => {
+          if (state.streamStatus !== status) {
+            state.streamStatus = status
+          }
+        })
       },
-    }),
+    })),
     {
       name: CHAT_STORAGE_KEY,
       storage: createPlatformJsonStorage(CHAT_STORAGE_FILE),

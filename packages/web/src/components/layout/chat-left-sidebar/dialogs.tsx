@@ -34,7 +34,7 @@ export function ChatLeftSidebarDialogs(props: ChatLeftSidebarDialogsProps) {
           }
         }}
       >
-        <DialogContent>
+        <DialogContent data-component="left-sidebar-archive-dialog">
           <DialogHeader>
             <DialogTitle>{language.t("sidebar.archiveThreadTitle")}</DialogTitle>
             <DialogDescription>
@@ -45,6 +45,7 @@ export function ChatLeftSidebarDialogs(props: ChatLeftSidebarDialogsProps) {
           </DialogHeader>
           <DialogFooter>
             <Button
+              data-action="left-sidebar-archive-cancel"
               variant="outline"
               onClick={props.onArchiveCancel}
               disabled={props.archiveSaving}
@@ -52,6 +53,7 @@ export function ChatLeftSidebarDialogs(props: ChatLeftSidebarDialogsProps) {
               {language.t("common.cancel")}
             </Button>
             <Button
+              data-action="left-sidebar-archive-confirm"
               variant="destructive"
               onClick={props.onArchiveConfirm}
               disabled={props.archiveSaving}
@@ -72,12 +74,13 @@ export function ChatLeftSidebarDialogs(props: ChatLeftSidebarDialogsProps) {
           }
         }}
       >
-        <DialogContent>
+        <DialogContent data-component="left-sidebar-rename-dialog">
           <DialogHeader>
             <DialogTitle>{language.t("sidebar.renameThread")}</DialogTitle>
             <DialogDescription>{language.t("sidebar.renameThreadHint")}</DialogDescription>
           </DialogHeader>
           <Input
+            data-action="left-sidebar-rename-input"
             autoFocus
             value={props.renameState?.title ?? ""}
             onChange={(event) => props.onRenameTitleChange(event.target.value)}
@@ -89,10 +92,15 @@ export function ChatLeftSidebarDialogs(props: ChatLeftSidebarDialogsProps) {
             }}
           />
           <DialogFooter>
-            <Button variant="outline" onClick={props.onRenameCancel}>
+            <Button
+              data-action="left-sidebar-rename-cancel"
+              variant="outline"
+              onClick={props.onRenameCancel}
+            >
               {language.t("common.cancel")}
             </Button>
             <Button
+              data-action="left-sidebar-rename-save"
               disabled={props.renameSaving || !props.renameState?.title.trim()}
               onClick={props.onRenameConfirm}
             >

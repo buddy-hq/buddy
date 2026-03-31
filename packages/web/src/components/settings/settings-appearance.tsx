@@ -107,7 +107,7 @@ export function AppearanceSettings() {
                   value={colorScheme}
                   onValueChange={(value) => isColorScheme(value) && setColorScheme(value)}
                 >
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger data-action="settings-color-scheme" className="w-full">
                     <SelectValue
                       placeholder={language.t("settings.appearance.colorSchemePlaceholder")}
                     />
@@ -127,7 +127,7 @@ export function AppearanceSettings() {
               description={language.t("settings.appearance.themeDescription")}
               control={
                 <Select value={themeId} onValueChange={setTheme}>
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger data-action="settings-theme" className="w-full">
                     <SelectValue placeholder={language.t("settings.appearance.themePlaceholder")} />
                   </SelectTrigger>
                   <SelectContent>
@@ -161,6 +161,7 @@ export function AppearanceSettings() {
                             {advancedMathStatusLabel(advancedMathStatus, advancedMathLoading)}
                           </span>
                           <Switch
+                            data-action="settings-advanced-math-toggle"
                             aria-label={language.t("settings.appearance.advancedMathToggleAria")}
                             checked={advancedMathEnabled}
                             disabled={advancedMathBusy || advancedMathStatus === null}
@@ -202,6 +203,7 @@ export function AppearanceSettings() {
                 last
                 control={
                   <Button
+                    data-action="settings-check-updates"
                     type="button"
                     size="xs"
                     variant="outline"

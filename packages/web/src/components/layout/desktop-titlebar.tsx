@@ -92,6 +92,7 @@ export function DesktopTitlebar() {
 
   return (
     <header
+      data-component="desktop-titlebar"
       className="h-10 shrink-0 border-b border-border-base/60 bg-background-base text-text-base"
       onMouseDown={onMouseDown}
       onDoubleClick={onDoubleClick}
@@ -102,6 +103,7 @@ export function DesktopTitlebar() {
           <div className="ml-2 flex shrink-0 items-center gap-1">
             <Button
               type="button"
+              data-action="titlebar-toggle-left-sidebar"
               variant="ghost"
               className="h-6 w-8 p-0 box-border text-text-weak hover:bg-surface-base-hover hover:text-text-strong"
               aria-label={
@@ -131,6 +133,7 @@ export function DesktopTitlebar() {
             <div className="flex shrink-0 items-center">
               <Button
                 type="button"
+                data-action="titlebar-copy-session-trace"
                 variant="ghost"
                 size="icon-xs"
                 className="h-6 w-8 p-0 box-border text-text-weak hover:bg-surface-base-hover hover:text-text-strong"
@@ -166,6 +169,7 @@ export function DesktopTitlebar() {
             >
               <Button
                 type="button"
+                data-action="titlebar-toggle-right-sidebar"
                 variant="ghost"
                 className="h-6 w-8 p-0 box-border text-text-weak hover:bg-surface-base-hover hover:text-text-strong"
                 aria-label={
@@ -193,7 +197,11 @@ export function DesktopTitlebar() {
           {isWindows ? (
             <>
               <div className="w-6 shrink-0" />
-              <div data-tauri-decorum-tb className="flex h-10 shrink-0 flex-row" />
+              <div
+                data-component="titlebar-system-controls-mount"
+                data-tauri-decorum-tb
+                className="flex h-10 shrink-0 flex-row"
+              />
             </>
           ) : null}
         </div>

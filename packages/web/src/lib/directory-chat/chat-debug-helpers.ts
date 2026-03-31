@@ -55,8 +55,8 @@ function slimPart(part: MessagePart): MessagePart {
   if (part.type === "tool") {
     const state = part.state
     if (!isRecord(state)) return part
-    const { output, metadata, ...slimState } = state
-    const { state: _, ...rest } = part
+    const { output: _o, metadata: _m, ...slimState } = state
+    const { state: _s, ...rest } = part
     return { ...rest, state: slimState }
   }
   if (!isRecord(part.metadata)) return part

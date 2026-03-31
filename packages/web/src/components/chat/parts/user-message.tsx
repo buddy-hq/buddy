@@ -1,9 +1,9 @@
 import { memo } from "react"
 import { language } from "@/context/language"
-import { HighlightedText } from "../shared/highlighted-text"
-import { CopyAction } from "../shared/copy-action"
+import { HighlightedText } from "../highlighted-text"
+import { CopyAction } from "../copy-action"
 import { Button, cn } from "@buddy/ui"
-import { formatTime, titleCase } from "../shared/utils"
+import { formatTime, titleCase } from "../utils/format"
 import type { MessageInfo, MessagePart, ProviderInfo } from "@/state/chat-types"
 
 interface UserMessagePartProps {

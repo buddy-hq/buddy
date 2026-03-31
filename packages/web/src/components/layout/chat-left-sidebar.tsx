@@ -127,6 +127,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
 
   return (
     <aside
+      data-component="chat-left-sidebar"
       className={`shrink-0 border-r border-border-base bg-surface-raised-base text-text-base flex flex-col min-h-0 ${
         props.className ?? ""
       }`}
@@ -199,6 +200,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
           props.footer
         ) : (
           <Button
+            data-action="left-sidebar-open-settings"
             variant="ghost"
             size="sm"
             className="h-9 w-full justify-start rounded-lg px-2 text-sm font-medium text-text-weaker hover:bg-surface-raised-base-hover hover:text-text-strong"

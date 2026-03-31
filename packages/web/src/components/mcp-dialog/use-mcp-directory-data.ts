@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { useShallow } from "zustand/react/shallow"
 import {
   authenticateMcpServer,
   connectMcpServer,
@@ -45,7 +46,9 @@ export function useMcpDirectoryData(props: UseMcpDirectoryDataProps): McpDirecto
   const [error, setError] = useState<string | undefined>(undefined)
   const [pendingName, setPendingName] = useState<string | null>(null)
   const [configByName, setConfigByName] = useState<Record<string, McpConfig>>({})
-  const statusByName = useChatStore((state) => state.directories[directory]?.mcpStatus ?? {})
+  const statusByName = useChatStore(
+    useShallow((state) => state.directories[directory]?.mcpStatus ?? {}),
+  )
 
   const allNames = useMemo(
     () =>

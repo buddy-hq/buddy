@@ -4,7 +4,7 @@ import { Button, Input, Card, CardContent } from "@buddy/ui"
 import { FolderPlusIcon } from "@/components/layout/sidebar-icons"
 import { language } from "@/context/language"
 import { usePlatform } from "../context/platform"
-import buddyIcon from "../../public/buddy-icon.png"
+import buddyIcon from "/buddy-icon.png"
 import { stringifyError } from "../lib/api-client"
 import { shouldShowCurrentDesktopOnboarding } from "../lib/desktop-onboarding"
 import { encodeDirectory } from "../lib/directory-token"
@@ -60,7 +60,7 @@ function ChatEntryPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-6 py-16">
+    <div data-component="chat-entry-page" className="mx-auto w-full max-w-2xl px-6 py-16">
       <EmptyProjectsState onOpenDirectory={openDirectory} />
 
       {entryError ? (
@@ -92,7 +92,10 @@ function EmptyProjectsState(props: EmptyProjectsStateProps) {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-20">
+    <div
+      data-component="chat-entry-empty-state"
+      className="flex flex-col items-center justify-center min-h-[60vh] gap-20"
+    >
       <div className="flex flex-col items-center gap-6 text-center">
         <img
           src={buddyIcon}
@@ -113,6 +116,7 @@ function EmptyProjectsState(props: EmptyProjectsStateProps) {
             <div className="flex flex-col items-center gap-4">
               <Button
                 type="button"
+                data-action="entry-open-directory-picker"
                 className="w-full"
                 size="lg"
                 onClick={() => void openPickedDirectory()}
@@ -134,12 +138,13 @@ function EmptyProjectsState(props: EmptyProjectsStateProps) {
             >
               <div className="flex w-full gap-3">
                 <Input
+                  data-action="entry-directory-input"
                   value={directory}
                   onChange={(event) => setDirectory(event.target.value)}
                   placeholder={language.t("routes.chat.pathPlaceholder")}
                   className="flex-1"
                 />
-                <Button type="submit">
+                <Button data-action="entry-open-directory-submit" type="submit">
                   <FolderPlusIcon className="mr-2 h-4 w-4" />
                   {language.t("routes.chat.open")}
                 </Button>

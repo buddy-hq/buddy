@@ -16,7 +16,11 @@ type SettingsPageProps = {
 
 export function SettingsPage(props: SettingsPageProps) {
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-col">
+    <div
+      data-component="settings-page"
+      data-active-tab={props.activeTab}
+      className="flex h-full min-h-0 min-w-0 flex-col"
+    >
       {props.activeTab === "instructions" && <InstructionsSettings />}
       {props.activeTab === "appearance" && <AppearanceSettings />}
       {props.activeTab === "notebook" && <NotebookSettings directory={props.directory} />}

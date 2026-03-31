@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,6 +40,12 @@ import {
   renameResource,
   type ResourceRecord,
 } from "@/state/resource-actions"
+import {
+  VIRTUAL_DEFAULT_OVERSCAN,
+  VIRTUAL_RESOURCE_MIN_ITEMS,
+  VIRTUAL_RESOURCE_ROW_ESTIMATE_PX,
+} from "@/components/virtualization/virtualization-defaults"
+import { VirtualizedRows } from "@/components/virtualization/virtualized-rows"
 import { pickResourceFilePath } from "../../lib/resource-file-picker"
 
 type ResourcesPanelProps = {
@@ -105,6 +111,7 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
   const [resourcePendingRemoval, setResourcePendingRemoval] = useState<ResourceRecord | undefined>(
     undefined,
   )
+  const resourcesListRef = useRef<HTMLDivElement>(null)
 
   const refreshResources = useCallback(
     async (input?: { silent?: boolean }) => {
@@ -190,11 +197,153 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
     })
   }
 
+  function renderResourceCard(resource: ResourceRecord) {
+    const isBusy = busyKey === resource.id
+    return (
+      <Card
+        size="sm"
+        data-component="resources-item"
+        data-resource-id={resource.id}
+        data-resource-status={resource.status}
+        className="relative group gap-0 py-0 transition-colors hover:border-border-base hover:bg-surface-base-hover/5"
+      >
+        <CardContent className="px-4 py-3">
+          <div className="flex min-w-0 flex-1 items-start gap-4 pr-6">
+            <div className="flex size-10 shrink-0 flex-col items-center justify-between overflow-hidden rounded-md border border-border-base/50 bg-surface-weak/40 pt-2 text-text-weak">
+              <ResourceIcon format={resource.format} />
+              <div className="flex w-full items-center justify-center bg-button-secondary-base py-[3px] text-[8px] font-bold uppercase leading-none text-text-strong">
+                {resource.format}
+              </div>
+            </div>
+            <div className="min-w-0 flex-1 space-y-1.5">
+              <div className="flex items-center gap-2">
+                <p className="truncate text-sm font-medium leading-none">{resource.alias}</p>
+                {resource.status !== "ready" && (
+                  <Badge
+                    variant={statusVariant(resource.status)}
+                    className="flex shrink-0 items-center gap-1"
+                  >
+                    {resource.status === RESOURCE_STATUS_PREPARING && (
+                      <Loader2Icon className="size-3 animate-spin" />
+                    )}
+                    {titleCaseLabel(resource.status)}
+                  </Badge>
+                )}
+              </div>
+              {(resource.preparedAt || resource.status === "error") && (
+                <div className="flex items-center gap-2">
+                  {resource.status === "error" ? (
+                    <span className="flex items-center gap-1 text-[11px] font-medium text-icon-critical-base">
+                      <AlertCircleIcon className="size-3" />
+                      {language.t("resourcesPanel.processingFailed")}
+                    </span>
+                  ) : resource.preparedAt ? (
+                    <p className="text-[11px] text-text-weak">
+                      {new Date(resource.preparedAt).toLocaleString(undefined, {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      })}
+                    </p>
+                  ) : null}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="absolute right-1.5 top-1.5 flex items-center gap-0.5">
+            <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+              {resource.status === "error" && (
+                <Button
+                  data-action="resources-retry"
+                  data-resource-id={resource.id}
+                  variant="ghost"
+                  size="sm"
+                  className="size-7 p-0 text-text-weak hover:text-text-base"
+                  onClick={() => {
+                    void runResourceAction(resource.id, async () => {
+                      await rebuildResource(directory, { resourceKey: resource.id })
+                    })
+                  }}
+                  title={language.t("resourcesPanel.retry")}
+                  disabled={isBusy}
+                >
+                  <RefreshCwIcon className="size-3.5" />
+                </Button>
+              )}
+            </div>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  data-action="resources-item-menu"
+                  data-resource-id={resource.id}
+                  className="inline-flex size-7 items-center justify-center rounded-md text-text-weak transition-colors hover:bg-surface-base-hover hover:text-text-base disabled:pointer-events-none disabled:opacity-50"
+                  aria-label={language.t("resourcesPanel.optionsForResource", {
+                    alias: resource.alias,
+                  })}
+                  disabled={isBusy}
+                >
+                  <EllipsisIcon className="size-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  data-action="resources-rename"
+                  onSelect={() => {
+                    const nextAlias = window
+                      .prompt(language.t("resourcesPanel.renamePromptTitle"), resource.alias)
+                      ?.trim()
+                    if (!nextAlias || nextAlias === resource.alias) return
+                    void runResourceAction(resource.id, async () => {
+                      await renameResource(directory, {
+                        resourceKey: resource.id,
+                        alias: nextAlias,
+                      })
+                    })
+                  }}
+                >
+                  {language.t("resourcesPanel.rename")}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  data-action="resources-rebuild"
+                  onSelect={() => {
+                    void runResourceAction(resource.id, async () => {
+                      await rebuildResource(directory, {
+                        resourceKey: resource.id,
+                      })
+                    })
+                  }}
+                >
+                  {language.t("resourcesPanel.rebuild")}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  data-action="resources-remove"
+                  variant="destructive"
+                  onSelect={() => {
+                    setResourcePendingRemoval(resource)
+                  }}
+                >
+                  {language.t("resourcesPanel.remove")}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
-    <div className={`flex h-full min-h-0 flex-col gap-3 p-3 ${className ?? ""}`}>
+    <div
+      data-component="resources-panel"
+      className={`flex h-full min-h-0 flex-col gap-3 p-3 ${className ?? ""}`}
+    >
       {sortedResources.length > 0 && (
         <div className="flex w-full shrink-0 items-center justify-end gap-1.5 pb-2">
           <Button
+            data-action="resources-refresh"
             variant="ghost"
             size="sm"
             className="px-2"
@@ -204,7 +353,12 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
           >
             <RefreshCwIcon className={`size-4 ${loading ? "animate-spin" : ""}`} />
           </Button>
-          <Button size="sm" onClick={() => void onAddResource()} disabled={loading}>
+          <Button
+            data-action="resources-add"
+            size="sm"
+            onClick={() => void onAddResource()}
+            disabled={loading}
+          >
             <PlusIcon className="mr-1.5 size-4" />
             {language.t("resourcesPanel.add")}
           </Button>
@@ -217,141 +371,29 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
         </p>
       ) : null}
 
-      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pb-2">
+      <div ref={resourcesListRef} className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-2">
         {sortedResources.length > 0 ? (
-          sortedResources.map((resource) => {
-            const isBusy = busyKey === resource.id
-            return (
-              <Card
-                key={resource.id}
-                size="sm"
-                className="relative group gap-0 py-0 transition-colors hover:border-border-base hover:bg-surface-base-hover/5"
-              >
-                <CardContent className="px-4 py-3">
-                  <div className="flex min-w-0 flex-1 items-start gap-4 pr-6">
-                    <div className="flex size-10 shrink-0 flex-col items-center justify-between overflow-hidden rounded-md border border-border-base/50 bg-surface-weak/40 pt-2 text-text-weak">
-                      <ResourceIcon format={resource.format} />
-                      <div className="flex w-full items-center justify-center bg-button-secondary-base py-[3px] text-[8px] font-bold uppercase leading-none text-text-strong">
-                        {resource.format}
-                      </div>
-                    </div>
-                    <div className="min-w-0 flex-1 space-y-1.5">
-                      <div className="flex items-center gap-2">
-                        <p className="truncate text-sm font-medium leading-none">
-                          {resource.alias}
-                        </p>
-                        {resource.status !== "ready" && (
-                          <Badge
-                            variant={statusVariant(resource.status)}
-                            className="flex shrink-0 items-center gap-1"
-                          >
-                            {resource.status === RESOURCE_STATUS_PREPARING && (
-                              <Loader2Icon className="size-3 animate-spin" />
-                            )}
-                            {titleCaseLabel(resource.status)}
-                          </Badge>
-                        )}
-                      </div>
-                      {(resource.preparedAt || resource.status === "error") && (
-                        <div className="flex items-center gap-2">
-                          {resource.status === "error" ? (
-                            <span className="flex items-center gap-1 text-[11px] font-medium text-icon-critical-base">
-                              <AlertCircleIcon className="size-3" />
-                              {language.t("resourcesPanel.processingFailed")}
-                            </span>
-                          ) : resource.preparedAt ? (
-                            <p className="text-[11px] text-text-weak">
-                              {new Date(resource.preparedAt).toLocaleString(undefined, {
-                                dateStyle: "medium",
-                                timeStyle: "short",
-                              })}
-                            </p>
-                          ) : null}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="absolute right-1.5 top-1.5 flex items-center gap-0.5">
-                    <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                      {resource.status === "error" && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="size-7 p-0 text-text-weak hover:text-text-base"
-                          onClick={() => {
-                            void runResourceAction(resource.id, async () => {
-                              await rebuildResource(directory, { resourceKey: resource.id })
-                            })
-                          }}
-                          title={language.t("resourcesPanel.retry")}
-                          disabled={isBusy}
-                        >
-                          <RefreshCwIcon className="size-3.5" />
-                        </Button>
-                      )}
-                    </div>
-
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button
-                          type="button"
-                          className="inline-flex size-7 items-center justify-center rounded-md text-text-weak transition-colors hover:bg-surface-base-hover hover:text-text-base disabled:pointer-events-none disabled:opacity-50"
-                          aria-label={language.t("resourcesPanel.optionsForResource", {
-                            alias: resource.alias,
-                          })}
-                          disabled={isBusy}
-                        >
-                          <EllipsisIcon className="size-4" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onSelect={() => {
-                            const nextAlias = window
-                              .prompt(
-                                language.t("resourcesPanel.renamePromptTitle"),
-                                resource.alias,
-                              )
-                              ?.trim()
-                            if (!nextAlias || nextAlias === resource.alias) return
-                            void runResourceAction(resource.id, async () => {
-                              await renameResource(directory, {
-                                resourceKey: resource.id,
-                                alias: nextAlias,
-                              })
-                            })
-                          }}
-                        >
-                          {language.t("resourcesPanel.rename")}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onSelect={() => {
-                            void runResourceAction(resource.id, async () => {
-                              await rebuildResource(directory, {
-                                resourceKey: resource.id,
-                              })
-                            })
-                          }}
-                        >
-                          {language.t("resourcesPanel.rebuild")}
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          variant="destructive"
-                          onSelect={() => {
-                            setResourcePendingRemoval(resource)
-                          }}
-                        >
-                          {language.t("resourcesPanel.remove")}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })
+          sortedResources.length >= VIRTUAL_RESOURCE_MIN_ITEMS ? (
+            <VirtualizedRows
+              items={sortedResources}
+              getItemKey={(resource) => resource.id}
+              estimateSize={() => VIRTUAL_RESOURCE_ROW_ESTIMATE_PX}
+              getScrollElement={() => resourcesListRef.current}
+              overscan={VIRTUAL_DEFAULT_OVERSCAN}
+              measure
+              renderItem={(resource, index) => (
+                <div className={index === sortedResources.length - 1 ? "" : "pb-2"}>
+                  {renderResourceCard(resource)}
+                </div>
+              )}
+            />
+          ) : (
+            <div className="space-y-2">
+              {sortedResources.map((resource) => (
+                <div key={resource.id}>{renderResourceCard(resource)}</div>
+              ))}
+            </div>
+          )
         ) : loading ? (
           <div className="space-y-2">
             <SkeletonCard />
@@ -361,6 +403,7 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
         ) : (
           <button
             type="button"
+            data-action="resources-empty-add"
             onClick={() => void onAddResource()}
             disabled={loading}
             className="group mt-1 flex w-full min-h-0 flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-border-base/40 bg-surface-weak/5 px-4 py-10 text-center transition-all hover:border-border-base/80 hover:bg-surface-weak/30"
@@ -384,7 +427,7 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
           if (!open) setResourcePendingRemoval(undefined)
         }}
       >
-        <AlertDialogContent>
+        <AlertDialogContent data-component="resources-remove-dialog">
           <AlertDialogHeader>
             <AlertDialogTitle>{language.t("resourcesPanel.removeResourceTitle")}</AlertDialogTitle>
             <AlertDialogDescription className="break-all text-left">
@@ -396,10 +439,15 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel variant="outline" size="default">
+            <AlertDialogCancel
+              data-action="resources-remove-cancel"
+              variant="outline"
+              size="default"
+            >
               {language.t("common.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
+              data-action="resources-remove-confirm"
               variant="destructive"
               size="default"
               onClick={() => void confirmRemovePendingResource()}

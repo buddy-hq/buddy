@@ -41,6 +41,7 @@ const providerConfigResponseSchema = z.object({
   providers: OpenCodeProvider.Info.array(),
   default: z.record(z.string(), z.string()),
 })
+const projectConfigPatchSchema = z.record(z.string(), z.unknown())
 
 export const ConfigRoutes = new Hono()
   .get(
@@ -169,7 +170,7 @@ export const ConfigRoutes = new Hono()
       },
     }),
     validator("query", directoryQuerySchema),
-    validator("json", Config.Info),
+    validator("json", projectConfigPatchSchema),
     async (c) =>
       withDirectoryRoute(c, async (context) =>
         runRouteTask({

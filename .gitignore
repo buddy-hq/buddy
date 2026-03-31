@@ -59,6 +59,8 @@ packages/desktop/node_modules/
 packages/desktop/*.tsbuildinfo
 packages/sdk/.buddy-runtime/
 packages/web/.tanstack/
+packages/web/e2e/test-results/
+packages/web/e2e/playwright-report/
 docs/audits/
 # Claude Code
 .claude/

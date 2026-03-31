@@ -16,11 +16,19 @@ export function DirectoryChatPage(props: DirectoryChatPageProps) {
   })
 
   if (controller.status === "invalid") {
-    return <div className="p-6">{language.t("directoryChat.invalidNotebookIdentifier")}</div>
+    return (
+      <div data-component="directory-chat-invalid" className="p-6">
+        {language.t("directoryChat.invalidNotebookIdentifier")}
+      </div>
+    )
   }
 
   if (controller.status === "opening") {
-    return <div className="p-6">{language.t("directoryChat.openingNotebook")}</div>
+    return (
+      <div data-component="directory-chat-opening" className="p-6">
+        {language.t("directoryChat.openingNotebook")}
+      </div>
+    )
   }
 
   return (

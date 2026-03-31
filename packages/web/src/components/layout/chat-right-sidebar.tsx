@@ -247,6 +247,8 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
 
   return (
     <aside
+      data-component="chat-right-sidebar"
+      data-active-tab={activeTab}
       className={`shrink-0 overflow-hidden border-l bg-surface-raised-base flex flex-col min-h-0 ${props.className ?? ""}`}
     >
       <header className="relative flex items-center border-b px-1 py-1.5">
@@ -273,6 +275,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
           <div className="flex w-max items-center gap-1">
             {props.surfaces.includes("editor") ? (
               <Button
+                data-action="right-sidebar-tab-editor"
                 variant={activeTab === "editor" ? "secondary" : "ghost"}
                 size="sm"
                 onClick={() => props.onTabChange("editor")}
@@ -282,6 +285,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
             ) : null}
             {props.surfaces.includes("figure") ? (
               <Button
+                data-action="right-sidebar-tab-figure"
                 variant={activeTab === "figure" ? "secondary" : "ghost"}
                 size="sm"
                 onClick={() => props.onTabChange("figure")}
@@ -290,6 +294,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
               </Button>
             ) : null}
             <Button
+              data-action="right-sidebar-tab-resources"
               variant={activeTab === "resources" ? "secondary" : "ghost"}
               size="sm"
               onClick={() => props.onTabChange("resources")}
@@ -297,6 +302,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
               {language.t("rightSidebar.tabs.resources")}
             </Button>
             <Button
+              data-action="right-sidebar-tab-agents-md"
               variant={activeTab === "agents-md" ? "secondary" : "ghost"}
               size="sm"
               onClick={() => props.onTabChange("agents-md")}
@@ -304,6 +310,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
               {language.t("rightSidebar.tabs.agents")}
             </Button>
             <Button
+              data-action="right-sidebar-tab-diagrams"
               variant={activeTab === "diagrams" ? "secondary" : "ghost"}
               size="sm"
               onClick={() => props.onTabChange("diagrams")}
@@ -312,6 +319,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
             </Button>
             {snapshotTabEnabled ? (
               <Button
+                data-action="right-sidebar-tab-curriculum"
                 variant={activeTab === "curriculum" ? "secondary" : "ghost"}
                 size="sm"
                 onClick={() => props.onTabChange("curriculum")}
@@ -322,6 +330,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
             ) : null}
             {capabilitiesTabEnabled ? (
               <Button
+                data-action="right-sidebar-tab-capabilities"
                 variant={activeTab === "capabilities" ? "secondary" : "ghost"}
                 size="sm"
                 onClick={() => props.onTabChange("capabilities")}
@@ -332,6 +341,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
             ) : null}
             {systemPromptTabEnabled ? (
               <Button
+                data-action="right-sidebar-tab-system-prompt"
                 variant={activeTab === "system-prompt" ? "secondary" : "ghost"}
                 size="sm"
                 onClick={() => props.onTabChange("system-prompt")}
@@ -406,6 +416,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
               </p>
             </div>
             <Button
+              data-action="right-sidebar-refresh-capabilities"
               variant="ghost"
               size="sm"
               onClick={() => {
@@ -537,6 +548,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
               </p>
             </div>
             <Button
+              data-action="right-sidebar-refresh-curriculum"
               variant="ghost"
               size="sm"
               onClick={() => {

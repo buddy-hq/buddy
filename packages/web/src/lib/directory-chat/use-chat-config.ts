@@ -30,6 +30,23 @@ const DEFAULT_COMPOSER_CONFIG: ComposerConfig = {
   configuredModel: undefined,
 }
 
+const E2E_BACKEND_COMMAND_NAME = "e2e-backend-command"
+
+function withE2EBackendCommand(commands: PromptCommandOption[]): PromptCommandOption[] {
+  if (import.meta.env.VITE_BUDDY_E2E !== "1") return commands
+  if (commands.some((command) => command.name === E2E_BACKEND_COMMAND_NAME)) {
+    return commands
+  }
+  return [
+    ...commands,
+    {
+      name: E2E_BACKEND_COMMAND_NAME,
+      description: "Deterministic backend slash command for E2E",
+      source: "command",
+    },
+  ]
+}
+
 function parseConfiguredModel(value: unknown): { providerID: string; modelID: string } | undefined {
   if (typeof value !== "string") return undefined
   const trimmed = value.trim()
@@ -61,7 +78,7 @@ async function loadComposerConfig(directory: string): Promise<ComposerConfig> {
 
   return {
     personaCatalog: personas,
-    slashCommands: commands,
+    slashCommands: withE2EBackendCommand(commands),
     defaultPersona,
     defaultIntent,
     configuredModel: parseConfiguredModel(config.model),
@@ -98,7 +115,10 @@ export function useChatConfig(props: UseChatConfigProps) {
     if (!decodedDirectory || !hasRegisteredProject) return
     void loadCommandCatalog(decodedDirectory)
       .then((commands) => {
-        setComposerConfig((current) => ({ ...current, slashCommands: commands }))
+        setComposerConfig((current) => ({
+          ...current,
+          slashCommands: withE2EBackendCommand(commands),
+        }))
       })
       .catch(() => undefined)
   }

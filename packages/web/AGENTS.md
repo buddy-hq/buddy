@@ -23,4 +23,8 @@ skills:
     load: "../../node_modules/.bun/@tanstack+router-core@1.168.6/node_modules/@tanstack/router-core/skills/router-core/navigation/SKILL.md"
   - task: "changing TanStack Router Vite plugin setup, route generation, or automatic code splitting in packages/web/vite.config.ts"
     load: "./node_modules/@tanstack/router-plugin/skills/router-plugin/SKILL.md"
+  - task: "Virtualize long scroll lists in packages/web with @tanstack/react-virtual"
+    load: ".agents/skills/tanstack-react-virtual/SKILL.md"
+  - task: "Adjust TanStack Router plugin route generation behavior"
+    load: "packages/web/node_modules/@tanstack/router-plugin/skills/router-plugin/SKILL.md"
 <!-- intent-skills:end -->

@@ -23,7 +23,7 @@ export function ModelSettings({ directory }: { directory: string }) {
               onValueChange={settings.actions.setProvider}
               disabled={settings.status.loading || !hasConnectedProviders}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger data-action="settings-model-provider" className="w-full">
                 <SelectValue
                   placeholder={
                     hasConnectedProviders
@@ -52,7 +52,7 @@ export function ModelSettings({ directory }: { directory: string }) {
               onValueChange={settings.actions.setModel}
               disabled={settings.status.loading || !hasConnectedProviders}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger data-action="settings-model-model" className="w-full">
                 <SelectValue
                   placeholder={
                     hasConnectedProviders

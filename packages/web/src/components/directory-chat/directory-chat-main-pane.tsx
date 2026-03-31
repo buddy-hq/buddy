@@ -1,9 +1,9 @@
 import { Button, SquarePenIcon, ScrollArea } from "@buddy/ui"
 import type { ComponentProps, RefObject, UIEvent } from "react"
-import { ChatEmptyState } from "@/components/chat/chat-empty-state"
-import { SessionContextUsage } from "@/components/chat/session-context-usage"
+import { ChatEmptyState } from "@/components/directory-chat/chat-empty-state"
+import { SessionContextUsage } from "@/components/directory-chat/session-context-usage"
 import { ChatTranscript } from "@/components/chat/chat-transcript"
-import { PermissionDock } from "@/components/chat/permission-dock"
+import { PermissionDock } from "@/components/directory-chat/permission-dock"
 import { language } from "@/context/language"
 import { getFilename } from "@/components/layout/sidebar-helpers"
 import { ChevronRightIcon } from "@/components/layout/sidebar-icons"
@@ -41,7 +41,10 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
   } = props
 
   return (
-    <main className="flex-1 min-w-0 min-h-0 flex flex-col bg-background-base/20">
+    <main
+      data-component="directory-chat-main-pane"
+      className="flex-1 min-w-0 min-h-0 flex flex-col bg-background-base/20"
+    >
       <header className="border-b px-3 py-2">
         <div className="flex w-full items-center justify-between gap-2 px-1">
           <div className="min-w-0 flex items-center gap-1.5">
@@ -69,6 +72,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
           <div className="flex items-center gap-1.5 px-1">
             <Button
               type="button"
+              data-action="chat-new-thread"
               variant="ghost"
               size="sm"
               className="text-text-weak hover:text-text-strong"
@@ -84,12 +88,13 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
       <div className="flex-1 min-h-0 flex flex-col">
         <div className="flex min-h-0 flex-1 flex-col">
           <ScrollArea
+            data-component="chat-transcript-scroll-area"
             viewportRef={transcriptRef as React.Ref<HTMLDivElement>}
             onScroll={onTranscriptScroll as React.UIEventHandler<HTMLDivElement>}
-            className="flex-1 min-h-0"
+            className="min-w-0 flex-1 min-h-0"
           >
             <div
-              className={`mx-auto w-full max-w-full px-4 pt-4 pb-12 space-y-4 md:max-w-200 2xl:max-w-[1000px] ${
+              className={`mx-auto min-w-0 w-full max-w-full px-4 pt-4 pb-12 space-y-4 md:max-w-200 2xl:max-w-[1000px] ${
                 chatState.messages.length === 0 && chatState.isReady ? "h-full" : ""
               }`}
             >
@@ -104,10 +109,8 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
               ) : (
                 <>
                   <ChatTranscript
-                    messages={chatState.messages}
                     directory={directory}
-                    providers={chatState.providers}
-                    isBusy={chatState.isBusy}
+                    scrollViewportRef={transcriptRef}
                     onAssistantTextFinalRender={onAssistantTextFinalRender}
                     onOpenSession={onOpenSession}
                   />
