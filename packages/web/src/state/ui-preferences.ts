@@ -1,5 +1,6 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
+import { immer } from "zustand/middleware/immer"
 import { createPlatformJsonStorage } from "../context/platform"
 
 export const UI_PREFERENCES_STORAGE_KEY = "buddy.ui.v1"
@@ -47,14 +48,14 @@ type UiPreferencesStore = {
 
 export const useUiPreferences = create<UiPreferencesStore>()(
   persist(
-    (set, get) => ({
-      pinnedByDirectory: {},
-      unreadByDirectory: {},
+    immer((set, get) => ({
+      pinnedByDirectory: {} as Record<string, string[]>,
+      unreadByDirectory: {} as Record<string, Record<string, true>>,
       leftSidebarOpen: true,
       leftSidebarWidth: 344,
       rightSidebarOpen: false,
       rightSidebarWidth: 344,
-      rightSidebarTab: "curriculum",
+      rightSidebarTab: "curriculum" as const,
       isPinned(directory, sessionID) {
         return (get().pinnedByDirectory[directory] ?? []).includes(sessionID)
       },
@@ -62,41 +63,26 @@ export const useUiPreferences = create<UiPreferencesStore>()(
         set((state) => {
           const current = state.pinnedByDirectory[directory] ?? []
           const exists = current.includes(sessionID)
-          const next = exists ? current.filter((id) => id !== sessionID) : [sessionID, ...current]
-          return {
-            pinnedByDirectory: {
-              ...state.pinnedByDirectory,
-              [directory]: next,
-            },
+          if (exists) {
+            state.pinnedByDirectory[directory] = current.filter((id: string) => id !== sessionID)
+          } else {
+            state.pinnedByDirectory[directory] = [sessionID, ...current]
           }
         })
       },
       markUnread(directory, sessionID) {
         set((state) => {
-          if (state.unreadByDirectory[directory]?.[sessionID]) return state
-
-          return {
-            unreadByDirectory: {
-              ...state.unreadByDirectory,
-              [directory]: {
-                ...state.unreadByDirectory[directory],
-                [sessionID]: true,
-              },
-            },
+          if (state.unreadByDirectory[directory]?.[sessionID]) return
+          if (!state.unreadByDirectory[directory]) {
+            state.unreadByDirectory[directory] = {}
           }
+          state.unreadByDirectory[directory]![sessionID] = true
         })
       },
       clearUnread(directory, sessionID) {
         set((state) => {
-          if (!state.unreadByDirectory[directory]?.[sessionID]) return state
-          const current = { ...state.unreadByDirectory[directory] }
-          delete current[sessionID]
-          return {
-            unreadByDirectory: {
-              ...state.unreadByDirectory,
-              [directory]: current,
-            },
-          }
+          if (!state.unreadByDirectory[directory]?.[sessionID]) return
+          delete state.unreadByDirectory[directory]![sessionID]
         })
       },
       isUnread(directory, sessionID) {
@@ -104,37 +90,38 @@ export const useUiPreferences = create<UiPreferencesStore>()(
       },
       clearDirectorySessionState(directory, sessionID) {
         set((state) => {
-          const pinned = (state.pinnedByDirectory[directory] ?? []).filter((id) => id !== sessionID)
-          const unread = { ...state.unreadByDirectory[directory] }
-          delete unread[sessionID]
-          return {
-            pinnedByDirectory: {
-              ...state.pinnedByDirectory,
-              [directory]: pinned,
-            },
-            unreadByDirectory: {
-              ...state.unreadByDirectory,
-              [directory]: unread,
-            },
-          }
+          state.pinnedByDirectory[directory] = (state.pinnedByDirectory[directory] ?? []).filter(
+            (id: string) => id !== sessionID,
+          )
+          delete state.unreadByDirectory[directory]?.[sessionID]
         })
       },
       setLeftSidebarOpen(open) {
-        set({ leftSidebarOpen: open })
+        set((state) => {
+          state.leftSidebarOpen = open
+        })
       },
       setLeftSidebarWidth(width) {
-        set({ leftSidebarWidth: width })
+        set((state) => {
+          state.leftSidebarWidth = width
+        })
       },
       setRightSidebarOpen(open) {
-        set({ rightSidebarOpen: open })
+        set((state) => {
+          state.rightSidebarOpen = open
+        })
       },
       setRightSidebarWidth(width) {
-        set({ rightSidebarWidth: width })
+        set((state) => {
+          state.rightSidebarWidth = width
+        })
       },
       setRightSidebarTab(tab) {
-        set({ rightSidebarTab: tab })
+        set((state) => {
+          state.rightSidebarTab = tab
+        })
       },
-    }),
+    })),
     {
       name: UI_PREFERENCES_STORAGE_KEY,
       version: 7,
