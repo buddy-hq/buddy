@@ -7,6 +7,7 @@ import {
   type TeachingSessionSnapshot,
 } from "@/state/chat-actions"
 import { useChatStore } from "@/state/chat-store"
+import { isSessionStatusActive } from "@/state/session-status"
 
 function HighlightedText({ text, query }: { text: string; query: string }) {
   if (!query.trim()) return <>{text}</>
@@ -96,7 +97,7 @@ export function SystemPromptPanel(props: SystemPromptPanelProps) {
   const activeSessionBusy = useChatStore((state) => {
     const directoryState = state.directories[directory]
     if (!directoryState || !sessionID) return false
-    return directoryState.sessionStatusByID[sessionID] === "busy"
+    return isSessionStatusActive(directoryState.sessionStatusByID[sessionID])
   })
 
   const lastOutbound = useMemo(() => readLastOutboundEntry(runtime), [runtime])

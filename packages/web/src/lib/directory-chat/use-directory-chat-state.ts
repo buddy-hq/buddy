@@ -6,7 +6,7 @@ import { useTeachingRuntime, teachingSelectionKey } from "@/state/teaching-runti
 import { usePromptStore, getPromptScopeKey } from "@/state/prompt-store"
 import { getSessionFamily } from "../session-family"
 import { modelSelectionKey, parseConfiguredModel } from "./chat-prompt-helpers"
-import type { SessionInfo } from "@/state/chat-types"
+import type { SessionInfo, SessionStatusInfo } from "@/state/chat-types"
 import type { PersonaConfigOption } from "@/state/chat-actions"
 import { RESOURCE_SIDEBAR_TAB } from "../resource-commands"
 import type { ChatRightSidebarTab } from "@/components/layout/chat-right-sidebar"
@@ -16,7 +16,7 @@ const MODEL_VISIBILITY_WINDOW_MS = 1000 * 60 * 60 * 24 * 31 * 6
 const EMPTY_LIST: never[] = []
 const EMPTY_RECORD: Record<string, never> = {}
 const EMPTY_SESSIONS: SessionInfo[] = []
-const EMPTY_SESSION_STATUS: Record<string, "busy" | "idle"> = {}
+const EMPTY_SESSION_STATUS: Record<string, SessionStatusInfo> = {}
 
 function isSidebarSurface(value: string): value is PersonaConfigOption["surfaces"][number] {
   return value === "curriculum" || value === "editor" || value === "figure"
@@ -113,7 +113,7 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
 
   const sessionStatusByDirectory = useChatStore(
     useShallow((state) => {
-      const result: Record<string, Record<string, "busy" | "idle">> = {}
+      const result: Record<string, Record<string, SessionStatusInfo>> = {}
       for (const directory of validOpenProjects) {
         result[directory] = state.directories[directory]?.sessionStatusByID ?? EMPTY_SESSION_STATUS
       }

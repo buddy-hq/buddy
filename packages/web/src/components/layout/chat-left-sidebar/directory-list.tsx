@@ -19,7 +19,8 @@ import {
   XIcon,
 } from "@buddy/ui"
 import { language } from "@/context/language"
-import type { SessionInfo } from "@/state/chat-types"
+import type { SessionInfo, SessionStatusInfo } from "@/state/chat-types"
+import { isSessionStatusActive } from "@/state/session-status"
 import { getFilename } from "../sidebar-helpers"
 import { EllipsisHorizontalIcon } from "../sidebar-icons"
 import {
@@ -36,7 +37,7 @@ type ChatLeftSidebarDirectoryListProps = {
   currentDirectory: string
   activeSessionID?: string
   sessionsByDirectory: Record<string, SessionInfo[]>
-  sessionStatusByDirectory: Record<string, Record<string, "busy" | "idle">>
+  sessionStatusByDirectory: Record<string, Record<string, SessionStatusInfo>>
   pinnedByDirectory: Record<string, string[]>
   unreadByDirectory: Record<string, Record<string, true>>
   organizeMode: OrganizeMode
@@ -63,7 +64,7 @@ type DirectoryGroupSectionProps = {
   currentDirectory: string
   activeRootID?: string
   allSessions: SessionInfo[]
-  sessionStatusByID: Record<string, "busy" | "idle">
+  sessionStatusByID: Record<string, SessionStatusInfo>
   pinnedSet: Set<string>
   unreadMap: Record<string, true>
   expanded: boolean
@@ -92,7 +93,7 @@ type DirectoryThreadRowProps = {
   session: SessionInfo
   allSessions: SessionInfo[]
   activeRootID?: string
-  sessionStatusByID: Record<string, "busy" | "idle">
+  sessionStatusByID: Record<string, SessionStatusInfo>
   pinnedSet: Set<string>
   unreadMap: Record<string, true>
   onSelect: () => void
@@ -311,7 +312,7 @@ function DirectoryThreadRow(props: DirectoryThreadRowProps) {
   const familyIDs = sessionFamilyIDs(props.allSessions, props.session.id)
   const active =
     props.directory === props.currentDirectory && props.session.id === props.activeRootID
-  const busy = familyIDs.some((id) => props.sessionStatusByID[id] === "busy")
+  const busy = familyIDs.some((id) => isSessionStatusActive(props.sessionStatusByID[id]))
   const pinned = familyIDs.some((id) => props.pinnedSet.has(id))
   const unread = familyIDs.some((id) => !!props.unreadMap[id])
   const threadStatus = busy ? "busy" : unread ? "unread" : "idle"

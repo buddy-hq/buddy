@@ -1,7 +1,7 @@
 import type { ReactNode } from "react"
 import { useState } from "react"
 import { Button } from "@buddy/ui"
-import type { SessionInfo } from "@/state/chat-types"
+import type { SessionInfo, SessionStatusInfo } from "@/state/chat-types"
 import { ChatLeftSidebarDialogs } from "./chat-left-sidebar/dialogs"
 import { ChatLeftSidebarDirectoryList } from "./chat-left-sidebar/directory-list"
 import { ChatLeftSidebarToolbar } from "./chat-left-sidebar/toolbar"
@@ -21,7 +21,7 @@ type ChatLeftSidebarProps = {
   currentDirectory: string
   sessionsByDirectory: Record<string, SessionInfo[]>
   activeSessionID?: string
-  sessionStatusByDirectory: Record<string, Record<string, "busy" | "idle">>
+  sessionStatusByDirectory: Record<string, Record<string, SessionStatusInfo>>
   pinnedByDirectory: Record<string, string[]>
   unreadByDirectory: Record<string, Record<string, true>>
   onOpenDirectory: () => void

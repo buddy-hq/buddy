@@ -3,6 +3,7 @@ import { RouterProvider, createRouter } from "@tanstack/react-router"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { Toaster, TooltipProvider } from "@buddy/ui"
 import { LanguageProvider } from "@/context/language"
+import { useChatStore } from "@/state/chat-store"
 import { ThemeProvider } from "@/theme"
 import { routeTree } from "./routeTree.gen"
 
@@ -36,6 +37,10 @@ export function AppBaseProviders(props: { children: ReactNode }) {
       </QueryClientProvider>
     </LanguageProvider>
   )
+}
+
+export function resetAppRuntimeState() {
+  useChatStore.getState().resetRuntimeState()
 }
 
 export function AppInterface() {

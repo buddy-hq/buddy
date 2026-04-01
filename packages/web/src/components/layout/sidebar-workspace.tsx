@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react"
 import { Button } from "@buddy/ui"
 import { language } from "@/context/language"
-import type { SessionInfo } from "@/state/chat-types"
+import type { SessionInfo, SessionStatusInfo } from "@/state/chat-types"
+import { isSessionStatusActive } from "@/state/session-status"
 import { getFilename } from "./sidebar-helpers"
 import { ChevronDownIcon, ChevronRightIcon, PlusIcon } from "./sidebar-icons"
 import { NewSessionItem, SessionItem } from "./sidebar-items"
@@ -11,7 +12,7 @@ type SidebarWorkspaceProps = {
   directory: string
   sessions: SessionInfo[]
   activeSessionID?: string
-  sessionStatusByID: Record<string, "busy" | "idle">
+  sessionStatusByID: Record<string, SessionStatusInfo>
   onSelectSession: (sessionID: string) => void
   onNewSession: () => void
   onRemoveProject: () => void
@@ -73,7 +74,7 @@ export function SidebarWorkspace(props: SidebarWorkspaceProps) {
                 key={session.id}
                 session={session}
                 active={session.id === props.activeSessionID}
-                busy={props.sessionStatusByID[session.id] === "busy"}
+                busy={isSessionStatusActive(props.sessionStatusByID[session.id])}
                 onSelect={() => props.onSelectSession(session.id)}
               />
             ))

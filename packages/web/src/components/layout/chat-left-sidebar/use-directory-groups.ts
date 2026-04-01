@@ -1,5 +1,6 @@
 import { useMemo } from "react"
-import type { SessionInfo } from "@/state/chat-types"
+import type { SessionInfo, SessionStatusInfo } from "@/state/chat-types"
+import { isSessionStatusActive } from "@/state/session-status"
 import { findRootSessionID, sessionFamilyIDs } from "./thread-helpers"
 import type { DirectoryGroup, OrganizeMode, ShowMode, SortMode } from "./types"
 
@@ -8,7 +9,7 @@ type UseDirectoryGroupsProps = {
   sessionsByDirectory: Record<string, SessionInfo[]>
   pinnedByDirectory: Record<string, string[]>
   unreadByDirectory: Record<string, Record<string, true>>
-  sessionStatusByDirectory: Record<string, Record<string, "busy" | "idle">>
+  sessionStatusByDirectory: Record<string, Record<string, SessionStatusInfo>>
   currentDirectory: string
   activeSessionID?: string
   organizeMode: OrganizeMode
@@ -40,7 +41,7 @@ export function useDirectoryGroups(props: UseDirectoryGroupsProps): DirectoryGro
             const familyIDs = sessionFamilyIDs(allSessions, session.id)
             const unread = familyIDs.some((id) => !!unreadMap[id])
             const pinned = familyIDs.some((id) => pinnedSet.has(id))
-            const busy = familyIDs.some((id) => statusByID[id] === "busy")
+            const busy = familyIDs.some((id) => isSessionStatusActive(statusByID[id]))
             const active = directory === props.currentDirectory && session.id === activeRootID
             return unread || pinned || busy || active
           })

@@ -3,12 +3,14 @@ import { startChatSync } from "@/state/chat-sync"
 import { resyncDirectory } from "@/state/chat-actions"
 import { useUiPreferences } from "@/state/ui-preferences"
 import { useChatStore } from "@/state/chat-store"
+import { IDLE_SESSION_STATUS, normalizeSessionStatusValue } from "@/state/session-status"
 import { readSessionErrorMessage } from "./chat-prompt-helpers"
 import type {
   GlobalEvent,
   MessageInfo,
   MessagePart,
   PermissionRequest,
+  SessionStatusInfo,
   SessionInfo,
 } from "@/state/chat-types"
 
@@ -16,7 +18,7 @@ type UseChatSyncProps = {
   decodedDirectory: string
   hasRegisteredProject: boolean
   applySessionUpdated: (directory: string, info: SessionInfo) => void
-  applySessionStatus: (directory: string, sessionID: string, status: "busy" | "idle") => void
+  applySessionStatus: (directory: string, sessionID: string, status: SessionStatusInfo) => void
   applyMessageUpdated: (directory: string, info: MessageInfo) => void
   applyPartUpdated: (directory: string, part: MessagePart) => void
   applyPartDelta: (
@@ -84,19 +86,15 @@ export function useChatSync(props: UseChatSyncProps) {
         }
 
         if (payload.type === "session.status") {
-          const rawStatus = properties.status
-          const statusType =
-            typeof rawStatus === "string"
-              ? rawStatus
-              : rawStatus && typeof rawStatus === "object" && "type" in rawStatus
-                ? String((rawStatus as { type?: unknown }).type ?? "idle")
-                : "idle"
-          const normalizedStatus = statusType === "busy" || statusType === "retry" ? "busy" : "idle"
+          const normalizedStatus = normalizeSessionStatusValue(properties.status)
           const statusSessionID = String(properties.sessionID ?? "")
           applySessionStatus(directory, statusSessionID, normalizedStatus)
           const activeSessionID = useChatStore.getState().directories[directory]?.sessionID
+          if (normalizedStatus.type === "busy" && statusSessionID === activeSessionID) {
+            clearDirectoryError(directory)
+          }
           if (
-            normalizedStatus === "idle" &&
+            normalizedStatus.type === "idle" &&
             statusSessionID &&
             statusSessionID === activeSessionID
           ) {
@@ -111,7 +109,7 @@ export function useChatSync(props: UseChatSyncProps) {
               ? properties.sessionID
               : undefined
           if (erroredSessionID) {
-            applySessionStatus(directory, erroredSessionID, "idle")
+            applySessionStatus(directory, erroredSessionID, IDLE_SESSION_STATUS)
           }
           setDirectoryError(directory, readSessionErrorMessage(properties.error))
           return
