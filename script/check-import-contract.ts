@@ -64,7 +64,11 @@ function getPackageNameFromAbsolutePath(file: string): string | null {
 }
 
 function checkViteAliasContract(findings: Finding[]) {
-  const viteConfigs = ["packages/web/vite.config.ts", "packages/desktop/vite.config.ts"]
+  const viteConfigs = [
+    "packages/web/vite.config.ts",
+    "packages/desktop/vite.config.ts",
+    "packages/desktop-electron/electron.vite.config.ts",
+  ]
   const forbiddenAliasPattern = /find:\s*(?:\/\^@\\\/|["']@\/)/g
 
   for (const relativePath of viteConfigs) {

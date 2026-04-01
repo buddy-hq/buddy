@@ -85,6 +85,7 @@ function patchBundledUndiciNamespace(bundleOutputFile: string) {
 
 export async function buildCompiledBuddyBinary(input: BuildCompiledBuddyBinaryInput) {
   const backendDir = path.resolve(import.meta.dir, "..")
+  const sourceEntrypoint = path.resolve(backendDir, "src/index.ts")
   const cleanupDirs = [...new Set([backendDir, path.resolve(process.cwd())])]
   for (const directory of cleanupDirs) {
     removeBunCompileArtifacts(directory)
@@ -117,10 +118,12 @@ export async function buildCompiledBuddyBinary(input: BuildCompiledBuddyBinaryIn
   }
 
   try {
+    let compileEntrypoint = sourceEntrypoint
+
     if (bundleOutputFile) {
       const bundleOutdir = path.dirname(bundleOutputFile)
       const bundleResult = await Bun.build({
-        entrypoints: [path.resolve(backendDir, "src/index.ts")],
+        entrypoints: [sourceEntrypoint],
         outdir: bundleOutdir,
         target: "bun",
         format: "esm",
@@ -137,6 +140,7 @@ export async function buildCompiledBuddyBinary(input: BuildCompiledBuddyBinaryIn
       }
 
       patchBundledUndiciNamespace(bundleOutputFile)
+      compileEntrypoint = bundleOutputFile
 
       if (existsSync(buddySkillsDir)) {
         const bundledSkillsTarget = path.resolve(
@@ -164,15 +168,20 @@ export async function buildCompiledBuddyBinary(input: BuildCompiledBuddyBinaryIn
       }
     }
 
-    const result = await Bun.build({
-      entrypoints: [path.resolve(backendDir, "src/index.ts")],
+    const compileBuildInput: Bun.BuildConfig = {
+      entrypoints: [compileEntrypoint],
       compile: {
         outfile: outputFile,
         ...(input.target ? { target: input.target } : {}),
       },
-      define,
-      loader,
-    })
+    }
+
+    if (compileEntrypoint === sourceEntrypoint) {
+      compileBuildInput.define = define
+      compileBuildInput.loader = loader
+    }
+
+    const result = await Bun.build(compileBuildInput)
 
     if (!result.success) {
       throw new Error(`Failed to compile sidecar binary: ${outputFile}`)

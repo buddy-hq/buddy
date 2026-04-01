@@ -2,10 +2,10 @@ import { mkdirSync, rmSync } from "node:fs"
 import path from "node:path"
 import {
   RELEASE_SIDECAR_BINARIES,
-  currentTargetTriple,
-  getCurrentSidecar,
-  windowsify,
-} from "../../desktop/scripts/utils"
+  currentDesktopRustTarget,
+  getSidecarTargetByRustTarget,
+  windowsifyBinaryName,
+} from "../../../script/desktop-sidecar-targets"
 import { buildCompiledBuddyBinary } from "./build-compiled-binary"
 
 const BACKEND_DIR = path.resolve(import.meta.dir, "..")
@@ -17,8 +17,8 @@ const selected = args.includes("--all")
   ? RELEASE_SIDECAR_BINARIES
   : [
       requestedTarget
-        ? getCurrentSidecar(requestedTarget)
-        : getCurrentSidecar(currentTargetTriple()),
+        ? getSidecarTargetByRustTarget(requestedTarget)
+        : getSidecarTargetByRustTarget(currentDesktopRustTarget()),
     ]
 
 rmSync(DIST_DIR, { recursive: true, force: true })
@@ -27,7 +27,10 @@ mkdirSync(DIST_DIR, { recursive: true })
 for (const config of selected) {
   const outputDir = path.resolve(DIST_DIR, config.sidecarDir, "bin")
   const bundleOutputFile = path.resolve(DIST_DIR, config.sidecarDir, "app", "index.js")
-  const outputFile = path.resolve(outputDir, windowsify("buddy-backend", config.rustTarget))
+  const outputFile = path.resolve(
+    outputDir,
+    windowsifyBinaryName("buddy-backend", config.rustTarget),
+  )
 
   mkdirSync(outputDir, { recursive: true })
   const built = await buildCompiledBuddyBinary({

@@ -163,18 +163,33 @@ function ensureGithubAuth() {
   runCommand("gh", ["auth", "status"])
 }
 
-async function ensureUpdaterSigningSecret() {
-  printStep("Secrets", "Checking that updater signing is configured in GitHub.")
+async function ensureReleaseSecrets() {
+  printStep("Secrets", "Checking optional Electron signing/notarization secrets.")
   const output = await $`gh secret list --repo ${releaseRepo()}`.cwd(ROOT_DIR).text()
-  const names = output
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => line.split(/\s+/)[0] ?? "")
-    .filter(Boolean)
+  const names = new Set(
+    output
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => line.split(/\s+/)[0] ?? "")
+      .filter(Boolean),
+  )
 
-  if (!names.includes("TAURI_SIGNING_PRIVATE_KEY")) {
-    throw new Error("TAURI_SIGNING_PRIVATE_KEY is missing from the GitHub repo secrets")
+  const optionalSecrets = [
+    "APPLE_ID",
+    "APPLE_APP_SPECIFIC_PASSWORD",
+    "APPLE_TEAM_ID",
+    "CSC_LINK",
+    "CSC_KEY_PASSWORD",
+    "WINDOWS_CERTIFICATE",
+    "WINDOWS_CERTIFICATE_PASSWORD",
+  ]
+
+  const missing = optionalSecrets.filter((name) => !names.has(name))
+  if (missing.length > 0) {
+    console.warn(
+      `Optional Electron signing secrets not configured: ${missing.join(", ")}. Continuing with unsigned release artifacts.`,
+    )
   }
 }
 
@@ -502,7 +517,7 @@ async function main() {
   await ensureMainBranch()
   await ensureCleanTree()
   ensureGithubAuth()
-  await ensureUpdaterSigningSecret()
+  await ensureReleaseSecrets()
 
   const rl = createInterface({ input, output })
 

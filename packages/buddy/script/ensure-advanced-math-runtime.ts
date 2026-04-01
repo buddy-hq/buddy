@@ -1,13 +1,16 @@
 import fs from "node:fs"
 import path from "node:path"
 import { spawnSync } from "node:child_process"
+import {
+  ADVANCED_MATH_VERSION_OVERRIDE_ENV,
+  resolveAdvancedMathRuntimeVersion,
+} from "./advanced-math-version"
 
 const BACKEND_DIR = path.resolve(import.meta.dir, "..")
 const BUILD_SCRIPT = path.resolve(BACKEND_DIR, "script/build-advanced-math-runtime.ts")
 const RUNTIME_SOURCE = path.resolve(BACKEND_DIR, "src/local-runtimes/advanced-math/runtime/main.py")
 const DIST_DIR = path.resolve(BACKEND_DIR, "dist/advanced-math-runtime")
-const VERSION =
-  process.env.BUDDY_VERSION?.trim() || process.env.npm_package_version?.trim() || "0.0.1"
+const VERSION = resolveAdvancedMathRuntimeVersion()
 const TARGET = process.env.BUDDY_RUST_TARGET ?? currentTargetTriple()
 const EXECUTABLE_NAME = TARGET.includes("windows")
   ? "buddy-advanced-math.exe"
@@ -74,7 +77,7 @@ function runBuild() {
     encoding: "utf8",
     env: {
       ...process.env,
-      BUDDY_VERSION: VERSION,
+      [ADVANCED_MATH_VERSION_OVERRIDE_ENV]: VERSION,
       BUDDY_RUST_TARGET: TARGET,
     },
   })
