@@ -28,7 +28,13 @@ import type {
 import type { TeachingIntent, TeachingPromptContext } from "./teaching-runtime"
 import { requestJson, stringifyError } from "../lib/api-client"
 import { getBuddyClient, requireBuddyData, buddyResultMessage } from "../lib/buddy-client"
+import { retry } from "../lib/retry"
 import type { PromptFilePart, PromptSubmissionPart } from "../components/prompt/prompt-types"
+import {
+  BUSY_SESSION_STATUS,
+  IDLE_SESSION_STATUS,
+  normalizeSessionStatusValue,
+} from "./session-status"
 
 export type PersonaConfigOption = {
   id: string
@@ -174,15 +180,6 @@ function normalizeDirectoryList(directories: string[]) {
   ) as string[]
 }
 
-function normalizeSessionStatusValue(value: unknown): "busy" | "idle" {
-  if (value === "busy" || value === "retry") return "busy"
-  if (value === "idle") return "idle"
-  if (!value || typeof value !== "object" || Array.isArray(value)) return "idle"
-
-  const statusRecord = value as { type?: unknown }
-  return statusRecord.type === "busy" || statusRecord.type === "retry" ? "busy" : "idle"
-}
-
 export function resolveDefaultPersonaID(
   personas: PersonaConfigOption[],
   configuredDefaultPersona?: string,
@@ -216,12 +213,26 @@ const EMPTY_ALIGNMENT_SUMMARY: LearnerCurriculumView["alignmentSummary"] = {
   incompleteGoalIds: [],
   recommendations: [],
 }
+const SESSION_NOT_FOUND_ERROR = "Session not found"
+const TRANSCRIPT_RETRY_ATTEMPTS = 4
+const TRANSCRIPT_RETRY_DELAY_MS = 500
+const TRANSCRIPT_RETRY_FACTOR = 2
 const pendingSessionCreations = new Map<string, Promise<SessionInfo>>()
+const latestSessionListRequestByDirectory = new Map<string, number>()
+const latestTranscriptRequestByDirectory = new Map<string, number>()
 type DirectorySessionLoadResult = {
   directory: string
   info: SessionInfo | undefined
 }
 const pendingDirectorySessionLoads = new Map<string, Promise<DirectorySessionLoadResult>>()
+
+class RetryableTranscriptReloadError extends Error {
+  constructor(cause: unknown) {
+    super("Retryable transcript reload")
+    this.name = "RetryableTranscriptReloadError"
+    this.cause = cause
+  }
+}
 
 function toLearnerPersona(persona?: string): LearnerPersona | undefined {
   if (!persona) return undefined
@@ -554,21 +565,76 @@ export async function reorderOpenProjects(directories: string[]) {
 
 export async function loadSessions(directory: string) {
   const store = useChatStore.getState()
+  const requestSequence = (latestSessionListRequestByDirectory.get(directory) ?? 0) + 1
+  latestSessionListRequestByDirectory.set(directory, requestSequence)
+
   try {
     const sessions = requireBuddyData<SessionInfo[]>(
       await getBuddyClient(directory).session.list({ directory }),
     )
+    if (latestSessionListRequestByDirectory.get(directory) !== requestSequence) {
+      return sessions
+    }
+
     store.setSessions(directory, sessions)
     store.setDirectoryError(directory, undefined)
     return sessions
   } catch (error) {
+    if (latestSessionListRequestByDirectory.get(directory) !== requestSequence) {
+      return store.directories[directory]?.sessions ?? []
+    }
+
     store.setDirectoryError(directory, stringifyError(error))
     throw error
   }
 }
 
+function currentSelectedSessionID(directory: string) {
+  return useChatStore.getState().directories[directory]?.sessionID
+}
+
+function isLatestTranscriptRequest(directory: string, requestSequence: number) {
+  return latestTranscriptRequestByDirectory.get(directory) === requestSequence
+}
+
+async function sessionStillExists(directory: string, sessionID: string) {
+  const client = getBuddyClient(directory)
+  const getResult = await client.session.get({
+    sessionID,
+  })
+  if (getResult.response.ok && getResult.error === undefined && getResult.data !== undefined) {
+    return true
+  }
+
+  const listResult = await client.session.list({
+    directory,
+  })
+  if (
+    !listResult.response.ok ||
+    listResult.error !== undefined ||
+    !Array.isArray(listResult.data)
+  ) {
+    return false
+  }
+
+  return listResult.data.some((session) => session.id === sessionID)
+}
+
+async function fetchSessionMessages(directory: string, sessionID: string) {
+  const payload = requireBuddyData<SessionMessagesResponses[200]>(
+    await getBuddyClient(directory).session.messages({
+      sessionID,
+    }),
+  )
+
+  return parseSessionMessagesPayload(payload)
+}
+
 async function loadSessionStatuses(directory: string) {
-  const statusBySession = await requestJson<Record<string, unknown>>(directory, "/session/status")
+  const statusBySession = await requestJson<Record<string, unknown>>(
+    directory,
+    "/api/session/status",
+  )
   const store = useChatStore.getState()
   const snapshot = store.directories[directory]
   if (!snapshot) return statusBySession
@@ -594,20 +660,62 @@ async function loadSessionStatuses(directory: string) {
 
 export async function loadMessages(directory: string, sessionID: string) {
   const store = useChatStore.getState()
+  const requestSequence = (latestTranscriptRequestByDirectory.get(directory) ?? 0) + 1
+  latestTranscriptRequestByDirectory.set(directory, requestSequence)
+  let lastError: unknown
+
   try {
-    const payload = requireBuddyData<SessionMessagesResponses[200]>(
-      await getBuddyClient(directory).session.messages({
-        sessionID,
-      }),
+    const messages = await retry(
+      async () => {
+        try {
+          return await fetchSessionMessages(directory, sessionID)
+        } catch (error) {
+          if (!isLatestTranscriptRequest(directory, requestSequence)) {
+            throw error
+          }
+
+          const shouldRetry =
+            isMissingSessionError(error) &&
+            currentSelectedSessionID(directory) === sessionID &&
+            (await sessionStillExists(directory, sessionID).catch(() => false))
+
+          if (!shouldRetry) {
+            throw error
+          }
+
+          throw new RetryableTranscriptReloadError(error)
+        }
+      },
+      {
+        attempts: TRANSCRIPT_RETRY_ATTEMPTS,
+        delay: TRANSCRIPT_RETRY_DELAY_MS,
+        factor: TRANSCRIPT_RETRY_FACTOR,
+        retryIf: (error) => error instanceof RetryableTranscriptReloadError,
+      },
     )
-    const messages = parseSessionMessagesPayload(payload)
+
+    if (!isLatestTranscriptRequest(directory, requestSequence)) {
+      return messages
+    }
+
     store.setMessages(directory, sessionID, messages)
     store.setDirectoryError(directory, undefined)
     return messages
   } catch (error) {
-    store.setDirectoryError(directory, stringifyError(error))
-    throw error
+    lastError =
+      error instanceof RetryableTranscriptReloadError && error.cause !== undefined
+        ? error.cause
+        : error
   }
+
+  if (
+    isLatestTranscriptRequest(directory, requestSequence) &&
+    currentSelectedSessionID(directory) === sessionID
+  ) {
+    store.setDirectoryError(directory, stringifyError(lastError))
+  }
+
+  throw lastError
 }
 
 export async function loadPermissions(directory: string) {
@@ -762,12 +870,9 @@ export async function ensureDirectorySession(directory: string) {
         store.setSessionInfo(targetDirectory, info)
         await loadMessages(targetDirectory, info.id)
       } else {
-        const currentSessionID = useChatStore.getState().directories[targetDirectory]?.sessionID
-        if (currentSessionID) {
-          await loadMessages(targetDirectory, currentSessionID).catch(() => undefined)
-        } else {
-          store.startSessionDraft(targetDirectory)
-        }
+        // The persisted active session ID can point to a session from a previous runtime.
+        // If no valid session can be resolved, always reset to a fresh draft.
+        store.startSessionDraft(targetDirectory)
       }
 
       store.setDirectoryReady(targetDirectory, true)
@@ -819,7 +924,29 @@ export async function selectSession(directory: string, sessionID: string) {
     store.setSessionInfo(directory, info)
   }
 
-  await loadMessages(directory, sessionID)
+  try {
+    await loadMessages(directory, sessionID)
+  } catch (error) {
+    if (!isMissingSessionError(error)) {
+      throw error
+    }
+
+    const sessions = await loadSessions(directory).catch(() => [])
+    const fallback = sessions[0]
+    if (!fallback) {
+      store.startSessionDraft(directory)
+      store.clearDirectoryError(directory)
+      return
+    }
+
+    store.setSessionInfo(directory, fallback)
+    const fallbackLoaded = await loadMessages(directory, fallback.id)
+      .then(() => true)
+      .catch(() => false)
+    if (fallbackLoaded) {
+      store.clearDirectoryError(directory)
+    }
+  }
 }
 
 export async function startNewSession(directory: string) {
@@ -871,9 +998,31 @@ export async function sendPrompt(
   try {
     const resolvedSessionID = await resolveSessionForSend(directory)
     sessionID = resolvedSessionID
-    store.applySessionStatus(directory, resolvedSessionID, "busy")
+    store.applySessionStatus(directory, resolvedSessionID, BUSY_SESSION_STATUS)
 
     const intent = input?.intent ?? "auto"
+    const promptBody = {
+      content,
+      ...(input?.parts && input.parts.length > 0 ? { parts: input.parts } : {}),
+      ...(input?.persona ? { persona: input.persona } : {}),
+      intent,
+      ...(input?.focusGoalIds && input.focusGoalIds.length > 0
+        ? { focusGoalIds: input.focusGoalIds }
+        : {}),
+      ...(input?.agent ? { agent: input.agent } : {}),
+      ...(input?.model ? { model: input.model } : {}),
+      ...(input?.variant ? { variant: input.variant } : {}),
+      ...(input?.teaching ? { teaching: input.teaching } : {}),
+    }
+
+    const postPrompt = async (targetSessionID: string) => {
+      requireBuddyData(
+        await getBuddyClient(directory).session.prompt({
+          sessionID: targetSessionID,
+          body: promptBody,
+        }),
+      )
+    }
 
     console.info("[chat-action] prompt.start", {
       directory,
@@ -881,26 +1030,31 @@ export async function sendPrompt(
       sessionID: resolvedSessionID,
     })
 
-    requireBuddyData(
-      await getBuddyClient(directory).session.prompt({
-        sessionID: resolvedSessionID,
-        body: {
-          content,
-          ...(input?.parts && input.parts.length > 0 ? { parts: input.parts } : {}),
-          ...(input?.persona ? { persona: input.persona } : {}),
-          intent,
-          ...(input?.focusGoalIds && input.focusGoalIds.length > 0
-            ? { focusGoalIds: input.focusGoalIds }
-            : {}),
-          ...(input?.agent ? { agent: input.agent } : {}),
-          ...(input?.model ? { model: input.model } : {}),
-          ...(input?.variant ? { variant: input.variant } : {}),
-          ...(input?.teaching ? { teaching: input.teaching } : {}),
-        },
-      }),
-    )
+    try {
+      await postPrompt(resolvedSessionID)
+    } catch (error) {
+      const shouldRecover = await shouldRecoverMissingSession(directory, resolvedSessionID, error)
+      if (!shouldRecover) {
+        throw error
+      }
 
-    console.info("[chat-action] prompt.accepted", { directory, sessionID: resolvedSessionID })
+      store.applySessionStatus(directory, resolvedSessionID, IDLE_SESSION_STATUS)
+      store.startSessionDraft(directory)
+      const recoveredSessionID = await resolveSessionForSend(directory)
+      sessionID = recoveredSessionID
+      store.applySessionStatus(directory, recoveredSessionID, BUSY_SESSION_STATUS)
+
+      console.warn("[chat-action] prompt.retry-missing-session", {
+        directory,
+        previousSessionID: resolvedSessionID,
+        recoveredSessionID,
+      })
+
+      await postPrompt(recoveredSessionID)
+      void loadSessions(directory).catch(() => undefined)
+    }
+
+    console.info("[chat-action] prompt.accepted", { directory, sessionID })
   } catch (error) {
     if (sessionID) {
       console.error("[chat-action] prompt.failed", {
@@ -915,15 +1069,37 @@ export async function sendPrompt(
       })
     }
 
+    const missingSession = isMissingSessionError(error)
     if (sessionID) {
-      store.applySessionStatus(directory, sessionID, "idle")
-      void loadMessages(directory, sessionID).catch(() => undefined)
+      store.applySessionStatus(directory, sessionID, IDLE_SESSION_STATUS)
+      if (missingSession) {
+        store.startSessionDraft(directory)
+      } else {
+        void loadMessages(directory, sessionID).catch(() => undefined)
+      }
       void loadSessions(directory).catch(() => undefined)
     }
 
     store.setDirectoryError(directory, stringifyError(error))
     throw error
   }
+}
+
+function isMissingSessionError(error: unknown) {
+  const message = stringifyError(error).toLowerCase()
+  return message.includes(SESSION_NOT_FOUND_ERROR.toLowerCase())
+}
+
+async function isSessionMissingInDirectory(directory: string, sessionID: string) {
+  const result = await getBuddyClient(directory).session.get({
+    sessionID,
+  })
+  return result.response?.status === 404
+}
+
+async function shouldRecoverMissingSession(directory: string, sessionID: string, error: unknown) {
+  if (isMissingSessionError(error)) return true
+  return isSessionMissingInDirectory(directory, sessionID).catch(() => false)
 }
 
 export async function sendCommand(
@@ -949,29 +1125,54 @@ export async function sendCommand(
   try {
     const resolvedSessionID = await resolveSessionForSend(directory)
     sessionID = resolvedSessionID
-    store.applySessionStatus(directory, resolvedSessionID, "busy")
+    store.applySessionStatus(directory, resolvedSessionID, BUSY_SESSION_STATUS)
 
     const intent = input?.intent ?? "auto"
+    const commandBody = {
+      command,
+      arguments: argumentsText,
+      ...(input?.parts && input.parts.length > 0 ? { parts: input.parts } : {}),
+      ...(input?.persona ? { persona: input.persona } : {}),
+      intent,
+      ...(input?.agent ? { agent: input.agent } : {}),
+      ...(input?.model ? { model: `${input.model.providerID}/${input.model.modelID}` } : {}),
+      ...(input?.variant ? { variant: input.variant } : {}),
+    }
 
-    requireBuddyData(
-      await getBuddyClient(directory).session.command({
-        sessionID: resolvedSessionID,
-        body: {
-          command,
-          arguments: argumentsText,
-          ...(input?.parts && input.parts.length > 0 ? { parts: input.parts } : {}),
-          ...(input?.persona ? { persona: input.persona } : {}),
-          intent,
-          ...(input?.agent ? { agent: input.agent } : {}),
-          ...(input?.model ? { model: `${input.model.providerID}/${input.model.modelID}` } : {}),
-          ...(input?.variant ? { variant: input.variant } : {}),
-        },
-      }),
-    )
+    const postCommand = async (targetSessionID: string) => {
+      requireBuddyData(
+        await getBuddyClient(directory).session.command({
+          sessionID: targetSessionID,
+          body: commandBody,
+        }),
+      )
+    }
+
+    try {
+      await postCommand(resolvedSessionID)
+    } catch (error) {
+      const shouldRecover = await shouldRecoverMissingSession(directory, resolvedSessionID, error)
+      if (!shouldRecover) {
+        throw error
+      }
+
+      store.applySessionStatus(directory, resolvedSessionID, IDLE_SESSION_STATUS)
+      store.startSessionDraft(directory)
+      const recoveredSessionID = await resolveSessionForSend(directory)
+      sessionID = recoveredSessionID
+      store.applySessionStatus(directory, recoveredSessionID, BUSY_SESSION_STATUS)
+      await postCommand(recoveredSessionID)
+      void loadSessions(directory).catch(() => undefined)
+    }
   } catch (error) {
+    const missingSession = isMissingSessionError(error)
     if (sessionID) {
-      store.applySessionStatus(directory, sessionID, "idle")
-      void loadMessages(directory, sessionID).catch(() => undefined)
+      store.applySessionStatus(directory, sessionID, IDLE_SESSION_STATUS)
+      if (missingSession) {
+        store.startSessionDraft(directory)
+      } else {
+        void loadMessages(directory, sessionID).catch(() => undefined)
+      }
       void loadSessions(directory).catch(() => undefined)
     }
 
@@ -1010,7 +1211,7 @@ export async function abortPrompt(directory: string) {
         sessionID,
       }),
     )
-    if (aborted) store.applySessionStatus(directory, sessionID, "idle")
+    if (aborted) store.applySessionStatus(directory, sessionID, IDLE_SESSION_STATUS)
     // Always resync once after abort attempt so UI doesn't stay stale if server state drifted.
     void loadMessages(directory, sessionID).catch(() => undefined)
     void loadSessions(directory).catch(() => undefined)

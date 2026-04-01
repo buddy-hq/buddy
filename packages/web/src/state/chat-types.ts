@@ -103,6 +103,20 @@ export type GlobalEvent = {
   }
 }
 
+export type SessionStatusInfo =
+  | {
+      type: "idle"
+    }
+  | {
+      type: "busy"
+    }
+  | {
+      type: "retry"
+      attempt: number
+      message: string
+      next: number
+    }
+
 export type PermissionRequest = {
   id: string
   sessionID: string
@@ -187,7 +201,7 @@ export type DirectoryChatState = {
   isDraft?: boolean
   sessionTitle: string
   sessions: SessionInfo[]
-  sessionStatusByID: Record<string, "busy" | "idle">
+  sessionStatusByID: Record<string, SessionStatusInfo>
   messages: MessageWithParts[]
   pendingPermissions: PermissionRequest[]
   providers: ProviderInfo[]
