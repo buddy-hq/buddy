@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { language } from "@/context/language"
-import { renderMermaidSvg, type MermaidRenderResult } from "./lib/render"
+import { readCachedMermaidSvg, renderMermaidSvg, type MermaidRenderResult } from "./lib/render"
 
 export type MermaidRenderState =
   | {
@@ -34,14 +34,36 @@ type UseMermaidRenderResult = {
   state: MermaidRenderState
 }
 
+function getCachedState(input: UseMermaidRenderOptions): MermaidRenderState | undefined {
+  const cached = readCachedMermaidSvg(input)
+  if (!cached) {
+    return undefined
+  }
+
+  return {
+    status: "ready",
+    value: cached,
+  }
+}
+
 export function useMermaidRender({
   source,
   artifactID,
 }: UseMermaidRenderOptions): UseMermaidRenderResult {
-  const [state, setState] = useState<MermaidRenderState>({ status: "loading" })
+  const [state, setState] = useState<MermaidRenderState>(
+    () => getCachedState({ source, artifactID }) ?? { status: "loading" },
+  )
 
   useEffect(() => {
     let cancelled = false
+    const cachedState = getCachedState({ source, artifactID })
+    if (cachedState) {
+      setState(cachedState)
+      return () => {
+        cancelled = true
+      }
+    }
+
     setState({ status: "loading" })
 
     void renderMermaidSvg({

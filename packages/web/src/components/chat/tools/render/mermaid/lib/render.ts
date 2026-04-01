@@ -128,10 +128,10 @@ function touchSvgCache(key: string, value: MermaidSvgCacheValue): void {
   }
 }
 
-export async function renderMermaidSvg(input: MermaidRenderInput): Promise<MermaidRenderResult> {
+function readCachedSvg(input: MermaidRenderInput): MermaidRenderResult | undefined {
   const source = normalizeMermaidSource(input.source)
   if (!source) {
-    throw new Error("Mermaid source is empty.")
+    return undefined
   }
 
   const sourceHash = hashSource(source)
@@ -141,16 +141,36 @@ export async function renderMermaidSvg(input: MermaidRenderInput): Promise<Merma
     themeSignature: themeSignature(tokens),
   })
   const cached = mermaidSvgCache.get(nextCacheKey)
-  if (cached) {
-    touchSvgCache(nextCacheKey, cached)
-    return {
-      svg: cached.svg,
-      sourceHash,
-      cacheKey: nextCacheKey,
-      ...(cached.bindFunctions ? { bindFunctions: cached.bindFunctions } : {}),
-    }
+  if (!cached) {
+    return undefined
   }
 
+  touchSvgCache(nextCacheKey, cached)
+  return {
+    svg: cached.svg,
+    sourceHash,
+    cacheKey: nextCacheKey,
+    ...(cached.bindFunctions ? { bindFunctions: cached.bindFunctions } : {}),
+  }
+}
+
+export async function renderMermaidSvg(input: MermaidRenderInput): Promise<MermaidRenderResult> {
+  const source = normalizeMermaidSource(input.source)
+  if (!source) {
+    throw new Error("Mermaid source is empty.")
+  }
+
+  const cached = readCachedSvg(input)
+  if (cached) {
+    return cached
+  }
+
+  const sourceHash = hashSource(source)
+  const tokens = readThemeTokens()
+  const nextCacheKey = cacheKey({
+    sourceHash,
+    themeSignature: themeSignature(tokens),
+  })
   const runtime = await loadMermaidRuntime()
   initializeMermaidRuntime(runtime, {
     themeVariables: buildThemeVariables(tokens),
@@ -189,5 +209,7 @@ export async function renderMermaidSvg(input: MermaidRenderInput): Promise<Merma
 }
 
 export { hashSource as hashMermaidSource }
+
+export { readCachedSvg as readCachedMermaidSvg }
 
 export type { MermaidRenderInput, MermaidRenderResult }

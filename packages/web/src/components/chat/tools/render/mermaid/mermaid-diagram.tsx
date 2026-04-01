@@ -28,6 +28,7 @@ export function MermaidDiagram(props: {
     actions: React.ReactNode | null,
   ) => React.ReactNode
   minimalActions?: boolean
+  disableRevealAnimation?: boolean
 }) {
   const { artifactID, source } = props
   const [fullscreenOpen, setFullscreenOpen] = useState(false)
@@ -66,18 +67,24 @@ export function MermaidDiagram(props: {
       ) : null}
 
       {state.status === "ready" ? (
-        <motion.div
-          className="overflow-hidden rounded-[14px]"
-          initial={{
-            opacity: 0,
-            y: mermaidConstants.animation.Y_OFFSET,
-            scale: mermaidConstants.animation.SCALE_START,
-          }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={DIAGRAM_REVEAL_SPRING}
-        >
-          <MermaidInlineView value={state.value} ariaLabel={props.alt} svgRef={svgHostRef} />
-        </motion.div>
+        props.disableRevealAnimation ? (
+          <div className="overflow-hidden rounded-[14px]">
+            <MermaidInlineView value={state.value} ariaLabel={props.alt} svgRef={svgHostRef} />
+          </div>
+        ) : (
+          <motion.div
+            className="overflow-hidden rounded-[14px]"
+            initial={{
+              opacity: 0,
+              y: mermaidConstants.animation.Y_OFFSET,
+              scale: mermaidConstants.animation.SCALE_START,
+            }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={DIAGRAM_REVEAL_SPRING}
+          >
+            <MermaidInlineView value={state.value} ariaLabel={props.alt} svgRef={svgHostRef} />
+          </motion.div>
+        )
       ) : null}
 
       {state.status === "error" ? (
