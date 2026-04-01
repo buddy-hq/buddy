@@ -57,6 +57,14 @@ packages/desktop/.turbo/
 packages/desktop/dist/
 packages/desktop/node_modules/
 packages/desktop/*.tsbuildinfo
+packages/desktop-electron/.turbo/
+packages/desktop-electron/out/
+packages/desktop-electron/dist/
+packages/desktop-electron/node_modules/
+packages/desktop-electron/resources/icons/
+packages/desktop-electron/*.tsbuildinfo
+packages/desktop-electron/*.log
+packages/desktop-electron/.electron-builder/
 packages/sdk/.buddy-runtime/
 packages/web/.tanstack/
 packages/web/e2e/test-results/
