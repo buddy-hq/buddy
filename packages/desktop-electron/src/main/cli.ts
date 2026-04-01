@@ -1,0 +1,296 @@
+import { execFileSync, spawn } from "node:child_process"
+import { chmodSync, copyFileSync, existsSync, mkdirSync } from "node:fs"
+import { EventEmitter } from "node:events"
+import os from "node:os"
+import path from "node:path"
+import readline from "node:readline"
+import { app } from "electron"
+import treeKill from "tree-kill"
+import { SIDECAR_BINARY_NAME, SIDECAR_USERNAME } from "./constants"
+import { getUserShell, loadShellEnv, mergeShellEnv } from "./shell-env"
+
+const CLI_INSTALL_DIR = ".buddy/bin"
+const CLI_BINARY_NAME = "buddy"
+const SQLITE_PROGRESS_PREFIX = "sqlite-migration:"
+const SERVE_COMMAND = "serve"
+const HOSTNAME_OPTION = "--hostname"
+const PORT_OPTION = "--port"
+const PRINT_LOGS_OPTION = "--print-logs"
+const LOG_LEVEL_OPTION = "--log-level"
+const LOG_LEVEL_WARN = "WARN"
+const ADVANCED_MATH_LOCAL_ASSET_DIR_ENV = "BUDDY_ADVANCED_MATH_LOCAL_ASSET_DIR"
+const ADVANCED_MATH_LOCAL_ASSET_PATH_SEGMENTS = ["dist", "advanced-math-runtime"] as const
+
+export type SqliteMigrationProgress = { type: "InProgress"; value: number } | { type: "Done" }
+
+export type TerminatedPayload = {
+  code: number | null
+  signal: number | null
+}
+
+export type CommandChild = {
+  pid: number | undefined
+  kill: () => void
+}
+
+function sidecarBinaryName() {
+  return process.platform === "win32" ? `${SIDECAR_BINARY_NAME}.exe` : SIDECAR_BINARY_NAME
+}
+
+export function getSidecarPath() {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, sidecarBinaryName())
+  }
+  return path.join(import.meta.dirname, "../../resources", sidecarBinaryName())
+}
+
+function buildRuntimeEnvironment(password: string, port: number) {
+  const runtimeRoot = path.join(app.getPath("userData"), "xdg")
+  const home = os.homedir()
+  const allowedRoots = [home, os.tmpdir()].join(",")
+  const base = Object.fromEntries(
+    Object.entries(process.env).filter(
+      (entry): entry is [string, string] => typeof entry[1] === "string",
+    ),
+  )
+
+  const environment: Record<string, string> = {
+    ...base,
+    BUDDY_SERVER_USERNAME: SIDECAR_USERNAME,
+    BUDDY_SERVER_PASSWORD: password,
+    OPENCODE_SERVER_USERNAME: SIDECAR_USERNAME,
+    OPENCODE_SERVER_PASSWORD: password,
+    BUDDY_APP_VERSION: app.getVersion(),
+    BUDDY_DIRECTORY_BASE: home,
+    BUDDY_ALLOWED_DIRECTORY_ROOTS: allowedRoots,
+    BUDDY_RUNTIME_ROOT: runtimeRoot,
+    XDG_DATA_HOME: path.join(runtimeRoot, "data"),
+    XDG_CACHE_HOME: path.join(runtimeRoot, "cache"),
+    XDG_CONFIG_HOME: path.join(runtimeRoot, "config"),
+    XDG_STATE_HOME: path.join(runtimeRoot, "state"),
+    PORT: String(port),
+    OPENCODE_EXPERIMENTAL_ICON_DISCOVERY: "true",
+    OPENCODE_EXPERIMENTAL_FILEWATCHER: "true",
+    OPENCODE_CLIENT: "desktop-electron",
+  }
+
+  const advancedMathAssetDir = resolveDevelopmentAdvancedMathAssetDir()
+  if (advancedMathAssetDir) {
+    environment[ADVANCED_MATH_LOCAL_ASSET_DIR_ENV] = advancedMathAssetDir
+  }
+
+  return environment
+}
+
+function resolveDevelopmentAdvancedMathAssetDir() {
+  if (app.isPackaged) return undefined
+
+  const appPathCandidate = path.resolve(
+    app.getAppPath(),
+    "..",
+    "buddy",
+    ...ADVANCED_MATH_LOCAL_ASSET_PATH_SEGMENTS,
+  )
+  if (existsSync(appPathCandidate)) {
+    return appPathCandidate
+  }
+
+  const cwdCandidate = path.resolve(
+    process.cwd(),
+    "..",
+    "buddy",
+    ...ADVANCED_MATH_LOCAL_ASSET_PATH_SEGMENTS,
+  )
+  if (existsSync(cwdCandidate)) {
+    return cwdCandidate
+  }
+
+  return undefined
+}
+
+function killStaleDevelopmentSidecars(runtimeRoot: string) {
+  if (app.isPackaged || process.platform === "win32") return
+
+  const sidecarPath = getSidecarPath()
+  const currentPid = process.pid
+
+  try {
+    const output = execFileSync("ps", ["eww", "-ax"], {
+      encoding: "utf8",
+    })
+
+    for (const line of output.split("\n")) {
+      const trimmed = line.trim()
+      if (!trimmed.includes(sidecarPath)) continue
+      if (!trimmed.includes(`BUDDY_RUNTIME_ROOT=${runtimeRoot}`)) continue
+
+      const pidText = trimmed.split(/\s+/, 1)[0]
+      const pid = Number.parseInt(pidText, 10)
+      if (Number.isNaN(pid) || pid === currentPid) continue
+
+      try {
+        treeKill(pid)
+      } catch {
+        // noop
+      }
+    }
+  } catch {
+    // noop
+  }
+}
+
+export function serve(hostname: string, port: number, password: string) {
+  const sidecarPath = getSidecarPath()
+  const args = [
+    PRINT_LOGS_OPTION,
+    LOG_LEVEL_OPTION,
+    LOG_LEVEL_WARN,
+    SERVE_COMMAND,
+    HOSTNAME_OPTION,
+    hostname,
+    PORT_OPTION,
+    String(port),
+  ]
+
+  const shell = process.platform === "win32" ? null : getUserShell()
+  const env = buildRuntimeEnvironment(password, port)
+  killStaleDevelopmentSidecars(env.BUDDY_RUNTIME_ROOT)
+  const envs = shell ? mergeShellEnv(loadShellEnv(shell), env) : env
+
+  const child = spawn(sidecarPath, args, {
+    env: envs,
+    detached: app.isPackaged && process.platform !== "win32",
+    windowsHide: true,
+    stdio: ["ignore", "pipe", "pipe"],
+  })
+
+  const events = new EventEmitter()
+  const exit = new Promise<TerminatedPayload>((resolve) => {
+    child.on("exit", (code, signal) => {
+      void signal
+      resolve({ code: code ?? null, signal: null })
+    })
+    child.on("error", (error: Error) => {
+      events.emit("error", error.message)
+    })
+  })
+
+  if (child.stdout) {
+    readline.createInterface({ input: child.stdout }).on("line", (line) => {
+      if (handleSqliteProgress(events, line)) return
+      events.emit("stdout", `${line}\n`)
+    })
+  }
+
+  if (child.stderr) {
+    readline.createInterface({ input: child.stderr }).on("line", (line) => {
+      if (handleSqliteProgress(events, line)) return
+      events.emit("stderr", `${line}\n`)
+    })
+  }
+
+  exit.then((payload) => {
+    events.emit("terminated", payload)
+  })
+
+  const wrappedChild: CommandChild = {
+    pid: child.pid,
+    kill: () => {
+      if (!child.pid) return
+      treeKill(child.pid)
+    },
+  }
+
+  return {
+    child: wrappedChild,
+    exit,
+    events,
+  }
+}
+
+function handleSqliteProgress(events: EventEmitter, line: string) {
+  const stripped = line.startsWith(SQLITE_PROGRESS_PREFIX)
+    ? line.slice(SQLITE_PROGRESS_PREFIX.length).trim()
+    : null
+
+  if (!stripped) return false
+
+  if (stripped === "done") {
+    events.emit("sqlite", { type: "Done" } satisfies SqliteMigrationProgress)
+    return true
+  }
+
+  const value = Number.parseInt(stripped, 10)
+  if (!Number.isNaN(value)) {
+    events.emit("sqlite", { type: "InProgress", value } satisfies SqliteMigrationProgress)
+    return true
+  }
+
+  return false
+}
+
+export async function installCli() {
+  if (process.platform === "win32") {
+    throw new Error("CLI installation is only supported on macOS and Linux")
+  }
+
+  const source = getSidecarPath()
+  if (!existsSync(source)) {
+    throw new Error(`Sidecar binary not found at ${source}`)
+  }
+
+  const installRoot = path.join(os.homedir(), CLI_INSTALL_DIR)
+  mkdirSync(installRoot, { recursive: true })
+
+  const destination = path.join(installRoot, CLI_BINARY_NAME)
+  copyFileSync(source, destination)
+  chmodSync(destination, 0o755)
+
+  return destination
+}
+
+export function syncCli() {
+  if (!app.isPackaged) return
+  if (process.platform === "win32") return
+  const installPath = getCliInstallPath()
+  if (!installPath) return
+
+  let version = ""
+  try {
+    version = execFileSync(installPath, ["--version"], { windowsHide: true }).toString().trim()
+  } catch {
+    return
+  }
+
+  const cli = parseVersion(version)
+  const appVersion = parseVersion(app.getVersion())
+  if (!cli || !appVersion) return
+  if (compareVersions(cli, appVersion) >= 0) return
+  void installCli().catch(() => undefined)
+}
+
+function getCliInstallPath() {
+  const home = process.env.HOME
+  if (!home) return null
+  return path.join(home, CLI_INSTALL_DIR, CLI_BINARY_NAME)
+}
+
+function parseVersion(value: string) {
+  const parts = value
+    .replace(/^v/, "")
+    .split(".")
+    .map((part) => Number.parseInt(part, 10))
+  if (parts.some((part) => Number.isNaN(part))) return null
+  return parts
+}
+
+function compareVersions(a: number[], b: number[]) {
+  const length = Math.max(a.length, b.length)
+  for (let index = 0; index < length; index += 1) {
+    const left = a[index] ?? 0
+    const right = b[index] ?? 0
+    if (left > right) return 1
+    if (left < right) return -1
+  }
+  return 0
+}
