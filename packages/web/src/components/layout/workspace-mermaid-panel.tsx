@@ -152,7 +152,7 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
       ) : null}
 
       {artifacts.length > 0 ? (
-        <div ref={artifactsListRef} className="flex-1 min-h-0 overflow-y-auto">
+        <div ref={artifactsListRef} className="scrollbar-hover flex-1 min-h-0 overflow-y-auto">
           {shouldVirtualizeArtifacts ? (
             <div
               className="relative w-full"
