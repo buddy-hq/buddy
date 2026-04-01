@@ -1,18 +1,19 @@
 import type { UpdateCheckResult } from "@buddy/web/context/platform"
 
-type BuddyWindow = Window & {
-  __BUDDY__?: {
-    updaterEnabled?: boolean
-    version?: string
+function isUpdaterEnabled() {
+  const buddyGlobals = Reflect.get(window, "__BUDDY__")
+  if (!buddyGlobals || typeof buddyGlobals !== "object") {
+    return false
   }
-}
 
-export const UPDATER_ENABLED = (window as BuddyWindow).__BUDDY__?.updaterEnabled ?? false
+  const updaterEnabled = Reflect.get(buddyGlobals, "updaterEnabled")
+  return typeof updaterEnabled === "boolean" ? updaterEnabled : false
+}
 
 let pendingVersion: string | undefined
 
 export async function checkForUpdate(): Promise<UpdateCheckResult> {
-  if (!UPDATER_ENABLED) {
+  if (!isUpdaterEnabled()) {
     return { status: "disabled" }
   }
 
@@ -25,6 +26,13 @@ export async function checkForUpdate(): Promise<UpdateCheckResult> {
 
   try {
     const result = await window.api.checkUpdate()
+    if (result.failed) {
+      return {
+        status: "error",
+        stage: "check",
+      }
+    }
+
     if (!result.updateAvailable) {
       return { status: "up-to-date" }
     }
@@ -43,7 +51,7 @@ export async function checkForUpdate(): Promise<UpdateCheckResult> {
 }
 
 export async function installPendingUpdate() {
-  if (!UPDATER_ENABLED) return
+  if (!isUpdaterEnabled()) return
   await window.api.installUpdate()
   pendingVersion = undefined
 }

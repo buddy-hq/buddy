@@ -3,9 +3,40 @@ import { app } from "electron"
 export type ReleaseChannel = "dev" | "beta" | "prod"
 
 const rawChannel = import.meta.env.BUDDY_CHANNEL
+const PACKAGED_FALLBACK_CHANNEL: ReleaseChannel = "prod"
+const CHANNEL_NAME_HINTS: Record<ReleaseChannel, string> = {
+  dev: "dev",
+  beta: "beta",
+  prod: "buddy",
+}
 
-export const CHANNEL: ReleaseChannel =
-  rawChannel === "dev" || rawChannel === "beta" || rawChannel === "prod" ? rawChannel : "dev"
+function isReleaseChannel(value: string | undefined): value is ReleaseChannel {
+  return value === "dev" || value === "beta" || value === "prod"
+}
+
+function resolvePackagedChannelFallback(): ReleaseChannel {
+  const appName = app.getName().toLowerCase()
+
+  if (appName.includes(CHANNEL_NAME_HINTS.beta)) {
+    return "beta"
+  }
+
+  if (appName.includes(CHANNEL_NAME_HINTS.dev)) {
+    return "dev"
+  }
+
+  if (appName.includes(CHANNEL_NAME_HINTS.prod)) {
+    return "prod"
+  }
+
+  return PACKAGED_FALLBACK_CHANNEL
+}
+
+export const CHANNEL: ReleaseChannel = isReleaseChannel(rawChannel)
+  ? rawChannel
+  : app.isPackaged
+    ? resolvePackagedChannelFallback()
+    : "dev"
 
 const APP_NAMES: Record<ReleaseChannel, string> = {
   dev: "Buddy Dev",

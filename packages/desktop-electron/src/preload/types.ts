@@ -71,7 +71,7 @@ export type ElectronAPI = {
   setTitlebar: (theme: TitlebarTheme) => Promise<void>
   loadingWindowComplete: () => void
   runUpdater: (alertOnFail: boolean) => Promise<void>
-  checkUpdate: () => Promise<{ updateAvailable: boolean; version?: string }>
+  checkUpdate: () => Promise<{ updateAvailable: boolean; version?: string; failed?: boolean }>
   installUpdate: () => Promise<void>
   setBackgroundColor: (color: string) => Promise<void>
 }

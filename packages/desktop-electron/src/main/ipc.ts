@@ -36,7 +36,7 @@ type Deps = {
   resolveAppPath: (appName: string) => Promise<string | null>
   loadingWindowComplete: () => void
   runUpdater: (alertOnFail: boolean) => Promise<void> | void
-  checkUpdate: () => Promise<{ updateAvailable: boolean; version?: string }>
+  checkUpdate: () => Promise<{ updateAvailable: boolean; version?: string; failed?: boolean }>
   installUpdate: () => Promise<void> | void
   setBackgroundColor: (color: string) => void
 }

@@ -147,16 +147,32 @@ function loadWindow(win: BrowserWindow, htmlFile: string) {
 function injectGlobals(win: BrowserWindow, globals: WindowGlobals) {
   win.webContents.on("dom-ready", () => {
     const deepLinks = globals.deepLinks ?? []
+    const assetBaseUrl = resolveAssetBaseUrl(win)
     const payload = {
       updaterEnabled: globals.updaterEnabled,
       deepLinks: Array.isArray(deepLinks) ? [...deepLinks] : [],
       version: globals.version,
+      assetBaseUrl,
     }
 
     void win.webContents.executeJavaScript(
       `window.__BUDDY__ = Object.assign(window.__BUDDY__ ?? {}, ${JSON.stringify(payload)})`,
     )
   })
+}
+
+function resolveAssetBaseUrl(win: BrowserWindow) {
+  const currentUrl = win.webContents.getURL()
+
+  try {
+    const parsed = new URL(currentUrl)
+    if (parsed.protocol === "file:") {
+      return new URL("./", parsed).toString()
+    }
+    return new URL("/", parsed).toString()
+  } catch {
+    return undefined
+  }
 }
 
 function wireZoom(win: BrowserWindow) {

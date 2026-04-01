@@ -15,6 +15,7 @@ const rootHostElement: HTMLElement = rootElement
 
 document.documentElement.classList.add("dark")
 const ELECTRON_ENTRY_HTML_SUFFIX = "/index.html"
+const BUDDY_ICON_FILENAME = "buddy-icon.png"
 
 const platform = createDesktopPlatform()
 installLegacyElectronApiBridge(platform)
@@ -52,11 +53,39 @@ function ShellMessage(props: { children: React.ReactNode; tone?: "default" | "er
 }
 
 function LoadingScreen() {
+  const iconUrl = resolveBuddyIconUrl()
+
   return (
     <div className="relative flex h-full items-center justify-center bg-background">
-      <img src="/buddy-icon.png" alt="Buddy" className="h-24 w-24 rounded-2xl animate-pulse" />
+      <img src={iconUrl} alt="Buddy" className="h-24 w-24 rounded-2xl animate-pulse" />
     </div>
   )
+}
+
+function resolveBuddyIconUrl() {
+  const buddyGlobals = Reflect.get(window, "__BUDDY__")
+  const assetBaseUrl =
+    buddyGlobals && typeof buddyGlobals === "object"
+      ? Reflect.get(buddyGlobals, "assetBaseUrl")
+      : undefined
+
+  if (typeof assetBaseUrl === "string" && assetBaseUrl.length > 0) {
+    try {
+      return new URL(BUDDY_ICON_FILENAME, assetBaseUrl).toString()
+    } catch {
+      // fallback below
+    }
+  }
+
+  if (window.location.protocol === "file:") {
+    try {
+      return new URL(BUDDY_ICON_FILENAME, window.location.href).toString()
+    } catch {
+      // fallback below
+    }
+  }
+
+  return `/${BUDDY_ICON_FILENAME}`
 }
 
 function installLegacyElectronApiBridge(nextPlatform: Platform) {

@@ -393,7 +393,7 @@ async function checkUpdate() {
     }
   } catch (error) {
     logger.error("update check failed", error)
-    return { updateAvailable: false }
+    return { updateAvailable: false, failed: true }
   }
 }
 
@@ -408,6 +408,16 @@ async function checkForUpdates(alertOnFail: boolean) {
 
   const result = await checkUpdate()
   if (!result.updateAvailable) {
+    if (result.failed) {
+      if (!alertOnFail) return
+      await dialog.showMessageBox({
+        type: "error",
+        title: "Update Error",
+        message: "Update check failed.",
+      })
+      return
+    }
+
     if (!alertOnFail) return
     await dialog.showMessageBox({
       type: "info",

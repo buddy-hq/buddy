@@ -13,6 +13,7 @@ declare global {
       updaterEnabled?: boolean
       deepLinks?: string[]
       version?: string
+      assetBaseUrl?: string
     }
   }
 }
