@@ -284,9 +284,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-
-      - if: steps.advanced-math-asset.outputs.restored != 'true'
-        run: bun install
+          cache: pip
 
       - if: steps.advanced-math-asset.outputs.restored != 'true'
         run: bun run --cwd packages/buddy build:advanced-math-runtime
