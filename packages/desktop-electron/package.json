@@ -1,0 +1,54 @@
+{
+  "name": "@buddy/desktop-electron",
+  "version": "0.0.11",
+  "private": true,
+  "description": "Buddy Electron desktop shell",
+  "homepage": "https://github.com/prashantbhudwal/buddy",
+  "license": "MIT",
+  "author": {
+    "name": "Buddy"
+  },
+  "type": "module",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "typecheck": "tsgo -b",
+    "predev": "bun ./scripts/predev.ts",
+    "dev": "electron-vite dev",
+    "prebuild": "bun ./scripts/prebuild.ts",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "package": "electron-builder --config electron-builder.config.ts",
+    "package:mac": "electron-builder --mac --config electron-builder.config.ts",
+    "package:win": "electron-builder --win --config electron-builder.config.ts",
+    "prepare:release": "bun ./scripts/prepare.ts",
+    "copy:bundles": "bun ./scripts/copy-bundles.ts",
+    "build:installable": "bun ./scripts/local-release.ts"
+  },
+  "dependencies": {
+    "electron-log": "^5.4.1",
+    "electron-store": "^10.1.0",
+    "electron-updater": "^6.6.2",
+    "electron-window-state": "^5.0.3",
+    "marked": "^17.0.1",
+    "tree-kill": "^1.2.2"
+  },
+  "devDependencies": {
+    "@buddy/ui": "workspace:*",
+    "@buddy/web": "workspace:*",
+    "@tailwindcss/vite": "^4.1.18",
+    "@types/bun": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@typescript/native-preview": "catalog:",
+    "@vitejs/plugin-react": "^4.2.0",
+    "electron": "40.4.1",
+    "electron-builder": "^26.0.12",
+    "electron-vite": "^5.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "tailwindcss": "^4.0.0",
+    "typescript": "catalog:",
+    "vite": "7.1.4"
+  }
+}
