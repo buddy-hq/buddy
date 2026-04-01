@@ -1,12 +1,17 @@
-import { measureElement as measureVirtualElement, useVirtualizer } from "@tanstack/react-virtual"
+import {
+  defaultRangeExtractor,
+  measureElement as measureVirtualElement,
+  useVirtualizer,
+} from "@tanstack/react-virtual"
 import { useCallback, useEffect, useRef, useState } from "react"
-import { Button } from "@buddy/ui"
+
 import { language } from "@/context/language"
 import { MermaidDiagram } from "@/components/chat/tools/render/mermaid/mermaid-diagram"
 import { MermaidToolCard } from "@/components/chat/tools/render/mermaid/mermaid-tool-card"
-import { RefreshCwIcon, LayoutTemplateIcon } from "lucide-react"
+import { LayoutTemplateIcon } from "lucide-react"
 import {
   VIRTUAL_MERMAID_CARD_ESTIMATE_PX,
+  VIRTUAL_MERMAID_RETAINED_ITEMS,
   VIRTUAL_MERMAID_MIN_ITEMS,
   VIRTUAL_MERMAID_OVERSCAN,
 } from "@/components/virtualization/virtualization-defaults"
@@ -16,14 +21,47 @@ import {
 } from "@/state/chat-actions"
 import { useChatStore } from "@/state/chat-store"
 
-function artifactLabel(count: number): string {
-  return `${count} diagram${count === 1 ? "" : "s"}`
+const MERMAID_CARD_CONTENT_HEIGHT_CLASS = "h-[20rem]"
+const MERMAID_CARD_GAP_PX = 16
+
+function mergeRetainedIndexes(current: number[], next: number[], max: number) {
+  const retained = [...current]
+
+  for (const index of next) {
+    const existingIndex = retained.indexOf(index)
+    if (existingIndex >= 0) {
+      retained.splice(existingIndex, 1)
+    }
+    retained.push(index)
+  }
+
+  if (retained.length <= max) {
+    return retained
+  }
+
+  return retained.slice(retained.length - max)
+}
+
+function sameIndexes(left: number[], right: number[]) {
+  if (left.length !== right.length) {
+    return false
+  }
+
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) {
+      return false
+    }
+  }
+
+  return true
 }
 
 export function WorkspaceMermaidPanel(props: { directory: string }) {
   const [artifacts, setArtifacts] = useState<WorkspaceMermaidArtifactView[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | undefined>(undefined)
+  const [hydratedIndexes, setHydratedIndexes] = useState<number[]>([])
+  const [retainedIndexes, setRetainedIndexes] = useState<number[]>([])
   const artifactsListRef = useRef<HTMLDivElement>(null)
 
   const loadArtifacts = useCallback(
@@ -59,30 +97,84 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
     measureElement: measureVirtualElement,
     enabled: shouldVirtualizeArtifacts,
     overscan: VIRTUAL_MERMAID_OVERSCAN,
+    gap: MERMAID_CARD_GAP_PX,
+    rangeExtractor: (range) => {
+      const indexes = new Set(defaultRangeExtractor(range))
+
+      for (const retainedIndex of retainedIndexes) {
+        indexes.add(retainedIndex)
+      }
+
+      return [...indexes].toSorted((left, right) => left - right)
+    },
+    onChange: (instance, sync) => {
+      if (sync) {
+        return
+      }
+
+      const range = instance.range
+      if (!range) {
+        return
+      }
+
+      const visibleIndexes: number[] = []
+      for (let index = range.startIndex; index <= range.endIndex; index += 1) {
+        visibleIndexes.push(index)
+      }
+
+      setHydratedIndexes((current) => {
+        const next = mergeRetainedIndexes(current, visibleIndexes, artifacts.length)
+        return sameIndexes(current, next) ? current : next
+      })
+
+      setRetainedIndexes((current) => {
+        const next = mergeRetainedIndexes(current, visibleIndexes, VIRTUAL_MERMAID_RETAINED_ITEMS)
+        return sameIndexes(current, next) ? current : next
+      })
+    },
   })
 
-  function renderArtifactCard(artifact: WorkspaceMermaidArtifactView, index: number) {
+  function renderArtifactCard(artifact: WorkspaceMermaidArtifactView, hydrated: boolean) {
+    if (!hydrated) {
+      return (
+        <MermaidToolCard
+          title={artifact.alt}
+          diagramType={artifact.diagramType}
+          hideStatus
+          contentClassName={MERMAID_CARD_CONTENT_HEIGHT_CLASS}
+        >
+          <div className="flex h-full w-full items-center justify-center bg-surface-weak/10 p-3">
+            <div className="space-y-3 text-center">
+              <div className="mx-auto h-12 w-24 animate-pulse rounded-lg border border-border-base/50 bg-surface-raised-base/80 shadow-inner" />
+              <p className="text-sm text-text-weak">
+                {language.t("chatTools.mermaidDiagram.rendering")}
+              </p>
+            </div>
+          </div>
+        </MermaidToolCard>
+      )
+    }
+
     return (
-      <div className={index === artifacts.length - 1 ? "" : "pb-4"}>
-        <MermaidDiagram
-          source={artifact.source}
-          artifactID={artifact.artifactID}
-          alt={artifact.alt}
-          showRawSourceOnError
-          minimalActions
-          renderWrapper={(diagramElement, actions) => (
-            <MermaidToolCard
-              title={artifact.alt}
-              diagramType={artifact.diagramType}
-              hideStatus
-              contentClassName="h-[20rem]"
-              actions={actions}
-            >
-              <div className="p-3 w-full">{diagramElement}</div>
-            </MermaidToolCard>
-          )}
-        />
-      </div>
+      <MermaidDiagram
+        source={artifact.source}
+        artifactID={artifact.artifactID}
+        alt={artifact.alt}
+        showRawSourceOnError
+        minimalActions
+        disableRevealAnimation
+        renderWrapper={(diagramElement, actions) => (
+          <MermaidToolCard
+            title={artifact.alt}
+            diagramType={artifact.diagramType}
+            hideStatus
+            contentClassName={MERMAID_CARD_CONTENT_HEIGHT_CLASS}
+            actions={actions}
+          >
+            <div className="w-full p-3">{diagramElement}</div>
+          </MermaidToolCard>
+        )}
+      />
     )
   }
 
@@ -111,30 +203,20 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
     return () => unsubscribe()
   }, [props.directory, loadArtifacts])
 
+  useEffect(() => {
+    setHydratedIndexes((current) => {
+      const next = current.filter((index) => index < artifacts.length)
+      return sameIndexes(current, next) ? current : next
+    })
+
+    setRetainedIndexes((current) => {
+      const next = current.filter((index) => index < artifacts.length)
+      return sameIndexes(current, next) ? current : next
+    })
+  }, [artifacts.length])
+
   return (
     <div data-component="workspace-mermaid-panel" className="flex min-h-0 flex-1 flex-col p-3">
-      <div className="flex items-start justify-between gap-3 pb-2">
-        <div className="min-w-0 space-y-1">
-          <p className="text-[11px] font-bold uppercase tracking-wider leading-none text-text-weak">
-            {language.t("workspaceMermaid.title")}
-          </p>
-          <p className="line-clamp-2 text-xs text-text-weak">{artifactLabel(artifacts.length)}</p>
-        </div>
-        <div className="flex shrink-0 items-center gap-1.5">
-          <Button
-            data-action="workspace-mermaid-refresh"
-            variant="ghost"
-            size="sm"
-            className="px-2"
-            onClick={() => void loadArtifacts()}
-            disabled={loading}
-            title={language.t("common.refresh")}
-          >
-            <RefreshCwIcon className={`size-4 ${loading ? "animate-spin" : ""}`} />
-          </Button>
-        </div>
-      </div>
-
       {loading ? (
         <div className="text-sm text-text-weak">{language.t("workspaceMermaid.loading")}</div>
       ) : null}
@@ -152,7 +234,11 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
       ) : null}
 
       {artifacts.length > 0 ? (
-        <div ref={artifactsListRef} className="scrollbar-hover flex-1 min-h-0 overflow-y-auto">
+        <div
+          ref={artifactsListRef}
+          className="scrollbar-hover flex-1 min-h-0 overflow-y-auto"
+          style={{ contain: "strict", overflowAnchor: "none" }}
+        >
           {shouldVirtualizeArtifacts ? (
             <div
               className="relative w-full"
@@ -161,6 +247,7 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
               {artifactsVirtualizer.getVirtualItems().map((virtualRow) => {
                 const artifact = artifacts[virtualRow.index]
                 if (!artifact) return null
+                const hydrated = hydratedIndexes.includes(virtualRow.index)
 
                 return (
                   <div
@@ -170,15 +257,15 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
                     className="absolute top-0 left-0 w-full"
                     style={{ transform: `translateY(${virtualRow.start}px)` }}
                   >
-                    {renderArtifactCard(artifact, virtualRow.index)}
+                    {renderArtifactCard(artifact, hydrated)}
                   </div>
                 )
               })}
             </div>
           ) : (
-            <div>
-              {artifacts.map((artifact, index) => (
-                <div key={artifact.artifactID}>{renderArtifactCard(artifact, index)}</div>
+            <div className="space-y-4">
+              {artifacts.map((artifact) => (
+                <div key={artifact.artifactID}>{renderArtifactCard(artifact, true)}</div>
               ))}
             </div>
           )}
