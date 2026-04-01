@@ -4,7 +4,8 @@ import { language } from "@/context/language"
 import { useMermaidRender } from "./use-mermaid-render"
 import { MermaidInlineView } from "./mermaid-inline-view"
 import { MermaidActionBar } from "./mermaid-action-bar"
-import { MermaidFullscreenDialog, MODAL_EXPAND_SPRING } from "./mermaid-fullscreen-dialog"
+import { MermaidFullscreenDialog } from "./mermaid-fullscreen-dialog"
+import { MODAL_EXPAND_SPRING } from "./motion"
 import { mermaidConstants } from "./constants"
 
 export const DIAGRAM_REVEAL_SPRING = {

@@ -14,8 +14,12 @@ import {
   VIRTUAL_CHAT_TURN_ESTIMATE_PX,
 } from "@/components/virtualization/virtualization-defaults"
 import { useChatStore } from "@/state/chat-store"
+import { IDLE_SESSION_STATUS } from "@/state/session-status"
 import type { ChatTranscriptProps, TurnRowProps } from "./types"
 import { TurnRenderer } from "./turn-renderer"
+
+const EMPTY_MESSAGES: never[] = []
+const EMPTY_PROVIDERS: never[] = []
 
 const TurnRow = memo(function TurnRow({
   turn,
@@ -24,6 +28,7 @@ const TurnRow = memo(function TurnRow({
   addBottomSpacing = false,
   providers,
   isLastTurnBusy,
+  activeSessionStatus,
   directory,
   onAssistantTextFinalRender,
   onOpenSession,
@@ -44,6 +49,7 @@ const TurnRow = memo(function TurnRow({
         totalTurns={totalTurns}
         providers={providers}
         isBusy={isLastTurnBusy && turnIndex === totalTurns - 1}
+        activeSessionStatus={activeSessionStatus}
         directory={directory}
         onAssistantTextFinalRender={
           turnIndex === totalTurns - 1 ? onAssistantTextFinalRender : undefined
@@ -68,9 +74,12 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
   const directoryState = useChatStore((state) =>
     directory ? state.directories[directory] : undefined,
   )
-  const messages = directoryState?.messages ?? []
-  const providers = directoryState?.providers ?? []
+  const messages = directoryState?.messages ?? EMPTY_MESSAGES
+  const providers = directoryState?.providers ?? EMPTY_PROVIDERS
   const isBusy = directoryState?.isBusy ?? false
+  const activeSessionStatus = directoryState?.sessionID
+    ? (directoryState.sessionStatusByID[directoryState.sessionID] ?? IDLE_SESSION_STATUS)
+    : IDLE_SESSION_STATUS
   const turns = useMemo(() => buildTurns(messages), [messages])
 
   const lastMessage = messages[messages.length - 1]
@@ -149,6 +158,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
                       addBottomSpacing
                       providers={providers}
                       isLastTurnBusy={isLastTurnBusy}
+                      activeSessionStatus={activeSessionStatus}
                       directory={directory}
                       onAssistantTextFinalRender={handleAssistantTextFinalRender}
                       onOpenSession={onOpenSession}
@@ -170,6 +180,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
                       totalTurns={turns.length}
                       providers={providers}
                       isLastTurnBusy={isLastTurnBusy}
+                      activeSessionStatus={activeSessionStatus}
                       directory={directory}
                       onAssistantTextFinalRender={handleAssistantTextFinalRender}
                       onOpenSession={onOpenSession}
@@ -191,6 +202,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
                 addBottomSpacing
                 providers={providers}
                 isLastTurnBusy={isLastTurnBusy}
+                activeSessionStatus={activeSessionStatus}
                 directory={directory}
                 onAssistantTextFinalRender={handleAssistantTextFinalRender}
                 onOpenSession={onOpenSession}

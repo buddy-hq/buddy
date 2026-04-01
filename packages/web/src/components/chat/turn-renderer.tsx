@@ -7,7 +7,9 @@ import { UserSection } from "./sections/user-section"
 import { AssistantSection } from "./sections/assistant-section"
 import { MessageDivider } from "./parts/assistant-part/message-divider"
 import { AssistantErrorCard } from "./assistant-error-card"
+import { SessionRetryNotice } from "./session-retry-notice"
 import { useChatSettings } from "@/state/chat-settings"
+import { IDLE_SESSION_STATUS } from "@/state/session-status"
 import { shallow } from "zustand/shallow"
 import type { TurnRendererProps } from "./types"
 
@@ -18,6 +20,7 @@ export function areTurnRendererPropsEqual(
   if (prevProps.turnIndex !== nextProps.turnIndex) return false
   if (prevProps.totalTurns !== nextProps.totalTurns) return false
   if (prevProps.isBusy !== nextProps.isBusy) return false
+  if (prevProps.activeSessionStatus !== nextProps.activeSessionStatus) return false
   if (prevProps.directory !== nextProps.directory) return false
   if (prevProps.onAssistantTextFinalRender !== nextProps.onAssistantTextFinalRender) return false
   if (prevProps.onOpenSession !== nextProps.onOpenSession) return false
@@ -45,6 +48,7 @@ export const TurnRenderer = memo(function TurnRenderer({
   totalTurns,
   providers,
   isBusy,
+  activeSessionStatus,
   directory,
   onAssistantTextFinalRender,
   onOpenSession,
@@ -108,11 +112,13 @@ export const TurnRenderer = memo(function TurnRenderer({
     turnDurationMs,
     assistantAborted,
   )
+  const turnSessionStatus = isLastTurn ? activeSessionStatus : IDLE_SESSION_STATUS
 
   const showAssistantSection = assistantMessages.length > 0 || (isBusy && isLastTurn)
   const showThinking =
     isBusy &&
     isLastTurn &&
+    turnSessionStatus.type === "busy" &&
     !assistantErrored &&
     (showReasoningSummaries ? assistantItems.length === 0 : true)
 
@@ -146,6 +152,8 @@ export const TurnRenderer = memo(function TurnRenderer({
           currentReasoningHeading={!showReasoningSummaries ? currentReasoningHeading : undefined}
         />
       ) : null}
+
+      {isLastTurn ? <SessionRetryNotice status={turnSessionStatus} /> : null}
 
       {assistantErrorText ? (
         <AssistantErrorCard message={assistantErrorText} errorName={assistantErrorName} />

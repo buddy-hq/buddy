@@ -1,7 +1,13 @@
 import type { RefObject } from "react"
-import type { MessageError, MessagePart, MessageWithParts, ProviderInfo } from "@/state/chat-types"
+import type {
+  MessageError,
+  MessagePart,
+  MessageWithParts,
+  ProviderInfo,
+  SessionStatusInfo,
+} from "@/state/chat-types"
 
-export type { MessageWithParts, ProviderInfo } from "@/state/chat-types"
+export type { MessageWithParts, ProviderInfo, SessionStatusInfo } from "@/state/chat-types"
 
 export type AssistantRenderItem =
   | {
@@ -37,6 +43,7 @@ export interface TurnRowProps {
   addBottomSpacing?: boolean
   providers: ProviderInfo[]
   isLastTurnBusy: boolean
+  activeSessionStatus: SessionStatusInfo
   directory: string | undefined
   onAssistantTextFinalRender: () => void
   onOpenSession: ((sessionID: string) => void) | undefined
@@ -54,6 +61,7 @@ export interface TurnRendererProps {
   totalTurns: number
   providers: ProviderInfo[]
   isBusy: boolean
+  activeSessionStatus: SessionStatusInfo
   directory?: string
   onAssistantTextFinalRender?: () => void
   onOpenSession?: (sessionID: string) => void

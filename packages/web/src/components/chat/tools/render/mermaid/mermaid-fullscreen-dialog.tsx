@@ -14,12 +14,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { language } from "@/context/language"
 import type { MermaidRenderResult } from "./lib/render"
 import { mermaidConstants } from "./constants"
-
-export const MODAL_EXPAND_SPRING = {
-  type: "spring",
-  duration: 0.3,
-  bounce: 0,
-} as const
+import { MODAL_EXPAND_SPRING } from "./motion"
 
 export type MermaidSvgBounds = {
   width: number
