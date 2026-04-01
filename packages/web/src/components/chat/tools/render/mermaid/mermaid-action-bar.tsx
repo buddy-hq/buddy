@@ -43,7 +43,7 @@ const DiagramActionButton = memo(function DiagramActionButton(props: {
         }}
         onMouseDown={(event) => event.preventDefault()}
         className={cn(
-          "inline-flex items-center justify-center rounded-full transition-colors disabled:pointer-events-none disabled:opacity-50",
+          "inline-flex items-center justify-center rounded-full transition-all active:scale-95 disabled:pointer-events-none disabled:opacity-50",
           props.minimal
             ? "size-7 text-text-weak/70 hover:bg-surface-raised-base hover:text-text-base"
             : "size-9 border border-border-base/70 bg-background-base/88 text-text-weak shadow-[0_12px_32px_rgba(0,0,0,0.24)] backdrop-blur-xl hover:bg-surface-raised-base hover:text-text-base",

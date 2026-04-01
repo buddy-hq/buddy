@@ -1,17 +1,16 @@
 import { motion } from "motion/react"
-import { useRef, useState, useCallback } from "react"
+import { useRef, useState, useCallback, useId } from "react"
 import { language } from "@/context/language"
 import { useMermaidRender } from "./use-mermaid-render"
 import { MermaidInlineView } from "./mermaid-inline-view"
 import { MermaidActionBar } from "./mermaid-action-bar"
-import { MermaidFullscreenDialog } from "./mermaid-fullscreen-dialog"
+import { MermaidFullscreenDialog, MODAL_EXPAND_SPRING } from "./mermaid-fullscreen-dialog"
 import { mermaidConstants } from "./constants"
 
 export const DIAGRAM_REVEAL_SPRING = {
   type: "spring",
-  stiffness: 300,
-  damping: 30,
-  mass: 1,
+  duration: 0.3,
+  bounce: 0,
 } as const
 
 export function MermaidDiagram(props: {
@@ -33,6 +32,8 @@ export function MermaidDiagram(props: {
   const { artifactID, source } = props
   const [fullscreenOpen, setFullscreenOpen] = useState(false)
   const svgHostRef = useRef<HTMLDivElement | null>(null)
+  const instanceId = useId()
+  const layoutId = artifactID ? `mermaid-zoom-${artifactID}-${instanceId}` : `mermaid-zoom-${instanceId}`
 
   const { state } = useMermaidRender({ source, artifactID })
 
@@ -67,24 +68,21 @@ export function MermaidDiagram(props: {
       ) : null}
 
       {state.status === "ready" ? (
-        props.disableRevealAnimation ? (
-          <div className="overflow-hidden rounded-[14px]">
-            <MermaidInlineView value={state.value} ariaLabel={props.alt} svgRef={svgHostRef} />
-          </div>
-        ) : (
-          <motion.div
-            className="overflow-hidden rounded-[14px]"
-            initial={{
+        <motion.div
+          layoutId={layoutId}
+          className="overflow-hidden rounded-[14px]"
+          transition={MODAL_EXPAND_SPRING}
+          {...(!props.disableRevealAnimation && {
+            initial: {
               opacity: 0,
               y: mermaidConstants.animation.Y_OFFSET,
               scale: mermaidConstants.animation.SCALE_START,
-            }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={DIAGRAM_REVEAL_SPRING}
-          >
-            <MermaidInlineView value={state.value} ariaLabel={props.alt} svgRef={svgHostRef} />
-          </motion.div>
-        )
+            },
+            animate: { opacity: 1, y: 0, scale: 1 },
+          })}
+        >
+          <MermaidInlineView value={state.value} ariaLabel={props.alt} svgRef={svgHostRef} />
+        </motion.div>
       ) : null}
 
       {state.status === "error" ? (
@@ -115,6 +113,7 @@ export function MermaidDiagram(props: {
         open={fullscreenOpen}
         onOpenChange={setFullscreenOpen}
         alt={props.alt}
+        layoutId={layoutId}
       />
     </div>
   )
