@@ -124,4 +124,18 @@ describe("session route regressions", () => {
 
     expect(after).toEqual(before)
   })
+
+  test("forwards abort even when no active status is cached", async () => {
+    await using project = await tmpdir({ git: true })
+
+    const response = await app.request("/api/session/ses_missing/abort", {
+      method: "POST",
+      headers: {
+        "x-buddy-directory": project.path,
+      },
+    })
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toBe(true)
+  })
 })

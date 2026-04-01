@@ -4,6 +4,7 @@ import { createRoot, type Root } from "react-dom/client"
 import { ChatTranscript } from "../src/components/chat/chat-transcript"
 import { HiddenSteps } from "../src/components/chat/tools/hidden-steps"
 import type { MessagePart, MessageWithParts } from "../src/state/chat-types"
+import { BUSY_SESSION_STATUS } from "../src/state/session-status"
 import { seedDirectoryChatState } from "./test-utils"
 
 async function flushEffects(delay = 0) {
@@ -168,6 +169,10 @@ describe("chat error handling", () => {
 
   test("uses the shared abstracted thinking placeholder while the assistant is busy", async () => {
     seedDirectoryChatState("/repo", {
+      sessionID: "ses_error",
+      sessionStatusByID: {
+        ses_error: BUSY_SESSION_STATUS,
+      },
       messages: [userMessage()],
       isBusy: true,
     })
@@ -184,6 +189,33 @@ describe("chat error handling", () => {
     const title = placeholder?.querySelector("span")
     expect(title?.className).toContain("text-xs")
     expect(title?.className).not.toContain("text-sm")
+  })
+
+  test("shows a retry notice instead of the generic thinking placeholder while rate limited", async () => {
+    seedDirectoryChatState("/repo", {
+      sessionID: "ses_error",
+      sessionStatusByID: {
+        ses_error: {
+          type: "retry",
+          attempt: 2,
+          message: "The usage limit has been reached",
+          next: Date.now() + 30_000,
+        },
+      },
+      messages: [userMessage()],
+      isBusy: true,
+    })
+
+    await act(async () => {
+      root.render(<ChatTranscript directory="/repo" />)
+      await flushEffects()
+    })
+
+    const retryNotice = container.querySelector("[data-session-retry-notice]")
+    expect(retryNotice).not.toBeNull()
+    expect(retryNotice?.textContent).toContain("The usage limit has been reached")
+    expect(retryNotice?.textContent).toContain("Attempt #2")
+    expect(container.querySelector("[data-abstracted-thinking-placeholder]")).toBeNull()
   })
 
   test("prefers the latest abstracted tool error over stale live preview state", async () => {

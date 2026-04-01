@@ -5,6 +5,7 @@ import { SystemPromptPanel } from "../src/components/debug/system-prompt-panel"
 import { PlatformProvider, createBrowserPlatform } from "../src/context/platform"
 import { ServerProvider } from "../src/context/server"
 import { useChatStore } from "../src/state/chat-store"
+import { BUSY_SESSION_STATUS } from "../src/state/session-status"
 import { createFetchStub } from "./test-utils"
 
 const originalFetch = globalThis.fetch
@@ -85,7 +86,7 @@ describe("SystemPromptPanel", () => {
         updated: 1,
       },
     })
-    store.applySessionStatus(directory, sessionID, "busy")
+    store.applySessionStatus(directory, sessionID, BUSY_SESSION_STATUS)
 
     globalThis.fetch = createFetchStub(async (input, init) => {
       const url =

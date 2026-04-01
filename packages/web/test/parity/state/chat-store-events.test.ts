@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import { useChatStore } from "../../../src/state/chat-store"
 import type { MessageInfo, PermissionRequest, SessionInfo } from "../../../src/state/chat-types"
+import { BUSY_SESSION_STATUS, IDLE_SESSION_STATUS } from "../../../src/state/session-status"
 import { createAssistantMessageInfo, createUserMessageInfo } from "../../test-utils"
 
 const directory = "/tmp/parity"
@@ -135,6 +136,37 @@ describe("chat-store parity events", () => {
     expect(useChatStore.getState().entryError).toBeUndefined()
   })
 
+  test("clears volatile runtime state while keeping persisted handoff data", () => {
+    const store = useChatStore.getState()
+
+    store.setOpenProjects(["/tmp/alpha", "/tmp/beta"])
+    store.setActiveDirectory("/tmp/beta")
+    store.setSelectedModel("/tmp/beta", "openai/gpt-5.4-mini")
+    store.setSessions(directory, [session("session_1", 2)])
+    store.setActiveSession(directory, "session_1")
+    store.setMessages(directory, "session_1", [
+      { info: assistantMessage("message_1", "session_1"), parts: [] },
+    ])
+    store.setEntryError("stale backend")
+    store.setStreamStatus("connected")
+
+    store.resetRuntimeState()
+
+    const next = useChatStore.getState()
+    expect(next.openProjects).toEqual([])
+    expect(next.activeDirectory).toBeUndefined()
+    expect(next.pendingActiveDirectory).toBeUndefined()
+    expect(next.entryError).toBeUndefined()
+    expect(next.directories).toEqual({})
+    expect(next.streamStatus).toBe("idle")
+    expect(next.lastSessionByDirectory).toEqual({
+      "/tmp/parity": "session_1",
+    })
+    expect(next.selectedModelByDirectory).toEqual({
+      "/tmp/beta": "openai/gpt-5.4-mini",
+    })
+  })
+
   test("ignores closeProject for directories that are not tracked", () => {
     const store = useChatStore.getState()
     const before = useChatStore.getState()
@@ -157,8 +189,8 @@ describe("chat-store parity events", () => {
     store.setMessages(directory, "session_1", [
       { info: assistantMessage("message_1", "session_1"), parts: [] },
     ])
-    store.applySessionStatus(directory, "session_1", "busy")
-    store.applySessionStatus(directory, "session_2", "idle")
+    store.applySessionStatus(directory, "session_1", BUSY_SESSION_STATUS)
+    store.applySessionStatus(directory, "session_2", IDLE_SESSION_STATUS)
     store.setPendingPermissions(directory, [
       permissionRequest("perm_1", "session_1"),
       permissionRequest("perm_2", "session_2"),
@@ -196,14 +228,38 @@ describe("chat-store parity events", () => {
     expect(next?.messages.map((message) => message.info.id)).toEqual(["message_active"])
     expect(next?.isBusy).toBe(false)
 
-    store.applySessionStatus(directory, "session_1", "busy")
+    store.applySessionStatus(directory, "session_1", BUSY_SESSION_STATUS)
     expect(useChatStore.getState().directories[directory]?.isBusy).toBe(true)
 
     store.applyMessageUpdated(directory, assistantMessage("message_active", "session_1", "stop"))
     expect(useChatStore.getState().directories[directory]?.isBusy).toBe(true)
 
-    store.applySessionStatus(directory, "session_1", "idle")
+    store.applySessionStatus(directory, "session_1", IDLE_SESSION_STATUS)
     expect(useChatStore.getState().directories[directory]?.isBusy).toBe(false)
+  })
+
+  test("preserves vendor retry metadata and keeps the session active", () => {
+    const store = useChatStore.getState()
+
+    store.ensureOpenProject(directory)
+    store.setSessions(directory, [session("session_1", 2)])
+    store.setActiveSession(directory, "session_1")
+
+    store.applySessionStatus(directory, "session_1", {
+      type: "retry",
+      attempt: 2,
+      message: "Rate Limited",
+      next: 1_234,
+    })
+
+    const next = useChatStore.getState().directories[directory]
+    expect(next?.sessionStatusByID["session_1"]).toEqual({
+      type: "retry",
+      attempt: 2,
+      message: "Rate Limited",
+      next: 1_234,
+    })
+    expect(next?.isBusy).toBe(true)
   })
 
   test("tracks permission request lifecycle with upsert semantics", () => {

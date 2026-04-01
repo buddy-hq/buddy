@@ -49,6 +49,13 @@ describe("multi-tenant session routes", () => {
     })
     expect(getAFromSubdir.status).toBe(200)
 
+    const getMessagesFromSubdir = await app.request(`/api/session/${sessionID}/message`, {
+      headers: {
+        "x-buddy-directory": repoASubdir,
+      },
+    })
+    expect(getMessagesFromSubdir.status).toBe(200)
+
     const getB = await app.request(`/api/session/${sessionID}`, {
       headers: {
         "x-buddy-directory": repoB,

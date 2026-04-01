@@ -3,18 +3,26 @@ import {
   closeOpenProject,
   ensureDirectorySession,
   loadCurriculumView,
+  loadMessages,
   loadSessions,
   loadRuntimeCapabilities,
   loadOpenProjects,
   openProject,
   reorderOpenProjects,
   resolveDefaultPersonaID,
+  selectSession,
   sendPrompt,
   startNewSession,
   shouldDeferTranscriptReload,
 } from "../src/state/chat-actions"
 import { useChatStore } from "../src/state/chat-store"
-import { createDirectoryChatState, createFetchStub } from "./test-utils"
+import {
+  createDirectoryChatState,
+  createFetchStub,
+  createMessageWithParts,
+  createUserMessageInfo,
+} from "./test-utils"
+import { BUSY_SESSION_STATUS } from "../src/state/session-status"
 
 const originalFetch = globalThis.fetch
 
@@ -403,7 +411,7 @@ describe("ensureDirectorySession", () => {
         })
       }
 
-      if (method === "GET" && url.pathname === "/session/status") {
+      if (method === "GET" && url.pathname === "/api/session/status") {
         return new Response(JSON.stringify({}), {
           headers: {
             "content-type": "application/json",
@@ -423,6 +431,66 @@ describe("ensureDirectorySession", () => {
     })
     expect(useChatStore.getState().directories["/repo"]?.sessionID).toBeUndefined()
     expect(useChatStore.getState().directories["/repo"]?.isDraft).toBe(true)
+  })
+
+  test("recovers when selecting a stale session after backend restart", async () => {
+    const staleSession = {
+      id: "session_stale",
+      title: "Stale session",
+      time: {
+        created: 1,
+        updated: 1,
+      },
+    }
+
+    useChatStore.setState({
+      openProjects: ["/repo"],
+      activeDirectory: "/repo",
+      lastSessionByDirectory: {
+        "/repo": staleSession.id,
+      },
+      directories: {
+        "/repo": createDirectoryChatState({
+          sessionID: staleSession.id,
+          sessionTitle: staleSession.title,
+          sessions: [staleSession],
+          isDraft: false,
+          isReady: true,
+        }),
+      },
+    })
+
+    globalThis.fetch = createFetchStub(async (input, init) => {
+      const url = new URL(requestUrl(input), "http://localhost")
+      const method = requestMethod(input, init) ?? "GET"
+
+      if (method === "GET" && url.pathname === "/api/session/session_stale/message") {
+        return new Response(JSON.stringify({ error: "Session not found" }), {
+          status: 404,
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "GET" && url.pathname === "/api/session") {
+        return new Response(JSON.stringify([]), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      throw new Error(`Unexpected request: ${method} ${url.pathname}${url.search}`)
+    })
+
+    await selectSession("/repo", staleSession.id)
+
+    const next = useChatStore.getState().directories["/repo"]
+    expect(next?.isDraft).toBe(true)
+    expect(next?.sessionID).toBeUndefined()
+    expect(next?.sessions).toEqual([])
+    expect(useChatStore.getState().directories["/repo"]?.error).toBeUndefined()
   })
 
   test("does not create duplicate sessions when bootstrapping and creating concurrently", async () => {
@@ -524,7 +592,7 @@ describe("ensureDirectorySession", () => {
         })
       }
 
-      if (method === "GET" && url.pathname === "/session/status") {
+      if (method === "GET" && url.pathname === "/api/session/status") {
         return new Response(JSON.stringify({}), {
           headers: {
             "content-type": "application/json",
@@ -648,7 +716,7 @@ describe("ensureDirectorySession", () => {
         })
       }
 
-      if (method === "GET" && url.pathname === "/session/status") {
+      if (method === "GET" && url.pathname === "/api/session/status") {
         return new Response(JSON.stringify({}), {
           headers: {
             "content-type": "application/json",
@@ -688,6 +756,36 @@ describe("loadSessions", () => {
 
     await loadSessions("/repo/tauri")
   })
+
+  test("clears stale active session ids when the backend returns an empty session list", async () => {
+    useChatStore.setState({
+      activeDirectory: "/repo/tauri",
+      lastSessionByDirectory: {
+        "/repo/tauri": "session_stale",
+      },
+      directories: {
+        "/repo/tauri": createDirectoryChatState({
+          sessionID: "session_stale",
+          isDraft: false,
+          isReady: true,
+        }),
+      },
+    })
+
+    globalThis.fetch = createFetchStub(async () => {
+      return new Response(JSON.stringify([]), {
+        headers: {
+          "content-type": "application/json",
+        },
+      })
+    })
+
+    await loadSessions("/repo/tauri")
+
+    const directory = useChatStore.getState().directories["/repo/tauri"]
+    expect(directory?.sessionID).toBeUndefined()
+    expect(directory?.isDraft).toBe(true)
+  })
 })
 
 describe("shouldDeferTranscriptReload", () => {
@@ -696,7 +794,7 @@ describe("shouldDeferTranscriptReload", () => {
       directories: {
         "/repo": createDirectoryChatState({
           sessionTitle: "New chat",
-          sessionStatusByID: { session_1: "busy" },
+          sessionStatusByID: { session_1: BUSY_SESSION_STATUS },
           isBusy: true,
           isReady: true,
           sessionID: "session_1",
@@ -713,7 +811,7 @@ describe("shouldDeferTranscriptReload", () => {
       directories: {
         "/repo": createDirectoryChatState({
           sessionTitle: "New chat",
-          sessionStatusByID: { session_1: "busy" },
+          sessionStatusByID: { session_1: BUSY_SESSION_STATUS },
           isBusy: true,
           isReady: true,
           sessionID: "session_1",
@@ -843,6 +941,177 @@ describe("sendPrompt", () => {
     expect(useChatStore.getState().directories["/repo"]?.sessionID).toBeUndefined()
   })
 
+  test("recovers from stale session ids by creating a new session and retrying once", async () => {
+    let createRequests = 0
+    let stalePromptRequests = 0
+    let recoveredPromptRequests = 0
+
+    useChatStore.setState({
+      openProjects: ["/repo"],
+      activeDirectory: "/repo",
+      directories: {
+        "/repo": createDirectoryChatState({
+          sessionTitle: "Existing chat",
+          isBusy: false,
+          isReady: true,
+          isDraft: false,
+          sessionID: "session_stale",
+        }),
+      },
+    })
+
+    const recoveredSession = {
+      id: "session_new",
+      title: "Recovered session",
+      time: {
+        created: 1,
+        updated: 1,
+      },
+    }
+
+    globalThis.fetch = createFetchStub(async (input, init) => {
+      const url = new URL(requestUrl(input), "http://localhost")
+      const method = requestMethod(input, init) ?? "GET"
+
+      if (method === "POST" && url.pathname === "/api/session/session_stale/message") {
+        stalePromptRequests += 1
+        return new Response(JSON.stringify({ error: "Session not found: session_stale" }), {
+          status: 404,
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "POST" && url.pathname === "/api/session") {
+        createRequests += 1
+        return new Response(JSON.stringify(recoveredSession), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "POST" && url.pathname === "/api/session/session_new/message") {
+        recoveredPromptRequests += 1
+        return new Response(JSON.stringify({}), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "GET" && url.pathname === "/api/session") {
+        return new Response(JSON.stringify([recoveredSession]), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      throw new Error(`Unexpected request: ${method} ${url.pathname}${url.search}`)
+    })
+
+    await sendPrompt("/repo", "hello")
+
+    expect(stalePromptRequests).toBe(1)
+    expect(createRequests).toBe(1)
+    expect(recoveredPromptRequests).toBe(1)
+    expect(useChatStore.getState().directories["/repo"]?.sessionID).toBe("session_new")
+    expect(useChatStore.getState().directories["/repo"]?.isDraft).toBe(false)
+  })
+
+  test("recovers when prompt 404s even if the backend does not return a session-not-found message", async () => {
+    let stalePromptRequests = 0
+    let staleLookupRequests = 0
+    let createRequests = 0
+    let recoveredPromptRequests = 0
+
+    useChatStore.setState({
+      openProjects: ["/repo"],
+      activeDirectory: "/repo",
+      directories: {
+        "/repo": createDirectoryChatState({
+          sessionTitle: "Existing chat",
+          isBusy: false,
+          isReady: true,
+          isDraft: false,
+          sessionID: "session_stale",
+        }),
+      },
+    })
+
+    const recoveredSession = {
+      id: "session_new",
+      title: "Recovered session",
+      time: {
+        created: 1,
+        updated: 1,
+      },
+    }
+
+    globalThis.fetch = createFetchStub(async (input, init) => {
+      const url = new URL(requestUrl(input), "http://localhost")
+      const method = requestMethod(input, init) ?? "GET"
+
+      if (method === "POST" && url.pathname === "/api/session/session_stale/message") {
+        stalePromptRequests += 1
+        return new Response(JSON.stringify({ error: "Not Found" }), {
+          status: 404,
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "GET" && url.pathname === "/api/session/session_stale") {
+        staleLookupRequests += 1
+        return new Response(JSON.stringify({ error: "Session not found" }), {
+          status: 404,
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "POST" && url.pathname === "/api/session") {
+        createRequests += 1
+        return new Response(JSON.stringify(recoveredSession), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "POST" && url.pathname === "/api/session/session_new/message") {
+        recoveredPromptRequests += 1
+        return new Response(JSON.stringify({}), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "GET" && url.pathname === "/api/session") {
+        return new Response(JSON.stringify([recoveredSession]), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      throw new Error(`Unexpected request: ${method} ${url.pathname}${url.search}`)
+    })
+
+    await sendPrompt("/repo", "hello")
+
+    expect(stalePromptRequests).toBe(1)
+    expect(staleLookupRequests).toBe(1)
+    expect(createRequests).toBe(1)
+    expect(recoveredPromptRequests).toBe(1)
+    expect(useChatStore.getState().directories["/repo"]?.sessionID).toBe("session_new")
+  })
+
   test("does not start a transcript polling loop after prompt submission", async () => {
     let requests = 0
 
@@ -940,6 +1209,153 @@ describe("sendPrompt", () => {
       parts: [{ type: "workspace-file-reference", path: "docs/book with spaces.pdf" }],
       intent: "practice",
     })
+  })
+})
+
+describe("loadMessages", () => {
+  test("retries a transient missing-session transcript reload when the session still exists", async () => {
+    const sessionInfo = {
+      id: "session-1",
+      title: "Greeting",
+      time: {
+        created: 1,
+        updated: 2,
+      },
+    }
+    const transcript = [
+      createMessageWithParts(createUserMessageInfo({ id: "message-1", sessionID: sessionInfo.id })),
+    ]
+
+    useChatStore.setState({
+      openProjects: ["/repo"],
+      activeDirectory: "/repo",
+      lastSessionByDirectory: {
+        "/repo": sessionInfo.id,
+      },
+      directories: {
+        "/repo": createDirectoryChatState({
+          sessionID: sessionInfo.id,
+          sessionTitle: sessionInfo.title,
+          sessions: [sessionInfo],
+          isDraft: false,
+          isReady: true,
+        }),
+      },
+    })
+
+    let messageRequests = 0
+
+    globalThis.fetch = createFetchStub(async (input, init) => {
+      const url = new URL(requestUrl(input), "http://localhost")
+      const method = requestMethod(input, init) ?? "GET"
+
+      if (method === "GET" && url.pathname === "/api/session/session-1/message") {
+        messageRequests += 1
+        if (messageRequests === 1) {
+          return new Response(JSON.stringify({ error: "Session not found" }), {
+            status: 404,
+            headers: {
+              "content-type": "application/json",
+            },
+          })
+        }
+
+        return new Response(JSON.stringify(transcript), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "GET" && url.pathname === "/api/session/session-1") {
+        return new Response(JSON.stringify(sessionInfo), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      throw new Error(`Unexpected request: ${method} ${url.pathname}${url.search}`)
+    })
+
+    await expect(loadMessages("/repo", sessionInfo.id)).resolves.toEqual(transcript)
+
+    expect(messageRequests).toBe(2)
+    expect(useChatStore.getState().directories["/repo"]?.messages).toEqual(transcript)
+    expect(useChatStore.getState().directories["/repo"]?.error).toBeUndefined()
+  })
+
+  test("ignores stale transcript errors once a newer reload has already succeeded", async () => {
+    const sessionInfo = {
+      id: "session-1",
+      title: "Greeting",
+      time: {
+        created: 1,
+        updated: 2,
+      },
+    }
+    const transcript = [
+      createMessageWithParts(createUserMessageInfo({ id: "message-1", sessionID: sessionInfo.id })),
+    ]
+    const firstResponseGate = createDeferred<void>()
+
+    useChatStore.setState({
+      openProjects: ["/repo"],
+      activeDirectory: "/repo",
+      lastSessionByDirectory: {
+        "/repo": sessionInfo.id,
+      },
+      directories: {
+        "/repo": createDirectoryChatState({
+          sessionID: sessionInfo.id,
+          sessionTitle: sessionInfo.title,
+          sessions: [sessionInfo],
+          isDraft: false,
+          isReady: true,
+        }),
+      },
+    })
+
+    let messageRequests = 0
+
+    globalThis.fetch = createFetchStub(async (input, init) => {
+      const url = new URL(requestUrl(input), "http://localhost")
+      const method = requestMethod(input, init) ?? "GET"
+
+      if (method === "GET" && url.pathname === "/api/session/session-1/message") {
+        messageRequests += 1
+        if (messageRequests === 1) {
+          await firstResponseGate.promise
+          return new Response(JSON.stringify({ error: "Session not found" }), {
+            status: 404,
+            headers: {
+              "content-type": "application/json",
+            },
+          })
+        }
+
+        return new Response(JSON.stringify(transcript), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      throw new Error(`Unexpected request: ${method} ${url.pathname}${url.search}`)
+    })
+
+    const staleLoad = loadMessages("/repo", sessionInfo.id).catch((error) => error)
+    await new Promise<void>((resolve) => {
+      window.setTimeout(resolve, 0)
+    })
+
+    await expect(loadMessages("/repo", sessionInfo.id)).resolves.toEqual(transcript)
+
+    firstResponseGate.resolve()
+    const staleError = await staleLoad
+    expect(staleError).toBeInstanceOf(Error)
+    expect(useChatStore.getState().directories["/repo"]?.messages).toEqual(transcript)
+    expect(useChatStore.getState().directories["/repo"]?.error).toBeUndefined()
   })
 })
 
