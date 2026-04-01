@@ -177,6 +177,7 @@ function OnboardingRoute() {
       ])
 
       setLocalAuthChoice(choice)
+      setConnectedAuthChoice(choice)
       setAuthChoice(choice)
     } catch (err) {
       if (!abort.signal.aborted) {

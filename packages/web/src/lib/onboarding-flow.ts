@@ -7,6 +7,8 @@ import { findPreferredOAuthMethodIndex } from "./provider-auth"
 
 const CHATGPT_PROVIDER_ID = "openai"
 const FREE_MODEL_PROVIDER_ID = "opencode"
+const PROVIDER_CONNECTION_POLL_INTERVAL_MS = 1_000
+const PROVIDER_CONNECTION_TIMEOUT_MS = 45_000
 
 export function resolveOnboardingProviderID(choice: OnboardingAuthChoice) {
   return choice === "chatgpt_plus" ? CHATGPT_PROVIDER_ID : FREE_MODEL_PROVIDER_ID
@@ -48,24 +50,45 @@ export async function connectChatGptPlusForOnboarding(input: {
 
   input.openLink(authorization.url)
 
-  if (authorization.method !== "auto") {
-    throw new Error(language.t("onboardingFlow.completeBrowserSignInFailed"))
+  if (authorization.method === "auto") {
+    await input.completeProviderOAuth({
+      providerID: CHATGPT_PROVIDER_ID,
+      methodIndex,
+    })
   }
 
-  await input.completeProviderOAuth({
-    providerID: CHATGPT_PROVIDER_ID,
-    methodIndex,
-  })
   await input.reloadProviderRuntime()
 
-  const refreshedCatalog = await input.loadProviderCatalogSnapshot()
-  const connectedProvider = refreshedCatalog.providers.find(
-    (entry) => entry.id === CHATGPT_PROVIDER_ID && entry.connected,
-  )
-
-  if (!connectedProvider) {
+  const didConnect = await waitForConnectedProvider({
+    loadProviderCatalogSnapshot: input.loadProviderCatalogSnapshot,
+    providerID: CHATGPT_PROVIDER_ID,
+  })
+  if (!didConnect) {
     throw new Error(language.t("onboardingFlow.confirmConnectionFailed"))
   }
+}
+
+async function waitForConnectedProvider(input: {
+  loadProviderCatalogSnapshot: () => Promise<ProviderCatalogState>
+  providerID: string
+}) {
+  const deadline = Date.now() + PROVIDER_CONNECTION_TIMEOUT_MS
+
+  while (Date.now() <= deadline) {
+    const catalog = await input.loadProviderCatalogSnapshot()
+    const connected = catalog.providers.some(
+      (entry) => entry.id === input.providerID && entry.connected,
+    )
+    if (connected) {
+      return true
+    }
+
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, PROVIDER_CONNECTION_POLL_INTERVAL_MS)
+    })
+  }
+
+  return false
 }
 
 export async function configureNotebookForOnboarding(input: {

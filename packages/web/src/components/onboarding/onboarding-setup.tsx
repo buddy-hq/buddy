@@ -1,6 +1,7 @@
 import { Button, CheckIcon, FolderOpenIcon } from "@buddy/ui"
 import { cn } from "@buddy/ui"
 import { language } from "@/context/language"
+import { resolveBuddyIconUrl } from "@/lib/static-asset"
 import type { OnboardingAuthChoice } from "./types"
 
 type OnboardingSetupProps = {
@@ -23,6 +24,8 @@ function OpenAIIcon({ className }: { className?: string }) {
 }
 
 export function OnboardingSetup(props: OnboardingSetupProps) {
+  const buddyIconUrl = resolveBuddyIconUrl()
+
   const content = {
     header: {
       title: language.t("onboardingSetup.header.title"),
@@ -103,7 +106,7 @@ export function OnboardingSetup(props: OnboardingSetupProps) {
       <div data-component="onboarding-setup" className="flex w-full max-w-[440px] flex-col gap-12">
         <div className="mb-4 flex items-center gap-6 text-left">
           <img
-            src="/buddy-icon.png"
+            src={buddyIconUrl}
             alt={content.header.logoAlt}
             className="size-[64px] shrink-0 rounded-2xl opacity-90 shadow-[0_2px_10px_0_rgba(0,0,0,0.05)] [mix-blend-mode:var(--text-mix-blend-mode)]"
           />
