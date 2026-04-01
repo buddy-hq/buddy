@@ -31,6 +31,7 @@ The current release shape is:
 5. Treat GitHub Releases as the source of truth for desktop artifacts, updater metadata, and advanced math runtime assets.
 6. For the first `0.0.1` release, set the version explicitly. If no previous stable release exists, the helper defaults to `0.1.0`.
 7. Use `workflow_dispatch` for stable releases in this repo. The old local tag-push path is retired.
+8. Advanced math runtime assets are now restored from the previous stable release when runtime inputs did not change; otherwise CI rebuilds them.
 
 ## Preconditions
 0. Preferred local entrypoint:
@@ -93,12 +94,18 @@ Use this when you want GitHub to compute and build the release without first pus
 5. Wait for the workflow to build the draft release.
 6. Verify the draft release contents and artifacts.
 7. If the workflow succeeds, the release is published automatically by the final job.
-8. The final publish job also persists the release version back to `main`.
+8. Advanced math runtime release assets are resolved before upload:
+   - The workflow looks up the latest previous stable release tag.
+   - If both runtime inputs are unchanged since that tag, it reuses the prior assets and renames them to the current release version:
+     - [`packages/buddy/src/local-runtimes/advanced-math/runtime/main.py`](/Users/prashantbhudwal/Code/buddy/packages/buddy/src/local-runtimes/advanced-math/runtime/main.py)
+     - [`packages/buddy/script/build-advanced-math-runtime.ts`](/Users/prashantbhudwal/Code/buddy/packages/buddy/script/build-advanced-math-runtime.ts)
+   - If no previous stable release exists, required assets are missing, or runtime inputs changed, it falls back to rebuilding in CI.
+9. The final publish job also persists the release version back to `main`.
    - It updates the tracked package versions in git.
    - It updates `bun.lock` so the lockfile stays aligned with the versioned workspace packages.
    - It creates a follow-up sync commit named `chore(release): sync package versions to vX.Y.Z`.
    - If `main` advanced while the release was building, the sync step stops instead of rewriting branch history. Rerun the release from the new `main` head.
-9. If you rerun the same version after fixing `main`, GitHub reuses the existing draft release.
+10. If you rerun the same version after fixing `main`, GitHub reuses the existing draft release.
    - This is the normal recovery path after a failed `workflow_dispatch` run.
    - If a previous attempt already created the release tag at an older commit, rerunning the workflow does not move that tag.
 
@@ -122,6 +129,7 @@ Stop immediately if any of these happen:
 - targeted release tests fail
 - `verify-updater-signing` fails in CI
 - the release draft is missing updater metadata or mac runtime assets
+- advanced math runtime assets are missing for either target after the `build-advanced-math` job
 - `main` advanced during a `workflow_dispatch` release before the final version-sync commit
 - a local `vX.Y.Z` tag disagrees with `origin` and `git fetch --tags` reports `would clobber existing tag`
 
@@ -149,4 +157,5 @@ Stop immediately if any of these happen:
 - GitHub Actions artifact upload/download can strip execute bits from bundled sidecars. Release validation must confirm `Buddy.app/Contents/MacOS/buddy-backend` is still executable in the published DMG/app.
 - `workflow_dispatch` releases now add a follow-up version-sync commit on `main`, so local git state stays aligned with the shipped release without rewriting branch history.
 - The version-sync logic updates both the package version files and `bun.lock`.
+- Advanced math runtime build reuse is content-gated by runtime source/build-script changes and previous stable release asset availability; it is not tied to desktop code changes.
 - Stable release tags should come from GitHub only. Creating or reusing local stable tags is the root cause of the recurring pull conflict dialog.
