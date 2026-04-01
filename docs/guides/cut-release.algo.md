@@ -36,15 +36,19 @@ The current release shape is:
 0. Preferred local entrypoint:
    - `bun run release:cut`
    - This interactive wizard:
+     - requires an interactive terminal; it cannot run headless
      - requires a clean working tree
      - checks GitHub auth and updater-signing secret presence
      - syncs local `main` with `origin/main`
-     - suggests the next release version
+     - suggests the next release version from the latest stable GitHub release in `prashantbhudwal/buddy`
+     - does not read `package.json` to decide the next release version
      - lets you edit the draft release title and notes in your editor
+     - `EDITOR` and `VISUAL` only control the notes editor; they do not remove the interactive requirement
      - creates or updates the GitHub draft release before dispatch
      - runs `bun fmt`, `bun lint`, and `bun typecheck`
      - triggers the GitHub `publish` workflow with `workflow_dispatch`
      - can watch the workflow and then pull the release-sync commit back to local `main`
+   - If you use manual `gh` fallback commands, always pass `--repo prashantbhudwal/buddy`. Never rely on the default `gh` repo context.
 
 1. Ensure local state is clean.
    - `git branch --show-current`
