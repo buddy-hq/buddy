@@ -1,0 +1,6 @@
+out/
+dist/
+node_modules/
+*.tsbuildinfo
+resources/icons/
+resources/buddy-backend*
