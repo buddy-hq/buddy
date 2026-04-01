@@ -33,7 +33,9 @@ export function MermaidDiagram(props: {
   const [fullscreenOpen, setFullscreenOpen] = useState(false)
   const svgHostRef = useRef<HTMLDivElement | null>(null)
   const instanceId = useId()
-  const layoutId = artifactID ? `mermaid-zoom-${artifactID}-${instanceId}` : `mermaid-zoom-${instanceId}`
+  const layoutId = artifactID
+    ? `mermaid-zoom-${artifactID}-${instanceId}`
+    : `mermaid-zoom-${instanceId}`
 
   const { state } = useMermaidRender({ source, artifactID })
 
