@@ -25,6 +25,20 @@ import { SessionRoutes } from "./routes"
 import { SkillsRoutes } from "./routes"
 import { TeachingRoutes } from "./routes"
 
+const OPTION_PRINT_LOGS = "--print-logs"
+const OPTION_LOG_LEVEL = "--log-level"
+const OPTION_PORT = "--port"
+const OPTION_HOSTNAME = "--hostname"
+const COMMAND_SERVE = "serve"
+const DEFAULT_SERVER_PORT = 3000
+const DEFAULT_SERVER_HOSTNAME = "127.0.0.1"
+const SERVER_PORT_ENV = "PORT"
+
+type ServerBootstrapConfig = {
+  hostname: string
+  port: number
+}
+
 function matchesBasicAuth(value: string | undefined, username: string, password: string): boolean {
   if (!value?.startsWith("Basic ")) return false
 
@@ -101,11 +115,89 @@ const generatedOpenApiHandler = openAPIRouteHandler(app, {
 
 app.get("/doc", generatedOpenApiHandler)
 
-const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000
+function readPortFromEnv() {
+  const value = process.env[SERVER_PORT_ENV]
+  if (!value) return DEFAULT_SERVER_PORT
+  const parsed = Number.parseInt(value, 10)
+  if (!Number.isFinite(parsed)) return DEFAULT_SERVER_PORT
+  return parsed
+}
+
+function parseServeCommand(args: string[]): ServerBootstrapConfig {
+  let hostname = DEFAULT_SERVER_HOSTNAME
+  let port = readPortFromEnv()
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index]
+    if (!arg) continue
+
+    if (arg === OPTION_HOSTNAME) {
+      const next = args[index + 1]
+      if (!next) continue
+      hostname = next
+      index += 1
+      continue
+    }
+
+    if (arg === OPTION_PORT) {
+      const next = args[index + 1]
+      if (!next) continue
+      const parsed = Number.parseInt(next, 10)
+      if (Number.isFinite(parsed)) {
+        port = parsed
+      }
+      index += 1
+      continue
+    }
+  }
+
+  return {
+    hostname,
+    port,
+  }
+}
+
+function parseServerBootstrapConfig(argv: string[]): ServerBootstrapConfig {
+  const args = [...argv]
+
+  while (args.length > 0 && args[0]?.startsWith("-")) {
+    const option = args.shift()
+    if (!option) break
+
+    if (option === OPTION_PRINT_LOGS) continue
+    if (option === OPTION_LOG_LEVEL) {
+      args.shift()
+      continue
+    }
+
+    args.unshift(option)
+    break
+  }
+
+  if (args[0] === COMMAND_SERVE) {
+    return parseServeCommand(args.slice(1))
+  }
+
+  return {
+    hostname: DEFAULT_SERVER_HOSTNAME,
+    port: readPortFromEnv(),
+  }
+}
+
+function startServer(config: ServerBootstrapConfig) {
+  process.env[SERVER_PORT_ENV] = String(config.port)
+  console.log(`Server starting on http://${config.hostname}:${config.port}`)
+  console.log(`API docs available at http://${config.hostname}:${config.port}/doc`)
+  Bun.serve({
+    hostname: config.hostname,
+    port: config.port,
+    idleTimeout: 120,
+    fetch: app.fetch,
+  })
+}
 
 if (import.meta.main) {
-  console.log(`Server starting on http://localhost:${port}`)
-  console.log(`API docs available at http://localhost:${port}/doc`)
+  const serverConfig = parseServerBootstrapConfig(process.argv.slice(2))
   void runSafetySweep().catch((error) => {
     console.warn("Initial learner safety sweep failed:", error)
   })
@@ -117,11 +209,7 @@ if (import.meta.main) {
     },
     5 * 60 * 1000,
   )
-  Bun.serve({
-    port,
-    idleTimeout: 120,
-    fetch: app.fetch,
-  })
+  startServer(serverConfig)
 }
 
 export { app }

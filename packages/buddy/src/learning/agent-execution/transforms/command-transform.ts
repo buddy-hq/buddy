@@ -10,7 +10,6 @@ import {
 } from "../../shared/targeting"
 import { resolveCapabilityProfile } from "../../resolve-capability-profile"
 import { readTeachingSessionState, writeTeachingSessionState } from "../state/session-state"
-import { assertSessionExistsInDirectory } from "../../../session"
 import { syncBuddyRuntimeSessionPermissions } from "../permissions/runtime-session-permissions"
 import { restoreTeachingSessionState, writeLastLlmOutbound } from "../state/transform-state"
 import type { SessionTransform, SessionTransformContext } from "./types"
@@ -48,11 +47,6 @@ export function createSessionCommandTransform(input: {
           configuredToolToggles: projectConfig.tools,
         })
         const focusGoalIds = resolveFocusGoalIds(body)
-        await assertSessionExistsInDirectory({
-          directory: input.context.directory,
-          sessionID: input.context.sessionID,
-          request: input.context.request,
-        })
         rollbackTeachingState = () =>
           restoreTeachingSessionState({
             directory: input.context.directory,
@@ -77,11 +71,6 @@ export function createSessionCommandTransform(input: {
           runtimeProfile,
         })
       } else {
-        await assertSessionExistsInDirectory({
-          directory: input.context.directory,
-          sessionID: input.context.sessionID,
-          request: input.context.request,
-        })
         await syncBuddyRuntimeSessionPermissions({
           directory: input.context.directory,
           sessionID: input.context.sessionID,

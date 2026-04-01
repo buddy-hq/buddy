@@ -1,4 +1,5 @@
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
+import { resolveDirectory } from "../project"
 import { safeReadJson } from "./http"
 import { fetchOpenCode } from "./proxy"
 
@@ -40,6 +41,13 @@ export async function isSessionInRequestedProject(
   const payload = session as {
     projectID?: unknown
     directory?: unknown
+  }
+
+  const sessionDirectory =
+    typeof payload.directory === "string" ? resolveDirectory(payload.directory) : undefined
+  const requestedDirectory = resolveDirectory(directory)
+  if (sessionDirectory && sessionDirectory === requestedDirectory) {
+    return true
   }
 
   const requestedProjectID = await resolveOpenCodeProjectID(directory)

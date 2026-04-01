@@ -12,6 +12,13 @@ type OpenCodeNotFoundError = {
   }
 }
 
+type SessionListEntry = {
+  id?: unknown
+}
+
+const SESSION_NOT_FOUND_ERROR = "Session not found"
+const SESSION_COLLECTION_PATH = "/session"
+
 function readSessionNotFoundMessage(error: unknown): string | undefined {
   if (!error || typeof error !== "object") return undefined
   const payload = error as OpenCodeNotFoundError
@@ -28,6 +35,36 @@ export function isSessionNotFoundError(error: unknown): boolean {
 
   const message = readSessionNotFoundMessage(error)
   return typeof message === "string" && message.startsWith("Session not found:")
+}
+
+function hasSessionId(value: unknown, sessionID: string): value is SessionListEntry {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false
+  return (value as SessionListEntry).id === sessionID
+}
+
+async function isSessionListedInDirectory(input: {
+  directory: string
+  sessionID: string
+  request: Request
+}): Promise<boolean> {
+  const query = new URLSearchParams({
+    directory: input.directory,
+  }).toString()
+
+  const response = await fetchOpenCode({
+    directory: input.directory,
+    method: "GET",
+    path: SESSION_COLLECTION_PATH,
+    query,
+    headers: new Headers(input.request.headers),
+  })
+  const normalized = await normalizeErrorResponse(response)
+  if (!normalized.ok) return false
+  if (!isJsonContentType(normalized.headers.get("content-type"))) return false
+
+  const sessions = await safeReadJson(normalized)
+  if (!Array.isArray(sessions)) return false
+  return sessions.some((entry) => hasSessionId(entry, input.sessionID))
 }
 
 export async function ensureSessionExistsInDirectory(input: {
@@ -47,12 +84,17 @@ export async function ensureSessionExistsInDirectory(input: {
 
   const session = await safeReadJson(normalized)
   if (!session || typeof session !== "object" || Array.isArray(session)) {
-    return Response.json({ error: "Session not found" }, { status: 404 })
+    return Response.json({ error: SESSION_NOT_FOUND_ERROR }, { status: 404 })
   }
 
   const matchesProject = await isSessionInRequestedProject(input.directory, session)
   if (!matchesProject) {
-    return Response.json({ error: "Session not found" }, { status: 404 })
+    const listedInDirectory = await isSessionListedInDirectory(input)
+    if (listedInDirectory) {
+      return undefined
+    }
+
+    return Response.json({ error: SESSION_NOT_FOUND_ERROR }, { status: 404 })
   }
 
   return undefined

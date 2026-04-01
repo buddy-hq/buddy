@@ -1,5 +1,4 @@
 import { readProjectConfig } from "@buddy/backend/config/runtime"
-import { assertSessionExistsInDirectory } from "../../../session"
 import { syncBuddyRuntimeSessionPermissions } from "../permissions/runtime-session-permissions"
 import { readTeachingSessionState, writeTeachingSessionState } from "../state/session-state"
 import { restoreTeachingSessionState, writeLastLlmOutbound } from "../state/transform-state"
@@ -26,12 +25,6 @@ export async function orchestrateSessionMessageTransform(input: {
     body: input.body,
     projectConfig,
     previousState,
-  })
-
-  await assertSessionExistsInDirectory({
-    directory: input.context.directory,
-    sessionID: input.context.sessionID,
-    request: input.context.request,
   })
 
   let rollbackTeachingState: (() => void) | undefined

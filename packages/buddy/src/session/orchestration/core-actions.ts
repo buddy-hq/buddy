@@ -1,12 +1,113 @@
 import type { Context } from "hono"
-import { isJsonContentType, safeReadJson } from "../../http"
+import { SessionID } from "@buddy/opencode-adapter/id"
+import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
+import { MessageV2 as OpenCodeMessage } from "@buddy/opencode-adapter/message"
+import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
 import { ensureAllowedDirectory } from "../../http"
-import { normalizeErrorResponse } from "../../http"
-import { fetchOpenCode, proxyToOpenCode } from "../../http"
+import { proxyToOpenCode } from "../../http"
 import { isSessionInRequestedProject } from "../../http"
-import { ensureSessionExistsInDirectory } from "./lookup"
+import { withConfigSync } from "../../http/route-helpers"
+import { ensureSessionExistsInDirectory, isSessionNotFoundError } from "./lookup"
+
+type RuntimeSessionInfo = Awaited<ReturnType<typeof OpenCodeSession.get>>
+
+type SessionMessagesQuery = {
+  limit?: number
+  before?: string
+}
+
+type OpenCodeErrorPayload = {
+  message?: unknown
+  data?: {
+    message?: unknown
+  }
+}
+
+const SESSION_NOT_FOUND_ERROR = "Session not found"
+const REQUEST_FAILED_ERROR = "Request failed"
+const BAD_REQUEST_STATUS = 400
+const NOT_FOUND_STATUS = 404
+const LINK_HEADER = "Link"
+const NEXT_CURSOR_HEADER = "X-Next-Cursor"
+const EXPOSE_HEADERS_HEADER = "Access-Control-Expose-Headers"
+
+function readOpenCodeErrorMessage(error: unknown): string | undefined {
+  if (!error || typeof error !== "object") return undefined
+  const payload = error as OpenCodeErrorPayload
+  if (typeof payload.data?.message === "string" && payload.data.message) {
+    return payload.data.message
+  }
+  if (typeof payload.message === "string" && payload.message) {
+    return payload.message
+  }
+  return undefined
+}
+
+function runtimeErrorResponse(error: unknown) {
+  const message = isSessionNotFoundError(error)
+    ? SESSION_NOT_FOUND_ERROR
+    : (readOpenCodeErrorMessage(error) ?? REQUEST_FAILED_ERROR)
+  const status = isSessionNotFoundError(error) ? NOT_FOUND_STATUS : BAD_REQUEST_STATUS
+  return Response.json({ error: message }, { status })
+}
+
+function readSessionMessagesQuery(c: Context): SessionMessagesQuery {
+  const params = new URL(c.req.url).searchParams
+  const rawLimit = params.get("limit")
+  const before = params.get("before") ?? undefined
+  if (rawLimit === null) {
+    return { before }
+  }
+
+  const limit = Number(rawLimit)
+  return Number.isFinite(limit) ? { limit, before } : { before }
+}
+
+async function isSessionListedInDirectory(directory: string, sessionID: string) {
+  return OpenCodeInstance.provide({
+    directory,
+    fn: async () => {
+      const sessions = await OpenCodeSession.list({ directory })
+      return sessions.some((entry) => entry.id === sessionID)
+    },
+  })
+}
+
+async function loadSessionInDirectory(
+  directory: string,
+  sessionID: string,
+): Promise<RuntimeSessionInfo | undefined> {
+  const runtimeSessionID = SessionID.make(sessionID)
+
+  try {
+    const session = await OpenCodeInstance.provide({
+      directory,
+      fn: () => OpenCodeSession.get(runtimeSessionID),
+    })
+
+    const matchesProject = await isSessionInRequestedProject(directory, session)
+    if (matchesProject) {
+      return session
+    }
+
+    const listedInDirectory = await isSessionListedInDirectory(directory, sessionID)
+    return listedInDirectory ? session : undefined
+  } catch (error) {
+    if (isSessionNotFoundError(error)) {
+      return undefined
+    }
+    throw error
+  }
+}
 
 export async function proxySessionCollection(c: Context): Promise<Response> {
+  if (c.req.method === "POST") {
+    const syncResult = await withConfigSync(c, {
+      operation: "session creation",
+    })
+    if (!syncResult.ok) return syncResult.response
+  }
+
   return proxyToOpenCode(c, {
     targetPath: "/session",
   })
@@ -17,25 +118,15 @@ export async function getSessionById(c: Context): Promise<Response> {
   if (!directoryResult.ok) return directoryResult.response
 
   const sessionID = c.req.param("sessionID")
-  const response = await fetchOpenCode({
-    directory: directoryResult.directory,
-    method: "GET",
-    path: `/session/${encodeURIComponent(sessionID)}`,
-    query: new URL(c.req.url).search,
-    headers: new Headers(c.req.raw.headers),
-  })
-
-  const normalized = await normalizeErrorResponse(response)
-  if (!normalized.ok) return normalized
-  if (!isJsonContentType(normalized.headers.get("content-type"))) return normalized
-
-  const session = await safeReadJson(normalized, { clone: true })
-  const matchesProject = await isSessionInRequestedProject(directoryResult.directory, session)
-  if (!matchesProject) {
-    return c.json({ error: "Session not found" }, 404)
+  try {
+    const session = await loadSessionInDirectory(directoryResult.directory, sessionID)
+    if (!session) {
+      return c.json({ error: SESSION_NOT_FOUND_ERROR }, NOT_FOUND_STATUS)
+    }
+    return c.json(session)
+  } catch (error) {
+    return runtimeErrorResponse(error)
   }
-
-  return normalized
 }
 
 export async function patchSessionById(c: Context): Promise<Response> {
@@ -60,14 +151,45 @@ export async function listSessionMessages(c: Context): Promise<Response> {
   if (!directoryResult.ok) return directoryResult.response
 
   const sessionID = c.req.param("sessionID")
-  const lookupResponse = await ensureSessionExistsInDirectory({
-    directory: directoryResult.directory,
-    sessionID,
-    request: c.req.raw,
-  })
-  if (lookupResponse) return lookupResponse
+  const query = readSessionMessagesQuery(c)
 
-  return proxyToOpenCode(c, {
-    targetPath: `/session/${encodeURIComponent(sessionID)}/message`,
-  })
+  try {
+    const session = await loadSessionInDirectory(directoryResult.directory, sessionID)
+    if (!session) {
+      return c.json({ error: SESSION_NOT_FOUND_ERROR }, NOT_FOUND_STATUS)
+    }
+
+    const runtimeSessionID = SessionID.make(session.id)
+    const payload = await OpenCodeInstance.provide({
+      directory: directoryResult.directory,
+      fn: async () => {
+        if (query.limit === undefined || query.limit === 0) {
+          const messages = await OpenCodeSession.messages({ sessionID: runtimeSessionID })
+          return {
+            items: messages,
+            cursor: undefined as string | undefined,
+          }
+        }
+
+        return OpenCodeMessage.page({
+          sessionID: runtimeSessionID,
+          limit: query.limit,
+          before: query.before,
+        })
+      },
+    })
+
+    if (payload.cursor && query.limit !== undefined) {
+      const nextUrl = new URL(c.req.url)
+      nextUrl.searchParams.set("limit", query.limit.toString())
+      nextUrl.searchParams.set("before", payload.cursor)
+      c.header(EXPOSE_HEADERS_HEADER, `${LINK_HEADER}, ${NEXT_CURSOR_HEADER}`)
+      c.header(LINK_HEADER, `<${nextUrl.toString()}>; rel="next"`)
+      c.header(NEXT_CURSOR_HEADER, payload.cursor)
+    }
+
+    return c.json(payload.items)
+  } catch (error) {
+    return runtimeErrorResponse(error)
+  }
 }
