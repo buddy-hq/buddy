@@ -36,7 +36,7 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: "1.3.9"
+          bun-version: "1.3.11"
 
       - run: bun install
 
@@ -64,7 +64,7 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: "1.3.9"
+          bun-version: "1.3.11"
 
       - run: bun install
 
@@ -101,7 +101,7 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: "1.3.9"
+          bun-version: "1.3.11"
 
       - run: bun install
 
@@ -156,7 +156,7 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: "1.3.9"
+          bun-version: "1.3.11"
 
       - run: bun install
 
@@ -295,7 +295,7 @@ jobs:
       - if: steps.advanced-math-asset.outputs.restored != 'true'
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: "1.3.9"
+          bun-version: "1.3.11"
 
       - if: steps.advanced-math-asset.outputs.restored != 'true'
         uses: actions/setup-python@v5
@@ -334,7 +334,7 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: "1.3.9"
+          bun-version: "1.3.11"
 
       - run: bun install
 
