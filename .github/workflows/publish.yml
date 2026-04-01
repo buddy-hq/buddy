@@ -52,24 +52,9 @@ jobs:
       tag: ${{ steps.version.outputs.tag }}
       repo: ${{ steps.version.outputs.repo }}
 
-  verify-updater-signing:
-    needs: version
-    runs-on: ubuntu-latest
-    steps:
-      - name: Require updater signing
-        shell: bash
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-        run: |
-          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
-            echo "TAURI_SIGNING_PRIVATE_KEY is required for Buddy releases because auto-update support is mandatory."
-            exit 1
-          fi
-
   build-sidecar:
     needs:
       - version
-      - verify-updater-signing
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -90,10 +75,9 @@ jobs:
           name: buddy-sidecars
           path: packages/buddy/dist/release-sidecars
 
-  build-tauri:
+  build-electron:
     needs:
       - version
-      - verify-updater-signing
       - build-sidecar
     strategy:
       fail-fast: false
@@ -101,8 +85,13 @@ jobs:
         settings:
           - host: macos-latest
             target: aarch64-apple-darwin
+            package_args: --mac --arm64
           - host: macos-latest
             target: x86_64-apple-darwin
+            package_args: --mac --x64
+          - host: windows-latest
+            target: x86_64-pc-windows-msvc
+            package_args: --win --x64
     runs-on: ${{ matrix.settings.host }}
     steps:
       - uses: actions/checkout@v4
@@ -116,73 +105,101 @@ jobs:
 
       - run: bun install
 
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.settings.target }}
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: packages/desktop/src-tauri
-          shared-key: ${{ matrix.settings.target }}
-
       - uses: actions/download-artifact@v4
         with:
           name: buddy-sidecars
           path: packages/buddy/dist/release-sidecars
 
-      - run: bun run --cwd packages/desktop prepare:release
+      - run: bun run --cwd packages/desktop-electron prepare:release
         env:
+          BUDDY_CHANNEL: prod
           BUDDY_VERSION: ${{ needs.version.outputs.version }}
           BUDDY_RUST_TARGET: ${{ matrix.settings.target }}
           BUDDY_SIDECAR_ARTIFACT_DIR: ${{ github.workspace }}/packages/buddy/dist/release-sidecars
-      - name: Configure macOS signing for the release build
+
+      - run: bun run --cwd packages/desktop-electron build
+        env:
+          BUDDY_CHANNEL: prod
+
+      - run: bunx --bun electron-builder ${{ matrix.settings.package_args }} --config electron-builder.config.ts
+        working-directory: packages/desktop-electron
+        env:
+          BUDDY_CHANNEL: prod
+
+      - name: Upload packaged binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: electron-package-${{ matrix.settings.target }}
+          path: |
+            packages/desktop-electron/dist/*.dmg
+            packages/desktop-electron/dist/*.zip
+            packages/desktop-electron/dist/*.exe
+            packages/desktop-electron/dist/*.blockmap
+
+      - name: Upload latest yml
+        uses: actions/upload-artifact@v4
+        with:
+          name: latest-yml-${{ matrix.settings.target }}
+          path: |
+            packages/desktop-electron/dist/latest*.yml
+
+  upload-electron-release:
+    needs:
+      - version
+      - build-electron
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.9"
+
+      - run: bun install
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: electron-package-*
+          path: electron-dist
+          merge-multiple: true
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: latest-yml-*
+          path: latest-yml
+
+      - name: Upload packaged binaries to release
         shell: bash
         env:
-          APPLE_SIGNING_IDENTITY_SECRET: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_CERTIFICATE_SECRET: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD_SECRET: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          GH_TOKEN: ${{ github.token }}
+          BUDDY_RELEASE_REPO: ${{ needs.version.outputs.repo }}
+          BUDDY_RELEASE_TAG: ${{ needs.version.outputs.tag }}
         run: |
-          if [ -n "$APPLE_CERTIFICATE_SECRET" ]; then
-            {
-              echo "APPLE_CERTIFICATE<<EOF"
-              echo "$APPLE_CERTIFICATE_SECRET"
-              echo "EOF"
-            } >> "$GITHUB_ENV"
-
-            if [ -n "$APPLE_CERTIFICATE_PASSWORD_SECRET" ]; then
-              echo "APPLE_CERTIFICATE_PASSWORD=$APPLE_CERTIFICATE_PASSWORD_SECRET" >> "$GITHUB_ENV"
-            fi
+          set -euo pipefail
+          mapfile -t artifacts < <(find electron-dist -type f \( -name '*.dmg' -o -name '*.zip' -o -name '*.exe' -o -name '*.blockmap' \))
+          if [ "${#artifacts[@]}" -eq 0 ]; then
+            echo "No Electron artifacts found"
+            exit 1
           fi
+          gh release upload "$BUDDY_RELEASE_TAG" "${artifacts[@]}" --clobber --repo "$BUDDY_RELEASE_REPO"
 
-          if [ -n "$APPLE_SIGNING_IDENTITY_SECRET" ]; then
-            echo "APPLE_SIGNING_IDENTITY=$APPLE_SIGNING_IDENTITY_SECRET" >> "$GITHUB_ENV"
-          elif [ -z "$APPLE_CERTIFICATE_SECRET" ]; then
-            echo "APPLE_SIGNING_IDENTITY=-" >> "$GITHUB_ENV"
-            echo "Defaulting to ad-hoc Apple signing for unsigned macOS release bundles."
-          else
-            echo "APPLE_CERTIFICATE is configured; leaving APPLE_SIGNING_IDENTITY unset."
-          fi
-      - uses: tauri-apps/tauri-action@390cbe447412ced1303d35abe75287949e43437a
-        timeout-minutes: 60
-        with:
-          projectPath: packages/desktop
-          uploadWorkflowArtifacts: true
-          args: --target ${{ matrix.settings.target }} --config ./src-tauri/tauri.prod.conf.json --verbose
-          updaterJsonPreferNsis: true
-          releaseId: ${{ needs.version.outputs.release }}
-          tagName: ${{ needs.version.outputs.tag }}
-          releaseDraft: true
-          releaseAssetNamePattern: buddy-desktop-[platform]-[arch][ext]
-          releaseCommitish: ${{ github.sha }}
+      - name: Finalize and upload latest yml
+        shell: bash
         env:
-          GITHUB_TOKEN: ${{ github.token }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ needs.version.outputs.repo }}
+          BUDDY_VERSION: ${{ needs.version.outputs.version }}
+          LATEST_YML_DIR: ${{ github.workspace }}/latest-yml
+        run: |
+          set -euo pipefail
+          bun ./packages/desktop-electron/scripts/finalize-latest-yml.ts
 
   build-advanced-math:
     needs:
       - version
-      - verify-updater-signing
     strategy:
       fail-fast: false
       matrix:
@@ -306,7 +323,7 @@ jobs:
   publish:
     needs:
       - version
-      - build-tauri
+      - upload-electron-release
       - build-advanced-math
     runs-on: ubuntu-latest
     steps:
