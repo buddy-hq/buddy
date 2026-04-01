@@ -12,6 +12,15 @@ import {
 import os from "node:os"
 import path from "node:path"
 import { spawnSync } from "node:child_process"
+import {
+  RELEASE_SIDECAR_BINARIES as SHARED_RELEASE_SIDECAR_BINARIES,
+  SIDECAR_BINARIES as SHARED_SIDECAR_BINARIES,
+  currentDesktopRustTarget,
+  getSidecarTargetByRustTarget,
+  isWindowsRustTarget,
+  resolveDesktopRustTarget,
+  windowsifyBinaryName,
+} from "../../../script/desktop-sidecar-targets"
 
 const DESKTOP_DIR = path.resolve(import.meta.dir, "..")
 const BACKEND_DIR = path.resolve(DESKTOP_DIR, "../buddy")
@@ -134,48 +143,13 @@ function installWatcherBinding(target: string, destinationDir: string) {
   }
 }
 
-export const SIDECAR_BINARIES = [
-  {
-    rustTarget: "aarch64-apple-darwin",
-    bunTarget: "bun-darwin-arm64",
-    sidecarDir: "buddy-backend-darwin-arm64",
-  },
-  {
-    rustTarget: "x86_64-apple-darwin",
-    bunTarget: "bun-darwin-x64",
-    sidecarDir: "buddy-backend-darwin-x64",
-  },
-  {
-    rustTarget: "x86_64-pc-windows-msvc",
-    bunTarget: "bun-windows-x64",
-    sidecarDir: "buddy-backend-windows-x64",
-  },
-  {
-    rustTarget: "x86_64-unknown-linux-gnu",
-    bunTarget: "bun-linux-x64",
-    sidecarDir: "buddy-backend-linux-x64",
-  },
-  {
-    rustTarget: "aarch64-unknown-linux-gnu",
-    bunTarget: "bun-linux-arm64",
-    sidecarDir: "buddy-backend-linux-arm64",
-  },
-] as const
+export const SIDECAR_BINARIES = SHARED_SIDECAR_BINARIES
+export const RELEASE_SIDECAR_BINARIES = SHARED_RELEASE_SIDECAR_BINARIES
 
-export const RELEASE_SIDECAR_BINARIES = SIDECAR_BINARIES.filter(
-  (item) => !item.rustTarget.includes("linux"),
-)
-
-export const BUDDY_RUST_TARGET =
-  Bun.env.BUDDY_RUST_TARGET ?? Bun.env.RUST_TARGET ?? Bun.env.TAURI_ENV_TARGET_TRIPLE
+export const BUDDY_RUST_TARGET = resolveDesktopRustTarget(Bun.env)
 
 export function currentTargetTriple() {
-  if (process.platform === "darwin" && process.arch === "arm64") return "aarch64-apple-darwin"
-  if (process.platform === "darwin" && process.arch === "x64") return "x86_64-apple-darwin"
-  if (process.platform === "linux" && process.arch === "arm64") return "aarch64-unknown-linux-gnu"
-  if (process.platform === "linux" && process.arch === "x64") return "x86_64-unknown-linux-gnu"
-  if (process.platform === "win32" && process.arch === "x64") return "x86_64-pc-windows-msvc"
-  throw new Error(`Unsupported desktop target: ${process.platform}/${process.arch}`)
+  return currentDesktopRustTarget()
 }
 
 export function isAppleTarget(target = BUDDY_RUST_TARGET ?? currentTargetTriple()) {
@@ -203,20 +177,15 @@ export function resolveAppleSigningIdentity(
 }
 
 export function getCurrentSidecar(target = BUDDY_RUST_TARGET ?? currentTargetTriple()) {
-  const binary = SIDECAR_BINARIES.find((item) => item.rustTarget === target)
-  if (!binary) {
-    throw new Error(`Sidecar configuration not available for Rust target '${target}'`)
-  }
-  return binary
+  return getSidecarTargetByRustTarget(target)
 }
 
 export function isWindowsTarget(target = BUDDY_RUST_TARGET ?? currentTargetTriple()) {
-  return target.includes("windows")
+  return isWindowsRustTarget(target)
 }
 
 export function windowsify(filepath: string, target = BUDDY_RUST_TARGET ?? currentTargetTriple()) {
-  if (filepath.endsWith(".exe")) return filepath
-  return isWindowsTarget(target) ? `${filepath}.exe` : filepath
+  return windowsifyBinaryName(filepath, target)
 }
 
 export function copyBinaryToSidecarFolder(

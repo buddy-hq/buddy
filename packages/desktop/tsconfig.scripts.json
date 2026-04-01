@@ -12,5 +12,5 @@
     "strict": true,
     "types": ["bun", "node"]
   },
-  "include": ["scripts/**/*.ts"]
+  "include": ["scripts/**/*.ts", "../../script/desktop-sidecar-targets.ts"]
 }
