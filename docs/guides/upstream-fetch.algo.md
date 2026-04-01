@@ -13,6 +13,7 @@ This is the repeatable process to sync `vendor/opencode` while preserving local 
 2. Assume working tree is dirty; do not reset/revert unrelated files.
 3. Keep vendor clean; put Buddy-specific behavior in Buddy/adapter/build layer.
 4. Validate with real commands before and after sync.
+5. Vendor guard is active on local hooks and push checks for `vendor/opencode/**`; for intentional validated vendor syncs, use `ALLOW_VENDOR_SYNC=1` on guarded git commands.
 
 ## Algorithm
 1. Create a checkpoint log entry.
@@ -91,18 +92,29 @@ This is the repeatable process to sync `vendor/opencode` while preserving local 
 11. Commit in two clean batches.
    - Commit 1 (vendor sync plus required root install metadata):
      - `git add vendor/opencode package.json bun.lock`
-     - `git commit -m "chore(vendor): sync opencode upstream to latest dev"`
+     - `ALLOW_VENDOR_SYNC=1 git commit -m "chore(vendor): sync opencode upstream to latest dev"`
    - Commit 2 (Buddy adaptations only):
      - Stage only Buddy/adapter/runtime/test files, plus the sync log if you are versioning it.
      - `git commit -m "refactor(buddy): adapt buddy to new opencode runtime"`
    - Leave unrelated pre-existing local edits unstaged.
-   - If a local hook blocks an intentional, validated vendor sync, bypass it with `--no-verify` rather than reshaping the commit just to satisfy the hook.
+   - Prefer `ALLOW_VENDOR_SYNC=1` over `--no-verify` so the bypass is explicit and scoped to intentional vendor syncs.
 
-12. Cleanup temp artifacts.
+12. Write an upstream delta summary and Buddy unlocks in the sync log.
+   - Include a short summary of what changed in vendor (major changed areas/modules, notable adds/removes, and scale).
+   - Include what those changes unlock for Buddy (runtime compatibility, fewer adapter shims, new capabilities, reduced maintenance cost, etc.).
+   - Add concrete evidence snippets:
+     - `git diff --shortstat -- vendor/opencode`
+     - `git diff --name-only -- vendor/opencode | cut -d/ -f1-4 | sort | uniq -c | sort -nr | head -20`
+
+13. (Optional but recommended) push synced commits to origin.
+   - `ALLOW_VENDOR_SYNC=1 git push origin <branch>`
+   - If rejected, inspect remote guard output before retrying.
+
+14. Cleanup temp artifacts.
    - `git worktree remove "$tmp"`
    - `git branch -D codex/vendor-check-<date>` (if still present)
 
-13. Record final state in log.
+15. Record final state in log.
    - Commit hashes created
    - Validation results
    - Remaining uncommitted files (if any)
@@ -116,4 +128,5 @@ This is the repeatable process to sync `vendor/opencode` while preserving local 
 6. `bun install` again.
 7. Re-run same 4 checks.
 8. Shrink throwaway adapter shims if upstream API migration is clearly better.
-9. Commit vendor, then Buddy changes.
+9. Summarize vendor delta and Buddy unlocks in the sync log.
+10. Commit vendor, then Buddy changes (use `ALLOW_VENDOR_SYNC=1` on vendor-sync commit/push).
