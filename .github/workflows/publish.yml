@@ -195,6 +195,7 @@ jobs:
           GH_REPO: ${{ needs.version.outputs.repo }}
           BUDDY_VERSION: ${{ needs.version.outputs.version }}
           LATEST_YML_DIR: ${{ github.workspace }}/latest-yml
+          ELECTRON_DIST_DIR: ${{ github.workspace }}/electron-dist
         run: |
           set -euo pipefail
           bun ./packages/desktop-electron/scripts/finalize-latest-yml.ts

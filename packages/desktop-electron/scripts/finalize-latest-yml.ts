@@ -1,6 +1,8 @@
 #!/usr/bin/env bun
 
 import { $ } from "bun"
+import { createHash } from "node:crypto"
+import { access, readFile, stat } from "node:fs/promises"
 import path from "node:path"
 
 const rawLatestYmlDir = process.env.LATEST_YML_DIR
@@ -18,6 +20,9 @@ const version = process.env.BUDDY_VERSION
 if (!version) {
   throw new Error("BUDDY_VERSION is required")
 }
+const releaseVersion = version
+
+const electronDistDir = process.env.ELECTRON_DIST_DIR?.trim() || ""
 
 type FileEntry = {
   url: string
@@ -96,6 +101,50 @@ function serialize(data: LatestYml) {
   return lines.join("\n") + "\n"
 }
 
+async function fileExists(filepath: string) {
+  try {
+    await access(filepath)
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function toFileEntry(filepath: string): Promise<FileEntry> {
+  const [fileBuffer, fileStats] = await Promise.all([readFile(filepath), stat(filepath)])
+  const blockmapPath = `${filepath}.blockmap`
+  const blockMapStats = (await fileExists(blockmapPath)) ? await stat(blockmapPath) : undefined
+  return {
+    url: path.basename(filepath),
+    sha512: createHash("sha512").update(fileBuffer).digest("base64"),
+    size: fileStats.size,
+    ...(blockMapStats ? { blockMapSize: blockMapStats.size } : {}),
+  }
+}
+
+async function synthesizeLatest(platform: "mac" | "windows") {
+  if (!electronDistDir) return undefined
+
+  const candidates =
+    platform === "mac"
+      ? ["buddy-electron-mac-arm64.zip", "buddy-electron-mac-x64.zip"]
+      : ["buddy-electron-win-x64.exe"]
+
+  const entries: FileEntry[] = []
+  for (const candidate of candidates) {
+    const artifactPath = path.join(electronDistDir, candidate)
+    if (!(await fileExists(artifactPath))) continue
+    entries.push(await toFileEntry(artifactPath))
+  }
+
+  if (entries.length === 0) return undefined
+  return serialize({
+    version: releaseVersion,
+    files: entries,
+    releaseDate: new Date().toISOString(),
+  })
+}
+
 async function read(subdir: string, filename: string) {
   const file = Bun.file(path.join(latestYmlDir, subdir, filename))
   if (!(await file.exists())) return undefined
@@ -116,6 +165,12 @@ if (winX64 || winArm64) {
     })
   }
 }
+if (!outputs["latest.yml"]) {
+  const synthesizedWindows = await synthesizeLatest("windows")
+  if (synthesizedWindows) {
+    outputs["latest.yml"] = synthesizedWindows
+  }
+}
 
 const macX64 = await read("latest-yml-x86_64-apple-darwin", "latest-mac.yml")
 const macArm64 = await read("latest-yml-aarch64-apple-darwin", "latest-mac.yml")
@@ -129,8 +184,14 @@ if (macX64 || macArm64) {
     })
   }
 }
+if (!outputs["latest-mac.yml"]) {
+  const synthesizedMac = await synthesizeLatest("mac")
+  if (synthesizedMac) {
+    outputs["latest-mac.yml"] = synthesizedMac
+  }
+}
 
-const tag = `v${version}`
+const tag = `v${releaseVersion}`
 const tmp = process.env.RUNNER_TEMP ?? "/tmp"
 
 for (const [filename, content] of Object.entries(outputs)) {
