@@ -1,5 +1,5 @@
 import { language } from "@/context/language"
-import buddyIcon from "/buddy-icon.png"
+import { resolveBuddyIconUrl } from "@/lib/static-asset"
 
 type ChatEmptyStateProps = {
   directoryLabel: string
@@ -8,11 +8,13 @@ type ChatEmptyStateProps = {
 const logoFilter = "saturate(1.06) contrast(1.04)"
 
 export function ChatEmptyState(props: ChatEmptyStateProps) {
+  const buddyIconUrl = resolveBuddyIconUrl()
+
   return (
     <div className="animate-in fade-in slide-in-from-bottom-2 flex flex-1 items-center justify-center duration-700">
       <div className="flex flex-col items-center text-center">
         <img
-          src={buddyIcon}
+          src={buddyIconUrl}
           alt={language.t("routes.chat.productName")}
           className="mb-6 size-12 rounded-xl opacity-90 transition-all duration-300 hover:scale-[1.02] hover:opacity-100 [mix-blend-mode:var(--text-mix-blend-mode)]"
           style={{ filter: logoFilter }}

@@ -3,8 +3,8 @@ import { useEffect, useState } from "react"
 import { Button, Input, Card, CardContent } from "@buddy/ui"
 import { FolderPlusIcon } from "@/components/layout/sidebar-icons"
 import { language } from "@/context/language"
+import { resolveBuddyIconUrl } from "@/lib/static-asset"
 import { usePlatform } from "../context/platform"
-import buddyIcon from "/buddy-icon.png"
 import { stringifyError } from "../lib/api-client"
 import { shouldShowCurrentDesktopOnboarding } from "../lib/desktop-onboarding"
 import { encodeDirectory } from "../lib/directory-token"
@@ -78,6 +78,7 @@ type EmptyProjectsStateProps = {
 
 function EmptyProjectsState(props: EmptyProjectsStateProps) {
   const platform = usePlatform()
+  const buddyIconUrl = resolveBuddyIconUrl()
   const [directory, setDirectory] = useState("")
   const hasNativePicker = typeof platform.openDirectoryPickerDialog === "function"
 
@@ -98,7 +99,7 @@ function EmptyProjectsState(props: EmptyProjectsStateProps) {
     >
       <div className="flex flex-col items-center gap-6 text-center">
         <img
-          src={buddyIcon}
+          src={buddyIconUrl}
           alt={language.t("routes.chat.productName")}
           className="h-32 w-32 rounded-3xl shadow-xl"
         />
