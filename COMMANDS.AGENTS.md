@@ -19,18 +19,23 @@ bun run sdk:generate
 
 ## Scoped Build/Typecheck (Turbo)
 
-Use Turbo directly for package scoping. Do not rely on `bun run build -- --filter=...` or
-`bun run typecheck -- --filter=...` because those root scripts already include filters.
+Use Turbo directly for package scoping. Package names are scoped, so `web` will not match
+anything. Use the exact workspace name, such as `@buddy/web`.
+
+Do not rely on `bun run build -- --filter=...` or `bun run typecheck -- --filter=...` because
+those root scripts already include filters.
 
 ```bash
 bunx turbo run build --filter=@buddy/web --only
 bunx turbo run build --filter=@buddy/backend --only
 bunx turbo run typecheck --filter=@buddy/ui --only
+bun run --cwd packages/web typecheck
 ```
 
 ## Lint Notes
 
 - Lint is defined at repo root (`bun run lint`); most packages do not define their own `lint` script.
+- `packages/web` does not define `lint`, so `bun run --filter web lint` will fail.
 - To lint only specific files, pass paths through to oxlint:
 
 ```bash
@@ -42,6 +47,7 @@ bun run lint -- packages/web/src/components/chat/chat-transcript.tsx
 ```bash
 bun run --cwd packages/buddy dev
 bun run --cwd packages/web dev
+bun run --cwd packages/web typecheck
 bun run --cwd packages/sdk generate
 ```
 
