@@ -23,14 +23,14 @@ export function resolveAdvancedMathRuntimeVersion() {
   const override = readEnvVersion(VERSION_OVERRIDE_ENV)
   if (override) return override
 
+  const legacy = readEnvVersion(LEGACY_VERSION_ENV)
+  if (legacy) return legacy
+
   const backendPackageVersion = readBackendPackageVersion()
   if (backendPackageVersion) return backendPackageVersion
 
   const scriptVersion = readEnvVersion("npm_package_version")
   if (scriptVersion) return scriptVersion
-
-  const legacy = readEnvVersion(LEGACY_VERSION_ENV)
-  if (legacy) return legacy
 
   return DEFAULT_VERSION
 }
