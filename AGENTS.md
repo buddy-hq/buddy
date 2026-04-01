@@ -1,5 +1,6 @@
 # AGENTS.md
 - Buddy is a Bun + TypeScript monorepo managed with Turborepo.
+- It is published as an Electron app for both mac and windows.
 - It is single-user and single-machine by design: one OS user, one home-directory state, one active config/credential/session set, with no built-in multi-user accounts, profiles, or permissions.
 - Buddy is local-first: the main agent loop usually runs locally on the host that launched it. It is not strictly local-only, and may expose server/client or remote-agent surfaces or use the network beyond LLM calls, web search, MCP, and third-party APIs, including for auth, remote config/admin policy, and remote subagent/client connections.
 
@@ -26,11 +27,15 @@ Long term maintainability is a core priority. If you add new functionality, firs
 ## Packages:
 - `packages/buddy`: backend (Bun + Hono + hono-openapi)
 - `packages/web`: frontend (React + Vite + TanStack Router + TanStack Query)
-- `packages/desktop`: Tauri desktop app wrapping `packages/web`    
+- `packages/desktop-electron`: Electron desktop app wrapping `packages/web`
 - `packages/ui`: shared UI system built on shadcn primitives + Tailwind v4
 - `packages/sdk`: OpenAPI-generated client via hey-api/openapi-ts
 - `packages/opencode-adapter`: Buddy compatibility bridge over vendored OpenCode modules
 - `packages/storybook`: storybook setup
+
+## Tauri Discontinued
+- Tauri publishing is discontinued; do not add or maintain Tauri publish/release workflows.
+
 ## Tests
 - Never run the full test suite.
 - Run only tests for the packages you are changing.
