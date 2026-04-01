@@ -25,13 +25,9 @@ export async function unregisterBuddyTools(
   await OpenCodeInstance.provide({
     directory,
     async fn() {
-      const { custom } = await ToolRegistry.state()
-      const removals = new Set(toolIDs)
-      for (let index = custom.length - 1; index >= 0; index -= 1) {
-        if (removals.has(custom[index].id)) {
-          custom.splice(index, 1)
-        }
-      }
+      // OpenCode no longer exposes ToolRegistry custom-state mutation.
+      // Keep unregister as a no-op until a public unregister API exists.
+      void toolIDs
     },
   })
 }

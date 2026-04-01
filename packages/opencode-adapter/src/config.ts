@@ -8,6 +8,10 @@ type RuntimeConfig = Awaited<ReturnType<typeof Config.get>>
 
 const overlays = new Map<string, Partial<RuntimeConfig>>()
 const originalGet = Config.get.bind(Config)
+const originalProvide = Instance.provide.bind(Instance)
+const originalReload = Instance.reload.bind(Instance)
+type InstanceProvideInput = Parameters<typeof originalProvide>[0]
+type InstanceReloadInput = Parameters<typeof originalReload>[0]
 
 let patched = false
 
@@ -48,9 +52,38 @@ function key(directory: string) {
   }
 }
 
+async function withOverlayEnv<T>(directory: string, fn: () => Promise<T>): Promise<T> {
+  const overlay = overlays.get(key(directory))
+  if (!overlay) {
+    return fn()
+  }
+
+  const previous = process.env.OPENCODE_CONFIG_CONTENT
+  process.env.OPENCODE_CONFIG_CONTENT = JSON.stringify(overlay)
+  try {
+    return await fn()
+  } finally {
+    if (previous === undefined) {
+      delete process.env.OPENCODE_CONFIG_CONTENT
+    } else {
+      process.env.OPENCODE_CONFIG_CONTENT = previous
+    }
+  }
+}
+
 function ensurePatched() {
   if (patched) return
   patched = true
+
+  Instance.provide = async function provideWithOverlay<R>(
+    input: InstanceProvideInput & { fn: () => R },
+  ): Promise<R> {
+    return withOverlayEnv(input.directory, () => originalProvide(input))
+  }
+
+  Instance.reload = async function reloadWithOverlay(input: InstanceReloadInput) {
+    return withOverlayEnv(input.directory, () => originalReload(input))
+  }
 
   Config.get = async function getWithOverlay() {
     const base = await originalGet()

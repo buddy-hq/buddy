@@ -2,7 +2,7 @@ import { Project as OpenCodeProject } from "@buddy/opencode-adapter/project"
 import { ProjectID } from "@buddy/opencode-adapter/id"
 import { isAllowedDirectory, resolveDirectory } from "../directory"
 
-const projectUpdateBodySchema = OpenCodeProject.update.schema.omit({ projectID: true })
+const projectUpdateBodySchema = OpenCodeProject.UpdateInput.omit({ projectID: true })
 
 export function readOpenProjectDirectory(payload: unknown): string | undefined {
   if (!payload || typeof payload !== "object" || !("directory" in payload)) {

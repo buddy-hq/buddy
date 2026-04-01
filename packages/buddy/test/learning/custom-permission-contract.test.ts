@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { PermissionNext } from "@buddy/opencode-adapter/permission"
+import type { PermissionRule } from "@buddy/opencode-adapter/permission"
 import { Config } from "@buddy/backend/config"
 
 describe("custom permission contract", () => {
@@ -24,14 +25,14 @@ describe("custom permission contract", () => {
     const customRuleActions = new Map(
       ruleset
         .filter(
-          (rule) =>
+          (rule: PermissionRule) =>
             rule.permission === "learner_snapshot_read" ||
             rule.permission === "python_calculator" ||
             rule.permission === "render_figure" ||
             rule.permission === "render_freeform_figure" ||
             rule.permission === "render_mermaid",
         )
-        .map((rule) => [rule.permission, rule.action]),
+        .map((rule: PermissionRule) => [rule.permission, rule.action]),
     )
 
     expect(customRuleActions.get("learner_snapshot_read")).toBe("allow")
@@ -56,9 +57,11 @@ describe("custom permission contract", () => {
 
     const ruleset = PermissionNext.fromConfig(parsed)
     const learnerSnapshotRules = ruleset.filter(
-      (rule) => rule.permission === "learner_snapshot_read",
+      (rule: PermissionRule) => rule.permission === "learner_snapshot_read",
     )
-    const byPattern = new Map(learnerSnapshotRules.map((rule) => [rule.pattern, rule.action]))
+    const byPattern = new Map(
+      learnerSnapshotRules.map((rule: PermissionRule) => [rule.pattern, rule.action]),
+    )
 
     expect(byPattern.get(".buddy/context.json")).toBe("allow")
     expect(byPattern.get(".buddy/**")).toBe("ask")

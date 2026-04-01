@@ -52,19 +52,31 @@ async function ensureSession(input: {
           const existing = await OpenCodeSession.get(SessionID.make(existingSessionID))
           return { id: existing.id, title: existing.title }
         } catch {
-          const created = await OpenCodeSession.createNext({
-            id: SessionID.make(existingSessionID),
-            directory: OpenCodeInstance.directory,
-            title: requestedTitle,
-          })
-          return { id: created.id, title: created.title }
+          const created = await OpenCodeSession.create(undefined)
+          if (requestedTitle.length > 0 && created.title !== requestedTitle) {
+            await OpenCodeSession.setTitle({
+              sessionID: SessionID.make(created.id),
+              title: requestedTitle,
+            })
+          }
+          return {
+            id: created.id,
+            title: requestedTitle.length > 0 ? requestedTitle : created.title,
+          }
         }
       }
 
-      const created = await OpenCodeSession.create({
-        title: requestedTitle,
-      })
-      return { id: created.id, title: created.title }
+      const created = await OpenCodeSession.create(undefined)
+      if (requestedTitle.length > 0 && created.title !== requestedTitle) {
+        await OpenCodeSession.setTitle({
+          sessionID: SessionID.make(created.id),
+          title: requestedTitle,
+        })
+      }
+      return {
+        id: created.id,
+        title: requestedTitle.length > 0 ? requestedTitle : created.title,
+      }
     },
   })
 }

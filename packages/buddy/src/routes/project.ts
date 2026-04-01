@@ -5,7 +5,7 @@ import { routeErrors, directoryQuerySchema, ProjectIDParamSchema } from "../http
 import { proxyToOpenCode } from "../http"
 import { updateProjectFromPayload } from "../project"
 
-const projectUpdateBodySchema = OpenCodeProject.update.schema.omit({
+const projectUpdateBodySchema = OpenCodeProject.UpdateInput.omit({
   projectID: true,
 })
 

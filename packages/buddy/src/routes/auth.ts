@@ -25,7 +25,7 @@ export const AuthRoutes = new Hono()
     }),
     validator("query", directoryQuerySchema),
     validator("param", ProviderIDParamSchema),
-    validator("json", OpenCodeAuth.Info),
+    validator("json", OpenCodeAuth.Info.zod),
     async (c) => {
       return proxyToOpenCode(c, {
         targetPath: `/auth/${encodeURIComponent(c.req.valid("param").providerID)}`,
