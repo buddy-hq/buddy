@@ -1,0 +1,70 @@
+import type { SessionStatusInfo } from "./chat-types"
+
+const SESSION_STATUS_IDLE = "idle"
+const SESSION_STATUS_BUSY = "busy"
+const SESSION_STATUS_RETRY = "retry"
+const DEFAULT_RETRY_ATTEMPT = 1
+const DEFAULT_RETRY_MESSAGE = "Retrying request"
+
+export const IDLE_SESSION_STATUS: SessionStatusInfo = {
+  type: SESSION_STATUS_IDLE,
+}
+
+export const BUSY_SESSION_STATUS: SessionStatusInfo = {
+  type: SESSION_STATUS_BUSY,
+}
+
+function asFiniteNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined
+}
+
+function asString(value: unknown, fallback: string) {
+  return typeof value === "string" && value.trim().length > 0 ? value : fallback
+}
+
+export function normalizeSessionStatusValue(value: unknown): SessionStatusInfo {
+  if (value === SESSION_STATUS_BUSY) return BUSY_SESSION_STATUS
+  if (value === SESSION_STATUS_IDLE) return IDLE_SESSION_STATUS
+
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return IDLE_SESSION_STATUS
+  }
+
+  const record = value as {
+    type?: unknown
+    attempt?: unknown
+    message?: unknown
+    next?: unknown
+  }
+
+  if (record.type === SESSION_STATUS_BUSY) return BUSY_SESSION_STATUS
+  if (record.type !== SESSION_STATUS_RETRY) return IDLE_SESSION_STATUS
+
+  return {
+    type: SESSION_STATUS_RETRY,
+    attempt: asFiniteNumber(record.attempt) ?? DEFAULT_RETRY_ATTEMPT,
+    message: asString(record.message, DEFAULT_RETRY_MESSAGE),
+    next: asFiniteNumber(record.next) ?? Date.now(),
+  }
+}
+
+export function isSessionStatusActive(status: SessionStatusInfo | undefined) {
+  return (status ?? IDLE_SESSION_STATUS).type !== SESSION_STATUS_IDLE
+}
+
+export function isSessionStatusRetry(
+  status: SessionStatusInfo | undefined,
+): status is Extract<SessionStatusInfo, { type: "retry" }> {
+  return (status ?? IDLE_SESSION_STATUS).type === SESSION_STATUS_RETRY
+}
+
+export function sessionStatusEquals(left: SessionStatusInfo, right: SessionStatusInfo) {
+  if (left.type !== right.type) return false
+  if (left.type !== SESSION_STATUS_RETRY || right.type !== SESSION_STATUS_RETRY) {
+    return true
+  }
+
+  return (
+    left.attempt === right.attempt && left.message === right.message && left.next === right.next
+  )
+}
