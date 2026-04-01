@@ -133,9 +133,11 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
       }`}
     >
       {props.children ? (
-        <div className="flex-1 min-h-0 overflow-y-auto px-3 pt-2 pb-3">{props.children}</div>
+        <div className="scrollbar-hover flex-1 min-h-0 overflow-y-auto px-3 pt-2 pb-3">
+          {props.children}
+        </div>
       ) : (
-        <div className="flex-1 min-h-0 overflow-y-auto px-2 pt-2 pb-3">
+        <div className="scrollbar-hover flex-1 min-h-0 overflow-y-auto px-2 pt-2 pb-3">
           <ChatLeftSidebarToolbar
             currentDirectory={props.currentDirectory}
             organizeMode={organizeMode}
