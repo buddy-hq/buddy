@@ -319,8 +319,8 @@ export const dict = {
   "go.faq.a4.p2.accountLink": "账户",
   "go.faq.a4.p3": "中管理订阅。随时取消。",
   "go.faq.q5": "数据和隐私如何？",
-  "go.faq.a5.body": "该计划主要面向国际用户设计，模型部署在美国、欧盟和新加坡，以确保稳定的全球访问。",
-  "go.faq.a5.contactAfter": "如果您有任何问题。",
+  "go.faq.a5.body":
+    "该计划主要面向国际用户设计，模型部署在美国、欧盟和新加坡，以确保稳定的全球访问。我们的提供商遵循零留存政策，不使用您的数据进行模型训练。",
   "go.faq.a5.beforeExceptions": "Go 模型托管在美国。提供商遵循零留存政策，不使用您的数据进行模型训练，",
   "go.faq.a5.exceptionsLink": "以下例外情况除外",
   "go.faq.q6": "我可以充值余额吗？",
@@ -626,6 +626,8 @@ export const dict = {
     "该计划主要面向国际用户设计，模型部署在美国、欧盟和新加坡，以确保全球范围内的稳定访问体验。定价和使用额度可能会根据早期用户的使用情况和反馈持续调整与优化。",
   "workspace.lite.promo.subscribe": "订阅 Go",
   "workspace.lite.promo.subscribing": "正在重定向...",
+  "workspace.lite.promo.otherMethods": "其他付款方式",
+  "workspace.lite.promo.selectMethod": "选择付款方式",
 
   "download.title": "OpenCode | 下载",
   "download.meta.description": "下载适用于 macOS, Windows, 和 Linux 的 OpenCode",

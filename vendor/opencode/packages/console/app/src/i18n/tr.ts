@@ -339,8 +339,7 @@ export const dict = {
   "go.faq.a4.p3": "yönetebilirsiniz. İstediğiniz zaman iptal edin.",
   "go.faq.q5": "Veri ve gizlilik ne olacak?",
   "go.faq.a5.body":
-    "Bu plan öncelikle uluslararası kullanıcılar için tasarlanmış olup, istikrarlı küresel erişim için modeller ABD, AB ve Singapur'da barındırılmaktadır.",
-  "go.faq.a5.contactAfter": "herhangi bir sorunuz varsa.",
+    "Bu plan öncelikle uluslararası kullanıcılar için tasarlanmış olup, istikrarlı küresel erişim için modeller ABD, AB ve Singapur'da barındırılmaktadır. Sağlayıcılarımız sıfır saklama politikası izler ve verilerinizi model eğitimi için kullanmaz.",
   "go.faq.a5.beforeExceptions":
     "Go modelleri ABD'de barındırılmaktadır. Sağlayıcılar sıfır saklama politikası izler ve verilerinizi model eğitimi için kullanmaz; şu",
   "go.faq.a5.exceptionsLink": "aşağıdaki istisnalar",
@@ -655,6 +654,8 @@ export const dict = {
     "Plan öncelikle uluslararası kullanıcılar için tasarlanmıştır; modeller istikrarlı küresel erişim için ABD, AB ve Singapur'da barındırılmaktadır. Erken kullanımdan öğrendikçe ve geri bildirim topladıkça fiyatlandırma ve kullanım limitleri değişebilir.",
   "workspace.lite.promo.subscribe": "Go'ya Abone Ol",
   "workspace.lite.promo.subscribing": "Yönlendiriliyor...",
+  "workspace.lite.promo.otherMethods": "Diğer ödeme yöntemleri",
+  "workspace.lite.promo.selectMethod": "Ödeme yöntemini seçin",
 
   "download.title": "OpenCode | İndir",
   "download.meta.description": "OpenCode'u macOS, Windows ve Linux için indirin",

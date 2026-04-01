@@ -335,8 +335,7 @@ export const dict = {
   "go.faq.a4.p3": "いつでもキャンセル可能です。",
   "go.faq.q5": "データとプライバシーは？",
   "go.faq.a5.body":
-    "このプランは主に海外ユーザー向けに設計されており、米国、EU、シンガポールでホストされたモデルにより安定したグローバルアクセスを提供します。",
-  "go.faq.a5.contactAfter": "ご質問がございましたら。",
+    "このプランは主に海外ユーザー向けに設計されており、米国、EU、シンガポールでホストされたモデルにより安定したグローバルアクセスを提供します。プロバイダーはゼロ保持ポリシーに従い、お客様のデータをモデルのトレーニングに使用しません。",
   "go.faq.a5.beforeExceptions":
     "Goのモデルは米国でホストされています。プロバイダーはゼロ保持ポリシーに従い、モデルのトレーニングにデータを使用しません（",
   "go.faq.a5.exceptionsLink": "以下の例外",
@@ -653,6 +652,8 @@ export const dict = {
     "このプランは主にグローバルユーザー向けに設計されており、米国、EU、シンガポールでホストされたモデルにより安定したグローバルアクセスを提供します。料金と利用制限は、初期の利用状況やフィードバックに基づいて変更される可能性があります。",
   "workspace.lite.promo.subscribe": "Goを購読する",
   "workspace.lite.promo.subscribing": "リダイレクト中...",
+  "workspace.lite.promo.otherMethods": "その他の支払い方法",
+  "workspace.lite.promo.selectMethod": "支払い方法を選択",
 
   "download.title": "OpenCode | ダウンロード",
   "download.meta.description": "OpenCode を macOS、Windows、Linux 向けにダウンロード",

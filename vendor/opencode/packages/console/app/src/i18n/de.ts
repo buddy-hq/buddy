@@ -338,8 +338,7 @@ export const dict = {
   "go.faq.a4.p3": "Jederzeit kündbar.",
   "go.faq.q5": "Was ist mit Daten und Privatsphäre?",
   "go.faq.a5.body":
-    "Der Plan ist primär für internationale Nutzer konzipiert, mit Modellen gehostet in den USA, der EU und Singapur für stabilen globalen Zugang.",
-  "go.faq.a5.contactAfter": "wenn du Fragen hast.",
+    "Der Plan ist primär für internationale Nutzer konzipiert, mit Modellen gehostet in den USA, der EU und Singapur für stabilen globalen Zugang. Unsere Anbieter verfolgen eine Zero-Retention-Politik und nutzen deine Daten nicht für das Training von Modellen.",
   "go.faq.a5.beforeExceptions":
     "Go-Modelle werden in den USA gehostet. Anbieter verfolgen eine Zero-Retention-Politik und nutzen deine Daten nicht für das Training von Modellen, mit den",
   "go.faq.a5.exceptionsLink": "folgenden Ausnahmen",
@@ -654,6 +653,8 @@ export const dict = {
     "Der Plan wurde hauptsächlich für internationale Nutzer entwickelt, wobei die Modelle in den USA, der EU und Singapur gehostet werden, um einen stabilen weltweiten Zugriff zu gewährleisten. Preise und Nutzungslimits können sich ändern, während wir aus der frühen Nutzung und dem Feedback lernen.",
   "workspace.lite.promo.subscribe": "Go abonnieren",
   "workspace.lite.promo.subscribing": "Leite weiter...",
+  "workspace.lite.promo.otherMethods": "Andere Zahlungsmethoden",
+  "workspace.lite.promo.selectMethod": "Zahlungsmethode auswählen",
 
   "download.title": "OpenCode | Download",
   "download.meta.description": "Lade OpenCode für macOS, Windows und Linux herunter",

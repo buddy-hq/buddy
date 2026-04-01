@@ -336,8 +336,7 @@ export const dict = {
   "go.faq.a4.p3": "Annuller til enhver tid.",
   "go.faq.q5": "Hvad med data og privatliv?",
   "go.faq.a5.body":
-    "Planen er primært designet til internationale brugere, med modeller hostet i USA, EU og Singapore for stabil global adgang.",
-  "go.faq.a5.contactAfter": "hvis du har spørgsmål.",
+    "Planen er primært designet til internationale brugere, med modeller hostet i USA, EU og Singapore for stabil global adgang. Vores udbydere følger en nulopbevaringspolitik og bruger ikke dine data til modeltræning.",
   "go.faq.a5.beforeExceptions":
     "Go-modeller hostes i USA. Udbydere følger en nulopbevaringspolitik og bruger ikke dine data til modeltræning, med de",
   "go.faq.a5.exceptionsLink": "følgende undtagelser",
@@ -651,6 +650,8 @@ export const dict = {
     "Planen er primært designet til internationale brugere, med modeller hostet i USA, EU og Singapore for stabil global adgang. Priser og forbrugsgrænser kan ændre sig, efterhånden som vi lærer af tidlig brug og feedback.",
   "workspace.lite.promo.subscribe": "Abonner på Go",
   "workspace.lite.promo.subscribing": "Omdirigerer...",
+  "workspace.lite.promo.otherMethods": "Andre betalingsmetoder",
+  "workspace.lite.promo.selectMethod": "Vælg betalingsmetode",
 
   "download.title": "OpenCode | Download",
   "download.meta.description": "Download OpenCode til macOS, Windows og Linux",
