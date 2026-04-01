@@ -1,5 +1,7 @@
 # Buddy Release Cut Algorithm
 
+This document is retained for historical context. The canonical Electron-only release process is now in [`docs/guides/cut-release-electron.v2.algo.md`](/Users/prashantbhudwal/Code/buddy/docs/guides/cut-release-electron.v2.algo.md).
+
 This is the repeatable process to cut a Buddy desktop release from GitHub.
 
 The current release shape is:

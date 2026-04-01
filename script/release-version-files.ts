@@ -2,7 +2,6 @@ import { $ } from "bun"
 import path from "node:path"
 
 export const RELEASE_VERSION_PACKAGE_FILES = [
-  "packages/desktop/package.json",
   "packages/desktop-electron/package.json",
   "packages/buddy/package.json",
   "packages/web/package.json",

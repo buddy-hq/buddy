@@ -69,6 +69,7 @@
     "theme:tokens:check": "bun run theme:tokens:generate && git diff --exit-code -- packages/ui/src/generated/theme-tokens.css",
     "release:tag": "bun ./script/cut-release.ts",
     "release:cut": "bun ./script/cut-release.ts",
+    "release:cut:electron": "bun ./script/cut-release.ts",
     "release:notes": "bun ./script/changelog.ts",
     "release:version": "bun ./script/version.ts",
     "release:publish": "bun ./script/publish.ts",
