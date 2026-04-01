@@ -105,6 +105,8 @@ jobs:
 
       - run: bun install
 
+      - run: bun run sdk:generate
+
       - uses: actions/download-artifact@v4
         with:
           name: buddy-sidecars
