@@ -2,7 +2,7 @@ import { createHash } from "node:crypto"
 import { access, mkdir, readFile, writeFile } from "node:fs/promises"
 import { join, resolve } from "node:path"
 import { spawn } from "node:child_process"
-import { MinisignVerifier } from "@kaito-tokyo/minisign-verify"
+import { verifySignedMessage } from "./minisign"
 
 const RELEASE_REPOSITORY = "prashantbhudwal/buddy"
 const RELEASE_METADATA_URL = `https://github.com/${RELEASE_REPOSITORY}/releases/latest/download/latest-mac.json`
@@ -178,13 +178,13 @@ async function fetchLatestManifest(options: CreateCustomMacUpdaterOptions) {
     signatureResponse.text(),
   ])
 
-  const verifier = await MinisignVerifier.create(options.publicKey ?? BUDDY_MINISIGN_PUBLIC_KEY)
-  const verification = await verifier.verify(
-    Buffer.from(manifestText, "utf8"),
-    decodeTauriSignatureOuterText(signatureOuterText),
-  )
+  const verified = await verifySignedMessage({
+    message: Buffer.from(manifestText, "utf8"),
+    publicKey: options.publicKey ?? BUDDY_MINISIGN_PUBLIC_KEY,
+    signatureFileText: decodeTauriSignatureOuterText(signatureOuterText),
+  })
 
-  if (!verification.ok) {
+  if (!verified) {
     throw new Error("Signed update manifest verification failed")
   }
 

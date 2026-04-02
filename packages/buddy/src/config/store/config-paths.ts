@@ -3,9 +3,16 @@ import path from "node:path"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { Global } from "../../storage"
 
-export interface ProjectConfigContext {
+type PathApi = Pick<typeof path, "parse" | "resolve">
+
+export type ProjectConfigContext = {
   directory: string
   configDirectory: string
+}
+
+export function isFilesystemRootDirectory(directory: string, pathApi: PathApi = path): boolean {
+  const resolved = pathApi.resolve(directory)
+  return pathApi.parse(resolved).root === resolved
 }
 
 export async function resolveProjectConfigContext(
@@ -17,7 +24,7 @@ export async function resolveProjectConfigContext(
     fn: () => {
       const scopedDirectory = path.resolve(OpenCodeInstance.directory)
       const worktree = path.resolve(OpenCodeInstance.worktree)
-      const configDirectory = worktree !== "/" ? worktree : scopedDirectory
+      const configDirectory = isFilesystemRootDirectory(worktree) ? scopedDirectory : worktree
       return {
         directory: scopedDirectory,
         configDirectory,
