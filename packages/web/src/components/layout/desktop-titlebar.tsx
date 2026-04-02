@@ -25,7 +25,6 @@ import {
 import {
   isTitlebarInteractiveTarget,
   isTitlebarSystemControlTarget,
-  resolveRightSidebarTogglePlacement,
 } from "./desktop-titlebar-helpers"
 import {
   LayoutLeftIcon,
@@ -67,7 +66,6 @@ export function DesktopTitlebar() {
   const isDesktop = platform.platform === "desktop"
   const isMac = isDesktop && platform.os === "macos"
   const isWindows = isDesktop && platform.os === "windows"
-  const rightSidebarTogglePlacement = resolveRightSidebarTogglePlacement(isWindows)
   const [isCopied, setIsCopied] = useState(false)
   const pathname = location.pathname
   const leftSidebarOpen = useUiPreferences((state) => state.leftSidebarOpen)
@@ -186,13 +184,7 @@ export function DesktopTitlebar() {
   }
 
   const rightSidebarToggle = showSidebarToggles ? (
-    <div
-      className={
-        rightSidebarTogglePlacement === "trailing"
-          ? "mr-2 flex shrink-0 items-center gap-1"
-          : "flex shrink-0 items-center gap-1"
-      }
-    >
+    <div className="mr-2 flex shrink-0 items-center gap-1">
       <Button
         type="button"
         data-action="titlebar-toggle-right-sidebar"
@@ -255,7 +247,6 @@ export function DesktopTitlebar() {
                 <LayoutLeftIcon className="size-4" />
               )}
             </Button>
-            {rightSidebarTogglePlacement === "leading" ? rightSidebarToggle : null}
           </div>
         ) : null}
         <div className="min-w-0 flex-1" />
@@ -328,11 +319,11 @@ export function DesktopTitlebar() {
               </Button>
             </div>
           ) : null}
-          {rightSidebarTogglePlacement === "trailing" ? rightSidebarToggle : null}
+          {rightSidebarToggle}
 
           {isWindows ? (
             <>
-              <div className="w-6 shrink-0" />
+              <div className="w-[140px] shrink-0" />
               <div
                 data-component="titlebar-system-controls-mount"
                 data-tauri-decorum-tb

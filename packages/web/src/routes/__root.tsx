@@ -6,6 +6,9 @@ import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { showDesktopUpdateToast } from "../lib/desktop-updates"
 
+const RELEASE_UPDATE_POLL_INTERVAL_MS = 10 * 60 * 1000
+const DOCUMENT_VISIBILITY_VISIBLE = "visible"
+
 function ReleaseUpdateWatcher() {
   const platform = usePlatform()
   const shownRef = useRef(false)
@@ -15,9 +18,17 @@ function ReleaseUpdateWatcher() {
 
     let interval: ReturnType<typeof setInterval> | undefined
     let cancelled = false
+    let checking = false
 
     const poll = async () => {
+      if (cancelled || checking) {
+        return
+      }
+
+      checking = true
       const next = await platform.checkUpdate?.().catch(() => null)
+      checking = false
+
       if (cancelled || next?.status !== "ready" || shownRef.current) return
 
       shownRef.current = true
@@ -33,19 +44,28 @@ function ReleaseUpdateWatcher() {
       })
     }
 
+    const pollWhenVisible = () => {
+      if (document.visibilityState !== DOCUMENT_VISIBILITY_VISIBLE) {
+        return
+      }
+
+      void poll()
+    }
+
     void poll()
-    interval = setInterval(
-      () => {
-        void poll()
-      },
-      10 * 60 * 1000,
-    )
+    interval = setInterval(() => {
+      pollWhenVisible()
+    }, RELEASE_UPDATE_POLL_INTERVAL_MS)
+    window.addEventListener("focus", pollWhenVisible)
+    document.addEventListener("visibilitychange", pollWhenVisible)
 
     return () => {
       cancelled = true
       if (interval !== undefined) {
         clearInterval(interval)
       }
+      window.removeEventListener("focus", pollWhenVisible)
+      document.removeEventListener("visibilitychange", pollWhenVisible)
     }
   }, [platform])
 
