@@ -6,6 +6,28 @@
 @import "./generated/theme-tokens.css";
 
 @custom-variant dark (&:is(.dark *));
+@custom-variant data-active (&[data-state="active"]);
+@custom-variant data-checked (&[data-state="checked"]);
+@custom-variant data-unchecked (&[data-state="unchecked"]);
+@custom-variant data-open (&[data-state="open"]);
+@custom-variant data-closed (&[data-state="closed"]);
+@custom-variant data-disabled (&[data-disabled]);
+@custom-variant data-on (&[data-state="on"]);
+@custom-variant data-off (&[data-state="off"]);
+@custom-variant data-placeholder (&[data-state="placeholder"]);
+@custom-variant data-pressed (&[data-state="pressed"]);
+@custom-variant data-selected (&[data-state="selected"]);
+@custom-variant data-highlighted (&[data-state="highlighted"]);
+@custom-variant data-horizontal (&[data-orientation="horizontal"]);
+@custom-variant data-vertical (&[data-orientation="vertical"]);
+@custom-variant data-starting-style {
+  @starting-style {
+    @slot;
+  }
+}
+@custom-variant data-popup-open (&[data-state="popup-open"]);
+@custom-variant data-empty (&[data-empty]);
+@custom-variant data-inset (&[data-inset]);
 
 :root {
   --radius: 0.45rem;
@@ -56,6 +78,21 @@
   }
   html {
     @apply font-sans;
+  }
+
+  /* Fix Switch visibility and contrast */
+  [data-slot="switch"] {
+    /* Ensure track is visible even if background matches */
+    &[data-state="unchecked"] {
+      background-color: var(--surface-inset-base) !important;
+      border-color: var(--border-base) !important;
+    }
+  }
+
+  [data-slot="switch-thumb"] {
+    /* Use a high-contrast color for the handle */
+    background-color: var(--text-on-interactive-base) !important;
+    box-shadow: var(--shadow-xs);
   }
 }
 
