@@ -95,14 +95,8 @@ export const AssistantTextPart = memo(function AssistantTextPart({
             "pointer-events-none group-hover/text-part:pointer-events-auto group-focus-within/text-part:pointer-events-auto",
           )}
         >
-          {copyEnabled ? (
-            <CopyAction value={displayedText} label="Copy response" />
-          ) : null}
-          {metaText ? (
-            <span className="text-xs font-medium text-text-weak">
-              {metaText}
-            </span>
-          ) : null}
+          {copyEnabled ? <CopyAction value={displayedText} label="Copy response" /> : null}
+          {metaText ? <span className="text-xs font-medium text-text-weak">{metaText}</span> : null}
         </div>
       ) : null}
     </div>

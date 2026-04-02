@@ -11,7 +11,7 @@ function ReleaseUpdateWatcher() {
   const shownRef = useRef(false)
 
   useEffect(() => {
-    if (!platform.checkUpdate || !platform.update) return
+    if (!platform.checkUpdate || !platform.update || !platform.restart) return
 
     let interval: ReturnType<typeof setInterval> | undefined
     let cancelled = false

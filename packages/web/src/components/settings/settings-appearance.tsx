@@ -58,11 +58,20 @@ export function AppearanceSettings() {
   }, [themes])
 
   const showDesktopUpdateControls =
-    platform.platform === "desktop" && !!platform.checkUpdate && !!platform.update
+    platform.platform === "desktop" &&
+    !!platform.checkUpdate &&
+    !!platform.update &&
+    !!platform.restart
   const showAdvancedMathControls = platform.platform === "desktop"
 
   async function onCheckForUpdates() {
-    if (platform.platform !== "desktop" || !platform.checkUpdate || !platform.update) return
+    if (
+      platform.platform !== "desktop" ||
+      !platform.checkUpdate ||
+      !platform.update ||
+      !platform.restart
+    )
+      return
     setCheckingForUpdates(true)
     const result = await platform
       .checkUpdate()
