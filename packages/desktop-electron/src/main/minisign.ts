@@ -18,7 +18,7 @@ const RAW_SIGNATURE_ALGORITHM = "Ed"
 const BLAKE2B_OUTPUT_LENGTH_BYTES = 64
 
 type MinisignPublicKey = {
-  cryptoKey: CryptoKey
+  cryptoKey: Awaited<ReturnType<typeof webcrypto.subtle.importKey>>
   keyId: Uint8Array
 }
 
