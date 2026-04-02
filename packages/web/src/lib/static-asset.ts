@@ -35,6 +35,14 @@ export function resolvePublicAssetUrl(path: string) {
     }
   }
 
+  if (window.location.protocol === "file:") {
+    try {
+      return new URL(normalizedPath, window.location.href).toString()
+    } catch {
+      // fallback below
+    }
+  }
+
   return `${ROOT_ASSET_PREFIX}${normalizedPath}`
 }
 
