@@ -45,6 +45,9 @@ const BUDDY_RUNTIME_XDG_DIRECTORY_NAME = "xdg"
 const XDG_DATA_DIRECTORY_NAME = "data"
 const OPENCODE_DATA_DIRECTORY_NAME = "opencode"
 const OPENCODE_DB_FILENAME = "opencode.db"
+const STARTUP_FAILURE_MESSAGE = "Buddy failed to start."
+const UNKNOWN_STARTUP_FAILURE_DETAIL = "The local Buddy server did not become ready."
+const LOADING_WINDOW_COMPLETE_TIMEOUT_MS = 5_000
 
 app.setName(resolveAppName(app.isPackaged))
 app.setPath("userData", join(app.getPath("appData"), resolveAppId(app.isPackaged)))
@@ -133,77 +136,130 @@ async function initialize() {
   const sqliteDone = needsMigration ? defer<void>() : undefined
   let overlay: BrowserWindow | null = null
 
-  const port = await getSidecarPort()
-  const hostname = LOOPBACK_HOSTNAME
-  const url = `http://${hostname}:${port}`
-  const password = randomUUID()
+  try {
+    const port = await getSidecarPort()
+    const hostname = LOOPBACK_HOSTNAME
+    const url = `http://${hostname}:${port}`
+    const password = randomUUID()
 
-  const { child, health, events } = spawnLocalServer(hostname, port, password)
-  sidecar = child
-  wireSidecarLogs(events)
+    const { child, health, events } = spawnLocalServer(hostname, port, password)
+    sidecar = child
+    wireSidecarLogs(events)
 
-  serverReady.resolve({
-    url,
-    username: SIDECAR_USERNAME,
-    password,
-    isSidecar: true,
-  })
-
-  const loadingTask = (async () => {
-    events.on("sqlite", (progress: SqliteMigrationProgress) => {
-      setInitStep({ phase: "sqlite_waiting" })
-      if (overlay) sendSqliteMigrationProgress(overlay, progress)
-      if (mainWindow) sendSqliteMigrationProgress(mainWindow, progress)
-      if (progress.type === "Done") {
-        sqliteDone?.resolve()
-      }
+    serverReady.resolve({
+      url,
+      username: SIDECAR_USERNAME,
+      password,
+      isSidecar: true,
     })
 
-    if (needsMigration) {
-      await sqliteDone?.promise
-    }
-
-    await Promise.race([
+    const sidecarReady = Promise.race([
       health.wait,
       delay(SIDECAR_HEALTH_TIMEOUT_MS).then(() => {
         throw new Error("Sidecar health check timed out")
       }),
     ])
-  })().catch((error) => {
-    logger.error("sidecar health check failed", error)
-  })
 
-  const windowGlobals = {
-    updaterEnabled: UPDATER_ENABLED,
-    deepLinks: pendingDeepLinks,
-    version: app.getVersion(),
-  }
+    const loadingTask = (async () => {
+      let sqliteMigrationCompleted = false
 
-  if (needsMigration) {
-    const shouldShowLoading = await Promise.race([
-      loadingTask.then(() => false),
-      delay(1_000).then(() => true),
-    ])
+      events.on("sqlite", (progress: SqliteMigrationProgress) => {
+        setInitStep({ phase: "sqlite_waiting" })
+        if (overlay) sendSqliteMigrationProgress(overlay, progress)
+        if (mainWindow) sendSqliteMigrationProgress(mainWindow, progress)
+        if (progress.type === "Done") {
+          sqliteMigrationCompleted = true
+          sqliteDone?.resolve()
+        }
+      })
 
-    if (shouldShowLoading) {
-      overlay = createLoadingWindow(windowGlobals)
-      await delay(1_000)
+      if (needsMigration && sqliteDone) {
+        await Promise.race([
+          sqliteDone.promise,
+          sidecarReady.then(() => {
+            if (!sqliteMigrationCompleted) {
+              logger.warn(
+                "sqlite migration completion signal missing; continuing after sidecar readiness",
+              )
+            }
+          }),
+        ])
+      }
+
+      await sidecarReady
+    })()
+
+    const windowGlobals = {
+      updaterEnabled: UPDATER_ENABLED,
+      deepLinks: pendingDeepLinks,
+      version: app.getVersion(),
     }
+
+    if (needsMigration) {
+      const shouldShowLoading = await Promise.race([
+        loadingTask.then(() => false),
+        delay(1_000).then(() => true),
+      ])
+
+      if (shouldShowLoading) {
+        overlay = createLoadingWindow(windowGlobals)
+        await delay(1_000)
+      }
+    }
+
+    await loadingTask
+    setInitStep({ phase: "done" })
+
+    if (overlay) {
+      const loadingCompleted = await Promise.race([
+        loadingComplete.promise.then(() => true),
+        delay(LOADING_WINDOW_COMPLETE_TIMEOUT_MS).then(() => false),
+      ])
+
+      if (!loadingCompleted) {
+        logger.warn("loading window completion signal timed out; continuing startup")
+      }
+    }
+
+    mainWindow = createMainWindow(windowGlobals)
+    wireMenu()
+
+    if (overlay) {
+      overlay.close()
+    }
+  } catch (error) {
+    await handleInitializationFailure(error, overlay)
   }
+}
 
-  await loadingTask
-  setInitStep({ phase: "done" })
+async function handleInitializationFailure(error: unknown, overlay: BrowserWindow | null) {
+  logger.error("initialization failed", error)
 
-  if (overlay) {
-    await loadingComplete.promise
-  }
-
-  mainWindow = createMainWindow(windowGlobals)
-  wireMenu()
-
-  if (overlay) {
+  if (overlay && !overlay.isDestroyed()) {
     overlay.close()
   }
+
+  try {
+    await dialog.showMessageBox({
+      type: "error",
+      title: app.getName(),
+      message: STARTUP_FAILURE_MESSAGE,
+      detail: startupFailureDetail(error),
+    })
+  } catch {
+    // noop
+  }
+
+  killSidecar()
+  app.quit()
+}
+
+function startupFailureDetail(error: unknown) {
+  if (error instanceof Error && error.message.length > 0) {
+    return error.message
+  }
+
+  return UNKNOWN_STARTUP_FAILURE_DETAIL
 }
 
 function wireMenu() {

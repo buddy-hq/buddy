@@ -1,7 +1,8 @@
 import { spawnSync } from "node:child_process"
-import { basename } from "node:path"
+import { basename, delimiter } from "node:path"
 
 const SHELL_ENV_TIMEOUT = 5_000
+const PATH_ENV_KEYS = ["PATH", "Path"] as const
 
 type Probe =
   | { type: "Loaded"; value: Record<string, string> }
@@ -86,14 +87,66 @@ export function loadShellEnv(shell: string) {
 }
 
 export function mergeShellEnv(shell: Record<string, string> | null, env: Record<string, string>) {
-  if (shell) {
-    return {
-      ...shell,
-      ...env,
-    }
-  }
+  if (!shell) return { ...env }
 
-  return {
+  const merged = {
+    ...shell,
     ...env,
   }
+  const shellPath = readPathValue(shell)
+  const envPath = readPathValue(env)
+  const pathValue = mergePathValues(shellPath, envPath)
+  if (pathValue.length > 0) {
+    const pathKey = pathKeyForEnvironment(merged)
+    merged[pathKey] = pathValue
+    if (pathKey === "PATH") {
+      delete merged.Path
+    } else {
+      delete merged.PATH
+    }
+  }
+  return merged
+}
+
+function pathKeyForEnvironment(env: Record<string, string>) {
+  for (const key of PATH_ENV_KEYS) {
+    const value = env[key]
+    if (typeof value === "string" && value.trim().length > 0) {
+      return key
+    }
+  }
+  return PATH_ENV_KEYS[0]
+}
+
+function readPathValue(env: Record<string, string>) {
+  for (const key of PATH_ENV_KEYS) {
+    const value = env[key]
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value
+    }
+  }
+  return ""
+}
+
+function mergePathValues(primary: string, secondary: string) {
+  const merged: string[] = []
+  const seen = new Set<string>()
+  for (const entry of [...splitPathValue(primary), ...splitPathValue(secondary)]) {
+    const normalized = normalizePathEntry(entry)
+    if (seen.has(normalized)) continue
+    seen.add(normalized)
+    merged.push(entry)
+  }
+  return merged.join(delimiter)
+}
+
+function splitPathValue(value: string) {
+  return value
+    .split(delimiter)
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0)
+}
+
+function normalizePathEntry(entry: string) {
+  return process.platform === "win32" ? entry.toLowerCase() : entry
 }

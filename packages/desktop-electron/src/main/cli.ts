@@ -24,6 +24,15 @@ const RUNTIME_SUBDIRECTORIES = ["data", "cache", "config", "state"] as const
 const OPENCODE_DATA_SUBDIRECTORY = "opencode"
 const BUDDY_RUNTIME_DIRECTORY_NAME = ".buddy-runtime"
 const BUDDY_RUNTIME_XDG_DIRECTORY_NAME = "xdg"
+const PATH_ENV_KEYS = ["PATH", "Path"] as const
+const POSIX_SIDECAR_PATH_ENTRIES = [
+  "/opt/homebrew/bin",
+  "/usr/local/bin",
+  "/usr/bin",
+  "/bin",
+  "/usr/sbin",
+  "/sbin",
+] as const
 
 export type SqliteMigrationProgress = { type: "InProgress"; value: number } | { type: "Done" }
 
@@ -176,7 +185,7 @@ export function serve(hostname: string, port: number, password: string) {
   const shell = process.platform === "win32" ? null : getUserShell()
   const env = buildRuntimeEnvironment(password, port)
   killStaleDevelopmentSidecars(env.BUDDY_RUNTIME_ROOT)
-  const envs = shell ? mergeShellEnv(loadShellEnv(shell), env) : env
+  const envs = ensureSidecarCommandPath(shell ? mergeShellEnv(loadShellEnv(shell), env) : env)
 
   const child = spawn(sidecarPath, args, {
     env: envs,
@@ -227,6 +236,54 @@ export function serve(hostname: string, port: number, password: string) {
     exit,
     events,
   }
+}
+
+function ensureSidecarCommandPath(env: Record<string, string>) {
+  if (process.platform === "win32") {
+    return env
+  }
+
+  const pathKey = pathKeyForEnvironment(env)
+  const values = new Set(
+    splitPathValue(env[pathKey] ?? "").map((entry) => normalizePathEntry(entry)),
+  )
+  const nextEntries = splitPathValue(env[pathKey] ?? "")
+
+  for (const entry of POSIX_SIDECAR_PATH_ENTRIES) {
+    const normalized = normalizePathEntry(entry)
+    if (values.has(normalized)) continue
+    values.add(normalized)
+    nextEntries.push(entry)
+  }
+
+  env[pathKey] = nextEntries.join(path.delimiter)
+  if (pathKey === "PATH") {
+    delete env.Path
+  } else {
+    delete env.PATH
+  }
+  return env
+}
+
+function pathKeyForEnvironment(env: Record<string, string>) {
+  for (const key of PATH_ENV_KEYS) {
+    const value = env[key]
+    if (typeof value === "string" && value.trim().length > 0) {
+      return key
+    }
+  }
+  return PATH_ENV_KEYS[0]
+}
+
+function splitPathValue(value: string) {
+  return value
+    .split(path.delimiter)
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0)
+}
+
+function normalizePathEntry(entry: string) {
+  return process.platform === "win32" ? entry.toLowerCase() : entry
 }
 
 function handleSqliteProgress(events: EventEmitter, line: string) {
