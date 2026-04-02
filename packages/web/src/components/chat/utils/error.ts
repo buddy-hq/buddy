@@ -1,4 +1,5 @@
 import { isRecord } from "../tools/types"
+import { isAbortLikeError } from "@/state/chat-error"
 
 function parseJsonValue(value: string) {
   try {
@@ -49,7 +50,7 @@ export function unwrapError(message: string): string {
 }
 
 export function isMessageAbortError(value: unknown): boolean {
-  return isRecord(value) && value.name === "MessageAbortedError"
+  return isAbortLikeError(value)
 }
 
 export function formatMessageError(value: unknown): string {

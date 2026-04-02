@@ -1211,7 +1211,19 @@ export async function abortPrompt(directory: string) {
         sessionID,
       }),
     )
-    if (aborted) store.applySessionStatus(directory, sessionID, IDLE_SESSION_STATUS)
+    if (aborted) {
+      const latestAssistantMessage = useChatStore
+        .getState()
+        .directories[directory]?.messages.findLast((message) => message.info.role === "assistant")
+      if (latestAssistantMessage?.info.role === "assistant") {
+        store.applyMessageUpdated(directory, {
+          ...latestAssistantMessage.info,
+          finish: "aborted",
+        })
+      }
+
+      store.applySessionStatus(directory, sessionID, IDLE_SESSION_STATUS)
+    }
     // Always resync once after abort attempt so UI doesn't stay stale if server state drifted.
     void loadMessages(directory, sessionID).catch(() => undefined)
     void loadSessions(directory).catch(() => undefined)
