@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger, ChevronRightIcon } from "@buddy/ui"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger, ChevronRightIcon, cn } from "@buddy/ui"
 
 import { useThrottledText } from "../../hooks/use-throttled-text"
 import { parseToolState } from "../parse-tool-state"
@@ -219,74 +219,82 @@ export function HiddenSteps({
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="mt-3 w-full">
       <CollapsibleTrigger asChild>
-        <button type="button" className="group flex w-full flex-col items-stretch py-1 text-left">
-          <div className="flex min-w-0 items-center gap-2">
+        <button
+          type="button"
+          className="group mt-2 mb-1 flex w-full cursor-default items-center gap-3 transition-transform duration-200 ease-out active:scale-[0.98]"
+        >
+          <div className="h-px grow bg-linear-to-r from-transparent to-border/40" />
+
+          <div className="flex shrink-0 items-center gap-2 text-xs transition-colors duration-200 text-text-weak/40 group-hover:text-text-weak/70">
             <span
-              className={
+              className={cn(
+                "truncate",
                 showLivePreview
-                  ? "min-w-0 truncate text-xs text-text-weak"
+                  ? "text-text-weak"
                   : errorCount > 0
-                    ? "min-w-0 truncate text-xs text-icon-critical-base/80"
-                    : "min-w-0 truncate text-xs text-text-weak/50"
-              }
+                    ? "text-icon-critical-base/80"
+                    : "text-inherit",
+              )}
             >
               {title}
             </span>
             {!showLivePreview && errorCount > 0 ? (
-              <span className="shrink-0 text-xs text-icon-critical-base/70">
+              <span className="shrink-0 text-icon-critical-base/70">
                 {errorCount} {errorCount === 1 ? "error" : "errors"}
               </span>
             ) : null}
             {!showLivePreview && summaryDetail ? (
-              <span className="min-w-0 truncate text-xs text-text-weak/30">{summaryDetail}</span>
+              <span className="truncate text-text-weak/30">{summaryDetail}</span>
             ) : null}
             <motion.div
               animate={{ rotate: isOpen ? 90 : 0 }}
               transition={SPRING_SNAPPY}
-              className="ml-auto"
+              className="flex items-center"
             >
-              <ChevronRightIcon className="h-3 w-3 shrink-0 text-text-weak/30 group-hover:text-text-weak/60" />
+              <ChevronRightIcon className="h-3.5 w-3.5 shrink-0 opacity-40 transition-opacity group-hover:opacity-100" />
             </motion.div>
           </div>
 
-          <AnimatePresence initial={false}>
-            {showPreview ? (
-              <motion.div
-                key="preview"
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={SPRING_GENTLE}
-                className="overflow-hidden"
-              >
-                <div
-                  ref={previewViewportRef}
-                  data-preview-viewport=""
-                  className="mt-1.5 overflow-hidden"
-                  style={{
-                    ...(typeof previewViewportHeight === "number"
-                      ? { height: `${previewViewportHeight}px` }
-                      : {}),
-                    maxHeight: `${PREVIEW_MAX_HEIGHT_PX}px`,
-                  }}
-                >
-                  <div ref={previewContentRef} className="flex min-h-full flex-col justify-end">
-                    <p
-                      className={
-                        showErrorPreview
-                          ? "whitespace-pre-wrap break-words font-mono text-[11px] leading-[1.6] text-icon-critical-base/80"
-                          : "whitespace-pre-wrap break-words font-mono text-[11px] leading-[1.6] text-text-weak/40"
-                      }
-                    >
-                      {previewText}
-                    </p>
-                  </div>
-                </div>
-              </motion.div>
-            ) : null}
-          </AnimatePresence>
+          <div className="h-px grow bg-linear-to-r from-border/40 to-transparent" />
         </button>
       </CollapsibleTrigger>
+
+      <AnimatePresence initial={false}>
+        {showPreview ? (
+          <motion.div
+            key="preview"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={SPRING_GENTLE}
+            className="overflow-hidden"
+          >
+            <div
+              ref={previewViewportRef}
+              data-preview-viewport=""
+              className="mt-1.5 overflow-hidden"
+              style={{
+                ...(typeof previewViewportHeight === "number"
+                  ? { height: `${previewViewportHeight}px` }
+                  : {}),
+                maxHeight: `${PREVIEW_MAX_HEIGHT_PX}px`,
+              }}
+            >
+              <div ref={previewContentRef} className="flex min-h-full flex-col justify-end">
+                <p
+                  className={
+                    showErrorPreview
+                      ? "whitespace-pre-wrap break-words font-mono text-[11px] leading-[1.6] text-icon-critical-base/80"
+                      : "whitespace-pre-wrap break-words font-mono text-[11px] leading-[1.6] text-text-weak/40"
+                  }
+                >
+                  {previewText}
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
       <CollapsibleContent>
         <div className="mt-2 flex flex-col gap-3 pl-3">
