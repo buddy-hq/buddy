@@ -1,6 +1,7 @@
 import { useEffect } from "react"
 import { startChatSync } from "@/state/chat-sync"
 import { resyncDirectory } from "@/state/chat-actions"
+import { isAbortLikeError } from "@/state/chat-error"
 import { useUiPreferences } from "@/state/ui-preferences"
 import { useChatStore } from "@/state/chat-store"
 import { IDLE_SESSION_STATUS, normalizeSessionStatusValue } from "@/state/session-status"
@@ -110,6 +111,10 @@ export function useChatSync(props: UseChatSyncProps) {
               : undefined
           if (erroredSessionID) {
             applySessionStatus(directory, erroredSessionID, IDLE_SESSION_STATUS)
+          }
+          if (isAbortLikeError(properties.error)) {
+            clearDirectoryError(directory)
+            return
           }
           setDirectoryError(directory, readSessionErrorMessage(properties.error))
           return

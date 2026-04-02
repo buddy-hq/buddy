@@ -1,6 +1,6 @@
 import { memo, useMemo } from "react"
 
-import { formatMessageError, isMessageAbortError } from "./utils/error"
+import { formatMessageError } from "./utils/error"
 import { useAssistantDerivedState } from "./hooks/use-assistant-derived-state"
 import { useAssistantMeta } from "./hooks/use-assistant-meta"
 import { UserSection } from "./sections/user-section"
@@ -80,16 +80,13 @@ export const TurnRenderer = memo(function TurnRenderer({
     currentReasoningHeading,
     assistantError,
     assistantErrorName,
+    assistantAborted,
   } = useAssistantDerivedState(assistantParts, showReasoningSummaries, assistantMessages)
 
   const assistantErrorText = useMemo(() => formatMessageError(assistantError), [assistantError])
 
   const lastAssistantTextID = assistantTextParts[assistantTextParts.length - 1]?.id
-  const lastAssistantInfo = assistantMessages[assistantMessages.length - 1]?.info
   const assistantCopyPartID = isBusy && isLastTurn ? undefined : lastAssistantTextID
-  const assistantAborted =
-    lastAssistantInfo?.role === "assistant" &&
-    (lastAssistantInfo.finish === "aborted" || isMessageAbortError(lastAssistantInfo.error))
   const assistantErrored = assistantErrorText.length > 0
 
   const assistantCompleted = assistantMessages.reduce<number | undefined>((max, message) => {
@@ -155,7 +152,7 @@ export const TurnRenderer = memo(function TurnRenderer({
 
       {isLastTurn ? <SessionRetryNotice status={turnSessionStatus} /> : null}
 
-      {assistantErrorText ? (
+      {assistantErrorText && !assistantAborted && !isBusy ? (
         <AssistantErrorCard message={assistantErrorText} errorName={assistantErrorName} />
       ) : null}
     </article>
