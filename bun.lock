@@ -17,7 +17,7 @@
     },
     "packages/buddy": {
       "name": "@buddy/backend",
-      "version": "0.0.22",
+      "version": "0.0.23",
       "dependencies": {
         "@ai-sdk/anthropic": "2.0.62",
         "@buddy/opencode-adapter": "workspace:*",
@@ -84,7 +84,7 @@
     },
     "packages/desktop-electron": {
       "name": "@buddy/desktop-electron",
-      "version": "0.0.22",
+      "version": "0.0.23",
       "dependencies": {
         "blakejs": "^1.2.1",
         "electron-log": "^5.4.1",
@@ -116,7 +116,7 @@
     },
     "packages/opencode-adapter": {
       "name": "@buddy/opencode-adapter",
-      "version": "0.0.22",
+      "version": "0.0.23",
       "dependencies": {
         "ai": "5.0.124",
         "opencode": "workspace:*",
@@ -133,7 +133,7 @@
     },
     "packages/sdk": {
       "name": "@buddy/sdk",
-      "version": "0.0.22",
+      "version": "0.0.23",
       "devDependencies": {
         "@hey-api/openapi-ts": "0.90.10",
         "@types/node": "catalog:",
@@ -161,7 +161,7 @@
     },
     "packages/ui": {
       "name": "@buddy/ui",
-      "version": "0.0.22",
+      "version": "0.0.23",
       "dependencies": {
         "@base-ui/react": "^1.2.0",
         "@fontsource-variable/inter": "^5.2.8",
@@ -194,7 +194,7 @@
     },
     "packages/web": {
       "name": "@buddy/web",
-      "version": "0.0.22",
+      "version": "0.0.23",
       "dependencies": {
         "@buddy/opencode-adapter": "workspace:*",
         "@buddy/sdk": "workspace:*",
