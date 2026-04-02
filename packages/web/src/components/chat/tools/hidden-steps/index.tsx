@@ -229,8 +229,6 @@ export function HiddenSteps({
           type="button"
           className="group mt-2 mb-1 flex w-full cursor-default items-center gap-3 transition-transform duration-200 ease-out active:scale-[0.98]"
         >
-          <div className="h-px grow bg-linear-to-r from-transparent to-border/40" />
-
           <div className="flex shrink-0 items-center gap-2 text-xs transition-colors duration-200 text-text-weak/40 group-hover:text-text-weak/70">
             <span
               className={cn(
@@ -286,7 +284,7 @@ export function HiddenSteps({
                 maxHeight: `${PREVIEW_MAX_HEIGHT_PX}px`,
               }}
             >
-              <div ref={previewContentRef} className="flex min-h-full flex-col justify-end">
+              <div ref={previewContentRef} className="flex min-h-full flex-col">
                 <p
                   className={
                     showErrorPreview
@@ -303,7 +301,7 @@ export function HiddenSteps({
       </AnimatePresence>
 
       <CollapsibleContent>
-        <div className="mt-2 flex flex-col gap-3 pl-3">
+        <div className="mt-2 flex flex-col gap-3">
           {parts.map((part) => (
             <AssistantPartRenderer
               key={part.id}
