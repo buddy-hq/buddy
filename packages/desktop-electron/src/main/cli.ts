@@ -20,6 +20,10 @@ const LOG_LEVEL_OPTION = "--log-level"
 const LOG_LEVEL_WARN = "WARN"
 const ADVANCED_MATH_LOCAL_ASSET_DIR_ENV = "BUDDY_ADVANCED_MATH_LOCAL_ASSET_DIR"
 const ADVANCED_MATH_LOCAL_ASSET_PATH_SEGMENTS = ["dist", "advanced-math-runtime"] as const
+const RUNTIME_SUBDIRECTORIES = ["data", "cache", "config", "state"] as const
+const OPENCODE_DATA_SUBDIRECTORY = "opencode"
+const BUDDY_RUNTIME_DIRECTORY_NAME = ".buddy-runtime"
+const BUDDY_RUNTIME_XDG_DIRECTORY_NAME = "xdg"
 
 export type SqliteMigrationProgress = { type: "InProgress"; value: number } | { type: "Done" }
 
@@ -45,7 +49,8 @@ export function getSidecarPath() {
 }
 
 function buildRuntimeEnvironment(password: string, port: number) {
-  const runtimeRoot = path.join(app.getPath("userData"), "xdg")
+  const runtimeRoot = resolveBuddyRuntimeRoot()
+  const xdgDataHome = path.join(runtimeRoot, "data")
   const home = os.homedir()
   const allowedRoots = [home, os.tmpdir()].join(",")
   const base = Object.fromEntries(
@@ -64,7 +69,7 @@ function buildRuntimeEnvironment(password: string, port: number) {
     BUDDY_DIRECTORY_BASE: home,
     BUDDY_ALLOWED_DIRECTORY_ROOTS: allowedRoots,
     BUDDY_RUNTIME_ROOT: runtimeRoot,
-    XDG_DATA_HOME: path.join(runtimeRoot, "data"),
+    XDG_DATA_HOME: xdgDataHome,
     XDG_CACHE_HOME: path.join(runtimeRoot, "cache"),
     XDG_CONFIG_HOME: path.join(runtimeRoot, "config"),
     XDG_STATE_HOME: path.join(runtimeRoot, "state"),
@@ -79,7 +84,23 @@ function buildRuntimeEnvironment(password: string, port: number) {
     environment[ADVANCED_MATH_LOCAL_ASSET_DIR_ENV] = advancedMathAssetDir
   }
 
+  ensureRuntimeDirectories(runtimeRoot, xdgDataHome)
+
   return environment
+}
+
+function resolveBuddyRuntimeRoot() {
+  return path.join(os.homedir(), BUDDY_RUNTIME_DIRECTORY_NAME, BUDDY_RUNTIME_XDG_DIRECTORY_NAME)
+}
+
+function ensureRuntimeDirectories(runtimeRoot: string, xdgDataHome: string) {
+  mkdirSync(runtimeRoot, { recursive: true })
+
+  for (const segment of RUNTIME_SUBDIRECTORIES) {
+    mkdirSync(path.join(runtimeRoot, segment), { recursive: true })
+  }
+
+  mkdirSync(path.join(xdgDataHome, OPENCODE_DATA_SUBDIRECTORY), { recursive: true })
 }
 
 function resolveDevelopmentAdvancedMathAssetDir() {

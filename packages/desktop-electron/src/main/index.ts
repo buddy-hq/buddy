@@ -40,6 +40,11 @@ import {
 import { createLoadingWindow, createMainWindow, setBackgroundColor, setDockIcon } from "./windows"
 
 const { autoUpdater } = electronUpdaterPackage
+const BUDDY_RUNTIME_DIRECTORY_NAME = ".buddy-runtime"
+const BUDDY_RUNTIME_XDG_DIRECTORY_NAME = "xdg"
+const XDG_DATA_DIRECTORY_NAME = "data"
+const OPENCODE_DATA_DIRECTORY_NAME = "opencode"
+const OPENCODE_DB_FILENAME = "opencode.db"
 
 app.setName(resolveAppName(app.isPackaged))
 app.setPath("userData", join(app.getPath("appData"), resolveAppId(app.isPackaged)))
@@ -357,10 +362,18 @@ async function getSidecarPort() {
 }
 
 function sqliteFileExists() {
-  const xdgDataHome = process.env.XDG_DATA_HOME
-  const base =
-    xdgDataHome && xdgDataHome.length > 0 ? xdgDataHome : join(homedir(), ".local", "share")
-  return existsSync(join(base, "opencode", "opencode.db"))
+  const runtimeXdgDataHome = join(
+    homedir(),
+    BUDDY_RUNTIME_DIRECTORY_NAME,
+    BUDDY_RUNTIME_XDG_DIRECTORY_NAME,
+    XDG_DATA_DIRECTORY_NAME,
+  )
+  const xdgDataHome =
+    process.env.XDG_DATA_HOME && process.env.XDG_DATA_HOME.length > 0
+      ? process.env.XDG_DATA_HOME
+      : runtimeXdgDataHome
+
+  return existsSync(join(xdgDataHome, OPENCODE_DATA_DIRECTORY_NAME, OPENCODE_DB_FILENAME))
 }
 
 function setupAutoUpdater() {
