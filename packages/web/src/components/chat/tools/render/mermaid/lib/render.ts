@@ -13,6 +13,9 @@ type MermaidRenderInput = {
 }
 
 const MERMAID_CACHE_LIMIT = 400
+const BYTE_ORDER_MARK = "\uFEFF"
+const TAB_REPLACEMENT = "  "
+const TRAILING_LINE_WHITESPACE_PATTERN = /[ \f\v]+$/gu
 type MermaidSvgCacheValue = {
   svg: string
   bindFunctions?: (element: Element) => void
@@ -31,7 +34,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function normalizeMermaidSource(source: string): string {
-  return source.replace(/\r\n?/gu, "\n").trim().replace(/"/gu, "'")
+  const withoutBom = source.replaceAll(BYTE_ORDER_MARK, "")
+  const normalizedNewlines = withoutBom.replace(/\r\n?/gu, "\n")
+  const normalizedTabs = normalizedNewlines.replace(/\t/gu, TAB_REPLACEMENT)
+
+  return normalizedTabs
+    .split("\n")
+    .map((line) => line.replace(TRAILING_LINE_WHITESPACE_PATTERN, ""))
+    .join("\n")
 }
 
 function hashSource(source: string): string {
@@ -130,7 +140,7 @@ function touchSvgCache(key: string, value: MermaidSvgCacheValue): void {
 
 function readCachedSvg(input: MermaidRenderInput): MermaidRenderResult | undefined {
   const source = normalizeMermaidSource(input.source)
-  if (!source) {
+  if (source.trim().length === 0) {
     return undefined
   }
 
@@ -156,7 +166,7 @@ function readCachedSvg(input: MermaidRenderInput): MermaidRenderResult | undefin
 
 export async function renderMermaidSvg(input: MermaidRenderInput): Promise<MermaidRenderResult> {
   const source = normalizeMermaidSource(input.source)
-  if (!source) {
+  if (source.trim().length === 0) {
     throw new Error("Mermaid source is empty.")
   }
 
