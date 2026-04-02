@@ -33,6 +33,7 @@ const OPTION_HOSTNAME = "--hostname"
 const COMMAND_SERVE = "serve"
 const DEFAULT_SERVER_PORT = 3000
 const DEFAULT_SERVER_HOSTNAME = "127.0.0.1"
+const PERIODIC_SAFETY_SWEEP_INTERVAL_MS = 5 * 60 * 1000
 const SERVER_PORT_ENV = "PORT"
 const SIDECAR_EXECUTABLE_NAMES = new Set(["buddy-backend", "buddy-backend.exe"])
 
@@ -40,6 +41,24 @@ type ServerBootstrapConfig = {
   hostname: string
   port: number
 }
+
+let activeServer: ReturnType<typeof Bun.serve> | undefined
+
+function describeFatalError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.stack ?? `${error.name}: ${error.message}`
+  }
+
+  return String(error)
+}
+
+process.on("unhandledRejection", (error) => {
+  console.error("Unhandled sidecar rejection", describeFatalError(error))
+})
+
+process.on("uncaughtException", (error) => {
+  console.error("Uncaught sidecar exception", describeFatalError(error))
+})
 
 function matchesBasicAuth(value: string | undefined, username: string, password: string): boolean {
   if (!value?.startsWith("Basic ")) return false
@@ -190,19 +209,27 @@ function startServer(config: ServerBootstrapConfig) {
   process.env[SERVER_PORT_ENV] = String(config.port)
   console.log(`Server starting on http://${config.hostname}:${config.port}`)
   console.log(`API docs available at http://${config.hostname}:${config.port}/doc`)
-  Bun.serve({
+  activeServer = Bun.serve({
     hostname: config.hostname,
     port: config.port,
     idleTimeout: 120,
     fetch: app.fetch,
   })
+  console.log(`Buddy server listening on http://${activeServer.hostname}:${activeServer.port}`)
 }
 
 function isCompiledSidecarProcess() {
-  const executable = process.argv[0]
-  if (!executable) return false
-  const basename = path.basename(executable).toLowerCase()
-  return SIDECAR_EXECUTABLE_NAMES.has(basename)
+  const executableCandidates = [process.execPath, process.argv[0], process.argv[1]]
+
+  for (const candidate of executableCandidates) {
+    if (!candidate) continue
+    const basename = path.basename(candidate).toLowerCase()
+    if (SIDECAR_EXECUTABLE_NAMES.has(basename)) {
+      return true
+    }
+  }
+
+  return false
 }
 
 if (import.meta.main || isCompiledSidecarProcess()) {
@@ -210,14 +237,11 @@ if (import.meta.main || isCompiledSidecarProcess()) {
   void runSafetySweep().catch((error) => {
     console.warn("Initial learner safety sweep failed:", error)
   })
-  setInterval(
-    () => {
-      void runSafetySweep().catch((error) => {
-        console.warn("Periodic learner safety sweep failed:", error)
-      })
-    },
-    5 * 60 * 1000,
-  )
+  setInterval(() => {
+    void runSafetySweep().catch((error) => {
+      console.warn("Periodic learner safety sweep failed:", error)
+    })
+  }, PERIODIC_SAFETY_SWEEP_INTERVAL_MS)
   startServer(serverConfig)
 }
 
