@@ -79,6 +79,7 @@ export const dict = {
   "chatTools.mermaidDiagram.close": "Close",
   "chatTools.mermaidDiagram.closeFullscreenAria": "Close Mermaid fullscreen",
   "chatTools.mermaidDiagram.copied": "Copied",
+  "chatTools.mermaidDiagram.copyErrorDetails": "Copy error details",
   "chatTools.mermaidDiagram.copyMermaid": "Copy Mermaid",
   "chatTools.mermaidDiagram.downloaded": "Downloaded",
   "chatTools.mermaidDiagram.downloadFallbackSuffix": "diagram",
@@ -90,8 +91,12 @@ export const dict = {
   "chatTools.mermaidDiagram.fullscreenHint":
     "Fit-to-view on open. Scroll to pan wide diagrams and zoom for detail.",
   "chatTools.mermaidDiagram.openFullscreen": "Open Mermaid fullscreen",
+  "chatTools.mermaidDiagram.renderErrorDescriptionCompact":
+    "Copy error details if you need the full renderer output.",
   "chatTools.mermaidDiagram.renderErrorDefault": "Unable to render Mermaid diagram.",
   "chatTools.mermaidDiagram.renderErrorPrefix": "Unable to render Mermaid diagram:",
+  "chatTools.mermaidDiagram.renderErrorSourceLabel": "Mermaid source",
+  "chatTools.mermaidDiagram.renderErrorTitle": "Couldn't render this Mermaid diagram",
   "chatTools.mermaidDiagram.rendering": "Rendering Mermaid diagram...",
   "chatTools.mermaidDiagram.resetZoomAria": "Reset Mermaid zoom",
   "chatTools.mermaidDiagram.zoomInAria": "Zoom in Mermaid",

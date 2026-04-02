@@ -349,6 +349,43 @@ describe("mermaid rendering", () => {
     expect(container.querySelector('[data-component="mermaid-diagram"] svg')).toBeNull()
   })
 
+  test("shows graceful Mermaid tool error UI with copyable developer details", async () => {
+    const source = "flowchart TD\nBROKEN_GRAPH"
+    const messages: MessageWithParts[] = [
+      userMessage("draw this"),
+      assistantMessage([
+        mermaidToolPart({
+          artifactID: ARTIFACT_ID,
+          source,
+        }),
+      ]),
+    ]
+
+    await act(async () => {
+      renderTranscript(messages)
+      await flushEffects(20)
+    })
+
+    await waitForAssertion(() => {
+      expect(container.textContent).toContain("Couldn't render this Mermaid diagram")
+      expect(container.textContent).toContain("Mermaid source")
+      expect(container.textContent).toContain("BROKEN_GRAPH")
+    })
+
+    const copyErrorButton = container.querySelector('[aria-label="Copy error details"]')
+    expect(copyErrorButton).not.toBeNull()
+
+    await act(async () => {
+      ;(copyErrorButton as HTMLButtonElement).click()
+      await flushEffects()
+    })
+
+    expect(clipboardWrites).toHaveLength(1)
+    expect(clipboardWrites[0]).toContain("Couldn't render this Mermaid diagram")
+    expect(clipboardWrites[0]).toContain("mock mermaid parse error")
+    expect(clipboardWrites[0]).toContain(source)
+  })
+
   test("shows Mermaid copy and download actions on the rendered diagram", async () => {
     const source = "flowchart TD\nA --> B"
     const messages: MessageWithParts[] = [

@@ -344,7 +344,6 @@ function RenderMermaidToolCard({ state, info, directory }: ToolPartProps) {
         alt={alt}
         hideLoadingPlaceholder
         className="p-4"
-        failureClassName="p-4 text-sm bg-surface-critical-base/10 text-icon-critical-base"
         showRawSourceOnError
         renderWrapper={(diagramElement, actions) => (
           <MermaidToolCard

@@ -1,5 +1,6 @@
+import { Button, CheckIcon, CopyIcon } from "@buddy/ui"
 import { motion } from "motion/react"
-import { useRef, useState, useCallback, useId } from "react"
+import { useRef, useState, useCallback, useEffect, useId } from "react"
 import { language } from "@/context/language"
 import { useMermaidRender } from "./use-mermaid-render"
 import { MermaidInlineView } from "./mermaid-inline-view"
@@ -13,6 +14,20 @@ export const DIAGRAM_REVEAL_SPRING = {
   duration: 0.3,
   bounce: 0,
 } as const
+
+function buildMermaidErrorClipboardText(input: { message: string; source?: string }): string {
+  const sections = [language.t("chatTools.mermaidDiagram.renderErrorTitle"), "", input.message]
+  if (input.source) {
+    sections.push(
+      "",
+      language.t("chatTools.mermaidDiagram.renderErrorSourceLabel"),
+      "",
+      input.source,
+    )
+  }
+
+  return sections.join("\n")
+}
 
 export function MermaidDiagram(props: {
   source: string
@@ -32,7 +47,9 @@ export function MermaidDiagram(props: {
 }) {
   const { artifactID, source } = props
   const [fullscreenOpen, setFullscreenOpen] = useState(false)
+  const [copiedErrorDetails, setCopiedErrorDetails] = useState(false)
   const svgHostRef = useRef<HTMLDivElement | null>(null)
+  const copyResetTimeoutRef = useRef<number | undefined>(undefined)
   const instanceId = useId()
   const layoutId = artifactID
     ? `mermaid-zoom-${artifactID}-${instanceId}`
@@ -40,9 +57,45 @@ export function MermaidDiagram(props: {
 
   const { state } = useMermaidRender({ source, artifactID })
 
+  useEffect(() => {
+    if (state.status !== "error") {
+      setCopiedErrorDetails(false)
+    }
+  }, [state.status])
+
+  useEffect(() => {
+    return () => {
+      if (copyResetTimeoutRef.current !== undefined) {
+        window.clearTimeout(copyResetTimeoutRef.current)
+      }
+    }
+  }, [])
+
   const handleFullscreenOpen = useCallback(() => {
     setFullscreenOpen(true)
   }, [])
+
+  const handleCopyErrorDetails = useCallback(async () => {
+    if (state.status !== "error" || !("clipboard" in navigator)) {
+      return
+    }
+
+    try {
+      await navigator.clipboard.writeText(
+        buildMermaidErrorClipboardText({
+          message: state.message,
+          ...(props.showRawSourceOnError ? { source: props.source } : {}),
+        }),
+      )
+      setCopiedErrorDetails(true)
+      if (copyResetTimeoutRef.current !== undefined) {
+        window.clearTimeout(copyResetTimeoutRef.current)
+      }
+      copyResetTimeoutRef.current = window.setTimeout(() => setCopiedErrorDetails(false), 2000)
+    } catch {
+      // ignore clipboard failures
+    }
+  }, [props.showRawSourceOnError, props.source, state])
 
   const readyValue = state.status === "ready" ? state.value : undefined
 
@@ -89,26 +142,51 @@ export function MermaidDiagram(props: {
       ) : null}
 
       {state.status === "error" ? (
-        <>
+        <div className={props.failureClassName ?? "space-y-3"}>
           <div
-            className={
-              props.failureClassName ??
-              "rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 p-3 text-sm text-icon-critical-base"
-            }
+            data-component="mermaid-error-panel"
+            className="rounded-xl border border-border-critical-base/35 bg-surface-critical-base/6 px-4 py-3"
           >
-            {language.t("chatTools.mermaidDiagram.renderErrorPrefix")} {state.message}
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0 space-y-1">
+                <div className="font-medium text-icon-critical-base">
+                  {language.t("chatTools.mermaidDiagram.renderErrorTitle")}
+                </div>
+               
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="xs"
+                aria-label={language.t("chatTools.mermaidDiagram.copyErrorDetails")}
+                onClick={() => {
+                  void handleCopyErrorDetails()
+                }}
+              >
+                {copiedErrorDetails ? (
+                  <CheckIcon className="size-3.5" />
+                ) : (
+                  <CopyIcon className="size-3.5" />
+                )}
+                
+              </Button>
+            </div>
           </div>
+
           {props.showRawSourceOnError ? (
-            <pre
-              className={
-                props.rawSourceClassName ??
-                "mt-2 max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border-base bg-surface-weak/40 p-2 text-xs text-text-base"
-              }
-            >
-              <code>{props.source}</code>
-            </pre>
+            <div className="space-y-2">
+              
+              <pre
+                className={
+                  props.rawSourceClassName ??
+                  "max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border-base bg-surface-weak/40 p-3 text-xs text-text-base"
+                }
+              >
+                <code>{props.source}</code>
+              </pre>
+            </div>
           ) : null}
-        </>
+        </div>
       ) : null}
 
       <MermaidFullscreenDialog
