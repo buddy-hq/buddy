@@ -34,7 +34,6 @@ export function showDesktopUpdateToast(args: {
 
         try {
           await args.platform.update?.()
-          await args.platform.restart()
         } catch {
           activeHandlers.onInstallFailed?.()
           activeHandlers = {}

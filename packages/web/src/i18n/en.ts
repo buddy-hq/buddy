@@ -6,6 +6,7 @@ export const dict = {
   "agentsMd.notebookEmptyDescription": "Agents file allows you to change buddy's behaviour.",
   "agentsMd.notebookEmptyTitle": "No AGENTS file",
   "common.cancel": "Cancel",
+  "common.connect": "Connect",
   "common.model": "Model",
   "common.refresh": "Refresh",
   "common.saving": "Saving...",
