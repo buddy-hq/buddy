@@ -23,9 +23,12 @@ wireDesktopEvents()
 normalizeInitialRoute()
 
 function normalizeInitialRoute() {
+  if (window.location.protocol === "file:") {
+    return
+  }
+
   const pathname = window.location.pathname.replaceAll("\\", "/")
-  const shouldNormalize =
-    window.location.protocol === "file:" || pathname === ELECTRON_ENTRY_HTML_SUFFIX
+  const shouldNormalize = pathname === ELECTRON_ENTRY_HTML_SUFFIX
 
   if (!shouldNormalize) {
     return
