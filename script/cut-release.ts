@@ -497,6 +497,11 @@ function watchRun(runId: string) {
   runCommand("gh", ["run", "watch", runId, "--repo", releaseRepo(), "--exit-status"])
 }
 
+function syncTagsFromOrigin() {
+  printStep("Tag Sync", "Force-syncing local tags from origin to avoid local tag drift conflicts.")
+  runCommand("git", ["fetch", "origin", "+refs/tags/*:refs/tags/*"])
+}
+
 async function maybePullReleaseSync(rl: ReturnType<typeof createInterface>) {
   await fetchOriginMain()
   const state = await syncState()
@@ -509,6 +514,7 @@ async function maybePullReleaseSync(rl: ReturnType<typeof createInterface>) {
     return
   }
 
+  syncTagsFromOrigin()
   runCommand("git", ["pull", "--rebase", "origin", RELEASE_BRANCH])
 }
 

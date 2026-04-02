@@ -56,6 +56,7 @@ This is the canonical process to cut **Electron-only** Buddy desktop releases.
    - advanced math runtime zips/checksums for both macOS targets
 6. Confirm publish job completed and release is no longer draft.
 7. Pull the auto-generated version-sync commit to local `main` when prompted.
+   - The wizard force-syncs local tags from `origin` first, so stale local release tags do not block the pull with a clobber prompt.
 
 ## Workflow Jobs (Expected)
 1. `version`: compute/validate release version and draft release.

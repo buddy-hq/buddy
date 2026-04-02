@@ -51,6 +51,7 @@ The current release shape is:
      - runs `bun fmt`, `bun lint`, and `bun typecheck`
      - triggers the GitHub `publish` workflow with `workflow_dispatch`
      - can watch the workflow and then pull the release-sync commit back to local `main`
+     - force-syncs local tags from `origin` before that pull so stale local `vX.Y.Z` tags do not block with `would clobber existing tag`
    - If you use manual `gh` fallback commands, always pass `--repo prashantbhudwal/buddy`. Never rely on the default `gh` repo context.
 
 1. Ensure local state is clean.
@@ -147,10 +148,7 @@ Stop immediately if any of these happen:
 
 3. If a local Buddy release tag already drifted from `origin`:
    - resync tags from `origin`:
-     - `git fetch --tags origin`
-   - if your clone still rejects tag updates, add the repo-local tag refspec once:
-     - `git config --add remote.origin.fetch '+refs/tags/*:refs/tags/*'`
-     - then rerun `git fetch --tags origin`
+     - `git fetch origin '+refs/tags/*:refs/tags/*'`
 
 ## Notes
 - The app is currently ad-hoc signed, but not Apple Developer signed or notarized. Expect normal macOS Gatekeeper friction on first install.
