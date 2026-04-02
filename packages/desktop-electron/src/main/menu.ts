@@ -1,8 +1,8 @@
 import { app, BrowserWindow, Menu, shell } from "electron"
-import { UPDATER_ENABLED } from "./constants"
 import { createMainWindow } from "./windows"
 
 type MenuDeps = {
+  updaterEnabled: boolean
   trigger: (id: string) => void
   installCli: () => void
   checkForUpdates: () => void
@@ -20,7 +20,7 @@ export function createMenu(deps: MenuDeps) {
         { role: "about" },
         {
           label: "Check for Updates...",
-          enabled: UPDATER_ENABLED,
+          enabled: deps.updaterEnabled,
           click: () => deps.checkForUpdates(),
         },
         {
@@ -60,7 +60,7 @@ export function createMenu(deps: MenuDeps) {
           label: "New Window",
           accelerator: "Cmd+Shift+N",
           click: () =>
-            createMainWindow({ updaterEnabled: UPDATER_ENABLED, version: app.getVersion() }),
+            createMainWindow({ updaterEnabled: deps.updaterEnabled, version: app.getVersion() }),
         },
         { type: "separator" },
         { role: "close" },

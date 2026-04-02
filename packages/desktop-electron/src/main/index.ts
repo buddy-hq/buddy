@@ -9,6 +9,11 @@ import type { Event } from "electron"
 import electronUpdaterPackage from "electron-updater"
 import type { InitStep, ServerReadyData, SqliteMigrationProgress } from "../preload/types"
 import {
+  createCustomMacUpdater,
+  resolveCustomMacUpdaterOptions,
+  resolveMacAppPath,
+} from "./custom-mac-updater"
+import {
   APP_PROTOCOL,
   CHANNEL,
   LOOPBACK_HOSTNAME,
@@ -60,6 +65,8 @@ let mainWindow: BrowserWindow | null = null
 let sidecar: CommandChild | null = null
 let updateReady = false
 let readyUpdateVersion: string | undefined
+let updaterEnabled = UPDATER_ENABLED
+let customMacUpdater: ReturnType<typeof createCustomMacUpdater> | null = null
 let checkUpdateTask:
   | Promise<{ updateAvailable: boolean; version?: string; failed?: boolean }>
   | undefined
@@ -109,7 +116,24 @@ function setupApplication() {
 
   void app.whenReady().then(async () => {
     app.setAsDefaultProtocolClient(APP_PROTOCOL)
-    setupAutoUpdater()
+    if (process.platform === "darwin") {
+      customMacUpdater = createCustomMacUpdater({
+        currentVersion: app.getVersion(),
+        packaged: app.isPackaged,
+        execPath: process.execPath,
+        cachePath: app.getPath("cache"),
+        logsPath: app.getPath("logs"),
+        appPath: resolveMacAppPath(process.execPath),
+        appName: app.getName(),
+        appRootPath: app.getAppPath(),
+        resourcesPath: process.resourcesPath,
+        logger,
+        killSidecar: () => killSidecar(),
+        quit: () => app.quit(),
+        ...resolveCustomMacUpdaterOptions(),
+      })
+    }
+    updaterEnabled = await setupAutoUpdater()
     setDockIcon()
     syncCli()
     await initialize()
@@ -194,7 +218,7 @@ async function initialize() {
     })()
 
     const windowGlobals = {
-      updaterEnabled: UPDATER_ENABLED,
+      updaterEnabled,
       deepLinks: pendingDeepLinks,
       version: app.getVersion(),
     }
@@ -270,6 +294,7 @@ function wireMenu() {
   if (!mainWindow) return
 
   createMenu({
+    updaterEnabled,
     trigger: (id) => {
       if (mainWindow) {
         sendMenuCommand(mainWindow, id)
@@ -437,17 +462,24 @@ function sqliteFileExists() {
 }
 
 function setupAutoUpdater() {
-  if (!UPDATER_ENABLED) return
+  if (!UPDATER_ENABLED) return Promise.resolve(false)
+  if (process.platform === "darwin") return Promise.resolve(true)
+
+  // Keep the native electron-updater path for Windows today and for signed macOS builds later.
   autoUpdater.logger = logger
   autoUpdater.channel = "latest"
   autoUpdater.allowPrerelease = CHANNEL !== "prod"
   autoUpdater.allowDowngrade = true
   autoUpdater.autoDownload = false
   autoUpdater.autoInstallOnAppQuit = true
+  return Promise.resolve(true)
 }
 
 async function checkUpdate() {
-  if (!UPDATER_ENABLED) return { updateAvailable: false }
+  if (!updaterEnabled) return { updateAvailable: false }
+  if (process.platform === "darwin" && customMacUpdater) {
+    return await customMacUpdater.checkForUpdate()
+  }
 
   if (updateReady && readyUpdateVersion) {
     return {
@@ -487,13 +519,18 @@ async function checkUpdate() {
 }
 
 async function installUpdate() {
+  if (process.platform === "darwin" && customMacUpdater) {
+    await customMacUpdater.installUpdate()
+    return
+  }
+
   if (!updateReady) return
   killSidecar()
   autoUpdater.quitAndInstall()
 }
 
 async function checkForUpdates(alertOnFail: boolean) {
-  if (!UPDATER_ENABLED) return
+  if (!updaterEnabled) return
 
   const result = await checkUpdate()
   if (!result.updateAvailable) {

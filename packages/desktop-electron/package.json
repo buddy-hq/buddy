@@ -22,9 +22,11 @@
     "package:win": "electron-builder --win --config electron-builder.config.ts",
     "prepare:release": "bun ./scripts/prepare.ts",
     "copy:bundles": "bun ./scripts/copy-bundles.ts",
-    "build:installable": "bun ./scripts/local-release.ts"
+    "build:installable": "bun ./scripts/local-release.ts",
+    "serve:update:mac-local": "bun ./scripts/serve-local-mac-update.ts"
   },
   "dependencies": {
+    "@kaito-tokyo/minisign-verify": "^0.1.3",
     "electron-log": "^5.4.1",
     "electron-store": "^10.1.0",
     "electron-updater": "^6.6.2",

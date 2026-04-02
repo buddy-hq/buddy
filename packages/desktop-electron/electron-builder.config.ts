@@ -27,6 +27,11 @@ const BASE_CONFIGURATION: Configuration = {
       to: "",
       filter: ["buddy-backend*"],
     },
+    {
+      from: "resources",
+      to: "",
+      filter: ["mac-install-update.sh"],
+    },
   ],
   protocols: {
     name: "Buddy",
