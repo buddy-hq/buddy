@@ -85,16 +85,24 @@ export const AssistantTextPart = memo(function AssistantTextPart({
       <div className="transition-opacity duration-75 ease-out">
         <Markdown text={displayedText} cacheKey={part.id} />
       </div>
-      {copyEnabled ? (
+      {copyEnabled || (interrupted && metaText) ? (
         <div
           className={cn(
-            "mt-1 flex min-h-6 items-center gap-2.5 opacity-0 transition-opacity group-hover/text-part:opacity-100 group-focus-within/text-part:opacity-100",
+            "mt-1 flex min-h-6 items-center gap-2.5 transition-opacity duration-200 ease-out",
+            interrupted
+              ? "w-full justify-end opacity-100"
+              : "opacity-0 group-hover/text-part:opacity-100 group-focus-within/text-part:opacity-100",
             "pointer-events-none group-hover/text-part:pointer-events-auto group-focus-within/text-part:pointer-events-auto",
-            interrupted && "w-full justify-end",
           )}
         >
-          <CopyAction value={displayedText} label="Copy response" />
-          {metaText ? <span className="text-xs text-text-weak">{metaText}</span> : null}
+          {copyEnabled ? (
+            <CopyAction value={displayedText} label="Copy response" />
+          ) : null}
+          {metaText ? (
+            <span className="text-xs font-medium text-text-weak">
+              {metaText}
+            </span>
+          ) : null}
         </div>
       ) : null}
     </div>

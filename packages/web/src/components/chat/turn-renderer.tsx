@@ -131,8 +131,6 @@ export const TurnRenderer = memo(function TurnRenderer({
         onRevertMessage={onRevertMessage}
       />
 
-      {assistantAborted ? <MessageDivider label="Interrupted" /> : null}
-
       {showAssistantSection ? (
         <AssistantSection
           assistantItems={assistantItems}
@@ -152,6 +150,8 @@ export const TurnRenderer = memo(function TurnRenderer({
           currentReasoningHeading={!showReasoningSummaries ? currentReasoningHeading : undefined}
         />
       ) : null}
+
+      {assistantAborted ? <MessageDivider label="Interrupted" /> : null}
 
       {isLastTurn ? <SessionRetryNotice status={turnSessionStatus} /> : null}
 
