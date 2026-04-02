@@ -232,7 +232,7 @@ await Bun.write(outputPath, `${JSON.stringify(output, null, 2)}\n`)
 ensureTauriSigningKeyPresent()
 const tauriSigner = requireTauriSignerBinaryPath()
 
-await $`${tauriSigner} signer sign ${outputPath}`.env(process.env)
+await $`${tauriSigner} signer sign ${outputPath}`.env(resolveSignerEnvironment())
 
 if (!skipUpload) {
   if (!repo) {
@@ -243,3 +243,21 @@ if (!skipUpload) {
 }
 
 console.log("finalized latest-mac.json")
+
+function resolveSignerEnvironment() {
+  const environment = { ...process.env }
+
+  if (!environment.TAURI_SIGNING_PRIVATE_KEY_PATH?.trim()) {
+    delete environment.TAURI_SIGNING_PRIVATE_KEY_PATH
+  }
+
+  if (!environment.TAURI_SIGNING_PRIVATE_KEY?.trim()) {
+    delete environment.TAURI_SIGNING_PRIVATE_KEY
+  }
+
+  if (!environment.TAURI_SIGNING_PRIVATE_KEY_PASSWORD?.trim()) {
+    delete environment.TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+  }
+
+  return environment
+}
