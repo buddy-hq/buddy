@@ -3,8 +3,7 @@ import { language } from "@/context/language"
 import { resolveDefaultPersonaID } from "@/state/chat-actions"
 import type { LogLevel } from "@/state/project-settings"
 import { useProjectSettings } from "@/state/project-settings"
-import { SettingsListCard, SettingsRow } from "./settings-primitives"
-import { SettingsPanelContent } from "./settings-page"
+import { SettingsListCard, SettingsRow, SettingsContent } from "./settings-primitives"
 
 const DEFAULT_VALUE = "__default__"
 
@@ -17,7 +16,7 @@ export function NotebookSettings({ directory }: { directory: string }) {
   const logLevelSelectValue = settings.selection.logLevel || DEFAULT_VALUE
 
   return (
-    <SettingsPanelContent
+    <SettingsContent
       title={language.t("settings.notebook.title")}
       description={language.t("settings.notebook.description")}
     >
@@ -135,6 +134,6 @@ export function NotebookSettings({ directory }: { directory: string }) {
           }
         />
       </SettingsListCard>
-    </SettingsPanelContent>
+    </SettingsContent>
   )
 }

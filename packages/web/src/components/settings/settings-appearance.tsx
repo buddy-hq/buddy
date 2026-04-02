@@ -15,10 +15,9 @@ import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { showDesktopUpdateToast } from "../../lib/desktop-updates"
 import { useTheme, type ColorScheme } from "@/theme"
-import { SettingsListCard, SettingsRow } from "./settings-primitives"
+import { SettingsListCard, SettingsRow, SettingsContent } from "./settings-primitives"
 import { advancedMathStatusLabel, useAdvancedMathRuntime } from "./use-advanced-math-runtime"
 import { ConfirmRemoveMathRuntimeDialog } from "./confirm-remove-math-runtime-dialog"
-import { SettingsPanelContent } from "./settings-page"
 
 function isColorScheme(value: string): value is ColorScheme {
   return value === "system" || value === "light" || value === "dark"
@@ -99,7 +98,7 @@ export function AppearanceSettings() {
 
   return (
     <>
-      <SettingsPanelContent
+      <SettingsContent
         title={language.t("settings.appearance.title")}
         description={language.t("settings.appearance.description")}
       >
@@ -228,7 +227,7 @@ export function AppearanceSettings() {
             </SettingsListCard>
           </div>
         ) : null}
-      </SettingsPanelContent>
+      </SettingsContent>
       <ConfirmRemoveMathRuntimeDialog
         open={removeConfirmOpen}
         onOpenChange={setRemoveConfirmOpen}

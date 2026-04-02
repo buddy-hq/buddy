@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react"
 import { Badge, Card, CardContent, Switch, toast } from "@buddy/ui"
 import { language } from "@/context/language"
 import { loadSkillsCatalog, updateSkillsSettings, type SkillsCatalog } from "@/state/skills-actions"
-import { SettingsPanelContent } from "./settings-page"
+import { SettingsContent } from "./settings-primitives"
 
 type AdvancedSettingsProps = {
   directory?: string
@@ -80,7 +80,7 @@ export function AdvancedSettings(props: AdvancedSettingsProps) {
   }
 
   return (
-    <SettingsPanelContent
+    <SettingsContent
       title={language.t("settings.advanced.title")}
       description={language.t("settings.advanced.description")}
     >
@@ -116,6 +116,6 @@ export function AdvancedSettings(props: AdvancedSettingsProps) {
           </div>
         </CardContent>
       </Card>
-    </SettingsPanelContent>
+    </SettingsContent>
   )
 }

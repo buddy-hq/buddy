@@ -1,15 +1,14 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@buddy/ui"
 import { language } from "@/context/language"
 import { useProjectSettings } from "@/state/project-settings"
-import { SettingsListCard, SettingsRow } from "./settings-primitives"
-import { SettingsPanelContent } from "./settings-page"
+import { SettingsListCard, SettingsRow, SettingsContent } from "./settings-primitives"
 
 export function ModelSettings({ directory }: { directory: string }) {
   const settings = useProjectSettings(directory, true)
   const hasConnectedProviders = settings.options.providers.length > 0
 
   return (
-    <SettingsPanelContent
+    <SettingsContent
       title={language.t("common.model")}
       description={language.t("settings.model.description")}
     >
@@ -76,6 +75,6 @@ export function ModelSettings({ directory }: { directory: string }) {
       {settings.status.providerMessage ? (
         <p className="text-sm text-text-weak">{settings.status.providerMessage}</p>
       ) : null}
-    </SettingsPanelContent>
+    </SettingsContent>
   )
 }
