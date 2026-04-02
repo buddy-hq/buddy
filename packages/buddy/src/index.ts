@@ -1,4 +1,5 @@
 import "./opencode-runtime/env.js"
+import path from "node:path"
 import { Hono } from "hono"
 import { openAPIRouteHandler } from "hono-openapi"
 import { cors } from "hono/cors"
@@ -33,6 +34,7 @@ const COMMAND_SERVE = "serve"
 const DEFAULT_SERVER_PORT = 3000
 const DEFAULT_SERVER_HOSTNAME = "127.0.0.1"
 const SERVER_PORT_ENV = "PORT"
+const SIDECAR_EXECUTABLE_NAMES = new Set(["buddy-backend", "buddy-backend.exe"])
 
 type ServerBootstrapConfig = {
   hostname: string
@@ -196,7 +198,14 @@ function startServer(config: ServerBootstrapConfig) {
   })
 }
 
-if (import.meta.main) {
+function isCompiledSidecarProcess() {
+  const executable = process.argv[0]
+  if (!executable) return false
+  const basename = path.basename(executable).toLowerCase()
+  return SIDECAR_EXECUTABLE_NAMES.has(basename)
+}
+
+if (import.meta.main || isCompiledSidecarProcess()) {
   const serverConfig = parseServerBootstrapConfig(process.argv.slice(2))
   void runSafetySweep().catch((error) => {
     console.warn("Initial learner safety sweep failed:", error)
