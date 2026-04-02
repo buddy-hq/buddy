@@ -23,6 +23,7 @@ import {
   completeProviderOAuth,
   formatProviderAuthError,
   parseProviderConfirmationCode,
+  removeProviderAuth,
   reloadProviderRuntime,
 } from "../lib/provider-auth"
 import type { ProviderInfo } from "@/state/chat-types"
@@ -135,13 +136,10 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
     setError(undefined)
 
     try {
-      const client = getOpenCodeClient(props.directory)
-      await client.auth.remove(
-        {
-          providerID,
-        },
-        { throwOnError: true },
-      )
+      await removeProviderAuth({
+        directory: props.directory,
+        providerID,
+      })
       await disposeAndReload()
     } catch (error) {
       setBusy(false)
