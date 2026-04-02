@@ -52,6 +52,7 @@
     "build:desktop:tauri": "bun run --cwd packages/desktop tauri build",
     "build:installable": "bun run --cwd packages/desktop-electron build:installable",
     "build:installable:electron": "bun run --cwd packages/desktop-electron build:installable",
+    "serve:update:mac-local": "bun run --cwd packages/desktop-electron serve:update:mac-local",
     "build:installable:tauri": "bun run --cwd packages/desktop build:installable",
     "start:built": "bun run build && (bun run --cwd packages/buddy start & BACKEND_PID=$!; trap \"kill $BACKEND_PID\" EXIT INT TERM; bun run --cwd packages/web preview --host --port 1420 --strictPort)",
     "typecheck": "turbo run typecheck --filter=@buddy/* --only",

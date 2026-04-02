@@ -200,6 +200,22 @@ jobs:
           set -euo pipefail
           bun ./packages/desktop-electron/scripts/finalize-latest-yml.ts
 
+      - name: Finalize and upload latest mac json
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ needs.version.outputs.repo }}
+          BUDDY_VERSION: ${{ needs.version.outputs.version }}
+          LATEST_YML_DIR: ${{ github.workspace }}/latest-yml
+          ELECTRON_DIST_DIR: ${{ github.workspace }}/electron-dist
+          TAURI_SIGNER_BINARY_PATH: ${{ github.workspace }}/packages/desktop/node_modules/.bin/tauri
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PATH: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PATH }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          bun ./packages/desktop-electron/scripts/finalize-latest-mac-json.ts
+
   build-advanced-math:
     needs:
       - version
