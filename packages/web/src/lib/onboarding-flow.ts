@@ -3,15 +3,15 @@ import type { OnboardingAuthChoice } from "@/components/onboarding"
 import { language } from "@/context/language"
 import type { ProviderCatalogState } from "@/state/chat-types"
 import { resolveCatalogProviderModelSelection } from "./provider-catalog"
+import { OPENAI_PROVIDER_ID } from "./provider-ids"
 import { findPreferredOAuthMethodIndex } from "./provider-auth"
 
-const CHATGPT_PROVIDER_ID = "openai"
 const FREE_MODEL_PROVIDER_ID = "opencode"
 const PROVIDER_CONNECTION_POLL_INTERVAL_MS = 1_000
 const PROVIDER_CONNECTION_TIMEOUT_MS = 45_000
 
 export function resolveOnboardingProviderID(choice: OnboardingAuthChoice) {
-  return choice === "chatgpt_plus" ? CHATGPT_PROVIDER_ID : FREE_MODEL_PROVIDER_ID
+  return choice === "chatgpt_plus" ? OPENAI_PROVIDER_ID : FREE_MODEL_PROVIDER_ID
 }
 
 export async function connectChatGptPlusForOnboarding(input: {
@@ -25,7 +25,7 @@ export async function connectChatGptPlusForOnboarding(input: {
   reloadProviderRuntime: () => Promise<void>
 }) {
   const catalog = await input.loadProviderCatalogSnapshot()
-  const provider = catalog.providers.find((entry) => entry.id === CHATGPT_PROVIDER_ID)
+  const provider = catalog.providers.find((entry) => entry.id === OPENAI_PROVIDER_ID)
   if (!provider) {
     throw new Error(language.t("onboardingFlow.openAiUnavailable"))
   }
@@ -40,7 +40,7 @@ export async function connectChatGptPlusForOnboarding(input: {
   }
 
   const authorization = await input.authorizeProviderOAuth({
-    providerID: CHATGPT_PROVIDER_ID,
+    providerID: OPENAI_PROVIDER_ID,
     methodIndex,
   })
 
@@ -52,7 +52,7 @@ export async function connectChatGptPlusForOnboarding(input: {
 
   if (authorization.method === "auto") {
     await input.completeProviderOAuth({
-      providerID: CHATGPT_PROVIDER_ID,
+      providerID: OPENAI_PROVIDER_ID,
       methodIndex,
     })
   }
@@ -61,7 +61,7 @@ export async function connectChatGptPlusForOnboarding(input: {
 
   const didConnect = await waitForConnectedProvider({
     loadProviderCatalogSnapshot: input.loadProviderCatalogSnapshot,
-    providerID: CHATGPT_PROVIDER_ID,
+    providerID: OPENAI_PROVIDER_ID,
   })
   if (!didConnect) {
     throw new Error(language.t("onboardingFlow.confirmConnectionFailed"))

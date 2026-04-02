@@ -85,6 +85,16 @@ export async function completeProviderOAuth(input: {
   )
 }
 
+export async function removeProviderAuth(input: { directory?: string; providerID: string }) {
+  const client = getOpenCodeClient(input.directory)
+  await client.auth.remove(
+    {
+      providerID: input.providerID,
+    },
+    { throwOnError: true },
+  )
+}
+
 export async function reloadProviderRuntime(directory?: string) {
   const client = getOpenCodeClient(directory)
   await client.global.dispose({ throwOnError: true })
