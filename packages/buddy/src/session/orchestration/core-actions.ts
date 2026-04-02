@@ -27,6 +27,7 @@ const SESSION_NOT_FOUND_ERROR = "Session not found"
 const REQUEST_FAILED_ERROR = "Request failed"
 const BAD_REQUEST_STATUS = 400
 const NOT_FOUND_STATUS = 404
+const SESSION_STATUS_PATH = "/session/status"
 const LINK_HEADER = "Link"
 const NEXT_CURSOR_HEADER = "X-Next-Cursor"
 const EXPOSE_HEADERS_HEADER = "Access-Control-Expose-Headers"
@@ -110,6 +111,12 @@ export async function proxySessionCollection(c: Context): Promise<Response> {
 
   return proxyToOpenCode(c, {
     targetPath: "/session",
+  })
+}
+
+export async function getSessionStatus(c: Context): Promise<Response> {
+  return proxyToOpenCode(c, {
+    targetPath: SESSION_STATUS_PATH,
   })
 }
 

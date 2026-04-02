@@ -3,6 +3,7 @@ import { createFactory } from "hono/factory"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
 import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
+import { SessionStatus as OpenCodeSessionStatus } from "@buddy/opencode-adapter/session-status"
 import { MessageV2 as OpenCodeMessage } from "@buddy/opencode-adapter/message"
 import {
   INTENTS,
@@ -18,6 +19,7 @@ import {
 } from "../http"
 import {
   abortSessionRun,
+  getSessionStatus,
   getSessionById,
   listSessionMessages,
   patchSessionById,
@@ -31,6 +33,7 @@ const sessionRouteFactory = createFactory()
 
 const [listSessionsHandler] = sessionRouteFactory.createHandlers(proxySessionCollection)
 const [createSessionHandler] = sessionRouteFactory.createHandlers(proxySessionCollection)
+const [getSessionStatusHandler] = sessionRouteFactory.createHandlers(getSessionStatus)
 const [getSessionHandler] = sessionRouteFactory.createHandlers(getSessionById)
 const [updateSessionHandler] = sessionRouteFactory.createHandlers(patchSessionById)
 const [listSessionMessagesHandler] = sessionRouteFactory.createHandlers(listSessionMessages)
@@ -187,6 +190,26 @@ export const SessionRoutes = new Hono()
     validator("query", directoryQuerySchema),
     validator("json", OpenCodeSession.create.schema.optional()),
     createSessionHandler,
+  )
+  .get(
+    "/status",
+    describeRoute({
+      operationId: "session.status",
+      summary: "Get session status",
+      responses: {
+        200: {
+          description: "Session status map",
+          content: {
+            "application/json": {
+              schema: resolver(z.record(z.string(), OpenCodeSessionStatus.Info)),
+            },
+          },
+        },
+        ...routeErrors(403),
+      },
+    }),
+    validator("query", directoryQuerySchema),
+    getSessionStatusHandler,
   )
   .get(
     "/:sessionID",

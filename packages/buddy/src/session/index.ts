@@ -1,5 +1,6 @@
 export { abortSessionRun } from "./orchestration/abort-actions"
 export {
+  getSessionStatus,
   getSessionById,
   listSessionMessages,
   patchSessionById,

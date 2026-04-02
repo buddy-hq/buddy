@@ -138,4 +138,19 @@ describe("session route regressions", () => {
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toBe(true)
   })
+
+  test("resolves /session/status as status endpoint instead of session-id route", async () => {
+    await using project = await tmpdir({ git: true })
+
+    const response = await app.request("/api/session/status", {
+      headers: {
+        "x-buddy-directory": project.path,
+      },
+    })
+
+    expect(response.status).toBe(200)
+    const body = (await response.json()) as Record<string, unknown>
+    expect(Array.isArray(body)).toBe(false)
+    expect(body.error).toBeUndefined()
+  })
 })
