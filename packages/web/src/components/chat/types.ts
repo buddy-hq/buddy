@@ -101,4 +101,5 @@ export interface AssistantDerivedState {
   currentReasoningHeading: string | undefined
   assistantError: MessageError | undefined
   assistantErrorName: string | undefined
+  assistantAborted: boolean
 }

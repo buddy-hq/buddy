@@ -2,7 +2,7 @@ import { useDeferredValue, useMemo } from "react"
 import type { MessagePart, MessageWithParts } from "@/state/chat-types"
 import { isMessageAbortError } from "../utils/error"
 import { reasoningHeading } from "../utils/markdown"
-import { groupAssistantParts, assistantPartStartsFollowup } from "../utils/message-utils"
+import { assistantPartStartsFollowup, groupAssistantParts } from "../utils/message-utils"
 import type { AssistantDerivedState } from "../types"
 
 export function useAssistantDerivedState(
@@ -79,6 +79,18 @@ export function useAssistantDerivedState(
       ? assistantError.name
       : undefined
 
+  const assistantAborted = useMemo(
+    () =>
+      assistantMessages.some(
+        (message) =>
+          message.info.role === "assistant" &&
+          (message.info.finish === "aborted" ||
+            message.info.finish === "cancelled" ||
+            isMessageAbortError(message.info.error)),
+      ),
+    [assistantMessages],
+  )
+
   return {
     assistantItems,
     collapsedAbstractedKeys,
@@ -86,5 +98,6 @@ export function useAssistantDerivedState(
     currentReasoningHeading,
     assistantError,
     assistantErrorName,
+    assistantAborted,
   }
 }
