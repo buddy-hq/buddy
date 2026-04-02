@@ -9,11 +9,10 @@ Release cut steps I performed
    - `gh release list --repo prashantbhudwal/buddy --exclude-drafts --exclude-pre-releases --limit 2 --json tagName,publishedAt`
 
 3. Derived the next release version.
-   - Latest stable was `v0.0.17`
-   - Next release was `v0.0.18`
+   - Increment the latest stable tag with a patch release unless there is an explicit reason to cut minor or major.
 
 4. Dispatched the release workflow immediately.
-   - `gh workflow run publish.yml --repo prashantbhudwal/buddy -f version=0.0.18`
+   - `gh workflow run publish.yml --repo prashantbhudwal/buddy -f version=<next-version>`
 
 5. Watched the workflow with timeout scaling based on remaining work.
    - While the matrix build jobs were still active, I used long polling intervals:
@@ -26,6 +25,22 @@ Release cut steps I performed
    - Checked the run until all jobs were `success`
 
 7. Verified the published release assets.
-   - `gh release view v0.0.18 --repo prashantbhudwal/buddy --json isDraft,isPrerelease,tagName,name,url,publishedAt,assets`
+   - `gh release view v<next-version> --repo prashantbhudwal/buddy --json isDraft,isPrerelease,tagName,name,url,publishedAt,assets`
+   - Required assets now include:
+     - macOS installers: `.dmg`, `.zip`, `.blockmap`
+     - Windows installers: `.exe`, `.blockmap`
+     - updater metadata:
+       - `latest.yml`
+       - `latest-mac.yml`
+       - `latest-mac.json`
+       - `latest-mac.json.sig`
+     - advanced math runtime zips and checksums for required macOS targets
 
-8. Confirmed the release was published and left the workspace untouched so your later edits stay out of this cut.
+8. For local validation before another release, use the local mac updater server instead of shipping blind.
+   - `BUDDY_VERSION=<higher-than-installed-version> bun run serve:update:mac-local`
+   - Launch installed Buddy with `BUDDY_UPDATE_METADATA_URL="http://127.0.0.1:43199/latest-mac.json" /Applications/Buddy.app/Contents/MacOS/Buddy`
+   - If install fails, inspect:
+     - `~/Library/Logs/Buddy/main.log`
+     - `~/Library/Logs/Buddy/update-installer.log`
+
+9. Confirmed the release was published and left the workspace untouched so later edits stay out of the cut.

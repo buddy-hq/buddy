@@ -53,6 +53,7 @@ const OPENCODE_DB_FILENAME = "opencode.db"
 const STARTUP_FAILURE_MESSAGE = "Buddy failed to start."
 const UNKNOWN_STARTUP_FAILURE_DETAIL = "The local Buddy server did not become ready."
 const LOADING_WINDOW_COMPLETE_TIMEOUT_MS = 5_000
+const MAC_UPDATE_CACHE_DIRECTORY_NAME = "mac-updater"
 
 app.setName(resolveAppName(app.isPackaged))
 app.setPath("userData", join(app.getPath("appData"), resolveAppId(app.isPackaged)))
@@ -121,7 +122,11 @@ function setupApplication() {
         currentVersion: app.getVersion(),
         packaged: app.isPackaged,
         execPath: process.execPath,
-        cachePath: app.getPath("cache"),
+        cachePath: join(
+          app.getPath("temp"),
+          resolveAppId(app.isPackaged),
+          MAC_UPDATE_CACHE_DIRECTORY_NAME,
+        ),
         logsPath: app.getPath("logs"),
         appPath: resolveMacAppPath(process.execPath),
         appName: app.getName(),
