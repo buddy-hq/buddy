@@ -8,6 +8,10 @@ import {
   resolveDesktopOnboardingAutoContinueDirectory,
   resolveDesktopEntryPathWithSnapshots,
 } from "../src/lib/desktop-onboarding"
+import {
+  buildOnboardingChatEntryReturnTo,
+  buildOnboardingTestSearch,
+} from "../src/lib/onboarding-test-mode"
 import type {
   ProviderCatalogState,
   ProviderInfo,
@@ -248,6 +252,15 @@ describe("desktop onboarding entry routing", () => {
         activeDirectory: "/repo-a",
       }),
     ).toBeUndefined()
+  })
+})
+
+describe("onboarding test mode", () => {
+  test("builds the dev-only query used to open onboarding from chat", () => {
+    expect(buildOnboardingTestSearch(buildOnboardingChatEntryReturnTo())).toEqual({
+      test: "onboarding",
+      returnTo: buildOnboardingChatEntryReturnTo(),
+    })
   })
 })
 
