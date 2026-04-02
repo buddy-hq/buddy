@@ -128,6 +128,15 @@ export class BuddyE2EApi {
     return this.request<{ ok: true }>("/api/e2e/providers", {
       method: "PUT",
       body: payload,
+    }).then(async (response) => {
+      if (payload.openAIConnected === undefined) {
+        return response
+      }
+
+      await expect
+        .poll(async () => (await this.getState()).runtime.providers.openAIConnected)
+        .toBe(payload.openAIConnected)
+      return response
     })
   }
 

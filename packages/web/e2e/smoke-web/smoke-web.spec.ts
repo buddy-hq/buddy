@@ -14,6 +14,8 @@ import {
   leftSidebarThreadSelectSelector,
   promptAttachmentItemSelector,
   promptEditorSelector,
+  titlebarDisconnectOpenAiSelector,
+  titlebarTestOnboardingSelector,
   rightSidebarTabEditorSelector,
   teachingEditorPanelSelector,
   teachingEmptyStateSelector,
@@ -91,7 +93,66 @@ test.describe("smoke-web", () => {
     await expect(page.locator(onboardingSetupSelector)).toHaveCount(0)
   })
 
-  test("ENT-04 direct /$directory/chat bootstraps notebook membership", async ({
+  test("ENT-04 dev titlebar shortcut toggles onboarding test mode from chat", async ({
+    page,
+    createNotebook,
+    gotoDirectoryChat,
+    e2e,
+  }) => {
+    const notebook = await createNotebook()
+    await e2e.setOpenProjects([notebook])
+    await e2e.setProviders({ openAIConnected: true })
+
+    await page.goto("/chat")
+    await waitForDriver(page)
+    await setDesktopPlatformOverrides(page, {
+      mode: "desktop",
+      os: "macos",
+    })
+    await page.reload()
+
+    await gotoDirectoryChat(notebook)
+    await page.locator(titlebarTestOnboardingSelector).click()
+
+    await expect(page).toHaveURL(/\/onboarding\?test=onboarding(?:&returnTo=.*)?$/)
+    await expect(page.locator(onboardingSetupSelector)).toBeVisible()
+
+    await page.locator(titlebarTestOnboardingSelector).click()
+    await expect(page.locator(directoryChatShellSelector)).toBeVisible()
+    await expect(page).toHaveURL(/\/chat$/)
+  })
+
+  test("ENT-06 dev titlebar shortcut disconnects OpenAI from the runtime", async ({
+    page,
+    createNotebook,
+    gotoDirectoryChat,
+    e2e,
+  }) => {
+    const notebook = await createNotebook()
+    await e2e.setOpenProjects([notebook])
+    await e2e.setProviders({ openAIConnected: true })
+
+    await page.goto("/chat")
+    await waitForDriver(page)
+    await setDesktopPlatformOverrides(page, {
+      mode: "desktop",
+      os: "macos",
+    })
+    await page.reload()
+
+    await gotoDirectoryChat(notebook)
+    await expect(page.locator(titlebarDisconnectOpenAiSelector)).toBeVisible()
+
+    await page.locator(titlebarDisconnectOpenAiSelector).click()
+    await expect
+      .poll(async () => {
+        const state = await e2e.getState()
+        return state.runtime.providers.openAIConnected
+      })
+      .toBe(false)
+  })
+
+  test("ENT-05 direct /$directory/chat bootstraps notebook membership", async ({
     createNotebook,
     gotoDirectoryChat,
     e2e,

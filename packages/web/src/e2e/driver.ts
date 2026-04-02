@@ -107,6 +107,10 @@ function e2eEnabled() {
   return import.meta.env.VITE_BUDDY_E2E === "1"
 }
 
+export function isE2EEnabled() {
+  return e2eEnabled()
+}
+
 function ensureDriver(): BuddyE2EDriver | undefined {
   if (!e2eEnabled() || typeof window === "undefined") return undefined
 

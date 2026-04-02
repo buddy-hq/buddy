@@ -10,6 +10,8 @@ export const onboardingSelectFreeModelsSelector = '[data-action="onboarding-sele
 export const onboardingSelectChatGptSelector = '[data-action="onboarding-select-chatgpt-plus"]'
 export const onboardingPickFolderSelector = '[data-action="onboarding-pick-folder"]'
 export const onboardingCancelAuthSelector = '[data-action="onboarding-cancel-auth"]'
+export const titlebarDisconnectOpenAiSelector = '[data-action="titlebar-disconnect-openai"]'
+export const titlebarTestOnboardingSelector = '[data-action="titlebar-test-onboarding"]'
 
 export const directoryChatShellSelector = '[data-component="directory-chat-shell"]'
 export const directoryChatMainPaneSelector = '[data-component="directory-chat-main-pane"]'
