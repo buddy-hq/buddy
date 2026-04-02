@@ -116,3 +116,4 @@ export { cn } from "./lib/utils"
 export { toast } from "sonner"
 
 export { ScrollArea } from "./components/ui/scroll-area"
+export * from "./components/ui/item"
