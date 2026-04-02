@@ -1,16 +1,6 @@
 import type { ReactNode } from "react"
-import { Badge, Card, CardContent, Separator, TabsContent, cn } from "@buddy/ui"
+import { Badge, Card, CardContent, Separator, cn } from "@buddy/ui"
 import type { ProviderInfo } from "@/state/chat-types"
-
-export type SettingsTab =
-  | "instructions"
-  | "appearance"
-  | "notebook"
-  | "model"
-  | "providers"
-  | "mcps"
-  | "skills"
-  | "advanced"
 
 const PROVIDER_SOURCE_LABELS: Record<string, string> = {
   env: "Environment",
@@ -18,28 +8,24 @@ const PROVIDER_SOURCE_LABELS: Record<string, string> = {
   custom: "Custom",
 }
 
-export function SettingsPanel(props: {
-  value: SettingsTab
-  title: string
-  description: string
+export function SettingsContent(props: {
+  title?: string
+  description?: string
   children: ReactNode
   fillHeight?: boolean
-  forceMount?: boolean
 }) {
   return (
-    <TabsContent
-      value={props.value}
-      forceMount={props.forceMount ? true : undefined}
-      className="flex min-h-0 flex-1 flex-col outline-none data-[state=inactive]:hidden"
-    >
-      <div className="border-b border-border-base/60 px-5 py-5">
-        <h2 className="text-base font-medium text-text-base">{props.title}</h2>
-        <p className="mt-1 text-sm text-text-weak">{props.description}</p>
-      </div>
+    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
+      {props.title && (
+        <div className="shrink-0 border-b border-border-base/60 px-5 py-5">
+          <h2 className="text-base font-medium text-text-base">{props.title}</h2>
+          {props.description && <p className="mt-1 text-sm text-text-weak">{props.description}</p>}
+        </div>
+      )}
       <div
         className={cn(
           "min-h-0 flex-1 px-5 py-5",
-          props.fillHeight ? "overflow-hidden" : "overflow-y-auto",
+          props.fillHeight ? "overflow-hidden" : "overflow-x-hidden overflow-y-auto",
         )}
       >
         <div
@@ -51,7 +37,7 @@ export function SettingsPanel(props: {
           {props.children}
         </div>
       </div>
-    </TabsContent>
+    </div>
   )
 }
 

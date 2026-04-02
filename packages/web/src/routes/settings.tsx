@@ -1,22 +1,12 @@
 import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router"
 import { useEffect, useMemo } from "react"
 import { Button, cn, toast } from "@buddy/ui"
-import {
-  ArrowLeftIcon,
-  BlocksIcon,
-  BookOpenIcon,
-  BrainIcon,
-  CogIcon,
-  FileTextIcon,
-  PaletteIcon,
-  SettingsIcon,
-  SparklesIcon,
-} from "lucide-react"
+import { ArrowLeftIcon } from "lucide-react"
 import { ChatLeftSidebar } from "@/components/layout/chat-left-sidebar"
 import { language } from "@/context/language"
 import { ResizeHandle } from "@/components/layout/resize-handle"
 import { SettingsPage } from "@/components/settings/settings-page"
-import type { SettingsTab } from "@/components/settings/settings-primitives"
+import { isSettingsTab, SETTINGS_TABS, type SettingsTab } from "@/components/settings/settings-tabs"
 import { encodeDirectory } from "../lib/directory-token"
 import {
   bootstrapOpenProjects,
@@ -33,24 +23,13 @@ import { shallow } from "zustand/shallow"
 import { useUiPreferences } from "@/state/ui-preferences"
 import { pickProjectDirectory } from "../lib/directory-picker"
 
-const VALID_TABS: SettingsTab[] = [
-  "instructions",
-  "appearance",
-  "notebook",
-  "model",
-  "providers",
-  "mcps",
-  "skills",
-  "advanced",
-]
-
 export const Route = createFileRoute("/settings")({
   validateSearch: (search: Record<string, unknown>): { tab: SettingsTab } => {
     const tab = search.tab
-    if (typeof tab === "string" && (VALID_TABS as string[]).includes(tab)) {
-      return { tab: tab as SettingsTab }
+    if (typeof tab === "string" && isSettingsTab(tab)) {
+      return { tab }
     }
-    return { tab: "instructions" }
+    return { tab: SETTINGS_TABS[0].id }
   },
   component: SettingsRoute,
 })
@@ -257,25 +236,6 @@ function SettingsRoute() {
   )
 }
 
-const NAV_ITEMS: {
-  tab: SettingsTab
-  label: string
-  icon: typeof FileTextIcon
-}[] = [
-  {
-    tab: "instructions",
-    label: language.t("routes.settings.nav.instructions"),
-    icon: FileTextIcon,
-  },
-  { tab: "appearance", label: language.t("routes.settings.nav.appearance"), icon: PaletteIcon },
-  { tab: "notebook", label: language.t("routes.settings.nav.notebook"), icon: BookOpenIcon },
-  { tab: "model", label: language.t("common.model"), icon: BrainIcon },
-  { tab: "providers", label: language.t("routes.settings.nav.providers"), icon: SettingsIcon },
-  { tab: "mcps", label: language.t("routes.settings.nav.mcps"), icon: BlocksIcon },
-  { tab: "skills", label: language.t("routes.settings.nav.skills"), icon: SparklesIcon },
-  { tab: "advanced", label: language.t("routes.settings.nav.advanced"), icon: CogIcon },
-]
-
 function SettingsNavContent(props: {
   activeTab: SettingsTab
   onTabChange: (tab: SettingsTab) => void
@@ -288,7 +248,7 @@ function SettingsNavContent(props: {
           data-action="settings-nav-back"
           type="button"
           variant="ghost"
-          className="h-9 w-full justify-start rounded-lg px-2 text-sm font-medium text-text-base hover:bg-surface-raised-base-hover hover:text-text-strong"
+          className="h-9 w-full justify-start rounded-lg px-2 text-sm font-medium text-text-base hover:bg-surface-raised-base-hover hover:text-text-strong active:scale-[0.97] transition-transform duration-150 ease-out"
           onClick={props.onBack}
         >
           <ArrowLeftIcon className="mr-2 size-4" />
@@ -296,24 +256,24 @@ function SettingsNavContent(props: {
         </Button>
       </div>
       <div className="space-y-1">
-        {NAV_ITEMS.map((item) => {
-          const active = props.activeTab === item.tab
+        {SETTINGS_TABS.map((item) => {
+          const active = props.activeTab === item.id
           return (
             <button
-              key={item.tab}
+              key={item.id}
               type="button"
-              data-action={`settings-tab-${item.tab}`}
+              data-action={`settings-tab-${item.id}`}
               data-active={active ? "true" : "false"}
-              onClick={() => props.onTabChange(item.tab)}
+              onClick={() => props.onTabChange(item.id)}
               className={cn(
-                "flex h-9 w-full items-center gap-2 rounded-lg px-2 text-sm",
+                "flex h-9 w-full items-center gap-2 rounded-lg px-2 text-sm active:scale-[0.97] transition-[transform,color,background-color] duration-150 ease-out",
                 active
                   ? "bg-surface-raised-base-hover text-text-strong font-medium"
                   : "text-text-base hover:bg-surface-raised-base-hover hover:text-text-strong",
               )}
             >
               <item.icon className="size-4" />
-              {item.label}
+              {language.t(item.navLabelKey)}
             </button>
           )
         })}
