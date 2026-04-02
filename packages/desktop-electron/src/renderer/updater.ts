@@ -10,18 +10,9 @@ function isUpdaterEnabled() {
   return typeof updaterEnabled === "boolean" ? updaterEnabled : false
 }
 
-let pendingVersion: string | undefined
-
 export async function checkForUpdate(): Promise<UpdateCheckResult> {
   if (!isUpdaterEnabled()) {
     return { status: "disabled" }
-  }
-
-  if (pendingVersion) {
-    return {
-      status: "ready",
-      version: pendingVersion,
-    }
   }
 
   try {
@@ -37,7 +28,6 @@ export async function checkForUpdate(): Promise<UpdateCheckResult> {
       return { status: "up-to-date" }
     }
 
-    pendingVersion = result.version
     return {
       status: "ready",
       version: result.version,
@@ -53,5 +43,4 @@ export async function checkForUpdate(): Promise<UpdateCheckResult> {
 export async function installPendingUpdate() {
   if (!isUpdaterEnabled()) return
   await window.api.installUpdate()
-  pendingVersion = undefined
 }

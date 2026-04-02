@@ -59,6 +59,10 @@ let initStep: InitStep = { phase: "server_waiting" }
 let mainWindow: BrowserWindow | null = null
 let sidecar: CommandChild | null = null
 let updateReady = false
+let readyUpdateVersion: string | undefined
+let checkUpdateTask:
+  | Promise<{ updateAvailable: boolean; version?: string; failed?: boolean }>
+  | undefined
 
 const loadingComplete = defer<void>()
 const serverReady = defer<ServerReadyData>()
@@ -445,25 +449,41 @@ function setupAutoUpdater() {
 async function checkUpdate() {
   if (!UPDATER_ENABLED) return { updateAvailable: false }
 
-  updateReady = false
-
-  try {
-    const result = await autoUpdater.checkForUpdates()
-    const version = result?.updateInfo?.version
-    if (result?.isUpdateAvailable === false || !version) {
-      return { updateAvailable: false }
-    }
-
-    await autoUpdater.downloadUpdate()
-    updateReady = true
+  if (updateReady && readyUpdateVersion) {
     return {
       updateAvailable: true,
-      version,
+      version: readyUpdateVersion,
     }
-  } catch (error) {
-    logger.error("update check failed", error)
-    return { updateAvailable: false, failed: true }
   }
+
+  if (checkUpdateTask) {
+    return await checkUpdateTask
+  }
+
+  checkUpdateTask = (async () => {
+    try {
+      const result = await autoUpdater.checkForUpdates()
+      const version = result?.updateInfo?.version
+      if (result?.isUpdateAvailable === false || !version) {
+        return { updateAvailable: false }
+      }
+
+      await autoUpdater.downloadUpdate()
+      updateReady = true
+      readyUpdateVersion = version
+      return {
+        updateAvailable: true,
+        version,
+      }
+    } catch (error) {
+      logger.error("update check failed", error)
+      return { updateAvailable: false, failed: true }
+    } finally {
+      checkUpdateTask = undefined
+    }
+  })()
+
+  return await checkUpdateTask
 }
 
 async function installUpdate() {
