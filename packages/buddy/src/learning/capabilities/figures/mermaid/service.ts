@@ -98,6 +98,7 @@ const KNOWN_MERMAID_DIAGRAM_TYPES = new Set([
   "xychart-beta",
   "zenuml",
 ])
+const FLOWCHART_DIAGRAM_TYPES = new Set(["flowchart", "graph"])
 
 const INCOMPLETE_CONNECTOR_PATTERN = /(?:-->|--|==>|==|-.->|-.|<-->|<--|->>|->|<->|<=>|=>)\s*$/u
 
@@ -170,6 +171,22 @@ function validateTimelinePeriodLabels(source: string): MermaidValidationResult {
     return {
       ok: false,
       diagnostics: [`Timeline period labels cannot contain ':'. Invalid timeline line: '${line}'`],
+    }
+  }
+
+  return { ok: true }
+}
+
+function validateFlowchartEdgeLabelQuotes(source: string): MermaidValidationResult {
+  for (const line of nonCommentLines(source)) {
+    const quotedEdgeLabel = line.match(/\|([^|\n]*"[^|\n]*)\|/u)
+    if (!quotedEdgeLabel) {
+      continue
+    }
+
+    return {
+      ok: false,
+      diagnostics: [`Flowchart edge labels cannot contain '"'. Invalid flowchart line: '${line}'`],
     }
   }
 
@@ -290,6 +307,10 @@ function validateFallbackMermaidSource(
   const delimiterValidation = validateBalancedDelimiters(source)
   if (!delimiterValidation.ok) {
     return delimiterValidation
+  }
+
+  if (FLOWCHART_DIAGRAM_TYPES.has(normalizedType)) {
+    return validateFlowchartEdgeLabelQuotes(source)
   }
 
   if (normalizedType === "timeline") {

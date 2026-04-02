@@ -401,6 +401,42 @@ describe("mermaid tools", () => {
     expect(payload.source).toContain("10.00 AM : Break")
   })
 
+  test("repairs flowchart edge labels that contain double quotes", async () => {
+    await using project = await tmpdir({ git: true })
+
+    const payload = await OpenCodeInstance.provide({
+      directory: project.path,
+      async fn() {
+        await ensureMermaidToolsRegistered(project.path)
+        const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
+        const renderMermaid = requireTool(tools, "render_mermaid")
+        const result = await renderMermaid.execute(
+          {
+            alt: "Quoted flowchart edge labels",
+            source: ["flowchart TD", 'G -->|Just "lol"| H[You can do both]', "H --> I[Done]"].join(
+              "\n",
+            ),
+          },
+          createToolContext({
+            sessionID: "ses_flowchart_edge_quote_repair",
+            messageID: "msg_flowchart_edge_quote_repair",
+            agent: "buddy",
+          }),
+        )
+
+        return RenderMermaidOutputSchema.parse(JSON.parse(result.output))
+      },
+    })
+
+    expect(payload.diagramType).toBe("flowchart")
+    expect(payload.source).toContain("G -->|Just 'lol'| H[You can do both]")
+    expect(
+      payload.repairLog.some((entry) =>
+        entry.includes("Normalized flowchart edge label quotes from '\"' to \"'\"."),
+      ),
+    ).toBe(true)
+  })
+
   test("canonicalizes quadrant-chart headers to quadrantChart for Mermaid compatibility", async () => {
     await using project = await tmpdir({ git: true })
 

@@ -159,6 +159,35 @@ function inferDiagramTypeToken(source: string): string | undefined {
 }
 
 const TIMELINE_NON_PERIOD_PREFIX = /^(?:title|section|accTitle|accDescr)\b/iu
+const FLOWCHART_DIAGRAM_TYPES = new Set(["flowchart", "graph"])
+
+function normalizeFlowchartEdgeLabelQuotes(source: string, repairLog: string[]): string {
+  if (!FLOWCHART_DIAGRAM_TYPES.has(inferDiagramTypeToken(source) ?? "")) {
+    return source
+  }
+
+  let changed = false
+  const repaired = source
+    .split("\n")
+    .map((line) => {
+      const cleaned = line.replace(/\|([^|\n]*)\|/gu, (_match, label: string) => {
+        const normalizedLabel = label.replace(/"/gu, "'")
+        if (normalizedLabel !== label) {
+          changed = true
+        }
+        return `|${normalizedLabel}|`
+      })
+
+      return cleaned
+    })
+    .join("\n")
+
+  if (changed) {
+    repairLog.push("Normalized flowchart edge label quotes from '\"' to \"'\".")
+  }
+
+  return repaired
+}
 
 function normalizeTimelinePeriodLabelsWithColon(source: string, repairLog: string[]): string {
   if (inferDiagramTypeToken(source) !== "timeline") {
@@ -354,6 +383,7 @@ function runMermaidRepairPass(source: string): MermaidRepairPassResult {
   repaired = removeDuplicateLeadingMermaidMarkers(repaired, repairLog)
   repaired = canonicalizeDiagramHeaderAlias(repaired, repairLog)
   repaired = normalizeSmartPunctuation(repaired, repairLog)
+  repaired = normalizeFlowchartEdgeLabelQuotes(repaired, repairLog)
   repaired = normalizeTimelinePeriodLabelsWithColon(repaired, repairLog)
   repaired = removeTrailingConnectorsFromXychartLines(repaired, repairLog)
   repaired = trimProseOutsideDiagram(repaired, repairLog)
