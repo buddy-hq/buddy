@@ -1,5 +1,6 @@
 import { isRecord } from "../tools/types"
 import { isAbortLikeError } from "@/state/chat-error"
+import { normalizeUpstreamProviderErrorMessage } from "@/lib/upstream-provider-error"
 
 function parseJsonValue(value: string) {
   try {
@@ -27,26 +28,27 @@ export function unwrapError(message: string): string {
     }
   }
 
-  if (!isRecord(json)) return message
+  if (!isRecord(json)) return normalizeUpstreamProviderErrorMessage(message)
 
   const error = isRecord(json.error) ? json.error : undefined
   if (error) {
     const type = typeof error.type === "string" ? error.type : undefined
     const innerMessage = typeof error.message === "string" ? error.message : undefined
-    if (type && innerMessage) return `${type}: ${innerMessage}`
-    if (innerMessage) return innerMessage
-    if (type) return type
+    if (type && innerMessage)
+      return normalizeUpstreamProviderErrorMessage(`${type}: ${innerMessage}`)
+    if (innerMessage) return normalizeUpstreamProviderErrorMessage(innerMessage)
+    if (type) return normalizeUpstreamProviderErrorMessage(type)
     const code = typeof error.code === "string" ? error.code : undefined
-    if (code) return code
+    if (code) return normalizeUpstreamProviderErrorMessage(code)
   }
 
   const fallbackMessage = typeof json.message === "string" ? json.message : undefined
-  if (fallbackMessage) return fallbackMessage
+  if (fallbackMessage) return normalizeUpstreamProviderErrorMessage(fallbackMessage)
 
   const fallbackError = typeof json.error === "string" ? json.error : undefined
-  if (fallbackError) return fallbackError
+  if (fallbackError) return normalizeUpstreamProviderErrorMessage(fallbackError)
 
-  return message
+  return normalizeUpstreamProviderErrorMessage(message)
 }
 
 export function isMessageAbortError(value: unknown): boolean {

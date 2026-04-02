@@ -1,4 +1,5 @@
 import type { SessionStatusInfo } from "./chat-types"
+import { normalizeUpstreamProviderErrorMessage } from "../lib/upstream-provider-error"
 
 const SESSION_STATUS_IDLE = "idle"
 const SESSION_STATUS_BUSY = "busy"
@@ -19,7 +20,16 @@ function asFiniteNumber(value: unknown) {
 }
 
 function asString(value: unknown, fallback: string) {
-  return typeof value === "string" && value.trim().length > 0 ? value : fallback
+  if (typeof value !== "string") {
+    return fallback
+  }
+
+  const trimmed = value.trim()
+  if (trimmed.length === 0) {
+    return fallback
+  }
+
+  return normalizeUpstreamProviderErrorMessage(trimmed)
 }
 
 export function normalizeSessionStatusValue(value: unknown): SessionStatusInfo {

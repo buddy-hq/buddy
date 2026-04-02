@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import {
   isTitlebarInteractiveTarget,
   isTitlebarSystemControlTarget,
+  resolveRightSidebarTogglePlacement,
 } from "../src/components/layout/desktop-titlebar-helpers"
 
 describe("desktop titlebar helpers", () => {
@@ -29,5 +30,10 @@ describe("desktop titlebar helpers", () => {
 
     expect(isTitlebarSystemControlTarget(icon)).toBe(true)
     expect(isTitlebarSystemControlTarget(document.createElement("div"))).toBe(false)
+  })
+
+  test("moves the right sidebar toggle away from windows system controls", () => {
+    expect(resolveRightSidebarTogglePlacement(true)).toBe("leading")
+    expect(resolveRightSidebarTogglePlacement(false)).toBe("trailing")
   })
 })

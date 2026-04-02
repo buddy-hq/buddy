@@ -25,6 +25,7 @@ import {
 import {
   isTitlebarInteractiveTarget,
   isTitlebarSystemControlTarget,
+  resolveRightSidebarTogglePlacement,
 } from "./desktop-titlebar-helpers"
 import {
   LayoutLeftIcon,
@@ -66,6 +67,7 @@ export function DesktopTitlebar() {
   const isDesktop = platform.platform === "desktop"
   const isMac = isDesktop && platform.os === "macos"
   const isWindows = isDesktop && platform.os === "windows"
+  const rightSidebarTogglePlacement = resolveRightSidebarTogglePlacement(isWindows)
   const [isCopied, setIsCopied] = useState(false)
   const pathname = location.pathname
   const leftSidebarOpen = useUiPreferences((state) => state.leftSidebarOpen)
@@ -183,6 +185,41 @@ export function DesktopTitlebar() {
     void platform.toggleWindowMaximize().catch(() => undefined)
   }
 
+  const rightSidebarToggle = showSidebarToggles ? (
+    <div
+      className={
+        rightSidebarTogglePlacement === "trailing"
+          ? "mr-2 flex shrink-0 items-center gap-1"
+          : "flex shrink-0 items-center gap-1"
+      }
+    >
+      <Button
+        type="button"
+        data-action="titlebar-toggle-right-sidebar"
+        variant="ghost"
+        className="h-6 w-8 p-0 box-border text-text-weak hover:bg-surface-base-hover hover:text-text-strong"
+        aria-label={
+          rightSidebarOpen
+            ? language.t("desktopTitlebar.collapseRightPanel")
+            : language.t("desktopTitlebar.expandRightPanel")
+        }
+        aria-expanded={rightSidebarOpen}
+        title={
+          rightSidebarOpen
+            ? language.t("desktopTitlebar.collapseRightPanel")
+            : language.t("desktopTitlebar.expandRightPanel")
+        }
+        onClick={onToggleRightSidebar}
+      >
+        {rightSidebarOpen ? (
+          <LayoutRightPartialIcon className="size-4" />
+        ) : (
+          <LayoutRightIcon className="size-4" />
+        )}
+      </Button>
+    </div>
+  ) : null
+
   return (
     <header
       data-component="desktop-titlebar"
@@ -218,6 +255,7 @@ export function DesktopTitlebar() {
                 <LayoutLeftIcon className="size-4" />
               )}
             </Button>
+            {rightSidebarTogglePlacement === "leading" ? rightSidebarToggle : null}
           </div>
         ) : null}
         <div className="min-w-0 flex-1" />
@@ -290,40 +328,7 @@ export function DesktopTitlebar() {
               </Button>
             </div>
           ) : null}
-          {showSidebarToggles ? (
-            <div
-              className={
-                isWindows
-                  ? "flex shrink-0 items-center gap-1"
-                  : "mr-2 flex shrink-0 items-center gap-1"
-              }
-            >
-              <Button
-                type="button"
-                data-action="titlebar-toggle-right-sidebar"
-                variant="ghost"
-                className="h-6 w-8 p-0 box-border text-text-weak hover:bg-surface-base-hover hover:text-text-strong"
-                aria-label={
-                  rightSidebarOpen
-                    ? language.t("desktopTitlebar.collapseRightPanel")
-                    : language.t("desktopTitlebar.expandRightPanel")
-                }
-                aria-expanded={rightSidebarOpen}
-                title={
-                  rightSidebarOpen
-                    ? language.t("desktopTitlebar.collapseRightPanel")
-                    : language.t("desktopTitlebar.expandRightPanel")
-                }
-                onClick={onToggleRightSidebar}
-              >
-                {rightSidebarOpen ? (
-                  <LayoutRightPartialIcon className="size-4" />
-                ) : (
-                  <LayoutRightIcon className="size-4" />
-                )}
-              </Button>
-            </div>
-          ) : null}
+          {rightSidebarTogglePlacement === "trailing" ? rightSidebarToggle : null}
 
           {isWindows ? (
             <>
