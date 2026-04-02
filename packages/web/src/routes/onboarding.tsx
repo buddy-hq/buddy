@@ -1,8 +1,8 @@
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router"
+import { createFileRoute, redirect, useNavigate, useSearch } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 import { type OnboardingAuthChoice, OnboardingSetup } from "@/components/onboarding"
 import { language } from "@/context/language"
-import { usePlatform } from "@/context/platform"
+import { getPlatform, usePlatform } from "@/context/platform"
 import {
   hasConnectedOpenAiProvider,
   resolveDesktopOnboardingAutoContinueDirectory,
@@ -10,6 +10,11 @@ import {
 } from "@/lib/desktop-onboarding"
 import { encodeDirectory } from "@/lib/directory-token"
 import { normalizeDirectory, pickProjectDirectory } from "@/lib/directory-picker"
+import {
+  ONBOARDING_TEST_SEARCH_VALUE,
+  type OnboardingTestSearch,
+  isOnboardingTestSearch,
+} from "@/lib/onboarding-test-mode"
 import {
   authorizeProviderOAuth,
   completeProviderOAuth,
@@ -31,7 +36,28 @@ import { useChatStore } from "@/state/chat-store"
 import { useOnboardingStore } from "@/state/onboarding-store"
 
 export const Route = createFileRoute("/onboarding")({
-  beforeLoad: async () => {
+  validateSearch: (search: Record<string, unknown>): OnboardingTestSearch => {
+    const result: OnboardingTestSearch = {}
+
+    if (search.test === ONBOARDING_TEST_SEARCH_VALUE) {
+      result.test = ONBOARDING_TEST_SEARCH_VALUE
+    }
+
+    if (typeof search.returnTo === "string" && search.returnTo.length > 0) {
+      result.returnTo = search.returnTo
+    }
+
+    return result
+  },
+  beforeLoad: async ({ search }) => {
+    if (
+      import.meta.env.DEV &&
+      getPlatform().platform === "desktop" &&
+      isOnboardingTestSearch(search)
+    ) {
+      return
+    }
+
     if (!(await shouldShowCurrentDesktopOnboarding())) {
       throw redirect({ to: "/chat" })
     }
@@ -41,6 +67,7 @@ export const Route = createFileRoute("/onboarding")({
 
 function OnboardingRoute() {
   const navigate = useNavigate()
+  const { test } = useSearch({ from: "/onboarding" })
   const platform = usePlatform()
   const setAuthChoice = useOnboardingStore((state) => state.setAuthChoice)
   const setResumeDirectory = useOnboardingStore((state) => state.setResumeDirectory)
@@ -71,11 +98,14 @@ function OnboardingRoute() {
           hasConnectedOpenAiProvider(providersResult.value)
 
         if (openAiConnected) {
-          const nextDirectory = resolveDesktopOnboardingAutoContinueDirectory({
-            connectedOpenAiProvider: true,
-            openProjects,
-            activeDirectory: useChatStore.getState().activeDirectory,
-          })
+          const nextDirectory =
+            test === ONBOARDING_TEST_SEARCH_VALUE
+              ? undefined
+              : resolveDesktopOnboardingAutoContinueDirectory({
+                  connectedOpenAiProvider: true,
+                  openProjects,
+                  activeDirectory: useChatStore.getState().activeDirectory,
+                })
 
           if (nextDirectory) {
             markCompleted()
@@ -97,7 +127,7 @@ function OnboardingRoute() {
     return () => {
       cancelled = true
     }
-  }, [markCompleted, navigate, setAuthChoice])
+  }, [markCompleted, navigate, setAuthChoice, test])
 
   async function handlePickFolder() {
     if (!authChoice) {

@@ -3,17 +3,37 @@ import { useEffect, useState } from "react"
 import { Button, Input, Card, CardContent } from "@buddy/ui"
 import { FolderPlusIcon } from "@/components/layout/sidebar-icons"
 import { language } from "@/context/language"
+import { getPlatform, usePlatform } from "@/context/platform"
 import { resolveBuddyIconUrl } from "@/lib/static-asset"
-import { usePlatform } from "../context/platform"
 import { stringifyError } from "../lib/api-client"
 import { shouldShowCurrentDesktopOnboarding } from "../lib/desktop-onboarding"
 import { encodeDirectory } from "../lib/directory-token"
 import { pickProjectDirectory } from "../lib/directory-picker"
+import {
+  ONBOARDING_TEST_SEARCH_VALUE,
+  type OnboardingTestSearch,
+  isOnboardingTestSearch,
+} from "../lib/onboarding-test-mode"
 import { bootstrapOpenProjects, openProject } from "../state/chat-actions"
 import { useChatStore } from "../state/chat-store"
 
 export const Route = createFileRoute("/chat")({
-  beforeLoad: async () => {
+  validateSearch: (search: Record<string, unknown>): OnboardingTestSearch => {
+    if (search.test === ONBOARDING_TEST_SEARCH_VALUE) {
+      return { test: ONBOARDING_TEST_SEARCH_VALUE }
+    }
+
+    return {}
+  },
+  beforeLoad: async ({ search }) => {
+    if (
+      import.meta.env.DEV &&
+      getPlatform().platform === "desktop" &&
+      isOnboardingTestSearch(search)
+    ) {
+      return
+    }
+
     if (await shouldShowCurrentDesktopOnboarding()) {
       throw redirect({ to: "/onboarding" })
     }
