@@ -58,10 +58,13 @@ export async function loadTeachingWorkspace(input: { directory: string; sessionI
   const result = await getBuddyClient(input.directory).teaching.workspace.read({
     sessionID: input.sessionID,
   })
-  if (result.response.status === 204 || result.data === undefined) {
+  if (!result.response || !result.response.ok || result.error !== undefined) {
+    throw new Error(buddyResultMessage(result))
+  }
+  if (result.response.status === 204) {
     throw new Error("Teaching workspace is not provisioned for this session.")
   }
-  if (!result.response.ok || result.error !== undefined) {
+  if (result.data === undefined) {
     throw new Error(buddyResultMessage(result))
   }
   return result.data as TeachingWorkspaceReadResponses[200] as TeachingWorkspace
@@ -73,11 +76,16 @@ export async function probeTeachingWorkspace(input: { directory: string; session
     optional: "1",
   })
 
-  if (result.response.status === 204) {
+  if (result.response?.status === 204) {
     return undefined
   }
 
-  if (!result.response.ok || result.error !== undefined || result.data === undefined) {
+  if (
+    !result.response ||
+    !result.response.ok ||
+    result.error !== undefined ||
+    result.data === undefined
+  ) {
     throw new Error(buddyResultMessage(result))
   }
 
@@ -100,11 +108,16 @@ export async function saveTeachingWorkspace(input: {
     language: input.language,
   })
 
-  if (result.response.status === 409 && isTeachingConflictPayload(result.error)) {
+  if (result.response?.status === 409 && isTeachingConflictPayload(result.error)) {
     throw new TeachingConflictError(result.error)
   }
 
-  if (!result.response.ok || result.error !== undefined || result.data === undefined) {
+  if (
+    !result.response ||
+    !result.response.ok ||
+    result.error !== undefined ||
+    result.data === undefined
+  ) {
     throw new Error(buddyResultMessage(result))
   }
 

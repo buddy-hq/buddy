@@ -25,7 +25,7 @@ export async function saveGlobalAgentsMd(input: {
     content: input.content,
     expectedVersion: input.expectedVersion,
   })
-  if (result.response.status === 409) {
+  if (result.response?.status === 409) {
     throw new GlobalAgentsMdVersionConflictError(buddyResultMessage(result))
   }
   return requireBuddyData<GlobalAgentsMdSaveResult>(result)

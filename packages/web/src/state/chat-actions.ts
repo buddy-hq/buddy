@@ -5,10 +5,13 @@ import type {
   ConfigPersonasResponses,
   ConfigUpdateData,
   FindFilesResponses,
+  GlobalNotebookHomeGetResponses,
+  GlobalNotebookHomePutResponses,
   LearnerSnapshotResponses,
   McpLocalConfig,
   McpRemoteConfig,
   McpStatusResponses,
+  OpenProjectsCreateResponses,
   PermissionListResponses,
   SessionMessagesResponses,
   SessionTeachingStateResponses,
@@ -218,6 +221,15 @@ const TRANSCRIPT_RETRY_ATTEMPTS = 4
 const TRANSCRIPT_RETRY_DELAY_MS = 500
 const TRANSCRIPT_RETRY_FACTOR = 2
 const pendingSessionCreations = new Map<string, Promise<SessionInfo>>()
+export const DEFAULT_INBOX_NOTEBOOK_NAME = "Inbox" as const
+
+export type NotebookHomeState = {
+  configuredDirectory?: string
+  defaultDirectory: string
+  resolvedDirectory: string
+  inboxDirectory: string
+  inboxName: string
+}
 const latestSessionListRequestByDirectory = new Map<string, number>()
 const latestTranscriptRequestByDirectory = new Map<string, number>()
 type DirectorySessionLoadResult = {
@@ -526,6 +538,45 @@ export async function openProject(directory: string) {
   return canonicalDirectory
 }
 
+export async function createManagedNotebook(name: string) {
+  const notebookName = name.trim()
+  if (!notebookName) {
+    throw new Error("Notebook name is required")
+  }
+
+  const opened = requireBuddyData<OpenProjectsCreateResponses[200]>(
+    await getBuddyClient().openProjects.create({ name: notebookName }),
+  )
+  const canonicalDirectory = normalizeProjectDirectory(opened.directory)
+  if (!canonicalDirectory) {
+    throw new Error("Invalid notebook directory")
+  }
+
+  useChatStore.getState().ensureOpenProject(canonicalDirectory)
+  return canonicalDirectory
+}
+
+export async function openInboxNotebook() {
+  return createManagedNotebook(DEFAULT_INBOX_NOTEBOOK_NAME)
+}
+
+export async function loadNotebookHome() {
+  return requireBuddyData<GlobalNotebookHomeGetResponses[200]>(
+    await getBuddyClient().global.notebookHome.get(),
+  ) as NotebookHomeState
+}
+
+export async function saveNotebookHome(directory: string) {
+  const nextDirectory = directory.trim()
+  if (!nextDirectory) {
+    throw new Error("Notebook home is required")
+  }
+
+  return requireBuddyData<GlobalNotebookHomePutResponses[200]>(
+    await getBuddyClient().global.notebookHome.put({ directory: nextDirectory }),
+  ) as NotebookHomeState
+}
+
 export async function preloadProjectSessions(directories: string[]) {
   const unique = Array.from(
     new Set(directories.map((directory) => normalizeProjectDirectory(directory)).filter(Boolean)),
@@ -602,7 +653,7 @@ async function sessionStillExists(directory: string, sessionID: string) {
   const getResult = await client.session.get({
     sessionID,
   })
-  if (getResult.response.ok && getResult.error === undefined && getResult.data !== undefined) {
+  if (getResult.response?.ok && getResult.error === undefined && getResult.data !== undefined) {
     return true
   }
 
@@ -610,7 +661,7 @@ async function sessionStillExists(directory: string, sessionID: string) {
     directory,
   })
   if (
-    !listResult.response.ok ||
+    !listResult.response?.ok ||
     listResult.error !== undefined ||
     !Array.isArray(listResult.data)
   ) {
@@ -1186,11 +1237,16 @@ export async function loadTeachingSessionState(directory: string, sessionID: str
     sessionID,
   })
 
-  if (result.response.status === 204) {
+  if (result.response?.status === 204) {
     return undefined
   }
 
-  if (!result.response.ok || result.error !== undefined || result.data === undefined) {
+  if (
+    !result.response ||
+    !result.response.ok ||
+    result.error !== undefined ||
+    result.data === undefined
+  ) {
     throw new Error(buddyResultMessage(result))
   }
 

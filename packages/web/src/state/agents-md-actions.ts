@@ -26,7 +26,7 @@ export async function saveNotebookAgentsMd(input: {
     content: input.content,
     expectedVersion: input.expectedVersion,
   })
-  if (result.response.status === 409) {
+  if (result.response?.status === 409) {
     throw new NotebookAgentsMdVersionConflictError(buddyResultMessage(result))
   }
   return requireBuddyData<NotebookAgentsMdSaveResult>(result)
