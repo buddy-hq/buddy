@@ -1,3 +1,4 @@
+import path from "node:path"
 import z from "zod"
 import { Config as OpenCodeConfig } from "@buddy/opencode-adapter/config"
 import { PERSONA_SURFACES, INTENTS } from "@buddy/backend/learning/shared/teaching-vocabulary"
@@ -5,6 +6,8 @@ import { resolveBuddyPersonaProfiles } from "../../learning/personas"
 import { PERSONAS } from "../../learning/personas"
 
 export namespace ConfigSchema {
+  const NOTEBOOK_HOME_PATH_ERROR_MESSAGE = "notebook_home must be an absolute path" as const
+
   export const Mcp = OpenCodeConfig.Mcp
   export type Mcp = z.infer<typeof Mcp>
 
@@ -73,6 +76,7 @@ export namespace ConfigSchema {
       permission: openCodeInfoShape.permission,
       tools: TOOL_TOGGLE_MAP,
       skills_external_vendor_roots_enabled: z.boolean().optional(),
+      notebook_home: z.string().nullable().optional(),
     })
     .strict()
     .superRefine((value, ctx) => {
@@ -105,6 +109,17 @@ export namespace ConfigSchema {
           path: ["personas"],
           message: "At least one Buddy persona must remain visible",
         })
+      }
+
+      if (typeof value.notebook_home === "string") {
+        const notebookHomePath = value.notebook_home.trim()
+        if (!path.isAbsolute(notebookHomePath)) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["notebook_home"],
+            message: NOTEBOOK_HOME_PATH_ERROR_MESSAGE,
+          })
+        }
       }
     })
 

@@ -1,8 +1,9 @@
 import fs from "node:fs/promises"
+import { readFileSync } from "node:fs"
 import path from "node:path"
 import { Project as OpenCodeProject } from "@buddy/opencode-adapter/project"
 import { Global } from "../storage/global"
-import { allowedDirectoryRoots, isAllowedDirectory, resolveDirectory } from "./directory"
+import { resolveDirectory } from "./directory"
 import { projectUpdateErrorMessage } from "./orchestration/project-operations"
 
 const OPEN_PROJECTS_FILENAME = "desktop-notebooks.json"
@@ -18,6 +19,7 @@ class OpenProjectRegistryError extends Error {
 }
 
 let writeQueue = Promise.resolve()
+let registryDirectoriesCache: string[] | undefined
 
 function registryPath() {
   return path.join(Global.Path.state, OPEN_PROJECTS_FILENAME)
@@ -52,13 +54,36 @@ function normalizeRegistryDirectories(entries: unknown) {
 async function readRegistryFile() {
   try {
     const raw = await fs.readFile(registryPath(), "utf8")
-    return normalizeRegistryDirectories(JSON.parse(raw))
+    const directories = normalizeRegistryDirectories(JSON.parse(raw))
+    registryDirectoriesCache = directories
+    return directories
   } catch (error) {
     if ((error as NodeJS.ErrnoException | undefined)?.code === "ENOENT") {
+      registryDirectoriesCache = []
       return []
     }
+    registryDirectoriesCache = []
     return []
   }
+}
+
+function readRegistryFileSync() {
+  try {
+    const raw = readFileSync(registryPath(), "utf8")
+    const directories = normalizeRegistryDirectories(JSON.parse(raw))
+    registryDirectoriesCache = directories
+    return directories
+  } catch {
+    registryDirectoriesCache = []
+    return []
+  }
+}
+
+function readRegistryCache() {
+  if (registryDirectoriesCache) {
+    return registryDirectoriesCache
+  }
+  return readRegistryFileSync()
 }
 
 async function writeRegistryFile(directories: string[]) {
@@ -77,6 +102,7 @@ async function updateRegistry(mutator: (current: string[]) => Promise<string[]> 
     const current = await readRegistryFile()
     const next = normalizeRegistryDirectories(await mutator(current))
     await writeRegistryFile(next)
+    registryDirectoriesCache = next
     return next
   })
 
@@ -115,9 +141,6 @@ export async function listOpenProjects() {
 
 export async function openProjectRegistryEntry(rawDirectory: string) {
   const directory = requireRegistryDirectory(rawDirectory)
-  if (!isAllowedDirectory(directory, allowedDirectoryRoots())) {
-    throw new OpenProjectRegistryError(403, "Directory is outside allowed roots")
-  }
 
   try {
     await OpenCodeProject.fromDirectory(directory)
@@ -153,12 +176,7 @@ export async function reorderOpenProjectRegistryEntries(rawDirectories: string[]
 
 export async function setOpenProjectRegistryEntries(rawDirectories: string[]) {
   const directories = normalizeRegistryDirectories(rawDirectories)
-
   for (const directory of directories) {
-    if (!isAllowedDirectory(directory, allowedDirectoryRoots())) {
-      throw new OpenProjectRegistryError(403, "Directory is outside allowed roots")
-    }
-
     try {
       await OpenCodeProject.fromDirectory(directory)
     } catch (error) {
@@ -167,6 +185,15 @@ export async function setOpenProjectRegistryEntries(rawDirectories: string[]) {
   }
 
   return updateRegistry(() => directories)
+}
+
+export function isDirectoryInOpenProjectRegistry(directory: string): boolean {
+  const normalizedDirectory = normalizeRegistryDirectory(directory)
+  if (!normalizedDirectory) {
+    return false
+  }
+
+  return readRegistryCache().includes(normalizedDirectory)
 }
 
 export function isOpenProjectRegistryError(error: unknown): error is OpenProjectRegistryError {

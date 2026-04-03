@@ -17,6 +17,7 @@ const BUDDY_RUNTIME_PERMISSION_OVERLAY: Config.Permission = {
   "python_*": "deny",
   "render_*": "deny",
   "teaching_*": "deny",
+  external_directory: "ask",
   websearch: "allow",
   codesearch: "allow",
 }

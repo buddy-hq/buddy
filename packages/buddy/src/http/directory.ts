@@ -1,4 +1,5 @@
 import { allowedDirectoryRoots, isAllowedDirectory, resolveDirectory } from "../project"
+import { isDirectoryInOpenProjectRegistry } from "../project/open-project-registry"
 
 export type DirectoryRequestSource =
   | Request
@@ -57,7 +58,10 @@ function requestDirectory(source: DirectoryRequestSource): { requestURL: URL; di
 
 export const ensureAllowedDirectory: EnsureAllowedDirectory = (source) => {
   const { requestURL, directory } = requestDirectory(source)
-  if (!isAllowedDirectory(directory, allowedDirectoryRoots())) {
+  const allowedByRoots = isAllowedDirectory(directory, allowedDirectoryRoots())
+  const allowedByOpenProjectRegistry = isDirectoryInOpenProjectRegistry(directory)
+
+  if (!allowedByRoots && !allowedByOpenProjectRegistry) {
     return {
       ok: false,
       response: Response.json({ error: "Directory is outside allowed roots" }, { status: 403 }),

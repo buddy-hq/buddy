@@ -92,6 +92,7 @@ export async function buildCompiledBuddyBinary(input: BuildCompiledBuddyBinaryIn
   }
   const outputFile = path.resolve(input.outputFile)
   const bundleOutputFile = input.bundleOutputFile ? path.resolve(input.bundleOutputFile) : undefined
+  const compileEntrypoint = bundleOutputFile ?? sourceEntrypoint
   const buddyMigrationDir = path.resolve(backendDir, "migration")
   const opencodeMigrationDir = path.resolve(
     backendDir,
@@ -118,8 +119,6 @@ export async function buildCompiledBuddyBinary(input: BuildCompiledBuddyBinaryIn
   }
 
   try {
-    let compileEntrypoint = sourceEntrypoint
-
     if (bundleOutputFile) {
       const bundleOutdir = path.dirname(bundleOutputFile)
       const bundleResult = await Bun.build({
@@ -140,7 +139,6 @@ export async function buildCompiledBuddyBinary(input: BuildCompiledBuddyBinaryIn
       }
 
       patchBundledUndiciNamespace(bundleOutputFile)
-      compileEntrypoint = bundleOutputFile
 
       if (existsSync(buddySkillsDir)) {
         const bundledSkillsTarget = path.resolve(
