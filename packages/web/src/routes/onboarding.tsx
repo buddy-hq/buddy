@@ -28,9 +28,11 @@ import {
 import {
   loadProviderCatalog,
   loadProviderCatalogSnapshot,
+  loadNotebookHome,
   loadOpenProjects,
-  openProject,
+  openInboxNotebook,
   patchProjectConfig,
+  saveNotebookHome,
 } from "@/state/chat-actions"
 import { useChatStore } from "@/state/chat-store"
 import { useOnboardingStore } from "@/state/onboarding-store"
@@ -82,73 +84,76 @@ function OnboardingRoute() {
   const [error, setError] = useState<string | undefined>(undefined)
   const [busyChoice, setBusyChoice] = useState<OnboardingAuthChoice | undefined>(undefined)
   const [folderBusy, setFolderBusy] = useState(false)
+  const [defaultHomeDirectory, setDefaultHomeDirectory] = useState<string | undefined>(undefined)
   const [authAbort, setAuthAbort] = useState<AbortController | undefined>(undefined)
 
   useEffect(() => {
     let cancelled = false
 
-    void Promise.allSettled([loadOpenProjects(), loadProviderCatalogSnapshot()]).then(
-      ([openProjectsResult, providersResult]) => {
-        if (cancelled) return
+    void Promise.allSettled([
+      loadOpenProjects(),
+      loadProviderCatalogSnapshot(),
+      loadNotebookHome(),
+    ]).then(([openProjectsResult, providersResult, notebookHomeResult]) => {
+      if (cancelled) return
 
-        const openProjects =
-          openProjectsResult.status === "fulfilled" ? openProjectsResult.value : []
-        const openAiConnected =
-          providersResult.status === "fulfilled" &&
-          hasConnectedOpenAiProvider(providersResult.value)
+      const openProjects = openProjectsResult.status === "fulfilled" ? openProjectsResult.value : []
+      const openAiConnected =
+        providersResult.status === "fulfilled" && hasConnectedOpenAiProvider(providersResult.value)
 
-        if (openAiConnected) {
-          const nextDirectory =
-            test === ONBOARDING_TEST_SEARCH_VALUE
-              ? undefined
-              : resolveDesktopOnboardingAutoContinueDirectory({
-                  connectedOpenAiProvider: true,
-                  openProjects,
-                  activeDirectory: useChatStore.getState().activeDirectory,
-                })
+      if (notebookHomeResult.status === "fulfilled") {
+        setDefaultHomeDirectory(notebookHomeResult.value.defaultDirectory)
+      }
 
-          if (nextDirectory) {
-            markCompleted()
-            navigate({
-              to: "/$directory/chat",
-              params: { directory: encodeDirectory(nextDirectory) },
-              replace: true,
-            })
-            return
-          }
+      if (openAiConnected) {
+        const nextDirectory =
+          test === ONBOARDING_TEST_SEARCH_VALUE
+            ? undefined
+            : resolveDesktopOnboardingAutoContinueDirectory({
+                connectedOpenAiProvider: true,
+                openProjects,
+                activeDirectory: useChatStore.getState().activeDirectory,
+              })
 
-          setConnectedAuthChoice("chatgpt_plus")
-          setLocalAuthChoice("chatgpt_plus")
-          setAuthChoice("chatgpt_plus")
+        if (nextDirectory) {
+          markCompleted()
+          navigate({
+            to: "/$directory/chat",
+            params: { directory: encodeDirectory(nextDirectory) },
+            replace: true,
+          })
+          return
         }
-      },
-    )
+
+        setConnectedAuthChoice("chatgpt_plus")
+        setLocalAuthChoice("chatgpt_plus")
+        setAuthChoice("chatgpt_plus")
+      }
+    })
 
     return () => {
       cancelled = true
     }
   }, [markCompleted, navigate, setAuthChoice, test])
 
-  async function handlePickFolder() {
+  async function finalizeNotebookSelection(configuredHomeDirectory?: string) {
     if (!authChoice) {
       setError(language.t("routes.onboarding.pickProviderFirst"))
       return
     }
 
     try {
-      const picked = await pickProjectDirectory()
-      if (!picked) return
-
-      const normalized = normalizeDirectory(picked)
-      if (!normalized) return
-
       setFolderBusy(true)
       setError(undefined)
 
       const result = await configureNotebookForOnboarding({
         authChoice,
-        directory: normalized,
-        openProject,
+        prepareNotebook: async () => {
+          if (configuredHomeDirectory) {
+            await saveNotebookHome(configuredHomeDirectory)
+          }
+          return openInboxNotebook()
+        },
         loadProviderCatalog,
         patchProjectConfig,
       })
@@ -164,10 +169,32 @@ function OnboardingRoute() {
         replace: true,
       })
     } catch (err) {
-      setError(formatProviderAuthError(err, language.t("routes.onboarding.openNotebookFailed")))
+      setError(
+        formatProviderAuthError(err, language.t("routes.onboarding.initializeNotebookFailed")),
+      )
     } finally {
       setFolderBusy(false)
     }
+  }
+
+  async function handlePickFolder() {
+    try {
+      const picked = await pickProjectDirectory()
+      if (!picked) return
+
+      const normalized = normalizeDirectory(picked)
+      if (!normalized) return
+
+      await finalizeNotebookSelection(normalized)
+    } catch (err) {
+      setError(
+        formatProviderAuthError(err, language.t("routes.onboarding.initializeNotebookFailed")),
+      )
+    }
+  }
+
+  async function handleUseDefaultHome() {
+    await finalizeNotebookSelection(defaultHomeDirectory)
   }
 
   async function handleChoose(choice: OnboardingAuthChoice) {
@@ -229,8 +256,12 @@ function OnboardingRoute() {
       connectedAuthChoice={connectedAuthChoice}
       busyChoice={busyChoice}
       folderBusy={folderBusy}
+      defaultHomeDirectory={defaultHomeDirectory}
       error={error}
       onChoose={handleChoose}
+      onUseDefaultHome={() => {
+        void handleUseDefaultHome()
+      }}
       onPickFolder={() => {
         void handlePickFolder()
       }}
