@@ -10,6 +10,7 @@ import {
 } from "../agents-md/service"
 import { booleanJsonResponse, routeErrors, runRouteTask } from "../http"
 import { proxyToOpenCode } from "../http"
+import { mapManagedNotebookError, readNotebookHomeState, saveNotebookHome } from "../project"
 
 const globalAgentsMdReadResponseSchema = z.object({
   path: z.string(),
@@ -27,6 +28,16 @@ const globalAgentsMdWriteResponseSchema = z.object({
   path: z.string(),
   content: z.string(),
   version: z.string(),
+})
+const notebookHomeResponseSchema = z.object({
+  configuredDirectory: z.string().optional(),
+  defaultDirectory: z.string(),
+  resolvedDirectory: z.string(),
+  inboxDirectory: z.string(),
+  inboxName: z.string(),
+})
+const notebookHomeBodySchema = z.object({
+  directory: z.string(),
 })
 
 export const GlobalRoutes = new Hono()
@@ -71,6 +82,49 @@ export const GlobalRoutes = new Hono()
       runRouteTask({
         task: async () => c.json(await Config.updateGlobal(c.req.valid("json"))),
         mapError: mapConfigRouteError,
+      }),
+  )
+  .get(
+    "/notebook-home",
+    describeRoute({
+      operationId: "global.notebookHome.get",
+      summary: "Get Buddy notebook home",
+      responses: {
+        200: {
+          description: "Buddy notebook home state",
+          content: {
+            "application/json": { schema: resolver(notebookHomeResponseSchema) },
+          },
+        },
+        ...routeErrors(400, 403),
+      },
+    }),
+    async (c) =>
+      runRouteTask({
+        task: async () => c.json(await readNotebookHomeState()),
+        mapError: (error) => mapManagedNotebookError(error) ?? mapConfigRouteError(error),
+      }),
+  )
+  .put(
+    "/notebook-home",
+    describeRoute({
+      operationId: "global.notebookHome.put",
+      summary: "Set Buddy notebook home",
+      responses: {
+        200: {
+          description: "Updated Buddy notebook home state",
+          content: {
+            "application/json": { schema: resolver(notebookHomeResponseSchema) },
+          },
+        },
+        ...routeErrors(400, 403, 409),
+      },
+    }),
+    validator("json", notebookHomeBodySchema),
+    async (c) =>
+      runRouteTask({
+        task: async () => c.json(await saveNotebookHome(c.req.valid("json").directory)),
+        mapError: (error) => mapManagedNotebookError(error) ?? mapConfigRouteError(error),
       }),
   )
   .post(

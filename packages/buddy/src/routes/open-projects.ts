@@ -9,6 +9,7 @@ import {
   openProjectRegistryEntry,
   reorderOpenProjectRegistryEntries,
 } from "../project/open-project-registry"
+import { createManagedNotebook, mapManagedNotebookError } from "../project"
 
 const openProjectsResponseSchema = z.object({
   directories: z.array(z.string()),
@@ -16,6 +17,9 @@ const openProjectsResponseSchema = z.object({
 
 const openProjectBodySchema = z.object({
   directory: z.string(),
+})
+const createManagedNotebookBodySchema = z.object({
+  name: z.string(),
 })
 
 const openProjectQuerySchema = z.object({
@@ -68,6 +72,31 @@ export const OpenProjectsRoutes = new Hono()
         task: async () =>
           c.json({ directory: await openProjectRegistryEntry(c.req.valid("json").directory) }),
         mapError: mapOpenProjectRegistryError,
+      }),
+  )
+  .post(
+    "/create",
+    describeRoute({
+      operationId: "openProjects.create",
+      summary: "Create or open a Buddy-managed notebook",
+      responses: {
+        200: {
+          description: "Managed notebook directory",
+          content: {
+            "application/json": {
+              schema: resolver(openProjectResponseSchema),
+            },
+          },
+        },
+        ...routeErrors(400, 403, 409),
+      },
+    }),
+    validator("json", createManagedNotebookBodySchema),
+    async (c) =>
+      runRouteTask({
+        task: async () =>
+          c.json({ directory: await createManagedNotebook(c.req.valid("json").name) }),
+        mapError: (error) => mapManagedNotebookError(error) ?? mapOpenProjectRegistryError(error),
       }),
   )
   .delete(
