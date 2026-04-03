@@ -15,15 +15,18 @@ const SQLITE_PROGRESS_PREFIX = "sqlite-migration:"
 const SERVE_COMMAND = "serve"
 const HOSTNAME_OPTION = "--hostname"
 const PORT_OPTION = "--port"
-const PRINT_LOGS_OPTION = "--print-logs"
-const LOG_LEVEL_OPTION = "--log-level"
-const LOG_LEVEL_WARN = "WARN"
+const BUN_RUN_COMMAND = "run"
 const ADVANCED_MATH_LOCAL_ASSET_DIR_ENV = "BUDDY_ADVANCED_MATH_LOCAL_ASSET_DIR"
+const BUN_BE_BUN_ENV = "BUN_BE_BUN"
 const ADVANCED_MATH_LOCAL_ASSET_PATH_SEGMENTS = ["dist", "advanced-math-runtime"] as const
 const RUNTIME_SUBDIRECTORIES = ["data", "cache", "config", "state"] as const
 const OPENCODE_DATA_SUBDIRECTORY = "opencode"
 const BUDDY_RUNTIME_DIRECTORY_NAME = ".buddy-runtime"
 const BUDDY_RUNTIME_XDG_DIRECTORY_NAME = "xdg"
+const BUNDLED_BACKEND_DIRECTORY_NAME = "backend"
+const BUNDLED_MIGRATIONS_DIRECTORY_NAME = "migrations"
+const BUDDY_MIGRATION_DIRECTORY_NAME = "buddy"
+const DEFAULT_NOTEBOOK_HOME_SEGMENTS = ["Documents", "Buddy"] as const
 const PATH_ENV_KEYS = ["PATH", "Path"] as const
 const POSIX_SIDECAR_PATH_ENTRIES = [
   "/opt/homebrew/bin",
@@ -50,18 +53,58 @@ function sidecarBinaryName() {
   return process.platform === "win32" ? `${SIDECAR_BINARY_NAME}.exe` : SIDECAR_BINARY_NAME
 }
 
-export function getSidecarPath() {
+function resourcesDirectory() {
   if (app.isPackaged) {
-    return path.join(process.resourcesPath, sidecarBinaryName())
+    return process.resourcesPath
   }
-  return path.join(import.meta.dirname, "../../resources", sidecarBinaryName())
+  return path.join(import.meta.dirname, "../../resources")
+}
+
+function resolveAllowedDirectoryRoots(input: { home: string; runtimeRoot: string }) {
+  const configuredRoots = [
+    path.join(input.home, ...DEFAULT_NOTEBOOK_HOME_SEGMENTS),
+    input.runtimeRoot,
+  ]
+
+  return Array.from(new Set(configuredRoots)).join(",")
+}
+
+function resolveDefaultNotebookHome(home: string) {
+  return path.join(home, ...DEFAULT_NOTEBOOK_HOME_SEGMENTS)
+}
+
+export function getSidecarPath() {
+  return path.join(resourcesDirectory(), sidecarBinaryName())
+}
+
+function getBundledBackendEntrypointPath() {
+  const entrypoint = path.join(
+    resourcesDirectory(),
+    BUNDLED_BACKEND_DIRECTORY_NAME,
+    `${SIDECAR_BINARY_NAME}.js`,
+  )
+  if (!existsSync(entrypoint)) {
+    throw new Error(`Bundled Buddy backend entrypoint not found at ${entrypoint}`)
+  }
+  return entrypoint
+}
+
+function getBundledBuddyMigrationDir() {
+  const migrationDir = path.join(
+    resourcesDirectory(),
+    BUNDLED_MIGRATIONS_DIRECTORY_NAME,
+    BUDDY_MIGRATION_DIRECTORY_NAME,
+  )
+  if (!existsSync(migrationDir)) {
+    throw new Error(`Bundled Buddy migration directory not found at ${migrationDir}`)
+  }
+  return migrationDir
 }
 
 function buildRuntimeEnvironment(password: string, port: number) {
   const runtimeRoot = resolveBuddyRuntimeRoot()
   const xdgDataHome = path.join(runtimeRoot, "data")
   const home = os.homedir()
-  const allowedRoots = [home, os.tmpdir()].join(",")
   const base = Object.fromEntries(
     Object.entries(process.env).filter(
       (entry): entry is [string, string] => typeof entry[1] === "string",
@@ -70,13 +113,18 @@ function buildRuntimeEnvironment(password: string, port: number) {
 
   const environment: Record<string, string> = {
     ...base,
+    [BUN_BE_BUN_ENV]: "1",
     BUDDY_SERVER_USERNAME: SIDECAR_USERNAME,
     BUDDY_SERVER_PASSWORD: password,
     OPENCODE_SERVER_USERNAME: SIDECAR_USERNAME,
     OPENCODE_SERVER_PASSWORD: password,
     BUDDY_APP_VERSION: app.getVersion(),
-    BUDDY_DIRECTORY_BASE: home,
-    BUDDY_ALLOWED_DIRECTORY_ROOTS: allowedRoots,
+    BUDDY_MIGRATION_DIR: getBundledBuddyMigrationDir(),
+    BUDDY_DIRECTORY_BASE: resolveDefaultNotebookHome(home),
+    BUDDY_ALLOWED_DIRECTORY_ROOTS: resolveAllowedDirectoryRoots({
+      home,
+      runtimeRoot,
+    }),
     BUDDY_RUNTIME_ROOT: runtimeRoot,
     XDG_DATA_HOME: xdgDataHome,
     XDG_CACHE_HOME: path.join(runtimeRoot, "cache"),
@@ -171,10 +219,10 @@ function killStaleDevelopmentSidecars(runtimeRoot: string) {
 
 export function serve(hostname: string, port: number, password: string) {
   const sidecarPath = getSidecarPath()
+  const entrypoint = getBundledBackendEntrypointPath()
   const args = [
-    PRINT_LOGS_OPTION,
-    LOG_LEVEL_OPTION,
-    LOG_LEVEL_WARN,
+    BUN_RUN_COMMAND,
+    entrypoint,
     SERVE_COMMAND,
     HOSTNAME_OPTION,
     hostname,

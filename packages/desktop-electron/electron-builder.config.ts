@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs"
 import type { Configuration } from "electron-builder"
 
 const CHANNEL_ENV_KEY = "BUDDY_CHANNEL"
@@ -13,6 +14,25 @@ function resolveChannel(): Channel {
 }
 
 const channel = resolveChannel()
+const backendResourcesDir = new URL("./resources/backend", import.meta.url)
+const migrationsResourcesDir = new URL("./resources/migrations", import.meta.url)
+
+const optionalRuntimeResources = [
+  existsSync(backendResourcesDir)
+    ? {
+        from: "resources/backend",
+        to: "backend",
+        filter: ["**/*"],
+      }
+    : undefined,
+  existsSync(migrationsResourcesDir)
+    ? {
+        from: "resources/migrations",
+        to: "migrations",
+        filter: ["**/*"],
+      }
+    : undefined,
+].filter((entry): entry is NonNullable<typeof entry> => entry !== undefined)
 
 const BASE_CONFIGURATION: Configuration = {
   artifactName: "buddy-electron-${os}-${arch}.${ext}",
@@ -27,6 +47,7 @@ const BASE_CONFIGURATION: Configuration = {
       to: "",
       filter: ["buddy-backend*"],
     },
+    ...optionalRuntimeResources,
     {
       from: "resources",
       to: "",

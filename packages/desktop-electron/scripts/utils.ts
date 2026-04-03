@@ -8,6 +8,10 @@ import {
 } from "node:fs"
 import path from "node:path"
 import {
+  syncBundledBackendResources,
+  syncBundledMigrations,
+} from "../../../script/desktop-runtime-resources"
+import {
   currentDesktopRustTarget,
   getSidecarTargetByRustTarget,
   isWindowsRustTarget,
@@ -23,6 +27,8 @@ export type SidecarBinary = DesktopSidecarTarget
 
 const PACKAGE_DIR = path.resolve(import.meta.dir, "..")
 const PACKAGE_JSON_PATH = path.resolve(PACKAGE_DIR, "package.json")
+const BACKEND_RESOURCES_DIR = path.resolve(PACKAGE_DIR, "resources/backend")
+const MIGRATIONS_DIR = path.resolve(PACKAGE_DIR, "resources/migrations")
 
 export const SIDECAR_BINARIES: SidecarBinary[] = SHARED_SIDECAR_BINARIES
 
@@ -66,6 +72,21 @@ export function copyBinaryToResources(source: string, target = currentTargetTrip
   }
 
   return destination
+}
+
+export function syncBackendRuntimeResources(
+  sourceDir: string,
+  target = BUDDY_RUST_TARGET ?? currentTargetTriple(),
+) {
+  return syncBundledBackendResources({
+    destinationDir: BACKEND_RESOURCES_DIR,
+    sourceDir,
+    target,
+  })
+}
+
+export function syncMigrations() {
+  return syncBundledMigrations(MIGRATIONS_DIR)
 }
 
 export function updateDesktopPackageVersion(version: string) {

@@ -4,3 +4,5 @@ node_modules/
 *.tsbuildinfo
 resources/icons/
 resources/buddy-backend*
+resources/backend/
+resources/migrations/
