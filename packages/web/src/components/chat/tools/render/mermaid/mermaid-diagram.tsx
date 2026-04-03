@@ -152,7 +152,6 @@ export function MermaidDiagram(props: {
                 <div className="font-medium text-icon-critical-base">
                   {language.t("chatTools.mermaidDiagram.renderErrorTitle")}
                 </div>
-               
               </div>
               <Button
                 type="button"
@@ -168,14 +167,12 @@ export function MermaidDiagram(props: {
                 ) : (
                   <CopyIcon className="size-3.5" />
                 )}
-                
               </Button>
             </div>
           </div>
 
           {props.showRawSourceOnError ? (
             <div className="space-y-2">
-              
               <pre
                 className={
                   props.rawSourceClassName ??

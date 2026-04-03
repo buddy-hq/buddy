@@ -11,6 +11,10 @@
     "*.tsbuildinfo",
     "**/routeTree.gen.ts",
     "**/bindings.ts",
+    "packages/desktop-electron/resources/backend",
+    "packages/desktop-electron/resources/migrations",
+    "packages/desktop/src-tauri/resources/backend",
+    "packages/desktop/src-tauri/resources/migrations",
     "packages/web/e2e/playwright-report",
     "packages/web/e2e/test-results"
   ],
