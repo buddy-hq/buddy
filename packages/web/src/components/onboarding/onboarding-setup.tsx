@@ -9,8 +9,10 @@ type OnboardingSetupProps = {
   connectedAuthChoice?: OnboardingAuthChoice
   busyChoice?: OnboardingAuthChoice
   folderBusy: boolean
+  defaultHomeDirectory?: string
   error?: string
   onChoose: (choice: OnboardingAuthChoice) => void
+  onUseDefaultHome: () => void
   onPickFolder: () => void
   onCancelAuth?: () => void
 }
@@ -47,8 +49,12 @@ export function OnboardingSetup(props: OnboardingSetupProps) {
     },
     notebookSelection: {
       heading: language.t("onboardingSetup.notebookSelection.heading"),
-      buttonIdle: language.t("onboardingSetup.notebookSelection.buttonIdle"),
-      buttonBusy: language.t("onboardingSetup.notebookSelection.buttonBusy"),
+      defaultPathLabel: language.t("onboardingSetup.notebookSelection.defaultPathLabel"),
+      buttonUseDefaultIdle: language.t("onboardingSetup.notebookSelection.buttonUseDefaultIdle"),
+      buttonUseDefaultBusy: language.t("onboardingSetup.notebookSelection.buttonUseDefaultBusy"),
+      buttonPickFolderIdle: language.t("onboardingSetup.notebookSelection.buttonPickFolderIdle"),
+      buttonPickFolderBusy: language.t("onboardingSetup.notebookSelection.buttonPickFolderBusy"),
+      note: language.t("onboardingSetup.notebookSelection.note"),
     },
     chatGptModal: {
       title: language.t("onboardingSetup.chatGptModal.title"),
@@ -226,23 +232,46 @@ export function OnboardingSetup(props: OnboardingSetupProps) {
 
           <Button
             type="button"
-            data-action="onboarding-pick-folder"
-            onClick={props.onPickFolder}
+            data-action="onboarding-use-default-home"
+            onClick={props.onUseDefaultHome}
             disabled={props.folderBusy || !hasProvider}
             size="lg"
             className="w-full h-16 rounded-2xl px-4 text-[16px]"
           >
             {props.folderBusy ? (
               <span className="animate-pulse font-medium">
-                {content.notebookSelection.buttonBusy}
+                {content.notebookSelection.buttonUseDefaultBusy}
               </span>
             ) : (
               <div className="flex w-full items-center gap-3">
                 <FolderOpenIcon className="size-5 shrink-0" />
-                <span className="font-medium">{content.notebookSelection.buttonIdle}</span>
+                <span className="font-medium">
+                  {content.notebookSelection.buttonUseDefaultIdle}
+                </span>
               </div>
             )}
           </Button>
+
+          {props.defaultHomeDirectory ? (
+            <p className="text-xs text-text-weak">
+              {content.notebookSelection.defaultPathLabel}: {props.defaultHomeDirectory}
+            </p>
+          ) : null}
+
+          <Button
+            type="button"
+            data-action="onboarding-pick-folder"
+            variant="outline"
+            onClick={props.onPickFolder}
+            disabled={props.folderBusy || !hasProvider}
+            size="lg"
+            className="w-full h-12 rounded-2xl px-4 text-[15px]"
+          >
+            {props.folderBusy
+              ? content.notebookSelection.buttonPickFolderBusy
+              : content.notebookSelection.buttonPickFolderIdle}
+          </Button>
+          <p className="text-xs text-text-weak">{content.notebookSelection.note}</p>
         </div>
       </div>
     </div>

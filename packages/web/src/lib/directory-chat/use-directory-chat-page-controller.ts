@@ -48,6 +48,8 @@ import {
   loadPermissions,
   loadSessions,
   loadTeachingSessionState,
+  createManagedNotebook,
+  openInboxNotebook,
   openProject,
   reorderOpenProjects,
   replyPermission,
@@ -574,8 +576,12 @@ export function useDirectoryChatPageController(
     }
   }
 
-  async function onOpenProject() {
+  function reportCurrentDirectoryError(error: unknown) {
     if (!decodedDirectory) return
+    cs.setDirectoryError(decodedDirectory, stringifyError(error))
+  }
+
+  async function onOpenExistingFolder() {
     try {
       const picked = await pickProjectDirectory()
       if (!picked) return
@@ -583,7 +589,34 @@ export function useDirectoryChatPageController(
       cs.setActiveDirectory(nextDirectory)
       onSwitchDirectory(nextDirectory)
     } catch (error) {
-      cs.setDirectoryError(decodedDirectory, stringifyError(error))
+      reportCurrentDirectoryError(error)
+    }
+  }
+
+  async function onQuickChat() {
+    try {
+      const inboxDirectory = await openInboxNotebook()
+      cs.setActiveDirectory(inboxDirectory)
+      startNewSessionDraft(inboxDirectory)
+      if (inboxDirectory !== decodedDirectory) {
+        onSwitchDirectory(inboxDirectory)
+      }
+    } catch (error) {
+      reportCurrentDirectoryError(error)
+    }
+  }
+
+  async function onCreateNotebook(name: string) {
+    try {
+      const nextDirectory = await createManagedNotebook(name)
+      cs.setActiveDirectory(nextDirectory)
+      startNewSessionDraft(nextDirectory)
+      if (nextDirectory !== decodedDirectory) {
+        onSwitchDirectory(nextDirectory)
+      }
+    } catch (error) {
+      reportCurrentDirectoryError(error)
+      throw error
     }
   }
 
@@ -1100,8 +1133,15 @@ export function useDirectoryChatPageController(
     pinnedByDirectory: cs.pinnedByDirectory,
     unreadByDirectory: cs.unreadByDirectory,
     onOpenDirectory: () => {
-      void onOpenProject()
+      void onOpenExistingFolder()
     },
+    onOpenExistingFolder: () => {
+      void onOpenExistingFolder()
+    },
+    onQuickChat: () => {
+      void onQuickChat()
+    },
+    onCreateNotebook,
     onNewSession: (targetDirectory) => {
       void onNewSession(targetDirectory)
     },

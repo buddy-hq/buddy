@@ -6,9 +6,12 @@ type ChatEmptyStateProps = {
 }
 
 const logoFilter = "saturate(1.06) contrast(1.04)"
+const INBOX_DIRECTORY_LABEL = "Inbox" as const
 
 export function ChatEmptyState(props: ChatEmptyStateProps) {
   const buddyIconUrl = resolveBuddyIconUrl()
+  const isInboxDirectory =
+    props.directoryLabel.trim().toLowerCase() === INBOX_DIRECTORY_LABEL.toLowerCase()
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-2 flex flex-1 items-center justify-center duration-700">
@@ -21,9 +24,11 @@ export function ChatEmptyState(props: ChatEmptyStateProps) {
         />
 
         <h1 className="text-2xl font-bold tracking-tight text-text-base">
-          {language.t("chat.emptyState.title")}
+          {isInboxDirectory ? language.t("sidebar.quickChat") : language.t("chat.emptyState.title")}
         </h1>
-        <p className="mt-1 text-lg font-medium text-text-weak">{props.directoryLabel}</p>
+        {!isInboxDirectory && (
+          <p className="mt-1 text-lg font-medium text-text-weak">{props.directoryLabel}</p>
+        )}
       </div>
     </div>
   )

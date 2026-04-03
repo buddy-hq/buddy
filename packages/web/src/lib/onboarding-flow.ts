@@ -93,15 +93,14 @@ async function waitForConnectedProvider(input: {
 
 export async function configureNotebookForOnboarding(input: {
   authChoice: OnboardingAuthChoice
-  directory: string
-  openProject: (directory: string) => Promise<string>
+  prepareNotebook: () => Promise<string>
   loadProviderCatalog: (directory: string) => Promise<ProviderCatalogState>
   patchProjectConfig: (
     directory: string,
     patch: Record<string, unknown>,
   ) => Promise<Record<string, unknown>>
 }) {
-  const nextDirectory = await input.openProject(input.directory)
+  const nextDirectory = await input.prepareNotebook()
   const providerCatalog = await input.loadProviderCatalog(nextDirectory)
   const model = resolveCatalogProviderModelSelection({
     catalog: providerCatalog,

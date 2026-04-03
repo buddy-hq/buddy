@@ -25,7 +25,7 @@ export function getBuddyClient(directory?: string) {
 type BuddyResult<T> = {
   data: T | undefined
   error: unknown
-  response: Response
+  response: Response | undefined
 }
 
 function hasMessage(value: unknown): value is { message?: unknown } {
@@ -49,6 +49,9 @@ function errorMessage(value: unknown): string | undefined {
 }
 
 export function requireBuddyData<T>(result: BuddyResult<T>): T {
+  if (!result.response) {
+    throw new Error(errorMessage(result.error) ?? "Request failed (no response)")
+  }
   if (!result.response.ok || result.error !== undefined) {
     throw new Error(errorMessage(result.error) ?? `Request failed (${result.response.status})`)
   }
@@ -58,6 +61,8 @@ export function requireBuddyData<T>(result: BuddyResult<T>): T {
   return result.data
 }
 
-export function buddyResultMessage(result: { error: unknown; response: Response }) {
-  return errorMessage(result.error) ?? `Request failed (${result.response.status})`
+export function buddyResultMessage(result: { error: unknown; response: Response | undefined }) {
+  return (
+    errorMessage(result.error) ?? `Request failed (${result.response?.status ?? "no response"})`
+  )
 }
