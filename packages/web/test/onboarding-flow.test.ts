@@ -440,17 +440,16 @@ describe("ChatGPT Plus onboarding auth", () => {
 describe("notebook onboarding configuration", () => {
   test("applies the connected OpenAI default model after folder pick", async () => {
     const patches: Array<{ directory: string; patch: Record<string, unknown> }> = []
+    const PREPARED_DIRECTORY = "/repo" as const
 
     await expect(
       configureNotebookForOnboarding({
         authChoice: "chatgpt_plus",
-        directory: "/repo",
-        async openProject(directory) {
-          expect(directory).toBe("/repo")
-          return "/repo"
+        async prepareNotebook() {
+          return PREPARED_DIRECTORY
         },
         async loadProviderCatalog(directory) {
-          expect(directory).toBe("/repo")
+          expect(directory).toBe(PREPARED_DIRECTORY)
           return createCatalog({
             providers: [
               createProvider({
@@ -471,25 +470,26 @@ describe("notebook onboarding configuration", () => {
         },
       }),
     ).resolves.toEqual({
-      directory: "/repo",
+      directory: PREPARED_DIRECTORY,
       model: "openai/gpt-5-mini",
     })
 
     expect(patches).toEqual([
       {
-        directory: "/repo",
+        directory: PREPARED_DIRECTORY,
         patch: { model: "openai/gpt-5-mini" },
       },
     ])
   })
 
   test("applies the Opencode free-model default after folder pick", async () => {
+    const PREPARED_DIRECTORY = "/repo" as const
+
     await expect(
       configureNotebookForOnboarding({
         authChoice: "free_models",
-        directory: "/repo",
-        async openProject(directory) {
-          return directory
+        async prepareNotebook() {
+          return PREPARED_DIRECTORY
         },
         async loadProviderCatalog() {
           return createCatalog({
@@ -511,7 +511,7 @@ describe("notebook onboarding configuration", () => {
         },
       }),
     ).resolves.toEqual({
-      directory: "/repo",
+      directory: PREPARED_DIRECTORY,
       model: "opencode/zen-free",
     })
   })

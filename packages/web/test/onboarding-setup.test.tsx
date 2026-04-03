@@ -9,13 +9,16 @@ describe("OnboardingSetup", () => {
         authChoice="chatgpt_plus"
         connectedAuthChoice="chatgpt_plus"
         folderBusy={false}
+        defaultHomeDirectory="/Users/test/Documents/Buddy"
         onChoose={() => undefined}
+        onUseDefaultHome={() => undefined}
         onPickFolder={() => undefined}
       />,
     )
 
     expect(markup).toContain("Connected")
     expect(markup).not.toContain("Free Models")
-    expect(markup).toContain("Choose Folder")
+    expect(markup).toContain("Use default home and start")
+    expect(markup).toContain("Choose another folder")
   })
 })
