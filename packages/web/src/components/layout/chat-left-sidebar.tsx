@@ -1,8 +1,9 @@
 import type { ReactNode } from "react"
 import { useState } from "react"
 import { Button } from "@buddy/ui"
+import { language } from "@/context/language"
 import type { SessionInfo, SessionStatusInfo } from "@/state/chat-types"
-import { ChatLeftSidebarDialogs } from "./chat-left-sidebar/dialogs"
+import { ChatLeftSidebarDialogs, NotebookCreationDialog } from "./chat-left-sidebar/dialogs"
 import { ChatLeftSidebarDirectoryList } from "./chat-left-sidebar/directory-list"
 import { ChatLeftSidebarToolbar } from "./chat-left-sidebar/toolbar"
 import { useDirectoryGroups } from "./chat-left-sidebar/use-directory-groups"
@@ -25,6 +26,9 @@ type ChatLeftSidebarProps = {
   pinnedByDirectory: Record<string, string[]>
   unreadByDirectory: Record<string, Record<string, true>>
   onOpenDirectory: () => void
+  onOpenExistingFolder?: () => void | Promise<void>
+  onQuickChat?: () => void | Promise<void>
+  onCreateNotebook?: (name: string) => void | Promise<void>
   onNewSession: (directory?: string) => void
   onSelectSession: (directory: string, sessionID?: string) => void
   onTogglePin: (directory: string, sessionID: string) => void
@@ -74,6 +78,9 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
   const [organizeMode, setOrganizeMode] = useState<OrganizeMode>("project")
   const [sortMode, setSortMode] = useState<SortMode>("updated")
   const [showMode, setShowMode] = useState<ShowMode>("all")
+  const [notebookCreationOpen, setNotebookCreationOpen] = useState(false)
+  const [notebookName, setNotebookName] = useState("")
+  const [notebookSaving, setNotebookSaving] = useState(false)
 
   const directoryGroups = useDirectoryGroups({
     directories: props.directories,
@@ -125,6 +132,22 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
     }
   }
 
+  async function submitNotebookCreation() {
+    const name = notebookName.trim()
+    if (!name || !props.onCreateNotebook) return
+
+    setNotebookSaving(true)
+    try {
+      await props.onCreateNotebook(name)
+      setNotebookCreationOpen(false)
+      setNotebookName("")
+    } catch {
+      // Parent-level handlers own error surfacing.
+    } finally {
+      setNotebookSaving(false)
+    }
+  }
+
   return (
     <aside
       data-component="chat-left-sidebar"
@@ -139,12 +162,29 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
       ) : (
         <div className="scrollbar-hover flex-1 min-h-0 overflow-y-auto px-2 pt-2 pb-3">
           <ChatLeftSidebarToolbar
-            currentDirectory={props.currentDirectory}
             organizeMode={organizeMode}
             sortMode={sortMode}
             showMode={showMode}
-            onNewSession={props.onNewSession}
-            onOpenDirectory={props.onOpenDirectory}
+            onQuickChat={() => {
+              if (props.onQuickChat) {
+                void props.onQuickChat()
+                return
+              }
+              props.onNewSession(props.currentDirectory)
+            }}
+            onRequestCreateNotebook={() => {
+              setNotebookCreationOpen(true)
+              if (!notebookName) {
+                setNotebookName(language.t("sidebar.newNotebookDefaultName"))
+              }
+            }}
+            onOpenExistingFolder={() => {
+              if (props.onOpenExistingFolder) {
+                void props.onOpenExistingFolder()
+                return
+              }
+              props.onOpenDirectory()
+            }}
             onOrganizeModeChange={setOrganizeMode}
             onSortModeChange={setSortMode}
             onShowModeChange={setShowMode}
@@ -225,6 +265,26 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
         onRenameConfirm={() => void submitRename()}
         onRenameTitleChange={(title) => {
           setRenameState((current) => (current ? { ...current, title } : current))
+        }}
+      />
+
+      <NotebookCreationDialog
+        open={notebookCreationOpen}
+        busy={notebookSaving}
+        notebookName={notebookName}
+        title={language.t("sidebar.newNotebookDialogTitle")}
+        description={language.t("sidebar.newNotebookDialogDescription")}
+        confirmLabel={language.t("sidebar.createNotebook")}
+        placeholder={language.t("sidebar.newNotebookPlaceholder")}
+        onOpenChange={(open) => {
+          setNotebookCreationOpen(open)
+          if (!open) {
+            setNotebookName("")
+          }
+        }}
+        onNotebookNameChange={setNotebookName}
+        onCreate={() => {
+          void submitNotebookCreation()
         }}
       />
     </aside>

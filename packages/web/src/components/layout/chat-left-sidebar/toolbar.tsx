@@ -2,26 +2,31 @@ import {
   Button,
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuLabel,
+  DropdownMenuItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
 } from "@buddy/ui"
 import { language } from "@/context/language"
-import { FolderPlusIcon, SlidersHorizontalIcon } from "../sidebar-icons"
+import {
+  FolderOpenIcon,
+  FolderPlusIcon,
+  PlusIcon,
+  SlidersHorizontalIcon,
+  SparklesIcon,
+} from "../sidebar-icons"
 import type { OrganizeMode, ShowMode, SortMode } from "./types"
 
 type ChatLeftSidebarToolbarProps = {
-  currentDirectory: string
   organizeMode: OrganizeMode
   sortMode: SortMode
   showMode: ShowMode
-  onNewSession: (directory?: string) => void
-  onOpenDirectory: () => void
+  onQuickChat: () => void
+  onRequestCreateNotebook: () => void
+  onOpenExistingFolder: () => void
   onOrganizeModeChange: (mode: OrganizeMode) => void
   onSortModeChange: (mode: SortMode) => void
   onShowModeChange: (mode: ShowMode) => void
@@ -33,25 +38,48 @@ export function ChatLeftSidebarToolbar(props: ChatLeftSidebarToolbarProps) {
       <div className="mb-2 flex items-center justify-between px-2 text-text-weaker">
         <p className="text-[13px] font-medium">{language.t("sidebar.threads")}</p>
         <div className="flex items-center gap-1">
-          <Tooltip>
-            <TooltipTrigger asChild>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
               <Button
                 type="button"
-                data-action="left-sidebar-open-directory"
+                data-action="left-sidebar-create-menu"
                 variant="ghost"
                 size="icon-xs"
                 className="text-text-weak hover:bg-surface-raised-base-hover hover:text-text-strong"
-                aria-label={language.t("sidebar.addNotebook")}
-                title={language.t("sidebar.addNotebook")}
-                onClick={props.onOpenDirectory}
+                aria-label={language.t("sidebar.create")}
+                title={language.t("sidebar.create")}
               >
                 <FolderPlusIcon className="size-3.5" />
               </Button>
-            </TooltipTrigger>
-            <TooltipContent side="top" sideOffset={8} className="px-2 py-1 text-[11px]">
-              {language.t("sidebar.addNotebook")}
-            </TooltipContent>
-          </Tooltip>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" sideOffset={6} className="w-56 min-w-56">
+              <DropdownMenuLabel>{language.t("sidebar.create")}</DropdownMenuLabel>
+              <DropdownMenuGroup>
+                <DropdownMenuItem
+                  data-action="left-sidebar-create-quick-chat"
+                  onSelect={props.onQuickChat}
+                >
+                  <SparklesIcon className="mr-2 size-3.5" />
+                  {language.t("sidebar.quickChat")}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  data-action="left-sidebar-create-notebook"
+                  onSelect={props.onRequestCreateNotebook}
+                >
+                  <PlusIcon className="mr-2 size-3.5" />
+                  {language.t("sidebar.newNotebook")}
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                data-action="left-sidebar-open-directory"
+                onSelect={props.onOpenExistingFolder}
+              >
+                <FolderOpenIcon className="mr-2 size-3.5" />
+                {language.t("sidebar.openExistingFolder")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

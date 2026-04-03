@@ -11,6 +11,19 @@ import {
 import { language } from "@/context/language"
 import type { ArchiveState, RenameState } from "./types"
 
+type NotebookCreationDialogProps = {
+  open: boolean
+  busy: boolean
+  notebookName: string
+  title: string
+  description: string
+  confirmLabel: string
+  placeholder: string
+  onOpenChange: (open: boolean) => void
+  onNotebookNameChange: (name: string) => void
+  onCreate: () => void
+}
+
 type ChatLeftSidebarDialogsProps = {
   archiveState?: ArchiveState
   archiveSaving: boolean
@@ -110,5 +123,55 @@ export function ChatLeftSidebarDialogs(props: ChatLeftSidebarDialogsProps) {
         </DialogContent>
       </Dialog>
     </>
+  )
+}
+
+export function NotebookCreationDialog(props: NotebookCreationDialogProps) {
+  return (
+    <Dialog
+      open={props.open}
+      onOpenChange={(open) => {
+        if (!open && !props.busy) {
+          props.onOpenChange(false)
+        }
+      }}
+    >
+      <DialogContent data-component="left-sidebar-create-notebook-dialog">
+        <DialogHeader>
+          <DialogTitle>{props.title}</DialogTitle>
+          <DialogDescription>{props.description}</DialogDescription>
+        </DialogHeader>
+        <Input
+          data-action="left-sidebar-create-notebook-input"
+          autoFocus
+          value={props.notebookName}
+          onChange={(event) => props.onNotebookNameChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault()
+              props.onCreate()
+            }
+          }}
+          placeholder={props.placeholder}
+        />
+        <DialogFooter>
+          <Button
+            data-action="left-sidebar-create-notebook-cancel"
+            variant="outline"
+            onClick={() => props.onOpenChange(false)}
+            disabled={props.busy}
+          >
+            {language.t("common.cancel")}
+          </Button>
+          <Button
+            data-action="left-sidebar-create-notebook-confirm"
+            onClick={props.onCreate}
+            disabled={props.busy || !props.notebookName.trim()}
+          >
+            {props.busy ? language.t("common.saving") : props.confirmLabel}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
