@@ -26,6 +26,7 @@ export function assistantPartRenderable(
     return showReasoningSummaries && String(part.text ?? "").trim().length > 0
   if (part.type === "compaction") return true
   if (part.type === "step-start" || part.type === "step-finish") return false
+  if (part.type === "patch") return false
   if (part.type !== "tool") return true
 
   const tool = String(part.tool ?? "")
@@ -42,6 +43,7 @@ export function assistantPartRenderable(
 export function assistantPartStartsFollowup(part: MessagePart): boolean {
   if (part.type === "step-start" || part.type === "step-finish") return false
   if (part.type === "reasoning") return false
+  if (part.type === "patch") return false
   if (part.type === "tool") {
     const tool = String(part.tool ?? "")
     if (HIDDEN_TOOLS.has(tool)) return false

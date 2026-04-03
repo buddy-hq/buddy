@@ -90,6 +90,10 @@ export const AssistantPartRenderer = memo(function AssistantPartRenderer({
     return <ReasoningPart part={part} />
   }
 
+  if (part.type === "patch") {
+    return null
+  }
+
   if (part.type === "tool") {
     return (
       <ToolPartCard
