@@ -129,6 +129,94 @@ describe("config routes", () => {
     }
   })
 
+  test("returns the default notebook home and persists updates", async () => {
+    const globalFile = path.join(Global.Path.config, "buddy.jsonc")
+    fs.mkdirSync(path.dirname(globalFile), { recursive: true })
+    const previousGlobal = fs.existsSync(globalFile)
+      ? fs.readFileSync(globalFile, "utf8")
+      : undefined
+    const originalAllowedRoots = process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS
+    const configuredDirectory = path.join(Global.Path.home, "Notes", "Buddy")
+
+    process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS = "*"
+
+    try {
+      const getBefore = await app.request("/api/global/notebook-home")
+      expect(getBefore.status).toBe(200)
+      const beforeBody = (await getBefore.json()) as {
+        configuredDirectory?: string
+        defaultDirectory: string
+        resolvedDirectory: string
+        inboxDirectory: string
+        inboxName: string
+      }
+
+      expect(beforeBody.resolvedDirectory).toBe(
+        beforeBody.configuredDirectory ?? beforeBody.defaultDirectory,
+      )
+      expect(beforeBody.inboxDirectory).toBe(path.join(beforeBody.resolvedDirectory, "Inbox"))
+      expect(beforeBody.inboxName).toBe("Inbox")
+
+      const putResponse = await app.request("/api/global/notebook-home", {
+        method: "PUT",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          directory: configuredDirectory,
+        }),
+      })
+      expect(putResponse.status).toBe(200)
+
+      const afterBody = (await putResponse.json()) as {
+        configuredDirectory?: string
+        resolvedDirectory: string
+      }
+      expect(afterBody.configuredDirectory).toBe(configuredDirectory)
+      expect(afterBody.resolvedDirectory).toBe(configuredDirectory)
+
+      const getAfter = await app.request("/api/global/config")
+      expect(getAfter.status).toBe(200)
+      await expect(getAfter.json()).resolves.toMatchObject({
+        notebook_home: configuredDirectory,
+      })
+    } finally {
+      if (originalAllowedRoots === undefined) {
+        delete process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS
+      } else {
+        process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS = originalAllowedRoots
+      }
+
+      if (previousGlobal === undefined) {
+        fs.rmSync(globalFile, { force: true })
+      } else {
+        writeFileSync(globalFile, previousGlobal)
+      }
+
+      await app.request("/api/global/config", {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({}),
+      })
+    }
+  })
+
+  test("rejects relative notebook_home in global config", async () => {
+    const response = await app.request("/api/global/config", {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        notebook_home: "relative-path",
+      }),
+    })
+
+    expect(response.status).toBe(400)
+  })
+
   test("returns 400 for invalid project config on provider listing", async () => {
     const repo = createGitRepo("buddy-route-config-providers-invalid")
     writeFileSync(path.join(repo, "buddy.jsonc"), ["{", '  "model":', "  ", ""].join("\n"))

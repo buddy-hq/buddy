@@ -60,8 +60,9 @@ describe("open project routes", () => {
     }
   })
 
-  test("rejects directories outside allowed roots", async () => {
+  test("allows explicit folder opening outside configured allowed roots", async () => {
     const repo = createGitRepo("buddy-route-open-project-reject")
+    const canonicalRepo = realpathSync(repo)
     const originalAllowedRoots = process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS
 
     process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS = path.join(repo, "different-root")
@@ -77,10 +78,108 @@ describe("open project routes", () => {
         }),
       })
 
-      expect(response.status).toBe(403)
+      expect(response.status).toBe(200)
       await expect(response.json()).resolves.toEqual({
+        directory: canonicalRepo,
+      })
+      expect(readRegistryFile()).toEqual([canonicalRepo])
+    } finally {
+      if (originalAllowedRoots === undefined) delete process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS
+      else process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS = originalAllowedRoots
+    }
+  })
+
+  test("allows project-scoped routes for directories present in the open project registry", async () => {
+    const repo = createGitRepo("buddy-route-open-project-registry-allow")
+    const canonicalRepo = realpathSync(repo)
+    const originalAllowedRoots = process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS
+    process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS = path.join(repo, "different-root")
+
+    try {
+      const openResponse = await app.request("/api/open-projects", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          directory: repo,
+        }),
+      })
+      expect(openResponse.status).toBe(200)
+
+      const createSessionResponse = await app.request("/api/session", {
+        method: "POST",
+        headers: {
+          "x-buddy-directory": canonicalRepo,
+        },
+      })
+
+      expect(createSessionResponse.status).toBe(200)
+    } finally {
+      if (originalAllowedRoots === undefined) delete process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS
+      else process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS = originalAllowedRoots
+    }
+  })
+
+  test("does not allow nested directories unless they are explicitly opened", async () => {
+    const repo = createGitRepo("buddy-route-open-project-registry-exact")
+    const nestedRepo = path.join(repo, "nested")
+    const originalAllowedRoots = process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS
+    mkdirSync(nestedRepo, { recursive: true })
+    process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS = path.join(repo, "different-root")
+
+    try {
+      const openResponse = await app.request("/api/open-projects", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          directory: repo,
+        }),
+      })
+      expect(openResponse.status).toBe(200)
+
+      const createSessionResponse = await app.request("/api/session", {
+        method: "POST",
+        headers: {
+          "x-buddy-directory": nestedRepo,
+        },
+      })
+
+      expect(createSessionResponse.status).toBe(403)
+      await expect(createSessionResponse.json()).resolves.toEqual({
         error: "Directory is outside allowed roots",
       })
+    } finally {
+      if (originalAllowedRoots === undefined) delete process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS
+      else process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS = originalAllowedRoots
+    }
+  })
+
+  test("supports wildcard allowed roots", async () => {
+    const repo = createGitRepo("buddy-route-open-project-wildcard")
+    const canonicalRepo = realpathSync(repo)
+    const originalAllowedRoots = process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS
+
+    process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS = "*"
+
+    try {
+      const response = await app.request("/api/open-projects", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          directory: repo,
+        }),
+      })
+
+      expect(response.status).toBe(200)
+      await expect(response.json()).resolves.toEqual({
+        directory: canonicalRepo,
+      })
+      expect(readRegistryFile()).toEqual([canonicalRepo])
     } finally {
       if (originalAllowedRoots === undefined) delete process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS
       else process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS = originalAllowedRoots
@@ -215,6 +314,106 @@ describe("open project routes", () => {
     } finally {
       if (originalAllowedRoots === undefined) delete process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS
       else process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS = originalAllowedRoots
+    }
+  })
+
+  test("creates a managed notebook inside the configured notebook home", async () => {
+    const globalFile = path.join(Global.Path.config, "buddy.jsonc")
+    const previousGlobal = await Bun.file(globalFile)
+      .text()
+      .catch(() => undefined)
+    const originalAllowedRoots = process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS
+    const notebookHome = path.join(Global.Path.home, "Documents", "Buddy Test Home")
+    const expectedDirectory = path.join(notebookHome, "Inbox")
+
+    process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS = "*"
+
+    try {
+      const configureHomeResponse = await app.request("/api/global/notebook-home", {
+        method: "PUT",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          directory: notebookHome,
+        }),
+      })
+      expect(configureHomeResponse.status).toBe(200)
+
+      const createResponse = await app.request("/api/open-projects/create", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "Inbox",
+        }),
+      })
+
+      expect(createResponse.status).toBe(200)
+      await expect(createResponse.json()).resolves.toEqual({
+        directory: expectedDirectory,
+      })
+      expect(readRegistryFile()).toEqual([expectedDirectory])
+    } finally {
+      if (originalAllowedRoots === undefined) delete process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS
+      else process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS = originalAllowedRoots
+
+      rmSync(notebookHome, { force: true, recursive: true })
+      if (previousGlobal === undefined) {
+        rmSync(globalFile, { force: true })
+      } else {
+        mkdirSync(path.dirname(globalFile), { recursive: true })
+        Bun.write(globalFile, previousGlobal)
+      }
+    }
+  })
+
+  test("rejects notebook names that are invalid on Windows", async () => {
+    const globalFile = path.join(Global.Path.config, "buddy.jsonc")
+    const previousGlobal = await Bun.file(globalFile)
+      .text()
+      .catch(() => undefined)
+    const originalAllowedRoots = process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS
+    const notebookHome = path.join(Global.Path.home, "Documents", "Buddy Test Home")
+    const invalidNames = ["CON", "notes?.md", "trailing."]
+
+    process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS = "*"
+
+    try {
+      const configureHomeResponse = await app.request("/api/global/notebook-home", {
+        method: "PUT",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          directory: notebookHome,
+        }),
+      })
+      expect(configureHomeResponse.status).toBe(200)
+
+      for (const name of invalidNames) {
+        const createResponse = await app.request("/api/open-projects/create", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({ name }),
+        })
+
+        expect(createResponse.status).toBe(400)
+      }
+    } finally {
+      if (originalAllowedRoots === undefined) delete process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS
+      else process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS = originalAllowedRoots
+
+      rmSync(notebookHome, { force: true, recursive: true })
+      if (previousGlobal === undefined) {
+        rmSync(globalFile, { force: true })
+      } else {
+        mkdirSync(path.dirname(globalFile), { recursive: true })
+        await Bun.write(globalFile, previousGlobal)
+      }
     }
   })
 
