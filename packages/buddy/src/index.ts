@@ -21,6 +21,7 @@ import { OpenProjectsRoutes } from "./routes"
 import { PermissionRoutes } from "./routes"
 import { ProjectRoutes } from "./routes"
 import { ProviderRoutes } from "./routes"
+import { QuestionSetArtifactRoutes } from "./routes"
 import { ResourceRoutes } from "./routes"
 import { SessionRoutes } from "./routes"
 import { SkillsRoutes } from "./routes"
@@ -98,6 +99,7 @@ api.use("*", async (c, next) => {
 api.route("/figures", FigureRoutes)
 api.route("/freeform-figures", FreeformFigureRoutes)
 api.route("/mermaid-artifacts", MermaidArtifactRoutes)
+api.route("/question-set-artifacts", QuestionSetArtifactRoutes)
 api.route("/learner", LearnerRoutes)
 api.route("/teaching", TeachingRoutes)
 api.route("/agents-md", AgentsMdRoutes)
