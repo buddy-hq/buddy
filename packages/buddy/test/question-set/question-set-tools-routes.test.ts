@@ -1,0 +1,324 @@
+import { describe, expect, test } from "bun:test"
+import fs from "node:fs/promises"
+import path from "node:path"
+import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
+import { ToolRegistry } from "@buddy/opencode-adapter/registry"
+import { app } from "../../src/index.ts"
+import {
+  RenderSavedQuestionSetOutputSchema,
+  SaveQuestionSetOutputSchema,
+  ensureQuestionSetToolsRegistered,
+  type SaveQuestionSetInput,
+} from "../../src/learning/capabilities"
+import { tmpdir } from "../helpers/tmpdir"
+import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
+
+function sampleQuestionSetInput(): SaveQuestionSetInput {
+  return {
+    groupType: "quiz",
+    title: "Intro Algebra Check",
+    instructions: "Choose the best answer for each question.",
+    questions: [
+      {
+        id: "q1",
+        type: "mcq",
+        prompt: "What is 2 + 2?",
+        goalIds: ["goal-algebra-basics"],
+        payload: {
+          multipleSelect: false,
+          choices: [
+            { id: "q1-a", content: "3", correct: false, rationale: "Too low." },
+            { id: "q1-b", content: "4", correct: true, rationale: "Correct sum." },
+            { id: "q1-c", content: "5", correct: false, rationale: "Too high." },
+          ],
+        },
+      },
+      {
+        id: "q2",
+        type: "mcq",
+        prompt: "Select all prime numbers.",
+        goalIds: ["goal-primes"],
+        explanation: "Prime numbers are divisible only by 1 and themselves.",
+        payload: {
+          multipleSelect: true,
+          countChoices: true,
+          numCorrect: 2,
+          hasNoneOfTheAbove: true,
+          choices: [
+            { id: "q2-a", content: "2", correct: true, rationale: "Prime." },
+            { id: "q2-b", content: "3", correct: true, rationale: "Prime." },
+            { id: "q2-c", content: "4", correct: false, rationale: "Divisible by 2." },
+            {
+              id: "q2-none",
+              content: "None of the above",
+              correct: false,
+              rationale: "At least two answers are prime.",
+              isNoneOfTheAbove: true,
+            },
+          ],
+        },
+      },
+    ],
+  }
+}
+
+describe("question-set tools and routes", () => {
+  test("rejects saving question sets where none-of-the-above is correct with another choice", async () => {
+    await using project = await tmpdir({ git: true })
+
+    const invalidInput = sampleQuestionSetInput()
+    const targetQuestion = invalidInput.questions.find((question) => question.id === "q2")
+    expect(targetQuestion).toBeDefined()
+    if (!targetQuestion) {
+      return
+    }
+
+    targetQuestion.payload.numCorrect = 2
+    for (const choice of targetQuestion.payload.choices) {
+      if (choice.id === "q2-none") {
+        choice.correct = true
+      } else if (choice.id === "q2-b") {
+        choice.correct = false
+      }
+    }
+
+    await OpenCodeInstance.provide({
+      directory: project.path,
+      async fn() {
+        await ensureQuestionSetToolsRegistered(project.path)
+        const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
+        const saveQuestionSet = requireTool(tools, "save_question_set")
+
+        await expect(
+          saveQuestionSet.execute(
+            invalidInput,
+            createToolContext({
+              sessionID: "ses_invalid_none_correct",
+              messageID: "msg_invalid_none_correct",
+              agent: "question-set-author",
+            }),
+          ),
+        ).rejects.toThrow(
+          "cannot mark 'none of the above' as correct alongside other correct choices",
+        )
+      },
+    })
+  })
+
+  test("saves answerful question sets and renders public answerless artifacts", async () => {
+    await using project = await tmpdir({ git: true })
+
+    const result = await OpenCodeInstance.provide({
+      directory: project.path,
+      async fn() {
+        await ensureQuestionSetToolsRegistered(project.path)
+        const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
+        const saveQuestionSet = requireTool(tools, "save_question_set")
+        const renderSavedQuestionSet = requireTool(tools, "render_saved_question_set")
+
+        const saveOutput = SaveQuestionSetOutputSchema.parse(
+          JSON.parse(
+            (
+              await saveQuestionSet.execute(
+                sampleQuestionSetInput(),
+                createToolContext({
+                  sessionID: "ses_question_set",
+                  messageID: "msg_question_set",
+                  agent: "question-set-author",
+                }),
+              )
+            ).output,
+          ),
+        )
+
+        const renderOutput = RenderSavedQuestionSetOutputSchema.parse(
+          JSON.parse(
+            (
+              await renderSavedQuestionSet.execute(
+                { artifactID: saveOutput.artifactID },
+                createToolContext({
+                  sessionID: "ses_question_set_render",
+                  messageID: "msg_question_set_render",
+                  agent: "buddy",
+                }),
+              )
+            ).output,
+          ),
+        )
+
+        return {
+          saveOutput,
+          renderOutput,
+        }
+      },
+    })
+
+    const artifactFile = path.join(
+      project.path,
+      ".buddy",
+      "question-set-artifacts",
+      result.saveOutput.artifactID,
+      "artifact.json",
+    )
+    const savedArtifactText = await fs.readFile(artifactFile, "utf8")
+    const savedArtifact = JSON.parse(savedArtifactText) as {
+      questions: Array<{
+        payload: {
+          choices: Array<{ correct?: boolean; rationale?: string }>
+        }
+      }>
+    }
+
+    expect(Object.hasOwn(result.renderOutput, "artifact")).toBe(false)
+    expect(result.renderOutput.artifactID).toBe(result.saveOutput.artifactID)
+
+    const readResponse = await app.request(
+      `/api/question-set-artifacts/${result.saveOutput.artifactID}?directory=${encodeURIComponent(project.path)}`,
+    )
+    expect(readResponse.status).toBe(200)
+    const publicArtifact = (await readResponse.json()) as {
+      artifactID: string
+      questions: Array<{
+        payload: {
+          choices: Array<{ correct?: boolean; rationale?: string }>
+        }
+      }>
+    }
+    expect(publicArtifact.artifactID).toBe(result.saveOutput.artifactID)
+    expect(publicArtifact.questions).toHaveLength(2)
+    expect("correct" in publicArtifact.questions[0]!.payload.choices[0]!).toBe(false)
+    expect("rationale" in publicArtifact.questions[0]!.payload.choices[0]!).toBe(false)
+
+    expect(savedArtifact.questions[0]!.payload.choices[0]!.correct).toBeDefined()
+    expect(savedArtifact.questions[0]!.payload.choices[0]!.rationale).toBeDefined()
+  })
+
+  test("grades submitted attempts and persists attempt records", async () => {
+    await using project = await tmpdir({ git: true })
+
+    const saveOutput = await OpenCodeInstance.provide({
+      directory: project.path,
+      async fn() {
+        await ensureQuestionSetToolsRegistered(project.path)
+        const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
+        const saveQuestionSet = requireTool(tools, "save_question_set")
+        const result = await saveQuestionSet.execute(
+          sampleQuestionSetInput(),
+          createToolContext({
+            sessionID: "ses_grade",
+            messageID: "msg_grade",
+            agent: "question-set-author",
+          }),
+        )
+        return SaveQuestionSetOutputSchema.parse(JSON.parse(result.output))
+      },
+    })
+
+    const response = await app.request(
+      `/api/question-set-artifacts/${saveOutput.artifactID}/attempts?directory=${encodeURIComponent(project.path)}`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          answers: [
+            { questionID: "q1", selectedChoiceIds: ["q1-a"] },
+            { questionID: "q2", selectedChoiceIds: ["q2-a", "q2-b"] },
+          ],
+        }),
+      },
+    )
+
+    expect(response.status).toBe(200)
+    const body = (await response.json()) as {
+      attemptID: string
+      artifactID: string
+      result: {
+        totalQuestions: number
+        correctQuestions: number
+        status: string
+        questions: Array<{
+          questionID: string
+          choices: Array<{ rationale?: string }>
+        }>
+      }
+    }
+
+    expect(body.artifactID).toBe(saveOutput.artifactID)
+    expect(body.result.totalQuestions).toBe(2)
+    expect(body.result.correctQuestions).toBe(1)
+    expect(body.result.status).toBe("completed")
+    expect(body.result.questions[0]?.questionID).toBe("q1")
+    expect(body.result.questions[0]?.choices.some((choice) => !!choice.rationale)).toBe(true)
+
+    const attemptFile = path.join(
+      project.path,
+      ".buddy",
+      "question-set-artifacts",
+      saveOutput.artifactID,
+      "attempts",
+      `${body.attemptID}.json`,
+    )
+    const attemptText = await fs.readFile(attemptFile, "utf8")
+    expect(attemptText).toContain(`"artifactID": "${saveOutput.artifactID}"`)
+  })
+
+  test("rejects invalid submitted choice ids and none-of-the-above exclusivity violations", async () => {
+    await using project = await tmpdir({ git: true })
+
+    const saveOutput = await OpenCodeInstance.provide({
+      directory: project.path,
+      async fn() {
+        await ensureQuestionSetToolsRegistered(project.path)
+        const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
+        const saveQuestionSet = requireTool(tools, "save_question_set")
+        const result = await saveQuestionSet.execute(
+          sampleQuestionSetInput(),
+          createToolContext({
+            sessionID: "ses_invalid_attempt",
+            messageID: "msg_invalid_attempt",
+            agent: "question-set-author",
+          }),
+        )
+        return SaveQuestionSetOutputSchema.parse(JSON.parse(result.output))
+      },
+    })
+
+    const invalidChoiceResponse = await app.request(
+      `/api/question-set-artifacts/${saveOutput.artifactID}/attempts?directory=${encodeURIComponent(project.path)}`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          answers: [{ questionID: "q1", selectedChoiceIds: ["does-not-exist"] }],
+        }),
+      },
+    )
+    expect(invalidChoiceResponse.status).toBe(400)
+
+    const unknownQuestionIDResponse = await app.request(
+      `/api/question-set-artifacts/${saveOutput.artifactID}/attempts?directory=${encodeURIComponent(project.path)}`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          answers: [{ questionID: "q999", selectedChoiceIds: [] }],
+        }),
+      },
+    )
+    expect(unknownQuestionIDResponse.status).toBe(400)
+
+    const invalidNoneOfTheAboveResponse = await app.request(
+      `/api/question-set-artifacts/${saveOutput.artifactID}/attempts?directory=${encodeURIComponent(project.path)}`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          answers: [{ questionID: "q2", selectedChoiceIds: ["q2-none", "q2-a"] }],
+        }),
+      },
+    )
+    expect(invalidNoneOfTheAboveResponse.status).toBe(400)
+  })
+})
