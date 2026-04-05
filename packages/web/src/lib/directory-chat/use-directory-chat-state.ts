@@ -19,7 +19,9 @@ const EMPTY_SESSIONS: SessionInfo[] = []
 const EMPTY_SESSION_STATUS: Record<string, SessionStatusInfo> = {}
 
 function isSidebarSurface(value: string): value is PersonaConfigOption["surfaces"][number] {
-  return value === "curriculum" || value === "editor" || value === "figure"
+  return (
+    value === "curriculum" || value === "editor" || value === "figure" || value === "question-set"
+  )
 }
 
 const RIGHT_SIDEBAR_EDITOR_MIN_WIDTH = 360

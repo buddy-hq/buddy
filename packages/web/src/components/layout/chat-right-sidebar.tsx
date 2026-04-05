@@ -20,6 +20,7 @@ import {
 } from "@/state/chat-actions"
 import type { TeachingIntent } from "@/state/teaching-runtime"
 import { WorkspaceMermaidPanel } from "./workspace-mermaid-panel"
+import { WorkspaceQuestionSetPanel } from "./workspace-question-set-panel"
 import { ChevronRightIcon, ChevronLeftIcon } from "./sidebar-icons"
 
 export type ChatRightSidebarTab =
@@ -27,12 +28,13 @@ export type ChatRightSidebarTab =
   | "diagrams"
   | "editor"
   | "figure"
+  | "question-set"
   | "resources"
   | "agents-md"
   | "capabilities"
   | "system-prompt"
   | "settings"
-export type ChatRightSidebarSurface = "curriculum" | "editor" | "figure"
+export type ChatRightSidebarSurface = "curriculum" | "editor" | "figure" | "question-set"
 
 type ChatRightSidebarProps = {
   directory: string
@@ -293,6 +295,16 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                 {language.t("rightSidebar.tabs.figure")}
               </Button>
             ) : null}
+            {props.surfaces.includes("question-set") ? (
+              <Button
+                data-action="right-sidebar-tab-question-set"
+                variant={activeTab === "question-set" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => props.onTabChange("question-set")}
+              >
+                {language.t("rightSidebar.tabs.questionSet")}
+              </Button>
+            ) : null}
             <Button
               data-action="right-sidebar-tab-resources"
               variant={activeTab === "resources" ? "secondary" : "ghost"}
@@ -385,6 +397,10 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
               {language.t("rightSidebar.unavailable.figure")}
             </div>
           )}
+        </div>
+      ) : activeTab === "question-set" ? (
+        <div className="flex-1 min-h-0 flex flex-col">
+          <WorkspaceQuestionSetPanel directory={directory} />
         </div>
       ) : activeTab === "diagrams" ? (
         <div className="flex-1 min-h-0 flex flex-col">

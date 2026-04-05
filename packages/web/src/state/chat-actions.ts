@@ -43,8 +43,8 @@ export type PersonaConfigOption = {
   id: string
   label: string
   description?: string
-  surfaces: Array<"curriculum" | "editor" | "figure">
-  defaultSurface: "curriculum" | "editor" | "figure"
+  surfaces: Array<"curriculum" | "editor" | "figure" | "question-set">
+  defaultSurface: "curriculum" | "editor" | "figure" | "question-set"
   hidden?: boolean
 }
 
@@ -56,7 +56,7 @@ export type LearnerCurriculumView = {
     pinnedGoalIds: string[]
     projectConstraints: string[]
     localToolAvailability: string[]
-    preferredSurfaces: Array<"chat" | "curriculum" | "editor" | "figure" | "quiz">
+    preferredSurfaces: Array<"chat" | "curriculum" | "editor" | "figure" | "question-set">
     motivationContext?: string
     opportunities: string[]
     userOverride: boolean
@@ -141,6 +141,17 @@ export type WorkspaceMermaidArtifactView = {
   repairLog: string[]
   source: string
   createdAt: string
+}
+
+export type WorkspaceQuestionSetArtifactView = {
+  artifactID: string
+  kind: "question-set.v1"
+  groupType: "quiz" | "practice" | "assessment"
+  title: string
+  createdAt: string
+  questions: Array<{
+    id: string
+  }>
 }
 
 export type PromptCommandOption = {
@@ -329,7 +340,7 @@ function parseWorkspaceView(workspace: unknown): LearnerCurriculumView["workspac
       surface === "curriculum" ||
       surface === "editor" ||
       surface === "figure" ||
-      surface === "quiz",
+      surface === "question-set",
   )
 
   return {
@@ -384,7 +395,10 @@ function parsePersonaSurfaces(surfaces: string[] | undefined): PersonaConfigOpti
 
   const normalized = surfaces.filter(
     (surface): surface is PersonaConfigOption["surfaces"][number] =>
-      surface === "curriculum" || surface === "editor" || surface === "figure",
+      surface === "curriculum" ||
+      surface === "editor" ||
+      surface === "figure" ||
+      surface === "question-set",
   )
 
   return normalized.length > 0 ? normalized : [DEFAULT_PERSONA_SURFACE]
@@ -394,7 +408,12 @@ function parseDefaultSurface(
   value: string | undefined,
   surfaces: PersonaConfigOption["surfaces"],
 ): PersonaConfigOption["defaultSurface"] {
-  if (value === "curriculum" || value === "editor" || value === "figure") {
+  if (
+    value === "curriculum" ||
+    value === "editor" ||
+    value === "figure" ||
+    value === "question-set"
+  ) {
     return value
   }
   return surfaces[0] ?? DEFAULT_PERSONA_SURFACE
@@ -1476,6 +1495,19 @@ export async function loadWorkspaceMermaidArtifacts(
     await getBuddyClient(directory).mermaidArtifacts.list({
       directory,
     }),
+  )
+
+  return {
+    artifacts: Array.isArray(result.artifacts) ? result.artifacts : [],
+  }
+}
+
+export async function loadWorkspaceQuestionSetArtifacts(
+  directory: string,
+): Promise<{ artifacts: WorkspaceQuestionSetArtifactView[] }> {
+  const result = await requestJson<{ artifacts: WorkspaceQuestionSetArtifactView[] }>(
+    directory,
+    "/api/question-set-artifacts",
   )
 
   return {

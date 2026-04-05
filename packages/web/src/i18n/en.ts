@@ -108,6 +108,8 @@ export const dict = {
   "chatTools.mermaidDiagram.zoomOutAria": "Zoom out Mermaid",
   "chatTools.mermaidNoWorkspaceDirectory":
     "Mermaid source was compacted and no workspace directory is available.",
+  "chatTools.questionSetNoWorkspaceDirectory":
+    "Question set interaction is unavailable because the workspace directory is missing.",
   "chatTools.mermaidSourceUnavailable": "Mermaid source is unavailable for rendering.",
   "chatTools.no": "No",
   "chatTools.noAnswer": "(no answer)",
@@ -434,6 +436,7 @@ export const dict = {
   "rightSidebar.tabs.diagrams": "Diagrams",
   "rightSidebar.tabs.editor": "Editor",
   "rightSidebar.tabs.figure": "Figure",
+  "rightSidebar.tabs.questionSet": "Question Sets",
   "rightSidebar.tabs.resources": "Resources",
   "rightSidebar.tabs.snapshot": "Snapshot",
   "rightSidebar.tabs.system": "System",
@@ -738,6 +741,9 @@ export const dict = {
   "workspaceMermaid.repairedTime": "time",
   "workspaceMermaid.repairedTimes": "times",
   "workspaceMermaid.title": "Workspace Diagrams",
+  "workspaceQuestionSet.emptyState": "No question sets yet. Ask Buddy to generate one.",
+  "workspaceQuestionSet.loading": "Loading question sets...",
+  "workspaceQuestionSet.title": "Question Sets",
   "connectProviderDialog.apiKeyPlaceholder": "Enter your {{providerName}} API key",
   "resourcesPanel.optionsForResource": "Options for {{alias}}",
   "resourcesPanel.removeResourceQuestion":

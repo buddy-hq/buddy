@@ -17,6 +17,7 @@ type UiPreferencesStore = {
     | "diagrams"
     | "editor"
     | "figure"
+    | "question-set"
     | "resources"
     | "agents-md"
     | "capabilities"
@@ -38,6 +39,7 @@ type UiPreferencesStore = {
       | "diagrams"
       | "editor"
       | "figure"
+      | "question-set"
       | "resources"
       | "agents-md"
       | "capabilities"
@@ -124,7 +126,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
     })),
     {
       name: UI_PREFERENCES_STORAGE_KEY,
-      version: 7,
+      version: 8,
       storage: createPlatformJsonStorage("buddy.ui.dat"),
       migrate(persistedState) {
         const state = persistedState as Partial<UiPreferencesStore> | undefined
@@ -148,11 +150,13 @@ export const useUiPreferences = create<UiPreferencesStore>()(
                       ? "agents-md"
                       : state?.rightSidebarTab === "figure"
                         ? "figure"
-                        : state?.rightSidebarTab === "editor"
-                          ? "editor"
-                          : state?.rightSidebarTab === "diagrams"
-                            ? "diagrams"
-                            : "curriculum",
+                        : state?.rightSidebarTab === "question-set"
+                          ? "question-set"
+                          : state?.rightSidebarTab === "editor"
+                            ? "editor"
+                            : state?.rightSidebarTab === "diagrams"
+                              ? "diagrams"
+                              : "curriculum",
         }
       },
       partialize(state) {

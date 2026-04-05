@@ -171,6 +171,16 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
         title: language.t("chatTools.info.mermaid"),
         subtitle: alt,
       }
+    case "render_saved_question_set":
+      return {
+        title: "Question Set",
+        subtitle: typeof input.artifactID === "string" ? input.artifactID : description,
+      }
+    case "save_question_set":
+      return {
+        title: "Save Question Set",
+        subtitle: description,
+      }
     default:
       return {
         title: tool,
