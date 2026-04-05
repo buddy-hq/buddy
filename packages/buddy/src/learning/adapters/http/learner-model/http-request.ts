@@ -1,6 +1,7 @@
 import z from "zod"
 import { SnapshotQuerySchema, WorkspaceRecordArtifactKindSchema } from "../../../learner-model"
 import { readTeachingSessionState } from "../../../agent-execution/state/session-state"
+import { SURFACES } from "../../../shared/teaching-vocabulary"
 
 export const LearnerWorkspacePatchSchema = z.object({
   workspace: z
@@ -10,9 +11,7 @@ export const LearnerWorkspacePatchSchema = z.object({
       pinnedGoalIds: z.array(z.string()).optional(),
       projectConstraints: z.array(z.string()).optional(),
       localToolAvailability: z.array(z.string()).optional(),
-      preferredSurfaces: z
-        .array(z.enum(["chat", "curriculum", "editor", "figure", "quiz"]))
-        .optional(),
+      preferredSurfaces: z.array(z.enum(SURFACES)).optional(),
       motivationContext: z.string().optional(),
       opportunities: z.array(z.string()).optional(),
       userOverride: z.boolean().optional(),

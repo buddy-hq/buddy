@@ -1,6 +1,7 @@
 import z from "zod"
 import { createBuddyTool, type BuddyToolContext } from "../../tools"
 import { recordPracticeEvent } from ".."
+import { SURFACES } from "../../shared/teaching-vocabulary"
 
 const practiceRecordTool = createBuddyTool("learner_practice_record", {
   description: "Record a practice attempt for the current workspace.",
@@ -16,7 +17,7 @@ const practiceRecordTool = createBuddyTool("learner_practice_record", {
     deliverable: z.string().optional(),
     selfCheck: z.string().optional(),
     whyItMatters: z.string().optional(),
-    surface: z.enum(["chat", "curriculum", "editor", "figure", "quiz"]).optional(),
+    surface: z.enum(SURFACES).optional(),
     addressedFeedbackIds: z.array(z.string()).optional(),
   }),
   async execute(params, ctx: BuddyToolContext) {

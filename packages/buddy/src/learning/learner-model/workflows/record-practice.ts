@@ -3,6 +3,7 @@ import { hashDecisionInput } from "../repository/bridge"
 import { LearnerArtifactStore } from "../repository/store"
 import { LearnerSnapshotCompiler } from "../projections/snapshot"
 import { LearnerDecisionService } from "../decisions/service"
+import type { Surface } from "../../shared/teaching-vocabulary"
 import {
   createEvidenceArtifact,
   ensureGoalIds,
@@ -36,7 +37,7 @@ export async function recordPracticeEvent(input: {
   deliverable?: string
   selfCheck?: string
   whyItMatters?: string
-  surface?: "chat" | "curriculum" | "editor" | "figure" | "quiz"
+  surface?: Surface
   addressedFeedbackIds?: string[]
   sessionId?: string
 }): Promise<{
