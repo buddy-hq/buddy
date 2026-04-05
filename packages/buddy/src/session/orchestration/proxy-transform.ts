@@ -38,6 +38,7 @@ export async function runSessionTransformProxy(input: {
     registerLearnerTools: true,
     registerTeachingTools: true,
     registerMathTools: AdvancedMathRuntimeService.isReady(),
+    registerQuestionSetTools: true,
   })
 
   if (!response.ok) {

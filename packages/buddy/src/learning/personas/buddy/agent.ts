@@ -12,11 +12,13 @@ export const BUDDY_AGENT = registerBuddyAgent({
       "goal-writer",
       "practice-agent",
       "assessment-agent",
+      "question-set-author",
     ],
     permission: {
       learner_snapshot_read: "allow",
       learner_practice_record: "allow",
       learner_assessment_record: "allow",
+      render_saved_question_set: "allow",
       render_mermaid: "allow",
       python_calculator: "deny",
       todoread: "deny",

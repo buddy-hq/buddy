@@ -13,6 +13,7 @@ export const CODE_BUDDY = registerBuddyAgent({
       "goal-writer",
       "practice-agent",
       "assessment-agent",
+      "question-set-author",
     ],
     permission: {
       question: "allow",

@@ -14,7 +14,7 @@ const BUILTIN_BUDDY_PERSONAS = {
     description: "General Buddy persona for learning conversations and project help.",
     domain: "general",
     defaultIntent: "learn",
-    surfaces: ["curriculum"],
+    surfaces: ["curriculum", "question-set"],
     defaultSurface: "curriculum",
     hidden: false,
     toolDefaults: {
@@ -22,10 +22,12 @@ const BUILTIN_BUDDY_PERSONAS = {
       learner_practice_record: "allow",
       learner_assessment_record: "allow",
       render_mermaid: "allow",
+      render_saved_question_set: "allow",
     },
     subagentDefaults: {
       "curriculum-orchestrator": "prefer",
       "goal-writer": "prefer",
+      "question-set-author": "prefer",
       ...RESERVED_SUBAGENT_DEFAULTS,
     },
     contextPolicy: {
@@ -42,7 +44,7 @@ const BUILTIN_BUDDY_PERSONAS = {
     description: "Coding-focused Buddy persona for hands-on lessons with the editor workspace.",
     domain: "coding",
     defaultIntent: "practice",
-    surfaces: ["curriculum", "editor"],
+    surfaces: ["curriculum", "editor", "question-set"],
     defaultSurface: "editor",
     hidden: false,
     toolDefaults: {
@@ -55,10 +57,12 @@ const BUILTIN_BUDDY_PERSONAS = {
       teaching_set_lesson: "allow",
       teaching_restore_checkpoint: "allow",
       render_mermaid: "allow",
+      render_saved_question_set: "allow",
     },
     subagentDefaults: {
       "practice-agent": "prefer",
       "assessment-agent": "allow",
+      "question-set-author": "allow",
       "feedback-engine": "prefer",
       ...RESERVED_SUBAGENT_DEFAULTS,
     },
@@ -76,7 +80,7 @@ const BUILTIN_BUDDY_PERSONAS = {
     description: "Math-focused Buddy persona for coaching with inline figure tools.",
     domain: "math",
     defaultIntent: "learn",
-    surfaces: ["curriculum", "figure"],
+    surfaces: ["curriculum", "figure", "question-set"],
     defaultSurface: "figure",
     hidden: false,
     toolDefaults: {
@@ -86,12 +90,14 @@ const BUILTIN_BUDDY_PERSONAS = {
       render_figure: "allow",
       render_freeform_figure: "allow",
       render_mermaid: "allow",
+      render_saved_question_set: "allow",
       python_calculator: "allow",
     },
     subagentDefaults: {
       "analogy-author": "prefer",
       "solution-checker": "prefer",
       "practice-agent": "allow",
+      "question-set-author": "allow",
       ...RESERVED_SUBAGENT_DEFAULTS,
     },
     contextPolicy: {
