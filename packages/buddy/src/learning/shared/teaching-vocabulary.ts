@@ -16,7 +16,7 @@ export type Persona = (typeof PERSONAS)[number]
 export const INTENTS = ["learn", "practice", "assess", "auto"] as const
 export type Intent = (typeof INTENTS)[number]
 
-export const SURFACES = ["chat", "curriculum", "editor", "figure", "quiz"] as const
+export const SURFACES = ["chat", "curriculum", "editor", "figure", "question-set"] as const
 export type Surface = (typeof SURFACES)[number]
 
 type BuiltinPersonaSurface = (typeof BUILTIN_BUDDY_PERSONAS)[BuiltinPersona]["surfaces"][number]

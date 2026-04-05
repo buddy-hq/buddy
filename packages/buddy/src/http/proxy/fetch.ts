@@ -13,6 +13,7 @@ async function fetchOpenCode(input: FetchOpenCodeInput): Promise<Response> {
     registerLearnerTools: input.registerLearnerTools ?? false,
     registerTeachingTools: input.registerTeachingTools ?? false,
     registerMathTools: input.registerMathTools ?? false,
+    registerQuestionSetTools: input.registerQuestionSetTools ?? false,
   })
 
   const openCodeApp = await loadOpenCodeApp()

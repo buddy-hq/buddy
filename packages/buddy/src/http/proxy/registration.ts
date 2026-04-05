@@ -39,6 +39,8 @@ function resolveInitialRegistrationFlags(input: ProxyToOpenCodeInput): ProxyRegi
       typeof input.registerTeachingTools === "boolean" ? input.registerTeachingTools : false,
     registerMathTools:
       typeof input.registerMathTools === "boolean" ? input.registerMathTools : false,
+    registerQuestionSetTools:
+      typeof input.registerQuestionSetTools === "boolean" ? input.registerQuestionSetTools : false,
   }
 }
 
@@ -56,6 +58,7 @@ function resolveBodyRegistrationFlags(
     registerLearnerTools: resolveRegistration(body, input.registerLearnerTools),
     registerTeachingTools: resolveRegistration(body, input.registerTeachingTools),
     registerMathTools: resolveRegistration(body, input.registerMathTools),
+    registerQuestionSetTools: resolveRegistration(body, input.registerQuestionSetTools),
   }
 }
 

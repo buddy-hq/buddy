@@ -15,6 +15,7 @@ type LearningToolRegistrationFlags = {
   registerLearnerTools: boolean
   registerTeachingTools: boolean
   registerMathTools: boolean
+  registerQuestionSetTools: boolean
 }
 
 function warnToolRegistrationFailure(message: string, error: unknown): void {
@@ -132,6 +133,22 @@ async function registerRuntimeTools(
     directory,
     group: "math",
     warning: "Failed to register Buddy math tools into OpenCode runtime:",
+    registrations,
+  })
+
+  registerToolGroup({
+    enabled: flags.registerQuestionSetTools,
+    directory,
+    group: "questionSet",
+    warning: "Failed to register Buddy question-set tools into OpenCode runtime:",
+    registrations,
+  })
+
+  unregisterToolGroup({
+    enabled: flags.registerQuestionSetTools,
+    directory,
+    group: "questionSet",
+    warning: "Failed to unregister Buddy question-set tools from OpenCode runtime:",
     registrations,
   })
   unregisterToolGroup({
