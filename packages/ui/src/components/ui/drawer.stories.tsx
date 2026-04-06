@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
+import * as React from "react"
 
 import {
   Drawer,
@@ -15,7 +16,13 @@ import { expect, fn, userEvent, within } from "storybook/test"
 /**
  * A drawer component for React.
  */
-const meta = {
+type DrawerArgs = {
+  onOpenChange?: (open: boolean) => void
+  onClose?: () => void
+  onAnimationEnd?: (open: boolean) => void
+}
+
+const meta: Meta<DrawerArgs> = {
   title: "UI/Drawer",
   component: Drawer,
   args: {
@@ -43,7 +50,7 @@ const meta = {
   parameters: {
     layout: "centered",
   },
-} satisfies Meta<typeof Drawer>
+} satisfies Meta<DrawerArgs>
 
 export default meta
 

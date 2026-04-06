@@ -6,7 +6,7 @@ import { expect, userEvent, within } from "storybook/test"
 /**
  * Displays rich content in a portal, triggered by a button.
  */
-const meta = {
+const meta: Meta<typeof Popover> = {
   title: "UI/Popover",
   component: Popover,
   argTypes: {},

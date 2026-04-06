@@ -30,7 +30,7 @@ const notifications = [
 /**
  * Displays a card with header, content, and footer.
  */
-const meta = {
+const meta: Meta<typeof Card> = {
   title: "UI/Card",
   component: Card,
   argTypes: {},

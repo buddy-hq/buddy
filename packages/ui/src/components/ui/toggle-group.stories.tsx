@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
+import * as React from "react"
 import { Bold, Italic, Underline } from "lucide-react"
 
 import { ToggleGroup, ToggleGroupItem } from "./toggle-group"
@@ -6,7 +7,14 @@ import { ToggleGroup, ToggleGroupItem } from "./toggle-group"
 /**
  * A set of two-state buttons that can be toggled on or off.
  */
-const meta = {
+type ToggleGroupArgs = {
+  type: "single" | "multiple"
+  variant?: "default" | "outline"
+  size?: "default" | "sm" | "lg"
+  disabled?: boolean
+}
+
+const meta: Meta<ToggleGroupArgs> = {
   title: "UI/ToggleGroup",
   component: ToggleGroup,
   argTypes: {
@@ -37,7 +45,7 @@ const meta = {
   parameters: {
     layout: "centered",
   },
-} satisfies Meta<typeof ToggleGroup>
+} satisfies Meta<ToggleGroupArgs>
 
 export default meta
 

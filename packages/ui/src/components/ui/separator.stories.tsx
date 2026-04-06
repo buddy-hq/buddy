@@ -5,7 +5,7 @@ import { Separator } from "./separator"
 /**
  * Visually or semantically separates content.
  */
-const meta = {
+const meta: Meta<typeof Separator> = {
   title: "UI/Separator",
   component: Separator,
   argTypes: {},

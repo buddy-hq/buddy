@@ -5,7 +5,7 @@ import { Badge } from "./badge"
 /**
  * Displays a badge or a component that looks like a badge.
  */
-const meta = {
+const meta: Meta<typeof Badge> = {
   title: "UI/Badge",
   component: Badge,
   argTypes: {

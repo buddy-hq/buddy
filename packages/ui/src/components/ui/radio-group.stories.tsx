@@ -8,7 +8,7 @@ import { RadioGroup, RadioGroupItem } from "./radio-group"
  * A set of checkable buttons—known as radio buttons—where no more than one of
  * the buttons can be checked at a time.
  */
-const meta = {
+const meta: Meta<typeof RadioGroup> = {
   title: "UI/RadioGroup",
   component: RadioGroup,
   argTypes: {},

@@ -5,7 +5,7 @@ import { Label } from "./label"
 /**
  * Renders an accessible label associated with controls.
  */
-const meta = {
+const meta: Meta<typeof Label> = {
   title: "UI/Label",
   component: Label,
   argTypes: {

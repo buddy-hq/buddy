@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "./avatar"
 /**
  * An image element with a fallback for representing the user.
  */
-const meta = {
+const meta: Meta<typeof Avatar> = {
   title: "UI/Avatar",
   component: Avatar,
   argTypes: {},

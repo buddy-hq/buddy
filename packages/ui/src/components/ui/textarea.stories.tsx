@@ -7,7 +7,7 @@ import { Textarea } from "./textarea"
 /**
  * Displays a form textarea or a component that looks like a textarea.
  */
-const meta = {
+const meta: Meta<typeof Textarea> = {
   title: "UI/Textarea",
   component: Textarea,
   argTypes: {},

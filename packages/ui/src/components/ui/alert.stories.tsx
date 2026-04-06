@@ -6,7 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from "./alert"
 /**
  * Displays a callout for user attention.
  */
-const meta = {
+const meta: Meta<typeof Alert> = {
   title: "UI/Alert",
   component: Alert,
   argTypes: {

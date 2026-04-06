@@ -14,7 +14,7 @@ import { expect, userEvent, within } from "storybook/test"
 /**
  * Fast, composable, unstyled command menu for React.
  */
-const meta = {
+const meta: Meta<typeof Command> = {
   title: "UI/Command",
   component: Command,
   argTypes: {},

@@ -5,7 +5,7 @@ import { Skeleton } from "./skeleton"
 /**
  * Use to show a placeholder while content is loading.
  */
-const meta = {
+const meta: Meta<typeof Skeleton> = {
   title: "UI/Skeleton",
   component: Skeleton,
   argTypes: {},

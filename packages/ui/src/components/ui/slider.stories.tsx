@@ -5,7 +5,7 @@ import { Slider } from "./slider"
 /**
  * An input where the user selects a value from within a given range.
  */
-const meta = {
+const meta: Meta<typeof Slider> = {
   title: "UI/Slider",
   component: Slider,
   argTypes: {},

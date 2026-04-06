@@ -40,7 +40,7 @@ const invoices = [
 /**
  * Powerful table and datagrids built using TanStack Table.
  */
-const meta = {
+const meta: Meta<typeof Table> = {
   title: "UI/Table",
   component: Table,
   argTypes: {},

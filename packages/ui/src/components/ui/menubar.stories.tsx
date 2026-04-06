@@ -23,7 +23,7 @@ import { expect, userEvent, within } from "storybook/test"
  * A visually persistent menu common in desktop applications that provides
  * quick access to a consistent set of commands.
  */
-const meta = {
+const meta: Meta<typeof Menubar> = {
   title: "UI/Menubar",
   component: Menubar,
   argTypes: {},

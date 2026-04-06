@@ -26,7 +26,7 @@ import { Calendar, ChevronUp, Home, Inbox, Search, Settings, User2 } from "lucid
 /**
  * A composable, themeable and customizable sidebar component.
  */
-const meta = {
+const meta: Meta<typeof Sidebar> = {
   title: "UI/Sidebar",
   component: Sidebar,
   argTypes: {

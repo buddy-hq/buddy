@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
+import * as React from "react"
 import { expect, userEvent, waitFor, within } from "storybook/test"
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./accordion"
@@ -7,7 +8,13 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./
  * A vertically stacked set of interactive headings that each reveal a section
  * of content.
  */
-const meta = {
+type AccordionArgs = {
+  type: "single" | "multiple"
+  collapsible?: boolean
+  disabled?: boolean
+}
+
+const meta: Meta<AccordionArgs> = {
   title: "UI/Accordion",
   component: Accordion,
   argTypes: {
@@ -50,7 +57,7 @@ const meta = {
       </AccordionItem>
     </Accordion>
   ),
-} satisfies Meta<typeof Accordion>
+} satisfies Meta<AccordionArgs>
 
 export default meta
 

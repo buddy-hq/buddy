@@ -1,5 +1,6 @@
 import { expect, fn, userEvent } from "storybook/test"
 import type { Meta, StoryObj } from "@storybook/react-vite"
+import * as React from "react"
 import { REGEXP_ONLY_DIGITS, REGEXP_ONLY_DIGITS_AND_CHARS } from "input-otp"
 
 import { InputOTP, InputOTPGroup, InputOTPSeparator, InputOTPSlot } from "./input-otp"
@@ -7,9 +8,17 @@ import { InputOTP, InputOTPGroup, InputOTPSeparator, InputOTPSlot } from "./inpu
 /**
  * Accessible one-time password component with copy paste functionality.
  */
-const meta = {
+type InputOTPArgs = {
+  maxLength: number
+  onChange?: (value: string) => void
+  onComplete?: (...args: unknown[]) => void
+  pattern?: string
+  children?: React.ReactNode
+  "aria-label"?: string
+}
+
+const meta: Meta<InputOTPArgs> = {
   title: "UI/InputOTP",
-  component: InputOTP,
   argTypes: {},
   args: {
     maxLength: 6,
@@ -35,7 +44,7 @@ const meta = {
   parameters: {
     layout: "centered",
   },
-} satisfies Meta<typeof InputOTP>
+} satisfies Meta<InputOTPArgs>
 
 export default meta
 

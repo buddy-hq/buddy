@@ -107,7 +107,7 @@ function MultiSelectCombobox() {
           <ComboboxChips>
             <ComboboxCollection>
               {(item) => (
-                <ComboboxChip key={String(item)} value={item}>
+                <ComboboxChip key={String(item)}>
                   {String(item)}
                 </ComboboxChip>
               )}

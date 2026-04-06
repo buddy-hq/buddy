@@ -13,7 +13,7 @@ import {
 /**
  * Pagination with page navigation, next and previous links.
  */
-const meta = {
+const meta: Meta<typeof Pagination> = {
   title: "UI/Pagination",
   component: Pagination,
   argTypes: {},

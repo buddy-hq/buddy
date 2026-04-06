@@ -5,7 +5,7 @@ import { ScrollArea } from "./scroll-area"
 /**
  * Augments native scroll functionality for custom, cross-browser styling.
  */
-const meta = {
+const meta: Meta<typeof ScrollArea> = {
   title: "UI/ScrollArea",
   component: ScrollArea,
   argTypes: {

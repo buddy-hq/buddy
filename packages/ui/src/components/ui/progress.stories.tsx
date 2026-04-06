@@ -6,7 +6,7 @@ import { Progress } from "./progress"
  * Displays an indicator showing the completion progress of a task, typically
  * displayed as a progress bar.
  */
-const meta = {
+const meta: Meta<typeof Progress> = {
   title: "UI/Progress",
   component: Progress,
   argTypes: {},

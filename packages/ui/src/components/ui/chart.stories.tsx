@@ -63,7 +63,7 @@ const singleSeriesConfig = {
 /**
  * Beautiful charts. Built using Recharts. Copy and paste into your apps.
  */
-const meta = {
+const meta: Meta<typeof ChartContainer> = {
   title: "UI/Chart",
   component: ChartContainer,
   argTypes: {},

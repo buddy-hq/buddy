@@ -6,7 +6,7 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "./hover-card"
 /**
  * For sighted users to preview content available behind a link.
  */
-const meta = {
+const meta: Meta<typeof HoverCard> = {
   title: "UI/HoverCard",
   component: HoverCard,
   argTypes: {},

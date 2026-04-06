@@ -13,7 +13,7 @@ import {
 /**
  * Displays the path to the current resource using a hierarchy of links.
  */
-const meta = {
+const meta: Meta<typeof Breadcrumb> = {
   title: "UI/Breadcrumb",
   component: Breadcrumb,
   argTypes: {},

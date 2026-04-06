@@ -16,7 +16,7 @@ import {
  * A window overlaid on either the primary window or another dialog window,
  * rendering the content underneath inert.
  */
-const meta = {
+const meta: Meta<typeof Dialog> = {
   title: "UI/Dialog",
   component: Dialog,
   argTypes: {},

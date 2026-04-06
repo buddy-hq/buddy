@@ -13,7 +13,7 @@ import {
 /**
  * A collection of links for navigating websites.
  */
-const meta = {
+const meta: Meta<typeof NavigationMenu> = {
   title: "UI/NavigationMenu",
   component: NavigationMenu,
   argTypes: {},

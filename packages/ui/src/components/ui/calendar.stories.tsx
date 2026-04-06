@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
+import * as React from "react"
 import { addDays } from "date-fns"
 import { action } from "storybook/actions"
 import { expect, userEvent } from "storybook/test"
@@ -8,9 +9,20 @@ import { Calendar } from "./calendar"
 /**
  * A date field component that allows users to enter and edit date.
  */
-const meta = {
+type CalendarArgs = {
+  mode?: "single" | "multiple" | "range"
+  disabled?: boolean | Date[]
+  numberOfMonths?: number
+  showOutsideDays?: boolean
+  selected?: Date | Date[] | { from?: Date; to?: Date }
+  onSelect?: (date: unknown) => void
+  className?: string
+  defaultMonth?: Date
+  min?: number
+}
+
+const meta: Meta<CalendarArgs> = {
   title: "UI/Calendar",
-  component: Calendar,
   argTypes: {
     mode: {
       table: {
@@ -41,7 +53,7 @@ const meta = {
   parameters: {
     layout: "centered",
   },
-} satisfies Meta<typeof Calendar>
+} satisfies Meta<CalendarArgs>
 
 export default meta
 

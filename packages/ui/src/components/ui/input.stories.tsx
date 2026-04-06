@@ -8,7 +8,7 @@ import { Label } from "./label"
 /**
  * Displays a form input field or a component that looks like an input field.
  */
-const meta = {
+const meta: Meta<typeof Input> = {
   title: "UI/Input",
   component: Input,
   argTypes: {},

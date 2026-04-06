@@ -7,7 +7,7 @@ import { expect, userEvent } from "storybook/test"
 /**
  * An interactive component which expands/collapses a panel.
  */
-const meta = {
+const meta: Meta<typeof Collapsible> = {
   title: "UI/Collapsible",
   component: Collapsible,
   argTypes: {},
