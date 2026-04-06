@@ -105,6 +105,7 @@ export function PromptComposer(props: PromptComposerProps) {
   const modelTriggerRef = useRef<HTMLButtonElement | null>(null)
   const mirrorInputRef = useRef(false)
   const historyApplyingRef = useRef(false)
+  const previousBusyRef = useRef(props.isBusy)
   const promptKey = useMemo(
     () => getPromptScopeKey(props.directory, props.sessionID),
     [props.directory, props.sessionID],
@@ -202,6 +203,30 @@ export function PromptComposer(props: PromptComposerProps) {
     knownAgents: viewState.knownAgents,
     setCursorOffset,
   })
+
+  useEffect(() => {
+    const wasBusy = previousBusyRef.current
+    previousBusyRef.current = props.isBusy
+
+    if (!wasBusy || props.isBusy) {
+      return
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      const editor = editorRef.current
+      if (!editor) return
+
+      editor.focus()
+      const nextCursor = Math.max(0, Math.min(draft.cursor, draft.value.length))
+      setCursorPosition(editor, nextCursor)
+      setCursorOffset(nextCursor)
+      setDraftCursor(promptKey, nextCursor)
+    })
+
+    return () => {
+      window.cancelAnimationFrame(frame)
+    }
+  }, [draft.cursor, draft.value.length, promptKey, props.isBusy, setDraftCursor])
 
   function replaceDraftFromComposer(draftState: Omit<typeof draft, "updatedAt">) {
     mirrorInputRef.current = true
