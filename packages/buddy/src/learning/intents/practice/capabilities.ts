@@ -5,11 +5,23 @@ import {
   pedagogyStepwiseSolveTool,
 } from "../../capabilities/pedagogy/tools/definitions"
 import { renderMermaidTool } from "../../capabilities/figures/mermaid/tools/render-mermaid"
+import {
+  getLearningComponentsTool,
+  getPrerequisitesTool,
+  getStandardTool,
+  queryStandardsSqlTool,
+  searchStandardsTool,
+} from "../../knowledge-graph/tools"
 import { createIntentCapabilities } from "../capabilities/types"
 
 export const PRACTICE_INTENT_CAPABILITY_MANIFEST = createIntentCapabilities({
   intent: "practice",
   tools: [
+    searchStandardsTool,
+    getStandardTool,
+    getLearningComponentsTool,
+    getPrerequisitesTool,
+    queryStandardsSqlTool,
     pedagogyGuidedPracticeTool,
     pedagogyIndependentPracticeTool,
     {

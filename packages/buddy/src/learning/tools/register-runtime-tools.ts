@@ -8,6 +8,7 @@ import {
 type LearningToolRegistrationFlags = {
   registerPedagogyTools: boolean
   registerCurriculumTools: boolean
+  registerKnowledgeGraphTools: boolean
   registerFigureTools: boolean
   registerFreeformFigureTools: boolean
   registerMermaidTools: boolean
@@ -77,6 +78,14 @@ async function registerRuntimeTools(
     directory,
     group: "curriculum",
     warning: "Failed to register Buddy curriculum tools into OpenCode runtime:",
+    registrations,
+  })
+
+  registerToolGroup({
+    enabled: flags.registerKnowledgeGraphTools,
+    directory,
+    group: "knowledgeGraph",
+    warning: "Failed to register Buddy knowledge-graph tools into OpenCode runtime:",
     registrations,
   })
 

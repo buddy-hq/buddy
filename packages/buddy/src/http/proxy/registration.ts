@@ -23,6 +23,10 @@ function resolveInitialRegistrationFlags(input: ProxyToOpenCodeInput): ProxyRegi
       typeof input.registerPedagogyTools === "boolean" ? input.registerPedagogyTools : false,
     registerCurriculumTools:
       typeof input.registerCurriculumTools === "boolean" ? input.registerCurriculumTools : false,
+    registerKnowledgeGraphTools:
+      typeof input.registerKnowledgeGraphTools === "boolean"
+        ? input.registerKnowledgeGraphTools
+        : false,
     registerFigureTools:
       typeof input.registerFigureTools === "boolean" ? input.registerFigureTools : false,
     registerFreeformFigureTools:
@@ -51,6 +55,7 @@ function resolveBodyRegistrationFlags(
   return {
     registerPedagogyTools: resolveRegistration(body, input.registerPedagogyTools),
     registerCurriculumTools: resolveRegistration(body, input.registerCurriculumTools),
+    registerKnowledgeGraphTools: resolveRegistration(body, input.registerKnowledgeGraphTools),
     registerFigureTools: resolveRegistration(body, input.registerFigureTools),
     registerFreeformFigureTools: resolveRegistration(body, input.registerFreeformFigureTools),
     registerMermaidTools: resolveRegistration(body, input.registerMermaidTools),

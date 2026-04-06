@@ -7,12 +7,14 @@ import { mathTools } from "@buddy/backend/learning/capabilities/math/tools/tools
 import { pedagogyTools } from "@buddy/backend/learning/capabilities/pedagogy/tools/tools"
 import { goalTools } from "@buddy/backend/learning/curriculum/goals/tools/tools"
 import { curriculumTools } from "@buddy/backend/learning/curriculum/planning/tools/tools"
+import { knowledgeGraphTools } from "@buddy/backend/learning/knowledge-graph/tools/tools"
 import { learnerTools } from "@buddy/backend/learning/learner-model/tools/tools"
 import type { BuddyTool } from "./create-buddy-tool"
 
 const learningToolGroups = {
   pedagogy: pedagogyTools,
   curriculum: curriculumTools,
+  knowledgeGraph: knowledgeGraphTools,
   figures: figureTools,
   freeformFigures: freeformFigureTools,
   mermaid: mermaidTools,

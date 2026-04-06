@@ -6,6 +6,7 @@ async function fetchOpenCode(input: FetchOpenCodeInput): Promise<Response> {
   await registerOpenCodeTools(input.directory, {
     registerPedagogyTools: input.registerPedagogyTools ?? false,
     registerCurriculumTools: input.registerCurriculumTools ?? false,
+    registerKnowledgeGraphTools: input.registerKnowledgeGraphTools ?? false,
     registerFigureTools: input.registerFigureTools ?? false,
     registerFreeformFigureTools: input.registerFreeformFigureTools ?? false,
     registerMermaidTools: input.registerMermaidTools ?? false,

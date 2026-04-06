@@ -5,6 +5,7 @@ export type ProxyRegistrationOption = boolean | ProxyRegistrationPredicate
 export type ProxyRegistrationFlags = {
   registerPedagogyTools: boolean
   registerCurriculumTools: boolean
+  registerKnowledgeGraphTools: boolean
   registerFigureTools: boolean
   registerFreeformFigureTools: boolean
   registerMermaidTools: boolean
@@ -23,6 +24,7 @@ export type ProxyToOpenCodeInput = {
   forceBusyAs409?: boolean
   registerPedagogyTools?: ProxyRegistrationOption
   registerCurriculumTools?: ProxyRegistrationOption
+  registerKnowledgeGraphTools?: ProxyRegistrationOption
   registerFigureTools?: ProxyRegistrationOption
   registerFreeformFigureTools?: ProxyRegistrationOption
   registerMermaidTools?: ProxyRegistrationOption
@@ -42,6 +44,7 @@ export type FetchOpenCodeInput = {
   body?: BodyInit
   registerPedagogyTools?: boolean
   registerCurriculumTools?: boolean
+  registerKnowledgeGraphTools?: boolean
   registerFigureTools?: boolean
   registerFreeformFigureTools?: boolean
   registerMermaidTools?: boolean

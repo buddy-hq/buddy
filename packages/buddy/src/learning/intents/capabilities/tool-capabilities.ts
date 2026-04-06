@@ -11,6 +11,15 @@ import {
   pedagogyTransferCheckTool,
 } from "../../capabilities/pedagogy/tools/definitions"
 import { renderMermaidTool } from "../../capabilities/figures/mermaid/tools/render-mermaid"
+import {
+  getCrosswalkTool,
+  getLearningComponentsTool,
+  getNextStandardsTool,
+  getPrerequisitesTool,
+  getStandardTool,
+  queryStandardsSqlTool,
+  searchStandardsTool,
+} from "../../knowledge-graph/tools"
 import type { BuddyTool } from "../../tools"
 
 export type ToolCapability = {
@@ -50,6 +59,13 @@ export function toolCapabilityKey(capability: ToolCapability): string {
 }
 
 export const TOOL_CAPABILITY_REGISTRY = [
+  createToolCapability(searchStandardsTool),
+  createToolCapability(getStandardTool),
+  createToolCapability(getLearningComponentsTool),
+  createToolCapability(getPrerequisitesTool),
+  createToolCapability(getNextStandardsTool),
+  createToolCapability(getCrosswalkTool),
+  createToolCapability(queryStandardsSqlTool),
   createToolCapability(pedagogyGuidedPracticeTool),
   createToolCapability(pedagogyIndependentPracticeTool),
   createToolCapability({
