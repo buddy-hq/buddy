@@ -94,9 +94,6 @@ export default {
     },
   },
   parameters: {
-    actions: {
-      argTypesRegex: "^on.*",
-    },
     docs: {
       disable: true,
     },
