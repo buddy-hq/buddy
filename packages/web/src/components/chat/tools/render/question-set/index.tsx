@@ -194,7 +194,7 @@ async function fetchQuestionSetArtifact(
   if (existing) {
     return existing
   }
-// TODO: Use getBuddyClient(directory).questionSetArtifacts.read() instead of manual fetch
+  // TODO: Use getBuddyClient(directory).questionSetArtifacts.read() instead of manual fetch
   const request = requestJson<PublicQuestionSetArtifact>(
     directory,
     `/api/question-set-artifacts/${artifactID}`,

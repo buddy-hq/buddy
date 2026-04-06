@@ -86,9 +86,21 @@ export const Basic: Story = {
                 selectedChoiceIds: answers["q2"] || [],
                 correctChoiceIds: ["c1", "c3"],
                 choices: [
-                  { choiceID: "c1", selected: answers["q2"]?.includes("c1") || false, correct: true },
-                  { choiceID: "c2", selected: answers["q2"]?.includes("c2") || false, correct: false },
-                  { choiceID: "c3", selected: answers["q2"]?.includes("c3") || false, correct: true },
+                  {
+                    choiceID: "c1",
+                    selected: answers["q2"]?.includes("c1") || false,
+                    correct: true,
+                  },
+                  {
+                    choiceID: "c2",
+                    selected: answers["q2"]?.includes("c2") || false,
+                    correct: false,
+                  },
+                  {
+                    choiceID: "c3",
+                    selected: answers["q2"]?.includes("c3") || false,
+                    correct: true,
+                  },
                 ],
               },
             ],

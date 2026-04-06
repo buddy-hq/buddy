@@ -106,11 +106,7 @@ function MultiSelectCombobox() {
         <div ref={anchor}>
           <ComboboxChips>
             <ComboboxCollection>
-              {(item) => (
-                <ComboboxChip key={String(item)}>
-                  {String(item)}
-                </ComboboxChip>
-              )}
+              {(item) => <ComboboxChip key={String(item)}>{String(item)}</ComboboxChip>}
             </ComboboxCollection>
             <ComboboxChipsInput placeholder="Add frameworks..." />
           </ComboboxChips>

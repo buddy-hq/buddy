@@ -4,8 +4,6 @@ import { addDays } from "date-fns"
 import { action } from "storybook/actions"
 import { expect, userEvent } from "storybook/test"
 
-import { Calendar } from "./calendar"
-
 /**
  * A date field component that allows users to enter and edit date.
  */
