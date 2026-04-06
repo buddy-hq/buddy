@@ -292,7 +292,7 @@ export function QuestionSetInlineView(props: {
                 })}
               </div>
 
-              {evaluation?.explanation || question.explanation ? (
+              {evaluation && (evaluation.explanation || question.explanation) ? (
                 <p className="mt-2 text-xs text-text-weak">
                   {evaluation?.explanation ?? question.explanation}
                 </p>

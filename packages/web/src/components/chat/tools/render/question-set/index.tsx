@@ -211,17 +211,24 @@ function RenderSavedQuestionSetToolCard({ state, info, directory }: ToolPartProp
   const output = state.output || (state.error ? unwrapError(state.error) : "")
   const showOutput = output.trim().length > 0
   const parsed = state.status === "completed" ? parseRenderSavedQuestionSetOutput(state) : undefined
+  const parsedArtifactID = parsed?.artifactID
+  const parsedEmbeddedArtifact = parsed?.artifact
 
-  const [artifact, setArtifact] = useState<PublicQuestionSetArtifact | undefined>(parsed?.artifact)
+  const [artifact, setArtifact] = useState<PublicQuestionSetArtifact | undefined>(
+    parsedEmbeddedArtifact,
+  )
   const [loadError, setLoadError] = useState<string | undefined>(undefined)
 
   useEffect(() => {
-    setArtifact(parsed?.artifact)
+    setArtifact(parsedEmbeddedArtifact)
     setLoadError(undefined)
-  }, [parsed?.artifactID, parsed?.artifact])
+  }, [parsedArtifactID, parsedEmbeddedArtifact])
 
   useEffect(() => {
-    if (!parsed || parsed.artifact) {
+    if (!parsedArtifactID || parsedEmbeddedArtifact) {
+      return
+    }
+    if (artifact?.artifactID === parsedArtifactID) {
       return
     }
     if (!directory) {
@@ -230,7 +237,7 @@ function RenderSavedQuestionSetToolCard({ state, info, directory }: ToolPartProp
     }
 
     let cancelled = false
-    void fetchQuestionSetArtifact(directory, parsed.artifactID)
+    void fetchQuestionSetArtifact(directory, parsedArtifactID)
       .then((fetchedArtifact) => {
         if (cancelled) {
           return
@@ -247,7 +254,7 @@ function RenderSavedQuestionSetToolCard({ state, info, directory }: ToolPartProp
     return () => {
       cancelled = true
     }
-  }, [directory, parsed])
+  }, [artifact?.artifactID, directory, parsedArtifactID, parsedEmbeddedArtifact])
 
   if (running) {
     return (

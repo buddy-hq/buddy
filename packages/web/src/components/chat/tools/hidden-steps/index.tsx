@@ -30,6 +30,13 @@ const SUMMARY_ONLY_PREVIEW_TOOLS = new Set([
   "learner_snapshot_read",
   "pedagogy_resource_ingest_full_text",
   "skill",
+  "search_standards",
+  "get_standard",
+  "get_learning_components",
+  "get_prerequisites",
+  "get_next_standards",
+  "get_crosswalk",
+  "query_standards_sql",
 ])
 
 const SPRING_SNAPPY = { type: "spring", stiffness: 500, damping: 35, mass: 0.8 } as const
@@ -39,6 +46,14 @@ type AbstractedEntry = {
   part: MessagePart
   state?: ToolState
   info?: ToolInfo
+}
+
+function entryUsesSummaryOnlyRendering(entry: AbstractedEntry): boolean {
+  return entry.part.type === "tool" && SUMMARY_ONLY_PREVIEW_TOOLS.has(String(entry.part.tool ?? ""))
+}
+
+function entrySuppressesErrorPreview(entry: AbstractedEntry): boolean {
+  return entry.part.type === "tool" && SUMMARY_ONLY_PREVIEW_TOOLS.has(String(entry.part.tool ?? ""))
 }
 
 function isReasoningActive(part: MessagePart): boolean {
@@ -75,7 +90,7 @@ function entryHasError(entry: AbstractedEntry): boolean {
 }
 
 function entryErrorText(entry: AbstractedEntry): string | undefined {
-  if (!entryHasError(entry)) return undefined
+  if (!entryHasError(entry) || entrySuppressesErrorPreview(entry)) return undefined
 
   const errorText = stripAnsi(String(entry.state?.error ?? "")).trim()
   if (errorText) return errorText
@@ -84,6 +99,10 @@ function entryErrorText(entry: AbstractedEntry): string | undefined {
   if (outputText) return outputText
 
   return entry.info?.title ? `${entry.info.title} failed.` : "Step failed."
+}
+
+function entryHasVisibleError(entry: AbstractedEntry): boolean {
+  return entryHasError(entry) && !entrySuppressesErrorPreview(entry)
 }
 
 function buildSummary(entries: AbstractedEntry[]): string | undefined {
@@ -130,6 +149,31 @@ function buildPreview(entry: AbstractedEntry | undefined): { title: string; deta
   return { title: ABSTRACTED_WORKING_LABEL }
 }
 
+function SummaryOnlyToolRow({ entry }: { entry: AbstractedEntry }) {
+  if (!entry.info) {
+    return null
+  }
+
+  const subtitles = [entry.info.subtitle, entry.info.summary].filter(
+    (value, index, values): value is string =>
+      typeof value === "string" && value.trim().length > 0 && values.indexOf(value) === index,
+  )
+
+  return (
+    <div className="rounded-md border border-border-base/45 bg-background-base/35 px-3 py-2">
+      <div className="text-xs font-medium text-text-weak">{entry.info.title}</div>
+      {subtitles.map((detail) => (
+        <div
+          key={detail}
+          className="mt-1 whitespace-pre-wrap break-words text-xs text-text-weak/55"
+        >
+          {detail}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 interface HiddenStepsProps {
   parts: MessagePart[]
   onOpenSession?: (sessionID: string) => void
@@ -156,9 +200,12 @@ export function HiddenSteps({
   const [isOpen, setIsOpen] = useState(false)
   const entries = useMemo(() => parts.map((part) => createEntry(part)), [parts])
   const activeEntry = useMemo(() => entries.findLast((entry) => entryIsActive(entry)), [entries])
-  const lastErrorEntry = useMemo(() => entries.findLast((entry) => entryHasError(entry)), [entries])
+  const lastErrorEntry = useMemo(
+    () => entries.findLast((entry) => entryHasVisibleError(entry)),
+    [entries],
+  )
   const errorCount = useMemo(
-    () => entries.filter((entry) => entryHasError(entry)).length,
+    () => entries.filter((entry) => entryHasVisibleError(entry)).length,
     [entries],
   )
   const lastActiveEntryRef = useRef<AbstractedEntry | undefined>(undefined)
@@ -302,22 +349,26 @@ export function HiddenSteps({
 
       <CollapsibleContent>
         <div className="mt-2 flex flex-col gap-3">
-          {parts.map((part) => (
-            <AssistantPartRenderer
-              key={part.id}
-              part={part}
-              onOpenSession={onOpenSession}
-              directory={directory}
-              copyPartID={copyPartID}
-              metaText={metaText}
-              interrupted={interrupted}
-              defaultOpen={
-                part.type === "tool" && String(part.tool ?? "") === "bash"
-                  ? shellToolDefaultOpen
-                  : undefined
-              }
-            />
-          ))}
+          {entries.map((entry) =>
+            entryUsesSummaryOnlyRendering(entry) ? (
+              <SummaryOnlyToolRow key={entry.part.id} entry={entry} />
+            ) : (
+              <AssistantPartRenderer
+                key={entry.part.id}
+                part={entry.part}
+                onOpenSession={onOpenSession}
+                directory={directory}
+                copyPartID={copyPartID}
+                metaText={metaText}
+                interrupted={interrupted}
+                defaultOpen={
+                  entry.part.type === "tool" && String(entry.part.tool ?? "") === "bash"
+                    ? shellToolDefaultOpen
+                    : undefined
+                }
+              />
+            ),
+          )}
         </div>
       </CollapsibleContent>
     </Collapsible>

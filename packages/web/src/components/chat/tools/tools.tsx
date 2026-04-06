@@ -12,6 +12,7 @@ import { renderWebfetchTool } from "./render/webfetch"
 import { renderExaSearchTool } from "./render/exa-search"
 import { renderRenderFigureTool } from "./render/render-figure"
 import { renderRenderMermaidTool } from "./render/mermaid"
+import { renderKnowledgeGraphTool } from "./render/knowledge-graph"
 import { renderRenderSavedQuestionSetTool } from "./render/question-set"
 import { renderQuestionTool } from "./render/question"
 import { renderBuddyCustomTool } from "./render/buddy-custom"
@@ -46,6 +47,14 @@ registerTool({ name: "render_mermaid", render: renderRenderMermaidTool })
 registerTool({ name: "render_saved_question_set", render: renderRenderSavedQuestionSetTool })
 
 registerTool({ name: "question", render: renderQuestionTool })
+
+registerTool({ name: "search_standards", render: renderKnowledgeGraphTool })
+registerTool({ name: "get_standard", render: renderKnowledgeGraphTool })
+registerTool({ name: "get_learning_components", render: renderKnowledgeGraphTool })
+registerTool({ name: "get_prerequisites", render: renderKnowledgeGraphTool })
+registerTool({ name: "get_next_standards", render: renderKnowledgeGraphTool })
+registerTool({ name: "get_crosswalk", render: renderKnowledgeGraphTool })
+registerTool({ name: "query_standards_sql", render: renderKnowledgeGraphTool })
 
 registerTool({ name: "todowrite", render: () => null })
 registerTool({ name: "todoread", render: () => null })

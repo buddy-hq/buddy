@@ -26,6 +26,13 @@ const ABSTRACTABLE_TOOLS = new Set([
   "learner_snapshot_read",
   "pedagogy_resource_ingest_full_text",
   "skill",
+  "search_standards",
+  "get_standard",
+  "get_learning_components",
+  "get_prerequisites",
+  "get_next_standards",
+  "get_crosswalk",
+  "query_standards_sql",
 ])
 
 const CHAT_SCROLL_ANCHOR_THRESHOLD_PX = 96
