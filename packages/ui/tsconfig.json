@@ -11,5 +11,5 @@
     "rootDir": "./src"
   },
   "include": ["src/**/*"],
-  "exclude": ["**/*.stories.*", "**/*.mdx", "src/storybook/**/*"]
+  "exclude": ["**/*.mdx", "src/storybook/**/*"]
 }
