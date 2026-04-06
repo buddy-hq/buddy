@@ -5,32 +5,12 @@ import { isRecord, readNonEmptyString } from "../../../tools/types"
 import { unwrapError } from "../../../utils/error"
 import { requestJson } from "@/lib/api-client"
 import type { ToolPartProps } from "../../registry"
-import { QuestionSetInlineView } from "./question-set-inline-view"
+import {
+  QuestionSetInlineView,
+  type PublicQuestionSetArtifact,
+  type SubmitQuestionSetAttemptOutput,
+} from "./question-set-inline-view"
 import { QuestionSetToolCard } from "./question-set-tool-card"
-
-type PublicQuestionSetArtifact = {
-  artifactID: string
-  title: string
-  groupType: "quiz" | "practice" | "assessment"
-  questions: Array<{
-    id: string
-    prompt: string
-    goalIds: string[]
-    explanation?: string
-    payload: {
-      multipleSelect: boolean
-      countChoices?: boolean
-      numCorrect?: number
-      hasNoneOfTheAbove?: boolean
-      randomize?: boolean
-      choices: Array<{
-        id: string
-        content: string
-        isNoneOfTheAbove?: boolean
-      }>
-    }
-  }>
-}
 
 type RenderSavedQuestionSetOutput = {
   artifactID: string
@@ -214,7 +194,7 @@ async function fetchQuestionSetArtifact(
   if (existing) {
     return existing
   }
-
+// TODO: Use getBuddyClient(directory).questionSetArtifacts.read() instead of manual fetch
   const request = requestJson<PublicQuestionSetArtifact>(
     directory,
     `/api/question-set-artifacts/${artifactID}`,
@@ -298,7 +278,28 @@ function RenderSavedQuestionSetToolCard({ state, info, directory }: ToolPartProp
       status={state.status}
     >
       {artifact ? (
-        <QuestionSetInlineView artifact={artifact} directory={directory} />
+        <QuestionSetInlineView
+          artifact={artifact}
+          onSubmit={async (answers) => {
+            if (!directory) {
+              throw new Error(language.t("chatTools.questionSetNoWorkspaceDirectory"))
+            }
+            const response = await requestJson<SubmitQuestionSetAttemptOutput>(
+              directory,
+              `/api/question-set-artifacts/${artifact.artifactID}/attempts`,
+              {
+                method: "POST",
+                body: {
+                  answers: artifact.questions.map((question) => ({
+                    questionID: question.id,
+                    selectedChoiceIds: answers[question.id] ?? [],
+                  })),
+                },
+              },
+            )
+            return response.result
+          }}
+        />
       ) : (
         <div className="text-sm text-text-weak">Loading question set...</div>
       )}

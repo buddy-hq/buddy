@@ -1,9 +1,8 @@
 import { useMemo, useState } from "react"
 import { Button } from "@buddy/ui"
 import { language } from "@/context/language"
-import { requestJson } from "@/lib/api-client"
 
-type PublicQuestionSetArtifact = {
+export type PublicQuestionSetArtifact = {
   artifactID: string
   title: string
   groupType: "quiz" | "practice" | "assessment"
@@ -27,7 +26,7 @@ type PublicQuestionSetArtifact = {
   }>
 }
 
-type QuestionSetEvaluationResult = {
+export type QuestionSetEvaluationResult = {
   totalQuestions: number
   correctQuestions: number
   status: "completed" | "partial" | "stuck"
@@ -46,7 +45,7 @@ type QuestionSetEvaluationResult = {
   }>
 }
 
-type SubmitQuestionSetAttemptOutput = {
+export type SubmitQuestionSetAttemptOutput = {
   attemptID: string
   artifactID: string
   result: QuestionSetEvaluationResult
@@ -103,7 +102,7 @@ function orderedChoicesForQuestion(input: {
 
 export function QuestionSetInlineView(props: {
   artifact: PublicQuestionSetArtifact
-  directory?: string
+  onSubmit: (answers: Record<string, string[]>) => Promise<QuestionSetEvaluationResult>
 }) {
   const [answers, setAnswers] = useState<AnswerState>({})
   const [submitting, setSubmitting] = useState(false)
@@ -176,29 +175,12 @@ export function QuestionSetInlineView(props: {
   }
 
   async function submitAttempt() {
-    if (!props.directory) {
-      setError(language.t("chatTools.questionSetNoWorkspaceDirectory"))
-      return
-    }
-
     setSubmitting(true)
     setError(undefined)
 
     try {
-      const response = await requestJson<SubmitQuestionSetAttemptOutput>(
-        props.directory,
-        `/api/question-set-artifacts/${props.artifact.artifactID}/attempts`,
-        {
-          method: "POST",
-          body: {
-            answers: props.artifact.questions.map((question) => ({
-              questionID: question.id,
-              selectedChoiceIds: answers[question.id] ?? [],
-            })),
-          },
-        },
-      )
-      setResult(response.result)
+      const response = await props.onSubmit(answers)
+      setResult(response)
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : String(submitError))
     } finally {
