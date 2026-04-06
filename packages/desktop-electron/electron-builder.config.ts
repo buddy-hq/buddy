@@ -15,6 +15,7 @@ function resolveChannel(): Channel {
 
 const channel = resolveChannel()
 const backendResourcesDir = new URL("./resources/backend", import.meta.url)
+const knowledgeGraphResourcesDir = new URL("./resources/knowledge-graph", import.meta.url)
 const migrationsResourcesDir = new URL("./resources/migrations", import.meta.url)
 
 const optionalRuntimeResources = [
@@ -29,6 +30,13 @@ const optionalRuntimeResources = [
     ? {
         from: "resources/migrations",
         to: "migrations",
+        filter: ["**/*"],
+      }
+    : undefined,
+  existsSync(knowledgeGraphResourcesDir)
+    ? {
+        from: "resources/knowledge-graph",
+        to: "knowledge-graph",
         filter: ["**/*"],
       }
     : undefined,

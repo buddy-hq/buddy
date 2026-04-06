@@ -40,8 +40,8 @@ export function setWslConfig(config: WslConfig) {
   store.set(WSL_ENABLED_KEY, config.enabled)
 }
 
-export function spawnLocalServer(hostname: string, port: number, password: string) {
-  const { child, events, exit } = serve(hostname, port, password)
+export async function spawnLocalServer(hostname: string, port: number, password: string) {
+  const { child, events, exit } = await serve(hostname, port, password)
 
   const wait = (async () => {
     const targetUrl = `http://${hostname}:${port}`

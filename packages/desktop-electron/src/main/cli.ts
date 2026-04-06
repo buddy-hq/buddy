@@ -7,11 +7,13 @@ import readline from "node:readline"
 import { app } from "electron"
 import treeKill from "tree-kill"
 import { SIDECAR_BINARY_NAME, SIDECAR_USERNAME } from "./constants"
+import { ensureBundledKnowledgeGraphDatabase } from "./knowledge-graph"
 import { getUserShell, loadShellEnv, mergeShellEnv } from "./shell-env"
 
 const CLI_INSTALL_DIR = ".buddy/bin"
 const CLI_BINARY_NAME = "buddy"
 const SQLITE_PROGRESS_PREFIX = "sqlite-migration:"
+const KNOWLEDGE_GRAPH_DB_ENV = "BUDDY_KNOWLEDGE_GRAPH_DB_PATH"
 const SERVE_COMMAND = "serve"
 const HOSTNAME_OPTION = "--hostname"
 const PORT_OPTION = "--port"
@@ -101,7 +103,7 @@ function getBundledBuddyMigrationDir() {
   return migrationDir
 }
 
-function buildRuntimeEnvironment(password: string, port: number) {
+async function buildRuntimeEnvironment(password: string, port: number) {
   const runtimeRoot = resolveBuddyRuntimeRoot()
   const xdgDataHome = path.join(runtimeRoot, "data")
   const home = os.homedir()
@@ -110,6 +112,12 @@ function buildRuntimeEnvironment(password: string, port: number) {
       (entry): entry is [string, string] => typeof entry[1] === "string",
     ),
   )
+
+  ensureRuntimeDirectories(runtimeRoot, xdgDataHome)
+  const knowledgeGraphDatabasePath = await ensureBundledKnowledgeGraphDatabase({
+    resourcesDir: resourcesDirectory(),
+    xdgDataHome,
+  })
 
   const environment: Record<string, string> = {
     ...base,
@@ -120,6 +128,7 @@ function buildRuntimeEnvironment(password: string, port: number) {
     OPENCODE_SERVER_PASSWORD: password,
     BUDDY_APP_VERSION: app.getVersion(),
     BUDDY_MIGRATION_DIR: getBundledBuddyMigrationDir(),
+    [KNOWLEDGE_GRAPH_DB_ENV]: knowledgeGraphDatabasePath,
     BUDDY_DIRECTORY_BASE: resolveDefaultNotebookHome(home),
     BUDDY_ALLOWED_DIRECTORY_ROOTS: resolveAllowedDirectoryRoots({
       home,
@@ -140,8 +149,6 @@ function buildRuntimeEnvironment(password: string, port: number) {
   if (advancedMathAssetDir) {
     environment[ADVANCED_MATH_LOCAL_ASSET_DIR_ENV] = advancedMathAssetDir
   }
-
-  ensureRuntimeDirectories(runtimeRoot, xdgDataHome)
 
   return environment
 }
@@ -217,7 +224,7 @@ function killStaleDevelopmentSidecars(runtimeRoot: string) {
   }
 }
 
-export function serve(hostname: string, port: number, password: string) {
+export async function serve(hostname: string, port: number, password: string) {
   const sidecarPath = getSidecarPath()
   const entrypoint = getBundledBackendEntrypointPath()
   const args = [
@@ -231,7 +238,7 @@ export function serve(hostname: string, port: number, password: string) {
   ]
 
   const shell = process.platform === "win32" ? null : getUserShell()
-  const env = buildRuntimeEnvironment(password, port)
+  const env = await buildRuntimeEnvironment(password, port)
   killStaleDevelopmentSidecars(env.BUDDY_RUNTIME_ROOT)
   const envs = ensureSidecarCommandPath(shell ? mergeShellEnv(loadShellEnv(shell), env) : env)
 

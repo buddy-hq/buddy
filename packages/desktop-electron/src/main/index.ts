@@ -175,7 +175,7 @@ async function initialize() {
     const url = `http://${hostname}:${port}`
     const password = randomUUID()
 
-    const { child, health, events } = spawnLocalServer(hostname, port, password)
+    const { child, health, events } = await spawnLocalServer(hostname, port, password)
     sidecar = child
     wireSidecarLogs(events)
 
