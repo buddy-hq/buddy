@@ -5,6 +5,8 @@ import type {
   ConfigPersonasResponses,
   ConfigUpdateData,
   FindFilesResponses,
+  GlobalConfigGetResponses,
+  GlobalConfigPatchData,
   GlobalNotebookHomeGetResponses,
   GlobalNotebookHomePutResponses,
   LearnerSnapshotResponses,
@@ -1571,6 +1573,17 @@ export async function patchProjectConfig(directory: string, patch: Record<string
   const result = await getBuddyClient(directory).config.update({
     body: configPatch,
   })
+  return requireBuddyData(result) as Record<string, unknown>
+}
+
+export async function loadGlobalConfig() {
+  return requireBuddyData<GlobalConfigGetResponses[200]>(
+    await getBuddyClient().global.config.get(),
+  ) as Record<string, unknown>
+}
+
+export async function patchGlobalConfig(patch: NonNullable<GlobalConfigPatchData["body"]>) {
+  const result = await getBuddyClient().global.config.patch(patch)
   return requireBuddyData(result) as Record<string, unknown>
 }
 

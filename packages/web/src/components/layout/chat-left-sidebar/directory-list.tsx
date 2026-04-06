@@ -207,7 +207,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
             </button>
           </CollapsibleTrigger>
 
-          <div className="flex items-center gap-0.5 pr-1 opacity-0 pointer-events-none transition-opacity group-hover/directory:opacity-100 group-hover/directory:pointer-events-auto group-focus-within/directory:opacity-100 group-focus-within/directory:pointer-events-auto">
+          <div className="relative z-10 flex items-center gap-0.5 pr-1 opacity-0 transition-opacity group-hover/directory:opacity-100 group-focus-within/directory:opacity-100">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
@@ -250,7 +250,10 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                   aria-label={language.t("sidebar.startNewThreadIn", {
                     directoryLabel: directoryLabel,
                   })}
-                  onClick={props.onNewSession}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    props.onNewSession()
+                  }}
                 >
                   <SquarePenIcon className="size-3.5" />
                 </button>
@@ -355,7 +358,7 @@ function DirectoryThreadRow(props: DirectoryThreadRowProps) {
         </div>
       </button>
 
-      <div className="pointer-events-none absolute top-0 right-3 flex h-full items-center opacity-0 transition-opacity group-hover/thread:pointer-events-auto group-hover/thread:opacity-100 group-focus-within/thread:pointer-events-auto group-focus-within/thread:opacity-100">
+      <div className="absolute top-0 right-3 z-10 flex h-full items-center opacity-0 transition-opacity group-hover/thread:opacity-100 group-focus-within/thread:opacity-100">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button

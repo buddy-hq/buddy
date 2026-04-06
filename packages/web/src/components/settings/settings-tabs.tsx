@@ -8,6 +8,7 @@ import {
   PaletteIcon,
   SettingsIcon,
   SparklesIcon,
+  WrenchIcon,
   type LucideIcon,
 } from "lucide-react"
 import { InstructionsSettings } from "./settings-instructions"
@@ -18,6 +19,7 @@ import { ProvidersSettings } from "./settings-providers"
 import { McpsSettings } from "./settings-mcps"
 import { SkillsPage } from "@/components/skills/skills-page"
 import { AdvancedSettings } from "./settings-advanced"
+import { ToolsSettings } from "./settings-tools"
 
 export type SettingsTab =
   | "instructions"
@@ -27,6 +29,7 @@ export type SettingsTab =
   | "providers"
   | "mcps"
   | "skills"
+  | "tools"
   | "advanced"
 
 export type SettingsTabDefinition = {
@@ -86,6 +89,13 @@ export const SETTINGS_TABS: SettingsTabDefinition[] = [
     icon: SparklesIcon,
     layout: "full-page",
     render: (directory) => <SkillsPage directory={directory} />,
+  },
+  {
+    id: "tools",
+    navLabelKey: "routes.settings.nav.tools",
+    icon: WrenchIcon,
+    layout: "standard",
+    render: () => <ToolsSettings />,
   },
   {
     id: "advanced",
