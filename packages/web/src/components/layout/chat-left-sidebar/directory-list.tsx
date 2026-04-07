@@ -103,11 +103,11 @@ type DirectoryThreadRowProps = {
   onRequestArchive: () => void
 }
 
-const COLLAPSED_COUNT = 9
+const COLLAPSED_COUNT = 5
 
 export function ChatLeftSidebarDirectoryList(props: ChatLeftSidebarDirectoryListProps) {
   return (
-    <div data-component="left-sidebar-directory-list" className="space-y-1 mt-1">
+    <div data-component="left-sidebar-directory-list" className="space-y-2 mt-1">
       {props.directoryGroups.map((group) => {
         const allSessions = props.sessionsByDirectory[group.directory] ?? []
         const activeRootID = findRootSessionID(allSessions, props.activeSessionID)
@@ -297,7 +297,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
           {hasMore && !props.collapsed ? (
             <button
               type="button"
-              className="ml-3 pl-6 py-1 text-xs text-text-weaker opacity-70 hover:opacity-100 hover:text-text-base"
+              className="ml-2 pl-5 py-1 text-xs text-text-weaker opacity-70 hover:opacity-100 hover:text-text-base"
               onClick={props.onToggleExpanded}
             >
               {props.expanded ? language.t("sidebar.showLess") : language.t("sidebar.showMore")}
@@ -334,7 +334,7 @@ function DirectoryThreadRow(props: DirectoryThreadRowProps) {
         data-session-id={props.session.id}
         data-active={active ? "true" : "false"}
         onClick={props.onSelect}
-        className="relative w-full py-2 pr-3 pl-5 text-left"
+        className="relative w-full py-1.5 pr-3 pl-5 text-left"
       >
         <div className="absolute top-1/2 left-1 flex -translate-y-1/2 items-center justify-center">
           <ThreadStatusIndicator status={threadStatus} />
@@ -344,16 +344,14 @@ function DirectoryThreadRow(props: DirectoryThreadRowProps) {
           <div className="flex min-w-0 items-center gap-1">
             <span
               className={`truncate text-xs ${
-                unread
-                  ? "font-medium text-text-strong"
-                  : "text-text-weaker group-hover/thread:text-text-base"
+                unread ? "font-medium text-text-strong" : "text-text-base"
               }`}
             >
               {props.session.title || language.t("sidebar.newThread")}
             </span>
             {pinned ? <PinIcon className="size-3 shrink-0 text-text-weaker" /> : null}
           </div>
-          <span className="ml-auto shrink-0 text-[11px] text-text-weaker opacity-70 transition-opacity group-hover/thread:opacity-0 group-focus-within/thread:opacity-0">
+          <span className="ml-auto shrink-0 text-xs text-text-weaker opacity-70 transition-opacity group-hover/thread:opacity-0 group-focus-within/thread:opacity-0">
             {formatThreadAge(props.session.time.updated)}
           </span>
         </div>
