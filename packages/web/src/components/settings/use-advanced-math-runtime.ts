@@ -8,6 +8,9 @@ import {
 } from "@/state/advanced-math-runtime"
 
 const MATH_RUNTIME_POLL_INTERVAL_MS = 1000
+const LEGACY_TIMESTAMP_VERSION_PATTERN = /^(\d{12})\.([a-f0-9]+)$/
+const SEMVER_HASH_VERSION_PATTERN = /^(\d+\.\d+\.\d+)-([a-f0-9]+)$/
+const RUNTIME_HASH_DISPLAY_LENGTH = 8
 
 const MATH_RUNTIME_ENABLED_STATES: ReadonlySet<AdvancedMathRuntimeStatus["state"]> = new Set([
   "ready",
@@ -16,10 +19,46 @@ const MATH_RUNTIME_ENABLED_STATES: ReadonlySet<AdvancedMathRuntimeStatus["state"
   "repairing",
 ])
 
+export function formatRuntimeVersion(version: string | undefined): string {
+  if (!version) return "Unknown"
+
+  const semverHashMatch = version.match(SEMVER_HASH_VERSION_PATTERN)
+  if (semverHashMatch) {
+    const [, semver, hash] = semverHashMatch
+    const shortHash = hash.slice(0, RUNTIME_HASH_DISPLAY_LENGTH)
+    return `v${semver} • ${shortHash}`
+  }
+
+  const timestampMatch = version.match(LEGACY_TIMESTAMP_VERSION_PATTERN)
+  if (!timestampMatch) return version
+
+  const [, timestamp, hash] = timestampMatch
+
+  const year = timestamp.slice(0, 4)
+  const month = parseInt(timestamp.slice(4, 6), 10) - 1
+  const day = timestamp.slice(6, 8)
+  const hour = parseInt(timestamp.slice(8, 10), 10)
+  const minute = timestamp.slice(10, 12)
+
+  const date = new Date(parseInt(year), month, parseInt(day), hour, parseInt(minute))
+  const dateStr = date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })
+  const timeStr = date.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  })
+
+  return `${dateStr}, ${timeStr} • ${hash}`
+}
+
 export function advancedMathStatusLabel(
   status: AdvancedMathRuntimeStatus | null,
   loading: boolean,
-) {
+): string {
   if (!status) return loading ? "Loading..." : "Unknown"
 
   switch (status.state) {

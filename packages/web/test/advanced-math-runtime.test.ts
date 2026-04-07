@@ -53,7 +53,7 @@ describe("advanced math runtime state", () => {
           enabled: true,
           state: "ready",
           ready: true,
-          installedVersion: "1.2.3",
+          installedRuntimeVersion: "0.0.1-deadbeef",
           targetTriple: "aarch64-apple-darwin",
           supportedLibraries: ["math", "sympy"],
         })

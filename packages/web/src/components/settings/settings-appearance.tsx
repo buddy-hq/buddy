@@ -16,7 +16,11 @@ import { usePlatform } from "@/context/platform"
 import { showDesktopUpdateToast } from "../../lib/desktop-updates"
 import { useTheme, type ColorScheme } from "@/theme"
 import { SettingsListCard, SettingsRow, SettingsContent } from "./settings-primitives"
-import { advancedMathStatusLabel, useAdvancedMathRuntime } from "./use-advanced-math-runtime"
+import {
+  advancedMathStatusLabel,
+  formatRuntimeVersion,
+  useAdvancedMathRuntime,
+} from "./use-advanced-math-runtime"
 import { ConfirmRemoveMathRuntimeDialog } from "./confirm-remove-math-runtime-dialog"
 
 function isColorScheme(value: string): value is ColorScheme {
@@ -165,9 +169,16 @@ export function AppearanceSettings() {
                     control={
                       <div className="space-y-2">
                         <div className="flex items-center justify-between gap-3">
-                          <span className="text-xs text-text-weak">
-                            {advancedMathStatusLabel(advancedMathStatus, advancedMathLoading)}
-                          </span>
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-xs text-text-weak">
+                              {advancedMathStatusLabel(advancedMathStatus, advancedMathLoading)}
+                            </span>
+                            {advancedMathStatus?.installedRuntimeVersion && (
+                              <span className="text-[11px] text-text-subtle">
+                                {formatRuntimeVersion(advancedMathStatus.installedRuntimeVersion)}
+                              </span>
+                            )}
+                          </div>
                           <Switch
                             data-action="settings-advanced-math-toggle"
                             aria-label={language.t("settings.appearance.advancedMathToggleAria")}

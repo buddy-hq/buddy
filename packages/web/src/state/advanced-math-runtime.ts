@@ -17,7 +17,7 @@ export type AdvancedMathRuntimeStatus = {
   enabled: boolean
   state: AdvancedMathRuntimeState
   ready: boolean
-  installedVersion?: string
+  installedRuntimeVersion?: string
   targetTriple: string
   executablePath?: string
   lastHealthyAt?: string
