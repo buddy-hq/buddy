@@ -1,4 +1,4 @@
-import { Button, SquarePenIcon, ScrollArea } from "@buddy/ui"
+import { ScrollArea } from "@buddy/ui"
 import type { ComponentProps, RefObject, UIEvent } from "react"
 import { ChatEmptyState } from "@/components/directory-chat/chat-empty-state"
 import { SessionContextUsage } from "@/components/directory-chat/session-context-usage"
@@ -43,47 +43,8 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
   return (
     <main
       data-component="directory-chat-main-pane"
-      className="flex-1 min-w-0 min-h-0 flex flex-col bg-background-base/20"
+      className="flex-1 min-w-0 min-h-0 flex flex-col bg-background-stronger"
     >
-      <header className="border-b px-3 py-2">
-        <div className="flex w-full items-center justify-between gap-2 px-1">
-          <div className="min-w-0 flex items-center gap-1.5">
-            {chatState.parentSession ? (
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                onClick={() => {
-                  onOpenSession(chatState.parentSession!.id)
-                }}
-                title={`Back to ${
-                  chatState.parentSession.title || language.t("directoryChat.backToParentThread")
-                }`}
-              >
-                <ChevronRightIcon className="size-3.5 rotate-180" />
-              </Button>
-            ) : null}
-            <div className="min-w-0">
-              <h1 className="text-xs font-normal text-text-weak truncate">
-                {chatState.sessionTitle}
-              </h1>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1.5 px-1">
-            <Button
-              type="button"
-              data-action="chat-new-thread"
-              variant="ghost"
-              size="sm"
-              className="text-text-weak hover:text-text-strong"
-              onClick={onNewSession}
-            >
-              <SquarePenIcon className="size-4 mr-1.5" />
-              {language.t("directoryChat.newThread")}
-            </Button>
-          </div>
-        </div>
-      </header>
 
       <div className="flex-1 min-h-0 flex flex-col">
         <div className="flex min-h-0 flex-1 flex-col">
