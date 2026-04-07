@@ -45,7 +45,6 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
       data-component="directory-chat-main-pane"
       className="flex-1 min-w-0 min-h-0 flex flex-col bg-background-stronger"
     >
-
       <div className="flex-1 min-h-0 flex flex-col">
         <div className="flex min-h-0 flex-1 flex-col">
           <ScrollArea

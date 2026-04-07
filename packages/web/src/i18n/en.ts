@@ -608,8 +608,7 @@ export const dict = {
   "sidebar.newChat": "New chat",
   "sidebar.newNotebook": "New notebook",
   "sidebar.newNotebookDefaultName": "New Notebook",
-  "sidebar.newNotebookDialogDescription":
-    "Stored in your documents folder",
+  "sidebar.newNotebookDialogDescription": "Stored in your documents folder",
   "sidebar.newNotebookDialogTitle": "Create notebook",
   "sidebar.newNotebookPlaceholder": "Notebook name",
   "sidebar.newThread": "New thread",

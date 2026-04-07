@@ -1,16 +1,14 @@
 import type { ReactNode } from "react"
 import { useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
-import {
-  Button,
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@buddy/ui"
+import { Button, Collapsible, CollapsibleContent, CollapsibleTrigger } from "@buddy/ui"
 import { language } from "@/context/language"
 import type { SessionInfo, SessionStatusInfo } from "@/state/chat-types"
 import { ChatLeftSidebarDialogs, NotebookCreationDialog } from "./chat-left-sidebar/dialogs"
-import { ChatLeftSidebarDirectoryList, DirectoryThreadRow } from "./chat-left-sidebar/directory-list"
+import {
+  ChatLeftSidebarDirectoryList,
+  DirectoryThreadRow,
+} from "./chat-left-sidebar/directory-list"
 import { ChatLeftSidebarToolbar } from "./chat-left-sidebar/toolbar"
 import { useDirectoryGroups } from "./chat-left-sidebar/use-directory-groups"
 import { useDirectoryReordering } from "./chat-left-sidebar/use-directory-reordering"
@@ -213,14 +211,14 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
                         }
                         props.onNewSession(props.currentDirectory)
                       }}
-                    aria-label={language.t("sidebar.quickChat")}
-                    title={language.t("sidebar.quickChat")}
-                  >
-                    <SquarePenIcon className="size-3.5" />
-                  </Button>
-                </div>
-              </CollapsibleTrigger>
-              <AnimatePresence initial={false}>
+                      aria-label={language.t("sidebar.quickChat")}
+                      title={language.t("sidebar.quickChat")}
+                    >
+                      <SquarePenIcon className="size-3.5" />
+                    </Button>
+                  </div>
+                </CollapsibleTrigger>
+                <AnimatePresence initial={false}>
                   {!inboxCollapsed && (
                     <CollapsibleContent
                       forceMount
@@ -238,51 +236,52 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
                             {language.t("sidebar.noThreads")}
                           </p>
                         ) : (
-                          (inboxExpanded ? inboxGroup.sessions : inboxGroup.sessions.slice(0, 3)).map(
-                            (session) => (
-                              <DirectoryThreadRow
-                                key={`${inboxGroup.directory}:${session.id}`}
-                                directory={inboxGroup.directory}
-                                currentDirectory={props.currentDirectory}
-                                session={session}
-                                allSessions={props.sessionsByDirectory[inboxGroup.directory] ?? []}
-                                activeRootID={findRootSessionID(
-                                  props.sessionsByDirectory[inboxGroup.directory] ?? [],
-                                  props.activeSessionID,
-                                )}
-                                sessionStatusByID={
-                                  props.sessionStatusByDirectory[inboxGroup.directory] ?? {}
-                                }
-                                pinnedSet={
-                                  new Set(props.pinnedByDirectory[inboxGroup.directory] ?? [])
-                                }
-                                unreadMap={props.unreadByDirectory[inboxGroup.directory] ?? {}}
-                                onSelect={() =>
-                                  props.onSelectSession(inboxGroup.directory, session.id)
-                                }
-                                onTogglePin={() =>
-                                  props.onTogglePin(inboxGroup.directory, session.id)
-                                }
-                                onToggleUnread={(unread) =>
-                                  props.onToggleUnread(inboxGroup.directory, session.id, unread)
-                                }
-                                onRequestRename={() => {
-                                  setRenameState({
-                                    directory: inboxGroup.directory,
-                                    sessionID: session.id,
-                                    title: session.title,
-                                  })
-                                }}
-                                onRequestArchive={() => {
-                                  setArchiveState({
-                                    directory: inboxGroup.directory,
-                                    sessionID: session.id,
-                                    title: session.title,
-                                  })
-                                }}
-                              />
-                            ),
-                          )
+                          (inboxExpanded
+                            ? inboxGroup.sessions
+                            : inboxGroup.sessions.slice(0, 3)
+                          ).map((session) => (
+                            <DirectoryThreadRow
+                              key={`${inboxGroup.directory}:${session.id}`}
+                              directory={inboxGroup.directory}
+                              currentDirectory={props.currentDirectory}
+                              session={session}
+                              allSessions={props.sessionsByDirectory[inboxGroup.directory] ?? []}
+                              activeRootID={findRootSessionID(
+                                props.sessionsByDirectory[inboxGroup.directory] ?? [],
+                                props.activeSessionID,
+                              )}
+                              sessionStatusByID={
+                                props.sessionStatusByDirectory[inboxGroup.directory] ?? {}
+                              }
+                              pinnedSet={
+                                new Set(props.pinnedByDirectory[inboxGroup.directory] ?? [])
+                              }
+                              unreadMap={props.unreadByDirectory[inboxGroup.directory] ?? {}}
+                              onSelect={() =>
+                                props.onSelectSession(inboxGroup.directory, session.id)
+                              }
+                              onTogglePin={() =>
+                                props.onTogglePin(inboxGroup.directory, session.id)
+                              }
+                              onToggleUnread={(unread) =>
+                                props.onToggleUnread(inboxGroup.directory, session.id, unread)
+                              }
+                              onRequestRename={() => {
+                                setRenameState({
+                                  directory: inboxGroup.directory,
+                                  sessionID: session.id,
+                                  title: session.title,
+                                })
+                              }}
+                              onRequestArchive={() => {
+                                setArchiveState({
+                                  directory: inboxGroup.directory,
+                                  sessionID: session.id,
+                                  title: session.title,
+                                })
+                              }}
+                            />
+                          ))
                         )}
                         {inboxGroup.sessions.length > 3 && (
                           <button

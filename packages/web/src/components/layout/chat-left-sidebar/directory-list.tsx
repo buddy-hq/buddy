@@ -25,11 +25,7 @@ import { language } from "@/context/language"
 import type { SessionInfo, SessionStatusInfo } from "@/state/chat-types"
 import { isSessionStatusActive } from "@/state/session-status"
 import { getFilename } from "../sidebar-helpers"
-import {
-  findRootSessionID,
-  sessionFamilyIDs,
-  ThreadStatusIndicator,
-} from "./thread-helpers"
+import { findRootSessionID, sessionFamilyIDs, ThreadStatusIndicator } from "./thread-helpers"
 import type { DirectoryGroup, DropPosition, OrganizeMode } from "./types"
 
 type ChatLeftSidebarDirectoryListProps = {

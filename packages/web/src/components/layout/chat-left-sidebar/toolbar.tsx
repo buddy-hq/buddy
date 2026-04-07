@@ -10,9 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@buddy/ui"
 import { language } from "@/context/language"
-import {
-  PlusIcon,
-} from "../sidebar-icons"
+import { PlusIcon } from "../sidebar-icons"
 import type { OrganizeMode, ShowMode, SortMode } from "./types"
 
 type ChatLeftSidebarToolbarProps = {
