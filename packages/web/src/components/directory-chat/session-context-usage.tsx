@@ -17,7 +17,7 @@ export function SessionContextUsage(props: SessionContextUsageProps) {
 
   const context = metrics.context
   const usage = Math.max(0, Math.min(context?.usage ?? 0, 100))
-  const color = "var(--text-base)"
+  const color = "var(--text-weaker)"
   const cost = new Intl.NumberFormat(undefined, {
     style: "currency",
     currency: "USD",
@@ -29,11 +29,11 @@ export function SessionContextUsage(props: SessionContextUsageProps) {
         aria-label={language.t("chat.sessionContextUsage.ariaLabel")}
         className={cn(buttonVariants({ variant: "ghost", size: "icon-xs" }), "text-text-weak")}
       >
-        <span className="relative size-4">
+        <span className="relative size-3.5">
           <span
             className="absolute inset-0 rounded-full"
             style={{
-              background: `conic-gradient(${color} ${usage * 3.6}deg, color-mix(in oklab, var(--text-weak) 28%, transparent) ${usage * 3.6}deg 360deg)`,
+              background: `conic-gradient(${color} ${usage * 3.6}deg, color-mix(in oklab, var(--text-weaker) 28%, transparent) ${usage * 3.6}deg 360deg)`,
             }}
           />
           <span className="absolute inset-[3px] rounded-full bg-background-base" />

@@ -26,8 +26,8 @@ type ChatLeftSidebarToolbarProps = {
 export function ChatLeftSidebarToolbar(props: ChatLeftSidebarToolbarProps) {
   return (
     <>
-      <div className="mb-2 flex items-center justify-between px-2 text-text-weaker">
-        <p className="text-xs font-medium">{language.t("sidebar.threads")}</p>
+      <div className="mb-2 flex items-center justify-between px-2 text-text-weak">
+        <p className="text-xs">{language.t("sidebar.threads")}</p>
         <div className="flex items-center gap-1">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

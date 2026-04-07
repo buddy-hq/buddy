@@ -182,9 +182,9 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
             >
               <div className="group/section-header mb-4">
                 <CollapsibleTrigger asChild>
-                  <div className="mb-1 flex cursor-pointer select-none items-center justify-between px-2 text-text-weaker group-hover/section-header:text-text-base transition-colors duration-160">
+                  <div className="mb-1 flex cursor-pointer select-none items-center justify-between px-2 text-text-weak group-hover/section-header:text-text-base transition-colors duration-160">
                     <div className="flex items-center gap-1.5">
-                      <p className="text-[11px] font-semibold tracking-wider">
+                      <p className="text-xs">
                         {language.t("sidebar.quickChat")}
                       </p>
                       <motion.div
@@ -286,7 +286,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
                         {inboxGroup.sessions.length > 3 && (
                           <button
                             type="button"
-                            className="ml-2 pl-6 py-1 text-xs text-text-weaker opacity-70 hover:opacity-100 hover:text-text-base transition-all active:scale-95"
+                            className="ml-2 pl-6 py-1 text-xs text-text-weaker hover:text-text-base transition-all active:scale-95"
                             onClick={() => setInboxExpanded(!inboxExpanded)}
                           >
                             {inboxExpanded
@@ -369,7 +369,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
             data-action="left-sidebar-open-settings"
             variant="ghost"
             size="sm"
-            className="h-9 w-full justify-start rounded-lg px-2 text-sm font-medium text-text-weaker hover:bg-surface-raised-base-hover hover:text-text-strong"
+            className="h-9 w-full justify-start rounded-lg px-2 text-sm font-medium text-text-weak hover:bg-surface-raised-base-hover hover:text-text-strong"
             onClick={props.onOpenSettings}
           >
             <SettingsIcon className="size-3.5" />

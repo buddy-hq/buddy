@@ -192,7 +192,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                   type="button"
                   data-action="left-sidebar-directory-toggle"
                   data-directory={props.group.directory}
-                  className={`flex min-w-0 flex-1 items-center gap-1.5 rounded-lg px-2 py-1 text-left text-sm text-text-weaker hover:text-text-base ${
+                  className={`flex min-w-0 flex-1 items-center gap-1.5 rounded-lg px-2 py-1 text-left text-sm text-text-weak hover:text-text-base ${
                     isCurrentDirectory ? "" : ""
                   } ${canDrag ? "cursor-grab active:cursor-grabbing" : ""}`}
                   onPointerDown={canDrag ? (event) => props.onLabelPointerDown(event) : undefined}
@@ -289,7 +289,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                 {hasMore && (
                   <button
                     type="button"
-                    className="ml-2 pl-5 py-1 text-xs text-text-weaker opacity-70 hover:opacity-100 hover:text-text-base"
+                    className="ml-2 pl-5 py-1 text-xs text-text-weaker hover:text-text-base"
                     onClick={props.onToggleExpanded}
                   >
                     {props.expanded
