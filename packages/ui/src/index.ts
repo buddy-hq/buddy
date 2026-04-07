@@ -21,6 +21,23 @@ export {
   DialogTitle,
   DialogTrigger,
 } from "./components/ui/dialog"
+export {
+  ContextMenu,
+  ContextMenuCheckboxItem,
+  ContextMenuContent,
+  ContextMenuGroup,
+  ContextMenuItem,
+  ContextMenuLabel,
+  ContextMenuPortal,
+  ContextMenuRadioGroup,
+  ContextMenuRadioItem,
+  ContextMenuSeparator,
+  ContextMenuShortcut,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
+  ContextMenuTrigger,
+} from "./components/ui/context-menu"
 export { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./components/ui/collapsible"
 export {
   AlertDialog,
@@ -81,7 +98,7 @@ export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./comp
 export { ThemeProvider } from "next-themes"
 export {
   ArchiveIcon,
-  ArrowUpIcon,
+  ArrowUpDownIcon,
   BookOpenIcon,
   BrainIcon,
   CheckIcon,
@@ -97,6 +114,8 @@ export {
   FolderIcon,
   FolderOpenIcon,
   FolderPlusIcon,
+  MailIcon,
+  MailOpenIcon,
   PanelLeftCloseIcon,
   PanelLeftOpenIcon,
   PanelRightCloseIcon,
