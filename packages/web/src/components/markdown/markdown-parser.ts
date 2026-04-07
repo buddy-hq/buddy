@@ -72,11 +72,11 @@ function renderInlineMermaidFailure(node: HTMLElement, source: string, message: 
 
   const panel = document.createElement("div")
   panel.className = MARKDOWN_MERMAID_ERROR_CLASS
-  panel.textContent = `Unable to render Mermaid diagram: ${message}`
+  panel.textContent = `Unable to render diagram: ${message}`
 
   const helper = document.createElement("div")
   helper.className = MARKDOWN_MERMAID_META_CLASS
-  helper.textContent = "Showing raw Mermaid source instead."
+  helper.textContent = "Showing raw source instead."
 
   node.replaceChildren(panel, helper, createRawSourceBlock(source))
 }
@@ -88,7 +88,7 @@ function errorMessage(error: unknown): string {
   if (typeof error === "string" && error.trim()) {
     return error.trim()
   }
-  return "Mermaid rendering failed."
+  return "Diagram rendering failed."
 }
 
 export function createMermaidPlaceholderHtml(source: string): string {
@@ -110,7 +110,7 @@ export async function enhanceMermaidPlaceholders(
 
     const source = sourceFromPlaceholder(placeholder)
     if (!source) {
-      renderInlineMermaidFailure(placeholder, "", "missing Mermaid source")
+      renderInlineMermaidFailure(placeholder, "", "missing diagram source")
       continue
     }
 

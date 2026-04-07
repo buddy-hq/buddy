@@ -167,7 +167,7 @@ function readCachedSvg(input: MermaidRenderInput): MermaidRenderResult | undefin
 export async function renderMermaidSvg(input: MermaidRenderInput): Promise<MermaidRenderResult> {
   const source = normalizeMermaidSource(input.source)
   if (source.trim().length === 0) {
-    throw new Error("Mermaid source is empty.")
+    throw new Error("Diagram source is empty.")
   }
 
   const cached = readCachedSvg(input)
@@ -203,7 +203,7 @@ export async function renderMermaidSvg(input: MermaidRenderInput): Promise<Merma
   }
 
   if (!svg) {
-    throw new Error("Mermaid renderer did not return SVG output.")
+    throw new Error("Renderer did not return SVG output.")
   }
 
   touchSvgCache(nextCacheKey, {
