@@ -6,7 +6,6 @@ import { ChatTranscript } from "@/components/chat/chat-transcript"
 import { PermissionDock } from "@/components/directory-chat/permission-dock"
 import { language } from "@/context/language"
 import { getFilename } from "@/components/layout/sidebar-helpers"
-import { ChevronRightIcon } from "@/components/layout/sidebar-icons"
 import { PromptComposer } from "@/components/prompt/prompt-composer"
 import type { DirectoryChatState } from "@/lib/directory-chat/use-directory-chat-state"
 
@@ -22,7 +21,6 @@ type DirectoryChatMainPaneProps = {
   onTranscriptScroll: (event: UIEvent<HTMLElement>) => void
   onAssistantTextFinalRender?: () => void
   onOpenSession: (sessionID: string) => void
-  onNewSession: () => void
   onPermissionReply: (reply: "once" | "always" | "reject") => Promise<void>
   promptComposerProps: PromptComposerProps
 }
@@ -35,7 +33,6 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
     onTranscriptScroll,
     onAssistantTextFinalRender,
     onOpenSession,
-    onNewSession,
     onPermissionReply,
     promptComposerProps,
   } = props
@@ -102,7 +99,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
           <div className="mx-auto w-full max-w-full px-4 md:max-w-200 2xl:max-w-[1000px]">
             <PromptComposer
               {...promptComposerProps}
-              className="mb-4"
+              className="mb-1"
               sessionContextUsage={
                 <SessionContextUsage
                   messages={chatState.messages}

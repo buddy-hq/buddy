@@ -1171,9 +1171,6 @@ export function useDirectoryChatPageController(
     onTranscriptScroll,
     onAssistantTextFinalRender: scrollTranscriptToBottom,
     onOpenSession: handleOpenCurrentDirectorySession,
-    onNewSession: () => {
-      void onNewSession()
-    },
     onPermissionReply: async (reply) => {
       if (!cs.pendingPermissions[0]) return
       await onPermissionReply(cs.pendingPermissions[0].id, reply)
