@@ -182,18 +182,7 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
     [props.personaCatalog],
   )
   const modelOptions = useMemo(() => {
-    const autoProvider = autoModelSelection
-      ? connectedProviders.find((provider) => provider.id === autoModelSelection.providerID)
-      : undefined
-    const autoModelInfo = autoModelSelection
-      ? autoProvider?.models.find((model) => model.id === autoModelSelection.modelID)
-      : undefined
-    const autoLabel = autoModelSelection
-      ? `Auto (${autoModelInfo?.name ?? `${autoModelSelection.providerID}/${autoModelSelection.modelID}`})`
-      : "Auto"
-    const options: Array<{ key: string; label: string; group?: string; disabled?: boolean }> = [
-      { key: "auto", label: autoLabel },
-    ]
+    const options: Array<{ key: string; label: string; group?: string; disabled?: boolean }> = []
 
     for (const provider of connectedProviders) {
       for (const model of provider.models) {
@@ -204,7 +193,7 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
     }
 
     return options
-  }, [autoModelSelection, connectedProviders, visibleModelKeys])
+  }, [connectedProviders, visibleModelKeys])
   const effectiveModelSelection = useMemo(
     () =>
       selectedModelKey === "auto" ? autoModelSelection : parseConfiguredModel(selectedModelKey),
@@ -357,7 +346,10 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
     validOpenProjects,
     hasRegisteredProject,
     // Model
-    selectedModelKey,
+    selectedModelKey:
+      selectedModelKey === "auto" && effectiveModelSelection
+        ? modelSelectionKey(effectiveModelSelection)
+        : selectedModelKey,
     effectiveModelSelection,
     thinkingOptions,
     modelOptions,

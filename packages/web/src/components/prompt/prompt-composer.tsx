@@ -1,4 +1,4 @@
-import { ArrowUpIcon, Dialog, DialogContent, PlusIcon, SquareIcon } from "@buddy/ui"
+import { Dialog, DialogContent, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@buddy/ui"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { language } from "@/context/language"
 import { shouldSubmitComposer } from "../../lib/chat-input"
@@ -122,10 +122,8 @@ export function PromptComposer(props: PromptComposerProps) {
   const clearHistoryNavigation = usePromptStore((state) => state.resetHistoryNavigation)
   const hasSubmittableParts = useMemo(() => hasSubmittablePromptParts(draft.parts), [draft.parts])
   const canSubmit = useMemo(
-    () =>
-      !props.isBusy &&
-      (draft.value.trim().length > 0 || draft.attachments.length > 0 || hasSubmittableParts),
-    [draft.attachments.length, draft.value, hasSubmittableParts, props.isBusy],
+    () => draft.value.trim().length > 0 || draft.attachments.length > 0 || hasSubmittableParts,
+    [draft.attachments.length, draft.value, hasSubmittableParts],
   )
   const [cursorOffset, setCursorOffset] = useState(() => draft.cursor)
   const [dragging, setDragging] = useState(false)
@@ -280,8 +278,6 @@ export function PromptComposer(props: PromptComposerProps) {
   }
 
   function handleEditorInput() {
-    if (props.isBusy) return
-
     const editor = editorRef.current
     if (!editor) return
 
@@ -467,10 +463,7 @@ export function PromptComposer(props: PromptComposerProps) {
   }
 
   function handleSubmit() {
-    if (props.isBusy) {
-      props.onAbort()
-      return
-    }
+    if (props.isBusy) return
 
     if (!draft.value.trim() && draft.attachments.length === 0 && !hasSubmittableParts) {
       return
@@ -483,10 +476,12 @@ export function PromptComposer(props: PromptComposerProps) {
   return (
     <div className={props.className ?? "mx-4 mb-4"}>
       <form
+        id="prompt-composer-form"
         data-component="prompt-composer"
-        className="group/prompt-input relative z-10 rounded-[12px] border bg-surface-raised-base shadow-sm"
+        className="group/prompt-input relative z-10 overflow-hidden rounded-[12px] rounded-b-none border border-b-0 bg-surface-raised-base shadow-none"
         onSubmit={(event) => {
           event.preventDefault()
+          if (props.isBusy) return
           handleSubmit()
         }}
         onDragEnter={(event) => {
@@ -538,7 +533,7 @@ export function PromptComposer(props: PromptComposerProps) {
           <div
             ref={editorRef}
             data-component="prompt-editor"
-            contentEditable={!props.isBusy}
+            contentEditable
             suppressContentEditableWarning
             role="textbox"
             aria-multiline="true"
@@ -698,16 +693,15 @@ export function PromptComposer(props: PromptComposerProps) {
                   isComposing: event.nativeEvent.isComposing,
                 })
               ) {
+                if (props.isBusy) {
+                  // Allow typing while busy; block keyboard submit/abort.
+                  return
+                }
                 event.preventDefault()
                 handleSubmit()
               }
             }}
             onPaste={(event) => {
-              if (props.isBusy) {
-                event.preventDefault()
-                return
-              }
-
               const clipboardData = event.clipboardData
               if (!clipboardData) return
 
@@ -746,43 +740,6 @@ export function PromptComposer(props: PromptComposerProps) {
             }}
           />
 
-          <div className="absolute bottom-2 right-2 flex items-center gap-1">
-            <button
-              type="button"
-              data-action="prompt-attach"
-              className="inline-flex size-8 items-center justify-center rounded-md text-text-weak transition-colors hover:bg-surface-weak/60 hover:text-text-base"
-              title={language.t("prompt.composer.attachFilesTitle")}
-              aria-label={language.t("prompt.composer.attachFilesAria")}
-              onClick={() => {
-                fileInputRef.current?.click()
-              }}
-            >
-              <PlusIcon className="size-4" />
-            </button>
-
-            <button
-              type="submit"
-              data-action="prompt-submit"
-              className="inline-flex size-8 items-center justify-center rounded-md bg-surface-interactive-base text-text-on-interactive-base transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={!props.isBusy && !canSubmit}
-              aria-label={
-                props.isBusy
-                  ? language.t("prompt.composer.stop")
-                  : language.t("prompt.composer.send")
-              }
-              title={
-                props.isBusy
-                  ? language.t("prompt.composer.stop")
-                  : language.t("prompt.composer.send")
-              }
-            >
-              {props.isBusy ? (
-                <SquareIcon className="size-3.5" />
-              ) : (
-                <ArrowUpIcon className="size-4" />
-              )}
-            </button>
-          </div>
         </div>
 
         <ImageAttachments
@@ -809,8 +766,47 @@ export function PromptComposer(props: PromptComposerProps) {
         selectedThinking={props.selectedThinking}
         thinkingOptions={props.thinkingOptions}
         onThinkingChange={props.onThinkingChange}
-        sessionContextUsage={props.sessionContextUsage}
+        isBusy={props.isBusy}
+        canSubmit={canSubmit}
+        onAttach={() => fileInputRef.current?.click()}
+        onAbort={props.onAbort}
+        attachLabel={language.t("prompt.composer.attachFilesTitle")}
+        attachAriaLabel={language.t("prompt.composer.attachFilesAria")}
+        sendLabel={language.t("prompt.composer.send")}
+        sendAriaLabel={language.t("prompt.composer.send")}
+        stopLabel={language.t("prompt.composer.stop")}
+        stopAriaLabel={language.t("prompt.composer.stop")}
       />
+
+      {props.sessionContextUsage ? (
+        <div className="flex items-center justify-between px-2 pt-1.5 pb-1">
+          <Select value={props.selectedPersona} onValueChange={props.onPersonaChange}>
+            <SelectTrigger
+              type="button"
+              data-action="prompt-persona-select"
+              size="sm"
+              className="h-6 max-w-[120px] min-w-0 border-0 bg-transparent px-0 text-xs text-text-weaker shadow-none hover:text-text-base hover:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-0 data-[state=open]:text-text-base data-[state=open]:ring-0 data-[state=open]:border-0 [&_svg]:text-inherit [&_svg:last-child]:size-3"
+              aria-label={language.t("prompt.toolbar.aria.persona")}
+            >
+              <SelectValue placeholder={language.t("prompt.toolbar.placeholders.persona")} />
+            </SelectTrigger>
+            <SelectContent
+              side="top"
+              align="start"
+              position="popper"
+              sideOffset={6}
+              className="w-[min(16rem,calc(100vw-2rem))] max-h-[min(20rem,calc(100vh-8rem))]"
+            >
+              {viewState.personaOptions.map((persona) => (
+                <SelectItem key={persona.name} value={persona.name}>
+                  {persona.label ?? persona.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {props.sessionContextUsage}
+        </div>
+      ) : null}
 
       <Dialog
         open={!!attachmentState.previewAttachment}
