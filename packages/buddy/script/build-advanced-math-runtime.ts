@@ -4,17 +4,19 @@ import os from "node:os"
 import path from "node:path"
 import { spawnSync } from "node:child_process"
 import { resolveAdvancedMathRuntimeVersion } from "./advanced-math-version"
+import {
+  resolveAdvancedMathRuntimeArchivePath,
+  resolveAdvancedMathRuntimeTarget,
+} from "./advanced-math-runtime-cache"
 
 const BACKEND_DIR = path.resolve(import.meta.dir, "..")
-const DIST_DIR = path.resolve(BACKEND_DIR, "dist/advanced-math-runtime")
 const RUNTIME_SOURCE = path.resolve(BACKEND_DIR, "src/local-runtimes/advanced-math/runtime/main.py")
-const TARGET = process.env.BUDDY_RUST_TARGET ?? currentTargetTriple()
+const TARGET = resolveAdvancedMathRuntimeTarget()
 const VERSION = resolveAdvancedMathRuntimeVersion()
 const EXECUTABLE_NAME = TARGET.includes("windows")
   ? "buddy-advanced-math.exe"
   : "buddy-advanced-math"
 const BUNDLE_DIR_NAME = "buddy-advanced-math"
-const ASSET_NAME = `${EXECUTABLE_NAME}-v${VERSION}-${TARGET}.zip`
 const PACKAGED_LIBRARY_NAMES = [
   "sympy",
   "numpy",
@@ -24,17 +26,6 @@ const PACKAGED_LIBRARY_NAMES = [
   "matplotlib",
   "seaborn",
 ] as const
-
-function currentTargetTriple() {
-  if (process.platform === "darwin" && process.arch === "arm64") return "aarch64-apple-darwin"
-  if (process.platform === "darwin" && process.arch === "x64") return "x86_64-apple-darwin"
-  if (process.platform === "linux" && process.arch === "arm64") return "aarch64-unknown-linux-gnu"
-  if (process.platform === "linux" && process.arch === "x64") return "x86_64-unknown-linux-gnu"
-  if (process.platform === "win32" && process.arch === "x64") return "x86_64-pc-windows-msvc"
-  throw new Error(
-    `Unsupported advanced math runtime build target: ${process.platform}/${process.arch}`,
-  )
-}
 
 function run(command: string, args: string[], cwd?: string) {
   const result = spawnSync(command, args, {
@@ -108,8 +99,8 @@ const venvDir = path.join(tempDir, "venv")
 const distDir = path.join(tempDir, "dist")
 const buildDir = path.join(tempDir, "build")
 const specDir = path.join(tempDir, "spec")
-const outputDir = path.join(DIST_DIR, TARGET)
-const outputArchive = path.join(outputDir, ASSET_NAME)
+const outputArchive = resolveAdvancedMathRuntimeArchivePath(VERSION, TARGET)
+const outputDir = path.dirname(outputArchive)
 const outputChecksum = `${outputArchive}.sha256`
 
 rmSync(outputDir, { recursive: true, force: true })
