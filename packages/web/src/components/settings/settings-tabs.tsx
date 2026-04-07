@@ -6,6 +6,7 @@ import {
   CogIcon,
   FileTextIcon,
   PaletteIcon,
+  ScaleIcon,
   SettingsIcon,
   SparklesIcon,
   WrenchIcon,
@@ -20,6 +21,7 @@ import { McpsSettings } from "./settings-mcps"
 import { SkillsPage } from "@/components/skills/skills-page"
 import { AdvancedSettings } from "./settings-advanced"
 import { ToolsSettings } from "./settings-tools"
+import { AttributionSettings } from "./settings-attribution"
 
 export type SettingsTab =
   | "instructions"
@@ -31,6 +33,7 @@ export type SettingsTab =
   | "skills"
   | "tools"
   | "advanced"
+  | "attribution"
 
 export type SettingsTabDefinition = {
   id: SettingsTab
@@ -103,6 +106,13 @@ export const SETTINGS_TABS: SettingsTabDefinition[] = [
     icon: CogIcon,
     layout: "standard",
     render: (directory) => <AdvancedSettings directory={directory} />,
+  },
+  {
+    id: "attribution",
+    navLabelKey: "routes.settings.nav.attribution",
+    icon: ScaleIcon,
+    layout: "standard",
+    render: () => <AttributionSettings />,
   },
 ]
 

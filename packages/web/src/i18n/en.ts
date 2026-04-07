@@ -472,6 +472,7 @@ export const dict = {
   "routes.settings.emptyState": "Open a notebook to configure settings.",
   "routes.settings.nav.advanced": "Advanced",
   "routes.settings.nav.appearance": "Appearance",
+  "routes.settings.nav.attribution": "Attribution",
   "routes.settings.nav.instructions": "Instructions",
   "routes.settings.nav.mcps": "MCPs",
   "routes.settings.nav.notebook": "Notebook",
@@ -481,6 +482,20 @@ export const dict = {
   "routes.settings.openNotebookFailed": "Couldn't open that notebook. Try again.",
   "routes.settings.openThreadFailed": "Couldn't open that thread. Try again.",
   "routes.settings.renameThreadFailed": "Couldn't rename that thread. Try again.",
+  "settings.attribution.title": "Attribution & Licenses",
+  "settings.attribution.description": "Credits and licenses for third-party content and libraries used in Buddy.",
+  "settings.attribution.knowledgeGraph.title": "Knowledge Graph",
+  "settings.attribution.knowledgeGraph.description":
+    "Educational standards, learning components, and progressions.",
+  "settings.attribution.evaluators.title": "Evaluators",
+  "settings.attribution.evaluators.description":
+    "Evaluation prompts and content assessment tools.",
+  "settings.attribution.opencode.title": "OpenCode",
+  "settings.attribution.opencode.description": "Core agent runtime and capabilities system.",
+  "settings.attribution.additionalAttributions.title": "Additional Attributions",
+  "settings.attribution.buddy.title": "Buddy",
+  "settings.attribution.buddy.description":
+    "Buddy uses many open source libraries and tools. For a complete list of dependencies and their licenses, please refer to the package.json files in the repository and the respective project documentation.",
   "settings.advanced.description": "Advanced settings for power users.",
   "settings.advanced.disabled": "Disabled",
   "settings.advanced.discoverExternalRootsAria": "Discover external vendor roots",

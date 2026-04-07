@@ -50,7 +50,7 @@ export function SettingsListCard(props: { children: ReactNode }) {
 }
 
 export function SettingsRow(props: {
-  title: string
+  title: ReactNode
   description: string
   control: ReactNode
   last?: boolean

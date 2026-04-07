@@ -105,6 +105,7 @@ export const settingsTabAppearanceSelector = '[data-action="settings-tab-appeara
 export const settingsTabNotebookSelector = '[data-action="settings-tab-notebook"]'
 export const settingsTabProvidersSelector = '[data-action="settings-tab-providers"]'
 export const settingsTabMcpsSelector = '[data-action="settings-tab-mcps"]'
+export const settingsTabAttributionSelector = '[data-action="settings-tab-attribution"]'
 
 export const settingsColorSchemeSelector = '[data-action="settings-color-scheme"]'
 export const settingsThemeSelector = '[data-action="settings-theme"]'
