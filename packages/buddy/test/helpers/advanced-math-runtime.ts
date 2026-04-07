@@ -144,14 +144,14 @@ async function buildMockRuntimeBundle(options: MockRuntimeBundleOptions = {}) {
 
 export async function withMockAdvancedMathRuntimeAssets<T>(run: () => Promise<T>) {
   const previousFetch = globalThis.fetch
-  const previousVersion = process.env.BUDDY_APP_VERSION
+  const previousVersion = process.env.BUDDY_ADVANCED_MATH_VERSION
   const previousBaseUrl = process.env.BUDDY_ADVANCED_MATH_ASSET_BASE_URL
   const version = `test-${randomUUID()}`
   const baseUrl = "https://advanced-math.invalid/releases"
   const archiveBytes = await buildMockRuntimeBundle()
   const checksum = sha256Bytes(archiveBytes)
 
-  process.env.BUDDY_APP_VERSION = version
+  process.env.BUDDY_ADVANCED_MATH_VERSION = version
   process.env.BUDDY_ADVANCED_MATH_ASSET_BASE_URL = baseUrl
 
   await AdvancedMathRuntimeService.remove().catch(() => undefined)
@@ -174,8 +174,8 @@ export async function withMockAdvancedMathRuntimeAssets<T>(run: () => Promise<T>
     await AdvancedMathRuntimeService.remove().catch(() => undefined)
     globalThis.fetch = previousFetch
 
-    if (previousVersion === undefined) delete process.env.BUDDY_APP_VERSION
-    else process.env.BUDDY_APP_VERSION = previousVersion
+    if (previousVersion === undefined) delete process.env.BUDDY_ADVANCED_MATH_VERSION
+    else process.env.BUDDY_ADVANCED_MATH_VERSION = previousVersion
 
     if (previousBaseUrl === undefined) delete process.env.BUDDY_ADVANCED_MATH_ASSET_BASE_URL
     else process.env.BUDDY_ADVANCED_MATH_ASSET_BASE_URL = previousBaseUrl
@@ -198,7 +198,7 @@ export async function withLocalMockAdvancedMathRuntimeAssets<T>(
     replaceAssets: (options?: MockRuntimeBundleOptions) => Promise<void>
   }) => Promise<T>,
 ) {
-  const previousVersion = process.env.BUDDY_APP_VERSION
+  const previousVersion = process.env.BUDDY_ADVANCED_MATH_VERSION
   const previousBaseUrl = process.env.BUDDY_ADVANCED_MATH_ASSET_BASE_URL
   const previousLocalAssetDir = process.env.BUDDY_ADVANCED_MATH_LOCAL_ASSET_DIR
   const version = `test-${randomUUID()}`
@@ -206,7 +206,7 @@ export async function withLocalMockAdvancedMathRuntimeAssets<T>(
     path.join(os.tmpdir(), "buddy-advanced-math-local-assets-"),
   )
 
-  process.env.BUDDY_APP_VERSION = version
+  process.env.BUDDY_ADVANCED_MATH_VERSION = version
   delete process.env.BUDDY_ADVANCED_MATH_ASSET_BASE_URL
   process.env.BUDDY_ADVANCED_MATH_LOCAL_ASSET_DIR = localAssetRoot
 
@@ -233,8 +233,8 @@ export async function withLocalMockAdvancedMathRuntimeAssets<T>(
     await AdvancedMathRuntimeService.remove().catch(() => undefined)
     await fs.rm(localAssetRoot, { recursive: true, force: true }).catch(() => undefined)
 
-    if (previousVersion === undefined) delete process.env.BUDDY_APP_VERSION
-    else process.env.BUDDY_APP_VERSION = previousVersion
+    if (previousVersion === undefined) delete process.env.BUDDY_ADVANCED_MATH_VERSION
+    else process.env.BUDDY_ADVANCED_MATH_VERSION = previousVersion
 
     if (previousBaseUrl === undefined) delete process.env.BUDDY_ADVANCED_MATH_ASSET_BASE_URL
     else process.env.BUDDY_ADVANCED_MATH_ASSET_BASE_URL = previousBaseUrl

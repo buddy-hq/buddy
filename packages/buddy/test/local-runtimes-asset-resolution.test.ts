@@ -27,6 +27,7 @@ function runRuntimeAssetProbe(input: {
     Object.defineProperty(process, "platform", { value: ${JSON.stringify(input.platform)} })
     Object.defineProperty(process, "arch", { value: ${JSON.stringify(input.arch)} })
     process.env.BUDDY_APP_VERSION = ${JSON.stringify(input.version)}
+    process.env.BUDDY_ADVANCED_MATH_VERSION = ${JSON.stringify(input.version)}
     process.env.BUDDY_REPO = ${JSON.stringify(input.repo ?? "prashantbhudwal/buddy")}
     ${
       input.baseUrl
