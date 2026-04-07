@@ -16,7 +16,7 @@ const advancedMathRuntimeStatusSchema = z.object({
     "error",
   ]),
   ready: z.boolean(),
-  installedVersion: z.string().optional(),
+  installedRuntimeVersion: z.string().optional(),
   targetTriple: z.string(),
   executablePath: z.string().optional(),
   lastHealthyAt: z.string().optional(),

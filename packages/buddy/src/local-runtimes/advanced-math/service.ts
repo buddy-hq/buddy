@@ -6,6 +6,7 @@ import os from "node:os"
 import path from "node:path"
 import z from "zod"
 import { Global } from "../../storage/global"
+import { resolveAdvancedMathRuntimeVersion } from "./version"
 
 const ADVANCED_MATH_DIR = path.join(Global.Path.data, "advanced-math")
 const ADVANCED_MATH_CACHE_DIR = path.join(Global.Path.cache, "advanced-math")
@@ -28,6 +29,11 @@ const SUPPORTED_LIBRARY_NAMES = [
 const IN_PROGRESS_STATES = new Set(["downloading", "installing", "repairing", "removing"])
 const READY_STATE = "ready"
 const DEFAULT_SELF_CHECK_TIMEOUT_MS = 60_000
+const INSTALLED_RUNTIME_VERSION_KEY = "installedRuntimeVersion"
+const LEGACY_INSTALLED_VERSION_KEY = "installedVersion"
+const APP_VERSION_ENV = "BUDDY_APP_VERSION"
+const NPM_PACKAGE_VERSION_ENV = "npm_package_version"
+const DEFAULT_RELEASE_TAG_VERSION = "0.0.1"
 
 const advancedMathRuntimeStateSchema = z.object({
   enabled: z.boolean().default(false),
@@ -40,7 +46,7 @@ const advancedMathRuntimeStateSchema = z.object({
     "removing",
     "error",
   ]),
-  installedVersion: z.string().optional(),
+  installedRuntimeVersion: z.string().optional(),
   installedChecksum: z.string().optional(),
   targetTriple: z.string(),
   executablePath: z.string().optional(),
@@ -88,8 +94,18 @@ function currentTargetTriple() {
   throw new Error(`Unsupported advanced math runtime target: ${process.platform}/${process.arch}`)
 }
 
-function appVersion() {
-  return process.env.BUDDY_APP_VERSION?.trim() || process.env.npm_package_version?.trim() || "0.0.1"
+function runtimeVersion() {
+  return resolveAdvancedMathRuntimeVersion()
+}
+
+function releaseTagVersion() {
+  const appVersion = process.env[APP_VERSION_ENV]?.trim()
+  if (appVersion && appVersion.length > 0) return appVersion
+
+  const packageVersion = process.env[NPM_PACKAGE_VERSION_ENV]?.trim()
+  if (packageVersion && packageVersion.length > 0) return packageVersion
+
+  return DEFAULT_RELEASE_TAG_VERSION
 }
 
 function runtimeStateDefaults() {
@@ -102,10 +118,28 @@ function runtimeStateDefaults() {
   } satisfies z.input<typeof advancedMathRuntimeStateSchema>
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null
+}
+
+function readOptionalString(record: Record<string, unknown>, key: string): string | undefined {
+  const value = record[key]
+  return typeof value === "string" && value.length > 0 ? value : undefined
+}
+
 function normalizeRuntimeState(input: unknown) {
+  const inputRecord = isRecord(input) ? input : {}
+  const installedRuntimeVersion = readOptionalString(inputRecord, INSTALLED_RUNTIME_VERSION_KEY)
+  const legacyInstalledVersion = readOptionalString(inputRecord, LEGACY_INSTALLED_VERSION_KEY)
+
   const parsed = advancedMathRuntimeStateSchema.safeParse({
     ...runtimeStateDefaults(),
-    ...(typeof input === "object" && input ? input : {}),
+    ...inputRecord,
+    ...(installedRuntimeVersion
+      ? {}
+      : legacyInstalledVersion
+        ? { installedRuntimeVersion: legacyInstalledVersion }
+        : {}),
     targetTriple: currentTargetTriple(),
   })
 
@@ -140,11 +174,11 @@ function releaseAssetBaseUrl() {
     return configured.replace(/\/+$/, "")
   }
 
-  return `https://github.com/${releaseRepository()}/releases/download/v${appVersion()}`
+  return `https://github.com/${releaseRepository()}/releases/download/v${releaseTagVersion()}`
 }
 
 function releaseBundleFilename() {
-  return `${ADVANCED_MATH_EXECUTABLE}-v${appVersion()}-${currentTargetTriple()}.zip`
+  return `${ADVANCED_MATH_EXECUTABLE}-v${runtimeVersion()}-${currentTargetTriple()}.zip`
 }
 
 function releaseChecksumFilename() {
@@ -152,7 +186,7 @@ function releaseChecksumFilename() {
 }
 
 function installRoot() {
-  return path.join(ADVANCED_MATH_DIR, appVersion(), currentTargetTriple())
+  return path.join(ADVANCED_MATH_DIR, runtimeVersion(), currentTargetTriple())
 }
 
 function installedBundleRoot() {
@@ -279,12 +313,12 @@ function currentLocalAssetChecksumState() {
 function nextStatus(
   state: z.infer<typeof advancedMathRuntimeStateSchema>,
 ): AdvancedMathRuntimeStatus {
-  const currentVersion = appVersion()
+  const currentVersion = runtimeVersion()
   const executableExists =
     typeof state.executablePath === "string" &&
     state.executablePath.length > 0 &&
     fs.existsSync(state.executablePath)
-  const versionMatches = state.installedVersion === currentVersion
+  const versionMatches = state.installedRuntimeVersion === currentVersion
   const localAssetState = currentLocalAssetChecksumState()
   const localAssetError =
     state.enabled && versionMatches && executableExists && localAssetState.present
@@ -311,8 +345,8 @@ function nextStatus(
     effectiveState === "error"
       ? (localAssetError ??
         state.lastError ??
-        (!versionMatches && state.installedVersion
-          ? `Installed advanced math runtime ${state.installedVersion} does not match Buddy ${currentVersion}`
+        (!versionMatches && state.installedRuntimeVersion
+          ? `Installed advanced math runtime ${state.installedRuntimeVersion} does not match required version ${currentVersion}`
           : !executableExists && state.executablePath
             ? "Installed advanced math runtime executable is missing"
             : state.lastError))
@@ -680,6 +714,28 @@ function currentStatus() {
   return status
 }
 
+function shouldAutoUpdate(): boolean {
+  // Auto-update if:
+  // 1. Runtime is enabled
+  // 2. Version is out of date
+  // 3. No operation is currently in progress
+  // 4. Not already in an error state
+  if (!runtimeState.enabled) return false
+  if (runtimeOperation !== undefined) return false
+  if (IN_PROGRESS_STATES.has(runtimeState.state)) return false
+  if (runtimeState.state === "error") return false
+
+  const versionMatches = runtimeState.installedRuntimeVersion === runtimeVersion()
+  if (versionMatches) return false
+
+  // Has a previous version installed that needs updating
+  return (
+    runtimeState.state === READY_STATE &&
+    typeof runtimeState.installedRuntimeVersion === "string" &&
+    runtimeState.installedRuntimeVersion.length > 0
+  )
+}
+
 async function updateRuntimeState(input: Partial<z.infer<typeof advancedMathRuntimeStateSchema>>) {
   return setRuntimeState({
     ...runtimeState,
@@ -714,7 +770,7 @@ async function installRuntime() {
       runtimeState.enabled &&
       (!!runtimeState.lastError ||
         runtimeState.state === "error" ||
-        runtimeState.installedVersion !== appVersion() ||
+        runtimeState.installedRuntimeVersion !== runtimeVersion() ||
         (typeof runtimeState.executablePath === "string" &&
           runtimeState.executablePath.length > 0 &&
           !fs.existsSync(runtimeState.executablePath)))
@@ -722,7 +778,7 @@ async function installRuntime() {
       enabled: true,
       state: repairing ? "repairing" : "downloading",
       lastError: undefined,
-      installedVersion: runtimeState.installedVersion,
+      installedRuntimeVersion: runtimeState.installedRuntimeVersion,
       executablePath: runtimeState.executablePath,
       progressPercent: 5,
       progressMessage: repairing
@@ -735,7 +791,7 @@ async function installRuntime() {
       return await setRuntimeState({
         enabled: true,
         state: READY_STATE,
-        installedVersion: appVersion(),
+        installedRuntimeVersion: runtimeVersion(),
         installedChecksum: installation.checksum,
         targetTriple: currentTargetTriple(),
         executablePath: installedExecutablePath(),
@@ -805,7 +861,8 @@ async function runPythonCalculator(
   abort?: AbortSignal,
 ): Promise<{ result: PythonCalculatorResponse; attachments: PythonCalculatorAttachment[] }> {
   let status = currentStatus()
-  if (!status.ready && runtimeState.enabled) {
+  const versionMismatch = runtimeState.installedRuntimeVersion !== runtimeVersion()
+  if ((!status.ready || versionMismatch) && runtimeState.enabled) {
     status = await installRuntime()
   }
   if (!status.ready || !runtimeState.executablePath) {
@@ -906,6 +963,14 @@ function formatCalculatorOutput(result: PythonCalculatorResponse) {
 export const AdvancedMathRuntimeService = {
   supportedLibraries: SUPPORTED_LIBRARY_NAMES,
   getStatus() {
+    // Trigger auto-update in background if needed
+    if (shouldAutoUpdate()) {
+      void installRuntime().catch((error) => {
+        logRuntimeEvent("auto-update-failed", {
+          error: errorMessage(error),
+        })
+      })
+    }
     return Promise.resolve(currentStatus())
   },
   getStatusSync() {
@@ -947,7 +1012,7 @@ export const AdvancedMathRuntimeService = {
       installRoot: installRoot(),
       executablePath: installedExecutablePath(),
       targetTriple: currentTargetTriple(),
-      version: appVersion(),
+      version: runtimeVersion(),
       operationInProgress: runtimeOperation !== undefined,
     }
   },
