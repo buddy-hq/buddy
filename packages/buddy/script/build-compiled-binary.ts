@@ -9,6 +9,10 @@ import {
   writeFileSync,
 } from "node:fs"
 import path from "node:path"
+import {
+  BUNDLED_ADVANCED_MATH_RUNTIME_VERSION_DEFINE,
+  resolveAdvancedMathRuntimeVersion,
+} from "./advanced-math-version"
 
 const loader = {
   ".md": "text",
@@ -107,6 +111,7 @@ export async function buildCompiledBuddyBinary(input: BuildCompiledBuddyBinaryIn
 
   const buddyMigrations = loadMigrations(buddyMigrationDir, "Buddy")
   const opencodeMigrations = loadMigrations(opencodeMigrationDir, "OpenCode")
+  const runtimeVersion = resolveAdvancedMathRuntimeVersion()
 
   mkdirSync(path.dirname(outputFile), { recursive: true })
   if (bundleOutputFile) {
@@ -116,6 +121,7 @@ export async function buildCompiledBuddyBinary(input: BuildCompiledBuddyBinaryIn
   const define = {
     BUDDY_MIGRATIONS: JSON.stringify(buddyMigrations),
     OPENCODE_MIGRATIONS: JSON.stringify(opencodeMigrations),
+    [BUNDLED_ADVANCED_MATH_RUNTIME_VERSION_DEFINE]: JSON.stringify(runtimeVersion),
   }
 
   try {
