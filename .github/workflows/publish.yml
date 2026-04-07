@@ -234,14 +234,31 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.sha }}
 
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.11"
+
+      - id: runtime-version
+        shell: bash
+        run: |
+          runtime_version="$(
+            bun --eval 'import { resolveAdvancedMathRuntimeVersion } from "./packages/buddy/script/advanced-math-version.ts"; process.stdout.write(resolveAdvancedMathRuntimeVersion())'
+          )"
+          if [ -z "$runtime_version" ]; then
+            echo "Failed to resolve advanced math runtime version"
+            exit 1
+          fi
+          echo "version=$runtime_version" >> "$GITHUB_OUTPUT"
+          echo "Runtime version: $runtime_version"
+
       - id: advanced-math-asset
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           BUDDY_RELEASE_REPO: ${{ needs.version.outputs.repo }}
           BUDDY_RELEASE_TAG: ${{ needs.version.outputs.tag }}
-          BUDDY_RELEASE_VERSION: ${{ needs.version.outputs.version }}
           BUDDY_RUST_TARGET: ${{ matrix.settings.target }}
+          RUNTIME_VERSION: ${{ steps.runtime-version.outputs.version }}
         run: |
           set -euo pipefail
 
@@ -266,6 +283,7 @@ jobs:
           runtime_paths=(
             "packages/buddy/src/local-runtimes/advanced-math/runtime/main.py"
             "packages/buddy/script/build-advanced-math-runtime.ts"
+            "packages/buddy/src/local-runtimes/advanced-math/version.ts"
           )
 
           if ! git diff --quiet "$previous_tag...$GITHUB_SHA" -- "${runtime_paths[@]}"; then
@@ -278,22 +296,23 @@ jobs:
             executable_name="buddy-advanced-math.exe"
           fi
 
-          target_pattern="${executable_name}-v*-${BUDDY_RUST_TARGET}.zip"
+          # Assets use runtime version, not app version
+          asset_name="${executable_name}-v${RUNTIME_VERSION}-${BUDDY_RUST_TARGET}.zip"
           temp_dir="$(mktemp -d)"
           trap 'rm -rf "$temp_dir"' EXIT
 
-          if ! gh release download "$previous_tag" --repo "$BUDDY_RELEASE_REPO" --pattern "$target_pattern" --pattern "${target_pattern}.sha256" --dir "$temp_dir"; then
+          if ! gh release download "$previous_tag" --repo "$BUDDY_RELEASE_REPO" --pattern "$asset_name" --pattern "${asset_name}.sha256" --dir "$temp_dir"; then
             echo "Failed to download advanced math runtime assets from $previous_tag; building fresh artifacts."
             exit 0
           fi
 
-          previous_bundle="$(find "$temp_dir" -maxdepth 1 -type f -name "$target_pattern" | head -n 1)"
-          if [ -z "$previous_bundle" ]; then
+          previous_bundle="$temp_dir/$asset_name"
+          if [ ! -f "$previous_bundle" ]; then
             echo "No advanced math runtime bundle found in $previous_tag; building fresh artifacts."
             exit 0
           fi
 
-          previous_checksum="${previous_bundle}.sha256"
+          previous_checksum="$temp_dir/${asset_name}.sha256"
           if [ ! -f "$previous_checksum" ]; then
             echo "No advanced math runtime checksum found in $previous_tag; building fresh artifacts."
             exit 0
@@ -302,19 +321,11 @@ jobs:
           output_dir="packages/buddy/dist/advanced-math-runtime/${BUDDY_RUST_TARGET}"
           mkdir -p "$output_dir"
 
-          current_bundle="${output_dir}/${executable_name}-v${BUDDY_RELEASE_VERSION}-${BUDDY_RUST_TARGET}.zip"
-          current_checksum="${current_bundle}.sha256"
-
-          cp "$previous_bundle" "$current_bundle"
-          cp "$previous_checksum" "$current_checksum"
+          cp "$previous_bundle" "$output_dir/$asset_name"
+          cp "$previous_checksum" "$output_dir/${asset_name}.sha256"
 
           echo "restored=true" >> "$GITHUB_OUTPUT"
-          echo "Reused advanced math runtime assets from $previous_tag."
-
-      - if: steps.advanced-math-asset.outputs.restored != 'true'
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: "1.3.11"
+          echo "Reused advanced math runtime assets from $previous_tag (runtime version $RUNTIME_VERSION)."
 
       - if: steps.advanced-math-asset.outputs.restored != 'true'
         uses: actions/setup-python@v5
@@ -324,7 +335,6 @@ jobs:
       - if: steps.advanced-math-asset.outputs.restored != 'true'
         run: bun run --cwd packages/buddy build:advanced-math-runtime
         env:
-          BUDDY_VERSION: ${{ needs.version.outputs.version }}
           BUDDY_RUST_TARGET: ${{ matrix.settings.target }}
 
       - shell: bash
