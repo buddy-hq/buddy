@@ -251,6 +251,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                     directoryLabel: directoryLabel,
                   })}
                   onClick={(event) => {
+                    event.preventDefault()
                     event.stopPropagation()
                     props.onNewSession()
                   }}
