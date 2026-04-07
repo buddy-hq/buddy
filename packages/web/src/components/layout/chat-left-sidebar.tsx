@@ -184,9 +184,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
                 <CollapsibleTrigger asChild>
                   <div className="mb-1 flex cursor-pointer select-none items-center justify-between px-2 text-text-weak group-hover/section-header:text-text-base transition-colors duration-160">
                     <div className="flex items-center gap-1.5">
-                      <p className="text-xs">
-                        {language.t("sidebar.quickChat")}
-                      </p>
+                      <p className="text-xs">{language.t("sidebar.quickChat")}</p>
                       <motion.div
                         animate={{
                           rotate: inboxCollapsed ? -90 : 0,

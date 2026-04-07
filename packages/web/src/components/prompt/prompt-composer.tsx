@@ -1,4 +1,12 @@
-import { Dialog, DialogContent, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@buddy/ui"
+import {
+  Dialog,
+  DialogContent,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@buddy/ui"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { language } from "@/context/language"
 import { shouldSubmitComposer } from "../../lib/chat-input"
@@ -739,7 +747,6 @@ export function PromptComposer(props: PromptComposerProps) {
               event.currentTarget.value = ""
             }}
           />
-
         </div>
 
         <ImageAttachments

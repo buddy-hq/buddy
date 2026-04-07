@@ -178,7 +178,11 @@ export function PromptComposerToolbar(props: PromptComposerToolbarProps) {
               ))}
               {props.groupedModelOptions.grouped.map(([group, options]) => (
                 <SelectGroup key={group}>
-                  <SelectLabel>{group === "OpenCode Zen" || group === "Opencode Zen" ? "Free (via. Opencode)" : group}</SelectLabel>
+                  <SelectLabel>
+                    {group === "OpenCode Zen" || group === "Opencode Zen"
+                      ? "Free (via. Opencode)"
+                      : group}
+                  </SelectLabel>
                   {options.map((option) => (
                     <SelectItem key={option.key} value={option.key} disabled={option.disabled}>
                       <span className="flex min-w-0 items-center gap-2">
