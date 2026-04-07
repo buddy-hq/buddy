@@ -251,15 +251,15 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
     <aside
       data-component="chat-right-sidebar"
       data-active-tab={activeTab}
-      className={`shrink-0 overflow-hidden border-l bg-surface-raised-base flex flex-col min-h-0 ${props.className ?? ""}`}
+      className={`shrink-0 overflow-hidden border-l border-border-weaker-base bg-background-base flex flex-col min-h-0 ${props.className ?? ""}`}
     >
       <header className="relative flex items-center border-b px-1 py-1.5">
         {showLeftArrow && (
-          <div className="absolute left-1 top-1.5 bottom-1.5 z-10 flex items-center bg-surface-raised-base pr-1">
+          <div className="absolute left-1 top-1.5 bottom-1.5 z-10 flex items-center bg-background-base pr-1">
             <Button
               variant="ghost"
               size="icon-xs"
-              className="shrink-0 bg-surface-raised-base"
+              className="shrink-0 bg-background-base"
               onClick={() => {
                 const el = scrollRef.current
                 if (el) el.scrollBy({ left: -el.clientWidth, behavior: "smooth" })
@@ -267,7 +267,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
             >
               <ChevronLeftIcon className="size-4 text-text-weak" />
             </Button>
-            <div className="pointer-events-none absolute -right-4 top-0 bottom-0 w-4 bg-gradient-to-r from-surface-raised-base to-transparent" />
+            <div className="pointer-events-none absolute -right-4 top-0 bottom-0 w-4 bg-gradient-to-r from-background-base to-transparent" />
           </div>
         )}
         <div
@@ -365,12 +365,12 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
           </div>
         </div>
         {showRightArrow && (
-          <div className="absolute right-1 top-1.5 bottom-1.5 z-10 flex items-center bg-surface-raised-base pl-1">
-            <div className="pointer-events-none absolute -left-4 top-0 bottom-0 w-4 bg-gradient-to-l from-surface-raised-base to-transparent" />
+          <div className="absolute right-1 top-1.5 bottom-1.5 z-10 flex items-center bg-background-base pl-1">
+            <div className="pointer-events-none absolute -left-4 top-0 bottom-0 w-4 bg-gradient-to-l from-background-base to-transparent" />
             <Button
               variant="ghost"
               size="icon-xs"
-              className="shrink-0 bg-surface-raised-base"
+              className="shrink-0 bg-background-base"
               onClick={() => {
                 const el = scrollRef.current
                 if (el) el.scrollBy({ left: el.clientWidth, behavior: "smooth" })

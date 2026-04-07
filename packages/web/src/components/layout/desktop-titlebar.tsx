@@ -215,7 +215,7 @@ export function DesktopTitlebar() {
   return (
     <header
       data-component="desktop-titlebar"
-      className="h-10 shrink-0 border-b border-border-base/60 bg-background-base text-text-base"
+      className="h-10 shrink-0 border-b border-border-weaker-base bg-background-base text-text-base"
       onMouseDown={onMouseDown}
       onDoubleClick={onDoubleClick}
     >

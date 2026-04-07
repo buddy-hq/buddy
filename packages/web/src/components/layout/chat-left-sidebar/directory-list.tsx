@@ -1,15 +1,18 @@
 import type { PointerEvent as ReactPointerEvent } from "react"
+import { AnimatePresence, motion } from "motion/react"
 import {
   ArchiveIcon,
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
   FolderIcon,
   FolderOpenIcon,
+  MailIcon,
+  MailOpenIcon,
   PinIcon,
   PencilIcon,
   SquarePenIcon,
@@ -22,12 +25,9 @@ import { language } from "@/context/language"
 import type { SessionInfo, SessionStatusInfo } from "@/state/chat-types"
 import { isSessionStatusActive } from "@/state/session-status"
 import { getFilename } from "../sidebar-helpers"
-import { EllipsisHorizontalIcon } from "../sidebar-icons"
 import {
   findRootSessionID,
-  formatThreadAge,
   sessionFamilyIDs,
-  threadStatusLabel,
   ThreadStatusIndicator,
 } from "./thread-helpers"
 import type { DirectoryGroup, DropPosition, OrganizeMode } from "./types"
@@ -180,130 +180,131 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
         data-directory={props.group.directory}
         data-current={isCurrentDirectory ? "true" : "false"}
         ref={props.onSectionRef}
-        className={`space-y-1 relative transition-opacity duration-150 ${
+        className={`group/directory space-y-1 relative transition-opacity duration-150 ${
           isDragging ? "opacity-40" : "opacity-100"
         }`}
       >
         {isDragOver && props.dragOverPosition === "before" ? (
           <div className="h-0.5 rounded-full bg-surface-interactive-base/70 mx-2 mb-1" />
         ) : null}
-        <div className="group/directory flex items-center gap-1 rounded-xl px-0 py-0.5">
-          <CollapsibleTrigger asChild>
-            <button
-              type="button"
-              data-action="left-sidebar-directory-toggle"
-              data-directory={props.group.directory}
-              className={`flex min-w-0 flex-1 items-center gap-1.5 rounded-lg px-2 py-1 text-left text-sm text-text-weaker hover:text-text-base ${
-                isCurrentDirectory ? "" : ""
-              } ${canDrag ? "cursor-grab active:cursor-grabbing" : ""}`}
-              onPointerDown={canDrag ? (event) => props.onLabelPointerDown(event) : undefined}
+
+        <ContextMenu>
+          <ContextMenuTrigger asChild>
+            <div className="group/notebook-header flex items-center gap-1 rounded-xl px-0 py-0.5 data-[state=open]:bg-surface-raised-base-hover">
+              <CollapsibleTrigger asChild>
+                <button
+                  type="button"
+                  data-action="left-sidebar-directory-toggle"
+                  data-directory={props.group.directory}
+                  className={`flex min-w-0 flex-1 items-center gap-1.5 rounded-lg px-2 py-1 text-left text-sm text-text-weaker hover:text-text-base ${
+                    isCurrentDirectory ? "" : ""
+                  } ${canDrag ? "cursor-grab active:cursor-grabbing" : ""}`}
+                  onPointerDown={canDrag ? (event) => props.onLabelPointerDown(event) : undefined}
+                >
+                  {props.collapsed ? (
+                    <FolderIcon className="size-3.5 shrink-0" />
+                  ) : (
+                    <FolderOpenIcon className="size-3.5 shrink-0" />
+                  )}
+                  <span className="truncate">{directoryLabel}</span>
+                </button>
+              </CollapsibleTrigger>
+
+              <div className="relative z-10 flex items-center gap-0.5 pr-1 opacity-0 transition-opacity group-hover/directory:opacity-100 group-focus-within/directory:opacity-100 group-data-[state=open]/notebook-header:opacity-100">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      data-action="left-sidebar-directory-new-thread"
+                      data-directory={props.group.directory}
+                      className="inline-flex size-6 items-center justify-center rounded-md text-text-weak transition-colors hover:bg-surface-raised-base-hover hover:text-text-strong"
+                      aria-label={language.t("sidebar.startNewThreadIn", {
+                        directoryLabel: directoryLabel,
+                      })}
+                      onClick={(event) => {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        props.onNewSession()
+                      }}
+                    >
+                      <SquarePenIcon className="size-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" sideOffset={8} className="px-2 py-1 text-[11px]">
+                    {language.t("sidebar.startNewThreadIn", { directoryLabel: directoryLabel })}
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+            </div>
+          </ContextMenuTrigger>
+          <ContextMenuContent className="w-44">
+            <ContextMenuItem
+              data-action="left-sidebar-directory-close"
+              onSelect={props.onCloseNotebook}
             >
-              {props.collapsed ? (
-                <FolderIcon className="size-3.5 shrink-0" />
-              ) : (
-                <FolderOpenIcon className="size-3.5 shrink-0" />
-              )}
-              <span className="truncate">{directoryLabel}</span>
-            </button>
-          </CollapsibleTrigger>
+              <XIcon className="size-3.5 mr-2" />
+              {language.t("sidebar.closeNotebook")}
+            </ContextMenuItem>
+          </ContextMenuContent>
+        </ContextMenu>
 
-          <div className="relative z-10 flex items-center gap-0.5 pr-1 opacity-0 transition-opacity group-hover/directory:opacity-100 group-focus-within/directory:opacity-100">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  data-action="left-sidebar-directory-menu"
-                  data-directory={props.group.directory}
-                  className="inline-flex size-6 items-center justify-center rounded-md text-text-weak transition-colors hover:bg-surface-raised-base-hover hover:text-text-strong"
-                  aria-label={language.t("sidebar.optionsForDirectory", {
-                    directoryLabel: directoryLabel,
-                  })}
-                >
-                  <EllipsisHorizontalIcon className="size-3.5" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-44">
-                <DropdownMenuItem
-                  data-action="left-sidebar-directory-open"
-                  onSelect={props.onOpenNotebook}
-                >
-                  <FolderIcon className="size-3.5 mr-2" />
-                  {language.t("sidebar.openNotebook")}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  data-action="left-sidebar-directory-close"
-                  onSelect={props.onCloseNotebook}
-                >
-                  <XIcon className="size-3.5 mr-2" />
-                  {language.t("sidebar.closeNotebook")}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  data-action="left-sidebar-directory-new-thread"
-                  data-directory={props.group.directory}
-                  className="inline-flex size-6 items-center justify-center rounded-md text-text-weak transition-colors hover:bg-surface-raised-base-hover hover:text-text-strong"
-                  aria-label={language.t("sidebar.startNewThreadIn", {
-                    directoryLabel: directoryLabel,
-                  })}
-                  onClick={(event) => {
-                    event.preventDefault()
-                    event.stopPropagation()
-                    props.onNewSession()
-                  }}
-                >
-                  <SquarePenIcon className="size-3.5" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="top" sideOffset={8} className="px-2 py-1 text-[11px]">
-                {language.t("sidebar.startNewThreadIn", { directoryLabel: directoryLabel })}
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        </div>
-
-        <CollapsibleContent className="space-y-1 overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down p-[2px] -m-[2px]">
-          {props.group.sessions.length === 0 ? (
-            <p className="pl-6 text-sm text-text-weak py-1">{language.t("sidebar.noThreads")}</p>
-          ) : (
-            visibleSessions.map((session) => (
-              <DirectoryThreadRow
-                key={`${props.group.directory}:${session.id}`}
-                directory={props.group.directory}
-                currentDirectory={props.currentDirectory}
-                session={session}
-                allSessions={props.allSessions}
-                activeRootID={props.activeRootID}
-                sessionStatusByID={props.sessionStatusByID}
-                pinnedSet={props.pinnedSet}
-                unreadMap={props.unreadMap}
-                onSelect={() => props.onSelectSession(session.id)}
-                onTogglePin={() => props.onTogglePin(session.id)}
-                onToggleUnread={(unread) => props.onToggleUnread(session.id, unread)}
-                onRequestRename={() => props.onRequestRename(session.id, session.title)}
-                onRequestArchive={() =>
-                  props.onRequestArchive(
-                    session.id,
-                    session.title || language.t("sidebar.untitledThread"),
-                  )
-                }
-              />
-            ))
+        <AnimatePresence initial={false}>
+          {!props.collapsed && (
+            <CollapsibleContent
+              forceMount
+              asChild
+              className="space-y-1 overflow-hidden p-[2px] -m-[2px]"
+            >
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }}
+              >
+                {props.group.sessions.length === 0 ? (
+                  <p className="pl-6 text-sm text-text-weak py-1">
+                    {language.t("sidebar.noThreads")}
+                  </p>
+                ) : (
+                  visibleSessions.map((session) => (
+                    <DirectoryThreadRow
+                      key={`${props.group.directory}:${session.id}`}
+                      directory={props.group.directory}
+                      currentDirectory={props.currentDirectory}
+                      session={session}
+                      allSessions={props.allSessions}
+                      activeRootID={props.activeRootID}
+                      sessionStatusByID={props.sessionStatusByID}
+                      pinnedSet={props.pinnedSet}
+                      unreadMap={props.unreadMap}
+                      onSelect={() => props.onSelectSession(session.id)}
+                      onTogglePin={() => props.onTogglePin(session.id)}
+                      onToggleUnread={(unread) => props.onToggleUnread(session.id, unread)}
+                      onRequestRename={() => props.onRequestRename(session.id, session.title)}
+                      onRequestArchive={() =>
+                        props.onRequestArchive(
+                          session.id,
+                          session.title || language.t("sidebar.untitledThread"),
+                        )
+                      }
+                    />
+                  ))
+                )}
+                {hasMore && (
+                  <button
+                    type="button"
+                    className="ml-2 pl-5 py-1 text-xs text-text-weaker opacity-70 hover:opacity-100 hover:text-text-base"
+                    onClick={props.onToggleExpanded}
+                  >
+                    {props.expanded
+                      ? language.t("sidebar.showLess")
+                      : language.t("sidebar.showMore")}
+                  </button>
+                )}
+              </motion.div>
+            </CollapsibleContent>
           )}
-          {hasMore && !props.collapsed ? (
-            <button
-              type="button"
-              className="ml-2 pl-5 py-1 text-xs text-text-weaker opacity-70 hover:opacity-100 hover:text-text-base"
-              onClick={props.onToggleExpanded}
-            >
-              {props.expanded ? language.t("sidebar.showLess") : language.t("sidebar.showMore")}
-            </button>
-          ) : null}
-        </CollapsibleContent>
+        </AnimatePresence>
         {isDragOver && props.dragOverPosition === "after" ? (
           <div className="h-0.5 rounded-full bg-surface-interactive-base/70 mx-2 mt-1" />
         ) : null}
@@ -312,7 +313,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
   )
 }
 
-function DirectoryThreadRow(props: DirectoryThreadRowProps) {
+export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
   const familyIDs = sessionFamilyIDs(props.allSessions, props.session.id)
   const active =
     props.directory === props.currentDirectory && props.session.id === props.activeRootID
@@ -322,84 +323,69 @@ function DirectoryThreadRow(props: DirectoryThreadRowProps) {
   const threadStatus = busy ? "busy" : unread ? "unread" : "idle"
 
   return (
-    <div
-      className={`group/thread relative ml-2 rounded-lg ${
-        active ? "bg-surface-raised-base-hover" : "hover:bg-surface-raised-base-hover"
-      }`}
-    >
-      <button
-        type="button"
-        data-action="left-sidebar-thread-select"
-        data-directory={props.directory}
-        data-session-id={props.session.id}
-        data-active={active ? "true" : "false"}
-        onClick={props.onSelect}
-        className="relative w-full py-1.5 pr-3 pl-5 text-left"
-      >
-        <div className="absolute top-1/2 left-1 flex -translate-y-1/2 items-center justify-center">
-          <ThreadStatusIndicator status={threadStatus} />
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <div
+          className={`group/thread relative ml-2 rounded-lg data-[state=open]:bg-surface-raised-base-hover ${
+            active ? "bg-surface-weak/50 text-text-strong" : "hover:bg-surface-raised-base-hover"
+          }`}
+        >
+          <button
+            type="button"
+            data-action="left-sidebar-thread-select"
+            data-directory={props.directory}
+            data-session-id={props.session.id}
+            data-active={active ? "true" : "false"}
+            className="relative w-full py-1.5 pr-3 pl-5 text-left"
+            onClick={props.onSelect}
+          >
+            <div className="absolute top-1/2 left-1 flex -translate-y-1/2 items-center justify-center">
+              {active ? <ThreadStatusIndicator status={threadStatus} /> : null}
+            </div>
+            <div className="flex min-w-0 items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-1">
+                <span className="truncate text-xs font-normal">
+                  {props.session.title || language.t("sidebar.untitledThread")}
+                </span>
+                {pinned ? <PinIcon className="size-3 shrink-0 text-text-weaker" /> : null}
+              </div>
+            </div>
+          </button>
         </div>
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="sr-only">{threadStatusLabel(threadStatus)}</span>
-          <div className="flex min-w-0 items-center gap-1">
-            <span
-              className={`truncate text-xs ${
-                unread ? "font-medium text-text-strong" : "text-text-base"
-              }`}
-            >
-              {props.session.title || language.t("sidebar.newThread")}
-            </span>
-            {pinned ? <PinIcon className="size-3 shrink-0 text-text-weaker" /> : null}
-          </div>
-          <span className="ml-auto shrink-0 text-xs text-text-weaker opacity-70 transition-opacity group-hover/thread:opacity-0 group-focus-within/thread:opacity-0">
-            {formatThreadAge(props.session.time.updated)}
-          </span>
-        </div>
-      </button>
-
-      <div className="absolute top-0 right-3 z-10 flex h-full items-center opacity-0 transition-opacity group-hover/thread:opacity-100 group-focus-within/thread:opacity-100">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              data-action="left-sidebar-thread-menu"
-              data-directory={props.directory}
-              data-session-id={props.session.id}
-              className="inline-flex size-6 items-center justify-center rounded-md text-text-weak hover:bg-surface-weak/70 hover:text-text-base"
-              aria-label={language.t("sidebar.threadOptions")}
-              onClick={(event) => event.stopPropagation()}
-            >
-              <EllipsisHorizontalIcon className="size-3.5" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuItem data-action="left-sidebar-thread-pin" onSelect={props.onTogglePin}>
-              <PinIcon className="mr-2 size-3.5" />
-              {pinned ? language.t("sidebar.unpinThread") : language.t("sidebar.pinThread")}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              data-action="left-sidebar-thread-rename"
-              onSelect={props.onRequestRename}
-            >
-              <PencilIcon className="mr-2 size-3.5" />
-              {language.t("sidebar.renameThreadAction")}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              data-action="left-sidebar-thread-archive"
-              onSelect={props.onRequestArchive}
-            >
-              <ArchiveIcon className="mr-2 size-3.5" />
-              {language.t("sidebar.archiveThreadAction")}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              data-action="left-sidebar-thread-unread"
-              onSelect={() => props.onToggleUnread(!unread)}
-            >
-              {unread ? language.t("sidebar.markAsRead") : language.t("sidebar.markAsUnread")}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent className="w-44">
+        <ContextMenuItem data-action="left-sidebar-thread-pin" onSelect={props.onTogglePin}>
+          <PinIcon className="mr-2 size-3.5" />
+          {pinned ? language.t("sidebar.unpinThread") : language.t("sidebar.pinThread")}
+        </ContextMenuItem>
+        <ContextMenuItem data-action="left-sidebar-thread-rename" onSelect={props.onRequestRename}>
+          <PencilIcon className="mr-2 size-3.5" />
+          {language.t("sidebar.renameThreadAction")}
+        </ContextMenuItem>
+        <ContextMenuItem
+          data-action="left-sidebar-thread-archive"
+          onSelect={props.onRequestArchive}
+        >
+          <ArchiveIcon className="mr-2 size-3.5" />
+          {language.t("sidebar.archiveThreadAction")}
+        </ContextMenuItem>
+        <ContextMenuItem
+          data-action="left-sidebar-thread-unread"
+          onSelect={() => props.onToggleUnread(!unread)}
+        >
+          {unread ? (
+            <>
+              <MailOpenIcon className="mr-2 size-3.5" />
+              {language.t("sidebar.markAsRead")}
+            </>
+          ) : (
+            <>
+              <MailIcon className="mr-2 size-3.5" />
+              {language.t("sidebar.markAsUnread")}
+            </>
+          )}
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   )
 }

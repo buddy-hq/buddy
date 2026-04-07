@@ -1,13 +1,20 @@
 import type { ReactNode } from "react"
 import { useState } from "react"
-import { Button } from "@buddy/ui"
+import { AnimatePresence, motion } from "motion/react"
+import {
+  Button,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@buddy/ui"
 import { language } from "@/context/language"
 import type { SessionInfo, SessionStatusInfo } from "@/state/chat-types"
 import { ChatLeftSidebarDialogs, NotebookCreationDialog } from "./chat-left-sidebar/dialogs"
-import { ChatLeftSidebarDirectoryList } from "./chat-left-sidebar/directory-list"
+import { ChatLeftSidebarDirectoryList, DirectoryThreadRow } from "./chat-left-sidebar/directory-list"
 import { ChatLeftSidebarToolbar } from "./chat-left-sidebar/toolbar"
 import { useDirectoryGroups } from "./chat-left-sidebar/use-directory-groups"
 import { useDirectoryReordering } from "./chat-left-sidebar/use-directory-reordering"
+import { findRootSessionID } from "./chat-left-sidebar/thread-helpers"
 import type {
   ArchiveState,
   OrganizeMode,
@@ -15,7 +22,8 @@ import type {
   ShowMode,
   SortMode,
 } from "./chat-left-sidebar/types"
-import { SettingsIcon } from "./sidebar-icons"
+import { ChevronDownIcon, SettingsIcon, SquarePenIcon } from "./sidebar-icons"
+import { getFilename } from "./sidebar-helpers"
 
 type ChatLeftSidebarProps = {
   directories: string[]
@@ -81,6 +89,8 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
   const [notebookCreationOpen, setNotebookCreationOpen] = useState(false)
   const [notebookName, setNotebookName] = useState("")
   const [notebookSaving, setNotebookSaving] = useState(false)
+  const [inboxExpanded, setInboxExpanded] = useState(false)
+  const [inboxCollapsed, setInboxCollapsed] = useState(false)
 
   const directoryGroups = useDirectoryGroups({
     directories: props.directories,
@@ -94,6 +104,11 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
     showMode,
     sortMode,
   })
+
+  const inboxGroup = directoryGroups.find((g) => getFilename(g.directory).toLowerCase() === "inbox")
+  const notebookGroups = directoryGroups.filter(
+    (g) => getFilename(g.directory).toLowerCase() !== "inbox",
+  )
 
   const {
     draggedDirectory,
@@ -151,7 +166,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
   return (
     <aside
       data-component="chat-left-sidebar"
-      className={`shrink-0 border-r border-border-base bg-surface-raised-base text-text-base flex flex-col min-h-0 ${
+      className={`shrink-0 border-r border-border-weaker-base bg-background-base text-text-base flex flex-col min-h-0 ${
         props.className ?? ""
       }`}
     >
@@ -161,29 +176,139 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
         </div>
       ) : (
         <div className="scrollbar-hover flex-1 min-h-0 overflow-y-auto px-2 pt-2 pb-3">
+          {inboxGroup && (
+            <Collapsible
+              open={!inboxCollapsed}
+              onOpenChange={(open) => setInboxCollapsed(!open)}
+              asChild
+            >
+              <div className="group/section-header mb-4">
+                <CollapsibleTrigger asChild>
+                  <div className="mb-1 flex cursor-pointer select-none items-center justify-between px-2 text-text-weaker group-hover/section-header:text-text-base transition-colors duration-160">
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-[11px] font-semibold tracking-wider">
+                        {language.t("sidebar.quickChat")}
+                      </p>
+                      <motion.div
+                        animate={{
+                          rotate: inboxCollapsed ? -90 : 0,
+                          opacity: inboxCollapsed ? 0.4 : 0,
+                        }}
+                        transition={{ duration: 0.2, ease: "easeOut" }}
+                      >
+                        <ChevronDownIcon className="size-3" />
+                      </motion.div>
+                    </div>
+                    <Button
+                      type="button"
+                      data-action="left-sidebar-quick-chat"
+                      variant="ghost"
+                      size="icon-xs"
+                      className="invisible group-hover/section-header:visible text-text-weak hover:bg-surface-raised-base-hover hover:text-text-strong"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (props.onQuickChat) {
+                          void props.onQuickChat()
+                          return
+                        }
+                        props.onNewSession(props.currentDirectory)
+                      }}
+                    aria-label={language.t("sidebar.quickChat")}
+                    title={language.t("sidebar.quickChat")}
+                  >
+                    <SquarePenIcon className="size-3.5" />
+                  </Button>
+                </div>
+              </CollapsibleTrigger>
+              <AnimatePresence initial={false}>
+                  {!inboxCollapsed && (
+                    <CollapsibleContent
+                      forceMount
+                      asChild
+                      className="space-y-[2px] overflow-hidden"
+                    >
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }}
+                      >
+                        {inboxGroup.sessions.length === 0 ? (
+                          <p className="pl-6 pr-6 text-sm text-text-weak py-1">
+                            {language.t("sidebar.noThreads")}
+                          </p>
+                        ) : (
+                          (inboxExpanded ? inboxGroup.sessions : inboxGroup.sessions.slice(0, 3)).map(
+                            (session) => (
+                              <DirectoryThreadRow
+                                key={`${inboxGroup.directory}:${session.id}`}
+                                directory={inboxGroup.directory}
+                                currentDirectory={props.currentDirectory}
+                                session={session}
+                                allSessions={props.sessionsByDirectory[inboxGroup.directory] ?? []}
+                                activeRootID={findRootSessionID(
+                                  props.sessionsByDirectory[inboxGroup.directory] ?? [],
+                                  props.activeSessionID,
+                                )}
+                                sessionStatusByID={
+                                  props.sessionStatusByDirectory[inboxGroup.directory] ?? {}
+                                }
+                                pinnedSet={
+                                  new Set(props.pinnedByDirectory[inboxGroup.directory] ?? [])
+                                }
+                                unreadMap={props.unreadByDirectory[inboxGroup.directory] ?? {}}
+                                onSelect={() =>
+                                  props.onSelectSession(inboxGroup.directory, session.id)
+                                }
+                                onTogglePin={() =>
+                                  props.onTogglePin(inboxGroup.directory, session.id)
+                                }
+                                onToggleUnread={(unread) =>
+                                  props.onToggleUnread(inboxGroup.directory, session.id, unread)
+                                }
+                                onRequestRename={() => {
+                                  setRenameState({
+                                    directory: inboxGroup.directory,
+                                    sessionID: session.id,
+                                    title: session.title,
+                                  })
+                                }}
+                                onRequestArchive={() => {
+                                  setArchiveState({
+                                    directory: inboxGroup.directory,
+                                    sessionID: session.id,
+                                    title: session.title,
+                                  })
+                                }}
+                              />
+                            ),
+                          )
+                        )}
+                        {inboxGroup.sessions.length > 3 && (
+                          <button
+                            type="button"
+                            className="ml-2 pl-6 py-1 text-xs text-text-weaker opacity-70 hover:opacity-100 hover:text-text-base transition-all active:scale-95"
+                            onClick={() => setInboxExpanded(!inboxExpanded)}
+                          >
+                            {inboxExpanded
+                              ? language.t("sidebar.showLess")
+                              : language.t("sidebar.showMore")}
+                          </button>
+                        )}
+                      </motion.div>
+                    </CollapsibleContent>
+                  )}
+                </AnimatePresence>
+              </div>
+            </Collapsible>
+          )}
+
           <ChatLeftSidebarToolbar
             organizeMode={organizeMode}
             sortMode={sortMode}
             showMode={showMode}
-            onQuickChat={() => {
-              if (props.onQuickChat) {
-                void props.onQuickChat()
-                return
-              }
-              props.onNewSession(props.currentDirectory)
-            }}
             onRequestCreateNotebook={() => {
               setNotebookCreationOpen(true)
-              if (!notebookName) {
-                setNotebookName(language.t("sidebar.newNotebookDefaultName"))
-              }
-            }}
-            onOpenExistingFolder={() => {
-              if (props.onOpenExistingFolder) {
-                void props.onOpenExistingFolder()
-                return
-              }
-              props.onOpenDirectory()
             }}
             onOrganizeModeChange={setOrganizeMode}
             onSortModeChange={setSortMode}
@@ -191,7 +316,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
           />
 
           <ChatLeftSidebarDirectoryList
-            directoryGroups={directoryGroups}
+            directoryGroups={notebookGroups}
             currentDirectory={props.currentDirectory}
             activeSessionID={props.activeSessionID}
             sessionsByDirectory={props.sessionsByDirectory}
@@ -285,6 +410,14 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
         onNotebookNameChange={setNotebookName}
         onCreate={() => {
           void submitNotebookCreation()
+        }}
+        onOpenExistingFolder={() => {
+          setNotebookCreationOpen(false)
+          if (props.onOpenExistingFolder) {
+            void props.onOpenExistingFolder()
+          } else {
+            props.onOpenDirectory()
+          }
         }}
       />
     </aside>

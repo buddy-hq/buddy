@@ -7,7 +7,11 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
 } from "@buddy/ui"
+import { InfoIcon } from "lucide-react"
 import { language } from "@/context/language"
 import type { ArchiveState, RenameState } from "./types"
 
@@ -22,6 +26,7 @@ type NotebookCreationDialogProps = {
   onOpenChange: (open: boolean) => void
   onNotebookNameChange: (name: string) => void
   onCreate: () => void
+  onOpenExistingFolder?: () => void
 }
 
 type ChatLeftSidebarDialogsProps = {
@@ -141,19 +146,42 @@ export function NotebookCreationDialog(props: NotebookCreationDialogProps) {
           <DialogTitle>{props.title}</DialogTitle>
           <DialogDescription>{props.description}</DialogDescription>
         </DialogHeader>
-        <Input
-          data-action="left-sidebar-create-notebook-input"
-          autoFocus
-          value={props.notebookName}
-          onChange={(event) => props.onNotebookNameChange(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault()
-              props.onCreate()
-            }
-          }}
-          placeholder={props.placeholder}
-        />
+        <div className="space-y-3">
+          <Input
+            data-action="left-sidebar-create-notebook-input"
+            autoFocus
+            value={props.notebookName}
+            onChange={(event) => props.onNotebookNameChange(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault()
+                props.onCreate()
+              }
+            }}
+            placeholder={props.placeholder}
+          />
+          {props.onOpenExistingFolder && (
+            <div className="flex justify-center pt-1">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={props.onOpenExistingFolder}
+                    className="group inline-flex items-center gap-1.5 text-xs text-text-weak transition-colors hover:text-text-base"
+                  >
+                    <span className="underline decoration-border-base underline-offset-4 group-hover:decoration-text-weak">
+                      {language.t("sidebar.openExistingFolder")}
+                    </span>
+                    <InfoIcon className="size-3 text-text-weaker transition-colors group-hover:text-text-weak" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" sideOffset={8} className="px-2 py-1 text-[11px]">
+                  {language.t("sidebar.openExistingFolderTooltip")}
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          )}
+        </div>
         <DialogFooter>
           <Button
             data-action="left-sidebar-create-notebook-cancel"
