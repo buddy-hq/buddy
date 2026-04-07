@@ -28,7 +28,8 @@
     "./session-prompt": "./src/session-prompt.ts",
     "./file": "./src/file.ts",
     "./provider": "./src/provider.ts",
-    "./theme": "./src/theme.ts"
+    "./theme": "./src/theme.ts",
+    "./provider-icon": "./src/provider-icon.ts"
   },
   "scripts": {
     "typecheck": "tsgo --noEmit"
