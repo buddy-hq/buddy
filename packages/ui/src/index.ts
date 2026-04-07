@@ -99,6 +99,7 @@ export { ThemeProvider } from "next-themes"
 export {
   ArchiveIcon,
   ArrowUpDownIcon,
+  ArrowUpIcon,
   BookOpenIcon,
   BrainIcon,
   CheckIcon,

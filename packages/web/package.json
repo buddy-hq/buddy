@@ -11,7 +11,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "predev": "bun run prepare:web",
+    "predev": "bun run prepare:web && bun run typecheck",
     "prepare:web": "bun ./scripts/prepare.ts full",
     "prepare:web:typecheck": "bun ./scripts/prepare.ts typecheck",
     "prebuild": "bun run prepare:web",
