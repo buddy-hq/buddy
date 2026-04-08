@@ -98,7 +98,7 @@ export const SETTINGS_TABS: SettingsTabDefinition[] = [
     navLabelKey: "routes.settings.nav.tools",
     icon: WrenchIcon,
     layout: "standard",
-    render: () => <ToolsSettings />,
+    render: (directory) => <ToolsSettings directory={directory} />,
   },
   {
     id: "advanced",

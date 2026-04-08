@@ -600,12 +600,42 @@ export const dict = {
   "settings.providers.selected": "Selected",
   "settings.providers.setAsDefault": "Set as default",
   "settings.providers.title": "Providers",
-  "settings.tools.description": "Enable or disable individual tools for use in conversations.",
+  "settings.tools.disabledForNotebook": "Disabled for this notebook",
+  "settings.tools.description":
+    "Control standards tools with a global default for all notebooks, then override specific notebooks only when needed.",
   "settings.tools.disabled": "Disabled",
+  "settings.tools.enabledForNotebook": "Enabled for this notebook",
   "settings.tools.enabled": "Enabled",
+  "settings.tools.globalDefaultsDescription":
+    "These defaults apply to every notebook unless a notebook overrides them.",
+  "settings.tools.globalDefaultsBulkDescription":
+    "Turn every standards tool on or off for all notebooks in one action.",
+  "settings.tools.globalDefaultsBulkTitle": "All standards tools",
+  "settings.tools.globalDefaultsSection": "Default for all notebooks",
+  "settings.tools.installStandardsToEnable":
+    "Install the optional standards package to make standards tools available on this device. The settings below still control the default behavior once installed.",
+  "settings.tools.mixed": "Mixed",
+  "settings.tools.notebookOverridesDescription":
+    "Pick a notebook, then override the global defaults only when that notebook should behave differently.",
+  "settings.tools.notebookOverridesSection": "Notebook overrides",
+  "settings.tools.notebookSelectorAria": "Select notebook for tool overrides",
+  "settings.tools.notebookSelectorLabel": "Notebook",
+  "settings.tools.overrideNotebookAria": "Override {{tool}} for the selected notebook",
+  "settings.tools.overriddenForNotebook": "Overridden for the selected notebook: {{state}}",
+  "settings.tools.removeStandardsDescription":
+    "This will remove the optional standards package from this device. You can reinstall it at any time.",
+  "settings.tools.removeStandardsTitle": "Remove standards package?",
   "settings.tools.standardsSection": "Standards",
+  "settings.tools.standardsRuntimeDescription":
+    "Optional machine-wide package for standards graph lookups and progressions.",
+  "settings.tools.standardsRuntimeSection": "Standards package",
+  "settings.tools.standardsRuntimeTitle": "Standards package",
+  "settings.tools.standardsRuntimeToggleAria": "Toggle standards package",
   "settings.tools.title": "Tools",
+  "settings.tools.toggleGlobalAllAria": "Toggle all standards tools for all notebooks",
+  "settings.tools.toggleGlobalAria": "Toggle global default for {{tool}}",
   "settings.tools.toggleAria": "Toggle {{tool}}",
+  "settings.tools.useGlobalDefault": "Use global default",
   "sidebar.addNotebook": "Add notebook",
   "sidebar.archive": "Archive",
   "sidebar.archiveThreadAction": "Archive thread",

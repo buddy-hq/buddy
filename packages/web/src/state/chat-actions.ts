@@ -1,6 +1,7 @@
 import type {
   CommandListResponses,
   ConfigGetResponses,
+  ConfigGetRawResponses,
   ConfigMcpPutData,
   ConfigPersonasResponses,
   ConfigUpdateData,
@@ -9,12 +10,14 @@ import type {
   GlobalConfigPatchData,
   GlobalNotebookHomeGetResponses,
   GlobalNotebookHomePutResponses,
+  GlobalNotebooksListResponses,
   LearnerSnapshotResponses,
   McpLocalConfig,
   McpRemoteConfig,
   McpStatusResponses,
   OpenProjectsCreateResponses,
   PermissionListResponses,
+  ProjectListResponses,
   SessionMessagesResponses,
   SessionTeachingStateResponses,
   ProviderAuthMethod,
@@ -242,6 +245,16 @@ export type NotebookHomeState = {
   resolvedDirectory: string
   inboxDirectory: string
   inboxName: string
+}
+
+export type ManagedNotebookEntry = {
+  name: string
+  directory: string
+}
+
+export type KnownNotebookEntry = {
+  directory: string
+  name?: string
 }
 const latestSessionListRequestByDirectory = new Map<string, number>()
 const latestTranscriptRequestByDirectory = new Map<string, number>()
@@ -596,6 +609,22 @@ export async function saveNotebookHome(directory: string) {
   return requireBuddyData<GlobalNotebookHomePutResponses[200]>(
     await getBuddyClient().global.notebookHome.put({ directory: nextDirectory }),
   ) as NotebookHomeState
+}
+
+export async function loadManagedNotebooks() {
+  return requireBuddyData<GlobalNotebooksListResponses[200]>(
+    await getBuddyClient().global.notebooks.list(),
+  ) as ManagedNotebookEntry[]
+}
+
+export async function loadKnownNotebooks() {
+  const projects = requireBuddyData<ProjectListResponses[200]>(
+    await getBuddyClient().project.list(),
+  )
+  return projects.map((project) => ({
+    directory: project.worktree,
+    name: project.name,
+  })) as KnownNotebookEntry[]
 }
 
 export async function preloadProjectSessions(directories: string[]) {
@@ -1565,6 +1594,12 @@ export async function loadLearnerProgress(directory: string) {
 export async function loadProjectConfig(directory: string) {
   return requireBuddyData<ConfigGetResponses[200]>(
     await getBuddyClient(directory).config.get(),
+  ) as Record<string, unknown>
+}
+
+export async function loadRawProjectConfig(directory: string) {
+  return requireBuddyData<ConfigGetRawResponses[200]>(
+    await getBuddyClient(directory).config.getRaw(),
   ) as Record<string, unknown>
 }
 
