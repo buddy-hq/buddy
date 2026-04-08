@@ -27,6 +27,10 @@ export async function readProjectConfig(directory: string): Promise<Config.Info>
   return Config.getProject(directory)
 }
 
+export async function readProjectConfigFile(directory: string): Promise<Config.Info> {
+  return Config.getProjectFile(directory)
+}
+
 async function buildAndApplyProjectOverlay(directory: string) {
   const config = await readProjectConfig(directory)
   const overlay = await buildOpenCodeConfigOverlay({

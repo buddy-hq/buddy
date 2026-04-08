@@ -1,4 +1,4 @@
-import { getGlobalConfig, loadProjectConfig } from "./store/read-config.js"
+import { getGlobalConfig, loadProjectConfig, loadProjectConfigFile } from "./store/read-config.js"
 import {
   setProjectMcpConfig,
   updateGlobalConfig,
@@ -40,6 +40,10 @@ export namespace Config {
 
   export async function getProject(directory: string) {
     return loadProjectConfig(directory)
+  }
+
+  export async function getProjectFile(directory: string) {
+    return loadProjectConfigFile(directory)
   }
 
   export async function getGlobal() {

@@ -10,7 +10,12 @@ import {
 } from "../agents-md/service"
 import { booleanJsonResponse, routeErrors, runRouteTask } from "../http"
 import { proxyToOpenCode } from "../http"
-import { mapManagedNotebookError, readNotebookHomeState, saveNotebookHome } from "../project"
+import {
+  listManagedNotebooks,
+  mapManagedNotebookError,
+  readNotebookHomeState,
+  saveNotebookHome,
+} from "../project"
 
 const globalAgentsMdReadResponseSchema = z.object({
   path: z.string(),
@@ -37,6 +42,10 @@ const notebookHomeResponseSchema = z.object({
   inboxName: z.string(),
 })
 const notebookHomeBodySchema = z.object({
+  directory: z.string(),
+})
+const managedNotebookSchema = z.object({
+  name: z.string(),
   directory: z.string(),
 })
 
@@ -124,6 +133,27 @@ export const GlobalRoutes = new Hono()
     async (c) =>
       runRouteTask({
         task: async () => c.json(await saveNotebookHome(c.req.valid("json").directory)),
+        mapError: (error) => mapManagedNotebookError(error) ?? mapConfigRouteError(error),
+      }),
+  )
+  .get(
+    "/notebooks",
+    describeRoute({
+      operationId: "global.notebooks.list",
+      summary: "List Buddy-managed notebooks",
+      responses: {
+        200: {
+          description: "Buddy-managed notebook list",
+          content: {
+            "application/json": { schema: resolver(z.array(managedNotebookSchema)) },
+          },
+        },
+        ...routeErrors(400, 403),
+      },
+    }),
+    async (c) =>
+      runRouteTask({
+        task: async () => c.json(await listManagedNotebooks()),
         mapError: (error) => mapManagedNotebookError(error) ?? mapConfigRouteError(error),
       }),
   )

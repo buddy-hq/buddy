@@ -129,6 +129,233 @@ describe("config routes", () => {
     }
   })
 
+  test("returns raw notebook config without merged global defaults", async () => {
+    const repo = createGitRepo("buddy-route-config-raw")
+    const globalFile = path.join(Global.Path.config, "buddy.jsonc")
+    fs.mkdirSync(path.dirname(globalFile), { recursive: true })
+    const previousGlobal = fs.existsSync(globalFile)
+      ? fs.readFileSync(globalFile, "utf8")
+      : undefined
+
+    writeFileSync(
+      path.join(repo, "buddy.jsonc"),
+      JSON.stringify(
+        {
+          default_persona: "code-buddy",
+          tools: {
+            get_next_standards: true,
+          },
+        },
+        null,
+        2,
+      ) + "\n",
+    )
+
+    try {
+      writeFileSync(
+        globalFile,
+        JSON.stringify(
+          {
+            model: "anthropic/route-global-default",
+            tools: {
+              search_standards: false,
+            },
+          },
+          null,
+          2,
+        ) + "\n",
+      )
+
+      const rawResponse = await app.request("/api/config/raw", {
+        headers: {
+          "x-buddy-directory": repo,
+        },
+      })
+
+      expect(rawResponse.status).toBe(200)
+      const rawBody = (await rawResponse.json()) as {
+        default_persona?: string
+        model?: string
+        tools?: Record<string, boolean>
+      }
+      expect(rawBody.default_persona).toBe("code-buddy")
+      expect(rawBody.model).toBeUndefined()
+      expect(rawBody.tools?.get_next_standards).toBe(true)
+      expect(rawBody.tools?.search_standards).toBeUndefined()
+
+      const mergedResponse = await app.request("/api/config", {
+        headers: {
+          "x-buddy-directory": repo,
+        },
+      })
+      expect(mergedResponse.status).toBe(200)
+      await expect(mergedResponse.json()).resolves.toMatchObject({
+        default_persona: "code-buddy",
+        model: "anthropic/route-global-default",
+        tools: {
+          search_standards: false,
+          get_next_standards: true,
+        },
+      })
+    } finally {
+      if (previousGlobal === undefined) {
+        fs.rmSync(globalFile, { force: true })
+      } else {
+        writeFileSync(globalFile, previousGlobal)
+      }
+
+      await app.request("/api/global/config", {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({}),
+      })
+    }
+  })
+
+  test("patching notebook config keeps inherited global defaults out of the notebook file", async () => {
+    const repo = createGitRepo("buddy-route-config-no-global-copy")
+    const globalFile = path.join(Global.Path.config, "buddy.jsonc")
+    fs.mkdirSync(path.dirname(globalFile), { recursive: true })
+    const previousGlobal = fs.existsSync(globalFile)
+      ? fs.readFileSync(globalFile, "utf8")
+      : undefined
+
+    try {
+      writeFileSync(
+        globalFile,
+        JSON.stringify(
+          {
+            model: "anthropic/route-global-only",
+          },
+          null,
+          2,
+        ) + "\n",
+      )
+
+      const patchResponse = await app.request("/api/config", {
+        method: "PATCH",
+        headers: {
+          "x-buddy-directory": repo,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          default_persona: "code-buddy",
+        }),
+      })
+
+      expect(patchResponse.status).toBe(200)
+      await expect(patchResponse.json()).resolves.toMatchObject({
+        default_persona: "code-buddy",
+        model: "anthropic/route-global-only",
+      })
+
+      const configFile = path.join(repo, "buddy.jsonc")
+      expect(fs.readFileSync(configFile, "utf8")).toContain('"default_persona": "code-buddy"')
+      expect(fs.readFileSync(configFile, "utf8")).not.toContain("anthropic/route-global-only")
+    } finally {
+      if (previousGlobal === undefined) {
+        fs.rmSync(globalFile, { force: true })
+      } else {
+        writeFileSync(globalFile, previousGlobal)
+      }
+
+      await app.request("/api/global/config", {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({}),
+      })
+    }
+  })
+
+  test("removing a notebook override falls back to the global default", async () => {
+    const repo = createGitRepo("buddy-route-config-remove-override")
+    const globalFile = path.join(Global.Path.config, "buddy.jsonc")
+    fs.mkdirSync(path.dirname(globalFile), { recursive: true })
+    const previousGlobal = fs.existsSync(globalFile)
+      ? fs.readFileSync(globalFile, "utf8")
+      : undefined
+
+    writeFileSync(
+      path.join(repo, "buddy.jsonc"),
+      JSON.stringify(
+        {
+          tools: {
+            search_standards: true,
+          },
+        },
+        null,
+        2,
+      ) + "\n",
+    )
+
+    try {
+      writeFileSync(
+        globalFile,
+        JSON.stringify(
+          {
+            tools: {
+              search_standards: false,
+            },
+          },
+          null,
+          2,
+        ) + "\n",
+      )
+
+      const patchResponse = await app.request("/api/config", {
+        method: "PATCH",
+        headers: {
+          "x-buddy-directory": repo,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          tools: {
+            search_standards: null,
+          },
+        }),
+      })
+
+      expect(patchResponse.status).toBe(200)
+      await expect(patchResponse.json()).resolves.toMatchObject({
+        tools: {
+          search_standards: false,
+        },
+      })
+
+      const rawResponse = await app.request("/api/config/raw", {
+        headers: {
+          "x-buddy-directory": repo,
+        },
+      })
+      expect(rawResponse.status).toBe(200)
+      const rawBody = (await rawResponse.json()) as {
+        tools?: Record<string, boolean>
+      }
+      expect(rawBody.tools?.search_standards).toBeUndefined()
+      expect(fs.readFileSync(path.join(repo, "buddy.jsonc"), "utf8")).not.toContain(
+        "search_standards",
+      )
+    } finally {
+      if (previousGlobal === undefined) {
+        fs.rmSync(globalFile, { force: true })
+      } else {
+        writeFileSync(globalFile, previousGlobal)
+      }
+
+      await app.request("/api/global/config", {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({}),
+      })
+    }
+  })
+
   test("returns the default notebook home and persists updates", async () => {
     const globalFile = path.join(Global.Path.config, "buddy.jsonc")
     fs.mkdirSync(path.dirname(globalFile), { recursive: true })
@@ -186,6 +413,73 @@ describe("config routes", () => {
       } else {
         process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS = originalAllowedRoots
       }
+
+      if (previousGlobal === undefined) {
+        fs.rmSync(globalFile, { force: true })
+      } else {
+        writeFileSync(globalFile, previousGlobal)
+      }
+
+      await app.request("/api/global/config", {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({}),
+      })
+    }
+  })
+
+  test("lists managed notebooks from buddy home", async () => {
+    const globalFile = path.join(Global.Path.config, "buddy.jsonc")
+    fs.mkdirSync(path.dirname(globalFile), { recursive: true })
+    const previousGlobal = fs.existsSync(globalFile)
+      ? fs.readFileSync(globalFile, "utf8")
+      : undefined
+    const originalAllowedRoots = process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS
+    const notebookHome = path.join(Global.Path.home, "Notes", "Buddy-Managed-List-Test")
+    const algebraDirectory = path.join(notebookHome, "Algebra")
+    const inboxDirectory = path.join(notebookHome, "Inbox")
+    const nestedFile = path.join(notebookHome, "README.txt")
+
+    process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS = "*"
+
+    try {
+      fs.mkdirSync(algebraDirectory, { recursive: true })
+      fs.mkdirSync(inboxDirectory, { recursive: true })
+      writeFileSync(nestedFile, "ignore me\n")
+
+      const putResponse = await app.request("/api/global/notebook-home", {
+        method: "PUT",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          directory: notebookHome,
+        }),
+      })
+      expect(putResponse.status).toBe(200)
+
+      const listResponse = await app.request("/api/global/notebooks")
+      expect(listResponse.status).toBe(200)
+      await expect(listResponse.json()).resolves.toEqual([
+        {
+          name: "Algebra",
+          directory: algebraDirectory,
+        },
+        {
+          name: "Inbox",
+          directory: inboxDirectory,
+        },
+      ])
+    } finally {
+      if (originalAllowedRoots === undefined) {
+        delete process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS
+      } else {
+        process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS = originalAllowedRoots
+      }
+
+      fs.rmSync(notebookHome, { recursive: true, force: true })
 
       if (previousGlobal === undefined) {
         fs.rmSync(globalFile, { force: true })

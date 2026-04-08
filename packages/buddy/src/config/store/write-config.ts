@@ -2,7 +2,7 @@ import fsp from "node:fs/promises"
 import path from "node:path"
 import { mergeDeep } from "remeda"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { parseConfigText, patchJsoncDocument } from "../contract/document.js"
+import { parseConfigText, patchJsoncDocument, replaceJsoncDocument } from "../contract/document.js"
 import { JsonError } from "../contract/errors.js"
 import { resetGlobalConfigCache } from "./global-cache.js"
 import {
@@ -36,13 +36,11 @@ export async function updateProjectConfig(directory: string, config: ConfigInfo)
 
   const before = await readConfigTextOrDefault(filepath)
   if (!filepath.endsWith(".jsonc")) {
-    const existing = parseConfigText(before, filepath)
-    const merged = mergeDeep(existing, config)
-    await writeJsonFile(filepath, merged)
+    await writeJsonFile(filepath, config)
     return
   }
 
-  const updated = patchJsoncDocument(before, config)
+  const updated = replaceJsoncDocument(before, config)
   parseConfigText(updated, filepath)
   await fsp.writeFile(filepath, updated, "utf8")
 }

@@ -147,3 +147,64 @@ export function patchJsoncDocument(
     return patchJsoncDocument(result, value, [...patchPath, key])
   }, input)
 }
+
+function parseJsoncValue(text: string): unknown {
+  const errors: JsoncParseError[] = []
+  const value = parseJsonc(text, errors, { allowTrailingComma: true })
+  if (errors.length > 0) {
+    throw new JsonError({
+      path: "<inline>",
+      message: formatParseErrors(text, errors),
+    })
+  }
+  return value
+}
+
+export function replaceJsoncDocument(
+  input: string,
+  nextValue: unknown,
+  patchPath: string[] = [],
+): string {
+  const currentValue = patchPath.length === 0 ? parseJsoncValue(input) : undefined
+  return replaceJsoncDocumentValue(input, currentValue, nextValue, patchPath)
+}
+
+function replaceJsoncDocumentValue(
+  input: string,
+  currentValue: unknown,
+  nextValue: unknown,
+  patchPath: string[],
+): string {
+  if (!isRecord(nextValue)) {
+    const edits = modify(input, patchPath, nextValue, {
+      formattingOptions: {
+        insertSpaces: true,
+        tabSize: 2,
+      },
+    })
+    return applyEdits(input, edits)
+  }
+
+  const currentRecord = isRecord(currentValue) ? currentValue : {}
+  let result = input
+
+  for (const key of Object.keys(currentRecord)) {
+    if (key in nextValue) {
+      continue
+    }
+
+    const edits = modify(result, [...patchPath, key], undefined, {
+      formattingOptions: {
+        insertSpaces: true,
+        tabSize: 2,
+      },
+    })
+    result = applyEdits(result, edits)
+  }
+
+  for (const [key, value] of Object.entries(nextValue)) {
+    result = replaceJsoncDocumentValue(result, currentRecord[key], value, [...patchPath, key])
+  }
+
+  return result
+}

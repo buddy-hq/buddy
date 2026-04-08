@@ -128,6 +128,33 @@ export const ConfigRoutes = new Hono()
       }),
   )
   .get(
+    "/raw",
+    describeRoute({
+      operationId: "config.getRaw",
+      summary: "Get raw project config",
+      responses: {
+        200: {
+          description: "Raw project config payload",
+          content: {
+            "application/json": { schema: resolver(Config.Info) },
+          },
+        },
+        ...routeErrors(400, 403),
+      },
+    }),
+    validator("query", directoryQuerySchema),
+    async (c) =>
+      withDirectoryRoute(c, async (context) =>
+        runRouteTask({
+          task: async () => {
+            const config = await Config.getProjectFile(context.directory)
+            return c.json(config)
+          },
+          mapError: mapConfigRouteError,
+        }),
+      ),
+  )
+  .get(
     "/",
     describeRoute({
       operationId: "config.get",

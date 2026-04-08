@@ -6,6 +6,7 @@ import { personaCatalogEntries } from "../../learning/personas"
 import { Config } from "../config.js"
 import {
   isConfigValidationError,
+  readProjectConfigFile,
   readProjectConfig,
   syncOpenCodeProjectConfig,
 } from "../runtime/opencode-sync.js"
@@ -139,7 +140,7 @@ async function applyAndSyncProjectConfigChange(input: {
 
 export async function patchProjectConfig(input: { directory: string; payload: unknown }) {
   const parsed = mergeAndValidateProjectConfigPatch({
-    current: await readProjectConfig(input.directory),
+    current: await readProjectConfigFile(input.directory),
     patch: input.payload,
   })
   await applyAndSyncProjectConfigChange({

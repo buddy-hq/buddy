@@ -2,6 +2,7 @@ export { allowedDirectoryRoots, isAllowedDirectory, resolveDirectory } from "./d
 export {
   INBOX_NOTEBOOK_NAME,
   createManagedNotebook,
+  listManagedNotebooks,
   mapManagedNotebookError,
 } from "./managed-notebook"
 export { readNotebookHomeState, saveNotebookHome } from "./buddy-home"

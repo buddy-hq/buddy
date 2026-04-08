@@ -14,6 +14,16 @@ export async function getGlobalConfig(): Promise<Info> {
   return getCachedGlobalConfig()
 }
 
+export async function loadProjectConfigFile(directory: string): Promise<Info> {
+  const context = await resolveProjectConfigContext(directory)
+
+  if (Flag.BUDDY_DISABLE_PROJECT_CONFIG) {
+    return {}
+  }
+
+  return loadConfigFile(resolveProjectConfigFile(context.configDirectory))
+}
+
 export async function loadProjectConfig(directory: string): Promise<Info> {
   const context = await resolveProjectConfigContext(directory)
   let result: Info = {}

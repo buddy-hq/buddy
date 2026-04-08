@@ -106,3 +106,25 @@ export async function createManagedNotebook(name: string) {
     buddyHome: config.notebook_home,
   })
 }
+
+export async function listManagedNotebooks() {
+  const config = await Config.getGlobal()
+  const homeState = resolveBuddyHomeState(config.notebook_home)
+  const entries = await fsp
+    .readdir(homeState.resolvedPath, { withFileTypes: true })
+    .catch((error: unknown) => {
+      const maybe = error as { code?: string }
+      if (maybe.code === "ENOENT") {
+        return []
+      }
+      throw mapNotebookCreationError(error)
+    })
+
+  return entries
+    .filter((entry) => entry.isDirectory() && !entry.name.startsWith("."))
+    .map((entry) => ({
+      name: entry.name,
+      directory: path.join(homeState.resolvedPath, entry.name),
+    }))
+    .toSorted((left, right) => left.name.localeCompare(right.name))
+}
