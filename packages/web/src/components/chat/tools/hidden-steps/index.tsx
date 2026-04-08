@@ -163,10 +163,7 @@ function SummaryOnlyToolRow({ entry }: { entry: AbstractedEntry }) {
     <div className="rounded-md border border-border-base bg-background-base px-3 py-2">
       <div className="text-xs font-medium text-text-weak">{entry.info.title}</div>
       {subtitles.map((detail) => (
-        <div
-          key={detail}
-          className="mt-1 whitespace-pre-wrap break-words text-xs text-text-weaker"
-        >
+        <div key={detail} className="mt-1 whitespace-pre-wrap break-words text-xs text-text-weaker">
           {detail}
         </div>
       ))}

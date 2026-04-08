@@ -1,6 +1,11 @@
 # AGENTS.md
-- call bakend using the sdk; NOT manual fetch.
-  - we use @hey-api/openapi-ts to automatically generate its JavaScript/TypeScript SDK from an OpenAPI schema. 
+- call backend using the SDK; never use manual `fetch`.
+  - the SDK is generated from the OpenAPI schema via `@hey-api/openapi-ts`.
+- theming
+  - Buddy supports many themes. Use the Tailwind theme tokens generated in `packages/ui/src/generated/theme-tokens.css` for styling.
+  - Prefer theme tokens because they adapt automatically across themes.
+  - For text colors, never use Tailwind opacity modifiers such as `/20` or `/50`.
+  - Use built-in text color tokens such as `text-text-weaker` and `text-text-stronger` instead.
 
 
 <!-- intent-skills:start -->

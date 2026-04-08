@@ -483,13 +483,13 @@ export const dict = {
   "routes.settings.openThreadFailed": "Couldn't open that thread. Try again.",
   "routes.settings.renameThreadFailed": "Couldn't rename that thread. Try again.",
   "settings.attribution.title": "Attribution & Licenses",
-  "settings.attribution.description": "Credits and licenses for third-party content and libraries used in Buddy.",
+  "settings.attribution.description":
+    "Credits and licenses for third-party content and libraries used in Buddy.",
   "settings.attribution.knowledgeGraph.title": "Knowledge Graph",
   "settings.attribution.knowledgeGraph.description":
     "Educational standards, learning components, and progressions.",
   "settings.attribution.evaluators.title": "Evaluators",
-  "settings.attribution.evaluators.description":
-    "Evaluation prompts and content assessment tools.",
+  "settings.attribution.evaluators.description": "Evaluation prompts and content assessment tools.",
   "settings.attribution.opencode.title": "OpenCode",
   "settings.attribution.opencode.description": "Core agent runtime and capabilities system.",
   "settings.attribution.additionalAttributions.title": "Additional Attributions",
