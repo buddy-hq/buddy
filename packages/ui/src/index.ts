@@ -101,6 +101,7 @@ export {
   ArrowUpDownIcon,
   ArrowUpIcon,
   BookOpenIcon,
+  BotIcon,
   BrainIcon,
   CheckIcon,
   ChevronDownIcon,
@@ -136,4 +137,15 @@ export { cn } from "./lib/utils"
 export { toast } from "sonner"
 
 export { ScrollArea } from "./components/ui/scroll-area"
+export {
+  Command,
+  CommandDialog,
+  CommandInput,
+  CommandList,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+  CommandShortcut,
+  CommandSeparator,
+} from "./components/ui/command"
 export * from "./components/ui/item"
