@@ -160,12 +160,12 @@ function SummaryOnlyToolRow({ entry }: { entry: AbstractedEntry }) {
   )
 
   return (
-    <div className="rounded-md border border-border-base/45 bg-background-base/35 px-3 py-2">
+    <div className="rounded-md border border-border-base bg-background-base px-3 py-2">
       <div className="text-xs font-medium text-text-weak">{entry.info.title}</div>
       {subtitles.map((detail) => (
         <div
           key={detail}
-          className="mt-1 whitespace-pre-wrap break-words text-xs text-text-weak/55"
+          className="mt-1 whitespace-pre-wrap break-words text-xs text-text-weaker"
         >
           {detail}
         </div>
@@ -276,37 +276,39 @@ export function HiddenSteps({
           type="button"
           className="group mt-2 mb-1 flex w-full cursor-default items-center gap-3 transition-transform duration-200 ease-out active:scale-[0.98]"
         >
-          <div className="flex shrink-0 items-center gap-2 text-xs transition-colors duration-200 text-text-weak/40 group-hover:text-text-weak/70">
+          <div className="flex shrink-0 items-center gap-2 text-xs transition-colors duration-200 text-text-weaker group-hover:text-text-weak">
             <span
               className={cn(
                 "truncate",
                 showLivePreview
-                  ? "text-text-weak"
+                  ? "text-text-base group-hover:text-text-strong transition-colors"
                   : errorCount > 0
-                    ? "text-icon-critical-base/80"
+                    ? "text-icon-critical-base"
                     : "text-inherit",
               )}
             >
               {title}
             </span>
             {!showLivePreview && errorCount > 0 ? (
-              <span className="shrink-0 text-icon-critical-base/70">
+              <span className="shrink-0 text-icon-critical-base">
                 {errorCount} {errorCount === 1 ? "error" : "errors"}
               </span>
             ) : null}
             {!showLivePreview && summaryDetail ? (
-              <span className="truncate text-text-weak/30">{summaryDetail}</span>
+              <span className="truncate text-text-weaker group-hover:text-text-weak transition-colors">
+                {summaryDetail}
+              </span>
             ) : null}
             <motion.div
               animate={{ rotate: isOpen ? 90 : 0 }}
               transition={SPRING_SNAPPY}
-              className="flex items-center"
+              className="flex items-center text-text-weaker group-hover:text-text-weak transition-colors"
             >
-              <ChevronRightIcon className="h-3.5 w-3.5 shrink-0 opacity-40 transition-opacity group-hover:opacity-100" />
+              <ChevronRightIcon className="h-3.5 w-3.5 shrink-0" />
             </motion.div>
           </div>
 
-          <div className="h-px grow bg-linear-to-r from-border/40 to-transparent" />
+          <div className="h-px grow bg-linear-to-r from-border to-transparent" />
         </button>
       </CollapsibleTrigger>
 
@@ -335,8 +337,8 @@ export function HiddenSteps({
                 <p
                   className={
                     showErrorPreview
-                      ? "whitespace-pre-wrap break-words font-mono text-[11px] leading-[1.6] text-icon-critical-base/80"
-                      : "whitespace-pre-wrap break-words font-mono text-[11px] leading-[1.6] text-text-weak/40"
+                      ? "whitespace-pre-wrap break-words font-mono text-[11px] leading-[1.6] text-icon-critical-base"
+                      : "whitespace-pre-wrap break-words font-mono text-[11px] leading-[1.6] text-text-weaker"
                   }
                 >
                   {previewText}
