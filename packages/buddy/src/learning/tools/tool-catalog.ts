@@ -66,7 +66,7 @@ export function assertLearningToolCatalog(): void {
   assertUniqueLearningToolIds(allLearningTools())
 }
 
-export function getLearningToolGroup(group: LearningToolGroup): readonly BuddyTool[] {
+export function getLearningToolGroup(group: LearningToolGroup): readonly LearningTool[] {
   return learningToolGroups[group]
 }
 

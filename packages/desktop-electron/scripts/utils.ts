@@ -9,7 +9,6 @@ import {
 import path from "node:path"
 import {
   syncBundledBackendResources,
-  syncBundledKnowledgeGraphAssets,
   syncBundledMigrations,
 } from "../../../script/desktop-runtime-resources"
 import {
@@ -29,7 +28,6 @@ export type SidecarBinary = DesktopSidecarTarget
 const PACKAGE_DIR = path.resolve(import.meta.dir, "..")
 const PACKAGE_JSON_PATH = path.resolve(PACKAGE_DIR, "package.json")
 const BACKEND_RESOURCES_DIR = path.resolve(PACKAGE_DIR, "resources/backend")
-const KNOWLEDGE_GRAPH_RESOURCES_DIR = path.resolve(PACKAGE_DIR, "resources/knowledge-graph")
 const MIGRATIONS_DIR = path.resolve(PACKAGE_DIR, "resources/migrations")
 
 export const SIDECAR_BINARIES: SidecarBinary[] = SHARED_SIDECAR_BINARIES
@@ -89,13 +87,6 @@ export function syncBackendRuntimeResources(
 
 export function syncMigrations() {
   return syncBundledMigrations(MIGRATIONS_DIR)
-}
-
-export function syncKnowledgeGraphAssets(sourcePath?: string) {
-  return syncBundledKnowledgeGraphAssets({
-    destinationDir: KNOWLEDGE_GRAPH_RESOURCES_DIR,
-    sourcePath,
-  })
 }
 
 export function updateDesktopPackageVersion(version: string) {

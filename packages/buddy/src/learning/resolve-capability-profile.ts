@@ -5,9 +5,10 @@ import {
 } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import type { Config } from "@buddy/backend/config"
 import { AdvancedMathRuntimeService } from "../local-runtimes/advanced-math/service"
+import { StandardsRuntimeService } from "../local-runtimes/standards/service"
 import { resolveIntentPermissions } from "./intents/capabilities"
 import type { PersonaDefinition, RuntimeProfile, ToolId } from "./shared/runtime-types"
-import { allLearningToolIds } from "./tools/tool-catalog"
+import { allLearningToolIds, getLearningToolGroup } from "./tools/tool-catalog"
 
 const INTERACTIVE_ONLY_EDITOR_TOOLS: ToolId[] = [
   "teaching_checkpoint",
@@ -85,6 +86,12 @@ function applyIntentToolOverrides(input: {
 function applyRuntimeToolConstraints(tools: Record<ToolId, "allow" | "deny">) {
   if (!AdvancedMathRuntimeService.isReady()) {
     tools.python_calculator = "deny"
+  }
+
+  if (!StandardsRuntimeService.isReady()) {
+    for (const tool of getLearningToolGroup("knowledgeGraph")) {
+      tools[tool.id] = "deny"
+    }
   }
 }
 

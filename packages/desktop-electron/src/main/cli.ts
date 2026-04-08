@@ -7,20 +7,20 @@ import readline from "node:readline"
 import { app } from "electron"
 import treeKill from "tree-kill"
 import { SIDECAR_BINARY_NAME, SIDECAR_USERNAME } from "./constants"
-import { ensureBundledKnowledgeGraphDatabase } from "./knowledge-graph"
 import { getUserShell, loadShellEnv, mergeShellEnv } from "./shell-env"
 
 const CLI_INSTALL_DIR = ".buddy/bin"
 const CLI_BINARY_NAME = "buddy"
 const SQLITE_PROGRESS_PREFIX = "sqlite-migration:"
-const KNOWLEDGE_GRAPH_DB_ENV = "BUDDY_KNOWLEDGE_GRAPH_DB_PATH"
 const SERVE_COMMAND = "serve"
 const HOSTNAME_OPTION = "--hostname"
 const PORT_OPTION = "--port"
 const BUN_RUN_COMMAND = "run"
 const ADVANCED_MATH_LOCAL_ASSET_DIR_ENV = "BUDDY_ADVANCED_MATH_LOCAL_ASSET_DIR"
+const STANDARDS_LOCAL_ASSET_DIR_ENV = "BUDDY_STANDARDS_LOCAL_ASSET_DIR"
 const BUN_BE_BUN_ENV = "BUN_BE_BUN"
 const ADVANCED_MATH_LOCAL_ASSET_PATH_SEGMENTS = ["dist", "advanced-math-runtime"] as const
+const STANDARDS_LOCAL_ASSET_PATH_SEGMENTS = ["resources", "knowledge-graph"] as const
 const RUNTIME_SUBDIRECTORIES = ["data", "cache", "config", "state"] as const
 const OPENCODE_DATA_SUBDIRECTORY = "opencode"
 const BUDDY_RUNTIME_DIRECTORY_NAME = ".buddy-runtime"
@@ -114,10 +114,6 @@ async function buildRuntimeEnvironment(password: string, port: number) {
   )
 
   ensureRuntimeDirectories(runtimeRoot, xdgDataHome)
-  const knowledgeGraphDatabasePath = await ensureBundledKnowledgeGraphDatabase({
-    resourcesDir: resourcesDirectory(),
-    xdgDataHome,
-  })
 
   const environment: Record<string, string> = {
     ...base,
@@ -128,7 +124,6 @@ async function buildRuntimeEnvironment(password: string, port: number) {
     OPENCODE_SERVER_PASSWORD: password,
     BUDDY_APP_VERSION: app.getVersion(),
     BUDDY_MIGRATION_DIR: getBundledBuddyMigrationDir(),
-    [KNOWLEDGE_GRAPH_DB_ENV]: knowledgeGraphDatabasePath,
     BUDDY_DIRECTORY_BASE: resolveDefaultNotebookHome(home),
     BUDDY_ALLOWED_DIRECTORY_ROOTS: resolveAllowedDirectoryRoots({
       home,
@@ -148,6 +143,11 @@ async function buildRuntimeEnvironment(password: string, port: number) {
   const advancedMathAssetDir = resolveDevelopmentAdvancedMathAssetDir()
   if (advancedMathAssetDir) {
     environment[ADVANCED_MATH_LOCAL_ASSET_DIR_ENV] = advancedMathAssetDir
+  }
+
+  const standardsAssetDir = resolveDevelopmentStandardsAssetDir()
+  if (standardsAssetDir) {
+    environment[STANDARDS_LOCAL_ASSET_DIR_ENV] = standardsAssetDir
   }
 
   return environment
@@ -185,6 +185,32 @@ function resolveDevelopmentAdvancedMathAssetDir() {
     "..",
     "buddy",
     ...ADVANCED_MATH_LOCAL_ASSET_PATH_SEGMENTS,
+  )
+  if (existsSync(cwdCandidate)) {
+    return cwdCandidate
+  }
+
+  return undefined
+}
+
+function resolveDevelopmentStandardsAssetDir() {
+  if (app.isPackaged) return undefined
+
+  const appPathCandidate = path.resolve(
+    app.getAppPath(),
+    "..",
+    "buddy",
+    ...STANDARDS_LOCAL_ASSET_PATH_SEGMENTS,
+  )
+  if (existsSync(appPathCandidate)) {
+    return appPathCandidate
+  }
+
+  const cwdCandidate = path.resolve(
+    process.cwd(),
+    "..",
+    "buddy",
+    ...STANDARDS_LOCAL_ASSET_PATH_SEGMENTS,
   )
   if (existsSync(cwdCandidate)) {
     return cwdCandidate

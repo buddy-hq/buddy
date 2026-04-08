@@ -348,11 +348,45 @@ jobs:
             --clobber \
             --repo "$BUDDY_RELEASE_REPO"
 
+  build-standards:
+    needs:
+      - version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.11"
+
+      - run: bun install
+
+      - run: bun run --cwd packages/buddy verify:knowledge-graph
+
+      - shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUDDY_RELEASE_REPO: ${{ needs.version.outputs.repo }}
+          BUDDY_RELEASE_TAG: ${{ needs.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          gh release upload "$BUDDY_RELEASE_TAG" \
+            packages/buddy/resources/knowledge-graph/learning-commons-knowledge-graph.db.zst \
+            packages/buddy/resources/knowledge-graph/learning-commons-knowledge-graph.db.zst.sha256 \
+            packages/buddy/resources/knowledge-graph/learning-commons-knowledge-graph.db.json \
+            --clobber \
+            --repo "$BUDDY_RELEASE_REPO"
+
   publish:
     needs:
       - version
       - upload-electron-release
       - build-advanced-math
+      - build-standards
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
