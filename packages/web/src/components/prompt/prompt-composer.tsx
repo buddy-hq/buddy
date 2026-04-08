@@ -481,12 +481,17 @@ export function PromptComposer(props: PromptComposerProps) {
     props.onSubmit()
   }
 
+  const slashMenuVisible =
+    viewState.slashMatch !== undefined && viewState.slashKey !== viewState.dismissedSlashKey
+  const mentionMenuVisible =
+    viewState.mentionMatch !== undefined && viewState.mentionKey !== viewState.dismissedMentionKey
+
   return (
     <div className={props.className ?? "mx-4 mb-4"}>
       <form
         id="prompt-composer-form"
         data-component="prompt-composer"
-        className="group/prompt-input relative z-10 overflow-hidden rounded-[12px] rounded-b-none border border-b-0 bg-surface-raised-base shadow-none"
+        className="group/prompt-input relative z-10 rounded-[12px] rounded-b-none border border-b-0 bg-surface-raised-base shadow-none"
         onSubmit={(event) => {
           event.preventDefault()
           if (props.isBusy) return
@@ -512,8 +517,8 @@ export function PromptComposer(props: PromptComposerProps) {
       >
         <div className="relative">
           <PromptAutocompleteMenu
-            slashVisible={viewState.slashVisible}
-            mentionVisible={viewState.mentionVisible}
+            slashVisible={slashMenuVisible}
+            mentionVisible={mentionMenuVisible}
             showMentionLoading={viewState.showMentionLoading}
             slashOptions={viewState.slashOptions}
             slashIndex={viewState.slashIndex}
@@ -521,6 +526,8 @@ export function PromptComposer(props: PromptComposerProps) {
             mentionIndex={viewState.mentionIndex}
             onApplySlash={applySlash}
             onApplyMention={applyMention}
+            onSetSlashIndex={viewState.setSlashIndex}
+            onSetMentionIndex={viewState.setMentionIndex}
           />
 
           {dragging ? (
