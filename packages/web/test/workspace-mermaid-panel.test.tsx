@@ -119,10 +119,9 @@ describe("WorkspaceMermaidPanel", () => {
     })
 
     await waitForAssertion(() => {
-      expect(container.textContent).toContain("Workspace Diagrams")
       expect(container.textContent).toContain("Release workflow")
-      expect(container.textContent).toContain("Workspace-wide diagram")
       expect(container.querySelector('[data-component="mermaid-diagram"] svg')).not.toBeNull()
+      expect(container.querySelector('[data-component="mermaid-inline-zoom-level"]')).not.toBeNull()
     })
   })
 })

@@ -3,6 +3,7 @@ import {
   CopyIcon,
   DownloadIcon,
   ExpandIcon,
+  TargetIcon,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -20,6 +21,14 @@ type MermaidActionBarProps = {
   originalSvg: string
   artifactID?: string
   minimal?: boolean
+  zoomControls?: {
+    zoomIn: () => void
+    zoomOut: () => void
+    resetZoom: () => void
+    zoomLabel: string
+    canZoomIn: boolean
+    canZoomOut: boolean
+  }
 }
 
 const DiagramActionButton = memo(function DiagramActionButton(props: {
@@ -74,6 +83,7 @@ export const MermaidActionBar = memo(function MermaidActionBar({
   originalSvg,
   artifactID,
   minimal,
+  zoomControls,
 }: MermaidActionBarProps) {
   const [copyFeedback, setCopyFeedback] = useState<"idle" | "copied">("idle")
   const [downloadFeedback, setDownloadFeedback] = useState<"idle" | "downloaded">("idle")
@@ -146,10 +156,49 @@ export const MermaidActionBar = memo(function MermaidActionBar({
   }, [svgRef, originalSvg, downloadFileName])
 
   const iconSize = minimal ? "size-3.5" : "size-4"
+  const zoomGlyphClassName = minimal ? "text-[12px]" : "text-sm"
 
   return (
     <TooltipProvider>
       <div className="flex items-center gap-1">
+        {zoomControls ? (
+          <>
+            <DiagramActionButton
+              label={language.t("chatTools.mermaidDiagram.zoomOutAria")}
+              onClick={zoomControls.zoomOut}
+              disabled={!zoomControls.canZoomOut}
+              dataAction="mermaid-inline-zoom-out"
+              icon={<span className={cn("font-semibold leading-none", zoomGlyphClassName)}>-</span>}
+              minimal={minimal}
+            />
+            <div
+              data-component="mermaid-inline-zoom-level"
+              aria-label={language.t("chatTools.mermaidDiagram.zoomLevelAria")}
+              className={cn(
+                "min-w-[2.75rem] px-1 text-center text-[11px] font-medium text-text-weak",
+                minimal ? "text-[10px]" : "text-[11px]",
+              )}
+            >
+              {zoomControls.zoomLabel}
+            </div>
+            <DiagramActionButton
+              label={language.t("chatTools.mermaidDiagram.zoomInAria")}
+              onClick={zoomControls.zoomIn}
+              disabled={!zoomControls.canZoomIn}
+              dataAction="mermaid-inline-zoom-in"
+              icon={<span className={cn("font-semibold leading-none", zoomGlyphClassName)}>+</span>}
+              minimal={minimal}
+            />
+            <DiagramActionButton
+              label={language.t("chatTools.mermaidDiagram.resetZoomAria")}
+              onClick={zoomControls.resetZoom}
+              dataAction="mermaid-inline-fit"
+              icon={<TargetIcon className={iconSize} />}
+              minimal={minimal}
+            />
+            <div className="mx-1 h-4 w-px bg-border-base/50" />
+          </>
+        ) : null}
         <DiagramActionButton
           label={
             copyFeedback === "copied"
@@ -159,6 +208,7 @@ export const MermaidActionBar = memo(function MermaidActionBar({
           onClick={() => {
             void copyMermaidSource()
           }}
+          dataAction="mermaid-copy-source"
           icon={
             copyFeedback === "copied" ? (
               <CheckIcon className={iconSize} />
@@ -175,6 +225,7 @@ export const MermaidActionBar = memo(function MermaidActionBar({
               : language.t("chatTools.mermaidDiagram.downloadSvg")
           }
           onClick={downloadRenderedSvg}
+          dataAction="mermaid-download-svg"
           icon={
             downloadFeedback === "downloaded" ? (
               <CheckIcon className={iconSize} />

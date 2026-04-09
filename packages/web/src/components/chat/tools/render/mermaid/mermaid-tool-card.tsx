@@ -49,7 +49,7 @@ export function MermaidToolCard({
           )}
         >
           <div className="relative w-full h-full bg-[linear-gradient(rgba(0,0,0,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[size:24px_24px] dark:bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)]">
-            <div className="relative z-10">{children}</div>
+            <div className="relative z-10 h-full">{children}</div>
           </div>
         </div>
       ) : null}

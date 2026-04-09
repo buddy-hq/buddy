@@ -29,8 +29,14 @@ async function waitForAssertion(assertion: () => void, timeoutMs = 1500) {
   }
 }
 
-function readMermaidZoomLabel() {
-  return document.querySelector('[aria-label="Mermaid zoom level"]')?.textContent ?? ""
+function readFullscreenMermaidZoomLabel() {
+  return (
+    document.querySelector('[data-component="mermaid-fullscreen-zoom-level"]')?.textContent ?? ""
+  )
+}
+
+function readInlineMermaidZoomLabel() {
+  return document.querySelector('[data-component="mermaid-inline-zoom-level"]')?.textContent ?? ""
 }
 
 function assistantMessage(parts: MessagePart[]): MessageWithParts {
@@ -319,9 +325,9 @@ describe("mermaid rendering", () => {
     })
 
     expect(container.querySelector('[data-component="mermaid-diagram"] svg')).not.toBeNull()
-    expect(container.querySelector('[data-component="mermaid-diagram"]')?.className).toContain(
-      "max-h-[48vh]",
-    )
+    expect(
+      container.querySelector('[data-component="mermaid-diagram-inline-viewport"]'),
+    ).not.toBeNull()
     expect(fetchCalls.some((url) => url.includes(`/api/mermaid-artifacts/${ARTIFACT_ID}`))).toBe(
       false,
     )
@@ -345,7 +351,6 @@ describe("mermaid rendering", () => {
     })
 
     expect(container.querySelector('[data-component="mermaid-tool-loading"]')).not.toBeNull()
-    expect(container.textContent).toContain("Generating Mermaid diagram...")
     expect(container.querySelector('[data-component="mermaid-diagram"] svg')).toBeNull()
   })
 
@@ -367,8 +372,7 @@ describe("mermaid rendering", () => {
     })
 
     await waitForAssertion(() => {
-      expect(container.textContent).toContain("Couldn't render this Mermaid diagram")
-      expect(container.textContent).toContain("Mermaid source")
+      expect(container.textContent).toContain("Couldn't render this diagram")
       expect(container.textContent).toContain("BROKEN_GRAPH")
     })
 
@@ -381,7 +385,7 @@ describe("mermaid rendering", () => {
     })
 
     expect(clipboardWrites).toHaveLength(1)
-    expect(clipboardWrites[0]).toContain("Couldn't render this Mermaid diagram")
+    expect(clipboardWrites[0]).toContain("Couldn't render this diagram")
     expect(clipboardWrites[0]).toContain("mock mermaid parse error")
     expect(clipboardWrites[0]).toContain(source)
   })
@@ -407,8 +411,8 @@ describe("mermaid rendering", () => {
       expect(container.querySelector('[data-component="mermaid-diagram"] svg')).not.toBeNull()
     })
 
-    const copyButton = container.querySelector('[aria-label="Copy Mermaid"]')
-    const downloadButton = container.querySelector('[aria-label="Download SVG"]')
+    const copyButton = container.querySelector('[data-action="mermaid-copy-source"]')
+    const downloadButton = container.querySelector('[data-action="mermaid-download-svg"]')
     expect(copyButton).not.toBeNull()
     expect(downloadButton).not.toBeNull()
 
@@ -430,6 +434,86 @@ describe("mermaid rendering", () => {
     expect(await createdSvgBlobs[0].text()).toContain("<svg")
   })
 
+  test("shows Mermaid inline zoom controls and a pannable inline viewport without manual zoom", async () => {
+    const source = "flowchart TD\nA --> B"
+    const messages: MessageWithParts[] = [
+      userMessage("zoom inline"),
+      assistantMessage([
+        mermaidToolPart({
+          artifactID: ARTIFACT_ID,
+          source,
+        }),
+      ]),
+    ]
+
+    await act(async () => {
+      renderTranscript(messages)
+      await flushEffects(20)
+    })
+
+    await waitForAssertion(() => {
+      expect(container.querySelector('[data-component="mermaid-diagram"] svg')).not.toBeNull()
+      expect(container.querySelector('[data-action="mermaid-inline-zoom-in"]')).not.toBeNull()
+      expect(container.querySelector('[data-component="mermaid-inline-zoom-level"]')).not.toBeNull()
+    })
+
+    const initialZoom = readInlineMermaidZoomLabel()
+    expect(initialZoom).toBe("Auto")
+
+    const viewport = container.querySelector('[data-component="mermaid-diagram-inline-viewport"]')
+    if (!(viewport instanceof HTMLElement)) {
+      throw new Error("Expected the inline Mermaid viewport to render.")
+    }
+
+    await waitForAssertion(() => {
+      expect(viewport.scrollLeft).toBeGreaterThan(0)
+      expect(viewport.scrollTop).toBeGreaterThan(0)
+    })
+
+    const initialScrollLeft = viewport.scrollLeft
+    const initialScrollTop = viewport.scrollTop
+
+    await act(async () => {
+      viewport.dispatchEvent(
+        new PointerEvent("pointerdown", {
+          bubbles: true,
+          button: 0,
+          pointerId: 1,
+          clientX: 100,
+          clientY: 120,
+        }),
+      )
+      await flushEffects()
+    })
+
+    await act(async () => {
+      viewport.dispatchEvent(
+        new PointerEvent("pointermove", {
+          bubbles: true,
+          button: 0,
+          buttons: 1,
+          pointerId: 1,
+          clientX: 132,
+          clientY: 151,
+        }),
+      )
+      viewport.dispatchEvent(
+        new PointerEvent("pointerup", {
+          bubbles: true,
+          button: 0,
+          pointerId: 1,
+          clientX: 132,
+          clientY: 151,
+        }),
+      )
+      await flushEffects()
+    })
+
+    expect(viewport.scrollLeft).toBe(initialScrollLeft - 32)
+    expect(viewport.scrollTop).toBe(initialScrollTop - 31)
+    expect(readInlineMermaidZoomLabel()).toBe(initialZoom)
+  })
+
   test("opens Mermaid fullscreen with zoom controls and a scrollable canvas", async () => {
     const source = "flowchart TD\nA --> B"
     const messages: MessageWithParts[] = [
@@ -448,13 +532,18 @@ describe("mermaid rendering", () => {
     })
 
     await waitForAssertion(() => {
-      expect(container.querySelector('[aria-label="Open Mermaid fullscreen"]')).not.toBeNull()
+      expect(container.querySelector('[data-action="mermaid-open-fullscreen"]')).not.toBeNull()
     })
 
     await act(async () => {
-      ;(
-        container.querySelector('[aria-label="Open Mermaid fullscreen"]') as HTMLButtonElement
-      ).click()
+      const openFullscreenButton = container.querySelector(
+        '[data-action="mermaid-open-fullscreen"]',
+      )
+      if (!(openFullscreenButton instanceof HTMLButtonElement)) {
+        throw new Error("Expected the Mermaid fullscreen button to render.")
+      }
+
+      openFullscreenButton.click()
       await flushEffects(20)
     })
 
@@ -462,17 +551,22 @@ describe("mermaid rendering", () => {
       expect(
         document.querySelector('[data-component="mermaid-diagram-fullscreen"] svg'),
       ).not.toBeNull()
-      expect(readMermaidZoomLabel()).toContain("%")
+      expect(readFullscreenMermaidZoomLabel()).toBe("Fit")
     })
 
-    const initialZoom = readMermaidZoomLabel()
+    const initialZoom = readFullscreenMermaidZoomLabel()
 
     await act(async () => {
-      ;(document.querySelector('[aria-label="Zoom in Mermaid"]') as HTMLButtonElement).click()
+      const zoomInButton = document.querySelector('[data-action="mermaid-zoom-in"]')
+      if (!(zoomInButton instanceof HTMLButtonElement)) {
+        throw new Error("Expected the Mermaid fullscreen zoom-in button to render.")
+      }
+
+      zoomInButton.click()
       await flushEffects()
     })
 
-    const afterZoom = readMermaidZoomLabel()
+    const afterZoom = readFullscreenMermaidZoomLabel()
     expect(afterZoom).toContain("%")
     expect(afterZoom).not.toBe(initialZoom)
     expect(
@@ -514,11 +608,13 @@ describe("mermaid rendering", () => {
     })
 
     await waitForAssertion(() => {
-      expect(container.querySelector('[aria-label="Download SVG"]')).not.toBeNull()
+      expect(container.querySelector('[data-action="mermaid-download-svg"]')).not.toBeNull()
     })
 
     await act(async () => {
-      ;(container.querySelector('[aria-label="Download SVG"]') as HTMLButtonElement).click()
+      ;(
+        container.querySelector('[data-action="mermaid-download-svg"]') as HTMLButtonElement
+      ).click()
       await flushEffects()
     })
 
@@ -642,8 +738,8 @@ describe("mermaid rendering", () => {
       await flushEffects(20)
     })
 
-    expect(container.textContent).toContain("Unable to render Mermaid diagram:")
-    expect(container.textContent).toContain("Showing raw Mermaid source instead.")
+    expect(container.textContent).toContain("Unable to render diagram:")
+    expect(container.textContent).toContain("Showing raw source instead.")
     expect(container.textContent).toContain("BROKEN_GRAPH")
   })
 

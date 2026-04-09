@@ -171,7 +171,7 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
             contentClassName={MERMAID_CARD_CONTENT_HEIGHT_CLASS}
             actions={actions}
           >
-            <div className="w-full p-3">{diagramElement}</div>
+            <div className="h-full w-full p-3">{diagramElement}</div>
           </MermaidToolCard>
         )}
       />
