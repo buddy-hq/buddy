@@ -1,22 +1,65 @@
 import { useMemo } from "react"
 import { useShallow } from "zustand/react/shallow"
 import { useChatStore } from "@/state/chat-store"
+import {
+  getSelectedAgentKey,
+  getSelectedModelKey,
+  getSelectedVariantKey,
+  useModelSelectionStore,
+} from "@/state/model-selection-store"
 import { useUiPreferences } from "@/state/ui-preferences"
 import { useTeachingRuntime, teachingSelectionKey } from "@/state/teaching-runtime"
 import { usePromptStore, getPromptScopeKey } from "@/state/prompt-store"
 import { getSessionFamily } from "../session-family"
 import { modelSelectionKey, parseConfiguredModel } from "./chat-prompt-helpers"
 import type { SessionInfo, SessionStatusInfo } from "@/state/chat-types"
-import type { PersonaConfigOption } from "@/state/chat-actions"
+import type { AgentConfigOption, PersonaConfigOption } from "@/state/chat-actions"
 import { RESOURCE_SIDEBAR_TAB } from "../resource-commands"
 import type { ChatRightSidebarTab } from "@/components/layout/chat-right-sidebar"
 import { getConnectedProviders, resolveAutoModelSelection } from "@/lib/provider-catalog"
+import { resolveCurrentAgent } from "./agent-catalog"
 
 const MODEL_VISIBILITY_WINDOW_MS = 1000 * 60 * 60 * 24 * 31 * 6
 const EMPTY_LIST: never[] = []
 const EMPTY_RECORD: Record<string, never> = {}
 const EMPTY_SESSIONS: SessionInfo[] = []
 const EMPTY_SESSION_STATUS: Record<string, SessionStatusInfo> = {}
+
+function isModelSelection(
+  value: ReturnType<typeof parseConfiguredModel>,
+): value is NonNullable<ReturnType<typeof parseConfiguredModel>> {
+  return value !== undefined
+}
+
+function resolveConfiguredAgentVariant(input: {
+  agent: AgentConfigOption | undefined
+  model:
+    | {
+        providerID: string
+        modelID: string
+        variants: string[]
+      }
+    | undefined
+}) {
+  if (!input.agent?.variant) return undefined
+  if (!input.agent.model) return undefined
+  if (!input.model) return undefined
+  if (input.agent.model.providerID !== input.model.providerID) return undefined
+  if (input.agent.model.modelID !== input.model.modelID) return undefined
+  if (!input.model.variants.includes(input.agent.variant)) return undefined
+  return input.agent.variant
+}
+
+function resolveSelectedVariant(input: {
+  selected: string | null | undefined
+  configured: string | undefined
+  variants: string[]
+}) {
+  if (input.selected === null) return undefined
+  if (input.selected && input.variants.includes(input.selected)) return input.selected
+  if (input.configured && input.variants.includes(input.configured)) return input.configured
+  return undefined
+}
 
 function isSidebarSurface(value: string): value is PersonaConfigOption["surfaces"][number] {
   return (
@@ -28,11 +71,12 @@ const RIGHT_SIDEBAR_EDITOR_MIN_WIDTH = 360
 
 type UseDirectoryChatStateProps = {
   decodedDirectory: string
+  agentCatalog: AgentConfigOption[]
+  defaultAgent?: string
   configuredModel: { providerID: string; modelID: string } | undefined
   personaCatalog: PersonaConfigOption[]
   defaultPersona: string
   defaultIntent: "auto" | "learn" | "practice" | "assess"
-  selectedThinking: string
   showSystemPromptSidebarTab: boolean
   showCapabilitiesSidebarTab: boolean
 }
@@ -57,10 +101,6 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
   const applyPermissionReplied = useChatStore((state) => state.applyPermissionReplied)
   const clearDirectoryError = useChatStore((state) => state.clearDirectoryError)
   const setDirectoryError = useChatStore((state) => state.setDirectoryError)
-  const setSelectedModel = useChatStore((state) => state.setSelectedModel)
-  const selectedModelKey = useChatStore((state) =>
-    decodedDirectory ? (state.selectedModelByDirectory[decodedDirectory] ?? "auto") : "auto",
-  )
 
   // ── UI preferences ─────────────────────────────────────────────────────────
   const leftSidebarOpen = useUiPreferences((state) => state.leftSidebarOpen)
@@ -89,6 +129,24 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
     () => getPromptScopeKey(decodedDirectory, sessionID),
     [decodedDirectory, sessionID],
   )
+  const setSelectedAgent = useModelSelectionStore((state) => state.setSelectedAgent)
+  const setSelectedModel = useModelSelectionStore((state) => state.setSelectedModel)
+  const setSelectedVariant = useModelSelectionStore((state) => state.setSelectedVariant)
+  const pushRecentModelKey = useModelSelectionStore((state) => state.pushRecentModelKey)
+  const restoreSessionSelection = useModelSelectionStore((state) => state.restoreSessionSelection)
+  const migrateWorkspaceModelSelection = useModelSelectionStore(
+    (state) => state.migrateWorkspaceSelection,
+  )
+  const selectedModelOverrideKey = useModelSelectionStore((state) =>
+    decodedDirectory ? getSelectedModelKey(state, promptKey) : undefined,
+  )
+  const selectedAgentKey = useModelSelectionStore((state) =>
+    decodedDirectory ? getSelectedAgentKey(state, promptKey) : undefined,
+  )
+  const selectedVariantKey = useModelSelectionStore((state) =>
+    decodedDirectory ? getSelectedVariantKey(state, promptKey) : undefined,
+  )
+  const recentModelKeys = useModelSelectionStore((state) => state.recentModelKeys)
   const setPromptDraft = usePromptStore((state) => state.replaceDraft)
   const clearPromptDraft = usePromptStore((state) => state.clearDraft)
   const migrateWorkspaceDraft = usePromptStore((state) => state.migrateWorkspaceDraft)
@@ -136,13 +194,29 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
   const providers = directoryState?.providers ?? EMPTY_LIST
   const providerDefault = directoryState?.providerDefault ?? EMPTY_RECORD
   const connectedProviders = useMemo(() => getConnectedProviders(providers), [providers])
+  const currentAgent = useMemo(
+    () =>
+      resolveCurrentAgent({
+        agents: props.agentCatalog,
+        selectedAgentName: selectedAgentKey,
+        defaultAgentName: props.defaultAgent,
+      }),
+    [props.agentCatalog, props.defaultAgent, selectedAgentKey],
+  )
+  const currentAgentName = currentAgent?.name ?? props.defaultAgent
+  const recentModels = useMemo(
+    () => recentModelKeys.map(parseConfiguredModel).filter(isModelSelection),
+    [recentModelKeys],
+  )
   const autoModelSelection = useMemo(() => {
     return resolveAutoModelSelection({
       providers,
       providerDefault,
+      agentModel: currentAgent?.model,
       configuredModel: props.configuredModel,
+      recentModels,
     })
-  }, [props.configuredModel, providerDefault, providers])
+  }, [currentAgent?.model, props.configuredModel, providerDefault, providers, recentModels])
   const visibleModelKeys = useMemo(() => {
     const visible = new Set<string>()
     const latestByFamily = new Map<string, { key: string; releaseTime: number }>()
@@ -173,10 +247,10 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
     }
 
     if (autoModelSelection) visible.add(modelSelectionKey(autoModelSelection))
-    if (selectedModelKey !== "auto") visible.add(selectedModelKey)
+    if (selectedModelOverrideKey) visible.add(selectedModelOverrideKey)
 
     return visible
-  }, [autoModelSelection, connectedProviders, selectedModelKey])
+  }, [autoModelSelection, connectedProviders, selectedModelOverrideKey])
   const primaryPersonaOptions = useMemo(
     () => props.personaCatalog.filter((persona) => !persona.hidden),
     [props.personaCatalog],
@@ -195,9 +269,8 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
     return options
   }, [connectedProviders, visibleModelKeys])
   const effectiveModelSelection = useMemo(
-    () =>
-      selectedModelKey === "auto" ? autoModelSelection : parseConfiguredModel(selectedModelKey),
-    [autoModelSelection, selectedModelKey],
+    () => parseConfiguredModel(selectedModelOverrideKey) ?? autoModelSelection,
+    [autoModelSelection, selectedModelOverrideKey],
   )
   const effectiveModelInfo = useMemo(() => {
     if (!effectiveModelSelection) return undefined
@@ -205,6 +278,25 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
       .find((provider) => provider.id === effectiveModelSelection.providerID)
       ?.models.find((model) => model.id === effectiveModelSelection.modelID)
   }, [connectedProviders, effectiveModelSelection])
+  const configuredVariant = useMemo(
+    () =>
+      resolveConfiguredAgentVariant({
+        agent: currentAgent,
+        model: effectiveModelInfo
+          ? {
+              providerID: effectiveModelSelection?.providerID ?? "",
+              modelID: effectiveModelSelection?.modelID ?? "",
+              variants: effectiveModelInfo.variants ?? [],
+            }
+          : undefined,
+      }),
+    [
+      currentAgent,
+      effectiveModelInfo,
+      effectiveModelSelection?.modelID,
+      effectiveModelSelection?.providerID,
+    ],
+  )
   const thinkingOptions = useMemo(() => {
     const variants = effectiveModelInfo?.variants ?? []
     return [
@@ -212,6 +304,15 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
       ...variants.map((variant) => ({ key: variant, label: variant })),
     ]
   }, [effectiveModelInfo])
+  const selectedThinking = useMemo(
+    () =>
+      resolveSelectedVariant({
+        selected: selectedVariantKey,
+        configured: configuredVariant,
+        variants: effectiveModelInfo?.variants ?? [],
+      }) ?? "default",
+    [configuredVariant, effectiveModelInfo?.variants, selectedVariantKey],
+  )
   const isBusy = directoryState?.isBusy ?? false
   const isReady = directoryState?.isReady ?? false
   const error = directoryState?.error
@@ -302,7 +403,11 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
     applyPermissionReplied,
     clearDirectoryError,
     setDirectoryError,
+    setSelectedAgent,
     setSelectedModel,
+    setSelectedVariant,
+    pushRecentModelKey,
+    restoreSessionSelection,
     // UI preferences actions
     setLeftSidebarOpen,
     setLeftSidebarWidth,
@@ -317,6 +422,7 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
     setPromptDraft,
     clearPromptDraft,
     migrateWorkspaceDraft,
+    migrateWorkspaceModelSelection,
     removePromptDraft,
     // Session & routing
     sessionID,
@@ -346,11 +452,12 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
     validOpenProjects,
     hasRegisteredProject,
     // Model
-    selectedModelKey:
-      selectedModelKey === "auto" && effectiveModelSelection
-        ? modelSelectionKey(effectiveModelSelection)
-        : selectedModelKey,
+    selectedModelKey: effectiveModelSelection ? modelSelectionKey(effectiveModelSelection) : "",
+    currentAgentName,
+    selectedModelOverrideKey,
+    selectedVariantKey,
     effectiveModelSelection,
+    selectedThinking,
     thinkingOptions,
     modelOptions,
     primaryPersonaOptions,

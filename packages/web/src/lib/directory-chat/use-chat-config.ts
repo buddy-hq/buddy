@@ -1,13 +1,19 @@
 import { useEffect, useState } from "react"
 import {
+  loadAgentCatalog,
   loadCommandCatalog,
   loadMcpStatus,
   loadPersonaCatalog,
   loadProjectConfig,
   resolveDefaultPersonaID,
 } from "@/state/chat-actions"
-import type { PersonaConfigOption, PromptCommandOption } from "@/state/chat-actions"
+import type {
+  AgentConfigOption,
+  PersonaConfigOption,
+  PromptCommandOption,
+} from "@/state/chat-actions"
 import type { TeachingIntent } from "@/state/teaching-runtime"
+import { resolveDefaultAgentName } from "./agent-catalog"
 
 type UseChatConfigProps = {
   decodedDirectory: string
@@ -15,6 +21,8 @@ type UseChatConfigProps = {
 }
 
 type ComposerConfig = {
+  agentCatalog: AgentConfigOption[]
+  defaultAgent?: string
   personaCatalog: PersonaConfigOption[]
   slashCommands: PromptCommandOption[]
   defaultPersona: string
@@ -23,6 +31,8 @@ type ComposerConfig = {
 }
 
 const DEFAULT_COMPOSER_CONFIG: ComposerConfig = {
+  agentCatalog: [],
+  defaultAgent: undefined,
   personaCatalog: [],
   slashCommands: [],
   defaultPersona: "buddy",
@@ -57,7 +67,8 @@ function parseConfiguredModel(value: unknown): { providerID: string; modelID: st
 }
 
 async function loadComposerConfig(directory: string): Promise<ComposerConfig> {
-  const [personas, config, commands] = await Promise.all([
+  const [agents, personas, config, commands] = await Promise.all([
+    loadAgentCatalog(directory).catch(() => []),
     loadPersonaCatalog(directory),
     loadProjectConfig(directory),
     loadCommandCatalog(directory),
@@ -77,6 +88,8 @@ async function loadComposerConfig(directory: string): Promise<ComposerConfig> {
       : "auto"
 
   return {
+    agentCatalog: agents,
+    defaultAgent: resolveDefaultAgentName(agents, config.default_agent),
     personaCatalog: personas,
     slashCommands: withE2EBackendCommand(commands),
     defaultPersona,

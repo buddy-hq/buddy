@@ -17,7 +17,13 @@ import {
   RESOURCE_REFERENCE_PART_TYPE,
 } from "@/components/prompt/prompt-types"
 import type { PromptComposerAttachment, PromptComposerPart } from "@/components/prompt/prompt-types"
-import { parseSlashCommandInput } from "@/components/prompt/slash-autocomplete"
+import {
+  buildQuizSlashPromptParts,
+  buildQuizSlashPrompt,
+  parseSlashCommandInput,
+  QUIZ_SLASH_COMMAND_NAME,
+  SUBMITTED_BUILTIN_SLASH_COMMAND_NAMES,
+} from "@/components/prompt/slash-autocomplete"
 import type { MentionableAgent } from "@/components/prompt/mention-autocomplete"
 import type { DirectoryChatMainPane } from "@/components/directory-chat/directory-chat-main-pane"
 import type { DirectoryChatRightSidebar } from "@/components/directory-chat/directory-chat-right-sidebar"
@@ -67,6 +73,7 @@ import {
   getPromptScopeKey,
   usePromptStore,
 } from "../../state/prompt-store"
+import { getModelSelectionScopeKey } from "../../state/model-selection-store"
 import { useChatStore } from "../../state/chat-store"
 import { shallow } from "zustand/shallow"
 import { stringifyError } from "../../state/teaching-actions"
@@ -88,7 +95,6 @@ const EMPTY_MENTIONABLE_AGENTS: MentionableAgent[] = []
 const MIN_TRANSCRIPT_SCROLL_DURATION_S = 0.08
 const MAX_TRANSCRIPT_SCROLL_DURATION_S = 0.24
 const TRANSCRIPT_SCROLL_SPEED_PX_PER_S = 1200
-const BUILTIN_LOCAL_SLASH_COMMAND_NAMES = ["new", "mcp"] as const
 const E2E_BACKEND_COMMAND_NAME = "e2e-backend-command"
 
 type DirectoryChatPageControllerProps = {
@@ -127,7 +133,6 @@ export function useDirectoryChatPageController(
   const closingDirectoryRef = useRef<string | undefined>(undefined)
 
   const [stickToBottom, setStickToBottom] = useState(true)
-  const [selectedThinking, setSelectedThinking] = useState("default")
   const [resourcesRefreshToken, setResourcesRefreshToken] = useState(0)
   const [systemPromptRefreshToken, setSystemPromptRefreshToken] = useState(0)
   const [pendingSuggestionOverride, setPendingSuggestionOverride] = useState<
@@ -166,11 +171,12 @@ export function useDirectoryChatPageController(
 
   const cs = useDirectoryChatState({
     decodedDirectory,
+    agentCatalog: chatConfig.agentCatalog,
+    defaultAgent: chatConfig.defaultAgent,
     configuredModel: chatConfig.configuredModel,
     personaCatalog: chatConfig.personaCatalog,
     defaultPersona: chatConfig.defaultPersona,
     defaultIntent: chatConfig.defaultIntent,
-    selectedThinking,
     showSystemPromptSidebarTab,
     showCapabilitiesSidebarTab,
   })
@@ -178,11 +184,17 @@ export function useDirectoryChatPageController(
     clearUnread,
     migrateWorkspaceDraft,
     modelOptions,
-    selectedModelKey,
+    currentAgentName,
+    selectedModelOverrideKey,
+    selectedVariantKey,
+    selectedThinking,
     sessionID,
     sessionKey,
     setActiveDirectory,
+    pushRecentModelKey,
+    setSelectedAgent,
     setSelectedModel,
+    setSelectedVariant,
     thinkingOptions,
     validOpenProjects,
   } = cs
@@ -190,7 +202,7 @@ export function useDirectoryChatPageController(
   const { slashCommands } = chatConfig
   const slashCommandCandidates = useMemo(() => {
     const candidates = new Map<string, { name: string }>()
-    for (const name of BUILTIN_LOCAL_SLASH_COMMAND_NAMES) {
+    for (const name of SUBMITTED_BUILTIN_SLASH_COMMAND_NAMES) {
       candidates.set(name, { name })
     }
     if (import.meta.env.VITE_BUDDY_E2E === "1") {
@@ -498,16 +510,16 @@ export function useDirectoryChatPageController(
   }, [stopTranscriptScrollAnimation])
 
   useEffect(() => {
-    if (selectedModelKey === "auto") return
-    if (modelOptions.some((option) => option.key === selectedModelKey)) return
-    if (!decodedDirectory) return
-    setSelectedModel(decodedDirectory, "auto")
-  }, [decodedDirectory, modelOptions, selectedModelKey, setSelectedModel])
+    if (!selectedModelOverrideKey) return
+    if (modelOptions.some((option) => option.key === selectedModelOverrideKey)) return
+    setSelectedModel(cs.promptKey, undefined)
+  }, [cs.promptKey, modelOptions, selectedModelOverrideKey, setSelectedModel])
 
   useEffect(() => {
-    if (thinkingOptions.some((option) => option.key === selectedThinking)) return
-    setSelectedThinking("default")
-  }, [selectedThinking, thinkingOptions])
+    if (selectedVariantKey === undefined || selectedVariantKey === null) return
+    if (thinkingOptions.some((option) => option.key === selectedVariantKey)) return
+    setSelectedVariant(cs.promptKey, undefined)
+  }, [cs.promptKey, selectedVariantKey, setSelectedVariant, thinkingOptions])
 
   const syncTeachingRuntimeSelection = useCallback(
     async (input?: { directory?: string; sessionID?: string; sessionKey?: string }) => {
@@ -545,6 +557,9 @@ export function useDirectoryChatPageController(
     if (!targetDirectory) return
     try {
       startNewSessionDraft(targetDirectory)
+      setSelectedAgent(getModelSelectionScopeKey(targetDirectory), undefined)
+      setSelectedModel(getModelSelectionScopeKey(targetDirectory), undefined)
+      setSelectedVariant(getModelSelectionScopeKey(targetDirectory), undefined)
       if (targetDirectory !== decodedDirectory) onSwitchDirectory(targetDirectory)
     } catch {
       // Store already captures and displays errors.
@@ -832,6 +847,7 @@ export function useDirectoryChatPageController(
       persona: cs.selectedPersona,
       intent,
       focusGoalIds: input.focusGoalIds,
+      agent: currentAgentName,
       model: cs.effectiveModelSelection,
       variant,
       teaching: teachingContext,
@@ -901,6 +917,29 @@ export function useDirectoryChatPageController(
         return
       }
 
+      if (slashCommand.command.name === QUIZ_SLASH_COMMAND_NAME) {
+        publishCommandSubmission()
+        cs.clearPromptDraft(cs.promptKey)
+        try {
+          const sent = await sendRuntimePrompt({
+            content: buildQuizSlashPrompt(slashCommand.arguments),
+            parts: buildQuizSlashPromptParts(promptParts, slashCommand.arguments),
+            attachments: rawAttachments,
+            intent: "assess",
+          })
+          if (!sent) {
+            restorePromptSnapshot(draftSnapshot)
+            return
+          }
+          setPendingSuggestionOverride(undefined)
+          setSystemPromptRefreshToken((token) => token + 1)
+          void syncTeachingRuntimeSelection()
+        } catch {
+          restorePromptSnapshot(draftSnapshot)
+        }
+        return
+      }
+
       if (isResourceLocalSlashCommandName(slashCommand.command.name)) {
         publishCommandSubmission()
         const resourceCommand = parseResourceLocalSlashCommand(rawContent)
@@ -929,6 +968,7 @@ export function useDirectoryChatPageController(
           parts: attachmentParts,
           persona: cs.selectedPersona,
           intent,
+          agent: currentAgentName,
           model: cs.effectiveModelSelection,
           variant,
         })
@@ -1104,10 +1144,12 @@ export function useDirectoryChatPageController(
       setPendingSuggestionOverride(undefined)
     },
     onModelChange: (model: string) => {
-      if (!decodedDirectory) return
-      cs.setSelectedModel(decodedDirectory, model)
+      pushRecentModelKey(model)
+      cs.setSelectedModel(cs.promptKey, model)
     },
-    onThinkingChange: setSelectedThinking,
+    onThinkingChange: (thinking: string) => {
+      setSelectedVariant(cs.promptKey, thinking === "default" ? null : thinking)
+    },
     onAbort: () => {
       void onAbort()
     },

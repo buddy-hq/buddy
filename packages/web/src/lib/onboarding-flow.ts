@@ -95,10 +95,6 @@ export async function configureNotebookForOnboarding(input: {
   authChoice: OnboardingAuthChoice
   prepareNotebook: () => Promise<string>
   loadProviderCatalog: (directory: string) => Promise<ProviderCatalogState>
-  patchProjectConfig: (
-    directory: string,
-    patch: Record<string, unknown>,
-  ) => Promise<Record<string, unknown>>
 }) {
   const nextDirectory = await input.prepareNotebook()
   const providerCatalog = await input.loadProviderCatalog(nextDirectory)
@@ -116,7 +112,6 @@ export async function configureNotebookForOnboarding(input: {
   }
 
   const configuredModel = `${model.providerID}/${model.modelID}`
-  await input.patchProjectConfig(nextDirectory, { model: configuredModel })
 
   return {
     directory: nextDirectory,

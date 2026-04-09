@@ -17,6 +17,10 @@ import {
 } from "../src/state/chat-actions"
 import { useChatStore } from "../src/state/chat-store"
 import {
+  getModelSelectionScopeKey,
+  useModelSelectionStore,
+} from "../src/state/model-selection-store"
+import {
   createDirectoryChatState,
   createFetchStub,
   createMessageWithParts,
@@ -71,6 +75,12 @@ function resetStore() {
     selectedModelByDirectory: {},
     directories: {},
     streamStatus: "idle",
+  })
+  useModelSelectionStore.setState({
+    selectedAgentByKey: {},
+    selectedModelByKey: {},
+    selectedVariantByKey: {},
+    recentModelKeys: [],
   })
 }
 
@@ -897,6 +907,183 @@ describe("sendPrompt", () => {
     expect(promptRequests).toBe(1)
     expect(useChatStore.getState().directories["/repo"]?.sessionID).toBe("session_1")
     expect(useChatStore.getState().directories["/repo"]?.isDraft).toBe(false)
+  })
+
+  test("migrates draft model state only into newly created sessions", async () => {
+    let createRequests = 0
+
+    useChatStore.setState({
+      openProjects: ["/repo"],
+      activeDirectory: "/repo",
+      directories: {
+        "/repo": {
+          isDraft: true,
+          sessionTitle: "New chat",
+          sessions: [],
+          sessionStatusByID: {},
+          messages: [],
+          pendingPermissions: [],
+          providers: [],
+          providerDefault: {},
+          mcpStatus: {},
+          isBusy: false,
+          isReady: true,
+        },
+      },
+    })
+
+    const workspaceKey = getModelSelectionScopeKey("/repo")
+    const sessionKey = getModelSelectionScopeKey("/repo", "session_1")
+    useModelSelectionStore.setState({
+      selectedAgentByKey: {
+        [workspaceKey]: "build",
+      },
+      selectedModelByKey: {
+        [workspaceKey]: "openai/gpt-5",
+      },
+      selectedVariantByKey: {
+        [workspaceKey]: null,
+      },
+      recentModelKeys: [],
+    })
+
+    const sessionInfo = {
+      id: "session_1",
+      title: "New thread",
+      time: {
+        created: 1,
+        updated: 1,
+      },
+    }
+
+    globalThis.fetch = createFetchStub(async (input, init) => {
+      const url = new URL(requestUrl(input), "http://localhost")
+      const method = requestMethod(input, init) ?? "GET"
+
+      if (method === "POST" && url.pathname === "/api/session") {
+        createRequests += 1
+        return new Response(JSON.stringify(sessionInfo), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "POST" && url.pathname === "/api/session/session_1/message") {
+        return new Response(JSON.stringify({}), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "GET" && url.pathname === "/api/session") {
+        return new Response(JSON.stringify([sessionInfo]), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      throw new Error(`Unexpected request: ${method} ${url.pathname}${url.search}`)
+    })
+
+    await sendPrompt("/repo", "hello")
+
+    expect(createRequests).toBe(1)
+    expect(useModelSelectionStore.getState().selectedAgentByKey[workspaceKey]).toBeUndefined()
+    expect(useModelSelectionStore.getState().selectedModelByKey[workspaceKey]).toBeUndefined()
+    expect(useModelSelectionStore.getState().selectedVariantByKey[workspaceKey]).toBeUndefined()
+    expect(useModelSelectionStore.getState().selectedAgentByKey[sessionKey]).toBe("build")
+    expect(useModelSelectionStore.getState().selectedModelByKey[sessionKey]).toBe("openai/gpt-5")
+    expect(useModelSelectionStore.getState().selectedVariantByKey[sessionKey]).toBeNull()
+  })
+
+  test("does not copy draft model state into an existing session selection", async () => {
+    const sessionInfo = {
+      id: "session_1",
+      title: "Earlier thread",
+      time: {
+        created: 1,
+        updated: 1,
+      },
+    }
+
+    useChatStore.setState({
+      openProjects: ["/repo"],
+      activeDirectory: "/repo",
+      directories: {
+        "/repo": {
+          isDraft: true,
+          sessionTitle: "New chat",
+          sessions: [sessionInfo],
+          sessionStatusByID: {},
+          messages: [],
+          pendingPermissions: [],
+          providers: [],
+          providerDefault: {},
+          mcpStatus: {},
+          isBusy: false,
+          isReady: true,
+        },
+      },
+    })
+
+    const workspaceKey = getModelSelectionScopeKey("/repo")
+    const sessionKey = getModelSelectionScopeKey("/repo", "session_1")
+    useModelSelectionStore.setState({
+      selectedAgentByKey: {
+        [workspaceKey]: "build",
+      },
+      selectedModelByKey: {
+        [workspaceKey]: "openai/gpt-5",
+      },
+      selectedVariantByKey: {
+        [workspaceKey]: null,
+      },
+      recentModelKeys: [],
+    })
+
+    const transcript = [
+      createMessageWithParts(
+        createUserMessageInfo({
+          id: "message-1",
+          sessionID: sessionInfo.id,
+          agent: "plan",
+          model: {
+            providerID: "anthropic",
+            modelID: "claude-sonnet-4",
+          },
+          variant: "low",
+        }),
+      ),
+    ]
+
+    globalThis.fetch = createFetchStub(async (input, init) => {
+      const url = new URL(requestUrl(input), "http://localhost")
+      const method = requestMethod(input, init) ?? "GET"
+
+      if (method === "GET" && url.pathname === "/api/session/session_1/message") {
+        return new Response(JSON.stringify(transcript), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      throw new Error(`Unexpected request: ${method} ${url.pathname}${url.search}`)
+    })
+
+    await selectSession("/repo", sessionInfo.id)
+
+    expect(useModelSelectionStore.getState().selectedAgentByKey[workspaceKey]).toBe("build")
+    expect(useModelSelectionStore.getState().selectedModelByKey[workspaceKey]).toBe("openai/gpt-5")
+    expect(useModelSelectionStore.getState().selectedVariantByKey[workspaceKey]).toBeNull()
+    expect(useModelSelectionStore.getState().selectedAgentByKey[sessionKey]).toBe("plan")
+    expect(useModelSelectionStore.getState().selectedModelByKey[sessionKey]).toBe(
+      "anthropic/claude-sonnet-4",
+    )
+    expect(useModelSelectionStore.getState().selectedVariantByKey[sessionKey]).toBe("low")
   })
 
   test("stores a directory error when lazy session creation fails", async () => {

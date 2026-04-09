@@ -438,8 +438,7 @@ describe("ChatGPT Plus onboarding auth", () => {
 })
 
 describe("notebook onboarding configuration", () => {
-  test("applies the connected OpenAI default model after folder pick", async () => {
-    const patches: Array<{ directory: string; patch: Record<string, unknown> }> = []
+  test("returns the connected OpenAI default model after folder pick without writing project config", async () => {
     const PREPARED_DIRECTORY = "/repo" as const
 
     await expect(
@@ -464,25 +463,14 @@ describe("notebook onboarding configuration", () => {
             },
           })
         },
-        async patchProjectConfig(directory, patch) {
-          patches.push({ directory, patch })
-          return {}
-        },
       }),
     ).resolves.toEqual({
       directory: PREPARED_DIRECTORY,
       model: "openai/gpt-5-mini",
     })
-
-    expect(patches).toEqual([
-      {
-        directory: PREPARED_DIRECTORY,
-        patch: { model: "openai/gpt-5-mini" },
-      },
-    ])
   })
 
-  test("applies the Opencode free-model default after folder pick", async () => {
+  test("returns the Opencode free-model default after folder pick", async () => {
     const PREPARED_DIRECTORY = "/repo" as const
 
     await expect(
@@ -505,9 +493,6 @@ describe("notebook onboarding configuration", () => {
               opencode: "zen-free",
             },
           })
-        },
-        async patchProjectConfig() {
-          return {}
         },
       }),
     ).resolves.toEqual({

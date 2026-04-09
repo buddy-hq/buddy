@@ -21,6 +21,7 @@ import {
   formatProviderAuthError,
   reloadProviderRuntime,
 } from "@/lib/provider-auth"
+import { applyOnboardingModelSelection } from "@/lib/onboarding-model-selection"
 import {
   configureNotebookForOnboarding,
   connectChatGptPlusForOnboarding,
@@ -31,7 +32,6 @@ import {
   loadNotebookHome,
   loadOpenProjects,
   openInboxNotebook,
-  patchProjectConfig,
   saveNotebookHome,
 } from "@/state/chat-actions"
 import { useChatStore } from "@/state/chat-store"
@@ -75,7 +75,6 @@ function OnboardingRoute() {
   const setResumeDirectory = useOnboardingStore((state) => state.setResumeDirectory)
   const markCompleted = useOnboardingStore((state) => state.markCompleted)
   const setActiveDirectory = useChatStore((state) => state.setActiveDirectory)
-  const setSelectedModel = useChatStore((state) => state.setSelectedModel)
 
   const [authChoice, setLocalAuthChoice] = useState<OnboardingAuthChoice | undefined>(undefined)
   const [connectedAuthChoice, setConnectedAuthChoice] = useState<OnboardingAuthChoice | undefined>(
@@ -155,11 +154,10 @@ function OnboardingRoute() {
           return openInboxNotebook()
         },
         loadProviderCatalog,
-        patchProjectConfig,
       })
 
+      applyOnboardingModelSelection(result.directory, result.model)
       setResumeDirectory(result.directory)
-      setSelectedModel(result.directory, result.model)
       setActiveDirectory(result.directory)
       markCompleted()
 

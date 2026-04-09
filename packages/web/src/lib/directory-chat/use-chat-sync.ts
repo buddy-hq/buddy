@@ -4,6 +4,7 @@ import { resyncDirectory } from "@/state/chat-actions"
 import { isAbortLikeError } from "@/state/chat-error"
 import { useUiPreferences } from "@/state/ui-preferences"
 import { useChatStore } from "@/state/chat-store"
+import { getModelSelectionScopeKey, useModelSelectionStore } from "@/state/model-selection-store"
 import { IDLE_SESSION_STATUS, normalizeSessionStatusValue } from "@/state/session-status"
 import { readSessionErrorMessage } from "./chat-prompt-helpers"
 import type {
@@ -129,6 +130,16 @@ export function useChatSync(props: UseChatSyncProps) {
         if (payload.type === "message.updated") {
           const info = properties.info as MessageInfo
           applyMessageUpdated(directory, info)
+          if (info.role === "user" && info.sessionID) {
+            useModelSelectionStore
+              .getState()
+              .restoreSessionSelection(getModelSelectionScopeKey(directory, info.sessionID), {
+                agent: info.agent,
+                model: `${info.model.providerID}/${info.model.modelID}`,
+                variant: info.variant ?? null,
+                messageCreatedAt: info.time.created,
+              })
+          }
           if (
             info.role === "assistant" &&
             !info.error &&

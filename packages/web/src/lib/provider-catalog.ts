@@ -55,10 +55,39 @@ export function resolveCatalogProviderModelSelection(input: {
 export function resolveAutoModelSelection(input: {
   providers: ProviderInfo[]
   providerDefault: Record<string, string>
+  agentModel?: ProviderModelSelection
   configuredModel?: ProviderModelSelection
+  recentModels?: ProviderModelSelection[]
 }) {
-  if (input.configuredModel) {
-    return input.configuredModel
+  const resolveValidSelection = (selection: ProviderModelSelection | undefined) => {
+    if (!selection) return undefined
+    const configuredProvider = getConnectedProviders(input.providers).find(
+      (provider) => provider.id === selection.providerID,
+    )
+    const configuredModel = configuredProvider?.models.find(
+      (model) => model.id === selection.modelID,
+    )
+    if (configuredProvider && configuredModel) {
+      return selection
+    }
+    return undefined
+  }
+
+  const agentModel = resolveValidSelection(input.agentModel)
+  if (agentModel) {
+    return agentModel
+  }
+
+  const configuredModel = resolveValidSelection(input.configuredModel)
+  if (configuredModel) {
+    return configuredModel
+  }
+
+  for (const recentModel of input.recentModels ?? []) {
+    const selection = resolveValidSelection(recentModel)
+    if (selection) {
+      return selection
+    }
   }
 
   for (const provider of getConnectedProviders(input.providers)) {

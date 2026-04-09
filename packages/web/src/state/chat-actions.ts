@@ -25,6 +25,7 @@ import type {
   ProviderListResponse,
 } from "@buddy/sdk"
 import { useChatStore } from "./chat-store"
+import { getModelSelectionScopeKey, useModelSelectionStore } from "./model-selection-store"
 import type {
   MessageWithParts,
   McpStatusMap,
@@ -163,6 +164,18 @@ export type PromptCommandOption = {
   name: string
   description?: string
   source?: "command" | "mcp" | "skill"
+}
+
+export type AgentConfigOption = {
+  name: string
+  description?: string
+  mode?: string
+  hidden?: boolean
+  model?: {
+    providerID: string
+    modelID: string
+  }
+  variant?: string
 }
 
 export type TeachingSessionSnapshot = {
@@ -317,6 +330,45 @@ function parseSessionMessagesPayload(value: unknown): MessageWithParts[] {
   }
 
   throw new Error("Session messages payload must be an array of message parts.")
+}
+
+function restoreSessionSelectionFromMessages(
+  directory: string,
+  sessionID: string,
+  messages: MessageWithParts[],
+) {
+  const lastUserMessage = messages.findLast((message) => message.info.role === "user")
+  if (!lastUserMessage || lastUserMessage.info.role !== "user") return
+
+  useModelSelectionStore
+    .getState()
+    .restoreSessionSelection(getModelSelectionScopeKey(directory, sessionID), {
+      agent: lastUserMessage.info.agent,
+      model: `${lastUserMessage.info.model.providerID}/${lastUserMessage.info.model.modelID}`,
+      variant: lastUserMessage.info.variant ?? null,
+      messageCreatedAt: lastUserMessage.info.time.created,
+    })
+}
+
+function parseAgentConfigEntry(value: unknown): AgentConfigOption | undefined {
+  const record = asRecord(value)
+  if (!record) return undefined
+
+  const name = asString(record.name)
+  if (!name) return undefined
+
+  const modelRecord = asRecord(record.model)
+  const providerID = asString(modelRecord?.providerID)
+  const modelID = asString(modelRecord?.modelID)
+
+  return {
+    name,
+    description: asString(record.description) || undefined,
+    mode: asString(record.mode) || undefined,
+    hidden: typeof record.hidden === "boolean" ? record.hidden : undefined,
+    model: providerID && modelID ? { providerID, modelID } : undefined,
+    variant: asString(record.variant) || undefined,
+  }
 }
 
 function asBoolean(value: unknown, fallback = false): boolean {
@@ -800,6 +852,7 @@ export async function loadMessages(directory: string, sessionID: string) {
     }
 
     store.setMessages(directory, sessionID, messages)
+    restoreSessionSelectionFromMessages(directory, sessionID, messages)
     store.setDirectoryError(directory, undefined)
     return messages
   } catch (error) {
@@ -858,6 +911,7 @@ async function createSession(directory: string) {
     const info = requireBuddyData<SessionInfo>(await getBuddyClient(directory).session.create())
     store.setSessionInfo(directory, info)
     store.setMessages(directory, info.id, [])
+    useModelSelectionStore.getState().migrateWorkspaceSelection(directory, info.id)
     return info
   })()
 
@@ -1654,6 +1708,17 @@ export async function loadPersonaCatalog(directory: string) {
       hidden: persona.hidden,
     }
   })
+}
+
+export async function loadAgentCatalog(directory: string) {
+  const agents = await requestJson<unknown>(directory, "/api/config/agents")
+  if (!Array.isArray(agents)) {
+    throw new Error("Agent catalog payload must be an array.")
+  }
+
+  return agents
+    .map(parseAgentConfigEntry)
+    .filter((agent): agent is AgentConfigOption => agent !== undefined)
 }
 
 export async function loadCommandCatalog(directory: string) {
