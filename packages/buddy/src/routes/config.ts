@@ -35,6 +35,13 @@ const agentConfigEntrySchema = z.object({
   description: z.string().optional(),
   mode: z.string().optional(),
   hidden: z.boolean().optional(),
+  model: z
+    .object({
+      providerID: z.string(),
+      modelID: z.string(),
+    })
+    .optional(),
+  variant: z.string().optional(),
 })
 
 const providerConfigResponseSchema = z.object({

@@ -39,6 +39,8 @@ export async function listProjectAgents(directory: string) {
     description: agent.description,
     mode: agent.mode,
     hidden: agent.hidden,
+    model: agent.model,
+    variant: agent.variant,
   }))
 }
 
