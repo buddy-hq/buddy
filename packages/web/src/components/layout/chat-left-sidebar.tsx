@@ -10,9 +10,9 @@ import {
   DirectoryThreadRow,
 } from "./chat-left-sidebar/directory-list"
 import { ChatLeftSidebarToolbar } from "./chat-left-sidebar/toolbar"
+import { buildSessionChildrenByParent } from "./chat-left-sidebar/thread-helpers"
 import { useDirectoryGroups } from "./chat-left-sidebar/use-directory-groups"
 import { useDirectoryReordering } from "./chat-left-sidebar/use-directory-reordering"
-import { findRootSessionID } from "./chat-left-sidebar/thread-helpers"
 import type {
   ArchiveState,
   OrganizeMode,
@@ -243,11 +243,17 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
                               directory={inboxGroup.directory}
                               currentDirectory={props.currentDirectory}
                               session={session}
-                              allSessions={props.sessionsByDirectory[inboxGroup.directory] ?? []}
-                              activeRootID={findRootSessionID(
+                              activeSessionID={props.activeSessionID}
+                              childrenByParent={buildSessionChildrenByParent(
                                 props.sessionsByDirectory[inboxGroup.directory] ?? [],
-                                props.activeSessionID,
                               )}
+                              sessionsByID={
+                                new Map(
+                                  (props.sessionsByDirectory[inboxGroup.directory] ?? []).map(
+                                    (entry) => [entry.id, entry],
+                                  ),
+                                )
+                              }
                               sessionStatusByID={
                                 props.sessionStatusByDirectory[inboxGroup.directory] ?? {}
                               }
@@ -255,27 +261,27 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
                                 new Set(props.pinnedByDirectory[inboxGroup.directory] ?? [])
                               }
                               unreadMap={props.unreadByDirectory[inboxGroup.directory] ?? {}}
-                              onSelect={() =>
-                                props.onSelectSession(inboxGroup.directory, session.id)
+                              onSelectSession={(sessionID) =>
+                                props.onSelectSession(inboxGroup.directory, sessionID)
                               }
-                              onTogglePin={() =>
-                                props.onTogglePin(inboxGroup.directory, session.id)
+                              onTogglePin={(sessionID) =>
+                                props.onTogglePin(inboxGroup.directory, sessionID)
                               }
-                              onToggleUnread={(unread) =>
-                                props.onToggleUnread(inboxGroup.directory, session.id, unread)
+                              onToggleUnread={(sessionID, unread) =>
+                                props.onToggleUnread(inboxGroup.directory, sessionID, unread)
                               }
-                              onRequestRename={() => {
+                              onRequestRename={(sessionID, title) => {
                                 setRenameState({
                                   directory: inboxGroup.directory,
-                                  sessionID: session.id,
-                                  title: session.title,
+                                  sessionID,
+                                  title,
                                 })
                               }}
-                              onRequestArchive={() => {
+                              onRequestArchive={(sessionID, title) => {
                                 setArchiveState({
                                   directory: inboxGroup.directory,
-                                  sessionID: session.id,
-                                  title: session.title,
+                                  sessionID,
+                                  title,
                                 })
                               }}
                             />

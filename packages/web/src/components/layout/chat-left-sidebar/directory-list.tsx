@@ -1,4 +1,4 @@
-import type { PointerEvent as ReactPointerEvent } from "react"
+import { useState, type PointerEvent as ReactPointerEvent } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import {
   ArchiveIcon,
@@ -22,10 +22,17 @@ import {
   XIcon,
 } from "@buddy/ui"
 import { language } from "@/context/language"
+import { collectSessionFamilyIDs } from "@/lib/session-family"
 import type { SessionInfo, SessionStatusInfo } from "@/state/chat-types"
 import { isSessionStatusActive } from "@/state/session-status"
 import { getFilename } from "../sidebar-helpers"
-import { findRootSessionID, sessionFamilyIDs, ThreadStatusIndicator } from "./thread-helpers"
+import { ChevronRightIcon } from "../sidebar-icons"
+import {
+  buildSessionChildrenByParent,
+  formatThreadAge,
+  parseSubagentSession,
+  ThreadStatusIndicator,
+} from "./thread-helpers"
 import type { DirectoryGroup, DropPosition, OrganizeMode } from "./types"
 
 type ChatLeftSidebarDirectoryListProps = {
@@ -58,7 +65,7 @@ type ChatLeftSidebarDirectoryListProps = {
 type DirectoryGroupSectionProps = {
   group: DirectoryGroup
   currentDirectory: string
-  activeRootID?: string
+  activeSessionID?: string
   allSessions: SessionInfo[]
   sessionStatusByID: Record<string, SessionStatusInfo>
   pinnedSet: Set<string>
@@ -87,26 +94,49 @@ type DirectoryThreadRowProps = {
   directory: string
   currentDirectory: string
   session: SessionInfo
-  allSessions: SessionInfo[]
-  activeRootID?: string
+  activeSessionID?: string
+  childrenByParent: Map<string, string[]>
+  sessionsByID: Map<string, SessionInfo>
   sessionStatusByID: Record<string, SessionStatusInfo>
   pinnedSet: Set<string>
   unreadMap: Record<string, true>
-  onSelect: () => void
-  onTogglePin: () => void
-  onToggleUnread: (unread: boolean) => void
-  onRequestRename: () => void
-  onRequestArchive: () => void
+  onSelectSession: (sessionID: string) => void
+  onTogglePin: (sessionID: string) => void
+  onToggleUnread: (sessionID: string, unread: boolean) => void
+  onRequestRename: (sessionID: string, title: string) => void
+  onRequestArchive: (sessionID: string, title: string) => void
+  depth?: number
 }
 
 const COLLAPSED_COUNT = 5
+const THREAD_ROW_PADDING_LEFT_PX = 20
+const THREAD_CHILD_INDENT_PX = 14
+const THREAD_STATUS_OFFSET_PX = 6
+const SUBAGENT_TONE_CLASSES = [
+  "text-text-interactive-base",
+  "text-text-success-base",
+  "text-icon-warning-base",
+] as const
+
+function getSubagentToneClass(agent: string) {
+  let hash = 0
+
+  for (const character of agent) {
+    hash = (hash * 31 + character.charCodeAt(0)) >>> 0
+  }
+
+  return SUBAGENT_TONE_CLASSES[hash % SUBAGENT_TONE_CLASSES.length]
+}
+
+function isSessionInfo(value: SessionInfo | undefined): value is SessionInfo {
+  return value !== undefined
+}
 
 export function ChatLeftSidebarDirectoryList(props: ChatLeftSidebarDirectoryListProps) {
   return (
     <div data-component="left-sidebar-directory-list" className="space-y-2 mt-1">
       {props.directoryGroups.map((group) => {
         const allSessions = props.sessionsByDirectory[group.directory] ?? []
-        const activeRootID = findRootSessionID(allSessions, props.activeSessionID)
         const sessionStatusByID = props.sessionStatusByDirectory[group.directory] ?? {}
         const pinnedSet = new Set(props.pinnedByDirectory[group.directory] ?? [])
         const unreadMap = props.unreadByDirectory[group.directory] ?? {}
@@ -118,7 +148,7 @@ export function ChatLeftSidebarDirectoryList(props: ChatLeftSidebarDirectoryList
             key={group.directory}
             group={group}
             currentDirectory={props.currentDirectory}
-            activeRootID={activeRootID}
+            activeSessionID={props.activeSessionID}
             allSessions={allSessions}
             sessionStatusByID={sessionStatusByID}
             pinnedSet={pinnedSet}
@@ -168,6 +198,8 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
   const isDragOver =
     props.dragOverDirectory === props.group.directory &&
     props.draggedDirectory !== props.group.directory
+  const childrenByParent = buildSessionChildrenByParent(props.allSessions)
+  const sessionsByID = new Map(props.allSessions.map((session) => [session.id, session]))
 
   return (
     <Collapsible open={!props.collapsed} onOpenChange={props.onToggleCollapsed} asChild>
@@ -268,21 +300,17 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                       directory={props.group.directory}
                       currentDirectory={props.currentDirectory}
                       session={session}
-                      allSessions={props.allSessions}
-                      activeRootID={props.activeRootID}
+                      activeSessionID={props.activeSessionID}
+                      childrenByParent={childrenByParent}
+                      sessionsByID={sessionsByID}
                       sessionStatusByID={props.sessionStatusByID}
                       pinnedSet={props.pinnedSet}
                       unreadMap={props.unreadMap}
-                      onSelect={() => props.onSelectSession(session.id)}
-                      onTogglePin={() => props.onTogglePin(session.id)}
-                      onToggleUnread={(unread) => props.onToggleUnread(session.id, unread)}
-                      onRequestRename={() => props.onRequestRename(session.id, session.title)}
-                      onRequestArchive={() =>
-                        props.onRequestArchive(
-                          session.id,
-                          session.title || language.t("sidebar.untitledThread"),
-                        )
-                      }
+                      onSelectSession={props.onSelectSession}
+                      onTogglePin={props.onTogglePin}
+                      onToggleUnread={props.onToggleUnread}
+                      onRequestRename={props.onRequestRename}
+                      onRequestArchive={props.onRequestArchive}
                     />
                   ))
                 )}
@@ -310,78 +338,180 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
 }
 
 export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
-  const familyIDs = sessionFamilyIDs(props.allSessions, props.session.id)
+  const depth = props.depth ?? 0
+  const familyIDs = collectSessionFamilyIDs(props.childrenByParent, props.session.id)
   const active =
-    props.directory === props.currentDirectory && props.session.id === props.activeRootID
+    props.directory === props.currentDirectory && props.session.id === props.activeSessionID
+  const familyActive =
+    props.directory === props.currentDirectory &&
+    !!props.activeSessionID &&
+    familyIDs.includes(props.activeSessionID)
   const busy = familyIDs.some((id) => isSessionStatusActive(props.sessionStatusByID[id]))
   const pinned = familyIDs.some((id) => props.pinnedSet.has(id))
   const unread = familyIDs.some((id) => !!props.unreadMap[id])
   const threadStatus = busy ? "busy" : unread ? "unread" : "idle"
+  const childSessions = (props.childrenByParent.get(props.session.id) ?? [])
+    .map((sessionID) => props.sessionsByID.get(sessionID))
+    .filter(isSessionInfo)
+  const display = parseSubagentSession(props.session)
+  const title = display.title || language.t("sidebar.untitledThread")
+  const age = formatThreadAge(props.session.time.updated ?? props.session.time.created)
+  const leftPadding = THREAD_ROW_PADDING_LEFT_PX + depth * THREAD_CHILD_INDENT_PX
+  const statusOffset = THREAD_STATUS_OFFSET_PX + depth * THREAD_CHILD_INDENT_PX
+  const canToggleChildren = display.agent !== undefined && childSessions.length > 0
+  const [childrenOpen, setChildrenOpen] = useState(true)
+  const childrenVisible =
+    childSessions.length > 0 && familyActive && (!canToggleChildren || childrenOpen)
+  const branchExpanded = canToggleChildren && childrenVisible
+
+  function handleSelectSession() {
+    if (canToggleChildren && active) {
+      setChildrenOpen((current) => !current)
+      return
+    }
+
+    if (canToggleChildren) {
+      setChildrenOpen(true)
+    }
+
+    props.onSelectSession(props.session.id)
+  }
 
   return (
-    <ContextMenu>
-      <ContextMenuTrigger asChild>
-        <div
-          className={`group/thread relative ml-2 rounded-lg data-[state=open]:bg-surface-raised-base-hover ${
-            active ? "bg-surface-weak/50 text-text-strong" : "hover:bg-surface-raised-base-hover"
-          }`}
-        >
-          <button
-            type="button"
-            data-action="left-sidebar-thread-select"
-            data-directory={props.directory}
-            data-session-id={props.session.id}
-            data-active={active ? "true" : "false"}
-            className="relative w-full py-1.5 pr-3 pl-5 text-left"
-            onClick={props.onSelect}
+    <div className="ml-2">
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          <div
+            className={`group/thread relative rounded-lg data-[state=open]:bg-surface-raised-base-hover ${
+              active
+                ? "bg-surface-weak/55 text-text-strong"
+                : familyActive
+                  ? "bg-surface-weak/30 text-text-base"
+                  : "hover:bg-surface-raised-base-hover"
+            }`}
           >
-            <div className="absolute top-1/2 left-1 flex -translate-y-1/2 items-center justify-center">
-              {active ? <ThreadStatusIndicator status={threadStatus} /> : null}
-            </div>
-            <div className="flex min-w-0 items-center justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-1">
-                <span className="truncate text-xs font-normal">
-                  {props.session.title || language.t("sidebar.untitledThread")}
-                </span>
-                {pinned ? <PinIcon className="size-3 shrink-0 text-text-weaker" /> : null}
+            <button
+              type="button"
+              data-action="left-sidebar-thread-select"
+              data-directory={props.directory}
+              data-session-id={props.session.id}
+              data-active={active ? "true" : "false"}
+              aria-expanded={canToggleChildren ? branchExpanded : undefined}
+              className="relative w-full py-1.5 pr-3 text-left"
+              style={{ paddingLeft: `${leftPadding}px` }}
+              onClick={handleSelectSession}
+            >
+              <div
+                className="absolute top-1/2 flex -translate-y-1/2 items-center justify-center"
+                style={{ left: `${statusOffset}px` }}
+              >
+                {active ? <ThreadStatusIndicator status={threadStatus} /> : null}
               </div>
-            </div>
-          </button>
-        </div>
-      </ContextMenuTrigger>
-      <ContextMenuContent className="w-44">
-        <ContextMenuItem data-action="left-sidebar-thread-pin" onSelect={props.onTogglePin}>
-          <PinIcon className="mr-2 size-3.5" />
-          {pinned ? language.t("sidebar.unpinThread") : language.t("sidebar.pinThread")}
-        </ContextMenuItem>
-        <ContextMenuItem data-action="left-sidebar-thread-rename" onSelect={props.onRequestRename}>
-          <PencilIcon className="mr-2 size-3.5" />
-          {language.t("sidebar.renameThreadAction")}
-        </ContextMenuItem>
-        <ContextMenuItem
-          data-action="left-sidebar-thread-archive"
-          onSelect={props.onRequestArchive}
-        >
-          <ArchiveIcon className="mr-2 size-3.5" />
-          {language.t("sidebar.archiveThreadAction")}
-        </ContextMenuItem>
-        <ContextMenuItem
-          data-action="left-sidebar-thread-unread"
-          onSelect={() => props.onToggleUnread(!unread)}
-        >
-          {unread ? (
-            <>
-              <MailOpenIcon className="mr-2 size-3.5" />
-              {language.t("sidebar.markAsRead")}
-            </>
-          ) : (
-            <>
-              <MailIcon className="mr-2 size-3.5" />
-              {language.t("sidebar.markAsUnread")}
-            </>
-          )}
-        </ContextMenuItem>
-      </ContextMenuContent>
-    </ContextMenu>
+              <div className="flex min-w-0 items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-1.5">
+                  {canToggleChildren ? (
+                    <motion.div
+                      animate={{ rotate: branchExpanded ? 90 : 0 }}
+                      transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }}
+                    >
+                      <ChevronRightIcon className="size-3 shrink-0 text-text-weaker" />
+                    </motion.div>
+                  ) : null}
+                  <span className="truncate text-xs font-normal">{title}</span>
+                  {pinned ? <PinIcon className="size-3 shrink-0 text-text-weaker" /> : null}
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  {display.agent ? (
+                    <span
+                      className={`max-w-28 truncate text-[11px] font-medium ${getSubagentToneClass(display.agent)}`}
+                    >
+                      {display.agent}
+                    </span>
+                  ) : null}
+                  <span className="text-[11px] text-text-weaker">{age}</span>
+                </div>
+              </div>
+            </button>
+          </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent className="w-44">
+          <ContextMenuItem
+            data-action="left-sidebar-thread-pin"
+            onSelect={() => props.onTogglePin(props.session.id)}
+          >
+            <PinIcon className="mr-2 size-3.5" />
+            {pinned ? language.t("sidebar.unpinThread") : language.t("sidebar.pinThread")}
+          </ContextMenuItem>
+          <ContextMenuItem
+            data-action="left-sidebar-thread-rename"
+            onSelect={() => props.onRequestRename(props.session.id, props.session.title)}
+          >
+            <PencilIcon className="mr-2 size-3.5" />
+            {language.t("sidebar.renameThreadAction")}
+          </ContextMenuItem>
+          <ContextMenuItem
+            data-action="left-sidebar-thread-archive"
+            onSelect={() =>
+              props.onRequestArchive(
+                props.session.id,
+                props.session.title || language.t("sidebar.untitledThread"),
+              )
+            }
+          >
+            <ArchiveIcon className="mr-2 size-3.5" />
+            {language.t("sidebar.archiveThreadAction")}
+          </ContextMenuItem>
+          <ContextMenuItem
+            data-action="left-sidebar-thread-unread"
+            onSelect={() => props.onToggleUnread(props.session.id, !unread)}
+          >
+            {unread ? (
+              <>
+                <MailOpenIcon className="mr-2 size-3.5" />
+                {language.t("sidebar.markAsRead")}
+              </>
+            ) : (
+              <>
+                <MailIcon className="mr-2 size-3.5" />
+                {language.t("sidebar.markAsUnread")}
+              </>
+            )}
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
+
+      <AnimatePresence initial={false}>
+        {childrenVisible ? (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }}
+            className="space-y-[2px] overflow-hidden pt-0.5"
+          >
+            {childSessions.map((childSession) => (
+              <DirectoryThreadRow
+                key={`${props.directory}:${childSession.id}`}
+                directory={props.directory}
+                currentDirectory={props.currentDirectory}
+                session={childSession}
+                activeSessionID={props.activeSessionID}
+                childrenByParent={props.childrenByParent}
+                sessionsByID={props.sessionsByID}
+                sessionStatusByID={props.sessionStatusByID}
+                pinnedSet={props.pinnedSet}
+                unreadMap={props.unreadMap}
+                onSelectSession={props.onSelectSession}
+                onTogglePin={props.onTogglePin}
+                onToggleUnread={props.onToggleUnread}
+                onRequestRename={props.onRequestRename}
+                onRequestArchive={props.onRequestArchive}
+                depth={depth + 1}
+              />
+            ))}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
   )
 }
