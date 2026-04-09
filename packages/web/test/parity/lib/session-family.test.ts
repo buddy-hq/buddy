@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test"
-import { getSessionFamily } from "../../../src/lib/session-family"
+import {
+  buildSessionChildrenByParent,
+  getSessionFamily,
+  parseSubagentSession,
+} from "../../../src/lib/session-family"
 
 describe("session family parity", () => {
   test("returns root followed by child sessions for an active child", () => {
@@ -78,5 +82,34 @@ describe("session family parity", () => {
       "session-grandchild",
       "session-great-grandchild",
     ])
+  })
+
+  test("builds a child map that keeps sibling ordering", () => {
+    const childrenByParent = buildSessionChildrenByParent([
+      {
+        id: "session-root",
+      },
+      {
+        id: "session-child-1",
+        parentID: "session-root",
+      },
+      {
+        id: "session-child-2",
+        parentID: "session-root",
+      },
+    ])
+
+    expect(childrenByParent.get("session-root")).toEqual(["session-child-1", "session-child-2"])
+  })
+
+  test("parses subagent suffixes out of child session titles", () => {
+    expect(
+      parseSubagentSession({
+        title: "Read AGENTS.md (@Dalton subagent)",
+      }),
+    ).toEqual({
+      title: "Read AGENTS.md",
+      agent: "Dalton",
+    })
   })
 })

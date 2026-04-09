@@ -1,5 +1,11 @@
 import { LoaderCircleIcon } from "lucide-react"
 import { language } from "@/context/language"
+export {
+  buildSessionChildrenByParent,
+  findRootSessionID,
+  parseSubagentSession,
+  sessionFamilyIDs,
+} from "@/lib/session-family"
 
 const ONE_MINUTE_MS = 60_000
 const ONE_HOUR_MS = 3_600_000
@@ -14,57 +20,6 @@ export function formatThreadAge(timestamp: number) {
   if (elapsed < ONE_DAY_MS) return `${Math.round(elapsed / ONE_HOUR_MS)}h`
   if (elapsed < ONE_MONTH_MS) return `${Math.round(elapsed / ONE_DAY_MS)}d`
   return `${Math.round(elapsed / ONE_MONTH_MS)}mo`
-}
-
-export function sessionFamilyIDs(allSessions: { id: string; parentID?: string }[], rootID: string) {
-  // Build a children-by-parentID map once to avoid O(n²) rescanning.
-  const childrenByParent = new Map<string, string[]>()
-  for (const session of allSessions) {
-    if (!session.parentID) continue
-    const existing = childrenByParent.get(session.parentID)
-    if (existing) {
-      existing.push(session.id)
-    } else {
-      childrenByParent.set(session.parentID, [session.id])
-    }
-  }
-
-  const family = new Set<string>([rootID])
-  const queue = [rootID]
-
-  while (queue.length > 0) {
-    const current = queue.pop()!
-    const children = childrenByParent.get(current) ?? []
-    for (const child of children) {
-      if (!family.has(child)) {
-        family.add(child)
-        queue.push(child)
-      }
-    }
-  }
-
-  return Array.from(family)
-}
-
-export function findRootSessionID(
-  allSessions: { id: string; parentID?: string }[],
-  activeSessionID?: string,
-) {
-  if (!activeSessionID) return undefined
-
-  const byID = new Map(allSessions.map((session) => [session.id, session]))
-  let current = byID.get(activeSessionID)
-  const visited = new Set<string>()
-
-  while (current?.parentID) {
-    if (visited.has(current.id)) break
-    visited.add(current.id)
-    const parent = byID.get(current.parentID)
-    if (!parent) break
-    current = parent
-  }
-
-  return current?.id
 }
 
 export function threadStatusLabel(status: "busy" | "unread" | "idle") {
