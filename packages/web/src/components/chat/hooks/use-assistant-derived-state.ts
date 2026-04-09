@@ -3,6 +3,7 @@ import type { MessagePart, MessageWithParts } from "@/state/chat-types"
 import { isMessageAbortError } from "../utils/error"
 import { reasoningHeading } from "../utils/markdown"
 import { assistantPartStartsFollowup, groupAssistantParts } from "../utils/message-utils"
+import { isChatReasoningPart, isChatTextPart } from "../utils/part-guards"
 import type { AssistantDerivedState } from "../types"
 
 export function useAssistantDerivedState(
@@ -44,21 +45,15 @@ export function useAssistantDerivedState(
   }, [deferredAssistantParts, deferredAssistantItems])
 
   const assistantTextParts = useMemo(
-    () =>
-      assistantParts.filter(
-        (part) => part.type === "text" && String(part.text ?? "").trim().length > 0,
-      ),
+    () => assistantParts.filter((part) => isChatTextPart(part) && part.text.trim().length > 0),
     [assistantParts],
   )
 
   const currentReasoningHeading = useMemo(
     () =>
       assistantParts
-        .filter(
-          (part): part is MessagePart & { type: "reasoning"; text: string } =>
-            part.type === "reasoning",
-        )
-        .map((part) => reasoningHeading(String(part.text ?? "")))
+        .filter(isChatReasoningPart)
+        .map((part) => reasoningHeading(part.text))
         .filter((value): value is string => Boolean(value))
         .slice(-1)[0],
     [assistantParts],

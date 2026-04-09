@@ -1,19 +1,17 @@
 import { useState } from "react"
 import { Dialog, DialogContent, FolderIcon, cn } from "@buddy/ui"
-import type { MessagePart } from "@/state/chat-types"
+import type { ChatFilePart } from "../utils/part-guards"
 
-interface FileAttachmentPartProps {
-  part: MessagePart
+type FileAttachmentPartProps = {
+  part: ChatFilePart
   queued?: boolean
 }
 
 export function FileAttachmentPart({ part, queued }: FileAttachmentPartProps) {
-  if (part.type !== "file") return null
-
   const [previewOpen, setPreviewOpen] = useState(false)
-  const url = String(part.url ?? "")
-  const filename = String(part.filename ?? "")
-  const mime = String(part.mime ?? "")
+  const url = part.url
+  const filename = part.filename ?? ""
+  const mime = part.mime
   const isImage = mime.startsWith("image/")
 
   return (

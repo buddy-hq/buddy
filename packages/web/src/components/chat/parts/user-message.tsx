@@ -4,13 +4,14 @@ import { HighlightedText } from "../highlighted-text"
 import { CopyAction } from "../copy-action"
 import { Button, cn } from "@buddy/ui"
 import { formatTime, titleCase } from "../utils/format"
-import type { MessageInfo, MessagePart, ProviderInfo } from "@/state/chat-types"
+import type { MessageInfo, ProviderInfo } from "@/state/chat-types"
+import type { ChatAgentPart, ChatFilePart, ChatTextPart } from "../utils/part-guards"
 
-interface UserMessagePartProps {
-  part: MessagePart
+type UserMessagePartProps = {
+  part: ChatTextPart
   info: MessageInfo
-  references: MessagePart[]
-  agents: MessagePart[]
+  references: ChatFilePart[]
+  agents: ChatAgentPart[]
   providers?: ProviderInfo[]
   queued?: boolean
   onForkMessage?: () => Promise<void> | void
@@ -41,7 +42,6 @@ function userMessagePartEqual(
 ): boolean {
   if (prevProps.part.id !== nextProps.part.id) return false
   if (prevProps.queued !== nextProps.queued) return false
-  if (prevProps.part.type !== "text" || nextProps.part.type !== "text") return false
   if (prevProps.part.text !== nextProps.part.text) return false
   if (prevProps.part.synthetic !== nextProps.part.synthetic) return false
 
@@ -74,10 +74,9 @@ export const UserMessagePart = memo(function UserMessagePart({
   onForkMessage,
   onRevertMessage,
 }: UserMessagePartProps) {
-  if (part.type !== "text") return null
   if (part.synthetic === true) return null
 
-  const text = String(part.text ?? "")
+  const text = part.text
   if (!text.trim()) return null
 
   const agent = "agent" in info ? info.agent : undefined

@@ -3,10 +3,10 @@ import { Markdown } from "@/components/markdown/Markdown"
 import { CopyAction } from "../../copy-action"
 import { useAdaptiveStreamingText } from "../../hooks/use-streaming-text"
 import { cn } from "@buddy/ui"
-import type { MessagePart } from "@/state/chat-types"
+import type { ChatTextPart } from "../../utils/part-guards"
 
-interface AssistantTextPartProps {
-  part: MessagePart
+type AssistantTextPartProps = {
+  part: ChatTextPart
   copyEnabled: boolean
   metaText?: string
   interrupted?: boolean
@@ -70,7 +70,7 @@ export const AssistantTextPart = memo(function AssistantTextPart({
   stripLeadingMermaidSource,
   onFinalRender,
 }: AssistantTextPartProps) {
-  const text = String(part.text ?? "")
+  const text = part.text
   const withoutLeadingFigure = stripLeadingFigureImage
     ? stripLeadingRenderFigureMarkdown(text)
     : text

@@ -1,17 +1,17 @@
 import { memo, useMemo } from "react"
-import type { MessagePart } from "@/state/chat-types"
 import { FileAttachmentPart } from "../parts/file-attachment"
 import { UserMessagePart } from "../parts/user-message"
+import {
+  isChatAgentPart,
+  isChatFilePart,
+  isChatTextPart,
+  type ChatFilePart,
+} from "../utils/part-guards"
 
 import type { UserSectionProps } from "../types"
 
-function isAttachmentFilePart(part: MessagePart) {
-  if (part.type !== "file") return false
-
-  const mime = typeof part.mime === "string" ? part.mime : undefined
-  if (!mime) return false
-
-  return mime.startsWith("image/") || mime === "application/pdf"
+function isAttachmentFilePart(part: ChatFilePart) {
+  return part.mime.startsWith("image/") || part.mime === "application/pdf"
 }
 
 export const UserSection = memo(function UserSection({
@@ -21,7 +21,7 @@ export const UserSection = memo(function UserSection({
   onRevertMessage,
 }: UserSectionProps) {
   const userParts = useMemo(() => userMessage?.parts ?? [], [userMessage?.parts])
-  const userFileParts = useMemo(() => userParts.filter((part) => part.type === "file"), [userParts])
+  const userFileParts = useMemo(() => userParts.filter(isChatFilePart), [userParts])
   const userAttachmentParts = useMemo(
     () => userFileParts.filter(isAttachmentFilePart),
     [userFileParts],
@@ -30,11 +30,8 @@ export const UserSection = memo(function UserSection({
     () => userFileParts.filter((part) => !isAttachmentFilePart(part)),
     [userFileParts],
   )
-  const userAgentParts = useMemo(
-    () => userParts.filter((part) => part.type === "agent"),
-    [userParts],
-  )
-  const userTextParts = useMemo(() => userParts.filter((part) => part.type === "text"), [userParts])
+  const userAgentParts = useMemo(() => userParts.filter(isChatAgentPart), [userParts])
+  const userTextParts = useMemo(() => userParts.filter(isChatTextPart), [userParts])
 
   if (!userMessage) return null
 

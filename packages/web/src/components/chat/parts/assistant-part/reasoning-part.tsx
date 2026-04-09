@@ -1,14 +1,14 @@
 import { memo } from "react"
 import { Markdown } from "@/components/markdown/Markdown"
 import { useThrottledText } from "../../hooks/use-throttled-text"
-import type { MessagePart } from "@/state/chat-types"
+import type { ChatReasoningPart } from "../../utils/part-guards"
 
-interface ReasoningPartProps {
-  part: MessagePart
+type ReasoningPartProps = {
+  part: ChatReasoningPart
 }
 
 export const ReasoningPart = memo(function ReasoningPart({ part }: ReasoningPartProps) {
-  const text = String(part.text ?? "")
+  const text = part.text
   const throttledText = useThrottledText(text)
 
   if (!throttledText.trim()) return null

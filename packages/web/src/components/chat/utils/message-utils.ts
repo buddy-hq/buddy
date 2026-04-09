@@ -5,6 +5,7 @@ import { VIRTUAL_CHAT_TURN_ESTIMATE_PX } from "@/components/virtualization/virtu
 import { parseToolState } from "../tools/parse-tool-state"
 import { HIDDEN_TOOLS } from "../tools/registry"
 import { ABSTRACTABLE_TOOLS } from "./constants"
+import { isChatReasoningPart, isChatTextPart, isChatToolPart } from "./part-guards"
 import type { AssistantRenderItem, ChatTranscriptProps, ChatTurn } from "../types"
 
 export function modelLabel(info: MessageInfo): string {
@@ -21,15 +22,14 @@ export function assistantPartRenderable(
   part: MessagePart,
   showReasoningSummaries: boolean,
 ): boolean {
-  if (part.type === "text") return String(part.text ?? "").trim().length > 0
-  if (part.type === "reasoning")
-    return showReasoningSummaries && String(part.text ?? "").trim().length > 0
+  if (isChatTextPart(part)) return part.text.trim().length > 0
+  if (isChatReasoningPart(part)) return showReasoningSummaries && part.text.trim().length > 0
   if (part.type === "compaction") return true
   if (part.type === "step-start" || part.type === "step-finish") return false
   if (part.type === "patch") return false
-  if (part.type !== "tool") return true
+  if (!isChatToolPart(part)) return true
 
-  const tool = String(part.tool ?? "")
+  const tool = part.tool
   if (HIDDEN_TOOLS.has(tool)) return false
 
   if (tool === "question") {
@@ -42,10 +42,10 @@ export function assistantPartRenderable(
 
 export function assistantPartStartsFollowup(part: MessagePart): boolean {
   if (part.type === "step-start" || part.type === "step-finish") return false
-  if (part.type === "reasoning") return false
+  if (isChatReasoningPart(part)) return false
   if (part.type === "patch") return false
-  if (part.type === "tool") {
-    const tool = String(part.tool ?? "")
+  if (isChatToolPart(part)) {
+    const tool = part.tool
     if (HIDDEN_TOOLS.has(tool)) return false
     if (ABSTRACTABLE_TOOLS.has(tool)) return false
 
@@ -57,7 +57,7 @@ export function assistantPartStartsFollowup(part: MessagePart): boolean {
     return true
   }
 
-  if (part.type === "text") return String(part.text ?? "").trim().length > 0
+  if (isChatTextPart(part)) return part.text.trim().length > 0
   return true
 }
 
@@ -87,8 +87,7 @@ export function groupAssistantParts(
 
   visibleParts.forEach((part, index) => {
     const partIsAbstractable =
-      (part.type === "tool" && ABSTRACTABLE_TOOLS.has(String(part.tool ?? ""))) ||
-      part.type === "reasoning"
+      (isChatToolPart(part) && ABSTRACTABLE_TOOLS.has(part.tool)) || isChatReasoningPart(part)
     if (partIsAbstractable) {
       if (contextStart < 0) contextStart = index
       return

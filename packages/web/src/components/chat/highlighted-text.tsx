@@ -1,7 +1,7 @@
 import { useMemo } from "react"
 import { cn } from "@buddy/ui"
 import { isRecord } from "./tools/types"
-import type { MessagePart } from "@/state/chat-types"
+import type { ChatAgentPart, ChatFilePart } from "./utils/part-guards"
 
 type HighlightSegment = { text: string; type?: "file" | "agent" }
 
@@ -23,9 +23,7 @@ function readSourceRange(value: unknown): { start: number; end: number } | undef
   return { start, end }
 }
 
-function readFileHighlightReference(part: MessagePart): HighlightReference | undefined {
-  if (part.type !== "file") return undefined
-
+function readFileHighlightReference(part: ChatFilePart): HighlightReference | undefined {
   const source = isRecord(part.source) ? part.source : undefined
   const textSource = source ? readSourceRange(source.text) : undefined
   if (!textSource) return undefined
@@ -36,9 +34,7 @@ function readFileHighlightReference(part: MessagePart): HighlightReference | und
   }
 }
 
-function readAgentHighlightReference(part: MessagePart): HighlightReference | undefined {
-  if (part.type !== "agent") return undefined
-
+function readAgentHighlightReference(part: ChatAgentPart): HighlightReference | undefined {
   const source = readSourceRange(part.source)
   if (!source) return undefined
 
@@ -50,8 +46,8 @@ function readAgentHighlightReference(part: MessagePart): HighlightReference | un
 
 interface HighlightedTextProps {
   text: string
-  references: MessagePart[]
-  agents: MessagePart[]
+  references: ChatFilePart[]
+  agents: ChatAgentPart[]
 }
 
 export function HighlightedText({ text, references, agents }: HighlightedTextProps) {

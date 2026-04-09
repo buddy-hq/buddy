@@ -1,14 +1,18 @@
-export type SessionInfo = {
-  id: string
-  title: string
-  parentID?: string
-  time: {
-    created: number
-    updated: number
-    archived?: number
-  }
-}
+import type {
+  McpStatus as SdkMcpStatus,
+  Message as SdkMessage,
+  OutputFormat as SdkOutputFormat,
+  Part as SdkPart,
+  PermissionRequest as SdkPermissionRequest,
+  Provider as SdkProvider,
+  ProviderAuthMethod as SdkProviderAuthMethod,
+  Session as SdkSession,
+  SessionStatus as SdkSessionStatus,
+} from "@buddy/sdk"
 
+export type SessionInfo = Pick<SdkSession, "id" | "title" | "parentID" | "time">
+
+export type MessageOutputFormat = SdkOutputFormat
 type MessageTime = {
   created: number
   completed?: number
@@ -19,74 +23,39 @@ type MessageModel = {
   modelID: string
 }
 
+type SdkAssistantError = NonNullable<Extract<SdkMessage, { role: "assistant" }>["error"]>
+
 export type MessageError = {
-  name: string
-  message: string
+  name: SdkAssistantError["name"] | string
+  message?: string
+  data?: Record<string, unknown>
   [key: string]: unknown
 }
 
-export type MessageOutputFormat =
-  | {
-      type: "text"
-    }
-  | {
-      type: "json_schema"
-      schema: Record<string, unknown>
-      retryCount?: number
-    }
-
-export type UserMessageInfo = {
-  id: string
-  sessionID: string
-  role: "user"
-  agent: string
+export type UserMessageInfo = Omit<
+  Extract<SdkMessage, { role: "user" }>,
+  "format" | "model" | "time"
+> & {
   model: MessageModel
-  variant?: string
-  tools?: Record<string, boolean>
-  format?: MessageOutputFormat
-  system?: string
   time: MessageTime
+  format?: MessageOutputFormat
 }
 
-export type AssistantMessageInfo = {
-  id: string
-  sessionID: string
-  role: "assistant"
-  parentID: string
-  providerID: string
-  modelID: string
-  mode: string
-  agent: string
-  path: {
-    cwd: string
-    root: string
-  }
-  variant?: string
-  structured?: unknown
-  summary?: boolean
+export type AssistantMessageInfo = Omit<
+  Extract<SdkMessage, { role: "assistant" }>,
+  "error" | "time"
+> & {
   time: MessageTime
   error?: MessageError
-  finish?: string
-  tokens: {
-    total?: number
-    input: number
-    output: number
-    reasoning: number
-    cache: {
-      read: number
-      write: number
-    }
-  }
-  cost: number
 }
 
 export type MessageInfo = UserMessageInfo | AssistantMessageInfo
 
-export type MessagePart = {
-  id: string
-  sessionID: string
-  messageID: string
-  type: string
+type MessagePartID = Pick<SdkPart, "id" | "sessionID" | "messageID">
+
+// Keep dynamic field access and partial payloads available during incremental event handling.
+export type MessagePart = MessagePartID & {
+  type: SdkPart["type"] | (string & {})
   [key: string]: unknown
 }
 
@@ -103,82 +72,27 @@ export type GlobalEvent = {
   }
 }
 
-export type SessionStatusInfo =
-  | {
-      type: "idle"
-    }
-  | {
-      type: "busy"
-    }
-  | {
-      type: "retry"
-      attempt: number
-      message: string
-      next: number
-    }
+export type SessionStatusInfo = SdkSessionStatus
 
-export type PermissionRequest = {
-  id: string
-  sessionID: string
-  permission: string
-  patterns: string[]
-  metadata: Record<string, unknown>
-  always: string[]
-  tool?: {
-    messageID: string
-    callID: string
-  }
-}
+export type PermissionRequest = SdkPermissionRequest
 
-export type ProviderModelInfo = {
-  id: string
-  providerID: string
-  name: string
-  family?: string
-  releaseDate?: string
+type SdkProviderModel = SdkProvider["models"][string]
+
+export type ProviderModelInfo = Pick<
+  SdkProviderModel,
+  "id" | "providerID" | "name" | "family" | "status" | "limit"
+> & {
+  releaseDate?: SdkProviderModel["release_date"]
   variants: string[]
-  status: "active" | "alpha" | "beta" | "deprecated"
-  limit: {
-    context: number
-    input?: number
-    output: number
-  }
-  capabilities: {
-    reasoning: boolean
-    attachment: boolean
-    toolcall: boolean
-    input: {
-      text: boolean
-      audio: boolean
-      image: boolean
-      video: boolean
-      pdf: boolean
-    }
-    output: {
-      text: boolean
-      audio: boolean
-      image: boolean
-      video: boolean
-      pdf: boolean
-    }
-    interleaved:
-      | boolean
-      | {
-          field: "reasoning_content" | "reasoning_details"
-        }
-  }
+  capabilities: Pick<
+    SdkProviderModel["capabilities"],
+    "reasoning" | "attachment" | "toolcall" | "input" | "output" | "interleaved"
+  >
 }
 
-export type ProviderMethodInfo = {
-  type: "api" | "oauth"
-  label: string
-}
+export type ProviderMethodInfo = Pick<SdkProviderAuthMethod, "type" | "label">
 
-export type ProviderInfo = {
-  id: string
-  name: string
-  source: "env" | "config" | "custom" | "api"
-  env: string[]
+export type ProviderInfo = Pick<SdkProvider, "id" | "name" | "source" | "env"> & {
   connected: boolean
   methods: ProviderMethodInfo[]
   models: ProviderModelInfo[]
@@ -190,7 +104,7 @@ export type ProviderCatalogState = {
 }
 
 export type McpStatusInfo = {
-  status: "connected" | "disabled" | "failed" | "needs_auth" | "needs_client_registration"
+  status: SdkMcpStatus["status"]
   error?: string
 }
 

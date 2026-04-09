@@ -5,10 +5,11 @@ import { ReasoningPart } from "./reasoning-part"
 import { ToolPartCard } from "./tool-part"
 import { MessageDivider } from "./message-divider"
 import type { MessagePart } from "@/state/chat-types"
+import { isChatReasoningPart, isChatTextPart, isChatToolPart } from "../../utils/part-guards"
 
 // Serialize tool state for comparison
 function getToolStateHash(part: MessagePart): string {
-  if (part.type !== "tool") return ""
+  if (!isChatToolPart(part)) return ""
   const state = parseToolState(part)
   return `${state.status}:${JSON.stringify(state.output)}:${JSON.stringify(state.metadata)}:${JSON.stringify(state.attachments)}`
 }
@@ -43,13 +44,13 @@ function assistantPartRendererEqual(
   if (prevProps.onTextFinalRender !== nextProps.onTextFinalRender) return false
 
   // Deep comparison for part content
-  if (prevProps.part.type === "text" && nextProps.part.type === "text") {
+  if (isChatTextPart(prevProps.part) && isChatTextPart(nextProps.part)) {
     return prevProps.part.text === nextProps.part.text
   }
-  if (prevProps.part.type === "reasoning" && nextProps.part.type === "reasoning") {
+  if (isChatReasoningPart(prevProps.part) && isChatReasoningPart(nextProps.part)) {
     return prevProps.part.text === nextProps.part.text
   }
-  if (prevProps.part.type === "tool" && nextProps.part.type === "tool") {
+  if (isChatToolPart(prevProps.part) && isChatToolPart(nextProps.part)) {
     return getToolStateHash(prevProps.part) === getToolStateHash(nextProps.part)
   }
 
@@ -72,7 +73,7 @@ export const AssistantPartRenderer = memo(function AssistantPartRenderer({
     return null
   }
 
-  if (part.type === "text") {
+  if (isChatTextPart(part)) {
     return (
       <AssistantTextPart
         part={part}
@@ -86,7 +87,7 @@ export const AssistantPartRenderer = memo(function AssistantPartRenderer({
     )
   }
 
-  if (part.type === "reasoning") {
+  if (isChatReasoningPart(part)) {
     return <ReasoningPart part={part} />
   }
 
@@ -94,7 +95,7 @@ export const AssistantPartRenderer = memo(function AssistantPartRenderer({
     return null
   }
 
-  if (part.type === "tool") {
+  if (isChatToolPart(part)) {
     return (
       <ToolPartCard
         part={part}

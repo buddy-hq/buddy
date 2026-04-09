@@ -4,11 +4,11 @@ import { getToolRenderer, isContextTool, HIDDEN_TOOLS } from "../../tools/regist
 import { parseToolState } from "../../tools/parse-tool-state"
 import { getToolInfo } from "../../tools/tool-info"
 import { isBuddyCustomTool } from "../../utils/tool"
-import type { MessagePart } from "@/state/chat-types"
 import type { ToolPartProps } from "../../tools/registry"
+import type { ChatToolPart } from "../../utils/part-guards"
 
 interface ToolPartRendererProps {
-  part: MessagePart
+  part: ChatToolPart
   directory?: string
   onOpenSession?: (sessionID: string) => void
   defaultOpen?: boolean
@@ -22,7 +22,6 @@ function toolPartCardEqual(
   if (prevProps.directory !== nextProps.directory) return false
   if (prevProps.onOpenSession !== nextProps.onOpenSession) return false
   if (prevProps.defaultOpen !== nextProps.defaultOpen) return false
-  if (prevProps.part.type !== "tool" || nextProps.part.type !== "tool") return false
 
   const prevState = parseToolState(prevProps.part)
   const nextState = parseToolState(nextProps.part)
@@ -41,7 +40,7 @@ export const ToolPartCard = memo(function ToolPartCard({
   onOpenSession,
   defaultOpen,
 }: ToolPartRendererProps) {
-  const tool = String(part.tool ?? "")
+  const tool = part.tool
 
   // Hidden tools return null
   if (HIDDEN_TOOLS.has(tool)) {
