@@ -14,6 +14,7 @@ import {
   classifyResourcePath,
   ensureResourcePack,
 } from "../resource-packs"
+import { resourceSourceSnapshotMatches } from "../resource-packs/source-match"
 
 const RESOURCE_PREPARATION_POLL_ATTEMPTS = 20
 const RESOURCE_PREPARATION_POLL_DELAY_MS = 500
@@ -296,6 +297,8 @@ async function buildResourceRecord(input: {
 
   const sourceStat = await fs.stat(sourcePath)
   const sourceRelpath = relativeDisplayPath(input.directory, sourcePath)
+  const sourceMtimeMs = Number(sourceStat.mtimeMs)
+  const sourceSizeBytes = Number(sourceStat.size)
   const classification = classifyResourcePath(sourcePath, Number(sourceStat.size))
 
   let status: ResourceStatus
@@ -314,11 +317,18 @@ async function buildResourceRecord(input: {
     warnings = [...metadata.warnings]
     preparedAt = metadata.preparedAt
 
-    const sourceChanged =
-      metadata.sourceMtimeMs !== undefined && metadata.sourceSizeBytes !== undefined
-        ? metadata.sourceMtimeMs !== Number(sourceStat.mtimeMs) ||
-          metadata.sourceSizeBytes !== Number(sourceStat.size)
-        : false
+    const sourceChanged = !resourceSourceSnapshotMatches({
+      metadataSourcePath: metadata.sourceRelpath
+        ? path.resolve(input.directory, metadata.sourceRelpath)
+        : undefined,
+      metadataSourceRelpath: metadata.sourceRelpath,
+      metadataSourceMtimeMs: metadata.sourceMtimeMs,
+      metadataSourceSizeBytes: metadata.sourceSizeBytes,
+      sourcePath,
+      sourceRelpath,
+      sourceMtimeMs,
+      sourceSizeBytes,
+    })
     if (status === RESOURCE_PACK_STATUS_READY && sourceChanged) {
       status = "stale"
       warnings = [RESOURCE_STALE_WARNING]
@@ -334,8 +344,8 @@ async function buildResourceRecord(input: {
     warnings,
     packKey: input.alias,
     ...(preparedAt ? { preparedAt } : {}),
-    sourceMtimeMs: Number(sourceStat.mtimeMs),
-    sourceSizeBytes: Number(sourceStat.size),
+    sourceMtimeMs,
+    sourceSizeBytes,
   }
 }
 

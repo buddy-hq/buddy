@@ -228,6 +228,34 @@ describe("resource pack service", () => {
     expect(await exists(pack.fullPath)).toBe(true)
   })
 
+  test("reuses a fresh pack when metadata keeps a different absolute source path", async () => {
+    await using project = await tmpdir({ git: true })
+    const sourcePath = path.join(project.path, "guide.html")
+    await fs.writeFile(
+      sourcePath,
+      "<!doctype html><html><body><h1>Guide</h1><p>Body</p></body></html>",
+    )
+
+    const first = await ensureResourcePack({
+      directory: project.path,
+      sourcePath,
+    })
+    const originalMetadata = matter(await fs.readFile(first.metadataPath, "utf8"))
+    const rewrittenMetadata = matter.stringify(originalMetadata.content, {
+      ...originalMetadata.data,
+      source_path: path.join(project.path, "alternate-root", "guide.html"),
+    })
+    await fs.writeFile(first.metadataPath, rewrittenMetadata, "utf8")
+
+    const cached = await ensureResourcePack({
+      directory: project.path,
+      sourcePath,
+    })
+
+    expect(cached.status).toBe(RESOURCE_PACK_STATUS_READY)
+    expect(await fs.readFile(cached.metadataPath, "utf8")).toBe(rewrittenMetadata)
+  })
+
   test("uses explicit nav metadata when EPUB manifest lists chapter files first", async () => {
     await using project = await tmpdir({ git: true })
     const sourcePath = path.join(project.path, "ordered-manifest.epub")

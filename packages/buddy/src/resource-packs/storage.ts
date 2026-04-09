@@ -32,6 +32,7 @@ import {
   RESOURCE_PACK_PAGE_FILE_PREFIX,
   estimateTokenCountFromText,
 } from "./chunking-config"
+import { resourceSourceSnapshotMatches } from "./source-match"
 
 export async function exists(filepath: string) {
   return fs
@@ -45,9 +46,22 @@ export async function loadFreshResourcePackSnapshot(
 ): Promise<ResourcePackResolution | undefined> {
   const metadata = await loadResourcePackMetadata(input.packPaths.metadataPath)
   if (!metadata) return undefined
-  if (metadata.source_path !== input.sourcePath) return undefined
-  if (metadata.source_mtime_ms !== Number(input.sourceStat.mtimeMs)) return undefined
-  if (metadata.source_size_bytes !== Number(input.sourceStat.size)) return undefined
+  const sourceMtimeMs = Number(input.sourceStat.mtimeMs)
+  const sourceSizeBytes = Number(input.sourceStat.size)
+  if (
+    !resourceSourceSnapshotMatches({
+      metadataSourcePath: metadata.source_path,
+      metadataSourceRelpath: metadata.source_relpath,
+      metadataSourceMtimeMs: metadata.source_mtime_ms,
+      metadataSourceSizeBytes: metadata.source_size_bytes,
+      sourcePath: input.sourcePath,
+      sourceRelpath: input.sourceRelpath,
+      sourceMtimeMs,
+      sourceSizeBytes,
+    })
+  ) {
+    return undefined
+  }
 
   const fullTextPath = await resolveFullTextPath({
     rootPath: input.packPaths.rootPath,

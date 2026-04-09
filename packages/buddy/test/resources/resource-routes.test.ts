@@ -1,11 +1,16 @@
 import { describe, expect, test } from "bun:test"
+import matter from "gray-matter"
 import path from "node:path"
 import { readFile, stat, writeFile } from "node:fs/promises"
 import { app } from "../../src/index.ts"
+import { createResourcePackPaths } from "../../src/resources/resource-pack-service"
 import { tmpdir } from "../helpers/tmpdir"
 
 const DIRECTORY_HEADER = "x-buddy-directory" as const
 const JSON_CONTENT_TYPE = "application/json" as const
+const RESOURCE_READY_STATUS = "ready" as const
+const RESOURCE_POLL_ATTEMPTS = 20
+const RESOURCE_POLL_DELAY_MS = 100
 
 describe("resource routes", () => {
   test("registers, renames, rebuilds, and removes resources", async () => {
@@ -137,4 +142,73 @@ describe("resource routes", () => {
     const created = (await response.json()) as { alias: string }
     expect(created.alias).toBe("shape-up-2019")
   })
+
+  test("keeps ready resources ready across sub-millisecond metadata drift", async () => {
+    await using project = await tmpdir({ git: true })
+    const sourceRelpath = "guide.html"
+    const sourcePath = path.join(project.path, sourceRelpath)
+    await writeFile(
+      sourcePath,
+      "<!doctype html><html><body><h1>Guide</h1><p>Start here.</p></body></html>",
+      "utf8",
+    )
+
+    const addResponse = await app.request("/api/resource", {
+      method: "POST",
+      headers: {
+        [DIRECTORY_HEADER]: project.path,
+        "content-type": JSON_CONTENT_TYPE,
+      },
+      body: JSON.stringify({
+        sourcePath: sourceRelpath,
+        alias: "guide",
+      }),
+    })
+    expect(addResponse.status).toBe(200)
+
+    const readyResource = await waitForResource(project.path, "guide")
+    expect(readyResource.status).toBe(RESOURCE_READY_STATUS)
+
+    const stagedSourcePath = path.join(project.path, readyResource.sourceRelpath)
+    const packPaths = createResourcePackPaths(project.path, stagedSourcePath)
+    const metadata = matter(await readFile(packPaths.metadataPath, "utf8"))
+    await writeFile(
+      packPaths.metadataPath,
+      matter.stringify(metadata.content, {
+        ...metadata.data,
+        source_mtime_ms: Number(metadata.data.source_mtime_ms) + 0.5,
+      }),
+      "utf8",
+    )
+
+    const refreshed = await readResource(project.path, "guide")
+    expect(refreshed.status).toBe(RESOURCE_READY_STATUS)
+  })
 })
+
+async function readResource(directory: string, alias: string) {
+  const listResponse = await app.request("/api/resource", {
+    headers: {
+      [DIRECTORY_HEADER]: directory,
+    },
+  })
+  expect(listResponse.status).toBe(200)
+  const listed = (await listResponse.json()) as {
+    resources: Array<{ alias: string; status: string; sourceRelpath: string }>
+  }
+  const resource = listed.resources.find((entry) => entry.alias === alias)
+  expect(resource).toBeDefined()
+  return resource!
+}
+
+async function waitForResource(directory: string, alias: string) {
+  for (let attempt = 0; attempt < RESOURCE_POLL_ATTEMPTS; attempt += 1) {
+    const resource = await readResource(directory, alias)
+    if (resource.status === RESOURCE_READY_STATUS) {
+      return resource
+    }
+    await Bun.sleep(RESOURCE_POLL_DELAY_MS)
+  }
+
+  throw new Error(`Resource did not reach ${RESOURCE_READY_STATUS}: ${alias}`)
+}
