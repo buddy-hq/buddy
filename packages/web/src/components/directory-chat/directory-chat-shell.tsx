@@ -113,7 +113,6 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
           ) : null}
         </div>
       </div>
-
       {createTeachingFileDialog}
     </div>
   )

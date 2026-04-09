@@ -5,6 +5,10 @@ import type {
   ConfigMcpPutData,
   ConfigPersonasResponses,
   ConfigUpdateData,
+  ExplorerFileEditReadResponses,
+  ExplorerFileEditSaveResponses,
+  FileContent,
+  FileNode,
   FindFilesResponses,
   GlobalConfigGetResponses,
   GlobalConfigPatchData,
@@ -1765,6 +1769,65 @@ export async function authenticateMcpServer(directory: string, name: string) {
     }),
   )
   return loadMcpStatus(directory)
+}
+
+export type ProjectExplorerFileNode = FileNode
+export type ProjectExplorerFileContent = FileContent
+export type ProjectExplorerEditableFileState = ExplorerFileEditReadResponses[200]
+export type ProjectExplorerEditableFileSaveResult = ExplorerFileEditSaveResponses[200]
+
+export class ProjectExplorerFileVersionConflictError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = "ProjectExplorerFileVersionConflictError"
+  }
+}
+
+export async function listProjectExplorerDirectory(input: {
+  directory: string
+  path: string
+}): Promise<ProjectExplorerFileNode[]> {
+  const response = await getBuddyClient(input.directory).explorer.file.list({
+    path: input.path,
+  })
+  return requireBuddyData<ProjectExplorerFileNode[]>(response)
+}
+
+export async function readProjectExplorerFile(input: {
+  directory: string
+  path: string
+}): Promise<ProjectExplorerFileContent> {
+  const response = await getBuddyClient(input.directory).explorer.file.read({
+    path: input.path,
+  })
+  return requireBuddyData<ProjectExplorerFileContent>(response)
+}
+
+export async function readProjectExplorerEditableFile(input: {
+  directory: string
+  path: string
+}): Promise<ProjectExplorerEditableFileState> {
+  const response = await getBuddyClient(input.directory).explorer.file.edit.read({
+    path: input.path,
+  })
+  return requireBuddyData<ProjectExplorerEditableFileState>(response)
+}
+
+export async function saveProjectExplorerEditableFile(input: {
+  directory: string
+  path: string
+  content: string
+  expectedVersion?: string | null
+}): Promise<ProjectExplorerEditableFileSaveResult> {
+  const response = await getBuddyClient(input.directory).explorer.file.edit.save({
+    path: input.path,
+    content: input.content,
+    expectedVersion: input.expectedVersion,
+  })
+  if (response.response?.status === 409) {
+    throw new ProjectExplorerFileVersionConflictError(buddyResultMessage(response))
+  }
+  return requireBuddyData<ProjectExplorerEditableFileSaveResult>(response)
 }
 
 export async function findWorkspaceFiles(

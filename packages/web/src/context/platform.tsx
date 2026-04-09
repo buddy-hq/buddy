@@ -26,6 +26,7 @@ export type Platform = {
   storage?(name?: string): StateStorage
   openDirectoryPickerDialog?(opts?: OpenDirectoryPickerOptions): Promise<string | string[] | null>
   openFilePickerDialog?(opts?: OpenFilePickerOptions): Promise<string | string[] | null>
+  openPath?(path: string, app?: string): Promise<void>
   fetch?: typeof fetch
   openLink(url: string): void
   restart(): Promise<void>

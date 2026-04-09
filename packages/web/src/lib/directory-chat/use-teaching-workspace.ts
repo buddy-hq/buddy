@@ -20,6 +20,7 @@ import {
 } from "@/state/teaching-runtime"
 import { sendPrompt } from "@/state/chat-actions"
 import type { ChatRightSidebarTab } from "@/components/layout/chat-right-sidebar"
+import { getRightSidebarDefaultWidth, RIGHT_SIDEBAR_EDITOR_MIN_WIDTH } from "./right-sidebar-layout"
 
 type UseTeachingWorkspaceProps = {
   decodedDirectory: string
@@ -40,8 +41,6 @@ type UseTeachingWorkspaceProps = {
   rightSidebarWidth: number
   setIsStartingInteractiveLesson: (value: boolean) => void
 }
-
-const RIGHT_SIDEBAR_EDITOR_MIN_WIDTH = 360
 
 export function useTeachingWorkspace(props: UseTeachingWorkspaceProps) {
   const {
@@ -113,7 +112,7 @@ export function useTeachingWorkspace(props: UseTeachingWorkspaceProps) {
     setRightSidebarTab("editor")
     setRightSidebarOpen(true)
     if (rightSidebarWidth < RIGHT_SIDEBAR_EDITOR_MIN_WIDTH) {
-      setRightSidebarWidth(640)
+      setRightSidebarWidth(getRightSidebarDefaultWidth("editor"))
     }
   }, [
     decodedDirectory,
@@ -433,7 +432,7 @@ export function useTeachingWorkspace(props: UseTeachingWorkspaceProps) {
     input.setIsStartingInteractiveLesson(true)
     setRightSidebarTab("editor")
     if (input.rightSidebarWidth < RIGHT_SIDEBAR_EDITOR_MIN_WIDTH) {
-      setRightSidebarWidth(640)
+      setRightSidebarWidth(getRightSidebarDefaultWidth("editor"))
     }
     setRightSidebarOpen(true)
 

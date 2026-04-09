@@ -18,6 +18,7 @@ import { RESOURCE_SIDEBAR_TAB } from "../resource-commands"
 import type { ChatRightSidebarTab } from "@/components/layout/chat-right-sidebar"
 import { getConnectedProviders, resolveAutoModelSelection } from "@/lib/provider-catalog"
 import { resolveCurrentAgent } from "./agent-catalog"
+import { getRightSidebarMaxWidth, getRightSidebarMinWidth } from "./right-sidebar-layout"
 
 const MODEL_VISIBILITY_WINDOW_MS = 1000 * 60 * 60 * 24 * 31 * 6
 const EMPTY_LIST: never[] = []
@@ -66,8 +67,6 @@ function isSidebarSurface(value: string): value is PersonaConfigOption["surfaces
     value === "curriculum" || value === "editor" || value === "figure" || value === "question-set"
   )
 }
-
-const RIGHT_SIDEBAR_EDITOR_MIN_WIDTH = 360
 
 type UseDirectoryChatStateProps = {
   decodedDirectory: string
@@ -365,9 +364,11 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
   const selectedPersonaSupportsFigure = selectedPersonaSurfaces.includes("figure")
   const isInteractiveMode = !!sessionID && !!teachingWorkspace
   const selectedSurfaceTab =
-    isSidebarSurface(rightSidebarTab) && selectedPersonaSurfaces.includes(rightSidebarTab)
-      ? rightSidebarTab
-      : selectedPersonaDefaultSurface
+    rightSidebarTab === "editor"
+      ? "editor"
+      : isSidebarSurface(rightSidebarTab) && selectedPersonaSurfaces.includes(rightSidebarTab)
+        ? rightSidebarTab
+        : selectedPersonaDefaultSurface
   const rightSidebarActiveTab: ChatRightSidebarTab =
     rightSidebarTab === "system-prompt" && props.showSystemPromptSidebarTab
       ? "system-prompt"
@@ -379,10 +380,12 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
             ? RESOURCE_SIDEBAR_TAB
             : rightSidebarTab === "agents-md"
               ? "agents-md"
-              : selectedSurfaceTab
-  const editorPanelSizing = rightSidebarActiveTab === "editor"
-  const rightSidebarMinWidth = editorPanelSizing ? RIGHT_SIDEBAR_EDITOR_MIN_WIDTH : 200
-  const rightSidebarMaxWidth = editorPanelSizing ? 960 : 480
+              : rightSidebarTab === "files"
+                ? "files"
+                : selectedSurfaceTab
+  const wideSidebarSizing = rightSidebarActiveTab === "editor" || rightSidebarActiveTab === "files"
+  const rightSidebarMinWidth = getRightSidebarMinWidth(rightSidebarActiveTab)
+  const rightSidebarMaxWidth = getRightSidebarMaxWidth(rightSidebarActiveTab)
   const rightSidebarDisplayWidth = Math.min(
     Math.max(rightSidebarWidth, rightSidebarMinWidth),
     rightSidebarMaxWidth,
@@ -445,7 +448,7 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
     rightSidebarMaxWidth,
     rightSidebarTab,
     rightSidebarActiveTab,
-    editorPanelSizing,
+    editorPanelSizing: wideSidebarSizing,
     pinnedByDirectory,
     unreadByDirectory,
     sidebarDirectories,

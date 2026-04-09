@@ -214,5 +214,8 @@ export function createDesktopPlatform(): Platform {
 
       return null
     },
+    async openPath(path, app) {
+      await window.api.openPath(path, app)
+    },
   }
 }

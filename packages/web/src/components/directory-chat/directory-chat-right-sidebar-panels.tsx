@@ -3,11 +3,12 @@ import { ChatRightSidebar } from "@/components/layout/chat-right-sidebar"
 import { ResourcesPanel } from "@/components/resources/resources-panel"
 import { AgentsMdPanel } from "@/components/agents/agents-md-panel"
 import { SystemPromptPanel } from "@/components/debug/system-prompt-panel"
+import { InteractiveLessonEmptyState } from "@/components/directory-chat/interactive-lesson-empty-state"
 import { TeachingEditorPanel } from "@/components/teaching/teaching-editor-panel"
 import { MathFigurePanel } from "@/components/teaching/math-figure-panel"
+import { ProjectFileExplorerPanel } from "@/components/project-explorer/project-file-explorer-panel"
 import type { DirectoryChatState } from "@/lib/directory-chat/use-directory-chat-state"
 import type { TeachingWorkspaceController } from "@/lib/directory-chat/use-teaching-workspace"
-import { InteractiveLessonEmptyState } from "./interactive-lesson-empty-state"
 
 type DirectoryChatRightSidebarPanelsProps = {
   directory: string
@@ -23,7 +24,12 @@ type DirectoryChatRightSidebarPanelsProps = {
 
 type DirectoryChatRightSidebarPanels = Pick<
   ComponentProps<typeof ChatRightSidebar>,
-  "resourcesPanel" | "agentsPanel" | "systemPromptPanel" | "editorPanel" | "figurePanel"
+  | "resourcesPanel"
+  | "agentsPanel"
+  | "systemPromptPanel"
+  | "filesPanel"
+  | "editorPanel"
+  | "figurePanel"
 >
 
 export function buildDirectoryChatRightSidebarPanels(
@@ -41,8 +47,9 @@ export function buildDirectoryChatRightSidebarPanels(
     onStartInteractiveLesson,
   } = props
 
-  const canStartInteractiveLesson =
-    !!chatState.sessionKey && chatState.selectedPersonaSupportsEditor
+  const filesPanel = (
+    <ProjectFileExplorerPanel className="h-full min-h-0 flex-1" directory={directory} />
+  )
 
   const editorPanel = chatState.selectedPersonaSupportsEditor ? (
     chatState.isInteractiveMode ? (
@@ -74,11 +81,12 @@ export function buildDirectoryChatRightSidebarPanels(
       )
     ) : (
       <InteractiveLessonEmptyState
-        preferredLanguage={chatState.preferredLanguage}
+        className="h-full min-h-0 flex-1 border-t-0 bg-transparent lg:border-l-0"
         selectedPersona={chatState.selectedPersona}
+        preferredLanguage={chatState.preferredLanguage}
         isBusy={chatState.isBusy}
+        canStartInteractiveLesson={!!chatState.sessionKey}
         isStartingInteractiveLesson={isStartingInteractiveLesson}
-        canStartInteractiveLesson={canStartInteractiveLesson}
         onPreferredLanguageChange={teachingWorkspace.onTeachingPreferredLanguageChange}
         onStartInteractiveLesson={onStartInteractiveLesson}
       />
@@ -99,6 +107,7 @@ export function buildDirectoryChatRightSidebarPanels(
         refreshToken={systemPromptRefreshToken}
       />
     ) : undefined,
+    filesPanel,
     editorPanel,
     figurePanel,
   }

@@ -1,8 +1,8 @@
 import type { MouseEvent } from "react"
-import { useState, useEffect } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useLocation, useNavigate } from "@tanstack/react-router"
 import { PowerIcon, SparklesIcon } from "lucide-react"
-import { CopyIcon, CheckIcon, toast, Button } from "@buddy/ui"
+import { CheckIcon, CopyIcon, FolderOpenIcon, toast, Button } from "@buddy/ui"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { useUiPreferences } from "@/state/ui-preferences"
@@ -32,9 +32,11 @@ import {
   LayoutRightIcon,
   LayoutRightPartialIcon,
 } from "./sidebar-icons"
-
-const RIGHT_SIDEBAR_EDITOR_MIN_WIDTH = 360
-const RIGHT_SIDEBAR_EDITOR_DEFAULT_WIDTH = 640
+import type { ChatRightSidebarTab } from "./chat-right-sidebar"
+import {
+  getRightSidebarDefaultWidth,
+  getRightSidebarMinWidth,
+} from "@/lib/directory-chat/right-sidebar-layout"
 
 function buildRelativeSearchParams(search: string) {
   const params = new URLSearchParams(search)
@@ -74,6 +76,7 @@ export function DesktopTitlebar() {
   const rightSidebarWidth = useUiPreferences((state) => state.rightSidebarWidth)
   const rightSidebarTab = useUiPreferences((state) => state.rightSidebarTab)
   const setRightSidebarOpen = useUiPreferences((state) => state.setRightSidebarOpen)
+  const setRightSidebarTab = useUiPreferences((state) => state.setRightSidebarTab)
   const setRightSidebarWidth = useUiPreferences((state) => state.setRightSidebarWidth)
   const activeDirectory = useChatStore((state) => state.activeDirectory)
   const streamStatus = useChatStore((state) => state.streamStatus)
@@ -82,6 +85,7 @@ export function DesktopTitlebar() {
   )
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isDisconnectingOpenAi, setIsDisconnectingOpenAi] = useState(false)
+  const lastWorkspaceSidebarTabRef = useRef<Exclude<ChatRightSidebarTab, "files">>("resources")
 
   useEffect(() => {
     if (!isMac) return
@@ -91,6 +95,11 @@ export function DesktopTitlebar() {
     media.addEventListener("change", handler)
     return () => media.removeEventListener("change", handler)
   }, [isMac])
+
+  useEffect(() => {
+    if (rightSidebarTab === "files") return
+    lastWorkspaceSidebarTabRef.current = rightSidebarTab
+  }, [rightSidebarTab])
 
   if (!isMac && !isWindows) {
     return null
@@ -109,10 +118,38 @@ export function DesktopTitlebar() {
       return
     }
 
-    if (rightSidebarTab === "editor" && rightSidebarWidth < RIGHT_SIDEBAR_EDITOR_MIN_WIDTH) {
-      setRightSidebarWidth(RIGHT_SIDEBAR_EDITOR_DEFAULT_WIDTH)
+    const nextTab =
+      rightSidebarTab === "files" ? lastWorkspaceSidebarTabRef.current : rightSidebarTab
+    if (nextTab !== rightSidebarTab) {
+      setRightSidebarTab(nextTab)
     }
 
+    const nextMinWidth = getRightSidebarMinWidth(nextTab)
+    if (rightSidebarWidth < nextMinWidth) {
+      setRightSidebarWidth(
+        nextTab === "editor" ? getRightSidebarDefaultWidth("editor") : nextMinWidth,
+      )
+    }
+
+    setRightSidebarOpen(true)
+  }
+
+  function onToggleFilesPanel() {
+    if (rightSidebarOpen && rightSidebarTab === "files") {
+      setRightSidebarOpen(false)
+      setRightSidebarTab(lastWorkspaceSidebarTabRef.current)
+      return
+    }
+
+    if (rightSidebarTab !== "files") {
+      lastWorkspaceSidebarTabRef.current = rightSidebarTab
+    }
+
+    if (rightSidebarWidth < getRightSidebarMinWidth("files")) {
+      setRightSidebarWidth(getRightSidebarDefaultWidth("files"))
+    }
+
+    setRightSidebarTab("files")
     setRightSidebarOpen(true)
   }
 
@@ -185,6 +222,30 @@ export function DesktopTitlebar() {
 
   const rightSidebarToggle = showSidebarToggles ? (
     <div className="mr-2 flex shrink-0 items-center gap-1">
+      <Button
+        type="button"
+        data-action="titlebar-toggle-files-panel"
+        variant="ghost"
+        className={`h-6 w-8 p-0 box-border ${
+          rightSidebarOpen && rightSidebarTab === "files"
+            ? "bg-surface-base-hover text-text-strong"
+            : "text-text-weak hover:bg-surface-base-hover hover:text-text-strong"
+        }`}
+        aria-label={
+          rightSidebarOpen && rightSidebarTab === "files"
+            ? language.t("desktopTitlebar.closeFiles")
+            : language.t("desktopTitlebar.openFiles")
+        }
+        aria-expanded={rightSidebarOpen && rightSidebarTab === "files"}
+        title={
+          rightSidebarOpen && rightSidebarTab === "files"
+            ? language.t("desktopTitlebar.closeFiles")
+            : language.t("desktopTitlebar.openFiles")
+        }
+        onClick={onToggleFilesPanel}
+      >
+        <FolderOpenIcon className="size-4" />
+      </Button>
       <Button
         type="button"
         data-action="titlebar-toggle-right-sidebar"

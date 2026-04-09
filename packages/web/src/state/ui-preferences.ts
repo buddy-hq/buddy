@@ -15,6 +15,7 @@ type UiPreferencesStore = {
   rightSidebarTab:
     | "curriculum"
     | "diagrams"
+    | "files"
     | "editor"
     | "figure"
     | "question-set"
@@ -37,6 +38,7 @@ type UiPreferencesStore = {
     tab:
       | "curriculum"
       | "diagrams"
+      | "files"
       | "editor"
       | "figure"
       | "question-set"
@@ -126,7 +128,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
     })),
     {
       name: UI_PREFERENCES_STORAGE_KEY,
-      version: 8,
+      version: 9,
       storage: createPlatformJsonStorage("buddy.ui.dat"),
       migrate(persistedState) {
         const state = persistedState as Partial<UiPreferencesStore> | undefined
@@ -148,15 +150,17 @@ export const useUiPreferences = create<UiPreferencesStore>()(
                     ? "resources"
                     : state?.rightSidebarTab === "agents-md"
                       ? "agents-md"
-                      : state?.rightSidebarTab === "figure"
-                        ? "figure"
-                        : state?.rightSidebarTab === "question-set"
-                          ? "question-set"
-                          : state?.rightSidebarTab === "editor"
-                            ? "editor"
-                            : state?.rightSidebarTab === "diagrams"
-                              ? "diagrams"
-                              : "curriculum",
+                      : state?.rightSidebarTab === "files"
+                        ? "files"
+                        : state?.rightSidebarTab === "figure"
+                          ? "figure"
+                          : state?.rightSidebarTab === "question-set"
+                            ? "question-set"
+                            : state?.rightSidebarTab === "editor"
+                              ? "editor"
+                              : state?.rightSidebarTab === "diagrams"
+                                ? "diagrams"
+                                : "curriculum",
         }
       },
       partialize(state) {

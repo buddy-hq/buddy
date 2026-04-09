@@ -87,6 +87,7 @@ import { useDirectoryChatState } from "./use-directory-chat-state"
 import { useChatSync } from "./use-chat-sync"
 import { useChatConfig } from "./use-chat-config"
 import { useTeachingWorkspace } from "./use-teaching-workspace"
+import { getRightSidebarDefaultWidth, RIGHT_SIDEBAR_EDITOR_MIN_WIDTH } from "./right-sidebar-layout"
 import { publishPromptSubmissionProbe } from "@/e2e/driver"
 
 const BOTTOM_THRESHOLD_PX = 96
@@ -190,6 +191,10 @@ export function useDirectoryChatPageController(
     selectedThinking,
     sessionID,
     sessionKey,
+    rightSidebarWidth,
+    setRightSidebarOpen,
+    setRightSidebarTab,
+    setRightSidebarWidth,
     setActiveDirectory,
     pushRecentModelKey,
     setSelectedAgent,
@@ -745,6 +750,14 @@ export function useDirectoryChatPageController(
     navigate({ to: "/settings", search: { tab: "instructions" } })
   }
 
+  const openTeachingEditorPanel = useCallback(() => {
+    setRightSidebarTab("editor")
+    if (rightSidebarWidth < RIGHT_SIDEBAR_EDITOR_MIN_WIDTH) {
+      setRightSidebarWidth(getRightSidebarDefaultWidth("editor"))
+    }
+    setRightSidebarOpen(true)
+  }, [rightSidebarWidth, setRightSidebarOpen, setRightSidebarTab, setRightSidebarWidth])
+
   async function handleResourceCommand(
     command: ResourceLocalSlashCommand,
     input: { rawAttachments: PromptComposerAttachment[] },
@@ -1070,11 +1083,11 @@ export function useDirectoryChatPageController(
     if (cs.rightSidebarActiveTab === RESOURCE_SIDEBAR_TAB) return
     if (cs.rightSidebarActiveTab === "agents-md") return
     if (cs.rightSidebarActiveTab === "diagrams") return
+    if (cs.rightSidebarActiveTab === "files") return
+    if (cs.rightSidebarActiveTab === "editor") return
 
     if (nextPersona.surfaces.includes("editor") && cs.teachingWorkspace) {
-      cs.setRightSidebarTab("editor")
-      if (cs.rightSidebarWidth < 360) cs.setRightSidebarWidth(640)
-      cs.setRightSidebarOpen(true)
+      openTeachingEditorPanel()
       return
     }
 

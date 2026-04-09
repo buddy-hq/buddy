@@ -178,7 +178,11 @@ export function registerIpcHandlers(deps: Deps) {
     "open-path",
     async (_event: IpcMainInvokeEvent, path: string, appPath?: string) => {
       if (!appPath) {
-        return shell.openPath(path)
+        const error = await shell.openPath(path)
+        if (error) {
+          throw new Error(error)
+        }
+        return
       }
       await new Promise<void>((resolve, reject) => {
         const [cmd, args] =

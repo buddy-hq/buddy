@@ -60,6 +60,7 @@ export function DirectoryChatRightSidebar(props: DirectoryChatRightSidebarProps)
       resourcesPanel={panels.resourcesPanel}
       agentsPanel={panels.agentsPanel}
       systemPromptPanel={panels.systemPromptPanel}
+      filesPanel={panels.filesPanel}
       sessionID={chatState.sessionID}
       persona={chatState.selectedPersona}
       intent={intentFromSelection(chatState.storedIntent)}

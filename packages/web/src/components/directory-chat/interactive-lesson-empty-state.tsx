@@ -11,6 +11,7 @@ type InteractiveLessonEmptyStateProps = {
   canStartInteractiveLesson: boolean
   onPreferredLanguageChange: (language: TeachingLanguage) => void
   onStartInteractiveLesson: () => void
+  className?: string
 }
 
 export function InteractiveLessonEmptyState(props: InteractiveLessonEmptyStateProps) {
@@ -27,7 +28,7 @@ export function InteractiveLessonEmptyState(props: InteractiveLessonEmptyStatePr
   return (
     <section
       data-component="interactive-lesson-empty-state"
-      className="flex min-h-0 flex-1 flex-col justify-center gap-4 px-6 py-8"
+      className={`flex min-h-0 flex-1 flex-col justify-center gap-4 px-6 py-8 ${props.className ?? ""}`}
     >
       <div className="space-y-2">
         <h2 className="text-sm font-medium">

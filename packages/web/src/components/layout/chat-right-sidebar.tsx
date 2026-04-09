@@ -26,6 +26,7 @@ import { ChevronRightIcon, ChevronLeftIcon } from "./sidebar-icons"
 export type ChatRightSidebarTab =
   | "curriculum"
   | "diagrams"
+  | "files"
   | "editor"
   | "figure"
   | "question-set"
@@ -44,6 +45,7 @@ type ChatRightSidebarProps = {
   resourcesPanel?: ReactNode
   agentsPanel?: ReactNode
   systemPromptPanel?: ReactNode
+  filesPanel?: ReactNode
   editorPanel?: ReactNode
   figurePanel?: ReactNode
   onClose: () => void
@@ -122,6 +124,8 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
   const capabilitiesTabEnabled = props.showCapabilitiesTab === true
   const systemPromptTabEnabled = props.showSystemPromptTab === true
   const snapshotTabEnabled = props.showSnapshotTab === true
+  const filesTabEnabled = props.filesPanel !== undefined
+  const editorTabEnabled = props.editorPanel !== undefined
 
   const checkScroll = useCallback(() => {
     if (scrollRef.current) {
@@ -162,10 +166,17 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
               ? "resources"
               : props.activeTab === "agents-md"
                 ? "agents-md"
-                : props.surfaces.includes(props.activeTab as ChatRightSidebarSurface) &&
-                    props.activeTab !== "curriculum"
-                  ? (props.activeTab as ChatRightSidebarSurface)
-                  : (props.surfaces.find((s) => s !== "curriculum") ?? "diagrams")
+                : props.activeTab === "files" && filesTabEnabled
+                  ? "files"
+                  : props.activeTab === "editor" && editorTabEnabled
+                    ? "editor"
+                    : props.surfaces.includes(props.activeTab as ChatRightSidebarSurface) &&
+                        props.activeTab !== "curriculum"
+                      ? (props.activeTab as ChatRightSidebarSurface)
+                      : editorTabEnabled
+                        ? "editor"
+                        : (props.surfaces.find((s) => s !== "curriculum") ?? "diagrams")
+  const showTabHeader = activeTab !== "files"
 
   const loadSidebarData = useCallback(
     async (isDisposed?: () => boolean) => {
@@ -253,136 +264,146 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
       data-active-tab={activeTab}
       className={`shrink-0 overflow-hidden border-l border-border-weaker-base bg-background-base flex flex-col min-h-0 ${props.className ?? ""}`}
     >
-      <header className="relative flex items-center border-b px-1 py-1.5">
-        {showLeftArrow && (
-          <div className="absolute left-1 top-1.5 bottom-1.5 z-10 flex items-center bg-background-base pr-1">
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              className="shrink-0 bg-background-base"
-              onClick={() => {
-                const el = scrollRef.current
-                if (el) el.scrollBy({ left: -el.clientWidth, behavior: "smooth" })
-              }}
-            >
-              <ChevronLeftIcon className="size-4 text-text-weak" />
-            </Button>
-            <div className="pointer-events-none absolute -right-4 top-0 bottom-0 w-4 bg-gradient-to-r from-background-base to-transparent" />
+      {showTabHeader ? (
+        <header className="relative flex items-center border-b px-1 py-1.5">
+          {showLeftArrow && (
+            <div className="absolute left-1 top-1.5 bottom-1.5 z-10 flex items-center bg-background-base pr-1">
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                className="shrink-0 bg-background-base"
+                onClick={() => {
+                  const el = scrollRef.current
+                  if (el) el.scrollBy({ left: -el.clientWidth, behavior: "smooth" })
+                }}
+              >
+                <ChevronLeftIcon className="size-4 text-text-weak" />
+              </Button>
+              <div className="pointer-events-none absolute -right-4 top-0 bottom-0 w-4 bg-gradient-to-r from-background-base to-transparent" />
+            </div>
+          )}
+          <div
+            ref={scrollRef}
+            className="min-w-0 flex-1 overflow-x-auto scroll-smooth px-1 py-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+            <div className="flex w-max items-center gap-1">
+              {editorTabEnabled ? (
+                <Button
+                  data-action="right-sidebar-tab-editor"
+                  variant={activeTab === "editor" ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={() => props.onTabChange("editor")}
+                >
+                  {language.t("rightSidebar.tabs.editor")}
+                </Button>
+              ) : null}
+              {props.surfaces.includes("figure") ? (
+                <Button
+                  data-action="right-sidebar-tab-figure"
+                  variant={activeTab === "figure" ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={() => props.onTabChange("figure")}
+                >
+                  {language.t("rightSidebar.tabs.figure")}
+                </Button>
+              ) : null}
+              {props.surfaces.includes("question-set") ? (
+                <Button
+                  data-action="right-sidebar-tab-question-set"
+                  variant={activeTab === "question-set" ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={() => props.onTabChange("question-set")}
+                >
+                  {language.t("rightSidebar.tabs.questionSet")}
+                </Button>
+              ) : null}
+              <Button
+                data-action="right-sidebar-tab-resources"
+                variant={activeTab === "resources" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => props.onTabChange("resources")}
+              >
+                {language.t("rightSidebar.tabs.resources")}
+              </Button>
+              <Button
+                data-action="right-sidebar-tab-agents-md"
+                variant={activeTab === "agents-md" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => props.onTabChange("agents-md")}
+              >
+                {language.t("rightSidebar.tabs.agents")}
+              </Button>
+              <Button
+                data-action="right-sidebar-tab-diagrams"
+                variant={activeTab === "diagrams" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => props.onTabChange("diagrams")}
+              >
+                {language.t("rightSidebar.tabs.diagrams")}
+              </Button>
+              {snapshotTabEnabled ? (
+                <Button
+                  data-action="right-sidebar-tab-curriculum"
+                  variant={activeTab === "curriculum" ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={() => props.onTabChange("curriculum")}
+                  className="border border-dashed border-yellow-500/60"
+                >
+                  {language.t("rightSidebar.tabs.snapshot")}
+                </Button>
+              ) : null}
+              {capabilitiesTabEnabled ? (
+                <Button
+                  data-action="right-sidebar-tab-capabilities"
+                  variant={activeTab === "capabilities" ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={() => props.onTabChange("capabilities")}
+                  className="border border-dashed border-yellow-500/60"
+                >
+                  {language.t("rightSidebar.tabs.capabilities")}
+                </Button>
+              ) : null}
+              {systemPromptTabEnabled ? (
+                <Button
+                  data-action="right-sidebar-tab-system-prompt"
+                  variant={activeTab === "system-prompt" ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={() => props.onTabChange("system-prompt")}
+                  className="border border-dashed border-yellow-500/60"
+                >
+                  {language.t("rightSidebar.tabs.system")}
+                </Button>
+              ) : null}
+            </div>
           </div>
-        )}
-        <div
-          ref={scrollRef}
-          className="min-w-0 flex-1 overflow-x-auto scroll-smooth px-1 py-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        >
-          <div className="flex w-max items-center gap-1">
-            {props.surfaces.includes("editor") ? (
+          {showRightArrow && (
+            <div className="absolute right-1 top-1.5 bottom-1.5 z-10 flex items-center bg-background-base pl-1">
+              <div className="pointer-events-none absolute -left-4 top-0 bottom-0 w-4 bg-gradient-to-l from-background-base to-transparent" />
               <Button
-                data-action="right-sidebar-tab-editor"
-                variant={activeTab === "editor" ? "secondary" : "ghost"}
-                size="sm"
-                onClick={() => props.onTabChange("editor")}
+                variant="ghost"
+                size="icon-xs"
+                className="shrink-0 bg-background-base"
+                onClick={() => {
+                  const el = scrollRef.current
+                  if (el) el.scrollBy({ left: el.clientWidth, behavior: "smooth" })
+                }}
               >
-                {language.t("rightSidebar.tabs.editor")}
+                <ChevronRightIcon className="size-4 text-text-weak" />
               </Button>
-            ) : null}
-            {props.surfaces.includes("figure") ? (
-              <Button
-                data-action="right-sidebar-tab-figure"
-                variant={activeTab === "figure" ? "secondary" : "ghost"}
-                size="sm"
-                onClick={() => props.onTabChange("figure")}
-              >
-                {language.t("rightSidebar.tabs.figure")}
-              </Button>
-            ) : null}
-            {props.surfaces.includes("question-set") ? (
-              <Button
-                data-action="right-sidebar-tab-question-set"
-                variant={activeTab === "question-set" ? "secondary" : "ghost"}
-                size="sm"
-                onClick={() => props.onTabChange("question-set")}
-              >
-                {language.t("rightSidebar.tabs.questionSet")}
-              </Button>
-            ) : null}
-            <Button
-              data-action="right-sidebar-tab-resources"
-              variant={activeTab === "resources" ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => props.onTabChange("resources")}
-            >
-              {language.t("rightSidebar.tabs.resources")}
-            </Button>
-            <Button
-              data-action="right-sidebar-tab-agents-md"
-              variant={activeTab === "agents-md" ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => props.onTabChange("agents-md")}
-            >
-              {language.t("rightSidebar.tabs.agents")}
-            </Button>
-            <Button
-              data-action="right-sidebar-tab-diagrams"
-              variant={activeTab === "diagrams" ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => props.onTabChange("diagrams")}
-            >
-              {language.t("rightSidebar.tabs.diagrams")}
-            </Button>
-            {snapshotTabEnabled ? (
-              <Button
-                data-action="right-sidebar-tab-curriculum"
-                variant={activeTab === "curriculum" ? "secondary" : "ghost"}
-                size="sm"
-                onClick={() => props.onTabChange("curriculum")}
-                className="border border-dashed border-yellow-500/60"
-              >
-                {language.t("rightSidebar.tabs.snapshot")}
-              </Button>
-            ) : null}
-            {capabilitiesTabEnabled ? (
-              <Button
-                data-action="right-sidebar-tab-capabilities"
-                variant={activeTab === "capabilities" ? "secondary" : "ghost"}
-                size="sm"
-                onClick={() => props.onTabChange("capabilities")}
-                className="border border-dashed border-yellow-500/60"
-              >
-                {language.t("rightSidebar.tabs.capabilities")}
-              </Button>
-            ) : null}
-            {systemPromptTabEnabled ? (
-              <Button
-                data-action="right-sidebar-tab-system-prompt"
-                variant={activeTab === "system-prompt" ? "secondary" : "ghost"}
-                size="sm"
-                onClick={() => props.onTabChange("system-prompt")}
-                className="border border-dashed border-yellow-500/60"
-              >
-                {language.t("rightSidebar.tabs.system")}
-              </Button>
-            ) : null}
-          </div>
-        </div>
-        {showRightArrow && (
-          <div className="absolute right-1 top-1.5 bottom-1.5 z-10 flex items-center bg-background-base pl-1">
-            <div className="pointer-events-none absolute -left-4 top-0 bottom-0 w-4 bg-gradient-to-l from-background-base to-transparent" />
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              className="shrink-0 bg-background-base"
-              onClick={() => {
-                const el = scrollRef.current
-                if (el) el.scrollBy({ left: el.clientWidth, behavior: "smooth" })
-              }}
-            >
-              <ChevronRightIcon className="size-4 text-text-weak" />
-            </Button>
-          </div>
-        )}
-      </header>
+            </div>
+          )}
+        </header>
+      ) : null}
 
-      {activeTab === "editor" ? (
+      {activeTab === "files" ? (
+        <div className="flex-1 min-h-0 flex flex-col">
+          {props.filesPanel ?? (
+            <div className="flex flex-1 items-center justify-center p-4 text-sm text-text-weak">
+              {language.t("rightSidebar.unavailable.files")}
+            </div>
+          )}
+        </div>
+      ) : activeTab === "editor" ? (
         <div className="flex-1 min-h-0 flex flex-col">
           {props.editorPanel ?? (
             <div className="flex flex-1 items-center justify-center p-4 text-sm text-text-weak">
