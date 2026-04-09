@@ -2,6 +2,7 @@ import path from "node:path"
 import { defineConfig } from "electron-vite"
 import react from "@vitejs/plugin-react"
 import tailwindcss from "@tailwindcss/vite"
+import { createFoliatePdfVitePlugin } from "../web/scripts/create-foliate-pdf-vite-plugin"
 
 const channel = (() => {
   const raw = process.env.BUDDY_CHANNEL
@@ -32,9 +33,12 @@ export default defineConfig({
     },
   },
   renderer: {
-    plugins: [react(), tailwindcss()],
+    plugins: [createFoliatePdfVitePlugin(), react(), tailwindcss()],
     root: "src/renderer",
     publicDir: path.resolve(__dirname, "../desktop/public"),
+    optimizeDeps: {
+      exclude: ["foliate-js/view.js", "foliate-js/pdf.js", "foliate-js/vendor/pdfjs/pdf.mjs"],
+    },
     resolve: {
       alias: [
         {
