@@ -3,15 +3,14 @@ import type { OnboardingAuthChoice } from "@/components/onboarding"
 import { language } from "@/context/language"
 import type { ProviderCatalogState } from "@/state/chat-types"
 import { resolveCatalogProviderModelSelection } from "./provider-catalog"
-import { OPENAI_PROVIDER_ID } from "./provider-ids"
+import { OPENAI_PROVIDER_ID, OPENCODE_PROVIDER_ID } from "./provider-ids"
 import { findPreferredOAuthMethodIndex } from "./provider-auth"
 
-const FREE_MODEL_PROVIDER_ID = "opencode"
 const PROVIDER_CONNECTION_POLL_INTERVAL_MS = 1_000
 const PROVIDER_CONNECTION_TIMEOUT_MS = 45_000
 
 export function resolveOnboardingProviderID(choice: OnboardingAuthChoice) {
-  return choice === "chatgpt_plus" ? OPENAI_PROVIDER_ID : FREE_MODEL_PROVIDER_ID
+  return choice === "chatgpt_plus" ? OPENAI_PROVIDER_ID : OPENCODE_PROVIDER_ID
 }
 
 export async function connectChatGptPlusForOnboarding(input: {
