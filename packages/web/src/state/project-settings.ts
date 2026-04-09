@@ -7,6 +7,7 @@ import {
   type PersonaConfigOption,
 } from "./chat-actions"
 import { language } from "@/context/language"
+import { useChatStore } from "@/state/chat-store"
 import type { TeachingIntent } from "./teaching-runtime"
 import type { ProviderCatalogState } from "./chat-types"
 
@@ -202,6 +203,31 @@ function buildProjectSettingsPatch(input: {
   return Object.keys(patch).length > 0 ? patch : undefined
 }
 
+function modelSelectionKeyFromDraft(draft: ProjectSettingsDraft) {
+  if (!draft.provider || !draft.model) {
+    return ""
+  }
+
+  return `${draft.provider}/${draft.model}`
+}
+
+export function resolveModelSelectionDirtyAfterPersist(input: {
+  draft: ProjectSettingsDraft
+  modelSelectionDirty: boolean
+  patch?: ProjectSettingsPatch
+}) {
+  if (!input.modelSelectionDirty) {
+    return false
+  }
+
+  const savedModel = typeof input.patch?.model === "string" ? input.patch.model : undefined
+  if (!savedModel) {
+    return input.modelSelectionDirty
+  }
+
+  return modelSelectionKeyFromDraft(input.draft) !== savedModel
+}
+
 function emptyState(): ProjectSettingsState {
   return {
     loading: false,
@@ -305,11 +331,18 @@ export function useProjectSettings(directory: string, open: boolean) {
 
     try {
       const updated = await patchProjectConfig(directory, patch)
+      if (state.modelSelectionDirty && typeof patch.model === "string") {
+        useChatStore.getState().setSelectedModel(directory, "auto")
+      }
       setState((current) => ({
         ...current,
         saving: false,
         projectConfig: updated,
-        modelSelectionDirty: false,
+        modelSelectionDirty: resolveModelSelectionDirtyAfterPersist({
+          draft: current.draft,
+          modelSelectionDirty: current.modelSelectionDirty,
+          patch,
+        }),
       }))
       return true
     } catch (error) {

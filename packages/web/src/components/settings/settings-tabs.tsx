@@ -2,7 +2,6 @@ import type { ReactNode } from "react"
 import {
   BlocksIcon,
   BookOpenIcon,
-  BrainIcon,
   CogIcon,
   FileTextIcon,
   PaletteIcon,
@@ -15,7 +14,6 @@ import {
 import { InstructionsSettings } from "./settings-instructions"
 import { AppearanceSettings } from "./settings-appearance"
 import { NotebookSettings } from "./settings-notebook"
-import { ModelSettings } from "./settings-model"
 import { ProvidersSettings } from "./settings-providers"
 import { McpsSettings } from "./settings-mcps"
 import { SkillsPage } from "@/components/skills/skills-page"
@@ -27,7 +25,6 @@ export type SettingsTab =
   | "instructions"
   | "appearance"
   | "notebook"
-  | "model"
   | "providers"
   | "mcps"
   | "skills"
@@ -64,13 +61,6 @@ export const SETTINGS_TABS: SettingsTabDefinition[] = [
     icon: BookOpenIcon,
     layout: "standard",
     render: (directory) => <NotebookSettings directory={directory} />,
-  },
-  {
-    id: "model",
-    navLabelKey: "common.model",
-    icon: BrainIcon,
-    layout: "standard",
-    render: (directory) => <ModelSettings directory={directory} />,
   },
   {
     id: "providers",
