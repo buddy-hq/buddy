@@ -1,12 +1,20 @@
 import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router"
 import { useEffect, useMemo } from "react"
-import { Button, cn, toast } from "@buddy/ui"
+import { Button, Separator, cn, toast } from "@buddy/ui"
 import { ArrowLeftIcon } from "lucide-react"
 import { ChatLeftSidebar } from "@/components/layout/chat-left-sidebar"
 import { language } from "@/context/language"
+import { usePlatform } from "@/context/platform"
 import { ResizeHandle } from "@/components/layout/resize-handle"
 import { SettingsPage } from "@/components/settings/settings-page"
-import { isSettingsTab, SETTINGS_TABS, type SettingsTab } from "@/components/settings/settings-tabs"
+import { useStandardsRuntime } from "@/components/settings/use-standards-runtime"
+import {
+  DEFAULT_SETTINGS_TAB,
+  getVisibleSettingsTabDefinitions,
+  resolveSettingsTab,
+  type SettingsTab,
+  type SettingsTabDefinition,
+} from "@/components/settings/settings-tabs"
 import { encodeDirectory } from "../lib/directory-token"
 import {
   bootstrapOpenProjects,
@@ -26,10 +34,13 @@ import { pickProjectDirectory } from "../lib/directory-picker"
 export const Route = createFileRoute("/settings")({
   validateSearch: (search: Record<string, unknown>): { tab: SettingsTab } => {
     const tab = search.tab
-    if (typeof tab === "string" && isSettingsTab(tab)) {
-      return { tab }
+    if (typeof tab === "string") {
+      const resolvedTab = resolveSettingsTab(tab)
+      if (resolvedTab) {
+        return { tab: resolvedTab }
+      }
     }
-    return { tab: SETTINGS_TABS[0].id }
+    return { tab: DEFAULT_SETTINGS_TAB }
   },
   component: SettingsRoute,
 })
@@ -37,6 +48,7 @@ export const Route = createFileRoute("/settings")({
 function SettingsRoute() {
   const navigate = useNavigate()
   const { tab } = useSearch({ from: "/settings" })
+  const platform = usePlatform()
   const openProjects = useChatStore((state) => state.openProjects, shallow)
   const activeDirectory = useChatStore((state) => state.activeDirectory)
   const directories = useChatStore((state) => state.directories, shallow)
@@ -48,9 +60,23 @@ function SettingsRoute() {
   const clearUnread = useUiPreferences((state) => state.clearUnread)
   const leftSidebarWidth = useUiPreferences((state) => state.leftSidebarWidth)
   const setLeftSidebarWidth = useUiPreferences((state) => state.setLeftSidebarWidth)
+  const { standardsEnabled, standardsStatus } = useStandardsRuntime({
+    open: true,
+    platform: platform.platform,
+  })
 
   const currentDirectory = activeDirectory ?? openProjects[0] ?? ""
   const activeSessionID = currentDirectory ? directories[currentDirectory]?.sessionID : undefined
+  const visibleTabs = useMemo(
+    () => getVisibleSettingsTabDefinitions({ standardsEnabled }),
+    [standardsEnabled],
+  )
+  const mainTabs = useMemo(() => visibleTabs.filter((item) => item.group === "main"), [visibleTabs])
+  const optionalTabs = useMemo(
+    () => visibleTabs.filter((item) => item.group === "optional"),
+    [visibleTabs],
+  )
+  const visibleTabIDs = useMemo(() => new Set(visibleTabs.map((item) => item.id)), [visibleTabs])
 
   const sessionsByDirectory = useMemo(
     () =>
@@ -74,6 +100,26 @@ function SettingsRoute() {
   useEffect(() => {
     void bootstrapOpenProjects().catch(() => undefined)
   }, [])
+
+  useEffect(() => {
+    if (tab !== "standards" && visibleTabIDs.has(tab)) {
+      return
+    }
+    if (tab === "standards" && standardsStatus === null) {
+      return
+    }
+
+    const fallbackTab = tab === "standards" ? "advanced" : DEFAULT_SETTINGS_TAB
+    if (visibleTabIDs.has(tab)) {
+      return
+    }
+
+    navigate({
+      to: "/settings",
+      search: { tab: fallbackTab },
+      replace: true,
+    })
+  }, [navigate, standardsStatus, tab, visibleTabIDs])
 
   function openChat(directory: string) {
     navigate({
@@ -202,6 +248,8 @@ function SettingsRoute() {
           >
             <SettingsNavContent
               activeTab={tab}
+              mainTabs={mainTabs}
+              optionalTabs={optionalTabs}
               onTabChange={(nextTab) => {
                 navigate({ to: "/settings", search: { tab: nextTab } })
               }}
@@ -238,9 +286,34 @@ function SettingsRoute() {
 
 function SettingsNavContent(props: {
   activeTab: SettingsTab
+  mainTabs: SettingsTabDefinition[]
+  optionalTabs: SettingsTabDefinition[]
   onTabChange: (tab: SettingsTab) => void
   onBack: () => void
 }) {
+  function renderTabButton(item: SettingsTabDefinition) {
+    const active = props.activeTab === item.id
+
+    return (
+      <button
+        key={item.id}
+        type="button"
+        data-action={`settings-tab-${item.id}`}
+        data-active={active ? "true" : "false"}
+        onClick={() => props.onTabChange(item.id)}
+        className={cn(
+          "flex h-9 w-full items-center gap-2 rounded-lg px-2 text-sm active:scale-[0.97] transition-[transform,color,background-color] duration-150 ease-out",
+          active
+            ? "bg-surface-raised-base-hover text-text-strong font-medium"
+            : "text-text-base hover:bg-surface-raised-base-hover hover:text-text-strong",
+        )}
+      >
+        <item.icon className="size-4" />
+        {language.t(item.navLabelKey)}
+      </button>
+    )
+  }
+
   return (
     <>
       <div className="mb-3 px-1">
@@ -255,29 +328,18 @@ function SettingsNavContent(props: {
           {language.t("routes.settings.backToChat")}
         </Button>
       </div>
-      <div className="space-y-1">
-        {SETTINGS_TABS.map((item) => {
-          const active = props.activeTab === item.id
-          return (
-            <button
-              key={item.id}
-              type="button"
-              data-action={`settings-tab-${item.id}`}
-              data-active={active ? "true" : "false"}
-              onClick={() => props.onTabChange(item.id)}
-              className={cn(
-                "flex h-9 w-full items-center gap-2 rounded-lg px-2 text-sm active:scale-[0.97] transition-[transform,color,background-color] duration-150 ease-out",
-                active
-                  ? "bg-surface-raised-base-hover text-text-strong font-medium"
-                  : "text-text-base hover:bg-surface-raised-base-hover hover:text-text-strong",
-              )}
-            >
-              <item.icon className="size-4" />
-              {language.t(item.navLabelKey)}
-            </button>
-          )
-        })}
-      </div>
+      <div className="space-y-1">{props.mainTabs.map(renderTabButton)}</div>
+      {props.optionalTabs.length > 0 ? (
+        <div className="mt-4 space-y-3 px-1">
+          <div className="space-y-2">
+            <Separator />
+            <p className="px-1 text-[11px] font-medium uppercase tracking-[0.14em] text-text-weaker">
+              {language.t("routes.settings.optionalFeatures")}
+            </p>
+          </div>
+          <div className="space-y-1">{props.optionalTabs.map(renderTabButton)}</div>
+        </div>
+      ) : null}
     </>
   )
 }

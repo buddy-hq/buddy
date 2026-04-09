@@ -1,15 +1,6 @@
 import { memo, useEffect, useMemo, useState } from "react"
-import {
-  Progress,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Switch,
-} from "@buddy/ui"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Switch } from "@buddy/ui"
 import { language } from "@/context/language"
-import { usePlatform } from "@/context/platform"
 import { useChatStore } from "@/state/chat-store"
 import {
   STANDARDS_TOOL_IDS,
@@ -18,9 +9,7 @@ import {
   type StandardsToolId,
   useToolsSettings,
 } from "@/state/tools-settings"
-import { ConfirmRemoveStandardsRuntimeDialog } from "./confirm-remove-standards-runtime-dialog"
 import { SettingsContent, SettingsListCard, SettingsRow } from "./settings-primitives"
-import { standardsStatusLabel, useStandardsRuntime } from "./use-standards-runtime"
 
 const TOOL_DISPLAY_NAMES: Record<StandardsToolId, string> = {
   search_standards: "Search Standards",
@@ -176,205 +165,122 @@ const NotebookToolRow = memo(function NotebookToolRow(props: {
   )
 })
 
-function ToolsSettingsPanel(props: {
+function StandardsSettingsPanel(props: {
   selectedNotebookDirectory: string
   notebookOptions: string[]
   onSelectedNotebookDirectoryChange: (directory: string) => void
 }) {
-  const platform = usePlatform()
   const { status, selection, actions } = useToolsSettings(props.selectedNotebookDirectory, true)
-  const {
-    standardsStatus,
-    standardsBusy,
-    standardsEnabled,
-    removeConfirmOpen,
-    setRemoveConfirmOpen,
-    onToggleStandardsRuntime,
-    onConfirmRemoveStandardsRuntime,
-  } = useStandardsRuntime({
-    open: true,
-    platform: platform.platform,
-  })
-
-  const showStandardsRuntimeControls = platform.platform === "desktop"
   const toolControlsDisabled = status.loading || status.saving
   const allGlobalEnabled = STANDARDS_TOOL_IDS.every((toolId) => selection.globalDefaults[toolId])
   const someGlobalEnabled = STANDARDS_TOOL_IDS.some((toolId) => selection.globalDefaults[toolId])
 
   return (
-    <>
-      <SettingsContent
-        title={language.t("settings.tools.title")}
-        description={language.t("settings.tools.description")}
-      >
-        {showStandardsRuntimeControls ? (
-          <div className="space-y-2">
-            <h3 className="text-sm font-medium text-text-base">
-              {language.t("settings.tools.standardsRuntimeSection")}
-            </h3>
-            <SettingsListCard>
-              <SettingsRow
-                title={language.t("settings.tools.standardsRuntimeTitle")}
-                description={language.t("settings.tools.standardsRuntimeDescription")}
-                last
-                control={
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-xs text-text-weak">
-                          {standardsStatusLabel(standardsStatus, standardsBusy)}
-                        </span>
-                        {standardsStatus?.installedDatasetVersion ? (
-                          <span className="text-[11px] text-text-subtle">
-                            {standardsStatus.installedDatasetVersion}
-                          </span>
-                        ) : null}
-                      </div>
-                      <Switch
-                        data-action="settings-standards-runtime-toggle"
-                        aria-label={language.t("settings.tools.standardsRuntimeToggleAria")}
-                        checked={standardsEnabled}
-                        disabled={standardsBusy || standardsStatus === null}
-                        onCheckedChange={onToggleStandardsRuntime}
-                      />
-                    </div>
-                    {standardsStatus?.progressMessage ||
-                    typeof standardsStatus?.progressPercent === "number" ? (
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between gap-2 text-[11px] text-text-weak">
-                          <span className="truncate">
-                            {standardsStatus?.progressMessage ??
-                              language.t("settings.appearance.working")}
-                          </span>
-                          {typeof standardsStatus?.progressPercent === "number" ? (
-                            <span>{Math.round(standardsStatus.progressPercent)}%</span>
-                          ) : null}
-                        </div>
-                        <Progress value={standardsStatus?.progressPercent ?? 0} className="h-1.5" />
-                      </div>
-                    ) : null}
-                    {standardsStatus?.lastError ? (
-                      <p className="text-xs text-icon-critical-base">{standardsStatus.lastError}</p>
-                    ) : null}
-                  </div>
-                }
-              />
-            </SettingsListCard>
-            {!standardsEnabled ? (
-              <p className="text-xs text-text-weak">
-                {language.t("settings.tools.installStandardsToEnable")}
-              </p>
-            ) : null}
-          </div>
-        ) : null}
-
-        <div className="space-y-2">
-          <div className="space-y-1">
-            <h3 className="text-sm font-medium text-text-base">
-              {language.t("settings.tools.globalDefaultsSection")}
-            </h3>
-            <p className="text-xs text-text-weak">
-              {language.t("settings.tools.globalDefaultsDescription")}
-            </p>
-          </div>
-          <SettingsListCard>
-            <GlobalDefaultsBulkRow
-              allEnabled={allGlobalEnabled}
-              mixed={!allGlobalEnabled && someGlobalEnabled}
+    <SettingsContent
+      title={language.t("settings.standards.title")}
+      description={language.t("settings.standards.description")}
+    >
+      <div className="space-y-2">
+        <div className="space-y-1">
+          <h3 className="text-sm font-medium text-text-base">
+            {language.t("settings.tools.globalDefaultsSection")}
+          </h3>
+          <p className="text-xs text-text-weak">
+            {language.t("settings.tools.globalDefaultsDescription")}
+          </p>
+        </div>
+        <SettingsListCard>
+          <GlobalDefaultsBulkRow
+            allEnabled={allGlobalEnabled}
+            mixed={!allGlobalEnabled && someGlobalEnabled}
+            disabled={toolControlsDisabled}
+            onToggleAll={actions.setAllGlobalToolsEnabled}
+            last={false}
+          />
+          {STANDARDS_TOOL_IDS.map((toolId, index) => (
+            <GlobalToolRow
+              key={`global-${toolId}`}
+              toolId={toolId}
+              enabled={selection.globalDefaults[toolId]}
               disabled={toolControlsDisabled}
-              onToggleAll={actions.setAllGlobalToolsEnabled}
-              last={false}
+              onToggleTool={actions.setGlobalToolEnabled}
+              last={index === STANDARDS_TOOL_IDS.length - 1}
             />
-            {STANDARDS_TOOL_IDS.map((toolId, index) => (
-              <GlobalToolRow
-                key={`global-${toolId}`}
-                toolId={toolId}
-                enabled={selection.globalDefaults[toolId]}
-                disabled={toolControlsDisabled}
-                onToggleTool={actions.setGlobalToolEnabled}
-                last={index === STANDARDS_TOOL_IDS.length - 1}
-              />
-            ))}
-          </SettingsListCard>
-        </div>
+          ))}
+        </SettingsListCard>
+      </div>
 
-        <div className="space-y-2">
-          <div className="space-y-1">
-            <h3 className="text-sm font-medium text-text-base">
-              {language.t("settings.tools.notebookOverridesSection")}
-            </h3>
-            <p className="text-xs text-text-weak">
-              {language.t("settings.tools.notebookOverridesDescription")}
+      <div className="space-y-2">
+        <div className="space-y-1">
+          <h3 className="text-sm font-medium text-text-base">
+            {language.t("settings.tools.notebookOverridesSection")}
+          </h3>
+          <p className="text-xs text-text-weak">
+            {language.t("settings.tools.notebookOverridesDescription")}
+          </p>
+        </div>
+        <div className="rounded-md border border-border-base/60 bg-surface-weak/30 p-3">
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-text-base">
+              {language.t("settings.tools.notebookSelectorLabel")}
             </p>
-          </div>
-          <div className="rounded-md border border-border-base/60 bg-surface-weak/30 p-3">
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-text-base">
-                {language.t("settings.tools.notebookSelectorLabel")}
-              </p>
-              <Select
-                value={props.selectedNotebookDirectory}
-                onValueChange={(value) => {
-                  if (!props.notebookOptions.includes(value)) {
+            <Select
+              value={props.selectedNotebookDirectory}
+              onValueChange={(value) => {
+                if (!props.notebookOptions.includes(value)) {
+                  return
+                }
+                if (value === props.selectedNotebookDirectory) {
+                  return
+                }
+                void (async () => {
+                  const saved = await actions.save()
+                  if (!saved) {
                     return
                   }
-                  if (value === props.selectedNotebookDirectory) {
-                    return
-                  }
-                  void (async () => {
-                    const saved = await actions.save()
-                    if (!saved) {
-                      return
-                    }
-                    props.onSelectedNotebookDirectoryChange(value)
-                  })()
-                }}
-                disabled={toolControlsDisabled}
+                  props.onSelectedNotebookDirectoryChange(value)
+                })()
+              }}
+              disabled={toolControlsDisabled}
+            >
+              <SelectTrigger
+                data-action="settings-tool-notebook-select"
+                className="w-full"
+                aria-label={language.t("settings.tools.notebookSelectorAria")}
               >
-                <SelectTrigger
-                  data-action="settings-tool-notebook-select"
-                  className="w-full"
-                  aria-label={language.t("settings.tools.notebookSelectorAria")}
-                >
-                  <SelectValue placeholder={notebookDisplayName(props.selectedNotebookDirectory)} />
-                </SelectTrigger>
-                <SelectContent>
-                  {props.notebookOptions.map((directory) => (
-                    <SelectItem key={directory} value={directory}>
-                      {notebookDisplayName(directory)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-[11px] text-text-weak">{props.selectedNotebookDirectory}</p>
-            </div>
+                <SelectValue placeholder={notebookDisplayName(props.selectedNotebookDirectory)} />
+              </SelectTrigger>
+              <SelectContent>
+                {props.notebookOptions.map((directory) => (
+                  <SelectItem key={directory} value={directory}>
+                    {notebookDisplayName(directory)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-text-weak">{props.selectedNotebookDirectory}</p>
           </div>
-          <SettingsListCard>
-            {STANDARDS_TOOL_IDS.map((toolId, index) => (
-              <NotebookToolRow
-                key={`notebook-${toolId}`}
-                toolId={toolId}
-                mode={selection.notebookOverrides[toolId]}
-                disabled={toolControlsDisabled}
-                onModeChange={actions.setProjectToolMode}
-                last={index === STANDARDS_TOOL_IDS.length - 1}
-              />
-            ))}
-          </SettingsListCard>
         </div>
+        <SettingsListCard>
+          {STANDARDS_TOOL_IDS.map((toolId, index) => (
+            <NotebookToolRow
+              key={`notebook-${toolId}`}
+              toolId={toolId}
+              mode={selection.notebookOverrides[toolId]}
+              disabled={toolControlsDisabled}
+              onModeChange={actions.setProjectToolMode}
+              last={index === STANDARDS_TOOL_IDS.length - 1}
+            />
+          ))}
+        </SettingsListCard>
+      </div>
 
-        {status.error ? <p className="text-xs text-icon-critical-base">{status.error}</p> : null}
-      </SettingsContent>
-      <ConfirmRemoveStandardsRuntimeDialog
-        open={removeConfirmOpen}
-        onOpenChange={setRemoveConfirmOpen}
-        onConfirm={onConfirmRemoveStandardsRuntime}
-      />
-    </>
+      {status.error ? <p className="text-xs text-icon-critical-base">{status.error}</p> : null}
+    </SettingsContent>
   )
 }
 
-export function ToolsSettings(props: { directory: string }) {
+export function StandardsSettings(props: { directory: string }) {
   const openProjects = useChatStore((state) => state.openProjects)
   const notebookOptions = useMemo(
     () => resolveNotebookOptions(props.directory, openProjects),
@@ -394,7 +300,7 @@ export function ToolsSettings(props: { directory: string }) {
   }, [notebookOptions, props.directory, selectedNotebookDirectory])
 
   return (
-    <ToolsSettingsPanel
+    <StandardsSettingsPanel
       selectedNotebookDirectory={selectedNotebookDirectory}
       notebookOptions={notebookOptions}
       onSelectedNotebookDirectoryChange={setSelectedNotebookDirectory}

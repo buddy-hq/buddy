@@ -61,7 +61,7 @@ export function useStandardsRuntime(props: UseStandardsRuntimeProps) {
   const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false)
 
   useEffect(() => {
-    if (!props.open || props.platform !== "desktop") return
+    if (!props.open) return
 
     let cancelled = false
     setStandardsLoading(true)
@@ -85,10 +85,10 @@ export function useStandardsRuntime(props: UseStandardsRuntimeProps) {
     return () => {
       cancelled = true
     }
-  }, [props.open, props.platform])
+  }, [props.open])
 
   useEffect(() => {
-    if (!props.open || props.platform !== "desktop") return
+    if (!props.open) return
     if (!standardsLoading && !isStandardsRuntimeOperationInProgress(standardsStatus)) return
 
     let cancelled = false
@@ -112,9 +112,13 @@ export function useStandardsRuntime(props: UseStandardsRuntimeProps) {
       cancelled = true
       window.clearInterval(interval)
     }
-  }, [props.open, props.platform, standardsLoading, standardsStatus])
+  }, [props.open, standardsLoading, standardsStatus])
 
   async function applyStandardsRuntimeChange(install: boolean) {
+    if (props.platform !== "desktop") {
+      return
+    }
+
     setStandardsLoading(true)
     try {
       const nextStatus = install ? await installStandardsRuntime() : await removeStandardsRuntime()
@@ -132,6 +136,10 @@ export function useStandardsRuntime(props: UseStandardsRuntimeProps) {
   }
 
   function onToggleStandardsRuntime(nextChecked: boolean) {
+    if (props.platform !== "desktop") {
+      return
+    }
+
     if (!nextChecked) {
       setRemoveConfirmOpen(true)
       return
@@ -141,6 +149,10 @@ export function useStandardsRuntime(props: UseStandardsRuntimeProps) {
   }
 
   function onConfirmRemoveStandardsRuntime() {
+    if (props.platform !== "desktop") {
+      return
+    }
+
     setRemoveConfirmOpen(false)
     void applyStandardsRuntimeChange(false)
   }
