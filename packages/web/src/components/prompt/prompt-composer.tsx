@@ -57,6 +57,8 @@ import {
 } from "../../state/prompt-store"
 import { publishPromptProbe } from "@/e2e/driver"
 
+const IMMEDIATE_BUILTIN_SLASH_COMMANDS = new Set(["new", "persona", "model", "mcp"])
+
 type PromptComposerProps = {
   directory: string
   sessionID?: string
@@ -452,7 +454,7 @@ export function PromptComposer(props: PromptComposerProps) {
     setLastSelection(`slash:${command.name}`)
     setSelectionCount((current) => current + 1)
 
-    if (command.type === "builtin") {
+    if (command.type === "builtin" && IMMEDIATE_BUILTIN_SLASH_COMMANDS.has(command.name)) {
       runBuiltinSlashCommand(command.name)
       return
     }

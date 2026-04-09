@@ -1,4 +1,18 @@
+import { PROMPT_PART_TYPE_TEXT, type PromptComposerPart } from "./prompt-types"
+
 export type SlashCommandSource = "command" | "mcp" | "skill"
+
+export const QUIZ_SLASH_COMMAND_NAME = "quiz" as const
+export const SUBMITTED_BUILTIN_SLASH_COMMAND_NAMES = [
+  "new",
+  "mcp",
+  QUIZ_SLASH_COMMAND_NAME,
+] as const
+
+const QUIZ_PROMPT_PREFIX = "Create a quiz about " as const
+const QUIZ_PROMPT_SUFFIX = ". Use the question-set-author subagent if it is available." as const
+const DEFAULT_QUIZ_PROMPT =
+  `Create a quiz based on the current conversation and context${QUIZ_PROMPT_SUFFIX}` as const
 
 export type SlashCommandOption = {
   type: "builtin" | "custom"
@@ -75,4 +89,61 @@ export function parseSlashCommandInput(
     command,
     arguments: argumentTokens.join(" "),
   }
+}
+
+export function buildQuizSlashPrompt(argumentsText: string) {
+  const trimmedArguments = argumentsText.trim()
+  if (!trimmedArguments) return DEFAULT_QUIZ_PROMPT
+
+  return `${QUIZ_PROMPT_PREFIX}${trimmedArguments}${QUIZ_PROMPT_SUFFIX}`
+}
+
+function createTextPart(text: string): PromptComposerPart {
+  return {
+    type: PROMPT_PART_TYPE_TEXT,
+    text,
+  }
+}
+
+function trimLeadingSlashCommandPartText(text: string, commandName: string) {
+  let nextText = text
+  const commandPrefix = `/${commandName}`
+
+  if (nextText.startsWith(commandPrefix)) {
+    nextText = nextText.slice(commandPrefix.length)
+  }
+
+  return nextText.replace(/^\s+/, "")
+}
+
+export function buildQuizSlashPromptParts(
+  promptParts: PromptComposerPart[],
+  argumentsText: string,
+): PromptComposerPart[] {
+  const rewrittenArgumentParts: PromptComposerPart[] = []
+  let trimmedLeadingCommand = false
+
+  for (const part of promptParts) {
+    if (part.type === PROMPT_PART_TYPE_TEXT && !trimmedLeadingCommand) {
+      const trimmedText = trimLeadingSlashCommandPartText(part.text, QUIZ_SLASH_COMMAND_NAME)
+      trimmedLeadingCommand = true
+      if (trimmedText) {
+        rewrittenArgumentParts.push(createTextPart(trimmedText))
+      }
+      continue
+    }
+
+    trimmedLeadingCommand = true
+    rewrittenArgumentParts.push({ ...part })
+  }
+
+  if (rewrittenArgumentParts.length === 0) {
+    return [createTextPart(buildQuizSlashPrompt(argumentsText))]
+  }
+
+  return [
+    createTextPart(QUIZ_PROMPT_PREFIX),
+    ...rewrittenArgumentParts,
+    createTextPart(QUIZ_PROMPT_SUFFIX),
+  ]
 }

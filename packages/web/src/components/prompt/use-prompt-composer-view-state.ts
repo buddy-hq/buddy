@@ -12,6 +12,7 @@ import { promptPlaceholder } from "./placeholder"
 import {
   filterSlashCommands,
   getSlashMatch,
+  QUIZ_SLASH_COMMAND_NAME,
   type SlashCommandOption,
   type SlashCommandSource,
 } from "./slash-autocomplete"
@@ -42,6 +43,12 @@ const BUILTIN_SLASH_COMMANDS: SlashCommandOption[] = [
     name: "mcp",
     title: language.t("prompt.slash.mcp.title"),
     description: language.t("prompt.slash.mcp.description"),
+  },
+  {
+    type: "builtin",
+    name: QUIZ_SLASH_COMMAND_NAME,
+    title: language.t("prompt.slash.quiz.title"),
+    description: language.t("prompt.slash.quiz.description"),
   },
 ]
 

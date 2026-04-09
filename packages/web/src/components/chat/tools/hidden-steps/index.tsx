@@ -9,7 +9,16 @@ import {
 } from "@buddy/ui"
 
 import { useThrottledText } from "../../hooks/use-throttled-text"
+import { Markdown } from "@/components/markdown/Markdown"
 import { parseToolState } from "../parse-tool-state"
+import {
+  getToolRenderer,
+  HIDDEN_STEP_DETAIL_KIND,
+  type HiddenStepDetail,
+  type HiddenStepDetailKind,
+  type HiddenStepPresentation,
+  type ToolPartProps,
+} from "../registry"
 import { getToolInfo } from "../tool-info"
 import type { ToolInfo, ToolState } from "../types"
 import type { MessagePart } from "@/state/chat-types"
@@ -19,25 +28,17 @@ import { reasoningHeading } from "../../utils/markdown"
 import { stripAnsi } from "../../utils/path"
 
 const PREVIEW_MAX_HEIGHT_PX = 80
+const SUMMARY_MAX_LABEL_COUNT = 3
 const ABSTRACTED_THINKING_LABEL = "Thinking"
+const ABSTRACTED_THOUGHT_LABEL = "Thought"
 const ABSTRACTED_WORKING_LABEL = "Working"
-const ABSTRACTED_STEP_LABELS = {
-  singular: "step",
-  plural: "steps",
+const READ_TOOL_NAMES = new Set(["read"])
+const SEARCH_TOOL_NAMES = new Set(["list", "glob", "grep", "websearch", "codesearch"])
+const PREVIEW_KIND = {
+  markdown: HIDDEN_STEP_DETAIL_KIND.markdown,
+  text: HIDDEN_STEP_DETAIL_KIND.text,
+  error: "error",
 } as const
-const SUMMARY_ONLY_PREVIEW_TOOLS = new Set([
-  "read",
-  "learner_snapshot_read",
-  "pedagogy_resource_ingest_full_text",
-  "skill",
-  "search_standards",
-  "get_standard",
-  "get_learning_components",
-  "get_prerequisites",
-  "get_next_standards",
-  "get_crosswalk",
-  "query_standards_sql",
-])
 
 const SPRING_SNAPPY = { type: "spring", stiffness: 500, damping: 35, mass: 0.8 } as const
 const SPRING_GENTLE = { type: "spring", stiffness: 300, damping: 30, mass: 1 } as const
@@ -46,14 +47,30 @@ type AbstractedEntry = {
   part: MessagePart
   state?: ToolState
   info?: ToolInfo
+  hiddenSteps?: HiddenStepPresentation
+}
+
+type PreviewKind = HiddenStepDetailKind | (typeof PREVIEW_KIND)["error"]
+
+type HiddenStepsPreview = {
+  title: string
+  detail?: string
+  kind: PreviewKind
+}
+
+type SummaryBucket = {
+  key: string
+  count: number
+  latestLabel: string
+  latestIndex: number
 }
 
 function entryUsesSummaryOnlyRendering(entry: AbstractedEntry): boolean {
-  return entry.part.type === "tool" && SUMMARY_ONLY_PREVIEW_TOOLS.has(String(entry.part.tool ?? ""))
+  return entry.part.type === "tool" && entry.hiddenSteps?.summaryOnly === true
 }
 
 function entrySuppressesErrorPreview(entry: AbstractedEntry): boolean {
-  return entry.part.type === "tool" && SUMMARY_ONLY_PREVIEW_TOOLS.has(String(entry.part.tool ?? ""))
+  return entry.part.type === "tool" && entry.hiddenSteps?.suppressErrorPreview === true
 }
 
 function isReasoningActive(part: MessagePart): boolean {
@@ -72,10 +89,21 @@ function createEntry(part: MessagePart): AbstractedEntry {
   }
 
   const state = parseToolState(part)
+  const info = getToolInfo(String(part.tool ?? ""), state)
+  const tool = String(part.tool ?? "")
+  const renderer = getToolRenderer(tool)
+  const props: ToolPartProps = {
+    part,
+    state,
+    info,
+    tool,
+  }
+
   return {
     part,
     state,
-    info: getToolInfo(String(part.tool ?? ""), state),
+    info,
+    hiddenSteps: renderer?.hiddenSteps?.(props),
   }
 }
 
@@ -105,23 +133,110 @@ function entryHasVisibleError(entry: AbstractedEntry): boolean {
   return entryHasError(entry) && !entrySuppressesErrorPreview(entry)
 }
 
-function buildSummary(entries: AbstractedEntry[]): string | undefined {
-  const labels = new Set<string>()
-
-  for (const entry of entries) {
-    const label = entry.part.type === "reasoning" ? ABSTRACTED_THINKING_LABEL : entry.info?.title
-    if (!label) continue
-    labels.add(label)
+function entrySummaryBucket(entry: AbstractedEntry): { key: string; label: string } | undefined {
+  const label = entrySummaryLabel(entry)
+  if (!label) {
+    return undefined
   }
 
-  const values = Array.from(labels).slice(0, 3)
+  if (entry.part.type === "reasoning") {
+    return undefined
+  }
 
-  return values.length > 0 ? values.join(" · ") : undefined
+  const tool = String(entry.part.tool ?? "")
+  if (READ_TOOL_NAMES.has(tool)) {
+    return { key: "read", label }
+  }
+
+  if (SEARCH_TOOL_NAMES.has(tool)) {
+    return { key: "search", label }
+  }
+
+  return { key: `label:${label}`, label }
 }
 
-function buildPreview(entry: AbstractedEntry | undefined): { title: string; detail?: string } {
+function formatSummaryBucket(bucket: SummaryBucket): string {
+  if (bucket.key === "reasoning") {
+    return ABSTRACTED_THINKING_LABEL
+  }
+
+  if (bucket.key === "read") {
+    return bucket.count === 1 ? bucket.latestLabel : `Read ${bucket.count} files`
+  }
+
+  if (bucket.key === "search") {
+    return bucket.count === 1 ? bucket.latestLabel : `Searched ${bucket.count} times`
+  }
+
+  return bucket.count === 1 ? bucket.latestLabel : `${bucket.latestLabel} ×${bucket.count}`
+}
+
+function buildSummary(entries: AbstractedEntry[]): string | undefined {
+  const buckets = new Map<string, SummaryBucket>()
+  let hasReasoning = false
+
+  for (const [index, entry] of entries.entries()) {
+    if (entry.part.type === "reasoning") {
+      hasReasoning = true
+    }
+
+    const bucket = entrySummaryBucket(entry)
+    if (!bucket) {
+      continue
+    }
+
+    const existing = buckets.get(bucket.key)
+    if (existing) {
+      existing.count += 1
+      existing.latestLabel = bucket.label
+      existing.latestIndex = index
+      continue
+    }
+
+    buckets.set(bucket.key, {
+      key: bucket.key,
+      count: 1,
+      latestLabel: bucket.label,
+      latestIndex: index,
+    })
+  }
+
+  const orderedBuckets = [...buckets.values()].toSorted(
+    (left, right) => right.latestIndex - left.latestIndex,
+  )
+  const detail = orderedBuckets
+    .slice(0, SUMMARY_MAX_LABEL_COUNT)
+    .map((bucket) => formatSummaryBucket(bucket))
+    .join(" · ")
+
+  if (detail) {
+    return detail
+  }
+
+  return hasReasoning ? ABSTRACTED_THOUGHT_LABEL : undefined
+}
+
+function normalizePreviewText(value: string | undefined): string | undefined {
+  if (typeof value !== "string") {
+    return undefined
+  }
+
+  const normalized = stripAnsi(value).replace(/\r\n?/g, "\n").trim()
+  return normalized || undefined
+}
+
+function entrySummaryLabel(entry: AbstractedEntry): string | undefined {
+  if (entry.part.type === "reasoning") {
+    const text = String(entry.part.text ?? "").trim()
+    return reasoningHeading(text) ?? ABSTRACTED_THINKING_LABEL
+  }
+
+  return entry.hiddenSteps?.summaryLabel ?? entry.info?.title
+}
+
+function buildPreview(entry: AbstractedEntry | undefined): HiddenStepsPreview {
   if (!entry) {
-    return { title: ABSTRACTED_WORKING_LABEL }
+    return { title: ABSTRACTED_WORKING_LABEL, kind: PREVIEW_KIND.text }
   }
 
   if (entry.part.type === "reasoning") {
@@ -129,24 +244,49 @@ function buildPreview(entry: AbstractedEntry | undefined): { title: string; deta
     return {
       title: reasoningHeading(text) ?? ABSTRACTED_THINKING_LABEL,
       detail: text || undefined,
+      kind: PREVIEW_KIND.markdown,
     }
   }
 
   if (entry.part.type === "tool" && entry.info) {
-    const toolName = String(entry.part.tool ?? "")
     const errorText = entryErrorText(entry)
-    const output = stripAnsi(entry.state?.output?.trim() ?? "")
+    const previewText = normalizePreviewText(
+      entry.hiddenSteps?.preview?.text ?? entry.state?.output,
+    )
     return {
       title: entry.info.title,
-      detail: errorText
-        ? errorText
-        : SUMMARY_ONLY_PREVIEW_TOOLS.has(toolName)
-          ? entry.info.summary || entry.info.subtitle
-          : output || entry.info.summary || entry.info.subtitle,
+      detail: errorText ?? previewText ?? entry.info.summary ?? entry.info.subtitle,
+      kind: errorText
+        ? PREVIEW_KIND.error
+        : (entry.hiddenSteps?.preview?.kind ?? PREVIEW_KIND.text),
     }
   }
 
-  return { title: ABSTRACTED_WORKING_LABEL }
+  return { title: ABSTRACTED_WORKING_LABEL, kind: PREVIEW_KIND.text }
+}
+
+function detailKindClassName(kind: HiddenStepDetailKind): string {
+  return kind === HIDDEN_STEP_DETAIL_KIND.markdown
+    ? "text-xs text-text-weaker"
+    : "whitespace-pre-wrap break-words font-mono text-xs text-text-weaker"
+}
+
+function detailCacheKey(partID: string, detail: HiddenStepDetail): string {
+  return `${partID}:hidden-detail:${detail.kind ?? HIDDEN_STEP_DETAIL_KIND.text}:${detail.text}`
+}
+
+function buildSummaryOnlyDetails(entry: AbstractedEntry): HiddenStepDetail[] {
+  if (!entry.info || entry.part.type !== "tool") {
+    return []
+  }
+
+  if (entry.hiddenSteps?.rowDetails) {
+    return entry.hiddenSteps.rowDetails
+  }
+
+  return [entry.info.subtitle, entry.info.summary]
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .map((text) => ({ text, kind: HIDDEN_STEP_DETAIL_KIND.text }))
 }
 
 function SummaryOnlyToolRow({ entry }: { entry: AbstractedEntry }) {
@@ -154,19 +294,28 @@ function SummaryOnlyToolRow({ entry }: { entry: AbstractedEntry }) {
     return null
   }
 
-  const subtitles = [entry.info.subtitle, entry.info.summary].filter(
-    (value, index, values): value is string =>
-      typeof value === "string" && value.trim().length > 0 && values.indexOf(value) === index,
-  )
+  const details = buildSummaryOnlyDetails(entry)
 
   return (
     <div className="rounded-md border border-border-base bg-background-base px-3 py-2">
       <div className="text-xs font-medium text-text-weak">{entry.info.title}</div>
-      {subtitles.map((detail) => (
-        <div key={detail} className="mt-1 whitespace-pre-wrap break-words text-xs text-text-weaker">
-          {detail}
-        </div>
-      ))}
+      {details.map((detail) =>
+        detail.kind === HIDDEN_STEP_DETAIL_KIND.markdown ? (
+          <Markdown
+            key={detailCacheKey(entry.part.id, detail)}
+            text={detail.text}
+            cacheKey={detailCacheKey(entry.part.id, detail)}
+            className={`mt-1 ${detailKindClassName(detail.kind)}`}
+          />
+        ) : (
+          <div
+            key={detailCacheKey(entry.part.id, detail)}
+            className={`mt-1 ${detailKindClassName(detail.kind ?? HIDDEN_STEP_DETAIL_KIND.text)}`}
+          >
+            {detail.text}
+          </div>
+        ),
+      )}
     </div>
   )
 }
@@ -226,15 +375,11 @@ export function HiddenSteps({
   const showLivePreview = Boolean(activeEntry || lingeringLivePreview) && !collapsePreview
   const showErrorPreview = Boolean(!activeEntry && lastErrorEntry) && !collapsePreview
   const previewViewportHeight = showLivePreview ? PREVIEW_MAX_HEIGHT_PX : undefined
-  const stepCount = entries.length
-  const summaryTitle = `${stepCount} ${
-    stepCount === 1 ? ABSTRACTED_STEP_LABELS.singular : ABSTRACTED_STEP_LABELS.plural
-  }`
   const summaryDetail = useMemo(() => buildSummary(entries), [entries])
   const preview = useMemo(() => buildPreview(previewEntry), [previewEntry])
   const previewText = useThrottledText(preview.detail ?? "")
   const showPreview = (showLivePreview || showErrorPreview) && previewText.trim().length > 0
-  const title = showLivePreview || showErrorPreview ? preview.title : summaryTitle
+  const title = showLivePreview || showErrorPreview ? preview.title : (summaryDetail ?? "Steps")
 
   useLayoutEffect(() => {
     if (!showPreview) {
@@ -291,7 +436,7 @@ export function HiddenSteps({
                 {errorCount} {errorCount === 1 ? "error" : "errors"}
               </span>
             ) : null}
-            {!showLivePreview && summaryDetail ? (
+            {!showLivePreview && summaryDetail && summaryDetail !== title ? (
               <span className="truncate text-text-weaker group-hover:text-text-weak transition-colors">
                 {summaryDetail}
               </span>
@@ -331,15 +476,25 @@ export function HiddenSteps({
               }}
             >
               <div ref={previewContentRef} className="flex min-h-full flex-col">
-                <p
-                  className={
-                    showErrorPreview
-                      ? "whitespace-pre-wrap break-words font-mono text-[11px] leading-[1.6] text-icon-critical-base"
-                      : "whitespace-pre-wrap break-words font-mono text-[11px] leading-[1.6] text-text-weaker"
-                  }
-                >
-                  {previewText}
-                </p>
+                {preview.kind === PREVIEW_KIND.markdown ? (
+                  <Markdown
+                    text={previewText}
+                    cacheKey={
+                      previewEntry ? `${previewEntry.part.id}:hidden-preview` : "hidden-preview"
+                    }
+                    className="text-[11px] leading-[1.6] text-text-weaker [&_blockquote]:border-border-base/70 [&_blockquote]:text-text-weaker [&_code]:text-[0.92em] [&_h1]:text-[11px] [&_h2]:text-[11px] [&_h3]:text-[11px] [&_h4]:text-[11px] [&_h5]:text-[11px] [&_h6]:text-[11px] [&_li]:mb-1 [&_ol]:mb-2 [&_p]:mb-2 [&_pre]:my-2 [&_table]:my-2 [&_ul]:mb-2"
+                  />
+                ) : (
+                  <div
+                    className={
+                      preview.kind === PREVIEW_KIND.error
+                        ? "whitespace-pre-wrap break-words font-mono text-[11px] leading-[1.6] text-icon-critical-base"
+                        : "whitespace-pre-wrap break-words font-mono text-[11px] leading-[1.6] text-text-weaker"
+                    }
+                  >
+                    {previewText}
+                  </div>
+                )}
               </div>
             </div>
           </motion.div>

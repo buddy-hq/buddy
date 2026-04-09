@@ -2,7 +2,20 @@ import type { MessagePart } from "@/state/chat-types"
 import type { ReactNode } from "react"
 import type { ToolState, ToolInfo } from "./types"
 
-export interface ToolPartProps {
+export const HIDDEN_STEP_DETAIL_KIND = {
+  markdown: "markdown",
+  text: "text",
+} as const
+
+export type HiddenStepDetailKind =
+  (typeof HIDDEN_STEP_DETAIL_KIND)[keyof typeof HIDDEN_STEP_DETAIL_KIND]
+
+export type HiddenStepDetail = {
+  text: string
+  kind?: HiddenStepDetailKind
+}
+
+export type ToolPartProps = {
   part: MessagePart
   state: ToolState
   info: ToolInfo
@@ -12,10 +25,19 @@ export interface ToolPartProps {
   defaultOpen?: boolean
 }
 
+export type HiddenStepPresentation = {
+  preview?: HiddenStepDetail
+  rowDetails?: HiddenStepDetail[]
+  summaryLabel?: string
+  summaryOnly?: boolean
+  suppressErrorPreview?: boolean
+}
+
 export type ToolRenderer = {
   name: string
   render: (props: ToolPartProps) => ReactNode
   isContextTool?: boolean
+  hiddenSteps?: (props: ToolPartProps) => HiddenStepPresentation | undefined
 }
 
 const registry = new Map<string, ToolRenderer>()
