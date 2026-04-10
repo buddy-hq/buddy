@@ -16,6 +16,8 @@ import type {
   SessionInfo,
 } from "@/state/chat-types"
 
+const DOCUMENT_VISIBILITY_VISIBLE = "visible"
+
 type UseChatSyncProps = {
   decodedDirectory: string
   hasRegisteredProject: boolean
@@ -201,7 +203,7 @@ export function useChatSync(props: UseChatSyncProps) {
     setSystemPromptRefreshToken,
   ])
 
-  // ── Background refresh interval ─────────────────────────────────────────────
+  // ── Foreground refresh hooks ────────────────────────────────────────────────
   useEffect(() => {
     if (!decodedDirectory || !hasRegisteredProject) return
 
@@ -209,18 +211,19 @@ export function useChatSync(props: UseChatSyncProps) {
       refreshSlashCommands()
       refreshMcpStatus()
     }
-    const interval = window.setInterval(refresh, 30_000)
-    const onFocus = () => refresh()
-    const onVisibility = () => {
-      if (document.visibilityState !== "visible") return
+    const refreshWhenVisible = () => {
+      if (document.visibilityState !== DOCUMENT_VISIBILITY_VISIBLE) return
       refresh()
+    }
+    const onFocus = () => refreshWhenVisible()
+    const onVisibility = () => {
+      refreshWhenVisible()
     }
 
     window.addEventListener("focus", onFocus)
     document.addEventListener("visibilitychange", onVisibility)
 
     return () => {
-      window.clearInterval(interval)
       window.removeEventListener("focus", onFocus)
       document.removeEventListener("visibilitychange", onVisibility)
     }
