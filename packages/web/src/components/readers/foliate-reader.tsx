@@ -67,6 +67,10 @@ const READER_GAP_PERCENT = 8
 const READER_LINE_HEIGHT = 1.6
 const READER_FONT_SIZE_REM = 1.02
 const READER_SIDE_PANEL_WIDTH_CLASS = "lg:grid-cols-[minmax(17rem,22rem)_minmax(0,1fr)]"
+const DEPENDENCY_KEY_EMPTY = "none"
+const DEPENDENCY_KEY_SEPARATOR = "::"
+const DEPENDENCY_REFERENCE_ID_START = 1
+const DEPENDENCY_KEY_KIND_REFERENCE = "reference"
 
 type KnownMetadataFieldKey =
   | "publisher"
@@ -218,6 +222,67 @@ const METADATA_FIELDS: MetadataFieldDefinition[] = [
   { key: "rights", label: "Rights" },
   { key: "description", label: "Description" },
 ]
+
+const dependencyReferenceIds = new WeakMap<object, number>()
+let nextDependencyReferenceId = DEPENDENCY_REFERENCE_ID_START
+
+function getDependencyReferenceId(reference: object) {
+  const existingId = dependencyReferenceIds.get(reference)
+  if (existingId) return existingId
+  const createdId = nextDependencyReferenceId
+  nextDependencyReferenceId += 1
+  dependencyReferenceIds.set(reference, createdId)
+  return createdId
+}
+
+function buildSourceDependencyKey(source: FoliateReaderSource | null) {
+  if (!source) return DEPENDENCY_KEY_EMPTY
+
+  switch (source.kind) {
+    case "file":
+      return [
+        source.kind,
+        getDependencyReferenceId(source.file),
+        source.file.name,
+        source.file.lastModified,
+      ].join(DEPENDENCY_KEY_SEPARATOR)
+    case "blob":
+      return [
+        source.kind,
+        getDependencyReferenceId(source.blob),
+        source.name,
+        source.blob.type,
+        source.blob.size,
+      ].join(DEPENDENCY_KEY_SEPARATOR)
+    case "url":
+      return [source.kind, source.url, source.name ?? ""].join(DEPENDENCY_KEY_SEPARATOR)
+    case "book":
+      return [source.kind, getDependencyReferenceId(source.book), source.name ?? ""].join(
+        DEPENDENCY_KEY_SEPARATOR,
+      )
+  }
+}
+
+function buildNavigationTargetDependencyKey(target: FoliateNavigationTarget | undefined) {
+  if (target === undefined || target === null) return DEPENDENCY_KEY_EMPTY
+
+  if (
+    typeof target === "string" ||
+    typeof target === "number" ||
+    typeof target === "boolean" ||
+    typeof target === "bigint"
+  ) {
+    return [typeof target, String(target)].join(DEPENDENCY_KEY_SEPARATOR)
+  }
+
+  if (typeof target === "object") {
+    return [DEPENDENCY_KEY_KIND_REFERENCE, getDependencyReferenceId(target)].join(
+      DEPENDENCY_KEY_SEPARATOR,
+    )
+  }
+
+  return [typeof target, String(target)].join(DEPENDENCY_KEY_SEPARATOR)
+}
 
 function getThemeDefinition(themeId: FoliateReaderThemeId) {
   const theme = READER_THEMES.find((entry) => entry.id === themeId)
@@ -755,6 +820,36 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     const [snapshot, setSnapshot] = useState<FoliateReaderSnapshot | null>(null)
     const [location, setLocation] = useState<FoliateReaderLocation>({})
     const [error, setError] = useState<Error | null>(null)
+    const sourceDependencyKey = buildSourceDependencyKey(source)
+    const initialLocationDependencyKey = buildNavigationTargetDependencyKey(initialLocation)
+    const stableSourceRef = useRef<{
+      key: string
+      value: FoliateReaderSource | null
+    }>({
+      key: sourceDependencyKey,
+      value: source,
+    })
+    const stableInitialLocationRef = useRef<{
+      key: string
+      value: FoliateNavigationTarget | undefined
+    }>({
+      key: initialLocationDependencyKey,
+      value: initialLocation,
+    })
+    if (stableSourceRef.current.key !== sourceDependencyKey) {
+      stableSourceRef.current = {
+        key: sourceDependencyKey,
+        value: source,
+      }
+    }
+    if (stableInitialLocationRef.current.key !== initialLocationDependencyKey) {
+      stableInitialLocationRef.current = {
+        key: initialLocationDependencyKey,
+        value: initialLocation,
+      }
+    }
+    const stableSource = stableSourceRef.current.value
+    const stableInitialLocation = stableInitialLocationRef.current.value
 
     callbacksRef.current = {
       onReady,
@@ -813,7 +908,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       coverUrlRef.current = undefined
       host.replaceChildren()
 
-      if (!source) {
+      if (!stableSource) {
         snapshotRef.current = null
         locationRef.current = {}
         setStatus("idle")
@@ -859,7 +954,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
           view.addEventListener("relocate", relocateListener)
           view.addEventListener("external-link", externalLinkListener)
 
-          await view.open(toFoliateInput(source))
+          await view.open(toFoliateInput(stableSource))
           if (cancelled) return
 
           const theme = getThemeDefinition(preferencesRef.current.themeId)
@@ -867,8 +962,8 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
 
           const coverUrlPromise = resolveCoverUrl(view.book)
           await view.init({
-            lastLocation: initialLocation,
-            showTextStart: initialLocation === undefined,
+            lastLocation: stableInitialLocation,
+            showTextStart: stableInitialLocation === undefined,
           })
           const coverUrl = await coverUrlPromise
           if (cancelled) {
@@ -879,19 +974,19 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
           const nextSnapshot: FoliateReaderSnapshot = {
             title:
               formatMetadataValue(view.book.metadata?.title) ??
-              getSourceName(source) ??
+              getSourceName(stableSource) ??
               DEFAULT_TITLE,
             author:
               formatContributor(view.book.metadata?.author) ??
               formatContributor(view.book.metadata?.contributor) ??
               DEFAULT_AUTHOR,
-            formatLabel: getSourceFormatLabel(source),
+            formatLabel: getSourceFormatLabel(stableSource),
             isFixedLayout: view.isFixedLayout,
             toc: view.book.toc ?? [],
             pageList: view.book.pageList ?? [],
             metadata: view.book.metadata,
             coverUrl,
-            fileName: getSourceName(source),
+            fileName: getSourceName(stableSource),
           }
 
           coverUrlRef.current = coverUrl
@@ -928,7 +1023,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
         coverUrlRef.current = undefined
         host.replaceChildren()
       }
-    }, [source, initialLocation])
+    }, [stableInitialLocation, stableSource])
 
     const theme = getThemeDefinition(themeId)
     const canChangeFlow = snapshot ? !snapshot.isFixedLayout : false

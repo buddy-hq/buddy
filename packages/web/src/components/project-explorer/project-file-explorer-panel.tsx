@@ -18,7 +18,7 @@ import {
   VersionedTextFileEditor,
   type VersionedTextFileEditorHandle,
 } from "@/components/editors/versioned-text-file-editor"
-import { FoliateReader } from "@/components/readers/foliate-reader"
+import { FoliateReader, type FoliateReaderSource } from "@/components/readers/foliate-reader"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { apiFetch } from "@/lib/api-client"
@@ -664,6 +664,16 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
   const activeContent = activeViewState?.content
   const activeFileName = activePath ? fileName(activePath) : ""
   const openTabCount = openTabs.length
+  const activeReaderSource = useMemo<FoliateReaderSource | null>(() => {
+    if (!activePath) return null
+    const blob = activeReaderViewState?.blob
+    if (!blob) return null
+    return {
+      kind: "blob",
+      blob,
+      name: activeFileName,
+    }
+  }, [activeFileName, activePath, activeReaderViewState?.blob])
 
   const viewerMode = useMemo(() => {
     if (!activePath) return "empty" as const
@@ -1024,14 +1034,10 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
               </div>
             ) : null}
 
-            {viewerMode === "reader" && activeReaderViewState?.blob ? (
+            {viewerMode === "reader" && activeReaderSource ? (
               <FoliateReader
                 key={activePath}
-                source={{
-                  kind: "blob",
-                  blob: activeReaderViewState.blob,
-                  name: activeFileName,
-                }}
+                source={activeReaderSource}
                 className="h-full min-h-0"
               />
             ) : null}
