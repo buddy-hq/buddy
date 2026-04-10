@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import {
   loadAgentCatalog,
   loadCommandCatalog,
@@ -109,6 +109,8 @@ export function useChatConfig(props: UseChatConfigProps) {
 
     let cancelled = false
 
+    void loadMcpStatus(decodedDirectory).catch(() => undefined)
+
     void loadComposerConfig(decodedDirectory)
       .then((config) => {
         if (cancelled) return
@@ -124,7 +126,7 @@ export function useChatConfig(props: UseChatConfigProps) {
     }
   }, [decodedDirectory, hasRegisteredProject])
 
-  function refreshSlashCommands() {
+  const refreshSlashCommands = useCallback(() => {
     if (!decodedDirectory || !hasRegisteredProject) return
     void loadCommandCatalog(decodedDirectory)
       .then((commands) => {
@@ -134,12 +136,12 @@ export function useChatConfig(props: UseChatConfigProps) {
         }))
       })
       .catch(() => undefined)
-  }
+  }, [decodedDirectory, hasRegisteredProject])
 
-  function refreshMcpStatus() {
+  const refreshMcpStatus = useCallback(() => {
     if (!decodedDirectory || !hasRegisteredProject) return
     void loadMcpStatus(decodedDirectory).catch(() => undefined)
-  }
+  }, [decodedDirectory, hasRegisteredProject])
 
   return {
     ...composerConfig,
