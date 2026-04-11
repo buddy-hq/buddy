@@ -12,7 +12,7 @@ type DirectoryChatRightSidebarProps = {
   showCapabilitiesTab: boolean
   showSystemPromptTab: boolean
   showSnapshotTab: boolean
-  resourcesRefreshToken: number
+  showPaletteTab: boolean
   systemPromptRefreshToken: number
   isStartingInteractiveLesson: boolean
   onRunCurriculumAction: (action: LearnerCurriculumView["actions"][number]) => void
@@ -28,7 +28,7 @@ export function DirectoryChatRightSidebar(props: DirectoryChatRightSidebarProps)
     showCapabilitiesTab,
     showSystemPromptTab,
     showSnapshotTab,
-    resourcesRefreshToken,
+    showPaletteTab,
     systemPromptRefreshToken,
     isStartingInteractiveLesson,
     onRunCurriculumAction,
@@ -41,7 +41,7 @@ export function DirectoryChatRightSidebar(props: DirectoryChatRightSidebarProps)
     chatState,
     teachingWorkspace,
     showSystemPromptTab,
-    resourcesRefreshToken,
+    showPaletteTab,
     systemPromptRefreshToken,
     isStartingInteractiveLesson,
     onOpenCreateTeachingFileDialog,
@@ -57,9 +57,10 @@ export function DirectoryChatRightSidebar(props: DirectoryChatRightSidebarProps)
       showCapabilitiesTab={showCapabilitiesTab}
       showSystemPromptTab={showSystemPromptTab}
       showSnapshotTab={showSnapshotTab}
-      resourcesPanel={panels.resourcesPanel}
+      showPaletteTab={showPaletteTab}
       agentsPanel={panels.agentsPanel}
       systemPromptPanel={panels.systemPromptPanel}
+      palettePanel={panels.palettePanel}
       filesPanel={panels.filesPanel}
       sessionID={chatState.sessionID}
       persona={chatState.selectedPersona}

@@ -34,8 +34,11 @@ export type ChatRightSidebarTab =
   | "agents-md"
   | "capabilities"
   | "system-prompt"
+  | "palette"
   | "settings"
 export type ChatRightSidebarSurface = "curriculum" | "editor" | "figure" | "question-set"
+
+const SHOW_PROMOTED_MAIN_PANE_TABS_IN_RIGHT_SIDEBAR = false
 
 type ChatRightSidebarProps = {
   directory: string
@@ -57,6 +60,8 @@ type ChatRightSidebarProps = {
   showCapabilitiesTab?: boolean
   showSystemPromptTab?: boolean
   showSnapshotTab?: boolean
+  showPaletteTab?: boolean
+  palettePanel?: ReactNode
 }
 
 function stringifyError(error: unknown) {
@@ -124,35 +129,39 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
   const capabilitiesTabEnabled = props.showCapabilitiesTab === true
   const systemPromptTabEnabled = props.showSystemPromptTab === true
   const snapshotTabEnabled = props.showSnapshotTab === true
+  const paletteTabEnabled = props.showPaletteTab === true
   const filesTabEnabled = props.filesPanel !== undefined
   const editorTabEnabled = props.editorPanel !== undefined
-
-  const checkScroll = useCallback(() => {
-    if (scrollRef.current) {
-      const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current
-      setShowLeftArrow(scrollLeft > 0)
-      setShowRightArrow(Math.ceil(scrollLeft + clientWidth) < scrollWidth - 1)
-    }
-  }, [])
-
-  useEffect(() => {
-    const el = scrollRef.current
-    if (!el) return
-
-    checkScroll()
-    el.addEventListener("scroll", checkScroll)
-    const observer = new ResizeObserver(checkScroll)
-    observer.observe(el)
-    const contentEl = el.firstElementChild
-    if (contentEl) {
-      observer.observe(contentEl)
-    }
-    return () => {
-      el.removeEventListener("scroll", checkScroll)
-      observer.disconnect()
-    }
-  }, [checkScroll])
-
+  const resourcesTabEnabled =
+    SHOW_PROMOTED_MAIN_PANE_TABS_IN_RIGHT_SIDEBAR && props.resourcesPanel !== undefined
+  const diagramsTabEnabled = SHOW_PROMOTED_MAIN_PANE_TABS_IN_RIGHT_SIDEBAR
+  const agentsTabEnabled = SHOW_PROMOTED_MAIN_PANE_TABS_IN_RIGHT_SIDEBAR
+  const questionSetTabEnabled =
+    SHOW_PROMOTED_MAIN_PANE_TABS_IN_RIGHT_SIDEBAR && props.surfaces.includes("question-set")
+  const visibleSurfaceTabSet = new Set(
+    props.surfaces.filter(
+      (surface): surface is ChatRightSidebarSurface =>
+        surface === "curriculum" ||
+        surface === "editor" ||
+        surface === "figure" ||
+        (surface === "question-set" && questionSetTabEnabled),
+    ),
+  )
+  const fallbackTab: ChatRightSidebarTab = editorTabEnabled
+    ? "editor"
+    : visibleSurfaceTabSet.has("figure")
+      ? "figure"
+      : snapshotTabEnabled
+        ? "curriculum"
+        : capabilitiesTabEnabled
+          ? "capabilities"
+          : systemPromptTabEnabled
+            ? "system-prompt"
+            : paletteTabEnabled
+              ? "palette"
+              : filesTabEnabled
+                ? "files"
+                : "curriculum"
   const activeTab =
     props.activeTab === "system-prompt" && systemPromptTabEnabled
       ? "system-prompt"
@@ -160,23 +169,24 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
         ? "capabilities"
         : props.activeTab === "curriculum" && snapshotTabEnabled
           ? "curriculum"
-          : props.activeTab === "diagrams"
-            ? "diagrams"
-            : props.activeTab === "resources"
-              ? "resources"
-              : props.activeTab === "agents-md"
-                ? "agents-md"
-                : props.activeTab === "files" && filesTabEnabled
-                  ? "files"
-                  : props.activeTab === "editor" && editorTabEnabled
-                    ? "editor"
-                    : props.surfaces.includes(props.activeTab as ChatRightSidebarSurface) &&
-                        props.activeTab !== "curriculum"
-                      ? (props.activeTab as ChatRightSidebarSurface)
-                      : editorTabEnabled
-                        ? "editor"
-                        : (props.surfaces.find((s) => s !== "curriculum") ?? "diagrams")
-  const showTabHeader = activeTab !== "files"
+          : props.activeTab === "palette" && paletteTabEnabled
+            ? "palette"
+            : props.activeTab === "diagrams" && diagramsTabEnabled
+              ? "diagrams"
+              : props.activeTab === "resources" && resourcesTabEnabled
+                ? "resources"
+                : props.activeTab === "agents-md" && agentsTabEnabled
+                  ? "agents-md"
+                  : props.activeTab === "files" && filesTabEnabled
+                    ? "files"
+                    : props.activeTab === "editor" && editorTabEnabled
+                      ? "editor"
+                      : visibleSurfaceTabSet.has(props.activeTab as ChatRightSidebarSurface) &&
+                          props.activeTab !== "curriculum"
+                        ? (props.activeTab as ChatRightSidebarSurface)
+                        : fallbackTab
+
+  const showTabHeader = true
 
   const loadSidebarData = useCallback(
     async (isDisposed?: () => boolean) => {
@@ -235,6 +245,31 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
     },
     [directory, intent, persona, sessionID],
   )
+  const checkScroll = useCallback(() => {
+    if (scrollRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current
+      setShowLeftArrow(scrollLeft > 0)
+      setShowRightArrow(Math.ceil(scrollLeft + clientWidth) < scrollWidth - 1)
+    }
+  }, [])
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+
+    checkScroll()
+    el.addEventListener("scroll", checkScroll)
+    const observer = new ResizeObserver(checkScroll)
+    observer.observe(el)
+    const contentEl = el.firstElementChild
+    if (contentEl) {
+      observer.observe(contentEl)
+    }
+    return () => {
+      el.removeEventListener("scroll", checkScroll)
+      observer.disconnect()
+    }
+  }, [checkScroll])
 
   useEffect(() => {
     if (activeTab !== "curriculum") return
@@ -307,7 +342,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                   {language.t("rightSidebar.tabs.figure")}
                 </Button>
               ) : null}
-              {props.surfaces.includes("question-set") ? (
+              {questionSetTabEnabled ? (
                 <Button
                   data-action="right-sidebar-tab-question-set"
                   variant={activeTab === "question-set" ? "secondary" : "ghost"}
@@ -317,30 +352,36 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                   {language.t("rightSidebar.tabs.questionSet")}
                 </Button>
               ) : null}
-              <Button
-                data-action="right-sidebar-tab-resources"
-                variant={activeTab === "resources" ? "secondary" : "ghost"}
-                size="sm"
-                onClick={() => props.onTabChange("resources")}
-              >
-                {language.t("rightSidebar.tabs.resources")}
-              </Button>
-              <Button
-                data-action="right-sidebar-tab-agents-md"
-                variant={activeTab === "agents-md" ? "secondary" : "ghost"}
-                size="sm"
-                onClick={() => props.onTabChange("agents-md")}
-              >
-                {language.t("rightSidebar.tabs.agents")}
-              </Button>
-              <Button
-                data-action="right-sidebar-tab-diagrams"
-                variant={activeTab === "diagrams" ? "secondary" : "ghost"}
-                size="sm"
-                onClick={() => props.onTabChange("diagrams")}
-              >
-                {language.t("rightSidebar.tabs.diagrams")}
-              </Button>
+              {resourcesTabEnabled ? (
+                <Button
+                  data-action="right-sidebar-tab-resources"
+                  variant={activeTab === "resources" ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={() => props.onTabChange("resources")}
+                >
+                  {language.t("rightSidebar.tabs.resources")}
+                </Button>
+              ) : null}
+              {agentsTabEnabled ? (
+                <Button
+                  data-action="right-sidebar-tab-agents-md"
+                  variant={activeTab === "agents-md" ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={() => props.onTabChange("agents-md")}
+                >
+                  {language.t("rightSidebar.tabs.agents")}
+                </Button>
+              ) : null}
+              {diagramsTabEnabled ? (
+                <Button
+                  data-action="right-sidebar-tab-diagrams"
+                  variant={activeTab === "diagrams" ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={() => props.onTabChange("diagrams")}
+                >
+                  {language.t("rightSidebar.tabs.diagrams")}
+                </Button>
+              ) : null}
               {snapshotTabEnabled ? (
                 <Button
                   data-action="right-sidebar-tab-curriculum"
@@ -372,6 +413,17 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                   className="border border-dashed border-yellow-500/60"
                 >
                   {language.t("rightSidebar.tabs.system")}
+                </Button>
+              ) : null}
+              {paletteTabEnabled ? (
+                <Button
+                  data-action="right-sidebar-tab-palette"
+                  variant={activeTab === "palette" ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={() => props.onTabChange("palette")}
+                  className="border border-dashed border-yellow-500/60"
+                >
+                  Palette
                 </Button>
               ) : null}
             </div>
@@ -568,6 +620,14 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
           {props.systemPromptPanel ?? (
             <div className="flex flex-1 items-center justify-center p-4 text-sm text-text-weak">
               {language.t("rightSidebar.unavailable.systemPrompt")}
+            </div>
+          )}
+        </div>
+      ) : activeTab === "palette" ? (
+        <div className="flex-1 min-h-0 flex flex-col">
+          {props.palettePanel ?? (
+            <div className="flex flex-1 items-center justify-center p-4 text-sm text-text-weak">
+              Palette unavailable
             </div>
           )}
         </div>

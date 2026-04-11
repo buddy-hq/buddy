@@ -1,7 +1,7 @@
 import type { ComponentProps } from "react"
 import { ChatRightSidebar } from "@/components/layout/chat-right-sidebar"
-import { ResourcesPanel } from "@/components/resources/resources-panel"
 import { AgentsMdPanel } from "@/components/agents/agents-md-panel"
+import { PalettePanel } from "@/components/debug/palette-panel"
 import { SystemPromptPanel } from "@/components/debug/system-prompt-panel"
 import { InteractiveLessonEmptyState } from "@/components/directory-chat/interactive-lesson-empty-state"
 import { TeachingEditorPanel } from "@/components/teaching/teaching-editor-panel"
@@ -15,7 +15,7 @@ type DirectoryChatRightSidebarPanelsProps = {
   chatState: DirectoryChatState
   teachingWorkspace: TeachingWorkspaceController
   showSystemPromptTab: boolean
-  resourcesRefreshToken: number
+  showPaletteTab: boolean
   systemPromptRefreshToken: number
   isStartingInteractiveLesson: boolean
   onOpenCreateTeachingFileDialog: () => void
@@ -24,9 +24,9 @@ type DirectoryChatRightSidebarPanelsProps = {
 
 type DirectoryChatRightSidebarPanels = Pick<
   ComponentProps<typeof ChatRightSidebar>,
-  | "resourcesPanel"
   | "agentsPanel"
   | "systemPromptPanel"
+  | "palettePanel"
   | "filesPanel"
   | "editorPanel"
   | "figurePanel"
@@ -40,7 +40,7 @@ export function buildDirectoryChatRightSidebarPanels(
     chatState,
     teachingWorkspace,
     showSystemPromptTab,
-    resourcesRefreshToken,
+    showPaletteTab,
     systemPromptRefreshToken,
     isStartingInteractiveLesson,
     onOpenCreateTeachingFileDialog,
@@ -98,7 +98,6 @@ export function buildDirectoryChatRightSidebarPanels(
   ) : undefined
 
   return {
-    resourcesPanel: <ResourcesPanel directory={directory} refreshToken={resourcesRefreshToken} />,
     agentsPanel: <AgentsMdPanel directory={directory} />,
     systemPromptPanel: showSystemPromptTab ? (
       <SystemPromptPanel
@@ -107,6 +106,7 @@ export function buildDirectoryChatRightSidebarPanels(
         refreshToken={systemPromptRefreshToken}
       />
     ) : undefined,
+    palettePanel: showPaletteTab ? <PalettePanel /> : undefined,
     filesPanel,
     editorPanel,
     figurePanel,

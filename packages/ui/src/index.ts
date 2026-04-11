@@ -131,6 +131,7 @@ export {
   SquareIcon,
   SquarePenIcon,
   TargetIcon,
+  ZapIcon,
   XIcon,
 } from "lucide-react"
 export { cn } from "./lib/utils"

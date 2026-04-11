@@ -25,7 +25,7 @@ import {
   SUBMITTED_BUILTIN_SLASH_COMMAND_NAMES,
 } from "@/components/prompt/slash-autocomplete"
 import type { MentionableAgent } from "@/components/prompt/mention-autocomplete"
-import type { DirectoryChatMainPane } from "@/components/directory-chat/directory-chat-main-pane"
+import type { DirectoryChatConversationPane } from "@/components/directory-chat/directory-chat-conversation-pane"
 import type { DirectoryChatRightSidebar } from "@/components/directory-chat/directory-chat-right-sidebar"
 import type { DirectoryChatShell } from "@/components/directory-chat/directory-chat-shell"
 import {
@@ -37,7 +37,6 @@ import {
   RESOURCE_COMMAND_REBUILD,
   RESOURCE_COMMAND_USE,
   RESOURCE_LOCAL_SLASH_COMMANDS,
-  RESOURCE_SIDEBAR_TAB,
   type ResourceLocalSlashCommand,
 } from "../resource-commands"
 import { resolveTeachingPromptContext } from "../teaching-context"
@@ -89,6 +88,7 @@ import { useChatConfig } from "./use-chat-config"
 import { useTeachingWorkspace } from "./use-teaching-workspace"
 import { getRightSidebarDefaultWidth, RIGHT_SIDEBAR_EDITOR_MIN_WIDTH } from "./right-sidebar-layout"
 import { publishPromptSubmissionProbe } from "@/e2e/driver"
+import type { SidebarResourceTarget } from "@/components/layout/chat-left-sidebar/resources-section"
 
 const BOTTOM_THRESHOLD_PX = 96
 const SIDEBAR_MIN_WIDTH = 244
@@ -103,7 +103,7 @@ type DirectoryChatPageControllerProps = {
 }
 
 type DirectoryChatShellProps = ComponentProps<typeof DirectoryChatShell>
-type DirectoryChatMainPaneProps = ComponentProps<typeof DirectoryChatMainPane>
+type DirectoryChatMainPaneProps = ComponentProps<typeof DirectoryChatConversationPane>
 type DirectoryChatRightSidebarProps = ComponentProps<typeof DirectoryChatRightSidebar>
 
 type ReadyDirectoryChatPageControllerState = {
@@ -156,12 +156,18 @@ export function useDirectoryChatPageController(
     }
   }, [props.directoryToken])
 
-  const showDevSessionTrace = import.meta.env.DEV
+  const showDevSessionTrace = true
   const showCapabilitiesSidebarTab = showDevSessionTrace
   const showSystemPromptSidebarTab = showDevSessionTrace
   const showSnapshotSidebarTab = showDevSessionTrace
+  const showPaletteSidebarTab = showDevSessionTrace
 
   const openProjects = useChatStore((state) => state.openProjects, shallow)
+  const activeReadingResource = useChatStore((state) =>
+    decodedDirectory ? state.activeReadingResourceByDirectory[decodedDirectory] : undefined,
+  )
+  const linkedSessionByResource = useChatStore((state) => state.linkedSessionByResource)
+  const linkReadingResourceSession = useChatStore((state) => state.linkReadingResourceSession)
   const hasRegisteredProject = useMemo(
     () =>
       !!decodedDirectory && openProjects.filter((d) => d && d !== "/").includes(decodedDirectory),
@@ -180,6 +186,7 @@ export function useDirectoryChatPageController(
     defaultIntent: chatConfig.defaultIntent,
     showSystemPromptSidebarTab,
     showCapabilitiesSidebarTab,
+    showPaletteSidebarTab,
   })
   const {
     clearUnread,
@@ -738,8 +745,7 @@ export function useDirectoryChatPageController(
   }
 
   function openResourcesPanel() {
-    cs.setRightSidebarTab(RESOURCE_SIDEBAR_TAB)
-    cs.setRightSidebarOpen(true)
+    cs.setMainPaneTab("resources")
   }
 
   function refreshResourcesPanel() {
@@ -748,6 +754,30 @@ export function useDirectoryChatPageController(
 
   function openSettingsPanel() {
     navigate({ to: "/settings", search: { tab: "instructions" } })
+  }
+
+  function openResourceInReadingMode(targetDirectory: string, resource: SidebarResourceTarget) {
+    const activeSessionID = useChatStore.getState().directories[targetDirectory]?.sessionID
+    const linkedSessionID = resource.resourceID
+      ? linkedSessionByResource[`${targetDirectory}::${resource.resourceID}`]
+      : undefined
+
+    void (async () => {
+      if (linkedSessionID && linkedSessionID !== activeSessionID) {
+        await selectSession(targetDirectory, linkedSessionID).catch(() => undefined)
+      }
+
+      void navigate({
+        to: "/$directory/read",
+        params: {
+          directory: encodeDirectory(targetDirectory),
+        },
+        search: {
+          path: resource.path,
+          ...(resource.resourceID ? { resource: resource.resourceID } : {}),
+        },
+      })
+    })()
   }
 
   const openTeachingEditorPanel = useCallback(() => {
@@ -829,7 +859,20 @@ export function useDirectoryChatPageController(
     if (!decodedDirectory) return false
 
     const rawAttachments = input.attachments ?? []
-    const promptParts = input.parts ?? []
+    const promptParts = [...(input.parts ?? [])]
+    const hasActiveReadingResourceReference =
+      !!activeReadingResource?.resourceID &&
+      !promptParts.some(
+        (part) =>
+          part.type === RESOURCE_REFERENCE_PART_TYPE &&
+          part.key === activeReadingResource.resourceID,
+      )
+    if (hasActiveReadingResourceReference && activeReadingResource.resourceID) {
+      promptParts.unshift({
+        type: RESOURCE_REFERENCE_PART_TYPE,
+        key: activeReadingResource.resourceID,
+      })
+    }
     const content = input.content.trim()
     const hasStructuredPromptParts = promptParts.some((part) => part.type !== PROMPT_PART_TYPE_TEXT)
     const promptPartsForSubmission = hasStructuredPromptParts ? promptParts : []
@@ -855,7 +898,7 @@ export function useDirectoryChatPageController(
         : undefined,
     })
 
-    await sendPrompt(decodedDirectory, contentForSubmission, {
+    const submittedSessionID = await sendPrompt(decodedDirectory, contentForSubmission, {
       parts: submissionParts,
       persona: cs.selectedPersona,
       intent,
@@ -864,7 +907,35 @@ export function useDirectoryChatPageController(
       model: cs.effectiveModelSelection,
       variant,
       teaching: teachingContext,
+      ...(activeReadingResource
+        ? {
+            reading: {
+              ...(activeReadingResource.resourceID
+                ? { resourceKey: activeReadingResource.resourceID }
+                : {}),
+              title: activeReadingResource.name,
+              path: activeReadingResource.path,
+              ...(activeReadingResource.locationLabel
+                ? { locationLabel: activeReadingResource.locationLabel }
+                : {}),
+              ...(activeReadingResource.tocLabel
+                ? { tocLabel: activeReadingResource.tocLabel }
+                : {}),
+              ...(activeReadingResource.pageLabel
+                ? { pageLabel: activeReadingResource.pageLabel }
+                : {}),
+            },
+          }
+        : {}),
     })
+
+    if (activeReadingResource?.resourceID) {
+      linkReadingResourceSession(
+        decodedDirectory,
+        activeReadingResource.resourceID,
+        submittedSessionID,
+      )
+    }
 
     publishPromptSubmissionProbe({
       kind: "prompt",
@@ -1080,7 +1151,6 @@ export function useDirectoryChatPageController(
     if (!nextPersona) return
 
     if (cs.rightSidebarActiveTab === "capabilities" && showCapabilitiesSidebarTab) return
-    if (cs.rightSidebarActiveTab === RESOURCE_SIDEBAR_TAB) return
     if (cs.rightSidebarActiveTab === "agents-md") return
     if (cs.rightSidebarActiveTab === "diagrams") return
     if (cs.rightSidebarActiveTab === "files") return
@@ -1194,13 +1264,16 @@ export function useDirectoryChatPageController(
       void onOpenExistingFolder()
     },
     onQuickChat: () => {
+      cs.setMainPaneTab("chat")
       void onQuickChat()
     },
     onCreateNotebook,
     onNewSession: (targetDirectory) => {
+      cs.setMainPaneTab("chat")
       void onNewSession(targetDirectory)
     },
     onSelectSession: (targetDirectory, targetSessionID) => {
+      cs.setMainPaneTab("chat")
       void onSelectSession(targetDirectory, targetSessionID)
     },
     onTogglePin: (targetDirectory, targetSessionID) =>
@@ -1215,6 +1288,8 @@ export function useDirectoryChatPageController(
       void onCloseDirectory(targetDirectory)
     },
     onOpenCurriculum: openCurriculumPanel,
+    mainPaneTab: cs.mainPaneTab,
+    onMainPaneTabChange: cs.setMainPaneTab,
     onOpenSettings: openSettingsPanel,
     className: "w-full h-full",
   }
@@ -1231,6 +1306,9 @@ export function useDirectoryChatPageController(
       await onPermissionReply(cs.pendingPermissions[0].id, reply)
     },
     promptComposerProps,
+    mainPaneTab: cs.mainPaneTab,
+    resourcesRefreshToken,
+    onOpenResource: openResourceInReadingMode,
   }
 
   const rightSidebarProps: DirectoryChatRightSidebarProps = {
@@ -1240,7 +1318,7 @@ export function useDirectoryChatPageController(
     showCapabilitiesTab: showCapabilitiesSidebarTab,
     showSystemPromptTab: showSystemPromptSidebarTab,
     showSnapshotTab: showSnapshotSidebarTab,
-    resourcesRefreshToken,
+    showPaletteTab: showPaletteSidebarTab,
     systemPromptRefreshToken,
     isStartingInteractiveLesson,
     onRunCurriculumAction: (action) => {
