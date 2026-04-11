@@ -5,6 +5,13 @@ import { createPlatformJsonStorage } from "../context/platform"
 
 export const UI_PREFERENCES_STORAGE_KEY = "buddy.ui.v1"
 
+export type NotebookMainPaneTab =
+  | "chat"
+  | "resources"
+  | "diagrams"
+  | "instructions"
+  | "question-set"
+
 type UiPreferencesStore = {
   pinnedByDirectory: Record<string, string[]>
   unreadByDirectory: Record<string, Record<string, true>>
@@ -12,6 +19,7 @@ type UiPreferencesStore = {
   leftSidebarWidth: number
   rightSidebarOpen: boolean
   rightSidebarWidth: number
+  mainPaneTab: NotebookMainPaneTab
   rightSidebarTab:
     | "curriculum"
     | "diagrams"
@@ -23,6 +31,7 @@ type UiPreferencesStore = {
     | "agents-md"
     | "capabilities"
     | "system-prompt"
+    | "palette"
     | "settings"
   isPinned: (directory: string, sessionID: string) => boolean
   togglePinned: (directory: string, sessionID: string) => void
@@ -34,6 +43,7 @@ type UiPreferencesStore = {
   setLeftSidebarWidth: (width: number) => void
   setRightSidebarOpen: (open: boolean) => void
   setRightSidebarWidth: (width: number) => void
+  setMainPaneTab: (tab: NotebookMainPaneTab) => void
   setRightSidebarTab: (
     tab:
       | "curriculum"
@@ -46,6 +56,7 @@ type UiPreferencesStore = {
       | "agents-md"
       | "capabilities"
       | "system-prompt"
+      | "palette"
       | "settings",
   ) => void
 }
@@ -59,6 +70,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
       leftSidebarWidth: 344,
       rightSidebarOpen: false,
       rightSidebarWidth: 344,
+      mainPaneTab: "chat" as NotebookMainPaneTab,
       rightSidebarTab: "curriculum" as const,
       isPinned(directory, sessionID) {
         return (get().pinnedByDirectory[directory] ?? []).includes(sessionID)
@@ -120,6 +132,11 @@ export const useUiPreferences = create<UiPreferencesStore>()(
           state.rightSidebarWidth = width
         })
       },
+      setMainPaneTab(tab) {
+        set((state) => {
+          state.mainPaneTab = tab
+        })
+      },
       setRightSidebarTab(tab) {
         set((state) => {
           state.rightSidebarTab = tab
@@ -128,7 +145,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
     })),
     {
       name: UI_PREFERENCES_STORAGE_KEY,
-      version: 9,
+      version: 10,
       storage: createPlatformJsonStorage("buddy.ui.dat"),
       migrate(persistedState) {
         const state = persistedState as Partial<UiPreferencesStore> | undefined
@@ -139,6 +156,16 @@ export const useUiPreferences = create<UiPreferencesStore>()(
           leftSidebarWidth: state?.leftSidebarWidth ?? 344,
           rightSidebarOpen: state?.rightSidebarOpen ?? false,
           rightSidebarWidth: state?.rightSidebarWidth ?? 344,
+          mainPaneTab:
+            state?.mainPaneTab === "resources"
+              ? "resources"
+              : state?.mainPaneTab === "diagrams"
+                ? "diagrams"
+                : state?.mainPaneTab === "instructions"
+                  ? "instructions"
+                  : state?.mainPaneTab === "question-set"
+                    ? "question-set"
+                    : "chat",
           rightSidebarTab:
             state?.rightSidebarTab === "settings"
               ? "settings"
@@ -160,7 +187,9 @@ export const useUiPreferences = create<UiPreferencesStore>()(
                               ? "editor"
                               : state?.rightSidebarTab === "diagrams"
                                 ? "diagrams"
-                                : "curriculum",
+                                : state?.rightSidebarTab === "palette"
+                                  ? "palette"
+                                  : "curriculum",
         }
       },
       partialize(state) {
@@ -171,6 +200,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
           leftSidebarWidth: state.leftSidebarWidth,
           rightSidebarOpen: state.rightSidebarOpen,
           rightSidebarWidth: state.rightSidebarWidth,
+          mainPaneTab: state.mainPaneTab,
           rightSidebarTab: state.rightSidebarTab,
         }
       },

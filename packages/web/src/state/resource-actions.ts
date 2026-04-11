@@ -11,7 +11,22 @@ export const RESOURCE_API_BASE_PATH = "/api/resource" as const
 
 export type ResourceStatus = "preparing" | "ready" | "unsupported" | "error" | "stale"
 
-export type ResourceRecord = ResourceListResponses[200]["resources"][number]
+type ResourceApiRecord = ResourceListResponses[200]["resources"][number]
+
+export type ResourceRecord = Pick<
+  ResourceApiRecord,
+  | "id"
+  | "alias"
+  | "sourceRelpath"
+  | "format"
+  | "status"
+  | "warnings"
+  | "preparedAt"
+  | "sourceMtimeMs"
+  | "sourceSizeBytes"
+> & {
+  sourceOriginRelpath?: string
+}
 
 export async function loadResources(directory: string) {
   const result = await getBuddyClient(directory).resource.list()

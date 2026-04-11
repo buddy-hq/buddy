@@ -1,19 +1,13 @@
 import { ChatLeftSidebar } from "@/components/layout/chat-left-sidebar"
 import { CreateTeachingFileDialog } from "@/components/teaching/create-teaching-file-dialog"
-import { DirectoryChatMainPane } from "@/components/directory-chat/directory-chat-main-pane"
+import { DirectoryChatConversationPane } from "@/components/directory-chat/directory-chat-conversation-pane"
+import { useDirectoryNotebookRouteContext } from "@/components/directory-chat/directory-notebook-route-context"
 import { DirectoryChatRightSidebar } from "@/components/directory-chat/directory-chat-right-sidebar"
 import { DirectoryChatShell } from "@/components/directory-chat/directory-chat-shell"
 import { language } from "@/context/language"
-import { useDirectoryChatPageController } from "@/lib/directory-chat/use-directory-chat-page-controller"
 
-type DirectoryChatPageProps = {
-  directoryToken: string
-}
-
-export function DirectoryChatPage(props: DirectoryChatPageProps) {
-  const controller = useDirectoryChatPageController({
-    directoryToken: props.directoryToken,
-  })
+export function DirectoryChatPage() {
+  const { controller } = useDirectoryNotebookRouteContext()
 
   if (controller.status === "invalid") {
     return (
@@ -34,7 +28,7 @@ export function DirectoryChatPage(props: DirectoryChatPageProps) {
   return (
     <DirectoryChatShell
       leftSidebar={<ChatLeftSidebar {...controller.leftSidebarProps} />}
-      mainPane={<DirectoryChatMainPane {...controller.mainPaneProps} />}
+      mainPane={<DirectoryChatConversationPane {...controller.mainPaneProps} />}
       rightSidebar={<DirectoryChatRightSidebar {...controller.rightSidebarProps} />}
       createTeachingFileDialog={<CreateTeachingFileDialog {...controller.dialogProps} />}
       {...controller.shellProps}
