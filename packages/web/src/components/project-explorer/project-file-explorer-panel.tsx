@@ -23,6 +23,16 @@ import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { apiFetch } from "@/lib/api-client"
 import {
+  buildProjectFileRawUrl,
+  CONTENT_LENGTH_HEADER,
+  CONTENT_TYPE_HEADER,
+} from "@/lib/project-file-raw-url"
+import {
+  fileExtensionFromPath as fileExtension,
+  fileNameFromPath as fileName,
+  normalizeRelativePath,
+} from "@/lib/workspace-file-paths"
+import {
   listProjectExplorerDirectory,
   readProjectExplorerEditableFile,
   readProjectExplorerFile,
@@ -37,10 +47,6 @@ const LARGE_TEXT_FILE_LIMIT_BYTES = 1_000_000
 const EMPTY_CHILDREN: string[] = []
 const EMPTY_TABS: string[] = []
 const IMAGE_MIME_PREFIX = "image/"
-const CONTENT_LENGTH_HEADER = "content-length"
-const CONTENT_TYPE_HEADER = "content-type"
-const PROJECT_FILE_RAW_ROUTE_PREFIX = "/api/file/raw"
-const DEFAULT_RAW_FILE_NAME = "file"
 const FILE_TREE_COLUMN_WIDTH_CLASS = "w-[19rem]"
 const IMAGE_FILE_EXTENSIONS = new Set([
   "avif",
@@ -134,25 +140,6 @@ type ExplorerNodeMap = Record<string, ProjectExplorerFileNode>
 type ExplorerFileViewStateMap = Record<string, ProjectExplorerFileViewState>
 type ExplorerReaderViewStateMap = Record<string, ProjectExplorerReaderViewState>
 
-function normalizeRelativePath(filepath: string) {
-  return filepath.trim().replaceAll("\\", "/").replace(/^\/+/, "").replace(/\/+$/, "")
-}
-
-function fileName(filepath: string) {
-  const normalized = normalizeRelativePath(filepath)
-  if (!normalized) return normalized
-  const lastSlash = normalized.lastIndexOf("/")
-  if (lastSlash < 0) return normalized
-  return normalized.slice(lastSlash + 1)
-}
-
-function fileExtension(filepath: string) {
-  const name = fileName(filepath).toLowerCase()
-  const lastDot = name.lastIndexOf(".")
-  if (lastDot <= 0 || lastDot === name.length - 1) return ""
-  return name.slice(lastDot + 1)
-}
-
 function monacoLanguageForPath(filepath: string) {
   return EXTENSION_TO_MONACO_LANGUAGE[fileExtension(filepath)] ?? "plaintext"
 }
@@ -176,18 +163,6 @@ function isEditableTextFileContent(content: ProjectExplorerFileContent | undefin
   if (content.type !== "text") return false
   if (content.encoding === "base64") return false
   return content.content.length <= LARGE_TEXT_FILE_LIMIT_BYTES
-}
-
-function buildProjectFileRawUrl(directory: string, filepath: string) {
-  const normalizedPath = normalizeRelativePath(filepath)
-  const downloadName = fileName(normalizedPath) || DEFAULT_RAW_FILE_NAME
-  const query = new URLSearchParams({
-    path: normalizedPath,
-  })
-  return {
-    directory,
-    endpoint: `${PROJECT_FILE_RAW_ROUTE_PREFIX}/${encodeURIComponent(downloadName)}?${query.toString()}`,
-  }
 }
 
 function isImageMimeType(mimeType: string | undefined) {

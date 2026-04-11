@@ -30,6 +30,11 @@ type ComposerConfig = {
   configuredModel: { providerID: string; modelID: string } | undefined
 }
 
+type ComposerConfigCacheEntry = {
+  value: ComposerConfig
+  promise?: Promise<ComposerConfig>
+}
+
 const DEFAULT_COMPOSER_CONFIG: ComposerConfig = {
   agentCatalog: [],
   defaultAgent: undefined,
@@ -39,6 +44,7 @@ const DEFAULT_COMPOSER_CONFIG: ComposerConfig = {
   defaultIntent: "auto",
   configuredModel: undefined,
 }
+const COMPOSER_CONFIG_CACHE_BY_DIRECTORY = new Map<string, ComposerConfigCacheEntry>()
 
 const E2E_BACKEND_COMMAND_NAME = "e2e-backend-command"
 
@@ -98,10 +104,55 @@ async function loadComposerConfig(directory: string): Promise<ComposerConfig> {
   }
 }
 
+function readCachedComposerConfig(directory: string) {
+  return COMPOSER_CONFIG_CACHE_BY_DIRECTORY.get(directory)?.value
+}
+
+function loadComposerConfigCached(directory: string): Promise<ComposerConfig> {
+  const cached = COMPOSER_CONFIG_CACHE_BY_DIRECTORY.get(directory)
+  if (cached?.promise) {
+    return cached.promise
+  }
+
+  const promise = loadComposerConfig(directory)
+    .then((config) => {
+      COMPOSER_CONFIG_CACHE_BY_DIRECTORY.set(directory, { value: config })
+      return config
+    })
+    .catch((error) => {
+      if (cached?.value) {
+        COMPOSER_CONFIG_CACHE_BY_DIRECTORY.set(directory, { value: cached.value })
+      } else {
+        COMPOSER_CONFIG_CACHE_BY_DIRECTORY.delete(directory)
+      }
+      throw error
+    })
+
+  COMPOSER_CONFIG_CACHE_BY_DIRECTORY.set(directory, {
+    value: cached?.value ?? DEFAULT_COMPOSER_CONFIG,
+    promise,
+  })
+
+  return promise
+}
+
 export function useChatConfig(props: UseChatConfigProps) {
   const { decodedDirectory, hasRegisteredProject } = props
 
-  const [composerConfig, setComposerConfig] = useState<ComposerConfig>(DEFAULT_COMPOSER_CONFIG)
+  const [composerConfig, setComposerConfig] = useState<ComposerConfig>(() => {
+    if (!decodedDirectory) return DEFAULT_COMPOSER_CONFIG
+    return readCachedComposerConfig(decodedDirectory) ?? DEFAULT_COMPOSER_CONFIG
+  })
+
+  useEffect(() => {
+    if (!decodedDirectory) {
+      setComposerConfig(DEFAULT_COMPOSER_CONFIG)
+      return
+    }
+
+    const cached = readCachedComposerConfig(decodedDirectory)
+    setComposerConfig(cached ?? DEFAULT_COMPOSER_CONFIG)
+  }, [decodedDirectory])
 
   // Load full composer configuration when directory changes or becomes registered.
   useEffect(() => {
@@ -109,9 +160,14 @@ export function useChatConfig(props: UseChatConfigProps) {
 
     let cancelled = false
 
+    const cached = readCachedComposerConfig(decodedDirectory)
+    if (cached) {
+      setComposerConfig(cached)
+    }
+
     void loadMcpStatus(decodedDirectory).catch(() => undefined)
 
-    void loadComposerConfig(decodedDirectory)
+    void loadComposerConfigCached(decodedDirectory)
       .then((config) => {
         if (cancelled) return
         setComposerConfig(config)
@@ -134,6 +190,15 @@ export function useChatConfig(props: UseChatConfigProps) {
           ...current,
           slashCommands: withE2EBackendCommand(commands),
         }))
+        const cached = readCachedComposerConfig(decodedDirectory)
+        if (cached) {
+          COMPOSER_CONFIG_CACHE_BY_DIRECTORY.set(decodedDirectory, {
+            value: {
+              ...cached,
+              slashCommands: withE2EBackendCommand(commands),
+            },
+          })
+        }
       })
       .catch(() => undefined)
   }, [decodedDirectory, hasRegisteredProject])

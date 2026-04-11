@@ -14,7 +14,6 @@ import { getSessionFamily } from "../session-family"
 import { modelSelectionKey, parseConfiguredModel } from "./chat-prompt-helpers"
 import type { SessionInfo, SessionStatusInfo } from "@/state/chat-types"
 import type { AgentConfigOption, PersonaConfigOption } from "@/state/chat-actions"
-import { RESOURCE_SIDEBAR_TAB } from "../resource-commands"
 import type { ChatRightSidebarTab } from "@/components/layout/chat-right-sidebar"
 import { getConnectedProviders, resolveAutoModelSelection } from "@/lib/provider-catalog"
 import { resolveCurrentAgent } from "./agent-catalog"
@@ -78,6 +77,7 @@ type UseDirectoryChatStateProps = {
   defaultIntent: "auto" | "learn" | "practice" | "assess"
   showSystemPromptSidebarTab: boolean
   showCapabilitiesSidebarTab: boolean
+  showPaletteSidebarTab: boolean
 }
 
 export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
@@ -106,6 +106,7 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
   const leftSidebarWidth = useUiPreferences((state) => state.leftSidebarWidth)
   const rightSidebarOpen = useUiPreferences((state) => state.rightSidebarOpen)
   const rightSidebarWidth = useUiPreferences((state) => state.rightSidebarWidth)
+  const mainPaneTab = useUiPreferences((state) => state.mainPaneTab)
   const rightSidebarTab = useUiPreferences((state) => state.rightSidebarTab)
   const pinnedByDirectory = useUiPreferences((state) => state.pinnedByDirectory)
   const unreadByDirectory = useUiPreferences((state) => state.unreadByDirectory)
@@ -113,6 +114,7 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
   const setLeftSidebarWidth = useUiPreferences((state) => state.setLeftSidebarWidth)
   const setRightSidebarOpen = useUiPreferences((state) => state.setRightSidebarOpen)
   const setRightSidebarWidth = useUiPreferences((state) => state.setRightSidebarWidth)
+  const setMainPaneTab = useUiPreferences((state) => state.setMainPaneTab)
   const setRightSidebarTab = useUiPreferences((state) => state.setRightSidebarTab)
   const togglePinned = useUiPreferences((state) => state.togglePinned)
   const markUnread = useUiPreferences((state) => state.markUnread)
@@ -374,10 +376,10 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
       ? "system-prompt"
       : rightSidebarTab === "capabilities" && props.showCapabilitiesSidebarTab
         ? "capabilities"
-        : rightSidebarTab === "diagrams"
-          ? "diagrams"
-          : rightSidebarTab === RESOURCE_SIDEBAR_TAB
-            ? RESOURCE_SIDEBAR_TAB
+        : rightSidebarTab === "palette" && props.showPaletteSidebarTab
+          ? "palette"
+          : rightSidebarTab === "diagrams"
+            ? "diagrams"
             : rightSidebarTab === "agents-md"
               ? "agents-md"
               : rightSidebarTab === "files"
@@ -416,6 +418,7 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
     setLeftSidebarWidth,
     setRightSidebarOpen,
     setRightSidebarWidth,
+    setMainPaneTab,
     setRightSidebarTab,
     togglePinned,
     markUnread,
@@ -443,6 +446,7 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
     leftSidebarMaxWidth,
     rightSidebarOpen,
     rightSidebarWidth,
+    mainPaneTab,
     rightSidebarDisplayWidth,
     rightSidebarMinWidth,
     rightSidebarMaxWidth,
