@@ -1,13 +1,25 @@
+import { app } from "electron"
 import log from "electron-log/main.js"
 import { dirname, join } from "node:path"
-import { readFileSync, readdirSync, statSync, unlinkSync } from "node:fs"
+import {
+  closeSync,
+  openSync,
+  readFileSync,
+  readdirSync,
+  statSync,
+  unlinkSync,
+  mkdirSync,
+} from "node:fs"
 
 const MAX_LOG_AGE_DAYS = 7
 const LOG_SIZE_LIMIT_BYTES = 5 * 1024 * 1024
 const LOG_TAIL_LINES = 1000
+const MAIN_LOG_FILENAME = "main.log"
 
 export function initLogging() {
+  log.transports.file.resolvePathFn = () => ensureLogFilePath()
   log.transports.file.maxSize = LOG_SIZE_LIMIT_BYTES
+  ensureLogFilePath()
   cleanupOldLogs()
   return log
 }
@@ -24,11 +36,18 @@ export function tailLogs() {
 }
 
 function cleanupOldLogs() {
-  const logPath = log.transports.file.getFile().path
+  const logPath = ensureLogFilePath()
   const directory = dirname(logPath)
   const cutoff = Date.now() - MAX_LOG_AGE_DAYS * 24 * 60 * 60 * 1000
 
-  for (const entry of readdirSync(directory)) {
+  let entries: string[] = []
+  try {
+    entries = readdirSync(directory)
+  } catch {
+    return
+  }
+
+  for (const entry of entries) {
     const filePath = join(directory, entry)
     try {
       const info = statSync(filePath)
@@ -40,4 +59,24 @@ function cleanupOldLogs() {
       continue
     }
   }
+}
+
+function ensureLogFilePath() {
+  const logPath = resolveLogFilePath()
+  const directory = dirname(logPath)
+  mkdirSync(directory, { recursive: true })
+
+  try {
+    const descriptor = openSync(logPath, "a")
+    closeSync(descriptor)
+  } catch {
+    // Ignore creation failures here; electron-log will report write errors.
+  }
+
+  return logPath
+}
+
+function resolveLogFilePath() {
+  const logsDirectory = app.getPath("logs")
+  return join(logsDirectory, MAIN_LOG_FILENAME)
 }
