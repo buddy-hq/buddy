@@ -18,6 +18,17 @@ import { IDLE_SESSION_STATUS, isSessionStatusActive, sessionStatusEquals } from 
 
 type StreamStatus = "idle" | "connecting" | "connected" | "error"
 
+export type ActiveReadingResourceState = {
+  resourceID?: string
+  alias?: string
+  name: string
+  path: string
+  status?: "preparing" | "ready" | "unsupported" | "error" | "stale" | "unprocessed"
+  locationLabel?: string
+  tocLabel?: string
+  pageLabel?: string
+}
+
 type ChatStore = {
   openProjects: string[]
   activeDirectory?: string
@@ -25,6 +36,8 @@ type ChatStore = {
   entryError?: string
   lastSessionByDirectory: Record<string, string>
   selectedModelByDirectory: Record<string, string>
+  activeReadingResourceByDirectory: Record<string, ActiveReadingResourceState>
+  linkedSessionByResource: Record<string, string>
   directories: Record<string, DirectoryChatState>
   streamStatus: StreamStatus
   ensureOpenProject: (directory: string) => void
@@ -53,9 +66,22 @@ type ChatStore = {
   applyPermissionAsked: (directory: string, request: PermissionRequest) => void
   applyPermissionReplied: (directory: string, requestID: string) => void
   setSelectedModel: (directory: string, model: string) => void
+  setActiveReadingResource: (
+    directory: string,
+    resource: ActiveReadingResourceState | undefined,
+  ) => void
+  updateActiveReadingResourceLocation: (
+    directory: string,
+    input: Pick<ActiveReadingResourceState, "locationLabel" | "tocLabel" | "pageLabel">,
+  ) => void
+  linkReadingResourceSession: (directory: string, resourceID: string, sessionID: string) => void
   setEntryError: (error?: string) => void
   setStreamStatus: (status: StreamStatus) => void
   resetRuntimeState: () => void
+}
+
+function resourceSessionKey(directory: string, resourceID: string) {
+  return `${directory}::${resourceID}`
 }
 
 const DEFAULT_TITLE = "New thread"
@@ -116,6 +142,8 @@ export const useChatStore = create<ChatStore>()(
       entryError: undefined as string | undefined,
       lastSessionByDirectory: {} as Record<string, string>,
       selectedModelByDirectory: {} as Record<string, string>,
+      activeReadingResourceByDirectory: {} as Record<string, ActiveReadingResourceState>,
+      linkedSessionByResource: {} as Record<string, string>,
       directories: {} as Record<string, DirectoryChatState>,
       streamStatus: "idle" as StreamStatus,
       ensureOpenProject(directory) {
@@ -153,6 +181,16 @@ export const useChatStore = create<ChatStore>()(
               unique.includes(directory),
             ),
           )
+          state.activeReadingResourceByDirectory = Object.fromEntries(
+            Object.entries(state.activeReadingResourceByDirectory).filter(([directory]) =>
+              unique.includes(directory),
+            ),
+          )
+          state.linkedSessionByResource = Object.fromEntries(
+            Object.entries(state.linkedSessionByResource).filter(([key]) =>
+              unique.some((directory) => key.startsWith(`${directory}::`)),
+            ),
+          )
           for (const directory of unique) {
             if (!state.directories[directory]) {
               state.directories[directory] = emptyDirectoryState()
@@ -182,6 +220,12 @@ export const useChatStore = create<ChatStore>()(
           state.openProjects = state.openProjects.filter((entry: string) => entry !== normalized)
           delete state.directories[normalized]
           delete state.lastSessionByDirectory[normalized]
+          delete state.activeReadingResourceByDirectory[normalized]
+          state.linkedSessionByResource = Object.fromEntries(
+            Object.entries(state.linkedSessionByResource).filter(
+              ([key]) => !key.startsWith(`${normalized}::`),
+            ),
+          )
 
           if (state.pendingActiveDirectory === normalized) {
             state.pendingActiveDirectory = undefined
@@ -542,6 +586,41 @@ export const useChatStore = create<ChatStore>()(
           state.selectedModelByDirectory[normalized] = nextModel
         })
       },
+      setActiveReadingResource(directory, resource) {
+        const normalized = normalizeProjectDirectory(directory)
+        if (!normalized) return
+
+        set((state) => {
+          if (resource) {
+            state.activeReadingResourceByDirectory[normalized] = resource
+            return
+          }
+          delete state.activeReadingResourceByDirectory[normalized]
+        })
+      },
+      updateActiveReadingResourceLocation(directory, input) {
+        const normalized = normalizeProjectDirectory(directory)
+        if (!normalized) return
+
+        set((state) => {
+          const current = state.activeReadingResourceByDirectory[normalized]
+          if (!current) return
+          state.activeReadingResourceByDirectory[normalized] = {
+            ...current,
+            ...input,
+          }
+        })
+      },
+      linkReadingResourceSession(directory, resourceID, sessionID) {
+        const normalized = normalizeProjectDirectory(directory)
+        if (!normalized) return
+        if (!resourceID.trim()) return
+        if (!sessionID.trim()) return
+
+        set((state) => {
+          state.linkedSessionByResource[resourceSessionKey(normalized, resourceID)] = sessionID
+        })
+      },
       setEntryError(error) {
         set((state) => {
           state.entryError = error
@@ -560,6 +639,10 @@ export const useChatStore = create<ChatStore>()(
           state.activeDirectory = undefined
           state.pendingActiveDirectory = undefined
           state.entryError = undefined
+          state.lastSessionByDirectory = {}
+          state.selectedModelByDirectory = {}
+          state.activeReadingResourceByDirectory = {}
+          state.linkedSessionByResource = {}
           state.directories = {}
           state.streamStatus = "idle"
         })
@@ -581,6 +664,14 @@ export const useChatStore = create<ChatStore>()(
               ([directory]) => !!normalizeProjectDirectory(directory),
             ),
           ),
+          activeReadingResourceByDirectory: Object.fromEntries(
+            Object.entries(persisted.activeReadingResourceByDirectory ?? {}).filter(
+              ([directory]) => !!normalizeProjectDirectory(directory),
+            ),
+          ),
+          linkedSessionByResource: Object.fromEntries(
+            Object.entries(persisted.linkedSessionByResource ?? {}),
+          ),
         }
       },
       partialize(state) {
@@ -592,6 +683,12 @@ export const useChatStore = create<ChatStore>()(
               ([directory]) => !!normalizeProjectDirectory(directory),
             ),
           ),
+          activeReadingResourceByDirectory: Object.fromEntries(
+            Object.entries(state.activeReadingResourceByDirectory).filter(
+              ([directory]) => !!normalizeProjectDirectory(directory),
+            ),
+          ),
+          linkedSessionByResource: state.linkedSessionByResource,
         }
       },
     },

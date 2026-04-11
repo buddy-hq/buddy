@@ -6,6 +6,5 @@ export const Route = createFileRoute("/$directory/chat")({
 })
 
 function DirectoryChatRoute() {
-  const params = Route.useParams()
-  return <DirectoryChatPage directoryToken={params.directory} />
+  return <DirectoryChatPage />
 }
