@@ -7,7 +7,7 @@ export type MermaidSvgBounds = {
   height: number
 }
 
-type MermaidViewportSize = {
+export type MermaidViewportSize = {
   width: number
   height: number
 }

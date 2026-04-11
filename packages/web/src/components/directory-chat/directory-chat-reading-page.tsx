@@ -92,9 +92,9 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
   return (
     <section
       data-component="directory-chat-reading-page"
-      className="h-full min-h-0 w-full overflow-hidden bg-surface-raised-base"
+      className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-surface-raised-base"
     >
-      <header className="flex h-11 items-center gap-2 border-b border-border-weaker-base bg-background-base/80 px-3">
+      <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border-weaker-base bg-background-base/80 px-3">
         <Button
           type="button"
           variant="ghost"
@@ -118,7 +118,7 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
         </div>
       </header>
 
-      <div className="flex h-[calc(100%-2.75rem)] min-h-0 w-full">
+      <div className="flex min-h-0 flex-1 w-full">
         <div className="min-w-0 flex-1 border-r border-border-weaker-base bg-background-base">
           {readyDirectory && normalizedPath ? (
             <DirectoryChatReadingReaderPane

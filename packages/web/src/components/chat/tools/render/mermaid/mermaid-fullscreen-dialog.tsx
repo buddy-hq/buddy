@@ -15,7 +15,7 @@ import { language } from "@/context/language"
 import { mermaidConstants } from "./constants"
 import type { MermaidRenderResult } from "./lib/render"
 import { MODAL_EXPAND_SPRING } from "./motion"
-import { useMermaidViewport } from "./use-mermaid-viewport"
+import { useMermaidViewport, type MermaidViewportSize } from "./use-mermaid-viewport"
 
 type MermaidFullscreenDialogProps = {
   value: MermaidRenderResult | undefined
@@ -38,7 +38,7 @@ export function MermaidFullscreenDialog({
     canvasPadding: mermaidConstants.viewport.FULLSCREEN_CANVAS_PADDING,
     panOverscan: mermaidConstants.viewport.FULLSCREEN_PAN_OVERSCAN,
     mountSvg: false,
-    getFitPadding: useCallback((viewport) => {
+    getFitPadding: useCallback((viewport: MermaidViewportSize) => {
       return {
         horizontal:
           viewport.width >= mermaidConstants.viewport.BREAKPOINT_MD
