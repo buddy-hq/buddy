@@ -171,6 +171,7 @@ function formatResourceInventoryLine(resource: ResourceContext): string {
   const sourcePreview = clampText(resource.sourceRelpath, RESOURCE_PATH_PREVIEW_MAX_CHARS)
   const packPath = `${RESOURCE_PACK_ROOT_DIR}/${resource.alias}/${RESOURCE_PACK_PROCESSED_DIR_NAME}`
   const segments = [
+    `id=${resource.id}`,
     `alias=${resource.alias}`,
     `format=${resource.format}`,
     `status=${resource.status}`,
@@ -194,6 +195,26 @@ function formatResourceInventoryLine(resource: ResourceContext): string {
   }
 
   return `- ${segments.join(" | ")}`
+}
+
+function buildActiveResourceContextText(
+  resource: SystemPromptCtx["activeResource"],
+): string | undefined {
+  if (!resource) return undefined
+
+  return [
+    "<active_reading_resource>",
+    `title=${resource.title}`,
+    `path=${resource.path}`,
+    ...(resource.id ? [`id=${resource.id}`] : []),
+    ...(resource.alias ? [`alias=${resource.alias}`] : []),
+    ...(resource.status ? [`status=${resource.status}`] : []),
+    ...(resource.tocLabel ? [`toc=${resource.tocLabel}`] : []),
+    ...(resource.pageLabel ? [`page=${resource.pageLabel}`] : []),
+    ...(resource.locationLabel ? [`location=${resource.locationLabel}`] : []),
+    "This is the resource currently open in reading mode. Use it as the default reading context for the current turn.",
+    "</active_reading_resource>",
+  ].join("\n")
 }
 
 function buildResourceContextText(resources: SystemPromptCtx["resources"]): string {
@@ -293,6 +314,10 @@ async function buildRuntimeContext(input: SystemPromptCtx): Promise<RuntimeConte
     runtimeSections.push(calculatorRuntime)
   }
   runtimeSections.push(buildResourceContextText(input.resources))
+  const activeResource = buildActiveResourceContextText(input.activeResource)
+  if (activeResource) {
+    runtimeSections.push(activeResource)
+  }
   runtimeSections.push(learnerSections.learnerSummary)
   runtimeSections.push(learnerSections.learnerProgress)
   runtimeSections.push(learnerSections.learnerFeedback)

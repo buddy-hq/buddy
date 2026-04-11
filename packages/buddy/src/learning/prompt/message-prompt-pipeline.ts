@@ -7,7 +7,7 @@ import { buildLearningSystemPrompt } from "./learning-prompt"
 import { normalizePromptParts } from "./workspace-file-references"
 import type { SystemPromptCtx } from "./prompt-context"
 import { getWorkspaceSnapshot } from "../learner-model"
-import { listResources } from "../../resources/resource-registry-service"
+import { listRegisteredResources } from "../../resources/resource-registry-service"
 import { resolveCapabilityProfile } from "../resolve-capability-profile"
 import type { TeachingSessionState } from "../shared/teaching-session-state"
 import type { WorkspaceState } from "@buddy/backend/learning/shared/teaching-vocabulary"
@@ -30,6 +30,15 @@ export type MessagePromptPipelineResult = {
   transformed: Record<string, unknown>
   runtimeProfileForPermissions?: ReturnType<typeof resolveCapabilityProfile>
   nextTeachingState?: TeachingSessionState
+}
+
+type ActiveReadingContext = {
+  resourceKey?: string
+  title: string
+  path: string
+  locationLabel?: string
+  tocLabel?: string
+  pageLabel?: string
 }
 
 async function resolvePromptModelInfo(input: {
@@ -71,6 +80,31 @@ async function resolvePromptResourceMetadata(input: {
   }
 }
 
+function parseActiveReadingContext(value: unknown): ActiveReadingContext | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined
+  const record = value as Record<string, unknown>
+  const title = typeof record.title === "string" ? record.title.trim() : ""
+  const path = typeof record.path === "string" ? record.path.trim() : ""
+  if (!title || !path) return undefined
+
+  return {
+    ...(typeof record.resourceKey === "string" && record.resourceKey.trim()
+      ? { resourceKey: record.resourceKey.trim() }
+      : {}),
+    title,
+    path,
+    ...(typeof record.locationLabel === "string" && record.locationLabel.trim()
+      ? { locationLabel: record.locationLabel.trim() }
+      : {}),
+    ...(typeof record.tocLabel === "string" && record.tocLabel.trim()
+      ? { tocLabel: record.tocLabel.trim() }
+      : {}),
+    ...(typeof record.pageLabel === "string" && record.pageLabel.trim()
+      ? { pageLabel: record.pageLabel.trim() }
+      : {}),
+  }
+}
+
 export async function runMessagePromptPipeline(input: {
   context: MessagePromptPipelineContext
   body: Record<string, unknown>
@@ -88,6 +122,7 @@ export async function runMessagePromptPipeline(input: {
 
   const teachingContextResult = TeachingPromptContextSchema.safeParse(input.body.teaching)
   const teachingContext = teachingContextResult.success ? teachingContextResult.data : undefined
+  const activeReadingContext = parseActiveReadingContext(input.body.reading)
   const target = normalizePersonaTarget({
     body: input.body,
     config: input.projectConfig,
@@ -120,7 +155,7 @@ export async function runMessagePromptPipeline(input: {
         workspaceState,
       },
     })
-    const resources = await listResources(input.context.directory).catch(() => [])
+    const resources = await listRegisteredResources(input.context.directory).catch(() => [])
     const runtimeProfile = resolveCapabilityProfile({
       persona,
       workspaceState,
@@ -142,6 +177,7 @@ export async function runMessagePromptPipeline(input: {
           })
 
           return {
+            id: resource.id,
             alias: resource.alias,
             sourceRelpath: resource.sourceRelpath,
             format: resource.format,
@@ -155,6 +191,29 @@ export async function runMessagePromptPipeline(input: {
       ),
     ])
 
+    const activeResource =
+      activeReadingContext &&
+      (() => {
+        const matched = activeReadingContext.resourceKey
+          ? resources.find(
+              (resource) =>
+                resource.id === activeReadingContext.resourceKey ||
+                resource.alias === activeReadingContext.resourceKey,
+            )
+          : undefined
+
+        return {
+          ...(matched ? { id: matched.id, alias: matched.alias, status: matched.status } : {}),
+          title: activeReadingContext.title,
+          path: activeReadingContext.path,
+          ...(activeReadingContext.locationLabel
+            ? { locationLabel: activeReadingContext.locationLabel }
+            : {}),
+          ...(activeReadingContext.tocLabel ? { tocLabel: activeReadingContext.tocLabel } : {}),
+          ...(activeReadingContext.pageLabel ? { pageLabel: activeReadingContext.pageLabel } : {}),
+        }
+      })()
+
     const promptBuildContext: SystemPromptCtx = {
       directory: input.context.directory,
       persona: runtimeProfile.persona,
@@ -163,6 +222,7 @@ export async function runMessagePromptPipeline(input: {
       learnerSnapshot: learnerSnapshot,
       focusGoalIds,
       resources: promptResources,
+      ...(activeResource ? { activeResource } : {}),
       ...(promptModel ? { model: promptModel } : {}),
       teachingContext,
       ...(input.previousState

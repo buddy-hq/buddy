@@ -1008,7 +1008,7 @@ export async function ensureDirectorySession(directory: string) {
           .catch(() => undefined)
       }
 
-      if (!info) {
+      if (!info && !preserveDraft) {
         const latestStoreState = useChatStore.getState()
         const latestState = latestStoreState.directories[targetDirectory]
         const latestSessionID =
@@ -1133,6 +1133,20 @@ async function resolveSessionForSend(directory: string) {
   return created.id
 }
 
+function resolvePromptTarget(input?: { persona?: string; agent?: string }) {
+  const persona = input?.persona?.trim()
+  if (persona) {
+    return { persona }
+  }
+
+  const agent = input?.agent?.trim()
+  if (agent) {
+    return { agent }
+  }
+
+  return {}
+}
+
 export async function sendPrompt(
   directory: string,
   content: string,
@@ -1148,8 +1162,16 @@ export async function sendPrompt(
     }
     variant?: string
     teaching?: TeachingPromptContext
+    reading?: {
+      resourceKey?: string
+      title: string
+      path: string
+      locationLabel?: string
+      tocLabel?: string
+      pageLabel?: string
+    }
   },
-) {
+): Promise<string> {
   const store = useChatStore.getState()
   store.clearDirectoryError(directory)
   let sessionID: string | undefined
@@ -1160,18 +1182,19 @@ export async function sendPrompt(
     store.applySessionStatus(directory, resolvedSessionID, BUSY_SESSION_STATUS)
 
     const intent = input?.intent ?? "auto"
+    const target = resolvePromptTarget(input)
     const promptBody = {
       content,
       ...(input?.parts && input.parts.length > 0 ? { parts: input.parts } : {}),
-      ...(input?.persona ? { persona: input.persona } : {}),
+      ...target,
       intent,
       ...(input?.focusGoalIds && input.focusGoalIds.length > 0
         ? { focusGoalIds: input.focusGoalIds }
         : {}),
-      ...(input?.agent ? { agent: input.agent } : {}),
       ...(input?.model ? { model: input.model } : {}),
       ...(input?.variant ? { variant: input.variant } : {}),
       ...(input?.teaching ? { teaching: input.teaching } : {}),
+      ...(input?.reading ? { reading: input.reading } : {}),
     }
 
     const postPrompt = async (targetSessionID: string) => {
@@ -1214,6 +1237,7 @@ export async function sendPrompt(
     }
 
     console.info("[chat-action] prompt.accepted", { directory, sessionID })
+    return sessionID
   } catch (error) {
     if (sessionID) {
       console.error("[chat-action] prompt.failed", {
@@ -1287,13 +1311,13 @@ export async function sendCommand(
     store.applySessionStatus(directory, resolvedSessionID, BUSY_SESSION_STATUS)
 
     const intent = input?.intent ?? "auto"
+    const target = resolvePromptTarget(input)
     const commandBody = {
       command,
       arguments: argumentsText,
       ...(input?.parts && input.parts.length > 0 ? { parts: input.parts } : {}),
-      ...(input?.persona ? { persona: input.persona } : {}),
+      ...target,
       intent,
-      ...(input?.agent ? { agent: input.agent } : {}),
       ...(input?.model ? { model: `${input.model.providerID}/${input.model.modelID}` } : {}),
       ...(input?.variant ? { variant: input.variant } : {}),
     }
@@ -1838,14 +1862,19 @@ export async function findWorkspaceFiles(
     limit?: number
   },
 ): Promise<FindFilesResponses[200]> {
+  const FIND_FILES_DEFAULT_LIMIT = 20
+  const FIND_FILES_LIMIT_MIN = 1
+  const FIND_FILES_LIMIT_MAX = 200
   const search = query.trim()
   if (!search) return [] as string[]
 
   const includeDirectories = input?.includeDirectories ?? true
+  const requestedLimit = input?.limit ?? FIND_FILES_DEFAULT_LIMIT
+  const limit = Math.max(FIND_FILES_LIMIT_MIN, Math.min(FIND_FILES_LIMIT_MAX, requestedLimit))
   const response = await getBuddyClient(directory).find.files({
     query: search,
     dirs: includeDirectories ? "true" : "false",
-    limit: input?.limit ?? 20,
+    limit,
   })
 
   return requireBuddyData<FindFilesResponses[200]>(response)
