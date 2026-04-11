@@ -98,6 +98,7 @@ describe("prompt assemblies", () => {
       persona: "buddy",
       resources: [
         {
+          id: "res_shape_up",
           alias: "shape-up",
           sourceRelpath: "resources/shape-up/Shape Up.pdf",
           format: "pdf",
@@ -105,6 +106,7 @@ describe("prompt assemblies", () => {
           warnings: [],
         },
         {
+          id: "res_goal_rubric",
           alias: "goal-rubric",
           sourceRelpath: "resources/goal-rubric/rubric.docx",
           format: "docx",
@@ -116,8 +118,10 @@ describe("prompt assemblies", () => {
 
     expect(system).toContain("<notebook_resources>")
     expect(system).toContain("Available resources:")
+    expect(system).toContain("id=res_shape_up")
     expect(system).toContain("alias=shape-up")
     expect(system).toContain("pack=resources/shape-up/processed")
+    expect(system).toContain("id=res_goal_rubric")
     expect(system).toContain("alias=goal-rubric")
     expect(system).toContain("status=preparing")
   })
@@ -126,6 +130,7 @@ describe("prompt assemblies", () => {
     await using project = await tmpdir()
 
     const resources = Array.from({ length: 10 }, (_, index) => ({
+      id: `res_${index + 1}`,
       alias: `resource-${index + 1}`,
       sourceRelpath: `resources/resource-${index + 1}/source-${index + 1}.pdf`,
       format: "pdf",

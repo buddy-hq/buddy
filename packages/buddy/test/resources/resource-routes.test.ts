@@ -40,12 +40,14 @@ describe("resource routes", () => {
       alias: string
       status: string
       sourceRelpath: string
+      sourceOriginRelpath?: string
     }
     expect(added.alias).toBe("guide")
     expect(added.status).toBe("preparing")
     expect(added.sourceRelpath.startsWith("resources/")).toBe(true)
     expect(added.sourceRelpath.endsWith("/guide.html")).toBe(true)
-    await expect(stat(sourcePath)).rejects.toBeTruthy()
+    expect(added.sourceOriginRelpath).toBe(sourceRelpath)
+    await expect(stat(sourcePath)).resolves.toBeDefined()
     await expect(readFile(path.join(project.path, added.sourceRelpath), "utf8")).resolves.toContain(
       "Guide",
     )
@@ -183,6 +185,57 @@ describe("resource routes", () => {
 
     const refreshed = await readResource(project.path, "guide")
     expect(refreshed.status).toBe(RESOURCE_READY_STATUS)
+  })
+
+  test("marks copied workspace resources stale when the original file changes", async () => {
+    await using project = await tmpdir({ git: true })
+    const sourceRelpath = "guide.html"
+    const sourcePath = path.join(project.path, sourceRelpath)
+    await writeFile(
+      sourcePath,
+      "<!doctype html><html><body><h1>Guide</h1><p>Version one.</p></body></html>",
+      "utf8",
+    )
+
+    const addResponse = await app.request("/api/resource", {
+      method: "POST",
+      headers: {
+        [DIRECTORY_HEADER]: project.path,
+        "content-type": JSON_CONTENT_TYPE,
+      },
+      body: JSON.stringify({
+        sourcePath: sourceRelpath,
+        alias: "guide",
+      }),
+    })
+    expect(addResponse.status).toBe(200)
+
+    const readyResource = await waitForResource(project.path, "guide")
+    expect(readyResource.status).toBe(RESOURCE_READY_STATUS)
+
+    await Bun.sleep(5)
+    await writeFile(
+      sourcePath,
+      "<!doctype html><html><body><h1>Guide</h1><p>Version two is longer.</p></body></html>",
+      "utf8",
+    )
+
+    const staleResource = await readResource(project.path, "guide")
+    expect(staleResource.status).toBe("stale")
+
+    const rebuildResponse = await app.request("/api/resource/guide/rebuild", {
+      method: "POST",
+      headers: {
+        [DIRECTORY_HEADER]: project.path,
+      },
+    })
+    expect(rebuildResponse.status).toBe(200)
+
+    const rebuiltResource = await waitForResource(project.path, "guide")
+    expect(rebuiltResource.status).toBe(RESOURCE_READY_STATUS)
+    await expect(
+      readFile(path.join(project.path, rebuiltResource.sourceRelpath), "utf8"),
+    ).resolves.toContain("Version two is longer.")
   })
 })
 

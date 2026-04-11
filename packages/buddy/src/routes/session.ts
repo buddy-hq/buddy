@@ -93,6 +93,10 @@ const sessionPromptBodyOpenApiSchema = {
       type: "object" as const,
       additionalProperties: true,
     },
+    reading: {
+      type: "object" as const,
+      additionalProperties: true,
+    },
   },
 }
 

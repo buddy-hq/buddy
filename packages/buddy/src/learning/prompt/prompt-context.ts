@@ -16,6 +16,7 @@ export type PromptTurnSnapshot = {
 export type PromptResourceStatus = "preparing" | "ready" | "unsupported" | "error" | "stale"
 
 export type PromptResourceSnapshot = {
+  id: string
   alias: string
   sourceRelpath: string
   format: string
@@ -24,6 +25,17 @@ export type PromptResourceSnapshot = {
   fullTextPath?: string
   fullTextEstTokens?: number
   fullTextChars?: number
+}
+
+export type ActivePromptResourceSnapshot = {
+  id?: string
+  alias?: string
+  title: string
+  path: string
+  status?: PromptResourceStatus
+  locationLabel?: string
+  tocLabel?: string
+  pageLabel?: string
 }
 
 export type PromptModelSnapshot = {
@@ -42,6 +54,7 @@ export type SystemPromptCtx = {
   learnerSnapshot: LearnerSnapshot
   focusGoalIds: string[]
   resources: PromptResourceSnapshot[]
+  activeResource?: ActivePromptResourceSnapshot
   model?: PromptModelSnapshot
   teachingContext?: TeachingPromptContext
   priorTurn?: PromptTurnSnapshot

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto"
 import { promises as fs } from "node:fs"
 import path from "node:path"
 import matter from "gray-matter"
@@ -14,7 +15,10 @@ import {
   classifyResourcePath,
   ensureResourcePack,
 } from "../resource-packs"
-import { resourceSourceSnapshotMatches } from "../resource-packs/source-match"
+import {
+  resourceSourceSnapshotMatches,
+  resourceSourceVersionMatches,
+} from "../resource-packs/source-match"
 
 const RESOURCE_PREPARATION_POLL_ATTEMPTS = 20
 const RESOURCE_PREPARATION_POLL_DELAY_MS = 500
@@ -28,6 +32,8 @@ const RESOURCE_SOURCE_PATH_REQUIRED_ERROR = "Resource path is required." as cons
 const RESOURCE_PROCESSED_METADATA_MISSING_WARNING =
   "Resource metadata is missing. Run /resource rebuild." as const
 const RESOURCE_STALE_WARNING = "Source file changed since last successful preparation." as const
+const RESOURCE_SOURCE_MANIFEST_FILENAME = ".buddy-source.json" as const
+const RESOURCE_IDENTITY_MANIFEST_FILENAME = ".buddy-resource.json" as const
 
 export type ResourceStatus = "preparing" | "ready" | "unsupported" | "error" | "stale"
 
@@ -35,13 +41,17 @@ export type ResourceRecord = {
   id: string
   alias: string
   sourceRelpath: string
+  sourceOriginRelpath?: string
   format: string
   status: ResourceStatus
   warnings: string[]
-  packKey?: string
   preparedAt?: string
   sourceMtimeMs?: number
   sourceSizeBytes?: number
+}
+
+type RegisteredResourceRecord = ResourceRecord & {
+  packKey: string
 }
 
 type ResourceUseResolution =
@@ -67,17 +77,40 @@ type ResourcePackMetadataSnapshot = {
   sourceSizeBytes?: number
 }
 
+type ResourceSourceManifest = {
+  sourceOriginRelpath?: string
+}
+
+type ResourceIdentityManifest = {
+  resourceID: string
+}
+
+type ResourceSourceSnapshot = {
+  path: string
+  mtimeMs: number
+  sizeBytes: number
+  atime: Date
+  mtime: Date
+}
+
 const inFlightResourcePreparation = new Map<string, Promise<void>>()
 
 export class ResourceValidationError extends Error {}
 export class ResourceNotFoundError extends Error {}
 
 export async function listResources(directory: string): Promise<ResourceRecord[]> {
+  const records = await listRegisteredResources(directory)
+  return records.map(stripRegisteredResourceRecord)
+}
+
+export async function listRegisteredResources(
+  directory: string,
+): Promise<RegisteredResourceRecord[]> {
   await removeLegacyResourceRegistryFile(directory)
   const aliases = await listResourceAliases(directory)
   const records = await Promise.all(
     aliases.map(async (alias) =>
-      buildResourceRecord({
+      buildRegisteredResourceRecord({
         directory,
         alias,
       }),
@@ -110,11 +143,28 @@ export async function addResource(input: {
   })
 
   void prepareResource(input.directory, staged.alias)
-  return buildResourceRecord({
-    directory: input.directory,
-    alias: staged.alias,
-    forcePreparing: true,
-  })
+  return stripRegisteredResourceRecord(
+    await buildRegisteredResourceRecord({
+      directory: input.directory,
+      alias: staged.alias,
+      forcePreparing: true,
+    }),
+  )
+}
+
+export async function getResourceByKey(
+  directory: string,
+  key: string,
+): Promise<ResourceRecord | undefined> {
+  const record = await findRegisteredResourceByKey(directory, key)
+  return record ? stripRegisteredResourceRecord(record) : undefined
+}
+
+export async function getRegisteredResourceByKey(
+  directory: string,
+  key: string,
+): Promise<RegisteredResourceRecord | undefined> {
+  return findRegisteredResourceByKey(directory, key)
 }
 
 export async function renameResource(input: {
@@ -148,10 +198,12 @@ export async function renameResource(input: {
     })
   }
 
-  return buildResourceRecord({
-    directory: input.directory,
-    alias,
-  })
+  return stripRegisteredResourceRecord(
+    await buildRegisteredResourceRecord({
+      directory: input.directory,
+      alias,
+    }),
+  )
 }
 
 export async function rebuildResource(input: {
@@ -167,11 +219,13 @@ export async function rebuildResource(input: {
   }
 
   void prepareResource(input.directory, alias)
-  return buildResourceRecord({
-    directory: input.directory,
-    alias,
-    forcePreparing: true,
-  })
+  return stripRegisteredResourceRecord(
+    await buildRegisteredResourceRecord({
+      directory: input.directory,
+      alias,
+      forcePreparing: true,
+    }),
+  )
 }
 
 export async function removeResource(input: {
@@ -190,11 +244,11 @@ export async function resolveResourceReference(input: {
   directory: string
   key: string
 }): Promise<ResourceUseResolution> {
-  const record = await findResourceByKey(input.directory, input.key)
+  const record = await findRegisteredResourceByKey(input.directory, input.key)
   if (!record) {
     return { ok: false, reason: "not_found" }
   }
-  if (record.status !== RESOURCE_PACK_STATUS_READY || !record.packKey) {
+  if (record.status !== RESOURCE_PACK_STATUS_READY) {
     return { ok: false, reason: "not_ready", record }
   }
 
@@ -216,7 +270,7 @@ export async function resolveResourceReference(input: {
 }
 
 export async function resolveResourceIDByKey(directory: string, key: string): Promise<string> {
-  const resources = await listResources(directory)
+  const resources = await listRegisteredResources(directory)
   const entry = resources.find((record) => record.id === key || record.alias === key)
   if (!entry) {
     throw new ResourceNotFoundError(`Resource not found: ${key}`)
@@ -224,57 +278,29 @@ export async function resolveResourceIDByKey(directory: string, key: string): Pr
   return entry.id
 }
 
-async function prepareResource(directory: string, alias: string): Promise<void> {
-  const key = preparationKey(directory, alias)
-  const existing = inFlightResourcePreparation.get(key)
-  if (existing) return existing
-
-  const task = prepareResourceInternal(directory, alias)
-    .catch(() => undefined)
-    .finally(() => {
-      inFlightResourcePreparation.delete(key)
-    })
-
-  inFlightResourcePreparation.set(key, task)
-  return task
-}
-
-async function prepareResourceInternal(directory: string, alias: string): Promise<void> {
-  const sourcePath = await resolvePrimarySourcePathForAlias(directory, alias)
-  if (!sourcePath) {
-    throw new ResourceValidationError(
-      `${RESOURCE_SOURCE_MISSING_WARNING_PREFIX}${path.join(RESOURCE_PACK_ROOT_DIR, alias)}`,
-    )
-  }
-
-  let resolution = await ensureResourcePack({ directory, sourcePath })
-  if (resolution.status === RESOURCE_PACK_STATUS_PREPARING) {
-    for (let attempt = 0; attempt < RESOURCE_PREPARATION_POLL_ATTEMPTS; attempt += 1) {
-      await sleep(RESOURCE_PREPARATION_POLL_DELAY_MS)
-      resolution = await ensureResourcePack({ directory, sourcePath })
-      if (resolution.status !== RESOURCE_PACK_STATUS_PREPARING) {
-        break
-      }
-    }
+function stripRegisteredResourceRecord(record: RegisteredResourceRecord): ResourceRecord {
+  return {
+    id: record.id,
+    alias: record.alias,
+    sourceRelpath: record.sourceRelpath,
+    ...(record.sourceOriginRelpath ? { sourceOriginRelpath: record.sourceOriginRelpath } : {}),
+    format: record.format,
+    status: record.status,
+    warnings: record.warnings,
+    ...(record.preparedAt ? { preparedAt: record.preparedAt } : {}),
+    ...(record.sourceMtimeMs !== undefined ? { sourceMtimeMs: record.sourceMtimeMs } : {}),
+    ...(record.sourceSizeBytes !== undefined ? { sourceSizeBytes: record.sourceSizeBytes } : {}),
   }
 }
 
-export function mapResourceRouteError(error: unknown): Response | undefined {
-  if (error instanceof ResourceValidationError) {
-    return Response.json({ error: error.message }, { status: 400 })
-  }
-  if (error instanceof ResourceNotFoundError) {
-    return Response.json({ error: error.message }, { status: 404 })
-  }
-  return undefined
-}
-
-async function buildResourceRecord(input: {
+async function buildRegisteredResourceRecord(input: {
   directory: string
   alias: string
   forcePreparing?: boolean
-}): Promise<ResourceRecord> {
+}): Promise<RegisteredResourceRecord> {
+  const identity = await ensureResourceIdentityManifestForAlias(input.directory, input.alias)
   const metadata = await readResourcePackMetadataForAlias(input.directory, input.alias)
+  const sourceManifest = await readResourceSourceManifestForAlias(input.directory, input.alias)
   const sourcePath = await resolvePrimarySourcePathForAlias(
     input.directory,
     input.alias,
@@ -282,9 +308,12 @@ async function buildResourceRecord(input: {
   )
   if (!sourcePath) {
     return {
-      id: input.alias,
+      id: identity.resourceID,
       alias: input.alias,
       sourceRelpath: path.join(RESOURCE_PACK_ROOT_DIR, input.alias),
+      ...(sourceManifest?.sourceOriginRelpath
+        ? { sourceOriginRelpath: sourceManifest.sourceOriginRelpath }
+        : {}),
       format: metadata?.format ?? "unknown",
       status: "error",
       warnings: [
@@ -300,6 +329,10 @@ async function buildResourceRecord(input: {
   const sourceMtimeMs = Number(sourceStat.mtimeMs)
   const sourceSizeBytes = Number(sourceStat.size)
   const classification = classifyResourcePath(sourcePath, Number(sourceStat.size))
+  const originSnapshot = await resolveResourceOriginSnapshot({
+    directory: input.directory,
+    sourceManifest,
+  })
 
   let status: ResourceStatus
   let warnings: string[]
@@ -329,16 +362,28 @@ async function buildResourceRecord(input: {
       sourceMtimeMs,
       sourceSizeBytes,
     })
-    if (status === RESOURCE_PACK_STATUS_READY && sourceChanged) {
+    const originChanged =
+      !!originSnapshot &&
+      originSnapshot.path !== sourcePath &&
+      !resourceSourceVersionMatches({
+        metadataSourceMtimeMs: sourceMtimeMs,
+        metadataSourceSizeBytes: sourceSizeBytes,
+        sourceMtimeMs: originSnapshot.mtimeMs,
+        sourceSizeBytes: originSnapshot.sizeBytes,
+      })
+    if (status === RESOURCE_PACK_STATUS_READY && (sourceChanged || originChanged)) {
       status = "stale"
       warnings = [RESOURCE_STALE_WARNING]
     }
   }
 
   return {
-    id: input.alias,
+    id: identity.resourceID,
     alias: input.alias,
     sourceRelpath,
+    ...(sourceManifest?.sourceOriginRelpath
+      ? { sourceOriginRelpath: sourceManifest.sourceOriginRelpath }
+      : {}),
     format: metadata?.format ?? classification.format,
     status,
     warnings,
@@ -347,6 +392,56 @@ async function buildResourceRecord(input: {
     sourceMtimeMs,
     sourceSizeBytes,
   }
+}
+
+async function prepareResource(directory: string, alias: string): Promise<void> {
+  const key = preparationKey(directory, alias)
+  const existing = inFlightResourcePreparation.get(key)
+  if (existing) return existing
+
+  const task = prepareResourceInternal(directory, alias)
+    .catch(() => undefined)
+    .finally(() => {
+      inFlightResourcePreparation.delete(key)
+    })
+
+  inFlightResourcePreparation.set(key, task)
+  return task
+}
+
+async function prepareResourceInternal(directory: string, alias: string): Promise<void> {
+  const sourcePath = await resolvePrimarySourcePathForAlias(directory, alias)
+  if (!sourcePath) {
+    throw new ResourceValidationError(
+      `${RESOURCE_SOURCE_MISSING_WARNING_PREFIX}${path.join(RESOURCE_PACK_ROOT_DIR, alias)}`,
+    )
+  }
+  await syncStagedSourceWithOrigin({
+    directory,
+    alias,
+    stagedSourcePath: sourcePath,
+  })
+
+  let resolution = await ensureResourcePack({ directory, sourcePath })
+  if (resolution.status === RESOURCE_PACK_STATUS_PREPARING) {
+    for (let attempt = 0; attempt < RESOURCE_PREPARATION_POLL_ATTEMPTS; attempt += 1) {
+      await sleep(RESOURCE_PREPARATION_POLL_DELAY_MS)
+      resolution = await ensureResourcePack({ directory, sourcePath })
+      if (resolution.status !== RESOURCE_PACK_STATUS_PREPARING) {
+        break
+      }
+    }
+  }
+}
+
+export function mapResourceRouteError(error: unknown): Response | undefined {
+  if (error instanceof ResourceValidationError) {
+    return Response.json({ error: error.message }, { status: 400 })
+  }
+  if (error instanceof ResourceNotFoundError) {
+    return Response.json({ error: error.message }, { status: 404 })
+  }
+  return undefined
 }
 
 async function readResourcePackMetadataForAlias(
@@ -379,6 +474,92 @@ async function readResourcePackMetadataForAlias(
     preparedAt: stringValue(data, "prepared_at") || undefined,
     sourceMtimeMs: numberValue(data, "source_mtime_ms"),
     sourceSizeBytes: numberValue(data, "source_size_bytes"),
+  }
+}
+
+async function readResourceSourceManifestForAlias(
+  directory: string,
+  alias: string,
+): Promise<ResourceSourceManifest | undefined> {
+  const manifestPath = path.join(
+    resourceFolderPath(directory, alias),
+    RESOURCE_SOURCE_MANIFEST_FILENAME,
+  )
+  const content = await fs.readFile(manifestPath, "utf8").catch(() => undefined)
+  if (!content) return undefined
+
+  const parsed = safeParseJson(content)
+  if (!isPlainObject(parsed)) return undefined
+
+  const sourceOriginRelpath = stringValue(parsed, "sourceOriginRelpath")
+  if (!sourceOriginRelpath) return undefined
+
+  return {
+    sourceOriginRelpath,
+  }
+}
+
+async function resolveResourceOriginSnapshot(input: {
+  directory: string
+  sourceManifest?: ResourceSourceManifest
+}): Promise<ResourceSourceSnapshot | undefined> {
+  const sourceOriginRelpath = input.sourceManifest?.sourceOriginRelpath?.trim()
+  if (!sourceOriginRelpath) return undefined
+
+  const originPath = path.resolve(input.directory, sourceOriginRelpath)
+  if (!isPathInsideWorkspace(input.directory, originPath)) {
+    return undefined
+  }
+
+  const originStat = await fs.stat(originPath).catch(() => undefined)
+  if (!originStat?.isFile()) return undefined
+
+  return {
+    path: originPath,
+    mtimeMs: Number(originStat.mtimeMs),
+    sizeBytes: Number(originStat.size),
+    atime: originStat.atime,
+    mtime: originStat.mtime,
+  }
+}
+
+async function ensureResourceIdentityManifestForAlias(
+  directory: string,
+  alias: string,
+): Promise<ResourceIdentityManifest> {
+  const existing = await readResourceIdentityManifestForAlias(directory, alias)
+  if (existing) return existing
+
+  const created = {
+    resourceID: randomUUID(),
+  } satisfies ResourceIdentityManifest
+  await writeResourceIdentityManifest({
+    directory,
+    alias,
+    manifest: created,
+  })
+  return created
+}
+
+async function readResourceIdentityManifestForAlias(
+  directory: string,
+  alias: string,
+): Promise<ResourceIdentityManifest | undefined> {
+  const manifestPath = path.join(
+    resourceFolderPath(directory, alias),
+    RESOURCE_IDENTITY_MANIFEST_FILENAME,
+  )
+  const content = await fs.readFile(manifestPath, "utf8").catch(() => undefined)
+  if (!content) return undefined
+
+  const parsed = safeParseJson(content)
+  if (!isPlainObject(parsed)) return undefined
+
+  const resourceID = stringValue(parsed, "resourceID")
+  if (!resourceID) return undefined
+
+  return {
+    resourceID,
   }
 }
 
@@ -436,16 +617,86 @@ async function stageResourceSourcePath(input: {
     sourceFilename: path.basename(input.sourcePath),
   })
 
-  if (isPathInsideWorkspace(input.directory, input.sourcePath)) {
-    await moveFile(input.sourcePath, destinationPath)
-  } else {
-    await fs.copyFile(input.sourcePath, destinationPath)
-  }
+  await fs.copyFile(input.sourcePath, destinationPath)
+
+  const sourceOriginRelpath = isPathInsideWorkspace(input.directory, input.sourcePath)
+    ? relativeDisplayPath(input.directory, input.sourcePath)
+    : undefined
+
+  await writeResourceSourceManifest({
+    directory: input.directory,
+    alias,
+    sourceOriginRelpath,
+  })
+  await writeResourceIdentityManifest({
+    directory: input.directory,
+    alias,
+    manifest: {
+      resourceID: randomUUID(),
+    },
+  })
 
   return {
     stagedPath: destinationPath,
     alias,
   }
+}
+
+async function syncStagedSourceWithOrigin(input: {
+  directory: string
+  alias: string
+  stagedSourcePath: string
+}) {
+  const sourceManifest = await readResourceSourceManifestForAlias(input.directory, input.alias)
+  const originSnapshot = await resolveResourceOriginSnapshot({
+    directory: input.directory,
+    sourceManifest,
+  })
+  if (!originSnapshot) return
+  if (originSnapshot.path === input.stagedSourcePath) return
+
+  const stagedSourceStat = await fs.stat(input.stagedSourcePath).catch(() => undefined)
+  if (
+    stagedSourceStat?.isFile() &&
+    resourceSourceVersionMatches({
+      metadataSourceMtimeMs: Number(stagedSourceStat.mtimeMs),
+      metadataSourceSizeBytes: Number(stagedSourceStat.size),
+      sourceMtimeMs: originSnapshot.mtimeMs,
+      sourceSizeBytes: originSnapshot.sizeBytes,
+    })
+  ) {
+    return
+  }
+
+  await fs.copyFile(originSnapshot.path, input.stagedSourcePath)
+  await fs.utimes(input.stagedSourcePath, originSnapshot.atime, originSnapshot.mtime)
+}
+
+async function writeResourceSourceManifest(input: {
+  directory: string
+  alias: string
+  sourceOriginRelpath?: string
+}) {
+  const manifestPath = path.join(
+    resourceFolderPath(input.directory, input.alias),
+    RESOURCE_SOURCE_MANIFEST_FILENAME,
+  )
+  const payload: ResourceSourceManifest = input.sourceOriginRelpath
+    ? { sourceOriginRelpath: input.sourceOriginRelpath }
+    : {}
+  await fs.writeFile(manifestPath, JSON.stringify(payload, null, 2))
+}
+
+async function writeResourceIdentityManifest(input: {
+  directory: string
+  alias: string
+  manifest: ResourceIdentityManifest
+}) {
+  const manifestPath = path.join(
+    resourceFolderPath(input.directory, input.alias),
+    RESOURCE_IDENTITY_MANIFEST_FILENAME,
+  )
+  await fs.writeFile(manifestPath, JSON.stringify(input.manifest, null, 2))
 }
 
 async function pickUniqueResourceAlias(input: {
@@ -483,14 +734,6 @@ async function pickUniqueDestinationPath(input: {
   }
 }
 
-async function moveFile(sourcePath: string, destinationPath: string) {
-  if (sourcePath === destinationPath) return
-  await fs.rename(sourcePath, destinationPath).catch(async () => {
-    await fs.copyFile(sourcePath, destinationPath)
-    await fs.rm(sourcePath, { force: true })
-  })
-}
-
 async function resolveResourceAliasByKey(directory: string, key: string): Promise<string> {
   const trimmed = key.trim()
   if (!trimmed) throw new ResourceNotFoundError(`Resource not found: ${key}`)
@@ -500,18 +743,18 @@ async function resolveResourceAliasByKey(directory: string, key: string): Promis
     return trimmed
   }
 
-  const record = await findResourceByKey(directory, trimmed)
+  const record = await findRegisteredResourceByKey(directory, trimmed)
   if (!record) {
     throw new ResourceNotFoundError(`Resource not found: ${key}`)
   }
   return record.alias
 }
 
-async function findResourceByKey(
+async function findRegisteredResourceByKey(
   directory: string,
   key: string,
-): Promise<ResourceRecord | undefined> {
-  const records = await listResources(directory)
+): Promise<RegisteredResourceRecord | undefined> {
+  const records = await listRegisteredResources(directory)
   return records.find((record) => record.id === key || record.alias === key)
 }
 
@@ -609,6 +852,14 @@ function numberValue(value: Record<string, unknown>, key: string) {
     if (!Number.isNaN(parsed)) return parsed
   }
   return undefined
+}
+
+function safeParseJson(value: string): unknown {
+  try {
+    return JSON.parse(value)
+  } catch {
+    return undefined
+  }
 }
 
 function relativeDisplayPath(directory: string, filePath: string) {

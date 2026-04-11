@@ -9,7 +9,7 @@ import {
   estimateTokenCountFromText,
   resolveResourcePackFullTextMetadata,
 } from "../../../../../resource-packs"
-import { listResources } from "../../../../../resources/resource-registry-service"
+import { listRegisteredResources } from "../../../../../resources/resource-registry-service"
 import { createBuddyTool } from "../../../../tools/create-buddy-tool"
 
 const MINIMUM_SPARE_AFTER_INGESTION_TOKENS = 100_000
@@ -196,7 +196,7 @@ export const pedagogyResourceIngestFullTextTool = createBuddyTool(
         metadata: {},
       })
 
-      const resources = await listResources(ctx.directory)
+      const resources = await listRegisteredResources(ctx.directory)
       const resource = resources.find(
         (entry) => entry.alias === params.resource || entry.id === params.resource,
       )
