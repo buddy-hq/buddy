@@ -44,7 +44,7 @@ declare module "foliate-js/view.js" {
     dir?: "ltr" | "rtl"
     toc?: FoliateTocItem[] | null
     pageList?: FoliateTocItem[] | null
-    landmarks?: Array<{ href: string; type: string }>
+    landmarks?: Array<{ href: string; label?: string; type?: string[] }>
     metadata?: FoliateMetadata
     rendition?: {
       layout?: string
@@ -86,6 +86,7 @@ declare module "foliate-js/view.js" {
     prev: (distance?: number) => Promise<void>
     next: (distance?: number) => Promise<void>
     goTo: (target: unknown) => Promise<void>
+    getContents: () => Array<{ index: number; doc: Document }>
   }
 
   export type FoliateRelocationDetail = {
@@ -96,30 +97,124 @@ declare module "foliate-js/view.js" {
     location?: {
       current?: number
       total?: number
+      next?: number
     }
     tocItem?: FoliateTocItem | null
     pageItem?: FoliateTocItem | null
   }
 
+  export type FoliateSearchExcerpt = {
+    pre: string
+    match: string
+    post: string
+  }
+
+  export type FoliateSearchHit = {
+    cfi: string
+    excerpt: FoliateSearchExcerpt
+  }
+
+  export type FoliateSearchResult =
+    | "done"
+    | { progress: number }
+    | { cfi: string; excerpt: FoliateSearchExcerpt }
+    | { label?: string; subitems: FoliateSearchHit[] }
+
+  export type FoliateSearchOptions = {
+    query: string
+    index?: number | null
+    matchCase?: boolean
+    matchDiacritics?: boolean
+    matchWholeWords?: boolean
+    defaultLocale?: string
+  }
+
+  export type FoliateHistory = EventTarget & {
+    back: () => void
+    forward: () => void
+    clear: () => void
+    canGoBack: boolean
+    canGoForward: boolean
+    addEventListener(
+      type: "index-change",
+      listener: (event: Event) => void,
+      options?: boolean | AddEventListenerOptions,
+    ): void
+    removeEventListener(
+      type: "index-change",
+      listener: (event: Event) => void,
+      options?: boolean | EventListenerOptions,
+    ): void
+  }
+
+  export type FoliateAnnotationPayload = {
+    value: string
+    color?: string
+    text?: string
+    note?: string
+    created?: string
+    modified?: string
+    style?: string
+  } & Record<string, unknown>
+
+  export type FoliateDrawAnnotationEventDetail = {
+    draw: (
+      painter: (rects: DOMRectList, options?: Record<string, unknown>) => SVGElement,
+      options?: Record<string, unknown>,
+    ) => void
+    annotation: FoliateAnnotationPayload
+    doc: Document
+    range: Range
+  }
+
   export class View extends HTMLElement {
     book: FoliateBook
     renderer: FoliateRenderer
-    history: EventTarget
+    history: FoliateHistory
     isFixedLayout: boolean
     lastLocation?: FoliateRelocationDetail
+    tts?: {
+      from: (range: Range) => string
+    } | null
+    mediaOverlay?: {
+      start: (index: number) => Promise<void>
+    } | null
     open(input: string | Blob | File | FoliateBook): Promise<void>
     init(options?: {
       lastLocation?: FoliateNavigationTarget
       showTextStart?: boolean
     }): Promise<void>
     close(): void
+    getCFI(index: number, range?: Range): string
+    getProgressOf(
+      index: number,
+      range?: Range,
+    ): {
+      tocItem?: FoliateTocItem | null
+      pageItem?: FoliateTocItem | null
+    }
+    getTOCItemOf(target: FoliateNavigationTarget): Promise<FoliateTocItem | undefined>
     goTo(target: FoliateNavigationTarget): Promise<{ index: number } | undefined>
     goToFraction(fraction: number): Promise<void>
+    select(target: FoliateNavigationTarget): Promise<void>
+    deselect(): void
     prev(distance?: number): Promise<void>
     next(distance?: number): Promise<void>
     goLeft(): Promise<void>
     goRight(): Promise<void>
     getSectionFractions(): number[]
+    addAnnotation(
+      annotation: FoliateAnnotationPayload,
+      remove?: boolean,
+    ): Promise<{ index: number; label: string } | undefined>
+    deleteAnnotation(
+      annotation: FoliateAnnotationPayload,
+    ): Promise<{ index: number; label: string } | undefined>
+    showAnnotation(annotation: FoliateAnnotationPayload): Promise<void>
+    search(options: FoliateSearchOptions): AsyncGenerator<FoliateSearchResult>
+    clearSearch(): void
+    initTTS(granularity?: "word" | "sentence" | "grapheme"): Promise<void>
+    startMediaOverlay(): Promise<void>
     addEventListener(
       type: "relocate",
       listener: (event: CustomEvent<FoliateRelocationDetail>) => void,
@@ -144,16 +239,46 @@ declare module "foliate-js/view.js" {
       type: "external-link",
       listener: (event: CustomEvent<{ href: string }>) => void,
       options?: boolean | AddEventListenerOptions,
+    ): void
+    removeEventListener(
+      type: "external-link",
+      listener: (event: CustomEvent<{ href: string }>) => void,
+      options?: boolean | EventListenerOptions,
+    ): void
+    addEventListener(
+      type: "show-annotation",
+      listener: (event: CustomEvent<{ value: string; index: number; range: Range }>) => void,
+      options?: boolean | AddEventListenerOptions,
+    ): void
+    removeEventListener(
+      type: "show-annotation",
+      listener: (event: CustomEvent<{ value: string; index: number; range: Range }>) => void,
+      options?: boolean | EventListenerOptions,
+    ): void
+    addEventListener(
+      type: "draw-annotation",
+      listener: (event: CustomEvent<FoliateDrawAnnotationEventDetail>) => void,
+      options?: boolean | AddEventListenerOptions,
+    ): void
+    removeEventListener(
+      type: "draw-annotation",
+      listener: (event: CustomEvent<FoliateDrawAnnotationEventDetail>) => void,
+      options?: boolean | EventListenerOptions,
+    ): void
+    addEventListener(
+      type: "create-overlay",
+      listener: (event: CustomEvent<{ index: number }>) => void,
+      options?: boolean | AddEventListenerOptions,
+    ): void
+    removeEventListener(
+      type: "create-overlay",
+      listener: (event: CustomEvent<{ index: number }>) => void,
+      options?: boolean | EventListenerOptions,
     ): void
     addEventListener(
       type: string,
       listener: EventListenerOrEventListenerObject | null,
       options?: boolean | AddEventListenerOptions,
-    ): void
-    removeEventListener(
-      type: "external-link",
-      listener: (event: CustomEvent<{ href: string }>) => void,
-      options?: boolean | EventListenerOptions,
     ): void
     removeEventListener(
       type: string,
