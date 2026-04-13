@@ -7,6 +7,10 @@ export const RESOURCE_PACK_ENTRYPOINT_FILE_NAME = "00-resource.md" as const
 export const RESOURCE_PACK_TOC_FILE_NAME = "10-toc.md" as const
 export const RESOURCE_PACK_FULL_TEXT_FILE_NAME = "20-full-text.md" as const
 export const RESOURCE_PACK_FULL_TEXT_FILE_PREFIX = "20-full-text" as const
+export const RESOURCE_PACK_COVER_FILE_PREFIX = "cover" as const
+export const RESOURCE_PACK_COVER_DEFAULT_EXTENSION = "jpg" as const
+export const RESOURCE_PACK_COVER_FILE_NAME =
+  `${RESOURCE_PACK_COVER_FILE_PREFIX}.${RESOURCE_PACK_COVER_DEFAULT_EXTENSION}` as const
 
 export const RESOURCE_PACK_UNIT_FILE_PREFIX = "30-unit" as const
 export const RESOURCE_PACK_PAGE_WINDOW_FILE_PREFIX = "40-pages" as const

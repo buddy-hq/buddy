@@ -48,6 +48,9 @@ export type ResourceRecord = {
   preparedAt?: string
   sourceMtimeMs?: number
   sourceSizeBytes?: number
+  coverRelpath?: string
+  title?: string
+  author?: string
 }
 
 type RegisteredResourceRecord = ResourceRecord & {
@@ -75,6 +78,9 @@ type ResourcePackMetadataSnapshot = {
   preparedAt?: string
   sourceMtimeMs?: number
   sourceSizeBytes?: number
+  coverRelpath?: string
+  title?: string
+  author?: string
 }
 
 type ResourceSourceManifest = {
@@ -211,12 +217,18 @@ export async function rebuildResource(input: {
   resourceID: string
 }): Promise<ResourceRecord> {
   const alias = await resolveResourceAliasByKey(input.directory, input.resourceID)
+  const activePreparation = inFlightResourcePreparation.get(preparationKey(input.directory, alias))
+  if (activePreparation) {
+    await activePreparation.catch(() => undefined)
+  }
   const sourcePath = await resolvePrimarySourcePathForAlias(input.directory, alias)
   if (!sourcePath) {
     throw new ResourceValidationError(
       `${RESOURCE_SOURCE_MISSING_WARNING_PREFIX}${path.join(RESOURCE_PACK_ROOT_DIR, alias)}`,
     )
   }
+
+  await fs.rm(resourceProcessedPath(input.directory, alias), { recursive: true, force: true })
 
   void prepareResource(input.directory, alias)
   return stripRegisteredResourceRecord(
@@ -290,6 +302,9 @@ function stripRegisteredResourceRecord(record: RegisteredResourceRecord): Resour
     ...(record.preparedAt ? { preparedAt: record.preparedAt } : {}),
     ...(record.sourceMtimeMs !== undefined ? { sourceMtimeMs: record.sourceMtimeMs } : {}),
     ...(record.sourceSizeBytes !== undefined ? { sourceSizeBytes: record.sourceSizeBytes } : {}),
+    ...(record.coverRelpath ? { coverRelpath: record.coverRelpath } : {}),
+    ...(record.title ? { title: record.title } : {}),
+    ...(record.author ? { author: record.author } : {}),
   }
 }
 
@@ -321,6 +336,9 @@ async function buildRegisteredResourceRecord(input: {
       ],
       packKey: input.alias,
       ...(metadata?.preparedAt ? { preparedAt: metadata.preparedAt } : {}),
+      ...(metadata?.coverRelpath ? { coverRelpath: metadata.coverRelpath } : {}),
+      ...(metadata?.title ? { title: metadata.title } : {}),
+      ...(metadata?.author ? { author: metadata.author } : {}),
     }
   }
 
@@ -391,6 +409,9 @@ async function buildRegisteredResourceRecord(input: {
     ...(preparedAt ? { preparedAt } : {}),
     sourceMtimeMs,
     sourceSizeBytes,
+    ...(metadata?.coverRelpath ? { coverRelpath: metadata.coverRelpath } : {}),
+    ...(metadata?.title ? { title: metadata.title } : {}),
+    ...(metadata?.author ? { author: metadata.author } : {}),
   }
 }
 
@@ -474,6 +495,9 @@ async function readResourcePackMetadataForAlias(
     preparedAt: stringValue(data, "prepared_at") || undefined,
     sourceMtimeMs: numberValue(data, "source_mtime_ms"),
     sourceSizeBytes: numberValue(data, "source_size_bytes"),
+    coverRelpath: stringValue(data, "cover_relpath") || undefined,
+    title: stringValue(data, "title") || undefined,
+    author: stringValue(data, "author") || undefined,
   }
 }
 

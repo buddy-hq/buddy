@@ -148,6 +148,7 @@ export {
   SquareIcon,
   SquarePenIcon,
   TargetIcon,
+  FileSlidersIcon,
   ZapIcon,
   XIcon,
 } from "lucide-react"

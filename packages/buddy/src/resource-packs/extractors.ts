@@ -1,8 +1,16 @@
 import { promises as fs } from "node:fs"
 import { execFile } from "node:child_process"
+import { tmpdir } from "node:os"
 import path from "node:path"
 import { promisify } from "node:util"
-import { BlobReader, TextWriter, ZipReader, type Entry, type FileEntry } from "@zip.js/zip.js"
+import {
+  BlobReader,
+  TextWriter,
+  BlobWriter,
+  ZipReader,
+  type Entry,
+  type FileEntry,
+} from "@zip.js/zip.js"
 import { XMLParser } from "fast-xml-parser"
 import mammoth from "mammoth"
 import TurndownService from "turndown"
@@ -13,6 +21,7 @@ import {
   type ResourceChunkUnitKind,
   type ResourceChunkUnitSeed,
   type ResourceClassification,
+  type ResourceExtractionCover,
   type ResourceExtractionResult,
 } from "./contracts"
 import {
@@ -52,6 +61,12 @@ type PdfDocumentLike = {
 
 const execFileAsync = promisify(execFile)
 const PDF_TEXT_COMMAND_BUFFER_BYTES = 128 * 1024 * 1024
+const PDF_COVER_COMMAND_BUFFER_BYTES = 32 * 1024 * 1024
+const PDF_COVER_TMPDIR_PREFIX = "buddy-pdf-cover-" as const
+const PDF_COVER_OUTPUT_PREFIX = "cover" as const
+const PDF_COVER_OUTPUT_EXTENSION = "jpg" as const
+const PDF_COVER_IMAGE_MAX_SIZE = 480
+const PDF_COVER_MEDIA_TYPE = "image/jpeg" as const
 const PDF_PAGE_DELIMITER_REGEX = /\f/g
 const PDF_HEADING_SCAN_MAX_LINES = 18
 const PDF_HEADING_SCAN_MAX_LENGTH = 200
@@ -171,6 +186,7 @@ async function extractPdfResource(sourcePath: string): Promise<ResourceExtractio
       status = RESOURCE_PACK_STATUS_UNSUPPORTED
       warnings.push(RESOURCE_PACK_UNSUPPORTED_WARNING)
     }
+    const coverImage = await extractPdfCoverImage(sourcePath)
 
     return {
       status,
@@ -180,6 +196,7 @@ async function extractPdfResource(sourcePath: string): Promise<ResourceExtractio
       chunkUnits,
       tocMarkdown: tocLines.length > 0 ? renderTocMarkdown(tocLines) : undefined,
       pageMarkdowns,
+      coverImage,
     }
   } catch (error) {
     return extractPdfResourceWithSystemFallback(sourcePath, errorMessage(error))
@@ -191,6 +208,7 @@ async function extractPdfResourceWithSystemFallback(
   pdfjsError: string,
 ): Promise<ResourceExtractionResult> {
   const fallbackWarnings = [`pdfjs-dist failed: ${pdfjsError}`]
+  const coverImage = await extractPdfCoverImage(sourcePath)
   const attempts: Array<{ command: string; args: string[]; extractor: string }> = [
     {
       command: "pdftotext",
@@ -244,6 +262,7 @@ async function extractPdfResourceWithSystemFallback(
       fullText,
       chunkUnits: chunkUnits.length > 0 ? chunkUnits : undefined,
       pageMarkdowns,
+      coverImage,
     }
   }
 
@@ -252,7 +271,66 @@ async function extractPdfResourceWithSystemFallback(
     warnings: [...fallbackWarnings, RESOURCE_PACK_UNSUPPORTED_WARNING],
     extractor: "unsupported",
     fullText: renderNoTextMarkdown("PDF"),
+    coverImage,
   }
+}
+
+async function extractPdfCoverImage(
+  sourcePath: string,
+): Promise<ResourceExtractionCover | undefined> {
+  const pdftoppmCover = await extractPdfCoverImageWithPdftoppm(sourcePath)
+  if (pdftoppmCover) return pdftoppmCover
+
+  return extractPdfCoverImageWithMutool(sourcePath)
+}
+
+async function extractPdfCoverImageWithPdftoppm(
+  sourcePath: string,
+): Promise<ResourceExtractionCover | undefined> {
+  const temporaryDirectory = await fs.mkdtemp(path.join(tmpdir(), PDF_COVER_TMPDIR_PREFIX))
+  const outputPrefix = path.join(temporaryDirectory, PDF_COVER_OUTPUT_PREFIX)
+  const outputPath = `${outputPrefix}.${PDF_COVER_OUTPUT_EXTENSION}`
+
+  try {
+    await execFileAsync(
+      "pdftoppm",
+      [
+        "-f",
+        "1",
+        "-singlefile",
+        "-jpeg",
+        "-scale-to",
+        String(PDF_COVER_IMAGE_MAX_SIZE),
+        sourcePath,
+        outputPrefix,
+      ],
+      { maxBuffer: PDF_COVER_COMMAND_BUFFER_BYTES },
+    )
+    const data = await fs.readFile(outputPath).catch(() => undefined)
+    if (!data || data.length === 0) return undefined
+    return { data: Buffer.from(data), mediaType: PDF_COVER_MEDIA_TYPE }
+  } catch {
+    return undefined
+  } finally {
+    await fs.rm(temporaryDirectory, { recursive: true, force: true }).catch(() => undefined)
+  }
+}
+
+async function extractPdfCoverImageWithMutool(
+  sourcePath: string,
+): Promise<ResourceExtractionCover | undefined> {
+  const commandResult = await runPdfBinaryCommand("mutool", [
+    "draw",
+    "-F",
+    "jpg",
+    "-o",
+    "-",
+    sourcePath,
+    "1",
+  ])
+  if (!commandResult.ok) return undefined
+  if (commandResult.output.length === 0) return undefined
+  return { data: commandResult.output, mediaType: PDF_COVER_MEDIA_TYPE }
 }
 
 async function runPdfTextCommand(
@@ -267,6 +345,31 @@ async function runPdfTextCommand(
     const output = `${stdout ?? ""}`.trim()
     if (output.length === 0 && typeof stderr === "string" && stderr.trim().length > 0) {
       return { ok: false, error: `${command} produced no output: ${stderr.trim()}` }
+    }
+    return { ok: true, output }
+  } catch (error) {
+    return {
+      ok: false,
+      error: `${command} failed: ${errorMessage(error)}`,
+    }
+  }
+}
+
+async function runPdfBinaryCommand(
+  command: string,
+  args: string[],
+): Promise<{ ok: true; output: Buffer } | { ok: false; error: string }> {
+  try {
+    const { stdout, stderr } = await execFileAsync(command, args, {
+      encoding: "buffer",
+      maxBuffer: PDF_COVER_COMMAND_BUFFER_BYTES,
+    })
+    const output = normalizeCommandBufferOutput(stdout)
+    if (output.length === 0) {
+      const stderrMessage = normalizeCommandStringOutput(stderr)
+      if (stderrMessage.length > 0) {
+        return { ok: false, error: `${command} produced no output: ${stderrMessage}` }
+      }
     }
     return { ok: true, output }
   } catch (error) {
@@ -300,6 +403,10 @@ async function extractEpubResource(sourcePath: string): Promise<ResourceExtracti
     const spineItems = ensureXmlArray(getXmlValue(opf, ["package", "spine", "itemref"]))
     const opfDir = path.posix.dirname(opfPath)
     const tocEntryName = resolveEpubTocEntry(manifestItems, opfDir)
+
+    const coverImage = await extractEpubCoverImage(entryByName, manifestItems, opf, opfDir)
+    const epubTitle = extractEpubTitle(opf)
+    const epubAuthor = extractEpubAuthor(opf, opfXml)
 
     const tocMarkdown = tocEntryName
       ? await extractEpubTocMarkdown(entryByName, tocEntryName)
@@ -335,6 +442,9 @@ async function extractEpubResource(sourcePath: string): Promise<ResourceExtracti
       fullText,
       chunkUnits: chunkUnits.length > 0 ? chunkUnits : undefined,
       tocMarkdown,
+      coverImage,
+      title: epubTitle,
+      author: epubAuthor,
     }
   } finally {
     await zipReader.close()
@@ -440,6 +550,74 @@ function resolveEpubTocEntry(manifestItems: XmlRecord[], opfDir: string): string
   if (ncxHref) {
     return path.posix.normalize(path.posix.join(opfDir, ncxHref))
   }
+
+  return undefined
+}
+
+const EPUB_COVER_IMAGE_MEDIA_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "image/svg+xml",
+])
+
+async function extractEpubCoverImage(
+  entryByName: Map<string, ResourcePackZipEntry>,
+  manifestItems: XmlRecord[],
+  opf: XmlRecord,
+  opfDir: string,
+): Promise<ResourceExtractionCover | undefined> {
+  const coverHref = resolveEpubCoverHref(manifestItems, opf)
+  if (!coverHref) return undefined
+
+  const coverPath = path.posix.normalize(path.posix.join(opfDir, coverHref))
+  const coverItem = manifestItems.find((item) => {
+    const href = stringValue(item, "href")
+    return path.posix.normalize(path.posix.join(opfDir, href)) === coverPath
+  })
+  const mediaType = stringValue(coverItem, "media-type") || "image/jpeg"
+  if (!EPUB_COVER_IMAGE_MEDIA_TYPES.has(mediaType)) return undefined
+
+  const bytes = await readZipEntryBytes(entryByName, coverPath)
+  if (!bytes || bytes.length === 0) return undefined
+
+  return { data: Buffer.from(bytes), mediaType }
+}
+
+function resolveEpubCoverHref(manifestItems: XmlRecord[], opf: XmlRecord): string | undefined {
+  const coverImageItem = manifestItems.find((item) => {
+    const properties = stringValue(item, "properties")
+    return properties.split(/\s+/).some((token) => token === "cover-image")
+  })
+  const coverImageHref = stringValue(coverImageItem, "href")
+  if (coverImageHref) return coverImageHref
+
+  const metas = ensureXmlArray(getXmlValue(opf, ["package", "metadata", "meta"]))
+  const coverMeta = metas.find((meta) => stringValue(meta, "name") === "cover")
+  const coverContentId = stringValue(coverMeta, "content")
+  if (coverContentId) {
+    const coverItem = manifestItems.find((item) => stringValue(item, "id") === coverContentId)
+    const href = stringValue(coverItem, "href")
+    if (href) return href
+  }
+
+  return undefined
+}
+
+function extractEpubTitle(opf: XmlRecord): string | undefined {
+  const metas = ensureXmlArray(getXmlValue(opf, ["package", "metadata", "title"]))
+  const title = xmlTextValue(metas[0])
+  return title.trim().length > 0 ? title.trim() : undefined
+}
+
+function extractEpubAuthor(opf: XmlRecord, opfXml: string): string | undefined {
+  const metas = ensureXmlArray(getXmlValue(opf, ["package", "metadata", "creator"]))
+  const author = xmlTextValue(metas[0])
+  if (author.trim().length > 0) return author.trim()
+
+  const dcMatch = opfXml?.match(/<dc:creator[^>]*>([^<]+)<\/dc:creator>/)
+  if (dcMatch?.[1]?.trim()) return dcMatch[1].trim()
 
   return undefined
 }
@@ -777,8 +955,37 @@ async function readZipEntryText(entryByName: Map<string, ResourcePackZipEntry>, 
   return typeof text === "string" ? text : String(text)
 }
 
+async function readZipEntryBytes(
+  entryByName: Map<string, ResourcePackZipEntry>,
+  filename: string,
+): Promise<Uint8Array | undefined> {
+  const normalized = normalizeZipPath(filename)
+  const entry = entryByName.get(normalized)
+  if (!entry) return undefined
+
+  const blob = await entry.getData(new BlobWriter())
+  if (!blob) return undefined
+
+  const arrayBuffer = await blob.arrayBuffer()
+  return new Uint8Array(arrayBuffer)
+}
+
 function normalizeZipPath(filename: string) {
   return path.posix.normalize(filename).replace(/^\.\//, "")
+}
+
+function normalizeCommandBufferOutput(value: unknown) {
+  if (Buffer.isBuffer(value)) return value
+  if (value instanceof Uint8Array) return Buffer.from(value)
+  if (typeof value === "string") return Buffer.from(value)
+  return Buffer.alloc(0)
+}
+
+function normalizeCommandStringOutput(value: unknown) {
+  if (typeof value === "string") return value.trim()
+  if (Buffer.isBuffer(value)) return value.toString("utf8").trim()
+  if (value instanceof Uint8Array) return Buffer.from(value).toString("utf8").trim()
+  return ""
 }
 
 function isPlainObject(value: unknown): value is XmlRecord {

@@ -26,6 +26,9 @@ const ResourceRecordSchema = z.object({
   preparedAt: z.string().optional(),
   sourceMtimeMs: z.number().optional(),
   sourceSizeBytes: z.number().optional(),
+  coverRelpath: z.string().optional(),
+  title: z.string().optional(),
+  author: z.string().optional(),
 })
 
 const ResourceListResponseSchema = z.object({

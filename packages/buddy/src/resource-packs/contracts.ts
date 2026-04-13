@@ -26,6 +26,9 @@ import {
   RESOURCE_PACK_UNIT_KIND_GENERIC,
   RESOURCE_PACK_UNIT_KIND_PAGE_WINDOW,
   RESOURCE_PACK_UNIT_KIND_SECTION,
+  RESOURCE_PACK_COVER_DEFAULT_EXTENSION,
+  RESOURCE_PACK_COVER_FILE_NAME,
+  RESOURCE_PACK_COVER_FILE_PREFIX,
 } from "./chunking-config"
 
 export {
@@ -38,6 +41,9 @@ export {
   RESOURCE_PACK_TOC_FILE_NAME,
   RESOURCE_PACK_CHUNKS_DIR_NAME,
   RESOURCE_PACK_PAGES_DIR_NAME,
+  RESOURCE_PACK_COVER_DEFAULT_EXTENSION,
+  RESOURCE_PACK_COVER_FILE_PREFIX,
+  RESOURCE_PACK_COVER_FILE_NAME,
   RESOURCE_PACK_LARGE_TEXT_THRESHOLD_BYTES,
   RESOURCE_PACK_NON_CHAPTER_MAX_TOKENS,
   RESOURCE_PACK_FILE_KIND_RESOURCE_INDEX,
@@ -171,11 +177,19 @@ export type ResourcePackMetadata = {
   warnings: string[]
   full_text_file?: string
   page_count?: number
+  cover_relpath?: string
+  title?: string
+  author?: string
 }
 
 export type ResourceExtractionPage = {
   pageNumber: number
   markdown: string
+}
+
+export type ResourceExtractionCover = {
+  data: Buffer
+  mediaType: string
 }
 
 export type ResourceExtractionResult = {
@@ -187,6 +201,9 @@ export type ResourceExtractionResult = {
   tocMarkdown?: string
   pageMarkdowns?: ResourceExtractionPage[]
   extractor: string
+  coverImage?: ResourceExtractionCover
+  title?: string
+  author?: string
 }
 
 export type PackPaths = {

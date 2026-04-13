@@ -78,6 +78,9 @@ export function buildResourcePackEntryMarkdown(metadata: ResourcePackMetadata) {
       chunk_count: metadata.chunk_count,
       warnings: metadata.warnings,
       ...(metadata.page_count !== undefined ? { page_count: metadata.page_count } : {}),
+      ...(metadata.cover_relpath ? { cover_relpath: metadata.cover_relpath } : {}),
+      ...(metadata.title ? { title: metadata.title } : {}),
+      ...(metadata.author ? { author: metadata.author } : {}),
     },
   )
 }

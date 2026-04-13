@@ -122,6 +122,9 @@ async function buildResourcePack(input: ResourcePackBuildInput): Promise<void> {
       tocMarkdown: extraction.tocMarkdown,
       pageMarkdowns: extraction.pageMarkdowns,
       chunkFiles,
+      coverImage: extraction.coverImage,
+      title: extraction.title,
+      author: extraction.author,
     })
   } catch (error) {
     await writeErroredResourcePackMetadata({

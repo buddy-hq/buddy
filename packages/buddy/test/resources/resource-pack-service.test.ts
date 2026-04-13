@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { BlobWriter, TextReader, ZipWriter } from "@zip.js/zip.js"
+import { BlobReader, BlobWriter, TextReader, ZipWriter } from "@zip.js/zip.js"
 import matter from "gray-matter"
 import path from "node:path"
 import * as fs from "node:fs/promises"
@@ -154,6 +154,27 @@ describe("resource pack service", () => {
     expect(tocText).toContain("Chapter One")
     expect(tocText).toContain("Chapter Two")
     expect(chunkFiles.length).toBeGreaterThanOrEqual(2)
+  })
+
+  test("extracts EPUB cover, title, and author metadata", async () => {
+    await using project = await tmpdir({ git: true })
+    const sourcePath = path.join(project.path, "manual-cover.epub")
+
+    await writeEpubFixture(sourcePath)
+
+    const pack = await ensureResourcePack({
+      directory: project.path,
+      sourcePath,
+    })
+    const metadata = matter(await fs.readFile(pack.metadataPath, "utf8"))
+    const coverRelpath =
+      typeof metadata.data.cover_relpath === "string" ? metadata.data.cover_relpath : undefined
+
+    expect(metadata.data.title).toBe("Manual")
+    expect(metadata.data.author).toBe("Buddy Author")
+    expect(coverRelpath).toBeDefined()
+    expect(coverRelpath?.endsWith(".png")).toBe(true)
+    expect(await exists(path.join(project.path, coverRelpath!))).toBe(true)
   })
 
   test("rebuilds packs when fresh metadata is stuck in preparing state", async () => {
@@ -367,8 +388,11 @@ async function writeEpubFixture(
         '<package version="3.0" xmlns="http://www.idpf.org/2007/opf" unique-identifier="bookid">',
         '<metadata xmlns:dc="http://purl.org/dc/elements/1.1/">',
         "<dc:title>Manual</dc:title>",
+        "<dc:creator>Buddy Author</dc:creator>",
+        '<meta name="cover" content="cover-image"/>',
         "</metadata>",
         "<manifest>",
+        '<item id="cover-image" href="cover.png" media-type="image/png"/>',
         ...manifestEntries,
         "</manifest>",
         `<spine toc="${tocFormat === "ncx" ? "ncx" : "nav"}">`,
@@ -378,6 +402,10 @@ async function writeEpubFixture(
         "</package>",
       ].join(""),
     ),
+  )
+  await zipWriter.add(
+    "OEBPS/cover.png",
+    new BlobReader(new Blob([RESOURCE_PACK_TEST_PNG_COVER_BYTES])),
   )
   if (tocFormat === "nav") {
     await zipWriter.add(
@@ -461,3 +489,8 @@ async function exists(filepath: string) {
     .then(() => true)
     .catch(() => false)
 }
+
+const RESOURCE_PACK_TEST_PNG_COVER_BYTES = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+TMmQAAAAASUVORK5CYII=",
+  "base64",
+)

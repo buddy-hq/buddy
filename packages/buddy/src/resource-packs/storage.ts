@@ -4,6 +4,7 @@ import matter from "gray-matter"
 import { buildResourcePackEntryMarkdown } from "./markdown"
 import type {
   ResourceChunkFileRecord,
+  ResourceExtractionCover,
   ResourceExtractionPage,
   ResourceFormat,
   ResourcePackBuildInput,
@@ -12,6 +13,8 @@ import type {
   ResourcePackStatus,
 } from "./contracts"
 import {
+  RESOURCE_PACK_COVER_DEFAULT_EXTENSION,
+  RESOURCE_PACK_COVER_FILE_PREFIX,
   RESOURCE_PACK_FILE_KIND_FULL_TEXT,
   RESOURCE_PACK_FILE_KIND_PAGE,
   RESOURCE_PACK_FILE_KIND_TOC,
@@ -33,6 +36,18 @@ import {
   estimateTokenCountFromText,
 } from "./chunking-config"
 import { resourceSourceSnapshotMatches } from "./source-match"
+
+const COVER_MEDIA_TYPE_JPEG = "image/jpeg" as const
+const COVER_MEDIA_TYPE_PNG = "image/png" as const
+const COVER_MEDIA_TYPE_GIF = "image/gif" as const
+const COVER_MEDIA_TYPE_WEBP = "image/webp" as const
+const COVER_MEDIA_TYPE_SVG = "image/svg+xml" as const
+const COVER_FILE_EXTENSION_JPEG = "jpg" as const
+const COVER_FILE_EXTENSION_PNG = "png" as const
+const COVER_FILE_EXTENSION_GIF = "gif" as const
+const COVER_FILE_EXTENSION_WEBP = "webp" as const
+const COVER_FILE_EXTENSION_SVG = "svg" as const
+const COVER_FILE_SEPARATOR = "." as const
 
 export async function exists(filepath: string) {
   return fs
@@ -120,6 +135,9 @@ export async function writePreparingResourcePackMetadata(input: {
     chunk_count: 0,
     page_count: undefined,
     warnings: input.warnings,
+    cover_relpath: undefined,
+    title: undefined,
+    author: undefined,
   })
 }
 
@@ -132,6 +150,9 @@ export async function writeResourcePackFiles(input: {
   tocMarkdown?: string
   pageMarkdowns?: ResourceExtractionPage[]
   chunkFiles: ResourceChunkFileRecord[]
+  coverImage?: ResourceExtractionCover
+  title?: string
+  author?: string
 }) {
   await fs.mkdir(input.build.packPaths.chunksDirPath, { recursive: true })
   const resourceAlias = path.basename(path.dirname(input.build.packPaths.rootPath))
@@ -185,6 +206,13 @@ export async function writeResourcePackFiles(input: {
   })
   await writeChunkMarkdowns(input.build.packPaths.chunksDirPath, input.chunkFiles)
 
+  const coverPath = await writeCoverFile({
+    rootPath: input.build.packPaths.rootPath,
+    coverImage: input.status !== RESOURCE_PACK_STATUS_UNSUPPORTED ? input.coverImage : undefined,
+  })
+
+  const coverRelpath = coverPath ? path.relative(input.build.directory, coverPath) : undefined
+
   await writeResourcePackMetadata(input.build.packPaths.metadataPath, {
     resource_alias: resourceAlias,
     source_path: input.build.sourcePath,
@@ -199,6 +227,9 @@ export async function writeResourcePackFiles(input: {
     full_text_file: fullTextFilename,
     page_count: input.pageMarkdowns?.length,
     warnings: input.warnings,
+    cover_relpath: coverRelpath,
+    title: input.title,
+    author: input.author,
   })
 }
 
@@ -220,6 +251,9 @@ export async function writeErroredResourcePackMetadata(input: {
     chunk_count: 0,
     full_text_file: undefined,
     warnings: [input.message],
+    cover_relpath: undefined,
+    title: undefined,
+    author: undefined,
   })
 }
 
@@ -246,6 +280,9 @@ async function loadResourcePackMetadata(
   const fullTextFile = stringValue(data, "full_text_file") || undefined
   const warnings = stringArrayValue(data, "warnings")
   const pageCount = numberValue(data, "page_count", true)
+  const coverRelpath = stringValue(data, "cover_relpath") || undefined
+  const title = stringValue(data, "title") || undefined
+  const author = stringValue(data, "author") || undefined
 
   if (
     !sourcePath ||
@@ -275,6 +312,9 @@ async function loadResourcePackMetadata(
     full_text_file: fullTextFile,
     warnings,
     ...(pageCount !== undefined ? { page_count: pageCount } : {}),
+    ...(coverRelpath ? { cover_relpath: coverRelpath } : {}),
+    ...(title ? { title } : {}),
+    ...(author ? { author } : {}),
   }
 }
 
@@ -343,6 +383,60 @@ async function writeChunkMarkdowns(chunksDirPath: string, chunkFiles: ResourceCh
 async function writeTextFile(filepath: string, content: string) {
   await fs.mkdir(path.dirname(filepath), { recursive: true })
   await fs.writeFile(filepath, content, "utf8")
+}
+
+async function writeCoverFile(input: {
+  rootPath: string
+  coverImage?: ResourceExtractionCover
+}): Promise<string | undefined> {
+  const coverFilename = input.coverImage
+    ? buildCoverFilenameForMediaType(input.coverImage.mediaType)
+    : undefined
+
+  await removeStaleCoverFiles({
+    rootPath: input.rootPath,
+    keepFilename: coverFilename,
+  })
+
+  if (!input.coverImage || !coverFilename) return undefined
+  const coverPath = path.join(input.rootPath, coverFilename)
+  await writeBinaryFile(coverPath, input.coverImage.data)
+  return coverPath
+}
+
+async function removeStaleCoverFiles(input: { rootPath: string; keepFilename?: string }) {
+  const entries = await fs.readdir(input.rootPath, { withFileTypes: true }).catch(() => [])
+  await Promise.all(
+    entries.map(async (entry) => {
+      if (!entry.isFile()) return
+      if (!isCoverFilename(entry.name)) return
+      if (input.keepFilename && entry.name === input.keepFilename) return
+      await fs.rm(path.join(input.rootPath, entry.name), { force: true }).catch(() => undefined)
+    }),
+  )
+}
+
+function isCoverFilename(filename: string) {
+  return filename.startsWith(`${RESOURCE_PACK_COVER_FILE_PREFIX}${COVER_FILE_SEPARATOR}`)
+}
+
+function buildCoverFilenameForMediaType(mediaType: string) {
+  const extension = coverFileExtensionForMediaType(mediaType)
+  return `${RESOURCE_PACK_COVER_FILE_PREFIX}${COVER_FILE_SEPARATOR}${extension}`
+}
+
+function coverFileExtensionForMediaType(mediaType: string) {
+  if (mediaType === COVER_MEDIA_TYPE_JPEG) return COVER_FILE_EXTENSION_JPEG
+  if (mediaType === COVER_MEDIA_TYPE_PNG) return COVER_FILE_EXTENSION_PNG
+  if (mediaType === COVER_MEDIA_TYPE_GIF) return COVER_FILE_EXTENSION_GIF
+  if (mediaType === COVER_MEDIA_TYPE_WEBP) return COVER_FILE_EXTENSION_WEBP
+  if (mediaType === COVER_MEDIA_TYPE_SVG) return COVER_FILE_EXTENSION_SVG
+  return RESOURCE_PACK_COVER_DEFAULT_EXTENSION
+}
+
+async function writeBinaryFile(filepath: string, data: Buffer) {
+  await fs.mkdir(path.dirname(filepath), { recursive: true })
+  await fs.writeFile(filepath, data)
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
