@@ -78,6 +78,14 @@ export {
   NativeSelectOption,
 } from "./components/ui/native-select"
 export { Progress } from "./components/ui/progress"
+export { ResizeHandle } from "./components/ui/resize-handle"
+export {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+  useResizablePanelRef,
+} from "./components/ui/resizable"
+export type { ResizablePanelHandle } from "./components/ui/resizable"
 export { Separator } from "./components/ui/separator"
 export {
   Select,
