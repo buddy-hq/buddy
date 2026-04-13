@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "bun run ensure:advanced-math-runtime && bun --env-file=../../.env run --watch src/index.ts",
     "build": "tsc",
+    "lint": "oxlint",
     "build:single": "bun ./script/build-single.ts",
     "build:desktop-sidecar": "bun run build:single",
     "build:release-sidecar": "bun ./script/build-sidecar.ts",

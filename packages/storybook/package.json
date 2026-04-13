@@ -5,6 +5,7 @@
   "scripts": {
     "storybook": "storybook dev -p 6006",
     "build": "storybook build",
+    "lint": "oxlint",
     "typecheck": "tsgo --noEmit"
   },
   "devDependencies": {

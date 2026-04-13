@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "prebuild": "bun ./scripts/prebuild.ts",
+    "lint": "oxlint",
     "typecheck": "tsgo -b",
     "predev": "bun ./scripts/predev.ts",
     "pretauri": "bun ./scripts/pretauri.ts",

@@ -20,6 +20,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "lint": "oxlint",
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {

@@ -15,6 +15,7 @@
     "prepare:web": "bun ./scripts/prepare.ts full",
     "prepare:web:typecheck": "bun ./scripts/prepare.ts typecheck",
     "prebuild": "bun run prepare:web",
+    "lint": "oxlint",
     "build": "tsc -p tsconfig.app.json && vite build",
     "pretypecheck": "bun run prepare:web:typecheck",
     "typecheck": "tsgo -b",

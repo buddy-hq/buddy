@@ -6,6 +6,9 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "scripts": {
+    "lint": "oxlint"
+  },
   "devDependencies": {
     "@types/bun": "catalog:"
   }

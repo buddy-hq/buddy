@@ -32,6 +32,7 @@
     "./provider-icon": "./src/provider-icon.ts"
   },
   "scripts": {
+    "lint": "oxlint",
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
