@@ -33,6 +33,9 @@ Long term maintainability is a core priority. If you add new functionality, firs
 - `packages/opencode-adapter`: Buddy compatibility bridge over vendored OpenCode modules
 - `packages/storybook`: storybook setup
 
+## Package Manager
+- bun
+
 ## Tauri Discontinued
 - Tauri publishing is discontinued; do not add or maintain Tauri publish/release workflows.
 
