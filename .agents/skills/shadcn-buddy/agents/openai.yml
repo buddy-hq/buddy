@@ -1,0 +1,5 @@
+interface:
+  display_name: "shadcn/ui-buddy"
+  short_description: "Manages shadcn/ui for buddy components — adding, searching, fixing, debugging, styling, and composing UI."
+  icon_small: "./assets/shadcn-small.png"
+  icon_large: "./assets/shadcn.png"
