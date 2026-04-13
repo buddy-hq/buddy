@@ -1,5 +1,7 @@
 import type { ReactNode } from "react"
-import { ResizeHandle } from "@/components/layout/resize-handle"
+import { ResizeHandle, ResizablePanel, ResizablePanelGroup, useResizablePanelRef } from "@buddy/ui"
+import { useSyncResizablePanelSize } from "@/components/layout/use-sync-resizable-panel-size"
+import { RIGHT_SIDEBAR_COLLAPSE_THRESHOLD_PX } from "@/lib/directory-chat/right-sidebar-layout"
 
 type DirectoryChatShellProps = {
   leftSidebar: ReactNode
@@ -42,77 +44,91 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
     onRightSidebarCollapse,
   } = props
 
+  const leftSidebarPanelRef = useResizablePanelRef()
+  const rightSidebarPanelRef = useResizablePanelRef()
+
+  useSyncResizablePanelSize(
+    leftSidebarPanelRef,
+    leftSidebarOpen ? leftSidebarDisplayWidth : undefined,
+  )
+  useSyncResizablePanelSize(
+    rightSidebarPanelRef,
+    rightSidebarOpen ? rightSidebarDisplayWidth : undefined,
+  )
+
   return (
     <div
       data-component="directory-chat-shell"
       className="h-full w-full overflow-hidden bg-surface-raised-base"
     >
-      <div className="h-full w-full flex min-w-0">
-        <div
-          data-component="directory-chat-left-sidebar-shell"
-          data-open={leftSidebarOpen ? "true" : "false"}
-          className={`relative shrink-0 min-h-0 overflow-hidden transition-[width] duration-200 ease-out ${
-            leftSidebarOpen ? "" : "pointer-events-none"
-          }`}
-          style={{
-            width: `${leftSidebarOpen ? leftSidebarDisplayWidth : 0}px`,
-          }}
-        >
-          <div
-            className={`h-full transition-opacity duration-200 ease-out ${
-              leftSidebarOpen ? "opacity-100" : "opacity-0"
-            }`}
-            style={{ width: `${leftSidebarDisplayWidth}px` }}
+      <ResizablePanelGroup orientation="horizontal" className="h-full w-full min-w-0">
+        {leftSidebarOpen ? (
+          <ResizablePanel
+            id="directory-chat-left-sidebar"
+            panelRef={leftSidebarPanelRef}
+            defaultSize={leftSidebarDisplayWidth}
+            minSize={leftSidebarMinWidth}
+            maxSize={leftSidebarMaxWidth}
+            className="relative flex min-h-0 min-w-0 overflow-hidden"
           >
-            {leftSidebar}
-          </div>
-          {leftSidebarOpen ? (
+            <div
+              data-component="directory-chat-left-sidebar-shell"
+              data-open="true"
+              className="h-full w-full opacity-100 transition-opacity duration-200 ease-out"
+            >
+              {leftSidebar}
+            </div>
             <ResizeHandle
               direction="horizontal"
               size={leftSidebarWidth}
               min={leftSidebarMinWidth}
               max={leftSidebarMaxWidth}
               collapseThreshold={leftSidebarMinWidth}
-              onResize={onLeftSidebarResize}
+              onResize={(width) => {
+                leftSidebarPanelRef.current?.resize(width)
+                onLeftSidebarResize(width)
+              }}
               onCollapse={onLeftSidebarCollapse}
             />
-          ) : null}
-        </div>
+          </ResizablePanel>
+        ) : null}
 
-        {mainPane}
+        <ResizablePanel id="directory-chat-main-pane" className="flex min-h-0 min-w-0">
+          {mainPane}
+        </ResizablePanel>
 
-        <div
-          data-component="directory-chat-right-sidebar-shell"
-          data-open={rightSidebarOpen ? "true" : "false"}
-          className={`relative shrink-0 min-h-0 overflow-hidden transition-[width] duration-200 ease-out ${
-            rightSidebarOpen ? "" : "pointer-events-none"
-          }`}
-          style={{
-            width: `${rightSidebarOpen ? rightSidebarDisplayWidth : 0}px`,
-          }}
-        >
-          <div
-            className={`h-full transition-opacity duration-200 ease-out ${
-              rightSidebarOpen ? "opacity-100" : "opacity-0"
-            }`}
-            style={{ width: `${rightSidebarDisplayWidth}px` }}
+        {rightSidebarOpen ? (
+          <ResizablePanel
+            id="directory-chat-right-sidebar"
+            panelRef={rightSidebarPanelRef}
+            defaultSize={rightSidebarDisplayWidth}
+            minSize={rightSidebarMinWidth}
+            maxSize={rightSidebarMaxWidth}
+            className="relative flex min-h-0 min-w-0 overflow-hidden"
           >
-            {rightSidebar}
-          </div>
-          {rightSidebarOpen ? (
+            <div
+              data-component="directory-chat-right-sidebar-shell"
+              data-open="true"
+              className="h-full w-full opacity-100 transition-opacity duration-200 ease-out"
+            >
+              {rightSidebar}
+            </div>
             <ResizeHandle
               direction="horizontal"
               edge="start"
               size={rightSidebarDisplayWidth}
               min={rightSidebarMinWidth}
               max={rightSidebarMaxWidth}
-              collapseThreshold={160}
-              onResize={onRightSidebarResize}
+              collapseThreshold={RIGHT_SIDEBAR_COLLAPSE_THRESHOLD_PX}
+              onResize={(width) => {
+                rightSidebarPanelRef.current?.resize(width)
+                onRightSidebarResize(width)
+              }}
               onCollapse={onRightSidebarCollapse}
             />
-          ) : null}
-        </div>
-      </div>
+          </ResizablePanel>
+        ) : null}
+      </ResizablePanelGroup>
       {createTeachingFileDialog}
     </div>
   )
