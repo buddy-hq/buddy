@@ -214,6 +214,18 @@ export function createDesktopPlatform(): Platform {
 
       return null
     },
+    async resolveDroppedFilePath(file) {
+      const resolvedPath = window.api.getPathForFile(file)
+      if (!resolvedPath) return null
+      const normalizedPath = normalizeDirectory(resolvedPath)
+      return normalizedPath || null
+    },
+    consumeDroppedFilePaths() {
+      return window.api
+        .consumeDroppedFilePaths()
+        .map((path) => normalizeDirectory(path))
+        .filter((path) => path.length > 0)
+    },
     async openPath(path, app) {
       await window.api.openPath(path, app)
     },

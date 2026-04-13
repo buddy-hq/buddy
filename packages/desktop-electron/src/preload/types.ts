@@ -74,4 +74,6 @@ export type ElectronAPI = {
   checkUpdate: () => Promise<{ updateAvailable: boolean; version?: string; failed?: boolean }>
   installUpdate: () => Promise<void>
   setBackgroundColor: (color: string) => Promise<void>
+  getPathForFile: (file: File) => string
+  consumeDroppedFilePaths: () => string[]
 }

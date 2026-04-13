@@ -24,6 +24,9 @@ export type ResourceRecord = Pick<
   | "preparedAt"
   | "sourceMtimeMs"
   | "sourceSizeBytes"
+  | "coverRelpath"
+  | "title"
+  | "author"
 > & {
   sourceOriginRelpath?: string
 }

@@ -1,5 +1,47 @@
-import { contextBridge, ipcRenderer } from "electron"
+import { contextBridge, ipcRenderer, webUtils } from "electron"
 import type { ElectronAPI, InitStep, SqliteMigrationProgress } from "./types"
+
+const DROPPED_FILE_PATH_CACHE_MAX_ENTRIES = 200
+const droppedFilePathByFingerprint = new Map<string, string>()
+let lastDroppedFilePaths: string[] = []
+
+function fileFingerprint(file: Pick<File, "name" | "size" | "lastModified" | "type">) {
+  return `${file.name}\n${file.size}\n${file.lastModified}\n${file.type}`
+}
+
+function cacheDroppedFilePaths(event: DragEvent) {
+  const files = event.dataTransfer?.files
+  if (!files) {
+    lastDroppedFilePaths = []
+    return
+  }
+
+  const nextDroppedFilePaths: string[] = []
+
+  for (const file of Array.from(files)) {
+    const filepath = webUtils.getPathForFile(file)
+    if (!filepath) continue
+    nextDroppedFilePaths.push(filepath)
+
+    const fingerprint = fileFingerprint(file)
+    if (droppedFilePathByFingerprint.has(fingerprint)) {
+      droppedFilePathByFingerprint.delete(fingerprint)
+    }
+    droppedFilePathByFingerprint.set(fingerprint, filepath)
+  }
+
+  while (droppedFilePathByFingerprint.size > DROPPED_FILE_PATH_CACHE_MAX_ENTRIES) {
+    const oldestKey = droppedFilePathByFingerprint.keys().next().value
+    if (typeof oldestKey !== "string") {
+      break
+    }
+    droppedFilePathByFingerprint.delete(oldestKey)
+  }
+
+  lastDroppedFilePaths = nextDroppedFilePaths
+}
+
+window.addEventListener("drop", cacheDroppedFilePaths, true)
 
 const api: ElectronAPI = {
   killSidecar: () => ipcRenderer.invoke("kill-sidecar"),
@@ -64,6 +106,22 @@ const api: ElectronAPI = {
   checkUpdate: () => ipcRenderer.invoke("check-update"),
   installUpdate: () => ipcRenderer.invoke("install-update"),
   setBackgroundColor: (color) => ipcRenderer.invoke("set-background-color", color),
+  getPathForFile: (file) => {
+    try {
+      const directPath = webUtils.getPathForFile(file)
+      if (directPath) return directPath
+    } catch {
+      // Falls back to metadata lookup below.
+    }
+
+    const fingerprint = fileFingerprint(file)
+    return droppedFilePathByFingerprint.get(fingerprint) ?? ""
+  },
+  consumeDroppedFilePaths: () => {
+    const paths = lastDroppedFilePaths
+    lastDroppedFilePaths = []
+    return paths
+  },
 }
 
 contextBridge.exposeInMainWorld("api", api)
