@@ -1,11 +1,20 @@
 import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router"
 import { useEffect, useMemo } from "react"
-import { Button, Separator, cn, toast } from "@buddy/ui"
+import {
+  Button,
+  ResizeHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+  Separator,
+  cn,
+  toast,
+  useResizablePanelRef,
+} from "@buddy/ui"
 import { ArrowLeftIcon } from "lucide-react"
 import { ChatLeftSidebar } from "@/components/layout/chat-left-sidebar"
+import { useSyncResizablePanelSize } from "@/components/layout/use-sync-resizable-panel-size"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
-import { ResizeHandle } from "@/components/layout/resize-handle"
 import { SettingsPage } from "@/components/settings/settings-page"
 import { useStandardsRuntime } from "@/components/settings/use-standards-runtime"
 import {
@@ -30,6 +39,8 @@ import { useChatStore } from "@/state/chat-store"
 import { shallow } from "zustand/shallow"
 import { useUiPreferences } from "@/state/ui-preferences"
 import { pickProjectDirectory } from "../lib/directory-picker"
+
+const SETTINGS_SIDEBAR_MIN_WIDTH_PX = 244
 
 export const Route = createFileRoute("/settings")({
   validateSearch: (search: Record<string, unknown>): { tab: SettingsTab } => {
@@ -64,9 +75,11 @@ function SettingsRoute() {
     open: true,
     platform: platform.platform,
   })
+  const leftSidebarPanelRef = useResizablePanelRef()
 
   const currentDirectory = activeDirectory ?? openProjects[0] ?? ""
   const activeSessionID = currentDirectory ? directories[currentDirectory]?.sessionID : undefined
+  const leftSidebarMaxWidth = typeof window === "undefined" ? 1000 : window.innerWidth * 0.3 + 64
   const visibleTabs = useMemo(
     () => getVisibleSettingsTabDefinitions({ standardsEnabled }),
     [standardsEnabled],
@@ -100,6 +113,8 @@ function SettingsRoute() {
   useEffect(() => {
     void bootstrapOpenProjects().catch(() => undefined)
   }, [])
+
+  useSyncResizablePanelSize(leftSidebarPanelRef, leftSidebarWidth)
 
   useEffect(() => {
     if (tab !== "standards" && visibleTabIDs.has(tab)) {
@@ -213,10 +228,14 @@ function SettingsRoute() {
       data-component="settings-route"
       className="h-full w-full overflow-hidden bg-surface-raised-base"
     >
-      <div className="flex h-full w-full min-w-0">
-        <div
-          className="relative min-h-0 shrink-0 overflow-hidden"
-          style={{ width: leftSidebarWidth }}
+      <ResizablePanelGroup orientation="horizontal" className="h-full w-full min-w-0">
+        <ResizablePanel
+          id="settings-sidebar"
+          panelRef={leftSidebarPanelRef}
+          defaultSize={leftSidebarWidth}
+          minSize={SETTINGS_SIDEBAR_MIN_WIDTH_PX}
+          maxSize={leftSidebarMaxWidth}
+          className="relative flex min-h-0 min-w-0 overflow-hidden"
         >
           <ChatLeftSidebar
             directories={openProjects}
@@ -265,21 +284,26 @@ function SettingsRoute() {
           <ResizeHandle
             direction="horizontal"
             size={leftSidebarWidth}
-            min={244}
-            max={typeof window === "undefined" ? 1000 : window.innerWidth * 0.3 + 64}
-            onResize={setLeftSidebarWidth}
+            min={SETTINGS_SIDEBAR_MIN_WIDTH_PX}
+            max={leftSidebarMaxWidth}
+            onResize={(width) => {
+              leftSidebarPanelRef.current?.resize(width)
+              setLeftSidebarWidth(width)
+            }}
           />
-        </div>
-        <main className="min-h-0 min-w-0 flex-1 overflow-hidden bg-background-base/20">
-          {currentDirectory ? (
-            <SettingsPage directory={currentDirectory} activeTab={tab} />
-          ) : (
-            <div className="flex h-full items-center justify-center text-sm text-text-weak">
-              {language.t("routes.settings.emptyState")}
-            </div>
-          )}
-        </main>
-      </div>
+        </ResizablePanel>
+        <ResizablePanel id="settings-main-pane" className="min-h-0 min-w-0">
+          <main className="min-h-0 min-w-0 flex h-full flex-1 overflow-hidden bg-background-base/20">
+            {currentDirectory ? (
+              <SettingsPage directory={currentDirectory} activeTab={tab} />
+            ) : (
+              <div className="flex h-full items-center justify-center text-sm text-text-weak">
+                {language.t("routes.settings.emptyState")}
+              </div>
+            )}
+          </main>
+        </ResizablePanel>
+      </ResizablePanelGroup>
     </div>
   )
 }
