@@ -18,6 +18,7 @@ import {
   PinIcon,
   PencilIcon,
   SquarePenIcon,
+  FileSlidersIcon,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -131,8 +132,11 @@ const THREAD_CHILD_INDENT_PX = 14
 const THREAD_STATUS_OFFSET_PX = 6
 const MAIN_PANE_SHORTCUT_ROW_CLASS = "grid grid-cols-4 gap-1.5"
 const MAIN_PANE_SHORTCUT_BUTTON_BASE_CLASS =
-  "h-7 w-full justify-center rounded-lg border-0 bg-transparent text-text-weak transition-all duration-160 hover:-translate-y-[1px] hover:bg-surface-raised-base-hover hover:text-text-base"
-const MAIN_PANE_SHORTCUT_BUTTON_ACTIVE_CLASS = "bg-surface-raised-strong text-text-strong"
+  "h-7 w-full justify-center rounded-lg border-0 bg-transparent text-text-weak transition-all duration-160 [transition-timing-function:cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97]"
+const MAIN_PANE_SHORTCUT_BUTTON_ACTIVE_CLASS = "text-text-strong"
+const MAIN_PANE_SHORTCUT_BUTTON_INACTIVE_CLASS =
+  "text-text-weak hover:bg-surface-raised-base-hover hover:text-text-base"
+
 const MAIN_PANE_SHORTCUTS: MainPaneShortcut[] = [
   {
     tab: "resources",
@@ -147,7 +151,7 @@ const MAIN_PANE_SHORTCUTS: MainPaneShortcut[] = [
   {
     tab: "instructions",
     label: language.t("sidebar.mainPane.instructions"),
-    Icon: SquarePenIcon,
+    Icon: FileSlidersIcon,
   },
   {
     tab: "question-set",
@@ -272,7 +276,11 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
         {isQuickChatGroup ? (
           <div className="group/section-header mb-1">
             <CollapsibleTrigger asChild>
-              <div className="flex cursor-pointer select-none items-center justify-between px-2 text-text-weak transition-colors duration-160 group-hover/section-header:text-text-base">
+              <div
+                className={`flex cursor-pointer select-none items-center justify-between px-2 transition-colors duration-160 group-hover/section-header:text-text-strong ${
+                  isCurrentDirectory ? "text-text-base" : "text-text-weaker"
+                }`}
+              >
                 <div className="flex items-center gap-1.5">
                   <ZapIcon className="size-3.5 shrink-0" />
                   <p className="text-xs">{language.t("sidebar.quickChat")}</p>
@@ -287,7 +295,9 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                   data-action="left-sidebar-quick-chat"
                   variant="ghost"
                   size="icon-xs"
-                  className="invisible text-text-weak group-hover/section-header:visible hover:bg-surface-raised-base-hover hover:text-text-strong"
+                  className={`${
+                    props.collapsed ? "invisible" : "visible"
+                  } text-text-weak group-hover/section-header:visible hover:bg-surface-raised-base-hover hover:text-text-strong`}
                   onClick={(event) => {
                     event.preventDefault()
                     event.stopPropagation()
@@ -310,8 +320,8 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                     type="button"
                     data-action="left-sidebar-directory-toggle"
                     data-directory={props.group.directory}
-                    className={`flex min-w-0 flex-1 items-center gap-1.5 rounded-lg px-2 py-1 text-left text-sm text-text-weak hover:text-text-base ${
-                      isCurrentDirectory ? "" : ""
+                    className={`flex min-w-0 flex-1 items-center gap-1.5 rounded-lg px-2 py-1 text-left text-sm hover:text-text-strong ${
+                      isCurrentDirectory ? "text-text-base" : "text-text-weaker"
                     } ${canDrag ? "cursor-grab active:cursor-grabbing" : ""}`}
                     onPointerDown={canDrag ? (event) => props.onLabelPointerDown(event) : undefined}
                   >
@@ -324,7 +334,11 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                   </button>
                 </CollapsibleTrigger>
 
-                <div className="relative z-10 flex items-center gap-0.5 pr-1 opacity-0 transition-opacity group-hover/directory:opacity-100 group-focus-within/directory:opacity-100 group-data-[state=open]/notebook-header:opacity-100">
+                <div
+                  className={`relative z-10 flex items-center gap-0.5 pr-1 transition-opacity group-hover/directory:opacity-100 group-focus-within/directory:opacity-100 group-data-[state=open]/notebook-header:opacity-100 ${
+                    props.collapsed ? "opacity-0" : "opacity-100"
+                  }`}
+                >
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
@@ -401,15 +415,24 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                                 data-action={`left-sidebar-main-pane-${shortcut.tab}`}
                                 variant="ghost"
                                 size="sm"
-                                className={`${MAIN_PANE_SHORTCUT_BUTTON_BASE_CLASS} ${
-                                  isActive ? MAIN_PANE_SHORTCUT_BUTTON_ACTIVE_CLASS : ""
-                                }`}
+                                className={`relative ${MAIN_PANE_SHORTCUT_BUTTON_BASE_CLASS} ${
+                                  isActive
+                                    ? MAIN_PANE_SHORTCUT_BUTTON_ACTIVE_CLASS
+                                    : MAIN_PANE_SHORTCUT_BUTTON_INACTIVE_CLASS
+                                } group/shortcut`}
                                 title={shortcut.label}
                                 onClick={() => {
                                   props.onMainPaneTabChange?.(isActive ? "chat" : shortcut.tab)
                                 }}
                               >
-                                <Icon className="size-3" />
+                                {isActive && (
+                                  <motion.div
+                                    layoutId={`main-pane-tab-${props.group.directory}`}
+                                    className="absolute inset-0 bg-surface-raised-strong rounded-lg"
+                                    transition={{ type: "spring", duration: 0.4, bounce: 0.15 }}
+                                  />
+                                )}
+                                <Icon className="relative z-10 size-3" />
                               </Button>
                             )
                           })}

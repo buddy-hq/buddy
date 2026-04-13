@@ -18,7 +18,7 @@ export {
   PinIcon,
   PlusIcon,
   SettingsIcon,
-  SlidersHorizontalIcon,
+  FileSlidersIcon,
   SparklesIcon,
   SquarePenIcon,
   XIcon,

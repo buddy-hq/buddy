@@ -137,26 +137,24 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
     return inboxGroup ? [inboxGroup, ...notebookGroups] : notebookGroups
   }, [directoryGroups])
 
-  useEffect(() => {
-    if (hasInitializedCollapsedDirectoriesRef.current) return
-    if (orderedDirectoryGroups.length === 0) return
-
+  if (!hasInitializedCollapsedDirectoriesRef.current && orderedDirectoryGroups.length > 0) {
     const expandedDirectory = resolveMostRecentlyUpdatedDirectory({
       directoryGroups: orderedDirectoryGroups,
       fallbackDirectory: props.currentDirectory,
     })
-    if (!expandedDirectory) return
 
-    setCollapsedDirectories(
-      Object.fromEntries(
-        orderedDirectoryGroups
-          .map((group) => group.directory)
-          .filter((directory) => directory !== expandedDirectory)
-          .map((directory) => [directory, true] as const),
-      ),
-    )
+    if (expandedDirectory) {
+      setCollapsedDirectories(
+        Object.fromEntries(
+          orderedDirectoryGroups
+            .map((group) => group.directory)
+            .filter((directory) => directory !== expandedDirectory)
+            .map((directory) => [directory, true] as const),
+        ),
+      )
+    }
     hasInitializedCollapsedDirectoriesRef.current = true
-  }, [orderedDirectoryGroups, props.currentDirectory])
+  }
 
   const {
     draggedDirectory,
