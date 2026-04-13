@@ -326,16 +326,67 @@ export function readSelectedRange(selection: Selection | null): Range | null {
   return range
 }
 
+const OVERLAY_EDGE_PADDING_PX = 24
+const OVERLAY_VERTICAL_OFFSET_PX = 12
+
+type OverlayRect = {
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
+function toOverlayRect(rect: DOMRect | DOMRectReadOnly): OverlayRect {
+  return {
+    left: rect.left,
+    top: rect.top,
+    width: rect.width,
+    height: rect.height,
+  }
+}
+
+function getFrameElement(view: Window): HTMLElement | null {
+  const frame = view.frameElement
+  return frame instanceof HTMLElement ? frame : null
+}
+
+function toTopViewportRect(rect: OverlayRect, view: Window | null): OverlayRect {
+  let nextRect = rect
+  let currentView = view
+
+  while (currentView) {
+    const frame = getFrameElement(currentView)
+    if (!frame) break
+
+    const frameRect = frame.getBoundingClientRect()
+    nextRect = {
+      left: nextRect.left + frameRect.left + frame.clientLeft,
+      top: nextRect.top + frameRect.top + frame.clientTop,
+      width: nextRect.width,
+      height: nextRect.height,
+    }
+
+    currentView = currentView.parent === currentView ? null : currentView.parent
+  }
+
+  return nextRect
+}
+
 export function getOverlayPosition(range: Range, container: HTMLElement): { x: number; y: number } {
-  const rangeRect = range.getBoundingClientRect()
+  const ownerView = range.startContainer.ownerDocument?.defaultView ?? null
+  const rangeRect = toTopViewportRect(toOverlayRect(range.getBoundingClientRect()), ownerView)
   const containerRect = container.getBoundingClientRect()
+
   return {
     x: clamp(
-      rangeRect.left - containerRect.left + rangeRect.width / 2,
-      24,
-      containerRect.width - 24,
+      rangeRect.left + rangeRect.width / 2,
+      containerRect.left + OVERLAY_EDGE_PADDING_PX,
+      containerRect.right - OVERLAY_EDGE_PADDING_PX,
     ),
-    y: Math.max(rangeRect.top - containerRect.top - 12, 24),
+    y: Math.max(
+      rangeRect.top - OVERLAY_VERTICAL_OFFSET_PX,
+      containerRect.top + OVERLAY_EDGE_PADDING_PX,
+    ),
   }
 }
 

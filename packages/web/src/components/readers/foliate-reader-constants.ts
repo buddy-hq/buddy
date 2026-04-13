@@ -104,9 +104,8 @@ export const READER_THEMES: FoliateReaderThemeDefinition[] = [
   {
     id: "paper",
     label: "Paper",
-    shellClassName:
-      "bg-[radial-gradient(circle_at_top,color-mix(in_oklab,var(--surface-raised-stronger)_60%,transparent)_0%,transparent_48%),linear-gradient(180deg,var(--surface-raised-base)_0%,var(--surface-base)_100%)]",
-    viewportClassName: "bg-surface-inset-base",
+    shellClassName: "bg-surface-raised-base",
+    viewportClassName: "",
     contentBackground: "var(--background-base)",
     contentForeground: "var(--text-strong)",
     contentMuted: "var(--text-weak)",
@@ -119,10 +118,8 @@ export const READER_THEMES: FoliateReaderThemeDefinition[] = [
   {
     id: "sepia",
     label: "Sepia",
-    shellClassName:
-      "bg-[radial-gradient(circle_at_top,color-mix(in_oklab,var(--surface-warning-base)_16%,transparent)_0%,transparent_52%),linear-gradient(180deg,color-mix(in_oklab,var(--surface-warning-base)_8%,var(--surface-base))_0%,color-mix(in_oklab,var(--surface-warning-base)_12%,var(--surface-inset-base))_100%)]",
-    viewportClassName:
-      "bg-[color:color-mix(in_oklab,var(--surface-warning-base)_9%,var(--surface-inset-base))]",
+    shellClassName: "bg-[#f4ead2]",
+    viewportClassName: "",
     contentBackground: "color-mix(in oklab, var(--surface-warning-base) 11%, white)",
     contentForeground: "color-mix(in oklab, var(--text-strong) 88%, #3c2616)",
     contentMuted: "color-mix(in oklab, var(--text-weak) 82%, #725341)",
@@ -135,9 +132,8 @@ export const READER_THEMES: FoliateReaderThemeDefinition[] = [
   {
     id: "night",
     label: "Night",
-    shellClassName:
-      "bg-[radial-gradient(circle_at_top,color-mix(in_oklab,var(--surface-info-base)_12%,transparent)_0%,transparent_44%),linear-gradient(180deg,color-mix(in_oklab,var(--surface-strong)_68%,black)_0%,color-mix(in_oklab,var(--surface-inset-strong)_78%,black)_100%)]",
-    viewportClassName: "bg-surface-strong",
+    shellClassName: "bg-surface-strong",
+    viewportClassName: "",
     contentBackground: "color-mix(in oklab, var(--surface-strong) 92%, black)",
     contentForeground: "color-mix(in oklab, var(--text-stronger) 88%, white)",
     contentMuted: "color-mix(in oklab, var(--text-weak) 88%, white)",
@@ -150,10 +146,8 @@ export const READER_THEMES: FoliateReaderThemeDefinition[] = [
   {
     id: "mist",
     label: "Mist",
-    shellClassName:
-      "bg-[radial-gradient(circle_at_top,color-mix(in_oklab,var(--surface-info-base)_18%,transparent)_0%,transparent_50%),linear-gradient(180deg,color-mix(in_oklab,var(--surface-info-base)_5%,var(--surface-base))_0%,var(--surface-inset-base)_100%)]",
-    viewportClassName:
-      "bg-[linear-gradient(180deg,color-mix(in_oklab,var(--surface-info-base)_7%,var(--surface-base))_0%,var(--surface-inset-base)_100%)]",
+    shellClassName: "bg-[#1f2428]",
+    viewportClassName: "",
     contentBackground: "color-mix(in oklab, var(--surface-info-base) 7%, white)",
     contentForeground: "color-mix(in oklab, var(--text-strong) 96%, #1d3343)",
     contentMuted: "color-mix(in oklab, var(--text-weak) 86%, #5b7382)",
@@ -166,9 +160,8 @@ export const READER_THEMES: FoliateReaderThemeDefinition[] = [
   {
     id: "graphite",
     label: "Graphite",
-    shellClassName:
-      "bg-[radial-gradient(circle_at_top,color-mix(in_oklab,var(--surface-raised-stronger)_22%,transparent)_0%,transparent_44%),linear-gradient(180deg,color-mix(in_oklab,var(--surface-inset-strong)_70%,black)_0%,color-mix(in_oklab,var(--surface-stronger)_88%,black)_100%)]",
-    viewportClassName: "bg-[color:color-mix(in_oklab,var(--surface-inset-strong)_88%,black)]",
+    shellClassName: "bg-[#121212]",
+    viewportClassName: "",
     contentBackground: "color-mix(in oklab, #1c2025 92%, black)",
     contentForeground: "color-mix(in oklab, #f4f2ee 92%, white)",
     contentMuted: "color-mix(in oklab, #a3acb4 92%, white)",

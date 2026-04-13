@@ -7,6 +7,9 @@ import { READER_THEMES, VIEW_ELEMENT_CLASS_NAME } from "../foliate-reader-consta
 import type { View as FoliateView } from "foliate-js/view.js"
 import { FONT_PUBLISHER, FONT_SANS, FONT_SERIF } from "../foliate-reader-constants"
 
+const MIN_READER_INLINE_CONTENT_WIDTH_PX = 320
+const MIN_READER_MARGIN_PX = 16
+
 export function getThemeDefinition(themeId: FoliateReaderThemeId): FoliateReaderThemeDefinition {
   return READER_THEMES.find((entry) => entry.id === themeId) ?? READER_THEMES[0]
 }
@@ -139,8 +142,17 @@ export function applyReaderPreferences(
   else renderer.setAttribute("animated", "")
 
   if (!view.isFixedLayout) {
+    const viewportWidth = view.getBoundingClientRect().width
+    const maxMarginByWidth = Number.isFinite(viewportWidth)
+      ? Math.floor((viewportWidth - MIN_READER_INLINE_CONTENT_WIDTH_PX) / 2)
+      : preferences.marginPx
+    const responsiveMarginPx = Math.min(
+      preferences.marginPx,
+      Math.max(MIN_READER_MARGIN_PX, maxMarginByWidth),
+    )
+
     renderer.setAttribute("flow", preferences.flow)
-    renderer.setAttribute("margin", `${preferences.marginPx}px`)
+    renderer.setAttribute("margin", `${responsiveMarginPx}px`)
     renderer.setAttribute("gap", `${preferences.gapPercent}%`)
     renderer.setAttribute("max-inline-size", `${preferences.maxInlineSizePx}px`)
     renderer.setAttribute("max-block-size", `${preferences.maxBlockSizePx}px`)
