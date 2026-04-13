@@ -71,6 +71,15 @@ export {
   DropdownMenuTrigger,
 } from "./components/ui/dropdown-menu"
 export { HoverCard, HoverCardContent, HoverCardTrigger } from "./components/ui/hover-card"
+export {
+  Popover,
+  PopoverAnchor,
+  PopoverContent,
+  PopoverDescription,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from "./components/ui/popover"
 export { Input } from "./components/ui/input"
 export {
   NativeSelect,
