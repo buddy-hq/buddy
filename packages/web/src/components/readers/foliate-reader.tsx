@@ -9,6 +9,7 @@ import {
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react"
+import { useHotkey } from "@tanstack/react-hotkeys"
 import {
   Button,
   DropdownMenu,
@@ -16,53 +17,36 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  ResizeHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-  ScrollArea,
   Separator,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
   cn,
-  useResizablePanelRef,
   // Icons from @buddy/ui
-  BookOpenIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   CircleQuestionMarkIcon,
   EllipsisIcon,
-  PanelLeftCloseIcon,
-  PanelLeftOpenIcon,
-  PinIcon,
-  SettingsIcon,
 } from "@buddy/ui"
 import {
-  InfoIcon,
+  BookmarkIcon,
   LayoutPanelLeftIcon,
   Loader2Icon,
   MapIcon,
-  PencilLineIcon,
   Redo2Icon,
   ScrollTextIcon,
-  SearchIcon,
   Undo2Icon,
 } from "lucide-react"
-import { FoliateAnnotationsPanel } from "./ui/foliate-annotations-panel"
-import { FoliateBookmarksPanel } from "./ui/foliate-bookmarks-panel"
+import { FoliateAnnotationsPopover } from "./ui/foliate-annotations-popover"
+import { FoliateBookmarksPopover } from "./ui/foliate-bookmarks-popover"
 import { FoliateEmptyState } from "./ui/foliate-empty-state"
 import { FoliateErrorState } from "./ui/foliate-error-state"
-import { FoliateMetadataPanel } from "./ui/foliate-metadata-panel"
-import { FoliatePreferencesPanel } from "./ui/foliate-preferences-panel"
-import { FoliateSearchPanel } from "./ui/foliate-search-panel"
-import { FoliateTocTree } from "./ui/foliate-toc-tree"
+import { FoliateMetadataHoverCard } from "./ui/foliate-metadata-hover-card"
+import { FoliatePreferencesPopover } from "./ui/foliate-preferences-popover"
+import { FoliateSearchPopover } from "./ui/foliate-search-popover"
+import { FoliateTocPopover } from "./ui/foliate-toc-popover"
 import { FoliateHelpDialog } from "./ui/foliate-help-dialog"
 import { FoliateLocationDialog } from "./ui/foliate-location-dialog"
 import { FoliateAnnotationDialog } from "./ui/foliate-annotation-dialog"
 import { FoliateAnnotationPopover } from "./ui/foliate-annotation-popover"
 import { FoliateSelectionToolbar } from "./ui/foliate-selection-toolbar"
-import { useSyncResizablePanelSize } from "@/components/layout/use-sync-resizable-panel-size"
 import { ensureFoliateRuntimeCompat } from "@/lib/foliate/ensure-foliate-runtime-compat"
 import type {
   FoliateDrawAnnotationEventDetail,
@@ -81,7 +65,6 @@ import type {
   FoliateReaderLocation,
   FoliateReaderProps,
   FoliateReaderSearchScope,
-  FoliateReaderSidebarTab,
   FoliateReaderSnapshot,
   FoliateReaderSource,
   FoliateReaderThemeId,
@@ -106,19 +89,10 @@ import {
   DEFAULT_TITLE,
   FLOW_PAGINATED,
   FLOW_SCROLLED,
-  READER_SIDEBAR_BREAKPOINT_HYSTERESIS_PX,
-  READER_SIDEBAR_DESKTOP_BREAKPOINT_PX,
   SEARCH_RESULT_KEY_PREFIX,
   SEARCH_SCOPE_BOOK,
   SEARCH_SCOPE_SECTION,
   SEARCH_SECTION_KEY_PREFIX,
-  SIDEBAR_ANNOTATIONS,
-  SIDEBAR_BOOKMARKS,
-  SIDEBAR_CONTENTS,
-  SIDEBAR_DETAILS,
-  SIDEBAR_PREFERENCES,
-  SIDEBAR_SEARCH,
-  TOC_EMPTY_MESSAGE,
   VIEWPORT_CLASS_NAME,
   VIEW_ELEMENT_CLASS_NAME,
 } from "./foliate-reader-constants"
@@ -138,7 +112,6 @@ import {
   getSearchResultRows,
   getSourceFormatLabel,
   getSourceName,
-  isFoliateSidebarTab,
   isEditingTarget,
   isReaderAnnotationColorId,
   readSelectedRange,
@@ -160,9 +133,6 @@ import { formatContributor, formatMetadataValue, toPercentLabel } from "./utils/
 // Components already imported above
 
 ensureFoliateRuntimeCompat()
-
-const FOLIATE_SIDEBAR_MIN_WIDTH_PX = 240
-const FOLIATE_SIDEBAR_MAX_WIDTH_PX = 600
 
 export type {
   FoliateReaderAppearanceMode,
@@ -193,8 +163,6 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       initialLocation,
       defaultTheme = "paper",
       defaultFlow = FLOW_PAGINATED,
-      defaultSidebarTab = SIDEBAR_CONTENTS,
-      showSidebar = true,
       showToolbar = true,
       emptyState,
       onReady,
@@ -213,10 +181,6 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     const searchGeneratorRef = useRef<AsyncGenerator<FoliateSearchResult> | null>(null)
     const searchRunIdRef = useRef(0)
     const selectionActionRef = useRef<ReaderSelectionAction | null>(null)
-    const searchViewportRef = useRef<HTMLDivElement | null>(null)
-    const bookmarkViewportRef = useRef<HTMLDivElement | null>(null)
-    const annotationViewportRef = useRef<HTMLDivElement | null>(null)
-    const searchInputRef = useRef<HTMLInputElement | null>(null)
     const callbacksRef = useRef({
       onReady,
       onLocationChange,
@@ -228,8 +192,6 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       loadGlobalPreferences(defaultTheme, defaultFlow),
     )
     const [effectiveAppearance, setEffectiveAppearance] = useState<"light" | "dark">("light")
-    const [sidebarTab, setSidebarTab] = useState<FoliateReaderSidebarTab>(defaultSidebarTab)
-    const [sidebarOpen, setSidebarOpen] = useState(showSidebar)
     const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle")
     const [snapshot, setSnapshot] = useState<FoliateReaderSnapshot | null>(null)
     const [location, setLocation] = useState<FoliateReaderLocation>({})
@@ -262,28 +224,6 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     const [locationDialogOpen, setLocationDialogOpen] = useState(false)
     const [locationDraft, setLocationDraft] = useState("")
     const [progressDraft, setProgressDraft] = useState<number | null>(null)
-    const [useDesktopSidebarLayout, setUseDesktopSidebarLayout] = useState(() =>
-      typeof window !== "undefined"
-        ? window.innerWidth >= READER_SIDEBAR_DESKTOP_BREAKPOINT_PX
-        : false,
-    )
-    const [sidebarWidth, setSidebarWidth] = useState(() => {
-      if (typeof window !== "undefined") {
-        const saved = localStorage.getItem("foliateSidebarWidth")
-        return saved ? parseInt(saved, 10) : 344
-      }
-      return 344
-    })
-    const sidebarPanelRef = useResizablePanelRef()
-
-    useEffect(() => {
-      localStorage.setItem("foliateSidebarWidth", sidebarWidth.toString())
-    }, [sidebarWidth])
-
-    useSyncResizablePanelSize(
-      sidebarPanelRef,
-      sidebarOpen && useDesktopSidebarLayout ? sidebarWidth : undefined,
-    )
 
     const preferencesRef = useRef(preferences)
     const effectiveAppearanceRef = useRef(effectiveAppearance)
@@ -364,26 +304,31 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     )
 
     useEffect(() => {
-      setSidebarOpen(showSidebar)
-    }, [showSidebar])
+      const root = rootRef.current
+      if (!root) return
 
-    useEffect(() => {
-      const desktopSidebarExitWidth =
-        READER_SIDEBAR_DESKTOP_BREAKPOINT_PX - READER_SIDEBAR_BREAKPOINT_HYSTERESIS_PX
-
-      const syncSidebarLayout = () => {
-        setUseDesktopSidebarLayout((current) => {
-          const viewportWidth = window.innerWidth
-          if (current) {
-            return viewportWidth >= desktopSidebarExitWidth
-          }
-          return viewportWidth >= READER_SIDEBAR_DESKTOP_BREAKPOINT_PX
-        })
+      const syncRendererPreferences = () => {
+        const view = viewRef.current
+        if (!view) return
+        const nextTheme = getThemeDefinition(preferencesRef.current.themeId)
+        applyReaderPreferences(
+          view,
+          nextTheme,
+          preferencesRef.current,
+          effectiveAppearanceRef.current,
+        )
+        syncMarginals(view, snapshotRef.current, locationRef.current)
       }
 
-      syncSidebarLayout()
-      window.addEventListener("resize", syncSidebarLayout)
-      return () => window.removeEventListener("resize", syncSidebarLayout)
+      syncRendererPreferences()
+
+      const resizeObserver =
+        typeof ResizeObserver === "undefined" ? null : new ResizeObserver(syncRendererPreferences)
+
+      resizeObserver?.observe(root)
+      return () => {
+        resizeObserver?.disconnect()
+      }
     }, [])
 
     useEffect(() => {
@@ -430,6 +375,22 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       }
     }, [])
 
+    useHotkey("ArrowLeft", () => {
+      void viewRef.current?.prev()
+    }, { enabled: preferences.flow === FLOW_PAGINATED })
+
+    useHotkey("ArrowRight", () => {
+      void viewRef.current?.next()
+    }, { enabled: preferences.flow === FLOW_PAGINATED })
+
+    useHotkey("ArrowUp", () => {
+      void viewRef.current?.prev()
+    }, { enabled: preferences.flow === FLOW_SCROLLED })
+
+    useHotkey("ArrowDown", () => {
+      void viewRef.current?.next()
+    }, { enabled: preferences.flow === FLOW_SCROLLED })
+
     function resetTransientUi() {
       selectionActionRef.current = null
       setSelectionToolbar(null)
@@ -474,8 +435,6 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
 
       const runId = searchRunIdRef.current + 1
       searchRunIdRef.current = runId
-      setSidebarTab(SIDEBAR_SEARCH)
-      setSidebarOpen(true)
       setSearchState((current) => ({
         ...current,
         query,
@@ -707,13 +666,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     }
 
     function revealSearchPanel(query: string) {
-      setSidebarOpen(true)
-      setSidebarTab(SIDEBAR_SEARCH)
       setSearchState((current) => ({ ...current, query }))
-      window.setTimeout(() => {
-        searchInputRef.current?.focus()
-        searchInputRef.current?.select()
-      }, 0)
     }
 
     function openSearchWithQuery(query: string) {
@@ -754,8 +707,6 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       }
       if (command && key === ",") {
         event.preventDefault()
-        setSidebarOpen(true)
-        setSidebarTab(SIDEBAR_PREFERENCES)
         return
       }
       if (event.altKey && key === "ArrowLeft") {
@@ -869,11 +820,17 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
           const historyListener = () => updateHistoryState(view)
 
           const loadListener = (event: CustomEvent<{ doc: Document; index: number }>) => {
+            event.detail.doc.addEventListener("pointerdown", () => {
+              // Dispatch a pointerdown event on the main document to trigger dismissal
+              // of popovers and other floating UI that listen for outside interactions.
+              document.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }))
+            })
             event.detail.doc.addEventListener("pointerup", () => {
               const selection = event.detail.doc.getSelection()
               const range = readSelectedRange(selection)
               const container = rootRef.current
               if (!range || !container) {
+                resetTransientUi()
                 return
               }
               const position = getOverlayPosition(range, container)
@@ -989,208 +946,13 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       progressDraft ?? Math.round((location.fraction ?? 0) * DEFAULT_PROGRESS_STEPS)
     const chromeClassName =
       effectiveAppearance === "dark"
-        ? "border-border-base/60 bg-surface-strong text-text-strong"
-        : "border-border-base/60 bg-surface-raised-base text-text-base"
-
-    const renderSearchPanel = () => (
-      <FoliateSearchPanel
-        searchState={searchState}
-        onQueryChange={(query) => setSearchState((c) => ({ ...c, query }))}
-        onRunSearch={() => void runSearch()}
-        onCycleResults={(dir) => void cycleSearchResults(dir)}
-        onScopeChange={(scope) => {
-          if (scope === SEARCH_SCOPE_BOOK || scope === SEARCH_SCOPE_SECTION) {
-            setSearchState((c) => ({ ...c, scope }))
-          }
-        }}
-        onMatchCaseChange={(matchCase) => setSearchState((c) => ({ ...c, matchCase }))}
-        onMatchWholeWordsChange={(matchWholeWords) =>
-          setSearchState((c) => ({ ...c, matchWholeWords }))
-        }
-        onMatchDiacriticsChange={(matchDiacritics) =>
-          setSearchState((c) => ({ ...c, matchDiacritics }))
-        }
-        onShowResult={(cfi) => void showSearchResult(cfi)}
-        searchInputRef={searchInputRef}
-        searchViewportRef={searchViewportRef}
-        status={status}
-        isReaderSearchScope={(v: string): v is FoliateReaderSearchScope =>
-          v === SEARCH_SCOPE_BOOK || v === SEARCH_SCOPE_SECTION
-        }
-      />
-    )
-
-    const renderBookmarksPanel = () => (
-      <FoliateBookmarksPanel
-        bookmarks={bookmarks}
-        currentBookmark={currentBookmark}
-        onToggleBookmark={() => void toggleBookmark()}
-        onGoToBookmark={(val) => void viewRef.current?.goTo(val)}
-        onDeleteBookmark={(val) => setBookmarks((c) => c.filter((e) => e.value !== val))}
-        bookmarkViewportRef={bookmarkViewportRef}
-      />
-    )
-
-    const renderAnnotationsPanel = () => (
-      <FoliateAnnotationsPanel
-        annotations={annotations}
-        onShowAnnotation={(ann) => void viewRef.current?.showAnnotation(ann)}
-        onOpenAnnotationDialog={openAnnotationDialog}
-        onDeleteAnnotation={(val) => void deleteAnnotationValue(val)}
-        annotationViewportRef={annotationViewportRef}
-      />
-    )
-
-    const renderPreferencesPanel = () => (
-      <FoliatePreferencesPanel
-        preferences={preferences}
-        setPreferences={setPreferences}
-        canChangeFlow={canChangeFlow}
-      />
-    )
-
-    const sidebarPane = sidebarOpen ? (
-      <aside
-        className={cn(
-          "relative min-h-0 bg-surface-base",
-          useDesktopSidebarLayout
-            ? "border-r border-border-base/50"
-            : "border-b border-border-base/50",
-        )}
-      >
-        <Tabs
-          value={sidebarTab}
-          onValueChange={(nextValue) => {
-            if (isFoliateSidebarTab(nextValue)) setSidebarTab(nextValue)
-          }}
-          className="flex h-full min-h-0 flex-col"
-        >
-          {/* Book identity block */}
-          <div className="border-b border-border-base/40 px-4 py-3">
-            <div className="flex items-center gap-3">
-              {snapshot?.coverUrl ? (
-                <img
-                  src={snapshot.coverUrl}
-                  alt={`${snapshot.title} cover`}
-                  className="h-14 w-10 shrink-0 object-cover shadow-sm"
-                />
-              ) : (
-                <div className="flex h-14 w-10 shrink-0 items-center justify-center border border-border-base/40 bg-surface-weak/50 text-text-weaker">
-                  <BookOpenIcon className="size-3.5" />
-                </div>
-              )}
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-[13px] font-semibold leading-snug text-text-strong">
-                  {snapshot?.title ?? (source ? getSourceName(source) : undefined) ?? DEFAULT_TITLE}
-                </div>
-                <div className="mt-0.5 truncate text-[11px] text-text-weaker">
-                  {snapshot?.author ?? DEFAULT_AUTHOR}
-                </div>
-                <div className="mt-2 flex items-center gap-2">
-                  <div className="h-0.5 flex-1 bg-border-base/40">
-                    <div
-                      className="h-full bg-text-interactive-base/70 transition-[width] duration-500"
-                      style={{ width: toPercentLabel(location.fraction) ?? "0%" }}
-                    />
-                  </div>
-                  <span className="shrink-0 font-mono text-[10px] tabular-nums text-text-weaker">
-                    {toPercentLabel(location.fraction) ?? "0%"}
-                  </span>
-                </div>
-              </div>
-            </div>
-            {location.tocLabel ? (
-              <div className="mt-2 truncate text-[11px] text-text-weaker">
-                <span className="text-text-weaker/60">Now reading</span>{" "}
-                <span className="text-text-weak">{location.tocLabel}</span>
-              </div>
-            ) : null}
-          </div>
-
-          {/* Tab strip — icon + label, underline active */}
-          <TabsList className="grid h-auto w-full shrink-0 grid-cols-6 gap-0 rounded-none border-b border-border-base/40 bg-transparent p-0">
-            {(
-              [
-                { value: SIDEBAR_CONTENTS, label: "Contents", icon: MapIcon },
-                { value: SIDEBAR_SEARCH, label: "Search", icon: SearchIcon },
-                { value: SIDEBAR_BOOKMARKS, label: "Marks", icon: PinIcon },
-                { value: SIDEBAR_ANNOTATIONS, label: "Notes", icon: PencilLineIcon },
-                { value: SIDEBAR_DETAILS, label: "Details", icon: InfoIcon },
-                { value: SIDEBAR_PREFERENCES, label: "Prefs", icon: SettingsIcon },
-              ] as const
-            ).map(({ value, label, icon: Icon }) => (
-              <TabsTrigger
-                key={value}
-                value={value}
-                className={cn(
-                  "flex h-10 flex-col items-center justify-center gap-0.5 rounded-none border-b-2 border-transparent py-1 text-[10px] text-text-weaker transition-colors",
-                  "data-[state=active]:border-text-interactive-base data-[state=active]:bg-transparent data-[state=active]:text-text-interactive-base",
-                  "hover:bg-surface-weak/50 hover:text-text-weak",
-                )}
-              >
-                <Icon className="size-3.5" />
-                <span className="leading-none">{label}</span>
-              </TabsTrigger>
-            ))}
-          </TabsList>
-
-          <TabsContent value={SIDEBAR_CONTENTS} className="min-h-0 flex-1">
-            <ScrollArea className="h-full px-3 py-3">
-              {snapshot?.toc?.length ? (
-                <FoliateTocTree
-                  items={snapshot.toc}
-                  activeLabel={location.tocLabel}
-                  onSelect={(href) => {
-                    void viewRef.current?.goTo(href)
-                  }}
-                />
-              ) : (
-                <p className="px-1 py-4 text-[12px] text-text-weaker">{TOC_EMPTY_MESSAGE}</p>
-              )}
-            </ScrollArea>
-          </TabsContent>
-
-          <TabsContent value={SIDEBAR_SEARCH} className="min-h-0 flex-1">
-            {renderSearchPanel()}
-          </TabsContent>
-
-          <TabsContent value={SIDEBAR_BOOKMARKS} className="min-h-0 flex-1">
-            {renderBookmarksPanel()}
-          </TabsContent>
-
-          <TabsContent value={SIDEBAR_ANNOTATIONS} className="min-h-0 flex-1">
-            {renderAnnotationsPanel()}
-          </TabsContent>
-
-          <TabsContent value={SIDEBAR_DETAILS} className="min-h-0 flex-1">
-            <ScrollArea className="h-full px-3 py-4">
-              <FoliateMetadataPanel snapshot={snapshot} />
-            </ScrollArea>
-          </TabsContent>
-
-          <TabsContent value={SIDEBAR_PREFERENCES} className="min-h-0 flex-1">
-            {renderPreferencesPanel()}
-          </TabsContent>
-        </Tabs>
-        {useDesktopSidebarLayout ? (
-          <ResizeHandle
-            direction="horizontal"
-            size={sidebarWidth}
-            min={FOLIATE_SIDEBAR_MIN_WIDTH_PX}
-            max={FOLIATE_SIDEBAR_MAX_WIDTH_PX}
-            onResize={(width) => {
-              sidebarPanelRef.current?.resize(width)
-              setSidebarWidth(width)
-            }}
-          />
-        ) : null}
-      </aside>
-    ) : null
+        ? "bg-surface-strong text-text-strong"
+        : "bg-surface-raised-base text-text-base"
 
     const readerPane = (
-      <div className="flex h-full min-h-0 min-w-0 w-full flex-col">
+      <div className="flex h-full min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden">
         {showToolbar ? (
-          <header className="relative border-b border-border-base/50">
+          <header className="relative z-[2] shrink-0">
             {/* Progress accent line at top */}
             <div className="absolute inset-x-0 top-0 h-px bg-border-base/30">
               <div
@@ -1201,103 +963,71 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
               />
             </div>
 
-            <div className="flex h-11 items-center gap-1 px-2">
-              {showSidebar ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => setSidebarOpen((current) => !current)}
-                  aria-label={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
-                  className="shrink-0 text-text-weaker hover:text-text-base"
-                >
-                  {sidebarOpen ? (
-                    <PanelLeftCloseIcon className="size-4" />
-                  ) : (
-                    <PanelLeftOpenIcon className="size-4" />
-                  )}
-                </Button>
-              ) : null}
+            <div className="relative flex h-11 min-w-0 items-center gap-1 overflow-hidden px-2">
+              <FoliateTocPopover
+                snapshot={snapshot}
+                tocLabel={location.tocLabel}
+                onSelectHref={(href) => {
+                  void viewRef.current?.goTo(href)
+                }}
+              />
 
-              <Separator orientation="vertical" className="mx-0.5 h-4" />
+              <FoliateBookmarksPopover
+                bookmarks={bookmarks}
+                currentBookmark={currentBookmark}
+                onToggleBookmark={() => void toggleBookmark()}
+                onGoToBookmark={(val) => void viewRef.current?.goTo(val)}
+                onDeleteBookmark={(val) => setBookmarks((c) => c.filter((e) => e.value !== val))}
+              />
 
-              <div className="flex items-center gap-0.5">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Previous page"
-                  onClick={() => {
-                    void viewRef.current?.goLeft()
-                  }}
-                  disabled={status !== "ready"}
-                  className="text-text-weaker hover:text-text-base"
-                >
-                  <ChevronLeftIcon className="size-4" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="History back"
-                  onClick={() => viewRef.current?.history.back()}
-                  disabled={!historyState.canGoBack}
-                  className="text-text-weaker hover:text-text-base"
-                >
-                  <Undo2Icon className="size-3.5" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="History forward"
-                  onClick={() => viewRef.current?.history.forward()}
-                  disabled={!historyState.canGoForward}
-                  className="text-text-weaker hover:text-text-base"
-                >
-                  <Redo2Icon className="size-3.5" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Next page"
-                  onClick={() => {
-                    void viewRef.current?.goRight()
-                  }}
-                  disabled={status !== "ready"}
-                  className="text-text-weaker hover:text-text-base"
-                >
-                  <ChevronRightIcon className="size-4" />
-                </Button>
+              <FoliateAnnotationsPopover
+                annotations={annotations}
+                onShowAnnotation={(ann) => void viewRef.current?.showAnnotation(ann)}
+                onOpenAnnotationDialog={openAnnotationDialog}
+                onDeleteAnnotation={(val) => void deleteAnnotationValue(val)}
+              />
+
+              <div className="flex-1" />
+
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-48">
+                <FoliateMetadataHoverCard snapshot={snapshot}>
+                  <span className="pointer-events-auto cursor-pointer truncate text-xs font-medium text-text-base">
+                    {snapshot?.title ?? (source ? getSourceName(source) : undefined) ?? DEFAULT_TITLE}
+                  </span>
+                </FoliateMetadataHoverCard>
               </div>
 
               <Separator orientation="vertical" className="mx-0.5 h-4" />
 
-              {/* Location pill */}
-              <button
-                type="button"
-                onClick={openLocationDialog}
-                className="min-w-0 flex-1 px-2 py-1 text-left transition-colors hover:bg-surface-weak/60"
-                aria-label="Open location and jumps"
-              >
-                <div className="flex items-baseline gap-2 truncate">
-                  <span className="truncate text-xs font-medium text-text-base">
-                    {location.tocLabel ?? snapshot?.title ?? DEFAULT_TITLE}
-                  </span>
-                  {location.pageLabel ? (
-                    <span className="shrink-0 text-[11px] text-text-weaker">
-                      {location.pageLabel}
-                    </span>
-                  ) : null}
-                </div>
-              </button>
+              <FoliateSearchPopover
+                searchState={searchState}
+                onQueryChange={(query) => setSearchState((c) => ({ ...c, query }))}
+                onRunSearch={() => void runSearch()}
+                onCycleResults={(dir) => void cycleSearchResults(dir)}
+                onScopeChange={(scope) => {
+                  if (scope === SEARCH_SCOPE_BOOK || scope === SEARCH_SCOPE_SECTION) {
+                    setSearchState((c) => ({ ...c, scope }))
+                  }
+                }}
+                onMatchCaseChange={(matchCase) => setSearchState((c) => ({ ...c, matchCase }))}
+                onMatchWholeWordsChange={(matchWholeWords) =>
+                  setSearchState((c) => ({ ...c, matchWholeWords }))
+                }
+                onMatchDiacriticsChange={(matchDiacritics) =>
+                  setSearchState((c) => ({ ...c, matchDiacritics }))
+                }
+                onShowResult={(cfi) => void showSearchResult(cfi)}
+                status={status}
+                isReaderSearchScope={(v: string): v is FoliateReaderSearchScope =>
+                  v === SEARCH_SCOPE_BOOK || v === SEARCH_SCOPE_SECTION
+                }
+              />
 
-              <span className="shrink-0 font-mono text-[11px] tabular-nums text-text-weaker">
-                {toPercentLabel(location.fraction) ?? "—"}
-              </span>
-
-              <Separator orientation="vertical" className="mx-0.5 h-4" />
+              <FoliatePreferencesPopover
+                preferences={preferences}
+                setPreferences={setPreferences}
+                canChangeFlow={canChangeFlow}
+              />
 
               <Button
                 type="button"
@@ -1312,7 +1042,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
                     : "text-text-weaker hover:text-text-base",
                 )}
               >
-                <PinIcon className={cn("size-4", currentBookmark && "fill-current")} />
+                <BookmarkIcon className={cn("size-4", currentBookmark && "fill-current")} />
               </Button>
 
               <DropdownMenu>
@@ -1327,22 +1057,9 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-52">
-                  <DropdownMenuItem onClick={() => openSearchWithQuery(searchState.query)}>
-                    <SearchIcon className="mr-2 size-4" />
-                    Find in book
-                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={openLocationDialog}>
                     <MapIcon className="mr-2 size-4" />
                     Location and jumps
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setSidebarOpen(true)
-                      setSidebarTab(SIDEBAR_PREFERENCES)
-                    }}
-                  >
-                    <SettingsIcon className="mr-2 size-4" />
-                    Reader preferences
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   {canChangeFlow ? (
@@ -1370,42 +1087,12 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
               </DropdownMenu>
             </div>
 
-            {/* Progress scrubber — hairline */}
-            <div className="px-2 pb-1.5">
-              <input
-                type="range"
-                min="0"
-                max={String(DEFAULT_PROGRESS_STEPS)}
-                step="1"
-                list={sliderListId}
-                value={progressValue}
-                onChange={(event) => {
-                  setProgressDraft(Number(event.target.value))
-                }}
-                onMouseUp={() => {
-                  if (progressDraft === null) return
-                  void viewRef.current?.goToFraction(progressDraft / DEFAULT_PROGRESS_STEPS)
-                  setProgressDraft(null)
-                }}
-                onTouchEnd={() => {
-                  if (progressDraft === null) return
-                  void viewRef.current?.goToFraction(progressDraft / DEFAULT_PROGRESS_STEPS)
-                  setProgressDraft(null)
-                }}
-                className="h-0.5 w-full cursor-pointer appearance-none bg-border-base/40 accent-[var(--text-interactive-base)] [&::-webkit-slider-thumb]:size-2.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:bg-[var(--text-interactive-base)] [&::-webkit-slider-thumb]:shadow-sm"
-              />
-              <datalist id={sliderListId}>
-                {sectionFractions.map((fraction) => (
-                  <option key={fraction} value={Math.round(fraction * DEFAULT_PROGRESS_STEPS)} />
-                ))}
-              </datalist>
-            </div>
           </header>
         ) : null}
 
         <div
           className={cn(
-            "relative min-h-0 min-w-0 w-full flex-1 p-2 sm:p-3",
+            "relative min-h-0 min-w-0 w-full flex-1",
             theme.viewportClassName,
           )}
         >
@@ -1428,7 +1115,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
             ref={viewportRef}
             className={cn(
               VIEWPORT_CLASS_NAME,
-              "h-full min-h-[24rem] overflow-hidden border border-border-base/50 bg-surface-raised-base/80",
+              "h-full min-h-[18rem] overflow-hidden sm:min-h-[24rem]",
               status === "idle" || status === "error" ? "hidden" : "block",
             )}
           />
@@ -1472,20 +1159,104 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
             onDeleteAnnotation={(val: string) => void deleteAnnotationValue(val)}
             annotations={annotations}
           />
+        </div>
 
-          {snapshot && location.tocLabel ? (
-            <div className="pointer-events-none absolute inset-x-4 bottom-4 hidden justify-center lg:flex">
-              <div className="pointer-events-none inline-flex items-center gap-2 border border-border-base/40 bg-surface-raised-base/80 px-3 py-1.5 shadow-sm backdrop-blur">
-                <span className="max-w-48 truncate text-[11px] text-text-weaker">
-                  {location.tocLabel}
+        {/* Solid Footer — matches header color & style */}
+        {snapshot && status === "ready" ? (
+          <footer className="z-30 flex h-10 w-full shrink-0 flex-col justify-center px-5">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label="Previous page"
+                  onClick={() => {
+                    void viewRef.current?.goLeft()
+                  }}
+                  className="size-7 text-text-weaker hover:text-text-base border-none"
+                >
+                  <ChevronLeftIcon className="size-3.5" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  onClick={() => viewRef.current?.history.back()}
+                  disabled={!historyState.canGoBack}
+                  className="size-7 text-text-weaker hover:text-text-base border-none"
+                >
+                  <Undo2Icon className="size-3" />
+                </Button>
+              </div>
+
+              <div className="flex items-center gap-2 overflow-hidden text-[9px] font-medium tracking-tight text-text-weaker uppercase">
+                {typeof location.index === "number" && (
+                  <span className="shrink-0 opacity-40 font-mono">
+                    {location.index + 1}
+                  </span>
+                )}
+                <span className="truncate max-w-[200px] opacity-80 tracking-widest">
+                  {location.tocLabel ?? snapshot.title}
                 </span>
-                <span className="shrink-0 font-mono text-[10px] tabular-nums text-text-weaker/60">
-                  {toPercentLabel(location.fraction)}
+                <span className="mx-0.5 opacity-30 tracking-widest leading-none">•</span>
+                <span className="shrink-0 font-mono opacity-50">
+                  {location.pageLabel ??
+                    location.locationLabel ??
+                    (location.fraction !== undefined
+                      ? `${Math.round(location.fraction * 100)}%`
+                      : "")}
                 </span>
               </div>
+
+              <div className="flex items-center">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  onClick={() => viewRef.current?.history.forward()}
+                  disabled={!historyState.canGoForward}
+                  className="size-7 text-text-weaker hover:text-text-base border-none"
+                >
+                  <Redo2Icon className="size-3" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label="Next page"
+                  onClick={() => {
+                    void viewRef.current?.goRight()
+                  }}
+                  className="size-7 text-text-weaker hover:text-text-base border-none"
+                >
+                  <ChevronRightIcon className="size-3.5" />
+                </Button>
+              </div>
             </div>
-          ) : null}
-        </div>
+
+            {/* Scrubber slider — ultrathin hairline at the very bottom */}
+            <div className="group/scrubber relative h-2 w-full mt-1">
+              <input
+                type="range"
+                min="0"
+                max={String(DEFAULT_PROGRESS_STEPS)}
+                step="1"
+                value={progressDraft ?? progressValue}
+                onChange={(event) => {
+                  setProgressDraft(Number(event.target.value))
+                }}
+                onPointerUp={() => {
+                  if (progressDraft === null) return
+                  void viewRef.current?.goToFraction(progressDraft / DEFAULT_PROGRESS_STEPS)
+                  setProgressDraft(null)
+                }}
+                onPointerCancel={() => setProgressDraft(null)}
+                className="peer absolute inset-0 h-full w-full cursor-pointer appearance-none bg-transparent outline-none [&::-webkit-slider-runnable-track]:h-px [&::-webkit-slider-runnable-track]:bg-transparent [&::-webkit-slider-thumb]:mt-[-3px] [&::-webkit-slider-thumb]:h-1.5 [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-text-weaker/40 [&::-webkit-slider-thumb]:transition-all peer-hover:[&::-webkit-slider-thumb]:bg-text-interactive-base"
+              />
+            </div>
+          </footer>
+        ) : null}
       </div>
     )
 
@@ -1498,7 +1269,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
         data-appearance={effectiveAppearance}
         onKeyDown={handleShortcut}
         className={cn(
-          "h-full w-full min-h-0 overflow-hidden border shadow-[0_8px_32px_color-mix(in_oklab,var(--surface-strong)_12%,transparent)]",
+          "h-full w-full min-h-0 overflow-hidden shadow-[0_8px_32px_color-mix(in_oklab,var(--surface-strong)_12%,transparent)]",
           chromeClassName,
           theme.shellClassName,
           className,
@@ -1513,39 +1284,39 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
 
           .${VIEWPORT_CLASS_NAME} > .${VIEW_ELEMENT_CLASS_NAME}::part(head),
           .${VIEWPORT_CLASS_NAME} > .${VIEW_ELEMENT_CLASS_NAME}::part(foot) {
-            color: var(--text-weak);
-            font-size: 11px;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
+            display: none;
           }
 
-          [data-component="foliate-reader"][data-theme="${theme.id}"][data-appearance="${effectiveAppearance}"] .${VIEWPORT_CLASS_NAME} > .${VIEW_ELEMENT_CLASS_NAME}::part(filter) {
+          .${VIEWPORT_CLASS_NAME} > .${VIEW_ELEMENT_CLASS_NAME}::part(filter) {
             filter: ${effectiveAppearance === "dark" ? theme.pdfFilterDark : theme.pdfFilterLight};
+          }
+
+          /* Custom scrollbar to match theme */
+          * {
+            scrollbar-width: thin;
+            scrollbar-color: color-mix(in oklab, ${theme.contentForeground} 15%, transparent) transparent;
+          }
+
+          ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+          }
+
+          ::-webkit-scrollbar-track {
+            background: transparent;
+          }
+
+          ::-webkit-scrollbar-thumb {
+            background: color-mix(in oklab, ${theme.contentForeground} 15%, transparent);
+            border-radius: 10px;
+          }
+
+          ::-webkit-scrollbar-thumb:hover {
+            background: color-mix(in oklab, ${theme.contentForeground} 25%, transparent);
           }
         `}</style>
 
-        {sidebarPane && useDesktopSidebarLayout ? (
-          <ResizablePanelGroup orientation="horizontal" className="h-full w-full min-w-0">
-            <ResizablePanel
-              id="foliate-reader-sidebar"
-              panelRef={sidebarPanelRef}
-              defaultSize={sidebarWidth}
-              minSize={FOLIATE_SIDEBAR_MIN_WIDTH_PX}
-              maxSize={FOLIATE_SIDEBAR_MAX_WIDTH_PX}
-              className="relative flex min-h-0 min-w-0 overflow-hidden"
-            >
-              {sidebarPane}
-            </ResizablePanel>
-            <ResizablePanel id="foliate-reader-main" className="flex min-h-0 min-w-0">
-              {readerPane}
-            </ResizablePanel>
-          </ResizablePanelGroup>
-        ) : (
-          <>
-            {sidebarPane}
-            {readerPane}
-          </>
-        )}
+        {readerPane}
 
         <FoliateAnnotationDialog
           dialog={annotationDialog}

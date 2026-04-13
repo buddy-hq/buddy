@@ -190,8 +190,6 @@ export interface FoliateReaderProps {
   initialLocation?: FoliateNavigationTarget
   defaultTheme?: FoliateReaderThemeId
   defaultFlow?: FoliateReaderFlow
-  defaultSidebarTab?: FoliateReaderSidebarTab
-  showSidebar?: boolean
   showToolbar?: boolean
   emptyState?: ReactNode
   onReady?: (snapshot: FoliateReaderSnapshot) => void
