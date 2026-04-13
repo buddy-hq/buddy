@@ -30,7 +30,10 @@ export function MermaidInlineView({ ariaLabel, viewport }: MermaidInlineViewProp
           data-component="mermaid-diagram"
           role="img"
           aria-label={ariaLabel}
-          className="absolute flex shrink-0 items-start justify-start overflow-visible [&_svg]:!block [&_svg]:!h-full [&_svg]:!w-full [&_svg]:!max-w-none"
+          className={cn(
+            "absolute flex shrink-0 items-start justify-start overflow-visible [&_svg]:!block [&_svg]:!h-full [&_svg]:!w-full [&_svg]:!max-w-none transition-opacity duration-300",
+            viewport.isInitialized ? "opacity-100" : "opacity-0",
+          )}
           style={{
             left: viewport.contentOffsetX,
             top: viewport.contentOffsetY,

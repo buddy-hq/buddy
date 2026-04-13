@@ -1,10 +1,4 @@
-import {
-  ToggleGroup,
-  ToggleGroupItem,
-  Switch,
-  ScrollArea,
-  Separator,
-} from "@buddy/ui"
+import { ToggleGroup, ToggleGroupItem, Switch, ScrollArea, Separator } from "@buddy/ui"
 import {
   SunIcon,
   MoonIcon,
@@ -38,9 +32,21 @@ export interface FoliatePreferencesPanelProps {
 }
 
 function SliderRow({
-  label, min, max, step, value, onChange, format
+  label,
+  min,
+  max,
+  step,
+  value,
+  onChange,
+  format,
 }: {
-  label: string; min: number; max: number; step: number; value: number; onChange: (v: number) => void; format?: (v: number) => string
+  label: string
+  min: number
+  max: number
+  step: number
+  value: number
+  onChange: (v: number) => void
+  format?: (v: number) => string
 }) {
   return (
     <label className="flex items-center gap-4 px-5 py-2">
@@ -65,7 +71,17 @@ function SliderRow({
   )
 }
 
-function ToggleRow({ label, description, checked, onCheckedChange }: { label: string; description?: string, checked: boolean; onCheckedChange: (v: boolean) => void }) {
+function ToggleRow({
+  label,
+  description,
+  checked,
+  onCheckedChange,
+}: {
+  label: string
+  description?: string
+  checked: boolean
+  onCheckedChange: (v: boolean) => void
+}) {
   return (
     <div className="flex items-center justify-between px-5 py-3 border-t border-border-base/30 first:border-t-0">
       <div className="flex flex-col gap-0.5">
@@ -77,7 +93,7 @@ function ToggleRow({ label, description, checked, onCheckedChange }: { label: st
   )
 }
 
-const THEME_COLORS: Record<FoliateReaderThemeId, { bg: string, text: string }> = {
+const THEME_COLORS: Record<FoliateReaderThemeId, { bg: string; text: string }> = {
   paper: { bg: "#fcfaf6", text: "#111" },
   sepia: { bg: "#f1ece4", text: "#433422" },
   night: { bg: "#0a0a0a", text: "#ddd" },
@@ -101,7 +117,7 @@ export function FoliatePreferencesPanel({
             spacing={4}
             onValueChange={(val) => {
               if (val && isFoliateReaderThemeId(val)) {
-                setPreferences(c => ({ ...c, themeId: val }))
+                setPreferences((c) => ({ ...c, themeId: val }))
               }
             }}
             className="flex w-full justify-between"
@@ -115,7 +131,9 @@ export function FoliatePreferencesPanel({
                   value={theme.id}
                   className={cn(
                     "relative size-12 rounded-full p-0 border border-black/5 dark:border-white/5 shadow-md flex items-center justify-center transition-transform active:scale-95",
-                    isActive ? "ring-2 ring-text-interactive-base outline outline-2 outline-offset-2 outline-transparent" : "hover:scale-105"
+                    isActive
+                      ? "ring-2 ring-text-interactive-base outline outline-2 outline-offset-2 outline-transparent"
+                      : "hover:scale-105",
                   )}
                   style={{ backgroundColor: colors.bg, color: colors.text }}
                   aria-label={theme.label}
@@ -135,7 +153,7 @@ export function FoliatePreferencesPanel({
             variant="outline"
             value={preferences.appearanceMode}
             onValueChange={(val) => {
-              if (val) setPreferences(c => ({ ...c, appearanceMode: val as any }))
+              if (val) setPreferences((c) => ({ ...c, appearanceMode: val as any }))
             }}
             className="flex w-full"
           >
@@ -159,7 +177,7 @@ export function FoliatePreferencesPanel({
             variant="outline"
             value={preferences.fontPreset}
             onValueChange={(val) => {
-              if (val) setPreferences(c => ({ ...c, fontPreset: val as any }))
+              if (val) setPreferences((c) => ({ ...c, fontPreset: val as any }))
             }}
             className="flex w-full"
           >
@@ -183,7 +201,7 @@ export function FoliatePreferencesPanel({
                 variant="outline"
                 value={preferences.flow}
                 onValueChange={(val) => {
-                  if (val) setPreferences(c => ({ ...c, flow: val as any }))
+                  if (val) setPreferences((c) => ({ ...c, flow: val as any }))
                 }}
                 className="flex-1"
               >
@@ -203,7 +221,7 @@ export function FoliatePreferencesPanel({
               variant="outline"
               value={preferences.justify ? "justify" : "left"}
               onValueChange={(val) => {
-                if (val) setPreferences(c => ({ ...c, justify: val === "justify" }))
+                if (val) setPreferences((c) => ({ ...c, justify: val === "justify" }))
               }}
               className="w-24"
             >
@@ -223,31 +241,46 @@ export function FoliatePreferencesPanel({
         <div className="flex flex-col py-1 space-y-1">
           <SliderRow
             label="Text Size"
-            min={0.85} max={1.4} step={0.01} value={preferences.fontScaleRem}
+            min={0.85}
+            max={1.4}
+            step={0.01}
+            value={preferences.fontScaleRem}
             onChange={(v) => setPreferences((c) => ({ ...c, fontScaleRem: v }))}
             format={(v) => `${Math.round(v * 100)}%`}
           />
           <SliderRow
             label="Line Height"
-            min={1.2} max={2} step={0.02} value={preferences.lineHeight}
+            min={1.2}
+            max={2}
+            step={0.02}
+            value={preferences.lineHeight}
             onChange={(v) => setPreferences((c) => ({ ...c, lineHeight: v }))}
             format={(v) => v.toFixed(2)}
           />
           <SliderRow
             label="Column Gap"
-            min={0} max={18} step={1} value={preferences.gapPercent}
+            min={0}
+            max={18}
+            step={1}
+            value={preferences.gapPercent}
             onChange={(v) => setPreferences((c) => ({ ...c, gapPercent: v }))}
             format={(v) => `${v}%`}
           />
           <SliderRow
             label="Margins"
-            min={16} max={120} step={2} value={preferences.marginPx}
+            min={16}
+            max={120}
+            step={2}
+            value={preferences.marginPx}
             onChange={(v) => setPreferences((c) => ({ ...c, marginPx: v }))}
             format={(v) => `${v}px`}
           />
           <SliderRow
             label="Max Width"
-            min={520} max={1100} step={10} value={preferences.maxInlineSizePx}
+            min={520}
+            max={1100}
+            step={10}
+            value={preferences.maxInlineSizePx}
             onChange={(v) => setPreferences((c) => ({ ...c, maxInlineSizePx: v }))}
             format={(v) => `${v}`}
           />

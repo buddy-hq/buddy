@@ -375,21 +375,37 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       }
     }, [])
 
-    useHotkey("ArrowLeft", () => {
-      void viewRef.current?.prev()
-    }, { enabled: preferences.flow === FLOW_PAGINATED })
+    useHotkey(
+      "ArrowLeft",
+      () => {
+        void viewRef.current?.prev()
+      },
+      { enabled: preferences.flow === FLOW_PAGINATED },
+    )
 
-    useHotkey("ArrowRight", () => {
-      void viewRef.current?.next()
-    }, { enabled: preferences.flow === FLOW_PAGINATED })
+    useHotkey(
+      "ArrowRight",
+      () => {
+        void viewRef.current?.next()
+      },
+      { enabled: preferences.flow === FLOW_PAGINATED },
+    )
 
-    useHotkey("ArrowUp", () => {
-      void viewRef.current?.prev()
-    }, { enabled: preferences.flow === FLOW_SCROLLED })
+    useHotkey(
+      "ArrowUp",
+      () => {
+        void viewRef.current?.prev()
+      },
+      { enabled: preferences.flow === FLOW_SCROLLED },
+    )
 
-    useHotkey("ArrowDown", () => {
-      void viewRef.current?.next()
-    }, { enabled: preferences.flow === FLOW_SCROLLED })
+    useHotkey(
+      "ArrowDown",
+      () => {
+        void viewRef.current?.next()
+      },
+      { enabled: preferences.flow === FLOW_SCROLLED },
+    )
 
     function resetTransientUi() {
       selectionActionRef.current = null
@@ -992,7 +1008,9 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-48">
                 <FoliateMetadataHoverCard snapshot={snapshot}>
                   <span className="pointer-events-auto cursor-pointer truncate text-xs font-medium text-text-base">
-                    {snapshot?.title ?? (source ? getSourceName(source) : undefined) ?? DEFAULT_TITLE}
+                    {snapshot?.title ??
+                      (source ? getSourceName(source) : undefined) ??
+                      DEFAULT_TITLE}
                   </span>
                 </FoliateMetadataHoverCard>
               </div>
@@ -1086,16 +1104,10 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-
           </header>
         ) : null}
 
-        <div
-          className={cn(
-            "relative min-h-0 min-w-0 w-full flex-1",
-            theme.viewportClassName,
-          )}
-        >
+        <div className={cn("relative min-h-0 min-w-0 w-full flex-1", theme.viewportClassName)}>
           {status === "loading" ? (
             <div className="absolute inset-x-3 top-3 z-10 sm:inset-x-4 sm:top-4">
               <div className="inline-flex items-center gap-1.5 border border-border-base/50 bg-surface-raised-base/90 px-2.5 py-1 text-[11px] text-text-weaker shadow-sm backdrop-blur">
@@ -1192,9 +1204,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
 
               <div className="flex items-center gap-2 overflow-hidden text-[9px] font-medium tracking-tight text-text-weaker uppercase">
                 {typeof location.index === "number" && (
-                  <span className="shrink-0 opacity-40 font-mono">
-                    {location.index + 1}
-                  </span>
+                  <span className="shrink-0 opacity-40 font-mono">{location.index + 1}</span>
                 )}
                 <span className="truncate max-w-[200px] opacity-80 tracking-widest">
                   {location.tocLabel ?? snapshot.title}

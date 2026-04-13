@@ -42,6 +42,7 @@ export type MermaidViewportController = {
   zoom: number
   zoomLabel: string
   isAutoZoom: boolean
+  isInitialized: boolean
   isDragging: boolean
   canZoomIn: boolean
   canZoomOut: boolean
@@ -166,6 +167,7 @@ export function useMermaidViewport({
 }: UseMermaidViewportOptions): MermaidViewportController {
   const [zoom, setZoom] = useState<number>(mermaidConstants.zoom.DEFAULT)
   const [isAutoZoom, setIsAutoZoom] = useState(true)
+  const [isInitialized, setIsInitialized] = useState(false)
   const [svgBounds, setSvgBounds] = useState<MermaidSvgBounds>({
     width: mermaidConstants.svg.DEFAULT_WIDTH,
     height: mermaidConstants.svg.DEFAULT_HEIGHT,
@@ -181,6 +183,7 @@ export function useMermaidViewport({
   const dragStartRef = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 })
   const autoFitRef = useRef(true)
   const resetScrollPositionRef = useRef(true)
+  const initializedRef = useRef(false)
   const fitFrameRef = useRef<number | undefined>(undefined)
   const dragAbortControllerRef = useRef<AbortController | undefined>(undefined)
   const activePointerIDRef = useRef<number | undefined>(undefined)
@@ -211,6 +214,11 @@ export function useMermaidViewport({
           )
 
     setZoom(clampZoom(nextZoom))
+
+    if (!initializedRef.current) {
+      initializedRef.current = true
+      setIsInitialized(true)
+    }
   }, [canvasPadding, defaultZoomMode, getFitPadding, svgBounds.height, svgBounds.width])
 
   const scheduleAutoZoom = useCallback(() => {
@@ -219,6 +227,11 @@ export function useMermaidViewport({
     }
 
     if (typeof window === "undefined") {
+      applyAutoZoom()
+      return
+    }
+
+    if (!initializedRef.current) {
       applyAutoZoom()
       return
     }
@@ -255,6 +268,8 @@ export function useMermaidViewport({
 
     autoFitRef.current = true
     resetScrollPositionRef.current = true
+    initializedRef.current = false
+    setIsInitialized(false)
     setIsAutoZoom(true)
     setSvgBounds(measureSvgBounds(value.svg))
   }, [enabled, value])
@@ -325,7 +340,8 @@ export function useMermaidViewport({
       !enabled ||
       value === undefined ||
       !resetScrollPositionRef.current ||
-      !viewportRef.current
+      !viewportRef.current ||
+      !initializedRef.current
     ) {
       return
     }
@@ -436,12 +452,20 @@ export function useMermaidViewport({
   const zoomIn = useCallback(() => {
     autoFitRef.current = false
     setIsAutoZoom(false)
+    if (!initializedRef.current) {
+      initializedRef.current = true
+      setIsInitialized(true)
+    }
     setZoom((current) => clampZoom(current + mermaidConstants.zoom.STEP))
   }, [])
 
   const zoomOut = useCallback(() => {
     autoFitRef.current = false
     setIsAutoZoom(false)
+    if (!initializedRef.current) {
+      initializedRef.current = true
+      setIsInitialized(true)
+    }
     setZoom((current) => clampZoom(current - mermaidConstants.zoom.STEP))
   }, [])
 
@@ -475,6 +499,7 @@ export function useMermaidViewport({
     zoom,
     zoomLabel: `${Math.round(zoom * 100)}%`,
     isAutoZoom,
+    isInitialized,
     isDragging,
     canZoomIn: zoom < mermaidConstants.zoom.MAX,
     canZoomOut: zoom > mermaidConstants.zoom.MIN,

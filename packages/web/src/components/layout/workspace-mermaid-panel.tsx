@@ -21,7 +21,7 @@ import {
 } from "@/state/chat-actions"
 import { useChatStore } from "@/state/chat-store"
 
-const MERMAID_CARD_CONTENT_HEIGHT_CLASS = "h-[20rem]"
+const MERMAID_CARD_CONTENT_HEIGHT_CLASS = "aspect-video min-h-[18rem] w-full"
 const MERMAID_CARD_GAP_PX = 16
 
 function mergeRetainedIndexes(current: number[], next: number[], max: number) {

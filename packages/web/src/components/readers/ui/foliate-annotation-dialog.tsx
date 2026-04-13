@@ -73,7 +73,11 @@ export function FoliateAnnotationDialog({
                 className="flex flex-1"
               >
                 {Object.entries(ANNOTATION_STYLE_LABELS).map(([value, label]) => (
-                  <ToggleGroupItem key={value} value={value} className="flex-1 h-8 text-[11px] font-medium">
+                  <ToggleGroupItem
+                    key={value}
+                    value={value}
+                    className="flex-1 h-8 text-[11px] font-medium"
+                  >
                     {label}
                   </ToggleGroupItem>
                 ))}
@@ -127,10 +131,17 @@ export function FoliateAnnotationDialog({
             ) : null}
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" onClick={onCancel} className="h-8 px-4 text-[12px] font-medium text-text-weak hover:text-text-base hover:bg-surface-weak">
+            <Button
+              variant="ghost"
+              onClick={onCancel}
+              className="h-8 px-4 text-[12px] font-medium text-text-weak hover:text-text-base hover:bg-surface-weak"
+            >
               Cancel
             </Button>
-            <Button onClick={onSave} className="h-8 px-4 text-[12px] font-medium shadow-sm transition-transform active:scale-95">
+            <Button
+              onClick={onSave}
+              className="h-8 px-4 text-[12px] font-medium shadow-sm transition-transform active:scale-95"
+            >
               Save
             </Button>
           </div>

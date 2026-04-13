@@ -50,10 +50,6 @@ export function MermaidDiagram(props: {
   const [fullscreenOpen, setFullscreenOpen] = useState(false)
   const [copiedErrorDetails, setCopiedErrorDetails] = useState(false)
   const copyResetTimeoutRef = useRef<number | undefined>(undefined)
-  const instanceId = useId()
-  const layoutId = artifactID
-    ? `mermaid-zoom-${artifactID}-${instanceId}`
-    : `mermaid-zoom-${instanceId}`
 
   const { state } = useMermaidRender({ source, artifactID })
 
@@ -142,7 +138,6 @@ export function MermaidDiagram(props: {
 
       {state.status === "ready" ? (
         <motion.div
-          layoutId={layoutId}
           className="h-full overflow-hidden rounded-[14px]"
           transition={MODAL_EXPAND_SPRING}
           {...(!props.disableRevealAnimation && {
@@ -208,7 +203,6 @@ export function MermaidDiagram(props: {
         open={fullscreenOpen}
         onOpenChange={setFullscreenOpen}
         alt={props.alt}
-        layoutId={layoutId}
       />
     </div>
   )

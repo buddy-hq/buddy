@@ -22,7 +22,6 @@ type MermaidFullscreenDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   alt: string
-  layoutId?: string
 }
 
 export function MermaidFullscreenDialog({
@@ -30,13 +29,13 @@ export function MermaidFullscreenDialog({
   open,
   onOpenChange,
   alt,
-  layoutId,
 }: MermaidFullscreenDialogProps) {
   const fullscreenViewport = useMermaidViewport({
     value,
     enabled: open,
     canvasPadding: mermaidConstants.viewport.FULLSCREEN_CANVAS_PADDING,
     panOverscan: mermaidConstants.viewport.FULLSCREEN_PAN_OVERSCAN,
+    defaultZoomMode: "responsive",
     mountSvg: false,
     getFitPadding: useCallback((viewport: MermaidViewportSize) => {
       return {
@@ -78,7 +77,6 @@ export function MermaidFullscreenDialog({
             </DialogHeader>
 
             <motion.div
-              layoutId={layoutId}
               transition={MODAL_EXPAND_SPRING}
               className="relative h-full w-full overflow-hidden bg-background-base"
             >
@@ -125,7 +123,7 @@ export function MermaidFullscreenDialog({
                     aria-label={language.t("chatTools.mermaidDiagram.zoomLevelAria")}
                   >
                     {fullscreenViewport.isAutoZoom
-                      ? language.t("chatTools.mermaidDiagram.fit")
+                      ? language.t("chatTools.mermaidDiagram.auto")
                       : fullscreenViewport.zoomLabel}
                   </div>
                   <Button
@@ -143,14 +141,14 @@ export function MermaidFullscreenDialog({
                   <div className="mx-1 h-4 w-px bg-border-base/50" />
                   <Button
                     type="button"
-                    data-action="mermaid-fit"
+                    data-action="mermaid-auto"
                     size="sm"
                     variant="ghost"
                     className="h-8 px-3 rounded-lg text-[13px]"
                     aria-label={language.t("chatTools.mermaidDiagram.resetZoomAria")}
                     onClick={fullscreenViewport.resetZoom}
                   >
-                    {language.t("chatTools.mermaidDiagram.fit")}
+                    {language.t("chatTools.mermaidDiagram.auto")}
                   </Button>
                   <DialogClose asChild>
                     <Button
