@@ -16,6 +16,9 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  ResizeHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
   ScrollArea,
   Separator,
   Tabs,
@@ -23,6 +26,7 @@ import {
   TabsList,
   TabsTrigger,
   cn,
+  useResizablePanelRef,
   // Icons from @buddy/ui
   BookOpenIcon,
   ChevronLeftIcon,
@@ -58,7 +62,7 @@ import { FoliateLocationDialog } from "./ui/foliate-location-dialog"
 import { FoliateAnnotationDialog } from "./ui/foliate-annotation-dialog"
 import { FoliateAnnotationPopover } from "./ui/foliate-annotation-popover"
 import { FoliateSelectionToolbar } from "./ui/foliate-selection-toolbar"
-import { ResizeHandle } from "@/components/layout/resize-handle"
+import { useSyncResizablePanelSize } from "@/components/layout/use-sync-resizable-panel-size"
 import { ensureFoliateRuntimeCompat } from "@/lib/foliate/ensure-foliate-runtime-compat"
 import type {
   FoliateDrawAnnotationEventDetail,
@@ -156,6 +160,9 @@ import { formatContributor, formatMetadataValue, toPercentLabel } from "./utils/
 // Components already imported above
 
 ensureFoliateRuntimeCompat()
+
+const FOLIATE_SIDEBAR_MIN_WIDTH_PX = 240
+const FOLIATE_SIDEBAR_MAX_WIDTH_PX = 600
 
 export type {
   FoliateReaderAppearanceMode,
@@ -267,10 +274,16 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       }
       return 344
     })
+    const sidebarPanelRef = useResizablePanelRef()
 
     useEffect(() => {
       localStorage.setItem("foliateSidebarWidth", sidebarWidth.toString())
     }, [sidebarWidth])
+
+    useSyncResizablePanelSize(
+      sidebarPanelRef,
+      sidebarOpen && useDesktopSidebarLayout ? sidebarWidth : undefined,
+    )
 
     const preferencesRef = useRef(preferences)
     const effectiveAppearanceRef = useRef(effectiveAppearance)
@@ -1036,6 +1049,446 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       />
     )
 
+    const sidebarPane = sidebarOpen ? (
+      <aside
+        className={cn(
+          "relative min-h-0 bg-surface-base",
+          useDesktopSidebarLayout
+            ? "border-r border-border-base/50"
+            : "border-b border-border-base/50",
+        )}
+      >
+        <Tabs
+          value={sidebarTab}
+          onValueChange={(nextValue) => {
+            if (isFoliateSidebarTab(nextValue)) setSidebarTab(nextValue)
+          }}
+          className="flex h-full min-h-0 flex-col"
+        >
+          {/* Book identity block */}
+          <div className="border-b border-border-base/40 px-4 py-3">
+            <div className="flex items-center gap-3">
+              {snapshot?.coverUrl ? (
+                <img
+                  src={snapshot.coverUrl}
+                  alt={`${snapshot.title} cover`}
+                  className="h-14 w-10 shrink-0 object-cover shadow-sm"
+                />
+              ) : (
+                <div className="flex h-14 w-10 shrink-0 items-center justify-center border border-border-base/40 bg-surface-weak/50 text-text-weaker">
+                  <BookOpenIcon className="size-3.5" />
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[13px] font-semibold leading-snug text-text-strong">
+                  {snapshot?.title ?? (source ? getSourceName(source) : undefined) ?? DEFAULT_TITLE}
+                </div>
+                <div className="mt-0.5 truncate text-[11px] text-text-weaker">
+                  {snapshot?.author ?? DEFAULT_AUTHOR}
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <div className="h-0.5 flex-1 bg-border-base/40">
+                    <div
+                      className="h-full bg-text-interactive-base/70 transition-[width] duration-500"
+                      style={{ width: toPercentLabel(location.fraction) ?? "0%" }}
+                    />
+                  </div>
+                  <span className="shrink-0 font-mono text-[10px] tabular-nums text-text-weaker">
+                    {toPercentLabel(location.fraction) ?? "0%"}
+                  </span>
+                </div>
+              </div>
+            </div>
+            {location.tocLabel ? (
+              <div className="mt-2 truncate text-[11px] text-text-weaker">
+                <span className="text-text-weaker/60">Now reading</span>{" "}
+                <span className="text-text-weak">{location.tocLabel}</span>
+              </div>
+            ) : null}
+          </div>
+
+          {/* Tab strip — icon + label, underline active */}
+          <TabsList className="grid h-auto w-full shrink-0 grid-cols-6 gap-0 rounded-none border-b border-border-base/40 bg-transparent p-0">
+            {(
+              [
+                { value: SIDEBAR_CONTENTS, label: "Contents", icon: MapIcon },
+                { value: SIDEBAR_SEARCH, label: "Search", icon: SearchIcon },
+                { value: SIDEBAR_BOOKMARKS, label: "Marks", icon: PinIcon },
+                { value: SIDEBAR_ANNOTATIONS, label: "Notes", icon: PencilLineIcon },
+                { value: SIDEBAR_DETAILS, label: "Details", icon: InfoIcon },
+                { value: SIDEBAR_PREFERENCES, label: "Prefs", icon: SettingsIcon },
+              ] as const
+            ).map(({ value, label, icon: Icon }) => (
+              <TabsTrigger
+                key={value}
+                value={value}
+                className={cn(
+                  "flex h-10 flex-col items-center justify-center gap-0.5 rounded-none border-b-2 border-transparent py-1 text-[10px] text-text-weaker transition-colors",
+                  "data-[state=active]:border-text-interactive-base data-[state=active]:bg-transparent data-[state=active]:text-text-interactive-base",
+                  "hover:bg-surface-weak/50 hover:text-text-weak",
+                )}
+              >
+                <Icon className="size-3.5" />
+                <span className="leading-none">{label}</span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+
+          <TabsContent value={SIDEBAR_CONTENTS} className="min-h-0 flex-1">
+            <ScrollArea className="h-full px-3 py-3">
+              {snapshot?.toc?.length ? (
+                <FoliateTocTree
+                  items={snapshot.toc}
+                  activeLabel={location.tocLabel}
+                  onSelect={(href) => {
+                    void viewRef.current?.goTo(href)
+                  }}
+                />
+              ) : (
+                <p className="px-1 py-4 text-[12px] text-text-weaker">{TOC_EMPTY_MESSAGE}</p>
+              )}
+            </ScrollArea>
+          </TabsContent>
+
+          <TabsContent value={SIDEBAR_SEARCH} className="min-h-0 flex-1">
+            {renderSearchPanel()}
+          </TabsContent>
+
+          <TabsContent value={SIDEBAR_BOOKMARKS} className="min-h-0 flex-1">
+            {renderBookmarksPanel()}
+          </TabsContent>
+
+          <TabsContent value={SIDEBAR_ANNOTATIONS} className="min-h-0 flex-1">
+            {renderAnnotationsPanel()}
+          </TabsContent>
+
+          <TabsContent value={SIDEBAR_DETAILS} className="min-h-0 flex-1">
+            <ScrollArea className="h-full px-3 py-4">
+              <FoliateMetadataPanel snapshot={snapshot} />
+            </ScrollArea>
+          </TabsContent>
+
+          <TabsContent value={SIDEBAR_PREFERENCES} className="min-h-0 flex-1">
+            {renderPreferencesPanel()}
+          </TabsContent>
+        </Tabs>
+        {useDesktopSidebarLayout ? (
+          <ResizeHandle
+            direction="horizontal"
+            size={sidebarWidth}
+            min={FOLIATE_SIDEBAR_MIN_WIDTH_PX}
+            max={FOLIATE_SIDEBAR_MAX_WIDTH_PX}
+            onResize={(width) => {
+              sidebarPanelRef.current?.resize(width)
+              setSidebarWidth(width)
+            }}
+          />
+        ) : null}
+      </aside>
+    ) : null
+
+    const readerPane = (
+      <div className="flex h-full min-h-0 min-w-0 w-full flex-col">
+        {showToolbar ? (
+          <header className="relative border-b border-border-base/50">
+            {/* Progress accent line at top */}
+            <div className="absolute inset-x-0 top-0 h-px bg-border-base/30">
+              <div
+                className="h-full bg-text-interactive-base/60 transition-[width] duration-300"
+                style={{
+                  width: `${((progressValue / DEFAULT_PROGRESS_STEPS) * 100).toFixed(1)}%`,
+                }}
+              />
+            </div>
+
+            <div className="flex h-11 items-center gap-1 px-2">
+              {showSidebar ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => setSidebarOpen((current) => !current)}
+                  aria-label={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
+                  className="shrink-0 text-text-weaker hover:text-text-base"
+                >
+                  {sidebarOpen ? (
+                    <PanelLeftCloseIcon className="size-4" />
+                  ) : (
+                    <PanelLeftOpenIcon className="size-4" />
+                  )}
+                </Button>
+              ) : null}
+
+              <Separator orientation="vertical" className="mx-0.5 h-4" />
+
+              <div className="flex items-center gap-0.5">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Previous page"
+                  onClick={() => {
+                    void viewRef.current?.goLeft()
+                  }}
+                  disabled={status !== "ready"}
+                  className="text-text-weaker hover:text-text-base"
+                >
+                  <ChevronLeftIcon className="size-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="History back"
+                  onClick={() => viewRef.current?.history.back()}
+                  disabled={!historyState.canGoBack}
+                  className="text-text-weaker hover:text-text-base"
+                >
+                  <Undo2Icon className="size-3.5" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="History forward"
+                  onClick={() => viewRef.current?.history.forward()}
+                  disabled={!historyState.canGoForward}
+                  className="text-text-weaker hover:text-text-base"
+                >
+                  <Redo2Icon className="size-3.5" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Next page"
+                  onClick={() => {
+                    void viewRef.current?.goRight()
+                  }}
+                  disabled={status !== "ready"}
+                  className="text-text-weaker hover:text-text-base"
+                >
+                  <ChevronRightIcon className="size-4" />
+                </Button>
+              </div>
+
+              <Separator orientation="vertical" className="mx-0.5 h-4" />
+
+              {/* Location pill */}
+              <button
+                type="button"
+                onClick={openLocationDialog}
+                className="min-w-0 flex-1 px-2 py-1 text-left transition-colors hover:bg-surface-weak/60"
+                aria-label="Open location and jumps"
+              >
+                <div className="flex items-baseline gap-2 truncate">
+                  <span className="truncate text-xs font-medium text-text-base">
+                    {location.tocLabel ?? snapshot?.title ?? DEFAULT_TITLE}
+                  </span>
+                  {location.pageLabel ? (
+                    <span className="shrink-0 text-[11px] text-text-weaker">
+                      {location.pageLabel}
+                    </span>
+                  ) : null}
+                </div>
+              </button>
+
+              <span className="shrink-0 font-mono text-[11px] tabular-nums text-text-weaker">
+                {toPercentLabel(location.fraction) ?? "—"}
+              </span>
+
+              <Separator orientation="vertical" className="mx-0.5 h-4" />
+
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => void toggleBookmark()}
+                aria-label={currentBookmark ? "Remove bookmark" : "Add bookmark"}
+                className={cn(
+                  "shrink-0 transition-colors",
+                  currentBookmark
+                    ? "text-text-interactive-base"
+                    : "text-text-weaker hover:text-text-base",
+                )}
+              >
+                <PinIcon className={cn("size-4", currentBookmark && "fill-current")} />
+              </Button>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="icon-sm"
+                    variant="ghost"
+                    aria-label="Reader actions"
+                    className="shrink-0 text-text-weaker hover:text-text-base"
+                  >
+                    <EllipsisIcon className="size-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-52">
+                  <DropdownMenuItem onClick={() => openSearchWithQuery(searchState.query)}>
+                    <SearchIcon className="mr-2 size-4" />
+                    Find in book
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={openLocationDialog}>
+                    <MapIcon className="mr-2 size-4" />
+                    Location and jumps
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setSidebarOpen(true)
+                      setSidebarTab(SIDEBAR_PREFERENCES)
+                    }}
+                  >
+                    <SettingsIcon className="mr-2 size-4" />
+                    Reader preferences
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  {canChangeFlow ? (
+                    <>
+                      <DropdownMenuItem
+                        onClick={() => setPreferences((c) => ({ ...c, flow: FLOW_PAGINATED }))}
+                      >
+                        <LayoutPanelLeftIcon className="mr-2 size-4" />
+                        Paginated
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => setPreferences((c) => ({ ...c, flow: FLOW_SCROLLED }))}
+                      >
+                        <ScrollTextIcon className="mr-2 size-4" />
+                        Vertical scroll
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  ) : null}
+                  <DropdownMenuItem onClick={() => setHelpOpen(true)}>
+                    <CircleQuestionMarkIcon className="mr-2 size-4" />
+                    Keyboard shortcuts
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+
+            {/* Progress scrubber — hairline */}
+            <div className="px-2 pb-1.5">
+              <input
+                type="range"
+                min="0"
+                max={String(DEFAULT_PROGRESS_STEPS)}
+                step="1"
+                list={sliderListId}
+                value={progressValue}
+                onChange={(event) => {
+                  setProgressDraft(Number(event.target.value))
+                }}
+                onMouseUp={() => {
+                  if (progressDraft === null) return
+                  void viewRef.current?.goToFraction(progressDraft / DEFAULT_PROGRESS_STEPS)
+                  setProgressDraft(null)
+                }}
+                onTouchEnd={() => {
+                  if (progressDraft === null) return
+                  void viewRef.current?.goToFraction(progressDraft / DEFAULT_PROGRESS_STEPS)
+                  setProgressDraft(null)
+                }}
+                className="h-0.5 w-full cursor-pointer appearance-none bg-border-base/40 accent-[var(--text-interactive-base)] [&::-webkit-slider-thumb]:size-2.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:bg-[var(--text-interactive-base)] [&::-webkit-slider-thumb]:shadow-sm"
+              />
+              <datalist id={sliderListId}>
+                {sectionFractions.map((fraction) => (
+                  <option key={fraction} value={Math.round(fraction * DEFAULT_PROGRESS_STEPS)} />
+                ))}
+              </datalist>
+            </div>
+          </header>
+        ) : null}
+
+        <div
+          className={cn(
+            "relative min-h-0 min-w-0 w-full flex-1 p-2 sm:p-3",
+            theme.viewportClassName,
+          )}
+        >
+          {status === "loading" ? (
+            <div className="absolute inset-x-3 top-3 z-10 sm:inset-x-4 sm:top-4">
+              <div className="inline-flex items-center gap-1.5 border border-border-base/50 bg-surface-raised-base/90 px-2.5 py-1 text-[11px] text-text-weaker shadow-sm backdrop-blur">
+                <Loader2Icon className="size-3 animate-spin" />
+                Opening…
+              </div>
+            </div>
+          ) : null}
+
+          {status === "idle" ? (
+            <FoliateEmptyState>{emptyState}</FoliateEmptyState>
+          ) : status === "error" && error ? (
+            <FoliateErrorState error={error} />
+          ) : null}
+
+          <div
+            ref={viewportRef}
+            className={cn(
+              VIEWPORT_CLASS_NAME,
+              "h-full min-h-[24rem] overflow-hidden border border-border-base/50 bg-surface-raised-base/80",
+              status === "idle" || status === "error" ? "hidden" : "block",
+            )}
+          />
+
+          <FoliateSelectionToolbar
+            selectionAction={selectionToolbar}
+            onCopyText={(text: string) => void copyText(text)}
+            onHighlight={() => {
+              const action = selectionActionRef.current
+              if (!action) return
+              const now = new Date().toISOString()
+              const annotation: ReaderAnnotation = {
+                value: action.cfi,
+                text: action.text,
+                note: "",
+                style: ANNOTATION_STYLE_HIGHLIGHT,
+                color: ANNOTATION_COLORS.amber.value,
+                created: now,
+                modified: now,
+              }
+              void (async () => {
+                const info = await viewRef.current?.addAnnotation(annotation)
+                if (info) {
+                  annotation.index = info.index
+                  annotation.label = info.label
+                }
+                setAnnotations((current) =>
+                  [...current, annotation].sort((a, b) => a.value.localeCompare(b.value)),
+                )
+                setSelectionToolbar(null)
+              })()
+            }}
+            onOpenAnnotationDialog={() => openAnnotationDialog()}
+            onSearch={(query: string) => openSearchWithQuery(query)}
+            onClose={() => setSelectionToolbar(null)}
+          />
+
+          <FoliateAnnotationPopover
+            popover={annotationPopover}
+            onOpenAnnotationDialog={(ann?: ReaderAnnotation) => openAnnotationDialog(ann)}
+            onDeleteAnnotation={(val: string) => void deleteAnnotationValue(val)}
+            annotations={annotations}
+          />
+
+          {snapshot && location.tocLabel ? (
+            <div className="pointer-events-none absolute inset-x-4 bottom-4 hidden justify-center lg:flex">
+              <div className="pointer-events-none inline-flex items-center gap-2 border border-border-base/40 bg-surface-raised-base/80 px-3 py-1.5 shadow-sm backdrop-blur">
+                <span className="max-w-48 truncate text-[11px] text-text-weaker">
+                  {location.tocLabel}
+                </span>
+                <span className="shrink-0 font-mono text-[10px] tabular-nums text-text-weaker/60">
+                  {toPercentLabel(location.fraction)}
+                </span>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    )
+
     return (
       <section
         ref={rootRef}
@@ -1045,17 +1498,11 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
         data-appearance={effectiveAppearance}
         onKeyDown={handleShortcut}
         className={cn(
-          "grid min-h-0 overflow-hidden border shadow-[0_8px_32px_color-mix(in_oklab,var(--surface-strong)_12%,transparent)]",
+          "h-full w-full min-h-0 overflow-hidden border shadow-[0_8px_32px_color-mix(in_oklab,var(--surface-strong)_12%,transparent)]",
           chromeClassName,
           theme.shellClassName,
-          sidebarOpen && useDesktopSidebarLayout ? undefined : "grid-cols-1",
           className,
         )}
-        style={
-          sidebarOpen && useDesktopSidebarLayout
-            ? { gridTemplateColumns: `${sidebarWidth}px minmax(0, 1fr)` }
-            : undefined
-        }
       >
         <style>{`
           .${VIEWPORT_CLASS_NAME} > .${VIEW_ELEMENT_CLASS_NAME} {
@@ -1077,437 +1524,28 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
           }
         `}</style>
 
-        {sidebarOpen ? (
-          <aside
-            className={cn(
-              "relative min-h-0 bg-surface-base",
-              useDesktopSidebarLayout
-                ? "border-r border-border-base/50"
-                : "border-b border-border-base/50",
-            )}
-          >
-            <Tabs
-              value={sidebarTab}
-              onValueChange={(nextValue) => {
-                if (isFoliateSidebarTab(nextValue)) setSidebarTab(nextValue)
-              }}
-              className="flex h-full min-h-0 flex-col"
+        {sidebarPane && useDesktopSidebarLayout ? (
+          <ResizablePanelGroup orientation="horizontal" className="h-full w-full min-w-0">
+            <ResizablePanel
+              id="foliate-reader-sidebar"
+              panelRef={sidebarPanelRef}
+              defaultSize={sidebarWidth}
+              minSize={FOLIATE_SIDEBAR_MIN_WIDTH_PX}
+              maxSize={FOLIATE_SIDEBAR_MAX_WIDTH_PX}
+              className="relative flex min-h-0 min-w-0 overflow-hidden"
             >
-              {/* Book identity block */}
-              <div className="border-b border-border-base/40 px-4 py-3">
-                <div className="flex items-center gap-3">
-                  {snapshot?.coverUrl ? (
-                    <img
-                      src={snapshot.coverUrl}
-                      alt={`${snapshot.title} cover`}
-                      className="h-14 w-10 shrink-0 object-cover shadow-sm"
-                    />
-                  ) : (
-                    <div className="flex h-14 w-10 shrink-0 items-center justify-center border border-border-base/40 bg-surface-weak/50 text-text-weaker">
-                      <BookOpenIcon className="size-3.5" />
-                    </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-[13px] font-semibold leading-snug text-text-strong">
-                      {snapshot?.title ??
-                        (source ? getSourceName(source) : undefined) ??
-                        DEFAULT_TITLE}
-                    </div>
-                    <div className="mt-0.5 truncate text-[11px] text-text-weaker">
-                      {snapshot?.author ?? DEFAULT_AUTHOR}
-                    </div>
-                    <div className="mt-2 flex items-center gap-2">
-                      <div className="h-0.5 flex-1 bg-border-base/40">
-                        <div
-                          className="h-full bg-text-interactive-base/70 transition-[width] duration-500"
-                          style={{ width: toPercentLabel(location.fraction) ?? "0%" }}
-                        />
-                      </div>
-                      <span className="shrink-0 font-mono text-[10px] tabular-nums text-text-weaker">
-                        {toPercentLabel(location.fraction) ?? "0%"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                {location.tocLabel ? (
-                  <div className="mt-2 truncate text-[11px] text-text-weaker">
-                    <span className="text-text-weaker/60">Now reading</span>{" "}
-                    <span className="text-text-weak">{location.tocLabel}</span>
-                  </div>
-                ) : null}
-              </div>
-
-              {/* Tab strip — icon + label, underline active */}
-              <TabsList className="grid h-auto w-full shrink-0 grid-cols-6 gap-0 rounded-none border-b border-border-base/40 bg-transparent p-0">
-                {(
-                  [
-                    { value: SIDEBAR_CONTENTS, label: "Contents", icon: MapIcon },
-                    { value: SIDEBAR_SEARCH, label: "Search", icon: SearchIcon },
-                    { value: SIDEBAR_BOOKMARKS, label: "Marks", icon: PinIcon },
-                    { value: SIDEBAR_ANNOTATIONS, label: "Notes", icon: PencilLineIcon },
-                    { value: SIDEBAR_DETAILS, label: "Details", icon: InfoIcon },
-                    { value: SIDEBAR_PREFERENCES, label: "Prefs", icon: SettingsIcon },
-                  ] as const
-                ).map(({ value, label, icon: Icon }) => (
-                  <TabsTrigger
-                    key={value}
-                    value={value}
-                    className={cn(
-                      "flex h-10 flex-col items-center justify-center gap-0.5 rounded-none border-b-2 border-transparent py-1 text-[10px] text-text-weaker transition-colors",
-                      "data-[state=active]:border-text-interactive-base data-[state=active]:bg-transparent data-[state=active]:text-text-interactive-base",
-                      "hover:bg-surface-weak/50 hover:text-text-weak",
-                    )}
-                  >
-                    <Icon className="size-3.5" />
-                    <span className="leading-none">{label}</span>
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-
-              <TabsContent value={SIDEBAR_CONTENTS} className="min-h-0 flex-1">
-                <ScrollArea className="h-full px-3 py-3">
-                  {snapshot?.toc?.length ? (
-                    <FoliateTocTree
-                      items={snapshot.toc}
-                      activeLabel={location.tocLabel}
-                      onSelect={(href) => {
-                        void viewRef.current?.goTo(href)
-                      }}
-                    />
-                  ) : (
-                    <p className="px-1 py-4 text-[12px] text-text-weaker">{TOC_EMPTY_MESSAGE}</p>
-                  )}
-                </ScrollArea>
-              </TabsContent>
-
-              <TabsContent value={SIDEBAR_SEARCH} className="min-h-0 flex-1">
-                {renderSearchPanel()}
-              </TabsContent>
-
-              <TabsContent value={SIDEBAR_BOOKMARKS} className="min-h-0 flex-1">
-                {renderBookmarksPanel()}
-              </TabsContent>
-
-              <TabsContent value={SIDEBAR_ANNOTATIONS} className="min-h-0 flex-1">
-                {renderAnnotationsPanel()}
-              </TabsContent>
-
-              <TabsContent value={SIDEBAR_DETAILS} className="min-h-0 flex-1">
-                <ScrollArea className="h-full px-3 py-4">
-                  <FoliateMetadataPanel snapshot={snapshot} />
-                </ScrollArea>
-              </TabsContent>
-
-              <TabsContent value={SIDEBAR_PREFERENCES} className="min-h-0 flex-1">
-                {renderPreferencesPanel()}
-              </TabsContent>
-            </Tabs>
-            {useDesktopSidebarLayout ? (
-              <ResizeHandle
-                direction="horizontal"
-                size={sidebarWidth}
-                min={240}
-                max={600}
-                onResize={setSidebarWidth}
-              />
-            ) : null}
-          </aside>
-        ) : null}
-
-        <div className="flex min-h-0 flex-col">
-          {showToolbar ? (
-            <header className="relative border-b border-border-base/50">
-              {/* Progress accent line at top */}
-              <div className="absolute inset-x-0 top-0 h-px bg-border-base/30">
-                <div
-                  className="h-full bg-text-interactive-base/60 transition-[width] duration-300"
-                  style={{
-                    width: `${((progressValue / DEFAULT_PROGRESS_STEPS) * 100).toFixed(1)}%`,
-                  }}
-                />
-              </div>
-
-              <div className="flex h-11 items-center gap-1 px-2">
-                {showSidebar ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={() => setSidebarOpen((current) => !current)}
-                    aria-label={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
-                    className="shrink-0 text-text-weaker hover:text-text-base"
-                  >
-                    {sidebarOpen ? (
-                      <PanelLeftCloseIcon className="size-4" />
-                    ) : (
-                      <PanelLeftOpenIcon className="size-4" />
-                    )}
-                  </Button>
-                ) : null}
-
-                <Separator orientation="vertical" className="mx-0.5 h-4" />
-
-                <div className="flex items-center gap-0.5">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="Previous page"
-                    onClick={() => {
-                      void viewRef.current?.goLeft()
-                    }}
-                    disabled={status !== "ready"}
-                    className="text-text-weaker hover:text-text-base"
-                  >
-                    <ChevronLeftIcon className="size-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="History back"
-                    onClick={() => viewRef.current?.history.back()}
-                    disabled={!historyState.canGoBack}
-                    className="text-text-weaker hover:text-text-base"
-                  >
-                    <Undo2Icon className="size-3.5" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="History forward"
-                    onClick={() => viewRef.current?.history.forward()}
-                    disabled={!historyState.canGoForward}
-                    className="text-text-weaker hover:text-text-base"
-                  >
-                    <Redo2Icon className="size-3.5" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="Next page"
-                    onClick={() => {
-                      void viewRef.current?.goRight()
-                    }}
-                    disabled={status !== "ready"}
-                    className="text-text-weaker hover:text-text-base"
-                  >
-                    <ChevronRightIcon className="size-4" />
-                  </Button>
-                </div>
-
-                <Separator orientation="vertical" className="mx-0.5 h-4" />
-
-                {/* Location pill */}
-                <button
-                  type="button"
-                  onClick={openLocationDialog}
-                  className="min-w-0 flex-1 px-2 py-1 text-left transition-colors hover:bg-surface-weak/60"
-                  aria-label="Open location and jumps"
-                >
-                  <div className="flex items-baseline gap-2 truncate">
-                    <span className="truncate text-xs font-medium text-text-base">
-                      {location.tocLabel ?? snapshot?.title ?? DEFAULT_TITLE}
-                    </span>
-                    {location.pageLabel ? (
-                      <span className="shrink-0 text-[11px] text-text-weaker">
-                        {location.pageLabel}
-                      </span>
-                    ) : null}
-                  </div>
-                </button>
-
-                <span className="shrink-0 font-mono text-[11px] tabular-nums text-text-weaker">
-                  {toPercentLabel(location.fraction) ?? "—"}
-                </span>
-
-                <Separator orientation="vertical" className="mx-0.5 h-4" />
-
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => void toggleBookmark()}
-                  aria-label={currentBookmark ? "Remove bookmark" : "Add bookmark"}
-                  className={cn(
-                    "shrink-0 transition-colors",
-                    currentBookmark
-                      ? "text-text-interactive-base"
-                      : "text-text-weaker hover:text-text-base",
-                  )}
-                >
-                  <PinIcon className={cn("size-4", currentBookmark && "fill-current")} />
-                </Button>
-
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      size="icon-sm"
-                      variant="ghost"
-                      aria-label="Reader actions"
-                      className="shrink-0 text-text-weaker hover:text-text-base"
-                    >
-                      <EllipsisIcon className="size-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-52">
-                    <DropdownMenuItem onClick={() => openSearchWithQuery(searchState.query)}>
-                      <SearchIcon className="mr-2 size-4" />
-                      Find in book
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={openLocationDialog}>
-                      <MapIcon className="mr-2 size-4" />
-                      Location and jumps
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setSidebarOpen(true)
-                        setSidebarTab(SIDEBAR_PREFERENCES)
-                      }}
-                    >
-                      <SettingsIcon className="mr-2 size-4" />
-                      Reader preferences
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    {canChangeFlow ? (
-                      <>
-                        <DropdownMenuItem
-                          onClick={() => setPreferences((c) => ({ ...c, flow: FLOW_PAGINATED }))}
-                        >
-                          <LayoutPanelLeftIcon className="mr-2 size-4" />
-                          Paginated
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => setPreferences((c) => ({ ...c, flow: FLOW_SCROLLED }))}
-                        >
-                          <ScrollTextIcon className="mr-2 size-4" />
-                          Vertical scroll
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                      </>
-                    ) : null}
-                    <DropdownMenuItem onClick={() => setHelpOpen(true)}>
-                      <CircleQuestionMarkIcon className="mr-2 size-4" />
-                      Keyboard shortcuts
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-
-              {/* Progress scrubber — hairline */}
-              <div className="px-2 pb-1.5">
-                <input
-                  type="range"
-                  min="0"
-                  max={String(DEFAULT_PROGRESS_STEPS)}
-                  step="1"
-                  list={sliderListId}
-                  value={progressValue}
-                  onChange={(event) => {
-                    setProgressDraft(Number(event.target.value))
-                  }}
-                  onMouseUp={() => {
-                    if (progressDraft === null) return
-                    void viewRef.current?.goToFraction(progressDraft / DEFAULT_PROGRESS_STEPS)
-                    setProgressDraft(null)
-                  }}
-                  onTouchEnd={() => {
-                    if (progressDraft === null) return
-                    void viewRef.current?.goToFraction(progressDraft / DEFAULT_PROGRESS_STEPS)
-                    setProgressDraft(null)
-                  }}
-                  className="h-0.5 w-full cursor-pointer appearance-none bg-border-base/40 accent-[var(--text-interactive-base)] [&::-webkit-slider-thumb]:size-2.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:bg-[var(--text-interactive-base)] [&::-webkit-slider-thumb]:shadow-sm"
-                />
-                <datalist id={sliderListId}>
-                  {sectionFractions.map((fraction) => (
-                    <option key={fraction} value={Math.round(fraction * DEFAULT_PROGRESS_STEPS)} />
-                  ))}
-                </datalist>
-              </div>
-            </header>
-          ) : null}
-
-          <div className={cn("relative min-h-0 flex-1 p-2 sm:p-3", theme.viewportClassName)}>
-            {status === "loading" ? (
-              <div className="absolute inset-x-3 top-3 z-10 sm:inset-x-4 sm:top-4">
-                <div className="inline-flex items-center gap-1.5 border border-border-base/50 bg-surface-raised-base/90 px-2.5 py-1 text-[11px] text-text-weaker shadow-sm backdrop-blur">
-                  <Loader2Icon className="size-3 animate-spin" />
-                  Opening…
-                </div>
-              </div>
-            ) : null}
-
-            {status === "idle" ? (
-              <FoliateEmptyState>{emptyState}</FoliateEmptyState>
-            ) : status === "error" && error ? (
-              <FoliateErrorState error={error} />
-            ) : null}
-
-            <div
-              ref={viewportRef}
-              className={cn(
-                VIEWPORT_CLASS_NAME,
-                "h-full min-h-[24rem] overflow-hidden border border-border-base/50 bg-surface-raised-base/80",
-                status === "idle" || status === "error" ? "hidden" : "block",
-              )}
-            />
-
-            <FoliateSelectionToolbar
-              selectionAction={selectionToolbar}
-              onCopyText={(text: string) => void copyText(text)}
-              onHighlight={() => {
-                const action = selectionActionRef.current
-                if (!action) return
-                const now = new Date().toISOString()
-                const annotation: ReaderAnnotation = {
-                  value: action.cfi,
-                  text: action.text,
-                  note: "",
-                  style: ANNOTATION_STYLE_HIGHLIGHT,
-                  color: ANNOTATION_COLORS.amber.value,
-                  created: now,
-                  modified: now,
-                }
-                void (async () => {
-                  const info = await viewRef.current?.addAnnotation(annotation)
-                  if (info) {
-                    annotation.index = info.index
-                    annotation.label = info.label
-                  }
-                  setAnnotations((current) =>
-                    [...current, annotation].sort((a, b) => a.value.localeCompare(b.value)),
-                  )
-                  setSelectionToolbar(null)
-                })()
-              }}
-              onOpenAnnotationDialog={() => openAnnotationDialog()}
-              onSearch={(query: string) => openSearchWithQuery(query)}
-              onClose={() => setSelectionToolbar(null)}
-            />
-
-            <FoliateAnnotationPopover
-              popover={annotationPopover}
-              onOpenAnnotationDialog={(ann?: ReaderAnnotation) => openAnnotationDialog(ann)}
-              onDeleteAnnotation={(val: string) => void deleteAnnotationValue(val)}
-              annotations={annotations}
-            />
-
-            {snapshot && location.tocLabel ? (
-              <div className="pointer-events-none absolute inset-x-4 bottom-4 hidden justify-center lg:flex">
-                <div className="pointer-events-none inline-flex items-center gap-2 border border-border-base/40 bg-surface-raised-base/80 px-3 py-1.5 shadow-sm backdrop-blur">
-                  <span className="max-w-48 truncate text-[11px] text-text-weaker">
-                    {location.tocLabel}
-                  </span>
-                  <span className="shrink-0 font-mono text-[10px] tabular-nums text-text-weaker/60">
-                    {toPercentLabel(location.fraction)}
-                  </span>
-                </div>
-              </div>
-            ) : null}
-          </div>
-        </div>
+              {sidebarPane}
+            </ResizablePanel>
+            <ResizablePanel id="foliate-reader-main" className="flex min-h-0 min-w-0">
+              {readerPane}
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        ) : (
+          <>
+            {sidebarPane}
+            {readerPane}
+          </>
+        )}
 
         <FoliateAnnotationDialog
           dialog={annotationDialog}
