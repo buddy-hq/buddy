@@ -1,4 +1,5 @@
 import type { ReactNode } from "react"
+import { createPortal } from "react-dom"
 import { CopyIcon, HighlighterIcon, PencilLineIcon, SearchIcon, XIcon } from "lucide-react"
 import type { ReaderSelectionToolbarState } from "../foliate-reader-types"
 
@@ -20,45 +21,60 @@ export function FoliateSelectionToolbar({
   onClose,
 }: FoliateSelectionToolbarProps) {
   if (!selectionAction) return null
+  if (typeof document === "undefined") return null
 
   const { text, x, y } = selectionAction
 
-  return (
+  return createPortal(
     <div
-      className="absolute z-20 -translate-x-1/2 -translate-y-full pb-1.5"
+      className="fixed z-50 -translate-x-1/2 -translate-y-full pb-2"
       style={{ left: `${x}px`, top: `${y}px` }}
     >
-      {/* Pill-shaped floating toolbar */}
-      <div className="flex items-center gap-0 overflow-hidden border border-border-base/60 bg-surface-raised-base/98 shadow-lg backdrop-blur-sm">
-        <ActionButton onClick={() => onCopyText(text)} label="Copy text">
-          <CopyIcon className="size-3.5" />
-          <span>Copy</span>
-        </ActionButton>
-        <div className="h-4 w-px bg-border-base/40" />
-        <ActionButton onClick={onHighlight} label="Highlight">
-          <HighlighterIcon className="size-3.5" />
-          <span>Highlight</span>
-        </ActionButton>
-        <div className="h-4 w-px bg-border-base/40" />
-        <ActionButton onClick={onOpenAnnotationDialog} label="Add note">
-          <PencilLineIcon className="size-3.5" />
-          <span>Note</span>
-        </ActionButton>
-        <div className="h-4 w-px bg-border-base/40" />
-        <ActionButton onClick={() => onSearch(text)} label="Search selection">
-          <SearchIcon className="size-3.5" />
-          <span>Search</span>
-        </ActionButton>
-        <div className="h-4 w-px bg-border-base/40" />
-        <ActionButton onClick={onClose} label="Dismiss">
-          <XIcon className="size-3.5" />
-        </ActionButton>
+      <div className="flex flex-col items-center animate-in fade-in zoom-in-95 duration-150 origin-bottom">
+        <div className="flex select-none items-center gap-0.5 rounded-full border border-border-base bg-surface-raised-base/95 p-1 shadow-lg backdrop-blur-md">
+          <ActionButton onClick={() => onCopyText(text)} label="Copy text">
+            <CopyIcon className="size-3.5" />
+            <span className="font-medium">Copy</span>
+          </ActionButton>
+
+          <div className="mx-0.5 h-4 w-px bg-border-base/60" />
+
+          <ActionButton onClick={onHighlight} label="Highlight">
+            <HighlighterIcon className="size-3.5" />
+            <span className="font-medium">Highlight</span>
+          </ActionButton>
+
+          <div className="mx-0.5 h-4 w-px bg-border-base/60" />
+
+          <ActionButton onClick={onOpenAnnotationDialog} label="Add note">
+            <PencilLineIcon className="size-3.5" />
+            <span className="font-medium">Note</span>
+          </ActionButton>
+
+          <div className="mx-0.5 h-4 w-px bg-border-base/60" />
+
+          <ActionButton onClick={() => onSearch(text)} label="Search selection">
+            <SearchIcon className="size-3.5" />
+            <span className="font-medium">Search</span>
+          </ActionButton>
+
+          <div className="mx-0.5 h-4 w-px bg-border-base/60" />
+
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Dismiss"
+            className="flex size-7 items-center justify-center rounded-full text-text-weak transition-colors hover:bg-surface-weak hover:text-text-base"
+          >
+            <XIcon className="size-3.5" />
+          </button>
+        </div>
+
+        {/* Caret */}
+        <div className="h-0 w-0 border-l-[6px] border-r-[6px] border-t-[6px] border-l-transparent border-r-transparent border-t-border-base/60" />
       </div>
-      {/* Caret */}
-      <div className="flex justify-center">
-        <div className="size-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-border-base/60" />
-      </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
@@ -76,7 +92,7 @@ function ActionButton({
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="flex items-center gap-1 px-2.5 py-2 text-[11px] text-text-weak transition-colors hover:bg-surface-weak/60 hover:text-text-base"
+      className="flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[11px] text-text-weak transition-colors hover:bg-surface-weak hover:text-text-base"
     >
       {children}
     </button>

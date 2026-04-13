@@ -2,16 +2,12 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   Textarea,
   Button,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  ToggleGroup,
+  ToggleGroupItem,
   cn,
 } from "@buddy/ui"
 import type { ReaderAnnotationDialogState } from "../foliate-reader-types"
@@ -44,86 +40,101 @@ export function FoliateAnnotationDialog({
 
   return (
     <Dialog open={Boolean(dialog)} onOpenChange={(open) => !open && onCancel()}>
-      <DialogContent className="gap-4 sm:max-w-lg">
-        <DialogHeader className="gap-1">
-          <DialogTitle className="text-base">
-            {dialog.mode === "edit" ? "Edit annotation" : "New annotation"}
+      <DialogContent className="gap-0 p-0 sm:max-w-[420px] rounded-xl border border-border-base/50 shadow-xl overflow-hidden bg-surface-raised-base block">
+        <DialogHeader className="px-5 py-4 border-b border-border-base/30 bg-surface-base">
+          <DialogTitle className="text-[14px] font-medium text-text-base text-left">
+            {dialog.mode === "edit" ? "Edit Annotation" : "New Annotation"}
           </DialogTitle>
-          <DialogDescription className="text-[12px]">
+          <DialogDescription className="text-[12px] text-text-weak mt-1 text-left">
             {dialog.mode === "edit"
-              ? "Adjust style or note."
-              : "Choose a style and optionally add a note."}
+              ? "Adjust style or your personal note."
+              : "Choose a style and add a personal note."}
           </DialogDescription>
         </DialogHeader>
 
-        {/* Selected text preview */}
-        <div className="rounded border-l-2 border-border-base/60 bg-surface-weak/30 px-3 py-2 text-[12px] leading-relaxed text-text-weak">
-          {dialog.text || selectionToolbarText || "Selected text"}
-        </div>
+        <div className="flex flex-col">
+          {/* Selected text preview */}
+          <div className="px-5 py-3 border-b border-border-base/30 bg-surface-base/50 overflow-hidden">
+            <div className="relative rounded border-l-2 border-text-base/20 bg-surface-base px-3 py-2 text-[12px] leading-relaxed text-text-weak italic shadow-sm overflow-y-auto max-h-[80px] break-words">
+              "{dialog.text || selectionToolbarText || "Selected text"}"
+            </div>
+          </div>
 
-        {/* Style + color selects */}
-        <div className="grid grid-cols-2 gap-2">
-          <Select value={dialog.style} onValueChange={onChangeStyle}>
-            <SelectTrigger className="h-8 text-[12px]">
-              <SelectValue placeholder="Style" />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(ANNOTATION_STYLE_LABELS).map(([value, label]) => (
-                <SelectItem key={value} value={value}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Color picker — swatches */}
-          <div className="flex items-center gap-1.5 rounded border border-border-base/50 px-2.5">
-            {Object.entries(ANNOTATION_COLORS).map(([id, def]) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => {
-                  if (validateColor(id)) onChangeColor(id)
+          <div className="flex flex-col px-5 py-4 space-y-4 bg-surface-raised-base">
+            {/* Style + color selects */}
+            <div className="flex items-center gap-3">
+              <ToggleGroup
+                type="single"
+                variant="outline"
+                value={dialog.style}
+                onValueChange={(val) => {
+                  if (val) onChangeStyle(val)
                 }}
-                aria-label={def.label}
-                className={cn(
-                  "size-4 rounded-full transition-transform",
-                  def.previewClassName,
-                  dialog.color === id
-                    ? "scale-110 ring-1 ring-border-base ring-offset-1"
-                    : "opacity-60 hover:opacity-90",
-                )}
+                className="flex flex-1"
+              >
+                {Object.entries(ANNOTATION_STYLE_LABELS).map(([value, label]) => (
+                  <ToggleGroupItem key={value} value={value} className="flex-1 h-8 text-[11px] font-medium">
+                    {label}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+
+              {/* Color picker — swatches */}
+              <div className="flex items-center gap-2 p-1.5 rounded-md border border-border-interactive-base/20 bg-surface-base h-8 shadow-sm">
+                {Object.entries(ANNOTATION_COLORS).map(([id, def]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => {
+                      if (validateColor(id)) onChangeColor(id)
+                    }}
+                    aria-label={def.label}
+                    style={{ backgroundColor: def.value }}
+                    className={cn(
+                      "size-[18px] rounded-full shadow-sm flex items-center justify-center transition-transform active:scale-95 border border-black/5",
+                      dialog.color === id
+                        ? "ring-2 ring-text-interactive-base ring-offset-2 ring-offset-surface-base scale-90"
+                        : "opacity-80 hover:opacity-100 hover:scale-105",
+                    )}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Note textarea */}
+            <div className="relative">
+              <Textarea
+                value={dialog.note || ""}
+                onChange={(e) => onChangeNote(e.target.value)}
+                placeholder="Write a note... (optional)"
+                rows={3}
+                className="resize-none text-[13px] bg-surface-base border-border-base/40 focus-visible:ring-1 focus-visible:ring-border-base/50 placeholder:text-text-weaker min-h-[80px] shadow-sm"
               />
-            ))}
+            </div>
           </div>
         </div>
 
-        {/* Note textarea */}
-        <Textarea
-          value={dialog.note}
-          onChange={(e) => onChangeNote(e.target.value)}
-          placeholder="Add a note (optional)"
-          rows={4}
-          className="resize-none text-[12px]"
-        />
-
-        <DialogFooter className="gap-2 sm:gap-1">
-          {dialog.mode === "edit" && onDelete ? (
-            <Button
-              variant="outline"
-              onClick={onDelete}
-              className="mr-auto h-8 text-[12px] text-text-weak"
-            >
-              Delete
+        <div className="px-5 py-3 border-t border-border-base/30 bg-surface-base flex items-center justify-between">
+          <div>
+            {dialog.mode === "edit" && onDelete ? (
+              <Button
+                variant="ghost"
+                onClick={onDelete}
+                className="h-8 px-3 text-[12px] font-medium text-text-critical hover:text-text-critical hover:bg-surface-critical-weak"
+              >
+                Delete
+              </Button>
+            ) : null}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" onClick={onCancel} className="h-8 px-4 text-[12px] font-medium text-text-weak hover:text-text-base hover:bg-surface-weak">
+              Cancel
             </Button>
-          ) : null}
-          <Button variant="ghost" onClick={onCancel} className="h-8 text-[12px]">
-            Cancel
-          </Button>
-          <Button onClick={onSave} className="h-8 text-[12px]">
-            Save
-          </Button>
-        </DialogFooter>
+            <Button onClick={onSave} className="h-8 px-4 text-[12px] font-medium shadow-sm transition-transform active:scale-95">
+              Save
+            </Button>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   )
