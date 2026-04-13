@@ -1,5 +1,5 @@
 import { ScrollArea } from "@buddy/ui"
-import type { ComponentProps, RefObject, UIEvent } from "react"
+import type { ComponentProps, ReactNode, RefObject, UIEvent } from "react"
 import { ChatEmptyState } from "@/components/directory-chat/chat-empty-state"
 import { SessionContextUsage } from "@/components/directory-chat/session-context-usage"
 import { ChatTranscript } from "@/components/chat/chat-transcript"
@@ -23,6 +23,7 @@ type DirectoryChatMainPaneProps = {
   onOpenSession: (sessionID: string) => void
   onPermissionReply: (reply: "once" | "always" | "reject") => Promise<void>
   promptComposerProps: PromptComposerProps
+  topContent?: ReactNode
 }
 
 export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
@@ -44,6 +45,11 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
     >
       <div className="flex-1 min-h-0 flex flex-col">
         <div className="flex min-h-0 flex-1 flex-col">
+          {props.topContent ? (
+            <div className="mx-auto w-full max-w-full px-4 pt-4 md:max-w-200 2xl:max-w-[1000px]">
+              <div className="mb-4">{props.topContent}</div>
+            </div>
+          ) : null}
           <ScrollArea
             data-component="chat-transcript-scroll-area"
             viewportRef={transcriptRef as React.Ref<HTMLDivElement>}

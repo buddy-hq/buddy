@@ -1,8 +1,17 @@
 import { useNavigate } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
-import { Button, ChevronLeftIcon } from "@buddy/ui"
+import {
+  Button,
+  ChevronLeftIcon,
+  ResizeHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+  useResizablePanelRef,
+} from "@buddy/ui"
 import { DirectoryChatConversationPane } from "@/components/directory-chat/directory-chat-conversation-pane"
 import { DirectoryChatReadingReaderPane } from "@/components/directory-chat/directory-chat-reading-reader-pane"
+import { DirectoryChatReadingThreadBrowser } from "@/components/directory-chat/directory-chat-reading-thread-browser"
+import { useSyncResizablePanelSize } from "@/components/layout/use-sync-resizable-panel-size"
 import { useDirectoryNotebookRouteContext } from "@/components/directory-chat/directory-notebook-route-context"
 import { language } from "@/context/language"
 import { fileNameFromPath, normalizeRelativePath } from "@/lib/workspace-file-paths"
@@ -18,6 +27,18 @@ function normalizeResourceRecordPath(record: ResourceRecord) {
   return normalizeRelativePath(record.sourceOriginRelpath ?? record.sourceRelpath)
 }
 
+const READING_CHAT_PANEL_WIDTH_STORAGE_KEY = "directory-chat-reading-chat-panel-width"
+const READING_CHAT_PANEL_DEFAULT_WIDTH_PX = 640
+const READING_CHAT_PANEL_MIN_WIDTH_PX = 384
+const READING_CHAT_PANEL_MAX_VIEWPORT_RATIO = 0.48
+const READING_READER_PANEL_MIN_WIDTH_PX = 480
+
+function getReadingChatPanelMaxWidth() {
+  return typeof window === "undefined"
+    ? READING_CHAT_PANEL_DEFAULT_WIDTH_PX
+    : window.innerWidth * READING_CHAT_PANEL_MAX_VIEWPORT_RATIO
+}
+
 export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
   const navigate = useNavigate()
   const { controller, directoryToken } = useDirectoryNotebookRouteContext()
@@ -26,10 +47,33 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
   const readyDirectory =
     controller.status === "ready" ? controller.mainPaneProps.directory : undefined
   const [resourceRecord, setResourceRecord] = useState<ResourceRecord | undefined>(undefined)
+  const [chatPanelWidth, setChatPanelWidth] = useState(() => {
+    if (typeof window === "undefined") {
+      return READING_CHAT_PANEL_DEFAULT_WIDTH_PX
+    }
+
+    const saved = window.localStorage.getItem(READING_CHAT_PANEL_WIDTH_STORAGE_KEY)
+    const parsed = saved ? Number.parseInt(saved, 10) : Number.NaN
+    if (!Number.isFinite(parsed)) {
+      return READING_CHAT_PANEL_DEFAULT_WIDTH_PX
+    }
+
+    return Math.min(
+      Math.max(parsed, READING_CHAT_PANEL_MIN_WIDTH_PX),
+      getReadingChatPanelMaxWidth(),
+    )
+  })
   const setActiveReadingResource = useChatStore((state) => state.setActiveReadingResource)
   const updateActiveReadingResourceLocation = useChatStore(
     (state) => state.updateActiveReadingResourceLocation,
   )
+  const conversationPanelRef = useResizablePanelRef()
+
+  useSyncResizablePanelSize(conversationPanelRef, chatPanelWidth)
+
+  useEffect(() => {
+    window.localStorage.setItem(READING_CHAT_PANEL_WIDTH_STORAGE_KEY, chatPanelWidth.toString())
+  }, [chatPanelWidth])
 
   useEffect(() => {
     if (!readyDirectory) return
@@ -89,6 +133,10 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
     )
   }
 
+  const readyController = controller
+  const currentDirectory = readyController.mainPaneProps.directory
+  const threadBrowserState = readyController.mainPaneProps.chatState
+
   return (
     <section
       data-component="directory-chat-reading-page"
@@ -118,28 +166,69 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1 w-full">
-        <div className="min-w-0 flex-1 border-r border-border-weaker-base bg-background-base">
-          {readyDirectory && normalizedPath ? (
-            <DirectoryChatReadingReaderPane
-              directory={readyDirectory}
-              resourceName={resourceName}
-              resourcePath={normalizedPath}
-              onLocationChange={(location) => {
-                updateActiveReadingResourceLocation(readyDirectory, {
-                  locationLabel: location.locationLabel,
-                  tocLabel: location.tocLabel,
-                  pageLabel: location.pageLabel,
-                })
-              }}
-            />
-          ) : null}
-        </div>
+      <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1 w-full">
+        <ResizablePanel
+          id="directory-chat-reading-reader"
+          minSize={READING_READER_PANEL_MIN_WIDTH_PX}
+          className="min-h-0 min-w-0 overflow-hidden"
+        >
+          <div className="min-w-0 h-full border-r border-border-weaker-base bg-background-base">
+            {readyDirectory && normalizedPath ? (
+              <DirectoryChatReadingReaderPane
+                directory={readyDirectory}
+                resourceName={resourceName}
+                resourcePath={normalizedPath}
+                onLocationChange={(location) => {
+                  updateActiveReadingResourceLocation(readyDirectory, {
+                    locationLabel: location.locationLabel,
+                    tocLabel: location.tocLabel,
+                    pageLabel: location.pageLabel,
+                  })
+                }}
+              />
+            ) : null}
+          </div>
+        </ResizablePanel>
 
-        <div className="flex min-h-0 w-[40rem] min-w-[24rem] max-w-[48vw] shrink-0 overflow-hidden">
-          <DirectoryChatConversationPane {...controller.mainPaneProps} mainPaneTab="chat" />
-        </div>
-      </div>
+        <ResizablePanel
+          id="directory-chat-reading-conversation"
+          panelRef={conversationPanelRef}
+          defaultSize={chatPanelWidth}
+          minSize={READING_CHAT_PANEL_MIN_WIDTH_PX}
+          maxSize={getReadingChatPanelMaxWidth()}
+          className="relative flex min-h-0 min-w-0 overflow-hidden"
+        >
+          <DirectoryChatConversationPane
+            {...readyController.mainPaneProps}
+            topContent={
+              <DirectoryChatReadingThreadBrowser
+                sessionTitle={threadBrowserState.sessionTitle}
+                sessions={threadBrowserState.sessions}
+                activeSessionID={threadBrowserState.sessionID}
+                onNewSession={() => {
+                  void readyController.leftSidebarProps.onNewSession(currentDirectory)
+                }}
+                onSelectSession={(sessionID) => {
+                  void readyController.leftSidebarProps.onSelectSession(currentDirectory, sessionID)
+                }}
+              />
+            }
+            mainPaneTab="chat"
+            className="h-full w-full"
+          />
+          <ResizeHandle
+            direction="horizontal"
+            edge="start"
+            size={chatPanelWidth}
+            min={READING_CHAT_PANEL_MIN_WIDTH_PX}
+            max={getReadingChatPanelMaxWidth()}
+            onResize={(width) => {
+              conversationPanelRef.current?.resize(width)
+              setChatPanelWidth(width)
+            }}
+          />
+        </ResizablePanel>
+      </ResizablePanelGroup>
     </section>
   )
 }
