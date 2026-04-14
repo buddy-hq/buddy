@@ -543,6 +543,9 @@ describe("config routes", () => {
             "math-buddy": {
               hidden: true,
             },
+            "reading-buddy": {
+              hidden: true,
+            },
           },
         },
         null,

@@ -108,6 +108,36 @@ const BUILTIN_BUDDY_PERSONAS = {
       attachFigureContext: true,
     },
   },
+  "reading-buddy": {
+    id: "reading-buddy",
+    label: "Reading Buddy",
+    description: "Reading-focused Buddy persona for building comprehension and literacy skills.",
+    domain: "general",
+    defaultIntent: "learn",
+    surfaces: ["curriculum", "question-set"],
+    defaultSurface: "curriculum",
+    hidden: false,
+    toolDefaults: {
+      learner_snapshot_read: "allow",
+      learner_practice_record: "allow",
+      learner_assessment_record: "allow",
+      render_mermaid: "allow",
+      render_saved_question_set: "allow",
+    },
+    subagentDefaults: {
+      "practice-agent": "prefer",
+      "assessment-agent": "allow",
+      "question-set-author": "prefer",
+      ...RESERVED_SUBAGENT_DEFAULTS,
+    },
+    contextPolicy: {
+      attachCurriculum: true,
+      attachProgress: true,
+      attachTeachingWorkspace: false,
+      attachTeachingPolicy: false,
+      attachFigureContext: false,
+    },
+  },
 } as const
 
 export function builtinBuddyPersonas(): Record<BuddyPersona, BuddyPersonaProfile> {
@@ -123,6 +153,10 @@ export function builtinBuddyPersonas(): Record<BuddyPersona, BuddyPersonaProfile
     "math-buddy": {
       ...BUILTIN_BUDDY_PERSONAS["math-buddy"],
       surfaces: [...BUILTIN_BUDDY_PERSONAS["math-buddy"].surfaces],
+    },
+    "reading-buddy": {
+      ...BUILTIN_BUDDY_PERSONAS["reading-buddy"],
+      surfaces: [...BUILTIN_BUDDY_PERSONAS["reading-buddy"].surfaces],
     },
   }
 }

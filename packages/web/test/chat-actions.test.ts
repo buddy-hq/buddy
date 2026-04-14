@@ -1722,4 +1722,23 @@ describe("resolveDefaultPersonaID", () => {
 
     expect(selected).toBe("buddy")
   })
+
+  test("includes reading-buddy in the built-in fallback order", () => {
+    const selected = resolveDefaultPersonaID([
+      {
+        id: "reading-buddy",
+        label: "A Reading",
+        surfaces: ["curriculum", "question-set"],
+        defaultSurface: "curriculum",
+      },
+      {
+        id: "math-buddy",
+        label: "Z Math",
+        surfaces: ["curriculum", "figure"],
+        defaultSurface: "figure",
+      },
+    ])
+
+    expect(selected).toBe("math-buddy")
+  })
 })

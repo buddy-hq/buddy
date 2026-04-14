@@ -55,6 +55,7 @@ export namespace ConfigSchema {
       buddy: PersonaOverride.optional(),
       "code-buddy": PersonaOverride.optional(),
       "math-buddy": PersonaOverride.optional(),
+      "reading-buddy": PersonaOverride.optional(),
     })
     .strict()
   export type Personas = z.infer<typeof Personas>

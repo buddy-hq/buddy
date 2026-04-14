@@ -6,5 +6,6 @@ import "./curriculum/goals/writer.agent.js"
 import "./question-set-author/agent.js"
 import "./personas/code-buddy/agent.js"
 import "./personas/math-buddy/agent.js"
+import "./personas/reading-buddy/agent.js"
 
 export { indexBuddyAgents, listBuddyAgents } from "./register-buddy-agent"

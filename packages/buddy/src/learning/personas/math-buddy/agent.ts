@@ -1,4 +1,4 @@
-import BUDDY_BASE_PROMPT from "../buddy/prompt.p.md"
+import BUDDY_BASE_PROMPT from "../buddy/buddy.p.md"
 import MATH_BUDDY_OVERLAY from "./overlay.p.md"
 import { createPrimaryAgent } from "../../agent-factories"
 import { registerBuddyAgent } from "../../register-buddy-agent"

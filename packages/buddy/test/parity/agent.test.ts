@@ -154,4 +154,34 @@ describe("parity.agent", () => {
       ).toBe("deny")
     })
   })
+
+  test("registers reading-buddy as a primary agent with reading-safe defaults", async () => {
+    await withRepo(async (directory) => {
+      const result = await withSyncedOpenCodeConfig(directory, async () => ({
+        agent: await OpenCodeAgent.get("reading-buddy"),
+        listed: await OpenCodeAgent.list(),
+      }))
+
+      const readingBuddyAgent = requireValue(result.agent, "reading-buddy agent")
+      const readingBuddyPrompt = requireValue(readingBuddyAgent.prompt, "reading-buddy prompt")
+
+      expect(readingBuddyAgent.mode).toBe("primary")
+      expect(result.listed.map((entry) => entry.name)).toContain("reading-buddy")
+      expect(readingBuddyPrompt).toContain("question-set-author")
+      expect(
+        PermissionNext.evaluate("render_saved_question_set", "*", readingBuddyAgent.permission)
+          .action,
+      ).toBe("allow")
+      expect(
+        PermissionNext.evaluate(
+          "teaching_start_lesson",
+          "teaching/lesson.ts",
+          readingBuddyAgent.permission,
+        ).action,
+      ).toBe("deny")
+      expect(
+        PermissionNext.evaluate("python_calculator", "*", readingBuddyAgent.permission).action,
+      ).toBe("deny")
+    })
+  })
 })

@@ -200,7 +200,7 @@ export type TeachingLlmOutboundSnapshot = {
   fullSystemPrompt?: string
 }
 
-const BUDDY_PERSONA_DEFAULT_ORDER = ["buddy", "code-buddy", "math-buddy"] as const
+const BUDDY_PERSONA_DEFAULT_ORDER = ["buddy", "code-buddy", "math-buddy", "reading-buddy"] as const
 
 function normalizeProjectDirectory(directory: string) {
   const normalized = directory.trim().replace(/\/+$/, "")
@@ -240,9 +240,9 @@ export function resolveDefaultPersonaID(
 
 type RawProvider = ProviderListResponse["all"][number]
 type RawProviderModel = RawProvider["models"][string]
-type LearnerPersona = "buddy" | "code-buddy" | "math-buddy"
+type LearnerPersona = "buddy" | "code-buddy" | "math-buddy" | "reading-buddy"
 
-const LEARNER_PERSONAS = ["buddy", "code-buddy", "math-buddy"] as const
+const LEARNER_PERSONAS = ["buddy", "code-buddy", "math-buddy", "reading-buddy"] as const
 const DEFAULT_PERSONA_SURFACE: PersonaConfigOption["defaultSurface"] = "curriculum"
 const EMPTY_ALIGNMENT_SUMMARY: LearnerCurriculumView["alignmentSummary"] = {
   records: [],

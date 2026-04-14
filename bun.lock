@@ -210,6 +210,7 @@
         "@tanstack/react-router": "^1.168.7",
         "@tanstack/react-virtual": "^3.13.23",
         "@tanstack/router-devtools": "^1.166.11",
+        "diff": "catalog:",
         "dompurify": "^3.3.1",
         "foliate-js": "github:johnfactotum/foliate-js#399248a67a8862ffb5e6463a33f9d52b317ca2eb",
         "immer": "^11.1.4",

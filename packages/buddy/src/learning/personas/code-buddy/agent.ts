@@ -1,6 +1,6 @@
 import { createPrimaryAgent } from "../../agent-factories"
 import { registerBuddyAgent } from "../../register-buddy-agent"
-import BUDDY_BASE_PROMPT from "../buddy/prompt.p.md"
+import BUDDY_BASE_PROMPT from "../buddy/buddy.p.md"
 import CODE_BUDDY_OVERLAY from "./overlay.p.md"
 
 export const CODE_BUDDY = registerBuddyAgent({
