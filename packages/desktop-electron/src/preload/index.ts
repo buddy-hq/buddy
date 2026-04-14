@@ -5,20 +5,38 @@ const DROPPED_FILE_PATH_CACHE_MAX_ENTRIES = 200
 const droppedFilePathByFingerprint = new Map<string, string>()
 let lastDroppedFilePaths: string[] = []
 
+type UnknownRecord = Record<PropertyKey, unknown>
+
 function fileFingerprint(file: Pick<File, "name" | "size" | "lastModified" | "type">) {
   return `${file.name}\n${file.size}\n${file.lastModified}\n${file.type}`
 }
 
-function cacheDroppedFilePaths(event: DragEvent) {
-  const files = event.dataTransfer?.files
-  if (!files) {
-    lastDroppedFilePaths = []
-    return
-  }
+function isObjectRecord(value: unknown): value is UnknownRecord {
+  return typeof value === "object" && value !== null
+}
+
+function isIterable(value: unknown): value is Iterable<unknown> {
+  if (!isObjectRecord(value)) return false
+  const iterator = value[Symbol.iterator]
+  return typeof iterator === "function"
+}
+
+function isFile(value: unknown): value is File {
+  return value instanceof File
+}
+
+function getDroppedFilePaths(event: unknown): string[] {
+  if (!isObjectRecord(event)) return []
+  const dataTransfer = event.dataTransfer
+  if (!isObjectRecord(dataTransfer)) return []
+  const files = dataTransfer.files
+  if (!isIterable(files)) return []
 
   const nextDroppedFilePaths: string[] = []
 
-  for (const file of Array.from(files)) {
+  for (const fileCandidate of files) {
+    if (!isFile(fileCandidate)) continue
+    const file = fileCandidate
     const filepath = webUtils.getPathForFile(file)
     if (!filepath) continue
     nextDroppedFilePaths.push(filepath)
@@ -38,10 +56,24 @@ function cacheDroppedFilePaths(event: DragEvent) {
     droppedFilePathByFingerprint.delete(oldestKey)
   }
 
-  lastDroppedFilePaths = nextDroppedFilePaths
+  return nextDroppedFilePaths
 }
 
-window.addEventListener("drop", cacheDroppedFilePaths, true)
+function hasAddEventListener(value: unknown): value is {
+  addEventListener: (type: string, listener: (event: unknown) => void, capture?: boolean) => void
+} {
+  if (!isObjectRecord(value)) return false
+  return typeof value.addEventListener === "function"
+}
+
+function cacheDroppedFilePaths(event: unknown) {
+  lastDroppedFilePaths = getDroppedFilePaths(event)
+}
+
+const globalEventTarget: unknown = globalThis
+if (hasAddEventListener(globalEventTarget)) {
+  globalEventTarget.addEventListener("drop", cacheDroppedFilePaths, true)
+}
 
 const api: ElectronAPI = {
   killSidecar: () => ipcRenderer.invoke("kill-sidecar"),
