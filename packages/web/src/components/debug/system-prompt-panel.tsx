@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { createPatch } from "diff"
 import { Button, Input } from "@buddy/ui"
 import { language } from "@/context/language"
 import {
@@ -8,6 +9,52 @@ import {
 } from "@/state/chat-actions"
 import { useChatStore } from "@/state/chat-store"
 import { isSessionStatusActive } from "@/state/session-status"
+
+function isPatchAdditionLine(line: string) {
+  return line.startsWith("+") && !line.startsWith("+++")
+}
+
+function isPatchDeletionLine(line: string) {
+  return line.startsWith("-") && !line.startsWith("---")
+}
+
+function isPatchHeaderLine(line: string) {
+  return (
+    line.startsWith("diff --git ") ||
+    line.startsWith("index ") ||
+    line.startsWith("Index: ") ||
+    line.startsWith("--- ") ||
+    line.startsWith("+++ ") ||
+    line.startsWith("@@")
+  )
+}
+
+function PromptDiffView({ patch }: { patch: string }) {
+  const lines = patch.split("\n")
+  const seen = new Map<string, number>()
+
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto p-3 font-mono text-[12px] leading-5">
+      {lines.map((line) => {
+        const occurrence = seen.get(line) ?? 0
+        seen.set(line, occurrence + 1)
+        const className = isPatchAdditionLine(line)
+          ? "text-icon-success-base"
+          : isPatchDeletionLine(line)
+            ? "text-icon-critical-base"
+            : isPatchHeaderLine(line)
+              ? "font-medium text-text-weak"
+              : "text-text-base"
+
+        return (
+          <div key={`${line}:${occurrence}`} className={className}>
+            {line}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
 
 function HighlightedText({ text, query }: { text: string; query: string }) {
   if (!query.trim()) return <>{text}</>
@@ -93,7 +140,10 @@ export function SystemPromptPanel(props: SystemPromptPanelProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | undefined>(undefined)
   const [searchQuery, setSearchQuery] = useState("")
+  const [showDiff, setShowDiff] = useState(false)
   const requestCounterRef = useRef(0)
+  const currentPromptRef = useRef<string | undefined>(undefined)
+  const previousPromptRef = useRef<string | undefined>(undefined)
   const activeSessionBusy = useChatStore((state) => {
     const directoryState = state.directories[directory]
     if (!directoryState || !sessionID) return false
@@ -105,6 +155,23 @@ export function SystemPromptPanel(props: SystemPromptPanelProps) {
   const renderedAt = formatIsoTime(lastOutbound?.createdAt)
   const charCount = systemPromptText?.length ?? 0
   const approxTokens = Math.round(charCount / 4)
+  const hasPromptDiff =
+    currentPromptRef.current !== undefined &&
+    previousPromptRef.current !== undefined &&
+    previousPromptRef.current !== currentPromptRef.current
+
+  const patch = useMemo(() => {
+    if (
+      !showDiff ||
+      !hasPromptDiff ||
+      !previousPromptRef.current ||
+      !currentPromptRef.current ||
+      previousPromptRef.current === currentPromptRef.current
+    ) {
+      return null
+    }
+    return createPatch("system-prompt", previousPromptRef.current, currentPromptRef.current)
+  }, [hasPromptDiff, showDiff])
 
   const refresh = useCallback(
     async (input?: { silent?: boolean }) => {
@@ -127,6 +194,20 @@ export function SystemPromptPanel(props: SystemPromptPanelProps) {
         const next = await loadTeachingSessionState(directory, sessionID)
         if (requestID !== requestCounterRef.current) return
         if (next) {
+          const newOutbound = readLastOutboundEntry(next)
+          const newPromptText = readSystemPromptText(newOutbound)
+
+          if (newPromptText) {
+            if (
+              currentPromptRef.current !== undefined &&
+              currentPromptRef.current !== newPromptText
+            ) {
+              previousPromptRef.current = currentPromptRef.current
+            }
+
+            currentPromptRef.current = newPromptText
+          }
+
           setRuntime(next)
         } else {
           setRuntime((current) => (current?.sessionId === sessionID ? current : undefined))
@@ -143,6 +224,13 @@ export function SystemPromptPanel(props: SystemPromptPanelProps) {
     },
     [directory, sessionID],
   )
+
+  useEffect(() => {
+    currentPromptRef.current = undefined
+    previousPromptRef.current = undefined
+    setShowDiff(false)
+    setSearchQuery("")
+  }, [directory, sessionID])
 
   useEffect(() => {
     void refresh()
@@ -171,15 +259,29 @@ export function SystemPromptPanel(props: SystemPromptPanelProps) {
             {language.t("debug.systemPrompt.description")}
           </p>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="px-2"
-          onClick={() => void refresh()}
-          disabled={loading}
-        >
-          {language.t("common.refresh")}
-        </Button>
+        <div className="flex items-center gap-1">
+          {hasPromptDiff && (
+            <Button
+              variant={showDiff ? "secondary" : "ghost"}
+              size="sm"
+              className="px-2"
+              onClick={() => setShowDiff((current) => !current)}
+            >
+              {showDiff
+                ? language.t("debug.systemPrompt.viewFull")
+                : language.t("debug.systemPrompt.viewDiff")}
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="px-2"
+            onClick={() => void refresh()}
+            disabled={loading}
+          >
+            {language.t("common.refresh")}
+          </Button>
+        </div>
       </div>
 
       {!sessionID ? (
@@ -223,9 +325,13 @@ export function SystemPromptPanel(props: SystemPromptPanelProps) {
                   className="h-8 text-xs"
                 />
               </div>
-              <pre className="min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap break-words p-3 text-[12px] leading-5 text-text-base font-mono">
-                <HighlightedText text={systemPromptText} query={searchQuery} />
-              </pre>
+              {showDiff && patch ? (
+                <PromptDiffView patch={patch} />
+              ) : (
+                <pre className="min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap break-words p-3 text-[12px] leading-5 text-text-base font-mono">
+                  <HighlightedText text={systemPromptText} query={searchQuery} />
+                </pre>
+              )}
             </div>
           ) : (
             <div className="p-3 text-sm text-text-weak">

@@ -157,4 +157,106 @@ describe("SystemPromptPanel", () => {
       expect(teachingStateRequests).toBeGreaterThanOrEqual(2)
     })
   })
+
+  test("shows a prompt diff after the captured prompt changes", async () => {
+    const directory = "/repo"
+    const sessionID = "ses_diff"
+    let teachingStateRequests = 0
+
+    const store = useChatStore.getState()
+    store.ensureOpenProject(directory)
+    store.setSessionInfo(directory, {
+      id: sessionID,
+      title: "Diff session",
+      time: {
+        created: 1,
+        updated: 1,
+      },
+    })
+    store.applySessionStatus(directory, sessionID, BUSY_SESSION_STATUS)
+
+    globalThis.fetch = createFetchStub(async (input, init) => {
+      const url =
+        typeof input === "string" ? input : input instanceof URL ? input.toString() : String(input)
+      const method = init?.method ?? "GET"
+      const headers = new Headers(init?.headers)
+
+      if (url.endsWith(`/api/session/${sessionID}/teaching-state`) && method === "GET") {
+        teachingStateRequests += 1
+        expect(headers.get("x-buddy-directory")).toBe(directory)
+
+        const prompt =
+          teachingStateRequests === 1
+            ? "You are Buddy, a learning companion."
+            : "You are Buddy, a learning companion. Keep responses short."
+
+        return new Response(
+          JSON.stringify({
+            sessionId: sessionID,
+            persona: "buddy",
+            intent: "auto",
+            currentSurface: "curriculum",
+            workspaceState: "chat",
+            focusGoalIds: [],
+            lastLlmOutbound: {
+              kind: "message",
+              createdAt: new Date().toISOString(),
+              payload: {},
+              fullSystemPrompt: prompt,
+            },
+            llmOutboundHistory: [],
+          }),
+          {
+            status: 200,
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        )
+      }
+
+      throw new Error(`Unexpected request ${method} ${url}`)
+    })
+
+    await act(async () => {
+      root.render(
+        <PlatformProvider value={createBrowserPlatform()}>
+          <ServerProvider
+            value={{
+              url: "",
+              username: null,
+              password: null,
+              isSidecar: false,
+            }}
+          >
+            <SystemPromptPanel directory={directory} sessionID={sessionID} />
+          </ServerProvider>
+        </PlatformProvider>,
+      )
+      await flushEffects()
+    })
+
+    await waitForAssertion(() => {
+      expect(container.textContent?.includes("Diff")).toBe(true)
+    })
+
+    const diffButton = Array.from(container.querySelectorAll("button")).find((button) =>
+      button.textContent?.includes("Diff"),
+    )
+    expect(diffButton).toBeDefined()
+
+    await act(async () => {
+      diffButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+      await flushEffects()
+    })
+
+    await waitForAssertion(() => {
+      expect(container.textContent?.includes("-You are Buddy, a learning companion.")).toBe(true)
+      expect(
+        container.textContent?.includes(
+          "+You are Buddy, a learning companion. Keep responses short.",
+        ),
+      ).toBe(true)
+    })
+  })
 })

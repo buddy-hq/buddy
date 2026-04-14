@@ -178,6 +178,8 @@ export const dict = {
   "debug.systemPrompt.tokensSuffix": "tokens",
   "debug.systemPrompt.turnPrefix": "Turn:",
   "debug.systemPrompt.unknown": "unknown",
+  "debug.systemPrompt.viewDiff": "Diff",
+  "debug.systemPrompt.viewFull": "Full",
   "desktopTitlebar.collapseLeftPanel": "Collapse left panel",
   "desktopTitlebar.collapseRightPanel": "Collapse right panel",
   "desktopTitlebar.copySessionTrace": "Copy Session Trace (Dev Only)",
