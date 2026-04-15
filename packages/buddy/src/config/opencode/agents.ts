@@ -3,7 +3,10 @@ import {
   isPersona,
   type Persona as BuddyPersona,
 } from "@buddy/backend/learning/shared/teaching-vocabulary"
-import { getBuddyPersona, resolveBuddyPersonaProfiles } from "../../learning/personas/wiring/persona.orchestration"
+import {
+  getBuddyPersona,
+  resolveBuddyPersonaProfiles,
+} from "../../learning/personas/wiring/persona.orchestration"
 import { indexBuddyAgents } from "../../learning/register-agents"
 import { derivePersonaStaticLearningToolPermissions } from "../../learning/tools/tool-capability-policy"
 import { Config } from "../config.js"

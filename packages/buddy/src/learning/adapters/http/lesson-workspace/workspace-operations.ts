@@ -16,7 +16,10 @@ import type {
   TeachingWorkspaceCreateFileRequest,
   TeachingWorkspaceUpdateRequest,
 } from "../../../capabilities/lesson-workspace/model/types"
-import { getBuddyPersona, getDefaultBuddyPersona } from "../../../personas/wiring/persona.orchestration"
+import {
+  getBuddyPersona,
+  getDefaultBuddyPersona,
+} from "../../../personas/wiring/persona.orchestration"
 
 export function resolveTeachingProvisionPersona(input: {
   config: Awaited<ReturnType<typeof readProjectConfig>>
