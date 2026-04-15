@@ -1,6 +1,6 @@
 import { useState, type PointerEvent as ReactPointerEvent } from "react"
 import { AnimatePresence, motion } from "motion/react"
-import { LayoutTemplateIcon, type LucideIcon } from "lucide-react"
+import { LayoutTemplateIcon, PlusIcon, type LucideIcon } from "lucide-react"
 import {
   ArchiveIcon,
   Button,
@@ -130,9 +130,10 @@ const THREAD_ROW_PADDING_LEFT_PX = 20
 const THREAD_ROW_PADDING_RIGHT_PX = 12
 const THREAD_CHILD_INDENT_PX = 14
 const THREAD_STATUS_OFFSET_PX = 6
-const MAIN_PANE_SHORTCUT_ROW_CLASS = "grid grid-cols-4 gap-1.5"
+const MAIN_PANE_SHORTCUT_ROW_CLASS =
+  "grid grid-cols-4 gap-1.5 p-1.5 rounded-2xl bg-white/50 dark:bg-black/50 backdrop-blur-xl border border-white/20 dark:border-white/10 shadow-2xl w-fit"
 const MAIN_PANE_SHORTCUT_BUTTON_BASE_CLASS =
-  "h-7 w-full justify-center rounded-lg border-0 bg-transparent text-text-weak transition-all duration-160 [transition-timing-function:cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97]"
+  "flex h-7 w-full items-center justify-center rounded-lg border-0 bg-transparent text-text-weak transition-all duration-160 [transition-timing-function:cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97]"
 const MAIN_PANE_SHORTCUT_BUTTON_ACTIVE_CLASS = "text-text-strong"
 const MAIN_PANE_SHORTCUT_BUTTON_INACTIVE_CLASS =
   "text-text-weak hover:bg-surface-raised-base-hover hover:text-text-base"
@@ -265,8 +266,14 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
         data-directory={props.group.directory}
         data-current={isCurrentDirectory ? "true" : "false"}
         ref={props.onSectionRef}
-        className={`group/directory space-y-1 relative transition-opacity duration-150 ${
+        className={`group/directory relative transition-opacity duration-150 ${
           isDragging ? "opacity-40" : "opacity-100"
+        } ${
+          !isQuickChatGroup
+            ? props.collapsed
+              ? "mb-0.5"
+              : "mb-3 overflow-hidden rounded-lg bg-surface-raised-base shadow-sm"
+            : "space-y-1"
         }`}
       >
         {isDragOver && props.dragOverPosition === "before" ? (
@@ -314,7 +321,13 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
         ) : (
           <ContextMenu>
             <ContextMenuTrigger asChild>
-              <div className="group/notebook-header flex items-center gap-1 rounded-xl px-0 py-0.5 data-[state=open]:bg-surface-raised-base-hover">
+              <div
+                className={`group/notebook-header relative flex items-center gap-1 rounded-lg px-0 py-1 ${
+                  !props.collapsed
+                    ? "rounded-t-lg rounded-b-none bg-surface-raised-strong"
+                    : "data-[state=open]:bg-surface-raised-base-hover"
+                }`}
+              >
                 <CollapsibleTrigger asChild>
                   <button
                     type="button"
@@ -335,8 +348,8 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                 </CollapsibleTrigger>
 
                 <div
-                  className={`relative z-10 flex items-center gap-0.5 pr-1 transition-opacity group-hover/directory:opacity-100 group-focus-within/directory:opacity-100 group-data-[state=open]/notebook-header:opacity-100 ${
-                    props.collapsed ? "opacity-0" : "opacity-100"
+                  className={`relative z-10 flex items-center gap-0.5 pr-1 transition-opacity group-focus-within/directory:opacity-100 group-data-[state=open]/notebook-header:opacity-100 ${
+                    !props.collapsed ? "opacity-100" : "opacity-0 group-hover/directory:opacity-100"
                   }`}
                 >
                   <Tooltip>
@@ -355,7 +368,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                           props.onNewSession()
                         }}
                       >
-                        <SquarePenIcon className="size-3.5" />
+                        <PlusIcon className="size-4" strokeWidth={2} />
                       </button>
                     </TooltipTrigger>
                     <TooltipContent side="top" sideOffset={8} className="px-2 py-1 text-[11px]">
@@ -389,55 +402,48 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                 animate={{ height: "auto", opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
                 transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }}
+                className={!isQuickChatGroup ? "pb-2" : ""}
               >
                 {props.mainPaneTab && props.onMainPaneTabChange ? (
-                  <div className="mb-2 ml-2">
-                    <div
-                      className={`relative rounded-lg ${
-                        activeMainPaneTab !== "chat" ? "bg-surface-weak/55" : ""
-                      }`}
-                    >
-                      <div
-                        className="py-0.5"
-                        style={{
-                          paddingLeft: `${THREAD_ROW_PADDING_LEFT_PX}px`,
-                          paddingRight: `${THREAD_ROW_PADDING_RIGHT_PX}px`,
-                        }}
-                      >
-                        <div className={MAIN_PANE_SHORTCUT_ROW_CLASS}>
-                          {MAIN_PANE_SHORTCUTS.map((shortcut) => {
-                            const isActive = activeMainPaneTab === shortcut.tab
-                            const Icon = shortcut.Icon
-                            return (
-                              <Button
-                                key={shortcut.tab}
-                                type="button"
-                                data-action={`left-sidebar-main-pane-${shortcut.tab}`}
-                                variant="ghost"
-                                size="sm"
-                                className={`relative ${MAIN_PANE_SHORTCUT_BUTTON_BASE_CLASS} ${
-                                  isActive
-                                    ? MAIN_PANE_SHORTCUT_BUTTON_ACTIVE_CLASS
-                                    : MAIN_PANE_SHORTCUT_BUTTON_INACTIVE_CLASS
-                                } group/shortcut`}
-                                title={shortcut.label}
-                                onClick={() => {
-                                  props.onMainPaneTabChange?.(isActive ? "chat" : shortcut.tab)
-                                }}
-                              >
-                                {isActive && (
-                                  <motion.div
-                                    layoutId={`main-pane-tab-${props.group.directory}`}
-                                    className="absolute inset-0 bg-surface-raised-strong rounded-lg"
-                                    transition={{ type: "spring", duration: 0.4, bounce: 0.15 }}
-                                  />
-                                )}
-                                <Icon className="relative z-10 size-3" />
-                              </Button>
-                            )
-                          })}
-                        </div>
-                      </div>
+                  <div
+                    className={
+                      !isQuickChatGroup
+                        ? "pb-3 pt-4 flex justify-center"
+                        : "mb-2 flex justify-center"
+                    }
+                  >
+                    <div className={MAIN_PANE_SHORTCUT_ROW_CLASS}>
+                      {MAIN_PANE_SHORTCUTS.map((shortcut) => {
+                        const isActive = activeMainPaneTab === shortcut.tab
+                        const Icon = shortcut.Icon
+                        return (
+                          <Button
+                            key={shortcut.tab}
+                            type="button"
+                            data-action={`left-sidebar-main-pane-${shortcut.tab}`}
+                            variant="ghost"
+                            size="sm"
+                            className={`relative ${MAIN_PANE_SHORTCUT_BUTTON_BASE_CLASS} ${
+                              isActive
+                                ? MAIN_PANE_SHORTCUT_BUTTON_ACTIVE_CLASS
+                                : MAIN_PANE_SHORTCUT_BUTTON_INACTIVE_CLASS
+                            } group/shortcut`}
+                            title={shortcut.label}
+                            onClick={() => {
+                              props.onMainPaneTabChange?.(isActive ? "chat" : shortcut.tab)
+                            }}
+                          >
+                            {isActive && (
+                              <motion.div
+                                layoutId={`main-pane-tab-${props.group.directory}`}
+                                className="absolute inset-0 z-0 rounded-lg bg-surface-raised-strong border border-surface-border-strong shadow-sm"
+                                transition={{ type: "spring", duration: 0.4, bounce: 0.15 }}
+                              />
+                            )}
+                            <Icon className="relative z-10 size-[14px]" />
+                          </Button>
+                        )
+                      })}
                     </div>
                   </div>
                 ) : null}
@@ -543,9 +549,9 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
           <div
             className={`group/thread relative rounded-lg data-[state=open]:bg-surface-raised-base-hover ${
               active
-                ? "bg-surface-weak/55 text-text-strong"
+                ? "bg-surface-raised-strong shadow-sm text-text-strong"
                 : familyActive
-                  ? "bg-surface-weak/30 text-text-base"
+                  ? "bg-surface-raised-strong/40 text-text-base"
                   : "hover:bg-surface-raised-base-hover"
             }`}
           >
