@@ -7,9 +7,9 @@ import { app } from "../../src/index.ts"
 import {
   RenderSavedQuestionSetOutputSchema,
   SaveQuestionSetOutputSchema,
-  ensureQuestionSetToolsRegistered,
   type SaveQuestionSetInput,
-} from "../../src/learning/capabilities"
+} from "../../src/learning/capabilities/question-set/types"
+import { ensureQuestionSetToolsRegistered } from "../../src/learning/capabilities/question-set/tools/register"
 import { tmpdir } from "../helpers/tmpdir"
 import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
 

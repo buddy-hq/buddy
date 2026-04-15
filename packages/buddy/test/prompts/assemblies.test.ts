@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test"
 import { resolveCapabilityProfile } from "../../src/learning/resolve-capability-profile"
 import { LearnerService } from "../../src/learning/learner-model"
-import { buildLearningSystemPrompt } from "../../src/learning/prompt"
-import { getBuddyPersona } from "../../src/learning/personas"
+import { buildLearningSystemPrompt } from "../../src/learning/prompt/learning-prompt"
+import { getBuddyPersona } from "../../src/learning/personas/catalog"
 import { withInstalledMockAdvancedMathRuntime } from "../helpers/advanced-math-runtime"
 import { tmpdir } from "../helpers/tmpdir"
 

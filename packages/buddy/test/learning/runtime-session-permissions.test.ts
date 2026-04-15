@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { PermissionNext } from "@buddy/opencode-adapter/permission"
 import { buildBuddyRuntimeSessionPermissions } from "../../src/learning/agent-execution/permissions/session-permissions"
 import { resolveCapabilityProfile } from "../../src/learning/resolve-capability-profile"
-import { getBuddyPersona } from "../../src/learning/personas"
+import { getBuddyPersona } from "../../src/learning/personas/catalog"
 
 describe("buildBuddyRuntimeSessionPermissions", () => {
   test("preserves unrelated rules while enforcing the runtime tool and helper policy", () => {

@@ -3,9 +3,12 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
-import { FigureService } from "../../src/learning/capabilities"
-import { ensureFigureToolsRegistered } from "../../src/learning/capabilities"
-import { RenderFigureOutputSchema, type RenderFigureInput } from "../../src/learning/capabilities"
+import { FigureService } from "../../src/learning/capabilities/figures/geometry/service"
+import { ensureFigureToolsRegistered } from "../../src/learning/capabilities/figures/geometry/tools/register"
+import {
+  RenderFigureOutputSchema,
+  type RenderFigureInput,
+} from "../../src/learning/capabilities/figures/geometry/types"
 import { tmpdir } from "../helpers/tmpdir"
 import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
 

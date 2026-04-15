@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { ensureCurriculumToolsRegistered } from "../../src/learning/curriculum"
+import { ensureCurriculumToolsRegistered } from "../../src/learning/curriculum/planning/tools/register"
 import { tmpdir } from "../helpers/tmpdir"
 import { TEST_TOOL_MODEL } from "../helpers/tools"
 

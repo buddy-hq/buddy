@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { FigureService } from "../../src/learning/capabilities"
+import { FigureService } from "../../src/learning/capabilities/figures/geometry/service"
 import { app } from "../../src/index.ts"
 import { tmpdir } from "../helpers/tmpdir"
 

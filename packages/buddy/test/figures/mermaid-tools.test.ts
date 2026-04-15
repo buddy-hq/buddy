@@ -5,15 +5,15 @@ import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { app } from "../../src/index.ts"
 import {
-  ensureMermaidToolsRegistered,
   MermaidArtifactService,
   MermaidRenderError,
-} from "../../src/learning/capabilities"
+} from "../../src/learning/capabilities/figures/mermaid/service"
+import { ensureMermaidToolsRegistered } from "../../src/learning/capabilities/figures/mermaid/tools/register"
 import {
   MermaidArtifactManifestSchema,
   RenderMermaidOutputSchema,
   type RenderMermaidInput,
-} from "../../src/learning/capabilities"
+} from "../../src/learning/capabilities/figures/mermaid/types"
 import { tmpdir } from "../helpers/tmpdir"
 import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
 

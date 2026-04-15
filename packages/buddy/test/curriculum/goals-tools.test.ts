@@ -3,7 +3,7 @@ import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { LearnerArtifactStore } from "../../src/learning/learner-model"
 import type { GoalArtifact } from "../../src/learning/learner-model"
-import { ensureGoalToolsRegistered } from "../../src/learning/curriculum"
+import { ensureGoalToolsRegistered } from "../../src/learning/curriculum/goals/tools/register"
 import { tmpdir } from "../helpers/tmpdir"
 import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
 

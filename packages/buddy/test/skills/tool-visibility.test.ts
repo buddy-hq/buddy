@@ -5,7 +5,7 @@ import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { syncOpenCodeProjectConfig } from "@buddy/backend/config/runtime"
 import { resolveCapabilityProfile } from "../../src/learning/resolve-capability-profile"
 import { buildBuddyRuntimeSessionPermissions } from "../../src/learning/agent-execution/permissions/session-permissions"
-import { getBuddyPersona } from "../../src/learning/personas"
+import { getBuddyPersona } from "../../src/learning/personas/catalog"
 import { tmpdir } from "../helpers/tmpdir"
 import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
 

@@ -3,11 +3,9 @@ import { Database } from "bun:sqlite"
 import { describe, expect, test } from "bun:test"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
-import {
-  KNOWLEDGE_GRAPH_DB_ENV,
-  KnowledgeGraphService,
-  ensureKnowledgeGraphToolsRegistered,
-} from "../../src/learning/knowledge-graph"
+import { KnowledgeGraphService } from "../../src/learning/knowledge-graph/service"
+import { KNOWLEDGE_GRAPH_DB_ENV } from "../../src/learning/knowledge-graph/constants"
+import { ensureKnowledgeGraphToolsRegistered } from "../../src/learning/knowledge-graph/tools/register"
 import { tmpdir } from "../helpers/tmpdir"
 import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
 

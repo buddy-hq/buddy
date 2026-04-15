@@ -1,21 +1,12 @@
 import { describe, expect, test } from "bun:test"
-import {
-  INTENT_CAPABILITY_MANIFESTS,
-  SKILL_CAPABILITY_REGISTRY,
-  TOOL_CAPABILITY_REGISTRY,
-  validateIntentCapabilityBindings,
-} from "../../src/learning/intents/capabilities"
-import {
-  pedagogyExplanationTool,
-  pedagogyGuidedPracticeTool,
-} from "../../src/learning/capabilities/pedagogy/tools/definitions"
+import { INTENT_CAPABILITY_MANIFESTS } from "../../src/learning/intents/capabilities/intent-manifests"
+import { SKILL_CAPABILITY_REGISTRY } from "../../src/learning/intents/capabilities/skill-capabilities"
+import { validateIntentCapabilityBindings } from "../../src/learning/intents/capabilities/validation"
+import { pedagogyExplanationTool } from "../../src/learning/capabilities/pedagogy/tools/definitions/explanation"
+import { pedagogyGuidedPracticeTool } from "../../src/learning/capabilities/pedagogy/tools/definitions/guided-practice"
 import type { IntentCapabilityManifest } from "../../src/learning/intents/capabilities/intent-manifests"
 import type { SkillCapability } from "../../src/learning/intents/capabilities/skill-capabilities"
-import {
-  createToolCapability,
-  toolCapabilityKey,
-  type ToolCapability,
-} from "../../src/learning/intents/capabilities/tool-capabilities"
+import { createToolCapability } from "../../src/learning/intents/capabilities/tool-capabilities"
 
 function cloneManifests(): IntentCapabilityManifest[] {
   return INTENT_CAPABILITY_MANIFESTS.map((manifest) => ({
@@ -26,20 +17,6 @@ function cloneManifests(): IntentCapabilityManifest[] {
 }
 
 describe("validateIntentCapabilityBindings", () => {
-  test("fails on unknown capability keys in a manifest", () => {
-    const toolCapabilities = TOOL_CAPABILITY_REGISTRY.filter(
-      (capability) => toolCapabilityKey(capability) !== "pedagogy_guided_practice",
-    )
-
-    expect(() =>
-      validateIntentCapabilityBindings({
-        manifests: INTENT_CAPABILITY_MANIFESTS,
-        toolCapabilities,
-        skillCapabilities: SKILL_CAPABILITY_REGISTRY,
-      }),
-    ).toThrow("unknown tool capability keys")
-  })
-
   test("fails on duplicate capability keys inside one intent manifest", () => {
     const manifests = cloneManifests()
     const practiceManifest = manifests.find((manifest) => manifest.intent === "practice")
@@ -53,25 +30,31 @@ describe("validateIntentCapabilityBindings", () => {
     expect(() =>
       validateIntentCapabilityBindings({
         manifests,
-        toolCapabilities: TOOL_CAPABILITY_REGISTRY,
         skillCapabilities: SKILL_CAPABILITY_REGISTRY,
       }),
     ).toThrow("duplicate skill capability keys")
   })
 
-  test("fails when two capability keys map to the same pedagogy tool id", () => {
-    const toolCapabilities: ToolCapability[] = [
-      ...TOOL_CAPABILITY_REGISTRY,
-      createToolCapability(pedagogyGuidedPracticeTool),
-    ]
+  test("fails when the same tool binding key changes scope across intents", () => {
+    const manifests = cloneManifests()
+    const assessManifest = manifests.find((manifest) => manifest.intent === "assess")
+    if (!assessManifest) {
+      throw new Error("Expected assess intent manifest")
+    }
+
+    assessManifest.toolCapabilities.push(
+      createToolCapability({
+        tool: pedagogyGuidedPracticeTool,
+        personas: ["code-buddy"],
+      }),
+    )
 
     expect(() =>
       validateIntentCapabilityBindings({
-        manifests: INTENT_CAPABILITY_MANIFESTS,
-        toolCapabilities,
+        manifests,
         skillCapabilities: SKILL_CAPABILITY_REGISTRY,
       }),
-    ).toThrow("Colliding pedagogy tool IDs")
+    ).toThrow("must keep the same persona/workspace scope")
   })
 
   test("fails when two capability keys map to the same skill name", () => {
@@ -86,7 +69,6 @@ describe("validateIntentCapabilityBindings", () => {
     expect(() =>
       validateIntentCapabilityBindings({
         manifests: INTENT_CAPABILITY_MANIFESTS,
-        toolCapabilities: TOOL_CAPABILITY_REGISTRY,
         skillCapabilities,
       }),
     ).toThrow("Colliding skill names")
@@ -106,7 +88,6 @@ describe("validateIntentCapabilityBindings", () => {
     expect(() =>
       validateIntentCapabilityBindings({
         manifests,
-        toolCapabilities: TOOL_CAPABILITY_REGISTRY,
         skillCapabilities: SKILL_CAPABILITY_REGISTRY,
       }),
     ).not.toThrow()
@@ -124,10 +105,6 @@ describe("validateIntentCapabilityBindings", () => {
     expect(() =>
       validateIntentCapabilityBindings({
         manifests,
-        toolCapabilities: [
-          ...TOOL_CAPABILITY_REGISTRY,
-          createToolCapability(pedagogyExplanationTool),
-        ],
         skillCapabilities: SKILL_CAPABILITY_REGISTRY,
       }),
     ).toThrow("cannot be both tool and skill")
