@@ -4,7 +4,7 @@ import type {
   PersonaSurface,
   SubagentId,
 } from "@buddy/backend/learning/shared/teaching-vocabulary"
-import type { LearningToolId } from "../tools/tool-catalog"
+import type { LearningToolId } from "../tools/tool-metadata"
 
 export type ToolId = LearningToolId
 

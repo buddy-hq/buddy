@@ -1,9 +1,10 @@
-import { BUILTIN_BUDDY_PERSONAS } from "@buddy/backend/learning/personas/registry"
+import { BUILTIN_BUDDY_PERSONA_DEFINITIONS } from "@buddy/backend/learning/personas/definitions"
+import { BUDDY_SUBAGENTS } from "@buddy/backend/learning/subagent-manifest"
 
-type BuiltinPersona = keyof typeof BUILTIN_BUDDY_PERSONAS & string
+type BuiltinPersona = (typeof BUILTIN_BUDDY_PERSONA_DEFINITIONS)[number]["id"]
 
-const derivedPersonas = Object.keys(BUILTIN_BUDDY_PERSONAS).toSorted((left, right) =>
-  left.localeCompare(right),
+const derivedPersonas = BUILTIN_BUDDY_PERSONA_DEFINITIONS.map(
+  (definition) => definition.id,
 ) as BuiltinPersona[]
 
 if (derivedPersonas.length === 0) {
@@ -19,10 +20,10 @@ export type Intent = (typeof INTENTS)[number]
 export const SURFACES = ["chat", "curriculum", "editor", "figure", "question-set"] as const
 export type Surface = (typeof SURFACES)[number]
 
-type BuiltinPersonaSurface = (typeof BUILTIN_BUDDY_PERSONAS)[BuiltinPersona]["surfaces"][number]
+type BuiltinPersonaSurface = (typeof BUILTIN_BUDDY_PERSONA_DEFINITIONS)[number]["surfaces"][number]
 
 const derivedPersonaSurfaces = Array.from(
-  new Set(Object.values(BUILTIN_BUDDY_PERSONAS).flatMap((persona) => persona.surfaces)),
+  new Set(BUILTIN_BUDDY_PERSONA_DEFINITIONS.flatMap((definition) => definition.surfaces)),
 ).toSorted((left, right) => left.localeCompare(right)) as BuiltinPersonaSurface[]
 
 if (derivedPersonaSurfaces.length === 0) {
@@ -41,25 +42,12 @@ export type WorkspaceState = (typeof WORKSPACE_STATES)[number]
 export const SCAFFOLDING_LEVELS = ["worked-example", "guided", "independent", "transfer"] as const
 export type ScaffoldingLevel = (typeof SCAFFOLDING_LEVELS)[number]
 
-const PEDAGOGY_HELPER_SUBAGENT_IDS = [
-  "analogy-author",
-  "hint-generator",
-  "feedback-engine",
-  "solution-checker",
-  "rubric-grader",
-] as const
+type BuiltinSubagentId = (typeof BUDDY_SUBAGENTS)[number]["key"]
 
-const derivedSubagentIds = Array.from(
-  new Set([
-    ...Object.values(BUILTIN_BUDDY_PERSONAS).flatMap((persona) =>
-      Object.keys(persona.subagentDefaults),
-    ),
-    ...PEDAGOGY_HELPER_SUBAGENT_IDS,
-  ]),
-).toSorted((left, right) => left.localeCompare(right))
+const derivedSubagentIds = BUDDY_SUBAGENTS.map(({ key }) => key) as BuiltinSubagentId[]
 
-export const SUBAGENT_IDS = [...derivedSubagentIds]
-export type SubagentId = string
+export const SUBAGENT_IDS = [...derivedSubagentIds] as [BuiltinSubagentId, ...BuiltinSubagentId[]]
+export type SubagentId = (typeof SUBAGENT_IDS)[number]
 
 export const INTENT_LABELS: Record<Intent, string> = {
   learn: "Understand",

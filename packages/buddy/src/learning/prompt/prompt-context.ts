@@ -3,9 +3,9 @@ import type {
   Persona,
   WorkspaceState,
 } from "@buddy/backend/learning/shared/teaching-vocabulary"
+import type { TeachingPromptContext } from "../capabilities/lesson-workspace/model/types"
+import type { LearnerSnapshot } from "../learner-model/projections/snapshot"
 import type { CapabilityEnvelope } from "../shared/runtime-types"
-import type { TeachingPromptContext } from "../capabilities"
-import type { LearnerSnapshot } from "../learner-model"
 
 export type PromptTurnSnapshot = {
   persona: Persona

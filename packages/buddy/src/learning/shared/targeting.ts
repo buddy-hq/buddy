@@ -8,7 +8,8 @@ import {
   type Intent,
   type WorkspaceState,
 } from "@buddy/backend/learning/shared/teaching-vocabulary"
-import { getBuddyPersona, getDefaultBuddyPersona, isPersona, type BuddyPersona } from "../personas"
+import { getBuddyPersona, getDefaultBuddyPersona } from "../personas/catalog"
+import { isPersona, type BuddyPersona } from "../personas/types"
 import type { TeachingSessionState } from "./teaching-session-state"
 import { SessionTransformValidationError } from "../../session"
 

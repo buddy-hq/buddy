@@ -281,7 +281,7 @@ function buildTeachingWorkspaceText(input: {
 }
 
 async function getCheckpointStatus(directory: string, sessionID: string) {
-  const { TeachingService } = await import("../capabilities")
+  const { TeachingService } = await import("../capabilities/lesson-workspace/service/operations")
   return TeachingService.status(directory, sessionID).catch(() => undefined)
 }
 

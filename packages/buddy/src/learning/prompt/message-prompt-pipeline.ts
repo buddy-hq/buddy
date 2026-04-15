@@ -1,12 +1,12 @@
 import { parseConfiguredModel, type readProjectConfig } from "@buddy/backend/config/runtime"
 import { ModelID, ProviderID } from "@buddy/opencode-adapter/id"
 import { Provider } from "@buddy/opencode-adapter/provider"
-import { TeachingPromptContextSchema } from "../capabilities"
-import { getBuddyPersona } from "../personas"
+import { TeachingPromptContextSchema } from "../capabilities/lesson-workspace/model/types"
+import { getBuddyPersona } from "../personas/catalog"
 import { buildLearningSystemPrompt } from "./learning-prompt"
 import { normalizePromptParts } from "./workspace-file-references"
 import type { SystemPromptCtx } from "./prompt-context"
-import { getWorkspaceSnapshot } from "../learner-model"
+import { LearnerSnapshotCompiler } from "../learner-model/projections/snapshot"
 import { listRegisteredResources } from "../../resources/resource-registry-service"
 import { resolveCapabilityProfile } from "../resolve-capability-profile"
 import type { TeachingSessionState } from "../shared/teaching-session-state"
@@ -146,7 +146,7 @@ export async function runMessagePromptPipeline(input: {
     })
     const focusGoalIds = resolveFocusGoalIds(input.body)
     const workspaceState: WorkspaceState = teachingContext?.active ? "interactive" : "chat"
-    const learnerSnapshot = await getWorkspaceSnapshot({
+    const learnerSnapshot = await LearnerSnapshotCompiler.compile({
       directory: input.context.directory,
       query: {
         persona: persona.id,
