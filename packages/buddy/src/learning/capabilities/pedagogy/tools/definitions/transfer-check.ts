@@ -3,7 +3,7 @@ import {
   type PedagogyToolContext,
   type PedagogyToolParams,
 } from "../orchestration/contracts"
-import { createBuddyTool } from "../../../../tools"
+import { createBuddyTool } from "../../../../tools/create-buddy-tool"
 
 const compactLine = (value: string) => value.trim().replace(/\s+/g, " ")
 
