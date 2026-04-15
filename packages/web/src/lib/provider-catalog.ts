@@ -23,6 +23,24 @@ function resolveConnectedProviderModel(
   return provider.models[0]
 }
 
+export function resolveConnectedModelSelection(input: {
+  providers: ProviderInfo[]
+  selection: ProviderModelSelection | undefined
+}) {
+  const selection = input.selection
+  if (!selection) return undefined
+
+  const connectedProvider = getConnectedProviders(input.providers).find(
+    (provider) => provider.id === selection.providerID,
+  )
+  if (!connectedProvider) return undefined
+
+  const connectedModel = connectedProvider.models.find((model) => model.id === selection.modelID)
+  if (!connectedModel) return undefined
+
+  return selection
+}
+
 export function resolveProviderModelSelection(input: {
   providers: ProviderInfo[]
   providerDefault: Record<string, string>
@@ -59,32 +77,27 @@ export function resolveAutoModelSelection(input: {
   configuredModel?: ProviderModelSelection
   recentModels?: ProviderModelSelection[]
 }) {
-  const resolveValidSelection = (selection: ProviderModelSelection | undefined) => {
-    if (!selection) return undefined
-    const configuredProvider = getConnectedProviders(input.providers).find(
-      (provider) => provider.id === selection.providerID,
-    )
-    const configuredModel = configuredProvider?.models.find(
-      (model) => model.id === selection.modelID,
-    )
-    if (configuredProvider && configuredModel) {
-      return selection
-    }
-    return undefined
-  }
-
-  const agentModel = resolveValidSelection(input.agentModel)
+  const agentModel = resolveConnectedModelSelection({
+    providers: input.providers,
+    selection: input.agentModel,
+  })
   if (agentModel) {
     return agentModel
   }
 
-  const configuredModel = resolveValidSelection(input.configuredModel)
+  const configuredModel = resolveConnectedModelSelection({
+    providers: input.providers,
+    selection: input.configuredModel,
+  })
   if (configuredModel) {
     return configuredModel
   }
 
   for (const recentModel of input.recentModels ?? []) {
-    const selection = resolveValidSelection(recentModel)
+    const selection = resolveConnectedModelSelection({
+      providers: input.providers,
+      selection: recentModel,
+    })
     if (selection) {
       return selection
     }

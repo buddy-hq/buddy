@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test"
-import { resolveAutoModelSelection } from "../src/lib/provider-catalog"
+import {
+  resolveAutoModelSelection,
+  resolveConnectedModelSelection,
+} from "../src/lib/provider-catalog"
 import type { ProviderInfo, ProviderModelInfo } from "../src/state/chat-types"
 
 function createModel(providerID: string, modelID: string): ProviderModelInfo {
@@ -124,5 +127,34 @@ describe("resolveAutoModelSelection", () => {
         recentModels: [{ providerID: "anthropic", modelID: "claude-sonnet-4" }],
       }),
     ).toEqual({ providerID: "openai", modelID: "gpt-5" })
+  })
+})
+
+describe("resolveConnectedModelSelection", () => {
+  test("returns selected model when provider and model are connected", () => {
+    expect(
+      resolveConnectedModelSelection({
+        providers: [createProvider({ id: "openai", modelIDs: ["gpt-5"] })],
+        selection: { providerID: "openai", modelID: "gpt-5" },
+      }),
+    ).toEqual({ providerID: "openai", modelID: "gpt-5" })
+  })
+
+  test("returns undefined when provider is disconnected", () => {
+    expect(
+      resolveConnectedModelSelection({
+        providers: [createProvider({ id: "openai", modelIDs: ["gpt-5"], connected: false })],
+        selection: { providerID: "openai", modelID: "gpt-5" },
+      }),
+    ).toBeUndefined()
+  })
+
+  test("returns undefined when model is missing from connected provider", () => {
+    expect(
+      resolveConnectedModelSelection({
+        providers: [createProvider({ id: "openai", modelIDs: ["gpt-5"] })],
+        selection: { providerID: "openai", modelID: "gpt-5-mini" },
+      }),
+    ).toBeUndefined()
   })
 })
