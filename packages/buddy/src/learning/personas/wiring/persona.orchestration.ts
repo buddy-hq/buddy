@@ -100,9 +100,9 @@ export function getDefaultBuddyPersona(input?: {
     return profiles[input.defaultPersona]
   }
 
-  const firstVisiblePersona = BUILTIN_BUDDY_PERSONA_IDS.map((personaID) => profiles[personaID]).find(
-    (persona) => !persona.hidden,
-  )
+  const firstVisiblePersona = BUILTIN_BUDDY_PERSONA_IDS.map(
+    (personaID) => profiles[personaID],
+  ).find((persona) => !persona.hidden)
   if (firstVisiblePersona) {
     return firstVisiblePersona
   }

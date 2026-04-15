@@ -1,7 +1,5 @@
-import BUDDY_BASE_PROMPT from "./buddy.p.md"
-import MATH_BUDDY_OVERLAY from "./math-buddy.p.md"
+import MATH_BUDDY_OVERLAY from "./prompts/math-buddy.p.md"
 import {
-  composePersonaPrompt,
   DEFAULT_PRIMARY_PERSONA_PERMISSION,
   defineBuddyPersona,
 } from "./wiring/define-buddy-persona"
@@ -39,7 +37,7 @@ export const MATH_BUDDY = defineBuddyPersona({
   },
   runtime: {
     kind: "primary",
-    prompt: composePersonaPrompt(BUDDY_BASE_PROMPT, MATH_BUDDY_OVERLAY),
+    prompt: MATH_BUDDY_OVERLAY,
     permission: DEFAULT_PRIMARY_PERSONA_PERMISSION,
   },
 })

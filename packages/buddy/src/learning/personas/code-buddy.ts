@@ -1,7 +1,5 @@
-import BUDDY_BASE_PROMPT from "./buddy.p.md"
-import CODE_BUDDY_OVERLAY from "./code-buddy.p.md"
+import CODE_BUDDY_OVERLAY from "./prompts/code-buddy.p.md"
 import {
-  composePersonaPrompt,
   DEFAULT_PRIMARY_PERSONA_PERMISSION,
   defineBuddyPersona,
 } from "./wiring/define-buddy-persona"
@@ -41,7 +39,7 @@ export const CODE_BUDDY = defineBuddyPersona({
   },
   runtime: {
     kind: "primary",
-    prompt: composePersonaPrompt(BUDDY_BASE_PROMPT, CODE_BUDDY_OVERLAY),
+    prompt: CODE_BUDDY_OVERLAY,
     permission: DEFAULT_PRIMARY_PERSONA_PERMISSION,
   },
 })

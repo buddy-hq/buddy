@@ -1,4 +1,5 @@
 import type { BuddyPermissionInput, CoreAgentDefinition } from "../../agent-factories"
+import BASE_PERSONA_PROMPT from "../prompts/base.p.md"
 
 type PersonaIntent = "learn" | "practice" | "assess" | "auto"
 type PersonaDomain = "general" | "coding" | "math"
@@ -53,13 +54,6 @@ const DEFAULT_PRIMARY_PERSONA_PERMISSION = {
   todowrite: "deny",
 } as const satisfies BuddyPermissionInput
 
-export function composePersonaPrompt(...parts: readonly string[]): string {
-  return parts
-    .map((part) => part.trim())
-    .filter((part) => part.length > 0)
-    .join("\n\n")
-}
-
 export function defineBuddyPersona<const Id extends string>(
   input: BuddyPersonaDefinitionInput<Id>,
 ): DefinedBuddyPersona<Id> {
@@ -79,7 +73,10 @@ export function defineBuddyPersona<const Id extends string>(
     contextPolicy: { ...profile.contextPolicy },
     runtime: {
       ...runtime,
-      prompt: runtime.prompt.trim(),
+      prompt: [BASE_PERSONA_PROMPT, runtime.prompt]
+        .map((part) => part.trim())
+        .filter((part) => part.length > 0)
+        .join("\n\n"),
       ...(runtime.description ? { description: runtime.description } : {}),
       ...(runtime.permission ? { permission: runtime.permission } : {}),
     },
