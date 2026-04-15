@@ -15,7 +15,11 @@ import { modelSelectionKey, parseConfiguredModel } from "./chat-prompt-helpers"
 import type { SessionInfo, SessionStatusInfo } from "@/state/chat-types"
 import type { AgentConfigOption, PersonaConfigOption } from "@/state/chat-actions"
 import type { ChatRightSidebarTab } from "@/components/layout/chat-right-sidebar"
-import { getConnectedProviders, resolveAutoModelSelection } from "@/lib/provider-catalog"
+import {
+  getConnectedProviders,
+  resolveAutoModelSelection,
+  resolveConnectedModelSelection,
+} from "@/lib/provider-catalog"
 import { resolveCurrentAgent } from "./agent-catalog"
 import { getRightSidebarMaxWidth, getRightSidebarMinWidth } from "./right-sidebar-layout"
 
@@ -269,9 +273,21 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
 
     return options
   }, [connectedProviders, visibleModelKeys])
+  const selectedModelOverride = useMemo(
+    () => parseConfiguredModel(selectedModelOverrideKey),
+    [selectedModelOverrideKey],
+  )
+  const connectedSelectedModelOverride = useMemo(
+    () =>
+      resolveConnectedModelSelection({
+        providers,
+        selection: selectedModelOverride,
+      }),
+    [providers, selectedModelOverride],
+  )
   const effectiveModelSelection = useMemo(
-    () => parseConfiguredModel(selectedModelOverrideKey) ?? autoModelSelection,
-    [autoModelSelection, selectedModelOverrideKey],
+    () => connectedSelectedModelOverride ?? autoModelSelection,
+    [autoModelSelection, connectedSelectedModelOverride],
   )
   const effectiveModelInfo = useMemo(() => {
     if (!effectiveModelSelection) return undefined
