@@ -7,7 +7,8 @@ function resetUiPreferences() {
     pinnedByDirectory: {},
     unreadByDirectory: {},
     leftSidebarOpen: true,
-    leftSidebarWidth: 344,
+    chatLeftSidebarWidth: 344,
+    settingsSidebarWidth: 344,
     rightSidebarOpen: false,
     rightSidebarWidth: 344,
     rightSidebarTab: "curriculum",
@@ -26,7 +27,8 @@ describe("ui preference persistence parity", () => {
     state.togglePinned("/repo", "session_1")
     state.markUnread("/repo", "session_1")
     state.setLeftSidebarOpen(false)
-    state.setLeftSidebarWidth(280)
+    state.setChatLeftSidebarWidth(280)
+    state.setSettingsSidebarWidth(320)
     state.setRightSidebarOpen(true)
     state.setRightSidebarWidth(420)
     state.setRightSidebarTab("settings")
@@ -40,7 +42,8 @@ describe("ui preference persistence parity", () => {
       pinnedByDirectory: { "/repo": ["session_1"] },
       unreadByDirectory: { "/repo": { session_1: true } },
       leftSidebarOpen: false,
-      leftSidebarWidth: 280,
+      chatLeftSidebarWidth: 280,
+      settingsSidebarWidth: 320,
       rightSidebarOpen: true,
       rightSidebarWidth: 420,
       rightSidebarTab: "resources",
@@ -60,6 +63,30 @@ describe("ui preference persistence parity", () => {
     const next = useUiPreferences.getState()
     expect(next.pinnedByDirectory["/repo"]).toEqual([])
     expect(next.unreadByDirectory["/repo"]).toEqual({ session_2: true })
+  })
+
+  test("migrates legacy left sidebar width into chat and settings widths", () => {
+    localStorage.setItem(
+      UI_PREFERENCES_STORAGE_KEY,
+      JSON.stringify({
+        state: {
+          pinnedByDirectory: {},
+          unreadByDirectory: {},
+          leftSidebarOpen: true,
+          leftSidebarWidth: 412,
+          rightSidebarOpen: false,
+          rightSidebarWidth: 344,
+          rightSidebarTab: "curriculum",
+        },
+        version: 10,
+      }),
+    )
+
+    void useUiPreferences.persist.rehydrate()
+
+    const next = useUiPreferences.getState()
+    expect(next.chatLeftSidebarWidth).toBe(412)
+    expect(next.settingsSidebarWidth).toBe(412)
   })
 })
 

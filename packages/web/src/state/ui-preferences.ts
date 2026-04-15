@@ -12,11 +12,38 @@ export type NotebookMainPaneTab =
   | "instructions"
   | "question-set"
 
+const DEFAULT_SIDEBAR_WIDTH_PX = 344
+
+type PersistedUiPreferences = {
+  pinnedByDirectory?: Record<string, string[]>
+  unreadByDirectory?: Record<string, Record<string, true>>
+  leftSidebarOpen?: boolean
+  leftSidebarWidth?: number
+  chatLeftSidebarWidth?: number
+  settingsSidebarWidth?: number
+  rightSidebarOpen?: boolean
+  rightSidebarWidth?: number
+  mainPaneTab?: NotebookMainPaneTab
+  rightSidebarTab?: UiPreferencesStore["rightSidebarTab"]
+}
+
+function isPersistedUiPreferences(value: unknown): value is PersistedUiPreferences {
+  return typeof value === "object" && value !== null
+}
+
+function readLegacyLeftSidebarWidth(state: PersistedUiPreferences | undefined) {
+  if (!state || typeof state.leftSidebarWidth !== "number") {
+    return DEFAULT_SIDEBAR_WIDTH_PX
+  }
+  return state.leftSidebarWidth
+}
+
 type UiPreferencesStore = {
   pinnedByDirectory: Record<string, string[]>
   unreadByDirectory: Record<string, Record<string, true>>
   leftSidebarOpen: boolean
-  leftSidebarWidth: number
+  chatLeftSidebarWidth: number
+  settingsSidebarWidth: number
   rightSidebarOpen: boolean
   rightSidebarWidth: number
   mainPaneTab: NotebookMainPaneTab
@@ -40,7 +67,8 @@ type UiPreferencesStore = {
   isUnread: (directory: string, sessionID: string) => boolean
   clearDirectorySessionState: (directory: string, sessionID: string) => void
   setLeftSidebarOpen: (open: boolean) => void
-  setLeftSidebarWidth: (width: number) => void
+  setChatLeftSidebarWidth: (width: number) => void
+  setSettingsSidebarWidth: (width: number) => void
   setRightSidebarOpen: (open: boolean) => void
   setRightSidebarWidth: (width: number) => void
   setMainPaneTab: (tab: NotebookMainPaneTab) => void
@@ -67,9 +95,10 @@ export const useUiPreferences = create<UiPreferencesStore>()(
       pinnedByDirectory: {} as Record<string, string[]>,
       unreadByDirectory: {} as Record<string, Record<string, true>>,
       leftSidebarOpen: true,
-      leftSidebarWidth: 344,
+      chatLeftSidebarWidth: DEFAULT_SIDEBAR_WIDTH_PX,
+      settingsSidebarWidth: DEFAULT_SIDEBAR_WIDTH_PX,
       rightSidebarOpen: false,
-      rightSidebarWidth: 344,
+      rightSidebarWidth: DEFAULT_SIDEBAR_WIDTH_PX,
       mainPaneTab: "chat" as NotebookMainPaneTab,
       rightSidebarTab: "curriculum" as const,
       isPinned(directory, sessionID) {
@@ -117,9 +146,14 @@ export const useUiPreferences = create<UiPreferencesStore>()(
           state.leftSidebarOpen = open
         })
       },
-      setLeftSidebarWidth(width) {
+      setChatLeftSidebarWidth(width) {
         set((state) => {
-          state.leftSidebarWidth = width
+          state.chatLeftSidebarWidth = width
+        })
+      },
+      setSettingsSidebarWidth(width) {
+        set((state) => {
+          state.settingsSidebarWidth = width
         })
       },
       setRightSidebarOpen(open) {
@@ -145,17 +179,19 @@ export const useUiPreferences = create<UiPreferencesStore>()(
     })),
     {
       name: UI_PREFERENCES_STORAGE_KEY,
-      version: 10,
+      version: 11,
       storage: createPlatformJsonStorage("buddy.ui.dat"),
       migrate(persistedState) {
-        const state = persistedState as Partial<UiPreferencesStore> | undefined
+        const state = isPersistedUiPreferences(persistedState) ? persistedState : undefined
+        const legacyLeftSidebarWidth = readLegacyLeftSidebarWidth(state)
         return {
           pinnedByDirectory: state?.pinnedByDirectory ?? {},
           unreadByDirectory: state?.unreadByDirectory ?? {},
           leftSidebarOpen: state?.leftSidebarOpen ?? true,
-          leftSidebarWidth: state?.leftSidebarWidth ?? 344,
+          chatLeftSidebarWidth: state?.chatLeftSidebarWidth ?? legacyLeftSidebarWidth,
+          settingsSidebarWidth: state?.settingsSidebarWidth ?? legacyLeftSidebarWidth,
           rightSidebarOpen: state?.rightSidebarOpen ?? false,
-          rightSidebarWidth: state?.rightSidebarWidth ?? 344,
+          rightSidebarWidth: state?.rightSidebarWidth ?? DEFAULT_SIDEBAR_WIDTH_PX,
           mainPaneTab:
             state?.mainPaneTab === "resources"
               ? "resources"
@@ -197,7 +233,8 @@ export const useUiPreferences = create<UiPreferencesStore>()(
           pinnedByDirectory: state.pinnedByDirectory,
           unreadByDirectory: state.unreadByDirectory,
           leftSidebarOpen: state.leftSidebarOpen,
-          leftSidebarWidth: state.leftSidebarWidth,
+          chatLeftSidebarWidth: state.chatLeftSidebarWidth,
+          settingsSidebarWidth: state.settingsSidebarWidth,
           rightSidebarOpen: state.rightSidebarOpen,
           rightSidebarWidth: state.rightSidebarWidth,
           mainPaneTab: state.mainPaneTab,

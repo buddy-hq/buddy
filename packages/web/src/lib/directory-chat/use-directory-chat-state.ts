@@ -103,7 +103,7 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
 
   // ── UI preferences ─────────────────────────────────────────────────────────
   const leftSidebarOpen = useUiPreferences((state) => state.leftSidebarOpen)
-  const leftSidebarWidth = useUiPreferences((state) => state.leftSidebarWidth)
+  const leftSidebarWidth = useUiPreferences((state) => state.chatLeftSidebarWidth)
   const rightSidebarOpen = useUiPreferences((state) => state.rightSidebarOpen)
   const rightSidebarWidth = useUiPreferences((state) => state.rightSidebarWidth)
   const mainPaneTab = useUiPreferences((state) => state.mainPaneTab)
@@ -111,7 +111,7 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
   const pinnedByDirectory = useUiPreferences((state) => state.pinnedByDirectory)
   const unreadByDirectory = useUiPreferences((state) => state.unreadByDirectory)
   const setLeftSidebarOpen = useUiPreferences((state) => state.setLeftSidebarOpen)
-  const setLeftSidebarWidth = useUiPreferences((state) => state.setLeftSidebarWidth)
+  const setLeftSidebarWidth = useUiPreferences((state) => state.setChatLeftSidebarWidth)
   const setRightSidebarOpen = useUiPreferences((state) => state.setRightSidebarOpen)
   const setRightSidebarWidth = useUiPreferences((state) => state.setRightSidebarWidth)
   const setMainPaneTab = useUiPreferences((state) => state.setMainPaneTab)
