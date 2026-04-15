@@ -1,39 +1,42 @@
-import BUDDY_BASE_PROMPT from '../buddy/buddy.p.md'
-import READING_BUDDY_OVERLAY from './overlay.p.md'
-import { createPrimaryAgent } from '../../agent-factories'
-import { registerBuddyAgent } from '../../register-buddy-agent'
+import BUDDY_BASE_PROMPT from "../buddy/buddy.p.md"
+import READING_BUDDY_OVERLAY from "./overlay.p.md"
+import {
+  composePersonaPrompt,
+  DEFAULT_PRIMARY_PERSONA_PERMISSION,
+  defineBuddyPersona,
+} from "../define-buddy-persona"
 
-export const READING_BUDDY = registerBuddyAgent({
-  key: 'reading-buddy',
-  agent: createPrimaryAgent({
-    description:
-      'Reading-focused Buddy persona for building comprehension and literacy skills.',
-    prompt: [BUDDY_BASE_PROMPT.trim(), READING_BUDDY_OVERLAY.trim()].join(
-      '\n\n',
-    ),
-    availableSubagents: [
-      'curriculum-orchestrator',
-      'goal-writer',
-      'practice-agent',
-      'assessment-agent',
-      'question-set-author',
-    ],
-    permission: {
-      question: 'allow',
-      plan_enter: 'allow',
-      learner_snapshot_read: 'allow',
-      learner_practice_record: 'allow',
-      learner_assessment_record: 'allow',
-      render_mermaid: 'allow',
-      render_saved_question_set: 'allow',
-      teaching_start_lesson: 'deny',
-      teaching_checkpoint: 'deny',
-      teaching_add_file: 'deny',
-      teaching_set_lesson: 'deny',
-      teaching_restore_checkpoint: 'deny',
-      python_calculator: 'deny',
-      todoread: 'deny',
-      todowrite: 'deny',
-    },
-  }),
+export const READING_BUDDY = defineBuddyPersona({
+  id: "reading-buddy",
+  label: "Reading Buddy",
+  description: "Reading-focused Buddy persona for building comprehension and literacy skills.",
+  domain: "general",
+  defaultIntent: "learn",
+  surfaces: ["curriculum", "question-set"],
+  defaultSurface: "curriculum",
+  hidden: false,
+  toolDefaults: {
+    learner_snapshot_read: "allow",
+    learner_practice_record: "allow",
+    learner_assessment_record: "allow",
+    render_mermaid: "allow",
+    render_saved_question_set: "allow",
+  },
+  subagentDefaults: {
+    "practice-agent": "prefer",
+    "assessment-agent": "allow",
+    "question-set-author": "prefer",
+  },
+  contextPolicy: {
+    attachCurriculum: true,
+    attachProgress: true,
+    attachTeachingWorkspace: false,
+    attachTeachingPolicy: false,
+    attachFigureContext: false,
+  },
+  runtime: {
+    kind: "primary",
+    prompt: composePersonaPrompt(BUDDY_BASE_PROMPT, READING_BUDDY_OVERLAY),
+    permission: DEFAULT_PRIMARY_PERSONA_PERMISSION,
+  },
 })

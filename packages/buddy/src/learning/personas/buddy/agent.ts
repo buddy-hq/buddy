@@ -1,36 +1,40 @@
-import { createBuildAgent } from '../../agent-factories'
-import { registerBuddyAgent } from '../../register-buddy-agent'
-import BUDDY_BASE_PROMPT from './buddy.p.md'
+import BUDDY_BASE_PROMPT from "./buddy.p.md"
+import { composePersonaPrompt, defineBuddyPersona } from "../define-buddy-persona"
 
-export const BUDDY_AGENT = registerBuddyAgent({
-  key: 'buddy',
-  agent: createBuildAgent({
-    description:
-      'The default Buddy persona for learning conversations and project help.',
-    prompt: BUDDY_BASE_PROMPT.trim(),
-    availableSubagents: [
-      'curriculum-orchestrator',
-      'goal-writer',
-      'practice-agent',
-      'assessment-agent',
-      'question-set-author',
-    ],
+export const BUDDY = defineBuddyPersona({
+  id: "buddy",
+  label: "Buddy",
+  description: "The default Buddy persona for learning conversations and project help.",
+  domain: "general",
+  defaultIntent: "learn",
+  surfaces: ["curriculum", "question-set"],
+  defaultSurface: "curriculum",
+  hidden: false,
+  toolDefaults: {
+    learner_snapshot_read: "allow",
+    learner_practice_record: "allow",
+    learner_assessment_record: "allow",
+    render_mermaid: "allow",
+    render_saved_question_set: "allow",
+  },
+  subagentDefaults: {
+    "curriculum-orchestrator": "prefer",
+    "goal-writer": "prefer",
+    "question-set-author": "prefer",
+  },
+  contextPolicy: {
+    attachCurriculum: true,
+    attachProgress: true,
+    attachTeachingWorkspace: false,
+    attachTeachingPolicy: false,
+    attachFigureContext: false,
+  },
+  runtime: {
+    kind: "build",
+    prompt: composePersonaPrompt(BUDDY_BASE_PROMPT),
     permission: {
-      learner_snapshot_read: 'allow',
-      learner_practice_record: 'allow',
-      learner_assessment_record: 'allow',
-      search_standards: 'allow',
-      get_standard: 'allow',
-      get_learning_components: 'allow',
-      get_prerequisites: 'allow',
-      get_next_standards: 'allow',
-      get_crosswalk: 'allow',
-      query_standards_sql: 'allow',
-      render_saved_question_set: 'allow',
-      render_mermaid: 'allow',
-      python_calculator: 'deny',
-      todoread: 'deny',
-      todowrite: 'deny',
+      todoread: "deny",
+      todowrite: "deny",
     },
-  }),
+  },
 })
