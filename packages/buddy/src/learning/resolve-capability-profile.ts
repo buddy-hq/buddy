@@ -4,29 +4,8 @@ import {
   type WorkspaceState,
 } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import type { Config } from "@buddy/backend/config"
-import { AdvancedMathRuntimeService } from "../local-runtimes/advanced-math/service"
-import { StandardsRuntimeService } from "../local-runtimes/standards/service"
-import { resolveIntentPermissions } from "./intents/capabilities"
-import type { PersonaDefinition, RuntimeProfile, ToolId } from "./shared/runtime-types"
-import { allLearningToolIds, getLearningToolGroup } from "./tools/tool-catalog"
-
-const INTERACTIVE_ONLY_EDITOR_TOOLS: ToolId[] = [
-  "teaching_checkpoint",
-  "teaching_add_file",
-  "teaching_set_lesson",
-  "teaching_restore_checkpoint",
-]
-
-const EDITOR_SURFACE_ONLY_TOOLS: ToolId[] = [
-  "teaching_start_lesson",
-  ...INTERACTIVE_ONLY_EDITOR_TOOLS,
-]
-
-const FIGURE_SURFACE_ONLY_TOOLS: ToolId[] = ["render_figure", "render_freeform_figure"]
-
-function createDenyToolMap(): Record<ToolId, "allow" | "deny"> {
-  return {} as Record<ToolId, "allow" | "deny">
-}
+import type { PersonaDefinition, RuntimeProfile } from "./shared/runtime-types"
+import { compileRuntimeLearningToolPermissions } from "./tools/tool-permission-compiler"
 
 function createDenySubagentMap(): RuntimeProfile["capabilityEnvelope"]["subagents"] {
   const subagents = {} as RuntimeProfile["capabilityEnvelope"]["subagents"]
@@ -34,102 +13,6 @@ function createDenySubagentMap(): RuntimeProfile["capabilityEnvelope"]["subagent
     subagents[subagentId] = "deny"
   }
   return subagents
-}
-
-function denyTools(tools: Record<ToolId, "allow" | "deny">, toolIds: ToolId[]) {
-  for (const toolId of toolIds) {
-    tools[toolId] = "deny"
-  }
-}
-
-function applyPersonaDefaultTools(
-  tools: Record<ToolId, "allow" | "deny">,
-  persona: PersonaDefinition,
-) {
-  for (const [toolId, access] of Object.entries(persona.toolDefaults) as Array<
-    [ToolId, "inherit" | "allow" | "deny"]
-  >) {
-    if (access === "inherit") continue
-    tools[toolId] = access
-  }
-}
-
-function applySurfaceToolConstraints(input: {
-  tools: Record<ToolId, "allow" | "deny">
-  persona: PersonaDefinition
-  workspaceState: WorkspaceState
-}) {
-  if (input.workspaceState !== "interactive") {
-    denyTools(input.tools, INTERACTIVE_ONLY_EDITOR_TOOLS)
-  }
-
-  if (!input.persona.surfaces.includes("editor")) {
-    denyTools(input.tools, EDITOR_SURFACE_ONLY_TOOLS)
-  }
-
-  if (!input.persona.surfaces.includes("figure")) {
-    denyTools(input.tools, FIGURE_SURFACE_ONLY_TOOLS)
-  }
-}
-
-function applyIntentToolOverrides(input: {
-  tools: Record<ToolId, "allow" | "deny">
-  intentToolPermissions: Partial<Record<ToolId, "allow" | "deny">>
-}) {
-  for (const [toolId, access] of Object.entries(input.intentToolPermissions) as Array<
-    [ToolId, "allow" | "deny"]
-  >) {
-    input.tools[toolId] = access
-  }
-}
-
-function applyRuntimeToolConstraints(tools: Record<ToolId, "allow" | "deny">) {
-  if (!AdvancedMathRuntimeService.isReady()) {
-    tools.python_calculator = "deny"
-  }
-
-  if (!StandardsRuntimeService.isReady()) {
-    for (const tool of getLearningToolGroup("knowledgeGraph")) {
-      tools[tool.id] = "deny"
-    }
-  }
-}
-
-function applyConfiguredToolToggles(
-  tools: Record<ToolId, "allow" | "deny">,
-  configuredToolToggles: Config.Info["tools"] | undefined,
-) {
-  if (!configuredToolToggles) {
-    return
-  }
-
-  for (const toolId of allLearningToolIds()) {
-    if (configuredToolToggles[toolId] === false) {
-      tools[toolId] = "deny"
-    }
-  }
-}
-
-function buildEffectiveTools(input: {
-  persona: PersonaDefinition
-  workspaceState: WorkspaceState
-  intentToolPermissions: Partial<Record<ToolId, "allow" | "deny">>
-  configuredToolToggles?: Config.Info["tools"]
-}): Record<ToolId, "allow" | "deny"> {
-  const tools = createDenyToolMap()
-  applyPersonaDefaultTools(tools, input.persona)
-  applySurfaceToolConstraints({
-    tools,
-    persona: input.persona,
-    workspaceState: input.workspaceState,
-  })
-  applyIntentToolOverrides({
-    tools,
-    intentToolPermissions: input.intentToolPermissions,
-  })
-  applyRuntimeToolConstraints(tools)
-  applyConfiguredToolToggles(tools, input.configuredToolToggles)
-  return tools
 }
 
 function buildEffectiveSubagents(
@@ -151,16 +34,10 @@ export function resolveCapabilityProfile(input: {
   intent: Intent
   configuredToolToggles?: Config.Info["tools"]
 }): RuntimeProfile {
-  const intentPermissions = resolveIntentPermissions({
+  const runtimePermissions = compileRuntimeLearningToolPermissions({
     persona: input.persona,
     intent: input.intent,
     workspaceState: input.workspaceState,
-  })
-
-  const tools = buildEffectiveTools({
-    persona: input.persona,
-    workspaceState: input.workspaceState,
-    intentToolPermissions: intentPermissions.tools,
     configuredToolToggles: input.configuredToolToggles,
   })
   const subagents = buildEffectiveSubagents(input.persona)
@@ -170,9 +47,9 @@ export function resolveCapabilityProfile(input: {
     capabilityEnvelope: {
       visibleSurfaces: [...input.persona.surfaces],
       defaultSurface: input.persona.defaultSurface,
-      tools,
+      tools: runtimePermissions.tools,
       subagents,
-      skills: intentPermissions.skills,
+      skills: runtimePermissions.skills,
     },
   }
 }
