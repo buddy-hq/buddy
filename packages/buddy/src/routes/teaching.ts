@@ -9,14 +9,14 @@ import {
   readTeachingWorkspace,
   restoreTeachingWorkspace,
   saveTeachingWorkspace,
-} from "../learning/adapters/http"
+} from "../learning/adapters/http/lesson-workspace/workspace-operations"
 import {
   TeachingProvisionRequestSchema,
   TeachingWorkspaceActivateFileRequestSchema,
   TeachingWorkspaceCreateFileRequestSchema,
   TeachingWorkspaceResponseSchema,
   TeachingWorkspaceUpdateRequestSchema,
-} from "../learning/capabilities"
+} from "../learning/capabilities/lesson-workspace/model/types"
 import { directoryQuerySchema, routeErrors, withDirectoryRoute } from "../http"
 
 const sessionIDParamSchema = z.object({

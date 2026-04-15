@@ -30,17 +30,7 @@ async function proxyToOpenCode(c: Context, input: ProxyToOpenCodeInput): Promise
     query: buildProxyQuery(sourceURL, directoryResult.directory),
     headers: prepared.headers,
     body: prepared.body,
-    registerPedagogyTools: prepared.registrationFlags.registerPedagogyTools,
-    registerCurriculumTools: prepared.registrationFlags.registerCurriculumTools,
-    registerKnowledgeGraphTools: prepared.registrationFlags.registerKnowledgeGraphTools,
-    registerFigureTools: prepared.registrationFlags.registerFigureTools,
-    registerFreeformFigureTools: prepared.registrationFlags.registerFreeformFigureTools,
-    registerMermaidTools: prepared.registrationFlags.registerMermaidTools,
-    registerGoalTools: prepared.registrationFlags.registerGoalTools,
-    registerLearnerTools: prepared.registrationFlags.registerLearnerTools,
-    registerTeachingTools: prepared.registrationFlags.registerTeachingTools,
-    registerMathTools: prepared.registrationFlags.registerMathTools,
-    registerQuestionSetTools: prepared.registrationFlags.registerQuestionSetTools,
+    toolRegistrations: prepared.registrationFlags,
   })
 
   return normalizeErrorResponse(response, input.forceBusyAs409)

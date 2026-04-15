@@ -1,4 +1,5 @@
 import { registerRuntimeTools } from "../../learning/tools/register-runtime-tools"
+import { allLearningToolGroups, type LearningToolGroup } from "../../learning/tools/tool-metadata"
 import type { ProxyRegistrationFlags, ProxyRegistrationOption, ProxyToOpenCodeInput } from "./types"
 
 async function registerOpenCodeTools(
@@ -17,54 +18,41 @@ function resolveRegistration(
   return false
 }
 
+function buildProxyRegistrationFlags(
+  resolveGroup: (group: LearningToolGroup) => boolean,
+): ProxyRegistrationFlags {
+  return Object.fromEntries(
+    allLearningToolGroups().map((group) => [group, resolveGroup(group)]),
+  ) as ProxyRegistrationFlags
+}
+
+function normalizeToolRegistrationFlags(
+  flags?: Partial<Record<LearningToolGroup, boolean>>,
+): ProxyRegistrationFlags {
+  return buildProxyRegistrationFlags((group) => flags?.[group] === true)
+}
+
 function resolveInitialRegistrationFlags(input: ProxyToOpenCodeInput): ProxyRegistrationFlags {
-  return {
-    registerPedagogyTools:
-      typeof input.registerPedagogyTools === "boolean" ? input.registerPedagogyTools : false,
-    registerCurriculumTools:
-      typeof input.registerCurriculumTools === "boolean" ? input.registerCurriculumTools : false,
-    registerKnowledgeGraphTools:
-      typeof input.registerKnowledgeGraphTools === "boolean"
-        ? input.registerKnowledgeGraphTools
-        : false,
-    registerFigureTools:
-      typeof input.registerFigureTools === "boolean" ? input.registerFigureTools : false,
-    registerFreeformFigureTools:
-      typeof input.registerFreeformFigureTools === "boolean"
-        ? input.registerFreeformFigureTools
-        : false,
-    registerMermaidTools:
-      typeof input.registerMermaidTools === "boolean" ? input.registerMermaidTools : false,
-    registerGoalTools:
-      typeof input.registerGoalTools === "boolean" ? input.registerGoalTools : false,
-    registerLearnerTools:
-      typeof input.registerLearnerTools === "boolean" ? input.registerLearnerTools : false,
-    registerTeachingTools:
-      typeof input.registerTeachingTools === "boolean" ? input.registerTeachingTools : false,
-    registerMathTools:
-      typeof input.registerMathTools === "boolean" ? input.registerMathTools : false,
-    registerQuestionSetTools:
-      typeof input.registerQuestionSetTools === "boolean" ? input.registerQuestionSetTools : false,
-  }
+  return buildProxyRegistrationFlags((group) =>
+    typeof input.toolRegistrations?.[group] === "boolean" ? input.toolRegistrations[group] : false,
+  )
 }
 
 function resolveBodyRegistrationFlags(
   body: Record<string, unknown>,
   input: ProxyToOpenCodeInput,
 ): ProxyRegistrationFlags {
-  return {
-    registerPedagogyTools: resolveRegistration(body, input.registerPedagogyTools),
-    registerCurriculumTools: resolveRegistration(body, input.registerCurriculumTools),
-    registerKnowledgeGraphTools: resolveRegistration(body, input.registerKnowledgeGraphTools),
-    registerFigureTools: resolveRegistration(body, input.registerFigureTools),
-    registerFreeformFigureTools: resolveRegistration(body, input.registerFreeformFigureTools),
-    registerMermaidTools: resolveRegistration(body, input.registerMermaidTools),
-    registerGoalTools: resolveRegistration(body, input.registerGoalTools),
-    registerLearnerTools: resolveRegistration(body, input.registerLearnerTools),
-    registerTeachingTools: resolveRegistration(body, input.registerTeachingTools),
-    registerMathTools: resolveRegistration(body, input.registerMathTools),
-    registerQuestionSetTools: resolveRegistration(body, input.registerQuestionSetTools),
-  }
+  return buildProxyRegistrationFlags((group) =>
+    resolveRegistration(
+      body,
+      input.toolRegistrations?.[group] as ProxyRegistrationOption | undefined,
+    ),
+  )
 }
 
-export { registerOpenCodeTools, resolveBodyRegistrationFlags, resolveInitialRegistrationFlags }
+export {
+  normalizeToolRegistrationFlags,
+  registerOpenCodeTools,
+  resolveBodyRegistrationFlags,
+  resolveInitialRegistrationFlags,
+}

@@ -11,22 +11,21 @@ import { directoryQuerySchema, routeErrors, withDirectoryRoute, zodIssuesRespons
 import {
   EvidenceArtifactSchema,
   FeedbackArtifactSchema,
-  getWorkspaceSnapshot,
   GoalArtifactSchema,
   LearnerArtifactSchema,
-  listArtifacts,
   MisconceptionArtifactSchema,
-  patchWorkspace,
   ProfileArtifactSchema,
   WorkspaceContextArtifactSchema,
   WorkspaceRecordArtifactKindSchema,
-} from "../learning/learner-model"
+} from "../learning/learner-model/repository/types"
+import { getWorkspaceSnapshot, listArtifacts } from "../learning/learner-model"
+import { patchWorkspace } from "../learning/learner-model/workflows/workspace"
 import {
   LearnerWorkspacePatchSchema,
   parseArtifactListQuery,
   parseSnapshotQuery,
   readWorkspaceStateFromSession,
-} from "../learning/adapters/http"
+} from "../learning/adapters/http/learner-model/http-request"
 
 const learnerSnapshotQuerySchema = directoryQuerySchema.extend({
   persona: z.enum(PERSONAS).optional(),

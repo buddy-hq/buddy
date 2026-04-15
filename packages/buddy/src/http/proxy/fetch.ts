@@ -1,21 +1,12 @@
 import { loadOpenCodeApp } from "../../opencode-runtime"
-import { registerOpenCodeTools } from "./registration"
+import { normalizeToolRegistrationFlags, registerOpenCodeTools } from "./registration"
 import type { FetchOpenCodeInput } from "./types"
 
 async function fetchOpenCode(input: FetchOpenCodeInput): Promise<Response> {
-  await registerOpenCodeTools(input.directory, {
-    registerPedagogyTools: input.registerPedagogyTools ?? false,
-    registerCurriculumTools: input.registerCurriculumTools ?? false,
-    registerKnowledgeGraphTools: input.registerKnowledgeGraphTools ?? false,
-    registerFigureTools: input.registerFigureTools ?? false,
-    registerFreeformFigureTools: input.registerFreeformFigureTools ?? false,
-    registerMermaidTools: input.registerMermaidTools ?? false,
-    registerGoalTools: input.registerGoalTools ?? false,
-    registerLearnerTools: input.registerLearnerTools ?? false,
-    registerTeachingTools: input.registerTeachingTools ?? false,
-    registerMathTools: input.registerMathTools ?? false,
-    registerQuestionSetTools: input.registerQuestionSetTools ?? false,
-  })
+  await registerOpenCodeTools(
+    input.directory,
+    normalizeToolRegistrationFlags(input.toolRegistrations),
+  )
 
   const openCodeApp = await loadOpenCodeApp()
   const url = new URL(`http://opencode.local${input.path}`)

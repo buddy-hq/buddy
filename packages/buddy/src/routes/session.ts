@@ -27,7 +27,7 @@ import {
   postSessionPrompt,
   proxySessionCollection,
 } from "../session"
-import { getTeachingState } from "../learning/adapters/http"
+import { getTeachingState } from "../learning/adapters/http/session/state-actions"
 
 const sessionRouteFactory = createFactory()
 

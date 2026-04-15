@@ -1,20 +1,11 @@
+import type { LearningToolGroup } from "../../learning/tools/tool-metadata"
+
 export type ProxyRegistrationPredicate = (body: Record<string, unknown>) => boolean
 
 export type ProxyRegistrationOption = boolean | ProxyRegistrationPredicate
 
-export type ProxyRegistrationFlags = {
-  registerPedagogyTools: boolean
-  registerCurriculumTools: boolean
-  registerKnowledgeGraphTools: boolean
-  registerFigureTools: boolean
-  registerFreeformFigureTools: boolean
-  registerMermaidTools: boolean
-  registerGoalTools: boolean
-  registerLearnerTools: boolean
-  registerTeachingTools: boolean
-  registerMathTools: boolean
-  registerQuestionSetTools: boolean
-}
+export type ProxyRegistrationFlags = Record<LearningToolGroup, boolean>
+export type ProxyRegistrationInput = Partial<Record<LearningToolGroup, ProxyRegistrationOption>>
 
 export type ProxyToOpenCodeInput = {
   targetPath: string
@@ -22,17 +13,7 @@ export type ProxyToOpenCodeInput = {
     body: Record<string, unknown>,
   ) => Record<string, unknown> | Promise<Record<string, unknown>>
   forceBusyAs409?: boolean
-  registerPedagogyTools?: ProxyRegistrationOption
-  registerCurriculumTools?: ProxyRegistrationOption
-  registerKnowledgeGraphTools?: ProxyRegistrationOption
-  registerFigureTools?: ProxyRegistrationOption
-  registerFreeformFigureTools?: ProxyRegistrationOption
-  registerMermaidTools?: ProxyRegistrationOption
-  registerGoalTools?: ProxyRegistrationOption
-  registerLearnerTools?: ProxyRegistrationOption
-  registerTeachingTools?: ProxyRegistrationOption
-  registerMathTools?: ProxyRegistrationOption
-  registerQuestionSetTools?: ProxyRegistrationOption
+  toolRegistrations?: ProxyRegistrationInput
 }
 
 export type FetchOpenCodeInput = {
@@ -42,15 +23,5 @@ export type FetchOpenCodeInput = {
   query?: string
   headers?: Headers
   body?: BodyInit
-  registerPedagogyTools?: boolean
-  registerCurriculumTools?: boolean
-  registerKnowledgeGraphTools?: boolean
-  registerFigureTools?: boolean
-  registerFreeformFigureTools?: boolean
-  registerMermaidTools?: boolean
-  registerGoalTools?: boolean
-  registerLearnerTools?: boolean
-  registerTeachingTools?: boolean
-  registerMathTools?: boolean
-  registerQuestionSetTools?: boolean
+  toolRegistrations?: Partial<Record<LearningToolGroup, boolean>>
 }

@@ -2,7 +2,10 @@ import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
 import { directoryQuerySchema, routeErrors, runRouteTask, withDirectoryRoute } from "../http"
-import { MermaidArtifactService, mapMermaidArtifactRouteError } from "../learning/capabilities"
+import {
+  MermaidArtifactService,
+  mapMermaidArtifactRouteError,
+} from "../learning/capabilities/figures/mermaid/service"
 
 const artifactIDParamSchema = z.object({
   artifactID: z.string(),

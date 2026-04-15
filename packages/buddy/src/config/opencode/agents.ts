@@ -1,8 +1,9 @@
 import { mergeDeep } from "remeda"
-import { resolveBuddyPersonaProfiles } from "../../learning/personas"
-import type { BuddyPersona } from "../../learning/personas"
-import { isPersona } from "../../learning/personas"
+import { getBuddyPersona, resolveBuddyPersonaProfiles } from "../../learning/personas/catalog"
+import type { BuddyPersona } from "../../learning/personas/types"
+import { isPersona } from "../../learning/personas/types"
 import { indexBuddyAgents } from "../../learning/register-agents"
+import { derivePersonaStaticLearningToolPermissions } from "../../learning/tools/tool-capability-policy"
 import { Config } from "../config.js"
 
 function mergeBuddyAgentConfig(base: Config.Agent, override: Config.Agent): Config.Agent {
@@ -78,21 +79,56 @@ function mergePermissionConfig(
 function mergeBuddyAndConfiguredAgents(
   agentOverlay: Record<string, Config.Agent>,
 ): Record<string, Config.Agent> {
-  const merged = indexBuddyAgents()
+  const merged = compileBuddyAgentOverlay()
 
   for (const [name, agent] of Object.entries(agentOverlay)) {
     const baseAgent = merged[name]
-    const nextAgent =
-      baseAgent && isPersona(name)
-        ? (() => {
-            const { disable: _disable, ...rest } = agent
-            return rest as Config.Agent
-          })()
-        : agent
+    const nextAgent = normalizeConfiguredAgentOverride(name, baseAgent, agent)
     merged[name] = baseAgent ? mergeBuddyAgentConfig(baseAgent, nextAgent) : nextAgent
   }
 
   return merged
+}
+
+function compileBuddyAgentOverlay(): Record<string, Config.Agent> {
+  return applyPersonaLearningToolPermissions(indexBuddyAgents())
+}
+
+function sanitizePersonaAgentOverride(agent: Config.Agent): Config.Agent {
+  const { disable: _disable, ...rest } = agent
+  return rest as Config.Agent
+}
+
+function normalizeConfiguredAgentOverride(
+  name: string,
+  baseAgent: Config.Agent | undefined,
+  override: Config.Agent,
+): Config.Agent {
+  if (!baseAgent || !isPersona(name)) {
+    return override
+  }
+
+  return sanitizePersonaAgentOverride(override)
+}
+
+function applyPersonaLearningToolPermissions(
+  agentOverlay: Record<string, Config.Agent>,
+): Record<string, Config.Agent> {
+  const next = { ...agentOverlay }
+
+  for (const [name, agent] of Object.entries(agentOverlay)) {
+    if (!isPersona(name)) continue
+
+    next[name] = {
+      ...agent,
+      permission: mergePermissionConfig(
+        derivePersonaStaticLearningToolPermissions(getBuddyPersona(name)),
+        agent.permission ?? {},
+      ),
+    }
+  }
+
+  return next
 }
 
 function applyBuddyPersonaHiddenFlags(

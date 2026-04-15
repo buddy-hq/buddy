@@ -1,7 +1,6 @@
 import type { Context } from "hono"
 import { proxyToOpenCode } from "../../http/proxy"
-import { AdvancedMathRuntimeService } from "../../local-runtimes/advanced-math/service"
-import { StandardsRuntimeService } from "../../local-runtimes/standards/service"
+import { resolveLearningToolRegistrationFlags } from "../../learning/tools/tool-registration-policy"
 import { SessionLookupError, SessionTransformValidationError } from "./errors"
 
 export function mapSessionTransformError(
@@ -30,17 +29,7 @@ export async function runSessionTransformProxy(input: {
     targetPath: input.targetPath,
     transformJsonBody: input.onTransform,
     forceBusyAs409: true,
-    registerPedagogyTools: true,
-    registerCurriculumTools: true,
-    registerKnowledgeGraphTools: StandardsRuntimeService.isReady(),
-    registerFigureTools: true,
-    registerFreeformFigureTools: true,
-    registerMermaidTools: true,
-    registerGoalTools: true,
-    registerLearnerTools: true,
-    registerTeachingTools: true,
-    registerMathTools: AdvancedMathRuntimeService.isReady(),
-    registerQuestionSetTools: true,
+    toolRegistrations: resolveLearningToolRegistrationFlags(),
   })
 
   if (!response.ok) {

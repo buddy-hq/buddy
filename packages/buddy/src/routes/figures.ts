@@ -2,7 +2,10 @@ import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
 import { directoryQuerySchema, routeErrors, runRouteTask, withDirectoryRoute } from "../http"
-import { FigureService, mapFigureRouteError } from "../learning/capabilities"
+import {
+  FigureService,
+  mapFigureRouteError,
+} from "../learning/capabilities/figures/geometry/service"
 
 const figureIDParamSchema = z.object({
   figureID: z.string(),

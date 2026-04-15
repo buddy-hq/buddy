@@ -3,12 +3,14 @@ import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
 import { directoryQuerySchema, routeErrors, runRouteTask, withDirectoryRoute } from "../http"
 import {
-  PublicQuestionSetArtifactSchema,
   QuestionSetService,
+  mapQuestionSetRouteError,
+} from "../learning/capabilities/question-set/service"
+import {
+  PublicQuestionSetArtifactSchema,
   SubmitQuestionSetAttemptInputSchema,
   SubmitQuestionSetAttemptOutputSchema,
-  mapQuestionSetRouteError,
-} from "../learning/capabilities"
+} from "../learning/capabilities/question-set/types"
 
 const artifactIDParamSchema = z.object({
   artifactID: z.string(),
