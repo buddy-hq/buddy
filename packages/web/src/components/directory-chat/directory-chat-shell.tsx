@@ -73,6 +73,7 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
       className="h-full w-full overflow-hidden bg-surface-raised-base"
     >
       <ResizablePanelGroup
+        key={layoutPanelIds.join(",")}
         id={DIRECTORY_CHAT_LAYOUT_ID}
         orientation="horizontal"
         defaultLayout={defaultLayout}
