@@ -1,6 +1,6 @@
 import z from "zod"
 import { PERSONAS, INTENTS } from "@buddy/backend/learning/shared/teaching-vocabulary"
-import { createBuddyTool, type BuddyToolContext } from "../../tools"
+import { createBuddyTool, type BuddyToolContext } from "../../tools/create-buddy-tool"
 import { getWorkspaceSnapshot } from ".."
 
 const learnerStateQueryTool = createBuddyTool("learner_snapshot_read", {
