@@ -96,6 +96,7 @@ const EMPTY_MENTIONABLE_AGENTS: MentionableAgent[] = []
 const MIN_TRANSCRIPT_SCROLL_DURATION_S = 0.08
 const MAX_TRANSCRIPT_SCROLL_DURATION_S = 0.24
 const TRANSCRIPT_SCROLL_SPEED_PX_PER_S = 1200
+const SMOOTH_FOLLOW_LERP = 0.12
 const E2E_BACKEND_COMMAND_NAME = "e2e-backend-command"
 
 type DirectoryChatPageControllerProps = {
@@ -129,6 +130,8 @@ export function useDirectoryChatPageController(
   const navigate = useNavigate()
   const transcriptRef = useRef<HTMLElement>(null)
   const transcriptScrollAnimationRef = useRef<AnimationPlaybackControls | null>(null)
+  const smoothFollowRafRef = useRef<number | null>(null)
+  const smoothFollowingRef = useRef(false)
   const stickToBottomRef = useRef(true)
   const transcriptBusyRef = useRef(false)
   const closingDirectoryRef = useRef<string | undefined>(undefined)
@@ -191,10 +194,7 @@ export function useDirectoryChatPageController(
   const {
     clearUnread,
     migrateWorkspaceDraft,
-    modelOptions,
     currentAgentName,
-    selectedModelOverrideKey,
-    selectedVariantKey,
     selectedThinking,
     sessionID,
     sessionKey,
@@ -207,7 +207,6 @@ export function useDirectoryChatPageController(
     setSelectedAgent,
     setSelectedModel,
     setSelectedVariant,
-    thinkingOptions,
     validOpenProjects,
   } = cs
 
@@ -306,19 +305,44 @@ export function useDirectoryChatPageController(
     transcriptScrollAnimationRef.current = null
   }, [])
 
-  const jumpTranscriptToBottom = useCallback(() => {
-    const container = transcriptRef.current
-    if (!container) return
+  const stopSmoothFollow = useCallback(() => {
+    if (smoothFollowRafRef.current !== null) {
+      cancelAnimationFrame(smoothFollowRafRef.current)
+      smoothFollowRafRef.current = null
+    }
+    smoothFollowingRef.current = false
+  }, [])
 
-    const targetScrollTop = Math.max(0, container.scrollHeight - container.clientHeight)
-    if (Math.abs(targetScrollTop - container.scrollTop) < 1) {
-      stopTranscriptScrollAnimation()
-      return
+  const startSmoothFollow = useCallback(() => {
+    if (smoothFollowRafRef.current !== null) return
+
+    smoothFollowingRef.current = true
+
+    const follow = () => {
+      const container = transcriptRef.current
+      if (!container || !stickToBottomRef.current) {
+        smoothFollowRafRef.current = null
+        smoothFollowingRef.current = false
+        return
+      }
+
+      const target = Math.max(0, container.scrollHeight - container.clientHeight)
+      const current = container.scrollTop
+      const distance = target - current
+
+      if (distance < 1) {
+        container.scrollTop = target
+        smoothFollowRafRef.current = null
+        smoothFollowingRef.current = false
+        return
+      }
+
+      container.scrollTop = current + distance * SMOOTH_FOLLOW_LERP
+      smoothFollowRafRef.current = requestAnimationFrame(follow)
     }
 
-    stopTranscriptScrollAnimation()
-    container.scrollTop = targetScrollTop
-  }, [stopTranscriptScrollAnimation])
+    smoothFollowRafRef.current = requestAnimationFrame(follow)
+  }, [])
 
   const animateTranscriptScrollToBottom = useCallback(() => {
     const container = transcriptRef.current
@@ -363,11 +387,18 @@ export function useDirectoryChatPageController(
   const syncTranscriptToBottom = useCallback(() => {
     if (!stickToBottomRef.current) return
     if (transcriptBusyRef.current) {
-      jumpTranscriptToBottom()
+      stopTranscriptScrollAnimation()
+      startSmoothFollow()
       return
     }
+    stopSmoothFollow()
     animateTranscriptScrollToBottom()
-  }, [animateTranscriptScrollToBottom, jumpTranscriptToBottom])
+  }, [
+    animateTranscriptScrollToBottom,
+    stopTranscriptScrollAnimation,
+    startSmoothFollow,
+    stopSmoothFollow,
+  ])
 
   useEffect(() => {
     setPendingSuggestionOverride(undefined)
@@ -513,25 +544,15 @@ export function useDirectoryChatPageController(
   useEffect(() => {
     if (stickToBottom) return
     stopTranscriptScrollAnimation()
-  }, [stickToBottom, stopTranscriptScrollAnimation])
+    stopSmoothFollow()
+  }, [stickToBottom, stopTranscriptScrollAnimation, stopSmoothFollow])
 
   useEffect(() => {
     return () => {
       stopTranscriptScrollAnimation()
+      stopSmoothFollow()
     }
-  }, [stopTranscriptScrollAnimation])
-
-  useEffect(() => {
-    if (!selectedModelOverrideKey) return
-    if (modelOptions.some((option) => option.key === selectedModelOverrideKey)) return
-    setSelectedModel(cs.promptKey, undefined)
-  }, [cs.promptKey, modelOptions, selectedModelOverrideKey, setSelectedModel])
-
-  useEffect(() => {
-    if (selectedVariantKey === undefined || selectedVariantKey === null) return
-    if (thinkingOptions.some((option) => option.key === selectedVariantKey)) return
-    setSelectedVariant(cs.promptKey, undefined)
-  }, [cs.promptKey, selectedVariantKey, setSelectedVariant, thinkingOptions])
+  }, [stopTranscriptScrollAnimation, stopSmoothFollow])
 
   const syncTeachingRuntimeSelection = useCallback(
     async (input?: { directory?: string; sessionID?: string; sessionKey?: string }) => {
@@ -1134,7 +1155,7 @@ export function useDirectoryChatPageController(
     const node = event.currentTarget
     const distanceFromBottom = node.scrollHeight - (node.scrollTop + node.clientHeight)
 
-    if (transcriptScrollAnimationRef.current && stickToBottom) {
+    if ((transcriptScrollAnimationRef.current || smoothFollowingRef.current) && stickToBottom) {
       return
     }
     const shouldStick = distanceFromBottom <= BOTTOM_THRESHOLD_PX
