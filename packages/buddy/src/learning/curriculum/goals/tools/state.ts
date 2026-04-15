@@ -1,6 +1,8 @@
 import z from "zod"
-import { createBuddyTool, type BuddyToolContext } from "../../../tools"
-import { LearnerArtifactPath, LearnerService, type GoalArtifact } from "../../../learner-model"
+import { createBuddyTool, type BuddyToolContext } from "../../../tools/create-buddy-tool"
+import { LearnerArtifactPath } from "../../../learner-model/repository/path"
+import { LearnerArtifactStore } from "../../../learner-model/repository/store"
+import type { GoalArtifact } from "../../../learner-model/repository/types"
 import { GoalStateSchema, createGoalToolResult } from "../types"
 
 const goalStateTool = createBuddyTool("goal_state", {
@@ -15,7 +17,7 @@ const goalStateTool = createBuddyTool("goal_state", {
     })
 
     const goals = (
-      (await LearnerService.listArtifacts({
+      (await LearnerArtifactStore.listArtifacts({
         directory: ctx.directory,
         kind: "goal",
         status: "active",

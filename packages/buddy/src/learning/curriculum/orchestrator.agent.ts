@@ -1,22 +1,18 @@
-import { createSubagent } from "../agent-factories"
-import { registerBuddyAgent } from "../register-buddy-agent"
 import CURRICULUM_ORCHESTRATOR_PROMPT from "./orchestrator.p.md"
+import { defineBuddySubagent } from "../define-buddy-subagent"
 
-export const CURRICULUM_ORCHESTRATOR = registerBuddyAgent({
+export const CURRICULUM_ORCHESTRATOR = defineBuddySubagent({
   key: "curriculum-orchestrator",
-  agent: createSubagent({
-    description:
-      "Routes curriculum work to goals, practice, assessment, and learner-state services.",
-    prompt: CURRICULUM_ORCHESTRATOR_PROMPT.trim(),
-    permission: {
+  description: "Routes curriculum work to goals, practice, assessment, and learner-state services.",
+  prompt: CURRICULUM_ORCHESTRATOR_PROMPT,
+  permission: {
+    "*": "deny",
+    learner_snapshot_read: "allow",
+    task: {
       "*": "deny",
-      learner_snapshot_read: "allow",
-      task: {
-        "*": "deny",
-        "goal-writer": "allow",
-        "practice-agent": "allow",
-        "assessment-agent": "allow",
-      },
+      "goal-writer": "allow",
+      "practice-agent": "allow",
+      "assessment-agent": "allow",
     },
-  }),
+  },
 })

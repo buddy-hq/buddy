@@ -1,6 +1,6 @@
 import z from "zod"
-import { createBuddyTool, type BuddyToolContext } from "../../../tools"
-import { LearnerService } from "../../../learner-model"
+import { createBuddyTool, type BuddyToolContext } from "../../../tools/create-buddy-tool"
+import { replaceGoalSet } from "../../../learner-model/workflows/workspace"
 import { GoalCommitResultSchema, GoalSchema, GoalScopeSchema, createGoalToolResult } from "../types"
 
 const goalCommitTool = createBuddyTool("goal_commit", {
@@ -27,7 +27,7 @@ const goalCommitTool = createBuddyTool("goal_commit", {
       },
     })
 
-    const commit = await LearnerService.replaceGoalSet({
+    const commit = await replaceGoalSet({
       directory: ctx.directory,
       scope: params.scope,
       contextLabel: params.contextLabel,
