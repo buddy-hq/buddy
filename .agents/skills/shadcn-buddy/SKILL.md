@@ -9,6 +9,8 @@ A framework for building ui, components and design systems. Components are added
 
 Buddy uses a behaviourally same but stylistically highly customised version of shadcn. More details in [customization.md](./customization.md).
 
+Agents face some common errors while using shadcn components. Read [common-errors.md](./rules/common-errors.md) to avoid them.
+
 Due to high level of customization, you must always read the component first before implementing.
 
 Never forget to export the component/icon from the ui package before using it.
