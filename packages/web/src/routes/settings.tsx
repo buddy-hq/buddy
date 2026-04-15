@@ -12,7 +12,7 @@ import {
 } from "@buddy/ui"
 import { ArrowLeftIcon } from "lucide-react"
 import { ChatLeftSidebar } from "@/components/layout/chat-left-sidebar"
-import { useSyncResizablePanelSize } from "@/components/layout/use-sync-resizable-panel-size"
+import { usePersistentResizablePanelLayout } from "@/components/layout/use-persistent-resizable-panel-layout"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { SettingsPage } from "@/components/settings/settings-page"
@@ -41,6 +41,10 @@ import { useUiPreferences } from "@/state/ui-preferences"
 import { pickProjectDirectory } from "../lib/directory-picker"
 
 const SETTINGS_SIDEBAR_MIN_WIDTH_PX = 244
+const SETTINGS_LAYOUT_ID = "settings-layout"
+const SETTINGS_SIDEBAR_PANEL_ID = "settings-sidebar"
+const SETTINGS_MAIN_PANEL_ID = "settings-main-pane"
+const SETTINGS_LAYOUT_PANEL_IDS = [SETTINGS_SIDEBAR_PANEL_ID, SETTINGS_MAIN_PANEL_ID]
 
 export const Route = createFileRoute("/settings")({
   validateSearch: (search: Record<string, unknown>): { tab: SettingsTab } => {
@@ -69,13 +73,17 @@ function SettingsRoute() {
   const togglePinned = useUiPreferences((state) => state.togglePinned)
   const markUnread = useUiPreferences((state) => state.markUnread)
   const clearUnread = useUiPreferences((state) => state.clearUnread)
-  const leftSidebarWidth = useUiPreferences((state) => state.leftSidebarWidth)
-  const setLeftSidebarWidth = useUiPreferences((state) => state.setLeftSidebarWidth)
+  const settingsSidebarWidth = useUiPreferences((state) => state.settingsSidebarWidth)
+  const setSettingsSidebarWidth = useUiPreferences((state) => state.setSettingsSidebarWidth)
   const { standardsEnabled, standardsStatus } = useStandardsRuntime({
     open: true,
     platform: platform.platform,
   })
   const leftSidebarPanelRef = useResizablePanelRef()
+  const { defaultLayout, onLayoutChanged } = usePersistentResizablePanelLayout({
+    id: SETTINGS_LAYOUT_ID,
+    panelIds: SETTINGS_LAYOUT_PANEL_IDS,
+  })
 
   const currentDirectory = activeDirectory ?? openProjects[0] ?? ""
   const activeSessionID = currentDirectory ? directories[currentDirectory]?.sessionID : undefined
@@ -113,8 +121,6 @@ function SettingsRoute() {
   useEffect(() => {
     void bootstrapOpenProjects().catch(() => undefined)
   }, [])
-
-  useSyncResizablePanelSize(leftSidebarPanelRef, leftSidebarWidth)
 
   useEffect(() => {
     if (tab !== "standards" && visibleTabIDs.has(tab)) {
@@ -228,11 +234,17 @@ function SettingsRoute() {
       data-component="settings-route"
       className="h-full w-full overflow-hidden bg-surface-raised-base"
     >
-      <ResizablePanelGroup orientation="horizontal" className="h-full w-full min-w-0">
+      <ResizablePanelGroup
+        id={SETTINGS_LAYOUT_ID}
+        orientation="horizontal"
+        defaultLayout={defaultLayout}
+        onLayoutChanged={onLayoutChanged}
+        className="h-full w-full min-w-0"
+      >
         <ResizablePanel
-          id="settings-sidebar"
+          id={SETTINGS_SIDEBAR_PANEL_ID}
           panelRef={leftSidebarPanelRef}
-          defaultSize={leftSidebarWidth}
+          defaultSize={settingsSidebarWidth}
           minSize={SETTINGS_SIDEBAR_MIN_WIDTH_PX}
           maxSize={leftSidebarMaxWidth}
           className="relative flex min-h-0 min-w-0 overflow-hidden"
@@ -283,16 +295,16 @@ function SettingsRoute() {
           </ChatLeftSidebar>
           <ResizeHandle
             direction="horizontal"
-            size={leftSidebarWidth}
+            size={settingsSidebarWidth}
             min={SETTINGS_SIDEBAR_MIN_WIDTH_PX}
             max={leftSidebarMaxWidth}
             onResize={(width) => {
               leftSidebarPanelRef.current?.resize(width)
-              setLeftSidebarWidth(width)
+              setSettingsSidebarWidth(width)
             }}
           />
         </ResizablePanel>
-        <ResizablePanel id="settings-main-pane" className="min-h-0 min-w-0">
+        <ResizablePanel id={SETTINGS_MAIN_PANEL_ID} className="min-h-0 min-w-0">
           <main className="min-h-0 min-w-0 flex h-full flex-1 overflow-hidden bg-background-base/20">
             {currentDirectory ? (
               <SettingsPage directory={currentDirectory} activeTab={tab} />

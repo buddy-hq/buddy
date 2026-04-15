@@ -11,7 +11,7 @@ import {
 import { DirectoryChatConversationPane } from "@/components/directory-chat/directory-chat-conversation-pane"
 import { DirectoryChatReadingReaderPane } from "@/components/directory-chat/directory-chat-reading-reader-pane"
 import { DirectoryChatReadingThreadBrowser } from "@/components/directory-chat/directory-chat-reading-thread-browser"
-import { useSyncResizablePanelSize } from "@/components/layout/use-sync-resizable-panel-size"
+import { usePersistentResizablePanelLayout } from "@/components/layout/use-persistent-resizable-panel-layout"
 import { useDirectoryNotebookRouteContext } from "@/components/directory-chat/directory-notebook-route-context"
 import { language } from "@/context/language"
 import { fileNameFromPath, normalizeRelativePath } from "@/lib/workspace-file-paths"
@@ -32,6 +32,10 @@ const READING_CHAT_PANEL_DEFAULT_WIDTH_PX = 640
 const READING_CHAT_PANEL_MIN_WIDTH_PX = 384
 const READING_CHAT_PANEL_MAX_VIEWPORT_RATIO = 0.48
 const READING_READER_PANEL_MIN_WIDTH_PX = 480
+const READING_LAYOUT_ID = "directory-chat-reading-layout"
+const READING_READER_PANEL_ID = "directory-chat-reading-reader"
+const READING_CONVERSATION_PANEL_ID = "directory-chat-reading-conversation"
+const READING_LAYOUT_PANEL_IDS = [READING_READER_PANEL_ID, READING_CONVERSATION_PANEL_ID]
 
 function getReadingChatPanelMaxWidth() {
   return typeof window === "undefined"
@@ -68,8 +72,10 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
     (state) => state.updateActiveReadingResourceLocation,
   )
   const conversationPanelRef = useResizablePanelRef()
-
-  useSyncResizablePanelSize(conversationPanelRef, chatPanelWidth)
+  const { defaultLayout, onLayoutChanged } = usePersistentResizablePanelLayout({
+    id: READING_LAYOUT_ID,
+    panelIds: READING_LAYOUT_PANEL_IDS,
+  })
 
   useEffect(() => {
     window.localStorage.setItem(READING_CHAT_PANEL_WIDTH_STORAGE_KEY, chatPanelWidth.toString())
@@ -166,9 +172,15 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
         </div>
       </header>
 
-      <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1 w-full">
+      <ResizablePanelGroup
+        id={READING_LAYOUT_ID}
+        orientation="horizontal"
+        defaultLayout={defaultLayout}
+        onLayoutChanged={onLayoutChanged}
+        className="min-h-0 flex-1 w-full"
+      >
         <ResizablePanel
-          id="directory-chat-reading-reader"
+          id={READING_READER_PANEL_ID}
           minSize={READING_READER_PANEL_MIN_WIDTH_PX}
           className="min-h-0 min-w-0 overflow-hidden"
         >
@@ -191,7 +203,7 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
         </ResizablePanel>
 
         <ResizablePanel
-          id="directory-chat-reading-conversation"
+          id={READING_CONVERSATION_PANEL_ID}
           panelRef={conversationPanelRef}
           defaultSize={chatPanelWidth}
           minSize={READING_CHAT_PANEL_MIN_WIDTH_PX}

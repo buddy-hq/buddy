@@ -1,7 +1,12 @@
-import type { ReactNode } from "react"
+import { useMemo, type ReactNode } from "react"
 import { ResizeHandle, ResizablePanel, ResizablePanelGroup, useResizablePanelRef } from "@buddy/ui"
-import { useSyncResizablePanelSize } from "@/components/layout/use-sync-resizable-panel-size"
+import { usePersistentResizablePanelLayout } from "@/components/layout/use-persistent-resizable-panel-layout"
 import { RIGHT_SIDEBAR_COLLAPSE_THRESHOLD_PX } from "@/lib/directory-chat/right-sidebar-layout"
+
+const DIRECTORY_CHAT_LAYOUT_ID = "directory-chat-layout"
+const DIRECTORY_CHAT_LEFT_SIDEBAR_PANEL_ID = "directory-chat-left-sidebar"
+const DIRECTORY_CHAT_MAIN_PANEL_ID = "directory-chat-main-pane"
+const DIRECTORY_CHAT_RIGHT_SIDEBAR_PANEL_ID = "directory-chat-right-sidebar"
 
 type DirectoryChatShellProps = {
   leftSidebar: ReactNode
@@ -46,25 +51,37 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
 
   const leftSidebarPanelRef = useResizablePanelRef()
   const rightSidebarPanelRef = useResizablePanelRef()
-
-  useSyncResizablePanelSize(
-    leftSidebarPanelRef,
-    leftSidebarOpen ? leftSidebarDisplayWidth : undefined,
-  )
-  useSyncResizablePanelSize(
-    rightSidebarPanelRef,
-    rightSidebarOpen ? rightSidebarDisplayWidth : undefined,
-  )
+  const layoutPanelIds = useMemo(() => {
+    const panelIds: string[] = []
+    if (leftSidebarOpen) {
+      panelIds.push(DIRECTORY_CHAT_LEFT_SIDEBAR_PANEL_ID)
+    }
+    panelIds.push(DIRECTORY_CHAT_MAIN_PANEL_ID)
+    if (rightSidebarOpen) {
+      panelIds.push(DIRECTORY_CHAT_RIGHT_SIDEBAR_PANEL_ID)
+    }
+    return panelIds
+  }, [leftSidebarOpen, rightSidebarOpen])
+  const { defaultLayout, onLayoutChanged } = usePersistentResizablePanelLayout({
+    id: DIRECTORY_CHAT_LAYOUT_ID,
+    panelIds: layoutPanelIds,
+  })
 
   return (
     <div
       data-component="directory-chat-shell"
       className="h-full w-full overflow-hidden bg-surface-raised-base"
     >
-      <ResizablePanelGroup orientation="horizontal" className="h-full w-full min-w-0">
+      <ResizablePanelGroup
+        id={DIRECTORY_CHAT_LAYOUT_ID}
+        orientation="horizontal"
+        defaultLayout={defaultLayout}
+        onLayoutChanged={onLayoutChanged}
+        className="h-full w-full min-w-0"
+      >
         {leftSidebarOpen ? (
           <ResizablePanel
-            id="directory-chat-left-sidebar"
+            id={DIRECTORY_CHAT_LEFT_SIDEBAR_PANEL_ID}
             panelRef={leftSidebarPanelRef}
             defaultSize={leftSidebarDisplayWidth}
             minSize={leftSidebarMinWidth}
@@ -93,13 +110,13 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
           </ResizablePanel>
         ) : null}
 
-        <ResizablePanel id="directory-chat-main-pane" className="flex min-h-0 min-w-0">
+        <ResizablePanel id={DIRECTORY_CHAT_MAIN_PANEL_ID} className="flex min-h-0 min-w-0">
           {mainPane}
         </ResizablePanel>
 
         {rightSidebarOpen ? (
           <ResizablePanel
-            id="directory-chat-right-sidebar"
+            id={DIRECTORY_CHAT_RIGHT_SIDEBAR_PANEL_ID}
             panelRef={rightSidebarPanelRef}
             defaultSize={rightSidebarDisplayWidth}
             minSize={rightSidebarMinWidth}
