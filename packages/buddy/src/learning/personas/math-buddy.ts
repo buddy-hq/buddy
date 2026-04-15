@@ -1,10 +1,10 @@
-import BUDDY_BASE_PROMPT from "../buddy/buddy.p.md"
-import MATH_BUDDY_OVERLAY from "./overlay.p.md"
+import BUDDY_BASE_PROMPT from "./buddy.p.md"
+import MATH_BUDDY_OVERLAY from "./math-buddy.p.md"
 import {
   composePersonaPrompt,
   DEFAULT_PRIMARY_PERSONA_PERMISSION,
   defineBuddyPersona,
-} from "../define-buddy-persona"
+} from "./wiring/define-buddy-persona"
 
 export const MATH_BUDDY = defineBuddyPersona({
   id: "math-buddy",

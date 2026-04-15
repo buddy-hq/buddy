@@ -1,5 +1,5 @@
 import BUDDY_BASE_PROMPT from "./buddy.p.md"
-import { composePersonaPrompt, defineBuddyPersona } from "../define-buddy-persona"
+import { composePersonaPrompt, defineBuddyPersona } from "./wiring/define-buddy-persona"
 
 export const BUDDY = defineBuddyPersona({
   id: "buddy",

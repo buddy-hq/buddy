@@ -1,10 +1,10 @@
-import BUDDY_BASE_PROMPT from "../buddy/buddy.p.md"
-import CODE_BUDDY_OVERLAY from "./overlay.p.md"
+import BUDDY_BASE_PROMPT from "./buddy.p.md"
+import CODE_BUDDY_OVERLAY from "./code-buddy.p.md"
 import {
   composePersonaPrompt,
   DEFAULT_PRIMARY_PERSONA_PERMISSION,
   defineBuddyPersona,
-} from "../define-buddy-persona"
+} from "./wiring/define-buddy-persona"
 
 export const CODE_BUDDY = defineBuddyPersona({
   id: "code-buddy",

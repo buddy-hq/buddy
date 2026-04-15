@@ -1,4 +1,4 @@
-import { builtinBuddyPersonaAgents } from "./personas/runtime-agents"
+import { builtinBuddyPersonaAgents } from "./personas/wiring/persona.orchestration"
 import type { RegisteredBuddyAgent } from "./register-buddy-agent"
 import { listBuddySubagents } from "./runtime-subagents"
 

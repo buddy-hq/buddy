@@ -1,4 +1,4 @@
-import type { BuddyPermissionInput, CoreAgentDefinition } from "../agent-factories"
+import type { BuddyPermissionInput, CoreAgentDefinition } from "../../agent-factories"
 
 type PersonaIntent = "learn" | "practice" | "assess" | "auto"
 type PersonaDomain = "general" | "coding" | "math"
@@ -53,27 +53,6 @@ const DEFAULT_PRIMARY_PERSONA_PERMISSION = {
   todowrite: "deny",
 } as const satisfies BuddyPermissionInput
 
-function cloneProfile<Id extends string>(
-  input: BuddyPersonaProfileDefinition<Id>,
-): BuddyPersonaProfileDefinition<Id> {
-  return {
-    ...input,
-    surfaces: [...input.surfaces],
-    toolDefaults: { ...input.toolDefaults },
-    subagentDefaults: { ...input.subagentDefaults },
-    contextPolicy: { ...input.contextPolicy },
-  }
-}
-
-function cloneRuntime(input: PersonaRuntimeDefinition): PersonaRuntimeDefinition {
-  return {
-    ...input,
-    prompt: input.prompt.trim(),
-    ...(input.description ? { description: input.description } : {}),
-    ...(input.permission ? { permission: input.permission } : {}),
-  }
-}
-
 export function composePersonaPrompt(...parts: readonly string[]): string {
   return parts
     .map((part) => part.trim())
@@ -93,8 +72,17 @@ export function defineBuddyPersona<const Id extends string>(
   const { runtime, ...profile } = input
 
   return {
-    ...cloneProfile(profile),
-    runtime: cloneRuntime(runtime),
+    ...profile,
+    surfaces: [...profile.surfaces],
+    toolDefaults: { ...profile.toolDefaults },
+    subagentDefaults: { ...profile.subagentDefaults },
+    contextPolicy: { ...profile.contextPolicy },
+    runtime: {
+      ...runtime,
+      prompt: runtime.prompt.trim(),
+      ...(runtime.description ? { description: runtime.description } : {}),
+      ...(runtime.permission ? { permission: runtime.permission } : {}),
+    },
   }
 }
 
