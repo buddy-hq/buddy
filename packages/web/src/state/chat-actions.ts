@@ -200,8 +200,6 @@ export type TeachingLlmOutboundSnapshot = {
   fullSystemPrompt?: string
 }
 
-const BUDDY_PERSONA_DEFAULT_ORDER = ["buddy", "code-buddy", "math-buddy", "reading-buddy"] as const
-
 function normalizeProjectDirectory(directory: string) {
   const normalized = directory.trim().replace(/\/+$/, "")
   if (!normalized || normalized === "/") {
@@ -229,20 +227,11 @@ export function resolveDefaultPersonaID(
     return configuredDefaultPersona
   }
 
-  for (const personaID of BUDDY_PERSONA_DEFAULT_ORDER) {
-    if (selectablePersonas.some((persona) => persona.id === personaID)) {
-      return personaID
-    }
-  }
-
   return selectablePersonas[0]?.id
 }
 
 type RawProvider = ProviderListResponse["all"][number]
 type RawProviderModel = RawProvider["models"][string]
-type LearnerPersona = "buddy" | "code-buddy" | "math-buddy" | "reading-buddy"
-
-const LEARNER_PERSONAS = ["buddy", "code-buddy", "math-buddy", "reading-buddy"] as const
 const DEFAULT_PERSONA_SURFACE: PersonaConfigOption["defaultSurface"] = "curriculum"
 const EMPTY_ALIGNMENT_SUMMARY: LearnerCurriculumView["alignmentSummary"] = {
   records: [],
@@ -289,12 +278,9 @@ class RetryableTranscriptReloadError extends Error {
   }
 }
 
-function toLearnerPersona(persona?: string): LearnerPersona | undefined {
+function toLearnerPersona(persona?: string): string | undefined {
   if (!persona) return undefined
-  if (LEARNER_PERSONAS.includes(persona as LearnerPersona)) {
-    return persona as LearnerPersona
-  }
-  return undefined
+  return persona
 }
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
@@ -1503,13 +1489,11 @@ export async function loadCurriculumView(
 ) {
   const intent = input?.intent ?? "auto"
 
-  const snapshot = requireBuddyData<LearnerSnapshotResponses[200]>(
-    await getBuddyClient(directory).learner.snapshot({
-      persona: toLearnerPersona(input?.persona),
-      intent,
-      sessionId: input?.sessionID,
-    }),
-  )
+  const snapshot = await requestLearnerSnapshot(directory, {
+    persona: toLearnerPersona(input?.persona),
+    intent,
+    sessionID: input?.sessionID,
+  })
 
   return {
     workspace: parseWorkspaceView(snapshot.workspace),
@@ -1545,6 +1529,34 @@ function sortedSubagentKeys(
     .toSorted((left, right) => left.localeCompare(right))
 }
 
+async function requestLearnerSnapshot(
+  directory: string,
+  input?: {
+    persona?: string
+    intent?: TeachingIntent
+    sessionID?: string
+  },
+) {
+  const params = new URLSearchParams()
+
+  if (input?.persona) {
+    params.set("persona", input.persona)
+  }
+  if (input?.intent) {
+    params.set("intent", input.intent)
+  }
+  if (input?.sessionID) {
+    params.set("sessionId", input.sessionID)
+  }
+
+  const query = params.toString()
+  const endpoint = query.length > 0 ? `/api/learner/snapshot?${query}` : "/api/learner/snapshot"
+
+  return requestJson<LearnerSnapshotResponses[200]>(directory, endpoint, {
+    method: "GET",
+  })
+}
+
 export async function loadRuntimeCapabilities(
   directory: string,
   input?: {
@@ -1555,13 +1567,11 @@ export async function loadRuntimeCapabilities(
 ) {
   const requestedIntent = input?.intent ?? "auto"
 
-  const snapshot = requireBuddyData<LearnerSnapshotResponses[200]>(
-    await getBuddyClient(directory).learner.snapshot({
-      persona: toLearnerPersona(input?.persona),
-      intent: requestedIntent,
-      sessionId: input?.sessionID,
-    }),
-  )
+  const snapshot = await requestLearnerSnapshot(directory, {
+    persona: toLearnerPersona(input?.persona),
+    intent: requestedIntent,
+    sessionID: input?.sessionID,
+  })
 
   const runtimeProfile = asRecord(snapshot.runtimeProfile)
   const envelope = asRecord(runtimeProfile?.capabilityEnvelope)
