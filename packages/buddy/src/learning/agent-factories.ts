@@ -146,4 +146,5 @@ export type {
   DefinedSubagent,
   PrimaryAgentDefinition,
   SubagentDefinition,
+  BuddyPermissionInput,
 }
