@@ -1,6 +1,9 @@
 import z from "zod"
-import { SnapshotQuerySchema, WorkspaceRecordArtifactKindSchema } from "../../../learner-model"
 import { readTeachingSessionState } from "../../../agent-execution/state/session-state"
+import {
+  SnapshotQuerySchema,
+  WorkspaceRecordArtifactKindSchema,
+} from "../../../learner-model/repository/types"
 import { SURFACES } from "../../../shared/teaching-vocabulary"
 
 export const LearnerWorkspacePatchSchema = z.object({

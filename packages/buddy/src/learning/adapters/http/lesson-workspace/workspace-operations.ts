@@ -4,17 +4,19 @@ import {
   readProjectConfig,
 } from "@buddy/backend/config/runtime"
 import {
-  TeachingService,
-  type TeachingProvisionRequest,
-  type TeachingWorkspaceActivateFileRequest,
-  type TeachingWorkspaceCreateFileRequest,
-  type TeachingWorkspaceUpdateRequest,
   TeachingWorkspaceFileError,
   TeachingRevisionConflictError,
   TeachingWorkspaceNotFoundError,
-} from "../../../capabilities"
-import { getBuddyPersona, getDefaultBuddyPersona } from "../../../personas"
-import { isPersona } from "../../../personas"
+} from "../../../capabilities/lesson-workspace/service/errors"
+import { TeachingService } from "../../../capabilities/lesson-workspace/service/operations"
+import type {
+  TeachingProvisionRequest,
+  TeachingWorkspaceActivateFileRequest,
+  TeachingWorkspaceCreateFileRequest,
+  TeachingWorkspaceUpdateRequest,
+} from "../../../capabilities/lesson-workspace/model/types"
+import { getBuddyPersona, getDefaultBuddyPersona } from "../../../personas/catalog"
+import { isPersona } from "../../../personas/types"
 
 export function resolveTeachingProvisionPersona(input: {
   config: Awaited<ReturnType<typeof readProjectConfig>>
