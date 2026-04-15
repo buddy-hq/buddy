@@ -1704,7 +1704,7 @@ describe("loadRuntimeCapabilities", () => {
 })
 
 describe("resolveDefaultPersonaID", () => {
-  test("uses the built-in persona order instead of label order when no default is configured", () => {
+  test("uses the catalog order when no default is configured", () => {
     const selected = resolveDefaultPersonaID([
       {
         id: "code-buddy",
@@ -1720,10 +1720,10 @@ describe("resolveDefaultPersonaID", () => {
       },
     ])
 
-    expect(selected).toBe("buddy")
+    expect(selected).toBe("code-buddy")
   })
 
-  test("includes reading-buddy in the built-in fallback order", () => {
+  test("returns the first visible persona from the catalog", () => {
     const selected = resolveDefaultPersonaID([
       {
         id: "reading-buddy",
@@ -1739,6 +1739,6 @@ describe("resolveDefaultPersonaID", () => {
       },
     ])
 
-    expect(selected).toBe("math-buddy")
+    expect(selected).toBe("reading-buddy")
   })
 })
