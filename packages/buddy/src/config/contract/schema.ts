@@ -2,8 +2,8 @@ import path from "node:path"
 import z from "zod"
 import { Config as OpenCodeConfig } from "@buddy/opencode-adapter/config"
 import { PERSONA_SURFACES, INTENTS } from "@buddy/backend/learning/shared/teaching-vocabulary"
-import { resolveBuddyPersonaProfiles } from "../../learning/personas"
-import { PERSONAS } from "../../learning/personas"
+import { resolveBuddyPersonaProfiles } from "../../learning/personas/catalog"
+import { PERSONAS } from "../../learning/personas/types"
 
 export namespace ConfigSchema {
   const NOTEBOOK_HOME_PATH_ERROR_MESSAGE = "notebook_home must be an absolute path" as const
@@ -50,14 +50,11 @@ export namespace ConfigSchema {
     })
   export type PersonaOverride = z.infer<typeof PersonaOverride>
 
-  export const Personas = z
-    .object({
-      buddy: PersonaOverride.optional(),
-      "code-buddy": PersonaOverride.optional(),
-      "math-buddy": PersonaOverride.optional(),
-      "reading-buddy": PersonaOverride.optional(),
-    })
-    .strict()
+  const PERSONA_OVERRIDE_SHAPE = Object.fromEntries(
+    PERSONAS.map((personaID) => [personaID, PersonaOverride.optional()]),
+  ) as Record<(typeof PERSONAS)[number], z.ZodOptional<typeof PersonaOverride>>
+
+  export const Personas = z.object(PERSONA_OVERRIDE_SHAPE).strict()
   export type Personas = z.infer<typeof Personas>
 
   export const Info = z

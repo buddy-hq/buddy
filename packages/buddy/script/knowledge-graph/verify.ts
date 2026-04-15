@@ -1,10 +1,8 @@
 import { createHash } from "node:crypto"
 import { createReadStream, existsSync, readFileSync } from "node:fs"
 import path from "node:path"
-import {
-  parseKnowledgeGraphArtifactManifest,
-  parseKnowledgeGraphLockfile,
-} from "../../src/learning/knowledge-graph"
+import { parseKnowledgeGraphArtifactManifest } from "../../src/learning/knowledge-graph/artifact"
+import { parseKnowledgeGraphLockfile } from "../../src/learning/knowledge-graph/lockfile"
 import {
   KNOWLEDGE_GRAPH_ARCHIVE_CHECKSUM_FILENAME,
   KNOWLEDGE_GRAPH_DB_ARCHIVE_FILENAME,
