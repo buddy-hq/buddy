@@ -1,14 +1,9 @@
-import * as React from 'react'
-import { TableOfContents } from 'lucide-react'
-import {
-  Button,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@buddy/ui'
-import { FoliateTocTree } from './foliate-toc-tree'
-import type { FoliateReaderSnapshot } from '../foliate-reader-types'
-import { TOC_EMPTY_MESSAGE } from '../foliate-reader-constants'
+import * as React from "react"
+import { TableOfContents } from "lucide-react"
+import { Button, Popover, PopoverContent, PopoverTrigger } from "@buddy/ui"
+import { FoliateTocTree } from "./foliate-toc-tree"
+import type { FoliateReaderSnapshot } from "../foliate-reader-types"
+import { TOC_EMPTY_MESSAGE } from "../foliate-reader-constants"
 
 export interface FoliateTocPopoverProps {
   snapshot: FoliateReaderSnapshot | null
@@ -16,11 +11,7 @@ export interface FoliateTocPopoverProps {
   onSelectHref: (href: string) => void
 }
 
-export function FoliateTocPopover({
-  snapshot,
-  tocLabel,
-  onSelectHref,
-}: FoliateTocPopoverProps) {
+export function FoliateTocPopover({ snapshot, tocLabel, onSelectHref }: FoliateTocPopoverProps) {
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -41,15 +32,9 @@ export function FoliateTocPopover({
       >
         <div className="px-3 py-3">
           {snapshot?.toc?.length ? (
-            <FoliateTocTree
-              items={snapshot.toc}
-              activeLabel={tocLabel}
-              onSelect={onSelectHref}
-            />
+            <FoliateTocTree items={snapshot.toc} activeLabel={tocLabel} onSelect={onSelectHref} />
           ) : (
-            <p className="px-1 py-4 text-[12px] text-text-weaker">
-              {TOC_EMPTY_MESSAGE}
-            </p>
+            <p className="px-1 py-4 text-[12px] text-text-weaker">{TOC_EMPTY_MESSAGE}</p>
           )}
         </div>
       </PopoverContent>
