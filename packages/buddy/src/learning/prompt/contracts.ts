@@ -46,7 +46,7 @@ export type PromptModelSnapshot = {
   outputWindow: number
 }
 
-export type SystemPromptCtx = {
+export type BuddyPromptBuildContext = {
   directory: string
   persona: Persona
   capabilityEnvelope: CapabilityEnvelope
@@ -58,4 +58,16 @@ export type SystemPromptCtx = {
   model?: PromptModelSnapshot
   teachingContext?: TeachingPromptContext
   priorTurn?: PromptTurnSnapshot
+}
+
+export type BuddyUserPreludePart = {
+  type: "text"
+  text: string
+  synthetic: true
+}
+
+export type BuddyPromptEnvelope = {
+  systemContext: string
+  userPreludeParts: readonly BuddyUserPreludePart[]
+  changedSinceCheckpoint?: boolean
 }

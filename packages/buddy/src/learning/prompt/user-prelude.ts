@@ -1,5 +1,5 @@
 import { hasText } from "./utils"
-import type { PromptTurnSnapshot } from "./prompt-context"
+import type { BuddyPromptBuildContext, BuddyUserPreludePart, PromptTurnSnapshot } from "./contracts"
 
 function isExecutionFocusedState(state: PromptTurnSnapshot): boolean {
   if (state.intent === "learn") return false
@@ -22,11 +22,11 @@ function buildFocusShiftReminder(input: {
     : "Teaching focus switch: execution-focused -> concept-first. Avoid workspace mutation unless the learner explicitly asks for hands-on execution."
 }
 
-export function buildTurnPrompt(input: {
+function buildUserPreludeText(input: {
   priorTurn?: PromptTurnSnapshot
   currentTurn: PromptTurnSnapshot
   changedSinceCheckpoint?: boolean
-}) {
+}): string | undefined {
   const focusShift = buildFocusShiftReminder({
     priorTurn: input.priorTurn,
     currentTurn: input.currentTurn,
@@ -64,4 +64,30 @@ export function buildTurnPrompt(input: {
   if (reminderLines.length === 0) return undefined
 
   return `<system-reminder>\n${reminderLines.join("\n")}\n</system-reminder>`
+}
+
+export function buildBuddyUserPrelude(input: {
+  context: BuddyPromptBuildContext
+  changedSinceCheckpoint?: boolean
+}): readonly BuddyUserPreludePart[] {
+  const currentTurn: PromptTurnSnapshot = {
+    persona: input.context.persona,
+    intent: input.context.intent,
+    workspaceState: input.context.teachingContext?.active ? "interactive" : "chat",
+  }
+  const text = buildUserPreludeText({
+    priorTurn: input.context.priorTurn,
+    currentTurn,
+    changedSinceCheckpoint: input.changedSinceCheckpoint,
+  })
+
+  return text
+    ? [
+        {
+          type: "text",
+          text,
+          synthetic: true,
+        },
+      ]
+    : []
 }

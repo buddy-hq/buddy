@@ -1,6 +1,7 @@
 import type { WorkspaceState } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import { getIntentPrompt } from "../intents/get-intent-prompt"
-import type { SystemPromptCtx } from "./prompt-context"
+import type { BuddyPromptBuildContext } from "./contracts"
+import TEACHING_WORKSPACE_POLICY from "./teaching-workspace-policy.p.md"
 import {
   RESOURCE_PACK_CHUNKS_DIR_NAME,
   RESOURCE_PACK_ENTRYPOINT_FILE_NAME,
@@ -11,11 +12,11 @@ import {
   RESOURCE_PACK_TOC_FILE_NAME,
 } from "../../resource-packs/contracts"
 
-type LearnerSnapshotContext = SystemPromptCtx["learnerSnapshot"]
-type RuntimePromptProfile = Pick<SystemPromptCtx, "persona" | "capabilityEnvelope">
-type TeachingContext = NonNullable<SystemPromptCtx["teachingContext"]>
-type ResourceContext = SystemPromptCtx["resources"][number]
-type ModelContext = SystemPromptCtx["model"]
+type LearnerSnapshotContext = BuddyPromptBuildContext["learnerSnapshot"]
+type RuntimePromptProfile = Pick<BuddyPromptBuildContext, "persona" | "capabilityEnvelope">
+type TeachingContext = NonNullable<BuddyPromptBuildContext["teachingContext"]>
+type ResourceContext = BuddyPromptBuildContext["resources"][number]
+type ModelContext = BuddyPromptBuildContext["model"]
 
 const RESOURCE_CONTEXT_TAG_OPEN = "<notebook_resources>" as const
 const RESOURCE_CONTEXT_TAG_CLOSE = "</notebook_resources>" as const
@@ -29,13 +30,13 @@ type TeachingCheckpointStatus = {
   trackedFiles: string[]
 }
 
-export type SystemContextBuild = {
-  systemContext: string
+type BuddyRuntimeContextBuild = {
+  runtimeContext: string
   changedSinceCheckpoint?: boolean
 }
 
-type RuntimeContextBuild = {
-  runtimeContext: string
+export type BuddySystemContextBuild = {
+  systemContext: string
   changedSinceCheckpoint?: boolean
 }
 
@@ -198,7 +199,7 @@ function formatResourceInventoryLine(resource: ResourceContext): string {
 }
 
 function buildActiveResourceContextText(
-  resource: SystemPromptCtx["activeResource"],
+  resource: BuddyPromptBuildContext["activeResource"],
 ): string | undefined {
   if (!resource) return undefined
 
@@ -217,7 +218,7 @@ function buildActiveResourceContextText(
   ].join("\n")
 }
 
-function buildResourceContextText(resources: SystemPromptCtx["resources"]): string {
+function buildResourceContextText(resources: BuddyPromptBuildContext["resources"]): string {
   const lines = [
     RESOURCE_CONTEXT_TAG_OPEN,
     "Resources are notebook-local user-provided reference files.",
@@ -285,7 +286,9 @@ async function getCheckpointStatus(directory: string, sessionID: string) {
   return TeachingService.status(directory, sessionID).catch(() => undefined)
 }
 
-async function buildRuntimeContext(input: SystemPromptCtx): Promise<RuntimeContextBuild> {
+async function buildBuddyRuntimeContext(
+  input: BuddyPromptBuildContext,
+): Promise<BuddyRuntimeContextBuild> {
   const workspaceState: WorkspaceState = input.teachingContext?.active ? "interactive" : "chat"
   const profile: RuntimePromptProfile = {
     persona: input.persona,
@@ -321,6 +324,9 @@ async function buildRuntimeContext(input: SystemPromptCtx): Promise<RuntimeConte
   runtimeSections.push(learnerSections.learnerSummary)
   runtimeSections.push(learnerSections.learnerProgress)
   runtimeSections.push(learnerSections.learnerFeedback)
+  if (hasEditor) {
+    runtimeSections.push(TEACHING_WORKSPACE_POLICY)
+  }
 
   if (teachingContext?.active && hasEditor) {
     runtimeSections.push(
@@ -337,9 +343,10 @@ async function buildRuntimeContext(input: SystemPromptCtx): Promise<RuntimeConte
   }
 }
 
-export async function buildSystemPrompt(input: SystemPromptCtx): Promise<SystemContextBuild> {
-  const runtimeContext = await buildRuntimeContext(input)
-
+export async function buildBuddySystemContext(
+  input: BuddyPromptBuildContext,
+): Promise<BuddySystemContextBuild> {
+  const runtimeContext = await buildBuddyRuntimeContext(input)
   const intentSection = `<student_intent>\n${getIntentPrompt(input.intent)}\n</student_intent>`
 
   return {
