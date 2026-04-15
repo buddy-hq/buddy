@@ -95,10 +95,10 @@ export const useUiPreferences = create<UiPreferencesStore>()(
       pinnedByDirectory: {} as Record<string, string[]>,
       unreadByDirectory: {} as Record<string, Record<string, true>>,
       leftSidebarOpen: true,
-      chatLeftSidebarWidth: DEFAULT_SIDEBAR_WIDTH_PX,
-      settingsSidebarWidth: DEFAULT_SIDEBAR_WIDTH_PX,
+      chatLeftSidebarWidth: 280,
+      settingsSidebarWidth: 260,
       rightSidebarOpen: false,
-      rightSidebarWidth: DEFAULT_SIDEBAR_WIDTH_PX,
+      rightSidebarWidth: 380,
       mainPaneTab: "chat" as NotebookMainPaneTab,
       rightSidebarTab: "curriculum" as const,
       isPinned(directory, sessionID) {

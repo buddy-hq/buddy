@@ -40,7 +40,7 @@ import { shallow } from "zustand/shallow"
 import { useUiPreferences } from "@/state/ui-preferences"
 import { pickProjectDirectory } from "../lib/directory-picker"
 
-const SETTINGS_SIDEBAR_MIN_WIDTH_PX = 244
+const SETTINGS_SIDEBAR_MIN_WIDTH_PX = 220
 const SETTINGS_LAYOUT_ID = "settings-layout"
 const SETTINGS_SIDEBAR_PANEL_ID = "settings-sidebar"
 const SETTINGS_MAIN_PANEL_ID = "settings-main-pane"
@@ -87,7 +87,7 @@ function SettingsRoute() {
 
   const currentDirectory = activeDirectory ?? openProjects[0] ?? ""
   const activeSessionID = currentDirectory ? directories[currentDirectory]?.sessionID : undefined
-  const leftSidebarMaxWidth = typeof window === "undefined" ? 1000 : window.innerWidth * 0.3 + 64
+  const leftSidebarMaxWidth = 320
   const visibleTabs = useMemo(
     () => getVisibleSettingsTabDefinitions({ standardsEnabled }),
     [standardsEnabled],

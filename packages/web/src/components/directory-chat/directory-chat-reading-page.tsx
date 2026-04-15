@@ -28,9 +28,9 @@ function normalizeResourceRecordPath(record: ResourceRecord) {
 }
 
 const READING_CHAT_PANEL_WIDTH_STORAGE_KEY = "directory-chat-reading-chat-panel-width"
-const READING_CHAT_PANEL_DEFAULT_WIDTH_PX = 640
-const READING_CHAT_PANEL_MIN_WIDTH_PX = 384
-const READING_CHAT_PANEL_MAX_VIEWPORT_RATIO = 0.48
+const READING_CHAT_PANEL_DEFAULT_WIDTH_PX = 480
+const READING_CHAT_PANEL_MIN_WIDTH_PX = 360
+const READING_CHAT_PANEL_MAX_VIEWPORT_RATIO = 0.40
 const READING_READER_PANEL_MIN_WIDTH_PX = 480
 const READING_LAYOUT_ID = "directory-chat-reading-layout"
 const READING_READER_PANEL_ID = "directory-chat-reading-reader"

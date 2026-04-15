@@ -408,8 +408,8 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
     Math.max(rightSidebarWidth, rightSidebarMinWidth),
     rightSidebarMaxWidth,
   )
-  const leftSidebarMaxWidth = typeof window === "undefined" ? 1000 : window.innerWidth * 0.3 + 64
-  const leftSidebarDisplayWidth = Math.max(leftSidebarWidth, 244)
+  const leftSidebarMaxWidth = 360
+  const leftSidebarDisplayWidth = Math.max(leftSidebarWidth, 220)
 
   return {
     // Chat store actions

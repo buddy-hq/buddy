@@ -91,7 +91,7 @@ import { publishPromptSubmissionProbe } from "@/e2e/driver"
 import type { SidebarResourceTarget } from "@/components/layout/chat-left-sidebar/resources-section"
 
 const BOTTOM_THRESHOLD_PX = 96
-const SIDEBAR_MIN_WIDTH = 244
+const SIDEBAR_MIN_WIDTH = 220
 const EMPTY_MENTIONABLE_AGENTS: MentionableAgent[] = []
 const MIN_TRANSCRIPT_SCROLL_DURATION_S = 0.08
 const MAX_TRANSCRIPT_SCROLL_DURATION_S = 0.24
