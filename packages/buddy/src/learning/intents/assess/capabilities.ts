@@ -1,30 +1,17 @@
-import {
-  pedagogyMasteryCheckTool,
-  pedagogyReflectionTool,
-  pedagogyRetrievalCheckTool,
-  pedagogyTransferCheckTool,
-} from "../../capabilities/pedagogy/tools/definitions"
-import { renderMermaidTool } from "../../capabilities/figures/mermaid/tools/render-mermaid"
-import {
-  getLearningComponentsTool,
-  getStandardTool,
-  queryStandardsSqlTool,
-  searchStandardsTool,
-} from "../../knowledge-graph/tools"
 import { createIntentCapabilities } from "../capabilities/types"
 
 export const ASSESS_INTENT_CAPABILITY_MANIFEST = createIntentCapabilities({
   intent: "assess",
   tools: [
-    searchStandardsTool,
-    getStandardTool,
-    getLearningComponentsTool,
-    queryStandardsSqlTool,
-    pedagogyMasteryCheckTool,
-    pedagogyReflectionTool,
-    pedagogyRetrievalCheckTool,
-    pedagogyTransferCheckTool,
-    renderMermaidTool,
+    "search_standards",
+    "get_standard",
+    "get_learning_components",
+    "query_standards_sql",
+    "pedagogy_mastery_check",
+    "pedagogy_reflection",
+    "pedagogy_retrieval_check",
+    "pedagogy_transfer_check",
+    "render_mermaid",
   ],
   skills: [],
 })

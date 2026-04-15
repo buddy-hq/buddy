@@ -1,39 +1,25 @@
-import {
-  pedagogyDebugAttemptTool,
-  pedagogyGuidedPracticeTool,
-  pedagogyIndependentPracticeTool,
-  pedagogyStepwiseSolveTool,
-} from "../../capabilities/pedagogy/tools/definitions"
-import { renderMermaidTool } from "../../capabilities/figures/mermaid/tools/render-mermaid"
-import {
-  getLearningComponentsTool,
-  getPrerequisitesTool,
-  getStandardTool,
-  queryStandardsSqlTool,
-  searchStandardsTool,
-} from "../../knowledge-graph/tools"
 import { createIntentCapabilities } from "../capabilities/types"
 
 export const PRACTICE_INTENT_CAPABILITY_MANIFEST = createIntentCapabilities({
   intent: "practice",
   tools: [
-    searchStandardsTool,
-    getStandardTool,
-    getLearningComponentsTool,
-    getPrerequisitesTool,
-    queryStandardsSqlTool,
-    pedagogyGuidedPracticeTool,
-    pedagogyIndependentPracticeTool,
+    "search_standards",
+    "get_standard",
+    "get_learning_components",
+    "get_prerequisites",
+    "query_standards_sql",
+    "pedagogy_guided_practice",
+    "pedagogy_independent_practice",
     {
-      tool: pedagogyDebugAttemptTool,
+      tool: "pedagogy_debug_attempt",
       personas: ["code-buddy"],
       workspaceStates: ["interactive"],
     },
     {
-      tool: pedagogyStepwiseSolveTool,
+      tool: "pedagogy_stepwise_solve",
       personas: ["math-buddy"],
     },
-    renderMermaidTool,
+    "render_mermaid",
   ],
   skills: [],
 })

@@ -1,23 +1,13 @@
 import { registerBuddyTools, unregisterBuddyTools } from "./register-buddy-tools"
+import { assertUniqueLearningToolIds } from "./tool-catalog"
+import { allLearningToolGroups, type LearningToolGroup } from "./tool-metadata"
 import {
-  assertLearningToolCatalog,
-  getLearningToolGroup,
-  type LearningToolGroup,
-} from "./tool-catalog"
+  allRegisteredLearningTools,
+  getRegisteredLearningToolGroup as getLearningToolGroup,
+  getRegisteredLearningToolGroupDescriptor as getLearningToolGroupDescriptor,
+} from "./tool-registry"
 
-type LearningToolRegistrationFlags = {
-  registerPedagogyTools: boolean
-  registerCurriculumTools: boolean
-  registerKnowledgeGraphTools: boolean
-  registerFigureTools: boolean
-  registerFreeformFigureTools: boolean
-  registerMermaidTools: boolean
-  registerGoalTools: boolean
-  registerLearnerTools: boolean
-  registerTeachingTools: boolean
-  registerMathTools: boolean
-  registerQuestionSetTools: boolean
-}
+type LearningToolRegistrationFlags = Record<LearningToolGroup, boolean>
 
 function warnToolRegistrationFailure(message: string, error: unknown): void {
   console.warn(message, error)
@@ -62,111 +52,30 @@ async function registerRuntimeTools(
   directory: string,
   flags: LearningToolRegistrationFlags,
 ): Promise<void> {
-  assertLearningToolCatalog()
+  assertUniqueLearningToolIds(allRegisteredLearningTools())
   const registrations: Promise<void>[] = []
 
-  registerToolGroup({
-    enabled: flags.registerPedagogyTools,
-    directory,
-    group: "pedagogy",
-    warning: "Failed to register Buddy pedagogy tools into OpenCode runtime:",
-    registrations,
-  })
+  for (const group of allLearningToolGroups()) {
+    const policy = getLearningToolGroupDescriptor(group)
 
-  registerToolGroup({
-    enabled: flags.registerCurriculumTools,
-    directory,
-    group: "curriculum",
-    warning: "Failed to register Buddy curriculum tools into OpenCode runtime:",
-    registrations,
-  })
+    registerToolGroup({
+      enabled: flags[group],
+      directory,
+      group,
+      warning: policy.registerWarning,
+      registrations,
+    })
 
-  registerToolGroup({
-    enabled: flags.registerKnowledgeGraphTools,
-    directory,
-    group: "knowledgeGraph",
-    warning: "Failed to register Buddy knowledge-graph tools into OpenCode runtime:",
-    registrations,
-  })
-
-  registerToolGroup({
-    enabled: flags.registerGoalTools,
-    directory,
-    group: "goals",
-    warning: "Failed to register Buddy goal tools into OpenCode runtime:",
-    registrations,
-  })
-
-  registerToolGroup({
-    enabled: flags.registerLearnerTools,
-    directory,
-    group: "learner",
-    warning: "Failed to register Buddy learner tools into OpenCode runtime:",
-    registrations,
-  })
-
-  registerToolGroup({
-    enabled: flags.registerTeachingTools,
-    directory,
-    group: "teaching",
-    warning: "Failed to register Buddy teaching tools into OpenCode runtime:",
-    registrations,
-  })
-
-  registerToolGroup({
-    enabled: flags.registerFigureTools,
-    directory,
-    group: "figures",
-    warning: "Failed to register Buddy figure tools into OpenCode runtime:",
-    registrations,
-  })
-
-  registerToolGroup({
-    enabled: flags.registerFreeformFigureTools,
-    directory,
-    group: "freeformFigures",
-    warning: "Failed to register Buddy freeform figure tools into OpenCode runtime:",
-    registrations,
-  })
-
-  registerToolGroup({
-    enabled: flags.registerMermaidTools,
-    directory,
-    group: "mermaid",
-    warning: "Failed to register Buddy Mermaid tools into OpenCode runtime:",
-    registrations,
-  })
-
-  registerToolGroup({
-    enabled: flags.registerMathTools,
-    directory,
-    group: "math",
-    warning: "Failed to register Buddy math tools into OpenCode runtime:",
-    registrations,
-  })
-
-  registerToolGroup({
-    enabled: flags.registerQuestionSetTools,
-    directory,
-    group: "questionSet",
-    warning: "Failed to register Buddy question-set tools into OpenCode runtime:",
-    registrations,
-  })
-
-  unregisterToolGroup({
-    enabled: flags.registerQuestionSetTools,
-    directory,
-    group: "questionSet",
-    warning: "Failed to unregister Buddy question-set tools from OpenCode runtime:",
-    registrations,
-  })
-  unregisterToolGroup({
-    enabled: flags.registerMathTools,
-    directory,
-    group: "math",
-    warning: "Failed to unregister Buddy math tools from OpenCode runtime:",
-    registrations,
-  })
+    if (policy.unregisterWarning) {
+      unregisterToolGroup({
+        enabled: flags[group],
+        directory,
+        group,
+        warning: policy.unregisterWarning,
+        registrations,
+      })
+    }
+  }
 
   if (registrations.length === 0) return
   await Promise.all(registrations)

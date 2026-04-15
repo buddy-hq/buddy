@@ -1,11 +1,20 @@
-import type { IntentCapabilityManifest } from "./intent-manifests"
-import { INTENT_CAPABILITY_MANIFESTS } from "./intent-manifests"
 import type { SkillCapability } from "./skill-capabilities"
-import { SKILL_CAPABILITY_REGISTRY } from "./skill-capabilities"
-import type { ToolCapability } from "./tool-capabilities"
-import { TOOL_CAPABILITY_REGISTRY, toolCapabilityKey } from "./tool-capabilities"
+import type { IntentCapabilityManifest } from "./types"
+import type { ToolCapability } from "./types"
 
-let validated = false
+type IntentCapabilityValidationState = {
+  validated: boolean
+}
+
+function getIntentCapabilityValidationState(): IntentCapabilityValidationState {
+  const intentCapabilityValidationStateKey = "__buddyIntentCapabilityValidationState"
+  const globalState = globalThis as typeof globalThis & {
+    [intentCapabilityValidationStateKey]?: IntentCapabilityValidationState
+  }
+
+  globalState[intentCapabilityValidationStateKey] ??= { validated: false }
+  return globalState[intentCapabilityValidationStateKey]
+}
 
 function duplicateValues(values: string[]): string[] {
   const counts = new Map<string, number>()
@@ -21,8 +30,45 @@ function duplicateValues(values: string[]): string[] {
 
 type ValidationInput = {
   manifests: readonly IntentCapabilityManifest[]
-  toolCapabilities: readonly ToolCapability[]
   skillCapabilities: readonly SkillCapability[]
+}
+
+function optionalScopeKey(values?: readonly string[]): string {
+  if (!values) {
+    return ""
+  }
+
+  return [...values].toSorted((left, right) => left.localeCompare(right)).join(",")
+}
+
+function toolCapabilityScopeKey(capability: ToolCapability): string {
+  return [optionalScopeKey(capability.personas), optionalScopeKey(capability.workspaceStates)].join(
+    "|",
+  )
+}
+
+function collectUniqueToolCapabilities(
+  manifests: readonly IntentCapabilityManifest[],
+): ToolCapability[] {
+  const capabilityMap = new Map<string, ToolCapability>()
+
+  for (const manifest of manifests) {
+    for (const capability of manifest.toolCapabilities) {
+      const key = capability.tool.id
+      const existing = capabilityMap.get(key)
+      if (existing && toolCapabilityScopeKey(existing) !== toolCapabilityScopeKey(capability)) {
+        throw new Error(
+          `Tool capability "${key}" must keep the same persona/workspace scope everywhere it is bound`,
+        )
+      }
+
+      if (!existing) {
+        capabilityMap.set(key, capability)
+      }
+    }
+  }
+
+  return [...capabilityMap.values()]
 }
 
 function toolCapabilityTopic(key: string) {
@@ -35,6 +81,7 @@ function skillCapabilityTopic(key: string) {
 }
 
 function assertNoRegistryCollisions(input: ValidationInput) {
+  const toolCapabilities = collectUniqueToolCapabilities(input.manifests)
   const duplicateSkillKeys = duplicateValues(
     input.skillCapabilities.map((capability) => capability.key),
   )
@@ -42,9 +89,7 @@ function assertNoRegistryCollisions(input: ValidationInput) {
     throw new Error(`Duplicate skill capability keys detected: ${duplicateSkillKeys.join(", ")}`)
   }
 
-  const duplicateToolIds = duplicateValues(
-    input.toolCapabilities.map((capability) => capability.tool.id),
-  )
+  const duplicateToolIds = duplicateValues(toolCapabilities.map((capability) => capability.tool.id))
   if (duplicateToolIds.length > 0) {
     throw new Error(
       `Colliding pedagogy tool IDs detected across capabilities: ${duplicateToolIds.join(", ")}`,
@@ -62,9 +107,6 @@ function assertNoRegistryCollisions(input: ValidationInput) {
 }
 
 function assertManifestIntegrity(input: ValidationInput) {
-  const knownToolCapabilityKeys = new Set(
-    input.toolCapabilities.map((capability) => toolCapabilityKey(capability)),
-  )
   const knownSkillCapabilityKeys = new Set(
     input.skillCapabilities.map((capability) => capability.key),
   )
@@ -72,7 +114,7 @@ function assertManifestIntegrity(input: ValidationInput) {
 
   for (const manifest of input.manifests) {
     const duplicateToolKeys = duplicateValues(
-      manifest.toolCapabilities.map((capability) => toolCapabilityKey(capability)),
+      manifest.toolCapabilities.map((capability) => capability.tool.id),
     )
     if (duplicateToolKeys.length > 0) {
       throw new Error(
@@ -87,17 +129,6 @@ function assertManifestIntegrity(input: ValidationInput) {
       )
     }
 
-    const unknownToolKeys = manifest.toolCapabilities
-      .map((capability) => toolCapabilityKey(capability))
-      .filter((key) => !knownToolCapabilityKeys.has(key))
-      .toSorted((a, b) => a.localeCompare(b))
-
-    if (unknownToolKeys.length > 0) {
-      throw new Error(
-        `Intent manifest "${manifest.intent}" references unknown tool capability keys: ${unknownToolKeys.join(", ")}`,
-      )
-    }
-
     const unknownSkillKeys = manifest.skillCapabilityKeys
       .filter((key) => !knownSkillCapabilityKeys.has(key))
       .toSorted((a, b) => a.localeCompare(b))
@@ -108,9 +139,7 @@ function assertManifestIntegrity(input: ValidationInput) {
       )
     }
 
-    for (const key of manifest.toolCapabilities.map((capability) =>
-      toolCapabilityKey(capability),
-    )) {
+    for (const key of manifest.toolCapabilities.map((capability) => capability.tool.id)) {
       const topic = toolCapabilityTopic(key)
       const types = crossTypeTopics.get(topic) ?? new Set<"tool" | "skill">()
       types.add("tool")
@@ -137,19 +166,14 @@ function assertManifestIntegrity(input: ValidationInput) {
   }
 }
 
-export function validateIntentCapabilityBindings(input?: Partial<ValidationInput>) {
-  const normalizedInput: ValidationInput = {
-    manifests: input?.manifests ?? INTENT_CAPABILITY_MANIFESTS,
-    toolCapabilities: input?.toolCapabilities ?? TOOL_CAPABILITY_REGISTRY,
-    skillCapabilities: input?.skillCapabilities ?? SKILL_CAPABILITY_REGISTRY,
-  }
-
-  assertNoRegistryCollisions(normalizedInput)
-  assertManifestIntegrity(normalizedInput)
+export function validateIntentCapabilityBindings(input: ValidationInput) {
+  assertNoRegistryCollisions(input)
+  assertManifestIntegrity(input)
 }
 
-export function assertIntentCapabilityBindings() {
-  if (validated) return
-  validateIntentCapabilityBindings()
-  validated = true
+export function assertIntentCapabilityBindings(input: ValidationInput) {
+  const state = getIntentCapabilityValidationState()
+  if (state.validated) return
+  validateIntentCapabilityBindings(input)
+  state.validated = true
 }

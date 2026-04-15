@@ -1,35 +1,20 @@
-import { freeformFigureTools } from "@buddy/backend/learning/capabilities/figures/freeform/tools/tools"
-import { figureTools } from "@buddy/backend/learning/capabilities/figures/geometry/tools/tools"
-import { mermaidTools } from "@buddy/backend/learning/capabilities/figures/mermaid/tools/tools"
-import { questionSetTools } from "@buddy/backend/learning/capabilities/question-set/tools/tools"
-import { teachingTools } from "@buddy/backend/learning/capabilities/lesson-workspace/tools/tools"
-import { mathTools } from "@buddy/backend/learning/capabilities/math/tools/tools"
-import { pedagogyTools } from "@buddy/backend/learning/capabilities/pedagogy/tools/tools"
-import { goalTools } from "@buddy/backend/learning/curriculum/goals/tools/tools"
-import { curriculumTools } from "@buddy/backend/learning/curriculum/planning/tools/tools"
-import { knowledgeGraphTools } from "@buddy/backend/learning/knowledge-graph/tools/tools"
-import { learnerTools } from "@buddy/backend/learning/learner-model/tools/tools"
-import type { BuddyTool } from "./create-buddy-tool"
+import {
+  allLearningToolGroups,
+  allLearningToolIds,
+  allLearningToolMetadata,
+  getLearningToolGroupPolicy,
+  getLearningToolMetadata,
+  type LearningToolGroup,
+  type LearningToolGroupPolicy,
+  type LearningToolId,
+  type LearningToolMetadata,
+} from "./tool-metadata"
 
-const learningToolGroups = {
-  pedagogy: pedagogyTools,
-  curriculum: curriculumTools,
-  knowledgeGraph: knowledgeGraphTools,
-  figures: figureTools,
-  freeformFigures: freeformFigureTools,
-  mermaid: mermaidTools,
-  goals: goalTools,
-  learner: learnerTools,
-  teaching: teachingTools,
-  math: mathTools,
-  questionSet: questionSetTools,
-} as const
+type ToolIdentity = {
+  id: string
+}
 
-type LearningToolGroup = keyof typeof learningToolGroups
-type LearningTool = (typeof learningToolGroups)[keyof typeof learningToolGroups][number]
-export type LearningToolId = LearningTool["id"]
-
-function findDuplicateLearningToolIds(tools: readonly BuddyTool[]): string[] {
+function findDuplicateLearningToolIds(tools: readonly ToolIdentity[]): string[] {
   const ids = tools.map((tool) => tool.id)
   const counts = new Map<string, number>()
 
@@ -43,7 +28,7 @@ function findDuplicateLearningToolIds(tools: readonly BuddyTool[]): string[] {
     .toSorted((left, right) => left.localeCompare(right))
 }
 
-export function assertUniqueLearningToolIds(tools: readonly BuddyTool[]): void {
+export function assertUniqueLearningToolIds(tools: readonly ToolIdentity[]): void {
   const duplicateToolIds = findDuplicateLearningToolIds(tools)
   if (duplicateToolIds.length === 0) {
     return
@@ -54,22 +39,35 @@ export function assertUniqueLearningToolIds(tools: readonly BuddyTool[]): void {
   )
 }
 
-export function allLearningTools(): readonly LearningTool[] {
-  return Object.values(learningToolGroups).flat() as LearningTool[]
+export function allLearningTools(): LearningToolMetadata[] {
+  return allLearningToolMetadata()
 }
 
-export function allLearningToolIds(): LearningToolId[] {
-  return allLearningTools().map((tool) => tool.id)
-}
+export { allLearningToolGroups, allLearningToolIds }
 
 export function assertLearningToolCatalog(): void {
-  assertUniqueLearningToolIds(allLearningTools())
+  assertUniqueLearningToolIds(allLearningToolMetadata())
 }
 
-export function getLearningToolGroup(group: LearningToolGroup): readonly LearningTool[] {
-  return learningToolGroups[group]
+export function getLearningToolGroup(group: LearningToolGroup): LearningToolMetadata[] {
+  return allLearningToolMetadata().filter((tool) => tool.group === group)
 }
 
-export { learningToolGroups }
+export function getLearningToolGroupDescriptor(group: LearningToolGroup): LearningToolGroupPolicy {
+  return getLearningToolGroupPolicy(group)
+}
 
-export type { LearningToolGroup }
+export function allLearningToolGroupDescriptors(): Record<
+  LearningToolGroup,
+  LearningToolGroupPolicy
+> {
+  return Object.fromEntries(
+    allLearningToolGroups().map((group) => [group, getLearningToolGroupPolicy(group)]),
+  ) as Record<LearningToolGroup, LearningToolGroupPolicy>
+}
+
+export function getLearningTool(toolID: LearningToolId): LearningToolMetadata | undefined {
+  return getLearningToolMetadata(toolID)
+}
+
+export type { LearningToolGroup, LearningToolGroupPolicy as LearningToolGroupDescriptor }

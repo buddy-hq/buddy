@@ -1,5 +1,16 @@
 import type z from "zod"
 import { Tool } from "@buddy/opencode-adapter/tool"
+import {
+  ADVANCED_MATH_RUNTIME_DEPENDENCY,
+  EDITOR_PERSONA_SURFACE,
+  FIGURE_PERSONA_SURFACE,
+  INTERACTIVE_WORKSPACE_STATE,
+  STANDARDS_RUNTIME_DEPENDENCY,
+  type BuddyToolCapabilityConstraints,
+  type BuddyToolPersonaSurface,
+  type BuddyToolWorkspaceState,
+  type LearningToolRuntimeDependency,
+} from "./tool-capability-constraints"
 
 type BuddyToolMetadata = Record<string, unknown>
 type BuddyToolContext<Metadata extends BuddyToolMetadata = BuddyToolMetadata> =
@@ -31,11 +42,26 @@ type BuddyTool<
   Metadata extends BuddyToolMetadata = BuddyToolMetadata,
 > = {
   id: Id
+  capability?: BuddyToolCapabilityConstraints
   toTool(directory: string): Tool.Info<Parameters, Metadata>
 }
 
 function createAbortError() {
   return new DOMException("Aborted", "AbortError")
+}
+
+function cloneCapabilityConstraints(
+  capability: BuddyToolCapabilityConstraints | undefined,
+): BuddyToolCapabilityConstraints {
+  if (!capability) {
+    return {}
+  }
+
+  return {
+    ...(capability.surfaces ? { surfaces: [...capability.surfaces] } : {}),
+    ...(capability.workspaceStates ? { workspaceStates: [...capability.workspaceStates] } : {}),
+    ...(capability.runtimeDependency ? { runtimeDependency: capability.runtimeDependency } : {}),
+  }
 }
 
 async function executeUntilAbort<T>(abort: AbortSignal, execute: () => Promise<T>) {
@@ -62,9 +88,16 @@ function createBuddyTool<
   const Id extends string,
   Parameters extends z.ZodType,
   Metadata extends BuddyToolMetadata,
->(id: Id, init: BuddyToolInit<Parameters, Metadata>): BuddyTool<Id, Parameters, Metadata> {
+>(
+  id: Id,
+  init: BuddyToolInit<Parameters, Metadata>,
+  capability?: BuddyToolCapabilityConstraints,
+): BuddyTool<Id, Parameters, Metadata> {
+  const clonedCapability = cloneCapabilityConstraints(capability)
+
   return {
     id,
+    capability: clonedCapability,
     toTool(directory: string) {
       return Tool.define<Parameters, Metadata>(id, async (initCtx) => {
         const definition = typeof init === "function" ? await init(initCtx) : init
@@ -87,5 +120,20 @@ function createBuddyTool<
 }
 
 export { createBuddyTool }
+export {
+  ADVANCED_MATH_RUNTIME_DEPENDENCY,
+  EDITOR_PERSONA_SURFACE,
+  FIGURE_PERSONA_SURFACE,
+  INTERACTIVE_WORKSPACE_STATE,
+  STANDARDS_RUNTIME_DEPENDENCY,
+}
 
-export type { BuddyTool, BuddyToolContext, BuddyToolInit }
+export type {
+  BuddyTool,
+  BuddyToolCapabilityConstraints,
+  BuddyToolContext,
+  BuddyToolInit,
+  BuddyToolPersonaSurface,
+  BuddyToolWorkspaceState,
+  LearningToolRuntimeDependency,
+}

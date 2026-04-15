@@ -1,7 +1,8 @@
 import type { Dirent } from "node:fs"
 import fs from "node:fs/promises"
 import { ulid } from "ulid"
-import { recordAssessmentEvent, recordPracticeEvent } from "@buddy/backend/learning/learner-model"
+import { recordAssessmentEvent } from "@buddy/backend/learning/learner-model/workflows/record-assessment"
+import { recordPracticeEvent } from "@buddy/backend/learning/learner-model/workflows/record-practice"
 import { InvalidQuestionSetArtifactIDError, QuestionSetPath } from "./path"
 import {
   QUESTION_SET_ATTEMPT_KIND,

@@ -2,8 +2,8 @@ import type { Intent, WorkspaceState } from "@buddy/backend/learning/shared/teac
 import type { PersonaDefinition, ToolId } from "../../shared/runtime-types"
 import { INTENT_CAPABILITY_MANIFESTS } from "./intent-manifests"
 import { SKILL_CAPABILITY_REGISTRY, managedSkillNames } from "./skill-capabilities"
-import type { ToolCapability } from "./tool-capabilities"
-import { TOOL_CAPABILITY_REGISTRY, toolCapabilityKey } from "./tool-capabilities"
+import { TOOL_CAPABILITY_REGISTRY } from "./tool-capabilities"
+import type { ToolCapability } from "./types"
 import { assertIntentCapabilityBindings } from "./validation"
 
 type PermissionAction = "allow" | "deny"
@@ -41,7 +41,7 @@ function buildDenyMap<T extends string>(values: readonly T[]): Record<T, Permiss
 function dedupeToolCapabilities(values: readonly ToolCapability[]): ToolCapability[] {
   const byKey = new Map<string, ToolCapability>()
   for (const value of values) {
-    byKey.set(toolCapabilityKey(value), value)
+    byKey.set(value.tool.id, value)
   }
   return [...byKey.values()]
 }
@@ -51,7 +51,10 @@ export function resolveIntentPermissions(input: {
   intent: Intent
   workspaceState: WorkspaceState
 }): IntentPermissionResolution {
-  assertIntentCapabilityBindings()
+  assertIntentCapabilityBindings({
+    manifests: INTENT_CAPABILITY_MANIFESTS,
+    skillCapabilities: SKILL_CAPABILITY_REGISTRY,
+  })
 
   const selectedIntents = new Set(resolveIntentScope(input.intent))
   const manifests = INTENT_CAPABILITY_MANIFESTS.filter((manifest) =>
@@ -111,6 +114,9 @@ export function resolveIntentPermissions(input: {
 }
 
 export function pedagogyManagedSkillNames() {
-  assertIntentCapabilityBindings()
+  assertIntentCapabilityBindings({
+    manifests: INTENT_CAPABILITY_MANIFESTS,
+    skillCapabilities: SKILL_CAPABILITY_REGISTRY,
+  })
   return managedSkillNames()
 }
