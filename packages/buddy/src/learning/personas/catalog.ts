@@ -39,9 +39,9 @@ export function resolveBuddyPersonaProfiles(
 }
 
 export function listBuddyPersonas(overrides?: BuddyPersonaOverrides): BuddyPersonaProfile[] {
-  return Object.values(resolveBuddyPersonaProfiles(overrides))
-    .filter((persona) => !persona.hidden)
-    .toSorted((left, right) => left.label.localeCompare(right.label))
+  const profiles = resolveBuddyPersonaProfiles(overrides)
+
+  return PERSONAS.map((personaID) => profiles[personaID]).filter((persona) => !persona.hidden)
 }
 
 export function getBuddyPersona(

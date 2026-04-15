@@ -5,14 +5,16 @@ import path from "node:path"
 import { zstdDecompressSync } from "node:zlib"
 import z from "zod"
 import {
+  parseKnowledgeGraphArtifactManifest,
+  type KnowledgeGraphArtifactManifest,
+} from "../../learning/knowledge-graph/artifact"
+import {
   KNOWLEDGE_GRAPH_ARCHIVE_CHECKSUM_FILENAME,
   KNOWLEDGE_GRAPH_DB_ARCHIVE_FILENAME,
   KNOWLEDGE_GRAPH_DB_ENV,
   KNOWLEDGE_GRAPH_DB_FILENAME,
   KNOWLEDGE_GRAPH_MANIFEST_FILENAME,
-  parseKnowledgeGraphArtifactManifest,
-  type KnowledgeGraphArtifactManifest,
-} from "../../learning/knowledge-graph"
+} from "../../learning/knowledge-graph/constants"
 import { Global } from "../../storage/global"
 
 const STANDARDS_DIR = path.join(Global.Path.data, "standards")
