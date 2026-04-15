@@ -92,9 +92,10 @@ export {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
+  useResizablePanelLayout,
   useResizablePanelRef,
 } from "./components/ui/resizable"
-export type { ResizablePanelHandle } from "./components/ui/resizable"
+export type { ResizablePanelHandle, ResizablePanelLayoutStorage } from "./components/ui/resizable"
 export { Separator } from "./components/ui/separator"
 export {
   Select,

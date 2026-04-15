@@ -44,8 +44,16 @@ function ResizableHandle({
 }
 
 const useResizablePanelRef = ResizablePrimitive.usePanelRef
+const useResizablePanelLayout = ResizablePrimitive.useDefaultLayout
 
 type ResizablePanelHandle = ResizablePrimitive.PanelImperativeHandle
+type ResizablePanelLayoutStorage = ResizablePrimitive.LayoutStorage
 
-export { ResizableHandle, ResizablePanel, ResizablePanelGroup, useResizablePanelRef }
-export type { ResizablePanelHandle }
+export {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+  useResizablePanelLayout,
+  useResizablePanelRef,
+}
+export type { ResizablePanelHandle, ResizablePanelLayoutStorage }
