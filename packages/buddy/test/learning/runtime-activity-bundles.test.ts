@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { resolveIntentPermissions } from "../../src/learning/intents/capabilities/resolution"
-import { getBuddyPersona } from "../../src/learning/personas/catalog"
+import { getBuddyPersona } from "../../src/learning/personas/wiring/persona.orchestration"
 
 describe("resolveIntentPermissions", () => {
   test("learn intent enables skills and keeps pedagogy tools unavailable", () => {

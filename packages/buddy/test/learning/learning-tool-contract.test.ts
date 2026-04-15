@@ -9,7 +9,7 @@ import {
 } from "../../src/learning/tools/tool-catalog"
 import { buildBuddyRuntimeSessionPermissions } from "../../src/learning/agent-execution/permissions/session-permissions"
 import { resolveCapabilityProfile } from "../../src/learning/resolve-capability-profile"
-import { getBuddyPersona } from "../../src/learning/personas/catalog"
+import { getBuddyPersona } from "../../src/learning/personas/wiring/persona.orchestration"
 import { ensureCurriculumToolsRegistered } from "../../src/learning/curriculum/planning/tools/register"
 import { ensureLearnerToolsRegistered } from "../../src/learning/learner-model"
 import { tmpdir } from "../helpers/tmpdir"

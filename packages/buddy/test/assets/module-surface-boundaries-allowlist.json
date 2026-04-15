@@ -9,7 +9,6 @@
   "src/learning/agent-execution/transforms/command-transform.ts -> ../../shared/targeting (src/learning/shared/targeting.ts)",
   "src/learning/intents/capabilities/resolution.ts -> ../../shared/runtime-types (src/learning/shared/runtime-types.ts)",
   "src/learning/intents/get-intent-prompt.ts -> ../shared/teaching-vocabulary (src/learning/shared/teaching-vocabulary.ts)",
-  "src/learning/personas/types.ts -> ../shared/runtime-types (src/learning/shared/runtime-types.ts)",
   "src/learning/prompt/message-prompt-pipeline.ts -> ../shared/targeting (src/learning/shared/targeting.ts)",
   "src/learning/prompt/message-prompt-pipeline.ts -> ../shared/teaching-session-state (src/learning/shared/teaching-session-state.ts)",
   "src/learning/prompt/prompt-context.ts -> ../shared/runtime-types (src/learning/shared/runtime-types.ts)",

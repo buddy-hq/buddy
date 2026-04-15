@@ -1,7 +1,9 @@
 import { mergeDeep } from "remeda"
-import { getBuddyPersona, resolveBuddyPersonaProfiles } from "../../learning/personas/catalog"
-import type { BuddyPersona } from "../../learning/personas/types"
-import { isPersona } from "../../learning/personas/types"
+import {
+  isPersona,
+  type Persona as BuddyPersona,
+} from "@buddy/backend/learning/shared/teaching-vocabulary"
+import { getBuddyPersona, resolveBuddyPersonaProfiles } from "../../learning/personas/wiring/persona.orchestration"
 import { indexBuddyAgents } from "../../learning/register-agents"
 import { derivePersonaStaticLearningToolPermissions } from "../../learning/tools/tool-capability-policy"
 import { Config } from "../config.js"

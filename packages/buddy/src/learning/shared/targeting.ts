@@ -5,11 +5,12 @@ import {
 } from "@buddy/backend/config/runtime"
 import {
   isIntent,
+  isPersona,
   type Intent,
+  type Persona as BuddyPersona,
   type WorkspaceState,
 } from "@buddy/backend/learning/shared/teaching-vocabulary"
-import { getBuddyPersona, getDefaultBuddyPersona } from "../personas/catalog"
-import { isPersona, type BuddyPersona } from "../personas/types"
+import { getBuddyPersona, getDefaultBuddyPersona } from "../personas/wiring/persona.orchestration"
 import type { TeachingSessionState } from "./teaching-session-state"
 import { SessionTransformValidationError } from "../../session"
 

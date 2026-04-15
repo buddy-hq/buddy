@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { resolveCapabilityProfile } from "../../src/learning/resolve-capability-profile"
 import { LearnerService } from "../../src/learning/learner-model"
 import { buildLearningSystemPrompt } from "../../src/learning/prompt/learning-prompt"
-import { getBuddyPersona } from "../../src/learning/personas/catalog"
+import { getBuddyPersona } from "../../src/learning/personas/wiring/persona.orchestration"
 import { tmpdir } from "../helpers/tmpdir"
 
 describe("composeLearningSystemPrompt (learner store)", () => {

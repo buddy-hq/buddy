@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { getBuddyPersona } from "../../src/learning/personas/catalog"
+import { getBuddyPersona } from "../../src/learning/personas/wiring/persona.orchestration"
 import { INTENTS, WORKSPACE_STATES } from "../../src/learning/shared/teaching-vocabulary"
 import { compileRuntimeLearningToolPermissions } from "../../src/learning/tools/tool-permission-compiler"
 import { derivePersonaStaticLearningToolPermissions } from "../../src/learning/tools/tool-capability-policy"

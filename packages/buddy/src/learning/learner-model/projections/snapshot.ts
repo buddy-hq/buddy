@@ -1,7 +1,7 @@
 import { resolveCapabilityProfile } from "../../resolve-capability-profile"
 import { readProjectConfig } from "@buddy/backend/config/runtime"
 import type { WorkspaceState } from "@buddy/backend/learning/shared/teaching-vocabulary"
-import { getBuddyPersona } from "../../personas/catalog"
+import { getBuddyPersona } from "../../personas/wiring/persona.orchestration"
 import { LearnerArtifactStore } from "../repository/store"
 import type {
   EvidenceArtifact,

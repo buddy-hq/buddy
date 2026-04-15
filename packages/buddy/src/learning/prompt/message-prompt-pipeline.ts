@@ -2,7 +2,7 @@ import { parseConfiguredModel, type readProjectConfig } from "@buddy/backend/con
 import { ModelID, ProviderID } from "@buddy/opencode-adapter/id"
 import { Provider } from "@buddy/opencode-adapter/provider"
 import { TeachingPromptContextSchema } from "../capabilities/lesson-workspace/model/types"
-import { getBuddyPersona } from "../personas/catalog"
+import { getBuddyPersona } from "../personas/wiring/persona.orchestration"
 import { buildLearningSystemPrompt } from "./learning-prompt"
 import { normalizePromptParts } from "./workspace-file-references"
 import type { SystemPromptCtx } from "./prompt-context"

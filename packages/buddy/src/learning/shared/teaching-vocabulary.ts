@@ -1,4 +1,4 @@
-import { BUILTIN_BUDDY_PERSONA_DEFINITIONS } from "@buddy/backend/learning/personas/definitions"
+import { BUILTIN_BUDDY_PERSONA_DEFINITIONS } from "@buddy/backend/learning/personas/wiring/persona.orchestration"
 import { BUDDY_SUBAGENTS } from "@buddy/backend/learning/subagent-manifest"
 
 type BuiltinPersona = (typeof BUILTIN_BUDDY_PERSONA_DEFINITIONS)[number]["id"]

@@ -7,7 +7,7 @@ import {
 import { fingerprintOpenCodeConfig } from "./fingerprint.js"
 import { parseConfiguredModel } from "./models.js"
 import { resolveBuddyBundledSkillRoots, resolveOpenCodeSkillPaths } from "./skills.js"
-import { getDefaultBuddyPersona } from "../../learning/personas/catalog"
+import { getDefaultBuddyPersona } from "../../learning/personas/wiring/persona.orchestration"
 import { resolveBuddySystemPromptGuardPluginUrl } from "../../opencode-runtime"
 
 const BUDDY_RUNTIME_PERMISSION_OVERLAY: Config.Permission = {

@@ -3,6 +3,7 @@ import {
   isConfigValidationError,
   readProjectConfig,
 } from "@buddy/backend/config/runtime"
+import { isPersona } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import {
   TeachingWorkspaceFileError,
   TeachingRevisionConflictError,
@@ -15,8 +16,7 @@ import type {
   TeachingWorkspaceCreateFileRequest,
   TeachingWorkspaceUpdateRequest,
 } from "../../../capabilities/lesson-workspace/model/types"
-import { getBuddyPersona, getDefaultBuddyPersona } from "../../../personas/catalog"
-import { isPersona } from "../../../personas/types"
+import { getBuddyPersona, getDefaultBuddyPersona } from "../../../personas/wiring/persona.orchestration"
 
 export function resolveTeachingProvisionPersona(input: {
   config: Awaited<ReturnType<typeof readProjectConfig>>

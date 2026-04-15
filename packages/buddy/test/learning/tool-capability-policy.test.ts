@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { getBuddyPersona } from "../../src/learning/personas/catalog"
+import { getBuddyPersona } from "../../src/learning/personas/wiring/persona.orchestration"
 import { getLearningTool } from "../../src/learning/tools/tool-catalog"
 import {
   derivePersonaStaticLearningToolPermissions,

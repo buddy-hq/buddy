@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test"
 import { ConfigSchema } from "../../src/config/contract/schema"
-import { PERSONAS } from "../../src/learning/personas/types"
-import { BUILTIN_BUDDY_PERSONA_DEFINITIONS } from "../../src/learning/personas/definitions"
-import { BUILTIN_BUDDY_PERSONAS } from "../../src/learning/personas/registry"
-import { builtinBuddyPersonaAgents } from "../../src/learning/personas/runtime-agents"
+import { PERSONAS } from "../../src/learning/shared/teaching-vocabulary"
+import { BUILTIN_BUDDY_PERSONA_DEFINITIONS } from "../../src/learning/personas/wiring/persona.orchestration"
+import { BUILTIN_BUDDY_PERSONAS } from "../../src/learning/personas/wiring/persona.orchestration"
+import { builtinBuddyPersonaAgents } from "../../src/learning/personas/wiring/persona.orchestration"
 import { BUDDY_SUBAGENTS } from "../../src/learning/subagent-manifest"
 
 function sorted(values: string[]): string[] {

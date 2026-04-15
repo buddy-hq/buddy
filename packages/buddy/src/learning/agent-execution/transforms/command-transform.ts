@@ -1,5 +1,5 @@
 import { readProjectConfig } from "@buddy/backend/config/runtime"
-import { getBuddyPersona } from "../../personas/catalog"
+import { getBuddyPersona } from "../../personas/wiring/persona.orchestration"
 import {
   assertNoLegacyRuntimeOverrides,
   hasExplicitCommandModel,
