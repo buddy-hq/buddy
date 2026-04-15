@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { resolveCapabilityProfile } from "../../src/learning/resolve-capability-profile"
 import { LearnerService } from "../../src/learning/learner-model"
-import { buildLearningSystemPrompt } from "../../src/learning/prompt/learning-prompt"
+import { buildBuddyPromptEnvelope } from "../../src/learning/prompt/buddy-prompt-compiler"
 import { getBuddyPersona } from "../../src/learning/personas/wiring/persona.orchestration"
 import { withInstalledMockAdvancedMathRuntime } from "../helpers/advanced-math-runtime"
 import { tmpdir } from "../helpers/tmpdir"
@@ -10,8 +10,8 @@ async function buildRuntimePrompt(input: {
   directory: string
   persona: "buddy" | "code-buddy" | "math-buddy"
   intent?: "auto" | "learn" | "practice" | "assess"
-  teachingContext?: Parameters<typeof buildLearningSystemPrompt>[0]["teachingContext"]
-  resources?: Parameters<typeof buildLearningSystemPrompt>[0]["resources"]
+  teachingContext?: Parameters<typeof buildBuddyPromptEnvelope>[0]["teachingContext"]
+  resources?: Parameters<typeof buildBuddyPromptEnvelope>[0]["resources"]
 }) {
   const intent = input.intent ?? "auto"
   const workspaceState = input.teachingContext?.active ? "interactive" : "chat"
@@ -30,7 +30,7 @@ async function buildRuntimePrompt(input: {
     intent: intent,
   })
 
-  const { systemContext, turnReminder } = await buildLearningSystemPrompt({
+  const promptEnvelope = await buildBuddyPromptEnvelope({
     directory: input.directory,
     persona: profile.persona,
     capabilityEnvelope: profile.capabilityEnvelope,
@@ -40,7 +40,10 @@ async function buildRuntimePrompt(input: {
     resources: input.resources ?? [],
     teachingContext: input.teachingContext,
   })
-  return [systemContext, turnReminder].filter(Boolean).join("\n\n")
+  return [
+    promptEnvelope.systemContext,
+    ...promptEnvelope.userPreludeParts.map((part) => part.text),
+  ].join("\n\n")
 }
 
 describe("prompt assemblies", () => {

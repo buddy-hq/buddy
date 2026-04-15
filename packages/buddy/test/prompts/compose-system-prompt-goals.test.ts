@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { resolveCapabilityProfile } from "../../src/learning/resolve-capability-profile"
 import { LearnerService } from "../../src/learning/learner-model"
-import { buildLearningSystemPrompt } from "../../src/learning/prompt/learning-prompt"
+import { buildBuddyPromptEnvelope } from "../../src/learning/prompt/buddy-prompt-compiler"
 import { getBuddyPersona } from "../../src/learning/personas/wiring/persona.orchestration"
 import { tmpdir } from "../helpers/tmpdir"
 
@@ -42,7 +42,7 @@ describe("composeLearningSystemPrompt (learner store)", () => {
       intent: "learn",
     })
 
-    const { systemContext, turnReminder } = await buildLearningSystemPrompt({
+    const promptEnvelope = await buildBuddyPromptEnvelope({
       directory: project.path,
       persona: runtimeProfile.persona,
       capabilityEnvelope: runtimeProfile.capabilityEnvelope,
@@ -51,7 +51,10 @@ describe("composeLearningSystemPrompt (learner store)", () => {
       focusGoalIds: committed.goalIds,
       resources: [],
     })
-    const system = [systemContext, turnReminder].filter(Boolean).join("\n\n")
+    const system = [
+      promptEnvelope.systemContext,
+      ...promptEnvelope.userPreludeParts.map((part) => part.text),
+    ].join("\n\n")
 
     expect(system).toContain("<student_intent>")
     expect(system).toContain("<buddy_runtime_context>")
