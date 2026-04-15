@@ -108,7 +108,7 @@ function setupApplication() {
     killSidecar()
   })
 
-  for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"] as const) {
     process.on(signal, () => {
       killSidecar()
       app.exit(0)
