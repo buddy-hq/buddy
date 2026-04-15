@@ -184,4 +184,81 @@ describe("parity.agent", () => {
       ).toBe("deny")
     })
   })
+
+  test("derives persona task permissions from the persona catalog defaults", async () => {
+    await withRepo(async (directory) => {
+      const result = await withSyncedOpenCodeConfig(directory, async () => ({
+        buddyAgent: await OpenCodeAgent.get("buddy"),
+        codeBuddyAgent: await OpenCodeAgent.get("code-buddy"),
+        mathBuddyAgent: await OpenCodeAgent.get("math-buddy"),
+      }))
+
+      const buddyAgent = requireValue(result.buddyAgent, "buddy agent")
+      const codeBuddyAgent = requireValue(result.codeBuddyAgent, "code-buddy agent")
+      const mathBuddyAgent = requireValue(result.mathBuddyAgent, "math-buddy agent")
+
+      expect(
+        PermissionNext.evaluate("task", "curriculum-orchestrator", buddyAgent.permission).action,
+      ).toBe("allow")
+      expect(PermissionNext.evaluate("task", "practice-agent", buddyAgent.permission).action).toBe(
+        "deny",
+      )
+
+      expect(
+        PermissionNext.evaluate("task", "curriculum-orchestrator", codeBuddyAgent.permission)
+          .action,
+      ).toBe("deny")
+      expect(
+        PermissionNext.evaluate("task", "practice-agent", codeBuddyAgent.permission).action,
+      ).toBe("allow")
+      expect(
+        PermissionNext.evaluate("task", "question-set-author", codeBuddyAgent.permission).action,
+      ).toBe("allow")
+
+      expect(
+        PermissionNext.evaluate("task", "curriculum-orchestrator", mathBuddyAgent.permission)
+          .action,
+      ).toBe("deny")
+      expect(
+        PermissionNext.evaluate("task", "practice-agent", mathBuddyAgent.permission).action,
+      ).toBe("allow")
+      expect(
+        PermissionNext.evaluate("task", "assessment-agent", mathBuddyAgent.permission).action,
+      ).toBe("deny")
+    })
+  })
+
+  test("derives persona learning-tool permissions from canonical Buddy capability policy", async () => {
+    await withRepo(async (directory) => {
+      const result = await withSyncedOpenCodeConfig(directory, async () => ({
+        buddyAgent: await OpenCodeAgent.get("buddy"),
+        codeBuddyAgent: await OpenCodeAgent.get("code-buddy"),
+        readingBuddyAgent: await OpenCodeAgent.get("reading-buddy"),
+      }))
+
+      const buddyAgent = requireValue(result.buddyAgent, "buddy agent")
+      const codeBuddyAgent = requireValue(result.codeBuddyAgent, "code-buddy agent")
+      const readingBuddyAgent = requireValue(result.readingBuddyAgent, "reading-buddy agent")
+
+      expect(PermissionNext.evaluate("search_standards", "*", buddyAgent.permission).action).toBe(
+        "allow",
+      )
+      expect(
+        PermissionNext.evaluate("pedagogy_mastery_check", "*", codeBuddyAgent.permission).action,
+      ).toBe("allow")
+      expect(
+        PermissionNext.evaluate("python_calculator", "*", codeBuddyAgent.permission).action,
+      ).toBe("deny")
+      expect(
+        PermissionNext.evaluate("search_standards", "*", readingBuddyAgent.permission).action,
+      ).toBe("allow")
+      expect(
+        PermissionNext.evaluate(
+          "teaching_start_lesson",
+          "teaching/lesson.ts",
+          readingBuddyAgent.permission,
+        ).action,
+      ).toBe("deny")
+    })
+  })
 })
