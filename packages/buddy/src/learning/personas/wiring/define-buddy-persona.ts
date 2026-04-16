@@ -1,3 +1,4 @@
+import { definePromptTemplate } from "../../prompt/template/engine"
 import type { BuddyPermissionInput, CoreAgentDefinition } from "../../agent-factories"
 import BASE_PERSONA_PROMPT from "../prompts/base.p.md"
 
@@ -73,10 +74,12 @@ export function defineBuddyPersona<const Id extends string>(
     contextPolicy: { ...profile.contextPolicy },
     runtime: {
       ...runtime,
-      prompt: [BASE_PERSONA_PROMPT, runtime.prompt]
-        .map((part) => part.trim())
-        .filter((part) => part.length > 0)
-        .join("\n\n"),
+      prompt: definePromptTemplate({
+        source: BASE_PERSONA_PROMPT,
+        debugName: "base-persona-prompt",
+      }).render({
+        persona_overlay: runtime.prompt.trim(),
+      }),
       ...(runtime.description ? { description: runtime.description } : {}),
       ...(runtime.permission ? { permission: runtime.permission } : {}),
     },
