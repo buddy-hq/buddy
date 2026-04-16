@@ -19,6 +19,7 @@ import type {
 import {
   ANNOTATION_COLORS,
   ANNOTATION_COLOR_IDS,
+  ANNOTATION_COLOR_TOKENS,
   ANNOTATION_STYLE_HIGHLIGHT,
   ANNOTATION_STYLE_STRIKETHROUGH,
   ANNOTATION_STYLE_SQUIGGLY,
@@ -136,6 +137,26 @@ export function getSourceFormatLabel(source: FoliateReaderSource): string {
   const lastDot = lowerName.lastIndexOf(".")
   if (lastDot < 0 || lastDot === lowerName.length - 1) return "Book"
   return lowerName.slice(lastDot + 1).toUpperCase()
+}
+
+function hasPdfExtension(value: string): boolean {
+  const normalizedValue = value.split(/[?#]/, 1)[0] ?? value
+  return normalizedValue.toLowerCase().endsWith(".pdf")
+}
+
+export function isPdfSource(source: FoliateReaderSource | null): boolean {
+  if (!source) return false
+
+  switch (source.kind) {
+    case "file":
+      return source.file.type === "application/pdf" || hasPdfExtension(source.file.name)
+    case "blob":
+      return source.blob.type === "application/pdf" || hasPdfExtension(source.name)
+    case "url":
+      return (source.name ? hasPdfExtension(source.name) : false) || hasPdfExtension(source.url)
+    case "book":
+      return source.name ? hasPdfExtension(source.name) : false
+  }
 }
 
 export function toFoliateInput(source: FoliateReaderSource): string | Blob | File | FoliateBook {
@@ -293,6 +314,22 @@ export function getAnnotationColorValue(colorId: ReaderAnnotationColorId): strin
   return ANNOTATION_COLORS[colorId].value
 }
 
+export function resolveAnnotationColorValue(
+  colorId: ReaderAnnotationColorId,
+  element: HTMLElement | null,
+): string {
+  if (typeof window === "undefined") {
+    return getAnnotationColorValue(colorId)
+  }
+
+  const token = ANNOTATION_COLOR_TOKENS[colorId]
+  const computedValue = window
+    .getComputedStyle(element ?? document.documentElement)
+    .getPropertyValue(token)
+  const trimmedValue = computedValue.trim()
+  return trimmedValue || getAnnotationColorValue(colorId)
+}
+
 export function getAnnotationStyle(annotation: ReaderAnnotation): FoliateReaderAnnotationStyle {
   const { style } = annotation
   if (style === ANNOTATION_STYLE_UNDERLINE) return ANNOTATION_STYLE_UNDERLINE
@@ -397,7 +434,9 @@ export function getOverlayPosition(range: Range, container: HTMLElement): { x: n
 export async function copyText(value: string) {
   try {
     await navigator.clipboard.writeText(value)
+    return true
   } catch {}
+  return false
 }
 
 export function clamp(value: number, min: number, max: number): number {

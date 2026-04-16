@@ -202,6 +202,15 @@ export const ANNOTATION_COLORS: Record<ReaderAnnotationColorId, ReaderAnnotation
 
 export const ANNOTATION_COLOR_IDS: ReaderAnnotationColorId[] = ["amber", "mint", "sky", "rose"]
 
+export const DEFAULT_ANNOTATION_COLOR_ID: ReaderAnnotationColorId = "sky"
+
+export const ANNOTATION_COLOR_TOKENS: Record<ReaderAnnotationColorId, string> = {
+  amber: "--surface-warning-base",
+  mint: "--surface-success-base",
+  sky: "--surface-info-base",
+  rose: "--surface-critical-base",
+}
+
 export const ANNOTATION_STYLE_LABELS: Record<FoliateReaderAnnotationStyle, string> = {
   highlight: "Highlight",
   underline: "Underline",

@@ -1,9 +1,9 @@
 import {
   forwardRef,
   startTransition,
+  useCallback,
   useEffect,
   useImperativeHandle,
-  useId,
   useMemo,
   useRef,
   useState,
@@ -19,6 +19,7 @@ import {
   DropdownMenuTrigger,
   Separator,
   cn,
+  toast,
   // Icons from @buddy/ui
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -26,6 +27,8 @@ import {
   EllipsisIcon,
 } from "@buddy/ui"
 import {
+  BookOpenIcon,
+  CheckIcon,
   BookmarkIcon,
   LayoutPanelLeftIcon,
   Loader2Icon,
@@ -69,7 +72,6 @@ import type {
   FoliateReaderSource,
   FoliateReaderThemeId,
   ReaderAnnotation,
-  ReaderAnnotationColorId,
   ReaderAnnotationDialogState,
   ReaderAnnotationPopoverState,
   ReaderBookmark,
@@ -80,10 +82,10 @@ import type {
   ReaderShortcut,
 } from "./foliate-reader-types"
 import {
-  ANNOTATION_COLORS,
   ANNOTATION_STYLE_HIGHLIGHT,
   APPEARANCE_DARK,
   APPEARANCE_LIGHT,
+  DEFAULT_ANNOTATION_COLOR_ID,
   DEFAULT_AUTHOR,
   DEFAULT_PROGRESS_STEPS,
   DEFAULT_TITLE,
@@ -112,6 +114,7 @@ import {
   getSearchResultRows,
   getSourceFormatLabel,
   getSourceName,
+  isPdfSource,
   isEditingTarget,
   isReaderAnnotationColorId,
   readSelectedRange,
@@ -121,6 +124,22 @@ import {
   toFoliateInput,
 } from "./utils/foliate-helpers"
 import {
+  addPdfAnnotation,
+  addPdfAnnotationFromSelection,
+  clearPdfPageOverlays,
+  configurePdfFixedLayoutView,
+  deletePdfAnnotation,
+  PDF_VIEW_MODE_FIT,
+  PDF_VIEW_MODE_SCROLL,
+  PDF_VIEW_MODE_SPREAD,
+  preparePdfDocument,
+  registerPdfPageOverlay,
+  showPdfAnnotation,
+  syncPdfFixedLayoutView,
+  type FoliatePdfViewMode,
+  updatePdfFixedLayoutViewMode,
+} from "./utils/foliate-pdf-compat"
+import {
   buildBookPersistenceKey,
   loadBookState,
   loadGlobalPreferences,
@@ -129,7 +148,7 @@ import {
 } from "./utils/foliate-storage"
 import { applyReaderPreferences, getThemeDefinition } from "./utils/foliate-themes"
 import { drawAnnotation, toAnnotationDialogState } from "./utils/foliate-drawing"
-import { formatContributor, formatMetadataValue, toPercentLabel } from "./utils/foliate-formatters"
+import { formatContributor, formatMetadataValue } from "./utils/foliate-formatters"
 // Components already imported above
 
 ensureFoliateRuntimeCompat()
@@ -187,7 +206,6 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       onOpenExternalLink,
       onError,
     })
-    const sliderListId = useId()
     const [preferences, setPreferences] = useState(() =>
       loadGlobalPreferences(defaultTheme, defaultFlow),
     )
@@ -197,7 +215,6 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     const [location, setLocation] = useState<FoliateReaderLocation>({})
     const [error, setError] = useState<Error | null>(null)
     const [historyState, setHistoryState] = useState({ canGoBack: false, canGoForward: false })
-    const [sectionFractions, setSectionFractions] = useState<number[]>([])
     const [bookKey, setBookKey] = useState<string | null>(null)
     const [bookmarks, setBookmarks] = useState<ReaderBookmark[]>([])
     const [annotations, setAnnotations] = useState<ReaderAnnotation[]>([])
@@ -224,6 +241,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     const [locationDialogOpen, setLocationDialogOpen] = useState(false)
     const [locationDraft, setLocationDraft] = useState("")
     const [progressDraft, setProgressDraft] = useState<number | null>(null)
+    const [pdfViewMode, setPdfViewMode] = useState<FoliatePdfViewMode>(PDF_VIEW_MODE_FIT)
 
     const preferencesRef = useRef(preferences)
     const effectiveAppearanceRef = useRef(effectiveAppearance)
@@ -231,6 +249,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     const bookmarksRef = useRef(bookmarks)
     const searchStateRef = useRef(searchState)
     const annotationDialogRef = useRef(annotationDialog)
+    const pdfViewModeRef = useRef(pdfViewMode)
 
     const sourceDependencyKey = buildSourceDependencyKey(source)
     const initialLocationDependencyKey = buildNavigationTargetDependencyKey(initialLocation)
@@ -258,8 +277,10 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
 
     const stableSource = stableSourceRef.current.value
     const stableInitialLocation = stableInitialLocationRef.current.value
+    const sourceIsPdf = isPdfSource(stableSource)
     const theme = getThemeDefinition(preferences.themeId)
     const canChangeFlow = snapshot ? !snapshot.isFixedLayout : false
+    const canChangePdfView = sourceIsPdf && (snapshot?.isFixedLayout ?? false)
     const currentBookmark = useMemo(
       () => getBookmarkAtLocation(bookmarks, location.cfi),
       [bookmarks, location.cfi],
@@ -279,6 +300,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     bookmarksRef.current = bookmarks
     searchStateRef.current = searchState
     annotationDialogRef.current = annotationDialog
+    pdfViewModeRef.current = pdfViewMode
 
     useImperativeHandle(
       ref,
@@ -304,6 +326,12 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     )
 
     useEffect(() => {
+      if (sourceIsPdf) {
+        setPdfViewMode(PDF_VIEW_MODE_FIT)
+      }
+    }, [sourceDependencyKey, sourceIsPdf])
+
+    useEffect(() => {
       const root = rootRef.current
       if (!root) return
 
@@ -317,6 +345,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
           preferencesRef.current,
           effectiveAppearanceRef.current,
         )
+        if (sourceIsPdf && view.isFixedLayout) syncPdfFixedLayoutView(view, pdfViewMode)
         syncMarginals(view, snapshotRef.current, locationRef.current)
       }
 
@@ -329,7 +358,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       return () => {
         resizeObserver?.disconnect()
       }
-    }, [])
+    }, [pdfViewMode, sourceIsPdf])
 
     useEffect(() => {
       if (preferences.appearanceMode === APPEARANCE_LIGHT) {
@@ -354,8 +383,9 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       const view = viewRef.current
       if (!view) return
       applyReaderPreferences(view, theme, preferences, effectiveAppearance)
+      if (sourceIsPdf && view.isFixedLayout) syncPdfFixedLayoutView(view, pdfViewMode)
       syncMarginals(view, snapshotRef.current, locationRef.current)
-    }, [effectiveAppearance, preferences, theme])
+    }, [effectiveAppearance, pdfViewMode, preferences, sourceIsPdf, theme])
 
     useEffect(() => {
       if (!bookKey) return
@@ -413,6 +443,17 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       setAnnotationPopover(null)
       setAnnotationDialog(null)
       setProgressDraft(null)
+    }
+
+    async function changePdfViewMode(nextMode: FoliatePdfViewMode) {
+      setPdfViewMode(nextMode)
+
+      const view = viewRef.current
+      if (!sourceIsPdf || !view || !view.isFixedLayout) return
+
+      resetTransientUi()
+      const target = locationRef.current.cfi ?? locationRef.current.index ?? 0
+      await updatePdfFixedLayoutViewMode(view, nextMode, target)
     }
 
     async function resetSearch(view = viewRef.current) {
@@ -516,25 +557,36 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       }
     }
 
-    async function hydrateAnnotations(
-      view: FoliateView,
-      nextAnnotations: ReaderAnnotation[],
-      onlyIndex?: number,
-    ) {
-      for (const annotation of nextAnnotations) {
-        if (typeof onlyIndex === "number" && annotation.index !== onlyIndex) continue
-        const info = await view.addAnnotation(annotation)
-        if (!info) continue
-        if (annotation.index === info.index && annotation.label === info.label) continue
-        setAnnotations((current) =>
-          current.map((entry) =>
-            entry.value === annotation.value
-              ? { ...entry, index: info.index, label: info.label }
-              : entry,
-          ),
-        )
-      }
-    }
+    const hydrateAnnotations = useCallback(
+      async (view: FoliateView, nextAnnotations: ReaderAnnotation[], onlyIndex?: number) => {
+        for (const annotation of nextAnnotations) {
+          if (typeof onlyIndex === "number" && annotation.index !== onlyIndex) continue
+          let info
+          try {
+            info =
+              sourceIsPdf && view.isFixedLayout
+                ? await addPdfAnnotation(view, annotation)
+                : await view.addAnnotation(annotation)
+          } catch (error) {
+            console.warn("Failed to hydrate reader annotation", {
+              annotation,
+              error,
+            })
+            continue
+          }
+          if (!info) continue
+          if (annotation.index === info.index && annotation.label === info.label) continue
+          setAnnotations((current) =>
+            current.map((entry) =>
+              entry.value === annotation.value
+                ? { ...entry, index: info.index, label: info.label }
+                : entry,
+            ),
+          )
+        }
+      },
+      [sourceIsPdf],
+    )
 
     function updateHistoryState(view: FoliateView) {
       setHistoryState({
@@ -552,6 +604,15 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
         x: action.x,
         y: action.y,
       })
+    }
+
+    function openAnnotationSurface(value: string, range: Range) {
+      const annotation = getAnnotationAtValue(annotationsRef.current, value)
+      if (annotation?.note?.trim()) {
+        openAnnotationDialog(annotation)
+        return
+      }
+      openAnnotationPopover(value, range)
     }
 
     function openAnnotationPopover(value: string, range: Range) {
@@ -578,11 +639,43 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
           text: selectionAction?.text ?? "",
           note: "",
           style: ANNOTATION_STYLE_HIGHLIGHT,
-          color: "amber",
+          color: DEFAULT_ANNOTATION_COLOR_ID,
         })
       }
       setSelectionToolbar(null)
       setAnnotationPopover(null)
+    }
+
+    function dismissSelectionToolbar(clearSelection: boolean) {
+      if (clearSelection) {
+        selectionActionRef.current = null
+        viewRef.current?.deselect()
+      }
+      setSelectionToolbar(null)
+    }
+
+    async function handleCopySelection(text: string) {
+      const copied = await copyText(text)
+      dismissSelectionToolbar(copied)
+      if (copied) {
+        toast.success("Copied to clipboard")
+      } else {
+        toast.error("Unable to copy to clipboard")
+      }
+    }
+
+    async function showAnnotation(annotation: ReaderAnnotation) {
+      const view = viewRef.current
+      if (!view) return
+      if (sourceIsPdf && view.isFixedLayout) {
+        const range = await showPdfAnnotation(view, annotation)
+        if (range) openAnnotationSurface(annotation.value, range)
+        return
+      }
+      await view.showAnnotation(annotation)
+      if (annotation.note?.trim()) {
+        openAnnotationDialog(annotation)
+      }
     }
 
     async function createOrUpdateAnnotation(nextDialog: ReaderAnnotationDialogState) {
@@ -602,7 +695,15 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
           created: now,
           modified: now,
         }
-        const info = await view.addAnnotation(annotation)
+        const info =
+          sourceIsPdf && view.isFixedLayout
+            ? (addPdfAnnotationFromSelection({
+                view,
+                annotation,
+                index: selectionAction.index,
+                range: selectionAction.range,
+              }) ?? (await addPdfAnnotation(view, annotation)))
+            : await view.addAnnotation(annotation)
         if (info) {
           annotation.index = info.index
           annotation.label = info.label
@@ -611,7 +712,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
           [...current, annotation].sort((a, b) => a.value.localeCompare(b.value)),
         )
         setAnnotationDialog(null)
-        setSelectionToolbar(null)
+        dismissSelectionToolbar(true)
         return
       }
 
@@ -624,8 +725,15 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
         color: getAnnotationColorValue(nextDialog.color),
         modified: new Date().toISOString(),
       }
-      await view.deleteAnnotation(existing)
-      const info = await view.addAnnotation(updated)
+      if (sourceIsPdf && view.isFixedLayout) {
+        await deletePdfAnnotation(view, existing)
+      } else {
+        await view.deleteAnnotation(existing)
+      }
+      const info =
+        sourceIsPdf && view.isFixedLayout
+          ? await addPdfAnnotation(view, updated)
+          : await view.addAnnotation(updated)
       if (info) {
         updated.index = info.index
         updated.label = info.label
@@ -641,7 +749,11 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       const view = viewRef.current
       const annotation = getAnnotationAtValue(annotations, value)
       if (!view || !annotation) return
-      await view.deleteAnnotation(annotation)
+      if (sourceIsPdf && view.isFixedLayout) {
+        await deletePdfAnnotation(view, annotation)
+      } else {
+        await view.deleteAnnotation(annotation)
+      }
       setAnnotations((current) => current.filter((entry) => entry.value !== value))
       setAnnotationDialog(null)
       setAnnotationPopover(null)
@@ -762,6 +874,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       if (!host) return
 
       cleanupView(viewRef.current, coverUrlRef.current)
+      clearPdfPageOverlays(viewRef.current)
       viewRef.current = null
       coverUrlRef.current = undefined
       host.replaceChildren()
@@ -779,7 +892,6 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
         setBookmarks([])
         setAnnotations([])
         setHistoryState({ canGoBack: false, canGoForward: false })
-        setSectionFractions([])
         setError(null)
         return
       }
@@ -793,7 +905,6 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       setError(null)
       setBookmarks([])
       setAnnotations([])
-      setSectionFractions([])
       setHistoryState({ canGoBack: false, canGoForward: false })
 
       void (async () => {
@@ -830,36 +941,65 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
           const showAnnotationListener = (
             event: CustomEvent<{ value: string; index: number; range: Range }>,
           ) => {
-            openAnnotationPopover(event.detail.value, event.detail.range)
+            openAnnotationSurface(event.detail.value, event.detail.range)
           }
 
           const historyListener = () => updateHistoryState(view)
 
           const loadListener = (event: CustomEvent<{ doc: Document; index: number }>) => {
+            const isPdfDocument = sourceIsPdf && view.isFixedLayout
             event.detail.doc.addEventListener("pointerdown", () => {
               // Dispatch a pointerdown event on the main document to trigger dismissal
               // of popovers and other floating UI that listen for outside interactions.
               document.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }))
             })
+            if (isPdfDocument) {
+              preparePdfDocument(event.detail.doc)
+            }
             event.detail.doc.addEventListener("pointerup", () => {
-              const selection = event.detail.doc.getSelection()
-              const range = readSelectedRange(selection)
-              const container = rootRef.current
-              if (!range || !container) {
-                resetTransientUi()
-                return
+              const readSelection = () => {
+                const selection = event.detail.doc.getSelection()
+                const range = readSelectedRange(selection)
+                const container = rootRef.current
+                if (!range || !container) {
+                  resetTransientUi()
+                  return
+                }
+                event.detail.doc.addEventListener(
+                  "click",
+                  (clickEvent) => clickEvent.stopPropagation(),
+                  {
+                    capture: true,
+                    once: true,
+                  },
+                )
+                const position = getOverlayPosition(range, container)
+                openSelectionToolbar({
+                  index: event.detail.index,
+                  range,
+                  cfi: view.getCFI(event.detail.index, range),
+                  text: selection?.toString().trim() ?? "",
+                  x: position.x,
+                  y: position.y,
+                })
               }
-              const position = getOverlayPosition(range, container)
-              openSelectionToolbar({
-                index: event.detail.index,
-                range,
-                cfi: view.getCFI(event.detail.index, range),
-                text: selection?.toString().trim() ?? "",
-                x: position.x,
-                y: position.y,
-              })
+
+              if (typeof requestAnimationFrame === "function") {
+                requestAnimationFrame(readSelection)
+              } else {
+                readSelection()
+              }
             })
             event.detail.doc.addEventListener("keydown", (keyEvent) => handleShortcut(keyEvent))
+            if (sourceIsPdf && view.isFixedLayout) {
+              registerPdfPageOverlay({
+                view,
+                doc: event.detail.doc,
+                index: event.detail.index,
+                onShowAnnotation: openAnnotationSurface,
+              })
+              void hydrateAnnotations(view, annotationsRef.current, event.detail.index)
+            }
           }
 
           view.addEventListener("relocate", relocateListener)
@@ -872,6 +1012,9 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
 
           await view.open(toFoliateInput(stableSource))
           if (cancelled) return
+          if (sourceIsPdf && view.isFixedLayout) {
+            configurePdfFixedLayoutView(view, pdfViewModeRef.current)
+          }
 
           const nextBookKey = buildBookPersistenceKey(stableSource, view.book)
           const persisted = loadBookState(nextBookKey)
@@ -885,11 +1028,32 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
           )
           const coverUrlPromise = resolveCoverUrl(view.book)
 
-          await view.init({
-            lastLocation: stableInitialLocation ?? persisted.lastLocation,
-            showTextStart:
-              stableInitialLocation === undefined && persisted.lastLocation === undefined,
-          })
+          const requestedLastLocation = stableInitialLocation ?? persisted.lastLocation
+          const shouldShowTextStart =
+            stableInitialLocation === undefined && persisted.lastLocation === undefined
+
+          try {
+            await view.init({
+              lastLocation: requestedLastLocation,
+              showTextStart: shouldShowTextStart,
+            })
+          } catch (error) {
+            if (
+              requestedLastLocation !== undefined &&
+              stableInitialLocation === undefined &&
+              persisted.lastLocation !== undefined
+            ) {
+              console.warn("Failed to restore persisted reader location; reopening without it", {
+                error,
+                lastLocation: persisted.lastLocation,
+              })
+              await view.init({
+                showTextStart: true,
+              })
+            } else {
+              throw error
+            }
+          }
 
           const coverUrl = await coverUrlPromise
           if (cancelled) {
@@ -930,7 +1094,6 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
             setStatus("ready")
           })
 
-          setSectionFractions(view.getSectionFractions())
           updateHistoryState(view)
           syncMarginals(view, nextSnapshot, nextLocation)
           await hydrateAnnotations(view, persisted.annotations)
@@ -939,6 +1102,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
         } catch (caughtError) {
           if (cancelled) return
           cleanupView(viewRef.current, coverUrlRef.current)
+          clearPdfPageOverlays(viewRef.current)
           viewRef.current = null
           coverUrlRef.current = undefined
           host.replaceChildren()
@@ -952,11 +1116,12 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       return () => {
         cancelled = true
         cleanupView(viewRef.current, coverUrlRef.current)
+        clearPdfPageOverlays(viewRef.current)
         viewRef.current = null
         coverUrlRef.current = undefined
         host.replaceChildren()
       }
-    }, [stableInitialLocation, stableSource])
+    }, [hydrateAnnotations, sourceIsPdf, stableInitialLocation, stableSource])
 
     const progressValue =
       progressDraft ?? Math.round((location.fraction ?? 0) * DEFAULT_PROGRESS_STEPS)
@@ -998,7 +1163,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
 
               <FoliateAnnotationsPopover
                 annotations={annotations}
-                onShowAnnotation={(ann) => void viewRef.current?.showAnnotation(ann)}
+                onShowAnnotation={(ann) => void showAnnotation(ann)}
                 onOpenAnnotationDialog={openAnnotationDialog}
                 onDeleteAnnotation={(val) => void deleteAnnotationValue(val)}
               />
@@ -1080,7 +1245,45 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
                     Location and jumps
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  {canChangeFlow ? (
+                  {canChangePdfView ? (
+                    <>
+                      <DropdownMenuItem onClick={() => void changePdfViewMode(PDF_VIEW_MODE_FIT)}>
+                        <CheckIcon
+                          className={cn(
+                            "mr-2 size-4",
+                            pdfViewMode === PDF_VIEW_MODE_FIT ? "opacity-100" : "opacity-0",
+                          )}
+                        />
+                        <LayoutPanelLeftIcon className="mr-2 size-4" />
+                        Fit page
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => void changePdfViewMode(PDF_VIEW_MODE_SCROLL)}
+                      >
+                        <CheckIcon
+                          className={cn(
+                            "mr-2 size-4",
+                            pdfViewMode === PDF_VIEW_MODE_SCROLL ? "opacity-100" : "opacity-0",
+                          )}
+                        />
+                        <ScrollTextIcon className="mr-2 size-4" />
+                        Scroll page
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => void changePdfViewMode(PDF_VIEW_MODE_SPREAD)}
+                      >
+                        <CheckIcon
+                          className={cn(
+                            "mr-2 size-4",
+                            pdfViewMode === PDF_VIEW_MODE_SPREAD ? "opacity-100" : "opacity-0",
+                          )}
+                        />
+                        <BookOpenIcon className="mr-2 size-4" />
+                        Two-page spread
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  ) : canChangeFlow ? (
                     <>
                       <DropdownMenuItem
                         onClick={() => setPreferences((c) => ({ ...c, flow: FLOW_PAGINATED }))}
@@ -1134,7 +1337,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
 
           <FoliateSelectionToolbar
             selectionAction={selectionToolbar}
-            onCopyText={(text: string) => void copyText(text)}
+            onCopyText={(text: string) => void handleCopySelection(text)}
             onHighlight={() => {
               const action = selectionActionRef.current
               if (!action) return
@@ -1144,12 +1347,22 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
                 text: action.text,
                 note: "",
                 style: ANNOTATION_STYLE_HIGHLIGHT,
-                color: ANNOTATION_COLORS.amber.value,
+                color: getAnnotationColorValue(DEFAULT_ANNOTATION_COLOR_ID),
                 created: now,
                 modified: now,
               }
               void (async () => {
-                const info = await viewRef.current?.addAnnotation(annotation)
+                const view = viewRef.current
+                const info = !view
+                  ? undefined
+                  : sourceIsPdf && view.isFixedLayout
+                    ? (addPdfAnnotationFromSelection({
+                        view,
+                        annotation,
+                        index: action.index,
+                        range: action.range,
+                      }) ?? (await addPdfAnnotation(view, annotation)))
+                    : await view.addAnnotation(annotation)
                 if (info) {
                   annotation.index = info.index
                   annotation.label = info.label
@@ -1157,7 +1370,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
                 setAnnotations((current) =>
                   [...current, annotation].sort((a, b) => a.value.localeCompare(b.value)),
                 )
-                setSelectionToolbar(null)
+                dismissSelectionToolbar(true)
               })()
             }}
             onOpenAnnotationDialog={() => openAnnotationDialog()}

@@ -1,5 +1,9 @@
 declare module "foliate-js/view.js" {
   export type FoliateNavigationTarget = string | number | { fraction: number }
+  export type FoliateResolvedNavigation = {
+    index: number
+    anchor?: (doc: Document) => Element | Range | null
+  }
 
   export type FoliateLocalizedText = string | Record<string, string>
 
@@ -82,11 +86,12 @@ declare module "foliate-js/view.js" {
   export type FoliateRenderer = HTMLElement & {
     heads?: HTMLElement[] | null
     feet?: HTMLElement[] | null
+    open: (book: FoliateBook) => void
     setStyles?: (styles: string) => void
     prev: (distance?: number) => Promise<void>
     next: (distance?: number) => Promise<void>
     goTo: (target: unknown) => Promise<void>
-    getContents: () => Array<{ index: number; doc: Document }>
+    getContents: () => Array<{ index?: number; doc: Document; overlayer?: unknown }>
   }
 
   export type FoliateRelocationDetail = {
@@ -194,7 +199,10 @@ declare module "foliate-js/view.js" {
       pageItem?: FoliateTocItem | null
     }
     getTOCItemOf(target: FoliateNavigationTarget): Promise<FoliateTocItem | undefined>
-    goTo(target: FoliateNavigationTarget): Promise<{ index: number } | undefined>
+    resolveNavigation(
+      target: FoliateNavigationTarget,
+    ): FoliateResolvedNavigation | Promise<FoliateResolvedNavigation | undefined>
+    goTo(target: FoliateNavigationTarget): Promise<FoliateResolvedNavigation | undefined>
     goToFraction(fraction: number): Promise<void>
     select(target: FoliateNavigationTarget): Promise<void>
     deselect(): void
@@ -290,4 +298,19 @@ declare module "foliate-js/view.js" {
   export class ResponseError extends Error {}
   export class NotFoundError extends Error {}
   export class UnsupportedTypeError extends Error {}
+}
+
+declare module "foliate-js/overlayer.js" {
+  export class Overlayer {
+    element: SVGSVGElement
+    add(
+      key: string,
+      range: Range,
+      draw: (rects: DOMRectList, options?: Record<string, unknown>) => SVGElement,
+      options?: Record<string, unknown>,
+    ): void
+    remove(key: string): void
+    redraw(): void
+    hitTest(point: { x: number; y: number }): [string | undefined, Range | undefined]
+  }
 }
