@@ -478,11 +478,34 @@ export function cleanupView(view: FoliateView | null, coverUrl: string | undefin
     return
   }
 
-  const book = view.book
-  view.close()
-  view.remove()
+  // Release the cover URL immediately
   releaseObjectUrl(coverUrl)
-  Promise.resolve(book?.destroy?.()).catch(() => {})
+
+  const book = view.book
+  try {
+    // Foliate's view.close() can sometimes fail if called before the view is fully ready
+    // or during rapid unmounts when internals are nullified.
+    if (typeof view.close === "function") {
+      view.close()
+    }
+  } catch (error) {
+    console.warn("Foliate view.close() failed during cleanup", error)
+  }
+
+  try {
+    if (typeof view.remove === "function") {
+      view.remove()
+    }
+  } catch (error) {
+    // Ignore removal errors
+  }
+
+  // Destroy the book/source reference if it exists
+  if (book && typeof book.destroy === "function") {
+    Promise.resolve(book.destroy()).catch((error) => {
+      console.warn("Foliate book.destroy() failed during cleanup", error)
+    })
+  }
 }
 
 export function createError(error: unknown): Error {
