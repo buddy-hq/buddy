@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from "react"
+import { motion } from "motion/react"
+import { useSearch } from "@tanstack/react-router"
 import { useDropzone, type DropEvent } from "react-dropzone"
 import {
   Badge,
@@ -567,6 +569,21 @@ function ResourceStatusIndicator({
 
 export function ChatLeftSidebarResourcesSection(props: ChatLeftSidebarResourcesSectionProps) {
   const { directory, onOpenResource, refreshToken } = props
+  const search = useSearch({ strict: false }) as { path?: string }
+  const readingPath = search.path
+  const [stickyReadingPath, setStickyReadingPath] = useState<string | undefined>(readingPath)
+
+  useEffect(() => {
+    if (readingPath) {
+      setStickyReadingPath(readingPath)
+    } else {
+      const timer = setTimeout(() => {
+        setStickyReadingPath(undefined)
+      }, 500)
+      return () => clearTimeout(timer)
+    }
+  }, [readingPath])
+
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | undefined>(undefined)
   const [resources, setResources] = useState<ResourceListItem[]>(() => {
@@ -825,12 +842,16 @@ export function ChatLeftSidebarResourcesSection(props: ChatLeftSidebarResourcesS
             const isBusy = busyKeys.has(resource.key)
             const canProcess =
               !!processLabel && (resource.status !== "ready" || !!resource.resourceID)
+            const isReading = stickyReadingPath === resource.path
             const displayName = resource.title || resource.name
 
             return (
               <ContextMenu key={resource.key}>
                 <ContextMenuTrigger asChild>
-                  <div className="relative flex overflow-hidden rounded-xl border border-border-weaker-base bg-surface-base aspect-[3/4]">
+                  <motion.div
+                    layoutId={isReading ? "resource-view" : undefined}
+                    className="relative flex overflow-hidden rounded-xl border border-border-weaker-base bg-surface-base aspect-[3/4]"
+                  >
                     <button
                       type="button"
                       onClick={() =>
@@ -858,7 +879,7 @@ export function ChatLeftSidebarResourcesSection(props: ChatLeftSidebarResourcesS
                     <div className="absolute right-2 bottom-2 z-10">
                       <ResourceHoverPopover resource={resource} displayName={displayName} />
                     </div>
-                  </div>
+                  </motion.div>
                 </ContextMenuTrigger>
                 <ContextMenuContent className="w-48">
                   {canProcess && processLabel ? (
