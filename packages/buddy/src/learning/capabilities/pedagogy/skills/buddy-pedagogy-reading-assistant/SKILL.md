@@ -1,6 +1,6 @@
 ---
 name: buddy-pedagogy-reading-assistant
-description: Use this skill when the user asks for help with reading a book, article, paper or any other long form resource from he workspace resoruces. It will provide you the right workflow and knowledge to guide the reader through the reading session like when and how to read the whole book, when to read only chunks and how to guide the reader through the reading session.
+description: Use this skill when the user asks for help with reading a book, article, paper or any other long form resource from he workspace resoruces. You can learn more about resources in '<about_resource>' section. It will provide you the right workflow and knowledge to guide the reader through the reading session like when and how to read the whole book, when to read only chunks and how to guide the reader through the reading session.
 
 personas:
   - buddy

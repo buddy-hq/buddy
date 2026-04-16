@@ -11,6 +11,7 @@ import {
 } from "../../../../../resource-packs"
 import { listRegisteredResources } from "../../../../../resources/resource-registry-service"
 import { createBuddyTool } from "../../../../tools/create-buddy-tool"
+import dedent from "dedent"
 
 const MINIMUM_SPARE_AFTER_INGESTION_TOKENS = 100_000
 const MINIMUM_OUTPUT_RESERVE_TOKENS = 8_000
@@ -186,7 +187,13 @@ export const pedagogyResourceIngestFullTextTool = createBuddyTool(
   "pedagogy_resource_ingest_full_text",
   {
     description:
-      "Load a resource's prepared full text into context after checking live session headroom against the active model limits.",
+      dedent`
+      Load a resource's prepared full text into context after checking live session headroom against the active model limits.
+
+      The description of what a resource is in \`<about_resource>\` section.
+
+      Used when user is reading a book, a resource, or is asking quesions regarding a book and a resource.   
+      `,
     parameters: ResourceIngestFullTextParameters,
     async execute(params, ctx) {
       await ctx.ask({
