@@ -774,7 +774,7 @@ export function useDirectoryChatPageController(
   }
 
   function openSettingsPanel() {
-    navigate({ to: "/settings", search: { tab: "instructions" } })
+    navigate({ to: "/settings", search: { tab: "general" } })
   }
 
   function openResourceInReadingMode(targetDirectory: string, resource: SidebarResourceTarget) {
