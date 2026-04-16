@@ -13,6 +13,39 @@ export function createSvgElement(tag: string) {
   return document.createElementNS("http://www.w3.org/2000/svg", tag)
 }
 
+export function addNoteMarker(group: SVGElement, rects: DOMRectList, color: string) {
+  const firstRect = Array.from(rects)[0]
+  if (!firstRect) return group
+
+  const radius = Math.max(6, Math.min(8, firstRect.height * 0.32))
+  const centerX = Math.min(
+    firstRect.right - radius - 2,
+    firstRect.left + Math.max(radius + 2, firstRect.width * 0.12),
+  )
+  const centerY = Math.min(
+    firstRect.bottom - radius - 2,
+    firstRect.top + Math.max(radius + 2, firstRect.height * 0.34),
+  )
+
+  const badge = createSvgElement("circle")
+  badge.setAttribute("cx", `${centerX}`)
+  badge.setAttribute("cy", `${centerY}`)
+  badge.setAttribute("r", `${radius}`)
+  badge.setAttribute("fill", color)
+  badge.setAttribute("stroke", "rgba(255,255,255,0.92)")
+  badge.setAttribute("stroke-width", "1.5")
+  group.append(badge)
+
+  const dot = createSvgElement("circle")
+  dot.setAttribute("cx", `${centerX}`)
+  dot.setAttribute("cy", `${centerY}`)
+  dot.setAttribute("r", `${Math.max(2, radius * 0.24)}`)
+  dot.setAttribute("fill", "rgba(255,255,255,0.96)")
+  group.append(dot)
+
+  return group
+}
+
 export function drawHighlight(rects: DOMRectList, color: string) {
   const group = createSvgElement("g")
   group.setAttribute("fill", color)
@@ -103,13 +136,22 @@ export function drawAnnotation(event: CustomEvent<FoliateDrawAnnotationEventDeta
   const writingMode = event.detail.doc.defaultView?.getComputedStyle(
     event.detail.range.startContainer.parentElement ?? event.detail.doc.body,
   ).writingMode
+  const hasNote = typeof annotation.note === "string" && annotation.note.trim().length > 0
 
   if (style === ANNOTATION_STYLE_HIGHLIGHT) {
-    event.detail.draw((rects) => drawHighlight(rects, color))
+    event.detail.draw((rects) => {
+      const group = drawHighlight(rects, color)
+      if (hasNote) addNoteMarker(group, rects, color)
+      return group
+    })
     return
   }
 
-  event.detail.draw((rects) => drawLinearMark(rects, color, writingMode ?? "", style))
+  event.detail.draw((rects) => {
+    const group = drawLinearMark(rects, color, writingMode ?? "", style)
+    if (hasNote) addNoteMarker(group, rects, color)
+    return group
+  })
 }
 
 export function toAnnotationDialogState(annotation?: ReaderAnnotation): {
