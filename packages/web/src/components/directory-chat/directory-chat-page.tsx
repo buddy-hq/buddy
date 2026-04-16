@@ -4,17 +4,14 @@ import { DirectoryChatConversationPane } from "@/components/directory-chat/direc
 import { useDirectoryNotebookRouteContext } from "@/components/directory-chat/directory-notebook-route-context"
 import { DirectoryChatRightSidebar } from "@/components/directory-chat/directory-chat-right-sidebar"
 import { DirectoryChatShell } from "@/components/directory-chat/directory-chat-shell"
+import { DirectoryInvalidNotebook } from "./directory-invalid-notebook"
 import { language } from "@/context/language"
 
 export function DirectoryChatPage() {
   const { controller } = useDirectoryNotebookRouteContext()
 
   if (controller.status === "invalid") {
-    return (
-      <div data-component="directory-chat-invalid" className="p-6">
-        {language.t("directoryChat.invalidNotebookIdentifier")}
-      </div>
-    )
+    return <DirectoryInvalidNotebook />
   }
 
   if (controller.status === "opening") {

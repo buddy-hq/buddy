@@ -1,8 +1,6 @@
-import { useNavigate } from "@tanstack/react-router"
 import { useEffect, useRef, useState } from "react"
+import { DirectoryInvalidNotebook } from "./directory-invalid-notebook"
 import {
-  Button,
-  ChevronLeftIcon,
   ResizeHandle,
   ResizablePanel,
   ResizablePanelGroup,
@@ -45,8 +43,7 @@ function getReadingChatPanelMaxWidth() {
 }
 
 export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
-  const navigate = useNavigate()
-  const { controller, directoryToken } = useDirectoryNotebookRouteContext()
+  const { controller } = useDirectoryNotebookRouteContext()
   const normalizedPath = normalizeRelativePath(props.resourcePath)
   const resourceName = fileNameFromPath(normalizedPath) || language.t("sidebar.resources")
   const readyDirectory =
@@ -150,11 +147,7 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
   }, [normalizedPath, readyDirectory, resourceName, resourceRecord, setActiveReadingResource])
 
   if (controller.status === "invalid") {
-    return (
-      <div data-component="directory-chat-reading-invalid" className="p-6">
-        {language.t("directoryChat.invalidNotebookIdentifier")}
-      </div>
-    )
+    return <DirectoryInvalidNotebook />
   }
 
   if (controller.status === "opening") {
@@ -174,29 +167,7 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
       data-component="directory-chat-reading-page"
       className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-surface-raised-base"
     >
-      <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border-weaker-base bg-background-base/80 px-3">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label={language.t("sidebar.resourcesBackToChat")}
-          title={language.t("sidebar.resourcesBackToChat")}
-          onClick={() => {
-            void navigate({
-              to: "/$directory/chat",
-              params: {
-                directory: directoryToken,
-              },
-            })
-          }}
-        >
-          <ChevronLeftIcon className="size-4" />
-        </Button>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-text-base">{resourceName}</p>
-          <p className="truncate text-[11px] text-text-weak">{normalizedPath}</p>
-        </div>
-      </header>
+
 
       <ResizablePanelGroup
         id={READING_LAYOUT_ID}
