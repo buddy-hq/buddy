@@ -32,9 +32,12 @@ async function buildRuntimePrompt(input: {
 
   const promptEnvelope = await buildBuddyPromptEnvelope({
     directory: input.directory,
+    sessionID: "test_prompt",
     persona: profile.persona,
     capabilityEnvelope: profile.capabilityEnvelope,
+    visibleSurfaces: profile.capabilityEnvelope.visibleSurfaces,
     intent,
+    workspaceState,
     learnerSnapshot: snapshot,
     focusGoalIds: [],
     resources: input.resources ?? [],

@@ -44,9 +44,12 @@ describe("composeLearningSystemPrompt (learner store)", () => {
 
     const promptEnvelope = await buildBuddyPromptEnvelope({
       directory: project.path,
+      sessionID: "test_prompt",
       persona: runtimeProfile.persona,
       capabilityEnvelope: runtimeProfile.capabilityEnvelope,
+      visibleSurfaces: runtimeProfile.capabilityEnvelope.visibleSurfaces,
       intent: "learn",
+      workspaceState: "chat",
       learnerSnapshot: snapshot,
       focusGoalIds: committed.goalIds,
       resources: [],

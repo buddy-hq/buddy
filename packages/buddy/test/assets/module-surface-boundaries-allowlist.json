@@ -11,7 +11,6 @@
   "src/learning/intents/get-intent-prompt.ts -> ../shared/teaching-vocabulary (src/learning/shared/teaching-vocabulary.ts)",
   "src/learning/prompt/message-prompt-pipeline.ts -> ../shared/targeting (src/learning/shared/targeting.ts)",
   "src/learning/prompt/message-prompt-pipeline.ts -> ../shared/teaching-session-state (src/learning/shared/teaching-session-state.ts)",
-  "src/learning/prompt/contracts.ts -> ../shared/runtime-types (src/learning/shared/runtime-types.ts)",
   "src/learning/resolve-capability-profile.ts -> ./shared/runtime-types (src/learning/shared/runtime-types.ts)",
   "src/session/orchestration/interaction-actions.ts -> ../../http/route-helpers (src/http/route-helpers.ts)",
   "src/session/orchestration/interaction-actions.ts -> ../../learning/agent-execution/transforms/command-transform (src/learning/agent-execution/transforms/command-transform.ts)",
