@@ -1,19 +1,27 @@
-import type { BuddyPromptBuildContext, BuddyPromptEnvelope } from "./contracts"
-import { buildBuddySystemContext } from "./runtime-context"
-import { buildBuddyUserPrelude } from "./user-prelude"
+import { getIntentPrompt } from "../intents/get-intent-prompt"
+import type { PromptContext } from "./context"
+import { buildBuddyRuntimeContext } from "./runtime-context"
+import { buildBuddyUserPrelude, type BuddyUserPreludePart } from "./user-prelude"
 
-export async function buildBuddyPromptEnvelope(
-  input: BuddyPromptBuildContext,
-): Promise<BuddyPromptEnvelope> {
-  const systemContext = await buildBuddySystemContext(input)
+export type BuddyPromptEnvelope = {
+  systemContext: string
+  userPreludeParts: readonly BuddyUserPreludePart[]
+  changedSinceCheckpoint?: boolean
+}
+
+export async function buildBuddyPromptEnvelope(input: PromptContext): Promise<BuddyPromptEnvelope> {
+  const runtimeContext = await buildBuddyRuntimeContext(input)
+  const intentSection = `<student_intent>\n${getIntentPrompt(input.intent)}\n</student_intent>`
+  const systemContext = [intentSection, runtimeContext.runtimeContext].filter(Boolean).join("\n\n")
+
   const userPreludeParts = buildBuddyUserPrelude({
     context: input,
-    changedSinceCheckpoint: systemContext.changedSinceCheckpoint,
+    changedSinceCheckpoint: runtimeContext.changedSinceCheckpoint,
   })
 
   return {
-    systemContext: systemContext.systemContext,
+    systemContext,
     userPreludeParts,
-    changedSinceCheckpoint: systemContext.changedSinceCheckpoint,
+    changedSinceCheckpoint: runtimeContext.changedSinceCheckpoint,
   }
 }

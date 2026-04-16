@@ -1,9 +1,6 @@
 import { parseConfiguredModel, type readProjectConfig } from "@buddy/backend/config/runtime"
 import { buildBuddyPromptEnvelope } from "./buddy-prompt-compiler"
-import {
-  resolveBuddyPromptContext,
-  type ResolvedBuddyPromptContext,
-} from "./resolve-buddy-prompt-context"
+import { createPromptContext, type CreatePromptContextResult } from "./context"
 import { normalizePromptParts } from "./workspace-file-references"
 import type { TeachingSessionState } from "../shared/teaching-session-state"
 import {
@@ -19,7 +16,7 @@ export type MessagePromptPipelineContext = {
 
 export type MessagePromptPipelineResult = {
   transformed: Record<string, unknown>
-  runtimeProfileForPermissions?: ResolvedBuddyPromptContext["runtimeProfileForPermissions"]
+  runtimeProfileForPermissions?: CreatePromptContextResult["runtimeProfileForPermissions"]
   nextTeachingState?: TeachingSessionState
 }
 
@@ -49,14 +46,14 @@ export async function runMessagePromptPipeline(input: {
   }
 
   let runtimeProfileForPermissions:
-    | ResolvedBuddyPromptContext["runtimeProfileForPermissions"]
+    | CreatePromptContextResult["runtimeProfileForPermissions"]
     | undefined
   let nextTeachingState: TeachingSessionState | undefined
   const existingSystem = typeof input.body.system === "string" ? input.body.system.trim() : ""
   let buddySystem = ""
 
   if (target.includeBuddySystem && target.personaID) {
-    const resolvedBuddyPrompt = await resolveBuddyPromptContext({
+    const promptContextResult = await createPromptContext({
       directory: input.context.directory,
       sessionID: input.context.sessionID,
       body: input.body,
@@ -64,10 +61,10 @@ export async function runMessagePromptPipeline(input: {
       previousState: input.previousState,
       personaID: target.personaID,
     })
-    const promptEnvelope = await buildBuddyPromptEnvelope(resolvedBuddyPrompt.promptBuildContext)
+    const promptEnvelope = await buildBuddyPromptEnvelope(promptContextResult.context)
 
-    runtimeProfileForPermissions = resolvedBuddyPrompt.runtimeProfileForPermissions
-    nextTeachingState = resolvedBuddyPrompt.nextTeachingState
+    runtimeProfileForPermissions = promptContextResult.runtimeProfileForPermissions
+    nextTeachingState = promptContextResult.nextTeachingState
     buddySystem = promptEnvelope.systemContext
 
     if (promptEnvelope.userPreludeParts.length > 0) {

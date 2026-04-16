@@ -13,14 +13,13 @@ import {
   resolveFocusGoalIds,
   resolveIntent,
 } from "../shared/targeting"
-import type { WorkspaceState } from "@buddy/backend/learning/shared/teaching-vocabulary"
+import type {
+  Intent,
+  Persona,
+  WorkspaceState,
+} from "@buddy/backend/learning/shared/teaching-vocabulary"
 import { listRegisteredResources } from "../../resources/resource-registry-service"
 import { resolveResourcePackFullTextMetadata } from "../../resource-packs"
-import type {
-  ActivePromptResourceSnapshot,
-  BuddyPromptBuildContext,
-  PromptResourceSnapshot,
-} from "./contracts"
 
 type MessagePromptProjectConfig = Awaited<ReturnType<typeof readProjectConfig>>
 
@@ -33,10 +32,77 @@ type ActiveReadingContext = {
   pageLabel?: string
 }
 
-export type ResolvedBuddyPromptContext = {
-  promptBuildContext: BuddyPromptBuildContext
+export type PromptResourceStatus = "preparing" | "ready" | "unsupported" | "error" | "stale"
+
+export type PromptTurnSnapshot = {
+  persona: Persona
+  intent: Intent
+  workspaceState: WorkspaceState
+}
+
+export type PromptResource = {
+  id: string
+  alias: string
+  sourceRelpath: string
+  format: string
+  status: PromptResourceStatus
+  warnings: string[]
+  fullTextPath?: string
+  fullTextEstTokens?: number
+  fullTextChars?: number
+}
+
+export type ActivePromptResource = {
+  id?: string
+  alias?: string
+  title: string
+  path: string
+  status?: PromptResourceStatus
+  locationLabel?: string
+  tocLabel?: string
+  pageLabel?: string
+}
+
+export type PromptModel = {
+  providerID: string
+  modelID: string
+  contextWindow: number
+  inputWindow?: number
+  outputWindow: number
+}
+
+export type PromptContext = {
+  directory: string
+  sessionID: string
+  persona: Persona
+  capabilityEnvelope: ReturnType<typeof resolveCapabilityProfile>["capabilityEnvelope"]
+  visibleSurfaces: ReturnType<
+    typeof resolveCapabilityProfile
+  >["capabilityEnvelope"]["visibleSurfaces"]
+  intent: Intent
+  workspaceState: WorkspaceState
+  learnerSnapshot: Awaited<ReturnType<typeof LearnerSnapshotCompiler.compile>>
+  focusGoalIds: string[]
+  resources: PromptResource[]
+  activeResource?: ActivePromptResource
+  model?: PromptModel
+  teachingContext?: TeachingPromptContext
+  priorTurn?: PromptTurnSnapshot
+}
+
+export type CreatePromptContextResult = {
+  context: PromptContext
   runtimeProfileForPermissions: ReturnType<typeof resolveCapabilityProfile>
   nextTeachingState: TeachingSessionState
+}
+
+type CreatePromptContextInput = {
+  directory: string
+  sessionID: string
+  body: Record<string, unknown>
+  projectConfig: MessagePromptProjectConfig
+  previousState?: TeachingSessionState
+  personaID: Persona
 }
 
 function resolveTeachingContext(body: Record<string, unknown>): TeachingPromptContext | undefined {
@@ -51,10 +117,10 @@ function readTrimmedStringField(value: object, key: string): string | undefined 
   return trimmed ? trimmed : undefined
 }
 
-async function resolvePromptModelSnapshot(input: {
+async function resolvePromptModel(input: {
   body: Record<string, unknown>
   projectConfig: MessagePromptProjectConfig
-}): Promise<BuddyPromptBuildContext["model"] | undefined> {
+}) {
   const explicitModel = hasExplicitModel(input.body.model) ? input.body.model : undefined
   const configuredModel = parseConfiguredModel(input.projectConfig.model)
   const modelRef = explicitModel ?? configuredModel
@@ -75,18 +141,18 @@ async function resolvePromptModelSnapshot(input: {
   }
 }
 
-async function resolvePromptResourceSnapshot(input: {
+async function resolvePromptResource(input: {
   directory: string
   resource: {
     id: string
     alias: string
     sourceRelpath: string
     format: string
-    status: PromptResourceSnapshot["status"]
+    status: PromptResourceStatus
     warnings: string[]
     packKey?: string
   }
-}): Promise<PromptResourceSnapshot> {
+}): Promise<PromptResource> {
   const metadata = await resolveResourcePackFullTextMetadata({
     directory: input.directory,
     packKey: input.resource.packKey,
@@ -109,6 +175,7 @@ async function resolvePromptResourceSnapshot(input: {
 
 function parseActiveReadingContext(value: unknown): ActiveReadingContext | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined
+
   const title = readTrimmedStringField(value, "title") ?? ""
   const path = readTrimmedStringField(value, "path") ?? ""
   const resourceKey = readTrimmedStringField(value, "resourceKey")
@@ -127,15 +194,14 @@ function parseActiveReadingContext(value: unknown): ActiveReadingContext | undef
   }
 }
 
-function buildActiveResourceSnapshot(input: {
-  activeReadingContext?: ActiveReadingContext
-  resources: PromptResourceSnapshot[]
-}): ActivePromptResourceSnapshot | undefined {
-  const activeReadingContext = input.activeReadingContext
+function buildActiveResource(
+  activeReadingContext: ActiveReadingContext | undefined,
+  resources: PromptResource[],
+): ActivePromptResource | undefined {
   if (!activeReadingContext) return undefined
 
   const matchedResource = activeReadingContext.resourceKey
-    ? input.resources.find(
+    ? resources.find(
         (resource) =>
           resource.id === activeReadingContext.resourceKey ||
           resource.alias === activeReadingContext.resourceKey,
@@ -160,14 +226,9 @@ function buildActiveResourceSnapshot(input: {
   }
 }
 
-export async function resolveBuddyPromptContext(input: {
-  directory: string
-  sessionID: string
-  body: Record<string, unknown>
-  projectConfig: MessagePromptProjectConfig
-  previousState?: TeachingSessionState
-  personaID: BuddyPromptBuildContext["persona"]
-}): Promise<ResolvedBuddyPromptContext> {
+async function buildPromptContext(
+  input: CreatePromptContextInput,
+): Promise<CreatePromptContextResult> {
   const teachingContext = resolveTeachingContext(input.body)
   const activeReadingContext = parseActiveReadingContext(input.body.reading)
   const persona = getBuddyPersona(input.personaID, input.projectConfig.personas)
@@ -194,49 +255,47 @@ export async function resolveBuddyPromptContext(input: {
     configuredToolToggles: input.projectConfig.tools,
   })
 
-  const [promptModel, promptResources] = await Promise.all([
-    resolvePromptModelSnapshot({
+  const [model, promptResources] = await Promise.all([
+    resolvePromptModel({
       body: input.body,
       projectConfig: input.projectConfig,
     }),
     Promise.all(
       resources.map((resource) =>
-        resolvePromptResourceSnapshot({
+        resolvePromptResource({
           directory: input.directory,
           resource,
         }),
       ),
     ),
   ])
-  const activeResource = buildActiveResourceSnapshot({
-    activeReadingContext,
-    resources: promptResources,
-  })
-
-  const promptBuildContext: BuddyPromptBuildContext = {
-    directory: input.directory,
-    persona: runtimeProfile.persona,
-    capabilityEnvelope: runtimeProfile.capabilityEnvelope,
-    intent,
-    learnerSnapshot,
-    focusGoalIds,
-    resources: promptResources,
-    ...(promptModel ? { model: promptModel } : {}),
-    ...(teachingContext ? { teachingContext } : {}),
-    ...(activeResource ? { activeResource } : {}),
-    ...(input.previousState
-      ? {
-          priorTurn: {
-            persona: input.previousState.persona,
-            intent: input.previousState.intent,
-            workspaceState: input.previousState.workspaceState,
-          },
-        }
-      : {}),
-  }
+  const activeResource = buildActiveResource(activeReadingContext, promptResources)
 
   return {
-    promptBuildContext,
+    context: {
+      directory: input.directory,
+      sessionID: input.sessionID,
+      persona: runtimeProfile.persona,
+      capabilityEnvelope: runtimeProfile.capabilityEnvelope,
+      visibleSurfaces: runtimeProfile.capabilityEnvelope.visibleSurfaces,
+      intent,
+      workspaceState,
+      learnerSnapshot,
+      focusGoalIds,
+      resources: promptResources,
+      ...(model ? { model } : {}),
+      ...(teachingContext ? { teachingContext } : {}),
+      ...(activeResource ? { activeResource } : {}),
+      ...(input.previousState
+        ? {
+            priorTurn: {
+              persona: input.previousState.persona,
+              intent: input.previousState.intent,
+              workspaceState: input.previousState.workspaceState,
+            } satisfies PromptTurnSnapshot,
+          }
+        : {}),
+    },
     runtimeProfileForPermissions: runtimeProfile,
     nextTeachingState: {
       sessionId: input.sessionID,
@@ -249,6 +308,12 @@ export async function resolveBuddyPromptContext(input: {
       }),
       workspaceState,
       focusGoalIds,
-    },
+    } satisfies TeachingSessionState,
   }
+}
+
+export type PromptVisibleSurface = PromptContext["visibleSurfaces"][number]
+
+export async function createPromptContext(input: CreatePromptContextInput) {
+  return buildPromptContext(input)
 }
