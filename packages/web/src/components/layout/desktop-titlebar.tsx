@@ -1,8 +1,8 @@
 import type { MouseEvent } from "react"
 import { useEffect, useRef, useState } from "react"
-import { useLocation, useNavigate } from "@tanstack/react-router"
+import { useLocation, useNavigate, useRouterState } from "@tanstack/react-router"
 import { PowerIcon, SparklesIcon } from "lucide-react"
-import { CheckIcon, CopyIcon, FolderOpenIcon, toast, Button } from "@buddy/ui"
+import { CheckIcon, CopyIcon, FolderOpenIcon, toast, Button, MoveLeftIcon } from "@buddy/ui"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { useUiPreferences } from "@/state/ui-preferences"
@@ -78,11 +78,15 @@ export function DesktopTitlebar() {
   const setRightSidebarOpen = useUiPreferences((state) => state.setRightSidebarOpen)
   const setRightSidebarTab = useUiPreferences((state) => state.setRightSidebarTab)
   const setRightSidebarWidth = useUiPreferences((state) => state.setRightSidebarWidth)
+  const routerState = useRouterState()
   const activeDirectory = useChatStore((state) => state.activeDirectory)
   const streamStatus = useChatStore((state) => state.streamStatus)
   const activeSessionID = useChatStore((state) =>
     activeDirectory ? state.directories[activeDirectory]?.sessionID : undefined,
   )
+  const isReadingPage = routerState.matches.some((m) => m.routeId === "/$directory/read")
+  const directoryToken = routerState.matches.find((m) => m.routeId === "/$directory/read")?.params
+    .directory as string | undefined
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isDisconnectingOpenAi, setIsDisconnectingOpenAi] = useState(false)
   const lastWorkspaceSidebarTabRef = useRef<Exclude<ChatRightSidebarTab, "files">>("resources")
@@ -310,7 +314,30 @@ export function DesktopTitlebar() {
             </Button>
           </div>
         ) : null}
-        <div className="min-w-0 flex-1" />
+        <div className="min-w-0 flex-1">
+          {isReadingPage && (
+            <div className="flex items-center gap-2 px-3 animate-in fade-in slide-in-from-left-2 duration-300 cubic-bezier(0.23, 1, 0.32, 1)">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label={language.t("sidebar.resourcesBackToChat")}
+                title={language.t("sidebar.resourcesBackToChat")}
+                className="transition-transform active:scale-90"
+                onClick={() => {
+                  void navigate({
+                    to: "/$directory/chat",
+                    params: {
+                      directory: directoryToken!,
+                    },
+                  })
+                }}
+              >
+                <MoveLeftIcon className="size-5" />
+              </Button>
+            </div>
+          )}
+        </div>
         <div className="flex shrink-0 items-center gap-1 mr-2 ml-auto">
           {import.meta.env.DEV ? (
             <>
