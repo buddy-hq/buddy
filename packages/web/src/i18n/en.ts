@@ -10,6 +10,7 @@ export const dict = {
   "common.model": "Model",
   "common.refresh": "Refresh",
   "common.saving": "Saving...",
+  "actions.goHome": "Go Home",
   "chat.emptyState.inboxHint":
     "Use Inbox for quick chats and loose notes. Create notebooks for dedicated spaces.",
   "chat.emptyState.notebookHint":
@@ -212,6 +213,7 @@ export const dict = {
   "directoryChat.interactiveLesson.workspacePrefix": "Current workspace:",
   "directoryChat.interactiveLesson.workspaceStarting": "starting...",
   "directoryChat.invalidNotebookIdentifier": "Invalid notebook identifier in URL.",
+  "directoryChat.invalidNotebookTitle": "Invalid Notebook",
   "directoryChat.loadingConversationHistory": "Loading conversation history...",
   "directoryChat.newThread": "New thread",
   "directoryChat.openingNotebook": "Opening notebook...",
