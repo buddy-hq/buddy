@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import {
   Button,
   ChevronLeftIcon,
@@ -16,6 +16,7 @@ import { useDirectoryNotebookRouteContext } from "@/components/directory-chat/di
 import { language } from "@/context/language"
 import { fileNameFromPath, normalizeRelativePath } from "@/lib/workspace-file-paths"
 import { useChatStore } from "@/state/chat-store"
+import { useTeachingRuntime, teachingSelectionKey } from "@/state/teaching-runtime"
 import { loadResources, type ResourceRecord } from "@/state/resource-actions"
 
 type DirectoryChatReadingPageProps = {
@@ -71,6 +72,9 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
   const updateActiveReadingResourceLocation = useChatStore(
     (state) => state.updateActiveReadingResourceLocation,
   )
+  const setSessionPersona = useTeachingRuntime((state) => state.setSessionPersona)
+  const selectedPersonaBySession = useTeachingRuntime((state) => state.selectedPersonaBySession)
+  const restoredPersonaRef = useRef<string | undefined>(undefined)
   const conversationPanelRef = useResizablePanelRef()
   const { defaultLayout, onLayoutChanged } = usePersistentResizablePanelLayout({
     id: READING_LAYOUT_ID,
@@ -107,6 +111,28 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
       cancelled = true
     }
   }, [normalizedPath, props.resourceKey, readyDirectory])
+
+  useEffect(() => {
+    if (!readyDirectory) return
+
+    const sessionID = useChatStore.getState().directories[readyDirectory]?.sessionID
+    const sessionKey = teachingSelectionKey(readyDirectory, sessionID)
+    const currentPersona = selectedPersonaBySession[sessionKey]
+
+    if (currentPersona === "reading-buddy") return
+
+    restoredPersonaRef.current = currentPersona
+    setSessionPersona(sessionKey, "reading-buddy")
+
+    return () => {
+      const previousPersona = restoredPersonaRef.current
+      restoredPersonaRef.current = undefined
+      if (previousPersona !== undefined) {
+        setSessionPersona(sessionKey, previousPersona)
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [readyDirectory, setSessionPersona])
 
   useEffect(() => {
     if (!readyDirectory || !normalizedPath) return
