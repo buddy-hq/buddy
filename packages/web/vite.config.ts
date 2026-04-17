@@ -3,7 +3,7 @@ import { defineConfig } from "vite"
 import react from "@vitejs/plugin-react"
 import tailwindcss from "@tailwindcss/vite"
 import { TanStackRouterVite } from "@tanstack/router-plugin/vite"
-import { createFoliatePdfVitePlugin } from "./scripts/create-foliate-pdf-vite-plugin"
+import { createFoliatePdfVitePlugin } from "./scripts/create-foliate-pdf-vite-plugin.ts"
 
 // https://vitejs.dev/config/
 export default defineConfig(() => {

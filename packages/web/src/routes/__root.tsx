@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react"
-import { createRootRoute, Outlet } from "@tanstack/react-router"
+import type { QueryClient } from "@tanstack/react-query"
+import { createRootRouteWithContext, Outlet } from "@tanstack/react-router"
 import { TanStackRouterDevtools } from "@tanstack/router-devtools"
 import { DesktopTitlebar } from "@/components/layout/desktop-titlebar"
 import { language } from "@/context/language"
@@ -85,7 +86,11 @@ function RootLayout() {
   )
 }
 
-export const Route = createRootRoute({
+type RouterContext = {
+  queryClient: QueryClient
+}
+
+export const Route = createRootRouteWithContext<RouterContext>()({
   component: RootLayout,
   notFoundComponent: () => <div className="p-6">{language.t("routes.root.notFound")}</div>,
 })
