@@ -19,6 +19,8 @@ import {
 } from "@/components/prompt/prompt-types"
 import type { PromptComposerAttachment, PromptComposerPart } from "@/components/prompt/prompt-types"
 import {
+  COMPACT_SLASH_COMMAND_ALIASES,
+  COMPACT_SLASH_COMMAND_NAME,
   buildQuizSlashPromptParts,
   buildQuizSlashPrompt,
   parseSlashCommandInput,
@@ -51,6 +53,7 @@ import {
   findWorkspaceFiles,
   loadMessages,
   createManagedNotebook,
+  compactSession,
   openInboxNotebook,
   openProject,
   reorderOpenProjects,
@@ -109,6 +112,9 @@ const MAX_TRANSCRIPT_SCROLL_DURATION_S = 0.24
 const TRANSCRIPT_SCROLL_SPEED_PX_PER_S = 1200
 const SMOOTH_FOLLOW_LERP = 0.12
 const E2E_BACKEND_COMMAND_NAME = "e2e-backend-command"
+const TRANSCRIPT_THREAD_SWITCH_SNAP_WINDOW_MS = 350
+const COMPACT_SESSION_MISSING_MODEL_ERROR = "Select a model before compacting this session."
+const COMPACT_SESSION_MISSING_SESSION_ERROR = "Start a session before compacting it."
 
 type DirectoryChatPageControllerProps = {
   directoryToken: string
@@ -146,7 +152,9 @@ export function useDirectoryChatPageController(
   const smoothFollowingRef = useRef(false)
   const stickToBottomRef = useRef(true)
   const transcriptBusyRef = useRef(false)
+  const transcriptThreadSwitchSnapUntilRef = useRef(0)
   const closingDirectoryRef = useRef<string | undefined>(undefined)
+  const previousDirectoryRef = useRef<string | undefined>(undefined)
 
   const [stickToBottom, setStickToBottom] = useState(true)
   const [resourcesRefreshToken, setResourcesRefreshToken] = useState(0)
@@ -224,10 +232,14 @@ export function useDirectoryChatPageController(
 
   const { slashCommands } = chatConfig
   const slashCommandCandidates = useMemo(() => {
-    const candidates = new Map<string, { name: string }>()
+    const candidates = new Map<string, { name: string; aliases?: string[] }>()
     for (const name of SUBMITTED_BUILTIN_SLASH_COMMAND_NAMES) {
       candidates.set(name, { name })
     }
+    candidates.set(COMPACT_SLASH_COMMAND_NAME, {
+      name: COMPACT_SLASH_COMMAND_NAME,
+      aliases: [...COMPACT_SLASH_COMMAND_ALIASES],
+    })
     if (import.meta.env.VITE_BUDDY_E2E === "1") {
       candidates.set(E2E_BACKEND_COMMAND_NAME, { name: E2E_BACKEND_COMMAND_NAME })
     }
@@ -396,8 +408,21 @@ export function useDirectoryChatPageController(
     })
   }, [stopTranscriptScrollAnimation])
 
+  const snapTranscriptToBottom = useCallback(() => {
+    const container = transcriptRef.current
+    if (!container) return false
+    stopTranscriptScrollAnimation()
+    stopSmoothFollow()
+    container.scrollTop = Math.max(0, container.scrollHeight - container.clientHeight)
+    return true
+  }, [stopSmoothFollow, stopTranscriptScrollAnimation])
+
   const syncTranscriptToBottom = useCallback(() => {
     if (!stickToBottomRef.current) return
+    if (Date.now() < transcriptThreadSwitchSnapUntilRef.current) {
+      snapTranscriptToBottom()
+      return
+    }
     if (transcriptBusyRef.current) {
       stopTranscriptScrollAnimation()
       startSmoothFollow()
@@ -407,6 +432,7 @@ export function useDirectoryChatPageController(
     animateTranscriptScrollToBottom()
   }, [
     animateTranscriptScrollToBottom,
+    snapTranscriptToBottom,
     stopTranscriptScrollAnimation,
     startSmoothFollow,
     stopSmoothFollow,
@@ -415,6 +441,21 @@ export function useDirectoryChatPageController(
   useEffect(() => {
     setPendingSuggestionOverride(undefined)
   }, [sessionKey])
+
+  useEffect(() => {
+    const previousDirectory = previousDirectoryRef.current
+    previousDirectoryRef.current = decodedDirectory
+
+    if (previousDirectory === undefined || previousDirectory === decodedDirectory) {
+      return
+    }
+
+    setResourcesRefreshToken(0)
+    setSystemPromptRefreshToken(0)
+    setPendingSuggestionOverride(undefined)
+    setIsStartingInteractiveLesson(false)
+    setCreateFileDialogOpen(false)
+  }, [decodedDirectory])
 
   useEffect(() => {
     if (!decodedDirectory || !sessionID) return
@@ -492,8 +533,12 @@ export function useDirectoryChatPageController(
   }, [decodedDirectory])
 
   useEffect(() => {
+    transcriptThreadSwitchSnapUntilRef.current =
+      Date.now() + TRANSCRIPT_THREAD_SWITCH_SNAP_WINDOW_MS
+    stopTranscriptScrollAnimation()
+    stopSmoothFollow()
     setStickToBottom(true)
-  }, [sessionID])
+  }, [sessionID, stopSmoothFollow, stopTranscriptScrollAnimation])
 
   useEffect(() => {
     if (!decodedDirectory || !sessionID) return
@@ -1075,6 +1120,32 @@ export function useDirectoryChatPageController(
             return
           }
           setPendingSuggestionOverride(undefined)
+          setSystemPromptRefreshToken((token) => token + 1)
+          void syncTeachingRuntimeSelection()
+        } catch {
+          restorePromptSnapshot(draftSnapshot)
+        }
+        return
+      }
+
+      if (slashCommand.command.name === COMPACT_SLASH_COMMAND_NAME) {
+        if (!cs.effectiveModelSelection) {
+          cs.setDirectoryError(decodedDirectory, COMPACT_SESSION_MISSING_MODEL_ERROR)
+          return
+        }
+
+        if (!sessionID) {
+          cs.setDirectoryError(decodedDirectory, COMPACT_SESSION_MISSING_SESSION_ERROR)
+          return
+        }
+
+        publishCommandSubmission()
+        cs.clearPromptDraft(cs.promptKey)
+        try {
+          await compactSession(decodedDirectory, sessionID, {
+            providerID: cs.effectiveModelSelection.providerID,
+            modelID: cs.effectiveModelSelection.modelID,
+          })
           setSystemPromptRefreshToken((token) => token + 1)
           void syncTeachingRuntimeSelection()
         } catch {

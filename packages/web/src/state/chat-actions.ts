@@ -1350,6 +1350,42 @@ export async function sendCommand(
   }
 }
 
+export async function compactSession(
+  directory: string,
+  sessionID: string,
+  input: {
+    providerID: string
+    modelID: string
+    auto?: boolean
+  },
+) {
+  const store = useChatStore.getState()
+  store.clearDirectoryError(directory)
+  store.applySessionStatus(directory, sessionID, BUSY_SESSION_STATUS)
+
+  try {
+    requireBuddyData(
+      await getBuddyClient(directory).session.summarize({
+        sessionID,
+        providerID: input.providerID,
+        modelID: input.modelID,
+        ...(input.auto === undefined ? {} : { auto: input.auto }),
+      }),
+    )
+  } catch (error) {
+    const missingSession = isMissingSessionError(error)
+    store.applySessionStatus(directory, sessionID, IDLE_SESSION_STATUS)
+    if (missingSession) {
+      store.startSessionDraft(directory)
+    } else {
+      void loadMessages(directory, sessionID).catch(() => undefined)
+    }
+    void loadSessions(directory).catch(() => undefined)
+    store.setDirectoryError(directory, stringifyError(error))
+    throw error
+  }
+}
+
 export async function loadTeachingSessionState(directory: string, sessionID: string) {
   const result = await getBuddyClient(directory).session.teachingState({
     sessionID,

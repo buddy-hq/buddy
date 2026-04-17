@@ -2,10 +2,13 @@ import { PROMPT_PART_TYPE_TEXT, type PromptComposerPart } from "./prompt-types"
 
 export type SlashCommandSource = "command" | "mcp" | "skill"
 
+export const COMPACT_SLASH_COMMAND_NAME = "compact" as const
+export const COMPACT_SLASH_COMMAND_ALIASES = ["summarize"] as const
 export const QUIZ_SLASH_COMMAND_NAME = "quiz" as const
 export const SUBMITTED_BUILTIN_SLASH_COMMAND_NAMES = [
   "new",
   "mcp",
+  COMPACT_SLASH_COMMAND_NAME,
   QUIZ_SLASH_COMMAND_NAME,
 ] as const
 
@@ -20,6 +23,7 @@ export type SlashCommandOption = {
   title?: string
   description?: string
   source?: SlashCommandSource
+  aliases?: string[]
 }
 
 export type SlashMatch = {
@@ -48,12 +52,15 @@ function slashScore(command: SlashCommandOption, query: string) {
 
   const name = command.name.toLowerCase()
   const title = command.title?.toLowerCase() ?? ""
+  const aliases = command.aliases?.map((alias) => alias.toLowerCase()) ?? []
 
   if (name.startsWith(query)) return 0
   if (name.includes(query)) return 1
-  if (title.startsWith(query)) return 2
-  if (title.includes(query)) return 3
-  return 4
+  if (aliases.some((alias) => alias.startsWith(query))) return 2
+  if (aliases.some((alias) => alias.includes(query))) return 3
+  if (title.startsWith(query)) return 4
+  if (title.includes(query)) return 5
+  return 6
 }
 
 export function filterSlashCommands(commands: SlashCommandOption[], query: string) {
@@ -63,6 +70,7 @@ export function filterSlashCommands(commands: SlashCommandOption[], query: strin
     .filter((command) => {
       if (!normalized) return true
       if (command.name.toLowerCase().includes(normalized)) return true
+      if (command.aliases?.some((alias) => alias.toLowerCase().includes(normalized))) return true
       return command.title?.toLowerCase().includes(normalized) ?? false
     })
     .toSorted((left, right) => {
@@ -74,7 +82,7 @@ export function filterSlashCommands(commands: SlashCommandOption[], query: strin
 
 export function parseSlashCommandInput(
   value: string,
-  commands: Array<Pick<SlashCommandOption, "name">>,
+  commands: Array<Pick<SlashCommandOption, "name" | "aliases">>,
 ) {
   if (!value.startsWith("/")) return undefined
 
@@ -82,7 +90,10 @@ export function parseSlashCommandInput(
   const commandName = commandToken.slice(1)
   if (!commandName) return undefined
 
-  const command = commands.find((candidate) => candidate.name === commandName)
+  const command = commands.find((candidate) => {
+    if (candidate.name === commandName) return true
+    return candidate.aliases?.includes(commandName) ?? false
+  })
   if (!command) return undefined
 
   return {

@@ -10,6 +10,8 @@ import {
 } from "./mention-autocomplete"
 import { promptPlaceholder } from "./placeholder"
 import {
+  COMPACT_SLASH_COMMAND_ALIASES,
+  COMPACT_SLASH_COMMAND_NAME,
   filterSlashCommands,
   getSlashMatch,
   QUIZ_SLASH_COMMAND_NAME,
@@ -43,6 +45,13 @@ const BUILTIN_SLASH_COMMANDS: SlashCommandOption[] = [
     name: "mcp",
     title: language.t("prompt.slash.mcp.title"),
     description: language.t("prompt.slash.mcp.description"),
+  },
+  {
+    type: "builtin",
+    name: COMPACT_SLASH_COMMAND_NAME,
+    aliases: [...COMPACT_SLASH_COMMAND_ALIASES],
+    title: language.t("prompt.slash.compact.title"),
+    description: language.t("prompt.slash.compact.description"),
   },
   {
     type: "builtin",
@@ -126,9 +135,10 @@ export function usePromptComposerViewState(props: UsePromptComposerViewStateProp
       description: command.description,
       source: command.source,
     }))
-    const localNames = new Set(
-      RESOURCE_LOCAL_SLASH_COMMANDS.map((command) => command.name.toLowerCase()),
-    )
+    const localNames = new Set([
+      ...RESOURCE_LOCAL_SLASH_COMMANDS.map((command) => command.name.toLowerCase()),
+      COMPACT_SLASH_COMMAND_NAME.toLowerCase(),
+    ])
     const filteredCustomCommands = customCommands.filter(
       (command) => !localNames.has(command.name.toLowerCase()),
     )
