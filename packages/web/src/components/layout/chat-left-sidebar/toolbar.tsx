@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@buddy/ui"
 import { language } from "@/context/language"
-import { PlusIcon } from "../sidebar-icons"
+import { FolderPlusIcon } from "../sidebar-icons"
 import type { OrganizeMode, ShowMode, SortMode } from "./types"
 
 type ChatLeftSidebarToolbarProps = {
@@ -105,7 +105,7 @@ export function ChatLeftSidebarToolbar(props: ChatLeftSidebarToolbarProps) {
             aria-label={language.t("sidebar.create")}
             title={language.t("sidebar.create")}
           >
-            <PlusIcon className="size-3.5" />
+            <FolderPlusIcon className="size-3.5" />
           </Button>
         </div>
       </div>

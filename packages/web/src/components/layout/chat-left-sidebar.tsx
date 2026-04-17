@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@buddy/ui"
 import { language } from "@/context/language"
 import type { SessionInfo, SessionStatusInfo } from "@/state/chat-types"
@@ -18,6 +18,8 @@ import type {
 } from "./chat-left-sidebar/types"
 import { SettingsIcon } from "./sidebar-icons"
 import { getFilename } from "./sidebar-helpers"
+
+const SELECTION_COLLAPSE_DELAY_MS = 180
 
 type ChatLeftSidebarProps = {
   directories: string[]
@@ -72,31 +74,26 @@ function setDirectoryCollapsedState(
   return next
 }
 
-function sessionUpdatedAt(session: SessionInfo) {
-  return session.time.updated ?? session.time.created ?? 0
-}
-
-function resolveMostRecentlyUpdatedDirectory(input: {
+function resolveExpandedDirectory(input: {
   directoryGroups: ReturnType<typeof useDirectoryGroups>
-  fallbackDirectory: string
+  currentDirectory: string
 }) {
-  let mostRecentDirectory: string | undefined
-  let mostRecentTimestamp = Number.NEGATIVE_INFINITY
-
-  for (const group of input.directoryGroups) {
-    for (const session of group.sessions) {
-      const timestamp = sessionUpdatedAt(session)
-      if (timestamp <= mostRecentTimestamp) continue
-      mostRecentTimestamp = timestamp
-      mostRecentDirectory = group.directory
-    }
-  }
-
-  if (mostRecentDirectory) return mostRecentDirectory
-  if (input.directoryGroups.some((group) => group.directory === input.fallbackDirectory)) {
-    return input.fallbackDirectory
+  if (input.directoryGroups.some((group) => group.directory === input.currentDirectory)) {
+    return input.currentDirectory
   }
   return input.directoryGroups[0]?.directory
+}
+
+function buildCollapsedDirectories(
+  directoryGroups: ReturnType<typeof useDirectoryGroups>,
+  expandedDirectory: string,
+) {
+  return Object.fromEntries(
+    directoryGroups
+      .map((group) => group.directory)
+      .filter((directory) => directory !== expandedDirectory)
+      .map((directory) => [directory, true] as const),
+  )
 }
 
 export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
@@ -113,6 +110,10 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
   const [notebookName, setNotebookName] = useState("")
   const [notebookSaving, setNotebookSaving] = useState(false)
   const hasInitializedCollapsedDirectoriesRef = useRef(false)
+  const committedDirectoryRef = useRef(props.currentDirectory)
+  const previewDirectoryRef = useRef<string | undefined>(undefined)
+  const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const pendingCollapseDirectoryRef = useRef<string | undefined>(undefined)
 
   const directoryGroups = useDirectoryGroups({
     directories: props.directories,
@@ -137,23 +138,90 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
     return inboxGroup ? [inboxGroup, ...notebookGroups] : notebookGroups
   }, [directoryGroups])
 
+  const orderedDirectoryGroupsRef = useRef(orderedDirectoryGroups)
+  orderedDirectoryGroupsRef.current = orderedDirectoryGroups
+
+  useEffect(() => {
+    return () => {
+      if (collapseTimerRef.current !== undefined) {
+        clearTimeout(collapseTimerRef.current)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    const pendingCollapseDirectory = pendingCollapseDirectoryRef.current
+    if (pendingCollapseDirectory === props.currentDirectory) return
+
+    if (collapseTimerRef.current !== undefined) {
+      clearTimeout(collapseTimerRef.current)
+      collapseTimerRef.current = undefined
+    }
+
+    committedDirectoryRef.current = props.currentDirectory
+    pendingCollapseDirectoryRef.current = undefined
+
+    if (previewDirectoryRef.current === props.currentDirectory) {
+      previewDirectoryRef.current = undefined
+    }
+  }, [props.currentDirectory])
+
   if (!hasInitializedCollapsedDirectoriesRef.current && orderedDirectoryGroups.length > 0) {
-    const expandedDirectory = resolveMostRecentlyUpdatedDirectory({
+    const expandedDirectory = resolveExpandedDirectory({
       directoryGroups: orderedDirectoryGroups,
-      fallbackDirectory: props.currentDirectory,
+      currentDirectory: props.currentDirectory,
+    })
+    if (!expandedDirectory) {
+      hasInitializedCollapsedDirectoriesRef.current = true
+    } else {
+      setCollapsedDirectories(buildCollapsedDirectories(orderedDirectoryGroups, expandedDirectory))
+      committedDirectoryRef.current = expandedDirectory
+      hasInitializedCollapsedDirectoriesRef.current = true
+    }
+  }
+
+  function collapseOtherDirectories(expandedDirectory: string) {
+    setCollapsedDirectories(
+      buildCollapsedDirectories(orderedDirectoryGroupsRef.current, expandedDirectory),
+    )
+  }
+
+  function scheduleCommittedDirectoryCollapse(directory: string) {
+    if (collapseTimerRef.current !== undefined) {
+      clearTimeout(collapseTimerRef.current)
+    }
+
+    pendingCollapseDirectoryRef.current = directory
+    collapseTimerRef.current = setTimeout(() => {
+      committedDirectoryRef.current = directory
+      previewDirectoryRef.current = undefined
+      pendingCollapseDirectoryRef.current = undefined
+      collapseOtherDirectories(directory)
+      collapseTimerRef.current = undefined
+    }, SELECTION_COLLAPSE_DELAY_MS)
+  }
+
+  function openDirectoryPreview(directory: string) {
+    const committedDirectory = committedDirectoryRef.current
+    const previousPreviewDirectory = previewDirectoryRef.current
+
+    setCollapsedDirectories((current) => {
+      let next = setDirectoryCollapsedState(current, directory, true)
+
+      if (
+        previousPreviewDirectory &&
+        previousPreviewDirectory !== directory &&
+        previousPreviewDirectory !== committedDirectory
+      ) {
+        next = setDirectoryCollapsedState(next, previousPreviewDirectory, false)
+      }
+
+      return next
     })
 
-    if (expandedDirectory) {
-      setCollapsedDirectories(
-        Object.fromEntries(
-          orderedDirectoryGroups
-            .map((group) => group.directory)
-            .filter((directory) => directory !== expandedDirectory)
-            .map((directory) => [directory, true] as const),
-        ),
-      )
+    if (directory !== committedDirectory) {
+      previewDirectoryRef.current = directory
     }
-    hasInitializedCollapsedDirectoriesRef.current = true
   }
 
   const {
@@ -249,24 +317,26 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
             dragOverDirectory={dragOverDirectory}
             dragOverPosition={dragOverPosition}
             onToggleCollapsedDirectory={(directory, isOpen) => {
-              setCollapsedDirectories((current) => {
-                if (isOpen) {
-                  const next: Record<string, true> = {}
-                  for (const group of orderedDirectoryGroups) {
-                    if (group.directory !== directory) {
-                      next[group.directory] = true
-                    }
-                  }
-                  return next
-                }
+              if (isOpen) {
+                openDirectoryPreview(directory)
+                return
+              }
 
-                return setDirectoryCollapsedState(current, directory, isOpen)
-              })
+              if (previewDirectoryRef.current === directory) {
+                previewDirectoryRef.current = undefined
+              }
+
+              setCollapsedDirectories((current) =>
+                setDirectoryCollapsedState(current, directory, isOpen),
+              )
             }}
             onToggleExpandedDirectory={(directory) => {
               setExpandedDirectories((current) => toggleDirectoryPresence(current, directory))
             }}
-            onSelectSession={props.onSelectSession}
+            onSelectSession={(directory, sessionID) => {
+              scheduleCommittedDirectoryCollapse(directory)
+              props.onSelectSession(directory, sessionID)
+            }}
             onTogglePin={props.onTogglePin}
             onToggleUnread={props.onToggleUnread}
             onRequestArchive={(directory, sessionID, title) => {
@@ -285,10 +355,17 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
             }}
             onLabelPointerDown={handleLabelPointerDown}
             onSectionRef={sectionRefCallback}
-            onNewSession={props.onNewSession}
+            onNewSession={(directory) => {
+              const targetDirectory = directory ?? props.currentDirectory
+              if (targetDirectory) {
+                scheduleCommittedDirectoryCollapse(targetDirectory)
+              }
+              props.onNewSession(directory)
+            }}
             onCloseDirectory={props.onCloseDirectory}
             mainPaneTab={props.mainPaneTab}
             onMainPaneTabChange={(directory, tab) => {
+              scheduleCommittedDirectoryCollapse(directory)
               props.onSelectSession(directory)
               props.onMainPaneTabChange?.(tab)
             }}

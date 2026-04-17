@@ -28,8 +28,8 @@ import {
 import { language } from "@/context/language"
 import { collectSessionFamilyIDs } from "@/lib/session-family"
 import type { SessionInfo, SessionStatusInfo } from "@/state/chat-types"
+import { isSessionWorking } from "@/state/session-status"
 import type { NotebookMainPaneTab } from "@/state/ui-preferences"
-import { isSessionStatusActive } from "@/state/session-status"
 import { getFilename } from "../sidebar-helpers"
 import { BookOpenIcon, ChevronDownIcon, ChevronRightIcon, HelpIcon } from "../sidebar-icons"
 import {
@@ -129,6 +129,7 @@ const QUICK_CHAT_COLLAPSED_COUNT = 3
 const THREAD_ROW_PADDING_LEFT_PX = 20
 const THREAD_CHILD_INDENT_PX = 14
 const THREAD_STATUS_OFFSET_PX = 6
+const NOTEBOOK_OPEN_MIN_HEIGHT_CLASS = "min-h-[7rem]"
 const MAIN_PANE_SHORTCUT_ROW_CLASS =
   "grid grid-cols-4 gap-1.5 p-1.5 rounded-2xl bg-white/50 dark:bg-black/50 backdrop-blur-xl border border-white/20 dark:border-white/10 shadow-2xl w-fit"
 const MAIN_PANE_SHORTCUT_BUTTON_BASE_CLASS =
@@ -321,7 +322,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
           <ContextMenu>
             <ContextMenuTrigger asChild>
               <div
-                className={`group/notebook-header relative flex items-center gap-1 rounded-lg px-0 py-1 ${
+                className={`group/notebook-header relative flex items-center gap-1 rounded-lg px-2 py-1 ${
                   !props.collapsed
                     ? "rounded-t-lg rounded-b-none bg-surface-raised-strong"
                     : "data-[state=open]:bg-surface-raised-base-hover"
@@ -332,7 +333,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                     type="button"
                     data-action="left-sidebar-directory-toggle"
                     data-directory={props.group.directory}
-                    className={`flex min-w-0 flex-1 items-center gap-1.5 rounded-lg px-2 py-1 text-left text-sm hover:text-text-strong ${
+                    className={`flex min-w-0 flex-1 items-center gap-1.5 rounded-lg px-0 py-1 text-left text-sm hover:text-text-strong ${
                       isCurrentDirectory ? "text-text-base" : "text-text-weaker"
                     } ${canDrag ? "cursor-grab active:cursor-grabbing" : ""}`}
                     onPointerDown={canDrag ? (event) => props.onLabelPointerDown(event) : undefined}
@@ -347,7 +348,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                 </CollapsibleTrigger>
 
                 <div
-                  className={`relative z-10 flex items-center gap-0.5 pr-1 transition-opacity group-focus-within/directory:opacity-100 group-data-[state=open]/notebook-header:opacity-100 ${
+                  className={`relative z-10 flex items-center gap-0.5 pl-1 transition-opacity group-focus-within/directory:opacity-100 group-data-[state=open]/notebook-header:opacity-100 ${
                     !props.collapsed ? "opacity-100" : "opacity-0 group-hover/directory:opacity-100"
                   }`}
                 >
@@ -401,7 +402,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                 animate={{ height: "auto", opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
                 transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }}
-                className={!isQuickChatGroup ? "pb-2" : ""}
+                className={!isQuickChatGroup ? `${NOTEBOOK_OPEN_MIN_HEIGHT_CLASS} pb-1` : ""}
               >
                 {props.mainPaneTab && props.onMainPaneTabChange ? (
                   <div
@@ -475,7 +476,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                 {hasMore && (
                   <button
                     type="button"
-                    className={`ml-2 py-1 text-xs text-text-weaker hover:text-text-base ${
+                    className={`mx-2 py-1 text-xs text-text-weaker hover:text-text-base ${
                       isQuickChatGroup ? "pl-6" : "pl-5"
                     }`}
                     onClick={props.onToggleExpanded}
@@ -510,7 +511,12 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
     props.directory === props.currentDirectory &&
     !!props.activeSessionID &&
     familyIDs.includes(props.activeSessionID)
-  const busy = familyIDs.some((id) => isSessionStatusActive(props.sessionStatusByID[id]))
+  const busy = familyIDs.some((id) =>
+    isSessionWorking({
+      info: props.sessionsByID.get(id),
+      status: props.sessionStatusByID[id],
+    }),
+  )
   const pinned = familyIDs.some((id) => props.pinnedSet.has(id))
   const unread = familyIDs.some((id) => !!props.unreadMap[id])
   const threadStatus = busy ? "busy" : unread ? "unread" : "idle"
@@ -542,7 +548,7 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
   }
 
   return (
-    <div className="ml-2">
+    <div className="mx-2">
       <ContextMenu>
         <ContextMenuTrigger asChild>
           <div
@@ -561,7 +567,7 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
               data-session-id={props.session.id}
               data-active={active ? "true" : "false"}
               aria-expanded={canToggleChildren ? branchExpanded : undefined}
-              className="relative w-full py-1.5 pr-3 text-left"
+              className="relative w-full py-1.5 pr-2.5 text-left"
               style={{ paddingLeft: `${leftPadding}px` }}
               onClick={handleSelectSession}
             >
