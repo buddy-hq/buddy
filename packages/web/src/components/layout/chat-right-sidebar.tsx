@@ -1,5 +1,6 @@
 import type { ReactNode } from "react"
 import { useCallback, useEffect, useRef, useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 import {
   Badge,
   Button,
@@ -12,12 +13,8 @@ import {
 } from "@buddy/ui"
 import { language } from "@/context/language"
 import { Markdown } from "@/components/markdown/Markdown"
-import {
-  loadCurriculumView,
-  loadRuntimeCapabilities,
-  type LearnerCurriculumView,
-  type LearnerRuntimeCapabilitiesView,
-} from "@/state/chat-actions"
+import { type LearnerCurriculumView } from "@/state/chat-actions"
+import { learnerSnapshotViewsQueryOptions } from "@/state/learner-query"
 import type { TeachingIntent } from "@/state/teaching-runtime"
 import { WorkspaceMermaidPanel } from "./workspace-mermaid-panel"
 import { WorkspaceQuestionSetPanel } from "./workspace-question-set-panel"
@@ -114,14 +111,6 @@ function RuntimeListSection(props: { title: string; items: string[]; empty: stri
 
 export function ChatRightSidebar(props: ChatRightSidebarProps) {
   const { directory, intent, persona, sessionID } = props
-  const [curriculumLoading, setCurriculumLoading] = useState(false)
-  const [curriculumError, setCurriculumError] = useState<string | undefined>(undefined)
-  const [curriculumView, setCurriculumView] = useState<LearnerCurriculumView | undefined>(undefined)
-  const [capabilitiesLoading, setCapabilitiesLoading] = useState(false)
-  const [capabilitiesError, setCapabilitiesError] = useState<string | undefined>(undefined)
-  const [capabilitiesView, setCapabilitiesView] = useState<
-    LearnerRuntimeCapabilitiesView | undefined
-  >(undefined)
   const [rawSnapshotOpen, setRawSnapshotOpen] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const [showLeftArrow, setShowLeftArrow] = useState(false)
@@ -187,64 +176,22 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                         : fallbackTab
 
   const showTabHeader = true
-
-  const loadSidebarData = useCallback(
-    async (isDisposed?: () => boolean) => {
-      const disposed = isDisposed ?? (() => false)
-
-      if (!disposed()) {
-        setCurriculumLoading(true)
-        setCurriculumError(undefined)
-      }
-
-      try {
-        const view = await loadCurriculumView(directory, {
-          persona,
-          intent,
-          sessionID,
-        })
-        if (disposed()) return
-        setCurriculumView(view)
-      } catch (error) {
-        if (disposed()) return
-        setCurriculumError(stringifyError(error))
-      } finally {
-        if (!disposed()) {
-          setCurriculumLoading(false)
-        }
-      }
-    },
-    [directory, intent, persona, sessionID],
-  )
-
-  const loadCapabilitiesData = useCallback(
-    async (isDisposed?: () => boolean) => {
-      const disposed = isDisposed ?? (() => false)
-
-      if (!disposed()) {
-        setCapabilitiesLoading(true)
-        setCapabilitiesError(undefined)
-      }
-
-      try {
-        const view = await loadRuntimeCapabilities(directory, {
-          persona,
-          intent,
-          sessionID,
-        })
-        if (disposed()) return
-        setCapabilitiesView(view)
-      } catch (error) {
-        if (disposed()) return
-        setCapabilitiesError(stringifyError(error))
-      } finally {
-        if (!disposed()) {
-          setCapabilitiesLoading(false)
-        }
-      }
-    },
-    [directory, intent, persona, sessionID],
-  )
+  const isSnapshotTabActive = activeTab === "curriculum" || activeTab === "capabilities"
+  const learnerSnapshotQuery = useQuery({
+    ...learnerSnapshotViewsQueryOptions(directory, {
+      persona,
+      intent,
+      sessionID,
+    }),
+    enabled: directory.length > 0 && isSnapshotTabActive,
+  })
+  const curriculumView = learnerSnapshotQuery.data?.curriculum
+  const capabilitiesView = learnerSnapshotQuery.data?.capabilities
+  const snapshotError = learnerSnapshotQuery.error
+    ? stringifyError(learnerSnapshotQuery.error)
+    : undefined
+  const curriculumLoading = activeTab === "curriculum" && learnerSnapshotQuery.isPending
+  const capabilitiesLoading = activeTab === "capabilities" && learnerSnapshotQuery.isPending
   const checkScroll = useCallback(() => {
     if (scrollRef.current) {
       const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current
@@ -270,28 +217,6 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
       observer.disconnect()
     }
   }, [checkScroll])
-
-  useEffect(() => {
-    if (activeTab !== "curriculum") return
-
-    let disposed = false
-    void loadSidebarData(() => disposed)
-
-    return () => {
-      disposed = true
-    }
-  }, [activeTab, loadSidebarData])
-
-  useEffect(() => {
-    if (activeTab !== "capabilities") return
-
-    let disposed = false
-    void loadCapabilitiesData(() => disposed)
-
-    return () => {
-      disposed = true
-    }
-  }, [activeTab, loadCapabilitiesData])
 
   return (
     <aside
@@ -509,7 +434,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
               variant="ghost"
               size="sm"
               onClick={() => {
-                void loadCapabilitiesData()
+                void learnerSnapshotQuery.refetch()
               }}
             >
               {language.t("common.refresh")}
@@ -609,9 +534,9 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
             </div>
           )}
 
-          {capabilitiesError ? (
+          {snapshotError ? (
             <p className="mt-2 rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 px-2 py-1.5 text-xs text-icon-critical-base">
-              {capabilitiesError}
+              {snapshotError}
             </p>
           ) : null}
         </div>
@@ -649,7 +574,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
               variant="ghost"
               size="sm"
               onClick={() => {
-                void loadSidebarData()
+                void learnerSnapshotQuery.refetch()
               }}
             >
               {language.t("common.refresh")}
@@ -757,9 +682,9 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
             </div>
           )}
 
-          {curriculumError ? (
+          {snapshotError ? (
             <p className="mt-2 rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 px-2 py-1.5 text-xs text-icon-critical-base">
-              {curriculumError}
+              {snapshotError}
             </p>
           ) : null}
         </div>

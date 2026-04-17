@@ -1,11 +1,16 @@
-import { useCallback } from "react"
+import { useCallback, useEffect, useRef } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { MarkdownFileEditor } from "@/components/markdown/markdown-file-editor"
 import { language } from "@/context/language"
 import {
-  loadNotebookAgentsMd,
   NotebookAgentsMdVersionConflictError,
   saveNotebookAgentsMd,
 } from "@/state/agents-md-actions"
+import {
+  agentsMdQueryKeys,
+  notebookAgentsMdQueryOptions,
+  setNotebookAgentsMdQueryData,
+} from "@/state/agents-md-query"
 
 type AgentsMdPanelProps = {
   directory: string
@@ -17,15 +22,40 @@ const DEFAULT_AGENTS_MD_CONTENT =
   "# AGENTS.md\n\nAdd notebook-specific instructions for Buddy here.\n"
 
 export function AgentsMdPanel(props: AgentsMdPanelProps) {
-  const load = useCallback(() => loadNotebookAgentsMd(props.directory), [props.directory])
+  const queryClient = useQueryClient()
+  const previousRefreshTokenRef = useRef<number | undefined>(props.refreshToken)
+
+  useEffect(() => {
+    if (previousRefreshTokenRef.current === props.refreshToken) {
+      return
+    }
+
+    previousRefreshTokenRef.current = props.refreshToken
+    void queryClient.invalidateQueries({
+      queryKey: agentsMdQueryKeys.notebook(props.directory),
+    })
+  }, [props.directory, props.refreshToken, queryClient])
+
+  const load = useCallback(
+    () => queryClient.ensureQueryData(notebookAgentsMdQueryOptions(props.directory)),
+    [props.directory, queryClient],
+  )
   const save = useCallback(
-    (input: { content: string; expectedVersion?: string | null }) =>
-      saveNotebookAgentsMd({
+    async (input: { content: string; expectedVersion?: string | null }) => {
+      const saved = await saveNotebookAgentsMd({
         directory: props.directory,
         content: input.content,
         expectedVersion: input.expectedVersion,
-      }),
-    [props.directory],
+      })
+      setNotebookAgentsMdQueryData(queryClient, props.directory, {
+        path: saved.path,
+        exists: true,
+        content: saved.content,
+        version: saved.version,
+      })
+      return saved
+    },
+    [props.directory, queryClient],
   )
   const reloadKey = `${props.directory}:${props.refreshToken ?? 0}`
 

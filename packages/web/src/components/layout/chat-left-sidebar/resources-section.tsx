@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState, useRef } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { motion } from "motion/react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useSearch } from "@tanstack/react-router"
 import { useDropzone, type DropEvent } from "react-dropzone"
 import {
@@ -22,23 +23,19 @@ import {
   AlertTriangleIcon,
   UploadIcon,
 } from "lucide-react"
-import { apiFetch } from "@/lib/api-client"
+import { stringifyError } from "@/lib/api-client"
 import { getPlatform } from "@/context/platform"
 import { language } from "@/context/language"
-import { buildProjectFileRawUrl } from "@/lib/project-file-raw-url"
 import { pickResourceFilePath } from "@/lib/resource-file-picker"
+import { fileExtensionFromPath } from "@/lib/workspace-file-paths"
+import { addResource, rebuildResource } from "@/state/resource-actions"
 import {
-  fileExtensionFromPath,
-  fileNameFromPath,
-  normalizeRelativePath,
-} from "@/lib/workspace-file-paths"
-import { findWorkspaceFiles } from "@/state/chat-actions"
-import {
-  addResource,
-  loadResources,
-  rebuildResource,
-  type ResourceRecord,
-} from "@/state/resource-actions"
+  invalidateResourcesQueries,
+  resourceCoverQueryOptions,
+  resourcesQueryOptions,
+  type ResourceListItem,
+  type ResourceViewStatus,
+} from "@/state/resources-query"
 
 type ChatLeftSidebarResourcesSectionProps = {
   directory: string
@@ -48,41 +45,12 @@ type ChatLeftSidebarResourcesSectionProps = {
   className?: string
 }
 
-type DiscoveredResource = {
-  path: string
-  name: string
-  extension: "pdf" | "epub"
-}
-
-type ResourceListItem = {
-  key: string
-  path: string
-  name: string
-  extension: "pdf" | "epub"
-  status: ResourceViewStatus
-  resourceID?: string
-  coverRelpath?: string
-  title?: string
-  author?: string
-}
-
 export type SidebarResourceTarget = Pick<
   ResourceListItem,
   "path" | "name" | "resourceID" | "status"
 >
 
-type ResourceViewStatus = ResourceRecord["status"] | "unprocessed"
-
-type ResourceCacheEntry = {
-  resources: ResourceListItem[]
-  refreshToken: number | undefined
-}
-
 const RESOURCE_EXTENSIONS = new Set(["pdf", "epub"])
-const CACHE_TOKEN_FALLBACK = -1
-const MAX_DISCOVERY_RESULTS = 200
-const RESOURCE_AUTO_REFRESH_INTERVAL_MS = 1500
-const RESOURCE_CACHE_BY_DIRECTORY = new Map<string, ResourceCacheEntry>()
 const WINDOWS_DRIVE_ABSOLUTE_PATH_REGEX = /^[A-Za-z]:[/\\]/
 const WINDOWS_UNC_ABSOLUTE_PATH_REGEX = /^[/\\]{2}[^/\\]+[/\\]+[^/\\]+/
 const FILE_URI_PROTOCOL = "file:"
@@ -255,140 +223,6 @@ async function extractAbsoluteResourcePathsFromDrop(input: {
   return [...droppedPaths]
 }
 
-function toDiscoveredResource(path: string): DiscoveredResource | undefined {
-  const normalizedPath = normalizeRelativePath(path)
-  const extension = fileExtensionFromPath(normalizedPath)
-  if (extension !== "pdf" && extension !== "epub") return undefined
-  return {
-    path: normalizedPath,
-    name: fileNameFromPath(normalizedPath),
-    extension,
-  }
-}
-
-async function discoverWorkspaceResources(directory: string): Promise<DiscoveredResource[]> {
-  const matches = await Promise.all(
-    ["pdf", "epub"].map(async (extension) =>
-      findWorkspaceFiles(directory, `.${extension}`, {
-        includeDirectories: false,
-        limit: MAX_DISCOVERY_RESULTS,
-      }),
-    ),
-  )
-
-  const discovered = new Map<string, DiscoveredResource>()
-  for (const matchGroup of matches) {
-    for (const match of matchGroup) {
-      const resource = toDiscoveredResource(match)
-      if (!resource) continue
-      discovered.set(resource.path, resource)
-    }
-  }
-
-  return [...discovered.values()].toSorted((left, right) => left.path.localeCompare(right.path))
-}
-
-function buildProcessedResourceByPath(records: ResourceRecord[]) {
-  const map: Record<string, ResourceRecord> = {}
-  for (const record of records) {
-    const sourceRelpath = normalizeRelativePath(record.sourceRelpath)
-    if (sourceRelpath) {
-      map[sourceRelpath] = record
-    }
-    if (record.sourceOriginRelpath) {
-      const sourceOriginRelpath = normalizeRelativePath(record.sourceOriginRelpath)
-      if (sourceOriginRelpath) {
-        map[sourceOriginRelpath] = record
-      }
-    }
-  }
-  return map
-}
-
-function normalizeRenderableResourcePath(path: string | undefined) {
-  if (!path) return undefined
-  const normalized = normalizeRelativePath(path)
-  if (!normalized) return undefined
-  return isResourceFilePath(normalized) ? normalized : undefined
-}
-
-function extensionFromRecordFormat(format: string): "pdf" | "epub" | undefined {
-  if (format === "pdf") return "pdf"
-  if (format === "epub") return "epub"
-  return undefined
-}
-
-function buildResourceListItems(input: {
-  discovered: DiscoveredResource[]
-  processed: ResourceRecord[]
-}) {
-  const processedByPath = buildProcessedResourceByPath(input.processed)
-  const discoveredPaths = new Set(input.discovered.map((resource) => resource.path))
-  const items: ResourceListItem[] = []
-  const seenPaths = new Set<string>()
-  const seenResourceIDs = new Set<string>()
-
-  for (const discoveredResource of input.discovered) {
-    const mapped = processedByPath[discoveredResource.path]
-    const preferredPath = normalizeRenderableResourcePath(mapped?.sourceOriginRelpath)
-    const shouldSkipDiscoveredResource =
-      !!mapped?.id &&
-      (seenResourceIDs.has(mapped.id) ||
-        (preferredPath !== undefined &&
-          preferredPath !== discoveredResource.path &&
-          discoveredPaths.has(preferredPath)))
-    if (shouldSkipDiscoveredResource) {
-      seenPaths.add(discoveredResource.path)
-      continue
-    }
-
-    items.push({
-      key: discoveredResource.path,
-      path: discoveredResource.path,
-      name: discoveredResource.name,
-      extension: discoveredResource.extension,
-      status: mapped?.status ?? "unprocessed",
-      ...(mapped ? { resourceID: mapped.id } : {}),
-      ...(mapped?.coverRelpath ? { coverRelpath: mapped.coverRelpath } : {}),
-      ...(mapped?.title ? { title: mapped.title } : {}),
-      ...(mapped?.author ? { author: mapped.author } : {}),
-    })
-    seenPaths.add(discoveredResource.path)
-    if (mapped?.id) {
-      seenResourceIDs.add(mapped.id)
-    }
-  }
-
-  for (const record of input.processed) {
-    const sourceOriginPath = normalizeRenderableResourcePath(record.sourceOriginRelpath)
-    const sourcePath = normalizeRenderableResourcePath(record.sourceRelpath)
-    const resolvedPath = sourceOriginPath ?? sourcePath
-    if (!resolvedPath) continue
-    if (seenPaths.has(resolvedPath)) continue
-
-    const extension =
-      (isResourceFilePath(resolvedPath) ? fileExtensionFromPath(resolvedPath) : undefined) ??
-      extensionFromRecordFormat(record.format)
-    if (extension !== "pdf" && extension !== "epub") continue
-
-    items.push({
-      key: `record:${record.id}`,
-      path: resolvedPath,
-      name: fileNameFromPath(resolvedPath) || record.alias,
-      extension,
-      status: record.status,
-      resourceID: record.id,
-      ...(record.coverRelpath ? { coverRelpath: record.coverRelpath } : {}),
-      ...(record.title ? { title: record.title } : {}),
-      ...(record.author ? { author: record.author } : {}),
-    })
-    seenPaths.add(resolvedPath)
-    seenResourceIDs.add(record.id)
-  }
-
-  return items.toSorted((left, right) => left.path.localeCompare(right.path))
-}
-
 function resourceStatusLabel(status: ResourceViewStatus) {
   if (status === "unprocessed") return language.t("sidebar.resourcesUnprocessed")
   if (status === "preparing") return language.t("sidebar.resourcesPreparing")
@@ -415,38 +249,25 @@ function ResourceCoverThumbnail({
   title?: string
   extension: "pdf" | "epub"
 }) {
+  const coverQuery = useQuery({
+    ...resourceCoverQueryOptions(directory, coverRelpath ?? ""),
+    enabled: !!coverRelpath,
+  })
   const [objectUrl, setObjectUrl] = useState<string | undefined>(undefined)
 
   useEffect(() => {
-    let fetchedObjectUrl: string | undefined
-    if (!coverRelpath) {
+    if (!coverQuery.data) {
       setObjectUrl(undefined)
       return
     }
-    setObjectUrl(undefined)
-    const abortController = new AbortController()
-    const request = buildProjectFileRawUrl(directory, coverRelpath)
 
-    apiFetch(request.endpoint, {
-      directory: request.directory,
-      signal: abortController.signal,
-    })
-      .then(async (response) => {
-        if (!response.ok) return
-        const blob = await response.blob()
-        if (abortController.signal.aborted) return
-        fetchedObjectUrl = URL.createObjectURL(blob)
-        setObjectUrl(fetchedObjectUrl)
-      })
-      .catch(() => {})
+    const nextObjectUrl = URL.createObjectURL(coverQuery.data)
+    setObjectUrl(nextObjectUrl)
 
     return () => {
-      abortController.abort()
-      if (fetchedObjectUrl) {
-        URL.revokeObjectURL(fetchedObjectUrl)
-      }
+      URL.revokeObjectURL(nextObjectUrl)
     }
-  }, [directory, coverRelpath])
+  }, [coverQuery.data])
 
   const displayName = title || extension.toUpperCase()
 
@@ -584,78 +405,38 @@ export function ChatLeftSidebarResourcesSection(props: ChatLeftSidebarResourcesS
     }
   }, [readingPath])
 
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | undefined>(undefined)
-  const [resources, setResources] = useState<ResourceListItem[]>(() => {
-    return RESOURCE_CACHE_BY_DIRECTORY.get(directory)?.resources ?? []
-  })
+  const queryClient = useQueryClient()
+  const resourcesQuery = useQuery(resourcesQueryOptions(directory))
+  const [manualRefreshLoading, setManualRefreshLoading] = useState(false)
+  const [localError, setLocalError] = useState<string | undefined>(undefined)
   const [busyKeys, setBusyKeys] = useState<Set<string>>(() => new Set())
+  const resources = resourcesQuery.data?.items ?? []
+  const loading = resourcesQuery.isPending || manualRefreshLoading
+  const error =
+    localError ?? (resourcesQuery.error ? stringifyError(resourcesQuery.error) : undefined)
+  const refetchResources = resourcesQuery.refetch
 
-  const refresh = useCallback(
-    async (options?: { force?: boolean; silent?: boolean }) => {
-      const silent = options?.silent === true
-      const cached = RESOURCE_CACHE_BY_DIRECTORY.get(directory)
-      if (!options?.force && cached) {
-        const cachedToken = cached.refreshToken ?? CACHE_TOKEN_FALLBACK
-        const nextToken = refreshToken ?? CACHE_TOKEN_FALLBACK
-        if (cachedToken === nextToken) {
-          setResources(cached.resources)
-          setError(undefined)
-          setLoading(false)
-          return
-        }
-      }
-
-      if (!silent) {
-        setLoading(true)
-        setError(undefined)
-      }
-      try {
-        const [discovered, processed] = await Promise.all([
-          discoverWorkspaceResources(directory),
-          loadResources(directory),
-        ])
-        const nextResources = buildResourceListItems({ discovered, processed })
-        RESOURCE_CACHE_BY_DIRECTORY.set(directory, {
-          resources: nextResources,
-          refreshToken,
-        })
-        setResources(nextResources)
-      } catch (resourceError) {
-        setError(resourceError instanceof Error ? resourceError.message : String(resourceError))
-      } finally {
-        if (!silent) {
-          setLoading(false)
-        }
-      }
-    },
-    [directory, refreshToken],
-  )
-
-  useEffect(() => {
-    void refresh()
-  }, [refresh, refreshToken])
-
-  const hasPreparingResources = useMemo(
-    () => resources.some((resource) => resource.status === "preparing"),
-    [resources],
-  )
-
-  useEffect(() => {
-    if (!hasPreparingResources) return
-
-    const intervalID = window.setInterval(() => {
-      void refresh({ force: true, silent: true })
-    }, RESOURCE_AUTO_REFRESH_INTERVAL_MS)
-
-    return () => {
-      window.clearInterval(intervalID)
+  const refresh = useCallback(async () => {
+    setManualRefreshLoading(true)
+    setLocalError(undefined)
+    try {
+      await refetchResources({ throwOnError: true })
+    } catch (resourceError) {
+      setLocalError(stringifyError(resourceError))
+    } finally {
+      setManualRefreshLoading(false)
     }
-  }, [hasPreparingResources, refresh])
+  }, [refetchResources])
+
+  useEffect(() => {
+    if ((refreshToken ?? 0) <= 0) return
+    void refetchResources()
+  }, [refreshToken, refetchResources])
 
   const onAddPaths = useCallback(
     async (paths: string[]) => {
       let hasAdded = false
+      setLocalError(undefined)
       for (const sourcePath of paths) {
         const operationKey = `add:${sourcePath}`
         setBusyKeys((current) => new Set(current).add(operationKey))
@@ -663,7 +444,7 @@ export function ChatLeftSidebarResourcesSection(props: ChatLeftSidebarResourcesS
           await addResource(directory, { sourcePath })
           hasAdded = true
         } catch (resourceError) {
-          setError(resourceError instanceof Error ? resourceError.message : String(resourceError))
+          setLocalError(stringifyError(resourceError))
         } finally {
           setBusyKeys((current) => {
             const next = new Set(current)
@@ -673,10 +454,10 @@ export function ChatLeftSidebarResourcesSection(props: ChatLeftSidebarResourcesS
         }
       }
       if (hasAdded) {
-        await refresh({ force: true })
+        await invalidateResourcesQueries(queryClient, directory)
       }
     },
-    [directory, refresh],
+    [directory, queryClient],
   )
 
   const onAddResource = useCallback(async () => {
@@ -689,7 +470,7 @@ export function ChatLeftSidebarResourcesSection(props: ChatLeftSidebarResourcesS
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: (acceptedFiles, fileRejections, event) => {
       void (async () => {
-        setError(undefined)
+        setLocalError(undefined)
         const sourcePaths = await extractAbsoluteResourcePathsFromDrop({
           acceptedFiles,
           event,
@@ -704,13 +485,13 @@ export function ChatLeftSidebarResourcesSection(props: ChatLeftSidebarResourcesS
         if (fileRejections.length > 0) {
           const firstError = fileRejections[0]?.errors[0]
           if (firstError?.message) {
-            setError(firstError.message)
+            setLocalError(firstError.message)
           }
           return
         }
 
         if (acceptedFiles.length > 0) {
-          setError(RESOURCE_DROP_PATH_UNAVAILABLE_ERROR_MESSAGE)
+          setLocalError(RESOURCE_DROP_PATH_UNAVAILABLE_ERROR_MESSAGE)
         }
       })()
     },
@@ -726,16 +507,16 @@ export function ChatLeftSidebarResourcesSection(props: ChatLeftSidebarResourcesS
   const onProcessResource = useCallback(
     async (resource: ResourceListItem) => {
       setBusyKeys((current) => new Set(current).add(resource.key))
-      setError(undefined)
+      setLocalError(undefined)
       try {
         if (resource.resourceID) {
           await rebuildResource(directory, { resourceKey: resource.resourceID })
         } else {
           await addResource(directory, { sourcePath: resource.path })
         }
-        await refresh({ force: true })
+        await invalidateResourcesQueries(queryClient, directory)
       } catch (resourceError) {
-        setError(resourceError instanceof Error ? resourceError.message : String(resourceError))
+        setLocalError(stringifyError(resourceError))
       } finally {
         setBusyKeys((current) => {
           const next = new Set(current)
@@ -744,7 +525,7 @@ export function ChatLeftSidebarResourcesSection(props: ChatLeftSidebarResourcesS
         })
       }
     },
-    [directory, refresh],
+    [directory, queryClient],
   )
 
   return (
@@ -785,7 +566,7 @@ export function ChatLeftSidebarResourcesSection(props: ChatLeftSidebarResourcesS
             variant="outline"
             size="sm"
             onClick={() => {
-              void refresh({ force: true })
+              void refresh()
             }}
             disabled={loading}
           >

@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useState } from "react"
+import { useEffect } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Badge, Card, CardContent } from "@buddy/ui"
 import { language } from "@/context/language"
-import {
-  loadWorkspaceQuestionSetArtifacts,
-  type WorkspaceQuestionSetArtifactView,
-} from "@/state/chat-actions"
+import { stringifyError } from "@/lib/api-client"
 import { useChatStore } from "@/state/chat-store"
+import {
+  workspaceArtifactsQueryKeys,
+  workspaceQuestionSetArtifactsQueryOptions,
+} from "@/state/workspace-artifacts-query"
 
 function questionCountLabel(count: number): string {
   return language.t(count === 1 ? "chatTools.questionCount.one" : "chatTools.questionCount.other", {
@@ -22,46 +24,11 @@ function formatTimestamp(value: string): string {
 }
 
 export function WorkspaceQuestionSetPanel(props: { directory: string }) {
-  const [artifacts, setArtifacts] = useState<WorkspaceQuestionSetArtifactView[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | undefined>(undefined)
-
-  const loadArtifacts = useCallback(
-    async (isDisposed?: () => boolean) => {
-      const disposed = isDisposed ?? (() => false)
-      if (!disposed()) {
-        setLoading(true)
-        setError(undefined)
-      }
-
-      try {
-        const result = await loadWorkspaceQuestionSetArtifacts(props.directory)
-        if (disposed()) {
-          return
-        }
-        setArtifacts(result.artifacts)
-      } catch (loadError) {
-        if (disposed()) {
-          return
-        }
-        setError(loadError instanceof Error ? loadError.message : String(loadError))
-      } finally {
-        if (!disposed()) {
-          setLoading(false)
-        }
-      }
-    },
-    [props.directory],
-  )
-
-  useEffect(() => {
-    let disposed = false
-    void loadArtifacts(() => disposed)
-
-    return () => {
-      disposed = true
-    }
-  }, [loadArtifacts])
+  const queryClient = useQueryClient()
+  const artifactsQuery = useQuery(workspaceQuestionSetArtifactsQueryOptions(props.directory))
+  const artifacts = artifactsQuery.data?.artifacts ?? []
+  const loading = artifactsQuery.isPending
+  const error = artifactsQuery.error ? stringifyError(artifactsQuery.error) : undefined
 
   useEffect(() => {
     let previousBusy = useChatStore.getState().directories[props.directory]?.isBusy ?? false
@@ -70,13 +37,15 @@ export function WorkspaceQuestionSetPanel(props: { directory: string }) {
       const nextBusy = state.directories[props.directory]?.isBusy ?? false
 
       if (previousBusy && !nextBusy) {
-        void loadArtifacts()
+        void queryClient.invalidateQueries({
+          queryKey: workspaceArtifactsQueryKeys.questionSet(props.directory),
+        })
       }
       previousBusy = nextBusy
     })
 
     return () => unsubscribe()
-  }, [loadArtifacts, props.directory])
+  }, [props.directory, queryClient])
 
   return (
     <div data-component="workspace-question-set-panel" className="flex min-h-0 flex-1 flex-col p-3">

@@ -3,23 +3,26 @@ import {
   measureElement as measureVirtualElement,
   useVirtualizer,
 } from "@tanstack/react-virtual"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useEffect, useRef, useState } from "react"
 
 import { language } from "@/context/language"
 import { MermaidDiagram } from "@/components/chat/tools/render/mermaid/mermaid-diagram"
 import { MermaidToolCard } from "@/components/chat/tools/render/mermaid/mermaid-tool-card"
 import { LayoutTemplateIcon } from "lucide-react"
+import { stringifyError } from "@/lib/api-client"
 import {
   VIRTUAL_MERMAID_CARD_ESTIMATE_PX,
   VIRTUAL_MERMAID_RETAINED_ITEMS,
   VIRTUAL_MERMAID_MIN_ITEMS,
   VIRTUAL_MERMAID_OVERSCAN,
 } from "@/components/virtualization/virtualization-defaults"
-import {
-  loadWorkspaceMermaidArtifacts,
-  type WorkspaceMermaidArtifactView,
-} from "@/state/chat-actions"
+import type { WorkspaceMermaidArtifactView } from "@/state/chat-actions"
 import { useChatStore } from "@/state/chat-store"
+import {
+  workspaceArtifactsQueryKeys,
+  workspaceMermaidArtifactsQueryOptions,
+} from "@/state/workspace-artifacts-query"
 
 const MERMAID_CARD_CONTENT_HEIGHT_CLASS = "aspect-video min-h-[18rem] w-full"
 const MERMAID_CARD_GAP_PX = 16
@@ -57,36 +60,14 @@ function sameIndexes(left: number[], right: number[]) {
 }
 
 export function WorkspaceMermaidPanel(props: { directory: string }) {
-  const [artifacts, setArtifacts] = useState<WorkspaceMermaidArtifactView[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | undefined>(undefined)
+  const queryClient = useQueryClient()
   const [hydratedIndexes, setHydratedIndexes] = useState<number[]>([])
   const [retainedIndexes, setRetainedIndexes] = useState<number[]>([])
   const artifactsListRef = useRef<HTMLDivElement>(null)
-
-  const loadArtifacts = useCallback(
-    async (isDisposed?: () => boolean) => {
-      const disposed = isDisposed ?? (() => false)
-      if (!disposed()) {
-        setLoading(true)
-        setError(undefined)
-      }
-
-      try {
-        const result = await loadWorkspaceMermaidArtifacts(props.directory)
-        if (disposed()) return
-        setArtifacts(result.artifacts)
-      } catch (loadError) {
-        if (disposed()) return
-        setError(loadError instanceof Error ? loadError.message : String(loadError))
-      } finally {
-        if (!disposed()) {
-          setLoading(false)
-        }
-      }
-    },
-    [props.directory],
-  )
+  const artifactsQuery = useQuery(workspaceMermaidArtifactsQueryOptions(props.directory))
+  const artifacts = artifactsQuery.data?.artifacts ?? []
+  const loading = artifactsQuery.isPending
+  const error = artifactsQuery.error ? stringifyError(artifactsQuery.error) : undefined
 
   const shouldVirtualizeArtifacts = artifacts.length >= VIRTUAL_MERMAID_MIN_ITEMS
   const artifactsVirtualizer = useVirtualizer<HTMLDivElement, HTMLDivElement>({
@@ -179,15 +160,6 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
   }
 
   useEffect(() => {
-    let disposed = false
-    void loadArtifacts(() => disposed)
-
-    return () => {
-      disposed = true
-    }
-  }, [loadArtifacts])
-
-  useEffect(() => {
     let prevBusy = useChatStore.getState().directories[props.directory]?.isBusy ?? false
 
     const unsubscribe = useChatStore.subscribe((state) => {
@@ -195,13 +167,15 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
       const currBusy = currDir?.isBusy ?? false
 
       if (prevBusy && !currBusy) {
-        void loadArtifacts()
+        void queryClient.invalidateQueries({
+          queryKey: workspaceArtifactsQueryKeys.mermaid(props.directory),
+        })
       }
       prevBusy = currBusy
     })
 
     return () => unsubscribe()
-  }, [props.directory, loadArtifacts])
+  }, [props.directory, queryClient])
 
   useEffect(() => {
     setHydratedIndexes((current) => {

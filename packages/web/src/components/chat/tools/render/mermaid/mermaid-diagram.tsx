@@ -1,6 +1,6 @@
 import { Button, CheckIcon, CopyIcon, cn } from "@buddy/ui"
 import { motion } from "motion/react"
-import { useRef, useState, useCallback, useEffect, useId } from "react"
+import { useRef, useState, useCallback, useEffect } from "react"
 import { language } from "@/context/language"
 import { useMermaidRender } from "./use-mermaid-render"
 import { MermaidInlineView } from "./mermaid-inline-view"

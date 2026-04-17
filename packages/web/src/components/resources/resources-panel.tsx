@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,14 +33,15 @@ import {
   FileArchiveIcon,
 } from "lucide-react"
 import { language } from "@/context/language"
+import { stringifyError } from "@/lib/api-client"
 import {
   addResource,
-  loadResources,
   rebuildResource,
   removeResource,
   renameResource,
   type ResourceRecord,
 } from "@/state/resource-actions"
+import { invalidateResourcesQueries, resourcesQueryOptions } from "@/state/resources-query"
 import {
   VIRTUAL_DEFAULT_OVERSCAN,
   VIRTUAL_RESOURCE_MIN_ITEMS,
@@ -54,8 +56,8 @@ type ResourcesPanelProps = {
   className?: string
 }
 
-const RESOURCE_AUTO_REFRESH_INTERVAL_MS = 1500
-const RESOURCE_STATUS_PREPARING = "preparing" as const
+const RESOURCE_STATUS_PREPARING = "preparing"
+const EMPTY_RESOURCES: ResourceRecord[] = []
 
 function titleCaseLabel(value: string) {
   return value
@@ -104,71 +106,52 @@ function SkeletonCard() {
 
 export function ResourcesPanel(props: ResourcesPanelProps) {
   const { directory, refreshToken, className } = props
-  const [resources, setResources] = useState<ResourceRecord[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | undefined>(undefined)
+  const queryClient = useQueryClient()
+  const resourcesQuery = useQuery(resourcesQueryOptions(directory))
+  const [actionError, setActionError] = useState<string | undefined>(undefined)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [busyKey, setBusyKey] = useState<string | undefined>(undefined)
   const [resourcePendingRemoval, setResourcePendingRemoval] = useState<ResourceRecord | undefined>(
     undefined,
   )
   const resourcesListRef = useRef<HTMLDivElement>(null)
-
-  const refreshResources = useCallback(
-    async (input?: { silent?: boolean }) => {
-      const silent = input?.silent === true
-      if (!silent) {
-        setLoading(true)
-        setError(undefined)
-      }
-
-      try {
-        const next = await loadResources(directory)
-        setResources(next)
-      } catch (resourceError) {
-        setError(resourceError instanceof Error ? resourceError.message : String(resourceError))
-      } finally {
-        if (!silent) {
-          setLoading(false)
-        }
-      }
-    },
-    [directory],
-  )
+  const resources = resourcesQuery.data?.processed ?? EMPTY_RESOURCES
+  const refetchResources = resourcesQuery.refetch
 
   useEffect(() => {
-    void refreshResources()
-  }, [refreshResources, refreshToken])
+    if ((refreshToken ?? 0) <= 0) return
+    void refetchResources()
+  }, [refreshToken, refetchResources])
 
   const sortedResources = useMemo(
     () => [...resources].toSorted((left, right) => left.alias.localeCompare(right.alias)),
     [resources],
   )
-  const hasPreparingResources = useMemo(
-    () => resources.some((resource) => resource.status === RESOURCE_STATUS_PREPARING),
-    [resources],
-  )
+  const errorMessage =
+    actionError ?? (resourcesQuery.error ? stringifyError(resourcesQuery.error) : undefined)
 
-  useEffect(() => {
-    if (!hasPreparingResources) return
+  async function refreshResources() {
+    setIsRefreshing(true)
+    setActionError(undefined)
 
-    const intervalID = window.setInterval(() => {
-      void refreshResources({ silent: true })
-    }, RESOURCE_AUTO_REFRESH_INTERVAL_MS)
-
-    return () => {
-      window.clearInterval(intervalID)
+    try {
+      await resourcesQuery.refetch({ throwOnError: true })
+    } catch (resourceError) {
+      setActionError(stringifyError(resourceError))
+    } finally {
+      setIsRefreshing(false)
     }
-  }, [hasPreparingResources, refreshResources])
+  }
 
   async function runResourceAction(key: string, action: () => Promise<unknown>) {
     setBusyKey(key)
-    setError(undefined)
+    setActionError(undefined)
 
     try {
       await action()
-      await refreshResources()
+      await invalidateResourcesQueries(queryClient, directory)
     } catch (resourceError) {
-      setError(resourceError instanceof Error ? resourceError.message : String(resourceError))
+      setActionError(stringifyError(resourceError))
     } finally {
       setBusyKey(undefined)
     }
@@ -196,6 +179,8 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
       })
     })
   }
+
+  const isLoading = resourcesQuery.isPending || isRefreshing
 
   function renderResourceCard(resource: ResourceRecord) {
     const isBusy = busyKey === resource.id
@@ -348,16 +333,16 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
             size="sm"
             className="px-2"
             onClick={() => void refreshResources()}
-            disabled={loading}
+            disabled={isLoading}
             title={language.t("resourcesPanel.refreshResources")}
           >
-            <RefreshCwIcon className={`size-4 ${loading ? "animate-spin" : ""}`} />
+            <RefreshCwIcon className={`size-4 ${isLoading ? "animate-spin" : ""}`} />
           </Button>
           <Button
             data-action="resources-add"
             size="sm"
             onClick={() => void onAddResource()}
-            disabled={loading}
+            disabled={isLoading}
           >
             <PlusIcon className="mr-1.5 size-4" />
             {language.t("resourcesPanel.add")}
@@ -365,9 +350,9 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
         </div>
       )}
 
-      {error ? (
+      {errorMessage ? (
         <p className="rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 px-2 py-1.5 text-xs text-icon-critical-base">
-          {error}
+          {errorMessage}
         </p>
       ) : null}
 
@@ -394,7 +379,7 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
               ))}
             </div>
           )
-        ) : loading ? (
+        ) : isLoading ? (
           <div className="space-y-2">
             <SkeletonCard />
             <SkeletonCard />
@@ -405,7 +390,7 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
             type="button"
             data-action="resources-empty-add"
             onClick={() => void onAddResource()}
-            disabled={loading}
+            disabled={isLoading}
             className="group mt-1 flex w-full min-h-0 flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-border-base/40 bg-surface-weak/5 px-4 py-10 text-center transition-all hover:border-border-base/80 hover:bg-surface-weak/30"
           >
             <div className="mb-4 flex size-10 items-center justify-center rounded-full bg-surface-weak transition-transform group-hover:scale-105 group-hover:shadow-sm">
