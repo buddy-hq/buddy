@@ -32,8 +32,9 @@ export const UserSection = memo(function UserSection({
   )
   const userAgentParts = useMemo(() => userParts.filter(isChatAgentPart), [userParts])
   const userTextParts = useMemo(() => userParts.filter(isChatTextPart), [userParts])
+  const hasVisibleContent = userAttachmentParts.length > 0 || userTextParts.length > 0
 
-  if (!userMessage) return null
+  if (!userMessage || !hasVisibleContent) return null
 
   return (
     <div className="ml-auto flex w-fit flex-col items-end gap-2 text-sm">

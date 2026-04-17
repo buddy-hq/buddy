@@ -8,7 +8,7 @@ import {
   type TeachingSessionSnapshot,
 } from "@/state/chat-actions"
 import { useChatStore } from "@/state/chat-store"
-import { isSessionStatusActive } from "@/state/session-status"
+import { isSessionWorking } from "@/state/session-status"
 import {
   teachingSessionQueryKeys,
   teachingSessionStateQueryOptions,
@@ -139,7 +139,11 @@ export function SystemPromptPanel(props: SystemPromptPanelProps) {
   const activeSessionBusy = useChatStore((state) => {
     const directoryState = state.directories[directory]
     if (!directoryState || !sessionID) return false
-    return isSessionStatusActive(directoryState.sessionStatusByID[sessionID])
+    return isSessionWorking({
+      info: directoryState.sessions.find((session) => session.id === sessionID),
+      status: directoryState.sessionStatusByID[sessionID],
+      messages: directoryState.sessionID === sessionID ? directoryState.messages : undefined,
+    })
   })
   const systemPromptQuery = useQuery({
     ...teachingSessionStateQueryOptions(directory, sessionID ?? ""),

@@ -152,7 +152,8 @@ export function useChatSync(props: UseChatSyncProps) {
         }
 
         if (payload.type === "server.instance.disposed") {
-          setDirectoryError(directory, "Buddy backend restarted. Reconnecting notebook state.")
+          // Instance disposal is part of the normal backend lifecycle. Refresh the
+          // notebook state without flashing a transient inline error during navigation.
           void resyncQueryBackedDirectory(directory)
           return
         }
