@@ -1,4 +1,3 @@
-import BUDDY_PERSONA_PROMPT from "./prompts/buddy.p.md"
 import { defineBuddyPersona } from "./wiring/define-buddy-persona"
 
 export const BUDDY = defineBuddyPersona({
@@ -31,7 +30,7 @@ export const BUDDY = defineBuddyPersona({
   },
   runtime: {
     kind: "build",
-    prompt: BUDDY_PERSONA_PROMPT,
+    prompt: "",
     permission: {
       todoread: "deny",
       todowrite: "deny",
