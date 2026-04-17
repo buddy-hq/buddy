@@ -6,11 +6,13 @@
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
     "paths": {
-      "@/*": ["./src/*", "../web/src/*"]
+      "@/*": ["./src/*", "../web/src/*"],
+      "@buddy/web": ["../web/src/app.tsx"],
+      "@buddy/web/*": ["../web/src/*"]
     },
     "noEmit": true,
     "outDir": "./dist",
     "types": ["vite/client"]
   },
-  "include": ["src/renderer/**/*", "../web/src/foliate-js.d.ts"]
+  "include": ["src/renderer/**/*", "../web/src/**/*"]
 }
