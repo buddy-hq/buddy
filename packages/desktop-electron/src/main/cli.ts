@@ -15,7 +15,10 @@ const SQLITE_PROGRESS_PREFIX = "sqlite-migration:"
 const SERVE_COMMAND = "serve"
 const HOSTNAME_OPTION = "--hostname"
 const PORT_OPTION = "--port"
+const WATCH_OPTION = "--watch"
+const ENV_FILE_OPTION = "--env-file"
 const BUN_RUN_COMMAND = "run"
+const BUN_EXECUTABLE = "bun"
 const ADVANCED_MATH_LOCAL_ASSET_DIR_ENV = "BUDDY_ADVANCED_MATH_LOCAL_ASSET_DIR"
 const STANDARDS_LOCAL_ASSET_DIR_ENV = "BUDDY_STANDARDS_LOCAL_ASSET_DIR"
 const BUN_BE_BUN_ENV = "BUN_BE_BUN"
@@ -28,6 +31,9 @@ const BUDDY_RUNTIME_XDG_DIRECTORY_NAME = "xdg"
 const BUNDLED_BACKEND_DIRECTORY_NAME = "backend"
 const BUNDLED_MIGRATIONS_DIRECTORY_NAME = "migrations"
 const BUDDY_MIGRATION_DIRECTORY_NAME = "buddy"
+const DEVELOPMENT_BACKEND_PACKAGE_NAME = "buddy"
+const DEVELOPMENT_BACKEND_ENTRYPOINT_PATH_SEGMENTS = ["src", "index.ts"] as const
+const DEVELOPMENT_BACKEND_MIGRATION_PATH_SEGMENTS = ["migration"] as const
 const DEFAULT_NOTEBOOK_HOME_SEGMENTS = ["Documents", "Buddy"] as const
 const PATH_ENV_KEYS = ["PATH", "Path"] as const
 const POSIX_SIDECAR_PATH_ENTRIES = [
@@ -103,6 +109,40 @@ function getBundledBuddyMigrationDir() {
   return migrationDir
 }
 
+function resolveDevelopmentBackendRoot() {
+  if (app.isPackaged) return undefined
+
+  const candidates = [
+    path.resolve(app.getAppPath(), "..", DEVELOPMENT_BACKEND_PACKAGE_NAME),
+    path.resolve(process.cwd(), "..", DEVELOPMENT_BACKEND_PACKAGE_NAME),
+  ]
+
+  for (const candidate of candidates) {
+    if (existsSync(path.join(candidate, ...DEVELOPMENT_BACKEND_ENTRYPOINT_PATH_SEGMENTS))) {
+      return candidate
+    }
+  }
+
+  return undefined
+}
+
+function resolveDevelopmentEnvFilePath(backendRoot: string) {
+  const envFilePath = path.resolve(backendRoot, "..", "..", ".env")
+  return existsSync(envFilePath) ? `${ENV_FILE_OPTION}=${envFilePath}` : undefined
+}
+
+function getBuddyMigrationDir() {
+  const backendRoot = resolveDevelopmentBackendRoot()
+  if (backendRoot) {
+    const migrationDir = path.join(backendRoot, ...DEVELOPMENT_BACKEND_MIGRATION_PATH_SEGMENTS)
+    if (existsSync(migrationDir)) {
+      return migrationDir
+    }
+  }
+
+  return getBundledBuddyMigrationDir()
+}
+
 async function buildRuntimeEnvironment(password: string, port: number) {
   const runtimeRoot = resolveBuddyRuntimeRoot()
   const xdgDataHome = path.join(runtimeRoot, "data")
@@ -123,7 +163,7 @@ async function buildRuntimeEnvironment(password: string, port: number) {
     OPENCODE_SERVER_USERNAME: SIDECAR_USERNAME,
     OPENCODE_SERVER_PASSWORD: password,
     BUDDY_APP_VERSION: app.getVersion(),
-    BUDDY_MIGRATION_DIR: getBundledBuddyMigrationDir(),
+    BUDDY_MIGRATION_DIR: getBuddyMigrationDir(),
     BUDDY_DIRECTORY_BASE: resolveDefaultNotebookHome(home),
     BUDDY_ALLOWED_DIRECTORY_ROOTS: resolveAllowedDirectoryRoots({
       home,
@@ -223,6 +263,10 @@ function killStaleDevelopmentSidecars(runtimeRoot: string) {
   if (app.isPackaged || process.platform === "win32") return
 
   const sidecarPath = getSidecarPath()
+  const backendRoot = resolveDevelopmentBackendRoot()
+  const developmentEntrypoint = backendRoot
+    ? path.join(backendRoot, ...DEVELOPMENT_BACKEND_ENTRYPOINT_PATH_SEGMENTS)
+    : undefined
   const currentPid = process.pid
 
   try {
@@ -232,8 +276,12 @@ function killStaleDevelopmentSidecars(runtimeRoot: string) {
 
     for (const line of output.split("\n")) {
       const trimmed = line.trim()
-      if (!trimmed.includes(sidecarPath)) continue
       if (!trimmed.includes(`BUDDY_RUNTIME_ROOT=${runtimeRoot}`)) continue
+      const matchesBundledSidecar = trimmed.includes(sidecarPath)
+      const matchesDevelopmentSidecar = developmentEntrypoint
+        ? trimmed.includes(BUN_EXECUTABLE) && trimmed.includes(developmentEntrypoint)
+        : false
+      if (!matchesBundledSidecar && !matchesDevelopmentSidecar) continue
 
       const pidText = trimmed.split(/\s+/, 1)[0]
       const pid = Number.parseInt(pidText, 10)
@@ -251,10 +299,16 @@ function killStaleDevelopmentSidecars(runtimeRoot: string) {
 }
 
 export async function serve(hostname: string, port: number, password: string) {
-  const sidecarPath = getSidecarPath()
-  const entrypoint = getBundledBackendEntrypointPath()
+  const backendRoot = resolveDevelopmentBackendRoot()
+  const command = backendRoot ? BUN_EXECUTABLE : getSidecarPath()
+  const entrypoint = backendRoot
+    ? path.join(backendRoot, ...DEVELOPMENT_BACKEND_ENTRYPOINT_PATH_SEGMENTS)
+    : getBundledBackendEntrypointPath()
+  const envFileArgument = backendRoot ? resolveDevelopmentEnvFilePath(backendRoot) : undefined
   const args = [
+    ...(envFileArgument ? [envFileArgument] : []),
     BUN_RUN_COMMAND,
+    ...(backendRoot ? [WATCH_OPTION] : []),
     entrypoint,
     SERVE_COMMAND,
     HOSTNAME_OPTION,
@@ -268,7 +322,7 @@ export async function serve(hostname: string, port: number, password: string) {
   killStaleDevelopmentSidecars(env.BUDDY_RUNTIME_ROOT)
   const envs = ensureSidecarCommandPath(shell ? mergeShellEnv(loadShellEnv(shell), env) : env)
 
-  const child = spawn(sidecarPath, args, {
+  const child = spawn(command, args, {
     env: envs,
     detached: app.isPackaged && process.platform !== "win32",
     windowsHide: true,
