@@ -16,19 +16,18 @@ function DirectoryRouteLayout() {
   const params = Route.useParams()
 
   return (
-    <DirectoryNotebookRouteProvider directoryToken={params.directory}>
-      <AnimatePresence mode="popLayout" initial={false}>
-        <motion.div
-          key={params.directory}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.15 }}
-          className="h-full w-full overflow-hidden"
-        >
+    <AnimatePresence mode="popLayout" initial={false}>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.15 }}
+        className="h-full w-full overflow-hidden"
+      >
+        <DirectoryNotebookRouteProvider directoryToken={params.directory}>
           <Outlet />
-        </motion.div>
-      </AnimatePresence>
-    </DirectoryNotebookRouteProvider>
+        </DirectoryNotebookRouteProvider>
+      </motion.div>
+    </AnimatePresence>
   )
 }
