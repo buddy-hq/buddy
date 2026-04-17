@@ -26,6 +26,7 @@ import {
   postSessionCommand,
   postSessionPrompt,
   proxySessionCollection,
+  summarizeSessionById,
 } from "../session"
 import { getTeachingState } from "../learning/adapters/http/session/state-actions"
 
@@ -36,6 +37,7 @@ const [createSessionHandler] = sessionRouteFactory.createHandlers(proxySessionCo
 const [getSessionStatusHandler] = sessionRouteFactory.createHandlers(getSessionStatus)
 const [getSessionHandler] = sessionRouteFactory.createHandlers(getSessionById)
 const [updateSessionHandler] = sessionRouteFactory.createHandlers(patchSessionById)
+const [postSessionSummarizeHandler] = sessionRouteFactory.createHandlers(summarizeSessionById)
 const [listSessionMessagesHandler] = sessionRouteFactory.createHandlers(listSessionMessages)
 const [postSessionPromptHandler] = sessionRouteFactory.createHandlers(postSessionPrompt)
 const [postSessionCommandHandler] = sessionRouteFactory.createHandlers(postSessionCommand)
@@ -136,6 +138,23 @@ const sessionCommandBodyOpenApiSchema = {
 }
 
 const sessionInteractionBodySchema = z.record(z.string(), z.unknown())
+
+const sessionSummarizeBodySchema = z.object({
+  providerID: z.string().min(1),
+  modelID: z.string().min(1),
+  auto: z.boolean().optional(),
+})
+
+const sessionSummarizeBodyOpenApiSchema = {
+  type: "object" as const,
+  required: ["providerID", "modelID"],
+  additionalProperties: false,
+  properties: {
+    providerID: { type: "string" as const },
+    modelID: { type: "string" as const },
+    auto: { type: "boolean" as const },
+  },
+}
 
 const teachingSessionStateOutboundSchema = z.object({
   kind: z.enum(["message", "command"]),
@@ -274,6 +293,32 @@ export const SessionRoutes = new Hono()
     validator("query", directoryQuerySchema),
     validator("param", SessionIDParamSchema),
     listSessionMessagesHandler,
+  )
+  .post(
+    "/:sessionID/summarize",
+    describeRoute({
+      operationId: "session.summarize",
+      summary: "Compact a session",
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": { schema: sessionSummarizeBodyOpenApiSchema },
+        },
+      },
+      responses: {
+        200: {
+          description: "Whether the session compaction completed",
+          content: {
+            "application/json": booleanJsonResponse,
+          },
+        },
+        ...routeErrors(400, 403, 409),
+      },
+    }),
+    validator("query", directoryQuerySchema),
+    validator("param", SessionIDParamSchema),
+    validator("json", sessionSummarizeBodySchema),
+    postSessionSummarizeHandler,
   )
   .post(
     "/:sessionID/message",

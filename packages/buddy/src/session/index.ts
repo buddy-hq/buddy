@@ -5,6 +5,7 @@ export {
   listSessionMessages,
   patchSessionById,
   proxySessionCollection,
+  summarizeSessionById,
 } from "./orchestration/core-actions"
 export { SessionLookupError, SessionTransformValidationError } from "./orchestration/errors"
 export {

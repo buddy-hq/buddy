@@ -7,7 +7,7 @@ import { ensureAllowedDirectory } from "../../http"
 import { proxyToOpenCode } from "../../http"
 import { isSessionInRequestedProject } from "../../http"
 import { withConfigSync } from "../../http/route-helpers"
-import { ensureSessionExistsInDirectory, isSessionNotFoundError } from "./lookup"
+import { isSessionNotFoundError } from "./lookup"
 
 type RuntimeSessionInfo = Awaited<ReturnType<typeof OpenCodeSession.get>>
 
@@ -101,6 +101,21 @@ async function loadSessionInDirectory(
   }
 }
 
+async function ensureRuntimeSessionExists(
+  directory: string,
+  sessionID: string,
+): Promise<Response | undefined> {
+  try {
+    const session = await loadSessionInDirectory(directory, sessionID)
+    if (!session) {
+      return Response.json({ error: SESSION_NOT_FOUND_ERROR }, { status: NOT_FOUND_STATUS })
+    }
+    return undefined
+  } catch (error) {
+    return runtimeErrorResponse(error)
+  }
+}
+
 export async function proxySessionCollection(c: Context): Promise<Response> {
   if (c.req.method === "POST") {
     const syncResult = await withConfigSync(c, {
@@ -141,15 +156,27 @@ export async function patchSessionById(c: Context): Promise<Response> {
   if (!directoryResult.ok) return directoryResult.response
 
   const sessionID = c.req.param("sessionID")
-  const lookupResponse = await ensureSessionExistsInDirectory({
-    directory: directoryResult.directory,
-    sessionID,
-    request: c.req.raw,
-  })
+  const lookupResponse = await ensureRuntimeSessionExists(directoryResult.directory, sessionID)
   if (lookupResponse) return lookupResponse
 
   return proxyToOpenCode(c, {
     targetPath: `/session/${encodeURIComponent(sessionID)}`,
+  })
+}
+
+export async function summarizeSessionById(c: Context): Promise<Response> {
+  const syncResult = await withConfigSync(c, {
+    operation: "session compaction",
+  })
+  if (!syncResult.ok) return syncResult.response
+
+  const sessionID = c.req.param("sessionID")
+  const lookupResponse = await ensureRuntimeSessionExists(syncResult.value.directory, sessionID)
+  if (lookupResponse) return lookupResponse
+
+  return proxyToOpenCode(c, {
+    targetPath: `/session/${encodeURIComponent(sessionID)}/summarize`,
+    forceBusyAs409: true,
   })
 }
 
