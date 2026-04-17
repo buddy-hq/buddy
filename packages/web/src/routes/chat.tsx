@@ -1,4 +1,5 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
 import { Button, Card, CardContent, Input } from "@buddy/ui"
 import { NotebookCreationDialog } from "@/components/layout/chat-left-sidebar/dialogs"
@@ -16,14 +17,17 @@ import {
   isOnboardingTestSearch,
 } from "../lib/onboarding-test-mode"
 import {
-  bootstrapOpenProjects,
   createManagedNotebook,
-  loadNotebookHome,
+  type NotebookHomeState,
   openInboxNotebook,
   openProject,
   startNewSessionDraft,
-  type NotebookHomeState,
 } from "../state/chat-actions"
+import {
+  notebookHomeQueryOptions,
+  openProjectsWithSessionsQueryOptions,
+  setOpenProjectsQueryData,
+} from "../state/bootstrap-query"
 import { useChatStore } from "../state/chat-store"
 
 const ENTRY_ACTION = {
@@ -55,26 +59,25 @@ export const Route = createFileRoute("/chat")({
       throw redirect({ to: "/onboarding" })
     }
   },
+  loader: async ({ context }) => {
+    await Promise.allSettled([
+      context.queryClient.ensureQueryData(openProjectsWithSessionsQueryOptions()),
+      context.queryClient.ensureQueryData(notebookHomeQueryOptions()),
+    ])
+  },
   component: ChatEntryPage,
 })
 
 function ChatEntryPage() {
+  const queryClient = useQueryClient()
   const navigate = useNavigate()
   const activeDirectory = useChatStore((state) => state.activeDirectory)
   const entryError = useChatStore((state) => state.entryError)
   const setActiveDirectory = useChatStore((state) => state.setActiveDirectory)
   const setEntryError = useChatStore((state) => state.setEntryError)
   const [busyAction, setBusyAction] = useState<EntryAction | undefined>(undefined)
-  const [notebookHome, setNotebookHome] = useState<NotebookHomeState | undefined>(undefined)
-
-  useEffect(() => {
-    void bootstrapOpenProjects().catch(() => undefined)
-    void loadNotebookHome()
-      .then((state) => {
-        setNotebookHome(state)
-      })
-      .catch(() => undefined)
-  }, [])
+  const notebookHomeQuery = useQuery(notebookHomeQueryOptions())
+  const notebookHome = notebookHomeQuery.data
 
   useEffect(() => {
     if (!activeDirectory || activeDirectory === "/") return
@@ -111,6 +114,7 @@ function ChatEntryPage() {
 
     await runEntryAction(ENTRY_ACTION.OPEN_EXISTING, async () => {
       const nextDirectory = await openProject(directory)
+      setOpenProjectsQueryData(queryClient, useChatStore.getState().openProjects)
       navigateToDirectory(nextDirectory)
     })
   }
@@ -118,6 +122,7 @@ function ChatEntryPage() {
   async function quickChat() {
     await runEntryAction(ENTRY_ACTION.QUICK_CHAT, async () => {
       const inboxDirectory = await openInboxNotebook()
+      setOpenProjectsQueryData(queryClient, useChatStore.getState().openProjects)
       startNewSessionDraft(inboxDirectory)
       navigateToDirectory(inboxDirectory)
     })
@@ -129,6 +134,7 @@ function ChatEntryPage() {
 
     await runEntryAction(ENTRY_ACTION.NEW_NOTEBOOK, async () => {
       const nextDirectory = await createManagedNotebook(trimmed)
+      setOpenProjectsQueryData(queryClient, useChatStore.getState().openProjects)
       startNewSessionDraft(nextDirectory)
       navigateToDirectory(nextDirectory)
     })

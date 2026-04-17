@@ -1,4 +1,5 @@
 import { useEffect } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { startChatSync } from "@/state/chat-sync"
 import { resyncDirectory } from "@/state/chat-actions"
 import { isAbortLikeError } from "@/state/chat-error"
@@ -6,6 +7,13 @@ import { useUiPreferences } from "@/state/ui-preferences"
 import { useChatStore } from "@/state/chat-store"
 import { getModelSelectionScopeKey, useModelSelectionStore } from "@/state/model-selection-store"
 import { IDLE_SESSION_STATUS, normalizeSessionStatusValue } from "@/state/session-status"
+import {
+  removeDirectoryPermissionQueryData,
+  setDirectoryPermissionsQueryData,
+  setDirectorySessionsQueryData,
+  upsertDirectoryPermissionQueryData,
+  upsertDirectorySessionQueryData,
+} from "@/state/directory-chat-query"
 import { readSessionErrorMessage } from "./chat-prompt-helpers"
 import type {
   GlobalEvent,
@@ -40,6 +48,7 @@ type UseChatSyncProps = {
 }
 
 export function useChatSync(props: UseChatSyncProps) {
+  const queryClient = useQueryClient()
   const {
     decodedDirectory,
     hasRegisteredProject,
@@ -62,6 +71,23 @@ export function useChatSync(props: UseChatSyncProps) {
   useEffect(() => {
     if (!decodedDirectory || !hasRegisteredProject) return
 
+    const syncDirectoryQueriesFromStore = (directory: string) => {
+      const directoryState = useChatStore.getState().directories[directory]
+      setDirectorySessionsQueryData(queryClient, directory, directoryState?.sessions ?? [])
+      setDirectoryPermissionsQueryData(
+        queryClient,
+        directory,
+        directoryState?.pendingPermissions ?? [],
+      )
+    }
+
+    const resyncQueryBackedDirectory = (directory: string) =>
+      resyncDirectory(directory)
+        .then(() => {
+          syncDirectoryQueriesFromStore(directory)
+        })
+        .catch(() => undefined)
+
     const sync = startChatSync({
       directory: decodedDirectory,
       onStatus(status) {
@@ -69,14 +95,14 @@ export function useChatSync(props: UseChatSyncProps) {
       },
       onOpen() {
         if (!decodedDirectory || decodedDirectory === "/") return
-        void resyncDirectory(decodedDirectory)
+        void resyncQueryBackedDirectory(decodedDirectory)
       },
       onEvent(event: GlobalEvent) {
         const directory = event.directory
         if (!directory || directory === "global") {
           if (event.payload.type === "server.connected") {
             if (!decodedDirectory || decodedDirectory === "/") return
-            void resyncDirectory(decodedDirectory)
+            void resyncQueryBackedDirectory(decodedDirectory)
           }
           return
         }
@@ -85,7 +111,9 @@ export function useChatSync(props: UseChatSyncProps) {
         const properties = payload.properties
 
         if (payload.type === "session.created" || payload.type === "session.updated") {
-          applySessionUpdated(directory, properties.info as SessionInfo)
+          const sessionInfo = properties.info as SessionInfo
+          applySessionUpdated(directory, sessionInfo)
+          upsertDirectorySessionQueryData(queryClient, directory, sessionInfo)
           return
         }
 
@@ -125,7 +153,7 @@ export function useChatSync(props: UseChatSyncProps) {
 
         if (payload.type === "server.instance.disposed") {
           setDirectoryError(directory, "Buddy backend restarted. Reconnecting notebook state.")
-          void resyncDirectory(directory).catch(() => undefined)
+          void resyncQueryBackedDirectory(directory)
           return
         }
 
@@ -173,12 +201,19 @@ export function useChatSync(props: UseChatSyncProps) {
         }
 
         if (payload.type === "permission.asked") {
-          applyPermissionAsked(directory, properties as PermissionRequest)
+          const permissionRequest = properties as PermissionRequest
+          applyPermissionAsked(directory, permissionRequest)
+          upsertDirectoryPermissionQueryData(queryClient, directory, permissionRequest)
           return
         }
 
         if (payload.type === "permission.replied") {
           applyPermissionReplied(directory, String(properties.requestID ?? ""))
+          removeDirectoryPermissionQueryData(
+            queryClient,
+            directory,
+            String(properties.requestID ?? ""),
+          )
         }
       },
     })
@@ -198,6 +233,7 @@ export function useChatSync(props: UseChatSyncProps) {
     applySessionStatus,
     applySessionUpdated,
     clearDirectoryError,
+    queryClient,
     setDirectoryError,
     setStreamStatus,
     setSystemPromptRefreshToken,

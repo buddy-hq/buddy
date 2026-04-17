@@ -1,4 +1,5 @@
 import { useMemo } from "react"
+import { useQueries, useQuery } from "@tanstack/react-query"
 import { useShallow } from "zustand/react/shallow"
 import { useChatStore } from "@/state/chat-store"
 import {
@@ -10,6 +11,10 @@ import {
 import { useUiPreferences } from "@/state/ui-preferences"
 import { useTeachingRuntime, teachingSelectionKey } from "@/state/teaching-runtime"
 import { usePromptStore, getPromptScopeKey } from "@/state/prompt-store"
+import {
+  directoryPermissionsQueryOptions,
+  directorySessionsQueryOptions,
+} from "@/state/directory-chat-query"
 import { getSessionFamily } from "../session-family"
 import { modelSelectionKey, parseConfiguredModel } from "./chat-prompt-helpers"
 import type { SessionInfo, SessionStatusInfo } from "@/state/chat-types"
@@ -28,6 +33,16 @@ const EMPTY_LIST: never[] = []
 const EMPTY_RECORD: Record<string, never> = {}
 const EMPTY_SESSIONS: SessionInfo[] = []
 const EMPTY_SESSION_STATUS: Record<string, SessionStatusInfo> = {}
+
+function readSeededSessionList(directory: string) {
+  const sessions = useChatStore.getState().directories[directory]?.sessions
+  return sessions && sessions.length > 0 ? sessions : undefined
+}
+
+function readSeededPendingPermissions(directory: string) {
+  const pendingPermissions = useChatStore.getState().directories[directory]?.pendingPermissions
+  return pendingPermissions && pendingPermissions.length > 0 ? pendingPermissions : undefined
+}
 
 function isModelSelection(
   value: ReturnType<typeof parseConfiguredModel>,
@@ -166,6 +181,20 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
     () => !!decodedDirectory && validOpenProjects.includes(decodedDirectory),
     [decodedDirectory, validOpenProjects],
   )
+
+  useQueries({
+    queries: validOpenProjects.map((directory) => ({
+      ...directorySessionsQueryOptions(directory),
+      initialData: () => readSeededSessionList(directory),
+    })),
+  })
+
+  useQuery({
+    ...directoryPermissionsQueryOptions(decodedDirectory),
+    enabled: decodedDirectory.length > 0 && hasRegisteredProject,
+    initialData: () => readSeededPendingPermissions(decodedDirectory),
+  })
+
   const sessionsByDirectory = useChatStore(
     useShallow((state) => {
       const result: Record<string, SessionInfo[]> = {}

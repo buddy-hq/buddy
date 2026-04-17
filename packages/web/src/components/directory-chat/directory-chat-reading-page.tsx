@@ -1,11 +1,7 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { DirectoryInvalidNotebook } from "./directory-invalid-notebook"
-import {
-  ResizeHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-  useResizablePanelRef,
-} from "@buddy/ui"
+import { ResizeHandle, ResizablePanel, ResizablePanelGroup, useResizablePanelRef } from "@buddy/ui"
 import { DirectoryChatConversationPane } from "@/components/directory-chat/directory-chat-conversation-pane"
 import { DirectoryChatReadingReaderPane } from "@/components/directory-chat/directory-chat-reading-reader-pane"
 import { DirectoryChatReadingThreadBrowser } from "@/components/directory-chat/directory-chat-reading-thread-browser"
@@ -14,10 +10,12 @@ import { useDirectoryNotebookRouteContext } from "@/components/directory-chat/di
 import { language } from "@/context/language"
 import { fileNameFromPath, normalizeRelativePath } from "@/lib/workspace-file-paths"
 import { useChatStore } from "@/state/chat-store"
+import { resourcesQueryOptions } from "@/state/resources-query"
 import { useTeachingRuntime, teachingSelectionKey } from "@/state/teaching-runtime"
-import { loadResources, type ResourceRecord } from "@/state/resource-actions"
+import { type ResourceRecord } from "@/state/resource-actions"
 
 type DirectoryChatReadingPageProps = {
+  directory: string
   resourcePath: string
   resourceKey?: string
 }
@@ -48,7 +46,6 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
   const resourceName = fileNameFromPath(normalizedPath) || language.t("sidebar.resources")
   const readyDirectory =
     controller.status === "ready" ? controller.mainPaneProps.directory : undefined
-  const [resourceRecord, setResourceRecord] = useState<ResourceRecord | undefined>(undefined)
   const [chatPanelWidth, setChatPanelWidth] = useState(() => {
     if (typeof window === "undefined") {
       return READING_CHAT_PANEL_DEFAULT_WIDTH_PX
@@ -73,6 +70,10 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
   const selectedPersonaBySession = useTeachingRuntime((state) => state.selectedPersonaBySession)
   const restoredPersonaRef = useRef<string | undefined>(undefined)
   const conversationPanelRef = useResizablePanelRef()
+  const resourcesQuery = useQuery({
+    ...resourcesQueryOptions(readyDirectory ?? ""),
+    enabled: readyDirectory !== undefined,
+  })
   const { defaultLayout, onLayoutChanged } = usePersistentResizablePanelLayout({
     id: READING_LAYOUT_ID,
     panelIds: READING_LAYOUT_PANEL_IDS,
@@ -82,32 +83,19 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
     window.localStorage.setItem(READING_CHAT_PANEL_WIDTH_STORAGE_KEY, chatPanelWidth.toString())
   }, [chatPanelWidth])
 
-  useEffect(() => {
-    if (!readyDirectory) return
-    let cancelled = false
-    setResourceRecord(undefined)
-    void loadResources(readyDirectory)
-      .then((resources) => {
-        if (cancelled) return
-        const matched = props.resourceKey
-          ? resources.find(
-              (resource) =>
-                resource.id === props.resourceKey || resource.alias === props.resourceKey,
-            )
-          : normalizedPath
-            ? resources.find((resource) => normalizeResourceRecordPath(resource) === normalizedPath)
-            : undefined
-        setResourceRecord(matched)
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setResourceRecord(undefined)
-        }
-      })
-    return () => {
-      cancelled = true
+  const resourceRecord = useMemo(() => {
+    if (props.resourceKey) {
+      return resourcesQuery.data?.processed.find(
+        (resource) => resource.id === props.resourceKey || resource.alias === props.resourceKey,
+      )
     }
-  }, [normalizedPath, props.resourceKey, readyDirectory])
+
+    if (!normalizedPath) return undefined
+
+    return resourcesQuery.data?.processed.find(
+      (resource) => normalizeResourceRecordPath(resource) === normalizedPath,
+    )
+  }, [normalizedPath, props.resourceKey, resourcesQuery.data?.processed])
 
   useEffect(() => {
     if (!readyDirectory) return
@@ -128,7 +116,7 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
         setSessionPersona(sessionKey, previousPersona)
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [readyDirectory, setSessionPersona])
 
   useEffect(() => {
@@ -167,8 +155,6 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
       data-component="directory-chat-reading-page"
       className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-surface-raised-base"
     >
-
-
       <ResizablePanelGroup
         id={READING_LAYOUT_ID}
         orientation="horizontal"

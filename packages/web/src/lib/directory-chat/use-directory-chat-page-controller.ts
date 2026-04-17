@@ -1,4 +1,5 @@
 import { useNavigate } from "@tanstack/react-router"
+import { useQueryClient } from "@tanstack/react-query"
 import { animate, type AnimationPlaybackControls } from "motion"
 import {
   useCallback,
@@ -45,14 +46,10 @@ import { decodeDirectory, encodeDirectory } from "../directory-token"
 import {
   type LearnerCurriculumView,
   abortPrompt,
-  bootstrapOpenProjects,
   closeOpenProject,
   ensureDirectorySession,
   findWorkspaceFiles,
   loadMessages,
-  loadPermissions,
-  loadSessions,
-  loadTeachingSessionState,
   createManagedNotebook,
   openInboxNotebook,
   openProject,
@@ -65,6 +62,20 @@ import {
   updateSession,
 } from "../../state/chat-actions"
 import { addResource, rebuildResource, removeResource } from "../../state/resource-actions"
+import {
+  invalidateResourcesQueries,
+  isSupportedReadingResourcePath,
+  readingResourceBlobQueryOptions,
+  resourcesQueryOptions,
+} from "../../state/resources-query"
+import { setOpenProjectsQueryData } from "../../state/bootstrap-query"
+import {
+  directoryChatQueryKeys,
+  removeDirectoryChatQueries,
+  removeDirectoryPermissionQueryData,
+  upsertDirectorySessionQueryData,
+} from "../../state/directory-chat-query"
+import { teachingSessionStateQueryOptions } from "../../state/teaching-session-query"
 import {
   clonePromptDraft,
   createTextPromptDraft,
@@ -127,6 +138,7 @@ export type DirectoryChatPageControllerState =
 export function useDirectoryChatPageController(
   props: DirectoryChatPageControllerProps,
 ): DirectoryChatPageControllerState {
+  const queryClient = useQueryClient()
   const navigate = useNavigate()
   const transcriptRef = useRef<HTMLElement>(null)
   const transcriptScrollAnimationRef = useRef<AnimationPlaybackControls | null>(null)
@@ -411,10 +423,6 @@ export function useDirectoryChatPageController(
   }, [decodedDirectory, migrateWorkspaceDraft, sessionID])
 
   useEffect(() => {
-    void bootstrapOpenProjects().catch(() => undefined)
-  }, [])
-
-  useEffect(() => {
     if (decodedDirectory === "/") {
       const fallback = validOpenProjects[0]
       if (fallback) {
@@ -562,7 +570,9 @@ export function useDirectoryChatPageController(
       if (!activeDirectory || !activeSessionID || !activeSessionKey) return
 
       try {
-        const runtime = await loadTeachingSessionState(activeDirectory, activeSessionID)
+        const runtime = await queryClient.fetchQuery(
+          teachingSessionStateQueryOptions(activeDirectory, activeSessionID),
+        )
         if (!runtime) return
         const teaching = useTeachingRuntime.getState()
         teaching.setSessionPersona(activeSessionKey, runtime.persona)
@@ -571,7 +581,7 @@ export function useDirectoryChatPageController(
         // Ignore sessions without Buddy teaching state yet.
       }
     },
-    [decodedDirectory, sessionID, sessionKey],
+    [decodedDirectory, queryClient, sessionID, sessionKey],
   )
 
   useEffect(() => {
@@ -619,6 +629,7 @@ export function useDirectoryChatPageController(
     if (!decodedDirectory) return
     try {
       await replyPermission({ directory: decodedDirectory, requestID, reply })
+      removeDirectoryPermissionQueryData(queryClient, decodedDirectory, requestID)
     } catch {
       // Store error is handled elsewhere; keep UI non-blocking here.
     }
@@ -634,6 +645,7 @@ export function useDirectoryChatPageController(
       const picked = await pickProjectDirectory()
       if (!picked) return
       const nextDirectory = await openProject(picked)
+      setOpenProjectsQueryData(queryClient, useChatStore.getState().openProjects)
       cs.setActiveDirectory(nextDirectory)
       onSwitchDirectory(nextDirectory)
     } catch (error) {
@@ -644,6 +656,7 @@ export function useDirectoryChatPageController(
   async function onQuickChat() {
     try {
       const inboxDirectory = await openInboxNotebook()
+      setOpenProjectsQueryData(queryClient, useChatStore.getState().openProjects)
       cs.setActiveDirectory(inboxDirectory)
       startNewSessionDraft(inboxDirectory)
       if (inboxDirectory !== decodedDirectory) {
@@ -657,6 +670,7 @@ export function useDirectoryChatPageController(
   async function onCreateNotebook(name: string) {
     try {
       const nextDirectory = await createManagedNotebook(name)
+      setOpenProjectsQueryData(queryClient, useChatStore.getState().openProjects)
       cs.setActiveDirectory(nextDirectory)
       startNewSessionDraft(nextDirectory)
       if (nextDirectory !== decodedDirectory) {
@@ -683,13 +697,24 @@ export function useDirectoryChatPageController(
         ),
       )
       cs.clearDirectorySessionState(targetDirectory, targetSessionID)
-      await loadSessions(targetDirectory)
-      await loadPermissions(targetDirectory)
+      await Promise.all([
+        queryClient.refetchQueries({
+          queryKey: directoryChatQueryKeys.sessions(targetDirectory),
+          exact: true,
+        }),
+        queryClient.refetchQueries({
+          queryKey: directoryChatQueryKeys.permissions(targetDirectory),
+          exact: true,
+        }),
+      ])
 
       const activeSessionID = useChatStore.getState().directories[targetDirectory]?.sessionID
       if (!activeSessionID) {
         startNewSessionDraft(targetDirectory)
-        await loadPermissions(targetDirectory)
+        await queryClient.refetchQueries({
+          queryKey: directoryChatQueryKeys.permissions(targetDirectory),
+          exact: true,
+        })
         return
       }
 
@@ -712,6 +737,7 @@ export function useDirectoryChatPageController(
         sessionID: targetSessionID,
         title: trimmed,
       })
+      upsertDirectorySessionQueryData(queryClient, targetDirectory, updated)
       cs.applySessionUpdated(targetDirectory, updated)
     } catch {
       // Action layers keep directory-level error state.
@@ -727,6 +753,8 @@ export function useDirectoryChatPageController(
       }
       return
     }
+    setOpenProjectsQueryData(queryClient, useChatStore.getState().openProjects)
+    await removeDirectoryChatQueries(queryClient, closedDirectory)
     if (closedDirectory !== decodedDirectory) {
       if (closingDirectoryRef.current === targetDirectory) {
         closingDirectoryRef.current = undefined
@@ -770,6 +798,9 @@ export function useDirectoryChatPageController(
   }
 
   function refreshResourcesPanel() {
+    if (decodedDirectory) {
+      void invalidateResourcesQueries(queryClient, decodedDirectory)
+    }
     setResourcesRefreshToken((current) => current + 1)
   }
 
@@ -782,6 +813,13 @@ export function useDirectoryChatPageController(
     const linkedSessionID = resource.resourceID
       ? linkedSessionByResource[`${targetDirectory}::${resource.resourceID}`]
       : undefined
+
+    void queryClient.prefetchQuery(resourcesQueryOptions(targetDirectory))
+    if (isSupportedReadingResourcePath(resource.path)) {
+      void queryClient.prefetchQuery(
+        readingResourceBlobQueryOptions(targetDirectory, resource.path),
+      )
+    }
 
     void (async () => {
       if (linkedSessionID && linkedSessionID !== activeSessionID) {
@@ -1304,6 +1342,10 @@ export function useDirectoryChatPageController(
     onRenameSession,
     onReorderDirectories: (nextOrder) => {
       void reorderOpenProjects(nextOrder)
+        .then((nextDirectories) => {
+          setOpenProjectsQueryData(queryClient, nextDirectories)
+        })
+        .catch(() => undefined)
     },
     onCloseDirectory: (targetDirectory) => {
       void onCloseDirectory(targetDirectory)
