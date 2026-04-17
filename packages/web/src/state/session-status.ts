@@ -1,4 +1,4 @@
-import type { SessionStatusInfo } from "./chat-types"
+import type { MessageWithParts, SessionInfo, SessionStatusInfo } from "./chat-types"
 import { normalizeUpstreamProviderErrorMessage } from "../lib/upstream-provider-error"
 
 const SESSION_STATUS_IDLE = "idle"
@@ -6,6 +6,7 @@ const SESSION_STATUS_BUSY = "busy"
 const SESSION_STATUS_RETRY = "retry"
 const DEFAULT_RETRY_ATTEMPT = 1
 const DEFAULT_RETRY_MESSAGE = "Retrying request"
+const ASSISTANT_ROLE = "assistant"
 
 export const IDLE_SESSION_STATUS: SessionStatusInfo = {
   type: SESSION_STATUS_IDLE,
@@ -60,6 +61,23 @@ export function normalizeSessionStatusValue(value: unknown): SessionStatusInfo {
 
 export function isSessionStatusActive(status: SessionStatusInfo | undefined) {
   return (status ?? IDLE_SESSION_STATUS).type !== SESSION_STATUS_IDLE
+}
+
+export function hasPendingAssistantMessages(messages: readonly MessageWithParts[] | undefined) {
+  return (messages ?? []).some(
+    (message) =>
+      message.info.role === ASSISTANT_ROLE && typeof message.info.time.completed !== "number",
+  )
+}
+
+export function isSessionWorking(input: {
+  info?: SessionInfo
+  status?: SessionStatusInfo
+  messages?: readonly MessageWithParts[]
+}) {
+  if (isSessionStatusActive(input.status)) return true
+  if (typeof input.info?.time.compacting === "number") return true
+  return hasPendingAssistantMessages(input.messages)
 }
 
 export function isSessionStatusRetry(
