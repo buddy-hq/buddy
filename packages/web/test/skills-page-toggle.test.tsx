@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { SkillsPage } from "../src/components/skills/skills-page"
@@ -41,6 +42,7 @@ async function waitForAssertion(assertion: () => void, timeoutMs = 1500) {
 
 describe("SkillsPage external vendor roots toggle", () => {
   let container: HTMLDivElement
+  let queryClient: QueryClient
   let root: Root
 
   beforeEach(() => {
@@ -48,6 +50,7 @@ describe("SkillsPage external vendor roots toggle", () => {
     container = document.createElement("div")
     document.body.appendChild(container)
     root = createRoot(container)
+    queryClient = new QueryClient()
   })
 
   afterEach(async () => {
@@ -56,6 +59,7 @@ describe("SkillsPage external vendor roots toggle", () => {
       await flushEffects()
     })
     container.remove()
+    queryClient.clear()
     globalThis.fetch = originalFetch
     ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = undefined
   })
@@ -123,18 +127,20 @@ describe("SkillsPage external vendor roots toggle", () => {
 
     await act(async () => {
       root.render(
-        <PlatformProvider value={createBrowserPlatform()}>
-          <ServerProvider
-            value={{
-              url: "",
-              username: null,
-              password: null,
-              isSidecar: false,
-            }}
-          >
-            <SkillsPage directory="/repo" />
-          </ServerProvider>
-        </PlatformProvider>,
+        <QueryClientProvider client={queryClient}>
+          <PlatformProvider value={createBrowserPlatform()}>
+            <ServerProvider
+              value={{
+                url: "",
+                username: null,
+                password: null,
+                isSidecar: false,
+              }}
+            >
+              <SkillsPage directory="/repo" />
+            </ServerProvider>
+          </PlatformProvider>
+        </QueryClientProvider>,
       )
       await flushEffects()
     })

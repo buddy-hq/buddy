@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { SystemPromptPanel } from "../src/components/debug/system-prompt-panel"
@@ -49,6 +50,7 @@ async function waitForAssertion(assertion: () => void, timeoutMs = 2500) {
 
 describe("SystemPromptPanel", () => {
   let container: HTMLDivElement
+  let queryClient: QueryClient
   let root: Root
 
   beforeEach(() => {
@@ -58,6 +60,7 @@ describe("SystemPromptPanel", () => {
     container = document.createElement("div")
     document.body.appendChild(container)
     root = createRoot(container)
+    queryClient = new QueryClient()
   })
 
   afterEach(async () => {
@@ -66,6 +69,7 @@ describe("SystemPromptPanel", () => {
       await flushEffects()
     })
     container.remove()
+    queryClient.clear()
     globalThis.fetch = originalFetch
     resetStore()
     ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = undefined
@@ -132,18 +136,20 @@ describe("SystemPromptPanel", () => {
 
     await act(async () => {
       root.render(
-        <PlatformProvider value={createBrowserPlatform()}>
-          <ServerProvider
-            value={{
-              url: "",
-              username: null,
-              password: null,
-              isSidecar: false,
-            }}
-          >
-            <SystemPromptPanel directory={directory} sessionID={sessionID} />
-          </ServerProvider>
-        </PlatformProvider>,
+        <QueryClientProvider client={queryClient}>
+          <PlatformProvider value={createBrowserPlatform()}>
+            <ServerProvider
+              value={{
+                url: "",
+                username: null,
+                password: null,
+                isSidecar: false,
+              }}
+            >
+              <SystemPromptPanel directory={directory} sessionID={sessionID} />
+            </ServerProvider>
+          </PlatformProvider>
+        </QueryClientProvider>,
       )
       await flushEffects()
     })
@@ -220,18 +226,20 @@ describe("SystemPromptPanel", () => {
 
     await act(async () => {
       root.render(
-        <PlatformProvider value={createBrowserPlatform()}>
-          <ServerProvider
-            value={{
-              url: "",
-              username: null,
-              password: null,
-              isSidecar: false,
-            }}
-          >
-            <SystemPromptPanel directory={directory} sessionID={sessionID} />
-          </ServerProvider>
-        </PlatformProvider>,
+        <QueryClientProvider client={queryClient}>
+          <PlatformProvider value={createBrowserPlatform()}>
+            <ServerProvider
+              value={{
+                url: "",
+                username: null,
+                password: null,
+                isSidecar: false,
+              }}
+            >
+              <SystemPromptPanel directory={directory} sessionID={sessionID} />
+            </ServerProvider>
+          </PlatformProvider>
+        </QueryClientProvider>,
       )
       await flushEffects()
     })

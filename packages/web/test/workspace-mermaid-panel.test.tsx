@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { WorkspaceMermaidPanel } from "../src/components/layout/workspace-mermaid-panel"
@@ -34,6 +35,7 @@ async function waitForAssertion(assertion: () => void, timeoutMs = 2500) {
 
 describe("WorkspaceMermaidPanel", () => {
   let container: HTMLDivElement
+  let queryClient: QueryClient
   let root: Root
 
   beforeEach(() => {
@@ -41,6 +43,7 @@ describe("WorkspaceMermaidPanel", () => {
     container = document.createElement("div")
     document.body.appendChild(container)
     root = createRoot(container)
+    queryClient = new QueryClient()
 
     globalThis.__BUDDY_TEST_MERMAID_RUNTIME__ = {
       initialize() {},
@@ -58,6 +61,7 @@ describe("WorkspaceMermaidPanel", () => {
       await flushEffects()
     })
     container.remove()
+    queryClient.clear()
     globalThis.fetch = originalFetch
     globalThis.__BUDDY_TEST_MERMAID_RUNTIME__ = undefined
     ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = undefined
@@ -102,18 +106,20 @@ describe("WorkspaceMermaidPanel", () => {
 
     await act(async () => {
       root.render(
-        <PlatformProvider value={createBrowserPlatform()}>
-          <ServerProvider
-            value={{
-              url: "",
-              username: null,
-              password: null,
-              isSidecar: false,
-            }}
-          >
-            <WorkspaceMermaidPanel directory="/repo" />
-          </ServerProvider>
-        </PlatformProvider>,
+        <QueryClientProvider client={queryClient}>
+          <PlatformProvider value={createBrowserPlatform()}>
+            <ServerProvider
+              value={{
+                url: "",
+                username: null,
+                password: null,
+                isSidecar: false,
+              }}
+            >
+              <WorkspaceMermaidPanel directory="/repo" />
+            </ServerProvider>
+          </PlatformProvider>
+        </QueryClientProvider>,
       )
       await flushEffects()
     })
