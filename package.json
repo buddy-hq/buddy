@@ -85,6 +85,7 @@
     "@buddy/script": "workspace:*"
   },
   "devDependencies": {
+    "@tanstack/eslint-plugin-query": "^5.99.0",
     "@tsconfig/node22": "catalog:",
     "@typescript/native-preview": "^7.0.0-dev.20260225.1",
     "oxfmt": "^0.40.0",
