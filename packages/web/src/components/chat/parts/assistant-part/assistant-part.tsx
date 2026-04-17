@@ -3,7 +3,6 @@ import { parseToolState } from "../../tools/parse-tool-state"
 import { AssistantTextPart } from "./text-part"
 import { ReasoningPart } from "./reasoning-part"
 import { ToolPartCard } from "./tool-part"
-import { MessageDivider } from "./message-divider"
 import type { MessagePart } from "@/state/chat-types"
 import { isChatReasoningPart, isChatTextPart, isChatToolPart } from "../../utils/part-guards"
 
@@ -106,9 +105,7 @@ export const AssistantPartRenderer = memo(function AssistantPartRenderer({
     )
   }
 
-  if (part.type === "compaction") {
-    return <MessageDivider label="Compaction" />
-  }
+  if (part.type === "compaction") return null
 
   return (
     <div className="w-full rounded-md border border-border-base bg-background-base p-2">

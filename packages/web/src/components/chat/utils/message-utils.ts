@@ -24,7 +24,7 @@ export function assistantPartRenderable(
 ): boolean {
   if (isChatTextPart(part)) return part.text.trim().length > 0
   if (isChatReasoningPart(part)) return showReasoningSummaries && part.text.trim().length > 0
-  if (part.type === "compaction") return true
+  if (part.type === "compaction") return false
   if (part.type === "step-start" || part.type === "step-finish") return false
   if (part.type === "patch") return false
   if (!isChatToolPart(part)) return true
@@ -41,6 +41,7 @@ export function assistantPartRenderable(
 }
 
 export function assistantPartStartsFollowup(part: MessagePart): boolean {
+  if (part.type === "compaction") return false
   if (part.type === "step-start" || part.type === "step-finish") return false
   if (isChatReasoningPart(part)) return false
   if (part.type === "patch") return false

@@ -1,5 +1,6 @@
 import { memo, useMemo } from "react"
 
+import { language } from "@/context/language"
 import { formatMessageError } from "./utils/error"
 import { useAssistantDerivedState } from "./hooks/use-assistant-derived-state"
 import { useAssistantMeta } from "./hooks/use-assistant-meta"
@@ -67,6 +68,10 @@ export const TurnRenderer = memo(function TurnRenderer({
   const isLastTurn = turnIndex === totalTurns - 1
   const userMessage = turn.user
   const assistantMessages = turn.assistants
+  const turnHasCompaction = useMemo(
+    () => (userMessage?.parts ?? []).some((part) => part.type === "compaction"),
+    [userMessage?.parts],
+  )
 
   const assistantParts = useMemo(
     () => assistantMessages.flatMap((message) => message.parts),
@@ -115,8 +120,8 @@ export const TurnRenderer = memo(function TurnRenderer({
   const showThinking =
     isBusy &&
     isLastTurn &&
-    turnSessionStatus.type === "busy" &&
     !assistantErrored &&
+    (turnSessionStatus.type === "busy" || turnHasCompaction) &&
     (showReasoningSummaries ? assistantItems.length === 0 : true)
 
   return (
@@ -127,6 +132,12 @@ export const TurnRenderer = memo(function TurnRenderer({
         onForkMessage={onForkMessage}
         onRevertMessage={onRevertMessage}
       />
+
+      {turnHasCompaction ? (
+        <div data-session-compaction-divider>
+          <MessageDivider label={language.t("chat.compaction.compacted")} />
+        </div>
+      ) : null}
 
       {showAssistantSection ? (
         <AssistantSection
