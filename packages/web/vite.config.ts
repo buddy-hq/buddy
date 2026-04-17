@@ -1,9 +1,8 @@
-import path from "path"
 import { defineConfig } from "vite"
 import react from "@vitejs/plugin-react"
 import tailwindcss from "@tailwindcss/vite"
-import { TanStackRouterVite } from "@tanstack/router-plugin/vite"
-import { createFoliatePdfVitePlugin } from "./scripts/create-foliate-pdf-vite-plugin.ts"
+import { tanstackRouter } from "@tanstack/router-plugin/vite"
+import buddyWebVitePlugin from "./vite.ts"
 
 // https://vitejs.dev/config/
 export default defineConfig(() => {
@@ -11,18 +10,7 @@ export default defineConfig(() => {
   const webPort = Number(process.env.VITE_BUDDY_WEB_PORT ?? "1420")
 
   return {
-    plugins: [createFoliatePdfVitePlugin(), TanStackRouterVite(), react(), tailwindcss()],
-    optimizeDeps: {
-      exclude: ["foliate-js/view.js", "foliate-js/pdf.js", "foliate-js/vendor/pdfjs/pdf.mjs"],
-    },
-    resolve: {
-      alias: [
-        {
-          find: "@",
-          replacement: path.resolve(__dirname, "./src"),
-        },
-      ],
-    },
+    plugins: [...buddyWebVitePlugin(), tanstackRouter(), react(), tailwindcss()],
     server: {
       port: Number.isFinite(webPort) ? webPort : 1420,
       proxy: {
