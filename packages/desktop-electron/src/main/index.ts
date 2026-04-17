@@ -32,7 +32,7 @@ import {
   sendMenuCommand,
   sendSqliteMigrationProgress,
 } from "./ipc"
-import { initLogging } from "./logging"
+import { initLogging, safelyWriteToStandardStream } from "./logging"
 import { parseMarkdown } from "./markdown"
 import { createMenu } from "./menu"
 import {
@@ -377,7 +377,10 @@ function wireSidecarLogs(events: EventEmitter) {
     if (message.length === 0) return
     logger.log(`[sidecar] ${message}`)
     if (mirrorToStdIo) {
-      process.stdout.write(`[sidecar] ${line.endsWith("\n") ? line : `${line}\n`}`)
+      safelyWriteToStandardStream(
+        process.stdout,
+        `[sidecar] ${line.endsWith("\n") ? line : `${line}\n`}`,
+      )
     }
   })
 
@@ -386,21 +389,25 @@ function wireSidecarLogs(events: EventEmitter) {
     if (message.length === 0) return
     logger.warn(`[sidecar] ${message}`)
     if (mirrorToStdIo) {
-      process.stderr.write(`[sidecar] ${line.endsWith("\n") ? line : `${line}\n`}`)
+      safelyWriteToStandardStream(
+        process.stderr,
+        `[sidecar] ${line.endsWith("\n") ? line : `${line}\n`}`,
+      )
     }
   })
 
   events.on("error", (message: string) => {
     logger.error("sidecar spawn error", message)
     if (mirrorToStdIo) {
-      process.stderr.write(`[sidecar:error] ${message}\n`)
+      safelyWriteToStandardStream(process.stderr, `[sidecar:error] ${message}\n`)
     }
   })
 
   events.on("terminated", (payload: TerminatedPayload) => {
     logger.warn("sidecar terminated", payload)
     if (mirrorToStdIo) {
-      process.stderr.write(
+      safelyWriteToStandardStream(
+        process.stderr,
         `[sidecar:terminated] code=${payload.code ?? "null"} signal=${payload.signal ?? "null"}\n`,
       )
     }

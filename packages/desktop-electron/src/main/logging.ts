@@ -15,13 +15,34 @@ const MAX_LOG_AGE_DAYS = 7
 const LOG_SIZE_LIMIT_BYTES = 5 * 1024 * 1024
 const LOG_TAIL_LINES = 1000
 const MAIN_LOG_FILENAME = "main.log"
+const BROKEN_STANDARD_IO_ERROR_CODES = new Set(["EIO", "EPIPE", "ERR_STREAM_DESTROYED"])
 
 export function initLogging() {
   log.transports.file.resolvePathFn = () => ensureLogFilePath()
   log.transports.file.maxSize = LOG_SIZE_LIMIT_BYTES
+  const writeConsoleTransport = log.transports.console.writeFn
+  log.transports.console.writeFn = (options) => {
+    try {
+      writeConsoleTransport(options)
+    } catch (error) {
+      if (!isBrokenStandardIoError(error)) {
+        throw error
+      }
+    }
+  }
   ensureLogFilePath()
   cleanupOldLogs()
   return log
+}
+
+export function safelyWriteToStandardStream(stream: NodeJS.WriteStream, chunk: string) {
+  try {
+    stream.write(chunk)
+  } catch (error) {
+    if (!isBrokenStandardIoError(error)) {
+      throw error
+    }
+  }
 }
 
 export function tailLogs() {
@@ -79,4 +100,17 @@ function ensureLogFilePath() {
 function resolveLogFilePath() {
   const logsDirectory = app.getPath("logs")
   return join(logsDirectory, MAIN_LOG_FILENAME)
+}
+
+function isBrokenStandardIoError(error: unknown) {
+  if (!(error && typeof error === "object")) {
+    return false
+  }
+
+  if (!("code" in error)) {
+    return false
+  }
+
+  const { code } = error
+  return typeof code === "string" && BROKEN_STANDARD_IO_ERROR_CODES.has(code)
 }
