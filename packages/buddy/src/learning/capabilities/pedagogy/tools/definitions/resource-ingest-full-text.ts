@@ -186,8 +186,7 @@ function formatBudgetFailure(input: {
 export const pedagogyResourceIngestFullTextTool = createBuddyTool(
   "pedagogy_resource_ingest_full_text",
   {
-    description:
-      dedent`
+    description: dedent`
       Load a resource's prepared full text into context after checking live session headroom against the active model limits.
 
       The description of what a resource is in \`<about_resource>\` section.
