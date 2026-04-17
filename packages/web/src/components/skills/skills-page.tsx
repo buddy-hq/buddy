@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   Badge,
   Button,
@@ -38,6 +39,7 @@ import {
   type SkillRuleAction,
   type SkillsCatalog,
 } from "@/state/skills-actions"
+import { skillsCatalogQueryOptions } from "@/state/skills-catalog-query"
 
 type SkillsFormState = {
   name: string
@@ -273,20 +275,18 @@ function LibraryCard(props: {
 }
 
 export function SkillsPage(props: { directory?: string }) {
+  const queryClient = useQueryClient()
   const currentDirectory = props.directory
-  const [catalog, setCatalog] = useState<SkillsCatalog | undefined>(undefined)
-  const [loading, setLoading] = useState(true)
+  const catalogQuery = useQuery(skillsCatalogQueryOptions(currentDirectory))
+  const catalog = catalogQuery.data
+  const loading = !catalog && (catalogQuery.isPending || catalogQuery.isFetching)
   const [refreshing, setRefreshing] = useState(false)
   const [search, setSearch] = useState("")
   const [selectedSkillName, setSelectedSkillName] = useState<string | undefined>(undefined)
   const [newSkillOpen, setNewSkillOpen] = useState(false)
   const [form, setForm] = useState<SkillsFormState>(EMPTY_FORM)
   const [busyKey, setBusyKey] = useState<string | undefined>(undefined)
-  const catalogRef = useRef<SkillsCatalog | undefined>(catalog)
-
-  useEffect(() => {
-    catalogRef.current = catalog
-  }, [catalog])
+  const lastLibrarySyncError = useRef<string | undefined>(undefined)
 
   const selectedSkill = useMemo(
     () => catalog?.installed.find((skill) => skill.name === selectedSkillName),
@@ -322,18 +322,21 @@ export function SkillsPage(props: { directory?: string }) {
   }, [catalog?.library, search])
 
   function replaceInstalledSkill(nextSkill: InstalledSkillInfo) {
-    setCatalog((current) => {
-      if (!current) {
-        return current
-      }
+    queryClient.setQueryData<SkillsCatalog>(
+      skillsCatalogQueryOptions(currentDirectory).queryKey,
+      (current) => {
+        if (!current) {
+          return current
+        }
 
-      return {
-        ...current,
-        installed: current.installed.map((skill) =>
-          skill.name === nextSkill.name ? nextSkill : skill,
-        ),
-      }
-    })
+        return {
+          ...current,
+          installed: current.installed.map((skill) =>
+            skill.name === nextSkill.name ? nextSkill : skill,
+          ),
+        }
+      },
+    )
   }
 
   const refreshCatalog = useCallback(
@@ -342,26 +345,31 @@ export function SkillsPage(props: { directory?: string }) {
       force?: boolean
       showRefreshToast?: boolean
     }) => {
-      if (!catalogRef.current) {
-        setLoading(true)
-      } else {
-        setRefreshing(true)
-      }
+      setRefreshing(true)
 
       try {
-        const nextCatalog = await loadSkillsCatalog(currentDirectory, {
-          refresh: input?.force,
-        })
-        setCatalog(nextCatalog)
+        const nextCatalog = input?.force
+          ? await loadSkillsCatalog(currentDirectory, { refresh: true })
+          : await queryClient.fetchQuery(skillsCatalogQueryOptions(currentDirectory))
+        queryClient.setQueryData<SkillsCatalog>(
+          skillsCatalogQueryOptions(currentDirectory).queryKey,
+          nextCatalog,
+        )
 
         if (input?.force && input.showRefreshToast !== false) {
           toast.success(language.t("skills.refreshed"))
         }
 
-        if (nextCatalog.librarySyncError) {
+        if (
+          nextCatalog.librarySyncError &&
+          nextCatalog.librarySyncError !== lastLibrarySyncError.current
+        ) {
+          lastLibrarySyncError.current = nextCatalog.librarySyncError
           toast.error(
             language.t("skills.curatedSyncFailed", { error: nextCatalog.librarySyncError }),
           )
+        } else if (!nextCatalog.librarySyncError) {
+          lastLibrarySyncError.current = undefined
         }
 
         if (input?.preserveSelection) {
@@ -375,16 +383,33 @@ export function SkillsPage(props: { directory?: string }) {
         const message = error instanceof Error ? error.message : language.t("skills.loadFailed")
         toast.error(message)
       } finally {
-        setLoading(false)
         setRefreshing(false)
       }
     },
-    [currentDirectory],
+    [currentDirectory, queryClient],
   )
 
   useEffect(() => {
-    void refreshCatalog()
-  }, [refreshCatalog])
+    if (!catalogQuery.error) return
+    const message =
+      catalogQuery.error instanceof Error
+        ? catalogQuery.error.message
+        : language.t("skills.loadFailed")
+    toast.error(message)
+  }, [catalogQuery.error])
+
+  useEffect(() => {
+    const librarySyncError = catalog?.librarySyncError
+    if (librarySyncError && librarySyncError !== lastLibrarySyncError.current) {
+      lastLibrarySyncError.current = librarySyncError
+      toast.error(language.t("skills.curatedSyncFailed", { error: librarySyncError }))
+      return
+    }
+
+    if (!librarySyncError) {
+      lastLibrarySyncError.current = undefined
+    }
+  }, [catalog?.librarySyncError])
 
   async function runMutation<T>(
     key: string,

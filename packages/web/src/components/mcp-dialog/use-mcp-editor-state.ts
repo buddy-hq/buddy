@@ -1,5 +1,7 @@
 import { useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { disconnectMcpServer, saveProjectMcpConfig } from "@/state/chat-actions"
+import { invalidateMcpDirectoryQueries } from "@/state/mcp-directory-query"
 import {
   buildConfigFromDraft,
   buildDraft,
@@ -48,6 +50,7 @@ export type McpEditorState = {
 }
 
 export function useMcpEditorState(props: UseMcpEditorStateProps): McpEditorState {
+  const queryClient = useQueryClient()
   const [editorOpen, setEditorOpen] = useState(false)
   const [editorMode, setEditorMode] = useState<McpEditorMode>("create")
   const [editorError, setEditorError] = useState<string | undefined>(undefined)
@@ -128,17 +131,14 @@ export function useMcpEditorState(props: UseMcpEditorStateProps): McpEditorState
     props.setError(undefined)
 
     try {
-      const updated = await saveProjectMcpConfig(
-        props.directory,
-        parsed.name,
-        parsed.config as Record<string, unknown>,
-      )
+      const updated = await saveProjectMcpConfig(props.directory, parsed.name, parsed.config)
       props.setConfigByName(parseMcpConfigMap(updated))
       if (parsed.config.enabled === false) {
         await disconnectMcpServer(props.directory, parsed.name)
       } else {
         await props.enableMcp(parsed.name)
       }
+      await invalidateMcpDirectoryQueries(queryClient, props.directory)
       setEditorOpen(false)
     } catch (saveError) {
       setEditorError(formatMcpError(saveError))

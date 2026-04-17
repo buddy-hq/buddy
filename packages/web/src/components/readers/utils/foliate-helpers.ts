@@ -496,7 +496,7 @@ export function cleanupView(view: FoliateView | null, coverUrl: string | undefin
     if (typeof view.remove === "function") {
       view.remove()
     }
-  } catch (error) {
+  } catch {
     // Ignore removal errors
   }
 

@@ -1,17 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { useShallow } from "zustand/react/shallow"
-import {
-  authenticateMcpServer,
-  connectMcpServer,
-  disconnectMcpServer,
-  loadMcpStatus,
-  loadProjectConfig,
-} from "@/state/chat-actions"
-import { useChatStore } from "@/state/chat-store"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { authenticateMcpServer, connectMcpServer, disconnectMcpServer } from "@/state/chat-actions"
 import type { McpStatusMap } from "@/state/chat-types"
+import {
+  invalidateMcpDirectoryQueries,
+  mcpDirectoryQueryKeys,
+  mcpStatusQueryOptions,
+  projectConfigQueryOptions,
+} from "@/state/mcp-directory-query"
 import { formatMcpError, parseMcpConfigMap, type McpConfig } from "./mcp-config-schema"
 
 const MCP_SEARCH_VISIBLE_THRESHOLD = 3
+const EMPTY_STATUS_MAP: McpStatusMap = {}
+const EMPTY_PROJECT_CONFIG: Record<string, unknown> = {}
 
 type UseMcpDirectoryDataProps = {
   directory: string
@@ -41,14 +42,38 @@ export type McpDirectoryDataState = {
 
 export function useMcpDirectoryData(props: UseMcpDirectoryDataProps): McpDirectoryDataState {
   const { directory, open } = props
+  const queryClient = useQueryClient()
   const [query, setQuery] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | undefined>(undefined)
+  const [localError, setLocalError] = useState<string | undefined>(undefined)
   const [pendingName, setPendingName] = useState<string | null>(null)
-  const [configByName, setConfigByName] = useState<Record<string, McpConfig>>({})
-  const statusByName = useChatStore(
-    useShallow((state) => state.directories[directory]?.mcpStatus ?? {}),
+  const queryEnabled = open && directory.trim().length > 0
+  const mcpStatusQuery = useQuery({
+    ...mcpStatusQueryOptions(directory),
+    enabled: queryEnabled,
+  })
+  const projectConfigQuery = useQuery({
+    ...projectConfigQueryOptions(directory),
+    enabled: queryEnabled,
+  })
+
+  const statusByName = mcpStatusQuery.data ?? EMPTY_STATUS_MAP
+  const configByName = useMemo(
+    () => parseMcpConfigMap(projectConfigQuery.data ?? EMPTY_PROJECT_CONFIG),
+    [projectConfigQuery.data],
   )
+  const queryError = useMemo(() => {
+    if (mcpStatusQuery.error) {
+      return formatMcpError(mcpStatusQuery.error)
+    }
+
+    if (projectConfigQuery.error) {
+      return formatMcpError(projectConfigQuery.error)
+    }
+
+    return undefined
+  }, [mcpStatusQuery.error, projectConfigQuery.error])
+  const error = localError ?? queryError
+  const loading = queryEnabled && (mcpStatusQuery.isPending || projectConfigQuery.isPending)
 
   const allNames = useMemo(
     () =>
@@ -72,53 +97,53 @@ export function useMcpDirectoryData(props: UseMcpDirectoryDataProps): McpDirecto
   )
 
   async function enableMcp(name: string) {
+    if (!directory) return undefined
+
     const status = await connectMcpServer(directory, name)
+    queryClient.setQueryData(mcpDirectoryQueryKeys.status(directory), status)
     if (status[name]?.status === "needs_auth") {
-      return authenticateMcpServer(directory, name)
+      const authenticatedStatus = await authenticateMcpServer(directory, name)
+      queryClient.setQueryData(mcpDirectoryQueryKeys.status(directory), authenticatedStatus)
+      await invalidateMcpDirectoryQueries(queryClient, directory)
+      return authenticatedStatus
     }
+
+    await invalidateMcpDirectoryQueries(queryClient, directory)
     return status
   }
 
   async function disconnectMcp(name: string) {
-    await disconnectMcpServer(directory, name)
-  }
-
-  const refreshData = useCallback(async () => {
     if (!directory) return
 
-    setLoading(true)
-    setError(undefined)
+    const status = await disconnectMcpServer(directory, name)
+    queryClient.setQueryData(mcpDirectoryQueryKeys.status(directory), status)
+    await invalidateMcpDirectoryQueries(queryClient, directory)
+  }
 
-    const [statusResult, configResult] = await Promise.allSettled([
-      loadMcpStatus(directory),
-      loadProjectConfig(directory),
-    ])
+  const setConfigByName = useCallback(
+    (next: Record<string, McpConfig>) => {
+      if (!directory) return
 
-    if (configResult.status === "fulfilled") {
-      setConfigByName(parseMcpConfigMap(configResult.value))
-    }
-
-    const statusError =
-      statusResult.status === "rejected" ? formatMcpError(statusResult.reason) : undefined
-    const configError =
-      configResult.status === "rejected" ? formatMcpError(configResult.reason) : undefined
-    setError(statusError ?? configError)
-
-    setLoading(false)
-  }, [directory])
+      queryClient.setQueryData(
+        mcpDirectoryQueryKeys.projectConfig(directory),
+        (current: Record<string, unknown> | undefined) =>
+          current ? { ...current, mcp: next } : { mcp: next },
+      )
+    },
+    [directory, queryClient],
+  )
 
   useEffect(() => {
     if (!open) return
     setQuery("")
-    void refreshData()
-  }, [open, refreshData])
+  }, [open])
 
   async function toggleMcp(name: string) {
     if (!directory || pendingName) return
 
     const current = statusByName[name]
     setPendingName(name)
-    setError(undefined)
+    setLocalError(undefined)
     try {
       if (current?.status === "connected") {
         await disconnectMcp(name)
@@ -126,7 +151,7 @@ export function useMcpDirectoryData(props: UseMcpDirectoryDataProps): McpDirecto
         await enableMcp(name)
       }
     } catch (toggleError) {
-      setError(formatMcpError(toggleError))
+      setLocalError(formatMcpError(toggleError))
     } finally {
       setPendingName(null)
     }
@@ -135,11 +160,13 @@ export function useMcpDirectoryData(props: UseMcpDirectoryDataProps): McpDirecto
   async function connectMcp(name: string) {
     if (!directory || pendingName) return
     setPendingName(name)
-    setError(undefined)
+    setLocalError(undefined)
     try {
-      await authenticateMcpServer(directory, name)
+      const status = await authenticateMcpServer(directory, name)
+      queryClient.setQueryData(mcpDirectoryQueryKeys.status(directory), status)
+      await invalidateMcpDirectoryQueries(queryClient, directory)
     } catch (authError) {
-      setError(formatMcpError(authError))
+      setLocalError(formatMcpError(authError))
     } finally {
       setPendingName(null)
     }
@@ -150,7 +177,7 @@ export function useMcpDirectoryData(props: UseMcpDirectoryDataProps): McpDirecto
     setQuery,
     loading,
     error,
-    setError,
+    setError: setLocalError,
     allNames,
     entries,
     showSearch: allNames.length >= MCP_SEARCH_VISIBLE_THRESHOLD,

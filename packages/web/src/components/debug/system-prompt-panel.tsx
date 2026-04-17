@@ -1,14 +1,18 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { createPatch } from "diff"
 import { Button, Input } from "@buddy/ui"
 import { language } from "@/context/language"
 import {
-  loadTeachingSessionState,
   type TeachingLlmOutboundSnapshot,
   type TeachingSessionSnapshot,
 } from "@/state/chat-actions"
 import { useChatStore } from "@/state/chat-store"
 import { isSessionStatusActive } from "@/state/session-status"
+import {
+  teachingSessionQueryKeys,
+  teachingSessionStateQueryOptions,
+} from "@/state/teaching-session-query"
 
 function isPatchAdditionLine(line: string) {
   return line.startsWith("+") && !line.startsWith("+++")
@@ -94,16 +98,6 @@ type SystemPromptPanelProps = {
   className?: string
 }
 
-function stringifyError(error: unknown) {
-  if (error instanceof Error) return error.message
-  if (typeof error === "string") return error
-  try {
-    return JSON.stringify(error)
-  } catch {
-    return String(error)
-  }
-}
-
 function readSystemPromptText(entry: TeachingLlmOutboundSnapshot | undefined) {
   if (!entry) return undefined
   if (typeof entry.fullSystemPrompt === "string" && entry.fullSystemPrompt.trim().length > 0) {
@@ -136,19 +130,24 @@ function formatIsoTime(value?: string) {
 
 export function SystemPromptPanel(props: SystemPromptPanelProps) {
   const { directory, sessionID, refreshToken, className } = props
-  const [runtime, setRuntime] = useState<TeachingSessionSnapshot | undefined>(undefined)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | undefined>(undefined)
+  const queryClient = useQueryClient()
   const [searchQuery, setSearchQuery] = useState("")
   const [showDiff, setShowDiff] = useState(false)
-  const requestCounterRef = useRef(0)
   const currentPromptRef = useRef<string | undefined>(undefined)
   const previousPromptRef = useRef<string | undefined>(undefined)
+  const previousRefreshTokenRef = useRef<number | undefined>(refreshToken)
   const activeSessionBusy = useChatStore((state) => {
     const directoryState = state.directories[directory]
     if (!directoryState || !sessionID) return false
     return isSessionStatusActive(directoryState.sessionStatusByID[sessionID])
   })
+  const systemPromptQuery = useQuery({
+    ...teachingSessionStateQueryOptions(directory, sessionID ?? ""),
+    enabled: sessionID !== undefined,
+    refetchInterval: activeSessionBusy ? 750 : false,
+    refetchIntervalInBackground: true,
+  })
+  const runtime = systemPromptQuery.data ?? undefined
 
   const lastOutbound = useMemo(() => readLastOutboundEntry(runtime), [runtime])
   const systemPromptText = useMemo(() => readSystemPromptText(lastOutbound), [lastOutbound])
@@ -173,58 +172,6 @@ export function SystemPromptPanel(props: SystemPromptPanelProps) {
     return createPatch("system-prompt", previousPromptRef.current, currentPromptRef.current)
   }, [hasPromptDiff, showDiff])
 
-  const refresh = useCallback(
-    async (input?: { silent?: boolean }) => {
-      if (!sessionID) {
-        setRuntime(undefined)
-        setError(undefined)
-        setLoading(false)
-        return
-      }
-
-      const requestID = requestCounterRef.current + 1
-      requestCounterRef.current = requestID
-
-      if (!input?.silent) {
-        setLoading(true)
-        setError(undefined)
-      }
-
-      try {
-        const next = await loadTeachingSessionState(directory, sessionID)
-        if (requestID !== requestCounterRef.current) return
-        if (next) {
-          const newOutbound = readLastOutboundEntry(next)
-          const newPromptText = readSystemPromptText(newOutbound)
-
-          if (newPromptText) {
-            if (
-              currentPromptRef.current !== undefined &&
-              currentPromptRef.current !== newPromptText
-            ) {
-              previousPromptRef.current = currentPromptRef.current
-            }
-
-            currentPromptRef.current = newPromptText
-          }
-
-          setRuntime(next)
-        } else {
-          setRuntime((current) => (current?.sessionId === sessionID ? current : undefined))
-        }
-        setError(undefined)
-      } catch (runtimeError) {
-        if (requestID !== requestCounterRef.current) return
-        setError(stringifyError(runtimeError))
-      } finally {
-        if (requestID === requestCounterRef.current && !input?.silent) {
-          setLoading(false)
-        }
-      }
-    },
-    [directory, sessionID],
-  )
-
   useEffect(() => {
     currentPromptRef.current = undefined
     previousPromptRef.current = undefined
@@ -233,20 +180,36 @@ export function SystemPromptPanel(props: SystemPromptPanelProps) {
   }, [directory, sessionID])
 
   useEffect(() => {
-    void refresh()
-  }, [refresh, refreshToken])
+    if (systemPromptText) {
+      if (currentPromptRef.current !== undefined && currentPromptRef.current !== systemPromptText) {
+        previousPromptRef.current = currentPromptRef.current
+      }
+      currentPromptRef.current = systemPromptText
+    }
+  }, [systemPromptText])
 
   useEffect(() => {
-    if (!sessionID || !activeSessionBusy) return
-
-    const interval = window.setInterval(() => {
-      void refresh({ silent: true })
-    }, 750)
-
-    return () => {
-      window.clearInterval(interval)
+    if (previousRefreshTokenRef.current === refreshToken) {
+      return
     }
-  }, [activeSessionBusy, refresh, refreshToken, sessionID])
+
+    previousRefreshTokenRef.current = refreshToken
+    if (!sessionID) {
+      return
+    }
+
+    void queryClient.invalidateQueries({
+      queryKey: teachingSessionQueryKeys.state(directory, sessionID),
+    })
+  }, [directory, queryClient, refreshToken, sessionID])
+
+  const error =
+    systemPromptQuery.error instanceof Error
+      ? systemPromptQuery.error.message
+      : systemPromptQuery.error
+        ? String(systemPromptQuery.error)
+        : undefined
+  const loading = systemPromptQuery.isPending
 
   return (
     <div className={`flex h-full min-h-0 flex-col gap-3 p-3 ${className ?? ""}`}>
@@ -276,8 +239,8 @@ export function SystemPromptPanel(props: SystemPromptPanelProps) {
             variant="ghost"
             size="sm"
             className="px-2"
-            onClick={() => void refresh()}
-            disabled={loading}
+            onClick={() => void systemPromptQuery.refetch()}
+            disabled={systemPromptQuery.isFetching}
           >
             {language.t("common.refresh")}
           </Button>
