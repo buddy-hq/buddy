@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router"
+import { useQueries, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useMemo } from "react"
 import {
   Button,
@@ -26,16 +27,24 @@ import {
 } from "@/components/settings/settings-tabs"
 import { encodeDirectory } from "../lib/directory-token"
 import {
-  bootstrapOpenProjects,
   closeOpenProject,
   openProject,
-  preloadProjectSessions,
   reorderOpenProjects,
   selectSession,
   startNewSessionDraft,
   updateSession,
 } from "@/state/chat-actions"
+import {
+  openProjectsWithSessionsQueryOptions,
+  setOpenProjectsQueryData,
+} from "@/state/bootstrap-query"
 import { useChatStore } from "@/state/chat-store"
+import {
+  directoryChatQueryKeys,
+  directorySessionsQueryOptions,
+  removeDirectoryChatQueries,
+  upsertDirectorySessionQueryData,
+} from "@/state/directory-chat-query"
 import { shallow } from "zustand/shallow"
 import { useUiPreferences } from "@/state/ui-preferences"
 import { pickProjectDirectory } from "../lib/directory-picker"
@@ -45,6 +54,11 @@ const SETTINGS_LAYOUT_ID = "settings-layout"
 const SETTINGS_SIDEBAR_PANEL_ID = "settings-sidebar"
 const SETTINGS_MAIN_PANEL_ID = "settings-main-pane"
 const SETTINGS_LAYOUT_PANEL_IDS = [SETTINGS_SIDEBAR_PANEL_ID, SETTINGS_MAIN_PANEL_ID]
+
+function readSeededSessionList(directory: string) {
+  const sessions = useChatStore.getState().directories[directory]?.sessions
+  return sessions && sessions.length > 0 ? sessions : undefined
+}
 
 export const Route = createFileRoute("/settings")({
   validateSearch: (search: Record<string, unknown>): { tab: SettingsTab } => {
@@ -57,10 +71,16 @@ export const Route = createFileRoute("/settings")({
     }
     return { tab: DEFAULT_SETTINGS_TAB }
   },
+  loader: async ({ context }) => {
+    await Promise.allSettled([
+      context.queryClient.ensureQueryData(openProjectsWithSessionsQueryOptions()),
+    ])
+  },
   component: SettingsRoute,
 })
 
 function SettingsRoute() {
+  const queryClient = useQueryClient()
   const navigate = useNavigate()
   const { tab } = useSearch({ from: "/settings" })
   const platform = usePlatform()
@@ -83,6 +103,13 @@ function SettingsRoute() {
   const { defaultLayout, onLayoutChanged } = usePersistentResizablePanelLayout({
     id: SETTINGS_LAYOUT_ID,
     panelIds: SETTINGS_LAYOUT_PANEL_IDS,
+  })
+
+  useQueries({
+    queries: openProjects.map((directory) => ({
+      ...directorySessionsQueryOptions(directory),
+      initialData: () => readSeededSessionList(directory),
+    })),
   })
 
   const currentDirectory = activeDirectory ?? openProjects[0] ?? ""
@@ -119,10 +146,6 @@ function SettingsRoute() {
   )
 
   useEffect(() => {
-    void bootstrapOpenProjects().catch(() => undefined)
-  }, [])
-
-  useEffect(() => {
     if (tab !== "standards" && visibleTabIDs.has(tab)) {
       return
     }
@@ -154,8 +177,8 @@ function SettingsRoute() {
       const picked = await pickProjectDirectory()
       if (!picked) return
       const nextDirectory = await openProject(picked)
+      setOpenProjectsQueryData(queryClient, useChatStore.getState().openProjects)
       setActiveDirectory(nextDirectory)
-      await preloadProjectSessions([nextDirectory])
     } catch {
       toast.error(language.t("routes.settings.openNotebookFailed"))
     }
@@ -199,7 +222,10 @@ function SettingsRoute() {
         sessionID: targetSessionID,
         archivedAt: Date.now(),
       })
-      await preloadProjectSessions([targetDirectory])
+      await queryClient.refetchQueries({
+        queryKey: directoryChatQueryKeys.sessions(targetDirectory),
+        exact: true,
+      })
     } catch {
       toast.error(language.t("routes.settings.archiveThreadFailed"))
     }
@@ -215,6 +241,7 @@ function SettingsRoute() {
         sessionID: targetSessionID,
         title: nextTitle,
       })
+      upsertDirectorySessionQueryData(queryClient, targetDirectory, updated)
       useChatStore.getState().applySessionUpdated(targetDirectory, updated)
     } catch {
       toast.error(language.t("routes.settings.renameThreadFailed"))
@@ -223,7 +250,11 @@ function SettingsRoute() {
 
   async function onCloseDirectory(targetDirectory: string) {
     try {
-      await closeOpenProject(targetDirectory)
+      const closedDirectory = await closeOpenProject(targetDirectory)
+      if (closedDirectory) {
+        setOpenProjectsQueryData(queryClient, useChatStore.getState().openProjects)
+        await removeDirectoryChatQueries(queryClient, closedDirectory)
+      }
     } catch {
       toast.error(language.t("routes.settings.closeNotebookFailed"))
     }
@@ -268,7 +299,13 @@ function SettingsRoute() {
             onToggleUnread={onToggleUnread}
             onArchiveSession={onArchiveSession}
             onRenameSession={onRenameSession}
-            onReorderDirectories={(nextOrder) => void reorderOpenProjects(nextOrder)}
+            onReorderDirectories={(nextOrder) => {
+              void reorderOpenProjects(nextOrder)
+                .then((nextDirectories) => {
+                  setOpenProjectsQueryData(queryClient, nextDirectories)
+                })
+                .catch(() => undefined)
+            }}
             onCloseDirectory={(targetDirectory) => void onCloseDirectory(targetDirectory)}
             onOpenCurriculum={() => {
               if (currentDirectory) openChat(currentDirectory)

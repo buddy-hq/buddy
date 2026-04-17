@@ -1,15 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import {
-  loadPersonaCatalog,
-  loadProjectConfig,
-  loadProviderCatalog,
-  patchProjectConfig,
-  type PersonaConfigOption,
-} from "./chat-actions"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { patchProjectConfig, type PersonaConfigOption } from "./chat-actions"
 import { language } from "@/context/language"
 import { useChatStore } from "@/state/chat-store"
 import type { TeachingIntent } from "./teaching-runtime"
 import type { ProviderCatalogState } from "./chat-types"
+import { projectSettingsQueryOptions, type ProjectSettingsBundle } from "./project-settings-query"
 
 export type LogLevel = "debug" | "info" | "warn" | "error"
 
@@ -23,14 +19,11 @@ type ProjectSettingsDraft = {
 }
 
 type ProjectSettingsState = {
-  loading: boolean
   saving: boolean
   error?: string
-  projectConfig: Record<string, unknown>
-  providerCatalog: ProviderCatalogState
-  personaCatalog: PersonaConfigOption[]
   draft: ProjectSettingsDraft
   modelSelectionDirty: boolean
+  initializedDirectory?: string
 }
 
 type ProjectSettingsPatch = Record<string, unknown>
@@ -39,6 +32,7 @@ const EMPTY_PROVIDER_CATALOG: ProviderCatalogState = {
   providers: [],
   default: {},
 }
+const EMPTY_PROJECT_CONFIG: Record<string, unknown> = {}
 
 const EMPTY_DRAFT: ProjectSettingsDraft = {
   persona: "",
@@ -230,19 +224,22 @@ export function resolveModelSelectionDirtyAfterPersist(input: {
 
 function emptyState(): ProjectSettingsState {
   return {
-    loading: false,
     saving: false,
     error: undefined,
-    projectConfig: {},
-    providerCatalog: EMPTY_PROVIDER_CATALOG,
-    personaCatalog: [],
     draft: EMPTY_DRAFT,
     modelSelectionDirty: false,
+    initializedDirectory: undefined,
   }
 }
 
 export function useProjectSettings(directory: string, open: boolean) {
+  const queryClient = useQueryClient()
   const [state, setState] = useState<ProjectSettingsState>(() => emptyState())
+  const queryEnabled = open && directory.length > 0
+  const settingsQuery = useQuery({
+    ...projectSettingsQueryOptions(directory),
+    enabled: queryEnabled,
+  })
   const latestPersistRef = useRef<{
     directory: string
     open: boolean
@@ -252,69 +249,57 @@ export function useProjectSettings(directory: string, open: boolean) {
   }>({
     directory,
     open,
-    loading: false,
+    loading: queryEnabled,
     saving: false,
   })
+  const bundle = settingsQuery.data
+  const activeBundle = state.initializedDirectory === directory ? bundle : undefined
+  const providerCatalog = activeBundle?.providerCatalog ?? EMPTY_PROVIDER_CATALOG
+  const personaCatalog = activeBundle?.personaCatalog ?? []
+  const projectConfig = activeBundle?.projectConfig ?? EMPTY_PROJECT_CONFIG
+  const loading =
+    queryEnabled &&
+    (settingsQuery.isPending ||
+      (state.initializedDirectory !== directory && settingsQuery.isFetching))
+  const error =
+    state.error ?? (settingsQuery.error ? stringifyError(settingsQuery.error) : undefined)
 
-  const connected = useMemo(
-    () => connectedProviders(state.providerCatalog),
-    [state.providerCatalog],
-  )
+  const connected = useMemo(() => connectedProviders(providerCatalog), [providerCatalog])
 
   const providerModels = useMemo(
     () => connected.find((provider) => provider.id === state.draft.provider)?.models ?? [],
     [connected, state.draft.provider],
   )
 
-  const reload = useCallback(async () => {
-    setState((current) => ({
-      ...current,
-      loading: true,
-      error: undefined,
-    }))
+  useEffect(() => {
+    if (!bundle) return
 
-    try {
-      const [config, providerCatalog, personas] = await Promise.all([
-        loadProjectConfig(directory),
-        loadProviderCatalog(directory),
-        loadPersonaCatalog(directory),
-      ])
-      const selectablePersonas = personas.filter((persona) => !persona.hidden)
+    setState((current) => {
+      if (current.initializedDirectory === directory) {
+        return current
+      }
 
-      setState({
-        loading: false,
+      return {
         saving: false,
         error: undefined,
-        projectConfig: config,
-        providerCatalog,
-        personaCatalog: selectablePersonas,
         draft: buildDraft({
-          config,
-          providerCatalog,
-          personas,
+          config: bundle.projectConfig,
+          providerCatalog: bundle.providerCatalog,
+          personas: bundle.personaCatalog,
         }),
         modelSelectionDirty: false,
-      })
-      return true
-    } catch (error) {
-      setState((current) => ({
-        ...current,
-        loading: false,
-        saving: false,
-        error: stringifyError(error),
-      }))
-      return false
-    }
-  }, [directory])
-
-  useEffect(() => {
-    if (!open) return
-    void reload()
-  }, [open, reload])
+        initializedDirectory: directory,
+      }
+    })
+  }, [bundle, directory])
 
   const save = useCallback(async () => {
+    if (!activeBundle) {
+      return false
+    }
+
     const patch = buildProjectSettingsPatch({
-      projectConfig: state.projectConfig,
+      projectConfig: activeBundle.projectConfig,
       draft: state.draft,
       modelSelectionDirty: state.modelSelectionDirty,
     })
@@ -334,10 +319,17 @@ export function useProjectSettings(directory: string, open: boolean) {
       if (state.modelSelectionDirty && typeof patch.model === "string") {
         useChatStore.getState().setSelectedModel(directory, "auto")
       }
+      queryClient.setQueryData<ProjectSettingsBundle>(
+        projectSettingsQueryOptions(directory).queryKey,
+        {
+          projectConfig: updated,
+          providerCatalog: activeBundle.providerCatalog,
+          personaCatalog: activeBundle.personaCatalog,
+        },
+      )
       setState((current) => ({
         ...current,
         saving: false,
-        projectConfig: updated,
         modelSelectionDirty: resolveModelSelectionDirtyAfterPersist({
           draft: current.draft,
           modelSelectionDirty: current.modelSelectionDirty,
@@ -353,15 +345,15 @@ export function useProjectSettings(directory: string, open: boolean) {
       }))
       return false
     }
-  }, [directory, state.draft, state.modelSelectionDirty, state.projectConfig])
+  }, [activeBundle, directory, queryClient, state.draft, state.modelSelectionDirty])
 
   useEffect(() => {
-    if (!open || state.loading || state.saving) {
+    if (!open || loading || state.saving || !activeBundle) {
       return
     }
 
     const patch = buildProjectSettingsPatch({
-      projectConfig: state.projectConfig,
+      projectConfig: activeBundle.projectConfig,
       draft: state.draft,
       modelSelectionDirty: state.modelSelectionDirty,
     })
@@ -376,24 +368,16 @@ export function useProjectSettings(directory: string, open: boolean) {
     return () => {
       window.clearTimeout(timeout)
     }
-  }, [
-    open,
-    save,
-    state.draft,
-    state.loading,
-    state.modelSelectionDirty,
-    state.projectConfig,
-    state.saving,
-  ])
+  }, [open, save, state.draft, loading, state.modelSelectionDirty, state.saving, activeBundle])
 
   useEffect(() => {
     latestPersistRef.current = {
       directory,
       open,
-      loading: state.loading,
+      loading,
       saving: state.saving,
       patch: buildProjectSettingsPatch({
-        projectConfig: state.projectConfig,
+        projectConfig,
         draft: state.draft,
         modelSelectionDirty: state.modelSelectionDirty,
       }),
@@ -402,9 +386,9 @@ export function useProjectSettings(directory: string, open: boolean) {
     directory,
     open,
     state.draft,
-    state.loading,
+    loading,
     state.modelSelectionDirty,
-    state.projectConfig,
+    projectConfig,
     state.saving,
   ])
 
@@ -418,16 +402,16 @@ export function useProjectSettings(directory: string, open: boolean) {
 
   return {
     status: {
-      loading: state.loading,
+      loading,
       saving: state.saving,
-      error: state.error,
+      error,
       providerMessage:
         connected.length === 0 ? language.t("projectSettings.connectProviderForModel") : undefined,
     },
     options: {
-      personas: state.personaCatalog,
+      personas: personaCatalog,
       providers: connected,
-      allProviders: state.providerCatalog.providers,
+      allProviders: providerCatalog.providers,
       providerModels,
     },
     selection: {
@@ -460,9 +444,8 @@ export function useProjectSettings(directory: string, open: boolean) {
       setProvider(provider: string) {
         setState((current) => {
           const models =
-            connectedProviders(current.providerCatalog).find((entry) => entry.id === provider)
-              ?.models ?? []
-          const defaultModel = current.providerCatalog.default[provider] ?? models[0]?.id ?? ""
+            connectedProviders(providerCatalog).find((entry) => entry.id === provider)?.models ?? []
+          const defaultModel = providerCatalog.default[provider] ?? models[0]?.id ?? ""
           return {
             ...current,
             draft: {
@@ -503,7 +486,30 @@ export function useProjectSettings(directory: string, open: boolean) {
         }))
       },
       async refresh() {
-        await reload()
+        try {
+          await queryClient.invalidateQueries({
+            queryKey: projectSettingsQueryOptions(directory).queryKey,
+          })
+          const nextBundle = await queryClient.fetchQuery(projectSettingsQueryOptions(directory))
+          setState({
+            saving: false,
+            error: undefined,
+            draft: buildDraft({
+              config: nextBundle.projectConfig,
+              providerCatalog: nextBundle.providerCatalog,
+              personas: nextBundle.personaCatalog,
+            }),
+            modelSelectionDirty: false,
+            initializedDirectory: directory,
+          })
+          return true
+        } catch (error) {
+          setState((current) => ({
+            ...current,
+            error: stringifyError(error),
+          }))
+          return false
+        }
       },
       save,
     },

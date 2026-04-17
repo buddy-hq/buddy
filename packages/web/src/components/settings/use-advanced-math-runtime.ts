@@ -1,11 +1,16 @@
 import { useEffect, useState } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "@buddy/ui"
 import {
   installAdvancedMathRuntime,
-  loadAdvancedMathRuntimeStatus,
   removeAdvancedMathRuntime,
   type AdvancedMathRuntimeStatus,
 } from "@/state/advanced-math-runtime"
+import {
+  advancedMathRuntimeStatusQueryOptions,
+  invalidateAdvancedMathRuntimeStatusQuery,
+  localRuntimeQueryKeys,
+} from "@/state/local-runtime-query"
 
 const MATH_RUNTIME_POLL_INTERVAL_MS = 1000
 const LEGACY_TIMESTAMP_VERSION_PATTERN = /^(\d{12})\.([a-f0-9]+)$/
@@ -96,89 +101,63 @@ type UseAdvancedMathRuntimeProps = {
 }
 
 export function useAdvancedMathRuntime(props: UseAdvancedMathRuntimeProps) {
-  const [advancedMathStatus, setAdvancedMathStatus] = useState<AdvancedMathRuntimeStatus | null>(
-    null,
-  )
-  const [advancedMathLoading, setAdvancedMathLoading] = useState(false)
+  const queryClient = useQueryClient()
+  const [updatingRuntime, setUpdatingRuntime] = useState(false)
   const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false)
+  const queryEnabled = props.open && props.platform === "desktop"
+  const advancedMathStatusQuery = useQuery({
+    ...advancedMathRuntimeStatusQueryOptions(),
+    enabled: queryEnabled,
+    refetchInterval: (query) =>
+      isAdvancedMathRuntimeOperationInProgress(query.state.data ?? null)
+        ? MATH_RUNTIME_POLL_INTERVAL_MS
+        : false,
+  })
+  const advancedMathStatus = advancedMathStatusQuery.data ?? null
+  const advancedMathLoading = queryEnabled && (updatingRuntime || advancedMathStatusQuery.isPending)
 
   useEffect(() => {
-    if (!props.open || props.platform !== "desktop") return
-
-    let cancelled = false
-    setAdvancedMathLoading(true)
-    void loadAdvancedMathRuntimeStatus()
-      .then((status) => {
-        if (!cancelled) {
-          setAdvancedMathStatus(status)
-        }
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          toast.error(
-            error instanceof Error ? error.message : "Failed to load advanced math runtime status",
-          )
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setAdvancedMathLoading(false)
-        }
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [props.open, props.platform])
-
-  useEffect(() => {
-    if (!props.open || props.platform !== "desktop") return
-    if (!advancedMathLoading && !isAdvancedMathRuntimeOperationInProgress(advancedMathStatus))
+    if (!advancedMathStatusQuery.error) return
+    if (updatingRuntime || isAdvancedMathRuntimeOperationInProgress(advancedMathStatus)) {
       return
-
-    let cancelled = false
-    const refresh = async () => {
-      try {
-        const status = await loadAdvancedMathRuntimeStatus()
-        if (!cancelled) {
-          setAdvancedMathStatus(status)
-        }
-      } catch {
-        // Ignore transient polling errors while an operation is in flight.
-      }
     }
 
-    void refresh()
-    const interval = window.setInterval(() => {
-      void refresh()
-    }, MATH_RUNTIME_POLL_INTERVAL_MS)
-
-    return () => {
-      cancelled = true
-      window.clearInterval(interval)
-    }
-  }, [advancedMathLoading, advancedMathStatus, props.open, props.platform])
+    const message =
+      advancedMathStatusQuery.error instanceof Error
+        ? advancedMathStatusQuery.error.message
+        : "Failed to load advanced math runtime status"
+    toast.error(message)
+  }, [advancedMathStatus, advancedMathStatusQuery.error, updatingRuntime])
 
   async function applyMathRuntimeChange(install: boolean) {
-    setAdvancedMathLoading(true)
+    if (props.platform !== "desktop") {
+      return
+    }
+
+    setUpdatingRuntime(true)
     try {
       const nextStatus = install
         ? await installAdvancedMathRuntime()
         : await removeAdvancedMathRuntime()
-      setAdvancedMathStatus(nextStatus)
+      queryClient.setQueryData<AdvancedMathRuntimeStatus>(
+        localRuntimeQueryKeys.advancedMathStatus(),
+        nextStatus,
+      )
+      await invalidateAdvancedMathRuntimeStatusQuery(queryClient)
       toast(install ? "Advanced math runtime installed" : "Advanced math runtime removed")
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to update advanced math runtime")
-      const refreshed = await loadAdvancedMathRuntimeStatus().catch(() => undefined)
-      if (refreshed) {
-        setAdvancedMathStatus(refreshed)
-      }
+      await invalidateAdvancedMathRuntimeStatusQuery(queryClient)
     } finally {
-      setAdvancedMathLoading(false)
+      setUpdatingRuntime(false)
     }
   }
 
   function onToggleAdvancedMathRuntime(nextChecked: boolean) {
+    if (props.platform !== "desktop") {
+      return
+    }
+
     if (!nextChecked) {
       // Show the confirmation dialog instead of window.confirm().
       setRemoveConfirmOpen(true)
@@ -188,6 +167,10 @@ export function useAdvancedMathRuntime(props: UseAdvancedMathRuntimeProps) {
   }
 
   function onConfirmRemoveMathRuntime() {
+    if (props.platform !== "desktop") {
+      return
+    }
+
     setRemoveConfirmOpen(false)
     void applyMathRuntimeChange(false)
   }

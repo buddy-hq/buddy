@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react"
+import { useEffect, useState } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   Progress,
   Select,
@@ -12,7 +13,11 @@ import {
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { useProjectSettings } from "@/state/project-settings"
-import { loadSkillsCatalog, updateSkillsSettings, type SkillsCatalog } from "@/state/skills-actions"
+import {
+  invalidateSkillsCatalogQuery,
+  skillsCatalogQueryOptions,
+} from "@/state/skills-catalog-query"
+import { updateSkillsSettings, type SkillsCatalog } from "@/state/skills-actions"
 import { ConfirmRemoveMathRuntimeDialog } from "./confirm-remove-math-runtime-dialog"
 import { ConfirmRemoveStandardsRuntimeDialog } from "./confirm-remove-standards-runtime-dialog"
 import { SettingsContent, SettingsListCard, SettingsRow } from "./settings-primitives"
@@ -37,14 +42,16 @@ type AdvancedSettingsProps = {
 }
 
 export function AdvancedSettings(props: AdvancedSettingsProps) {
+  const queryClient = useQueryClient()
   const platform = usePlatform()
-  const [catalog, setCatalog] = useState<SkillsCatalog | undefined>(undefined)
-  const [loading, setLoading] = useState(true)
   const [busyKey, setBusyKey] = useState<string | undefined>(undefined)
   const currentDirectory = props.directory ?? ""
   const notebookSettings = useProjectSettings(currentDirectory, currentDirectory.length > 0)
   const logLevelSelectValue = notebookSettings.selection.logLevel || DEFAULT_LOG_LEVEL_VALUE
   const showRuntimeControls = platform.platform === "desktop"
+  const catalogQuery = useQuery(skillsCatalogQueryOptions(props.directory))
+  const catalog = catalogQuery.data
+  const loading = catalogQuery.isPending || catalogQuery.isFetching
   const {
     advancedMathStatus,
     advancedMathLoading,
@@ -71,35 +78,30 @@ export function AdvancedSettings(props: AdvancedSettingsProps) {
     platform: platform.platform,
   })
 
-  const refreshCatalog = useCallback(async () => {
-    setLoading(true)
-    try {
-      const nextCatalog = await loadSkillsCatalog(props.directory)
-      setCatalog(nextCatalog)
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : language.t("settings.advanced.loadSettingsFailed")
-      toast.error(message)
-    } finally {
-      setLoading(false)
-    }
-  }, [props.directory])
-
   useEffect(() => {
-    void refreshCatalog()
-  }, [refreshCatalog])
+    if (!catalogQuery.error) return
+
+    const message =
+      catalogQuery.error instanceof Error
+        ? catalogQuery.error.message
+        : language.t("settings.advanced.loadSettingsFailed")
+    toast.error(message)
+  }, [catalogQuery.error])
 
   function setExternalVendorRootsEnabled(enabled: boolean) {
-    setCatalog((current) => {
-      if (!current) {
-        return current
-      }
+    queryClient.setQueryData<SkillsCatalog>(
+      skillsCatalogQueryOptions(props.directory).queryKey,
+      (current) => {
+        if (!current) {
+          return current
+        }
 
-      return {
-        ...current,
-        externalVendorRootsEnabled: enabled,
-      }
-    })
+        return {
+          ...current,
+          externalVendorRootsEnabled: enabled,
+        }
+      },
+    )
   }
 
   function toggleExternalVendorRoots(enabled: boolean) {
@@ -118,10 +120,8 @@ export function AdvancedSettings(props: AdvancedSettingsProps) {
 
       try {
         await updateSkillsSettings(enabled, props.directory)
-        const nextCatalog = await loadSkillsCatalog(props.directory, {
-          refresh: true,
-        })
-        setCatalog(nextCatalog)
+        await invalidateSkillsCatalogQuery(queryClient, props.directory)
+        await catalogQuery.refetch()
         toast.success(
           enabled
             ? language.t("settings.advanced.externalRootsEnabled")

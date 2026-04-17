@@ -1,5 +1,6 @@
 import { createFileRoute, redirect, useNavigate, useSearch } from "@tanstack/react-router"
-import { useEffect, useState } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useEffect, useRef, useState } from "react"
 import { type OnboardingAuthChoice, OnboardingSetup } from "@/components/onboarding"
 import { language } from "@/context/language"
 import { getPlatform, usePlatform } from "@/context/platform"
@@ -28,14 +29,34 @@ import {
 } from "@/lib/onboarding-flow"
 import {
   loadProviderCatalog,
-  loadProviderCatalogSnapshot,
-  loadNotebookHome,
-  loadOpenProjects,
   openInboxNotebook,
   saveNotebookHome,
+  type NotebookHomeState,
 } from "@/state/chat-actions"
+import {
+  bootstrapQueryKeys,
+  notebookHomeQueryOptions,
+  openProjectsQueryOptions,
+  providerCatalogSnapshotQueryOptions,
+  setNotebookHomeQueryData,
+  setOpenProjectsQueryData,
+} from "@/state/bootstrap-query"
 import { useChatStore } from "@/state/chat-store"
+import type { ProviderCatalogState } from "@/state/chat-types"
 import { useOnboardingStore } from "@/state/onboarding-store"
+
+const EMPTY_OPEN_PROJECTS: string[] = []
+const EMPTY_PROVIDER_CATALOG_SNAPSHOT: ProviderCatalogState = {
+  providers: [],
+  default: {},
+}
+const EMPTY_NOTEBOOK_HOME_STATE: NotebookHomeState = {
+  configuredDirectory: undefined,
+  defaultDirectory: "",
+  resolvedDirectory: "",
+  inboxDirectory: "",
+  inboxName: "Inbox",
+}
 
 export const Route = createFileRoute("/onboarding")({
   validateSearch: (search: Record<string, unknown>): OnboardingTestSearch => {
@@ -64,10 +85,18 @@ export const Route = createFileRoute("/onboarding")({
       throw redirect({ to: "/chat" })
     }
   },
+  loader: async ({ context }) => {
+    await Promise.allSettled([
+      context.queryClient.ensureQueryData(openProjectsQueryOptions()),
+      context.queryClient.ensureQueryData(providerCatalogSnapshotQueryOptions()),
+      context.queryClient.ensureQueryData(notebookHomeQueryOptions()),
+    ])
+  },
   component: OnboardingRoute,
 })
 
 function OnboardingRoute() {
+  const queryClient = useQueryClient()
   const navigate = useNavigate()
   const { test } = useSearch({ from: "/onboarding" })
   const platform = usePlatform()
@@ -75,6 +104,13 @@ function OnboardingRoute() {
   const setResumeDirectory = useOnboardingStore((state) => state.setResumeDirectory)
   const markCompleted = useOnboardingStore((state) => state.markCompleted)
   const setActiveDirectory = useChatStore((state) => state.setActiveDirectory)
+  const openProjectsQuery = useQuery(openProjectsQueryOptions())
+  const providerCatalogSnapshotQuery = useQuery(providerCatalogSnapshotQueryOptions())
+  const notebookHomeQuery = useQuery(notebookHomeQueryOptions())
+  const openProjects = openProjectsQuery.data ?? EMPTY_OPEN_PROJECTS
+  const providerCatalogSnapshot =
+    providerCatalogSnapshotQuery.data ?? EMPTY_PROVIDER_CATALOG_SNAPSHOT
+  const notebookHome = notebookHomeQuery.data ?? EMPTY_NOTEBOOK_HOME_STATE
 
   const [authChoice, setLocalAuthChoice] = useState<OnboardingAuthChoice | undefined>(undefined)
   const [connectedAuthChoice, setConnectedAuthChoice] = useState<OnboardingAuthChoice | undefined>(
@@ -83,57 +119,41 @@ function OnboardingRoute() {
   const [error, setError] = useState<string | undefined>(undefined)
   const [busyChoice, setBusyChoice] = useState<OnboardingAuthChoice | undefined>(undefined)
   const [folderBusy, setFolderBusy] = useState(false)
-  const [defaultHomeDirectory, setDefaultHomeDirectory] = useState<string | undefined>(undefined)
   const [authAbort, setAuthAbort] = useState<AbortController | undefined>(undefined)
+  const defaultHomeDirectory = notebookHome.defaultDirectory
+  const autoContinueHandledRef = useRef(false)
 
   useEffect(() => {
-    let cancelled = false
+    if (autoContinueHandledRef.current) return
 
-    void Promise.allSettled([
-      loadOpenProjects(),
-      loadProviderCatalogSnapshot(),
-      loadNotebookHome(),
-    ]).then(([openProjectsResult, providersResult, notebookHomeResult]) => {
-      if (cancelled) return
+    const openAiConnected = hasConnectedOpenAiProvider(providerCatalogSnapshot)
+    if (!openAiConnected) return
 
-      const openProjects = openProjectsResult.status === "fulfilled" ? openProjectsResult.value : []
-      const openAiConnected =
-        providersResult.status === "fulfilled" && hasConnectedOpenAiProvider(providersResult.value)
+    autoContinueHandledRef.current = true
 
-      if (notebookHomeResult.status === "fulfilled") {
-        setDefaultHomeDirectory(notebookHomeResult.value.defaultDirectory)
-      }
-
-      if (openAiConnected) {
-        const nextDirectory =
-          test === ONBOARDING_TEST_SEARCH_VALUE
-            ? undefined
-            : resolveDesktopOnboardingAutoContinueDirectory({
-                connectedOpenAiProvider: true,
-                openProjects,
-                activeDirectory: useChatStore.getState().activeDirectory,
-              })
-
-        if (nextDirectory) {
-          markCompleted()
-          navigate({
-            to: "/$directory/chat",
-            params: { directory: encodeDirectory(nextDirectory) },
-            replace: true,
+    const nextDirectory =
+      test === ONBOARDING_TEST_SEARCH_VALUE
+        ? undefined
+        : resolveDesktopOnboardingAutoContinueDirectory({
+            connectedOpenAiProvider: true,
+            openProjects,
+            activeDirectory: useChatStore.getState().activeDirectory,
           })
-          return
-        }
 
-        setConnectedAuthChoice("chatgpt_plus")
-        setLocalAuthChoice("chatgpt_plus")
-        setAuthChoice("chatgpt_plus")
-      }
-    })
-
-    return () => {
-      cancelled = true
+    if (nextDirectory) {
+      markCompleted()
+      navigate({
+        to: "/$directory/chat",
+        params: { directory: encodeDirectory(nextDirectory) },
+        replace: true,
+      })
+      return
     }
-  }, [markCompleted, navigate, setAuthChoice, test])
+
+    setConnectedAuthChoice("chatgpt_plus")
+    setLocalAuthChoice("chatgpt_plus")
+    setAuthChoice("chatgpt_plus")
+  }, [markCompleted, navigate, openProjects, providerCatalogSnapshot, setAuthChoice, test])
 
   async function finalizeNotebookSelection(configuredHomeDirectory?: string) {
     if (!authChoice) {
@@ -144,16 +164,28 @@ function OnboardingRoute() {
     try {
       setFolderBusy(true)
       setError(undefined)
+      let savedNotebookHome: NotebookHomeState | undefined
 
       const result = await configureNotebookForOnboarding({
         authChoice,
         prepareNotebook: async () => {
           if (configuredHomeDirectory) {
-            await saveNotebookHome(configuredHomeDirectory)
+            savedNotebookHome = await saveNotebookHome(configuredHomeDirectory)
           }
           return openInboxNotebook()
         },
         loadProviderCatalog,
+      })
+      setOpenProjectsQueryData(queryClient, useChatStore.getState().openProjects)
+      if (savedNotebookHome) {
+        setNotebookHomeQueryData(queryClient, savedNotebookHome)
+      }
+      await queryClient.invalidateQueries({
+        queryKey: bootstrapQueryKeys.notebookHome(),
+      })
+      await queryClient.fetchQuery({
+        ...notebookHomeQueryOptions(),
+        staleTime: 0,
       })
 
       applyOnboardingModelSelection(result.directory, result.model)
@@ -219,7 +251,11 @@ function OnboardingRoute() {
       await Promise.race([
         connectChatGptPlusForOnboarding({
           openLink: (url) => platform.openLink(url),
-          loadProviderCatalogSnapshot,
+          loadProviderCatalogSnapshot: () =>
+            queryClient.fetchQuery({
+              ...providerCatalogSnapshotQueryOptions(),
+              staleTime: 0,
+            }),
           authorizeProviderOAuth,
           completeProviderOAuth,
           reloadProviderRuntime: () => reloadProviderRuntime(),

@@ -1,23 +1,36 @@
 import { useCallback } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { MarkdownFileEditor } from "@/components/markdown/markdown-file-editor"
 import { language } from "@/context/language"
 import {
   GlobalAgentsMdVersionConflictError,
-  loadGlobalAgentsMd,
   saveGlobalAgentsMd,
 } from "@/state/global-agents-md-actions"
+import { globalAgentsMdQueryOptions, setGlobalAgentsMdQueryData } from "@/state/agents-md-query"
 
 const DEFAULT_GLOBAL_AGENTS_MD_CONTENT = "# AGENTS.md\n\nAdd global instructions for Buddy here.\n"
 
 export function GlobalAgentsMdSettingsPanel(props: { active: boolean }) {
-  const load = useCallback(() => loadGlobalAgentsMd(), [])
+  const queryClient = useQueryClient()
+  const load = useCallback(
+    () => queryClient.ensureQueryData(globalAgentsMdQueryOptions()),
+    [queryClient],
+  )
   const save = useCallback(
-    (input: { content: string; expectedVersion?: string | null }) =>
-      saveGlobalAgentsMd({
+    async (input: { content: string; expectedVersion?: string | null }) => {
+      const saved = await saveGlobalAgentsMd({
         content: input.content,
         expectedVersion: input.expectedVersion,
-      }),
-    [],
+      })
+      setGlobalAgentsMdQueryData(queryClient, {
+        path: saved.path,
+        exists: true,
+        content: saved.content,
+        version: saved.version,
+      })
+      return saved
+    },
+    [queryClient],
   )
 
   return (

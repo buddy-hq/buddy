@@ -286,18 +286,15 @@ export function StandardsSettings(props: { directory: string }) {
     () => resolveNotebookOptions(props.directory, openProjects),
     [openProjects, props.directory],
   )
-  const [selectedNotebookDirectory, setSelectedNotebookDirectory] = useState(props.directory)
+  const [selectedNotebookDirectoryState, setSelectedNotebookDirectory] = useState(props.directory)
 
   useEffect(() => {
     setSelectedNotebookDirectory(props.directory)
   }, [props.directory])
 
-  useEffect(() => {
-    if (notebookOptions.includes(selectedNotebookDirectory)) {
-      return
-    }
-    setSelectedNotebookDirectory(props.directory)
-  }, [notebookOptions, props.directory, selectedNotebookDirectory])
+  const selectedNotebookDirectory = notebookOptions.includes(selectedNotebookDirectoryState)
+    ? selectedNotebookDirectoryState
+    : props.directory
 
   return (
     <StandardsSettingsPanel

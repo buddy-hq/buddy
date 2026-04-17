@@ -1479,22 +1479,13 @@ export async function updateSession(input: {
   }
 }
 
-export async function loadCurriculumView(
-  directory: string,
-  input?: {
-    persona?: string
-    intent?: TeachingIntent
-    sessionID?: string
-  },
-) {
-  const intent = input?.intent ?? "auto"
+export type LearnerSnapshotInput = {
+  persona?: string
+  intent?: TeachingIntent
+  sessionID?: string
+}
 
-  const snapshot = await requestLearnerSnapshot(directory, {
-    persona: toLearnerPersona(input?.persona),
-    intent,
-    sessionID: input?.sessionID,
-  })
-
+function buildCurriculumViewFromSnapshot(snapshot: LearnerSnapshotResponses[200]) {
   return {
     workspace: parseWorkspaceView(snapshot.workspace),
     coldStart: snapshot.goals.length === 0,
@@ -1507,6 +1498,24 @@ export async function loadCurriculumView(
     markdown: snapshot.markdown,
     sections: parseSections(snapshot.sections),
   }
+}
+
+function normalizeLearnerSnapshotInput(input?: LearnerSnapshotInput) {
+  return {
+    persona: toLearnerPersona(input?.persona),
+    intent: input?.intent ?? "auto",
+    sessionID: input?.sessionID,
+  }
+}
+
+export async function loadLearnerSnapshot(directory: string, input?: LearnerSnapshotInput) {
+  const normalizedInput = normalizeLearnerSnapshotInput(input)
+  return requestLearnerSnapshot(directory, normalizedInput)
+}
+
+export async function loadCurriculumView(directory: string, input?: LearnerSnapshotInput) {
+  const snapshot = await loadLearnerSnapshot(directory, input)
+  return buildCurriculumViewFromSnapshot(snapshot)
 }
 
 function sortedPermissionKeys(
@@ -1557,21 +1566,12 @@ async function requestLearnerSnapshot(
   })
 }
 
-export async function loadRuntimeCapabilities(
-  directory: string,
-  input?: {
-    persona?: string
-    intent?: TeachingIntent
-    sessionID?: string
-  },
+function buildRuntimeCapabilitiesViewFromSnapshot(
+  snapshot: LearnerSnapshotResponses[200],
+  input?: LearnerSnapshotInput,
 ) {
-  const requestedIntent = input?.intent ?? "auto"
-
-  const snapshot = await requestLearnerSnapshot(directory, {
-    persona: toLearnerPersona(input?.persona),
-    intent: requestedIntent,
-    sessionID: input?.sessionID,
-  })
+  const normalizedInput = normalizeLearnerSnapshotInput(input)
+  const requestedIntent = normalizedInput.intent
 
   const runtimeProfile = asRecord(snapshot.runtimeProfile)
   const envelope = asRecord(runtimeProfile?.capabilityEnvelope)
@@ -1587,7 +1587,7 @@ export async function loadRuntimeCapabilities(
   const subagents = parseSubagentPermissions(envelope.subagents)
 
   return {
-    persona: asString(runtimeProfile.persona, toLearnerPersona(input?.persona) ?? "buddy"),
+    persona: asString(runtimeProfile.persona, normalizedInput.persona ?? "buddy"),
     intent: snapshot.runtimeContext?.intent ?? requestedIntent,
     workspaceState: snapshot.runtimeContext?.workspaceState ?? "chat",
     visibleSurfaces,
@@ -1609,6 +1609,29 @@ export async function loadRuntimeCapabilities(
       deny: sortedSubagentKeys(subagents, "deny"),
     },
   } satisfies LearnerRuntimeCapabilitiesView
+}
+
+export type LearnerSnapshotViews = {
+  snapshot: LearnerSnapshotResponses[200]
+  curriculum: LearnerCurriculumView
+  capabilities: LearnerRuntimeCapabilitiesView
+}
+
+export async function loadLearnerSnapshotViews(
+  directory: string,
+  input?: LearnerSnapshotInput,
+): Promise<LearnerSnapshotViews> {
+  const snapshot = await loadLearnerSnapshot(directory, input)
+  return {
+    snapshot,
+    curriculum: buildCurriculumViewFromSnapshot(snapshot),
+    capabilities: buildRuntimeCapabilitiesViewFromSnapshot(snapshot, input),
+  }
+}
+
+export async function loadRuntimeCapabilities(directory: string, input?: LearnerSnapshotInput) {
+  const snapshot = await loadLearnerSnapshot(directory, input)
+  return buildRuntimeCapabilitiesViewFromSnapshot(snapshot, input)
 }
 
 export async function loadWorkspaceMermaidArtifacts(

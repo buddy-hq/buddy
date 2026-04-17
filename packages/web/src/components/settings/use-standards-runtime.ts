@@ -1,11 +1,16 @@
 import { useEffect, useState } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "@buddy/ui"
 import {
   installStandardsRuntime,
-  loadStandardsRuntimeStatus,
   removeStandardsRuntime,
   type StandardsRuntimeStatus,
 } from "@/state/standards-runtime"
+import {
+  invalidateStandardsRuntimeStatusQuery,
+  localRuntimeQueryKeys,
+  standardsRuntimeStatusQueryOptions,
+} from "@/state/local-runtime-query"
 
 const STANDARDS_RUNTIME_POLL_INTERVAL_MS = 1000
 const STANDARDS_RUNTIME_ENABLED_STATES: ReadonlySet<StandardsRuntimeStatus["state"]> = new Set([
@@ -56,82 +61,53 @@ type UseStandardsRuntimeProps = {
 }
 
 export function useStandardsRuntime(props: UseStandardsRuntimeProps) {
-  const [standardsStatus, setStandardsStatus] = useState<StandardsRuntimeStatus | null>(null)
-  const [standardsLoading, setStandardsLoading] = useState(false)
+  const queryClient = useQueryClient()
+  const [updatingRuntime, setUpdatingRuntime] = useState(false)
   const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false)
+  const queryEnabled = props.open && props.platform === "desktop"
+  const standardsStatusQuery = useQuery({
+    ...standardsRuntimeStatusQueryOptions(),
+    enabled: queryEnabled,
+    refetchInterval: (query) =>
+      isStandardsRuntimeOperationInProgress(query.state.data ?? null)
+        ? STANDARDS_RUNTIME_POLL_INTERVAL_MS
+        : false,
+  })
+  const standardsStatus = standardsStatusQuery.data ?? null
+  const standardsLoading = queryEnabled && (updatingRuntime || standardsStatusQuery.isPending)
 
   useEffect(() => {
-    if (!props.open) return
-
-    let cancelled = false
-    setStandardsLoading(true)
-    void loadStandardsRuntimeStatus()
-      .then((status) => {
-        if (!cancelled) {
-          setStandardsStatus(status)
-        }
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          toast.error(error instanceof Error ? error.message : "Failed to load standards status")
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setStandardsLoading(false)
-        }
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [props.open])
-
-  useEffect(() => {
-    if (!props.open) return
-    if (!standardsLoading && !isStandardsRuntimeOperationInProgress(standardsStatus)) return
-
-    let cancelled = false
-    const refresh = async () => {
-      try {
-        const status = await loadStandardsRuntimeStatus()
-        if (!cancelled) {
-          setStandardsStatus(status)
-        }
-      } catch {
-        // Ignore transient polling errors while an operation is in flight.
-      }
+    if (!standardsStatusQuery.error) return
+    if (updatingRuntime || isStandardsRuntimeOperationInProgress(standardsStatus)) {
+      return
     }
 
-    void refresh()
-    const interval = window.setInterval(() => {
-      void refresh()
-    }, STANDARDS_RUNTIME_POLL_INTERVAL_MS)
-
-    return () => {
-      cancelled = true
-      window.clearInterval(interval)
-    }
-  }, [props.open, standardsLoading, standardsStatus])
+    const message =
+      standardsStatusQuery.error instanceof Error
+        ? standardsStatusQuery.error.message
+        : "Failed to load standards status"
+    toast.error(message)
+  }, [standardsStatus, standardsStatusQuery.error, updatingRuntime])
 
   async function applyStandardsRuntimeChange(install: boolean) {
     if (props.platform !== "desktop") {
       return
     }
 
-    setStandardsLoading(true)
+    setUpdatingRuntime(true)
     try {
       const nextStatus = install ? await installStandardsRuntime() : await removeStandardsRuntime()
-      setStandardsStatus(nextStatus)
+      queryClient.setQueryData<StandardsRuntimeStatus>(
+        localRuntimeQueryKeys.standardsStatus(),
+        nextStatus,
+      )
+      await invalidateStandardsRuntimeStatusQuery(queryClient)
       toast(install ? "Standards installed" : "Standards removed")
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to update standards")
-      const refreshed = await loadStandardsRuntimeStatus().catch(() => undefined)
-      if (refreshed) {
-        setStandardsStatus(refreshed)
-      }
+      await invalidateStandardsRuntimeStatusQuery(queryClient)
     } finally {
-      setStandardsLoading(false)
+      setUpdatingRuntime(false)
     }
   }
 

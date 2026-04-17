@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
+import { type ReactNode, useMemo, useRef, useState } from "react"
 import {
   Badge,
   Button,
@@ -192,7 +192,7 @@ export function ProvidersSettings({ directory }: { directory: string }) {
   const [allProvidersOpen, setAllProvidersOpen] = useState(false)
   const [chatGptConnecting, setChatGptConnecting] = useState(false)
   const [chatGptWaitingOpen, setChatGptWaitingOpen] = useState(false)
-  const [chatGptError, setChatGptError] = useState<string | undefined>(undefined)
+  const [chatGptErrorState, setChatGptError] = useState<string | undefined>(undefined)
   const latestChatGptRequestRef = useRef(0)
   const dismissedChatGptRequestRef = useRef<number | undefined>(undefined)
 
@@ -206,12 +206,7 @@ export function ProvidersSettings({ directory }: { directory: string }) {
     () => settings.options.allProviders.filter((provider) => !provider.connected),
     [settings.options.allProviders],
   )
-
-  useEffect(() => {
-    if (chatGptProvider?.connected) {
-      setChatGptError(undefined)
-    }
-  }, [chatGptProvider?.connected])
+  const chatGptError = chatGptProvider?.connected ? undefined : chatGptErrorState
 
   function openProviderDialog(initialProvider?: string) {
     setProviderDialogTarget(initialProvider)

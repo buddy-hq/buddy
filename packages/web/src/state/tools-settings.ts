@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { patchGlobalConfig, patchProjectConfig } from "./chat-actions"
 import {
-  loadGlobalConfig,
-  loadRawProjectConfig,
-  patchGlobalConfig,
-  patchProjectConfig,
-} from "./chat-actions"
+  setToolsSettingsBundleQueryData,
+  toolsSettingsBundleQueryOptions,
+  toolsSettingsQueryKeys,
+  type ToolsSettingsBundle,
+} from "./tools-settings-query"
 
 export const STANDARDS_TOOL_IDS = [
   "search_standards",
@@ -38,9 +40,9 @@ type ProjectToolsSettingsPatch = {
 }
 
 type ToolsSettingsState = {
-  loading: boolean
   saving: boolean
   error?: string
+  initializedDirectory?: string
   globalConfig: Record<string, unknown>
   rawProjectConfig: Record<string, unknown>
   globalDraft: ToolsToggleDraft
@@ -245,9 +247,9 @@ function writeProjectToolsConfig(
 
 function emptyState(): ToolsSettingsState {
   return {
-    loading: false,
     saving: false,
     error: undefined,
+    initializedDirectory: undefined,
     globalConfig: {},
     rawProjectConfig: {},
     globalDraft: {
@@ -296,52 +298,55 @@ async function persistToolsSettings(input: {
 }
 
 export function useToolsSettings(directory: string, open: boolean) {
+  const queryClient = useQueryClient()
   const [state, setState] = useState<ToolsSettingsState>(() => emptyState())
+  const queryEnabled = open && directory.length > 0
+  const settingsQuery = useQuery({
+    ...toolsSettingsBundleQueryOptions(directory),
+    enabled: queryEnabled,
+  })
+  const loading = queryEnabled && settingsQuery.isFetching && !state.saving
   const latestPersistRef = useRef<PersistSnapshot>({
     directory,
     open: false,
-    loading: false,
+    loading,
     saving: false,
   })
 
-  const reload = useCallback(async () => {
-    setState((current) => ({
-      ...current,
-      loading: true,
-      error: undefined,
-    }))
+  useEffect(() => {
+    if (!settingsQuery.data) {
+      return
+    }
 
-    try {
-      const [globalConfig, rawProjectConfig] = await Promise.all([
-        loadGlobalConfig(),
-        loadRawProjectConfig(directory),
-      ])
+    setState((current) => {
+      if (current.initializedDirectory === directory) {
+        return current
+      }
 
-      setState({
-        loading: false,
+      return {
+        ...current,
         saving: false,
         error: undefined,
-        globalConfig,
-        rawProjectConfig,
-        globalDraft: buildGlobalDraft(globalConfig),
-        projectDraft: buildProjectDraft(rawProjectConfig),
-      })
-      return true
-    } catch (error) {
-      setState((current) => ({
-        ...current,
-        loading: false,
-        saving: false,
-        error: stringifyError(error),
-      }))
-      return false
-    }
-  }, [directory])
+        initializedDirectory: directory,
+        globalConfig: settingsQuery.data.globalConfig,
+        rawProjectConfig: settingsQuery.data.rawProjectConfig,
+        globalDraft: buildGlobalDraft(settingsQuery.data.globalConfig),
+        projectDraft: buildProjectDraft(settingsQuery.data.rawProjectConfig),
+      }
+    })
+  }, [directory, settingsQuery.data])
 
   useEffect(() => {
-    if (!open) return
-    void reload()
-  }, [open, reload])
+    if (!settingsQuery.error) {
+      return
+    }
+
+    setState((current) => ({
+      ...current,
+      saving: false,
+      error: stringifyError(settingsQuery.error),
+    }))
+  }, [settingsQuery.error])
 
   const save = useCallback(async () => {
     const globalPatch = buildGlobalPatch(state.globalConfig, state.globalDraft)
@@ -376,6 +381,10 @@ export function useToolsSettings(directory: string, open: boolean) {
       projectPatch === undefined
         ? state.rawProjectConfig
         : writeProjectToolsConfig(state.rawProjectConfig, state.projectDraft)
+    const nextBundle: ToolsSettingsBundle = {
+      globalConfig: nextGlobalConfig,
+      rawProjectConfig: nextRawProjectConfig,
+    }
 
     try {
       if (globalPatch) {
@@ -386,10 +395,12 @@ export function useToolsSettings(directory: string, open: boolean) {
         await patchProjectConfig(directory, projectPatch)
       }
 
+      setToolsSettingsBundleQueryData(queryClient, directory, nextBundle)
       setState((current) => ({
         ...current,
         saving: false,
         error: undefined,
+        initializedDirectory: directory,
         globalConfig: nextGlobalConfig,
         rawProjectConfig: nextRawProjectConfig,
       }))
@@ -409,9 +420,28 @@ export function useToolsSettings(directory: string, open: boolean) {
       }
 
       const errorMessage = stringifyError(error)
-      await reload().catch(() => false)
+      let refreshedBundle: ToolsSettingsBundle | undefined
+      try {
+        await queryClient.invalidateQueries({
+          queryKey: toolsSettingsQueryKeys.bundle(directory),
+        })
+        refreshedBundle = await queryClient.fetchQuery(toolsSettingsBundleQueryOptions(directory))
+      } catch {
+        refreshedBundle = undefined
+      }
+
       setState((current) => ({
         ...current,
+        saving: false,
+        ...(refreshedBundle
+          ? {
+              initializedDirectory: directory,
+              globalConfig: refreshedBundle.globalConfig,
+              rawProjectConfig: refreshedBundle.rawProjectConfig,
+              globalDraft: buildGlobalDraft(refreshedBundle.globalConfig),
+              projectDraft: buildProjectDraft(refreshedBundle.rawProjectConfig),
+            }
+          : {}),
         error:
           rollbackError === undefined
             ? errorMessage
@@ -421,7 +451,7 @@ export function useToolsSettings(directory: string, open: boolean) {
     }
   }, [
     directory,
-    reload,
+    queryClient,
     state.globalConfig,
     state.globalDraft,
     state.projectDraft,
@@ -429,7 +459,7 @@ export function useToolsSettings(directory: string, open: boolean) {
   ])
 
   useEffect(() => {
-    if (!open || state.loading || state.saving) {
+    if (!open || loading || state.saving) {
       return
     }
 
@@ -451,17 +481,17 @@ export function useToolsSettings(directory: string, open: boolean) {
     save,
     state.globalConfig,
     state.globalDraft,
-    state.loading,
     state.projectDraft,
     state.rawProjectConfig,
     state.saving,
+    loading,
   ])
 
   useEffect(() => {
     latestPersistRef.current = {
       directory,
       open,
-      loading: state.loading,
+      loading,
       saving: state.saving,
       globalPatch: buildGlobalPatch(state.globalConfig, state.globalDraft),
       projectPatch: buildProjectPatch(state.rawProjectConfig, state.projectDraft),
@@ -471,10 +501,10 @@ export function useToolsSettings(directory: string, open: boolean) {
     open,
     state.globalConfig,
     state.globalDraft,
-    state.loading,
     state.projectDraft,
     state.rawProjectConfig,
     state.saving,
+    loading,
   ])
 
   useEffect(() => {
@@ -541,7 +571,7 @@ export function useToolsSettings(directory: string, open: boolean) {
 
   return {
     status: {
-      loading: state.loading,
+      loading,
       saving: state.saving,
       error: state.error,
       hasPendingChanges: Boolean(globalPatch || projectPatch),
@@ -556,7 +586,22 @@ export function useToolsSettings(directory: string, open: boolean) {
       setAllGlobalToolsEnabled,
       setProjectToolMode,
       async refresh() {
-        await reload()
+        const result = await settingsQuery.refetch()
+        if (!result.data) {
+          return false
+        }
+
+        setState((current) => ({
+          ...current,
+          saving: false,
+          error: undefined,
+          initializedDirectory: directory,
+          globalConfig: result.data.globalConfig,
+          rawProjectConfig: result.data.rawProjectConfig,
+          globalDraft: buildGlobalDraft(result.data.globalConfig),
+          projectDraft: buildProjectDraft(result.data.rawProjectConfig),
+        }))
+        return true
       },
       save,
     },
