@@ -1,5 +1,4 @@
-import { useState, type PointerEvent as ReactPointerEvent } from "react"
-import { AnimatePresence, motion } from "motion/react"
+
 import { LayoutTemplateIcon, PlusIcon, type LucideIcon } from "lucide-react"
 import {
   ArchiveIcon,
@@ -39,6 +38,16 @@ import {
   ThreadStatusIndicator,
 } from "./thread-helpers"
 import type { DirectoryGroup, DropPosition, OrganizeMode } from "./types"
+import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react"
+import {
+  AnimatePresence,
+  motion,
+  useMotionValue,
+  useSpring,
+  useTransform,
+  type MotionValue,
+} from "motion/react"
+
 
 type ChatLeftSidebarDirectoryListProps = {
   directoryGroups: DirectoryGroup[]
@@ -130,15 +139,18 @@ const THREAD_ROW_PADDING_LEFT_PX = 20
 const THREAD_CHILD_INDENT_PX = 14
 const THREAD_STATUS_OFFSET_PX = 6
 const NOTEBOOK_OPEN_MIN_HEIGHT_CLASS = "min-h-[7rem]"
-const MAIN_PANE_SHORTCUT_ROW_CLASS =
-  "grid grid-cols-4 gap-1.5 p-1.5 rounded-2xl bg-white/50 dark:bg-black/50 backdrop-blur-xl border border-white/20 dark:border-white/10 shadow-2xl w-fit"
-const MAIN_PANE_SHORTCUT_BUTTON_BASE_CLASS =
-  "flex h-7 w-full items-center justify-center rounded-lg border-0 bg-transparent text-text-weak transition-all duration-160 [transition-timing-function:cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97]"
-const MAIN_PANE_SHORTCUT_BUTTON_ACTIVE_CLASS = "text-text-strong"
-const MAIN_PANE_SHORTCUT_BUTTON_INACTIVE_CLASS =
-  "text-text-weak hover:bg-surface-raised-base-hover hover:text-text-base"
+const DOCK_MAX_SCALE = 1.2
+const DOCK_BASE_SCALE = 1
+const DOCK_DISTANCE_PX = 80
+const DOCK_ICON_SIZE_CLASS = "size-[18px]"
+const DOCK_BUTTON_SIZE_CLASS = "size-9"
 
 const MAIN_PANE_SHORTCUTS: MainPaneShortcut[] = [
+  {
+    tab: "instructions",
+    label: language.t("sidebar.mainPane.instructions"),
+    Icon: FileSlidersIcon,
+  },
   {
     tab: "resources",
     label: language.t("sidebar.mainPane.resources"),
@@ -148,11 +160,6 @@ const MAIN_PANE_SHORTCUTS: MainPaneShortcut[] = [
     tab: "diagrams",
     label: language.t("sidebar.mainPane.diagrams"),
     Icon: LayoutTemplateIcon,
-  },
-  {
-    tab: "instructions",
-    label: language.t("sidebar.mainPane.instructions"),
-    Icon: FileSlidersIcon,
   },
   {
     tab: "question-set",
@@ -165,6 +172,76 @@ const SUBAGENT_TONE_CLASSES = [
   "text-text-success-base",
   "text-icon-warning-base",
 ] as const
+
+type DockIconProps = {
+  shortcut: MainPaneShortcut
+  isActive: boolean
+  mouseX: MotionValue<number>
+  onTabChange: (tab: NotebookMainPaneTab) => void
+}
+
+function DockIcon({ shortcut, isActive, mouseX, onTabChange }: DockIconProps) {
+  const ref = useRef<HTMLButtonElement>(null)
+  const distance = useTransform(mouseX, (val) => {
+    const bounds = ref.current?.getBoundingClientRect()
+    if (!bounds) return Infinity
+    return val - bounds.x - bounds.width / 2
+  })
+  const scaleValue = useTransform(
+    distance,
+    [-DOCK_DISTANCE_PX, 0, DOCK_DISTANCE_PX],
+    [DOCK_BASE_SCALE, DOCK_MAX_SCALE, DOCK_BASE_SCALE],
+  )
+  const scale = useSpring(scaleValue, { mass: 0.1, stiffness: 150, damping: 12 })
+  const Icon = shortcut.Icon
+
+  return (
+    <motion.button
+      ref={ref}
+      type="button"
+      data-action={`left-sidebar-main-pane-${shortcut.tab}`}
+      title={shortcut.label}
+      style={{ scale, transformOrigin: "bottom center" }}
+      className={`flex items-center justify-center ${DOCK_BUTTON_SIZE_CLASS} rounded-[22%] cursor-pointer select-none [box-shadow:inset_1px_1px_0_0_var(--surface-raised-strong),inset_-1px_-1px_0_0_var(--surface-inset-strong)] ${
+        isActive
+          ? "bg-surface-raised-strong text-icon-strong-base"
+          : "bg-surface-raised-base text-icon-base hover:bg-surface-raised-base-hover hover:text-icon-strong-base"
+      }`}
+      whileTap={{ opacity: 0.6 }}
+      onClick={() => {
+        if (!isActive) onTabChange(shortcut.tab)
+      }}
+    >
+      <Icon className={DOCK_ICON_SIZE_CLASS} />
+    </motion.button>
+  )
+}
+
+type MainPaneShortcutRowProps = {
+  activeTab: NotebookMainPaneTab
+  onTabChange: (tab: NotebookMainPaneTab) => void
+}
+
+function MainPaneShortcutRow({ activeTab, onTabChange }: MainPaneShortcutRowProps) {
+  const mouseX = useMotionValue(Infinity)
+  return (
+    <div
+      className="flex items-end gap-3 justify-center"
+      onMouseMove={(e) => mouseX.set(e.clientX)}
+      onMouseLeave={() => mouseX.set(Infinity)}
+    >
+      {MAIN_PANE_SHORTCUTS.map((shortcut) => (
+        <DockIcon
+          key={shortcut.tab}
+          shortcut={shortcut}
+          isActive={activeTab === shortcut.tab}
+          mouseX={mouseX}
+          onTabChange={onTabChange}
+        />
+      ))}
+    </div>
+  )
+}
 
 function isInboxDirectory(directory: string) {
   return getFilename(directory).toLowerCase() === "inbox"
@@ -412,39 +489,10 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                         : "mb-2 flex justify-center"
                     }
                   >
-                    <div className={MAIN_PANE_SHORTCUT_ROW_CLASS}>
-                      {MAIN_PANE_SHORTCUTS.map((shortcut) => {
-                        const isActive = activeMainPaneTab === shortcut.tab
-                        const Icon = shortcut.Icon
-                        return (
-                          <Button
-                            key={shortcut.tab}
-                            type="button"
-                            data-action={`left-sidebar-main-pane-${shortcut.tab}`}
-                            variant="ghost"
-                            size="sm"
-                            className={`relative ${MAIN_PANE_SHORTCUT_BUTTON_BASE_CLASS} ${
-                              isActive
-                                ? MAIN_PANE_SHORTCUT_BUTTON_ACTIVE_CLASS
-                                : MAIN_PANE_SHORTCUT_BUTTON_INACTIVE_CLASS
-                            } group/shortcut`}
-                            title={shortcut.label}
-                            onClick={() => {
-                              props.onMainPaneTabChange?.(isActive ? "chat" : shortcut.tab)
-                            }}
-                          >
-                            {isActive && (
-                              <motion.div
-                                layoutId={`main-pane-tab-${props.group.directory}`}
-                                className="absolute inset-0 z-0 rounded-lg bg-surface-raised-strong border border-surface-border-strong shadow-sm"
-                                transition={{ type: "spring", duration: 0.4, bounce: 0.15 }}
-                              />
-                            )}
-                            <Icon className="relative z-10 size-[14px]" />
-                          </Button>
-                        )
-                      })}
-                    </div>
+                    <MainPaneShortcutRow
+                      activeTab={activeMainPaneTab}
+                      onTabChange={(tab) => props.onMainPaneTabChange?.(tab)}
+                    />
                   </div>
                 ) : null}
                 {props.group.sessions.length === 0 ? (
