@@ -323,6 +323,7 @@ export async function serve(hostname: string, port: number, password: string) {
   const envs = ensureSidecarCommandPath(shell ? mergeShellEnv(loadShellEnv(shell), env) : env)
 
   const child = spawn(command, args, {
+    cwd: backendRoot ?? undefined,
     env: envs,
     detached: app.isPackaged && process.platform !== "win32",
     windowsHide: true,
