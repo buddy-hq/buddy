@@ -1,5 +1,6 @@
 import type { ReactNode } from "react"
 import { useEffect, useMemo, useRef, useState } from "react"
+import { LibraryBigIcon } from "lucide-react"
 import { Button } from "@buddy/ui"
 import { language } from "@/context/language"
 import type { SessionInfo, SessionStatusInfo } from "@/state/chat-types"
@@ -42,6 +43,8 @@ type ChatLeftSidebarProps = {
   onReorderDirectories: (newOrder: string[]) => void
   onCloseDirectory: (directory: string) => void
   onOpenCurriculum: () => void
+  libraryOpen?: boolean
+  onToggleLibrary?: () => void
   mainPaneTab?: NotebookMainPaneTab
   onMainPaneTabChange?: (tab: NotebookMainPaneTab) => void
   onOpenSettings: () => void
@@ -290,6 +293,23 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
         </div>
       ) : (
         <div className="scrollbar-hover flex-1 min-h-0 overflow-y-auto px-2 pt-2 pb-3">
+          <div className="mb-2 px-2">
+            <Button
+              data-action="left-sidebar-toggle-library"
+              variant="ghost"
+              size="sm"
+              className={`h-8 w-full justify-start rounded-lg px-2 text-sm font-medium ${
+                props.libraryOpen
+                  ? "bg-surface-raised-strong text-text-strong"
+                  : "text-text-weak hover:bg-surface-raised-base-hover hover:text-text-strong"
+              }`}
+              onClick={() => props.onToggleLibrary?.()}
+            >
+              <LibraryBigIcon className="size-3.5" />
+              {language.t("sidebar.library")}
+            </Button>
+          </div>
+
           <ChatLeftSidebarToolbar
             organizeMode={organizeMode}
             sortMode={sortMode}

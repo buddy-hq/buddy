@@ -6,6 +6,8 @@ import {
   ChatLeftSidebarResourcesSection,
   type SidebarResourceTarget,
 } from "@/components/layout/chat-left-sidebar/resources-section"
+import { LibraryPanel } from "@/components/layout/chat-left-sidebar/library-panel"
+import { WorkspaceFlashcardPanel } from "@/components/layout/workspace-flashcard-panel"
 import { WorkspaceMermaidPanel } from "@/components/layout/workspace-mermaid-panel"
 import { WorkspaceQuestionSetPanel } from "@/components/layout/workspace-question-set-panel"
 import type { NotebookMainPaneTab } from "@/state/ui-preferences"
@@ -14,36 +16,53 @@ type DirectoryChatConversationPaneProps = ComponentProps<typeof DirectoryChatMai
   mainPaneTab: NotebookMainPaneTab
   resourcesRefreshToken: number
   onOpenResource: (directory: string, resource: SidebarResourceTarget) => void
+  libraryOpen?: boolean
+  directories?: string[]
   className?: string
 }
 
 export function DirectoryChatConversationPane(props: DirectoryChatConversationPaneProps) {
-  const { className, mainPaneTab, resourcesRefreshToken, onOpenResource, ...mainPaneProps } = props
+  const {
+    className,
+    mainPaneTab,
+    resourcesRefreshToken,
+    onOpenResource,
+    libraryOpen,
+    directories,
+    ...mainPaneProps
+  } = props
 
-  const panel =
-    mainPaneTab === "chat" ? (
-      <DirectoryChatMainPane {...mainPaneProps} />
-    ) : mainPaneTab === "resources" ? (
-      <div className="scrollbar-hover h-full min-h-0 overflow-y-auto p-4">
-        <div className="mx-auto w-full max-w-full md:max-w-200 2xl:max-w-[1000px]">
-          <ChatLeftSidebarResourcesSection
-            directory={mainPaneProps.directory}
-            refreshToken={resourcesRefreshToken}
-            onOpenResource={onOpenResource}
-            defaultOpen
-            className="mb-0"
-          />
-        </div>
+  const panel = libraryOpen ? (
+    <div className="scrollbar-hover h-full min-h-0 overflow-y-auto p-4">
+      <div className="mx-auto w-full max-w-full md:max-w-200 2xl:max-w-[1000px]">
+        <LibraryPanel directories={directories ?? []} onOpenResource={onOpenResource} />
       </div>
-    ) : mainPaneTab === "diagrams" ? (
-      <WorkspaceMermaidPanel directory={mainPaneProps.directory} />
-    ) : mainPaneTab === "instructions" ? (
-      <div className="h-full min-h-0 p-3">
-        <AgentsMdPanel directory={mainPaneProps.directory} className="h-full min-h-0" />
+    </div>
+  ) : mainPaneTab === "chat" ? (
+    <DirectoryChatMainPane {...mainPaneProps} />
+  ) : mainPaneTab === "resources" ? (
+    <div className="scrollbar-hover h-full min-h-0 overflow-y-auto p-4">
+      <div className="mx-auto w-full max-w-full md:max-w-200 2xl:max-w-[1000px]">
+        <ChatLeftSidebarResourcesSection
+          directory={mainPaneProps.directory}
+          refreshToken={resourcesRefreshToken}
+          onOpenResource={onOpenResource}
+          defaultOpen
+          className="mb-0"
+        />
       </div>
-    ) : (
-      <WorkspaceQuestionSetPanel directory={mainPaneProps.directory} />
-    )
+    </div>
+  ) : mainPaneTab === "diagrams" ? (
+    <WorkspaceMermaidPanel directory={mainPaneProps.directory} />
+  ) : mainPaneTab === "instructions" ? (
+    <div className="h-full min-h-0 p-3">
+      <AgentsMdPanel directory={mainPaneProps.directory} className="h-full min-h-0" />
+    </div>
+  ) : mainPaneTab === "flashcard" ? (
+    <WorkspaceFlashcardPanel directory={mainPaneProps.directory} />
+  ) : (
+    <WorkspaceQuestionSetPanel directory={mainPaneProps.directory} />
+  )
 
   return (
     <div

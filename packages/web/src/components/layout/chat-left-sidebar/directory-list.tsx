@@ -1,5 +1,4 @@
-
-import { LayoutTemplateIcon, PlusIcon, type LucideIcon } from "lucide-react"
+import { Layers2Icon, LayoutTemplateIcon, PlusIcon, type LucideIcon } from "lucide-react"
 import {
   ArchiveIcon,
   Button,
@@ -47,7 +46,6 @@ import {
   useTransform,
   type MotionValue,
 } from "motion/react"
-
 
 type ChatLeftSidebarDirectoryListProps = {
   directoryGroups: DirectoryGroup[]
@@ -165,6 +163,11 @@ const MAIN_PANE_SHORTCUTS: MainPaneShortcut[] = [
     tab: "question-set",
     label: language.t("sidebar.mainPane.questionSet"),
     Icon: HelpIcon,
+  },
+  {
+    tab: "flashcard",
+    label: language.t("sidebar.mainPane.flashcard"),
+    Icon: Layers2Icon,
   },
 ]
 const SUBAGENT_TONE_CLASSES = [
@@ -479,7 +482,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                 animate={{ height: "auto", opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
                 transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }}
-                className={!isQuickChatGroup ? `${NOTEBOOK_OPEN_MIN_HEIGHT_CLASS} pb-1` : ""}
+                className={!isQuickChatGroup ? `${NOTEBOOK_OPEN_MIN_HEIGHT_CLASS} pb-1` : "pb-1"}
               >
                 {props.mainPaneTab && props.onMainPaneTabChange ? (
                   <div
@@ -596,7 +599,7 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
   }
 
   return (
-    <div className="mx-2">
+    <div className="mx-2 last:mb-1">
       <ContextMenu>
         <ContextMenuTrigger asChild>
           <div
