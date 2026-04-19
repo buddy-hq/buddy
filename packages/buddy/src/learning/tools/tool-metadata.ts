@@ -46,6 +46,10 @@ const LEARNING_TOOL_GROUP_POLICIES = {
     registerWarning: "Failed to register Buddy question-set tools into OpenCode runtime:",
     unregisterWarning: "Failed to unregister Buddy question-set tools from OpenCode runtime:",
   },
+  flashcard: {
+    registerWarning: "Failed to register Buddy flashcard tools into OpenCode runtime:",
+    unregisterWarning: "Failed to unregister Buddy flashcard tools from OpenCode runtime:",
+  },
 } as const
 
 type LearningToolGroup = keyof typeof LEARNING_TOOL_GROUP_POLICIES
@@ -64,6 +68,7 @@ const LEARNING_TOOL_METADATA = [
   { id: "pedagogy_mastery_check", group: "pedagogy" },
   { id: "pedagogy_reflection", group: "pedagogy" },
   { id: "pedagogy_retrieval_check", group: "pedagogy" },
+  { id: "pedagogy_prepare_resource", group: "pedagogy" },
   { id: "pedagogy_resource_ingest_full_text", group: "pedagogy" },
   { id: "pedagogy_transfer_check", group: "pedagogy" },
   { id: "search_standards", group: "knowledgeGraph" },
@@ -142,7 +147,7 @@ const LEARNING_TOOL_METADATA = [
     },
   },
   { id: "save_question_set", group: "questionSet" },
-  { id: "render_saved_question_set", group: "questionSet" },
+  { id: "save_flashcard_deck", group: "flashcard" },
 ] as const
 
 type LearningToolId = (typeof LEARNING_TOOL_METADATA)[number]["id"]

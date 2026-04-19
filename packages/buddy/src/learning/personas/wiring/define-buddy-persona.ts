@@ -4,7 +4,7 @@ import BASE_PERSONA_PROMPT from "../prompts/base.p.md"
 
 type PersonaIntent = "learn" | "practice" | "assess" | "auto"
 type PersonaDomain = "general" | "coding" | "math"
-type PersonaSurface = "curriculum" | "editor" | "figure" | "question-set"
+type PersonaSurface = "curriculum" | "editor" | "figure" | "flashcard" | "question-set"
 type ToolAccess = "inherit" | "allow" | "deny"
 type SubagentAccess = "inherit" | "allow" | "deny" | "prefer"
 

@@ -21,7 +21,6 @@ export const MATH_BUDDY = defineBuddyPersona({
     render_figure: "allow",
     render_freeform_figure: "allow",
     render_mermaid: "allow",
-    render_saved_question_set: "allow",
     python_calculator: "allow",
   },
   subagentDefaults: {

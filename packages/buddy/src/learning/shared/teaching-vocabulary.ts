@@ -1,9 +1,9 @@
-import { BUILTIN_BUDDY_PERSONA_DEFINITIONS } from "@buddy/backend/learning/personas/wiring/persona.orchestration"
+import { REGISTERED_BUDDY_PERSONAS } from "@buddy/backend/learning/personas/registered-personas"
 import { BUDDY_SUBAGENTS } from "@buddy/backend/learning/subagent-manifest"
 
-type BuiltinPersona = (typeof BUILTIN_BUDDY_PERSONA_DEFINITIONS)[number]["id"]
+type BuiltinPersona = (typeof REGISTERED_BUDDY_PERSONAS)[number]["id"]
 
-const derivedPersonas = BUILTIN_BUDDY_PERSONA_DEFINITIONS.map(
+const derivedPersonas = REGISTERED_BUDDY_PERSONAS.map(
   (definition) => definition.id,
 ) as BuiltinPersona[]
 
@@ -17,13 +17,20 @@ export type Persona = (typeof PERSONAS)[number]
 export const INTENTS = ["learn", "practice", "assess", "auto"] as const
 export type Intent = (typeof INTENTS)[number]
 
-export const SURFACES = ["chat", "curriculum", "editor", "figure", "question-set"] as const
+export const SURFACES = [
+  "chat",
+  "curriculum",
+  "editor",
+  "figure",
+  "flashcard",
+  "question-set",
+] as const
 export type Surface = (typeof SURFACES)[number]
 
-type BuiltinPersonaSurface = (typeof BUILTIN_BUDDY_PERSONA_DEFINITIONS)[number]["surfaces"][number]
+type BuiltinPersonaSurface = (typeof REGISTERED_BUDDY_PERSONAS)[number]["surfaces"][number]
 
 const derivedPersonaSurfaces = Array.from(
-  new Set(BUILTIN_BUDDY_PERSONA_DEFINITIONS.flatMap((definition) => definition.surfaces)),
+  new Set(REGISTERED_BUDDY_PERSONAS.flatMap((definition) => definition.surfaces)),
 ).toSorted((left, right) => left.localeCompare(right)) as BuiltinPersonaSurface[]
 
 if (derivedPersonaSurfaces.length === 0) {

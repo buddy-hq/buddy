@@ -18,7 +18,6 @@ export const READING_BUDDY = defineBuddyPersona({
     learner_practice_record: "allow",
     learner_assessment_record: "allow",
     render_mermaid: "allow",
-    render_saved_question_set: "allow",
   },
   subagentDefaults: {
     "practice-agent": "prefer",

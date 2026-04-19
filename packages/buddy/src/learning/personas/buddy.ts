@@ -6,7 +6,7 @@ export const BUDDY = defineBuddyPersona({
   description: "The default Buddy persona for learning conversations and project help.",
   domain: "general",
   defaultIntent: "learn",
-  surfaces: ["curriculum", "question-set"],
+  surfaces: ["curriculum", "flashcard", "question-set"],
   defaultSurface: "curriculum",
   hidden: false,
   toolDefaults: {
@@ -14,12 +14,12 @@ export const BUDDY = defineBuddyPersona({
     learner_practice_record: "allow",
     learner_assessment_record: "allow",
     render_mermaid: "allow",
-    render_saved_question_set: "allow",
   },
   subagentDefaults: {
     "curriculum-orchestrator": "prefer",
     "goal-writer": "prefer",
     "question-set-author": "prefer",
+    "flashcard-author": "prefer",
   },
   contextPolicy: {
     attachCurriculum: true,

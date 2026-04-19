@@ -1,3 +1,4 @@
+import { flashcardTools } from "@buddy/backend/learning/capabilities/flashcard/tools/tools"
 import { freeformFigureTools } from "@buddy/backend/learning/capabilities/figures/freeform/tools/tools"
 import { figureTools } from "@buddy/backend/learning/capabilities/figures/geometry/tools/tools"
 import { mermaidTools } from "@buddy/backend/learning/capabilities/figures/mermaid/tools/tools"
@@ -28,6 +29,7 @@ const learningToolGroups = {
   teaching: teachingTools,
   math: mathTools,
   questionSet: questionSetTools,
+  flashcard: flashcardTools,
 } as const
 
 type RegisteredLearningTool = (typeof learningToolGroups)[LearningToolGroup][number]
@@ -79,6 +81,10 @@ const registeredLearningToolGroupDescriptors = {
   questionSet: {
     ...LEARNING_TOOL_GROUP_POLICIES.questionSet,
     tools: learningToolGroups.questionSet,
+  },
+  flashcard: {
+    ...LEARNING_TOOL_GROUP_POLICIES.flashcard,
+    tools: learningToolGroups.flashcard,
   },
 } as const satisfies Record<LearningToolGroup, RegisteredLearningToolGroupDescriptor>
 

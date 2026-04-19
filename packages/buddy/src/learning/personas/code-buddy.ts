@@ -23,7 +23,6 @@ export const CODE_BUDDY = defineBuddyPersona({
     teaching_set_lesson: "allow",
     teaching_restore_checkpoint: "allow",
     render_mermaid: "allow",
-    render_saved_question_set: "allow",
   },
   subagentDefaults: {
     "practice-agent": "prefer",
