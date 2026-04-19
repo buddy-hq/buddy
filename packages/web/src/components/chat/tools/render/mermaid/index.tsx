@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { ToolOutputPanel } from "../../../tools/tool-output-panel"
 import { MermaidDiagram } from "./mermaid-diagram"
 import { MermaidToolCard } from "./mermaid-tool-card"
@@ -6,6 +6,7 @@ import { language } from "@/context/language"
 import { isRecord, readNonEmptyString, readNonNegativeInt } from "../../../tools/types"
 import { unwrapError } from "../../../utils/error"
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
+import { sendPrompt } from "@/state/chat-actions"
 import type { ToolPartProps } from "../../registry"
 interface RenderMermaidToolOutput {
   artifactID: string
@@ -204,6 +205,23 @@ function inferMermaidDiagramTypeFromSource(source: string | undefined): string |
   return undefined
 }
 
+function formatMermaidFixFeedback(input: {
+  alt: string
+  errorMessage: string
+  source: string
+}): string {
+  return [
+    `The mermaid diagram (alt: "${input.alt}") failed to render on the frontend.`,
+    "",
+    `Frontend render error: ${input.errorMessage}`,
+    "",
+    "Failed source:",
+    input.source,
+    "",
+    "Please fix the mermaid source addressing this error and call render_mermaid again.",
+  ].join("\n")
+}
+
 function RenderMermaidToolCard({ state, info, directory }: ToolPartProps) {
   const output = state.output || (state.error ? unwrapError(state.error) : "")
   const showOutput = output.trim().length > 0
@@ -221,6 +239,7 @@ function RenderMermaidToolCard({ state, info, directory }: ToolPartProps) {
 
   const [rehydrated, setRehydrated] = useState<MermaidArtifactRoutePayload | undefined>(undefined)
   const [rehydrationError, setRehydrationError] = useState<string | undefined>(undefined)
+  const [fixRequested, setFixRequested] = useState(false)
 
   useEffect(() => {
     setRehydrated(undefined)
@@ -252,6 +271,25 @@ function RenderMermaidToolCard({ state, info, directory }: ToolPartProps) {
       cancelled = true
     }
   }, [directory, parsedArtifactID, parsedKey, parsedSource, state.status])
+
+  const resolvedSource = parsedSource ?? rehydrated?.source
+  const resolvedAlt = parsedSource ? parsed?.alt : (rehydrated?.alt ?? parsed?.alt)
+
+  const handleRequestFix = useCallback(
+    (errorMessage: string) => {
+      if (!directory || fixRequested || !resolvedSource || !resolvedAlt) return
+      setFixRequested(true)
+      const feedback = formatMermaidFixFeedback({
+        alt: resolvedAlt,
+        errorMessage,
+        source: resolvedSource,
+      })
+      void sendPrompt(directory, feedback).catch(() => {
+        setFixRequested(false)
+      })
+    },
+    [directory, fixRequested, resolvedSource, resolvedAlt],
+  )
 
   if (running) {
     return (
@@ -345,6 +383,8 @@ function RenderMermaidToolCard({ state, info, directory }: ToolPartProps) {
         hideLoadingPlaceholder
         className="h-full p-4"
         showRawSourceOnError
+        onRequestFix={directory ? handleRequestFix : undefined}
+        fixDisabled={fixRequested}
         renderWrapper={(diagramElement, actions) => (
           <MermaidToolCard
             title={alt}

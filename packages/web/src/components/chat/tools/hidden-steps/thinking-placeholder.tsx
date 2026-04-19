@@ -13,7 +13,9 @@ export function HiddenStepsPlaceholder(props: HiddenStepsPlaceholderProps) {
             Thinking
           </span>
           {props.detail ? (
-            <span className="min-w-0 truncate text-xs text-text-weak/30">{props.detail}</span>
+            <span className="min-w-0 truncate text-xs animate-pulse text-text-weak/30">
+              {props.detail}
+            </span>
           ) : null}
         </div>
       </div>

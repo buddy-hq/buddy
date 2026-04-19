@@ -380,6 +380,7 @@ export function HiddenSteps({
   const previewText = useThrottledText(preview.detail ?? "")
   const showPreview = (showLivePreview || showErrorPreview) && previewText.trim().length > 0
   const title = showLivePreview || showErrorPreview ? preview.title : (summaryDetail ?? "Steps")
+  const animateLiveTitle = showLivePreview && Boolean(isBusy)
 
   useLayoutEffect(() => {
     if (!showPreview) {
@@ -427,6 +428,7 @@ export function HiddenSteps({
                   : errorCount > 0
                     ? "text-icon-critical-base"
                     : "text-inherit",
+                animateLiveTitle && "animate-pulse",
               )}
             >
               {title}

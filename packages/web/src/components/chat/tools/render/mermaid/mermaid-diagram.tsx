@@ -45,6 +45,8 @@ export function MermaidDiagram(props: {
   ) => React.ReactNode
   minimalActions?: boolean
   disableRevealAnimation?: boolean
+  onRequestFix?: (errorMessage: string) => void
+  fixDisabled?: boolean
 }) {
   const { artifactID, source } = props
   const [fullscreenOpen, setFullscreenOpen] = useState(false)
@@ -165,21 +167,40 @@ export function MermaidDiagram(props: {
                   {language.t("chatTools.mermaidDiagram.renderErrorTitle")}
                 </div>
               </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="xs"
-                aria-label={language.t("chatTools.mermaidDiagram.copyErrorDetails")}
-                onClick={() => {
-                  void handleCopyErrorDetails()
-                }}
-              >
-                {copiedErrorDetails ? (
-                  <CheckIcon className="size-3.5" />
-                ) : (
-                  <CopyIcon className="size-3.5" />
-                )}
-              </Button>
+              <div className="flex shrink-0 items-center gap-1.5">
+                {props.onRequestFix ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    disabled={props.fixDisabled}
+                    onClick={() => {
+                      if (state.status === "error") {
+                        props.onRequestFix?.(state.message)
+                      }
+                    }}
+                  >
+                    {props.fixDisabled
+                      ? language.t("chatTools.mermaidDiagram.renderFixRequested")
+                      : language.t("chatTools.mermaidDiagram.renderFixRequest")}
+                  </Button>
+                ) : null}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="xs"
+                  aria-label={language.t("chatTools.mermaidDiagram.copyErrorDetails")}
+                  onClick={() => {
+                    void handleCopyErrorDetails()
+                  }}
+                >
+                  {copiedErrorDetails ? (
+                    <CheckIcon className="size-3.5" />
+                  ) : (
+                    <CopyIcon className="size-3.5" />
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
 
