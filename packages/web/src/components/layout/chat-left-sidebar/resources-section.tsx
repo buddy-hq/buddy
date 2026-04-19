@@ -7,12 +7,12 @@ import {
   Badge,
   Button,
   ContextMenu,
-  ContextMenuTrigger,
-  ContextMenuContent,
   ContextMenuItem,
+  ContextMenuContent,
+  ContextMenuTrigger,
   Popover,
-  PopoverTrigger,
   PopoverContent,
+  PopoverTrigger,
 } from "@buddy/ui"
 import {
   Loader2Icon,
@@ -28,7 +28,7 @@ import { getPlatform } from "@/context/platform"
 import { language } from "@/context/language"
 import { pickResourceFilePath } from "@/lib/resource-file-picker"
 import { fileExtensionFromPath } from "@/lib/workspace-file-paths"
-import { addResource, rebuildResource } from "@/state/resource-actions"
+import { addResource, rebuildResource, removeResource } from "@/state/resource-actions"
 import {
   invalidateResourcesQueries,
   resourceCoverQueryOptions,
@@ -528,6 +528,33 @@ export function ChatLeftSidebarResourcesSection(props: ChatLeftSidebarResourcesS
     [directory, queryClient],
   )
 
+  const onRemoveResource = useCallback(
+    async (resource: ResourceListItem) => {
+      if (!resource.resourceID) return
+
+      const removeQuestion = language.t("resourcesPanel.removeResourceQuestion", {
+        alias: resource.title || resource.name,
+      })
+      if (!window.confirm(removeQuestion)) return
+
+      setBusyKeys((current) => new Set(current).add(resource.key))
+      setLocalError(undefined)
+      try {
+        await removeResource(directory, { resourceKey: resource.resourceID })
+        await invalidateResourcesQueries(queryClient, directory)
+      } catch (resourceError) {
+        setLocalError(stringifyError(resourceError))
+      } finally {
+        setBusyKeys((current) => {
+          const next = new Set(current)
+          next.delete(resource.key)
+          return next
+        })
+      }
+    },
+    [directory, queryClient],
+  )
+
   return (
     <div
       {...getRootProps()}
@@ -674,6 +701,15 @@ export function ChatLeftSidebarResourcesSection(props: ChatLeftSidebarResourcesS
                         <RefreshCwIcon className="mr-2 size-3.5" />
                       )}
                       {processLabel}
+                    </ContextMenuItem>
+                  ) : null}
+                  {resource.resourceID ? (
+                    <ContextMenuItem
+                      variant="destructive"
+                      disabled={isBusy}
+                      onSelect={() => void onRemoveResource(resource)}
+                    >
+                      {language.t("resourcesPanel.remove")}
                     </ContextMenuItem>
                   ) : null}
                 </ContextMenuContent>
