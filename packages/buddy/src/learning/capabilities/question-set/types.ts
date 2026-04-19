@@ -102,19 +102,6 @@ const SaveQuestionSetOutputSchema = z.object({
   artifactUrl: nonEmptyString,
 })
 
-const RenderSavedQuestionSetInputSchema = z.object({
-  artifactID: ulidString,
-})
-
-const RenderSavedQuestionSetOutputSchema = z.object({
-  artifactID: ulidString,
-  kind: z.literal(QUESTION_SET_ARTIFACT_KIND),
-  groupType: GroupTypeSchema,
-  title: nonEmptyString,
-  questionCount: z.number().int().positive(),
-  artifactUrl: nonEmptyString,
-})
-
 const QuestionSetAttemptAnswerSchema = z.object({
   questionID: nonEmptyString,
   selectedChoiceIds: z.array(nonEmptyString),
@@ -168,8 +155,6 @@ type SaveQuestionSetOutput = z.infer<typeof SaveQuestionSetOutputSchema>
 type SavedQuestion = z.infer<typeof SavedQuestionSchema>
 type SavedQuestionSetArtifact = z.infer<typeof SavedQuestionSetArtifactSchema>
 type PublicQuestionSetArtifact = z.infer<typeof PublicQuestionSetArtifactSchema>
-type RenderSavedQuestionSetInput = z.infer<typeof RenderSavedQuestionSetInputSchema>
-type RenderSavedQuestionSetOutput = z.infer<typeof RenderSavedQuestionSetOutputSchema>
 type QuestionSetAttemptAnswer = z.infer<typeof QuestionSetAttemptAnswerSchema>
 type QuestionSetAttemptRecord = z.infer<typeof QuestionSetAttemptRecordSchema>
 type QuestionSetEvaluationResult = z.infer<typeof QuestionSetEvaluationResultSchema>
@@ -185,8 +170,6 @@ export {
   QUESTION_SET_SURFACE,
   QuestionSetAttemptRecordSchema,
   QuestionSetEvaluationResultSchema,
-  RenderSavedQuestionSetInputSchema,
-  RenderSavedQuestionSetOutputSchema,
   SavedQuestionSetArtifactSchema,
   SaveQuestionSetInputSchema,
   SaveQuestionSetOutputSchema,
@@ -200,8 +183,6 @@ export type {
   QuestionSetAttemptAnswer,
   QuestionSetAttemptRecord,
   QuestionSetEvaluationResult,
-  RenderSavedQuestionSetInput,
-  RenderSavedQuestionSetOutput,
   SavedQuestion,
   SavedQuestionSetArtifact,
   SaveQuestionSetInput,

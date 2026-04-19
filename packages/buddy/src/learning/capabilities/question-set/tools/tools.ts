@@ -1,6 +1,5 @@
-import { renderSavedQuestionSetTool } from "./render-saved-question-set"
 import { saveQuestionSetTool } from "./save-question-set"
 
-const questionSetTools = [saveQuestionSetTool, renderSavedQuestionSetTool] as const
+const questionSetTools = [saveQuestionSetTool] as const
 
 export { questionSetTools }

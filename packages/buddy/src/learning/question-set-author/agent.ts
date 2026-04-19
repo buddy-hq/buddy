@@ -9,7 +9,6 @@ export const QUESTION_SET_AUTHOR_AGENT = defineBuddySubagent({
     question: "allow",
     learner_snapshot_read: "allow",
     save_question_set: "allow",
-    render_saved_question_set: "deny",
     learner_practice_record: "deny",
     learner_assessment_record: "deny",
     task: "deny",
