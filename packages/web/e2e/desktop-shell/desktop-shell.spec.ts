@@ -3,6 +3,8 @@ import { openNotebookFromEntry } from "../actions"
 import {
   chatEntryPageSelector,
   desktopTitlebarSelector,
+  settingsColorSchemeSelector,
+  settingsThemeSelector,
   titlebarToggleLeftSelector,
 } from "../selectors"
 import {
@@ -97,27 +99,24 @@ test.describe("desktop-shell", () => {
     })
 
     await page.goto("/settings?tab=appearance")
-    await page.locator('[data-action="settings-color-scheme"]').click()
+    await page.locator(settingsColorSchemeSelector).click()
     await page.locator('[data-slot="select-item"]').filter({ hasText: "Light" }).first().click()
-    await page.locator('[data-action="settings-theme"]').click()
-    await page.locator('[data-slot="select-item"]').nth(1).click()
-
-    const beforeRelaunch = await page.evaluate(() => ({
-      colorScheme: localStorage.getItem("opencode-color-scheme"),
-      themeId: localStorage.getItem("opencode-theme-id"),
-    }))
+    await expect(page.locator(settingsColorSchemeSelector)).toContainText("Light")
+    await page.locator(settingsThemeSelector).click()
+    const themeOption = page.locator('[data-slot="select-item"]').nth(1)
+    const themeLabel = (await themeOption.innerText()).trim()
+    expect(themeLabel.length).toBeGreaterThan(0)
+    await themeOption.click()
+    await expect(page.locator(settingsThemeSelector)).toContainText(themeLabel)
 
     await page.goto("/")
     await expect(page.locator('[data-component="directory-chat-shell"]')).toBeVisible()
 
-    const afterRelaunch = await page.evaluate(() => ({
-      colorScheme: localStorage.getItem("opencode-color-scheme"),
-      themeId: localStorage.getItem("opencode-theme-id"),
-    }))
-    expect(afterRelaunch.colorScheme).toBe(beforeRelaunch.colorScheme)
-    expect(afterRelaunch.themeId).toBe(beforeRelaunch.themeId)
-
     const openProjects = await e2e.listOpenProjects()
     expect(openProjects.directories).toContain(notebook)
+
+    await page.goto("/settings?tab=appearance")
+    await expect(page.locator(settingsColorSchemeSelector)).toContainText("Light")
+    await expect(page.locator(settingsThemeSelector)).toContainText(themeLabel)
   })
 })

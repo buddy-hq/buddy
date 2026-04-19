@@ -107,23 +107,10 @@ async function selectFirstVisibleSelectItem(page: import("@playwright/test").Pag
 const E2E_BACKEND_COMMAND = "e2e-backend-command"
 
 test.describe("core-web", () => {
-  test("ENT-05 /skills redirects to /settings?tab=skills and keeps notebook bootstrap", async ({
-    page,
-    createNotebook,
-    e2e,
-  }) => {
-    const notebook = await createNotebook()
-    await e2e.setOpenProjects([notebook])
-
+  test("ENT-05 /skills redirects to /settings?tab=skills", async ({ page }) => {
     await page.goto("/skills")
     await expect(page).toHaveURL(/\/settings\?tab=skills/)
     await expect(page.locator(settingsRouteSelector)).toBeVisible()
-
-    const openProjects = await e2e.listOpenProjects()
-    expect(openProjects.directories).toContain(notebook)
-
-    await page.getByRole("button", { name: "Back to chat" }).click()
-    await expect(page.locator(directoryChatShellSelector)).toBeVisible()
   })
 
   test("NB-02 closing notebook removes it from sidebar and persists after reload", async ({

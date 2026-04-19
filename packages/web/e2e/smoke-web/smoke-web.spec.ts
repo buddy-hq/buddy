@@ -14,6 +14,8 @@ import {
   leftSidebarThreadSelectSelector,
   promptAttachmentItemSelector,
   promptEditorSelector,
+  settingsColorSchemeSelector,
+  settingsThemeSelector,
   titlebarDisconnectOpenAiSelector,
   titlebarTestOnboardingSelector,
   rightSidebarTabEditorSelector,
@@ -275,27 +277,21 @@ test.describe("smoke-web", () => {
     await gotoDirectoryChat(notebook)
 
     await page.goto("/settings?tab=appearance")
-    await page.locator('[data-action="settings-color-scheme"]').click()
+    await page.locator(settingsColorSchemeSelector).click()
     await page.locator('[data-slot="select-item"]').filter({ hasText: "Light" }).first().click()
+    await expect(page.locator(settingsColorSchemeSelector)).toContainText("Light")
 
-    await page.locator('[data-action="settings-theme"]').click()
-    await page.locator('[data-slot="select-item"]').nth(1).click()
-
-    const beforeReload = await page.evaluate(() => ({
-      colorScheme: localStorage.getItem("opencode-color-scheme"),
-      themeId: localStorage.getItem("opencode-theme-id"),
-    }))
+    await page.locator(settingsThemeSelector).click()
+    const themeOption = page.locator('[data-slot="select-item"]').nth(1)
+    const themeLabel = (await themeOption.innerText()).trim()
+    expect(themeLabel.length).toBeGreaterThan(0)
+    await themeOption.click()
+    await expect(page.locator(settingsThemeSelector)).toContainText(themeLabel)
 
     await page.reload()
-    await expect(page).toHaveURL(/\/settings\?tab=appearance/)
-
-    const afterReload = await page.evaluate(() => ({
-      colorScheme: localStorage.getItem("opencode-color-scheme"),
-      themeId: localStorage.getItem("opencode-theme-id"),
-    }))
-
-    expect(afterReload.colorScheme).toBe(beforeReload.colorScheme)
-    expect(afterReload.themeId).toBe(beforeReload.themeId)
+    await page.goto("/settings?tab=appearance")
+    await expect(page.locator(settingsColorSchemeSelector)).toContainText("Light")
+    await expect(page.locator(settingsThemeSelector)).toContainText(themeLabel)
   })
 
   test("TCH-02 starting interactive lesson opens editor panel", async ({

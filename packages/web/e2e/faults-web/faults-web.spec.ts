@@ -51,23 +51,21 @@ test.describe("faults-web", () => {
         "buddy.chat.v4",
         JSON.stringify({
           state: {
-            openProjects: ["/tmp/fake-notebook"],
-            directories: {
+            activeDirectory: "/tmp/fake-notebook",
+            lastSessionByDirectory: {
+              "/tmp/fake-notebook": "ses_fake",
+            },
+            activeReadingResourceByDirectory: {
               "/tmp/fake-notebook": {
-                sessions: [],
-                messages: [],
-                sessionStatusByID: {},
-                pendingPermissions: [],
-                providers: [],
-                providerDefault: {},
-                mcpStatus: {},
-                sessionTitle: "Fake notebook",
-                isBusy: false,
-                isReady: true,
+                name: "Fake chapter",
+                path: "/tmp/fake-notebook/README.md",
               },
             },
+            linkedSessionByResource: {
+              "/tmp/fake-notebook::resource_fake": "ses_fake",
+            },
           },
-          version: 4,
+          version: 0,
         }),
       )
     })
