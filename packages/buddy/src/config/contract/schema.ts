@@ -75,6 +75,7 @@ export namespace ConfigSchema {
       provider: openCodeInfoShape.provider,
       mcp: openCodeInfoShape.mcp,
       permission: openCodeInfoShape.permission,
+      compaction: openCodeInfoShape.compaction,
       tools: TOOL_TOGGLE_MAP,
       skills_external_vendor_roots_enabled: z.boolean().optional(),
       notebook_home: z.string().nullable().optional(),

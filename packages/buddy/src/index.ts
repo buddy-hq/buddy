@@ -10,6 +10,7 @@ import { CompatibilityRoutes } from "./routes"
 import { ConfigRoutes } from "./routes"
 import { E2ERoutes } from "./routes"
 import { FigureRoutes } from "./routes"
+import { FlashcardDeckRoutes } from "./routes"
 import { FreeformFigureRoutes } from "./routes"
 import { LearnerRoutes } from "./routes"
 import { MermaidArtifactRoutes } from "./routes"
@@ -21,6 +22,7 @@ import { OpenProjectsRoutes } from "./routes"
 import { PermissionRoutes } from "./routes"
 import { ProjectRoutes } from "./routes"
 import { ProviderRoutes } from "./routes"
+import { QuestionRoutes } from "./routes"
 import { QuestionSetArtifactRoutes } from "./routes"
 import { ResourceRoutes } from "./routes"
 import { SessionRoutes } from "./routes"
@@ -100,6 +102,7 @@ api.route("/figures", FigureRoutes)
 api.route("/freeform-figures", FreeformFigureRoutes)
 api.route("/mermaid-artifacts", MermaidArtifactRoutes)
 api.route("/question-set-artifacts", QuestionSetArtifactRoutes)
+api.route("/flashcard-decks", FlashcardDeckRoutes)
 api.route("/learner", LearnerRoutes)
 api.route("/teaching", TeachingRoutes)
 api.route("/agents-md", AgentsMdRoutes)
@@ -110,6 +113,7 @@ api.route("/resource", ResourceRoutes)
 api.route("/global", GlobalRoutes)
 api.route("/local-runtimes", LocalRuntimeRoutes)
 api.route("/provider", ProviderRoutes)
+api.route("/question", QuestionRoutes)
 api.route("/auth", AuthRoutes)
 api.route("/mcp", McpRoutes)
 api.route("/config", ConfigRoutes)

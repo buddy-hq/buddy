@@ -20,6 +20,8 @@ function runtimeRoot() {
 }
 
 const runtimeRootPath = runtimeRoot()
+const DEFAULT_OPENCODE_CLIENT = "web"
+const OPENCODE_ENABLE_FLAG = "1"
 
 export const BUDDY_XDG_DATA_HOME = path.join(runtimeRootPath, "data")
 export const BUDDY_XDG_CACHE_HOME = path.join(runtimeRootPath, "cache")
@@ -78,7 +80,8 @@ export function configureOpenCodeEnvironment() {
   process.env.OPENCODE_CONFIG_DIR = buddyConfigDir
   process.env.OPENCODE_DISABLE_CHANNEL_DB ||= "1"
   process.env.OPENCODE_DISABLE_EXTERNAL_SKILLS ||= "1"
-  process.env.OPENCODE_CLIENT ||= "web"
+  process.env.OPENCODE_CLIENT ||= DEFAULT_OPENCODE_CLIENT
+  process.env.OPENCODE_ENABLE_QUESTION_TOOL ||= OPENCODE_ENABLE_FLAG
   process.env.OPENCODE_ENABLE_EXA ||= "1"
   applyOptionalPathEnv("BUDDY_MIGRATION_DIR", findRepoPath("packages/buddy/migration"))
 }
