@@ -2,6 +2,7 @@ import { pedagogyDebugAttemptTool } from "./definitions/debug-attempt"
 import { pedagogyGuidedPracticeTool } from "./definitions/guided-practice"
 import { pedagogyIndependentPracticeTool } from "./definitions/independent-practice"
 import { pedagogyMasteryCheckTool } from "./definitions/mastery-check"
+import { pedagogyPrepareResourceTool } from "./definitions/prepare-resource"
 import { pedagogyReflectionTool } from "./definitions/reflection"
 import { pedagogyResourceIngestFullTextTool } from "./definitions/resource-ingest-full-text"
 import { pedagogyRetrievalCheckTool } from "./definitions/retrieval-check"
@@ -15,6 +16,7 @@ const pedagogyTools = [
   pedagogyStepwiseSolveTool,
   pedagogyMasteryCheckTool,
   pedagogyReflectionTool,
+  pedagogyPrepareResourceTool,
   pedagogyRetrievalCheckTool,
   pedagogyResourceIngestFullTextTool,
   pedagogyTransferCheckTool,

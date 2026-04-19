@@ -8,6 +8,7 @@ export const PRACTICE_INTENT_CAPABILITY_MANIFEST = createIntentCapabilities({
     "get_learning_components",
     "get_prerequisites",
     "query_standards_sql",
+    "pedagogy_prepare_resource",
     "pedagogy_guided_practice",
     "pedagogy_independent_practice",
     {

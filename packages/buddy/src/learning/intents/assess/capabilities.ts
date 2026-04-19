@@ -7,6 +7,7 @@ export const ASSESS_INTENT_CAPABILITY_MANIFEST = createIntentCapabilities({
     "get_standard",
     "get_learning_components",
     "query_standards_sql",
+    "pedagogy_prepare_resource",
     "pedagogy_mastery_check",
     "pedagogy_reflection",
     "pedagogy_retrieval_check",
