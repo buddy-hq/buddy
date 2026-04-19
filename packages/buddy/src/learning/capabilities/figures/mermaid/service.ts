@@ -164,13 +164,23 @@ function validateTimelinePeriodLabels(source: string): MermaidValidationResult {
       continue
     }
 
-    if (!period.includes(":")) {
-      continue
+    const isQuoted =
+      (period.startsWith('"') && period.endsWith('"') && period.length > 1) ||
+      (period.startsWith("'") && period.endsWith("'") && period.length > 1)
+    if (isQuoted) {
+      return {
+        ok: false,
+        diagnostics: [`Timeline period labels cannot be quoted. Invalid timeline line: '${line}'`],
+      }
     }
 
-    return {
-      ok: false,
-      diagnostics: [`Timeline period labels cannot contain ':'. Invalid timeline line: '${line}'`],
+    if (period.includes(":")) {
+      return {
+        ok: false,
+        diagnostics: [
+          `Timeline period labels cannot contain ':'. Invalid timeline line: '${line}'`,
+        ],
+      }
     }
   }
 
@@ -187,6 +197,33 @@ function validateFlowchartEdgeLabelQuotes(source: string): MermaidValidationResu
     return {
       ok: false,
       diagnostics: [`Flowchart edge labels cannot contain '"'. Invalid flowchart line: '${line}'`],
+    }
+  }
+
+  return { ok: true }
+}
+
+function validateFlowchartNodeLabelQuotes(source: string): MermaidValidationResult {
+  const NODE_LABEL_WITH_STRAY_QUOTE = /(?:\[|\(|\{)([^\])}{\n]*"[^\])}{\n]*)(?:\]|\)|\})/u
+
+  for (const line of nonCommentLines(source)) {
+    if (/^(?:subgraph|end|style|classDef|class|click|direction)\b/iu.test(line)) {
+      continue
+    }
+    const match = line.match(NODE_LABEL_WITH_STRAY_QUOTE)
+    if (!match) {
+      continue
+    }
+    const content = match[1] ?? ""
+    const trimmed = content.trim()
+    if (trimmed.length > 1 && trimmed.startsWith('"') && trimmed.endsWith('"')) {
+      continue
+    }
+    return {
+      ok: false,
+      diagnostics: [
+        `Flowchart node labels cannot contain unquoted '"'. Invalid flowchart line: '${line}'`,
+      ],
     }
   }
 
@@ -304,13 +341,22 @@ function validateFallbackMermaidSource(
     }
   }
 
-  const delimiterValidation = validateBalancedDelimiters(source)
-  if (!delimiterValidation.ok) {
-    return delimiterValidation
+  const ER_DIAGRAM_TYPES = new Set(["erdiagram"])
+  const skipBalancedDelimiters = ER_DIAGRAM_TYPES.has(normalizedType)
+
+  if (!skipBalancedDelimiters) {
+    const delimiterValidation = validateBalancedDelimiters(source)
+    if (!delimiterValidation.ok) {
+      return delimiterValidation
+    }
   }
 
   if (FLOWCHART_DIAGRAM_TYPES.has(normalizedType)) {
-    return validateFlowchartEdgeLabelQuotes(source)
+    const edgeLabelResult = validateFlowchartEdgeLabelQuotes(source)
+    if (!edgeLabelResult.ok) {
+      return edgeLabelResult
+    }
+    return validateFlowchartNodeLabelQuotes(source)
   }
 
   if (normalizedType === "timeline") {

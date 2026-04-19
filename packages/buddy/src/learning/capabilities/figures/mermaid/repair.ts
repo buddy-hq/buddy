@@ -189,6 +189,108 @@ function normalizeFlowchartEdgeLabelQuotes(source: string, repairLog: string[]):
   return repaired
 }
 
+function isQuotedLabel(content: string): boolean {
+  const trimmed = content.trim()
+  return trimmed.length > 1 && trimmed.startsWith('"') && trimmed.endsWith('"')
+}
+
+function replaceStrayQuotesInDelimitedContent(
+  line: string,
+  open: string,
+  close: string,
+  changed: { value: boolean },
+): string {
+  const escapedOpen = open.replace(/[[\]{}()]/gu, "\\$&")
+  const escapedClose = close.replace(/[[\]{}()]/gu, "\\$&")
+  const pattern = new RegExp(`${escapedOpen}([^${escapedClose}\\n]+)${escapedClose}`, "gu")
+
+  return line.replace(pattern, (_match, content: string) => {
+    if (isQuotedLabel(content)) {
+      return `${open}${content}${close}`
+    }
+    const normalized = content.replace(/"/gu, "'")
+    if (normalized !== content) {
+      changed.value = true
+    }
+    return `${open}${normalized}${close}`
+  })
+}
+
+function normalizeFlowchartNodeLabelQuotes(source: string, repairLog: string[]): string {
+  if (!FLOWCHART_DIAGRAM_TYPES.has(inferDiagramTypeToken(source) ?? "")) {
+    return source
+  }
+
+  const changed = { value: false }
+  const repaired = source
+    .split("\n")
+    .map((line) => {
+      const trimmed = line.trim()
+      if (
+        !trimmed ||
+        trimmed.startsWith("%%") ||
+        /^(?:subgraph|end|style|classDef|class|click|direction)\b/iu.test(trimmed)
+      ) {
+        return line
+      }
+
+      let cleaned = line
+      cleaned = replaceStrayQuotesInDelimitedContent(cleaned, "[", "]", changed)
+      cleaned = replaceStrayQuotesInDelimitedContent(cleaned, "(", ")", changed)
+      cleaned = replaceStrayQuotesInDelimitedContent(cleaned, "{", "}", changed)
+      return cleaned
+    })
+    .join("\n")
+
+  if (changed.value) {
+    repairLog.push("Normalized flowchart node label quotes from '\"' to \"'\".")
+  }
+
+  return repaired
+}
+
+function normalizeTimelineQuotedPeriodLabels(source: string, repairLog: string[]): string {
+  if (inferDiagramTypeToken(source) !== "timeline") {
+    return source
+  }
+
+  let changed = false
+  const repaired = source
+    .split("\n")
+    .map((line) => {
+      const match = line.match(/^(\s*)(.+?)(\s+:\s+)(.+)$/u)
+      if (!match) {
+        return line
+      }
+
+      const [, indent, rawPeriod, separator, eventText] = match
+      const period = rawPeriod.trim()
+      if (period.length === 0 || period.startsWith(":")) {
+        return line
+      }
+      if (TIMELINE_NON_PERIOD_PREFIX.test(period)) {
+        return line
+      }
+
+      const isDoubleQuoted = period.startsWith('"') && period.endsWith('"') && period.length > 1
+      const isSingleQuoted = period.startsWith("'") && period.endsWith("'") && period.length > 1
+      if (!isDoubleQuoted && !isSingleQuoted) {
+        return line
+      }
+
+      const unquotedPeriod = period.slice(1, -1)
+      changed = true
+      return `${indent}${unquotedPeriod}${separator}${eventText}`
+    })
+    .join("\n")
+
+  if (changed) {
+    repairLog.push("Stripped quotes from timeline period labels.")
+  }
+
+  return repaired
+}
+
 function normalizeTimelinePeriodLabelsWithColon(source: string, repairLog: string[]): string {
   if (inferDiagramTypeToken(source) !== "timeline") {
     return source
@@ -384,6 +486,8 @@ function runMermaidRepairPass(source: string): MermaidRepairPassResult {
   repaired = canonicalizeDiagramHeaderAlias(repaired, repairLog)
   repaired = normalizeSmartPunctuation(repaired, repairLog)
   repaired = normalizeFlowchartEdgeLabelQuotes(repaired, repairLog)
+  repaired = normalizeFlowchartNodeLabelQuotes(repaired, repairLog)
+  repaired = normalizeTimelineQuotedPeriodLabels(repaired, repairLog)
   repaired = normalizeTimelinePeriodLabelsWithColon(repaired, repairLog)
   repaired = removeTrailingConnectorsFromXychartLines(repaired, repairLog)
   repaired = trimProseOutsideDiagram(repaired, repairLog)
