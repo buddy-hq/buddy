@@ -20,18 +20,24 @@ export function createFetchStub(implementation: FetchStub): FetchTransport {
 export function createDirectoryChatState(
   input: Partial<DirectoryChatState> = {},
 ): DirectoryChatState {
-  return {
+  const merged = {
     sessionTitle: "New thread",
     sessions: [],
     sessionStatusByID: {},
     messages: [],
     pendingPermissions: [],
+    pendingQuestions: [],
     providers: [],
     providerDefault: {},
     mcpStatus: {},
     isBusy: false,
     isReady: false,
     ...input,
+  }
+
+  return {
+    ...merged,
+    pendingQuestions: merged.pendingQuestions ?? [],
   }
 }
 

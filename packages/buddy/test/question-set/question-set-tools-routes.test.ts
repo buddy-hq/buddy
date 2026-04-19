@@ -5,7 +5,6 @@ import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { app } from "../../src/index.ts"
 import {
-  RenderSavedQuestionSetOutputSchema,
   SaveQuestionSetOutputSchema,
   type SaveQuestionSetInput,
 } from "../../src/learning/capabilities/question-set/types"
@@ -105,18 +104,16 @@ describe("question-set tools and routes", () => {
     })
   })
 
-  test("saves answerful question sets and renders public answerless artifacts", async () => {
+  test("saves answerful question sets and exposes public answerless artifacts with provenance", async () => {
     await using project = await tmpdir({ git: true })
 
-    const result = await OpenCodeInstance.provide({
+    const saveOutput = await OpenCodeInstance.provide({
       directory: project.path,
       async fn() {
         await ensureQuestionSetToolsRegistered(project.path)
         const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
         const saveQuestionSet = requireTool(tools, "save_question_set")
-        const renderSavedQuestionSet = requireTool(tools, "render_saved_question_set")
-
-        const saveOutput = SaveQuestionSetOutputSchema.parse(
+        return SaveQuestionSetOutputSchema.parse(
           JSON.parse(
             (
               await saveQuestionSet.execute(
@@ -130,26 +127,6 @@ describe("question-set tools and routes", () => {
             ).output,
           ),
         )
-
-        const renderOutput = RenderSavedQuestionSetOutputSchema.parse(
-          JSON.parse(
-            (
-              await renderSavedQuestionSet.execute(
-                { artifactID: saveOutput.artifactID },
-                createToolContext({
-                  sessionID: "ses_question_set_render",
-                  messageID: "msg_question_set_render",
-                  agent: "buddy",
-                }),
-              )
-            ).output,
-          ),
-        )
-
-        return {
-          saveOutput,
-          renderOutput,
-        }
       },
     })
 
@@ -157,7 +134,7 @@ describe("question-set tools and routes", () => {
       project.path,
       ".buddy",
       "question-set-artifacts",
-      result.saveOutput.artifactID,
+      saveOutput.artifactID,
       "artifact.json",
     )
     const savedArtifactText = await fs.readFile(artifactFile, "utf8")
@@ -169,25 +146,51 @@ describe("question-set tools and routes", () => {
       }>
     }
 
-    expect(Object.hasOwn(result.renderOutput, "artifact")).toBe(false)
-    expect(result.renderOutput.artifactID).toBe(result.saveOutput.artifactID)
-
     const readResponse = await app.request(
-      `/api/question-set-artifacts/${result.saveOutput.artifactID}?directory=${encodeURIComponent(project.path)}`,
+      `/api/question-set-artifacts/${saveOutput.artifactID}?directory=${encodeURIComponent(project.path)}`,
     )
     expect(readResponse.status).toBe(200)
     const publicArtifact = (await readResponse.json()) as {
       artifactID: string
+      createdBy: {
+        sessionID: string
+        messageID: string
+        callID: string
+        subagent: string
+      }
       questions: Array<{
         payload: {
           choices: Array<{ correct?: boolean; rationale?: string }>
         }
       }>
     }
-    expect(publicArtifact.artifactID).toBe(result.saveOutput.artifactID)
+    expect(publicArtifact.artifactID).toBe(saveOutput.artifactID)
     expect(publicArtifact.questions).toHaveLength(2)
     expect("correct" in publicArtifact.questions[0]!.payload.choices[0]!).toBe(false)
     expect("rationale" in publicArtifact.questions[0]!.payload.choices[0]!).toBe(false)
+    expect(publicArtifact.createdBy.sessionID).toBe("ses_question_set")
+    expect(publicArtifact.createdBy.messageID).toBe("msg_question_set")
+    expect(publicArtifact.createdBy.callID).toBeDefined()
+    expect(publicArtifact.createdBy.subagent).toBe("question-set-author")
+
+    const listResponse = await app.request(
+      `/api/question-set-artifacts?directory=${encodeURIComponent(project.path)}`,
+    )
+    expect(listResponse.status).toBe(200)
+    const listBody = (await listResponse.json()) as {
+      artifacts: Array<{
+        artifactID: string
+        createdBy: {
+          sessionID: string
+          messageID: string
+          callID: string
+          subagent: string
+        }
+      }>
+    }
+    expect(listBody.artifacts).toHaveLength(1)
+    expect(listBody.artifacts[0]?.artifactID).toBe(saveOutput.artifactID)
+    expect(listBody.artifacts[0]?.createdBy.sessionID).toBe("ses_question_set")
 
     expect(savedArtifact.questions[0]!.payload.choices[0]!.correct).toBeDefined()
     expect(savedArtifact.questions[0]!.payload.choices[0]!.rationale).toBeDefined()

@@ -12,6 +12,7 @@ describe("resolveModelSelectionDirtyAfterPersist", () => {
           model: "kimi-k2-thinking",
           logLevel: "",
           fullTextReadingEnabled: true,
+          autoCompactionEnabled: true,
         },
         modelSelectionDirty: true,
         patch: {
@@ -31,6 +32,7 @@ describe("resolveModelSelectionDirtyAfterPersist", () => {
           model: "kimi-k2-thinking",
           logLevel: "",
           fullTextReadingEnabled: true,
+          autoCompactionEnabled: true,
         },
         modelSelectionDirty: true,
         patch: {
@@ -50,6 +52,7 @@ describe("resolveModelSelectionDirtyAfterPersist", () => {
           model: "kimi-k2-thinking",
           logLevel: "",
           fullTextReadingEnabled: true,
+          autoCompactionEnabled: true,
         },
         modelSelectionDirty: true,
         patch: {

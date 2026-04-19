@@ -31,6 +31,9 @@ describe("buildBuddyRuntimeSessionPermissions", () => {
     expect(PermissionNext.evaluate("pedagogy_guided_practice", "*", permissions).action).toBe(
       "allow",
     )
+    expect(PermissionNext.evaluate("pedagogy_prepare_resource", "*", permissions).action).toBe(
+      "allow",
+    )
     expect(PermissionNext.evaluate("render_mermaid", "*", permissions).action).toBe("allow")
     expect(PermissionNext.evaluate("skill", "buddy-pedagogy-explanation", permissions).action).toBe(
       "allow",
@@ -81,6 +84,9 @@ describe("buildBuddyRuntimeSessionPermissions", () => {
       "allow",
     )
     expect(PermissionNext.evaluate("pedagogy_debug_attempt", "*", permissions).action).toBe("allow")
+    expect(PermissionNext.evaluate("pedagogy_prepare_resource", "*", permissions).action).toBe(
+      "allow",
+    )
     expect(PermissionNext.evaluate("pedagogy_mastery_check", "*", permissions).action).toBe("deny")
     expect(PermissionNext.evaluate("render_mermaid", "*", permissions).action).toBe("allow")
     expect(PermissionNext.evaluate("pedagogy_explanation", "*", permissions).action).toBe("ask")
@@ -93,16 +99,16 @@ describe("buildBuddyRuntimeSessionPermissions", () => {
       workspaceState: "chat",
       intent: "learn",
       configuredToolToggles: {
-        pedagogy_resource_ingest_full_text: false,
+        pedagogy_prepare_resource: false,
       },
     })
     const permissions = buildBuddyRuntimeSessionPermissions({
       runtimeProfile,
     })
 
-    expect(
-      PermissionNext.evaluate("pedagogy_resource_ingest_full_text", "*", permissions).action,
-    ).toBe("deny")
+    expect(PermissionNext.evaluate("pedagogy_prepare_resource", "*", permissions).action).toBe(
+      "deny",
+    )
   })
 
   test("clears the Buddy runtime overlay while keeping unrelated approvals", () => {

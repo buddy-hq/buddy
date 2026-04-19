@@ -153,4 +153,36 @@ describe("opencode runtime env", () => {
     expect(parsed.buddyGlobalConfigDir).toBe(expected)
     expect(parsed.opencodeConfigDir).toBe(expected)
   })
+
+  test("enables OpenCode question tool support for Buddy web sessions by default", () => {
+    const modulePath = path.resolve(import.meta.dir, "../src/opencode-runtime/env.ts")
+
+    const script = `
+      const mod = await import(${JSON.stringify(modulePath)});
+      mod.configureOpenCodeEnvironment();
+      console.log(JSON.stringify({
+        client: process.env.OPENCODE_CLIENT,
+        questionTool: process.env.OPENCODE_ENABLE_QUESTION_TOOL
+      }));
+    `
+
+    const result = spawnSync("bun", ["-e", script], {
+      env: {
+        ...process.env,
+        OPENCODE_CLIENT: "",
+        OPENCODE_ENABLE_QUESTION_TOOL: "",
+      },
+      encoding: "utf8",
+    })
+
+    expect(result.status).toBe(0)
+
+    const parsed = JSON.parse(result.stdout.trim()) as {
+      client: string
+      questionTool: string
+    }
+
+    expect(parsed.client).toBe("web")
+    expect(parsed.questionTool).toBe("1")
+  })
 })

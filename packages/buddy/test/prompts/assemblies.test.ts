@@ -105,6 +105,7 @@ describe("prompt assemblies", () => {
       resources: [
         {
           id: "res_shape_up",
+          name: "Shape Up",
           alias: "shape-up",
           sourceRelpath: "resources/shape-up/Shape Up.pdf",
           format: "pdf",
@@ -113,6 +114,7 @@ describe("prompt assemblies", () => {
         },
         {
           id: "res_goal_rubric",
+          name: "Goal Rubric",
           alias: "goal-rubric",
           sourceRelpath: "resources/goal-rubric/rubric.docx",
           format: "docx",
@@ -125,6 +127,7 @@ describe("prompt assemblies", () => {
     expect(system).toContain("<notebook_resources>")
     expect(system).toContain("Available resources:")
     expect(system).toContain("id=res_shape_up")
+    expect(system).toContain("name=Shape Up")
     expect(system).toContain("alias=shape-up")
     expect(system).toContain("pack=resources/shape-up/processed")
     expect(system).toContain("id=res_goal_rubric")
@@ -137,6 +140,7 @@ describe("prompt assemblies", () => {
 
     const resources = Array.from({ length: 10 }, (_, index) => ({
       id: `res_${index + 1}`,
+      name: `Resource ${index + 1}`,
       alias: `resource-${index + 1}`,
       sourceRelpath: `resources/resource-${index + 1}/source-${index + 1}.pdf`,
       format: "pdf",

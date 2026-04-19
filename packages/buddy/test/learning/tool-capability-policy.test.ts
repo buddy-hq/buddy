@@ -83,7 +83,6 @@ describe("tool capability policy", () => {
     expect(mathBuddyPermissions.teaching_start_lesson).toBe("deny")
 
     expect(readingBuddyPermissions.search_standards).toBe("allow")
-    expect(readingBuddyPermissions.render_saved_question_set).toBe("allow")
     expect(readingBuddyPermissions.teaching_start_lesson).toBe("deny")
   })
 })

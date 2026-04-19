@@ -167,10 +167,9 @@ describe("parity.agent", () => {
 
       expect(readingBuddyAgent.mode).toBe("primary")
       expect(result.listed.map((entry) => entry.name)).toContain("reading-buddy")
-      expect(readingBuddyPrompt).toContain("question-set-author")
+      expect(readingBuddyPrompt).toContain("reading buddy")
       expect(
-        PermissionNext.evaluate("render_saved_question_set", "*", readingBuddyAgent.permission)
-          .action,
+        PermissionNext.evaluate("task", "question-set-author", readingBuddyAgent.permission).action,
       ).toBe("allow")
       expect(
         PermissionNext.evaluate(

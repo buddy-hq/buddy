@@ -67,13 +67,13 @@ describe("model selection store", () => {
     store.setSelectedVariant(sessionKey, "low")
     store.migrateWorkspaceSelection("/repo", "session-1")
 
-    expect(useModelSelectionStore.getState().selectedAgentByKey[workspaceKey]).toBe("build")
+    expect(useModelSelectionStore.getState().selectedAgentByKey[workspaceKey]).toBeUndefined()
     expect(useModelSelectionStore.getState().selectedAgentByKey[sessionKey]).toBe("plan")
-    expect(useModelSelectionStore.getState().selectedModelByKey[workspaceKey]).toBe("openai/gpt-5")
+    expect(useModelSelectionStore.getState().selectedModelByKey[workspaceKey]).toBeUndefined()
     expect(useModelSelectionStore.getState().selectedModelByKey[sessionKey]).toBe(
       "anthropic/claude-sonnet-4",
     )
-    expect(useModelSelectionStore.getState().selectedVariantByKey[workspaceKey]).toBe("high")
+    expect(useModelSelectionStore.getState().selectedVariantByKey[workspaceKey]).toBeUndefined()
     expect(useModelSelectionStore.getState().selectedVariantByKey[sessionKey]).toBe("low")
   })
 
@@ -192,5 +192,24 @@ describe("model selection store", () => {
       "openai/gpt-5-mini",
     )
     expect(useModelSelectionStore.getState().selectedVariantByKey[sessionKey]).toBe("high")
+  })
+
+  test("allows session history to overwrite a migrated workspace model", () => {
+    const store = useModelSelectionStore.getState()
+    const workspaceKey = getModelSelectionScopeKey("/repo")
+    const sessionKey = getModelSelectionScopeKey("/repo", "session-1")
+
+    store.setSelectedModel(workspaceKey, "openai/gpt-5")
+    store.migrateWorkspaceSelection("/repo", "session-1")
+    store.restoreSessionSelection(sessionKey, {
+      model: "anthropic/claude-sonnet-4",
+      messageCreatedAt: 10,
+    })
+
+    expect(useModelSelectionStore.getState().selectedModelByKey[workspaceKey]).toBeUndefined()
+    expect(useModelSelectionStore.getState().selectionSourceByKey[sessionKey]).toBe("restored")
+    expect(useModelSelectionStore.getState().selectedModelByKey[sessionKey]).toBe(
+      "anthropic/claude-sonnet-4",
+    )
   })
 })

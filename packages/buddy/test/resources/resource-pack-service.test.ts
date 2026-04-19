@@ -309,6 +309,26 @@ describe("resource pack service", () => {
     expect(tocText).toContain("Chapter Two")
   })
 
+  test("extracts EPUB content when OPF entity expansions exceed the default parser threshold", async () => {
+    await using project = await tmpdir({ git: true })
+    const sourcePath = path.join(project.path, "entity-heavy.epub")
+
+    await writeEpubFixture(sourcePath, {
+      opfEntityExpansionCount: 1_205,
+    })
+
+    const pack = await ensureResourcePack({
+      directory: project.path,
+      sourcePath,
+    })
+
+    expect(pack.status).toBe(RESOURCE_PACK_STATUS_READY)
+    expect(await exists(pack.fullPath)).toBe(true)
+    const fullText = await fs.readFile(pack.fullPath, "utf8")
+    expect(fullText).toContain("Opening chapter")
+    expect(fullText).toContain("Closing chapter")
+  })
+
   test("isolates concurrent pack builds across workspaces with identical relpaths", async () => {
     await using projectA = await tmpdir({ git: true })
     await using projectB = await tmpdir({ git: true })
@@ -343,8 +363,18 @@ async function writeEpubFixture(
   input?: {
     navAfterChapters?: boolean
     tocFormat?: "nav" | "ncx"
+    opfEntityExpansionCount?: number
   },
 ) {
+  const opfEntityExpansionCount = input?.opfEntityExpansionCount ?? 0
+  const useOpfEntityExpansion = opfEntityExpansionCount > 0
+  const opfTitleToken = "buddyToken"
+  const opfDoctypeLine = useOpfEntityExpansion
+    ? `<!DOCTYPE package [<!ENTITY ${opfTitleToken} "Buddy">]>`
+    : undefined
+  const opfTitle = useOpfEntityExpansion
+    ? `<dc:title>${Array.from({ length: opfEntityExpansionCount }, () => `&${opfTitleToken};`).join(" ")}</dc:title>`
+    : "<dc:title>Manual</dc:title>"
   const tocFormat = input?.tocFormat ?? "nav"
   const tocManifestEntry =
     tocFormat === "ncx"
@@ -385,9 +415,10 @@ async function writeEpubFixture(
     new TextReader(
       [
         '<?xml version="1.0" encoding="UTF-8"?>',
+        ...(opfDoctypeLine ? [opfDoctypeLine] : []),
         '<package version="3.0" xmlns="http://www.idpf.org/2007/opf" unique-identifier="bookid">',
         '<metadata xmlns:dc="http://purl.org/dc/elements/1.1/">',
-        "<dc:title>Manual</dc:title>",
+        opfTitle,
         "<dc:creator>Buddy Author</dc:creator>",
         '<meta name="cover" content="cover-image"/>',
         "</metadata>",

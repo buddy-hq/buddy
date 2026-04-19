@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import {
+  abortPrompt,
   closeOpenProject,
   ensureDirectorySession,
   loadCurriculumView,
@@ -21,12 +22,13 @@ import {
   useModelSelectionStore,
 } from "../src/state/model-selection-store"
 import {
+  createAssistantMessageInfo,
   createDirectoryChatState,
   createFetchStub,
   createMessageWithParts,
   createUserMessageInfo,
 } from "./test-utils"
-import { BUSY_SESSION_STATUS } from "../src/state/session-status"
+import { BUSY_SESSION_STATUS, IDLE_SESSION_STATUS } from "../src/state/session-status"
 
 const originalFetch = globalThis.fetch
 
@@ -238,6 +240,7 @@ describe("closeOpenProject", () => {
           sessionStatusByID: {},
           messages: [],
           pendingPermissions: [],
+          pendingQuestions: [],
           providers: [],
           providerDefault: {},
           mcpStatus: {},
@@ -250,6 +253,7 @@ describe("closeOpenProject", () => {
           sessionStatusByID: {},
           messages: [],
           pendingPermissions: [],
+          pendingQuestions: [],
           providers: [],
           providerDefault: {},
           mcpStatus: {},
@@ -330,6 +334,7 @@ describe("ensureDirectorySession", () => {
           sessionStatusByID: {},
           messages: [],
           pendingPermissions: [],
+          pendingQuestions: [],
           providers: [],
           providerDefault: {},
           mcpStatus: {},
@@ -850,6 +855,7 @@ describe("sendPrompt", () => {
           sessionStatusByID: {},
           messages: [],
           pendingPermissions: [],
+          pendingQuestions: [],
           providers: [],
           providerDefault: {},
           mcpStatus: {},
@@ -923,6 +929,7 @@ describe("sendPrompt", () => {
           sessionStatusByID: {},
           messages: [],
           pendingPermissions: [],
+          pendingQuestions: [],
           providers: [],
           providerDefault: {},
           mcpStatus: {},
@@ -1020,6 +1027,7 @@ describe("sendPrompt", () => {
           sessionStatusByID: {},
           messages: [],
           pendingPermissions: [],
+          pendingQuestions: [],
           providers: [],
           providerDefault: {},
           mcpStatus: {},
@@ -1098,6 +1106,7 @@ describe("sendPrompt", () => {
           sessionStatusByID: {},
           messages: [],
           pendingPermissions: [],
+          pendingQuestions: [],
           providers: [],
           providerDefault: {},
           mcpStatus: {},
@@ -1543,6 +1552,199 @@ describe("loadMessages", () => {
     expect(staleError).toBeInstanceOf(Error)
     expect(useChatStore.getState().directories["/repo"]?.messages).toEqual(transcript)
     expect(useChatStore.getState().directories["/repo"]?.error).toBeUndefined()
+  })
+})
+
+describe("abortPrompt", () => {
+  test("recovers a stale busy session when abort fails but the backend is already idle", async () => {
+    const sessionInfo = {
+      id: "session_1",
+      title: "Greeting",
+      time: {
+        created: 1,
+        updated: 2,
+      },
+    }
+    const transcript = [
+      createMessageWithParts(
+        createAssistantMessageInfo({
+          id: "message_1",
+          sessionID: sessionInfo.id,
+          time: { created: 1 },
+        }),
+      ),
+    ]
+
+    useChatStore.setState({
+      openProjects: ["/repo"],
+      activeDirectory: "/repo",
+      streamStatus: "connected",
+      lastSessionByDirectory: {
+        "/repo": sessionInfo.id,
+      },
+      directories: {
+        "/repo": createDirectoryChatState({
+          sessionID: sessionInfo.id,
+          sessionTitle: sessionInfo.title,
+          sessions: [sessionInfo],
+          messages: transcript,
+          isBusy: true,
+          isDraft: false,
+          isReady: true,
+          sessionStatusByID: {
+            [sessionInfo.id]: BUSY_SESSION_STATUS,
+          },
+        }),
+      },
+    })
+
+    let abortRequests = 0
+    let statusRequests = 0
+
+    globalThis.fetch = createFetchStub(async (input, init) => {
+      const url = new URL(requestUrl(input), "http://localhost")
+      const method = requestMethod(input, init) ?? "GET"
+
+      if (method === "POST" && url.pathname === `/api/session/${sessionInfo.id}/abort`) {
+        abortRequests += 1
+        return new Response(JSON.stringify({ error: "Session not found" }), {
+          status: 404,
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "GET" && url.pathname === "/api/session") {
+        return new Response(JSON.stringify([sessionInfo]), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "GET" && url.pathname === "/api/session/status") {
+        statusRequests += 1
+        return new Response(
+          JSON.stringify({
+            [sessionInfo.id]: IDLE_SESSION_STATUS,
+          }),
+          {
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        )
+      }
+
+      if (method === "GET" && url.pathname === `/api/session/${sessionInfo.id}/message`) {
+        return new Response(JSON.stringify(transcript), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      throw new Error(`Unexpected request: ${method} ${url.pathname}${url.search}`)
+    })
+
+    await expect(abortPrompt("/repo")).resolves.toBe(false)
+
+    const next = useChatStore.getState().directories["/repo"]
+    expect(abortRequests).toBe(1)
+    expect(statusRequests).toBeGreaterThanOrEqual(2)
+    expect(next?.isBusy).toBe(false)
+    expect(next?.sessionStatusByID[sessionInfo.id]).toEqual(IDLE_SESSION_STATUS)
+    expect(next?.messages[0]?.info.time.completed).toEqual(expect.any(Number))
+    expect(next?.error).toBeUndefined()
+  })
+
+  test("does not suppress abort failures just because the user switched sessions", async () => {
+    const sessionInfo = {
+      id: "session_1",
+      title: "Greeting",
+      time: {
+        created: 1,
+        updated: 2,
+      },
+    }
+    const otherSessionInfo = {
+      id: "session_2",
+      title: "Follow-up",
+      time: {
+        created: 3,
+        updated: 4,
+      },
+    }
+
+    useChatStore.setState({
+      openProjects: ["/repo"],
+      activeDirectory: "/repo",
+      streamStatus: "connected",
+      lastSessionByDirectory: {
+        "/repo": sessionInfo.id,
+      },
+      directories: {
+        "/repo": createDirectoryChatState({
+          sessionID: sessionInfo.id,
+          sessionTitle: sessionInfo.title,
+          sessions: [sessionInfo, otherSessionInfo],
+          isBusy: true,
+          isDraft: false,
+          isReady: true,
+          sessionStatusByID: {
+            [sessionInfo.id]: BUSY_SESSION_STATUS,
+            [otherSessionInfo.id]: IDLE_SESSION_STATUS,
+          },
+        }),
+      },
+    })
+
+    globalThis.fetch = createFetchStub(async (input, init) => {
+      const url = new URL(requestUrl(input), "http://localhost")
+      const method = requestMethod(input, init) ?? "GET"
+
+      if (method === "POST" && url.pathname === `/api/session/${sessionInfo.id}/abort`) {
+        return new Response(JSON.stringify({ error: "Abort refused" }), {
+          status: 500,
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "GET" && url.pathname === "/api/session") {
+        useChatStore.getState().setActiveSession("/repo", otherSessionInfo.id)
+        return new Response(JSON.stringify([sessionInfo, otherSessionInfo]), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "GET" && url.pathname === "/api/session/status") {
+        return new Response(
+          JSON.stringify({
+            [sessionInfo.id]: BUSY_SESSION_STATUS,
+            [otherSessionInfo.id]: IDLE_SESSION_STATUS,
+          }),
+          {
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        )
+      }
+
+      throw new Error(`Unexpected request: ${method} ${url.pathname}${url.search}`)
+    })
+
+    await expect(abortPrompt("/repo")).rejects.toThrow()
+
+    const next = useChatStore.getState().directories["/repo"]
+    expect(next?.sessionID).toBe(otherSessionInfo.id)
+    expect(next?.sessionStatusByID[sessionInfo.id]).toEqual(BUSY_SESSION_STATUS)
+    expect(next?.error).toBeDefined()
   })
 })
 

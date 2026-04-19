@@ -2,9 +2,11 @@ import { describe, expect, test } from "bun:test"
 import path from "node:path"
 import { writeFileSync } from "node:fs"
 import { Agent as OpenCodeAgent } from "@buddy/opencode-adapter/agent"
+import { Config as OpenCodeConfig } from "@buddy/opencode-adapter/config"
 import { PermissionNext } from "@buddy/opencode-adapter/permission"
 import { withSyncedOpenCodeConfig } from "../helpers/opencode"
 import { createGitRepo } from "../helpers/repo"
+import { managedSystemRoot } from "../../src/learning/skills/service/paths"
 
 const EXTERNAL_DIRECTORY_PERMISSION = "external_directory"
 const ALLOW_ACTION = "allow"
@@ -37,5 +39,44 @@ describe("config external_directory permission", () => {
     })
 
     expect(action).toBe(ASK_ACTION)
+  })
+
+  test("allows preloaded managed system skill paths without prompting", async () => {
+    const repo = createGitRepo("buddy-config-external-directory-skills")
+
+    const action = await withSyncedOpenCodeConfig(repo, async () => {
+      const agent = await OpenCodeAgent.get("buddy")
+      return PermissionNext.evaluate(
+        EXTERNAL_DIRECTORY_PERMISSION,
+        path.join(managedSystemRoot(), "sample-skill", "SKILL.md"),
+        agent.permission,
+      ).action
+    })
+
+    expect(action).toBe(ALLOW_ACTION)
+  })
+
+  test("forwards compaction settings into the OpenCode runtime overlay", async () => {
+    const repo = createGitRepo("buddy-config-compaction-overlay")
+
+    writeFileSync(
+      path.join(repo, "buddy.jsonc"),
+      JSON.stringify(
+        {
+          compaction: {
+            auto: false,
+          },
+        },
+        null,
+        2,
+      ) + "\n",
+    )
+
+    const autoCompactionEnabled = await withSyncedOpenCodeConfig(repo, async () => {
+      const runtimeConfig = await OpenCodeConfig.get()
+      return runtimeConfig.compaction?.auto
+    })
+
+    expect(autoCompactionEnabled).toBe(false)
   })
 })

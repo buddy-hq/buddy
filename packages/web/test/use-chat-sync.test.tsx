@@ -24,9 +24,12 @@ mock.module("../src/state/chat-actions", () => ({
 
 mock.module("../src/state/directory-chat-query", () => ({
   removeDirectoryPermissionQueryData() {},
+  removeDirectoryQuestionQueryData() {},
   setDirectoryPermissionsQueryData() {},
+  setDirectoryQuestionsQueryData() {},
   setDirectorySessionsQueryData() {},
   upsertDirectoryPermissionQueryData() {},
+  upsertDirectoryQuestionQueryData() {},
   upsertDirectorySessionQueryData() {},
 }))
 
@@ -107,6 +110,8 @@ describe("useChatSync", () => {
         applyPartDelta() {},
         applyPermissionAsked() {},
         applyPermissionReplied() {},
+        applyQuestionAsked() {},
+        applyQuestionResolved() {},
         clearDirectoryError() {},
         setDirectoryError,
         setStreamStatus() {},

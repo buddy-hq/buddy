@@ -12,7 +12,7 @@ describe("learner snapshot tool toggles", () => {
       JSON.stringify(
         {
           tools: {
-            pedagogy_resource_ingest_full_text: false,
+            pedagogy_prepare_resource: false,
           },
         },
         null,
@@ -31,7 +31,7 @@ describe("learner snapshot tool toggles", () => {
       runtimeProfile: {
         capabilityEnvelope: {
           tools: {
-            pedagogy_resource_ingest_full_text: "deny",
+            pedagogy_prepare_resource: "deny",
           },
         },
       },
