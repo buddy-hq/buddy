@@ -9,6 +9,7 @@ import type {
   MessageWithParts,
   McpStatusMap,
   PermissionRequest,
+  QuestionRequest,
   ProviderCatalogState,
   SessionStatusInfo,
   SessionInfo,
@@ -61,10 +62,13 @@ type ChatStore = {
     input: { sessionID: string; messageID: string; partID: string; field: string; delta: string },
   ) => void
   setPendingPermissions: (directory: string, requests: PermissionRequest[]) => void
+  setPendingQuestions: (directory: string, requests: QuestionRequest[]) => void
   setProviders: (directory: string, input: ProviderCatalogState) => void
   setMcpStatus: (directory: string, input: McpStatusMap) => void
   applyPermissionAsked: (directory: string, request: PermissionRequest) => void
   applyPermissionReplied: (directory: string, requestID: string) => void
+  applyQuestionAsked: (directory: string, request: QuestionRequest) => void
+  applyQuestionResolved: (directory: string, requestID: string) => void
   setSelectedModel: (directory: string, model: string) => void
   setActiveReadingResource: (
     directory: string,
@@ -103,6 +107,7 @@ function emptyDirectoryState(): DirectoryChatState {
     sessionStatusByID: {},
     messages: [],
     pendingPermissions: [],
+    pendingQuestions: [],
     providers: [],
     providerDefault: {},
     mcpStatus: {},
@@ -151,6 +156,30 @@ function resolveActiveSessionBusy(input: {
     status: input.sessionStatusByID[input.sessionID],
     messages: input.messages,
   })
+}
+
+function sealCompletedAssistantMessages(messages: MessageWithParts[], completedAt: number) {
+  let changed = false
+
+  const nextMessages = messages.map((message) => {
+    if (message.info.role !== "assistant" || typeof message.info.time.completed === "number") {
+      return message
+    }
+
+    changed = true
+    return {
+      ...message,
+      info: {
+        ...message.info,
+        time: {
+          ...message.info.time,
+          completed: completedAt,
+        },
+      },
+    }
+  })
+
+  return changed ? nextMessages : messages
 }
 
 export const useChatStore = create<ChatStore>()(
@@ -339,6 +368,7 @@ export const useChatStore = create<ChatStore>()(
                   (request: PermissionRequest) => request.sessionID === activeSessionID,
                 )
               : current.pendingPermissions,
+            pendingQuestions: current.pendingQuestions,
             isBusy: nextBusy,
           }
 
@@ -360,6 +390,7 @@ export const useChatStore = create<ChatStore>()(
               sessionTitle: DEFAULT_TITLE,
               messages: [],
               pendingPermissions: [],
+              pendingQuestions: current.pendingQuestions,
               isBusy: false,
             }
             return
@@ -381,6 +412,7 @@ export const useChatStore = create<ChatStore>()(
                   (request: PermissionRequest) => request.sessionID === sessionID,
                 )
               : current.pendingPermissions,
+            pendingQuestions: current.pendingQuestions,
             isBusy: resolveActiveSessionBusy({
               sessionID,
               sessions: current.sessions,
@@ -485,6 +517,7 @@ export const useChatStore = create<ChatStore>()(
                   (request: PermissionRequest) => request.sessionID === nextSessionID,
                 )
               : current.pendingPermissions,
+            pendingQuestions: current.pendingQuestions,
             isBusy: nextBusy,
             sessionStatusByID: nextSessionStatusByID,
           }
@@ -498,13 +531,20 @@ export const useChatStore = create<ChatStore>()(
         set((state) => {
           const current = state.directories[directory] ?? emptyDirectoryState()
           const existingStatus = current.sessionStatusByID[sessionID] ?? IDLE_SESSION_STATUS
-          if (sessionStatusEquals(existingStatus, status)) return
+          const nextMessages =
+            current.sessionID === sessionID && status.type === "idle"
+              ? sealCompletedAssistantMessages(current.messages, Date.now())
+              : current.messages
+          if (sessionStatusEquals(existingStatus, status) && nextMessages === current.messages) {
+            return
+          }
           const nextSessionStatusByID = {
             ...current.sessionStatusByID,
             [sessionID]: status,
           }
           state.directories[directory] = {
             ...current,
+            messages: nextMessages,
             sessionStatusByID: nextSessionStatusByID,
             isBusy:
               current.sessionID === sessionID
@@ -512,7 +552,7 @@ export const useChatStore = create<ChatStore>()(
                     sessionID,
                     sessions: current.sessions,
                     sessionStatusByID: nextSessionStatusByID,
-                    messages: current.messages,
+                    messages: nextMessages,
                   })
                 : current.isBusy,
           }
@@ -589,6 +629,14 @@ export const useChatStore = create<ChatStore>()(
           state.directories[directory]!.pendingPermissions = requests
         })
       },
+      setPendingQuestions(directory, requests) {
+        set((state) => {
+          if (!state.directories[directory]) {
+            state.directories[directory] = emptyDirectoryState()
+          }
+          state.directories[directory]!.pendingQuestions = requests
+        })
+      },
       setProviders(directory, input) {
         set((state) => {
           if (!state.directories[directory]) {
@@ -631,6 +679,35 @@ export const useChatStore = create<ChatStore>()(
             ...current,
             pendingPermissions: current.pendingPermissions.filter(
               (item: PermissionRequest) => item.id !== requestID,
+            ),
+          }
+        })
+      },
+      applyQuestionAsked(directory, request) {
+        set((state) => {
+          const current = state.directories[directory] ?? emptyDirectoryState()
+          const existingIndex = current.pendingQuestions.findIndex(
+            (item: QuestionRequest) => item.id === request.id,
+          )
+          const nextPending =
+            existingIndex === -1
+              ? [...current.pendingQuestions, request]
+              : current.pendingQuestions.map((item: QuestionRequest, index: number) =>
+                  index === existingIndex ? request : item,
+                )
+          state.directories[directory] = {
+            ...current,
+            pendingQuestions: nextPending,
+          }
+        })
+      },
+      applyQuestionResolved(directory, requestID) {
+        set((state) => {
+          const current = state.directories[directory] ?? emptyDirectoryState()
+          state.directories[directory] = {
+            ...current,
+            pendingQuestions: current.pendingQuestions.filter(
+              (item: QuestionRequest) => item.id !== requestID,
             ),
           }
         })

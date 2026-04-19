@@ -34,18 +34,21 @@ import type {
   MessageWithParts,
   McpStatusMap,
   PermissionRequest,
+  QuestionRequest,
   ProviderCatalogState,
   ProviderInfo,
   SessionInfo,
 } from "./chat-types"
 import type { TeachingIntent, TeachingPromptContext } from "./teaching-runtime"
 import { requestJson, stringifyError } from "../lib/api-client"
+import { getFlashcardDueCount, type FlashcardDueCounts } from "../lib/flashcard"
 import { getBuddyClient, requireBuddyData, buddyResultMessage } from "../lib/buddy-client"
 import { retry } from "../lib/retry"
 import type { PromptFilePart, PromptSubmissionPart } from "../components/prompt/prompt-types"
 import {
   BUSY_SESSION_STATUS,
   IDLE_SESSION_STATUS,
+  isSessionStatusActive,
   normalizeSessionStatusValue,
 } from "./session-status"
 
@@ -801,6 +804,52 @@ async function loadSessionStatuses(directory: string) {
   return statusBySession
 }
 
+async function recoverSessionAfterAbortAttempt(directory: string, sessionID: string) {
+  await loadSessions(directory).catch(() => undefined)
+  await loadSessionStatuses(directory).catch(() => undefined)
+
+  const initialState = useChatStore.getState().directories[directory]
+  if (!initialState) {
+    return false
+  }
+
+  const sessionExists = initialState.sessions.some((session) => session.id === sessionID)
+  if (!sessionExists) {
+    return true
+  }
+
+  const selectedSessionID = initialState.sessionID
+  if (selectedSessionID !== sessionID) {
+    return !isSessionStatusActive(initialState.sessionStatusByID[sessionID])
+  }
+
+  if (!shouldDeferTranscriptReload(directory, sessionID)) {
+    await loadMessages(directory, sessionID).catch((error) => {
+      if (isMissingSessionError(error)) {
+        return undefined
+      }
+      throw error
+    })
+    await loadSessionStatuses(directory).catch(() => undefined)
+  }
+
+  const nextState = useChatStore.getState().directories[directory]
+  if (!nextState) {
+    return false
+  }
+
+  const nextSessionExists = nextState.sessions.some((session) => session.id === sessionID)
+  if (!nextSessionExists) {
+    return true
+  }
+
+  if (nextState.sessionID !== sessionID) {
+    return !isSessionStatusActive(nextState.sessionStatusByID[sessionID])
+  }
+
+  return !isSessionStatusActive(nextState.sessionStatusByID[sessionID]) && !nextState.isBusy
+}
+
 export async function loadMessages(directory: string, sessionID: string) {
   const store = useChatStore.getState()
   const requestSequence = (latestTranscriptRequestByDirectory.get(directory) ?? 0) + 1
@@ -869,6 +918,19 @@ export async function loadPermissions(directory: string) {
       await getBuddyClient(directory).permission.list(),
     ) as PermissionRequest[]
     store.setPendingPermissions(directory, requests)
+    store.setDirectoryError(directory, undefined)
+    return requests
+  } catch (error) {
+    store.setDirectoryError(directory, stringifyError(error))
+    throw error
+  }
+}
+
+export async function loadQuestions(directory: string) {
+  const store = useChatStore.getState()
+  try {
+    const requests = await requestJson<QuestionRequest[]>(directory, "/api/question")
+    store.setPendingQuestions(directory, requests)
     store.setDirectoryError(directory, undefined)
     return requests
   } catch (error) {
@@ -1415,8 +1477,11 @@ export async function abortPrompt(directory: string) {
     return false
   }
 
+  let abortError: unknown
+  let aborted = false
+
   try {
-    const aborted = requireBuddyData(
+    aborted = requireBuddyData(
       await getBuddyClient(directory).session.abort({
         sessionID,
       }),
@@ -1434,20 +1499,30 @@ export async function abortPrompt(directory: string) {
 
       store.applySessionStatus(directory, sessionID, IDLE_SESSION_STATUS)
     }
-    // Always resync once after abort attempt so UI doesn't stay stale if server state drifted.
-    void loadMessages(directory, sessionID).catch(() => undefined)
-    void loadSessions(directory).catch(() => undefined)
-    return aborted
   } catch (error) {
-    store.setDirectoryError(directory, stringifyError(error))
-    throw error
+    abortError = error
   }
+
+  const recovered = await recoverSessionAfterAbortAttempt(directory, sessionID).catch(() => false)
+
+  if (abortError) {
+    if (recovered) {
+      store.clearDirectoryError(directory)
+      return false
+    }
+
+    store.setDirectoryError(directory, stringifyError(abortError))
+    throw abortError
+  }
+
+  return aborted
 }
 
 export async function resyncDirectory(directory: string) {
   await loadSessions(directory)
   await loadSessionStatuses(directory).catch(() => undefined)
   await loadPermissions(directory)
+  await loadQuestions(directory)
   await loadProviderCatalog(directory)
   await loadMcpStatus(directory).catch(() => undefined)
   const sessionID = useChatStore.getState().directories[directory]?.sessionID
@@ -1472,6 +1547,41 @@ export async function replyPermission(input: {
   )
   if (result) {
     useChatStore.getState().applyPermissionReplied(input.directory, input.requestID)
+  }
+  return result
+}
+
+export async function replyQuestion(input: {
+  directory: string
+  requestID: string
+  answers: string[][]
+}) {
+  const result = await requestJson<boolean>(
+    input.directory,
+    `/api/question/${encodeURIComponent(input.requestID)}/reply`,
+    {
+      method: "POST",
+      body: {
+        answers: input.answers,
+      },
+    },
+  )
+  if (result) {
+    useChatStore.getState().applyQuestionResolved(input.directory, input.requestID)
+  }
+  return result
+}
+
+export async function rejectQuestion(input: { directory: string; requestID: string }) {
+  const result = await requestJson<boolean>(
+    input.directory,
+    `/api/question/${encodeURIComponent(input.requestID)}/reject`,
+    {
+      method: "POST",
+    },
+  )
+  if (result) {
+    useChatStore.getState().applyQuestionResolved(input.directory, input.requestID)
   }
   return result
 }
@@ -1694,6 +1804,33 @@ export async function loadWorkspaceQuestionSetArtifacts(
 
   return {
     artifacts: Array.isArray(result.artifacts) ? result.artifacts : [],
+  }
+}
+
+export type FlashcardDeckListItem = {
+  deckID: string
+  kind: string
+  title: string
+  noteCount: number
+  cardCount: number
+  dueCounts: FlashcardDueCounts
+  reviewAvailable?: boolean
+  createdAt: string
+}
+
+export async function loadWorkspaceFlashcardDecks(
+  directory: string,
+): Promise<{ decks: FlashcardDeckListItem[] }> {
+  const result = await requestJson<{ decks: FlashcardDeckListItem[] }>(
+    directory,
+    "/api/flashcard-decks",
+  )
+
+  return {
+    decks: (Array.isArray(result.decks) ? result.decks : []).map((deck) => ({
+      ...deck,
+      reviewAvailable: deck.reviewAvailable ?? getFlashcardDueCount(deck.dueCounts) > 0,
+    })),
   }
 }
 

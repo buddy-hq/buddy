@@ -76,6 +76,29 @@ export type SessionStatusInfo = SdkSessionStatus
 
 export type PermissionRequest = SdkPermissionRequest
 
+export type QuestionOption = {
+  label: string
+  description: string
+}
+
+export type QuestionInfo = {
+  question: string
+  header: string
+  options: QuestionOption[]
+  multiple?: boolean
+  custom?: boolean
+}
+
+export type QuestionRequest = {
+  id: string
+  sessionID: string
+  questions: QuestionInfo[]
+  tool?: {
+    messageID: string
+    callID: string
+  }
+}
+
 type SdkProviderModel = SdkProvider["models"][string]
 
 export type ProviderModelInfo = Pick<
@@ -118,6 +141,7 @@ export type DirectoryChatState = {
   sessionStatusByID: Record<string, SessionStatusInfo>
   messages: MessageWithParts[]
   pendingPermissions: PermissionRequest[]
+  pendingQuestions: QuestionRequest[]
   providers: ProviderInfo[]
   providerDefault: Record<string, string>
   mcpStatus: McpStatusMap
