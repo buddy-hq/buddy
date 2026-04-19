@@ -1,5 +1,6 @@
 import type { PromptContext, PromptTurnSnapshot } from "../context"
 import { hasText } from "../utils"
+import { activeResourceReminder } from "./active-resource-reminder"
 import { checkpointReminder } from "./checkpoint-reminder"
 import type { TurnReminderDefinition, TurnReminderContext } from "./definition"
 import { turnTransitionReminder } from "./turn-transitions"
@@ -13,6 +14,7 @@ export type BuddyUserPreludePart = {
 const TURN_REMINDERS: readonly TurnReminderDefinition[] = [
   turnTransitionReminder,
   checkpointReminder,
+  activeResourceReminder,
 ]
 
 export function buildBuddyUserPrelude(input: {

@@ -187,12 +187,16 @@ export const pedagogyResourceIngestFullTextTool = createBuddyTool(
   "pedagogy_resource_ingest_full_text",
   {
     description: dedent`
-      Load a resource's prepared full text into context after checking live session headroom against the active model limits.
+      Load a prepared resource's full text into live context after validating context headroom against the active model limits.
 
-      The description of what a resource is in \`<about_resource>\` section.
+      What this tool does:
+      - resolves a resource by alias or ID
+      - requires the resource to be prepared and expose a full-text file
+      - estimates live session usage and compares it with model input/context limits
+      - ingests full text only when enough post-ingestion reserve remains
 
-      Used when user is reading a book, a resource, or is asking quesions regarding a book and a resource.   
-      `,
+      Use this when the user needs grounded answers from the entire resource (for example books, papers, or long-form docs), not just individual chunks.
+    `,
     parameters: ResourceIngestFullTextParameters,
     async execute(params, ctx) {
       await ctx.ask({

@@ -1,3 +1,4 @@
+import path from "node:path"
 import { parseConfiguredModel, type readProjectConfig } from "@buddy/backend/config/runtime"
 import { ModelID, ProviderID } from "@buddy/opencode-adapter/id"
 import { Provider } from "@buddy/opencode-adapter/provider"
@@ -42,6 +43,7 @@ export type PromptTurnSnapshot = {
 
 export type PromptResource = {
   id: string
+  name: string
   alias: string
   sourceRelpath: string
   format: string
@@ -147,9 +149,11 @@ async function resolvePromptResource(input: {
     id: string
     alias: string
     sourceRelpath: string
+    sourceOriginRelpath?: string
     format: string
     status: PromptResourceStatus
     warnings: string[]
+    title?: string
     packKey?: string
   }
 }): Promise<PromptResource> {
@@ -160,6 +164,7 @@ async function resolvePromptResource(input: {
 
   return {
     id: input.resource.id,
+    name: resolvePromptResourceName(input.resource),
     alias: input.resource.alias,
     sourceRelpath: input.resource.sourceRelpath,
     format: input.resource.format,
@@ -171,6 +176,29 @@ async function resolvePromptResource(input: {
       : {}),
     ...(metadata?.fullTextChars !== undefined ? { fullTextChars: metadata.fullTextChars } : {}),
   }
+}
+
+function resolvePromptResourceName(input: {
+  alias: string
+  sourceRelpath: string
+  sourceOriginRelpath?: string
+  title?: string
+}) {
+  const title = input.title?.trim()
+  if (title) {
+    return title
+  }
+
+  const displayPath =
+    input.sourceOriginRelpath && input.sourceOriginRelpath.trim().length > 0
+      ? input.sourceOriginRelpath
+      : input.sourceRelpath
+  const filename = path.basename(displayPath).trim()
+  if (filename.length > 0) {
+    return filename
+  }
+
+  return input.alias
 }
 
 function parseActiveReadingContext(value: unknown): ActiveReadingContext | undefined {

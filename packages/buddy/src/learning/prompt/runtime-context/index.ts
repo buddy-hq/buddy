@@ -8,7 +8,7 @@ import {
   learnerSummarySection,
 } from "./learner-context"
 import { modelSection } from "./model-context"
-import { activeResourceSection, resourcesSection } from "./resource-context"
+import { resourcesSection } from "./resource-context"
 import {
   getCheckpointStatus,
   teachingPolicySection,
@@ -70,7 +70,6 @@ const RUNTIME_SECTIONS: readonly RuntimeSectionDefinition[] = [
   modelSection,
   calculatorSection,
   resourcesSection,
-  activeResourceSection,
   learnerSummarySection,
   learnerProgressSection,
   learnerFeedbackSection,
