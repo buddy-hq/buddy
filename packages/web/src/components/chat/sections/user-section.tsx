@@ -37,7 +37,7 @@ export const UserSection = memo(function UserSection({
   if (!userMessage || !hasVisibleContent) return null
 
   return (
-    <div className="ml-auto flex w-fit flex-col items-end gap-2 text-sm">
+    <div className="flex w-full flex-col items-end gap-2 text-sm">
       <div className="group/user flex w-full flex-col items-end gap-2">
         {userAttachmentParts.length > 0 ? (
           <div className="flex w-fit max-w-[min(82%,64ch)] flex-wrap justify-end gap-2">

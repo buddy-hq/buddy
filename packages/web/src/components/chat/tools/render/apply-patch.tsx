@@ -17,7 +17,7 @@ interface ApplyPatchFile {
 
 export function renderApplyPatchTool({ state, defaultOpen }: ToolPartProps) {
   const output = state.output || (state.error ?? "")
-  const showOutput = output.trim().length > 0
+  const running = state.status === "pending" || state.status === "running"
 
   const applyPatchFiles: ApplyPatchFile[] = []
   const files = state.metadata.files
@@ -54,12 +54,29 @@ export function renderApplyPatchTool({ state, defaultOpen }: ToolPartProps) {
           { count: applyPatchFiles.length },
         )
       : undefined
+  const runningMessage =
+    state.status === "pending"
+      ? language.t("chatTools.applyPatch.pending")
+      : state.status === "running"
+        ? language.t("chatTools.applyPatch.running")
+        : undefined
+  const visibleOutput = output.trim().length > 0 ? output : (runningMessage ?? "")
+  const showOutput = visibleOutput.trim().length > 0
 
   return (
     <BasicTool
-      trigger={{ title: language.t("chatTools.applyPatch"), subtitle }}
+      trigger={{
+        title: language.t("chatTools.applyPatch"),
+        subtitle,
+        trailing: runningMessage ? (
+          <span className="ml-1 min-w-0 truncate text-xs animate-pulse text-text-weak/50">
+            {runningMessage}
+          </span>
+        ) : undefined,
+      }}
       status={state.status}
       defaultOpen={defaultOpen}
+      hideDetails={running}
     >
       <div>
         {applyPatchFiles.length > 0 ? (
@@ -81,7 +98,7 @@ export function renderApplyPatchTool({ state, defaultOpen }: ToolPartProps) {
         ) : null}
         {showOutput ? (
           <ToolOutputPanel
-            output={output}
+            output={visibleOutput}
             status={state.status}
             copyLabel={language.t("chatTools.copyOutput")}
           />
