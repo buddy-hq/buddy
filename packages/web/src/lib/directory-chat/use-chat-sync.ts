@@ -9,9 +9,12 @@ import { getModelSelectionScopeKey, useModelSelectionStore } from "@/state/model
 import { IDLE_SESSION_STATUS, normalizeSessionStatusValue } from "@/state/session-status"
 import {
   removeDirectoryPermissionQueryData,
+  removeDirectoryQuestionQueryData,
   setDirectoryPermissionsQueryData,
+  setDirectoryQuestionsQueryData,
   setDirectorySessionsQueryData,
   upsertDirectoryPermissionQueryData,
+  upsertDirectoryQuestionQueryData,
   upsertDirectorySessionQueryData,
 } from "@/state/directory-chat-query"
 import { readSessionErrorMessage } from "./chat-prompt-helpers"
@@ -20,6 +23,7 @@ import type {
   MessageInfo,
   MessagePart,
   PermissionRequest,
+  QuestionRequest,
   SessionStatusInfo,
   SessionInfo,
 } from "@/state/chat-types"
@@ -39,6 +43,8 @@ type UseChatSyncProps = {
   ) => void
   applyPermissionAsked: (directory: string, request: PermissionRequest) => void
   applyPermissionReplied: (directory: string, requestID: string) => void
+  applyQuestionAsked: (directory: string, request: QuestionRequest) => void
+  applyQuestionResolved: (directory: string, requestID: string) => void
   clearDirectoryError: (directory: string) => void
   setDirectoryError: (directory: string, error: string) => void
   setStreamStatus: (status: "idle" | "connecting" | "connected" | "error") => void
@@ -57,6 +63,8 @@ export function useChatSync(props: UseChatSyncProps) {
     applyPartUpdated,
     applyPermissionAsked,
     applyPermissionReplied,
+    applyQuestionAsked,
+    applyQuestionResolved,
     applySessionStatus,
     applySessionUpdated,
     clearDirectoryError,
@@ -79,6 +87,7 @@ export function useChatSync(props: UseChatSyncProps) {
         directory,
         directoryState?.pendingPermissions ?? [],
       )
+      setDirectoryQuestionsQueryData(queryClient, directory, directoryState?.pendingQuestions ?? [])
     }
 
     const resyncQueryBackedDirectory = (directory: string) =>
@@ -215,6 +224,20 @@ export function useChatSync(props: UseChatSyncProps) {
             directory,
             String(properties.requestID ?? ""),
           )
+          return
+        }
+
+        if (payload.type === "question.asked") {
+          const questionRequest = properties as QuestionRequest
+          applyQuestionAsked(directory, questionRequest)
+          upsertDirectoryQuestionQueryData(queryClient, directory, questionRequest)
+          return
+        }
+
+        if (payload.type === "question.replied" || payload.type === "question.rejected") {
+          const requestID = String(properties.requestID ?? "")
+          applyQuestionResolved(directory, requestID)
+          removeDirectoryQuestionQueryData(queryClient, directory, requestID)
         }
       },
     })
@@ -231,6 +254,8 @@ export function useChatSync(props: UseChatSyncProps) {
     applyPartUpdated,
     applyPermissionAsked,
     applyPermissionReplied,
+    applyQuestionAsked,
+    applyQuestionResolved,
     applySessionStatus,
     applySessionUpdated,
     clearDirectoryError,

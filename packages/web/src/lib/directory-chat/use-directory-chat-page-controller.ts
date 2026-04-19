@@ -56,8 +56,10 @@ import {
   compactSession,
   openInboxNotebook,
   openProject,
+  rejectQuestion,
   reorderOpenProjects,
   replyPermission,
+  replyQuestion,
   selectSession,
   sendCommand,
   sendPrompt,
@@ -76,6 +78,7 @@ import {
   directoryChatQueryKeys,
   removeDirectoryChatQueries,
   removeDirectoryPermissionQueryData,
+  removeDirectoryQuestionQueryData,
   upsertDirectorySessionQueryData,
 } from "../../state/directory-chat-query"
 import { teachingSessionStateQueryOptions } from "../../state/teaching-session-query"
@@ -170,6 +173,7 @@ export function useDirectoryChatPageController(
   >(undefined)
   const [isStartingInteractiveLesson, setIsStartingInteractiveLesson] = useState(false)
   const [createFileDialogOpen, setCreateFileDialogOpen] = useState(false)
+  const [libraryOpen, setLibraryOpen] = useState(false)
 
   const decodedDirectory = useMemo(() => {
     try {
@@ -204,6 +208,7 @@ export function useDirectoryChatPageController(
     agentCatalog: chatConfig.agentCatalog,
     defaultAgent: chatConfig.defaultAgent,
     configuredModel: chatConfig.configuredModel,
+    autoCompactionEnabled: chatConfig.autoCompactionEnabled,
     personaCatalog: chatConfig.personaCatalog,
     defaultPersona: chatConfig.defaultPersona,
     defaultIntent: chatConfig.defaultIntent,
@@ -282,6 +287,8 @@ export function useDirectoryChatPageController(
     applyPartDelta: cs.applyPartDelta,
     applyPermissionAsked: cs.applyPermissionAsked,
     applyPermissionReplied: cs.applyPermissionReplied,
+    applyQuestionAsked: cs.applyQuestionAsked,
+    applyQuestionResolved: cs.applyQuestionResolved,
     clearDirectoryError: cs.clearDirectoryError,
     setDirectoryError: cs.setDirectoryError,
     setStreamStatus: cs.setStreamStatus,
@@ -641,13 +648,19 @@ export function useDirectoryChatPageController(
     })
   }
 
+  function seedDraftModelSelection(targetDirectory: string) {
+    const scopeKey = getModelSelectionScopeKey(targetDirectory)
+    const carryModelKey = cs.selectedModelKey || undefined
+    setSelectedAgent(scopeKey, undefined)
+    setSelectedModel(scopeKey, carryModelKey)
+    setSelectedVariant(scopeKey, undefined)
+  }
+
   async function onNewSession(targetDirectory = decodedDirectory) {
     if (!targetDirectory) return
     try {
       startNewSessionDraft(targetDirectory)
-      setSelectedAgent(getModelSelectionScopeKey(targetDirectory), undefined)
-      setSelectedModel(getModelSelectionScopeKey(targetDirectory), undefined)
-      setSelectedVariant(getModelSelectionScopeKey(targetDirectory), undefined)
+      seedDraftModelSelection(targetDirectory)
       if (targetDirectory !== decodedDirectory) onSwitchDirectory(targetDirectory)
     } catch {
       // Store already captures and displays errors.
@@ -680,6 +693,26 @@ export function useDirectoryChatPageController(
     }
   }
 
+  async function onQuestionReply(requestID: string, answers: string[][]) {
+    if (!decodedDirectory) return
+    try {
+      await replyQuestion({ directory: decodedDirectory, requestID, answers })
+      removeDirectoryQuestionQueryData(queryClient, decodedDirectory, requestID)
+    } catch {
+      // Store error is handled elsewhere; keep UI non-blocking here.
+    }
+  }
+
+  async function onQuestionReject(requestID: string) {
+    if (!decodedDirectory) return
+    try {
+      await rejectQuestion({ directory: decodedDirectory, requestID })
+      removeDirectoryQuestionQueryData(queryClient, decodedDirectory, requestID)
+    } catch {
+      // Store error is handled elsewhere; keep UI non-blocking here.
+    }
+  }
+
   function reportCurrentDirectoryError(error: unknown) {
     if (!decodedDirectory) return
     cs.setDirectoryError(decodedDirectory, stringifyError(error))
@@ -704,6 +737,7 @@ export function useDirectoryChatPageController(
       setOpenProjectsQueryData(queryClient, useChatStore.getState().openProjects)
       cs.setActiveDirectory(inboxDirectory)
       startNewSessionDraft(inboxDirectory)
+      seedDraftModelSelection(inboxDirectory)
       if (inboxDirectory !== decodedDirectory) {
         onSwitchDirectory(inboxDirectory)
       }
@@ -718,6 +752,7 @@ export function useDirectoryChatPageController(
       setOpenProjectsQueryData(queryClient, useChatStore.getState().openProjects)
       cs.setActiveDirectory(nextDirectory)
       startNewSessionDraft(nextDirectory)
+      seedDraftModelSelection(nextDirectory)
       if (nextDirectory !== decodedDirectory) {
         onSwitchDirectory(nextDirectory)
       }
@@ -751,15 +786,26 @@ export function useDirectoryChatPageController(
           queryKey: directoryChatQueryKeys.permissions(targetDirectory),
           exact: true,
         }),
+        queryClient.refetchQueries({
+          queryKey: directoryChatQueryKeys.questions(targetDirectory),
+          exact: true,
+        }),
       ])
 
       const activeSessionID = useChatStore.getState().directories[targetDirectory]?.sessionID
       if (!activeSessionID) {
         startNewSessionDraft(targetDirectory)
-        await queryClient.refetchQueries({
-          queryKey: directoryChatQueryKeys.permissions(targetDirectory),
-          exact: true,
-        })
+        seedDraftModelSelection(targetDirectory)
+        await Promise.all([
+          queryClient.refetchQueries({
+            queryKey: directoryChatQueryKeys.permissions(targetDirectory),
+            exact: true,
+          }),
+          queryClient.refetchQueries({
+            queryKey: directoryChatQueryKeys.questions(targetDirectory),
+            exact: true,
+          }),
+        ])
         return
       }
 
@@ -1395,15 +1441,18 @@ export function useDirectoryChatPageController(
     },
     onQuickChat: () => {
       cs.setMainPaneTab("chat")
+      setLibraryOpen(false)
       void onQuickChat()
     },
     onCreateNotebook,
     onNewSession: (targetDirectory) => {
       cs.setMainPaneTab("chat")
+      setLibraryOpen(false)
       void onNewSession(targetDirectory)
     },
     onSelectSession: (targetDirectory, targetSessionID) => {
       cs.setMainPaneTab("chat")
+      setLibraryOpen(false)
       void onSelectSession(targetDirectory, targetSessionID)
     },
     onTogglePin: (targetDirectory, targetSessionID) =>
@@ -1422,8 +1471,13 @@ export function useDirectoryChatPageController(
       void onCloseDirectory(targetDirectory)
     },
     onOpenCurriculum: openCurriculumPanel,
+    libraryOpen,
+    onToggleLibrary: () => setLibraryOpen((open) => !open),
     mainPaneTab: cs.mainPaneTab,
-    onMainPaneTabChange: cs.setMainPaneTab,
+    onMainPaneTabChange: (tab) => {
+      setLibraryOpen(false)
+      cs.setMainPaneTab(tab)
+    },
     onOpenSettings: openSettingsPanel,
     className: "w-full h-full",
   }
@@ -1439,10 +1493,18 @@ export function useDirectoryChatPageController(
       if (!cs.pendingPermissions[0]) return
       await onPermissionReply(cs.pendingPermissions[0].id, reply)
     },
+    onQuestionReply: async (requestID, answers) => {
+      await onQuestionReply(requestID, answers)
+    },
+    onQuestionReject: async (requestID) => {
+      await onQuestionReject(requestID)
+    },
     promptComposerProps,
     mainPaneTab: cs.mainPaneTab,
     resourcesRefreshToken,
     onOpenResource: openResourceInReadingMode,
+    libraryOpen,
+    directories: cs.sidebarDirectories,
   }
 
   const rightSidebarProps: DirectoryChatRightSidebarProps = {

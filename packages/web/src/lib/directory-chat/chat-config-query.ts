@@ -9,6 +9,7 @@ import {
   type PersonaConfigOption,
   type PromptCommandOption,
 } from "@/state/chat-actions"
+import { readCompactionAuto } from "@/state/project-config-readers"
 import type { TeachingIntent } from "@/state/teaching-runtime"
 import { resolveDefaultAgentName } from "./agent-catalog"
 
@@ -26,6 +27,7 @@ export type ComposerConfig = {
   defaultPersona: string
   defaultIntent: TeachingIntent
   configuredModel: { providerID: string; modelID: string } | undefined
+  autoCompactionEnabled: boolean
 }
 
 export const DEFAULT_COMPOSER_CONFIG: ComposerConfig = {
@@ -36,6 +38,7 @@ export const DEFAULT_COMPOSER_CONFIG: ComposerConfig = {
   defaultPersona: "buddy",
   defaultIntent: "auto",
   configuredModel: undefined,
+  autoCompactionEnabled: true,
 }
 
 function resolveDirectoryQueryKey(directory: string) {
@@ -106,6 +109,7 @@ async function loadComposerConfig(directory: string): Promise<ComposerConfig> {
     defaultPersona,
     defaultIntent,
     configuredModel: parseConfiguredModel(config.model),
+    autoCompactionEnabled: readCompactionAuto(config, true),
   }
 }
 

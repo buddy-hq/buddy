@@ -169,39 +169,31 @@ export const useModelSelectionStore = create<ModelSelectionStore>()(
         const targetKey = getModelSelectionScopeKey(directory, sessionID)
 
         set((state) => {
-          const sourceSelectionSource = state.selectionSourceByKey[sourceKey]
-          const targetSelectionSource = state.selectionSourceByKey[targetKey]
-          const sourceRestoredAt = state.restoredSelectionCreatedAtByKey[sourceKey]
-          const targetRestoredAt = state.restoredSelectionCreatedAtByKey[targetKey]
-          if (sourceSelectionSource && !targetSelectionSource) {
-            state.selectionSourceByKey[targetKey] = sourceSelectionSource
-            delete state.selectionSourceByKey[sourceKey]
-          }
-          if (sourceRestoredAt !== undefined && targetRestoredAt === undefined) {
-            state.restoredSelectionCreatedAtByKey[targetKey] = sourceRestoredAt
-            delete state.restoredSelectionCreatedAtByKey[sourceKey]
-          }
-
           const sourceAgent = state.selectedAgentByKey[sourceKey]
           const targetAgent = state.selectedAgentByKey[targetKey]
           if (sourceAgent && !targetAgent) {
             state.selectedAgentByKey[targetKey] = sourceAgent
-            delete state.selectedAgentByKey[sourceKey]
           }
+          delete state.selectedAgentByKey[sourceKey]
 
           const sourceModel = state.selectedModelByKey[sourceKey]
           const targetModel = state.selectedModelByKey[targetKey]
           if (sourceModel && !targetModel) {
             state.selectedModelByKey[targetKey] = sourceModel
-            delete state.selectedModelByKey[sourceKey]
           }
+          delete state.selectedModelByKey[sourceKey]
 
           const sourceVariant = state.selectedVariantByKey[sourceKey]
           const targetVariant = state.selectedVariantByKey[targetKey]
           if (sourceVariant !== undefined && targetVariant === undefined) {
             state.selectedVariantByKey[targetKey] = sourceVariant
-            delete state.selectedVariantByKey[sourceKey]
           }
+          delete state.selectedVariantByKey[sourceKey]
+
+          // Carry the explicit values into the session scope, but let session history
+          // restore overwrite them later when the opened thread already has messages.
+          delete state.selectionSourceByKey[sourceKey]
+          delete state.restoredSelectionCreatedAtByKey[sourceKey]
         })
       },
     })),

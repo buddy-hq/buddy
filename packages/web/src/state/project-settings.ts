@@ -5,6 +5,7 @@ import { language } from "@/context/language"
 import { useChatStore } from "@/state/chat-store"
 import type { TeachingIntent } from "./teaching-runtime"
 import type { ProviderCatalogState } from "./chat-types"
+import { readCompactionAuto, readString, readToolToggle } from "./project-config-readers"
 import { projectSettingsQueryOptions, type ProjectSettingsBundle } from "./project-settings-query"
 
 export type LogLevel = "debug" | "info" | "warn" | "error"
@@ -16,6 +17,7 @@ type ProjectSettingsDraft = {
   model: string
   logLevel: LogLevel | ""
   fullTextReadingEnabled: boolean
+  autoCompactionEnabled: boolean
 }
 
 type ProjectSettingsState = {
@@ -41,6 +43,7 @@ const EMPTY_DRAFT: ProjectSettingsDraft = {
   model: "",
   logLevel: "",
   fullTextReadingEnabled: true,
+  autoCompactionEnabled: true,
 }
 
 function stringifyError(error: unknown) {
@@ -51,25 +54,6 @@ function stringifyError(error: unknown) {
   } catch {
     return String(error)
   }
-}
-
-function readString(input: Record<string, unknown>, key: string) {
-  const value = input[key]
-  return typeof value === "string" ? value : ""
-}
-
-function readRecord(input: Record<string, unknown>, key: string) {
-  const value = input[key]
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return undefined
-  }
-  return value as Record<string, unknown>
-}
-
-function readToolToggle(input: Record<string, unknown>, toolId: string, fallback: boolean) {
-  const tools = readRecord(input, "tools")
-  const value = tools?.[toolId]
-  return typeof value === "boolean" ? value : fallback
 }
 
 function parseModel(model: string) {
@@ -143,6 +127,7 @@ function buildDraft(input: {
       "pedagogy_resource_ingest_full_text",
       true,
     ),
+    autoCompactionEnabled: readCompactionAuto(input.config, true),
   }
 }
 
@@ -161,6 +146,7 @@ function buildProjectSettingsPatch(input: {
     "pedagogy_resource_ingest_full_text",
     true,
   )
+  const currentAutoCompactionEnabled = readCompactionAuto(input.projectConfig, true)
   const nextPersona = input.draft.persona.trim()
 
   if (nextPersona && nextPersona !== currentPersona) {
@@ -191,6 +177,12 @@ function buildProjectSettingsPatch(input: {
   if (input.draft.fullTextReadingEnabled !== currentFullTextReadingEnabled) {
     patch.tools = {
       pedagogy_resource_ingest_full_text: input.draft.fullTextReadingEnabled,
+    }
+  }
+
+  if (input.draft.autoCompactionEnabled !== currentAutoCompactionEnabled) {
+    patch.compaction = {
+      auto: input.draft.autoCompactionEnabled,
     }
   }
 
@@ -421,6 +413,7 @@ export function useProjectSettings(directory: string, open: boolean) {
       model: state.draft.model,
       logLevel: state.draft.logLevel,
       fullTextReadingEnabled: state.draft.fullTextReadingEnabled,
+      autoCompactionEnabled: state.draft.autoCompactionEnabled,
     },
     actions: {
       setPersona(persona: string) {
@@ -482,6 +475,15 @@ export function useProjectSettings(directory: string, open: boolean) {
           draft: {
             ...current.draft,
             fullTextReadingEnabled,
+          },
+        }))
+      },
+      setAutoCompactionEnabled(autoCompactionEnabled: boolean) {
+        setState((current) => ({
+          ...current,
+          draft: {
+            ...current.draft,
+            autoCompactionEnabled,
           },
         }))
       },

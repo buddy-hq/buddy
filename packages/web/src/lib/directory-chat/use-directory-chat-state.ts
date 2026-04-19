@@ -13,6 +13,7 @@ import { useTeachingRuntime, teachingSelectionKey } from "@/state/teaching-runti
 import { usePromptStore, getPromptScopeKey } from "@/state/prompt-store"
 import {
   directoryPermissionsQueryOptions,
+  directoryQuestionsQueryOptions,
   directorySessionsQueryOptions,
 } from "@/state/directory-chat-query"
 import { getSessionFamily } from "../session-family"
@@ -42,6 +43,11 @@ function readSeededSessionList(directory: string) {
 function readSeededPendingPermissions(directory: string) {
   const pendingPermissions = useChatStore.getState().directories[directory]?.pendingPermissions
   return pendingPermissions && pendingPermissions.length > 0 ? pendingPermissions : undefined
+}
+
+function readSeededPendingQuestions(directory: string) {
+  const pendingQuestions = useChatStore.getState().directories[directory]?.pendingQuestions
+  return pendingQuestions && pendingQuestions.length > 0 ? pendingQuestions : undefined
 }
 
 function isModelSelection(
@@ -91,6 +97,7 @@ type UseDirectoryChatStateProps = {
   agentCatalog: AgentConfigOption[]
   defaultAgent?: string
   configuredModel: { providerID: string; modelID: string } | undefined
+  autoCompactionEnabled: boolean
   personaCatalog: PersonaConfigOption[]
   defaultPersona: string
   defaultIntent: "auto" | "learn" | "practice" | "assess"
@@ -117,6 +124,8 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
   const applyPartDelta = useChatStore((state) => state.applyPartDelta)
   const applyPermissionAsked = useChatStore((state) => state.applyPermissionAsked)
   const applyPermissionReplied = useChatStore((state) => state.applyPermissionReplied)
+  const applyQuestionAsked = useChatStore((state) => state.applyQuestionAsked)
+  const applyQuestionResolved = useChatStore((state) => state.applyQuestionResolved)
   const clearDirectoryError = useChatStore((state) => state.clearDirectoryError)
   const setDirectoryError = useChatStore((state) => state.setDirectoryError)
 
@@ -193,6 +202,11 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
     ...directoryPermissionsQueryOptions(decodedDirectory),
     enabled: decodedDirectory.length > 0 && hasRegisteredProject,
     initialData: () => readSeededPendingPermissions(decodedDirectory),
+  })
+  useQuery({
+    ...directoryQuestionsQueryOptions(decodedDirectory),
+    enabled: decodedDirectory.length > 0 && hasRegisteredProject,
+    initialData: () => readSeededPendingQuestions(decodedDirectory),
   })
 
   const sessionsByDirectory = useChatStore(
@@ -363,6 +377,7 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
   const isReady = directoryState?.isReady ?? false
   const error = directoryState?.error
   const pendingPermissions = directoryState?.pendingPermissions ?? []
+  const pendingQuestions = directoryState?.pendingQuestions ?? []
   const mcpStatus = directoryState?.mcpStatus ?? EMPTY_RECORD
   const mcpEntries = useMemo(
     () => Object.entries(mcpStatus).sort(([left], [right]) => left.localeCompare(right)),
@@ -451,6 +466,8 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
     applyPartDelta,
     applyPermissionAsked,
     applyPermissionReplied,
+    applyQuestionAsked,
+    applyQuestionResolved,
     clearDirectoryError,
     setDirectoryError,
     setSelectedAgent,
@@ -526,11 +543,13 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
     selectedPersonaSupportsFigure,
     selectedSurfaceTab,
     isInteractiveMode,
+    autoCompactionEnabled: props.autoCompactionEnabled,
     // Directory state
     isBusy,
     isReady,
     error,
     pendingPermissions,
+    pendingQuestions,
     messages,
     providers,
     sessionsByDirectory,

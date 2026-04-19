@@ -9,6 +9,7 @@ export type NotebookMainPaneTab =
   | "chat"
   | "resources"
   | "diagrams"
+  | "flashcard"
   | "instructions"
   | "question-set"
 
@@ -179,7 +180,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
     })),
     {
       name: UI_PREFERENCES_STORAGE_KEY,
-      version: 11,
+      version: 12,
       storage: createPlatformJsonStorage("buddy.ui.dat"),
       migrate(persistedState) {
         const state = isPersistedUiPreferences(persistedState) ? persistedState : undefined
@@ -197,11 +198,13 @@ export const useUiPreferences = create<UiPreferencesStore>()(
               ? "resources"
               : state?.mainPaneTab === "diagrams"
                 ? "diagrams"
-                : state?.mainPaneTab === "instructions"
-                  ? "instructions"
-                  : state?.mainPaneTab === "question-set"
-                    ? "question-set"
-                    : "chat",
+                : state?.mainPaneTab === "flashcard"
+                  ? "flashcard"
+                  : state?.mainPaneTab === "instructions"
+                    ? "instructions"
+                    : state?.mainPaneTab === "question-set"
+                      ? "question-set"
+                      : "chat",
           rightSidebarTab:
             state?.rightSidebarTab === "settings"
               ? "settings"

@@ -222,7 +222,6 @@ export function GeneralSettings({ directory }: { directory: string }) {
           <SettingsRow
             title={language.t("settings.notebook.fullTextTitle")}
             description={language.t("settings.notebook.fullTextDescription")}
-            last
             control={
               <div className="flex items-center justify-between gap-3 rounded-md border border-border-base/60 px-3 py-2">
                 <span className="text-sm text-text-weak">
@@ -236,6 +235,27 @@ export function GeneralSettings({ directory }: { directory: string }) {
                   onCheckedChange={notebookSettings.actions.setFullTextReadingEnabled}
                   disabled={notebookSettings.status.loading}
                   aria-label={language.t("settings.notebook.fullTextAria")}
+                />
+              </div>
+            }
+          />
+          <SettingsRow
+            title={language.t("settings.notebook.autoCompactionTitle")}
+            description={language.t("settings.notebook.autoCompactionDescription")}
+            last
+            control={
+              <div className="flex items-center justify-between gap-3 rounded-md border border-border-base/60 px-3 py-2">
+                <span className="text-sm text-text-weak">
+                  {notebookSettings.selection.autoCompactionEnabled
+                    ? language.t("settings.notebook.on")
+                    : language.t("settings.notebook.off")}
+                </span>
+                <Switch
+                  data-action="settings-notebook-auto-compaction"
+                  checked={notebookSettings.selection.autoCompactionEnabled}
+                  onCheckedChange={notebookSettings.actions.setAutoCompactionEnabled}
+                  disabled={notebookSettings.status.loading}
+                  aria-label={language.t("settings.notebook.autoCompactionAria")}
                 />
               </div>
             }
