@@ -47,12 +47,15 @@ describe("parity.routes.openapi-doc", () => {
       "/api/mermaid-artifacts/{artifactID}",
       "/api/session",
       "/api/session/{sessionID}",
+      "/api/session/{sessionID}/command",
       "/api/session/{sessionID}/message",
+      "/api/session/{sessionID}/teaching-state",
       "/api/session/{sessionID}/abort",
       "/api/learner/snapshot",
       "/api/learner/artifacts",
       "/api/learner/workspace",
       "/api/skills",
+      "/api/skills/settings",
       "/api/skills/{name}",
       "/api/skills/library/{skillID}/install",
     ]
@@ -78,8 +81,14 @@ describe("parity.routes.openapi-doc", () => {
       { path: "/api/session", method: "post", operationId: "session.create" },
       { path: "/api/session/{sessionID}", method: "get", operationId: "session.get" },
       { path: "/api/session/{sessionID}", method: "patch", operationId: "session.update" },
+      { path: "/api/session/{sessionID}/command", method: "post", operationId: "session.command" },
       { path: "/api/session/{sessionID}/message", method: "get", operationId: "session.messages" },
       { path: "/api/session/{sessionID}/message", method: "post", operationId: "session.prompt" },
+      {
+        path: "/api/session/{sessionID}/teaching-state",
+        method: "get",
+        operationId: "session.teachingState",
+      },
       { path: "/api/session/{sessionID}/abort", method: "post", operationId: "session.abort" },
       { path: "/api/permission", method: "get", operationId: "permission.list" },
       {
@@ -103,6 +112,7 @@ describe("parity.routes.openapi-doc", () => {
       { path: "/api/learner/workspace", method: "patch", operationId: "learner.workspace.patch" },
       { path: "/api/skills", method: "get", operationId: "skills.list" },
       { path: "/api/skills", method: "post", operationId: "skills.create" },
+      { path: "/api/skills/settings", method: "patch", operationId: "skills.settings.patch" },
       { path: "/api/skills/{name}", method: "patch", operationId: "skills.update" },
       { path: "/api/skills/{name}", method: "delete", operationId: "skills.delete" },
       {
@@ -122,6 +132,7 @@ describe("parity.routes.openapi-doc", () => {
     const skillsOperations = [
       requireOperation(paths["/api/skills"]?.get, "/api/skills:get"),
       requireOperation(paths["/api/skills"]?.post, "/api/skills:post"),
+      requireOperation(paths["/api/skills/settings"]?.patch, "/api/skills/settings:patch"),
       requireOperation(paths["/api/skills/{name}"]?.patch, "/api/skills/{name}:patch"),
       requireOperation(paths["/api/skills/{name}"]?.delete, "/api/skills/{name}:delete"),
       requireOperation(
@@ -139,5 +150,6 @@ describe("parity.routes.openapi-doc", () => {
     expect(Object.keys(skillsOperations[2].responses ?? {})).toContain("403")
     expect(Object.keys(skillsOperations[3].responses ?? {})).toContain("403")
     expect(Object.keys(skillsOperations[4].responses ?? {})).toContain("403")
+    expect(Object.keys(skillsOperations[5].responses ?? {})).toContain("403")
   })
 })

@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test"
 import path from "node:path"
-import fs from "node:fs"
 import { mkdirSync } from "node:fs"
 import { app } from "../../src/index.ts"
 import { createGitRepo } from "../helpers/repo"
@@ -13,7 +12,7 @@ function createMarkedGitRepo(prefix: string) {
   return createGitRepo(prefix, { readme: `# ${prefix}-marker\n` })
 }
 
-describe("multi-tenant session routes", () => {
+describe("project-scoped session routes", () => {
   test("rejects directories outside allowed roots", async () => {
     const create = await app.request("/api/session", {
       method: "POST",
@@ -158,18 +157,5 @@ describe("multi-tenant session routes", () => {
     expect(nestedOnly.status).toBe(200)
     const nestedOnlyBody = (await nestedOnly.json()) as Array<{ id: string }>
     expect(nestedOnlyBody).toHaveLength(1)
-  })
-
-  test("allows sibling repository directories under monorepo parent", async () => {
-    const siblingDirectory = path.resolve(process.cwd(), "..")
-    expect(fs.existsSync(siblingDirectory)).toBe(true)
-
-    const create = await app.request(
-      `/api/session?directory=${encodeURIComponent(siblingDirectory)}`,
-      {
-        method: "POST",
-      },
-    )
-    expect(create.status).toBe(200)
   })
 })

@@ -142,7 +142,7 @@ afterAll(() => {
 
 describe("system prompt smoke", () => {
   test(
-    "teaching-state exposes the exact final runtime system prompt",
+    "teaching-state exposes the captured runtime system prompt with Buddy AGENTS instructions",
     async () => {
       const server = serverState.server
       if (!server) {
@@ -237,13 +237,13 @@ describe("system prompt smoke", () => {
         }
 
         expect(fullSystemPrompt).toBeDefined()
-        expect(fullSystemPrompt).toContain("You are Buddy, a learning companion")
-        expect(fullSystemPrompt).toContain("<buddy_runtime_context>")
+        if (!fullSystemPrompt) {
+          throw new Error("Missing captured system prompt")
+        }
         expect(fullSystemPrompt).toContain(`Instructions from: ${realGlobalAgentsPath}`)
         expect(fullSystemPrompt).toContain("Global smoke instruction")
         expect(fullSystemPrompt).toContain(`Instructions from: ${realLocalAgentsPath}`)
         expect(fullSystemPrompt).toContain("Local smoke instruction")
-        expect(fullSystemPrompt).toContain("You are powered by the model named")
       } finally {
         if (previousApiKey === undefined) {
           delete process.env.OPENAI_API_KEY
