@@ -79,12 +79,19 @@ const PDF_HEADING_PATTERNS = [
   /^chapter\s+([0-9ivxlcdm]+)\b[:.\-\s]*(.*)$/i,
   /^part\s+([0-9ivxlcdm]+)\b[:.\-\s]*(.*)$/i,
 ]
+const XML_ENTITY_MAX_TOTAL_EXPANSIONS = 10_000
+const XML_ENTITY_MAX_EXPANDED_LENGTH = 1_000_000
 
 const resourcePackXMLParser = new XMLParser({
   ignoreAttributes: false,
   attributeNamePrefix: "",
   trimValues: true,
   removeNSPrefix: true,
+  processEntities: {
+    enabled: true,
+    maxTotalExpansions: XML_ENTITY_MAX_TOTAL_EXPANSIONS,
+    maxExpandedLength: XML_ENTITY_MAX_EXPANDED_LENGTH,
+  },
 })
 
 const resourceTurndown = new TurndownService({
