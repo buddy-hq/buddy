@@ -10,8 +10,8 @@ describe("learner curriculum intent view", () => {
       directory: project.path,
       workspace: {
         projectConstraints: ["Only 30 minutes available today"],
-        motivationContext: "Ship one real Tauri feature this week",
-        localToolAvailability: ["bun", "tauri"],
+        motivationContext: "Ship one real desktop feature this week",
+        localToolAvailability: ["bun", "electron"],
       },
       profile: {
         motivationAnchors: ["You want this skill for the desktop app you are already building."],
@@ -22,14 +22,14 @@ describe("learner curriculum intent view", () => {
     const committed = await LearnerService.replaceGoalSet({
       directory: project.path,
       scope: "topic",
-      contextLabel: "Tauri IPC",
-      learnerRequest: "I want to learn Tauri IPC through real features.",
+      contextLabel: "Electron desktop bridge",
+      learnerRequest: "I want to learn the Electron desktop bridge through real features.",
       goals: [
         {
           statement:
-            "At the end of this topic, you will be able to implement a Tauri IPC command that validates inputs and returns structured errors.",
+            "At the end of this topic, you will be able to implement a desktop bridge command that validates inputs and returns structured errors.",
           actionVerb: "implement",
-          task: "Implement a Tauri IPC command that validates inputs and returns structured errors.",
+          task: "Implement a desktop bridge command that validates inputs and returns structured errors.",
           cognitiveLevel: "Application",
           howToTest:
             "Run the command with valid and invalid inputs and inspect the returned error shape.",
@@ -40,7 +40,7 @@ describe("learner curriculum intent view", () => {
     await LearnerService.recordPracticeEvent({
       directory: project.path,
       goalIds: committed.goalIds,
-      prompt: "Create a command that validates payload shape before saving settings.",
+      prompt: "Create a bridge command that validates payload shape before saving settings.",
       learnerResponseSummary: "The learner got stuck deciding where validation belongs.",
       outcome: "stuck",
       targetComponents: ["identify which concepts are relevant", "plan a solution"],

@@ -26,38 +26,40 @@ describe("goal tools", () => {
         await goalCommit.execute(
           {
             scope: "topic",
-            contextLabel: "Tauri IPC",
-            learnerRequest: "I want to learn Tauri IPC by shipping a small feature.",
+            contextLabel: "Electron desktop bridge",
+            learnerRequest:
+              "I want to learn the Electron desktop bridge by shipping a small feature.",
             goals: [
               {
                 statement:
-                  "At the end of this topic, you will be able to implement a Tauri command that validates inputs and returns structured errors.",
+                  "At the end of this topic, you will be able to implement a desktop bridge command that validates inputs and returns structured errors.",
                 actionVerb: "implement",
-                task: "Implement a Tauri command that validates inputs and returns structured errors.",
+                task: "Implement a desktop bridge command that validates inputs and returns structured errors.",
                 cognitiveLevel: "Application",
                 howToTest:
-                  "Ship a minimal Tauri command and run a smoke test that exercises valid and invalid inputs.",
+                  "Ship a minimal desktop bridge command and run a smoke test that exercises valid and invalid inputs.",
               },
               {
                 statement:
-                  "At the end of this topic, you will be able to trace an IPC request from the frontend to the Rust command handler using logs and breakpoints.",
+                  "At the end of this topic, you will be able to trace a desktop bridge request from the React UI to the Electron handler using logs and breakpoints.",
                 actionVerb: "trace",
-                task: "Trace an IPC request end-to-end from UI call site to Rust handler.",
+                task: "Trace a desktop bridge request end-to-end from the UI call site to the Electron handler.",
                 cognitiveLevel: "Analysis",
                 howToTest:
-                  "Add logs and use a debugger to show the request path for one example command.",
+                  "Add logs and use a debugger to show the request path for one example bridge call.",
               },
               {
                 statement:
-                  "At the end of this topic, you will be able to write a focused regression test that proves a Tauri IPC bug is fixed.",
+                  "At the end of this topic, you will be able to write a focused regression test that proves a desktop bridge bug is fixed.",
                 actionVerb: "write",
-                task: "Write a focused regression test for a Tauri IPC bugfix.",
+                task: "Write a focused regression test for a desktop bridge bugfix.",
                 cognitiveLevel: "Application",
                 howToTest:
                   "Create a failing test for a known issue, apply the fix, and verify the test passes.",
               },
             ],
-            rationaleSummary: "Optimized for shipping a small feature that uses IPC.",
+            rationaleSummary:
+              "Optimized for shipping a small feature that uses the desktop bridge.",
           },
           ctx,
         )

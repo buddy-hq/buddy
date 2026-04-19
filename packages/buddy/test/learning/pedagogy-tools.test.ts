@@ -50,11 +50,11 @@ describe("pedagogy tools", () => {
 
         return {
           guidedPractice: await guidedPractice.execute(
-            { topic: "input validation in Tauri commands" },
+            { topic: "input validation in desktop bridge commands" },
             ctx,
           ),
           masteryCheck: await masteryCheck.execute(
-            { topic: "input validation in Tauri commands" },
+            { topic: "input validation in desktop bridge commands" },
             ctx,
           ),
           prepareResource: await prepareResource.execute(
@@ -76,7 +76,7 @@ describe("pedagogy tools", () => {
     expect(result.masteryCheck.output).toContain(
       '<pedagogy_tool_output name="pedagogy_mastery_check">',
     )
-    expect(result.masteryCheck.output).toContain("input validation in Tauri commands")
+    expect(result.masteryCheck.output).toContain("input validation in desktop bridge commands")
     expect(result.prepareResource.title).toBe("pedagogy_prepare_resource")
     expect(result.prepareResource.output).toContain("<resource_preparation")
     expect(result.prepareResource.output).toContain("status=ready")

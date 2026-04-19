@@ -25,32 +25,32 @@ describe("learner-store goal archiving", () => {
         await goalCommit.execute(
           {
             scope: "topic",
-            contextLabel: "Tauri IPC",
-            learnerRequest: "First pass goals for Tauri IPC.",
+            contextLabel: "Electron desktop bridge",
+            learnerRequest: "First pass goals for the Electron desktop bridge.",
             goals: [
               {
                 statement:
-                  "At the end of this topic, you will be able to implement a Tauri command that returns a typed result to the UI.",
+                  "At the end of this topic, you will be able to implement a desktop bridge command that returns a typed result to the renderer.",
                 actionVerb: "implement",
-                task: "Implement a Tauri command that returns a typed result to the UI.",
+                task: "Implement a desktop bridge command that returns a typed result to the renderer.",
                 cognitiveLevel: "Application",
                 howToTest:
-                  "Implement a command, call it from the UI, and verify both success and error cases work.",
+                  "Implement a bridge command, call it from the renderer, and verify both success and error cases work.",
               },
               {
                 statement:
-                  "At the end of this topic, you will be able to debug a Tauri IPC failure by inspecting logs and payloads.",
+                  "At the end of this topic, you will be able to debug a desktop bridge failure by inspecting logs and payloads.",
                 actionVerb: "debug",
-                task: "Debug a Tauri IPC failure by inspecting logs and payloads.",
+                task: "Debug a desktop bridge failure by inspecting logs and payloads.",
                 cognitiveLevel: "Application",
                 howToTest:
                   "Reproduce a failure and capture logs that prove where the message is failing.",
               },
               {
                 statement:
-                  "At the end of this topic, you will be able to write a small integration test that exercises a Tauri command end-to-end.",
+                  "At the end of this topic, you will be able to write a small integration test that exercises a desktop bridge command end-to-end.",
                 actionVerb: "write",
-                task: "Write a small integration test that exercises a Tauri command end-to-end.",
+                task: "Write a small integration test that exercises a desktop bridge command end-to-end.",
                 cognitiveLevel: "Application",
                 howToTest:
                   "Write and run a test that executes a command and asserts on a structured response.",
@@ -63,32 +63,32 @@ describe("learner-store goal archiving", () => {
         await goalCommit.execute(
           {
             scope: "topic",
-            contextLabel: "Tauri IPC",
-            learnerRequest: "Second pass goals for Tauri IPC (revised).",
+            contextLabel: "Electron desktop bridge",
+            learnerRequest: "Second pass goals for the Electron desktop bridge (revised).",
             goals: [
               {
                 statement:
-                  "At the end of this topic, you will be able to implement a Tauri command that validates inputs and returns structured errors to the UI.",
+                  "At the end of this topic, you will be able to implement a desktop bridge command that validates inputs and returns structured errors to the renderer.",
                 actionVerb: "implement",
-                task: "Implement a Tauri command that validates inputs and returns structured errors to the UI.",
+                task: "Implement a desktop bridge command that validates inputs and returns structured errors to the renderer.",
                 cognitiveLevel: "Application",
                 howToTest:
                   "Run a smoke test that exercises both valid and invalid inputs and inspects the error structure.",
               },
               {
                 statement:
-                  "At the end of this topic, you will be able to evaluate whether a command should be synchronous or asynchronous based on the UI experience.",
+                  "At the end of this topic, you will be able to evaluate whether a bridge action belongs in the main process or the renderer based on the UI experience.",
                 actionVerb: "evaluate",
-                task: "Evaluate whether a command should be synchronous or asynchronous based on the UI experience.",
+                task: "Evaluate whether a bridge action belongs in the main process or the renderer based on the UI experience.",
                 cognitiveLevel: "Evaluation",
                 howToTest:
                   "Compare two implementations and justify the choice with a short write-up and observed behavior.",
               },
               {
                 statement:
-                  "At the end of this topic, you will be able to justify an IPC boundary by describing which logic belongs in Rust vs the UI layer.",
+                  "At the end of this topic, you will be able to justify a bridge boundary by describing which logic belongs in the main process vs the renderer.",
                 actionVerb: "justify",
-                task: "Justify an IPC boundary by describing which logic belongs in Rust vs the UI layer.",
+                task: "Justify a bridge boundary by describing which logic belongs in the main process vs the renderer.",
                 cognitiveLevel: "Evaluation",
                 howToTest:
                   "Explain one real feature split and defend the boundary choices against alternatives.",
@@ -106,7 +106,7 @@ describe("learner-store goal archiving", () => {
 
     const tauriSets = Array.from(
       goals
-        .filter((goal) => goal.contextLabel === "Tauri IPC")
+        .filter((goal) => goal.contextLabel === "Electron desktop bridge")
         .reduce<Map<string, Array<{ status: "active" | "archived" }>>>((all, goal) => {
           if (!goal.setId) {
             return all

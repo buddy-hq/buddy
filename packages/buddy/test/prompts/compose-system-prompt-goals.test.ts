@@ -12,14 +12,14 @@ describe("composeLearningSystemPrompt (learner store)", () => {
     const committed = await LearnerService.replaceGoalSet({
       directory: project.path,
       scope: "topic",
-      contextLabel: "Tauri IPC",
-      learnerRequest: "I want to learn Tauri IPC by shipping a small feature.",
+      contextLabel: "Electron desktop bridge",
+      learnerRequest: "I want to learn the Electron desktop bridge by shipping a small feature.",
       goals: [
         {
           statement:
-            "At the end of this topic, you will be able to implement a Tauri command that validates inputs and returns structured errors to the UI.",
+            "At the end of this topic, you will be able to implement a desktop bridge command that validates inputs and returns structured errors to the renderer.",
           actionVerb: "implement",
-          task: "Implement a Tauri command that validates inputs and returns structured errors to the UI.",
+          task: "Implement a desktop bridge command that validates inputs and returns structured errors to the renderer.",
           cognitiveLevel: "Application",
           howToTest:
             "Run a smoke test that exercises both valid and invalid inputs and inspects the error structure.",
@@ -74,7 +74,7 @@ describe("composeLearningSystemPrompt (learner store)", () => {
     expect(system).not.toContain("<selected_activity_bundle>")
     expect(system).not.toContain("buddy-pedagogy-worked-example")
     expect(system).not.toContain("buddy-pedagogy-explanation")
-    expect(system).toContain("implement a Tauri command that validates inputs")
+    expect(system).toContain("implement a desktop bridge command that validates inputs")
     expect(system).toContain("State: chat")
   })
 })

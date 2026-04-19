@@ -28,12 +28,12 @@ describe("goal_lint", () => {
             goals: [
               {
                 statement:
-                  "At the end of this topic, students will be able to implement a Tauri command that validates inputs and returns structured errors.",
+                  "At the end of this topic, students will be able to implement a desktop bridge command that validates inputs and returns structured errors.",
                 actionVerb: "implement",
-                task: "Implement a Tauri command that validates inputs and returns structured errors.",
+                task: "Implement a desktop bridge command that validates inputs and returns structured errors.",
                 cognitiveLevel: "Application",
                 howToTest:
-                  "Ship a minimal command and run a smoke test that covers valid and invalid inputs.",
+                  "Ship a minimal bridge command and run a smoke test that covers valid and invalid inputs.",
               },
             ],
           },
@@ -73,12 +73,12 @@ describe("goal_lint", () => {
             goals: [
               {
                 statement:
-                  "At the end of this topic, you will be able to implement a Tauri command that validates inputs and returns structured errors.",
+                  "At the end of this topic, you will be able to implement a desktop bridge command that validates inputs and returns structured errors.",
                 actionVerb: "implement",
-                task: "Implement a Tauri command that validates inputs and returns structured errors.",
+                task: "Implement a desktop bridge command that validates inputs and returns structured errors.",
                 cognitiveLevel: "Application",
                 howToTest:
-                  "Ship a minimal command and run a smoke test that covers valid and invalid inputs.",
+                  "Ship a minimal bridge command and run a smoke test that covers valid and invalid inputs.",
               },
             ],
           },
@@ -118,9 +118,9 @@ describe("goal_lint", () => {
             goals: [
               {
                 statement:
-                  "At the end of this topic, you will be able to understand Tauri IPC error handling.",
+                  "At the end of this topic, you will be able to understand desktop bridge error handling.",
                 actionVerb: "understand",
-                task: "Explain what structured IPC errors mean in this codebase.",
+                task: "Explain what structured bridge errors mean in this codebase.",
                 cognitiveLevel: "Comprehension",
                 howToTest:
                   "Write a short explanation and map one real error payload to the expected UI behavior.",
