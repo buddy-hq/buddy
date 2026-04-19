@@ -1,3 +1,4 @@
+import path from "node:path"
 import { Config } from "../config.js"
 import {
   applyBuddyPersonaHiddenFlags,
@@ -17,17 +18,56 @@ const BUDDY_RUNTIME_PERMISSION_OVERLAY: Config.Permission = {
   "python_*": "deny",
   "render_*": "deny",
   "teaching_*": "deny",
-  external_directory: "ask",
   websearch: "allow",
   codesearch: "allow",
 }
 
+/**
+ * Commands injected into every session via the config overlay.
+ * Keyed by slash-command name (e.g. "flashcard" → `/flashcard`).
+ */
+const BUDDY_BUILTIN_COMMANDS: Record<string, { template: string; description: string }> = {
+  flashcard: {
+    description: "Generate flashcards from context in learn mode",
+    template: [
+      "Create flashcards about $ARGUMENTS",
+      "",
+      "Use the flashcard-author subagent if it is available. If no arguments are provided, create flashcards based on the current conversation and context.",
+      "",
+      "Before delegating to the flashcard-author subagent, use the task prompt to pass along the learner's requested scope and any relevant conversation context. Keep the short task description concise, but make the delegated prompt itself specific.",
+      "",
+      "If the task is grounded in one or more resources, do not replace those resources with your own summary. Instead, enumerate each relevant resource in the delegation prompt with its title, alias or resource key when known, and the prepared full-text path when available. State the exact scope to read from each resource, and explicitly tell the flashcard-author subagent to call `pedagogy_resource_ingest_full_text` for the named resources before authoring cards unless the full text is already present in the delegated context.",
+      "",
+      "After delegation, do not add separate rendering instructions. Decks saved by flashcard-author are surfaced automatically from persisted state.",
+    ].join("\n"),
+  },
+}
+
+const EXTERNAL_DIRECTORY_PERMISSION = "external_directory" as const
+const ANY_PATTERN = "*" as const
+const ALLOW_ACTION: Config.PermissionAction = "allow"
+const ASK_ACTION: Config.PermissionAction = "ask"
+
+function buildSkillExternalDirectoryRules(skillPaths: string[] | undefined): Config.PermissionRule {
+  const rules: Config.PermissionRule = {
+    [ANY_PATTERN]: ASK_ACTION,
+  }
+
+  for (const skillPath of skillPaths ?? []) {
+    rules[path.join(skillPath, ANY_PATTERN)] = ALLOW_ACTION
+  }
+
+  return rules
+}
+
 function buildOpenCodePermissionOverlay(
   permission: Config.Permission | undefined,
+  skillPaths: string[] | undefined,
 ): Config.Permission {
   return {
     ...permission,
     ...BUDDY_RUNTIME_PERMISSION_OVERLAY,
+    [EXTERNAL_DIRECTORY_PERMISSION]: buildSkillExternalDirectoryRules(skillPaths),
   }
 }
 
@@ -62,7 +102,8 @@ async function buildOpenCodeConfigOverlay(input: { config: Config.Info; director
   const orderedAgents = orderAgentsWithDefaultFirst(mergedAgents, defaultAgent)
 
   return {
-    permission: buildOpenCodePermissionOverlay(input.config.permission),
+    permission: buildOpenCodePermissionOverlay(input.config.permission, skillPaths),
+    ...(input.config.compaction ? { compaction: input.config.compaction } : {}),
     ...(input.config.model ? { model: input.config.model } : {}),
     ...(input.config.small_model ? { small_model: input.config.small_model } : {}),
     ...(defaultAgent ? { default_agent: defaultAgent } : {}),
@@ -76,6 +117,9 @@ async function buildOpenCodeConfigOverlay(input: { config: Config.Info; director
     ...(skillPaths ? { skills: { paths: skillPaths } } : {}),
     ...(systemPromptGuardPlugin ? { plugin: [systemPromptGuardPlugin] } : {}),
     ...(input.config.mcp ? { mcp: input.config.mcp } : {}),
+    command: {
+      ...BUDDY_BUILTIN_COMMANDS,
+    },
     agent: {
       ...orderedAgents,
     },
