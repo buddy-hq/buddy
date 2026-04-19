@@ -87,7 +87,7 @@ declare module "foliate-js/view.js" {
     heads?: HTMLElement[] | null
     feet?: HTMLElement[] | null
     open: (book: FoliateBook) => void
-    setStyles?: (styles: string) => void
+    setStyles?: (styles: string | [string, string]) => void
     prev: (distance?: number) => Promise<void>
     next: (distance?: number) => Promise<void>
     goTo: (target: unknown) => Promise<void>

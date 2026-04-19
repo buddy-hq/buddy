@@ -18,19 +18,80 @@ export function isFoliateReaderThemeId(value: string): value is FoliateReaderThe
   return READER_THEMES.some((entry) => entry.id === value)
 }
 
+// ---------------------------------------------------------------------------
+// CSS variable resolution for iframe injection
+// ---------------------------------------------------------------------------
+// Theme definitions reference Buddy CSS custom properties (var(--xxx)) which
+// are not available inside the foliate-js iframe. We resolve them to actual
+// computed color values using a temporary DOM element before injection.
+// ---------------------------------------------------------------------------
+
+const COLOR_KEYS: (keyof FoliateReaderThemeDefinition)[] = [
+  "contentBackground",
+  "contentForeground",
+  "contentMuted",
+  "contentLink",
+  "contentHeading",
+  "contentAccent",
+]
+
+/** Resolve a CSS color expression (including var() and color-mix()) to a
+ *  computed rgb/rgba string by temporarily applying it to a DOM element. */
+function resolveColor(value: string): string {
+  if (!value.includes("var(")) return value
+  const el = document.createElement("div")
+  el.style.display = "none"
+  el.style.color = value
+  document.body.appendChild(el)
+  const resolved = getComputedStyle(el).color
+  el.remove()
+  return resolved || value
+}
+
+/** Return a copy of the theme definition with all color fields resolved to
+ *  concrete values so they work inside an iframe without access to the host
+ *  document's CSS custom properties. */
+function resolveTheme(theme: FoliateReaderThemeDefinition): FoliateReaderThemeDefinition {
+  const resolved = { ...theme }
+  for (const key of COLOR_KEYS) {
+    const raw = resolved[key]
+    if (typeof raw === "string") {
+      ;(resolved as Record<string, string>)[key] = resolveColor(raw)
+    }
+  }
+  return resolved
+}
+
+// ---------------------------------------------------------------------------
+// Style generation
+// ---------------------------------------------------------------------------
+
+const SERIF_STACK = `"Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif`
+const SANS_STACK = `"Avenir Next", "IBM Plex Sans", "Segoe UI", sans-serif`
+const MONO_STACK = `"SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, monospace`
+
+function fontStack(preset: FoliateReaderPreferences["fontPreset"]): string {
+  if (preset === FONT_SERIF) return SERIF_STACK
+  if (preset === FONT_SANS) return SANS_STACK
+  return "inherit"
+}
+
+/** Build the CSS that foliate-js injects into the book iframe.
+ *
+ *  When the user chooses a non-publisher font (Serif / Sans) we return a
+ *  two-element array [baseCSS, overrideCSS] so that the override sheet is
+ *  appended *after* the book's own styles and uses `!important` to force
+ *  the chosen font. When using publisher font, a single string is returned. */
 export function buildReaderStyles(
   theme: FoliateReaderThemeDefinition,
   preferences: FoliateReaderPreferences,
   appearance: "light" | "dark",
-) {
-  const fontFamily =
-    preferences.fontPreset === FONT_SERIF
-      ? `"Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif`
-      : preferences.fontPreset === FONT_SANS
-        ? `"Avenir Next", "IBM Plex Sans", "Segoe UI", sans-serif`
-        : "inherit"
+): [string, string] {
+  const family = fontStack(preferences.fontPreset)
+  const overrideFont = preferences.fontPreset !== FONT_PUBLISHER
 
-  return `
+  // ---- base stylesheet (prepended before book CSS) ----
+  const base = `
     @namespace epub "http://www.idpf.org/2007/ops";
 
     :root {
@@ -43,7 +104,7 @@ export function buildReaderStyles(
       background: ${theme.contentBackground};
       color: ${theme.contentForeground};
       font-size: ${preferences.fontScaleRem}rem;
-      ${preferences.fontPreset === FONT_PUBLISHER ? "" : `font-family: ${fontFamily};`}
+      ${overrideFont ? `font-family: ${family};` : ""}
     }
 
     body {
@@ -55,10 +116,25 @@ export function buildReaderStyles(
       -webkit-font-smoothing: antialiased;
     }
 
-    p,
-    li,
-    blockquote,
-    dd {
+    a { color: ${theme.contentLink}; }
+    a:visited { color: ${theme.contentLink}; }
+  `
+
+  // ---- override stylesheet (appended after book CSS) ----
+  const override = `
+    @namespace epub "http://www.idpf.org/2007/ops";
+
+    ${
+      overrideFont
+        ? `
+    body, body * {
+      font-family: inherit !important;
+    }
+    `
+        : ""
+    }
+
+    p, li, blockquote, dd {
       line-height: ${preferences.lineHeight};
       text-align: ${preferences.justify ? "justify" : "start"};
       -webkit-hyphens: ${preferences.hyphenate ? "auto" : "manual"};
@@ -67,23 +143,10 @@ export function buildReaderStyles(
       widows: 2;
     }
 
-    h1,
-    h2,
-    h3,
-    h4,
-    h5,
-    h6 {
+    h1, h2, h3, h4, h5, h6 {
       color: ${theme.contentHeading};
       line-height: 1.14;
       text-wrap: balance;
-    }
-
-    a {
-      color: ${theme.contentLink};
-    }
-
-    a:visited {
-      color: ${theme.contentLink};
     }
 
     hr {
@@ -91,11 +154,8 @@ export function buildReaderStyles(
       border-top: 1px solid color-mix(in oklab, ${theme.contentMuted} 34%, transparent);
     }
 
-    pre,
-    code,
-    samp,
-    kbd {
-      font-family: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+    pre, code, samp, kbd {
+      font-family: ${MONO_STACK} !important;
     }
 
     pre {
@@ -121,6 +181,8 @@ export function buildReaderStyles(
       display: none;
     }
   `
+
+  return [base, override]
 }
 
 export function applyReaderPreferences(
@@ -137,7 +199,8 @@ export function applyReaderPreferences(
   const renderer = view.renderer
   if (!renderer) return
 
-  renderer.setStyles?.(buildReaderStyles(theme, preferences, appearance))
+  const resolved = resolveTheme(theme)
+  renderer.setStyles?.(buildReaderStyles(resolved, preferences, appearance))
   if (preferences.reduceMotion) renderer.removeAttribute("animated")
   else renderer.setAttribute("animated", "")
 
