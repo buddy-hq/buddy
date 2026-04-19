@@ -12,8 +12,8 @@ import { renderWebfetchTool } from "./render/webfetch"
 import { renderExaSearchTool } from "./render/exa-search"
 import { renderRenderFigureTool } from "./render/render-figure"
 import { renderRenderMermaidTool } from "./render/mermaid"
+import { renderSavedQuestionSetTool } from "./render/question-set/saved-question-set-tool"
 import { renderKnowledgeGraphTool } from "./render/knowledge-graph"
-import { renderRenderSavedQuestionSetTool } from "./render/question-set"
 import { renderQuestionTool } from "./render/question"
 import { renderBuddyCustomTool } from "./render/buddy-custom"
 import { renderGenericTool } from "./render/generic"
@@ -82,7 +82,7 @@ registerTool({
 registerTool({ name: "render_figure", render: renderRenderFigureTool })
 registerTool({ name: "render_freeform_figure", render: renderRenderFigureTool })
 registerTool({ name: "render_mermaid", render: renderRenderMermaidTool })
-registerTool({ name: "render_saved_question_set", render: renderRenderSavedQuestionSetTool })
+registerTool({ name: "render_saved_question_set", render: renderSavedQuestionSetTool })
 
 registerTool({ name: "question", render: renderQuestionTool })
 

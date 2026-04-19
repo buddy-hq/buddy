@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Button } from "@buddy/ui"
 import { language } from "@/context/language"
 
@@ -52,8 +52,16 @@ export type SubmitQuestionSetAttemptOutput = {
 }
 
 type AnswerState = Record<string, string[]>
+type QuestionSetInlineSessionState = {
+  answers: AnswerState
+  error?: string
+  randomizeSeed: number
+  result?: QuestionSetEvaluationResult
+}
+
 const HASH_OFFSET_BASIS = 2166136261
 const HASH_MULTIPLIER = 16777619
+const questionSetInlineSessionState = new Map<string, QuestionSetInlineSessionState>()
 
 function questionStatusLabel(correct: boolean | undefined): string | undefined {
   if (correct === undefined) {
@@ -103,12 +111,15 @@ function orderedChoicesForQuestion(input: {
 export function QuestionSetInlineView(props: {
   artifact: PublicQuestionSetArtifact
   onSubmit: (answers: Record<string, string[]>) => Promise<QuestionSetEvaluationResult>
+  persistKey?: string
 }) {
-  const [answers, setAnswers] = useState<AnswerState>({})
+  const persistKey = props.persistKey ?? props.artifact.artifactID
+  const cachedState = questionSetInlineSessionState.get(persistKey)
+  const [answers, setAnswers] = useState<AnswerState>(cachedState?.answers ?? {})
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | undefined>(undefined)
-  const [result, setResult] = useState<QuestionSetEvaluationResult | undefined>(undefined)
-  const [randomizeSeed, setRandomizeSeed] = useState(0)
+  const [error, setError] = useState<string | undefined>(cachedState?.error)
+  const [result, setResult] = useState<QuestionSetEvaluationResult | undefined>(cachedState?.result)
+  const [randomizeSeed, setRandomizeSeed] = useState(cachedState?.randomizeSeed ?? 0)
 
   const orderedChoicesByQuestionID = useMemo(
     () =>
@@ -128,6 +139,15 @@ export function QuestionSetInlineView(props: {
   const evaluationByQuestionID = new Map(
     result?.questions.map((question) => [question.questionID, question]) ?? [],
   )
+
+  useEffect(() => {
+    questionSetInlineSessionState.set(persistKey, {
+      answers,
+      ...(error ? { error } : {}),
+      randomizeSeed,
+      ...(result ? { result } : {}),
+    })
+  }, [answers, error, persistKey, randomizeSeed, result])
 
   function updateAnswer(questionID: string, nextSelectedChoiceIds: string[]) {
     if (result) {

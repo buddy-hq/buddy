@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react"
 import { ToolOutputPanel } from "../../../tools/tool-output-panel"
-import { language } from "@/context/language"
-import { isRecord, readNonEmptyString } from "../../../tools/types"
-import { unwrapError } from "../../../utils/error"
-import { requestJson } from "@/lib/api-client"
 import type { ToolPartProps } from "../../registry"
+import { isRecord, readNonEmptyString, readNonNegativeInt } from "../../../tools/types"
+import { language } from "@/context/language"
+import { requestJson, stringifyError } from "@/lib/api-client"
 import {
   QuestionSetInlineView,
   type PublicQuestionSetArtifact,
@@ -52,17 +51,15 @@ function parsePublicQuestionSetArtifact(value: unknown): PublicQuestionSetArtifa
         : []
       const explanation = readNonEmptyString(question.explanation)
       const payload = isRecord(question.payload) ? question.payload : undefined
+      const multipleSelect =
+        payload?.multipleSelect === true
+          ? true
+          : payload?.multipleSelect === false
+            ? false
+            : undefined
       const choices = Array.isArray(payload?.choices) ? payload.choices : undefined
-      const multipleSelect = payload?.multipleSelect
 
-      if (
-        !payload ||
-        !questionID ||
-        !prompt ||
-        goalIds.length === 0 ||
-        !choices ||
-        typeof multipleSelect !== "boolean"
-      ) {
+      if (!questionID || !prompt || !payload || multipleSelect === undefined || !choices) {
         return undefined
       }
 
@@ -79,20 +76,16 @@ function parsePublicQuestionSetArtifact(value: unknown): PublicQuestionSetArtifa
 
             const choiceID = readNonEmptyString(choice.id)
             const content = readNonEmptyString(choice.content)
+
             if (!choiceID || !content) {
               return undefined
             }
 
-            const parsedChoice: PublicQuestionSetArtifact["questions"][number]["payload"]["choices"][number] =
-              {
-                id: choiceID,
-                content,
-              }
-            if (typeof choice.isNoneOfTheAbove === "boolean") {
-              parsedChoice.isNoneOfTheAbove = choice.isNoneOfTheAbove
+            return {
+              id: choiceID,
+              content,
+              ...(choice.isNoneOfTheAbove === true ? { isNoneOfTheAbove: true } : {}),
             }
-
-            return parsedChoice
           },
         )
         .filter(
@@ -102,38 +95,24 @@ function parsePublicQuestionSetArtifact(value: unknown): PublicQuestionSetArtifa
             choice !== undefined,
         )
 
-      if (parsedChoices.length < 2) {
+      if (parsedChoices.length === 0) {
         return undefined
       }
 
-      const parsedPayload: PublicQuestionSetArtifact["questions"][number]["payload"] = {
-        multipleSelect,
-        choices: parsedChoices,
-      }
-      if (typeof payload.countChoices === "boolean") {
-        parsedPayload.countChoices = payload.countChoices
-      }
-      if (typeof payload.numCorrect === "number") {
-        parsedPayload.numCorrect = payload.numCorrect
-      }
-      if (typeof payload.hasNoneOfTheAbove === "boolean") {
-        parsedPayload.hasNoneOfTheAbove = payload.hasNoneOfTheAbove
-      }
-      if (typeof payload.randomize === "boolean") {
-        parsedPayload.randomize = payload.randomize
-      }
-
-      const parsedQuestion: PublicQuestionSetArtifact["questions"][number] = {
+      return {
         id: questionID,
         prompt,
         goalIds,
-        payload: parsedPayload,
+        ...(explanation ? { explanation } : {}),
+        payload: {
+          multipleSelect,
+          ...(payload.countChoices === true ? { countChoices: true } : {}),
+          ...(typeof payload.numCorrect === "number" ? { numCorrect: payload.numCorrect } : {}),
+          ...(payload.hasNoneOfTheAbove === true ? { hasNoneOfTheAbove: true } : {}),
+          ...(payload.randomize === true ? { randomize: true } : {}),
+          choices: parsedChoices,
+        },
       }
-      if (explanation) {
-        parsedQuestion.explanation = explanation
-      }
-
-      return parsedQuestion
     })
     .filter(
       (question): question is PublicQuestionSetArtifact["questions"][number] =>
@@ -170,7 +149,7 @@ function parseRenderSavedQuestionSetOutput(
     value.groupType === "quiz" || value.groupType === "practice" || value.groupType === "assessment"
       ? value.groupType
       : undefined
-  const questionCount = typeof value.questionCount === "number" ? value.questionCount : undefined
+  const questionCount = readNonNegativeInt(value.questionCount)
 
   if (!artifactID || !title || !groupType || questionCount === undefined) {
     return undefined
@@ -178,14 +157,20 @@ function parseRenderSavedQuestionSetOutput(
 
   return {
     artifactID,
-    title,
     groupType,
+    title,
     questionCount,
     artifact: parsePublicQuestionSetArtifact(value.artifact),
   }
 }
 
-async function fetchQuestionSetArtifact(
+function questionCountLabel(count: number): string {
+  return language.t(count === 1 ? "chatTools.questionCount.one" : "chatTools.questionCount.other", {
+    count,
+  })
+}
+
+function fetchQuestionSetArtifact(
   directory: string,
   artifactID: string,
 ): Promise<PublicQuestionSetArtifact> {
@@ -194,7 +179,7 @@ async function fetchQuestionSetArtifact(
   if (existing) {
     return existing
   }
-  // TODO: Use getBuddyClient(directory).questionSetArtifacts.read() instead of manual fetch
+
   const request = requestJson<PublicQuestionSetArtifact>(
     directory,
     `/api/question-set-artifacts/${artifactID}`,
@@ -206,29 +191,31 @@ async function fetchQuestionSetArtifact(
   return request
 }
 
-function RenderSavedQuestionSetToolCard({ state, info, directory }: ToolPartProps) {
-  const running = state.status === "pending" || state.status === "running"
-  const output = state.output || (state.error ? unwrapError(state.error) : "")
+export function renderSavedQuestionSetTool(props: ToolPartProps) {
+  const directory = props.directory
+  const running = props.state.status === "pending" || props.state.status === "running"
+  const output = props.state.output || (props.state.error ?? "")
   const showOutput = output.trim().length > 0
-  const parsed = state.status === "completed" ? parseRenderSavedQuestionSetOutput(state) : undefined
-  const parsedArtifactID = parsed?.artifactID
-  const parsedEmbeddedArtifact = parsed?.artifact
-
-  const [artifact, setArtifact] = useState<PublicQuestionSetArtifact | undefined>(
-    parsedEmbeddedArtifact,
+  const parsed =
+    props.state.status === "completed" ? parseRenderSavedQuestionSetOutput(props.state) : undefined
+  const artifactID = parsed?.artifactID
+  const parsedArtifact = parsed?.artifact
+  const artifactKey = directory && artifactID ? `${directory}:${artifactID}` : artifactID
+  const [artifact, setArtifact] = useState<PublicQuestionSetArtifact | undefined>(parsed?.artifact)
+  const [loadedKey, setLoadedKey] = useState<string | undefined>(
+    parsed?.artifact && artifactKey ? artifactKey : undefined,
   )
   const [loadError, setLoadError] = useState<string | undefined>(undefined)
+  const visibleArtifact = loadedKey === artifactKey ? artifact : undefined
 
   useEffect(() => {
-    setArtifact(parsedEmbeddedArtifact)
+    setArtifact(parsedArtifact)
+    setLoadedKey(parsedArtifact && artifactKey ? artifactKey : undefined)
     setLoadError(undefined)
-  }, [parsedArtifactID, parsedEmbeddedArtifact])
+  }, [artifactKey, parsedArtifact])
 
   useEffect(() => {
-    if (!parsedArtifactID || parsedEmbeddedArtifact) {
-      return
-    }
-    if (artifact?.artifactID === parsedArtifactID) {
+    if (!artifactID || parsedArtifact || loadedKey === artifactKey) {
       return
     }
     if (!directory) {
@@ -237,28 +224,31 @@ function RenderSavedQuestionSetToolCard({ state, info, directory }: ToolPartProp
     }
 
     let cancelled = false
-    void fetchQuestionSetArtifact(directory, parsedArtifactID)
+    void fetchQuestionSetArtifact(directory, artifactID)
       .then((fetchedArtifact) => {
-        if (cancelled) {
-          return
+        if (!cancelled) {
+          setArtifact(fetchedArtifact)
+          setLoadedKey(artifactKey)
         }
-        setArtifact(fetchedArtifact)
       })
       .catch((error) => {
-        if (cancelled) {
-          return
+        if (!cancelled) {
+          setLoadError(stringifyError(error))
         }
-        setLoadError(error instanceof Error ? error.message : String(error))
       })
 
     return () => {
       cancelled = true
     }
-  }, [artifact?.artifactID, directory, parsedArtifactID, parsedEmbeddedArtifact])
+  }, [artifactID, artifactKey, directory, loadedKey, parsedArtifact])
 
   if (running) {
     return (
-      <QuestionSetToolCard title={info.title} subtitle={info.subtitle} status={state.status}>
+      <QuestionSetToolCard
+        title={props.info.title}
+        subtitle={props.info.subtitle}
+        status={props.state.status}
+      >
         <div className="text-sm text-text-weak">Preparing question set...</div>
       </QuestionSetToolCard>
     )
@@ -266,11 +256,15 @@ function RenderSavedQuestionSetToolCard({ state, info, directory }: ToolPartProp
 
   if (!parsed) {
     return (
-      <QuestionSetToolCard title={info.title} subtitle={info.subtitle} status={state.status}>
+      <QuestionSetToolCard
+        title={props.info.title}
+        subtitle={props.info.subtitle}
+        status={props.state.status}
+      >
         {showOutput ? (
           <ToolOutputPanel
             output={output}
-            status={state.status}
+            status={props.state.status}
             copyLabel={language.t("chatTools.copyOutput")}
           />
         ) : null}
@@ -282,28 +276,26 @@ function RenderSavedQuestionSetToolCard({ state, info, directory }: ToolPartProp
     <QuestionSetToolCard
       title={parsed.title}
       subtitle={`${parsed.groupType} • ${questionCountLabel(parsed.questionCount)}`}
-      status={state.status}
+      status={props.state.status}
     >
-      {artifact ? (
+      {visibleArtifact && directory ? (
         <QuestionSetInlineView
-          artifact={artifact}
+          artifact={visibleArtifact}
           onSubmit={async (answers) => {
-            if (!directory) {
-              throw new Error(language.t("chatTools.questionSetNoWorkspaceDirectory"))
-            }
             const response = await requestJson<SubmitQuestionSetAttemptOutput>(
               directory,
-              `/api/question-set-artifacts/${artifact.artifactID}/attempts`,
+              `/api/question-set-artifacts/${visibleArtifact.artifactID}/attempts`,
               {
                 method: "POST",
                 body: {
-                  answers: artifact.questions.map((question) => ({
+                  answers: visibleArtifact.questions.map((question) => ({
                     questionID: question.id,
                     selectedChoiceIds: answers[question.id] ?? [],
                   })),
                 },
               },
             )
+
             return response.result
           }}
         />
@@ -317,14 +309,4 @@ function RenderSavedQuestionSetToolCard({ state, info, directory }: ToolPartProp
       ) : null}
     </QuestionSetToolCard>
   )
-}
-
-function questionCountLabel(count: number): string {
-  return language.t(count === 1 ? "chatTools.questionCount.one" : "chatTools.questionCount.other", {
-    count,
-  })
-}
-
-export function renderRenderSavedQuestionSetTool(props: ToolPartProps) {
-  return <RenderSavedQuestionSetToolCard {...props} />
 }

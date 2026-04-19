@@ -11,13 +11,14 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@buddy/ui"
+import { QuestionSetSidePanel } from "@/components/chat/tools/render/question-set/question-set-side-panel"
 import { language } from "@/context/language"
 import { Markdown } from "@/components/markdown/Markdown"
 import { type LearnerCurriculumView } from "@/state/chat-actions"
 import { learnerSnapshotViewsQueryOptions } from "@/state/learner-query"
 import type { TeachingIntent } from "@/state/teaching-runtime"
+import { useWorkspaceQuestionSetPanelStore } from "@/state/workspace-question-set-panel-store"
 import { WorkspaceMermaidPanel } from "./workspace-mermaid-panel"
-import { WorkspaceQuestionSetPanel } from "./workspace-question-set-panel"
 import { ChevronRightIcon, ChevronLeftIcon } from "./sidebar-icons"
 
 export type ChatRightSidebarTab =
@@ -125,15 +126,15 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
     SHOW_PROMOTED_MAIN_PANE_TABS_IN_RIGHT_SIDEBAR && props.resourcesPanel !== undefined
   const diagramsTabEnabled = SHOW_PROMOTED_MAIN_PANE_TABS_IN_RIGHT_SIDEBAR
   const agentsTabEnabled = SHOW_PROMOTED_MAIN_PANE_TABS_IN_RIGHT_SIDEBAR
-  const questionSetTabEnabled =
-    SHOW_PROMOTED_MAIN_PANE_TABS_IN_RIGHT_SIDEBAR && props.surfaces.includes("question-set")
+  const selectedQuestionSetArtifactID = useWorkspaceQuestionSetPanelStore(
+    (state) => state.selectedArtifactIDByDirectory[directory],
+  )
+  const questionSetPanelOpen =
+    typeof selectedQuestionSetArtifactID === "string" && selectedQuestionSetArtifactID.length > 0
   const visibleSurfaceTabSet = new Set(
     props.surfaces.filter(
       (surface): surface is ChatRightSidebarSurface =>
-        surface === "curriculum" ||
-        surface === "editor" ||
-        surface === "figure" ||
-        (surface === "question-set" && questionSetTabEnabled),
+        surface === "curriculum" || surface === "editor" || surface === "figure",
     ),
   )
   const fallbackTab: ChatRightSidebarTab = editorTabEnabled
@@ -170,12 +171,14 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                     ? "files"
                     : props.activeTab === "editor" && editorTabEnabled
                       ? "editor"
-                      : visibleSurfaceTabSet.has(props.activeTab as ChatRightSidebarSurface) &&
-                          props.activeTab !== "curriculum"
-                        ? (props.activeTab as ChatRightSidebarSurface)
-                        : fallbackTab
+                      : props.activeTab === "question-set" && questionSetPanelOpen
+                        ? "question-set"
+                        : visibleSurfaceTabSet.has(props.activeTab as ChatRightSidebarSurface) &&
+                            props.activeTab !== "curriculum"
+                          ? (props.activeTab as ChatRightSidebarSurface)
+                          : fallbackTab
 
-  const showTabHeader = true
+  const showTabHeader = activeTab !== "question-set"
   const isSnapshotTabActive = activeTab === "curriculum" || activeTab === "capabilities"
   const learnerSnapshotQuery = useQuery({
     ...learnerSnapshotViewsQueryOptions(directory, {
@@ -265,16 +268,6 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                   onClick={() => props.onTabChange("figure")}
                 >
                   {language.t("rightSidebar.tabs.figure")}
-                </Button>
-              ) : null}
-              {questionSetTabEnabled ? (
-                <Button
-                  data-action="right-sidebar-tab-question-set"
-                  variant={activeTab === "question-set" ? "secondary" : "ghost"}
-                  size="sm"
-                  onClick={() => props.onTabChange("question-set")}
-                >
-                  {language.t("rightSidebar.tabs.questionSet")}
                 </Button>
               ) : null}
               {resourcesTabEnabled ? (
@@ -398,7 +391,13 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
         </div>
       ) : activeTab === "question-set" ? (
         <div className="flex-1 min-h-0 flex flex-col">
-          <WorkspaceQuestionSetPanel directory={directory} />
+          {selectedQuestionSetArtifactID ? (
+            <QuestionSetSidePanel
+              directory={directory}
+              artifactID={selectedQuestionSetArtifactID}
+              onClose={props.onClose}
+            />
+          ) : null}
         </div>
       ) : activeTab === "diagrams" ? (
         <div className="flex-1 min-h-0 flex flex-col">

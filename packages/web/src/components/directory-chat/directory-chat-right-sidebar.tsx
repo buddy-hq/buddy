@@ -1,5 +1,7 @@
+import { useEffect } from "react"
 import { ChatRightSidebar } from "@/components/layout/chat-right-sidebar"
 import { intentFromSelection } from "@/state/teaching-runtime"
+import { useWorkspaceQuestionSetPanelStore } from "@/state/workspace-question-set-panel-store"
 import type { LearnerCurriculumView } from "@/state/chat-actions"
 import type { DirectoryChatState } from "@/lib/directory-chat/use-directory-chat-state"
 import type { TeachingWorkspaceController } from "@/lib/directory-chat/use-teaching-workspace"
@@ -48,6 +50,12 @@ export function DirectoryChatRightSidebar(props: DirectoryChatRightSidebarProps)
     onStartInteractiveLesson,
   })
 
+  useEffect(() => {
+    return () => {
+      useWorkspaceQuestionSetPanelStore.getState().closeQuestionSet(directory)
+    }
+  }, [directory])
+
   return (
     <ChatRightSidebar
       directory={directory}
@@ -68,7 +76,10 @@ export function DirectoryChatRightSidebar(props: DirectoryChatRightSidebarProps)
       onRunAction={onRunCurriculumAction}
       editorPanel={panels.editorPanel}
       figurePanel={panels.figurePanel}
-      onClose={() => chatState.setRightSidebarOpen(false)}
+      onClose={() => {
+        useWorkspaceQuestionSetPanelStore.getState().closeQuestionSet(directory)
+        chatState.setRightSidebarOpen(false)
+      }}
       className="w-full h-full"
     />
   )
