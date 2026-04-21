@@ -12,23 +12,27 @@ import { derivePersonaStaticLearningToolPermissions } from "../../learning/tools
 import { Config } from "../config.js"
 
 function mergeBuddyAgentConfig(base: Config.Agent, override: Config.Agent): Config.Agent {
-  const merged: Config.Agent = {
+  const options =
+    base.options || override.options
+      ? mergeDeep(base.options ?? {}, override.options ?? {})
+      : undefined
+  const permission =
+    base.permission || override.permission
+      ? mergePermissionConfig(base.permission ?? {}, override.permission ?? {})
+      : undefined
+
+  return {
     ...base,
     ...override,
+    ...((override.steps ?? base.steps !== undefined)
+      ? { steps: override.steps ?? base.steps }
+      : {}),
+    ...((override.maxSteps ?? base.maxSteps !== undefined)
+      ? { maxSteps: override.maxSteps ?? base.maxSteps }
+      : {}),
+    ...(options ? { options } : {}),
+    ...(permission ? { permission } : {}),
   }
-
-  merged.steps = override.steps ?? base.steps
-  merged.maxSteps = override.maxSteps ?? base.maxSteps
-
-  if (base.options || override.options) {
-    merged.options = mergeDeep(base.options ?? {}, override.options ?? {})
-  }
-
-  if (base.permission || override.permission) {
-    merged.permission = mergePermissionConfig(base.permission ?? {}, override.permission ?? {})
-  }
-
-  return merged
 }
 
 function permissionRuleEntries(
@@ -99,9 +103,9 @@ function compileBuddyAgentOverlay(): Record<string, Config.Agent> {
   return applyPersonaLearningToolPermissions(indexBuddyAgents())
 }
 
-function sanitizePersonaAgentOverride(agent: Config.Agent): Config.Agent {
+function removeDisableFlag(agent: Config.Agent) {
   const { disable: _disable, ...rest } = agent
-  return rest as Config.Agent
+  return rest
 }
 
 function normalizeConfiguredAgentOverride(
@@ -113,7 +117,7 @@ function normalizeConfiguredAgentOverride(
     return override
   }
 
-  return sanitizePersonaAgentOverride(override)
+  return removeDisableFlag(override)
 }
 
 function applyPersonaLearningToolPermissions(

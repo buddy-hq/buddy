@@ -24,7 +24,6 @@ const SECTION_PRIORITY = [
 ] as const
 
 const SECTION_RULES = [
-  { prefix: "packages/desktop/", section: "Desktop" },
   { prefix: "packages/desktop-electron/", section: "Desktop" },
   { prefix: "packages/buddy/", section: "Backend" },
   { prefix: "packages/web/", section: "Web" },

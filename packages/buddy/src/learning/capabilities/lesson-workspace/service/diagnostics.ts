@@ -67,13 +67,6 @@ async function ensureOpenCodeRuntimeForDirectory(directory: string) {
 }
 
 export async function readActiveDiagnostics(directory: string, record: TeachingWorkspaceRecord) {
-  if (process.env.BUDDY_E2E_MODE === "1") {
-    return {
-      lspAvailable: false,
-      diagnostics: [] as TeachingDiagnostic[],
-    }
-  }
-
   try {
     await ensureOpenCodeRuntimeForDirectory(directory)
 

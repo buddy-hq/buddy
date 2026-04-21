@@ -55,7 +55,6 @@ import {
   getPromptScopeKey,
   usePromptStore,
 } from "../../state/prompt-store"
-import { publishPromptProbe } from "@/e2e/driver"
 
 const IMMEDIATE_BUILTIN_SLASH_COMMANDS = new Set(["new", "persona", "model", "mcp"])
 
@@ -138,8 +137,6 @@ export function PromptComposer(props: PromptComposerProps) {
   const [cursorOffset, setCursorOffset] = useState(() => draft.cursor)
   const [dragging, setDragging] = useState(false)
   const [modelMenuOpen, setModelMenuOpen] = useState(false)
-  const [selectionCount, setSelectionCount] = useState(0)
-  const [lastSelection, setLastSelection] = useState<string | undefined>(undefined)
   const historyIndex = historyNavigation.historyIndex
   const savedHistoryDraft = historyNavigation.savedDraft
 
@@ -160,42 +157,6 @@ export function PromptComposer(props: PromptComposerProps) {
     if (cursorOffset <= draft.value.length) return
     setCursorOffset(draft.value.length)
   }, [cursorOffset, draft.value])
-
-  useEffect(() => {
-    const slashActive = viewState.slashOptions[viewState.slashIndex]?.name
-    const mentionActiveOption = viewState.mentionOptions[viewState.mentionIndex]
-    const mentionActive =
-      mentionActiveOption?.type === "agent"
-        ? `agent:${mentionActiveOption.name}`
-        : mentionActiveOption
-          ? `file:${mentionActiveOption.path}`
-          : undefined
-
-    publishPromptProbe({
-      popover: viewState.slashVisible ? "slash" : viewState.mentionVisible ? "mention" : "none",
-      slash: {
-        ids: viewState.slashOptions.map((option) => option.name),
-        active: slashActive,
-      },
-      mention: {
-        ids: viewState.mentionOptions.map((option) =>
-          option.type === "agent" ? `agent:${option.name}` : `file:${option.path}`,
-        ),
-        active: mentionActive,
-      },
-      selected: lastSelection,
-      selects: selectionCount,
-    })
-  }, [
-    lastSelection,
-    selectionCount,
-    viewState.mentionIndex,
-    viewState.mentionOptions,
-    viewState.mentionVisible,
-    viewState.slashIndex,
-    viewState.slashOptions,
-    viewState.slashVisible,
-  ])
 
   const attachmentState = usePromptComposerAttachments({
     promptKey,
@@ -405,8 +366,6 @@ export function PromptComposer(props: PromptComposerProps) {
 
     viewState.setDismissedMentionKey(undefined)
     handleEditorInput()
-    setLastSelection(option.type === "agent" ? `agent:${option.name}` : `file:${option.path}`)
-    setSelectionCount((current) => current + 1)
   }
 
   function clearComposer() {
@@ -451,9 +410,6 @@ export function PromptComposer(props: PromptComposerProps) {
   }
 
   function applySlash(command: SlashCommandOption) {
-    setLastSelection(`slash:${command.name}`)
-    setSelectionCount((current) => current + 1)
-
     if (command.type === "builtin" && IMMEDIATE_BUILTIN_SLASH_COMMANDS.has(command.name)) {
       runBuiltinSlashCommand(command.name)
       return

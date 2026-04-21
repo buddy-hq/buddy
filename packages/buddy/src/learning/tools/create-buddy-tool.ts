@@ -1,5 +1,6 @@
+import { Effect } from "effect"
 import type z from "zod"
-import { Tool } from "@buddy/opencode-adapter/tool"
+import { Tool, type ToolRuntimeServices } from "@buddy/opencode-adapter/tool"
 import {
   ADVANCED_MATH_RUNTIME_DEPENDENCY,
   EDITOR_PERSONA_SURFACE,
@@ -18,21 +19,19 @@ type BuddyToolContext<Metadata extends BuddyToolMetadata = BuddyToolMetadata> =
     directory: string
   }
 
-type BuddyToolInitResult<Parameters extends z.ZodType, Metadata extends BuddyToolMetadata> = Omit<
-  Awaited<ReturnType<Tool.Info<Parameters, Metadata>["init"]>>,
-  "execute"
-> & {
+type BuddyToolInitResult<Parameters extends z.ZodType, Metadata extends BuddyToolMetadata> = {
+  description: string
+  parameters: Parameters
   execute(
     args: z.infer<Parameters>,
     ctx: BuddyToolContext<Metadata>,
-  ): ReturnType<Awaited<ReturnType<Tool.Info<Parameters, Metadata>["init"]>>["execute"]>
+  ): Promise<Tool.ExecuteResult<Metadata>> | Tool.ExecuteResult<Metadata>
+  formatValidationError?(error: z.ZodError): string
 }
 
 type BuddyToolInit<Parameters extends z.ZodType, Metadata extends BuddyToolMetadata> =
   | BuddyToolInitResult<Parameters, Metadata>
-  | ((
-      ctx?: Tool.InitContext,
-    ) =>
+  | (() =>
       | Promise<BuddyToolInitResult<Parameters, Metadata>>
       | BuddyToolInitResult<Parameters, Metadata>)
 
@@ -43,25 +42,13 @@ type BuddyTool<
 > = {
   id: Id
   capability?: BuddyToolCapabilityConstraints
-  toTool(directory: string): Tool.Info<Parameters, Metadata>
+  toTool(
+    directory: string,
+  ): Effect.Effect<Tool.Info<Parameters, Metadata>, never, ToolRuntimeServices> & { id: Id }
 }
 
 function createAbortError() {
   return new DOMException("Aborted", "AbortError")
-}
-
-function cloneCapabilityConstraints(
-  capability: BuddyToolCapabilityConstraints | undefined,
-): BuddyToolCapabilityConstraints {
-  if (!capability) {
-    return {}
-  }
-
-  return {
-    ...(capability.surfaces ? { surfaces: [...capability.surfaces] } : {}),
-    ...(capability.workspaceStates ? { workspaceStates: [...capability.workspaceStates] } : {}),
-    ...(capability.runtimeDependency ? { runtimeDependency: capability.runtimeDependency } : {}),
-  }
 }
 
 async function executeUntilAbort<T>(abort: AbortSignal, execute: () => Promise<T>) {
@@ -99,23 +86,44 @@ function createBuddyTool<
     id,
     capability: clonedCapability,
     toTool(directory: string) {
-      return Tool.define<Parameters, Metadata>(id, async (initCtx) => {
-        const definition = typeof init === "function" ? await init(initCtx) : init
+      return Tool.define(
+        id,
+        Effect.promise(async () => {
+          const definition = typeof init === "function" ? await init() : init
 
-        return {
-          ...definition,
-          async execute(args, ctx) {
-            const nextCtx: BuddyToolContext<Metadata> = {
-              ...ctx,
-              directory,
-            }
+          return {
+            ...definition,
+            execute(args: z.infer<Parameters>, ctx: Tool.Context<Metadata>) {
+              const nextCtx: BuddyToolContext<Metadata> = {
+                ...ctx,
+                directory,
+              }
 
-            nextCtx.abort.throwIfAborted()
-            return executeUntilAbort(nextCtx.abort, () => definition.execute(args, nextCtx))
-          },
-        }
-      })
+              return Effect.promise(async () => {
+                nextCtx.abort.throwIfAborted()
+                return executeUntilAbort(nextCtx.abort, async () =>
+                  definition.execute(args, nextCtx),
+                )
+              })
+            },
+          }
+        }),
+      )
     },
+  }
+}
+
+function cloneCapabilityConstraints(
+  capability: BuddyToolCapabilityConstraints | undefined,
+): BuddyToolCapabilityConstraints {
+  if (!capability) {
+    return {}
+  }
+
+  return {
+    ...(capability.surfaces ? { surfaces: [...capability.surfaces] } : {}),
+    ...(capability.workspaceStates ? { workspaceStates: [...capability.workspaceStates] } : {}),
+    ...(capability.runtimeDependency ? { runtimeDependency: capability.runtimeDependency } : {}),
   }
 }
 
@@ -128,11 +136,9 @@ export {
   STANDARDS_RUNTIME_DEPENDENCY,
 }
 
+export type { BuddyTool, BuddyToolContext, BuddyToolInit }
 export type {
-  BuddyTool,
   BuddyToolCapabilityConstraints,
-  BuddyToolContext,
-  BuddyToolInit,
   BuddyToolPersonaSurface,
   BuddyToolWorkspaceState,
   LearningToolRuntimeDependency,

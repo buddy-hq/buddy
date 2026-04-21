@@ -1,4 +1,6 @@
-import { Tool, WriteTool } from "@buddy/opencode-adapter/tool"
+import { mkdir, writeFile } from "node:fs/promises"
+import path from "node:path"
+import { Tool } from "@buddy/opencode-adapter/tool"
 
 export async function executeWriteWithoutPrompt(
   ctx: Tool.Context,
@@ -7,9 +9,11 @@ export async function executeWriteWithoutPrompt(
     content: string
   },
 ) {
-  const write = await WriteTool.init()
-  return write.execute(input, {
-    ...ctx,
-    ask: async () => {},
-  })
+  await mkdir(path.dirname(input.filePath), { recursive: true })
+  await writeFile(input.filePath, input.content)
+  return {
+    title: "Write file",
+    output: "Wrote file successfully.",
+    metadata: {},
+  }
 }

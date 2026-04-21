@@ -29,7 +29,6 @@ import { learnerSnapshotViewsQueryOptions } from "@/state/learner-query"
 import { SystemPromptPanel } from "./system-prompt-panel"
 import { PalettePanel } from "./palette-panel"
 import { buildSessionTrace, copyToClipboard } from "@/lib/directory-chat/chat-debug-helpers"
-import { setE2EOpenAIConnectedState } from "@/lib/e2e-runtime"
 import { OPENAI_PROVIDER_ID } from "@/lib/provider-ids"
 import {
   formatProviderAuthError,
@@ -643,7 +642,6 @@ export function BuddyDevTools() {
     setIsDisconnectingOpenAi(true)
     try {
       await removeProviderAuth({ providerID: OPENAI_PROVIDER_ID })
-      await setE2EOpenAIConnectedState(false)
       await reloadProviderRuntime()
       toast.success(language.t("desktopTitlebar.openAiDisconnected"))
     } catch (error) {

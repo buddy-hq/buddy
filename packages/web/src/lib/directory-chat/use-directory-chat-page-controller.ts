@@ -105,7 +105,6 @@ import { useChatSync } from "./use-chat-sync"
 import { useChatConfig } from "./use-chat-config"
 import { useTeachingWorkspace } from "./use-teaching-workspace"
 import { getRightSidebarDefaultWidth, RIGHT_SIDEBAR_EDITOR_MIN_WIDTH } from "./right-sidebar-layout"
-import { publishPromptSubmissionProbe } from "@/e2e/driver"
 import type { SidebarResourceTarget } from "@/components/layout/chat-left-sidebar/resources-section"
 import { useQuestionSetSidebarActions } from "@/components/question-set/use-question-set-sidebar-actions"
 import { useWorkspaceQuestionSetPanelStore } from "@/state/workspace-question-set-panel-store"
@@ -1262,17 +1261,6 @@ export function useDirectoryChatPageController(
       )
     }
 
-    publishPromptSubmissionProbe({
-      kind: "prompt",
-      intent,
-      persona: cs.selectedPersona,
-      model: cs.effectiveModelSelection
-        ? `${cs.effectiveModelSelection.providerID}/${cs.effectiveModelSelection.modelID}`
-        : "auto",
-      contentLength: content.length,
-      hasTeachingContext: Boolean(teachingContext?.active),
-    })
-
     setSystemPromptRefreshToken((token) => token + 1)
     void syncTeachingRuntimeSelection()
     return true
@@ -1294,22 +1282,8 @@ export function useDirectoryChatPageController(
 
     if (slashCommand) {
       const intent = intentFromSelection(cs.storedIntent)
-      const publishCommandSubmission = () => {
-        publishPromptSubmissionProbe({
-          kind: "command",
-          intent,
-          persona: cs.selectedPersona,
-          model: cs.effectiveModelSelection
-            ? `${cs.effectiveModelSelection.providerID}/${cs.effectiveModelSelection.modelID}`
-            : "auto",
-          command: slashCommand.command.name,
-          contentLength: slashCommand.arguments.length,
-          hasTeachingContext: false,
-        })
-      }
 
       if (slashCommand.command.name === "new") {
-        publishCommandSubmission()
         cs.clearPromptDraft(cs.promptKey)
         try {
           await onNewSession()
@@ -1320,14 +1294,12 @@ export function useDirectoryChatPageController(
       }
 
       if (slashCommand.command.name === "mcp") {
-        publishCommandSubmission()
         cs.clearPromptDraft(cs.promptKey)
         navigate({ to: "/settings", search: { tab: "mcps" } })
         return
       }
 
       if (slashCommand.command.name === QUIZ_SLASH_COMMAND_NAME) {
-        publishCommandSubmission()
         cs.clearPromptDraft(cs.promptKey)
         try {
           const sent = await sendRuntimePrompt({
@@ -1360,7 +1332,6 @@ export function useDirectoryChatPageController(
           return
         }
 
-        publishCommandSubmission()
         cs.clearPromptDraft(cs.promptKey)
         try {
           await compactSession(decodedDirectory, sessionID, {
@@ -1376,7 +1347,6 @@ export function useDirectoryChatPageController(
       }
 
       if (isResourceLocalSlashCommandName(slashCommand.command.name)) {
-        publishCommandSubmission()
         const resourceCommand = parseResourceLocalSlashCommand(rawContent)
         cs.clearPromptDraft(cs.promptKey)
         if (!resourceCommand) {
@@ -1398,7 +1368,6 @@ export function useDirectoryChatPageController(
       const attachmentParts = buildCommandAttachmentParts(rawAttachments)
       cs.clearPromptDraft(cs.promptKey)
       try {
-        publishCommandSubmission()
         await sendCommand(decodedDirectory, slashCommand.command.name, slashCommand.arguments, {
           parts: attachmentParts,
           persona: cs.selectedPersona,

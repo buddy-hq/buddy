@@ -11,7 +11,7 @@ import {
 import { proxyToOpenCode } from "../http"
 
 const permissionReplyRequestSchema = z.object({
-  reply: PermissionNext.Reply,
+  reply: PermissionNext.Reply.zod,
   message: z.string().optional(),
 })
 
@@ -26,7 +26,7 @@ export const PermissionRoutes = new Hono()
           description: "Pending permission requests",
           content: {
             "application/json": {
-              schema: resolver(PermissionNext.Request.array()),
+              schema: resolver(PermissionNext.Request.zod.array()),
             },
           },
         },

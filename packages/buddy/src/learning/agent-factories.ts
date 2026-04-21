@@ -1,12 +1,13 @@
-import { z } from "zod"
 import { Config } from "@buddy/backend/config"
 
-type BuddyAgentAuthoring = z.input<typeof Config.Agent>
+type BuddyAgentAuthoring = Parameters<(typeof Config.Agent)["parse"]>[0]
 type BuddyPermissionRuleInput = Config.PermissionRule
 type BuddyPermissionInput = Config.PermissionAction | Record<string, Config.PermissionRule>
 type AgentMode = "primary" | "subagent"
 
 type BaseAgentDefinition = Omit<BuddyAgentAuthoring, "mode" | "permission"> & {
+  description?: string
+  prompt?: string
   permission?: BuddyPermissionInput
 }
 

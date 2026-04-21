@@ -4,7 +4,6 @@ import { useChatStore } from "@/state/chat-store"
 import type { DirectoryChatState } from "@/state/chat-types"
 import type { ProviderCatalogState } from "@/state/chat-types"
 import { useOnboardingStore } from "@/state/onboarding-store"
-import { loadE2EOpenAIConnectedState } from "./e2e-runtime"
 import { OPENAI_PROVIDER_ID } from "./provider-ids"
 
 export type DesktopOnboardingState = {
@@ -74,14 +73,6 @@ export async function resolveDesktopEntryPathWithSnapshots(input: {
 }) {
   if (!shouldShowDesktopOnboarding(input.state)) {
     return "/chat"
-  }
-
-  if (import.meta.env.DEV && getPlatform().platform === "desktop") {
-    const e2eOpenAIConnected = await loadE2EOpenAIConnectedState()
-    if (e2eOpenAIConnected === true) {
-      input.markOnboardingCompleted()
-      return "/chat"
-    }
   }
 
   const [openProjectsResult, providersResult] = await Promise.allSettled([

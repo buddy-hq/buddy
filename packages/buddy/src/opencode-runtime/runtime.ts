@@ -7,6 +7,7 @@ import {
   configureOpenCodeEnvironment,
 } from "./env"
 import { Server } from "@buddy/opencode-adapter/server"
+import { repairLegacyOpenCodeMigrations } from "./legacy-migration-repair"
 
 let appPromise: Promise<{ fetch(request: Request): Response | Promise<Response> }> | undefined
 
@@ -25,7 +26,16 @@ export async function loadOpenCodeApp() {
   if (!appPromise) {
     appPromise = (async () => {
       await ensureRuntimeDirectories()
-      return Server.Default()
+      const repairedMigrations = await repairLegacyOpenCodeMigrations()
+      if (repairedMigrations.length > 0) {
+        console.warn("Repaired legacy OpenCode migration journal entries:", repairedMigrations)
+      }
+      const built = await Server.Default()
+      return {
+        fetch(request: Request) {
+          return built.app.fetch(request)
+        },
+      }
     })()
   }
 

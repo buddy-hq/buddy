@@ -1,3 +1,4 @@
+import { Effect } from "effect"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { MessageID, ModelID, ProviderID, SessionID } from "@buddy/opencode-adapter/id"
 import type { Tool } from "@buddy/opencode-adapter/tool"
@@ -23,8 +24,12 @@ export function createToolContext(input: ToolContextInput): Tool.Context {
     agent: input.agent,
     abort: new AbortController().signal,
     messages: [],
-    metadata() {},
-    async ask() {},
+    metadata() {
+      return Effect.void
+    },
+    ask() {
+      return Effect.void
+    },
   }
 }
 

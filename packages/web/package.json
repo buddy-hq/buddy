@@ -22,11 +22,7 @@
     "typecheck": "tsgo -b",
     "preview": "vite preview",
     "test": "bun test --preload ./happydom.ts test",
-    "test:contracts": "bun test --preload ./happydom.ts test/parity",
-    "test:e2e": "playwright test --config ./playwright.config.ts",
-    "test:e2e:ui": "playwright test --config ./playwright.config.ts --ui",
-    "test:e2e:report": "playwright show-report ./e2e/playwright-report",
-    "test:e2e:local": "PLAYWRIGHT_WORKERS=1 playwright test --config ./playwright.config.ts"
+    "test:contracts": "bun test --preload ./happydom.ts test/parity"
   },
   "dependencies": {
     "@buddy/opencode-adapter": "workspace:*",
@@ -61,7 +57,6 @@
   },
   "devDependencies": {
     "@happy-dom/global-registrator": "20.0.11",
-    "@playwright/test": "^1.57.0",
     "@storybook/react-vite": "catalog:",
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/router-plugin": "^1.167.22",

@@ -29,7 +29,8 @@
     "./file": "./src/file.ts",
     "./provider": "./src/provider.ts",
     "./theme": "./src/theme.ts",
-    "./provider-icon": "./src/provider-icon.ts"
+    "./provider-icon": "./src/provider-icon.ts",
+    "./storage-db": "./src/storage-db.ts"
   },
   "scripts": {
     "lint": "oxlint",
@@ -37,6 +38,7 @@
   },
   "dependencies": {
     "ai": "5.0.124",
+    "effect": "catalog:",
     "opencode": "workspace:*"
   },
   "devDependencies": {

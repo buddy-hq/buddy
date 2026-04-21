@@ -2,7 +2,6 @@ import type { GlobalEvent } from "./chat-types"
 import { getPlatform } from "../context/platform"
 import { apiFetch, createEventStreamUrl } from "../lib/api-client"
 import { getServerConnection } from "../context/server"
-import { publishChatSyncProbeStatus, registerChatSyncProbe } from "@/e2e/driver"
 
 type SyncHandlers = {
   directory?: string
@@ -105,7 +104,6 @@ export function startChatSync(handlers: SyncHandlers) {
 
   const reportStatus = (status: "connecting" | "connected" | "error") => {
     handlers.onStatus?.(status)
-    publishChatSyncProbeStatus(status)
   }
 
   const clearReconnect = () => {
@@ -330,25 +328,6 @@ export function startChatSync(handlers: SyncHandlers) {
 
   connect()
 
-  const disconnect = () => {
-    closeSource()
-    closeStream()
-    clearReconnect()
-    reportStatus("error")
-  }
-
-  const reconnect = () => {
-    closeSource()
-    closeStream()
-    clearReconnect()
-    connect()
-  }
-
-  const unregisterProbe = registerChatSyncProbe({
-    disconnect,
-    reconnect,
-  })
-
   return {
     stop() {
       disposed = true
@@ -356,8 +335,6 @@ export function startChatSync(handlers: SyncHandlers) {
       closeSource()
       closeStream()
       flush()
-      unregisterProbe()
-      publishChatSyncProbeStatus("idle")
     },
   }
 }

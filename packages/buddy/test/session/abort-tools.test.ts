@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { Effect } from "effect"
 import z from "zod"
 import { MessageID, SessionID } from "@buddy/opencode-adapter/id"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
@@ -46,8 +47,12 @@ describe("buddy tool abort handling", () => {
             agent: "math-buddy",
             abort: abortController.signal,
             messages: [],
-            metadata() {},
-            async ask() {},
+            metadata() {
+              return Effect.void
+            },
+            ask() {
+              return Effect.void
+            },
           },
         )
       },

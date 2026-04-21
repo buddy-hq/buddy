@@ -49,15 +49,13 @@ const ALLOW_ACTION: Config.PermissionAction = "allow"
 const ASK_ACTION: Config.PermissionAction = "ask"
 
 function buildSkillExternalDirectoryRules(skillPaths: string[] | undefined): Config.PermissionRule {
-  const rules: Config.PermissionRule = {
-    [ANY_PATTERN]: ASK_ACTION,
-  }
+  const rules: Array<[string, Config.PermissionAction]> = [[ANY_PATTERN, ASK_ACTION]]
 
   for (const skillPath of skillPaths ?? []) {
-    rules[path.join(skillPath, ANY_PATTERN)] = ALLOW_ACTION
+    rules.push([path.join(skillPath, ANY_PATTERN), ALLOW_ACTION])
   }
 
-  return rules
+  return Object.fromEntries(rules)
 }
 
 function buildOpenCodePermissionOverlay(

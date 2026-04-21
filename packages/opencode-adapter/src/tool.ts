@@ -1,3 +1,6 @@
+import type * as OpenCodeAgent from "opencode/agent/agent"
+import type * as OpenCodeTruncate from "opencode/tool/truncate"
+
 export type ToolContext = {
   ask(input: {
     permission: string
@@ -7,9 +10,9 @@ export type ToolContext = {
   }): Promise<void>
 }
 
-// Compile-safe bridges to vendored OpenCode tool runtime.
-export { Tool } from "opencode/tool/tool"
-export { Truncate } from "opencode/tool/truncate"
+export type ToolRuntimeServices = OpenCodeAgent.Service | OpenCodeTruncate.Service
+
+export * as Tool from "opencode/tool/tool"
+export * as Truncate from "opencode/tool/truncate"
 export { EditTool } from "opencode/tool/edit"
 export { WriteTool } from "opencode/tool/write"
-export { FileTime } from "opencode/file/time"

@@ -43,6 +43,7 @@
     "ai": "5.0.124",
     "dedent": "^1.7.2",
     "drizzle-orm": "1.0.0-beta.12-a5629fb",
+    "effect": "catalog:",
     "fast-xml-parser": "^5.5.6",
     "gray-matter": "^4.0.3",
     "hono": "^4.6.0",

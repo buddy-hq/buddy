@@ -1,17 +1,22 @@
-// Compile-safe bridge to vendored OpenCode config runtime with in-memory overlays.
-import { Config } from "opencode/config/config"
-import { Instance } from "opencode/project/instance"
-import path from "node:path"
 import { realpathSync } from "node:fs"
+import path from "node:path"
+import * as OpenCodeConfigAgent from "opencode/config/agent"
+import * as OpenCodeConfig from "opencode/config/config"
+import * as OpenCodeConfigMCP from "opencode/config/mcp"
+import * as OpenCodeConfigModelID from "opencode/config/model-id"
+import * as OpenCodeConfigPermission from "opencode/config/permission"
+import * as OpenCodeConfigProvider from "opencode/config/provider"
+import * as OpenCodeConfigSkills from "opencode/config/skills"
+import { makeRuntime } from "opencode/effect/run-service"
+import { Instance } from "opencode/project/instance"
 
-type RuntimeConfig = Awaited<ReturnType<typeof Config.get>>
+type RuntimeConfig = OpenCodeConfig.Info
 
+const runtime = makeRuntime(OpenCodeConfig.Service, OpenCodeConfig.defaultLayer)
 const overlays = new Map<string, Partial<RuntimeConfig>>()
-const originalGet = Config.get.bind(Config)
+
 const originalProvide = Instance.provide.bind(Instance)
 const originalReload = Instance.reload.bind(Instance)
-type InstanceProvideInput = Parameters<typeof originalProvide>[0]
-type InstanceReloadInput = Parameters<typeof originalReload>[0]
 
 let patched = false
 
@@ -27,9 +32,9 @@ function mergePluginValues(base: unknown, overlay: unknown) {
   return Array.from(new Set([...base, ...overlay]))
 }
 
-function mergeConfigValue<T>(base: T, overlay: unknown, key?: string): T {
+function mergeConfigValue<T>(base: T, overlay: unknown, field?: string): T {
   if (overlay === undefined) return base
-  if (key === "plugin") {
+  if (field === "plugin") {
     return mergePluginValues(base, overlay) as T
   }
   if (!isPlainObject(base) || !isPlainObject(overlay)) {
@@ -75,22 +80,16 @@ function ensurePatched() {
   if (patched) return
   patched = true
 
-  Instance.provide = async function provideWithOverlay<R>(
-    input: InstanceProvideInput & { fn: () => R },
-  ): Promise<R> {
+  const provideWithOverlay: typeof Instance.provide = async (input) => {
     return withOverlayEnv(input.directory, () => originalProvide(input))
   }
 
-  Instance.reload = async function reloadWithOverlay(input: InstanceReloadInput) {
+  const reloadWithOverlay: typeof Instance.reload = async (input) => {
     return withOverlayEnv(input.directory, () => originalReload(input))
   }
 
-  Config.get = async function getWithOverlay() {
-    const base = await originalGet()
-    const overlay = overlays.get(key(Instance.directory))
-    if (!overlay) return base
-    return mergeConfigValue(base, overlay)
-  }
+  Instance.provide = provideWithOverlay
+  Instance.reload = reloadWithOverlay
 }
 
 export function setConfigOverlay(directory: string, overlay: Partial<RuntimeConfig>) {
@@ -102,4 +101,52 @@ export function clearConfigOverlay(directory: string) {
   overlays.delete(key(directory))
 }
 
-export { Config }
+export namespace Config {
+  export const Info = OpenCodeConfig.Info
+  export type Info = OpenCodeConfig.Info
+
+  export const Agent = OpenCodeConfigAgent.Info
+  export type Agent = OpenCodeConfigAgent.Info
+
+  export const Skills = OpenCodeConfigSkills.Info.zod
+  export type Skills = OpenCodeConfigSkills.Info
+
+  export const ModelID = OpenCodeConfigModelID.ConfigModelID.zod
+  export type ModelID = OpenCodeConfigModelID.ConfigModelID
+
+  export const Provider = OpenCodeConfigProvider.Info.zod
+  export type Provider = OpenCodeConfigProvider.Info
+
+  export const Permission = OpenCodeConfigPermission.Info
+  export type Permission = OpenCodeConfigPermission.Info
+
+  export const PermissionAction = OpenCodeConfigPermission.Action.zod
+  export type PermissionAction = OpenCodeConfigPermission.Action
+
+  export const PermissionRule = OpenCodeConfigPermission.Rule.zod
+  export type PermissionRule = OpenCodeConfigPermission.Rule
+
+  export const Mcp = OpenCodeConfigMCP.Info.zod
+  export type Mcp = OpenCodeConfigMCP.Info
+
+  export async function get() {
+    ensurePatched()
+    const config = await runtime.runPromise((svc) => svc.get())
+    const overlay = overlays.get(key(Instance.directory))
+    if (!overlay) return config
+    return mergeConfigValue(config, overlay)
+  }
+
+  export async function getGlobal() {
+    return runtime.runPromise((svc) => svc.getGlobal())
+  }
+
+  export async function directories() {
+    ensurePatched()
+    return runtime.runPromise((svc) => svc.directories())
+  }
+
+  export async function waitForDependencies() {
+    return runtime.runPromise((svc) => svc.waitForDependencies())
+  }
+}

@@ -1,26 +1,17 @@
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
-import { Config } from "@buddy/backend/config"
-import { readProjectConfig } from "@buddy/backend/config/runtime"
 import { MCP as OpenCodeMcp } from "@buddy/opencode-adapter/mcp"
 import {
   booleanJsonResponse,
   createConfigSyncMiddleware,
-  withDirectoryContext,
   routeErrors,
   directoryQuerySchema,
   McpNameParamSchema,
 } from "../http"
 import { proxyToOpenCode } from "../http"
-import { getE2ERuntimeState, isE2EModeEnabled, setE2EMcpStatus } from "../e2e/runtime"
 
 const mcpStatusMapSchema = z.record(z.string(), OpenCodeMcp.Status)
-
-const mcpAddSchema = z.object({
-  name: z.string(),
-  config: Config.Mcp,
-})
 
 const mcpAuthCallbackSchema = z.object({
   code: z.string(),
@@ -33,63 +24,6 @@ const mcpAuthStartSchema = z.object({
 const mcpAuthRemovedSchema = z.object({
   success: z.literal(true),
 })
-
-type E2EMcpStatus = "connected" | "disabled" | "failed" | "needs_auth"
-
-function asRecord(value: unknown): Record<string, unknown> | undefined {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : undefined
-}
-
-function readMcpEnabledConfig(value: unknown) {
-  const record = asRecord(value)
-  if (!record) return {}
-
-  const output: Record<string, { enabled: boolean }> = {}
-  for (const [name, entry] of Object.entries(record)) {
-    const config = asRecord(entry)
-    output[name] = {
-      enabled: config?.enabled !== false,
-    }
-  }
-  return output
-}
-
-function buildE2EMcpStatusRecord(input: {
-  configured: Record<string, { enabled: boolean }>
-  runtime: Record<string, E2EMcpStatus>
-}) {
-  const allNames = new Set<string>([
-    ...Object.keys(input.configured),
-    ...Object.keys(input.runtime),
-  ])
-  const status: Record<string, OpenCodeMcp.Status> = {}
-
-  for (const name of allNames) {
-    const override = input.runtime[name]
-    const normalized = override ?? "disabled"
-
-    if (normalized === "connected") {
-      status[name] = { status: "connected" }
-      continue
-    }
-    if (normalized === "needs_auth") {
-      status[name] = { status: "needs_auth" }
-      continue
-    }
-    if (normalized === "failed") {
-      status[name] = {
-        status: "failed",
-        error: "E2E deterministic MCP failure",
-      }
-      continue
-    }
-    status[name] = { status: "disabled" }
-  }
-
-  return status
-}
 
 export const McpRoutes = new Hono()
   .use("*", createConfigSyncMiddleware("MCP request"))
@@ -109,24 +43,7 @@ export const McpRoutes = new Hono()
       },
     }),
     validator("query", directoryQuerySchema),
-    async (c) => {
-      if (!isE2EModeEnabled()) {
-        return proxyToOpenCode(c, { targetPath: "/mcp" })
-      }
-
-      const contextResult = withDirectoryContext(c)
-      if (!contextResult.ok) return contextResult.response
-
-      const config = await readProjectConfig(contextResult.value.directory).catch(() => undefined)
-      const configured = readMcpEnabledConfig(config?.mcp)
-      const runtime = getE2ERuntimeState().mcp[contextResult.value.directory] ?? {}
-      return c.json(
-        buildE2EMcpStatusRecord({
-          configured,
-          runtime,
-        }),
-      )
-    },
+    async (c) => proxyToOpenCode(c, { targetPath: "/mcp" }),
   )
   .post(
     "/",
@@ -144,7 +61,6 @@ export const McpRoutes = new Hono()
       },
     }),
     validator("query", directoryQuerySchema),
-    validator("json", mcpAddSchema),
     async (c) => proxyToOpenCode(c, { targetPath: "/mcp" }),
   )
   .post(
@@ -209,18 +125,10 @@ export const McpRoutes = new Hono()
     }),
     validator("query", directoryQuerySchema),
     validator("param", McpNameParamSchema),
-    async (c) => {
-      if (isE2EModeEnabled()) {
-        const contextResult = withDirectoryContext(c)
-        if (!contextResult.ok) return contextResult.response
-        const name = c.req.valid("param").name
-        setE2EMcpStatus(contextResult.value.directory, name, "connected")
-        return c.json({ status: "connected" })
-      }
-      return proxyToOpenCode(c, {
+    async (c) =>
+      proxyToOpenCode(c, {
         targetPath: `/mcp/${encodeURIComponent(c.req.valid("param").name)}/auth/authenticate`,
-      })
-    },
+      }),
   )
   .delete(
     "/:name/auth",
@@ -261,18 +169,10 @@ export const McpRoutes = new Hono()
     }),
     validator("query", directoryQuerySchema),
     validator("param", McpNameParamSchema),
-    async (c) => {
-      if (isE2EModeEnabled()) {
-        const contextResult = withDirectoryContext(c)
-        if (!contextResult.ok) return contextResult.response
-        const name = c.req.valid("param").name
-        setE2EMcpStatus(contextResult.value.directory, name, "connected")
-        return c.json(true)
-      }
-      return proxyToOpenCode(c, {
+    async (c) =>
+      proxyToOpenCode(c, {
         targetPath: `/mcp/${encodeURIComponent(c.req.valid("param").name)}/connect`,
-      })
-    },
+      }),
   )
   .post(
     "/:name/disconnect",
@@ -291,16 +191,8 @@ export const McpRoutes = new Hono()
     }),
     validator("query", directoryQuerySchema),
     validator("param", McpNameParamSchema),
-    async (c) => {
-      if (isE2EModeEnabled()) {
-        const contextResult = withDirectoryContext(c)
-        if (!contextResult.ok) return contextResult.response
-        const name = c.req.valid("param").name
-        setE2EMcpStatus(contextResult.value.directory, name, "disabled")
-        return c.json(true)
-      }
-      return proxyToOpenCode(c, {
+    async (c) =>
+      proxyToOpenCode(c, {
         targetPath: `/mcp/${encodeURIComponent(c.req.valid("param").name)}/disconnect`,
-      })
-    },
+      }),
   )

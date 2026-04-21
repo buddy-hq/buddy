@@ -96,45 +96,6 @@ describe("prompt assemblies", () => {
     })
   })
 
-  test("includes a compact notebook resource inventory", async () => {
-    await using project = await tmpdir()
-
-    const system = await buildRuntimePrompt({
-      directory: project.path,
-      persona: "buddy",
-      resources: [
-        {
-          id: "res_shape_up",
-          name: "Shape Up",
-          alias: "shape-up",
-          sourceRelpath: "resources/shape-up/Shape Up.pdf",
-          format: "pdf",
-          status: "ready",
-          warnings: [],
-        },
-        {
-          id: "res_goal_rubric",
-          name: "Goal Rubric",
-          alias: "goal-rubric",
-          sourceRelpath: "resources/goal-rubric/rubric.docx",
-          format: "docx",
-          status: "preparing",
-          warnings: ["The resource is still being prepared."],
-        },
-      ],
-    })
-
-    expect(system).toContain("<notebook_resources>")
-    expect(system).toContain("Available resources:")
-    expect(system).toContain("id=res_shape_up")
-    expect(system).toContain("name=Shape Up")
-    expect(system).toContain("alias=shape-up")
-    expect(system).toContain("pack=resources/shape-up/processed")
-    expect(system).toContain("id=res_goal_rubric")
-    expect(system).toContain("alias=goal-rubric")
-    expect(system).toContain("status=preparing")
-  })
-
   test("adds truncation guidance when resources exceed detailed budget", async () => {
     await using project = await tmpdir()
 

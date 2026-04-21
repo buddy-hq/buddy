@@ -1,5 +1,5 @@
 import type { ModelMessage } from "ai"
-import { ProviderTransform } from "opencode/provider/transform"
+import * as OpenCodeProviderTransform from "opencode/provider/transform"
 
 const KIMI_REASONING_MODEL_MARKERS = ["k2p5", "kimi-k2.5", "kimi-k2p5"] as const
 const DEFAULT_OUTPUT_TOKEN_FALLBACK = 32_000
@@ -56,7 +56,7 @@ function normalizeOutputTokenLimit(limit?: number, fallback = DEFAULT_OUTPUT_TOK
   return fallback
 }
 
-const openCodeProviderTransform = ProviderTransform
+const openCodeProviderTransform = OpenCodeProviderTransform
 
 export namespace OpenCodeAdapterProviderTransform {
   export async function maxOutputTokens(options: MaxOutputTokenOptions) {

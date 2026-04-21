@@ -10,9 +10,19 @@ import { resolveBuddyPersonaProfiles } from "../../learning/personas/wiring/pers
 
 export namespace ConfigSchema {
   const NOTEBOOK_HOME_PATH_ERROR_MESSAGE = "notebook_home must be an absolute path" as const
+  const NonNegativeInteger = z.number().int().nonnegative()
 
   export const Mcp = OpenCodeConfig.Mcp
   export type Mcp = z.infer<typeof Mcp>
+
+  export const Skills = OpenCodeConfig.Skills
+  export type Skills = z.infer<typeof Skills>
+
+  export const ModelID = OpenCodeConfig.ModelID
+  export type ModelID = z.infer<typeof ModelID>
+
+  export const Provider = OpenCodeConfig.Provider
+  export type Provider = z.infer<typeof Provider>
 
   export type PermissionAction = z.infer<typeof OpenCodeConfig.PermissionAction>
   export type PermissionRule = z.infer<typeof OpenCodeConfig.PermissionRule>
@@ -23,11 +33,20 @@ export namespace ConfigSchema {
   export const Agent = OpenCodeConfig.Agent
   export type Agent = z.output<typeof Agent>
 
-  const openCodeInfoShape = OpenCodeConfig.Info.shape
   const TOOL_TOGGLE_MAP = z.record(z.string(), z.boolean()).optional()
   const BuddySurface = z.enum(PERSONA_SURFACES)
   const BuddyPersonaID = z.enum(PERSONAS)
   const TeachingIntent = z.enum(INTENTS)
+  const DisabledMcp = z.object({ enabled: z.boolean() }).strict()
+  const Compaction = z
+    .object({
+      auto: z.boolean().optional(),
+      prune: z.boolean().optional(),
+      tail_turns: NonNegativeInteger.optional(),
+      preserve_recent_tokens: NonNegativeInteger.optional(),
+      reserved: NonNegativeInteger.optional(),
+    })
+    .optional()
 
   export const PersonaOverride = z
     .object({
@@ -62,20 +81,20 @@ export namespace ConfigSchema {
 
   export const Info = z
     .object({
-      $schema: openCodeInfoShape["$schema"],
-      skills: openCodeInfoShape.skills,
-      disabled_providers: openCodeInfoShape.disabled_providers,
-      enabled_providers: openCodeInfoShape.enabled_providers,
-      model: openCodeInfoShape.model,
-      small_model: openCodeInfoShape.small_model,
+      $schema: z.string().optional(),
+      skills: Skills.optional(),
+      disabled_providers: z.array(z.string()).optional(),
+      enabled_providers: z.array(z.string()).optional(),
+      model: ModelID.optional(),
+      small_model: ModelID.optional(),
       default_persona: BuddyPersonaID.optional(),
       default_intent: TeachingIntent.nullable().optional(),
       personas: Personas.optional(),
-      agent: openCodeInfoShape.agent,
-      provider: openCodeInfoShape.provider,
-      mcp: openCodeInfoShape.mcp,
-      permission: openCodeInfoShape.permission,
-      compaction: openCodeInfoShape.compaction,
+      agent: z.record(z.string(), Agent).optional(),
+      provider: z.record(z.string(), Provider).optional(),
+      mcp: z.record(z.string(), z.union([Mcp, DisabledMcp])).optional(),
+      permission: Permission.optional(),
+      compaction: Compaction,
       tools: TOOL_TOGGLE_MAP,
       skills_external_vendor_roots_enabled: z.boolean().optional(),
       notebook_home: z.string().nullable().optional(),

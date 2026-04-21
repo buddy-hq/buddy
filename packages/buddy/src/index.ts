@@ -8,7 +8,6 @@ import { AgentsMdRoutes } from "./routes"
 import { AuthRoutes } from "./routes"
 import { CompatibilityRoutes } from "./routes"
 import { ConfigRoutes } from "./routes"
-import { E2ERoutes } from "./routes"
 import { FigureRoutes } from "./routes"
 import { FlashcardDeckRoutes } from "./routes"
 import { FreeformFigureRoutes } from "./routes"
@@ -120,9 +119,6 @@ api.route("/config", ConfigRoutes)
 api.route("/permission", PermissionRoutes)
 api.route("/session", SessionRoutes)
 api.route("/skills", SkillsRoutes)
-if (process.env.BUDDY_E2E_MODE === "1") {
-  api.route("/e2e", E2ERoutes)
-}
 
 app.use(logger())
 app.use(cors({ origin: "*" }))
