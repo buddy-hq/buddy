@@ -154,7 +154,10 @@ export function FlashcardReviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md" showCloseButton>
+      <DialogContent
+        className="flex max-h-[min(90vh,48rem)] flex-col overflow-hidden sm:max-w-xl"
+        showCloseButton
+      >
         <DialogHeader>
           <DialogTitle className="truncate text-sm">{deckTitle}</DialogTitle>
           <DialogDescription className="sr-only">
@@ -248,14 +251,16 @@ function ReviewContent(props: {
   }
 
   return (
-    <div className="flex flex-col">
-      <div className="overflow-hidden rounded-lg border border-border-base/40 bg-surface-raised-base/50">
-        <FlashcardCardDisplay
-          note={note}
-          templateIdx={phase.card.templateIdx}
-          revealed={revealed}
-          onReveal={onReveal}
-        />
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+        <div className="overflow-hidden rounded-lg border border-border-base/40 bg-surface-raised-base/50">
+          <FlashcardCardDisplay
+            note={note}
+            templateIdx={phase.card.templateIdx}
+            revealed={revealed}
+            onReveal={onReveal}
+          />
+        </div>
       </div>
 
       {leechWarning ? (
@@ -265,7 +270,7 @@ function ReviewContent(props: {
       ) : null}
 
       {revealed ? (
-        <div className="mt-3">
+        <div className="mt-3 shrink-0">
           <FlashcardReviewRatings onRate={onRate} disabled={submitting} />
         </div>
       ) : null}
