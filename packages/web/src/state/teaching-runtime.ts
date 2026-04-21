@@ -149,6 +149,7 @@ export type TeachingRuntimeState = {
   preferredLanguageBySession: Record<string, TeachingLanguage>
   workspaceBySession: Record<string, TeachingWorkspaceState>
   setSessionPersona: (sessionKey: string, persona: string) => void
+  clearSessionPersona: (sessionKey: string) => void
   setSessionIntent: (sessionKey: string, intent: TeachingIntent) => void
   setPreferredLanguage: (sessionKey: string, language: TeachingLanguage) => void
   migrateWorkspaceSelection: (directory: string, sessionID: string) => void
@@ -184,6 +185,11 @@ export const useTeachingRuntime = create<TeachingRuntimeState>()(
       setSessionPersona(sessionKey, persona) {
         set((state) => {
           state.selectedPersonaBySession[sessionKey] = persona
+        })
+      },
+      clearSessionPersona(sessionKey) {
+        set((state) => {
+          delete state.selectedPersonaBySession[sessionKey]
         })
       },
       setSessionIntent(sessionKey, intent) {

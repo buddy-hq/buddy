@@ -33,6 +33,7 @@ const READING_LAYOUT_ID = "directory-chat-reading-layout"
 const READING_READER_PANEL_ID = "directory-chat-reading-reader"
 const READING_CONVERSATION_PANEL_ID = "directory-chat-reading-conversation"
 const READING_LAYOUT_PANEL_IDS = [READING_READER_PANEL_ID, READING_CONVERSATION_PANEL_ID]
+const READING_DRAFT_SESSION_ID = undefined
 
 function getReadingChatPanelMaxWidth() {
   return typeof window === "undefined"
@@ -46,6 +47,8 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
   const resourceName = fileNameFromPath(normalizedPath) || language.t("sidebar.resources")
   const readyDirectory =
     controller.status === "ready" ? controller.mainPaneProps.directory : undefined
+  const readingSessionID =
+    controller.status === "ready" ? controller.mainPaneProps.chatState.sessionID : undefined
   const [chatPanelWidth, setChatPanelWidth] = useState(() => {
     if (typeof window === "undefined") {
       return READING_CHAT_PANEL_DEFAULT_WIDTH_PX
@@ -67,8 +70,9 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
     (state) => state.updateActiveReadingResourceLocation,
   )
   const setSessionPersona = useTeachingRuntime((state) => state.setSessionPersona)
+  const clearSessionPersona = useTeachingRuntime((state) => state.clearSessionPersona)
   const selectedPersonaBySession = useTeachingRuntime((state) => state.selectedPersonaBySession)
-  const restoredPersonaRef = useRef<string | undefined>(undefined)
+  const previousPersonaBySessionRef = useRef<Record<string, string | undefined>>({})
   const conversationPanelRef = useResizablePanelRef()
   const resourcesQuery = useQuery({
     ...resourcesQueryOptions(readyDirectory ?? ""),
@@ -98,26 +102,49 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
   }, [normalizedPath, props.resourceKey, resourcesQuery.data?.processed])
 
   useEffect(() => {
-    if (!readyDirectory) return
+    if (!readyDirectory) {
+      return
+    }
 
-    const sessionID = useChatStore.getState().directories[readyDirectory]?.sessionID
-    const sessionKey = teachingSelectionKey(readyDirectory, sessionID)
+    const sessionKey = teachingSelectionKey(readyDirectory, readingSessionID)
+    const draftSessionKey = teachingSelectionKey(readyDirectory, READING_DRAFT_SESSION_ID)
+
+    if (
+      readingSessionID &&
+      !(sessionKey in previousPersonaBySessionRef.current) &&
+      draftSessionKey in previousPersonaBySessionRef.current
+    ) {
+      previousPersonaBySessionRef.current[sessionKey] =
+        previousPersonaBySessionRef.current[draftSessionKey]
+      delete previousPersonaBySessionRef.current[draftSessionKey]
+    }
+
     const currentPersona = selectedPersonaBySession[sessionKey]
 
     if (currentPersona === "reading-buddy") return
 
-    restoredPersonaRef.current = currentPersona
-    setSessionPersona(sessionKey, "reading-buddy")
-
-    return () => {
-      const previousPersona = restoredPersonaRef.current
-      restoredPersonaRef.current = undefined
-      if (previousPersona !== undefined) {
-        setSessionPersona(sessionKey, previousPersona)
-      }
+    if (!(sessionKey in previousPersonaBySessionRef.current)) {
+      previousPersonaBySessionRef.current[sessionKey] = currentPersona
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [readyDirectory, setSessionPersona])
+
+    setSessionPersona(sessionKey, "reading-buddy")
+  }, [readingSessionID, readyDirectory, selectedPersonaBySession, setSessionPersona])
+
+  useEffect(() => {
+    return () => {
+      for (const [sessionKey, previousPersona] of Object.entries(
+        previousPersonaBySessionRef.current,
+      )) {
+        if (previousPersona !== undefined) {
+          setSessionPersona(sessionKey, previousPersona)
+          continue
+        }
+
+        clearSessionPersona(sessionKey)
+      }
+      previousPersonaBySessionRef.current = {}
+    }
+  }, [clearSessionPersona, setSessionPersona])
 
   useEffect(() => {
     if (!readyDirectory || !normalizedPath) return
@@ -200,6 +227,7 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
                 sessionTitle={threadBrowserState.sessionTitle}
                 sessions={threadBrowserState.sessions}
                 activeSessionID={threadBrowserState.sessionID}
+                parentSession={threadBrowserState.parentSession}
                 onNewSession={() => {
                   void readyController.leftSidebarProps.onNewSession(currentDirectory)
                 }}

@@ -9,16 +9,18 @@ import {
   SquarePenIcon,
   cn,
 } from "@buddy/ui"
-import { HistoryIcon, SearchIcon } from "lucide-react"
+import { CornerUpLeftIcon, HistoryIcon, SearchIcon } from "lucide-react"
 import { language } from "@/context/language"
 import type { SessionInfo } from "@/state/chat-types"
 import { formatThreadAge } from "@/components/layout/chat-left-sidebar/thread-helpers"
 import { Popover, PopoverContent, PopoverTrigger } from "@buddy/ui/components/ui/popover"
+import { parseSubagentSession } from "@/lib/session-family"
 
 type DirectoryChatReadingThreadBrowserProps = {
   sessionTitle: string
   sessions: SessionInfo[]
   activeSessionID?: string
+  parentSession?: SessionInfo
   onNewSession: () => void | Promise<void>
   onSelectSession: (sessionID: string) => void | Promise<void>
   className?: string
@@ -37,6 +39,10 @@ export function DirectoryChatReadingThreadBrowser(props: DirectoryChatReadingThr
   const [isOpen, setIsOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const hasQuery = query.trim().length > 0
+  const parentSessionID = props.parentSession?.id
+  const parentSessionTitle = props.parentSession
+    ? parseSubagentSession(props.parentSession).title || getThreadTitle(props.parentSession)
+    : undefined
 
   return (
     <div
@@ -44,6 +50,24 @@ export function DirectoryChatReadingThreadBrowser(props: DirectoryChatReadingThr
       className={cn("flex w-full items-center justify-between gap-4 py-1", props.className)}
     >
       <div className="flex min-w-0 items-center gap-1.5">
+        {props.parentSession ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-8 gap-1.5 rounded-full px-2.5 text-text-weaker transition-all hover:bg-surface-raised-base-hover hover:text-text-strong"
+            aria-label={`Return to ${parentSessionTitle}`}
+            onClick={() => {
+              if (parentSessionID) {
+                void props.onSelectSession(parentSessionID)
+              }
+            }}
+          >
+            <CornerUpLeftIcon className="size-3.5" />
+            <span className="max-w-32 truncate text-xs">{parentSessionTitle}</span>
+          </Button>
+        ) : null}
+
         <Popover
           open={isOpen}
           onOpenChange={(nextOpen) => {
