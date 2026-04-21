@@ -106,6 +106,8 @@ import { useTeachingWorkspace } from "./use-teaching-workspace"
 import { getRightSidebarDefaultWidth, RIGHT_SIDEBAR_EDITOR_MIN_WIDTH } from "./right-sidebar-layout"
 import { publishPromptSubmissionProbe } from "@/e2e/driver"
 import type { SidebarResourceTarget } from "@/components/layout/chat-left-sidebar/resources-section"
+import { useQuestionSetSidebarActions } from "@/components/question-set/use-question-set-sidebar-actions"
+import { useWorkspaceQuestionSetPanelStore } from "@/state/workspace-question-set-panel-store"
 
 const BOTTOM_THRESHOLD_PX = 96
 const SIDEBAR_MIN_WIDTH = 220
@@ -195,6 +197,7 @@ export function useDirectoryChatPageController(
   )
   const linkedSessionByResource = useChatStore((state) => state.linkedSessionByResource)
   const linkReadingResourceSession = useChatStore((state) => state.linkReadingResourceSession)
+  const { openWorkspaceQuestionSet } = useQuestionSetSidebarActions()
   const hasRegisteredProject = useMemo(
     () =>
       !!decodedDirectory && openProjects.filter((d) => d && d !== "/").includes(decodedDirectory),
@@ -469,6 +472,25 @@ export function useDirectoryChatPageController(
     migrateWorkspaceDraft(decodedDirectory, sessionID)
     useTeachingRuntime.getState().migrateWorkspaceSelection(decodedDirectory, sessionID)
   }, [decodedDirectory, migrateWorkspaceDraft, sessionID])
+
+  useEffect(() => {
+    if (!decodedDirectory) {
+      return
+    }
+
+    const pendingArtifactID = useWorkspaceQuestionSetPanelStore
+      .getState()
+      .consumePendingOpen(decodedDirectory)
+    if (!pendingArtifactID) {
+      return
+    }
+
+    openWorkspaceQuestionSet({
+      directory: decodedDirectory,
+      artifactID: pendingArtifactID,
+      fallbackTab: cs.selectedPersonaDefaultSurface,
+    })
+  }, [cs.selectedPersonaDefaultSurface, decodedDirectory, openWorkspaceQuestionSet])
 
   useEffect(() => {
     if (decodedDirectory === "/") {
@@ -900,10 +922,16 @@ export function useDirectoryChatPageController(
   }
 
   function openResourceInReadingMode(targetDirectory: string, resource: SidebarResourceTarget) {
+    const openingFromLibrary = libraryOpen
     const activeSessionID = useChatStore.getState().directories[targetDirectory]?.sessionID
     const linkedSessionID = resource.resourceID
       ? linkedSessionByResource[`${targetDirectory}::${resource.resourceID}`]
       : undefined
+
+    if (openingFromLibrary) {
+      setLibraryOpen(false)
+      cs.setMainPaneTab("chat")
+    }
 
     void queryClient.prefetchQuery(resourcesQueryOptions(targetDirectory))
     if (isSupportedReadingResourcePath(resource.path)) {
@@ -913,7 +941,10 @@ export function useDirectoryChatPageController(
     }
 
     void (async () => {
-      if (linkedSessionID && linkedSessionID !== activeSessionID) {
+      if (openingFromLibrary) {
+        startNewSessionDraft(targetDirectory)
+        seedDraftModelSelection(targetDirectory)
+      } else if (linkedSessionID && linkedSessionID !== activeSessionID) {
         await selectSession(targetDirectory, linkedSessionID).catch(() => undefined)
       }
 
@@ -928,6 +959,38 @@ export function useDirectoryChatPageController(
         },
       })
     })()
+  }
+
+  function openQuestionSetFromLibrary(
+    targetDirectory: string,
+    artifactID: string,
+    selectedArtifactID?: string,
+  ) {
+    if (!targetDirectory) {
+      return
+    }
+
+    if (targetDirectory !== decodedDirectory) {
+      if (libraryOpen) {
+        setLibraryOpen(false)
+        cs.setMainPaneTab("chat")
+      }
+
+      useWorkspaceQuestionSetPanelStore.getState().queueQuestionSetOpen(targetDirectory, artifactID)
+
+      void navigate({
+        to: "/$directory/chat",
+        params: { directory: encodeDirectory(targetDirectory) },
+      })
+      return
+    }
+
+    openWorkspaceQuestionSet({
+      directory: targetDirectory,
+      artifactID,
+      selectedArtifactID,
+      fallbackTab: cs.selectedPersonaDefaultSurface,
+    })
   }
 
   const openTeachingEditorPanel = useCallback(() => {
@@ -1503,6 +1566,8 @@ export function useDirectoryChatPageController(
     mainPaneTab: cs.mainPaneTab,
     resourcesRefreshToken,
     onOpenResource: openResourceInReadingMode,
+    onOpenQuestionSet: openQuestionSetFromLibrary,
+    selectedPersonaDefaultSurface: cs.selectedPersonaDefaultSurface,
     libraryOpen,
     directories: cs.sidebarDirectories,
   }

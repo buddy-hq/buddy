@@ -49,12 +49,36 @@ export function DirectoryChatRightSidebar(props: DirectoryChatRightSidebarProps)
     onOpenCreateTeachingFileDialog,
     onStartInteractiveLesson,
   })
+  const selectedQuestionSetArtifactID = useWorkspaceQuestionSetPanelStore(
+    (state) => state.selectedArtifactIDByDirectory[directory],
+  )
+  const rightSidebarOpen = chatState.rightSidebarOpen
+  const rightSidebarTab = chatState.rightSidebarTab
+  const selectedPersonaDefaultSurface = chatState.selectedPersonaDefaultSurface
+  const setRightSidebarOpen = chatState.setRightSidebarOpen
+  const setRightSidebarTab = chatState.setRightSidebarTab
 
   useEffect(() => {
-    return () => {
-      useWorkspaceQuestionSetPanelStore.getState().closeQuestionSet(directory)
+    if (!rightSidebarOpen) {
+      return
     }
-  }, [directory])
+    if (rightSidebarTab !== "question-set") {
+      return
+    }
+    if (selectedQuestionSetArtifactID) {
+      return
+    }
+
+    setRightSidebarTab(selectedPersonaDefaultSurface)
+    setRightSidebarOpen(false)
+  }, [
+    rightSidebarOpen,
+    rightSidebarTab,
+    selectedPersonaDefaultSurface,
+    setRightSidebarOpen,
+    setRightSidebarTab,
+    selectedQuestionSetArtifactID,
+  ])
 
   return (
     <ChatRightSidebar
@@ -78,6 +102,7 @@ export function DirectoryChatRightSidebar(props: DirectoryChatRightSidebarProps)
       figurePanel={panels.figurePanel}
       onClose={() => {
         useWorkspaceQuestionSetPanelStore.getState().closeQuestionSet(directory)
+        chatState.setRightSidebarTab(chatState.selectedPersonaDefaultSurface)
         chatState.setRightSidebarOpen(false)
       }}
       className="w-full h-full"

@@ -8,7 +8,6 @@ import {
 import { language } from "@/context/language"
 import { requestJson, stringifyError } from "@/lib/api-client"
 import { workspaceArtifactsQueryKeys } from "@/state/workspace-artifacts-query"
-import { useUiPreferences } from "@/state/ui-preferences"
 import { useWorkspaceQuestionSetPanelStore } from "@/state/workspace-question-set-panel-store"
 
 type QuestionSetSidePanelProps = {
@@ -19,7 +18,6 @@ type QuestionSetSidePanelProps = {
 
 export function QuestionSetSidePanel(props: QuestionSetSidePanelProps) {
   const closeQuestionSet = useWorkspaceQuestionSetPanelStore((state) => state.closeQuestionSet)
-  const setRightSidebarTab = useUiPreferences((state) => state.setRightSidebarTab)
   const artifactQuery = useQuery({
     queryKey: [
       ...workspaceArtifactsQueryKeys.questionSet(props.directory),
@@ -37,7 +35,7 @@ export function QuestionSetSidePanel(props: QuestionSetSidePanelProps) {
 
   function handleBack() {
     closeQuestionSet(props.directory)
-    setRightSidebarTab("curriculum")
+    props.onClose()
   }
 
   return (

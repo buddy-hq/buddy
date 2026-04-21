@@ -3,7 +3,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Badge, Card, CardContent } from "@buddy/ui"
 import { language } from "@/context/language"
 import { stringifyError } from "@/lib/api-client"
+import { useQuestionSetSidebarActions } from "@/components/question-set/use-question-set-sidebar-actions"
 import { useChatStore } from "@/state/chat-store"
+import { useUiPreferences } from "@/state/ui-preferences"
+import { useWorkspaceQuestionSetPanelStore } from "@/state/workspace-question-set-panel-store"
 import {
   workspaceArtifactsQueryKeys,
   workspaceQuestionSetArtifactsQueryOptions,
@@ -23,12 +26,21 @@ function formatTimestamp(value: string): string {
   return parsed.toLocaleString()
 }
 
-export function WorkspaceQuestionSetPanel(props: { directory: string }) {
+export function WorkspaceQuestionSetPanel(props: {
+  directory: string
+  selectedPersonaDefaultSurface: "curriculum" | "editor" | "figure" | "question-set"
+}) {
   const queryClient = useQueryClient()
   const artifactsQuery = useQuery(workspaceQuestionSetArtifactsQueryOptions(props.directory))
   const artifacts = artifactsQuery.data?.artifacts ?? []
   const loading = artifactsQuery.isPending
   const error = artifactsQuery.error ? stringifyError(artifactsQuery.error) : undefined
+  const selectedArtifactID = useWorkspaceQuestionSetPanelStore(
+    (state) => state.selectedArtifactIDByDirectory[props.directory],
+  )
+  const rightSidebarOpen = useUiPreferences((state) => state.rightSidebarOpen)
+  const rightSidebarTab = useUiPreferences((state) => state.rightSidebarTab)
+  const { openWorkspaceQuestionSet } = useQuestionSetSidebarActions()
 
   useEffect(() => {
     let previousBusy = useChatStore.getState().directories[props.directory]?.isBusy ?? false
@@ -46,6 +58,15 @@ export function WorkspaceQuestionSetPanel(props: { directory: string }) {
 
     return () => unsubscribe()
   }, [props.directory, queryClient])
+
+  function toggleQuestionSet(artifactID: string) {
+    openWorkspaceQuestionSet({
+      directory: props.directory,
+      artifactID,
+      selectedArtifactID,
+      fallbackTab: props.selectedPersonaDefaultSurface,
+    })
+  }
 
   return (
     <div data-component="workspace-question-set-panel" className="flex min-h-0 flex-1 flex-col p-3">
@@ -72,19 +93,31 @@ export function WorkspaceQuestionSetPanel(props: { directory: string }) {
               size="sm"
               className="gap-0 overflow-hidden border-border-base/60 bg-surface-raised-base/70"
             >
-              <CardContent className="space-y-2 px-3 py-3">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-sm font-medium text-text-base">{artifact.title}</p>
-                  <Badge variant="outline" className="shrink-0">
-                    {artifact.groupType}
-                  </Badge>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 text-xs text-text-weak">
-                  <span>{questionCountLabel(artifact.questions.length)}</span>
-                  <span>•</span>
-                  <span>{formatTimestamp(artifact.createdAt)}</span>
-                </div>
-              </CardContent>
+              <button
+                type="button"
+                className={`w-full cursor-pointer text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${
+                  selectedArtifactID === artifact.artifactID &&
+                  rightSidebarOpen &&
+                  rightSidebarTab === "question-set"
+                    ? "bg-surface-raised-base"
+                    : "hover:bg-surface-raised-base"
+                }`}
+                onClick={() => toggleQuestionSet(artifact.artifactID)}
+              >
+                <CardContent className="space-y-2 px-3 py-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-medium text-text-base">{artifact.title}</p>
+                    <Badge variant="outline" className="shrink-0">
+                      {artifact.groupType}
+                    </Badge>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-text-weak">
+                    <span>{questionCountLabel(artifact.questions.length)}</span>
+                    <span>•</span>
+                    <span>{formatTimestamp(artifact.createdAt)}</span>
+                  </div>
+                </CardContent>
+              </button>
             </Card>
           ))}
         </div>

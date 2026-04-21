@@ -35,6 +35,7 @@ type LibraryResourceTarget = Pick<ResourceListItem, "path" | "name" | "resourceI
 type LibraryPanelProps = {
   directories: string[]
   onOpenResource: (directory: string, resource: LibraryResourceTarget) => void
+  onOpenQuestionSet: (directory: string, artifactID: string, selectedArtifactID?: string) => void
 }
 
 // ---------------------------------------------------------------------------
@@ -454,15 +455,21 @@ function FlashcardsTab({ directories }: { directories: string[] }) {
 // Question set shelf
 // ---------------------------------------------------------------------------
 
-function QuestionSetNotebookShelf({ directory }: { directory: string }) {
+function QuestionSetNotebookShelf(props: {
+  directory: string
+  onOpenQuestionSet: (directory: string, artifactID: string, selectedArtifactID?: string) => void
+}) {
+  const { directory, onOpenQuestionSet } = props
   const setsQuery = useQuery(workspaceQuestionSetArtifactsQueryOptions(directory))
   const sets = setsQuery.data?.artifacts ?? []
   const loading = setsQuery.isPending
   const error = setsQuery.error ? stringifyError(setsQuery.error) : undefined
   const label = getFilename(directory)
-  const openQuestionSet = useWorkspaceQuestionSetPanelStore((store) => store.openQuestionSet)
-  const setRightSidebarOpen = useUiPreferences((store) => store.setRightSidebarOpen)
-  const setRightSidebarTab = useUiPreferences((store) => store.setRightSidebarTab)
+  const selectedArtifactID = useWorkspaceQuestionSetPanelStore(
+    (store) => store.selectedArtifactIDByDirectory[directory],
+  )
+  const rightSidebarOpen = useUiPreferences((store) => store.rightSidebarOpen)
+  const rightSidebarTab = useUiPreferences((store) => store.rightSidebarTab)
 
   if (!loading && sets.length === 0 && !error) return null
 
@@ -478,11 +485,15 @@ function QuestionSetNotebookShelf({ directory }: { directory: string }) {
                 key={artifact.artifactID}
                 type="button"
                 onClick={() => {
-                  openQuestionSet(directory, artifact.artifactID)
-                  setRightSidebarTab("question-set")
-                  setRightSidebarOpen(true)
+                  onOpenQuestionSet(directory, artifact.artifactID, selectedArtifactID)
                 }}
-                className="w-full rounded-lg border border-border-weaker-base bg-surface-base p-3 text-left shadow-sm transition-colors hover:border-border-hover hover:bg-surface-raised-base"
+                className={`w-full rounded-lg border bg-surface-base p-3 text-left shadow-sm transition-colors ${
+                  rightSidebarOpen &&
+                  rightSidebarTab === "question-set" &&
+                  selectedArtifactID === artifact.artifactID
+                    ? "border-border-interactive-base bg-surface-raised-base"
+                    : "border-border-weaker-base hover:border-border-hover hover:bg-surface-raised-base"
+                }`}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
@@ -512,7 +523,11 @@ function QuestionSetNotebookShelf({ directory }: { directory: string }) {
   )
 }
 
-function QuestionSetsTab({ directories }: { directories: string[] }) {
+function QuestionSetsTab(props: {
+  directories: string[]
+  onOpenQuestionSet: (directory: string, artifactID: string, selectedArtifactID?: string) => void
+}) {
+  const { directories, onOpenQuestionSet } = props
   const shelfQueries = useQueries({
     queries: directories.map((directory) => workspaceQuestionSetArtifactsQueryOptions(directory)),
   })
@@ -558,7 +573,11 @@ function QuestionSetsTab({ directories }: { directories: string[] }) {
   return (
     <div className="space-y-6">
       {directories.map((directory) => (
-        <QuestionSetNotebookShelf key={directory} directory={directory} />
+        <QuestionSetNotebookShelf
+          key={directory}
+          directory={directory}
+          onOpenQuestionSet={onOpenQuestionSet}
+        />
       ))}
     </div>
   )
@@ -568,7 +587,11 @@ function QuestionSetsTab({ directories }: { directories: string[] }) {
 // Main panel
 // ---------------------------------------------------------------------------
 
-export function LibraryPanel({ directories, onOpenResource }: LibraryPanelProps) {
+export function LibraryPanel({
+  directories,
+  onOpenResource,
+  onOpenQuestionSet,
+}: LibraryPanelProps) {
   const [activeTab, setActiveTab] = useState<LibraryTab>("resources")
 
   return (
@@ -602,7 +625,7 @@ export function LibraryPanel({ directories, onOpenResource }: LibraryPanelProps)
       ) : activeTab === "flashcards" ? (
         <FlashcardsTab directories={directories} />
       ) : (
-        <QuestionSetsTab directories={directories} />
+        <QuestionSetsTab directories={directories} onOpenQuestionSet={onOpenQuestionSet} />
       )}
     </div>
   )

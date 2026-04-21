@@ -16,6 +16,8 @@ type DirectoryChatConversationPaneProps = ComponentProps<typeof DirectoryChatMai
   mainPaneTab: NotebookMainPaneTab
   resourcesRefreshToken: number
   onOpenResource: (directory: string, resource: SidebarResourceTarget) => void
+  onOpenQuestionSet: (directory: string, artifactID: string, selectedArtifactID?: string) => void
+  selectedPersonaDefaultSurface: "curriculum" | "editor" | "figure" | "question-set"
   libraryOpen?: boolean
   directories?: string[]
   className?: string
@@ -27,6 +29,8 @@ export function DirectoryChatConversationPane(props: DirectoryChatConversationPa
     mainPaneTab,
     resourcesRefreshToken,
     onOpenResource,
+    onOpenQuestionSet,
+    selectedPersonaDefaultSurface,
     libraryOpen,
     directories,
     ...mainPaneProps
@@ -35,7 +39,11 @@ export function DirectoryChatConversationPane(props: DirectoryChatConversationPa
   const panel = libraryOpen ? (
     <div className="scrollbar-hover h-full min-h-0 overflow-y-auto p-4">
       <div className="mx-auto w-full max-w-full md:max-w-200 2xl:max-w-[1000px]">
-        <LibraryPanel directories={directories ?? []} onOpenResource={onOpenResource} />
+        <LibraryPanel
+          directories={directories ?? []}
+          onOpenResource={onOpenResource}
+          onOpenQuestionSet={onOpenQuestionSet}
+        />
       </div>
     </div>
   ) : mainPaneTab === "chat" ? (
@@ -61,7 +69,10 @@ export function DirectoryChatConversationPane(props: DirectoryChatConversationPa
   ) : mainPaneTab === "flashcard" ? (
     <WorkspaceFlashcardPanel directory={mainPaneProps.directory} />
   ) : (
-    <WorkspaceQuestionSetPanel directory={mainPaneProps.directory} />
+    <WorkspaceQuestionSetPanel
+      directory={mainPaneProps.directory}
+      selectedPersonaDefaultSurface={selectedPersonaDefaultSurface}
+    />
   )
 
   return (
