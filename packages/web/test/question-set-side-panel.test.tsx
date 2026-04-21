@@ -176,7 +176,7 @@ describe("QuestionSetSidePanel", () => {
     })
   })
 
-  test("back clears the selected artifact but keeps the right sidebar open", async () => {
+  test("back clears the selected artifact and closes the right sidebar", async () => {
     globalThis.fetch = createFetchStub(async (input, init) => {
       const url =
         typeof input === "string" ? input : input instanceof URL ? input.toString() : String(input)
@@ -219,7 +219,13 @@ describe("QuestionSetSidePanel", () => {
               <QuestionSetSidePanel
                 artifactID="01JQUESTIONSETABCDEFGHJKLMN1"
                 directory="/repo"
-                onClose={() => {}}
+                onClose={() => {
+                  useUiPreferences.setState((state) => ({
+                    ...state,
+                    rightSidebarOpen: false,
+                    rightSidebarTab: "curriculum",
+                  }))
+                }}
               />
             </ServerProvider>
           </PlatformProvider>
@@ -243,7 +249,7 @@ describe("QuestionSetSidePanel", () => {
       await flushEffects()
     })
 
-    expect(useUiPreferences.getState().rightSidebarOpen).toBe(true)
+    expect(useUiPreferences.getState().rightSidebarOpen).toBe(false)
     expect(useUiPreferences.getState().rightSidebarTab).toBe("curriculum")
     expect(
       useWorkspaceQuestionSetPanelStore.getState().selectedArtifactIDByDirectory["/repo"],
