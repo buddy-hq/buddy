@@ -19,6 +19,9 @@ description: Guides development of the Buddy frontend, including architecture, d
 - `packages/ui`
 - `packages/desktop-electron`
 
+## Icons
+- icons library is installed as a dependency in `packages/ui`
+
 ## Design Philosophy
 
 - Minimalism

@@ -1,27 +1,10 @@
 import type { MouseEvent } from "react"
 import { useEffect, useRef, useState } from "react"
 import { useLocation, useNavigate, useRouterState } from "@tanstack/react-router"
-import { PowerIcon, SparklesIcon } from "lucide-react"
-import { CheckIcon, CopyIcon, FolderOpenIcon, toast, Button, MoveLeftIcon } from "@buddy/ui"
+import { FolderOpenIcon, Button, MoveLeftIcon } from "@buddy/ui"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { useUiPreferences } from "@/state/ui-preferences"
-import { useChatStore } from "@/state/chat-store"
-import {
-  CHAT_ENTRY_PATH,
-  buildOnboardingChatEntryReturnTo,
-  buildOnboardingTestSearch,
-  isOnboardingTestSearch,
-  readOnboardingTestReturnTo,
-} from "@/lib/onboarding-test-mode"
-import { setE2EOpenAIConnectedState } from "@/lib/e2e-runtime"
-import { OPENAI_PROVIDER_ID } from "@/lib/provider-ids"
-import { buildSessionTrace, copyToClipboard } from "@/lib/directory-chat/chat-debug-helpers"
-import {
-  formatProviderAuthError,
-  removeProviderAuth,
-  reloadProviderRuntime,
-} from "@/lib/provider-auth"
 import {
   isTitlebarInteractiveTarget,
   isTitlebarSystemControlTarget,
@@ -38,29 +21,6 @@ import {
   getRightSidebarMinWidth,
 } from "@/lib/directory-chat/right-sidebar-layout"
 
-function buildRelativeSearchParams(search: string) {
-  const params = new URLSearchParams(search)
-
-  if (params.size === 0) {
-    return undefined
-  }
-
-  const result: Record<string, string> = {}
-  for (const [key, value] of params.entries()) {
-    result[key] = value
-  }
-
-  return result
-}
-
-function parseRelativeHref(href: string) {
-  const url = new URL(href, window.location.origin)
-  return {
-    pathname: url.pathname,
-    search: buildRelativeSearchParams(url.search),
-  }
-}
-
 export function DesktopTitlebar() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -68,7 +28,6 @@ export function DesktopTitlebar() {
   const isDesktop = platform.platform === "desktop"
   const isMac = isDesktop && platform.os === "macos"
   const isWindows = isDesktop && platform.os === "windows"
-  const [isCopied, setIsCopied] = useState(false)
   const pathname = location.pathname
   const leftSidebarOpen = useUiPreferences((state) => state.leftSidebarOpen)
   const setLeftSidebarOpen = useUiPreferences((state) => state.setLeftSidebarOpen)
@@ -79,16 +38,10 @@ export function DesktopTitlebar() {
   const setRightSidebarTab = useUiPreferences((state) => state.setRightSidebarTab)
   const setRightSidebarWidth = useUiPreferences((state) => state.setRightSidebarWidth)
   const routerState = useRouterState()
-  const activeDirectory = useChatStore((state) => state.activeDirectory)
-  const streamStatus = useChatStore((state) => state.streamStatus)
-  const activeSessionID = useChatStore((state) =>
-    activeDirectory ? state.directories[activeDirectory]?.sessionID : undefined,
-  )
   const isReadingPage = routerState.matches.some((m) => m.routeId === "/$directory/read")
   const directoryToken = routerState.matches.find((m) => m.routeId === "/$directory/read")?.params
     .directory as string | undefined
   const [isFullscreen, setIsFullscreen] = useState(false)
-  const [isDisconnectingOpenAi, setIsDisconnectingOpenAi] = useState(false)
   const lastWorkspaceSidebarTabRef = useRef<Exclude<ChatRightSidebarTab, "files">>("resources")
 
   useEffect(() => {
@@ -110,11 +63,6 @@ export function DesktopTitlebar() {
   }
 
   const showSidebarToggles = pathname !== "/chat" && pathname.endsWith("/chat")
-  const onboardingToggleLabel =
-    pathname === "/onboarding"
-      ? language.t("desktopTitlebar.exitOnboarding")
-      : language.t("desktopTitlebar.testOnboarding")
-  const onboardingToggleVariant = pathname === "/onboarding" ? "secondary" : "outline"
 
   function onToggleRightSidebar() {
     if (rightSidebarOpen) {
@@ -155,55 +103,6 @@ export function DesktopTitlebar() {
 
     setRightSidebarTab("files")
     setRightSidebarOpen(true)
-  }
-
-  async function disconnectOpenAiProvider() {
-    setIsDisconnectingOpenAi(true)
-
-    try {
-      await removeProviderAuth({
-        providerID: OPENAI_PROVIDER_ID,
-      })
-      await setE2EOpenAIConnectedState(false)
-      await reloadProviderRuntime()
-      toast.success(language.t("desktopTitlebar.openAiDisconnected"))
-    } catch (error) {
-      toast.error(
-        formatProviderAuthError(error, language.t("desktopTitlebar.disconnectOpenAiFailed")),
-      )
-    } finally {
-      setIsDisconnectingOpenAi(false)
-    }
-  }
-
-  function openOnboardingTestMode() {
-    const currentHref = `${location.pathname}${location.searchStr}`
-    const returnTo =
-      pathname === CHAT_ENTRY_PATH && !isOnboardingTestSearch(location.search)
-        ? buildOnboardingChatEntryReturnTo()
-        : currentHref
-
-    void navigate({
-      to: "/onboarding",
-      search: buildOnboardingTestSearch(returnTo),
-    })
-  }
-
-  function closeOnboardingTestMode() {
-    const returnTo = readOnboardingTestReturnTo(location.search)
-    if (returnTo) {
-      const target = parseRelativeHref(returnTo)
-      void navigate({
-        to: target.pathname,
-        ...(target.search ? { search: target.search } : {}),
-      })
-      return
-    }
-
-    void navigate({
-      to: CHAT_ENTRY_PATH,
-      search: buildOnboardingTestSearch(),
-    })
   }
 
   function onMouseDown(event: MouseEvent<HTMLElement>) {
@@ -339,74 +238,6 @@ export function DesktopTitlebar() {
           )}
         </div>
         <div className="flex shrink-0 items-center gap-1 mr-2 ml-auto">
-          {import.meta.env.DEV ? (
-            <>
-              <Button
-                type="button"
-                data-action="titlebar-disconnect-openai"
-                variant="outline"
-                size="sm"
-                className="h-6 gap-1 rounded-full border-border-base/70 px-2 text-[11px] font-medium text-text-weak hover:bg-surface-base-hover hover:text-text-strong"
-                title={language.t("desktopTitlebar.disconnectOpenAi")}
-                disabled={isDisconnectingOpenAi}
-                onClick={() => {
-                  void disconnectOpenAiProvider()
-                }}
-              >
-                <PowerIcon className="size-3.5" />
-                {language.t("desktopTitlebar.disconnectOpenAi")}
-              </Button>
-              <Button
-                type="button"
-                data-action="titlebar-test-onboarding"
-                variant={onboardingToggleVariant}
-                size="sm"
-                className="h-6 gap-1 rounded-full border-border-base/70 px-2 text-[11px] font-medium text-text-weak hover:bg-surface-base-hover hover:text-text-strong"
-                title={onboardingToggleLabel}
-                onClick={() => {
-                  if (pathname === "/onboarding") {
-                    closeOnboardingTestMode()
-                    return
-                  }
-
-                  openOnboardingTestMode()
-                }}
-              >
-                <SparklesIcon className="size-3.5" />
-                {onboardingToggleLabel}
-              </Button>
-            </>
-          ) : null}
-          {import.meta.env.DEV && activeDirectory ? (
-            <div className="flex shrink-0 items-center">
-              <Button
-                type="button"
-                data-action="titlebar-copy-session-trace"
-                variant="ghost"
-                size="icon-xs"
-                className="h-6 w-8 p-0 box-border text-text-weak hover:bg-surface-base-hover hover:text-text-strong"
-                title={language.t("desktopTitlebar.copySessionTrace")}
-                onClick={() => {
-                  void copyToClipboard(
-                    buildSessionTrace({
-                      directory: activeDirectory,
-                      sessionID: activeSessionID,
-                      streamStatus,
-                    }),
-                  )
-                  setIsCopied(true)
-                  toast.success(language.t("desktopTitlebar.sessionTraceCopied"))
-                  setTimeout(() => setIsCopied(false), 2000)
-                }}
-              >
-                {isCopied ? (
-                  <CheckIcon className="size-4 text-text-success-base" />
-                ) : (
-                  <CopyIcon className="size-4" />
-                )}
-              </Button>
-            </div>
-          ) : null}
           {rightSidebarToggle}
 
           {isWindows ? (

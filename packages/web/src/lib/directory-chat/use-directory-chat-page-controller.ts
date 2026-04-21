@@ -91,6 +91,7 @@ import {
 } from "../../state/prompt-store"
 import { getModelSelectionScopeKey } from "../../state/model-selection-store"
 import { useChatStore } from "../../state/chat-store"
+import { useUiPreferences } from "../../state/ui-preferences"
 import { shallow } from "zustand/shallow"
 import { stringifyError } from "../../state/teaching-actions"
 import {
@@ -111,6 +112,14 @@ import { useWorkspaceQuestionSetPanelStore } from "@/state/workspace-question-se
 
 const BOTTOM_THRESHOLD_PX = 96
 const SIDEBAR_MIN_WIDTH = 220
+
+function canScrollElement(el: HTMLElement) {
+  return el.scrollHeight - el.clientHeight > 1
+}
+
+function distanceFromBottom(el: HTMLElement) {
+  return el.scrollHeight - el.clientHeight - el.scrollTop
+}
 const EMPTY_MENTIONABLE_AGENTS: MentionableAgent[] = []
 const MIN_TRANSCRIPT_SCROLL_DURATION_S = 0.08
 const MAX_TRANSCRIPT_SCROLL_DURATION_S = 0.24
@@ -160,6 +169,10 @@ export function useDirectoryChatPageController(
   const transcriptThreadSwitchSnapUntilRef = useRef(0)
   const closingDirectoryRef = useRef<string | undefined>(undefined)
   const previousDirectoryRef = useRef<string | undefined>(undefined)
+  const autoScrollMarkerRef = useRef<{ top: number; time: number } | undefined>(undefined)
+  const autoScrollTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const settlingRef = useRef(false)
+  const settleTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   const [stickToBottom, setStickToBottom] = useState(true)
   const [resourcesRefreshToken, setResourcesRefreshToken] = useState(0)
@@ -185,7 +198,7 @@ export function useDirectoryChatPageController(
     }
   }, [props.directoryToken])
 
-  const showDevSessionTrace = true
+  const showDevSessionTrace = false
   const showCapabilitiesSidebarTab = showDevSessionTrace
   const showSystemPromptSidebarTab = showDevSessionTrace
   const showSnapshotSidebarTab = showDevSessionTrace
@@ -347,6 +360,33 @@ export function useDirectoryChatPageController(
     smoothFollowingRef.current = false
   }, [])
 
+  function markAutoScroll(el: HTMLElement) {
+    autoScrollMarkerRef.current = {
+      top: Math.max(0, el.scrollHeight - el.clientHeight),
+      time: Date.now(),
+    }
+    if (autoScrollTimerRef.current) clearTimeout(autoScrollTimerRef.current)
+    autoScrollTimerRef.current = setTimeout(() => {
+      autoScrollMarkerRef.current = undefined
+      autoScrollTimerRef.current = undefined
+    }, 1500)
+  }
+
+  function isAutoScroll(el: HTMLElement) {
+    const a = autoScrollMarkerRef.current
+    if (!a) return false
+    if (Date.now() - a.time > 1500) {
+      autoScrollMarkerRef.current = undefined
+      return false
+    }
+    return Math.abs(el.scrollTop - a.top) < 2
+  }
+
+  function updateOverflowAnchor(el: HTMLElement | null) {
+    if (!el) return
+    el.style.overflowAnchor = stickToBottomRef.current ? "none" : "auto"
+  }
+
   const startSmoothFollow = useCallback(() => {
     if (smoothFollowRafRef.current !== null) return
 
@@ -424,6 +464,7 @@ export function useDirectoryChatPageController(
     stopTranscriptScrollAnimation()
     stopSmoothFollow()
     container.scrollTop = Math.max(0, container.scrollHeight - container.clientHeight)
+    markAutoScroll(container)
     return true
   }, [stopSmoothFollow, stopTranscriptScrollAnimation])
 
@@ -433,7 +474,7 @@ export function useDirectoryChatPageController(
       snapTranscriptToBottom()
       return
     }
-    if (transcriptBusyRef.current) {
+    if (transcriptBusyRef.current || settlingRef.current) {
       stopTranscriptScrollAnimation()
       startSmoothFollow()
       return
@@ -580,6 +621,19 @@ export function useDirectoryChatPageController(
 
   useEffect(() => {
     transcriptBusyRef.current = cs.isBusy
+    if (cs.isBusy) {
+      settlingRef.current = false
+      if (settleTimerRef.current) {
+        clearTimeout(settleTimerRef.current)
+        settleTimerRef.current = undefined
+      }
+    } else {
+      settlingRef.current = true
+      settleTimerRef.current = setTimeout(() => {
+        settlingRef.current = false
+        settleTimerRef.current = undefined
+      }, 300)
+    }
   }, [cs.isBusy])
 
   useLayoutEffect(() => {
@@ -613,7 +667,8 @@ export function useDirectoryChatPageController(
     if (!(content instanceof HTMLElement)) return
 
     const observer = new ResizeObserver(() => {
-      syncTranscriptToBottom()
+      if (!stickToBottomRef.current) return
+      snapTranscriptToBottom()
     })
     observer.observe(container)
     observer.observe(content)
@@ -621,7 +676,7 @@ export function useDirectoryChatPageController(
     return () => {
       observer.disconnect()
     }
-  }, [syncTranscriptToBottom])
+  }, [snapTranscriptToBottom])
 
   useEffect(() => {
     if (stickToBottom) return
@@ -633,8 +688,63 @@ export function useDirectoryChatPageController(
     return () => {
       stopTranscriptScrollAnimation()
       stopSmoothFollow()
+      if (autoScrollTimerRef.current) {
+        clearTimeout(autoScrollTimerRef.current)
+        autoScrollTimerRef.current = undefined
+      }
+      if (settleTimerRef.current) {
+        clearTimeout(settleTimerRef.current)
+        settleTimerRef.current = undefined
+      }
     }
   }, [stopTranscriptScrollAnimation, stopSmoothFollow])
+
+  useEffect(() => {
+    const container = transcriptRef.current
+    if (!container) return
+
+    const handleWheel = (e: WheelEvent) => {
+      if (e.deltaY >= 0) return
+      const target = e.target instanceof Element ? e.target : undefined
+      const nested = target?.closest("[data-scrollable]")
+      if (nested && nested !== container) return
+      if (!stickToBottomRef.current) return
+      stopTranscriptScrollAnimation()
+      stopSmoothFollow()
+      setStickToBottom(false)
+    }
+
+    container.addEventListener("wheel", handleWheel, { passive: true })
+    return () => {
+      container.removeEventListener("wheel", handleWheel)
+    }
+  }, [stopSmoothFollow, stopTranscriptScrollAnimation])
+
+  useEffect(() => {
+    const container = transcriptRef.current
+    if (!container) return
+
+    const handleInteraction = () => {
+      const selection = window.getSelection()
+      if (selection && selection.toString().length > 0) {
+        if (!stickToBottomRef.current) return
+        stopTranscriptScrollAnimation()
+        stopSmoothFollow()
+        setStickToBottom(false)
+      }
+    }
+
+    container.addEventListener("pointerdown", handleInteraction, { capture: true })
+    return () => {
+      container.removeEventListener("pointerdown", handleInteraction, { capture: true })
+    }
+  }, [stopSmoothFollow, stopTranscriptScrollAnimation])
+
+  useEffect(() => {
+    const container = transcriptRef.current
+    if (!container) return
+    container.style.overflowAnchor = stickToBottom ? "none" : "auto"
+  }, [stickToBottom])
 
   const syncTeachingRuntimeSelection = useCallback(
     async (input?: { directory?: string; sessionID?: string; sessionKey?: string }) => {
@@ -774,6 +884,8 @@ export function useDirectoryChatPageController(
       setOpenProjectsQueryData(queryClient, useChatStore.getState().openProjects)
       cs.setActiveDirectory(nextDirectory)
       startNewSessionDraft(nextDirectory)
+      useUiPreferences.getState().setMainPaneTab("chat")
+      setLibraryOpen(false)
       seedDraftModelSelection(nextDirectory)
       if (nextDirectory !== decodedDirectory) {
         onSwitchDirectory(nextDirectory)
@@ -1371,16 +1483,32 @@ export function useDirectoryChatPageController(
 
   function onTranscriptScroll(event: UIEvent<HTMLElement>) {
     const node = event.currentTarget
-    const distanceFromBottom = node.scrollHeight - (node.scrollTop + node.clientHeight)
+    if (!canScrollElement(node)) {
+      if (!stickToBottom) setStickToBottom(true)
+      updateOverflowAnchor(node)
+      return
+    }
+
+    const dist = distanceFromBottom(node)
+
+    if (dist <= BOTTOM_THRESHOLD_PX) {
+      if (!stickToBottom) setStickToBottom(true)
+      updateOverflowAnchor(node)
+      return
+    }
 
     if ((transcriptScrollAnimationRef.current || smoothFollowingRef.current) && stickToBottom) {
       return
     }
-    const shouldStick = distanceFromBottom <= BOTTOM_THRESHOLD_PX
-    if (!shouldStick) {
-      stopTranscriptScrollAnimation()
+
+    if (stickToBottom && isAutoScroll(node)) {
+      syncTranscriptToBottom()
+      return
     }
-    setStickToBottom(shouldStick)
+
+    stopTranscriptScrollAnimation()
+    setStickToBottom(false)
+    updateOverflowAnchor(node)
   }
 
   function onPersonaChange(persona: string) {
