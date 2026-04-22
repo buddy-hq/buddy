@@ -23,14 +23,6 @@ function LoadingWindow() {
 
 function resolveBuddyIconUrl() {
   const buddyGlobals = Reflect.get(window, "__BUDDY__")
-  const iconUrl =
-    buddyGlobals && typeof buddyGlobals === "object"
-      ? Reflect.get(buddyGlobals, "iconUrl")
-      : undefined
-  if (typeof iconUrl === "string" && iconUrl.length > 0 && window.location.protocol === "file:") {
-    return iconUrl
-  }
-
   const assetBaseUrl =
     buddyGlobals && typeof buddyGlobals === "object"
       ? Reflect.get(buddyGlobals, "assetBaseUrl")
