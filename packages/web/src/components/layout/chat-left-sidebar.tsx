@@ -20,8 +20,6 @@ import type {
 import { SettingsIcon } from "./sidebar-icons"
 import { getFilename } from "./sidebar-helpers"
 
-const SELECTION_COLLAPSE_DELAY_MS = 180
-
 type ChatLeftSidebarProps = {
   directories: string[]
   currentDirectory: string

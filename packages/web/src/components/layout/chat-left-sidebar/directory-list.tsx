@@ -1,8 +1,6 @@
-import { Layers2Icon, LayoutTemplateIcon, LibraryBigIcon, type LucideIcon } from "lucide-react"
+import { LibraryBigIcon, type LucideIcon } from "lucide-react"
 import {
   ArchiveIcon,
-  Badge,
-  Button,
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
@@ -20,7 +18,6 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-  Skeleton,
   SquarePenIcon,
   Tooltip,
   TooltipContent,
@@ -28,29 +25,13 @@ import {
   XIcon,
   ZapIcon,
 } from "@buddy/ui"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { language } from "@/context/language"
 import { collectSessionFamilyIDs } from "@/lib/session-family"
-import { stringifyError } from "@/lib/api-client"
-import {
-  getFlashcardDueCount,
-  isFlashcardReviewAvailable,
-  type FlashcardDueCounts,
-} from "@/lib/flashcard"
 import type { SessionInfo, SessionStatusInfo } from "@/state/chat-types"
 import { isSessionWorking } from "@/state/session-status"
 import type { NotebookMainPaneTab } from "@/state/ui-preferences"
-import {
-  workspaceArtifactsQueryKeys,
-  workspaceFlashcardDecksQueryOptions,
-  workspaceMermaidArtifactsQueryOptions,
-  workspaceQuestionSetArtifactsQueryOptions,
-} from "@/state/workspace-artifacts-query"
-import { MermaidDiagram } from "@/components/chat/tools/render/mermaid/mermaid-diagram"
-import { MermaidToolCard } from "@/components/chat/tools/render/mermaid/mermaid-tool-card"
-import { FlashcardReviewDialog } from "@/components/flashcard/flashcard-review-dialog"
 import { getFilename } from "../sidebar-helpers"
-import { BookOpenIcon, ChevronDownIcon, ChevronRightIcon, HelpIcon } from "../sidebar-icons"
+import { ChevronRightIcon } from "../sidebar-icons"
 import {
   buildSessionChildrenByParent,
   formatThreadAge,
@@ -150,11 +131,6 @@ const QUICK_CHAT_COLLAPSED_COUNT = 3
 const THREAD_ROW_PADDING_LEFT_PX = 20
 const THREAD_CHILD_INDENT_PX = 14
 const THREAD_STATUS_OFFSET_PX = 6
-const DOCK_MAX_SCALE = 1.2
-const DOCK_BASE_SCALE = 1
-const DOCK_DISTANCE_PX = 80
-const DOCK_ICON_SIZE_CLASS = "size-[18px]"
-const DOCK_BUTTON_SIZE_CLASS = "size-9"
 
 const MAIN_PANE_SHORTCUTS: MainPaneShortcut[] = [
   {
