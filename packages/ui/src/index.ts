@@ -40,6 +40,12 @@ export {
 } from "./components/ui/context-menu"
 export { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./components/ui/collapsible"
 export {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "./components/ui/accordion"
+export {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
