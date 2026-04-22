@@ -12,6 +12,7 @@ export type NotebookMainPaneTab =
   | "flashcard"
   | "instructions"
   | "question-set"
+  | "library"
 
 const DEFAULT_SIDEBAR_WIDTH_PX = 344
 
