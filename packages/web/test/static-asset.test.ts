@@ -15,7 +15,7 @@ afterEach(() => {
 })
 
 describe("static assets", () => {
-  test("prefers the desktop-provided Buddy icon URL when available", () => {
+  test("uses the public Buddy icon asset for file renderers", () => {
     const location = {
       protocol: "file:",
       href: "file:///Applications/Buddy/index.html",
@@ -39,7 +39,7 @@ describe("static assets", () => {
       value: location,
     })
 
-    expect(resolveBuddyIconUrl()).toBe("file:///Applications/Buddy/icon.png")
+    expect(resolveBuddyIconUrl()).toBe("file:///Applications/Buddy/buddy-icon.png")
   })
 
   test("falls back to the public Buddy icon asset for http renderers", () => {
