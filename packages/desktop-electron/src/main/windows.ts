@@ -1,13 +1,14 @@
 import windowState from "electron-window-state"
 import { app, BrowserWindow, nativeImage, nativeTheme } from "electron"
 import { dirname, join } from "node:path"
-import { fileURLToPath } from "node:url"
+import { fileURLToPath, pathToFileURL } from "node:url"
 import type { TitlebarTheme } from "../preload/types"
 
 type WindowGlobals = {
   updaterEnabled: boolean
   deepLinks?: string[]
   version: string
+  iconUrl?: string
 }
 
 const root = dirname(fileURLToPath(import.meta.url))
@@ -148,11 +149,15 @@ function injectGlobals(win: BrowserWindow, globals: WindowGlobals) {
   win.webContents.on("dom-ready", () => {
     const deepLinks = globals.deepLinks ?? []
     const assetBaseUrl = resolveAssetBaseUrl(win)
+    const resolvedIconUrl = resolveWindowIconUrl(win)
     const payload = {
       updaterEnabled: globals.updaterEnabled,
       deepLinks: Array.isArray(deepLinks) ? [...deepLinks] : [],
       version: globals.version,
       assetBaseUrl,
+      ...(globals.iconUrl || resolvedIconUrl
+        ? { iconUrl: globals.iconUrl ?? resolvedIconUrl }
+        : {}),
     }
 
     void win.webContents.executeJavaScript(
@@ -170,6 +175,20 @@ function resolveAssetBaseUrl(win: BrowserWindow) {
       return new URL("./", parsed).toString()
     }
     return new URL("/", parsed).toString()
+  } catch {
+    return undefined
+  }
+}
+
+function resolveWindowIconUrl(win: BrowserWindow) {
+  const currentUrl = win.webContents.getURL()
+
+  try {
+    const parsed = new URL(currentUrl)
+    if (parsed.protocol !== "file:") {
+      return undefined
+    }
+    return pathToFileURL(iconPath()).toString()
   } catch {
     return undefined
   }

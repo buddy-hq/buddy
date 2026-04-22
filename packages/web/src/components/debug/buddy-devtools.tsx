@@ -43,13 +43,7 @@ import {
   buildOnboardingChatEntryReturnTo,
 } from "@/lib/onboarding-test-mode"
 
-type BuddyDevToolsTab =
-  | "actions"
-  | "session"
-  | "palette"
-  | "snapshot"
-  | "capabilities"
-  | "query"
+type BuddyDevToolsTab = "actions" | "session" | "palette" | "snapshot" | "capabilities" | "query"
 
 type Rect = {
   left: number
@@ -58,15 +52,7 @@ type Rect = {
   height: number
 }
 
-type ResizeDirection =
-  | "n"
-  | "s"
-  | "e"
-  | "w"
-  | "ne"
-  | "nw"
-  | "se"
-  | "sw"
+type ResizeDirection = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw"
 
 const MIN_DEVTOOLS_WIDTH = 320
 const MIN_DEVTOOLS_HEIGHT = 200
@@ -92,42 +78,45 @@ function useDevToolsRect() {
     rect: { left: 0, top: 0, width: 0, height: 0 },
   })
 
-  const onDragPointerDown = useCallback((event: React.PointerEvent) => {
-    if (event.button !== 0) return
-    event.preventDefault()
-    draggingRef.current = true
-    startRef.current = {
-      x: event.clientX,
-      y: event.clientY,
-      rect: { ...rect },
-    }
-    const target = event.currentTarget
-    target.setPointerCapture(event.pointerId)
+  const onDragPointerDown = useCallback(
+    (event: React.PointerEvent) => {
+      if (event.button !== 0) return
+      event.preventDefault()
+      draggingRef.current = true
+      startRef.current = {
+        x: event.clientX,
+        y: event.clientY,
+        rect: { ...rect },
+      }
+      const target = event.currentTarget
+      target.setPointerCapture(event.pointerId)
 
-    const onPointerMove = (moveEvent: PointerEvent) => {
-      if (!draggingRef.current) return
-      const dx = moveEvent.clientX - startRef.current.x
-      const dy = moveEvent.clientY - startRef.current.y
-      setRect({
-        ...startRef.current.rect,
-        left: Math.max(0, startRef.current.rect.left + dx),
-        top: Math.max(0, startRef.current.rect.top + dy),
-      })
-    }
+      const onPointerMove = (moveEvent: Event) => {
+        if (!(moveEvent instanceof PointerEvent) || !draggingRef.current) return
+        const dx = moveEvent.clientX - startRef.current.x
+        const dy = moveEvent.clientY - startRef.current.y
+        setRect({
+          ...startRef.current.rect,
+          left: Math.max(0, startRef.current.rect.left + dx),
+          top: Math.max(0, startRef.current.rect.top + dy),
+        })
+      }
 
-    const onPointerUp = (upEvent: PointerEvent) => {
-      if (!draggingRef.current) return
-      draggingRef.current = false
-      target.releasePointerCapture(upEvent.pointerId)
-      target.removeEventListener("pointermove", onPointerMove)
-      target.removeEventListener("pointerup", onPointerUp)
-      target.removeEventListener("pointercancel", onPointerUp)
-    }
+      const onPointerUp = (upEvent: Event) => {
+        if (!(upEvent instanceof PointerEvent) || !draggingRef.current) return
+        draggingRef.current = false
+        target.releasePointerCapture(upEvent.pointerId)
+        target.removeEventListener("pointermove", onPointerMove)
+        target.removeEventListener("pointerup", onPointerUp)
+        target.removeEventListener("pointercancel", onPointerUp)
+      }
 
-    target.addEventListener("pointermove", onPointerMove)
-    target.addEventListener("pointerup", onPointerUp)
-    target.addEventListener("pointercancel", onPointerUp)
-  }, [rect])
+      target.addEventListener("pointermove", onPointerMove)
+      target.addEventListener("pointerup", onPointerUp)
+      target.addEventListener("pointercancel", onPointerUp)
+    },
+    [rect],
+  )
 
   const onResizePointerDown = useCallback(
     (direction: ResizeDirection) => (event: React.PointerEvent) => {
@@ -148,8 +137,8 @@ function useDevToolsRect() {
       document.body.style.userSelect = "none"
       document.body.style.overflow = "hidden"
 
-      const onPointerMove = (moveEvent: PointerEvent) => {
-        if (!resizingRef.current) return
+      const onPointerMove = (moveEvent: Event) => {
+        if (!(moveEvent instanceof PointerEvent) || !resizingRef.current) return
         const dx = moveEvent.clientX - startRef.current.x
         const dy = moveEvent.clientY - startRef.current.y
         const s = startRef.current.rect
@@ -184,8 +173,8 @@ function useDevToolsRect() {
         })
       }
 
-      const onPointerUp = (upEvent: PointerEvent) => {
-        if (!resizingRef.current) return
+      const onPointerUp = (upEvent: Event) => {
+        if (!(upEvent instanceof PointerEvent) || !resizingRef.current) return
         resizingRef.current = false
         document.body.style.userSelect = previousUserSelect
         document.body.style.overflow = previousOverflow
@@ -247,13 +236,8 @@ function useDevToolsRect() {
   }
 }
 
-function RuntimeListSection(props: {
-  title: string
-  items: string[]
-  empty: string
-}) {
-  const displayItems =
-    props.items.length > 0 ? props.items : [props.empty]
+function RuntimeListSection(props: { title: string; items: string[]; empty: string }) {
+  const displayItems = props.items.length > 0 ? props.items : [props.empty]
   const seen = new Map<string, number>()
 
   return (
@@ -267,10 +251,7 @@ function RuntimeListSection(props: {
             const occurrence = seen.get(item) ?? 0
             seen.set(item, occurrence + 1)
             return (
-              <li
-                key={`${props.title}:${item}:${occurrence}`}
-                className="text-text-base"
-              >
+              <li key={`${props.title}:${item}:${occurrence}`} className="text-text-base">
                 {item}
               </li>
             )
@@ -289,13 +270,9 @@ function DevToolsSnapshotTab(props: { directory: string }) {
     () => (sessionID ? teachingSessionKey(directory, sessionID) : ""),
     [directory, sessionID],
   )
-  const persona = sessionKey
-    ? teachingRuntime.selectedPersonaBySession[sessionKey]
-    : undefined
+  const persona = sessionKey ? teachingRuntime.selectedPersonaBySession[sessionKey] : undefined
   const intent = sessionKey
-    ? intentFromSelection(
-        teachingRuntime.selectedIntentBySession[sessionKey] ?? "auto",
-      )
+    ? intentFromSelection(teachingRuntime.selectedIntentBySession[sessionKey] ?? "auto")
     : "auto"
 
   const query = useQuery({
@@ -318,15 +295,11 @@ function DevToolsSnapshotTab(props: { directory: string }) {
     <div className="flex h-full min-h-0 flex-col p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
         <div>
-          <p className="text-xs font-medium">
-            {language.t("rightSidebar.snapshot.title")}
-          </p>
+          <p className="text-xs font-medium">{language.t("rightSidebar.snapshot.title")}</p>
           <p className="text-[11px] text-text-weak">
             {curriculumView?.workspace.label ??
               language.t("rightSidebar.snapshot.workspaceFallback")}{" "}
-            {curriculumView?.coldStart
-              ? language.t("rightSidebar.snapshot.coldStartBadge")
-              : ""}
+            {curriculumView?.coldStart ? language.t("rightSidebar.snapshot.coldStartBadge") : ""}
           </p>
         </div>
         <Button
@@ -341,9 +314,7 @@ function DevToolsSnapshotTab(props: { directory: string }) {
       </div>
 
       {query.isPending ? (
-        <div className="text-sm text-text-weak">
-          {language.t("rightSidebar.snapshot.loading")}
-        </div>
+        <div className="text-sm text-text-weak">{language.t("rightSidebar.snapshot.loading")}</div>
       ) : curriculumView ? (
         <div className="flex-1 min-h-0 space-y-3 overflow-y-auto">
           <Card size="sm" className="gap-0 py-0">
@@ -408,13 +379,9 @@ function DevToolsCapabilitiesTab(props: { directory: string }) {
     () => (sessionID ? teachingSessionKey(directory, sessionID) : ""),
     [directory, sessionID],
   )
-  const persona = sessionKey
-    ? teachingRuntime.selectedPersonaBySession[sessionKey]
-    : undefined
+  const persona = sessionKey ? teachingRuntime.selectedPersonaBySession[sessionKey] : undefined
   const intent = sessionKey
-    ? intentFromSelection(
-        teachingRuntime.selectedIntentBySession[sessionKey] ?? "auto",
-      )
+    ? intentFromSelection(teachingRuntime.selectedIntentBySession[sessionKey] ?? "auto")
     : "auto"
 
   const query = useQuery({
@@ -437,9 +404,7 @@ function DevToolsCapabilitiesTab(props: { directory: string }) {
     <div className="flex h-full min-h-0 flex-col p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
         <div>
-          <p className="text-xs font-medium">
-            {language.t("rightSidebar.capabilities.title")}
-          </p>
+          <p className="text-xs font-medium">{language.t("rightSidebar.capabilities.title")}</p>
           <p className="text-[11px] text-text-weak">
             {language.t("rightSidebar.capabilities.description")}
           </p>
@@ -465,12 +430,8 @@ function DevToolsCapabilitiesTab(props: { directory: string }) {
             <CardContent className="space-y-3 px-3 py-3">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="secondary">{capabilitiesView.persona}</Badge>
-                <Badge variant="outline">
-                  {titleCaseLabel(capabilitiesView.intent)}
-                </Badge>
-                <Badge variant="outline">
-                  {titleCaseLabel(capabilitiesView.workspaceState)}
-                </Badge>
+                <Badge variant="outline">{titleCaseLabel(capabilitiesView.intent)}</Badge>
+                <Badge variant="outline">{titleCaseLabel(capabilitiesView.workspaceState)}</Badge>
               </div>
               <div className="space-y-1">
                 <p className="text-sm font-medium text-text-base">
@@ -481,8 +442,7 @@ function DevToolsCapabilitiesTab(props: { directory: string }) {
                   {capabilitiesView.visibleSurfaces.join(", ") ||
                     language.t("rightSidebar.capabilities.none")}{" "}
                   | {language.t("rightSidebar.capabilities.defaultPrefix")}{" "}
-                  {capabilitiesView.defaultSurface ||
-                    language.t("rightSidebar.capabilities.na")}
+                  {capabilitiesView.defaultSurface || language.t("rightSidebar.capabilities.na")}
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-2 text-xs">
@@ -524,20 +484,14 @@ function DevToolsCapabilitiesTab(props: { directory: string }) {
             empty={language.t("rightSidebar.capabilities.noSkillsEnabled")}
           />
           <RuntimeListSection
-            title={language.t(
-              "rightSidebar.capabilities.preferredSubagents",
-            )}
+            title={language.t("rightSidebar.capabilities.preferredSubagents")}
             items={capabilitiesView.subagents.prefer}
-            empty={language.t(
-              "rightSidebar.capabilities.noSubagentsPreferred",
-            )}
+            empty={language.t("rightSidebar.capabilities.noSubagentsPreferred")}
           />
           <RuntimeListSection
             title={language.t("rightSidebar.capabilities.allowedSubagents")}
             items={capabilitiesView.subagents.allow}
-            empty={language.t(
-              "rightSidebar.capabilities.noSubagentsAllowed",
-            )}
+            empty={language.t("rightSidebar.capabilities.noSubagentsAllowed")}
           />
           <RuntimeListSection
             title={language.t("rightSidebar.capabilities.deniedTools")}
@@ -646,10 +600,7 @@ export function BuddyDevTools() {
       toast.success(language.t("desktopTitlebar.openAiDisconnected"))
     } catch (error) {
       toast.error(
-        formatProviderAuthError(
-          error,
-          language.t("desktopTitlebar.disconnectOpenAiFailed"),
-        ),
+        formatProviderAuthError(error, language.t("desktopTitlebar.disconnectOpenAiFailed")),
       )
     } finally {
       setIsDisconnectingOpenAi(false)
@@ -784,14 +735,8 @@ export function BuddyDevTools() {
               className="flex cursor-move items-center border-b border-border-weaker-base"
               onPointerDown={onDragPointerDown}
             >
-              <div
-                className="flex-1"
-                onPointerDown={(e) => e.stopPropagation()}
-              >
-                <TabsList
-                  variant="line"
-                  className="h-9 w-full justify-start px-2"
-                >
+              <div className="flex-1" onPointerDown={(e) => e.stopPropagation()}>
+                <TabsList variant="line" className="h-9 w-full justify-start px-2">
                   <TabsTrigger value="actions" className="text-xs">
                     Actions
                   </TabsTrigger>
@@ -880,10 +825,7 @@ export function BuddyDevTools() {
               </div>
             </div>
 
-            <TabsContent
-              value="actions"
-              className="min-h-0 flex-1 overflow-y-auto p-3 mt-0"
-            >
+            <TabsContent value="actions" className="min-h-0 flex-1 overflow-y-auto p-3 mt-0">
               <div className="space-y-4">
                 <div className="space-y-2">
                   <p className="text-xs font-medium text-text-weak">Session</p>
@@ -918,9 +860,7 @@ export function BuddyDevTools() {
                 </div>
 
                 <div className="space-y-2">
-                  <p className="text-xs font-medium text-text-weak">
-                    Onboarding
-                  </p>
+                  <p className="text-xs font-medium text-text-weak">Onboarding</p>
                   <div className="flex flex-wrap gap-2">
                     <Button
                       type="button"
@@ -937,15 +877,9 @@ export function BuddyDevTools() {
               </div>
             </TabsContent>
 
-            <TabsContent
-              value="session"
-              className="min-h-0 flex-1 overflow-hidden mt-0"
-            >
+            <TabsContent value="session" className="min-h-0 flex-1 overflow-hidden mt-0">
               {activeDirectory ? (
-                <SystemPromptPanel
-                  directory={activeDirectory}
-                  sessionID={sessionID}
-                />
+                <SystemPromptPanel directory={activeDirectory} sessionID={sessionID} />
               ) : (
                 <div className="flex h-full items-center justify-center text-sm text-text-weak">
                   No active directory
@@ -953,17 +887,11 @@ export function BuddyDevTools() {
               )}
             </TabsContent>
 
-            <TabsContent
-              value="palette"
-              className="min-h-0 flex-1 overflow-hidden mt-0"
-            >
+            <TabsContent value="palette" className="min-h-0 flex-1 overflow-hidden mt-0">
               <PalettePanel />
             </TabsContent>
 
-            <TabsContent
-              value="snapshot"
-              className="min-h-0 flex-1 overflow-hidden mt-0"
-            >
+            <TabsContent value="snapshot" className="min-h-0 flex-1 overflow-hidden mt-0">
               {activeDirectory ? (
                 <DevToolsSnapshotTab directory={activeDirectory} />
               ) : (
@@ -973,10 +901,7 @@ export function BuddyDevTools() {
               )}
             </TabsContent>
 
-            <TabsContent
-              value="capabilities"
-              className="min-h-0 flex-1 overflow-hidden mt-0"
-            >
+            <TabsContent value="capabilities" className="min-h-0 flex-1 overflow-hidden mt-0">
               {activeDirectory ? (
                 <DevToolsCapabilitiesTab directory={activeDirectory} />
               ) : (
@@ -986,10 +911,7 @@ export function BuddyDevTools() {
               )}
             </TabsContent>
 
-            <TabsContent
-              value="query"
-              className="min-h-0 flex-1 overflow-hidden mt-0"
-            >
+            <TabsContent value="query" className="min-h-0 flex-1 overflow-hidden mt-0">
               <ReactQueryDevtoolsPanel style={{ height: "100%" }} />
             </TabsContent>
           </Tabs>

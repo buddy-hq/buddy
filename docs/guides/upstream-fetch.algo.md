@@ -14,6 +14,7 @@ This is the repeatable process to sync `vendor/opencode` while preserving local 
 3. Keep vendor clean; put Buddy-specific behavior in Buddy/adapter/build layer.
 4. Validate with real commands before and after sync.
 5. Vendor guard is active on local hooks and push checks for `vendor/opencode/**`; for intentional validated vendor syncs, use `ALLOW_VENDOR_SYNC=1` on guarded git commands.
+6. Treat `packages/buddy`, `packages/opencode-adapter`, and `packages/desktop-electron` as the primary Buddy-owned compatibility surface after sync; do not assume green vendor typecheck means Buddy UX still works.
 
 ## Algorithm
 1. Create a checkpoint log entry.
@@ -50,6 +51,17 @@ This is the repeatable process to sync `vendor/opencode` while preserving local 
      - `bun run --cwd packages/buddy test:contracts`
      - `bun run --cwd packages/web test:contracts`
      - `bun run --cwd packages/buddy build:single`
+   - Before accepting the temp sync, explicitly review these Buddy compatibility hotspots:
+     - Effect-returning runtime APIs now used by Buddy wrappers:
+       - `ctx.ask()`
+       - `ctx.metadata()`
+     - Buddy tools that previously used direct `fs` writes or reads instead of the upstream tool/runtime path.
+     - Session prompt/command routes that mutate Buddy state before the vendored runtime confirms the target session exists.
+     - Runtime bootstrap modules that can read global storage paths before Buddy sets XDG/runtime-root env vars.
+     - Route-layer error normalization for malformed JSON and schema-validation failures.
+     - Tool registration/unregistration paths, especially Buddy-owned tool groups that can be enabled, disabled, and re-enabled per directory.
+     - Config/tool/permission overlay isolation across directory changes and runtime disposal/recreation.
+     - Desktop renderer asset paths after package moves or build-config changes, especially `publicDir`, loading screens, and chat empty-state assets.
    - If this fails, stop and fix before touching real tree.
 
 5. Ensure no Buddy-only patch remains in vendor.
@@ -76,6 +88,16 @@ This is the repeatable process to sync `vendor/opencode` while preserving local 
    - `bun run --cwd packages/buddy test:contracts`
    - `bun run --cwd packages/web test:contracts`
    - `bun run --cwd packages/buddy build:single`
+   - Also run focused Buddy regression checks for the known sync-risk surfaces:
+     - lesson-workspace write path uses upstream write runtime, not raw `fs`
+     - missing-session prompt/command routes fail before Buddy state mutation
+     - same-project nested sessions do not false-404 on prompt send
+     - runtime root / XDG bootstrap honors `BUDDY_RUNTIME_ROOT`
+     - malformed JSON and validator failures both return Buddy’s standard `{ "error": string }` envelope
+     - Buddy tool groups unregister correctly after disable
+     - overlay isolation holds for agent/subagent/tool/config/permission overlays across instance resets
+     - Electron quick-chat / loading logo resolves in both packaged (`file:`) and dev (`http:`) renderer modes
+   - Prefer dedicated targeted tests over broad suites; the goal is to prove Buddy compatibility, not to brute-force vendor coverage.
 
 9. Verify vendor cleanliness against local upstream clone.
    - Direct spot check:
@@ -105,6 +127,11 @@ This is the repeatable process to sync `vendor/opencode` while preserving local 
    - Add concrete evidence snippets:
      - `git diff --shortstat -- vendor/opencode`
      - `git diff --name-only -- vendor/opencode | cut -d/ -f1-4 | sort | uniq -c | sort -nr | head -20`
+   - Add a Buddy risk ledger to the same log:
+     - confirmed regressions
+     - rejected false alarms
+     - tests added/restored to keep the next sync safer
+     - any UX smoke checks performed for chat send, permission flow, and desktop shell assets
 
 13. (Optional but recommended) push synced commits to origin.
    - `ALLOW_VENDOR_SYNC=1 git push origin <branch>`
@@ -130,3 +157,21 @@ This is the repeatable process to sync `vendor/opencode` while preserving local 
 8. Shrink throwaway adapter shims if upstream API migration is clearly better.
 9. Summarize vendor delta and Buddy unlocks in the sync log.
 10. Commit vendor, then Buddy changes (use `ALLOW_VENDOR_SYNC=1` on vendor-sync commit/push).
+
+## Minimum Buddy Smoke Checklist
+Run this even if the sync looks mechanically clean:
+
+1. Send a prompt to an existing session from the normal chat UX.
+2. Send a prompt to a missing session and confirm Buddy returns a clean `404` without mutating local teaching state.
+3. Trigger at least one Buddy-owned tool that asks permission and verify the permission UX still appears.
+4. Exercise one Buddy-owned write path and confirm it goes through the upstream write runtime, not direct `fs`.
+5. Toggle a Buddy tool group/config overlay off after enabling it once and confirm the tool surface actually shrinks.
+6. Verify desktop/logo assets on:
+   - dev Electron (`http:` renderer)
+   - packaged Electron (`file:` renderer)
+
+## Known Sync Traps From 2026-04-22
+- Upstream runtime methods can silently switch from `Promise` to `Effect` return types without obvious compile failures at Buddy call sites.
+- A review patch can reintroduce regressions if session-existence checks become stricter than the upstream project/session model.
+- Package renames can leave Electron/Vite `publicDir` paths pointing at dead directories even while JSX still renders the expected asset URL.
+- Deleted regression tests around route envelopes, overlay isolation, and desktop assets make the next sync much harder to debug; keep them.

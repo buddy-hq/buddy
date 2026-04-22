@@ -12,7 +12,7 @@
   "main": "./out/main/index.js",
   "scripts": {
     "lint": "oxlint",
-    "typecheck": "tsgo -b",
+    "typecheck": "../../node_modules/.bin/tsgo -b",
     "predev": "bun ./scripts/predev.ts",
     "dev": "bun ./scripts/dev.ts",
     "prebuild": "bun ./scripts/prebuild.ts",

@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./auth": "./src/auth.ts",
+    "./app-runtime": "./src/app-runtime.ts",
     "./command": "./src/command.ts",
     "./mcp": "./src/mcp.ts",
     "./message": "./src/message.ts",

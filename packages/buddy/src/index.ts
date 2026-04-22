@@ -3,6 +3,7 @@ import path from "node:path"
 import { Hono } from "hono"
 import { openAPIRouteHandler } from "hono-openapi"
 import { cors } from "hono/cors"
+import { HTTPException } from "hono/http-exception"
 import { logger } from "hono/logger"
 import { AgentsMdRoutes } from "./routes"
 import { AuthRoutes } from "./routes"
@@ -27,6 +28,7 @@ import { ResourceRoutes } from "./routes"
 import { SessionRoutes } from "./routes"
 import { SkillsRoutes } from "./routes"
 import { TeachingRoutes } from "./routes"
+import { isJsonContentType, normalizeValidationFailureResponse } from "./http"
 
 const OPTION_PRINT_LOGS = "--print-logs"
 const OPTION_LOG_LEVEL = "--log-level"
@@ -61,6 +63,21 @@ process.on("unhandledRejection", (error) => {
 process.on("uncaughtException", (error) => {
   console.error("Uncaught sidecar exception", describeFatalError(error))
 })
+
+async function normalizeHttpException(error: HTTPException) {
+  const response = error.getResponse()
+  if (isJsonContentType(response.headers.get("content-type"))) {
+    return response
+  }
+
+  const rawMessage = (await response.clone().text()).trim()
+  const message =
+    error.status === 400 && rawMessage === "Malformed JSON in request body"
+      ? "Invalid JSON body"
+      : rawMessage || error.message || response.statusText || "Request failed"
+
+  return Response.json({ error: message }, { status: error.status })
+}
 
 function matchesBasicAuth(value: string | undefined, username: string, password: string): boolean {
   if (!value?.startsWith("Basic ")) return false
@@ -122,6 +139,18 @@ api.route("/skills", SkillsRoutes)
 
 app.use(logger())
 app.use(cors({ origin: "*" }))
+app.use("*", async (c, next) => {
+  await next()
+  c.res = await normalizeValidationFailureResponse(c.res)
+})
+app.onError(async (error) => {
+  if (error instanceof HTTPException) {
+    return normalizeHttpException(error)
+  }
+
+  console.error("Unhandled Buddy route error", describeFatalError(error))
+  return Response.json({ error: "Internal server error" }, { status: 500 })
+})
 app.get("/api/healthz", (c) => c.json({ healthy: true }))
 app.route("/api", api)
 

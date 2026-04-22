@@ -35,7 +35,7 @@ export default defineConfig({
   renderer: {
     plugins: [...buddyWebVitePlugin(), react(), tailwindcss()],
     root: "src/renderer",
-    publicDir: path.resolve(__dirname, "../desktop/public"),
+    publicDir: path.resolve(__dirname, "public"),
     build: {
       rollupOptions: {
         input: {

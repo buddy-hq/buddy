@@ -14,6 +14,7 @@ declare global {
       deepLinks?: string[]
       version?: string
       assetBaseUrl?: string
+      iconUrl?: string
     }
   }
 }

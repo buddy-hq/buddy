@@ -3,6 +3,7 @@ import { withConfigSync } from "../../http/route-helpers"
 import { createSessionCommandTransform } from "../../learning/agent-execution/transforms/command-transform"
 import { createSessionMessageTransform } from "../../learning/agent-execution/transforms/message-transform"
 import type { SessionTransformContext } from "../../learning/agent-execution/transforms/types"
+import { assertSessionExistsInDirectory } from "./lookup"
 import { mapSessionTransformError, runSessionTransformProxy } from "./proxy-transform"
 
 export async function postSessionPrompt(c: Context): Promise<Response> {
@@ -12,7 +13,6 @@ export async function postSessionPrompt(c: Context): Promise<Response> {
   if (!syncResult.ok) return syncResult.response
 
   const sessionID = c.req.param("sessionID")
-
   const transformContext: SessionTransformContext = {
     directory: syncResult.value.directory,
     sessionID,
@@ -29,6 +29,12 @@ export async function postSessionPrompt(c: Context): Promise<Response> {
       onAccepted: promptTransform.onAccepted,
       rollbackState: promptTransform.rollbackState,
       onTransform: promptTransform.onTransform,
+      beforeProxy: () =>
+        assertSessionExistsInDirectory({
+          directory: syncResult.value.directory,
+          sessionID,
+          request: c.req.raw,
+        }),
     })
   } catch (error) {
     promptTransform.rollbackState?.()
@@ -45,7 +51,6 @@ export async function postSessionCommand(c: Context): Promise<Response> {
   if (!syncResult.ok) return syncResult.response
 
   const sessionID = c.req.param("sessionID")
-
   const transformContext: SessionTransformContext = {
     directory: syncResult.value.directory,
     sessionID,
@@ -61,6 +66,12 @@ export async function postSessionCommand(c: Context): Promise<Response> {
       targetPath: `/session/${encodeURIComponent(sessionID)}/command`,
       rollbackState: commandTransform.rollbackState,
       onTransform: commandTransform.onTransform,
+      beforeProxy: () =>
+        assertSessionExistsInDirectory({
+          directory: syncResult.value.directory,
+          sessionID,
+          request: c.req.raw,
+        }),
     })
   } catch (error) {
     commandTransform.rollbackState?.()

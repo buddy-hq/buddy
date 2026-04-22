@@ -14,10 +14,18 @@ import {
 } from "./tool-capability-constraints"
 
 type BuddyToolMetadata = Record<string, unknown>
-type BuddyToolContext<Metadata extends BuddyToolMetadata = BuddyToolMetadata> =
-  Tool.Context<Metadata> & {
-    directory: string
-  }
+type BuddyToolContext<Metadata extends BuddyToolMetadata = BuddyToolMetadata> = {
+  directory: string
+  sessionID: Tool.Context<Metadata>["sessionID"]
+  messageID: Tool.Context<Metadata>["messageID"]
+  agent: Tool.Context<Metadata>["agent"]
+  abort: Tool.Context<Metadata>["abort"]
+  callID?: Tool.Context<Metadata>["callID"]
+  extra?: Tool.Context<Metadata>["extra"]
+  messages: Tool.Context<Metadata>["messages"]
+  metadata(input: { title?: string; metadata?: Metadata }): Promise<void>
+  ask(input: Parameters<Tool.Context<Metadata>["ask"]>[0]): Promise<void>
+}
 
 type BuddyToolInitResult<Parameters extends z.ZodType, Metadata extends BuddyToolMetadata> = {
   description: string
@@ -95,8 +103,20 @@ function createBuddyTool<
             ...definition,
             execute(args: z.infer<Parameters>, ctx: Tool.Context<Metadata>) {
               const nextCtx: BuddyToolContext<Metadata> = {
-                ...ctx,
                 directory,
+                sessionID: ctx.sessionID,
+                messageID: ctx.messageID,
+                agent: ctx.agent,
+                abort: ctx.abort,
+                ...(ctx.callID ? { callID: ctx.callID } : {}),
+                ...(ctx.extra ? { extra: ctx.extra } : {}),
+                messages: ctx.messages,
+                metadata(input) {
+                  return Effect.runPromise(ctx.metadata(input))
+                },
+                ask(input) {
+                  return Effect.runPromise(ctx.ask(input))
+                },
               }
 
               return Effect.promise(async () => {

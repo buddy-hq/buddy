@@ -25,9 +25,7 @@ export async function unregisterBuddyTools(
   await OpenCodeInstance.provide({
     directory,
     async fn() {
-      // OpenCode no longer exposes ToolRegistry custom-state mutation.
-      // Keep unregister as a no-op until a public unregister API exists.
-      void toolIDs
+      await ToolRegistry.unregister(toolIDs)
     },
   })
 }

@@ -56,10 +56,10 @@ describe("legacy OpenCode migration repair", () => {
           where created_at = ?`,
       )
       .get(EVENTS_MIGRATION_CREATED_AT) as {
-        journal_rowid: number
-        name: string
-        applied_at: string
-      }
+      journal_rowid: number
+      name: string
+      applied_at: string
+    }
 
     expect(row.journal_rowid).toBeGreaterThan(0)
     expect(row.name).toBe(EVENTS_MIGRATION_NAME)
@@ -85,10 +85,10 @@ describe("legacy OpenCode migration repair", () => {
           where created_at = ?`,
       )
       .get(EVENTS_MIGRATION_CREATED_AT) as {
-        journal_rowid: number
-        name: string | null
-        applied_at: string | null
-      }
+      journal_rowid: number
+      name: string | null
+      applied_at: string | null
+    }
 
     expect(row.journal_rowid).toBeGreaterThan(0)
     expect(row.name).toBeNull()

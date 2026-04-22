@@ -19,6 +19,20 @@ function readBuddyAssetBaseUrl() {
   return assetBaseUrl
 }
 
+function readBuddyIconUrl() {
+  const buddyGlobals = Reflect.get(window, "__BUDDY__")
+  if (!buddyGlobals || typeof buddyGlobals !== "object") {
+    return undefined
+  }
+
+  const iconUrl = Reflect.get(buddyGlobals, "iconUrl")
+  if (typeof iconUrl !== "string" || iconUrl.length === 0) {
+    return undefined
+  }
+
+  return iconUrl
+}
+
 export function resolvePublicAssetUrl(path: string) {
   const normalizedPath = normalizeAssetPath(path)
 
@@ -47,5 +61,10 @@ export function resolvePublicAssetUrl(path: string) {
 }
 
 export function resolveBuddyIconUrl() {
+  const desktopIconUrl = typeof window === "undefined" ? undefined : readBuddyIconUrl()
+  if (desktopIconUrl && window.location.protocol === "file:") {
+    return desktopIconUrl
+  }
+
   return resolvePublicAssetUrl(BUDDY_ICON_ASSET_PATH)
 }

@@ -31,15 +31,7 @@ function parseMigrationTimestamp(migrationName: string): number {
   const match = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/.exec(migrationName)
   if (!match) return Number.NaN
 
-  const [
-    _fullMatch,
-    year,
-    month,
-    day,
-    hour,
-    minute,
-    second,
-  ] = match
+  const [_fullMatch, year, month, day, hour, minute, second] = match
 
   return Date.UTC(
     Number(year),
@@ -53,18 +45,16 @@ function parseMigrationTimestamp(migrationName: string): number {
 
 function hasTable(db: Database, tableName: string): boolean {
   const row = db
-    .query(
-      "select 1 as present from sqlite_master where type = 'table' and name = ? limit 1",
-    )
+    .query("select 1 as present from sqlite_master where type = 'table' and name = ? limit 1")
     .get(tableName)
 
   return !!row
 }
 
 function listTables(db: Database): Set<string> {
-  const rows = db
-    .query("select name from sqlite_master where type = 'table'")
-    .all() as Array<{ name: string }>
+  const rows = db.query("select name from sqlite_master where type = 'table'").all() as Array<{
+    name: string
+  }>
 
   return new Set(rows.map((row) => row.name))
 }
@@ -91,12 +81,14 @@ export function repairLegacyMigrationJournal(db: Database): string[] {
     return []
   }
 
-  const incompleteRows = db.query(
-    `select rowid, id, created_at, name, applied_at
+  const incompleteRows = db
+    .query(
+      `select rowid, id, created_at, name, applied_at
        from ${DRIZZLE_MIGRATIONS_TABLE}
       where name is null or applied_at is null
       order by created_at, rowid`,
-  ).all() as MigrationJournalRow[]
+    )
+    .all() as MigrationJournalRow[]
 
   if (incompleteRows.length === 0) {
     return []
@@ -119,15 +111,8 @@ export function repairLegacyMigrationJournal(db: Database): string[] {
       continue
     }
 
-    const appliedAt =
-      row.applied_at ?? new Date(row.created_at ?? Date.now()).toISOString()
-    updateRow.run(
-      repair.migrationName,
-      appliedAt,
-      row.created_at,
-      repair.migrationName,
-      appliedAt,
-    )
+    const appliedAt = row.applied_at ?? new Date(row.created_at ?? Date.now()).toISOString()
+    updateRow.run(repair.migrationName, appliedAt, row.created_at, repair.migrationName, appliedAt)
     repairedMigrations.push(repair.migrationName)
   }
 
@@ -141,6 +126,7 @@ export async function repairLegacyOpenCodeMigrations() {
 
   const db = new Database(OpenCodeDatabasePath)
   try {
+    db.exec("PRAGMA busy_timeout = 5000")
     return repairLegacyMigrationJournal(db)
   } finally {
     db.close()

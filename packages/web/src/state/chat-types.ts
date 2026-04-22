@@ -21,6 +21,7 @@ type MessageTime = {
 type MessageModel = {
   providerID: string
   modelID: string
+  variant?: string
 }
 
 type SdkAssistantError = NonNullable<Extract<SdkMessage, { role: "assistant" }>["error"]>

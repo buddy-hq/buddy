@@ -338,7 +338,7 @@ function restoreSessionSelectionFromMessages(
     .restoreSessionSelection(getModelSelectionScopeKey(directory, sessionID), {
       agent: lastUserMessage.info.agent,
       model: `${lastUserMessage.info.model.providerID}/${lastUserMessage.info.model.modelID}`,
-      variant: lastUserMessage.info.variant ?? null,
+      variant: lastUserMessage.info.model.variant ?? null,
       messageCreatedAt: lastUserMessage.info.time.created,
     })
 }

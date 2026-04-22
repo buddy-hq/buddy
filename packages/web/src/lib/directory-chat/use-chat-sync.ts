@@ -176,7 +176,7 @@ export function useChatSync(props: UseChatSyncProps) {
               .restoreSessionSelection(getModelSelectionScopeKey(directory, info.sessionID), {
                 agent: info.agent,
                 model: `${info.model.providerID}/${info.model.modelID}`,
-                variant: info.variant ?? null,
+                variant: info.model.variant ?? null,
                 messageCreatedAt: info.time.created,
               })
           }

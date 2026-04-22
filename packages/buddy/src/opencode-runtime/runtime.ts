@@ -26,9 +26,13 @@ export async function loadOpenCodeApp() {
   if (!appPromise) {
     appPromise = (async () => {
       await ensureRuntimeDirectories()
-      const repairedMigrations = await repairLegacyOpenCodeMigrations()
-      if (repairedMigrations.length > 0) {
-        console.warn("Repaired legacy OpenCode migration journal entries:", repairedMigrations)
+      try {
+        const repairedMigrations = await repairLegacyOpenCodeMigrations()
+        if (repairedMigrations.length > 0) {
+          console.warn("Repaired legacy OpenCode migration journal entries:", repairedMigrations)
+        }
+      } catch (error) {
+        console.warn("Skipping legacy OpenCode migration repair:", error)
       }
       const built = await Server.Default()
       return {

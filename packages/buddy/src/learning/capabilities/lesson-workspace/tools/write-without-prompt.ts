@@ -1,19 +1,42 @@
-import { mkdir, writeFile } from "node:fs/promises"
-import path from "node:path"
-import { Tool } from "@buddy/opencode-adapter/tool"
+import { Effect } from "effect"
+import { AppRuntime } from "@buddy/opencode-adapter/app-runtime"
+import { Tool, WriteTool } from "@buddy/opencode-adapter/tool"
+import type { BuddyToolContext } from "../../../tools/create-buddy-tool"
+
+function createWriteToolDefinition() {
+  return AppRuntime.runPromise(
+    Effect.gen(function* () {
+      const info = yield* WriteTool
+      return yield* Tool.init(info)
+    }),
+  )
+}
+
+function createWriteToolContext(ctx: BuddyToolContext): Tool.Context {
+  return {
+    sessionID: ctx.sessionID,
+    messageID: ctx.messageID,
+    agent: ctx.agent,
+    abort: ctx.abort,
+    ...(ctx.callID ? { callID: ctx.callID } : {}),
+    ...(ctx.extra ? { extra: ctx.extra } : {}),
+    messages: ctx.messages,
+    metadata(input) {
+      return Effect.promise(() => ctx.metadata(input))
+    },
+    ask() {
+      return Effect.void
+    },
+  }
+}
 
 export async function executeWriteWithoutPrompt(
-  ctx: Tool.Context,
+  ctx: BuddyToolContext,
   input: {
     filePath: string
     content: string
   },
 ) {
-  await mkdir(path.dirname(input.filePath), { recursive: true })
-  await writeFile(input.filePath, input.content)
-  return {
-    title: "Write file",
-    output: "Wrote file successfully.",
-    metadata: {},
-  }
+  const tool = await createWriteToolDefinition()
+  return AppRuntime.runPromise(tool.execute(input, createWriteToolContext(ctx)))
 }

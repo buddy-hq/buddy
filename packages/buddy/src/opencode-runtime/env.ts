@@ -4,7 +4,7 @@ import {
   BUDDY_APP_NAME,
   resolveConfiguredPath,
   resolveDefaultBuddyGlobalConfigDir,
-} from "../storage"
+} from "../storage/constants"
 
 function runtimeRoot() {
   const configured = process.env.BUDDY_RUNTIME_ROOT?.trim()

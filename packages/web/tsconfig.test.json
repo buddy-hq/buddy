@@ -12,11 +12,6 @@
     "noEmit": true,
     "types": ["bun", "vite/client"]
   },
-  "include": [
-    "src/**/*",
-    "test/**/*",
-    "happydom.ts",
-    "scripts/**/*.ts"
-  ],
+  "include": ["src/**/*", "test/**/*", "happydom.ts", "scripts/**/*.ts"],
   "references": [{ "path": "../sdk" }]
 }

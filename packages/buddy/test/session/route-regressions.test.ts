@@ -8,6 +8,120 @@ import {
 import { tmpdir } from "../helpers/tmpdir"
 
 describe("session route regressions", () => {
+  test("returns 400 for malformed prompt JSON payloads", async () => {
+    await using project = await tmpdir({ git: true })
+
+    const response = await app.request("/api/session/ses_malformed/message", {
+      method: "POST",
+      headers: {
+        "x-buddy-directory": project.path,
+        "content-type": "application/json",
+      },
+      body: '{"content":"missing quote}',
+    })
+
+    expect(response.status).toBe(400)
+    await expect(response.json()).resolves.toEqual({
+      error: "Invalid JSON body",
+    })
+  })
+
+  test("returns 400 for malformed command JSON payloads", async () => {
+    await using project = await tmpdir({ git: true })
+
+    const response = await app.request("/api/session/ses_malformed/command", {
+      method: "POST",
+      headers: {
+        "x-buddy-directory": project.path,
+        "content-type": "application/json",
+      },
+      body: '{"command":"/help"',
+    })
+
+    expect(response.status).toBe(400)
+    await expect(response.json()).resolves.toEqual({
+      error: "Invalid JSON body",
+    })
+  })
+
+  test("restores the previous teaching state when prompt setup fails", async () => {
+    await using project = await tmpdir({ git: true })
+
+    writeTeachingSessionState(project.path, {
+      sessionId: "ses_missing",
+      persona: "buddy",
+      intent: "auto",
+      currentSurface: "curriculum",
+      workspaceState: "chat",
+      focusGoalIds: ["goal_prev"],
+    })
+
+    const response = await app.request("/api/session/ses_missing/message", {
+      method: "POST",
+      headers: {
+        "x-buddy-directory": project.path,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        content: "Help me understand closures.",
+        persona: "buddy",
+      }),
+    })
+
+    expect(response.status).toBe(404)
+    await expect(response.json()).resolves.toEqual({
+      error: "Session not found",
+    })
+    expect(readTeachingSessionState(project.path, "ses_missing")).toMatchObject({
+      sessionId: "ses_missing",
+      focusGoalIds: ["goal_prev"],
+    })
+  })
+
+  test("does not create teaching state when a prompt targets a missing session", async () => {
+    await using project = await tmpdir({ git: true })
+
+    const response = await app.request("/api/session/ses_missing_new/message", {
+      method: "POST",
+      headers: {
+        "x-buddy-directory": project.path,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        content: "Teach me closures.",
+        persona: "buddy",
+      }),
+    })
+
+    expect(response.status).toBe(404)
+    await expect(response.json()).resolves.toEqual({
+      error: "Session not found",
+    })
+    expect(readTeachingSessionState(project.path, "ses_missing_new")).toBeUndefined()
+  })
+
+  test("does not create teaching state when a command targets a missing session", async () => {
+    await using project = await tmpdir({ git: true })
+
+    const response = await app.request("/api/session/ses_missing_cmd/command", {
+      method: "POST",
+      headers: {
+        "x-buddy-directory": project.path,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        command: "/help",
+        persona: "buddy",
+      }),
+    })
+
+    expect(response.status).toBe(404)
+    await expect(response.json()).resolves.toEqual({
+      error: "Session not found",
+    })
+    expect(readTeachingSessionState(project.path, "ses_missing_cmd")).toBeUndefined()
+  })
+
   test("does not record learner evidence when prompt validation fails", async () => {
     await using project = await tmpdir({ git: true })
 

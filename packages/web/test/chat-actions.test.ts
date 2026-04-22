@@ -1061,8 +1061,8 @@ describe("sendPrompt", () => {
           model: {
             providerID: "anthropic",
             modelID: "claude-sonnet-4",
+            variant: "low",
           },
-          variant: "low",
         }),
       ),
     ]
