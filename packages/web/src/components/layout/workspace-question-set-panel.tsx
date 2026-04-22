@@ -1,16 +1,15 @@
-import { useEffect } from "react"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import { Badge, Card, CardContent } from "@buddy/ui"
 import { language } from "@/context/language"
 import { stringifyError } from "@/lib/api-client"
 import { useQuestionSetSidebarActions } from "@/components/question-set/use-question-set-sidebar-actions"
-import { useChatStore } from "@/state/chat-store"
 import { useUiPreferences } from "@/state/ui-preferences"
 import { useWorkspaceQuestionSetPanelStore } from "@/state/workspace-question-set-panel-store"
 import {
   workspaceArtifactsQueryKeys,
   workspaceQuestionSetArtifactsQueryOptions,
 } from "@/state/workspace-artifacts-query"
+import { useInvalidateQueryOnChatIdle } from "@/components/layout/use-invalidate-query-on-chat-idle"
 
 function questionCountLabel(count: number): string {
   return language.t(count === 1 ? "chatTools.questionCount.one" : "chatTools.questionCount.other", {
@@ -30,7 +29,6 @@ export function WorkspaceQuestionSetPanel(props: {
   directory: string
   selectedPersonaDefaultSurface: "curriculum" | "editor" | "figure" | "question-set"
 }) {
-  const queryClient = useQueryClient()
   const artifactsQuery = useQuery(workspaceQuestionSetArtifactsQueryOptions(props.directory))
   const artifacts = artifactsQuery.data?.artifacts ?? []
   const loading = artifactsQuery.isPending
@@ -42,22 +40,10 @@ export function WorkspaceQuestionSetPanel(props: {
   const rightSidebarTab = useUiPreferences((state) => state.rightSidebarTab)
   const { openWorkspaceQuestionSet } = useQuestionSetSidebarActions()
 
-  useEffect(() => {
-    let previousBusy = useChatStore.getState().directories[props.directory]?.isBusy ?? false
-
-    const unsubscribe = useChatStore.subscribe((state) => {
-      const nextBusy = state.directories[props.directory]?.isBusy ?? false
-
-      if (previousBusy && !nextBusy) {
-        void queryClient.invalidateQueries({
-          queryKey: workspaceArtifactsQueryKeys.questionSet(props.directory),
-        })
-      }
-      previousBusy = nextBusy
-    })
-
-    return () => unsubscribe()
-  }, [props.directory, queryClient])
+  useInvalidateQueryOnChatIdle({
+    directory: props.directory,
+    queryKey: workspaceArtifactsQueryKeys.questionSet(props.directory),
+  })
 
   function toggleQuestionSet(artifactID: string) {
     openWorkspaceQuestionSet({

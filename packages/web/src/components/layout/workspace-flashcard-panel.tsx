@@ -15,13 +15,13 @@ import type {
   FlashcardDecksNextCardResponse,
   FlashcardDecksSubmitReviewResponse,
 } from "@buddy/sdk/types"
-import { useChatStore } from "@/state/chat-store"
 import {
   workspaceArtifactsQueryKeys,
   workspaceFlashcardDecksQueryOptions,
 } from "@/state/workspace-artifacts-query"
 import { FlashcardCardDisplay } from "@/components/flashcard/flashcard-card-display"
 import { FlashcardReviewRatings } from "@/components/flashcard/flashcard-review-ratings"
+import { useInvalidateQueryOnChatIdle } from "@/components/layout/use-invalidate-query-on-chat-idle"
 
 // ---------------------------------------------------------------------------
 // Types (from generated SDK)
@@ -352,22 +352,10 @@ export function WorkspaceFlashcardPanel(props: { directory: string }) {
     title: string
   } | null>(null)
 
-  useEffect(() => {
-    let previousBusy = useChatStore.getState().directories[props.directory]?.isBusy ?? false
-
-    const unsubscribe = useChatStore.subscribe((state) => {
-      const nextBusy = state.directories[props.directory]?.isBusy ?? false
-
-      if (previousBusy && !nextBusy) {
-        void queryClient.invalidateQueries({
-          queryKey: workspaceArtifactsQueryKeys.flashcard(props.directory),
-        })
-      }
-      previousBusy = nextBusy
-    })
-
-    return () => unsubscribe()
-  }, [props.directory, queryClient])
+  useInvalidateQueryOnChatIdle({
+    directory: props.directory,
+    queryKey: workspaceArtifactsQueryKeys.flashcard(props.directory),
+  })
 
   const handleBack = useCallback(() => {
     setReviewDeck(null)

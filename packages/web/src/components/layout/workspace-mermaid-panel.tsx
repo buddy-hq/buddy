@@ -3,7 +3,7 @@ import {
   measureElement as measureVirtualElement,
   useVirtualizer,
 } from "@tanstack/react-virtual"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import { useEffect, useRef, useState } from "react"
 
 import { language } from "@/context/language"
@@ -18,11 +18,11 @@ import {
   VIRTUAL_MERMAID_OVERSCAN,
 } from "@/components/virtualization/virtualization-defaults"
 import type { WorkspaceMermaidArtifactView } from "@/state/chat-actions"
-import { useChatStore } from "@/state/chat-store"
 import {
   workspaceArtifactsQueryKeys,
   workspaceMermaidArtifactsQueryOptions,
 } from "@/state/workspace-artifacts-query"
+import { useInvalidateQueryOnChatIdle } from "@/components/layout/use-invalidate-query-on-chat-idle"
 
 const MERMAID_CARD_CONTENT_HEIGHT_CLASS = "aspect-video min-h-[18rem] w-full"
 const MERMAID_CARD_GAP_PX = 16
@@ -60,7 +60,6 @@ function sameIndexes(left: number[], right: number[]) {
 }
 
 export function WorkspaceMermaidPanel(props: { directory: string }) {
-  const queryClient = useQueryClient()
   const [hydratedIndexes, setHydratedIndexes] = useState<number[]>([])
   const [retainedIndexes, setRetainedIndexes] = useState<number[]>([])
   const artifactsListRef = useRef<HTMLDivElement>(null)
@@ -159,23 +158,10 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
     )
   }
 
-  useEffect(() => {
-    let prevBusy = useChatStore.getState().directories[props.directory]?.isBusy ?? false
-
-    const unsubscribe = useChatStore.subscribe((state) => {
-      const currDir = state.directories[props.directory]
-      const currBusy = currDir?.isBusy ?? false
-
-      if (prevBusy && !currBusy) {
-        void queryClient.invalidateQueries({
-          queryKey: workspaceArtifactsQueryKeys.mermaid(props.directory),
-        })
-      }
-      prevBusy = currBusy
-    })
-
-    return () => unsubscribe()
-  }, [props.directory, queryClient])
+  useInvalidateQueryOnChatIdle({
+    directory: props.directory,
+    queryKey: workspaceArtifactsQueryKeys.mermaid(props.directory),
+  })
 
   useEffect(() => {
     setHydratedIndexes((current) => {
