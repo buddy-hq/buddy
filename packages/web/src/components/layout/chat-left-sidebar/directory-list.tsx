@@ -1,6 +1,7 @@
-import { Layers2Icon, LayoutTemplateIcon, PlusIcon, type LucideIcon } from "lucide-react"
+import { Layers2Icon, LayoutTemplateIcon, LibraryBigIcon, type LucideIcon } from "lucide-react"
 import {
   ArchiveIcon,
+  Badge,
   Button,
   Collapsible,
   CollapsibleContent,
@@ -11,23 +12,43 @@ import {
   ContextMenuTrigger,
   FolderIcon,
   FolderOpenIcon,
+  FileSlidersIcon,
   MailIcon,
   MailOpenIcon,
-  PinIcon,
   PencilIcon,
+  PinIcon,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  Skeleton,
   SquarePenIcon,
-  FileSlidersIcon,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
   XIcon,
   ZapIcon,
 } from "@buddy/ui"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { language } from "@/context/language"
 import { collectSessionFamilyIDs } from "@/lib/session-family"
+import { stringifyError } from "@/lib/api-client"
+import {
+  getFlashcardDueCount,
+  isFlashcardReviewAvailable,
+  type FlashcardDueCounts,
+} from "@/lib/flashcard"
 import type { SessionInfo, SessionStatusInfo } from "@/state/chat-types"
 import { isSessionWorking } from "@/state/session-status"
 import type { NotebookMainPaneTab } from "@/state/ui-preferences"
+import {
+  workspaceArtifactsQueryKeys,
+  workspaceFlashcardDecksQueryOptions,
+  workspaceMermaidArtifactsQueryOptions,
+  workspaceQuestionSetArtifactsQueryOptions,
+} from "@/state/workspace-artifacts-query"
+import { MermaidDiagram } from "@/components/chat/tools/render/mermaid/mermaid-diagram"
+import { MermaidToolCard } from "@/components/chat/tools/render/mermaid/mermaid-tool-card"
+import { FlashcardReviewDialog } from "@/components/flashcard/flashcard-review-dialog"
 import { getFilename } from "../sidebar-helpers"
 import { BookOpenIcon, ChevronDownIcon, ChevronRightIcon, HelpIcon } from "../sidebar-icons"
 import {
@@ -38,14 +59,7 @@ import {
 } from "./thread-helpers"
 import type { DirectoryGroup, DropPosition, OrganizeMode } from "./types"
 import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react"
-import {
-  AnimatePresence,
-  motion,
-  useMotionValue,
-  useSpring,
-  useTransform,
-  type MotionValue,
-} from "motion/react"
+import { AnimatePresence, motion } from "motion/react"
 
 type ChatLeftSidebarDirectoryListProps = {
   directoryGroups: DirectoryGroup[]
@@ -136,7 +150,6 @@ const QUICK_CHAT_COLLAPSED_COUNT = 3
 const THREAD_ROW_PADDING_LEFT_PX = 20
 const THREAD_CHILD_INDENT_PX = 14
 const THREAD_STATUS_OFFSET_PX = 6
-const NOTEBOOK_OPEN_MIN_HEIGHT_CLASS = "min-h-[7rem]"
 const DOCK_MAX_SCALE = 1.2
 const DOCK_BASE_SCALE = 1
 const DOCK_DISTANCE_PX = 80
@@ -150,24 +163,9 @@ const MAIN_PANE_SHORTCUTS: MainPaneShortcut[] = [
     Icon: FileSlidersIcon,
   },
   {
-    tab: "resources",
-    label: language.t("sidebar.mainPane.resources"),
-    Icon: BookOpenIcon,
-  },
-  {
-    tab: "diagrams",
-    label: language.t("sidebar.mainPane.diagrams"),
-    Icon: LayoutTemplateIcon,
-  },
-  {
-    tab: "question-set",
-    label: language.t("sidebar.mainPane.questionSet"),
-    Icon: HelpIcon,
-  },
-  {
-    tab: "flashcard",
-    label: language.t("sidebar.mainPane.flashcard"),
-    Icon: Layers2Icon,
+    tab: "library",
+    label: language.t("sidebar.notebookLibrary"),
+    Icon: LibraryBigIcon,
   },
 ]
 const SUBAGENT_TONE_CLASSES = [
@@ -175,76 +173,6 @@ const SUBAGENT_TONE_CLASSES = [
   "text-text-success-base",
   "text-icon-warning-base",
 ] as const
-
-type DockIconProps = {
-  shortcut: MainPaneShortcut
-  isActive: boolean
-  mouseX: MotionValue<number>
-  onTabChange: (tab: NotebookMainPaneTab) => void
-}
-
-function DockIcon({ shortcut, isActive, mouseX, onTabChange }: DockIconProps) {
-  const ref = useRef<HTMLButtonElement>(null)
-  const distance = useTransform(mouseX, (val) => {
-    const bounds = ref.current?.getBoundingClientRect()
-    if (!bounds) return Infinity
-    return val - bounds.x - bounds.width / 2
-  })
-  const scaleValue = useTransform(
-    distance,
-    [-DOCK_DISTANCE_PX, 0, DOCK_DISTANCE_PX],
-    [DOCK_BASE_SCALE, DOCK_MAX_SCALE, DOCK_BASE_SCALE],
-  )
-  const scale = useSpring(scaleValue, { mass: 0.1, stiffness: 150, damping: 12 })
-  const Icon = shortcut.Icon
-
-  return (
-    <motion.button
-      ref={ref}
-      type="button"
-      data-action={`left-sidebar-main-pane-${shortcut.tab}`}
-      title={shortcut.label}
-      style={{ scale, transformOrigin: "bottom center" }}
-      className={`flex items-center justify-center ${DOCK_BUTTON_SIZE_CLASS} rounded-[22%] cursor-pointer select-none [box-shadow:inset_1px_1px_0_0_var(--surface-raised-strong),inset_-1px_-1px_0_0_var(--surface-inset-strong)] ${
-        isActive
-          ? "bg-surface-raised-strong text-icon-strong-base"
-          : "bg-surface-raised-base text-icon-base hover:bg-surface-raised-base-hover hover:text-icon-strong-base"
-      }`}
-      whileTap={{ opacity: 0.6 }}
-      onClick={() => {
-        if (!isActive) onTabChange(shortcut.tab)
-      }}
-    >
-      <Icon className={DOCK_ICON_SIZE_CLASS} />
-    </motion.button>
-  )
-}
-
-type MainPaneShortcutRowProps = {
-  activeTab: NotebookMainPaneTab
-  onTabChange: (tab: NotebookMainPaneTab) => void
-}
-
-function MainPaneShortcutRow({ activeTab, onTabChange }: MainPaneShortcutRowProps) {
-  const mouseX = useMotionValue(Infinity)
-  return (
-    <div
-      className="flex items-end gap-3 justify-center"
-      onMouseMove={(e) => mouseX.set(e.clientX)}
-      onMouseLeave={() => mouseX.set(Infinity)}
-    >
-      {MAIN_PANE_SHORTCUTS.map((shortcut) => (
-        <DockIcon
-          key={shortcut.tab}
-          shortcut={shortcut}
-          isActive={activeTab === shortcut.tab}
-          mouseX={mouseX}
-          onTabChange={onTabChange}
-        />
-      ))}
-    </div>
-  )
-}
 
 function isInboxDirectory(directory: string) {
   return getFilename(directory).toLowerCase() === "inbox"
@@ -263,6 +191,12 @@ function getSubagentToneClass(agent: string) {
 function isSessionInfo(value: SessionInfo | undefined): value is SessionInfo {
   return value !== undefined
 }
+
+// ---------------------------------------------------------------------------
+// Notebook library popover
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
 
 export function ChatLeftSidebarDirectoryList(props: ChatLeftSidebarDirectoryListProps) {
   return (
@@ -339,6 +273,142 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
   const activeMainPaneTab = isCurrentDirectory ? (props.mainPaneTab ?? "chat") : "chat"
   const allowActiveThreadHighlight = activeMainPaneTab === "chat"
 
+  const activeSession = props.group.sessions.find((s) => s.id === props.activeSessionID)
+  const isChatActive = isCurrentDirectory && allowActiveThreadHighlight && !!activeSession
+  const shouldShowContent = !props.collapsed || isChatActive
+  const sessionsToRender =
+    props.collapsed && isChatActive && activeSession ? [activeSession] : visibleSessions
+
+  const [popoverOpen, setPopoverOpen] = useState(false)
+  const popoverTimeoutRef = useRef<any>(null)
+  const popoverOpenTimeoutRef = useRef<any>(null)
+
+  const handleMouseEnter = () => {
+    if (props.collapsed && props.group.sessions.length > 0) {
+      clearTimeout(popoverTimeoutRef.current)
+      if (!popoverOpen) {
+        popoverOpenTimeoutRef.current = setTimeout(() => {
+          setPopoverOpen(true)
+        }, 250)
+      }
+    }
+  }
+
+  const handleMouseLeave = () => {
+    clearTimeout(popoverOpenTimeoutRef.current)
+    popoverTimeoutRef.current = setTimeout(() => {
+      setPopoverOpen(false)
+    }, 150)
+  }
+
+  const headerNode = (
+    <div
+      className={`group/notebook-header relative flex items-center gap-1 rounded-lg px-2 py-1 ${
+        !props.collapsed
+          ? "rounded-t-lg rounded-b-none bg-surface-raised-base"
+          : "data-[state=open]:bg-surface-raised-base-hover"
+      }`}
+    >
+      <CollapsibleTrigger asChild>
+        <button
+          type="button"
+          data-action="left-sidebar-directory-toggle"
+          data-directory={props.group.directory}
+          className={`flex min-w-0 flex-1 items-center gap-1.5 rounded-lg px-0 py-1 text-left text-sm font-light text-text-weaker hover:text-text-strong ${
+            canDrag && !isQuickChatGroup ? "cursor-grab active:cursor-grabbing" : ""
+          }`}
+          onPointerDown={
+            canDrag && !isQuickChatGroup ? (event) => props.onLabelPointerDown(event) : undefined
+          }
+        >
+          {isQuickChatGroup ? (
+            <ZapIcon className="size-3.5 shrink-0" />
+          ) : props.collapsed ? (
+            <FolderIcon className="size-3.5 shrink-0" />
+          ) : (
+            <FolderOpenIcon className="size-3.5 shrink-0" />
+          )}
+          <span className="truncate">
+            {isQuickChatGroup ? language.t("sidebar.quickChat") : directoryLabel}
+          </span>
+        </button>
+      </CollapsibleTrigger>
+
+      <div
+        className={`relative z-10 flex items-center gap-0.5 pl-1 transition-opacity focus-within:opacity-100 focus-within:pointer-events-auto group-data-[state=open]/notebook-header:opacity-100 group-data-[state=open]/notebook-header:pointer-events-auto ${
+          !props.collapsed || isCurrentDirectory
+            ? "opacity-100 pointer-events-auto"
+            : "opacity-0 pointer-events-none"
+        }`}
+      >
+        {!isQuickChatGroup &&
+          props.mainPaneTab &&
+          props.onMainPaneTabChange &&
+          MAIN_PANE_SHORTCUTS.map((shortcut) => {
+            const Icon = shortcut.Icon
+            const isActive = activeMainPaneTab === shortcut.tab && isCurrentDirectory
+            return (
+              <Tooltip key={shortcut.tab} delayDuration={1000}>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className={`inline-flex h-6 min-w-0 items-center justify-center rounded-md transition-all duration-500 ease-out overflow-hidden ${
+                      isActive
+                        ? "w-6 bg-surface-raised-strong text-text-weaker hover:text-text-strong opacity-100 pointer-events-auto"
+                        : !props.collapsed || isCurrentDirectory
+                          ? "w-6 text-text-weaker hover:bg-surface-raised-base-hover hover:text-text-strong opacity-100 pointer-events-auto"
+                          : "w-0 opacity-0 px-0 pointer-events-none"
+                    }`}
+                    onClick={(event) => {
+                      event.preventDefault()
+                      event.stopPropagation()
+                      if (props.mainPaneTab && props.onMainPaneTabChange) {
+                        props.onMainPaneTabChange(shortcut.tab)
+                      }
+                    }}
+                  >
+                    <Icon className="size-4" strokeWidth={2} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" sideOffset={8} className="px-2 py-1 text-[11px]">
+                  {shortcut.label}
+                </TooltipContent>
+              </Tooltip>
+            )
+          })}
+        <Tooltip delayDuration={1000}>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              data-action="left-sidebar-directory-new-thread"
+              data-directory={props.group.directory}
+              className={`inline-flex h-6 min-w-0 items-center justify-center rounded-md text-text-weaker transition-all duration-500 ease-out overflow-hidden hover:bg-surface-raised-base-hover hover:text-text-strong ${
+                !props.collapsed || isCurrentDirectory
+                  ? "w-6 opacity-100 pointer-events-auto"
+                  : "w-0 opacity-0 px-0 pointer-events-none"
+              }`}
+              aria-label={language.t("sidebar.startNewThreadIn", {
+                directoryLabel: isQuickChatGroup ? language.t("sidebar.quickChat") : directoryLabel,
+              })}
+              onClick={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                props.onNewSession()
+              }}
+            >
+              <SquarePenIcon className="size-4" strokeWidth={2} />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top" sideOffset={8} className="px-2 py-1 text-[11px]">
+            {language.t("sidebar.startNewThreadIn", {
+              directoryLabel: isQuickChatGroup ? language.t("sidebar.quickChat") : directoryLabel,
+            })}
+          </TooltipContent>
+        </Tooltip>
+      </div>
+    </div>
+  )
+
   return (
     <Collapsible open={!props.collapsed} onOpenChange={props.onToggleCollapsed} asChild>
       <section
@@ -347,163 +417,140 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
         data-current={isCurrentDirectory ? "true" : "false"}
         ref={props.onSectionRef}
         className={`group/directory relative transition-opacity duration-150 ${
-          isDragging ? "opacity-40" : "opacity-100"
-        } ${
-          !isQuickChatGroup
-            ? props.collapsed
-              ? "mb-0.5"
-              : "mb-3 overflow-hidden rounded-lg bg-surface-raised-base shadow-sm"
-            : "space-y-1"
-        }`}
+          isDragging
+            ? "opacity-40"
+            : isCurrentDirectory
+              ? "opacity-100"
+              : "opacity-70 hover:opacity-100"
+        } overflow-hidden rounded-lg bg-surface-raised-base shadow-sm border ${
+          isCurrentDirectory ? "border-[var(--color-border-focus)]" : "border-transparent"
+        } ${props.collapsed ? "mb-1.5" : "mb-3"}`}
       >
         {isDragOver && props.dragOverPosition === "before" ? (
           <div className="h-0.5 rounded-full bg-surface-interactive-base/70 mx-2 mb-1" />
         ) : null}
 
-        {isQuickChatGroup ? (
-          <div className="group/section-header mb-1">
-            <CollapsibleTrigger asChild>
-              <div
-                className={`flex cursor-pointer select-none items-center justify-between px-2 transition-colors duration-160 group-hover/section-header:text-text-strong ${
-                  isCurrentDirectory ? "text-text-base" : "text-text-weaker"
-                }`}
-              >
-                <div className="flex items-center gap-1.5">
-                  <ZapIcon className="size-3.5 shrink-0" />
-                  <p className="text-xs">{language.t("sidebar.quickChat")}</p>
-                  <ChevronDownIcon
-                    className={`size-3 transition-transform duration-160 ${
-                      props.collapsed ? "-rotate-90 opacity-40" : "rotate-0 opacity-0"
-                    }`}
-                  />
-                </div>
-                <Button
-                  type="button"
-                  data-action="left-sidebar-quick-chat"
-                  variant="ghost"
-                  size="icon-xs"
-                  className={`${
-                    props.collapsed ? "invisible" : "visible"
-                  } text-text-weak group-hover/section-header:visible hover:bg-surface-raised-base-hover hover:text-text-strong`}
-                  onClick={(event) => {
-                    event.preventDefault()
-                    event.stopPropagation()
-                    props.onNewSession()
-                  }}
-                  aria-label={language.t("sidebar.quickChat")}
-                  title={language.t("sidebar.quickChat")}
-                >
-                  <SquarePenIcon className="size-3.5" />
-                </Button>
+        <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+          {isQuickChatGroup ? (
+            <PopoverTrigger asChild>
+              <div onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+                {headerNode}
               </div>
-            </CollapsibleTrigger>
-          </div>
-        ) : (
-          <ContextMenu>
-            <ContextMenuTrigger asChild>
-              <div
-                className={`group/notebook-header relative flex items-center gap-1 rounded-lg px-2 py-1 ${
-                  !props.collapsed
-                    ? "rounded-t-lg rounded-b-none bg-surface-raised-strong"
-                    : "data-[state=open]:bg-surface-raised-base-hover"
-                }`}
-              >
-                <CollapsibleTrigger asChild>
+            </PopoverTrigger>
+          ) : (
+            <ContextMenu>
+              <ContextMenuTrigger asChild>
+                <PopoverTrigger asChild>
+                  <div onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+                    {headerNode}
+                  </div>
+                </PopoverTrigger>
+              </ContextMenuTrigger>
+              <ContextMenuContent className="w-44">
+                <ContextMenuItem
+                  data-action="left-sidebar-directory-close"
+                  onSelect={props.onCloseNotebook}
+                >
+                  <XIcon className="mr-2 size-3.5" />
+                  {language.t("sidebar.closeNotebook")}
+                </ContextMenuItem>
+              </ContextMenuContent>
+            </ContextMenu>
+          )}
+
+          {props.collapsed && props.group.sessions.length > 0 && (
+            <PopoverContent
+              side="right"
+              align="start"
+              sideOffset={12}
+              className="p-1 max-h-[60vh] overflow-y-auto scrollbar-hover"
+              onMouseEnter={handleMouseEnter}
+              onMouseLeave={handleMouseLeave}
+            >
+              <div className="flex flex-col">
+                <div className="mx-2 mt-1 mb-1">
                   <button
                     type="button"
-                    data-action="left-sidebar-directory-toggle"
-                    data-directory={props.group.directory}
-                    className={`flex min-w-0 flex-1 items-center gap-1.5 rounded-lg px-0 py-1 text-left text-sm hover:text-text-strong ${
-                      isCurrentDirectory ? "text-text-base" : "text-text-weaker"
-                    } ${canDrag ? "cursor-grab active:cursor-grabbing" : ""}`}
-                    onPointerDown={canDrag ? (event) => props.onLabelPointerDown(event) : undefined}
+                    className="flex w-full items-center gap-2 rounded-lg py-1.5 pr-2.5 text-xs font-light text-text-weaker hover:bg-surface-raised-base-hover hover:text-text-base transition-colors"
+                    style={{ paddingLeft: "20px" }}
+                    onClick={(event) => {
+                      event.preventDefault()
+                      event.stopPropagation()
+                      setPopoverOpen(false)
+                      props.onNewSession()
+                    }}
                   >
-                    {props.collapsed ? (
-                      <FolderIcon className="size-3.5 shrink-0" />
-                    ) : (
-                      <FolderOpenIcon className="size-3.5 shrink-0" />
-                    )}
-                    <span className="truncate">{directoryLabel}</span>
+                    <SquarePenIcon className="size-3.5" />
+                    {language.t("sidebar.newThread")}
                   </button>
-                </CollapsibleTrigger>
-
-                <div
-                  className={`relative z-10 flex items-center gap-0.5 pl-1 transition-opacity group-focus-within/directory:opacity-100 group-data-[state=open]/notebook-header:opacity-100 ${
-                    !props.collapsed ? "opacity-100" : "opacity-0 group-hover/directory:opacity-100"
-                  }`}
-                >
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        data-action="left-sidebar-directory-new-thread"
-                        data-directory={props.group.directory}
-                        className="inline-flex size-6 items-center justify-center rounded-md text-text-weak transition-colors hover:bg-surface-raised-base-hover hover:text-text-strong"
-                        aria-label={language.t("sidebar.startNewThreadIn", {
-                          directoryLabel: directoryLabel,
-                        })}
-                        onClick={(event) => {
-                          event.preventDefault()
-                          event.stopPropagation()
-                          props.onNewSession()
-                        }}
-                      >
-                        <PlusIcon className="size-4" strokeWidth={2} />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" sideOffset={8} className="px-2 py-1 text-[11px]">
-                      {language.t("sidebar.startNewThreadIn", { directoryLabel: directoryLabel })}
-                    </TooltipContent>
-                  </Tooltip>
                 </div>
+                {props.group.sessions.map((session) => (
+                  <DirectoryThreadRow
+                    key={`popover:${props.group.directory}:${session.id}`}
+                    directory={props.group.directory}
+                    currentDirectory={props.currentDirectory}
+                    session={session}
+                    activeSessionID={props.activeSessionID}
+                    allowActiveThreadHighlight={allowActiveThreadHighlight}
+                    childrenByParent={childrenByParent}
+                    sessionsByID={sessionsByID}
+                    sessionStatusByID={props.sessionStatusByID}
+                    pinnedSet={props.pinnedSet}
+                    unreadMap={props.unreadMap}
+                    onSelectSession={(id) => {
+                      setPopoverOpen(false)
+                      props.onSelectSession(id)
+                    }}
+                    onTogglePin={props.onTogglePin}
+                    onToggleUnread={props.onToggleUnread}
+                    onRequestRename={props.onRequestRename}
+                    onRequestArchive={props.onRequestArchive}
+                  />
+                ))}
               </div>
-            </ContextMenuTrigger>
-            <ContextMenuContent className="w-44">
-              <ContextMenuItem
-                data-action="left-sidebar-directory-close"
-                onSelect={props.onCloseNotebook}
-              >
-                <XIcon className="mr-2 size-3.5" />
-                {language.t("sidebar.closeNotebook")}
-              </ContextMenuItem>
-            </ContextMenuContent>
-          </ContextMenu>
-        )}
+            </PopoverContent>
+          )}
+        </Popover>
 
         <AnimatePresence initial={false}>
-          {!props.collapsed && (
+          {shouldShowContent && (
             <CollapsibleContent
               forceMount
               asChild
               className="space-y-1 overflow-hidden p-[2px] -m-[2px]"
             >
               <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }}
-                className={!isQuickChatGroup ? `${NOTEBOOK_OPEN_MIN_HEIGHT_CLASS} pb-1` : "pb-1"}
+                key={props.group.directory}
+                initial={{ height: 0, minHeight: 0, opacity: 0 }}
+                animate={{
+                  height: "auto",
+                  minHeight: !isQuickChatGroup && !props.collapsed ? "7rem" : 0,
+                  opacity: 1,
+                }}
+                exit={{ height: 0, minHeight: 0, opacity: 0 }}
+                transition={{
+                  duration: 0.25,
+                  ease: [0.32, 0.72, 0, 1],
+                  opacity: { duration: 0.2 },
+                }}
+                className="flex flex-col"
               >
-                {props.mainPaneTab && props.onMainPaneTabChange ? (
-                  <div
-                    className={
-                      !isQuickChatGroup
-                        ? "pb-3 pt-4 flex justify-center"
-                        : "mb-2 flex justify-center"
-                    }
-                  >
-                    <MainPaneShortcutRow
-                      activeTab={activeMainPaneTab}
-                      onTabChange={(tab) => props.onMainPaneTabChange?.(tab)}
-                    />
-                  </div>
-                ) : null}
                 {props.group.sessions.length === 0 ? (
-                  <p className="pl-6 text-sm text-text-weak py-1">
-                    {language.t("sidebar.noThreads")}
-                  </p>
+                  <button
+                    type="button"
+                    data-action="left-sidebar-directory-empty-new-thread"
+                    className="flex flex-1 items-center justify-center gap-2 py-8 text-xs font-light text-text-weaker transition-all hover:bg-surface-raised-base-hover hover:text-text-base active:scale-[0.98]"
+                    onClick={(event) => {
+                      event.preventDefault()
+                      event.stopPropagation()
+                      props.onNewSession()
+                    }}
+                  >
+                    <SquarePenIcon className="size-3.5" />
+                    {language.t("sidebar.newThread")}
+                  </button>
                 ) : (
-                  visibleSessions.map((session) => (
+                  sessionsToRender.map((session) => (
                     <DirectoryThreadRow
                       key={`${props.group.directory}:${session.id}`}
                       directory={props.group.directory}
@@ -524,7 +571,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                     />
                   ))
                 )}
-                {hasMore && (
+                {!props.collapsed && hasMore && (
                   <button
                     type="button"
                     className={`mx-2 py-1 text-xs text-text-weaker hover:text-text-base ${
@@ -638,7 +685,7 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
                       <ChevronRightIcon className="size-3 shrink-0 text-text-weaker" />
                     </motion.div>
                   ) : null}
-                  <span className="truncate text-xs font-normal">{title}</span>
+                  <span className="truncate text-xs font-light">{title}</span>
                   {pinned ? <PinIcon className="size-3 shrink-0 text-text-weaker" /> : null}
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
