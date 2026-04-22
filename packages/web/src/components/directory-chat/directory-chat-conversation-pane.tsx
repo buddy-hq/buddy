@@ -3,10 +3,9 @@ import { cn } from "@buddy/ui"
 import { AgentsMdPanel } from "@/components/agents/agents-md-panel"
 import { DirectoryChatMainPane } from "@/components/directory-chat/directory-chat-main-pane"
 import {
-  ChatLeftSidebarResourcesSection,
-  type SidebarResourceTarget,
-} from "@/components/layout/chat-left-sidebar/resources-section"
-import { LibraryPanel } from "@/components/layout/chat-left-sidebar/library-panel"
+  LibraryPanel,
+  type LibraryPanelResourceTarget,
+} from "@/components/layout/chat-left-sidebar/library-panel"
 import { WorkspaceFlashcardPanel } from "@/components/layout/workspace-flashcard-panel"
 import { WorkspaceMermaidPanel } from "@/components/layout/workspace-mermaid-panel"
 import { WorkspaceQuestionSetPanel } from "@/components/layout/workspace-question-set-panel"
@@ -14,8 +13,7 @@ import type { NotebookMainPaneTab } from "@/state/ui-preferences"
 
 type DirectoryChatConversationPaneProps = ComponentProps<typeof DirectoryChatMainPane> & {
   mainPaneTab: NotebookMainPaneTab
-  resourcesRefreshToken: number
-  onOpenResource: (directory: string, resource: SidebarResourceTarget) => void
+  onOpenResource: (directory: string, resource: LibraryPanelResourceTarget) => void
   onOpenQuestionSet: (directory: string, artifactID: string, selectedArtifactID?: string) => void
   selectedPersonaDefaultSurface: "curriculum" | "editor" | "figure" | "question-set"
   libraryOpen?: boolean
@@ -27,7 +25,6 @@ export function DirectoryChatConversationPane(props: DirectoryChatConversationPa
   const {
     className,
     mainPaneTab,
-    resourcesRefreshToken,
     onOpenResource,
     onOpenQuestionSet,
     selectedPersonaDefaultSurface,
@@ -37,7 +34,10 @@ export function DirectoryChatConversationPane(props: DirectoryChatConversationPa
   } = props
 
   const panel = libraryOpen ? (
-    <div className="scrollbar-hover h-full min-h-0 overflow-y-auto p-4">
+    <div
+      data-library-scroll-container
+      className="scrollbar-hover h-full min-h-0 overflow-y-auto p-4"
+    >
       <div className="mx-auto w-full max-w-full md:max-w-200 2xl:max-w-[1000px]">
         <LibraryPanel
           directories={directories ?? []}
@@ -48,15 +48,30 @@ export function DirectoryChatConversationPane(props: DirectoryChatConversationPa
     </div>
   ) : mainPaneTab === "chat" ? (
     <DirectoryChatMainPane {...mainPaneProps} />
-  ) : mainPaneTab === "resources" ? (
-    <div className="scrollbar-hover h-full min-h-0 overflow-y-auto p-4">
+  ) : mainPaneTab === "library" ? (
+    <div
+      data-library-scroll-container
+      className="scrollbar-hover h-full min-h-0 overflow-y-auto p-4"
+    >
       <div className="mx-auto w-full max-w-full md:max-w-200 2xl:max-w-[1000px]">
-        <ChatLeftSidebarResourcesSection
-          directory={mainPaneProps.directory}
-          refreshToken={resourcesRefreshToken}
+        <LibraryPanel
+          directories={[mainPaneProps.directory]}
           onOpenResource={onOpenResource}
-          defaultOpen
-          className="mb-0"
+          onOpenQuestionSet={onOpenQuestionSet}
+        />
+      </div>
+    </div>
+  ) : mainPaneTab === "resources" ? (
+    <div
+      data-library-scroll-container
+      className="scrollbar-hover h-full min-h-0 overflow-y-auto p-4"
+    >
+      <div className="mx-auto w-full max-w-full md:max-w-200 2xl:max-w-[1000px]">
+        <LibraryPanel
+          directories={[mainPaneProps.directory]}
+          onOpenResource={onOpenResource}
+          onOpenQuestionSet={onOpenQuestionSet}
+          initialTab="resources"
         />
       </div>
     </div>

@@ -105,7 +105,7 @@ import { useChatSync } from "./use-chat-sync"
 import { useChatConfig } from "./use-chat-config"
 import { useTeachingWorkspace } from "./use-teaching-workspace"
 import { getRightSidebarDefaultWidth, RIGHT_SIDEBAR_EDITOR_MIN_WIDTH } from "./right-sidebar-layout"
-import type { SidebarResourceTarget } from "@/components/layout/chat-left-sidebar/resources-section"
+import type { ResourceCardTarget } from "@/components/layout/chat-left-sidebar/resource-card-grid"
 import { useQuestionSetSidebarActions } from "@/components/question-set/use-question-set-sidebar-actions"
 import { useWorkspaceQuestionSetPanelStore } from "@/state/workspace-question-set-panel-store"
 
@@ -174,7 +174,6 @@ export function useDirectoryChatPageController(
   const settleTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   const [stickToBottom, setStickToBottom] = useState(true)
-  const [resourcesRefreshToken, setResourcesRefreshToken] = useState(0)
   const [systemPromptRefreshToken, setSystemPromptRefreshToken] = useState(0)
   const [pendingSuggestionOverride, setPendingSuggestionOverride] = useState<
     | {
@@ -500,7 +499,6 @@ export function useDirectoryChatPageController(
       return
     }
 
-    setResourcesRefreshToken(0)
     setSystemPromptRefreshToken(0)
     setPendingSuggestionOverride(undefined)
     setIsStartingInteractiveLesson(false)
@@ -1025,14 +1023,13 @@ export function useDirectoryChatPageController(
     if (decodedDirectory) {
       void invalidateResourcesQueries(queryClient, decodedDirectory)
     }
-    setResourcesRefreshToken((current) => current + 1)
   }
 
   function openSettingsPanel() {
     navigate({ to: "/settings", search: { tab: "general" } })
   }
 
-  function openResourceInReadingMode(targetDirectory: string, resource: SidebarResourceTarget) {
+  function openResourceInReadingMode(targetDirectory: string, resource: ResourceCardTarget) {
     const openingFromLibrary = libraryOpen
     const activeSessionID = useChatStore.getState().directories[targetDirectory]?.sessionID
     const linkedSessionID = resource.resourceID
@@ -1661,7 +1658,6 @@ export function useDirectoryChatPageController(
     },
     promptComposerProps,
     mainPaneTab: cs.mainPaneTab,
-    resourcesRefreshToken,
     onOpenResource: openResourceInReadingMode,
     onOpenQuestionSet: openQuestionSetFromLibrary,
     selectedPersonaDefaultSurface: cs.selectedPersonaDefaultSurface,
