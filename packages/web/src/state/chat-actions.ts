@@ -10,6 +10,7 @@ import type {
   FileContent,
   FileNode,
   FindFilesResponses,
+  FlashcardDecksListResponse,
   GlobalConfigGetResponses,
   GlobalConfigPatchData,
   GlobalNotebookHomeGetResponses,
@@ -22,6 +23,7 @@ import type {
   OpenProjectsCreateResponses,
   PermissionListResponses,
   ProjectListResponses,
+  QuestionSetArtifactsListResponse,
   SessionMessagesResponses,
   SessionTeachingStateResponses,
   ProviderAuthMethod,
@@ -41,7 +43,7 @@ import type {
 } from "./chat-types"
 import type { TeachingIntent, TeachingPromptContext } from "./teaching-runtime"
 import { requestJson, stringifyError } from "../lib/api-client"
-import { getFlashcardDueCount, type FlashcardDueCounts } from "../lib/flashcard"
+
 import { getBuddyClient, requireBuddyData, buddyResultMessage } from "../lib/buddy-client"
 import { retry } from "../lib/retry"
 import type { PromptFilePart, PromptSubmissionPart } from "../components/prompt/prompt-types"
@@ -156,17 +158,6 @@ export type WorkspaceMermaidArtifactView = {
   createdAt: string
 }
 
-export type WorkspaceQuestionSetArtifactView = {
-  artifactID: string
-  kind: "question-set.v1"
-  groupType: "quiz" | "practice" | "assessment"
-  title: string
-  createdAt: string
-  questions: Array<{
-    id: string
-  }>
-}
-
 export type PromptCommandOption = {
   name: string
   description?: string
@@ -242,6 +233,9 @@ const EMPTY_ALIGNMENT_SUMMARY: LearnerCurriculumView["alignmentSummary"] = {
   recommendations: [],
 }
 const SESSION_NOT_FOUND_ERROR = "Session not found"
+const UNDO_MISSING_SESSION_ERROR = "Start a session before undoing the last message."
+const UNDO_NO_MESSAGE_ERROR = "No user message is available to undo."
+const RESTORE_NO_MESSAGE_ERROR = "No undone message is available to restore."
 const TRANSCRIPT_RETRY_ATTEMPTS = 4
 const TRANSCRIPT_RETRY_DELAY_MS = 500
 const TRANSCRIPT_RETRY_FACTOR = 2
@@ -1518,6 +1512,177 @@ export async function abortPrompt(directory: string) {
   return aborted
 }
 
+function resolveUndoTargetMessageID(input: {
+  messages: MessageWithParts[]
+  session: SessionInfo | undefined
+  explicitMessageID?: string
+}) {
+  if (input.explicitMessageID) return input.explicitMessageID
+
+  const revertMessageID = input.session?.revert?.messageID
+  const latestUserMessage = input.messages.findLast(
+    (message) =>
+      message.info.role === "user" &&
+      (revertMessageID === undefined || message.info.id < revertMessageID),
+  )
+  if (!latestUserMessage || latestUserMessage.info.role !== "user") {
+    return undefined
+  }
+
+  return latestUserMessage.info.id
+}
+
+function resolveRestoreTargetMessageID(input: {
+  messages: MessageWithParts[]
+  session: SessionInfo | undefined
+}) {
+  const revertMessageID = input.session?.revert?.messageID
+  if (!revertMessageID) {
+    return undefined
+  }
+
+  const nextUserMessage = input.messages.find(
+    (message) => message.info.role === "user" && message.info.id > revertMessageID,
+  )
+  return nextUserMessage?.info.id
+}
+
+async function performSessionRevertMutation(input: {
+  directory: string
+  sessionID: string
+  request: () => Promise<SessionInfo>
+}) {
+  const store = useChatStore.getState()
+  store.applySessionStatus(input.directory, input.sessionID, BUSY_SESSION_STATUS)
+
+  try {
+    const session = await input.request()
+
+    store.setSessionInfo(input.directory, session)
+    await loadMessages(input.directory, input.sessionID)
+    void loadSessions(input.directory).catch(() => undefined)
+    store.applySessionStatus(input.directory, input.sessionID, IDLE_SESSION_STATUS)
+    store.clearDirectoryError(input.directory)
+    return session
+  } catch (error) {
+    const missingSession = isMissingSessionError(error)
+    store.applySessionStatus(input.directory, input.sessionID, IDLE_SESSION_STATUS)
+    if (missingSession) {
+      store.startSessionDraft(input.directory)
+    } else {
+      void loadMessages(input.directory, input.sessionID).catch(() => undefined)
+    }
+    void loadSessions(input.directory).catch(() => undefined)
+    store.setDirectoryError(input.directory, stringifyError(error))
+    throw error
+  }
+}
+
+export async function undoLastSessionMessage(
+  directory: string,
+  input?: {
+    sessionID?: string
+    messageID?: string
+  },
+) {
+  const store = useChatStore.getState()
+  store.clearDirectoryError(directory)
+
+  const initialState = store.directories[directory]
+  const sessionID = input?.sessionID ?? initialState?.sessionID
+  if (!sessionID) {
+    const error = new Error(UNDO_MISSING_SESSION_ERROR)
+    store.setDirectoryError(directory, error.message)
+    throw error
+  }
+
+  if (initialState?.isBusy) {
+    await abortPrompt(directory).catch(() => undefined)
+  }
+
+  const latestState = useChatStore.getState().directories[directory]
+  const activeSession = latestState?.sessions.find((session) => session.id === sessionID)
+  const messageID = resolveUndoTargetMessageID({
+    messages: latestState?.messages ?? [],
+    session: activeSession,
+    explicitMessageID: input?.messageID,
+  })
+
+  if (!messageID) {
+    const error = new Error(UNDO_NO_MESSAGE_ERROR)
+    store.setDirectoryError(directory, error.message)
+    throw error
+  }
+
+  return performSessionRevertMutation({
+    directory,
+    sessionID,
+    request: () =>
+      requestJson<SessionInfo>(directory, `/api/session/${encodeURIComponent(sessionID)}/revert`, {
+        method: "POST",
+        body: { messageID },
+      }),
+  })
+}
+
+export async function restoreRevertedSessionMessage(
+  directory: string,
+  input?: {
+    sessionID?: string
+  },
+) {
+  const store = useChatStore.getState()
+  store.clearDirectoryError(directory)
+
+  const initialState = store.directories[directory]
+  const sessionID = input?.sessionID ?? initialState?.sessionID
+  if (!sessionID) {
+    const error = new Error(UNDO_MISSING_SESSION_ERROR)
+    store.setDirectoryError(directory, error.message)
+    throw error
+  }
+
+  if (initialState?.isBusy) {
+    await abortPrompt(directory).catch(() => undefined)
+  }
+
+  const latestState = useChatStore.getState().directories[directory]
+  const activeSession = latestState?.sessions.find((session) => session.id === sessionID)
+  const nextMessageID = resolveRestoreTargetMessageID({
+    messages: latestState?.messages ?? [],
+    session: activeSession,
+  })
+  const hasRevertState = !!activeSession?.revert?.messageID
+
+  if (!hasRevertState) {
+    const error = new Error(RESTORE_NO_MESSAGE_ERROR)
+    store.setDirectoryError(directory, error.message)
+    throw error
+  }
+
+  return performSessionRevertMutation({
+    directory,
+    sessionID,
+    request: () =>
+      nextMessageID
+        ? requestJson<SessionInfo>(
+            directory,
+            `/api/session/${encodeURIComponent(sessionID)}/revert`,
+            {
+              method: "POST",
+              body: { messageID: nextMessageID },
+            },
+          )
+        : requestJson<SessionInfo>(
+            directory,
+            `/api/session/${encodeURIComponent(sessionID)}/unrevert`,
+            {
+              method: "POST",
+            },
+          ),
+  })
+}
+
 export async function resyncDirectory(directory: string) {
   await loadSessions(directory)
   await loadSessionStatuses(directory).catch(() => undefined)
@@ -1796,42 +1961,14 @@ export async function loadWorkspaceMermaidArtifacts(
 
 export async function loadWorkspaceQuestionSetArtifacts(
   directory: string,
-): Promise<{ artifacts: WorkspaceQuestionSetArtifactView[] }> {
-  const result = await requestJson<{ artifacts: WorkspaceQuestionSetArtifactView[] }>(
-    directory,
-    "/api/question-set-artifacts",
-  )
-
-  return {
-    artifacts: Array.isArray(result.artifacts) ? result.artifacts : [],
-  }
-}
-
-export type FlashcardDeckListItem = {
-  deckID: string
-  kind: string
-  title: string
-  noteCount: number
-  cardCount: number
-  dueCounts: FlashcardDueCounts
-  reviewAvailable?: boolean
-  createdAt: string
+): Promise<QuestionSetArtifactsListResponse> {
+  return requireBuddyData(await getBuddyClient(directory).questionSetArtifacts.list())
 }
 
 export async function loadWorkspaceFlashcardDecks(
   directory: string,
-): Promise<{ decks: FlashcardDeckListItem[] }> {
-  const result = await requestJson<{ decks: FlashcardDeckListItem[] }>(
-    directory,
-    "/api/flashcard-decks",
-  )
-
-  return {
-    decks: (Array.isArray(result.decks) ? result.decks : []).map((deck) => ({
-      ...deck,
-      reviewAvailable: deck.reviewAvailable ?? getFlashcardDueCount(deck.dueCounts) > 0,
-    })),
-  }
+): Promise<FlashcardDecksListResponse> {
+  return requireBuddyData(await getBuddyClient(directory).flashcardDecks.list())
 }
 
 export type GoalArtifact = {

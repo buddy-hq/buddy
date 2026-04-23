@@ -1,8 +1,9 @@
-import { memo } from "react"
+import { memo, useState } from "react"
 import { language } from "@/context/language"
 import { HighlightedText } from "../highlighted-text"
 import { CopyAction } from "../copy-action"
-import { Button, cn } from "@buddy/ui"
+import { Button, Tooltip, TooltipContent, TooltipTrigger, cn } from "@buddy/ui"
+import { Undo2Icon } from "lucide-react"
 import { formatTime, titleCase } from "../utils/format"
 import type { MessageInfo, ProviderInfo } from "@/state/chat-types"
 import type { ChatAgentPart, ChatFilePart, ChatTextPart } from "../utils/part-guards"
@@ -74,6 +75,8 @@ export const UserMessagePart = memo(function UserMessagePart({
   onForkMessage,
   onRevertMessage,
 }: UserMessagePartProps) {
+  const [reverting, setReverting] = useState(false)
+
   if (part.synthetic === true) return null
 
   const text = part.text
@@ -84,6 +87,17 @@ export const UserMessagePart = memo(function UserMessagePart({
     .filter((value) => !!value)
     .join("\u00A0\u00B7\u00A0")
   const metaTail = formatTime(info.time?.created)
+
+  async function handleRevertClick() {
+    if (!onRevertMessage || reverting) return
+
+    setReverting(true)
+    try {
+      await onRevertMessage()
+    } finally {
+      setReverting(false)
+    }
+  }
 
   return (
     <>
@@ -125,14 +139,24 @@ export const UserMessagePart = memo(function UserMessagePart({
           </Button>
         ) : null}
         {onRevertMessage ? (
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-7 px-2 text-xs"
-            onClick={() => void onRevertMessage()}
-          >
-            {language.t("chat.userMessage.revert")}
-          </Button>
+          <Tooltip>
+            <TooltipTrigger
+              type="button"
+              disabled={reverting}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={(event) => {
+                event.stopPropagation()
+                void handleRevertClick()
+              }}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-weak transition-colors hover:bg-surface-weak hover:text-text-base disabled:cursor-not-allowed disabled:opacity-60"
+              aria-label={language.t("chat.userMessage.undoMessage")}
+            >
+              <Undo2Icon className="h-4 w-4" />
+            </TooltipTrigger>
+            <TooltipContent side="top" sideOffset={4}>
+              <p>{language.t("chat.userMessage.undoMessage")}</p>
+            </TooltipContent>
+          </Tooltip>
         ) : null}
         <CopyAction value={text} label={language.t("chat.userMessage.copyMessage")} />
       </div>

@@ -10,7 +10,7 @@ import type {
   SessionStatus as SdkSessionStatus,
 } from "@buddy/sdk"
 
-export type SessionInfo = Pick<SdkSession, "id" | "title" | "parentID" | "time">
+export type SessionInfo = Pick<SdkSession, "id" | "title" | "parentID" | "time" | "revert">
 
 export type MessageOutputFormat = SdkOutputFormat
 type MessageTime = {

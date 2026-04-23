@@ -15,6 +15,7 @@ import {
   filterSlashCommands,
   getSlashMatch,
   QUIZ_SLASH_COMMAND_NAME,
+  UNDO_SLASH_COMMAND_NAME,
   type SlashCommandOption,
   type SlashCommandSource,
 } from "./slash-autocomplete"
@@ -52,6 +53,12 @@ const BUILTIN_SLASH_COMMANDS: SlashCommandOption[] = [
     aliases: [...COMPACT_SLASH_COMMAND_ALIASES],
     title: language.t("prompt.slash.compact.title"),
     description: language.t("prompt.slash.compact.description"),
+  },
+  {
+    type: "builtin",
+    name: UNDO_SLASH_COMMAND_NAME,
+    title: language.t("prompt.slash.undo.title"),
+    description: language.t("prompt.slash.undo.description"),
   },
   {
     type: "builtin",

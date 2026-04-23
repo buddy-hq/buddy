@@ -26,6 +26,7 @@ import {
   parseSlashCommandInput,
   QUIZ_SLASH_COMMAND_NAME,
   SUBMITTED_BUILTIN_SLASH_COMMAND_NAMES,
+  UNDO_SLASH_COMMAND_NAME,
 } from "@/components/prompt/slash-autocomplete"
 import type { MentionableAgent } from "@/components/prompt/mention-autocomplete"
 import type { DirectoryChatConversationPane } from "@/components/directory-chat/directory-chat-conversation-pane"
@@ -60,10 +61,12 @@ import {
   reorderOpenProjects,
   replyPermission,
   replyQuestion,
+  restoreRevertedSessionMessage,
   selectSession,
   sendCommand,
   sendPrompt,
   startNewSessionDraft,
+  undoLastSessionMessage,
   updateSession,
 } from "../../state/chat-actions"
 import { addResource, rebuildResource, removeResource } from "../../state/resource-actions"
@@ -99,7 +102,11 @@ import {
   useTeachingRuntime,
   type TeachingIntent,
 } from "../../state/teaching-runtime"
-import { buildCommandAttachmentParts, buildPromptSubmissionParts } from "./chat-prompt-helpers"
+import {
+  buildCommandAttachmentParts,
+  buildPromptDraftFromUserMessage,
+  buildPromptSubmissionParts,
+} from "./chat-prompt-helpers"
 import { useDirectoryChatState } from "./use-directory-chat-state"
 import { useChatSync } from "./use-chat-sync"
 import { useChatConfig } from "./use-chat-config"
@@ -297,7 +304,9 @@ export function useDirectoryChatPageController(
     applySessionUpdated: cs.applySessionUpdated,
     applySessionStatus: cs.applySessionStatus,
     applyMessageUpdated: cs.applyMessageUpdated,
+    applyMessageRemoved: cs.applyMessageRemoved,
     applyPartUpdated: cs.applyPartUpdated,
+    applyPartRemoved: cs.applyPartRemoved,
     applyPartDelta: cs.applyPartDelta,
     applyPermissionAsked: cs.applyPermissionAsked,
     applyPermissionReplied: cs.applyPermissionReplied,
@@ -798,6 +807,10 @@ export function useDirectoryChatPageController(
 
   async function onSelectSession(targetDirectory: string, nextSessionID?: string) {
     if (!targetDirectory) return
+    if (libraryOpen) {
+      setLibraryOpen(false)
+      cs.setMainPaneTab("chat")
+    }
     if (!nextSessionID) {
       if (targetDirectory !== decodedDirectory) onSwitchDirectory(targetDirectory)
       return
@@ -1170,6 +1183,30 @@ export function useDirectoryChatPageController(
     }
   }
 
+  function resolveUndoRestoreDraft(messageID?: string) {
+    const revertMessageID = cs.sessionFamily.current?.revert?.messageID
+    const targetUserMessage = messageID
+      ? cs.messages.find((message) => message.info.role === "user" && message.info.id === messageID)
+      : cs.messages.findLast(
+          (message) =>
+            message.info.role === "user" &&
+            (revertMessageID === undefined || message.info.id < revertMessageID),
+        )
+
+    return buildPromptDraftFromUserMessage(targetUserMessage, decodedDirectory)
+  }
+
+  function resolveRestoreDraft() {
+    const revertMessageID = cs.sessionFamily.current?.revert?.messageID
+    if (!revertMessageID) return undefined
+
+    const nextHiddenUserMessage = cs.messages.find(
+      (message) => message.info.role === "user" && message.info.id > revertMessageID,
+    )
+
+    return buildPromptDraftFromUserMessage(nextHiddenUserMessage, decodedDirectory)
+  }
+
   async function sendRuntimePrompt(input: {
     content: string
     attachments?: PromptComposerAttachment[]
@@ -1293,6 +1330,24 @@ export function useDirectoryChatPageController(
       if (slashCommand.command.name === "mcp") {
         cs.clearPromptDraft(cs.promptKey)
         navigate({ to: "/settings", search: { tab: "mcps" } })
+        return
+      }
+
+      if (slashCommand.command.name === UNDO_SLASH_COMMAND_NAME) {
+        const restoreDraft = resolveUndoRestoreDraft()
+        cs.clearPromptDraft(cs.promptKey)
+        try {
+          await undoLastSessionMessage(decodedDirectory, {
+            sessionID,
+          })
+          if (restoreDraft) {
+            cs.setPromptDraft(cs.promptKey, restoreDraft)
+          }
+          setSystemPromptRefreshToken((token) => token + 1)
+          void syncTeachingRuntimeSelection()
+        } catch {
+          restorePromptSnapshot(draftSnapshot)
+        }
         return
       }
 
@@ -1629,7 +1684,7 @@ export function useDirectoryChatPageController(
     },
     onOpenCurriculum: openCurriculumPanel,
     libraryOpen,
-    onToggleLibrary: () => setLibraryOpen((open) => !open),
+    onToggleLibrary: () => setLibraryOpen(true),
     mainPaneTab: cs.mainPaneTab,
     onMainPaneTabChange: (tab) => {
       setLibraryOpen(false)
@@ -1646,6 +1701,34 @@ export function useDirectoryChatPageController(
     onTranscriptScroll,
     onAssistantTextFinalRender: scrollTranscriptToBottom,
     onOpenSession: handleOpenCurrentDirectorySession,
+    onRevertMessage: async ({ sessionID, messageID }) => {
+      const restoreDraft = resolveUndoRestoreDraft(messageID)
+      await undoLastSessionMessage(decodedDirectory, { sessionID, messageID })
+      if (restoreDraft) {
+        cs.setPromptDraft(cs.promptKey, restoreDraft)
+      }
+      setSystemPromptRefreshToken((token) => token + 1)
+      void syncTeachingRuntimeSelection()
+    },
+    onRestoreRevertedMessages: async () => {
+      if (!sessionID) return
+
+      const draftSnapshot = readPromptSnapshot()
+      const restoreDraft = resolveRestoreDraft()
+
+      try {
+        await restoreRevertedSessionMessage(decodedDirectory, { sessionID })
+        if (restoreDraft) {
+          cs.setPromptDraft(cs.promptKey, restoreDraft)
+        } else {
+          cs.clearPromptDraft(cs.promptKey)
+        }
+        setSystemPromptRefreshToken((token) => token + 1)
+        void syncTeachingRuntimeSelection()
+      } catch {
+        restorePromptSnapshot(draftSnapshot)
+      }
+    },
     onPermissionReply: async (reply) => {
       if (!cs.pendingPermissions[0]) return
       await onPermissionReply(cs.pendingPermissions[0].id, reply)

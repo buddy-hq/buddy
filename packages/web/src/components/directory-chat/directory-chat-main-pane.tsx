@@ -1,4 +1,4 @@
-import { ScrollArea } from "@buddy/ui"
+import { Button, ScrollArea } from "@buddy/ui"
 import { useMemo, type ComponentProps, type ReactNode, type RefObject, type UIEvent } from "react"
 import { ChatEmptyState } from "@/components/directory-chat/chat-empty-state"
 import { SessionContextUsage } from "@/components/directory-chat/session-context-usage"
@@ -11,6 +11,7 @@ import { PromptComposer } from "@/components/prompt/prompt-composer"
 import type { DirectoryChatState } from "@/lib/directory-chat/use-directory-chat-state"
 import { getSessionContextMetrics } from "@/state/context-metrics"
 import type { MessageWithParts, ProviderInfo, QuestionRequest } from "@/state/chat-types"
+import { Redo2Icon } from "lucide-react"
 
 type PromptComposerProps = Omit<
   ComponentProps<typeof PromptComposer>,
@@ -24,6 +25,8 @@ type DirectoryChatMainPaneProps = {
   onTranscriptScroll: (event: UIEvent<HTMLElement>) => void
   onAssistantTextFinalRender?: () => void
   onOpenSession: (sessionID: string) => void
+  onRevertMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
+  onRestoreRevertedMessages?: () => Promise<void> | void
   onPermissionReply: (reply: "once" | "always" | "reject") => Promise<void>
   onQuestionReply: (requestID: string, answers: string[][]) => Promise<void>
   onQuestionReject: (requestID: string) => Promise<void>
@@ -110,6 +113,20 @@ export function resolveCurrentSessionQuestions(input: {
   return input.pendingQuestions.filter((request) => request.sessionID === input.sessionID)
 }
 
+export function resolveRevertedUserMessageCount(input: {
+  messages: MessageWithParts[]
+  revertMessageID?: string
+}) {
+  const revertMessageID = input.revertMessageID
+  if (!revertMessageID) {
+    return 0
+  }
+
+  return input.messages.filter(
+    (message) => message.info.role === "user" && message.info.id >= revertMessageID,
+  ).length
+}
+
 export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
   const {
     directory,
@@ -118,6 +135,8 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
     onTranscriptScroll,
     onAssistantTextFinalRender,
     onOpenSession,
+    onRevertMessage,
+    onRestoreRevertedMessages,
     onPermissionReply,
     onQuestionReply,
     onQuestionReject,
@@ -131,6 +150,15 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
         sessionID: chatState.sessionID,
       }),
     [chatState.pendingQuestions, chatState.sessionID],
+  )
+  const revertMessageID = chatState.sessionFamily.current?.revert?.messageID
+  const revertedUserMessageCount = useMemo(
+    () =>
+      resolveRevertedUserMessageCount({
+        messages: chatState.messages,
+        revertMessageID,
+      }),
+    [chatState.messages, revertMessageID],
   )
   const activeQuestion = currentSessionQuestions[0]
 
@@ -173,6 +201,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
                     scrollViewportRef={transcriptRef}
                     onAssistantTextFinalRender={onAssistantTextFinalRender}
                     onOpenSession={onOpenSession}
+                    onRevertMessage={onRevertMessage}
                   />
                 </>
               )}
@@ -225,6 +254,36 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
                     remaining: autoCompactionWarning.remaining.toLocaleString(),
                   })}
                 </p>
+              </div>
+            </div>
+          ) : null}
+
+          {revertedUserMessageCount > 0 && onRestoreRevertedMessages ? (
+            <div className="mx-auto w-full max-w-full px-4 pb-2 md:max-w-200 2xl:max-w-[1000px]">
+              <div className="flex items-center justify-between gap-3 rounded-md border border-border-base/70 bg-surface-weak/35 px-3 py-2 text-xs text-text-weak">
+                <div className="min-w-0">
+                  <p className="font-medium text-text-base">
+                    {language.t(
+                      revertedUserMessageCount === 1
+                        ? "chat.revertNotice.summary.one"
+                        : "chat.revertNotice.summary.other",
+                      {
+                        count: revertedUserMessageCount,
+                      },
+                    )}
+                  </p>
+                  <p className="mt-0.5">{language.t("chat.revertNotice.description")}</p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={chatState.isBusy}
+                  className="shrink-0"
+                  onClick={() => void onRestoreRevertedMessages()}
+                >
+                  <Redo2Icon className="mr-1 h-4 w-4" />
+                  {language.t("chat.revertNotice.restore")}
+                </Button>
               </div>
             </div>
           ) : null}

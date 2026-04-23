@@ -14,7 +14,13 @@ import type {
   SessionStatusInfo,
   SessionInfo,
 } from "./chat-types"
-import { appendPartDelta, upsertMessage, upsertPart } from "./chat-reducer"
+import {
+  appendPartDelta,
+  removeMessage,
+  removePart,
+  upsertMessage,
+  upsertPart,
+} from "./chat-reducer"
 import { IDLE_SESSION_STATUS, isSessionWorking, sessionStatusEquals } from "./session-status"
 
 type StreamStatus = "idle" | "connecting" | "connected" | "error"
@@ -56,7 +62,12 @@ type ChatStore = {
   applySessionUpdated: (directory: string, info: SessionInfo) => void
   applySessionStatus: (directory: string, sessionID: string, status: SessionStatusInfo) => void
   applyMessageUpdated: (directory: string, info: MessageInfo) => void
+  applyMessageRemoved: (directory: string, input: { sessionID: string; messageID: string }) => void
   applyPartUpdated: (directory: string, part: MessagePart) => void
+  applyPartRemoved: (
+    directory: string,
+    input: { sessionID: string; messageID: string; partID: string },
+  ) => void
   applyPartDelta: (
     directory: string,
     input: { sessionID: string; messageID: string; partID: string; field: string; delta: string },
@@ -579,6 +590,27 @@ export const useChatStore = create<ChatStore>()(
           }
         })
       },
+      applyMessageRemoved(directory, input) {
+        set((state) => {
+          const current = state.directories[directory] ?? emptyDirectoryState()
+          if (!current.sessionID || current.sessionID !== input.sessionID) {
+            return
+          }
+          const messages = removeMessage(current.messages, input.messageID)
+          const nextBusy = resolveActiveSessionBusy({
+            sessionID: current.sessionID,
+            sessions: current.sessions,
+            sessionStatusByID: current.sessionStatusByID,
+            messages,
+          })
+          state.directories[directory] = {
+            ...current,
+            isDraft: false,
+            messages,
+            isBusy: nextBusy,
+          }
+        })
+      },
       applyPartUpdated(directory, part) {
         set((state) => {
           const current = state.directories[directory] ?? emptyDirectoryState()
@@ -586,6 +618,30 @@ export const useChatStore = create<ChatStore>()(
             return
           }
           const messages = upsertPart(current.messages, part)
+          const nextBusy = resolveActiveSessionBusy({
+            sessionID: current.sessionID,
+            sessions: current.sessions,
+            sessionStatusByID: current.sessionStatusByID,
+            messages,
+          })
+          state.directories[directory] = {
+            ...current,
+            isDraft: false,
+            messages,
+            isBusy: nextBusy,
+          }
+        })
+      },
+      applyPartRemoved(directory, input) {
+        set((state) => {
+          const current = state.directories[directory] ?? emptyDirectoryState()
+          if (!current.sessionID || current.sessionID !== input.sessionID) {
+            return
+          }
+          const messages = removePart(current.messages, {
+            messageID: input.messageID,
+            partID: input.partID,
+          })
           const nextBusy = resolveActiveSessionBusy({
             sessionID: current.sessionID,
             sessions: current.sessions,

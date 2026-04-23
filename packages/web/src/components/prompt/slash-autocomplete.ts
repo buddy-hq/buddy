@@ -5,9 +5,11 @@ export type SlashCommandSource = "command" | "mcp" | "skill"
 export const COMPACT_SLASH_COMMAND_NAME = "compact" as const
 export const COMPACT_SLASH_COMMAND_ALIASES = ["summarize"] as const
 export const QUIZ_SLASH_COMMAND_NAME = "quiz" as const
+export const UNDO_SLASH_COMMAND_NAME = "undo" as const
 export const SUBMITTED_BUILTIN_SLASH_COMMAND_NAMES = [
   "new",
   "mcp",
+  UNDO_SLASH_COMMAND_NAME,
   COMPACT_SLASH_COMMAND_NAME,
   QUIZ_SLASH_COMMAND_NAME,
 ] as const

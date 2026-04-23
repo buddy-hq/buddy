@@ -36,7 +36,12 @@ type UseChatSyncProps = {
   applySessionUpdated: (directory: string, info: SessionInfo) => void
   applySessionStatus: (directory: string, sessionID: string, status: SessionStatusInfo) => void
   applyMessageUpdated: (directory: string, info: MessageInfo) => void
+  applyMessageRemoved: (directory: string, input: { sessionID: string; messageID: string }) => void
   applyPartUpdated: (directory: string, part: MessagePart) => void
+  applyPartRemoved: (
+    directory: string,
+    input: { sessionID: string; messageID: string; partID: string },
+  ) => void
   applyPartDelta: (
     directory: string,
     delta: { sessionID: string; messageID: string; partID: string; field: string; delta: string },
@@ -59,8 +64,10 @@ export function useChatSync(props: UseChatSyncProps) {
     decodedDirectory,
     hasRegisteredProject,
     applyMessageUpdated,
+    applyMessageRemoved,
     applyPartDelta,
     applyPartUpdated,
+    applyPartRemoved,
     applyPermissionAsked,
     applyPermissionReplied,
     applyQuestionAsked,
@@ -194,8 +201,25 @@ export function useChatSync(props: UseChatSyncProps) {
           return
         }
 
+        if (payload.type === "message.removed") {
+          applyMessageRemoved(directory, {
+            sessionID: String(properties.sessionID ?? ""),
+            messageID: String(properties.messageID ?? ""),
+          })
+          return
+        }
+
         if (payload.type === "message.part.updated") {
           applyPartUpdated(directory, properties.part as MessagePart)
+          return
+        }
+
+        if (payload.type === "message.part.removed") {
+          applyPartRemoved(directory, {
+            sessionID: String(properties.sessionID ?? ""),
+            messageID: String(properties.messageID ?? ""),
+            partID: String(properties.partID ?? ""),
+          })
           return
         }
 
@@ -250,8 +274,10 @@ export function useChatSync(props: UseChatSyncProps) {
     decodedDirectory,
     hasRegisteredProject,
     applyMessageUpdated,
+    applyMessageRemoved,
     applyPartDelta,
     applyPartUpdated,
+    applyPartRemoved,
     applyPermissionAsked,
     applyPermissionReplied,
     applyQuestionAsked,

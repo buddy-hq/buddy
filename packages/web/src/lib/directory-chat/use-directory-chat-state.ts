@@ -34,6 +34,58 @@ const EMPTY_LIST: never[] = []
 const EMPTY_RECORD: Record<string, never> = {}
 const EMPTY_SESSIONS: SessionInfo[] = []
 const EMPTY_SESSION_STATUS: Record<string, SessionStatusInfo> = {}
+const THINKING_DEFAULT_KEY = "default" as const
+const THINKING_LEVEL_ORDER = ["none", "low", "medium", "high", "xhigh"] as const
+type ThinkingLevel = (typeof THINKING_LEVEL_ORDER)[number]
+const THINKING_LEVEL_LABELS: Record<ThinkingLevel, string> = {
+  none: "None",
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+  xhigh: "Xhigh",
+}
+
+function asThinkingLevel(value: string): ThinkingLevel | undefined {
+  const normalized = value.trim().toLowerCase()
+  if (
+    normalized !== "none" &&
+    normalized !== "low" &&
+    normalized !== "medium" &&
+    normalized !== "high" &&
+    normalized !== "xhigh"
+  ) {
+    return undefined
+  }
+  return normalized
+}
+
+function thinkingLevelRank(value: string) {
+  const normalized = asThinkingLevel(value)
+  if (!normalized) return Number.POSITIVE_INFINITY
+  return THINKING_LEVEL_ORDER.indexOf(normalized)
+}
+
+function formatThinkingLabel(value: string) {
+  const normalized = asThinkingLevel(value)
+  if (normalized) return THINKING_LEVEL_LABELS[normalized]
+  if (!value) return value
+  return `${value[0]?.toUpperCase() ?? ""}${value.slice(1)}`
+}
+
+function sortThinkingVariants(variants: string[]) {
+  return variants.slice().toSorted((left, right) => {
+    const leftRank = thinkingLevelRank(left)
+    const rightRank = thinkingLevelRank(right)
+    const leftKnown = Number.isFinite(leftRank)
+    const rightKnown = Number.isFinite(rightRank)
+    if (leftKnown && rightKnown && leftRank !== rightRank) {
+      return leftRank - rightRank
+    }
+    if (leftKnown && !rightKnown) return -1
+    if (!leftKnown && rightKnown) return 1
+    return left.localeCompare(right)
+  })
+}
 
 function readSeededSessionList(directory: string) {
   const sessions = useChatStore.getState().directories[directory]?.sessions
@@ -120,7 +172,9 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
   const applySessionUpdated = useChatStore((state) => state.applySessionUpdated)
   const applySessionStatus = useChatStore((state) => state.applySessionStatus)
   const applyMessageUpdated = useChatStore((state) => state.applyMessageUpdated)
+  const applyMessageRemoved = useChatStore((state) => state.applyMessageRemoved)
   const applyPartUpdated = useChatStore((state) => state.applyPartUpdated)
+  const applyPartRemoved = useChatStore((state) => state.applyPartRemoved)
   const applyPartDelta = useChatStore((state) => state.applyPartDelta)
   const applyPermissionAsked = useChatStore((state) => state.applyPermissionAsked)
   const applyPermissionReplied = useChatStore((state) => state.applyPermissionReplied)
@@ -358,10 +412,10 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
     ],
   )
   const thinkingOptions = useMemo(() => {
-    const variants = effectiveModelInfo?.variants ?? []
+    const variants = sortThinkingVariants(effectiveModelInfo?.variants ?? [])
     return [
-      { key: "default", label: "Default" },
-      ...variants.map((variant) => ({ key: variant, label: variant })),
+      { key: THINKING_DEFAULT_KEY, label: "Default" },
+      ...variants.map((variant) => ({ key: variant, label: formatThinkingLabel(variant) })),
     ]
   }, [effectiveModelInfo])
   const selectedThinking = useMemo(
@@ -370,7 +424,7 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
         selected: selectedVariantKey,
         configured: configuredVariant,
         variants: effectiveModelInfo?.variants ?? [],
-      }) ?? "default",
+      }) ?? THINKING_DEFAULT_KEY,
     [configuredVariant, effectiveModelInfo?.variants, selectedVariantKey],
   )
   const isBusy = directoryState?.isBusy ?? false
@@ -462,7 +516,9 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
     applySessionUpdated,
     applySessionStatus,
     applyMessageUpdated,
+    applyMessageRemoved,
     applyPartUpdated,
+    applyPartRemoved,
     applyPartDelta,
     applyPermissionAsked,
     applyPermissionReplied,

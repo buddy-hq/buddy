@@ -94,3 +94,39 @@ export function appendPartDelta(
   }
   return next
 }
+
+export function removeMessage(current: MessageWithParts[], messageID: string) {
+  const index = current.findIndex((entry) => entry.info.id === messageID)
+  if (index === -1) {
+    return current
+  }
+
+  const next = [...current]
+  next.splice(index, 1)
+  return next
+}
+
+export function removePart(
+  current: MessageWithParts[],
+  input: { messageID: string; partID: string },
+) {
+  const messageIndex = current.findIndex((entry) => entry.info.id === input.messageID)
+  if (messageIndex === -1) {
+    return current
+  }
+
+  const message = current[messageIndex]
+  const partIndex = message.parts.findIndex((part) => part.id === input.partID)
+  if (partIndex === -1) {
+    return current
+  }
+
+  const next = [...current]
+  const parts = [...message.parts]
+  parts.splice(partIndex, 1)
+  next[messageIndex] = {
+    ...message,
+    parts,
+  }
+  return next
+}

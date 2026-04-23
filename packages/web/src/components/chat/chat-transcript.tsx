@@ -74,7 +74,19 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
   const directoryState = useChatStore((state) =>
     directory ? state.directories[directory] : undefined,
   )
-  const messages = directoryState?.messages ?? EMPTY_MESSAGES
+  const sessions = directoryState?.sessions ?? []
+  const allMessages = directoryState?.messages ?? EMPTY_MESSAGES
+  const activeSession = directoryState?.sessionID
+    ? sessions.find((session) => session.id === directoryState.sessionID)
+    : undefined
+  const revertMessageID = activeSession?.revert?.messageID
+  const messages = useMemo(
+    () =>
+      revertMessageID
+        ? allMessages.filter((message) => message.info.id < revertMessageID)
+        : allMessages,
+    [allMessages, revertMessageID],
+  )
   const providers = directoryState?.providers ?? EMPTY_PROVIDERS
   const isBusy = directoryState?.isBusy ?? false
   const activeSessionStatus = directoryState?.sessionID

@@ -123,6 +123,7 @@ export const TurnRenderer = memo(function TurnRenderer({
     !assistantErrored &&
     (turnSessionStatus.type === "busy" || turnHasCompaction) &&
     (showReasoningSummaries ? assistantItems.length === 0 : true)
+  const canRevertTurn = Boolean(onRevertMessage && userMessage && isLastTurn)
 
   return (
     <article className="relative min-w-0 w-full max-w-full px-4 md:px-5">
@@ -130,7 +131,7 @@ export const TurnRenderer = memo(function TurnRenderer({
         userMessage={userMessage}
         providers={providers}
         onForkMessage={onForkMessage}
-        onRevertMessage={onRevertMessage}
+        onRevertMessage={canRevertTurn ? onRevertMessage : undefined}
       />
 
       {turnHasCompaction ? (
