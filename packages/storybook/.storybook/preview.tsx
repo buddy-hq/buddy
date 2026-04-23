@@ -1,7 +1,11 @@
 import "@buddy/ui/styles"
 
 import * as React from "react"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { TooltipProvider } from "@buddy/ui"
 import { defaultThemes, resolveThemeVariant, themeToCss } from "@buddy/opencode-adapter/theme"
+
+const queryClient = new QueryClient()
 
 type StoryRenderer = () => React.ReactNode
 type StoryContext = {
@@ -75,11 +79,15 @@ const withTheme = (Story: StoryRenderer, context: StoryContext) => {
   return (
     <>
       <ThemeVariables mode={theme} />
-      <div className={theme} data-theme={theme}>
-        <div className="min-h-screen bg-background-base p-6 text-text-base">
-          <Story />
-        </div>
-      </div>
+      <TooltipProvider delayDuration={300}>
+        <QueryClientProvider client={queryClient}>
+          <div className={theme} data-theme={theme}>
+            <div className="min-h-screen bg-background-base p-6 text-text-base">
+              <Story />
+            </div>
+          </div>
+        </QueryClientProvider>
+      </TooltipProvider>
     </>
   )
 }
