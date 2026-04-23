@@ -1,5 +1,6 @@
 import { BasicTool } from "../../tools/basic-tool"
 import { ToolOutputPanel } from "../../tools/tool-output-panel"
+import { ToolErrorPanel } from "../../tools/tool-error-panel"
 import { DiagnosticList } from "./diagnostic-list"
 import { language } from "@/context/language"
 import { isRecord, readString } from "../../tools/types"
@@ -22,7 +23,8 @@ export function renderEditTool({ state, defaultOpen }: ToolPartProps) {
   const afterText = typeof fileDiff?.after === "string" ? fileDiff.after : undefined
   const writeContent = readString(state.input.content)
   const output = state.output || (state.error ?? "")
-  const showOutput = output.trim().length > 0
+  const hasContent = output.trim().length > 0
+  const hasError = state.status === "error" && hasContent
 
   const diagnostics: ToolDiagnostic[] = []
   if (filePath && state.metadata.diagnostics) {
@@ -64,7 +66,7 @@ export function renderEditTool({ state, defaultOpen }: ToolPartProps) {
         subtitle: filePath ? dirname(filePath) : undefined,
       }}
       status={state.status}
-      defaultOpen={defaultOpen}
+      defaultOpen={defaultOpen ?? (state.status === "completed" || state.status === "error")}
     >
       {beforeText !== undefined || afterText !== undefined ? (
         <div className="grid gap-2 md:grid-cols-2">
@@ -72,7 +74,7 @@ export function renderEditTool({ state, defaultOpen }: ToolPartProps) {
             <div className="mb-1 text-xs font-semibold text-text-weak">
               {language.t("chatTools.before")}
             </div>
-            <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border-base bg-surface-weak/40 p-2 text-xs text-text-weak">
+            <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border-base bg-background-base p-2 text-xs text-text-weak">
               {beforeText || language.t("chatTools.empty")}
             </pre>
           </div>
@@ -80,7 +82,7 @@ export function renderEditTool({ state, defaultOpen }: ToolPartProps) {
             <div className="mb-1 text-xs font-semibold text-text-weak">
               {language.t("chatTools.after")}
             </div>
-            <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border-base bg-surface-weak/40 p-2 text-xs text-text-weak">
+            <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border-base bg-background-base p-2 text-xs text-text-weak">
               {afterText || language.t("chatTools.empty")}
             </pre>
           </div>
@@ -92,12 +94,10 @@ export function renderEditTool({ state, defaultOpen }: ToolPartProps) {
         </pre>
       ) : null}
       <DiagnosticList diagnostics={diagnostics.filter((d) => d.severity === 1).slice(0, 3)} />
-      {showOutput ? (
-        <ToolOutputPanel
-          output={output}
-          status={state.status}
-          copyLabel={language.t("chatTools.copyOutput")}
-        />
+      {hasError ? (
+        <ToolErrorPanel error={output} />
+      ) : hasContent ? (
+        <ToolOutputPanel output={output} copyLabel={language.t("chatTools.copyOutput")} />
       ) : null}
     </BasicTool>
   )

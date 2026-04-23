@@ -186,3 +186,34 @@ export function createArtifactHiddenStepPresentation(props: ToolPartProps): Hidd
     artifact ?? previewText,
   )
 }
+
+export function createWebfetchHiddenStepPresentation(props: ToolPartProps): HiddenStepPresentation {
+  const url = readNonEmptyString(props.state.input.url) ?? readNonEmptyString(props.info.subtitle)
+  const previewText = summarizeText(props.state.output, PREVIEW_MAX_CHARS) ?? url
+
+  return {
+    preview: previewText ? { text: previewText, kind: HIDDEN_STEP_DETAIL_KIND.text } : undefined,
+    rowDetails: uniqueDetails([
+      url ? { text: url, kind: HIDDEN_STEP_DETAIL_KIND.text } : undefined,
+    ]),
+    summaryLabel: buildLabel(props.info.title, url),
+    summaryOnly: true,
+    suppressErrorPreview: true,
+  }
+}
+
+export function createBashHiddenStepPresentation(props: ToolPartProps): HiddenStepPresentation {
+  const command =
+    readNonEmptyString(props.state.input.command) ?? readNonEmptyString(props.info.subtitle)
+  const previewText = summarizeText(props.state.output, PREVIEW_MAX_CHARS) ?? command
+
+  return {
+    preview: previewText ? { text: previewText, kind: HIDDEN_STEP_DETAIL_KIND.text } : undefined,
+    rowDetails: uniqueDetails([
+      command ? { text: command, kind: HIDDEN_STEP_DETAIL_KIND.text } : undefined,
+    ]),
+    summaryLabel: buildLabel(props.info.title, command),
+    summaryOnly: true,
+    suppressErrorPreview: true,
+  }
+}

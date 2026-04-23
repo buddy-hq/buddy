@@ -1,5 +1,6 @@
 import { BasicTool } from "../../tools/basic-tool"
-import { ToolOutputPanel } from "../../tools/tool-output-panel"
+import { ToolErrorPanel } from "../../tools/tool-error-panel"
+import { ToolEmptyState } from "../../tools/tool-empty-state"
 import { language } from "@/context/language"
 import type { ToolPartProps } from "../registry"
 
@@ -27,14 +28,10 @@ export function renderReadTool({ state, info }: ToolPartProps) {
             </div>
           ))}
         </div>
+      ) : state.status === "completed" ? (
+        <ToolEmptyState />
       ) : null}
-      {state.status === "error" && showOutput ? (
-        <ToolOutputPanel
-          output={output}
-          status={state.status}
-          copyLabel={language.t("chatTools.copyOutput")}
-        />
-      ) : null}
+      {state.status === "error" && showOutput ? <ToolErrorPanel error={output} /> : null}
     </BasicTool>
   )
 }

@@ -2,6 +2,7 @@ import { Badge } from "@buddy/ui"
 import type { ReactNode } from "react"
 import { BasicTool } from "../../tools/basic-tool"
 import { ToolOutputPanel } from "../../tools/tool-output-panel"
+import { ToolErrorPanel } from "../../tools/tool-error-panel"
 import { language } from "@/context/language"
 import { isRecord, readNonEmptyString, readNonNegativeInt } from "../../tools/types"
 import type { ToolPartProps } from "../registry"
@@ -595,19 +596,9 @@ export function renderKnowledgeGraphTool(props: ToolPartProps) {
     >
       {running ? <div className="text-xs text-text-weak/65">{runningLabel(props.tool)}</div> : null}
       {!running && parsed ? <KnowledgeGraphBody parsed={parsed} /> : null}
-      {props.state.status === "error" && showOutput ? (
-        <ToolOutputPanel
-          output={output}
-          status={props.state.status}
-          copyLabel={language.t("chatTools.copyOutput")}
-        />
-      ) : null}
+      {props.state.status === "error" && showOutput ? <ToolErrorPanel error={output} /> : null}
       {!running && !parsed && props.state.status !== "error" && showOutput ? (
-        <ToolOutputPanel
-          output={output}
-          status={props.state.status}
-          copyLabel={language.t("chatTools.copyOutput")}
-        />
+        <ToolOutputPanel output={output} copyLabel={language.t("chatTools.copyOutput")} />
       ) : null}
     </BasicTool>
   )

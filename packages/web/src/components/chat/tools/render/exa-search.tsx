@@ -1,6 +1,6 @@
 import { BasicTool } from "../../tools/basic-tool"
-import { ToolOutputPanel } from "../../tools/tool-output-panel"
-import { language } from "@/context/language"
+import { ToolErrorPanel } from "../../tools/tool-error-panel"
+import { ToolEmptyState } from "../../tools/tool-empty-state"
 import type { ToolPartProps } from "../registry"
 
 const URL_PATTERN = /https?:\/\/[^\s<>"'`)\]]+/g
@@ -45,14 +45,10 @@ export function renderExaSearchTool({ state, defaultOpen, info }: ToolPartProps)
             </a>
           ))}
         </div>
+      ) : state.status === "completed" && !hasOutput ? (
+        <ToolEmptyState label="No results found" />
       ) : null}
-      {state.status === "error" && hasOutput ? (
-        <ToolOutputPanel
-          output={output}
-          status={state.status}
-          copyLabel={language.t("chatTools.copyOutput")}
-        />
-      ) : null}
+      {state.status === "error" && hasOutput ? <ToolErrorPanel error={output} /> : null}
     </BasicTool>
   )
 }

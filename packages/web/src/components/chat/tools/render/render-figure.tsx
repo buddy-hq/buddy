@@ -1,5 +1,7 @@
 import { BasicTool } from "../../tools/basic-tool"
 import { ToolOutputPanel } from "../../tools/tool-output-panel"
+import { ToolErrorPanel } from "../../tools/tool-error-panel"
+import { ToolEmptyState } from "../../tools/tool-empty-state"
 import { CopyAction } from "../../copy-action"
 import { language } from "@/context/language"
 import { isRecord, readString, readNonEmptyString, readNonNegativeInt } from "../../tools/types"
@@ -59,12 +61,12 @@ export function renderRenderFigureTool({ state, info }: ToolPartProps) {
         status={state.status}
         hideDetails
       >
-        {state.status === "error" && showOutput ? (
-          <ToolOutputPanel
-            output={output}
-            status={state.status}
-            copyLabel={language.t("chatTools.copyOutput")}
-          />
+        {state.status === "pending" || state.status === "running" ? (
+          <div className="text-xs text-text-weak">{language.t("chatTools.generatingFigure")}</div>
+        ) : state.status === "error" && showOutput ? (
+          <ToolErrorPanel error={output} />
+        ) : state.status === "completed" && !showOutput ? (
+          <ToolEmptyState />
         ) : null}
       </BasicTool>
     )

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { ToolOutputPanel } from "../../../tools/tool-output-panel"
+import { ToolErrorPanel } from "../../../tools/tool-error-panel"
 import { MermaidDiagram } from "./mermaid-diagram"
 import { MermaidToolCard } from "./mermaid-tool-card"
 import { language } from "@/context/language"
@@ -317,13 +318,7 @@ function RenderMermaidToolCard({ state, info, directory }: ToolPartProps) {
   if (!parsed) {
     return (
       <MermaidToolCard title={info.title} status={state.status}>
-        {state.status === "error" && showOutput ? (
-          <ToolOutputPanel
-            output={output}
-            status={state.status}
-            copyLabel={language.t("chatTools.copyOutput")}
-          />
-        ) : null}
+        {state.status === "error" && showOutput ? <ToolErrorPanel error={output} /> : null}
       </MermaidToolCard>
     )
   }
@@ -364,13 +359,7 @@ function RenderMermaidToolCard({ state, info, directory }: ToolPartProps) {
         <div className="px-4 pb-3 pt-1 text-xs text-text-weak">{repairLog.join(" ")}</div>
       ) : null}
 
-      {state.status === "error" && showOutput ? (
-        <ToolOutputPanel
-          output={output}
-          status={state.status}
-          copyLabel={language.t("chatTools.copyOutput")}
-        />
-      ) : null}
+      {state.status === "error" && showOutput ? <ToolErrorPanel error={output} /> : null}
     </>
   )
 

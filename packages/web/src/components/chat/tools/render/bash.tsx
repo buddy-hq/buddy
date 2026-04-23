@@ -1,5 +1,6 @@
 import { BasicTool } from "../../tools/basic-tool"
 import { ToolOutputPanel } from "../../tools/tool-output-panel"
+import { ToolErrorPanel } from "../../tools/tool-error-panel"
 import { language } from "@/context/language"
 import { readString } from "../../tools/types"
 import { stripAnsi } from "../../utils/path"
@@ -11,6 +12,7 @@ export function renderBashTool({ state, defaultOpen }: ToolPartProps) {
   const shellText = shellCommand
     ? `$ ${shellCommand}${shellOutput ? `\n\n${shellOutput}` : ""}`
     : shellOutput
+  const hasError = state.status === "error" && shellText.trim().length > 0
 
   return (
     <BasicTool
@@ -18,12 +20,10 @@ export function renderBashTool({ state, defaultOpen }: ToolPartProps) {
       status={state.status}
       defaultOpen={defaultOpen}
     >
-      {shellText ? (
-        <ToolOutputPanel
-          output={shellText}
-          status={state.status}
-          copyLabel={language.t("chatTools.copyShellOutput")}
-        />
+      {hasError ? (
+        <ToolErrorPanel error={shellText} />
+      ) : shellText ? (
+        <ToolOutputPanel output={shellText} copyLabel={language.t("chatTools.copyShellOutput")} />
       ) : null}
       {!shellText && state.status === "completed" ? (
         <div className="text-xs text-text-weak">{language.t("chatTools.noOutput")}</div>

@@ -34,14 +34,13 @@ const ABSTRACTED_THOUGHT_LABEL = "Thought"
 const ABSTRACTED_WORKING_LABEL = "Working"
 const READ_TOOL_NAMES = new Set(["read"])
 const SEARCH_TOOL_NAMES = new Set(["list", "glob", "grep", "websearch", "codesearch"])
+import { MOTION_SNAPPY, MOTION_GENTLE } from "../tool-motion"
+
 const PREVIEW_KIND = {
   markdown: HIDDEN_STEP_DETAIL_KIND.markdown,
   text: HIDDEN_STEP_DETAIL_KIND.text,
   error: "error",
 } as const
-
-const SPRING_SNAPPY = { type: "spring", stiffness: 500, damping: 35, mass: 0.8 } as const
-const SPRING_GENTLE = { type: "spring", stiffness: 300, damping: 30, mass: 1 } as const
 
 type AbstractedEntry = {
   part: MessagePart
@@ -369,6 +368,13 @@ export function HiddenSteps({
     }
   }, [activeEntry, isBusy])
 
+  // Auto-expand if there are errors and the agent has finished working
+  useEffect(() => {
+    if (errorCount > 0 && !isBusy) {
+      setIsOpen(true)
+    }
+  }, [errorCount, isBusy])
+
   const lingeringLivePreview =
     !activeEntry && !lastErrorEntry && isBusy ? lastActiveEntryRef.current : undefined
   const previewEntry = activeEntry ?? lastErrorEntry ?? lingeringLivePreview
@@ -422,19 +428,31 @@ export function HiddenSteps({
           <div className="flex shrink-0 items-center gap-2 text-xs transition-colors duration-200 text-text-weaker group-hover:text-text-weak">
             <span
               className={cn(
-                "truncate",
+                "relative truncate",
                 showLivePreview
                   ? "text-text-base group-hover:text-text-strong transition-colors"
                   : errorCount > 0
                     ? "text-icon-critical-base"
                     : "text-inherit",
-                animateLiveTitle && "animate-pulse",
               )}
             >
               {title}
+              {animateLiveTitle && (
+                <div className="absolute -bottom-0.5 left-0 h-[1.5px] w-full overflow-hidden rounded-full bg-surface-weak/50">
+                  <motion.div
+                    className="h-full w-1/3 bg-brand-base/30"
+                    animate={{ x: ["-100%", "400%"] }}
+                    transition={{
+                      duration: 1.5,
+                      repeat: Infinity,
+                      ease: "linear",
+                    }}
+                  />
+                </div>
+              )}
             </span>
             {!showLivePreview && errorCount > 0 ? (
-              <span className="shrink-0 text-icon-critical-base">
+              <span className="shrink-0 flex items-center gap-1 rounded bg-surface-critical-base/10 px-1.5 py-px text-icon-critical-base font-medium">
                 {errorCount} {errorCount === 1 ? "error" : "errors"}
               </span>
             ) : null}
@@ -445,7 +463,7 @@ export function HiddenSteps({
             ) : null}
             <motion.div
               animate={{ rotate: isOpen ? 90 : 0 }}
-              transition={SPRING_SNAPPY}
+              transition={MOTION_SNAPPY}
               className="flex items-center text-text-weaker group-hover:text-text-weak transition-colors"
             >
               <ChevronRightIcon className="h-3.5 w-3.5 shrink-0" />
@@ -463,7 +481,7 @@ export function HiddenSteps({
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={SPRING_GENTLE}
+            transition={MOTION_GENTLE}
             className="overflow-hidden"
           >
             <div

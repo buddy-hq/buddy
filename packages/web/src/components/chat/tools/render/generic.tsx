@@ -1,6 +1,6 @@
 import { BasicTool } from "../../tools/basic-tool"
-import { ToolOutputPanel } from "../../tools/tool-output-panel"
-import { language } from "@/context/language"
+import { ToolErrorPanel } from "../../tools/tool-error-panel"
+import { ToolEmptyState } from "../../tools/tool-empty-state"
 import type { ToolPartProps } from "../registry"
 
 export function renderGenericTool({ state, info }: ToolPartProps) {
@@ -14,11 +14,9 @@ export function renderGenericTool({ state, info }: ToolPartProps) {
       hideDetails
     >
       {state.status === "error" && showOutput ? (
-        <ToolOutputPanel
-          output={output}
-          status={state.status}
-          copyLabel={language.t("chatTools.copyOutput")}
-        />
+        <ToolErrorPanel error={output} />
+      ) : state.status === "completed" && !showOutput ? (
+        <ToolEmptyState />
       ) : null}
     </BasicTool>
   )

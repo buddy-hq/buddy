@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import { ToolOutputPanel } from "../../../tools/tool-output-panel"
+import { ToolErrorPanel } from "../../../tools/tool-error-panel"
 import type { ToolPartProps } from "../../registry"
 import { isRecord, readNonEmptyString, readNonNegativeInt } from "../../../tools/types"
 import { language } from "@/context/language"
@@ -262,11 +263,7 @@ export function renderSavedQuestionSetTool(props: ToolPartProps) {
         status={props.state.status}
       >
         {showOutput ? (
-          <ToolOutputPanel
-            output={output}
-            status={props.state.status}
-            copyLabel={language.t("chatTools.copyOutput")}
-          />
+          <ToolOutputPanel output={output} copyLabel={language.t("chatTools.copyOutput")} />
         ) : null}
       </QuestionSetToolCard>
     )
@@ -302,11 +299,7 @@ export function renderSavedQuestionSetTool(props: ToolPartProps) {
       ) : (
         <div className="text-sm text-text-weak">Loading question set...</div>
       )}
-      {loadError ? (
-        <p className="mt-2 rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 px-2 py-1.5 text-xs text-icon-critical-base">
-          {loadError}
-        </p>
-      ) : null}
+      {loadError ? <ToolErrorPanel error={loadError} /> : null}
     </QuestionSetToolCard>
   )
 }

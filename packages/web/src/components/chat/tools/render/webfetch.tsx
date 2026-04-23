@@ -1,9 +1,12 @@
 import { BasicTool } from "../../tools/basic-tool"
+import { ToolErrorPanel } from "../../tools/tool-error-panel"
 import { readString } from "../../tools/types"
 import type { ToolPartProps } from "../registry"
 
 export function renderWebfetchTool({ state, info }: ToolPartProps) {
   const link = readString(state.input.url)
+  const output = state.output || (state.error ?? "")
+  const showOutput = output.trim().length > 0
 
   return (
     <BasicTool
@@ -21,6 +24,7 @@ export function renderWebfetchTool({ state, info }: ToolPartProps) {
           {link}
         </a>
       ) : null}
+      {state.status === "error" && showOutput ? <ToolErrorPanel error={output} /> : null}
     </BasicTool>
   )
 }

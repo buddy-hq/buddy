@@ -1,5 +1,6 @@
 import { BasicTool } from "../../tools/basic-tool"
 import { ToolOutputPanel } from "../../tools/tool-output-panel"
+import { ToolErrorPanel } from "../../tools/tool-error-panel"
 import { ApplyPatchFileItem } from "./apply-patch-item"
 import { language } from "@/context/language"
 import { isRecord } from "../../tools/types"
@@ -61,7 +62,8 @@ export function renderApplyPatchTool({ state, defaultOpen }: ToolPartProps) {
         ? language.t("chatTools.applyPatch.running")
         : undefined
   const visibleOutput = output.trim().length > 0 ? output : (runningMessage ?? "")
-  const showOutput = visibleOutput.trim().length > 0
+  const hasContent = visibleOutput.trim().length > 0
+  const hasError = state.status === "error" && output.trim().length > 0
 
   return (
     <BasicTool
@@ -75,7 +77,7 @@ export function renderApplyPatchTool({ state, defaultOpen }: ToolPartProps) {
         ) : undefined,
       }}
       status={state.status}
-      defaultOpen={defaultOpen}
+      defaultOpen={defaultOpen ?? (state.status === "completed" || state.status === "error")}
       hideDetails={running}
     >
       <div>
@@ -96,12 +98,10 @@ export function renderApplyPatchTool({ state, defaultOpen }: ToolPartProps) {
             ))}
           </div>
         ) : null}
-        {showOutput ? (
-          <ToolOutputPanel
-            output={visibleOutput}
-            status={state.status}
-            copyLabel={language.t("chatTools.copyOutput")}
-          />
+        {hasError ? (
+          <ToolErrorPanel error={output} />
+        ) : hasContent ? (
+          <ToolOutputPanel output={visibleOutput} copyLabel={language.t("chatTools.copyOutput")} />
         ) : null}
       </div>
     </BasicTool>

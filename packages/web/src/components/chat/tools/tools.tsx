@@ -19,9 +19,11 @@ import { renderBuddyCustomTool } from "./render/buddy-custom"
 import { renderGenericTool } from "./render/generic"
 import {
   createArtifactHiddenStepPresentation,
+  createBashHiddenStepPresentation,
   createReadHiddenStepPresentation,
   createSearchHiddenStepPresentation,
   createSummaryOnlyHiddenStepPresentation,
+  createWebfetchHiddenStepPresentation,
 } from "./hidden-steps-presenters"
 
 // ============================================================================
@@ -57,10 +59,18 @@ registerTool({ name: "edit", render: renderEditTool })
 registerTool({ name: "write", render: renderEditTool })
 registerTool({ name: "apply_patch", render: renderApplyPatchTool })
 
-registerTool({ name: "bash", render: renderBashTool })
+registerTool({
+  name: "bash",
+  render: renderBashTool,
+  hiddenSteps: createBashHiddenStepPresentation,
+})
 registerTool({ name: "python_calculator", render: renderPythonCalculatorTool })
 
-registerTool({ name: "webfetch", render: renderWebfetchTool })
+registerTool({
+  name: "webfetch",
+  render: renderWebfetchTool,
+  hiddenSteps: createWebfetchHiddenStepPresentation,
+})
 registerTool({
   name: "websearch",
   render: renderExaSearchTool,
