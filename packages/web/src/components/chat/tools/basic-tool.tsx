@@ -7,7 +7,8 @@ import {
   ChevronRightIcon,
   cn,
 } from "@buddy/ui"
-import { ToolStatusBadge } from "../tools/tool-header"
+import { ToolStatusIndicator } from "../tools/tool-header"
+import { MOTION_SNAPPY } from "../tools/tool-motion"
 import type { ToolState } from "../tools/registry"
 
 export interface BasicToolTrigger {
@@ -90,11 +91,11 @@ export function BasicTool({
           ) : (
             trigger
           )}
-          {!hideStatus && status ? <ToolStatusBadge status={status} /> : null}
+          {!hideStatus && status ? <ToolStatusIndicator status={status} /> : null}
           {!hideDetails && !running && children ? (
             <motion.div
               animate={{ rotate: open ? 90 : 0 }}
-              transition={{ type: "spring", stiffness: 500, damping: 35, mass: 0.8 }}
+              transition={MOTION_SNAPPY}
               className="ml-auto"
             >
               <ChevronRightIcon className="h-3 w-3 shrink-0 text-text-weak/50 group-hover:text-text-weak" />
