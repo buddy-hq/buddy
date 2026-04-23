@@ -31,6 +31,8 @@ const SESSION_STATUS_PATH = "/session/status"
 const LINK_HEADER = "Link"
 const NEXT_CURSOR_HEADER = "X-Next-Cursor"
 const EXPOSE_HEADERS_HEADER = "Access-Control-Expose-Headers"
+const SESSION_REVERT_PATH_SUFFIX = "/revert"
+const SESSION_UNREVERT_PATH_SUFFIX = "/unrevert"
 
 function readOpenCodeErrorMessage(error: unknown): string | undefined {
   if (!error || typeof error !== "object") return undefined
@@ -176,6 +178,38 @@ export async function summarizeSessionById(c: Context): Promise<Response> {
 
   return proxyToOpenCode(c, {
     targetPath: `/session/${encodeURIComponent(sessionID)}/summarize`,
+    forceBusyAs409: true,
+  })
+}
+
+export async function revertSessionById(c: Context): Promise<Response> {
+  const syncResult = await withConfigSync(c, {
+    operation: "session revert",
+  })
+  if (!syncResult.ok) return syncResult.response
+
+  const sessionID = c.req.param("sessionID")
+  const lookupResponse = await ensureRuntimeSessionExists(syncResult.value.directory, sessionID)
+  if (lookupResponse) return lookupResponse
+
+  return proxyToOpenCode(c, {
+    targetPath: `/session/${encodeURIComponent(sessionID)}${SESSION_REVERT_PATH_SUFFIX}`,
+    forceBusyAs409: true,
+  })
+}
+
+export async function unrevertSessionById(c: Context): Promise<Response> {
+  const syncResult = await withConfigSync(c, {
+    operation: "session unrevert",
+  })
+  if (!syncResult.ok) return syncResult.response
+
+  const sessionID = c.req.param("sessionID")
+  const lookupResponse = await ensureRuntimeSessionExists(syncResult.value.directory, sessionID)
+  if (lookupResponse) return lookupResponse
+
+  return proxyToOpenCode(c, {
+    targetPath: `/session/${encodeURIComponent(sessionID)}${SESSION_UNREVERT_PATH_SUFFIX}`,
     forceBusyAs409: true,
   })
 }

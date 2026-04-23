@@ -26,7 +26,9 @@ import {
   postSessionCommand,
   postSessionPrompt,
   proxySessionCollection,
+  revertSessionById,
   summarizeSessionById,
+  unrevertSessionById,
 } from "../session"
 import { getTeachingState } from "../learning/adapters/http/session/state-actions"
 
@@ -43,6 +45,8 @@ const [postSessionPromptHandler] = sessionRouteFactory.createHandlers(postSessio
 const [postSessionCommandHandler] = sessionRouteFactory.createHandlers(postSessionCommand)
 const [getTeachingStateHandler] = sessionRouteFactory.createHandlers(getTeachingState)
 const [abortSessionHandler] = sessionRouteFactory.createHandlers(abortSessionRun)
+const [revertSessionHandler] = sessionRouteFactory.createHandlers(revertSessionById)
+const [unrevertSessionHandler] = sessionRouteFactory.createHandlers(unrevertSessionById)
 
 const sessionListQuerySchema = z.object({
   directory: z.string().optional(),
@@ -153,6 +157,21 @@ const sessionSummarizeBodyOpenApiSchema = {
     providerID: { type: "string" as const },
     modelID: { type: "string" as const },
     auto: { type: "boolean" as const },
+  },
+}
+
+const sessionRevertBodySchema = z.object({
+  messageID: z.string().min(1),
+  partID: z.string().min(1).optional(),
+})
+
+const sessionRevertBodyOpenApiSchema = {
+  type: "object" as const,
+  required: ["messageID"],
+  additionalProperties: false,
+  properties: {
+    messageID: { type: "string" as const },
+    partID: { type: "string" as const },
   },
 }
 
@@ -393,6 +412,51 @@ export const SessionRoutes = new Hono()
     validator("query", directoryQuerySchema),
     validator("param", SessionIDParamSchema),
     getTeachingStateHandler,
+  )
+  .post(
+    "/:sessionID/revert",
+    describeRoute({
+      operationId: "session.revert",
+      summary: "Undo session messages and file changes to a message",
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": { schema: sessionRevertBodyOpenApiSchema },
+        },
+      },
+      responses: {
+        200: {
+          description: "Updated session after revert",
+          content: {
+            "application/json": { schema: resolver(OpenCodeSession.Info) },
+          },
+        },
+        ...routeErrors(400, 403, 404, 409),
+      },
+    }),
+    validator("query", directoryQuerySchema),
+    validator("param", SessionIDParamSchema),
+    validator("json", sessionRevertBodySchema),
+    revertSessionHandler,
+  )
+  .post(
+    "/:sessionID/unrevert",
+    describeRoute({
+      operationId: "session.unrevert",
+      summary: "Restore reverted session messages and file changes",
+      responses: {
+        200: {
+          description: "Updated session after restoring reverted state",
+          content: {
+            "application/json": { schema: resolver(OpenCodeSession.Info) },
+          },
+        },
+        ...routeErrors(403, 404, 409),
+      },
+    }),
+    validator("query", directoryQuerySchema),
+    validator("param", SessionIDParamSchema),
+    unrevertSessionHandler,
   )
   .post(
     "/:sessionID/abort",
