@@ -1,15 +1,15 @@
 import { LibraryBigIcon, type LucideIcon } from "lucide-react"
 import {
   ArchiveIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
   Collapsible,
-  CollapsibleContent,
   CollapsibleTrigger,
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
   FolderIcon,
-  FolderOpenIcon,
   FileSlidersIcon,
   MailIcon,
   MailOpenIcon,
@@ -31,7 +31,6 @@ import type { SessionInfo, SessionStatusInfo } from "@/state/chat-types"
 import { isSessionWorking } from "@/state/session-status"
 import type { NotebookMainPaneTab } from "@/state/ui-preferences"
 import { getFilename } from "../sidebar-helpers"
-import { ChevronRightIcon } from "../sidebar-icons"
 import {
   buildSessionChildrenByParent,
   formatThreadAge,
@@ -40,11 +39,11 @@ import {
 } from "./thread-helpers"
 import type { DirectoryGroup, DropPosition, OrganizeMode } from "./types"
 import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react"
-import { AnimatePresence, motion } from "motion/react"
 
 type ChatLeftSidebarDirectoryListProps = {
   directoryGroups: DirectoryGroup[]
   currentDirectory: string
+  libraryOpen?: boolean
   activeSessionID?: string
   sessionsByDirectory: Record<string, SessionInfo[]>
   sessionStatusByDirectory: Record<string, Record<string, SessionStatusInfo>>
@@ -74,6 +73,7 @@ type ChatLeftSidebarDirectoryListProps = {
 type DirectoryGroupSectionProps = {
   group: DirectoryGroup
   currentDirectory: string
+  libraryOpen?: boolean
   activeSessionID?: string
   allSessions: SessionInfo[]
   sessionStatusByID: Record<string, SessionStatusInfo>
@@ -190,6 +190,7 @@ export function ChatLeftSidebarDirectoryList(props: ChatLeftSidebarDirectoryList
             key={group.directory}
             group={group}
             currentDirectory={props.currentDirectory}
+            libraryOpen={props.libraryOpen}
             activeSessionID={props.activeSessionID}
             allSessions={allSessions}
             sessionStatusByID={sessionStatusByID}
@@ -239,7 +240,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
     : props.group.sessions.slice(0, collapsedCount)
   const hasMore = props.group.sessions.length > collapsedCount
   const canDrag = props.organizeMode === "project"
-  const isCurrentDirectory = props.group.directory === props.currentDirectory
+  const isCurrentDirectory = !props.libraryOpen && props.group.directory === props.currentDirectory
   const isDragging = props.draggedDirectory === props.group.directory
   const isDragOver =
     props.dragOverDirectory === props.group.directory &&
@@ -247,7 +248,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
   const childrenByParent = buildSessionChildrenByParent(props.allSessions)
   const sessionsByID = new Map(props.allSessions.map((session) => [session.id, session]))
   const activeMainPaneTab = isCurrentDirectory ? (props.mainPaneTab ?? "chat") : "chat"
-  const allowActiveThreadHighlight = activeMainPaneTab === "chat"
+  const allowActiveThreadHighlight = !props.libraryOpen && activeMainPaneTab === "chat"
 
   const activeSession = props.group.sessions.find((s) => s.id === props.activeSessionID)
   const isChatActive = isCurrentDirectory && allowActiveThreadHighlight && !!activeSession
@@ -258,9 +259,10 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
   const [popoverOpen, setPopoverOpen] = useState(false)
   const popoverTimeoutRef = useRef<any>(null)
   const popoverOpenTimeoutRef = useRef<any>(null)
+  const justCollapsedRef = useRef(false)
 
   const handleMouseEnter = () => {
-    if (props.collapsed && props.group.sessions.length > 0) {
+    if (props.collapsed && props.group.sessions.length > 0 && !justCollapsedRef.current) {
       clearTimeout(popoverTimeoutRef.current)
       if (!popoverOpen) {
         popoverOpenTimeoutRef.current = setTimeout(() => {
@@ -271,6 +273,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
   }
 
   const handleMouseLeave = () => {
+    justCollapsedRef.current = false
     clearTimeout(popoverOpenTimeoutRef.current)
     popoverTimeoutRef.current = setTimeout(() => {
       setPopoverOpen(false)
@@ -279,10 +282,10 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
 
   const headerNode = (
     <div
-      className={`group/notebook-header relative flex items-center gap-1 rounded-lg px-2 py-1 ${
+      className={`group/notebook-header relative flex items-center gap-1 rounded-lg px-2 pt-1 ${
         !props.collapsed
-          ? "rounded-t-lg rounded-b-none bg-surface-raised-base"
-          : "data-[state=open]:bg-surface-raised-base-hover"
+          ? "rounded-t-lg rounded-b-none bg-surface-raised-base pb-2.5"
+          : "pb-1 data-[state=open]:bg-surface-raised-base-hover"
       }`}
     >
       <CollapsibleTrigger asChild>
@@ -290,7 +293,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
           type="button"
           data-action="left-sidebar-directory-toggle"
           data-directory={props.group.directory}
-          className={`flex min-w-0 flex-1 items-center gap-1.5 rounded-lg px-0 py-1 text-left text-sm font-light text-text-weaker hover:text-text-strong ${
+          className={`flex min-w-0 flex-1 items-center gap-1.5 rounded-lg px-0 py-1 text-left text-xs font-light text-text-weaker hover:text-text-strong ${
             canDrag && !isQuickChatGroup ? "cursor-grab active:cursor-grabbing" : ""
           }`}
           onPointerDown={
@@ -298,11 +301,29 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
           }
         >
           {isQuickChatGroup ? (
-            <ZapIcon className="size-3.5 shrink-0" />
-          ) : props.collapsed ? (
-            <FolderIcon className="size-3.5 shrink-0" />
+            <ZapIcon className="size-3 shrink-0" />
           ) : (
-            <FolderOpenIcon className="size-3.5 shrink-0" />
+            <span className="relative flex size-3 shrink-0">
+              <FolderIcon
+                className={`absolute inset-0 size-3 transition-opacity duration-200 ${
+                  props.collapsed
+                    ? "opacity-100 group-hover/notebook-header:opacity-0"
+                    : "opacity-0"
+                }`}
+              />
+              <ChevronRightIcon
+                className={`absolute inset-0 size-3 transition-opacity duration-200 ${
+                  props.collapsed
+                    ? "opacity-0 group-hover/notebook-header:opacity-100"
+                    : "opacity-0"
+                }`}
+              />
+              <ChevronDownIcon
+                className={`absolute inset-0 size-3 transition-opacity duration-200 ${
+                  !props.collapsed ? "opacity-100" : "opacity-0"
+                }`}
+              />
+            </span>
           )}
           <span className="truncate">
             {isQuickChatGroup ? language.t("sidebar.quickChat") : directoryLabel}
@@ -311,7 +332,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
       </CollapsibleTrigger>
 
       <div
-        className={`relative z-10 flex items-center gap-0.5 pl-1 transition-opacity focus-within:opacity-100 focus-within:pointer-events-auto group-data-[state=open]/notebook-header:opacity-100 group-data-[state=open]/notebook-header:pointer-events-auto ${
+        className={`relative z-10 flex items-center gap-0.5 pl-1 bg-surface-raised-base shadow-[-6px_0_8px_-2px_var(--color-surface-raised-base)] transition-opacity focus-within:opacity-100 focus-within:pointer-events-auto group-data-[state=open]/notebook-header:opacity-100 group-data-[state=open]/notebook-header:pointer-events-auto ${
           !props.collapsed || isCurrentDirectory
             ? "opacity-100 pointer-events-auto"
             : "opacity-0 pointer-events-none"
@@ -343,7 +364,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                       }
                     }}
                   >
-                    <Icon className="size-4" strokeWidth={2} />
+                    <Icon className="size-3" strokeWidth={2} />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="top" sideOffset={8} className="px-2 py-1 text-[11px]">
@@ -358,7 +379,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
               type="button"
               data-action="left-sidebar-directory-new-thread"
               data-directory={props.group.directory}
-              className={`inline-flex h-6 min-w-0 items-center justify-center rounded-md text-text-weaker transition-all duration-500 ease-out overflow-hidden hover:bg-surface-raised-base-hover hover:text-text-strong ${
+              className={`inline-flex h-6 min-w-0 items-center justify-center rounded-md text-text-base transition-all duration-500 ease-out overflow-hidden hover:bg-surface-raised-base-hover hover:text-text-strong ${
                 !props.collapsed || isCurrentDirectory
                   ? "w-6 opacity-100 pointer-events-auto"
                   : "w-0 opacity-0 px-0 pointer-events-none"
@@ -372,7 +393,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                 props.onNewSession()
               }}
             >
-              <SquarePenIcon className="size-4" strokeWidth={2} />
+              <SquarePenIcon className="size-3" strokeWidth={2} />
             </button>
           </TooltipTrigger>
           <TooltipContent side="top" sideOffset={8} className="px-2 py-1 text-[11px]">
@@ -386,19 +407,22 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
   )
 
   return (
-    <Collapsible open={!props.collapsed} onOpenChange={props.onToggleCollapsed} asChild>
+    <Collapsible
+      open={!props.collapsed}
+      onOpenChange={(open) => {
+        if (!open) justCollapsedRef.current = true
+        props.onToggleCollapsed(open)
+      }}
+      asChild
+    >
       <section
         data-component="left-sidebar-directory-group"
         data-directory={props.group.directory}
         data-current={isCurrentDirectory ? "true" : "false"}
         ref={props.onSectionRef}
-        className={`group/directory relative transition-opacity duration-150 ${
-          isDragging
-            ? "opacity-40"
-            : isCurrentDirectory
-              ? "opacity-100"
-              : "opacity-70 hover:opacity-100"
-        } overflow-hidden rounded-lg bg-surface-raised-base shadow-sm border ${
+        className={`group/directory relative ${
+          isDragging ? "opacity-40" : ""
+        } overflow-hidden rounded-lg bg-surface-raised-base shadow-sm border py-1 ${
           isCurrentDirectory ? "border-[var(--color-border-focus)]" : "border-transparent"
         } ${props.collapsed ? "mb-1.5" : "mb-3"}`}
       >
@@ -406,7 +430,13 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
           <div className="h-0.5 rounded-full bg-surface-interactive-base/70 mx-2 mb-1" />
         ) : null}
 
-        <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+        <Popover
+          open={popoverOpen}
+          onOpenChange={(open) => {
+            if (open && justCollapsedRef.current) return
+            setPopoverOpen(open)
+          }}
+        >
           {isQuickChatGroup ? (
             <PopoverTrigger asChild>
               <div onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
@@ -488,82 +518,84 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
           )}
         </Popover>
 
-        <AnimatePresence initial={false}>
-          {shouldShowContent && (
-            <CollapsibleContent
-              forceMount
-              asChild
-              className="space-y-1 overflow-hidden p-[2px] -m-[2px]"
-            >
-              <motion.div
-                key={props.group.directory}
-                initial={{ height: 0, minHeight: 0, opacity: 0 }}
-                animate={{
-                  height: "auto",
-                  minHeight: !isQuickChatGroup && !props.collapsed ? "7rem" : 0,
-                  opacity: 1,
-                }}
-                exit={{ height: 0, minHeight: 0, opacity: 0 }}
-                transition={{
-                  duration: 0.25,
-                  ease: [0.32, 0.72, 0, 1],
-                  opacity: { duration: 0.2 },
-                }}
-                className="flex flex-col"
-              >
-                {props.group.sessions.length === 0 ? (
+        <div
+          className="grid"
+          style={{
+            gridTemplateRows: shouldShowContent ? "1fr" : "0fr",
+            opacity: shouldShowContent ? 1 : 0,
+            transition:
+              "grid-template-rows 0.25s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.2s cubic-bezier(0.32, 0.72, 0, 1)",
+            pointerEvents: shouldShowContent ? undefined : "none",
+          }}
+          aria-hidden={shouldShowContent ? undefined : true}
+        >
+          <div
+            className="min-h-0 overflow-hidden"
+            style={{
+              minHeight:
+                shouldShowContent && !isQuickChatGroup && !props.collapsed ? "7rem" : undefined,
+            }}
+          >
+            <div className="space-y-0.5 p-[2px] -m-[2px] flex flex-col">
+              {props.group.sessions.length === 0 ? (
+                <button
+                  type="button"
+                  data-action="left-sidebar-directory-empty-new-thread"
+                  className="flex flex-1 items-center justify-center gap-2 py-8 text-xs font-light text-text-weaker transition-all hover:bg-surface-raised-base-hover hover:text-text-base active:scale-[0.98]"
+                  onClick={(event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    props.onNewSession()
+                  }}
+                >
+                  <SquarePenIcon className="size-3.5" />
+                  {language.t("sidebar.newThread")}
+                </button>
+              ) : (
+                sessionsToRender.map((session) => (
+                  <DirectoryThreadRow
+                    key={`${props.group.directory}:${session.id}`}
+                    directory={props.group.directory}
+                    currentDirectory={props.currentDirectory}
+                    session={session}
+                    activeSessionID={props.activeSessionID}
+                    allowActiveThreadHighlight={allowActiveThreadHighlight}
+                    childrenByParent={childrenByParent}
+                    sessionsByID={sessionsByID}
+                    sessionStatusByID={props.sessionStatusByID}
+                    pinnedSet={props.pinnedSet}
+                    unreadMap={props.unreadMap}
+                    onSelectSession={props.onSelectSession}
+                    onTogglePin={props.onTogglePin}
+                    onToggleUnread={props.onToggleUnread}
+                    onRequestRename={props.onRequestRename}
+                    onRequestArchive={props.onRequestArchive}
+                  />
+                ))
+              )}
+              {hasMore && (
+                <div className="mx-2">
                   <button
                     type="button"
-                    data-action="left-sidebar-directory-empty-new-thread"
-                    className="flex flex-1 items-center justify-center gap-2 py-8 text-xs font-light text-text-weaker transition-all hover:bg-surface-raised-base-hover hover:text-text-base active:scale-[0.98]"
-                    onClick={(event) => {
-                      event.preventDefault()
-                      event.stopPropagation()
-                      props.onNewSession()
+                    className="py-1 text-xs text-text-weaker hover:text-text-base"
+                    style={{
+                      paddingLeft: `${
+                        isQuickChatGroup
+                          ? THREAD_ROW_PADDING_LEFT_PX + THREAD_CHILD_INDENT_PX
+                          : THREAD_ROW_PADDING_LEFT_PX
+                      }px`,
                     }}
-                  >
-                    <SquarePenIcon className="size-3.5" />
-                    {language.t("sidebar.newThread")}
-                  </button>
-                ) : (
-                  sessionsToRender.map((session) => (
-                    <DirectoryThreadRow
-                      key={`${props.group.directory}:${session.id}`}
-                      directory={props.group.directory}
-                      currentDirectory={props.currentDirectory}
-                      session={session}
-                      activeSessionID={props.activeSessionID}
-                      allowActiveThreadHighlight={allowActiveThreadHighlight}
-                      childrenByParent={childrenByParent}
-                      sessionsByID={sessionsByID}
-                      sessionStatusByID={props.sessionStatusByID}
-                      pinnedSet={props.pinnedSet}
-                      unreadMap={props.unreadMap}
-                      onSelectSession={props.onSelectSession}
-                      onTogglePin={props.onTogglePin}
-                      onToggleUnread={props.onToggleUnread}
-                      onRequestRename={props.onRequestRename}
-                      onRequestArchive={props.onRequestArchive}
-                    />
-                  ))
-                )}
-                {!props.collapsed && hasMore && (
-                  <button
-                    type="button"
-                    className={`mx-2 py-1 text-xs text-text-weaker hover:text-text-base ${
-                      isQuickChatGroup ? "pl-6" : "pl-5"
-                    }`}
                     onClick={props.onToggleExpanded}
                   >
                     {props.expanded
                       ? language.t("sidebar.showLess")
                       : language.t("sidebar.showMore")}
                   </button>
-                )}
-              </motion.div>
-            </CollapsibleContent>
-          )}
-        </AnimatePresence>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
         {isDragOver && props.dragOverPosition === "after" ? (
           <div className="h-0.5 rounded-full bg-surface-interactive-base/70 mx-2 mt-1" />
         ) : null}
@@ -602,10 +634,9 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
   const age = formatThreadAge(props.session.time.updated ?? props.session.time.created)
   const leftPadding = THREAD_ROW_PADDING_LEFT_PX + depth * THREAD_CHILD_INDENT_PX
   const statusOffset = THREAD_STATUS_OFFSET_PX + depth * THREAD_CHILD_INDENT_PX
-  const canToggleChildren = display.agent !== undefined && childSessions.length > 0
+  const canToggleChildren = childSessions.length > 0
   const [childrenOpen, setChildrenOpen] = useState(true)
-  const childrenVisible =
-    childSessions.length > 0 && familyActive && (!canToggleChildren || childrenOpen)
+  const childrenVisible = childSessions.length > 0 && familyActive && childrenOpen
   const branchExpanded = canToggleChildren && childrenVisible
 
   function handleSelectSession() {
@@ -651,23 +682,23 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
               >
                 {active ? <ThreadStatusIndicator status={threadStatus} /> : null}
               </div>
-              <div className="flex min-w-0 items-center justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-1.5">
-                  {canToggleChildren ? (
-                    <motion.div
-                      animate={{ rotate: branchExpanded ? 90 : 0 }}
-                      transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }}
-                    >
-                      <ChevronRightIcon className="size-3 shrink-0 text-text-weaker" />
-                    </motion.div>
-                  ) : null}
+              <div className="relative flex min-w-0 items-center">
+                <div className="flex min-w-0 flex-1 items-center gap-1.5">
                   <span className="truncate text-xs font-light">{title}</span>
                   {pinned ? <PinIcon className="size-3 shrink-0 text-text-weaker" /> : null}
                 </div>
-                <div className="flex shrink-0 items-center gap-2">
+                <div
+                  className={`absolute right-0 top-1/2 -translate-y-1/2 z-10 flex items-center gap-2 pl-2 opacity-0 group-hover/thread:opacity-100 transition-opacity shadow-[-8px_0_10px_-2px_var(--color-surface-raised-base)] ${
+                    active
+                      ? "bg-surface-raised-strong"
+                      : familyActive
+                        ? "bg-surface-raised-strong"
+                        : "bg-surface-raised-base-hover"
+                  }`}
+                >
                   {display.agent ? (
                     <span
-                      className={`max-w-28 truncate text-[11px] font-medium ${getSubagentToneClass(display.agent)}`}
+                      className={`max-w-16 truncate text-[11px] font-medium ${getSubagentToneClass(display.agent)}`}
                     >
                       {display.agent}
                     </span>
@@ -724,39 +755,43 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
         </ContextMenuContent>
       </ContextMenu>
 
-      <AnimatePresence initial={false}>
-        {childrenVisible ? (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }}
-            className="space-y-[2px] overflow-hidden pt-0.5"
-          >
-            {childSessions.map((childSession) => (
-              <DirectoryThreadRow
-                key={`${props.directory}:${childSession.id}`}
-                directory={props.directory}
-                currentDirectory={props.currentDirectory}
-                session={childSession}
-                activeSessionID={props.activeSessionID}
-                allowActiveThreadHighlight={allowActiveThreadHighlight}
-                childrenByParent={props.childrenByParent}
-                sessionsByID={props.sessionsByID}
-                sessionStatusByID={props.sessionStatusByID}
-                pinnedSet={props.pinnedSet}
-                unreadMap={props.unreadMap}
-                onSelectSession={props.onSelectSession}
-                onTogglePin={props.onTogglePin}
-                onToggleUnread={props.onToggleUnread}
-                onRequestRename={props.onRequestRename}
-                onRequestArchive={props.onRequestArchive}
-                depth={depth + 1}
-              />
-            ))}
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+      <div
+        className="grid"
+        style={{
+          gridTemplateRows: childrenVisible ? "1fr" : "0fr",
+          opacity: childrenVisible ? 1 : 0,
+          transition:
+            "grid-template-rows 0.25s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.2s cubic-bezier(0.32, 0.72, 0, 1)",
+          pointerEvents: childrenVisible ? undefined : "none",
+        }}
+        aria-hidden={childrenVisible ? undefined : true}
+      >
+        <div className="min-h-0 overflow-hidden pt-0.5">
+          {childrenVisible
+            ? childSessions.map((childSession) => (
+                <DirectoryThreadRow
+                  key={`${props.directory}:${childSession.id}`}
+                  directory={props.directory}
+                  currentDirectory={props.currentDirectory}
+                  session={childSession}
+                  activeSessionID={props.activeSessionID}
+                  allowActiveThreadHighlight={allowActiveThreadHighlight}
+                  childrenByParent={props.childrenByParent}
+                  sessionsByID={props.sessionsByID}
+                  sessionStatusByID={props.sessionStatusByID}
+                  pinnedSet={props.pinnedSet}
+                  unreadMap={props.unreadMap}
+                  onSelectSession={props.onSelectSession}
+                  onTogglePin={props.onTogglePin}
+                  onToggleUnread={props.onToggleUnread}
+                  onRequestRename={props.onRequestRename}
+                  onRequestArchive={props.onRequestArchive}
+                  depth={depth + 1}
+                />
+              ))
+            : null}
+        </div>
+      </div>
     </div>
   )
 }

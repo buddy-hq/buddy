@@ -224,8 +224,8 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
           {props.children}
         </div>
       ) : (
-        <div className="scrollbar-hover flex-1 min-h-0 overflow-y-auto px-2 pt-2 pb-3">
-          <div className="mb-2 px-2">
+        <div className="scrollbar-hover flex-1 min-h-0 overflow-y-auto px-3 pt-2 pb-3">
+          <div className="mb-2">
             <Button
               data-action="left-sidebar-toggle-library"
               variant="ghost"
@@ -257,6 +257,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
           <ChatLeftSidebarDirectoryList
             directoryGroups={orderedDirectoryGroups}
             currentDirectory={props.currentDirectory}
+            libraryOpen={props.libraryOpen}
             activeSessionID={props.activeSessionID}
             sessionsByDirectory={props.sessionsByDirectory}
             sessionStatusByDirectory={props.sessionStatusByDirectory}
