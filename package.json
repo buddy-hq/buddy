@@ -25,6 +25,7 @@
       "@opentui/core": "0.1.99",
       "@opentui/solid": "0.1.99",
       "@pierre/diffs": "1.1.0-beta.18",
+      "@tanstack/react-query": "^5.99.0",
       "@playwright/test": "1.59.1",
       "@solid-primitives/storage": "4.3.3",
       "@solidjs/meta": "0.29.4",
