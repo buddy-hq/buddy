@@ -1,10 +1,23 @@
-import { PROMPT_PART_TYPE_FILE, PROMPT_PART_TYPE_TEXT } from "@/components/prompt/prompt-types"
+import { serializePromptParts } from "@/components/prompt/prompt-parts"
+import {
+  PROMPT_PART_TYPE_AGENT,
+  PROMPT_PART_TYPE_FILE,
+  PROMPT_PART_TYPE_TEXT,
+  RESOURCE_REFERENCE_PART_TYPE,
+  WORKSPACE_FILE_REFERENCE_PART_TYPE,
+} from "@/components/prompt/prompt-types"
 import type {
   PromptAttachmentPart,
   PromptComposerAttachment,
   PromptComposerPart,
   PromptSubmissionPart,
 } from "@/components/prompt/prompt-types"
+import {
+  isChatAgentPart,
+  isChatFilePart,
+  isChatTextPart,
+} from "@/components/chat/utils/part-guards"
+import type { MessagePart, MessageWithParts } from "@/state/chat-types"
 import {
   type PersonaConfigOption,
   type PromptCommandOption,
@@ -14,6 +27,8 @@ import {
   resolveDefaultPersonaID,
 } from "@/state/chat-actions"
 import type { TeachingIntent } from "@/state/teaching-runtime"
+
+const DATA_URL_PREFIX = "data:" as const
 
 export function readSessionErrorMessage(error: unknown) {
   if (typeof error === "string" && error.trim()) return error
@@ -121,6 +136,152 @@ export function buildCommandAttachmentParts(attachments: PromptComposerAttachmen
     url: attachment.dataUrl,
     filename: attachment.filename,
   }))
+}
+
+function isWorkspaceFileReferencePart(
+  part: MessagePart,
+): part is MessagePart & { type: typeof WORKSPACE_FILE_REFERENCE_PART_TYPE; path: string } {
+  return part.type === WORKSPACE_FILE_REFERENCE_PART_TYPE && typeof part.path === "string"
+}
+
+function isResourceReferencePart(
+  part: MessagePart,
+): part is MessagePart & { type: typeof RESOURCE_REFERENCE_PART_TYPE; key: string } {
+  return part.type === RESOURCE_REFERENCE_PART_TYPE && typeof part.key === "string"
+}
+
+function toPromptComposerAttachment(part: MessagePart): PromptComposerAttachment | undefined {
+  if (!isChatFilePart(part)) return undefined
+  if (!part.url.startsWith(DATA_URL_PREFIX)) return undefined
+  if (typeof part.filename !== "string" || part.filename.length === 0) return undefined
+
+  return {
+    id: part.id,
+    filename: part.filename,
+    mime: part.mime,
+    dataUrl: part.url,
+    kind: part.mime.startsWith("image/") ? "image" : "file",
+  }
+}
+
+function toRelativeWorkspacePath(directory: string, filePath: string) {
+  const normalizedDirectory =
+    directory.endsWith("/") || directory.endsWith("\\") ? directory : `${directory}/`
+  if (filePath.startsWith(normalizedDirectory)) {
+    return filePath.slice(normalizedDirectory.length)
+  }
+
+  if (filePath.startsWith(directory)) {
+    return filePath.slice(directory.length).replace(/^[\\/]/, "")
+  }
+
+  return filePath
+}
+
+function readFileUrlPath(url: string) {
+  if (!url.startsWith("file:")) return undefined
+
+  try {
+    const pathname = decodeURIComponent(new URL(url).pathname)
+    if (!pathname) return undefined
+    if (/^\/[A-Za-z]:\//.test(pathname)) {
+      return pathname.slice(1).replaceAll("/", "\\")
+    }
+    return pathname
+  } catch {
+    return undefined
+  }
+}
+
+function readInlineReferencePath(part: MessagePart, directory: string) {
+  if (!isChatFilePart(part) || part.url.startsWith(DATA_URL_PREFIX)) return undefined
+
+  const sourcePath =
+    part.source && typeof part.source === "object" && "path" in part.source
+      ? part.source.path
+      : undefined
+  if (typeof sourcePath === "string" && sourcePath.length > 0) {
+    return toRelativeWorkspacePath(directory, sourcePath)
+  }
+
+  if (typeof part.filename === "string" && part.filename.length > 0) {
+    return part.filename
+  }
+
+  const fileUrlPath = readFileUrlPath(part.url)
+  if (fileUrlPath) {
+    return toRelativeWorkspacePath(directory, fileUrlPath)
+  }
+
+  return undefined
+}
+
+export function buildPromptDraftFromUserMessage(
+  message: MessageWithParts | undefined,
+  directory: string,
+) {
+  if (!message || message.info.role !== "user") return undefined
+
+  const promptParts: PromptComposerPart[] = []
+  const attachments: PromptComposerAttachment[] = []
+
+  for (const part of message.parts) {
+    if (isChatTextPart(part)) {
+      if (part.synthetic === true) continue
+      promptParts.push({
+        type: PROMPT_PART_TYPE_TEXT,
+        text: part.text,
+      })
+      continue
+    }
+
+    if (isChatAgentPart(part)) {
+      promptParts.push({
+        type: PROMPT_PART_TYPE_AGENT,
+        name: part.name,
+      })
+      continue
+    }
+
+    if (isWorkspaceFileReferencePart(part)) {
+      promptParts.push({
+        type: WORKSPACE_FILE_REFERENCE_PART_TYPE,
+        path: part.path,
+      })
+      continue
+    }
+
+    if (isResourceReferencePart(part)) {
+      promptParts.push({
+        type: RESOURCE_REFERENCE_PART_TYPE,
+        key: part.key,
+      })
+      continue
+    }
+
+    const attachment = toPromptComposerAttachment(part)
+    if (attachment) {
+      attachments.push(attachment)
+      continue
+    }
+
+    const referencePath = readInlineReferencePath(part, directory)
+    if (referencePath) {
+      promptParts.push({
+        type: WORKSPACE_FILE_REFERENCE_PART_TYPE,
+        path: referencePath,
+      })
+    }
+  }
+
+  const value = serializePromptParts(promptParts)
+
+  return {
+    value,
+    parts: promptParts,
+    attachments,
+    cursor: value.length,
+  }
 }
 
 export async function loadComposerConfiguration(directory: string) {
