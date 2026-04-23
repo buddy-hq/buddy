@@ -3,6 +3,7 @@ import {
   createBuddyTool,
   type BuddyToolContext,
 } from "@buddy/backend/learning/tools/create-buddy-tool"
+import { FlashcardPath } from "../path"
 import { FlashcardService } from "../service"
 import {
   DECK_CONFIG_DEFAULTS,
@@ -72,7 +73,7 @@ const saveFlashcardDeckTool = createBuddyTool("save_flashcard_deck", {
       title: saved.title,
       noteCount: saved.notes.length,
       cardCount: saved.cards.length,
-      deckUrl: FlashcardService.buildDeckUrl(ctx.directory, saved.deckID),
+      deckPath: FlashcardPath.deckFile(ctx.directory, saved.deckID),
     })
 
     return {

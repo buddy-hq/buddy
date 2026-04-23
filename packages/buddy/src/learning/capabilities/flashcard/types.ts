@@ -188,7 +188,7 @@ const SaveFlashcardDeckOutputSchema = z.object({
   title: nonEmptyString,
   noteCount: z.number().int().positive(),
   cardCount: z.number().int().positive(),
-  deckUrl: nonEmptyString,
+  deckPath: nonEmptyString,
 })
 
 const SubmitReviewInputSchema = z.object({
