@@ -1,6 +1,4 @@
-import type { ToolState } from "../tools/registry"
 import { CopyAction } from "../copy-action"
-import { cn } from "@buddy/ui"
 
 interface ToolOutputPanelProps {
   output: string

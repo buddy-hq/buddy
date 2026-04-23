@@ -1,6 +1,5 @@
 import { motion } from "motion/react"
 import { cn } from "@buddy/ui"
-import { ToolOutputPanel } from "../../tool-output-panel"
 import { ToolErrorPanel } from "../../tool-error-panel"
 import type { ToolPartProps } from "../../registry"
 import { useTaskCardHeader, TaskCardHeaderContent } from "./task-card-header"

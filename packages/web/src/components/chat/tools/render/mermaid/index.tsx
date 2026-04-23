@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react"
-import { ToolOutputPanel } from "../../../tools/tool-output-panel"
 import { ToolErrorPanel } from "../../../tools/tool-error-panel"
 import { MermaidDiagram } from "./mermaid-diagram"
 import { MermaidToolCard } from "./mermaid-tool-card"

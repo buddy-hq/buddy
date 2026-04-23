@@ -1,5 +1,4 @@
 import { BasicTool } from "../../tools/basic-tool"
-import { ToolOutputPanel } from "../../tools/tool-output-panel"
 import { ToolErrorPanel } from "../../tools/tool-error-panel"
 import { ToolEmptyState } from "../../tools/tool-empty-state"
 import { CopyAction } from "../../copy-action"
