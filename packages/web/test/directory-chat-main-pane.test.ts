@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import {
+  resolveRevertedUserMessageCount,
   resolveAutoCompactionWarning,
   resolveCurrentSessionQuestions,
 } from "../src/components/directory-chat/directory-chat-main-pane"
@@ -8,6 +9,7 @@ import {
   createMessageWithParts,
   createProviderInfo,
   createProviderModelInfo,
+  createUserMessageInfo,
 } from "./test-utils"
 
 describe("directory chat main pane helpers", () => {
@@ -75,5 +77,24 @@ describe("directory chat main pane helpers", () => {
     })
 
     expect(warning).toBeUndefined()
+  })
+
+  test("counts only reverted user messages for the restore banner", () => {
+    const count = resolveRevertedUserMessageCount({
+      revertMessageID: "msg-2",
+      messages: [
+        createMessageWithParts(createUserMessageInfo({ id: "msg-1", sessionID: "session-1" })),
+        createMessageWithParts(
+          createAssistantMessageInfo({ id: "assistant-1", sessionID: "session-1" }),
+        ),
+        createMessageWithParts(createUserMessageInfo({ id: "msg-2", sessionID: "session-1" })),
+        createMessageWithParts(
+          createAssistantMessageInfo({ id: "assistant-2", sessionID: "session-1" }),
+        ),
+        createMessageWithParts(createUserMessageInfo({ id: "msg-3", sessionID: "session-1" })),
+      ],
+    })
+
+    expect(count).toBe(2)
   })
 })

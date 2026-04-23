@@ -106,7 +106,9 @@ describe("useChatSync", () => {
         applySessionUpdated() {},
         applySessionStatus() {},
         applyMessageUpdated() {},
+        applyMessageRemoved() {},
         applyPartUpdated() {},
+        applyPartRemoved() {},
         applyPartDelta() {},
         applyPermissionAsked() {},
         applyPermissionReplied() {},
@@ -150,5 +152,81 @@ describe("useChatSync", () => {
     expect(resyncDirectoryMock).toHaveBeenCalledTimes(1)
     expect(resyncDirectoryMock).toHaveBeenCalledWith("/repo")
     expect(setDirectoryError).not.toHaveBeenCalled()
+  })
+
+  test("applies message and part removals from sync events", async () => {
+    const { useChatSync } = await import("../src/lib/directory-chat/use-chat-sync")
+    const applyMessageRemoved = mock(() => undefined)
+    const applyPartRemoved = mock(() => undefined)
+
+    function Probe() {
+      useChatSync({
+        decodedDirectory: "/repo",
+        hasRegisteredProject: true,
+        applySessionUpdated() {},
+        applySessionStatus() {},
+        applyMessageUpdated() {},
+        applyMessageRemoved,
+        applyPartUpdated() {},
+        applyPartRemoved,
+        applyPartDelta() {},
+        applyPermissionAsked() {},
+        applyPermissionReplied() {},
+        applyQuestionAsked() {},
+        applyQuestionResolved() {},
+        clearDirectoryError() {},
+        setDirectoryError() {},
+        setStreamStatus() {},
+        setSystemPromptRefreshToken() {},
+        refreshSlashCommands() {},
+        refreshMcpStatus() {},
+      })
+
+      return null
+    }
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <Probe />
+        </QueryClientProvider>,
+      )
+      await flushEffects()
+    })
+
+    await act(async () => {
+      syncHandlers?.onEvent({
+        directory: "/repo",
+        payload: {
+          type: "message.removed",
+          properties: {
+            sessionID: "ses_1",
+            messageID: "msg_1",
+          },
+        },
+      })
+      syncHandlers?.onEvent({
+        directory: "/repo",
+        payload: {
+          type: "message.part.removed",
+          properties: {
+            sessionID: "ses_1",
+            messageID: "msg_2",
+            partID: "prt_1",
+          },
+        },
+      })
+      await flushEffects()
+    })
+
+    expect(applyMessageRemoved).toHaveBeenCalledWith("/repo", {
+      sessionID: "ses_1",
+      messageID: "msg_1",
+    })
+    expect(applyPartRemoved).toHaveBeenCalledWith("/repo", {
+      sessionID: "ses_1",
+      messageID: "msg_2",
+      partID: "prt_1",
+    })
   })
 })
