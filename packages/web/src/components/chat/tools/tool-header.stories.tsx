@@ -21,7 +21,7 @@ export const Completed: Story = {
 
 export const Running: Story = {
   args: {
-    info: { title: t("chatTools.info.shell"), subtitle: "npm test", args: ["--watch"] },
+    info: { title: t("chatTools.info.shell.running"), subtitle: "npm test", args: ["--watch"] },
     status: "running",
     running: true,
   },

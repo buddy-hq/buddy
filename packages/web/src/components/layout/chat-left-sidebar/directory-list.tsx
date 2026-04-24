@@ -262,7 +262,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
   const justCollapsedRef = useRef(false)
 
   const handleMouseEnter = () => {
-    if (props.collapsed && props.group.sessions.length > 0 && !justCollapsedRef.current) {
+    if (props.collapsed && !justCollapsedRef.current) {
       clearTimeout(popoverTimeoutRef.current)
       if (!popoverOpen) {
         popoverOpenTimeoutRef.current = setTimeout(() => {
@@ -379,7 +379,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
               type="button"
               data-action="left-sidebar-directory-new-thread"
               data-directory={props.group.directory}
-              className={`inline-flex h-6 min-w-0 items-center justify-center rounded-md text-text-base transition-all duration-500 ease-out overflow-hidden hover:bg-surface-raised-base-hover hover:text-text-strong ${
+              className={`group/new-thread inline-flex h-6 min-w-0 items-center justify-center rounded-md text-text-base transition-all duration-500 ease-out overflow-hidden hover:bg-surface-raised-base-hover hover:text-text-strong active:scale-[0.97] ${
                 !props.collapsed || isCurrentDirectory
                   ? "w-6 opacity-100 pointer-events-auto"
                   : "w-0 opacity-0 px-0 pointer-events-none"
@@ -393,7 +393,10 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                 props.onNewSession()
               }}
             >
-              <SquarePenIcon className="size-3" strokeWidth={2} />
+              <SquarePenIcon
+                className="size-3 transition-transform duration-100 ease-out group-active/new-thread:-rotate-12 group-active/new-thread:scale-110"
+                strokeWidth={2}
+              />
             </button>
           </TooltipTrigger>
           <TooltipContent side="top" sideOffset={8} className="px-2 py-1 text-[11px]">
@@ -464,7 +467,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
             </ContextMenu>
           )}
 
-          {props.collapsed && props.group.sessions.length > 0 && (
+          {props.collapsed && (
             <PopoverContent
               side="right"
               align="start"
@@ -477,7 +480,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                 <div className="mx-2 mt-1 mb-1">
                   <button
                     type="button"
-                    className="flex w-full items-center gap-2 rounded-lg py-1.5 pr-2.5 text-xs font-light text-text-weaker hover:bg-surface-raised-base-hover hover:text-text-base transition-colors"
+                    className="group/new-thread-btn flex w-full items-center gap-2 rounded-lg py-1.5 pr-2.5 text-xs font-light text-text-weaker hover:bg-surface-raised-base-hover hover:text-text-base transition active:scale-[0.97]"
                     style={{ paddingLeft: "20px" }}
                     onClick={(event) => {
                       event.preventDefault()
@@ -486,10 +489,18 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                       props.onNewSession()
                     }}
                   >
-                    <SquarePenIcon className="size-3.5" />
+                    <SquarePenIcon className="size-3.5 transition-transform duration-100 ease-out group-active/new-thread-btn:-rotate-12 group-active/new-thread-btn:scale-110" />
                     {language.t("sidebar.newThread")}
                   </button>
                 </div>
+                {props.group.sessions.length === 0 && (
+                  <>
+                    <div className="mx-3 my-0.5 h-px bg-border-weaker" />
+                    <p className="py-3 text-center text-[11px] text-text-weakest">
+                      {language.t("sidebar.noThreads")}
+                    </p>
+                  </>
+                )}
                 {props.group.sessions.map((session) => (
                   <DirectoryThreadRow
                     key={`popover:${props.group.directory}:${session.id}`}
@@ -624,7 +635,7 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
     }),
   )
   const pinned = familyIDs.some((id) => props.pinnedSet.has(id))
-  const unread = familyIDs.some((id) => !!props.unreadMap[id])
+  const unread = !!props.unreadMap[props.session.id]
   const threadStatus = busy ? "busy" : unread ? "unread" : "idle"
   const childSessions = (props.childrenByParent.get(props.session.id) ?? [])
     .map((sessionID) => props.sessionsByID.get(sessionID))

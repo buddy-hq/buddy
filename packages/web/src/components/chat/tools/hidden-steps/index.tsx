@@ -11,6 +11,7 @@ import {
 import { useThrottledText } from "../../hooks/use-throttled-text"
 import { Markdown } from "@/components/markdown/Markdown"
 import { parseToolState } from "../parse-tool-state"
+import { TextShimmer } from "../text-shimmer"
 import {
   getToolRenderer,
   HIDDEN_STEP_DETAIL_KIND,
@@ -384,7 +385,8 @@ export function HiddenSteps({
   const summaryDetail = useMemo(() => buildSummary(entries), [entries])
   const preview = useMemo(() => buildPreview(previewEntry), [previewEntry])
   const previewText = useThrottledText(preview.detail ?? "")
-  const showPreview = (showLivePreview || showErrorPreview) && previewText.trim().length > 0
+  const hasPreviewText = previewText.trim().length > 0
+  const showPreview = showLivePreview || (showErrorPreview && hasPreviewText)
   const title = showLivePreview || showErrorPreview ? preview.title : (summaryDetail ?? "Steps")
   const animateLiveTitle = showLivePreview && Boolean(isBusy)
 
@@ -436,20 +438,7 @@ export function HiddenSteps({
                     : "text-inherit",
               )}
             >
-              {title}
-              {animateLiveTitle && (
-                <div className="absolute -bottom-0.5 left-0 h-[1.5px] w-full overflow-hidden rounded-full bg-surface-weak/50">
-                  <motion.div
-                    className="h-full w-1/3 bg-brand-base/30"
-                    animate={{ x: ["-100%", "400%"] }}
-                    transition={{
-                      duration: 1.5,
-                      repeat: Infinity,
-                      ease: "linear",
-                    }}
-                  />
-                </div>
-              )}
+              {showLivePreview ? <TextShimmer text={title} active={animateLiveTitle} /> : title}
             </span>
             {!showLivePreview && errorCount > 0 ? (
               <span className="shrink-0 flex items-center gap-1 rounded bg-surface-critical-base/10 px-1.5 py-px text-icon-critical-base font-medium">

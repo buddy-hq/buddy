@@ -22,14 +22,14 @@ export const Completed: Story = {
 
 export const Running: Story = {
   args: {
-    trigger: { title: t("chatTools.info.shell"), subtitle: "npm test" },
+    trigger: { title: t("chatTools.info.shell.running"), subtitle: "npm test" },
     status: "running",
   },
 }
 
 export const Pending: Story = {
   args: {
-    trigger: { title: t("chatTools.info.shell"), subtitle: "echo hello" },
+    trigger: { title: t("chatTools.info.shell.running"), subtitle: "echo hello" },
     status: "pending",
   },
 }

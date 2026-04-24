@@ -128,6 +128,8 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
     typeof input.targetJurisdiction === "string" ? input.targetJurisdiction : undefined
   const sql = typeof input.sql === "string" ? input.sql : undefined
 
+  const active = state.status === "pending" || state.status === "running"
+
   let summary: string | undefined
   if (KNOWLEDGE_GRAPH_TOOL_NAMES.has(tool)) {
     summary = knowledgeGraphSummary(tool, state)
@@ -157,7 +159,7 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
       if (typeof input.offset === "number") args.push(`offset=${input.offset}`)
       if (typeof input.limit === "number") args.push(`limit=${input.limit}`)
       return {
-        title: language.t("chatTools.info.read"),
+        title: language.t(active ? "chatTools.info.read.running" : "chatTools.info.read"),
         subtitle: filePath ? basename(filePath) : undefined,
         detail: filePath ? dirname(filePath) : undefined,
         summary,
@@ -166,13 +168,13 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
     }
     case "list":
       return {
-        title: language.t("chatTools.info.list"),
+        title: language.t(active ? "chatTools.info.list.running" : "chatTools.info.list"),
         subtitle: path ? dirname(path) : "/",
         summary,
       }
     case "glob":
       return {
-        title: language.t("chatTools.info.glob"),
+        title: language.t(active ? "chatTools.info.glob.running" : "chatTools.info.glob"),
         subtitle: path ? dirname(path) : "/",
         summary,
         args: pattern ? [`pattern=${pattern}`] : [],
@@ -182,7 +184,7 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
       if (pattern) args.push(`pattern=${pattern}`)
       if (include) args.push(`include=${include}`)
       return {
-        title: language.t("chatTools.info.grep"),
+        title: language.t(active ? "chatTools.info.grep.running" : "chatTools.info.grep"),
         subtitle: path ? dirname(path) : "/",
         summary,
         args,
@@ -190,19 +192,21 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
     }
     case "webfetch":
       return {
-        title: language.t("chatTools.info.webfetch"),
+        title: language.t(active ? "chatTools.info.webfetch.running" : "chatTools.info.webfetch"),
         subtitle: url,
         summary,
       }
     case "websearch":
       return {
-        title: language.t("chatTools.info.websearch"),
+        title: language.t(active ? "chatTools.info.websearch.running" : "chatTools.info.websearch"),
         subtitle: query,
         summary,
       }
     case "codesearch":
       return {
-        title: language.t("chatTools.info.codesearch"),
+        title: language.t(
+          active ? "chatTools.info.codesearch.running" : "chatTools.info.codesearch",
+        ),
         subtitle: query,
         summary,
       }
@@ -210,40 +214,42 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
       return {
         title: subagent
           ? language.t("chatTools.info.agent", { subagent: subagent })
-          : language.t("chatTools.info.agentTask"),
+          : language.t(active ? "chatTools.info.agentTask.running" : "chatTools.info.agentTask"),
         subtitle: description,
       }
     case "write":
       return {
-        title: language.t("chatTools.info.write"),
+        title: language.t(active ? "chatTools.info.write.running" : "chatTools.info.write"),
         subtitle: filePath ? basename(filePath) : undefined,
         detail: filePath ? dirname(filePath) : undefined,
       }
     case "edit":
       return {
-        title: language.t("chatTools.info.edit"),
+        title: language.t(active ? "chatTools.info.edit.running" : "chatTools.info.edit"),
         subtitle: filePath ? basename(filePath) : undefined,
         detail: filePath ? dirname(filePath) : undefined,
       }
     case "apply_patch":
       return {
-        title: language.t("chatTools.info.patch"),
+        title: language.t(active ? "chatTools.info.patch.running" : "chatTools.info.patch"),
         subtitle: description,
       }
     case "bash":
       return {
-        title: language.t("chatTools.info.shell"),
+        title: language.t(active ? "chatTools.info.shell.running" : "chatTools.info.shell"),
         subtitle: description,
         summary,
       }
     case "question":
       return {
-        title: language.t("chatTools.info.questions"),
+        title: language.t(active ? "chatTools.info.questions.running" : "chatTools.info.questions"),
         subtitle: description,
       }
     case "python_calculator":
       return {
-        title: language.t("chatTools.info.pythonCalculator"),
+        title: language.t(
+          active ? "chatTools.info.pythonCalculator.running" : "chatTools.info.pythonCalculator",
+        ),
         subtitle: description,
         summary: output ? language.t("chatTools.info.result", { value: output.trim() }) : undefined,
       }
@@ -255,7 +261,7 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
           ? state.metadata.fullTextEstTokens
           : undefined
       return {
-        title: language.t("chatTools.info.fullText"),
+        title: language.t(active ? "chatTools.info.fullText.running" : "chatTools.info.fullText"),
         subtitle: resource,
         summary:
           fullTextEstTokens !== undefined
@@ -267,18 +273,18 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
     }
     case "skill":
       return {
-        title: language.t("chatTools.info.skill"),
+        title: language.t(active ? "chatTools.info.skill.running" : "chatTools.info.skill"),
         subtitle: typeof input.name === "string" ? input.name : description,
       }
     case "render_figure":
     case "render_freeform_figure":
       return {
-        title: language.t("chatTools.info.figure"),
+        title: language.t(active ? "chatTools.info.figure.running" : "chatTools.info.figure"),
         subtitle: alt,
       }
     case "render_mermaid":
       return {
-        title: language.t("chatTools.info.mermaid"),
+        title: language.t(active ? "chatTools.info.mermaid.running" : "chatTools.info.mermaid"),
         subtitle: alt,
       }
     case "save_question_set":

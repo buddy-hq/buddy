@@ -9,6 +9,7 @@ import {
 } from "@buddy/ui"
 import { ToolStatusIndicator } from "../tools/tool-header"
 import { MOTION_SNAPPY } from "../tools/tool-motion"
+import { TextShimmer } from "../tools/text-shimmer"
 import type { ToolState } from "../tools/registry"
 
 export interface BasicToolTrigger {
@@ -55,7 +56,14 @@ export function BasicTool({
   }, [status])
 
   return (
-    <Collapsible open={open} onOpenChange={setOpen} className="min-w-0 w-full max-w-full">
+    <Collapsible
+      open={open}
+      onOpenChange={(value) => {
+        if (running) return
+        setOpen(value)
+      }}
+      className="min-w-0 w-full max-w-full"
+    >
       <CollapsibleTrigger asChild>
         <button
           type="button"
@@ -66,26 +74,27 @@ export function BasicTool({
             <>
               <span
                 className={cn(
-                  "min-w-0 whitespace-normal break-words text-xs font-medium text-text-weak",
-                  running && "animate-pulse",
+                  "min-w-0 whitespace-normal break-words text-xs font-medium",
+                  status === "error" ? "text-icon-critical-base" : "text-text-weak",
                 )}
               >
-                {trigger.title}
+                <TextShimmer text={trigger.title} active={running} />
               </span>
               {trigger.subtitle && !running ? (
-                <span className="min-w-0 flex-1 truncate text-xs text-text-weak/50">
+                <span className="min-w-0 flex-1 truncate text-xs text-text-weaker">
                   {trigger.subtitle}
                 </span>
               ) : null}
-              {trigger.args?.map((arg) => (
-                <span
-                  key={arg}
-                  className="rounded bg-surface-weak/60 px-1 py-px text-[11px] text-text-weak/50"
-                >
-                  {arg}
-                </span>
-              ))}
-              {trigger.action}
+              {!running &&
+                trigger.args?.map((arg) => (
+                  <span
+                    key={arg}
+                    className="rounded bg-surface-weak px-1 py-px text-[11px] text-text-weaker"
+                  >
+                    {arg}
+                  </span>
+                ))}
+              {!running && trigger.action}
               {trigger.trailing}
             </>
           ) : (
@@ -98,7 +107,7 @@ export function BasicTool({
               transition={MOTION_SNAPPY}
               className="ml-auto"
             >
-              <ChevronRightIcon className="h-3 w-3 shrink-0 text-text-weak/50 group-hover:text-text-weak" />
+              <ChevronRightIcon className="h-3 w-3 shrink-0 text-text-weaker group-hover:text-text-weak" />
             </motion.div>
           ) : null}
         </button>

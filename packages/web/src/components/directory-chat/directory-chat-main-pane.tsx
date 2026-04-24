@@ -289,16 +289,18 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
           ) : null}
 
           <div className="mx-auto w-full max-w-full px-4 md:max-w-200 2xl:max-w-[1000px]">
-            <PromptComposer
-              {...promptComposerProps}
-              className="mb-1"
-              sessionContextUsage={
-                <SessionContextUsage
-                  messages={chatState.messages}
-                  providers={chatState.providers}
-                />
-              }
-            />
+            {!chatState.parentSession && (
+              <PromptComposer
+                {...promptComposerProps}
+                className="mb-1"
+                sessionContextUsage={
+                  <SessionContextUsage
+                    messages={chatState.messages}
+                    providers={chatState.providers}
+                  />
+                }
+              />
+            )}
           </div>
         </div>
       </div>
