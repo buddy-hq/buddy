@@ -1,6 +1,9 @@
 import { isRecord } from "../tools/types"
 import { isAbortLikeError } from "@/state/chat-error"
-import { normalizeUpstreamProviderErrorMessage } from "@/lib/upstream-provider-error"
+import {
+  normalizeProviderErrorDetails,
+  normalizeUpstreamProviderErrorMessage,
+} from "@/lib/upstream-provider-error"
 
 function parseJsonValue(value: string) {
   try {
@@ -64,7 +67,12 @@ export function formatMessageError(value: unknown): string {
     (data ? readNonEmptyString(data.message) : undefined) ??
     readNonEmptyString(value.name)
 
-  return message ? unwrapError(message) : ""
+  if (!message) return ""
+
+  return normalizeProviderErrorDetails({
+    message: unwrapError(message),
+    responseBody: data ? readNonEmptyString(data.responseBody) : undefined,
+  })
 }
 
 import { readNonEmptyString } from "../tools/types"
