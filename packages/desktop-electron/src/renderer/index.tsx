@@ -13,7 +13,6 @@ if (!(rootElement instanceof HTMLElement)) {
 }
 const rootHostElement: HTMLElement = rootElement
 
-document.documentElement.classList.add("dark")
 const ELECTRON_ENTRY_HTML_SUFFIX = "/index.html"
 const BUDDY_ICON_FILENAME = "buddy-icon.png"
 
@@ -44,11 +43,11 @@ function normalizeInitialRoute() {
 }
 
 function ShellMessage(props: { children: React.ReactNode; tone?: "default" | "error" }) {
-  const toneClass = props.tone === "error" ? "text-destructive" : "text-muted-foreground"
+  const toneClass = props.tone === "error" ? "text-icon-critical-base" : "text-text-weak"
 
   return (
     <div
-      className={`relative flex h-full items-center justify-center bg-background px-6 text-center ${toneClass}`}
+      className={`relative flex h-full items-center justify-center bg-background-base px-6 text-center ${toneClass}`}
     >
       {props.children}
     </div>
@@ -59,8 +58,41 @@ function LoadingScreen() {
   const iconUrl = resolveBuddyIconUrl()
 
   return (
-    <div className="relative flex h-full items-center justify-center bg-background">
-      <img src={iconUrl} alt="Buddy" className="h-24 w-24 rounded-2xl animate-pulse" />
+    <div className="relative flex h-full items-center justify-center bg-background-base">
+      <img src={iconUrl} alt="Buddy" className="h-32 w-32 rounded-3xl animate-pulse" />
+    </div>
+  )
+}
+
+function StartupOverlay() {
+  const [visible, setVisible] = React.useState(true)
+  const iconUrl = resolveBuddyIconUrl()
+
+  React.useEffect(() => {
+    let timeout: ReturnType<typeof setTimeout> | undefined
+    let secondFrame = 0
+    const firstFrame = requestAnimationFrame(() => {
+      secondFrame = requestAnimationFrame(() => {
+        timeout = setTimeout(() => setVisible(false), 120)
+      })
+    })
+
+    return () => {
+      cancelAnimationFrame(firstFrame)
+      cancelAnimationFrame(secondFrame)
+      if (timeout !== undefined) {
+        clearTimeout(timeout)
+      }
+    }
+  }, [])
+
+  if (!visible) {
+    return null
+  }
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-background-base">
+      <img src={iconUrl} alt="Buddy" className="h-32 w-32 rounded-3xl animate-pulse" />
     </div>
   )
 }
@@ -138,12 +170,17 @@ async function bootstrap() {
 
     root.render(
       <React.StrictMode>
-        <AppBaseProviders>
+        <AppBaseProviders
+          onThemeApplied={(details) => {
+            void window.api.setBackgroundColor(details.backgroundColor)
+          }}
+        >
           <PlatformProvider value={platform}>
             <ServerProvider value={createDesktopServerConnection(server)}>
               <AppInterface />
             </ServerProvider>
           </PlatformProvider>
+          <StartupOverlay />
         </AppBaseProviders>
       </React.StrictMode>,
     )

@@ -12,9 +12,9 @@ function LoadingWindow() {
   const iconUrl = resolveBuddyIconUrl()
 
   return (
-    <div className="relative flex h-full items-center justify-center bg-background text-muted-foreground">
+    <div className="relative flex h-full items-center justify-center bg-background-base text-text-weak">
       <div className="flex flex-col items-center gap-4">
-        <img src={iconUrl} alt="Buddy" className="h-20 w-20 rounded-2xl animate-pulse" />
+        <img src={iconUrl} alt="Buddy" className="h-28 w-28 rounded-3xl animate-pulse" />
         <p className="text-sm">Starting Buddy...</p>
       </div>
     </div>

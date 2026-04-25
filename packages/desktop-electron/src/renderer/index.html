@@ -4,6 +4,61 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Buddy</title>
+    <!-- Synchronous theme preload: applies cached CSS variables and dark class
+         before the browser paints, eliminating the white-background flash.
+         Storage keys must stay in sync with packages/web/src/theme/storage.ts -->
+    <script>
+      ;(function () {
+        try {
+          var themeIdKey = "opencode-theme-id"
+          var colorSchemeKey = "opencode-color-scheme"
+          var cacheVersionKey = "opencode-theme-cache-version"
+          var themeCssLightKey = "opencode-theme-css-light"
+          var themeCssDarkKey = "opencode-theme-css-dark"
+          var cacheVersion = "4"
+          var defaultThemeId = "dracula"
+          var storedThemeId = localStorage.getItem(themeIdKey)
+          var themeId = storedThemeId === "oc-1" || !storedThemeId ? defaultThemeId : storedThemeId
+          if (localStorage.getItem(cacheVersionKey) !== cacheVersion || storedThemeId !== themeId) {
+            localStorage.removeItem(themeCssLightKey)
+            localStorage.removeItem(themeCssDarkKey)
+            localStorage.setItem(cacheVersionKey, cacheVersion)
+          }
+          if (storedThemeId !== themeId) {
+            localStorage.setItem(themeIdKey, themeId)
+          }
+          var scheme = localStorage.getItem(colorSchemeKey) || "system"
+          var isDark =
+            scheme === "dark" ||
+            (scheme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches)
+          var mode = isDark ? "dark" : "light"
+          document.documentElement.dataset.theme = themeId
+          document.documentElement.dataset.colorScheme = mode
+          document.documentElement.classList.toggle("dark", isDark)
+          document.documentElement.style.colorScheme = mode
+          var css = localStorage.getItem(isDark ? themeCssDarkKey : themeCssLightKey)
+          var style = document.createElement("style")
+          style.id = "oc-theme-preload"
+          if (css) {
+            style.textContent =
+              ":root{color-scheme:" +
+              mode +
+              ";--text-mix-blend-mode:" +
+              (isDark ? "plus-lighter" : "multiply") +
+              ";" +
+              css +
+              "}body{background-color:var(--background-base);}"
+          } else {
+            // No cache yet (first launch). Use a neutral dark/light fallback so
+            // the window is never blinding white before React mounts.
+            style.textContent = isDark
+              ? "body{background-color:#1d1e28;}"
+              : "body{background-color:#f4f3f0;}"
+          }
+          document.head.appendChild(style)
+        } catch (e) {}
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

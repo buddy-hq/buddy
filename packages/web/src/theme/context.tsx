@@ -48,7 +48,7 @@ function getSystemMode(): "light" | "dark" {
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
 }
 
-function applyThemeCss(theme: DesktopTheme, themeId: string, mode: "light" | "dark") {
+function applyThemeCss(theme: DesktopTheme, themeId: string, mode: "light" | "dark"): string {
   const isDark = mode === "dark"
   const variant = isDark ? theme.dark : theme.light
   const tokens = resolveThemeVariant(variant, isDark)
@@ -68,6 +68,7 @@ function applyThemeCss(theme: DesktopTheme, themeId: string, mode: "light" | "da
   document.getElementById(PRELOAD_STYLE_ID)?.remove()
   ensureThemeStyleElement().textContent = fullCss
   applyDocumentState(themeId, mode)
+  return tokens["background-base"]
 }
 
 function cacheThemeVariants(theme: DesktopTheme) {
@@ -83,7 +84,13 @@ function cacheThemeVariants(theme: DesktopTheme) {
   }
 }
 
-export interface ThemeContextValue {
+export type ThemeAppliedDetails = {
+  theme: DesktopTheme
+  mode: "light" | "dark"
+  backgroundColor: string
+}
+
+export type ThemeContextValue = {
   themeId: string
   colorScheme: ColorScheme
   mode: "light" | "dark"
@@ -98,10 +105,10 @@ export interface ThemeContextValue {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null)
 
-export interface ThemeProviderProps {
+export type ThemeProviderProps = {
   children: ReactNode
   defaultTheme?: string
-  onThemeApplied?: (theme: DesktopTheme, mode: "light" | "dark") => void
+  onThemeApplied?: (details: ThemeAppliedDetails) => void
 }
 
 export function ThemeProvider({
@@ -142,8 +149,12 @@ export function ThemeProvider({
 
   const applyTheme = useCallback(
     (theme: DesktopTheme, id: string, m: "light" | "dark") => {
-      applyThemeCss(theme, id, m)
-      onThemeApplied?.(theme, m)
+      const backgroundColor = applyThemeCss(theme, id, m)
+      onThemeApplied?.({
+        theme,
+        mode: m,
+        backgroundColor,
+      })
     },
     [onThemeApplied],
   )

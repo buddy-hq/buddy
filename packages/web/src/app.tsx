@@ -10,6 +10,7 @@ import { Toaster, TooltipProvider } from "@buddy/ui"
 import { LanguageProvider } from "@/context/language"
 import { useChatStore } from "@/state/chat-store"
 import { ThemeProvider } from "@/theme"
+import type { ThemeAppliedDetails } from "@/theme"
 import { routeTree } from "./routeTree.gen"
 
 const DEFAULT_QUERY_STALE_TIME_MS = 15_000
@@ -51,11 +52,14 @@ declare module "@tanstack/react-router" {
   }
 }
 
-export function AppBaseProviders(props: { children: ReactNode }) {
+export function AppBaseProviders(props: {
+  children: ReactNode
+  onThemeApplied?: (details: ThemeAppliedDetails) => void
+}) {
   return (
     <LanguageProvider>
       <QueryClientProvider client={queryClient}>
-        <ThemeProvider defaultTheme="dracula">
+        <ThemeProvider defaultTheme="dracula" onThemeApplied={props.onThemeApplied}>
           <TooltipProvider>
             {props.children}
             <Toaster position="bottom-right" />

@@ -13,14 +13,29 @@ type WindowGlobals = {
 
 const root = dirname(fileURLToPath(import.meta.url))
 
+// Dark/light fallback colors used before the renderer can communicate the
+// exact theme background. Chosen to match the dracula default dark theme and
+// a neutral off-white for light mode so the native window never flashes pure
+// white on a dark-theme setup.
+const FALLBACK_DARK_BG = "#1d1e28"
+const FALLBACK_LIGHT_BG = "#f4f3f0"
+
 let backgroundColor: string | undefined
 
 export function setBackgroundColor(color: string) {
   backgroundColor = color
+  for (const win of BrowserWindow.getAllWindows()) {
+    win.setBackgroundColor(color)
+  }
 }
 
 export function getBackgroundColor() {
   return backgroundColor
+}
+
+function resolveBackgroundColor(): string {
+  if (backgroundColor) return backgroundColor
+  return nativeTheme.shouldUseDarkColors ? FALLBACK_DARK_BG : FALLBACK_LIGHT_BG
 }
 
 function iconsDirectory() {
@@ -75,7 +90,7 @@ export function createMainWindow(globals: WindowGlobals) {
     show: true,
     title: "Buddy",
     icon: iconPath(),
-    backgroundColor,
+    backgroundColor: resolveBackgroundColor(),
     ...(process.platform === "darwin"
       ? {
           titleBarStyle: "hidden" as const,
@@ -112,7 +127,7 @@ export function createLoadingWindow(globals: WindowGlobals) {
     center: true,
     show: true,
     icon: iconPath(),
-    backgroundColor,
+    backgroundColor: resolveBackgroundColor(),
     ...(process.platform === "darwin" ? { titleBarStyle: "hidden" as const } : {}),
     ...(process.platform === "win32"
       ? {

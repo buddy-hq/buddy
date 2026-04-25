@@ -12,6 +12,7 @@
     },
     "noEmit": true,
     "outDir": "./dist",
+    "rootDir": "../..",
     "types": ["vite/client"]
   },
   "include": ["src/renderer/**/*", "../web/src/**/*"]
