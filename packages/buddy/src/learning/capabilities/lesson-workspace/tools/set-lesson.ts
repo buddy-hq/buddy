@@ -1,3 +1,4 @@
+import SET_LESSON_DESCRIPTION from "./set-lesson.md"
 import z from "zod"
 import { TeachingWorkspaceNotFoundError } from "../service/errors"
 import { TeachingService } from "../service/operations"
@@ -12,8 +13,7 @@ import { executeWriteWithoutPrompt } from "./write-without-prompt"
 const teachingSetLessonTool = createBuddyTool(
   "teaching_set_lesson",
   {
-    description:
-      "Replace the active lesson file in-place with a new canonical lesson scaffold and sync the teaching checkpoint to match it. This rewrites the current active teaching file without changing its path or file type. Use teaching_add_file first if you need a different file or extension.",
+    description: SET_LESSON_DESCRIPTION,
     parameters: z.object({
       content: z.string().describe("The full lesson content to place into the active editor file"),
     }),

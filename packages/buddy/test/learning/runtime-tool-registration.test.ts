@@ -3,7 +3,7 @@ import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import type { LearningToolRegistrationFlags } from "../../src/learning/tools/register-runtime-tools"
 import { registerRuntimeTools } from "../../src/learning/tools/register-runtime-tools"
-import { TEST_TOOL_MODEL } from "../helpers/tools"
+import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
 import { tmpdir } from "../helpers/tmpdir"
 
 function disabledToolFlags(): LearningToolRegistrationFlags {
@@ -16,6 +16,7 @@ function disabledToolFlags(): LearningToolRegistrationFlags {
     mermaid: false,
     goals: false,
     learner: false,
+    toolDiscovery: false,
     teaching: false,
     math: false,
     questionSet: false,
@@ -79,5 +80,51 @@ describe("runtime tool registration", () => {
 
     expect(await listToolIDs(secondProject.path)).toContain("save_flashcard_deck")
     expect(await listToolIDs(secondProject.path)).not.toContain("save_question_set")
+  })
+
+  test("dynamic tool search registers matching smoke-test tools", async () => {
+    await using project = await tmpdir({ git: true })
+
+    await registerRuntimeTools(project.path, {
+      ...disabledToolFlags(),
+      toolDiscovery: true,
+    })
+
+    const result = await OpenCodeInstance.provide({
+      directory: project.path,
+      async fn() {
+        const initialTools = await ToolRegistry.tools(TEST_TOOL_MODEL)
+        const searchTool = requireTool(initialTools, "learning_tool_search")
+        const searchResult = await searchTool.execute(
+          { query: "practice" },
+          createToolContext({
+            sessionID: "ses_dynamic_tool_search",
+            messageID: "msg_dynamic_tool_search",
+            agent: "buddy",
+          }),
+        )
+
+        const nextTools = await ToolRegistry.tools(TEST_TOOL_MODEL)
+        const practiceTool = requireTool(nextTools, "learning_smoke_practice_tool")
+        const practiceResult = await practiceTool.execute(
+          { note: "smoke" },
+          createToolContext({
+            sessionID: "ses_dynamic_tool_search",
+            messageID: "msg_dynamic_practice_tool",
+            agent: "buddy",
+          }),
+        )
+
+        return {
+          searchOutput: searchResult.output,
+          practiceOutput: practiceResult.output,
+          hasAssessmentTool: nextTools.some((tool) => tool.id === "learning_smoke_assessment_tool"),
+        }
+      },
+    })
+
+    expect(result.searchOutput).toContain("learning_smoke_practice_tool")
+    expect(result.practiceOutput).toContain("Practice smoke tool loaded and executed.")
+    expect(result.hasAssessmentTool).toBe(false)
   })
 })

@@ -1,3 +1,4 @@
+import CHECKPOINT_DESCRIPTION from "./checkpoint.md"
 import z from "zod"
 import { TeachingWorkspaceNotFoundError } from "../service/errors"
 import { TeachingService } from "../service/operations"
@@ -11,7 +12,7 @@ import {
 const teachingCheckpointTool = createBuddyTool(
   "teaching_checkpoint",
   {
-    description: "Copy the active lesson file into its teaching checkpoint file.",
+    description: CHECKPOINT_DESCRIPTION,
     parameters: z.object({}),
     async execute(_params: unknown, ctx: BuddyToolContext) {
       try {

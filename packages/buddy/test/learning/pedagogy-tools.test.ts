@@ -33,14 +33,15 @@ describe("pedagogy tools", () => {
         const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
         const toolIds = tools.map((tool) => tool.id)
 
-        expect(toolIds).toContain("pedagogy_guided_practice")
-        expect(toolIds).toContain("pedagogy_mastery_check")
         expect(toolIds).toContain("pedagogy_prepare_resource")
-        expect(toolIds).not.toContain("pedagogy_explanation")
+        expect(toolIds).toContain("pedagogy_debug_attempt")
+        expect(toolIds).not.toContain("pedagogy_guided_practice")
+        expect(toolIds).not.toContain("pedagogy_independent_practice")
+        expect(toolIds).not.toContain("pedagogy_mastery_check")
+        expect(toolIds).not.toContain("pedagogy_retrieval_check")
+        expect(toolIds).not.toContain("pedagogy_transfer_check")
         expect(toolIds.every((id) => !id.startsWith("legacy_"))).toBe(true)
 
-        const guidedPractice = requireTool(tools, "pedagogy_guided_practice")
-        const masteryCheck = requireTool(tools, "pedagogy_mastery_check")
         const prepareResource = requireTool(tools, "pedagogy_prepare_resource")
         const ctx = createToolContext({
           sessionID: "ses_pedagogy",
@@ -49,14 +50,6 @@ describe("pedagogy tools", () => {
         })
 
         return {
-          guidedPractice: await guidedPractice.execute(
-            { topic: "input validation in desktop bridge commands" },
-            ctx,
-          ),
-          masteryCheck: await masteryCheck.execute(
-            { topic: "input validation in desktop bridge commands" },
-            ctx,
-          ),
           prepareResource: await prepareResource.execute(
             {
               sourcePath: sampleResourcePath,
@@ -69,14 +62,6 @@ describe("pedagogy tools", () => {
       },
     })
 
-    expect(result.guidedPractice.output).toContain(
-      '<pedagogy_tool_output name="pedagogy_guided_practice">',
-    )
-    expect(result.guidedPractice.output).toContain("Hint ladder:")
-    expect(result.masteryCheck.output).toContain(
-      '<pedagogy_tool_output name="pedagogy_mastery_check">',
-    )
-    expect(result.masteryCheck.output).toContain("input validation in desktop bridge commands")
     expect(result.prepareResource.title).toBe("pedagogy_prepare_resource")
     expect(result.prepareResource.output).toContain("<resource_preparation")
     expect(result.prepareResource.output).toContain("status=ready")

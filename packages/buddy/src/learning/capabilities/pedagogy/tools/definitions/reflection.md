@@ -1,0 +1,1 @@
+Generate a reflection-based assessment prompt for the active goal. Use this when the learner should explain strategy, reasoning, confidence, or error awareness as evidence. Do not use it when the goal needs a performance task or direct mastery check.

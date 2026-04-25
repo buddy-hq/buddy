@@ -1,18 +1,36 @@
+import RENDER_MERMAID_DESCRIPTION from "./render-mermaid.md"
 import {
   createBuddyTool,
   type BuddyToolContext,
 } from "@buddy/backend/learning/tools/create-buddy-tool"
-import { normalizeMermaidSource } from "../normalize"
-import { MAX_REPAIR_PASSES, runMermaidRepairPass } from "../repair"
-import { MermaidArtifactService, MermaidRenderError } from "../service"
+import z from "zod"
 import {
   MERMAID_ARTIFACT_KIND,
   MermaidArtifactManifestSchema,
-  RenderMermaidInputSchema,
   RenderMermaidOutputSchema,
-  type RenderMermaidInput,
   type RenderMermaidOutput,
 } from "../types"
+import { normalizeMermaidSource } from "../normalize"
+import { MermaidRenderError } from "../errors"
+import {
+  hashMermaidSource,
+  hashMermaidArtifact,
+  buildMermaidArtifactUrl,
+  buildMermaidMarkdown,
+  inferMermaidDiagramType,
+  writeMermaidArtifact,
+  repairAndValidateMermaid,
+} from "../render"
+
+const nonEmptyString = z.string().trim().min(1)
+
+const RenderMermaidInputSchema = z.object({
+  alt: nonEmptyString,
+  caption: nonEmptyString.optional(),
+  source: nonEmptyString,
+})
+
+type RenderMermaidInput = z.infer<typeof RenderMermaidInputSchema>
 
 function createdByCallID(ctx: BuddyToolContext): string {
   return typeof ctx.callID === "string" && ctx.callID.trim().length > 0 ? ctx.callID : "unknown"
@@ -60,61 +78,8 @@ function buildDiagnosticHints(diagramType: string, diagnostics: readonly string[
   return `Suggested fixes: ${hints.join(" ")}`
 }
 
-async function repairAndValidateMermaid(input: { source: string }): Promise<{
-  source: string
-  repairAttempts: number
-  repairLog: string[]
-}> {
-  let currentSource = normalizeMermaidSource(input.source)
-  let repairAttempts = 0
-  const repairLog: string[] = []
-
-  let validation = await MermaidArtifactService.validateSource(currentSource)
-  if (validation.ok) {
-    return {
-      source: currentSource,
-      repairAttempts,
-      repairLog,
-    }
-  }
-
-  repairLog.push(`initial validation failed: ${validation.diagnostics.join(" | ")}`)
-
-  for (let pass = 1; pass <= MAX_REPAIR_PASSES; pass += 1) {
-    const repaired = runMermaidRepairPass(currentSource)
-    if (repaired.source === currentSource) {
-      repairLog.push(`pass ${pass}: no additional deterministic repairs were applicable`)
-      break
-    }
-
-    currentSource = repaired.source
-    repairAttempts += 1
-    if (repaired.repairLog.length > 0) {
-      repairLog.push(...repaired.repairLog.map((entry) => `pass ${pass}: ${entry}`))
-    }
-
-    validation = await MermaidArtifactService.validateSource(currentSource)
-    if (validation.ok) {
-      return {
-        source: currentSource,
-        repairAttempts,
-        repairLog,
-      }
-    }
-
-    repairLog.push(`pass ${pass}: validation failed: ${validation.diagnostics.join(" | ")}`)
-  }
-
-  throw new MermaidRenderError({
-    diagnostics: validation.diagnostics,
-    repairAttempts,
-    repairLog,
-  })
-}
-
 const renderMermaidTool = createBuddyTool("render_mermaid", {
-  description:
-    "Render Mermaid diagrams for inline chat display, including flowcharts, sequence diagrams, class diagrams, state diagrams, ER diagrams, gantt, pie, journey, mindmap, timeline, and related Mermaid-supported UML and architecture families. The UI renders the returned diagram automatically after the tool call, so continue the explanation in normal text.",
+  description: RENDER_MERMAID_DESCRIPTION,
   parameters: RenderMermaidInputSchema,
   async execute(params: RenderMermaidInput, ctx: BuddyToolContext) {
     const kind = MERMAID_ARTIFACT_KIND
@@ -128,9 +93,7 @@ const renderMermaidTool = createBuddyTool("render_mermaid", {
     })
 
     const parsed = RenderMermaidInputSchema.parse(params)
-    const inferredDiagramType = MermaidArtifactService.inferDiagramType(
-      normalizeMermaidSource(parsed.source),
-    )
+    const inferredDiagramType = inferMermaidDiagramType(normalizeMermaidSource(parsed.source))
 
     let repaired: Awaited<ReturnType<typeof repairAndValidateMermaid>>
     try {
@@ -157,10 +120,10 @@ const renderMermaidTool = createBuddyTool("render_mermaid", {
     }
 
     const source = repaired.source
-    const sourceHash = MermaidArtifactService.hashSource(source)
-    const diagramType = MermaidArtifactService.inferDiagramType(source)
+    const sourceHash = hashMermaidSource(source)
+    const diagramType = inferMermaidDiagramType(source)
     const createdAt = new Date().toISOString()
-    const artifactID = MermaidArtifactService.hashArtifact({
+    const artifactID = hashMermaidArtifact({
       kind,
       diagramType,
       alt: parsed.alt,
@@ -175,8 +138,8 @@ const renderMermaidTool = createBuddyTool("render_mermaid", {
         callID: createdByCallID(ctx),
       },
     })
-    const artifactUrl = MermaidArtifactService.buildArtifactUrl(ctx.directory, artifactID)
-    const markdown = MermaidArtifactService.buildMarkdown(source)
+    const artifactUrl = buildMermaidArtifactUrl(ctx.directory, artifactID)
+    const markdown = buildMermaidMarkdown(source)
 
     const manifest = MermaidArtifactManifestSchema.parse({
       version: 1,
@@ -196,7 +159,7 @@ const renderMermaidTool = createBuddyTool("render_mermaid", {
       },
     })
 
-    await MermaidArtifactService.write({
+    await writeMermaidArtifact({
       directory: ctx.directory,
       manifest,
       source,

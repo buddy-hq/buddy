@@ -10,8 +10,7 @@ describe("resolveIntentPermissions", () => {
       intent: "learn",
     })
 
-    expect(permissions.tools.pedagogy_guided_practice).toBe("deny")
-    expect(permissions.tools.pedagogy_mastery_check).toBe("deny")
+    expect(permissions.tools.pedagogy_prepare_resource).toBe("allow")
     expect(permissions.tools.render_mermaid).toBe("allow")
 
     expect(permissions.skills["buddy-pedagogy-explanation"]).toBe("allow")
@@ -27,8 +26,7 @@ describe("resolveIntentPermissions", () => {
       intent: "auto",
     })
 
-    expect(permissions.tools.pedagogy_guided_practice).toBe("allow")
-    expect(permissions.tools.pedagogy_mastery_check).toBe("allow")
+    expect(permissions.tools.pedagogy_prepare_resource).toBe("allow")
     expect(permissions.tools.pedagogy_stepwise_solve).toBe("allow")
     expect(permissions.tools.pedagogy_debug_attempt).toBe("deny")
     expect(permissions.tools.render_mermaid).toBe("allow")
@@ -50,11 +48,8 @@ describe("resolveIntentPermissions", () => {
       intent: "practice",
     })
 
-    expect(permissions.tools.pedagogy_guided_practice).toBe("allow")
-    expect(permissions.tools.pedagogy_independent_practice).toBe("allow")
+    expect(permissions.tools.pedagogy_prepare_resource).toBe("allow")
     expect(permissions.tools.pedagogy_debug_attempt).toBe("allow")
-
-    expect(permissions.tools.pedagogy_mastery_check).toBe("deny")
 
     expect(permissions.skills["buddy-pedagogy-explanation"]).toBe("deny")
     expect(permissions.skills["buddy-pedagogy-worked-example"]).toBe("deny")

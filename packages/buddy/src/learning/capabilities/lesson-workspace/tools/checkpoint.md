@@ -1,0 +1,1 @@
+Save the current active lesson file as the accepted teaching checkpoint. Use this after the learner or assistant has reached a state that should be restorable during the interactive lesson. Requires an existing teaching workspace from teaching_start_lesson. Do not use this for ordinary file backups outside the lesson workspace.

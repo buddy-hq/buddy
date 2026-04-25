@@ -1,0 +1,1 @@
+Generate structured debugging guidance for a learner's code-practice attempt. Use this when the learner has an error, failing behavior, or mistaken implementation and should reason from symptoms to cause. Do not use it for non-code practice or for replacing the learner's work with a finished solution.

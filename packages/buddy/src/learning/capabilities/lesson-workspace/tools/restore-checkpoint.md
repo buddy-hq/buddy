@@ -1,0 +1,1 @@
+Restore the active lesson file from the last accepted teaching checkpoint. Use this when an interactive lesson attempt should roll back to the checkpointed state after a wrong turn or failed experiment. Requires an existing teaching workspace and checkpoint. Do not use this for unrelated file recovery outside the teaching workspace.

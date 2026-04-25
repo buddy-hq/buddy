@@ -156,32 +156,6 @@ const ReviewRecordSchema = z.object({
 // Tool I/O schemas
 // ---------------------------------------------------------------------------
 
-const SaveFlashcardNoteInputSchema = z.object({
-  type: NoteTypeSchema.describe(
-    'Card type. "basic" = front/back pair. "cloze" = fill-in-the-blank with {{c1::answer}} syntax.',
-  ),
-  fields: z
-    .union([BasicFieldsSchema, ClozeFieldsSchema])
-    .describe(
-      'For type "basic": { "front": "question text", "back": "answer text" }. For type "cloze": { "text": "The {{c1::mitochondria}} is the powerhouse of the cell." }.',
-    ),
-  tags: z.array(nonEmptyString).default([]).describe("Optional tags for the note."),
-  source: nonEmptyString.optional().describe("Optional source reference for this note."),
-})
-
-const SaveFlashcardDeckInputSchema = z.object({
-  title: nonEmptyString.describe("Human-readable deck title."),
-  notes: z
-    .array(SaveFlashcardNoteInputSchema)
-    .min(1)
-    .describe(
-      "Array of note objects. Each note is an object with type, fields, and optional tags/source. One note produces one or more review cards.",
-    ),
-  source: nonEmptyString
-    .optional()
-    .describe("Optional source reference for the entire deck (e.g. file name or URL)."),
-})
-
 const SaveFlashcardDeckOutputSchema = z.object({
   deckID: ulidString,
   kind: z.literal(FLASHCARD_DECK_KIND),
@@ -228,8 +202,6 @@ type FlashcardCard = z.infer<typeof FlashcardCardSchema>
 type FlashcardDeck = z.infer<typeof FlashcardDeckSchema>
 type ReviewRecord = z.infer<typeof ReviewRecordSchema>
 type DueCounts = z.infer<typeof DueCountsSchema>
-type SaveFlashcardNoteInput = z.infer<typeof SaveFlashcardNoteInputSchema>
-type SaveFlashcardDeckInput = z.infer<typeof SaveFlashcardDeckInputSchema>
 type SaveFlashcardDeckOutput = z.infer<typeof SaveFlashcardDeckOutputSchema>
 type SubmitReviewInput = z.infer<typeof SubmitReviewInputSchema>
 type SubmitReviewOutput = z.infer<typeof SubmitReviewOutputSchema>
@@ -254,9 +226,7 @@ export {
   FlashcardNoteSchema,
   NoteTypeSchema,
   ReviewRecordSchema,
-  SaveFlashcardDeckInputSchema,
   SaveFlashcardDeckOutputSchema,
-  SaveFlashcardNoteInputSchema,
   SubmitReviewInputSchema,
   SubmitReviewOutputSchema,
 }
@@ -273,9 +243,7 @@ export type {
   FlashcardNote,
   NoteType,
   ReviewRecord,
-  SaveFlashcardDeckInput,
   SaveFlashcardDeckOutput,
-  SaveFlashcardNoteInput,
   SubmitReviewInput,
   SubmitReviewOutput,
 }

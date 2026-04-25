@@ -34,6 +34,11 @@ const LEARNING_TOOL_GROUP_POLICIES = {
   learner: {
     registerWarning: "Failed to register Buddy learner tools into OpenCode runtime:",
   },
+  toolDiscovery: {
+    registerWarning: "Failed to register Buddy dynamic tool-discovery tools into OpenCode runtime:",
+    unregisterWarning:
+      "Failed to unregister Buddy dynamic tool-discovery tools from OpenCode runtime:",
+  },
   teaching: {
     registerWarning: "Failed to register Buddy teaching tools into OpenCode runtime:",
   },
@@ -61,16 +66,11 @@ type LearningToolGroupPolicy = {
 }
 
 const LEARNING_TOOL_METADATA = [
-  { id: "pedagogy_guided_practice", group: "pedagogy" },
-  { id: "pedagogy_independent_practice", group: "pedagogy" },
   { id: "pedagogy_debug_attempt", group: "pedagogy" },
   { id: "pedagogy_stepwise_solve", group: "pedagogy" },
-  { id: "pedagogy_mastery_check", group: "pedagogy" },
   { id: "pedagogy_reflection", group: "pedagogy" },
-  { id: "pedagogy_retrieval_check", group: "pedagogy" },
   { id: "pedagogy_prepare_resource", group: "pedagogy" },
   { id: "pedagogy_resource_ingest_full_text", group: "pedagogy" },
-  { id: "pedagogy_transfer_check", group: "pedagogy" },
   { id: "search_standards", group: "knowledgeGraph" },
   { id: "get_standard", group: "knowledgeGraph" },
   { id: "get_learning_components", group: "knowledgeGraph" },
@@ -100,6 +100,7 @@ const LEARNING_TOOL_METADATA = [
   { id: "learner_snapshot_read", group: "learner" },
   { id: "learner_practice_record", group: "learner" },
   { id: "learner_assessment_record", group: "learner" },
+  { id: "learning_tool_search", group: "toolDiscovery" },
   {
     id: "teaching_start_lesson",
     group: "teaching",

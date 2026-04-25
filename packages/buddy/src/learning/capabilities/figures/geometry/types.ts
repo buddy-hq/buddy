@@ -102,13 +102,6 @@ const GeometryFigureSpecSchema = z.object({
   markers: z.array(GeometryMarkerSchema).optional(),
 })
 
-const RenderFigureInputSchema = z.object({
-  kind: z.literal("geometry.v1"),
-  alt: nonEmptyString,
-  caption: nonEmptyString.optional(),
-  spec: GeometryFigureSpecSchema,
-})
-
 const RenderFigureOutputSchema = z.object({
   figureID: z.string().length(64),
   mime: z.literal("image/svg+xml"),
@@ -126,7 +119,6 @@ type GeometryLabel = z.infer<typeof GeometryLabelSchema>
 type GeometryConstraint = z.infer<typeof GeometryConstraintSchema>
 type GeometryMarker = z.infer<typeof GeometryMarkerSchema>
 type GeometryFigureSpec = z.infer<typeof GeometryFigureSpecSchema>
-type RenderFigureInput = z.infer<typeof RenderFigureInputSchema>
 type RenderFigureOutput = z.infer<typeof RenderFigureOutputSchema>
 
 export {
@@ -137,7 +129,6 @@ export {
   GeometryPointSchema,
   GeometryPolygonSchema,
   GeometrySegmentSchema,
-  RenderFigureInputSchema,
   RenderFigureOutputSchema,
 }
 
@@ -149,6 +140,5 @@ export type {
   GeometryPoint,
   GeometryPolygon,
   GeometrySegment,
-  RenderFigureInput,
   RenderFigureOutput,
 }

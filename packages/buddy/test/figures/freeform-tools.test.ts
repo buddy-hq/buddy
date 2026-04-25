@@ -3,15 +3,11 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
-import {
-  FreeformFigureRenderError,
-  FreeformFigureService,
-} from "../../src/learning/capabilities/figures/freeform/service"
+import { FreeformFigureRenderError } from "../../src/learning/capabilities/figures/freeform/service/errors"
+import { renderFreeformFigure } from "../../src/learning/capabilities/figures/freeform/service/render"
 import { ensureFreeformFigureToolsRegistered } from "../../src/learning/capabilities/figures/freeform/tools/register"
-import {
-  RenderFreeformFigureOutputSchema,
-  type RenderFreeformFigureInput,
-} from "../../src/learning/capabilities/figures/freeform/types"
+import { RenderFreeformFigureOutputSchema } from "../../src/learning/capabilities/figures/freeform/types"
+import type { RenderFreeformFigureInput } from "../../src/learning/capabilities/figures/freeform/tools/render-freeform-figure"
 import { tmpdir } from "../helpers/tmpdir"
 import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
 
@@ -76,7 +72,7 @@ describe("freeform figure tools", () => {
     await using project = await tmpdir({ git: true })
 
     await expect(
-      FreeformFigureService.render(project.path, {
+      renderFreeformFigure(project.path, {
         kind: "svg.v1",
         alt: "Broken svg",
         source: "<svg><g></svg>",
@@ -87,7 +83,7 @@ describe("freeform figure tools", () => {
   test("strips executable SVG content before serving the stored artifact", async () => {
     await using project = await tmpdir({ git: true })
 
-    const rendered = await FreeformFigureService.render(project.path, {
+    const rendered = await renderFreeformFigure(project.path, {
       kind: "svg.v1",
       alt: "Sanitized svg",
       source: [

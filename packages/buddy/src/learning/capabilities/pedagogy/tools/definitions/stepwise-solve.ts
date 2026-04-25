@@ -1,9 +1,16 @@
-import {
-  PedagogyToolParameters,
-  type PedagogyToolContext,
-  type PedagogyToolParams,
-} from "../orchestration/contracts"
+import STEPWISE_SOLVE_DESCRIPTION from "./stepwise-solve.md"
+import z from "zod"
+import { type PedagogyToolContext, type PedagogyToolParams } from "../orchestration/contracts"
 import { createBuddyTool } from "../../../../tools/create-buddy-tool"
+
+const PedagogyToolParameters = z.object({
+  goalIds: z.array(z.string()).default([]),
+  topic: z.string().optional(),
+  learnerRequest: z.string().optional(),
+  conceptA: z.string().optional(),
+  conceptB: z.string().optional(),
+  analogyDomain: z.string().optional(),
+})
 
 const compactLine = (value: string) => value.trim().replace(/\s+/g, " ")
 
@@ -75,7 +82,7 @@ const buildOutput = (params: PedagogyToolParams, context: PedagogyToolContext) =
 }
 
 export const pedagogyStepwiseSolveTool = createBuddyTool("pedagogy_stepwise_solve", {
-  description: "Generate stepwise mathematical guidance for the active goal.",
+  description: STEPWISE_SOLVE_DESCRIPTION,
   parameters: PedagogyToolParameters,
   async execute(params, ctx) {
     await ctx.ask({

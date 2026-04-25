@@ -1,11 +1,11 @@
+import QUERY_DESCRIPTION from "./query.md"
 import z from "zod"
 import { PERSONAS, INTENTS } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import { createBuddyTool, type BuddyToolContext } from "../../tools/create-buddy-tool"
 import { getWorkspaceSnapshot } from ".."
 
 const learnerStateQueryTool = createBuddyTool("learner_snapshot_read", {
-  description:
-    "Read the current learner state summary for this workspace from the cross-notebook learner store.",
+  description: QUERY_DESCRIPTION,
   parameters: z.object({
     persona: z.enum(PERSONAS).optional(),
     intent: z.enum(INTENTS).default("auto"),

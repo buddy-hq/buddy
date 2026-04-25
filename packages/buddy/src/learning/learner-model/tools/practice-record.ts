@@ -1,10 +1,11 @@
+import PRACTICE_RECORD_DESCRIPTION from "./practice-record.md"
 import z from "zod"
 import { createBuddyTool, type BuddyToolContext } from "../../tools/create-buddy-tool"
 import { recordPracticeEvent } from ".."
 import { SURFACES } from "../../shared/teaching-vocabulary"
 
 const practiceRecordTool = createBuddyTool("learner_practice_record", {
-  description: "Record a practice attempt for the current workspace.",
+  description: PRACTICE_RECORD_DESCRIPTION,
   parameters: z.object({
     goalIds: z.array(z.string()).min(1),
     prompt: z.string().optional(),

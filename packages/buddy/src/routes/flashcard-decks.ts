@@ -2,10 +2,12 @@ import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
 import { directoryQuerySchema, routeErrors, runRouteTask, withDirectoryRoute } from "../http"
+import { mapFlashcardRouteError } from "../learning/capabilities/flashcard/errors"
+import { listFlashcardDecks, readFlashcardDeck } from "../learning/capabilities/flashcard/read-deck"
 import {
-  FlashcardService,
-  mapFlashcardRouteError,
-} from "../learning/capabilities/flashcard/service"
+  getNextFlashcardForReview,
+  submitFlashcardReview,
+} from "../learning/capabilities/flashcard/review"
 import {
   FLASHCARD_SUBAGENT_ID,
   FlashcardCardSchema,
@@ -70,7 +72,7 @@ export const FlashcardDeckRoutes = new Hono()
       withDirectoryRoute(c, async (context) =>
         runRouteTask({
           task: async () => {
-            const decks = await FlashcardService.list(context.directory)
+            const decks = await listFlashcardDecks(context.directory)
             return Response.json({ decks })
           },
           mapError: mapFlashcardRouteError,
@@ -100,7 +102,7 @@ export const FlashcardDeckRoutes = new Hono()
       withDirectoryRoute(c, async (context) =>
         runRouteTask({
           task: async () => {
-            const deck = await FlashcardService.read(context.directory, c.req.valid("param").deckID)
+            const deck = await readFlashcardDeck(context.directory, c.req.valid("param").deckID)
             return Response.json(deck)
           },
           mapError: mapFlashcardRouteError,
@@ -130,7 +132,7 @@ export const FlashcardDeckRoutes = new Hono()
       withDirectoryRoute(c, async (context) =>
         runRouteTask({
           task: async () => {
-            const card = await FlashcardService.getNextCard({
+            const card = await getNextFlashcardForReview({
               directory: context.directory,
               deckID: c.req.valid("param").deckID,
             })
@@ -166,7 +168,7 @@ export const FlashcardDeckRoutes = new Hono()
           task: async () => {
             const { deckID } = c.req.valid("param")
             const payload = c.req.valid("json")
-            const result = await FlashcardService.submitReview({
+            const result = await submitFlashcardReview({
               directory: context.directory,
               deckID,
               cardID: payload.cardID,

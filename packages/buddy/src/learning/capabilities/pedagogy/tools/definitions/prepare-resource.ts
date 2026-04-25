@@ -1,5 +1,5 @@
+import PREPARE_RESOURCE_DESCRIPTION from "./prepare-resource.md"
 import z from "zod"
-import dedent from "dedent"
 import { RESOURCE_PACK_STATUS_PREPARING } from "../../../../../resource-packs"
 import {
   addResource,
@@ -148,18 +148,7 @@ async function waitForPreparedResource(input: {
 }
 
 export const pedagogyPrepareResourceTool = createBuddyTool(PREPARE_RESOURCE_TOOL_ID, {
-  description: dedent`
-    Register and prepare a workspace resource from a source path using the exact same backend pipeline as Add Resource / drag-and-drop in the UI.
-
-    What this tool does:
-    - accepts an absolute path or a workspace-relative path
-    - stages the source into \`resources/<alias>/\`
-    - triggers the standard resource preparation pipeline (same as \`/resource add\`)
-    - returns the canonical resource \`id\`, \`alias\`, status, and warnings
-    - optionally waits for preparation to leave \`preparing\`
-
-    Accepted inputs match the normal resource pipeline (for example: PDF, EPUB, DOCX, HTML, Markdown, TXT, CSV, JSON/YAML, and code/text files).
-  `,
+  description: PREPARE_RESOURCE_DESCRIPTION,
   parameters: ResourcePrepareParameters,
   async execute(params, ctx) {
     await ctx.ask({

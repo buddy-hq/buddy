@@ -1,0 +1,1 @@
+Create the teaching workspace for this session when the learner explicitly wants a hands-on editor lesson. Use this before teaching_set_lesson, teaching_add_file, teaching_checkpoint, or teaching_restore_checkpoint if no interactive lesson workspace exists yet. Do not call it for ordinary chat-only explanations.

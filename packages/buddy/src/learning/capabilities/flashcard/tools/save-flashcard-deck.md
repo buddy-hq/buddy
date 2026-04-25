@@ -1,0 +1,1 @@
+Persist a fully-authored flashcard deck. Accepts a title and an array of note objects (each with type, fields, and optional tags). Returns a deck id for later rendering and review. Notes must be an array of objects, NOT a string.

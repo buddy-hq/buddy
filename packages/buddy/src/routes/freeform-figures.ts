@@ -2,10 +2,8 @@ import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
 import { directoryQuerySchema, routeErrors, runRouteTask, withDirectoryRoute } from "../http"
-import {
-  FreeformFigureService,
-  mapFreeformFigureRouteError,
-} from "../learning/capabilities/figures/freeform/service"
+import { mapFreeformFigureRouteError } from "../learning/capabilities/figures/freeform/errors"
+import { readFreeformFigure } from "../learning/capabilities/figures/freeform/service/io"
 
 const figureIDParamSchema = z.object({
   figureID: z.string(),
@@ -42,10 +40,7 @@ export const FreeformFigureRoutes = new Hono().get(
     withDirectoryRoute(c, async (context) =>
       runRouteTask({
         task: async () => {
-          const svg = await FreeformFigureService.read(
-            context.directory,
-            c.req.valid("param").figureID,
-          )
+          const svg = await readFreeformFigure(context.directory, c.req.valid("param").figureID)
           return new Response(svg, {
             headers: freeformFigureSvgHeaders,
           })

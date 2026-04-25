@@ -2,10 +2,12 @@ import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
 import { directoryQuerySchema, routeErrors, runRouteTask, withDirectoryRoute } from "../http"
+import { mapQuestionSetRouteError } from "../learning/capabilities/question-set/errors"
 import {
-  QuestionSetService,
-  mapQuestionSetRouteError,
-} from "../learning/capabilities/question-set/service"
+  listQuestionSetArtifacts,
+  readPublicQuestionSetArtifact,
+} from "../learning/capabilities/question-set/read-artifact"
+import { submitQuestionSetAttempt } from "../learning/capabilities/question-set/submit-attempt"
 import {
   PublicQuestionSetArtifactSchema,
   SubmitQuestionSetAttemptInputSchema,
@@ -43,7 +45,7 @@ export const QuestionSetArtifactRoutes = new Hono()
       withDirectoryRoute(c, async (context) =>
         runRouteTask({
           task: async () => {
-            const artifacts = await QuestionSetService.list(context.directory)
+            const artifacts = await listQuestionSetArtifacts(context.directory)
             return Response.json({ artifacts })
           },
           mapError: mapQuestionSetRouteError,
@@ -73,7 +75,7 @@ export const QuestionSetArtifactRoutes = new Hono()
       withDirectoryRoute(c, async (context) =>
         runRouteTask({
           task: async () => {
-            const artifact = await QuestionSetService.readPublic(
+            const artifact = await readPublicQuestionSetArtifact(
               context.directory,
               c.req.valid("param").artifactID,
             )
@@ -109,7 +111,7 @@ export const QuestionSetArtifactRoutes = new Hono()
           task: async () => {
             const { artifactID } = c.req.valid("param")
             const payload = c.req.valid("json")
-            const result = await QuestionSetService.submitAttempt({
+            const result = await submitQuestionSetAttempt({
               directory: context.directory,
               artifactID,
               answers: payload.answers,

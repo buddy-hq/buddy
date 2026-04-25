@@ -1,11 +1,11 @@
+import COMMIT_DESCRIPTION from "./commit.md"
 import z from "zod"
 import { createBuddyTool, type BuddyToolContext } from "../../../tools/create-buddy-tool"
 import { replaceGoalSet } from "../../../learner-model/workflows/workspace"
 import { GoalCommitResultSchema, GoalSchema, GoalScopeSchema, createGoalToolResult } from "../types"
 
 const goalCommitTool = createBuddyTool("goal_commit", {
-  description:
-    "Persist a goal set to the cross-notebook learner store. Archives any previous active set with the same scope+contextLabel.",
+  description: COMMIT_DESCRIPTION,
   parameters: z.object({
     scope: GoalScopeSchema,
     contextLabel: z.string().min(1),

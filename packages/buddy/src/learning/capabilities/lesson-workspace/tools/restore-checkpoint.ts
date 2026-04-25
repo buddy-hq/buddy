@@ -1,3 +1,4 @@
+import RESTORE_CHECKPOINT_DESCRIPTION from "./restore-checkpoint.md"
 import z from "zod"
 import { TeachingWorkspaceNotFoundError } from "../service/errors"
 import { TeachingService } from "../service/operations"
@@ -11,7 +12,7 @@ import {
 const teachingRestoreCheckpointTool = createBuddyTool(
   "teaching_restore_checkpoint",
   {
-    description: "Restore the active lesson file from the last accepted teaching checkpoint.",
+    description: RESTORE_CHECKPOINT_DESCRIPTION,
     parameters: z.object({}),
     async execute(_params: unknown, ctx: BuddyToolContext) {
       try {

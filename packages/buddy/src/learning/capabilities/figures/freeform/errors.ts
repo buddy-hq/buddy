@@ -1,12 +1,5 @@
 import { InvalidFreeformFigureIDError } from "./path"
 import { FreeformFigureNotFoundError, FreeformFigureRenderError } from "./service/errors"
-import { readFreeformFigure } from "./service/io"
-import { renderFreeformFigure } from "./service/render"
-
-const FreeformFigureService = {
-  read: readFreeformFigure,
-  render: renderFreeformFigure,
-}
 
 function mapFreeformFigureRouteError(error: unknown): Response | undefined {
   if (error instanceof InvalidFreeformFigureIDError) {
@@ -21,11 +14,4 @@ function mapFreeformFigureRouteError(error: unknown): Response | undefined {
   return undefined
 }
 
-export {
-  FreeformFigureNotFoundError,
-  FreeformFigureRenderError,
-  FreeformFigureService,
-  mapFreeformFigureRouteError,
-}
-
-export type { FreeformFigureLintIssue } from "./service/types"
+export { mapFreeformFigureRouteError }

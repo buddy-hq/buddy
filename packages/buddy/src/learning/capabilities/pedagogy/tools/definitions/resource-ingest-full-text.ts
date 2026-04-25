@@ -1,3 +1,4 @@
+import RESOURCE_INGEST_FULL_TEXT_DESCRIPTION from "./resource-ingest-full-text.md"
 import { promises as fs } from "node:fs"
 import matter from "gray-matter"
 import z from "zod"
@@ -11,8 +12,6 @@ import {
 } from "../../../../../resource-packs"
 import { listRegisteredResources } from "../../../../../resources/resource-registry-service"
 import { createBuddyTool } from "../../../../tools/create-buddy-tool"
-import dedent from "dedent"
-
 const MINIMUM_SPARE_AFTER_INGESTION_TOKENS = 100_000
 const MINIMUM_OUTPUT_RESERVE_TOKENS = 8_000
 const SAFETY_RESERVE_TOKENS = 12_000
@@ -186,17 +185,7 @@ function formatBudgetFailure(input: {
 export const pedagogyResourceIngestFullTextTool = createBuddyTool(
   "pedagogy_resource_ingest_full_text",
   {
-    description: dedent`
-      Load a prepared resource's full text into live context after validating context headroom against the active model limits.
-
-      What this tool does:
-      - resolves a resource by alias or ID
-      - requires the resource to be prepared and expose a full-text file
-      - estimates live session usage and compares it with model input/context limits
-      - ingests full text only when enough post-ingestion reserve remains
-
-      Use this when the user needs grounded answers from the entire resource (for example books, papers, or long-form docs), not just individual chunks.
-    `,
+    description: RESOURCE_INGEST_FULL_TEXT_DESCRIPTION,
     parameters: ResourceIngestFullTextParameters,
     async execute(params, ctx) {
       await ctx.ask({

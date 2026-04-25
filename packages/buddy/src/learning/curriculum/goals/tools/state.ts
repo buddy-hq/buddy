@@ -1,3 +1,4 @@
+import STATE_DESCRIPTION from "./state.md"
 import z from "zod"
 import { createBuddyTool, type BuddyToolContext } from "../../../tools/create-buddy-tool"
 import { LearnerArtifactPath } from "../../../learner-model/repository/path"
@@ -6,7 +7,7 @@ import type { GoalArtifact } from "../../../learner-model/repository/types"
 import { GoalStateSchema, createGoalToolResult } from "../types"
 
 const goalStateTool = createBuddyTool("goal_state", {
-  description: "Debug tool that returns the current relevant learner goals for this workspace.",
+  description: STATE_DESCRIPTION,
   parameters: z.object({}),
   async execute(_params, ctx: BuddyToolContext) {
     await ctx.ask({

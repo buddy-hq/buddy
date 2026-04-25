@@ -1,0 +1,2 @@
+Render any valid SVG figure for inline chat display. Use this when the diagram needs arbitrary shapes, curves, custom layouts, or any figure that does not fit the constrained geometry tool. This tool only lints for SVG compilation/parse errors and does not constrain the drawing to a fixed schema beyond requiring valid SVG markup. The chat UI renders the returned figure automatically after the tool call
+fir

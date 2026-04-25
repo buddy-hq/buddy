@@ -85,14 +85,6 @@ const PublicQuestionSetArtifactSchema = QuestionSetArtifactBaseSchema.extend({
   questions: z.array(PublicQuestionSchema).min(1),
 })
 
-const SaveQuestionSetInputSchema = z.object({
-  groupType: GroupTypeSchema.optional(),
-  title: nonEmptyString,
-  instructions: nonEmptyString.optional(),
-  contextSummary: nonEmptyString.optional(),
-  questions: z.array(SavedQuestionSchema).min(1),
-})
-
 const SaveQuestionSetOutputSchema = z.object({
   artifactID: ulidString,
   kind: z.literal(QUESTION_SET_ARTIFACT_KIND),
@@ -150,7 +142,6 @@ const SubmitQuestionSetAttemptOutputSchema = z.object({
 })
 
 type GroupType = z.infer<typeof GroupTypeSchema>
-type SaveQuestionSetInput = z.infer<typeof SaveQuestionSetInputSchema>
 type SaveQuestionSetOutput = z.infer<typeof SaveQuestionSetOutputSchema>
 type SavedQuestion = z.infer<typeof SavedQuestionSchema>
 type SavedQuestionSetArtifact = z.infer<typeof SavedQuestionSetArtifactSchema>
@@ -171,7 +162,6 @@ export {
   QuestionSetAttemptRecordSchema,
   QuestionSetEvaluationResultSchema,
   SavedQuestionSetArtifactSchema,
-  SaveQuestionSetInputSchema,
   SaveQuestionSetOutputSchema,
   SubmitQuestionSetAttemptInputSchema,
   SubmitQuestionSetAttemptOutputSchema,
@@ -185,7 +175,6 @@ export type {
   QuestionSetEvaluationResult,
   SavedQuestion,
   SavedQuestionSetArtifact,
-  SaveQuestionSetInput,
   SaveQuestionSetOutput,
   SubmitQuestionSetAttemptInput,
   SubmitQuestionSetAttemptOutput,

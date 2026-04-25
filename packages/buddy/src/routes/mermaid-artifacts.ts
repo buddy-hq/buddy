@@ -3,9 +3,10 @@ import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
 import { directoryQuerySchema, routeErrors, runRouteTask, withDirectoryRoute } from "../http"
 import {
-  MermaidArtifactService,
-  mapMermaidArtifactRouteError,
-} from "../learning/capabilities/figures/mermaid/service"
+  listMermaidArtifacts,
+  readMermaidArtifact,
+} from "../learning/capabilities/figures/mermaid/read"
+import { mapMermaidArtifactRouteError } from "../learning/capabilities/figures/mermaid/errors"
 
 const artifactIDParamSchema = z.object({
   artifactID: z.string(),
@@ -50,7 +51,7 @@ export const MermaidArtifactRoutes = new Hono()
       withDirectoryRoute(c, async (context) =>
         runRouteTask({
           task: async () => {
-            const artifacts = await MermaidArtifactService.list(context.directory)
+            const artifacts = await listMermaidArtifacts(context.directory)
             return Response.json({ artifacts })
           },
           mapError: mapMermaidArtifactRouteError,
@@ -80,7 +81,7 @@ export const MermaidArtifactRoutes = new Hono()
       withDirectoryRoute(c, async (context) =>
         runRouteTask({
           task: async () => {
-            const artifact = await MermaidArtifactService.read(
+            const artifact = await readMermaidArtifact(
               context.directory,
               c.req.valid("param").artifactID,
             )

@@ -1,9 +1,16 @@
-import {
-  PedagogyToolParameters,
-  type PedagogyToolContext,
-  type PedagogyToolParams,
-} from "../orchestration/contracts"
+import DEBUG_ATTEMPT_DESCRIPTION from "./debug-attempt.md"
+import z from "zod"
+import { type PedagogyToolContext, type PedagogyToolParams } from "../orchestration/contracts"
 import { createBuddyTool } from "../../../../tools/create-buddy-tool"
+
+const PedagogyToolParameters = z.object({
+  goalIds: z.array(z.string()).default([]),
+  topic: z.string().optional(),
+  learnerRequest: z.string().optional(),
+  conceptA: z.string().optional(),
+  conceptB: z.string().optional(),
+  analogyDomain: z.string().optional(),
+})
 
 const compactLine = (value: string) => value.trim().replace(/\s+/g, " ")
 
@@ -81,7 +88,7 @@ const buildOutput = (params: PedagogyToolParams, context: PedagogyToolContext) =
 }
 
 export const pedagogyDebugAttemptTool = createBuddyTool("pedagogy_debug_attempt", {
-  description: "Generate structured debug-attempt guidance for code practice.",
+  description: DEBUG_ATTEMPT_DESCRIPTION,
   parameters: PedagogyToolParameters,
   async execute(params, ctx) {
     await ctx.ask({

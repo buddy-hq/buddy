@@ -4,10 +4,8 @@ import path from "node:path"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { app } from "../../src/index.ts"
-import {
-  SaveQuestionSetOutputSchema,
-  type SaveQuestionSetInput,
-} from "../../src/learning/capabilities/question-set/types"
+import { SaveQuestionSetOutputSchema } from "../../src/learning/capabilities/question-set/types"
+import type { SaveQuestionSetInput } from "../../src/learning/capabilities/question-set/tools/save-question-set"
 import { ensureQuestionSetToolsRegistered } from "../../src/learning/capabilities/question-set/tools/register"
 import { tmpdir } from "../helpers/tmpdir"
 import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"

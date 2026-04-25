@@ -1,50 +1,18 @@
 import fs from "node:fs/promises"
 import { createHash } from "node:crypto"
-import { FigurePath, InvalidFigureIDError } from "./path"
+import { FigurePath } from "./path"
 import { repairGeometryFigureSpec } from "./repair"
-import { renderGeometryFigure } from "./render"
+import { renderGeometryFigure as renderGeometryFigureSvg } from "./render"
 import { resolveGeometryFigureSpec } from "./resolve"
 import {
-  RenderFigureInputSchema,
   RenderFigureOutputSchema,
   type GeometryFigureSpec,
-  type RenderFigureInput,
   type RenderFigureOutput,
 } from "./types"
 import { validateGeometryFigureSpec, type FigureValidationIssue } from "./validate"
-
+import { FigureRenderError } from "./errors"
 const MAX_TOTAL_ATTEMPTS = 3
 const MAX_REPAIR_PASSES = 2
-
-class FigureNotFoundError extends Error {
-  constructor(figureID: string) {
-    super(`Figure '${figureID}' was not found.`)
-    this.name = "FigureNotFoundError"
-  }
-}
-
-class FigureRenderError extends Error {
-  readonly issues: readonly FigureValidationIssue[]
-
-  constructor(issues: readonly FigureValidationIssue[]) {
-    super(issues.map((issue) => issue.message).join(" "))
-    this.name = "FigureRenderError"
-    this.issues = issues
-  }
-}
-
-function mapFigureRouteError(error: unknown): Response | undefined {
-  if (error instanceof InvalidFigureIDError) {
-    return Response.json({ error: error.message }, { status: 400 })
-  }
-  if (error instanceof FigureNotFoundError) {
-    return Response.json({ error: error.message }, { status: 404 })
-  }
-  if (error instanceof FigureRenderError) {
-    return Response.json({ error: error.message }, { status: 400 })
-  }
-  return undefined
-}
 
 function normalizeGeometryFigureSpec(spec: GeometryFigureSpec): GeometryFigureSpec {
   return {
@@ -161,7 +129,7 @@ function normalizeGeometryFigureSpec(spec: GeometryFigureSpec): GeometryFigureSp
   }
 }
 
-function svgSanityIssues(svg: string): FigureValidationIssue[] {
+function validateGeometrySvgSanity(svg: string): FigureValidationIssue[] {
   const trimmed = svg.trim()
   const issues: FigureValidationIssue[] = []
 
@@ -196,22 +164,32 @@ function svgSanityIssues(svg: string): FigureValidationIssue[] {
   return issues
 }
 
-function figureHash(input: { kind: RenderFigureInput["kind"]; spec: GeometryFigureSpec }): string {
+function hashGeometryFigure(input: {
+  kind: "geometry.v1"
+  spec: GeometryFigureSpec
+}): string {
   return createHash("sha256").update(JSON.stringify(input)).digest("hex")
 }
 
-function escapeMarkdownAlt(value: string): string {
+function escapeGeometryFigureMarkdownAlt(value: string): string {
   return value.replaceAll("\\", "\\\\").replaceAll("[", "\\[").replaceAll("]", "\\]")
 }
 
-async function writeFigure(directory: string, figureID: string, svg: string) {
+async function writeGeometryFigure(directory: string, figureID: string, svg: string) {
   await fs.mkdir(FigurePath.root(directory), { recursive: true })
   await fs.writeFile(FigurePath.file(directory, figureID), svg, "utf8")
 }
 
-async function render(directory: string, input: RenderFigureInput): Promise<RenderFigureOutput> {
-  const parsed = RenderFigureInputSchema.parse(input)
-  let currentSpec = normalizeGeometryFigureSpec(parsed.spec)
+async function renderGeometryFigure(
+  directory: string,
+  input: {
+    kind: "geometry.v1"
+    alt: string
+    caption?: string
+    spec: GeometryFigureSpec
+  },
+): Promise<RenderFigureOutput> {
+  let currentSpec = normalizeGeometryFigureSpec(input.spec)
   let repairAttempts = 0
   let lastIssues: FigureValidationIssue[] = []
 
@@ -223,22 +201,22 @@ async function render(directory: string, input: RenderFigureInput): Promise<Rend
       const validationIssues = validateGeometryFigureSpec(resolved.spec)
       if (validationIssues.length === 0) {
         try {
-          const svg = renderGeometryFigure(resolved.spec)
-          const svgIssues = svgSanityIssues(svg)
+          const svg = renderGeometryFigureSvg(resolved.spec)
+          const svgIssues = validateGeometrySvgSanity(svg)
           if (svgIssues.length === 0) {
-            const figureID = figureHash({
-              kind: parsed.kind,
+            const figureID = hashGeometryFigure({
+              kind: input.kind,
               spec: resolved.spec,
             })
-            await writeFigure(directory, figureID, svg)
+            await writeGeometryFigure(directory, figureID, svg)
 
             return RenderFigureOutputSchema.parse({
               figureID,
               mime: "image/svg+xml",
               url: `/api/figures/${figureID}?directory=${encodeURIComponent(directory)}`,
-              alt: parsed.alt,
-              ...(parsed.caption ? { caption: parsed.caption } : {}),
-              markdown: `![${escapeMarkdownAlt(parsed.alt)}](/api/figures/${figureID}?directory=${encodeURIComponent(directory)})`,
+              alt: input.alt,
+              ...(input.caption ? { caption: input.caption } : {}),
+              markdown: `![${escapeGeometryFigureMarkdownAlt(input.alt)}](/api/figures/${figureID}?directory=${encodeURIComponent(directory)})`,
               repairAttempts,
             })
           }
@@ -277,23 +255,4 @@ async function render(directory: string, input: RenderFigureInput): Promise<Rend
   throw new FigureRenderError(lastIssues)
 }
 
-async function read(directory: string, figureID: string): Promise<string> {
-  const filepath = FigurePath.file(directory, figureID)
-
-  try {
-    return await fs.readFile(filepath, "utf8")
-  } catch (error) {
-    const maybe = error as { code?: string }
-    if (maybe.code === "ENOENT") {
-      throw new FigureNotFoundError(figureID)
-    }
-    throw error
-  }
-}
-
-const FigureService = {
-  read,
-  render,
-}
-
-export { FigureNotFoundError, FigureRenderError, FigureService, mapFigureRouteError }
+export { renderGeometryFigure }

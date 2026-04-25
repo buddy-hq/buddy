@@ -3,12 +3,10 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
-import { FigureService } from "../../src/learning/capabilities/figures/geometry/service"
+import { renderGeometryFigure } from "../../src/learning/capabilities/figures/geometry/render-figure"
 import { ensureFigureToolsRegistered } from "../../src/learning/capabilities/figures/geometry/tools/register"
-import {
-  RenderFigureOutputSchema,
-  type RenderFigureInput,
-} from "../../src/learning/capabilities/figures/geometry/types"
+import { RenderFigureOutputSchema } from "../../src/learning/capabilities/figures/geometry/types"
+import type { RenderFigureInput } from "../../src/learning/capabilities/figures/geometry/tools/render-figure"
 import { tmpdir } from "../helpers/tmpdir"
 import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
 
@@ -113,7 +111,7 @@ describe("figure tools", () => {
   test("resolves perpendicular-foot constraints so derived helper lines land exactly on the base", async () => {
     await using project = await tmpdir({ git: true })
 
-    const rendered = await FigureService.render(project.path, {
+    const rendered = await renderGeometryFigure(project.path, {
       kind: "geometry.v1",
       alt: "Right triangle with perpendicular foot",
       spec: {

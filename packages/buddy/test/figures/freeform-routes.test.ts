@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { FreeformFigureService } from "../../src/learning/capabilities/figures/freeform/service"
+import { renderFreeformFigure } from "../../src/learning/capabilities/figures/freeform/service/render"
 import { app } from "../../src/index.ts"
 import { tmpdir } from "../helpers/tmpdir"
 
@@ -19,7 +19,7 @@ function routeFigureInput() {
 describe("freeform figure routes", () => {
   test("serves stored freeform figures as same-origin SVG assets", async () => {
     await using project = await tmpdir({ git: true })
-    const rendered = await FreeformFigureService.render(project.path, routeFigureInput())
+    const rendered = await renderFreeformFigure(project.path, routeFigureInput())
 
     const response = await app.request(rendered.url)
     expect(response.status).toBe(200)

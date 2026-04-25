@@ -1,9 +1,10 @@
+import ASSESSMENT_RECORD_DESCRIPTION from "./assessment-record.md"
 import z from "zod"
 import { createBuddyTool, type BuddyToolContext } from "../../tools/create-buddy-tool"
 import { recordAssessmentEvent } from ".."
 
 const assessmentRecordTool = createBuddyTool("learner_assessment_record", {
-  description: "Record an inline assessment result for the current workspace.",
+  description: ASSESSMENT_RECORD_DESCRIPTION,
   parameters: z.object({
     goalIds: z.array(z.string()).min(1),
     format: z.enum([

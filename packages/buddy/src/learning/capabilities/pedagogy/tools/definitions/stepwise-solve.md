@@ -1,0 +1,1 @@
+Generate stepwise mathematical coaching for the active goal. Use this when the learner is solving a math problem and needs the next small step, checks, or hints without losing ownership of the solution. Do not use it for validating computations; use python_calculator for calculation checks.

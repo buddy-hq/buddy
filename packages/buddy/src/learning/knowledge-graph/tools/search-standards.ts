@@ -1,3 +1,4 @@
+import SEARCH_STANDARDS_DESCRIPTION from "./search-standards.md"
 import {
   createBuddyTool,
   STANDARDS_RUNTIME_DEPENDENCY,
@@ -9,13 +10,7 @@ import { searchStandardsParameters } from "./parameters"
 export const searchStandardsTool = createBuddyTool(
   "search_standards",
   {
-    description: `- Search for educational standards by keyword, topic, or partial code
-- Returns matching standards with descriptions, grade levels, and jurisdictions
-- Use when the learner mentions a topic like "fractions" or "rigid motions" without providing an exact standard code
-- Use when you need to help the learner choose from multiple possible standards
-- Do NOT use if the learner already provided an exact standard code like "6.NS.B.4" - use get_standard instead
-
-Example searches: "fractions grade 5", "linear equations", "congruence transformations", "4.NF"`,
+    description: SEARCH_STANDARDS_DESCRIPTION,
     parameters: searchStandardsParameters,
     async execute(params, ctx: BuddyToolContext) {
       await ctx.ask({

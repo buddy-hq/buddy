@@ -243,9 +243,6 @@ describe("parity.agent", () => {
         "allow",
       )
       expect(
-        PermissionNext.evaluate("pedagogy_mastery_check", "*", codeBuddyAgent.permission).action,
-      ).toBe("allow")
-      expect(
         PermissionNext.evaluate("python_calculator", "*", codeBuddyAgent.permission).action,
       ).toBe("deny")
       expect(

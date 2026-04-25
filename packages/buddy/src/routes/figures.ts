@@ -2,10 +2,8 @@ import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
 import { directoryQuerySchema, routeErrors, runRouteTask, withDirectoryRoute } from "../http"
-import {
-  FigureService,
-  mapFigureRouteError,
-} from "../learning/capabilities/figures/geometry/service"
+import { readGeometryFigure } from "../learning/capabilities/figures/geometry/read-figure"
+import { mapFigureRouteError } from "../learning/capabilities/figures/geometry/errors"
 
 const figureIDParamSchema = z.object({
   figureID: z.string(),
@@ -42,7 +40,7 @@ export const FigureRoutes = new Hono().get(
     withDirectoryRoute(c, async (context) =>
       runRouteTask({
         task: async () => {
-          const svg = await FigureService.read(context.directory, c.req.valid("param").figureID)
+          const svg = await readGeometryFigure(context.directory, c.req.valid("param").figureID)
           return new Response(svg, {
             headers: figureSvgHeaders,
           })

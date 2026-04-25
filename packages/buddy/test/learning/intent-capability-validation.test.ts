@@ -2,11 +2,11 @@ import { describe, expect, test } from "bun:test"
 import { INTENT_CAPABILITY_MANIFESTS } from "../../src/learning/intents/capabilities/intent-manifests"
 import { SKILL_CAPABILITY_REGISTRY } from "../../src/learning/intents/capabilities/skill-capabilities"
 import { validateIntentCapabilityBindings } from "../../src/learning/intents/capabilities/validation"
-import { pedagogyExplanationTool } from "../../src/learning/capabilities/pedagogy/tools/definitions/explanation"
-import { pedagogyGuidedPracticeTool } from "../../src/learning/capabilities/pedagogy/tools/definitions/guided-practice"
 import type { IntentCapabilityManifest } from "../../src/learning/intents/capabilities/intent-manifests"
 import type { SkillCapability } from "../../src/learning/intents/capabilities/skill-capabilities"
+import type { ToolCapability } from "../../src/learning/intents/capabilities/types"
 import { createToolCapability } from "../../src/learning/intents/capabilities/tool-capabilities"
+import { pedagogyPrepareResourceTool } from "../../src/learning/capabilities/pedagogy/tools/definitions/prepare-resource"
 
 function cloneManifests(): IntentCapabilityManifest[] {
   return INTENT_CAPABILITY_MANIFESTS.map((manifest) => ({
@@ -44,7 +44,7 @@ describe("validateIntentCapabilityBindings", () => {
 
     assessManifest.toolCapabilities.push(
       createToolCapability({
-        tool: pedagogyGuidedPracticeTool,
+        tool: pedagogyPrepareResourceTool,
         personas: ["code-buddy"],
       }),
     )
@@ -82,7 +82,7 @@ describe("validateIntentCapabilityBindings", () => {
       throw new Error("Expected practice and assess intent manifests")
     }
 
-    assessManifest.toolCapabilities.push(createToolCapability(pedagogyGuidedPracticeTool))
+    assessManifest.toolCapabilities.push(createToolCapability(pedagogyPrepareResourceTool))
     practiceManifest.skillCapabilityKeys.push("explanation-playbook")
 
     expect(() =>
@@ -100,7 +100,10 @@ describe("validateIntentCapabilityBindings", () => {
       throw new Error("Expected learn intent manifest")
     }
 
-    learnManifest.toolCapabilities.push(createToolCapability(pedagogyExplanationTool))
+    const toolCapability = {
+      tool: { id: "pedagogy_explanation" },
+    } satisfies ToolCapability
+    learnManifest.toolCapabilities.push(toolCapability)
 
     expect(() =>
       validateIntentCapabilityBindings({

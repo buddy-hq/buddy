@@ -1,3 +1,4 @@
+import DECIDE_SCOPE_DESCRIPTION from "./decide-scope.md"
 import z from "zod"
 import { createBuddyTool, type BuddyToolContext } from "../../../tools/create-buddy-tool"
 import {
@@ -9,8 +10,7 @@ import {
 } from "../types"
 
 const goalDecideScopeTool = createBuddyTool("goal_decide_scope", {
-  description:
-    "Normalize a learner request into a goal-writing brief. Decide course vs topic scope, target count, and whether clarification is required.",
+  description: DECIDE_SCOPE_DESCRIPTION,
   parameters: z.object({
     learnerRequest: z.string().min(1).describe("The learner's raw request for goal writing."),
     explicitScope: GoalScopeSchema.optional().describe("Optional caller-provided scope override."),

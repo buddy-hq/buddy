@@ -1,3 +1,4 @@
+import START_LESSON_DESCRIPTION from "./start-lesson.md"
 import z from "zod"
 import { TeachingPath } from "../paths/path"
 import { TeachingService } from "../service/operations"
@@ -11,8 +12,7 @@ import {
 const teachingStartLessonTool = createBuddyTool(
   "teaching_start_lesson",
   {
-    description:
-      "Create the teaching workspace for this session when the learner explicitly wants to start a hands-on editor lesson. Use this before teaching_set_lesson if no interactive workspace exists yet.",
+    description: START_LESSON_DESCRIPTION,
     parameters: z.object({
       language: TeachingLanguageSchema.optional().describe(
         "Optional language for the initial lesson file, such as rs, js, or ts",

@@ -27,10 +27,6 @@ describe("buildBuddyRuntimeSessionPermissions", () => {
     expect(PermissionNext.evaluate("learner_practice_record", "*", permissions).action).toBe(
       "allow",
     )
-    expect(PermissionNext.evaluate("pedagogy_explanation", "*", permissions).action).toBe("ask")
-    expect(PermissionNext.evaluate("pedagogy_guided_practice", "*", permissions).action).toBe(
-      "allow",
-    )
     expect(PermissionNext.evaluate("pedagogy_prepare_resource", "*", permissions).action).toBe(
       "allow",
     )
@@ -80,16 +76,11 @@ describe("buildBuddyRuntimeSessionPermissions", () => {
     expect(
       PermissionNext.evaluate("skill", "buddy-pedagogy-reading-assistant", permissions).action,
     ).toBe("deny")
-    expect(PermissionNext.evaluate("pedagogy_guided_practice", "*", permissions).action).toBe(
-      "allow",
-    )
     expect(PermissionNext.evaluate("pedagogy_debug_attempt", "*", permissions).action).toBe("allow")
     expect(PermissionNext.evaluate("pedagogy_prepare_resource", "*", permissions).action).toBe(
       "allow",
     )
-    expect(PermissionNext.evaluate("pedagogy_mastery_check", "*", permissions).action).toBe("deny")
     expect(PermissionNext.evaluate("render_mermaid", "*", permissions).action).toBe("allow")
-    expect(PermissionNext.evaluate("pedagogy_explanation", "*", permissions).action).toBe("ask")
     expect(PermissionNext.evaluate("question", "*", permissions).action).toBe("allow")
   })
 
@@ -132,11 +123,6 @@ describe("buildBuddyRuntimeSessionPermissions", () => {
         {
           permission: "question",
           pattern: "*",
-          action: "allow",
-        },
-        {
-          permission: "skill",
-          pattern: "buddy-pedagogy-explanation",
           action: "allow",
         },
       ],

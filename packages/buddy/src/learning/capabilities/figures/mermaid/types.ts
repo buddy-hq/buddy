@@ -5,12 +5,6 @@ const sha256Hex = z.string().regex(/^[a-f0-9]{64}$/u)
 const MERMAID_ARTIFACT_KIND = "mermaid.v1" as const
 const MermaidArtifactKindSchema = z.literal(MERMAID_ARTIFACT_KIND)
 
-const RenderMermaidInputSchema = z.object({
-  alt: nonEmptyString,
-  caption: nonEmptyString.optional(),
-  source: nonEmptyString,
-})
-
 const RenderMermaidOutputSchema = z.object({
   artifactID: sha256Hex,
   kind: MermaidArtifactKindSchema,
@@ -43,15 +37,9 @@ const MermaidArtifactManifestSchema = z.object({
   }),
 })
 
-type RenderMermaidInput = z.infer<typeof RenderMermaidInputSchema>
 type RenderMermaidOutput = z.infer<typeof RenderMermaidOutputSchema>
 type MermaidArtifactManifest = z.infer<typeof MermaidArtifactManifestSchema>
 
-export {
-  MERMAID_ARTIFACT_KIND,
-  MermaidArtifactManifestSchema,
-  RenderMermaidInputSchema,
-  RenderMermaidOutputSchema,
-}
+export { MERMAID_ARTIFACT_KIND, MermaidArtifactManifestSchema, RenderMermaidOutputSchema }
 
-export type { MermaidArtifactManifest, RenderMermaidInput, RenderMermaidOutput }
+export type { MermaidArtifactManifest, RenderMermaidOutput }

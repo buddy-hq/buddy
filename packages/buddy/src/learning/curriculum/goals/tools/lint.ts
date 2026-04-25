@@ -1,3 +1,4 @@
+import LINT_DESCRIPTION from "./lint.md"
 import z from "zod"
 import { createBuddyTool, type BuddyToolContext } from "../../../tools/create-buddy-tool"
 import {
@@ -20,8 +21,7 @@ import {
 const vagueVerbs = new Set(["understand", "know"])
 
 const goalLintTool = createBuddyTool("goal_lint", {
-  description:
-    "Apply deterministic lint rules to a goal set. Core violations are blocking errors; softer issues become warnings.",
+  description: LINT_DESCRIPTION,
   parameters: z.object({
     scope: z.enum(["course", "topic"]),
     goals: z.array(GoalSchema).min(1),

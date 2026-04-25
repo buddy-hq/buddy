@@ -1,17 +1,28 @@
+import RENDER_FREEFORM_FIGURE_DESCRIPTION from "./render-freeform-figure.md"
 import {
   createBuddyTool,
   FIGURE_PERSONA_SURFACE,
   type BuddyToolContext,
 } from "@buddy/backend/learning/tools/create-buddy-tool"
+import z from "zod"
 import { FreeformFigurePath } from "../path"
-import { FreeformFigureService } from "../service"
-import { RenderFreeformFigureInputSchema, type RenderFreeformFigureInput } from "../types"
+import { renderFreeformFigure } from "../service/render"
+
+const nonEmptyString = z.string().trim().min(1)
+
+const RenderFreeformFigureInputSchema = z.object({
+  kind: z.literal("svg.v1"),
+  alt: nonEmptyString,
+  caption: nonEmptyString.optional(),
+  source: nonEmptyString,
+})
+
+type RenderFreeformFigureInput = z.infer<typeof RenderFreeformFigureInputSchema>
 
 const renderFreeformFigureTool = createBuddyTool(
   "render_freeform_figure",
   {
-    description:
-      "Render any valid SVG figure for inline chat display. Use this when the diagram needs arbitrary shapes, curves, custom layouts, or any figure that does not fit the constrained geometry tool. This tool only lints for SVG compilation/parse errors and does not constrain the drawing to a fixed schema beyond requiring valid SVG markup. The chat UI renders the returned figure automatically after the tool call.",
+    description: RENDER_FREEFORM_FIGURE_DESCRIPTION,
     parameters: RenderFreeformFigureInputSchema,
     async execute(params: RenderFreeformFigureInput, ctx: BuddyToolContext) {
       await ctx.ask({
@@ -23,7 +34,7 @@ const renderFreeformFigureTool = createBuddyTool(
         },
       })
 
-      const result = await FreeformFigureService.render(ctx.directory, params)
+      const result = await renderFreeformFigure(ctx.directory, params)
       return {
         title: "Rendered freeform figure",
         output: JSON.stringify(result, null, 2),
@@ -39,4 +50,5 @@ const renderFreeformFigureTool = createBuddyTool(
   },
 )
 
-export { renderFreeformFigureTool }
+export { renderFreeformFigureTool, RenderFreeformFigureInputSchema }
+export type { RenderFreeformFigureInput }

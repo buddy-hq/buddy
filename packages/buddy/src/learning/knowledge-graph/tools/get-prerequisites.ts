@@ -1,3 +1,4 @@
+import GET_PREREQUISITES_DESCRIPTION from "./get-prerequisites.md"
 import {
   createBuddyTool,
   STANDARDS_RUNTIME_DEPENDENCY,
@@ -9,12 +10,7 @@ import { progressionParameters } from "./parameters"
 export const getPrerequisitesTool = createBuddyTool(
   "get_prerequisites",
   {
-    description: `- Find prerequisite standards that lead up to a target standard
-- Returns standards the learner should know before tackling the target
-- Use when the learner is stuck on a topic to identify gaps in prior knowledge
-- Use to create remediation sequences starting from missing foundations
-- Set depth=2 or 3 to see deeper prerequisite chains
-- Requires a standard code - get one from search_standards or the learner first`,
+    description: GET_PREREQUISITES_DESCRIPTION,
     parameters: progressionParameters,
     async execute(params, ctx: BuddyToolContext) {
       await ctx.ask({

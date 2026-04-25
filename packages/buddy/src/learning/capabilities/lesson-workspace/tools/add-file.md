@@ -1,0 +1,1 @@
+Create a new tracked file inside the teaching workspace so lessons can span multiple files. The relativePath should include the intended extension (for example lesson.rs or vite.config.js). Only supply language when the path has no extension and you want Buddy to append one.

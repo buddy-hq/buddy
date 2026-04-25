@@ -1,3 +1,4 @@
+import PYTHON_CALCULATOR_DESCRIPTION from "./python-calculator.md"
 import z from "zod"
 import { AdvancedMathRuntimeService } from "../../../../local-runtimes/advanced-math/service"
 import { ADVANCED_MATH_RUNTIME_DEPENDENCY, createBuddyTool } from "../../../tools/create-buddy-tool"
@@ -9,8 +10,7 @@ const pythonCalculatorInputSchema = z.object({
 export const pythonCalculatorTool = createBuddyTool(
   "python_calculator",
   {
-    description:
-      "Evaluate Python code for mathematical calculations, analysis, and plotting. Prefer exact symbolic forms such as fractions, radicals, and symbolic constants before decimal approximations when possible. Import libraries before using them. Supported scientific libraries: math, sympy, numpy, pandas, xarray, scipy, matplotlib, seaborn. Use this before making mathematical claims or validating worked results. Use this tool for function graphs and data plots; reserve figure-rendering tools for explicit geometry diagrams.",
+    description: PYTHON_CALCULATOR_DESCRIPTION,
     parameters: pythonCalculatorInputSchema,
     async execute(args, ctx) {
       await ctx.ask({

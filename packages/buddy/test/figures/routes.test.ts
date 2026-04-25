@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { FigureService } from "../../src/learning/capabilities/figures/geometry/service"
+import { renderGeometryFigure } from "../../src/learning/capabilities/figures/geometry/render-figure"
 import { app } from "../../src/index.ts"
 import { tmpdir } from "../helpers/tmpdir"
 
@@ -30,7 +30,7 @@ function routeFigureInput() {
 describe("figure routes", () => {
   test("serves stored figures as same-origin SVG assets", async () => {
     await using project = await tmpdir({ git: true })
-    const rendered = await FigureService.render(project.path, routeFigureInput())
+    const rendered = await renderGeometryFigure(project.path, routeFigureInput())
 
     const response = await app.request(rendered.url)
     expect(response.status).toBe(200)

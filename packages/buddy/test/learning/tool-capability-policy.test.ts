@@ -75,7 +75,6 @@ describe("tool capability policy", () => {
     expect(buddyPermissions.teaching_start_lesson).toBe("deny")
 
     expect(codeBuddyPermissions.teaching_start_lesson).toBe("allow")
-    expect(codeBuddyPermissions.pedagogy_mastery_check).toBe("allow")
     expect(codeBuddyPermissions.python_calculator).toBe("deny")
 
     expect(mathBuddyPermissions.render_figure).toBe("allow")

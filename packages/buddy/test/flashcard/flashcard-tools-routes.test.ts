@@ -5,10 +5,8 @@ import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { app } from "../../src/index.ts"
 import { FlashcardPath } from "../../src/learning/capabilities/flashcard/path"
 import { ensureFlashcardToolsRegistered } from "../../src/learning/capabilities/flashcard/tools/register"
-import {
-  SaveFlashcardDeckOutputSchema,
-  type SaveFlashcardDeckInput,
-} from "../../src/learning/capabilities/flashcard/types"
+import { SaveFlashcardDeckOutputSchema } from "../../src/learning/capabilities/flashcard/types"
+import type { SaveFlashcardDeckInput } from "../../src/learning/capabilities/flashcard/tools/save-flashcard-deck"
 import { tmpdir } from "../helpers/tmpdir"
 import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
 

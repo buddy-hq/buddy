@@ -1,9 +1,4 @@
-import { createHash } from "node:crypto"
-import type { Dirent } from "node:fs"
-import fs from "node:fs/promises"
 import { parse as parseMermaid } from "@mermaid-js/parser"
-import { InvalidMermaidArtifactIDError, MermaidArtifactPath } from "./path"
-import { MermaidArtifactManifestSchema, type MermaidArtifactManifest } from "./types"
 
 type MermaidParserDiagramType =
   | "architecture"
@@ -14,31 +9,6 @@ type MermaidParserDiagramType =
   | "radar"
   | "treemap"
 
-class MermaidArtifactNotFoundError extends Error {
-  constructor(artifactID: string) {
-    super(`Mermaid artifact '${artifactID}' was not found.`)
-    this.name = "MermaidArtifactNotFoundError"
-  }
-}
-
-class MermaidRenderError extends Error {
-  readonly diagnostics: readonly string[]
-  readonly repairAttempts: number
-  readonly repairLog: readonly string[]
-
-  constructor(input: {
-    diagnostics: readonly string[]
-    repairAttempts: number
-    repairLog: string[]
-  }) {
-    super(input.diagnostics.join(" "))
-    this.name = "MermaidRenderError"
-    this.diagnostics = [...input.diagnostics]
-    this.repairAttempts = input.repairAttempts
-    this.repairLog = [...input.repairLog]
-  }
-}
-
 type MermaidValidationResult =
   | {
       ok: true
@@ -47,22 +17,6 @@ type MermaidValidationResult =
       ok: false
       diagnostics: string[]
     }
-
-type MermaidArtifactReadResult = {
-  artifactID: string
-  kind: "mermaid.v1"
-  diagramType: string
-  alt: string
-  caption?: string
-  repairAttempts: number
-  repairLog: string[]
-  source: string
-  createdAt: string
-}
-
-type MermaidArtifactListResult = MermaidArtifactReadResult[]
-
-type MermaidArtifactIdentityInput = Omit<MermaidArtifactManifest, "artifactID" | "version">
 
 const KNOWN_MERMAID_DIAGRAM_TYPES = new Set([
   "architecture",
@@ -98,6 +52,7 @@ const KNOWN_MERMAID_DIAGRAM_TYPES = new Set([
   "xychart-beta",
   "zenuml",
 ])
+
 const FLOWCHART_DIAGRAM_TYPES = new Set(["flowchart", "graph"])
 
 const INCOMPLETE_CONNECTOR_PATTERN = /(?:-->|--|==>|==|-.->|-.|<-->|<--|->>|->|<->|<=>|=>)\s*$/u
@@ -390,7 +345,7 @@ function errorDiagnostics(error: unknown): string[] {
   return ["Mermaid parser rejected the diagram source."]
 }
 
-async function validateSource(source: string): Promise<MermaidValidationResult> {
+async function validateMermaidSource(source: string): Promise<MermaidValidationResult> {
   const diagramType = inferDiagramType(source)
   const normalizedType = normalizeDiagramTypeToken(diagramType)
   if (!KNOWN_MERMAID_DIAGRAM_TYPES.has(normalizedType)) {
@@ -442,22 +397,6 @@ async function validateSource(source: string): Promise<MermaidValidationResult> 
   }
 }
 
-function hashSource(source: string): string {
-  return createHash("sha256").update(source).digest("hex")
-}
-
-function hashArtifact(input: MermaidArtifactIdentityInput): string {
-  return createHash("sha256").update(JSON.stringify(input)).digest("hex")
-}
-
-function buildArtifactUrl(directory: string, artifactID: string): string {
-  return `/api/mermaid-artifacts/${artifactID}?directory=${encodeURIComponent(directory)}`
-}
-
-function buildMarkdown(source: string): string {
-  return ["```mermaid", source, "```"].join("\n")
-}
-
 function inferDiagramType(source: string): string {
   const lines = source.split("\n")
 
@@ -482,123 +421,4 @@ function inferDiagramType(source: string): string {
   return "unknown"
 }
 
-async function write(input: {
-  directory: string
-  manifest: MermaidArtifactManifest
-  source: string
-}): Promise<void> {
-  const targetDirectory = MermaidArtifactPath.artifactDirectory(
-    input.directory,
-    input.manifest.artifactID,
-  )
-  await fs.mkdir(targetDirectory, { recursive: true })
-  await Promise.all([
-    fs.writeFile(
-      MermaidArtifactPath.manifestFile(input.directory, input.manifest.artifactID),
-      `${JSON.stringify(input.manifest, null, 2)}\n`,
-      "utf8",
-    ),
-    fs.writeFile(
-      MermaidArtifactPath.diagramFile(input.directory, input.manifest.artifactID),
-      input.source,
-      "utf8",
-    ),
-  ])
-}
-
-async function read(directory: string, artifactID: string): Promise<MermaidArtifactReadResult> {
-  const safeArtifactID = MermaidArtifactPath.sanitizeArtifactID(artifactID)
-
-  try {
-    const [manifestText, source] = await Promise.all([
-      fs.readFile(MermaidArtifactPath.manifestFile(directory, safeArtifactID), "utf8"),
-      fs.readFile(MermaidArtifactPath.diagramFile(directory, safeArtifactID), "utf8"),
-    ])
-
-    const parsedManifest = MermaidArtifactManifestSchema.parse(JSON.parse(manifestText) as unknown)
-
-    return {
-      artifactID: parsedManifest.artifactID,
-      kind: parsedManifest.kind,
-      diagramType: parsedManifest.diagramType,
-      alt: parsedManifest.alt,
-      ...(parsedManifest.caption ? { caption: parsedManifest.caption } : {}),
-      repairAttempts: parsedManifest.repairAttempts,
-      repairLog: [...parsedManifest.repairLog],
-      source,
-      createdAt: parsedManifest.createdAt,
-    }
-  } catch (error) {
-    const maybe = error as { code?: string }
-    if (maybe.code === "ENOENT") {
-      throw new MermaidArtifactNotFoundError(safeArtifactID)
-    }
-    throw error
-  }
-}
-
-async function list(directory: string): Promise<MermaidArtifactListResult> {
-  let entries: Dirent[] = []
-
-  try {
-    entries = await fs.readdir(MermaidArtifactPath.root(directory), {
-      withFileTypes: true,
-    })
-  } catch (error) {
-    const maybe = error as { code?: string }
-    if (maybe.code === "ENOENT") {
-      return []
-    }
-    throw error
-  }
-
-  const artifacts = await Promise.all(
-    entries
-      .filter((entry) => entry.isDirectory())
-      .map(async (entry) => {
-        try {
-          return await read(directory, entry.name)
-        } catch {
-          return undefined
-        }
-      }),
-  )
-
-  return artifacts
-    .filter((artifact): artifact is MermaidArtifactReadResult => artifact !== undefined)
-    .toSorted((left, right) => right.createdAt.localeCompare(left.createdAt))
-}
-
-function mapMermaidArtifactRouteError(error: unknown): Response | undefined {
-  if (error instanceof InvalidMermaidArtifactIDError) {
-    return Response.json({ error: error.message }, { status: 400 })
-  }
-  if (error instanceof MermaidArtifactNotFoundError) {
-    return Response.json({ error: error.message }, { status: 404 })
-  }
-  if (error instanceof MermaidRenderError) {
-    return Response.json({ error: error.message }, { status: 400 })
-  }
-  return undefined
-}
-
-const MermaidArtifactService = {
-  buildArtifactUrl,
-  buildMarkdown,
-  hashArtifact,
-  hashSource,
-  inferDiagramType,
-  list,
-  read,
-  validateSource,
-  write,
-}
-
-export {
-  MermaidArtifactNotFoundError,
-  MermaidArtifactService,
-  MermaidRenderError,
-  mapMermaidArtifactRouteError,
-}
-
-export type { MermaidArtifactListResult, MermaidArtifactReadResult, MermaidValidationResult }
+export { validateMermaidSource }
