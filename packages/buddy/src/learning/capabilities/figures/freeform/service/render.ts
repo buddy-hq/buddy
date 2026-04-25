@@ -1,8 +1,5 @@
 import { createHash } from "node:crypto"
-import {
-  RenderFreeformFigureOutputSchema,
-  type RenderFreeformFigureOutput,
-} from "../types"
+import { RenderFreeformFigureOutputSchema, type RenderFreeformFigureOutput } from "../types"
 import { FreeformFigureRenderError } from "./errors"
 import { writeFreeformFigure } from "./io"
 import { lintSvg } from "./lint"
@@ -16,10 +13,7 @@ function buildFreeformFigureURL(directory: string, figureID: string): string {
   return `/api/freeform-figures/${figureID}?directory=${encodeURIComponent(directory)}`
 }
 
-function hashFreeformFigure(input: {
-  kind: "svg.v1"
-  source: string
-}): string {
+function hashFreeformFigure(input: { kind: "svg.v1"; source: string }): string {
   return createHash("sha256").update(JSON.stringify(input)).digest("hex")
 }
 

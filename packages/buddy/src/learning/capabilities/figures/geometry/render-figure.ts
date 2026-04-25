@@ -4,11 +4,7 @@ import { FigurePath } from "./path"
 import { repairGeometryFigureSpec } from "./repair"
 import { renderGeometryFigure as renderGeometryFigureSvg } from "./render"
 import { resolveGeometryFigureSpec } from "./resolve"
-import {
-  RenderFigureOutputSchema,
-  type GeometryFigureSpec,
-  type RenderFigureOutput,
-} from "./types"
+import { RenderFigureOutputSchema, type GeometryFigureSpec, type RenderFigureOutput } from "./types"
 import { validateGeometryFigureSpec, type FigureValidationIssue } from "./validate"
 import { FigureRenderError } from "./errors"
 const MAX_TOTAL_ATTEMPTS = 3
@@ -164,10 +160,7 @@ function validateGeometrySvgSanity(svg: string): FigureValidationIssue[] {
   return issues
 }
 
-function hashGeometryFigure(input: {
-  kind: "geometry.v1"
-  spec: GeometryFigureSpec
-}): string {
+function hashGeometryFigure(input: { kind: "geometry.v1"; spec: GeometryFigureSpec }): string {
   return createHash("sha256").update(JSON.stringify(input)).digest("hex")
 }
 
