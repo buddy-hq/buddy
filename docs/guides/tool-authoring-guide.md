@@ -1,228 +1,83 @@
 # Buddy Tool Authoring Guide
 
-This guide explains how tools are authored in Buddy after the tools refactor, where the real authority lives, and exactly what to change when you add a new tool or change who can use one.
+This guide explains how Buddy learning tools are defined, registered, allowed for personas and intents, and tested.
 
-It answers four separate questions:
+The short version:
 
-1. How to write a tool.
-2. How to make the runtime know the tool exists.
-3. How to allow the tool for a persona.
-4. How to allow the tool only for a specific intent, including a specific intent for a specific persona such as `assess` for `code-buddy` but not `practice` for `code-buddy`.
+- Implement behavior with `createBuddyTool(...)`.
+- Add the tool to the owning feature's `tools.ts` array.
+- Add catalog identity and constraints in `learning/tools/tool-metadata.ts`.
+- Make sure the owning family is wired in `learning/tools/tool-registry.ts`.
+- Grant access through persona `toolDefaults` or intent capability manifests.
+- Do not hand-maintain OpenCode persona permission maps; Buddy derives them.
 
-The core rule is:
+Being implemented, registered, and allowed are separate states. A tool can exist in code and still be unavailable if it is missing from the family array, the catalog, runtime registration, or permission policy.
 
-- tool implementation lives with the owning feature
-- tool metadata lives on the tool definition
-- persona-default access lives in persona definitions via `toolDefaults`
-- intent-specific access lives in the intent manifests
-- static OpenCode-facing persona tool permissions are derived from canonical Buddy policy, not maintained by hand in persona agent files
+## Current Model
 
-If you follow that split, tool work is predictable. If you do not, you end up fighting two permission systems at once.
+A Buddy learning tool has these parts:
 
-## What a Tool Is in Buddy
+| Layer | File | Purpose |
+| --- | --- | --- |
+| Tool definition | Owning feature, usually `learning/**/tools/<tool>.ts` | Runtime behavior, zod parameters, permission ask, result |
+| Family membership | Owning feature `tools.ts` | Exports a group array such as `mathTools` or `teachingTools` |
+| Catalog metadata | `packages/buddy/src/learning/tools/tool-metadata.ts` | Stable tool IDs, group ownership, capability constraints, group runtime policy |
+| Runtime registration | `packages/buddy/src/learning/tools/tool-registry.ts` | Maps catalog groups to actual tool arrays |
+| Registration execution | `packages/buddy/src/learning/tools/register-runtime-tools.ts` | Registers enabled groups into OpenCode |
+| Access policy | Persona definitions and intent manifests | Decides who can use the tool |
+| Permission compilation | `tool-permission-compiler.ts` and session permission sync | Applies runtime rules for the active turn |
 
-A working Buddy tool is the combination of:
-
-1. A `createBuddyTool(...)` definition.
-2. Membership in a tool family array such as `teachingTools`, `pedagogyTools`, or `questionSetTools`.
-3. Inclusion in the global learning tool catalog.
-4. Registration of the owning tool family into the vendored OpenCode runtime.
-5. Capability gating through persona defaults, intent manifests, tool metadata, runtime readiness, and config toggles.
-6. Session permission syncing for the active turn.
-7. Static persona agent permission alignment in the OpenCode overlay.
-
-Being implemented is not the same as being registered.
-
-Being registered is not the same as being allowed.
-
-## Canonical Sources of Truth
-
-These files are the main authority for tools:
+Core files:
 
 - `packages/buddy/src/learning/tools/create-buddy-tool.ts`
-- `packages/buddy/src/learning/tools/tool-catalog.ts`
+- `packages/buddy/src/learning/tools/tool-metadata.ts`
+- `packages/buddy/src/learning/tools/tool-registry.ts`
 - `packages/buddy/src/learning/tools/register-runtime-tools.ts`
-- `packages/buddy/src/learning/tools/tool-capability-policy.ts`
-- `packages/buddy/src/learning/resolve-capability-profile.ts`
-- `packages/buddy/src/learning/intents/learn/capabilities.ts`
-- `packages/buddy/src/learning/intents/practice/capabilities.ts`
-- `packages/buddy/src/learning/intents/assess/capabilities.ts`
-- `packages/buddy/src/learning/intents/capabilities/tool-capabilities.ts`
-- `packages/buddy/src/learning/intents/capabilities/resolution.ts`
-- `packages/buddy/src/learning/intents/capabilities/validation.ts`
+- `packages/buddy/src/learning/tools/tool-permission-compiler.ts`
+- `packages/buddy/src/learning/tools/tool-constraints.ts`
+- `packages/buddy/src/learning/intents/*/capabilities.ts`
+- `packages/buddy/src/learning/personas/*.ts`
 - `packages/buddy/src/config/opencode/agents.ts`
 
-Related registration plumbing:
+## Permission Precedence
 
-- `packages/buddy/src/http/proxy/registration.ts`
-- `packages/buddy/src/http/proxy/types.ts`
-- `packages/buddy/src/http/proxy/fetch.ts`
-- `packages/buddy/src/session/orchestration/proxy-transform.ts`
+Runtime learning-tool permissions are compiled in this order:
 
-Persona defaults that tools depend on:
+1. Apply persona `toolDefaults`.
+2. Deny tools whose catalog constraints do not match the persona surface or workspace state.
+3. Apply intent-managed tool overrides.
+4. Deny tools whose runtime dependency is not ready.
+5. Deny tools disabled by project config `tools`.
 
-- `packages/buddy/src/learning/personas/<persona-id>/agent.ts`
-- `packages/buddy/src/learning/personas/definitions.ts`
+Static OpenCode-facing persona permissions are derived from the same canonical policy. Do not add duplicate learning-tool permissions to persona runtime config just to keep OpenCode aligned.
 
-## The Current Tool Model
+## Add a Tool
 
-After the refactor, Buddy tools follow these rules:
+### 1. Choose the contract
 
-- The tool file is responsible for its behavior and its colocated constraints.
-- Surface, workspace-state, and runtime-dependency constraints belong on the tool definition through `createBuddyTool(..., capability)`.
-- Intent-managed tool authority comes from the intent manifests.
-- `TOOL_CAPABILITY_REGISTRY` is derived from the intent manifests. You no longer hand-maintain a second registry of intent-managed tools.
-- Persona-default tool access comes from `toolDefaults` in persona definition files.
-- Static OpenCode-facing learning-tool permissions for personas are derived from canonical Buddy policy in `packages/buddy/src/config/opencode/agents.ts`.
-- Persona `agent.ts` files should not restate learning-tool permissions.
-
-The runtime precedence is:
-
-1. persona defaults
-2. persona/workspace constraints from tool metadata
-3. intent overrides
-4. runtime readiness constraints
-5. config toggles
-
-If you are reasoning about why a tool is or is not callable, follow that order.
-
-## Files You Usually Do Not Edit For Normal Tool Work
-
-For a normal tool addition inside an existing family, you should usually not need to edit:
-
-- `packages/buddy/src/config/opencode/agents.ts`
-- `packages/buddy/src/learning/agent-factories.ts`
-- `packages/buddy/src/http/proxy/fetch.ts`
-- `packages/buddy/src/http/proxy/types.ts`
-
-If you find yourself changing those files for a plain tool addition, that usually means one of two things:
-
-- you are adding a brand new tool family, or
-- the architecture still has a simplification gap that should be handled as refactor work, not as one-off tool authoring
-
-## Tool Metadata Lives with the Tool
-
-`createBuddyTool(...)` now supports capability metadata.
-
-The supported metadata is:
-
-- `surfaces`
-- `workspaceStates`
-- `runtimeDependency`
-
-Current exported helpers in `packages/buddy/src/learning/tools/create-buddy-tool.ts`:
-
-- `EDITOR_PERSONA_SURFACE`
-- `FIGURE_PERSONA_SURFACE`
-- `INTERACTIVE_WORKSPACE_STATE`
-- `ADVANCED_MATH_RUNTIME_DEPENDENCY`
-- `STANDARDS_RUNTIME_DEPENDENCY`
-
-Example:
-
-```ts
-import {
-  createBuddyTool,
-  EDITOR_PERSONA_SURFACE,
-  INTERACTIVE_WORKSPACE_STATE,
-  type BuddyToolContext,
-} from "@buddy/backend/learning/tools/create-buddy-tool"
-
-export const exampleEditorTool = createBuddyTool(
-  "example_editor_tool",
-  {
-    description: "Do something that only makes sense in the lesson editor.",
-    parameters: ExampleInputSchema,
-    async execute(args, ctx: BuddyToolContext) {
-      await ctx.ask({
-        permission: "example_editor_tool",
-        patterns: ["*"],
-        always: ["*"],
-      })
-
-      return {
-        title: "Example editor tool",
-        output: "Done",
-      }
-    },
-  },
-  {
-    surfaces: [EDITOR_PERSONA_SURFACE],
-    workspaceStates: [INTERACTIVE_WORKSPACE_STATE],
-  },
-)
-```
-
-This metadata is consumed by:
-
-- `packages/buddy/src/learning/resolve-capability-profile.ts`
-- `packages/buddy/src/learning/tools/tool-capability-policy.ts`
-
-Do not add new hardcoded surface or workspace deny lists in unrelated runtime files when the constraint belongs to the tool itself.
-
-## Runtime Flow
-
-This is the actual path from tool file to callable tool:
-
-1. You define the tool with `createBuddyTool(...)`.
-2. You add it to the owning family array in `tools.ts`.
-3. `tool-catalog.ts` includes that family, which makes the tool part of the global learning tool catalog.
-4. Request-time registration turns the enabled tool families into OpenCode runtime tools.
-5. `resolveCapabilityProfile()` decides whether the tool is allowed for the current turn.
-6. Session permissions are synced into the active runtime session.
-7. Persona agent overlays derive static learning-tool permissions from canonical Buddy policy.
-
-If any one of those steps is missing, the tool may exist in code but still not be callable.
-
-## Step-by-Step: Add a New Tool
-
-Use this sequence in order.
-
-### Minimal Expected Diff
-
-For a new tool in an existing family, the normal diff is:
-
-- `packages/buddy/src/learning/capabilities/<feature>/tools/<tool>.ts`
-- `packages/buddy/src/learning/capabilities/<feature>/tools/tools.ts`
-- one or more of:
-  - `packages/buddy/src/learning/personas/<persona-id>/agent.ts`
-  - `packages/buddy/src/learning/intents/learn/capabilities.ts`
-  - `packages/buddy/src/learning/intents/practice/capabilities.ts`
-  - `packages/buddy/src/learning/intents/assess/capabilities.ts`
-- focused tests in `packages/buddy/test/**`
-
-If you are creating a new tool family, there are more required changes. That is covered later.
-
-### Step 1: Choose the Tool Contract
-
-Decide:
-
-- `id`: stable snake_case tool ID
-- owning feature
-- owning tool family
-- whether the tool is persona-default or intent-managed
-- whether the tool needs surface constraints
-- whether the tool needs workspace-state constraints
-- whether the tool needs runtime-readiness gating
-
-The tool ID becomes:
+Pick the final tool ID first. It is used as:
 
 - the runtime tool name
-- the permission key used in `ctx.ask({ permission: ... })`
-- the learning-tool catalog key
-- the config `tools` toggle key
+- the `ctx.ask({ permission })` key
+- the learning-tool catalog ID
+- the project config `tools` toggle key
 
-Choose the final ID before wiring the rest.
+Use stable snake case, for example `python_calculator` or `save_flashcard_deck`.
 
-### Step 2: Implement the Tool
+Also decide:
 
-Create the tool file in the owning feature.
+- owning feature and family
+- whether the tool is persona-default or intent-managed
+- required persona surfaces, workspace states, or runtime dependencies
+- whether UI needs structured metadata from the result
 
-Canonical shape:
+### 2. Implement the tool
+
+Use `createBuddyTool(...)` and a zod parameter schema.
 
 ```ts
 import z from "zod"
-import { createBuddyTool, type BuddyToolContext } from "../../../tools"
+import { createBuddyTool } from "../../../tools/create-buddy-tool"
 
 const exampleInputSchema = z.object({
   topic: z.string().trim().min(1),
@@ -231,7 +86,7 @@ const exampleInputSchema = z.object({
 export const exampleTool = createBuddyTool("example_tool", {
   description: "Do the specific thing this tool is responsible for.",
   parameters: exampleInputSchema,
-  async execute(args, ctx: BuddyToolContext) {
+  async execute(args, ctx) {
     await ctx.ask({
       permission: "example_tool",
       patterns: ["*"],
@@ -243,7 +98,7 @@ export const exampleTool = createBuddyTool("example_tool", {
 
     return {
       title: "Example tool",
-      output: `Handled ${args.topic}`,
+      output: `Handled ${args.topic}.`,
     }
   },
 })
@@ -251,262 +106,185 @@ export const exampleTool = createBuddyTool("example_tool", {
 
 Rules:
 
-- Use `createBuddyTool(...)`.
-- Use a `zod` schema for parameters.
-- Keep the `ctx.ask(...)` permission key aligned with the tool ID unless there is a specific reason not to.
+- Keep the permission key aligned with the tool ID unless there is a deliberate reason not to.
+- Keep side effects behind `ctx.ask(...)`.
+- Pass `ctx.abort` into long-running work and runtime services when possible.
 - Keep the tool in the feature that owns the behavior.
+- Use `import type` for type-only imports.
 
-### Step 3: Add the Tool to Its Family Array
+### 3. Write a useful description
 
-Update the owning `tools.ts`.
+OpenCode and Codex tool descriptions are written for model routing, not for human API docs. Good descriptions tell the model when to call the tool, when not to call it, how to fill parameters, what state the tool changes, and what operational limits matter.
 
-Example:
+Use this shape:
 
 ```ts
-import { existingTool } from "./existing-tool"
+description: [
+  "Create a saved flashcard deck from validated notes.",
+  "",
+  "Use this tool when the learner asks to persist a deck or when a practice flow has finalized card content.",
+  "",
+  "Do not use this tool for drafts, previews, or one-off card suggestions that should remain in the chat.",
+  "",
+  "Usage:",
+  "- `title` should be the learner-facing deck title.",
+  "- `cards` must contain final front/back content, not source notes.",
+  "- Prefer one call with the complete deck instead of repeated calls for individual cards.",
+].join("\n")
+```
+
+Description rules:
+
+- Start with the concrete capability, not vague intent like "helps with flashcards".
+- Include "Use this tool when..." for the positive routing case.
+- Include "Do not use..." when there is a nearby tool, cheaper path, or unsafe misuse.
+- Spell out parameter expectations that the schema cannot express well, such as absolute paths, final vs draft content, or batching.
+- Mention limits, truncation, readiness, or follow-up behavior that affects model decisions.
+- If behavior depends on platform, mode, permissions, runtime readiness, or currently enabled tools, generate that detail into the description instead of relying on stale generic prose.
+- For tools with strict or freeform input formats, state the required payload shape and the most common malformed payloads to avoid.
+- For tools that affect long-lived state, describe the lifecycle effect: what persists, what is cleared, what later tools can reuse, and whether output is visible to the user or only to the model.
+- For discovery or suggestion tools, describe the prerequisite workflow before use so the model does not skip cheaper direct tools.
+- Keep examples short and domain-specific. Avoid broad tutorials unless misuse is expensive.
+- Keep the schema descriptions short; put workflow guidance in the tool description.
+
+Great descriptions reduce unnecessary permission prompts and wrong-tool calls. If a model could confuse two tools, the descriptions should make the choice obvious.
+
+### 4. Return the right shape
+
+`execute()` returns an OpenCode tool result:
+
+```ts
+{
+  title: string
+  output: string
+  metadata?: Record<string, unknown>
+  attachments?: FilePart[]
+}
+```
+
+Use each field for its actual audience:
+
+| Field | Audience | Guidance |
+| --- | --- | --- |
+| `output` | LLM | Human-readable result text. Put information the model must reason over here. |
+| `metadata` | UI/code | Structured data only when a component or downstream code reads it. The model does not see it. |
+| `title` | UI | Short card heading. |
+| `attachments` | UI/LLM | Files produced by the tool. |
+
+Avoid duplicating the same large JSON blob in both `output` and `metadata`. If the LLM needs structured data, put a readable representation in `output`.
+
+### 5. Add the tool to its family
+
+Update the owning `tools.ts`:
+
+```ts
 import { exampleTool } from "./example-tool"
+import { existingTool } from "./existing-tool"
 
-const featureTools = [existingTool, exampleTool] as const
-
-export { featureTools }
+export const featureTools = [existingTool, exampleTool] as const
 ```
 
-If you skip this, the tool file exists but the runtime never sees it.
+If you skip this, runtime registration never sees the tool.
 
-### Step 4: Add Tool Metadata If the Tool Has Hard Constraints
+### 6. Add catalog metadata
 
-If the tool only works on a specific surface, workspace state, or runtime dependency, encode that on the tool itself with the third `createBuddyTool(...)` argument.
-
-Use metadata when:
-
-- the tool only works for personas with the `editor` surface
-- the tool only works for personas with the `figure` surface
-- the tool only works in `interactive` workspace state
-- the tool requires the standards runtime
-- the tool requires the advanced math runtime
-
-Do not add new hardcoded constraint buckets elsewhere if the constraint belongs to one tool.
-
-### Step 5: Decide Whether the Tool Is Persona-default or Intent-managed
-
-This is the main authoring decision.
-
-Choose one:
-
-1. Persona-default tool
-2. Intent-managed tool
-3. Intent-managed tool scoped to certain personas
-4. Intent-managed tool scoped to certain personas and certain workspace states
-
-The next sections show exactly what to edit.
-
-## How to Allow a Tool for a Given Persona
-
-Use this when the tool should be available to a persona across intents, subject to tool metadata, runtime readiness, and config toggles.
-
-### Files to Edit
-
-- `packages/buddy/src/learning/personas/<persona-id>/agent.ts`
-- optionally `packages/buddy/src/learning/personas/<persona-id>/overlay.p.md`
-
-### What to Change
-
-Add the tool ID to that persona's `toolDefaults`.
-
-Example:
+Add the tool to `LEARNING_TOOL_METADATA` in `packages/buddy/src/learning/tools/tool-metadata.ts`.
 
 ```ts
-export const CODE_BUDDY = defineBuddyPersona({
-  // ...
-  toolDefaults: {
-    learner_snapshot_read: "allow",
-    teaching_start_lesson: "allow",
-    example_tool: "allow",
-  },
-  // ...
-})
+{ id: "example_tool", group: "teaching" },
 ```
 
-That is the canonical Buddy authoring point for persona-default tool access.
+If the tool has hard constraints, put them in catalog metadata:
 
-Do not also add the tool permission to the persona `agent.ts` file just to keep them "aligned". That duplication is specifically what the refactor removed.
+```ts
+{
+  id: "example_tool",
+  group: "teaching",
+  capability: {
+    surfaces: [EDITOR_PERSONA_SURFACE],
+    workspaceStates: [INTERACTIVE_WORKSPACE_STATE],
+  },
+},
+```
 
-### Optional Prompt Update
+Supported constraints:
 
-Only update the prompt overlay if the tool should be part of how the persona reasons or teaches.
+- `surfaces`: `"curriculum"`, `"editor"`, `"figure"`, `"question-set"`
+- `workspaceStates`: `"chat"`, `"interactive"`
+- `runtimeDependency`: `ADVANCED_MATH_RUNTIME_DEPENDENCY` or `STANDARDS_RUNTIME_DEPENDENCY`
 
-Do not mention the tool in prompt prose unless the persona can actually use it.
+Group-level runtime dependency belongs in `LEARNING_TOOL_GROUP_POLICIES` when every tool in the group shares the same dependency. Tool-level dependency belongs on the individual metadata entry.
 
-## How to Allow a Tool for a Given Intent
+## Allow a Tool
 
-Use this when the tool should only exist in `learn`, `practice`, or `assess`.
+There are two normal ways to grant access.
 
-### Files to Edit
+### Persona-default tools
+
+Use persona defaults when the tool should be available to a persona across intents, subject to catalog constraints, runtime readiness, and config toggles.
+
+Edit `packages/buddy/src/learning/personas/<persona>.ts`:
+
+```ts
+toolDefaults: {
+  learner_snapshot_read: "allow",
+  example_tool: "allow",
+},
+```
+
+Do not duplicate this in OpenCode agent permissions. `packages/buddy/src/config/opencode/agents.ts` derives static learning-tool permissions from Buddy policy.
+
+### Intent-managed tools
+
+Use intent manifests when the tool should be allowed only for `learn`, `practice`, or `assess`.
+
+Edit one or more of:
 
 - `packages/buddy/src/learning/intents/learn/capabilities.ts`
 - `packages/buddy/src/learning/intents/practice/capabilities.ts`
 - `packages/buddy/src/learning/intents/assess/capabilities.ts`
 
-depending on which intents should allow the tool.
-
-### What to Change
-
-Add the tool to the `tools` array in the appropriate manifest.
-
-Example for `assess`:
+Direct form:
 
 ```ts
-export const ASSESS_INTENT_CAPABILITY_MANIFEST = createIntentCapabilities({
-  intent: "assess",
-  tools: [
-    // ...
-    exampleTool,
-  ],
-  skills: [],
-})
+tools: [
+  "example_tool",
+]
 ```
 
-Important:
-
-- You do not manually edit a separate central tool-capability registry anymore.
-- `packages/buddy/src/learning/intents/capabilities/tool-capabilities.ts` derives `TOOL_CAPABILITY_REGISTRY` from the intent manifests.
-
-If the tool is only intent-managed, do not also add it to persona `toolDefaults` unless you intentionally want both persona-default and intent-managed behavior.
-
-## How to Allow a Tool Only for a Given Persona in a Given Intent
-
-This is the exact scoped case: for example, allow a tool in `assess` for `code-buddy`, but not in `practice` for `code-buddy`.
-
-### Files to Edit
-
-- the specific intent manifest that should allow the tool
-
-For example:
-
-- `packages/buddy/src/learning/intents/assess/capabilities.ts`
-
-### What to Change
-
-Use the object form inside `tools`.
-
-Example:
+Scoped form:
 
 ```ts
-export const ASSESS_INTENT_CAPABILITY_MANIFEST = createIntentCapabilities({
-  intent: "assess",
-  tools: [
-    {
-      tool: exampleAssessTool,
-      personas: ["code-buddy"],
-    },
-  ],
-  skills: [],
-})
+tools: [
+  {
+    tool: "example_tool",
+    personas: ["code-buddy"],
+    workspaceStates: ["interactive"],
+  },
+]
 ```
 
-Then do not add it to the `practice` manifest.
+Intent-managed tools are deny-by-default for the managed set. `auto` unions the explicit intent manifests.
 
-Result:
+For example, to allow a tool only in `assess` for `code-buddy`, add it only to `ASSESS_INTENT_CAPABILITY_MANIFEST` with `personas: ["code-buddy"]`, and do not add it to persona `toolDefaults` or the `practice` manifest.
 
-- `code-buddy` + `assess` -> allow
-- `code-buddy` + `practice` -> deny
-- other personas + `assess` -> deny
+## Add a New Tool Family
 
-`auto` will include it whenever the explicit intent union includes the matching manifest.
+Most tools should join an existing family. Create a new family only for a real ownership or runtime boundary.
 
-## How to Allow a Tool Only for a Given Persona and Only in Interactive Workspace State
+Required updates:
 
-Use both filters:
+1. Add the owning feature `tools.ts` export.
+2. Add a group entry in `LEARNING_TOOL_GROUP_POLICIES` in `tool-metadata.ts`.
+3. Add each tool ID to `LEARNING_TOOL_METADATA` with that group.
+4. Import the family and add it to `learningToolGroups` in `tool-registry.ts`.
+5. Make sure callers that build `LearningToolRegistrationFlags` enable or disable the group as intended.
 
-```ts
-{
-  tool: exampleAssessTool,
-  personas: ["code-buddy"],
-  workspaceStates: ["interactive"],
-}
-```
+You usually do not need to edit proxy route types for a new family; registration flags are keyed by `LearningToolGroup`.
 
-This is how scoped intent-managed tools such as practice-only editor workflows should be expressed now.
+## Project Config Toggles
 
-If the tool itself also only makes sense in interactive editor sessions, put that requirement on the tool metadata too. The two layers are not the same:
-
-- tool metadata says the tool can never run outside that context
-- intent manifest filters say the intent only grants it in that context
-
-## Exact Example: `assess` for `code-buddy`, Not `practice`
-
-If you want a tool available only in `assess` for `code-buddy`:
-
-1. implement the tool and add it to its family
-2. do not put it in `code-buddy.toolDefaults`
-3. add it only to `ASSESS_INTENT_CAPABILITY_MANIFEST`
-4. scope it with `personas: ["code-buddy"]`
-5. do not add it to `PRACTICE_INTENT_CAPABILITY_MANIFEST`
-
-Example:
-
-```ts
-export const ASSESS_INTENT_CAPABILITY_MANIFEST = createIntentCapabilities({
-  intent: "assess",
-  tools: [
-    {
-      tool: exampleAssessTool,
-      personas: ["code-buddy"],
-    },
-  ],
-  skills: [],
-})
-```
-
-That is the current canonical way to express "only in this intent for this persona".
-
-## How Static Persona Agent Permissions Stay Aligned
-
-This part is easy to miss.
-
-Buddy still needs static OpenCode-facing permissions on persona agents, because OpenCode knows about agent config before Buddy's dynamic per-turn session permissions are applied.
-
-That static learning-tool permission map is derived in:
-
-- `packages/buddy/src/learning/tools/tool-capability-policy.ts`
-- `packages/buddy/src/config/opencode/agents.ts`
-
-The derivation unions:
-
-- persona `toolDefaults`
-- all explicit intent manifests
-- all workspace states the persona can satisfy for a tool
-- tool metadata constraints
-
-You should not hand-maintain the same learning-tool permission map inside persona `agent.ts` files.
-
-## Runtime Readiness Gating
-
-If a tool depends on a local runtime, express that on the tool metadata.
-
-Current supported dependencies:
-
-- `ADVANCED_MATH_RUNTIME_DEPENDENCY`
-- `STANDARDS_RUNTIME_DEPENDENCY`
-
-Those are enforced by:
-
-- `packages/buddy/src/learning/tools/tool-capability-policy.ts`
-- `packages/buddy/src/learning/resolve-capability-profile.ts`
-
-Examples already wired this way:
-
-- `python_calculator`
-- knowledge-graph tools
-
-## Project Config Tool Toggles
-
-Users can hard-disable any learning tool through:
-
-- `buddy.json`
-- `buddy.jsonc`
-
-Example:
+Once a tool is in the learning tool catalog, users can disable it by ID in `buddy.json` or `buddy.jsonc`:
 
 ```jsonc
 {
@@ -516,64 +294,45 @@ Example:
 }
 ```
 
-This is applied in `packages/buddy/src/learning/resolve-capability-profile.ts`.
+Config toggles can only deny tools. They do not grant access that persona and intent policy would otherwise deny.
 
-Once the tool is in the learning tool catalog, config toggles can target it by ID.
+## Common Failure Modes
 
-## When You Need a New Tool Family
+- The tool file exists but is missing from the family array.
+- The tool is in a family array but missing from `LEARNING_TOOL_METADATA`.
+- The metadata ID and implementation ID differ.
+- The family exists in metadata but is missing from `tool-registry.ts`.
+- A persona default grants the tool, but catalog surface or workspace constraints deny it.
+- The tool was meant to be intent-managed but was only added to persona defaults, or the reverse.
+- Runtime dependency metadata is missing, so a tool is exposed before its runtime is ready.
+- `output` is empty or too terse because the author assumed the LLM can read `metadata`.
 
-Most new tools should go into an existing family. Only create a new family if there is a real ownership or runtime boundary.
+## Tests
 
-If you do create a new family, update:
+Add focused tests for the layers you changed. Useful references:
 
-1. the owning `tools.ts`
-2. `packages/buddy/src/learning/tools/tool-catalog.ts`
-3. `packages/buddy/src/learning/tools/register-runtime-tools.ts`
-   - add a registration policy entry
-4. any caller that decides which families to register
-   - today the main one is `packages/buddy/src/session/orchestration/proxy-transform.ts`
-
-The good news is that you no longer have to add a separate boolean field everywhere in proxy types. Those proxy types now key off `LearningToolGroup`.
-
-The remaining authoring points for a new family are still real, but fewer than before the refactor.
-
-## Tests to Add or Update
-
-Treat this as required work.
-
-Good reference tests:
-
+- `packages/buddy/test/learning/learning-tool-contract.test.ts`
+- `packages/buddy/test/learning/tool-registration-policy.test.ts`
+- `packages/buddy/test/learning/runtime-tool-registration.test.ts`
+- `packages/buddy/test/learning/tool-permission-compiler.test.ts`
 - `packages/buddy/test/learning/tool-capability-policy.test.ts`
 - `packages/buddy/test/learning/intent-capability-validation.test.ts`
 - `packages/buddy/test/learning/runtime-session-permissions.test.ts`
 - `packages/buddy/test/parity/agent.test.ts`
 
-At minimum, test the layers you touched:
+Minimum coverage by change:
 
-1. tool family membership or catalog reachability
-2. intent resolution if the tool is intent-managed
-3. runtime capability profile if the tool has metadata constraints
-4. static persona permission derivation if the tool changes persona access
+- New tool: family membership and catalog alignment.
+- New intent grant: intent permission resolution.
+- New catalog constraints: runtime permission compiler behavior.
+- New runtime dependency: readiness gating.
+- New family: registration policy and runtime registration.
+- Persona access change: static persona permission derivation or parity.
 
-## Common Failure Modes
-
-1. The tool file exists, but it is not in the family array.
-2. The tool is in the family array, but the family is missing from `tool-catalog.ts`.
-3. The tool has the right persona default, but its tool metadata blocks that persona's surfaces or workspace state.
-4. The tool is intended to be intent-managed, but it was never added to the right intent manifest.
-5. The tool is intended to be persona-default, but it was only added to an intent manifest.
-6. The prompt mentions a tool that the persona cannot actually call.
-7. A new tool family was added, but the session proxy never enables registration for that family.
-8. Someone reintroduces handwritten learning-tool permissions into persona `agent.ts` files.
-
-## Validation Commands
-
-Run after tool changes:
+Run focused package tests first. Before considering the task complete, the repo requirement is still:
 
 ```bash
 bun fmt
 bun lint
 bun typecheck
 ```
-
-Run focused tests for the packages you changed. Do not run the full suite.
