@@ -3,7 +3,7 @@ import DOMPurify from "dompurify"
 import morphdom from "morphdom"
 import "katex/dist/katex.min.css"
 import { getServerConnection } from "@/context/server"
-import { resolveApiUrl } from "@/lib/api-client"
+import { resolveAssetUrl } from "@/lib/resource-url"
 import { parseMarkdownToHtml, enhanceMermaidPlaceholders } from "./markdown-parser"
 
 if (typeof window !== "undefined" && DOMPurify.isSupported) {
@@ -22,7 +22,7 @@ if (typeof window !== "undefined" && DOMPurify.isSupported) {
     if (node instanceof HTMLImageElement) {
       const src = node.getAttribute("src")
       if (!src || !src.startsWith("/api/")) return
-      node.setAttribute("src", resolveApiUrl(src))
+      node.setAttribute("src", resolveAssetUrl(src))
     }
   })
 }

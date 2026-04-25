@@ -21,9 +21,9 @@ import {
 import { FoliateReader, type FoliateReaderSource } from "@/components/readers/foliate-reader"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
-import { apiFetch } from "@/lib/api-client"
+import { buddyResultMessage, getBuddyClient } from "@/lib/buddy-client"
 import {
-  buildProjectFileRawUrl,
+  buildProjectFileRawParameters,
   CONTENT_LENGTH_HEADER,
   CONTENT_TYPE_HEADER,
 } from "@/lib/project-file-raw-url"
@@ -184,22 +184,18 @@ async function readProjectFileRawMetadata(input: { directory: string; path: stri
   size: number | undefined
   mimeType: string | undefined
 }> {
-  const request = buildProjectFileRawUrl(input.directory, input.path)
-  const response = await apiFetch(request.endpoint, {
-    directory: request.directory,
-    method: "HEAD",
-  })
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => "")
-    const message = errorText.trim() || `Request failed (${response.status})`
-    throw new Error(message)
+  const response = await getBuddyClient(input.directory).headApiFileRawFileName(
+    buildProjectFileRawParameters(input.path),
+  )
+  if (!response.response?.ok) {
+    throw new Error(buddyResultMessage(response))
   }
 
-  const sizeHeader = response.headers.get(CONTENT_LENGTH_HEADER)
+  const sizeHeader = response.response.headers.get(CONTENT_LENGTH_HEADER)
   const parsedSize = sizeHeader ? Number.parseInt(sizeHeader, 10) : Number.NaN
   return {
     size: Number.isFinite(parsedSize) && parsedSize >= 0 ? parsedSize : undefined,
-    mimeType: response.headers.get(CONTENT_TYPE_HEADER) ?? undefined,
+    mimeType: response.response.headers.get(CONTENT_TYPE_HEADER) ?? undefined,
   }
 }
 
@@ -511,18 +507,18 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
       })
 
       try {
-        const request = buildProjectFileRawUrl(props.directory, normalizedPath)
-        const response = await apiFetch(request.endpoint, {
-          directory: request.directory,
-          signal: controller.signal,
-        })
-        if (!response.ok) {
-          const errorText = await response.text().catch(() => "")
-          const message = errorText.trim() || `Request failed (${response.status})`
-          throw new Error(message)
+        const response = await getBuddyClient(props.directory).explorer.file.raw(
+          buildProjectFileRawParameters(normalizedPath),
+          {
+            parseAs: "blob",
+            signal: controller.signal,
+          },
+        )
+        if (!response.response?.ok || !response.data) {
+          throw new Error(buddyResultMessage(response))
         }
 
-        const blob = await response.blob()
+        const blob = response.data
         setReaderViewByPath((current) => {
           const existing = current[normalizedPath]
           if (!existing) return current

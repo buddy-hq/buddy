@@ -1,6 +1,6 @@
 import { queryOptions, type QueryClient } from "@tanstack/react-query"
-import { apiFetch } from "@/lib/api-client"
-import { buildProjectFileRawUrl } from "@/lib/project-file-raw-url"
+import { getBuddyClient } from "@/lib/buddy-client"
+import { buildProjectFileRawParameters } from "@/lib/project-file-raw-url"
 import { findWorkspaceFiles } from "@/state/chat-actions"
 import { loadResources, type ResourceRecord } from "@/state/resource-actions"
 import {
@@ -225,30 +225,37 @@ async function loadResourceDirectoryData(directory: string): Promise<ResourceDir
 }
 
 async function loadProjectFileBlob(directory: string, filepath: string) {
-  const request = buildProjectFileRawUrl(directory, filepath)
-  const response = await apiFetch(request.endpoint, {
-    directory: request.directory,
-  })
+  const response = await getBuddyClient(directory).explorer.file.raw(
+    buildProjectFileRawParameters(filepath),
+    {
+      parseAs: "blob",
+    },
+  )
 
-  if (!response.ok) {
+  if (!response.response?.ok) {
     return null
   }
 
-  return response.blob()
+  return response.data ?? null
 }
 
 async function loadProjectFileBlobOrThrow(directory: string, filepath: string) {
-  const request = buildProjectFileRawUrl(directory, filepath)
-  const response = await apiFetch(request.endpoint, {
-    directory: request.directory,
-  })
+  const response = await getBuddyClient(directory).explorer.file.raw(
+    buildProjectFileRawParameters(filepath),
+    {
+      parseAs: "blob",
+    },
+  )
 
-  if (!response.ok) {
-    const message = await response.text().catch(() => "")
-    throw new Error(message.trim() || `Request failed (${response.status})`)
+  if (!response.response?.ok || !response.data) {
+    const message =
+      response.error instanceof Error
+        ? response.error.message
+        : `Request failed (${response.response?.status ?? "no response"})`
+    throw new Error(message)
   }
 
-  return response.blob()
+  return response.data
 }
 
 export function resourcesQueryKey(directory: string) {

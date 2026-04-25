@@ -4,7 +4,7 @@ import { ToolEmptyState } from "../../tools/tool-empty-state"
 import { CopyAction } from "../../copy-action"
 import { language } from "@/context/language"
 import { isRecord, readString, readNonEmptyString, readNonNegativeInt } from "../../tools/types"
-import { resolveApiUrl } from "@/lib/api-client"
+import { resolveAssetUrl } from "@/lib/resource-url"
 import type { ToolPartProps } from "../registry"
 interface RenderFigureToolOutput {
   figureID: string
@@ -71,7 +71,7 @@ export function renderRenderFigureTool({ state, info }: ToolPartProps) {
     )
   }
 
-  const imageUrl = resolveApiUrl(renderFigure.url)
+  const imageUrl = resolveAssetUrl(renderFigure.url)
   const copyableImageUrl = stripUrlCredentials(imageUrl)
 
   return (

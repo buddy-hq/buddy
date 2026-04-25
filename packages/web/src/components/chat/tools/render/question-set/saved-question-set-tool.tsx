@@ -4,7 +4,8 @@ import { ToolErrorPanel } from "../../../tools/tool-error-panel"
 import type { ToolPartProps } from "../../registry"
 import { isRecord, readNonEmptyString, readNonNegativeInt } from "../../../tools/types"
 import { language } from "@/context/language"
-import { requestJson, stringifyError } from "@/lib/api-client"
+import { stringifyError } from "@/lib/api-client"
+import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 import {
   QuestionSetInlineView,
   type PublicQuestionSetArtifact,
@@ -181,12 +182,17 @@ function fetchQuestionSetArtifact(
     return existing
   }
 
-  const request = requestJson<PublicQuestionSetArtifact>(
-    directory,
-    `/api/question-set-artifacts/${artifactID}`,
-  ).finally(() => {
-    questionSetArtifactRequests.delete(cacheKey)
-  })
+  const request = getBuddyClient(directory)
+    .questionSetArtifacts.read({
+      artifactID,
+    })
+    .then((result) => {
+      const artifact: PublicQuestionSetArtifact = requireBuddyData(result)
+      return artifact
+    })
+    .finally(() => {
+      questionSetArtifactRequests.delete(cacheKey)
+    })
 
   questionSetArtifactRequests.set(cacheKey, request)
   return request
@@ -279,18 +285,14 @@ export function renderSavedQuestionSetTool(props: ToolPartProps) {
         <QuestionSetInlineView
           artifact={visibleArtifact}
           onSubmit={async (answers) => {
-            const response = await requestJson<SubmitQuestionSetAttemptOutput>(
-              directory,
-              `/api/question-set-artifacts/${visibleArtifact.artifactID}/attempts`,
-              {
-                method: "POST",
-                body: {
-                  answers: visibleArtifact.questions.map((question) => ({
-                    questionID: question.id,
-                    selectedChoiceIds: answers[question.id] ?? [],
-                  })),
-                },
-              },
+            const response: SubmitQuestionSetAttemptOutput = requireBuddyData(
+              await getBuddyClient(directory).questionSetArtifacts.submitAttempt({
+                artifactID: visibleArtifact.artifactID,
+                answers: visibleArtifact.questions.map((question) => ({
+                  questionID: question.id,
+                  selectedChoiceIds: answers[question.id] ?? [],
+                })),
+              }),
             )
 
             return response.result

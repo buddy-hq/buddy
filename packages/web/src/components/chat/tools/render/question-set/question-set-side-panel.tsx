@@ -6,7 +6,8 @@ import {
   type SubmitQuestionSetAttemptOutput,
 } from "@/components/chat/tools/render/question-set/question-set-inline-view"
 import { language } from "@/context/language"
-import { requestJson, stringifyError } from "@/lib/api-client"
+import { stringifyError } from "@/lib/api-client"
+import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 import { workspaceArtifactsQueryKeys } from "@/state/workspace-artifacts-query"
 import { useWorkspaceQuestionSetPanelStore } from "@/state/workspace-question-set-panel-store"
 
@@ -25,10 +26,14 @@ export function QuestionSetSidePanel(props: QuestionSetSidePanelProps) {
       props.artifactID,
     ],
     queryFn: () =>
-      requestJson<PublicQuestionSetArtifact>(
-        props.directory,
-        `/api/question-set-artifacts/${props.artifactID}`,
-      ),
+      getBuddyClient(props.directory)
+        .questionSetArtifacts.read({
+          artifactID: props.artifactID,
+        })
+        .then((result) => {
+          const artifact: PublicQuestionSetArtifact = requireBuddyData(result)
+          return artifact
+        }),
   })
   const artifact = artifactQuery.data
   const error = artifactQuery.error ? stringifyError(artifactQuery.error) : undefined
@@ -71,18 +76,14 @@ export function QuestionSetSidePanel(props: QuestionSetSidePanelProps) {
             artifact={artifact}
             persistKey={`selected-question-set:${artifact.artifactID}`}
             onSubmit={async (answers) => {
-              const response = await requestJson<SubmitQuestionSetAttemptOutput>(
-                props.directory,
-                `/api/question-set-artifacts/${artifact.artifactID}/attempts`,
-                {
-                  method: "POST",
-                  body: {
-                    answers: artifact.questions.map((question) => ({
-                      questionID: question.id,
-                      selectedChoiceIds: answers[question.id] ?? [],
-                    })),
-                  },
-                },
+              const response: SubmitQuestionSetAttemptOutput = requireBuddyData(
+                await getBuddyClient(props.directory).questionSetArtifacts.submitAttempt({
+                  artifactID: artifact.artifactID,
+                  answers: artifact.questions.map((question) => ({
+                    questionID: question.id,
+                    selectedChoiceIds: answers[question.id] ?? [],
+                  })),
+                }),
               )
 
               return response.result

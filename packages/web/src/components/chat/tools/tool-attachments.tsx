@@ -1,11 +1,11 @@
-import { resolveApiUrl } from "../../../lib/api-client"
+import { resolveAssetUrl } from "../../../lib/resource-url"
 import type { ToolAttachment } from "./registry"
 
 function resolveAttachmentUrl(url: string) {
   if (url.startsWith("data:") || url.startsWith("blob:")) {
     return url
   }
-  return resolveApiUrl(url)
+  return resolveAssetUrl(url)
 }
 
 interface ToolAttachmentGalleryProps {
