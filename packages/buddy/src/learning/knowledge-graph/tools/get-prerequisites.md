@@ -1,0 +1,1 @@
+Find prerequisite standards that lead into a target standard. Use this when a learner is stuck, when planning remediation from missing foundations, or when sequencing support before the target goal. Requires a standard code from the learner or from search_standards/get_standard. Increase depth to inspect longer prerequisite chains; keep limits focused for concise results.

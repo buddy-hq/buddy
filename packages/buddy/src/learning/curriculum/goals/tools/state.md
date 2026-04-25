@@ -1,0 +1,1 @@
+Read active goal-set storage state for the current workspace. Use this for diagnostics or recovery when goal tools disagree with the learner snapshot, or when you need raw active goal-set IDs and file paths. Prefer learner_snapshot_read for normal teaching decisions.

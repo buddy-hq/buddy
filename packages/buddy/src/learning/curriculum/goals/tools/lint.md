@@ -1,0 +1,1 @@
+Validate a drafted goal set with deterministic quality checks before committing it. Use this after goal_decide_scope and before goal_commit to catch vague verbs, untestable outcomes, compound goals, template mismatches, count issues, and softer wording problems. Do not commit goals until blocking errors are resolved.

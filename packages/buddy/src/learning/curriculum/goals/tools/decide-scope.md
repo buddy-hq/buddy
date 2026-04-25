@@ -1,0 +1,1 @@
+Normalize a learner request into a goal-writing brief before drafting goals. Use this to decide course vs topic scope, target goal count, inferred context label, and whether clarification is required. Run this before goal_lint or goal_commit when turning freeform learner intent into a structured goal set.

@@ -1,0 +1,1 @@
+Get the granular learning components that make up a specific standard. Use this to break a broad standard into teachable skills for targeted explanation, practice, remediation, or coverage checks. Requires a standard code from the learner or from search_standards/get_standard. Do not use this for open-ended topic search.

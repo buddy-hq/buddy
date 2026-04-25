@@ -1,0 +1,1 @@
+Resolve a specific educational standard by code and return its description, hierarchy, and alternate matches. Use this when the learner provides an exact code such as 6.NS.B.4 or HSG-CO.B.6, or when you need to verify a code before creating goals, practice, or assessment. Do not use this for topic searches without a code; use search_standards first.

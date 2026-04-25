@@ -1,0 +1,1 @@
+Find standards that naturally follow a target standard in the learning progression. Use this when the learner has mastered the current topic, asks what comes next, or when planning curriculum beyond the active goal. Requires a standard code from the learner or from search_standards/get_standard. Increase depth to look further ahead; keep limits focused for concise planning.
