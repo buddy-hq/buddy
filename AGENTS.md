@@ -39,7 +39,7 @@ Long term maintainability is a core priority. If you add new functionality, firs
 ## Tauri Discontinued
 - Tauri publishing is discontinued; do not add or maintain Tauri publish/release workflows.
 
-## Tests
+## Running Tests
 - Never run the full test suite.
 - Run only tests for the packages you are changing.
 - Never run vendor tests directly.
@@ -68,8 +68,6 @@ Build Buddy core by executing vendored OpenCode core, not by re-implementing it.
 - For UI work, follow `packages/ui/AGENTS.md`.
 - It defines component creation, styling, and how shadcn should be treated as a foundation rather than a finished theme.
 
-### Scripts and Commands
-- If command behavior is unclear, refer to `COMMANDS.AGENTS.md`.
 ### TypeScript
 - Use strict TypeScript and keep types sound.
 - Do not use casts.
@@ -103,3 +101,7 @@ Build Buddy core by executing vendored OpenCode core, not by re-implementing it.
 - Capabilities may also be constrained by context:
     - **Surface**: tools are available only on enabled surfaces such as chat, curriculum, editor, figure, or quiz.
     - **Workspace state**: some teaching tools require an interactive session.
+
+## Misc Rules
+- Buddy uses `@hey-api/openapi-ts` to generate a type-safe SDK from its Hono backend. Always use the typed SDK (`BuddyClient`) for API interactions. Never use manual fetch helpers like `requestJson`.
+- 
