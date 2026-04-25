@@ -99,6 +99,7 @@ import { shallow } from "zustand/shallow"
 import { stringifyError } from "../../state/teaching-actions"
 import {
   intentFromSelection,
+  teachingSelectionKey,
   useTeachingRuntime,
   type TeachingIntent,
 } from "../../state/teaching-runtime"
@@ -1296,7 +1297,11 @@ export function useDirectoryChatPageController(
     }
 
     setSystemPromptRefreshToken((token) => token + 1)
-    void syncTeachingRuntimeSelection()
+    void syncTeachingRuntimeSelection({
+      directory: decodedDirectory,
+      sessionID: submittedSessionID,
+      sessionKey: teachingSelectionKey(decodedDirectory, submittedSessionID),
+    })
     return true
   }
 
@@ -1420,16 +1425,25 @@ export function useDirectoryChatPageController(
       const attachmentParts = buildCommandAttachmentParts(rawAttachments)
       cs.clearPromptDraft(cs.promptKey)
       try {
-        await sendCommand(decodedDirectory, slashCommand.command.name, slashCommand.arguments, {
-          parts: attachmentParts,
-          persona: cs.selectedPersona,
-          intent,
-          agent: currentAgentName,
-          model: cs.effectiveModelSelection,
-          variant,
-        })
+        const submittedSessionID = await sendCommand(
+          decodedDirectory,
+          slashCommand.command.name,
+          slashCommand.arguments,
+          {
+            parts: attachmentParts,
+            persona: cs.selectedPersona,
+            intent,
+            agent: currentAgentName,
+            model: cs.effectiveModelSelection,
+            variant,
+          },
+        )
         setSystemPromptRefreshToken((token) => token + 1)
-        void syncTeachingRuntimeSelection()
+        void syncTeachingRuntimeSelection({
+          directory: decodedDirectory,
+          sessionID: submittedSessionID,
+          sessionKey: teachingSelectionKey(decodedDirectory, submittedSessionID),
+        })
       } catch {
         restorePromptSnapshot(draftSnapshot)
       }

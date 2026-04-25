@@ -65,12 +65,19 @@ export type MessageWithParts = {
   parts: MessagePart[]
 }
 
+export type GlobalBusPayload = {
+  type: string
+  properties: Record<string, unknown>
+}
+
+export type GlobalSyncPayload = {
+  type: "sync"
+  syncEvent: Record<string, unknown>
+}
+
 export type GlobalEvent = {
   directory?: string
-  payload: {
-    type: string
-    properties: Record<string, unknown>
-  }
+  payload: GlobalBusPayload | GlobalSyncPayload
 }
 
 export type SessionStatusInfo = SdkSessionStatus
@@ -141,6 +148,8 @@ export type DirectoryChatState = {
   sessions: SessionInfo[]
   sessionStatusByID: Record<string, SessionStatusInfo>
   messages: MessageWithParts[]
+  messagesBySessionID?: Record<string, MessageWithParts[]>
+  orphanPartsByMessageID?: Record<string, MessagePart[]>
   pendingPermissions: PermissionRequest[]
   pendingQuestions: QuestionRequest[]
   providers: ProviderInfo[]

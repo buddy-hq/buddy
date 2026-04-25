@@ -20,21 +20,33 @@ function makeMessages(): MessageWithParts[] {
 }
 
 describe("chat reducer", () => {
-  test("upsertMessage appends new message", () => {
+  test("upsertMessage inserts new messages by id", () => {
     const next = upsertMessage(
-      [],
+      [
+        createMessageWithParts(
+          createAssistantMessageInfo({
+            id: "message_2",
+            sessionID: "session_1",
+          }),
+        ),
+      ],
       createAssistantMessageInfo({
         id: "message_1",
         sessionID: "session_1",
       }),
     )
 
-    expect(next).toHaveLength(1)
-    expect(next[0]?.info.id).toBe("message_1")
+    expect(next.map((message) => message.info.id)).toEqual(["message_1", "message_2"])
   })
 
-  test("upsertPart appends part to existing message", () => {
-    const current = makeMessages()
+  test("upsertPart inserts new parts by id", () => {
+    const current = upsertPart(makeMessages(), {
+      id: "part_2",
+      sessionID: "session_1",
+      messageID: "message_1",
+      type: "text",
+      text: "world",
+    })
     const next = upsertPart(current, {
       id: "part_1",
       sessionID: "session_1",
@@ -42,7 +54,54 @@ describe("chat reducer", () => {
       type: "text",
       text: "hello",
     })
-    expect(next[0]?.parts).toHaveLength(1)
+    expect(next[0]?.parts.map((part) => part.id)).toEqual(["part_1", "part_2"])
+  })
+
+  test("upsertPart replaces matching optimistic text with the server text part", () => {
+    const current = upsertPart(makeMessages(), {
+      id: "prt_0196_test_optimistic",
+      sessionID: "session_1",
+      messageID: "message_1",
+      type: "text",
+      optimistic: true,
+      text: "hello",
+    })
+    const next = upsertPart(current, {
+      id: "prt_0196_test_server",
+      sessionID: "session_1",
+      messageID: "message_1",
+      type: "text",
+      text: "hello",
+    })
+
+    expect(next[0]?.parts.map((part) => part.id)).toEqual(["prt_0196_test_server"])
+  })
+
+  test("upsertPart keeps optimistic non-text parts when a different server part arrives", () => {
+    const current = upsertPart(makeMessages(), {
+      id: "prt_0196_test_file_optimistic",
+      sessionID: "session_1",
+      messageID: "message_1",
+      type: "file",
+      optimistic: true,
+      mime: "text/plain",
+      url: "data:text/plain;base64,aGVsbG8=",
+      filename: "hello.txt",
+    })
+    const next = upsertPart(current, {
+      id: "prt_0196_test_file_server",
+      sessionID: "session_1",
+      messageID: "message_1",
+      type: "file",
+      mime: "text/plain",
+      url: "data:text/plain;base64,d29ybGQ=",
+      filename: "world.txt",
+    })
+
+    expect(next[0]?.parts.map((part) => part.id)).toEqual([
+      "prt_0196_test_file_optimistic",
+      "prt_0196_test_file_server",
+    ])
   })
 
   test("appendPartDelta appends delta to string fields", () => {

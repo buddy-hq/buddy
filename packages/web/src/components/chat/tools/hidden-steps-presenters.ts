@@ -214,6 +214,5 @@ export function createBashHiddenStepPresentation(props: ToolPartProps): HiddenSt
     ]),
     summaryLabel: buildLabel(props.info.title, command),
     summaryOnly: true,
-    suppressErrorPreview: true,
   }
 }

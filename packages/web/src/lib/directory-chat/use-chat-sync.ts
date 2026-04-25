@@ -1,7 +1,7 @@
 import { useEffect } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { startChatSync } from "@/state/chat-sync"
-import { resyncDirectory } from "@/state/chat-actions"
+import { resyncDirectory, resyncDirectoryAfterReconnect } from "@/state/chat-actions"
 import { isAbortLikeError } from "@/state/chat-error"
 import { useUiPreferences } from "@/state/ui-preferences"
 import { useChatStore } from "@/state/chat-store"
@@ -104,26 +104,45 @@ export function useChatSync(props: UseChatSyncProps) {
         })
         .catch(() => undefined)
 
+    let hasConnected = false
+    let shouldRecoverOnReconnect = false
+
     const sync = startChatSync({
       directory: decodedDirectory,
       onStatus(status) {
         setStreamStatus(status)
-      },
-      onOpen() {
-        if (!decodedDirectory || decodedDirectory === "/") return
-        void resyncQueryBackedDirectory(decodedDirectory)
+        if (status === "connected") {
+          if (hasConnected && shouldRecoverOnReconnect && decodedDirectory !== "/") {
+            shouldRecoverOnReconnect = false
+            void resyncDirectoryAfterReconnect(decodedDirectory)
+              .then(() => {
+                syncDirectoryQueriesFromStore(decodedDirectory)
+              })
+              .catch(() => undefined)
+          }
+          hasConnected = true
+          return
+        }
+
+        if (hasConnected && (status === "connecting" || status === "error")) {
+          shouldRecoverOnReconnect = true
+        }
       },
       onEvent(event: GlobalEvent) {
         const directory = event.directory
         if (!directory || directory === "global") {
-          if (event.payload.type === "server.connected") {
-            if (!decodedDirectory || decodedDirectory === "/") return
-            void resyncQueryBackedDirectory(decodedDirectory)
-          }
           return
         }
 
         const payload = event.payload
+        if (!("properties" in payload)) {
+          return
+        }
+
+        if (payload.type === "server.connected" || payload.type === "server.heartbeat") {
+          return
+        }
+
         const properties = payload.properties
 
         if (payload.type === "session.created" || payload.type === "session.updated") {

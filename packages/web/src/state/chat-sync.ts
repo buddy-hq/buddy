@@ -1,7 +1,5 @@
 import type { GlobalEvent } from "./chat-types"
-import { getPlatform } from "../context/platform"
-import { apiFetch, createEventStreamUrl } from "../lib/api-client"
-import { getServerConnection } from "../context/server"
+import { getBuddyClient } from "../lib/buddy-client"
 
 type SyncHandlers = {
   directory?: string
@@ -13,6 +11,12 @@ type SyncHandlers = {
 
 const FRAME_MS = 16
 const STREAM_YIELD_MS = 8
+const EVENT_STREAM_ACCEPT = "text/event-stream"
+const EVENT_STREAM_CACHE_CONTROL = "no-cache"
+const GLOBAL_DIRECTORY = "global"
+const SDK_STREAM_DATA_KEY = "data"
+
+type UnknownRecord = Record<string, unknown>
 
 function findSseEventBoundary(buffer: string) {
   const match = /\r?\n\r?\n/.exec(buffer)
@@ -69,16 +73,85 @@ export function consumeSseBuffer(buffer: string) {
   }
 }
 
-function eventKey(event: GlobalEvent) {
-  const directory = event.directory ?? "global"
+function isRecord(value: unknown): value is UnknownRecord {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value)
+}
+
+function isGlobalBusPayload(value: unknown): value is GlobalEvent["payload"] {
+  return isRecord(value) && typeof value.type === "string" && isRecord(value.properties)
+}
+
+function isGlobalSyncPayload(value: unknown): value is GlobalEvent["payload"] {
+  return isRecord(value) && value.type === "sync" && isRecord(value.syncEvent)
+}
+
+function isGlobalEventPayload(value: unknown): value is GlobalEvent["payload"] {
+  return isGlobalBusPayload(value) || isGlobalSyncPayload(value)
+}
+
+function readOptionalString(record: UnknownRecord, key: string) {
+  const value = record[key]
+  return typeof value === "string" ? value : undefined
+}
+
+function normalizeGlobalEvent(
+  value: unknown,
+  fallbackDirectory: string | undefined,
+): GlobalEvent | undefined {
+  if (!isRecord(value)) return undefined
+
+  const sdkData = value[SDK_STREAM_DATA_KEY]
+  if (sdkData !== undefined) {
+    return normalizeGlobalEvent(sdkData, fallbackDirectory)
+  }
+
+  const payload = value.payload
+  if (isGlobalEventPayload(payload)) {
+    return {
+      directory: readOptionalString(value, "directory"),
+      payload,
+    }
+  }
+
+  if (isGlobalEventPayload(value)) {
+    return {
+      directory: fallbackDirectory,
+      payload: value,
+    }
+  }
+
+  return undefined
+}
+
+function eventPayloadProperties(event: GlobalEvent) {
   const payload = event.payload
+  return "properties" in payload ? payload.properties : undefined
+}
+
+function eventErrorInfo(error: unknown) {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+    }
+  }
+  return {
+    message: String(error),
+  }
+}
+
+function eventKey(event: GlobalEvent) {
+  const directory = event.directory ?? GLOBAL_DIRECTORY
+  const payload = event.payload
+  const properties = eventPayloadProperties(event)
+  if (!properties) return undefined
 
   if (payload.type === "session.status") {
-    return `${directory}:session.status:${String(payload.properties.sessionID ?? "")}`
+    return `${directory}:session.status:${String(properties.sessionID ?? "")}`
   }
 
   if (payload.type === "message.part.updated") {
-    const part = payload.properties.part as { messageID?: string; id?: string } | undefined
+    const part = properties.part as { messageID?: string; id?: string } | undefined
     if (!part?.messageID || !part.id) return undefined
     return `${directory}:message.part.updated:${part.messageID}:${part.id}`
   }
@@ -90,13 +163,19 @@ function deltaKey(directory: string, messageID: string, partID: string) {
   return `${directory}:${messageID}:${partID}`
 }
 
+function isAbortError(error: unknown) {
+  if (!error || typeof error !== "object") return false
+  if (!("name" in error)) return false
+  return error.name === "AbortError"
+}
+
 export function startChatSync(handlers: SyncHandlers) {
-  let source: EventSource | undefined
   let streamAbort: AbortController | undefined
   let reconnectTimer: number | undefined
   let attempt = 0
   let disposed = false
   let opened = false
+  let connectionID = 0
   let queue: Array<GlobalEvent | undefined> = []
   const coalesced = new Map<string, number>()
   const staleDeltas = new Set<string>()
@@ -112,17 +191,14 @@ export function startChatSync(handlers: SyncHandlers) {
     reconnectTimer = undefined
   }
 
-  const closeSource = () => {
-    if (!source) return
-    source.close()
-    source = undefined
-  }
-
   const closeStream = () => {
     if (!streamAbort) return
     streamAbort.abort()
     streamAbort = undefined
   }
+
+  const isCurrentConnection = (id: number, abort: AbortController) =>
+    !disposed && streamAbort === abort && connectionID === id
 
   const flush = () => {
     if (flushTimer !== undefined) {
@@ -139,14 +215,14 @@ export function startChatSync(handlers: SyncHandlers) {
 
     for (const event of events) {
       if (!event) continue
-      if (skip && event.payload.type === "message.part.delta") {
-        const props = event.payload.properties
+      const properties = eventPayloadProperties(event)
+      if (skip && event.payload.type === "message.part.delta" && properties) {
         if (
           skip.has(
             deltaKey(
-              event.directory ?? "global",
-              String(props.messageID ?? ""),
-              String(props.partID ?? ""),
+              event.directory ?? GLOBAL_DIRECTORY,
+              String(properties.messageID ?? ""),
+              String(properties.partID ?? ""),
             ),
           )
         ) {
@@ -166,146 +242,10 @@ export function startChatSync(handlers: SyncHandlers) {
     if (disposed) return
     console.info("[chat-sync] connect")
     reportStatus("connecting")
-    closeSource()
     closeStream()
     clearReconnect()
-    const search = new URLSearchParams()
-    if (handlers.directory) {
-      search.set("directory", handlers.directory)
-    }
-    const endpoint = search.size > 0 ? `/api/event?${search.toString()}` : "/api/event"
-    const server = getServerConnection()
-    const requiresAuthenticatedStream = !!server.username && !!server.password
-    const requiresFetchStream = getPlatform().platform === "desktop" || requiresAuthenticatedStream
 
-    const handleParsedEvent = (message: string) => {
-      try {
-        const event = JSON.parse(message) as GlobalEvent
-        const payloadType = event.payload?.type ?? "unknown"
-        if (payloadType === "session.status" || payloadType === "message.updated") {
-          console.info("[chat-sync] event", {
-            directory: event.directory ?? "global",
-            type: payloadType,
-            sessionID: String(event.payload?.properties?.sessionID ?? ""),
-          })
-        }
-        const key = eventKey(event)
-        if (key) {
-          const existing = coalesced.get(key)
-          if (existing !== undefined) {
-            queue[existing] = event
-            if (payloadType === "message.part.updated") {
-              const part = event.payload.properties.part as
-                | { messageID?: string; id?: string }
-                | undefined
-              if (part?.messageID && part.id) {
-                staleDeltas.add(deltaKey(event.directory ?? "global", part.messageID, part.id))
-              }
-            }
-            return
-          }
-          coalesced.set(key, queue.length)
-        }
-        queue.push(event)
-        scheduleFlush()
-      } catch (error) {
-        handlers.onError?.(error)
-      }
-    }
-
-    const scheduleReconnect = (notifyError = true) => {
-      if (disposed) return
-      attempt += 1
-      const delay = Math.min(10_000, 500 * attempt)
-      reconnectTimer = window.setTimeout(() => {
-        connect()
-      }, delay)
-      reportStatus("error")
-      if (notifyError) {
-        handlers.onError?.(new Error(`Event stream disconnected (attempt ${attempt})`))
-      }
-    }
-
-    if (requiresFetchStream) {
-      streamAbort = new AbortController()
-
-      void (async () => {
-        try {
-          const response = await apiFetch(endpoint, {
-            directory: handlers.directory,
-            headers: {
-              accept: "text/event-stream",
-              "cache-control": "no-cache",
-            },
-            signal: streamAbort.signal,
-          })
-
-          if (!response.ok || !response.body) {
-            throw new Error(`Event stream request failed (${response.status})`)
-          }
-
-          attempt = 0
-          if (!opened) {
-            opened = true
-            handlers.onOpen?.()
-          }
-          reportStatus("connected")
-
-          const reader = response.body.getReader()
-          const decoder = new TextDecoder()
-          let buffer = ""
-          let yieldedAt = Date.now()
-
-          const yieldToMainThread = async () => {
-            if (Date.now() - yieldedAt < STREAM_YIELD_MS) return
-            yieldedAt = Date.now()
-            await new Promise<void>((resolve) => window.setTimeout(resolve, 0))
-          }
-
-          for (;;) {
-            if (disposed) break
-            const result = await reader.read()
-            if (result.done) {
-              buffer += decoder.decode()
-              break
-            }
-
-            buffer += decoder.decode(result.value, { stream: true })
-            const parsed = consumeSseBuffer(buffer)
-            buffer = parsed.rest
-
-            for (const message of parsed.messages) {
-              handleParsedEvent(message)
-              await yieldToMainThread()
-            }
-          }
-
-          const parsed = consumeSseBuffer(buffer)
-          for (const message of parsed.messages) {
-            handleParsedEvent(message)
-            await yieldToMainThread()
-          }
-        } catch {
-          if (disposed) return
-          console.warn("[chat-sync] error", { attempt: attempt + 1 })
-          scheduleReconnect(true)
-          return
-        } finally {
-          closeStream()
-        }
-
-        if (!disposed) {
-          console.warn("[chat-sync] error", { attempt: attempt + 1 })
-          scheduleReconnect(false)
-        }
-      })()
-
-      return
-    }
-
-    source = new EventSource(createEventStreamUrl(endpoint))
-
-    source.addEventListener("open", () => {
+    const markOpen = () => {
       attempt = 0
       console.info("[chat-sync] open")
       if (!opened) {
@@ -313,17 +253,123 @@ export function startChatSync(handlers: SyncHandlers) {
         handlers.onOpen?.()
       }
       reportStatus("connected")
-    })
+    }
 
-    source.addEventListener("message", (messageEvent) => {
-      handleParsedEvent((messageEvent as MessageEvent<string>).data)
-    })
+    const handleStreamEvent = (event: GlobalEvent) => {
+      const payloadType = event.payload?.type ?? "unknown"
+      const properties = eventPayloadProperties(event)
+      if (payloadType === "session.status" || payloadType === "message.updated") {
+        console.info("[chat-sync] event", {
+          directory: event.directory ?? GLOBAL_DIRECTORY,
+          type: payloadType,
+          sessionID: String(properties?.sessionID ?? ""),
+        })
+      }
+      const key = eventKey(event)
+      if (key) {
+        const existing = coalesced.get(key)
+        if (existing !== undefined) {
+          queue[existing] = event
+          if (payloadType === "message.part.updated" && properties) {
+            const part = properties.part as { messageID?: string; id?: string } | undefined
+            if (part?.messageID && part.id) {
+              staleDeltas.add(
+                deltaKey(event.directory ?? GLOBAL_DIRECTORY, part.messageID, part.id),
+              )
+            }
+          }
+          return
+        }
+        coalesced.set(key, queue.length)
+      }
+      queue.push(event)
+      scheduleFlush()
+    }
 
-    source.addEventListener("error", () => {
-      console.warn("[chat-sync] error", { attempt: attempt + 1 })
-      closeSource()
-      scheduleReconnect(true)
-    })
+    const scheduleReconnect = (
+      notifyError = true,
+      status: "connecting" | "connected" | "error" = "error",
+    ) => {
+      if (disposed) return
+      attempt += 1
+      const delay = Math.min(10_000, 500 * attempt)
+      reconnectTimer = window.setTimeout(() => {
+        connect()
+      }, delay)
+      reportStatus(status)
+      if (notifyError) {
+        handlers.onError?.(new Error(`Event stream disconnected (attempt ${attempt})`))
+      }
+    }
+
+    const currentConnectionID = connectionID + 1
+    connectionID = currentConnectionID
+    const currentAbort = new AbortController()
+    streamAbort = currentAbort
+
+    void (async () => {
+      let streamError: unknown
+
+      try {
+        const events = await getBuddyClient(handlers.directory).event.stream(
+          handlers.directory ? { directory: handlers.directory } : undefined,
+          {
+            headers: {
+              accept: EVENT_STREAM_ACCEPT,
+              "cache-control": EVENT_STREAM_CACHE_CONTROL,
+            },
+            signal: currentAbort.signal,
+            sseMaxRetryAttempts: 0,
+            onSseError(error) {
+              if (!currentAbort.signal.aborted && !isAbortError(error)) {
+                streamError = error
+              }
+            },
+          },
+        )
+
+        if (!isCurrentConnection(currentConnectionID, currentAbort)) return
+        markOpen()
+
+        let yieldedAt = Date.now()
+
+        const yieldToMainThread = async () => {
+          if (Date.now() - yieldedAt < STREAM_YIELD_MS) return
+          yieldedAt = Date.now()
+          await new Promise<void>((resolve) => window.setTimeout(resolve, 0))
+        }
+
+        for await (const event of events.stream) {
+          if (!isCurrentConnection(currentConnectionID, currentAbort)) break
+          const normalizedEvent = normalizeGlobalEvent(event, handlers.directory)
+          if (!normalizedEvent) {
+            console.warn("[chat-sync] invalid-event", { event })
+            await yieldToMainThread()
+            continue
+          }
+          handleStreamEvent(normalizedEvent)
+          await yieldToMainThread()
+        }
+      } catch (error) {
+        if (!isCurrentConnection(currentConnectionID, currentAbort) || isAbortError(error)) return
+        console.warn("[chat-sync] error", { attempt: attempt + 1, error: eventErrorInfo(error) })
+        handlers.onError?.(error)
+        scheduleReconnect(true)
+        return
+      }
+
+      if (!isCurrentConnection(currentConnectionID, currentAbort)) return
+      if (streamError) {
+        console.warn("[chat-sync] error", {
+          attempt: attempt + 1,
+          error: eventErrorInfo(streamError),
+        })
+        scheduleReconnect(true)
+        return
+      }
+      console.info("[chat-sync] disconnected", { attempt: attempt + 1 })
+      scheduleReconnect(false, "connecting")
+    })()
   }
 
   connect()
@@ -332,7 +378,6 @@ export function startChatSync(handlers: SyncHandlers) {
     stop() {
       disposed = true
       clearReconnect()
-      closeSource()
       closeStream()
       flush()
     },

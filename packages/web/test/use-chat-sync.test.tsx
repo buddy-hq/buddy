@@ -5,6 +5,11 @@ import { createRoot, type Root } from "react-dom/client"
 import { useChatStore } from "../src/state/chat-store"
 import type { GlobalEvent } from "../src/state/chat-types"
 
+const actualChatActions = await import("../src/state/chat-actions")
+const actualDirectoryChatQuery = await import("../src/state/directory-chat-query")
+const actualChatPromptHelpers = await import("../src/lib/directory-chat/chat-prompt-helpers")
+const actualChatSync = await import("../src/state/chat-sync")
+
 type SyncHandlers = {
   directory?: string
   onOpen?: () => void
@@ -14,15 +19,19 @@ type SyncHandlers = {
 }
 
 const resyncDirectoryMock = mock(async (_directory: string) => undefined)
+const resyncDirectoryAfterReconnectMock = mock(async (_directory: string) => undefined)
 const stopSyncMock = mock(() => undefined)
 
 let syncHandlers: SyncHandlers | undefined
 
 mock.module("../src/state/chat-actions", () => ({
+  ...actualChatActions,
   resyncDirectory: resyncDirectoryMock,
+  resyncDirectoryAfterReconnect: resyncDirectoryAfterReconnectMock,
 }))
 
 mock.module("../src/state/directory-chat-query", () => ({
+  ...actualDirectoryChatQuery,
   removeDirectoryPermissionQueryData() {},
   removeDirectoryQuestionQueryData() {},
   setDirectoryPermissionsQueryData() {},
@@ -34,12 +43,14 @@ mock.module("../src/state/directory-chat-query", () => ({
 }))
 
 mock.module("../src/lib/directory-chat/chat-prompt-helpers", () => ({
+  ...actualChatPromptHelpers,
   readSessionErrorMessage(error: unknown) {
     return error instanceof Error ? error.message : String(error)
   },
 }))
 
 mock.module("../src/state/chat-sync", () => ({
+  ...actualChatSync,
   startChatSync(handlers: SyncHandlers) {
     syncHandlers = handlers
     return {
@@ -81,6 +92,7 @@ describe("useChatSync", () => {
     queryClient = new QueryClient()
     resetChatStore()
     resyncDirectoryMock.mockClear()
+    resyncDirectoryAfterReconnectMock.mockClear()
     stopSyncMock.mockClear()
     syncHandlers = undefined
   })
@@ -152,6 +164,108 @@ describe("useChatSync", () => {
     expect(resyncDirectoryMock).toHaveBeenCalledTimes(1)
     expect(resyncDirectoryMock).toHaveBeenCalledWith("/repo")
     expect(setDirectoryError).not.toHaveBeenCalled()
+  })
+
+  test("does not resync on stream open or server connected events", async () => {
+    const { useChatSync } = await import("../src/lib/directory-chat/use-chat-sync")
+
+    function Probe() {
+      useChatSync({
+        decodedDirectory: "/repo",
+        hasRegisteredProject: true,
+        applySessionUpdated() {},
+        applySessionStatus() {},
+        applyMessageUpdated() {},
+        applyMessageRemoved() {},
+        applyPartUpdated() {},
+        applyPartRemoved() {},
+        applyPartDelta() {},
+        applyPermissionAsked() {},
+        applyPermissionReplied() {},
+        applyQuestionAsked() {},
+        applyQuestionResolved() {},
+        clearDirectoryError() {},
+        setDirectoryError() {},
+        setStreamStatus() {},
+        setSystemPromptRefreshToken() {},
+        refreshSlashCommands() {},
+        refreshMcpStatus() {},
+      })
+
+      return null
+    }
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <Probe />
+        </QueryClientProvider>,
+      )
+      await flushEffects()
+    })
+
+    await act(async () => {
+      syncHandlers?.onOpen?.()
+      syncHandlers?.onEvent({
+        directory: "/repo",
+        payload: {
+          type: "server.connected",
+          properties: {},
+        },
+      })
+      await flushEffects()
+    })
+
+    expect(resyncDirectoryMock).not.toHaveBeenCalled()
+    expect(resyncDirectoryAfterReconnectMock).not.toHaveBeenCalled()
+  })
+
+  test("resyncs after reconnecting a previously opened stream", async () => {
+    const { useChatSync } = await import("../src/lib/directory-chat/use-chat-sync")
+
+    function Probe() {
+      useChatSync({
+        decodedDirectory: "/repo",
+        hasRegisteredProject: true,
+        applySessionUpdated() {},
+        applySessionStatus() {},
+        applyMessageUpdated() {},
+        applyMessageRemoved() {},
+        applyPartUpdated() {},
+        applyPartRemoved() {},
+        applyPartDelta() {},
+        applyPermissionAsked() {},
+        applyPermissionReplied() {},
+        applyQuestionAsked() {},
+        applyQuestionResolved() {},
+        clearDirectoryError() {},
+        setDirectoryError() {},
+        setStreamStatus() {},
+        setSystemPromptRefreshToken() {},
+        refreshSlashCommands() {},
+        refreshMcpStatus() {},
+      })
+
+      return null
+    }
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <Probe />
+        </QueryClientProvider>,
+      )
+      await flushEffects()
+    })
+
+    await act(async () => {
+      syncHandlers?.onStatus?.("connected")
+      syncHandlers?.onStatus?.("error")
+      syncHandlers?.onStatus?.("connected")
+      await flushEffects()
+    })
+
+    expect(resyncDirectoryAfterReconnectMock).toHaveBeenCalledWith("/repo")
   })
 
   test("applies message and part removals from sync events", async () => {

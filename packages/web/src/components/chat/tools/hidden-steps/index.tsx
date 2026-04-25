@@ -27,6 +27,7 @@ import { AssistantPartRenderer } from "../../parts/assistant-part/assistant-part
 import { isRecord } from "../types"
 import { reasoningHeading } from "../../utils/markdown"
 import { stripAnsi } from "../../utils/path"
+import { language } from "@/context/language"
 
 const PREVIEW_MAX_HEIGHT_PX = 80
 const SUMMARY_MAX_LABEL_COUNT = 3
@@ -35,6 +36,7 @@ const ABSTRACTED_THOUGHT_LABEL = "Thought"
 const ABSTRACTED_WORKING_LABEL = "Working"
 const READ_TOOL_NAMES = new Set(["read"])
 const SEARCH_TOOL_NAMES = new Set(["list", "glob", "grep", "websearch", "codesearch"])
+const SHELL_TOOL_NAME = "bash"
 import { MOTION_SNAPPY, MOTION_GENTLE } from "../tool-motion"
 
 const PREVIEW_KIND = {
@@ -125,6 +127,10 @@ function entryErrorText(entry: AbstractedEntry): string | undefined {
 
   const outputText = stripAnsi(String(entry.state?.output ?? "")).trim()
   if (outputText) return outputText
+
+  if (entry.part.type === "tool" && String(entry.part.tool ?? "") === SHELL_TOOL_NAME) {
+    return `${language.t("chatTools.shell")} failed.`
+  }
 
   return entry.info?.title ? `${entry.info.title} failed.` : "Step failed."
 }
@@ -320,7 +326,7 @@ function SummaryOnlyToolRow({ entry }: { entry: AbstractedEntry }) {
   )
 }
 
-interface HiddenStepsProps {
+type HiddenStepsProps = {
   parts: MessagePart[]
   onOpenSession?: (sessionID: string) => void
   directory?: string
@@ -384,7 +390,9 @@ export function HiddenSteps({
   const previewViewportHeight = showLivePreview ? PREVIEW_MAX_HEIGHT_PX : undefined
   const summaryDetail = useMemo(() => buildSummary(entries), [entries])
   const preview = useMemo(() => buildPreview(previewEntry), [previewEntry])
-  const previewText = useThrottledText(preview.detail ?? "")
+  const throttledPreviewText = useThrottledText(preview.detail ?? "")
+  const previewText =
+    preview.kind === PREVIEW_KIND.error ? (preview.detail ?? "") : throttledPreviewText
   const hasPreviewText = previewText.trim().length > 0
   const showPreview = showLivePreview || (showErrorPreview && hasPreviewText)
   const title = showLivePreview || showErrorPreview ? preview.title : (summaryDetail ?? "Steps")
@@ -525,7 +533,7 @@ export function HiddenSteps({
                 metaText={metaText}
                 interrupted={interrupted}
                 defaultOpen={
-                  entry.part.type === "tool" && String(entry.part.tool ?? "") === "bash"
+                  entry.part.type === "tool" && String(entry.part.tool ?? "") === SHELL_TOOL_NAME
                     ? shellToolDefaultOpen
                     : undefined
                 }

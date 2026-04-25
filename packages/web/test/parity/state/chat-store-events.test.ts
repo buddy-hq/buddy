@@ -213,7 +213,7 @@ describe("chat-store parity events", () => {
     expect(next?.isBusy).toBe(false)
   })
 
-  test("ignores message updates from inactive sessions", () => {
+  test("caches message updates from inactive sessions without changing the visible transcript", () => {
     const store = useChatStore.getState()
 
     store.ensureOpenProject(directory)
@@ -221,12 +221,26 @@ describe("chat-store parity events", () => {
     store.setActiveSession(directory, "session_1")
 
     store.applyMessageUpdated(directory, userMessage("message_other", "session_2"))
-    expect(useChatStore.getState().directories[directory]?.messages).toEqual([])
+    let next = useChatStore.getState().directories[directory]
+    expect(next?.messages).toEqual([])
+    expect(next?.messagesBySessionID?.session_2.map((message) => message.info.id)).toEqual([
+      "message_other",
+    ])
 
     store.applyMessageUpdated(directory, assistantMessage("message_active", "session_1"))
-    const next = useChatStore.getState().directories[directory]
+    next = useChatStore.getState().directories[directory]
     expect(next?.messages.map((message) => message.info.id)).toEqual(["message_active"])
+    expect(next?.messagesBySessionID?.session_2.map((message) => message.info.id)).toEqual([
+      "message_other",
+    ])
+    expect(next?.isBusy).toBe(true)
+
+    store.setActiveSession(directory, "session_2")
+    next = useChatStore.getState().directories[directory]
+    expect(next?.messages.map((message) => message.info.id)).toEqual(["message_other"])
     expect(next?.isBusy).toBe(false)
+
+    store.setActiveSession(directory, "session_1")
 
     store.applySessionStatus(directory, "session_1", BUSY_SESSION_STATUS)
     expect(useChatStore.getState().directories[directory]?.isBusy).toBe(true)
@@ -236,6 +250,174 @@ describe("chat-store parity events", () => {
 
     store.applySessionStatus(directory, "session_1", IDLE_SESSION_STATUS)
     expect(useChatStore.getState().directories[directory]?.isBusy).toBe(false)
+  })
+
+  test("keeps live messages when a stale transcript snapshot lands during a run", () => {
+    const store = useChatStore.getState()
+
+    store.ensureOpenProject(directory)
+    store.setSessions(directory, [session("session_1", 2)])
+    store.setActiveSession(directory, "session_1")
+    store.setMessages(directory, "session_1", [
+      { info: userMessage("message_1", "session_1"), parts: [] },
+      { info: assistantMessage("message_2", "session_1", "stop"), parts: [] },
+    ])
+    store.applySessionStatus(directory, "session_1", BUSY_SESSION_STATUS)
+    store.applyMessageUpdated(directory, userMessage("message_3", "session_1"))
+
+    store.setMessages(directory, "session_1", [
+      { info: userMessage("message_1", "session_1"), parts: [] },
+      { info: assistantMessage("message_2", "session_1", "stop"), parts: [] },
+    ])
+
+    let next = useChatStore.getState().directories[directory]
+    expect(next?.messages.map((message) => message.info.id)).toEqual([
+      "message_1",
+      "message_2",
+      "message_3",
+    ])
+    expect(next?.isBusy).toBe(true)
+
+    store.applySessionStatus(directory, "session_1", IDLE_SESSION_STATUS)
+    store.setMessages(directory, "session_1", [
+      { info: userMessage("message_1", "session_1"), parts: [] },
+      { info: assistantMessage("message_2", "session_1", "stop"), parts: [] },
+    ])
+
+    next = useChatStore.getState().directories[directory]
+    expect(next?.messages.map((message) => message.info.id)).toEqual(["message_1", "message_2"])
+    expect(next?.isBusy).toBe(false)
+  })
+
+  test("keeps live parts when a stale transcript snapshot lands during a run", () => {
+    const store = useChatStore.getState()
+
+    store.ensureOpenProject(directory)
+    store.setSessions(directory, [session("session_1", 2)])
+    store.setActiveSession(directory, "session_1")
+    store.setMessages(directory, "session_1", [
+      {
+        info: assistantMessage("message_1", "session_1"),
+        parts: [
+          {
+            id: "part_1",
+            sessionID: "session_1",
+            messageID: "message_1",
+            type: "text",
+            text: "hello",
+          },
+        ],
+      },
+    ])
+    store.applySessionStatus(directory, "session_1", BUSY_SESSION_STATUS)
+    store.applyPartDelta(directory, {
+      sessionID: "session_1",
+      messageID: "message_1",
+      partID: "part_1",
+      field: "text",
+      delta: " there",
+    })
+
+    store.setMessages(directory, "session_1", [
+      {
+        info: assistantMessage("message_1", "session_1"),
+        parts: [
+          {
+            id: "part_1",
+            sessionID: "session_1",
+            messageID: "message_1",
+            type: "text",
+            text: "hello",
+          },
+        ],
+      },
+    ])
+
+    const next = useChatStore.getState().directories[directory]
+    expect(next?.messages[0]?.parts[0]?.text).toBe("hello there")
+    expect(next?.isBusy).toBe(true)
+  })
+
+  test("keeps a live active session when a stale session list omits it", () => {
+    const store = useChatStore.getState()
+
+    store.ensureOpenProject(directory)
+    store.setSessions(directory, [session("session_1", 1)])
+    store.setActiveSession(directory, "session_2")
+    store.applySessionStatus(directory, "session_2", BUSY_SESSION_STATUS)
+    store.applyMessageUpdated(directory, userMessage("message_2", "session_2"))
+
+    store.setSessions(directory, [session("session_1", 3)])
+
+    const next = useChatStore.getState().directories[directory]
+    expect(next?.sessionID).toBe("session_2")
+    expect(next?.messages.map((message) => message.info.id)).toEqual(["message_2"])
+    expect(next?.isBusy).toBe(true)
+    expect(useChatStore.getState().lastSessionByDirectory[directory]).toBe("session_2")
+  })
+
+  test("drops an idle missing active session when session list no longer includes it", () => {
+    const store = useChatStore.getState()
+
+    store.ensureOpenProject(directory)
+    store.setSessions(directory, [session("session_1", 1)])
+    store.setActiveSession(directory, "session_2")
+    store.applyMessageUpdated(directory, userMessage("message_2", "session_2"))
+
+    store.setSessions(directory, [session("session_1", 3)])
+
+    const next = useChatStore.getState().directories[directory]
+    expect(next?.sessionID).toBe("session_1")
+    expect(next?.messages).toEqual([])
+  })
+
+  test("buffers part updates until the parent message arrives", () => {
+    const store = useChatStore.getState()
+
+    store.ensureOpenProject(directory)
+    store.setSessions(directory, [session("session_1", 1)])
+    store.setActiveSession(directory, "session_1")
+    store.applyPartUpdated(directory, {
+      id: "part_1",
+      sessionID: "session_1",
+      messageID: "message_1",
+      type: "text",
+      text: "hello",
+    })
+
+    store.applyMessageUpdated(directory, assistantMessage("message_1", "session_1"))
+
+    const next = useChatStore.getState().directories[directory]
+    expect(next?.messages.map((message) => message.parts.map((part) => part.text))).toEqual([
+      ["hello"],
+    ])
+  })
+
+  test("applies buffered part deltas once the parent message appears", () => {
+    const store = useChatStore.getState()
+
+    store.ensureOpenProject(directory)
+    store.setSessions(directory, [session("session_1", 1)])
+    store.setActiveSession(directory, "session_1")
+    store.applyPartUpdated(directory, {
+      id: "part_1",
+      sessionID: "session_1",
+      messageID: "message_1",
+      type: "text",
+      text: "hel",
+    })
+    store.applyPartDelta(directory, {
+      sessionID: "session_1",
+      messageID: "message_1",
+      partID: "part_1",
+      field: "text",
+      delta: "lo",
+    })
+
+    store.applyMessageUpdated(directory, assistantMessage("message_1", "session_1"))
+
+    const next = useChatStore.getState().directories[directory]
+    expect(next?.messages[0]?.parts[0]?.text).toBe("hello")
   })
 
   test("preserves vendor retry metadata and keeps the session active", () => {

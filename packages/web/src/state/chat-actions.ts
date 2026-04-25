@@ -16,6 +16,7 @@ import type {
   GlobalNotebookHomeGetResponses,
   GlobalNotebookHomePutResponses,
   GlobalNotebooksListResponses,
+  LearnerSnapshotData,
   LearnerSnapshotResponses,
   McpLocalConfig,
   McpRemoteConfig,
@@ -24,7 +25,9 @@ import type {
   PermissionListResponses,
   ProjectListResponses,
   QuestionSetArtifactsListResponse,
+  SessionCommandResponses,
   SessionMessagesResponses,
+  SessionPromptResponses,
   SessionTeachingStateResponses,
   ProviderAuthMethod,
   ProviderAuthResponse,
@@ -33,6 +36,8 @@ import type {
 import { useChatStore } from "./chat-store"
 import { getModelSelectionScopeKey, useModelSelectionStore } from "./model-selection-store"
 import type {
+  MessageInfo,
+  MessagePart,
   MessageWithParts,
   McpStatusMap,
   PermissionRequest,
@@ -42,7 +47,7 @@ import type {
   SessionInfo,
 } from "./chat-types"
 import type { TeachingIntent, TeachingPromptContext } from "./teaching-runtime"
-import { requestJson, stringifyError } from "../lib/api-client"
+import { stringifyError } from "../lib/api-client"
 
 import { getBuddyClient, requireBuddyData, buddyResultMessage } from "../lib/buddy-client"
 import { retry } from "../lib/retry"
@@ -226,6 +231,7 @@ export function resolveDefaultPersonaID(
 
 type RawProvider = ProviderListResponse["all"][number]
 type RawProviderModel = RawProvider["models"][string]
+type LearnerSnapshotPersona = NonNullable<NonNullable<LearnerSnapshotData["query"]>["persona"]>
 const DEFAULT_PERSONA_SURFACE: PersonaConfigOption["defaultSurface"] = "curriculum"
 const EMPTY_ALIGNMENT_SUMMARY: LearnerCurriculumView["alignmentSummary"] = {
   records: [],
@@ -261,11 +267,103 @@ export type KnownNotebookEntry = {
 }
 const latestSessionListRequestByDirectory = new Map<string, number>()
 const latestTranscriptRequestByDirectory = new Map<string, number>()
+const OPTIMISTIC_MESSAGE_ID_PREFIX = "msg" as const
+const OPTIMISTIC_PART_ID_PREFIX = "prt" as const
+const DEFAULT_OPTIMISTIC_AGENT = "buddy" as const
+const PENDING_OPTIMISTIC_MODEL_PROVIDER_ID = "pending" as const
+const PENDING_OPTIMISTIC_MODEL_ID = "pending" as const
+const VENDOR_ID_COUNTER_RADIX = 0x1000
+const VENDOR_ID_LENGTH = 26
+const VENDOR_ID_TIME_BYTE_COUNT = 6
+const VENDOR_ID_HEX_LENGTH = VENDOR_ID_TIME_BYTE_COUNT * 2
+const VENDOR_ID_RANDOM_LENGTH = VENDOR_ID_LENGTH - VENDOR_ID_HEX_LENGTH
+const VENDOR_ID_BASE62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+
+let lastOptimisticTimestamp = 0
+let optimisticCounter = 0
+
+function createOptimisticID(prefix: string) {
+  const currentTimestamp = Date.now()
+  if (currentTimestamp !== lastOptimisticTimestamp) {
+    lastOptimisticTimestamp = currentTimestamp
+    optimisticCounter = 0
+  }
+  optimisticCounter += 1
+
+  const encoded =
+    BigInt(currentTimestamp) * BigInt(VENDOR_ID_COUNTER_RADIX) + BigInt(optimisticCounter)
+  const timeBytes = new Uint8Array(VENDOR_ID_TIME_BYTE_COUNT)
+  for (let index = 0; index < VENDOR_ID_TIME_BYTE_COUNT; index += 1) {
+    const shift = BigInt(40 - 8 * index)
+    timeBytes[index] = Number((encoded >> shift) & BigInt(0xff))
+  }
+
+  const randomBytes = new Uint8Array(VENDOR_ID_RANDOM_LENGTH)
+  crypto.getRandomValues(randomBytes)
+  const suffix = Array.from(
+    randomBytes,
+    (value) => VENDOR_ID_BASE62[value % VENDOR_ID_BASE62.length],
+  ).join("")
+  const timestampHex = Array.from(timeBytes, (value) => value.toString(16).padStart(2, "0")).join(
+    "",
+  )
+  return `${prefix}_${timestampHex}${suffix}`
+}
+
+function bumpDirectoryRequestSequence(map: Map<string, number>, directory: string) {
+  const next = (map.get(directory) ?? 0) + 1
+  map.set(directory, next)
+  return next
+}
+
+function invalidateSessionLists(directory: string) {
+  bumpDirectoryRequestSequence(latestSessionListRequestByDirectory, directory)
+}
+
+function invalidateTranscripts(directory: string) {
+  bumpDirectoryRequestSequence(latestTranscriptRequestByDirectory, directory)
+}
+
+function selectDraftSession(directory: string) {
+  invalidateSessionLists(directory)
+  invalidateTranscripts(directory)
+  const store = useChatStore.getState()
+  store.startSessionDraft(directory)
+  store.setDirectoryReady(directory, true)
+}
+
+function selectCanonicalSession(directory: string, info: SessionInfo) {
+  invalidateSessionLists(directory)
+  invalidateTranscripts(directory)
+  const store = useChatStore.getState()
+  store.setSessionInfo(directory, info)
+  store.setDirectoryReady(directory, true)
+}
 type DirectorySessionLoadResult = {
   directory: string
   info: SessionInfo | undefined
 }
 const pendingDirectorySessionLoads = new Map<string, Promise<DirectorySessionLoadResult>>()
+
+type SessionMutationResponse = {
+  info: MessageInfo
+  parts: MessagePart[]
+}
+
+type OptimisticPromptInput = {
+  directory: string
+  sessionID: string
+  messageID: string
+  content: string
+  parts: PromptSubmissionPart[]
+  agent?: string
+  persona?: string
+  model?: {
+    providerID: string
+    modelID: string
+  }
+  variant?: string
+}
 
 class RetryableTranscriptReloadError extends Error {
   constructor(cause: unknown) {
@@ -275,9 +373,18 @@ class RetryableTranscriptReloadError extends Error {
   }
 }
 
-function toLearnerPersona(persona?: string): string | undefined {
-  if (!persona) return undefined
-  return persona
+function toLearnerPersona(persona?: string): LearnerSnapshotPersona | undefined {
+  switch (persona) {
+    case undefined:
+      return undefined
+    case "buddy":
+    case "code-buddy":
+    case "math-buddy":
+    case "reading-buddy":
+      return persona
+    default:
+      throw new Error(`Unsupported learner persona: ${persona}`)
+  }
 }
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
@@ -335,6 +442,157 @@ function restoreSessionSelectionFromMessages(
       variant: lastUserMessage.info.model.variant ?? null,
       messageCreatedAt: lastUserMessage.info.time.created,
     })
+}
+
+function promoteSessionMutation(input: {
+  directory: string
+  sessionID: string
+  response: SessionMutationResponse
+  optimisticMessageID?: string
+}) {
+  const store = useChatStore.getState()
+  invalidateTranscripts(input.directory)
+  const activeState = store.directories[input.directory]
+  const isActiveSession = activeState?.sessionID === input.sessionID
+  store.setDirectoryReady(input.directory, true)
+  const sessionMessages =
+    activeState?.messagesBySessionID?.[input.sessionID] ??
+    (isActiveSession ? (activeState?.messages ?? []) : [])
+
+  const optimisticReplacementParts =
+    input.response.info.role === "user" &&
+    input.optimisticMessageID &&
+    input.optimisticMessageID !== input.response.info.id
+      ? (sessionMessages
+          .find((message) => message.info.id === input.optimisticMessageID)
+          ?.parts.map((part) =>
+            Object.assign({}, part, {
+              id: createOptimisticID(OPTIMISTIC_PART_ID_PREFIX),
+              sessionID: input.sessionID,
+              messageID: input.response.info.id,
+            }),
+          ) ?? [])
+      : []
+
+  store.applyMessageUpdated(input.directory, input.response.info)
+  for (const part of input.response.parts) {
+    store.applyPartUpdated(input.directory, part)
+  }
+  if (input.response.parts.length === 0) {
+    for (const part of optimisticReplacementParts) {
+      store.applyPartUpdated(input.directory, part)
+    }
+  }
+
+  if (
+    input.response.info.role === "user" &&
+    input.optimisticMessageID &&
+    input.optimisticMessageID !== input.response.info.id
+  ) {
+    store.applyMessageRemoved(input.directory, {
+      sessionID: input.sessionID,
+      messageID: input.optimisticMessageID,
+    })
+  }
+  if (input.response.info.role === "user") {
+    useModelSelectionStore
+      .getState()
+      .restoreSessionSelection(getModelSelectionScopeKey(input.directory, input.sessionID), {
+        agent: input.response.info.agent,
+        model: `${input.response.info.model.providerID}/${input.response.info.model.modelID}`,
+        variant: input.response.info.model.variant ?? null,
+        messageCreatedAt: input.response.info.time.created,
+      })
+  }
+  if (isActiveSession) {
+    store.clearDirectoryError(input.directory)
+  }
+}
+
+function createOptimisticPromptParts(input: {
+  sessionID: string
+  messageID: string
+  content: string
+  parts: PromptSubmissionPart[]
+}) {
+  const text = input.content.trim()
+  const hasSubmittedTextPart = input.parts.some((part) => part.type === "text")
+  const textPart: MessagePart[] =
+    text && !hasSubmittedTextPart
+      ? [
+          {
+            id: createOptimisticID(OPTIMISTIC_PART_ID_PREFIX),
+            sessionID: input.sessionID,
+            messageID: input.messageID,
+            type: "text",
+            optimistic: true,
+            text,
+          },
+        ]
+      : []
+
+  const visibleParts = input.parts
+    .filter((part) => part.type === "text" || part.type === "file" || part.type === "agent")
+    .map((part) =>
+      Object.assign({}, part, {
+        id: createOptimisticID(OPTIMISTIC_PART_ID_PREFIX),
+        sessionID: input.sessionID,
+        messageID: input.messageID,
+        optimistic: true,
+      }),
+    )
+
+  return [...textPart, ...visibleParts]
+}
+
+function addOptimisticPromptMessage(input: OptimisticPromptInput) {
+  const store = useChatStore.getState()
+  const optimisticModel = resolveOptimisticPromptModel(input)
+  store.setActiveSession(input.directory, input.sessionID)
+  store.setDirectoryReady(input.directory, true)
+  store.applyMessageUpdated(input.directory, {
+    id: input.messageID,
+    sessionID: input.sessionID,
+    role: "user",
+    agent: input.agent ?? input.persona ?? DEFAULT_OPTIMISTIC_AGENT,
+    model: {
+      providerID: optimisticModel.providerID,
+      modelID: optimisticModel.modelID,
+      ...(input.variant ? { variant: input.variant } : {}),
+    },
+    time: {
+      created: Date.now(),
+    },
+  })
+
+  for (const part of createOptimisticPromptParts(input)) {
+    store.applyPartUpdated(input.directory, part)
+  }
+
+  return true
+}
+
+function resolveOptimisticPromptModel(input: OptimisticPromptInput) {
+  if (input.model) return input.model
+
+  const state = useChatStore.getState().directories[input.directory]
+  const messages =
+    state?.messagesBySessionID?.[input.sessionID] ??
+    (state?.sessionID === input.sessionID ? (state.messages ?? []) : [])
+  const lastUserMessage = messages.findLast(
+    (message) => message.info.sessionID === input.sessionID && message.info.role === "user",
+  )
+  if (lastUserMessage?.info.role === "user") {
+    return {
+      providerID: lastUserMessage.info.model.providerID,
+      modelID: lastUserMessage.info.model.modelID,
+    }
+  }
+
+  return {
+    providerID: PENDING_OPTIMISTIC_MODEL_PROVIDER_ID,
+    modelID: PENDING_OPTIMISTIC_MODEL_ID,
+  }
 }
 
 function parseAgentConfigEntry(value: unknown): AgentConfigOption | undefined {
@@ -705,15 +963,17 @@ export async function reorderOpenProjects(directories: string[]) {
 
 export async function loadSessions(directory: string) {
   const store = useChatStore.getState()
-  const requestSequence = (latestSessionListRequestByDirectory.get(directory) ?? 0) + 1
-  latestSessionListRequestByDirectory.set(directory, requestSequence)
+  const requestSequence = bumpDirectoryRequestSequence(
+    latestSessionListRequestByDirectory,
+    directory,
+  )
 
   try {
     const sessions = requireBuddyData<SessionInfo[]>(
       await getBuddyClient(directory).session.list({ directory }),
     )
     if (latestSessionListRequestByDirectory.get(directory) !== requestSequence) {
-      return sessions
+      return store.directories[directory]?.sessions ?? []
     }
 
     store.setSessions(directory, sessions)
@@ -771,10 +1031,7 @@ async function fetchSessionMessages(directory: string, sessionID: string) {
 }
 
 async function loadSessionStatuses(directory: string) {
-  const statusBySession = await requestJson<Record<string, unknown>>(
-    directory,
-    "/api/session/status",
-  )
+  const statusBySession = requireBuddyData(await getBuddyClient(directory).session.status())
   const store = useChatStore.getState()
   const snapshot = store.directories[directory]
   if (!snapshot) return statusBySession
@@ -846,8 +1103,10 @@ async function recoverSessionAfterAbortAttempt(directory: string, sessionID: str
 
 export async function loadMessages(directory: string, sessionID: string) {
   const store = useChatStore.getState()
-  const requestSequence = (latestTranscriptRequestByDirectory.get(directory) ?? 0) + 1
-  latestTranscriptRequestByDirectory.set(directory, requestSequence)
+  const requestSequence = bumpDirectoryRequestSequence(
+    latestTranscriptRequestByDirectory,
+    directory,
+  )
   let lastError: unknown
 
   try {
@@ -923,7 +1182,9 @@ export async function loadPermissions(directory: string) {
 export async function loadQuestions(directory: string) {
   const store = useChatStore.getState()
   try {
-    const requests = await requestJson<QuestionRequest[]>(directory, "/api/question")
+    const requests: QuestionRequest[] = requireBuddyData(
+      await getBuddyClient(directory).question.list(),
+    )
     store.setPendingQuestions(directory, requests)
     store.setDirectoryError(directory, undefined)
     return requests
@@ -946,16 +1207,25 @@ export async function loadProviderCatalog(directory: string) {
   }
 }
 
+function primeDirectoryRuntimeState(directory: string) {
+  return Promise.all([
+    loadSessionStatuses(directory).catch(() => undefined),
+    loadPermissions(directory),
+    loadProviderCatalog(directory),
+    loadMcpStatus(directory).catch(() => undefined),
+  ]).catch(() => undefined)
+}
+
 async function createSession(directory: string) {
   const pendingCreation = pendingSessionCreations.get(directory)
   if (pendingCreation) {
     return pendingCreation
   }
 
-  const store = useChatStore.getState()
   const createPromise = (async () => {
     const info = requireBuddyData<SessionInfo>(await getBuddyClient(directory).session.create())
-    store.setSessionInfo(directory, info)
+    selectCanonicalSession(directory, info)
+    const store = useChatStore.getState()
     store.setMessages(directory, info.id, [])
     useModelSelectionStore.getState().migrateWorkspaceSelection(directory, info.id)
     return info
@@ -1001,8 +1271,9 @@ export async function ensureDirectorySession(directory: string) {
       }
 
       const readyState = useChatStore.getState().directories[targetDirectory]
-      if (readyState?.isReady && readyState.isDraft) {
+      if (readyState?.isReady && !readyState.sessionID) {
         store.clearDirectoryError(targetDirectory)
+        void primeDirectoryRuntimeState(targetDirectory)
         return {
           directory: targetDirectory,
           info: undefined,
@@ -1014,6 +1285,7 @@ export async function ensureDirectorySession(directory: string) {
 
       if (readyInfo) {
         store.clearDirectoryError(targetDirectory)
+        void primeDirectoryRuntimeState(targetDirectory)
         return {
           directory: targetDirectory,
           info: readyInfo,
@@ -1025,10 +1297,7 @@ export async function ensureDirectorySession(directory: string) {
 
       const state = useChatStore.getState()
       const current = state.directories[targetDirectory]
-      const preserveDraft = current?.isDraft === true
-      const storedSession = preserveDraft
-        ? undefined
-        : (current?.sessionID ?? state.lastSessionByDirectory[targetDirectory])
+      const storedSession = current?.sessionID ?? state.lastSessionByDirectory[targetDirectory]
       const sessions = await loadSessions(targetDirectory)
       const sessionByID = new Map(sessions.map((session) => [session.id, session]))
 
@@ -1037,7 +1306,7 @@ export async function ensureDirectorySession(directory: string) {
         info = sessionByID.get(storedSession)
       }
 
-      if (!info && !preserveDraft) {
+      if (!info) {
         info = sessions[0]
       }
 
@@ -1050,7 +1319,7 @@ export async function ensureDirectorySession(directory: string) {
           .catch(() => undefined)
       }
 
-      if (!info && !preserveDraft) {
+      if (!info) {
         const latestStoreState = useChatStore.getState()
         const latestState = latestStoreState.directories[targetDirectory]
         const latestSessionID =
@@ -1068,21 +1337,22 @@ export async function ensureDirectorySession(directory: string) {
       }
 
       if (info) {
-        store.setSessionInfo(targetDirectory, info)
-        await loadMessages(targetDirectory, info.id)
+        selectCanonicalSession(targetDirectory, info)
+        const activeState = useChatStore.getState().directories[targetDirectory]
+        const hasLiveTranscript =
+          activeState?.sessionID === info.id &&
+          (activeState.messages.length > 0 || activeState.isBusy)
+        if (!hasLiveTranscript) {
+          await loadMessages(targetDirectory, info.id)
+        }
       } else {
         // The persisted active session ID can point to a session from a previous runtime.
         // If no valid session can be resolved, always reset to a fresh draft.
-        store.startSessionDraft(targetDirectory)
+        selectDraftSession(targetDirectory)
       }
 
       store.setDirectoryReady(targetDirectory, true)
-      void Promise.all([
-        loadSessionStatuses(targetDirectory).catch(() => undefined),
-        loadPermissions(targetDirectory),
-        loadProviderCatalog(targetDirectory),
-        loadMcpStatus(targetDirectory).catch(() => undefined),
-      ]).catch(() => undefined)
+      void primeDirectoryRuntimeState(targetDirectory)
       return {
         directory: targetDirectory,
         info,
@@ -1115,14 +1385,14 @@ export async function selectSession(directory: string, sessionID: string) {
   const existing = current?.sessions.find((session) => session.id === sessionID)
 
   if (existing) {
-    store.setSessionInfo(directory, existing)
+    selectCanonicalSession(directory, existing)
   } else {
     const info = requireBuddyData<SessionInfo>(
       await getBuddyClient(directory).session.get({
         sessionID,
       }),
     )
-    store.setSessionInfo(directory, info)
+    selectCanonicalSession(directory, info)
   }
 
   try {
@@ -1135,12 +1405,12 @@ export async function selectSession(directory: string, sessionID: string) {
     const sessions = await loadSessions(directory).catch(() => [])
     const fallback = sessions[0]
     if (!fallback) {
-      store.startSessionDraft(directory)
+      selectDraftSession(directory)
       store.clearDirectoryError(directory)
       return
     }
 
-    store.setSessionInfo(directory, fallback)
+    selectCanonicalSession(directory, fallback)
     const fallbackLoaded = await loadMessages(directory, fallback.id)
       .then(() => true)
       .catch(() => false)
@@ -1162,7 +1432,7 @@ export async function startNewSession(directory: string) {
 export function startNewSessionDraft(directory: string) {
   const store = useChatStore.getState()
   store.clearDirectoryError(directory)
-  store.startSessionDraft(directory)
+  selectDraftSession(directory)
 }
 
 async function resolveSessionForSend(directory: string) {
@@ -1217,17 +1487,21 @@ export async function sendPrompt(
   const store = useChatStore.getState()
   store.clearDirectoryError(directory)
   let sessionID: string | undefined
+  let optimisticMessageID: string | undefined
 
   try {
     const resolvedSessionID = await resolveSessionForSend(directory)
     sessionID = resolvedSessionID
     store.applySessionStatus(directory, resolvedSessionID, BUSY_SESSION_STATUS)
 
+    optimisticMessageID = createOptimisticID(OPTIMISTIC_MESSAGE_ID_PREFIX)
+    const promptParts = input?.parts ?? []
     const intent = input?.intent ?? "auto"
     const target = resolvePromptTarget(input)
     const promptBody = {
+      messageID: optimisticMessageID,
       content,
-      ...(input?.parts && input.parts.length > 0 ? { parts: input.parts } : {}),
+      ...(promptParts.length > 0 ? { parts: promptParts } : {}),
       ...target,
       intent,
       ...(input?.focusGoalIds && input.focusGoalIds.length > 0
@@ -1238,15 +1512,25 @@ export async function sendPrompt(
       ...(input?.teaching ? { teaching: input.teaching } : {}),
       ...(input?.reading ? { reading: input.reading } : {}),
     }
+    const optimisticAdded = addOptimisticPromptMessage({
+      directory,
+      sessionID: resolvedSessionID,
+      messageID: optimisticMessageID,
+      content,
+      parts: promptParts,
+      agent: input?.agent,
+      persona: input?.persona,
+      model: input?.model,
+      variant: input?.variant,
+    })
 
-    const postPrompt = async (targetSessionID: string) => {
-      requireBuddyData(
+    const postPrompt = async (targetSessionID: string): Promise<SessionMutationResponse> =>
+      requireBuddyData<SessionPromptResponses[200]>(
         await getBuddyClient(directory).session.prompt({
           sessionID: targetSessionID,
           body: promptBody,
         }),
       )
-    }
 
     console.info("[chat-action] prompt.start", {
       directory,
@@ -1255,7 +1539,13 @@ export async function sendPrompt(
     })
 
     try {
-      await postPrompt(resolvedSessionID)
+      const response = await postPrompt(resolvedSessionID)
+      promoteSessionMutation({
+        directory,
+        sessionID: resolvedSessionID,
+        response,
+        optimisticMessageID,
+      })
     } catch (error) {
       const shouldRecover = await shouldRecoverMissingSession(directory, resolvedSessionID, error)
       if (!shouldRecover) {
@@ -1263,10 +1553,27 @@ export async function sendPrompt(
       }
 
       store.applySessionStatus(directory, resolvedSessionID, IDLE_SESSION_STATUS)
-      store.startSessionDraft(directory)
+      if (optimisticAdded) {
+        store.applyMessageRemoved(directory, {
+          sessionID: resolvedSessionID,
+          messageID: optimisticMessageID,
+        })
+      }
+      selectDraftSession(directory)
       const recoveredSessionID = await resolveSessionForSend(directory)
       sessionID = recoveredSessionID
       store.applySessionStatus(directory, recoveredSessionID, BUSY_SESSION_STATUS)
+      addOptimisticPromptMessage({
+        directory,
+        sessionID: recoveredSessionID,
+        messageID: optimisticMessageID,
+        content,
+        parts: promptParts,
+        agent: input?.agent,
+        persona: input?.persona,
+        model: input?.model,
+        variant: input?.variant,
+      })
 
       console.warn("[chat-action] prompt.retry-missing-session", {
         directory,
@@ -1274,12 +1581,18 @@ export async function sendPrompt(
         recoveredSessionID,
       })
 
-      await postPrompt(recoveredSessionID)
+      const response = await postPrompt(recoveredSessionID)
+      promoteSessionMutation({
+        directory,
+        sessionID: recoveredSessionID,
+        response,
+        optimisticMessageID,
+      })
       void loadSessions(directory).catch(() => undefined)
     }
 
     console.info("[chat-action] prompt.accepted", { directory, sessionID })
-    return sessionID
+    return sessionID ?? resolvedSessionID
   } catch (error) {
     if (sessionID) {
       console.error("[chat-action] prompt.failed", {
@@ -1297,8 +1610,14 @@ export async function sendPrompt(
     const missingSession = isMissingSessionError(error)
     if (sessionID) {
       store.applySessionStatus(directory, sessionID, IDLE_SESSION_STATUS)
+      if (optimisticMessageID) {
+        store.applyMessageRemoved(directory, {
+          sessionID,
+          messageID: optimisticMessageID,
+        })
+      }
       if (missingSession) {
-        store.startSessionDraft(directory)
+        selectDraftSession(directory)
       } else {
         void loadMessages(directory, sessionID).catch(() => undefined)
       }
@@ -1342,7 +1661,7 @@ export async function sendCommand(
     }
     variant?: string
   },
-) {
+): Promise<string> {
   const store = useChatStore.getState()
   store.clearDirectoryError(directory)
   let sessionID: string | undefined
@@ -1364,17 +1683,21 @@ export async function sendCommand(
       ...(input?.variant ? { variant: input.variant } : {}),
     }
 
-    const postCommand = async (targetSessionID: string) => {
-      requireBuddyData(
+    const postCommand = async (targetSessionID: string): Promise<SessionMutationResponse> =>
+      requireBuddyData<SessionCommandResponses[200]>(
         await getBuddyClient(directory).session.command({
           sessionID: targetSessionID,
           body: commandBody,
         }),
       )
-    }
 
     try {
-      await postCommand(resolvedSessionID)
+      const response = await postCommand(resolvedSessionID)
+      promoteSessionMutation({
+        directory,
+        sessionID: resolvedSessionID,
+        response,
+      })
     } catch (error) {
       const shouldRecover = await shouldRecoverMissingSession(directory, resolvedSessionID, error)
       if (!shouldRecover) {
@@ -1382,19 +1705,26 @@ export async function sendCommand(
       }
 
       store.applySessionStatus(directory, resolvedSessionID, IDLE_SESSION_STATUS)
-      store.startSessionDraft(directory)
+      selectDraftSession(directory)
       const recoveredSessionID = await resolveSessionForSend(directory)
       sessionID = recoveredSessionID
       store.applySessionStatus(directory, recoveredSessionID, BUSY_SESSION_STATUS)
-      await postCommand(recoveredSessionID)
+      const response = await postCommand(recoveredSessionID)
+      promoteSessionMutation({
+        directory,
+        sessionID: recoveredSessionID,
+        response,
+      })
       void loadSessions(directory).catch(() => undefined)
     }
+
+    return sessionID
   } catch (error) {
     const missingSession = isMissingSessionError(error)
     if (sessionID) {
       store.applySessionStatus(directory, sessionID, IDLE_SESSION_STATUS)
       if (missingSession) {
-        store.startSessionDraft(directory)
+        selectDraftSession(directory)
       } else {
         void loadMessages(directory, sessionID).catch(() => undefined)
       }
@@ -1432,7 +1762,7 @@ export async function compactSession(
     const missingSession = isMissingSessionError(error)
     store.applySessionStatus(directory, sessionID, IDLE_SESSION_STATUS)
     if (missingSession) {
-      store.startSessionDraft(directory)
+      selectDraftSession(directory)
     } else {
       void loadMessages(directory, sessionID).catch(() => undefined)
     }
@@ -1558,7 +1888,7 @@ async function performSessionRevertMutation(input: {
   try {
     const session = await input.request()
 
-    store.setSessionInfo(input.directory, session)
+    selectCanonicalSession(input.directory, session)
     await loadMessages(input.directory, input.sessionID)
     void loadSessions(input.directory).catch(() => undefined)
     store.applySessionStatus(input.directory, input.sessionID, IDLE_SESSION_STATUS)
@@ -1568,7 +1898,7 @@ async function performSessionRevertMutation(input: {
     const missingSession = isMissingSessionError(error)
     store.applySessionStatus(input.directory, input.sessionID, IDLE_SESSION_STATUS)
     if (missingSession) {
-      store.startSessionDraft(input.directory)
+      selectDraftSession(input.directory)
     } else {
       void loadMessages(input.directory, input.sessionID).catch(() => undefined)
     }
@@ -1617,11 +1947,13 @@ export async function undoLastSessionMessage(
   return performSessionRevertMutation({
     directory,
     sessionID,
-    request: () =>
-      requestJson<SessionInfo>(directory, `/api/session/${encodeURIComponent(sessionID)}/revert`, {
-        method: "POST",
-        body: { messageID },
-      }),
+    request: async () =>
+      requireBuddyData(
+        await getBuddyClient(directory).session.revert({
+          sessionID,
+          messageID,
+        }),
+      ),
   })
 }
 
@@ -1663,27 +1995,28 @@ export async function restoreRevertedSessionMessage(
   return performSessionRevertMutation({
     directory,
     sessionID,
-    request: () =>
+    request: async () =>
       nextMessageID
-        ? requestJson<SessionInfo>(
-            directory,
-            `/api/session/${encodeURIComponent(sessionID)}/revert`,
-            {
-              method: "POST",
-              body: { messageID: nextMessageID },
-            },
+        ? requireBuddyData(
+            await getBuddyClient(directory).session.revert({
+              sessionID,
+              messageID: nextMessageID,
+            }),
           )
-        : requestJson<SessionInfo>(
-            directory,
-            `/api/session/${encodeURIComponent(sessionID)}/unrevert`,
-            {
-              method: "POST",
-            },
+        : requireBuddyData(
+            await getBuddyClient(directory).session.unrevert({
+              sessionID,
+            }),
           ),
   })
 }
 
-export async function resyncDirectory(directory: string) {
+async function resyncDirectoryState(
+  directory: string,
+  input?: {
+    forceActiveTranscriptReload?: boolean
+  },
+) {
   await loadSessions(directory)
   await loadSessionStatuses(directory).catch(() => undefined)
   await loadPermissions(directory)
@@ -1692,9 +2025,21 @@ export async function resyncDirectory(directory: string) {
   await loadMcpStatus(directory).catch(() => undefined)
   const sessionID = useChatStore.getState().directories[directory]?.sessionID
   if (!sessionID) return
-  if (shouldDeferTranscriptReload(directory, sessionID)) return
+  if (!input?.forceActiveTranscriptReload && shouldDeferTranscriptReload(directory, sessionID)) {
+    return
+  }
   await loadMessages(directory, sessionID)
   await loadSessionStatuses(directory).catch(() => undefined)
+}
+
+export async function resyncDirectory(directory: string) {
+  return resyncDirectoryState(directory)
+}
+
+export async function resyncDirectoryAfterReconnect(directory: string) {
+  return resyncDirectoryState(directory, {
+    forceActiveTranscriptReload: true,
+  })
 }
 
 export async function replyPermission(input: {
@@ -1721,15 +2066,11 @@ export async function replyQuestion(input: {
   requestID: string
   answers: string[][]
 }) {
-  const result = await requestJson<boolean>(
-    input.directory,
-    `/api/question/${encodeURIComponent(input.requestID)}/reply`,
-    {
-      method: "POST",
-      body: {
-        answers: input.answers,
-      },
-    },
+  const result = requireBuddyData(
+    await getBuddyClient(input.directory).question.reply({
+      requestID: input.requestID,
+      answers: input.answers,
+    }),
   )
   if (result) {
     useChatStore.getState().applyQuestionResolved(input.directory, input.requestID)
@@ -1738,12 +2079,10 @@ export async function replyQuestion(input: {
 }
 
 export async function rejectQuestion(input: { directory: string; requestID: string }) {
-  const result = await requestJson<boolean>(
-    input.directory,
-    `/api/question/${encodeURIComponent(input.requestID)}/reject`,
-    {
-      method: "POST",
-    },
+  const result = requireBuddyData(
+    await getBuddyClient(input.directory).question.reject({
+      requestID: input.requestID,
+    }),
   )
   if (result) {
     useChatStore.getState().applyQuestionResolved(input.directory, input.requestID)
@@ -1852,29 +2191,18 @@ function sortedSubagentKeys(
 async function requestLearnerSnapshot(
   directory: string,
   input?: {
-    persona?: string
+    persona?: LearnerSnapshotPersona
     intent?: TeachingIntent
     sessionID?: string
   },
 ) {
-  const params = new URLSearchParams()
-
-  if (input?.persona) {
-    params.set("persona", input.persona)
-  }
-  if (input?.intent) {
-    params.set("intent", input.intent)
-  }
-  if (input?.sessionID) {
-    params.set("sessionId", input.sessionID)
-  }
-
-  const query = params.toString()
-  const endpoint = query.length > 0 ? `/api/learner/snapshot?${query}` : "/api/learner/snapshot"
-
-  return requestJson<LearnerSnapshotResponses[200]>(directory, endpoint, {
-    method: "GET",
-  })
+  return requireBuddyData(
+    await getBuddyClient(directory).learner.snapshot({
+      persona: input?.persona,
+      intent: input?.intent,
+      sessionId: input?.sessionID,
+    }),
+  )
 }
 
 function buildRuntimeCapabilitiesViewFromSnapshot(
@@ -2082,11 +2410,7 @@ export async function loadPersonaCatalog(directory: string) {
 }
 
 export async function loadAgentCatalog(directory: string) {
-  const agents = await requestJson<unknown>(directory, "/api/config/agents")
-  if (!Array.isArray(agents)) {
-    throw new Error("Agent catalog payload must be an array.")
-  }
-
+  const agents = requireBuddyData(await getBuddyClient(directory).config.agents())
   return agents
     .map(parseAgentConfigEntry)
     .filter((agent): agent is AgentConfigOption => agent !== undefined)
@@ -2227,7 +2551,6 @@ export function shouldDeferTranscriptReload(directory: string, sessionID?: strin
   const state = useChatStore.getState()
   const snapshot = state.directories[directory]
   if (!snapshot?.isBusy) return false
-  if (state.streamStatus !== "connected") return false
   if (sessionID && snapshot.sessionID !== sessionID) return false
   return true
 }

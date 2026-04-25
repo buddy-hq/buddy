@@ -79,6 +79,8 @@ function resetStore() {
     streamStatus: "idle",
   })
   useModelSelectionStore.setState({
+    selectionSourceByKey: {},
+    restoredSelectionCreatedAtByKey: {},
     selectedAgentByKey: {},
     selectedModelByKey: {},
     selectedVariantByKey: {},
@@ -754,6 +756,129 @@ describe("ensureDirectorySession", () => {
     expect(useChatStore.getState().directories["/repo"]?.sessionID).toBe("session-1")
     expect(useChatStore.getState().directories["/repo"]?.isDraft).toBe(false)
   })
+
+  test("loads providers for an already-ready draft session", async () => {
+    useChatStore.setState({
+      openProjects: ["/repo"],
+      activeDirectory: "/repo",
+      lastSessionByDirectory: {},
+      directories: {
+        "/repo": createDirectoryChatState({
+          isDraft: true,
+          isReady: true,
+          providers: [],
+          providerDefault: {},
+        }),
+      },
+    })
+
+    let providerRequests = 0
+
+    globalThis.fetch = createFetchStub(async (input, init) => {
+      const url = new URL(requestUrl(input), "http://localhost")
+      const method = requestMethod(input, init) ?? "GET"
+
+      if (method === "GET" && url.pathname === "/api/provider") {
+        providerRequests += 1
+        return new Response(
+          JSON.stringify({
+            default: { openai: "gpt-5" },
+            connected: ["openai"],
+            all: [
+              {
+                id: "openai",
+                name: "OpenAI",
+                env: [],
+                models: {
+                  "gpt-5": {
+                    id: "gpt-5",
+                    name: "GPT-5",
+                    family: "gpt-5",
+                    limit: {
+                      context: 1,
+                      input: 1,
+                      output: 1,
+                    },
+                    capabilities: {
+                      reasoning: true,
+                      attachment: true,
+                      toolcall: true,
+                      input: {
+                        text: true,
+                        audio: false,
+                        image: true,
+                        video: false,
+                        pdf: true,
+                      },
+                      output: {
+                        text: true,
+                        audio: false,
+                        image: false,
+                        video: false,
+                        pdf: false,
+                      },
+                      interleaved: false,
+                    },
+                  },
+                },
+              },
+            ],
+          }),
+          {
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        )
+      }
+
+      if (method === "GET" && url.pathname === "/api/provider/auth") {
+        return new Response(JSON.stringify({ openai: [] }), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "GET" && url.pathname === "/api/permission") {
+        return new Response(JSON.stringify([]), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "GET" && url.pathname === "/api/config/mcp/status") {
+        return new Response(JSON.stringify({}), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "GET" && url.pathname === "/api/session/status") {
+        return new Response(JSON.stringify({}), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      throw new Error(`Unexpected request: ${method} ${url.pathname}${url.search}`)
+    })
+
+    const ensured = await ensureDirectorySession("/repo")
+    await new Promise<void>((resolve) => setTimeout(resolve, 0))
+
+    expect(ensured).toEqual({
+      directory: "/repo",
+      info: undefined,
+    })
+    expect(providerRequests).toBe(1)
+    expect(
+      useChatStore.getState().directories["/repo"]?.providers.map((provider) => provider.id),
+    ).toEqual(["openai"])
+  })
 })
 
 describe("loadSessions", () => {
@@ -835,6 +960,23 @@ describe("shouldDeferTranscriptReload", () => {
       streamStatus: "idle",
     })
 
+    expect(shouldDeferTranscriptReload("/repo", "session_1")).toBe(true)
+  })
+
+  test("does not defer transcript reload when the current session is idle", () => {
+    useChatStore.setState({
+      directories: {
+        "/repo": createDirectoryChatState({
+          sessionTitle: "New chat",
+          sessionStatusByID: { session_1: IDLE_SESSION_STATUS },
+          isBusy: false,
+          isReady: true,
+          sessionID: "session_1",
+        }),
+      },
+      streamStatus: "connected",
+    })
+
     expect(shouldDeferTranscriptReload("/repo", "session_1")).toBe(false)
   })
 })
@@ -889,7 +1031,32 @@ describe("sendPrompt", () => {
 
       if (method === "POST" && url.pathname === "/api/session/session_1/message") {
         promptRequests += 1
-        return new Response(JSON.stringify({}), {
+        return new Response(
+          JSON.stringify({
+            info: createUserMessageInfo({
+              id: "message_1",
+              sessionID: sessionInfo.id,
+              agent: "buddy",
+              model: {
+                providerID: "test",
+                modelID: "test-model",
+              },
+              time: {
+                created: 2,
+              },
+            }),
+            parts: [],
+          }),
+          {
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        )
+      }
+
+      if (method === "GET" && url.pathname === "/api/session/session_1/message") {
+        return new Response(JSON.stringify([]), {
           headers: {
             "content-type": "application/json",
           },
@@ -913,6 +1080,735 @@ describe("sendPrompt", () => {
     expect(promptRequests).toBe(1)
     expect(useChatStore.getState().directories["/repo"]?.sessionID).toBe("session_1")
     expect(useChatStore.getState().directories["/repo"]?.isDraft).toBe(false)
+    const messages = useChatStore.getState().directories["/repo"]?.messages
+    expect(messages?.map((message) => message.info)).toEqual([
+      createUserMessageInfo({
+        id: "message_1",
+        sessionID: "session_1",
+        agent: "buddy",
+        model: {
+          providerID: "test",
+          modelID: "test-model",
+        },
+        time: {
+          created: 2,
+        },
+      }),
+    ])
+    expect(messages?.[0]?.parts.map((part) => part.text)).toEqual(["hello"])
+  })
+
+  test("keeps the first submitted message when bootstrap transcript reload resolves stale after send", async () => {
+    const sessionInfo = {
+      id: "session_1",
+      title: "New thread",
+      time: {
+        created: 1,
+        updated: 1,
+      },
+    }
+
+    useChatStore.setState({
+      openProjects: ["/repo"],
+      activeDirectory: "/repo",
+      directories: {
+        "/repo": createDirectoryChatState({
+          isDraft: true,
+          isReady: false,
+        }),
+      },
+    })
+
+    const staleTranscriptGate = createDeferred<void>()
+    let sessionListRequests = 0
+
+    globalThis.fetch = createFetchStub(async (input, init) => {
+      const url = new URL(requestUrl(input), "http://localhost")
+      const method = requestMethod(input, init) ?? "GET"
+
+      if (method === "GET" && url.pathname === "/api/session") {
+        sessionListRequests += 1
+        if (sessionListRequests === 1) {
+          await staleTranscriptGate.promise
+          return new Response(JSON.stringify([]), {
+            headers: {
+              "content-type": "application/json",
+            },
+          })
+        }
+
+        return new Response(JSON.stringify([sessionInfo]), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "GET" && url.pathname === "/api/permission") {
+        return new Response(JSON.stringify([]), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "GET" && url.pathname === "/api/provider") {
+        return new Response(
+          JSON.stringify({
+            default: "",
+            connected: [],
+            all: [],
+          }),
+          {
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        )
+      }
+
+      if (method === "GET" && url.pathname === "/api/provider/auth") {
+        return new Response(JSON.stringify({}), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "GET" && url.pathname === "/api/config/mcp/status") {
+        return new Response(JSON.stringify({}), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "GET" && url.pathname === "/api/session/status") {
+        return new Response(JSON.stringify({}), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "POST" && url.pathname === "/api/session") {
+        return new Response(JSON.stringify(sessionInfo), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "POST" && url.pathname === "/api/session/session_1/message") {
+        return new Response(
+          JSON.stringify({
+            info: createUserMessageInfo({
+              id: "message_1",
+              sessionID: sessionInfo.id,
+              agent: "buddy",
+              model: {
+                providerID: "test",
+                modelID: "test-model",
+              },
+              time: {
+                created: 2,
+              },
+            }),
+            parts: [],
+          }),
+          {
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        )
+      }
+
+      if (method === "GET" && url.pathname === "/api/session/session_1/message") {
+        await staleTranscriptGate.promise
+        return new Response(JSON.stringify([]), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      throw new Error(`Unexpected request: ${method} ${url.pathname}${url.search}`)
+    })
+
+    const ensurePromise = ensureDirectorySession("/repo")
+    await new Promise<void>((resolve) => setTimeout(resolve, 0))
+    await sendPrompt("/repo", "hello")
+
+    const afterPrompt = useChatStore.getState().directories["/repo"]
+    expect(afterPrompt?.sessionID).toBe("session_1")
+    expect(afterPrompt?.isDraft).toBe(false)
+    expect(afterPrompt?.isReady).toBe(true)
+    expect(afterPrompt?.messages.map((message) => message.info.id)).toEqual(["message_1"])
+
+    staleTranscriptGate.resolve()
+    await ensurePromise
+
+    const afterBootstrap = useChatStore.getState().directories["/repo"]
+    expect(afterBootstrap?.sessionID).toBe("session_1")
+    expect(afterBootstrap?.isDraft).toBe(false)
+    expect(afterBootstrap?.messages.map((message) => message.info.id)).toEqual(["message_1"])
+  })
+
+  test("shows the submitted user message before the prompt request resolves", async () => {
+    const sessionInfo = {
+      id: "session_1",
+      title: "New thread",
+      time: {
+        created: 1,
+        updated: 1,
+      },
+    }
+
+    useChatStore.setState({
+      openProjects: ["/repo"],
+      activeDirectory: "/repo",
+      directories: {
+        "/repo": createDirectoryChatState({
+          isDraft: true,
+          isReady: true,
+        }),
+      },
+    })
+
+    const promptGate = createDeferred<void>()
+    let promptMessageID = ""
+
+    globalThis.fetch = createFetchStub(async (input, init) => {
+      const url = new URL(requestUrl(input), "http://localhost")
+      const method = requestMethod(input, init) ?? "GET"
+
+      if (method === "POST" && url.pathname === "/api/session") {
+        return new Response(JSON.stringify(sessionInfo), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "POST" && url.pathname === "/api/session/session_1/message") {
+        const body = JSON.parse(String(init?.body)) as { messageID: string }
+        promptMessageID = body.messageID
+        await promptGate.promise
+        return new Response(
+          JSON.stringify({
+            info: createUserMessageInfo({
+              id: body.messageID,
+              sessionID: sessionInfo.id,
+              agent: "buddy",
+              model: {
+                providerID: "test",
+                modelID: "test-model",
+              },
+              time: {
+                created: 2,
+              },
+            }),
+            parts: [
+              {
+                id: "part_server",
+                sessionID: sessionInfo.id,
+                messageID: body.messageID,
+                type: "text",
+                text: "hello",
+              },
+            ],
+          }),
+          {
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        )
+      }
+
+      throw new Error(`Unexpected request: ${method} ${url.pathname}${url.search}`)
+    })
+
+    const sendPromise = sendPrompt("/repo", "hello", {
+      intent: "auto",
+      model: {
+        providerID: "test",
+        modelID: "test-model",
+      },
+    })
+    await new Promise<void>((resolve) => setTimeout(resolve, 0))
+
+    const pendingState = useChatStore.getState().directories["/repo"]
+    expect(pendingState?.isReady).toBe(true)
+    expect(pendingState?.sessionID).toBe("session_1")
+    expect(pendingState?.messages.map((message) => message.info.id)).toEqual([promptMessageID])
+    expect(pendingState?.messages[0]?.parts.map((part) => part.text)).toEqual(["hello"])
+
+    promptGate.resolve()
+    await sendPromise
+
+    const acceptedState = useChatStore.getState().directories["/repo"]
+    expect(acceptedState?.messages.map((message) => message.info.id)).toEqual([promptMessageID])
+    expect(acceptedState?.messages[0]?.parts.map((part) => part.text)).toEqual(["hello"])
+    expect(acceptedState?.messages[0]?.parts.map((part) => part.id)).toEqual(["part_server"])
+  })
+
+  test("keeps the optimistic user message when prompt response is an assistant message", async () => {
+    const sessionInfo = {
+      id: "session_1",
+      title: "New thread",
+      time: {
+        created: 1,
+        updated: 1,
+      },
+    }
+
+    useChatStore.setState({
+      openProjects: ["/repo"],
+      activeDirectory: "/repo",
+      directories: {
+        "/repo": createDirectoryChatState({
+          isDraft: true,
+          isReady: true,
+        }),
+      },
+    })
+
+    let promptMessageID = ""
+    let assistantMessageID = ""
+
+    globalThis.fetch = createFetchStub(async (input, init) => {
+      const url = new URL(requestUrl(input), "http://localhost")
+      const method = requestMethod(input, init) ?? "GET"
+
+      if (method === "POST" && url.pathname === "/api/session") {
+        return new Response(JSON.stringify(sessionInfo), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "POST" && url.pathname === "/api/session/session_1/message") {
+        const body = JSON.parse(String(init?.body)) as { messageID: string }
+        promptMessageID = body.messageID
+        assistantMessageID = `${body.messageID}z`
+        return new Response(
+          JSON.stringify({
+            info: createAssistantMessageInfo({
+              id: assistantMessageID,
+              sessionID: sessionInfo.id,
+              time: {
+                created: 3,
+                completed: 4,
+              },
+              finish: "stop",
+            }),
+            parts: [
+              {
+                id: "part_assistant",
+                sessionID: sessionInfo.id,
+                messageID: assistantMessageID,
+                type: "text",
+                text: "hello",
+              },
+            ],
+          }),
+          {
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        )
+      }
+
+      throw new Error(`Unexpected request: ${method} ${url.pathname}${url.search}`)
+    })
+
+    await sendPrompt("/repo", "hi", {
+      intent: "auto",
+      model: {
+        providerID: "test",
+        modelID: "test-model",
+      },
+    })
+
+    const state = useChatStore.getState().directories["/repo"]
+    expect(state?.messages.map((message) => message.info.id)).toEqual([
+      promptMessageID,
+      assistantMessageID,
+    ])
+    expect(state?.messages[0]?.info.role).toBe("user")
+    expect(state?.messages[0]?.parts.map((part) => part.text)).toEqual(["hi"])
+    expect(state?.messages[1]?.info.role).toBe("assistant")
+  })
+
+  test("keeps consecutive prompt responses ordered within the same session", async () => {
+    const sessionInfo = {
+      id: "session_1",
+      title: "New thread",
+      time: {
+        created: 1,
+        updated: 1,
+      },
+    }
+
+    useChatStore.setState({
+      openProjects: ["/repo"],
+      activeDirectory: "/repo",
+      directories: {
+        "/repo": createDirectoryChatState({
+          isDraft: true,
+          isReady: true,
+        }),
+      },
+    })
+
+    let promptCount = 0
+
+    globalThis.fetch = createFetchStub(async (input, init) => {
+      const url = new URL(requestUrl(input), "http://localhost")
+      const method = requestMethod(input, init) ?? "GET"
+
+      if (method === "POST" && url.pathname === "/api/session") {
+        return new Response(JSON.stringify(sessionInfo), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "POST" && url.pathname === "/api/session/session_1/message") {
+        promptCount += 1
+        const body = JSON.parse(String(init?.body)) as { messageID: string }
+        const assistantMessageID = `${body.messageID}z`
+        return new Response(
+          JSON.stringify({
+            info: createAssistantMessageInfo({
+              id: assistantMessageID,
+              sessionID: sessionInfo.id,
+              parentID: body.messageID,
+              time: {
+                created: 10 + promptCount,
+                completed: 20 + promptCount,
+              },
+              finish: "stop",
+            }),
+            parts: [
+              {
+                id: `part_assistant_${promptCount}`,
+                sessionID: sessionInfo.id,
+                messageID: assistantMessageID,
+                type: "text",
+                text: `reply ${promptCount}`,
+              },
+            ],
+          }),
+          {
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        )
+      }
+
+      throw new Error(`Unexpected request: ${method} ${url.pathname}${url.search}`)
+    })
+
+    await sendPrompt("/repo", "hi", {
+      intent: "auto",
+      model: {
+        providerID: "test",
+        modelID: "test-model",
+      },
+    })
+    await sendPrompt("/repo", "what's up", {
+      intent: "auto",
+      model: {
+        providerID: "test",
+        modelID: "test-model",
+      },
+    })
+
+    const state = useChatStore.getState().directories["/repo"]
+    expect(state?.messages.map((message) => message.info.role)).toEqual([
+      "user",
+      "assistant",
+      "user",
+      "assistant",
+    ])
+    expect(state?.messages.map((message) => message.parts[0]?.text)).toEqual([
+      "hi",
+      "reply 1",
+      "what's up",
+      "reply 2",
+    ])
+  })
+
+  test("does not duplicate optimistic text when submitted parts already include text", async () => {
+    const sessionInfo = {
+      id: "session_1",
+      title: "New thread",
+      time: {
+        created: 1,
+        updated: 1,
+      },
+    }
+
+    useChatStore.setState({
+      openProjects: ["/repo"],
+      activeDirectory: "/repo",
+      directories: {
+        "/repo": createDirectoryChatState({
+          isDraft: true,
+          isReady: true,
+        }),
+      },
+    })
+
+    const promptGate = createDeferred<void>()
+    let promptMessageID = ""
+
+    globalThis.fetch = createFetchStub(async (input, init) => {
+      const url = new URL(requestUrl(input), "http://localhost")
+      const method = requestMethod(input, init) ?? "GET"
+
+      if (method === "POST" && url.pathname === "/api/session") {
+        return new Response(JSON.stringify(sessionInfo), {
+          headers: {
+            "content-type": "application/json",
+          },
+        })
+      }
+
+      if (method === "POST" && url.pathname === "/api/session/session_1/message") {
+        const body = JSON.parse(String(init?.body)) as { messageID: string }
+        promptMessageID = body.messageID
+        await promptGate.promise
+        return new Response(
+          JSON.stringify({
+            info: createUserMessageInfo({
+              id: body.messageID,
+              sessionID: sessionInfo.id,
+              time: {
+                created: 2,
+              },
+            }),
+            parts: [],
+          }),
+          {
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        )
+      }
+
+      throw new Error(`Unexpected request: ${method} ${url.pathname}${url.search}`)
+    })
+
+    const sendPromise = sendPrompt("/repo", "hi", {
+      intent: "auto",
+      parts: [
+        {
+          type: "text",
+          text: "hi",
+        },
+      ],
+    })
+    await new Promise<void>((resolve) => setTimeout(resolve, 0))
+
+    const pendingState = useChatStore.getState().directories["/repo"]
+    expect(pendingState?.messages.map((message) => message.info.id)).toEqual([promptMessageID])
+    expect(pendingState?.messages[0]?.parts.map((part) => part.text)).toEqual(["hi"])
+
+    promptGate.resolve()
+    await sendPromise
+  })
+
+  test("shows the submitted user message without an explicit model before the prompt resolves", async () => {
+    const sessionInfo = {
+      id: "session_1",
+      title: "Existing thread",
+      time: {
+        created: 1,
+        updated: 1,
+      },
+    }
+    const previousMessage = createUserMessageInfo({
+      id: "message_previous",
+      sessionID: sessionInfo.id,
+      agent: "buddy",
+      model: {
+        providerID: "test",
+        modelID: "test-model",
+      },
+      time: {
+        created: 1,
+      },
+    })
+
+    useChatStore.setState({
+      openProjects: ["/repo"],
+      activeDirectory: "/repo",
+      directories: {
+        "/repo": createDirectoryChatState({
+          sessionID: sessionInfo.id,
+          sessionTitle: sessionInfo.title,
+          sessions: [sessionInfo],
+          isDraft: false,
+          isReady: true,
+          messages: [createMessageWithParts(previousMessage)],
+        }),
+      },
+    })
+
+    const promptGate = createDeferred<void>()
+    let promptMessageID = ""
+
+    globalThis.fetch = createFetchStub(async (input, init) => {
+      const url = new URL(requestUrl(input), "http://localhost")
+      const method = requestMethod(input, init) ?? "GET"
+
+      if (method === "POST" && url.pathname === "/api/session/session_1/message") {
+        const body = JSON.parse(String(init?.body)) as { messageID: string }
+        promptMessageID = body.messageID
+        await promptGate.promise
+        return new Response(
+          JSON.stringify({
+            info: createUserMessageInfo({
+              id: body.messageID,
+              sessionID: sessionInfo.id,
+              agent: "buddy",
+              model: {
+                providerID: "test",
+                modelID: "test-model",
+              },
+              time: {
+                created: 2,
+              },
+            }),
+            parts: [],
+          }),
+          {
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        )
+      }
+
+      throw new Error(`Unexpected request: ${method} ${url.pathname}${url.search}`)
+    })
+
+    const sendPromise = sendPrompt("/repo", "second")
+    await new Promise<void>((resolve) => setTimeout(resolve, 0))
+
+    const pendingState = useChatStore.getState().directories["/repo"]
+    expect(pendingState?.messages.map((message) => message.info.id)).toEqual([
+      "message_previous",
+      promptMessageID,
+    ])
+    expect(pendingState?.messages[1]?.parts.map((part) => part.text)).toEqual(["second"])
+
+    promptGate.resolve()
+    await sendPromise
+  })
+
+  test("does not switch back to the submitted session when a prompt resolves after session change", async () => {
+    const submittedSession = {
+      id: "session_1",
+      title: "Submitted thread",
+      time: {
+        created: 1,
+        updated: 1,
+      },
+    }
+    const selectedSession = {
+      id: "session_2",
+      title: "Selected thread",
+      time: {
+        created: 2,
+        updated: 2,
+      },
+    }
+
+    useChatStore.setState({
+      openProjects: ["/repo"],
+      activeDirectory: "/repo",
+      directories: {
+        "/repo": createDirectoryChatState({
+          sessionID: submittedSession.id,
+          sessionTitle: submittedSession.title,
+          sessions: [submittedSession, selectedSession],
+          isDraft: false,
+          isReady: true,
+        }),
+      },
+    })
+
+    const promptGate = createDeferred<void>()
+    let promptMessageID = ""
+
+    globalThis.fetch = createFetchStub(async (input, init) => {
+      const url = new URL(requestUrl(input), "http://localhost")
+      const method = requestMethod(input, init) ?? "GET"
+
+      if (method === "POST" && url.pathname === "/api/session/session_1/message") {
+        const body = JSON.parse(String(init?.body)) as { messageID: string }
+        promptMessageID = body.messageID
+        await promptGate.promise
+        return new Response(
+          JSON.stringify({
+            info: createUserMessageInfo({
+              id: body.messageID,
+              sessionID: submittedSession.id,
+              agent: "buddy",
+              model: {
+                providerID: "test",
+                modelID: "test-model",
+              },
+              time: {
+                created: 2,
+              },
+            }),
+            parts: [],
+          }),
+          {
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        )
+      }
+
+      throw new Error(`Unexpected request: ${method} ${url.pathname}${url.search}`)
+    })
+
+    const sendPromise = sendPrompt("/repo", "hello", {
+      intent: "auto",
+      model: {
+        providerID: "test",
+        modelID: "test-model",
+      },
+    })
+    await new Promise<void>((resolve) => setTimeout(resolve, 0))
+
+    useChatStore.getState().setActiveSession("/repo", selectedSession.id)
+    promptGate.resolve()
+    await sendPromise
+
+    const state = useChatStore.getState().directories["/repo"]
+    expect(state?.sessionID).toBe(selectedSession.id)
+    expect(state?.sessionTitle).toBe(selectedSession.title)
+    expect(state?.messages).toEqual([])
+    expect(
+      state?.messagesBySessionID?.[submittedSession.id]?.map((message) => message.info.id),
+    ).toEqual([promptMessageID])
+    expect(
+      state?.messagesBySessionID?.[submittedSession.id]?.[0]?.parts.map((part) => part.text),
+    ).toEqual(["hello"])
   })
 
   test("migrates draft model state only into newly created sessions", async () => {
@@ -977,7 +1873,32 @@ describe("sendPrompt", () => {
       }
 
       if (method === "POST" && url.pathname === "/api/session/session_1/message") {
-        return new Response(JSON.stringify({}), {
+        return new Response(
+          JSON.stringify({
+            info: createUserMessageInfo({
+              id: "message_1",
+              sessionID: sessionInfo.id,
+              agent: "build",
+              model: {
+                providerID: "openai",
+                modelID: "gpt-5",
+              },
+              time: {
+                created: 2,
+              },
+            }),
+            parts: [],
+          }),
+          {
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        )
+      }
+
+      if (method === "GET" && url.pathname === "/api/session/session_1/message") {
+        return new Response(JSON.stringify([]), {
           headers: {
             "content-type": "application/json",
           },
@@ -1190,11 +2111,28 @@ describe("sendPrompt", () => {
 
       if (method === "POST" && url.pathname === "/api/session/session_new/message") {
         recoveredPromptRequests += 1
-        return new Response(JSON.stringify({}), {
-          headers: {
-            "content-type": "application/json",
+        return new Response(
+          JSON.stringify({
+            info: createUserMessageInfo({
+              id: "message_new",
+              sessionID: recoveredSession.id,
+              agent: "buddy",
+              model: {
+                providerID: "test",
+                modelID: "test-model",
+              },
+              time: {
+                created: 2,
+              },
+            }),
+            parts: [],
+          }),
+          {
+            headers: {
+              "content-type": "application/json",
+            },
           },
-        })
+        )
       }
 
       if (method === "GET" && url.pathname === "/api/session") {
@@ -1281,11 +2219,28 @@ describe("sendPrompt", () => {
 
       if (method === "POST" && url.pathname === "/api/session/session_new/message") {
         recoveredPromptRequests += 1
-        return new Response(JSON.stringify({}), {
-          headers: {
-            "content-type": "application/json",
+        return new Response(
+          JSON.stringify({
+            info: createUserMessageInfo({
+              id: "message_new",
+              sessionID: recoveredSession.id,
+              agent: "buddy",
+              model: {
+                providerID: "test",
+                modelID: "test-model",
+              },
+              time: {
+                created: 2,
+              },
+            }),
+            parts: [],
+          }),
+          {
+            headers: {
+              "content-type": "application/json",
+            },
           },
-        })
+        )
       }
 
       if (method === "GET" && url.pathname === "/api/session") {
@@ -1324,11 +2279,28 @@ describe("sendPrompt", () => {
 
     globalThis.fetch = createFetchStub(async () => {
       requests += 1
-      return new Response(JSON.stringify({}), {
-        headers: {
-          "content-type": "application/json",
+      return new Response(
+        JSON.stringify({
+          info: createUserMessageInfo({
+            id: "message_1",
+            sessionID: "session_1",
+            agent: "buddy",
+            model: {
+              providerID: "test",
+              modelID: "test-model",
+            },
+            time: {
+              created: 2,
+            },
+          }),
+          parts: [],
+        }),
+        {
+          headers: {
+            "content-type": "application/json",
+          },
         },
-      })
+      )
     })
 
     await sendPrompt("/repo", "hello")
@@ -1352,18 +2324,33 @@ describe("sendPrompt", () => {
     })
 
     globalThis.fetch = createFetchStub(async (_input, init) => {
-      expect(init?.body).toBe(
-        JSON.stringify({
-          content: "give me a practice task",
-          intent: "practice",
-          focusGoalIds: ["goal_1"],
-        }),
-      )
-      return new Response(JSON.stringify({}), {
-        headers: {
-          "content-type": "application/json",
-        },
+      expect(JSON.parse(String(init?.body))).toMatchObject({
+        content: "give me a practice task",
+        intent: "practice",
+        focusGoalIds: ["goal_1"],
       })
+      return new Response(
+        JSON.stringify({
+          info: createUserMessageInfo({
+            id: "message_1",
+            sessionID: "session_1",
+            agent: "buddy",
+            model: {
+              providerID: "test",
+              modelID: "test-model",
+            },
+            time: {
+              created: 2,
+            },
+          }),
+          parts: [],
+        }),
+        {
+          headers: {
+            "content-type": "application/json",
+          },
+        },
+      )
     })
 
     await sendPrompt("/repo", "give me a practice task", {
@@ -1394,11 +2381,28 @@ describe("sendPrompt", () => {
           },
         ],
       })
-      return new Response(JSON.stringify({}), {
-        headers: {
-          "content-type": "application/json",
+      return new Response(
+        JSON.stringify({
+          info: createUserMessageInfo({
+            id: "message_1",
+            sessionID: "session_1",
+            agent: "buddy",
+            model: {
+              providerID: "test",
+              modelID: "test-model",
+            },
+            time: {
+              created: 2,
+            },
+          }),
+          parts: [],
+        }),
+        {
+          headers: {
+            "content-type": "application/json",
+          },
         },
-      })
+      )
     })
 
     await sendPrompt("/repo", "Read @docs/book with spaces.pdf", {

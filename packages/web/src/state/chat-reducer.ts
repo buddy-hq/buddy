@@ -24,7 +24,12 @@ export function inferBusyFromMessages(messages: MessageWithParts[]) {
 export function upsertMessage(current: MessageWithParts[], incoming: MessageInfo) {
   const index = current.findIndex((entry) => entry.info.id === incoming.id)
   if (index === -1) {
-    return [...current, { info: incoming, parts: [] }]
+    const insertIndex = current.findIndex((entry) => entry.info.id > incoming.id)
+    const nextMessage = { info: incoming, parts: [] }
+    if (insertIndex === -1) {
+      return [...current, nextMessage]
+    }
+    return [...current.slice(0, insertIndex), nextMessage, ...current.slice(insertIndex)]
   }
 
   const next = [...current]
@@ -33,6 +38,38 @@ export function upsertMessage(current: MessageWithParts[], incoming: MessageInfo
     info: incoming,
   }
   return next
+}
+
+function shouldReplaceOptimisticPart(existing: MessagePart, incoming: MessagePart) {
+  if (existing.optimistic !== true || incoming.optimistic === true) {
+    return false
+  }
+
+  if (existing.type !== incoming.type) {
+    return false
+  }
+
+  switch (incoming.type) {
+    case "text":
+      return typeof existing.text === "string" && existing.text === incoming.text
+    case "file":
+      return (
+        typeof existing.mime === "string" &&
+        typeof existing.url === "string" &&
+        typeof existing.filename === "string" &&
+        existing.mime === incoming.mime &&
+        existing.url === incoming.url &&
+        existing.filename === incoming.filename
+      )
+    case "agent":
+      return typeof existing.name === "string" && existing.name === incoming.name
+    case "workspace-file-reference":
+      return typeof existing.path === "string" && existing.path === incoming.path
+    case "resource-reference":
+      return typeof existing.key === "string" && existing.key === incoming.key
+    default:
+      return false
+  }
 }
 
 export function upsertPart(current: MessageWithParts[], incoming: MessagePart) {
@@ -45,9 +82,21 @@ export function upsertPart(current: MessageWithParts[], incoming: MessagePart) {
   const message = next[index]
   const partIndex = message.parts.findIndex((part) => part.id === incoming.id)
   if (partIndex === -1) {
+    const partsWithoutReplacedOptimistic = message.parts.filter(
+      (part) => !shouldReplaceOptimisticPart(part, incoming),
+    )
+    const insertIndex = partsWithoutReplacedOptimistic.findIndex((part) => part.id > incoming.id)
+    const nextParts =
+      insertIndex === -1
+        ? [...partsWithoutReplacedOptimistic, incoming]
+        : [
+            ...partsWithoutReplacedOptimistic.slice(0, insertIndex),
+            incoming,
+            ...partsWithoutReplacedOptimistic.slice(insertIndex),
+          ]
     next[index] = {
       ...message,
-      parts: [...message.parts, incoming],
+      parts: nextParts,
     }
     return next
   }

@@ -17,6 +17,10 @@ import {
   isChatFilePart,
   isChatTextPart,
 } from "@/components/chat/utils/part-guards"
+import {
+  normalizeProviderErrorDetails,
+  normalizeUpstreamProviderErrorMessage,
+} from "@/lib/upstream-provider-error"
 import type { MessagePart, MessageWithParts } from "@/state/chat-types"
 import {
   type PersonaConfigOption,
@@ -31,22 +35,44 @@ import type { TeachingIntent } from "@/state/teaching-runtime"
 const DATA_URL_PREFIX = "data:" as const
 
 export function readSessionErrorMessage(error: unknown) {
-  if (typeof error === "string" && error.trim()) return error
+  if (typeof error === "string" && error.trim()) {
+    return normalizeUpstreamProviderErrorMessage(error)
+  }
   if (!error || typeof error !== "object") return "An error occurred"
 
-  const message = "message" in error ? (error as { message?: unknown }).message : undefined
-  if (typeof message === "string" && message.trim()) return message
+  const message = "message" in error ? error.message : undefined
+  if (typeof message === "string" && message.trim()) {
+    const responseBody = readErrorResponseBody(error)
+    return normalizeProviderErrorDetails({ message, responseBody })
+  }
 
-  const dataMessage =
-    "data" in error && error.data && typeof error.data === "object"
-      ? (error.data as { message?: unknown }).message
-      : undefined
-  if (typeof dataMessage === "string" && dataMessage.trim()) return dataMessage
+  const dataMessage = readErrorDataMessage(error)
+  if (typeof dataMessage === "string" && dataMessage.trim()) {
+    const responseBody = readErrorResponseBody(error)
+    return normalizeProviderErrorDetails({ message: dataMessage, responseBody })
+  }
 
-  const name = "name" in error ? (error as { name?: unknown }).name : undefined
-  if (typeof name === "string" && name.trim()) return name
+  const name = "name" in error ? error.name : undefined
+  if (typeof name === "string" && name.trim()) return normalizeUpstreamProviderErrorMessage(name)
 
   return "An error occurred"
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value)
+}
+
+function readErrorDataMessage(error: object): unknown {
+  if (!("data" in error) || !isRecord(error.data)) return undefined
+  return error.data.message
+}
+
+function readErrorResponseBody(error: object): string | undefined {
+  if (!("data" in error) || !isRecord(error.data)) return undefined
+  const responseBody = "responseBody" in error.data ? error.data.responseBody : undefined
+  return typeof responseBody === "string" && responseBody.trim().length > 0
+    ? responseBody
+    : undefined
 }
 
 export function parseConfiguredModel(value: unknown) {
