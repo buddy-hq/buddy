@@ -1,6 +1,5 @@
 import {
   SUBAGENT_IDS,
-  type Intent,
   type WorkspaceState,
 } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import type { Config } from "@buddy/backend/config"
@@ -31,12 +30,10 @@ function buildEffectiveSubagents(
 export function resolveCapabilityProfile(input: {
   persona: PersonaDefinition
   workspaceState: WorkspaceState
-  intent: Intent
   configuredToolToggles?: Config.Info["tools"]
 }): RuntimeProfile {
   const runtimePermissions = compileRuntimeLearningToolPermissions({
     persona: input.persona,
-    intent: input.intent,
     workspaceState: input.workspaceState,
     configuredToolToggles: input.configuredToolToggles,
   })
