@@ -11,20 +11,16 @@ describe("learner route regressions", () => {
     writeTeachingSessionState(project.path, {
       sessionId: "ses_interactive",
       persona: "code-buddy",
-      intent: "practice",
       currentSurface: "editor",
       workspaceState: "interactive",
       focusGoalIds: [],
     })
 
-    const chatResponse = await app.request(
-      "/api/learner/snapshot?persona=code-buddy&intent=practice",
-      {
-        headers: {
-          "x-buddy-directory": project.path,
-        },
+    const chatResponse = await app.request("/api/learner/snapshot?persona=code-buddy", {
+      headers: {
+        "x-buddy-directory": project.path,
       },
-    )
+    })
     expect(chatResponse.status).toBe(200)
     const chatBody = (await chatResponse.json()) as {
       decisionInputFingerprint: string
@@ -32,7 +28,7 @@ describe("learner route regressions", () => {
     expect(chatBody.decisionInputFingerprint).toContain("workspaceState:chat")
 
     const interactiveResponse = await app.request(
-      "/api/learner/snapshot?persona=code-buddy&intent=practice&sessionId=ses_interactive",
+      "/api/learner/snapshot?persona=code-buddy&sessionId=ses_interactive",
       {
         headers: {
           "x-buddy-directory": project.path,

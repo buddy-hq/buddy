@@ -20,7 +20,7 @@ describe("learner snapshot tool toggles", () => {
       ) + "\n",
     )
 
-    const response = await app.request("/api/learner/snapshot?persona=buddy&intent=learn", {
+    const response = await app.request("/api/learner/snapshot?persona=buddy", {
       headers: {
         "x-buddy-directory": repo,
       },

@@ -50,7 +50,6 @@ describe("session route regressions", () => {
     writeTeachingSessionState(project.path, {
       sessionId: "ses_missing",
       persona: "buddy",
-      intent: "auto",
       currentSurface: "curriculum",
       workspaceState: "chat",
       focusGoalIds: ["goal_prev"],

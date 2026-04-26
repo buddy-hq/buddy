@@ -171,7 +171,6 @@ describe("LearnerService regressions", () => {
       directory: projectB.path,
       query: {
         persona: "buddy",
-        intent: "learn",
         focusGoalIds: committedB.goalIds,
       },
     })

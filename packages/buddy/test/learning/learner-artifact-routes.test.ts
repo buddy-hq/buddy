@@ -33,14 +33,11 @@ describe("learner artifact routes", () => {
       sessionId: "ses_snapshot",
     })
 
-    const snapshotResponse = await app.request(
-      "/api/learner/snapshot?persona=code-buddy&intent=practice",
-      {
-        headers: {
-          "x-buddy-directory": project.path,
-        },
+    const snapshotResponse = await app.request("/api/learner/snapshot?persona=code-buddy", {
+      headers: {
+        "x-buddy-directory": project.path,
       },
-    )
+    })
     expect(snapshotResponse.status).toBe(200)
     const snapshotBody = (await snapshotResponse.json()) as {
       markdown: string

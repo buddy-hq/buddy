@@ -2,8 +2,8 @@ import { describe, expect, test } from "bun:test"
 import { LearnerService } from "../../src/learning/learner-model"
 import { tmpdir } from "../helpers/tmpdir"
 
-describe("learner curriculum intent view", () => {
-  test("builds factual snapshot context for the requested intent", async () => {
+describe("learner snapshot runtime context", () => {
+  test("builds factual snapshot context without intent", async () => {
     await using project = await tmpdir({ git: true })
 
     await LearnerService.patchWorkspace({
@@ -53,14 +53,14 @@ describe("learner curriculum intent view", () => {
       directory: project.path,
       query: {
         persona: "code-buddy",
-        intent: "practice",
         focusGoalIds: committed.goalIds,
       },
     })
     expect(snapshot.constraintsSummary.some((item) => item.includes("30 minutes"))).toBe(true)
     expect(snapshot.goals.map((goal) => goal.id)).toEqual(expect.arrayContaining(committed.goalIds))
-    expect(snapshot.decisionInputFingerprint).toContain("intent:practice")
+    expect(snapshot.decisionInputFingerprint).not.toContain("intent:")
     expect(snapshot.decisionInputFingerprint).toContain("workspaceState:")
+    expect(snapshot.decisionInputFingerprint).toContain("persona:code-buddy")
     expect(snapshot.markdown).toContain("Constraints")
   })
 })

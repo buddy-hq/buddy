@@ -18,7 +18,6 @@ import {
   hasExplicitModel,
   normalizePersonaTarget,
   resolveFocusGoalIds,
-  resolveIntent,
 } from "../../src/learning/shared/targeting"
 import { isSessionNotFoundError, SessionTransformValidationError } from "../../src/session"
 import { tmpdir } from "../helpers/tmpdir"
@@ -44,10 +43,7 @@ describe("session route helper modules", () => {
     expect(typeof target.agent).toBe("string")
   })
 
-  test("parses intent/focus-goal overrides and rejects legacy runtime fields", async () => {
-    await using project = await tmpdir({ git: true })
-    const config = await readProjectConfig(project.path)
-
+  test("parses focus-goal overrides and rejects legacy runtime fields", () => {
     expect(
       resolveFocusGoalIds({
         focusGoalIds: ["goal_1", "  ", 123],
@@ -61,12 +57,11 @@ describe("session route helper modules", () => {
       }),
     ).toThrow(SessionTransformValidationError)
 
-    expect(
-      resolveIntent({
-        body: { intent: "practice" },
-        config,
+    expect(() =>
+      assertNoLegacyRuntimeOverrides({
+        intent: "practice",
       }),
-    ).toBe("practice")
+    ).toThrow(SessionTransformValidationError)
   })
 
   test("detects explicit model payloads", () => {
@@ -97,7 +92,6 @@ describe("session route helper modules", () => {
     writeTeachingSessionState(project.path, {
       sessionId: "ses_helper",
       persona: "buddy",
-      intent: "auto",
       currentSurface: "curriculum",
       workspaceState: "chat",
       focusGoalIds: ["goal_1"],
