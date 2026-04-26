@@ -13,7 +13,6 @@ export async function resolvePedagogyToolContext(
   params: PedagogyToolParams,
 ): Promise<PedagogyToolContext> {
   const runtimeState = readTeachingSessionState(ctx.directory, ctx.sessionID)
-  const runtimeIntent = runtimeState?.intent ?? "auto"
   const workspace = await ensureWorkspaceContext(ctx.directory)
   const requestedGoalIds = params.goalIds ?? []
   const focusGoalIds =
@@ -22,7 +21,6 @@ export async function resolvePedagogyToolContext(
     directory: ctx.directory,
     query: {
       persona: runtimeState?.persona ?? "buddy",
-      intent: runtimeIntent,
       focusGoalIds,
       workspaceState: runtimeState?.workspaceState,
     },
@@ -51,7 +49,6 @@ export async function resolvePedagogyToolContext(
   return {
     workspaceLabel: workspace.label,
     persona: runtimeState?.persona ?? "buddy",
-    intent: runtimeIntent,
     goalIds,
     goals,
     learnerSummaryLines,

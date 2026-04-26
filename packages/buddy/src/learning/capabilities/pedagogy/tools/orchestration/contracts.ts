@@ -1,4 +1,3 @@
-import type { Intent } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import type { GoalArtifact } from "../../../../learner-model/repository/types"
 
 export type PedagogyToolParams = {
@@ -13,7 +12,6 @@ export type PedagogyToolParams = {
 export type PedagogyToolContext = {
   workspaceLabel: string
   persona: string
-  intent: Intent
   goalIds: string[]
   goals: GoalArtifact[]
   learnerSummaryLines: string[]

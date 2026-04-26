@@ -23,7 +23,6 @@ describe("pedagogy tools", () => {
         writeTeachingSessionState(project.path, {
           sessionId: "ses_pedagogy",
           persona: "buddy",
-          intent: "learn",
           currentSurface: "curriculum",
           workspaceState: "chat",
           focusGoalIds: [],

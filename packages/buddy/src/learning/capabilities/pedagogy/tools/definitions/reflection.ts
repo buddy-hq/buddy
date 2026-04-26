@@ -24,7 +24,6 @@ const summarizeLearnerContext = (context: PedagogyToolContext) => {
 
 const formatPedagogyOutput = (input: {
   id: string
-  intent: PedagogyToolContext["intent"]
   goalLabel: string
   learnerContext: string[]
   sections: Array<[string, string[]]>
@@ -45,7 +44,6 @@ const formatPedagogyOutput = (input: {
 
   return [
     `<pedagogy_tool_output name="${input.id}">`,
-    `Intent: ${input.intent}`,
     `Target: ${input.goalLabel}`,
     learnerContextBlock,
     sectionBlocks,
@@ -61,7 +59,6 @@ const buildOutput = (params: PedagogyToolParams, context: PedagogyToolContext) =
 
   return formatPedagogyOutput({
     id: "pedagogy_reflection",
-    intent: context.intent,
     goalLabel: target,
     learnerContext: summarizeLearnerContext(context),
     sections: [
@@ -104,7 +101,6 @@ export const pedagogyReflectionTool = createBuddyTool("pedagogy_reflection", {
       title: "pedagogy_reflection",
       output,
       metadata: {
-        intent: context.intent,
         persona: context.persona,
         goalIds: context.goalIds,
       },
