@@ -152,7 +152,6 @@ type UseDirectoryChatStateProps = {
   autoCompactionEnabled: boolean
   personaCatalog: PersonaConfigOption[]
   defaultPersona: string
-  defaultIntent: "auto" | "learn" | "practice" | "assess"
   showSystemPromptSidebarTab: boolean
   showCapabilitiesSidebarTab: boolean
   showPaletteSidebarTab: boolean
@@ -459,9 +458,6 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
   const storedPersona = sessionKey
     ? (teachingRuntime.selectedPersonaBySession[sessionKey] ?? props.defaultPersona)
     : props.defaultPersona
-  const storedIntent = sessionKey
-    ? (teachingRuntime.selectedIntentBySession[sessionKey] ?? props.defaultIntent)
-    : props.defaultIntent
   const preferredLanguage = sessionKey
     ? (teachingRuntime.preferredLanguageBySession[sessionKey] ?? "ts")
     : "ts"
@@ -590,7 +586,6 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
     teachingRuntime,
     teachingWorkspace,
     storedPersona,
-    storedIntent,
     preferredLanguage,
     selectedPersona,
     selectedPersonaSurfaces,

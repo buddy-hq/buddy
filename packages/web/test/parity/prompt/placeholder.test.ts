@@ -11,7 +11,6 @@ describe("promptPlaceholder", () => {
       commentCount: 0,
       example: "example",
       suggest: true,
-      intent: "auto",
       t,
     })
     expect(value).toBe("prompt.placeholder.shell")
@@ -24,7 +23,6 @@ describe("promptPlaceholder", () => {
         commentCount: 1,
         example: "example",
         suggest: true,
-        intent: "auto",
         t,
       }),
     ).toBe("prompt.placeholder.summarizeComment")
@@ -34,7 +32,6 @@ describe("promptPlaceholder", () => {
         commentCount: 2,
         example: "example",
         suggest: true,
-        intent: "auto",
         t,
       }),
     ).toBe("prompt.placeholder.summarizeComments")
@@ -46,7 +43,6 @@ describe("promptPlaceholder", () => {
       commentCount: 0,
       example: "translated-example",
       suggest: true,
-      intent: "auto",
       t,
     })
     expect(value).toBe("prompt.placeholder.normal:translated-example")
@@ -58,7 +54,6 @@ describe("promptPlaceholder", () => {
       commentCount: 0,
       example: "translated-example",
       suggest: false,
-      intent: "auto",
       t,
     })
     expect(value).toBe("Ask Buddy...")

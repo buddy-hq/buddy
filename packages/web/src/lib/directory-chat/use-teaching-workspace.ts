@@ -12,12 +12,7 @@ import {
   stringifyError,
   TeachingConflictError,
 } from "@/state/teaching-actions"
-import {
-  intentFromSelection,
-  teachingLanguageLabel,
-  type TeachingIntent,
-  type TeachingLanguage,
-} from "@/state/teaching-runtime"
+import { teachingLanguageLabel, type TeachingLanguage } from "@/state/teaching-runtime"
 import { sendPrompt } from "@/state/chat-actions"
 import type { ChatRightSidebarTab } from "@/components/layout/chat-right-sidebar"
 import { getRightSidebarDefaultWidth, RIGHT_SIDEBAR_EDITOR_MIN_WIDTH } from "./right-sidebar-layout"
@@ -31,7 +26,6 @@ type UseTeachingWorkspaceProps = {
   messages: unknown[]
   selectedPersonaSupportsEditor: boolean
   selectedPersona: string
-  storedIntent: TeachingIntent
   preferredLanguage: TeachingLanguage
   effectiveModelSelection: { providerID: string; modelID: string } | undefined
   setDirectoryError: (directory: string, error: string) => void
@@ -409,7 +403,6 @@ export function useTeachingWorkspace(props: UseTeachingWorkspaceProps) {
     sessionKey: string
     preferredLanguage: TeachingLanguage
     selectedPersona: string
-    storedIntent: TeachingIntent
     effectiveModelSelection: { providerID: string; modelID: string } | undefined
     isBusy: boolean
     isStartingInteractiveLesson: boolean
@@ -451,7 +444,6 @@ export function useTeachingWorkspace(props: UseTeachingWorkspaceProps) {
         `I started an interactive lesson in ${teachingLanguageLabel(input.preferredLanguage)} mode. Interactive workspace tools are now available. Please use the editor workspace to set up the next hands-on step and guide me there.`,
         {
           persona: input.selectedPersona,
-          intent: intentFromSelection(input.storedIntent),
           model: input.effectiveModelSelection,
           teaching: {
             active: true,

@@ -7,7 +7,6 @@ describe("resolveModelSelectionDirtyAfterPersist", () => {
       resolveModelSelectionDirtyAfterPersist({
         draft: {
           persona: "",
-          intent: "auto",
           provider: "kimi",
           model: "kimi-k2-thinking",
           logLevel: "",
@@ -27,7 +26,6 @@ describe("resolveModelSelectionDirtyAfterPersist", () => {
       resolveModelSelectionDirtyAfterPersist({
         draft: {
           persona: "",
-          intent: "auto",
           provider: "kimi",
           model: "kimi-k2-thinking",
           logLevel: "",
@@ -47,7 +45,6 @@ describe("resolveModelSelectionDirtyAfterPersist", () => {
       resolveModelSelectionDirtyAfterPersist({
         draft: {
           persona: "",
-          intent: "auto",
           provider: "kimi",
           model: "kimi-k2-thinking",
           logLevel: "",

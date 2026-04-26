@@ -72,12 +72,10 @@ describe("PromptComposer", () => {
           slashCommands={[{ name: "plan", description: "Run the plan command" }]}
           modelOptions={[{ key: "auto", label: "Auto" }]}
           selectedPersona="buddy"
-          selectedIntent="auto"
           selectedModel="auto"
           thinkingOptions={[{ key: "default", label: "Default" }]}
           selectedThinking="default"
           onPersonaChange={() => undefined}
-          onIntentChange={() => undefined}
           onModelChange={() => undefined}
           onThinkingChange={() => undefined}
           onSubmit={() => undefined}
@@ -129,15 +127,16 @@ describe("PromptComposer", () => {
       await flushEffects()
     })
 
-    const slashButton = Array.from(container.querySelectorAll("button")).find((button) =>
-      button.textContent?.includes("/plan"),
-    )
-    if (!(slashButton instanceof HTMLButtonElement)) {
+    const slashButton = Array.from(
+      container.querySelectorAll<HTMLElement>("[data-component='prompt-slash-option']"),
+    ).find((button) => button.textContent?.includes("/plan"))
+    if (!slashButton) {
       throw new Error("Slash command button not found")
     }
 
     await act(async () => {
       slashButton.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }))
+      slashButton.dispatchEvent(new MouseEvent("click", { bubbles: true }))
       await flushEffects()
     })
 

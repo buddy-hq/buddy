@@ -88,7 +88,6 @@ function dedupeMentionFiles(files: MentionableFile[]) {
 type UsePromptComposerViewStateProps = {
   cursorOffset: number
   draftValue: string
-  selectedIntent: "auto" | "learn" | "practice" | "assess"
   selectedPersona: string
   personaOptions: Array<{
     name: string
@@ -220,10 +219,9 @@ export function usePromptComposerViewState(props: UsePromptComposerViewStateProp
         commentCount: 0,
         example: "",
         suggest: false,
-        intent: props.selectedIntent,
         t: translatePromptPlaceholder,
       }),
-    [props.selectedIntent],
+    [],
   )
 
   useEffect(() => {

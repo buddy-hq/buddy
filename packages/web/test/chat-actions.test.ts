@@ -1331,7 +1331,6 @@ describe("sendPrompt", () => {
     })
 
     const sendPromise = sendPrompt("/repo", "hello", {
-      intent: "auto",
       model: {
         providerID: "test",
         modelID: "test-model",
@@ -1427,7 +1426,6 @@ describe("sendPrompt", () => {
     })
 
     await sendPrompt("/repo", "hi", {
-      intent: "auto",
       model: {
         providerID: "test",
         modelID: "test-model",
@@ -1517,14 +1515,12 @@ describe("sendPrompt", () => {
     })
 
     await sendPrompt("/repo", "hi", {
-      intent: "auto",
       model: {
         providerID: "test",
         modelID: "test-model",
       },
     })
     await sendPrompt("/repo", "what's up", {
-      intent: "auto",
       model: {
         providerID: "test",
         modelID: "test-model",
@@ -1609,7 +1605,6 @@ describe("sendPrompt", () => {
     })
 
     const sendPromise = sendPrompt("/repo", "hi", {
-      intent: "auto",
       parts: [
         {
           type: "text",
@@ -1787,7 +1782,6 @@ describe("sendPrompt", () => {
     })
 
     const sendPromise = sendPrompt("/repo", "hello", {
-      intent: "auto",
       model: {
         providerID: "test",
         modelID: "test-model",
@@ -2326,7 +2320,6 @@ describe("sendPrompt", () => {
     globalThis.fetch = createFetchStub(async (_input, init) => {
       expect(JSON.parse(String(init?.body))).toMatchObject({
         content: "give me a practice task",
-        intent: "practice",
         focusGoalIds: ["goal_1"],
       })
       return new Response(
@@ -2354,7 +2347,6 @@ describe("sendPrompt", () => {
     })
 
     await sendPrompt("/repo", "give me a practice task", {
-      intent: "practice",
       focusGoalIds: ["goal_1"],
     })
   })
@@ -2407,7 +2399,6 @@ describe("sendPrompt", () => {
 
     await sendPrompt("/repo", "Read @docs/book with spaces.pdf", {
       parts: [{ type: "workspace-file-reference", path: "docs/book with spaces.pdf" }],
-      intent: "practice",
     })
   })
 })
@@ -2755,9 +2746,7 @@ describe("abortPrompt", () => {
 describe("loadCurriculumView", () => {
   test("forwards the current session id when loading the learner snapshot", async () => {
     globalThis.fetch = createFetchStub(async (input, init) => {
-      expect(String(input)).toBe(
-        "/api/learner/snapshot?persona=code-buddy&intent=practice&sessionId=session_1",
-      )
+      expect(String(input)).toBe("/api/learner/snapshot?persona=code-buddy&sessionId=session_1")
       expect(init?.method).toBe("GET")
       expect(new Headers(init?.headers).get("x-buddy-directory")).toBe("/repo")
       const payload = {
@@ -2789,7 +2778,6 @@ describe("loadCurriculumView", () => {
 
     const view = await loadCurriculumView("/repo", {
       persona: "code-buddy",
-      intent: "practice",
       sessionID: "session_1",
     })
 
@@ -2847,14 +2835,11 @@ describe("loadCurriculumView", () => {
 })
 
 describe("loadRuntimeCapabilities", () => {
-  test("returns allowed and denied tool/skill state for the current intent", async () => {
+  test("returns allowed and denied tool/skill state", async () => {
     globalThis.fetch = createFetchStub(async (input) => {
-      expect(String(input)).toBe(
-        "/api/learner/snapshot?persona=code-buddy&intent=practice&sessionId=session_1",
-      )
+      expect(String(input)).toBe("/api/learner/snapshot?persona=code-buddy&sessionId=session_1")
       const payload = {
         runtimeContext: {
-          intent: "practice",
           workspaceState: "interactive",
         },
         runtimeProfile: {
@@ -2888,12 +2873,10 @@ describe("loadRuntimeCapabilities", () => {
 
     const capabilities = await loadRuntimeCapabilities("/repo", {
       persona: "code-buddy",
-      intent: "practice",
       sessionID: "session_1",
     })
 
     expect(capabilities.persona).toBe("code-buddy")
-    expect(capabilities.intent).toBe("practice")
     expect(capabilities.workspaceState).toBe("interactive")
     expect(capabilities.visibleSurfaces).toEqual(["curriculum", "editor"])
     expect(capabilities.tools.allow).toEqual(["learner_snapshot_read", "pedagogy_guided_practice"])

@@ -46,7 +46,7 @@ import type {
   ProviderInfo,
   SessionInfo,
 } from "./chat-types"
-import type { TeachingIntent, TeachingPromptContext } from "./teaching-runtime"
+import type { TeachingPromptContext } from "./teaching-runtime"
 import { stringifyError } from "../lib/api-client"
 
 import { getBuddyClient, requireBuddyData, buddyResultMessage } from "../lib/buddy-client"
@@ -117,7 +117,6 @@ export type LearnerCurriculumView = {
       | "understand-next"
     label: string
     prompt: string
-    intent: TeachingIntent
     focusGoalIds: string[]
     reason: string
   }>
@@ -132,7 +131,6 @@ export type LearnerCurriculumView = {
 
 export type LearnerRuntimeCapabilitiesView = {
   persona: string
-  intent: TeachingIntent
   workspaceState: "chat" | "interactive"
   visibleSurfaces: string[]
   defaultSurface: string
@@ -184,7 +182,6 @@ export type AgentConfigOption = {
 export type TeachingSessionSnapshot = {
   sessionId: string
   persona: string
-  intent: TeachingIntent
   currentSurface: string
   workspaceState: "chat" | "interactive"
   focusGoalIds: string[]
@@ -1465,7 +1462,6 @@ export async function sendPrompt(
   input?: {
     parts?: PromptSubmissionPart[]
     persona?: string
-    intent: TeachingIntent
     focusGoalIds?: string[]
     agent?: string
     model?: {
@@ -1496,14 +1492,12 @@ export async function sendPrompt(
 
     optimisticMessageID = createOptimisticID(OPTIMISTIC_MESSAGE_ID_PREFIX)
     const promptParts = input?.parts ?? []
-    const intent = input?.intent ?? "auto"
     const target = resolvePromptTarget(input)
     const promptBody = {
       messageID: optimisticMessageID,
       content,
       ...(promptParts.length > 0 ? { parts: promptParts } : {}),
       ...target,
-      intent,
       ...(input?.focusGoalIds && input.focusGoalIds.length > 0
         ? { focusGoalIds: input.focusGoalIds }
         : {}),
@@ -1653,7 +1647,6 @@ export async function sendCommand(
   input?: {
     parts?: PromptFilePart[]
     persona?: string
-    intent: TeachingIntent
     agent?: string
     model?: {
       providerID: string
@@ -1671,14 +1664,12 @@ export async function sendCommand(
     sessionID = resolvedSessionID
     store.applySessionStatus(directory, resolvedSessionID, BUSY_SESSION_STATUS)
 
-    const intent = input?.intent ?? "auto"
     const target = resolvePromptTarget(input)
     const commandBody = {
       command,
       arguments: argumentsText,
       ...(input?.parts && input.parts.length > 0 ? { parts: input.parts } : {}),
       ...target,
-      intent,
       ...(input?.model ? { model: `${input.model.providerID}/${input.model.modelID}` } : {}),
       ...(input?.variant ? { variant: input.variant } : {}),
     }
@@ -2131,7 +2122,6 @@ export async function updateSession(input: {
 
 export type LearnerSnapshotInput = {
   persona?: string
-  intent?: TeachingIntent
   sessionID?: string
 }
 
@@ -2153,7 +2143,6 @@ function buildCurriculumViewFromSnapshot(snapshot: LearnerSnapshotResponses[200]
 function normalizeLearnerSnapshotInput(input?: LearnerSnapshotInput) {
   return {
     persona: toLearnerPersona(input?.persona),
-    intent: input?.intent ?? "auto",
     sessionID: input?.sessionID,
   }
 }
@@ -2192,14 +2181,12 @@ async function requestLearnerSnapshot(
   directory: string,
   input?: {
     persona?: LearnerSnapshotPersona
-    intent?: TeachingIntent
     sessionID?: string
   },
 ) {
   return requireBuddyData(
     await getBuddyClient(directory).learner.snapshot({
       persona: input?.persona,
-      intent: input?.intent,
       sessionId: input?.sessionID,
     }),
   )
@@ -2210,7 +2197,6 @@ function buildRuntimeCapabilitiesViewFromSnapshot(
   input?: LearnerSnapshotInput,
 ) {
   const normalizedInput = normalizeLearnerSnapshotInput(input)
-  const requestedIntent = normalizedInput.intent
 
   const runtimeProfile = asRecord(snapshot.runtimeProfile)
   const envelope = asRecord(runtimeProfile?.capabilityEnvelope)
@@ -2227,7 +2213,6 @@ function buildRuntimeCapabilitiesViewFromSnapshot(
 
   return {
     persona: asString(runtimeProfile.persona, normalizedInput.persona ?? "buddy"),
-    intent: snapshot.runtimeContext?.intent ?? requestedIntent,
     workspaceState: snapshot.runtimeContext?.workspaceState ?? "chat",
     visibleSurfaces,
     defaultSurface: asString(

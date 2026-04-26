@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import {
-  intentFromSelection,
   teachingSelectionKey,
   teachingSessionKey,
   useTeachingRuntime,
@@ -10,7 +9,6 @@ describe("teaching runtime", () => {
   beforeEach(() => {
     useTeachingRuntime.setState({
       selectedPersonaBySession: {},
-      selectedIntentBySession: {},
       preferredLanguageBySession: {},
       workspaceBySession: {},
     })
@@ -52,17 +50,5 @@ describe("teaching runtime", () => {
 
     expect(previousPersonaBySession[sessionKey]).toBe("buddy")
     expect(previousPersonaBySession[draftKey]).toBeUndefined()
-  })
-})
-
-describe("intentFromSelection", () => {
-  test("returns auto when the UI is left on Auto", () => {
-    expect(intentFromSelection("auto")).toBe("auto")
-  })
-
-  test("passes through explicit teaching intents", () => {
-    expect(intentFromSelection("learn")).toBe("learn")
-    expect(intentFromSelection("practice")).toBe("practice")
-    expect(intentFromSelection("assess")).toBe("assess")
   })
 })

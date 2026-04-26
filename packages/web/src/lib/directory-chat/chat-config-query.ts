@@ -10,7 +10,6 @@ import {
   type PromptCommandOption,
 } from "@/state/chat-actions"
 import { readCompactionAuto } from "@/state/project-config-readers"
-import type { TeachingIntent } from "@/state/teaching-runtime"
 import { resolveDefaultAgentName } from "./agent-catalog"
 
 const DIRECTORY_CHAT_QUERY_SCOPE = "directory-chat" as const
@@ -25,7 +24,6 @@ export type ComposerConfig = {
   personaCatalog: PersonaConfigOption[]
   slashCommands: PromptCommandOption[]
   defaultPersona: string
-  defaultIntent: TeachingIntent
   configuredModel: { providerID: string; modelID: string } | undefined
   autoCompactionEnabled: boolean
 }
@@ -36,7 +34,6 @@ export const DEFAULT_COMPOSER_CONFIG: ComposerConfig = {
   personaCatalog: [],
   slashCommands: [],
   defaultPersona: "buddy",
-  defaultIntent: "auto",
   configuredModel: undefined,
   autoCompactionEnabled: true,
 }
@@ -94,20 +91,12 @@ async function loadComposerConfig(directory: string): Promise<ComposerConfig> {
       typeof config.default_persona === "string" ? config.default_persona : undefined,
     ) ?? "buddy"
 
-  const defaultIntent: TeachingIntent =
-    config.default_intent === "learn" ||
-    config.default_intent === "practice" ||
-    config.default_intent === "assess"
-      ? config.default_intent
-      : "auto"
-
   return {
     agentCatalog: agents,
     defaultAgent: resolveDefaultAgentName(agents, config.default_agent),
     personaCatalog: personas,
     slashCommands: withE2EBackendCommand(commands),
     defaultPersona,
-    defaultIntent,
     configuredModel: parseConfiguredModel(config.model),
     autoCompactionEnabled: readCompactionAuto(config, true),
   }

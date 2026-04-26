@@ -1,9 +1,6 @@
 import {
   ArrowUpIcon,
   Badge,
-  BookOpenIcon,
-  BrainIcon,
-  cn,
   PlusIcon,
   Select,
   SelectContent,
@@ -12,66 +9,17 @@ import {
   SelectLabel,
   SelectTrigger,
   SelectValue,
-  SparklesIcon,
   SquareIcon,
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TargetIcon,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
   XIcon,
 } from "@buddy/ui"
-import type { ComponentType, RefObject } from "react"
+import type { RefObject } from "react"
 import * as React from "react"
 import { language } from "@/context/language"
-import type { TeachingIntent } from "@/state/teaching-runtime"
 import { ProviderIcon } from "@/components/provider-icon"
-
-const INTENT_OPTIONS: Array<{
-  key: TeachingIntent
-  label: string
-  icon: ComponentType<{ className?: string }>
-  description: string
-  tooltip: string
-}> = [
-  {
-    key: "auto",
-    label: language.t("prompt.toolbar.intents.auto.label"),
-    icon: SparklesIcon,
-    description: language.t("prompt.toolbar.intents.auto.description"),
-    tooltip: language.t("prompt.toolbar.intents.auto.tooltip"),
-  },
-  {
-    key: "learn",
-    label: language.t("prompt.toolbar.intents.learn.label"),
-    icon: BookOpenIcon,
-    description: language.t("prompt.toolbar.intents.learn.description"),
-    tooltip: language.t("prompt.toolbar.intents.learn.tooltip"),
-  },
-  {
-    key: "practice",
-    label: language.t("prompt.toolbar.intents.practice.label"),
-    icon: TargetIcon,
-    description: language.t("prompt.toolbar.intents.practice.description"),
-    tooltip: language.t("prompt.toolbar.intents.practice.tooltip"),
-  },
-  {
-    key: "assess",
-    label: language.t("prompt.toolbar.intents.assess.label"),
-    icon: BrainIcon,
-    description: language.t("prompt.toolbar.intents.assess.description"),
-    tooltip: language.t("prompt.toolbar.intents.assess.tooltip"),
-  },
-]
 
 type PromptComposerToolbarProps = {
   pendingSteerLabel?: string
   onClearPendingSteer?: () => void
-  selectedIntent: TeachingIntent
-  onIntentChange: (intent: TeachingIntent) => void
   selectedPersona: string
   personaOptions: Array<{
     name: string
@@ -227,54 +175,6 @@ export function PromptComposerToolbar(props: PromptComposerToolbarProps) {
         </div>
 
         <div className="flex items-center gap-1">
-          <TooltipProvider delayDuration={300}>
-            <Tabs
-              value={props.selectedIntent}
-              onValueChange={(value) => {
-                if (
-                  value === "auto" ||
-                  value === "learn" ||
-                  value === "practice" ||
-                  value === "assess"
-                ) {
-                  props.onIntentChange(value)
-                }
-              }}
-              className="w-auto"
-            >
-              <TabsList variant="default" className="h-7 bg-surface-raised-base/85 p-0.5 ring-0">
-                {INTENT_OPTIONS.map((intent) => {
-                  const Icon = intent.icon
-                  const isSelected = props.selectedIntent === intent.key
-                  return (
-                    <Tooltip key={intent.key}>
-                      <TooltipTrigger asChild>
-                        <TabsTrigger
-                          data-action={`prompt-intent-${intent.key}`}
-                          value={intent.key}
-                          className="h-6 gap-1.5 border border-transparent px-2 text-[11px] text-text-weak hover:bg-surface-raised-base-hover hover:text-text-strong data-[state=active]:border-border-interactive-base data-[state=active]:bg-surface-interactive-base data-[state=active]:text-text-on-interactive-base data-[state=active]:shadow-xs [&_svg]:size-3.5 shadow-none"
-                        >
-                          <Icon className="shrink-0" />
-                          <span
-                            className={cn(
-                              "whitespace-nowrap overflow-hidden transition-all duration-500 ease-out",
-                              isSelected ? "max-w-[80px] opacity-100" : "max-w-0 opacity-0",
-                            )}
-                          >
-                            {intent.label}
-                          </span>
-                        </TabsTrigger>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" align="center" sideOffset={4}>
-                        <p className="text-xs">{intent.tooltip}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  )
-                })}
-              </TabsList>
-            </Tabs>
-          </TooltipProvider>
-
           <button
             type={props.isBusy ? "button" : "submit"}
             form="prompt-composer-form"

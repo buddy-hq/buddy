@@ -1,6 +1,5 @@
 import { useEffect } from "react"
 import { ChatRightSidebar } from "@/components/layout/chat-right-sidebar"
-import { intentFromSelection } from "@/state/teaching-runtime"
 import { useWorkspaceQuestionSetPanelStore } from "@/state/workspace-question-set-panel-store"
 import type { LearnerCurriculumView } from "@/state/chat-actions"
 import type { DirectoryChatState } from "@/lib/directory-chat/use-directory-chat-state"
@@ -96,7 +95,6 @@ export function DirectoryChatRightSidebar(props: DirectoryChatRightSidebarProps)
       filesPanel={panels.filesPanel}
       sessionID={chatState.sessionID}
       persona={chatState.selectedPersona}
-      intent={intentFromSelection(chatState.storedIntent)}
       onRunAction={onRunCurriculumAction}
       editorPanel={panels.editorPanel}
       figurePanel={panels.figurePanel}

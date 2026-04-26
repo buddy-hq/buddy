@@ -97,12 +97,7 @@ import { useChatStore } from "../../state/chat-store"
 import { useUiPreferences } from "../../state/ui-preferences"
 import { shallow } from "zustand/shallow"
 import { stringifyError } from "../../state/teaching-actions"
-import {
-  intentFromSelection,
-  teachingSelectionKey,
-  useTeachingRuntime,
-  type TeachingIntent,
-} from "../../state/teaching-runtime"
+import { teachingSelectionKey, useTeachingRuntime } from "../../state/teaching-runtime"
 import {
   buildCommandAttachmentParts,
   buildPromptDraftFromUserMessage,
@@ -187,7 +182,6 @@ export function useDirectoryChatPageController(
     | {
         label: string
         prompt: string
-        intent?: TeachingIntent
         focusGoalIds: string[]
       }
     | undefined
@@ -233,7 +227,6 @@ export function useDirectoryChatPageController(
     autoCompactionEnabled: chatConfig.autoCompactionEnabled,
     personaCatalog: chatConfig.personaCatalog,
     defaultPersona: chatConfig.defaultPersona,
-    defaultIntent: chatConfig.defaultIntent,
     showSystemPromptSidebarTab,
     showCapabilitiesSidebarTab,
     showPaletteSidebarTab,
@@ -288,7 +281,6 @@ export function useDirectoryChatPageController(
     messages: cs.messages,
     selectedPersonaSupportsEditor: cs.selectedPersonaSupportsEditor,
     selectedPersona: cs.selectedPersona,
-    storedIntent: cs.storedIntent,
     preferredLanguage: cs.preferredLanguage,
     effectiveModelSelection: cs.effectiveModelSelection,
     setDirectoryError: cs.setDirectoryError,
@@ -767,7 +759,6 @@ export function useDirectoryChatPageController(
         if (!runtime) return
         const teaching = useTeachingRuntime.getState()
         teaching.setSessionPersona(activeSessionKey, runtime.persona)
-        teaching.setSessionIntent(activeSessionKey, runtime.intent ?? "auto")
       } catch {
         // Ignore sessions without Buddy teaching state yet.
       }
@@ -1159,7 +1150,6 @@ export function useDirectoryChatPageController(
         content: command.prompt ?? "",
         attachments: input.rawAttachments,
         parts: [{ type: RESOURCE_REFERENCE_PART_TYPE, key: command.key }],
-        intent: intentFromSelection(cs.storedIntent),
       })
       if (sent) {
         cs.clearPromptDraft(cs.promptKey)
@@ -1212,7 +1202,6 @@ export function useDirectoryChatPageController(
     content: string
     attachments?: PromptComposerAttachment[]
     parts?: PromptComposerPart[]
-    intent?: TeachingIntent
     focusGoalIds?: string[]
   }) {
     if (!decodedDirectory) return false
@@ -1246,7 +1235,6 @@ export function useDirectoryChatPageController(
     }
 
     const variant = selectedThinking !== "default" ? selectedThinking : undefined
-    const intent = input.intent ?? intentFromSelection(cs.storedIntent)
     const activeWorkspace = cs.sessionKey
       ? useTeachingRuntime.getState().workspaceBySession[cs.sessionKey]
       : undefined
@@ -1260,7 +1248,6 @@ export function useDirectoryChatPageController(
     const submittedSessionID = await sendPrompt(decodedDirectory, contentForSubmission, {
       parts: submissionParts,
       persona: cs.selectedPersona,
-      intent,
       focusGoalIds: input.focusGoalIds,
       agent: currentAgentName,
       model: cs.effectiveModelSelection,
@@ -1320,8 +1307,6 @@ export function useDirectoryChatPageController(
     const slashCommand = parseSlashCommandInput(rawContent, slashCommandCandidates)
 
     if (slashCommand) {
-      const intent = intentFromSelection(cs.storedIntent)
-
       if (slashCommand.command.name === "new") {
         cs.clearPromptDraft(cs.promptKey)
         try {
@@ -1363,7 +1348,6 @@ export function useDirectoryChatPageController(
             content: buildQuizSlashPrompt(slashCommand.arguments),
             parts: buildQuizSlashPromptParts(promptParts, slashCommand.arguments),
             attachments: rawAttachments,
-            intent: "assess",
           })
           if (!sent) {
             restorePromptSnapshot(draftSnapshot)
@@ -1432,7 +1416,6 @@ export function useDirectoryChatPageController(
           {
             parts: attachmentParts,
             persona: cs.selectedPersona,
-            intent,
             agent: currentAgentName,
             model: cs.effectiveModelSelection,
             variant,
@@ -1456,7 +1439,6 @@ export function useDirectoryChatPageController(
         content,
         parts: promptParts,
         attachments: rawAttachments,
-        intent: pendingSuggestionOverride?.intent,
         focusGoalIds: pendingSuggestionOverride?.focusGoalIds,
       })
       if (!sent) {
@@ -1473,12 +1455,7 @@ export function useDirectoryChatPageController(
     const override = {
       label: `${action.label}: ${action.reason}`,
       prompt: action.prompt,
-      intent: action.intent,
       focusGoalIds: action.focusGoalIds,
-    }
-
-    if (cs.sessionKey) {
-      cs.teachingRuntime.setSessionIntent(cs.sessionKey, action.intent)
     }
 
     setPendingSuggestionOverride(override)
@@ -1495,7 +1472,6 @@ export function useDirectoryChatPageController(
       try {
         const sent = await sendRuntimePrompt({
           content: override.prompt,
-          intent: override.intent,
           focusGoalIds: override.focusGoalIds,
         })
         if (sent) {
@@ -1568,10 +1544,6 @@ export function useDirectoryChatPageController(
     }
   }
 
-  function onIntentChange(intent: TeachingIntent) {
-    cs.teachingRuntime.setSessionIntent(cs.sessionKey, intent)
-  }
-
   function onTeachingCreateFile() {
     if (!decodedDirectory || !cs.sessionID || !cs.sessionKey) return
     setCreateFileDialogOpen(true)
@@ -1593,7 +1565,6 @@ export function useDirectoryChatPageController(
       sessionKey: cs.sessionKey,
       preferredLanguage: cs.preferredLanguage,
       selectedPersona: cs.selectedPersona,
-      storedIntent: cs.storedIntent,
       effectiveModelSelection: cs.effectiveModelSelection,
       isBusy: cs.isBusy,
       isStartingInteractiveLesson,
@@ -1618,13 +1589,11 @@ export function useDirectoryChatPageController(
     slashCommands,
     modelOptions: cs.modelOptions,
     selectedPersona: cs.selectedPersona,
-    selectedIntent: cs.storedIntent,
     selectedModel: cs.selectedModelKey,
     pendingSteerLabel: pendingSuggestionOverride?.label,
     thinkingOptions: cs.thinkingOptions,
     selectedThinking,
     onPersonaChange,
-    onIntentChange,
     onClearPendingSteer: () => {
       setPendingSuggestionOverride(undefined)
     },

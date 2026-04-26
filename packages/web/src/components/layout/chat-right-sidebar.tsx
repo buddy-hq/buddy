@@ -16,7 +16,6 @@ import { language } from "@/context/language"
 import { Markdown } from "@/components/markdown/Markdown"
 import { type LearnerCurriculumView } from "@/state/chat-actions"
 import { learnerSnapshotViewsQueryOptions } from "@/state/learner-query"
-import type { TeachingIntent } from "@/state/teaching-runtime"
 import { useWorkspaceQuestionSetPanelStore } from "@/state/workspace-question-set-panel-store"
 import { WorkspaceMermaidPanel } from "./workspace-mermaid-panel"
 import { ChevronRightIcon, ChevronLeftIcon } from "./sidebar-icons"
@@ -52,7 +51,6 @@ type ChatRightSidebarProps = {
   onClose: () => void
   sessionID?: string
   persona?: string
-  intent?: TeachingIntent
   onRunAction?: (action: LearnerCurriculumView["actions"][number]) => void
   className?: string
   showCapabilitiesTab?: boolean
@@ -111,7 +109,7 @@ function RuntimeListSection(props: { title: string; items: string[]; empty: stri
 }
 
 export function ChatRightSidebar(props: ChatRightSidebarProps) {
-  const { directory, intent, persona, sessionID } = props
+  const { directory, persona, sessionID } = props
   const [rawSnapshotOpen, setRawSnapshotOpen] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const [showLeftArrow, setShowLeftArrow] = useState(false)
@@ -183,7 +181,6 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
   const learnerSnapshotQuery = useQuery({
     ...learnerSnapshotViewsQueryOptions(directory, {
       persona,
-      intent,
       sessionID,
     }),
     enabled: directory.length > 0 && isSnapshotTabActive,
@@ -450,7 +447,6 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                 <CardContent className="space-y-3 px-3 py-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="secondary">{capabilitiesView.persona}</Badge>
-                    <Badge variant="outline">{titleCaseLabel(capabilitiesView.intent)}</Badge>
                     <Badge variant="outline">
                       {titleCaseLabel(capabilitiesView.workspaceState)}
                     </Badge>
@@ -624,7 +620,6 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                             <span className="text-sm font-medium text-text-base">
                               {action.label}
                             </span>
-                            <span className="text-xs text-text-weak">{action.intent}</span>
                           </div>
                           <p className="mt-1 text-xs text-text-weak">{action.reason}</p>
                         </button>

@@ -110,7 +110,6 @@ describe("SystemPromptPanel", () => {
           JSON.stringify({
             sessionId: sessionID,
             persona: "buddy",
-            intent: "auto",
             currentSurface: "curriculum",
             workspaceState: "chat",
             focusGoalIds: [],
@@ -200,7 +199,6 @@ describe("SystemPromptPanel", () => {
           JSON.stringify({
             sessionId: sessionID,
             persona: "buddy",
-            intent: "auto",
             currentSurface: "curriculum",
             workspaceState: "chat",
             focusGoalIds: [],

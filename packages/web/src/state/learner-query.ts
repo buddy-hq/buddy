@@ -27,7 +27,6 @@ export const learnerQueryKeys = {
       SNAPSHOT_QUERY_KEY,
       directory,
       resolvePersonaQueryKey(input?.persona),
-      input?.intent ?? "auto",
       resolveSessionQueryKey(input?.sessionID),
     ] as const,
 }

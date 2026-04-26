@@ -30,7 +30,6 @@ import {
   loadProjectConfig,
   resolveDefaultPersonaID,
 } from "@/state/chat-actions"
-import type { TeachingIntent } from "@/state/teaching-runtime"
 
 const DATA_URL_PREFIX = "data:" as const
 
@@ -327,17 +326,10 @@ export async function loadComposerConfiguration(directory: string) {
     commands,
     configuredDefault,
     configuredModel: parseConfiguredModel(config.model),
-    configuredIntent:
-      config.default_intent === "learn" ||
-      config.default_intent === "practice" ||
-      config.default_intent === "assess"
-        ? config.default_intent
-        : ("auto" as const),
   } satisfies {
     personas: PersonaConfigOption[]
     commands: PromptCommandOption[]
     configuredDefault: string
     configuredModel: { providerID: string; modelID: string } | undefined
-    configuredIntent: TeachingIntent
   }
 }

@@ -3,7 +3,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { patchProjectConfig, type PersonaConfigOption } from "./chat-actions"
 import { language } from "@/context/language"
 import { useChatStore } from "@/state/chat-store"
-import type { TeachingIntent } from "./teaching-runtime"
 import type { ProviderCatalogState } from "./chat-types"
 import { readCompactionAuto, readString, readToolToggle } from "./project-config-readers"
 import { projectSettingsQueryOptions, type ProjectSettingsBundle } from "./project-settings-query"
@@ -12,7 +11,6 @@ export type LogLevel = "debug" | "info" | "warn" | "error"
 
 type ProjectSettingsDraft = {
   persona: string
-  intent: TeachingIntent
   provider: string
   model: string
   logLevel: LogLevel | ""
@@ -38,7 +36,6 @@ const EMPTY_PROJECT_CONFIG: Record<string, unknown> = {}
 
 const EMPTY_DRAFT: ProjectSettingsDraft = {
   persona: "",
-  intent: "auto",
   provider: "",
   model: "",
   logLevel: "",
@@ -102,7 +99,6 @@ function buildDraft(input: {
   const logLevel = readString(input.config, "logLevel")
   const selectablePersonas = input.personas.filter((persona) => !persona.hidden)
   const configuredDefaultPersona = readString(input.config, "default_persona")
-  const configuredDefaultIntent = readString(input.config, "default_intent")
 
   return {
     persona:
@@ -110,12 +106,6 @@ function buildDraft(input: {
       selectablePersonas.some((persona) => persona.id === configuredDefaultPersona)
         ? configuredDefaultPersona
         : "",
-    intent:
-      configuredDefaultIntent === "learn" ||
-      configuredDefaultIntent === "practice" ||
-      configuredDefaultIntent === "assess"
-        ? configuredDefaultIntent
-        : "auto",
     provider: initialProvider,
     model: initialModel,
     logLevel:
@@ -138,7 +128,6 @@ function buildProjectSettingsPatch(input: {
 }): ProjectSettingsPatch | undefined {
   const patch: ProjectSettingsPatch = {}
   const currentPersona = readString(input.projectConfig, "default_persona")
-  const currentIntent = readString(input.projectConfig, "default_intent")
   const currentModel = readString(input.projectConfig, "model")
   const currentLogLevel = readString(input.projectConfig, "logLevel")
   const currentFullTextReadingEnabled = readToolToggle(
@@ -151,11 +140,6 @@ function buildProjectSettingsPatch(input: {
 
   if (nextPersona && nextPersona !== currentPersona) {
     patch.default_persona = nextPersona
-  }
-
-  const nextIntent = input.draft.intent === "auto" ? "" : input.draft.intent
-  if (nextIntent !== currentIntent) {
-    patch.default_intent = nextIntent || null
   }
 
   const shouldPersistModel =
@@ -408,7 +392,6 @@ export function useProjectSettings(directory: string, open: boolean) {
     },
     selection: {
       persona: state.draft.persona,
-      intent: state.draft.intent,
       provider: state.draft.provider,
       model: state.draft.model,
       logLevel: state.draft.logLevel,
@@ -422,15 +405,6 @@ export function useProjectSettings(directory: string, open: boolean) {
           draft: {
             ...current.draft,
             persona,
-          },
-        }))
-      },
-      setIntent(intent: TeachingIntent) {
-        setState((current) => ({
-          ...current,
-          draft: {
-            ...current.draft,
-            intent,
           },
         }))
       },

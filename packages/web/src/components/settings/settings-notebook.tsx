@@ -46,37 +46,6 @@ export function NotebookSettings({ directory }: { directory: string }) {
           }
         />
         <SettingsRow
-          title={language.t("settings.notebook.defaultIntentTitle")}
-          description={language.t("settings.notebook.defaultIntentDescription")}
-          control={
-            <Select
-              value={settings.selection.intent}
-              onValueChange={(value) =>
-                settings.actions.setIntent(value as "auto" | "learn" | "practice" | "assess")
-              }
-              disabled={settings.status.loading}
-            >
-              <SelectTrigger data-action="settings-notebook-default-intent" className="w-full">
-                <SelectValue
-                  placeholder={language.t("settings.notebook.defaultIntentPlaceholder")}
-                />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="auto">{language.t("settings.notebook.intents.auto")}</SelectItem>
-                <SelectItem value="learn">
-                  {language.t("settings.notebook.intents.learn")}
-                </SelectItem>
-                <SelectItem value="practice">
-                  {language.t("settings.notebook.intents.practice")}
-                </SelectItem>
-                <SelectItem value="assess">
-                  {language.t("settings.notebook.intents.assess")}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          }
-        />
-        <SettingsRow
           title={language.t("settings.notebook.fullTextTitle")}
           description={language.t("settings.notebook.fullTextDescription")}
           control={

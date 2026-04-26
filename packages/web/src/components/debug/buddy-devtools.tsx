@@ -1,8 +1,8 @@
-import { useCallback, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { ReactQueryDevtoolsPanel } from "@tanstack/react-query-devtools"
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools"
-import { BugIcon, PowerIcon, RotateCcwIcon, XIcon } from "lucide-react"
+import { BugIcon, GripVerticalIcon, PowerIcon, RotateCcwIcon, XIcon } from "lucide-react"
 import {
   Badge,
   Button,
@@ -20,11 +20,7 @@ import {
 import { useLocation, useNavigate } from "@tanstack/react-router"
 import { language } from "@/context/language"
 import { useChatStore } from "@/state/chat-store"
-import {
-  teachingSessionKey,
-  useTeachingRuntime,
-  intentFromSelection,
-} from "@/state/teaching-runtime"
+import { teachingSessionKey, useTeachingRuntime } from "@/state/teaching-runtime"
 import { learnerSnapshotViewsQueryOptions } from "@/state/learner-query"
 import { SystemPromptPanel } from "./system-prompt-panel"
 import { PalettePanel } from "./palette-panel"
@@ -60,12 +56,23 @@ const MIN_DEVTOOLS_HEIGHT = 200
 function getDefaultDevToolsRect(): Rect {
   const vw = window.innerWidth
   const vh = window.innerHeight
+  const width = Math.min(420, vw)
   return {
-    left: 0,
-    top: Math.floor(vh / 2),
-    width: vw,
-    height: Math.floor(vh / 2),
+    left: vw - width,
+    top: 0,
+    width,
+    height: vh,
   }
+}
+
+function clampRectToViewport(r: Rect): Rect {
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  const width = Math.min(Math.max(r.width, MIN_DEVTOOLS_WIDTH), vw)
+  const height = Math.min(Math.max(r.height, MIN_DEVTOOLS_HEIGHT), vh)
+  const left = Math.min(Math.max(r.left, 0), vw - width)
+  const top = Math.min(Math.max(r.top, 0), vh - height)
+  return { left, top, width, height }
 }
 
 function useDevToolsRect() {
@@ -77,6 +84,14 @@ function useDevToolsRect() {
     y: 0,
     rect: { left: 0, top: 0, width: 0, height: 0 },
   })
+
+  useEffect(() => {
+    const handleResize = () => {
+      setRect((prev) => clampRectToViewport(prev))
+    }
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
+  }, [])
 
   const onDragPointerDown = useCallback(
     (event: React.PointerEvent) => {
@@ -91,20 +106,26 @@ function useDevToolsRect() {
       const target = event.currentTarget
       target.setPointerCapture(event.pointerId)
 
+      const previousCursor = document.body.style.cursor
+      document.body.style.cursor = "grabbing"
+
       const onPointerMove = (moveEvent: Event) => {
         if (!(moveEvent instanceof PointerEvent) || !draggingRef.current) return
         const dx = moveEvent.clientX - startRef.current.x
         const dy = moveEvent.clientY - startRef.current.y
-        setRect({
-          ...startRef.current.rect,
-          left: Math.max(0, startRef.current.rect.left + dx),
-          top: Math.max(0, startRef.current.rect.top + dy),
-        })
+        setRect(
+          clampRectToViewport({
+            ...startRef.current.rect,
+            left: startRef.current.rect.left + dx,
+            top: startRef.current.rect.top + dy,
+          }),
+        )
       }
 
       const onPointerUp = (upEvent: Event) => {
         if (!(upEvent instanceof PointerEvent) || !draggingRef.current) return
         draggingRef.current = false
+        document.body.style.cursor = previousCursor
         target.releasePointerCapture(upEvent.pointerId)
         target.removeEventListener("pointermove", onPointerMove)
         target.removeEventListener("pointerup", onPointerUp)
@@ -165,12 +186,14 @@ function useDevToolsRect() {
           nextHeight = proposedHeight
         }
 
-        setRect({
-          left: Math.max(0, nextLeft),
-          top: Math.max(0, nextTop),
-          width: nextWidth,
-          height: nextHeight,
-        })
+        setRect(
+          clampRectToViewport({
+            left: nextLeft,
+            top: nextTop,
+            width: nextWidth,
+            height: nextHeight,
+          }),
+        )
       }
 
       const onPointerUp = (upEvent: Event) => {
@@ -196,32 +219,44 @@ function useDevToolsRect() {
   }, [])
 
   const snapLeft = useCallback(() => {
+    const vw = window.innerWidth
     const vh = window.innerHeight
-    setRect({ left: 0, top: 0, width: 420, height: vh })
+    setRect(clampRectToViewport({ left: 0, top: 0, width: Math.min(420, vw), height: vh }))
+  }, [])
+
+  const snapRight = useCallback(() => {
+    const vw = window.innerWidth
+    const vh = window.innerHeight
+    const width = Math.min(420, vw)
+    setRect(clampRectToViewport({ left: vw - width, top: 0, width, height: vh }))
   }, [])
 
   const snapBottom = useCallback(() => {
     const vw = window.innerWidth
     const vh = window.innerHeight
-    setRect({
-      left: 0,
-      top: Math.floor(vh / 2),
-      width: vw,
-      height: Math.floor(vh / 2),
-    })
+    setRect(
+      clampRectToViewport({
+        left: 0,
+        top: Math.floor(vh / 2),
+        width: vw,
+        height: Math.floor(vh / 2),
+      }),
+    )
   }, [])
 
   const snapFloating = useCallback(() => {
     const vw = window.innerWidth
     const vh = window.innerHeight
-    const width = 640
-    const height = 420
-    setRect({
-      left: Math.max(12, vw - width - 12),
-      top: Math.max(12, vh - height - 12),
-      width,
-      height,
-    })
+    const width = Math.min(640, vw - 24)
+    const height = Math.min(420, vh - 24)
+    setRect(
+      clampRectToViewport({
+        left: Math.max(12, vw - width - 12),
+        top: Math.max(12, vh - height - 12),
+        width,
+        height,
+      }),
+    )
   }, [])
 
   return {
@@ -231,6 +266,7 @@ function useDevToolsRect() {
     onResizePointerDown,
     reset,
     snapLeft,
+    snapRight,
     snapBottom,
     snapFloating,
   }
@@ -271,14 +307,10 @@ function DevToolsSnapshotTab(props: { directory: string }) {
     [directory, sessionID],
   )
   const persona = sessionKey ? teachingRuntime.selectedPersonaBySession[sessionKey] : undefined
-  const intent = sessionKey
-    ? intentFromSelection(teachingRuntime.selectedIntentBySession[sessionKey] ?? "auto")
-    : "auto"
 
   const query = useQuery({
     ...learnerSnapshotViewsQueryOptions(directory, {
       persona,
-      intent,
       sessionID,
     }),
     enabled: directory.length > 0,
@@ -380,14 +412,10 @@ function DevToolsCapabilitiesTab(props: { directory: string }) {
     [directory, sessionID],
   )
   const persona = sessionKey ? teachingRuntime.selectedPersonaBySession[sessionKey] : undefined
-  const intent = sessionKey
-    ? intentFromSelection(teachingRuntime.selectedIntentBySession[sessionKey] ?? "auto")
-    : "auto"
 
   const query = useQuery({
     ...learnerSnapshotViewsQueryOptions(directory, {
       persona,
-      intent,
       sessionID,
     }),
     enabled: directory.length > 0,
@@ -430,7 +458,6 @@ function DevToolsCapabilitiesTab(props: { directory: string }) {
             <CardContent className="space-y-3 px-3 py-3">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="secondary">{capabilitiesView.persona}</Badge>
-                <Badge variant="outline">{titleCaseLabel(capabilitiesView.intent)}</Badge>
                 <Badge variant="outline">{titleCaseLabel(capabilitiesView.workspaceState)}</Badge>
               </div>
               <div className="space-y-1">
@@ -552,6 +579,7 @@ export function BuddyDevTools() {
     onResizePointerDown,
     reset,
     snapLeft,
+    snapRight,
     snapBottom,
     snapFloating,
   } = useDevToolsRect()
@@ -724,6 +752,8 @@ export function BuddyDevTools() {
             top: rect.top,
             width: rect.width,
             height: rect.height,
+            maxWidth: "100vw",
+            maxHeight: "100vh",
           }}
         >
           <Tabs
@@ -731,37 +761,16 @@ export function BuddyDevTools() {
             onValueChange={(v) => setActiveTab(v as BuddyDevToolsTab)}
             className="flex min-h-0 flex-1 flex-col"
           >
-            <div
-              className="flex cursor-move items-center border-b border-border-weaker-base"
-              onPointerDown={onDragPointerDown}
-            >
-              <div className="flex-1" onPointerDown={(e) => e.stopPropagation()}>
-                <TabsList variant="line" className="h-9 w-full justify-start px-2">
-                  <TabsTrigger value="actions" className="text-xs">
-                    Actions
-                  </TabsTrigger>
-                  <TabsTrigger value="session" className="text-xs">
-                    Session
-                  </TabsTrigger>
-                  <TabsTrigger value="palette" className="text-xs">
-                    Palette
-                  </TabsTrigger>
-                  <TabsTrigger value="snapshot" className="text-xs">
-                    Snapshot
-                  </TabsTrigger>
-                  <TabsTrigger value="capabilities" className="text-xs">
-                    Capabilities
-                  </TabsTrigger>
-                  <TabsTrigger value="query" className="text-xs">
-                    Query
-                  </TabsTrigger>
-                </TabsList>
+            <div className="flex items-center border-b border-border-weaker-base">
+              <div
+                className="flex shrink-0 cursor-grab items-center px-2 text-text-weaker hover:text-text-base"
+                onPointerDown={onDragPointerDown}
+                title="Drag to move"
+              >
+                <GripVerticalIcon className="size-4" />
               </div>
 
-              <div
-                className="flex items-center gap-1 px-2"
-                onPointerDown={(e) => e.stopPropagation()}
-              >
+              <div className="flex shrink-0 items-center gap-1 px-2">
                 <div className="flex items-center gap-0.5">
                   <Button
                     type="button"
@@ -773,6 +782,18 @@ export function BuddyDevTools() {
                   >
                     <div className="flex h-3 w-3 items-center justify-center rounded-sm border border-text-weaker">
                       <div className="h-full w-[2px] bg-text-weaker" />
+                    </div>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    className="h-6 w-6"
+                    title="Dock right"
+                    onClick={snapRight}
+                  >
+                    <div className="flex h-3 w-3 items-center justify-center rounded-sm border border-text-weaker">
+                      <div className="ml-auto h-full w-[2px] bg-text-weaker" />
                     </div>
                   </Button>
                   <Button
@@ -822,6 +843,29 @@ export function BuddyDevTools() {
                 >
                   <XIcon className="size-4" />
                 </Button>
+              </div>
+
+              <div className="min-w-0 flex-1 overflow-x-auto">
+                <TabsList variant="line" className="h-9 w-max justify-start px-2">
+                  <TabsTrigger value="actions" className="text-xs">
+                    Actions
+                  </TabsTrigger>
+                  <TabsTrigger value="session" className="text-xs">
+                    Session
+                  </TabsTrigger>
+                  <TabsTrigger value="palette" className="text-xs">
+                    Palette
+                  </TabsTrigger>
+                  <TabsTrigger value="snapshot" className="text-xs">
+                    Snapshot
+                  </TabsTrigger>
+                  <TabsTrigger value="capabilities" className="text-xs">
+                    Capabilities
+                  </TabsTrigger>
+                  <TabsTrigger value="query" className="text-xs">
+                    Query
+                  </TabsTrigger>
+                </TabsList>
               </div>
             </div>
 

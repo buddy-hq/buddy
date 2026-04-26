@@ -79,7 +79,6 @@ type PromptComposerProps = {
     disabled?: boolean
   }>
   selectedPersona: string
-  selectedIntent: "auto" | "learn" | "practice" | "assess"
   selectedModel: string
   pendingSteerLabel?: string
   thinkingOptions: Array<{
@@ -88,7 +87,6 @@ type PromptComposerProps = {
   }>
   selectedThinking: string
   onPersonaChange: (persona: string) => void
-  onIntentChange: (intent: "auto" | "learn" | "practice" | "assess") => void
   onClearPendingSteer?: () => void
   onModelChange: (model: string) => void
   onThinkingChange: (thinking: string) => void
@@ -143,7 +141,6 @@ export function PromptComposer(props: PromptComposerProps) {
   const viewState = usePromptComposerViewState({
     cursorOffset,
     draftValue: draft.value,
-    selectedIntent: props.selectedIntent,
     selectedPersona: props.selectedPersona,
     personaOptions: props.personaOptions,
     mentionableAgents: props.mentionableAgents,
@@ -724,8 +721,6 @@ export function PromptComposer(props: PromptComposerProps) {
       <PromptComposerToolbar
         pendingSteerLabel={props.pendingSteerLabel}
         onClearPendingSteer={props.onClearPendingSteer}
-        selectedIntent={props.selectedIntent}
-        onIntentChange={props.onIntentChange}
         selectedPersona={props.selectedPersona}
         personaOptions={viewState.personaOptions}
         onPersonaChange={props.onPersonaChange}

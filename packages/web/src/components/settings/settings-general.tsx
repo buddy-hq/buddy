@@ -17,16 +17,8 @@ import { showDesktopUpdateToast } from "@/lib/desktop-updates"
 import { useTheme, type ColorScheme } from "@/theme"
 import { SettingsContent, SettingsListCard, SettingsRow } from "./settings-primitives"
 
-const GENERAL_INTENTS = ["auto", "learn", "practice", "assess"] as const
-
-type GeneralIntent = (typeof GENERAL_INTENTS)[number]
-
 function isColorScheme(value: string): value is ColorScheme {
   return value === "system" || value === "light" || value === "dark"
-}
-
-function isGeneralIntent(value: string): value is GeneralIntent {
-  return GENERAL_INTENTS.some((intent) => intent === value)
 }
 
 export function GeneralSettings({ directory }: { directory: string }) {
@@ -180,41 +172,6 @@ export function GeneralSettings({ directory }: { directory: string }) {
                       {persona.label}
                     </SelectItem>
                   ))}
-                </SelectContent>
-              </Select>
-            }
-          />
-          <SettingsRow
-            title={language.t("settings.notebook.defaultIntentTitle")}
-            description={language.t("settings.notebook.defaultIntentDescription")}
-            control={
-              <Select
-                value={notebookSettings.selection.intent}
-                onValueChange={(value) => {
-                  if (isGeneralIntent(value)) {
-                    notebookSettings.actions.setIntent(value)
-                  }
-                }}
-                disabled={notebookSettings.status.loading}
-              >
-                <SelectTrigger data-action="settings-notebook-default-intent" className="w-full">
-                  <SelectValue
-                    placeholder={language.t("settings.notebook.defaultIntentPlaceholder")}
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="auto">
-                    {language.t("settings.notebook.intents.auto")}
-                  </SelectItem>
-                  <SelectItem value="learn">
-                    {language.t("settings.notebook.intents.learn")}
-                  </SelectItem>
-                  <SelectItem value="practice">
-                    {language.t("settings.notebook.intents.practice")}
-                  </SelectItem>
-                  <SelectItem value="assess">
-                    {language.t("settings.notebook.intents.assess")}
-                  </SelectItem>
                 </SelectContent>
               </Select>
             }
