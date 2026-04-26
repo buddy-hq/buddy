@@ -1,10 +1,5 @@
 import type { Config } from "@buddy/backend/config"
-import {
-  WORKSPACE_STATES,
-  type Intent,
-  type WorkspaceState,
-} from "@buddy/backend/learning/shared/teaching-vocabulary"
-import { resolveIntentPermissions } from "../intents/capabilities/resolution"
+import type { WorkspaceState } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import type { PersonaDefinition, ToolId } from "../shared/runtime-types"
 import { allLearningToolIds, allLearningToolMetadata } from "./tool-metadata"
 import {
@@ -14,10 +9,7 @@ import {
 
 type ToolPermissionAction = "allow" | "deny"
 type ToolPermissionMap = Record<ToolId, ToolPermissionAction>
-
-function explicitIntents(): Exclude<Intent, "auto">[] {
-  return ["learn", "practice", "assess"]
-}
+type SkillPermissionMap = Record<string, ToolPermissionAction>
 
 function createDenyToolMap(): ToolPermissionMap {
   return {} as ToolPermissionMap
@@ -50,17 +42,6 @@ function applyPersonaWorkspaceToolConstraints(input: {
   }
 }
 
-function applyIntentToolOverrides(input: {
-  tools: ToolPermissionMap
-  intentToolPermissions: Partial<Record<ToolId, ToolPermissionAction>>
-}): void {
-  for (const [toolId, access] of Object.entries(input.intentToolPermissions) as Array<
-    [ToolId, ToolPermissionAction]
-  >) {
-    input.tools[toolId] = access
-  }
-}
-
 function applyRuntimeToolConstraints(tools: ToolPermissionMap): void {
   for (const tool of allLearningToolMetadata()) {
     if (!toolMatchesRuntimeConstraints(tool)) {
@@ -87,64 +68,33 @@ function applyConfiguredToolToggles(
 function collectPersonaDefaultAllowedToolIDs(persona: PersonaDefinition): Set<ToolId> {
   const allowed = new Set<ToolId>()
 
-  for (const workspaceState of WORKSPACE_STATES) {
-    const tools = createDenyToolMap()
-    applyPersonaDefaultTools(tools, persona)
-    applyPersonaWorkspaceToolConstraints({
-      tools,
-      persona,
-      workspaceState,
-    })
-
-    for (const [toolId, access] of Object.entries(tools) as Array<[ToolId, ToolPermissionAction]>) {
-      if (access === "allow") {
-        allowed.add(toolId)
-      }
+  for (const toolId of allLearningToolIds()) {
+    const access = persona.toolDefaults[toolId]
+    if (access === "allow") {
+      allowed.add(toolId)
     }
   }
 
   return allowed
 }
 
-function collectIntentManagedAllowedToolIDs(persona: PersonaDefinition): Set<ToolId> {
-  const allowed = new Set<ToolId>()
-
-  for (const intent of explicitIntents()) {
-    for (const workspaceState of WORKSPACE_STATES) {
-      const intentPermissions = resolveIntentPermissions({
-        persona,
-        intent,
-        workspaceState,
-      })
-
-      for (const [toolId, access] of Object.entries(intentPermissions.tools) as Array<
-        [ToolId, ToolPermissionAction]
-      >) {
-        if (access === "allow") {
-          allowed.add(toolId)
-        }
-      }
-    }
+function buildSkillPermissions(persona: PersonaDefinition): SkillPermissionMap {
+  const skills: SkillPermissionMap = {}
+  for (const [skillName, access] of Object.entries(persona.skillDefaults)) {
+    if (!access || access === "inherit") continue
+    skills[skillName] = access
   }
-
-  return allowed
+  return skills
 }
 
 export function compileRuntimeLearningToolPermissions(input: {
   persona: PersonaDefinition
-  intent: Intent
   workspaceState: WorkspaceState
   configuredToolToggles?: Config.Info["tools"]
 }): {
   tools: ToolPermissionMap
   skills: Record<string, ToolPermissionAction>
 } {
-  const intentPermissions = resolveIntentPermissions({
-    persona: input.persona,
-    intent: input.intent,
-    workspaceState: input.workspaceState,
-  })
-
   const tools = createDenyToolMap()
   applyPersonaDefaultTools(tools, input.persona)
   applyPersonaWorkspaceToolConstraints({
@@ -152,16 +102,12 @@ export function compileRuntimeLearningToolPermissions(input: {
     persona: input.persona,
     workspaceState: input.workspaceState,
   })
-  applyIntentToolOverrides({
-    tools,
-    intentToolPermissions: intentPermissions.tools,
-  })
   applyRuntimeToolConstraints(tools)
   applyConfiguredToolToggles(tools, input.configuredToolToggles)
 
   return {
     tools,
-    skills: intentPermissions.skills,
+    skills: buildSkillPermissions(input.persona),
   }
 }
 
@@ -170,11 +116,9 @@ export function deriveStaticPersonaLearningToolPermissions(
 ): Record<ToolId, ToolPermissionAction> {
   const permissions = createDenyToolMap()
   const personaDefaultAllowed = collectPersonaDefaultAllowedToolIDs(persona)
-  const intentManagedAllowed = collectIntentManagedAllowedToolIDs(persona)
 
   for (const toolID of allLearningToolIds()) {
-    permissions[toolID] =
-      personaDefaultAllowed.has(toolID) || intentManagedAllowed.has(toolID) ? "allow" : "deny"
+    permissions[toolID] = personaDefaultAllowed.has(toolID) ? "allow" : "deny"
   }
 
   return permissions

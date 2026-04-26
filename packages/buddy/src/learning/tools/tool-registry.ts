@@ -10,6 +10,7 @@ import { goalTools } from "@buddy/backend/learning/curriculum/goals/tools/tools"
 import { curriculumTools } from "@buddy/backend/learning/curriculum/planning/tools/tools"
 import { knowledgeGraphTools } from "@buddy/backend/learning/knowledge-graph/tools/tools"
 import { learnerTools } from "@buddy/backend/learning/learner-model/tools/tools"
+import { dynamicToolSearchTools } from "./dynamic-tool-search"
 import {
   LEARNING_TOOL_GROUP_POLICIES,
   allLearningToolGroups,
@@ -26,6 +27,7 @@ const learningToolGroups = {
   mermaid: mermaidTools,
   goals: goalTools,
   learner: learnerTools,
+  toolDiscovery: dynamicToolSearchTools,
   teaching: teachingTools,
   math: mathTools,
   questionSet: questionSetTools,
@@ -69,6 +71,10 @@ const registeredLearningToolGroupDescriptors = {
   learner: {
     ...LEARNING_TOOL_GROUP_POLICIES.learner,
     tools: learningToolGroups.learner,
+  },
+  toolDiscovery: {
+    ...LEARNING_TOOL_GROUP_POLICIES.toolDiscovery,
+    tools: learningToolGroups.toolDiscovery,
   },
   teaching: {
     ...LEARNING_TOOL_GROUP_POLICIES.teaching,

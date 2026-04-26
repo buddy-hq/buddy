@@ -66,7 +66,13 @@ type LearningToolGroupPolicy = {
 }
 
 const LEARNING_TOOL_METADATA = [
-  { id: "pedagogy_debug_attempt", group: "pedagogy" },
+  {
+    id: "pedagogy_debug_attempt",
+    group: "pedagogy",
+    capability: {
+      workspaceStates: [INTERACTIVE_WORKSPACE_STATE],
+    },
+  },
   { id: "pedagogy_stepwise_solve", group: "pedagogy" },
   { id: "pedagogy_reflection", group: "pedagogy" },
   { id: "pedagogy_prepare_resource", group: "pedagogy" },
