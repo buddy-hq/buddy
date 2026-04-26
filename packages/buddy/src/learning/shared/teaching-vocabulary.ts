@@ -14,9 +14,6 @@ if (derivedPersonas.length === 0) {
 export const PERSONAS = [...derivedPersonas] as [BuiltinPersona, ...BuiltinPersona[]]
 export type Persona = (typeof PERSONAS)[number]
 
-export const INTENTS = ["learn", "practice", "assess", "auto"] as const
-export type Intent = (typeof INTENTS)[number]
-
 export const SURFACES = [
   "chat",
   "curriculum",
@@ -56,19 +53,8 @@ const derivedSubagentIds = BUDDY_SUBAGENTS.map(({ key }) => key) as BuiltinSubag
 export const SUBAGENT_IDS = [...derivedSubagentIds] as [BuiltinSubagentId, ...BuiltinSubagentId[]]
 export type SubagentId = (typeof SUBAGENT_IDS)[number]
 
-export const INTENT_LABELS: Record<Intent, string> = {
-  learn: "Understand",
-  practice: "Practice",
-  assess: "Check",
-  auto: "Auto",
-}
-
 export function isPersona(value: string): value is Persona {
   return PERSONAS.includes(value as Persona)
-}
-
-export function isIntent(value: string): value is Intent {
-  return INTENTS.includes(value as Intent)
 }
 
 export function isPersonaSurface(value: string): value is PersonaSurface {

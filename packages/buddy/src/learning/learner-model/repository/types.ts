@@ -2,7 +2,6 @@ import z from "zod"
 import {
   SCAFFOLDING_LEVELS,
   SURFACES,
-  INTENTS,
   PERSONAS,
   WORKSPACE_STATES,
 } from "@buddy/backend/learning/shared/teaching-vocabulary"
@@ -216,12 +215,10 @@ export const LearnerArtifactSchema = z.discriminatedUnion("kind", [
 ])
 export type LearnerArtifact = z.infer<typeof LearnerArtifactSchema>
 
-const SharedSnapshotDecisionSchema = z.object({
+export const SnapshotQuerySchema = z.object({
   persona: z.enum(PERSONAS).default("buddy"),
-  intent: z.enum(INTENTS).default("auto"),
   focusGoalIds: z.array(z.string()).default([]),
   sessionId: z.string().optional(),
   workspaceState: z.enum(WORKSPACE_STATES).optional(),
 })
-export const SnapshotQuerySchema = SharedSnapshotDecisionSchema
 export type SnapshotQuery = z.infer<typeof SnapshotQuerySchema>

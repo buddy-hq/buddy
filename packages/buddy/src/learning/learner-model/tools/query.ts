@@ -1,6 +1,6 @@
 import QUERY_DESCRIPTION from "./query.md"
 import z from "zod"
-import { PERSONAS, INTENTS } from "@buddy/backend/learning/shared/teaching-vocabulary"
+import { PERSONAS } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import { createBuddyTool, type BuddyToolContext } from "../../tools/create-buddy-tool"
 import { getWorkspaceSnapshot } from ".."
 
@@ -8,7 +8,6 @@ const learnerStateQueryTool = createBuddyTool("learner_snapshot_read", {
   description: QUERY_DESCRIPTION,
   parameters: z.object({
     persona: z.enum(PERSONAS).optional(),
-    intent: z.enum(INTENTS).default("auto"),
     focusGoalIds: z.array(z.string()).optional(),
   }),
   async execute(params, ctx: BuddyToolContext) {
@@ -16,16 +15,13 @@ const learnerStateQueryTool = createBuddyTool("learner_snapshot_read", {
       permission: "learner_snapshot_read",
       patterns: ["*"],
       always: ["*"],
-      metadata: {
-        intent: params.intent,
-      },
+      metadata: {},
     })
 
     const snapshot = await getWorkspaceSnapshot({
       directory: ctx.directory,
       query: {
         persona: params.persona ?? "buddy",
-        intent: params.intent,
         focusGoalIds: params.focusGoalIds ?? [],
       },
     })

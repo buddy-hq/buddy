@@ -6,7 +6,6 @@ import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
 import { SessionStatus as OpenCodeSessionStatus } from "@buddy/opencode-adapter/session-status"
 import { MessageV2 as OpenCodeMessage } from "@buddy/opencode-adapter/message"
 import {
-  INTENTS,
   PERSONAS,
   PERSONA_SURFACES,
   WORKSPACE_STATES,
@@ -76,10 +75,6 @@ const sessionPromptBodyOpenApiSchema = {
       items: { type: "object" as const, additionalProperties: true },
     },
     persona: { type: "string" as const },
-    intent: {
-      type: "string" as const,
-      enum: [...INTENTS],
-    },
     focusGoalIds: {
       type: "array" as const,
       items: { type: "string" as const },
@@ -118,10 +113,6 @@ const sessionCommandBodyOpenApiSchema = {
       items: { type: "object" as const, additionalProperties: true },
     },
     persona: { type: "string" as const },
-    intent: {
-      type: "string" as const,
-      enum: [...INTENTS],
-    },
     agent: { type: "string" as const },
     model: {
       oneOf: [
@@ -185,7 +176,6 @@ const teachingSessionStateOutboundSchema = z.object({
 const teachingSessionStateSchema = z.object({
   sessionId: z.string(),
   persona: z.enum(PERSONAS),
-  intent: z.enum(INTENTS),
   currentSurface: z.enum(PERSONA_SURFACES),
   workspaceState: z.enum(WORKSPACE_STATES),
   focusGoalIds: z.array(z.string()),

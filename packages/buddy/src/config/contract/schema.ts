@@ -1,11 +1,7 @@
 import path from "node:path"
 import z from "zod"
 import { Config as OpenCodeConfig } from "@buddy/opencode-adapter/config"
-import {
-  PERSONA_SURFACES,
-  INTENTS,
-  PERSONAS,
-} from "@buddy/backend/learning/shared/teaching-vocabulary"
+import { PERSONA_SURFACES, PERSONAS } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import { resolveBuddyPersonaProfiles } from "../../learning/personas/wiring/persona.orchestration"
 
 export namespace ConfigSchema {
@@ -36,7 +32,6 @@ export namespace ConfigSchema {
   const TOOL_TOGGLE_MAP = z.record(z.string(), z.boolean()).optional()
   const BuddySurface = z.enum(PERSONA_SURFACES)
   const BuddyPersonaID = z.enum(PERSONAS)
-  const TeachingIntent = z.enum(INTENTS)
   const DisabledMcp = z.object({ enabled: z.boolean() }).strict()
   const Compaction = z
     .object({
@@ -88,7 +83,6 @@ export namespace ConfigSchema {
       model: ModelID.optional(),
       small_model: ModelID.optional(),
       default_persona: BuddyPersonaID.optional(),
-      default_intent: TeachingIntent.nullable().optional(),
       personas: Personas.optional(),
       agent: z.record(z.string(), Agent).optional(),
       provider: z.record(z.string(), Provider).optional(),

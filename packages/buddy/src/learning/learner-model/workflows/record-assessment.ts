@@ -84,7 +84,6 @@ export async function recordAssessmentEvent(input: {
     directory: input.directory,
     query: {
       persona: "buddy",
-      intent: "assess",
       focusGoalIds: input.goalIds,
       sessionId: input.sessionId,
     },

@@ -89,7 +89,6 @@ export async function recordPracticeEvent(input: {
     directory: input.directory,
     query: {
       persona: "buddy",
-      intent: "practice",
       focusGoalIds: input.goalIds,
       sessionId: input.sessionId,
     },

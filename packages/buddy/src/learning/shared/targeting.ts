@@ -4,9 +4,7 @@ import {
   type readProjectConfig,
 } from "@buddy/backend/config/runtime"
 import {
-  isIntent,
   isPersona,
-  type Intent,
   type Persona as BuddyPersona,
   type WorkspaceState,
 } from "@buddy/backend/learning/shared/teaching-vocabulary"
@@ -83,25 +81,6 @@ export function normalizePersonaTarget(input: {
   }
 }
 
-export function resolveIntent(input: {
-  body: Record<string, unknown>
-  config: Awaited<ReturnType<typeof readProjectConfig>>
-}): Intent {
-  const raw = typeof input.body.intent === "string" ? input.body.intent.trim() : ""
-  if (raw) {
-    if (!isIntent(raw)) {
-      throw new SessionTransformValidationError(`Unknown teaching intent "${raw}"`)
-    }
-    return raw
-  }
-
-  if (typeof input.config.default_intent === "string" && isIntent(input.config.default_intent)) {
-    return input.config.default_intent
-  }
-
-  return "auto"
-}
-
 export function resolveFocusGoalIds(body: Record<string, unknown>): string[] {
   if (!Array.isArray(body.focusGoalIds)) return []
   return body.focusGoalIds.filter(
@@ -110,12 +89,12 @@ export function resolveFocusGoalIds(body: Record<string, unknown>): string[] {
 }
 
 export function assertNoLegacyRuntimeOverrides(body: Record<string, unknown>) {
-  const legacyFields = ["strategy", "adaptivity", "currentGoalIds"] as const
+  const legacyFields = ["strategy", "adaptivity", "currentGoalIds", "intent"] as const
   const present = legacyFields.filter((field) => field in body)
   if (present.length === 0) return
 
   throw new SessionTransformValidationError(
-    `Legacy runtime override fields are no longer supported (${present.join(", ")}). Use focusGoalIds.`,
+    `Legacy runtime override fields are no longer supported (${present.join(", ")}).`,
   )
 }
 

@@ -29,7 +29,6 @@ export type LearnerSnapshot = {
   markdown: string
   decisionInputFingerprint: string
   runtimeContext: {
-    intent: SnapshotQuery["intent"]
     workspaceState: WorkspaceState
   }
   runtimeProfile: RuntimeProfile
@@ -133,7 +132,6 @@ function buildDecisionInputFingerprint(input: {
     `workspace:${input.workspace.workspaceId}@${input.workspace.updatedAt}`,
     `profile:${input.profile.id}@${input.profile.updatedAt}`,
     `persona:${input.query.persona}`,
-    `intent:${input.query.intent ?? ""}`,
     `workspaceState:${input.query.workspaceState ?? ""}`,
     `focusGoals:${[...input.query.focusGoalIds].toSorted().join(",")}`,
     `goals:${[...input.goals]
@@ -197,7 +195,6 @@ export namespace LearnerSnapshotCompiler {
     const runtimeProfile = resolveCapabilityProfile({
       persona: getBuddyPersona(input.query.persona),
       workspaceState,
-      intent: input.query.intent,
       configuredToolToggles: projectConfig.tools,
     })
 
@@ -242,7 +239,6 @@ export namespace LearnerSnapshotCompiler {
       markdown: buildMarkdown(workspace.label, sections),
       decisionInputFingerprint,
       runtimeContext: {
-        intent: input.query.intent,
         workspaceState,
       },
       runtimeProfile,

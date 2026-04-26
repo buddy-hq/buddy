@@ -43,7 +43,6 @@ export function parseSnapshotQuery(requestURL: URL) {
   const query = requestURL.searchParams
   return SnapshotQuerySchema.safeParse({
     persona: query.get("persona") ?? undefined,
-    intent: query.get("intent") ?? undefined,
     focusGoalIds: query.has("goalId") ? query.getAll("goalId") : undefined,
     sessionId: query.get("sessionId") ?? undefined,
     workspaceState: query.get("workspaceState") ?? undefined,

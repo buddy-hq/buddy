@@ -1,5 +1,4 @@
 import type {
-  Intent,
   Persona,
   PersonaSurface,
   SubagentId,
@@ -7,6 +6,9 @@ import type {
 import type { LearningToolId } from "../tools/tool-metadata"
 
 export type ToolId = LearningToolId
+
+export type SkillAccess = "inherit" | "allow" | "deny"
+export type SkillDelta<TSkillId extends string = string> = Partial<Record<TSkillId, SkillAccess>>
 
 export type ToolAccess = "inherit" | "allow" | "deny"
 export type ToolDelta<TToolId extends string = string> = Partial<Record<TToolId, ToolAccess>>
@@ -32,8 +34,8 @@ export type PersonaDefinition = {
   surfaces: PersonaSurface[]
   defaultSurface: PersonaSurface
   hidden: boolean
-  defaultIntent: Intent
   toolDefaults: ToolDelta<ToolId>
+  skillDefaults: SkillDelta
   subagentDefaults: SubagentDelta<SubagentId>
   contextPolicy: PersonaContextPolicy
 }

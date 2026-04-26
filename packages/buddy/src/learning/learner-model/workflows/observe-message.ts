@@ -78,7 +78,6 @@ export async function recordLearnerMessageEvent(input: {
     directory: input.directory,
     query: {
       persona: "buddy",
-      intent: "learn",
       focusGoalIds: input.goalIds,
       sessionId: input.sessionId,
     },

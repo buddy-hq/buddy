@@ -1,7 +1,6 @@
 import type {
   Persona,
   Surface,
-  Intent,
   WorkspaceState,
 } from "@buddy/backend/learning/shared/teaching-vocabulary"
 
@@ -15,7 +14,6 @@ export type TeachingLlmOutboundEntry = {
 export type TeachingSessionState = {
   sessionId: string
   persona: Persona
-  intent: Intent
   currentSurface: Surface
   workspaceState: WorkspaceState
   focusGoalIds: string[]

@@ -2,7 +2,6 @@ import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
 import {
-  INTENTS,
   PERSONAS,
   PERSONA_SURFACES,
   WORKSPACE_STATES,
@@ -29,7 +28,6 @@ import {
 
 const learnerSnapshotQuerySchema = directoryQuerySchema.extend({
   persona: z.enum(PERSONAS).optional(),
-  intent: z.enum(INTENTS).optional(),
   goalId: z.union([z.string(), z.array(z.string())]).optional(),
   sessionId: z.string().optional(),
   workspaceState: z.enum(WORKSPACE_STATES).optional(),
@@ -63,7 +61,6 @@ const learnerSnapshotResponseSchema = z.object({
   markdown: z.string(),
   decisionInputFingerprint: z.string(),
   runtimeContext: z.object({
-    intent: z.enum(INTENTS),
     workspaceState: z.enum(WORKSPACE_STATES),
   }),
   runtimeProfile: runtimeProfileSchema,
