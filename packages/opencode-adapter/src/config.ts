@@ -57,7 +57,7 @@ function key(directory: string) {
   }
 }
 
-async function withOverlayEnv<T>(directory: string, fn: () => Promise<T>): Promise<T> {
+export async function withConfigOverlay<T>(directory: string, fn: () => Promise<T>): Promise<T> {
   const overlay = overlays.get(key(directory))
   if (!overlay) {
     return fn()
@@ -81,11 +81,11 @@ function ensurePatched() {
   patched = true
 
   const provideWithOverlay: typeof Instance.provide = async (input) => {
-    return withOverlayEnv(input.directory, () => originalProvide(input))
+    return withConfigOverlay(input.directory, () => originalProvide(input))
   }
 
   const reloadWithOverlay: typeof Instance.reload = async (input) => {
-    return withOverlayEnv(input.directory, () => originalReload(input))
+    return withConfigOverlay(input.directory, () => originalReload(input))
   }
 
   Instance.provide = provideWithOverlay

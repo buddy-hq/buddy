@@ -8,6 +8,7 @@ import * as OpenCodeToolRegistry from "opencode/tool/registry"
 import * as OpenCodeTruncate from "opencode/tool/truncate"
 import * as OpenCodeTool from "opencode/tool/tool"
 import { Agent } from "./agent"
+import { withConfigOverlay } from "./config"
 
 const runtime = makeRuntime(OpenCodeToolRegistry.Service, OpenCodeToolRegistry.defaultLayer)
 const customToolRuntime = ManagedRuntime.make(
@@ -120,7 +121,9 @@ function ensurePatched(service: OpenCodeToolRegistry.Interface) {
 }
 
 async function ensureRuntimePatched() {
-  await runtime.runPromise((svc) => Effect.sync(() => ensurePatched(svc)))
+  await withConfigOverlay(Instance.directory, () =>
+    runtime.runPromise((svc) => Effect.sync(() => ensurePatched(svc))),
+  )
 }
 
 async function resolveToolAgent(agent?: ToolAgentInput): Promise<ToolAgentInfo> {
@@ -157,27 +160,29 @@ export namespace ToolRegistry {
 
   export async function ids() {
     await ensureRuntimePatched()
-    return runtime.runPromise((svc) => svc.ids())
+    return withConfigOverlay(Instance.directory, () => runtime.runPromise((svc) => svc.ids()))
   }
 
   export async function all() {
     await ensureRuntimePatched()
-    return runtime.runPromise((svc) => svc.all())
+    return withConfigOverlay(Instance.directory, () => runtime.runPromise((svc) => svc.all()))
   }
 
   export async function named() {
     await ensureRuntimePatched()
-    return runtime.runPromise((svc) => svc.named())
+    return withConfigOverlay(Instance.directory, () => runtime.runPromise((svc) => svc.named()))
   }
 
   export async function tools(model: ToolModelInput, agent?: ToolAgentInput) {
     await ensureRuntimePatched()
     const resolvedAgent = await resolveToolAgent(agent)
-    const tools = await runtime.runPromise((svc) =>
-      svc.tools({
-        ...model,
-        agent: resolvedAgent,
-      }),
+    const tools = await withConfigOverlay(Instance.directory, () =>
+      runtime.runPromise((svc) =>
+        svc.tools({
+          ...model,
+          agent: resolvedAgent,
+        }),
+      ),
     )
     return tools.map(toRuntimeTool)
   }
