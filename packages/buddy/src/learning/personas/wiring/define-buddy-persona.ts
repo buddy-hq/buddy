@@ -1,11 +1,12 @@
 import { definePromptTemplate } from "../../prompt/template/engine"
 import type { BuddyPermissionInput, CoreAgentDefinition } from "../../agent-factories"
 import BASE_PERSONA_PROMPT from "../prompts/base.p.md"
+import { SMOKE_ASSESSMENT_TOOL_ID, SMOKE_PRACTICE_TOOL_ID } from "../../tools/dynamic-tool-ids"
 
-type PersonaIntent = "learn" | "practice" | "assess" | "auto"
 type PersonaDomain = "general" | "coding" | "math"
 type PersonaSurface = "curriculum" | "editor" | "figure" | "flashcard" | "question-set"
 type ToolAccess = "inherit" | "allow" | "deny"
+type SkillAccess = "inherit" | "allow" | "deny"
 type SubagentAccess = "inherit" | "allow" | "deny" | "prefer"
 
 type PersonaContextPolicyDefinition = {
@@ -21,11 +22,11 @@ type BuddyPersonaProfileDefinition<Id extends string = string> = {
   label: string
   description: string
   domain: PersonaDomain
-  defaultIntent: PersonaIntent
   surfaces: readonly PersonaSurface[]
   defaultSurface: PersonaSurface
   hidden: boolean
   toolDefaults: Partial<Record<string, ToolAccess>>
+  skillDefaults: Partial<Record<string, SkillAccess>>
   subagentDefaults: Partial<Record<string, SubagentAccess>>
   contextPolicy: PersonaContextPolicyDefinition
 }
@@ -53,6 +54,8 @@ const DEFAULT_PRIMARY_PERSONA_PERMISSION = {
   plan_enter: "allow",
   todoread: "deny",
   todowrite: "deny",
+  [SMOKE_PRACTICE_TOOL_ID]: "deny",
+  [SMOKE_ASSESSMENT_TOOL_ID]: "deny",
 } as const satisfies BuddyPermissionInput
 
 export function defineBuddyPersona<const Id extends string>(
@@ -70,6 +73,7 @@ export function defineBuddyPersona<const Id extends string>(
     ...profile,
     surfaces: [...profile.surfaces],
     toolDefaults: { ...profile.toolDefaults },
+    skillDefaults: { ...profile.skillDefaults },
     subagentDefaults: { ...profile.subagentDefaults },
     contextPolicy: { ...profile.contextPolicy },
     runtime: {

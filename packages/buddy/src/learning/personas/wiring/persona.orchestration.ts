@@ -24,6 +24,7 @@ function cloneBuddyPersonaProfile(profile: BuddyPersonaProfile): BuddyPersonaPro
     ...profile,
     surfaces: [...profile.surfaces],
     toolDefaults: { ...profile.toolDefaults },
+    skillDefaults: { ...profile.skillDefaults },
     subagentDefaults: { ...profile.subagentDefaults },
     contextPolicy: { ...profile.contextPolicy },
   }
@@ -39,6 +40,7 @@ const BUILTIN_BUDDY_PERSONAS = Object.fromEntries(
         ...profile,
         surfaces: [...profile.surfaces],
         toolDefaults: { ...profile.toolDefaults },
+        skillDefaults: { ...profile.skillDefaults },
         subagentDefaults: { ...profile.subagentDefaults },
         contextPolicy: { ...profile.contextPolicy },
       },

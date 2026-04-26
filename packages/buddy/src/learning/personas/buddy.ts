@@ -1,11 +1,11 @@
 import { defineBuddyPersona } from "./wiring/define-buddy-persona"
+import { SMOKE_ASSESSMENT_TOOL_ID, SMOKE_PRACTICE_TOOL_ID } from "../tools/dynamic-tool-ids"
 
 export const BUDDY = defineBuddyPersona({
   id: "buddy",
   label: "Buddy",
   description: "The default Buddy persona for learning conversations and project help.",
   domain: "general",
-  defaultIntent: "learn",
   surfaces: ["curriculum", "flashcard", "question-set"],
   defaultSurface: "curriculum",
   hidden: false,
@@ -13,7 +13,28 @@ export const BUDDY = defineBuddyPersona({
     learner_snapshot_read: "allow",
     learner_practice_record: "allow",
     learner_assessment_record: "allow",
+    learning_tool_search: "allow",
     render_mermaid: "allow",
+    search_standards: "allow",
+    get_standard: "allow",
+    get_learning_components: "allow",
+    get_prerequisites: "allow",
+    get_next_standards: "allow",
+    get_crosswalk: "allow",
+    query_standards_sql: "allow",
+    pedagogy_prepare_resource: "allow",
+    pedagogy_resource_ingest_full_text: "allow",
+    pedagogy_reflection: "allow",
+  },
+  skillDefaults: {
+    "buddy-pedagogy-learn": "allow",
+    "buddy-pedagogy-practice": "allow",
+    "buddy-pedagogy-assess": "allow",
+    "buddy-pedagogy-explanation": "allow",
+    "buddy-pedagogy-worked-example": "allow",
+    "buddy-pedagogy-concept-contrast": "allow",
+    "buddy-pedagogy-reading-assistant": "allow",
+    "buddy-pedagogy-analogy": "allow",
   },
   subagentDefaults: {
     "curriculum-orchestrator": "prefer",
@@ -34,6 +55,8 @@ export const BUDDY = defineBuddyPersona({
     permission: {
       todoread: "deny",
       todowrite: "deny",
+      [SMOKE_PRACTICE_TOOL_ID]: "deny",
+      [SMOKE_ASSESSMENT_TOOL_ID]: "deny",
     },
   },
 })
