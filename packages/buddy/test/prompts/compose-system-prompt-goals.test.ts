@@ -31,7 +31,6 @@ describe("composeLearningSystemPrompt (learner store)", () => {
       directory: project.path,
       query: {
         persona: "buddy",
-        intent: "learn",
         focusGoalIds: committed.goalIds,
         workspaceState: "chat",
       },
@@ -39,7 +38,6 @@ describe("composeLearningSystemPrompt (learner store)", () => {
     const runtimeProfile = resolveCapabilityProfile({
       persona: getBuddyPersona("buddy"),
       workspaceState: "chat",
-      intent: "learn",
     })
 
     const promptEnvelope = await buildBuddyPromptEnvelope({
@@ -48,7 +46,6 @@ describe("composeLearningSystemPrompt (learner store)", () => {
       persona: runtimeProfile.persona,
       capabilityEnvelope: runtimeProfile.capabilityEnvelope,
       visibleSurfaces: runtimeProfile.capabilityEnvelope.visibleSurfaces,
-      intent: "learn",
       workspaceState: "chat",
       learnerSnapshot: snapshot,
       focusGoalIds: committed.goalIds,
@@ -59,7 +56,6 @@ describe("composeLearningSystemPrompt (learner store)", () => {
       ...promptEnvelope.userPreludeParts.map((part) => part.text),
     ].join("\n\n")
 
-    expect(system).toContain("<student_intent>")
     expect(system).toContain("<buddy_runtime_context>")
     expect(system).toContain("<workspace_state>")
     expect(system).toContain("<learner_state>")

@@ -1,4 +1,3 @@
-import { getIntentPrompt } from "../intents/get-intent-prompt"
 import type { PromptContext } from "./context"
 import { buildBuddyRuntimeContext } from "./runtime-context"
 import { buildBuddyUserPrelude, type BuddyUserPreludePart } from "./user-prelude"
@@ -11,8 +10,6 @@ export type BuddyPromptEnvelope = {
 
 export async function buildBuddyPromptEnvelope(input: PromptContext): Promise<BuddyPromptEnvelope> {
   const runtimeContext = await buildBuddyRuntimeContext(input)
-  const intentSection = `<student_intent>\n${getIntentPrompt(input.intent)}\n</student_intent>`
-  const systemContext = [intentSection, runtimeContext.runtimeContext].filter(Boolean).join("\n\n")
 
   const userPreludeParts = buildBuddyUserPrelude({
     context: input,
@@ -20,7 +17,7 @@ export async function buildBuddyPromptEnvelope(input: PromptContext): Promise<Bu
   })
 
   return {
-    systemContext,
+    systemContext: runtimeContext.runtimeContext,
     userPreludeParts,
     changedSinceCheckpoint: runtimeContext.changedSinceCheckpoint,
   }

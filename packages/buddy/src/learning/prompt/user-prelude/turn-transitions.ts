@@ -2,9 +2,7 @@ import type { PromptTurnSnapshot } from "../context"
 import { defineTurnReminder } from "./definition"
 
 function isExecutionFocusedState(state: PromptTurnSnapshot): boolean {
-  if (state.intent === "learn") return false
-  if (state.intent === "practice" || state.intent === "assess") return true
-  return state.persona !== "buddy"
+  return state.workspaceState === "interactive"
 }
 
 function buildFocusShiftReminder(input: {
@@ -28,14 +26,6 @@ function buildPersonaTransition(
   return `Persona switch: ${prior.persona} -> ${current.persona}.`
 }
 
-function buildIntentTransition(
-  prior: PromptTurnSnapshot,
-  current: PromptTurnSnapshot,
-): string | undefined {
-  if (prior.intent === current.intent) return undefined
-  return `Intent switch: ${prior.intent} -> ${current.intent}.`
-}
-
 function buildWorkspaceTransition(
   prior: PromptTurnSnapshot,
   current: PromptTurnSnapshot,
@@ -52,10 +42,9 @@ function buildTurnTransitionLines(input: {
 }): string[] {
   const focusShift = buildFocusShiftReminder(input)
   const persona = buildPersonaTransition(input.priorTurn, input.currentTurn)
-  const intent = buildIntentTransition(input.priorTurn, input.currentTurn)
   const workspace = buildWorkspaceTransition(input.priorTurn, input.currentTurn)
 
-  return [focusShift, persona, intent, workspace].filter((line): line is string => line != null)
+  return [focusShift, persona, workspace].filter((line): line is string => line != null)
 }
 
 export const turnTransitionReminder = defineTurnReminder({

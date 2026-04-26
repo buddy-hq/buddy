@@ -8,17 +8,8 @@ import { LearnerSnapshotCompiler } from "../learner-model/projections/snapshot"
 import { getBuddyPersona } from "../personas/wiring/persona.orchestration"
 import { resolveCapabilityProfile } from "../resolve-capability-profile"
 import type { TeachingSessionState } from "../shared/teaching-session-state"
-import {
-  hasExplicitModel,
-  resolveCurrentSurface,
-  resolveFocusGoalIds,
-  resolveIntent,
-} from "../shared/targeting"
-import type {
-  Intent,
-  Persona,
-  WorkspaceState,
-} from "@buddy/backend/learning/shared/teaching-vocabulary"
+import { hasExplicitModel, resolveCurrentSurface, resolveFocusGoalIds } from "../shared/targeting"
+import type { Persona, WorkspaceState } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import { listRegisteredResources } from "../../resources/resource-registry-service"
 import { resolveResourcePackFullTextMetadata } from "../../resource-packs"
 
@@ -37,7 +28,6 @@ export type PromptResourceStatus = "preparing" | "ready" | "unsupported" | "erro
 
 export type PromptTurnSnapshot = {
   persona: Persona
-  intent: Intent
   workspaceState: WorkspaceState
 }
 
@@ -81,7 +71,6 @@ export type PromptContext = {
   visibleSurfaces: ReturnType<
     typeof resolveCapabilityProfile
   >["capabilityEnvelope"]["visibleSurfaces"]
-  intent: Intent
   workspaceState: WorkspaceState
   learnerSnapshot: Awaited<ReturnType<typeof LearnerSnapshotCompiler.compile>>
   focusGoalIds: string[]
@@ -260,17 +249,12 @@ async function buildPromptContext(
   const teachingContext = resolveTeachingContext(input.body)
   const activeReadingContext = parseActiveReadingContext(input.body.reading)
   const persona = getBuddyPersona(input.personaID, input.projectConfig.personas)
-  const intent = resolveIntent({
-    body: input.body,
-    config: input.projectConfig,
-  })
   const focusGoalIds = resolveFocusGoalIds(input.body)
   const workspaceState: WorkspaceState = teachingContext?.active ? "interactive" : "chat"
   const learnerSnapshot = await LearnerSnapshotCompiler.compile({
     directory: input.directory,
     query: {
       persona: persona.id,
-      intent,
       focusGoalIds,
       workspaceState,
     },
@@ -279,7 +263,6 @@ async function buildPromptContext(
   const runtimeProfile = resolveCapabilityProfile({
     persona,
     workspaceState,
-    intent,
     configuredToolToggles: input.projectConfig.tools,
   })
 
@@ -306,7 +289,6 @@ async function buildPromptContext(
       persona: runtimeProfile.persona,
       capabilityEnvelope: runtimeProfile.capabilityEnvelope,
       visibleSurfaces: runtimeProfile.capabilityEnvelope.visibleSurfaces,
-      intent,
       workspaceState,
       learnerSnapshot,
       focusGoalIds,
@@ -318,7 +300,6 @@ async function buildPromptContext(
         ? {
             priorTurn: {
               persona: input.previousState.persona,
-              intent: input.previousState.intent,
               workspaceState: input.previousState.workspaceState,
             } satisfies PromptTurnSnapshot,
           }
@@ -328,7 +309,6 @@ async function buildPromptContext(
     nextTeachingState: {
       sessionId: input.sessionID,
       persona: persona.id,
-      intent,
       currentSurface: resolveCurrentSurface({
         personaID: persona.id,
         config: input.projectConfig,

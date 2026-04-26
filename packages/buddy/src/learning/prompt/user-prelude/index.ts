@@ -23,7 +23,6 @@ export function buildBuddyUserPrelude(input: {
 }): readonly BuddyUserPreludePart[] {
   const currentTurn = {
     persona: input.context.persona,
-    intent: input.context.intent,
     workspaceState: input.context.workspaceState,
   } satisfies PromptTurnSnapshot
 

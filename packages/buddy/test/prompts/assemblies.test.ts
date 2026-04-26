@@ -9,17 +9,14 @@ import { tmpdir } from "../helpers/tmpdir"
 async function buildRuntimePrompt(input: {
   directory: string
   persona: "buddy" | "code-buddy" | "math-buddy"
-  intent?: "auto" | "learn" | "practice" | "assess"
   teachingContext?: Parameters<typeof buildBuddyPromptEnvelope>[0]["teachingContext"]
   resources?: Parameters<typeof buildBuddyPromptEnvelope>[0]["resources"]
 }) {
-  const intent = input.intent ?? "auto"
   const workspaceState = input.teachingContext?.active ? "interactive" : "chat"
   const snapshot = await LearnerService.getWorkspaceSnapshot({
     directory: input.directory,
     query: {
       persona: input.persona,
-      intent,
       focusGoalIds: [],
       workspaceState,
     },
@@ -27,7 +24,6 @@ async function buildRuntimePrompt(input: {
   const profile = resolveCapabilityProfile({
     persona: getBuddyPersona(input.persona),
     workspaceState,
-    intent: intent,
   })
 
   const promptEnvelope = await buildBuddyPromptEnvelope({
@@ -36,7 +32,6 @@ async function buildRuntimePrompt(input: {
     persona: profile.persona,
     capabilityEnvelope: profile.capabilityEnvelope,
     visibleSurfaces: profile.capabilityEnvelope.visibleSurfaces,
-    intent,
     workspaceState,
     learnerSnapshot: snapshot,
     focusGoalIds: [],
@@ -78,7 +73,6 @@ describe("prompt assemblies", () => {
     const withoutRuntime = await buildRuntimePrompt({
       directory: project.path,
       persona: "math-buddy",
-      intent: "learn",
     })
 
     expect(withoutRuntime).not.toContain("<calculator_runtime>")
@@ -87,7 +81,6 @@ describe("prompt assemblies", () => {
       const withRuntime = await buildRuntimePrompt({
         directory: project.path,
         persona: "math-buddy",
-        intent: "learn",
       })
 
       expect(withRuntime).toContain("<calculator_runtime>")

@@ -85,7 +85,6 @@ export async function runMessagePromptPipeline(input: {
   transformed.agent = target.agent
   delete transformed.content
   delete transformed.persona
-  delete transformed.intent
   delete transformed.focusGoalIds
   delete transformed.teaching
 

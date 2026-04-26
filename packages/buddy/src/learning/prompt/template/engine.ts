@@ -19,6 +19,15 @@ const CARRIAGE_RETURN = "\r" as const
 const NEWLINE = "\n" as const
 const SURROGATE_PAIR_WIDTH = 2
 const CODE_POINT_MAX_UTF16_SINGLE = 0xffff
+const HTML_ENTITY_PATTERN = /&(?:#(\d+)|#x([\da-fA-F]+)|([a-zA-Z][\da-zA-Z]+));/g
+
+const HTML_ENTITIES: Readonly<Record<string, string>> = {
+  amp: "&",
+  apos: "'",
+  gt: ">",
+  lt: "<",
+  quot: '"',
+}
 
 type TemplateParseErrorKind =
   | "empty-placeholder"
@@ -163,6 +172,48 @@ function normalizeLineEndings(source: string): string {
   return source.replaceAll(CARRIAGE_RETURN_NEWLINE, NEWLINE).replaceAll(CARRIAGE_RETURN, NEWLINE)
 }
 
+function decodeHtmlEntity(input: string): string {
+  return input.replace(
+    HTML_ENTITY_PATTERN,
+    (
+      match: string,
+      decimal: string | undefined,
+      hexadecimal: string | undefined,
+      named: string | undefined,
+    ) => {
+      if (decimal !== undefined) {
+        const codePoint = Number.parseInt(decimal, 10)
+        return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : match
+      }
+
+      if (hexadecimal !== undefined) {
+        const codePoint = Number.parseInt(hexadecimal, 16)
+        return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : match
+      }
+
+      return named !== undefined ? (HTML_ENTITIES[named] ?? match) : match
+    },
+  )
+}
+
+function normalizeRenderedMarkdown(source: string): string {
+  const trimmed = source.trim()
+  if (!trimmed.startsWith("<") || !trimmed.includes("</")) {
+    return source
+  }
+
+  return decodeHtmlEntity(
+    trimmed
+      .replaceAll(/<\/p>\s*<p>/g, "\n\n")
+      .replaceAll(/<p>/g, "")
+      .replaceAll(/<\/p>/g, "")
+      .replaceAll(/<br\s*\/?>/g, "\n")
+      .replaceAll("<code>", "`")
+      .replaceAll("</code>", "`")
+      .replaceAll(/<[^>]+>/g, ""),
+  )
+}
+
 export class PromptTemplate {
   private readonly placeholders: ReadonlySet<string>
   private readonly segments: readonly TemplateSegment[]
@@ -288,7 +339,7 @@ type PromptTemplateDefinition = {
 }
 
 export function definePromptTemplate(input: PromptTemplateDefinition): PromptTemplate {
-  const normalized = normalizeLineEndings(input.source)
+  const normalized = normalizeLineEndings(normalizeRenderedMarkdown(input.source))
   try {
     return parsePromptTemplate(normalized)
   } catch (error) {
