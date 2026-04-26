@@ -9,7 +9,6 @@ describe("buildBuddyRuntimeSessionPermissions", () => {
     const runtimeProfile = resolveCapabilityProfile({
       persona: getBuddyPersona("buddy"),
       workspaceState: "chat",
-      intent: "auto",
     })
     const permissions = buildBuddyRuntimeSessionPermissions({
       existing: [
@@ -44,11 +43,10 @@ describe("buildBuddyRuntimeSessionPermissions", () => {
     expect(PermissionNext.evaluate("task", "practice-agent", permissions).action).toBe("deny")
   })
 
-  test("filters bundled skills down to the explicit teaching intent without touching unrelated permissions", () => {
+  test("exposes all persona-level skills without touching unrelated permissions", () => {
     const runtimeProfile = resolveCapabilityProfile({
       persona: getBuddyPersona("code-buddy"),
       workspaceState: "interactive",
-      intent: "practice",
     })
     const permissions = buildBuddyRuntimeSessionPermissions({
       existing: [
@@ -62,20 +60,20 @@ describe("buildBuddyRuntimeSessionPermissions", () => {
     })
 
     expect(PermissionNext.evaluate("skill", "buddy-pedagogy-explanation", permissions).action).toBe(
-      "deny",
+      "allow",
     )
     expect(
       PermissionNext.evaluate("skill", "buddy-pedagogy-worked-example", permissions).action,
-    ).toBe("deny")
+    ).toBe("allow")
     expect(
       PermissionNext.evaluate("skill", "buddy-pedagogy-concept-contrast", permissions).action,
-    ).toBe("deny")
+    ).toBe("allow")
     expect(PermissionNext.evaluate("skill", "buddy-pedagogy-analogy", permissions).action).toBe(
-      "deny",
+      "ask",
     )
     expect(
       PermissionNext.evaluate("skill", "buddy-pedagogy-reading-assistant", permissions).action,
-    ).toBe("deny")
+    ).toBe("allow")
     expect(PermissionNext.evaluate("pedagogy_debug_attempt", "*", permissions).action).toBe("allow")
     expect(PermissionNext.evaluate("pedagogy_prepare_resource", "*", permissions).action).toBe(
       "allow",
@@ -88,7 +86,6 @@ describe("buildBuddyRuntimeSessionPermissions", () => {
     const runtimeProfile = resolveCapabilityProfile({
       persona: getBuddyPersona("buddy"),
       workspaceState: "chat",
-      intent: "learn",
       configuredToolToggles: {
         pedagogy_prepare_resource: false,
       },

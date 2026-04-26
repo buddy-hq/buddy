@@ -45,7 +45,6 @@ describe("learning tool contract", () => {
     const runtimeProfile = resolveCapabilityProfile({
       persona: getBuddyPersona("code-buddy"),
       workspaceState: "interactive",
-      intent: "practice",
     })
     const permissionRules = buildBuddyRuntimeSessionPermissions({
       runtimeProfile,

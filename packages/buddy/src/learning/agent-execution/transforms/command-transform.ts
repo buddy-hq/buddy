@@ -6,7 +6,6 @@ import {
   normalizePersonaTarget,
   resolveCurrentSurface,
   resolveFocusGoalIds,
-  resolveIntent,
 } from "../../shared/targeting"
 import { resolveCapabilityProfile } from "../../resolve-capability-profile"
 import { readTeachingSessionState, writeTeachingSessionState } from "../state/session-state"
@@ -30,10 +29,6 @@ export function createSessionCommandTransform(input: {
       })
 
       if (target.includeBuddySystem && target.personaID) {
-        const intent = resolveIntent({
-          body,
-          config: projectConfig,
-        })
         const previousState = readTeachingSessionState(
           input.context.directory,
           input.context.sessionID,
@@ -43,7 +38,6 @@ export function createSessionCommandTransform(input: {
         const runtimeProfile = resolveCapabilityProfile({
           persona,
           workspaceState,
-          intent,
           configuredToolToggles: projectConfig.tools,
         })
         const focusGoalIds = resolveFocusGoalIds(body)
@@ -56,7 +50,6 @@ export function createSessionCommandTransform(input: {
         writeTeachingSessionState(input.context.directory, {
           sessionId: input.context.sessionID,
           persona: target.personaID,
-          intent,
           currentSurface: resolveCurrentSurface({
             personaID: target.personaID,
             config: projectConfig,
@@ -85,7 +78,6 @@ export function createSessionCommandTransform(input: {
         transformed.model = projectConfig.model
       }
       delete transformed.persona
-      delete transformed.intent
       delete transformed.focusGoalIds
       writeLastLlmOutbound({
         directory: input.context.directory,
