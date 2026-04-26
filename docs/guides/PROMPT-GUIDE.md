@@ -69,7 +69,6 @@ File:
 
 What it owns:
 
-- `<student_intent>`
 - `<buddy_runtime_context>`
 
 Current runtime sections:
@@ -101,7 +100,6 @@ Current reminder types:
 
 - teaching focus switch
 - persona switch
-- intent switch
 - workspace switch
 - unaccepted checkpoint changes
 

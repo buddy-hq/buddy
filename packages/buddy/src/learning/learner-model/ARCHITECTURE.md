@@ -169,7 +169,7 @@ It compiles:
 - open feedback
 - recent evidence
 - constraints summary
-- intent-bound capability permissions (tools + skills)
+- capability permissions (tools + skills)
 - sections and markdown digest
 
 It does **not** compute heuristic progress/review/alignment projections or auto-resolve pedagogical state.

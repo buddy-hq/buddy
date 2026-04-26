@@ -16,7 +16,6 @@ A Buddy persona combines:
    - label
    - description
    - domain
-   - default intent
    - supported surfaces
    - default surface
    - default tools
@@ -72,7 +71,6 @@ export const SCIENCE_BUDDY = defineBuddyPersona({
   label: "Science Buddy",
   description: "Science-focused Buddy persona for concept building and guided practice.",
   domain: "general",
-  defaultIntent: "learn",
   surfaces: ["curriculum", "question-set"],
   defaultSurface: "curriculum",
   hidden: false,
@@ -116,7 +114,6 @@ This is the current path from persona definition to a live turn:
 4. Runtime capability resolution combines:
    - persona `toolDefaults`
    - persona `subagentDefaults`
-   - intent manifests
    - tool metadata constraints
    - runtime readiness
    - config tool toggles
@@ -160,7 +157,6 @@ Choose:
 - `label`
 - `description`
 - `domain`
-- `defaultIntent`
 - `surfaces`
 - `defaultSurface`
 - `toolDefaults`

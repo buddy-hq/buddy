@@ -1,6 +1,6 @@
 # Buddy Tool Authoring Guide
 
-This guide explains how Buddy learning tools are defined, registered, allowed for personas and intents, and tested.
+This guide explains how Buddy learning tools are defined, registered, allowed for personas, and tested.
 
 The short version:
 
@@ -8,7 +8,7 @@ The short version:
 - Add the tool to the owning feature's `tools.ts` array.
 - Add catalog identity and constraints in `learning/tools/tool-metadata.ts`.
 - Make sure the owning family is wired in `learning/tools/tool-registry.ts`.
-- Grant access through persona `toolDefaults` or intent capability manifests.
+- Grant access through persona `toolDefaults`.
 - Do not hand-maintain OpenCode persona permission maps; Buddy derives them.
 
 Being implemented, registered, and allowed are separate states. A tool can exist in code and still be unavailable if it is missing from the family array, the catalog, runtime registration, or permission policy.
@@ -24,7 +24,7 @@ A Buddy learning tool has these parts:
 | Catalog metadata | `packages/buddy/src/learning/tools/tool-metadata.ts` | Stable tool IDs, group ownership, capability constraints, group runtime policy |
 | Runtime registration | `packages/buddy/src/learning/tools/tool-registry.ts` | Maps catalog groups to actual tool arrays |
 | Registration execution | `packages/buddy/src/learning/tools/register-runtime-tools.ts` | Registers enabled groups into OpenCode |
-| Access policy | Persona definitions and intent manifests | Decides who can use the tool |
+| Access policy | Persona definitions | Decides who can use the tool |
 | Permission compilation | `tool-permission-compiler.ts` and session permission sync | Applies runtime rules for the active turn |
 
 Core files:
@@ -45,9 +45,8 @@ Runtime learning-tool permissions are compiled in this order:
 
 1. Apply persona `toolDefaults`.
 2. Deny tools whose catalog constraints do not match the persona surface or workspace state.
-3. Apply intent-managed tool overrides.
-4. Deny tools whose runtime dependency is not ready.
-5. Deny tools disabled by project config `tools`.
+3. Deny tools whose runtime dependency is not ready.
+4. Deny tools disabled by project config `tools`.
 
 Static OpenCode-facing persona permissions are derived from the same canonical policy. Do not add duplicate learning-tool permissions to persona runtime config just to keep OpenCode aligned.
 
@@ -67,7 +66,6 @@ Use stable snake case, for example `python_calculator` or `save_flashcard_deck`.
 Also decide:
 
 - owning feature and family
-- whether the tool is persona-default or intent-managed
 - required persona surfaces, workspace states, or runtime dependencies
 - whether UI needs structured metadata from the result
 
@@ -221,7 +219,7 @@ There are two normal ways to grant access.
 
 ### Persona-default tools
 
-Use persona defaults when the tool should be available to a persona across intents, subject to catalog constraints, runtime readiness, and config toggles.
+Use persona defaults when the tool should be available to a persona, subject to catalog constraints, runtime readiness, and config toggles.
 
 Edit `packages/buddy/src/learning/personas/<persona>.ts`:
 
@@ -233,40 +231,6 @@ toolDefaults: {
 ```
 
 Do not duplicate this in OpenCode agent permissions. `packages/buddy/src/config/opencode/agents.ts` derives static learning-tool permissions from Buddy policy.
-
-### Intent-managed tools
-
-Use intent manifests when the tool should be allowed only for `learn`, `practice`, or `assess`.
-
-Edit one or more of:
-
-- `packages/buddy/src/learning/intents/learn/capabilities.ts`
-- `packages/buddy/src/learning/intents/practice/capabilities.ts`
-- `packages/buddy/src/learning/intents/assess/capabilities.ts`
-
-Direct form:
-
-```ts
-tools: [
-  "example_tool",
-]
-```
-
-Scoped form:
-
-```ts
-tools: [
-  {
-    tool: "example_tool",
-    personas: ["code-buddy"],
-    workspaceStates: ["interactive"],
-  },
-]
-```
-
-Intent-managed tools are deny-by-default for the managed set. `auto` unions the explicit intent manifests.
-
-For example, to allow a tool only in `assess` for `code-buddy`, add it only to `ASSESS_INTENT_CAPABILITY_MANIFEST` with `personas: ["code-buddy"]`, and do not add it to persona `toolDefaults` or the `practice` manifest.
 
 ## Add a New Tool Family
 
@@ -294,7 +258,7 @@ Once a tool is in the learning tool catalog, users can disable it by ID in `budd
 }
 ```
 
-Config toggles can only deny tools. They do not grant access that persona and intent policy would otherwise deny.
+Config toggles can only deny tools. They do not grant access that persona policy would otherwise deny.
 
 ## Common Failure Modes
 
@@ -303,7 +267,7 @@ Config toggles can only deny tools. They do not grant access that persona and in
 - The metadata ID and implementation ID differ.
 - The family exists in metadata but is missing from `tool-registry.ts`.
 - A persona default grants the tool, but catalog surface or workspace constraints deny it.
-- The tool was meant to be intent-managed but was only added to persona defaults, or the reverse.
+- A tool was meant to be scoped to specific personas but was added to all persona defaults, or the reverse.
 - Runtime dependency metadata is missing, so a tool is exposed before its runtime is ready.
 - `output` is empty or too terse because the author assumed the LLM can read `metadata`.
 
@@ -316,14 +280,12 @@ Add focused tests for the layers you changed. Useful references:
 - `packages/buddy/test/learning/runtime-tool-registration.test.ts`
 - `packages/buddy/test/learning/tool-permission-compiler.test.ts`
 - `packages/buddy/test/learning/tool-capability-policy.test.ts`
-- `packages/buddy/test/learning/intent-capability-validation.test.ts`
 - `packages/buddy/test/learning/runtime-session-permissions.test.ts`
 - `packages/buddy/test/parity/agent.test.ts`
 
 Minimum coverage by change:
 
 - New tool: family membership and catalog alignment.
-- New intent grant: intent permission resolution.
 - New catalog constraints: runtime permission compiler behavior.
 - New runtime dependency: readiness gating.
 - New family: registration policy and runtime registration.

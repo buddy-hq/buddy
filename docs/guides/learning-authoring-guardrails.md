@@ -1,6 +1,6 @@
 # Learning Authoring Guardrails
 
-This note captures architectural guardrails for persona, intent, tool, and agent overlay authoring in Buddy.
+This note captures architectural guardrails for persona, tool, and agent overlay authoring in Buddy.
 
 Use this document as a short companion to:
 
@@ -12,10 +12,6 @@ Use this document as a short companion to:
 - Persona defaults:
   - `packages/buddy/src/learning/personas/<persona-id>/agent.ts`
   - `packages/buddy/src/learning/personas/definitions.ts`
-- Intent-managed tool bindings:
-  - `packages/buddy/src/learning/intents/learn/capabilities.ts`
-  - `packages/buddy/src/learning/intents/practice/capabilities.ts`
-  - `packages/buddy/src/learning/intents/assess/capabilities.ts`
 - Tool behavior and hard constraints:
   - tool module + `createBuddyTool(..., capability)`
 
@@ -61,6 +57,5 @@ bun typecheck
 And run focused tests for:
 
 - persona/config guardrails
-- intent capability validation
 - tool permission compiler behavior
 - agent parity

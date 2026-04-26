@@ -31,7 +31,6 @@ Built in `packages/buddy/src/learning/prompt/runtime-context.ts`.
 
 Output shape:
 
-- `<student_intent>`
 - `<buddy_runtime_context>` containing:
   - `<workspace_state>`
   - `<model_limits>` when model info exists
@@ -58,7 +57,6 @@ Possible reminder lines:
 
 - teaching focus switch
 - persona switch
-- intent switch
 - workspace switch
 - unaccepted checkpoint changes
 
