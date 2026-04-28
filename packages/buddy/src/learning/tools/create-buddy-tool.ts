@@ -1,6 +1,7 @@
 import { Effect } from "effect"
 import type z from "zod"
 import { Tool, type ToolRuntimeServices } from "@buddy/opencode-adapter/tool"
+import { cloneToolUiMetadata, type ToolUiMetadata } from "@buddy/opencode-adapter/tool-ui-metadata"
 import {
   ADVANCED_MATH_RUNTIME_DEPENDENCY,
   EDITOR_PERSONA_SURFACE,
@@ -12,6 +13,7 @@ import {
   type BuddyToolWorkspaceState,
   type LearningToolRuntimeDependency,
 } from "./tool-capability-constraints"
+import type { DynamicBuddyToolMetadata } from "./dynamic-learning-tool-metadata"
 
 type BuddyToolMetadata = Record<string, unknown>
 type BuddyToolContext<Metadata extends BuddyToolMetadata = BuddyToolMetadata> = {
@@ -27,7 +29,12 @@ type BuddyToolContext<Metadata extends BuddyToolMetadata = BuddyToolMetadata> = 
   ask(input: Parameters<Tool.Context<Metadata>["ask"]>[0]): Promise<void>
 }
 
-type BuddyToolInitResult<Parameters extends z.ZodType, Metadata extends BuddyToolMetadata> = {
+type BuddyToolDefinition<
+  Id extends string,
+  Parameters extends z.ZodType,
+  Metadata extends BuddyToolMetadata,
+> = {
+  id: Id
   description: string
   parameters: Parameters
   execute(
@@ -35,13 +42,10 @@ type BuddyToolInitResult<Parameters extends z.ZodType, Metadata extends BuddyToo
     ctx: BuddyToolContext<Metadata>,
   ): Promise<Tool.ExecuteResult<Metadata>> | Tool.ExecuteResult<Metadata>
   formatValidationError?(error: z.ZodError): string
+  capability?: BuddyToolCapabilityConstraints
+  dynamic?: DynamicBuddyToolMetadata
+  ui?: ToolUiMetadata
 }
-
-type BuddyToolInit<Parameters extends z.ZodType, Metadata extends BuddyToolMetadata> =
-  | BuddyToolInitResult<Parameters, Metadata>
-  | (() =>
-      | Promise<BuddyToolInitResult<Parameters, Metadata>>
-      | BuddyToolInitResult<Parameters, Metadata>)
 
 type BuddyTool<
   Id extends string = string,
@@ -49,7 +53,10 @@ type BuddyTool<
   Metadata extends BuddyToolMetadata = BuddyToolMetadata,
 > = {
   id: Id
+  description: string
   capability?: BuddyToolCapabilityConstraints
+  dynamic?: DynamicBuddyToolMetadata
+  ui?: ToolUiMetadata
   toTool(
     directory: string,
   ): Effect.Effect<Tool.Info<Parameters, Metadata>, never, ToolRuntimeServices> & { id: Id }
@@ -83,22 +90,21 @@ function createBuddyTool<
   const Id extends string,
   Parameters extends z.ZodType,
   Metadata extends BuddyToolMetadata,
->(
-  id: Id,
-  init: BuddyToolInit<Parameters, Metadata>,
-  capability?: BuddyToolCapabilityConstraints,
-): BuddyTool<Id, Parameters, Metadata> {
-  const clonedCapability = cloneCapabilityConstraints(capability)
+>(definition: BuddyToolDefinition<Id, Parameters, Metadata>): BuddyTool<Id, Parameters, Metadata> {
+  const clonedCapability = cloneCapabilityConstraints(definition.capability)
+  const clonedDynamic = cloneDynamicMetadata(definition.dynamic)
+  const clonedUi = normalizeToolUiMetadata(definition)
 
   return {
-    id,
+    id: definition.id,
+    description: definition.description,
     capability: clonedCapability,
+    ...(clonedDynamic ? { dynamic: clonedDynamic } : {}),
+    ...(clonedUi ? { ui: clonedUi } : {}),
     toTool(directory: string) {
       return Tool.define(
-        id,
+        definition.id,
         Effect.promise(async () => {
-          const definition = typeof init === "function" ? await init() : init
-
           return {
             ...definition,
             execute(args: z.infer<Parameters>, ctx: Tool.Context<Metadata>) {
@@ -147,6 +153,42 @@ function cloneCapabilityConstraints(
   }
 }
 
+function cloneDynamicMetadata(
+  metadata: DynamicBuddyToolMetadata | undefined,
+): DynamicBuddyToolMetadata | undefined {
+  if (!metadata) return undefined
+
+  return {
+    title: metadata.title,
+    useCase: metadata.useCase,
+    keywords: [...metadata.keywords],
+    ...(metadata.searchText ? { searchText: metadata.searchText } : {}),
+    ...(metadata.description ? { description: metadata.description } : {}),
+    ...(metadata.sideEffects ? { sideEffects: [...metadata.sideEffects] } : {}),
+    ...(metadata.mutatesLearnerState !== undefined
+      ? { mutatesLearnerState: metadata.mutatesLearnerState }
+      : {}),
+    ...(metadata.renderer ? { renderer: metadata.renderer } : {}),
+  }
+}
+
+function normalizeToolUiMetadata(
+  definition: BuddyToolDefinition<string, z.ZodType, Record<string, unknown>>,
+): ToolUiMetadata | undefined {
+  const presentation =
+    definition.ui?.presentation ?? (definition.dynamic ? "hidden-summary" : undefined)
+  const labels =
+    definition.ui?.labels ??
+    (definition.dynamic?.title
+      ? {
+          idle: definition.dynamic.title,
+        }
+      : undefined)
+
+  if (!presentation && !labels?.idle && !labels?.running) return undefined
+  return cloneToolUiMetadata({ presentation, labels })
+}
+
 export { createBuddyTool }
 export {
   ADVANCED_MATH_RUNTIME_DEPENDENCY,
@@ -156,10 +198,13 @@ export {
   STANDARDS_RUNTIME_DEPENDENCY,
 }
 
-export type { BuddyTool, BuddyToolContext, BuddyToolInit }
+export { normalizeToolUiMetadata }
+
+export type { BuddyTool, BuddyToolContext, BuddyToolDefinition }
 export type {
   BuddyToolCapabilityConstraints,
   BuddyToolPersonaSurface,
   BuddyToolWorkspaceState,
   LearningToolRuntimeDependency,
 }
+export type { ToolUiMetadata }

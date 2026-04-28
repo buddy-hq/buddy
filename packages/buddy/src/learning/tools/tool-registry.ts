@@ -1,98 +1,63 @@
-import { flashcardTools } from "@buddy/backend/learning/capabilities/flashcard/tools/tools"
-import { freeformFigureTools } from "@buddy/backend/learning/capabilities/figures/freeform/tools/tools"
-import { figureTools } from "@buddy/backend/learning/capabilities/figures/geometry/tools/tools"
-import { mermaidTools } from "@buddy/backend/learning/capabilities/figures/mermaid/tools/tools"
-import { questionSetTools } from "@buddy/backend/learning/capabilities/question-set/tools/tools"
-import { teachingTools } from "@buddy/backend/learning/capabilities/lesson-workspace/tools/tools"
-import { mathTools } from "@buddy/backend/learning/capabilities/math/tools/tools"
-import { pedagogyTools } from "@buddy/backend/learning/capabilities/pedagogy/tools/tools"
-import { goalTools } from "@buddy/backend/learning/curriculum/goals/tools/tools"
-import { curriculumTools } from "@buddy/backend/learning/curriculum/planning/tools/tools"
-import { knowledgeGraphTools } from "@buddy/backend/learning/knowledge-graph/tools/tools"
-import { learnerTools } from "@buddy/backend/learning/learner-model/tools/tools"
-import { dynamicToolSearchTools } from "./dynamic-tool-search"
 import {
-  LEARNING_TOOL_GROUP_POLICIES,
   allLearningToolGroups,
+  getLearningToolGroupPolicy,
   type LearningToolGroup,
   type LearningToolGroupPolicy,
-} from "./tool-metadata"
+} from "./learning-tool-group-policies"
+import type { BuddyTool } from "./create-buddy-tool"
+import { allFeatureLearningToolGroups } from "./feature-learning-tool-groups"
+import {
+  staticLearningTools,
+  type LearningToolGroupDefinition,
+} from "./learning-tool-group-definition"
+import { toolDiscoveryLearningToolGroup } from "./tool-discovery-learning-tool-group"
 
-const learningToolGroups = {
-  pedagogy: pedagogyTools,
-  curriculum: curriculumTools,
-  knowledgeGraph: knowledgeGraphTools,
-  figures: figureTools,
-  freeformFigures: freeformFigureTools,
-  mermaid: mermaidTools,
-  goals: goalTools,
-  learner: learnerTools,
-  toolDiscovery: dynamicToolSearchTools,
-  teaching: teachingTools,
-  math: mathTools,
-  questionSet: questionSetTools,
-  flashcard: flashcardTools,
-} as const
-
-type RegisteredLearningTool = (typeof learningToolGroups)[LearningToolGroup][number]
+type RegisteredLearningTool = BuddyTool
 type RegisteredLearningToolGroupDescriptor = LearningToolGroupPolicy & {
   tools: readonly RegisteredLearningTool[]
 }
 
-const registeredLearningToolGroupDescriptors = {
-  pedagogy: {
-    ...LEARNING_TOOL_GROUP_POLICIES.pedagogy,
-    tools: learningToolGroups.pedagogy,
-  },
-  curriculum: {
-    ...LEARNING_TOOL_GROUP_POLICIES.curriculum,
-    tools: learningToolGroups.curriculum,
-  },
-  knowledgeGraph: {
-    ...LEARNING_TOOL_GROUP_POLICIES.knowledgeGraph,
-    tools: learningToolGroups.knowledgeGraph,
-  },
-  figures: {
-    ...LEARNING_TOOL_GROUP_POLICIES.figures,
-    tools: learningToolGroups.figures,
-  },
-  freeformFigures: {
-    ...LEARNING_TOOL_GROUP_POLICIES.freeformFigures,
-    tools: learningToolGroups.freeformFigures,
-  },
-  mermaid: {
-    ...LEARNING_TOOL_GROUP_POLICIES.mermaid,
-    tools: learningToolGroups.mermaid,
-  },
-  goals: {
-    ...LEARNING_TOOL_GROUP_POLICIES.goals,
-    tools: learningToolGroups.goals,
-  },
-  learner: {
-    ...LEARNING_TOOL_GROUP_POLICIES.learner,
-    tools: learningToolGroups.learner,
-  },
-  toolDiscovery: {
-    ...LEARNING_TOOL_GROUP_POLICIES.toolDiscovery,
-    tools: learningToolGroups.toolDiscovery,
-  },
-  teaching: {
-    ...LEARNING_TOOL_GROUP_POLICIES.teaching,
-    tools: learningToolGroups.teaching,
-  },
-  math: {
-    ...LEARNING_TOOL_GROUP_POLICIES.math,
-    tools: learningToolGroups.math,
-  },
-  questionSet: {
-    ...LEARNING_TOOL_GROUP_POLICIES.questionSet,
-    tools: learningToolGroups.questionSet,
-  },
-  flashcard: {
-    ...LEARNING_TOOL_GROUP_POLICIES.flashcard,
-    tools: learningToolGroups.flashcard,
-  },
-} as const satisfies Record<LearningToolGroup, RegisteredLearningToolGroupDescriptor>
+const registeredLearningToolGroups = [
+  ...allFeatureLearningToolGroups(),
+  toolDiscoveryLearningToolGroup,
+]
+
+function buildRegisteredLearningToolGroupDescriptors(
+  groups: readonly LearningToolGroupDefinition[],
+): Record<LearningToolGroup, RegisteredLearningToolGroupDescriptor> {
+  const descriptors: Partial<Record<LearningToolGroup, RegisteredLearningToolGroupDescriptor>> = {}
+
+  for (const group of groups) {
+    descriptors[group.group] = {
+      ...getLearningToolGroupPolicy(group.group),
+      tools: staticLearningTools(group),
+    }
+  }
+
+  if (!hasAllRegisteredLearningToolGroupDescriptors(descriptors)) {
+    throw new Error("Registered learning tool groups must cover every learning tool group")
+  }
+
+  return descriptors
+}
+
+function hasAllRegisteredLearningToolGroupDescriptors(
+  input: Partial<Record<LearningToolGroup, RegisteredLearningToolGroupDescriptor>>,
+): input is Record<LearningToolGroup, RegisteredLearningToolGroupDescriptor> {
+  return allLearningToolGroups().every((group) => input[group] !== undefined)
+}
+
+const registeredLearningToolGroupDescriptors = buildRegisteredLearningToolGroupDescriptors(
+  registeredLearningToolGroups,
+)
+
+function allKnownLearningTools(): BuddyTool[] {
+  const tools: BuddyTool[] = []
+  for (const group of registeredLearningToolGroups) {
+    tools.push(...group.tools)
+  }
+  return tools
+}
 
 function allRegisteredLearningTools(): RegisteredLearningTool[] {
   const tools: RegisteredLearningTool[] = []
@@ -115,6 +80,7 @@ function getRegisteredLearningToolGroupDescriptor(
 }
 
 export {
+  allKnownLearningTools,
   allRegisteredLearningTools,
   getRegisteredLearningToolGroup,
   getRegisteredLearningToolGroupDescriptor,

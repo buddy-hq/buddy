@@ -11,16 +11,24 @@ type ToolPermissionAction = "allow" | "deny"
 type ToolPermissionMap = Record<ToolId, ToolPermissionAction>
 type SkillPermissionMap = Record<string, ToolPermissionAction>
 
+const LEARNING_TOOL_SEARCH_TOOL_ID = "learning_tool_search" as const
+const LEARNING_TOOL_LOAD_TOOL_ID = "learning_tool_load" as const
+
 function createDenyToolMap(): ToolPermissionMap {
   return {} as ToolPermissionMap
 }
 
 function applyPersonaDefaultTools(tools: ToolPermissionMap, persona: PersonaDefinition): void {
-  for (const [toolId, access] of Object.entries(persona.toolDefaults) as Array<
+  for (const [toolId, access] of Object.entries(persona.tools.static) as Array<
     [ToolId, "inherit" | "allow" | "deny"]
   >) {
     if (access === "inherit") continue
     tools[toolId] = access
+  }
+
+  if (personaHasDynamicTools(persona)) {
+    tools[LEARNING_TOOL_SEARCH_TOOL_ID] = "allow"
+    tools[LEARNING_TOOL_LOAD_TOOL_ID] = "allow"
   }
 }
 
@@ -69,10 +77,15 @@ function collectPersonaDefaultAllowedToolIDs(persona: PersonaDefinition): Set<To
   const allowed = new Set<ToolId>()
 
   for (const toolId of allLearningToolIds()) {
-    const access = persona.toolDefaults[toolId]
+    const access = persona.tools.static[toolId]
     if (access === "allow") {
       allowed.add(toolId)
     }
+  }
+
+  if (personaHasDynamicTools(persona)) {
+    allowed.add(LEARNING_TOOL_SEARCH_TOOL_ID)
+    allowed.add(LEARNING_TOOL_LOAD_TOOL_ID)
   }
 
   return allowed
@@ -80,11 +93,15 @@ function collectPersonaDefaultAllowedToolIDs(persona: PersonaDefinition): Set<To
 
 function buildSkillPermissions(persona: PersonaDefinition): SkillPermissionMap {
   const skills: SkillPermissionMap = {}
-  for (const [skillName, access] of Object.entries(persona.skillDefaults)) {
+  for (const [skillName, access] of Object.entries(persona.skills)) {
     if (!access || access === "inherit") continue
     skills[skillName] = access
   }
   return skills
+}
+
+function personaHasDynamicTools(persona: PersonaDefinition): boolean {
+  return Object.values(persona.tools.dynamic).some((access) => access === "allow")
 }
 
 export function compileRuntimeLearningToolPermissions(input: {

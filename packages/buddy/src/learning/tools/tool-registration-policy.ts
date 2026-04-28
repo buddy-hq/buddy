@@ -4,7 +4,7 @@ import {
   allLearningToolGroups,
   getLearningToolGroupPolicy,
   type LearningToolGroup,
-} from "./tool-metadata"
+} from "./learning-tool-group-policies"
 import {
   ADVANCED_MATH_RUNTIME_DEPENDENCY,
   STANDARDS_RUNTIME_DEPENDENCY,

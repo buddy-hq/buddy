@@ -1,8 +1,8 @@
 import { registerBuddyTools, unregisterBuddyTools } from "./register-buddy-tools"
 import { assertUniqueLearningToolIds } from "./tool-catalog"
-import { allLearningToolGroups, type LearningToolGroup } from "./tool-metadata"
+import { allLearningToolGroups, type LearningToolGroup } from "./learning-tool-group-policies"
 import {
-  allRegisteredLearningTools,
+  allKnownLearningTools,
   getRegisteredLearningToolGroup as getLearningToolGroup,
   getRegisteredLearningToolGroupDescriptor as getLearningToolGroupDescriptor,
 } from "./tool-registry"
@@ -52,7 +52,7 @@ async function registerRuntimeTools(
   directory: string,
   flags: LearningToolRegistrationFlags,
 ): Promise<void> {
-  assertUniqueLearningToolIds(allRegisteredLearningTools())
+  assertUniqueLearningToolIds(allKnownLearningTools())
   const registrations: Promise<void>[] = []
 
   for (const group of allLearningToolGroups()) {

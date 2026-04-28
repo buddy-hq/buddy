@@ -10,7 +10,10 @@ export async function registerBuddyTools(
     directory,
     async fn() {
       for (const tool of tools) {
-        await ToolRegistry.register(tool.toTool(directory))
+        await ToolRegistry.register({
+          info: tool.toTool(directory),
+          toolUi: tool.ui,
+        })
       }
     },
   })

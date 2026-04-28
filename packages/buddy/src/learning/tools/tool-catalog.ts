@@ -9,6 +9,7 @@ import {
   type LearningToolId,
   type LearningToolMetadata,
 } from "./tool-metadata"
+import { allKnownLearningTools } from "./tool-registry"
 
 type ToolIdentity = {
   id: string
@@ -46,7 +47,7 @@ export function allLearningTools(): LearningToolMetadata[] {
 export { allLearningToolGroups, allLearningToolIds }
 
 export function assertLearningToolCatalog(): void {
-  assertUniqueLearningToolIds(allLearningToolMetadata())
+  assertUniqueLearningToolIds(allKnownLearningTools())
 }
 
 export function getLearningToolGroup(group: LearningToolGroup): LearningToolMetadata[] {
