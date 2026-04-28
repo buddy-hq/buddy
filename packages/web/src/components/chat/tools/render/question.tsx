@@ -1,10 +1,8 @@
-import { BasicTool } from "../../tools/basic-tool"
-import { ToolOutputPanel } from "../../tools/tool-output-panel"
 import { motion } from "motion/react"
 import { MOTION_SOFT } from "../../tools/tool-motion"
-import { ToolErrorPanel } from "../../tools/tool-error-panel"
 import { language } from "@/context/language"
 import { isRecord } from "../../tools/types"
+import { TextShimmer } from "../../tools/text-shimmer"
 import type { ToolPartProps } from "../registry"
 interface ToolQuestion {
   question: string
@@ -56,38 +54,39 @@ export function renderQuestionTool({ state, info, defaultOpen }: ToolPartProps) 
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={MOTION_SOFT}
-      className="rounded-xl border border-border-base bg-surface-base shadow-sm ring-1 ring-border-brand-base/20 p-2"
+      className="w-full rounded-xl border border-border-base bg-surface-base p-4"
     >
-      <BasicTool
-        trigger={{ title: info.title, subtitle }}
-        status={state.status}
-        defaultOpen={defaultOpen || hasAnswers}
-      >
-        {hasAnswers ? (
-          <div className="space-y-2">
-            {questions.map((question, index) => {
-              const answers = questionAnswers[index] ?? []
-              const questionKey = `${question.question}:${answers.join("|")}`
-              return (
-                <div
-                  key={questionKey}
-                  className="rounded-md border border-border-base bg-background-base p-2"
-                >
-                  <div className="text-sm text-text-base">{question.question}</div>
-                  <div className="mt-1 text-xs text-text-weak">
+      {hasAnswers ? (
+        <div className="flex w-full flex-col gap-6">
+          {questions.map((question, index) => {
+            const answers = questionAnswers[index] ?? []
+            const questionKey = `${question.question}:${answers.join("|")}`
+            return (
+              <div key={questionKey} className="flex w-full flex-col gap-2">
+                <div className="text-[15px] font-medium leading-relaxed text-text-stronger">
+                  {question.question}
+                </div>
+                <div className="flex items-start gap-2 rounded-lg bg-surface-weak px-3 py-2 text-[14px] leading-relaxed text-text-base">
+                  <span className="mt-0.5 font-medium text-text-weaker">↳</span>
+                  <div className="flex-1">
                     {answers.join(", ") || language.t("chatTools.noAnswer")}
                   </div>
                 </div>
-              )
-            })}
-          </div>
-        ) : null}
-        {hasError ? (
-          <ToolErrorPanel error={output} />
-        ) : hasContent ? (
-          <ToolOutputPanel output={output} copyLabel={language.t("chatTools.copyOutput")} />
-        ) : null}
-      </BasicTool>
+              </div>
+            )
+          })}
+        </div>
+      ) : (
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-text-weak">
+            <TextShimmer
+              text={info.title}
+              active={state.status === "pending" || state.status === "running"}
+            />
+          </span>
+          {subtitle && <span className="text-xs text-text-weaker">{subtitle}</span>}
+        </div>
+      )}
     </motion.div>
   )
 }

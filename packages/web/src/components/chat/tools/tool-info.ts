@@ -1,6 +1,7 @@
 import { basename, dirname } from "../utils/path"
 import { language } from "@/context/language"
 import { isRecord, readNonEmptyString, readNonNegativeInt } from "./types"
+import { parseToolUiMetadata } from "./parse-tool-ui-metadata"
 import type { ToolInfo, ToolState } from "./types"
 
 const KNOWLEDGE_GRAPH_TOOL_TITLES = {
@@ -111,6 +112,14 @@ function knowledgeGraphSummary(tool: string, state: ToolState): string | undefin
   }
 }
 
+function withMetadataTitle(info: ToolInfo, metadataTitle: string | undefined): ToolInfo {
+  if (!metadataTitle) return info
+  return {
+    ...info,
+    title: metadataTitle,
+  }
+}
+
 export function getToolInfo(tool: string, state: ToolState): ToolInfo {
   const { input, output } = state
   const filePath = typeof input.filePath === "string" ? input.filePath : undefined
@@ -129,6 +138,10 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
   const sql = typeof input.sql === "string" ? input.sql : undefined
 
   const active = state.status === "pending" || state.status === "running"
+  const toolUi = parseToolUiMetadata(state.metadata)
+  const metadataTitle = active
+    ? (toolUi?.labels?.running ?? toolUi?.labels?.idle)
+    : toolUi?.labels?.idle
 
   let summary: string | undefined
   if (KNOWLEDGE_GRAPH_TOOL_NAMES.has(tool)) {
@@ -158,101 +171,189 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
       const args: string[] = []
       if (typeof input.offset === "number") args.push(`offset=${input.offset}`)
       if (typeof input.limit === "number") args.push(`limit=${input.limit}`)
-      return {
-        title: language.t(active ? "chatTools.info.read.running" : "chatTools.info.read"),
-        subtitle: filePath ? basename(filePath) : undefined,
-        detail: filePath ? dirname(filePath) : undefined,
-        summary,
-        args,
-      }
+      return withMetadataTitle(
+        {
+          title: language.t(active ? "chatTools.info.read.running" : "chatTools.info.read"),
+          subtitle: filePath ? basename(filePath) : undefined,
+          detail: filePath ? dirname(filePath) : undefined,
+          summary,
+          args,
+        },
+        metadataTitle,
+      )
     }
     case "list":
-      return {
-        title: language.t(active ? "chatTools.info.list.running" : "chatTools.info.list"),
-        subtitle: path ? dirname(path) : "/",
-        summary,
-      }
+      return withMetadataTitle(
+        {
+          title: language.t(active ? "chatTools.info.list.running" : "chatTools.info.list"),
+          subtitle: path ? dirname(path) : "/",
+          summary,
+        },
+        metadataTitle,
+      )
     case "glob":
-      return {
-        title: language.t(active ? "chatTools.info.glob.running" : "chatTools.info.glob"),
-        subtitle: path ? dirname(path) : "/",
-        summary,
-        args: pattern ? [`pattern=${pattern}`] : [],
-      }
+      return withMetadataTitle(
+        {
+          title: language.t(active ? "chatTools.info.glob.running" : "chatTools.info.glob"),
+          subtitle: path ? dirname(path) : "/",
+          summary,
+          args: pattern ? [`pattern=${pattern}`] : [],
+        },
+        metadataTitle,
+      )
     case "grep": {
       const args: string[] = []
       if (pattern) args.push(`pattern=${pattern}`)
       if (include) args.push(`include=${include}`)
-      return {
-        title: language.t(active ? "chatTools.info.grep.running" : "chatTools.info.grep"),
-        subtitle: path ? dirname(path) : "/",
-        summary,
-        args,
-      }
+      return withMetadataTitle(
+        {
+          title: language.t(active ? "chatTools.info.grep.running" : "chatTools.info.grep"),
+          subtitle: path ? dirname(path) : "/",
+          summary,
+          args,
+        },
+        metadataTitle,
+      )
     }
     case "webfetch":
-      return {
-        title: language.t(active ? "chatTools.info.webfetch.running" : "chatTools.info.webfetch"),
-        subtitle: url,
-        summary,
-      }
+      return withMetadataTitle(
+        {
+          title: language.t(active ? "chatTools.info.webfetch.running" : "chatTools.info.webfetch"),
+          subtitle: url,
+          summary,
+        },
+        metadataTitle,
+      )
     case "websearch":
-      return {
-        title: language.t(active ? "chatTools.info.websearch.running" : "chatTools.info.websearch"),
-        subtitle: query,
-        summary,
-      }
+      return withMetadataTitle(
+        {
+          title: language.t(
+            active ? "chatTools.info.websearch.running" : "chatTools.info.websearch",
+          ),
+          subtitle: query,
+          summary,
+        },
+        metadataTitle,
+      )
     case "codesearch":
-      return {
-        title: language.t(
-          active ? "chatTools.info.codesearch.running" : "chatTools.info.codesearch",
-        ),
-        subtitle: query,
-        summary,
-      }
+      return withMetadataTitle(
+        {
+          title: language.t(
+            active ? "chatTools.info.codesearch.running" : "chatTools.info.codesearch",
+          ),
+          subtitle: query,
+          summary,
+        },
+        metadataTitle,
+      )
+    case "learning_tool_search": {
+      const matchedToolIds = Array.isArray(state.metadata.matchedToolIds)
+        ? (state.metadata.matchedToolIds as unknown[]).filter(
+            (id): id is string => typeof id === "string",
+          )
+        : []
+      const MAX_VISIBLE_TOOLS = 4
+      const matchedNames =
+        matchedToolIds.length > 0
+          ? matchedToolIds.slice(0, MAX_VISIBLE_TOOLS).join(", ") +
+            (matchedToolIds.length > MAX_VISIBLE_TOOLS
+              ? ` +${matchedToolIds.length - MAX_VISIBLE_TOOLS} more`
+              : "")
+          : undefined
+      const matchCount = matchedToolIds.length > 0 ? matchedToolIds.length : undefined
+      return withMetadataTitle(
+        {
+          title: "Search Tools",
+          subtitle: matchedNames ?? query,
+          summary: matchCount !== undefined ? `${matchCount} matched` : undefined,
+        },
+        metadataTitle,
+      )
+    }
+    case "learning_tool_load": {
+      const registeredToolCount = Array.isArray(state.metadata.registeredToolIds)
+        ? state.metadata.registeredToolIds.length
+        : undefined
+      return withMetadataTitle(
+        {
+          title: "Load Tools",
+          subtitle: Array.isArray(input.toolIds)
+            ? `${input.toolIds.length.toLocaleString()} requested`
+            : undefined,
+          summary:
+            typeof registeredToolCount === "number" ? `${registeredToolCount} loaded` : undefined,
+        },
+        metadataTitle,
+      )
+    }
     case "task":
-      return {
-        title: subagent
-          ? language.t("chatTools.info.agent", { subagent: subagent })
-          : language.t(active ? "chatTools.info.agentTask.running" : "chatTools.info.agentTask"),
-        subtitle: description,
-      }
+      return withMetadataTitle(
+        {
+          title: subagent
+            ? language.t("chatTools.info.agent", { subagent: subagent })
+            : language.t(active ? "chatTools.info.agentTask.running" : "chatTools.info.agentTask"),
+          subtitle: description,
+        },
+        metadataTitle,
+      )
     case "write":
-      return {
-        title: language.t(active ? "chatTools.info.write.running" : "chatTools.info.write"),
-        subtitle: filePath ? basename(filePath) : undefined,
-        detail: filePath ? dirname(filePath) : undefined,
-      }
+      return withMetadataTitle(
+        {
+          title: language.t(active ? "chatTools.info.write.running" : "chatTools.info.write"),
+          subtitle: filePath ? basename(filePath) : undefined,
+          detail: filePath ? dirname(filePath) : undefined,
+        },
+        metadataTitle,
+      )
     case "edit":
-      return {
-        title: language.t(active ? "chatTools.info.edit.running" : "chatTools.info.edit"),
-        subtitle: filePath ? basename(filePath) : undefined,
-        detail: filePath ? dirname(filePath) : undefined,
-      }
+      return withMetadataTitle(
+        {
+          title: language.t(active ? "chatTools.info.edit.running" : "chatTools.info.edit"),
+          subtitle: filePath ? basename(filePath) : undefined,
+          detail: filePath ? dirname(filePath) : undefined,
+        },
+        metadataTitle,
+      )
     case "apply_patch":
-      return {
-        title: language.t(active ? "chatTools.info.patch.running" : "chatTools.info.patch"),
-        subtitle: description,
-      }
+      return withMetadataTitle(
+        {
+          title: language.t(active ? "chatTools.info.patch.running" : "chatTools.info.patch"),
+          subtitle: description,
+        },
+        metadataTitle,
+      )
     case "bash":
-      return {
-        title: language.t(active ? "chatTools.info.shell.running" : "chatTools.info.shell"),
-        subtitle: description,
-        summary,
-      }
+      return withMetadataTitle(
+        {
+          title: language.t(active ? "chatTools.info.shell.running" : "chatTools.info.shell"),
+          subtitle: description,
+          summary,
+        },
+        metadataTitle,
+      )
     case "question":
-      return {
-        title: language.t(active ? "chatTools.info.questions.running" : "chatTools.info.questions"),
-        subtitle: description,
-      }
+      return withMetadataTitle(
+        {
+          title: language.t(
+            active ? "chatTools.info.questions.running" : "chatTools.info.questions",
+          ),
+          subtitle: description,
+        },
+        metadataTitle,
+      )
     case "python_calculator":
-      return {
-        title: language.t(
-          active ? "chatTools.info.pythonCalculator.running" : "chatTools.info.pythonCalculator",
-        ),
-        subtitle: description,
-        summary: output ? language.t("chatTools.info.result", { value: output.trim() }) : undefined,
-      }
+      return withMetadataTitle(
+        {
+          title: language.t(
+            active ? "chatTools.info.pythonCalculator.running" : "chatTools.info.pythonCalculator",
+          ),
+          subtitle: description,
+          summary: output
+            ? language.t("chatTools.info.result", { value: output.trim() })
+            : undefined,
+        },
+        metadataTitle,
+      )
     case "pedagogy_resource_ingest_full_text": {
       const resource =
         typeof state.metadata.resource === "string" ? state.metadata.resource : undefined
@@ -260,86 +361,168 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
         typeof state.metadata.fullTextEstTokens === "number"
           ? state.metadata.fullTextEstTokens
           : undefined
-      return {
-        title: language.t(active ? "chatTools.info.fullText.running" : "chatTools.info.fullText"),
-        subtitle: resource,
-        summary:
-          fullTextEstTokens !== undefined
-            ? language.t("chatTools.info.tokensLoaded", {
-                count: fullTextEstTokens.toLocaleString(),
-              })
-            : summary,
-      }
+      return withMetadataTitle(
+        {
+          title: language.t(active ? "chatTools.info.fullText.running" : "chatTools.info.fullText"),
+          subtitle: resource,
+          summary:
+            fullTextEstTokens !== undefined
+              ? language.t("chatTools.info.tokensLoaded", {
+                  count: fullTextEstTokens.toLocaleString(),
+                })
+              : summary,
+        },
+        metadataTitle,
+      )
     }
+    case "pedagogy_prepare_resource":
+      return withMetadataTitle(
+        {
+          title: active ? "Preparing Resource" : "Prepare Resource",
+          subtitle:
+            typeof state.metadata.resource === "string" ? state.metadata.resource : description,
+        },
+        metadataTitle,
+      )
+    case "pedagogy_reflection":
+      return withMetadataTitle(
+        {
+          title: active ? "Pedagogy Reflection" : "Pedagogy Reflection",
+        },
+        metadataTitle,
+      )
     case "skill":
-      return {
-        title: language.t(active ? "chatTools.info.skill.running" : "chatTools.info.skill"),
-        subtitle: typeof input.name === "string" ? input.name : description,
-      }
+      return withMetadataTitle(
+        {
+          title: active ? "Using Skill" : "Used Skill",
+        },
+        metadataTitle,
+      )
+    case "learner_snapshot_read":
+      return withMetadataTitle(
+        {
+          title: active ? "Loading Snapshot" : "Load Snapshot",
+          subtitle:
+            typeof state.metadata.artifact === "string" ? state.metadata.artifact : undefined,
+        },
+        metadataTitle,
+      )
+    case "learner_practice_record":
+      return withMetadataTitle(
+        {
+          title: active ? "Recording Practice" : "Practice Record",
+          summary:
+            typeof state.metadata.outcome === "string"
+              ? `Outcome: ${state.metadata.outcome}`
+              : summary,
+        },
+        metadataTitle,
+      )
+    case "learner_assessment_record":
+      return withMetadataTitle(
+        {
+          title: active ? "Recording Assessment" : "Assessment Record",
+          summary:
+            typeof state.metadata.result === "string"
+              ? `Result: ${state.metadata.result}`
+              : summary,
+        },
+        metadataTitle,
+      )
     case "render_figure":
     case "render_freeform_figure":
-      return {
-        title: language.t(active ? "chatTools.info.figure.running" : "chatTools.info.figure"),
-        subtitle: alt,
-      }
+      return withMetadataTitle(
+        {
+          title: language.t(active ? "chatTools.info.figure.running" : "chatTools.info.figure"),
+          subtitle: alt,
+        },
+        metadataTitle,
+      )
     case "render_mermaid":
-      return {
-        title: language.t(active ? "chatTools.info.mermaid.running" : "chatTools.info.mermaid"),
-        subtitle: alt,
-      }
+      return withMetadataTitle(
+        {
+          title: language.t(active ? "chatTools.info.mermaid.running" : "chatTools.info.mermaid"),
+          subtitle: alt,
+        },
+        metadataTitle,
+      )
     case "save_question_set":
-      return {
-        title: "Save Question Set",
-        subtitle: description,
-      }
+      return withMetadataTitle(
+        {
+          title: "Save Question Set",
+          subtitle: description,
+        },
+        metadataTitle,
+      )
     case "search_standards":
-      return {
-        title: KNOWLEDGE_GRAPH_TOOL_TITLES.search_standards,
-        subtitle: query,
-        summary,
-      }
+      return withMetadataTitle(
+        {
+          title: KNOWLEDGE_GRAPH_TOOL_TITLES.search_standards,
+          subtitle: query,
+          summary,
+        },
+        metadataTitle,
+      )
     case "get_standard":
-      return {
-        title: KNOWLEDGE_GRAPH_TOOL_TITLES.get_standard,
-        subtitle: formatStandardLabel(code, jurisdiction),
-        summary,
-      }
+      return withMetadataTitle(
+        {
+          title: KNOWLEDGE_GRAPH_TOOL_TITLES.get_standard,
+          subtitle: formatStandardLabel(code, jurisdiction),
+          summary,
+        },
+        metadataTitle,
+      )
     case "get_learning_components":
-      return {
-        title: KNOWLEDGE_GRAPH_TOOL_TITLES.get_learning_components,
-        subtitle: formatStandardLabel(code, jurisdiction),
-        summary,
-      }
+      return withMetadataTitle(
+        {
+          title: KNOWLEDGE_GRAPH_TOOL_TITLES.get_learning_components,
+          subtitle: formatStandardLabel(code, jurisdiction),
+          summary,
+        },
+        metadataTitle,
+      )
     case "get_prerequisites":
-      return {
-        title: KNOWLEDGE_GRAPH_TOOL_TITLES.get_prerequisites,
-        subtitle: formatStandardLabel(code, jurisdiction),
-        summary,
-      }
+      return withMetadataTitle(
+        {
+          title: KNOWLEDGE_GRAPH_TOOL_TITLES.get_prerequisites,
+          subtitle: formatStandardLabel(code, jurisdiction),
+          summary,
+        },
+        metadataTitle,
+      )
     case "get_next_standards":
-      return {
-        title: KNOWLEDGE_GRAPH_TOOL_TITLES.get_next_standards,
-        subtitle: formatStandardLabel(code, jurisdiction),
-        summary,
-      }
+      return withMetadataTitle(
+        {
+          title: KNOWLEDGE_GRAPH_TOOL_TITLES.get_next_standards,
+          subtitle: formatStandardLabel(code, jurisdiction),
+          summary,
+        },
+        metadataTitle,
+      )
     case "get_crosswalk":
-      return {
-        title: KNOWLEDGE_GRAPH_TOOL_TITLES.get_crosswalk,
-        subtitle:
-          code && targetJurisdiction
-            ? `${code} → ${targetJurisdiction}`
-            : formatStandardLabel(code, jurisdiction),
-        summary,
-      }
+      return withMetadataTitle(
+        {
+          title: KNOWLEDGE_GRAPH_TOOL_TITLES.get_crosswalk,
+          subtitle:
+            code && targetJurisdiction
+              ? `${code} → ${targetJurisdiction}`
+              : formatStandardLabel(code, jurisdiction),
+          summary,
+        },
+        metadataTitle,
+      )
     case "query_standards_sql":
-      return {
-        title: KNOWLEDGE_GRAPH_TOOL_TITLES.query_standards_sql,
-        subtitle: sql,
-        summary,
-      }
+      return withMetadataTitle(
+        {
+          title: KNOWLEDGE_GRAPH_TOOL_TITLES.query_standards_sql,
+          subtitle: sql,
+          summary,
+        },
+        metadataTitle,
+      )
     default:
       return {
-        title: tool,
+        title: metadataTitle ?? tool,
         subtitle: description,
         summary,
       }
