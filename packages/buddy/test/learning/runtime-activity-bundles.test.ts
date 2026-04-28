@@ -4,7 +4,7 @@ import { managedBuddySkillNames } from "../../src/learning/skills/managed-buddy-
 import { compileRuntimeLearningToolPermissions } from "../../src/learning/tools/tool-permission-compiler"
 
 describe("managed buddy skills", () => {
-  test("collects skill names from all registered persona skillDefaults", () => {
+  test("collects skill names from all registered persona skills", () => {
     const names = managedBuddySkillNames()
 
     expect(names).toContain("buddy-pedagogy-explanation")
@@ -38,7 +38,9 @@ describe("managed buddy skills", () => {
       workspaceState: "interactive",
     })
 
-    expect(permissions.tools.pedagogy_debug_attempt).toBe("allow")
+    expect(permissions.tools.learning_tool_search).toBe("allow")
+    expect(permissions.tools.learning_tool_load).toBe("allow")
+    expect(permissions.tools.pedagogy_debug_attempt).not.toBe("allow")
     expect(permissions.tools.pedagogy_prepare_resource).toBe("allow")
   })
 })

@@ -32,11 +32,11 @@ describe("persona authoring guardrails", () => {
     expect(personaAgentKeys).toEqual(canonicalPersonaIDs)
   })
 
-  test("persona subagent defaults only reference registered subagents", () => {
+  test("persona subagents only reference registered subagents", () => {
     const registeredSubagentKeys = new Set<string>(BUDDY_SUBAGENTS.map(({ key }) => key))
 
     for (const definition of BUILTIN_BUDDY_PERSONA_DEFINITIONS) {
-      for (const subagentID of Object.keys(definition.subagentDefaults)) {
+      for (const subagentID of Object.keys(definition.subagents)) {
         expect(registeredSubagentKeys.has(subagentID)).toBe(true)
       }
     }

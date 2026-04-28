@@ -1,11 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { act, createElement, type ReactNode } from "react"
 import { createRoot, type Root } from "react-dom/client"
-import { getToolRenderer } from "../src/components/chat/tools/registry"
+import { resolveInlineToolRenderer } from "../src/components/chat/tools/registry"
 import { renderSavedQuestionSetTool } from "../src/components/chat/tools/render/question-set/saved-question-set-tool"
 import { PlatformProvider, createBrowserPlatform } from "../src/context/platform"
 import { ServerProvider } from "../src/context/server"
-import "../src/components/chat/tools/tools"
 import type { ToolPartProps } from "../src/components/chat/tools/registry"
 import { createFetchStub } from "./test-utils"
 
@@ -76,7 +75,9 @@ describe("tool registry", () => {
   })
 
   test("keeps the saved question-set renderer registered for persisted sessions", () => {
-    expect(getToolRenderer("render_saved_question_set")).toBeDefined()
+    expect(resolveInlineToolRenderer("render_saved_question_set").card).toBe(
+      renderSavedQuestionSetTool,
+    )
   })
 
   test("fetches metadata-only saved question sets once before rendering them", async () => {

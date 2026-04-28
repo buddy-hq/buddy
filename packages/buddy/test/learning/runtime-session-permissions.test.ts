@@ -3,6 +3,14 @@ import { PermissionNext } from "@buddy/opencode-adapter/permission"
 import { buildBuddyRuntimeSessionPermissions } from "../../src/learning/agent-execution/permissions/session-permissions"
 import { resolveCapabilityProfile } from "../../src/learning/resolve-capability-profile"
 import { getBuddyPersona } from "../../src/learning/personas/wiring/persona.orchestration"
+import {
+  dynamicPedagogyReflectionTool,
+  dynamicPedagogyStepwiseSolveTool,
+} from "../../src/learning/tools/dynamic-learning-tools"
+import { dynamicLearningToolDefaultDenyRules } from "../../src/learning/tools/dynamic-learning-tool-permissions"
+
+const DYNAMIC_PEDAGOGY_REFLECTION_TOOL_ID = dynamicPedagogyReflectionTool.id
+const DYNAMIC_PEDAGOGY_STEPWISE_SOLVE_TOOL_ID = dynamicPedagogyStepwiseSolveTool.id
 
 describe("buildBuddyRuntimeSessionPermissions", () => {
   test("preserves unrelated rules while enforcing the runtime tool and helper policy", () => {
@@ -23,6 +31,8 @@ describe("buildBuddyRuntimeSessionPermissions", () => {
 
     expect(PermissionNext.evaluate("question", "*", permissions).action).toBe("allow")
     expect(PermissionNext.evaluate("learner_snapshot_read", "*", permissions).action).toBe("allow")
+    expect(PermissionNext.evaluate("learning_tool_search", "*", permissions).action).toBe("allow")
+    expect(PermissionNext.evaluate("learning_tool_load", "*", permissions).action).toBe("allow")
     expect(PermissionNext.evaluate("learner_practice_record", "*", permissions).action).toBe(
       "allow",
     )
@@ -41,6 +51,9 @@ describe("buildBuddyRuntimeSessionPermissions", () => {
     ).toBe("allow")
     expect(PermissionNext.evaluate("task", "goal-writer", permissions).action).toBe("allow")
     expect(PermissionNext.evaluate("task", "practice-agent", permissions).action).toBe("deny")
+    expect(
+      PermissionNext.evaluate(DYNAMIC_PEDAGOGY_REFLECTION_TOOL_ID, "*", permissions).action,
+    ).toBe("deny")
   })
 
   test("exposes all persona-level skills without touching unrelated permissions", () => {
@@ -74,7 +87,9 @@ describe("buildBuddyRuntimeSessionPermissions", () => {
     expect(
       PermissionNext.evaluate("skill", "buddy-pedagogy-reading-assistant", permissions).action,
     ).toBe("allow")
-    expect(PermissionNext.evaluate("pedagogy_debug_attempt", "*", permissions).action).toBe("allow")
+    expect(PermissionNext.evaluate("learning_tool_search", "*", permissions).action).toBe("allow")
+    expect(PermissionNext.evaluate("learning_tool_load", "*", permissions).action).toBe("allow")
+    expect(PermissionNext.evaluate("pedagogy_debug_attempt", "*", permissions).action).toBe("deny")
     expect(PermissionNext.evaluate("pedagogy_prepare_resource", "*", permissions).action).toBe(
       "allow",
     )
@@ -118,6 +133,11 @@ describe("buildBuddyRuntimeSessionPermissions", () => {
           action: "allow",
         },
         {
+          permission: DYNAMIC_PEDAGOGY_STEPWISE_SOLVE_TOOL_ID,
+          pattern: "*",
+          action: "allow",
+        },
+        {
           permission: "question",
           pattern: "*",
           action: "allow",
@@ -136,6 +156,7 @@ describe("buildBuddyRuntimeSessionPermissions", () => {
         pattern: "*",
         action: "allow",
       },
+      ...dynamicLearningToolDefaultDenyRules(),
     ])
   })
 })

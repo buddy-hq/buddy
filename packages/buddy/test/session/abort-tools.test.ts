@@ -10,7 +10,8 @@ import { registerBuddyTools } from "../../src/learning/tools/register-buddy-tool
 import { tmpdir } from "../helpers/tmpdir"
 import { requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
 
-const slowAbortTool = createBuddyTool("slow_abort_test", {
+const slowAbortTool = createBuddyTool({
+  id: "slow_abort_test",
   description: "Slow tool used to verify abort propagation.",
   parameters: z.object({
     value: z.string(),
@@ -25,7 +26,8 @@ const slowAbortTool = createBuddyTool("slow_abort_test", {
   },
 })
 
-const permissionBridgeTool = createBuddyTool("permission_bridge_test", {
+const permissionBridgeTool = createBuddyTool({
+  id: "permission_bridge_test",
   description: "Tool used to verify permission effects execute.",
   parameters: z.object({}),
   async execute(_args, ctx) {

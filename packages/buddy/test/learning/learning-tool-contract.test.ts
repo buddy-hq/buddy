@@ -18,6 +18,7 @@ import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tool
 function fakeTool(id: string): BuddyTool {
   return {
     id,
+    description: "Fake test tool",
     toTool() {
       throw new Error("Tool conversion is not used in this test")
     },
