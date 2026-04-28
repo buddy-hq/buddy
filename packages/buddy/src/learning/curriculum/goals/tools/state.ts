@@ -6,7 +6,8 @@ import { LearnerArtifactStore } from "../../../learner-model/repository/store"
 import type { GoalArtifact } from "../../../learner-model/repository/types"
 import { GoalStateSchema, createGoalToolResult } from "../types"
 
-const goalStateTool = createBuddyTool("goal_state", {
+const goalStateTool = createBuddyTool({
+  id: "goal_state",
   description: STATE_DESCRIPTION,
   parameters: z.object({}),
   async execute(_params, ctx: BuddyToolContext) {

@@ -147,7 +147,8 @@ async function waitForPreparedResource(input: {
   }
 }
 
-export const pedagogyPrepareResourceTool = createBuddyTool(PREPARE_RESOURCE_TOOL_ID, {
+export const pedagogyPrepareResourceTool = createBuddyTool({
+  id: PREPARE_RESOURCE_TOOL_ID,
   description: PREPARE_RESOURCE_DESCRIPTION,
   parameters: ResourcePrepareParameters,
   async execute(params, ctx) {

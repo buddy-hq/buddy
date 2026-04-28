@@ -1,7 +1,9 @@
 import REFLECTION_DESCRIPTION from "./reflection.md"
 import z from "zod"
 import { type PedagogyToolContext, type PedagogyToolParams } from "../orchestration/contracts"
-import { createBuddyTool } from "../../../../tools/create-buddy-tool"
+import { createBuddyTool, type BuddyToolContext } from "../../../../tools/create-buddy-tool"
+
+const DYNAMIC_PEDAGOGY_REFLECTION_TOOL_ID = "pedagogy_reflection_dynamic" as const
 
 const PedagogyToolParameters = z.object({
   goalIds: z.array(z.string()).default([]),
@@ -53,12 +55,17 @@ const formatPedagogyOutput = (input: {
     .join("\n")
 }
 
-const buildOutput = (params: PedagogyToolParams, context: PedagogyToolContext) => {
+const buildOutput = (input: {
+  id: string
+  params: PedagogyToolParams
+  context: PedagogyToolContext
+}) => {
+  const { params, context } = input
   const goal = context.goals[0]
   const target = goal?.statement ?? params.topic ?? context.workspaceLabel
 
   return formatPedagogyOutput({
-    id: "pedagogy_reflection",
+    id: input.id,
     goalLabel: target,
     learnerContext: summarizeLearnerContext(context),
     sections: [
@@ -80,30 +87,63 @@ const buildOutput = (params: PedagogyToolParams, context: PedagogyToolContext) =
   })
 }
 
-export const pedagogyReflectionTool = createBuddyTool("pedagogy_reflection", {
+async function executeReflectionTool(
+  id: string,
+  params: z.infer<typeof PedagogyToolParameters>,
+  ctx: BuddyToolContext,
+) {
+  await ctx.ask({
+    permission: id,
+    patterns: ["*"],
+    always: ["*"],
+    metadata: {
+      goals: params.goalIds?.length ?? 0,
+    },
+  })
+
+  const { resolvePedagogyToolContext } = await import("../orchestration/context")
+  const context = await resolvePedagogyToolContext(ctx, params)
+  const output = buildOutput({ id, params, context })
+
+  return {
+    title: id,
+    output,
+    metadata: {
+      persona: context.persona,
+      goalIds: context.goalIds,
+    },
+  }
+}
+
+export const pedagogyReflectionTool = createBuddyTool({
+  id: "pedagogy_reflection",
   description: REFLECTION_DESCRIPTION,
   parameters: PedagogyToolParameters,
   async execute(params, ctx) {
-    await ctx.ask({
-      permission: "pedagogy_reflection",
-      patterns: ["*"],
-      always: ["*"],
-      metadata: {
-        goals: params.goalIds?.length ?? 0,
-      },
-    })
+    return executeReflectionTool("pedagogy_reflection", params, ctx)
+  },
+})
 
-    const { resolvePedagogyToolContext } = await import("../orchestration/context")
-    const context = await resolvePedagogyToolContext(ctx, params)
-    const output = buildOutput(params, context)
-
-    return {
-      title: "pedagogy_reflection",
-      output,
-      metadata: {
-        persona: context.persona,
-        goalIds: context.goalIds,
-      },
-    }
+export const dynamicPedagogyReflectionTool = createBuddyTool({
+  id: DYNAMIC_PEDAGOGY_REFLECTION_TOOL_ID,
+  description: REFLECTION_DESCRIPTION,
+  parameters: PedagogyToolParameters,
+  dynamic: {
+    title: "Pedagogy reflection",
+    useCase: "reflection",
+    keywords: [
+      "reflection",
+      "metacognition",
+      "misconception",
+      "reasoning",
+      "confidence",
+      "explain",
+    ],
+    searchText:
+      "explain reasoning summarize learning assumption learner self explanation next move misconception repair",
+    sideEffects: ["learner-state-read"],
+  },
+  async execute(params, ctx) {
+    return executeReflectionTool(DYNAMIC_PEDAGOGY_REFLECTION_TOOL_ID, params, ctx)
   },
 })

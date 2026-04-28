@@ -1,3 +1,13 @@
-const curriculumTools = [] as const
+import {
+  defineLearningToolGroup,
+  staticLearningTools,
+} from "../../../tools/learning-tool-group-definition"
 
-export { curriculumTools }
+const curriculumLearningToolGroup = defineLearningToolGroup({
+  group: "curriculum",
+  tools: [],
+})
+
+const curriculumTools = staticLearningTools(curriculumLearningToolGroup)
+
+export { curriculumLearningToolGroup, curriculumTools }

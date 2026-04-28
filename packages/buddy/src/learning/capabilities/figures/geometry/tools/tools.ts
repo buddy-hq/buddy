@@ -1,5 +1,14 @@
 import { renderFigureTool } from "./render-figure"
+import {
+  defineLearningToolGroup,
+  staticLearningTools,
+} from "../../../../tools/learning-tool-group-definition"
 
-const figureTools = [renderFigureTool] as const
+const figureLearningToolGroup = defineLearningToolGroup({
+  group: "figures",
+  tools: [renderFigureTool],
+})
 
-export { figureTools }
+const figureTools = staticLearningTools(figureLearningToolGroup)
+
+export { figureLearningToolGroup, figureTools }

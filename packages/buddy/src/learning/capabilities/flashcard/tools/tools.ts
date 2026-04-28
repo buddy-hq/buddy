@@ -1,5 +1,14 @@
 import { saveFlashcardDeckTool } from "./save-flashcard-deck"
+import {
+  defineLearningToolGroup,
+  staticLearningTools,
+} from "../../../tools/learning-tool-group-definition"
 
-const flashcardTools = [saveFlashcardDeckTool] as const
+const flashcardLearningToolGroup = defineLearningToolGroup({
+  group: "flashcard",
+  tools: [saveFlashcardDeckTool],
+})
 
-export { flashcardTools }
+const flashcardTools = staticLearningTools(flashcardLearningToolGroup)
+
+export { flashcardLearningToolGroup, flashcardTools }

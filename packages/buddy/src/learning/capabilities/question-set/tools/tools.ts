@@ -1,5 +1,14 @@
 import { saveQuestionSetTool } from "./save-question-set"
+import {
+  defineLearningToolGroup,
+  staticLearningTools,
+} from "../../../tools/learning-tool-group-definition"
 
-const questionSetTools = [saveQuestionSetTool] as const
+const questionSetLearningToolGroup = defineLearningToolGroup({
+  group: "questionSet",
+  tools: [saveQuestionSetTool],
+})
 
-export { questionSetTools }
+const questionSetTools = staticLearningTools(questionSetLearningToolGroup)
+
+export { questionSetLearningToolGroup, questionSetTools }

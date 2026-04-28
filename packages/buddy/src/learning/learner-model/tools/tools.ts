@@ -1,7 +1,16 @@
 import { assessmentRecordTool } from "./assessment-record"
 import { practiceRecordTool } from "./practice-record"
 import { learnerStateQueryTool } from "./query"
+import {
+  defineLearningToolGroup,
+  staticLearningTools,
+} from "../../tools/learning-tool-group-definition"
 
-const learnerTools = [learnerStateQueryTool, practiceRecordTool, assessmentRecordTool] as const
+const learnerLearningToolGroup = defineLearningToolGroup({
+  group: "learner",
+  tools: [learnerStateQueryTool, practiceRecordTool, assessmentRecordTool],
+})
 
-export { learnerTools }
+const learnerTools = staticLearningTools(learnerLearningToolGroup)
+
+export { learnerLearningToolGroup, learnerTools }

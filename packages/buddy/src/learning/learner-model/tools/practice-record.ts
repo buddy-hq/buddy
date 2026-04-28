@@ -1,10 +1,10 @@
 import PRACTICE_RECORD_DESCRIPTION from "./practice-record.md"
 import z from "zod"
 import { createBuddyTool, type BuddyToolContext } from "../../tools/create-buddy-tool"
-import { recordPracticeEvent } from ".."
 import { SURFACES } from "../../shared/teaching-vocabulary"
 
-const practiceRecordTool = createBuddyTool("learner_practice_record", {
+const practiceRecordTool = createBuddyTool({
+  id: "learner_practice_record",
   description: PRACTICE_RECORD_DESCRIPTION,
   parameters: z.object({
     goalIds: z.array(z.string()).min(1),
@@ -32,6 +32,7 @@ const practiceRecordTool = createBuddyTool("learner_practice_record", {
       },
     })
 
+    const { recordPracticeEvent } = await import("../workflows/record-practice")
     const recorded = await recordPracticeEvent({
       directory: ctx.directory,
       goalIds: params.goalIds,

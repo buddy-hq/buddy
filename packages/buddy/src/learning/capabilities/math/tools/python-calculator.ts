@@ -7,34 +7,32 @@ const pythonCalculatorInputSchema = z.object({
   code: z.string().trim().min(1),
 })
 
-export const pythonCalculatorTool = createBuddyTool(
-  "python_calculator",
-  {
-    description: PYTHON_CALCULATOR_DESCRIPTION,
-    parameters: pythonCalculatorInputSchema,
-    async execute(args, ctx) {
-      await ctx.ask({
-        permission: "python_calculator",
-        patterns: ["*"],
-        always: ["*"],
-        metadata: {
-          codeLength: args.code.length,
-        },
-      })
+export const pythonCalculatorTool = createBuddyTool({
+  id: "python_calculator",
+  description: PYTHON_CALCULATOR_DESCRIPTION,
+  parameters: pythonCalculatorInputSchema,
+  async execute(args, ctx) {
+    await ctx.ask({
+      permission: "python_calculator",
+      patterns: ["*"],
+      always: ["*"],
+      metadata: {
+        codeLength: args.code.length,
+      },
+    })
 
-      const result = await AdvancedMathRuntimeService.runCalculator(args.code, ctx.abort)
-      return {
-        title: "Python calculator",
-        output: result.output,
-        metadata: {
-          artifact: "PythonCalculatorOutput",
-          value: result.result,
-        },
-        attachments: result.attachments,
-      }
-    },
+    const result = await AdvancedMathRuntimeService.runCalculator(args.code, ctx.abort)
+    return {
+      title: "Python calculator",
+      output: result.output,
+      metadata: {
+        artifact: "PythonCalculatorOutput",
+        value: result.result,
+      },
+      attachments: result.attachments,
+    }
   },
-  {
+  capability: {
     runtimeDependency: ADVANCED_MATH_RUNTIME_DEPENDENCY,
   },
-)
+})

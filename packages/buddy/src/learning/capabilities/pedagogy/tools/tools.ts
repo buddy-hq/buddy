@@ -1,15 +1,33 @@
-import { pedagogyDebugAttemptTool } from "./definitions/debug-attempt"
-import { pedagogyPrepareResourceTool } from "./definitions/prepare-resource"
-import { pedagogyReflectionTool } from "./definitions/reflection"
-import { pedagogyResourceIngestFullTextTool } from "./definitions/resource-ingest-full-text"
-import { pedagogyStepwiseSolveTool } from "./definitions/stepwise-solve"
-
-const pedagogyTools = [
+import {
+  dynamicPedagogyDebugAttemptTool,
   pedagogyDebugAttemptTool,
+} from "./definitions/debug-attempt"
+import { pedagogyPrepareResourceTool } from "./definitions/prepare-resource"
+import { dynamicPedagogyReflectionTool, pedagogyReflectionTool } from "./definitions/reflection"
+import { pedagogyResourceIngestFullTextTool } from "./definitions/resource-ingest-full-text"
+import {
+  dynamicPedagogyStepwiseSolveTool,
   pedagogyStepwiseSolveTool,
-  pedagogyReflectionTool,
-  pedagogyPrepareResourceTool,
-  pedagogyResourceIngestFullTextTool,
-] as const
+} from "./definitions/stepwise-solve"
+import {
+  defineLearningToolGroup,
+  staticLearningTools,
+} from "../../../tools/learning-tool-group-definition"
 
-export { pedagogyTools }
+const pedagogyLearningToolGroup = defineLearningToolGroup({
+  group: "pedagogy",
+  tools: [
+    pedagogyDebugAttemptTool,
+    pedagogyStepwiseSolveTool,
+    pedagogyReflectionTool,
+    pedagogyPrepareResourceTool,
+    pedagogyResourceIngestFullTextTool,
+    dynamicPedagogyDebugAttemptTool,
+    dynamicPedagogyReflectionTool,
+    dynamicPedagogyStepwiseSolveTool,
+  ],
+})
+
+const pedagogyTools = staticLearningTools(pedagogyLearningToolGroup)
+
+export { pedagogyLearningToolGroup, pedagogyTools }

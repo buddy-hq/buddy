@@ -1,5 +1,14 @@
 import { renderFreeformFigureTool } from "./render-freeform-figure"
+import {
+  defineLearningToolGroup,
+  staticLearningTools,
+} from "../../../../tools/learning-tool-group-definition"
 
-const freeformFigureTools = [renderFreeformFigureTool] as const
+const freeformFigureLearningToolGroup = defineLearningToolGroup({
+  group: "freeformFigures",
+  tools: [renderFreeformFigureTool],
+})
 
-export { freeformFigureTools }
+const freeformFigureTools = staticLearningTools(freeformFigureLearningToolGroup)
+
+export { freeformFigureLearningToolGroup, freeformFigureTools }

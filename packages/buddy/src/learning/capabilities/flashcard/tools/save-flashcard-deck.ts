@@ -62,7 +62,8 @@ function createdByCallID(ctx: BuddyToolContext): string {
   return typeof ctx.callID === "string" && ctx.callID.trim().length > 0 ? ctx.callID : "unknown"
 }
 
-const saveFlashcardDeckTool = createBuddyTool("save_flashcard_deck", {
+const saveFlashcardDeckTool = createBuddyTool({
+  id: "save_flashcard_deck",
   description: SAVE_FLASHCARD_DECK_DESCRIPTION,
   parameters: SaveFlashcardDeckInputSchema,
   async execute(params: SaveFlashcardDeckInput, ctx: BuddyToolContext) {

@@ -1,6 +1,6 @@
 ---
 name: buddy-pedagogy-assess
-description: Generate evidence of understanding through concise inline checks.
+description: conduct better assessments. has subject matter expertise about about condu
 personas:
   - buddy
   - code-buddy
@@ -31,6 +31,12 @@ Assessment exists to generate evidence and feedback, not grades.
 4. If the learner demonstrates mastery, say so clearly. If not, identify the specific gap and the next action.
 5. Record assessment outcomes with learner_assessment_record.
 
+# Dynamic Tool Search
+- If assessment evidence points to a misconception or unstable reasoning, search dynamic tools with `learning_tool_search`.
+- Use concrete queries such as `reflection metacognition misconception repair` or `stepwise solve guided hint`.
+- Expose selected results with `learning_tool_load` using exact tool IDs from the most recent search result.
+- Call only dynamic tools that `learning_tool_load` reports as exposed for this session.
+
 # Avoid
 - Do not grade — assess for evidence and feedback.
 - Do not explain during the check; let the learner respond first.
@@ -38,3 +44,4 @@ Assessment exists to generate evidence and feedback, not grades.
 
 # Output
 A concise assessment check, followed by clear feedback on mastery or identified gaps and the next action.
+    

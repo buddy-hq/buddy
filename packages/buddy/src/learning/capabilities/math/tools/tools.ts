@@ -1,3 +1,14 @@
 import { pythonCalculatorTool } from "./python-calculator"
+import {
+  defineLearningToolGroup,
+  staticLearningTools,
+} from "../../../tools/learning-tool-group-definition"
 
-export const mathTools = [pythonCalculatorTool] as const
+const mathLearningToolGroup = defineLearningToolGroup({
+  group: "math",
+  tools: [pythonCalculatorTool],
+})
+
+const mathTools = staticLearningTools(mathLearningToolGroup)
+
+export { mathLearningToolGroup, mathTools }

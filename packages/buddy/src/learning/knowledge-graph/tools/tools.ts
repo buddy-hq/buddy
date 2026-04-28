@@ -5,13 +5,24 @@ import { getPrerequisitesTool } from "./get-prerequisites"
 import { getStandardTool } from "./get-standard"
 import { queryStandardsSqlTool } from "./query-standards-sql"
 import { searchStandardsTool } from "./search-standards"
+import {
+  defineLearningToolGroup,
+  staticLearningTools,
+} from "../../tools/learning-tool-group-definition"
 
-export const knowledgeGraphTools = [
-  searchStandardsTool,
-  getStandardTool,
-  getLearningComponentsTool,
-  getPrerequisitesTool,
-  getNextStandardsTool,
-  getCrosswalkTool,
-  queryStandardsSqlTool,
-] as const
+const knowledgeGraphLearningToolGroup = defineLearningToolGroup({
+  group: "knowledgeGraph",
+  tools: [
+    searchStandardsTool,
+    getStandardTool,
+    getLearningComponentsTool,
+    getPrerequisitesTool,
+    getNextStandardsTool,
+    getCrosswalkTool,
+    queryStandardsSqlTool,
+  ],
+})
+
+const knowledgeGraphTools = staticLearningTools(knowledgeGraphLearningToolGroup)
+
+export { knowledgeGraphLearningToolGroup, knowledgeGraphTools }

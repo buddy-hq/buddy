@@ -1,5 +1,14 @@
 import { renderMermaidTool } from "./render-mermaid"
+import {
+  defineLearningToolGroup,
+  staticLearningTools,
+} from "../../../../tools/learning-tool-group-definition"
 
-const mermaidTools = [renderMermaidTool] as const
+const mermaidLearningToolGroup = defineLearningToolGroup({
+  group: "mermaid",
+  tools: [renderMermaidTool],
+})
 
-export { mermaidTools }
+const mermaidTools = staticLearningTools(mermaidLearningToolGroup)
+
+export { mermaidLearningToolGroup, mermaidTools }

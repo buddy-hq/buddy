@@ -3,13 +3,22 @@ import { teachingCheckpointTool } from "./checkpoint"
 import { teachingRestoreCheckpointTool } from "./restore-checkpoint"
 import { teachingSetLessonTool } from "./set-lesson"
 import { teachingStartLessonTool } from "./start-lesson"
+import {
+  defineLearningToolGroup,
+  staticLearningTools,
+} from "../../../tools/learning-tool-group-definition"
 
-const teachingTools = [
-  teachingStartLessonTool,
-  teachingCheckpointTool,
-  teachingAddFileTool,
-  teachingSetLessonTool,
-  teachingRestoreCheckpointTool,
-] as const
+const teachingLearningToolGroup = defineLearningToolGroup({
+  group: "teaching",
+  tools: [
+    teachingStartLessonTool,
+    teachingCheckpointTool,
+    teachingAddFileTool,
+    teachingSetLessonTool,
+    teachingRestoreCheckpointTool,
+  ],
+})
 
-export { teachingTools }
+const teachingTools = staticLearningTools(teachingLearningToolGroup)
+
+export { teachingLearningToolGroup, teachingTools }

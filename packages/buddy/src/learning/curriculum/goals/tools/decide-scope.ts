@@ -9,7 +9,8 @@ import {
   normalizeGoalText,
 } from "../types"
 
-const goalDecideScopeTool = createBuddyTool("goal_decide_scope", {
+const goalDecideScopeTool = createBuddyTool({
+  id: "goal_decide_scope",
   description: DECIDE_SCOPE_DESCRIPTION,
   parameters: z.object({
     learnerRequest: z.string().min(1).describe("The learner's raw request for goal writing."),

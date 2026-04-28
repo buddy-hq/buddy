@@ -56,7 +56,8 @@ function createdByCallID(ctx: BuddyToolContext): string {
   return typeof ctx.callID === "string" && ctx.callID.trim().length > 0 ? ctx.callID : "unknown"
 }
 
-const saveQuestionSetTool = createBuddyTool("save_question_set", {
+const saveQuestionSetTool = createBuddyTool({
+  id: "save_question_set",
   description: SAVE_QUESTION_SET_DESCRIPTION,
   parameters: SaveQuestionSetInputSchema,
   async execute(params: SaveQuestionSetInput, ctx: BuddyToolContext) {

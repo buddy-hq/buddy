@@ -4,7 +4,8 @@ import { createBuddyTool, type BuddyToolContext } from "../../../tools/create-bu
 import { replaceGoalSet } from "../../../learner-model/workflows/workspace"
 import { GoalCommitResultSchema, GoalSchema, GoalScopeSchema, createGoalToolResult } from "../types"
 
-const goalCommitTool = createBuddyTool("goal_commit", {
+const goalCommitTool = createBuddyTool({
+  id: "goal_commit",
   description: COMMIT_DESCRIPTION,
   parameters: z.object({
     scope: GoalScopeSchema,

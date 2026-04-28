@@ -1,7 +1,9 @@
 import STEPWISE_SOLVE_DESCRIPTION from "./stepwise-solve.md"
 import z from "zod"
 import { type PedagogyToolContext, type PedagogyToolParams } from "../orchestration/contracts"
-import { createBuddyTool } from "../../../../tools/create-buddy-tool"
+import { createBuddyTool, type BuddyToolContext } from "../../../../tools/create-buddy-tool"
+
+const DYNAMIC_PEDAGOGY_STEPWISE_SOLVE_TOOL_ID = "pedagogy_stepwise_solve_dynamic" as const
 
 const PedagogyToolParameters = z.object({
   goalIds: z.array(z.string()).default([]),
@@ -53,12 +55,17 @@ const formatPedagogyOutput = (input: {
     .join("\n")
 }
 
-const buildOutput = (params: PedagogyToolParams, context: PedagogyToolContext) => {
+const buildOutput = (input: {
+  id: string
+  params: PedagogyToolParams
+  context: PedagogyToolContext
+}) => {
+  const { params, context } = input
   const goal = context.goals[0]
   const target = goal?.statement ?? params.topic ?? context.workspaceLabel
 
   return formatPedagogyOutput({
-    id: "pedagogy_stepwise_solve",
+    id: input.id,
     goalLabel: target,
     learnerContext: summarizeLearnerContext(context),
     sections: [
@@ -78,30 +85,55 @@ const buildOutput = (params: PedagogyToolParams, context: PedagogyToolContext) =
   })
 }
 
-export const pedagogyStepwiseSolveTool = createBuddyTool("pedagogy_stepwise_solve", {
+async function executeStepwiseSolveTool(
+  id: string,
+  params: z.infer<typeof PedagogyToolParameters>,
+  ctx: BuddyToolContext,
+) {
+  await ctx.ask({
+    permission: id,
+    patterns: ["*"],
+    always: ["*"],
+    metadata: {
+      goals: params.goalIds?.length ?? 0,
+    },
+  })
+
+  const { resolvePedagogyToolContext } = await import("../orchestration/context")
+  const context = await resolvePedagogyToolContext(ctx, params)
+  const output = buildOutput({ id, params, context })
+
+  return {
+    title: id,
+    output,
+    metadata: {
+      persona: context.persona,
+      goalIds: context.goalIds,
+    },
+  }
+}
+
+export const pedagogyStepwiseSolveTool = createBuddyTool({
+  id: "pedagogy_stepwise_solve",
   description: STEPWISE_SOLVE_DESCRIPTION,
   parameters: PedagogyToolParameters,
   async execute(params, ctx) {
-    await ctx.ask({
-      permission: "pedagogy_stepwise_solve",
-      patterns: ["*"],
-      always: ["*"],
-      metadata: {
-        goals: params.goalIds?.length ?? 0,
-      },
-    })
+    return executeStepwiseSolveTool("pedagogy_stepwise_solve", params, ctx)
+  },
+})
 
-    const { resolvePedagogyToolContext } = await import("../orchestration/context")
-    const context = await resolvePedagogyToolContext(ctx, params)
-    const output = buildOutput(params, context)
-
-    return {
-      title: "pedagogy_stepwise_solve",
-      output,
-      metadata: {
-        persona: context.persona,
-        goalIds: context.goalIds,
-      },
-    }
+export const dynamicPedagogyStepwiseSolveTool = createBuddyTool({
+  id: DYNAMIC_PEDAGOGY_STEPWISE_SOLVE_TOOL_ID,
+  description: STEPWISE_SOLVE_DESCRIPTION,
+  parameters: PedagogyToolParameters,
+  dynamic: {
+    title: "Pedagogy stepwise solve",
+    useCase: "stepwise-solve",
+    keywords: ["stepwise", "solve", "math", "proof", "hint", "equation"],
+    searchText: "guided next step problem solution derivation equation geometry",
+    sideEffects: ["learner-state-read"],
+  },
+  async execute(params, ctx) {
+    return executeStepwiseSolveTool(DYNAMIC_PEDAGOGY_STEPWISE_SOLVE_TOOL_ID, params, ctx)
   },
 })

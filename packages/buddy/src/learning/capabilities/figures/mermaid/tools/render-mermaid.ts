@@ -78,7 +78,8 @@ function buildDiagnosticHints(diagramType: string, diagnostics: readonly string[
   return `Suggested fixes: ${hints.join(" ")}`
 }
 
-const renderMermaidTool = createBuddyTool("render_mermaid", {
+const renderMermaidTool = createBuddyTool({
+  id: "render_mermaid",
   description: RENDER_MERMAID_DESCRIPTION,
   parameters: RenderMermaidInputSchema,
   async execute(params: RenderMermaidInput, ctx: BuddyToolContext) {

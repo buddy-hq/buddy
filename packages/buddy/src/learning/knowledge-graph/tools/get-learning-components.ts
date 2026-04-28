@@ -7,42 +7,40 @@ import {
 import { getKnowledgeGraphService } from "../service"
 import { learningComponentsParameters } from "./parameters"
 
-export const getLearningComponentsTool = createBuddyTool(
-  "get_learning_components",
-  {
-    description: GET_LEARNING_COMPONENTS_DESCRIPTION,
-    parameters: learningComponentsParameters,
-    async execute(params, ctx: BuddyToolContext) {
-      await ctx.ask({
-        permission: "get_learning_components",
-        patterns: ["*"],
-        always: ["*"],
-        metadata: {
-          code: params.code,
-          jurisdiction: params.jurisdiction,
-          limit: params.limit,
-        },
-      })
+export const getLearningComponentsTool = createBuddyTool({
+  id: "get_learning_components",
+  description: GET_LEARNING_COMPONENTS_DESCRIPTION,
+  parameters: learningComponentsParameters,
+  async execute(params, ctx: BuddyToolContext) {
+    await ctx.ask({
+      permission: "get_learning_components",
+      patterns: ["*"],
+      always: ["*"],
+      metadata: {
+        code: params.code,
+        jurisdiction: params.jurisdiction,
+        limit: params.limit,
+      },
+    })
 
-      const standard = getKnowledgeGraphService().getStandard(params)
-      const components = getKnowledgeGraphService().getLearningComponents(params)
+    const standard = getKnowledgeGraphService().getStandard(params)
+    const components = getKnowledgeGraphService().getLearningComponents(params)
 
-      const result = {
-        standard,
-        componentCount: components.length,
-        components,
-      }
+    const result = {
+      standard,
+      componentCount: components.length,
+      components,
+    }
 
-      return {
-        title: "knowledge_graph_learning_components",
-        output: JSON.stringify(result, null, 2),
-        metadata: {
-          value: result,
-        },
-      }
-    },
+    return {
+      title: "knowledge_graph_learning_components",
+      output: JSON.stringify(result, null, 2),
+      metadata: {
+        value: result,
+      },
+    }
   },
-  {
+  capability: {
     runtimeDependency: STANDARDS_RUNTIME_DEPENDENCY,
   },
-)
+})

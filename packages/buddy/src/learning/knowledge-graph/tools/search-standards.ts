@@ -7,47 +7,45 @@ import {
 import { getKnowledgeGraphService } from "../service"
 import { searchStandardsParameters } from "./parameters"
 
-export const searchStandardsTool = createBuddyTool(
-  "search_standards",
-  {
-    description: SEARCH_STANDARDS_DESCRIPTION,
-    parameters: searchStandardsParameters,
-    async execute(params, ctx: BuddyToolContext) {
-      await ctx.ask({
-        permission: "search_standards",
-        patterns: ["*"],
-        always: ["*"],
-        metadata: {
-          query: params.query,
-          subject: params.subject,
-          jurisdiction: params.jurisdiction,
-          gradeLevel: params.gradeLevel,
-        },
-      })
+export const searchStandardsTool = createBuddyTool({
+  id: "search_standards",
+  description: SEARCH_STANDARDS_DESCRIPTION,
+  parameters: searchStandardsParameters,
+  async execute(params, ctx: BuddyToolContext) {
+    await ctx.ask({
+      permission: "search_standards",
+      patterns: ["*"],
+      always: ["*"],
+      metadata: {
+        query: params.query,
+        subject: params.subject,
+        jurisdiction: params.jurisdiction,
+        gradeLevel: params.gradeLevel,
+      },
+    })
 
-      const results = getKnowledgeGraphService().searchStandards(params)
-      return {
-        title: "knowledge_graph_search_results",
-        output: JSON.stringify(
-          {
-            query: params,
-            resultCount: results.length,
-            results,
-          },
-          null,
-          2,
-        ),
-        metadata: {
-          value: {
-            query: params,
-            resultCount: results.length,
-            results,
-          },
+    const results = getKnowledgeGraphService().searchStandards(params)
+    return {
+      title: "knowledge_graph_search_results",
+      output: JSON.stringify(
+        {
+          query: params,
+          resultCount: results.length,
+          results,
         },
-      }
-    },
+        null,
+        2,
+      ),
+      metadata: {
+        value: {
+          query: params,
+          resultCount: results.length,
+          results,
+        },
+      },
+    }
   },
-  {
+  capability: {
     runtimeDependency: STANDARDS_RUNTIME_DEPENDENCY,
   },
-)
+})

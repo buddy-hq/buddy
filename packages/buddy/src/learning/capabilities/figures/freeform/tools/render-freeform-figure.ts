@@ -19,36 +19,34 @@ const RenderFreeformFigureInputSchema = z.object({
 
 type RenderFreeformFigureInput = z.infer<typeof RenderFreeformFigureInputSchema>
 
-const renderFreeformFigureTool = createBuddyTool(
-  "render_freeform_figure",
-  {
-    description: RENDER_FREEFORM_FIGURE_DESCRIPTION,
-    parameters: RenderFreeformFigureInputSchema,
-    async execute(params: RenderFreeformFigureInput, ctx: BuddyToolContext) {
-      await ctx.ask({
-        permission: "render_freeform_figure",
-        patterns: [FreeformFigurePath.glob(ctx.directory)],
-        always: ["*"],
-        metadata: {
-          kind: params.kind,
-        },
-      })
+const renderFreeformFigureTool = createBuddyTool({
+  id: "render_freeform_figure",
+  description: RENDER_FREEFORM_FIGURE_DESCRIPTION,
+  parameters: RenderFreeformFigureInputSchema,
+  async execute(params: RenderFreeformFigureInput, ctx: BuddyToolContext) {
+    await ctx.ask({
+      permission: "render_freeform_figure",
+      patterns: [FreeformFigurePath.glob(ctx.directory)],
+      always: ["*"],
+      metadata: {
+        kind: params.kind,
+      },
+    })
 
-      const result = await renderFreeformFigure(ctx.directory, params)
-      return {
-        title: "Rendered freeform figure",
-        output: JSON.stringify(result, null, 2),
-        metadata: {
-          artifact: "RenderFreeformFigureOutput",
-          value: result,
-        },
-      }
-    },
+    const result = await renderFreeformFigure(ctx.directory, params)
+    return {
+      title: "Rendered freeform figure",
+      output: JSON.stringify(result, null, 2),
+      metadata: {
+        artifact: "RenderFreeformFigureOutput",
+        value: result,
+      },
+    }
   },
-  {
+  capability: {
     surfaces: [FIGURE_PERSONA_SURFACE],
   },
-)
+})
 
 export { renderFreeformFigureTool, RenderFreeformFigureInputSchema }
 export type { RenderFreeformFigureInput }

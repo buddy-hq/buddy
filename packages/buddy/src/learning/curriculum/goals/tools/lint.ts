@@ -20,7 +20,8 @@ import {
 
 const vagueVerbs = new Set(["understand", "know"])
 
-const goalLintTool = createBuddyTool("goal_lint", {
+const goalLintTool = createBuddyTool({
+  id: "goal_lint",
   description: LINT_DESCRIPTION,
   parameters: z.object({
     scope: z.enum(["course", "topic"]),

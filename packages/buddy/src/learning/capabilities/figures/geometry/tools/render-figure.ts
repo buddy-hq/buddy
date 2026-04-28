@@ -20,36 +20,34 @@ const RenderFigureInputSchema = z.object({
 
 type RenderFigureInput = z.infer<typeof RenderFigureInputSchema>
 
-const renderFigureTool = createBuddyTool(
-  "render_figure",
-  {
-    description: RENDER_FIGURE_DESCRIPTION,
-    parameters: RenderFigureInputSchema,
-    async execute(params: RenderFigureInput, ctx: BuddyToolContext) {
-      await ctx.ask({
-        permission: "render_figure",
-        patterns: [FigurePath.glob(ctx.directory)],
-        always: ["*"],
-        metadata: {
-          kind: params.kind,
-        },
-      })
+const renderFigureTool = createBuddyTool({
+  id: "render_figure",
+  description: RENDER_FIGURE_DESCRIPTION,
+  parameters: RenderFigureInputSchema,
+  async execute(params: RenderFigureInput, ctx: BuddyToolContext) {
+    await ctx.ask({
+      permission: "render_figure",
+      patterns: [FigurePath.glob(ctx.directory)],
+      always: ["*"],
+      metadata: {
+        kind: params.kind,
+      },
+    })
 
-      const result = await renderGeometryFigure(ctx.directory, params)
-      return {
-        title: "Rendered figure",
-        output: JSON.stringify(result, null, 2),
-        metadata: {
-          artifact: "RenderFigureOutput",
-          value: result,
-        },
-      }
-    },
+    const result = await renderGeometryFigure(ctx.directory, params)
+    return {
+      title: "Rendered figure",
+      output: JSON.stringify(result, null, 2),
+      metadata: {
+        artifact: "RenderFigureOutput",
+        value: result,
+      },
+    }
   },
-  {
+  capability: {
     surfaces: [FIGURE_PERSONA_SURFACE],
   },
-)
+})
 
 export { renderFigureTool, RenderFigureInputSchema }
 export type { RenderFigureInput }

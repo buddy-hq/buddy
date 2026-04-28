@@ -1,9 +1,9 @@
 import ASSESSMENT_RECORD_DESCRIPTION from "./assessment-record.md"
 import z from "zod"
 import { createBuddyTool, type BuddyToolContext } from "../../tools/create-buddy-tool"
-import { recordAssessmentEvent } from ".."
 
-const assessmentRecordTool = createBuddyTool("learner_assessment_record", {
+const assessmentRecordTool = createBuddyTool({
+  id: "learner_assessment_record",
   description: ASSESSMENT_RECORD_DESCRIPTION,
   parameters: z.object({
     goalIds: z.array(z.string()).min(1),
@@ -33,6 +33,7 @@ const assessmentRecordTool = createBuddyTool("learner_assessment_record", {
       },
     })
 
+    const { recordAssessmentEvent } = await import("../workflows/record-assessment")
     const recorded = await recordAssessmentEvent({
       directory: ctx.directory,
       goalIds: params.goalIds,
