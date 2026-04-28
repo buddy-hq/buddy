@@ -9,6 +9,7 @@ import * as OpenCodeTruncate from "opencode/tool/truncate"
 import * as OpenCodeTool from "opencode/tool/tool"
 import { Agent } from "./agent"
 import { withConfigOverlay } from "./config"
+import { cloneToolUiMetadata, type ToolUiMetadata } from "./tool-ui-metadata"
 
 const runtime = makeRuntime(OpenCodeToolRegistry.Service, OpenCodeToolRegistry.defaultLayer)
 const customToolRuntime = ManagedRuntime.make(
@@ -27,6 +28,10 @@ type DeferredToolInfo = Effect.Effect<
   id: string
 }
 type CustomToolInfo = OpenCodeTool.Info | DeferredToolInfo
+type RegisteredCustomTool = {
+  info: CustomToolInfo
+  toolUi?: ToolUiMetadata
+}
 type RuntimeTool = Omit<OpenCodeTool.Def, "execute"> & {
   execute: (
     args: Parameters<OpenCodeTool.Def["execute"]>[0],
@@ -34,6 +39,7 @@ type RuntimeTool = Omit<OpenCodeTool.Def, "execute"> & {
   ) => Promise<OpenCodeTool.ExecuteResult>
 }
 const customTools = new Map<string, Map<string, CustomToolInfo>>()
+const customToolUiMetadata = new Map<string, Map<string, ToolUiMetadata>>()
 
 function key(directory: string) {
   const resolved = path.resolve(directory)
@@ -46,6 +52,10 @@ function key(directory: string) {
 
 function getCustomToolInfos(directory: string) {
   return [...(customTools.get(key(directory))?.values() ?? [])]
+}
+
+function getCustomToolUiMetadata(directory: string, toolID: string): ToolUiMetadata | undefined {
+  return cloneToolUiMetadata(customToolUiMetadata.get(key(directory))?.get(toolID))
 }
 
 function mergeToolDefs(base: readonly OpenCodeTool.Def[], extra: readonly OpenCodeTool.Def[]) {
@@ -139,23 +149,51 @@ async function resolveToolAgent(agent?: ToolAgentInput): Promise<ToolAgentInfo> 
 }
 
 export namespace ToolRegistry {
-  export async function register(info: CustomToolInfo) {
+  export async function register(input: RegisteredCustomTool | CustomToolInfo) {
     const directory = key(Instance.directory)
     const tools = customTools.get(directory) ?? new Map<string, CustomToolInfo>()
-    tools.set(info.id, info)
+    const registration = "info" in input ? input : { info: input }
+    tools.set(registration.info.id, registration.info)
     customTools.set(directory, tools)
+
+    if (registration.toolUi) {
+      const metadataByTool =
+        customToolUiMetadata.get(directory) ?? new Map<string, ToolUiMetadata>()
+      metadataByTool.set(
+        registration.info.id,
+        cloneToolUiMetadata(registration.toolUi) ?? registration.toolUi,
+      )
+      customToolUiMetadata.set(directory, metadataByTool)
+    } else {
+      const metadataByTool = customToolUiMetadata.get(directory)
+      metadataByTool?.delete(registration.info.id)
+      if (metadataByTool && metadataByTool.size === 0) {
+        customToolUiMetadata.delete(directory)
+      }
+    }
+
     await ensureRuntimePatched()
   }
 
   export async function unregister(toolIDs: readonly string[]) {
-    const tools = customTools.get(key(Instance.directory))
+    const directory = key(Instance.directory)
+    const tools = customTools.get(directory)
+    const metadataByTool = customToolUiMetadata.get(directory)
     if (!tools) return
     for (const toolID of toolIDs) {
       tools.delete(toolID)
+      metadataByTool?.delete(toolID)
     }
     if (tools.size === 0) {
-      customTools.delete(key(Instance.directory))
+      customTools.delete(directory)
     }
+    if (metadataByTool && metadataByTool.size === 0) {
+      customToolUiMetadata.delete(directory)
+    }
+  }
+
+  export function getToolUiMetadata(toolID: string, directory = Instance.directory) {
+    return getCustomToolUiMetadata(directory, toolID)
   }
 
   export async function ids() {

@@ -1,5 +1,6 @@
 import * as OpenCodeSession from "opencode/session/session"
 import { makeRuntime } from "opencode/effect/run-service"
+import { canonicalizeSession, ensureSessionServicePatched } from "./session-live"
 
 const runtime = makeRuntime(OpenCodeSession.Service, OpenCodeSession.defaultLayer)
 
@@ -15,23 +16,29 @@ export namespace Session {
   export const MessagesInput = OpenCodeSession.MessagesInput
 
   export const create = Object.assign(
-    async (input?: OpenCodeSession.CreateInput) => runtime.runPromise((svc) => svc.create(input)),
+    async (input?: OpenCodeSession.CreateInput) => {
+      await ensureSessionServicePatched()
+      return runtime.runPromise((svc) => svc.create(input))
+    },
     { schema: OpenCodeSession.CreateInput },
   )
 
   export async function list(input?: Parameters<typeof OpenCodeSession.list>[0]) {
-    return Array.from(OpenCodeSession.list(input))
+    return Array.from(OpenCodeSession.list(input), canonicalizeSession)
   }
 
   export async function get(id: Parameters<OpenCodeSession.Interface["get"]>[0]) {
+    await ensureSessionServicePatched()
     return runtime.runPromise((svc) => svc.get(id))
   }
 
   export async function fork(input: Parameters<OpenCodeSession.Interface["fork"]>[0]) {
+    await ensureSessionServicePatched()
     return runtime.runPromise((svc) => svc.fork(input))
   }
 
   export async function children(parentID: Parameters<OpenCodeSession.Interface["children"]>[0]) {
+    await ensureSessionServicePatched()
     return runtime.runPromise((svc) => svc.children(parentID))
   }
 
@@ -40,22 +47,26 @@ export namespace Session {
   }
 
   export async function setTitle(input: Parameters<OpenCodeSession.Interface["setTitle"]>[0]) {
+    await ensureSessionServicePatched()
     return runtime.runPromise((svc) => svc.setTitle(input))
   }
 
   export async function setArchived(
     input: Parameters<OpenCodeSession.Interface["setArchived"]>[0],
   ) {
+    await ensureSessionServicePatched()
     return runtime.runPromise((svc) => svc.setArchived(input))
   }
 
   export async function setPermission(
     input: Parameters<OpenCodeSession.Interface["setPermission"]>[0],
   ) {
+    await ensureSessionServicePatched()
     return runtime.runPromise((svc) => svc.setPermission(input))
   }
 
   export async function remove(sessionID: Parameters<OpenCodeSession.Interface["remove"]>[0]) {
+    await ensureSessionServicePatched()
     return runtime.runPromise((svc) => svc.remove(sessionID))
   }
 
