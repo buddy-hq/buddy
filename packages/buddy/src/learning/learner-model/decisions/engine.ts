@@ -9,6 +9,7 @@ import {
   parseConfiguredModel,
   readProjectConfig,
 } from "@buddy/backend/config/runtime"
+import { clearDynamicLearningToolsForEndedSession } from "../../tools/dynamic-learning-tool-grants"
 
 type StructuredSchema = {
   type: "object"
@@ -225,6 +226,10 @@ export async function runStructuredDecision<T>(input: {
         return decisionResult
       } finally {
         try {
+          await clearDynamicLearningToolsForEndedSession({
+            directory: input.directory,
+            sessionID: session.id,
+          })
           await Session.remove(session.id)
         } catch (error) {
           console.warn("Failed to remove decision session", error)

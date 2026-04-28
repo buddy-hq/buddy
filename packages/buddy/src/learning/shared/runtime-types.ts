@@ -3,15 +3,20 @@ import type {
   PersonaSurface,
   SubagentId,
 } from "@buddy/backend/learning/shared/teaching-vocabulary"
-import type { LearningToolId } from "../tools/tool-metadata"
 
-export type ToolId = LearningToolId
+export type DynamicToolId = string
+export type StaticToolId = string
+export type ToolId = string
 
 export type SkillAccess = "inherit" | "allow" | "deny"
 export type SkillDelta<TSkillId extends string = string> = Partial<Record<TSkillId, SkillAccess>>
 
 export type ToolAccess = "inherit" | "allow" | "deny"
 export type ToolDelta<TToolId extends string = string> = Partial<Record<TToolId, ToolAccess>>
+export type PersonaTools = {
+  static: ToolDelta<StaticToolId>
+  dynamic: ToolDelta<DynamicToolId>
+}
 
 export type SubagentAccess = "inherit" | "allow" | "deny" | "prefer"
 export type SubagentDelta<TSubagentId extends string = string> = Partial<
@@ -34,10 +39,10 @@ export type PersonaDefinition = {
   surfaces: PersonaSurface[]
   defaultSurface: PersonaSurface
   hidden: boolean
-  toolDefaults: ToolDelta<ToolId>
-  skillDefaults: SkillDelta
-  subagentDefaults: SubagentDelta<SubagentId>
-  contextPolicy: PersonaContextPolicy
+  tools: PersonaTools
+  skills: SkillDelta
+  subagents: SubagentDelta<SubagentId>
+  context: PersonaContextPolicy
 }
 
 export type PersonaOverride = {

@@ -1,8 +1,9 @@
 import CODE_BUDDY_OVERLAY from "./prompts/code-buddy.p.md"
+import { defineBuddyPersona } from "./wiring/define-buddy-persona"
 import {
-  DEFAULT_PRIMARY_PERSONA_PERMISSION,
-  defineBuddyPersona,
-} from "./wiring/define-buddy-persona"
+  dynamicPedagogyDebugAttemptTool,
+  dynamicPedagogyReflectionTool,
+} from "../tools/dynamic-learning-tools"
 
 export const CODE_BUDDY = defineBuddyPersona({
   id: "code-buddy",
@@ -12,29 +13,33 @@ export const CODE_BUDDY = defineBuddyPersona({
   surfaces: ["curriculum", "editor", "question-set"],
   defaultSurface: "editor",
   hidden: false,
-  toolDefaults: {
-    learner_snapshot_read: "allow",
-    learner_practice_record: "allow",
-    learner_assessment_record: "allow",
-    teaching_start_lesson: "allow",
-    teaching_checkpoint: "allow",
-    teaching_add_file: "allow",
-    teaching_set_lesson: "allow",
-    teaching_restore_checkpoint: "allow",
-    render_mermaid: "allow",
-    search_standards: "allow",
-    get_standard: "allow",
-    get_learning_components: "allow",
-    get_prerequisites: "allow",
-    get_next_standards: "allow",
-    get_crosswalk: "allow",
-    query_standards_sql: "allow",
-    pedagogy_prepare_resource: "allow",
-    pedagogy_resource_ingest_full_text: "allow",
-    pedagogy_reflection: "allow",
-    pedagogy_debug_attempt: "allow",
+  tools: {
+    static: {
+      learner_snapshot_read: "allow",
+      learner_practice_record: "allow",
+      learner_assessment_record: "allow",
+      teaching_start_lesson: "allow",
+      teaching_checkpoint: "allow",
+      teaching_add_file: "allow",
+      teaching_set_lesson: "allow",
+      teaching_restore_checkpoint: "allow",
+      render_mermaid: "allow",
+      search_standards: "allow",
+      get_standard: "allow",
+      get_learning_components: "allow",
+      get_prerequisites: "allow",
+      get_next_standards: "allow",
+      get_crosswalk: "allow",
+      query_standards_sql: "allow",
+      pedagogy_prepare_resource: "allow",
+      pedagogy_resource_ingest_full_text: "allow",
+    },
+    dynamic: {
+      [dynamicPedagogyReflectionTool.id]: "allow",
+      [dynamicPedagogyDebugAttemptTool.id]: "allow",
+    },
   },
-  skillDefaults: {
+  skills: {
     "buddy-pedagogy-learn": "allow",
     "buddy-pedagogy-practice": "allow",
     "buddy-pedagogy-assess": "allow",
@@ -43,12 +48,12 @@ export const CODE_BUDDY = defineBuddyPersona({
     "buddy-pedagogy-concept-contrast": "allow",
     "buddy-pedagogy-reading-assistant": "allow",
   },
-  subagentDefaults: {
+  subagents: {
     "practice-agent": "prefer",
     "assessment-agent": "allow",
     "question-set-author": "allow",
   },
-  contextPolicy: {
+  context: {
     attachCurriculum: true,
     attachProgress: true,
     attachTeachingWorkspace: true,
@@ -58,6 +63,5 @@ export const CODE_BUDDY = defineBuddyPersona({
   runtime: {
     kind: "primary",
     prompt: CODE_BUDDY_OVERLAY,
-    permission: DEFAULT_PRIMARY_PERSONA_PERMISSION,
   },
 })

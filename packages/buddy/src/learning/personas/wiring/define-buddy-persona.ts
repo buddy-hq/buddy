@@ -1,22 +1,16 @@
 import { definePromptTemplate } from "../../prompt/template/engine"
 import type { BuddyPermissionInput, CoreAgentDefinition } from "../../agent-factories"
+import type {
+  PersonaContextPolicy,
+  PersonaTools,
+  SkillDelta,
+  SubagentDelta,
+} from "../../shared/runtime-types"
+import type { SubagentId } from "../../shared/teaching-vocabulary"
 import BASE_PERSONA_PROMPT from "../prompts/base.p.md"
-import { SMOKE_ASSESSMENT_TOOL_ID, SMOKE_PRACTICE_TOOL_ID } from "../../tools/dynamic-tool-ids"
 
 type PersonaDomain = "general" | "coding" | "math"
 type PersonaSurface = "curriculum" | "editor" | "figure" | "flashcard" | "question-set"
-type ToolAccess = "inherit" | "allow" | "deny"
-type SkillAccess = "inherit" | "allow" | "deny"
-type SubagentAccess = "inherit" | "allow" | "deny" | "prefer"
-
-type PersonaContextPolicyDefinition = {
-  attachCurriculum: boolean
-  attachProgress: boolean
-  attachTeachingWorkspace: boolean
-  attachTeachingPolicy: boolean
-  attachFigureContext: boolean
-}
-
 type BuddyPersonaProfileDefinition<Id extends string = string> = {
   id: Id
   label: string
@@ -25,10 +19,10 @@ type BuddyPersonaProfileDefinition<Id extends string = string> = {
   surfaces: readonly PersonaSurface[]
   defaultSurface: PersonaSurface
   hidden: boolean
-  toolDefaults: Partial<Record<string, ToolAccess>>
-  skillDefaults: Partial<Record<string, SkillAccess>>
-  subagentDefaults: Partial<Record<string, SubagentAccess>>
-  contextPolicy: PersonaContextPolicyDefinition
+  tools: PersonaTools
+  skills: SkillDelta
+  subagents: SubagentDelta<SubagentId>
+  context: PersonaContextPolicy
 }
 
 type PersonaRuntimeKind = "primary" | "build"
@@ -49,13 +43,11 @@ type BuddyPersonaDefinitionInput<Id extends string> = BuddyPersonaProfileDefinit
 
 type DefinedBuddyPersona<Id extends string = string> = BuddyPersonaDefinitionInput<Id>
 
-const DEFAULT_PRIMARY_PERSONA_PERMISSION = {
+const PRIMARY_PERSONA_PERMISSION = {
   question: "allow",
   plan_enter: "allow",
   todoread: "deny",
   todowrite: "deny",
-  [SMOKE_PRACTICE_TOOL_ID]: "deny",
-  [SMOKE_ASSESSMENT_TOOL_ID]: "deny",
 } as const satisfies BuddyPermissionInput
 
 export function defineBuddyPersona<const Id extends string>(
@@ -72,10 +64,13 @@ export function defineBuddyPersona<const Id extends string>(
   return {
     ...profile,
     surfaces: [...profile.surfaces],
-    toolDefaults: { ...profile.toolDefaults },
-    skillDefaults: { ...profile.skillDefaults },
-    subagentDefaults: { ...profile.subagentDefaults },
-    contextPolicy: { ...profile.contextPolicy },
+    tools: {
+      static: { ...profile.tools.static },
+      dynamic: { ...profile.tools.dynamic },
+    },
+    skills: { ...profile.skills },
+    subagents: { ...profile.subagents },
+    context: { ...profile.context },
     runtime: {
       ...runtime,
       prompt: definePromptTemplate({
@@ -85,17 +80,16 @@ export function defineBuddyPersona<const Id extends string>(
         persona_overlay: runtime.prompt.trim(),
       }),
       ...(runtime.description ? { description: runtime.description } : {}),
-      ...(runtime.permission ? { permission: runtime.permission } : {}),
+      permission: runtime.permission ?? PRIMARY_PERSONA_PERMISSION,
     },
   }
 }
 
-export { DEFAULT_PRIMARY_PERSONA_PERMISSION }
+export { PRIMARY_PERSONA_PERMISSION }
 
 export type {
   BuddyPersonaDefinitionInput,
   BuddyPersonaProfileDefinition,
   DefinedBuddyPersona,
-  PersonaContextPolicyDefinition,
   PersonaRuntimeDefinition,
 }

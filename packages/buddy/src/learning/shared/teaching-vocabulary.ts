@@ -1,17 +1,6 @@
-import { REGISTERED_BUDDY_PERSONAS } from "@buddy/backend/learning/personas/registered-personas"
 import { BUDDY_SUBAGENTS } from "@buddy/backend/learning/subagent-manifest"
 
-type BuiltinPersona = (typeof REGISTERED_BUDDY_PERSONAS)[number]["id"]
-
-const derivedPersonas = REGISTERED_BUDDY_PERSONAS.map(
-  (definition) => definition.id,
-) as BuiltinPersona[]
-
-if (derivedPersonas.length === 0) {
-  throw new Error("At least one Buddy persona must be defined")
-}
-
-export const PERSONAS = [...derivedPersonas] as [BuiltinPersona, ...BuiltinPersona[]]
+export const PERSONAS = ["buddy", "code-buddy", "math-buddy", "reading-buddy"] as const
 export type Persona = (typeof PERSONAS)[number]
 
 export const SURFACES = [
@@ -24,20 +13,13 @@ export const SURFACES = [
 ] as const
 export type Surface = (typeof SURFACES)[number]
 
-type BuiltinPersonaSurface = (typeof REGISTERED_BUDDY_PERSONAS)[number]["surfaces"][number]
-
-const derivedPersonaSurfaces = Array.from(
-  new Set(REGISTERED_BUDDY_PERSONAS.flatMap((definition) => definition.surfaces)),
-).toSorted((left, right) => left.localeCompare(right)) as BuiltinPersonaSurface[]
-
-if (derivedPersonaSurfaces.length === 0) {
-  throw new Error("At least one Buddy persona surface must be defined")
-}
-
-export const PERSONA_SURFACES = [...derivedPersonaSurfaces] as [
-  BuiltinPersonaSurface,
-  ...BuiltinPersonaSurface[],
-]
+export const PERSONA_SURFACES = [
+  "curriculum",
+  "editor",
+  "figure",
+  "flashcard",
+  "question-set",
+] as const
 export type PersonaSurface = (typeof PERSONA_SURFACES)[number]
 
 export const WORKSPACE_STATES = ["chat", "interactive"] as const

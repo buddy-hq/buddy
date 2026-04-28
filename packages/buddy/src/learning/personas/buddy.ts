@@ -1,5 +1,8 @@
 import { defineBuddyPersona } from "./wiring/define-buddy-persona"
-import { SMOKE_ASSESSMENT_TOOL_ID, SMOKE_PRACTICE_TOOL_ID } from "../tools/dynamic-tool-ids"
+import {
+  dynamicPedagogyReflectionTool,
+  dynamicPedagogyStepwiseSolveTool,
+} from "../tools/dynamic-learning-tools"
 
 export const BUDDY = defineBuddyPersona({
   id: "buddy",
@@ -9,24 +12,28 @@ export const BUDDY = defineBuddyPersona({
   surfaces: ["curriculum", "flashcard", "question-set"],
   defaultSurface: "curriculum",
   hidden: false,
-  toolDefaults: {
-    learner_snapshot_read: "allow",
-    learner_practice_record: "allow",
-    learner_assessment_record: "allow",
-    learning_tool_search: "allow",
-    render_mermaid: "allow",
-    search_standards: "allow",
-    get_standard: "allow",
-    get_learning_components: "allow",
-    get_prerequisites: "allow",
-    get_next_standards: "allow",
-    get_crosswalk: "allow",
-    query_standards_sql: "allow",
-    pedagogy_prepare_resource: "allow",
-    pedagogy_resource_ingest_full_text: "allow",
-    pedagogy_reflection: "allow",
+  tools: {
+    static: {
+      learner_snapshot_read: "allow",
+      learner_practice_record: "allow",
+      learner_assessment_record: "allow",
+      render_mermaid: "allow",
+      search_standards: "allow",
+      get_standard: "allow",
+      get_learning_components: "allow",
+      get_prerequisites: "allow",
+      get_next_standards: "allow",
+      get_crosswalk: "allow",
+      query_standards_sql: "allow",
+      pedagogy_prepare_resource: "allow",
+      pedagogy_resource_ingest_full_text: "allow",
+    },
+    dynamic: {
+      [dynamicPedagogyReflectionTool.id]: "allow",
+      [dynamicPedagogyStepwiseSolveTool.id]: "allow",
+    },
   },
-  skillDefaults: {
+  skills: {
     "buddy-pedagogy-learn": "allow",
     "buddy-pedagogy-practice": "allow",
     "buddy-pedagogy-assess": "allow",
@@ -36,13 +43,13 @@ export const BUDDY = defineBuddyPersona({
     "buddy-pedagogy-reading-assistant": "allow",
     "buddy-pedagogy-analogy": "allow",
   },
-  subagentDefaults: {
+  subagents: {
     "curriculum-orchestrator": "prefer",
     "goal-writer": "prefer",
     "question-set-author": "prefer",
     "flashcard-author": "prefer",
   },
-  contextPolicy: {
+  context: {
     attachCurriculum: true,
     attachProgress: true,
     attachTeachingWorkspace: false,
@@ -55,8 +62,6 @@ export const BUDDY = defineBuddyPersona({
     permission: {
       todoread: "deny",
       todowrite: "deny",
-      [SMOKE_PRACTICE_TOOL_ID]: "deny",
-      [SMOKE_ASSESSMENT_TOOL_ID]: "deny",
     },
   },
 })

@@ -1,4 +1,5 @@
 import { Config } from "@buddy/backend/config"
+import { dynamicLearningToolAgentPermission } from "./tools/dynamic-learning-tool-permissions"
 
 type BuddyAgentAuthoring = Parameters<(typeof Config.Agent)["parse"]>[0]
 type BuddyPermissionRuleInput = Config.PermissionRule
@@ -98,6 +99,25 @@ function mergePermissionPreset(
   }
 }
 
+function applyDynamicLearningToolDeny(
+  permission: BuddyPermissionInput | undefined,
+): BuddyPermissionInput {
+  const dynamicDeny = dynamicLearningToolAgentPermission()
+  if (permission === undefined) return dynamicDeny
+
+  if (typeof permission === "string") {
+    return {
+      ...dynamicDeny,
+      "*": permission,
+    }
+  }
+
+  return {
+    ...permission,
+    ...dynamicDeny,
+  }
+}
+
 function defineAgentWithMode(input: CoreAgentDefinition): DefinedPrimaryAgent | DefinedSubagent {
   if (input.mode === "subagent") {
     const { mode: _mode, availableSubagents: _availableSubagents, ...agent } = input
@@ -114,14 +134,18 @@ function createPrimaryAgent(input: PrimaryAgentDefinition): DefinedPrimaryAgent 
   return {
     ...agent,
     mode: "primary",
-    permission: mergePermission(permission, taskPermission(availableSubagents)),
+    permission: applyDynamicLearningToolDeny(
+      mergePermission(permission, taskPermission(availableSubagents)),
+    ),
   }
 }
 
 function createSubagent(input: SubagentDefinition): DefinedSubagent {
+  const { permission, ...agent } = input
   return {
-    ...input,
+    ...agent,
     mode: "subagent",
+    permission: applyDynamicLearningToolDeny(permission),
   }
 }
 

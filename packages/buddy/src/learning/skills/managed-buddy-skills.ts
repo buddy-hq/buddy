@@ -4,7 +4,7 @@ export function managedBuddySkillNames(): string[] {
   const skillNames = new Set<string>()
 
   for (const persona of REGISTERED_BUDDY_PERSONAS) {
-    for (const skillName of Object.keys(persona.skillDefaults)) {
+    for (const skillName of Object.keys(persona.skills)) {
       skillNames.add(skillName)
     }
   }

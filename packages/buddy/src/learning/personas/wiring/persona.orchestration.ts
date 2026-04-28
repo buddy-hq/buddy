@@ -23,10 +23,13 @@ function cloneBuddyPersonaProfile(profile: BuddyPersonaProfile): BuddyPersonaPro
   return {
     ...profile,
     surfaces: [...profile.surfaces],
-    toolDefaults: { ...profile.toolDefaults },
-    skillDefaults: { ...profile.skillDefaults },
-    subagentDefaults: { ...profile.subagentDefaults },
-    contextPolicy: { ...profile.contextPolicy },
+    tools: {
+      static: { ...profile.tools.static },
+      dynamic: { ...profile.tools.dynamic },
+    },
+    skills: { ...profile.skills },
+    subagents: { ...profile.subagents },
+    context: { ...profile.context },
   }
 }
 
@@ -39,10 +42,13 @@ const BUILTIN_BUDDY_PERSONAS = Object.fromEntries(
       {
         ...profile,
         surfaces: [...profile.surfaces],
-        toolDefaults: { ...profile.toolDefaults },
-        skillDefaults: { ...profile.skillDefaults },
-        subagentDefaults: { ...profile.subagentDefaults },
-        contextPolicy: { ...profile.contextPolicy },
+        tools: {
+          static: { ...profile.tools.static },
+          dynamic: { ...profile.tools.dynamic },
+        },
+        skills: { ...profile.skills },
+        subagents: { ...profile.subagents },
+        context: { ...profile.context },
       },
     ]
   }),
@@ -128,7 +134,7 @@ export function personaCatalogEntries(
 export function createBuddyPersonaAgent(definition: BuiltinBuddyPersonaDefinition) {
   const { runtime, ...profile } = definition
   const { kind, ...runtimeAgent } = runtime
-  const availableSubagents = Object.entries(profile.subagentDefaults)
+  const availableSubagents = Object.entries(profile.subagents)
     .filter(([, access]) => access === "allow" || access === "prefer")
     .map(([subagentID]) => subagentID)
 

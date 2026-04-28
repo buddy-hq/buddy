@@ -19,7 +19,7 @@ function buildEffectiveSubagents(
 ): RuntimeProfile["capabilityEnvelope"]["subagents"] {
   const subagents = createDenySubagentMap()
 
-  for (const [subagentId, access] of Object.entries(persona.subagentDefaults)) {
+  for (const [subagentId, access] of Object.entries(persona.subagents)) {
     if (!access || access === "inherit") continue
     subagents[subagentId as keyof typeof subagents] = access
   }
