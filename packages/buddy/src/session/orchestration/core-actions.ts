@@ -7,6 +7,7 @@ import { ensureAllowedDirectory } from "../../http"
 import { proxyToOpenCode } from "../../http"
 import { isSessionInRequestedProject } from "../../http"
 import { withConfigSync } from "../../http/route-helpers"
+import { clearDynamicLearningToolsForEndedSession } from "../../learning/tools/dynamic-learning-tool-grants"
 import { isSessionNotFoundError } from "./lookup"
 
 type RuntimeSessionInfo = Awaited<ReturnType<typeof OpenCodeSession.get>>
@@ -20,6 +21,12 @@ type OpenCodeErrorPayload = {
   message?: unknown
   data?: {
     message?: unknown
+  }
+}
+
+type SessionPatchBody = {
+  time?: {
+    archived?: unknown
   }
 }
 
@@ -52,6 +59,27 @@ function runtimeErrorResponse(error: unknown) {
     : (readOpenCodeErrorMessage(error) ?? REQUEST_FAILED_ERROR)
   const status = isSessionNotFoundError(error) ? NOT_FOUND_STATUS : BAD_REQUEST_STATUS
   return Response.json({ error: message }, { status })
+}
+
+function parseSessionPatchBody(value: unknown): SessionPatchBody | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined
+  }
+  return value
+}
+
+function readValidatedJsonBody(c: Context): unknown {
+  const request: unknown = c.req
+  if (!request || typeof request !== "object" || !("valid" in request)) {
+    return undefined
+  }
+
+  const { valid } = request
+  if (typeof valid !== "function") {
+    return undefined
+  }
+
+  return Reflect.apply(valid, request, ["json"])
 }
 
 function readSessionMessagesQuery(c: Context): SessionMessagesQuery {
@@ -161,9 +189,22 @@ export async function patchSessionById(c: Context): Promise<Response> {
   const lookupResponse = await ensureRuntimeSessionExists(directoryResult.directory, sessionID)
   if (lookupResponse) return lookupResponse
 
-  return proxyToOpenCode(c, {
+  const body = parseSessionPatchBody(readValidatedJsonBody(c))
+  const response = await proxyToOpenCode(c, {
     targetPath: `/session/${encodeURIComponent(sessionID)}`,
   })
+  if (body?.time?.archived !== undefined && response.ok) {
+    try {
+      await clearDynamicLearningToolsForEndedSession({
+        directory: directoryResult.directory,
+        sessionID,
+      })
+    } catch (error) {
+      console.warn("Failed to clear dynamic learning tools after archiving session", error)
+    }
+  }
+
+  return response
 }
 
 export async function summarizeSessionById(c: Context): Promise<Response> {

@@ -1,5 +1,8 @@
 import { registerRuntimeTools } from "../../learning/tools/register-runtime-tools"
-import { allLearningToolGroups, type LearningToolGroup } from "../../learning/tools/tool-metadata"
+import {
+  allLearningToolGroups,
+  type LearningToolGroup,
+} from "../../learning/tools/learning-tool-group-policies"
 import type { ProxyRegistrationFlags, ProxyRegistrationOption, ProxyToOpenCodeInput } from "./types"
 
 async function registerOpenCodeTools(

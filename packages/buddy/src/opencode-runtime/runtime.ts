@@ -6,7 +6,9 @@ import {
   BUDDY_XDG_STATE_HOME,
   configureOpenCodeEnvironment,
 } from "./env"
+import { ensureSessionServicePatched } from "@buddy/opencode-adapter/session-live"
 import { Server } from "@buddy/opencode-adapter/server"
+import { ensureSessionToolUiPatched } from "@buddy/opencode-adapter/session-tool-ui"
 import { repairLegacyOpenCodeMigrations } from "./legacy-migration-repair"
 
 let appPromise: Promise<{ fetch(request: Request): Response | Promise<Response> }> | undefined
@@ -34,6 +36,8 @@ export async function loadOpenCodeApp() {
       } catch (error) {
         console.warn("Skipping legacy OpenCode migration repair:", error)
       }
+      await ensureSessionServicePatched()
+      await ensureSessionToolUiPatched()
       const built = await Server.Default()
       return {
         fetch(request: Request) {

@@ -4,6 +4,10 @@ import type { PermissionRuleset } from "@buddy/opencode-adapter/permission"
 import { Session } from "@buddy/opencode-adapter/session"
 import type { RuntimeProfile } from "../../shared/runtime-types"
 import { buildBuddyRuntimeSessionPermissions } from "./session-permissions"
+import {
+  ensureDynamicLearningToolsRegisteredForSession,
+  withDynamicLearningToolAllows,
+} from "../../tools/dynamic-learning-tool-grants"
 import { loadOpenCodeApp } from "../../../opencode-runtime"
 import { isSessionNotFoundError } from "../../../session"
 
@@ -57,10 +61,21 @@ export async function syncBuddyRuntimeSessionPermissions(input: {
       if (!session) {
         return
       }
-      const nextPermission = buildBuddyRuntimeSessionPermissions({
+      const syncedPermission = buildBuddyRuntimeSessionPermissions({
         existing: session.permission,
         runtimeProfile: input.runtimeProfile,
       })
+      const grantedDynamicToolIDs = await ensureDynamicLearningToolsRegisteredForSession({
+        directory: input.directory,
+        sessionID: input.sessionID,
+      })
+      const nextPermission =
+        grantedDynamicToolIDs.length > 0
+          ? withDynamicLearningToolAllows({
+              existing: syncedPermission,
+              toolIDs: grantedDynamicToolIDs,
+            })
+          : syncedPermission
 
       if (permissionRulesEqual(session.permission, nextPermission)) {
         return

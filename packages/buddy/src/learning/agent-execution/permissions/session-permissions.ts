@@ -2,6 +2,10 @@ import type { PermissionRule, PermissionRuleset } from "@buddy/opencode-adapter/
 import { SUBAGENT_IDS } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import { managedBuddySkillNames } from "../../skills/managed-buddy-skills"
 import type { RuntimeProfile } from "../../shared/runtime-types"
+import {
+  dynamicLearningToolDefaultDenyRules,
+  isDynamicLearningToolSessionRule,
+} from "../../tools/dynamic-learning-tool-permissions"
 import { allLearningToolIds } from "../../tools/tool-metadata"
 
 let managedToolIds: Set<string> | undefined
@@ -24,6 +28,10 @@ function getManagedSkillNames() {
 }
 
 function isBuddyManagedRuntimeRule(rule: PermissionRule): boolean {
+  if (isDynamicLearningToolSessionRule(rule)) {
+    return true
+  }
+
   if (getManagedToolIds().has(rule.permission) && rule.pattern === "*") {
     return true
   }
@@ -104,9 +112,9 @@ export function buildBuddyRuntimeSessionPermissions(input: {
   })
 
   if (!input.runtimeProfile) {
-    return preservedRules
+    return [...preservedRules, ...dynamicLearningToolDefaultDenyRules()]
   }
 
   const { allowRules, denyRules } = buildManagedRuntimeRules(input.runtimeProfile)
-  return [...allowRules, ...preservedRules, ...denyRules]
+  return [...allowRules, ...preservedRules, ...denyRules, ...dynamicLearningToolDefaultDenyRules()]
 }
