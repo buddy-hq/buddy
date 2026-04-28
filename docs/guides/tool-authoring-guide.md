@@ -8,7 +8,7 @@ The short version:
 - Add the tool to the owning feature's `tools.ts` array.
 - Add catalog identity and constraints in `learning/tools/tool-metadata.ts`.
 - Make sure the owning family is wired in `learning/tools/tool-registry.ts`.
-- Grant access through persona `toolDefaults`.
+- Grant access through persona `tools.static` or `tools.dynamic`.
 - Do not hand-maintain OpenCode persona permission maps; Buddy derives them.
 
 Being implemented, registered, and allowed are separate states. A tool can exist in code and still be unavailable if it is missing from the family array, the catalog, runtime registration, or permission policy.
@@ -35,7 +35,6 @@ Core files:
 - `packages/buddy/src/learning/tools/register-runtime-tools.ts`
 - `packages/buddy/src/learning/tools/tool-permission-compiler.ts`
 - `packages/buddy/src/learning/tools/tool-constraints.ts`
-- `packages/buddy/src/learning/intents/*/capabilities.ts`
 - `packages/buddy/src/learning/personas/*.ts`
 - `packages/buddy/src/config/opencode/agents.ts`
 
@@ -43,7 +42,7 @@ Core files:
 
 Runtime learning-tool permissions are compiled in this order:
 
-1. Apply persona `toolDefaults`.
+1. Apply persona `tools.static`.
 2. Deny tools whose catalog constraints do not match the persona surface or workspace state.
 3. Deny tools whose runtime dependency is not ready.
 4. Deny tools disabled by project config `tools`.
@@ -81,7 +80,8 @@ const exampleInputSchema = z.object({
   topic: z.string().trim().min(1),
 })
 
-export const exampleTool = createBuddyTool("example_tool", {
+export const exampleTool = createBuddyTool({
+  id: "example_tool",
   description: "Do the specific thing this tool is responsible for.",
   parameters: exampleInputSchema,
   async execute(args, ctx) {
@@ -224,9 +224,12 @@ Use persona defaults when the tool should be available to a persona, subject to 
 Edit `packages/buddy/src/learning/personas/<persona>.ts`:
 
 ```ts
-toolDefaults: {
-  learner_snapshot_read: "allow",
-  example_tool: "allow",
+tools: {
+  static: {
+    learner_snapshot_read: "allow",
+    example_tool: "allow",
+  },
+  dynamic: {},
 },
 ```
 

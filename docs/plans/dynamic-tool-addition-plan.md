@@ -8,11 +8,15 @@ Reference handoff and smoke-test findings: `docs/plans/intent-dynamic-tool-migra
 
 ## Target End State
 
-Buddy has one static discovery tool that the model can call when it needs a learning capability that should not be permanently exposed.
+Buddy has two static tool-discovery capabilities that the model can call when it needs a learning capability that should not be permanently exposed:
+
+- `learning_tool_search`: pure discovery over deferred dynamic tool metadata
+- `learning_tool_load`: explicit session-scoped exposure for exact IDs returned by the latest search
 
 Dynamic learning tools are:
 
-- registered only after `learning_tool_search` finds them
+- returned as candidates by `learning_tool_search`
+- registered only after `learning_tool_load` exposes exact returned IDs
 - named under a single namespace
 - hidden from the model by default
 - allowed only by exact session-scoped grants
@@ -61,7 +65,7 @@ Use this concrete ID prefix:
 learning_dynamic_
 ```
 
-`learning_tool_search` stays outside the dynamic namespace because it is the static discovery tool. If the search tool is renamed later, it must still not match `learning_dynamic_*`.
+`learning_tool_search` and `learning_tool_load` stay outside the dynamic namespace because they are static discovery/exposure tools. If either tool is renamed later, it must still not match `learning_dynamic_*`.
 
 ### Visibility Boundary
 
@@ -71,7 +75,8 @@ The model visibility rule is:
 
 ```text
 default deny learning_dynamic_* for every Buddy session
-search appends exact allow rules for matched dynamic tool IDs
+search records candidate dynamic tool IDs for that session
+load appends exact allow rules for selected candidate dynamic tool IDs
 next Buddy turn removes exact dynamic allows and restores namespace deny
 ```
 
@@ -81,7 +86,7 @@ OpenCode merges agent permissions first and session permissions second. It evalu
 
 Dynamic grants last until the next Buddy turn in the same session.
 
-Do not clear a dynamic grant immediately after `learning_tool_search` returns; the model still needs the next loop iteration in the same assistant turn to call the registered tool.
+Do not clear a dynamic grant immediately after `learning_tool_load` returns; the model still needs the next loop iteration in the same assistant turn to call the registered tool.
 
 At the start of the next Buddy message or command transform, remove stale exact dynamic allows for that session and keep the namespace deny.
 
@@ -97,7 +102,7 @@ Run these commands before implementation:
 
 ```sh
 git status --short
-rg -n "learning_tool_search|learning_smoke|SMOKE_|dynamic-tool|dynamicTool|toolDiscovery|registerBuddyTools|ToolRegistry|PermissionNext.disabled|DEFAULT_PRIMARY_PERSONA_PERMISSION" packages/buddy/src packages/buddy/test packages/opencode-adapter/src docs/plans --glob '!packages/sdk/src/gen/**'
+rg -n "learning_tool_search|learning_smoke|SMOKE_|dynamic-tool|dynamicTool|toolDiscovery|registerBuddyTools|ToolRegistry|PermissionNext.disabled|PRIMARY_PERSONA_PERMISSION" packages/buddy/src packages/buddy/test packages/opencode-adapter/src docs/plans --glob '!packages/sdk/src/gen/**'
 rg -n "permission:|defineBuddySubagent|createPrimaryAgent|createSubagent|BUDDY_SUBAGENTS|REGISTERED_BUDDY_PERSONAS" packages/buddy/src/learning -g '*.ts'
 rg -n "registerTool\\(|renderBuddyCustomTool|renderGenericTool" packages/web/src/components/chat/tools
 ```
@@ -162,7 +167,7 @@ Goal: make dynamic tool visibility safe before adding production dynamic tools.
 9. Export helpers that remove exact dynamic session allows while preserving unrelated user permissions.
 10. Update `packages/buddy/src/learning/agent-factories.ts` so Buddy primary agents and Buddy subagents receive the namespace deny by default.
 11. Keep explicit tool permissions authored by agents, but make the dynamic namespace deny part of the base Buddy agent permission preset.
-12. Update `DEFAULT_PRIMARY_PERSONA_PERMISSION` to stop importing smoke IDs and stop denying exact smoke IDs.
+12. Update primary persona runtime permissions to stop importing smoke IDs and stop denying exact smoke IDs.
 13. Update `packages/buddy/src/learning/agent-execution/permissions/session-permissions.ts` so every Buddy-managed session gets a `learning_dynamic_*` deny rule.
 14. Ensure the dynamic namespace deny is treated as Buddy-managed, so permission sync can replace stale dynamic rules deterministically.
 15. Keep search-tool session allows exact. Never append `{ permission: "learning_dynamic_*", action: "allow" }`.
@@ -211,7 +216,7 @@ Expected result: no production source imports smoke-specific IDs. The namespace 
 
 ### Phase 1 Traps
 
-Do not rely only on `DEFAULT_PRIMARY_PERSONA_PERMISSION`. The confirmed gap is subagents.
+Do not rely only on primary persona runtime permissions. The confirmed gap is subagents.
 
 Do not rely only on agent permissions. Session-level namespace deny is needed so non-primary paths in the same Buddy session also hide dynamic tools.
 
@@ -245,8 +250,11 @@ new user turn starts
 clear exact dynamic allows for this session
 sync static Buddy permissions and namespace deny
 model calls learning_tool_search
-search registers matched dynamic tools
-search appends exact session allows
+search records matched dynamic tool IDs as load candidates
+OpenCode continues same assistant turn
+model calls learning_tool_load with exact returned IDs
+load registers selected dynamic tools
+load appends exact session allows
 OpenCode continues same assistant turn
 next model loop can see exact allowed tools
 next user turn starts
@@ -259,8 +267,9 @@ unreferenced dynamic tools are unregistered
 Add or update tests in `packages/buddy/test/learning/runtime-tool-registration.test.ts`:
 
 ```text
-search appends exact dynamic allow after namespace deny
-second search for same tool does not duplicate session allow
+search returns candidates without registering dynamic tools
+load appends exact dynamic allow after namespace deny
+second load for same tool does not duplicate session allow
 next Buddy permission sync removes stale exact dynamic allows
 next Buddy permission sync keeps namespace deny
 clearing one session does not unregister a tool still granted to another session
@@ -355,7 +364,7 @@ workspace filter excludes interactive-only tools in chat state
 runtime dependency filter excludes unavailable tools
 project config exact false excludes one dynamic tool
 project config namespace false excludes all dynamic tools
-search registers no more than MAX_DYNAMIC_TOOL_MATCHES_TO_REGISTER
+search returns no more than MAX_DYNAMIC_TOOL_MATCHES_TO_REGISTER candidates
 search output includes match reasons but not raw catalog dumps
 ```
 
@@ -398,9 +407,10 @@ Use `pedagogy_reflection` as the first production slice because it is low-risk, 
 8. Add persona compatibility for personas that should be able to use reflection.
 9. Add workspace-state compatibility.
 10. Honor configured tool toggles for both the exact dynamic ID and namespace key.
-11. Add a test that search registers and grants `learning_dynamic_pedagogy_reflection`.
-12. Add a test that executing the dynamic reflection tool returns the same essential metadata shape as the static tool.
-13. Add a test that a session without search cannot see the dynamic reflection tool in model filtering.
+11. Add a test that search returns `learning_dynamic_pedagogy_reflection` without registering it.
+12. Add a test that load registers and grants `learning_dynamic_pedagogy_reflection`.
+13. Add a test that executing the dynamic reflection tool returns the same essential metadata shape as the static tool.
+14. Add a test that a session without load cannot see the dynamic reflection tool in model filtering.
 
 ### Static-To-Dynamic Migration Rule
 
@@ -550,11 +560,12 @@ Goal: make dynamic behavior inspectable and verify it works in a real Buddy sess
 
 ### Ordered Checklist
 
-1. Add structured metadata to `learning_tool_search` results: query, registered IDs, filtered IDs, reasons, and grant scope.
-2. Add lightweight logs for dynamic registration, grant, clear, and unregister.
-3. Do not log learner content beyond the search query.
-4. Add devtools/debug display only if useful; otherwise keep backend logs and tool output enough for now.
-5. Add manual smoke instructions to this document after the first production dynamic tool lands.
+1. Add structured metadata to `learning_tool_search` results: query, matched candidate IDs, filtered IDs, reasons, and next tool.
+2. Add structured metadata to `learning_tool_load` results: requested IDs, rejected IDs, registered IDs, filtered IDs, and grant scope.
+3. Add lightweight logs for dynamic registration, grant, clear, and unregister.
+4. Do not log learner content beyond the search query.
+5. Add devtools/debug display only if useful; otherwise keep backend logs and tool output enough for now.
+6. Add manual smoke instructions to this document after the first production dynamic tool lands.
 
 ### Manual Smoke
 
@@ -567,7 +578,9 @@ Use a Buddy persona.
 Ask for a reflection-style teaching move.
 Confirm the model loads the relevant pedagogy skill.
 Confirm the model calls learning_tool_search.
-Confirm search registers learning_dynamic_pedagogy_reflection.
+Confirm search returns learning_dynamic_pedagogy_reflection as a candidate but does not register it.
+Confirm the model calls learning_tool_load with the exact returned ID.
+Confirm load registers learning_dynamic_pedagogy_reflection.
 Confirm the next model loop can call learning_dynamic_pedagogy_reflection.
 Send another user message in the same session.
 Confirm stale exact dynamic allows are cleared before the next turn.
@@ -583,7 +596,8 @@ Expected results:
 No runtime intent appears anywhere.
 learning_tool_search is visible only when persona/workspace permissions allow it.
 Dynamic tools are hidden before search.
-Search grants exact tool IDs, not the namespace.
+Search returns candidates but does not grant or register dynamic tools.
+Load grants exact tool IDs, not the namespace.
 Granted tools are visible on the next model loop.
 Stale grants disappear on the next Buddy turn.
 Directory-scoped registry leakage does not become model visibility.

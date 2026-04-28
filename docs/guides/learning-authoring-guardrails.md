@@ -13,7 +13,7 @@ Use this document as a short companion to:
   - `packages/buddy/src/learning/personas/<persona-id>/agent.ts`
   - `packages/buddy/src/learning/personas/definitions.ts`
 - Tool behavior and hard constraints:
-  - tool module + `createBuddyTool(..., capability)`
+  - tool module + flat `createBuddyTool({ id, description, parameters, execute, capability })`
 
 Do not re-author the same policy in persona agent files, overlay merge files, or transport/proxy glue.
 

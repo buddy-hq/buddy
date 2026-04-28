@@ -60,11 +60,7 @@ Example shape:
 ```ts
 import BUDDY_BASE_PROMPT from "../buddy/buddy.p.md"
 import SCIENCE_BUDDY_OVERLAY from "./overlay.p.md"
-import {
-  composePersonaPrompt,
-  DEFAULT_PRIMARY_PERSONA_PERMISSION,
-  defineBuddyPersona,
-} from "../define-buddy-persona"
+import { composePersonaPrompt, defineBuddyPersona } from "../define-buddy-persona"
 
 export const SCIENCE_BUDDY = defineBuddyPersona({
   id: "science-buddy",
@@ -74,14 +70,18 @@ export const SCIENCE_BUDDY = defineBuddyPersona({
   surfaces: ["curriculum", "question-set"],
   defaultSurface: "curriculum",
   hidden: false,
-  toolDefaults: {
-    learner_snapshot_read: "allow",
-    render_saved_question_set: "allow",
+  tools: {
+    static: {
+      learner_snapshot_read: "allow",
+      render_saved_question_set: "allow",
+    },
+    dynamic: {},
   },
-  subagentDefaults: {
+  skills: {},
+  subagents: {
     "question-set-author": "prefer",
   },
-  contextPolicy: {
+  context: {
     attachCurriculum: true,
     attachProgress: true,
     attachTeachingWorkspace: false,
@@ -91,7 +91,6 @@ export const SCIENCE_BUDDY = defineBuddyPersona({
   runtime: {
     kind: "primary",
     prompt: composePersonaPrompt(BUDDY_BASE_PROMPT, SCIENCE_BUDDY_OVERLAY),
-    permission: DEFAULT_PRIMARY_PERSONA_PERMISSION,
   },
 })
 ```
@@ -112,8 +111,9 @@ This is the current path from persona definition to a live turn:
 2. Project config schema uses those derived ids.
 3. Persona catalog entries are built from those definitions plus config overrides.
 4. Runtime capability resolution combines:
-   - persona `toolDefaults`
-   - persona `subagentDefaults`
+   - persona `tools.static`
+   - persona `tools.dynamic`
+   - persona `subagents`
    - tool metadata constraints
    - runtime readiness
    - config tool toggles
@@ -159,9 +159,11 @@ Choose:
 - `domain`
 - `surfaces`
 - `defaultSurface`
-- `toolDefaults`
-- `subagentDefaults`
-- `contextPolicy`
+- `tools.static`
+- `tools.dynamic`
+- `skills`
+- `subagents`
+- `context`
 - `runtime.kind`
 - `runtime.prompt`
 - any local runtime permission deltas
@@ -199,7 +201,7 @@ Good references:
 ## Guardrails
 
 - Keep persona descriptions single-sourced unless there is a concrete reason to diverge.
-- Only reference real registered subagents in `subagentDefaults`.
+- Only reference real registered subagents in `subagents`.
 - Only mention tools or subagents in prompt prose if they are actually available to that persona.
 - Prefer catalog order from the backend over frontend hardcoded persona fallback lists.
 

@@ -21,7 +21,25 @@ The intended product direction is:
 
 In short: Buddy should stop selecting an intent for the model. The model should decide the teaching move, load guidance, search dynamic tools, and use those tools when they help.
 
-## Current Smoke-Test Architecture
+## Current Dynamic Tool Architecture
+
+Buddy does not have Codex's first-class `tool_search_output` support. Therefore Buddy should not make `learning_tool_search` both discover and expose tools.
+
+The production Buddy flow is:
+
+1. `learning_tool_search` searches deferred dynamic learning tool metadata and returns loadable candidates.
+2. Search records exact candidate IDs for the current session, but does not register dynamic tools and does not append allow rules.
+3. `learning_tool_load` accepts exact IDs from the latest search result.
+4. Load registers selected dynamic tools into Buddy's directory-scoped OpenCode adapter registry.
+5. Load appends exact session-scoped allow rules after the namespace deny.
+6. OpenCode rebuilds tools on the next model loop, and only exact loaded dynamic tools become model-visible for that session.
+7. The next Buddy turn clears exact dynamic allows for that session and unregisters dynamic tools that no active session still references.
+
+This preserves Codex's capability separation while adapting to Buddy's current adapter boundary.
+
+## Original Smoke-Test Architecture
+
+This section records the staged smoke test that proved dynamic registration can work mid-turn. It is historical context, not the production target.
 
 The staged dynamic tool smoke test adds:
 
@@ -41,7 +59,7 @@ The registration path is:
 6. OpenCode's LLM layer filters disabled tools using merged agent and session permissions.
 7. If the session has an appended allow rule, the dynamic tool is visible to the model.
 
-## Confirmed Findings
+## Confirmed Findings From The Smoke Test
 
 These were confirmed by code reading and focused tests in `packages/buddy/test/learning/runtime-tool-registration.test.ts`.
 
@@ -88,13 +106,13 @@ Dynamic tools are stored by directory, not session. After one session registers 
 
 Session permissions can hide it from the model, but the registration itself is not session-local.
 
-### Subagents Are A Real Gap
+### Subagent Namespace Deny Was A Real Gap
 
-The current default smoke denies were added to primary persona permissions. Subagents like `practice-agent` and `assessment-agent` do not inherit those denies.
+The original smoke denies were added to primary persona permissions. Subagents like `practice-agent` and `assessment-agent` did not inherit those denies.
 
-The added test verifies that `practice-agent` does not currently disable `learning_smoke_practice_tool`.
+The production fix is to apply the dynamic namespace deny to every Buddy primary agent and subagent permission map, not to exact smoke IDs.
 
-This is the main remaining architecture hole before relying on dynamic tools for production pedagogy behavior.
+The implementation must keep a regression test proving subagents default-deny directory-registered dynamic tools.
 
 ## Corrected Earlier Assessment
 
@@ -108,20 +126,14 @@ The narrower truth is:
 
 ## Remaining Risks
 
-### Dynamic Tool Namespace Is Missing
+### Dynamic Tool Namespace Is Required
 
-Production dynamic tools need a stable namespace so Buddy can deny them by wildcard for every agent before a session search grants specific tools.
+Production dynamic tools need a stable namespace so Buddy can deny them by wildcard for every agent before session load grants specific tools.
 
-Recommended namespace:
+Current namespace:
 
 ```text
 learning_dynamic_*
-```
-
-Alternative if a clearer product boundary is needed:
-
-```text
-buddy_dynamic_learning_*
 ```
 
 Avoid naming dynamic tools under broad existing prefixes that could collide with static tool IDs.
@@ -134,18 +146,13 @@ The default deny must apply to:
 - all Buddy subagents
 - future Buddy-authored agents that can run in learning sessions
 
-Do not only patch `DEFAULT_PRIMARY_PERSONA_PERMISSION`.
+Do not only patch primary persona runtime permissions.
 
 ### Session Allows Need Lifecycle Management
 
-The smoke tool appends allow rules and leaves them there. That is acceptable for a smoke test.
+Production dynamic grants should last through the current assistant turn and be cleared before the next Buddy turn in the same session.
 
-For production, decide whether dynamic grants should:
-
-- last for the session
-- expire after the current assistant turn
-- expire after no longer being registered
-- be removed when a dynamic tool group is disabled
+The load tool must append exact session allows only for selected IDs from the latest search candidates. It must not grant the whole dynamic namespace.
 
 ### Directory-Scoped Registry Needs A Policy
 
@@ -187,9 +194,10 @@ Keyword matching is enough for the smoke test. Production search needs metadata 
 ## Implementation Guidelines
 
 - Use a single dynamic tool namespace and enforce default deny with a wildcard rule.
-- Make dynamic search grant specific tool IDs to the current session, not broad namespace allows.
+- Make dynamic search return candidates only. Use a separate load step to grant specific tool IDs to the current session, not broad namespace allows.
 - Keep `learning_tool_search` itself static and persona-gated.
 - Keep dynamic tool registration separate from dynamic tool authorization.
+- Keep dynamic tool discovery separate from dynamic tool exposure because Buddy does not have Codex's first-class `tool_search_output` support.
 - Treat registry visibility and model visibility as different concepts.
 - Add tests for both registry presence and model-filter visibility.
 - Include subagents in permission tests.
@@ -202,6 +210,7 @@ Keyword matching is enough for the smoke test. Production search needs metadata 
 ## Gotchas
 
 - `ToolRegistry.tools()` is not the same as "tools visible to the model"; model visibility also applies `Permission.disabled(...)`.
+- Searching should not register dynamic tools in Buddy. Loading should register and grant them.
 - Directly executing a tool in a unit test can bypass the model-loop visibility filter.
 - Session permission allow works because session rules are merged after agent rules and last match wins.
 - A wildcard deny can be overridden by a later specific session allow.
@@ -214,9 +223,13 @@ Keyword matching is enough for the smoke test. Production search needs metadata 
 
 ## Tests Added During Review
 
-The following tests were added to `packages/buddy/test/learning/runtime-tool-registration.test.ts`:
+The following dynamic-tool regression tests should exist in `packages/buddy/test/learning/runtime-tool-registration.test.ts`:
 
-- `dynamic smoke tools are directory-visible but primary-agent denied until search grants the session`
-- `practice subagent does not currently default-deny directory-registered dynamic smoke tools`
+- search returns candidates without exposing dynamic tools
+- load exposes selected dynamic tools for the current session
+- directory-visible dynamic tools are denied outside exact session grants
+- dynamic load without a valid session does not register directory-visible tools
+- dynamic grants are cleared and unregistered at the next Buddy turn boundary
+- runtime subagents default-deny directory-registered dynamic tools
 
-These tests confirm both the intended primary-agent path and the current subagent gap.
+These tests confirm the intended primary-agent path and guard against the original subagent leakage gap.
