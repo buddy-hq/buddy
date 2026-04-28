@@ -1,5 +1,6 @@
-import { motion } from "motion/react"
+import { motion, AnimatePresence } from "motion/react"
 import { language } from "@/context/language"
+import { cn } from "@buddy/ui"
 
 type BasicFields = {
   front: string
@@ -16,11 +17,14 @@ type FlashcardNote = {
   fields: BasicFields | ClozeFields
 }
 
+type CardRating = "again" | "hard" | "good" | "easy"
+
 type FlashcardCardDisplayProps = {
   note: FlashcardNote
   templateIdx: number
   revealed: boolean
-  onReveal: () => void
+  onToggleReveal: () => void
+  swipeRating?: CardRating | null
 }
 
 function isBasicFields(fields: BasicFields | ClozeFields): fields is BasicFields {
@@ -47,7 +51,8 @@ export function FlashcardCardDisplay({
   note,
   templateIdx,
   revealed,
-  onReveal,
+  onToggleReveal,
+  swipeRating,
 }: FlashcardCardDisplayProps) {
   if (isBasicFields(note.fields)) {
     return (
@@ -55,7 +60,8 @@ export function FlashcardCardDisplay({
         front={note.fields.front}
         back={note.fields.back}
         revealed={revealed}
-        onReveal={onReveal}
+        onToggleReveal={onToggleReveal}
+        swipeRating={swipeRating}
       />
     )
   }
@@ -68,7 +74,8 @@ export function FlashcardCardDisplay({
         text={note.fields.text}
         ordinal={ordinal}
         revealed={revealed}
-        onReveal={onReveal}
+        onToggleReveal={onToggleReveal}
+        swipeRating={swipeRating}
       />
     )
   }
@@ -76,36 +83,94 @@ export function FlashcardCardDisplay({
   return null
 }
 
+function getSwipeOverlayClass(rating?: CardRating | null) {
+  switch (rating) {
+    case "again":
+      return "bg-surface-critical-base/40"
+    case "hard":
+      return "bg-surface-warning-base/40"
+    case "good":
+      return "bg-surface-success-base/40"
+    case "easy":
+      return "bg-surface-interactive-base/40"
+    default:
+      return ""
+  }
+}
+
 function BasicCardDisplay(props: {
   front: string
   back: string
   revealed: boolean
-  onReveal: () => void
+  onToggleReveal: () => void
+  swipeRating?: CardRating | null
 }) {
   return (
-    <div className="flex min-h-[12rem] flex-col">
-      {/* Front side — question / prompt */}
-      <div className="flex flex-1 items-center justify-center px-5 py-8">
-        <p className="max-w-prose text-center text-[15px] leading-[1.7] text-text-base whitespace-pre-wrap">
-          {props.front}
-        </p>
-      </div>
-
-      {/* Back side — answer (animated reveal) */}
-      {props.revealed ? (
-        <motion.div
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
-          className="border-t border-border-base/30 bg-surface-weak/30 px-5 py-6"
+    <div className="relative h-full w-full bg-transparent" style={{ perspective: 1200 }}>
+      <motion.div
+        className="absolute inset-0 h-full w-full cursor-pointer"
+        style={{ transformStyle: "preserve-3d" }}
+        initial={false}
+        onClick={props.onToggleReveal}
+        animate={{ rotateY: props.revealed ? 180 : 0 }}
+        transition={{ duration: 0.6, type: "spring", stiffness: 100, damping: 15 }}
+      >
+        {/* Front Face */}
+        <div
+          className="absolute inset-0 flex flex-col overflow-hidden rounded-2xl border border-border-base bg-surface-base shadow-md hover:shadow-lg transition-shadow"
+          style={{ backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
         >
-          <p className="max-w-prose text-center text-[15px] leading-[1.7] text-text-base whitespace-pre-wrap">
-            {props.back}
-          </p>
-        </motion.div>
-      ) : (
-        <RevealButton onReveal={props.onReveal} />
-      )}
+          <div className="absolute left-0 right-0 top-8 h-px bg-brand-base/20" />
+
+          <div className="flex flex-1 items-center justify-center overflow-y-auto px-6 pb-6 pt-12">
+            <p className="max-w-prose text-center text-xl font-medium leading-relaxed text-text-stronger whitespace-pre-wrap">
+              {props.front}
+            </p>
+          </div>
+          {!props.revealed && (
+            <div className="shrink-0 bg-surface-base py-4 text-center text-xs font-medium text-text-weaker">
+              {language.t("workspaceFlashcard.flipToReveal")}
+            </div>
+          )}
+        </div>
+
+        {/* Back Face */}
+        <div
+          className="absolute inset-0 flex flex-col overflow-hidden rounded-2xl border border-border-base bg-surface-base shadow-md hover:shadow-lg transition-shadow"
+          style={{
+            backfaceVisibility: "hidden",
+            WebkitBackfaceVisibility: "hidden",
+            transform: "rotateY(180deg)",
+          }}
+        >
+          <div className="absolute left-0 right-0 top-8 h-px bg-brand-base/20" />
+
+          <div className="flex w-full shrink-0 items-center justify-center px-6 pt-12">
+            <p className="max-w-prose truncate text-center text-[13px] font-medium text-text-weaker">
+              Q: {props.front}
+            </p>
+          </div>
+          <div className="flex flex-1 items-center justify-center overflow-y-auto px-6 pb-10 pt-4">
+            <p className="max-w-prose text-center text-xl font-medium leading-relaxed text-brand-base whitespace-pre-wrap">
+              {props.back}
+            </p>
+          </div>
+        </div>
+      </motion.div>
+
+      <AnimatePresence>
+        {props.swipeRating && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className={cn(
+              "pointer-events-none absolute inset-0 z-50 rounded-2xl mix-blend-multiply",
+              getSwipeOverlayClass(props.swipeRating),
+            )}
+          />
+        )}
+      </AnimatePresence>
     </div>
   )
 }
@@ -114,31 +179,74 @@ function ClozeCardDisplay(props: {
   text: string
   ordinal: number
   revealed: boolean
-  onReveal: () => void
+  onToggleReveal: () => void
+  swipeRating?: CardRating | null
 }) {
-  const displayText = renderClozeText(props.text, props.ordinal, props.revealed)
+  const frontText = renderClozeText(props.text, props.ordinal, false)
+  const backText = renderClozeText(props.text, props.ordinal, true)
 
   return (
-    <div className="flex min-h-[12rem] flex-col">
-      <div className="flex flex-1 items-center justify-center px-5 py-8">
-        <p className="max-w-prose text-center text-[15px] leading-[1.7] text-text-base whitespace-pre-wrap">
-          {displayText}
-        </p>
-      </div>
+    <div className="relative h-full w-full bg-transparent" style={{ perspective: 1200 }}>
+      <motion.div
+        className="absolute inset-0 h-full w-full cursor-pointer"
+        style={{ transformStyle: "preserve-3d" }}
+        initial={false}
+        onClick={props.onToggleReveal}
+        animate={{ rotateY: props.revealed ? 180 : 0 }}
+        transition={{ duration: 0.6, type: "spring", stiffness: 100, damping: 15 }}
+      >
+        {/* Front Face */}
+        <div
+          className="absolute inset-0 flex flex-col overflow-hidden rounded-2xl border border-border-base bg-surface-base shadow-md hover:shadow-lg transition-shadow"
+          style={{ backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
+        >
+          <div className="absolute left-0 right-0 top-8 h-px bg-brand-base/20" />
 
-      {!props.revealed ? <RevealButton onReveal={props.onReveal} /> : null}
+          <div className="flex flex-1 items-center justify-center overflow-y-auto px-6 pb-6 pt-12">
+            <p className="max-w-prose text-center text-xl font-medium leading-relaxed text-text-stronger whitespace-pre-wrap">
+              {frontText}
+            </p>
+          </div>
+
+          {!props.revealed && (
+            <div className="shrink-0 bg-surface-base py-4 text-center text-xs font-medium text-text-weaker">
+              {language.t("workspaceFlashcard.flipToReveal")}
+            </div>
+          )}
+        </div>
+
+        {/* Back Face */}
+        <div
+          className="absolute inset-0 flex flex-col overflow-hidden rounded-2xl border border-border-base bg-surface-base shadow-md hover:shadow-lg transition-shadow"
+          style={{
+            backfaceVisibility: "hidden",
+            WebkitBackfaceVisibility: "hidden",
+            transform: "rotateY(180deg)",
+          }}
+        >
+          <div className="absolute left-0 right-0 top-8 h-px bg-brand-base/20" />
+
+          <div className="flex flex-1 items-center justify-center overflow-y-auto px-6 pb-6 pt-12">
+            <p className="max-w-prose text-center text-xl font-medium leading-relaxed text-brand-base whitespace-pre-wrap">
+              {backText}
+            </p>
+          </div>
+        </div>
+      </motion.div>
+
+      <AnimatePresence>
+        {props.swipeRating && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className={cn(
+              "pointer-events-none absolute inset-0 z-50 rounded-2xl mix-blend-multiply",
+              getSwipeOverlayClass(props.swipeRating),
+            )}
+          />
+        )}
+      </AnimatePresence>
     </div>
-  )
-}
-
-function RevealButton(props: { onReveal: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={props.onReveal}
-      className="cursor-pointer border-t border-border-base/30 px-5 py-3.5 text-center text-xs font-medium text-text-weak transition-all duration-150 ease-out hover:bg-surface-weak/40 hover:text-text-base active:scale-[0.98]"
-    >
-      {language.t("workspaceFlashcard.flipToReveal")}
-    </button>
   )
 }

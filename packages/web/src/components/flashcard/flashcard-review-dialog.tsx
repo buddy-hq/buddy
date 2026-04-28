@@ -1,9 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react"
+import { motion, AnimatePresence } from "motion/react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@buddy/ui"
 import { language } from "@/context/language"
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
+import {
+  workspaceArtifactsQueryKeys,
+  workspaceFlashcardDecksQueryOptions,
+} from "@/state/workspace-artifacts-query"
 import { FlashcardCardDisplay } from "./flashcard-card-display"
 import { FlashcardReviewRatings } from "./flashcard-review-ratings"
+import { DueCountsBadges } from "@/components/layout/workspace-flashcard-panel"
 import type {
   FlashcardDecksReadResponse,
   FlashcardDecksNextCardResponse,
@@ -46,12 +53,17 @@ export function FlashcardReviewDialog({
   deckID,
   deckTitle,
 }: FlashcardReviewDialogProps) {
+  const queryClient = useQueryClient()
+  const decksQuery = useQuery(workspaceFlashcardDecksQueryOptions(directory))
+  const liveDeck = decksQuery.data?.decks.find((d) => d.deckID === deckID)
   const [deck, setDeck] = useState<FlashcardDecksReadResponse | null>(null)
   const [phase, setPhase] = useState<ReviewPhase>({ kind: "loading" })
   const [revealed, setRevealed] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [leechWarning, setLeechWarning] = useState(false)
   const [cardsReviewed, setCardsReviewed] = useState(0)
+  const [swipeDirection, setSwipeDirection] = useState<1 | -1 | null>(null)
+  const [swipeRating, setSwipeRating] = useState<CardRating | null>(null)
   const cardsReviewedRef = useRef(0)
   const cardStartTimeRef = useRef(Date.now())
 
@@ -69,6 +81,8 @@ export function FlashcardReviewDialog({
           setRevealed(false)
           setLeechWarning(false)
           cardStartTimeRef.current = Date.now()
+          setSwipeRating(null)
+          setSwipeDirection(null)
         }
       } catch (err) {
         setPhase({ kind: "error", message: err instanceof Error ? err.message : String(err) })
@@ -116,6 +130,10 @@ export function FlashcardReviewDialog({
       setSubmitting(true)
       const timeTakenMs = Date.now() - cardStartTimeRef.current
 
+      // "again" or "hard" swipes left (-1). "good" or "easy" swipes right (1).
+      setSwipeDirection(rating === "again" || rating === "hard" ? -1 : 1)
+      setSwipeRating(rating)
+
       try {
         const client = getBuddyClient(directory)
         const result: FlashcardDecksSubmitReviewResponse = requireBuddyData(
@@ -133,29 +151,32 @@ export function FlashcardReviewDialog({
 
         cardsReviewedRef.current += 1
         setCardsReviewed(cardsReviewedRef.current)
-        setSubmitting(false)
 
         if (result.isLeech) {
           await new Promise((resolve) => setTimeout(resolve, 1200))
         }
 
         await fetchNextCard(deck)
+        void queryClient.invalidateQueries({
+          queryKey: workspaceArtifactsQueryKeys.flashcard(directory),
+        })
+        setSubmitting(false)
       } catch (err) {
         setSubmitting(false)
         setPhase({ kind: "error", message: err instanceof Error ? err.message : String(err) })
       }
     },
-    [phase, deck, submitting, directory, deckID, fetchNextCard],
+    [phase, deck, submitting, directory, deckID, fetchNextCard, queryClient],
   )
 
-  const handleReveal = useCallback(() => {
-    setRevealed(true)
+  const handleToggleReveal = useCallback(() => {
+    setRevealed((prev) => !prev)
   }, [])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="flex max-h-[min(90vh,48rem)] flex-col overflow-hidden sm:max-w-xl"
+        className="flex max-h-[min(90vh,60rem)] w-[95vw] !max-w-[95vw] sm:!max-w-[95vw] h-[85vh] flex-col overflow-hidden"
         showCloseButton
       >
         <DialogHeader>
@@ -168,11 +189,14 @@ export function FlashcardReviewDialog({
         <ReviewContent
           phase={phase}
           deck={deck}
+          liveDeck={liveDeck}
           revealed={revealed}
           submitting={submitting}
           leechWarning={leechWarning}
           cardsReviewed={cardsReviewed}
-          onReveal={handleReveal}
+          swipeDirection={swipeDirection}
+          swipeRating={swipeRating}
+          onToggleReveal={handleToggleReveal}
           onRate={handleRate}
         />
       </DialogContent>
@@ -187,14 +211,29 @@ export function FlashcardReviewDialog({
 function ReviewContent(props: {
   phase: ReviewPhase
   deck: FlashcardDecksReadResponse | null
+  liveDeck?: { dueCounts: any } | null
   revealed: boolean
   submitting: boolean
   leechWarning: boolean
   cardsReviewed: number
-  onReveal: () => void
+  swipeDirection: 1 | -1 | null
+  swipeRating: CardRating | null
+  onToggleReveal: () => void
   onRate: (rating: CardRating) => void
 }) {
-  const { phase, deck, revealed, submitting, leechWarning, cardsReviewed, onReveal, onRate } = props
+  const {
+    phase,
+    deck,
+    liveDeck,
+    revealed,
+    submitting,
+    leechWarning,
+    cardsReviewed,
+    swipeDirection,
+    swipeRating,
+    onToggleReveal,
+    onRate,
+  } = props
 
   if (phase.kind === "loading") {
     return (
@@ -252,14 +291,43 @@ function ReviewContent(props: {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-        <div className="overflow-hidden rounded-lg border border-border-base/40 bg-surface-raised-base/50">
-          <FlashcardCardDisplay
-            note={note}
-            templateIdx={phase.card.templateIdx}
-            revealed={revealed}
-            onReveal={onReveal}
-          />
+      <div className="flex shrink-0 items-center justify-between border-b border-border-base/30 bg-surface-base px-6 py-3">
+        <div className="text-xs font-medium text-text-weak">
+          Reviewed: <span className="text-text-base">{cardsReviewed}</span>
+        </div>
+        {liveDeck ? <DueCountsBadges dueCounts={liveDeck.dueCounts} /> : null}
+      </div>
+
+      <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden p-8 perspective-[1200px]">
+        <div className="relative h-full w-full max-w-[50rem]">
+          <AnimatePresence mode="wait" custom={swipeDirection}>
+            <motion.div
+              key={phase.card.cardID}
+              custom={swipeDirection}
+              initial={{
+                opacity: 0,
+                scale: 0.9,
+                x: swipeDirection ? (swipeDirection === 1 ? -50 : 50) : 0,
+                rotate: swipeDirection ? (swipeDirection === 1 ? -5 : 5) : 0,
+              }}
+              animate={{ opacity: 1, scale: 1, x: 0, rotate: 0 }}
+              exit={{
+                opacity: 0,
+                x: swipeDirection ? (swipeDirection === 1 ? 300 : -300) : 0,
+                rotate: swipeDirection ? (swipeDirection === 1 ? 15 : -15) : 0,
+              }}
+              transition={{ duration: 0.4, ease: "easeInOut" }}
+              className="absolute inset-0"
+            >
+              <FlashcardCardDisplay
+                note={note}
+                templateIdx={phase.card.templateIdx}
+                revealed={revealed}
+                onToggleReveal={onToggleReveal}
+                swipeRating={swipeRating}
+              />
+            </motion.div>
+          </AnimatePresence>
         </div>
       </div>
 
@@ -269,11 +337,9 @@ function ReviewContent(props: {
         </p>
       ) : null}
 
-      {revealed ? (
-        <div className="mt-3 shrink-0">
-          <FlashcardReviewRatings onRate={onRate} disabled={submitting} />
-        </div>
-      ) : null}
+      <div className="mt-4 flex min-h-[80px] shrink-0 flex-col items-center justify-center transition-opacity duration-300 pb-4">
+        {revealed ? <FlashcardReviewRatings onRate={onRate} disabled={submitting} /> : null}
+      </div>
     </div>
   )
 }

@@ -4,8 +4,9 @@ export type FlashcardDueCounts = {
   review: number
 }
 
-export function getFlashcardDueCount(dueCounts: FlashcardDueCounts): number {
-  return dueCounts.new + dueCounts.learning + dueCounts.review
+export function getFlashcardDueCount(dueCounts: FlashcardDueCounts | undefined | null): number {
+  if (!dueCounts) return 0
+  return (dueCounts.new || 0) + (dueCounts.learning || 0) + (dueCounts.review || 0)
 }
 
 export function isFlashcardReviewAvailable(input: {

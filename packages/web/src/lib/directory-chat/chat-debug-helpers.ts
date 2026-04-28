@@ -1,6 +1,8 @@
 import { useChatStore } from "@/state/chat-store"
 import type { MessagePart, MessageWithParts } from "@/state/chat-types"
 
+type SlimRecord = Record<string, unknown>
+
 export async function copyToClipboard(text: string) {
   if (!text) return false
   if (!("clipboard" in navigator)) return false
@@ -8,13 +10,13 @@ export async function copyToClipboard(text: string) {
   return true
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+function isRecord(value: unknown): value is SlimRecord {
   return typeof value === "object" && value !== null
 }
 
 function slimSession(session: unknown, isCurrent: boolean) {
   if (!isRecord(session)) return {}
-  const result: Record<string, unknown> = {
+  const result: SlimRecord = {
     id: session.id,
     title: session.title,
     time: session.time,
@@ -28,48 +30,80 @@ function slimSession(session: unknown, isCurrent: boolean) {
     if (entry.action === "allow") allowed.push(entry.permission)
     else denied.push(entry.permission)
   }
-  result.permission = { allowed, denied }
+  result.permission = { allowed: dedupeStrings(allowed), denied: dedupeStrings(denied) }
   return result
 }
 
-function stripEncryptedFields(obj: unknown): unknown {
-  if (!isRecord(obj)) return obj
-  const result: Record<string, unknown> = {}
+const SKIP_PART_TYPES = new Set(["step-start", "step-finish"])
+
+const PART_OMIT_KEYS = new Set(["sessionID", "messageID"])
+
+function slimPart(part: MessagePart): SlimRecord | null {
+  if (SKIP_PART_TYPES.has(part.type)) return null
+  if (part.type === "reasoning") {
+    const { text: _, time: _t, ...rest } = part
+    return omitKeys(rest, PART_OMIT_KEYS)
+  }
+  if (part.type === "tool") {
+    const state = part.state
+    if (!isRecord(state)) return omitKeys(part, PART_OMIT_KEYS)
+    const { output: _o, metadata: _m, time: _t, ...slimState } = state
+    const { state: _s, ...rest } = part
+    return omitKeys({ ...rest, state: slimState }, PART_OMIT_KEYS)
+  }
+  if (part.type === "text") {
+    const { time: _, ...rest } = part
+    return omitKeys(rest, PART_OMIT_KEYS)
+  }
+  return omitKeys(part, PART_OMIT_KEYS)
+}
+
+function omitKeys<T extends SlimRecord>(obj: T, keys: Set<string>): SlimRecord {
+  const result: SlimRecord = {}
   for (const [key, value] of Object.entries(obj)) {
-    if (key.toLowerCase().includes("encrypted")) continue
+    if (keys.has(key)) continue
     result[key] = value
   }
   return result
 }
 
-function slimMetadata(metadata: unknown): unknown {
-  if (!isRecord(metadata)) return metadata
-  const result: Record<string, unknown> = {}
-  for (const [key, value] of Object.entries(metadata)) {
-    result[key] = stripEncryptedFields(value)
+const INFO_OMIT_KEYS = new Set(["time", "tokens", "cost", "system"])
+
+function slimInfo<T extends object>(info: T) {
+  const result: SlimRecord = {}
+  for (const [key, value] of Object.entries(info)) {
+    if (INFO_OMIT_KEYS.has(key)) continue
+    if (key === "model" && "role" in info && info.role === "user") continue
+    if (key === "path" && isRecord(value)) {
+      const { root: _, ...pathRest } = value
+      if ("cwd" in pathRest) result.path = pathRest
+      continue
+    }
+    if (key === "summary" && isRecord(value)) {
+      const diffs = value.diffs
+      if (Array.isArray(diffs) && diffs.length === 0) continue
+    }
+    result[key] = value
   }
   return result
 }
 
-function slimPart(part: MessagePart): MessagePart {
-  if (part.type === "tool") {
-    const state = part.state
-    if (!isRecord(state)) return part
-    const { output: _o, metadata: _m, ...slimState } = state
-    const { state: _s, ...rest } = part
-    return { ...rest, state: slimState }
+function dedupeStrings(arr: unknown[]): string[] {
+  const seen = new Set<string>()
+  const result: string[] = []
+  for (const item of arr) {
+    if (typeof item !== "string") continue
+    if (seen.has(item)) continue
+    seen.add(item)
+    result.push(item)
   }
-  if (!isRecord(part.metadata)) return part
-  const { metadata, ...rest } = part
-  return { ...rest, metadata: slimMetadata(metadata) }
+  return result
 }
 
 function slimMessage(msg: MessageWithParts) {
-  const info = msg.info
-  const parts = msg.parts.map(slimPart)
-  if (info.role !== "user") return { info, parts }
-  const { system: _, ...rest } = info
-  return { info: rest, parts }
+  const info = isRecord(msg.info) ? slimInfo(msg.info) : msg.info
+  const parts = msg.parts.map(slimPart).filter((part): part is SlimRecord => part !== null)
+  return { info, parts }
 }
 
 export function buildSessionTrace(input: {
@@ -79,22 +113,29 @@ export function buildSessionTrace(input: {
 }) {
   const state = useChatStore.getState()
   const directoryState = state.directories[input.directory]
+  const sid = input.sessionID
 
   return JSON.stringify(
     {
       capturedAt: new Date().toISOString(),
       directory: input.directory,
-      sessionID: input.sessionID,
+      sessionID: sid,
       streamStatus: input.streamStatus,
       directoryState: directoryState
         ? {
             sessionTitle: directoryState.sessionTitle,
-            sessionStatusByID: directoryState.sessionStatusByID,
+            ...(sid && directoryState.sessionStatusByID[sid]
+              ? { sessionStatusByID: { [sid]: directoryState.sessionStatusByID[sid] } }
+              : { sessionStatusByID: directoryState.sessionStatusByID }),
             isBusy: directoryState.isBusy,
             isReady: directoryState.isReady,
-            error: directoryState.error,
-            pendingPermissions: directoryState.pendingPermissions,
-            sessions: directoryState.sessions.map((s) => slimSession(s, s.id === input.sessionID)),
+            ...(directoryState.error ? { error: directoryState.error } : {}),
+            ...(directoryState.pendingPermissions.length > 0
+              ? { pendingPermissions: directoryState.pendingPermissions }
+              : {}),
+            sessions: directoryState.sessions
+              .filter((s) => !sid || s.id === sid)
+              .map((s) => slimSession(s, s.id === sid)),
             messages: directoryState.messages.map(slimMessage),
           }
         : undefined,

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { motion, AnimatePresence } from "motion/react"
 import { ArrowLeftIcon } from "lucide-react"
 import { Card, CardContent } from "@buddy/ui"
 import { language } from "@/context/language"
@@ -74,7 +75,7 @@ function findNote(deck: FlashcardDecksReadResponse, noteID: string) {
 // DueCountsBadges (reused in both deck list and review header)
 // ---------------------------------------------------------------------------
 
-function DueCountsBadges(props: { dueCounts: FlashcardDueCounts }) {
+export function DueCountsBadges(props: { dueCounts: FlashcardDueCounts }) {
   const { dueCounts } = props
   const total = getFlashcardDueCount(dueCounts)
 
@@ -116,6 +117,9 @@ function ReviewSession(props: {
   onBack: () => void
 }) {
   const { directory, deckID, deckTitle, onBack } = props
+  const queryClient = useQueryClient()
+  const decksQuery = useQuery(workspaceFlashcardDecksQueryOptions(directory))
+  const liveDeck = decksQuery.data?.decks.find((d) => d.deckID === deckID)
   const [deck, setDeck] = useState<FlashcardDecksReadResponse | null>(null)
   const [phase, setPhase] = useState<ReviewPhase>({ kind: "loading" })
   const [revealed, setRevealed] = useState(false)
@@ -123,6 +127,9 @@ function ReviewSession(props: {
   const [leechWarning, setLeechWarning] = useState(false)
   const [cardsReviewed, setCardsReviewed] = useState(0)
   const cardsReviewedRef = useRef(0)
+
+  const [swipeDirection, setSwipeDirection] = useState<1 | -1 | null>(null)
+  const [swipeRating, setSwipeRating] = useState<CardRating | null>(null)
   const cardStartTimeRef = useRef(Date.now())
 
   const fetchNextCard = useCallback(
@@ -139,6 +146,8 @@ function ReviewSession(props: {
           setRevealed(false)
           setLeechWarning(false)
           cardStartTimeRef.current = Date.now()
+          setSwipeRating(null)
+          setSwipeDirection(null)
         }
       } catch (err) {
         setPhase({ kind: "error", message: err instanceof Error ? err.message : String(err) })
@@ -172,10 +181,14 @@ function ReviewSession(props: {
 
   const handleRate = useCallback(
     async (rating: CardRating) => {
-      if (phase.kind !== "card" || !deck || submitting) return
-
+      if (!deck || submitting || phase.kind !== "card") return
       setSubmitting(true)
+      setLeechWarning(false)
       const timeTakenMs = Date.now() - cardStartTimeRef.current
+
+      // Set swipe direction: 1, 2 (Again, Hard) = -1 (left), 3, 4 (Good, Easy) = 1 (right)
+      setSwipeDirection(rating === "again" || rating === "hard" ? -1 : 1)
+      setSwipeRating(rating)
 
       try {
         const client = getBuddyClient(directory)
@@ -194,7 +207,6 @@ function ReviewSession(props: {
 
         cardsReviewedRef.current += 1
         setCardsReviewed(cardsReviewedRef.current)
-        setSubmitting(false)
 
         // Small delay for leech warning visibility before advancing
         if (result.isLeech) {
@@ -202,16 +214,20 @@ function ReviewSession(props: {
         }
 
         await fetchNextCard(deck)
+        void queryClient.invalidateQueries({
+          queryKey: workspaceArtifactsQueryKeys.flashcard(directory),
+        })
+        setSubmitting(false)
       } catch (err) {
         setSubmitting(false)
         setPhase({ kind: "error", message: err instanceof Error ? err.message : String(err) })
       }
     },
-    [phase, deck, submitting, directory, deckID, fetchNextCard],
+    [phase, deck, submitting, directory, deckID, fetchNextCard, queryClient],
   )
 
-  const handleReveal = useCallback(() => {
-    setRevealed(true)
+  const handleToggleReveal = useCallback(() => {
+    setRevealed((prev) => !prev)
   }, [])
 
   // Header with back button and deck title
@@ -299,37 +315,54 @@ function ReviewSession(props: {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {header}
-      <div className="flex flex-1 flex-col justify-between overflow-y-auto">
-        <div className="flex flex-1 items-center justify-center px-3 py-4">
-          <Card
-            size="sm"
-            className="w-full max-w-md overflow-hidden border-border-base/60 bg-surface-raised-base/70"
-          >
-            <CardContent className="p-0">
-              <FlashcardCardDisplay
-                note={note}
-                templateIdx={phase.card.templateIdx}
-                revealed={revealed}
-                onReveal={handleReveal}
-              />
-            </CardContent>
-          </Card>
+      <div className="flex shrink-0 items-center justify-between border-b border-border-base/30 bg-surface-base px-4 py-2">
+        <div className="text-[11px] font-medium text-text-weak">
+          Reviewed: <span className="text-text-base">{cardsReviewed}</span>
+        </div>
+        {liveDeck ? <DueCountsBadges dueCounts={liveDeck.dueCounts} /> : null}
+      </div>
+      <div className="flex flex-1 flex-col justify-between overflow-hidden">
+        <div className="flex flex-1 items-center justify-center p-6 perspective-[1000px]">
+          <div className="relative h-full w-full max-w-[50rem]">
+            <AnimatePresence mode="wait" custom={swipeDirection}>
+              <motion.div
+                key={phase.card.cardID}
+                custom={swipeDirection}
+                initial={{
+                  opacity: 0,
+                  scale: 0.9,
+                  x: swipeDirection ? (swipeDirection === 1 ? -50 : 50) : 0,
+                  rotate: swipeDirection ? (swipeDirection === 1 ? -5 : 5) : 0,
+                }}
+                animate={{ opacity: 1, scale: 1, x: 0, rotate: 0 }}
+                exit={{
+                  opacity: 0,
+                  x: swipeDirection ? (swipeDirection === 1 ? 300 : -300) : 0,
+                  rotate: swipeDirection ? (swipeDirection === 1 ? 15 : -15) : 0,
+                }}
+                transition={{ duration: 0.4, ease: "easeInOut" }}
+                className="absolute inset-0"
+              >
+                <FlashcardCardDisplay
+                  note={note}
+                  templateIdx={phase.card.templateIdx}
+                  revealed={revealed}
+                  onToggleReveal={handleToggleReveal}
+                  swipeRating={swipeRating}
+                />
+              </motion.div>
+            </AnimatePresence>
+          </div>
         </div>
 
-        <div className="space-y-1 border-t border-border-base/30">
+        <div className="flex shrink-0 min-h-[96px] flex-col items-center justify-center border-t border-border-base/30 px-3">
           {leechWarning ? (
-            <p className="px-3 pt-2 text-center text-[11px] text-icon-warning-base">
+            <p className="pb-2 text-center text-[11px] text-icon-warning-base">
               {language.t("workspaceFlashcard.leechWarning")}
             </p>
           ) : null}
 
-          {revealed ? (
-            <FlashcardReviewRatings onRate={handleRate} disabled={submitting} />
-          ) : (
-            <div className="px-3 py-3 text-center text-xs text-text-weaker">
-              {language.t("workspaceFlashcard.flipToReveal")}
-            </div>
-          )}
+          {revealed ? <FlashcardReviewRatings onRate={handleRate} disabled={submitting} /> : null}
         </div>
       </div>
     </div>
@@ -383,7 +416,10 @@ export function WorkspaceFlashcardPanel(props: { directory: string }) {
   return (
     <div data-component="workspace-flashcard-panel" className="flex min-h-0 flex-1 flex-col p-3">
       {loading ? (
-        <div className="text-sm text-text-weak">{language.t("workspaceFlashcard.loading")}</div>
+        <div className="flex w-full min-h-0 flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-border-base/20 bg-surface-weak/5 px-4 py-10 text-center animate-pulse">
+          <div className="h-4 w-32 rounded-md bg-surface-strong/20"></div>
+          <div className="mt-2 h-3 w-48 rounded-md bg-surface-strong/10"></div>
+        </div>
       ) : null}
 
       {!loading && decks.length === 0 ? (

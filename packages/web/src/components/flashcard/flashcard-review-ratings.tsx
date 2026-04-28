@@ -1,4 +1,5 @@
 import { language } from "@/context/language"
+import { motion } from "motion/react"
 
 type CardRating = "again" | "hard" | "good" | "easy"
 
@@ -12,42 +13,72 @@ const RATINGS: { rating: CardRating; labelKey: string; className: string }[] = [
     rating: "again",
     labelKey: "workspaceFlashcard.ratingAgain",
     className:
-      "border-border-critical-base/30 bg-surface-critical-base/8 text-icon-critical-base hover:bg-surface-critical-base/15",
+      "border-transparent bg-surface-critical-base text-white hover:bg-surface-critical-base-hover shadow-sm",
   },
   {
     rating: "hard",
     labelKey: "workspaceFlashcard.ratingHard",
     className:
-      "border-border-warning-base/30 bg-surface-warning-base/8 text-icon-warning-base hover:bg-surface-warning-base/15",
+      "border-transparent bg-surface-warning-base text-white hover:bg-surface-warning-base-hover shadow-sm",
   },
   {
     rating: "good",
     labelKey: "workspaceFlashcard.ratingGood",
     className:
-      "border-border-success-base/30 bg-surface-success-base/8 text-text-success-base hover:bg-surface-success-base/15",
+      "border-transparent bg-surface-success-base text-white hover:bg-surface-success-base-hover shadow-sm",
   },
   {
     rating: "easy",
     labelKey: "workspaceFlashcard.ratingEasy",
     className:
-      "border-border-interactive-base/30 bg-surface-interactive-base/8 text-text-interactive-base hover:bg-surface-interactive-base/15",
+      "border-transparent bg-surface-interactive-base text-white hover:bg-surface-interactive-base-hover shadow-sm",
   },
 ]
 
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+      delayChildren: 0.1,
+    },
+  },
+}
+
+import { type Variants } from "motion/react"
+
+const buttonVariants: Variants = {
+  hidden: { opacity: 0, y: 10, scale: 0.95 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { type: "spring", stiffness: 300, damping: 20 },
+  },
+}
+
 export function FlashcardReviewRatings({ onRate, disabled }: FlashcardReviewRatingsProps) {
   return (
-    <div className="flex items-center justify-center gap-2.5 px-4 py-4">
+    <motion.div
+      className="flex items-center justify-center gap-3 px-4 py-4"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
       {RATINGS.map(({ rating, labelKey, className }) => (
-        <button
+        <motion.button
           key={rating}
+          variants={buttonVariants}
+          whileTap={disabled ? undefined : { scale: 0.96 }}
           type="button"
           disabled={disabled}
           onClick={() => onRate(rating)}
-          className={`cursor-pointer rounded-lg border px-5 py-2.5 text-xs font-medium transition-all duration-150 ease-out active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 ${className}`}
+          className={`cursor-pointer rounded-xl border px-6 py-3 min-w-[80px] text-sm font-semibold transition-colors duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-40 ${className}`}
         >
           {language.t(labelKey)}
-        </button>
+        </motion.button>
       ))}
-    </div>
+    </motion.div>
   )
 }

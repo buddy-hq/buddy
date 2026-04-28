@@ -38,7 +38,7 @@ import {
   ThreadStatusIndicator,
 } from "./thread-helpers"
 import type { DirectoryGroup, DropPosition, OrganizeMode } from "./types"
-import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react"
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react"
 
 type ChatLeftSidebarDirectoryListProps = {
   directoryGroups: DirectoryGroup[]
@@ -131,6 +131,12 @@ const QUICK_CHAT_COLLAPSED_COUNT = 3
 const THREAD_ROW_PADDING_LEFT_PX = 20
 const THREAD_CHILD_INDENT_PX = 14
 const THREAD_STATUS_OFFSET_PX = 6
+// Width of the elbow guide; controls how far the horizontal branch extends before the text
+const THREAD_GUIDE_ELBOW_WIDTH = 10
+// Approximate half-height of a single thread row: py-1.5 (6+6px) + text-xs content (~18px) ≈ 30px total
+const THREAD_ROW_HALF_HEIGHT_PX = 15
+// Maximum number of subagent child rows visible before the "show more" button appears
+const MAX_VISIBLE_SUBAGENTS = 5
 
 const MAIN_PANE_SHORTCUTS: MainPaneShortcut[] = [
   {
@@ -588,7 +594,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                 <div className="mx-2">
                   <button
                     type="button"
-                    className="py-1 text-xs text-text-weaker hover:text-text-base"
+                    className="py-1 text-[10px] text-text-weaker hover:text-text-base"
                     style={{
                       paddingLeft: `${
                         isQuickChatGroup
@@ -646,9 +652,34 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
   const leftPadding = THREAD_ROW_PADDING_LEFT_PX + depth * THREAD_CHILD_INDENT_PX
   const statusOffset = THREAD_STATUS_OFFSET_PX + depth * THREAD_CHILD_INDENT_PX
   const canToggleChildren = childSessions.length > 0
-  const [childrenOpen, setChildrenOpen] = useState(true)
-  const childrenVisible = childSessions.length > 0 && familyActive && childrenOpen
+  const [childrenOpen, setChildrenOpen] = useState(false)
+  // Auto-open children when this session's family becomes active; stays open until user collapses
+  useEffect(() => {
+    if (familyActive && canToggleChildren) setChildrenOpen(true)
+  }, [familyActive, canToggleChildren])
+  const childrenVisible = childSessions.length > 0 && childrenOpen
+  // childrenMounted: stays true through the closing animation so CSS grid collapse can play.
+  // childrenExpanded: the actual CSS animation state — deliberately lags one RAF behind mount so
+  // the browser paints the 0fr collapsed state before transitioning to 1fr (fixes instant-open bug
+  // when navigating from one thread to another with subagents).
+  const [childrenMounted, setChildrenMounted] = useState(false)
+  const [childrenExpanded, setChildrenExpanded] = useState(false)
+  useEffect(() => {
+    if (childrenVisible) {
+      setChildrenMounted(true)
+      const raf = requestAnimationFrame(() => setChildrenExpanded(true))
+      return () => cancelAnimationFrame(raf)
+    } else {
+      setChildrenExpanded(false)
+      // childrenMounted is cleared in onTransitionEnd after the grid collapses
+    }
+  }, [childrenVisible])
   const branchExpanded = canToggleChildren && childrenVisible
+  const [showAllChildren, setShowAllChildren] = useState(false)
+  const hiddenChildCount = Math.max(0, childSessions.length - MAX_VISIBLE_SUBAGENTS)
+  const visibleChildSessions = showAllChildren
+    ? childSessions
+    : childSessions.slice(0, MAX_VISIBLE_SUBAGENTS)
 
   function handleSelectSession() {
     if (canToggleChildren && active) {
@@ -664,16 +695,49 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
   }
 
   return (
-    <div className="mx-2 last:mb-1">
+    <div className="mx-2 last:mb-1 group/sibling relative">
+      {depth > 0 && (
+        <>
+          {/* Elbow: vertical from top to row-center, then turns right — connects this row to the branch above */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute z-[1]"
+            style={{
+              left: `${leftPadding - THREAD_GUIDE_ELBOW_WIDTH}px`,
+              top: 0,
+              height: `${THREAD_ROW_HALF_HEIGHT_PX}px`,
+              width: `${THREAD_GUIDE_ELBOW_WIDTH}px`,
+              borderLeft: "1px solid var(--color-border-weaker-base)",
+              borderBottom: "1px solid var(--color-border-weaker-base)",
+            }}
+          />
+          {/* Continuation line: row-center to bottom — connects to the next sibling; hidden on the last sibling */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute z-[1] group-last/sibling:hidden"
+            style={{
+              left: `${leftPadding - THREAD_GUIDE_ELBOW_WIDTH}px`,
+              top: `${THREAD_ROW_HALF_HEIGHT_PX}px`,
+              bottom: 0,
+              width: "1px",
+              backgroundColor: "var(--color-border-weaker-base)",
+            }}
+          />
+        </>
+      )}
       <ContextMenu>
         <ContextMenuTrigger asChild>
           <div
             className={`group/thread relative rounded-lg data-[state=open]:bg-surface-raised-base-hover ${
               active
-                ? "bg-surface-raised-strong shadow-sm text-text-strong"
+                ? depth > 0
+                  ? "text-text-strong"
+                  : "bg-surface-raised-strong shadow-sm text-text-strong"
                 : familyActive
                   ? "bg-surface-raised-strong/40 text-text-base"
-                  : "hover:bg-surface-raised-base-hover"
+                  : depth > 0
+                    ? ""
+                    : "hover:bg-surface-raised-base-hover"
             }`}
           >
             <button
@@ -694,28 +758,50 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
                 {active ? <ThreadStatusIndicator status={threadStatus} /> : null}
               </div>
               <div className="relative flex min-w-0 items-center">
-                <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                  <span className="truncate text-xs font-light">{title}</span>
-                  {pinned ? <PinIcon className="size-3 shrink-0 text-text-weaker" /> : null}
-                </div>
-                <div
-                  className={`absolute right-0 top-1/2 -translate-y-1/2 z-10 flex items-center gap-2 pl-2 opacity-0 group-hover/thread:opacity-100 transition-opacity shadow-[-8px_0_10px_-2px_var(--color-surface-raised-base)] ${
-                    active
-                      ? "bg-surface-raised-strong"
-                      : familyActive
-                        ? "bg-surface-raised-strong"
-                        : "bg-surface-raised-base-hover"
-                  }`}
-                >
-                  {display.agent ? (
+                {depth > 0 ? (
+                  // Two-line layout for subagent rows: title on top, agent name below
+                  <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                     <span
-                      className={`max-w-16 truncate text-[11px] font-medium ${getSubagentToneClass(display.agent)}`}
+                      className={`truncate text-xs font-light ${active ? "text-text-interactive-base" : ""}`}
                     >
-                      {display.agent}
+                      {title}
+                      {pinned ? <PinIcon className="ml-1 inline size-3 text-text-weaker" /> : null}
                     </span>
-                  ) : null}
-                  <span className="text-[11px] text-text-weaker">{age}</span>
-                </div>
+                    {display.agent ? (
+                      <span
+                        className={`truncate font-mono text-[10px] ${active ? "text-text-interactive-base" : ""}`}
+                      >
+                        {display.agent}
+                      </span>
+                    ) : null}
+                  </div>
+                ) : (
+                  // Single-line layout with hover overlay for root-level thread rows
+                  <>
+                    <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                      <span className="truncate text-xs font-light">{title}</span>
+                      {pinned ? <PinIcon className="size-3 shrink-0 text-text-weaker" /> : null}
+                    </div>
+                    <div
+                      className={`absolute right-0 top-1/2 -translate-y-1/2 z-10 flex items-center gap-2 pl-2 opacity-0 group-hover/thread:opacity-100 transition-opacity shadow-[-8px_0_10px_-2px_var(--color-surface-raised-base)] ${
+                        active
+                          ? "bg-surface-raised-strong"
+                          : familyActive
+                            ? "bg-surface-raised-strong"
+                            : "bg-surface-raised-base-hover"
+                      }`}
+                    >
+                      {display.agent ? (
+                        <span
+                          className={`max-w-16 truncate text-[11px] font-medium ${getSubagentToneClass(display.agent)}`}
+                        >
+                          {display.agent}
+                        </span>
+                      ) : null}
+                      <span className="text-[11px] text-text-weaker">{age}</span>
+                    </div>
+                  </>
+                )}
               </div>
             </button>
           </div>
@@ -769,17 +855,22 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
       <div
         className="grid"
         style={{
-          gridTemplateRows: childrenVisible ? "1fr" : "0fr",
-          opacity: childrenVisible ? 1 : 0,
+          gridTemplateRows: childrenExpanded ? "1fr" : "0fr",
+          opacity: childrenExpanded ? 1 : 0,
           transition:
             "grid-template-rows 0.25s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.2s cubic-bezier(0.32, 0.72, 0, 1)",
-          pointerEvents: childrenVisible ? undefined : "none",
+          pointerEvents: childrenExpanded ? undefined : "none",
         }}
-        aria-hidden={childrenVisible ? undefined : true}
+        aria-hidden={childrenExpanded ? undefined : true}
+        onTransitionEnd={(e) => {
+          if (e.propertyName === "grid-template-rows" && !childrenExpanded) {
+            setChildrenMounted(false)
+          }
+        }}
       >
         <div className="min-h-0 overflow-hidden pt-0.5">
-          {childrenVisible
-            ? childSessions.map((childSession) => (
+          {childrenMounted
+            ? visibleChildSessions.map((childSession) => (
                 <DirectoryThreadRow
                   key={`${props.directory}:${childSession.id}`}
                   directory={props.directory}
@@ -801,6 +892,33 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
                 />
               ))
             : null}
+          {childrenMounted && hiddenChildCount > 0 ? (
+            <div className="mx-2 last:mb-1 group/sibling relative">
+              {/* Elbow guide — same shape as subagent rows */}
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute z-[1]"
+                style={{
+                  left: `${THREAD_ROW_PADDING_LEFT_PX + (depth + 1) * THREAD_CHILD_INDENT_PX - THREAD_GUIDE_ELBOW_WIDTH}px`,
+                  top: 0,
+                  height: `${THREAD_ROW_HALF_HEIGHT_PX}px`,
+                  width: `${THREAD_GUIDE_ELBOW_WIDTH}px`,
+                  borderLeft: "1px solid var(--color-border-weaker-base)",
+                  borderBottom: "1px solid var(--color-border-weaker-base)",
+                }}
+              />
+              <button
+                type="button"
+                className="py-1 text-[10px] text-text-weaker hover:text-text-base"
+                style={{
+                  paddingLeft: `${THREAD_ROW_PADDING_LEFT_PX + (depth + 1) * THREAD_CHILD_INDENT_PX}px`,
+                }}
+                onClick={() => setShowAllChildren((v) => !v)}
+              >
+                {showAllChildren ? language.t("sidebar.showLess") : language.t("sidebar.showMore")}
+              </button>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

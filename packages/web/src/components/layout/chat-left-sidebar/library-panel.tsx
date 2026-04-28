@@ -16,7 +16,7 @@ import {
   PlusIcon,
   UploadIcon,
 } from "lucide-react"
-import { Badge, Button, FolderIcon, Skeleton } from "@buddy/ui"
+import { Button, FolderIcon, Skeleton } from "@buddy/ui"
 import buddyStateEmptyBooksUrl from "../../../../../../assets/mascot/buddy-state-empty-books.png"
 import buddyStateEmptyDiagramsUrl from "../../../../../../assets/mascot/buddy-state-empty-diagrams.png"
 import buddyStateEmptyExercisesUrl from "../../../../../../assets/mascot/buddy-state-empty-exercises.png"
@@ -48,6 +48,11 @@ import {
 } from "@/components/virtualization/virtualization-defaults"
 import { MermaidDiagram } from "@/components/chat/tools/render/mermaid/mermaid-diagram"
 import { MermaidToolCard } from "@/components/chat/tools/render/mermaid/mermaid-tool-card"
+import {
+  QuestionSetInlineView,
+  type PublicQuestionSetArtifact,
+} from "@/components/chat/tools/render/question-set/question-set-inline-view"
+import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 import {
   ResourceCardGrid,
   type ResourceCardTarget,
@@ -1225,14 +1230,110 @@ function FlashcardsTab({ directories }: { directories: string[] }) {
 // Question set shelf
 // ---------------------------------------------------------------------------
 
+function LibraryQuestionSetCard(props: {
+  directory: string
+  artifactStub: any
+  rightSidebarOpen: boolean
+  rightSidebarTab: string
+  selectedArtifactID?: string
+}) {
+  const [artifact, setArtifact] = useState<PublicQuestionSetArtifact | null>(null)
+  const [isOpen, setIsOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState<string | undefined>(undefined)
+
+  async function handleOpen() {
+    if (artifact) {
+      setLoadError(undefined)
+      setIsOpen(true)
+      return
+    }
+
+    setLoading(true)
+    setLoadError(undefined)
+    try {
+      const fetched = await getBuddyClient(props.directory).questionSetArtifacts.read({
+        artifactID: props.artifactStub.artifactID,
+      })
+
+      setArtifact(requireBuddyData(fetched))
+      setIsOpen(true)
+    } catch (e) {
+      setLoadError(stringifyError(e))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        disabled={loading}
+        onClick={handleOpen}
+        className={`w-full rounded-lg border bg-surface-base p-3 text-left shadow-sm transition-colors disabled:opacity-50 ${
+          props.rightSidebarOpen &&
+          props.rightSidebarTab === "question-set" &&
+          props.selectedArtifactID === props.artifactStub.artifactID
+            ? "border-border-interactive-base bg-surface-raised-base"
+            : "border-border-weaker-base hover:border-border-hover hover:bg-surface-raised-base"
+        }`}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-text-base">
+              {props.artifactStub.title}
+            </p>
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-text-weak">
+              <span>
+                {language.t(
+                  props.artifactStub.questions.length === 1
+                    ? "chatTools.questionCount.one"
+                    : "chatTools.questionCount.other",
+                  { count: props.artifactStub.questions.length },
+                )}
+              </span>
+              <span className="text-text-weaker">&middot;</span>
+              <span>{new Date(props.artifactStub.createdAt).toLocaleString()}</span>
+            </div>
+          </div>
+          <HelpCircleIcon className="mt-0.5 size-4 shrink-0 text-text-weaker" />
+        </div>
+      </button>
+
+      {loadError ? <NotebookShelfError message={loadError} /> : null}
+
+      {artifact && isOpen && (
+        <QuestionSetInlineView
+          artifact={artifact}
+          defaultOpen={true}
+          hideCard={true}
+          onOpenChange={(open) => setIsOpen(open)}
+          onSubmit={async (answers) => {
+            const response = await getBuddyClient(
+              props.directory,
+            ).questionSetArtifacts.submitAttempt({
+              artifactID: artifact.artifactID,
+              answers: artifact.questions.map((question) => ({
+                questionID: question.id,
+                selectedChoiceIds: answers[question.id] ?? [],
+              })),
+            })
+            return requireBuddyData(response).result
+          }}
+        />
+      )}
+    </>
+  )
+}
+
 function QuestionSetNotebookShelf(props: {
   directory: string
-  onOpenQuestionSet: (directory: string, artifactID: string, selectedArtifactID?: string) => void
   showHeader: boolean
   pageSize?: number
   emptyMessage?: string
 }) {
-  const { directory, onOpenQuestionSet, showHeader, pageSize, emptyMessage } = props
+  const { directory, showHeader, pageSize, emptyMessage } = props
   const setsQuery = useQuery({
     ...workspaceQuestionSetArtifactsQueryOptions(directory),
     refetchOnMount: false,
@@ -1279,41 +1380,14 @@ function QuestionSetNotebookShelf(props: {
         {loading
           ? Array.from({ length: 2 }, (_, index) => <ShelfRowSkeleton key={index} />)
           : visibleSets.map((artifact) => (
-              <button
+              <LibraryQuestionSetCard
                 key={artifact.artifactID}
-                type="button"
-                onClick={() => {
-                  onOpenQuestionSet(directory, artifact.artifactID, selectedArtifactID)
-                }}
-                className={`w-full rounded-lg border bg-surface-base p-3 text-left shadow-sm transition-colors ${
-                  rightSidebarOpen &&
-                  rightSidebarTab === "question-set" &&
-                  selectedArtifactID === artifact.artifactID
-                    ? "border-border-interactive-base bg-surface-raised-base"
-                    : "border-border-weaker-base hover:border-border-hover hover:bg-surface-raised-base"
-                }`}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-text-base">{artifact.title}</p>
-                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-text-weak">
-                      <span>
-                        {language.t(
-                          artifact.questions.length === 1
-                            ? "chatTools.questionCount.one"
-                            : "chatTools.questionCount.other",
-                          { count: artifact.questions.length },
-                        )}
-                      </span>
-                      <span className="text-text-weaker">&middot;</span>
-                      <span>{new Date(artifact.createdAt).toLocaleString()}</span>
-                    </div>
-                  </div>
-                  <Badge variant="outline" className="shrink-0 text-[10px]">
-                    {artifact.groupType}
-                  </Badge>
-                </div>
-              </button>
+                directory={directory}
+                artifactStub={artifact}
+                rightSidebarOpen={rightSidebarOpen}
+                rightSidebarTab={rightSidebarTab}
+                selectedArtifactID={selectedArtifactID}
+              />
             ))}
         {!loading && canShowMore ? (
           <ShelfShowMoreButton count={nextBatchCount} onClick={showMore} />
@@ -1328,7 +1402,7 @@ function QuestionSetsTab(props: {
   directories: string[]
   onOpenQuestionSet: (directory: string, artifactID: string, selectedArtifactID?: string) => void
 }) {
-  const { directories, onOpenQuestionSet } = props
+  const { directories } = props
   const isMultiNotebookView = directories.length > 1
   const shelfQueries = useQueries({
     queries: directories.map((directory) => workspaceQuestionSetArtifactsQueryOptions(directory)),
@@ -1399,7 +1473,6 @@ function QuestionSetsTab(props: {
           <QuestionSetNotebookShelf
             key={directory}
             directory={directory}
-            onOpenQuestionSet={onOpenQuestionSet}
             showHeader
             pageSize={MULTI_NOTEBOOK_ROW_PREVIEW_COUNT}
             emptyMessage={language.t("sidebar.libraryNotebookQuestionSetsEmpty")}
@@ -1411,7 +1484,6 @@ function QuestionSetsTab(props: {
               <QuestionSetNotebookShelf
                 key={directory}
                 directory={directory}
-                onOpenQuestionSet={onOpenQuestionSet}
                 showHeader
                 pageSize={MULTI_NOTEBOOK_ROW_PREVIEW_COUNT}
                 emptyMessage={language.t("sidebar.libraryNotebookQuestionSetsEmpty")}
@@ -1429,7 +1501,6 @@ function QuestionSetsTab(props: {
         <QuestionSetNotebookShelf
           key={directory}
           directory={directory}
-          onOpenQuestionSet={onOpenQuestionSet}
           showHeader={showNotebookHeaders}
         />
       ))}
