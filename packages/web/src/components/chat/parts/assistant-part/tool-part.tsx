@@ -1,9 +1,8 @@
 import { memo } from "react"
-import { GenericTool, BuddyCustomTool } from "../../tools/tools"
-import { getToolRenderer, isContextTool, HIDDEN_TOOLS } from "../../tools/registry"
 import { parseToolState } from "../../tools/parse-tool-state"
+import { parseToolUiMetadata } from "../../tools/parse-tool-ui-metadata"
+import { resolveToolRenderer } from "../../tools/registry"
 import { getToolInfo } from "../../tools/tool-info"
-import { isBuddyCustomTool } from "../../utils/tool"
 import type { ToolPartProps } from "../../tools/registry"
 import type { ChatToolPart } from "../../utils/part-guards"
 
@@ -42,12 +41,13 @@ export const ToolPartCard = memo(function ToolPartCard({
 }: ToolPartRendererProps) {
   const tool = part.tool
 
-  // Hidden tools return null
-  if (HIDDEN_TOOLS.has(tool)) {
+  const state = parseToolState(part)
+  const toolUi = parseToolUiMetadata(state.metadata)
+  const renderer = resolveToolRenderer(tool, toolUi)
+  if (renderer.hidden || !renderer.card) {
     return null
   }
 
-  const state = parseToolState(part)
   const info = getToolInfo(tool, state)
   const props: ToolPartProps = {
     part,
@@ -59,19 +59,5 @@ export const ToolPartCard = memo(function ToolPartCard({
     defaultOpen,
   }
 
-  // Check if this is a Buddy custom tool (but not python_calculator which is registered separately)
-  if (isBuddyCustomTool(tool) && tool !== "python_calculator") {
-    return <BuddyCustomTool {...props} />
-  }
-
-  // Try to get registered tool renderer
-  const renderer = getToolRenderer(tool)
-  if (renderer) {
-    return <>{renderer.render(props)}</>
-  }
-
-  // Fallback to generic tool
-  return <GenericTool {...props} />
+  return <>{renderer.card(props)}</>
 }, toolPartCardEqual)
-
-export { isContextTool }

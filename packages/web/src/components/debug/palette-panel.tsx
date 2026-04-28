@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react"
-import { Input } from "@buddy/ui"
+import { Input, toast } from "@buddy/ui"
 
 type ColorToken = {
   name: string
@@ -33,7 +33,15 @@ function getColorTokens(): ColorToken[] {
 
 function ColorSwatch({ token }: { token: ColorToken }) {
   return (
-    <div className="group relative flex items-center gap-3 rounded-md border border-border-base/50 p-2 hover:bg-surface-weak/50">
+    <button
+      type="button"
+      onClick={() => {
+        void navigator.clipboard.writeText(token.token).then(() => {
+          toast.success(`Copied ${token.token}`)
+        })
+      }}
+      className="group relative flex items-center gap-3 rounded-md border border-border-base/50 p-2 text-left hover:bg-surface-weak/50"
+    >
       <div
         className="size-10 shrink-0 rounded-md border border-border-base/30 shadow-sm"
         style={{ backgroundColor: token.value }}
@@ -43,29 +51,7 @@ function ColorSwatch({ token }: { token: ColorToken }) {
         <p className="truncate text-[10px] text-text-weak font-mono">{token.token}</p>
         <p className="truncate text-[10px] text-text-weaker font-mono">{token.value}</p>
       </div>
-      <button
-        type="button"
-        onClick={() => {
-          void navigator.clipboard.writeText(token.value)
-        }}
-        className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity"
-      >
-        <span className="sr-only">Copy</span>
-        <svg
-          className="size-3.5 text-text-weak hover:text-text-base"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-          />
-        </svg>
-      </button>
-    </div>
+    </button>
   )
 }
 
@@ -121,13 +107,22 @@ export function PalettePanel({ className }: PalettePanelProps) {
         className="h-8 text-xs"
       />
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div
+        className="palette-container min-h-0 flex-1 overflow-y-auto"
+        style={{ containerType: "inline-size" }}
+      >
+        <style>{`
+          .palette-container { container-type: inline-size; }
+          .palette-grid { grid-template-columns: repeat(1, 1fr); }
+          @container (min-width: 420px) { .palette-grid { grid-template-columns: repeat(2, 1fr); } }
+          @container (min-width: 640px) { .palette-grid { grid-template-columns: repeat(3, 1fr); } }
+        `}</style>
         {Array.from(groupedTokens.entries()).map(([category, categoryTokens]) => (
           <div key={category} className="mb-4">
             <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-text-weaker">
               {category}
             </p>
-            <div className="grid grid-cols-1 gap-1.5">
+            <div className="palette-grid grid gap-1.5">
               {categoryTokens.map((token) => (
                 <ColorSwatch key={token.token} token={token} />
               ))}

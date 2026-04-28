@@ -2,8 +2,6 @@ import { measureElement as measureVirtualElement, useVirtualizer } from "@tansta
 import { memo, useCallback, useEffect, useMemo } from "react"
 import { TooltipProvider } from "@buddy/ui"
 
-import "./tools/tools"
-
 import { buildTurns, estimateTurnHeight, chatTranscriptEqual } from "./utils/message-utils"
 import { CHAT_SCROLL_ANCHOR_THRESHOLD_PX } from "./utils/constants"
 import {

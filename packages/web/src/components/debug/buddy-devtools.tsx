@@ -9,6 +9,10 @@ import {
   Card,
   CardContent,
   CheckIcon,
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
   CopyIcon,
   SparklesIcon,
   Tabs,
@@ -39,7 +43,7 @@ import {
   buildOnboardingChatEntryReturnTo,
 } from "@/lib/onboarding-test-mode"
 
-type BuddyDevToolsTab = "actions" | "session" | "palette" | "snapshot" | "capabilities" | "query"
+type BuddyDevToolsTab = "palette" | "trace" | "system" | "snapshot" | "query" | "actions"
 
 type Rect = {
   left: number
@@ -403,15 +407,28 @@ function titleCaseLabel(value: string) {
     .join(" ")
 }
 
-function DevToolsCapabilitiesTab(props: { directory: string }) {
+function CapabilitiesChips(props: { directory: string }) {
   const { directory } = props
   const sessionID = useChatStore((s) => s.directories[directory]?.sessionID)
+  const messages = useChatStore((s) => s.directories[directory]?.messages ?? [])
   const teachingRuntime = useTeachingRuntime()
   const sessionKey = useMemo(
     () => (sessionID ? teachingSessionKey(directory, sessionID) : ""),
     [directory, sessionID],
   )
   const persona = sessionKey ? teachingRuntime.selectedPersonaBySession[sessionKey] : undefined
+
+  const calledTools = useMemo(() => {
+    const names = new Set<string>()
+    for (const msg of messages) {
+      for (const part of msg.parts) {
+        if (part.type === "tool" && typeof part.tool === "string") {
+          names.add(part.tool)
+        }
+      }
+    }
+    return names
+  }, [messages])
 
   const query = useQuery({
     ...learnerSnapshotViewsQueryOptions(directory, {
@@ -422,126 +439,44 @@ function DevToolsCapabilitiesTab(props: { directory: string }) {
   })
 
   const capabilitiesView = query.data?.capabilities
-  const error = query.error
-    ? query.error instanceof Error
-      ? query.error.message
-      : String(query.error)
-    : undefined
+  if (!capabilitiesView) return null
+
+  const sections = [
+    { label: "Persona", items: [capabilitiesView.persona] },
+    { label: "State", items: [titleCaseLabel(capabilitiesView.workspaceState)] },
+    { label: "Tools", items: capabilitiesView.tools.allow },
+    { label: "Skills", items: capabilitiesView.skills.allow },
+    {
+      label: "Subagents",
+      items: [...capabilitiesView.subagents.prefer, ...capabilitiesView.subagents.allow],
+    },
+  ]
 
   return (
-    <div className="flex h-full min-h-0 flex-col p-3">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <div>
-          <p className="text-xs font-medium">{language.t("rightSidebar.capabilities.title")}</p>
-          <p className="text-[11px] text-text-weak">
-            {language.t("rightSidebar.capabilities.description")}
-          </p>
-        </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            void query.refetch()
-          }}
-        >
-          {language.t("common.refresh")}
-        </Button>
-      </div>
-
-      {query.isPending ? (
-        <div className="text-sm text-text-weak">
-          {language.t("rightSidebar.capabilities.loading")}
-        </div>
-      ) : capabilitiesView ? (
-        <div className="flex-1 min-h-0 space-y-3 overflow-y-auto">
-          <Card size="sm" className="gap-0 py-0">
-            <CardContent className="space-y-3 px-3 py-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="secondary">{capabilitiesView.persona}</Badge>
-                <Badge variant="outline">{titleCaseLabel(capabilitiesView.workspaceState)}</Badge>
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-text-base">
-                  {language.t("rightSidebar.capabilities.surfacePolicy")}
-                </p>
-                <p className="text-xs text-text-weak">
-                  {language.t("rightSidebar.capabilities.visiblePrefix")}{" "}
-                  {capabilitiesView.visibleSurfaces.join(", ") ||
-                    language.t("rightSidebar.capabilities.none")}{" "}
-                  | {language.t("rightSidebar.capabilities.defaultPrefix")}{" "}
-                  {capabilitiesView.defaultSurface || language.t("rightSidebar.capabilities.na")}
-                </p>
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="rounded-md border border-border-base/60 px-2 py-1.5">
-                  {language.t("rightSidebar.capabilities.tools")}:{" "}
-                  {capabilitiesView.tools.allow.length}{" "}
-                  {language.t("rightSidebar.capabilities.allow")} /{" "}
-                  {capabilitiesView.tools.deny.length}{" "}
-                  {language.t("rightSidebar.capabilities.deny")}
-                </div>
-                <div className="rounded-md border border-border-base/60 px-2 py-1.5">
-                  {language.t("rightSidebar.capabilities.skills")}:{" "}
-                  {capabilitiesView.skills.allow.length}{" "}
-                  {language.t("rightSidebar.capabilities.allow")} /{" "}
-                  {capabilitiesView.skills.deny.length}{" "}
-                  {language.t("rightSidebar.capabilities.deny")}
-                </div>
-                <div className="col-span-2 rounded-md border border-border-base/60 px-2 py-1.5">
-                  {language.t("rightSidebar.capabilities.subagents")}:{" "}
-                  {capabilitiesView.subagents.prefer.length}{" "}
-                  {language.t("rightSidebar.capabilities.prefer")} /{" "}
-                  {capabilitiesView.subagents.allow.length}{" "}
-                  {language.t("rightSidebar.capabilities.allow")} /{" "}
-                  {capabilitiesView.subagents.deny.length}{" "}
-                  {language.t("rightSidebar.capabilities.deny")}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <RuntimeListSection
-            title={language.t("rightSidebar.capabilities.enabledTools")}
-            items={capabilitiesView.tools.allow}
-            empty={language.t("rightSidebar.capabilities.noToolsEnabled")}
-          />
-          <RuntimeListSection
-            title={language.t("rightSidebar.capabilities.enabledSkills")}
-            items={capabilitiesView.skills.allow}
-            empty={language.t("rightSidebar.capabilities.noSkillsEnabled")}
-          />
-          <RuntimeListSection
-            title={language.t("rightSidebar.capabilities.preferredSubagents")}
-            items={capabilitiesView.subagents.prefer}
-            empty={language.t("rightSidebar.capabilities.noSubagentsPreferred")}
-          />
-          <RuntimeListSection
-            title={language.t("rightSidebar.capabilities.allowedSubagents")}
-            items={capabilitiesView.subagents.allow}
-            empty={language.t("rightSidebar.capabilities.noSubagentsAllowed")}
-          />
-          <RuntimeListSection
-            title={language.t("rightSidebar.capabilities.deniedTools")}
-            items={capabilitiesView.tools.deny}
-            empty={language.t("rightSidebar.capabilities.noToolsDenied")}
-          />
-          <RuntimeListSection
-            title={language.t("rightSidebar.capabilities.deniedSkills")}
-            items={capabilitiesView.skills.deny}
-            empty={language.t("rightSidebar.capabilities.noSkillsDenied")}
-          />
-        </div>
-      ) : (
-        <div className="flex-1 min-h-0 overflow-y-auto rounded-lg border border-border-base/70 bg-background-base p-3 text-sm text-text-weak">
-          {language.t("rightSidebar.unavailable.capabilities")}
-        </div>
-      )}
-
-      {error ? (
-        <p className="mt-2 rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 px-2 py-1.5 text-xs text-icon-critical-base">
-          {error}
-        </p>
-      ) : null}
+    <div className="space-y-1 px-3 py-2">
+      {sections
+        .filter((s) => s.items.length > 0)
+        .map((section) => (
+          <div key={section.label} className="flex items-baseline gap-2 text-[11px]">
+            <span className="shrink-0 text-text-weaker w-20 text-right">{section.label}</span>
+            <span className="font-mono leading-relaxed">
+              {section.items.map((item, i) => (
+                <span key={item}>
+                  {i > 0 && <span className="text-text-weaker">{" · "}</span>}
+                  <span
+                    className={
+                      calledTools.has(item)
+                        ? "rounded bg-surface-success-base px-0.5 text-text-strong"
+                        : "text-text-weak"
+                    }
+                  >
+                    {item}
+                  </span>
+                </span>
+              ))}
+            </span>
+          </div>
+        ))}
     </div>
   )
 }
@@ -569,7 +504,7 @@ function parseRelativeHref(href: string) {
 export function BuddyDevTools() {
   const [buddyOpen, setBuddyOpen] = useState(false)
   const [routerOpen, setRouterOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState<BuddyDevToolsTab>("actions")
+  const [activeTab, setActiveTab] = useState<BuddyDevToolsTab>("palette")
   const [isCopied, setIsCopied] = useState(false)
   const [isDisconnectingOpenAi, setIsDisconnectingOpenAi] = useState(false)
 
@@ -616,7 +551,10 @@ export function BuddyDevTools() {
     }
     void copyToClipboard(sessionTrace)
     setIsCopied(true)
-    toast.success(language.t("desktopTitlebar.sessionTraceCopied"))
+    const estTokens = Math.ceil(sessionTrace.length / 4)
+    toast.success(
+      `${language.t("desktopTitlebar.sessionTraceCopied")} (${estTokens.toLocaleString()} tokens)`,
+    )
     setTimeout(() => setIsCopied(false), 2000)
   }, [sessionTrace])
 
@@ -675,19 +613,29 @@ export function BuddyDevTools() {
 
       {/* Unified trigger bar at bottom right */}
       <div className="fixed bottom-3 right-3 z-[9999] flex items-center gap-1 rounded-lg border border-border-base bg-background-base px-1.5 py-1 shadow-xl">
-        <button
-          type="button"
-          onClick={() => setBuddyOpen((v) => !v)}
-          className={`flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium transition-colors ${
-            buddyOpen
-              ? "bg-surface-raised-base text-text-strong"
-              : "text-text-weak hover:bg-surface-base-hover hover:text-text-base"
-          }`}
-          title="Buddy DevTools"
-        >
-          <BugIcon className="size-3.5" />
-          <span>Buddy</span>
-        </button>
+        <ContextMenu>
+          <ContextMenuTrigger asChild>
+            <button
+              type="button"
+              onClick={() => setBuddyOpen((v) => !v)}
+              className={`flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium transition-colors ${
+                buddyOpen
+                  ? "bg-surface-raised-base text-text-strong"
+                  : "text-text-weak hover:bg-surface-base-hover hover:text-text-base"
+              }`}
+              title="Buddy DevTools"
+            >
+              <BugIcon className="size-3.5" />
+              <span>Buddy</span>
+            </button>
+          </ContextMenuTrigger>
+          <ContextMenuContent>
+            <ContextMenuItem disabled={!sessionTrace} onClick={handleCopySessionTrace}>
+              <CopyIcon className="mr-2 size-3.5" />
+              Copy Session Trace
+            </ContextMenuItem>
+          </ContextMenuContent>
+        </ContextMenu>
         <div className="h-4 w-px bg-border-weaker-base" />
         <button
           type="button"
@@ -761,109 +709,111 @@ export function BuddyDevTools() {
             onValueChange={(v) => setActiveTab(v as BuddyDevToolsTab)}
             className="flex min-h-0 flex-1 flex-col"
           >
-            <div className="flex items-center border-b border-border-weaker-base">
-              <div
-                className="flex shrink-0 cursor-grab items-center px-2 text-text-weaker hover:text-text-base"
-                onPointerDown={onDragPointerDown}
-                title="Drag to move"
-              >
-                <GripVerticalIcon className="size-4" />
-              </div>
-
-              <div className="flex shrink-0 items-center gap-1 px-2">
-                <div className="flex items-center gap-0.5">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-xs"
-                    className="h-6 w-6"
-                    title="Dock left"
-                    onClick={snapLeft}
-                  >
-                    <div className="flex h-3 w-3 items-center justify-center rounded-sm border border-text-weaker">
-                      <div className="h-full w-[2px] bg-text-weaker" />
-                    </div>
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-xs"
-                    className="h-6 w-6"
-                    title="Dock right"
-                    onClick={snapRight}
-                  >
-                    <div className="flex h-3 w-3 items-center justify-center rounded-sm border border-text-weaker">
-                      <div className="ml-auto h-full w-[2px] bg-text-weaker" />
-                    </div>
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-xs"
-                    className="h-6 w-6"
-                    title="Dock bottom"
-                    onClick={snapBottom}
-                  >
-                    <div className="flex h-3 w-3 items-end justify-center rounded-sm border border-text-weaker">
-                      <div className="h-[2px] w-full bg-text-weaker" />
-                    </div>
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-xs"
-                    className="h-6 w-6"
-                    title="Floating"
-                    onClick={snapFloating}
-                  >
-                    <div className="flex h-3 w-3 items-center justify-center rounded-sm border border-text-weaker">
-                      <div className="h-2 w-2 rounded-[1px] border border-text-weaker" />
-                    </div>
-                  </Button>
+            <div className="shrink-0 border-b border-border-weaker-base">
+              <div className="flex items-center">
+                <div
+                  className="flex shrink-0 cursor-grab items-center px-2 text-text-weaker hover:text-text-base"
+                  onPointerDown={onDragPointerDown}
+                  title="Drag to move"
+                >
+                  <GripVerticalIcon className="size-4" />
                 </div>
 
-                <div className="mx-1 h-4 w-px bg-border-weaker-base" />
+                <div className="flex shrink-0 items-center gap-1 px-2">
+                  <div className="flex items-center gap-0.5">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      className="h-6 w-6"
+                      title="Dock left"
+                      onClick={snapLeft}
+                    >
+                      <div className="flex h-3 w-3 items-center justify-center rounded-sm border border-text-weaker">
+                        <div className="h-full w-[2px] bg-text-weaker" />
+                      </div>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      className="h-6 w-6"
+                      title="Dock right"
+                      onClick={snapRight}
+                    >
+                      <div className="flex h-3 w-3 items-center justify-center rounded-sm border border-text-weaker">
+                        <div className="ml-auto h-full w-[2px] bg-text-weaker" />
+                      </div>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      className="h-6 w-6"
+                      title="Dock bottom"
+                      onClick={snapBottom}
+                    >
+                      <div className="flex h-3 w-3 items-end justify-center rounded-sm border border-text-weaker">
+                        <div className="h-[2px] w-full bg-text-weaker" />
+                      </div>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      className="h-6 w-6"
+                      title="Floating"
+                      onClick={snapFloating}
+                    >
+                      <div className="flex h-3 w-3 items-center justify-center rounded-sm border border-text-weaker">
+                        <div className="h-2 w-2 rounded-[1px] border border-text-weaker" />
+                      </div>
+                    </Button>
+                  </div>
 
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-xs"
-                  className="h-6 w-6"
-                  title="Reset position"
-                  onClick={reset}
-                >
-                  <RotateCcwIcon className="size-3.5" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-xs"
-                  className="h-6 w-6"
-                  onClick={() => setBuddyOpen(false)}
-                >
-                  <XIcon className="size-4" />
-                </Button>
+                  <div className="mx-1 h-4 w-px bg-border-weaker-base" />
+
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    className="h-6 w-6"
+                    title="Reset position"
+                    onClick={reset}
+                  >
+                    <RotateCcwIcon className="size-3.5" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    className="h-6 w-6"
+                    onClick={() => setBuddyOpen(false)}
+                  >
+                    <XIcon className="size-4" />
+                  </Button>
+                </div>
               </div>
 
-              <div className="min-w-0 flex-1 overflow-x-auto">
+              <div className="min-w-0 overflow-x-auto border-b border-border-weaker-base">
                 <TabsList variant="line" className="h-9 w-max justify-start px-2">
-                  <TabsTrigger value="actions" className="text-xs">
-                    Actions
-                  </TabsTrigger>
-                  <TabsTrigger value="session" className="text-xs">
-                    Session
-                  </TabsTrigger>
                   <TabsTrigger value="palette" className="text-xs">
                     Palette
+                  </TabsTrigger>
+                  <TabsTrigger value="trace" className="text-xs">
+                    Trace
+                  </TabsTrigger>
+                  <TabsTrigger value="system" className="text-xs">
+                    System
                   </TabsTrigger>
                   <TabsTrigger value="snapshot" className="text-xs">
                     Snapshot
                   </TabsTrigger>
-                  <TabsTrigger value="capabilities" className="text-xs">
-                    Capabilities
-                  </TabsTrigger>
                   <TabsTrigger value="query" className="text-xs">
                     Query
+                  </TabsTrigger>
+                  <TabsTrigger value="actions" className="text-xs">
+                    Actions
                   </TabsTrigger>
                 </TabsList>
               </div>
@@ -921,7 +871,7 @@ export function BuddyDevTools() {
               </div>
             </TabsContent>
 
-            <TabsContent value="session" className="min-h-0 flex-1 overflow-hidden mt-0">
+            <TabsContent value="system" className="min-h-0 flex-1 overflow-hidden mt-0">
               {activeDirectory ? (
                 <SystemPromptPanel directory={activeDirectory} sessionID={sessionID} />
               ) : (
@@ -945,12 +895,35 @@ export function BuddyDevTools() {
               )}
             </TabsContent>
 
-            <TabsContent value="capabilities" className="min-h-0 flex-1 overflow-hidden mt-0">
-              {activeDirectory ? (
-                <DevToolsCapabilitiesTab directory={activeDirectory} />
+            <TabsContent value="trace" className="min-h-0 flex-1 overflow-hidden mt-0">
+              {sessionTrace ? (
+                <div className="flex h-full flex-col">
+                  {activeDirectory ? <CapabilitiesChips directory={activeDirectory} /> : null}
+                  <div className="border-b border-border-weaker-base" />
+                  <div className="flex items-center justify-between px-3 py-2">
+                    <p className="text-xs font-medium text-text-weak">Trace</p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-6 gap-1 text-[11px]"
+                      onClick={handleCopySessionTrace}
+                    >
+                      {isCopied ? (
+                        <CheckIcon className="size-3 text-text-success-base" />
+                      ) : (
+                        <CopyIcon className="size-3" />
+                      )}
+                      {language.t("desktopTitlebar.copySessionTrace")}
+                    </Button>
+                  </div>
+                  <pre className="flex-1 overflow-auto p-3 text-[11px] leading-relaxed text-text-weak">
+                    {sessionTrace}
+                  </pre>
+                </div>
               ) : (
                 <div className="flex h-full items-center justify-center text-sm text-text-weak">
-                  No active directory
+                  No active session
                 </div>
               )}
             </TabsContent>

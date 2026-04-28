@@ -3,8 +3,8 @@ import type { MessageInfo, MessagePart, MessageWithParts } from "@/state/chat-ty
 import { VIRTUAL_CHAT_TURN_ESTIMATE_PX } from "@/components/virtualization/virtualization-defaults"
 
 import { parseToolState } from "../tools/parse-tool-state"
-import { HIDDEN_TOOLS } from "../tools/registry"
-import { ABSTRACTABLE_TOOLS } from "./constants"
+import { parseToolUiMetadata } from "../tools/parse-tool-ui-metadata"
+import { resolveToolRenderer } from "../tools/registry"
 import { isChatReasoningPart, isChatTextPart, isChatToolPart } from "./part-guards"
 import type { AssistantRenderItem, ChatTranscriptProps, ChatTurn } from "../types"
 
@@ -30,10 +30,11 @@ export function assistantPartRenderable(
   if (!isChatToolPart(part)) return true
 
   const tool = part.tool
-  if (HIDDEN_TOOLS.has(tool)) return false
+  const state = parseToolState(part)
+  const renderer = resolveToolRenderer(tool, parseToolUiMetadata(state.metadata))
+  if (renderer.hidden) return false
 
   if (tool === "question") {
-    const state = parseToolState(part)
     return !(state.status === "pending" || state.status === "running")
   }
 
@@ -47,11 +48,11 @@ export function assistantPartStartsFollowup(part: MessagePart): boolean {
   if (part.type === "patch") return false
   if (isChatToolPart(part)) {
     const tool = part.tool
-    if (HIDDEN_TOOLS.has(tool)) return false
-    if (ABSTRACTABLE_TOOLS.has(tool)) return false
+    const state = parseToolState(part)
+    const renderer = resolveToolRenderer(tool, parseToolUiMetadata(state.metadata))
+    if (renderer.hidden || renderer.summary) return false
 
     if (tool === "question") {
-      const state = parseToolState(part)
       return !(state.status === "pending" || state.status === "running")
     }
 
@@ -88,7 +89,12 @@ export function groupAssistantParts(
 
   visibleParts.forEach((part, index) => {
     const partIsAbstractable =
-      (isChatToolPart(part) && ABSTRACTABLE_TOOLS.has(part.tool)) || isChatReasoningPart(part)
+      (isChatToolPart(part) &&
+        Boolean(
+          resolveToolRenderer(part.tool, parseToolUiMetadata(parseToolState(part).metadata))
+            .summary,
+        )) ||
+      isChatReasoningPart(part)
     if (partIsAbstractable) {
       if (contextStart < 0) contextStart = index
       return

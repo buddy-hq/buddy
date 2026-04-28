@@ -14,30 +14,9 @@ export {
   VIRTUAL_CHAT_TURN_ESTIMATE_PX,
 }
 
-const ABSTRACTABLE_TOOLS = new Set([
-  "read",
-  "list",
-  "glob",
-  "grep",
-  "bash",
-  "websearch",
-  "codesearch",
-  "webfetch",
-  "learner_snapshot_read",
-  "pedagogy_resource_ingest_full_text",
-  "skill",
-  "search_standards",
-  "get_standard",
-  "get_learning_components",
-  "get_prerequisites",
-  "get_next_standards",
-  "get_crosswalk",
-  "query_standards_sql",
-])
-
 const CHAT_SCROLL_ANCHOR_THRESHOLD_PX = 96
 
-export { ABSTRACTABLE_TOOLS, CHAT_SCROLL_ANCHOR_THRESHOLD_PX }
+export { CHAT_SCROLL_ANCHOR_THRESHOLD_PX }
 
 export function toolDefaultOpen(
   tool: string,
