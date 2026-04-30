@@ -2,11 +2,6 @@ import type { PromptContext } from "../context"
 import BUDDY_RUNTIME_CONTEXT_TEMPLATE_SOURCE from "./index.t.md"
 import { calculatorSection } from "./calculator-context"
 import type { RuntimeSectionContext, RuntimeSectionDefinition } from "./definition"
-import {
-  learnerFeedbackSection,
-  learnerProgressSection,
-  learnerSummarySection,
-} from "./learner-context"
 import { modelSection } from "./model-context"
 import { resourcesSection } from "./resource-context"
 import {
@@ -70,9 +65,6 @@ const RUNTIME_SECTIONS: readonly RuntimeSectionDefinition[] = [
   modelSection,
   calculatorSection,
   resourcesSection,
-  learnerSummarySection,
-  learnerProgressSection,
-  learnerFeedbackSection,
   teachingPolicySection,
   teachingWorkspaceSection,
 ]

@@ -18,6 +18,11 @@ export type MessagePromptPipelineResult = {
   transformed: Record<string, unknown>
   runtimeProfileForPermissions?: CreatePromptContextResult["runtimeProfileForPermissions"]
   nextTeachingState?: TeachingSessionState
+  learnerContextDelivery?: {
+    fingerprint: string
+    items: TeachingSessionState["lastDeliveredLearnerContextItems"]
+    kind: "bootstrap" | "delta"
+  }
 }
 
 export async function runMessagePromptPipeline(input: {
@@ -49,6 +54,7 @@ export async function runMessagePromptPipeline(input: {
     | CreatePromptContextResult["runtimeProfileForPermissions"]
     | undefined
   let nextTeachingState: TeachingSessionState | undefined
+  let learnerContextDelivery: MessagePromptPipelineResult["learnerContextDelivery"]
   const existingSystem = typeof input.body.system === "string" ? input.body.system.trim() : ""
   let buddySystem = ""
 
@@ -66,6 +72,7 @@ export async function runMessagePromptPipeline(input: {
     runtimeProfileForPermissions = promptContextResult.runtimeProfileForPermissions
     nextTeachingState = promptContextResult.nextTeachingState
     buddySystem = promptEnvelope.systemContext
+    learnerContextDelivery = promptEnvelope.deliveredLearnerContext
 
     if (promptEnvelope.userPreludeParts.length > 0) {
       parts.unshift(...promptEnvelope.userPreludeParts)
@@ -92,5 +99,6 @@ export async function runMessagePromptPipeline(input: {
     transformed,
     runtimeProfileForPermissions,
     ...(nextTeachingState ? { nextTeachingState } : {}),
+    ...(learnerContextDelivery ? { learnerContextDelivery } : {}),
   }
 }

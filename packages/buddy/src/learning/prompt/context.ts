@@ -4,9 +4,13 @@ import { ModelID, ProviderID } from "@buddy/opencode-adapter/id"
 import { Provider } from "@buddy/opencode-adapter/provider"
 import type { TeachingPromptContext } from "../capabilities/lesson-workspace/model/types"
 import { TeachingPromptContextSchema } from "../capabilities/lesson-workspace/model/types"
-import { LearnerSnapshotCompiler } from "../learner-model/projections/snapshot"
+import { buildLearnerRuntimeSnapshot, type LearnerRuntimeSnapshot } from "../learner-memory"
 import { getBuddyPersona } from "../personas/wiring/persona.orchestration"
 import { resolveCapabilityProfile } from "../resolve-capability-profile"
+import {
+  buildLearnerContextView,
+  type LearnerContextItem,
+} from "../shared/learner-context-delivery"
 import type { TeachingSessionState } from "../shared/teaching-session-state"
 import { hasExplicitModel, resolveCurrentSurface, resolveFocusGoalIds } from "../shared/targeting"
 import type { Persona, WorkspaceState } from "@buddy/backend/learning/shared/teaching-vocabulary"
@@ -72,7 +76,10 @@ export type PromptContext = {
     typeof resolveCapabilityProfile
   >["capabilityEnvelope"]["visibleSurfaces"]
   workspaceState: WorkspaceState
-  learnerSnapshot: Awaited<ReturnType<typeof LearnerSnapshotCompiler.compile>>
+  learnerSnapshot: LearnerRuntimeSnapshot
+  learnerContextDigest?: string
+  priorLearnerContextDigest?: string
+  priorLearnerContextItems?: LearnerContextItem[]
   focusGoalIds: string[]
   resources: PromptResource[]
   activeResource?: ActivePromptResource
@@ -251,14 +258,9 @@ async function buildPromptContext(
   const persona = getBuddyPersona(input.personaID, input.projectConfig.personas)
   const focusGoalIds = resolveFocusGoalIds(input.body)
   const workspaceState: WorkspaceState = teachingContext?.active ? "interactive" : "chat"
-  const learnerSnapshot = await LearnerSnapshotCompiler.compile({
-    directory: input.directory,
-    query: {
-      persona: persona.id,
-      focusGoalIds,
-      workspaceState,
-    },
-  })
+  const learnerSnapshot = await buildLearnerRuntimeSnapshot(input.directory)
+  const learnerContextView = buildLearnerContextView(learnerSnapshot)
+  const learnerContextDigest = learnerContextView.fingerprint
   const resources = await listRegisteredResources(input.directory).catch(() => [])
   const runtimeProfile = resolveCapabilityProfile({
     persona,
@@ -291,6 +293,15 @@ async function buildPromptContext(
       visibleSurfaces: runtimeProfile.capabilityEnvelope.visibleSurfaces,
       workspaceState,
       learnerSnapshot,
+      learnerContextDigest,
+      ...(input.previousState?.lastDeliveredLearnerContextDigest
+        ? {
+            priorLearnerContextDigest: input.previousState.lastDeliveredLearnerContextDigest,
+          }
+        : {}),
+      ...(input.previousState?.lastDeliveredLearnerContextItems
+        ? { priorLearnerContextItems: input.previousState.lastDeliveredLearnerContextItems }
+        : {}),
       focusGoalIds,
       resources: promptResources,
       ...(model ? { model } : {}),
@@ -316,6 +327,7 @@ async function buildPromptContext(
       }),
       workspaceState,
       focusGoalIds,
+      learnerContextDigest,
     } satisfies TeachingSessionState,
   }
 }
