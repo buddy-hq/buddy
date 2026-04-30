@@ -41,6 +41,15 @@ export function isConfigValidationError(error: unknown): boolean {
 }
 
 export function configErrorMessage(error: unknown): string {
+  if (error instanceof InvalidError && error.data.issues && error.data.issues.length > 0) {
+    const issueText = error.data.issues
+      .map((issue) => {
+        const path = issue.path.length > 0 ? issue.path.join(".") : "<root>"
+        return `${path}: ${issue.message}`
+      })
+      .join("; ")
+    return `Invalid config: ${error.data.path} (${issueText})`
+  }
   if (error instanceof Error && error.message) return error.message
   return "Invalid config"
 }

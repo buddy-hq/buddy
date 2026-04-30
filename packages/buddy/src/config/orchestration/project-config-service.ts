@@ -141,7 +141,7 @@ async function applyAndSyncProjectConfigChange(input: {
 }
 
 export async function patchProjectConfig(input: { directory: string; payload: unknown }) {
-  const parsed = mergeAndValidateProjectConfigPatch({
+  const parsed = mergeAndValidateConfigPatch({
     current: await readProjectConfigFile(input.directory),
     patch: input.payload,
   })
@@ -151,6 +151,15 @@ export async function patchProjectConfig(input: { directory: string; payload: un
   })
 
   return readProjectConfig(input.directory)
+}
+
+export async function patchGlobalConfig(payload: unknown) {
+  const parsed = mergeAndValidateConfigPatch({
+    current: await Config.getGlobal(),
+    patch: payload,
+  })
+
+  return Config.updateGlobal(parsed)
 }
 
 const DELETE_PATCH_SENTINEL = Symbol("delete_patch_value")
@@ -177,10 +186,7 @@ function mergePatchValue(current: unknown, patch: unknown): unknown | typeof DEL
   return base
 }
 
-function mergeAndValidateProjectConfigPatch(input: {
-  current: Config.Info
-  patch: unknown
-}): Config.Info {
+function mergeAndValidateConfigPatch(input: { current: Config.Info; patch: unknown }): Config.Info {
   if (!isRecord(input.patch)) {
     throw new InvalidError({
       path: "<request>",

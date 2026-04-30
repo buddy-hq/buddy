@@ -33,6 +33,34 @@ export namespace ConfigSchema {
   const BuddySurface = z.enum(PERSONA_SURFACES)
   const BuddyPersonaID = z.enum(PERSONAS)
   const DisabledMcp = z.object({ enabled: z.boolean() }).strict()
+  const LearnerMemory = z
+    .object({
+      master_enabled: z.boolean().optional(),
+      enabled: z.boolean().optional(),
+      auto_extract: z.boolean().optional(),
+      min_user_messages: NonNegativeInteger.optional(),
+      min_session_span_ms: NonNegativeInteger.optional(),
+      active_burst_gap_ms: NonNegativeInteger.optional(),
+      min_active_burst_messages: NonNegativeInteger.optional(),
+      min_assistant_output_tokens: NonNegativeInteger.optional(),
+      attention_threshold: NonNegativeInteger.optional(),
+      approval_confidence_threshold: z.number().min(0).max(1).optional(),
+      max_session_messages: NonNegativeInteger.optional(),
+      auto_extract_delay_ms: NonNegativeInteger.optional(),
+      max_extraction_calls_per_session: NonNegativeInteger.optional(),
+      max_extraction_calls_per_day: NonNegativeInteger.optional(),
+      default_context_memory_limit: NonNegativeInteger.optional(),
+      extract_model: ModelID.optional(),
+      consolidation_model: ModelID.optional(),
+      min_startup_idle_ms: NonNegativeInteger.optional(),
+      max_startup_session_age_ms: NonNegativeInteger.optional(),
+      max_sessions_per_startup: NonNegativeInteger.optional(),
+      startup_concurrency: NonNegativeInteger.optional(),
+      max_raw_memories_for_consolidation: NonNegativeInteger.optional(),
+      max_unused_stage_one_days: NonNegativeInteger.optional(),
+    })
+    .strict()
+    .optional()
   const Compaction = z
     .object({
       auto: z.boolean().optional(),
@@ -90,6 +118,7 @@ export namespace ConfigSchema {
       permission: Permission.optional(),
       compaction: Compaction,
       tools: TOOL_TOGGLE_MAP,
+      learner_memory: LearnerMemory,
       skills_external_vendor_roots_enabled: z.boolean().optional(),
       notebook_home: z.string().nullable().optional(),
     })
@@ -98,6 +127,11 @@ export namespace ConfigSchema {
       const profiles = resolveBuddyPersonaProfiles(value.personas)
 
       for (const personaID of PERSONAS) {
+        const override = value.personas?.[personaID]
+        if (!override) {
+          continue
+        }
+
         const profile = profiles[personaID]
         if (profile.surfaces.includes(profile.defaultSurface)) {
           continue
