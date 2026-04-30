@@ -3,6 +3,7 @@ import type {
   Surface,
   WorkspaceState,
 } from "@buddy/backend/learning/shared/teaching-vocabulary"
+import type { LearnerContextItem } from "./learner-context-delivery"
 
 export type TeachingLlmOutboundEntry = {
   kind: "message" | "command"
@@ -17,6 +18,10 @@ export type TeachingSessionState = {
   currentSurface: Surface
   workspaceState: WorkspaceState
   focusGoalIds: string[]
+  learnerContextDigest?: string
+  lastDeliveredLearnerContextDigest?: string
+  lastDeliveredLearnerContextItems?: LearnerContextItem[]
+  lastDeliveredLearnerContextMessageId?: string
   lastLlmOutbound?: TeachingLlmOutboundEntry
   llmOutboundHistory?: TeachingLlmOutboundEntry[]
 }

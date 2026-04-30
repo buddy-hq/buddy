@@ -1,4 +1,5 @@
 import { readProjectConfig } from "@buddy/backend/config/runtime"
+import { appendLearnerEvent, createLearnerEvent } from "../../learner-memory"
 import { syncBuddyRuntimeSessionPermissions } from "../permissions/runtime-session-permissions"
 import { readTeachingSessionState, writeTeachingSessionState } from "../state/session-state"
 import { restoreTeachingSessionState, writeLastLlmOutbound } from "../state/transform-state"
@@ -8,6 +9,7 @@ import { runMessagePromptPipeline } from "../../prompt/message-prompt-pipeline"
 export type SessionMessageTransformOrchestrationResult = {
   transformed: Record<string, unknown>
   rollbackState?: () => void
+  onAccepted?: () => Promise<void>
 }
 
 export async function orchestrateSessionMessageTransform(input: {
@@ -35,7 +37,32 @@ export async function orchestrateSessionMessageTransform(input: {
         sessionID: input.context.sessionID,
         previousState,
       })
-    writeTeachingSessionState(input.context.directory, pipelineResult.nextTeachingState)
+    writeTeachingSessionState(input.context.directory, {
+      ...(previousState?.lastDeliveredLearnerContextDigest
+        ? {
+            lastDeliveredLearnerContextDigest: previousState.lastDeliveredLearnerContextDigest,
+          }
+        : {}),
+      ...(previousState?.lastDeliveredLearnerContextItems
+        ? {
+            lastDeliveredLearnerContextItems: previousState.lastDeliveredLearnerContextItems,
+          }
+        : {}),
+      ...(previousState?.lastDeliveredLearnerContextMessageId
+        ? {
+            lastDeliveredLearnerContextMessageId:
+              previousState.lastDeliveredLearnerContextMessageId,
+          }
+        : {}),
+      ...pipelineResult.nextTeachingState,
+      ...(pipelineResult.learnerContextDelivery
+        ? {
+            lastDeliveredLearnerContextDigest: pipelineResult.learnerContextDelivery.fingerprint,
+            lastDeliveredLearnerContextItems: pipelineResult.learnerContextDelivery.items,
+            lastDeliveredLearnerContextMessageId: undefined,
+          }
+        : {}),
+    })
   }
 
   await syncBuddyRuntimeSessionPermissions({
@@ -43,6 +70,8 @@ export async function orchestrateSessionMessageTransform(input: {
     sessionID: input.context.sessionID,
     runtimeProfile: pipelineResult.runtimeProfileForPermissions,
   })
+
+  const learnerContextDelivery = pipelineResult.learnerContextDelivery
 
   writeLastLlmOutbound({
     directory: input.context.directory,
@@ -54,5 +83,33 @@ export async function orchestrateSessionMessageTransform(input: {
   return {
     transformed: pipelineResult.transformed,
     rollbackState: rollbackTeachingState,
+    onAccepted: learnerContextDelivery
+      ? async () => {
+          const state = readTeachingSessionState(input.context.directory, input.context.sessionID)
+          if (!state) return
+
+          const messageId = `learner_ctx_${input.context.sessionID}_${Date.now()}`
+          writeTeachingSessionState(input.context.directory, {
+            ...state,
+            lastDeliveredLearnerContextMessageId: messageId,
+          })
+          await appendLearnerEvent(
+            input.context.directory,
+            createLearnerEvent({
+              type: "learner_context_delivered",
+              sessionId: input.context.sessionID,
+              projectPath: input.context.directory,
+              sourceKind: "learner_context",
+              sourceId: messageId,
+              searchableText: `Learner context ${learnerContextDelivery.kind} delivered for session ${input.context.sessionID}.`,
+              payload: {
+                deliveryKind: learnerContextDelivery.kind,
+                fingerprint: learnerContextDelivery.fingerprint,
+                itemCount: learnerContextDelivery.items?.length ?? 0,
+              },
+            }),
+          )
+        }
+      : undefined,
   }
 }

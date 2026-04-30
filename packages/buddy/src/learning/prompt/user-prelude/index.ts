@@ -1,8 +1,13 @@
 import type { PromptContext, PromptTurnSnapshot } from "../context"
+import {
+  buildLearnerContextView,
+  decideLearnerContextDelivery,
+} from "../../shared/learner-context-delivery"
 import { hasText } from "../utils"
 import { activeResourceReminder } from "./active-resource-reminder"
 import { checkpointReminder } from "./checkpoint-reminder"
 import type { TurnReminderDefinition, TurnReminderContext } from "./definition"
+import { learnerMemoryReminder } from "./learner-memory-reminder"
 import { turnTransitionReminder } from "./turn-transitions"
 
 export type BuddyUserPreludePart = {
@@ -12,6 +17,7 @@ export type BuddyUserPreludePart = {
 }
 
 const TURN_REMINDERS: readonly TurnReminderDefinition[] = [
+  learnerMemoryReminder,
   turnTransitionReminder,
   checkpointReminder,
   activeResourceReminder,
@@ -21,6 +27,15 @@ export function buildBuddyUserPrelude(input: {
   context: PromptContext
   changedSinceCheckpoint?: boolean
 }): readonly BuddyUserPreludePart[] {
+  const learnerContextView = buildLearnerContextView(input.context.learnerSnapshot)
+  const learnerContextDelivery = decideLearnerContextDelivery({
+    current: {
+      ...learnerContextView,
+      fingerprint: input.context.learnerContextDigest ?? learnerContextView.fingerprint,
+    },
+    previousFingerprint: input.context.priorLearnerContextDigest,
+    previousItems: input.context.priorLearnerContextItems,
+  })
   const currentTurn = {
     persona: input.context.persona,
     workspaceState: input.context.workspaceState,
@@ -30,6 +45,7 @@ export function buildBuddyUserPrelude(input: {
     ...input.context,
     changedSinceCheckpoint: input.changedSinceCheckpoint,
     currentTurn,
+    learnerContextDelivery,
   }
 
   const reminderLines = TURN_REMINDERS.flatMap((definition) => {
