@@ -33,4 +33,8 @@ export namespace Provider {
   ) {
     return runtime.runPromise((svc) => svc.getSmallModel(providerID))
   }
+
+  export async function defaultModel() {
+    return runtime.runPromise((svc) => svc.defaultModel())
+  }
 }

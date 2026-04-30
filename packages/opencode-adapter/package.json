@@ -32,6 +32,7 @@
     "./session-prompt": "./src/session-prompt.ts",
     "./file": "./src/file.ts",
     "./provider": "./src/provider.ts",
+    "./llm": "./src/llm.ts",
     "./theme": "./src/theme.ts",
     "./provider-icon": "./src/provider-icon.ts",
     "./storage-db": "./src/storage-db.ts"
