@@ -1,9 +1,7 @@
 import STATE_DESCRIPTION from "./state.md"
 import z from "zod"
 import { createBuddyTool, type BuddyToolContext } from "../../../tools/create-buddy-tool"
-import { LearnerArtifactPath } from "../../../learner-model/repository/path"
-import { LearnerArtifactStore } from "../../../learner-model/repository/store"
-import type { GoalArtifact } from "../../../learner-model/repository/types"
+import { goalsFile, listActiveGoals } from "../../../learner-memory/goals/storage"
 import { GoalStateSchema, createGoalToolResult } from "../types"
 
 const goalStateTool = createBuddyTool({
@@ -18,13 +16,7 @@ const goalStateTool = createBuddyTool({
       metadata: {},
     })
 
-    const goals = (
-      (await LearnerArtifactStore.listArtifacts({
-        directory: ctx.directory,
-        kind: "goal",
-        status: "active",
-      })) as GoalArtifact[]
-    ).map((goal) => ({
+    const goals = (await listActiveGoals(ctx.directory)).map((goal) => ({
       goalId: goal.id,
       setId: goal.setId ?? "unspecified",
       scope: goal.scope,
@@ -47,7 +39,7 @@ const goalStateTool = createBuddyTool({
     )
 
     const result = GoalStateSchema.parse({
-      filePath: LearnerArtifactPath.kindDirectory(ctx.directory, "goal"),
+      filePath: goalsFile(ctx.directory),
       exists: goals.length > 0,
       activeSetCount: activeSets.length,
       activeSets,

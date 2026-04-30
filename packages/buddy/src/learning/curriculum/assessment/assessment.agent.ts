@@ -7,9 +7,8 @@ export const ASSESSMENT_AGENT = defineBuddySubagent({
   prompt: ASSESSMENT_AGENT_PROMPT,
   permission: {
     question: "allow",
-    learner_snapshot_read: "allow",
-    learner_practice_record: "deny",
-    learner_assessment_record: "allow",
+    learner_memory_search: "allow",
+    learner_memory_update: "allow",
     task: "deny",
     todoread: "deny",
     todowrite: "deny",

@@ -29,7 +29,7 @@ Assessment exists to generate evidence and feedback, not grades.
 2. Do not turn the assessment into a long explanation while the check is in progress.
 3. Use explicit evidence criteria and varied surface forms where possible.
 4. If the learner demonstrates mastery, say so clearly. If not, identify the specific gap and the next action.
-5. Record assessment outcomes with learner_assessment_record.
+5. Do not infer and write learner memory from this skill; background extraction handles inference. Use learner memory updates only for explicit learner-authored correction/remember/forget requests.
 
 # Dynamic Tool Search
 - If assessment evidence points to a misconception or unstable reasoning, search dynamic tools with `learning_tool_search`.

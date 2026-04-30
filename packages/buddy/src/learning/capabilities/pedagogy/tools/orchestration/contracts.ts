@@ -1,4 +1,4 @@
-import type { GoalArtifact } from "../../../../learner-model/repository/types"
+import type { GoalRecord } from "../../../../learner-memory/goals/storage"
 
 export type PedagogyToolParams = {
   goalIds: string[]
@@ -13,6 +13,6 @@ export type PedagogyToolContext = {
   workspaceLabel: string
   persona: string
   goalIds: string[]
-  goals: GoalArtifact[]
+  goals: GoalRecord[]
   learnerSummaryLines: string[]
 }

@@ -29,7 +29,7 @@ Practice is the primary learning engine. Prefer giving the learner something con
 2. Target expert-thinking components, not only routine procedures.
 3. Every practice task should have a clear reason why it matters in the learner's real context.
 4. Use hints before giving direct corrections when the learner is close.
-5. Record meaningful practice activities and outcomes with learner_practice_record.
+5. Do not infer and write learner memory from this skill; background extraction handles inference. Use learner memory updates only for explicit learner-authored correction/remember/forget requests.
 
 # Dynamic Tool Search
 - If a useful pedagogy helper is not available, search dynamic tools with `learning_tool_search`.

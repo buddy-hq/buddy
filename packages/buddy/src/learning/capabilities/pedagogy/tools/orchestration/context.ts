@@ -1,9 +1,7 @@
 import { readTeachingSessionState } from "../../../../agent-execution/state/session-state"
 import type { BuddyToolContext } from "../../../../tools/create-buddy-tool"
-import { LearnerSnapshotCompiler } from "../../../../learner-model/projections/snapshot"
-import { LearnerArtifactStore } from "../../../../learner-model/repository/store"
-import type { GoalArtifact } from "../../../../learner-model/repository/types"
-import { ensureWorkspaceContext } from "../../../../learner-model/workflows/workspace"
+import { buildLearnerRuntimeSnapshot } from "../../../../learner-memory"
+import { listActiveGoals, type GoalRecord } from "../../../../learner-memory/goals/storage"
 import type { PedagogyToolContext, PedagogyToolParams } from "./contracts"
 
 const compactLine = (value: string) => value.trim().replace(/\s+/g, " ")
@@ -13,26 +11,13 @@ export async function resolvePedagogyToolContext(
   params: PedagogyToolParams,
 ): Promise<PedagogyToolContext> {
   const runtimeState = readTeachingSessionState(ctx.directory, ctx.sessionID)
-  const workspace = await ensureWorkspaceContext(ctx.directory)
+  const workspace = { label: ctx.directory }
   const requestedGoalIds = params.goalIds ?? []
   const focusGoalIds =
     requestedGoalIds.length > 0 ? requestedGoalIds : (runtimeState?.focusGoalIds ?? [])
-  const snapshot = await LearnerSnapshotCompiler.compile({
-    directory: ctx.directory,
-    query: {
-      persona: runtimeState?.persona ?? "buddy",
-      focusGoalIds,
-      workspaceState: runtimeState?.workspaceState,
-    },
-  })
+  const snapshot = await buildLearnerRuntimeSnapshot(ctx.directory)
   const goalIds = focusGoalIds.length > 0 ? focusGoalIds : snapshot.goals.map((goal) => goal.id)
-  const goals = (
-    (await LearnerArtifactStore.listArtifacts({
-      directory: ctx.directory,
-      kind: "goal",
-      status: "active",
-    })) as GoalArtifact[]
-  )
+  const goals: GoalRecord[] = (await listActiveGoals(ctx.directory))
     .filter((goal) => goalIds.includes(goal.id))
     .slice(0, 3)
   const learnerSummaryLines = [

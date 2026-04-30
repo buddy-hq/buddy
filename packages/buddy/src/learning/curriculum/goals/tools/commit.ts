@@ -1,7 +1,7 @@
 import COMMIT_DESCRIPTION from "./commit.md"
 import z from "zod"
 import { createBuddyTool, type BuddyToolContext } from "../../../tools/create-buddy-tool"
-import { replaceGoalSet } from "../../../learner-model/workflows/workspace"
+import { replaceActiveGoalSet } from "../../../learner-memory/goals/storage"
 import { GoalCommitResultSchema, GoalSchema, GoalScopeSchema, createGoalToolResult } from "../types"
 
 const goalCommitTool = createBuddyTool({
@@ -28,15 +28,11 @@ const goalCommitTool = createBuddyTool({
       },
     })
 
-    const commit = await replaceGoalSet({
+    const commit = await replaceActiveGoalSet({
       directory: ctx.directory,
       scope: params.scope,
       contextLabel: params.contextLabel,
-      learnerRequest: params.learnerRequest,
       goals: params.goals,
-      rationaleSummary: params.rationaleSummary,
-      assumptions: params.assumptions,
-      openQuestions: params.openQuestions,
     })
 
     const result = GoalCommitResultSchema.parse({

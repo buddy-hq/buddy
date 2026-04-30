@@ -7,7 +7,8 @@ export const CURRICULUM_ORCHESTRATOR = defineBuddySubagent({
   prompt: CURRICULUM_ORCHESTRATOR_PROMPT,
   permission: {
     "*": "deny",
-    learner_snapshot_read: "allow",
+    learner_memory_search: "allow",
+    learner_memory_update: "allow",
     task: {
       "*": "deny",
       "goal-writer": "allow",

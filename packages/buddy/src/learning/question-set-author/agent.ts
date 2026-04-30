@@ -7,10 +7,9 @@ export const QUESTION_SET_AUTHOR_AGENT = defineBuddySubagent({
   prompt: QUESTION_SET_AUTHOR_PROMPT,
   permission: {
     question: "allow",
-    learner_snapshot_read: "allow",
+    learner_memory_search: "allow",
+    learner_memory_update: "allow",
     save_question_set: "allow",
-    learner_practice_record: "deny",
-    learner_assessment_record: "deny",
     task: "deny",
     todoread: "deny",
     todowrite: "deny",

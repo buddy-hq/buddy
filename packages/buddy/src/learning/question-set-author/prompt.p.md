@@ -16,7 +16,7 @@ Generate a complete, structured MCQ question set from the context bundle provide
 
 - Use `save_question_set` exactly once.
 - Do not grade attempts.
-- Do not write learner memory records.
+- Do not infer learner memory records. Only use learner-memory update behavior if the learner explicitly asks Buddy to remember, correct, forget, or reject learner context.
 - Do not delegate.
 
 # Authoring rules

@@ -7,9 +7,8 @@ export const PRACTICE_AGENT = defineBuddySubagent({
   prompt: PRACTICE_AGENT_PROMPT,
   permission: {
     question: "allow",
-    learner_snapshot_read: "allow",
-    learner_practice_record: "allow",
-    learner_assessment_record: "deny",
+    learner_memory_search: "allow",
+    learner_memory_update: "allow",
     task: "deny",
     todoread: "deny",
     todowrite: "deny",
