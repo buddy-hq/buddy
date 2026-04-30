@@ -1,10 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
+import type {
+  LearnerMemoryArtifactsResponses,
+  LearnerMemoryEvaluationRunResponses,
+  LearnerMemoryLabRunResponses,
+  LearnerMemoryLabStartResponses,
+  LearnerMemoryLabStatusResponses,
+  LearnerMemoryListResponses,
+  LearnerMemoryPipelineDiagnosticsResponses,
+  LearnerMemorySearchResponses,
+  LearnerMemorySettingsResponses,
+} from "@buddy/sdk"
 import { ReactQueryDevtoolsPanel } from "@tanstack/react-query-devtools"
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools"
 import { BugIcon, GripVerticalIcon, PowerIcon, RotateCcwIcon, XIcon } from "lucide-react"
 import {
-  Badge,
   Button,
   Card,
   CardContent,
@@ -14,6 +24,11 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
   CopyIcon,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   SparklesIcon,
   Tabs,
   TabsContent,
@@ -23,9 +38,12 @@ import {
 } from "@buddy/ui"
 import { useLocation, useNavigate } from "@tanstack/react-router"
 import { language } from "@/context/language"
+import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 import { useChatStore } from "@/state/chat-store"
+import type { MessageWithParts } from "@/state/chat-types"
 import { teachingSessionKey, useTeachingRuntime } from "@/state/teaching-runtime"
 import { learnerSnapshotViewsQueryOptions } from "@/state/learner-query"
+import { useNotebookSettingsWorkbench } from "@/state/project-settings"
 import { SystemPromptPanel } from "./system-prompt-panel"
 import { PalettePanel } from "./palette-panel"
 import { buildSessionTrace, copyToClipboard } from "@/lib/directory-chat/chat-debug-helpers"
@@ -43,7 +61,7 @@ import {
   buildOnboardingChatEntryReturnTo,
 } from "@/lib/onboarding-test-mode"
 
-type BuddyDevToolsTab = "palette" | "trace" | "system" | "snapshot" | "query" | "actions"
+type BuddyDevToolsTab = "palette" | "trace" | "system" | "snapshot" | "memory" | "query" | "actions"
 
 type Rect = {
   left: number
@@ -56,6 +74,79 @@ type ResizeDirection = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw"
 
 const MIN_DEVTOOLS_WIDTH = 320
 const MIN_DEVTOOLS_HEIGHT = 200
+const MEMORY_DEVTOOLS_LIMIT = 30
+const MEMORY_TEST_AUTO_MODEL_VALUE = "__auto__"
+const MEMORY_TEST_DEFAULT_QUERY = "bridge validation boundary structured errors"
+const MEMORY_TEST_MILLISECONDS_PER_MINUTE = 60_000
+const MEMORY_TEST_MILLISECONDS_PER_HOUR = 60 * MEMORY_TEST_MILLISECONDS_PER_MINUTE
+const MEMORY_TEST_MILLISECONDS_PER_DAY = 24 * MEMORY_TEST_MILLISECONDS_PER_HOUR
+const EMPTY_MESSAGES: MessageWithParts[] = []
+
+type LearnerMemoryRecord = LearnerMemoryListResponses[200]["memories"][number]
+type LearnerMemoryEvaluationReport = LearnerMemoryEvaluationRunResponses[200]
+type LearnerMemorySearchResult = LearnerMemorySearchResponses[200]["results"][number]
+type LearnerMemoryPipelineDiagnostics = LearnerMemoryPipelineDiagnosticsResponses[200]
+type LearnerMemoryArtifacts = LearnerMemoryArtifactsResponses[200]
+type LearnerMemorySettings = LearnerMemorySettingsResponses[200]
+type MemoryTestRunState = LearnerMemoryLabStatusResponses[200]
+type MemoryTestRunHandle = LearnerMemoryLabStartResponses[200]
+const MEMORY_TEST_PIPELINE_MODE = {
+  off: "off",
+  production: "production",
+  force: "force",
+} as const
+type MemoryTestPipelineMode =
+  (typeof MEMORY_TEST_PIPELINE_MODE)[keyof typeof MEMORY_TEST_PIPELINE_MODE]
+type MemoryTestSelection = {
+  pipelineMode: MemoryTestPipelineMode
+  deterministicHarness: boolean
+  modelHarness: boolean
+  startupSweep: boolean
+  searchProbe: boolean
+}
+type MemoryTestRunResult = LearnerMemoryLabRunResponses[200]
+type MemoryTestSettingsDraft = Omit<
+  LearnerMemorySettings,
+  "extractModel" | "consolidationModel"
+> & {
+  extractModel: string
+  consolidationModel: string
+}
+type MemoryTestNumberSettingKey = keyof Pick<
+  MemoryTestSettingsDraft,
+  | "minUserMessages"
+  | "minSessionSpanMs"
+  | "activeBurstGapMs"
+  | "minActiveBurstMessages"
+  | "minAssistantOutputTokens"
+  | "attentionThreshold"
+  | "maxExtractionCallsPerSession"
+  | "maxExtractionCallsPerDay"
+  | "defaultContextMemoryLimit"
+  | "minStartupIdleMs"
+  | "maxStartupSessionAgeMs"
+  | "maxSessionsPerStartup"
+  | "startupConcurrency"
+  | "maxRawMemoriesForConsolidation"
+  | "maxUnusedStageOneDays"
+>
+type MemoryTestModelSettingKey = keyof Pick<
+  MemoryTestSettingsDraft,
+  "extractModel" | "consolidationModel"
+>
+type MemoryTestBooleanSettingKey = keyof Pick<MemoryTestSettingsDraft, "enabled" | "autoExtract">
+
+function isBuddyDevToolsTab(value: string): value is BuddyDevToolsTab {
+  return (
+    value === "palette" ||
+    value === "trace" ||
+    value === "system" ||
+    value === "snapshot" ||
+    value === "memory" ||
+    value === "query" ||
+    value === "actions"
+  )
+}
 
 function getDefaultDevToolsRect(): Rect {
   const vw = window.innerWidth
@@ -305,12 +396,13 @@ function RuntimeListSection(props: { title: string; items: string[]; empty: stri
 function DevToolsSnapshotTab(props: { directory: string }) {
   const { directory } = props
   const sessionID = useChatStore((s) => s.directories[directory]?.sessionID)
-  const teachingRuntime = useTeachingRuntime()
   const sessionKey = useMemo(
     () => (sessionID ? teachingSessionKey(directory, sessionID) : ""),
     [directory, sessionID],
   )
-  const persona = sessionKey ? teachingRuntime.selectedPersonaBySession[sessionKey] : undefined
+  const persona = useTeachingRuntime((state) =>
+    sessionKey ? state.selectedPersonaBySession[sessionKey] : undefined,
+  )
 
   const query = useQuery({
     ...learnerSnapshotViewsQueryOptions(directory, {
@@ -399,6 +491,1704 @@ function DevToolsSnapshotTab(props: { directory: string }) {
   )
 }
 
+function MemoryMetaRow(props: { label: string; value: string | number | undefined }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 text-[11px]">
+      <span className="text-text-weaker">{props.label}</span>
+      <span className="truncate font-mono text-text-weak">{props.value ?? "none"}</span>
+    </div>
+  )
+}
+
+function MemoryRecordCard(props: { memory: LearnerMemoryRecord }) {
+  const memory = props.memory
+  return (
+    <Card size="sm" className="gap-0 py-0">
+      <CardContent className="space-y-2 px-3 py-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium text-text-base">
+              {memory.pinned ? "Pinned: " : ""}
+              {memory.title}
+            </p>
+            <p className="mt-0.5 text-[11px] text-text-weak">
+              {memory.status} · {memory.type} · {memory.memoryType ?? "semantic"}
+            </p>
+          </div>
+          <span className="rounded border border-border-base/60 px-1.5 py-0.5 text-[10px] text-text-weak">
+            {memory.confidence.toFixed(2)}
+          </span>
+        </div>
+        <p className="line-clamp-3 text-xs text-text-weak">{memory.body}</p>
+        <div className="space-y-1 border-t border-border-weaker-base pt-2">
+          <MemoryMetaRow label="id" value={memory.id} />
+          <MemoryMetaRow label="project" value={memory.projectPath} />
+          <MemoryMetaRow label="strength" value={(memory.strength ?? 0.5).toFixed(2)} />
+          <MemoryMetaRow label="last used" value={memory.lastUsedAt} />
+          <MemoryMetaRow label="sources" value={memory.sourceEventIds.join(", ") || "none"} />
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function MemorySearchCard(props: { result: LearnerMemorySearchResult }) {
+  return (
+    <Card size="sm" className="gap-0 py-0">
+      <CardContent className="space-y-2 px-3 py-3">
+        <div className="flex items-center justify-between gap-3">
+          <p className="truncate text-sm font-medium text-text-base">{props.result.memory.title}</p>
+          <span className="font-mono text-[11px] text-text-weak">
+            {props.result.score.toFixed(2)}
+          </span>
+        </div>
+        <p className="line-clamp-2 text-xs text-text-weak">{props.result.memory.body}</p>
+        <p className="break-words font-mono text-[10px] leading-relaxed text-text-weaker">
+          {props.result.reasons.join(" · ")}
+        </p>
+      </CardContent>
+    </Card>
+  )
+}
+
+function formatDiagnosticTime(value: number | null | undefined) {
+  if (value === undefined || value === null || value <= 0) return "none"
+  return new Date(value).toLocaleTimeString()
+}
+
+function PipelineJobCard(props: {
+  title: string
+  job?: LearnerMemoryPipelineDiagnostics["stageOneJobs"][number]
+}) {
+  if (!props.job) {
+    return (
+      <p className="rounded-md border border-border-base/60 p-3 text-xs text-text-weak">
+        No {props.title.toLowerCase()} job recorded.
+      </p>
+    )
+  }
+
+  return (
+    <Card size="sm" className="gap-0 py-0">
+      <CardContent className="space-y-1 px-3 py-3">
+        <p className="truncate text-sm font-medium text-text-base">{props.title}</p>
+        <MemoryMetaRow label="job" value={props.job.jobKey} />
+        <MemoryMetaRow label="worker" value={props.job.workerId ?? "none"} />
+        <MemoryMetaRow label="attempts" value={props.job.attemptCount} />
+        <MemoryMetaRow
+          label="lease until"
+          value={formatDiagnosticTime(props.job.leaseExpiresAtMs)}
+        />
+        <MemoryMetaRow label="retry after" value={formatDiagnosticTime(props.job.retryAfterMs)} />
+        <MemoryMetaRow label="watermark" value={props.job.lastSuccessWatermarkMs ?? "none"} />
+        <MemoryMetaRow label="failure" value={props.job.lastFailure ?? "none"} />
+      </CardContent>
+    </Card>
+  )
+}
+
+function PipelineOutputCard(props: {
+  output: LearnerMemoryPipelineDiagnostics["stageOneOutputs"][number]
+}) {
+  const output = props.output
+  const usage = output.extractionUsage
+  return (
+    <Card size="sm" className="gap-0 py-0">
+      <CardContent className="space-y-1 px-3 py-3">
+        <div className="flex items-center justify-between gap-3">
+          <p className="truncate text-sm font-medium text-text-base">{output.sessionId}</p>
+          <span className="rounded border border-border-base/60 px-1.5 py-0.5 text-[10px] text-text-weak">
+            {output.selectedForConsolidation ? "selected" : "not selected"}
+          </span>
+        </div>
+        <MemoryMetaRow label="candidates" value={output.candidateCount} />
+        <MemoryMetaRow label="usage count" value={output.usageCount} />
+        <MemoryMetaRow
+          label="model"
+          value={
+            output.extractionModel
+              ? `${output.extractionModel.providerID}/${output.extractionModel.modelID}`
+              : "none"
+          }
+        />
+        <MemoryMetaRow label="cost" value={usage ? usage.cost.toFixed(5) : "none"} />
+        <MemoryMetaRow
+          label="tokens"
+          value={
+            usage
+              ? `${usage.tokens.input}+${usage.tokens.output}+r${usage.tokens.reasoning}`
+              : "none"
+          }
+        />
+        <MemoryMetaRow label="path" value={output.outputPath} />
+      </CardContent>
+    </Card>
+  )
+}
+
+function MemoryArtifactCard(props: { artifact: LearnerMemoryArtifacts["artifacts"][number] }) {
+  const content = props.artifact.content ?? ""
+  return (
+    <Card size="sm" className="gap-0 py-0">
+      <CardContent className="space-y-2 px-3 py-3">
+        <div className="flex items-center justify-between gap-3">
+          <p className="truncate text-sm font-medium text-text-base">{props.artifact.label}</p>
+          <span className="rounded border border-border-base/60 px-1.5 py-0.5 text-[10px] text-text-weak">
+            {props.artifact.exists ? `${content.length} chars` : "missing"}
+          </span>
+        </div>
+        <MemoryMetaRow label="path" value={props.artifact.path} />
+        {props.artifact.exists ? (
+          <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-md border border-border-base/60 bg-background-base p-2 font-mono text-[10px] leading-relaxed text-text-weak">
+            {content.slice(0, 4_000)}
+          </pre>
+        ) : null}
+      </CardContent>
+    </Card>
+  )
+}
+
+function MemoryTestNumberControl(props: {
+  label: string
+  value: number
+  min: number
+  max?: number
+  step?: number
+  disabled?: boolean
+  onChange: (value: number) => void
+}) {
+  return (
+    <label className="space-y-1">
+      <span className="block text-[11px] font-medium text-text-weaker">{props.label}</span>
+      <input
+        type="number"
+        value={props.value}
+        min={props.min}
+        max={props.max}
+        step={props.step ?? 1}
+        disabled={props.disabled}
+        onChange={(event) => {
+          const value = Number(event.currentTarget.value)
+          if (Number.isFinite(value)) props.onChange(value)
+        }}
+        className="h-8 w-full rounded-md border border-border-base/60 bg-background-base px-2 text-xs text-text-base disabled:cursor-not-allowed disabled:opacity-50"
+      />
+    </label>
+  )
+}
+
+function MemoryTestToggle(props: {
+  checked: boolean
+  label: string
+  description: string
+  disabled?: boolean
+  onChange: (checked: boolean) => void
+}) {
+  return (
+    <label className="flex cursor-pointer items-start gap-2 rounded-md border border-border-base/60 bg-background-base px-2.5 py-2">
+      <input
+        type="checkbox"
+        checked={props.checked}
+        disabled={props.disabled}
+        onChange={(event) => props.onChange(event.currentTarget.checked)}
+        className="mt-0.5"
+      />
+      <span className="min-w-0">
+        <span className="block text-xs font-medium text-text-base">{props.label}</span>
+        <span className="block text-[11px] leading-relaxed text-text-weak">
+          {props.description}
+        </span>
+      </span>
+    </label>
+  )
+}
+
+function MemoryTestPipelineOption(props: {
+  selected: boolean
+  label: string
+  description: string
+  disabled?: boolean
+  onSelect: () => void
+}) {
+  return (
+    <button
+      type="button"
+      disabled={props.disabled}
+      onClick={props.onSelect}
+      className={`flex w-full items-start gap-2 rounded-md border px-2.5 py-2 text-left disabled:cursor-not-allowed disabled:opacity-50 ${
+        props.selected
+          ? "border-border-interactive-base bg-surface-interactive-base/10"
+          : "border-border-base/60 bg-background-base"
+      }`}
+    >
+      <span
+        className={`mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border ${
+          props.selected
+            ? "border-border-interactive-base bg-surface-interactive-base text-text-on-interactive-base"
+            : "border-border-base/60 bg-background-base"
+        }`}
+      >
+        {props.selected ? <CheckIcon className="size-3" /> : null}
+      </span>
+      <span className="min-w-0">
+        <span className="block text-xs font-medium text-text-base">{props.label}</span>
+        <span className="block text-[11px] leading-relaxed text-text-weak">
+          {props.description}
+        </span>
+      </span>
+    </button>
+  )
+}
+
+function describeMemoryTestSkipReason(reason: string | undefined): string {
+  switch (reason) {
+    case "learner_memory_startup_disabled":
+      return "Startup backfill is disabled because learner memory or auto-extract is off in effective config."
+    case "learner_memory_disabled":
+      return "Memory is disabled in the effective project config."
+    case "internal_learner_memory_session":
+      return "The selected session is an internal learner-memory session."
+    case "attention_gate_skip":
+      return "The attention gate decided to skip extraction for this session."
+    case "session_not_found":
+      return "The selected session could not be found."
+    case "already_claimed":
+      return "This stage-one job was already claimed."
+    case "already_processed":
+      return "This session source was already processed."
+    case "session_budget_exhausted":
+      return "The per-session extraction budget is exhausted."
+    case "daily_budget_exhausted":
+      return "The daily extraction budget is exhausted."
+    case "source_unchanged":
+      return "The session source has not changed since the last extraction."
+    default:
+      return reason ?? "No skip reason reported."
+  }
+}
+
+function memoryTestRunToastMessage(run: MemoryTestRunResult): {
+  title: string
+  tone: "success" | "error"
+} {
+  if (run.sessionExtraction?.skippedReason) {
+    return {
+      title: `Memory lab skipped: ${describeMemoryTestSkipReason(run.sessionExtraction.skippedReason)}`,
+      tone: "error",
+    }
+  }
+  if (run.startupPipeline?.skippedReason) {
+    return {
+      title: `Memory lab skipped: ${describeMemoryTestSkipReason(run.startupPipeline.skippedReason)}`,
+      tone: "error",
+    }
+  }
+  if (
+    !run.sessionExtraction &&
+    !run.deterministicReport &&
+    !run.modelReport &&
+    !run.searchResults
+  ) {
+    return {
+      title: "Memory lab finished without running any pipeline step.",
+      tone: "error",
+    }
+  }
+  return {
+    title: "Memory lab run complete",
+    tone: "success",
+  }
+}
+
+function describeMemoryTestStartupSessionOutcome(
+  extraction: MemoryTestRunResult["sessionExtraction"] | undefined,
+): string {
+  if (!extraction) {
+    return "Session was selected for startup sweep but did not report an extraction result."
+  }
+  if (extraction.skippedReason) {
+    return describeMemoryTestSkipReason(extraction.skippedReason)
+  }
+  if (extraction.approvedCount > 0) {
+    return "Extraction and consolidation produced approved memories in isolated lab storage."
+  }
+  if (extraction.candidateCount > 0) {
+    return "Extraction produced candidates but none were approved into lab memory."
+  }
+  return "Run completed without generating candidate memories."
+}
+
+function memoryTestTraceToneClass(level: MemoryTestRunState["trace"][number]["level"]): string {
+  switch (level) {
+    case "error":
+      return "text-icon-critical-base"
+    case "warn":
+      return "text-text-warning-base"
+    default:
+      return "text-text-weak"
+  }
+}
+
+function memoryTestStatusClass(
+  status: MemoryTestRunState["status"] | MemoryTestRunState["steps"][number]["status"],
+): string {
+  switch (status) {
+    case "completed":
+      return "bg-surface-success-base text-text-success-base"
+    case "failed":
+      return "bg-surface-critical-base/20 text-icon-critical-base"
+    case "skipped":
+      return "bg-surface-warning-base/20 text-text-warning-base"
+    case "running":
+      return "bg-surface-interactive-base/20 text-text-interactive-base"
+    default:
+      return "bg-surface-base text-text-weak"
+  }
+}
+
+function describeMemoryTestSessionTrace(session: MemoryTestRunState["sessions"][number]): string {
+  if (session.error) {
+    return session.error
+  }
+  if (session.skippedReason) {
+    return describeMemoryTestSkipReason(session.skippedReason)
+  }
+  if ((session.approvedCount ?? 0) > 0) {
+    return "Extraction and consolidation produced approved memories in isolated lab storage."
+  }
+  if ((session.candidateCount ?? 0) > 0) {
+    return "Extraction produced candidates but none were approved into lab memory."
+  }
+  if (session.status === "running") {
+    return "This session is currently running."
+  }
+  if (session.status === "pending") {
+    return "This session is queued."
+  }
+  return "Run completed without generating candidate memories."
+}
+
+function MemoryTestModelSelect(props: {
+  label: string
+  value: string
+  autoDescription: string
+  options: Array<{ value: string; label: string; description: string }>
+  disabled?: boolean
+  onChange: (value: string) => void
+}) {
+  const options = props.value
+    ? [
+        ...(props.options.some((option) => option.value === props.value)
+          ? []
+          : [{ value: props.value, label: `Current · ${props.value}`, description: props.value }]),
+        ...props.options,
+      ]
+    : props.options
+
+  return (
+    <label className="space-y-1">
+      <span className="block text-[11px] font-medium text-text-weaker">{props.label}</span>
+      <Select
+        value={props.value || MEMORY_TEST_AUTO_MODEL_VALUE}
+        disabled={props.disabled}
+        onValueChange={(value) =>
+          props.onChange(value === MEMORY_TEST_AUTO_MODEL_VALUE ? "" : value)
+        }
+      >
+        <SelectTrigger className="h-8 w-full text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent className="z-[10050]" position="popper">
+          <SelectItem value={MEMORY_TEST_AUTO_MODEL_VALUE}>
+            Auto · {props.autoDescription}
+          </SelectItem>
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </label>
+  )
+}
+
+function MemoryTestReportCard(props: { title: string; report: LearnerMemoryEvaluationReport }) {
+  const report = props.report
+  const passed = report.failures.length === 0
+  return (
+    <Card size="sm" className="gap-0 py-0">
+      <CardContent className="space-y-2 px-3 py-3">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm font-medium text-text-base">{props.title}</p>
+          <span
+            className={`rounded px-1.5 py-0.5 text-[10px] ${
+              passed
+                ? "bg-surface-success-base text-text-success-base"
+                : "bg-surface-critical-base/20 text-icon-critical-base"
+            }`}
+          >
+            {passed ? "PASS" : "FAIL"}
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <MemoryMetaRow label="mode" value={report.extractionMode} />
+          <MemoryMetaRow label="fixtures" value={report.fixtureCount} />
+          <MemoryMetaRow label="calls" value={report.extractionCalls} />
+          <MemoryMetaRow label="candidates" value={report.candidateCount} />
+          <MemoryMetaRow label="approved" value={report.approvedCount} />
+          <MemoryMetaRow
+            label="model"
+            value={
+              report.extractionModel
+                ? `${report.extractionModel.providerID}/${report.extractionModel.modelID}`
+                : "none"
+            }
+          />
+        </div>
+        <div className="space-y-1 border-t border-border-weaker-base pt-2">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-text-weaker">
+            Attention
+          </p>
+          {report.attentionDecisions.map((decision) => (
+            <div key={decision.fixtureId} className="rounded bg-surface-base px-2 py-1.5">
+              <div className="flex items-center justify-between gap-2 text-[11px]">
+                <span className="truncate font-medium text-text-base">{decision.fixtureId}</span>
+                <span className="font-mono text-text-weak">
+                  {decision.decision} · {decision.score.toFixed(1)}
+                </span>
+              </div>
+              <p className="mt-1 break-words text-[10px] leading-relaxed text-text-weaker">
+                {decision.reasons.join(" · ") || "no reasons"}
+              </p>
+            </div>
+          ))}
+        </div>
+        {report.failures.length > 0 ? (
+          <div className="space-y-1 border-t border-border-weaker-base pt-2">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-icon-critical-base">
+              Failures
+            </p>
+            {report.failures.map((failure) => (
+              <p key={failure} className="break-words text-[11px] text-icon-critical-base">
+                {failure}
+              </p>
+            ))}
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
+  )
+}
+
+function createMemoryTestSettingsDraft(input?: LearnerMemorySettings): MemoryTestSettingsDraft {
+  return {
+    enabled: input?.enabled ?? false,
+    autoExtract: input?.autoExtract ?? false,
+    minUserMessages: input?.minUserMessages ?? 4,
+    minSessionSpanMs: input?.minSessionSpanMs ?? 5 * MEMORY_TEST_MILLISECONDS_PER_MINUTE,
+    activeBurstGapMs: input?.activeBurstGapMs ?? 10 * MEMORY_TEST_MILLISECONDS_PER_MINUTE,
+    minActiveBurstMessages: input?.minActiveBurstMessages ?? 3,
+    minAssistantOutputTokens: input?.minAssistantOutputTokens ?? 800,
+    attentionThreshold: input?.attentionThreshold ?? 6,
+    maxExtractionCallsPerSession: input?.maxExtractionCallsPerSession ?? 2,
+    maxExtractionCallsPerDay: input?.maxExtractionCallsPerDay ?? 20,
+    defaultContextMemoryLimit: input?.defaultContextMemoryLimit ?? 8,
+    extractModel: input?.extractModel ?? "",
+    consolidationModel: input?.consolidationModel ?? "",
+    minStartupIdleMs: input?.minStartupIdleMs ?? 6 * MEMORY_TEST_MILLISECONDS_PER_HOUR,
+    maxStartupSessionAgeMs: input?.maxStartupSessionAgeMs ?? 30 * MEMORY_TEST_MILLISECONDS_PER_DAY,
+    maxSessionsPerStartup: input?.maxSessionsPerStartup ?? 16,
+    startupConcurrency: input?.startupConcurrency ?? 8,
+    maxRawMemoriesForConsolidation: input?.maxRawMemoriesForConsolidation ?? 256,
+    maxUnusedStageOneDays: input?.maxUnusedStageOneDays ?? 30,
+  }
+}
+
+function MemoryTestLab(props: { directory: string; sessionID?: string; onAfterRun: () => void }) {
+  const settings = useNotebookSettingsWorkbench(props.directory, true)
+  const onAfterRun = props.onAfterRun
+  const settingsQuery = useQuery({
+    queryKey: ["devtools", "learner-memory-settings", props.directory],
+    queryFn: async () =>
+      requireBuddyData(
+        await getBuddyClient(props.directory).learner.memory.settings({
+          directory: props.directory,
+        }),
+      ),
+  })
+  const refetchMemoryTestSettings = settingsQuery.refetch
+  const [selection, setSelection] = useState<MemoryTestSelection>({
+    pipelineMode:
+      props.sessionID !== undefined
+        ? MEMORY_TEST_PIPELINE_MODE.production
+        : MEMORY_TEST_PIPELINE_MODE.off,
+    deterministicHarness: false,
+    modelHarness: false,
+    startupSweep: false,
+    searchProbe: false,
+  })
+  const [probeQuery, setProbeQuery] = useState(MEMORY_TEST_DEFAULT_QUERY)
+  const [activeRunID, setActiveRunID] = useState<string>()
+  const [runState, setRunState] = useState<MemoryTestRunState | MemoryTestRunHandle>()
+  const [runError, setRunError] = useState<string>()
+  const [running, setRunning] = useState(false)
+  const [useLabTuning, setUseLabTuning] = useState(false)
+  const [showHarnesses, setShowHarnesses] = useState(false)
+  const [settingsDraft, setSettingsDraft] = useState<MemoryTestSettingsDraft>(
+    createMemoryTestSettingsDraft,
+  )
+  const [draftDirty, setDraftDirty] = useState(false)
+  const initializedDirectoryRef = useRef<string>()
+  const previousSettingsSavingRef = useRef(settings.status.saving)
+  const notifiedRunIDRef = useRef<string>()
+  const statusQuery = useQuery({
+    queryKey: ["devtools", "learner-memory-lab-status", props.directory, activeRunID],
+    enabled: activeRunID !== undefined,
+    queryFn: async () =>
+      requireBuddyData(
+        await getBuddyClient(props.directory).learner.memory.lab.status({
+          directory: props.directory,
+          runID: activeRunID ?? "",
+        }),
+      ),
+    refetchInterval: (query) => (query.state.data?.status === "running" ? 1_000 : false),
+  })
+
+  useEffect(() => {
+    if (!settingsQuery.data) return
+    if (initializedDirectoryRef.current !== props.directory) {
+      initializedDirectoryRef.current = props.directory
+      setActiveRunID(undefined)
+      setRunState(undefined)
+      setRunning(false)
+      setRunError(undefined)
+      setSettingsDraft(createMemoryTestSettingsDraft(settingsQuery.data))
+      setDraftDirty(false)
+      return
+    }
+    if (draftDirty) return
+    setSettingsDraft(createMemoryTestSettingsDraft(settingsQuery.data))
+  }, [draftDirty, props.directory, settingsQuery.data])
+  useEffect(() => {
+    if (props.sessionID) return
+    setSelection((current) =>
+      current.pipelineMode !== MEMORY_TEST_PIPELINE_MODE.off
+        ? { ...current, pipelineMode: MEMORY_TEST_PIPELINE_MODE.off }
+        : current,
+    )
+  }, [props.sessionID])
+  useEffect(() => {
+    if (selection.deterministicHarness || selection.modelHarness) {
+      setShowHarnesses(true)
+    }
+  }, [selection.deterministicHarness, selection.modelHarness])
+  useEffect(() => {
+    const previousSaving = previousSettingsSavingRef.current
+    previousSettingsSavingRef.current = settings.status.saving
+    if (!previousSaving || settings.status.saving) {
+      return
+    }
+    void refetchMemoryTestSettings()
+  }, [refetchMemoryTestSettings, settings.status.saving])
+  useEffect(() => {
+    if (!statusQuery.data) return
+    setRunState(statusQuery.data)
+  }, [statusQuery.data])
+  useEffect(() => {
+    if (!runState || notifiedRunIDRef.current === runState.runID) return
+    if (runState.status === "running") return
+    notifiedRunIDRef.current = runState.runID
+    setRunning(false)
+    if (runState.status === "failed") {
+      const message = runState.error ?? "Memory lab run failed."
+      setRunError(message)
+      toast.error(message)
+      return
+    }
+    setRunError(undefined)
+    if (runState.result) {
+      onAfterRun()
+      const toastMessage = memoryTestRunToastMessage(runState.result)
+      if (toastMessage.tone === "success") {
+        toast.success(toastMessage.title)
+      } else {
+        toast.error(toastMessage.title)
+      }
+    }
+  }, [onAfterRun, runState])
+
+  const modelOptions = settings.options.providers.flatMap((provider) =>
+    provider.models.map((model) => ({
+      value: `${provider.id}/${model.id}`,
+      label: `${provider.name} · ${model.name}`,
+      description: model.id,
+    })),
+  )
+  const effectiveSettings = settingsQuery.data
+  const runResult = runState?.result
+  const disabled = settings.status.loading || settingsQuery.isPending || running
+  const pipelineSelected =
+    props.sessionID !== undefined && selection.pipelineMode !== MEMORY_TEST_PIPELINE_MODE.off
+  const runEnabled = useLabTuning ? settingsDraft.enabled : (effectiveSettings?.enabled ?? false)
+  const runAutoExtract = useLabTuning
+    ? settingsDraft.autoExtract
+    : (effectiveSettings?.autoExtract ?? false)
+  const primaryRunSelected =
+    pipelineSelected ||
+    selection.startupSweep ||
+    selection.deterministicHarness ||
+    selection.modelHarness
+  const selectedCount = [
+    pipelineSelected,
+    selection.startupSweep,
+    selection.deterministicHarness,
+    selection.modelHarness,
+    primaryRunSelected && selection.searchProbe,
+  ].filter(Boolean).length
+  const showEnabledTuning =
+    (pipelineSelected && selection.pipelineMode === MEMORY_TEST_PIPELINE_MODE.production) ||
+    selection.startupSweep
+  const showAutoExtractTuning = selection.startupSweep
+  const showAttentionTuning =
+    (pipelineSelected && selection.pipelineMode === MEMORY_TEST_PIPELINE_MODE.production) ||
+    selection.startupSweep ||
+    selection.deterministicHarness ||
+    selection.modelHarness
+  const showBudgetTuning =
+    (pipelineSelected && selection.pipelineMode === MEMORY_TEST_PIPELINE_MODE.production) ||
+    selection.startupSweep
+  const showStartupTuning = selection.startupSweep
+  const showConsolidationTuning = pipelineSelected || selection.startupSweep
+  const hasVisibleTuningControls =
+    showEnabledTuning ||
+    showAutoExtractTuning ||
+    showAttentionTuning ||
+    showBudgetTuning ||
+    showStartupTuning ||
+    showConsolidationTuning
+  useEffect(() => {
+    if (primaryRunSelected || !selection.searchProbe) return
+    setSelection((current) => ({ ...current, searchProbe: false }))
+  }, [primaryRunSelected, selection.searchProbe])
+
+  const setSelected = useCallback((key: keyof MemoryTestSelection, checked: boolean) => {
+    setSelection((current) => ({ ...current, [key]: checked }))
+  }, [])
+  const setPipelineMode = useCallback((pipelineMode: MemoryTestPipelineMode) => {
+    setSelection((current) => ({ ...current, pipelineMode }))
+  }, [])
+
+  const setNumberSetting = useCallback((key: MemoryTestNumberSettingKey, value: number) => {
+    setDraftDirty(true)
+    setSettingsDraft((current) => ({ ...current, [key]: value }))
+  }, [])
+
+  const setModelSetting = useCallback((key: MemoryTestModelSettingKey, value: string) => {
+    setDraftDirty(true)
+    setSettingsDraft((current) => ({ ...current, [key]: value }))
+  }, [])
+
+  const setBooleanSetting = useCallback((key: MemoryTestBooleanSettingKey, value: boolean) => {
+    setDraftDirty(true)
+    setSettingsDraft((current) => ({ ...current, [key]: value }))
+  }, [])
+
+  const runSelected = useCallback(async () => {
+    if (selectedCount === 0) {
+      setRunError("Select at least one test.")
+      return
+    }
+
+    setRunning(true)
+    setRunError(undefined)
+    try {
+      const selectionPayload = {
+        deterministicHarness: selection.deterministicHarness,
+        modelHarness: selection.modelHarness,
+        startupSweep: selection.startupSweep,
+        currentSessionExtraction: pipelineSelected,
+        currentSessionExtractionForce: selection.pipelineMode === MEMORY_TEST_PIPELINE_MODE.force,
+        searchProbe: selection.searchProbe,
+      }
+      const settingsPayload = useLabTuning
+        ? settingsDraft
+        : {
+            extractModel: settingsDraft.extractModel,
+            consolidationModel: settingsDraft.consolidationModel,
+          }
+      const started = requireBuddyData(
+        await getBuddyClient(props.directory).learner.memory.lab.start({
+          directory: props.directory,
+          sessionID: props.sessionID,
+          probeQuery,
+          selection: selectionPayload,
+          settings: settingsPayload,
+        }),
+      )
+      notifiedRunIDRef.current = undefined
+      setActiveRunID(started.runID)
+      setRunState(started)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      setRunning(false)
+      setRunError(message)
+      toast.error(message)
+    }
+  }, [
+    pipelineSelected,
+    probeQuery,
+    props.directory,
+    props.sessionID,
+    selectedCount,
+    selection,
+    settingsDraft,
+    useLabTuning,
+  ])
+
+  const runButtonLabel =
+    pipelineSelected &&
+    !selection.startupSweep &&
+    !selection.searchProbe &&
+    !selection.deterministicHarness &&
+    !selection.modelHarness
+      ? "Run Default Pipeline"
+      : selection.startupSweep &&
+          !pipelineSelected &&
+          !selection.searchProbe &&
+          !selection.deterministicHarness &&
+          !selection.modelHarness
+        ? "Run Startup Sweep"
+        : "Run Lab"
+
+  return (
+    <Card size="sm" className="gap-0 py-0">
+      <CardContent className="space-y-3 px-3 py-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium text-text-base">Memory Test Lab</p>
+            <p className="text-[11px] leading-relaxed text-text-weak">
+              Default run follows production pipeline behavior using current config. Lab tuning is
+              optional and isolated to this run.
+            </p>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-7 text-[11px]"
+            disabled={disabled || selectedCount === 0}
+            onClick={() => void runSelected()}
+          >
+            {running ? "Running..." : runButtonLabel}
+          </Button>
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-text-weaker">
+            1. Pipeline mode
+          </p>
+          {selection.pipelineMode === MEMORY_TEST_PIPELINE_MODE.production && !runEnabled ? (
+            <p className="rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 px-2.5 py-2 text-[11px] leading-relaxed text-icon-critical-base">
+              Default production pipeline will skip immediately because learner memory is currently
+              disabled for this lab run. Use `Forced pipeline` or turn on `Enabled gate` under other
+              lab-only tuning if you want to exercise extraction without changing real settings.
+            </p>
+          ) : null}
+          <div className="grid gap-2 md:grid-cols-1">
+            <MemoryTestPipelineOption
+              selected={selection.pipelineMode === MEMORY_TEST_PIPELINE_MODE.production}
+              disabled={disabled || !props.sessionID}
+              label="Production pipeline (default)"
+              description="Runs the real session path in order: enabled gate, internal-session guard, stage-one claim, attention gate, budget checks, extraction, and consolidation in isolated lab storage."
+              onSelect={() => setPipelineMode(MEMORY_TEST_PIPELINE_MODE.production)}
+            />
+            <MemoryTestPipelineOption
+              selected={selection.pipelineMode === MEMORY_TEST_PIPELINE_MODE.force}
+              disabled={disabled || !props.sessionID}
+              label="Forced pipeline"
+              description="Runs the same extraction and consolidation path but bypasses enabled, attention, and budget gates."
+              onSelect={() => setPipelineMode(MEMORY_TEST_PIPELINE_MODE.force)}
+            />
+            <MemoryTestPipelineOption
+              selected={selection.pipelineMode === MEMORY_TEST_PIPELINE_MODE.off}
+              disabled={disabled}
+              label="No pipeline"
+              description="Skip the real session pipeline and run only optional harnesses or search probe."
+              onSelect={() => setPipelineMode(MEMORY_TEST_PIPELINE_MODE.off)}
+            />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-text-weaker">
+            2. Startup backfill (optional)
+          </p>
+          {selection.startupSweep && (!runEnabled || !runAutoExtract) ? (
+            <p className="rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 px-2.5 py-2 text-[11px] leading-relaxed text-icon-critical-base">
+              Startup sweep will skip immediately because this lab run currently has
+              {runEnabled ? "" : " learner memory disabled"}
+              {!runEnabled && !runAutoExtract ? " and" : ""}
+              {runAutoExtract ? "" : " auto-extract disabled"}. Turn those on under other lab-only
+              tuning if you want to exercise the production backfill path without changing real
+              settings.
+            </p>
+          ) : null}
+          <MemoryTestToggle
+            checked={selection.startupSweep}
+            disabled={disabled}
+            label="Run startup sweep"
+            description="Runs the production backfill path over older eligible sessions in this notebook: idle window, age window, per-startup cap, then per-session extraction and consolidation in isolated lab storage."
+            onChange={(checked) => setSelected("startupSweep", checked)}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-text-weaker">
+            3. Search probe (optional)
+          </p>
+          <MemoryTestToggle
+            checked={selection.searchProbe}
+            disabled={disabled || !primaryRunSelected}
+            label="Run search probe"
+            description="Run retrieval scoring probe after the selected pipeline, startup sweep, or harness execution."
+            onChange={(checked) => setSelected("searchProbe", checked)}
+          />
+          {selection.searchProbe ? (
+            <input
+              type="search"
+              value={probeQuery}
+              disabled={disabled}
+              onChange={(event) => setProbeQuery(event.currentTarget.value)}
+              placeholder="Search probe query..."
+              className="h-8 w-full rounded-md border border-border-base/60 bg-background-base px-3 text-xs text-text-base disabled:cursor-not-allowed disabled:opacity-50"
+            />
+          ) : null}
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-text-weaker">
+            4. Model overrides
+          </p>
+          <div className="space-y-2 rounded-md border border-border-base/60 bg-background-base/40 px-2.5 py-2">
+            <p className="text-[11px] leading-relaxed text-text-weak">
+              Lab-only model overrides. These apply to every run mode, including the default
+              production pipeline, so you can control extraction and consolidation cost directly.
+            </p>
+            <div className="grid gap-2 md:grid-cols-2">
+              <MemoryTestModelSelect
+                label="Extraction model"
+                value={settingsDraft.extractModel}
+                options={modelOptions}
+                autoDescription="OpenAI mini if connected, otherwise connected small model"
+                disabled={disabled}
+                onChange={(value) => setModelSetting("extractModel", value)}
+              />
+              <MemoryTestModelSelect
+                label="Consolidation model"
+                value={settingsDraft.consolidationModel}
+                options={modelOptions}
+                autoDescription="OpenAI full model if connected, otherwise notebook default"
+                disabled={disabled}
+                onChange={(value) => setModelSetting("consolidationModel", value)}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-text-weaker">
+              5. Extra harnesses
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-7 px-2 text-[11px]"
+              disabled={disabled}
+              onClick={() => setShowHarnesses((current) => !current)}
+            >
+              {showHarnesses ? "Hide" : "Show"}
+            </Button>
+          </div>
+          {showHarnesses ? (
+            <div className="grid gap-2 md:grid-cols-2">
+              <MemoryTestToggle
+                checked={selection.deterministicHarness}
+                disabled={disabled}
+                label="Deterministic harness"
+                description="Fixture harness for attention and extraction behavior. Not part of the production pipeline."
+                onChange={(checked) => setSelected("deterministicHarness", checked)}
+              />
+              <MemoryTestToggle
+                checked={selection.modelHarness}
+                disabled={disabled}
+                label="Model harness"
+                description="Fixture model harness. Uses lab storage but does not run the production consolidation path."
+                onChange={(checked) => setSelected("modelHarness", checked)}
+              />
+            </div>
+          ) : (
+            <p className="rounded-md border border-dashed border-border-base/60 px-2.5 py-2 text-[11px] text-text-weak">
+              Hidden by default because harnesses are extra fixture runs, not pipeline steps.
+            </p>
+          )}
+        </div>
+
+        <MemoryTestToggle
+          checked={useLabTuning}
+          disabled={disabled}
+          label="6. Other lab-only tuning overrides"
+          description="Off by default. When on, only non-model settings that affect the selected run path are editable below. Real settings are unchanged."
+          onChange={setUseLabTuning}
+        />
+
+        {useLabTuning ? (
+          <>
+            {!hasVisibleTuningControls ? (
+              <p className="rounded-md border border-border-base/60 bg-background-base px-2.5 py-2 text-[11px] text-text-weak">
+                No tuning settings affect the current selection. Search probe only reads whatever
+                the run produced.
+              </p>
+            ) : null}
+
+            {showEnabledTuning ? (
+              <div className="grid gap-2 md:grid-cols-1">
+                <MemoryTestToggle
+                  checked={settingsDraft.enabled}
+                  disabled={disabled}
+                  label="Enabled gate"
+                  description="Production pipeline only. When off, the default pipeline skips before extraction."
+                  onChange={(checked) => setBooleanSetting("enabled", checked)}
+                />
+              </div>
+            ) : null}
+
+            {showAutoExtractTuning ? (
+              <div className="grid gap-2 md:grid-cols-1">
+                <MemoryTestToggle
+                  checked={settingsDraft.autoExtract}
+                  disabled={disabled}
+                  label="Auto-extract gate"
+                  description="Startup sweep only. When off, the production backfill path skips before scanning old sessions."
+                  onChange={(checked) => setBooleanSetting("autoExtract", checked)}
+                />
+              </div>
+            ) : null}
+
+            {showAttentionTuning ? (
+              <div className="space-y-2 rounded-md border border-border-base/60 bg-background-base/40 px-2.5 py-2">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-text-weaker">
+                  Attention gate
+                </p>
+                <div className="grid gap-2 md:grid-cols-3">
+                  <MemoryTestNumberControl
+                    label="Min messages"
+                    min={1}
+                    value={settingsDraft.minUserMessages}
+                    disabled={disabled}
+                    onChange={(value) => setNumberSetting("minUserMessages", value)}
+                  />
+                  <MemoryTestNumberControl
+                    label="Min span ms"
+                    min={1}
+                    value={settingsDraft.minSessionSpanMs}
+                    disabled={disabled}
+                    onChange={(value) => setNumberSetting("minSessionSpanMs", value)}
+                  />
+                  <MemoryTestNumberControl
+                    label="Burst gap ms"
+                    min={1}
+                    value={settingsDraft.activeBurstGapMs}
+                    disabled={disabled}
+                    onChange={(value) => setNumberSetting("activeBurstGapMs", value)}
+                  />
+                  <MemoryTestNumberControl
+                    label="Min burst msgs"
+                    min={1}
+                    value={settingsDraft.minActiveBurstMessages}
+                    disabled={disabled}
+                    onChange={(value) => setNumberSetting("minActiveBurstMessages", value)}
+                  />
+                  <MemoryTestNumberControl
+                    label="Min assistant tokens"
+                    min={1}
+                    value={settingsDraft.minAssistantOutputTokens}
+                    disabled={disabled}
+                    onChange={(value) => setNumberSetting("minAssistantOutputTokens", value)}
+                  />
+                  <MemoryTestNumberControl
+                    label="Attention threshold"
+                    min={1}
+                    value={settingsDraft.attentionThreshold}
+                    disabled={disabled}
+                    onChange={(value) => setNumberSetting("attentionThreshold", value)}
+                  />
+                </div>
+              </div>
+            ) : null}
+
+            {showBudgetTuning ? (
+              <div className="space-y-2 rounded-md border border-border-base/60 bg-background-base/40 px-2.5 py-2">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-text-weaker">
+                  Extraction budget
+                </p>
+                <div className="grid gap-2 md:grid-cols-2">
+                  <MemoryTestNumberControl
+                    label="Per-session cap"
+                    min={1}
+                    value={settingsDraft.maxExtractionCallsPerSession}
+                    disabled={disabled}
+                    onChange={(value) => setNumberSetting("maxExtractionCallsPerSession", value)}
+                  />
+                  <MemoryTestNumberControl
+                    label="Daily cap"
+                    min={1}
+                    value={settingsDraft.maxExtractionCallsPerDay}
+                    disabled={disabled}
+                    onChange={(value) => setNumberSetting("maxExtractionCallsPerDay", value)}
+                  />
+                </div>
+              </div>
+            ) : null}
+
+            {showStartupTuning ? (
+              <div className="space-y-2 rounded-md border border-border-base/60 bg-background-base/40 px-2.5 py-2">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-text-weaker">
+                  Startup backfill
+                </p>
+                <div className="grid gap-2 md:grid-cols-2">
+                  <MemoryTestNumberControl
+                    label="Min idle ms"
+                    min={1}
+                    value={settingsDraft.minStartupIdleMs}
+                    disabled={disabled}
+                    onChange={(value) => setNumberSetting("minStartupIdleMs", value)}
+                  />
+                  <MemoryTestNumberControl
+                    label="Max age ms"
+                    min={1}
+                    value={settingsDraft.maxStartupSessionAgeMs}
+                    disabled={disabled}
+                    onChange={(value) => setNumberSetting("maxStartupSessionAgeMs", value)}
+                  />
+                  <MemoryTestNumberControl
+                    label="Sessions per startup"
+                    min={1}
+                    value={settingsDraft.maxSessionsPerStartup}
+                    disabled={disabled}
+                    onChange={(value) => setNumberSetting("maxSessionsPerStartup", value)}
+                  />
+                  <MemoryTestNumberControl
+                    label="Sweep concurrency"
+                    min={1}
+                    value={settingsDraft.startupConcurrency}
+                    disabled={disabled}
+                    onChange={(value) => setNumberSetting("startupConcurrency", value)}
+                  />
+                </div>
+              </div>
+            ) : null}
+
+            {showConsolidationTuning ? (
+              <div className="space-y-2 rounded-md border border-border-base/60 bg-background-base/40 px-2.5 py-2">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-text-weaker">
+                  Consolidation
+                </p>
+                <div className="grid gap-2 md:grid-cols-2">
+                  <MemoryTestNumberControl
+                    label="Consolidation input cap"
+                    min={1}
+                    value={settingsDraft.maxRawMemoriesForConsolidation}
+                    disabled={disabled}
+                    onChange={(value) => setNumberSetting("maxRawMemoriesForConsolidation", value)}
+                  />
+                  <MemoryTestNumberControl
+                    label="Stage-one retention days"
+                    min={1}
+                    value={settingsDraft.maxUnusedStageOneDays}
+                    disabled={disabled}
+                    onChange={(value) => setNumberSetting("maxUnusedStageOneDays", value)}
+                  />
+                </div>
+              </div>
+            ) : null}
+
+            <p className="text-[11px] leading-relaxed text-text-weak">
+              Not used by this lab run: `defaultContextMemoryLimit`.
+            </p>
+          </>
+        ) : null}
+
+        {settingsQuery.error ? (
+          <p className="rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 px-2 py-1.5 text-xs text-icon-critical-base">
+            {settingsQuery.error instanceof Error
+              ? settingsQuery.error.message
+              : String(settingsQuery.error)}
+          </p>
+        ) : null}
+        {runError ? (
+          <p className="rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 px-2 py-1.5 text-xs text-icon-critical-base">
+            {runError}
+          </p>
+        ) : null}
+        {statusQuery.error ? (
+          <p className="rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 px-2 py-1.5 text-xs text-icon-critical-base">
+            {statusQuery.error instanceof Error
+              ? statusQuery.error.message
+              : String(statusQuery.error)}
+          </p>
+        ) : null}
+
+        {runState ? (
+          <div className="space-y-2 border-t border-border-weaker-base pt-3">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-text-weaker">
+                Run Status
+              </p>
+              <span
+                className={`rounded px-1.5 py-0.5 text-[10px] ${memoryTestStatusClass(runState.status)}`}
+              >
+                {runState.status}
+              </span>
+            </div>
+            <MemoryMetaRow label="run id" value={runState.runID} />
+            <MemoryMetaRow label="started" value={new Date(runState.startedAt).toLocaleString()} />
+            <MemoryMetaRow
+              label="completed"
+              value={
+                runState.completedAt ? new Date(runState.completedAt).toLocaleString() : "running"
+              }
+            />
+            <MemoryMetaRow label="lab root" value={runState.memoryRoot} />
+            <MemoryMetaRow label="status file" value={runState.statusPath} />
+            <MemoryMetaRow label="trace log" value={runState.tracePath} />
+            <div className="grid grid-cols-2 gap-2">
+              <MemoryMetaRow
+                label="steps"
+                value={`${runState.progress.completedSteps}/${runState.progress.totalSteps}`}
+              />
+              <MemoryMetaRow
+                label="sessions"
+                value={`${runState.progress.completedSessions}/${runState.progress.totalSessions}`}
+              />
+              <MemoryMetaRow label="running sessions" value={runState.progress.runningSessions} />
+              <MemoryMetaRow label="skipped sessions" value={runState.progress.skippedSessions} />
+              <MemoryMetaRow label="failed sessions" value={runState.progress.failedSessions} />
+              <MemoryMetaRow label="candidates" value={runState.progress.candidateCount} />
+              <MemoryMetaRow label="approved" value={runState.progress.approvedCount} />
+            </div>
+
+            {runState.steps.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-text-weaker">
+                  Step Trace
+                </p>
+                {runState.steps.map((step) => (
+                  <Card key={step.key} size="sm" className="gap-0 py-0">
+                    <CardContent className="space-y-1 px-3 py-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-medium text-text-base">{step.label}</p>
+                        <span
+                          className={`rounded px-1.5 py-0.5 text-[10px] ${memoryTestStatusClass(step.status)}`}
+                        >
+                          {step.status}
+                        </span>
+                      </div>
+                      <p className="text-[11px] leading-relaxed text-text-weak">
+                        {step.summary ?? "No step summary yet."}
+                      </p>
+                      <MemoryMetaRow
+                        label="started"
+                        value={
+                          step.startedAt ? new Date(step.startedAt).toLocaleString() : "pending"
+                        }
+                      />
+                      <MemoryMetaRow
+                        label="completed"
+                        value={
+                          step.completedAt ? new Date(step.completedAt).toLocaleString() : "running"
+                        }
+                      />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : null}
+
+            {runState.sessions.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-text-weaker">
+                  Session Trace
+                </p>
+                {runState.sessions.map((session) => (
+                  <Card
+                    key={`${session.scope}:${session.sessionID}`}
+                    size="sm"
+                    className="gap-0 py-0"
+                  >
+                    <CardContent className="space-y-1 px-3 py-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-text-base">
+                            {session.title ?? session.sessionID}
+                          </p>
+                          <p className="text-[10px] uppercase tracking-wide text-text-weaker">
+                            {session.scope === "current_session"
+                              ? "current session"
+                              : "startup sweep"}
+                          </p>
+                        </div>
+                        <span
+                          className={`rounded px-1.5 py-0.5 text-[10px] ${memoryTestStatusClass(session.status)}`}
+                        >
+                          {session.status}
+                        </span>
+                      </div>
+                      <MemoryMetaRow label="session" value={session.sessionID} />
+                      <MemoryMetaRow
+                        label="updated"
+                        value={
+                          session.updatedAtMs
+                            ? new Date(session.updatedAtMs).toLocaleString()
+                            : "current session"
+                        }
+                      />
+                      <p className="text-[11px] leading-relaxed text-text-weak">
+                        {describeMemoryTestSessionTrace(session)}
+                      </p>
+                      <MemoryMetaRow label="candidates" value={session.candidateCount ?? "none"} />
+                      <MemoryMetaRow label="approved" value={session.approvedCount ?? "none"} />
+                      <MemoryMetaRow label="skip" value={session.skippedReason ?? "none"} />
+                      {session.decision ? (
+                        <p className="break-words text-[10px] leading-relaxed text-text-weaker">
+                          Attention {session.decision.decision} · score {session.decision.score} ·{" "}
+                          {session.decision.reasons.join(" · ") || "no reasons"}
+                        </p>
+                      ) : null}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : null}
+
+            {runState.trace.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-text-weaker">
+                  Trace Log
+                </p>
+                <div className="max-h-72 space-y-2 overflow-y-auto rounded-md border border-border-base/60 bg-background-base/40 p-2">
+                  {runState.trace.map((event) => (
+                    <div
+                      key={event.id}
+                      className="rounded border border-border-base/40 px-2 py-1.5"
+                    >
+                      <div className="flex items-center justify-between gap-3 text-[10px]">
+                        <span className={memoryTestTraceToneClass(event.level)}>{event.level}</span>
+                        <span className="font-mono text-text-weaker">
+                          {new Date(event.at).toLocaleTimeString()}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-[11px] text-text-base">{event.message}</p>
+                      {event.step || event.sessionID ? (
+                        <p className="mt-1 break-words font-mono text-[10px] text-text-weaker">
+                          {[event.step, event.sessionID].filter(Boolean).join(" · ")}
+                        </p>
+                      ) : null}
+                      {event.details ? (
+                        <pre className="mt-1 overflow-x-auto whitespace-pre-wrap font-mono text-[10px] leading-relaxed text-text-weaker">
+                          {JSON.stringify(event.details, null, 2)}
+                        </pre>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {runResult ? (
+          <div className="space-y-2 border-t border-border-weaker-base pt-3">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-text-weaker">
+              Last Run · {new Date(runResult.ranAt).toLocaleTimeString()}
+            </p>
+            <MemoryMetaRow label="run id" value={runResult.runID} />
+            <MemoryMetaRow label="lab root" value={runResult.memoryRoot} />
+            {runResult.deterministicReport ? (
+              <MemoryTestReportCard
+                title="Deterministic Harness"
+                report={runResult.deterministicReport}
+              />
+            ) : null}
+            {runResult.modelReport ? (
+              <MemoryTestReportCard title="Model Harness" report={runResult.modelReport} />
+            ) : null}
+            {runResult.sessionExtraction ? (
+              <Card size="sm" className="gap-0 py-0">
+                <CardContent className="space-y-1 px-3 py-3">
+                  <p className="text-sm font-medium text-text-base">Current Session Extraction</p>
+                  <p className="text-[11px] leading-relaxed text-text-weak">
+                    {runResult.sessionExtraction.skippedReason
+                      ? describeMemoryTestSkipReason(runResult.sessionExtraction.skippedReason)
+                      : runResult.sessionExtraction.approvedCount > 0
+                        ? "Extraction and consolidation produced approved memories in isolated lab storage."
+                        : runResult.sessionExtraction.candidateCount > 0
+                          ? "Extraction produced candidates but none were approved into lab memory."
+                          : "Run completed without generating candidate memories."}
+                  </p>
+                  <MemoryMetaRow
+                    label="decision"
+                    value={runResult.sessionExtraction.decision?.decision}
+                  />
+                  <MemoryMetaRow
+                    label="score"
+                    value={runResult.sessionExtraction.decision?.score}
+                  />
+                  <MemoryMetaRow
+                    label="candidates"
+                    value={runResult.sessionExtraction.candidateCount}
+                  />
+                  <MemoryMetaRow
+                    label="approved"
+                    value={runResult.sessionExtraction.approvedCount}
+                  />
+                  <MemoryMetaRow
+                    label="skip"
+                    value={runResult.sessionExtraction.skippedReason ?? "none"}
+                  />
+                  <MemoryMetaRow
+                    label="consolidation"
+                    value={runResult.sessionExtraction.consolidationError ?? "none"}
+                  />
+                </CardContent>
+              </Card>
+            ) : null}
+            {runResult.startupPipeline ? (
+              <div className="space-y-2">
+                <Card size="sm" className="gap-0 py-0">
+                  <CardContent className="space-y-1 px-3 py-3">
+                    <p className="text-sm font-medium text-text-base">Startup Sweep</p>
+                    <p className="text-[11px] leading-relaxed text-text-weak">
+                      {runResult.startupPipeline.skippedReason
+                        ? describeMemoryTestSkipReason(runResult.startupPipeline.skippedReason)
+                        : "Ran the production backfill path over older eligible sessions in isolated lab storage."}
+                    </p>
+                    <MemoryMetaRow label="scanned" value={runResult.startupPipeline.scanned} />
+                    <MemoryMetaRow label="eligible" value={runResult.startupPipeline.eligible} />
+                    <MemoryMetaRow label="attempted" value={runResult.startupPipeline.attempted} />
+                    <MemoryMetaRow
+                      label="skip"
+                      value={runResult.startupPipeline.skippedReason ?? "none"}
+                    />
+                  </CardContent>
+                </Card>
+                {runResult.startupPipeline.sessions.length > 0
+                  ? runResult.startupPipeline.sessions.map((session) => (
+                      <Card key={session.sessionID} size="sm" className="gap-0 py-0">
+                        <CardContent className="space-y-1 px-3 py-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="truncate text-sm font-medium text-text-base">
+                              {session.title ?? session.sessionID}
+                            </p>
+                            <span className="font-mono text-[10px] text-text-weaker">
+                              {new Date(session.updatedAtMs).toLocaleString()}
+                            </span>
+                          </div>
+                          <MemoryMetaRow label="session" value={session.sessionID} />
+                          <p className="text-[11px] leading-relaxed text-text-weak">
+                            {session.error ??
+                              session.extraction?.consolidationError ??
+                              describeMemoryTestStartupSessionOutcome(session.extraction)}
+                          </p>
+                          <MemoryMetaRow
+                            label="candidates"
+                            value={session.extraction?.candidateCount ?? "none"}
+                          />
+                          <MemoryMetaRow
+                            label="approved"
+                            value={session.extraction?.approvedCount ?? "none"}
+                          />
+                          <MemoryMetaRow
+                            label="skip"
+                            value={session.extraction?.skippedReason ?? "none"}
+                          />
+                          <MemoryMetaRow
+                            label="consolidation"
+                            value={session.extraction?.consolidationError ?? "none"}
+                          />
+                        </CardContent>
+                      </Card>
+                    ))
+                  : null}
+              </div>
+            ) : null}
+            {runResult.searchResults ? (
+              <div className="space-y-2">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-text-weaker">
+                  Search Probe Results
+                </p>
+                {runResult.searchResults.length > 0 ? (
+                  runResult.searchResults.map((result) => (
+                    <MemorySearchCard key={result.memory.id} result={result} />
+                  ))
+                ) : (
+                  <p className="rounded-md border border-border-base/60 p-3 text-xs text-text-weak">
+                    No matching memory.
+                  </p>
+                )}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
+  )
+}
+
+function DevToolsMemoryTab(props: { directory: string; sessionID?: string }) {
+  const [queryText, setQueryText] = useState("")
+  const memoryQuery = useQuery({
+    queryKey: ["devtools", "learner-memory", props.directory],
+    queryFn: async () =>
+      requireBuddyData(
+        await getBuddyClient(props.directory).learner.memory.list({
+          directory: props.directory,
+        }),
+      ),
+  })
+  const pipelineQuery = useQuery({
+    queryKey: ["devtools", "learner-memory-pipeline", props.directory],
+    queryFn: async () =>
+      requireBuddyData(
+        await getBuddyClient(props.directory).learner.memory.pipeline.diagnostics({
+          directory: props.directory,
+        }),
+      ),
+  })
+  const artifactsQuery = useQuery({
+    queryKey: ["devtools", "learner-memory-artifacts", props.directory],
+    queryFn: async () =>
+      requireBuddyData(
+        await getBuddyClient(props.directory).learner.memory.artifacts({
+          directory: props.directory,
+        }),
+      ),
+  })
+  const searchQuery = useQuery({
+    queryKey: ["devtools", "learner-memory-search", props.directory, queryText],
+    enabled: queryText.trim().length > 0,
+    queryFn: async () =>
+      requireBuddyData(
+        await getBuddyClient(props.directory).learner.memory.search({
+          directory: props.directory,
+          query: queryText,
+          limit: 8,
+          projectPath: props.directory,
+        }),
+      ),
+  })
+
+  const memories = memoryQuery.data?.memories.slice(0, MEMORY_DEVTOOLS_LIMIT) ?? []
+  const sessionMemories = memories.filter((memory) =>
+    memory.sourceEventIds.some((eventId) => eventId.includes(props.sessionID ?? "")),
+  )
+
+  return (
+    <div className="flex h-full min-h-0 flex-col p-3">
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-medium">Learner Memory</p>
+          <p className="text-[11px] text-text-weak">
+            Session {props.sessionID ?? "none"} · {memories.length} loaded records
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-7 text-[11px]"
+            onClick={() => {
+              void memoryQuery.refetch()
+              void pipelineQuery.refetch()
+              void artifactsQuery.refetch()
+            }}
+          >
+            Refresh
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-7 text-[11px]"
+            disabled={!props.sessionID}
+            onClick={() => {
+              if (!props.sessionID) return
+              void getBuddyClient(props.directory)
+                .learner.memory.session.extract({
+                  directory: props.directory,
+                  sessionID: props.sessionID,
+                  force: true,
+                })
+                .then(() => {
+                  void memoryQuery.refetch()
+                  void pipelineQuery.refetch()
+                  void artifactsQuery.refetch()
+                })
+            }}
+          >
+            Extract Session
+          </Button>
+        </div>
+      </div>
+
+      <input
+        type="search"
+        value={queryText}
+        onChange={(event) => setQueryText(event.currentTarget.value)}
+        placeholder="Search learner memory for this turn..."
+        className="mb-3 h-8 rounded-md border border-border-base/60 bg-background-base px-3 text-xs text-text-base"
+      />
+
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
+        <section className="space-y-2">
+          <MemoryTestLab
+            directory={props.directory}
+            sessionID={props.sessionID}
+            onAfterRun={() => {
+              void memoryQuery.refetch()
+              void pipelineQuery.refetch()
+              void artifactsQuery.refetch()
+              if (queryText.trim().length > 0) {
+                void searchQuery.refetch()
+              }
+            }}
+          />
+        </section>
+
+        <section className="space-y-2">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-text-weaker">
+            Pipeline State
+          </p>
+          {pipelineQuery.data ? (
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <PipelineJobCard title="Phase two" job={pipelineQuery.data.phaseTwoJob} />
+                <Card size="sm" className="gap-0 py-0">
+                  <CardContent className="space-y-1 px-3 py-3">
+                    <p className="truncate text-sm font-medium text-text-base">Budget</p>
+                    <MemoryMetaRow
+                      label="today calls"
+                      value={pipelineQuery.data.budget.todayCount}
+                    />
+                    <MemoryMetaRow
+                      label="total calls"
+                      value={pipelineQuery.data.budget.totalCount}
+                    />
+                    <MemoryMetaRow label="watermark" value={pipelineQuery.data.inputWatermarkMs} />
+                    <MemoryMetaRow
+                      label="stage outputs"
+                      value={pipelineQuery.data.stageOneOutputs.length}
+                    />
+                  </CardContent>
+                </Card>
+              </div>
+              {pipelineQuery.data.stageOneJobs.slice(0, 3).map((job) => (
+                <PipelineJobCard key={job.jobKey} title="Stage one" job={job} />
+              ))}
+              {pipelineQuery.data.stageOneOutputs.slice(0, 4).map((output) => (
+                <PipelineOutputCard key={output.sessionId} output={output} />
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-md border border-border-base/60 p-3 text-xs text-text-weak">
+              Loading pipeline diagnostics...
+            </p>
+          )}
+        </section>
+
+        <section className="space-y-2">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-text-weaker">
+            Memory Artifacts
+          </p>
+          {artifactsQuery.data ? (
+            <div className="space-y-2">
+              {artifactsQuery.data.artifacts.map((artifact) => (
+                <MemoryArtifactCard key={artifact.key} artifact={artifact} />
+              ))}
+              {artifactsQuery.data.rolloutSummaries.length > 0 ? (
+                <div className="space-y-2">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-text-weaker">
+                    Rollout Summaries
+                  </p>
+                  {artifactsQuery.data.rolloutSummaries.map((artifact) => (
+                    <MemoryArtifactCard key={artifact.key} artifact={artifact} />
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <p className="rounded-md border border-border-base/60 p-3 text-xs text-text-weak">
+              Loading memory artifacts...
+            </p>
+          )}
+        </section>
+
+        <section className="space-y-2">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-text-weaker">
+            Search Results
+          </p>
+          {queryText.trim().length === 0 ? (
+            <p className="rounded-md border border-border-base/60 p-3 text-xs text-text-weak">
+              Enter a query to see selected memories, scores, and ranking reasons.
+            </p>
+          ) : searchQuery.data?.results.length ? (
+            searchQuery.data.results.map((result) => (
+              <MemorySearchCard key={result.memory.id} result={result} />
+            ))
+          ) : (
+            <p className="rounded-md border border-border-base/60 p-3 text-xs text-text-weak">
+              No matching memory.
+            </p>
+          )}
+        </section>
+
+        <section className="space-y-2">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-text-weaker">
+            Current Session Links
+          </p>
+          {props.sessionID && sessionMemories.length > 0 ? (
+            sessionMemories.map((memory) => <MemoryRecordCard key={memory.id} memory={memory} />)
+          ) : (
+            <p className="rounded-md border border-border-base/60 p-3 text-xs text-text-weak">
+              No memory source is directly linked to this session yet.
+            </p>
+          )}
+        </section>
+
+        <section className="space-y-2">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-text-weaker">
+            Recent Records
+          </p>
+          {memoryQuery.isPending ? (
+            <p className="rounded-md border border-border-base/60 p-3 text-xs text-text-weak">
+              Loading memory records...
+            </p>
+          ) : memories.length > 0 ? (
+            memories.map((memory) => <MemoryRecordCard key={memory.id} memory={memory} />)
+          ) : (
+            <p className="rounded-md border border-border-base/60 p-3 text-xs text-text-weak">
+              No learner memory records.
+            </p>
+          )}
+        </section>
+      </div>
+    </div>
+  )
+}
+
 function titleCaseLabel(value: string) {
   return value
     .split("-")
@@ -410,13 +2200,14 @@ function titleCaseLabel(value: string) {
 function CapabilitiesChips(props: { directory: string }) {
   const { directory } = props
   const sessionID = useChatStore((s) => s.directories[directory]?.sessionID)
-  const messages = useChatStore((s) => s.directories[directory]?.messages ?? [])
-  const teachingRuntime = useTeachingRuntime()
+  const messages = useChatStore((s) => s.directories[directory]?.messages ?? EMPTY_MESSAGES)
   const sessionKey = useMemo(
     () => (sessionID ? teachingSessionKey(directory, sessionID) : ""),
     [directory, sessionID],
   )
-  const persona = sessionKey ? teachingRuntime.selectedPersonaBySession[sessionKey] : undefined
+  const persona = useTeachingRuntime((state) =>
+    sessionKey ? state.selectedPersonaBySession[sessionKey] : undefined,
+  )
 
   const calledTools = useMemo(() => {
     const names = new Set<string>()
@@ -706,7 +2497,11 @@ export function BuddyDevTools() {
         >
           <Tabs
             value={activeTab}
-            onValueChange={(v) => setActiveTab(v as BuddyDevToolsTab)}
+            onValueChange={(value) => {
+              if (isBuddyDevToolsTab(value)) {
+                setActiveTab(value)
+              }
+            }}
             className="flex min-h-0 flex-1 flex-col"
           >
             <div className="shrink-0 border-b border-border-weaker-base">
@@ -809,6 +2604,9 @@ export function BuddyDevTools() {
                   <TabsTrigger value="snapshot" className="text-xs">
                     Snapshot
                   </TabsTrigger>
+                  <TabsTrigger value="memory" className="text-xs">
+                    Memory
+                  </TabsTrigger>
                   <TabsTrigger value="query" className="text-xs">
                     Query
                   </TabsTrigger>
@@ -888,6 +2686,16 @@ export function BuddyDevTools() {
             <TabsContent value="snapshot" className="min-h-0 flex-1 overflow-hidden mt-0">
               {activeDirectory ? (
                 <DevToolsSnapshotTab directory={activeDirectory} />
+              ) : (
+                <div className="flex h-full items-center justify-center text-sm text-text-weak">
+                  No active directory
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="memory" className="min-h-0 flex-1 overflow-hidden mt-0">
+              {activeDirectory ? (
+                <DevToolsMemoryTab directory={activeDirectory} sessionID={sessionID} />
               ) : (
                 <div className="flex h-full items-center justify-center text-sm text-text-weak">
                   No active directory
