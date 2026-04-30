@@ -128,6 +128,13 @@ function eventPayloadProperties(event: GlobalEvent) {
   return "properties" in payload ? payload.properties : undefined
 }
 
+function isMessagePartReference(value: unknown): value is { messageID: string; id: string } {
+  if (!isRecord(value)) {
+    return false
+  }
+  return typeof value.messageID === "string" && typeof value.id === "string"
+}
+
 function eventErrorInfo(error: unknown) {
   if (error instanceof Error) {
     return {
@@ -151,8 +158,8 @@ function eventKey(event: GlobalEvent) {
   }
 
   if (payload.type === "message.part.updated") {
-    const part = properties.part as { messageID?: string; id?: string } | undefined
-    if (!part?.messageID || !part.id) return undefined
+    const part = properties.part
+    if (!isMessagePartReference(part)) return undefined
     return `${directory}:message.part.updated:${part.messageID}:${part.id}`
   }
 
@@ -271,8 +278,8 @@ export function startChatSync(handlers: SyncHandlers) {
         if (existing !== undefined) {
           queue[existing] = event
           if (payloadType === "message.part.updated" && properties) {
-            const part = properties.part as { messageID?: string; id?: string } | undefined
-            if (part?.messageID && part.id) {
+            const part = properties.part
+            if (isMessagePartReference(part)) {
               staleDeltas.add(
                 deltaKey(event.directory ?? GLOBAL_DIRECTORY, part.messageID, part.id),
               )

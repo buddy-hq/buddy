@@ -8,8 +8,10 @@ const MODEL_SELECTION_STORAGE_FILE = "buddy.model-selection.dat"
 export const MODEL_SELECTION_STORAGE_KEY = "buddy.model-selection.v1"
 const RECENT_MODEL_LIMIT = 5
 
+type SelectionSource = "local" | "restored"
+
 type ModelSelectionStore = {
-  selectionSourceByKey: Record<string, "local" | "restored">
+  selectionSourceByKey: Record<string, SelectionSource>
   restoredSelectionCreatedAtByKey: Record<string, number>
   selectedAgentByKey: Record<string, string>
   selectedModelByKey: Record<string, string>
@@ -30,6 +32,99 @@ type ModelSelectionStore = {
     },
   ) => void
   migrateWorkspaceSelection: (directory: string, sessionID: string) => void
+}
+
+type PersistedModelSelectionState = {
+  selectionSourceByKey?: Record<string, SelectionSource>
+  restoredSelectionCreatedAtByKey?: Record<string, number>
+  selectedAgentByKey?: Record<string, string>
+  selectedModelByKey?: Record<string, string>
+  selectedVariantByKey?: Record<string, string | null>
+  recentModelKeys?: string[]
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null
+}
+
+function readSelectionSourceRecord(value: unknown): Record<string, SelectionSource> | undefined {
+  if (!isRecord(value)) {
+    return undefined
+  }
+
+  const result: Record<string, SelectionSource> = {}
+  for (const [key, entry] of Object.entries(value)) {
+    if (entry === "local" || entry === "restored") {
+      result[key] = entry
+    }
+  }
+  return result
+}
+
+function readNumberRecord(value: unknown): Record<string, number> | undefined {
+  if (!isRecord(value)) {
+    return undefined
+  }
+
+  const result: Record<string, number> = {}
+  for (const [key, entry] of Object.entries(value)) {
+    if (typeof entry === "number" && Number.isFinite(entry)) {
+      result[key] = entry
+    }
+  }
+  return result
+}
+
+function readStringRecord(value: unknown): Record<string, string> | undefined {
+  if (!isRecord(value)) {
+    return undefined
+  }
+
+  const result: Record<string, string> = {}
+  for (const [key, entry] of Object.entries(value)) {
+    if (typeof entry === "string") {
+      result[key] = entry
+    }
+  }
+  return result
+}
+
+function readVariantRecord(value: unknown): Record<string, string | null> | undefined {
+  if (!isRecord(value)) {
+    return undefined
+  }
+
+  const result: Record<string, string | null> = {}
+  for (const [key, entry] of Object.entries(value)) {
+    if (entry === null || typeof entry === "string") {
+      result[key] = entry
+    }
+  }
+  return result
+}
+
+function readPersistedModelSelectionState(value: unknown): PersistedModelSelectionState {
+  if (!isRecord(value)) {
+    return {}
+  }
+
+  const selectionSourceByKey = readSelectionSourceRecord(value.selectionSourceByKey)
+  const restoredSelectionCreatedAtByKey = readNumberRecord(value.restoredSelectionCreatedAtByKey)
+  const selectedAgentByKey = readStringRecord(value.selectedAgentByKey)
+  const selectedModelByKey = readStringRecord(value.selectedModelByKey)
+  const selectedVariantByKey = readVariantRecord(value.selectedVariantByKey)
+  const recentModelKeys = Array.isArray(value.recentModelKeys)
+    ? value.recentModelKeys.filter((entry): entry is string => typeof entry === "string")
+    : undefined
+
+  return {
+    selectionSourceByKey,
+    restoredSelectionCreatedAtByKey,
+    selectedAgentByKey,
+    selectedModelByKey,
+    selectedVariantByKey,
+    recentModelKeys,
+  }
 }
 
 export function getModelSelectionScopeKey(directory: string, sessionID?: string) {
@@ -60,12 +155,12 @@ export function getSelectedVariantKey(
 export const useModelSelectionStore = create<ModelSelectionStore>()(
   persist(
     immer((set) => ({
-      selectionSourceByKey: {} as Record<string, "local" | "restored">,
-      restoredSelectionCreatedAtByKey: {} as Record<string, number>,
-      selectedAgentByKey: {} as Record<string, string>,
-      selectedModelByKey: {} as Record<string, string>,
-      selectedVariantByKey: {} as Record<string, string | null>,
-      recentModelKeys: [] as string[],
+      selectionSourceByKey: {},
+      restoredSelectionCreatedAtByKey: {},
+      selectedAgentByKey: {},
+      selectedModelByKey: {},
+      selectedVariantByKey: {},
+      recentModelKeys: [],
       setSelectedAgent(key, agent) {
         const nextAgent = agent?.trim()
         set((state) => {
@@ -212,16 +307,7 @@ export const useModelSelectionStore = create<ModelSelectionStore>()(
         }
       },
       migrate(persistedState) {
-        const state = persistedState as
-          | {
-              selectionSourceByKey?: Record<string, "local" | "restored">
-              restoredSelectionCreatedAtByKey?: Record<string, number>
-              selectedAgentByKey?: Record<string, string>
-              selectedModelByKey?: Record<string, string>
-              selectedVariantByKey?: Record<string, string | null>
-              recentModelKeys?: string[]
-            }
-          | undefined
+        const state = readPersistedModelSelectionState(persistedState)
 
         return {
           selectionSourceByKey: state?.selectionSourceByKey ?? {},

@@ -93,92 +93,132 @@ type UiPreferencesStore = {
 
 export const useUiPreferences = create<UiPreferencesStore>()(
   persist(
-    immer((set, get) => ({
-      pinnedByDirectory: {} as Record<string, string[]>,
-      unreadByDirectory: {} as Record<string, Record<string, true>>,
-      leftSidebarOpen: true,
-      chatLeftSidebarWidth: 280,
-      settingsSidebarWidth: 260,
-      rightSidebarOpen: false,
-      rightSidebarWidth: 380,
-      mainPaneTab: "chat" as NotebookMainPaneTab,
-      rightSidebarTab: "curriculum" as const,
-      isPinned(directory, sessionID) {
-        return (get().pinnedByDirectory[directory] ?? []).includes(sessionID)
-      },
-      togglePinned(directory, sessionID) {
-        set((state) => {
-          const current = state.pinnedByDirectory[directory] ?? []
-          const exists = current.includes(sessionID)
-          if (exists) {
-            state.pinnedByDirectory[directory] = current.filter((id: string) => id !== sessionID)
-          } else {
-            state.pinnedByDirectory[directory] = [sessionID, ...current]
-          }
-        })
-      },
-      markUnread(directory, sessionID) {
-        set((state) => {
-          if (state.unreadByDirectory[directory]?.[sessionID]) return
-          if (!state.unreadByDirectory[directory]) {
-            state.unreadByDirectory[directory] = {}
-          }
-          state.unreadByDirectory[directory]![sessionID] = true
-        })
-      },
-      clearUnread(directory, sessionID) {
-        set((state) => {
-          if (!state.unreadByDirectory[directory]?.[sessionID]) return
-          delete state.unreadByDirectory[directory]![sessionID]
-        })
-      },
-      isUnread(directory, sessionID) {
-        return !!get().unreadByDirectory[directory]?.[sessionID]
-      },
-      clearDirectorySessionState(directory, sessionID) {
-        set((state) => {
-          state.pinnedByDirectory[directory] = (state.pinnedByDirectory[directory] ?? []).filter(
-            (id: string) => id !== sessionID,
-          )
-          delete state.unreadByDirectory[directory]?.[sessionID]
-        })
-      },
-      setLeftSidebarOpen(open) {
-        set((state) => {
-          state.leftSidebarOpen = open
-        })
-      },
-      setChatLeftSidebarWidth(width) {
-        set((state) => {
-          state.chatLeftSidebarWidth = width
-        })
-      },
-      setSettingsSidebarWidth(width) {
-        set((state) => {
-          state.settingsSidebarWidth = width
-        })
-      },
-      setRightSidebarOpen(open) {
-        set((state) => {
-          state.rightSidebarOpen = open
-        })
-      },
-      setRightSidebarWidth(width) {
-        set((state) => {
-          state.rightSidebarWidth = width
-        })
-      },
-      setMainPaneTab(tab) {
-        set((state) => {
-          state.mainPaneTab = tab
-        })
-      },
-      setRightSidebarTab(tab) {
-        set((state) => {
-          state.rightSidebarTab = tab
-        })
-      },
-    })),
+    immer((set, get) => {
+      const sessionStateSlice: Pick<
+        UiPreferencesStore,
+        | "pinnedByDirectory"
+        | "unreadByDirectory"
+        | "isPinned"
+        | "togglePinned"
+        | "markUnread"
+        | "clearUnread"
+        | "isUnread"
+        | "clearDirectorySessionState"
+      > = {
+        pinnedByDirectory: {},
+        unreadByDirectory: {},
+        isPinned(directory, sessionID) {
+          return (get().pinnedByDirectory[directory] ?? []).includes(sessionID)
+        },
+        togglePinned(directory, sessionID) {
+          set((state) => {
+            const current = state.pinnedByDirectory[directory] ?? []
+            const exists = current.includes(sessionID)
+            if (exists) {
+              state.pinnedByDirectory[directory] = current.filter((id) => id !== sessionID)
+            } else {
+              state.pinnedByDirectory[directory] = [sessionID, ...current]
+            }
+          })
+        },
+        markUnread(directory, sessionID) {
+          set((state) => {
+            if (state.unreadByDirectory[directory]?.[sessionID]) return
+            if (!state.unreadByDirectory[directory]) {
+              state.unreadByDirectory[directory] = {}
+            }
+            const unreadDirectory = state.unreadByDirectory[directory]
+            if (!unreadDirectory) return
+            unreadDirectory[sessionID] = true
+          })
+        },
+        clearUnread(directory, sessionID) {
+          set((state) => {
+            if (!state.unreadByDirectory[directory]?.[sessionID]) return
+            const unreadDirectory = state.unreadByDirectory[directory]
+            if (!unreadDirectory) return
+            delete unreadDirectory[sessionID]
+          })
+        },
+        isUnread(directory, sessionID) {
+          return !!get().unreadByDirectory[directory]?.[sessionID]
+        },
+        clearDirectorySessionState(directory, sessionID) {
+          set((state) => {
+            state.pinnedByDirectory[directory] = (state.pinnedByDirectory[directory] ?? []).filter(
+              (id) => id !== sessionID,
+            )
+            delete state.unreadByDirectory[directory]?.[sessionID]
+          })
+        },
+      }
+
+      const layoutSlice: Pick<
+        UiPreferencesStore,
+        | "leftSidebarOpen"
+        | "chatLeftSidebarWidth"
+        | "settingsSidebarWidth"
+        | "rightSidebarOpen"
+        | "rightSidebarWidth"
+        | "mainPaneTab"
+        | "rightSidebarTab"
+        | "setLeftSidebarOpen"
+        | "setChatLeftSidebarWidth"
+        | "setSettingsSidebarWidth"
+        | "setRightSidebarOpen"
+        | "setRightSidebarWidth"
+        | "setMainPaneTab"
+        | "setRightSidebarTab"
+      > = {
+        leftSidebarOpen: true,
+        chatLeftSidebarWidth: 280,
+        settingsSidebarWidth: 260,
+        rightSidebarOpen: false,
+        rightSidebarWidth: 380,
+        mainPaneTab: "chat",
+        rightSidebarTab: "curriculum",
+        setLeftSidebarOpen(open) {
+          set((state) => {
+            state.leftSidebarOpen = open
+          })
+        },
+        setChatLeftSidebarWidth(width) {
+          set((state) => {
+            state.chatLeftSidebarWidth = width
+          })
+        },
+        setSettingsSidebarWidth(width) {
+          set((state) => {
+            state.settingsSidebarWidth = width
+          })
+        },
+        setRightSidebarOpen(open) {
+          set((state) => {
+            state.rightSidebarOpen = open
+          })
+        },
+        setRightSidebarWidth(width) {
+          set((state) => {
+            state.rightSidebarWidth = width
+          })
+        },
+        setMainPaneTab(tab) {
+          set((state) => {
+            state.mainPaneTab = tab
+          })
+        },
+        setRightSidebarTab(tab) {
+          set((state) => {
+            state.rightSidebarTab = tab
+          })
+        },
+      }
+
+      return {
+        ...sessionStateSlice,
+        ...layoutSlice,
+      }
+    }),
     {
       name: UI_PREFERENCES_STORAGE_KEY,
       version: 12,

@@ -95,6 +95,20 @@ type ChatStore = {
   resetRuntimeState: () => void
 }
 
+type ChatStoreStateFields = Pick<
+  ChatStore,
+  | "openProjects"
+  | "activeDirectory"
+  | "pendingActiveDirectory"
+  | "entryError"
+  | "lastSessionByDirectory"
+  | "selectedModelByDirectory"
+  | "activeReadingResourceByDirectory"
+  | "linkedSessionByResource"
+  | "directories"
+  | "streamStatus"
+>
+
 function resourceSessionKey(directory: string, resourceID: string) {
   return `${directory}::${resourceID}`
 }
@@ -102,12 +116,95 @@ function resourceSessionKey(directory: string, resourceID: string) {
 const DEFAULT_TITLE = "New thread"
 const CHAT_STORAGE_FILE = "buddy.chat.dat"
 const CHAT_STORAGE_KEY = "buddy.chat.v4"
+const STREAM_STATUS_IDLE: StreamStatus = "idle"
+
+type PersistedChatStoreState = {
+  activeDirectory?: string
+  lastSessionByDirectory?: Record<string, string>
+  activeReadingResourceByDirectory?: Record<string, ActiveReadingResourceState>
+  linkedSessionByResource?: Record<string, string>
+}
 
 function normalizeProjectDirectory(input: string | undefined) {
   if (!input) return undefined
   const trimmed = input.trim()
   if (!trimmed || trimmed === "/") return undefined
   return trimmed.replace(/\/+$/, "") || undefined
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null
+}
+
+function readStringRecord(value: unknown): Record<string, string> | undefined {
+  if (!isRecord(value)) {
+    return undefined
+  }
+
+  const result: Record<string, string> = {}
+  for (const [key, entry] of Object.entries(value)) {
+    if (typeof entry === "string") {
+      result[key] = entry
+    }
+  }
+  return result
+}
+
+function isActiveReadingResourceState(value: unknown): value is ActiveReadingResourceState {
+  if (!isRecord(value)) {
+    return false
+  }
+  return (
+    typeof value.name === "string" &&
+    typeof value.path === "string" &&
+    (value.resourceID === undefined || typeof value.resourceID === "string") &&
+    (value.alias === undefined || typeof value.alias === "string") &&
+    (value.status === undefined ||
+      value.status === "preparing" ||
+      value.status === "ready" ||
+      value.status === "unsupported" ||
+      value.status === "error" ||
+      value.status === "stale" ||
+      value.status === "unprocessed") &&
+    (value.locationLabel === undefined || typeof value.locationLabel === "string") &&
+    (value.tocLabel === undefined || typeof value.tocLabel === "string") &&
+    (value.pageLabel === undefined || typeof value.pageLabel === "string")
+  )
+}
+
+function readActiveReadingResourceRecord(
+  value: unknown,
+): Record<string, ActiveReadingResourceState> | undefined {
+  if (!isRecord(value)) {
+    return undefined
+  }
+
+  const result: Record<string, ActiveReadingResourceState> = {}
+  for (const [key, entry] of Object.entries(value)) {
+    if (isActiveReadingResourceState(entry)) {
+      result[key] = entry
+    }
+  }
+  return result
+}
+
+function readPersistedChatStoreState(value: unknown): PersistedChatStoreState {
+  if (!isRecord(value)) {
+    return {}
+  }
+
+  return {
+    activeDirectory: typeof value.activeDirectory === "string" ? value.activeDirectory : undefined,
+    lastSessionByDirectory: readStringRecord(value.lastSessionByDirectory),
+    activeReadingResourceByDirectory: readActiveReadingResourceRecord(
+      value.activeReadingResourceByDirectory,
+    ),
+    linkedSessionByResource: readStringRecord(value.linkedSessionByResource),
+  }
+}
+
+function isNonEmptyString(value: string | undefined): value is string {
+  return typeof value === "string" && value.length > 0
 }
 
 function emptyDirectoryState(): DirectoryChatState {
@@ -127,6 +224,35 @@ function emptyDirectoryState(): DirectoryChatState {
     isBusy: false,
     isReady: false,
   }
+}
+
+function createChatStoreStateFields(): ChatStoreStateFields {
+  return {
+    openProjects: [],
+    activeDirectory: undefined,
+    pendingActiveDirectory: undefined,
+    entryError: undefined,
+    lastSessionByDirectory: {},
+    selectedModelByDirectory: {},
+    activeReadingResourceByDirectory: {},
+    linkedSessionByResource: {},
+    directories: {},
+    streamStatus: STREAM_STATUS_IDLE,
+  }
+}
+
+function ensureDirectoryState(
+  directories: Record<string, DirectoryChatState>,
+  directory: string,
+): DirectoryChatState {
+  const existing = directories[directory]
+  if (existing) {
+    return existing
+  }
+
+  const created = emptyDirectoryState()
+  directories[directory] = created
+  return created
 }
 
 function hasDraftSelection(state: DirectoryChatState | undefined) {
@@ -349,16 +475,7 @@ function sealCompletedAssistantMessages(messages: MessageWithParts[], completedA
 export const useChatStore = create<ChatStore>()(
   persist(
     immer((set, get) => ({
-      openProjects: [] as string[],
-      activeDirectory: undefined as string | undefined,
-      pendingActiveDirectory: undefined as string | undefined,
-      entryError: undefined as string | undefined,
-      lastSessionByDirectory: {} as Record<string, string>,
-      selectedModelByDirectory: {} as Record<string, string>,
-      activeReadingResourceByDirectory: {} as Record<string, ActiveReadingResourceState>,
-      linkedSessionByResource: {} as Record<string, string>,
-      directories: {} as Record<string, DirectoryChatState>,
-      streamStatus: "idle" as StreamStatus,
+      ...createChatStoreStateFields(),
       ensureOpenProject(directory) {
         const normalized = normalizeProjectDirectory(directory)
         if (!normalized) return
@@ -378,7 +495,7 @@ export const useChatStore = create<ChatStore>()(
             new Set(
               directories.map((directory) => normalizeProjectDirectory(directory)).filter(Boolean),
             ),
-          ) as string[]
+          ).filter(isNonEmptyString)
 
           const preferredActiveDirectory = state.pendingActiveDirectory ?? state.activeDirectory
           const nextActiveDirectory =
@@ -430,7 +547,7 @@ export const useChatStore = create<ChatStore>()(
             return
           }
 
-          state.openProjects = state.openProjects.filter((entry: string) => entry !== normalized)
+          state.openProjects = state.openProjects.filter((entry) => entry !== normalized)
           delete state.directories[normalized]
           delete state.lastSessionByDirectory[normalized]
           delete state.activeReadingResourceByDirectory[normalized]
@@ -462,18 +579,14 @@ export const useChatStore = create<ChatStore>()(
       },
       setDirectoryReady(directory, ready) {
         set((state) => {
-          if (!state.directories[directory]) {
-            state.directories[directory] = emptyDirectoryState()
-          }
-          state.directories[directory]!.isReady = ready
+          const current = ensureDirectoryState(state.directories, directory)
+          current.isReady = ready
         })
       },
       setDirectoryError(directory, error) {
         set((state) => {
-          if (!state.directories[directory]) {
-            state.directories[directory] = emptyDirectoryState()
-          }
-          state.directories[directory]!.error = error
+          const current = ensureDirectoryState(state.directories, directory)
+          current.error = error
         })
       },
       clearDirectoryError(directory) {
@@ -924,35 +1037,27 @@ export const useChatStore = create<ChatStore>()(
       },
       setPendingPermissions(directory, requests) {
         set((state) => {
-          if (!state.directories[directory]) {
-            state.directories[directory] = emptyDirectoryState()
-          }
-          state.directories[directory]!.pendingPermissions = requests
+          const current = ensureDirectoryState(state.directories, directory)
+          current.pendingPermissions = requests
         })
       },
       setPendingQuestions(directory, requests) {
         set((state) => {
-          if (!state.directories[directory]) {
-            state.directories[directory] = emptyDirectoryState()
-          }
-          state.directories[directory]!.pendingQuestions = requests
+          const current = ensureDirectoryState(state.directories, directory)
+          current.pendingQuestions = requests
         })
       },
       setProviders(directory, input) {
         set((state) => {
-          if (!state.directories[directory]) {
-            state.directories[directory] = emptyDirectoryState()
-          }
-          state.directories[directory]!.providers = input.providers
-          state.directories[directory]!.providerDefault = input.default
+          const current = ensureDirectoryState(state.directories, directory)
+          current.providers = input.providers
+          current.providerDefault = input.default
         })
       },
       setMcpStatus(directory, input) {
         set((state) => {
-          if (!state.directories[directory]) {
-            state.directories[directory] = emptyDirectoryState()
-          }
-          state.directories[directory]!.mcpStatus = input
+          const current = ensureDirectoryState(state.directories, directory)
+          current.mcpStatus = input
         })
       },
       applyPermissionAsked(directory, request) {
@@ -1071,12 +1176,13 @@ export const useChatStore = create<ChatStore>()(
       },
       resetRuntimeState() {
         set((state) => {
-          state.openProjects = []
-          state.activeDirectory = undefined
-          state.pendingActiveDirectory = undefined
-          state.entryError = undefined
-          state.directories = {}
-          state.streamStatus = "idle"
+          const defaults = createChatStoreStateFields()
+          state.openProjects = defaults.openProjects
+          state.activeDirectory = defaults.activeDirectory
+          state.pendingActiveDirectory = defaults.pendingActiveDirectory
+          state.entryError = defaults.entryError
+          state.directories = defaults.directories
+          state.streamStatus = defaults.streamStatus
         })
       },
     })),
@@ -1084,7 +1190,7 @@ export const useChatStore = create<ChatStore>()(
       name: CHAT_STORAGE_KEY,
       storage: createPlatformJsonStorage(CHAT_STORAGE_FILE),
       merge(persistedState, currentState) {
-        const persisted = (persistedState ?? {}) as Partial<ChatStore>
+        const persisted = readPersistedChatStoreState(persistedState)
         const pendingActiveDirectory = normalizeProjectDirectory(persisted.activeDirectory)
 
         return {

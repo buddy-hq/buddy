@@ -51,9 +51,17 @@ export const TEACHING_LANGUAGE_OPTIONS = [
 
 export type TeachingLanguage = (typeof TEACHING_LANGUAGE_OPTIONS)[number]["value"]
 
-const TEACHING_LANGUAGE_OPTION_INDEX = Object.fromEntries(
-  TEACHING_LANGUAGE_OPTIONS.map((option) => [option.value, option]),
-) as Record<TeachingLanguage, (typeof TEACHING_LANGUAGE_OPTIONS)[number]>
+type TeachingLanguageOption = (typeof TEACHING_LANGUAGE_OPTIONS)[number]
+
+function createTeachingLanguageOptionIndex() {
+  const index: Partial<Record<TeachingLanguage, TeachingLanguageOption>> = {}
+  for (const option of TEACHING_LANGUAGE_OPTIONS) {
+    index[option.value] = option
+  }
+  return index
+}
+
+const TEACHING_LANGUAGE_OPTION_INDEX = createTeachingLanguageOptionIndex()
 
 export function teachingLanguageLabel(language: TeachingLanguage) {
   return TEACHING_LANGUAGE_OPTION_INDEX[language]?.label ?? language
@@ -159,185 +167,215 @@ export function teachingSelectionKey(directory: string, sessionID?: string) {
 
 export const useTeachingRuntime = create<TeachingRuntimeState>()(
   persist(
-    immer((set) => ({
-      selectedPersonaBySession: {} as Record<string, string>,
-      preferredLanguageBySession: {} as Record<string, TeachingLanguage>,
-      workspaceBySession: {} as Record<string, TeachingWorkspaceState>,
-      setSessionPersona(sessionKey, persona) {
-        set((state) => {
-          state.selectedPersonaBySession[sessionKey] = persona
-        })
-      },
-      clearSessionPersona(sessionKey) {
-        set((state) => {
-          delete state.selectedPersonaBySession[sessionKey]
-        })
-      },
-      setPreferredLanguage(sessionKey, language) {
-        set((state) => {
-          state.preferredLanguageBySession[sessionKey] = language
-        })
-      },
-      migrateWorkspaceSelection(directory, sessionID) {
-        const sourceKey = teachingSelectionKey(directory)
-        const targetKey = teachingSessionKey(directory, sessionID)
+    immer((set) => {
+      const selectionSlice: Pick<
+        TeachingRuntimeState,
+        | "selectedPersonaBySession"
+        | "preferredLanguageBySession"
+        | "setSessionPersona"
+        | "clearSessionPersona"
+        | "setPreferredLanguage"
+        | "migrateWorkspaceSelection"
+      > = {
+        selectedPersonaBySession: {},
+        preferredLanguageBySession: {},
+        setSessionPersona(sessionKey, persona) {
+          set((state) => {
+            state.selectedPersonaBySession[sessionKey] = persona
+          })
+        },
+        clearSessionPersona(sessionKey) {
+          set((state) => {
+            delete state.selectedPersonaBySession[sessionKey]
+          })
+        },
+        setPreferredLanguage(sessionKey, language) {
+          set((state) => {
+            state.preferredLanguageBySession[sessionKey] = language
+          })
+        },
+        migrateWorkspaceSelection(directory, sessionID) {
+          const sourceKey = teachingSelectionKey(directory)
+          const targetKey = teachingSessionKey(directory, sessionID)
 
-        set((state) => {
-          if (
-            sourceKey in state.selectedPersonaBySession &&
-            !(targetKey in state.selectedPersonaBySession)
-          ) {
-            state.selectedPersonaBySession[targetKey] =
-              state.selectedPersonaBySession[sourceKey] ?? ""
-          }
-          delete state.selectedPersonaBySession[sourceKey]
+          set((state) => {
+            if (
+              sourceKey in state.selectedPersonaBySession &&
+              !(targetKey in state.selectedPersonaBySession)
+            ) {
+              state.selectedPersonaBySession[targetKey] =
+                state.selectedPersonaBySession[sourceKey] ?? ""
+            }
+            delete state.selectedPersonaBySession[sourceKey]
 
-          if (
-            sourceKey in state.preferredLanguageBySession &&
-            !(targetKey in state.preferredLanguageBySession)
-          ) {
-            state.preferredLanguageBySession[targetKey] =
-              state.preferredLanguageBySession[sourceKey] ?? "ts"
-          }
-          delete state.preferredLanguageBySession[sourceKey]
-        })
-      },
-      setWorkspace(sessionKey, workspace) {
-        set((state) => {
-          const current = state.workspaceBySession[sessionKey]
-          state.workspaceBySession[sessionKey] = {
-            ...workspace,
-            savedCode: workspace.code,
-            pendingSave: false,
-            saveError: undefined,
-            conflict: undefined,
-            selection: current?.selection,
-          }
-        })
-      },
-      updateWorkspaceCode(sessionKey, code) {
-        set((state) => {
-          const workspace = state.workspaceBySession[sessionKey]
-          if (workspace) {
-            workspace.code = code
-          }
-        })
-      },
-      setSelection(sessionKey, selection) {
-        set((state) => {
-          const workspace = state.workspaceBySession[sessionKey]
-          if (workspace) {
-            workspace.selection = selection
-          }
-        })
-      },
-      setPendingSave(sessionKey, pending) {
-        set((state) => {
-          const workspace = state.workspaceBySession[sessionKey]
-          if (workspace) {
-            workspace.pendingSave = pending
-          }
-        })
-      },
-      setSaveError(sessionKey, error) {
-        set((state) => {
-          const workspace = state.workspaceBySession[sessionKey]
-          if (workspace) {
-            workspace.saveError = error
-          }
-        })
-      },
-      applySaveSuccess(sessionKey, input) {
-        set((state) => {
-          const workspace = state.workspaceBySession[sessionKey]
-          if (workspace) {
-            Object.assign(workspace, input.workspace)
-            workspace.code =
-              workspace.code === input.requestCode ? input.workspace.code : workspace.code
-            workspace.savedCode = input.workspace.code
-            workspace.pendingSave = false
-            workspace.saveError = undefined
-            workspace.conflict = undefined
-          }
-        })
-      },
-      setConflict(sessionKey, conflict) {
-        set((state) => {
-          const workspace = state.workspaceBySession[sessionKey]
-          if (workspace) {
-            workspace.pendingSave = false
-            workspace.conflict = conflict
-          }
-        })
-      },
-      loadConflictVersion(sessionKey) {
-        set((state) => {
-          const workspace = state.workspaceBySession[sessionKey]
-          if (workspace?.conflict) {
-            workspace.code = workspace.conflict.code
-            workspace.savedCode = workspace.conflict.code
-            workspace.revision = workspace.conflict.revision
-            workspace.lessonFilePath = workspace.conflict.lessonFilePath
-            workspace.conflict = undefined
-            workspace.saveError = undefined
-            workspace.pendingSave = false
-          }
-        })
-      },
-      applyRemoteSnapshot(sessionKey, workspace) {
-        set((state) => {
-          const current = state.workspaceBySession[sessionKey]
-          if (!current) {
+            if (
+              sourceKey in state.preferredLanguageBySession &&
+              !(targetKey in state.preferredLanguageBySession)
+            ) {
+              state.preferredLanguageBySession[targetKey] =
+                state.preferredLanguageBySession[sourceKey] ?? "ts"
+            }
+            delete state.preferredLanguageBySession[sourceKey]
+          })
+        },
+      }
+
+      const workspaceSlice: Pick<
+        TeachingRuntimeState,
+        | "workspaceBySession"
+        | "setWorkspace"
+        | "updateWorkspaceCode"
+        | "setSelection"
+        | "setPendingSave"
+        | "setSaveError"
+        | "applySaveSuccess"
+        | "setConflict"
+        | "loadConflictVersion"
+        | "applyRemoteSnapshot"
+      > = {
+        workspaceBySession: {},
+        setWorkspace(sessionKey, workspace) {
+          set((state) => {
+            const current = state.workspaceBySession[sessionKey]
             state.workspaceBySession[sessionKey] = {
               ...workspace,
               savedCode: workspace.code,
               pendingSave: false,
+              saveError: undefined,
+              conflict: undefined,
+              selection: current?.selection,
             }
-            return
-          }
+          })
+        },
+        updateWorkspaceCode(sessionKey, code) {
+          set((state) => {
+            const workspace = state.workspaceBySession[sessionKey]
+            if (workspace) {
+              workspace.code = code
+            }
+          })
+        },
+        setSelection(sessionKey, selection) {
+          set((state) => {
+            const workspace = state.workspaceBySession[sessionKey]
+            if (workspace) {
+              workspace.selection = selection
+            }
+          })
+        },
+        setPendingSave(sessionKey, pending) {
+          set((state) => {
+            const workspace = state.workspaceBySession[sessionKey]
+            if (workspace) {
+              workspace.pendingSave = pending
+            }
+          })
+        },
+        setSaveError(sessionKey, error) {
+          set((state) => {
+            const workspace = state.workspaceBySession[sessionKey]
+            if (workspace) {
+              workspace.saveError = error
+            }
+          })
+        },
+        applySaveSuccess(sessionKey, input) {
+          set((state) => {
+            const workspace = state.workspaceBySession[sessionKey]
+            if (workspace) {
+              Object.assign(workspace, input.workspace)
+              workspace.code =
+                workspace.code === input.requestCode ? input.workspace.code : workspace.code
+              workspace.savedCode = input.workspace.code
+              workspace.pendingSave = false
+              workspace.saveError = undefined
+              workspace.conflict = undefined
+            }
+          })
+        },
+        setConflict(sessionKey, conflict) {
+          set((state) => {
+            const workspace = state.workspaceBySession[sessionKey]
+            if (workspace) {
+              workspace.pendingSave = false
+              workspace.conflict = conflict
+            }
+          })
+        },
+        loadConflictVersion(sessionKey) {
+          set((state) => {
+            const workspace = state.workspaceBySession[sessionKey]
+            if (workspace?.conflict) {
+              workspace.code = workspace.conflict.code
+              workspace.savedCode = workspace.conflict.code
+              workspace.revision = workspace.conflict.revision
+              workspace.lessonFilePath = workspace.conflict.lessonFilePath
+              workspace.conflict = undefined
+              workspace.saveError = undefined
+              workspace.pendingSave = false
+            }
+          })
+        },
+        applyRemoteSnapshot(sessionKey, workspace) {
+          set((state) => {
+            const current = state.workspaceBySession[sessionKey]
+            if (!current) {
+              state.workspaceBySession[sessionKey] = {
+                ...workspace,
+                savedCode: workspace.code,
+                pendingSave: false,
+              }
+              return
+            }
 
-          const hasLocalEdits = current.code !== current.savedCode
-          const sameActiveFile = current.activeRelativePath === workspace.activeRelativePath
+            const hasLocalEdits = current.code !== current.savedCode
+            const sameActiveFile = current.activeRelativePath === workspace.activeRelativePath
 
-          if (current.code === workspace.code || !hasLocalEdits) {
+            if (current.code === workspace.code || !hasLocalEdits) {
+              state.workspaceBySession[sessionKey] = {
+                ...current,
+                ...workspace,
+                code: workspace.code,
+                savedCode: workspace.code,
+                saveError: undefined,
+                pendingSave: false,
+                conflict: undefined,
+              }
+              return
+            }
+
             state.workspaceBySession[sessionKey] = {
               ...current,
               ...workspace,
-              code: workspace.code,
-              savedCode: workspace.code,
+              activeRelativePath: sameActiveFile
+                ? workspace.activeRelativePath
+                : current.activeRelativePath,
+              lessonFilePath: sameActiveFile ? workspace.lessonFilePath : current.lessonFilePath,
+              checkpointFilePath: sameActiveFile
+                ? workspace.checkpointFilePath
+                : current.checkpointFilePath,
+              language: sameActiveFile ? workspace.language : current.language,
+              lspAvailable: sameActiveFile ? workspace.lspAvailable : current.lspAvailable,
+              diagnostics: sameActiveFile ? workspace.diagnostics : current.diagnostics,
+              code: current.code,
+              savedCode: current.savedCode,
+              conflict: {
+                code: workspace.code,
+                revision: workspace.revision,
+                lessonFilePath: workspace.lessonFilePath,
+              },
               saveError: undefined,
               pendingSave: false,
-              conflict: undefined,
             }
-            return
-          }
+          })
+        },
+      }
 
-          state.workspaceBySession[sessionKey] = {
-            ...current,
-            ...workspace,
-            activeRelativePath: sameActiveFile
-              ? workspace.activeRelativePath
-              : current.activeRelativePath,
-            lessonFilePath: sameActiveFile ? workspace.lessonFilePath : current.lessonFilePath,
-            checkpointFilePath: sameActiveFile
-              ? workspace.checkpointFilePath
-              : current.checkpointFilePath,
-            language: sameActiveFile ? workspace.language : current.language,
-            lspAvailable: sameActiveFile ? workspace.lspAvailable : current.lspAvailable,
-            diagnostics: sameActiveFile ? workspace.diagnostics : current.diagnostics,
-            code: current.code,
-            savedCode: current.savedCode,
-            conflict: {
-              code: workspace.code,
-              revision: workspace.revision,
-              lessonFilePath: workspace.lessonFilePath,
-            },
-            saveError: undefined,
-            pendingSave: false,
-          }
-        })
-      },
-    })),
+      return {
+        ...selectionSlice,
+        ...workspaceSlice,
+      }
+    }),
     {
       name: TEACHING_RUNTIME_STORAGE_KEY,
       version: 6,

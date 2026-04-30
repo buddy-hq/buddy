@@ -20,6 +20,10 @@ function asFiniteNumber(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
 function asString(value: unknown, fallback: string) {
   if (typeof value !== "string") {
     return fallback
@@ -37,25 +41,18 @@ export function normalizeSessionStatusValue(value: unknown): SessionStatusInfo {
   if (value === SESSION_STATUS_BUSY) return BUSY_SESSION_STATUS
   if (value === SESSION_STATUS_IDLE) return IDLE_SESSION_STATUS
 
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+  if (!isRecord(value)) {
     return IDLE_SESSION_STATUS
   }
 
-  const record = value as {
-    type?: unknown
-    attempt?: unknown
-    message?: unknown
-    next?: unknown
-  }
-
-  if (record.type === SESSION_STATUS_BUSY) return BUSY_SESSION_STATUS
-  if (record.type !== SESSION_STATUS_RETRY) return IDLE_SESSION_STATUS
+  if (value.type === SESSION_STATUS_BUSY) return BUSY_SESSION_STATUS
+  if (value.type !== SESSION_STATUS_RETRY) return IDLE_SESSION_STATUS
 
   return {
     type: SESSION_STATUS_RETRY,
-    attempt: asFiniteNumber(record.attempt) ?? DEFAULT_RETRY_ATTEMPT,
-    message: asString(record.message, DEFAULT_RETRY_MESSAGE),
-    next: asFiniteNumber(record.next) ?? Date.now(),
+    attempt: asFiniteNumber(value.attempt) ?? DEFAULT_RETRY_ATTEMPT,
+    message: asString(value.message, DEFAULT_RETRY_MESSAGE),
+    next: asFiniteNumber(value.next) ?? Date.now(),
   }
 }
 

@@ -11,7 +11,14 @@ import {
   prependHistoryEntry,
   type PromptHistoryEntry,
 } from "@/components/prompt/prompt-history"
-import type { PromptComposerAttachment, PromptComposerPart } from "@/components/prompt/prompt-types"
+import {
+  PROMPT_PART_TYPE_AGENT,
+  PROMPT_PART_TYPE_TEXT,
+  RESOURCE_REFERENCE_PART_TYPE,
+  WORKSPACE_FILE_REFERENCE_PART_TYPE,
+  type PromptComposerAttachment,
+  type PromptComposerPart,
+} from "@/components/prompt/prompt-types"
 import { createPlatformJsonStorage } from "../context/platform"
 
 export const PROMPT_STORE_STORAGE_KEY = "buddy.prompt.v1"
@@ -46,6 +53,11 @@ type PromptStore = {
   removeSessionDraft: (key: string) => void
 }
 
+type PersistedPromptStoreState = {
+  draftsByKey?: Record<string, PromptDraftState>
+  historyByDirectory?: Record<string, PromptHistoryEntry[]>
+}
+
 const EMPTY_HISTORY_ENTRIES: PromptHistoryEntry[] = []
 const EMPTY_HISTORY_NAVIGATION: PromptHistoryNavigationState = {
   historyIndex: -1,
@@ -57,6 +69,114 @@ const EMPTY_PROMPT_DRAFT: PromptDraftState = {
   attachments: [],
   cursor: 0,
   updatedAt: 0,
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null
+}
+
+function isPromptComposerAttachment(value: unknown): value is PromptComposerAttachment {
+  if (!isRecord(value)) {
+    return false
+  }
+  return (
+    typeof value.id === "string" &&
+    typeof value.filename === "string" &&
+    typeof value.mime === "string" &&
+    typeof value.dataUrl === "string" &&
+    (value.kind === "image" || value.kind === "file")
+  )
+}
+
+function isPromptComposerPart(value: unknown): value is PromptComposerPart {
+  if (!isRecord(value) || typeof value.type !== "string") {
+    return false
+  }
+  if (value.type === PROMPT_PART_TYPE_TEXT) {
+    return typeof value.text === "string"
+  }
+  if (value.type === PROMPT_PART_TYPE_AGENT) {
+    return typeof value.name === "string"
+  }
+  if (value.type === WORKSPACE_FILE_REFERENCE_PART_TYPE) {
+    return typeof value.path === "string"
+  }
+  if (value.type === RESOURCE_REFERENCE_PART_TYPE) {
+    return typeof value.key === "string"
+  }
+  return false
+}
+
+function isPromptDraftState(value: unknown): value is PromptDraftState {
+  if (!isRecord(value)) {
+    return false
+  }
+
+  return (
+    typeof value.value === "string" &&
+    Array.isArray(value.parts) &&
+    value.parts.every(isPromptComposerPart) &&
+    Array.isArray(value.attachments) &&
+    value.attachments.every(isPromptComposerAttachment) &&
+    typeof value.cursor === "number" &&
+    Number.isFinite(value.cursor) &&
+    typeof value.updatedAt === "number" &&
+    Number.isFinite(value.updatedAt)
+  )
+}
+
+function isPromptHistoryEntry(value: unknown): value is PromptHistoryEntry {
+  if (!isRecord(value)) {
+    return false
+  }
+
+  return (
+    typeof value.value === "string" &&
+    Array.isArray(value.parts) &&
+    value.parts.every(isPromptComposerPart) &&
+    Array.isArray(value.attachments) &&
+    value.attachments.every(isPromptComposerAttachment)
+  )
+}
+
+function readDraftsByKey(value: unknown): Record<string, PromptDraftState> | undefined {
+  if (!isRecord(value)) {
+    return undefined
+  }
+
+  const result: Record<string, PromptDraftState> = {}
+  for (const [key, entry] of Object.entries(value)) {
+    if (isPromptDraftState(entry)) {
+      result[key] = entry
+    }
+  }
+  return result
+}
+
+function readHistoryByDirectory(value: unknown): Record<string, PromptHistoryEntry[]> | undefined {
+  if (!isRecord(value)) {
+    return undefined
+  }
+
+  const result: Record<string, PromptHistoryEntry[]> = {}
+  for (const [key, entry] of Object.entries(value)) {
+    if (Array.isArray(entry)) {
+      const historyEntries = entry.filter(isPromptHistoryEntry)
+      result[key] = historyEntries
+    }
+  }
+  return result
+}
+
+function readPersistedPromptStoreState(value: unknown): PersistedPromptStoreState {
+  if (!isRecord(value)) {
+    return {}
+  }
+
+  return {
+    draftsByKey: readDraftsByKey(value.draftsByKey),
+    historyByDirectory: readHistoryByDirectory(value.historyByDirectory),
+  }
 }
 
 function cloneAttachments(attachments: PromptComposerAttachment[]) {
@@ -96,15 +216,14 @@ function normalizePromptDraft(
 }
 
 function pruneDraftEntries(entries: Record<string, PromptDraftState>, max = MAX_PROMPT_DRAFTS) {
-  const keys = Object.keys(entries)
-  if (keys.length <= max) return entries
+  const ordered = Object.entries(entries).toSorted(
+    (left, right) => (right[1]?.updatedAt ?? 0) - (left[1]?.updatedAt ?? 0),
+  )
+  if (ordered.length <= max) {
+    return entries
+  }
 
-  const ordered = keys
-    .map((key) => [key, entries[key]] as const)
-    .toSorted((left, right) => (right[1]?.updatedAt ?? 0) - (left[1]?.updatedAt ?? 0))
-    .slice(0, max)
-
-  return Object.fromEntries(ordered)
+  return Object.fromEntries(ordered.slice(0, max))
 }
 
 export function getPromptScopeKey(directory: string, sessionID?: string) {
@@ -143,91 +262,117 @@ export function getPromptHistoryNavigation(
 
 export const usePromptStore = create<PromptStore>()(
   persist(
-    immer((set, get) => ({
-      draftsByKey: {} as Record<string, PromptDraftState>,
-      historyByDirectory: {} as Record<string, PromptHistoryEntry[]>,
-      historyNavigationByKey: {} as Record<string, PromptHistoryNavigationState>,
-      replaceDraft(key, draft) {
-        set((state) => {
-          const nextDraft = normalizePromptDraft(draft)
-          if (isDraftEmpty(nextDraft)) {
+    immer((set, get) => {
+      const draftSlice: Pick<
+        PromptStore,
+        | "draftsByKey"
+        | "replaceDraft"
+        | "setAttachments"
+        | "setCursor"
+        | "clearDraft"
+        | "migrateWorkspaceDraft"
+        | "removeSessionDraft"
+      > = {
+        draftsByKey: {},
+        replaceDraft(key, draft) {
+          set((state) => {
+            const nextDraft = normalizePromptDraft(draft)
+            if (isDraftEmpty(nextDraft)) {
+              delete state.draftsByKey[key]
+            } else {
+              state.draftsByKey = pruneDraftEntries({
+                ...state.draftsByKey,
+                [key]: nextDraft,
+              })
+            }
+          })
+        },
+        setAttachments(key, attachments) {
+          const current = getPromptDraft(get(), key)
+          get().replaceDraft(key, {
+            value: current.value,
+            parts: current.parts,
+            attachments,
+            cursor: current.cursor,
+          })
+        },
+        setCursor(key, cursor) {
+          const current = getPromptDraft(get(), key)
+          get().replaceDraft(key, {
+            value: current.value,
+            parts: current.parts,
+            attachments: current.attachments,
+            cursor,
+          })
+        },
+        clearDraft(key) {
+          set((state) => {
             delete state.draftsByKey[key]
-          } else {
+            delete state.historyNavigationByKey[key]
+          })
+        },
+        migrateWorkspaceDraft(directory, sessionID) {
+          const sourceKey = getPromptScopeKey(directory)
+          const targetKey = getPromptScopeKey(directory, sessionID)
+          const source = getPromptDraft(get(), sourceKey)
+          const target = getPromptDraft(get(), targetKey)
+
+          if (isDraftEmpty(source) || !isDraftEmpty(target)) return
+
+          set((state) => {
+            const clonedSource = clonePromptDraft(source)
+            clonedSource.updatedAt = Date.now()
+            delete state.draftsByKey[sourceKey]
+            delete state.historyNavigationByKey[sourceKey]
             state.draftsByKey = pruneDraftEntries({
               ...state.draftsByKey,
-              [key]: nextDraft,
+              [targetKey]: clonedSource,
             })
-          }
-        })
-      },
-      setAttachments(key, attachments) {
-        const current = getPromptDraft(get(), key)
-        get().replaceDraft(key, {
-          value: current.value,
-          parts: current.parts,
-          attachments,
-          cursor: current.cursor,
-        })
-      },
-      setCursor(key, cursor) {
-        const current = getPromptDraft(get(), key)
-        get().replaceDraft(key, {
-          value: current.value,
-          parts: current.parts,
-          attachments: current.attachments,
-          cursor,
-        })
-      },
-      clearDraft(key) {
-        set((state) => {
-          delete state.draftsByKey[key]
-          delete state.historyNavigationByKey[key]
-        })
-      },
-      pushHistoryEntry(directory, entry) {
-        set((state) => {
-          state.historyByDirectory[directory] = prependHistoryEntry(
-            state.historyByDirectory[directory] ?? EMPTY_HISTORY_ENTRIES,
-            entry,
-          )
-        })
-      },
-      setHistoryNavigation(key, input) {
-        set((state) => {
-          state.historyNavigationByKey[key] = {
-            historyIndex: input.historyIndex,
-            savedDraft: input.savedDraft ? clonePromptHistoryEntry(input.savedDraft) : null,
-          }
-        })
-      },
-      resetHistoryNavigation(key) {
-        set((state) => {
-          delete state.historyNavigationByKey[key]
-        })
-      },
-      migrateWorkspaceDraft(directory, sessionID) {
-        const sourceKey = getPromptScopeKey(directory)
-        const targetKey = getPromptScopeKey(directory, sessionID)
-        const source = getPromptDraft(get(), sourceKey)
-        const target = getPromptDraft(get(), targetKey)
-
-        if (isDraftEmpty(source) || !isDraftEmpty(target)) return
-
-        set((state) => {
-          const clonedSource = clonePromptDraft(source)
-          clonedSource.updatedAt = Date.now()
-          delete state.draftsByKey[sourceKey]
-          delete state.historyNavigationByKey[sourceKey]
-          state.draftsByKey = pruneDraftEntries({
-            ...state.draftsByKey,
-            [targetKey]: clonedSource,
           })
-        })
-      },
-      removeSessionDraft(key) {
-        get().clearDraft(key)
-      },
-    })),
+        },
+        removeSessionDraft(key) {
+          get().clearDraft(key)
+        },
+      }
+
+      const historySlice: Pick<
+        PromptStore,
+        | "historyByDirectory"
+        | "historyNavigationByKey"
+        | "pushHistoryEntry"
+        | "setHistoryNavigation"
+        | "resetHistoryNavigation"
+      > = {
+        historyByDirectory: {},
+        historyNavigationByKey: {},
+        pushHistoryEntry(directory, entry) {
+          set((state) => {
+            state.historyByDirectory[directory] = prependHistoryEntry(
+              state.historyByDirectory[directory] ?? EMPTY_HISTORY_ENTRIES,
+              entry,
+            )
+          })
+        },
+        setHistoryNavigation(key, input) {
+          set((state) => {
+            state.historyNavigationByKey[key] = {
+              historyIndex: input.historyIndex,
+              savedDraft: input.savedDraft ? clonePromptHistoryEntry(input.savedDraft) : null,
+            }
+          })
+        },
+        resetHistoryNavigation(key) {
+          set((state) => {
+            delete state.historyNavigationByKey[key]
+          })
+        },
+      }
+
+      return {
+        ...draftSlice,
+        ...historySlice,
+      }
+    }),
     {
       name: PROMPT_STORE_STORAGE_KEY,
       version: 1,
@@ -239,12 +384,7 @@ export const usePromptStore = create<PromptStore>()(
         }
       },
       migrate(persistedState) {
-        const state = persistedState as
-          | {
-              draftsByKey?: Record<string, PromptDraftState>
-              historyByDirectory?: Record<string, PromptHistoryEntry[]>
-            }
-          | undefined
+        const state = readPersistedPromptStoreState(persistedState)
 
         return {
           draftsByKey: state?.draftsByKey ?? {},
