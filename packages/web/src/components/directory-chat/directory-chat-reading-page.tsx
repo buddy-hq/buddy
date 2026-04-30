@@ -71,7 +71,13 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
   )
   const setSessionPersona = useTeachingRuntime((state) => state.setSessionPersona)
   const clearSessionPersona = useTeachingRuntime((state) => state.clearSessionPersona)
-  const selectedPersonaBySession = useTeachingRuntime((state) => state.selectedPersonaBySession)
+  const readingPersonaSessionKey = useMemo(
+    () => (readyDirectory ? teachingSelectionKey(readyDirectory, readingSessionID) : ""),
+    [readingSessionID, readyDirectory],
+  )
+  const selectedPersonaForSession = useTeachingRuntime((state) =>
+    readingPersonaSessionKey ? state.selectedPersonaBySession[readingPersonaSessionKey] : undefined,
+  )
   const previousPersonaBySessionRef = useRef<Record<string, string | undefined>>({})
   const conversationPanelRef = useResizablePanelRef()
   const resourcesQuery = useQuery({
@@ -119,7 +125,7 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
       delete previousPersonaBySessionRef.current[draftSessionKey]
     }
 
-    const currentPersona = selectedPersonaBySession[sessionKey]
+    const currentPersona = selectedPersonaForSession
 
     if (currentPersona === "reading-buddy") return
 
@@ -128,7 +134,7 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
     }
 
     setSessionPersona(sessionKey, "reading-buddy")
-  }, [readingSessionID, readyDirectory, selectedPersonaBySession, setSessionPersona])
+  }, [readingSessionID, readyDirectory, selectedPersonaForSession, setSessionPersona])
 
   useEffect(() => {
     return () => {

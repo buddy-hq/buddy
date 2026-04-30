@@ -95,7 +95,7 @@ import {
 import { getModelSelectionScopeKey } from "../../state/model-selection-store"
 import { useChatStore } from "../../state/chat-store"
 import { useUiPreferences } from "../../state/ui-preferences"
-import { shallow } from "zustand/shallow"
+import { useShallow } from "zustand/react/shallow"
 import { stringifyError } from "../../state/teaching-actions"
 import { teachingSelectionKey, useTeachingRuntime } from "../../state/teaching-runtime"
 import {
@@ -204,7 +204,7 @@ export function useDirectoryChatPageController(
   const showSnapshotSidebarTab = showDevSessionTrace
   const showPaletteSidebarTab = showDevSessionTrace
 
-  const openProjects = useChatStore((state) => state.openProjects, shallow)
+  const openProjects = useChatStore(useShallow((state) => state.openProjects))
   const activeReadingResource = useChatStore((state) =>
     decodedDirectory ? state.activeReadingResourceByDirectory[decodedDirectory] : undefined,
   )
@@ -226,7 +226,6 @@ export function useDirectoryChatPageController(
     configuredModel: chatConfig.configuredModel,
     autoCompactionEnabled: chatConfig.autoCompactionEnabled,
     personaCatalog: chatConfig.personaCatalog,
-    defaultPersona: chatConfig.defaultPersona,
     showSystemPromptSidebarTab,
     showCapabilitiesSidebarTab,
     showPaletteSidebarTab,
@@ -1523,7 +1522,7 @@ export function useDirectoryChatPageController(
   }
 
   function onPersonaChange(persona: string) {
-    cs.teachingRuntime.setSessionPersona(cs.sessionKey, persona)
+    cs.setSessionPersona(cs.sessionKey, persona)
 
     const nextPersona = cs.primaryPersonaOptions.find((option) => option.id === persona)
     if (!nextPersona) return

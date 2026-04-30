@@ -151,7 +151,6 @@ type UseDirectoryChatStateProps = {
   configuredModel: { providerID: string; modelID: string } | undefined
   autoCompactionEnabled: boolean
   personaCatalog: PersonaConfigOption[]
-  defaultPersona: string
   showSystemPromptSidebarTab: boolean
   showCapabilitiesSidebarTab: boolean
   showPaletteSidebarTab: boolean
@@ -203,10 +202,23 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
   const clearDirectorySessionState = useUiPreferences((state) => state.clearDirectorySessionState)
 
   // ── Teaching runtime ───────────────────────────────────────────────────────
-  const teachingRuntime = useTeachingRuntime()
+  const setSessionPersona = useTeachingRuntime((state) => state.setSessionPersona)
 
   // ── Prompt store ───────────────────────────────────────────────────────────
   const sessionID = directoryState?.sessionID
+  const sessionKey = useMemo(
+    () => (decodedDirectory ? teachingSelectionKey(decodedDirectory, sessionID) : ""),
+    [decodedDirectory, sessionID],
+  )
+  const storedPersonaForSession = useTeachingRuntime((state) =>
+    sessionKey ? state.selectedPersonaBySession[sessionKey] : undefined,
+  )
+  const preferredLanguageForSession = useTeachingRuntime((state) =>
+    sessionKey ? state.preferredLanguageBySession[sessionKey] : undefined,
+  )
+  const teachingWorkspace = useTeachingRuntime((state) =>
+    sessionKey ? state.workspaceBySession[sessionKey] : undefined,
+  )
   const promptKey = useMemo(
     () => getPromptScopeKey(decodedDirectory, sessionID),
     [decodedDirectory, sessionID],
@@ -451,17 +463,8 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
     [mcpEntries],
   )
   const sidebarDirectories = validOpenProjects
-  const sessionKey = useMemo(
-    () => (decodedDirectory ? teachingSelectionKey(decodedDirectory, sessionID) : ""),
-    [decodedDirectory, sessionID],
-  )
-  const storedPersona = sessionKey
-    ? (teachingRuntime.selectedPersonaBySession[sessionKey] ?? props.defaultPersona)
-    : props.defaultPersona
-  const preferredLanguage = sessionKey
-    ? (teachingRuntime.preferredLanguageBySession[sessionKey] ?? "ts")
-    : "ts"
-  const teachingWorkspace = sessionKey ? teachingRuntime.workspaceBySession[sessionKey] : undefined
+  const storedPersona = storedPersonaForSession ?? primaryPersonaOptions[0]?.id ?? "buddy"
+  const preferredLanguage = preferredLanguageForSession ?? "ts"
   const selectedPersonaConfig = useMemo(
     () =>
       primaryPersonaOptions.find((persona) => persona.id === storedPersona) ??
@@ -583,7 +586,7 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
     modelOptions,
     primaryPersonaOptions,
     // Teaching
-    teachingRuntime,
+    setSessionPersona,
     teachingWorkspace,
     storedPersona,
     preferredLanguage,

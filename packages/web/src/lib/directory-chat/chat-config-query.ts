@@ -4,7 +4,6 @@ import {
   loadCommandCatalog,
   loadPersonaCatalog,
   loadProjectConfig,
-  resolveDefaultPersonaID,
   type AgentConfigOption,
   type PersonaConfigOption,
   type PromptCommandOption,
@@ -23,7 +22,6 @@ export type ComposerConfig = {
   defaultAgent?: string
   personaCatalog: PersonaConfigOption[]
   slashCommands: PromptCommandOption[]
-  defaultPersona: string
   configuredModel: { providerID: string; modelID: string } | undefined
   autoCompactionEnabled: boolean
 }
@@ -33,7 +31,6 @@ export const DEFAULT_COMPOSER_CONFIG: ComposerConfig = {
   defaultAgent: undefined,
   personaCatalog: [],
   slashCommands: [],
-  defaultPersona: "buddy",
   configuredModel: undefined,
   autoCompactionEnabled: true,
 }
@@ -85,18 +82,11 @@ async function loadComposerConfig(directory: string): Promise<ComposerConfig> {
     loadCommandCatalog(directory),
   ])
 
-  const defaultPersona =
-    resolveDefaultPersonaID(
-      personas,
-      typeof config.default_persona === "string" ? config.default_persona : undefined,
-    ) ?? "buddy"
-
   return {
     agentCatalog: agents,
     defaultAgent: resolveDefaultAgentName(agents, config.default_agent),
     personaCatalog: personas,
     slashCommands: withE2EBackendCommand(commands),
-    defaultPersona,
     configuredModel: parseConfiguredModel(config.model),
     autoCompactionEnabled: readCompactionAuto(config, true),
   }

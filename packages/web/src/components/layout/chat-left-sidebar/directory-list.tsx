@@ -8,7 +8,9 @@ import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuSeparator,
   ContextMenuTrigger,
+  Switch,
   FolderIcon,
   FileSlidersIcon,
   MailIcon,
@@ -28,6 +30,7 @@ import {
 import { language } from "@/context/language"
 import { collectSessionFamilyIDs } from "@/lib/session-family"
 import type { SessionInfo, SessionStatusInfo } from "@/state/chat-types"
+import { useNotebookSettingsWorkbench } from "@/state/project-settings"
 import { isSessionWorking } from "@/state/session-status"
 import type { NotebookMainPaneTab } from "@/state/ui-preferences"
 import { getFilename } from "../sidebar-helpers"
@@ -172,6 +175,61 @@ function getSubagentToneClass(agent: string) {
 
 function isSessionInfo(value: SessionInfo | undefined): value is SessionInfo {
   return value !== undefined
+}
+
+function NotebookLearnerMemoryContextItems(props: { directory: string }) {
+  const settings = useNotebookSettingsWorkbench(props.directory, true)
+  const notebookControlsDisabled =
+    settings.status.loading || !settings.selection.learnerMemoryMasterEnabled
+  const autoExtractDisabled =
+    settings.status.loading ||
+    !settings.selection.learnerMemoryMasterEnabled ||
+    !settings.selection.learnerMemoryEnabled
+
+  function toggleLearnerMemory(event: Event) {
+    event.preventDefault()
+    if (notebookControlsDisabled) return
+    settings.actions.setLearnerMemoryEnabled(!settings.selection.learnerMemoryEnabled)
+  }
+
+  function toggleAutoExtract(event: Event) {
+    event.preventDefault()
+    if (autoExtractDisabled) return
+    settings.actions.setLearnerMemoryAutoExtract(!settings.selection.learnerMemoryAutoExtract)
+  }
+
+  return (
+    <>
+      <ContextMenuItem
+        data-action="left-sidebar-directory-learner-memory"
+        onSelect={toggleLearnerMemory}
+        disabled={notebookControlsDisabled}
+        className="flex items-center justify-between gap-3"
+      >
+        <span>{language.t("sidebar.notebookLearnerMemory")}</span>
+        <Switch
+          checked={settings.selection.learnerMemoryEnabled}
+          disabled={notebookControlsDisabled}
+          tabIndex={-1}
+          className="pointer-events-none"
+        />
+      </ContextMenuItem>
+      <ContextMenuItem
+        data-action="left-sidebar-directory-learner-memory-auto"
+        onSelect={toggleAutoExtract}
+        disabled={autoExtractDisabled}
+        className="flex items-center justify-between gap-3"
+      >
+        <span>{language.t("sidebar.notebookLearnerMemoryAutoExtract")}</span>
+        <Switch
+          checked={settings.selection.learnerMemoryAutoExtract}
+          disabled={autoExtractDisabled}
+          tabIndex={-1}
+          className="pointer-events-none"
+        />
+      </ContextMenuItem>
+    </>
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -462,6 +520,8 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                 </PopoverTrigger>
               </ContextMenuTrigger>
               <ContextMenuContent className="w-44">
+                <NotebookLearnerMemoryContextItems directory={props.group.directory} />
+                <ContextMenuSeparator />
                 <ContextMenuItem
                   data-action="left-sidebar-directory-close"
                   onSelect={props.onCloseNotebook}
