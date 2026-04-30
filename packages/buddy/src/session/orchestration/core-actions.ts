@@ -7,6 +7,7 @@ import { ensureAllowedDirectory } from "../../http"
 import { proxyToOpenCode } from "../../http"
 import { isSessionInRequestedProject } from "../../http"
 import { withConfigSync } from "../../http/route-helpers"
+import { runLearnerMemoryStartupPipeline } from "../../learning/learner-memory"
 import { clearDynamicLearningToolsForEndedSession } from "../../learning/tools/dynamic-learning-tool-grants"
 import { isSessionNotFoundError } from "./lookup"
 
@@ -147,16 +148,35 @@ async function ensureRuntimeSessionExists(
 }
 
 export async function proxySessionCollection(c: Context): Promise<Response> {
+  let sessionCreationDirectory: string | undefined
   if (c.req.method === "POST") {
     const syncResult = await withConfigSync(c, {
       operation: "session creation",
     })
     if (!syncResult.ok) return syncResult.response
+    sessionCreationDirectory = syncResult.value.directory
   }
 
-  return proxyToOpenCode(c, {
+  const response = await proxyToOpenCode(c, {
     targetPath: "/session",
   })
+  if (c.req.method === "POST" && response.ok && sessionCreationDirectory) {
+    response
+      .clone()
+      .json()
+      .then((body: unknown) => {
+        const parsed = OpenCodeSession.Info.safeParse(body)
+        if (!parsed.success) return
+        runLearnerMemoryStartupPipeline({
+          directory: sessionCreationDirectory,
+          currentSessionID: parsed.data.id,
+        }).catch((error) => {
+          console.warn("Learner memory startup pipeline failed:", error)
+        })
+      })
+      .catch(() => undefined)
+  }
+  return response
 }
 
 export async function getSessionStatus(c: Context): Promise<Response> {
