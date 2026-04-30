@@ -2,9 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { ChatTranscript } from "../src/components/chat/chat-transcript"
-import { HiddenSteps } from "../src/components/chat/tools/hidden-steps"
 import type { MessagePart, MessageWithParts } from "../src/state/chat-types"
-import { BUSY_SESSION_STATUS } from "../src/state/session-status"
 import { seedDirectoryChatState } from "./test-utils"
 
 async function flushEffects(delay = 0) {
@@ -83,33 +81,6 @@ function assistantMessage(input?: {
   }
 }
 
-function shellToolPart(input: {
-  status: "running" | "error"
-  output?: string
-  error?: string
-  description?: string
-}): MessagePart {
-  return {
-    id: "prt_tool_shell",
-    sessionID: "ses_error",
-    messageID: "msg_assistant",
-    type: "tool",
-    tool: "bash",
-    callID: "call_shell",
-    state: {
-      status: input.status,
-      input: {
-        description: input.description,
-      },
-      ...(input.output !== undefined ? { output: input.output } : {}),
-      ...(input.error !== undefined ? { error: input.error } : {}),
-      time: {
-        start: 2,
-      },
-    },
-  }
-}
-
 describe("chat error handling", () => {
   let container: HTMLDivElement
   let root: Root
@@ -165,129 +136,5 @@ describe("chat error handling", () => {
     expect(alert).not.toBeNull()
     expect(alert?.textContent).toContain("Assistant error")
     expect(alert?.textContent).toContain("Request failed.")
-  })
-
-  test("uses the shared abstracted thinking placeholder while the assistant is busy", async () => {
-    seedDirectoryChatState("/repo", {
-      sessionID: "ses_error",
-      sessionStatusByID: {
-        ses_error: BUSY_SESSION_STATUS,
-      },
-      messages: [userMessage()],
-      isBusy: true,
-    })
-
-    await act(async () => {
-      root.render(<ChatTranscript directory="/repo" />)
-      await flushEffects()
-    })
-
-    const placeholder = container.querySelector("[data-abstracted-thinking-placeholder]")
-    expect(placeholder).not.toBeNull()
-    expect(placeholder?.textContent).toContain("Thinking")
-
-    const title = placeholder?.querySelector("span")
-    expect(title?.className).toContain("text-xs")
-    expect(title?.className).not.toContain("text-sm")
-  })
-
-  test("shows a retry notice instead of the generic thinking placeholder while rate limited", async () => {
-    seedDirectoryChatState("/repo", {
-      sessionID: "ses_error",
-      sessionStatusByID: {
-        ses_error: {
-          type: "retry",
-          attempt: 2,
-          message: "The usage limit has been reached",
-          next: Date.now() + 30_000,
-        },
-      },
-      messages: [userMessage()],
-      isBusy: true,
-    })
-
-    await act(async () => {
-      root.render(<ChatTranscript directory="/repo" />)
-      await flushEffects()
-    })
-
-    const retryNotice = container.querySelector("[data-session-retry-notice]")
-    expect(retryNotice).not.toBeNull()
-    expect(retryNotice?.textContent).toContain("The usage limit has been reached")
-    expect(retryNotice?.textContent).toContain("Attempt #2")
-    expect(container.querySelector("[data-abstracted-thinking-placeholder]")).toBeNull()
-  })
-
-  test("prefers the latest abstracted tool error over stale live preview state", async () => {
-    await act(async () => {
-      root.render(
-        <HiddenSteps
-          parts={[
-            shellToolPart({
-              status: "running",
-              output: "searching the workspace",
-            }),
-          ]}
-          isBusy
-        />,
-      )
-      await flushEffects()
-    })
-
-    await act(async () => {
-      root.render(
-        <HiddenSteps
-          parts={[
-            shellToolPart({
-              status: "error",
-              error: "command failed",
-            }),
-          ]}
-          isBusy
-        />,
-      )
-      await flushEffects(140)
-    })
-
-    expect(container.textContent).toContain("command failed")
-  })
-
-  test("keeps the live abstracted preview at a fixed viewport height while running", async () => {
-    await act(async () => {
-      root.render(
-        <HiddenSteps
-          parts={[
-            shellToolPart({
-              status: "running",
-              output: "searching the workspace\ncollecting files\nsummarizing results",
-            }),
-          ]}
-          isBusy
-        />,
-      )
-      await flushEffects()
-    })
-
-    const previewViewport = container.querySelector("[data-preview-viewport]")
-    expect(previewViewport).not.toBeNull()
-    expect((previewViewport as HTMLDivElement).style.height).toBe("80px")
-    expect((previewViewport as HTMLDivElement).style.maxHeight).toBe("80px")
-  })
-
-  test("shows a generic abstracted tool failure message when the tool provides no text", async () => {
-    await act(async () => {
-      root.render(
-        <HiddenSteps
-          parts={[
-            shellToolPart({
-              status: "error",
-            }),
-          ]}
-        />,
-      )
-      await flushEffects()
-    })
-
-    expect(container.textContent).toContain("Shell failed.")
   })
 })

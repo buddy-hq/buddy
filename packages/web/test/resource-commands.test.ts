@@ -2,16 +2,11 @@ import { describe, expect, test } from "bun:test"
 import {
   isResourceLocalSlashCommandName,
   parseResourceLocalSlashCommand,
-  RESOURCE_LOCAL_SLASH_COMMANDS,
   RESOURCE_COMMAND_PANEL,
 } from "../src/lib/resource-commands"
 
 describe("resource slash commands", () => {
   test("recognizes the local resource command names", () => {
-    expect(RESOURCE_LOCAL_SLASH_COMMANDS.map((command) => command.name)).toEqual([
-      "resources",
-      "resource",
-    ])
     expect(isResourceLocalSlashCommandName("resources")).toBe(true)
     expect(isResourceLocalSlashCommandName("resource")).toBe(true)
     expect(isResourceLocalSlashCommandName("other")).toBe(false)

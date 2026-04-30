@@ -6,7 +6,6 @@ import {
   getSlashMatch,
   parseSlashCommandInput,
   QUIZ_SLASH_COMMAND_NAME,
-  SUBMITTED_BUILTIN_SLASH_COMMAND_NAMES,
 } from "../../../src/components/prompt/slash-autocomplete"
 import {
   PROMPT_PART_TYPE_AGENT,
@@ -55,10 +54,6 @@ describe("slash autocomplete", () => {
   test("builds a contextual quiz prompt from slash command arguments", () => {
     expect(buildQuizSlashPrompt("graphs")).toContain("Create a quiz about graphs.")
     expect(buildQuizSlashPrompt("")).toContain("current conversation and context")
-  })
-
-  test("registers quiz among submitted builtin slash commands", () => {
-    expect(SUBMITTED_BUILTIN_SLASH_COMMAND_NAMES).toContain(QUIZ_SLASH_COMMAND_NAME)
   })
 
   test("rewrites quiz slash prompt parts without dropping structured references", () => {

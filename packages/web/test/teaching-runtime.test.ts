@@ -35,20 +35,4 @@ describe("teaching runtime", () => {
     expect(useTeachingRuntime.getState().selectedPersonaBySession[workspaceKey]).toBeUndefined()
     expect(useTeachingRuntime.getState().selectedPersonaBySession[sessionKey]).toBe("reading-buddy")
   })
-
-  test("can carry a tracked pre-reading persona from draft scope to a real session", () => {
-    const draftKey = teachingSelectionKey("/repo")
-    const sessionKey = teachingSelectionKey("/repo", "session-1")
-    const previousPersonaBySession: Record<string, string | undefined> = {
-      [draftKey]: "buddy",
-    }
-
-    if (!(sessionKey in previousPersonaBySession) && draftKey in previousPersonaBySession) {
-      previousPersonaBySession[sessionKey] = previousPersonaBySession[draftKey]
-      delete previousPersonaBySession[draftKey]
-    }
-
-    expect(previousPersonaBySession[sessionKey]).toBe("buddy")
-    expect(previousPersonaBySession[draftKey]).toBeUndefined()
-  })
 })

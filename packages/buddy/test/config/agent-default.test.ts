@@ -165,4 +165,34 @@ describe("config default_persona", () => {
       },
     })
   })
+
+  test("rejects defaultSurface overrides that are not present in inherited surfaces", async () => {
+    const repo = createGitRepo("buddy-config-invalid-default-surface-only")
+
+    writeFileSync(
+      path.join(repo, "buddy.jsonc"),
+      JSON.stringify(
+        {
+          personas: {
+            buddy: {
+              defaultSurface: "figure",
+            },
+          },
+        },
+        null,
+        2,
+      ) + "\n",
+    )
+
+    await expect(Config.getProject(repo)).rejects.toBeInstanceOf(InvalidError)
+    await expect(Config.getProject(repo)).rejects.toMatchObject({
+      data: {
+        issues: expect.arrayContaining([
+          expect.objectContaining({
+            message: 'defaultSurface "figure" must remain available for buddy',
+          }),
+        ]),
+      },
+    })
+  })
 })

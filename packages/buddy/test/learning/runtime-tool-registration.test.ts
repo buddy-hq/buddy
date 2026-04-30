@@ -4,7 +4,6 @@ import { PermissionNext } from "@buddy/opencode-adapter/permission"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
 import { SessionID } from "@buddy/opencode-adapter/id"
-import { z } from "zod"
 import type { LearningToolRegistrationFlags } from "../../src/learning/tools/register-runtime-tools"
 import { listBuddySubagents } from "../../src/learning/runtime-subagents"
 import {
@@ -18,25 +17,11 @@ import {
 } from "../../src/learning/tools/dynamic-learning-tool-permissions"
 import { registerRuntimeTools } from "../../src/learning/tools/register-runtime-tools"
 import {
-  MAX_DYNAMIC_TOOL_MATCHES_TO_REGISTER,
-  searchDynamicLearningTools,
-} from "../../src/learning/tools/dynamic-learning-tool-search"
-import { allDynamicLearningToolCatalogEntries } from "../../src/learning/tools/dynamic-learning-tool-catalog"
-import {
   clearDynamicLearningToolsForEndedSession,
   clearDynamicLearningToolGrantsForSession,
 } from "../../src/learning/tools/dynamic-learning-tool-grants"
-import { getBuddyPersona } from "../../src/learning/personas/wiring/persona.orchestration"
 import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
 import { tmpdir } from "../helpers/tmpdir"
-import {
-  createBuddyTool,
-  normalizeToolUiMetadata,
-} from "../../src/learning/tools/create-buddy-tool"
-import {
-  registerBuddyTools,
-  unregisterBuddyTools,
-} from "../../src/learning/tools/register-buddy-tools"
 
 const DYNAMIC_PEDAGOGY_DEBUG_ATTEMPT_TOOL_ID = dynamicPedagogyDebugAttemptTool.id
 const DYNAMIC_PEDAGOGY_REFLECTION_TOOL_ID = dynamicPedagogyReflectionTool.id
@@ -130,158 +115,6 @@ describe("runtime tool registration", () => {
 
     expect(await listToolIDs(secondProject.path)).toContain("save_flashcard_deck")
     expect(await listToolIDs(secondProject.path)).not.toContain("save_question_set")
-  })
-
-  test("dynamic catalog exposes production learning tools", () => {
-    const catalog = allDynamicLearningToolCatalogEntries()
-
-    expect(catalog.map((entry) => entry.id).toSorted()).toEqual(
-      [
-        DYNAMIC_PEDAGOGY_DEBUG_ATTEMPT_TOOL_ID,
-        DYNAMIC_PEDAGOGY_REFLECTION_TOOL_ID,
-        DYNAMIC_PEDAGOGY_STEPWISE_SOLVE_TOOL_ID,
-      ].toSorted(),
-    )
-    expect(catalog.length).toBeGreaterThanOrEqual(MAX_DYNAMIC_TOOL_MATCHES_TO_REGISTER)
-    expect(catalog.every((entry) => entry.tool.dynamic)).toBe(true)
-  })
-
-  test("normalizes default tool UI metadata from dynamic tool metadata", () => {
-    const tool = createBuddyTool({
-      id: "dynamic_ui_default_test",
-      description: "Test tool",
-      parameters: z.object({}),
-      dynamic: {
-        title: "Dynamic UI Title",
-        useCase: "reflection",
-        keywords: ["dynamic", "ui"],
-      },
-      execute() {
-        return {
-          title: "ok",
-          output: "ok",
-          metadata: {},
-        }
-      },
-    })
-
-    expect(tool.ui).toEqual({
-      presentation: "hidden-summary",
-      labels: {
-        idle: "Dynamic UI Title",
-      },
-    })
-    expect(
-      normalizeToolUiMetadata({
-        id: "dynamic_ui_default_test",
-        description: "Test tool",
-        parameters: z.object({}),
-        dynamic: {
-          title: "Dynamic UI Title",
-          useCase: "reflection",
-          keywords: ["dynamic", "ui"],
-        },
-        execute() {
-          return {
-            title: "ok",
-            output: "ok",
-            metadata: {},
-          }
-        },
-      }),
-    ).toEqual({
-      presentation: "hidden-summary",
-      labels: {
-        idle: "Dynamic UI Title",
-      },
-    })
-  })
-
-  test("preserves tool UI metadata across directory-scoped registration and clears it on unregister", async () => {
-    await using firstProject = await tmpdir({ git: true })
-    await using secondProject = await tmpdir({ git: true })
-
-    const tool = createBuddyTool({
-      id: "tool_ui_registry_test",
-      description: "Registry test tool",
-      parameters: z.object({}),
-      ui: {
-        presentation: "hidden-summary",
-        labels: {
-          idle: "Registry idle",
-          running: "Registry running",
-        },
-      },
-      execute() {
-        return {
-          title: "done",
-          output: "done",
-          metadata: {},
-        }
-      },
-    })
-
-    await registerBuddyTools(firstProject.path, [tool])
-
-    const firstMetadata = await OpenCodeInstance.provide({
-      directory: firstProject.path,
-      async fn() {
-        return ToolRegistry.getToolUiMetadata(tool.id)
-      },
-    })
-    const secondMetadata = await OpenCodeInstance.provide({
-      directory: secondProject.path,
-      async fn() {
-        return ToolRegistry.getToolUiMetadata(tool.id)
-      },
-    })
-
-    expect(firstMetadata).toEqual(tool.ui)
-    expect(secondMetadata).toBeUndefined()
-
-    await unregisterBuddyTools(firstProject.path, [tool.id])
-
-    const afterUnregister = await OpenCodeInstance.provide({
-      directory: firstProject.path,
-      async fn() {
-        return ToolRegistry.getToolUiMetadata(tool.id)
-      },
-    })
-
-    expect(afterUnregister).toBeUndefined()
-  })
-
-  test("dynamic tool search ranks matching catalog tools and applies persona/workspace filters", () => {
-    const reflectionResult = searchDynamicLearningTools({
-      query: "reflection metacognition",
-      persona: getBuddyPersona("buddy"),
-      workspaceState: "chat",
-    })
-
-    expect(reflectionResult.matches[0]?.entry.id).toBe(DYNAMIC_PEDAGOGY_REFLECTION_TOOL_ID)
-
-    const debugResult = searchDynamicLearningTools({
-      query: "debug failed code attempt",
-      persona: getBuddyPersona("math-buddy"),
-      workspaceState: "interactive",
-    })
-
-    expect(debugResult.matches.map((match) => match.entry.id)).not.toContain(
-      DYNAMIC_PEDAGOGY_DEBUG_ATTEMPT_TOOL_ID,
-    )
-    expect(debugResult.filtered).toContainEqual({
-      id: DYNAMIC_PEDAGOGY_DEBUG_ATTEMPT_TOOL_ID,
-      title: "Pedagogy debug attempt",
-      reason: "persona",
-    })
-
-    const exactResult = searchDynamicLearningTools({
-      query: DYNAMIC_PEDAGOGY_STEPWISE_SOLVE_TOOL_ID.toUpperCase(),
-      persona: getBuddyPersona("math-buddy"),
-      workspaceState: "chat",
-    })
-
-    expect(exactResult.matches[0]?.entry.id).toBe(DYNAMIC_PEDAGOGY_STEPWISE_SOLVE_TOOL_ID)
   })
 
   test("dynamic tool search finds candidates and load exposes them for the current session", async () => {

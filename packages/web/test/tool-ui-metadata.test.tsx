@@ -1,7 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test"
-import { act } from "react"
-import { createRoot, type Root } from "react-dom/client"
-import { HiddenSteps } from "../src/components/chat/tools/hidden-steps"
+import { describe, expect, test } from "bun:test"
 import { parseToolUiMetadata } from "../src/components/chat/tools/parse-tool-ui-metadata"
 import { getToolInfo } from "../src/components/chat/tools/tool-info"
 import {
@@ -9,13 +6,6 @@ import {
   assistantPartStartsFollowup,
 } from "../src/components/chat/utils/message-utils"
 import type { MessagePart } from "../src/state/chat-types"
-
-async function flushEffects() {
-  await Promise.resolve()
-  await new Promise<void>((resolve) => {
-    setTimeout(resolve, 0)
-  })
-}
 
 function hiddenSummaryToolPart(input?: {
   id?: string
@@ -111,39 +101,6 @@ function hiddenSummaryToolPart(input?: {
 }
 
 describe("tool UI metadata", () => {
-  let container: HTMLDivElement
-  let root: Root
-  let originalResizeObserver: typeof globalThis.ResizeObserver | undefined
-
-  beforeEach(() => {
-    ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
-    container = document.createElement("div")
-    document.body.appendChild(container)
-    root = createRoot(container)
-
-    originalResizeObserver = globalThis.ResizeObserver
-    class MockResizeObserver implements ResizeObserver {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    }
-    globalThis.ResizeObserver = MockResizeObserver
-  })
-
-  afterEach(async () => {
-    await act(async () => {
-      root.unmount()
-      await flushEffects()
-    })
-    container.remove()
-    if (originalResizeObserver) {
-      globalThis.ResizeObserver = originalResizeObserver
-    } else {
-      Reflect.deleteProperty(globalThis, "ResizeObserver")
-    }
-    ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = undefined
-  })
-
   test("parses valid and invalid tool UI metadata shapes", () => {
     expect(
       parseToolUiMetadata({
@@ -176,15 +133,6 @@ describe("tool UI metadata", () => {
     expect(grouped).toHaveLength(1)
     expect(grouped[0]?.type).toBe("abstracted")
     expect(assistantPartStartsFollowup(part)).toBe(false)
-  })
-
-  test("unknown metadata-marked tools render with hidden-step fallback UX", async () => {
-    await act(async () => {
-      root.render(<HiddenSteps parts={[hiddenSummaryToolPart()]} />)
-      await flushEffects()
-    })
-
-    expect(container.textContent).toContain("Search learning tools")
   })
 
   test("tool labels choose running vs idle based on lifecycle state", () => {

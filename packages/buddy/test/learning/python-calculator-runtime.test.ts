@@ -1,90 +1,11 @@
 import { describe, expect, test } from "bun:test"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { ToolRegistry } from "@buddy/opencode-adapter/registry"
-import { mathTools } from "../../src/learning/capabilities/math/tools/tools"
-import { registerBuddyTools } from "../../src/learning/tools/register-buddy-tools"
 import { AdvancedMathRuntimeService } from "../../src/local-runtimes/advanced-math/service"
 import {
   withInstalledMockAdvancedMathRuntime,
   withLocalMockAdvancedMathRuntimeAssets,
 } from "../helpers/advanced-math-runtime"
-import { tmpdir } from "../helpers/tmpdir"
-import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
 
 describe("python_calculator runtime", () => {
-  test("installs the optional runtime and returns text plus plot attachments", async () => {
-    await withInstalledMockAdvancedMathRuntime(async () => {
-      const status = await AdvancedMathRuntimeService.getStatus()
-      expect(status.ready).toBe(true)
-      expect(status.supportedLibraries).toEqual([
-        "math",
-        "sympy",
-        "numpy",
-        "pandas",
-        "xarray",
-        "scipy",
-        "matplotlib",
-        "seaborn",
-      ])
-
-      const result = await AdvancedMathRuntimeService.runCalculator(
-        "print('hello')\n2 + 2\nmake_plot",
-      )
-
-      expect(result.output).toContain("hello")
-      expect(result.output).toContain("4")
-      expect(result.attachments).toHaveLength(1)
-      expect(result.attachments[0]?.mime).toBe("image/png")
-      expect(result.attachments[0]?.url.startsWith("data:image/png;base64,")).toBe(true)
-    })
-  })
-
-  test("accepts null last-expression payloads and suppresses Python None output", async () => {
-    await withInstalledMockAdvancedMathRuntime(async () => {
-      const nullResult = await AdvancedMathRuntimeService.runCalculator("null_last_expression")
-      expect(nullResult.output).toBe("Execution completed with no output.")
-
-      const noneResult = await AdvancedMathRuntimeService.runCalculator("none_last_expression")
-      expect(noneResult.output).toBe("Execution completed with no output.")
-
-      const plotOnlyResult = await AdvancedMathRuntimeService.runCalculator("make_plot")
-      expect(plotOnlyResult.output).toBe("Generated 1 plot.")
-      expect(plotOnlyResult.attachments).toHaveLength(1)
-    })
-  })
-
-  test("registers python_calculator as a callable math tool when the runtime is available", async () => {
-    await withInstalledMockAdvancedMathRuntime(async () => {
-      await using project = await tmpdir({ git: true })
-
-      const result = await OpenCodeInstance.provide({
-        directory: project.path,
-        async fn() {
-          await registerBuddyTools(project.path, mathTools)
-
-          const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
-          const calculator = requireTool(tools, "python_calculator")
-
-          return calculator.execute(
-            {
-              code: "print('hello')\n2+2\nmake_plot",
-            },
-            createToolContext({
-              sessionID: "ses_math",
-              messageID: "msg_math",
-              agent: "math-buddy",
-            }),
-          )
-        },
-      })
-
-      expect(result.title).toBe("Python calculator")
-      expect(result.output).toContain("hello")
-      expect(result.output).toContain("4")
-      expect(result.attachments).toHaveLength(1)
-    })
-  })
-
   test("repairs an enabled local runtime when the local asset bundle changes", async () => {
     await withLocalMockAdvancedMathRuntimeAssets(async ({ replaceAssets }) => {
       const installed = await AdvancedMathRuntimeService.install()

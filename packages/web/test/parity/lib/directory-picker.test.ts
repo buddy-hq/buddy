@@ -37,22 +37,7 @@ describe("directory picker parity", () => {
     expect(hasAbsolutePath("tmp/demo")).toBe(false)
   })
 
-  test("prefers tauri picker result", async () => {
-    window.__TAURI__ = {
-      dialog: {
-        open: async () => "/tmp/worktree/",
-      },
-    }
-
-    await expect(pickProjectDirectory()).resolves.toBe("/tmp/worktree")
-  })
-
-  test("falls back to electron picker when tauri returns null", async () => {
-    window.__TAURI__ = {
-      dialog: {
-        open: async () => null,
-      },
-    }
+  test("uses the electron picker result", async () => {
     window.electronAPI = {
       openDirectoryPickerDialog: async () => ["C:\\repo\\nested\\"],
     }
@@ -62,10 +47,8 @@ describe("directory picker parity", () => {
 
   test("does not prompt when desktop bridge exists but user cancels", async () => {
     let promptCalls = 0
-    window.__TAURI__ = {
-      dialog: {
-        open: async () => null,
-      },
+    window.electronAPI = {
+      openDirectoryPickerDialog: async () => null,
     }
     Object.defineProperty(window, "prompt", {
       configurable: true,

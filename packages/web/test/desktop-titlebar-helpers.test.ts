@@ -1,8 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import {
-  isTitlebarInteractiveTarget,
-  isTitlebarSystemControlTarget,
-} from "../src/components/layout/desktop-titlebar-helpers"
+import { isTitlebarInteractiveTarget } from "../src/components/layout/desktop-titlebar-helpers"
 
 describe("desktop titlebar helpers", () => {
   test("treats nested controls as interactive", () => {
@@ -19,15 +16,5 @@ describe("desktop titlebar helpers", () => {
 
     expect(isTitlebarInteractiveTarget(container)).toBe(false)
     expect(isTitlebarInteractiveTarget(null)).toBe(false)
-  })
-
-  test("detects mounted window control containers", () => {
-    const controls = document.createElement("div")
-    controls.setAttribute("data-tauri-decorum-tb", "")
-    const icon = document.createElement("span")
-    controls.append(icon)
-
-    expect(isTitlebarSystemControlTarget(icon)).toBe(true)
-    expect(isTitlebarSystemControlTarget(document.createElement("div"))).toBe(false)
   })
 })

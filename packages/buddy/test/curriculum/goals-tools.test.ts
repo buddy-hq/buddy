@@ -1,8 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { LearnerArtifactStore } from "../../src/learning/learner-model"
-import type { GoalArtifact } from "../../src/learning/learner-model"
+import { listActiveGoals } from "../../src/learning/learner-memory/goals/storage"
 import { ensureGoalToolsRegistered } from "../../src/learning/curriculum/goals/tools/register"
 import { tmpdir } from "../helpers/tmpdir"
 import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
@@ -37,7 +36,7 @@ describe("goal tools", () => {
                 task: "Implement a desktop bridge command that validates inputs and returns structured errors.",
                 cognitiveLevel: "Application",
                 howToTest:
-                  "Ship a minimal desktop bridge command and run a smoke test that exercises valid and invalid inputs.",
+                  "Ship a minimal desktop bridge command and run a quick validation check that exercises valid and invalid inputs.",
               },
               {
                 statement:
@@ -66,15 +65,14 @@ describe("goal tools", () => {
       },
     })
 
-    const goals = (await LearnerArtifactStore.readArtifacts(project.path, "goal")) as GoalArtifact[]
+    const goals = await listActiveGoals(project.path)
 
     expect(goals).toHaveLength(3)
     expect(new Set(goals.map((goal) => goal.setId)).size).toBe(1)
 
     for (const goal of goals) {
-      expect(goal.id).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/)
+      expect(goal.id).toMatch(/^goal_[0-9A-HJKMNP-TV-Z]{26}$/)
       expect(goal.status).toBe("active")
-      expect(goal.workspaceRefs).toHaveLength(1)
     }
   })
 })

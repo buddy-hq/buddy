@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { LearnerArtifactStore } from "../../src/learning/learner-model"
+import { listGoals } from "../../src/learning/learner-memory/goals/storage"
 import { ensureGoalToolsRegistered } from "../../src/learning/curriculum/goals/tools/register"
 import { tmpdir } from "../helpers/tmpdir"
 import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
@@ -73,7 +73,7 @@ describe("learner-store goal archiving", () => {
                 task: "Implement a desktop bridge command that validates inputs and returns structured errors to the renderer.",
                 cognitiveLevel: "Application",
                 howToTest:
-                  "Run a smoke test that exercises both valid and invalid inputs and inspects the error structure.",
+                  "Run a quick validation check that exercises both valid and invalid inputs and inspects the error structure.",
               },
               {
                 statement:
@@ -100,9 +100,7 @@ describe("learner-store goal archiving", () => {
       },
     })
 
-    const goals = (await LearnerArtifactStore.readArtifacts(project.path, "goal")).filter(
-      (artifact) => artifact.kind === "goal",
-    )
+    const goals = await listGoals(project.path)
 
     const tauriSets = Array.from(
       goals

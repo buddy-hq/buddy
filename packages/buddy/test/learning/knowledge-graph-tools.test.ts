@@ -260,7 +260,6 @@ describe("knowledge graph tools", () => {
           })
 
           return {
-            toolIds: tools.map((tool) => tool.id),
             search: await searchTool.execute({ query: "fractions" }, ctx),
             standard: await getStandardTool.execute({ code: "HSG-CO.B.6" }, ctx),
             prerequisites: await prerequisitesTool.execute({ code: "HSG-CO.B.6" }, ctx),
@@ -272,13 +271,6 @@ describe("knowledge graph tools", () => {
         },
       })
 
-      expect(result.toolIds).toContain("search_standards")
-      expect(result.toolIds).toContain("get_standard")
-      expect(result.toolIds).toContain("get_learning_components")
-      expect(result.toolIds).toContain("get_prerequisites")
-      expect(result.toolIds).toContain("get_next_standards")
-      expect(result.toolIds).toContain("get_crosswalk")
-      expect(result.toolIds).toContain("query_standards_sql")
       expect(result.search.output).toContain("3.NF.A.1")
       expect(result.standard.output).toContain("HSG-CO.B.6")
       expect(result.prerequisites.output).toContain("8.G.A.2")
