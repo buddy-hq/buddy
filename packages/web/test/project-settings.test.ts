@@ -8,8 +8,6 @@ const learnerMemoryDefaults = {
   learnerMemoryMasterEnabled: false,
   learnerMemoryMinUserMessages: 4,
   learnerMemoryAttentionThreshold: 6,
-  learnerMemoryApprovalConfidenceThreshold: 0.65,
-  learnerMemoryAutoExtractDelayMs: 90_000,
   learnerMemoryMaxExtractionCallsPerSession: 2,
   learnerMemoryMaxExtractionCallsPerDay: 20,
   learnerMemoryDefaultContextLimit: 8,
