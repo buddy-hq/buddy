@@ -1,47 +1,47 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { patchProjectConfig, type PersonaConfigOption } from "./chat-actions"
+import { useStore } from "zustand"
+import { useShallow } from "zustand/react/shallow"
+import { patchGlobalConfig, patchProjectConfig } from "./chat-actions"
 import { language } from "@/context/language"
 import { useChatStore } from "@/state/chat-store"
-import type { ProviderCatalogState } from "./chat-types"
-import { readCompactionAuto, readString, readToolToggle } from "./project-config-readers"
+import {
+  EMPTY_PROVIDER_CATALOG,
+  LEARNER_MEMORY_GLOBAL_KEYS,
+  LEARNER_MEMORY_NUMBER_FIELDS,
+  LEARNER_MEMORY_STRING_FIELDS,
+  connectedProviders,
+  createProjectSettingsStore,
+  resolveLearnerMemoryMasterToggleDraft,
+  resolveModelSelectionDirtyAfterPersist,
+  type LogLevel,
+  type ProjectSettingsDraft,
+  type ProjectSettingsModelField,
+  type ProjectSettingsNumberField,
+} from "./project-settings-store"
+import {
+  readLearnerMemoryAutoExtract,
+  readLearnerMemoryEnabled,
+  readLearnerMemoryMasterEnabled,
+  readLearnerMemoryNumber,
+  readLearnerMemoryString,
+  readRecord,
+  readString,
+} from "./project-config-readers"
 import { projectSettingsQueryOptions, type ProjectSettingsBundle } from "./project-settings-query"
 
-export type LogLevel = "debug" | "info" | "warn" | "error"
-
-type ProjectSettingsDraft = {
-  persona: string
-  provider: string
-  model: string
-  logLevel: LogLevel | ""
-  fullTextReadingEnabled: boolean
-  autoCompactionEnabled: boolean
-}
-
-type ProjectSettingsState = {
-  saving: boolean
-  error?: string
-  draft: ProjectSettingsDraft
-  modelSelectionDirty: boolean
-  initializedDirectory?: string
-}
+export { resolveLearnerMemoryMasterToggleDraft, resolveModelSelectionDirtyAfterPersist }
+export type { LogLevel } from "./project-settings-store"
 
 type ProjectSettingsPatch = Record<string, unknown>
-
-const EMPTY_PROVIDER_CATALOG: ProviderCatalogState = {
-  providers: [],
-  default: {},
+type ProjectSettingsPatches = {
+  projectPatch?: ProjectSettingsPatch
+  globalPatch?: ProjectSettingsPatch
 }
+
 const EMPTY_PROJECT_CONFIG: Record<string, unknown> = {}
-
-const EMPTY_DRAFT: ProjectSettingsDraft = {
-  persona: "",
-  provider: "",
-  model: "",
-  logLevel: "",
-  fullTextReadingEnabled: true,
-  autoCompactionEnabled: true,
-}
+const DEPRECATED_LEARNER_MEMORY_SESSION_KEY = "max_session_messages"
+const AUTO_SAVE_DELAY_MS = 250
 
 function stringifyError(error: unknown) {
   if (error instanceof Error) return error.message
@@ -53,94 +53,98 @@ function stringifyError(error: unknown) {
   }
 }
 
-function parseModel(model: string) {
-  if (!model) {
-    return {
-      providerID: "",
-      modelID: "",
+function isUnknownRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value))
+}
+
+function mergePatchForCache(
+  current: Record<string, unknown>,
+  patch: Record<string, unknown>,
+): Record<string, unknown> {
+  const next = { ...current }
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === null) {
+      delete next[key]
+      continue
+    }
+
+    const currentRecord = readRecord(next, key)
+    if (currentRecord && isUnknownRecord(value)) {
+      next[key] = mergePatchForCache(currentRecord, value)
+      continue
+    }
+
+    next[key] = value
+  }
+  return next
+}
+
+function buildProjectLearnerMemoryPatch(draft: ProjectSettingsDraft) {
+  const learnerMemoryPatch: ProjectSettingsPatch = {
+    enabled: draft.learnerMemoryEnabled,
+    auto_extract: draft.learnerMemoryEnabled ? draft.learnerMemoryAutoExtract : false,
+    [DEPRECATED_LEARNER_MEMORY_SESSION_KEY]: null,
+  }
+
+  for (const key of LEARNER_MEMORY_GLOBAL_KEYS) {
+    learnerMemoryPatch[key] = null
+  }
+
+  return learnerMemoryPatch
+}
+
+function buildGlobalLearnerMemoryPatch(
+  globalConfig: Record<string, unknown>,
+  draft: ProjectSettingsDraft,
+): ProjectSettingsPatch | undefined {
+  const learnerMemoryPatch: ProjectSettingsPatch = {}
+
+  if (draft.learnerMemoryMasterEnabled !== readLearnerMemoryMasterEnabled(globalConfig, false)) {
+    learnerMemoryPatch.master_enabled = draft.learnerMemoryMasterEnabled
+  }
+
+  for (const field of LEARNER_MEMORY_NUMBER_FIELDS) {
+    const currentValue = readLearnerMemoryNumber(globalConfig, field.configKey, field.defaultValue)
+    if (draft[field.draftKey] !== currentValue) {
+      learnerMemoryPatch[field.configKey] = draft[field.draftKey]
     }
   }
 
-  const split = model.indexOf("/")
-  if (split <= 0 || split >= model.length - 1) {
-    return {
-      providerID: "",
-      modelID: "",
+  for (const field of LEARNER_MEMORY_STRING_FIELDS) {
+    const currentValue = readLearnerMemoryString(globalConfig, field.configKey)
+    if (draft[field.draftKey] !== currentValue) {
+      learnerMemoryPatch[field.configKey] = draft[field.draftKey] || null
     }
   }
 
-  return {
-    providerID: model.slice(0, split),
-    modelID: model.slice(split + 1),
-  }
-}
-
-function connectedProviders(catalog: ProviderCatalogState) {
-  return catalog.providers.filter((provider) => provider.connected)
-}
-
-function buildDraft(input: {
-  config: Record<string, unknown>
-  providerCatalog: ProviderCatalogState
-  personas: PersonaConfigOption[]
-}): ProjectSettingsDraft {
-  const model = parseModel(readString(input.config, "model"))
-  const connected = connectedProviders(input.providerCatalog)
-  const configuredProvider = connected.find((provider) => provider.id === model.providerID)
-  const initialProvider = configuredProvider?.id ?? connected[0]?.id ?? ""
-  const availableModels =
-    connected.find((provider) => provider.id === initialProvider)?.models ?? []
-  const configuredModelIsAvailable =
-    initialProvider === model.providerID &&
-    availableModels.some((entry) => entry.id === model.modelID)
-  const initialModel = configuredModelIsAvailable
-    ? model.modelID
-    : (input.providerCatalog.default[initialProvider] ?? availableModels[0]?.id ?? "")
-  const logLevel = readString(input.config, "logLevel")
-  const selectablePersonas = input.personas.filter((persona) => !persona.hidden)
-  const configuredDefaultPersona = readString(input.config, "default_persona")
-
-  return {
-    persona:
-      configuredDefaultPersona &&
-      selectablePersonas.some((persona) => persona.id === configuredDefaultPersona)
-        ? configuredDefaultPersona
-        : "",
-    provider: initialProvider,
-    model: initialModel,
-    logLevel:
-      logLevel === "debug" || logLevel === "info" || logLevel === "warn" || logLevel === "error"
-        ? logLevel
-        : "",
-    fullTextReadingEnabled: readToolToggle(
-      input.config,
-      "pedagogy_resource_ingest_full_text",
-      true,
-    ),
-    autoCompactionEnabled: readCompactionAuto(input.config, true),
-  }
+  return Object.keys(learnerMemoryPatch).length > 0 ? learnerMemoryPatch : undefined
 }
 
 function buildProjectSettingsPatch(input: {
   projectConfig: Record<string, unknown>
+  rawProjectConfig: Record<string, unknown>
+  globalConfig: Record<string, unknown>
   draft: ProjectSettingsDraft
   modelSelectionDirty: boolean
-}): ProjectSettingsPatch | undefined {
-  const patch: ProjectSettingsPatch = {}
-  const currentPersona = readString(input.projectConfig, "default_persona")
+}): ProjectSettingsPatches | undefined {
+  const projectPatch: ProjectSettingsPatch = {}
+  const globalPatch: ProjectSettingsPatch = {}
   const currentModel = readString(input.projectConfig, "model")
-  const currentLogLevel = readString(input.projectConfig, "logLevel")
-  const currentFullTextReadingEnabled = readToolToggle(
-    input.projectConfig,
-    "pedagogy_resource_ingest_full_text",
-    true,
-  )
-  const currentAutoCompactionEnabled = readCompactionAuto(input.projectConfig, true)
-  const nextPersona = input.draft.persona.trim()
-
-  if (nextPersona && nextPersona !== currentPersona) {
-    patch.default_persona = nextPersona
-  }
+  const currentLogLevel = readString(input.globalConfig, "logLevel")
+  const currentLearnerMemoryEnabled = readLearnerMemoryEnabled(input.projectConfig, false)
+  const currentLearnerMemoryAutoExtract = readLearnerMemoryAutoExtract(input.projectConfig, false)
+  const currentLearnerMemory = readRecord(input.rawProjectConfig, "learner_memory")
+  const hasDeprecatedLearnerMemoryMaxSessionMessages =
+    currentLearnerMemory !== undefined &&
+    DEPRECATED_LEARNER_MEMORY_SESSION_KEY in currentLearnerMemory
+  const hasProjectLearnerMemoryGlobalOverrides =
+    currentLearnerMemory !== undefined &&
+    LEARNER_MEMORY_GLOBAL_KEYS.some((key) => key in currentLearnerMemory)
+  const learnerMemoryChanged =
+    hasDeprecatedLearnerMemoryMaxSessionMessages ||
+    hasProjectLearnerMemoryGlobalOverrides ||
+    input.draft.learnerMemoryEnabled !== currentLearnerMemoryEnabled ||
+    input.draft.learnerMemoryAutoExtract !== currentLearnerMemoryAutoExtract
 
   const shouldPersistModel =
     input.draft.provider.length > 0 &&
@@ -150,67 +154,49 @@ function buildProjectSettingsPatch(input: {
   if (shouldPersistModel) {
     const nextModel = `${input.draft.provider}/${input.draft.model}`
     if (nextModel !== currentModel) {
-      patch.model = nextModel
+      projectPatch.model = nextModel
     }
   }
 
   if (input.draft.logLevel !== currentLogLevel) {
-    patch.logLevel = input.draft.logLevel
+    globalPatch.logLevel = input.draft.logLevel
   }
 
-  if (input.draft.fullTextReadingEnabled !== currentFullTextReadingEnabled) {
-    patch.tools = {
-      pedagogy_resource_ingest_full_text: input.draft.fullTextReadingEnabled,
-    }
+  if (learnerMemoryChanged) {
+    projectPatch.learner_memory = buildProjectLearnerMemoryPatch(input.draft)
   }
 
-  if (input.draft.autoCompactionEnabled !== currentAutoCompactionEnabled) {
-    patch.compaction = {
-      auto: input.draft.autoCompactionEnabled,
-    }
+  const globalLearnerMemoryPatch = buildGlobalLearnerMemoryPatch(input.globalConfig, input.draft)
+  if (globalLearnerMemoryPatch) {
+    globalPatch.learner_memory = globalLearnerMemoryPatch
   }
 
-  return Object.keys(patch).length > 0 ? patch : undefined
+  const nextProjectPatch = Object.keys(projectPatch).length > 0 ? projectPatch : undefined
+  const nextGlobalPatch = Object.keys(globalPatch).length > 0 ? globalPatch : undefined
+  return nextProjectPatch || nextGlobalPatch
+    ? { projectPatch: nextProjectPatch, globalPatch: nextGlobalPatch }
+    : undefined
 }
 
-function modelSelectionKeyFromDraft(draft: ProjectSettingsDraft) {
-  if (!draft.provider || !draft.model) {
-    return ""
-  }
-
-  return `${draft.provider}/${draft.model}`
-}
-
-export function resolveModelSelectionDirtyAfterPersist(input: {
-  draft: ProjectSettingsDraft
-  modelSelectionDirty: boolean
-  patch?: ProjectSettingsPatch
-}) {
-  if (!input.modelSelectionDirty) {
-    return false
-  }
-
-  const savedModel = typeof input.patch?.model === "string" ? input.patch.model : undefined
-  if (!savedModel) {
-    return input.modelSelectionDirty
-  }
-
-  return modelSelectionKeyFromDraft(input.draft) !== savedModel
-}
-
-function emptyState(): ProjectSettingsState {
-  return {
-    saving: false,
-    error: undefined,
-    draft: EMPTY_DRAFT,
-    modelSelectionDirty: false,
-    initializedDirectory: undefined,
-  }
-}
-
-export function useProjectSettings(directory: string, open: boolean) {
+export function useNotebookSettingsWorkbench(directory: string, open: boolean) {
   const queryClient = useQueryClient()
-  const [state, setState] = useState<ProjectSettingsState>(() => emptyState())
+  const [store] = useState(createProjectSettingsStore)
+  const {
+    draft,
+    error: storeError,
+    initializedDirectory,
+    modelSelectionDirty,
+    saving,
+  } = useStore(
+    store,
+    useShallow((state) => ({
+      draft: state.draft,
+      error: state.error,
+      initializedDirectory: state.initializedDirectory,
+      modelSelectionDirty: state.modelSelectionDirty,
+      saving: state.saving,
+    })),
+  )
   const queryEnabled = open && directory.length > 0
   const settingsQuery = useQuery({
     ...projectSettingsQueryOptions(directory),
@@ -221,7 +207,7 @@ export function useProjectSettings(directory: string, open: boolean) {
     open: boolean
     loading: boolean
     saving: boolean
-    patch?: ProjectSettingsPatch
+    patches?: ProjectSettingsPatches
   }>({
     directory,
     open,
@@ -229,237 +215,205 @@ export function useProjectSettings(directory: string, open: boolean) {
     saving: false,
   })
   const bundle = settingsQuery.data
-  const activeBundle = state.initializedDirectory === directory ? bundle : undefined
+  const activeBundle = initializedDirectory === directory ? bundle : undefined
   const providerCatalog = activeBundle?.providerCatalog ?? EMPTY_PROVIDER_CATALOG
-  const personaCatalog = activeBundle?.personaCatalog ?? []
   const projectConfig = activeBundle?.projectConfig ?? EMPTY_PROJECT_CONFIG
+  const rawProjectConfig = activeBundle?.rawProjectConfig ?? EMPTY_PROJECT_CONFIG
+  const globalConfig = activeBundle?.globalConfig ?? EMPTY_PROJECT_CONFIG
   const loading =
     queryEnabled &&
-    (settingsQuery.isPending ||
-      (state.initializedDirectory !== directory && settingsQuery.isFetching))
+    (settingsQuery.isPending || (initializedDirectory !== directory && settingsQuery.isFetching))
   const error =
-    state.error ?? (settingsQuery.error ? stringifyError(settingsQuery.error) : undefined)
+    storeError ?? (settingsQuery.error ? stringifyError(settingsQuery.error) : undefined)
 
   const connected = useMemo(() => connectedProviders(providerCatalog), [providerCatalog])
-
   const providerModels = useMemo(
-    () => connected.find((provider) => provider.id === state.draft.provider)?.models ?? [],
-    [connected, state.draft.provider],
+    () => connected.find((provider) => provider.id === draft.provider)?.models ?? [],
+    [connected, draft.provider],
   )
 
   useEffect(() => {
-    if (!bundle) return
+    if (!bundle) {
+      return
+    }
 
-    setState((current) => {
-      if (current.initializedDirectory === directory) {
-        return current
-      }
-
-      return {
-        saving: false,
-        error: undefined,
-        draft: buildDraft({
-          config: bundle.projectConfig,
-          providerCatalog: bundle.providerCatalog,
-          personas: bundle.personaCatalog,
-        }),
-        modelSelectionDirty: false,
-        initializedDirectory: directory,
-      }
-    })
-  }, [bundle, directory])
+    store.getState().initializeFromBundle(directory, bundle)
+  }, [bundle, directory, store])
 
   const save = useCallback(async () => {
     if (!activeBundle) {
       return false
     }
 
-    const patch = buildProjectSettingsPatch({
+    const current = store.getState()
+    const patches = buildProjectSettingsPatch({
       projectConfig: activeBundle.projectConfig,
-      draft: state.draft,
-      modelSelectionDirty: state.modelSelectionDirty,
+      rawProjectConfig: activeBundle.rawProjectConfig,
+      globalConfig: activeBundle.globalConfig,
+      draft: current.draft,
+      modelSelectionDirty: current.modelSelectionDirty,
     })
 
-    if (!patch) {
+    if (!patches) {
       return true
     }
 
-    setState((current) => ({
-      ...current,
-      saving: true,
-      error: undefined,
-    }))
+    store.getState().startSaving()
 
     try {
-      const updated = await patchProjectConfig(directory, patch)
-      if (state.modelSelectionDirty && typeof patch.model === "string") {
+      const [updatedGlobal, updatedProject] = await Promise.all([
+        patches.globalPatch ? patchGlobalConfig(patches.globalPatch) : activeBundle.globalConfig,
+        patches.projectPatch
+          ? patchProjectConfig(directory, patches.projectPatch)
+          : activeBundle.projectConfig,
+      ])
+      if (current.modelSelectionDirty && typeof patches.projectPatch?.model === "string") {
         useChatStore.getState().setSelectedModel(directory, "auto")
       }
       queryClient.setQueryData<ProjectSettingsBundle>(
         projectSettingsQueryOptions(directory).queryKey,
         {
-          projectConfig: updated,
+          globalConfig: updatedGlobal,
+          projectConfig: updatedProject,
+          rawProjectConfig: patches.projectPatch
+            ? mergePatchForCache(activeBundle.rawProjectConfig, patches.projectPatch)
+            : activeBundle.rawProjectConfig,
           providerCatalog: activeBundle.providerCatalog,
-          personaCatalog: activeBundle.personaCatalog,
         },
       )
-      setState((current) => ({
-        ...current,
-        saving: false,
-        modelSelectionDirty: resolveModelSelectionDirtyAfterPersist({
-          draft: current.draft,
-          modelSelectionDirty: current.modelSelectionDirty,
-          patch,
-        }),
-      }))
+      store.getState().finishSaving(patches.projectPatch)
       return true
     } catch (error) {
-      setState((current) => ({
-        ...current,
-        saving: false,
-        error: stringifyError(error),
-      }))
+      store.getState().failSaving(stringifyError(error))
       return false
     }
-  }, [activeBundle, directory, queryClient, state.draft, state.modelSelectionDirty])
+  }, [activeBundle, directory, queryClient, store])
 
   useEffect(() => {
-    if (!open || loading || state.saving || !activeBundle) {
+    if (!open || loading || saving || !activeBundle) {
       return
     }
 
-    const patch = buildProjectSettingsPatch({
+    const patches = buildProjectSettingsPatch({
       projectConfig: activeBundle.projectConfig,
-      draft: state.draft,
-      modelSelectionDirty: state.modelSelectionDirty,
+      rawProjectConfig: activeBundle.rawProjectConfig,
+      globalConfig: activeBundle.globalConfig,
+      draft,
+      modelSelectionDirty,
     })
-    if (!patch) {
+    if (!patches) {
       return
     }
 
     const timeout = window.setTimeout(() => {
       void save()
-    }, 250)
+    }, AUTO_SAVE_DELAY_MS)
 
     return () => {
       window.clearTimeout(timeout)
     }
-  }, [open, save, state.draft, loading, state.modelSelectionDirty, state.saving, activeBundle])
+  }, [activeBundle, draft, loading, modelSelectionDirty, open, save, saving])
 
   useEffect(() => {
     latestPersistRef.current = {
       directory,
       open,
       loading,
-      saving: state.saving,
-      patch: buildProjectSettingsPatch({
+      saving,
+      patches: buildProjectSettingsPatch({
         projectConfig,
-        draft: state.draft,
-        modelSelectionDirty: state.modelSelectionDirty,
+        rawProjectConfig,
+        globalConfig,
+        draft,
+        modelSelectionDirty,
       }),
     }
   }, [
     directory,
-    open,
-    state.draft,
+    draft,
+    globalConfig,
     loading,
-    state.modelSelectionDirty,
+    modelSelectionDirty,
+    open,
     projectConfig,
-    state.saving,
+    rawProjectConfig,
+    saving,
   ])
 
   useEffect(() => {
     return () => {
       const latest = latestPersistRef.current
-      if (!latest.open || latest.loading || latest.saving || !latest.patch) return
-      void patchProjectConfig(latest.directory, latest.patch).catch(() => undefined)
+      if (!latest.open || latest.loading || latest.saving || !latest.patches) {
+        return
+      }
+      if (latest.patches.globalPatch) {
+        void patchGlobalConfig(latest.patches.globalPatch).catch(() => undefined)
+      }
+      if (latest.patches.projectPatch) {
+        void patchProjectConfig(latest.directory, latest.patches.projectPatch).catch(
+          () => undefined,
+        )
+      }
     }
-  }, [directory, open])
+  }, [])
 
   return {
     status: {
       loading,
-      saving: state.saving,
+      saving,
       error,
       providerMessage:
         connected.length === 0 ? language.t("projectSettings.connectProviderForModel") : undefined,
     },
     options: {
-      personas: personaCatalog,
       providers: connected,
       allProviders: providerCatalog.providers,
       providerModels,
     },
     selection: {
-      persona: state.draft.persona,
-      provider: state.draft.provider,
-      model: state.draft.model,
-      logLevel: state.draft.logLevel,
-      fullTextReadingEnabled: state.draft.fullTextReadingEnabled,
-      autoCompactionEnabled: state.draft.autoCompactionEnabled,
+      provider: draft.provider,
+      model: draft.model,
+      logLevel: draft.logLevel,
+      learnerMemoryMasterEnabled: draft.learnerMemoryMasterEnabled,
+      learnerMemoryEnabled: draft.learnerMemoryEnabled,
+      learnerMemoryAutoExtract: draft.learnerMemoryAutoExtract,
+      learnerMemoryMinUserMessages: draft.learnerMemoryMinUserMessages,
+      learnerMemoryAttentionThreshold: draft.learnerMemoryAttentionThreshold,
+      learnerMemoryMaxExtractionCallsPerSession: draft.learnerMemoryMaxExtractionCallsPerSession,
+      learnerMemoryMaxExtractionCallsPerDay: draft.learnerMemoryMaxExtractionCallsPerDay,
+      learnerMemoryDefaultContextLimit: draft.learnerMemoryDefaultContextLimit,
+      learnerMemoryExtractModel: draft.learnerMemoryExtractModel,
+      learnerMemoryConsolidationModel: draft.learnerMemoryConsolidationModel,
+      learnerMemoryMinStartupIdleMs: draft.learnerMemoryMinStartupIdleMs,
+      learnerMemoryStartupConcurrency: draft.learnerMemoryStartupConcurrency,
+      learnerMemoryMaxRawMemoriesForConsolidation:
+        draft.learnerMemoryMaxRawMemoriesForConsolidation,
+      learnerMemoryMaxUnusedStageOneDays: draft.learnerMemoryMaxUnusedStageOneDays,
     },
     actions: {
-      setPersona(persona: string) {
-        setState((current) => ({
-          ...current,
-          draft: {
-            ...current.draft,
-            persona,
-          },
-        }))
-      },
       setProvider(provider: string) {
-        setState((current) => {
-          const models =
-            connectedProviders(providerCatalog).find((entry) => entry.id === provider)?.models ?? []
-          const defaultModel = providerCatalog.default[provider] ?? models[0]?.id ?? ""
-          return {
-            ...current,
-            draft: {
-              ...current.draft,
-              provider,
-              model: defaultModel,
-            },
-            modelSelectionDirty: true,
-          }
-        })
+        store.getState().setProvider(provider, providerCatalog)
       },
       setModel(model: string) {
-        setState((current) => ({
-          ...current,
-          draft: {
-            ...current.draft,
-            model,
-          },
-          modelSelectionDirty: true,
-        }))
+        store.getState().setModel(model)
       },
       setLogLevel(logLevel: LogLevel | "") {
-        setState((current) => ({
-          ...current,
-          draft: {
-            ...current.draft,
-            logLevel,
-          },
-        }))
+        store.getState().setLogLevel(logLevel)
       },
-      setFullTextReadingEnabled(fullTextReadingEnabled: boolean) {
-        setState((current) => ({
-          ...current,
-          draft: {
-            ...current.draft,
-            fullTextReadingEnabled,
-          },
-        }))
+      setLearnerMemoryMasterEnabled(learnerMemoryMasterEnabled: boolean) {
+        store.getState().setLearnerMemoryMasterEnabled(learnerMemoryMasterEnabled)
       },
-      setAutoCompactionEnabled(autoCompactionEnabled: boolean) {
-        setState((current) => ({
-          ...current,
-          draft: {
-            ...current.draft,
-            autoCompactionEnabled,
-          },
-        }))
+      setLearnerMemoryEnabled(learnerMemoryEnabled: boolean) {
+        store.getState().setLearnerMemoryEnabled(learnerMemoryEnabled)
+      },
+      setLearnerMemoryAutoExtract(learnerMemoryAutoExtract: boolean) {
+        store.getState().setLearnerMemoryAutoExtract(learnerMemoryAutoExtract)
+      },
+      setLearnerMemoryNumber(key: ProjectSettingsNumberField, value: number) {
+        store.getState().setLearnerMemoryNumber(key, value)
+      },
+      setLearnerMemoryModel(key: ProjectSettingsModelField, value: string) {
+        store.getState().setLearnerMemoryModel(key, value)
       },
       async refresh() {
         try {
@@ -467,23 +421,10 @@ export function useProjectSettings(directory: string, open: boolean) {
             queryKey: projectSettingsQueryOptions(directory).queryKey,
           })
           const nextBundle = await queryClient.fetchQuery(projectSettingsQueryOptions(directory))
-          setState({
-            saving: false,
-            error: undefined,
-            draft: buildDraft({
-              config: nextBundle.projectConfig,
-              providerCatalog: nextBundle.providerCatalog,
-              personas: nextBundle.personaCatalog,
-            }),
-            modelSelectionDirty: false,
-            initializedDirectory: directory,
-          })
+          store.getState().replaceFromBundle(directory, nextBundle)
           return true
         } catch (error) {
-          setState((current) => ({
-            ...current,
-            error: stringifyError(error),
-          }))
+          store.getState().setError(stringifyError(error))
           return false
         }
       },

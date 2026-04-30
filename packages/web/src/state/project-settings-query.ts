@@ -1,9 +1,9 @@
 import { queryOptions, type QueryClient } from "@tanstack/react-query"
 import {
-  loadPersonaCatalog,
+  loadGlobalConfig,
   loadProjectConfig,
+  loadRawProjectConfig,
   loadProviderCatalog,
-  type PersonaConfigOption,
 } from "./chat-actions"
 import type { ProviderCatalogState } from "./chat-types"
 
@@ -12,9 +12,10 @@ const PROJECT_SETTINGS_BUNDLE_QUERY_KEY = "bundle" as const
 const GLOBAL_DIRECTORY_QUERY_KEY = "__global__" as const
 
 export type ProjectSettingsBundle = {
+  globalConfig: Record<string, unknown>
   projectConfig: Record<string, unknown>
+  rawProjectConfig: Record<string, unknown>
   providerCatalog: ProviderCatalogState
-  personaCatalog: PersonaConfigOption[]
 }
 
 function resolveDirectoryQueryKey(directory: string) {
@@ -32,16 +33,18 @@ export const projectSettingsQueryKeys = {
 }
 
 async function loadProjectSettingsBundle(directory: string): Promise<ProjectSettingsBundle> {
-  const [projectConfig, providerCatalog, personas] = await Promise.all([
+  const [globalConfig, projectConfig, rawProjectConfig, providerCatalog] = await Promise.all([
+    loadGlobalConfig(),
     loadProjectConfig(directory),
+    loadRawProjectConfig(directory),
     loadProviderCatalog(directory),
-    loadPersonaCatalog(directory),
   ])
 
   return {
+    globalConfig,
     projectConfig,
+    rawProjectConfig,
     providerCatalog,
-    personaCatalog: personas.filter((persona) => !persona.hidden),
   }
 }
 

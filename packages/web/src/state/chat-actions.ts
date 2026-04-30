@@ -2,9 +2,7 @@ import type {
   CommandListResponses,
   ConfigGetResponses,
   ConfigGetRawResponses,
-  ConfigMcpPutData,
   ConfigPersonasResponses,
-  ConfigUpdateData,
   ExplorerFileEditReadResponses,
   ExplorerFileEditSaveResponses,
   FileContent,
@@ -12,12 +10,10 @@ import type {
   FindFilesResponses,
   FlashcardDecksListResponse,
   GlobalConfigGetResponses,
-  GlobalConfigPatchData,
   GlobalNotebookHomeGetResponses,
   GlobalNotebookHomePutResponses,
   GlobalNotebooksListResponses,
-  LearnerSnapshotData,
-  LearnerSnapshotResponses,
+  LearnerMemoryListResponses,
   McpLocalConfig,
   McpRemoteConfig,
   McpStatusResponses,
@@ -204,10 +200,18 @@ function normalizeProjectDirectory(directory: string) {
   return normalized
 }
 
+function isNonEmptyString(value: string | undefined): value is string {
+  return typeof value === "string" && value.length > 0
+}
+
 function normalizeDirectoryList(directories: string[]) {
   return Array.from(
     new Set(directories.map((directory) => normalizeProjectDirectory(directory)).filter(Boolean)),
-  ) as string[]
+  ).filter(isNonEmptyString)
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
 export function resolveDefaultPersonaID(
@@ -228,8 +232,11 @@ export function resolveDefaultPersonaID(
 
 type RawProvider = ProviderListResponse["all"][number]
 type RawProviderModel = RawProvider["models"][string]
-type LearnerSnapshotPersona = NonNullable<NonNullable<LearnerSnapshotData["query"]>["persona"]>
+type LearnerSnapshotPersona = "buddy" | "code-buddy" | "math-buddy" | "reading-buddy"
+type LearnerMemoryRecord = LearnerMemoryListResponses[200]["memories"][number]
 const DEFAULT_PERSONA_SURFACE: PersonaConfigOption["defaultSurface"] = "curriculum"
+const DEFAULT_LEARNER_MEMORY_LIMIT = 25
+const LEARNER_MEMORY_TOOL_ID = "learner_memory_search"
 const EMPTY_ALIGNMENT_SUMMARY: LearnerCurriculumView["alignmentSummary"] = {
   records: [],
   incompleteGoalIds: [],
@@ -385,8 +392,8 @@ function toLearnerPersona(persona?: string): LearnerSnapshotPersona | undefined 
 }
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined
-  return value as Record<string, unknown>
+  if (!isRecord(value)) return undefined
+  return value
 }
 
 function asString(value: unknown, fallback = ""): string {
@@ -617,29 +624,6 @@ function asBoolean(value: unknown, fallback = false): boolean {
   return typeof value === "boolean" ? value : fallback
 }
 
-function parseToolPermissions(value: unknown): Record<string, "allow" | "deny"> {
-  const record = asRecord(value)
-  if (!record) return {}
-
-  return Object.fromEntries(
-    Object.entries(record).filter(
-      (entry): entry is [string, "allow" | "deny"] => entry[1] === "allow" || entry[1] === "deny",
-    ),
-  )
-}
-
-function parseSubagentPermissions(value: unknown): Record<string, "allow" | "deny" | "prefer"> {
-  const record = asRecord(value)
-  if (!record) return {}
-
-  return Object.fromEntries(
-    Object.entries(record).filter(
-      (entry): entry is [string, "allow" | "deny" | "prefer"] =>
-        entry[1] === "allow" || entry[1] === "deny" || entry[1] === "prefer",
-    ),
-  )
-}
-
 function parseWorkspaceView(workspace: unknown): LearnerCurriculumView["workspace"] {
   const value = asRecord(workspace) ?? {}
 
@@ -666,37 +650,6 @@ function parseWorkspaceView(workspace: unknown): LearnerCurriculumView["workspac
     createdAt: asString(value.createdAt),
     updatedAt: asString(value.updatedAt),
   }
-}
-
-function parseOpenFeedbackActions(
-  openFeedback: unknown,
-): LearnerCurriculumView["openFeedbackActions"] {
-  if (!Array.isArray(openFeedback)) return []
-
-  return openFeedback
-    .map((item) => asRecord(item))
-    .filter((item): item is Record<string, unknown> => item !== undefined)
-    .map((item) => ({
-      feedbackId: asString(item.id),
-      goalIds: asStringArray(item.goalIds),
-      requiredAction: asString(item.requiredAction, "Follow up on current gap"),
-      scaffoldingLevel: asString(item.scaffoldingLevel, "guided"),
-      pattern: asString(item.pattern) || undefined,
-      createdAt: asString(item.createdAt),
-    }))
-    .filter((item) => item.feedbackId.length > 0)
-}
-
-function parseSections(sections: unknown): LearnerCurriculumView["sections"] {
-  if (!Array.isArray(sections)) return []
-  return sections
-    .map((section) => asRecord(section))
-    .filter((section): section is Record<string, unknown> => section !== undefined)
-    .map((section) => ({
-      title: asString(section.title),
-      items: asStringArray(section.items),
-    }))
-    .filter((section) => section.title.length > 0)
 }
 
 function parsePersonaSurfaces(surfaces: string[] | undefined): PersonaConfigOption["surfaces"] {
@@ -799,7 +752,7 @@ function normalizeProviderCatalog(
       .map((provider) => {
         const isConnected = connected.has(provider.id)
         const source = normalizeProviderSource(
-          (provider as { source?: unknown }).source,
+          "source" in provider ? provider.source : undefined,
           isConnected,
         )
 
@@ -889,9 +842,16 @@ export async function openInboxNotebook() {
 }
 
 export async function loadNotebookHome() {
-  return requireBuddyData<GlobalNotebookHomeGetResponses[200]>(
+  const result = requireBuddyData<GlobalNotebookHomeGetResponses[200]>(
     await getBuddyClient().global.notebookHome.get(),
-  ) as NotebookHomeState
+  )
+  return {
+    configuredDirectory: result.configuredDirectory,
+    defaultDirectory: result.defaultDirectory,
+    resolvedDirectory: result.resolvedDirectory,
+    inboxDirectory: result.inboxDirectory,
+    inboxName: result.inboxName,
+  }
 }
 
 export async function saveNotebookHome(directory: string) {
@@ -900,15 +860,26 @@ export async function saveNotebookHome(directory: string) {
     throw new Error("Notebook home is required")
   }
 
-  return requireBuddyData<GlobalNotebookHomePutResponses[200]>(
+  const result = requireBuddyData<GlobalNotebookHomePutResponses[200]>(
     await getBuddyClient().global.notebookHome.put({ directory: nextDirectory }),
-  ) as NotebookHomeState
+  )
+  return {
+    configuredDirectory: result.configuredDirectory,
+    defaultDirectory: result.defaultDirectory,
+    resolvedDirectory: result.resolvedDirectory,
+    inboxDirectory: result.inboxDirectory,
+    inboxName: result.inboxName,
+  }
 }
 
 export async function loadManagedNotebooks() {
-  return requireBuddyData<GlobalNotebooksListResponses[200]>(
+  const notebooks = requireBuddyData<GlobalNotebooksListResponses[200]>(
     await getBuddyClient().global.notebooks.list(),
-  ) as ManagedNotebookEntry[]
+  )
+  return notebooks.map((notebook) => ({
+    name: notebook.name,
+    directory: notebook.directory,
+  }))
 }
 
 export async function loadKnownNotebooks() {
@@ -918,13 +889,13 @@ export async function loadKnownNotebooks() {
   return projects.map((project) => ({
     directory: project.worktree,
     name: project.name,
-  })) as KnownNotebookEntry[]
+  }))
 }
 
 export async function preloadProjectSessions(directories: string[]) {
   const unique = Array.from(
     new Set(directories.map((directory) => normalizeProjectDirectory(directory)).filter(Boolean)),
-  ) as string[]
+  ).filter(isNonEmptyString)
   await Promise.all(unique.map((directory) => loadSessions(directory).catch(() => undefined)))
 }
 
@@ -1164,9 +1135,9 @@ export async function loadMessages(directory: string, sessionID: string) {
 export async function loadPermissions(directory: string) {
   const store = useChatStore.getState()
   try {
-    const requests = requireBuddyData<PermissionListResponses[200]>(
+    const requests: PermissionRequest[] = requireBuddyData<PermissionListResponses[200]>(
       await getBuddyClient(directory).permission.list(),
-    ) as PermissionRequest[]
+    )
     store.setPendingPermissions(directory, requests)
     store.setDirectoryError(directory, undefined)
     return requests
@@ -1781,7 +1752,16 @@ export async function loadTeachingSessionState(directory: string, sessionID: str
     throw new Error(buddyResultMessage(result))
   }
 
-  return result.data as SessionTeachingStateResponses[200] as TeachingSessionSnapshot
+  const snapshot: SessionTeachingStateResponses[200] = result.data
+  return {
+    sessionId: snapshot.sessionId,
+    persona: snapshot.persona,
+    currentSurface: snapshot.currentSurface,
+    workspaceState: snapshot.workspaceState,
+    focusGoalIds: snapshot.focusGoalIds,
+    lastLlmOutbound: snapshot.lastLlmOutbound,
+    llmOutboundHistory: snapshot.llmOutboundHistory,
+  }
 }
 
 export async function abortPrompt(directory: string) {
@@ -2125,18 +2105,70 @@ export type LearnerSnapshotInput = {
   sessionID?: string
 }
 
-function buildCurriculumViewFromSnapshot(snapshot: LearnerSnapshotResponses[200]) {
+type LearnerMemorySnapshot = {
+  memories: LearnerMemoryRecord[]
+}
+
+function formatLearnerMemoryItem(memory: LearnerMemoryRecord): string {
+  return `${memory.title}: ${memory.body}`
+}
+
+function learnerMemorySectionTitle(type: LearnerMemoryRecord["type"]): string {
+  switch (type) {
+    case "preference":
+      return "Preferences"
+    case "constraint":
+      return "Constraints"
+    case "goal":
+      return "Goals"
+    case "evidence":
+      return "Evidence"
+    case "fragile_skill":
+      return "Fragile skills"
+    case "misconception":
+      return "Misconceptions"
+    case "project_context":
+      return "Project context"
+    case "open_loop":
+      return "Open loops"
+  }
+}
+
+function buildLearnerMemoryMarkdown(memories: LearnerMemoryRecord[]): string {
+  if (memories.length === 0) return "No active learner memories yet."
+
+  return memories
+    .map((memory) => `- ${memory.type}: ${memory.title} (${memory.confidence})`)
+    .join("\n")
+}
+
+function buildCurriculumViewFromSnapshot(snapshot: LearnerMemorySnapshot): LearnerCurriculumView {
+  const activeMemories = snapshot.memories.filter((memory) => memory.status === "active")
+  const sectionsByTitle = new Map<string, string[]>()
+
+  for (const memory of activeMemories) {
+    const title = learnerMemorySectionTitle(memory.type)
+    const items = sectionsByTitle.get(title) ?? []
+    items.push(formatLearnerMemoryItem(memory))
+    sectionsByTitle.set(title, items)
+  }
+
   return {
-    workspace: parseWorkspaceView(snapshot.workspace),
-    coldStart: snapshot.goals.length === 0,
+    workspace: parseWorkspaceView({
+      label: "Learner memory",
+      preferredSurfaces: ["chat", "curriculum", "editor", "figure", "question-set"],
+    }),
+    coldStart: activeMemories.length === 0,
     alignmentSummary: EMPTY_ALIGNMENT_SUMMARY,
     alignmentSummaryUnavailable: true,
-    openFeedbackActions: parseOpenFeedbackActions(snapshot.openFeedback),
+    openFeedbackActions: [],
     actions: [],
     actionsUnavailable: true,
-    constraintsSummary: snapshot.constraintsSummary,
-    markdown: snapshot.markdown,
-    sections: parseSections(snapshot.sections),
+    constraintsSummary: activeMemories
+      .filter((memory) => memory.type === "constraint")
+      .map(formatLearnerMemoryItem),
+    markdown: buildLearnerMemoryMarkdown(activeMemories),
+    sections: Array.from(sectionsByTitle.entries()).map(([title, items]) => ({ title, items })),
   }
 }
 
@@ -2148,8 +2180,8 @@ function normalizeLearnerSnapshotInput(input?: LearnerSnapshotInput) {
 }
 
 export async function loadLearnerSnapshot(directory: string, input?: LearnerSnapshotInput) {
-  const normalizedInput = normalizeLearnerSnapshotInput(input)
-  return requestLearnerSnapshot(directory, normalizedInput)
+  normalizeLearnerSnapshotInput(input)
+  return requestLearnerSnapshot(directory)
 }
 
 export async function loadCurriculumView(directory: string, input?: LearnerSnapshotInput) {
@@ -2157,86 +2189,43 @@ export async function loadCurriculumView(directory: string, input?: LearnerSnaps
   return buildCurriculumViewFromSnapshot(snapshot)
 }
 
-function sortedPermissionKeys(
-  permissions: Record<string, "allow" | "deny">,
-  action: "allow" | "deny",
-) {
-  return Object.entries(permissions)
-    .filter(([, value]) => value === action)
-    .map(([key]) => key)
-    .toSorted((left, right) => left.localeCompare(right))
-}
-
-function sortedSubagentKeys(
-  permissions: Record<string, "allow" | "deny" | "prefer">,
-  action: "allow" | "deny" | "prefer",
-) {
-  return Object.entries(permissions)
-    .filter(([, value]) => value === action)
-    .map(([key]) => key)
-    .toSorted((left, right) => left.localeCompare(right))
-}
-
-async function requestLearnerSnapshot(
-  directory: string,
-  input?: {
-    persona?: LearnerSnapshotPersona
-    sessionID?: string
-  },
-) {
+async function requestLearnerSnapshot(directory: string): Promise<LearnerMemorySnapshot> {
   return requireBuddyData(
-    await getBuddyClient(directory).learner.snapshot({
-      persona: input?.persona,
-      sessionId: input?.sessionID,
+    await getBuddyClient(directory).learner.memory.list({
+      directory,
     }),
   )
 }
 
 function buildRuntimeCapabilitiesViewFromSnapshot(
-  snapshot: LearnerSnapshotResponses[200],
+  _snapshot: LearnerMemorySnapshot,
   input?: LearnerSnapshotInput,
 ) {
   const normalizedInput = normalizeLearnerSnapshotInput(input)
 
-  const runtimeProfile = asRecord(snapshot.runtimeProfile)
-  const envelope = asRecord(runtimeProfile?.capabilityEnvelope)
-  if (!runtimeProfile || !envelope) {
-    throw new Error("Runtime capability profile is unavailable for this session.")
-  }
-
-  const visibleSurfaces = asStringArray(envelope.visibleSurfaces).toSorted((left, right) =>
-    left.localeCompare(right),
-  )
-  const tools = parseToolPermissions(envelope.tools)
-  const skills = parseToolPermissions(envelope.skills)
-  const subagents = parseSubagentPermissions(envelope.subagents)
-
   return {
-    persona: asString(runtimeProfile.persona, normalizedInput.persona ?? "buddy"),
-    workspaceState: snapshot.runtimeContext?.workspaceState ?? "chat",
-    visibleSurfaces,
-    defaultSurface: asString(
-      envelope.defaultSurface,
-      visibleSurfaces[0] ?? DEFAULT_PERSONA_SURFACE,
-    ),
+    persona: normalizedInput.persona ?? "buddy",
+    workspaceState: "chat",
+    visibleSurfaces: ["chat", "curriculum", "editor", "figure", "question-set"],
+    defaultSurface: DEFAULT_PERSONA_SURFACE,
     tools: {
-      allow: sortedPermissionKeys(tools, "allow"),
-      deny: sortedPermissionKeys(tools, "deny"),
+      allow: [LEARNER_MEMORY_TOOL_ID],
+      deny: [],
     },
     skills: {
-      allow: sortedPermissionKeys(skills, "allow"),
-      deny: sortedPermissionKeys(skills, "deny"),
+      allow: [],
+      deny: [],
     },
     subagents: {
-      prefer: sortedSubagentKeys(subagents, "prefer"),
-      allow: sortedSubagentKeys(subagents, "allow"),
-      deny: sortedSubagentKeys(subagents, "deny"),
+      prefer: [],
+      allow: [],
+      deny: [],
     },
   } satisfies LearnerRuntimeCapabilitiesView
 }
 
 export type LearnerSnapshotViews = {
-  snapshot: LearnerSnapshotResponses[200]
+  snapshot: LearnerMemorySnapshot
   curriculum: LearnerCurriculumView
   capabilities: LearnerRuntimeCapabilitiesView
 }
@@ -2312,73 +2301,106 @@ export type GoalArtifact = {
 
 export async function loadLearnerGoals(directory: string): Promise<{ goals: GoalArtifact[] }> {
   const result = requireBuddyData(
-    await getBuddyClient(directory).learner.artifacts({
-      kind: "goal",
-      status: "active",
+    await getBuddyClient(directory).learner.memory.list({
+      directory,
     }),
   )
   return {
-    goals: result.artifacts as GoalArtifact[],
+    goals: result.memories
+      .filter((memory) => memory.status === "active" && memory.type === "goal")
+      .slice(0, DEFAULT_LEARNER_MEMORY_LIMIT)
+      .map((memory) => ({
+        id: memory.id,
+        kind: "goal",
+        workspaceId: memory.projectPath ?? directory,
+        status: "active",
+        scope: "topic",
+        contextLabel: memory.title,
+        learnerRequest: memory.body,
+        assumptions: [],
+        openQuestions: [],
+        statement: memory.body,
+        actionVerb: "learn",
+        task: memory.body,
+        cognitiveLevel: "Application",
+        howToTest: "Use learner memory evidence to check whether this goal is still active.",
+        dependsOnGoalIds: [],
+        buildsOnGoalIds: [],
+        reinforcesGoalIds: [],
+        conceptTags: memory.tags,
+        workspaceRefs: memory.projectPath ? [memory.projectPath] : [],
+        createdAt: memory.createdAt,
+        updatedAt: memory.updatedAt,
+      })),
   }
 }
 
 export async function loadLearnerProgress(directory: string) {
-  const result = requireBuddyData(await getBuddyClient(directory).learner.snapshot())
+  const result = requireBuddyData(
+    await getBuddyClient(directory).learner.memory.list({
+      directory,
+    }),
+  )
   return {
-    progress: [{ activeGoalCount: Array.isArray(result.goals) ? result.goals.length : 0 }],
+    progress: [
+      {
+        activeGoalCount: result.memories.filter(
+          (memory) => memory.status === "active" && memory.type === "goal",
+        ).length,
+      },
+    ],
   }
 }
 
 export async function loadProjectConfig(directory: string) {
-  return requireBuddyData<ConfigGetResponses[200]>(
+  const config = requireBuddyData<ConfigGetResponses[200]>(
     await getBuddyClient(directory).config.get(),
-  ) as Record<string, unknown>
+  )
+  return asRecord(config) ?? {}
 }
 
 export async function loadRawProjectConfig(directory: string) {
-  return requireBuddyData<ConfigGetRawResponses[200]>(
+  const config = requireBuddyData<ConfigGetRawResponses[200]>(
     await getBuddyClient(directory).config.getRaw(),
-  ) as Record<string, unknown>
+  )
+  return asRecord(config) ?? {}
 }
 
 export async function patchProjectConfig(directory: string, patch: Record<string, unknown>) {
-  const configPatch = patch as NonNullable<ConfigUpdateData["body"]>
   const result = await getBuddyClient(directory).config.update({
-    body: configPatch,
+    body: patch,
   })
-  return requireBuddyData(result) as Record<string, unknown>
+  return asRecord(requireBuddyData(result)) ?? {}
 }
 
 export async function loadGlobalConfig() {
-  return requireBuddyData<GlobalConfigGetResponses[200]>(
+  const config = requireBuddyData<GlobalConfigGetResponses[200]>(
     await getBuddyClient().global.config.get(),
-  ) as Record<string, unknown>
+  )
+  return asRecord(config) ?? {}
 }
 
-export async function patchGlobalConfig(patch: NonNullable<GlobalConfigPatchData["body"]>) {
-  const result = await getBuddyClient().global.config.patch(patch)
-  return requireBuddyData(result) as Record<string, unknown>
+export async function patchGlobalConfig(patch: Record<string, unknown>) {
+  const result = await getBuddyClient().global.config.patch({
+    body: patch,
+  })
+  return asRecord(requireBuddyData(result)) ?? {}
 }
 
 export async function saveProjectMcpConfig(
   directory: string,
   name: string,
-  config: Record<string, unknown>,
+  config: McpLocalConfig | McpRemoteConfig,
 ) {
-  const body = config as ConfigMcpPutData["body"] extends infer T
-    ? T extends McpLocalConfig | McpRemoteConfig
-      ? T
-      : never
-    : never
   const result = await getBuddyClient(directory).config.mcp.put({
     name,
-    body,
+    body: config,
   })
 
-  return requireBuddyData(result) as Record<string, unknown>
+  return asRecord(requireBuddyData(result)) ?? {}
 }
 
-export async function loadPersonaCatalog(directory: string) {
+export async function loadPersonaCatalog(directory?: string) {
   const result = await getBuddyClient(directory).config.personas()
   const personas = requireBuddyData<ConfigPersonasResponses[200]>(result)
   return personas.map((persona) => {
@@ -2518,7 +2540,7 @@ export async function findWorkspaceFiles(
   const FIND_FILES_LIMIT_MIN = 1
   const FIND_FILES_LIMIT_MAX = 200
   const search = query.trim()
-  if (!search) return [] as string[]
+  if (!search) return []
 
   const includeDirectories = input?.includeDirectories ?? true
   const requestedLimit = input?.limit ?? FIND_FILES_DEFAULT_LIMIT
