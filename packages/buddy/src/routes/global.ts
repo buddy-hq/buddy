@@ -1,6 +1,6 @@
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
-import { mapConfigRouteError } from "@buddy/backend/config/orchestration"
+import { mapConfigRouteError, patchGlobalConfig } from "@buddy/backend/config/orchestration"
 import { Config } from "@buddy/backend/config"
 import z from "zod"
 import {
@@ -86,10 +86,10 @@ export const GlobalRoutes = new Hono()
         ...routeErrors(400),
       },
     }),
-    validator("json", Config.Info),
+    validator("json", z.record(z.string(), z.unknown())),
     async (c) =>
       runRouteTask({
-        task: async () => c.json(await Config.updateGlobal(c.req.valid("json"))),
+        task: async () => c.json(await patchGlobalConfig(c.req.valid("json"))),
         mapError: mapConfigRouteError,
       }),
   )

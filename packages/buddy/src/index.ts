@@ -14,7 +14,6 @@ import { FlashcardDeckRoutes } from "./routes"
 import { FreeformFigureRoutes } from "./routes"
 import { LearnerRoutes } from "./routes"
 import { MermaidArtifactRoutes } from "./routes"
-import { runSafetySweep } from "./learning/learner-model"
 import { GlobalRoutes } from "./routes"
 import { McpRoutes } from "./routes"
 import { LocalRuntimeRoutes } from "./routes"
@@ -37,7 +36,6 @@ const OPTION_HOSTNAME = "--hostname"
 const COMMAND_SERVE = "serve"
 const DEFAULT_SERVER_PORT = 3000
 const DEFAULT_SERVER_HOSTNAME = "127.0.0.1"
-const PERIODIC_SAFETY_SWEEP_INTERVAL_MS = 5 * 60 * 1000
 const SERVER_PORT_ENV = "PORT"
 const SIDECAR_EXECUTABLE_NAMES = new Set(["buddy-backend", "buddy-backend.exe"])
 
@@ -265,14 +263,6 @@ function isCompiledSidecarProcess() {
 
 if (import.meta.main || isCompiledSidecarProcess()) {
   const serverConfig = parseServerBootstrapConfig(process.argv.slice(2))
-  void runSafetySweep().catch((error) => {
-    console.warn("Initial learner safety sweep failed:", error)
-  })
-  setInterval(() => {
-    void runSafetySweep().catch((error) => {
-      console.warn("Periodic learner safety sweep failed:", error)
-    })
-  }, PERIODIC_SAFETY_SWEEP_INTERVAL_MS)
   startServer(serverConfig)
 }
 

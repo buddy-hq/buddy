@@ -1,7 +1,7 @@
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
-import { patchProjectConfig } from "@buddy/backend/config/orchestration"
+import { patchGlobalConfig } from "@buddy/backend/config/orchestration"
 import { HTTP_STATUS, SKILL_ROUTE_CONFIG } from "./skills.constants"
 import {
   createSkillBodySchema,
@@ -184,7 +184,7 @@ export const SkillsRoutes = new Hono()
     "/settings",
     describeRoute({
       operationId: "skills.settings.patch",
-      summary: "Update per-project skills settings",
+      summary: "Update global skills discovery settings",
       responses: {
         200: {
           description: "Updated skills settings",
@@ -195,29 +195,22 @@ export const SkillsRoutes = new Hono()
         ...routeErrors(400, 403, 500),
       },
     }),
-    validator("query", directoryQuerySchema),
     validator("json", skillsSettingsBodySchema),
     async (c) =>
-      withDirectoryRoute(c, async (context) =>
-        runRouteTask({
-          task: async () => {
-            const parsed = c.req.valid("json")
-            const config = await patchProjectConfig({
-              directory: context.directory,
-              payload: {
-                [SKILL_ROUTE_CONFIG.externalVendorRootsEnabledKey]:
-                  parsed.externalVendorRootsEnabled,
-              },
-            })
-            return c.json({
-              ok: true,
-              externalVendorRootsEnabled: config.skills_external_vendor_roots_enabled === true,
-            })
-          },
-          mapError: (error) =>
-            c.json({ error: skillErrorMessage(error) }, HTTP_STATUS.INTERNAL_SERVER_ERROR),
-        }),
-      ),
+      runRouteTask({
+        task: async () => {
+          const parsed = c.req.valid("json")
+          const config = await patchGlobalConfig({
+            [SKILL_ROUTE_CONFIG.externalVendorRootsEnabledKey]: parsed.externalVendorRootsEnabled,
+          })
+          return c.json({
+            ok: true,
+            externalVendorRootsEnabled: config.skills_external_vendor_roots_enabled === true,
+          })
+        },
+        mapError: (error) =>
+          c.json({ error: skillErrorMessage(error) }, HTTP_STATUS.INTERNAL_SERVER_ERROR),
+      }),
   )
   .patch(
     "/:name",
