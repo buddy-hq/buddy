@@ -398,34 +398,18 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
         },
         metadataTitle,
       )
-    case "learner_snapshot_read":
+    case "learner_memory_search":
       return withMetadataTitle(
         {
-          title: active ? "Loading Snapshot" : "Load Snapshot",
-          subtitle:
-            typeof state.metadata.artifact === "string" ? state.metadata.artifact : undefined,
+          title: active ? "Searching Memory" : "Search Memory",
+          subtitle: typeof state.metadata.query === "string" ? state.metadata.query : undefined,
         },
         metadataTitle,
       )
-    case "learner_practice_record":
+    case "learner_memory_update":
       return withMetadataTitle(
         {
-          title: active ? "Recording Practice" : "Practice Record",
-          summary:
-            typeof state.metadata.outcome === "string"
-              ? `Outcome: ${state.metadata.outcome}`
-              : summary,
-        },
-        metadataTitle,
-      )
-    case "learner_assessment_record":
-      return withMetadataTitle(
-        {
-          title: active ? "Recording Assessment" : "Assessment Record",
-          summary:
-            typeof state.metadata.result === "string"
-              ? `Result: ${state.metadata.result}`
-              : summary,
+          title: active ? "Updating Memory" : "Update Memory",
         },
         metadataTitle,
       )

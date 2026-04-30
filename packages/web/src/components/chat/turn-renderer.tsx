@@ -11,7 +11,7 @@ import { AssistantErrorCard } from "./assistant-error-card"
 import { SessionRetryNotice } from "./session-retry-notice"
 import { useChatSettings } from "@/state/chat-settings"
 import { IDLE_SESSION_STATUS } from "@/state/session-status"
-import { shallow } from "zustand/shallow"
+import { useShallow } from "zustand/react/shallow"
 import type { TurnRendererProps } from "./types"
 
 export function areTurnRendererPropsEqual(
@@ -57,12 +57,11 @@ export const TurnRenderer = memo(function TurnRenderer({
   onRevertMessage,
 }: TurnRendererProps) {
   const { showReasoningSummaries, shellToolDefaultOpen, editToolDefaultOpen } = useChatSettings(
-    (state) => ({
+    useShallow((state) => ({
       showReasoningSummaries: state.showReasoningSummaries,
       shellToolDefaultOpen: state.shellToolDefaultOpen,
       editToolDefaultOpen: state.editToolDefaultOpen,
-    }),
-    shallow,
+    })),
   )
 
   const isLastTurn = turnIndex === totalTurns - 1

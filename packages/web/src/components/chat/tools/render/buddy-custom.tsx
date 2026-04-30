@@ -39,7 +39,7 @@ export function renderBuddyCustomTool({ state, tool, defaultOpen }: ToolPartProp
   const value = state.metadata.value
   const valueText = value === undefined ? "" : JSON.stringify(value, null, 2)
   const shouldDefaultOpen =
-    tool === "learner_snapshot_read"
+    tool === "learner_memory_search" || tool === "learner_memory_update"
       ? (defaultOpen ?? false)
       : (defaultOpen ?? state.status === "error")
 

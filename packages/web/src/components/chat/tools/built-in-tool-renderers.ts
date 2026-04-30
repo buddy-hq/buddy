@@ -277,15 +277,11 @@ export const builtInTools: Record<string, ToolRenderer> = {
     card: renderBuddyCustomTool,
     summary: { display: "row", pattern: "info", suppressError: true },
   }),
-  learner_snapshot_read: createToolRenderer({
+  learner_memory_search: createToolRenderer({
     card: renderBuddyCustomTool,
     summary: { display: "row", pattern: "info", suppressError: true },
   }),
-  learner_practice_record: createToolRenderer({
-    card: renderBuddyCustomTool,
-    summary: { display: "row", pattern: "info", suppressError: true },
-  }),
-  learner_assessment_record: createToolRenderer({
+  learner_memory_update: createToolRenderer({
     card: renderBuddyCustomTool,
     summary: { display: "row", pattern: "info", suppressError: true },
   }),

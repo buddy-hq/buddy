@@ -491,9 +491,9 @@ function buildSections(): GallerySection[] {
           { title: t("chatTools.info.fullText"), subtitle: "Chapter 3: Fractions" },
         ),
         card(
-          "learner_snapshot_read",
+          "learner_memory_search",
           renderBuddyCustomTool,
-          "Learner snapshot",
+          "Learner memory search",
           {
             status: "completed",
             input: {},
@@ -507,7 +507,19 @@ function buildSections(): GallerySection[] {
             },
             output: "",
           },
-          { title: "learner_snapshot_read" },
+          { title: "learner_memory_search" },
+        ),
+        card(
+          "learner_memory_update",
+          renderBuddyCustomTool,
+          "Learner memory update",
+          {
+            status: "completed",
+            input: {},
+            metadata: {},
+            output: "",
+          },
+          { title: "learner_memory_update" },
         ),
         card(
           "some_tool",

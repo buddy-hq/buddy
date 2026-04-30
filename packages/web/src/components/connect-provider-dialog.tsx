@@ -26,6 +26,7 @@ import {
   removeProviderAuth,
   reloadProviderRuntime,
 } from "../lib/provider-auth"
+import { loadGlobalConfig, patchGlobalConfig } from "@/state/chat-actions"
 import type { ProviderInfo } from "@/state/chat-types"
 
 type ConnectProviderDialogProps = {
@@ -41,6 +42,18 @@ const FALLBACK_API_METHOD = {
   type: "api",
   label: language.t("connectProviderDialog.fallbackApiMethodLabel"),
 } as const
+
+const DISABLED_PROVIDERS_CONFIG_KEY = "disabled_providers"
+
+function readDisabledProviders(config: Record<string, unknown>) {
+  const value = config[DISABLED_PROVIDERS_CONFIG_KEY]
+  if (!Array.isArray(value)) return []
+  return value.filter((item): item is string => typeof item === "string")
+}
+
+function providerNeedsConfigDisable(provider: ProviderInfo) {
+  return provider.source === "config" || provider.source === "custom"
+}
 
 export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
   const platform = usePlatform()
@@ -130,7 +143,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
   }
 
   async function handleDisconnect() {
-    if (!providerID) return
+    if (!providerID || !selectedProvider) return
 
     setBusy(true)
     setError(undefined)
@@ -140,6 +153,15 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
         directory: props.directory,
         providerID,
       })
+      if (providerNeedsConfigDisable(selectedProvider)) {
+        const config = await loadGlobalConfig()
+        const disabledProviders = readDisabledProviders(config)
+        if (!disabledProviders.includes(providerID)) {
+          await patchGlobalConfig({
+            [DISABLED_PROVIDERS_CONFIG_KEY]: [...disabledProviders, providerID],
+          })
+        }
+      }
       await disposeAndReload()
     } catch (error) {
       setBusy(false)

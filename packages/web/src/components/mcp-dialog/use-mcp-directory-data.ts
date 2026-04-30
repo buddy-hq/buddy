@@ -46,7 +46,7 @@ export function useMcpDirectoryData(props: UseMcpDirectoryDataProps): McpDirecto
   const [query, setQuery] = useState("")
   const [localError, setLocalError] = useState<string | undefined>(undefined)
   const [pendingName, setPendingName] = useState<string | null>(null)
-  const queryEnabled = open && directory.trim().length > 0
+  const queryEnabled = open
   const mcpStatusQuery = useQuery({
     ...mcpStatusQueryOptions(directory),
     enabled: queryEnabled,
@@ -97,8 +97,6 @@ export function useMcpDirectoryData(props: UseMcpDirectoryDataProps): McpDirecto
   )
 
   async function enableMcp(name: string) {
-    if (!directory) return undefined
-
     const status = await connectMcpServer(directory, name)
     queryClient.setQueryData(mcpDirectoryQueryKeys.status(directory), status)
     if (status[name]?.status === "needs_auth") {
@@ -113,8 +111,6 @@ export function useMcpDirectoryData(props: UseMcpDirectoryDataProps): McpDirecto
   }
 
   async function disconnectMcp(name: string) {
-    if (!directory) return
-
     const status = await disconnectMcpServer(directory, name)
     queryClient.setQueryData(mcpDirectoryQueryKeys.status(directory), status)
     await invalidateMcpDirectoryQueries(queryClient, directory)
@@ -122,8 +118,6 @@ export function useMcpDirectoryData(props: UseMcpDirectoryDataProps): McpDirecto
 
   const setConfigByName = useCallback(
     (next: Record<string, McpConfig>) => {
-      if (!directory) return
-
       queryClient.setQueryData(
         mcpDirectoryQueryKeys.projectConfig(directory),
         (current: Record<string, unknown> | undefined) =>
@@ -139,7 +133,7 @@ export function useMcpDirectoryData(props: UseMcpDirectoryDataProps): McpDirecto
   }, [open])
 
   async function toggleMcp(name: string) {
-    if (!directory || pendingName) return
+    if (pendingName) return
 
     const current = statusByName[name]
     setPendingName(name)
@@ -158,7 +152,7 @@ export function useMcpDirectoryData(props: UseMcpDirectoryDataProps): McpDirecto
   }
 
   async function connectMcp(name: string) {
-    if (!directory || pendingName) return
+    if (pendingName) return
     setPendingName(name)
     setLocalError(undefined)
     try {
