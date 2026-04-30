@@ -14,7 +14,7 @@ import { pedagogyLearningToolGroup } from "../capabilities/pedagogy/tools/tools"
 import { goalLearningToolGroup } from "../curriculum/goals/tools/tools"
 import { curriculumLearningToolGroup } from "../curriculum/planning/tools/tools"
 import { knowledgeGraphLearningToolGroup } from "../knowledge-graph/tools/tools"
-import { learnerLearningToolGroup } from "../learner-model/tools/tools"
+import { learnerMemoryLearningToolGroup } from "../learner-memory/tools/tools"
 
 const FEATURE_LEARNING_TOOL_GROUPS = [
   pedagogyLearningToolGroup,
@@ -24,7 +24,7 @@ const FEATURE_LEARNING_TOOL_GROUPS = [
   freeformFigureLearningToolGroup,
   mermaidLearningToolGroup,
   goalLearningToolGroup,
-  learnerLearningToolGroup,
+  learnerMemoryLearningToolGroup,
   teachingLearningToolGroup,
   mathLearningToolGroup,
   questionSetLearningToolGroup,

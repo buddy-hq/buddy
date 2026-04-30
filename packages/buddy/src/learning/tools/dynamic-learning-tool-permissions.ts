@@ -1,11 +1,21 @@
 import type { PermissionRule, PermissionRuleset } from "@buddy/opencode-adapter/permission"
-import { allDynamicLearningToolIds, isDynamicLearningToolID } from "./dynamic-learning-tool-catalog"
+import {
+  dynamicPedagogyDebugAttemptTool,
+  dynamicPedagogyReflectionTool,
+  dynamicPedagogyStepwiseSolveTool,
+} from "./dynamic-learning-tools"
 
 const ANY_PATTERN = "*" as const
 const ALLOW_ACTION = "allow" as const
 const DENY_ACTION = "deny" as const
 
 type DynamicLearningToolAgentPermission = Record<string, typeof DENY_ACTION>
+
+const DYNAMIC_LEARNING_TOOL_IDS = [
+  dynamicPedagogyDebugAttemptTool.id,
+  dynamicPedagogyReflectionTool.id,
+  dynamicPedagogyStepwiseSolveTool.id,
+] as const
 
 function dynamicLearningToolDenyRule(toolID: string): PermissionRule {
   return {
@@ -16,17 +26,20 @@ function dynamicLearningToolDenyRule(toolID: string): PermissionRule {
 }
 
 function dynamicLearningToolDefaultDenyRules(): PermissionRuleset {
-  return allDynamicLearningToolIds().map(dynamicLearningToolDenyRule)
+  return DYNAMIC_LEARNING_TOOL_IDS.map(dynamicLearningToolDenyRule)
 }
 
 function dynamicLearningToolAgentPermission(): DynamicLearningToolAgentPermission {
   return Object.fromEntries(
-    allDynamicLearningToolIds().map((toolID) => [toolID, DENY_ACTION]),
+    DYNAMIC_LEARNING_TOOL_IDS.map((toolID) => [toolID, DENY_ACTION]),
   ) as DynamicLearningToolAgentPermission
 }
 
 function isExactDynamicLearningToolRule(rule: PermissionRule): boolean {
-  return isDynamicLearningToolID(rule.permission) && rule.pattern === ANY_PATTERN
+  return (
+    DYNAMIC_LEARNING_TOOL_IDS.some((toolID) => toolID === rule.permission) &&
+    rule.pattern === ANY_PATTERN
+  )
 }
 
 function isExactDynamicLearningToolDenyRule(rule: PermissionRule): boolean {

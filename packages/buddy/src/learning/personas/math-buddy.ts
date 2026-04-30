@@ -16,9 +16,8 @@ export const MATH_BUDDY = defineBuddyPersona({
   hidden: false,
   tools: {
     static: {
-      learner_snapshot_read: "allow",
-      learner_practice_record: "allow",
-      learner_assessment_record: "allow",
+      learner_memory_search: "allow",
+      learner_memory_update: "allow",
       render_figure: "allow",
       render_freeform_figure: "allow",
       render_mermaid: "allow",

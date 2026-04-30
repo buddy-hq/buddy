@@ -166,8 +166,8 @@ function mergeOpenCodeAndManagedSkills(
   openCodeSkills: OpenCodeSkill[],
   managedSkills: OpenCodeSkill[],
 ) {
-  const merged = new Map(openCodeSkills.map((skill) => [skill.name, skill]))
-  for (const skill of managedSkills) {
+  const merged = new Map(managedSkills.map((skill) => [skill.name, skill]))
+  for (const skill of openCodeSkills) {
     if (!merged.has(skill.name)) {
       merged.set(skill.name, skill)
     }
@@ -205,7 +205,7 @@ export async function loadVisibleSkills(
     refresh?: boolean
   },
 ) {
-  const projectConfig = await Config.getProject(directory)
+  const globalConfig = await Config.getGlobal()
   await ensureOpenCodeProjectOverlay(directory)
 
   const [openCodeSkills, managedSkills] = await Promise.all([
@@ -216,7 +216,7 @@ export async function loadVisibleSkills(
   return mergeOpenCodeAndManagedSkills(
     filterOpenCodeSkillsByProjectSettings({
       openCodeSkills,
-      externalVendorRootsEnabled: projectConfig.skills_external_vendor_roots_enabled === true,
+      externalVendorRootsEnabled: globalConfig.skills_external_vendor_roots_enabled === true,
     }),
     managedSkills,
   )

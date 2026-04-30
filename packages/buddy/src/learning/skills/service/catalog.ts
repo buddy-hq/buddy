@@ -118,7 +118,7 @@ export async function listSkillsCatalog(
     refresh?: boolean
   },
 ): Promise<SkillsCatalog> {
-  const [installed, library, projectConfig] = await Promise.all([
+  const [installed, library, globalConfig] = await Promise.all([
     readInstalledSkillEntries({
       directory,
       refresh: options?.refresh,
@@ -126,13 +126,13 @@ export async function listSkillsCatalog(
     readCuratedLibraryEntries({
       refresh: options?.refresh,
     }),
-    Config.getProject(directory),
+    Config.getGlobal(),
   ])
 
   return {
     directory,
     managedRoot: managedSkillsRoot(),
-    externalVendorRootsEnabled: projectConfig.skills_external_vendor_roots_enabled === true,
+    externalVendorRootsEnabled: globalConfig.skills_external_vendor_roots_enabled === true,
     installed,
     library: library.entries,
     ...(library.syncError ? { librarySyncError: library.syncError } : {}),

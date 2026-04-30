@@ -14,9 +14,8 @@ export const BUDDY = defineBuddyPersona({
   hidden: false,
   tools: {
     static: {
-      learner_snapshot_read: "allow",
-      learner_practice_record: "allow",
-      learner_assessment_record: "allow",
+      learner_memory_search: "allow",
+      learner_memory_update: "allow",
       render_mermaid: "allow",
       search_standards: "allow",
       get_standard: "allow",

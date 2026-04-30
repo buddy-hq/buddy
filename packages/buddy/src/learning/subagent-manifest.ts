@@ -3,6 +3,7 @@ import { GOAL_WRITER } from "./curriculum/goals/writer.agent.js"
 import { CURRICULUM_ORCHESTRATOR } from "./curriculum/orchestrator.agent.js"
 import { PRACTICE_AGENT } from "./curriculum/practice/practice.agent.js"
 import { FLASHCARD_AUTHOR_AGENT } from "./flashcard-author/agent.js"
+import { LEARNER_MEMORY_CONSOLIDATOR_AGENT } from "./learner-memory/consolidator.agent.js"
 import { QUESTION_SET_AUTHOR_AGENT } from "./question-set-author/agent.js"
 import type { DefinedBuddySubagent } from "./define-buddy-subagent"
 
@@ -13,6 +14,7 @@ const BUDDY_SUBAGENTS = [
   GOAL_WRITER,
   FLASHCARD_AUTHOR_AGENT,
   QUESTION_SET_AUTHOR_AGENT,
+  LEARNER_MEMORY_CONSOLIDATOR_AGENT,
 ] as const satisfies readonly DefinedBuddySubagent[]
 
 type BuddySubagentDefinition = (typeof BUDDY_SUBAGENTS)[number]

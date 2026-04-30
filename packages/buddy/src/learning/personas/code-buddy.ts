@@ -15,9 +15,8 @@ export const CODE_BUDDY = defineBuddyPersona({
   hidden: false,
   tools: {
     static: {
-      learner_snapshot_read: "allow",
-      learner_practice_record: "allow",
-      learner_assessment_record: "allow",
+      learner_memory_search: "allow",
+      learner_memory_update: "allow",
       teaching_start_lesson: "allow",
       teaching_checkpoint: "allow",
       teaching_add_file: "allow",
