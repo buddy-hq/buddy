@@ -2,7 +2,7 @@ import * as fs from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import type { Config } from "@buddy/backend/config"
-import { LearnerArtifactPath } from "../../src/learning/learner-model"
+import { LearnerMemoryPath } from "../../src/learning/learner-memory"
 
 type TmpDirOptions<T> = {
   git?: boolean
@@ -27,7 +27,7 @@ async function runGit(args: string[], cwd: string) {
 export async function tmpdir<T>(options?: TmpDirOptions<T>) {
   const dirpath = await fs.mkdtemp(path.join(os.tmpdir(), "buddy-test-"))
   if (!options?.preserveLearnerStore) {
-    await fs.rm(LearnerArtifactPath.profileRoot(), { recursive: true, force: true })
+    await fs.rm(LearnerMemoryPath.root(dirpath), { recursive: true, force: true })
   }
 
   if (options?.git) {

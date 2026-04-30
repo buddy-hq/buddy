@@ -30,6 +30,7 @@
     "test:skills": "bun test --preload ./test/preload.ts test/skills",
     "test:parity": "bun test --preload ./test/preload.ts test/parity",
     "test:contracts": "bun test --preload ./test/preload.ts test/parity",
+    "learner-memory:evaluate": "bun ./script/learner-memory-evaluation.ts",
     "db": "bun drizzle-kit"
   },
   "dependencies": {
