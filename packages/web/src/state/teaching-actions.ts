@@ -3,11 +3,13 @@ import type {
   TeachingWorkspaceFileActivateResponses,
   TeachingWorkspaceFileCreateResponses,
   TeachingWorkspaceProvisionResponses,
-  TeachingWorkspaceReadResponses,
   TeachingWorkspaceRestoreResponses,
-  TeachingWorkspaceSaveResponses,
 } from "@buddy/sdk"
-import type { TeachingLanguage, TeachingWorkspace } from "./teaching-runtime"
+import {
+  TEACHING_LANGUAGE_OPTIONS,
+  type TeachingLanguage,
+  type TeachingWorkspace,
+} from "./teaching-runtime"
 import { buddyResultMessage, getBuddyClient, requireBuddyData } from "../lib/buddy-client"
 import { stringifyError } from "../lib/api-client"
 
@@ -18,14 +20,135 @@ export type TeachingConflictPayload = {
   lessonFilePath: string
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function isTeachingLanguage(value: unknown): value is TeachingLanguage {
+  if (typeof value !== "string") {
+    return false
+  }
+  return TEACHING_LANGUAGE_OPTIONS.some((option) => option.value === value)
+}
+
+function isTeachingDiagnosticSeverity(
+  value: unknown,
+): value is TeachingWorkspace["diagnostics"][number]["severity"] {
+  return value === "error" || value === "warning" || value === "info" || value === "hint"
+}
+
+function readOptionalString(value: unknown) {
+  return typeof value === "string" ? value : undefined
+}
+
+function readOptionalCode(value: unknown) {
+  return typeof value === "string" || typeof value === "number" ? value : undefined
+}
+
+function parseTeachingWorkspace(value: unknown): TeachingWorkspace | undefined {
+  if (!isRecord(value)) {
+    return undefined
+  }
+
+  if (
+    typeof value.sessionID !== "string" ||
+    typeof value.workspaceRoot !== "string" ||
+    !isTeachingLanguage(value.language) ||
+    typeof value.lessonFilePath !== "string" ||
+    typeof value.checkpointFilePath !== "string" ||
+    !Array.isArray(value.files) ||
+    typeof value.activeRelativePath !== "string" ||
+    typeof value.revision !== "number" ||
+    !Number.isFinite(value.revision) ||
+    typeof value.code !== "string" ||
+    typeof value.lspAvailable !== "boolean" ||
+    !Array.isArray(value.diagnostics)
+  ) {
+    return undefined
+  }
+
+  const files: TeachingWorkspace["files"] = []
+  for (const entry of value.files) {
+    if (!isRecord(entry)) {
+      return undefined
+    }
+    if (
+      typeof entry.relativePath !== "string" ||
+      typeof entry.filePath !== "string" ||
+      typeof entry.checkpointFilePath !== "string" ||
+      !isTeachingLanguage(entry.language)
+    ) {
+      return undefined
+    }
+    files.push({
+      relativePath: entry.relativePath,
+      filePath: entry.filePath,
+      checkpointFilePath: entry.checkpointFilePath,
+      language: entry.language,
+    })
+  }
+
+  const diagnostics: TeachingWorkspace["diagnostics"] = []
+  for (const entry of value.diagnostics) {
+    if (!isRecord(entry)) {
+      return undefined
+    }
+    if (
+      typeof entry.message !== "string" ||
+      !isTeachingDiagnosticSeverity(entry.severity) ||
+      typeof entry.startLine !== "number" ||
+      !Number.isFinite(entry.startLine) ||
+      typeof entry.startColumn !== "number" ||
+      !Number.isFinite(entry.startColumn) ||
+      typeof entry.endLine !== "number" ||
+      !Number.isFinite(entry.endLine) ||
+      typeof entry.endColumn !== "number" ||
+      !Number.isFinite(entry.endColumn)
+    ) {
+      return undefined
+    }
+    diagnostics.push({
+      message: entry.message,
+      severity: entry.severity,
+      source: readOptionalString(entry.source),
+      code: readOptionalCode(entry.code),
+      startLine: entry.startLine,
+      startColumn: entry.startColumn,
+      endLine: entry.endLine,
+      endColumn: entry.endColumn,
+    })
+  }
+
+  return {
+    sessionID: value.sessionID,
+    workspaceRoot: value.workspaceRoot,
+    language: value.language,
+    lessonFilePath: value.lessonFilePath,
+    checkpointFilePath: value.checkpointFilePath,
+    files,
+    activeRelativePath: value.activeRelativePath,
+    revision: value.revision,
+    code: value.code,
+    lspAvailable: value.lspAvailable,
+    diagnostics,
+  }
+}
+
+function requireTeachingWorkspace(value: unknown): TeachingWorkspace {
+  const workspace = parseTeachingWorkspace(value)
+  if (!workspace) {
+    throw new Error("Invalid teaching workspace response")
+  }
+  return workspace
+}
+
 function isTeachingConflictPayload(value: unknown): value is TeachingConflictPayload {
-  if (!value || typeof value !== "object") return false
-  const candidate = value as Partial<TeachingConflictPayload>
+  if (!isRecord(value)) return false
   return (
-    typeof candidate.error === "string" &&
-    typeof candidate.revision === "number" &&
-    typeof candidate.code === "string" &&
-    typeof candidate.lessonFilePath === "string"
+    typeof value.error === "string" &&
+    typeof value.revision === "number" &&
+    typeof value.code === "string" &&
+    typeof value.lessonFilePath === "string"
   )
 }
 
@@ -51,7 +174,7 @@ export async function ensureTeachingWorkspace(input: {
     persona: input.persona,
   })
   const data: TeachingWorkspaceProvisionResponses[200] = requireBuddyData(result)
-  return data as TeachingWorkspace
+  return requireTeachingWorkspace(data)
 }
 
 export async function loadTeachingWorkspace(input: { directory: string; sessionID: string }) {
@@ -67,7 +190,7 @@ export async function loadTeachingWorkspace(input: { directory: string; sessionI
   if (result.data === undefined) {
     throw new Error(buddyResultMessage(result))
   }
-  return result.data as TeachingWorkspaceReadResponses[200] as TeachingWorkspace
+  return requireTeachingWorkspace(result.data)
 }
 
 export async function probeTeachingWorkspace(input: { directory: string; sessionID: string }) {
@@ -89,7 +212,7 @@ export async function probeTeachingWorkspace(input: { directory: string; session
     throw new Error(buddyResultMessage(result))
   }
 
-  return result.data as TeachingWorkspaceReadResponses[200] as TeachingWorkspace
+  return requireTeachingWorkspace(result.data)
 }
 
 export async function saveTeachingWorkspace(input: {
@@ -121,7 +244,7 @@ export async function saveTeachingWorkspace(input: {
     throw new Error(buddyResultMessage(result))
   }
 
-  return result.data as TeachingWorkspaceSaveResponses[200] as TeachingWorkspace
+  return requireTeachingWorkspace(result.data)
 }
 
 export async function checkpointTeachingWorkspace(input: { directory: string; sessionID: string }) {
@@ -136,7 +259,7 @@ export async function restoreTeachingWorkspace(input: { directory: string; sessi
     sessionID: input.sessionID,
   })
   const data: TeachingWorkspaceRestoreResponses[200] = requireBuddyData(result)
-  return data as TeachingWorkspace
+  return requireTeachingWorkspace(data)
 }
 
 export async function createTeachingWorkspaceFile(input: {
@@ -155,7 +278,7 @@ export async function createTeachingWorkspaceFile(input: {
     activate: input.activate,
   })
   const data: TeachingWorkspaceFileCreateResponses[200] = requireBuddyData(result)
-  return data as TeachingWorkspace
+  return requireTeachingWorkspace(data)
 }
 
 export async function activateTeachingWorkspaceFile(input: {
@@ -168,7 +291,7 @@ export async function activateTeachingWorkspaceFile(input: {
     relativePath: input.relativePath,
   })
   const data: TeachingWorkspaceFileActivateResponses[200] = requireBuddyData(result)
-  return data as TeachingWorkspace
+  return requireTeachingWorkspace(data)
 }
 
 export { stringifyError }
