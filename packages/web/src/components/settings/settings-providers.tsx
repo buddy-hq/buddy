@@ -1,4 +1,5 @@
 import { type ReactNode, useMemo, useRef, useState } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   Badge,
   Button,
@@ -27,10 +28,11 @@ import {
   formatProviderAuthError,
   reloadProviderRuntime,
 } from "@/lib/provider-auth"
-import { loadProviderCatalogSnapshot } from "@/state/chat-actions"
+import { loadProviderCatalog, loadProviderCatalogSnapshot } from "@/state/chat-actions"
 import type { ProviderInfo } from "@/state/chat-types"
-import { useProjectSettings } from "@/state/project-settings"
+import { connectedProviders } from "@/state/project-settings-store"
 import { ProviderSourceBadge, SettingsListCard, SettingsContent } from "./settings-primitives"
+import type { SettingsWorkbench } from "./settings-workbench"
 
 type RecommendedProviderCardProps = {
   provider?: ProviderInfo
@@ -184,9 +186,25 @@ function ProviderListRow(props: {
   )
 }
 
-export function ProvidersSettings({ directory }: { directory: string }) {
+export function ProvidersSettings({ workbench }: { workbench: SettingsWorkbench }) {
+  const directory = workbench.selectedDirectory
   const platform = usePlatform()
-  const settings = useProjectSettings(directory, true)
+  const queryClient = useQueryClient()
+  const providerQuery = useQuery({
+    queryKey: ["provider-catalog", directory || "__global__"],
+    queryFn: () => loadProviderCatalog(directory),
+    enabled: true,
+  })
+  const providerCatalog = providerQuery.data
+  const providers = useMemo(
+    () => (providerCatalog ? connectedProviders(providerCatalog) : []),
+    [providerCatalog],
+  )
+  const allProviders = useMemo(() => providerCatalog?.providers ?? [], [providerCatalog?.providers])
+  const availableProviders = useMemo(
+    () => allProviders.filter((provider) => !provider.connected),
+    [allProviders],
+  )
   const [providerDialogOpen, setProviderDialogOpen] = useState(false)
   const [providerDialogTarget, setProviderDialogTarget] = useState<string | undefined>(undefined)
   const [allProvidersOpen, setAllProvidersOpen] = useState(false)
@@ -197,15 +215,11 @@ export function ProvidersSettings({ directory }: { directory: string }) {
   const dismissedChatGptRequestRef = useRef<number | undefined>(undefined)
 
   const providersByID = useMemo(
-    () => new Map(settings.options.allProviders.map((provider) => [provider.id, provider])),
-    [settings.options.allProviders],
+    () => new Map(allProviders.map((provider) => [provider.id, provider])),
+    [allProviders],
   )
   const chatGptProvider = providersByID.get(OPENAI_PROVIDER_ID)
   const openCodeGoProvider = providersByID.get(OPENCODE_PROVIDER_ID)
-  const allProviders = useMemo(
-    () => settings.options.allProviders.filter((provider) => !provider.connected),
-    [settings.options.allProviders],
-  )
   const chatGptError = chatGptProvider?.connected ? undefined : chatGptErrorState
 
   function openProviderDialog(initialProvider?: string) {
@@ -214,7 +228,10 @@ export function ProvidersSettings({ directory }: { directory: string }) {
   }
 
   async function handleProvidersUpdated() {
-    await settings.actions.refresh()
+    await queryClient.invalidateQueries({
+      queryKey: ["provider-catalog", directory || "__global__"],
+    })
+    await providerQuery.refetch()
   }
 
   async function handleConnectChatGpt() {
@@ -260,16 +277,20 @@ export function ProvidersSettings({ directory }: { directory: string }) {
 
   return (
     <>
-      <SettingsContent>
-        {settings.options.providers.length > 0 ? (
+      <SettingsContent
+        title={language.t("settings.providers.title")}
+        description={language.t("settings.providers.description")}
+        eyebrow="Global settings"
+      >
+        {providers.length > 0 ? (
           <ProviderSection title={language.t("settings.providers.connectedSection")}>
             <SettingsListCard>
-              {settings.options.providers.map((provider, index) => (
+              {providers.map((provider, index) => (
                 <ProviderListRow
                   key={provider.id}
                   provider={provider}
                   connected
-                  last={index === settings.options.providers.length - 1}
+                  last={index === providers.length - 1}
                   onOpenDialog={openProviderDialog}
                 />
               ))}
@@ -337,13 +358,13 @@ export function ProvidersSettings({ directory }: { directory: string }) {
           </div>
           <CollapsibleContent>
             <SettingsListCard>
-              {allProviders.length > 0 ? (
-                allProviders.map((provider, index) => (
+              {availableProviders.length > 0 ? (
+                availableProviders.map((provider, index) => (
                   <ProviderListRow
                     key={provider.id}
                     provider={provider}
                     connected={false}
-                    last={index === allProviders.length - 1}
+                    last={index === availableProviders.length - 1}
                     onOpenDialog={openProviderDialog}
                   />
                 ))
@@ -408,7 +429,7 @@ export function ProvidersSettings({ directory }: { directory: string }) {
       <ConnectProviderDialog
         directory={directory}
         open={providerDialogOpen}
-        providers={settings.options.allProviders}
+        providers={allProviders}
         initialProvider={providerDialogTarget}
         onOpenChange={setProviderDialogOpen}
         onUpdated={handleProvidersUpdated}

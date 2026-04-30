@@ -25,6 +25,7 @@ import {
   type SettingsTab,
   type SettingsTabDefinition,
 } from "@/components/settings/settings-tabs"
+import { createSettingsWorkbench } from "@/components/settings/settings-workbench"
 import { encodeDirectory } from "../lib/directory-token"
 import {
   closeOpenProject,
@@ -45,7 +46,7 @@ import {
   removeDirectoryChatQueries,
   upsertDirectorySessionQueryData,
 } from "@/state/directory-chat-query"
-import { shallow } from "zustand/shallow"
+import { useShallow } from "zustand/react/shallow"
 import { useUiPreferences } from "@/state/ui-preferences"
 import { pickProjectDirectory } from "../lib/directory-picker"
 
@@ -84,9 +85,9 @@ function SettingsRoute() {
   const navigate = useNavigate()
   const { tab } = useSearch({ from: "/settings" })
   const platform = usePlatform()
-  const openProjects = useChatStore((state) => state.openProjects, shallow)
+  const openProjects = useChatStore(useShallow((state) => state.openProjects))
   const activeDirectory = useChatStore((state) => state.activeDirectory)
-  const directories = useChatStore((state) => state.directories, shallow)
+  const directories = useChatStore(useShallow((state) => state.directories))
   const setActiveDirectory = useChatStore((state) => state.setActiveDirectory)
   const pinnedByDirectory = useUiPreferences((state) => state.pinnedByDirectory)
   const unreadByDirectory = useUiPreferences((state) => state.unreadByDirectory)
@@ -113,6 +114,14 @@ function SettingsRoute() {
   })
 
   const currentDirectory = activeDirectory ?? openProjects[0] ?? ""
+  const settingsWorkbench = useMemo(
+    () =>
+      createSettingsWorkbench({
+        selectedDirectory: currentDirectory,
+        openDirectories: openProjects,
+      }),
+    [currentDirectory, openProjects],
+  )
   const activeSessionID = currentDirectory ? directories[currentDirectory]?.sessionID : undefined
   const leftSidebarMaxWidth = 320
   const visibleTabs = useMemo(
@@ -343,13 +352,7 @@ function SettingsRoute() {
         </ResizablePanel>
         <ResizablePanel id={SETTINGS_MAIN_PANEL_ID} className="min-h-0 min-w-0">
           <main className="min-h-0 min-w-0 flex h-full flex-1 overflow-hidden bg-background-base/20">
-            {currentDirectory ? (
-              <SettingsPage directory={currentDirectory} activeTab={tab} />
-            ) : (
-              <div className="flex h-full items-center justify-center text-sm text-text-weak">
-                {language.t("routes.settings.emptyState")}
-              </div>
-            )}
+            <SettingsPage workbench={settingsWorkbench} activeTab={tab} />
           </main>
         </ResizablePanel>
       </ResizablePanelGroup>

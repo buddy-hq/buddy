@@ -4,8 +4,10 @@ import { language } from "@/context/language"
 import { useMcpDirectoryData } from "@/components/mcp-dialog/use-mcp-directory-data"
 import { useMcpEditorState } from "@/components/mcp-dialog/use-mcp-editor-state"
 import { SettingsContent } from "./settings-primitives"
+import type { SettingsWorkbench } from "./settings-workbench"
 
-export function McpsSettings({ directory }: { directory: string }) {
+export function McpsSettings({ workbench }: { workbench: SettingsWorkbench }) {
+  const directory = workbench.selectedDirectory
   const directoryState = useMcpDirectoryData({
     directory,
     open: true,
@@ -26,6 +28,7 @@ export function McpsSettings({ directory }: { directory: string }) {
           enabledCount: directoryState.enabledCount,
           totalCount: directoryState.totalCount,
         })}
+        eyebrow="Global settings"
       >
         <div data-component="settings-mcp-panel" className="contents">
           <McpListPanel

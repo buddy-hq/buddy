@@ -25,7 +25,7 @@ import {
   cn,
   toast,
 } from "@buddy/ui"
-import { PlusIcon, RefreshCwIcon } from "lucide-react"
+import { FolderIcon, GlobeIcon, PlusIcon, RefreshCwIcon } from "lucide-react"
 import { language } from "@/context/language"
 import {
   createCustomSkill,
@@ -182,18 +182,48 @@ function PermissionActionMenu(props: {
   )
 }
 
+function scopeBadgeVariant(scope: InstalledSkillInfo["scope"]) {
+  return scope === "workspace"
+    ? "border-border-warning-base/80 bg-surface-warning-base/10 text-icon-warning-base"
+    : "border-border-base/60 bg-surface-weak/30 text-text-weaker"
+}
+
+function scopeIcon(scope: InstalledSkillInfo["scope"]) {
+  return scope === "workspace" ? FolderIcon : GlobeIcon
+}
+
 function SkillCard(props: {
   skill: InstalledSkillInfo
   disabled?: boolean
   onToggleEnabled: (enabled: boolean) => void
   onManage: () => void
 }) {
+  const ScopeIcon = scopeIcon(props.skill.scope)
+
   return (
-    <div className="px-4 py-4">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="truncate text-sm font-medium text-text-base">{props.skill.name}</p>
+    <Card className="group/card border-border-base/60 bg-surface-raised-base/60 transition-colors hover:border-border-base active:scale-[0.985]">
+      <CardContent className="flex h-full flex-col gap-4 p-5">
+        <div className="space-y-2">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2 min-w-0">
+              <ScopeIcon className="size-3.5 shrink-0 text-text-weak" />
+              <p className="truncate text-sm font-semibold text-text-base">{props.skill.name}</p>
+            </div>
+            <Switch
+              checked={props.skill.permissionAction !== "deny"}
+              onCheckedChange={props.onToggleEnabled}
+              disabled={props.disabled}
+              aria-label={language.t("skills.toggleAria", { name: props.skill.name })}
+            />
+          </div>
+          <p className="line-clamp-2 text-sm text-text-weak">{props.skill.description}</p>
+        </div>
+
+        <div className="mt-auto flex items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Badge variant="outline" className={cn("h-5", scopeBadgeVariant(props.skill.scope))}>
+              {scopeLabel(props.skill.scope)}
+            </Badge>
             <Badge
               variant="outline"
               className={cn(
@@ -208,16 +238,6 @@ function SkillCard(props: {
               {statusLabel(props.skill.permissionAction)}
             </Badge>
           </div>
-          <p className="mt-1 line-clamp-2 text-xs text-text-weak">{props.skill.description}</p>
-        </div>
-
-        <div className="flex shrink-0 items-center gap-3">
-          <Switch
-            checked={props.skill.permissionAction !== "deny"}
-            onCheckedChange={props.onToggleEnabled}
-            disabled={props.disabled}
-            aria-label={language.t("skills.toggleAria", { name: props.skill.name })}
-          />
           <Button
             type="button"
             variant="ghost"
@@ -230,8 +250,8 @@ function SkillCard(props: {
             <SettingsIcon className="size-4" />
           </Button>
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -549,43 +569,43 @@ export function SkillsPage(props: { directory?: string }) {
             />
 
             {loading ? (
-              <Card className="border-border-base/60 bg-surface-raised-base/50">
-                <CardContent className="px-0">
-                  {SKELETON_CARD_KEYS.map((key, index) => (
-                    <div key={key}>
-                      <div className="px-4 py-4">
-                        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                          <div className="min-w-0 flex-1 space-y-2">
-                            <div className="h-4 w-40 rounded-md bg-surface-weak/60" />
-                            <div className="h-3 w-full max-w-xl rounded-md bg-surface-weak/40" />
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <div className="h-5 w-12 rounded-full bg-surface-weak/40" />
-                            <div className="h-8 w-8 rounded-full bg-surface-weak/40" />
-                          </div>
+              <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+                {SKELETON_CARD_KEYS.map((key) => (
+                  <Card key={key} className="border-border-base/60 bg-surface-raised-base/50">
+                    <CardContent className="flex flex-col gap-4 p-5">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <div className="size-3.5 rounded-full bg-surface-weak/40" />
+                          <div className="h-4 w-32 rounded-md bg-surface-weak/60" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <div className="h-3 w-full rounded-md bg-surface-weak/30" />
+                          <div className="h-3 w-3/4 rounded-md bg-surface-weak/30" />
                         </div>
                       </div>
-                      {index === SKELETON_CARD_KEYS.length - 1 ? null : <Separator />}
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-1.5">
+                          <div className="h-5 w-14 rounded-full bg-surface-weak/30" />
+                          <div className="h-5 w-10 rounded-full bg-surface-weak/30" />
+                        </div>
+                        <div className="h-8 w-8 rounded-full bg-surface-weak/30" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             ) : filteredInstalled.length > 0 ? (
-              <Card className="border-border-base/60 bg-surface-raised-base/70">
-                <CardContent className="px-0">
-                  {filteredInstalled.map((skill, index) => (
-                    <div key={skill.name}>
-                      <SkillCard
-                        skill={skill}
-                        disabled={busyKey === `permission:${skill.name}`}
-                        onToggleEnabled={(enabled) => toggleSkillEnabled(skill, enabled)}
-                        onManage={() => setSelectedSkillName(skill.name)}
-                      />
-                      {index === filteredInstalled.length - 1 ? null : <Separator />}
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
+              <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+                {filteredInstalled.map((skill) => (
+                  <SkillCard
+                    key={skill.name}
+                    skill={skill}
+                    disabled={busyKey === `permission:${skill.name}`}
+                    onToggleEnabled={(enabled) => toggleSkillEnabled(skill, enabled)}
+                    onManage={() => setSelectedSkillName(skill.name)}
+                  />
+                ))}
+              </div>
             ) : (
               <Card className="border-dashed border-border-base/60 bg-surface-raised-base/30">
                 <CardContent className="p-6 text-sm text-text-weak">

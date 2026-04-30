@@ -11,19 +11,21 @@ import {
 } from "@buddy/ui"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
-import { resolveDefaultPersonaID } from "@/state/chat-actions"
-import { useProjectSettings } from "@/state/project-settings"
+import { useGeneralSettings } from "@/state/general-settings"
 import { showDesktopUpdateToast } from "@/lib/desktop-updates"
 import { useTheme, type ColorScheme } from "@/theme"
 import { SettingsContent, SettingsListCard, SettingsRow } from "./settings-primitives"
+import type { SettingsWorkbench } from "./settings-workbench"
 
 function isColorScheme(value: string): value is ColorScheme {
   return value === "system" || value === "light" || value === "dark"
 }
 
-export function GeneralSettings({ directory }: { directory: string }) {
+export function GeneralSettings({ workbench }: { workbench: SettingsWorkbench }) {
   const platform = usePlatform()
-  const notebookSettings = useProjectSettings(directory, true)
+  const generalSettings = useGeneralSettings({
+    cleanupDirectories: workbench.openDirectories,
+  })
   const [checkingForUpdates, setCheckingForUpdates] = useState(false)
   const { themeId, colorScheme, themes, setTheme, setColorScheme } = useTheme()
 
@@ -42,11 +44,6 @@ export function GeneralSettings({ directory }: { directory: string }) {
     [themes],
   )
 
-  const personaSelectValue =
-    resolveDefaultPersonaID(
-      notebookSettings.options.personas,
-      notebookSettings.selection.persona || undefined,
-    ) || "buddy"
   const showDesktopUpdateControls =
     platform.platform === "desktop" &&
     !!platform.checkUpdate &&
@@ -93,161 +90,115 @@ export function GeneralSettings({ directory }: { directory: string }) {
       title={language.t("settings.general.title")}
       description={language.t("settings.general.description")}
     >
-      <div className="space-y-2">
-        <h3 className="text-sm font-medium text-text-base">
-          {language.t("settings.general.appearanceSection")}
-        </h3>
-        <SettingsListCard>
+      <SettingsListCard>
+        <SettingsRow
+          title={language.t("settings.appearance.colorSchemeTitle")}
+          description={language.t("settings.appearance.colorSchemeDescription")}
+          control={
+            <Select
+              value={colorScheme}
+              onValueChange={(value) => {
+                if (isColorScheme(value)) {
+                  setColorScheme(value)
+                }
+              }}
+            >
+              <SelectTrigger data-action="settings-color-scheme" className="w-full">
+                <SelectValue
+                  placeholder={language.t("settings.appearance.colorSchemePlaceholder")}
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {colorSchemeOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          }
+        />
+        <SettingsRow
+          title={language.t("settings.general.fullTextTitle")}
+          description="Allow Buddy to read an entire prepared resource into context when there is enough live context budget. Turn this off to avoid expensive full-book reads."
+          control={
+            <div className="flex items-center justify-between gap-3 rounded-md border border-border-base/60 px-3 py-2">
+              <span className="text-sm text-text-weak">
+                {generalSettings.selection.fullTextReadingEnabled
+                  ? language.t("settings.notebook.on")
+                  : language.t("settings.notebook.off")}
+              </span>
+              <Switch
+                data-action="settings-global-full-text"
+                checked={generalSettings.selection.fullTextReadingEnabled}
+                onCheckedChange={generalSettings.actions.setFullTextReadingEnabled}
+                disabled={generalSettings.status.loading}
+                aria-label={language.t("settings.general.fullTextAria")}
+              />
+            </div>
+          }
+        />
+        <SettingsRow
+          title={language.t("settings.general.autoCompactionTitle")}
+          description="Automatically compact the session when context reaches the model limit window. Turn this off to keep full history and compact manually with slash commands."
+          control={
+            <div className="flex items-center justify-between gap-3 rounded-md border border-border-base/60 px-3 py-2">
+              <span className="text-sm text-text-weak">
+                {generalSettings.selection.autoCompactionEnabled
+                  ? language.t("settings.notebook.on")
+                  : language.t("settings.notebook.off")}
+              </span>
+              <Switch
+                data-action="settings-global-auto-compaction"
+                checked={generalSettings.selection.autoCompactionEnabled}
+                onCheckedChange={generalSettings.actions.setAutoCompactionEnabled}
+                disabled={generalSettings.status.loading}
+                aria-label={language.t("settings.general.autoCompactionAria")}
+              />
+            </div>
+          }
+        />
+        <SettingsRow
+          title={language.t("settings.appearance.themeTitle")}
+          description={language.t("settings.appearance.themeDescription")}
+          last={!showDesktopUpdateControls}
+          control={
+            <Select value={themeId} onValueChange={setTheme}>
+              <SelectTrigger data-action="settings-theme" className="w-full">
+                <SelectValue placeholder={language.t("settings.appearance.themePlaceholder")} />
+              </SelectTrigger>
+              <SelectContent>
+                {themeOptions.map((option) => (
+                  <SelectItem key={option.id} value={option.id}>
+                    {option.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          }
+        />
+        {showDesktopUpdateControls ? (
           <SettingsRow
-            title={language.t("settings.appearance.colorSchemeTitle")}
-            description={language.t("settings.appearance.colorSchemeDescription")}
-            control={
-              <Select
-                value={colorScheme}
-                onValueChange={(value) => {
-                  if (isColorScheme(value)) {
-                    setColorScheme(value)
-                  }
-                }}
-              >
-                <SelectTrigger data-action="settings-color-scheme" className="w-full">
-                  <SelectValue
-                    placeholder={language.t("settings.appearance.colorSchemePlaceholder")}
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {colorSchemeOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            }
-          />
-          <SettingsRow
-            title={language.t("settings.appearance.themeTitle")}
-            description={language.t("settings.appearance.themeDescription")}
+            title={language.t("settings.appearance.updatesTitle")}
+            description={language.t("settings.appearance.updatesDescription")}
             last
             control={
-              <Select value={themeId} onValueChange={setTheme}>
-                <SelectTrigger data-action="settings-theme" className="w-full">
-                  <SelectValue placeholder={language.t("settings.appearance.themePlaceholder")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {themeOptions.map((option) => (
-                    <SelectItem key={option.id} value={option.id}>
-                      {option.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            }
-          />
-        </SettingsListCard>
-      </div>
-
-      <div className="space-y-2">
-        <h3 className="text-sm font-medium text-text-base">
-          {language.t("settings.general.defaultsSection")}
-        </h3>
-        <SettingsListCard>
-          <SettingsRow
-            title={language.t("settings.notebook.defaultPersonaTitle")}
-            description={language.t("settings.notebook.defaultPersonaDescription")}
-            control={
-              <Select
-                value={personaSelectValue}
-                onValueChange={notebookSettings.actions.setPersona}
-                disabled={notebookSettings.status.loading}
+              <Button
+                data-action="settings-check-updates"
+                type="button"
+                size="xs"
+                variant="outline"
+                onClick={() => void onCheckForUpdates()}
+                disabled={checkingForUpdates}
               >
-                <SelectTrigger data-action="settings-notebook-default-persona" className="w-full">
-                  <SelectValue
-                    placeholder={language.t("settings.notebook.defaultPersonaPlaceholder")}
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {notebookSettings.options.personas.map((persona) => (
-                    <SelectItem key={persona.id} value={persona.id}>
-                      {persona.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                {checkingForUpdates
+                  ? language.t("settings.appearance.checking")
+                  : language.t("settings.appearance.checkForUpdates")}
+              </Button>
             }
           />
-          <SettingsRow
-            title={language.t("settings.notebook.fullTextTitle")}
-            description={language.t("settings.notebook.fullTextDescription")}
-            control={
-              <div className="flex items-center justify-between gap-3 rounded-md border border-border-base/60 px-3 py-2">
-                <span className="text-sm text-text-weak">
-                  {notebookSettings.selection.fullTextReadingEnabled
-                    ? language.t("settings.notebook.on")
-                    : language.t("settings.notebook.off")}
-                </span>
-                <Switch
-                  data-action="settings-notebook-full-text"
-                  checked={notebookSettings.selection.fullTextReadingEnabled}
-                  onCheckedChange={notebookSettings.actions.setFullTextReadingEnabled}
-                  disabled={notebookSettings.status.loading}
-                  aria-label={language.t("settings.notebook.fullTextAria")}
-                />
-              </div>
-            }
-          />
-          <SettingsRow
-            title={language.t("settings.notebook.autoCompactionTitle")}
-            description={language.t("settings.notebook.autoCompactionDescription")}
-            last
-            control={
-              <div className="flex items-center justify-between gap-3 rounded-md border border-border-base/60 px-3 py-2">
-                <span className="text-sm text-text-weak">
-                  {notebookSettings.selection.autoCompactionEnabled
-                    ? language.t("settings.notebook.on")
-                    : language.t("settings.notebook.off")}
-                </span>
-                <Switch
-                  data-action="settings-notebook-auto-compaction"
-                  checked={notebookSettings.selection.autoCompactionEnabled}
-                  onCheckedChange={notebookSettings.actions.setAutoCompactionEnabled}
-                  disabled={notebookSettings.status.loading}
-                  aria-label={language.t("settings.notebook.autoCompactionAria")}
-                />
-              </div>
-            }
-          />
-        </SettingsListCard>
-      </div>
-
-      {showDesktopUpdateControls ? (
-        <div className="space-y-2">
-          <h3 className="text-sm font-medium text-text-base">
-            {language.t("settings.general.appSection")}
-          </h3>
-          <SettingsListCard>
-            <SettingsRow
-              title={language.t("settings.appearance.updatesTitle")}
-              description={language.t("settings.appearance.updatesDescription")}
-              last
-              control={
-                <Button
-                  data-action="settings-check-updates"
-                  type="button"
-                  size="xs"
-                  variant="outline"
-                  onClick={() => void onCheckForUpdates()}
-                  disabled={checkingForUpdates}
-                >
-                  {checkingForUpdates
-                    ? language.t("settings.appearance.checking")
-                    : language.t("settings.appearance.checkForUpdates")}
-                </Button>
-              }
-            />
-          </SettingsListCard>
-        </div>
-      ) : null}
+        ) : null}
+      </SettingsListCard>
     </SettingsContent>
   )
 }

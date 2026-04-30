@@ -1,7 +1,6 @@
 import { memo, useEffect, useMemo, useState } from "react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Switch } from "@buddy/ui"
 import { language } from "@/context/language"
-import { useChatStore } from "@/state/chat-store"
 import {
   STANDARDS_TOOL_IDS,
   TOOL_OVERRIDE_MODE,
@@ -10,6 +9,7 @@ import {
   useToolsSettings,
 } from "@/state/tools-settings"
 import { SettingsContent, SettingsListCard, SettingsRow } from "./settings-primitives"
+import type { SettingsWorkbench } from "./settings-workbench"
 
 const TOOL_DISPLAY_NAMES: Record<StandardsToolId, string> = {
   search_standards: "Search Standards",
@@ -49,7 +49,7 @@ function notebookDisplayName(directory: string) {
 }
 
 function resolveNotebookOptions(currentDirectory: string, openProjects: string[]) {
-  return Array.from(new Set([currentDirectory, ...openProjects]))
+  return Array.from(new Set([currentDirectory, ...openProjects].filter(Boolean)))
 }
 
 const GlobalDefaultsBulkRow = memo(function GlobalDefaultsBulkRow(props: {
@@ -280,21 +280,23 @@ function StandardsSettingsPanel(props: {
   )
 }
 
-export function StandardsSettings(props: { directory: string }) {
-  const openProjects = useChatStore((state) => state.openProjects)
+export function StandardsSettings(props: { workbench: SettingsWorkbench }) {
   const notebookOptions = useMemo(
-    () => resolveNotebookOptions(props.directory, openProjects),
-    [openProjects, props.directory],
+    () =>
+      resolveNotebookOptions(props.workbench.selectedDirectory, props.workbench.openDirectories),
+    [props.workbench.openDirectories, props.workbench.selectedDirectory],
   )
-  const [selectedNotebookDirectoryState, setSelectedNotebookDirectory] = useState(props.directory)
+  const [selectedNotebookDirectoryState, setSelectedNotebookDirectory] = useState(
+    props.workbench.selectedDirectory,
+  )
 
   useEffect(() => {
-    setSelectedNotebookDirectory(props.directory)
-  }, [props.directory])
+    setSelectedNotebookDirectory(props.workbench.selectedDirectory)
+  }, [props.workbench.selectedDirectory])
 
   const selectedNotebookDirectory = notebookOptions.includes(selectedNotebookDirectoryState)
     ? selectedNotebookDirectoryState
-    : props.directory
+    : props.workbench.selectedDirectory
 
   return (
     <StandardsSettingsPanel

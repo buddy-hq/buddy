@@ -28,6 +28,7 @@ export function AttributionSettings() {
     <SettingsContent
       title={language.t("settings.attribution.title")}
       description={language.t("settings.attribution.description")}
+      eyebrow="App information"
     >
       <div className="space-y-6">
         <SettingsListCard>

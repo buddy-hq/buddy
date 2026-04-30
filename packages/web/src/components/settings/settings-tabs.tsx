@@ -2,6 +2,7 @@ import type { ReactNode } from "react"
 import {
   BlocksIcon,
   BookOpenIcon,
+  BrainIcon,
   CogIcon,
   FileTextIcon,
   ScaleIcon,
@@ -18,6 +19,8 @@ import { SkillsPage } from "@/components/skills/skills-page"
 import { AdvancedSettings } from "./settings-advanced"
 import { StandardsSettings } from "./settings-tools"
 import { AttributionSettings } from "./settings-attribution"
+import { LearnerMemorySettings } from "./settings-learner-memory"
+import type { SettingsWorkbench } from "./settings-workbench"
 
 export type SettingsTab =
   | "general"
@@ -25,11 +28,14 @@ export type SettingsTab =
   | "mcps"
   | "skills"
   | "instructions"
+  | "learnerMemory"
   | "advanced"
   | "attribution"
   | "standards"
 
 export type SettingsTabGroup = "main" | "optional"
+
+export type SettingsTabScope = "global" | "notebook" | "mixed" | "info"
 
 export type SettingsTabDefinition = {
   id: SettingsTab
@@ -37,7 +43,8 @@ export type SettingsTabDefinition = {
   icon: LucideIcon
   layout: "standard" | "full-page"
   group: SettingsTabGroup
-  render: (directory: string) => ReactNode
+  scope: SettingsTabScope
+  render: (workbench: SettingsWorkbench) => ReactNode
 }
 
 const SETTINGS_TAB_ALIAS_MAP = {
@@ -55,7 +62,8 @@ export const SETTINGS_TABS: SettingsTabDefinition[] = [
     icon: SlidersHorizontalIcon,
     layout: "standard",
     group: "main",
-    render: (directory) => <GeneralSettings directory={directory} />,
+    scope: "global",
+    render: (workbench) => <GeneralSettings workbench={workbench} />,
   },
   {
     id: "providers",
@@ -63,7 +71,8 @@ export const SETTINGS_TABS: SettingsTabDefinition[] = [
     icon: SettingsIcon,
     layout: "standard",
     group: "main",
-    render: (directory) => <ProvidersSettings directory={directory} />,
+    scope: "global",
+    render: (workbench) => <ProvidersSettings workbench={workbench} />,
   },
   {
     id: "mcps",
@@ -71,7 +80,8 @@ export const SETTINGS_TABS: SettingsTabDefinition[] = [
     icon: BlocksIcon,
     layout: "standard",
     group: "main",
-    render: (directory) => <McpsSettings directory={directory} />,
+    scope: "global",
+    render: (workbench) => <McpsSettings workbench={workbench} />,
   },
   {
     id: "skills",
@@ -79,7 +89,8 @@ export const SETTINGS_TABS: SettingsTabDefinition[] = [
     icon: SparklesIcon,
     layout: "full-page",
     group: "main",
-    render: (directory) => <SkillsPage directory={directory} />,
+    scope: "mixed",
+    render: (workbench) => <SkillsPage directory={workbench.selectedDirectory} />,
   },
   {
     id: "instructions",
@@ -87,7 +98,17 @@ export const SETTINGS_TABS: SettingsTabDefinition[] = [
     icon: FileTextIcon,
     layout: "standard",
     group: "main",
+    scope: "global",
     render: () => <InstructionsSettings />,
+  },
+  {
+    id: "learnerMemory",
+    navLabelKey: "routes.settings.nav.learnerMemory",
+    icon: BrainIcon,
+    layout: "standard",
+    group: "main",
+    scope: "mixed",
+    render: (workbench) => <LearnerMemorySettings workbench={workbench} />,
   },
   {
     id: "advanced",
@@ -95,7 +116,8 @@ export const SETTINGS_TABS: SettingsTabDefinition[] = [
     icon: CogIcon,
     layout: "standard",
     group: "main",
-    render: (directory) => <AdvancedSettings directory={directory} />,
+    scope: "global",
+    render: (workbench) => <AdvancedSettings workbench={workbench} />,
   },
   {
     id: "attribution",
@@ -103,6 +125,7 @@ export const SETTINGS_TABS: SettingsTabDefinition[] = [
     icon: ScaleIcon,
     layout: "standard",
     group: "main",
+    scope: "info",
     render: () => <AttributionSettings />,
   },
   {
@@ -111,7 +134,8 @@ export const SETTINGS_TABS: SettingsTabDefinition[] = [
     icon: BookOpenIcon,
     layout: "standard",
     group: "optional",
-    render: (directory) => <StandardsSettings directory={directory} />,
+    scope: "mixed",
+    render: (workbench) => <StandardsSettings workbench={workbench} />,
   },
 ]
 
