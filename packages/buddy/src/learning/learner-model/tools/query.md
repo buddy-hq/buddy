@@ -1,1 +1,0 @@
-Read the current learner-state snapshot for this workspace from the cross-notebook learner store. Use this before choosing teaching moves, practice tasks, or assessments that should adapt to active goals and prior evidence. Provide focusGoalIds when the next turn should be scoped to specific goals; omit them for the most relevant workspace-wide snapshot.

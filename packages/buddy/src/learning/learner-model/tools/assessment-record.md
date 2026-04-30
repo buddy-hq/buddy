@@ -1,1 +1,0 @@
-Record inline assessment evidence for the current workspace after a mastery check, transfer task, code review task, or reasoning explanation. Use this when the learner's response supports a demonstrated, partial, or not-demonstrated judgment against active goals. Do not use it for ordinary practice attempts; use learner_practice_record for non-assessment work.

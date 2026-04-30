@@ -1,1 +1,0 @@
-Record practice evidence for the current workspace after assigning, reviewing, or completing a learner practice attempt. Use this when the learner's response should update progress against one or more active goals. Do not use it for formal mastery decisions; use learner_assessment_record when the turn is an assessment.
