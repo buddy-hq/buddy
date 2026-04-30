@@ -1,11 +1,8 @@
 import fs from "node:fs/promises"
 import { ulid } from "ulid"
-import { recordAssessmentEvent } from "@buddy/backend/learning/learner-model/workflows/record-assessment"
-import { recordPracticeEvent } from "@buddy/backend/learning/learner-model/workflows/record-practice"
 import { QuestionSetPath } from "./path"
 import {
   QUESTION_SET_ATTEMPT_KIND,
-  QUESTION_SET_SURFACE,
   QuestionSetAttemptRecordSchema,
   QuestionSetEvaluationResultSchema,
   type SavedQuestion,
@@ -17,6 +14,12 @@ import {
 import { QuestionSetValidationError } from "./errors"
 import { readQuestionSetArtifact } from "./read-artifact"
 import { correctChoiceIDs, ensureUniqueIDs } from "./save-artifact"
+import {
+  appendLearnerEvent,
+  createLearnerEvent,
+  recordQuestionSetAttemptMemory,
+} from "../../learner-memory"
+import { writeLearnerEvidenceForEvent } from "../../learner-memory/evidence"
 
 function dedupeStrings(values: string[]): string[] {
   return [...new Set(values)]
@@ -160,68 +163,6 @@ async function writeAttempt(input: {
   )
 }
 
-function aggregateGoalIDs(artifact: SavedQuestionSetArtifact): string[] {
-  return dedupeStrings(artifact.questions.flatMap((question) => question.goalIds))
-}
-
-function attemptSummary(input: {
-  artifact: SavedQuestionSetArtifact
-  result: QuestionSetEvaluationResult
-}): string {
-  return `${input.artifact.title}: ${input.result.correctQuestions}/${input.result.totalQuestions} correct`
-}
-
-async function recordLearnerAttemptSummary(input: {
-  directory: string
-  artifact: SavedQuestionSetArtifact
-  result: QuestionSetEvaluationResult
-}): Promise<void> {
-  const goalIds = aggregateGoalIDs(input.artifact)
-  if (goalIds.length === 0) {
-    return
-  }
-
-  const summary = attemptSummary({
-    artifact: input.artifact,
-    result: input.result,
-  })
-
-  if (input.artifact.groupType === "assessment") {
-    const result =
-      input.result.correctQuestions === input.result.totalQuestions
-        ? "demonstrated"
-        : input.result.correctQuestions > 0
-          ? "partial"
-          : "not-demonstrated"
-
-    await recordAssessmentEvent({
-      directory: input.directory,
-      goalIds,
-      format: "concept-check",
-      summary,
-      result,
-      learnerResponseSummary: summary,
-    })
-    return
-  }
-
-  const outcome =
-    input.result.status === "stuck"
-      ? "stuck"
-      : input.result.correctQuestions === input.result.totalQuestions
-        ? "completed"
-        : "partial"
-
-  await recordPracticeEvent({
-    directory: input.directory,
-    goalIds,
-    prompt: input.artifact.title,
-    learnerResponseSummary: summary,
-    outcome,
-    surface: QUESTION_SET_SURFACE,
-  })
-}
-
 async function submitQuestionSetAttempt(input: {
   directory: string
   artifactID: string
@@ -249,13 +190,59 @@ async function submitQuestionSetAttempt(input: {
     artifactID: savedArtifact.artifactID,
     attemptRecord,
   })
-
-  await recordLearnerAttemptSummary({
+  const learnerEvent = createLearnerEvent({
+    type: "question_set_attempt_ingested",
+    sourceKind: "question_set_attempt",
+    sourceId: attemptID,
+    searchableText: `Question set attempt ${savedArtifact.artifactID}: ${evaluation.correctQuestions}/${evaluation.totalQuestions} correct, status ${evaluation.status}.`,
+    payload: {
+      artifactID: savedArtifact.artifactID,
+      attemptID,
+      result: evaluation,
+    },
+  })
+  await appendLearnerEvent(input.directory, learnerEvent)
+  const tags = dedupeStrings(savedArtifact.questions.flatMap((question) => question.goalIds))
+  const memory = await recordQuestionSetAttemptMemory({
     directory: input.directory,
-    artifact: savedArtifact,
-    result: evaluation,
-  }).catch((error) => {
-    console.warn("Failed to record learner summary for question-set attempt:", error)
+    eventId: learnerEvent.id,
+    title: savedArtifact.title,
+    groupType: savedArtifact.groupType,
+    totalQuestions: evaluation.totalQuestions,
+    correctQuestions: evaluation.correctQuestions,
+    tags,
+    projectPath: input.directory,
+  })
+  await writeLearnerEvidenceForEvent({
+    directory: input.directory,
+    event: learnerEvent,
+    artifactId: savedArtifact.artifactID,
+    title: savedArtifact.title,
+    note: `Question-set attempt recorded with ${evaluation.correctQuestions} of ${evaluation.totalQuestions} correct (${evaluation.status}).`,
+    tags,
+    payload: {
+      groupType: savedArtifact.groupType,
+      totalQuestions: evaluation.totalQuestions,
+      correctQuestions: evaluation.correctQuestions,
+      status: evaluation.status,
+    },
+    memoryEffects: [
+      {
+        memoryId: memory.id,
+        effect:
+          evaluation.correctQuestions === evaluation.totalQuestions
+            ? "noted"
+            : evaluation.correctQuestions > 0
+              ? "reinforced"
+              : "weakened",
+        reason:
+          evaluation.correctQuestions === evaluation.totalQuestions
+            ? "Perfect assessment evidence is available for this question set."
+            : evaluation.correctQuestions > 0
+              ? "Partial assessment result indicates this topic still needs reinforcement."
+              : "Missed assessment result indicates this topic likely remains weak.",
+      },
+    ],
   })
 
   return {

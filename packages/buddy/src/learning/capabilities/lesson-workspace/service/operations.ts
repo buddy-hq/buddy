@@ -1,5 +1,11 @@
 import fs from "node:fs/promises"
 import { TeachingPath } from "../paths/path"
+import {
+  appendLearnerEvent,
+  createLearnerEvent,
+  recordCheckpointMemory,
+} from "../../../learner-memory"
+import { writeLearnerEvidenceForEvent } from "../../../learner-memory/evidence"
 import type {
   TeachingLanguage,
   TeachingWorkspaceCreateFileRequest,
@@ -192,6 +198,56 @@ async function checkpoint(directory: string, sessionID: string) {
       await fs.writeFile(checkpointFilePath, lessonCode, "utf8")
     }),
   )
+  const learnerEvent = createLearnerEvent({
+    type: "task_checkpoint_ingested",
+    sessionId: sessionID,
+    projectPath: directory,
+    sourceKind: "teaching_checkpoint",
+    sourceId: sessionID,
+    searchableText: `Teaching checkpoint saved for ${sessionID}; changedSinceLastCheckpoint=${changedSinceLastCheckpoint}.`,
+    payload: {
+      sessionID,
+      revision: synced.record.revision,
+      lessonFilePath: synced.record.lessonFilePath,
+      checkpointFilePath: synced.record.checkpointFilePath,
+      changedSinceLastCheckpoint,
+    },
+  })
+  await appendLearnerEvent(directory, learnerEvent)
+  const memory = await recordCheckpointMemory({
+    directory,
+    eventId: learnerEvent.id,
+    sessionID: sessionID,
+    lessonFilePath: synced.record.lessonFilePath,
+    revision: synced.record.revision,
+    changedSinceLastCheckpoint,
+    projectPath: directory,
+  })
+  await writeLearnerEvidenceForEvent({
+    directory,
+    event: learnerEvent,
+    artifactId: sessionID,
+    title: `Teaching checkpoint ${sessionID}`,
+    note: changedSinceLastCheckpoint
+      ? "Checkpoint captured learner progress changes that differ from the prior checkpoint."
+      : "Checkpoint captured the current learner state without new changes since the prior checkpoint.",
+    tags: ["teaching-checkpoint", sessionID],
+    payload: {
+      revision: synced.record.revision,
+      lessonFilePath: synced.record.lessonFilePath,
+      checkpointFilePath: synced.record.checkpointFilePath,
+      changedSinceLastCheckpoint,
+    },
+    memoryEffects: [
+      {
+        ...(memory ? { memoryId: memory.id } : {}),
+        effect: "noted",
+        reason: changedSinceLastCheckpoint
+          ? "Checkpoint evidence captured a meaningful learner workspace update."
+          : "Checkpoint evidence captured a stable learner workspace state.",
+      },
+    ],
+  })
 
   return {
     revision: synced.record.revision,

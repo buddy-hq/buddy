@@ -12,6 +12,12 @@ import {
 import { FlashcardCardNotFoundError } from "./errors"
 import { readFlashcardDeck, readFlashcardReviewedTodayCounts, todayISO } from "./read-deck"
 import { writeFlashcardDeck } from "./save-deck"
+import {
+  appendLearnerEvent,
+  createLearnerEvent,
+  recordFlashcardReviewMemory,
+} from "../../learner-memory"
+import { writeLearnerEvidenceForEvent } from "../../learner-memory/evidence"
 
 async function appendFlashcardReviewRecord(
   directory: string,
@@ -72,6 +78,60 @@ async function submitFlashcardReview(input: {
   })
 
   await appendFlashcardReviewRecord(input.directory, input.deckID, record)
+  const learnerEvent = createLearnerEvent({
+    type: "flashcard_review_ingested",
+    sourceKind: "flashcard_review",
+    sourceId: input.cardID,
+    searchableText: `Flashcard review ${input.deckID}/${input.cardID}: rating ${input.rating}, ${card.state} -> ${result.newState}.`,
+    payload: {
+      deckID: input.deckID,
+      cardID: input.cardID,
+      rating: input.rating,
+      previousState: card.state,
+      newState: result.newState,
+      isLeech: result.isLeech,
+    },
+  })
+  await appendLearnerEvent(input.directory, learnerEvent)
+  const note = deck.notes.find((candidate) => candidate.noteID === card.noteID)
+  const memory = await recordFlashcardReviewMemory({
+    directory: input.directory,
+    eventId: learnerEvent.id,
+    deckTitle: deck.title,
+    tags: note?.tags ?? [],
+    rating: input.rating,
+    previousState: card.state,
+    newState: result.newState,
+    isLeech: result.isLeech,
+    projectPath: input.directory,
+  })
+  await writeLearnerEvidenceForEvent({
+    directory: input.directory,
+    event: learnerEvent,
+    artifactId: input.deckID,
+    title: deck.title,
+    note: `Flashcard review recorded for card ${input.cardID} with rating ${input.rating}; ${card.state} -> ${result.newState}.`,
+    tags: note?.tags ?? [],
+    payload: {
+      deckID: input.deckID,
+      cardID: input.cardID,
+      rating: input.rating,
+      previousState: card.state,
+      newState: result.newState,
+      isLeech: result.isLeech,
+      nextDue: result.nextDue,
+    },
+    memoryEffects: [
+      {
+        ...(memory ? { memoryId: memory.id } : {}),
+        effect: result.isLeech || input.rating === "again" ? "reinforced" : "noted",
+        reason:
+          result.isLeech || input.rating === "again"
+            ? "Repeated difficulty on this card suggests the topic remains fragile."
+            : "Stable review evidence recorded for this card.",
+      },
+    ],
+  })
 
   return {
     cardID: input.cardID,
