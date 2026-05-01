@@ -6,11 +6,12 @@
 
 ## Task Completion Requirements
 - All of `bun fmt`, `bun lint`, and `bun typecheck` must pass before considering tasks completed.
-## Breaking Changes & Backward Compatibility
-- Buddy currently serves one user on one machine: the current one.    
-- Prefer better APIs, cleaner design, and reduced complexity over preserving old behavior.
-- Backward compatibility is not required.
-- When that assumption changes, this section will be removed.
+
+## Breaking Changes ALLOWED & Backward Compatibility NOT REQUIRED
+- Buddy is single-user, single-machine. Backward compatibility is not required.
+- Prefer better APIs and reduced complexity over preserving old behavior.
+- This section will be removed when that assumption changes.
+
 ## Core Priorities
 1. Performance first.
 2. Reliability first.
@@ -20,79 +21,43 @@ If a tradeoff is required, choose correctness and robustness over short-term con
 ## Maintainability
 Long term maintainability is a core priority. If you add new functionality, first check if there is shared logic that can be extracted to a separate module. Duplicate logic across multiple files is a code smell and should be avoided. Don't be afraid to change existing code. Don't take shortcuts by just adding local logic to solve a problem.
 
-## Rules
-- NEVER use magic strings and magic numbers.
-- ALWAYS use types; NOT interfaces.
-
 ## Packages:
 - `packages/buddy`: backend (Bun + Hono + hono-openapi)
 - `packages/web`: frontend (React + Vite + TanStack Router + TanStack Query)
 - `packages/desktop-electron`: Electron desktop app wrapping `packages/web`
 - `packages/ui`: shared UI system built on shadcn primitives + Tailwind v4
+  - For UI work, follow `packages/ui/AGENTS.md`.
+  - It defines component creation, styling, and how shadcn should be treated as a foundation rather than a finished theme.
 - `packages/sdk`: OpenAPI-generated client via hey-api/openapi-ts
 - `packages/opencode-adapter`: Buddy compatibility bridge over vendored OpenCode modules
 - `packages/storybook`: storybook setup
 
-## Package Manager
-- bun
-
-## Tauri Discontinued
-- Tauri publishing is discontinued; do not add or maintain Tauri publish/release workflows.
-
-## Running Tests
-- Never run the full test suite.
-- Run only tests for the packages you are changing.
-- Never run vendor tests directly.
 ## Vendor
-- Core agent/runtime/server code is vendored from `vendor/opencode`.
-- Compatibility with that vendor code is handled through `packages/opencode-adapter`.
-- Do not patch `vendor` directly.
+- Core agent/runtime/server code lives under `vendor/opencode/packages/*`. Buddy integrates it via `packages/opencode-adapter`, not by reimplementing it.
+- `packages/buddy/src` is a thin compatibility/product layer. Core behavior (loop, agent, session, tools, permissions) runs from vendored modules; Buddy-specific logic (curriculum, UX routes, compatibility headers) stays in Buddy-owned modules.
+- Do not patch `vendor` directly. Edits to `vendor/opencode/packages/opencode/**` are only allowed as tracked vendored patches for the next subtree refresh.
 
-### OpenCode Reference
-Build Buddy core by executing vendored OpenCode core, not by re-implementing it.
-- OpenCode is the default architectural and implementation reference.    
-- Runtime authority lives under `vendor/opencode/packages/*`.
-- `packages/buddy/src` should remain a thin compatibility and product layer.
-
-#### Architecture Guardrail
-- Core loop, agent, session, tool, and permission behavior should run from vendored OpenCode modules.
-- Buddy-specific behavior should stay in Buddy-owned modules, such as curriculum, UX-specific route shaping, and compatibility headers.
-- Do not edit `vendor/opencode/packages/opencode/**` unless it is an intentional vendored patch tracked for the next subtree refresh.
-
-### Target Platforms
+## Target Platforms
 - Desktop work should support both macOS and Windows.
 - The current developer tests on macOS arm64, but many users will be on Windows.
 - Unless explicitly scoped otherwise, desktop changes should be implemented for both platforms.
 
-### UI Tasks
-- For UI work, follow `packages/ui/AGENTS.md`.
-- It defines component creation, styling, and how shadcn should be treated as a foundation rather than a finished theme.
-
-### TypeScript
-- Use strict TypeScript and keep types sound.
-- Do not use casts.
-- Do not use `any`; prefer `unknown` plus narrowing with zod, type guards, or `in` checks.
-- Use `import type { ... }` for type-only imports.
-- Infer local types where appropriate, and annotate exports and public APIs explicitly.
 
 ## Working Style
 
-- Name things by what they literally do. If a file or function name needs explanation, the name is wrong.
-- Organize by feature ownership first. Keep prompts, agents, tools, and services with the feature that owns them unless there is a real runtime boundary.
-- Use thin helpers only when they reduce cognitive load. If a helper only adds indirection, remove it.
-- Keep side effects explicit. Prefer `register*` / `ensure*` entrypoints over hidden import-time behavior.
-- Keep naming and exports easy to scan. Prefer clear `create*` / `register*` APIs and explicit bottom exports for helper modules.
-- Use `git mv` for tracked moves so file history survives refactors
-- If a name needs explanation, change the name instead of adding more explanation.
+- Name things by what they literally do. If a name needs explanation, change it.
+- Keep side effects explicit. Prefer `register*` / `ensure*` entrypoints over hidden import-time behavior.
+- Prefer clear `create*` / `register*` APIs and explicit bottom exports for helper modules.
+- Use `git mv` for tracked moves.
+
 ## Generated / Do Not Edit
-- `packages/web/src/routeTree.gen.ts`: TanStack Router output (gitignored)
-- `packages/sdk/src/gen/`: generated SDK output including `sdk.gen.ts`, `types.gen.ts`, `client/`, and `core/` (gitignored)
-- Ignored build artifacts: `dist/`, `.turbo/`, `*.tsbuildinfo`, `*.log`
+- `packages/web/src/routeTree.gen.ts` (TanStack Router)
+- `packages/sdk/src/gen/` (OpenAPI SDK: `sdk.gen.ts`, `types.gen.ts`, `client/`, `core/`)
+- Build artifacts: `dist/`, `.turbo/`, `*.tsbuildinfo`, `*.log`
 
 ## Buddy Architectural Concepts
 - Core vocabulary lives in `packages/buddy/src/learning/shared/teaching-vocabulary.ts`.
 - **Persona**: the core Buddy agent.
-- **Intent**: selects a persona’s capabilities for a single turn (for teaching, e.g. `learn`, `assess`, `practice`, `auto`).
 - Capabilities come in three forms:
     - **Tools**: runtime tools gated by intent.
     - **Skills**: a reusable, versioned bundle of files that gives an agent a specific capability or workflow.
@@ -104,4 +69,11 @@ Build Buddy core by executing vendored OpenCode core, not by re-implementing it.
 
 ## Misc Rules
 - Buddy uses `@hey-api/openapi-ts` to generate a type-safe SDK from its Hono backend. Always use the typed SDK (`BuddyClient`) for API interactions. Never use manual fetch helpers like `requestJson`.
-- 
+- NEVER use magic strings and magic numbers.
+- ALWAYS use types; NOT interfaces.
+- Don't use subagents to delegate any work, unless the user explicitly asks for subagent invocation.
+- Run only tests for the packages you change. Never run vendor tests or the full suite.
+### TypeScript
+- Strict and sound: no casts, no `any`. Prefer `unknown` plus narrowing (zod, type guards, `in`).
+- Use `import type { ... }` for type-only imports.
+- Infer local types; annotate exports and public APIs.
