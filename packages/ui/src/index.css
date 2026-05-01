@@ -46,12 +46,6 @@
 }
 
 @layer base {
-  *[data-tauri-drag-region] {
-    app-region: drag;
-  }
-  .tauri-no-drag {
-    app-region: no-drag;
-  }
   * {
     @apply border-border-base outline-border-interactive-base/50;
     scrollbar-width: thin;

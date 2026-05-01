@@ -8,7 +8,6 @@ import {
 const originalPrompt = window.prompt
 
 beforeEach(() => {
-  window.__TAURI__ = undefined
   window.electronAPI = undefined
   Object.defineProperty(window, "prompt", {
     configurable: true,
@@ -17,7 +16,6 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  window.__TAURI__ = undefined
   window.electronAPI = undefined
   Object.defineProperty(window, "prompt", {
     configurable: true,

@@ -14,15 +14,6 @@ export function hasAbsolutePath(input: string) {
 
 declare global {
   interface Window {
-    __TAURI__?: {
-      dialog?: {
-        open?: (options: {
-          directory?: boolean
-          multiple?: boolean
-          title?: string
-        }) => Promise<string | string[] | null>
-      }
-    }
     electronAPI?: {
       openDirectoryPickerDialog?: () => Promise<string | string[] | null>
       openFilePickerDialog?: () => Promise<string | string[] | null>
@@ -54,24 +45,11 @@ async function openDesktopDirectoryPicker() {
     }
   }
 
-  const tauriResult = await window.__TAURI__?.dialog?.open?.({
-    directory: true,
-    multiple: false,
-    title: language.t("pickers.openNotebookTitle"),
-  })
-
-  if (typeof tauriResult === "string") {
-    return normalizeDirectory(tauriResult)
-  }
-
   const electronResult = await window.electronAPI?.openDirectoryPickerDialog?.()
   if (typeof electronResult === "string") {
     return normalizeDirectory(electronResult)
   }
 
-  if (Array.isArray(tauriResult) && typeof tauriResult[0] === "string") {
-    return normalizeDirectory(tauriResult[0])
-  }
   if (Array.isArray(electronResult) && typeof electronResult[0] === "string") {
     return normalizeDirectory(electronResult[0])
   }
@@ -83,7 +61,6 @@ export async function pickProjectDirectory() {
   const platform = getPlatform()
   const hasDesktopBridge =
     typeof platform.openDirectoryPickerDialog === "function" ||
-    typeof window.__TAURI__?.dialog?.open === "function" ||
     typeof window.electronAPI?.openDirectoryPickerDialog === "function"
 
   const picked = await openDesktopDirectoryPicker()

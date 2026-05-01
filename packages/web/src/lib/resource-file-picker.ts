@@ -3,18 +3,6 @@ import { language } from "@/context/language"
 
 const RESOURCE_PICKER_TITLE = language.t("pickers.resourcePickerTitle")
 
-type TauriDialogWindow = Window & {
-  __TAURI__?: {
-    dialog?: {
-      open?: (options: {
-        directory?: boolean
-        multiple?: boolean
-        title?: string
-      }) => Promise<string | string[] | null>
-    }
-  }
-}
-
 function normalizePath(input: string) {
   const trimmed = input.trim().split("\\").join("/")
   if (!trimmed) return ""
@@ -39,16 +27,6 @@ export async function pickResourceFilePath(): Promise<string | null> {
     const pickedPath = toFirstPath(platformResult)
     if (!pickedPath) return null
     return pickedPath
-  }
-
-  const tauriResult = await (window as TauriDialogWindow).__TAURI__?.dialog?.open?.({
-    directory: false,
-    multiple: false,
-    title: RESOURCE_PICKER_TITLE,
-  })
-  const tauriPath = toFirstPath(tauriResult ?? null)
-  if (tauriPath) {
-    return tauriPath
   }
 
   const electronResult = await window.electronAPI?.openFilePickerDialog?.()

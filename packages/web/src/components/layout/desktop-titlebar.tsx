@@ -5,10 +5,7 @@ import { FolderOpenIcon, Button, MoveLeftIcon } from "@buddy/ui"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { useUiPreferences } from "@/state/ui-preferences"
-import {
-  isTitlebarInteractiveTarget,
-  isTitlebarSystemControlTarget,
-} from "./desktop-titlebar-helpers"
+import { isTitlebarInteractiveTarget } from "./desktop-titlebar-helpers"
 import {
   LayoutLeftIcon,
   LayoutLeftPartialIcon,
@@ -117,7 +114,6 @@ export function DesktopTitlebar() {
   function onDoubleClick(event: MouseEvent<HTMLElement>) {
     if (!platform.toggleWindowMaximize) return
     if (isTitlebarInteractiveTarget(event.target)) return
-    if (isTitlebarSystemControlTarget(event.target)) return
 
     event.preventDefault()
     void platform.toggleWindowMaximize().catch(() => undefined)
@@ -245,7 +241,6 @@ export function DesktopTitlebar() {
               <div className="w-[140px] shrink-0" />
               <div
                 data-component="titlebar-system-controls-mount"
-                data-tauri-decorum-tb
                 className="flex h-10 shrink-0 flex-row"
               />
             </>
