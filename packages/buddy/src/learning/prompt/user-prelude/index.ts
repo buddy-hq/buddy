@@ -38,7 +38,7 @@ export function buildBuddyUserPrelude(input: {
   })
   const currentTurn = {
     persona: input.context.persona,
-    workspaceState: input.context.workspaceState,
+    teachingWorkspaceState: input.context.teachingWorkspaceState,
   } satisfies PromptTurnSnapshot
 
   const reminderContext: TurnReminderContext = {

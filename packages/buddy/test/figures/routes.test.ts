@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { renderGeometryFigure } from "../../src/learning/capabilities/figures/geometry/render-figure"
+import { renderGeometryFigure } from "../../src/learning/features/math-figures/geometry/render-figure"
 import { app } from "../../src/index.ts"
 import { tmpdir } from "../helpers/tmpdir"
 

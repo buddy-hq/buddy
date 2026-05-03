@@ -11,18 +11,18 @@ import { compress, init as initZstd } from "@bokuweb/zstd-wasm"
 import {
   createKnowledgeGraphArtifactManifest,
   knowledgeGraphArchiveChecksumFileContents,
-} from "../../src/learning/knowledge-graph/artifact"
+} from "../../src/learning/features/standards/artifact"
 import {
   createKnowledgeGraphLockfile,
   parseKnowledgeGraphLockfile,
-} from "../../src/learning/knowledge-graph/lockfile"
+} from "../../src/learning/features/standards/lockfile"
 import {
   KNOWLEDGE_GRAPH_ARCHIVE_CHECKSUM_FILENAME,
   KNOWLEDGE_GRAPH_DB_ARCHIVE_FILENAME,
   KNOWLEDGE_GRAPH_DB_FILENAME,
   KNOWLEDGE_GRAPH_LOCKFILE_FILENAME,
   KNOWLEDGE_GRAPH_MANIFEST_FILENAME,
-} from "../../src/learning/knowledge-graph/constants"
+} from "../../src/learning/features/standards/constants"
 import {
   validateKnowledgeGraphNodeSchema,
   validateKnowledgeGraphRelationshipSchema,

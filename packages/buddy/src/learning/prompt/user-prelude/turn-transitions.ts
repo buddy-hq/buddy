@@ -2,7 +2,7 @@ import type { PromptTurnSnapshot } from "../context"
 import { defineTurnReminder } from "./definition"
 
 function isExecutionFocusedState(state: PromptTurnSnapshot): boolean {
-  return state.workspaceState === "interactive"
+  return state.teachingWorkspaceState === "active"
 }
 
 function buildFocusShiftReminder(input: {
@@ -30,10 +30,10 @@ function buildWorkspaceTransition(
   prior: PromptTurnSnapshot,
   current: PromptTurnSnapshot,
 ): string | undefined {
-  if (prior.workspaceState === current.workspaceState) return undefined
-  return current.workspaceState === "interactive"
-    ? "Workspace switch: chat -> interactive. Ground help in the active lesson files."
-    : "Workspace switch: interactive -> chat. Continue in chat unless the learner explicitly asks to use the editor."
+  if (prior.teachingWorkspaceState === current.teachingWorkspaceState) return undefined
+  return current.teachingWorkspaceState === "active"
+    ? "Workspace switch: inactive -> active. Ground help in the active lesson files."
+    : "Workspace switch: active -> inactive. Continue in chat unless the learner explicitly asks to use the editor."
 }
 
 function buildTurnTransitionLines(input: {

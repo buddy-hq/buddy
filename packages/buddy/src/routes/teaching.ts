@@ -16,7 +16,7 @@ import {
   TeachingWorkspaceCreateFileRequestSchema,
   TeachingWorkspaceResponseSchema,
   TeachingWorkspaceUpdateRequestSchema,
-} from "../learning/capabilities/lesson-workspace/model/types"
+} from "../learning/features/lesson-workspace/model/types"
 import { directoryQuerySchema, routeErrors, withDirectoryRoute } from "../http"
 
 const sessionIDParamSchema = z.object({

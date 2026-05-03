@@ -341,6 +341,14 @@ export function useDirectoryChatPageController(
     }
   }
 
+  function clearSubmittedPromptDrafts(submittedSessionID: string) {
+    if (!decodedDirectory) return
+
+    cs.clearPromptDraft(cs.promptKey)
+    cs.clearPromptDraft(getPromptScopeKey(decodedDirectory))
+    cs.clearPromptDraft(getPromptScopeKey(decodedDirectory, submittedSessionID))
+  }
+
   function stagePromptText(value: string) {
     const nextDraft = createTextPromptDraft(value)
     cs.setPromptDraft(cs.promptKey, nextDraft)
@@ -1186,17 +1194,6 @@ export function useDirectoryChatPageController(
     return buildPromptDraftFromUserMessage(targetUserMessage, decodedDirectory)
   }
 
-  function resolveRestoreDraft() {
-    const revertMessageID = cs.sessionFamily.current?.revert?.messageID
-    if (!revertMessageID) return undefined
-
-    const nextHiddenUserMessage = cs.messages.find(
-      (message) => message.info.role === "user" && message.info.id > revertMessageID,
-    )
-
-    return buildPromptDraftFromUserMessage(nextHiddenUserMessage, decodedDirectory)
-  }
-
   async function sendRuntimePrompt(input: {
     content: string
     attachments?: PromptComposerAttachment[]
@@ -1282,6 +1279,7 @@ export function useDirectoryChatPageController(
       )
     }
 
+    clearSubmittedPromptDrafts(submittedSessionID)
     setSystemPromptRefreshToken((token) => token + 1)
     void syncTeachingRuntimeSelection({
       directory: decodedDirectory,
@@ -1696,15 +1694,10 @@ export function useDirectoryChatPageController(
       if (!sessionID) return
 
       const draftSnapshot = readPromptSnapshot()
-      const restoreDraft = resolveRestoreDraft()
 
       try {
         await restoreRevertedSessionMessage(decodedDirectory, { sessionID })
-        if (restoreDraft) {
-          cs.setPromptDraft(cs.promptKey, restoreDraft)
-        } else {
-          cs.clearPromptDraft(cs.promptKey)
-        }
+        cs.clearPromptDraft(cs.promptKey)
         setSystemPromptRefreshToken((token) => token + 1)
         void syncTeachingRuntimeSelection()
       } catch {

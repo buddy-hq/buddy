@@ -2,7 +2,7 @@ import * as fs from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import type { Config } from "@buddy/backend/config"
-import { LearnerMemoryPath } from "../../src/learning/learner-memory"
+import { LearnerMemoryPath } from "../../src/learning/features/memory"
 
 type TmpDirOptions<T> = {
   git?: boolean

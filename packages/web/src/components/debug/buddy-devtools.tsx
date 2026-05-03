@@ -449,7 +449,7 @@ function DevToolsSnapshotTab(props: { directory: string }) {
             <CardContent className="space-y-3 px-3 py-3">
               <div className="space-y-1">
                 <p className="text-sm font-medium text-text-base">
-                  {language.t("rightSidebar.snapshot.workspaceState")}
+                  {language.t("rightSidebar.snapshot.teachingWorkspaceState")}
                 </p>
                 <p className="text-sm text-text-weak">
                   {curriculumView.coldStart
@@ -2229,17 +2229,17 @@ function CapabilitiesChips(props: { directory: string }) {
     enabled: directory.length > 0,
   })
 
-  const capabilitiesView = query.data?.capabilities
-  if (!capabilitiesView) return null
+  const sessionRuntimeView = query.data?.sessionRuntime
+  if (!sessionRuntimeView) return null
 
   const sections = [
-    { label: "Persona", items: [capabilitiesView.persona] },
-    { label: "State", items: [titleCaseLabel(capabilitiesView.workspaceState)] },
-    { label: "Tools", items: capabilitiesView.tools.allow },
-    { label: "Skills", items: capabilitiesView.skills.allow },
+    { label: "Persona", items: [sessionRuntimeView.persona] },
+    { label: "State", items: [titleCaseLabel(sessionRuntimeView.teachingWorkspaceState)] },
+    { label: "Tools", items: sessionRuntimeView.tools.allow },
+    { label: "Skills", items: sessionRuntimeView.skills.allow },
     {
       label: "Subagents",
-      items: [...capabilitiesView.subagents.prefer, ...capabilitiesView.subagents.allow],
+      items: sessionRuntimeView.subagents.allow,
     },
   ]
 

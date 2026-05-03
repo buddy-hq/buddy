@@ -1,4 +1,4 @@
-import type { SkillServiceErrorCode } from "../learning/skills"
+import type { SkillServiceErrorCode } from "../learning/skill-management"
 
 export const HTTP_STATUS = {
   OK: 200,

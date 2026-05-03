@@ -6,9 +6,9 @@ import {
 import {
   getBuddyPersona,
   resolveBuddyPersonaProfiles,
-} from "../../learning/personas/wiring/persona.orchestration"
-import { indexBuddyAgents } from "../../learning/register-agents"
-import { derivePersonaStaticLearningToolPermissions } from "../../learning/tools/tool-capability-policy"
+} from "../../learning/personas/wiring/persona-profiles"
+import { indexBuddyAgents } from "../../learning/runtime/register-agents"
+import { deriveStaticPersonaToolPermissionsFromProfile } from "../../learning/runtime/persona-tool-permissions"
 import { Config } from "../config.js"
 
 function mergeBuddyAgentConfig(base: Config.Agent, override: Config.Agent): Config.Agent {
@@ -131,7 +131,7 @@ function applyPersonaLearningToolPermissions(
     next[name] = {
       ...agent,
       permission: mergePermissionConfig(
-        derivePersonaStaticLearningToolPermissions(getBuddyPersona(name)),
+        deriveStaticPersonaToolPermissionsFromProfile(getBuddyPersona(name)),
         agent.permission ?? {},
       ),
     }

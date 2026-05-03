@@ -4,7 +4,7 @@ import {
   createLearnerMemory,
   listLearnerMemories,
   LearnerMemoryPath,
-} from "../../src/learning/learner-memory"
+} from "../../src/learning/features/memory"
 import { orchestrateSessionMessageTransform } from "../../src/learning/agent-execution/transforms/message-transform-orchestration"
 import { readTeachingSessionState } from "../../src/learning/agent-execution/state/session-state"
 import { runMessagePromptPipeline } from "../../src/learning/prompt/message-prompt-pipeline"
@@ -73,8 +73,8 @@ describe("learner context delivery", () => {
       previousState: {
         sessionId: "ses_no_change",
         persona: "buddy",
-        currentSurface: "chat",
-        workspaceState: "chat",
+        currentSurface: "curriculum",
+        teachingWorkspaceState: "inactive",
         focusGoalIds: [],
         learnerContextDigest: first.learnerContextDelivery?.fingerprint,
         lastDeliveredLearnerContextDigest: first.learnerContextDelivery?.fingerprint,
@@ -128,8 +128,8 @@ describe("learner context delivery", () => {
       previousState: {
         sessionId: "ses_delta",
         persona: "buddy",
-        currentSurface: "chat",
-        workspaceState: "chat",
+        currentSurface: "curriculum",
+        teachingWorkspaceState: "inactive",
         focusGoalIds: [],
         learnerContextDigest: first.learnerContextDelivery?.fingerprint,
         lastDeliveredLearnerContextDigest: first.learnerContextDelivery?.fingerprint,
@@ -170,8 +170,8 @@ describe("learner context delivery", () => {
       previousState: {
         sessionId: "ses_delta_after_noop",
         persona: "buddy",
-        currentSurface: "chat",
-        workspaceState: "chat",
+        currentSurface: "curriculum",
+        teachingWorkspaceState: "inactive",
         focusGoalIds: [],
         learnerContextDigest: first.learnerContextDelivery?.fingerprint,
         lastDeliveredLearnerContextDigest: first.learnerContextDelivery?.fingerprint,
@@ -200,8 +200,8 @@ describe("learner context delivery", () => {
       previousState: {
         sessionId: "ses_delta_after_noop",
         persona: "buddy",
-        currentSurface: "chat",
-        workspaceState: "chat",
+        currentSurface: "curriculum",
+        teachingWorkspaceState: "inactive",
         focusGoalIds: [],
         learnerContextDigest:
           unchanged.learnerContextDelivery?.fingerprint ??

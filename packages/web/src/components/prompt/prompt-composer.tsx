@@ -54,6 +54,7 @@ import {
   getPromptHistoryNavigation,
   getPromptScopeKey,
   usePromptStore,
+  type PromptDraftState,
 } from "../../state/prompt-store"
 
 const IMMEDIATE_BUILTIN_SLASH_COMMANDS = new Set(["new", "persona", "model", "mcp"])
@@ -236,11 +237,33 @@ export function PromptComposer(props: PromptComposerProps) {
     })
   }
 
-  function commitDraftToHistory() {
-    pushHistoryEntry(props.directory, {
-      value: draft.value,
+  function readEditorDraft() {
+    const editor = editorRef.current
+    if (!editor) {
+      return {
+        value: draft.value,
+        parts: clonePromptParts(draft.parts),
+        attachments: cloneAttachments(draft.attachments),
+        cursor: draft.cursor,
+      }
+    }
+
+    const parts = collectPromptParts(editor)
+    const value = serializePromptParts(parts)
+    const cursor = getCursorPosition(editor)
+    return {
+      value,
+      parts,
       attachments: cloneAttachments(draft.attachments),
-      parts: clonePromptParts(draft.parts),
+      cursor,
+    }
+  }
+
+  function commitDraftToHistory(input: Omit<PromptDraftState, "updatedAt"> = draft) {
+    pushHistoryEntry(props.directory, {
+      value: input.value,
+      attachments: cloneAttachments(input.attachments),
+      parts: clonePromptParts(input.parts),
     })
     clearHistoryNavigation(promptKey)
   }
@@ -428,11 +451,20 @@ export function PromptComposer(props: PromptComposerProps) {
   function handleSubmit() {
     if (props.isBusy) return
 
-    if (!draft.value.trim() && draft.attachments.length === 0 && !hasSubmittableParts) {
+    const currentDraft = readEditorDraft()
+    const currentHasSubmittableParts = hasSubmittablePromptParts(currentDraft.parts)
+
+    if (
+      !currentDraft.value.trim() &&
+      currentDraft.attachments.length === 0 &&
+      !currentHasSubmittableParts
+    ) {
       return
     }
 
-    commitDraftToHistory()
+    replaceDraftFromComposer(currentDraft)
+    mirrorInputRef.current = false
+    commitDraftToHistory(currentDraft)
     props.onSubmit()
   }
 

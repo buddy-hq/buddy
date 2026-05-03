@@ -2,17 +2,17 @@ import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
 import { directoryQuerySchema, routeErrors, runRouteTask, withDirectoryRoute } from "../http"
-import { mapQuestionSetRouteError } from "../learning/capabilities/question-set/errors"
+import { mapQuestionSetRouteError } from "../learning/features/question-sets/errors"
 import {
   listQuestionSetArtifacts,
   readPublicQuestionSetArtifact,
-} from "../learning/capabilities/question-set/read-artifact"
-import { submitQuestionSetAttempt } from "../learning/capabilities/question-set/submit-attempt"
+} from "../learning/features/question-sets/storage/read-artifact"
+import { submitQuestionSetAttempt } from "../learning/features/question-sets/storage/submit-attempt"
 import {
   PublicQuestionSetArtifactSchema,
   SubmitQuestionSetAttemptInputSchema,
   SubmitQuestionSetAttemptOutputSchema,
-} from "../learning/capabilities/question-set/types"
+} from "../learning/features/question-sets/types"
 
 const artifactIDParamSchema = z.object({
   artifactID: z.string(),

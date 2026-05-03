@@ -1,5 +1,5 @@
 import path from "node:path"
-import { runLearnerMemoryEvaluation } from "../src/learning/learner-memory"
+import { runLearnerMemoryEvaluation } from "../src/learning/features/memory"
 
 const OPTION_DIRECTORY = "--directory"
 const OPTION_DETERMINISTIC = "--deterministic"

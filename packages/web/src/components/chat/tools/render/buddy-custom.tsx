@@ -9,7 +9,7 @@ import { titleFromToolName } from "../../utils/tool"
 import type { ToolPartProps } from "../registry"
 
 export function renderBuddyCustomTool({ state, tool, defaultOpen }: ToolPartProps) {
-  if (tool === "pedagogy_resource_ingest_full_text") {
+  if (tool === "ingest_full_text") {
     const resource = readNonEmptyString(state.metadata.resource)
     const fullTextEstTokens = readNonNegativeInt(state.metadata.fullTextEstTokens)
     const output = state.output || (state.error ?? "")

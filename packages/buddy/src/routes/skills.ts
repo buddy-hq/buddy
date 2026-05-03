@@ -22,7 +22,7 @@ import {
   listSkillsCatalog,
   removeManagedSkill,
   setInstalledSkillAction,
-} from "../learning/skills"
+} from "../learning/skill-management"
 import {
   createSkillErrorStatus,
   installLibrarySkillErrorStatus,

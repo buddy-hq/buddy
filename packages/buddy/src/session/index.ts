@@ -15,4 +15,8 @@ export {
   ensureSessionExistsInDirectory,
   isSessionNotFoundError,
 } from "./orchestration/lookup"
-export { postSessionCommand, postSessionPrompt } from "./orchestration/interaction-actions"
+export {
+  postSessionCommand,
+  postSessionPrompt,
+  postSessionPromptAsync,
+} from "./orchestration/interaction-actions"

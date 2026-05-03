@@ -265,15 +265,15 @@ export const builtInTools: Record<string, ToolRenderer> = {
       },
     },
   }),
-  pedagogy_resource_ingest_full_text: createToolRenderer({
+  ingest_full_text: createToolRenderer({
     card: renderBuddyCustomTool,
     summary: { display: "row", pattern: "info", suppressError: true },
   }),
-  pedagogy_prepare_resource: createToolRenderer({
+  prepare_resource: createToolRenderer({
     card: renderBuddyCustomTool,
     summary: { display: "row", pattern: "info", suppressError: true },
   }),
-  pedagogy_reflection: createToolRenderer({
+  reflection: createToolRenderer({
     card: renderBuddyCustomTool,
     summary: { display: "row", pattern: "info", suppressError: true },
   }),

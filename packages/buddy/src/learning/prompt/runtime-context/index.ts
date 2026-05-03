@@ -9,7 +9,7 @@ import {
   teachingPolicySection,
   teachingWorkspaceSection,
 } from "./teaching-workspace-context"
-import { workspaceStateSection } from "./workspace-state-context"
+import { teachingWorkspaceStateSection } from "./teaching-workspace-state-context"
 import { definePromptTemplate } from "../template/engine"
 
 export type BuddyRuntimeContextBuild = {
@@ -61,7 +61,7 @@ export async function buildBuddyRuntimeContext(
 }
 
 const RUNTIME_SECTIONS: readonly RuntimeSectionDefinition[] = [
-  workspaceStateSection,
+  teachingWorkspaceStateSection,
   modelSection,
   calculatorSection,
   resourcesSection,

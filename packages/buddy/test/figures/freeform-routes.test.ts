@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { renderFreeformFigure } from "../../src/learning/capabilities/figures/freeform/service/render"
+import { renderFreeformFigure } from "../../src/learning/features/math-figures/freeform/service/render"
 import { app } from "../../src/index.ts"
 import { tmpdir } from "../helpers/tmpdir"
 

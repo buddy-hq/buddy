@@ -354,7 +354,7 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
         },
         metadataTitle,
       )
-    case "pedagogy_resource_ingest_full_text": {
+    case "ingest_full_text": {
       const resource =
         typeof state.metadata.resource === "string" ? state.metadata.resource : undefined
       const fullTextEstTokens =
@@ -375,7 +375,7 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
         metadataTitle,
       )
     }
-    case "pedagogy_prepare_resource":
+    case "prepare_resource":
       return withMetadataTitle(
         {
           title: active ? "Preparing Resource" : "Prepare Resource",
@@ -384,7 +384,7 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
         },
         metadataTitle,
       )
-    case "pedagogy_reflection":
+    case "reflection":
       return withMetadataTitle(
         {
           title: active ? "Pedagogy Reflection" : "Pedagogy Reflection",

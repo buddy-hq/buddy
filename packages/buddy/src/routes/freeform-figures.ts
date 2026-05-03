@@ -2,8 +2,8 @@ import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
 import { directoryQuerySchema, routeErrors, runRouteTask, withDirectoryRoute } from "../http"
-import { mapFreeformFigureRouteError } from "../learning/capabilities/figures/freeform/errors"
-import { readFreeformFigure } from "../learning/capabilities/figures/freeform/service/io"
+import { mapFreeformFigureRouteError } from "../learning/features/math-figures/freeform/errors"
+import { readFreeformFigure } from "../learning/features/math-figures/freeform/service/io"
 
 const figureIDParamSchema = z.object({
   figureID: z.string(),

@@ -7,7 +7,7 @@ import {
   recordCheckpointMemory,
   recordFlashcardReviewMemory,
   recordQuestionSetAttemptMemory,
-} from "../../src/learning/learner-memory"
+} from "../../src/learning/features/memory"
 import { tmpdir } from "../helpers/tmpdir"
 
 describe("deterministic learner memory", () => {

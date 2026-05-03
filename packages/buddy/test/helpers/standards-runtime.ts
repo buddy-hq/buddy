@@ -6,12 +6,12 @@ import { compress, init as initZstd } from "@bokuweb/zstd-wasm"
 import {
   createKnowledgeGraphArtifactManifest,
   knowledgeGraphArchiveChecksumFileContents,
-} from "../../src/learning/knowledge-graph/artifact"
+} from "../../src/learning/features/standards/artifact"
 import {
   KNOWLEDGE_GRAPH_ARCHIVE_CHECKSUM_FILENAME,
   KNOWLEDGE_GRAPH_DB_ARCHIVE_FILENAME,
   KNOWLEDGE_GRAPH_MANIFEST_FILENAME,
-} from "../../src/learning/knowledge-graph/constants"
+} from "../../src/learning/features/standards/constants"
 import { StandardsRuntimeService } from "../../src/local-runtimes/standards/service"
 
 const STANDARDS_ASSET_BASE_URL_ENV = "BUDDY_STANDARDS_ASSET_BASE_URL"

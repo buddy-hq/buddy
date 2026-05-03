@@ -1,5 +1,5 @@
-import type { SkillServiceErrorCode } from "../learning/skills"
-import { SkillServiceError } from "../learning/skills"
+import type { SkillServiceErrorCode } from "../learning/skill-management"
+import { SkillServiceError } from "../learning/skill-management"
 import {
   HTTP_STATUS,
   SKILL_ERROR_STATUS,

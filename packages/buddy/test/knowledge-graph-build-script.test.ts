@@ -10,14 +10,14 @@ import {
   validateKnowledgeGraphRelationshipSchema,
 } from "../script/knowledge-graph/schema"
 import { runKnowledgeGraphVerify } from "../script/knowledge-graph/verify"
-import { materializeBundledKnowledgeGraphDatabase } from "../src/learning/knowledge-graph/path"
+import { materializeBundledKnowledgeGraphDatabase } from "../src/learning/features/standards/path"
 import {
   KNOWLEDGE_GRAPH_ARCHIVE_CHECKSUM_FILENAME,
   KNOWLEDGE_GRAPH_DB_ARCHIVE_FILENAME,
   KNOWLEDGE_GRAPH_DB_FILENAME,
   KNOWLEDGE_GRAPH_LOCKFILE_FILENAME,
   KNOWLEDGE_GRAPH_MANIFEST_FILENAME,
-} from "../src/learning/knowledge-graph/constants"
+} from "../src/learning/features/standards/constants"
 import { tmpdir } from "./helpers/tmpdir"
 
 describe("knowledge graph build script", () => {

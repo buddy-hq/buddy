@@ -14,7 +14,7 @@ type GeneralSettingsState = {
   initialized?: string
 }
 
-export const FULL_TEXT_TOOL_ID = "pedagogy_resource_ingest_full_text"
+export const FULL_TEXT_TOOL_ID = "ingest_full_text"
 
 const EMPTY_DRAFT: GeneralSettingsDraft = {
   fullTextReadingEnabled: true,

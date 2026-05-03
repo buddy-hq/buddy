@@ -7,7 +7,9 @@ import { isRecord, readNonEmptyString, readNonNegativeInt } from "../../../tools
 import { unwrapError } from "../../../utils/error"
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 import { sendPrompt } from "@/state/chat-actions"
+import { useChatStore } from "@/state/chat-store"
 import type { ToolPartProps } from "../../registry"
+import type { AssistantMessageInfo, MessagePart, MessageWithParts } from "@/state/chat-types"
 interface RenderMermaidToolOutput {
   artifactID: string
   artifactUrl: string
@@ -31,6 +33,14 @@ type MermaidArtifactRoutePayload = {
   repairAttempts: number
   repairLog: string[]
   source: string
+}
+
+type MermaidFixPromptTarget = {
+  agent: string
+  model: {
+    providerID: string
+    modelID: string
+  }
 }
 
 const MERMAID_ARTIFACT_CACHE_LIMIT = 200
@@ -222,7 +232,40 @@ function formatMermaidFixFeedback(input: {
   ].join("\n")
 }
 
-function RenderMermaidToolCard({ state, info, directory }: ToolPartProps) {
+function resolveAssistantMessage(messages: MessageWithParts[], part: MessagePart) {
+  return messages.find(
+    (message): message is MessageWithParts & { info: AssistantMessageInfo } =>
+      message.info.role === "assistant" && message.info.id === part.messageID,
+  )
+}
+
+function resolveMermaidFixPromptTarget(
+  directory: string,
+  part: MessagePart,
+): MermaidFixPromptTarget | undefined {
+  const directoryState = useChatStore.getState().directories[directory]
+  if (!directoryState) {
+    return undefined
+  }
+
+  const messages =
+    directoryState.messagesBySessionID?.[part.sessionID] ??
+    (directoryState.sessionID === part.sessionID ? directoryState.messages : [])
+  const assistantMessage = resolveAssistantMessage(messages, part)
+  if (!assistantMessage) {
+    return undefined
+  }
+
+  return {
+    agent: assistantMessage.info.agent,
+    model: {
+      providerID: assistantMessage.info.providerID,
+      modelID: assistantMessage.info.modelID,
+    },
+  }
+}
+
+function RenderMermaidToolCard({ part, state, info, directory }: ToolPartProps) {
   const output = state.output || (state.error ? unwrapError(state.error) : "")
   const showOutput = output.trim().length > 0
   const running = state.status === "pending" || state.status === "running"
@@ -284,11 +327,13 @@ function RenderMermaidToolCard({ state, info, directory }: ToolPartProps) {
         errorMessage,
         source: resolvedSource,
       })
-      void sendPrompt(directory, feedback).catch(() => {
-        setFixRequested(false)
-      })
+      void sendPrompt(directory, feedback, resolveMermaidFixPromptTarget(directory, part)).catch(
+        () => {
+          setFixRequested(false)
+        },
+      )
     },
-    [directory, fixRequested, resolvedSource, resolvedAlt],
+    [directory, fixRequested, part, resolvedSource, resolvedAlt],
   )
 
   if (running) {

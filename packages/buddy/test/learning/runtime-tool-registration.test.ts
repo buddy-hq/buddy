@@ -4,45 +4,29 @@ import { PermissionNext } from "@buddy/opencode-adapter/permission"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
 import { SessionID } from "@buddy/opencode-adapter/id"
-import type { LearningToolRegistrationFlags } from "../../src/learning/tools/register-runtime-tools"
 import { listBuddySubagents } from "../../src/learning/runtime-subagents"
-import {
-  dynamicPedagogyDebugAttemptTool,
-  dynamicPedagogyReflectionTool,
-  dynamicPedagogyStepwiseSolveTool,
-} from "../../src/learning/tools/dynamic-learning-tools"
+import { dynamicDebugAttemptTool } from "../../src/learning/features/debug-guidance/tools/debug-attempt"
+import { dynamicReflectionTool } from "../../src/learning/features/teaching-guidance/tools/reflection"
+import { dynamicStepwiseSolveTool } from "../../src/learning/features/stepwise-solving/tools/stepwise-solve"
 import {
   dynamicLearningToolAgentPermission,
   dynamicLearningToolDefaultDenyRules,
-} from "../../src/learning/tools/dynamic-learning-tool-permissions"
-import { registerRuntimeTools } from "../../src/learning/tools/register-runtime-tools"
+} from "../../src/learning/runtime/dynamic-tool-permissions"
+import { registerRuntimeTools } from "../../src/learning/runtime/register-tools"
 import {
   clearDynamicLearningToolsForEndedSession,
   clearDynamicLearningToolGrantsForSession,
-} from "../../src/learning/tools/dynamic-learning-tool-grants"
+} from "../../src/learning/runtime/dynamic-tool-grants"
+import { allBuddyFeatureIds } from "../../src/learning/runtime/feature-registry"
 import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
 import { tmpdir } from "../helpers/tmpdir"
 
-const DYNAMIC_PEDAGOGY_DEBUG_ATTEMPT_TOOL_ID = dynamicPedagogyDebugAttemptTool.id
-const DYNAMIC_PEDAGOGY_REFLECTION_TOOL_ID = dynamicPedagogyReflectionTool.id
-const DYNAMIC_PEDAGOGY_STEPWISE_SOLVE_TOOL_ID = dynamicPedagogyStepwiseSolveTool.id
+const DYNAMIC_DEBUG_ATTEMPT_TOOL_ID = dynamicDebugAttemptTool.id
+const DYNAMIC_REFLECTION_TOOL_ID = dynamicReflectionTool.id
+const DYNAMIC_STEPWISE_SOLVE_TOOL_ID = dynamicStepwiseSolveTool.id
 
-function disabledToolFlags(): LearningToolRegistrationFlags {
-  return {
-    pedagogy: false,
-    curriculum: false,
-    knowledgeGraph: false,
-    figures: false,
-    freeformFigures: false,
-    mermaid: false,
-    goals: false,
-    learner: false,
-    toolDiscovery: false,
-    teaching: false,
-    math: false,
-    questionSet: false,
-    flashcard: false,
-  }
+function disabledToolFlags(): Record<string, boolean> {
+  return Object.fromEntries(allBuddyFeatureIds().map((featureId) => [featureId, false]))
 }
 
 async function listToolIDs(directory: string): Promise<string[]> {
@@ -79,7 +63,7 @@ describe("runtime tool registration", () => {
 
     await registerRuntimeTools(project.path, {
       ...disabledToolFlags(),
-      questionSet: true,
+      "question-sets": true,
     })
 
     expect(await listToolIDs(project.path)).toContain("save_question_set")
@@ -95,11 +79,11 @@ describe("runtime tool registration", () => {
 
     await registerRuntimeTools(firstProject.path, {
       ...disabledToolFlags(),
-      questionSet: true,
+      "question-sets": true,
     })
     await registerRuntimeTools(secondProject.path, {
       ...disabledToolFlags(),
-      flashcard: true,
+      flashcards: true,
     })
 
     expect(await listToolIDs(firstProject.path)).toContain("save_question_set")
@@ -120,10 +104,7 @@ describe("runtime tool registration", () => {
   test("dynamic tool search finds candidates and load exposes them for the current session", async () => {
     await using project = await tmpdir({ git: true })
 
-    await registerRuntimeTools(project.path, {
-      ...disabledToolFlags(),
-      toolDiscovery: true,
-    })
+    await registerRuntimeTools(project.path, disabledToolFlags())
 
     const result = await OpenCodeInstance.provide({
       directory: project.path,
@@ -142,7 +123,7 @@ describe("runtime tool registration", () => {
         const toolsAfterSearch = await ToolRegistry.tools(TEST_TOOL_MODEL)
         const loadTool = requireTool(toolsAfterSearch, "learning_tool_load")
         const loadResult = await loadTool.execute(
-          { toolIds: [DYNAMIC_PEDAGOGY_REFLECTION_TOOL_ID] },
+          { toolIds: [DYNAMIC_REFLECTION_TOOL_ID] },
           createToolContext({
             sessionID: session.id,
             messageID: "msg_dynamic_tool_load",
@@ -151,7 +132,7 @@ describe("runtime tool registration", () => {
         )
 
         const nextTools = await ToolRegistry.tools(TEST_TOOL_MODEL)
-        const reflectionTool = requireTool(nextTools, DYNAMIC_PEDAGOGY_REFLECTION_TOOL_ID)
+        const reflectionTool = requireTool(nextTools, DYNAMIC_REFLECTION_TOOL_ID)
         const reflectionResult = await reflectionTool.execute(
           { topic: "recursive functions" },
           createToolContext({
@@ -166,26 +147,22 @@ describe("runtime tool registration", () => {
           searchOutput: searchResult.output,
           loadOutput: loadResult.output,
           visibleAfterSearch: toolsAfterSearch.some(
-            (tool) => tool.id === DYNAMIC_PEDAGOGY_REFLECTION_TOOL_ID,
+            (tool) => tool.id === DYNAMIC_REFLECTION_TOOL_ID,
           ),
           reflectionOutput: reflectionResult.output,
           permission: updatedSession.permission ?? [],
-          hasDebugTool: nextTools.some(
-            (tool) => tool.id === DYNAMIC_PEDAGOGY_DEBUG_ATTEMPT_TOOL_ID,
-          ),
+          hasDebugTool: nextTools.some((tool) => tool.id === DYNAMIC_DEBUG_ATTEMPT_TOOL_ID),
         }
       },
     })
 
-    expect(result.searchOutput).toContain(DYNAMIC_PEDAGOGY_REFLECTION_TOOL_ID)
+    expect(result.searchOutput).toContain(DYNAMIC_REFLECTION_TOOL_ID)
     expect(result.searchOutput).toContain("call `learning_tool_load`")
     expect(result.visibleAfterSearch).toBe(false)
     expect(result.loadOutput).toContain("Exposed dynamic learning tools")
-    expect(result.reflectionOutput).toContain(
-      `<pedagogy_tool_output name="${DYNAMIC_PEDAGOGY_REFLECTION_TOOL_ID}">`,
-    )
+    expect(result.reflectionOutput).toContain(`<tool_output name="${DYNAMIC_REFLECTION_TOOL_ID}">`)
     expect(result.permission).toContainEqual({
-      permission: DYNAMIC_PEDAGOGY_REFLECTION_TOOL_ID,
+      permission: DYNAMIC_REFLECTION_TOOL_ID,
       pattern: "*",
       action: "allow",
     })
@@ -195,10 +172,7 @@ describe("runtime tool registration", () => {
   test("dynamic tools are directory-visible but denied outside exact session grants", async () => {
     await using project = await tmpdir({ git: true })
 
-    await registerRuntimeTools(project.path, {
-      ...disabledToolFlags(),
-      toolDiscovery: true,
-    })
+    await registerRuntimeTools(project.path, disabledToolFlags())
 
     const result = await OpenCodeInstance.provide({
       directory: project.path,
@@ -223,7 +197,7 @@ describe("runtime tool registration", () => {
           }),
         )
         await loadTool.execute(
-          { toolIds: [DYNAMIC_PEDAGOGY_REFLECTION_TOOL_ID] },
+          { toolIds: [DYNAMIC_REFLECTION_TOOL_ID] },
           createToolContext({
             sessionID: searchedSession.id,
             messageID: "msg_dynamic_tool_load_permissions",
@@ -243,36 +217,33 @@ describe("runtime tool registration", () => {
       },
     })
 
-    expect(result.toolIDs).toContain(DYNAMIC_PEDAGOGY_REFLECTION_TOOL_ID)
+    expect(result.toolIDs).toContain(DYNAMIC_REFLECTION_TOOL_ID)
     expect(result.searchedPermission).toContainEqual({
-      permission: DYNAMIC_PEDAGOGY_REFLECTION_TOOL_ID,
+      permission: DYNAMIC_REFLECTION_TOOL_ID,
       pattern: "*",
       action: "allow",
     })
 
     expect(
       disabledByModelToolFilter({
-        toolIDs: [DYNAMIC_PEDAGOGY_REFLECTION_TOOL_ID],
+        toolIDs: [DYNAMIC_REFLECTION_TOOL_ID],
         agentPermission: dynamicLearningToolAgentPermission(),
         sessionPermission: result.searchedPermission,
-      }).has(DYNAMIC_PEDAGOGY_REFLECTION_TOOL_ID),
+      }).has(DYNAMIC_REFLECTION_TOOL_ID),
     ).toBe(false)
     expect(
       disabledByModelToolFilter({
-        toolIDs: [DYNAMIC_PEDAGOGY_REFLECTION_TOOL_ID],
+        toolIDs: [DYNAMIC_REFLECTION_TOOL_ID],
         agentPermission: dynamicLearningToolAgentPermission(),
         sessionPermission: result.untouchedPermission,
-      }).has(DYNAMIC_PEDAGOGY_REFLECTION_TOOL_ID),
+      }).has(DYNAMIC_REFLECTION_TOOL_ID),
     ).toBe(true)
   })
 
   test("dynamic load without a valid session does not register directory-visible tools", async () => {
     await using project = await tmpdir({ git: true })
 
-    await registerRuntimeTools(project.path, {
-      ...disabledToolFlags(),
-      toolDiscovery: true,
-    })
+    await registerRuntimeTools(project.path, disabledToolFlags())
 
     const result = await OpenCodeInstance.provide({
       directory: project.path,
@@ -295,7 +266,7 @@ describe("runtime tool registration", () => {
           }),
         )
         const loadResult = await loadTool.execute(
-          { toolIds: [DYNAMIC_PEDAGOGY_REFLECTION_TOOL_ID] },
+          { toolIds: [DYNAMIC_REFLECTION_TOOL_ID] },
           createToolContext({
             sessionID: "ses_missing_dynamic_tool_search",
             messageID: "msg_missing_dynamic_tool_load",
@@ -312,18 +283,15 @@ describe("runtime tool registration", () => {
       },
     })
 
-    expect(result.searchOutput).toContain(DYNAMIC_PEDAGOGY_REFLECTION_TOOL_ID)
+    expect(result.searchOutput).toContain(DYNAMIC_REFLECTION_TOOL_ID)
     expect(result.loadOutput).toContain("No dynamic learning tools were exposed")
-    expect(result.toolIDs).not.toContain(DYNAMIC_PEDAGOGY_REFLECTION_TOOL_ID)
+    expect(result.toolIDs).not.toContain(DYNAMIC_REFLECTION_TOOL_ID)
   })
 
   test("dynamic grants are cleared and unregistered when the session grant is explicitly reset", async () => {
     await using project = await tmpdir({ git: true })
 
-    await registerRuntimeTools(project.path, {
-      ...disabledToolFlags(),
-      toolDiscovery: true,
-    })
+    await registerRuntimeTools(project.path, disabledToolFlags())
 
     const result = await OpenCodeInstance.provide({
       directory: project.path,
@@ -347,7 +315,7 @@ describe("runtime tool registration", () => {
           }),
         )
         await loadTool.execute(
-          { toolIds: [DYNAMIC_PEDAGOGY_REFLECTION_TOOL_ID] },
+          { toolIds: [DYNAMIC_REFLECTION_TOOL_ID] },
           createToolContext({
             sessionID: session.id,
             messageID: "msg_dynamic_tool_load_clear",
@@ -363,7 +331,7 @@ describe("runtime tool registration", () => {
           }),
         )
         await loadTool.execute(
-          { toolIds: [DYNAMIC_PEDAGOGY_STEPWISE_SOLVE_TOOL_ID] },
+          { toolIds: [DYNAMIC_STEPWISE_SOLVE_TOOL_ID] },
           createToolContext({
             sessionID: session.id,
             messageID: "msg_dynamic_tool_load_clear_second",
@@ -394,34 +362,31 @@ describe("runtime tool registration", () => {
     })
 
     expect(result.grantedPermission).toContainEqual({
-      permission: DYNAMIC_PEDAGOGY_REFLECTION_TOOL_ID,
+      permission: DYNAMIC_REFLECTION_TOOL_ID,
       pattern: "*",
       action: "allow",
     })
     expect(result.grantedPermission).toContainEqual({
-      permission: DYNAMIC_PEDAGOGY_STEPWISE_SOLVE_TOOL_ID,
+      permission: DYNAMIC_STEPWISE_SOLVE_TOOL_ID,
       pattern: "*",
       action: "allow",
     })
     expect(result.clearedPermission).not.toContainEqual({
-      permission: DYNAMIC_PEDAGOGY_REFLECTION_TOOL_ID,
+      permission: DYNAMIC_REFLECTION_TOOL_ID,
       pattern: "*",
       action: "allow",
     })
     expect(result.clearedPermission).toEqual(
       expect.arrayContaining(dynamicLearningToolDefaultDenyRules()),
     )
-    expect(result.remainingToolIDs).not.toContain(DYNAMIC_PEDAGOGY_REFLECTION_TOOL_ID)
-    expect(result.remainingToolIDs).not.toContain(DYNAMIC_PEDAGOGY_STEPWISE_SOLVE_TOOL_ID)
+    expect(result.remainingToolIDs).not.toContain(DYNAMIC_REFLECTION_TOOL_ID)
+    expect(result.remainingToolIDs).not.toContain(DYNAMIC_STEPWISE_SOLVE_TOOL_ID)
   })
 
   test("dynamic grants are unregistered when a session ends before the next Buddy turn", async () => {
     await using project = await tmpdir({ git: true })
 
-    await registerRuntimeTools(project.path, {
-      ...disabledToolFlags(),
-      toolDiscovery: true,
-    })
+    await registerRuntimeTools(project.path, disabledToolFlags())
 
     const result = await OpenCodeInstance.provide({
       directory: project.path,
@@ -445,7 +410,7 @@ describe("runtime tool registration", () => {
           }),
         )
         await loadTool.execute(
-          { toolIds: [DYNAMIC_PEDAGOGY_REFLECTION_TOOL_ID] },
+          { toolIds: [DYNAMIC_REFLECTION_TOOL_ID] },
           createToolContext({
             sessionID: session.id,
             messageID: "msg_dynamic_tool_load_end",
@@ -473,13 +438,13 @@ describe("runtime tool registration", () => {
     })
 
     expect(result.grantedPermission).toContainEqual({
-      permission: DYNAMIC_PEDAGOGY_REFLECTION_TOOL_ID,
+      permission: DYNAMIC_REFLECTION_TOOL_ID,
       pattern: "*",
       action: "allow",
     })
-    expect(result.remainingToolIDs).not.toContain(DYNAMIC_PEDAGOGY_REFLECTION_TOOL_ID)
+    expect(result.remainingToolIDs).not.toContain(DYNAMIC_REFLECTION_TOOL_ID)
     expect(result.endedSessionPermission).not.toContainEqual({
-      permission: DYNAMIC_PEDAGOGY_REFLECTION_TOOL_ID,
+      permission: DYNAMIC_REFLECTION_TOOL_ID,
       pattern: "*",
       action: "allow",
     })
@@ -496,9 +461,9 @@ describe("runtime tool registration", () => {
 
     expect(
       disabledByModelToolFilter({
-        toolIDs: [DYNAMIC_PEDAGOGY_REFLECTION_TOOL_ID],
+        toolIDs: [DYNAMIC_REFLECTION_TOOL_ID],
         agentPermission: practiceAgent.agent.permission,
-      }).has(DYNAMIC_PEDAGOGY_REFLECTION_TOOL_ID),
+      }).has(DYNAMIC_REFLECTION_TOOL_ID),
     ).toBe(true)
   })
 })

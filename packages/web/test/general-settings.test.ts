@@ -7,7 +7,7 @@ describe("createGeneralSettingsStore", () => {
     const bundle = {
       globalConfig: {
         tools: {
-          pedagogy_resource_ingest_full_text: true,
+          ingest_full_text: true,
         },
         compaction: {
           auto: true,
@@ -22,7 +22,7 @@ describe("createGeneralSettingsStore", () => {
       globalConfig: {
         ...bundle.globalConfig,
         tools: {
-          pedagogy_resource_ingest_full_text: true,
+          ingest_full_text: true,
         },
       },
     })
@@ -35,7 +35,7 @@ describe("createGeneralSettingsStore", () => {
     const bundle = {
       globalConfig: {
         tools: {
-          pedagogy_resource_ingest_full_text: true,
+          ingest_full_text: true,
         },
         compaction: {
           auto: true,
@@ -50,7 +50,7 @@ describe("createGeneralSettingsStore", () => {
       globalConfig: {
         ...bundle.globalConfig,
         tools: {
-          pedagogy_resource_ingest_full_text: true,
+          ingest_full_text: true,
         },
       },
     })

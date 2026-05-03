@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { listGoals } from "../../src/learning/learner-memory/goals/storage"
-import { ensureGoalToolsRegistered } from "../../src/learning/curriculum/goals/tools/register"
+import { listGoals } from "../../src/learning/features/memory/goals/storage"
+import { ensureGoalToolsRegistered } from "../../src/learning/features/curriculum-planning/tools/register"
 import { tmpdir } from "../helpers/tmpdir"
 import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
 

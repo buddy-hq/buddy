@@ -5,8 +5,8 @@ import { directoryQuerySchema, routeErrors, runRouteTask, withDirectoryRoute } f
 import {
   listMermaidArtifacts,
   readMermaidArtifact,
-} from "../learning/capabilities/figures/mermaid/read"
-import { mapMermaidArtifactRouteError } from "../learning/capabilities/figures/mermaid/errors"
+} from "../learning/features/diagrams/service/read"
+import { mapMermaidArtifactRouteError } from "../learning/features/diagrams/errors"
 
 const artifactIDParamSchema = z.object({
   artifactID: z.string(),

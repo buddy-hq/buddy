@@ -186,7 +186,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
     enabled: directory.length > 0 && isSnapshotTabActive,
   })
   const curriculumView = learnerSnapshotQuery.data?.curriculum
-  const capabilitiesView = learnerSnapshotQuery.data?.capabilities
+  const sessionRuntimeView = learnerSnapshotQuery.data?.sessionRuntime
   const snapshotError = learnerSnapshotQuery.error
     ? stringifyError(learnerSnapshotQuery.error)
     : undefined
@@ -316,7 +316,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                   onClick={() => props.onTabChange("capabilities")}
                   className="border border-dashed border-yellow-500/60"
                 >
-                  {language.t("rightSidebar.tabs.capabilities")}
+                  {language.t("rightSidebar.tabs.runtime")}
                 </Button>
               ) : null}
               {systemPromptTabEnabled ? (
@@ -420,9 +420,9 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
         <div className="flex-1 min-h-0 p-3 flex flex-col">
           <div className="mb-2 flex items-center justify-between gap-2">
             <div>
-              <p className="text-xs font-medium">{language.t("rightSidebar.capabilities.title")}</p>
+              <p className="text-xs font-medium">{language.t("rightSidebar.runtime.title")}</p>
               <p className="text-[11px] text-text-weak">
-                {language.t("rightSidebar.capabilities.description")}
+                {language.t("rightSidebar.runtime.description")}
               </p>
             </div>
             <Button
@@ -439,93 +439,85 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
 
           {capabilitiesLoading ? (
             <div className="text-sm text-text-weak">
-              {language.t("rightSidebar.capabilities.loading")}
+              {language.t("rightSidebar.runtime.loading")}
             </div>
-          ) : capabilitiesView ? (
+          ) : sessionRuntimeView ? (
             <div className="flex-1 min-h-0 overflow-y-auto space-y-3">
               <Card size="sm" className="gap-0 py-0">
                 <CardContent className="space-y-3 px-3 py-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="secondary">{capabilitiesView.persona}</Badge>
+                    <Badge variant="secondary">{sessionRuntimeView.persona}</Badge>
                     <Badge variant="outline">
-                      {titleCaseLabel(capabilitiesView.workspaceState)}
+                      {titleCaseLabel(sessionRuntimeView.teachingWorkspaceState)}
                     </Badge>
                   </div>
                   <div className="space-y-1">
                     <p className="text-sm font-medium text-text-base">
-                      {language.t("rightSidebar.capabilities.surfacePolicy")}
+                      {language.t("rightSidebar.runtime.surfacePolicy")}
                     </p>
                     <p className="text-xs text-text-weak">
-                      {language.t("rightSidebar.capabilities.visiblePrefix")}{" "}
-                      {capabilitiesView.visibleSurfaces.join(", ") ||
-                        language.t("rightSidebar.capabilities.none")}{" "}
-                      | {language.t("rightSidebar.capabilities.defaultPrefix")}{" "}
-                      {capabilitiesView.defaultSurface ||
-                        language.t("rightSidebar.capabilities.na")}
+                      {language.t("rightSidebar.runtime.visiblePrefix")}{" "}
+                      {sessionRuntimeView.visibleSurfaces.join(", ") ||
+                        language.t("rightSidebar.runtime.none")}{" "}
+                      | {language.t("rightSidebar.runtime.defaultPrefix")}{" "}
+                      {sessionRuntimeView.defaultSurface || language.t("rightSidebar.runtime.na")}
                     </p>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div className="rounded-md border border-border-base/60 px-2 py-1.5">
-                      {language.t("rightSidebar.capabilities.tools")}:{" "}
-                      {capabilitiesView.tools.allow.length}{" "}
-                      {language.t("rightSidebar.capabilities.allow")} /{" "}
-                      {capabilitiesView.tools.deny.length}{" "}
-                      {language.t("rightSidebar.capabilities.deny")}
+                      {language.t("rightSidebar.runtime.tools")}:{" "}
+                      {sessionRuntimeView.tools.allow.length}{" "}
+                      {language.t("rightSidebar.runtime.allow")} /{" "}
+                      {sessionRuntimeView.tools.deny.length}{" "}
+                      {language.t("rightSidebar.runtime.deny")}
                     </div>
                     <div className="rounded-md border border-border-base/60 px-2 py-1.5">
-                      {language.t("rightSidebar.capabilities.skills")}:{" "}
-                      {capabilitiesView.skills.allow.length}{" "}
-                      {language.t("rightSidebar.capabilities.allow")} /{" "}
-                      {capabilitiesView.skills.deny.length}{" "}
-                      {language.t("rightSidebar.capabilities.deny")}
+                      {language.t("rightSidebar.runtime.skills")}:{" "}
+                      {sessionRuntimeView.skills.allow.length}{" "}
+                      {language.t("rightSidebar.runtime.allow")} /{" "}
+                      {sessionRuntimeView.skills.deny.length}{" "}
+                      {language.t("rightSidebar.runtime.deny")}
                     </div>
                     <div className="rounded-md border border-border-base/60 px-2 py-1.5 col-span-2">
-                      {language.t("rightSidebar.capabilities.subagents")}:{" "}
-                      {capabilitiesView.subagents.prefer.length}{" "}
-                      {language.t("rightSidebar.capabilities.prefer")} /{" "}
-                      {capabilitiesView.subagents.allow.length}{" "}
-                      {language.t("rightSidebar.capabilities.allow")} /{" "}
-                      {capabilitiesView.subagents.deny.length}{" "}
-                      {language.t("rightSidebar.capabilities.deny")}
+                      {language.t("rightSidebar.runtime.subagents")}:{" "}
+                      {sessionRuntimeView.subagents.allow.length}{" "}
+                      {language.t("rightSidebar.runtime.allow")} /{" "}
+                      {sessionRuntimeView.subagents.deny.length}{" "}
+                      {language.t("rightSidebar.runtime.deny")}
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
               <RuntimeListSection
-                title={language.t("rightSidebar.capabilities.enabledTools")}
-                items={capabilitiesView.tools.allow}
-                empty={language.t("rightSidebar.capabilities.noToolsEnabled")}
+                title={language.t("rightSidebar.runtime.enabledTools")}
+                items={sessionRuntimeView.tools.allow}
+                empty={language.t("rightSidebar.runtime.noToolsEnabled")}
               />
               <RuntimeListSection
-                title={language.t("rightSidebar.capabilities.enabledSkills")}
-                items={capabilitiesView.skills.allow}
-                empty={language.t("rightSidebar.capabilities.noSkillsEnabled")}
+                title={language.t("rightSidebar.runtime.enabledSkills")}
+                items={sessionRuntimeView.skills.allow}
+                empty={language.t("rightSidebar.runtime.noSkillsEnabled")}
               />
               <RuntimeListSection
-                title={language.t("rightSidebar.capabilities.preferredSubagents")}
-                items={capabilitiesView.subagents.prefer}
-                empty={language.t("rightSidebar.capabilities.noSubagentsPreferred")}
+                title={language.t("rightSidebar.runtime.allowedSubagents")}
+                items={sessionRuntimeView.subagents.allow}
+                empty={language.t("rightSidebar.runtime.noSubagentsAllowed")}
               />
               <RuntimeListSection
-                title={language.t("rightSidebar.capabilities.allowedSubagents")}
-                items={capabilitiesView.subagents.allow}
-                empty={language.t("rightSidebar.capabilities.noSubagentsAllowed")}
+                title={language.t("rightSidebar.runtime.deniedTools")}
+                items={sessionRuntimeView.tools.deny}
+                empty={language.t("rightSidebar.runtime.noToolsDenied")}
               />
               <RuntimeListSection
-                title={language.t("rightSidebar.capabilities.deniedTools")}
-                items={capabilitiesView.tools.deny}
-                empty={language.t("rightSidebar.capabilities.noToolsDenied")}
-              />
-              <RuntimeListSection
-                title={language.t("rightSidebar.capabilities.deniedSkills")}
-                items={capabilitiesView.skills.deny}
-                empty={language.t("rightSidebar.capabilities.noSkillsDenied")}
+                title={language.t("rightSidebar.runtime.deniedSkills")}
+                items={sessionRuntimeView.skills.deny}
+                empty={language.t("rightSidebar.runtime.noSkillsDenied")}
               />
             </div>
           ) : (
             <div className="flex-1 min-h-0 overflow-y-auto rounded-lg border border-border-base/70 bg-background-base p-3 text-sm text-text-weak">
-              {language.t("rightSidebar.unavailable.capabilities")}
+              {language.t("rightSidebar.unavailable.runtime")}
             </div>
           )}
 
@@ -586,7 +578,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                 <CardContent className="space-y-3 px-3 py-3">
                   <div className="space-y-1">
                     <p className="text-sm font-medium text-text-base">
-                      {language.t("rightSidebar.snapshot.workspaceState")}
+                      {language.t("rightSidebar.snapshot.teachingWorkspaceState")}
                     </p>
                     <p className="text-sm text-text-weak">
                       {curriculumView.coldStart

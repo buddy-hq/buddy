@@ -6,7 +6,7 @@ import { Config as OpenCodeConfig } from "@buddy/opencode-adapter/config"
 import { PermissionNext } from "@buddy/opencode-adapter/permission"
 import { withSyncedOpenCodeConfig } from "../helpers/opencode"
 import { createGitRepo } from "../helpers/repo"
-import { managedSystemRoot } from "../../src/learning/skills/service/paths"
+import { managedSystemRoot } from "../../src/learning/skill-management/service/paths"
 
 const EXTERNAL_DIRECTORY_PERMISSION = "external_directory"
 const ALLOW_ACTION = "allow"

@@ -2,7 +2,7 @@ import path from "node:path"
 import z from "zod"
 import { Config as OpenCodeConfig } from "@buddy/opencode-adapter/config"
 import { PERSONA_SURFACES, PERSONAS } from "@buddy/backend/learning/shared/teaching-vocabulary"
-import { resolveBuddyPersonaProfiles } from "../../learning/personas/wiring/persona.orchestration"
+import { resolveBuddyPersonaMetadata } from "../../learning/personas/wiring/persona-metadata"
 
 export namespace ConfigSchema {
   const NOTEBOOK_HOME_PATH_ERROR_MESSAGE = "notebook_home must be an absolute path" as const
@@ -124,7 +124,7 @@ export namespace ConfigSchema {
     })
     .strict()
     .superRefine((value, ctx) => {
-      const profiles = resolveBuddyPersonaProfiles(value.personas)
+      const profiles = resolveBuddyPersonaMetadata(value.personas)
 
       for (const personaID of PERSONAS) {
         const override = value.personas?.[personaID]

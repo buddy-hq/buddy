@@ -1,11 +1,9 @@
-import type { LearningToolGroup } from "../../learning/tools/tool-metadata"
-
 export type ProxyRegistrationPredicate = (body: Record<string, unknown>) => boolean
 
 export type ProxyRegistrationOption = boolean | ProxyRegistrationPredicate
 
-export type ProxyRegistrationFlags = Record<LearningToolGroup, boolean>
-export type ProxyRegistrationInput = Partial<Record<LearningToolGroup, ProxyRegistrationOption>>
+export type ProxyRegistrationFlags = Record<string, boolean>
+export type ProxyRegistrationInput = Partial<Record<string, ProxyRegistrationOption>>
 
 export type ProxyToOpenCodeInput = {
   targetPath: string
@@ -23,5 +21,5 @@ export type FetchOpenCodeInput = {
   query?: string
   headers?: Headers
   body?: BodyInit
-  toolRegistrations?: Partial<Record<LearningToolGroup, boolean>>
+  toolRegistrations?: Partial<Record<string, boolean>>
 }

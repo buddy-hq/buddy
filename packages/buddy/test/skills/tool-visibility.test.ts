@@ -1,16 +1,21 @@
-import { describe, expect, test } from "bun:test"
+import { afterEach, describe, expect, test } from "bun:test"
 import { Agent } from "@buddy/opencode-adapter/agent"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { syncOpenCodeProjectConfig } from "@buddy/backend/config/runtime"
-import { resolveCapabilityProfile } from "../../src/learning/resolve-capability-profile"
+import { resolveSessionRuntime } from "../../src/learning/access/resolve-session-runtime"
 import { buildBuddyRuntimeSessionPermissions } from "../../src/learning/agent-execution/permissions/session-permissions"
-import { getBuddyPersona } from "../../src/learning/personas/wiring/persona.orchestration"
+import { REGISTERED_BUDDY_PERSONAS } from "../../src/learning/personas/registry"
+import { getBuddyPersona } from "../../src/learning/personas/wiring/persona-profiles"
 import { tmpdir } from "../helpers/tmpdir"
 import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
 
+afterEach(async () => {
+  await OpenCodeInstance.disposeAll()
+})
+
 describe("skill tool visibility", () => {
-  test("vendor skill tool exposes Buddy pedagogy skills through agent permissions", async () => {
+  test("vendor skill tool exposes Buddy teaching skills through agent permissions", async () => {
     await using project = await tmpdir({ git: true })
 
     const output = await OpenCodeInstance.provide({
@@ -18,12 +23,23 @@ describe("skill tool visibility", () => {
       async fn() {
         await syncOpenCodeProjectConfig(project.path, true)
 
-        const runtimeProfile = resolveCapabilityProfile({
-          persona: getBuddyPersona("buddy"),
-          workspaceState: "chat",
+        const persona = getBuddyPersona("buddy")
+        const personaDefinition = REGISTERED_BUDDY_PERSONAS.find(
+          (definition) => definition.id === "buddy",
+        )
+        if (!personaDefinition) {
+          throw new Error('Missing "buddy" persona definition')
+        }
+        const sessionRuntime = resolveSessionRuntime({
+          persona: {
+            id: persona.id,
+            features: personaDefinition.features,
+            defaultSurface: persona.defaultSurface,
+          },
+          teachingWorkspaceState: "inactive",
         })
         const permission = buildBuddyRuntimeSessionPermissions({
-          runtimeProfile,
+          sessionRuntime,
         })
         const agent = Agent.Info.parse({
           name: "buddy",
@@ -35,7 +51,7 @@ describe("skill tool visibility", () => {
         const skillTool = requireTool(tools, "skill")
         const loaded = await skillTool.execute(
           {
-            name: "buddy-pedagogy-explanation",
+            name: "explain",
           },
           createToolContext({
             sessionID: "ses_skill",
@@ -48,6 +64,6 @@ describe("skill tool visibility", () => {
       },
     })
 
-    expect(output).toContain("buddy-pedagogy-explanation")
+    expect(output).toContain("explain")
   })
 })

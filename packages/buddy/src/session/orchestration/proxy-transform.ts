@@ -5,7 +5,7 @@ import {
   normalizeErrorResponse,
   prepareProxyBody,
 } from "../../http"
-import { resolveLearningToolRegistrationFlags } from "../../learning/tools/tool-registration-policy"
+import { resolveFeatureRegistrationFlags } from "../../learning/runtime/tool-registration-policy"
 import { SessionLookupError, SessionTransformValidationError } from "./errors"
 
 export function mapSessionTransformError(
@@ -38,7 +38,7 @@ export async function runSessionTransformProxy(input: {
     targetPath: input.targetPath,
     transformJsonBody: input.onTransform,
     forceBusyAs409: true,
-    toolRegistrations: resolveLearningToolRegistrationFlags(),
+    toolRegistrations: resolveFeatureRegistrationFlags(),
   })
   if (!prepared.ok) return prepared.response
 

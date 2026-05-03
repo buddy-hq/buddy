@@ -16,7 +16,7 @@ export type MessagePromptPipelineContext = {
 
 export type MessagePromptPipelineResult = {
   transformed: Record<string, unknown>
-  runtimeProfileForPermissions?: CreatePromptContextResult["runtimeProfileForPermissions"]
+  sessionRuntimeForPermissions?: CreatePromptContextResult["sessionRuntimeForPermissions"]
   nextTeachingState?: TeachingSessionState
   learnerContextDelivery?: {
     fingerprint: string
@@ -50,8 +50,8 @@ export async function runMessagePromptPipeline(input: {
     parts,
   }
 
-  let runtimeProfileForPermissions:
-    | CreatePromptContextResult["runtimeProfileForPermissions"]
+  let sessionRuntimeForPermissions:
+    | CreatePromptContextResult["sessionRuntimeForPermissions"]
     | undefined
   let nextTeachingState: TeachingSessionState | undefined
   let learnerContextDelivery: MessagePromptPipelineResult["learnerContextDelivery"]
@@ -69,7 +69,7 @@ export async function runMessagePromptPipeline(input: {
     })
     const promptEnvelope = await buildBuddyPromptEnvelope(promptContextResult.context)
 
-    runtimeProfileForPermissions = promptContextResult.runtimeProfileForPermissions
+    sessionRuntimeForPermissions = promptContextResult.sessionRuntimeForPermissions
     nextTeachingState = promptContextResult.nextTeachingState
     buddySystem = promptEnvelope.systemContext
     learnerContextDelivery = promptEnvelope.deliveredLearnerContext
@@ -97,7 +97,7 @@ export async function runMessagePromptPipeline(input: {
 
   return {
     transformed,
-    runtimeProfileForPermissions,
+    sessionRuntimeForPermissions,
     ...(nextTeachingState ? { nextTeachingState } : {}),
     ...(learnerContextDelivery ? { learnerContextDelivery } : {}),
   }

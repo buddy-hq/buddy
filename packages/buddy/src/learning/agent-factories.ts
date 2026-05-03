@@ -1,5 +1,5 @@
 import { Config } from "@buddy/backend/config"
-import { dynamicLearningToolAgentPermission } from "./tools/dynamic-learning-tool-permissions"
+import { dynamicLearningToolAgentPermission } from "./runtime/dynamic-tool-permissions"
 
 type BuddyAgentAuthoring = Parameters<(typeof Config.Agent)["parse"]>[0]
 type BuddyPermissionRuleInput = Config.PermissionRule

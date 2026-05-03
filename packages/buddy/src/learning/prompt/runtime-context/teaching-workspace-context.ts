@@ -9,7 +9,7 @@ const TEACHING_WORKSPACE_CONTEXT_TEMPLATE = definePromptTemplate({
 })
 
 export async function getCheckpointStatus(directory: string, sessionID: string) {
-  const { TeachingService } = await import("../../capabilities/lesson-workspace/service/operations")
+  const { TeachingService } = await import("../../features/lesson-workspace/service/operations")
   return TeachingService.status(directory, sessionID).catch(() => undefined)
 }
 

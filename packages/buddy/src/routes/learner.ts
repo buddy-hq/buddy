@@ -31,8 +31,8 @@ import {
   runLearnerMemoryEvaluation,
   searchLearnerMemory,
   startLearnerMemoryLabRun,
-} from "../learning/learner-memory"
-import { readLearnerMemorySettings } from "../learning/learner-memory/settings"
+} from "../learning/features/memory"
+import { readLearnerMemorySettings } from "../learning/features/memory/settings"
 import { buildLearnerContextView } from "../learning/shared/learner-context-delivery"
 
 const learnerMemorySearchQuerySchema = directoryQuerySchema.extend({

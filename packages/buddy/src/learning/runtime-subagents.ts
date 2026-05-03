@@ -5,7 +5,9 @@ import type { BuddySubagentDefinition } from "./subagent-manifest"
 import type { RegisteredBuddyAgent } from "./register-buddy-agent"
 
 function createRegisteredBuddySubagent(definition: BuddySubagentDefinition): RegisteredBuddyAgent {
-  const { key, kind, ...agentInput } = definition
+  const { key, kind, prompt, description, permission } = definition
+
+  const agentInput = { prompt, description, permission }
 
   return defineBuddyAgent({
     key,

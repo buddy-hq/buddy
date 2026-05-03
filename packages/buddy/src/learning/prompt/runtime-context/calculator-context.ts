@@ -11,6 +11,6 @@ const CALCULATOR_CONTEXT_TEMPLATE = definePromptTemplate({
 export const calculatorSection = defineRuntimeSection({
   key: "calculator",
   when: (context) =>
-    context.capabilityEnvelope.tools.python_calculator === PYTHON_CALCULATOR_ALLOW_ACCESS,
+    context.sessionRuntime.access.tools.python_calculator === PYTHON_CALCULATOR_ALLOW_ACCESS,
   render: () => CALCULATOR_CONTEXT_TEMPLATE.render({}),
 })

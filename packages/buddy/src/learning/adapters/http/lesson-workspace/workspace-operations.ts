@@ -8,18 +8,15 @@ import {
   TeachingWorkspaceFileError,
   TeachingRevisionConflictError,
   TeachingWorkspaceNotFoundError,
-} from "../../../capabilities/lesson-workspace/service/errors"
-import { TeachingService } from "../../../capabilities/lesson-workspace/service/operations"
+} from "../../../features/lesson-workspace/service/errors"
+import { TeachingService } from "../../../features/lesson-workspace/service/operations"
 import type {
   TeachingProvisionRequest,
   TeachingWorkspaceActivateFileRequest,
   TeachingWorkspaceCreateFileRequest,
   TeachingWorkspaceUpdateRequest,
-} from "../../../capabilities/lesson-workspace/model/types"
-import {
-  getBuddyPersona,
-  getDefaultBuddyPersona,
-} from "../../../personas/wiring/persona.orchestration"
+} from "../../../features/lesson-workspace/model/types"
+import { getBuddyPersona, getDefaultBuddyPersona } from "../../../personas/wiring/persona-profiles"
 
 export function resolveTeachingProvisionPersona(input: {
   config: Awaited<ReturnType<typeof readProjectConfig>>

@@ -7,14 +7,14 @@ import z from "zod"
 import {
   parseKnowledgeGraphArtifactManifest,
   type KnowledgeGraphArtifactManifest,
-} from "../../learning/knowledge-graph/artifact"
+} from "../../learning/features/standards/artifact"
 import {
   KNOWLEDGE_GRAPH_ARCHIVE_CHECKSUM_FILENAME,
   KNOWLEDGE_GRAPH_DB_ARCHIVE_FILENAME,
   KNOWLEDGE_GRAPH_DB_ENV,
   KNOWLEDGE_GRAPH_DB_FILENAME,
   KNOWLEDGE_GRAPH_MANIFEST_FILENAME,
-} from "../../learning/knowledge-graph/constants"
+} from "../../learning/features/standards/constants"
 import { Global } from "../../storage/global"
 
 const STANDARDS_DIR = path.join(Global.Path.data, "standards")

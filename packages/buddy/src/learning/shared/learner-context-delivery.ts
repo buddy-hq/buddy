@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto"
-import type { LearnerRuntimeSnapshot } from "../learner-memory/runtime/snapshot"
+import type { LearnerRuntimeSnapshot } from "../features/memory/runtime/snapshot"
 
 type LearnerContextItemSection = "map" | "profile" | "progress"
 

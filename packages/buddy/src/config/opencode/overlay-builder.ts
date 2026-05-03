@@ -8,13 +8,14 @@ import {
 import { fingerprintOpenCodeConfig } from "./fingerprint.js"
 import { parseConfiguredModel } from "./models.js"
 import { resolveBuddyBundledSkillRoots, resolveOpenCodeSkillPaths } from "./skills.js"
-import { getDefaultBuddyPersona } from "../../learning/personas/wiring/persona.orchestration"
+import { getDefaultBuddyPersonaMetadata } from "../../learning/personas/wiring/persona-metadata"
 import { resolveBuddySystemPromptGuardPluginUrl } from "../../opencode-runtime"
 
 const BUDDY_RUNTIME_PERMISSION_OVERLAY: Config.Permission = {
   "goal_*": "deny",
   "learner_*": "deny",
-  "pedagogy_*": "deny",
+  ingest_full_text: "deny",
+  prepare_resource: "deny",
   "python_*": "deny",
   "render_*": "deny",
   "teaching_*": "deny",
@@ -36,7 +37,7 @@ const BUDDY_BUILTIN_COMMANDS: Record<string, { template: string; description: st
       "",
       "Before delegating to the flashcard-author subagent, use the task prompt to pass along the learner's requested scope and any relevant conversation context. Keep the short task description concise, but make the delegated prompt itself specific.",
       "",
-      "If the task is grounded in one or more resources, do not replace those resources with your own summary. Instead, enumerate each relevant resource in the delegation prompt with its title, alias or resource key when known, and the prepared full-text path when available. State the exact scope to read from each resource, and explicitly tell the flashcard-author subagent to call `pedagogy_resource_ingest_full_text` for the named resources before authoring cards unless the full text is already present in the delegated context.",
+      "If the task is grounded in one or more resources, do not replace those resources with your own summary. Instead, enumerate each relevant resource in the delegation prompt with its title, alias or resource key when known, and the prepared full-text path when available. State the exact scope to read from each resource, and explicitly tell the flashcard-author subagent to call `ingest_full_text` for the named resources before authoring cards unless the full text is already present in the delegated context.",
       "",
       "After delegation, do not add separate rendering instructions. Decks saved by flashcard-author are surfaced automatically from persisted state.",
     ].join("\n"),
@@ -91,7 +92,7 @@ async function buildOpenCodeConfigOverlay(input: { config: Config.Info; director
     input.config.personas,
   )
   const defaultAgent = resolveConfiguredAgentKey(
-    getDefaultBuddyPersona({
+    getDefaultBuddyPersonaMetadata({
       defaultPersona: input.config.default_persona,
       overrides: input.config.personas,
     }).id,

@@ -6,13 +6,7 @@ export function titleFromToolName(tool: string): string {
     .join(" ")
 }
 
-const BUDDY_CUSTOM_TOOL_PREFIXES = [
-  "teaching_",
-  "goal_",
-  "learner_",
-  "curriculum_",
-  "pedagogy_",
-] as const
+const BUDDY_CUSTOM_TOOL_PREFIXES = ["teaching_", "goal_", "learner_", "curriculum_"] as const
 
 export function isBuddyCustomTool(tool: string): boolean {
   if (tool === "python_calculator") return true

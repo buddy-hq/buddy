@@ -23,7 +23,6 @@ import type {
   QuestionSetArtifactsListResponse,
   SessionCommandResponses,
   SessionMessagesResponses,
-  SessionPromptResponses,
   SessionTeachingStateResponses,
   ProviderAuthMethod,
   ProviderAuthResponse,
@@ -125,9 +124,9 @@ export type LearnerCurriculumView = {
   }>
 }
 
-export type LearnerRuntimeCapabilitiesView = {
+export type SessionRuntimeView = {
   persona: string
-  workspaceState: "chat" | "interactive"
+  teachingWorkspaceState: "inactive" | "active"
   visibleSurfaces: string[]
   defaultSurface: string
   tools: {
@@ -139,7 +138,6 @@ export type LearnerRuntimeCapabilitiesView = {
     deny: string[]
   }
   subagents: {
-    prefer: string[]
     allow: string[]
     deny: string[]
   }
@@ -179,8 +177,9 @@ export type TeachingSessionSnapshot = {
   sessionId: string
   persona: string
   currentSurface: string
-  workspaceState: "chat" | "interactive"
+  teachingWorkspaceState: "inactive" | "active"
   focusGoalIds: string[]
+  sessionRuntime?: SessionRuntimeView
   lastLlmOutbound?: TeachingLlmOutboundSnapshot
   llmOutboundHistory?: TeachingLlmOutboundSnapshot[]
 }
@@ -190,6 +189,85 @@ export type TeachingLlmOutboundSnapshot = {
   createdAt: string
   payload: Record<string, unknown>
   fullSystemPrompt?: string
+}
+
+type TeachingStateSessionRuntimeResponse = {
+  persona: string
+  teachingWorkspaceState: "inactive" | "active"
+  access: {
+    tools: Record<string, "allow" | "deny">
+    skills: Record<string, "allow" | "deny">
+    subagents: Record<string, "allow" | "deny">
+  }
+  ui: {
+    visibleSurfaces: string[]
+    defaultSurface: string
+  }
+}
+
+function readTeachingWorkspaceStateFromResponse(
+  snapshot: SessionTeachingStateResponses[200],
+): "inactive" | "active" {
+  if (isRecord(snapshot)) {
+    const next = snapshot["teachingWorkspaceState"]
+    if (next === "inactive" || next === "active") {
+      return next
+    }
+  }
+
+  return "inactive"
+}
+
+function readSessionRuntimeFromResponse(
+  snapshot: SessionTeachingStateResponses[200],
+): TeachingStateSessionRuntimeResponse | undefined {
+  if (!isRecord(snapshot)) return undefined
+
+  const runtime = snapshot["sessionRuntime"]
+  if (!isRecord(runtime)) return undefined
+
+  const persona = runtime["persona"]
+  const teachingWorkspaceState = runtime["teachingWorkspaceState"]
+  const access = runtime["access"]
+  const ui = runtime["ui"]
+
+  if (typeof persona !== "string") return undefined
+  if (teachingWorkspaceState !== "inactive" && teachingWorkspaceState !== "active") {
+    return undefined
+  }
+  if (!isRecord(access) || !isRecord(ui)) return undefined
+
+  const tools = access["tools"]
+  const skills = access["skills"]
+  const subagents = access["subagents"]
+  const visibleSurfaces = ui["visibleSurfaces"]
+  const defaultSurface = ui["defaultSurface"]
+
+  if (!isRecord(tools) || !isRecord(skills) || !isRecord(subagents)) return undefined
+  if (!Array.isArray(visibleSurfaces) || typeof defaultSurface !== "string") return undefined
+
+  const readRuntimeActionMap = (value: Record<string, unknown>) => {
+    const entries = Object.entries(value).flatMap(([key, action]) =>
+      action === "allow" || action === "deny" ? ([[key, action]] as const) : [],
+    )
+    return Object.fromEntries(entries)
+  }
+
+  return {
+    persona,
+    teachingWorkspaceState,
+    access: {
+      tools: readRuntimeActionMap(tools),
+      skills: readRuntimeActionMap(skills),
+      subagents: readRuntimeActionMap(subagents),
+    },
+    ui: {
+      visibleSurfaces: visibleSurfaces.flatMap((surface) =>
+        typeof surface === "string" ? [surface] : [],
+      ),
+      defaultSurface,
+    },
+  }
 }
 
 function normalizeProjectDirectory(directory: string) {
@@ -1489,13 +1567,15 @@ export async function sendPrompt(
       variant: input?.variant,
     })
 
-    const postPrompt = async (targetSessionID: string): Promise<SessionMutationResponse> =>
-      requireBuddyData<SessionPromptResponses[200]>(
-        await getBuddyClient(directory).session.prompt({
-          sessionID: targetSessionID,
-          body: promptBody,
-        }),
-      )
+    const postPrompt = async (targetSessionID: string): Promise<void> => {
+      const result = await getBuddyClient(directory).session.promptAsync({
+        sessionID: targetSessionID,
+        body: promptBody,
+      })
+      if (!result.response || !result.response.ok || result.error !== undefined) {
+        throw new Error(buddyResultMessage(result))
+      }
+    }
 
     console.info("[chat-action] prompt.start", {
       directory,
@@ -1504,13 +1584,7 @@ export async function sendPrompt(
     })
 
     try {
-      const response = await postPrompt(resolvedSessionID)
-      promoteSessionMutation({
-        directory,
-        sessionID: resolvedSessionID,
-        response,
-        optimisticMessageID,
-      })
+      await postPrompt(resolvedSessionID)
     } catch (error) {
       const shouldRecover = await shouldRecoverMissingSession(directory, resolvedSessionID, error)
       if (!shouldRecover) {
@@ -1546,16 +1620,10 @@ export async function sendPrompt(
         recoveredSessionID,
       })
 
-      const response = await postPrompt(recoveredSessionID)
-      promoteSessionMutation({
-        directory,
-        sessionID: recoveredSessionID,
-        response,
-        optimisticMessageID,
-      })
-      void loadSessions(directory).catch(() => undefined)
+      await postPrompt(recoveredSessionID)
     }
 
+    void loadSessions(directory).catch(() => undefined)
     console.info("[chat-action] prompt.accepted", { directory, sessionID })
     return sessionID ?? resolvedSessionID
   } catch (error) {
@@ -1752,13 +1820,19 @@ export async function loadTeachingSessionState(directory: string, sessionID: str
     throw new Error(buddyResultMessage(result))
   }
 
-  const snapshot: SessionTeachingStateResponses[200] = result.data
+  const snapshot = result.data
+  const sessionRuntime = readSessionRuntimeFromResponse(snapshot)
   return {
     sessionId: snapshot.sessionId,
     persona: snapshot.persona,
     currentSurface: snapshot.currentSurface,
-    workspaceState: snapshot.workspaceState,
+    teachingWorkspaceState: readTeachingWorkspaceStateFromResponse(snapshot),
     focusGoalIds: snapshot.focusGoalIds,
+    ...(sessionRuntime
+      ? {
+          sessionRuntime: buildSessionRuntimeView(sessionRuntime),
+        }
+      : {}),
     lastLlmOutbound: snapshot.lastLlmOutbound,
     llmOutboundHistory: snapshot.llmOutboundHistory,
   }
@@ -2197,54 +2271,61 @@ async function requestLearnerSnapshot(directory: string): Promise<LearnerMemoryS
   )
 }
 
-function buildRuntimeCapabilitiesViewFromSnapshot(
-  _snapshot: LearnerMemorySnapshot,
-  input?: LearnerSnapshotInput,
-) {
-  const normalizedInput = normalizeLearnerSnapshotInput(input)
+function sortedRuntimeEntries(access: Record<string, "allow" | "deny">, action: "allow" | "deny") {
+  return Object.entries(access)
+    .filter(([, value]) => value === action)
+    .map(([key]) => key)
+    .toSorted((left, right) => left.localeCompare(right))
+}
 
+function buildSessionRuntimeView(sessionRuntime: TeachingStateSessionRuntimeResponse) {
   return {
-    persona: normalizedInput.persona ?? "buddy",
-    workspaceState: "chat",
-    visibleSurfaces: ["chat", "curriculum", "editor", "figure", "question-set"],
-    defaultSurface: DEFAULT_PERSONA_SURFACE,
+    persona: sessionRuntime.persona,
+    teachingWorkspaceState: sessionRuntime.teachingWorkspaceState,
+    visibleSurfaces: [...sessionRuntime.ui.visibleSurfaces],
+    defaultSurface: sessionRuntime.ui.defaultSurface,
     tools: {
-      allow: [LEARNER_MEMORY_TOOL_ID],
-      deny: [],
+      allow: sortedRuntimeEntries(sessionRuntime.access.tools, "allow"),
+      deny: sortedRuntimeEntries(sessionRuntime.access.tools, "deny"),
     },
     skills: {
-      allow: [],
-      deny: [],
+      allow: sortedRuntimeEntries(sessionRuntime.access.skills, "allow"),
+      deny: sortedRuntimeEntries(sessionRuntime.access.skills, "deny"),
     },
     subagents: {
-      prefer: [],
-      allow: [],
-      deny: [],
+      allow: sortedRuntimeEntries(sessionRuntime.access.subagents, "allow"),
+      deny: sortedRuntimeEntries(sessionRuntime.access.subagents, "deny"),
     },
-  } satisfies LearnerRuntimeCapabilitiesView
+  } satisfies SessionRuntimeView
 }
 
 export type LearnerSnapshotViews = {
   snapshot: LearnerMemorySnapshot
   curriculum: LearnerCurriculumView
-  capabilities: LearnerRuntimeCapabilitiesView
+  sessionRuntime?: SessionRuntimeView
 }
 
 export async function loadLearnerSnapshotViews(
   directory: string,
   input?: LearnerSnapshotInput,
 ): Promise<LearnerSnapshotViews> {
-  const snapshot = await loadLearnerSnapshot(directory, input)
+  const [snapshot, teachingState] = await Promise.all([
+    loadLearnerSnapshot(directory, input),
+    input?.sessionID
+      ? loadTeachingSessionState(directory, input.sessionID)
+      : Promise.resolve(undefined),
+  ])
+
   return {
     snapshot,
     curriculum: buildCurriculumViewFromSnapshot(snapshot),
-    capabilities: buildRuntimeCapabilitiesViewFromSnapshot(snapshot, input),
+    ...(teachingState?.sessionRuntime ? { sessionRuntime: teachingState.sessionRuntime } : {}),
   }
 }
 
-export async function loadRuntimeCapabilities(directory: string, input?: LearnerSnapshotInput) {
-  const snapshot = await loadLearnerSnapshot(directory, input)
-  return buildRuntimeCapabilitiesViewFromSnapshot(snapshot, input)
+export async function loadSessionRuntimeView(directory: string, input: { sessionID: string }) {
+  const teachingState = await loadTeachingSessionState(directory, input.sessionID)
+  return teachingState?.sessionRuntime
 }
 
 export async function loadWorkspaceMermaidArtifacts(

@@ -2,18 +2,23 @@ import path from "node:path"
 import { parseConfiguredModel, type readProjectConfig } from "@buddy/backend/config/runtime"
 import { ModelID, ProviderID } from "@buddy/opencode-adapter/id"
 import { Provider } from "@buddy/opencode-adapter/provider"
-import type { TeachingPromptContext } from "../capabilities/lesson-workspace/model/types"
-import { TeachingPromptContextSchema } from "../capabilities/lesson-workspace/model/types"
-import { buildLearnerRuntimeSnapshot, type LearnerRuntimeSnapshot } from "../learner-memory"
-import { getBuddyPersona } from "../personas/wiring/persona.orchestration"
-import { resolveCapabilityProfile } from "../resolve-capability-profile"
+import type { TeachingPromptContext } from "../features/lesson-workspace/model/types"
+import { TeachingPromptContextSchema } from "../features/lesson-workspace/model/types"
+import { resolveSessionRuntime } from "../access/resolve-session-runtime"
+import type { ResolvedSessionRuntime } from "../access/types"
+import { buildLearnerRuntimeSnapshot, type LearnerRuntimeSnapshot } from "../features/memory"
+import { getBuddyPersona } from "../personas/wiring/persona-profiles"
+import { REGISTERED_BUDDY_PERSONAS } from "../personas/registry"
 import {
   buildLearnerContextView,
   type LearnerContextItem,
 } from "../shared/learner-context-delivery"
 import type { TeachingSessionState } from "../shared/teaching-session-state"
 import { hasExplicitModel, resolveCurrentSurface, resolveFocusGoalIds } from "../shared/targeting"
-import type { Persona, WorkspaceState } from "@buddy/backend/learning/shared/teaching-vocabulary"
+import type {
+  Persona,
+  TeachingWorkspaceState,
+} from "@buddy/backend/learning/shared/teaching-vocabulary"
 import { listRegisteredResources } from "../../resources/resource-registry-service"
 import { resolveResourcePackFullTextMetadata } from "../../resource-packs"
 
@@ -32,7 +37,7 @@ export type PromptResourceStatus = "preparing" | "ready" | "unsupported" | "erro
 
 export type PromptTurnSnapshot = {
   persona: Persona
-  workspaceState: WorkspaceState
+  teachingWorkspaceState: TeachingWorkspaceState
 }
 
 export type PromptResource = {
@@ -71,11 +76,9 @@ export type PromptContext = {
   directory: string
   sessionID: string
   persona: Persona
-  capabilityEnvelope: ReturnType<typeof resolveCapabilityProfile>["capabilityEnvelope"]
-  visibleSurfaces: ReturnType<
-    typeof resolveCapabilityProfile
-  >["capabilityEnvelope"]["visibleSurfaces"]
-  workspaceState: WorkspaceState
+  sessionRuntime: ResolvedSessionRuntime
+  visibleSurfaces: ResolvedSessionRuntime["ui"]["visibleSurfaces"]
+  teachingWorkspaceState: TeachingWorkspaceState
   learnerSnapshot: LearnerRuntimeSnapshot
   learnerContextDigest?: string
   priorLearnerContextDigest?: string
@@ -90,7 +93,7 @@ export type PromptContext = {
 
 export type CreatePromptContextResult = {
   context: PromptContext
-  runtimeProfileForPermissions: ReturnType<typeof resolveCapabilityProfile>
+  sessionRuntimeForPermissions: ResolvedSessionRuntime
   nextTeachingState: TeachingSessionState
 }
 
@@ -256,15 +259,27 @@ async function buildPromptContext(
   const teachingContext = resolveTeachingContext(input.body)
   const activeReadingContext = parseActiveReadingContext(input.body.reading)
   const persona = getBuddyPersona(input.personaID, input.projectConfig.personas)
+  const personaDefinition = REGISTERED_BUDDY_PERSONAS.find(
+    (definition) => definition.id === input.personaID,
+  )
+  if (!personaDefinition) {
+    throw new Error(`Unknown Buddy persona "${input.personaID}"`)
+  }
   const focusGoalIds = resolveFocusGoalIds(input.body)
-  const workspaceState: WorkspaceState = teachingContext?.active ? "interactive" : "chat"
+  const teachingWorkspaceState: TeachingWorkspaceState = teachingContext?.active
+    ? "active"
+    : "inactive"
   const learnerSnapshot = await buildLearnerRuntimeSnapshot(input.directory)
   const learnerContextView = buildLearnerContextView(learnerSnapshot)
   const learnerContextDigest = learnerContextView.fingerprint
   const resources = await listRegisteredResources(input.directory).catch(() => [])
-  const runtimeProfile = resolveCapabilityProfile({
-    persona,
-    workspaceState,
+  const sessionRuntime = resolveSessionRuntime({
+    persona: {
+      id: persona.id,
+      features: personaDefinition.features,
+      defaultSurface: persona.defaultSurface,
+    },
+    teachingWorkspaceState,
     configuredToolToggles: input.projectConfig.tools,
   })
 
@@ -288,10 +303,10 @@ async function buildPromptContext(
     context: {
       directory: input.directory,
       sessionID: input.sessionID,
-      persona: runtimeProfile.persona,
-      capabilityEnvelope: runtimeProfile.capabilityEnvelope,
-      visibleSurfaces: runtimeProfile.capabilityEnvelope.visibleSurfaces,
-      workspaceState,
+      persona: sessionRuntime.persona,
+      sessionRuntime,
+      visibleSurfaces: sessionRuntime.ui.visibleSurfaces,
+      teachingWorkspaceState,
       learnerSnapshot,
       learnerContextDigest,
       ...(input.previousState?.lastDeliveredLearnerContextDigest
@@ -311,21 +326,22 @@ async function buildPromptContext(
         ? {
             priorTurn: {
               persona: input.previousState.persona,
-              workspaceState: input.previousState.workspaceState,
+              teachingWorkspaceState: input.previousState.teachingWorkspaceState,
             } satisfies PromptTurnSnapshot,
           }
         : {}),
     },
-    runtimeProfileForPermissions: runtimeProfile,
+    sessionRuntimeForPermissions: sessionRuntime,
     nextTeachingState: {
       sessionId: input.sessionID,
       persona: persona.id,
       currentSurface: resolveCurrentSurface({
         personaID: persona.id,
         config: input.projectConfig,
-        workspaceState,
+        teachingWorkspaceState,
       }),
-      workspaceState,
+      teachingWorkspaceState,
+      sessionRuntime,
       focusGoalIds,
       learnerContextDigest,
     } satisfies TeachingSessionState,

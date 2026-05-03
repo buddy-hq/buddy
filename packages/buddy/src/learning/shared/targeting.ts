@@ -6,9 +6,9 @@ import {
 import {
   isPersona,
   type Persona as BuddyPersona,
-  type WorkspaceState,
+  type TeachingWorkspaceState,
 } from "@buddy/backend/learning/shared/teaching-vocabulary"
-import { getBuddyPersona, getDefaultBuddyPersona } from "../personas/wiring/persona.orchestration"
+import { getBuddyPersona, getDefaultBuddyPersona } from "../personas/wiring/persona-profiles"
 import type { TeachingSessionState } from "./teaching-session-state"
 import { SessionTransformValidationError } from "../../session"
 
@@ -101,10 +101,10 @@ export function assertNoLegacyRuntimeOverrides(body: Record<string, unknown>) {
 export function resolveCurrentSurface(input: {
   personaID: BuddyPersona
   config: Awaited<ReturnType<typeof readProjectConfig>>
-  workspaceState: WorkspaceState
+  teachingWorkspaceState: TeachingWorkspaceState
 }): TeachingSessionState["currentSurface"] {
   const persona = getBuddyPersona(input.personaID, input.config.personas)
-  if (input.workspaceState === "interactive" && persona.surfaces.includes("editor")) {
+  if (input.teachingWorkspaceState === "active" && persona.surfaces.includes("editor")) {
     return "editor"
   }
   return persona.defaultSurface

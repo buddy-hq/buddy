@@ -7,8 +7,8 @@ import { ensureAllowedDirectory } from "../../http"
 import { proxyToOpenCode } from "../../http"
 import { isSessionInRequestedProject } from "../../http"
 import { withConfigSync } from "../../http/route-helpers"
-import { runLearnerMemoryStartupPipeline } from "../../learning/learner-memory"
-import { clearDynamicLearningToolsForEndedSession } from "../../learning/tools/dynamic-learning-tool-grants"
+import { runLearnerMemoryStartupPipeline } from "../../learning/features/memory"
+import { clearDynamicLearningToolsForEndedSession } from "../../learning/runtime/dynamic-tool-grants"
 import { isSessionNotFoundError } from "./lookup"
 
 type RuntimeSessionInfo = Awaited<ReturnType<typeof OpenCodeSession.get>>

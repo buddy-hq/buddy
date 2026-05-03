@@ -7,7 +7,7 @@ import {
   createLearnerEvent,
   createLearnerMemory,
   writeLearnerEvidenceForEvent,
-} from "../../src/learning/learner-memory"
+} from "../../src/learning/features/memory"
 import { tmpdir } from "../helpers/tmpdir"
 
 describe("learner memory routes", () => {

@@ -2,19 +2,22 @@ import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
 import { directoryQuerySchema, routeErrors, runRouteTask, withDirectoryRoute } from "../http"
-import { mapFlashcardRouteError } from "../learning/capabilities/flashcard/errors"
-import { listFlashcardDecks, readFlashcardDeck } from "../learning/capabilities/flashcard/read-deck"
+import { mapFlashcardRouteError } from "../learning/features/flashcards/errors"
+import {
+  listFlashcardDecks,
+  readFlashcardDeck,
+} from "../learning/features/flashcards/storage/read-deck"
 import {
   getNextFlashcardForReview,
   submitFlashcardReview,
-} from "../learning/capabilities/flashcard/review"
+} from "../learning/features/flashcards/storage/review"
 import {
   FLASHCARD_SUBAGENT_ID,
   FlashcardCardSchema,
   FlashcardDeckSchema,
   SubmitReviewInputSchema,
   SubmitReviewOutputSchema,
-} from "../learning/capabilities/flashcard/types"
+} from "../learning/features/flashcards/types"
 
 const deckIDParamSchema = z.object({
   deckID: z.string(),

@@ -475,7 +475,7 @@ function buildSections(): GallerySection[] {
           { title: t("chatTools.info.skill"), subtitle: "design-system" },
         ),
         card(
-          "pedagogy_resource_ingest_full_text",
+          "ingest_full_text",
           renderBuddyCustomTool,
           "Full text ingest",
           {

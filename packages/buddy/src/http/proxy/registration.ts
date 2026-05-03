@@ -1,9 +1,6 @@
-import { registerRuntimeTools } from "../../learning/tools/register-runtime-tools"
-import {
-  allLearningToolGroups,
-  type LearningToolGroup,
-} from "../../learning/tools/learning-tool-group-policies"
+import { registerRuntimeTools } from "../../learning/runtime/register-tools"
 import type { ProxyRegistrationFlags, ProxyRegistrationOption, ProxyToOpenCodeInput } from "./types"
+import { allBuddyFeatures } from "../../learning/runtime/feature-registry"
 
 async function registerOpenCodeTools(
   directory: string,
@@ -21,23 +18,27 @@ function resolveRegistration(
   return false
 }
 
+function allFeatureIds(): string[] {
+  return allBuddyFeatures().map((f) => f.id)
+}
+
 function buildProxyRegistrationFlags(
-  resolveGroup: (group: LearningToolGroup) => boolean,
+  resolveFeature: (featureId: string) => boolean,
 ): ProxyRegistrationFlags {
   return Object.fromEntries(
-    allLearningToolGroups().map((group) => [group, resolveGroup(group)]),
+    allFeatureIds().map((id) => [id, resolveFeature(id)]),
   ) as ProxyRegistrationFlags
 }
 
 function normalizeToolRegistrationFlags(
-  flags?: Partial<Record<LearningToolGroup, boolean>>,
+  flags?: Partial<Record<string, boolean>>,
 ): ProxyRegistrationFlags {
-  return buildProxyRegistrationFlags((group) => flags?.[group] === true)
+  return buildProxyRegistrationFlags((id) => flags?.[id] === true)
 }
 
 function resolveInitialRegistrationFlags(input: ProxyToOpenCodeInput): ProxyRegistrationFlags {
-  return buildProxyRegistrationFlags((group) =>
-    typeof input.toolRegistrations?.[group] === "boolean" ? input.toolRegistrations[group] : false,
+  return buildProxyRegistrationFlags((id) =>
+    typeof input.toolRegistrations?.[id] === "boolean" ? input.toolRegistrations[id] : false,
   )
 }
 
@@ -45,11 +46,8 @@ function resolveBodyRegistrationFlags(
   body: Record<string, unknown>,
   input: ProxyToOpenCodeInput,
 ): ProxyRegistrationFlags {
-  return buildProxyRegistrationFlags((group) =>
-    resolveRegistration(
-      body,
-      input.toolRegistrations?.[group] as ProxyRegistrationOption | undefined,
-    ),
+  return buildProxyRegistrationFlags((id) =>
+    resolveRegistration(body, input.toolRegistrations?.[id] as ProxyRegistrationOption | undefined),
   )
 }
 

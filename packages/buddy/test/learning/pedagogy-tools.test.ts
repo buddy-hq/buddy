@@ -3,7 +3,21 @@ import { writeFileSync } from "node:fs"
 import path from "node:path"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { ensurePedagogyToolsRegistered } from "../../src/learning/capabilities/pedagogy/tools/register"
+import { registerBuddyTools } from "../../src/learning/runtime/register-buddy-tools"
+import {
+  dynamicDebugAttemptTool,
+  debugAttemptTool,
+} from "../../src/learning/features/debug-guidance/tools/debug-attempt"
+import {
+  dynamicReflectionTool,
+  reflectionTool,
+} from "../../src/learning/features/teaching-guidance/tools/reflection"
+import {
+  dynamicStepwiseSolveTool,
+  stepwiseSolveTool,
+} from "../../src/learning/features/stepwise-solving/tools/stepwise-solve"
+import { prepareResourceTool } from "../../src/learning/features/reading/tools/prepare-resource"
+import { ingestFullTextTool } from "../../src/learning/features/reading/tools/ingest-full-text"
 import { writeTeachingSessionState } from "../../src/learning/agent-execution/state/session-state"
 import { tmpdir } from "../helpers/tmpdir"
 import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
@@ -24,24 +38,28 @@ describe("pedagogy tools", () => {
           sessionId: "ses_pedagogy",
           persona: "buddy",
           currentSurface: "curriculum",
-          workspaceState: "chat",
+          teachingWorkspaceState: "inactive",
           focusGoalIds: [],
         })
 
-        await ensurePedagogyToolsRegistered(project.path)
+        await registerBuddyTools(project.path, [
+          debugAttemptTool,
+          stepwiseSolveTool,
+          reflectionTool,
+          prepareResourceTool,
+          ingestFullTextTool,
+          dynamicDebugAttemptTool,
+          dynamicReflectionTool,
+          dynamicStepwiseSolveTool,
+        ])
         const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
         const toolIds = tools.map((tool) => tool.id)
 
-        expect(toolIds).toContain("pedagogy_prepare_resource")
-        expect(toolIds).toContain("pedagogy_debug_attempt")
-        expect(toolIds).not.toContain("pedagogy_guided_practice")
-        expect(toolIds).not.toContain("pedagogy_independent_practice")
-        expect(toolIds).not.toContain("pedagogy_mastery_check")
-        expect(toolIds).not.toContain("pedagogy_retrieval_check")
-        expect(toolIds).not.toContain("pedagogy_transfer_check")
+        expect(toolIds).toContain("prepare_resource")
+        expect(toolIds).toContain("debug_attempt")
         expect(toolIds.every((id) => !id.startsWith("legacy_"))).toBe(true)
 
-        const prepareResource = requireTool(tools, "pedagogy_prepare_resource")
+        const prepareResource = requireTool(tools, "prepare_resource")
         const ctx = createToolContext({
           sessionID: "ses_pedagogy",
           messageID: "msg_pedagogy",
@@ -61,7 +79,7 @@ describe("pedagogy tools", () => {
       },
     })
 
-    expect(result.prepareResource.title).toBe("pedagogy_prepare_resource")
+    expect(result.prepareResource.title).toBe("prepare_resource")
     expect(result.prepareResource.output).toContain("<resource_preparation")
     expect(result.prepareResource.output).toContain("status=ready")
     expect(result.prepareResource.output).toContain("timed_out=false")

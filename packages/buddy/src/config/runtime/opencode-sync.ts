@@ -2,7 +2,7 @@ import { setConfigOverlay } from "@buddy/opencode-adapter/config"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { Config } from "../config.js"
 import { configErrorMessage, isConfigValidationError } from "../contract/errors.js"
-import { readInstalledSystemSkillsFingerprint } from "../../learning/skills/service/system-installer.js"
+import { readInstalledSystemSkillsFingerprint } from "../../learning/skill-management/service/system-installer.js"
 import {
   buildOpenCodeConfigOverlay,
   fingerprintOpenCodeConfig,
@@ -11,8 +11,27 @@ import {
   resolveConfiguredAgentKey,
 } from "../opencode/overlay-builder.js"
 
-const configFingerprintByDirectory = new Map<string, string>()
-const configSyncTaskByDirectory = new Map<string, Promise<void>>()
+const OPENCODE_SYNC_STATE_KEY = Symbol.for("buddy.opencodeSyncState")
+
+type OpenCodeSyncState = {
+  configFingerprintByDirectory: Map<string, string>
+  configSyncTaskByDirectory: Map<string, Promise<void>>
+}
+
+function getOpenCodeSyncState(): OpenCodeSyncState {
+  const globalObject = globalThis as typeof globalThis & {
+    [OPENCODE_SYNC_STATE_KEY]?: OpenCodeSyncState
+  }
+
+  if (!globalObject[OPENCODE_SYNC_STATE_KEY]) {
+    globalObject[OPENCODE_SYNC_STATE_KEY] = {
+      configFingerprintByDirectory: new Map<string, string>(),
+      configSyncTaskByDirectory: new Map<string, Promise<void>>(),
+    }
+  }
+
+  return globalObject[OPENCODE_SYNC_STATE_KEY]
+}
 
 export {
   buildOpenCodeConfigOverlay,
@@ -59,6 +78,7 @@ export async function ensureOpenCodeProjectOverlay(directory: string): Promise<v
 }
 
 export async function syncOpenCodeProjectConfig(directory: string, force = false): Promise<void> {
+  const { configFingerprintByDirectory, configSyncTaskByDirectory } = getOpenCodeSyncState()
   const existingTask = configSyncTaskByDirectory.get(directory)
   if (existingTask) return existingTask
 

@@ -6,7 +6,7 @@ They are staged under `resources/<alias>/` and prepared text is under `resources
 ### How to use resources
 
 #### Full
-Use the ingest `pedagogy_resource_ingest_full_text` tool to load the full text of the resource into context. This way of resource reading is almost always preferred over partial reading.
+Use the ingest `ingest_full_text` tool to load the full text of the resource into context. This way of resource reading is almost always preferred over partial reading.
 
 #### Partial
 Use normal file tools (`read`, `grep`, `glob`, `bash`) and subagents as needed. 

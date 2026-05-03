@@ -43,6 +43,24 @@ describe("session route regressions", () => {
     })
   })
 
+  test("returns 400 for malformed async prompt JSON payloads", async () => {
+    await using project = await tmpdir({ git: true })
+
+    const response = await app.request("/api/session/ses_malformed/prompt_async", {
+      method: "POST",
+      headers: {
+        "x-buddy-directory": project.path,
+        "content-type": "application/json",
+      },
+      body: '{"content":"missing quote}',
+    })
+
+    expect(response.status).toBe(400)
+    await expect(response.json()).resolves.toEqual({
+      error: "Invalid JSON body",
+    })
+  })
+
   test("restores the previous teaching state when prompt setup fails", async () => {
     await using project = await tmpdir({ git: true })
 
@@ -50,7 +68,7 @@ describe("session route regressions", () => {
       sessionId: "ses_missing",
       persona: "buddy",
       currentSurface: "curriculum",
-      workspaceState: "chat",
+      teachingWorkspaceState: "inactive",
       focusGoalIds: ["goal_prev"],
     })
 
@@ -118,6 +136,28 @@ describe("session route regressions", () => {
       error: "Session not found",
     })
     expect(readTeachingSessionState(project.path, "ses_missing_cmd")).toBeUndefined()
+  })
+
+  test("does not create teaching state when an async prompt targets a missing session", async () => {
+    await using project = await tmpdir({ git: true })
+
+    const response = await app.request("/api/session/ses_missing_async/prompt_async", {
+      method: "POST",
+      headers: {
+        "x-buddy-directory": project.path,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        content: "Teach me closures.",
+        persona: "buddy",
+      }),
+    })
+
+    expect(response.status).toBe(404)
+    await expect(response.json()).resolves.toEqual({
+      error: "Session not found",
+    })
+    expect(readTeachingSessionState(project.path, "ses_missing_async")).toBeUndefined()
   })
 
   test("forwards abort even when no active status is cached", async () => {

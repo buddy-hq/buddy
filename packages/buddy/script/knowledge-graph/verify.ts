@@ -1,14 +1,14 @@
 import { createHash } from "node:crypto"
 import { createReadStream, existsSync, readFileSync } from "node:fs"
 import path from "node:path"
-import { parseKnowledgeGraphArtifactManifest } from "../../src/learning/knowledge-graph/artifact"
-import { parseKnowledgeGraphLockfile } from "../../src/learning/knowledge-graph/lockfile"
+import { parseKnowledgeGraphArtifactManifest } from "../../src/learning/features/standards/artifact"
+import { parseKnowledgeGraphLockfile } from "../../src/learning/features/standards/lockfile"
 import {
   KNOWLEDGE_GRAPH_ARCHIVE_CHECKSUM_FILENAME,
   KNOWLEDGE_GRAPH_DB_ARCHIVE_FILENAME,
   KNOWLEDGE_GRAPH_LOCKFILE_FILENAME,
   KNOWLEDGE_GRAPH_MANIFEST_FILENAME,
-} from "../../src/learning/knowledge-graph/constants"
+} from "../../src/learning/features/standards/constants"
 
 const KNOWLEDGE_GRAPH_OUTPUT_DIR_ENV = "BUDDY_KNOWLEDGE_GRAPH_OUTPUT_DIR"
 const BACKEND_DIR = path.resolve(import.meta.dir, "../..")

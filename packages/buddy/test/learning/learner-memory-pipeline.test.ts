@@ -14,9 +14,9 @@ import {
   tryClaimLearnerMemoryExtractionBudget,
   tryClaimLearnerMemoryPhaseTwoJob,
   tryClaimLearnerMemoryStageOneJob,
-} from "../../src/learning/learner-memory"
-import { redactSecrets } from "../../src/learning/learner-memory/redaction"
-import { truncateHeadTail } from "../../src/learning/learner-memory/text-budget"
+} from "../../src/learning/features/memory"
+import { redactSecrets } from "../../src/learning/features/memory/redaction"
+import { truncateHeadTail } from "../../src/learning/features/memory/text-budget"
 import { tmpdir } from "../helpers/tmpdir"
 
 describe("learner memory Codex-aligned pipeline mechanics", () => {

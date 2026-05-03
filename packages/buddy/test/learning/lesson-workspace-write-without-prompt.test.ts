@@ -3,8 +3,8 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import { MessageID, SessionID } from "@buddy/opencode-adapter/id"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import type { BuddyToolContext } from "../../src/learning/tools/create-buddy-tool"
-import { executeWriteWithoutPrompt } from "../../src/learning/capabilities/lesson-workspace/tools/write-without-prompt"
+import type { BuddyToolContext } from "../../src/learning/runtime/create-buddy-tool"
+import { executeWriteWithoutPrompt } from "../../src/learning/features/lesson-workspace/tools/write-without-prompt"
 import { tmpdir } from "../helpers/tmpdir"
 
 function createContext(input?: {
