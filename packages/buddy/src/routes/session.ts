@@ -8,7 +8,7 @@ import { MessageV2 as OpenCodeMessage } from "@buddy/opencode-adapter/message"
 import {
   PERSONAS,
   PERSONA_SURFACES,
-  WORKSPACE_STATES,
+  TEACHING_WORKSPACE_STATES,
 } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import {
   routeErrors,
@@ -24,6 +24,7 @@ import {
   patchSessionById,
   postSessionCommand,
   postSessionPrompt,
+  postSessionPromptAsync,
   proxySessionCollection,
   revertSessionById,
   summarizeSessionById,
@@ -41,6 +42,7 @@ const [updateSessionHandler] = sessionRouteFactory.createHandlers(patchSessionBy
 const [postSessionSummarizeHandler] = sessionRouteFactory.createHandlers(summarizeSessionById)
 const [listSessionMessagesHandler] = sessionRouteFactory.createHandlers(listSessionMessages)
 const [postSessionPromptHandler] = sessionRouteFactory.createHandlers(postSessionPrompt)
+const [postSessionPromptAsyncHandler] = sessionRouteFactory.createHandlers(postSessionPromptAsync)
 const [postSessionCommandHandler] = sessionRouteFactory.createHandlers(postSessionCommand)
 const [getTeachingStateHandler] = sessionRouteFactory.createHandlers(getTeachingState)
 const [abortSessionHandler] = sessionRouteFactory.createHandlers(abortSessionRun)
@@ -173,11 +175,28 @@ const teachingSessionStateOutboundSchema = z.object({
   fullSystemPrompt: z.string().optional(),
 })
 
+const sessionRuntimeActionSchema = z.enum(["allow", "deny"])
+
+const resolvedSessionRuntimeSchema = z.object({
+  persona: z.enum(PERSONAS),
+  teachingWorkspaceState: z.enum(TEACHING_WORKSPACE_STATES),
+  access: z.object({
+    tools: z.record(z.string(), sessionRuntimeActionSchema),
+    skills: z.record(z.string(), sessionRuntimeActionSchema),
+    subagents: z.record(z.string(), sessionRuntimeActionSchema),
+  }),
+  ui: z.object({
+    visibleSurfaces: z.array(z.enum(PERSONA_SURFACES)),
+    defaultSurface: z.enum(PERSONA_SURFACES),
+  }),
+})
+
 const teachingSessionStateSchema = z.object({
   sessionId: z.string(),
   persona: z.enum(PERSONAS),
   currentSurface: z.enum(PERSONA_SURFACES),
-  workspaceState: z.enum(WORKSPACE_STATES),
+  teachingWorkspaceState: z.enum(TEACHING_WORKSPACE_STATES),
+  sessionRuntime: resolvedSessionRuntimeSchema.optional(),
   focusGoalIds: z.array(z.string()),
   lastLlmOutbound: teachingSessionStateOutboundSchema.optional(),
   llmOutboundHistory: z.array(teachingSessionStateOutboundSchema).optional(),
@@ -354,6 +373,29 @@ export const SessionRoutes = new Hono()
     validator("param", SessionIDParamSchema),
     validator("json", sessionInteractionBodySchema),
     postSessionPromptHandler,
+  )
+  .post(
+    "/:sessionID/prompt_async",
+    describeRoute({
+      operationId: "session.promptAsync",
+      summary: "Queue a prompt for asynchronous session processing",
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": { schema: sessionPromptBodyOpenApiSchema },
+        },
+      },
+      responses: {
+        204: {
+          description: "Prompt accepted",
+        },
+        ...routeErrors(400, 403, 409),
+      },
+    }),
+    validator("query", directoryQuerySchema),
+    validator("param", SessionIDParamSchema),
+    validator("json", sessionInteractionBodySchema),
+    postSessionPromptAsyncHandler,
   )
   .post(
     "/:sessionID/command",

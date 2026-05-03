@@ -1,5 +1,5 @@
 import { readProjectConfig } from "@buddy/backend/config/runtime"
-import { appendLearnerEvent, createLearnerEvent } from "../../learner-memory"
+import { appendLearnerEvent, createLearnerEvent } from "../../features/memory"
 import { syncBuddyRuntimeSessionPermissions } from "../permissions/runtime-session-permissions"
 import { readTeachingSessionState, writeTeachingSessionState } from "../state/session-state"
 import { restoreTeachingSessionState, writeLastLlmOutbound } from "../state/transform-state"
@@ -68,7 +68,7 @@ export async function orchestrateSessionMessageTransform(input: {
   await syncBuddyRuntimeSessionPermissions({
     directory: input.context.directory,
     sessionID: input.context.sessionID,
-    runtimeProfile: pipelineResult.runtimeProfileForPermissions,
+    sessionRuntime: pipelineResult.sessionRuntimeForPermissions,
   })
 
   const learnerContextDelivery = pipelineResult.learnerContextDelivery

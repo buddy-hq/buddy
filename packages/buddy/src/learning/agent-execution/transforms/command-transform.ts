@@ -1,5 +1,6 @@
 import { readProjectConfig } from "@buddy/backend/config/runtime"
-import { getBuddyPersona } from "../../personas/wiring/persona.orchestration"
+import { getBuddyPersona } from "../../personas/wiring/persona-profiles"
+import { REGISTERED_BUDDY_PERSONAS } from "../../personas/registry"
 import {
   assertNoLegacyRuntimeOverrides,
   hasExplicitCommandModel,
@@ -7,7 +8,7 @@ import {
   resolveCurrentSurface,
   resolveFocusGoalIds,
 } from "../../shared/targeting"
-import { resolveCapabilityProfile } from "../../resolve-capability-profile"
+import { resolveSessionRuntime } from "../../access/resolve-session-runtime"
 import { readTeachingSessionState, writeTeachingSessionState } from "../state/session-state"
 import { syncBuddyRuntimeSessionPermissions } from "../permissions/runtime-session-permissions"
 import { restoreTeachingSessionState, writeLastLlmOutbound } from "../state/transform-state"
@@ -33,11 +34,21 @@ export function createSessionCommandTransform(input: {
           input.context.directory,
           input.context.sessionID,
         )
-        const workspaceState = previousState?.workspaceState ?? "chat"
+        const teachingWorkspaceState = previousState?.teachingWorkspaceState ?? "inactive"
         const persona = getBuddyPersona(target.personaID, projectConfig.personas)
-        const runtimeProfile = resolveCapabilityProfile({
-          persona,
-          workspaceState,
+        const personaDefinition = REGISTERED_BUDDY_PERSONAS.find(
+          (definition) => definition.id === target.personaID,
+        )
+        if (!personaDefinition) {
+          throw new Error(`Unknown Buddy persona "${target.personaID}"`)
+        }
+        const sessionRuntime = resolveSessionRuntime({
+          persona: {
+            id: persona.id,
+            features: personaDefinition.features,
+            defaultSurface: persona.defaultSurface,
+          },
+          teachingWorkspaceState,
           configuredToolToggles: projectConfig.tools,
         })
         const focusGoalIds = resolveFocusGoalIds(body)
@@ -53,15 +64,16 @@ export function createSessionCommandTransform(input: {
           currentSurface: resolveCurrentSurface({
             personaID: target.personaID,
             config: projectConfig,
-            workspaceState,
+            teachingWorkspaceState,
           }),
-          workspaceState,
+          teachingWorkspaceState,
+          sessionRuntime,
           focusGoalIds,
         })
         await syncBuddyRuntimeSessionPermissions({
           directory: input.context.directory,
           sessionID: input.context.sessionID,
-          runtimeProfile,
+          sessionRuntime,
         })
       } else {
         await syncBuddyRuntimeSessionPermissions({

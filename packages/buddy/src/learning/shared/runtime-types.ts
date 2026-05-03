@@ -3,6 +3,7 @@ import type {
   PersonaSurface,
   SubagentId,
 } from "@buddy/backend/learning/shared/teaching-vocabulary"
+import type { ResolvedSessionRuntime } from "../access/types"
 
 export type DynamicToolId = string
 export type StaticToolId = string
@@ -18,7 +19,7 @@ export type PersonaTools = {
   dynamic: ToolDelta<DynamicToolId>
 }
 
-export type SubagentAccess = "inherit" | "allow" | "deny" | "prefer"
+export type SubagentAccess = "inherit" | "allow" | "deny"
 export type SubagentDelta<TSubagentId extends string = string> = Partial<
   Record<TSubagentId, SubagentAccess>
 >
@@ -58,15 +59,4 @@ export type PersonaCatalogEntry = Pick<
   "id" | "label" | "description" | "surfaces" | "defaultSurface" | "hidden"
 >
 
-export type CapabilityEnvelope = {
-  visibleSurfaces: PersonaSurface[]
-  defaultSurface: PersonaSurface
-  tools: Record<ToolId, "allow" | "deny">
-  subagents: Record<SubagentId, "allow" | "deny" | "prefer">
-  skills: Record<string, "allow" | "deny">
-}
-
-export type RuntimeProfile = {
-  persona: Persona
-  capabilityEnvelope: CapabilityEnvelope
-}
+export type RuntimeProfile = ResolvedSessionRuntime

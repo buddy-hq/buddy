@@ -1,48 +1,34 @@
 import READING_BUDDY_OVERLAY from "./prompts/reading-buddy.p.md"
 import { defineBuddyPersona } from "./wiring/define-buddy-persona"
-import { dynamicPedagogyReflectionTool } from "../tools/dynamic-learning-tools"
+import {
+  curriculumFeature,
+  memoryFeature,
+  standardsFeature,
+  readingFeature,
+  teachingGuidanceFeature,
+  diagramsFeature,
+  practiceFeature,
+  assessmentFeature,
+  questionSetsFeature,
+} from "../features"
 
 export const READING_BUDDY = defineBuddyPersona({
   id: "reading-buddy",
   label: "Reading Buddy",
   description: "Reading-focused Buddy persona for building comprehension and literacy skills.",
-  domain: "general",
-  surfaces: ["curriculum", "question-set"],
+  features: [
+    curriculumFeature,
+    memoryFeature,
+    standardsFeature,
+    readingFeature,
+    teachingGuidanceFeature,
+    diagramsFeature,
+    practiceFeature,
+    assessmentFeature,
+    questionSetsFeature,
+  ],
   defaultSurface: "curriculum",
   hidden: false,
-  tools: {
-    static: {
-      learner_memory_search: "allow",
-      learner_memory_update: "allow",
-      render_mermaid: "allow",
-      search_standards: "allow",
-      get_standard: "allow",
-      get_learning_components: "allow",
-      get_prerequisites: "allow",
-      get_next_standards: "allow",
-      get_crosswalk: "allow",
-      query_standards_sql: "allow",
-      pedagogy_prepare_resource: "allow",
-      pedagogy_resource_ingest_full_text: "allow",
-    },
-    dynamic: {
-      [dynamicPedagogyReflectionTool.id]: "allow",
-    },
-  },
-  skills: {
-    "buddy-pedagogy-learn": "allow",
-    "buddy-pedagogy-practice": "allow",
-    "buddy-pedagogy-assess": "allow",
-    "buddy-pedagogy-explanation": "allow",
-    "buddy-pedagogy-worked-example": "allow",
-    "buddy-pedagogy-concept-contrast": "allow",
-    "buddy-pedagogy-reading-assistant": "allow",
-  },
-  subagents: {
-    "practice-agent": "prefer",
-    "assessment-agent": "allow",
-    "question-set-author": "prefer",
-  },
   context: {
     attachCurriculum: true,
     attachProgress: true,

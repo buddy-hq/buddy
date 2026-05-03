@@ -1,27 +1,17 @@
 import { definePromptTemplate } from "../../prompt/template/engine"
 import type { BuddyPermissionInput, CoreAgentDefinition } from "../../agent-factories"
-import type {
-  PersonaContextPolicy,
-  PersonaTools,
-  SkillDelta,
-  SubagentDelta,
-} from "../../shared/runtime-types"
-import type { SubagentId } from "../../shared/teaching-vocabulary"
+import type { PersonaContextPolicy } from "../../shared/runtime-types"
+import type { Surface } from "../../shared/teaching-vocabulary"
+import type { DefinedBuddyFeature } from "../../runtime/define-buddy-feature"
 import BASE_PERSONA_PROMPT from "../prompts/base.p.md"
 
-type PersonaDomain = "general" | "coding" | "math"
-type PersonaSurface = "curriculum" | "editor" | "figure" | "flashcard" | "question-set"
-type BuddyPersonaProfileDefinition<Id extends string = string> = {
+type BuddyPersonaDefinitionInput<Id extends string = string> = {
   id: Id
   label: string
   description: string
-  domain: PersonaDomain
-  surfaces: readonly PersonaSurface[]
-  defaultSurface: PersonaSurface
+  features: readonly DefinedBuddyFeature[]
+  defaultSurface: Surface
   hidden: boolean
-  tools: PersonaTools
-  skills: SkillDelta
-  subagents: SubagentDelta<SubagentId>
   context: PersonaContextPolicy
 }
 
@@ -37,11 +27,11 @@ type PersonaRuntimeDefinition = Omit<
   permission?: BuddyPermissionInput
 }
 
-type BuddyPersonaDefinitionInput<Id extends string> = BuddyPersonaProfileDefinition<Id> & {
+type BuddyPersonaFullDefinitionInput<Id extends string> = BuddyPersonaDefinitionInput<Id> & {
   runtime: PersonaRuntimeDefinition
 }
 
-type DefinedBuddyPersona<Id extends string = string> = BuddyPersonaDefinitionInput<Id>
+type DefinedBuddyPersona<Id extends string = string> = BuddyPersonaFullDefinitionInput<Id>
 
 const PRIMARY_PERSONA_PERMISSION = {
   question: "allow",
@@ -51,11 +41,18 @@ const PRIMARY_PERSONA_PERMISSION = {
 } as const satisfies BuddyPermissionInput
 
 export function defineBuddyPersona<const Id extends string>(
-  input: BuddyPersonaDefinitionInput<Id>,
+  input: BuddyPersonaFullDefinitionInput<Id>,
 ): DefinedBuddyPersona<Id> {
-  if (!input.surfaces.includes(input.defaultSurface)) {
+  const derivedSurfaces = new Set<string>()
+  for (const feature of input.features) {
+    for (const surface of feature.surfaces) {
+      derivedSurfaces.add(surface)
+    }
+  }
+
+  if (!derivedSurfaces.has(input.defaultSurface)) {
     throw new Error(
-      `Persona "${input.id}" must include defaultSurface "${input.defaultSurface}" in surfaces`,
+      `Persona "${input.id}" defaultSurface "${input.defaultSurface}" must exist in derived feature surfaces`,
     )
   }
 
@@ -63,13 +60,7 @@ export function defineBuddyPersona<const Id extends string>(
 
   return {
     ...profile,
-    surfaces: [...profile.surfaces],
-    tools: {
-      static: { ...profile.tools.static },
-      dynamic: { ...profile.tools.dynamic },
-    },
-    skills: { ...profile.skills },
-    subagents: { ...profile.subagents },
+    features: [...profile.features],
     context: { ...profile.context },
     runtime: {
       ...runtime,
@@ -89,7 +80,7 @@ export { PRIMARY_PERSONA_PERMISSION }
 
 export type {
   BuddyPersonaDefinitionInput,
-  BuddyPersonaProfileDefinition,
+  BuddyPersonaFullDefinitionInput,
   DefinedBuddyPersona,
   PersonaRuntimeDefinition,
 }
