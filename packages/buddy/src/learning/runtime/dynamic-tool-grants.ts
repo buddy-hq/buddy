@@ -6,13 +6,13 @@ import type { BuddyTool } from "./create-buddy-tool"
 import {
   allDynamicLearningToolCatalogEntries,
   isDynamicLearningToolID,
-} from "./dynamic-learning-tool-catalog"
+} from "./dynamic-tool-catalog"
 import {
   dynamicLearningToolDefaultDenyRules,
   isExactDynamicLearningToolAllowRule,
   removeDynamicLearningToolSessionRules,
-} from "./dynamic-learning-tool-permissions"
-import { registerBuddyTools, unregisterBuddyTools } from "./register-buddy-tools"
+} from "./dynamic-tool-permissions"
+import { registerBuddyTools, unregisterBuddyTools } from "../runtime/register-buddy-tools"
 import { isSessionNotFoundError } from "../../session"
 
 type DynamicGrantKey = string

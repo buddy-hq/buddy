@@ -1,11 +1,6 @@
-import { builtinBuddyPersonaAgents } from "./personas/wiring/persona.orchestration"
-import type { RegisteredBuddyAgent } from "./register-buddy-agent"
-import { listBuddySubagents } from "./runtime-subagents"
-
-const BUDDY_AGENTS = [
-  ...builtinBuddyPersonaAgents(),
-  ...listBuddySubagents(),
-] as const satisfies readonly RegisteredBuddyAgent[]
+import { builtinBuddyPersonaAgents } from "../personas/wiring/persona.orchestration"
+import type { RegisteredBuddyAgent } from "../register-buddy-agent"
+import { listBuddySubagents } from "../runtime-subagents"
 
 function duplicateBuddyAgentKeys(agents: readonly RegisteredBuddyAgent[]): string[] {
   const counts = new Map<string, number>()
@@ -29,14 +24,22 @@ function assertUniqueBuddyAgentKeys(agents: readonly RegisteredBuddyAgent[]): vo
   throw new Error(`Duplicate Buddy agent keys detected: ${duplicates.join(", ")}`)
 }
 
-assertUniqueBuddyAgentKeys(BUDDY_AGENTS)
+function buildBuddyAgents(): readonly RegisteredBuddyAgent[] {
+  const agents = [
+    ...builtinBuddyPersonaAgents(),
+    ...listBuddySubagents(),
+  ] as const satisfies readonly RegisteredBuddyAgent[]
+
+  assertUniqueBuddyAgentKeys(agents)
+  return agents
+}
 
 function listBuddyAgents(): readonly RegisteredBuddyAgent[] {
-  return BUDDY_AGENTS
+  return buildBuddyAgents()
 }
 
 function indexBuddyAgents(): Record<string, RegisteredBuddyAgent["agent"]> {
-  return Object.fromEntries(BUDDY_AGENTS.map(({ key, agent }) => [key, agent]))
+  return Object.fromEntries(buildBuddyAgents().map(({ key, agent }) => [key, agent]))
 }
 
 export { indexBuddyAgents, listBuddyAgents }

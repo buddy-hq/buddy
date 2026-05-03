@@ -1,9 +1,5 @@
 import type { PermissionRule, PermissionRuleset } from "@buddy/opencode-adapter/permission"
-import {
-  dynamicPedagogyDebugAttemptTool,
-  dynamicPedagogyReflectionTool,
-  dynamicPedagogyStepwiseSolveTool,
-} from "./dynamic-learning-tools"
+import { allDynamicLearningToolIds } from "./dynamic-tool-catalog"
 
 const ANY_PATTERN = "*" as const
 const ALLOW_ACTION = "allow" as const
@@ -11,11 +7,7 @@ const DENY_ACTION = "deny" as const
 
 type DynamicLearningToolAgentPermission = Record<string, typeof DENY_ACTION>
 
-const DYNAMIC_LEARNING_TOOL_IDS = [
-  dynamicPedagogyDebugAttemptTool.id,
-  dynamicPedagogyReflectionTool.id,
-  dynamicPedagogyStepwiseSolveTool.id,
-] as const
+const DYNAMIC_LEARNING_TOOL_IDS = allDynamicLearningToolIds()
 
 function dynamicLearningToolDenyRule(toolID: string): PermissionRule {
   return {

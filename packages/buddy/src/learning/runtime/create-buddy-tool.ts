@@ -3,17 +3,13 @@ import type z from "zod"
 import { Tool, type ToolRuntimeServices } from "@buddy/opencode-adapter/tool"
 import { cloneToolUiMetadata, type ToolUiMetadata } from "@buddy/opencode-adapter/tool-ui-metadata"
 import {
-  ADVANCED_MATH_RUNTIME_DEPENDENCY,
-  EDITOR_PERSONA_SURFACE,
-  FIGURE_PERSONA_SURFACE,
-  INTERACTIVE_WORKSPACE_STATE,
-  STANDARDS_RUNTIME_DEPENDENCY,
-  type BuddyToolCapabilityConstraints,
-  type BuddyToolPersonaSurface,
-  type BuddyToolWorkspaceState,
-  type LearningToolRuntimeDependency,
-} from "./tool-capability-constraints"
-import type { DynamicBuddyToolMetadata } from "./dynamic-learning-tool-metadata"
+  ACTIVE_TEACHING_WORKSPACE,
+  ADVANCED_MATH_RUNTIME,
+  STANDARDS_RUNTIME,
+  type BuddyToolConstraints,
+  type BuddyToolRuntimeDependency,
+} from "../runtime/tool-constraint-types"
+import type { DynamicBuddyToolMetadata } from "./dynamic-tool-metadata"
 
 type BuddyToolMetadata = Record<string, unknown>
 type BuddyToolContext<Metadata extends BuddyToolMetadata = BuddyToolMetadata> = {
@@ -42,7 +38,7 @@ type BuddyToolDefinition<
     ctx: BuddyToolContext<Metadata>,
   ): Promise<Tool.ExecuteResult<Metadata>> | Tool.ExecuteResult<Metadata>
   formatValidationError?(error: z.ZodError): string
-  capability?: BuddyToolCapabilityConstraints
+  constraints?: BuddyToolConstraints
   dynamic?: DynamicBuddyToolMetadata
   ui?: ToolUiMetadata
 }
@@ -54,7 +50,7 @@ type BuddyTool<
 > = {
   id: Id
   description: string
-  capability?: BuddyToolCapabilityConstraints
+  constraints?: BuddyToolConstraints
   dynamic?: DynamicBuddyToolMetadata
   ui?: ToolUiMetadata
   toTool(
@@ -91,14 +87,14 @@ function createBuddyTool<
   Parameters extends z.ZodType,
   Metadata extends BuddyToolMetadata,
 >(definition: BuddyToolDefinition<Id, Parameters, Metadata>): BuddyTool<Id, Parameters, Metadata> {
-  const clonedCapability = cloneCapabilityConstraints(definition.capability)
+  const clonedConstraints = cloneConstraints(definition.constraints)
   const clonedDynamic = cloneDynamicMetadata(definition.dynamic)
   const clonedUi = normalizeToolUiMetadata(definition)
 
   return {
     id: definition.id,
     description: definition.description,
-    capability: clonedCapability,
+    constraints: clonedConstraints,
     ...(clonedDynamic ? { dynamic: clonedDynamic } : {}),
     ...(clonedUi ? { ui: clonedUi } : {}),
     toTool(directory: string) {
@@ -139,17 +135,13 @@ function createBuddyTool<
   }
 }
 
-function cloneCapabilityConstraints(
-  capability: BuddyToolCapabilityConstraints | undefined,
-): BuddyToolCapabilityConstraints {
-  if (!capability) {
-    return {}
-  }
-
+function cloneConstraints(
+  constraints: BuddyToolConstraints | undefined,
+): BuddyToolConstraints | undefined {
+  if (!constraints) return undefined
   return {
-    ...(capability.surfaces ? { surfaces: [...capability.surfaces] } : {}),
-    ...(capability.workspaceStates ? { workspaceStates: [...capability.workspaceStates] } : {}),
-    ...(capability.runtimeDependency ? { runtimeDependency: capability.runtimeDependency } : {}),
+    ...(constraints.teachingWorkspace ? { teachingWorkspace: constraints.teachingWorkspace } : {}),
+    ...(constraints.runtime ? { runtime: constraints.runtime } : {}),
   }
 }
 
@@ -190,21 +182,10 @@ function normalizeToolUiMetadata(
 }
 
 export { createBuddyTool }
-export {
-  ADVANCED_MATH_RUNTIME_DEPENDENCY,
-  EDITOR_PERSONA_SURFACE,
-  FIGURE_PERSONA_SURFACE,
-  INTERACTIVE_WORKSPACE_STATE,
-  STANDARDS_RUNTIME_DEPENDENCY,
-}
+export { ACTIVE_TEACHING_WORKSPACE, ADVANCED_MATH_RUNTIME, STANDARDS_RUNTIME }
 
 export { normalizeToolUiMetadata }
 
-export type { BuddyTool, BuddyToolContext, BuddyToolDefinition }
-export type {
-  BuddyToolCapabilityConstraints,
-  BuddyToolPersonaSurface,
-  BuddyToolWorkspaceState,
-  LearningToolRuntimeDependency,
-}
+export type { BuddyTool, BuddyToolConstraints, BuddyToolContext, BuddyToolDefinition }
+export type { BuddyToolRuntimeDependency }
 export type { ToolUiMetadata }

@@ -1,14 +1,13 @@
 import z from "zod"
 import type { DynamicToolId } from "../shared/runtime-types"
-import type { WorkspaceState } from "../shared/teaching-vocabulary"
 import type { BuddyTool } from "./create-buddy-tool"
 import {
   DYNAMIC_LEARNING_TOOL_USE_CASES,
   type DynamicLearningToolRenderer,
   type DynamicLearningToolSideEffect,
   type DynamicLearningToolUseCase,
-} from "./dynamic-learning-tool-metadata"
-import { allDeferredFeatureLearningTools } from "./feature-learning-tool-groups"
+} from "./dynamic-tool-metadata"
+import { allBuddyTools } from "./feature-registry"
 
 type DynamicLearningToolCatalogEntry = {
   id: DynamicToolId
@@ -17,7 +16,7 @@ type DynamicLearningToolCatalogEntry = {
   searchText: string
   keywords: readonly string[]
   useCase: DynamicLearningToolUseCase
-  workspaceStates: readonly WorkspaceState[]
+  requiresActiveWorkspace: boolean
   sideEffects: readonly DynamicLearningToolSideEffect[]
   mutatesLearnerState: boolean
   renderer: DynamicLearningToolRenderer
@@ -35,7 +34,6 @@ const DynamicLearningToolSearchResultSchema = z.object({
 
 type DynamicLearningToolSearchResultMetadata = z.infer<typeof DynamicLearningToolSearchResultSchema>
 
-const DEFAULT_DYNAMIC_TOOL_WORKSPACE_STATES = ["chat", "interactive"] as const
 const DEFAULT_DYNAMIC_TOOL_SIDE_EFFECTS = ["none"] as const
 const DEFAULT_DYNAMIC_TOOL_RENDERER = "generic" as const
 
@@ -51,7 +49,7 @@ function dynamicToolToCatalogEntry(tool: BuddyTool): DynamicLearningToolCatalogE
     searchText: tool.dynamic.searchText ?? "",
     keywords: [...tool.dynamic.keywords],
     useCase: tool.dynamic.useCase,
-    workspaceStates: tool.capability?.workspaceStates ?? [...DEFAULT_DYNAMIC_TOOL_WORKSPACE_STATES],
+    requiresActiveWorkspace: tool.constraints?.teachingWorkspace === "active",
     sideEffects: tool.dynamic.sideEffects ?? [...DEFAULT_DYNAMIC_TOOL_SIDE_EFFECTS],
     mutatesLearnerState: tool.dynamic.mutatesLearnerState ?? false,
     renderer: tool.dynamic.renderer ?? DEFAULT_DYNAMIC_TOOL_RENDERER,
@@ -60,7 +58,9 @@ function dynamicToolToCatalogEntry(tool: BuddyTool): DynamicLearningToolCatalogE
 }
 
 function allDynamicLearningToolCatalogEntries(): readonly DynamicLearningToolCatalogEntry[] {
-  return allDeferredFeatureLearningTools().map(dynamicToolToCatalogEntry)
+  return allBuddyTools()
+    .filter((tool) => Boolean(tool.dynamic))
+    .map(dynamicToolToCatalogEntry)
 }
 
 function allDynamicLearningToolIds(): DynamicToolId[] {

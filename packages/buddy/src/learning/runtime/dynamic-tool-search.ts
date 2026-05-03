@@ -1,9 +1,8 @@
 import type { Config } from "@buddy/backend/config"
 import type { PersonaDefinition } from "../shared/runtime-types"
-import type { WorkspaceState } from "../shared/teaching-vocabulary"
-import type { DynamicLearningToolCatalogEntry } from "./dynamic-learning-tool-catalog"
-import { allDynamicLearningToolCatalogEntries } from "./dynamic-learning-tool-catalog"
-import { toolMatchesRuntimeConstraints } from "./tool-constraints"
+import type { DynamicLearningToolCatalogEntry } from "./dynamic-tool-catalog"
+import { allDynamicLearningToolCatalogEntries } from "./dynamic-tool-catalog"
+import { toolMatchesRuntimeConstraints } from "../runtime/tool-constraints"
 
 const MAX_DYNAMIC_TOOL_MATCHES_TO_REGISTER = 3
 const BM25_K1 = 1.5
@@ -28,7 +27,6 @@ type DynamicLearningToolSearchMatch = {
 type DynamicLearningToolSearchInput = {
   query: string
   persona: PersonaDefinition
-  workspaceState: WorkspaceState
   configuredToolToggles?: Config.Info["tools"]
   limit?: number
 }
@@ -109,7 +107,6 @@ function bm25Score(input: {
 function filterEntry(input: {
   entry: DynamicLearningToolCatalogEntry
   persona: PersonaDefinition
-  workspaceState: WorkspaceState
   configuredToolToggles?: Config.Info["tools"]
 }): DynamicLearningToolFilterReason | undefined {
   if (input.configuredToolToggles?.[input.entry.id] === false) {
@@ -118,10 +115,6 @@ function filterEntry(input: {
 
   if (input.persona.tools.dynamic[input.entry.id] !== "allow") {
     return "persona"
-  }
-
-  if (!input.entry.workspaceStates.includes(input.workspaceState)) {
-    return "workspace"
   }
 
   if (!toolMatchesRuntimeConstraints(input.entry.tool)) {
@@ -165,7 +158,6 @@ function searchDynamicLearningTools(
     const reason = filterEntry({
       entry,
       persona: input.persona,
-      workspaceState: input.workspaceState,
       configuredToolToggles: input.configuredToolToggles,
     })
     if (reason) {
@@ -231,7 +223,6 @@ function selectDynamicLearningToolsByID(
     const reason = filterEntry({
       entry,
       persona: input.persona,
-      workspaceState: input.workspaceState,
       configuredToolToggles: input.configuredToolToggles,
     })
     if (reason) {

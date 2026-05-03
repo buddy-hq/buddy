@@ -1,11 +1,7 @@
 import type { Config } from "@buddy/backend/config"
-import type { WorkspaceState } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import type { PersonaDefinition, ToolId } from "../shared/runtime-types"
 import { allLearningToolIds, allLearningToolMetadata } from "./tool-metadata"
-import {
-  toolMatchesPersonaWorkspaceConstraints,
-  toolMatchesRuntimeConstraints,
-} from "./tool-constraints"
+import { toolMatchesRuntimeConstraints } from "./tool-constraints"
 
 type ToolPermissionAction = "allow" | "deny"
 type ToolPermissionMap = Record<ToolId, ToolPermissionAction>
@@ -29,24 +25,6 @@ function applyPersonaDefaultTools(tools: ToolPermissionMap, persona: PersonaDefi
   if (personaHasDynamicTools(persona)) {
     tools[LEARNING_TOOL_SEARCH_TOOL_ID] = "allow"
     tools[LEARNING_TOOL_LOAD_TOOL_ID] = "allow"
-  }
-}
-
-function applyPersonaWorkspaceToolConstraints(input: {
-  tools: ToolPermissionMap
-  persona: PersonaDefinition
-  workspaceState: WorkspaceState
-}): void {
-  for (const tool of allLearningToolMetadata()) {
-    if (
-      !toolMatchesPersonaWorkspaceConstraints({
-        tool,
-        persona: input.persona,
-        workspaceState: input.workspaceState,
-      })
-    ) {
-      input.tools[tool.id] = "deny"
-    }
   }
 }
 
@@ -106,7 +84,6 @@ function personaHasDynamicTools(persona: PersonaDefinition): boolean {
 
 export function compileRuntimeLearningToolPermissions(input: {
   persona: PersonaDefinition
-  workspaceState: WorkspaceState
   configuredToolToggles?: Config.Info["tools"]
 }): {
   tools: ToolPermissionMap
@@ -114,11 +91,6 @@ export function compileRuntimeLearningToolPermissions(input: {
 } {
   const tools = createDenyToolMap()
   applyPersonaDefaultTools(tools, input.persona)
-  applyPersonaWorkspaceToolConstraints({
-    tools,
-    persona: input.persona,
-    workspaceState: input.workspaceState,
-  })
   applyRuntimeToolConstraints(tools)
   applyConfiguredToolToggles(tools, input.configuredToolToggles)
 
@@ -128,7 +100,7 @@ export function compileRuntimeLearningToolPermissions(input: {
   }
 }
 
-export function deriveStaticPersonaLearningToolPermissions(
+export function deriveStaticPersonaToolPermissions(
   persona: PersonaDefinition,
 ): Record<ToolId, ToolPermissionAction> {
   const permissions = createDenyToolMap()
@@ -136,6 +108,13 @@ export function deriveStaticPersonaLearningToolPermissions(
 
   for (const toolID of allLearningToolIds()) {
     permissions[toolID] = personaDefaultAllowed.has(toolID) ? "allow" : "deny"
+  }
+
+  if (personaDefaultAllowed.has(LEARNING_TOOL_SEARCH_TOOL_ID)) {
+    permissions[LEARNING_TOOL_SEARCH_TOOL_ID] = "allow"
+  }
+  if (personaDefaultAllowed.has(LEARNING_TOOL_LOAD_TOOL_ID)) {
+    permissions[LEARNING_TOOL_LOAD_TOOL_ID] = "allow"
   }
 
   return permissions

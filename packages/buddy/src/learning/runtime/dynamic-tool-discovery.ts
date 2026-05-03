@@ -5,28 +5,27 @@ import { createBuddyTool } from "./create-buddy-tool"
 import {
   DynamicLearningToolSearchResultSchema,
   type DynamicLearningToolSearchResultMetadata,
-} from "./dynamic-learning-tool-catalog"
+} from "./dynamic-tool-catalog"
 import {
   dynamicLearningToolSearchCandidateIDsForSession,
   grantDynamicLearningToolsForSession,
   recordDynamicLearningToolSearchCandidates,
-} from "./dynamic-learning-tool-grants"
+} from "./dynamic-tool-grants"
 import {
   MAX_DYNAMIC_TOOL_MATCHES_TO_REGISTER,
   searchDynamicLearningTools,
   selectDynamicLearningToolsByID,
   type DynamicLearningToolFilteredEntry,
   type DynamicLearningToolSearchMatch,
-} from "./dynamic-learning-tool-search"
-import { getBuddyPersona } from "../personas/wiring/persona.orchestration"
-import { isPersona, type Persona, type WorkspaceState } from "../shared/teaching-vocabulary"
+} from "./dynamic-tool-search"
+import { getBuddyPersona } from "../personas/wiring/persona-profiles"
+import { isPersona, type Persona } from "../shared/teaching-vocabulary"
 import { readTeachingSessionState } from "../agent-execution/state/session-state"
 import type { PersonaDefinition } from "../shared/runtime-types"
 
 const LEARNING_TOOL_SEARCH_TOOL_ID = "learning_tool_search"
 const LEARNING_TOOL_LOAD_TOOL_ID = "learning_tool_load"
 const DEFAULT_PERSONA_ID = "buddy" as const satisfies Persona
-const DEFAULT_WORKSPACE_STATE = "chat" as const satisfies WorkspaceState
 const NO_RESULTS_OUTPUT = "No dynamic learning tools matched the query."
 const NO_EXPOSED_TOOLS_OUTPUT =
   "No dynamic learning tools were exposed. Call `learning_tool_search` first, then pass exact returned tool IDs to `learning_tool_load`."
@@ -58,7 +57,6 @@ const DynamicLearningToolLoadParameters = z.object({
 type DynamicLearningToolContext = {
   projectConfig: Config.Info
   persona: PersonaDefinition
-  workspaceState: WorkspaceState
 }
 
 function resolveSearchPersona(input: {
@@ -89,7 +87,6 @@ async function resolveDynamicLearningToolContext(input: {
   return {
     projectConfig,
     persona: getBuddyPersona(personaID, projectConfig.personas),
-    workspaceState: teachingState?.workspaceState ?? DEFAULT_WORKSPACE_STATE,
   }
 }
 
@@ -187,7 +184,7 @@ const learningToolSearchTool = createBuddyTool({
     },
   },
   async execute(params, ctx) {
-    const { projectConfig, persona, workspaceState } = await resolveDynamicLearningToolContext({
+    const { projectConfig, persona } = await resolveDynamicLearningToolContext({
       directory: ctx.directory,
       sessionID: ctx.sessionID,
       agent: ctx.agent,
@@ -196,7 +193,6 @@ const learningToolSearchTool = createBuddyTool({
     const result = searchDynamicLearningTools({
       query: params.query,
       persona,
-      workspaceState,
       configuredToolToggles: projectConfig.tools,
       limit: params.limit,
     })
@@ -219,7 +215,6 @@ const learningToolSearchTool = createBuddyTool({
       metadata: {
         query: params.query,
         persona: persona.id,
-        workspaceState,
         matchedToolIds: matchedToolIDs,
         matches: searchResultMetadata(result.matches),
         filtered: result.filtered,
@@ -254,7 +249,7 @@ const learningToolLoadTool = createBuddyTool({
     const requestedToolIDs = Array.from(new Set(params.toolIds))
     const loadableToolIDs = requestedToolIDs.filter((toolID) => candidates.has(toolID))
     const rejectedToolIDs = requestedToolIDs.filter((toolID) => !candidates.has(toolID))
-    const { projectConfig, persona, workspaceState } = await resolveDynamicLearningToolContext({
+    const { projectConfig, persona } = await resolveDynamicLearningToolContext({
       directory: ctx.directory,
       sessionID: ctx.sessionID,
       agent: ctx.agent,
@@ -263,7 +258,6 @@ const learningToolLoadTool = createBuddyTool({
     const result = selectDynamicLearningToolsByID({
       ids: loadableToolIDs,
       persona,
-      workspaceState,
       configuredToolToggles: projectConfig.tools,
     })
     const exposedToolIDs =
