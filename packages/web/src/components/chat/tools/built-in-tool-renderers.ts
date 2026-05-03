@@ -67,12 +67,45 @@ export const builtInTools: Record<string, ToolRenderer> = {
   }),
   edit: createToolRenderer({
     card: renderEditTool,
+    summary: {
+      display: "row",
+      pattern: "info",
+      aggregate: {
+        key: "edit",
+        mode: "count-items",
+        past: "Edited",
+        singular: "file",
+        plural: "files",
+      },
+    },
   }),
   write: createToolRenderer({
     card: renderEditTool,
+    summary: {
+      display: "row",
+      pattern: "info",
+      aggregate: {
+        key: "write",
+        mode: "count-items",
+        past: "Wrote",
+        singular: "file",
+        plural: "files",
+      },
+    },
   }),
   apply_patch: createToolRenderer({
     card: renderApplyPatchTool,
+    summary: {
+      display: "row",
+      pattern: "info",
+      aggregate: {
+        key: "edit",
+        mode: "count-items",
+        past: "Edited",
+        singular: "file",
+        plural: "files",
+      },
+    },
   }),
   bash: createToolRenderer({
     card: renderBashTool,
@@ -173,6 +206,22 @@ export const builtInTools: Record<string, ToolRenderer> = {
       suppressError: true,
       aggregate: { key: "tool-load", mode: "label-times", label: "Load Tools" },
     },
+  }),
+  goal_state: createToolRenderer({
+    card: renderGenericTool,
+    summary: { display: "row", pattern: "info" },
+  }),
+  goal_commit: createToolRenderer({
+    card: renderGenericTool,
+    summary: { display: "row", pattern: "info" },
+  }),
+  goal_decide_scope: createToolRenderer({
+    card: renderGenericTool,
+    summary: { display: "row", pattern: "info" },
+  }),
+  goal_lint: createToolRenderer({
+    card: renderGenericTool,
+    summary: { display: "row", pattern: "info" },
   }),
   search_standards: createToolRenderer({
     card: renderKnowledgeGraphTool,
