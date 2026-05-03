@@ -81,7 +81,7 @@ export const AssistantTextPart = memo(function AssistantTextPart({
   if (!displayedText.trim()) return null
 
   return (
-    <div className="group/text-part mt-4 min-w-0 w-full max-w-full">
+    <div className="group/text-part min-w-0 w-full max-w-full">
       <div className="min-w-0 w-full max-w-full transition-opacity duration-75 ease-out">
         <Markdown text={displayedText} cacheKey={part.id} />
       </div>

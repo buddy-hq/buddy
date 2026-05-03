@@ -17,7 +17,7 @@ export const AssistantErrorCard = memo(function AssistantErrorCard({
     <div
       role="alert"
       aria-atomic="true"
-      className="mt-3 w-full rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 p-3"
+      className="w-full rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 p-3"
     >
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">

@@ -79,7 +79,7 @@ function HiddenStepsToggle({
     <CollapsibleTrigger asChild>
       <button
         type="button"
-        className="group mt-2 mb-1 flex w-full cursor-default items-center gap-3 transition-transform duration-200 ease-out active:scale-[0.98]"
+        className="group flex w-full cursor-default items-center gap-3 transition-transform duration-200 ease-out active:scale-[0.98]"
       >
         <div className="flex shrink-0 items-center gap-2 text-xs text-text-weaker transition-colors duration-200 group-hover:text-text-weak">
           <span
@@ -280,7 +280,7 @@ export function HiddenSteps({
   const animateLiveTitle = showLivePreview && Boolean(isBusy)
 
   return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen} className="mt-2 w-full">
+    <Collapsible open={isOpen} onOpenChange={setIsOpen} className="w-full">
       <HiddenStepsToggle
         isOpen={isOpen}
         title={title}

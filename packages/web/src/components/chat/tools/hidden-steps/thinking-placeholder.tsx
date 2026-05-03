@@ -6,8 +6,8 @@ type HiddenStepsPlaceholderProps = {
 
 export function HiddenStepsPlaceholder(props: HiddenStepsPlaceholderProps) {
   return (
-    <div className="mt-3 w-full" data-abstracted-thinking-placeholder="">
-      <div className="group flex w-full flex-col items-stretch py-1 text-left">
+    <div className="w-full" data-abstracted-thinking-placeholder="">
+      <div className="group flex w-full flex-col items-stretch text-left">
         <div className="flex min-w-0 items-center gap-2">
           <span className={cn("min-w-0 truncate text-xs animate-pulse text-text-weak")}>
             Thinking

@@ -67,7 +67,7 @@ export function BasicTool({
       <CollapsibleTrigger asChild>
         <button
           type="button"
-          className="group flex min-w-0 w-full max-w-full items-start gap-2 py-1 text-left"
+          className="group flex min-w-0 w-full max-w-full items-start gap-2 text-left"
         >
           {icon ? <span className="shrink-0 text-text-weak">{icon}</span> : null}
           {isTriggerTitle(trigger) ? (
