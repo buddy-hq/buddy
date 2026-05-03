@@ -1,12 +1,12 @@
 import type { PermissionRule, PermissionRuleset } from "@buddy/opencode-adapter/permission"
 import { SUBAGENT_IDS } from "@buddy/backend/learning/shared/teaching-vocabulary"
-import { managedBuddySkillNames } from "../../skills/managed-buddy-skills"
-import type { RuntimeProfile } from "../../shared/runtime-types"
+import type { ResolvedSessionRuntime } from "../../access/types"
+import { managedBuddySkillNames } from "../../skill-management/managed-buddy-skills"
 import {
   dynamicLearningToolDefaultDenyRules,
   isDynamicLearningToolSessionRule,
-} from "../../tools/dynamic-learning-tool-permissions"
-import { allLearningToolIds } from "../../tools/tool-metadata"
+} from "../../runtime/dynamic-tool-permissions"
+import { allLearningToolIds } from "../../runtime/tool-metadata"
 
 let managedToolIds: Set<string> | undefined
 let managedSubagentIds: Set<string> | undefined
@@ -60,7 +60,7 @@ function appendRuleByAction(input: {
   appendRule(input.allowRules, input.rule)
 }
 
-function buildManagedRuntimeRules(runtimeProfile: RuntimeProfile): {
+function buildManagedRuntimeRules(sessionRuntime: ResolvedSessionRuntime): {
   allowRules: PermissionRuleset
   denyRules: PermissionRuleset
 } {
@@ -68,7 +68,7 @@ function buildManagedRuntimeRules(runtimeProfile: RuntimeProfile): {
   const denyRules: PermissionRuleset = []
 
   for (const toolId of allLearningToolIds()) {
-    const action = runtimeProfile.capabilityEnvelope.tools[toolId] ?? "deny"
+    const action = sessionRuntime.access.tools[toolId] ?? "deny"
     const rule: PermissionRule = {
       permission: toolId,
       pattern: "*",
@@ -78,7 +78,7 @@ function buildManagedRuntimeRules(runtimeProfile: RuntimeProfile): {
   }
 
   for (const subagentId of SUBAGENT_IDS) {
-    const access = runtimeProfile.capabilityEnvelope.subagents[subagentId] ?? "deny"
+    const access = sessionRuntime.access.subagents[subagentId] ?? "deny"
     const action = access === "deny" ? "deny" : "allow"
     const rule: PermissionRule = {
       permission: "task",
@@ -88,7 +88,7 @@ function buildManagedRuntimeRules(runtimeProfile: RuntimeProfile): {
     appendRuleByAction({ allowRules, denyRules, rule })
   }
 
-  for (const [skillName, access] of Object.entries(runtimeProfile.capabilityEnvelope.skills)) {
+  for (const [skillName, access] of Object.entries(sessionRuntime.access.skills)) {
     const rule: PermissionRule = {
       permission: "skill",
       pattern: skillName,
@@ -105,16 +105,16 @@ function buildManagedRuntimeRules(runtimeProfile: RuntimeProfile): {
 
 export function buildBuddyRuntimeSessionPermissions(input: {
   existing?: PermissionRuleset
-  runtimeProfile?: RuntimeProfile
+  sessionRuntime?: ResolvedSessionRuntime
 }): PermissionRuleset {
   const preservedRules = (input.existing ?? []).filter((rule) => {
     return !isBuddyManagedRuntimeRule(rule)
   })
 
-  if (!input.runtimeProfile) {
+  if (!input.sessionRuntime) {
     return [...preservedRules, ...dynamicLearningToolDefaultDenyRules()]
   }
 
-  const { allowRules, denyRules } = buildManagedRuntimeRules(input.runtimeProfile)
+  const { allowRules, denyRules } = buildManagedRuntimeRules(input.sessionRuntime)
   return [...allowRules, ...preservedRules, ...denyRules, ...dynamicLearningToolDefaultDenyRules()]
 }
