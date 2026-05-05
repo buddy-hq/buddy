@@ -7,6 +7,7 @@ import {
   isChatTextPart,
   type ChatFilePart,
 } from "../utils/part-guards"
+import { isHiddenFromUserMessage } from "../utils/message-visibility"
 
 import type { UserSectionProps } from "../types"
 
@@ -35,6 +36,9 @@ export const UserSection = memo(function UserSection({
   const hasVisibleContent = userAttachmentParts.length > 0 || userTextParts.length > 0
 
   if (!userMessage || !hasVisibleContent) return null
+  if (isHiddenFromUserMessage(userMessage)) {
+    return null
+  }
 
   return (
     <div className="flex w-full flex-col items-end gap-2 text-sm">

@@ -1,5 +1,6 @@
 import { memo } from "react"
 import { Markdown } from "@/components/markdown/Markdown"
+import type { MarkdownMermaidContext } from "@/components/markdown/Markdown"
 import { CopyAction } from "../../copy-action"
 import { useAdaptiveStreamingText } from "../../hooks/use-streaming-text"
 import { cn } from "@buddy/ui"
@@ -11,7 +12,8 @@ type AssistantTextPartProps = {
   metaText?: string
   interrupted?: boolean
   stripLeadingFigureImage?: boolean
-  stripLeadingMermaidSource?: string
+  stripLeadingMermaidSources?: string[]
+  directory?: string
   onFinalRender?: () => void
 }
 
@@ -26,9 +28,11 @@ function normalizeMermaidSource(source: string): string {
   return source.replace(/\r\n?/gu, "\n").trim()
 }
 
-function stripLeadingRenderMermaidMarkdown(text: string, source: string): string {
-  const expectedSource = normalizeMermaidSource(source)
-  if (!expectedSource) {
+export function stripLeadingRenderMermaidMarkdown(text: string, sources: string[]): string {
+  const expectedSources = new Set(
+    sources.map((source) => normalizeMermaidSource(source)).filter((source) => source.length > 0),
+  )
+  if (expectedSources.size === 0) {
     return text
   }
 
@@ -40,7 +44,7 @@ function stripLeadingRenderMermaidMarkdown(text: string, source: string): string
   }
 
   const blockSource = normalizeMermaidSource(match[2])
-  if (blockSource !== expectedSource) {
+  if (!expectedSources.has(blockSource)) {
     return text
   }
 
@@ -56,7 +60,8 @@ function assistantTextPartEqual(
   if (prevProps.metaText !== nextProps.metaText) return false
   if (prevProps.interrupted !== nextProps.interrupted) return false
   if (prevProps.stripLeadingFigureImage !== nextProps.stripLeadingFigureImage) return false
-  if (prevProps.stripLeadingMermaidSource !== nextProps.stripLeadingMermaidSource) return false
+  if (prevProps.stripLeadingMermaidSources !== nextProps.stripLeadingMermaidSources) return false
+  if (prevProps.directory !== nextProps.directory) return false
   if (prevProps.onFinalRender !== nextProps.onFinalRender) return false
   return prevProps.part.text === nextProps.part.text
 }
@@ -67,23 +72,38 @@ export const AssistantTextPart = memo(function AssistantTextPart({
   metaText,
   interrupted,
   stripLeadingFigureImage,
-  stripLeadingMermaidSource,
+  stripLeadingMermaidSources,
+  directory,
   onFinalRender,
 }: AssistantTextPartProps) {
   const text = part.text
   const withoutLeadingFigure = stripLeadingFigureImage
     ? stripLeadingRenderFigureMarkdown(text)
     : text
-  const visibleText = stripLeadingMermaidSource
-    ? stripLeadingRenderMermaidMarkdown(withoutLeadingFigure, stripLeadingMermaidSource)
+  const visibleText = stripLeadingMermaidSources?.length
+    ? stripLeadingRenderMermaidMarkdown(withoutLeadingFigure, stripLeadingMermaidSources)
     : withoutLeadingFigure
   const displayedText = useAdaptiveStreamingText(visibleText, onFinalRender)
+  const mermaidContext: MarkdownMermaidContext | undefined =
+    directory && part.sessionID && part.messageID && part.id
+      ? {
+          directory,
+          sessionID: part.sessionID,
+          messageID: part.messageID,
+          partID: part.id,
+        }
+      : undefined
   if (!displayedText.trim()) return null
 
   return (
     <div className="group/text-part min-w-0 w-full max-w-full">
       <div className="min-w-0 w-full max-w-full transition-opacity duration-75 ease-out">
-        <Markdown text={displayedText} cacheKey={part.id} />
+        <Markdown
+          text={displayedText}
+          cacheKey={part.id}
+          mermaidContext={mermaidContext}
+          isStreaming={displayedText !== visibleText}
+        />
       </div>
       {copyEnabled ? (
         <div

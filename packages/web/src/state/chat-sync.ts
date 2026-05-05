@@ -327,7 +327,7 @@ export function startChatSync(handlers: SyncHandlers) {
             },
             signal: currentAbort.signal,
             sseMaxRetryAttempts: 0,
-            onSseError(error) {
+            onSseError(error: unknown) {
               if (!currentAbort.signal.aborted && !isAbortError(error)) {
                 streamError = error
               }

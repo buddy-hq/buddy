@@ -16,6 +16,7 @@ import type {
   LearnerMemoryListResponses,
   McpLocalConfig,
   McpRemoteConfig,
+  MermaidArtifactsListResponses,
   McpStatusResponses,
   OpenProjectsCreateResponses,
   PermissionListResponses,
@@ -143,17 +144,7 @@ export type SessionRuntimeView = {
   }
 }
 
-export type WorkspaceMermaidArtifactView = {
-  artifactID: string
-  kind: "mermaid.v1"
-  diagramType: string
-  alt: string
-  caption?: string
-  repairAttempts: number
-  repairLog: string[]
-  source: string
-  createdAt: string
-}
+export type WorkspaceMermaidArtifactView = MermaidArtifactsListResponses[200]["artifacts"][number]
 
 export type PromptCommandOption = {
   name: string

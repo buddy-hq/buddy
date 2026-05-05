@@ -15,6 +15,7 @@ import { useChatStore } from "@/state/chat-store"
 import { IDLE_SESSION_STATUS } from "@/state/session-status"
 import type { ChatTranscriptProps, TurnRowProps } from "./types"
 import { TurnRenderer } from "./turn-renderer"
+import { isHiddenFromUserMessage } from "./utils/message-visibility"
 
 const EMPTY_MESSAGES: never[] = []
 const EMPTY_PROVIDERS: never[] = []
@@ -78,13 +79,12 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     ? sessions.find((session) => session.id === directoryState.sessionID)
     : undefined
   const revertMessageID = activeSession?.revert?.messageID
-  const messages = useMemo(
-    () =>
-      revertMessageID
-        ? allMessages.filter((message) => message.info.id < revertMessageID)
-        : allMessages,
-    [allMessages, revertMessageID],
-  )
+  const messages = useMemo(() => {
+    const visibleMessages = allMessages.filter((message) => !isHiddenFromUserMessage(message))
+    return revertMessageID
+      ? visibleMessages.filter((message) => message.info.id < revertMessageID)
+      : visibleMessages
+  }, [allMessages, revertMessageID])
   const providers = directoryState?.providers ?? EMPTY_PROVIDERS
   const isBusy = directoryState?.isBusy ?? false
   const activeSessionStatus = directoryState?.sessionID

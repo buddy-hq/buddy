@@ -4,7 +4,7 @@ import { HiddenSteps } from "../tools/hidden-steps/index"
 import { AssistantPartRenderer } from "../parts/assistant-part/assistant-part"
 import { parseToolState } from "../tools/parse-tool-state"
 import { parseRenderFigureOutput } from "../tools/render/render-figure"
-import { parseRenderMermaidOutput } from "../tools/render/mermaid"
+import { parseRenderMermaidSources } from "../tools/render/mermaid"
 import { toolDefaultOpen } from "../utils/constants"
 import type { AssistantSectionProps } from "../types"
 
@@ -55,12 +55,15 @@ export const AssistantSection = memo(function AssistantSection({
             String(previousPart.tool ?? "") === "render_freeform_figure") &&
           previousPartState?.status === "completed" &&
           !!parseRenderFigureOutput(previousPartState)
-        const stripLeadingMermaidSource =
+        const stripLeadingMermaidSources =
           item.part.type === "text" &&
           previousPart?.type === "tool" &&
           String(previousPart.tool ?? "") === "render_mermaid" &&
           previousPartState?.status === "completed"
-            ? parseRenderMermaidOutput(previousPartState)?.source
+            ? Object.values(parseRenderMermaidSources(previousPartState)).filter(
+                (source): source is string =>
+                  typeof source === "string" && source.trim().length > 0,
+              )
             : undefined
 
         return (
@@ -72,7 +75,7 @@ export const AssistantSection = memo(function AssistantSection({
             interrupted={assistantAborted}
             onOpenSession={onOpenSession}
             stripLeadingFigureImage={stripLeadingFigureImage}
-            stripLeadingMermaidSource={stripLeadingMermaidSource}
+            stripLeadingMermaidSources={stripLeadingMermaidSources}
             directory={directory}
             onTextFinalRender={
               isLastTurn && item.part.type === "text" && item.part.id === lastAssistantTextID

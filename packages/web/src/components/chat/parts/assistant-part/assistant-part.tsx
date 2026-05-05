@@ -20,7 +20,7 @@ export interface AssistantPartRendererProps {
   interrupted?: boolean
   onOpenSession?: (sessionID: string) => void
   stripLeadingFigureImage?: boolean
-  stripLeadingMermaidSource?: string
+  stripLeadingMermaidSources?: string[]
   directory?: string
   defaultOpen?: boolean
   onTextFinalRender?: () => void
@@ -36,7 +36,7 @@ function assistantPartRendererEqual(
   if (prevProps.metaText !== nextProps.metaText) return false
   if (prevProps.interrupted !== nextProps.interrupted) return false
   if (prevProps.stripLeadingFigureImage !== nextProps.stripLeadingFigureImage) return false
-  if (prevProps.stripLeadingMermaidSource !== nextProps.stripLeadingMermaidSource) return false
+  if (prevProps.stripLeadingMermaidSources !== nextProps.stripLeadingMermaidSources) return false
   if (prevProps.directory !== nextProps.directory) return false
   if (prevProps.onOpenSession !== nextProps.onOpenSession) return false
   if (prevProps.defaultOpen !== nextProps.defaultOpen) return false
@@ -63,7 +63,7 @@ export const AssistantPartRenderer = memo(function AssistantPartRenderer({
   interrupted,
   onOpenSession,
   stripLeadingFigureImage,
-  stripLeadingMermaidSource,
+  stripLeadingMermaidSources,
   directory,
   defaultOpen,
   onTextFinalRender,
@@ -80,7 +80,8 @@ export const AssistantPartRenderer = memo(function AssistantPartRenderer({
         metaText={metaText}
         interrupted={interrupted}
         stripLeadingFigureImage={stripLeadingFigureImage}
-        stripLeadingMermaidSource={stripLeadingMermaidSource}
+        stripLeadingMermaidSources={stripLeadingMermaidSources}
+        directory={directory}
         onFinalRender={onTextFinalRender}
       />
     )
