@@ -39,6 +39,67 @@ function userMessage(): MessageWithParts {
   }
 }
 
+function hiddenAutoRepairUserMessage(): MessageWithParts {
+  const info = {
+    id: "msg_auto_repair",
+    sessionID: "ses_error",
+    role: "user" as const,
+    agent: "buddy",
+    model: {
+      providerID: "test",
+      modelID: "test-model",
+    },
+    metadata: {
+      kind: "mermaid_auto_repair",
+      hiddenFromUser: true,
+    },
+    time: {
+      created: 2,
+    },
+  }
+
+  return {
+    info,
+    parts: [
+      {
+        id: "prt_auto_repair",
+        sessionID: "ses_error",
+        messageID: "msg_auto_repair",
+        type: "text",
+        text: "internal Mermaid auto repair prompt",
+      },
+    ],
+  }
+}
+
+function prefixedAutoRepairUserMessage(): MessageWithParts {
+  const messageID = "msg_buddy_mermaid_auto_repair_request"
+  return {
+    info: {
+      id: messageID,
+      sessionID: "ses_error",
+      role: "user",
+      agent: "buddy",
+      model: {
+        providerID: "test",
+        modelID: "test-model",
+      },
+      time: {
+        created: 3,
+      },
+    },
+    parts: [
+      {
+        id: "prt_prefixed_auto_repair",
+        sessionID: "ses_error",
+        messageID,
+        type: "text",
+        text: "prefixed internal Mermaid auto repair prompt",
+      },
+    ],
+  }
+}
+
 function assistantMessage(input?: {
   error?: {
     name: string
@@ -136,5 +197,31 @@ describe("chat error handling", () => {
     expect(alert).not.toBeNull()
     expect(alert?.textContent).toContain("Assistant error")
     expect(alert?.textContent).toContain("Request failed.")
+  })
+
+  test("hides user messages marked hiddenFromUser", async () => {
+    await act(async () => {
+      seedDirectoryChatState("/repo", {
+        messages: [userMessage(), hiddenAutoRepairUserMessage()],
+      })
+      root.render(<ChatTranscript directory="/repo" />)
+      await flushEffects()
+    })
+
+    expect(container.textContent).toContain("trigger an error")
+    expect(container.textContent).not.toContain("internal Mermaid auto repair prompt")
+  })
+
+  test("hides prefixed auto-repair user messages without metadata", async () => {
+    await act(async () => {
+      seedDirectoryChatState("/repo", {
+        messages: [userMessage(), prefixedAutoRepairUserMessage()],
+      })
+      root.render(<ChatTranscript directory="/repo" />)
+      await flushEffects()
+    })
+
+    expect(container.textContent).toContain("trigger an error")
+    expect(container.textContent).not.toContain("prefixed internal Mermaid auto repair prompt")
   })
 })
