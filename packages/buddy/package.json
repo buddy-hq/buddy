@@ -39,7 +39,6 @@
     "@buddy/opencode-adapter": "workspace:*",
     "@chonkiejs/core": "^0.0.8",
     "@hono/standard-validator": "^0.2.2",
-    "@mermaid-js/parser": "^0.6.3",
     "@zip.js/zip.js": "^2.8.23",
     "ai": "5.0.124",
     "dedent": "^1.7.2",

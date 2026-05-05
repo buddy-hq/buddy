@@ -80,3 +80,5 @@ script/install-latest-release.sh
 .opencode
 docs/commands/build-reader.md
 docs/artifacts/audits
+docs/artifacts/distilled/
+.agents/skills/local/
