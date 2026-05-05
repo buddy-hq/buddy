@@ -79,6 +79,6 @@ docs/todo.md
 script/install-latest-release.sh
 .opencode
 docs/commands/build-reader.md
-docs/artifacts/audits
+docs/artifacts/local
 docs/artifacts/distilled/
 .agents/skills/local/
