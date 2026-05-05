@@ -2,7 +2,6 @@
 import { createClient } from "@hey-api/openapi-ts"
 import fs from "fs/promises"
 import path from "path"
-import { generateSpecs } from "hono-openapi"
 
 // Generate SDK from running backend
 const API_URL = process.env.API_URL || "http://localhost:3000/doc"
@@ -15,14 +14,16 @@ type OpenAPISchema = {
   [key: string]: unknown
 }
 
-type OpenApiApp = Parameters<typeof generateSpecs>[0]
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value)
 }
 
+type OpenApiApp = {
+  request: (input: string) => Promise<Response>
+}
+
 function isOpenApiApp(value: unknown): value is OpenApiApp {
-  return isRecord(value) && typeof value.fetch === "function"
+  return isRecord(value) && typeof value.request === "function"
 }
 
 async function loadBackendApp() {
@@ -71,17 +72,11 @@ async function loadSchema() {
     return normalizePaths(schema)
   } catch {
     const app = await loadBackendApp()
-    const schema = (await generateSpecs(app, {
-      documentation: {
-        info: {
-          title: "Buddy API",
-          version: "1.0.0",
-          description: "Buddy API Documentation",
-        },
-        openapi: "3.1.1",
-      },
-    })) as OpenAPISchema
-
+    const response = await app.request("/doc")
+    if (!response.ok) {
+      throw new Error(`Failed to fetch OpenAPI schema from backend app: ${response.status}`)
+    }
+    const schema = (await response.json()) as OpenAPISchema
     return normalizePaths(schema)
   }
 }

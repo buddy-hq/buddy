@@ -16,7 +16,9 @@ export {
   isSessionNotFoundError,
 } from "./orchestration/lookup"
 export {
+  getSessionMermaidRepairStatus,
   postSessionCommand,
+  postSessionMermaidRepairAsync,
   postSessionPrompt,
   postSessionPromptAsync,
 } from "./orchestration/interaction-actions"

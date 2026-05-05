@@ -18,11 +18,13 @@ import {
 } from "../http"
 import {
   abortSessionRun,
+  getSessionMermaidRepairStatus,
   getSessionStatus,
   getSessionById,
   listSessionMessages,
   patchSessionById,
   postSessionCommand,
+  postSessionMermaidRepairAsync,
   postSessionPrompt,
   postSessionPromptAsync,
   proxySessionCollection,
@@ -44,6 +46,12 @@ const [listSessionMessagesHandler] = sessionRouteFactory.createHandlers(listSess
 const [postSessionPromptHandler] = sessionRouteFactory.createHandlers(postSessionPrompt)
 const [postSessionPromptAsyncHandler] = sessionRouteFactory.createHandlers(postSessionPromptAsync)
 const [postSessionCommandHandler] = sessionRouteFactory.createHandlers(postSessionCommand)
+const [postSessionMermaidRepairAsyncHandler] = sessionRouteFactory.createHandlers(
+  postSessionMermaidRepairAsync,
+)
+const [getSessionMermaidRepairStatusHandler] = sessionRouteFactory.createHandlers(
+  getSessionMermaidRepairStatus,
+)
 const [getTeachingStateHandler] = sessionRouteFactory.createHandlers(getTeachingState)
 const [abortSessionHandler] = sessionRouteFactory.createHandlers(abortSessionRun)
 const [revertSessionHandler] = sessionRouteFactory.createHandlers(revertSessionById)
@@ -152,6 +160,32 @@ const sessionSummarizeBodyOpenApiSchema = {
     auto: { type: "boolean" as const },
   },
 }
+
+const sessionMermaidRepairBodySchema = z.object({
+  artifactID: z.string().min(1),
+  failedRenderKey: z.string().min(1),
+})
+
+const sessionMermaidRepairBodyOpenApiSchema = {
+  type: "object" as const,
+  required: ["artifactID", "failedRenderKey"],
+  additionalProperties: false,
+  properties: {
+    artifactID: { type: "string" as const },
+    failedRenderKey: { type: "string" as const },
+  },
+}
+
+const mermaidRepairStatusResponseSchema = z.object({
+  repairRequestID: z.string().min(1),
+  status: z.enum(["running", "succeeded", "exhausted"]),
+  replacementArtifactID: z.string().min(1).optional(),
+  lastErrorMessage: z.string().min(1).optional(),
+})
+
+const MermaidRepairRequestIDParamSchema = z.object({
+  repairRequestID: z.string().min(1),
+})
 
 const sessionRevertBodySchema = z.object({
   messageID: z.string().min(1),
@@ -422,6 +456,57 @@ export const SessionRoutes = new Hono()
     validator("param", SessionIDParamSchema),
     validator("json", sessionInteractionBodySchema),
     postSessionCommandHandler,
+  )
+  .post(
+    "/:sessionID/mermaid-repair-async",
+    describeRoute({
+      operationId: "session.mermaidRepairAsync",
+      summary: "Queue a Mermaid auto-repair prompt for a failed browser render",
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: sessionMermaidRepairBodyOpenApiSchema,
+          },
+        },
+      },
+      responses: {
+        200: {
+          description: "Mermaid repair request accepted or exhausted immediately",
+          content: {
+            "application/json": {
+              schema: resolver(mermaidRepairStatusResponseSchema),
+            },
+          },
+        },
+        ...routeErrors(400, 403, 404, 409),
+      },
+    }),
+    validator("query", directoryQuerySchema),
+    validator("param", SessionIDParamSchema),
+    validator("json", sessionMermaidRepairBodySchema),
+    postSessionMermaidRepairAsyncHandler,
+  )
+  .get(
+    "/:sessionID/mermaid-repair/:repairRequestID",
+    describeRoute({
+      operationId: "session.mermaidRepairStatus",
+      summary: "Get Mermaid auto-repair request status",
+      responses: {
+        200: {
+          description: "Mermaid repair request status",
+          content: {
+            "application/json": {
+              schema: resolver(mermaidRepairStatusResponseSchema),
+            },
+          },
+        },
+        ...routeErrors(400, 403, 404),
+      },
+    }),
+    validator("query", directoryQuerySchema),
+    validator("param", SessionIDParamSchema.merge(MermaidRepairRequestIDParamSchema)),
+    getSessionMermaidRepairStatusHandler,
   )
   .get(
     "/:sessionID/teaching-state",
