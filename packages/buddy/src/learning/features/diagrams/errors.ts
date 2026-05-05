@@ -1,4 +1,8 @@
-import { InvalidMermaidArtifactIDError } from "./service/path"
+import {
+  InvalidMermaidArtifactIDError,
+  InvalidMermaidRenderKeyError,
+  InvalidMermaidRepairRequestIDError,
+} from "./service/v2-path"
 
 class MermaidArtifactNotFoundError extends Error {
   constructor(artifactID: string) {
@@ -7,35 +11,43 @@ class MermaidArtifactNotFoundError extends Error {
   }
 }
 
-class MermaidRenderError extends Error {
-  readonly diagnostics: readonly string[]
-  readonly repairAttempts: number
-  readonly repairLog: readonly string[]
+class MermaidRenderRecordNotFoundError extends Error {
+  constructor(renderKey: string) {
+    super(`Mermaid render record '${renderKey}' was not found.`)
+    this.name = "MermaidRenderRecordNotFoundError"
+  }
+}
 
-  constructor(input: {
-    diagnostics: readonly string[]
-    repairAttempts: number
-    repairLog: string[]
-  }) {
-    super(input.diagnostics.join(" "))
-    this.name = "MermaidRenderError"
-    this.diagnostics = [...input.diagnostics]
-    this.repairAttempts = input.repairAttempts
-    this.repairLog = [...input.repairLog]
+class MermaidRepairRequestNotFoundError extends Error {
+  constructor(repairRequestID: string) {
+    super(`Mermaid repair request '${repairRequestID}' was not found.`)
+    this.name = "MermaidRepairRequestNotFoundError"
   }
 }
 
 function mapMermaidArtifactRouteError(error: unknown): Response | undefined {
-  if (error instanceof InvalidMermaidArtifactIDError) {
+  if (
+    error instanceof InvalidMermaidArtifactIDError ||
+    error instanceof InvalidMermaidRenderKeyError ||
+    error instanceof InvalidMermaidRepairRequestIDError
+  ) {
     return Response.json({ error: error.message }, { status: 400 })
   }
   if (error instanceof MermaidArtifactNotFoundError) {
     return Response.json({ error: error.message }, { status: 404 })
   }
-  if (error instanceof MermaidRenderError) {
-    return Response.json({ error: error.message }, { status: 400 })
+  if (error instanceof MermaidRenderRecordNotFoundError) {
+    return Response.json({ error: error.message }, { status: 404 })
+  }
+  if (error instanceof MermaidRepairRequestNotFoundError) {
+    return Response.json({ error: error.message }, { status: 404 })
   }
   return undefined
 }
 
-export { MermaidArtifactNotFoundError, MermaidRenderError, mapMermaidArtifactRouteError }
+export {
+  MermaidArtifactNotFoundError,
+  MermaidRepairRequestNotFoundError,
+  MermaidRenderRecordNotFoundError,
+  mapMermaidArtifactRouteError,
+}
