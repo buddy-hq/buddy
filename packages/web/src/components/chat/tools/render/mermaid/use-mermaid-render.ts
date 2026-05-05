@@ -1,6 +1,12 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { language } from "@/context/language"
-import { readCachedMermaidSvg, renderMermaidSvg, type MermaidRenderResult } from "./lib/render"
+import { useTheme } from "@/theme"
+import {
+  MermaidRenderFailureError,
+  readCachedMermaidSvg,
+  renderMermaidSvg,
+  type MermaidRenderResult,
+} from "./lib/render"
 
 export type MermaidRenderState =
   | {
@@ -13,33 +19,60 @@ export type MermaidRenderState =
   | {
       status: "error"
       message: string
+      renderKey?: string
+      persisted: boolean
     }
-
-function errorMessage(error: unknown): string {
-  if (error instanceof Error && error.message.trim()) {
-    return error.message.trim()
-  }
-  if (typeof error === "string" && error.trim()) {
-    return error.trim()
-  }
-  return language.t("chatTools.mermaidDiagram.renderErrorDefault")
-}
 
 type UseMermaidRenderOptions = {
   source: string
   artifactID?: string
+  directory?: string
+  enabled?: boolean
+  priority?: number
 }
 
 type UseMermaidRenderResult = {
   state: MermaidRenderState
 }
 
-function getCachedState(input: UseMermaidRenderOptions): MermaidRenderState | undefined {
+function errorMessage(error: unknown): MermaidRenderState {
+  if (error instanceof MermaidRenderFailureError) {
+    return {
+      status: "error",
+      message: error.message,
+      renderKey: error.renderKey,
+      persisted: error.persisted,
+    }
+  }
+  if (error instanceof Error && error.message.trim()) {
+    return {
+      status: "error",
+      message: error.message.trim(),
+      persisted: false,
+    }
+  }
+  if (typeof error === "string" && error.trim()) {
+    return {
+      status: "error",
+      message: error.trim(),
+      persisted: false,
+    }
+  }
+  return {
+    status: "error",
+    message: language.t("chatTools.mermaidDiagram.renderErrorDefault"),
+    persisted: false,
+  }
+}
+
+function getCachedState(input: {
+  artifactID?: string
+  source: string
+}): MermaidRenderState | undefined {
   const cached = readCachedMermaidSvg(input)
   if (!cached) {
     return undefined
   }
-
   return {
     status: "ready",
     value: cached,
@@ -49,46 +82,53 @@ function getCachedState(input: UseMermaidRenderOptions): MermaidRenderState | un
 export function useMermaidRender({
   source,
   artifactID,
+  directory,
+  enabled = true,
+  priority,
 }: UseMermaidRenderOptions): UseMermaidRenderResult {
+  const { mode, themeId } = useTheme()
+  const requestTokenRef = useRef(0)
   const [state, setState] = useState<MermaidRenderState>(
     () => getCachedState({ source, artifactID }) ?? { status: "loading" },
   )
 
   useEffect(() => {
-    let cancelled = false
+    if (!enabled) {
+      return
+    }
+
     const cachedState = getCachedState({ source, artifactID })
     if (cachedState) {
       setState(cachedState)
-      return () => {
-        cancelled = true
-      }
+      return
     }
 
+    const requestToken = requestTokenRef.current + 1
+    requestTokenRef.current = requestToken
     setState({ status: "loading" })
 
     void renderMermaidSvg({
       source,
       artifactID,
+      directory,
+      priority,
     })
       .then((value) => {
-        if (cancelled) return
+        if (requestTokenRef.current !== requestToken) {
+          return
+        }
         setState({
           status: "ready",
           value,
         })
       })
       .catch((error) => {
-        if (cancelled) return
-        setState({
-          status: "error",
-          message: errorMessage(error),
-        })
+        if (requestTokenRef.current !== requestToken) {
+          return
+        }
+        setState(errorMessage(error))
       })
-
-    return () => {
-      cancelled = true
-    }
-  }, [artifactID, source])
+  }, [artifactID, directory, enabled, mode, priority, source, themeId])
 
   return { state }
 }

@@ -30,10 +30,75 @@ function buildMermaidErrorClipboardText(input: { message: string; source?: strin
   return sections.join("\n")
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value)
+}
+
+function readErrorMessages(value: unknown): string[] {
+  if (typeof value === "string" && value.trim()) {
+    return [value.trim()]
+  }
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => readErrorMessages(item))
+  }
+  if (isRecord(value)) {
+    const directMessage = value.message
+    if (typeof directMessage === "string" && directMessage.trim()) {
+      return [directMessage.trim()]
+    }
+  }
+  return []
+}
+
+function normalizeUnsupportedTypeMessage(message: string): string | undefined {
+  const match = message.match(
+    /No diagram type detected matching given configuration for text:\s*([A-Za-z][\w-]*)/u,
+  )
+  if (!match?.[1]) {
+    return undefined
+  }
+  return `This Mermaid runtime could not recognize the "${match[1]}" diagram type.`
+}
+
+function summarizeMermaidErrorText(message: string): string {
+  const trimmed = message.trim()
+  if (!trimmed) {
+    return language.t("chatTools.mermaidDiagram.renderErrorDefault")
+  }
+
+  const unsupportedType = normalizeUnsupportedTypeMessage(trimmed)
+  if (unsupportedType) {
+    return unsupportedType
+  }
+
+  if (trimmed.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(trimmed) as unknown
+      const messages = readErrorMessages(parsed)
+      if (messages.some((entry) => entry.includes('must start with "msg"'))) {
+        return language.t("chatTools.mermaidDiagram.renderAutoRepairFailed")
+      }
+      const firstMessage = messages.find((entry) => entry.trim().length > 0)
+      if (firstMessage) {
+        return firstMessage
+      }
+    } catch {
+      // fall through to generic cleanup
+    }
+  }
+
+  const singleLine = trimmed.replace(/\s+/gu, " ")
+  if (singleLine.length <= 240) {
+    return singleLine
+  }
+  return `${singleLine.slice(0, 237)}...`
+}
+
 export function MermaidDiagram(props: {
   source: string
   alt: string
   artifactID?: string
+  directory?: string
   className?: string
   failureClassName?: string
   showRawSourceOnError?: boolean
@@ -45,21 +110,42 @@ export function MermaidDiagram(props: {
   ) => React.ReactNode
   minimalActions?: boolean
   disableRevealAnimation?: boolean
+  enabled?: boolean
+  renderPriority?: number
   onRequestFix?: (errorMessage: string) => void
+  onRenderFailure?: (input: { message: string; persisted: boolean; renderKey?: string }) => void
+  errorMeta?: React.ReactNode
   fixDisabled?: boolean
 }) {
-  const { artifactID, source } = props
+  const { artifactID, source, onRenderFailure } = props
   const [fullscreenOpen, setFullscreenOpen] = useState(false)
   const [copiedErrorDetails, setCopiedErrorDetails] = useState(false)
   const copyResetTimeoutRef = useRef<number | undefined>(undefined)
 
-  const { state } = useMermaidRender({ source, artifactID })
+  const { state } = useMermaidRender({
+    source,
+    artifactID,
+    directory: props.directory,
+    enabled: props.enabled,
+    priority: props.renderPriority,
+  })
 
   useEffect(() => {
     if (state.status !== "error") {
       setCopiedErrorDetails(false)
     }
   }, [state.status])
+
+  useEffect(() => {
+    if (state.status !== "error") {
+      return
+    }
+    onRenderFailure?.({
+      message: state.message,
+      persisted: state.persisted,
+      ...(state.renderKey ? { renderKey: state.renderKey } : {}),
+    })
+  }, [onRenderFailure, state])
 
   useEffect(() => {
     return () => {
@@ -96,12 +182,22 @@ export function MermaidDiagram(props: {
   }, [props.showRawSourceOnError, props.source, state])
 
   const readyValue = state.status === "ready" ? state.value : undefined
+  const errorSummary =
+    state.status === "error" ? summarizeMermaidErrorText(state.message) : undefined
+  const errorMetaSummary =
+    typeof props.errorMeta === "string"
+      ? summarizeMermaidErrorText(props.errorMeta)
+      : props.errorMeta
   const inlineViewport = useMermaidViewport({
     value: readyValue,
     enabled: state.status === "ready",
     canvasPadding: mermaidConstants.viewport.INLINE_CANVAS_PADDING,
     panOverscan: mermaidConstants.viewport.INLINE_PAN_OVERSCAN,
     defaultZoomMode: "responsive",
+    responsiveAutoZoomStrategy: {
+      minimumRenderedHeight: mermaidConstants.viewport.INLINE_AUTO_MIN_RENDERED_HEIGHT,
+      maxViewportWidths: mermaidConstants.viewport.INLINE_AUTO_MAX_VIEWPORT_WIDTHS,
+    },
   })
 
   const actions =
@@ -166,6 +262,13 @@ export function MermaidDiagram(props: {
                 <div className="font-medium text-icon-critical-base">
                   {language.t("chatTools.mermaidDiagram.renderErrorTitle")}
                 </div>
+                {errorSummary ? <div className="text-sm text-text-base">{errorSummary}</div> : null}
+                <div className="text-xs text-text-weak">
+                  {language.t("chatTools.mermaidDiagram.renderErrorDescriptionCompact")}
+                </div>
+                {errorMetaSummary && errorMetaSummary !== errorSummary ? (
+                  <div className="text-xs text-text-weak">{errorMetaSummary}</div>
+                ) : null}
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
                 {props.onRequestFix ? (
@@ -206,14 +309,19 @@ export function MermaidDiagram(props: {
 
           {props.showRawSourceOnError ? (
             <div className="space-y-2">
-              <pre
-                className={
-                  props.rawSourceClassName ??
-                  "max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border-base bg-surface-weak/40 p-3 text-xs text-text-base"
-                }
-              >
-                <code>{props.source}</code>
-              </pre>
+              <details className="rounded-md border border-border-base/50 bg-surface-weak/20">
+                <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-text-weak">
+                  {language.t("chatTools.mermaidDiagram.viewSource")}
+                </summary>
+                <pre
+                  className={
+                    props.rawSourceClassName ??
+                    "max-h-80 overflow-auto whitespace-pre-wrap break-words border-t border-border-base/50 p-3 text-xs text-text-base"
+                  }
+                >
+                  <code>{props.source}</code>
+                </pre>
+              </details>
             </div>
           ) : null}
         </div>

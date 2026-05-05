@@ -1,38 +1,41 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ToolErrorPanel } from "../../../tools/tool-error-panel"
 import { MermaidDiagram } from "./mermaid-diagram"
 import { MermaidToolCard } from "./mermaid-tool-card"
 import { language } from "@/context/language"
-import { isRecord, readNonEmptyString, readNonNegativeInt } from "../../../tools/types"
+import { isRecord, readNonEmptyString } from "../../../tools/types"
 import { unwrapError } from "../../../utils/error"
-import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 import { sendPrompt } from "@/state/chat-actions"
 import { useChatStore } from "@/state/chat-store"
 import type { ToolPartProps } from "../../registry"
 import type { AssistantMessageInfo, MessagePart, MessageWithParts } from "@/state/chat-types"
-interface RenderMermaidToolOutput {
+import {
+  readMermaidArtifact,
+  readMermaidAutoRepairStatus,
+  startMermaidAutoRepair,
+  type MermaidArtifactRecord,
+  type MermaidRepairStartResponse,
+} from "./lib/persisted-renders"
+import { findSupersedingMermaidArtifactID } from "./lib/supersession"
+
+type RenderMermaidToolOutput = {
   artifactID: string
   artifactUrl: string
   source: string
+  sourceHash: string
   diagramType: string
-  repairAttempts: number
-  repairLog: string[]
   alt: string
   caption?: string
+  supersedesArtifactID?: string
 }
 
 type RenderMermaidToolReference = Omit<RenderMermaidToolOutput, "source"> & {
   source?: string
 }
 
-type MermaidArtifactRoutePayload = {
-  artifactID: string
-  diagramType: string
-  alt: string
-  caption?: string
-  repairAttempts: number
-  repairLog: string[]
-  source: string
+type RenderMermaidToolSources = {
+  artifactSource?: string
+  inputSource?: string
 }
 
 type MermaidFixPromptTarget = {
@@ -43,11 +46,53 @@ type MermaidFixPromptTarget = {
   }
 }
 
-const MERMAID_ARTIFACT_CACHE_LIMIT = 200
-const mermaidArtifactCache = new Map<string, MermaidArtifactRoutePayload>()
-const mermaidArtifactRequests = new Map<string, Promise<MermaidArtifactRoutePayload>>()
+type MermaidRenderFailure = {
+  message: string
+  persisted: boolean
+  renderKey?: string
+}
 
-function touchMermaidArtifactCache(key: string, value: MermaidArtifactRoutePayload): void {
+export function shouldStartMermaidAutoRepair(input: {
+  artifact: Pick<MermaidArtifactRecord, "autoRepair" | "origin"> | undefined
+  directory?: string
+  renderFailure?: MermaidRenderFailure
+}): boolean {
+  return (
+    !!input.directory &&
+    !!input.artifact &&
+    !!input.renderFailure?.renderKey &&
+    input.artifact.origin.kind === "tool" &&
+    input.artifact.autoRepair.status === "eligible"
+  )
+}
+
+type MermaidRepairState =
+  | {
+      status: "idle"
+    }
+  | {
+      status: "running"
+      repairRequestID: string
+    }
+  | {
+      status: "succeeded"
+      replacementArtifactID: string
+    }
+  | {
+      status: "exhausted"
+      lastErrorMessage: string
+    }
+  | {
+      status: "ineligible"
+      lastErrorMessage: string
+    }
+
+const MERMAID_ARTIFACT_CACHE_LIMIT = 200
+const MERMAID_AUTO_REPAIR_POLL_INTERVAL_MS = 1_000
+const mermaidArtifactCache = new Map<string, MermaidArtifactRecord>()
+const mermaidArtifactRequests = new Map<string, Promise<MermaidArtifactRecord>>()
+
+function touchMermaidArtifactCache(key: string, value: MermaidArtifactRecord): void {
   mermaidArtifactCache.delete(key)
   mermaidArtifactCache.set(key, value)
 
@@ -69,7 +114,7 @@ function parseRenderMermaidReference(
   }
 
   const value = isRecord(state.metadata.value) ? state.metadata.value : undefined
-  if (!value) {
+  if (!value || readNonEmptyString(value.kind) !== "mermaid.v2") {
     return undefined
   }
 
@@ -81,11 +126,9 @@ function parseRenderMermaidReference(
     readNonEmptyString(value.diagramType) ?? language.t("chatTools.defaultMermaidType")
   const alt = readNonEmptyString(value.alt) ?? language.t("chatTools.defaultMermaidAlt")
   const caption = readNonEmptyString(value.caption)
-  const repairAttempts = readNonNegativeInt(value.repairAttempts) ?? 0
   const source = readNonEmptyString(value.source)
-  const repairLog = Array.isArray(value.repairLog)
-    ? value.repairLog.filter((entry): entry is string => typeof entry === "string")
-    : []
+  const sourceHash = readNonEmptyString(value.sourceHash) ?? ""
+  const supersedesArtifactID = readNonEmptyString(value.supersedesArtifactID)
 
   if (!artifactID) {
     return undefined
@@ -95,11 +138,11 @@ function parseRenderMermaidReference(
     artifactID,
     artifactUrl,
     source,
+    sourceHash,
     diagramType,
-    repairAttempts,
-    repairLog,
     alt,
     ...(caption ? { caption } : {}),
+    ...(supersedesArtifactID ? { supersedesArtifactID } : {}),
   }
 }
 
@@ -115,48 +158,26 @@ export function parseRenderMermaidOutput(
     artifactID: parsed.artifactID,
     artifactUrl: parsed.artifactUrl,
     source: parsed.source,
+    sourceHash: parsed.sourceHash,
     diagramType: parsed.diagramType,
-    repairAttempts: parsed.repairAttempts,
-    repairLog: [...parsed.repairLog],
     alt: parsed.alt,
     ...(parsed.caption ? { caption: parsed.caption } : {}),
+    ...(parsed.supersedesArtifactID ? { supersedesArtifactID: parsed.supersedesArtifactID } : {}),
   }
 }
 
-function parseMermaidArtifactResponse(value: unknown): MermaidArtifactRoutePayload | undefined {
-  if (!isRecord(value)) {
-    return undefined
-  }
-
-  const artifactID = readNonEmptyString(value.artifactID)
-  const diagramType = readNonEmptyString(value.diagramType)
-  const alt = readNonEmptyString(value.alt)
-  const caption = readNonEmptyString(value.caption)
-  const repairAttempts = readNonNegativeInt(value.repairAttempts)
-  const source = readNonEmptyString(value.source)
-  const repairLog = Array.isArray(value.repairLog)
-    ? value.repairLog.filter((entry): entry is string => typeof entry === "string")
-    : []
-
-  if (!artifactID || !diagramType || !alt || repairAttempts === undefined || !source) {
-    return undefined
-  }
-
+export function parseRenderMermaidSources(state: ToolPartProps["state"]): RenderMermaidToolSources {
+  const parsed = parseRenderMermaidReference(state)
   return {
-    artifactID,
-    diagramType,
-    alt,
-    repairAttempts,
-    repairLog,
-    source,
-    ...(caption ? { caption } : {}),
+    artifactSource: parsed?.source,
+    inputSource: readNonEmptyString(state.input.source),
   }
 }
 
 async function fetchMermaidArtifact(
   directory: string,
   artifactID: string,
-): Promise<MermaidArtifactRoutePayload> {
+): Promise<MermaidArtifactRecord> {
   const key = `${directory}::${artifactID}`
   const cached = mermaidArtifactCache.get(key)
   if (cached) {
@@ -169,17 +190,10 @@ async function fetchMermaidArtifact(
     return existing
   }
 
-  const request = getBuddyClient(directory)
-    .mermaidArtifacts.read({
-      artifactID,
-    })
-    .then((result) => {
-      const payload = parseMermaidArtifactResponse(requireBuddyData(result))
-      if (!payload) {
-        throw new Error(language.t("chatTools.mermaidArtifactMissingFields"))
-      }
-      touchMermaidArtifactCache(key, payload)
-      return payload
+  const request = readMermaidArtifact(directory, artifactID)
+    .then((artifact) => {
+      touchMermaidArtifactCache(key, artifact)
+      return artifact
     })
     .finally(() => {
       mermaidArtifactRequests.delete(key)
@@ -216,19 +230,25 @@ function inferMermaidDiagramTypeFromSource(source: string | undefined): string |
 }
 
 function formatMermaidFixFeedback(input: {
+  artifactID: string
   alt: string
   errorMessage: string
+  failedRenderKey?: string
   source: string
 }): string {
   return [
-    `The mermaid diagram (alt: "${input.alt}") failed to render on the frontend.`,
+    `The mermaid diagram (alt: "${input.alt}") failed to render in the browser.`,
     "",
-    `Frontend render error: ${input.errorMessage}`,
+    `Artifact ID: ${input.artifactID}`,
+    ...(input.failedRenderKey ? [`Failed render key: ${input.failedRenderKey}`, ""] : []),
+    `Browser render error: ${input.errorMessage}`,
     "",
     "Failed source:",
+    "```mermaid",
     input.source,
+    "```",
     "",
-    "Please fix the mermaid source addressing this error and call render_mermaid again.",
+    `Please fix the Mermaid source and call render_mermaid exactly once with repairOfArtifactID: "${input.artifactID}".`,
   ].join("\n")
 }
 
@@ -243,14 +263,7 @@ function resolveMermaidFixPromptTarget(
   directory: string,
   part: MessagePart,
 ): MermaidFixPromptTarget | undefined {
-  const directoryState = useChatStore.getState().directories[directory]
-  if (!directoryState) {
-    return undefined
-  }
-
-  const messages =
-    directoryState.messagesBySessionID?.[part.sessionID] ??
-    (directoryState.sessionID === part.sessionID ? directoryState.messages : [])
+  const messages = selectSessionMessages(directory, part.sessionID)
   const assistantMessage = resolveAssistantMessage(messages, part)
   if (!assistantMessage) {
     return undefined
@@ -262,6 +275,48 @@ function resolveMermaidFixPromptTarget(
       providerID: assistantMessage.info.providerID,
       modelID: assistantMessage.info.modelID,
     },
+  }
+}
+
+function selectSessionMessages(directory: string, sessionID: string): MessageWithParts[] {
+  const directoryState = useChatStore.getState().directories[directory]
+  if (!directoryState) {
+    return []
+  }
+
+  return (
+    directoryState.messagesBySessionID?.[sessionID] ??
+    (directoryState.sessionID === sessionID ? directoryState.messages : [])
+  )
+}
+
+function repairStateFromArtifact(artifact: MermaidArtifactRecord | undefined): MermaidRepairState {
+  if (!artifact) {
+    return { status: "idle" }
+  }
+  switch (artifact.autoRepair.status) {
+    case "running":
+      return {
+        status: "running",
+        repairRequestID: artifact.autoRepair.repairRequestID,
+      }
+    case "succeeded":
+      return {
+        status: "succeeded",
+        replacementArtifactID: artifact.autoRepair.replacementArtifactID,
+      }
+    case "exhausted":
+      return {
+        status: "exhausted",
+        lastErrorMessage: artifact.autoRepair.lastErrorMessage,
+      }
+    case "not_needed":
+      return {
+        status: "ineligible",
+        lastErrorMessage: language.t("chatTools.mermaidDiagram.renderFixRequest"),
+      }
+    default:
+      return { status: "idle" }
   }
 }
 
@@ -277,12 +332,27 @@ function RenderMermaidToolCard({ part, state, info, directory }: ToolPartProps) 
   const pendingDiagramType = inferMermaidDiagramTypeFromSource(pendingSource)
   const parsed = state.status === "completed" ? parseRenderMermaidReference(state) : undefined
   const parsedArtifactID = parsed?.artifactID
-  const parsedSource = parsed?.source
-  const parsedKey = parsed ? `${parsed.artifactID}:${parsedSource ?? ""}` : ""
 
-  const [rehydrated, setRehydrated] = useState<MermaidArtifactRoutePayload | undefined>(undefined)
+  const [rehydrated, setRehydrated] = useState<MermaidArtifactRecord | undefined>(undefined)
   const [rehydrationError, setRehydrationError] = useState<string | undefined>(undefined)
   const [fixRequested, setFixRequested] = useState(false)
+  const [repairState, setRepairState] = useState<MermaidRepairState>({ status: "idle" })
+  const [renderFailure, setRenderFailure] = useState<MermaidRenderFailure | undefined>(undefined)
+  const startedRepairRef = useRef<string | undefined>(undefined)
+  const artifactSessionID = rehydrated?.origin.sessionID ?? part.sessionID
+  const sessionMessages = useChatStore((store) => {
+    if (!directory || !artifactSessionID) {
+      return []
+    }
+    const directoryState = store.directories[directory]
+    if (!directoryState) {
+      return []
+    }
+    return (
+      directoryState.messagesBySessionID?.[artifactSessionID] ??
+      (directoryState.sessionID === artifactSessionID ? directoryState.messages : [])
+    )
+  })
 
   useEffect(() => {
     setRehydrated(undefined)
@@ -291,7 +361,7 @@ function RenderMermaidToolCard({ part, state, info, directory }: ToolPartProps) 
     if (state.status !== "completed") {
       return
     }
-    if (!parsedKey || parsedSource || !parsedArtifactID) {
+    if (!parsedArtifactID) {
       return
     }
     if (!directory) {
@@ -313,32 +383,178 @@ function RenderMermaidToolCard({ part, state, info, directory }: ToolPartProps) 
     return () => {
       cancelled = true
     }
-  }, [directory, parsedArtifactID, parsedKey, parsedSource, state.status])
+  }, [directory, parsedArtifactID, state.status])
 
-  const resolvedSource = parsedSource ?? rehydrated?.source
-  const resolvedAlt = parsedSource ? parsed?.alt : (rehydrated?.alt ?? parsed?.alt)
+  const artifact = rehydrated
 
-  const handleRequestFix = useCallback(
-    (errorMessage: string) => {
-      if (!directory || fixRequested || !resolvedSource || !resolvedAlt) return
-      setFixRequested(true)
-      const feedback = formatMermaidFixFeedback({
-        alt: resolvedAlt,
-        errorMessage,
-        source: resolvedSource,
+  useEffect(() => {
+    setRepairState(repairStateFromArtifact(artifact))
+  }, [artifact])
+
+  useEffect(() => {
+    if (!shouldStartMermaidAutoRepair({ artifact, directory, renderFailure })) {
+      return
+    }
+    const renderKey = renderFailure?.renderKey
+    if (!directory || !artifact || !renderKey) {
+      return
+    }
+    if (artifact.origin.kind !== "tool" || artifact.autoRepair.status !== "eligible") {
+      return
+    }
+
+    const repairKey = `${artifact.artifactID}:${renderKey}`
+    if (startedRepairRef.current === repairKey) {
+      return
+    }
+    startedRepairRef.current = repairKey
+
+    void startMermaidAutoRepair({
+      artifactID: artifact.artifactID,
+      directory,
+      failedRenderKey: renderKey,
+      sessionID: artifact.origin.sessionID,
+    })
+      .then((response: MermaidRepairStartResponse) => {
+        if (response.status === "running") {
+          setRepairState({
+            status: "running",
+            repairRequestID: response.repairRequestID,
+          })
+          return
+        }
+        setRepairState({
+          status: "exhausted",
+          lastErrorMessage:
+            response.lastErrorMessage ?? language.t("chatTools.mermaidDiagram.renderErrorDefault"),
+        })
       })
-      void sendPrompt(directory, feedback, resolveMermaidFixPromptTarget(directory, part)).catch(
-        () => {
-          setFixRequested(false)
-        },
-      )
-    },
-    [directory, fixRequested, part, resolvedSource, resolvedAlt],
-  )
+      .catch((error) => {
+        setRepairState({
+          status: "exhausted",
+          lastErrorMessage: error instanceof Error ? error.message : String(error),
+        })
+      })
+  }, [artifact, directory, renderFailure])
+
+  useEffect(() => {
+    if (repairState.status !== "running" || !directory || !artifact) {
+      return
+    }
+
+    let cancelled = false
+    const interval = window.setInterval(() => {
+      void readMermaidAutoRepairStatus({
+        directory,
+        repairRequestID: repairState.repairRequestID,
+        sessionID: artifact.origin.sessionID,
+      })
+        .then((status) => {
+          if (cancelled) {
+            return
+          }
+          if (status.status === "running") {
+            return
+          }
+          setRepairState(
+            status.status === "succeeded" && status.replacementArtifactID
+              ? {
+                  status: "succeeded",
+                  replacementArtifactID: status.replacementArtifactID,
+                }
+              : {
+                  status: "exhausted",
+                  lastErrorMessage:
+                    status.lastErrorMessage ??
+                    language.t("chatTools.mermaidDiagram.renderErrorDefault"),
+                },
+          )
+        })
+        .catch(() => {
+          if (cancelled) {
+            return
+          }
+          setRepairState({
+            status: "exhausted",
+            lastErrorMessage: language.t("chatTools.mermaidDiagram.renderErrorDefault"),
+          })
+        })
+    }, MERMAID_AUTO_REPAIR_POLL_INTERVAL_MS)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+    }
+  }, [artifact, directory, repairState])
+
+  const source = parsed?.source ?? artifact?.source
+  const diagramType = parsed?.diagramType ?? artifact?.diagramType ?? pendingDiagramType
+  const alt = parsed?.alt ?? artifact?.alt ?? pendingAlt
+  const currentArtifactID = parsed?.artifactID ?? artifact?.artifactID
+  const supersedingArtifactID = useMemo(() => {
+    if (!currentArtifactID) {
+      return undefined
+    }
+    return findSupersedingMermaidArtifactID(sessionMessages, currentArtifactID)
+  }, [currentArtifactID, sessionMessages])
+
+  const handleRenderFailure = useCallback((failure: MermaidRenderFailure) => {
+    setRenderFailure(failure)
+  }, [])
+
+  const handleRequestFix = useCallback(() => {
+    if (!directory || fixRequested || !source || !alt) return
+    const artifactID = parsed?.artifactID ?? artifact?.artifactID
+    if (!artifactID) return
+    setFixRequested(true)
+    const feedback = formatMermaidFixFeedback({
+      artifactID,
+      alt,
+      errorMessage:
+        renderFailure?.message ?? language.t("chatTools.mermaidDiagram.renderErrorDefault"),
+      failedRenderKey: renderFailure?.renderKey,
+      source,
+    })
+    void sendPrompt(directory, feedback, resolveMermaidFixPromptTarget(directory, part)).catch(
+      () => {
+        setFixRequested(false)
+      },
+    )
+  }, [
+    alt,
+    artifact?.artifactID,
+    directory,
+    fixRequested,
+    parsed?.artifactID,
+    part,
+    renderFailure,
+    source,
+  ])
+
+  const canRequestFix =
+    !!directory &&
+    !!source &&
+    !!renderFailure &&
+    repairState.status !== "running" &&
+    repairState.status !== "succeeded" &&
+    !supersedingArtifactID &&
+    (repairState.status === "exhausted" || repairState.status === "ineligible")
+
+  const errorMeta =
+    repairState.status === "running"
+      ? language.t("chatTools.mermaidDiagram.repairing")
+      : repairState.status === "exhausted"
+        ? repairState.lastErrorMessage
+        : undefined
 
   if (running) {
     return (
-      <MermaidToolCard title={pendingAlt} diagramType={pendingDiagramType} status={state.status}>
+      <MermaidToolCard
+        title={pendingAlt}
+        diagramType={pendingDiagramType}
+        status={state.status}
+        contentClassName="h-[32rem]"
+      >
         <div
           data-component="mermaid-tool-loading"
           role="status"
@@ -367,78 +583,52 @@ function RenderMermaidToolCard({ part, state, info, directory }: ToolPartProps) 
     )
   }
 
-  const source = parsedSource ?? rehydrated?.source
-  const diagramType = parsedSource
-    ? parsed.diagramType
-    : (rehydrated?.diagramType ?? parsed.diagramType)
-  const alt = parsedSource ? parsed.alt : (rehydrated?.alt ?? parsed.alt)
-  const repairLog = parsed.repairLog.length > 0 ? parsed.repairLog : (rehydrated?.repairLog ?? [])
-  const isRehydrating =
-    state.status === "completed" &&
-    !source &&
-    !!parsedArtifactID &&
-    !!directory &&
-    !rehydrationError &&
-    !rehydrated
-
-  const errorElements = (
-    <>
-      {isRehydrating ? (
-        <div className="p-4 text-sm text-text-weak">
-          {language.t("chatTools.rehydratingMermaid")}
-        </div>
-      ) : null}
-
-      {!source && !isRehydrating ? (
-        <div className="p-4 text-sm bg-surface-critical-base/10 text-icon-critical-base">
-          {language.t("chatTools.mermaidSourceUnavailable")}
-        </div>
-      ) : null}
-
-      {rehydrationError ? (
-        <div className="px-4 pb-3 pt-1 text-sm text-text-weak">{rehydrationError}</div>
-      ) : null}
-
-      {repairLog.length > 0 ? (
-        <div className="px-4 pb-3 pt-1 text-xs text-text-weak">{repairLog.join(" ")}</div>
-      ) : null}
-
-      {state.status === "error" && showOutput ? <ToolErrorPanel error={output} /> : null}
-    </>
-  )
-
-  if (source) {
+  if (repairState.status === "succeeded" || supersedingArtifactID) {
     return (
-      <MermaidDiagram
-        source={source}
-        artifactID={parsed.artifactID}
-        alt={alt}
-        hideLoadingPlaceholder
-        className="h-full p-4"
-        showRawSourceOnError
-        onRequestFix={directory ? handleRequestFix : undefined}
-        fixDisabled={fixRequested}
-        renderWrapper={(diagramElement, actions) => (
-          <MermaidToolCard
-            title={alt}
-            diagramType={diagramType}
-            status={state.status}
-            hideStatus
-            actions={actions}
-            contentClassName="h-[32rem]"
-          >
-            {diagramElement}
-            {errorElements}
-          </MermaidToolCard>
-        )}
-      />
+      <MermaidToolCard title={alt} diagramType={diagramType} hideStatus>
+        <div className="p-4 text-sm text-text-weak">
+          {language.t("chatTools.mermaidDiagram.replaced")}
+        </div>
+      </MermaidToolCard>
+    )
+  }
+
+  if (!source) {
+    return (
+      <MermaidToolCard title={alt} diagramType={diagramType} hideStatus>
+        <div className="p-4 text-sm text-text-weak">
+          {rehydrationError ?? language.t("chatTools.mermaidSourceUnavailable")}
+        </div>
+      </MermaidToolCard>
     )
   }
 
   return (
-    <MermaidToolCard title={alt} diagramType={diagramType} status={state.status} hideStatus>
-      {errorElements}
-    </MermaidToolCard>
+    <MermaidDiagram
+      directory={directory}
+      source={source}
+      artifactID={parsed.artifactID}
+      alt={alt}
+      hideLoadingPlaceholder
+      renderPriority={0}
+      className="h-full p-4"
+      showRawSourceOnError
+      errorMeta={errorMeta}
+      onRenderFailure={handleRenderFailure}
+      onRequestFix={canRequestFix ? () => handleRequestFix() : undefined}
+      fixDisabled={fixRequested || repairState.status === "running"}
+      renderWrapper={(diagramElement, actions) => (
+        <MermaidToolCard
+          title={alt}
+          diagramType={diagramType}
+          hideStatus
+          actions={actions}
+          contentClassName="h-[32rem]"
+        >
+          <div className="h-full w-full">{diagramElement}</div>
+        </MermaidToolCard>
+      )}
+    />
   )
 }
 

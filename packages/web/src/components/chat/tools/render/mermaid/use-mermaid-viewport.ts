@@ -19,6 +19,11 @@ type MermaidViewportFitPadding = {
 
 type MermaidDefaultZoomMode = "fit" | "responsive"
 
+type MermaidResponsiveAutoZoomStrategy = {
+  minimumRenderedHeight: number
+  maxViewportWidths: number
+}
+
 type UseMermaidViewportOptions = {
   value: MermaidRenderResult | undefined
   enabled?: boolean
@@ -27,6 +32,7 @@ type UseMermaidViewportOptions = {
   defaultZoomMode?: MermaidDefaultZoomMode
   getFitPadding?: (viewport: MermaidViewportSize) => MermaidViewportFitPadding
   mountSvg?: boolean
+  responsiveAutoZoomStrategy?: MermaidResponsiveAutoZoomStrategy
 }
 
 export type MermaidViewportController = {
@@ -145,6 +151,59 @@ function readViewportSize(viewport: HTMLDivElement | null): MermaidViewportSize 
   }
 }
 
+export function resolveMermaidAutoZoom(input: {
+  defaultZoomMode: MermaidDefaultZoomMode
+  svgBounds: MermaidSvgBounds
+  viewportSize: MermaidViewportSize
+  canvasPadding: number
+  fitPadding?: MermaidViewportFitPadding
+  responsiveAutoZoomStrategy?: MermaidResponsiveAutoZoomStrategy
+}): number {
+  const availableWidth =
+    input.viewportSize.width - (input.fitPadding?.horizontal ?? 0) - input.canvasPadding * 2
+  const availableHeight =
+    input.viewportSize.height - (input.fitPadding?.vertical ?? 0) - input.canvasPadding * 2
+
+  if (
+    availableWidth <= 0 ||
+    availableHeight <= 0 ||
+    input.svgBounds.width <= 0 ||
+    input.svgBounds.height <= 0
+  ) {
+    return mermaidConstants.zoom.DEFAULT
+  }
+
+  const widthFitZoom = availableWidth / input.svgBounds.width
+  const heightFitZoom = availableHeight / input.svgBounds.height
+  const fitZoom =
+    input.defaultZoomMode === "responsive"
+      ? Math.min(mermaidConstants.zoom.DEFAULT, widthFitZoom)
+      : Math.min(widthFitZoom, heightFitZoom, mermaidConstants.zoom.MAX_AUTO_FIT)
+
+  if (
+    input.defaultZoomMode !== "responsive" ||
+    input.responsiveAutoZoomStrategy === undefined ||
+    input.svgBounds.width / input.svgBounds.height < mermaidConstants.zoom.WIDE_DIAGRAM_ASPECT_RATIO
+  ) {
+    return clampZoom(fitZoom)
+  }
+
+  const targetRenderedHeight = Math.min(
+    availableHeight,
+    input.responsiveAutoZoomStrategy.minimumRenderedHeight,
+  )
+  const readableHeightZoom = targetRenderedHeight / input.svgBounds.height
+  const overflowLimitedZoom =
+    (availableWidth * input.responsiveAutoZoomStrategy.maxViewportWidths) / input.svgBounds.width
+
+  return clampZoom(
+    Math.max(
+      fitZoom,
+      Math.min(readableHeightZoom, overflowLimitedZoom, mermaidConstants.zoom.MAX_AUTO_FIT),
+    ),
+  )
+}
+
 function mountSvgMarkup(host: HTMLDivElement | null, result: MermaidRenderResult) {
   if (!host) return
 
@@ -164,6 +223,7 @@ export function useMermaidViewport({
   defaultZoomMode = "fit",
   getFitPadding,
   mountSvg = true,
+  responsiveAutoZoomStrategy,
 }: UseMermaidViewportOptions): MermaidViewportController {
   const [zoom, setZoom] = useState<number>(mermaidConstants.zoom.DEFAULT)
   const [isAutoZoom, setIsAutoZoom] = useState(true)
@@ -196,30 +256,22 @@ export function useMermaidViewport({
     }
 
     const fitPadding = getFitPadding?.(viewportSize) ?? ZERO_FIT_PADDING
-    const availableWidth = viewportSize.width - fitPadding.horizontal - canvasPadding * 2
-    const availableHeight = viewportSize.height - fitPadding.vertical - canvasPadding * 2
-
-    if (availableWidth <= 0 || availableHeight <= 0) {
-      setZoom(mermaidConstants.zoom.DEFAULT)
-      return
-    }
-
-    const nextZoom =
-      defaultZoomMode === "responsive"
-        ? Math.min(mermaidConstants.zoom.DEFAULT, availableWidth / svgBounds.width)
-        : Math.min(
-            availableWidth / svgBounds.width,
-            availableHeight / svgBounds.height,
-            mermaidConstants.zoom.MAX_AUTO_FIT,
-          )
-
-    setZoom(clampZoom(nextZoom))
+    setZoom(
+      resolveMermaidAutoZoom({
+        defaultZoomMode,
+        svgBounds,
+        viewportSize,
+        canvasPadding,
+        fitPadding,
+        responsiveAutoZoomStrategy,
+      }),
+    )
 
     if (!initializedRef.current) {
       initializedRef.current = true
       setIsInitialized(true)
     }
-  }, [canvasPadding, defaultZoomMode, getFitPadding, svgBounds.height, svgBounds.width])
+  }, [canvasPadding, defaultZoomMode, getFitPadding, responsiveAutoZoomStrategy, svgBounds])
 
   const scheduleAutoZoom = useCallback(() => {
     if (!enabled || value === undefined) {

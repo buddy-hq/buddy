@@ -1608,6 +1608,7 @@ function MermaidArtifactPlaceholderCard(props: { artifact: { alt: string; diagra
 }
 
 function LazyMermaidArtifactCard(props: {
+  directory: string
   artifact: {
     artifactID: string
     alt: string
@@ -1617,32 +1618,30 @@ function LazyMermaidArtifactCard(props: {
   initiallyHydrated: boolean
 }) {
   const [hydrated, setHydrated] = useState(props.initiallyHydrated)
+  const [inView, setInView] = useState(props.initiallyHydrated)
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (props.initiallyHydrated) {
       setHydrated(true)
-      return
-    }
-
-    if (hydrated) {
+      setInView(true)
       return
     }
 
     const element = containerRef.current
     if (!element || typeof IntersectionObserver === "undefined") {
       setHydrated(true)
+      setInView(true)
       return
     }
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (!entries.some((entry) => entry.isIntersecting)) {
-          return
+        const visible = entries.some((entry) => entry.isIntersecting)
+        setInView(visible)
+        if (visible) {
+          setHydrated(true)
         }
-
-        setHydrated(true)
-        observer.disconnect()
       },
       {
         root: null,
@@ -1655,15 +1654,18 @@ function LazyMermaidArtifactCard(props: {
     return () => {
       observer.disconnect()
     }
-  }, [hydrated, props.initiallyHydrated])
+  }, [props.initiallyHydrated])
 
   return (
     <div ref={containerRef}>
       {hydrated ? (
         <MermaidDiagram
+          directory={props.directory}
           source={props.artifact.source}
           artifactID={props.artifact.artifactID}
           alt={props.artifact.alt}
+          enabled={inView}
+          renderPriority={1}
           showRawSourceOnError
           minimalActions
           disableRevealAnimation
@@ -1734,6 +1736,7 @@ function DiagramsNotebookShelf(props: {
           : visibleArtifacts.map((artifact, index) => (
               <LazyMermaidArtifactCard
                 key={artifact.artifactID}
+                directory={directory}
                 artifact={artifact}
                 initiallyHydrated={index < eagerHydrationCount}
               />
@@ -1887,7 +1890,13 @@ function DiagramVirtualRowView(props: { row: DiagramVirtualRow }) {
   }
 
   if (row.kind === "artifact") {
-    return <LazyMermaidArtifactCard artifact={row.artifact} initiallyHydrated={row.hydrated} />
+    return (
+      <LazyMermaidArtifactCard
+        directory={row.directory}
+        artifact={row.artifact}
+        initiallyHydrated={row.hydrated}
+      />
+    )
   }
 
   if (row.kind === "show-more") {

@@ -37,6 +37,10 @@ export function MermaidFullscreenDialog({
     panOverscan: mermaidConstants.viewport.FULLSCREEN_PAN_OVERSCAN,
     defaultZoomMode: "responsive",
     mountSvg: false,
+    responsiveAutoZoomStrategy: {
+      minimumRenderedHeight: mermaidConstants.viewport.FULLSCREEN_AUTO_MIN_RENDERED_HEIGHT,
+      maxViewportWidths: mermaidConstants.viewport.FULLSCREEN_AUTO_MAX_VIEWPORT_WIDTHS,
+    },
     getFitPadding: useCallback((viewport: MermaidViewportSize) => {
       return {
         horizontal:

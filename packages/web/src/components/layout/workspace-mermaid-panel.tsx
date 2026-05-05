@@ -62,6 +62,7 @@ function sameIndexes(left: number[], right: number[]) {
 export function WorkspaceMermaidPanel(props: { directory: string }) {
   const [hydratedIndexes, setHydratedIndexes] = useState<number[]>([])
   const [retainedIndexes, setRetainedIndexes] = useState<number[]>([])
+  const [visibleIndexes, setVisibleIndexes] = useState<number[]>([])
   const artifactsListRef = useRef<HTMLDivElement>(null)
   const artifactsQuery = useQuery(workspaceMermaidArtifactsQueryOptions(props.directory))
   const artifacts = artifactsQuery.data?.artifacts ?? []
@@ -102,6 +103,10 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
         visibleIndexes.push(index)
       }
 
+      setVisibleIndexes((current) =>
+        sameIndexes(current, visibleIndexes) ? current : visibleIndexes,
+      )
+
       setHydratedIndexes((current) => {
         const next = mergeRetainedIndexes(current, visibleIndexes, artifacts.length)
         return sameIndexes(current, next) ? current : next
@@ -114,8 +119,11 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
     },
   })
 
-  function renderArtifactCard(artifact: WorkspaceMermaidArtifactView, hydrated: boolean) {
-    if (!hydrated) {
+  function renderArtifactCard(
+    artifact: WorkspaceMermaidArtifactView,
+    input: { hydrated: boolean; visible: boolean },
+  ) {
+    if (!input.hydrated) {
       return (
         <MermaidToolCard
           title={artifact.alt}
@@ -137,9 +145,12 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
 
     return (
       <MermaidDiagram
+        directory={props.directory}
         source={artifact.source}
         artifactID={artifact.artifactID}
         alt={artifact.alt}
+        enabled={input.visible}
+        renderPriority={1}
         showRawSourceOnError
         minimalActions
         disableRevealAnimation
@@ -170,6 +181,11 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
     })
 
     setRetainedIndexes((current) => {
+      const next = current.filter((index) => index < artifacts.length)
+      return sameIndexes(current, next) ? current : next
+    })
+
+    setVisibleIndexes((current) => {
       const next = current.filter((index) => index < artifacts.length)
       return sameIndexes(current, next) ? current : next
     })
@@ -208,6 +224,7 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
                 const artifact = artifacts[virtualRow.index]
                 if (!artifact) return null
                 const hydrated = hydratedIndexes.includes(virtualRow.index)
+                const visible = visibleIndexes.includes(virtualRow.index)
 
                 return (
                   <div
@@ -217,7 +234,7 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
                     className="absolute top-0 left-0 w-full"
                     style={{ transform: `translateY(${virtualRow.start}px)` }}
                   >
-                    {renderArtifactCard(artifact, hydrated)}
+                    {renderArtifactCard(artifact, { hydrated, visible })}
                   </div>
                 )
               })}
@@ -225,7 +242,9 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
           ) : (
             <div className="space-y-4">
               {artifacts.map((artifact) => (
-                <div key={artifact.artifactID}>{renderArtifactCard(artifact, true)}</div>
+                <div key={artifact.artifactID}>
+                  {renderArtifactCard(artifact, { hydrated: true, visible: true })}
+                </div>
               ))}
             </div>
           )}
