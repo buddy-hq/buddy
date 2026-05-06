@@ -62,6 +62,8 @@ export const SIDECAR_HEALTH_TIMEOUT_MS = 30_000
 export const UPDATER_ENABLED = app.isPackaged && CHANNEL !== "dev"
 
 export function resolveAppName(packaged: boolean) {
+  const devInstanceName = process.env.BUDDY_DEV_INSTANCE_NAME?.trim()
+  if (!packaged && devInstanceName) return `${APP_NAMES.dev} — ${devInstanceName}`
   if (!packaged) return APP_NAMES.dev
   return APP_NAMES[CHANNEL]
 }

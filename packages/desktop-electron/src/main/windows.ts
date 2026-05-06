@@ -41,10 +41,13 @@ function resolveBackgroundColor(): string {
 
 function resolveDevBranchName(): string | undefined {
   if (app.isPackaged) return undefined
+  const fromEnv = process.env.BUDDY_DEV_INSTANCE_NAME?.trim()
+  if (fromEnv) return fromEnv
+
   try {
     const result = execFileSync("git", ["branch", "--show-current"], {
       encoding: "utf8",
-      cwd: join(root, "../../.."),
+      cwd: join(root, "../../../.."),
     })
     const branch = result.trim()
     return branch.length > 0 ? branch : undefined
@@ -134,6 +137,7 @@ export function createMainWindow(globals: WindowGlobals) {
   })
 
   state.manage(win)
+  lockWindowTitle(win)
   loadWindow(win, "index.html")
   wireZoom(win)
   injectGlobals(win, globals)
@@ -143,7 +147,9 @@ export function createMainWindow(globals: WindowGlobals) {
 }
 
 export function createLoadingWindow(globals: WindowGlobals) {
+  const title = resolveWindowTitle()
   const win = new BrowserWindow({
+    title,
     width: 640,
     height: 480,
     resizable: false,
@@ -165,11 +171,21 @@ export function createLoadingWindow(globals: WindowGlobals) {
     },
   })
 
+  lockWindowTitle(win)
   loadWindow(win, "loading.html")
   injectGlobals(win, globals)
   setTitlebar(win)
 
   return win
+}
+
+function lockWindowTitle(win: BrowserWindow) {
+  const title = resolveWindowTitle()
+  win.setTitle(title)
+  win.webContents.on("page-title-updated", (event) => {
+    event.preventDefault()
+    win.setTitle(title)
+  })
 }
 
 function loadWindow(win: BrowserWindow, htmlFile: string) {
@@ -193,6 +209,7 @@ function injectGlobals(win: BrowserWindow, globals: WindowGlobals) {
       deepLinks: Array.isArray(deepLinks) ? [...deepLinks] : [],
       version: globals.version,
       assetBaseUrl,
+      devInstanceName: resolveDevBranchName(),
       ...(globals.iconUrl || resolvedIconUrl
         ? { iconUrl: globals.iconUrl ?? resolvedIconUrl }
         : {}),

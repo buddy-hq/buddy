@@ -2292,6 +2292,17 @@ function parseRelativeHref(href: string) {
   }
 }
 
+function readDevInstanceName(): string | undefined {
+  const buddyGlobals = Reflect.get(window, "__BUDDY__")
+  if (!buddyGlobals || typeof buddyGlobals !== "object") return undefined
+
+  const value = Reflect.get(buddyGlobals, "devInstanceName")
+  if (typeof value !== "string") return undefined
+
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : undefined
+}
+
 export function BuddyDevTools() {
   const [buddyOpen, setBuddyOpen] = useState(false)
   const [routerOpen, setRouterOpen] = useState(false)
@@ -2319,6 +2330,7 @@ export function BuddyDevTools() {
   const navigate = useNavigate()
   const location = useLocation()
   const pathname = location.pathname
+  const devInstanceName = readDevInstanceName()
 
   const onboardingToggleLabel =
     pathname === "/onboarding"
@@ -2403,85 +2415,91 @@ export function BuddyDevTools() {
       {routerOpen && <TanStackRouterDevtools position="bottom-left" />}
 
       {/* Unified trigger bar at bottom right */}
-      <div className="fixed bottom-3 right-3 z-[9999] flex items-center gap-1 rounded-lg border border-border-base bg-background-base px-1.5 py-1 shadow-xl">
-        <ContextMenu>
-          <ContextMenuTrigger asChild>
-            <button
-              type="button"
-              onClick={() => setBuddyOpen((v) => !v)}
-              className={`flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium transition-colors ${
-                buddyOpen
-                  ? "bg-surface-raised-base text-text-strong"
-                  : "text-text-weak hover:bg-surface-base-hover hover:text-text-base"
-              }`}
-              title="Buddy DevTools"
+      <div className="fixed bottom-3 right-3 z-[9999] flex flex-col items-end gap-1.5">
+        {devInstanceName ? (
+          <div className="max-w-72 truncate rounded-md border border-border-base bg-background-base/95 px-2 py-1 text-[11px] font-medium text-text-weak shadow-xl">
+            {devInstanceName}
+          </div>
+        ) : null}
+        <div className="flex items-center gap-1 rounded-lg border border-border-base bg-background-base px-1.5 py-1 shadow-xl">
+          <ContextMenu>
+            <ContextMenuTrigger asChild>
+              <button
+                type="button"
+                onClick={() => setBuddyOpen((v) => !v)}
+                className={`flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium transition-colors ${
+                  buddyOpen
+                    ? "bg-surface-raised-base text-text-strong"
+                    : "text-text-weak hover:bg-surface-base-hover hover:text-text-base"
+                }`}
+                title="Buddy DevTools"
+              >
+                <BugIcon className="size-3.5" />
+                <span>Buddy</span>
+              </button>
+            </ContextMenuTrigger>
+            <ContextMenuContent>
+              <ContextMenuItem disabled={!sessionTrace} onClick={handleCopySessionTrace}>
+                <CopyIcon className="mr-2 size-3.5" />
+                Copy Session Trace
+              </ContextMenuItem>
+            </ContextMenuContent>
+          </ContextMenu>
+          <div className="h-4 w-px bg-border-weaker-base" />
+          <button
+            type="button"
+            onClick={() => setRouterOpen((v) => !v)}
+            className={`flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium transition-colors ${
+              routerOpen
+                ? "bg-surface-raised-base text-text-strong"
+                : "text-text-weak hover:bg-surface-base-hover hover:text-text-base"
+            }`}
+            title="Router DevTools"
+          >
+            <svg
+              className="size-3.5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             >
-              <BugIcon className="size-3.5" />
-              <span>Buddy</span>
-            </button>
-          </ContextMenuTrigger>
-          <ContextMenuContent>
-            <ContextMenuItem disabled={!sessionTrace} onClick={handleCopySessionTrace}>
-              <CopyIcon className="mr-2 size-3.5" />
-              Copy Session Trace
-            </ContextMenuItem>
-          </ContextMenuContent>
-        </ContextMenu>
-        <div className="h-4 w-px bg-border-weaker-base" />
-        <button
-          type="button"
-          onClick={() => setRouterOpen((v) => !v)}
-          className={`flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium transition-colors ${
-            routerOpen
-              ? "bg-surface-raised-base text-text-strong"
-              : "text-text-weak hover:bg-surface-base-hover hover:text-text-base"
-          }`}
-          title="Router DevTools"
-        >
-          <svg
-            className="size-3.5"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+              <circle cx="12" cy="12" r="3" />
+              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+            </svg>
+            <span>Router</span>
+          </button>
+          <div className="h-4 w-px bg-border-weaker-base" />
+          <button
+            type="button"
+            onClick={() => {
+              setBuddyOpen(true)
+              setActiveTab("query")
+            }}
+            className={`flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium transition-colors ${
+              buddyOpen && activeTab === "query"
+                ? "bg-surface-raised-base text-text-strong"
+                : "text-text-weak hover:bg-surface-base-hover hover:text-text-base"
+            }`}
+            title="Query DevTools"
           >
-            <circle cx="12" cy="12" r="3" />
-            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-          </svg>
-          <span>Router</span>
-        </button>
-        <div className="h-4 w-px bg-border-weaker-base" />
-        <button
-          type="button"
-          onClick={() => {
-            setBuddyOpen(true)
-            setActiveTab("query")
-          }}
-          className={`flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium transition-colors ${
-            buddyOpen && activeTab === "query"
-              ? "bg-surface-raised-base text-text-strong"
-              : "text-text-weak hover:bg-surface-base-hover hover:text-text-base"
-          }`}
-          title="Query DevTools"
-        >
-          <svg
-            className="size-3.5"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8Z" />
-            <path d="M12 6v6l4 2" />
-          </svg>
-          <span>Query</span>
-        </button>
+            <svg
+              className="size-3.5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8Z" />
+              <path d="M12 6v6l4 2" />
+            </svg>
+            <span>Query</span>
+          </button>
+        </div>
       </div>
-
       {/* Buddy panel */}
       {buddyOpen && (
         <div

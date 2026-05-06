@@ -15,6 +15,7 @@ declare global {
       version?: string
       assetBaseUrl?: string
       iconUrl?: string
+      devInstanceName?: string
     }
   }
 }

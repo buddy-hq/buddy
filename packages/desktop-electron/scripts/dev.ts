@@ -21,6 +21,20 @@ const repoRoot = path.resolve(packageRoot, "..", "..")
 const electronViteBinPath = path.resolve(packageRoot, "node_modules/.bin/electron-vite")
 const electronBinaryPathFragment = path.join(repoRoot, "node_modules/.bun/electron@")
 
+function resolveDevInstanceName() {
+  try {
+    const result = execFileSync("git", ["branch", "--show-current"], {
+      encoding: "utf8",
+      cwd: repoRoot,
+    })
+    const branch = result.trim()
+    if (!branch || branch === "main" || branch === "master") return undefined
+    return branch
+  } catch {
+    return undefined
+  }
+}
+
 function resolveShellPath() {
   if (process.platform === "win32") return process.env.PATH
 
@@ -75,6 +89,8 @@ function killStaleDesktopDevProcesses() {
 
 killStaleDesktopDevProcesses()
 
+const devInstanceName = resolveDevInstanceName()
+
 const child = spawn(DEV_COMMAND, DEV_ARGUMENTS, {
   stdio: "inherit",
   detached: SHOULD_DETACH_CHILD,
@@ -82,6 +98,7 @@ const child = spawn(DEV_COMMAND, DEV_ARGUMENTS, {
   env: {
     ...process.env,
     PATH: resolveShellPath(),
+    ...(devInstanceName ? { BUDDY_DEV_INSTANCE_NAME: devInstanceName } : {}),
   },
 })
 
