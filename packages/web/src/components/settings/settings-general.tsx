@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   Button,
   Select,
@@ -11,7 +12,10 @@ import {
 } from "@buddy/ui"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
+import { pickProjectDirectory } from "@/lib/directory-picker"
 import { useGeneralSettings } from "@/state/general-settings"
+import { saveNotebookHome } from "@/state/chat-actions"
+import { notebookHomeQueryOptions, setNotebookHomeQueryData } from "@/state/bootstrap-query"
 import { showDesktopUpdateToast } from "@/lib/desktop-updates"
 import { useTheme, type ColorScheme } from "@/theme"
 import { SettingsContent, SettingsListCard, SettingsRow } from "./settings-primitives"
@@ -23,11 +27,15 @@ function isColorScheme(value: string): value is ColorScheme {
 
 export function GeneralSettings({ workbench }: { workbench: SettingsWorkbench }) {
   const platform = usePlatform()
+  const queryClient = useQueryClient()
   const generalSettings = useGeneralSettings({
     cleanupDirectories: workbench.openDirectories,
   })
   const [checkingForUpdates, setCheckingForUpdates] = useState(false)
+  const [changingBuddyHome, setChangingBuddyHome] = useState(false)
   const { themeId, colorScheme, themes, setTheme, setColorScheme } = useTheme()
+  const notebookHomeQuery = useQuery(notebookHomeQueryOptions())
+  const notebookHome = notebookHomeQuery.data
 
   const colorSchemeOptions: ReadonlyArray<{ value: ColorScheme; label: string }> = [
     { value: "system", label: language.t("settings.appearance.colorSchemes.system") },
@@ -82,6 +90,24 @@ export function GeneralSettings({ workbench }: { workbench: SettingsWorkbench })
             ? language.t("settings.appearance.updateDownloadFailed")
             : language.t("settings.appearance.updateCheckFailed"),
         )
+    }
+  }
+
+  async function onChangeBuddyHome() {
+    try {
+      const picked = await pickProjectDirectory()
+      if (!picked) return
+
+      setChangingBuddyHome(true)
+      const nextNotebookHome = await saveNotebookHome(picked)
+      setNotebookHomeQueryData(queryClient, nextNotebookHome)
+      toast.success(language.t("settings.general.buddyHomeSaved"))
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : language.t("settings.general.buddyHomeSaveFailed"),
+      )
+    } finally {
+      setChangingBuddyHome(false)
     }
   }
 
@@ -155,6 +181,32 @@ export function GeneralSettings({ workbench }: { workbench: SettingsWorkbench })
                 disabled={generalSettings.status.loading}
                 aria-label={language.t("settings.general.autoCompactionAria")}
               />
+            </div>
+          }
+        />
+        <SettingsRow
+          title={language.t("settings.general.buddyHomeTitle")}
+          description={language.t("settings.general.buddyHomeDescription")}
+          control={
+            <div className="space-y-2">
+              <Button
+                data-action="settings-change-buddy-home"
+                type="button"
+                size="xs"
+                variant="outline"
+                className="w-full"
+                onClick={() => void onChangeBuddyHome()}
+                disabled={changingBuddyHome || notebookHomeQuery.isPending}
+              >
+                {changingBuddyHome
+                  ? language.t("settings.general.buddyHomeChanging")
+                  : language.t("settings.general.buddyHomeChange")}
+              </Button>
+              {notebookHome?.resolvedDirectory ? (
+                <p className="text-xs text-text-weak break-words">
+                  {notebookHome.resolvedDirectory}
+                </p>
+              ) : null}
             </div>
           }
         />
