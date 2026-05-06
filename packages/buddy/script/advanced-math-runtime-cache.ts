@@ -5,6 +5,7 @@ import { resolveAdvancedMathRuntimeVersion } from "./advanced-math-version"
 
 const BACKEND_DIR = path.resolve(import.meta.dir, "..")
 const DIST_DIR = path.resolve(BACKEND_DIR, "dist/advanced-math-runtime")
+const CACHE_DIR_ENV = "BUDDY_ADVANCED_MATH_RUNTIME_CACHE_DIR"
 const WINDOWS_TARGET_SEGMENT = "windows"
 const ASSET_FILE_EXTENSION = "zip"
 const SHA256_HASH_ALGORITHM = "sha256"
@@ -28,18 +29,32 @@ export function resolveAdvancedMathRuntimeAssetName(
   return `${executableName}-v${version}-${target}.${ASSET_FILE_EXTENSION}`
 }
 
+export function resolveAdvancedMathRuntimeCacheDir() {
+  const fromEnv = process.env[CACHE_DIR_ENV]?.trim()
+  if (fromEnv) {
+    return path.resolve(fromEnv)
+  }
+  return DIST_DIR
+}
+
+export function resolveLocalAdvancedMathRuntimeCacheDir() {
+  return DIST_DIR
+}
+
 export function resolveAdvancedMathRuntimeArchivePath(
   version = resolveAdvancedMathRuntimeVersion(),
   target = resolveAdvancedMathRuntimeTarget(),
+  cacheDir = resolveAdvancedMathRuntimeCacheDir(),
 ) {
-  return path.join(DIST_DIR, target, resolveAdvancedMathRuntimeAssetName(version, target))
+  return path.join(cacheDir, target, resolveAdvancedMathRuntimeAssetName(version, target))
 }
 
 export function resolveAdvancedMathRuntimeChecksumPath(
   version = resolveAdvancedMathRuntimeVersion(),
   target = resolveAdvancedMathRuntimeTarget(),
+  cacheDir = resolveAdvancedMathRuntimeCacheDir(),
 ) {
-  return `${resolveAdvancedMathRuntimeArchivePath(version, target)}.sha256`
+  return `${resolveAdvancedMathRuntimeArchivePath(version, target, cacheDir)}.sha256`
 }
 
 function currentTargetTriple() {

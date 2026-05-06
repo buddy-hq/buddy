@@ -1,9 +1,10 @@
-import { execFileSync, spawn } from "node:child_process"
+import { execFileSync, spawn, spawnSync } from "node:child_process"
 import path from "node:path"
 import treeKill from "tree-kill"
 
 const DEV_COMMAND = "electron-vite"
 const DEV_ARGUMENTS = ["dev"] as const
+const LOGIN_SHELL_PATH_COMMAND = "printf '%s' \"$PATH\""
 const FORCE_KILL_TIMEOUT_MS = 2_000
 const PARENT_EXIT_TIMEOUT_MS = 4_000
 const SHUTDOWN_SIGNALS = ["SIGINT", "SIGTERM", "SIGHUP"] as const
@@ -19,6 +20,22 @@ const packageRoot = path.resolve(import.meta.dir, "..")
 const repoRoot = path.resolve(packageRoot, "..", "..")
 const electronViteBinPath = path.resolve(packageRoot, "node_modules/.bin/electron-vite")
 const electronBinaryPathFragment = path.join(repoRoot, "node_modules/.bun/electron@")
+
+function resolveShellPath() {
+  if (process.platform === "win32") return process.env.PATH
+
+  const shell = process.env.SHELL?.trim()
+  if (!shell) return process.env.PATH
+
+  const result = spawnSync(shell, ["-il", "-c", LOGIN_SHELL_PATH_COMMAND], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "ignore"],
+  })
+
+  const shellPath = result.status === 0 ? result.stdout.trim() : ""
+  return shellPath.length > 0 ? shellPath : process.env.PATH
+}
 
 function killStaleDesktopDevProcesses() {
   try {
@@ -46,6 +63,9 @@ function killStaleDesktopDevProcesses() {
 
       if (!matchesElectronVite && !matchesBuddyElectron) continue
 
+      const isFromCurrentWorktree = command.includes(repoRoot)
+      if (!isFromCurrentWorktree) continue
+
       treeKill(pid, FORCE_KILL_SIGNAL, () => undefined)
     }
   } catch {
@@ -59,6 +79,10 @@ const child = spawn(DEV_COMMAND, DEV_ARGUMENTS, {
   stdio: "inherit",
   detached: SHOULD_DETACH_CHILD,
   shell: process.platform === "win32",
+  env: {
+    ...process.env,
+    PATH: resolveShellPath(),
+  },
 })
 
 function killProcessTree(signal: NodeJS.Signals) {

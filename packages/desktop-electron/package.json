@@ -41,6 +41,7 @@
     "@buddy/ui": "workspace:*",
     "@buddy/web": "workspace:*",
     "@tailwindcss/vite": "^4.1.18",
+    "@tanstack/router-plugin": "^1.167.22",
     "@types/bun": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "^18.2.0",

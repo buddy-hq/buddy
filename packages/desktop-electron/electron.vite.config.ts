@@ -2,7 +2,10 @@ import path from "node:path"
 import { defineConfig } from "electron-vite"
 import react from "@vitejs/plugin-react"
 import tailwindcss from "@tailwindcss/vite"
-import buddyWebVitePlugin from "@buddy/web/vite"
+import { tanstackRouter } from "@tanstack/router-plugin/vite"
+import buddyWebVitePlugin from "../web/vite"
+
+const webDir = path.resolve(__dirname, "../web")
 
 const channel = (() => {
   const raw = process.env.BUDDY_CHANNEL
@@ -33,7 +36,17 @@ export default defineConfig({
     },
   },
   renderer: {
-    plugins: [...buddyWebVitePlugin(), react(), tailwindcss()],
+    plugins: [
+      ...buddyWebVitePlugin(),
+      tanstackRouter({
+        target: "react",
+        routesDirectory: path.resolve(webDir, "src/routes"),
+        generatedRouteTree: path.resolve(webDir, "src/routeTree.gen.ts"),
+        autoCodeSplitting: true,
+      }),
+      react(),
+      tailwindcss(),
+    ],
     root: "src/renderer",
     publicDir: path.resolve(__dirname, "public"),
     build: {

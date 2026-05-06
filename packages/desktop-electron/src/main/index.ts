@@ -82,7 +82,7 @@ function setupApplication() {
   ensureLoopbackNoProxy()
   app.commandLine.appendSwitch("proxy-bypass-list", "<-loopback>")
 
-  if (!app.requestSingleInstanceLock()) {
+  if (app.isPackaged && !app.requestSingleInstanceLock()) {
     app.quit()
     return
   }

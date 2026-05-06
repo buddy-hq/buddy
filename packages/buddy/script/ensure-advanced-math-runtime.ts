@@ -1,3 +1,4 @@
+import fs from "node:fs"
 import path from "node:path"
 import { spawnSync } from "node:child_process"
 import {
@@ -7,16 +8,20 @@ import {
 import {
   outputsAreFresh,
   resolveAdvancedMathRuntimeArchivePath,
+  resolveAdvancedMathRuntimeCacheDir,
   resolveAdvancedMathRuntimeChecksumPath,
   resolveAdvancedMathRuntimeTarget,
+  resolveLocalAdvancedMathRuntimeCacheDir,
 } from "./advanced-math-runtime-cache"
 
 const BACKEND_DIR = path.resolve(import.meta.dir, "..")
 const BUILD_SCRIPT = path.resolve(BACKEND_DIR, "script/build-advanced-math-runtime.ts")
 const VERSION = resolveAdvancedMathRuntimeVersion()
 const TARGET = resolveAdvancedMathRuntimeTarget()
-const ASSET_PATH = resolveAdvancedMathRuntimeArchivePath(VERSION, TARGET)
-const CHECKSUM_PATH = resolveAdvancedMathRuntimeChecksumPath(VERSION, TARGET)
+const LOCAL_CACHE_DIR = resolveLocalAdvancedMathRuntimeCacheDir()
+const LOCAL_ASSET_PATH = resolveAdvancedMathRuntimeArchivePath(VERSION, TARGET, LOCAL_CACHE_DIR)
+const LOCAL_CHECKSUM_PATH = resolveAdvancedMathRuntimeChecksumPath(VERSION, TARGET, LOCAL_CACHE_DIR)
+const CACHE_DIR = resolveAdvancedMathRuntimeCacheDir()
 
 function disabledByEnvironment() {
   const value = process.env.BUDDY_SKIP_ADVANCED_MATH_RUNTIME_AUTO_BUILD?.trim().toLowerCase()
@@ -60,16 +65,40 @@ function runBuild() {
   return false
 }
 
+function copyFromCache() {
+  const cacheAssetPath = resolveAdvancedMathRuntimeArchivePath(VERSION, TARGET, CACHE_DIR)
+  const cacheChecksumPath = resolveAdvancedMathRuntimeChecksumPath(VERSION, TARGET, CACHE_DIR)
+  const cacheResult = outputsAreFresh(cacheAssetPath, cacheChecksumPath)
+
+  if (!cacheResult.fresh) {
+    return false
+  }
+
+  const localDir = path.dirname(LOCAL_ASSET_PATH)
+  fs.mkdirSync(localDir, { recursive: true })
+  fs.copyFileSync(cacheAssetPath, LOCAL_ASSET_PATH)
+  fs.copyFileSync(cacheChecksumPath, LOCAL_CHECKSUM_PATH)
+
+  console.log(`[advanced-math-runtime] copied cached asset from ${CACHE_DIR} for ${TARGET}`)
+  return true
+}
+
 if (disabledByEnvironment()) {
   console.log("[advanced-math-runtime] auto-build disabled by environment")
   process.exit(0)
 }
 
-const cacheResult = outputsAreFresh(ASSET_PATH, CHECKSUM_PATH)
-if (cacheResult.fresh) {
+const localCacheResult = outputsAreFresh(LOCAL_ASSET_PATH, LOCAL_CHECKSUM_PATH)
+if (localCacheResult.fresh) {
   console.log(`[advanced-math-runtime] using cached local asset for ${TARGET}`)
   process.exit(0)
 }
 
-console.log(`[advanced-math-runtime] building local asset for ${TARGET} (${cacheResult.reason})`)
+if (process.env.BUDDY_ADVANCED_MATH_RUNTIME_CACHE_DIR && copyFromCache()) {
+  process.exit(0)
+}
+
+console.log(
+  `[advanced-math-runtime] building local asset for ${TARGET} (${localCacheResult.reason})`,
+)
 runBuild()

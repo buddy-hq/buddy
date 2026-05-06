@@ -1,5 +1,6 @@
 import windowState from "electron-window-state"
 import { app, BrowserWindow, nativeImage, nativeTheme } from "electron"
+import { execFileSync } from "node:child_process"
 import { dirname, join } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import type { TitlebarTheme } from "../preload/types"
@@ -36,6 +37,28 @@ export function getBackgroundColor() {
 function resolveBackgroundColor(): string {
   if (backgroundColor) return backgroundColor
   return nativeTheme.shouldUseDarkColors ? FALLBACK_DARK_BG : FALLBACK_LIGHT_BG
+}
+
+function resolveDevBranchName(): string | undefined {
+  if (app.isPackaged) return undefined
+  try {
+    const result = execFileSync("git", ["branch", "--show-current"], {
+      encoding: "utf8",
+      cwd: join(root, "../../.."),
+    })
+    const branch = result.trim()
+    return branch.length > 0 ? branch : undefined
+  } catch {
+    return undefined
+  }
+}
+
+function resolveWindowTitle(): string {
+  const branch = resolveDevBranchName()
+  if (branch && branch !== "main" && branch !== "master") {
+    return `Buddy Dev — ${branch}`
+  }
+  return "Buddy"
 }
 
 function iconsDirectory() {
@@ -88,7 +111,7 @@ export function createMainWindow(globals: WindowGlobals) {
     width: state.width,
     height: state.height,
     show: true,
-    title: "Buddy",
+    title: resolveWindowTitle(),
     icon: iconPath(),
     backgroundColor: resolveBackgroundColor(),
     ...(process.platform === "darwin"

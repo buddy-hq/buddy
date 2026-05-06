@@ -23,6 +23,7 @@
     "src/main/env.d.ts",
     "electron.vite.config.ts",
     "electron-builder.config.ts",
+    "../web/vite.ts",
     "../web/scripts/create-foliate-pdf-vite-plugin.ts",
     "../../script/desktop-sidecar-targets.ts",
     "../../script/desktop-runtime-resources.ts"

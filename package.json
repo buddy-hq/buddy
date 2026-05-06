@@ -79,6 +79,8 @@
     "dev:desktop": "bun run --cwd packages/desktop-electron dev",
     "dev:desktop:electron": "bun run --cwd packages/desktop-electron dev",
     "dev:all": "(bun run dev & BACKEND_PID=$!; trap \"kill $BACKEND_PID\" EXIT INT TERM; bun run dev:web)",
+    "worktree:create": "bun ./script/worktree-create.ts",
+    "worktree:list": "bun ./script/worktree-list.ts",
     "build": "turbo run build --filter='@buddy/*' --only --output-logs=errors-only",
     "build:desktop": "bun run --cwd packages/desktop-electron build",
     "build:desktop:electron": "bun run --cwd packages/desktop-electron build",
