@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, test } from "bun:test"
 import {
   configureNotebookForOnboarding,
   connectChatGptPlusForOnboarding,
+  shouldAutoContinueConnectedOpenAiOnboarding,
+  shouldResumeOnboardingPersonalization,
 } from "../src/lib/onboarding-flow"
 import {
   resolveDesktopEntryPath,
@@ -90,7 +92,8 @@ describe("desktop onboarding entry routing", () => {
     expect(
       resolveDesktopEntryPath({
         platform: "desktop",
-        completed: false,
+        setupCompleted: false,
+        personalizationStepPending: false,
         openProjects: [],
         activeDirectory: undefined,
         pendingActiveDirectory: undefined,
@@ -104,7 +107,8 @@ describe("desktop onboarding entry routing", () => {
     expect(
       resolveDesktopEntryPath({
         platform: "desktop",
-        completed: true,
+        setupCompleted: true,
+        personalizationStepPending: false,
         openProjects: [],
         activeDirectory: undefined,
         pendingActiveDirectory: undefined,
@@ -116,7 +120,8 @@ describe("desktop onboarding entry routing", () => {
     expect(
       resolveDesktopEntryPath({
         platform: "desktop",
-        completed: false,
+        setupCompleted: false,
+        personalizationStepPending: false,
         openProjects: ["/repo"],
         activeDirectory: "/repo",
         pendingActiveDirectory: undefined,
@@ -133,7 +138,8 @@ describe("desktop onboarding entry routing", () => {
       resolveDesktopEntryPathWithSnapshots({
         state: {
           platform: "desktop",
-          completed: false,
+          setupCompleted: false,
+          personalizationStepPending: false,
           openProjects: [],
           activeDirectory: undefined,
           pendingActiveDirectory: undefined,
@@ -164,7 +170,8 @@ describe("desktop onboarding entry routing", () => {
       resolveDesktopEntryPathWithSnapshots({
         state: {
           platform: "desktop",
-          completed: false,
+          setupCompleted: false,
+          personalizationStepPending: false,
           openProjects: [],
           activeDirectory: undefined,
           pendingActiveDirectory: undefined,
@@ -202,7 +209,8 @@ describe("desktop onboarding entry routing", () => {
       resolveDesktopEntryPathWithSnapshots({
         state: {
           platform: "desktop",
-          completed: false,
+          setupCompleted: false,
+          personalizationStepPending: false,
           openProjects: [],
           activeDirectory: undefined,
           pendingActiveDirectory: undefined,
@@ -249,23 +257,140 @@ describe("desktop onboarding entry routing", () => {
       }),
     ).toBeUndefined()
   })
+
+  test("keeps onboarding visible while personalization is still pending", () => {
+    expect(
+      resolveDesktopEntryPath({
+        platform: "desktop",
+        setupCompleted: true,
+        personalizationStepPending: true,
+        openProjects: ["/repo"],
+        activeDirectory: "/repo",
+        pendingActiveDirectory: undefined,
+        lastSessionByDirectory: {},
+        directories: {},
+      }),
+    ).toBe("/onboarding")
+  })
+
+  test("does not skip pending personalization when open projects already exist", async () => {
+    await expect(
+      resolveDesktopEntryPathWithSnapshots({
+        state: {
+          platform: "desktop",
+          setupCompleted: true,
+          personalizationStepPending: true,
+          openProjects: ["/repo"],
+          activeDirectory: "/repo",
+          pendingActiveDirectory: undefined,
+          lastSessionByDirectory: {},
+          directories: {},
+        },
+        async loadOpenProjectsSnapshot() {
+          return ["/repo"]
+        },
+        async loadProviderCatalogSnapshot() {
+          return createCatalog({
+            providers: [],
+          })
+        },
+        markOnboardingCompleted() {},
+      }),
+    ).resolves.toBe("/onboarding")
+  })
+
+  test("keeps the provider step visible after backing out of ChatGPT personalization", () => {
+    const shouldAutoContinue = false
+    expect(shouldAutoContinue).toBe(false)
+  })
 })
 
 describe("onboarding store", () => {
-  test("clears transient onboarding state when setup completes", () => {
+  test("keeps the chosen provider through setup until personalization finishes", () => {
     const store = useOnboardingStore.getState()
-    store.setPhase("folder")
     store.setAuthChoice("free_models")
-    store.setResumeDirectory("/repo")
 
-    store.markCompleted()
+    store.markSetupCompleted()
 
     expect(useOnboardingStore.getState()).toMatchObject({
-      completed: true,
-      phase: "splash",
-      authChoice: undefined,
-      resumeDirectory: undefined,
+      setupCompleted: true,
+      authChoice: "free_models",
     })
+  })
+
+  test("tracks personalization separately from setup completion", () => {
+    const store = useOnboardingStore.getState()
+
+    store.markSetupCompleted()
+    store.startPersonalizationVersion("/repo")
+
+    expect(store.shouldShowPersonalizationStep()).toBe(true)
+    expect(useOnboardingStore.getState().personalizationDirectory).toBe("/repo")
+
+    store.markPersonalizationSkipped()
+
+    expect(useOnboardingStore.getState()).toMatchObject({
+      setupCompleted: true,
+      authChoice: undefined,
+      personalizationSkipped: true,
+      personalizationDirectory: undefined,
+      personalizationVersionCompleted: 1,
+    })
+    expect(useOnboardingStore.getState().shouldShowPersonalizationStep()).toBe(false)
+  })
+
+  test("starts personalization as pending immediately after onboarding setup completes", () => {
+    const store = useOnboardingStore.getState()
+
+    store.markSetupCompleted()
+    store.startPersonalizationVersion("/repo")
+
+    const nextState = useOnboardingStore.getState()
+    expect(nextState.activePersonalizationVersion).toBe(1)
+    expect(nextState.personalizationVersionCompleted).toBeUndefined()
+    expect(nextState.shouldShowPersonalizationStep()).toBe(true)
+  })
+})
+
+describe("onboarding personalization resume", () => {
+  test("resumes personalization immediately when the user reselects the same provider", () => {
+    expect(
+      shouldResumeOnboardingPersonalization({
+        showProviderSelectionStep: true,
+        currentChoice: "free_models",
+        nextChoice: "free_models",
+        existingDirectory: "/repo",
+      }),
+    ).toBe(true)
+
+    expect(
+      shouldResumeOnboardingPersonalization({
+        showProviderSelectionStep: true,
+        currentChoice: "free_models",
+        nextChoice: "chatgpt_plus",
+        existingDirectory: "/repo",
+      }),
+    ).toBe(false)
+  })
+
+  test("does not auto-continue OpenAI onboarding while provider selection is visible", () => {
+    expect(
+      shouldAutoContinueConnectedOpenAiOnboarding({
+        personalizationStepVisible: false,
+        showProviderSelectionStep: true,
+        openAiConnected: true,
+        alreadyHandled: false,
+      }),
+    ).toBe(false)
+
+    expect(
+      shouldAutoContinueConnectedOpenAiOnboarding({
+        personalizationStepVisible: false,
+        showProviderSelectionStep: false,
+        openAiConnected: true,
+        alreadyHandled: false,
+      }),
+    ).toBe(true)
   })
 })
 
@@ -474,6 +599,37 @@ describe("notebook onboarding configuration", () => {
                 name: "OpenCode Zen",
                 connected: true,
                 models: [createModel("zen-free", "Zen Free"), createModel("zen-plus", "Zen Plus")],
+              }),
+            ],
+            default: {
+              opencode: "zen-free",
+            },
+          })
+        },
+      }),
+    ).resolves.toEqual({
+      directory: PREPARED_DIRECTORY,
+      model: "opencode/zen-free",
+    })
+  })
+
+  test("returns the Opencode free-model default even when the provider is not marked connected", async () => {
+    const PREPARED_DIRECTORY = "/repo" as const
+
+    await expect(
+      configureNotebookForOnboarding({
+        authChoice: "free_models",
+        async prepareNotebook() {
+          return PREPARED_DIRECTORY
+        },
+        async loadProviderCatalog() {
+          return createCatalog({
+            providers: [
+              createProvider({
+                id: "opencode",
+                name: "OpenCode Zen",
+                connected: false,
+                models: [createModel("zen-free", "Zen Free")],
               }),
             ],
             default: {

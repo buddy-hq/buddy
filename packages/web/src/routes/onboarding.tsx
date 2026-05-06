@@ -1,7 +1,16 @@
-import { createFileRoute, redirect, useNavigate, useSearch } from "@tanstack/react-router"
+import { useForm } from "@tanstack/react-form"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { createFileRoute, redirect, useNavigate, useSearch } from "@tanstack/react-router"
+import { Button } from "@buddy/ui"
+import { ArrowLeftIcon } from "lucide-react"
+import { motion, AnimatePresence } from "motion/react"
 import { useEffect, useRef, useState } from "react"
-import { type OnboardingAuthChoice, OnboardingSetup } from "@/components/onboarding"
+import {
+  type OnboardingAuthChoice,
+  OnboardingSetup,
+  OnboardingHeader,
+} from "@/components/onboarding"
+import { SharedPersonalizationFormFields } from "@/components/settings/shared-personalization-form"
 import { language } from "@/context/language"
 import { getPlatform, usePlatform } from "@/context/platform"
 import {
@@ -17,19 +26,22 @@ import {
   isOnboardingTestSearch,
 } from "@/lib/onboarding-test-mode"
 import {
+  configureNotebookForOnboarding,
+  connectChatGptPlusForOnboarding,
+  shouldAutoContinueConnectedOpenAiOnboarding,
+  shouldResumeOnboardingPersonalization,
+} from "@/lib/onboarding-flow"
+import { applyOnboardingModelSelection } from "@/lib/onboarding-model-selection"
+import {
   authorizeProviderOAuth,
   completeProviderOAuth,
   formatProviderAuthError,
   reloadProviderRuntime,
 } from "@/lib/provider-auth"
-import { applyOnboardingModelSelection } from "@/lib/onboarding-model-selection"
-import {
-  configureNotebookForOnboarding,
-  connectChatGptPlusForOnboarding,
-} from "@/lib/onboarding-flow"
 import {
   loadProviderCatalog,
   openInboxNotebook,
+  patchGlobalConfig,
   saveNotebookHome,
   type NotebookHomeState,
 } from "@/state/chat-actions"
@@ -44,6 +56,17 @@ import {
 import { useChatStore } from "@/state/chat-store"
 import type { ProviderCatalogState } from "@/state/chat-types"
 import { useOnboardingStore } from "@/state/onboarding-store"
+import {
+  personalizationSettingsQueryKeys,
+  personalizationSettingsQueryOptions,
+  type PersonalizationSettingsBundle,
+} from "@/state/personalization-settings-query"
+import {
+  EMPTY_PERSONALIZATION_SETTINGS,
+  buildPersonalizationPatch,
+  readPersonalization,
+  shouldResetPersonalizationForm,
+} from "@/state/project-config-readers"
 
 const EMPTY_OPEN_PROJECTS: string[] = []
 const EMPTY_PROVIDER_CATALOG_SNAPSHOT: ProviderCatalogState = {
@@ -56,6 +79,28 @@ const EMPTY_NOTEBOOK_HOME_STATE: NotebookHomeState = {
   resolvedDirectory: "",
   inboxDirectory: "",
   inboxName: "Inbox",
+}
+
+const EASE_OUT = [0.23, 1, 0.32, 1] as const
+const TOTAL_ONBOARDING_STEPS = 2
+
+function StepIndicator({ current, total }: { current: number; total: number }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      {Array.from({ length: total }, (_, i) => (
+        <motion.div
+          key={i}
+          initial={false}
+          animate={{
+            width: i + 1 === current ? 20 : 6,
+            opacity: i + 1 <= current ? 1 : 0.3,
+          }}
+          transition={{ duration: 0.3, ease: EASE_OUT }}
+          className="h-1.5 rounded-full bg-icon-interactive-base"
+        />
+      ))}
+    </div>
+  )
 }
 
 export const Route = createFileRoute("/onboarding")({
@@ -100,9 +145,25 @@ function OnboardingRoute() {
   const navigate = useNavigate()
   const { test } = useSearch({ from: "/onboarding" })
   const platform = usePlatform()
+  const authChoice = useOnboardingStore((state) => state.authChoice)
   const setAuthChoice = useOnboardingStore((state) => state.setAuthChoice)
-  const setResumeDirectory = useOnboardingStore((state) => state.setResumeDirectory)
-  const markCompleted = useOnboardingStore((state) => state.markCompleted)
+  const markSetupCompleted = useOnboardingStore((state) => state.markSetupCompleted)
+  const startPersonalizationVersion = useOnboardingStore(
+    (state) => state.startPersonalizationVersion,
+  )
+  const markPersonalizationCompleted = useOnboardingStore(
+    (state) => state.markPersonalizationCompleted,
+  )
+  const markPersonalizationSkipped = useOnboardingStore((state) => state.markPersonalizationSkipped)
+  const onboardingPersonalizationDirectory = useOnboardingStore(
+    (state) => state.personalizationDirectory,
+  )
+  const personalizationVersionActive = useOnboardingStore(
+    (state) => state.activePersonalizationVersion,
+  )
+  const personalizationVersionCompleted = useOnboardingStore(
+    (state) => state.personalizationVersionCompleted,
+  )
   const setActiveDirectory = useChatStore((state) => state.setActiveDirectory)
   const openProjectsQuery = useQuery(openProjectsQueryOptions())
   const providerCatalogSnapshotQuery = useQuery(providerCatalogSnapshotQueryOptions())
@@ -112,22 +173,58 @@ function OnboardingRoute() {
     providerCatalogSnapshotQuery.data ?? EMPTY_PROVIDER_CATALOG_SNAPSHOT
   const notebookHome = notebookHomeQuery.data ?? EMPTY_NOTEBOOK_HOME_STATE
 
-  const [authChoice, setLocalAuthChoice] = useState<OnboardingAuthChoice | undefined>(undefined)
   const [connectedAuthChoice, setConnectedAuthChoice] = useState<OnboardingAuthChoice | undefined>(
     undefined,
   )
   const [error, setError] = useState<string | undefined>(undefined)
   const [busyChoice, setBusyChoice] = useState<OnboardingAuthChoice | undefined>(undefined)
   const [folderBusy, setFolderBusy] = useState(false)
+  const [showFolderRecovery, setShowFolderRecovery] = useState(false)
+  const [personalizationBusy, setPersonalizationBusy] = useState(false)
   const [authAbort, setAuthAbort] = useState<AbortController | undefined>(undefined)
+  const [showProviderSelectionStep, setShowProviderSelectionStep] = useState(false)
+  const [personalizationDirectory, setPersonalizationDirectory] = useState<string | undefined>(
+    undefined,
+  )
   const defaultHomeDirectory = notebookHome.defaultDirectory
   const autoContinueHandledRef = useRef(false)
+  const form = useForm({
+    defaultValues: EMPTY_PERSONALIZATION_SETTINGS,
+    onSubmit: async () => undefined,
+  })
+  const personalizationStepVisible =
+    personalizationVersionActive !== undefined &&
+    personalizationVersionActive !== personalizationVersionCompleted &&
+    !showProviderSelectionStep
 
   useEffect(() => {
-    if (autoContinueHandledRef.current) return
+    void queryClient.ensureQueryData(personalizationSettingsQueryOptions()).then((bundle) => {
+      const currentValues = form.state.values
+      if (
+        !shouldResetPersonalizationForm({
+          nextValues: currentValues,
+          currentValues: bundle.personalization,
+        })
+      ) {
+        return
+      }
 
+      form.reset(bundle.personalization)
+    })
+  }, [form, queryClient])
+
+  useEffect(() => {
     const openAiConnected = hasConnectedOpenAiProvider(providerCatalogSnapshot)
-    if (!openAiConnected) return
+    if (
+      !shouldAutoContinueConnectedOpenAiOnboarding({
+        personalizationStepVisible,
+        showProviderSelectionStep,
+        openAiConnected,
+        alreadyHandled: autoContinueHandledRef.current,
+      })
+    ) {
+      return
+    }
 
     autoContinueHandledRef.current = true
 
@@ -141,7 +238,7 @@ function OnboardingRoute() {
           })
 
     if (nextDirectory) {
-      markCompleted()
+      markSetupCompleted()
       navigate({
         to: "/$directory/chat",
         params: { directory: encodeDirectory(nextDirectory) },
@@ -151,12 +248,44 @@ function OnboardingRoute() {
     }
 
     setConnectedAuthChoice("chatgpt_plus")
-    setLocalAuthChoice("chatgpt_plus")
     setAuthChoice("chatgpt_plus")
-  }, [markCompleted, navigate, openProjects, providerCatalogSnapshot, setAuthChoice, test])
+  }, [
+    markSetupCompleted,
+    navigate,
+    openProjects,
+    personalizationStepVisible,
+    providerCatalogSnapshot,
+    setAuthChoice,
+    showProviderSelectionStep,
+    test,
+  ])
 
-  async function finalizeNotebookSelection(configuredHomeDirectory?: string) {
-    if (!authChoice) {
+  function navigateToChat(directory: string) {
+    navigate({
+      to: "/$directory/chat",
+      params: { directory: encodeDirectory(directory) },
+      replace: true,
+    })
+  }
+
+  async function completeSetupAndContinue(directory: string) {
+    setActiveDirectory(directory)
+    markSetupCompleted()
+    startPersonalizationVersion(directory)
+    setShowProviderSelectionStep(false)
+    setShowFolderRecovery(false)
+    setError(undefined)
+
+    if (!useOnboardingStore.getState().shouldShowPersonalizationStep()) {
+      navigateToChat(directory)
+    }
+  }
+
+  async function finalizeNotebookSelection(
+    selectedAuthChoice: OnboardingAuthChoice | undefined,
+    configuredHomeDirectory?: string,
+  ) {
+    if (!selectedAuthChoice) {
       setError(language.t("routes.onboarding.pickProviderFirst"))
       return
     }
@@ -167,7 +296,7 @@ function OnboardingRoute() {
       let savedNotebookHome: NotebookHomeState | undefined
 
       const result = await configureNotebookForOnboarding({
-        authChoice,
+        authChoice: selectedAuthChoice,
         prepareNotebook: async () => {
           if (configuredHomeDirectory) {
             savedNotebookHome = await saveNotebookHome(configuredHomeDirectory)
@@ -189,16 +318,10 @@ function OnboardingRoute() {
       })
 
       applyOnboardingModelSelection(result.directory, result.model)
-      setResumeDirectory(result.directory)
-      setActiveDirectory(result.directory)
-      markCompleted()
-
-      navigate({
-        to: "/$directory/chat",
-        params: { directory: encodeDirectory(result.directory) },
-        replace: true,
-      })
+      setPersonalizationDirectory(result.directory)
+      await completeSetupAndContinue(result.directory)
     } catch (err) {
+      setShowFolderRecovery(true)
       setError(
         formatProviderAuthError(err, language.t("routes.onboarding.initializeNotebookFailed")),
       )
@@ -215,7 +338,7 @@ function OnboardingRoute() {
       const normalized = normalizeDirectory(picked)
       if (!normalized) return
 
-      await finalizeNotebookSelection(normalized)
+      await finalizeNotebookSelection(authChoice, normalized)
     } catch (err) {
       setError(
         formatProviderAuthError(err, language.t("routes.onboarding.initializeNotebookFailed")),
@@ -224,21 +347,120 @@ function OnboardingRoute() {
   }
 
   async function handleUseDefaultHome() {
-    await finalizeNotebookSelection(defaultHomeDirectory)
+    setShowFolderRecovery(false)
+    await finalizeNotebookSelection(authChoice, defaultHomeDirectory)
+  }
+
+  async function handleSubmitPersonalization() {
+    setPersonalizationBusy(true)
+    setError(undefined)
+
+    try {
+      const nextValues = form.state.values
+      const updatedGlobal = await patchGlobalConfig(buildPersonalizationPatch(nextValues))
+      queryClient.setQueryData<PersonalizationSettingsBundle>(
+        personalizationSettingsQueryKeys.bundle(),
+        {
+          globalConfig: updatedGlobal,
+          personalization: readPersonalization(updatedGlobal),
+        },
+      )
+      form.setErrorMap({ onSubmit: undefined })
+      markPersonalizationCompleted()
+      setShowProviderSelectionStep(false)
+
+      const nextDirectory = useChatStore.getState().activeDirectory
+      if (nextDirectory) {
+        navigateToChat(nextDirectory)
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      form.setErrorMap({ onSubmit: { form: message, fields: {} } })
+      setError(message)
+    } finally {
+      setPersonalizationBusy(false)
+    }
+  }
+
+  function handleSkipPersonalization() {
+    form.setErrorMap({ onSubmit: undefined })
+    setError(undefined)
+    markPersonalizationSkipped()
+    setShowProviderSelectionStep(false)
+
+    const nextDirectory = useChatStore.getState().activeDirectory
+    if (nextDirectory) {
+      navigateToChat(nextDirectory)
+    }
+  }
+
+  function handleBackToProviderSelection() {
+    setError(undefined)
+    setShowFolderRecovery(false)
+    setShowProviderSelectionStep(true)
+  }
+
+  async function finalizeExistingNotebookProviderSelection(choice: OnboardingAuthChoice) {
+    const existingDirectory = personalizationDirectory ?? onboardingPersonalizationDirectory
+    if (!existingDirectory) {
+      await finalizeNotebookSelection(choice, defaultHomeDirectory)
+      return
+    }
+
+    setFolderBusy(true)
+    setError(undefined)
+
+    try {
+      const result = await configureNotebookForOnboarding({
+        authChoice: choice,
+        prepareNotebook: async () => existingDirectory,
+        loadProviderCatalog,
+      })
+
+      applyOnboardingModelSelection(result.directory, result.model)
+      setPersonalizationDirectory(result.directory)
+      await completeSetupAndContinue(result.directory)
+    } catch (err) {
+      setError(
+        formatProviderAuthError(err, language.t("routes.onboarding.initializeNotebookFailed")),
+      )
+    } finally {
+      setFolderBusy(false)
+    }
   }
 
   async function handleChoose(choice: OnboardingAuthChoice) {
     setError(undefined)
 
+    const existingDirectory = personalizationDirectory ?? onboardingPersonalizationDirectory
+    const shouldResumePersonalization = shouldResumeOnboardingPersonalization({
+      showProviderSelectionStep,
+      currentChoice: authChoice,
+      nextChoice: choice,
+      existingDirectory,
+    })
+    if (shouldResumePersonalization && existingDirectory) {
+      await completeSetupAndContinue(existingDirectory)
+      return
+    }
+
     if (choice === "free_models") {
-      setLocalAuthChoice(choice)
       setAuthChoice(choice)
+      if (showProviderSelectionStep) {
+        await finalizeExistingNotebookProviderSelection(choice)
+        return
+      }
+      await finalizeNotebookSelection(choice, defaultHomeDirectory)
       return
     }
 
     if (connectedAuthChoice === "chatgpt_plus") {
-      setLocalAuthChoice(choice)
       setAuthChoice(choice)
+      if (showProviderSelectionStep) {
+        await finalizeExistingNotebookProviderSelection(choice)
+        return
+      }
+      await finalizeNotebookSelection(choice, defaultHomeDirectory)
       return
     }
 
@@ -267,9 +489,13 @@ function OnboardingRoute() {
         }),
       ])
 
-      setLocalAuthChoice(choice)
       setConnectedAuthChoice(choice)
       setAuthChoice(choice)
+      if (showProviderSelectionStep) {
+        await finalizeExistingNotebookProviderSelection(choice)
+        return
+      }
+      await finalizeNotebookSelection(choice, defaultHomeDirectory)
     } catch (err) {
       if (!abort.signal.aborted) {
         abort.abort()
@@ -284,24 +510,112 @@ function OnboardingRoute() {
     }
   }
 
+  const currentStep = personalizationStepVisible ? 2 : 1
+
   return (
-    <OnboardingSetup
-      authChoice={authChoice}
-      connectedAuthChoice={connectedAuthChoice}
-      busyChoice={busyChoice}
-      folderBusy={folderBusy}
-      defaultHomeDirectory={defaultHomeDirectory}
-      error={error}
-      onChoose={handleChoose}
-      onUseDefaultHome={() => {
-        void handleUseDefaultHome()
-      }}
-      onPickFolder={() => {
-        void handlePickFolder()
-      }}
-      onCancelAuth={() => {
-        authAbort?.abort()
-      }}
-    />
+    <div className="flex min-h-screen flex-col items-center justify-start bg-background-base px-6 pb-20 pt-[15vh] text-text-base">
+      <div className="flex w-full max-w-md flex-col gap-10">
+        <OnboardingHeader />
+
+        <AnimatePresence mode="wait">
+          {personalizationStepVisible ? (
+            <motion.div
+              key="personalization"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.3, ease: EASE_OUT }}
+              className="flex w-full flex-col gap-8"
+            >
+              {/* Navigation + Step indicator */}
+              <div className="flex items-center justify-between">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="-ml-3 px-3"
+                  onClick={handleBackToProviderSelection}
+                >
+                  <ArrowLeftIcon className="mr-2 size-4" />
+                  {language.t("onboardingPersonalization.back")}
+                </Button>
+                <StepIndicator current={currentStep} total={TOTAL_ONBOARDING_STEPS} />
+              </div>
+
+              {/* Form fields — flat, no card wrapper */}
+              <SharedPersonalizationFormFields form={form} />
+
+              {/* Error */}
+              <AnimatePresence>
+                {error ? (
+                  <motion.div
+                    role="alert"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2, ease: EASE_OUT }}
+                  >
+                    <div className="rounded-xl border-l-2 border-l-border-critical-base bg-surface-critical-weak px-3 py-2.5">
+                      <p className="text-sm font-medium text-text-critical-base">{error}</p>
+                    </div>
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
+
+              {/* Actions */}
+              <div className="flex items-center justify-end gap-3">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={handleSkipPersonalization}
+                  disabled={personalizationBusy}
+                >
+                  {language.t("onboardingPersonalization.skip")}
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    void handleSubmitPersonalization()
+                  }}
+                  disabled={personalizationBusy}
+                >
+                  {personalizationBusy
+                    ? language.t("onboardingPersonalization.submitting")
+                    : language.t("onboardingPersonalization.next")}
+                </Button>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="setup"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2, ease: EASE_OUT }}
+              className="flex w-full flex-col"
+            >
+              <OnboardingSetup
+                authChoice={authChoice}
+                connectedAuthChoice={connectedAuthChoice}
+                busyChoice={busyChoice}
+                folderBusy={folderBusy}
+                showFolderRecovery={showFolderRecovery}
+                defaultHomeDirectory={defaultHomeDirectory}
+                error={error}
+                onChoose={handleChoose}
+                onUseDefaultHome={() => {
+                  void handleUseDefaultHome()
+                }}
+                onPickFolder={() => {
+                  void handlePickFolder()
+                }}
+                onCancelAuth={() => {
+                  authAbort?.abort()
+                }}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
   )
 }

@@ -1,2 +1,2 @@
 export type { OnboardingAuthChoice } from "./types"
-export { OnboardingSetup } from "./onboarding-setup"
+export { OnboardingSetup, OnboardingHeader } from "./onboarding-setup"

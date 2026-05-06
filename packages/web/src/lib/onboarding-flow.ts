@@ -13,6 +13,34 @@ export function resolveOnboardingProviderID(choice: OnboardingAuthChoice) {
   return choice === "chatgpt_plus" ? OPENAI_PROVIDER_ID : OPENCODE_PROVIDER_ID
 }
 
+export function shouldResumeOnboardingPersonalization(input: {
+  showProviderSelectionStep: boolean
+  currentChoice: OnboardingAuthChoice | undefined
+  nextChoice: OnboardingAuthChoice
+  existingDirectory?: string
+}) {
+  return (
+    input.showProviderSelectionStep &&
+    input.currentChoice === input.nextChoice &&
+    typeof input.existingDirectory === "string" &&
+    input.existingDirectory.length > 0
+  )
+}
+
+export function shouldAutoContinueConnectedOpenAiOnboarding(input: {
+  personalizationStepVisible: boolean
+  showProviderSelectionStep: boolean
+  openAiConnected: boolean
+  alreadyHandled: boolean
+}) {
+  return (
+    !input.personalizationStepVisible &&
+    !input.showProviderSelectionStep &&
+    input.openAiConnected &&
+    !input.alreadyHandled
+  )
+}
+
 export async function connectChatGptPlusForOnboarding(input: {
   openLink: (url: string) => void
   loadProviderCatalogSnapshot: () => Promise<ProviderCatalogState>
@@ -100,6 +128,7 @@ export async function configureNotebookForOnboarding(input: {
   const model = resolveCatalogProviderModelSelection({
     catalog: providerCatalog,
     providerID: resolveOnboardingProviderID(input.authChoice),
+    requireConnected: input.authChoice !== "free_models",
   })
 
   if (!model) {

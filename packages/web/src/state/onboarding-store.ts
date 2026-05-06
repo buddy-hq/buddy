@@ -3,54 +3,93 @@ import { persist } from "zustand/middleware"
 import { createPlatformJsonStorage } from "../context/platform"
 import type { OnboardingAuthChoice } from "@/components/onboarding"
 
-type OnboardingPhase = "splash" | "folder"
+const PERSONALIZATION_ONBOARDING_VERSION = 1 as const
 
 export const ONBOARDING_STORAGE_KEY = "buddy.onboarding.v1"
 
 type OnboardingStore = {
-  completed: boolean
-  phase: OnboardingPhase
+  setupCompleted: boolean
+  activePersonalizationVersion: number | undefined
+  personalizationVersionCompleted: number | undefined
+  personalizationSkipped: boolean
+  personalizationDirectory: string | undefined
   authChoice?: OnboardingAuthChoice
-  resumeDirectory?: string
-  setPhase: (phase: OnboardingPhase) => void
   setAuthChoice: (choice: OnboardingAuthChoice) => void
-  setResumeDirectory: (directory?: string) => void
-  markCompleted: () => void
+  startPersonalizationVersion: (directory: string) => void
+  markSetupCompleted: () => void
+  markPersonalizationCompleted: () => void
+  markPersonalizationSkipped: () => void
+  shouldShowPersonalizationStep: () => boolean
   reset: () => void
 }
 
 const DEFAULT_STATE: {
-  completed: boolean
-  phase: OnboardingPhase
+  setupCompleted: boolean
+  activePersonalizationVersion: number | undefined
+  personalizationVersionCompleted: number | undefined
+  personalizationSkipped: boolean
+  personalizationDirectory: string | undefined
   authChoice: OnboardingAuthChoice | undefined
-  resumeDirectory: string | undefined
 } = {
-  completed: false,
-  phase: "splash",
+  setupCompleted: false,
+  activePersonalizationVersion: undefined,
+  personalizationVersionCompleted: undefined,
+  personalizationSkipped: false,
+  personalizationDirectory: undefined,
   authChoice: undefined,
-  resumeDirectory: undefined,
 }
 
 export const useOnboardingStore = create<OnboardingStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       ...DEFAULT_STATE,
-      setPhase(phase) {
-        set({ phase })
-      },
       setAuthChoice(authChoice) {
         set({ authChoice })
       },
-      setResumeDirectory(resumeDirectory) {
-        set({ resumeDirectory })
-      },
-      markCompleted() {
-        set({
-          completed: true,
-          phase: "splash",
-          authChoice: undefined,
-          resumeDirectory: undefined,
+      startPersonalizationVersion(personalizationDirectory) {
+        set((state) => {
+          if (
+            state.activePersonalizationVersion === PERSONALIZATION_ONBOARDING_VERSION &&
+            state.personalizationDirectory === personalizationDirectory
+          ) {
+            return {}
+          }
+
+          return {
+            activePersonalizationVersion: PERSONALIZATION_ONBOARDING_VERSION,
+            personalizationDirectory,
+          }
         })
+      },
+      markSetupCompleted() {
+        set({
+          setupCompleted: true,
+        })
+      },
+      markPersonalizationCompleted() {
+        set({
+          activePersonalizationVersion: PERSONALIZATION_ONBOARDING_VERSION,
+          personalizationVersionCompleted: PERSONALIZATION_ONBOARDING_VERSION,
+          personalizationSkipped: false,
+          personalizationDirectory: undefined,
+          authChoice: undefined,
+        })
+      },
+      markPersonalizationSkipped() {
+        set({
+          activePersonalizationVersion: PERSONALIZATION_ONBOARDING_VERSION,
+          personalizationVersionCompleted: PERSONALIZATION_ONBOARDING_VERSION,
+          personalizationSkipped: true,
+          personalizationDirectory: undefined,
+          authChoice: undefined,
+        })
+      },
+      shouldShowPersonalizationStep(): boolean {
+        const state = get()
+        return (
+          state.activePersonalizationVersion === PERSONALIZATION_ONBOARDING_VERSION &&
+          state.personalizationVersionCompleted !== PERSONALIZATION_ONBOARDING_VERSION
+        )
       },
       reset() {
         set(DEFAULT_STATE)
@@ -58,16 +97,31 @@ export const useOnboardingStore = create<OnboardingStore>()(
     }),
     {
       name: ONBOARDING_STORAGE_KEY,
-      version: 1,
+      version: 2,
       storage: createPlatformJsonStorage("buddy.onboarding.dat"),
+      migrate(persistedState) {
+        const state = (persistedState ?? {}) as Record<string, unknown>
+        return {
+          setupCompleted: typeof state.completed === "boolean" ? state.completed : false,
+          activePersonalizationVersion: undefined,
+          personalizationVersionCompleted: undefined,
+          personalizationSkipped: false,
+          personalizationDirectory: undefined,
+          authChoice: state.authChoice as OnboardingAuthChoice | undefined,
+        }
+      },
       partialize(state) {
         return {
-          completed: state.completed,
-          phase: state.phase,
+          setupCompleted: state.setupCompleted,
+          activePersonalizationVersion: state.activePersonalizationVersion,
+          personalizationVersionCompleted: state.personalizationVersionCompleted,
+          personalizationSkipped: state.personalizationSkipped,
+          personalizationDirectory: state.personalizationDirectory,
           authChoice: state.authChoice,
-          resumeDirectory: state.resumeDirectory,
         }
       },
     },
   ),
 )
+
+export { PERSONALIZATION_ONBOARDING_VERSION }

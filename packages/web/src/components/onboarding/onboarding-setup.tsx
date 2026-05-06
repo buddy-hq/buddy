@@ -1,5 +1,5 @@
-import { Button, CheckIcon, FolderOpenIcon } from "@buddy/ui"
-import { cn } from "@buddy/ui"
+import { Button, CheckIcon, cn } from "@buddy/ui"
+import { motion, AnimatePresence } from "motion/react"
 import { language } from "@/context/language"
 import { resolveBuddyIconUrl } from "@/lib/static-asset"
 import type { OnboardingAuthChoice } from "./types"
@@ -9,6 +9,7 @@ type OnboardingSetupProps = {
   connectedAuthChoice?: OnboardingAuthChoice
   busyChoice?: OnboardingAuthChoice
   folderBusy: boolean
+  showFolderRecovery: boolean
   defaultHomeDirectory?: string
   error?: string
   onChoose: (choice: OnboardingAuthChoice) => void
@@ -16,6 +17,10 @@ type OnboardingSetupProps = {
   onPickFolder: () => void
   onCancelAuth?: () => void
 }
+
+const EASE_OUT = [0.23, 1, 0.32, 1] as const
+const STAGGER_DELAY_MS = 60
+const STAGGER_DELAY_S = STAGGER_DELAY_MS / 1000
 
 function OpenAIIcon({ className }: { className?: string }) {
   return (
@@ -25,9 +30,87 @@ function OpenAIIcon({ className }: { className?: string }) {
   )
 }
 
-export function OnboardingSetup(props: OnboardingSetupProps) {
-  const buddyIconUrl = resolveBuddyIconUrl()
+export function StaggerItem({
+  index,
+  children,
+  className,
+}: {
+  index: number
+  children: React.ReactNode
+  className?: string
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{
+        duration: 0.4,
+        ease: EASE_OUT,
+        delay: index * STAGGER_DELAY_S,
+      }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  )
+}
 
+function PulsingRing({ className }: { className?: string }) {
+  return (
+    <svg className={cn("size-4", className)} viewBox="0 0 16 16" fill="none">
+      <circle
+        cx="8"
+        cy="8"
+        r="6"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeDasharray="12 20"
+        className="origin-center animate-spin"
+        style={{ animationDuration: "1.2s" }}
+      />
+    </svg>
+  )
+}
+
+export function OnboardingHeader() {
+  const buddyIconUrl = resolveBuddyIconUrl()
+  const content = {
+    header: {
+      title: language.t("onboardingSetup.header.title"),
+      badge: language.t("onboardingSetup.header.badge"),
+      subtitle: language.t("onboardingSetup.header.subtitle"),
+      logoAlt: language.t("onboardingSetup.header.logoAlt"),
+    },
+  }
+
+  return (
+    <div className="flex items-center gap-6 text-left mb-2">
+      <StaggerItem index={0}>
+        <img
+          src={buddyIconUrl}
+          alt={content.header.logoAlt}
+          className="size-16 shrink-0 rounded-2xl opacity-90 shadow-[0_2px_10px_0_rgba(0,0,0,0.05)] [mix-blend-mode:var(--text-mix-blend-mode)]"
+        />
+      </StaggerItem>
+      <StaggerItem index={1} className="flex flex-col justify-center">
+        <div className="flex items-center gap-4">
+          <h1 className="text-4xl font-bold leading-none tracking-tight text-text-strong">
+            {content.header.title}
+          </h1>
+          <span className="translate-y-[-2px] rounded-lg border border-border-base bg-surface-raised-base px-2 py-0.5 text-[11px] font-bold uppercase tracking-widest text-text-weaker shadow-sm">
+            {content.header.badge}
+          </span>
+        </div>
+        <p className="mt-3 text-sm font-medium leading-tight text-text-weak">
+          {content.header.subtitle}
+        </p>
+      </StaggerItem>
+    </div>
+  )
+}
+
+export function OnboardingSetup(props: OnboardingSetupProps) {
   const content = {
     header: {
       title: language.t("onboardingSetup.header.title"),
@@ -49,6 +132,7 @@ export function OnboardingSetup(props: OnboardingSetupProps) {
     },
     notebookSelection: {
       heading: language.t("onboardingSetup.notebookSelection.heading"),
+      recoveryHeading: language.t("onboardingSetup.notebookSelection.recoveryHeading"),
       defaultPathLabel: language.t("onboardingSetup.notebookSelection.defaultPathLabel"),
       buttonUseDefaultIdle: language.t("onboardingSetup.notebookSelection.buttonUseDefaultIdle"),
       buttonUseDefaultBusy: language.t("onboardingSetup.notebookSelection.buttonUseDefaultBusy"),
@@ -65,215 +149,243 @@ export function OnboardingSetup(props: OnboardingSetupProps) {
   }
   const hasProvider = Boolean(props.authChoice)
   const isChatGptConnected = props.connectedAuthChoice === "chatgpt_plus"
+  const showProviderError = props.error && !props.showFolderRecovery
+  const showRecoveryError = props.error && props.showFolderRecovery && hasProvider
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background-base px-6 py-20 text-text-base">
-      {props.busyChoice === "chatgpt_plus" && (
-        <div
-          data-component="onboarding-auth-modal"
-          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background-base/80 backdrop-blur-sm animate-in fade-in duration-300"
-        >
-          <div className="flex w-full max-w-sm flex-col items-center text-center bg-surface-base border border-border-base p-8 rounded-3xl shadow-xl">
-            <div className="flex size-14 items-center justify-center rounded-2xl bg-emerald-500/10 mb-6 border border-emerald-500/20">
-              <OpenAIIcon className="size-6 text-emerald-500 animate-pulse" />
-            </div>
-            <h3 className="text-xl font-bold tracking-tight text-text-strong">
-              {content.chatGptModal.title}
-            </h3>
-            <p className="mt-2 text-[14px] font-medium text-text-weak leading-relaxed">
-              {content.chatGptModal.description}
-            </p>
-            <div className="mt-8 flex items-center justify-center gap-3 rounded-full bg-emerald-500/10 px-4 py-2 text-[13px] font-semibold text-emerald-500 border border-emerald-500/20">
-              <svg className="size-4 animate-spin text-emerald-500" fill="none" viewBox="0 0 24 24">
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-              </svg>
-              {content.chatGptModal.waitingLabel}
-            </div>
-            <Button
-              data-action="onboarding-cancel-auth"
-              variant="outline"
-              className="mt-8 w-full rounded-xl hover:bg-surface-raised-base hover:text-text-strong transition-all"
-              onClick={props.onCancelAuth}
+    <>
+      {/* OAuth Auth Modal */}
+      <AnimatePresence>
+        {props.busyChoice === "chatgpt_plus" ? (
+          <motion.div
+            data-component="onboarding-auth-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label={content.chatGptModal.title}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2, ease: EASE_OUT }}
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background-base/80 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.97 }}
+              transition={{ duration: 0.25, ease: EASE_OUT }}
+              className="flex w-full max-w-sm flex-col items-center rounded-2xl border border-border-base bg-surface-base p-8 text-center shadow-lg"
             >
-              {content.chatGptModal.cancelButton}
-            </Button>
-          </div>
-        </div>
-      )}
+              <div className="mb-6 flex size-14 items-center justify-center rounded-2xl border border-border-success-base/30 bg-surface-success-weak">
+                <OpenAIIcon className="size-6 text-icon-success-base" />
+              </div>
+              <h3 className="text-xl font-bold tracking-tight text-text-strong">
+                {content.chatGptModal.title}
+              </h3>
+              <p className="mt-2 text-sm font-medium leading-relaxed text-text-weak">
+                {content.chatGptModal.description}
+              </p>
+              <div className="mt-8 flex items-center justify-center gap-3 rounded-full border border-border-success-base/30 bg-surface-success-weak px-4 py-2 text-xs font-semibold text-icon-success-base">
+                <PulsingRing />
+                {content.chatGptModal.waitingLabel}
+              </div>
+              <Button
+                data-action="onboarding-cancel-auth"
+                variant="outline"
+                className="mt-8 w-full rounded-xl"
+                onClick={props.onCancelAuth}
+              >
+                {content.chatGptModal.cancelButton}
+              </Button>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
-      <div data-component="onboarding-setup" className="flex w-full max-w-[440px] flex-col gap-12">
-        <div className="mb-4 flex items-center gap-6 text-left">
-          <img
-            src={buddyIconUrl}
-            alt={content.header.logoAlt}
-            className="size-[64px] shrink-0 rounded-2xl opacity-90 shadow-[0_2px_10px_0_rgba(0,0,0,0.05)] [mix-blend-mode:var(--text-mix-blend-mode)]"
-          />
-          <div className="flex flex-col justify-center">
-            <div className="flex items-center gap-4">
-              <h1 className="text-4xl font-bold tracking-tight text-text-strong leading-none">
-                {content.header.title}
-              </h1>
-              <span className="translate-y-[-2px] rounded-lg border border-border-base bg-surface-raised-base px-2 py-0.5 text-[11px] font-bold uppercase tracking-widest text-text-weaker shadow-sm">
-                {content.header.badge}
-              </span>
-            </div>
-            <p className="mt-3 text-[15px] font-medium text-text-weak leading-tight">
-              {content.header.subtitle}
-            </p>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <div className="flex justify-between items-end mb-2">
+      <div data-component="onboarding-setup" className="flex w-full flex-col gap-10">
+        {/* Engine Selection */}
+        <StaggerItem index={2} className="flex flex-col gap-4">
+          <div className="mb-1 flex items-end justify-between">
             <h2 className="text-sm font-medium text-text-weaker">
               {content.engineSelection.heading}
             </h2>
-            {props.error && !hasProvider && (
-              <span className="text-sm font-medium text-text-critical-base animate-in fade-in">
-                {props.error}
-              </span>
-            )}
           </div>
 
-          <div className="space-y-4">
+          {/* Provider Error */}
+          <AnimatePresence>
+            {showProviderError ? (
+              <motion.div
+                role="alert"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2, ease: EASE_OUT }}
+              >
+                <div className="rounded-xl border-l-2 border-l-border-critical-base bg-surface-critical-weak px-3 py-2.5">
+                  <p className="text-sm font-medium text-text-critical-base">{props.error}</p>
+                </div>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+
+          <div className="flex flex-col gap-3">
+            {/* ChatGPT Plus Card */}
             <button
               type="button"
               data-action="onboarding-select-chatgpt-plus"
+              aria-pressed={props.authChoice === "chatgpt_plus"}
               onClick={() => props.onChoose("chatgpt_plus")}
               disabled={Boolean(props.busyChoice)}
               className={cn(
-                "group relative flex w-full items-center gap-6 rounded-2xl border p-5 text-left transition-all outline-none focus-visible:ring-2 focus-visible:ring-interactive-base focus-visible:ring-offset-2",
+                "group relative flex w-full items-center gap-5 rounded-2xl border p-5 text-left outline-none transition-[border-color,background-color,opacity,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] focus-visible:ring-2 focus-visible:ring-interactive-base focus-visible:ring-offset-2 active:scale-[0.98]",
                 props.authChoice === "chatgpt_plus"
-                  ? "border-emerald-500/50 bg-emerald-500/10"
+                  ? "border-border-success-base bg-surface-success-weak"
                   : isChatGptConnected
-                    ? "border-border-success-base bg-surface-success-base/10"
+                    ? "border-border-success-base/50 bg-surface-success-weak/50"
                     : "border-border-base bg-surface-raised-base hover:border-border-interactive-base hover:bg-surface-raised-base-hover",
-                props.busyChoice === "chatgpt_plus" &&
-                  "animate-pulse opacity-70 pointer-events-none",
+                props.busyChoice === "chatgpt_plus" && "pointer-events-none opacity-70",
                 props.busyChoice &&
                   props.busyChoice !== "chatgpt_plus" &&
-                  "opacity-40 grayscale-[0.5] pointer-events-none",
+                  "pointer-events-none opacity-50",
               )}
             >
-              <OpenAIIcon className="size-5 shrink-0 text-emerald-500" />
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-border-success-base/20 bg-surface-success-weak">
+                <OpenAIIcon className="size-5 text-icon-success-base" />
+              </div>
               <div className="flex-1">
-                <p className="text-[15px] font-medium text-text-strong">
+                <p className="text-sm font-medium text-text-strong">
                   {content.engineSelection.chatGpt.title}
                 </p>
-                <p className="text-[13px] text-text-weak mt-0.5">
+                <p className="mt-0.5 text-xs text-text-weak">
                   {content.engineSelection.chatGpt.description}
                 </p>
               </div>
-              {isChatGptConnected ? (
-                <span className="inline-flex items-center gap-1 rounded-full border border-border-success-base bg-surface-success-base/10 px-2 py-0.5 text-[11px] font-medium text-text-success-base">
-                  <CheckIcon className="size-3.5" />
-                  {content.engineSelection.connected}
-                </span>
+              <AnimatePresence>
+                {isChatGptConnected ? (
+                  <motion.span
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.25, ease: EASE_OUT }}
+                    className="inline-flex items-center gap-1 rounded-full border border-border-success-base bg-surface-success-weak px-2.5 py-1 text-[11px] font-medium text-icon-success-base"
+                  >
+                    <CheckIcon className="size-3.5" />
+                    {content.engineSelection.connected}
+                  </motion.span>
+                ) : null}
+              </AnimatePresence>
+              {props.busyChoice === "chatgpt_plus" ? (
+                <PulsingRing className="text-icon-success-base" />
               ) : null}
             </button>
 
-            {!isChatGptConnected ? (
-              <button
-                type="button"
-                data-action="onboarding-select-free-models"
-                onClick={() => props.onChoose("free_models")}
-                disabled={Boolean(props.busyChoice)}
-                className={cn(
-                  "group relative flex w-full items-center gap-6 rounded-2xl border p-5 text-left transition-all outline-none focus-visible:ring-2 focus-visible:ring-interactive-base focus-visible:ring-offset-2",
-                  props.authChoice === "free_models"
-                    ? "border-border-interactive-base bg-surface-interactive-base/10"
-                    : "border-border-base bg-surface-raised-base hover:border-border-interactive-base hover:bg-surface-raised-base-hover",
-                  props.busyChoice === "free_models" &&
-                    "animate-pulse opacity-70 pointer-events-none",
-                  props.busyChoice &&
-                    props.busyChoice !== "free_models" &&
-                    "opacity-40 grayscale-[0.5] pointer-events-none",
-                )}
-              >
-                <div className="flex-1">
-                  <p className="text-[15px] font-medium text-text-strong">
-                    {content.engineSelection.freeModels.title}
-                  </p>
-                  <p className="text-[13px] text-text-weak mt-0.5">
-                    {content.engineSelection.freeModels.description}
-                  </p>
-                </div>
-              </button>
-            ) : null}
+            {/* Free Models Card */}
+            <AnimatePresence>
+              {!isChatGptConnected ? (
+                <motion.div
+                  exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                  transition={{ duration: 0.25, ease: EASE_OUT }}
+                >
+                  <button
+                    type="button"
+                    data-action="onboarding-select-free-models"
+                    aria-pressed={props.authChoice === "free_models"}
+                    onClick={() => props.onChoose("free_models")}
+                    disabled={Boolean(props.busyChoice)}
+                    className={cn(
+                      "group relative flex w-full items-center gap-5 rounded-2xl border p-5 text-left outline-none transition-[border-color,background-color,opacity,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] focus-visible:ring-2 focus-visible:ring-interactive-base focus-visible:ring-offset-2 active:scale-[0.98]",
+                      props.authChoice === "free_models"
+                        ? "border-border-interactive-base bg-surface-interactive-weak"
+                        : "border-border-base bg-surface-raised-base hover:border-border-interactive-base hover:bg-surface-raised-base-hover",
+                      props.busyChoice === "free_models" && "pointer-events-none opacity-70",
+                      props.busyChoice &&
+                        props.busyChoice !== "free_models" &&
+                        "pointer-events-none opacity-50",
+                    )}
+                  >
+                    <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-border-base bg-surface-raised-base">
+                      <svg
+                        className="size-5 text-icon-base"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                        <path d="M2 17l10 5 10-5" />
+                        <path d="M2 12l10 5 10-5" />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-text-strong">
+                        {content.engineSelection.freeModels.title}
+                      </p>
+                      <p className="mt-0.5 text-xs text-text-weak">
+                        {content.engineSelection.freeModels.description}
+                      </p>
+                    </div>
+                  </button>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
           </div>
-        </div>
+        </StaggerItem>
 
-        <div
-          className={cn(
-            "space-y-5 transition-all duration-300 mt-2",
-            hasProvider && !props.busyChoice
-              ? "opacity-100"
-              : "pointer-events-none opacity-40 grayscale-[0.2]",
-          )}
-        >
-          <div className="flex justify-between items-end mb-2">
-            <h2 className="text-sm font-medium text-text-weaker">
-              {content.notebookSelection.heading}
-            </h2>
-            {props.error && hasProvider && (
-              <span className="text-sm font-medium text-text-critical-base animate-in fade-in">
-                {props.error}
-              </span>
-            )}
-          </div>
-
-          <Button
-            type="button"
-            data-action="onboarding-use-default-home"
-            onClick={props.onUseDefaultHome}
-            disabled={props.folderBusy || !hasProvider}
-            size="lg"
-            className="w-full h-16 rounded-2xl px-4 text-[16px]"
-          >
-            {props.folderBusy ? (
-              <span className="animate-pulse font-medium">
-                {content.notebookSelection.buttonUseDefaultBusy}
-              </span>
-            ) : (
-              <div className="flex w-full items-center gap-3">
-                <FolderOpenIcon className="size-5 shrink-0" />
-                <span className="font-medium">
-                  {content.notebookSelection.buttonUseDefaultIdle}
-                </span>
+        {/* Folder Recovery */}
+        <AnimatePresence>
+          {props.showFolderRecovery ? (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.25, ease: EASE_OUT }}
+              className="flex flex-col gap-4"
+            >
+              <div className="flex items-end justify-between">
+                <h2 className="text-sm font-medium text-text-weaker">
+                  {content.notebookSelection.recoveryHeading}
+                </h2>
               </div>
-            )}
-          </Button>
 
-          {props.defaultHomeDirectory ? (
-            <p className="text-xs text-text-weak">
-              {content.notebookSelection.defaultPathLabel}: {props.defaultHomeDirectory}
-            </p>
+              <AnimatePresence>
+                {showRecoveryError ? (
+                  <motion.div
+                    role="alert"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2, ease: EASE_OUT }}
+                  >
+                    <div className="rounded-xl border-l-2 border-l-border-critical-base bg-surface-critical-weak px-3 py-2.5">
+                      <p className="text-sm font-medium text-text-critical-base">{props.error}</p>
+                    </div>
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
+
+              <Button
+                type="button"
+                data-action="onboarding-pick-folder"
+                variant="outline"
+                onClick={props.onPickFolder}
+                disabled={props.folderBusy || !hasProvider}
+                size="lg"
+                className="h-14 w-full rounded-2xl px-4 text-sm"
+              >
+                {props.folderBusy
+                  ? content.notebookSelection.buttonPickFolderBusy
+                  : content.notebookSelection.buttonPickFolderIdle}
+              </Button>
+              {props.defaultHomeDirectory ? (
+                <p className="text-xs text-text-weaker">
+                  {content.notebookSelection.defaultPathLabel}: {props.defaultHomeDirectory}
+                </p>
+              ) : null}
+              <p className="text-xs text-text-weaker">{content.notebookSelection.note}</p>
+            </motion.div>
           ) : null}
-
-          <Button
-            type="button"
-            data-action="onboarding-pick-folder"
-            variant="outline"
-            onClick={props.onPickFolder}
-            disabled={props.folderBusy || !hasProvider}
-            size="lg"
-            className="w-full h-12 rounded-2xl px-4 text-[15px]"
-          >
-            {props.folderBusy
-              ? content.notebookSelection.buttonPickFolderBusy
-              : content.notebookSelection.buttonPickFolderIdle}
-          </Button>
-          <p className="text-xs text-text-weak">{content.notebookSelection.note}</p>
-        </div>
+        </AnimatePresence>
       </div>
-    </div>
+    </>
   )
 }

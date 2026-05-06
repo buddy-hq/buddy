@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react"
 import type { QueryClient } from "@tanstack/react-query"
-import { createRootRouteWithContext, Outlet } from "@tanstack/react-router"
+import { createRootRouteWithContext, Outlet, useLocation } from "@tanstack/react-router"
 import { DesktopTitlebar } from "@/components/layout/desktop-titlebar"
 import { BuddyDevTools } from "@/components/debug/buddy-devtools"
 import { language } from "@/context/language"
@@ -74,10 +74,13 @@ function ReleaseUpdateWatcher() {
 }
 
 function RootLayout() {
+  const location = useLocation()
+  const isOnboarding = location.pathname.startsWith("/onboarding")
+
   return (
     <div className="h-full overflow-hidden bg-background-base text-text-base flex min-h-0 flex-col">
       <ReleaseUpdateWatcher />
-      <DesktopTitlebar />
+      {!isOnboarding && <DesktopTitlebar />}
       <div className="min-h-0 flex-1">
         <Outlet />
       </div>

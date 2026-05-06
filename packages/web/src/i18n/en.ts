@@ -395,8 +395,17 @@ export const dict = {
   "onboardingSetup.notebookSelection.buttonUseDefaultIdle": "Use default home and start",
   "onboardingSetup.notebookSelection.defaultPathLabel": "Default Buddy Home",
   "onboardingSetup.notebookSelection.heading": "Choose Buddy Home",
+  "onboardingSetup.notebookSelection.recoveryHeading": "Choose Buddy Home manually",
   "onboardingSetup.notebookSelection.note":
     "Buddy creates new notebooks in Buddy Home by default. You can still open folders from anywhere later.",
+  "onboardingPersonalization.badge": "Optional",
+  "onboardingPersonalization.back": "Back",
+  "onboardingPersonalization.description":
+    "Share a little context so Buddy can adapt how it teaches and explains things to you.",
+  "onboardingPersonalization.next": "Next",
+  "onboardingPersonalization.skip": "Skip for now",
+  "onboardingPersonalization.submitting": "Saving...",
+  "onboardingPersonalization.title": "Personalize Buddy",
   "pickers.absoluteDirectoryRequired": "Please enter an absolute directory path",
   "pickers.enterAbsoluteNotebookPath": "Enter the absolute notebook directory path",
   "pickers.filePickerUnavailable": "File picker is unavailable in this runtime.",
@@ -545,7 +554,7 @@ export const dict = {
   "routes.settings.nav.appearance": "Appearance",
   "routes.settings.nav.attribution": "Attribution",
   "routes.settings.nav.general": "General",
-  "routes.settings.nav.instructions": "Instructions",
+  "routes.settings.nav.personalization": "Personalization",
   "routes.settings.nav.learnerMemory": "Learner Memory",
   "routes.settings.nav.mcps": "MCPs",
   "routes.settings.nav.notebook": "Notebook",
@@ -631,9 +640,35 @@ export const dict = {
   "settings.general.fullTextAria": "Enable whole-book full-text reading",
   "settings.general.autoCompactionTitle": "Auto-compaction",
   "settings.general.autoCompactionAria": "Enable automatic context compaction",
-  "settings.instructions.description":
-    "Manage global instructions that apply to every notebook session.",
-  "settings.instructions.title": "Instructions",
+  "settings.general.buddyHomeTitle": "Buddy Home",
+  "settings.general.buddyHomeDescription":
+    "Choose where Buddy creates managed notebooks by default. You can still open or create notebooks elsewhere later.",
+  "settings.general.buddyHomeChange": "Change Buddy Home",
+  "settings.general.buddyHomeChanging": "Changing Buddy Home...",
+  "settings.general.buddyHomeSaved": "Buddy Home updated",
+  "settings.general.buddyHomeSaveFailed": "Couldn't update Buddy Home. Try again.",
+  "settings.personalization.title": "Personalization",
+  "settings.personalization.description":
+    "Manage the structured profile Buddy knows about you and the global instructions Buddy should follow.",
+  "settings.personalization.profileSectionTitle": "Profile",
+  "settings.personalization.profileSectionDescription":
+    "This structured profile helps Buddy adapt how it responds across the app.",
+  "settings.personalization.preferredNameTitle": "Preferred name",
+  "settings.personalization.preferredNameDescription":
+    "How Buddy should address you when it is helpful to do so.",
+  "settings.personalization.preferredNamePlaceholder": "What should Buddy call you?",
+  "settings.personalization.occupationTitle": "Occupation",
+  "settings.personalization.occupationDescription":
+    "A short description of your work, role, or primary context.",
+  "settings.personalization.occupationPlaceholder": "Student, researcher, designer, founder...",
+  "settings.personalization.moreAboutYouTitle": "More about you",
+  "settings.personalization.moreAboutYouDescription":
+    "Anything else Buddy should know about how to help you effectively.",
+  "settings.personalization.moreAboutYouPlaceholder":
+    "Goals, preferences, background, constraints, or learning context...",
+  "settings.personalization.instructionsSectionTitle": "Instructions",
+  "settings.personalization.instructionsSectionDescription":
+    "Freeform global instructions that Buddy should follow across notebook sessions.",
   "settings.mcps.title": "MCPs",
   "settings.model.connectProviderFirst": "Connect a provider first",
   "settings.model.description":

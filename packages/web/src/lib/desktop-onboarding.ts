@@ -8,7 +8,8 @@ import { OPENAI_PROVIDER_ID } from "./provider-ids"
 
 export type DesktopOnboardingState = {
   platform: "web" | "desktop"
-  completed: boolean
+  setupCompleted: boolean
+  personalizationStepPending: boolean
   openProjects: string[]
   activeDirectory?: string
   pendingActiveDirectory?: string
@@ -31,7 +32,15 @@ export function hasExistingChatContext(input: DesktopOnboardingState) {
 }
 
 export function shouldShowDesktopOnboarding(input: DesktopOnboardingState) {
-  return input.platform === "desktop" && !input.completed && !hasExistingChatContext(input)
+  if (input.platform !== "desktop") {
+    return false
+  }
+
+  if (input.personalizationStepPending) {
+    return true
+  }
+
+  return !input.setupCompleted && !hasExistingChatContext(input)
 }
 
 export function resolveDesktopEntryPath(input: DesktopOnboardingState) {
@@ -75,6 +84,10 @@ export async function resolveDesktopEntryPathWithSnapshots(input: {
     return "/chat"
   }
 
+  if (input.state.personalizationStepPending) {
+    return "/onboarding"
+  }
+
   const [openProjectsResult, providersResult] = await Promise.allSettled([
     input.loadOpenProjectsSnapshot(),
     input.loadProviderCatalogSnapshot(),
@@ -98,7 +111,8 @@ export function readDesktopOnboardingState(): DesktopOnboardingState {
 
   return {
     platform: getPlatform().platform,
-    completed: onboardingState.completed,
+    setupCompleted: onboardingState.setupCompleted,
+    personalizationStepPending: onboardingState.shouldShowPersonalizationStep(),
     openProjects: chatState.openProjects,
     activeDirectory: chatState.activeDirectory,
     pendingActiveDirectory: chatState.pendingActiveDirectory,
@@ -117,6 +131,6 @@ export async function resolveCurrentDesktopEntryPath() {
     state: readDesktopOnboardingState(),
     loadOpenProjectsSnapshot: loadOpenProjects,
     loadProviderCatalogSnapshot,
-    markOnboardingCompleted: () => useOnboardingStore.getState().markCompleted(),
+    markOnboardingCompleted: () => useOnboardingStore.getState().markSetupCompleted(),
   })
 }
