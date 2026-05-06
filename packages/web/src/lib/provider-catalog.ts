@@ -45,10 +45,11 @@ export function resolveProviderModelSelection(input: {
   providers: ProviderInfo[]
   providerDefault: Record<string, string>
   providerID: string
+  requireConnected?: boolean
 }) {
-  const provider = getConnectedProviders(input.providers).find(
-    (entry) => entry.id === input.providerID,
-  )
+  const providerPool =
+    input.requireConnected === false ? input.providers : getConnectedProviders(input.providers)
+  const provider = providerPool.find((entry) => entry.id === input.providerID)
   const model = resolveConnectedProviderModel(provider, input.providerDefault[input.providerID])
 
   if (!provider || !model) return undefined
@@ -62,11 +63,13 @@ export function resolveProviderModelSelection(input: {
 export function resolveCatalogProviderModelSelection(input: {
   catalog: ProviderCatalogState
   providerID: string
+  requireConnected?: boolean
 }) {
   return resolveProviderModelSelection({
     providers: input.catalog.providers,
     providerDefault: input.catalog.default,
     providerID: input.providerID,
+    requireConnected: input.requireConnected,
   })
 }
 

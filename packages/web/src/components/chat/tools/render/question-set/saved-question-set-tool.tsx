@@ -83,11 +83,17 @@ function parsePublicQuestionSetArtifact(value: unknown): PublicQuestionSetArtifa
               return undefined
             }
 
-            return {
-              id: choiceID,
-              content,
-              ...(choice.isNoneOfTheAbove === true ? { isNoneOfTheAbove: true } : {}),
+            const parsedChoice: PublicQuestionSetArtifact["questions"][number]["payload"]["choices"][number] =
+              {
+                id: choiceID,
+                content,
+              }
+
+            if (choice.isNoneOfTheAbove === true) {
+              parsedChoice.isNoneOfTheAbove = true
             }
+
+            return parsedChoice
           },
         )
         .filter(
@@ -101,11 +107,10 @@ function parsePublicQuestionSetArtifact(value: unknown): PublicQuestionSetArtifa
         return undefined
       }
 
-      return {
+      const parsedQuestion: PublicQuestionSetArtifact["questions"][number] = {
         id: questionID,
         prompt,
         goalIds,
-        ...(explanation ? { explanation } : {}),
         payload: {
           multipleSelect,
           ...(payload.countChoices === true ? { countChoices: true } : {}),
@@ -115,6 +120,12 @@ function parsePublicQuestionSetArtifact(value: unknown): PublicQuestionSetArtifa
           choices: parsedChoices,
         },
       }
+
+      if (explanation) {
+        parsedQuestion.explanation = explanation
+      }
+
+      return parsedQuestion
     })
     .filter(
       (question): question is PublicQuestionSetArtifact["questions"][number] =>

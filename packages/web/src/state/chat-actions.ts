@@ -196,6 +196,13 @@ type TeachingStateSessionRuntimeResponse = {
   }
 }
 
+function readRuntimeActionMap(value: Record<string, unknown>) {
+  const entries = Object.entries(value).flatMap(([key, action]) =>
+    action === "allow" || action === "deny" ? ([[key, action]] as const) : [],
+  )
+  return Object.fromEntries(entries)
+}
+
 function readTeachingWorkspaceStateFromResponse(
   snapshot: SessionTeachingStateResponses[200],
 ): "inactive" | "active" {
@@ -236,13 +243,6 @@ function readSessionRuntimeFromResponse(
 
   if (!isRecord(tools) || !isRecord(skills) || !isRecord(subagents)) return undefined
   if (!Array.isArray(visibleSurfaces) || typeof defaultSurface !== "string") return undefined
-
-  const readRuntimeActionMap = (value: Record<string, unknown>) => {
-    const entries = Object.entries(value).flatMap(([key, action]) =>
-      action === "allow" || action === "deny" ? ([[key, action]] as const) : [],
-    )
-    return Object.fromEntries(entries)
-  }
 
   return {
     persona,
@@ -305,7 +305,6 @@ type LearnerSnapshotPersona = "buddy" | "code-buddy" | "math-buddy" | "reading-b
 type LearnerMemoryRecord = LearnerMemoryListResponses[200]["memories"][number]
 const DEFAULT_PERSONA_SURFACE: PersonaConfigOption["defaultSurface"] = "curriculum"
 const DEFAULT_LEARNER_MEMORY_LIMIT = 25
-const LEARNER_MEMORY_TOOL_ID = "learner_memory_search"
 const EMPTY_ALIGNMENT_SUMMARY: LearnerCurriculumView["alignmentSummary"] = {
   records: [],
   incompleteGoalIds: [],

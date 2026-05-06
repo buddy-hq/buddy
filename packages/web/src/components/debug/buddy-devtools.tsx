@@ -43,6 +43,7 @@ import { useChatStore } from "@/state/chat-store"
 import type { MessageWithParts } from "@/state/chat-types"
 import { teachingSessionKey, useTeachingRuntime } from "@/state/teaching-runtime"
 import { learnerSnapshotViewsQueryOptions } from "@/state/learner-query"
+import { useOnboardingStore } from "@/state/onboarding-store"
 import { useNotebookSettingsWorkbench } from "@/state/project-settings"
 import { SystemPromptPanel } from "./system-prompt-panel"
 import { PalettePanel } from "./palette-panel"
@@ -2399,6 +2400,7 @@ export function BuddyDevTools() {
       pathname === CHAT_ENTRY_PATH && !isOnboardingTestSearch(location.search)
         ? buildOnboardingChatEntryReturnTo()
         : currentHref
+    useOnboardingStore.getState().reset()
     void navigate({
       to: "/onboarding",
       search: buildOnboardingTestSearch(returnTo),

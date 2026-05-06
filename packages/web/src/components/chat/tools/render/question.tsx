@@ -29,13 +29,10 @@ function readQuestionAnswers(metadata: Record<string, unknown>): string[][] {
   })
 }
 
-export function renderQuestionTool({ state, info, defaultOpen }: ToolPartProps) {
+export function renderQuestionTool({ state, info }: ToolPartProps) {
   const questions = readQuestions(state.input)
   const questionAnswers = readQuestionAnswers(state.metadata)
   const hasAnswers = questionAnswers.length > 0
-  const output = state.output || (state.error ?? "")
-  const hasContent = output.trim().length > 0
-  const hasError = state.status === "error" && hasContent
 
   const subtitle =
     questions.length === 0

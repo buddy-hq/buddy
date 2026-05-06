@@ -31,7 +31,7 @@ import {
   HIDDEN_STEPS_TEXT_CLASS_NAME,
 } from "./styles"
 
-import { CONTENT_REVEAL_TRANSITION, MOTION_GENTLE, MOTION_SNAPPY } from "../tool-motion"
+import { MOTION_GENTLE, MOTION_SNAPPY } from "../tool-motion"
 import { TextShimmer } from "../text-shimmer"
 
 const DEFAULT_STEPS_TITLE = "Steps"
