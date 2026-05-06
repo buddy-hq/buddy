@@ -8,10 +8,17 @@ type LearningToolMetadata = {
 }
 
 function allLearningToolMetadata(): LearningToolMetadata[] {
-  return allBuddyTools().map((tool) => ({
-    id: tool.id,
-    ...(tool.constraints ? { constraints: tool.constraints } : {}),
-  }))
+  return allBuddyTools().map((tool) => {
+    const metadata: LearningToolMetadata = {
+      id: tool.id,
+    }
+
+    if (tool.constraints) {
+      metadata.constraints = tool.constraints
+    }
+
+    return metadata
+  })
 }
 
 function allLearningToolIds(): LearningToolId[] {

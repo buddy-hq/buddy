@@ -3,6 +3,7 @@ import BUDDY_RUNTIME_CONTEXT_TEMPLATE_SOURCE from "./index.t.md"
 import { calculatorSection } from "./calculator-context"
 import type { RuntimeSectionContext, RuntimeSectionDefinition } from "./definition"
 import { modelSection } from "./model-context"
+import { personalizationSection } from "./personalization-context"
 import { resourcesSection } from "./resource-context"
 import {
   getCheckpointStatus,
@@ -63,6 +64,7 @@ export async function buildBuddyRuntimeContext(
 const RUNTIME_SECTIONS: readonly RuntimeSectionDefinition[] = [
   teachingWorkspaceStateSection,
   modelSection,
+  personalizationSection,
   calculatorSection,
   resourcesSection,
   teachingPolicySection,

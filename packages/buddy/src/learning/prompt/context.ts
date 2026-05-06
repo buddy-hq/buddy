@@ -72,6 +72,12 @@ export type PromptModel = {
   outputWindow: number
 }
 
+export type PromptPersonalization = {
+  preferredName?: string
+  occupation?: string
+  moreAboutYou?: string
+}
+
 export type PromptContext = {
   directory: string
   sessionID: string
@@ -87,6 +93,7 @@ export type PromptContext = {
   resources: PromptResource[]
   activeResource?: ActivePromptResource
   model?: PromptModel
+  personalization?: PromptPersonalization
   teachingContext?: TeachingPromptContext
   priorTurn?: PromptTurnSnapshot
 }
@@ -116,6 +123,27 @@ function readTrimmedStringField(value: object, key: string): string | undefined 
   if (typeof candidate !== "string") return undefined
   const trimmed = candidate.trim()
   return trimmed ? trimmed : undefined
+}
+
+function resolvePromptPersonalization(
+  projectConfig: MessagePromptProjectConfig,
+): PromptPersonalization | undefined {
+  const personalization = projectConfig.personalization
+  if (!personalization) return undefined
+
+  const preferredName = personalization.preferred_name?.trim() || undefined
+  const occupation = personalization.occupation?.trim() || undefined
+  const moreAboutYou = personalization.more_about_you?.trim() || undefined
+
+  if (!preferredName && !occupation && !moreAboutYou) {
+    return undefined
+  }
+
+  return {
+    ...(preferredName ? { preferredName } : {}),
+    ...(occupation ? { occupation } : {}),
+    ...(moreAboutYou ? { moreAboutYou } : {}),
+  }
 }
 
 async function resolvePromptModel(input: {
@@ -258,6 +286,7 @@ async function buildPromptContext(
 ): Promise<CreatePromptContextResult> {
   const teachingContext = resolveTeachingContext(input.body)
   const activeReadingContext = parseActiveReadingContext(input.body.reading)
+  const personalization = resolvePromptPersonalization(input.projectConfig)
   const persona = getBuddyPersona(input.personaID, input.projectConfig.personas)
   const personaDefinition = REGISTERED_BUDDY_PERSONAS.find(
     (definition) => definition.id === input.personaID,
@@ -320,6 +349,7 @@ async function buildPromptContext(
       focusGoalIds,
       resources: promptResources,
       ...(model ? { model } : {}),
+      ...(personalization ? { personalization } : {}),
       ...(teachingContext ? { teachingContext } : {}),
       ...(activeResource ? { activeResource } : {}),
       ...(input.previousState

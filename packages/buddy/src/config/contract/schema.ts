@@ -70,6 +70,14 @@ export namespace ConfigSchema {
       reserved: NonNegativeInteger.optional(),
     })
     .optional()
+  const Personalization = z
+    .object({
+      preferred_name: z.string().optional(),
+      occupation: z.string().optional(),
+      more_about_you: z.string().optional(),
+    })
+    .strict()
+    .optional()
 
   export const PersonaOverride = z
     .object({
@@ -117,6 +125,7 @@ export namespace ConfigSchema {
       mcp: z.record(z.string(), z.union([Mcp, DisabledMcp])).optional(),
       permission: Permission.optional(),
       compaction: Compaction,
+      personalization: Personalization,
       tools: TOOL_TOGGLE_MAP,
       learner_memory: LearnerMemory,
       skills_external_vendor_roots_enabled: z.boolean().optional(),
