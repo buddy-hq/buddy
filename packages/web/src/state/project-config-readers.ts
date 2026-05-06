@@ -2,6 +2,58 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
+export type PersonalizationSettings = {
+  preferredName: string
+  occupation: string
+  moreAboutYou: string
+}
+
+export const EMPTY_PERSONALIZATION_SETTINGS: PersonalizationSettings = {
+  preferredName: "",
+  occupation: "",
+  moreAboutYou: "",
+}
+
+export function normalizePersonalizationSettings(
+  input: PersonalizationSettings,
+): PersonalizationSettings {
+  return {
+    preferredName: input.preferredName.trim(),
+    occupation: input.occupation.trim(),
+    moreAboutYou: input.moreAboutYou.trim(),
+  }
+}
+
+export function personalizationSettingsMatch(
+  left: PersonalizationSettings,
+  right: PersonalizationSettings,
+) {
+  const normalizedLeft = normalizePersonalizationSettings(left)
+  const normalizedRight = normalizePersonalizationSettings(right)
+
+  return (
+    normalizedLeft.preferredName === normalizedRight.preferredName &&
+    normalizedLeft.occupation === normalizedRight.occupation &&
+    normalizedLeft.moreAboutYou === normalizedRight.moreAboutYou
+  )
+}
+
+export function shouldResetPersonalizationForm(input: {
+  nextValues: PersonalizationSettings
+  currentValues: PersonalizationSettings
+  lastSavedValues?: PersonalizationSettings
+}) {
+  if (personalizationSettingsMatch(input.nextValues, input.currentValues)) {
+    return false
+  }
+
+  if (!input.lastSavedValues) {
+    return personalizationSettingsMatch(input.nextValues, EMPTY_PERSONALIZATION_SETTINGS)
+  }
+
+  return personalizationSettingsMatch(input.nextValues, input.lastSavedValues)
+}
+
 export function readString(input: Record<string, unknown>, key: string) {
   const value = input[key]
   return typeof value === "string" ? value : ""
@@ -59,4 +111,38 @@ export function readLearnerMemoryString(input: Record<string, unknown>, key: str
   const learnerMemory = readRecord(input, "learner_memory")
   const value = learnerMemory?.[key]
   return typeof value === "string" ? value : ""
+}
+
+export function readPersonalization(input: Record<string, unknown>): PersonalizationSettings {
+  const personalization = readRecord(input, "personalization")
+  if (!personalization) {
+    return EMPTY_PERSONALIZATION_SETTINGS
+  }
+
+  return {
+    preferredName:
+      typeof personalization.preferred_name === "string" ? personalization.preferred_name : "",
+    occupation: typeof personalization.occupation === "string" ? personalization.occupation : "",
+    moreAboutYou:
+      typeof personalization.more_about_you === "string" ? personalization.more_about_you : "",
+  }
+}
+
+export function buildPersonalizationPatch(input: PersonalizationSettings) {
+  const normalized = normalizePersonalizationSettings(input)
+  const preferredName = normalized.preferredName
+  const occupation = normalized.occupation
+  const moreAboutYou = normalized.moreAboutYou
+
+  if (!preferredName && !occupation && !moreAboutYou) {
+    return { personalization: null }
+  }
+
+  return {
+    personalization: {
+      ...(preferredName ? { preferred_name: preferredName } : {}),
+      ...(occupation ? { occupation } : {}),
+      ...(moreAboutYou ? { more_about_you: moreAboutYou } : {}),
+    },
+  }
 }

@@ -4,14 +4,13 @@ import {
   BookOpenIcon,
   BrainIcon,
   CogIcon,
-  FileTextIcon,
+  UserRoundIcon,
   ScaleIcon,
   SettingsIcon,
   SlidersHorizontalIcon,
   SparklesIcon,
   type LucideIcon,
 } from "lucide-react"
-import { InstructionsSettings } from "./settings-instructions"
 import { GeneralSettings } from "./settings-general"
 import { ProvidersSettings } from "./settings-providers"
 import { McpsSettings } from "./settings-mcps"
@@ -20,6 +19,7 @@ import { AdvancedSettings } from "./settings-advanced"
 import { StandardsSettings } from "./settings-tools"
 import { AttributionSettings } from "./settings-attribution"
 import { LearnerMemorySettings } from "./settings-learner-memory"
+import { PersonalizationSettings } from "./settings-personalization"
 import type { SettingsWorkbench } from "./settings-workbench"
 
 export type SettingsTab =
@@ -27,7 +27,7 @@ export type SettingsTab =
   | "providers"
   | "mcps"
   | "skills"
-  | "instructions"
+  | "personalization"
   | "learnerMemory"
   | "advanced"
   | "attribution"
@@ -93,13 +93,13 @@ export const SETTINGS_TABS: SettingsTabDefinition[] = [
     render: (workbench) => <SkillsPage directory={workbench.selectedDirectory} />,
   },
   {
-    id: "instructions",
-    navLabelKey: "routes.settings.nav.instructions",
-    icon: FileTextIcon,
+    id: "personalization",
+    navLabelKey: "routes.settings.nav.personalization",
+    icon: UserRoundIcon,
     layout: "standard",
     group: "main",
     scope: "global",
-    render: () => <InstructionsSettings />,
+    render: (workbench) => <PersonalizationSettings workbench={workbench} />,
   },
   {
     id: "learnerMemory",
