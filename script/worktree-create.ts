@@ -1,12 +1,11 @@
 #!/usr/bin/env bun
 import { spawnSync } from "node:child_process"
 import { existsSync, mkdirSync } from "node:fs"
-import { homedir } from "node:os"
 import path from "node:path"
 import readline from "node:readline"
+import { resolveWorktreePaths } from "./worktree-paths"
 
-const MAIN_REPO = path.join(homedir(), "code", "buddy")
-const WORKTREES_DIR = path.join(homedir(), "code", "buddies")
+const { repoRoot, worktreesDir } = resolveWorktreePaths()
 
 const args = process.argv.slice(2)
 const branchName = args[0]
@@ -26,7 +25,7 @@ async function promptBranchName(): Promise<string> {
 }
 
 function runGit(args: string[], options?: { cwd?: string; throwOnError?: boolean }) {
-  const cwd = options?.cwd ?? MAIN_REPO
+  const cwd = options?.cwd ?? repoRoot
   const throwOnError = options?.throwOnError ?? true
 
   const result = spawnSync("git", args, {
@@ -55,7 +54,7 @@ async function main() {
     process.exit(1)
   }
 
-  const worktreePath = path.join(WORKTREES_DIR, name)
+  const worktreePath = path.join(worktreesDir, name)
 
   if (existsSync(worktreePath)) {
     console.error(`Worktree directory already exists: ${worktreePath}`)
@@ -68,7 +67,7 @@ async function main() {
     process.exit(1)
   }
 
-  mkdirSync(WORKTREES_DIR, { recursive: true })
+  mkdirSync(worktreesDir, { recursive: true })
 
   console.log(`Creating worktree for branch '${name}'...`)
   runGit(["worktree", "add", worktreePath, "-b", name, "main"])
