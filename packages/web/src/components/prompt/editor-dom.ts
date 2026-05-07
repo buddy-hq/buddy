@@ -1,10 +1,29 @@
 import {
   PROMPT_PART_TYPE_AGENT,
+  READING_SELECTION_PART_TYPE,
   RESOURCE_REFERENCE_PART_TYPE,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
 } from "./prompt-types"
 
 const MAX_BREAKS = 200
+
+function getStructuredPromptLength(node: Node): number | undefined {
+  if (node.nodeType !== Node.ELEMENT_NODE) return undefined
+
+  const element = node as HTMLElement
+  if (element.dataset.type === READING_SELECTION_PART_TYPE) {
+    return `"${element.dataset.text ?? ""}"`.length
+  }
+  if (
+    element.dataset.type === WORKSPACE_FILE_REFERENCE_PART_TYPE ||
+    element.dataset.type === PROMPT_PART_TYPE_AGENT ||
+    element.dataset.type === RESOURCE_REFERENCE_PART_TYPE
+  ) {
+    return (element.textContent ?? "").replace(/\u200B/g, "").length
+  }
+
+  return undefined
+}
 
 export function createTextFragment(content: string): DocumentFragment {
   const fragment = document.createDocumentFragment()
@@ -35,6 +54,8 @@ export function createTextFragment(content: string): DocumentFragment {
 
 export function getNodeLength(node: Node): number {
   if (node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).tagName === "BR") return 1
+  const structuredLength = getStructuredPromptLength(node)
+  if (structuredLength !== undefined) return structuredLength
   return (node.textContent ?? "").replace(/\u200B/g, "").length
 }
 
@@ -42,6 +63,8 @@ export function getTextLength(node: Node): number {
   if (node.nodeType === Node.TEXT_NODE)
     return (node.textContent ?? "").replace(/\u200B/g, "").length
   if (node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).tagName === "BR") return 1
+  const structuredLength = getStructuredPromptLength(node)
+  if (structuredLength !== undefined) return structuredLength
 
   let length = 0
   for (const child of Array.from(node.childNodes)) {
@@ -75,7 +98,8 @@ export function setCursorPosition(parent: HTMLElement, position: number) {
       node.nodeType === Node.ELEMENT_NODE &&
       ((node as HTMLElement).dataset.type === WORKSPACE_FILE_REFERENCE_PART_TYPE ||
         (node as HTMLElement).dataset.type === PROMPT_PART_TYPE_AGENT ||
-        (node as HTMLElement).dataset.type === RESOURCE_REFERENCE_PART_TYPE)
+        (node as HTMLElement).dataset.type === RESOURCE_REFERENCE_PART_TYPE ||
+        (node as HTMLElement).dataset.type === READING_SELECTION_PART_TYPE)
     const isBreak = node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).tagName === "BR"
 
     if (isText && remaining <= length) {
@@ -145,7 +169,8 @@ export function setRangeEdge(
       node.nodeType === Node.ELEMENT_NODE &&
       ((node as HTMLElement).dataset.type === WORKSPACE_FILE_REFERENCE_PART_TYPE ||
         (node as HTMLElement).dataset.type === PROMPT_PART_TYPE_AGENT ||
-        (node as HTMLElement).dataset.type === RESOURCE_REFERENCE_PART_TYPE)
+        (node as HTMLElement).dataset.type === RESOURCE_REFERENCE_PART_TYPE ||
+        (node as HTMLElement).dataset.type === READING_SELECTION_PART_TYPE)
     const isBreak = node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).tagName === "BR"
 
     if (isText && remaining <= length) {

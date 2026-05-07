@@ -7,6 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@buddy/ui"
+import { XIcon } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { language } from "@/context/language"
 import { shouldSubmitComposer } from "../../lib/chat-input"
@@ -31,7 +32,7 @@ import {
   collectPromptParts,
   createPromptPartsFromValue,
   renderPromptParts,
-  serializePromptParts,
+  serializePromptEditorParts,
 } from "./prompt-parts"
 import { type SlashCommandOption, type SlashCommandSource } from "./slash-autocomplete"
 import { PromptAutocompleteMenu } from "./components/prompt-autocomplete-menu"
@@ -39,6 +40,7 @@ import { PromptComposerToolbar } from "./components/prompt-composer-toolbar"
 import {
   PROMPT_PART_TYPE_AGENT,
   PROMPT_PART_TYPE_TEXT,
+  READING_SELECTION_PART_TYPE,
   type PromptComposerPart,
   RESOURCE_REFERENCE_PART_TYPE,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
@@ -107,6 +109,20 @@ function hasSubmittablePromptParts(parts: PromptComposerPart[]) {
   return parts.some((part) => part.type !== PROMPT_PART_TYPE_TEXT || part.text.trim().length > 0)
 }
 
+function buildReadingSelectionEntryKey(
+  part: Extract<PromptComposerPart, { type: typeof READING_SELECTION_PART_TYPE }>,
+) {
+  return (
+    part.selectionKey ??
+    `${part.cfi ?? ""}:${part.index ?? ""}:${part.tocLabel ?? ""}:${part.pageLabel ?? ""}:${part.text}`
+  )
+}
+
+type DismissedSelectionPreview = {
+  key: string
+  text: string
+}
+
 export function PromptComposer(props: PromptComposerProps) {
   const editorRef = useRef<HTMLDivElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -128,20 +144,37 @@ export function PromptComposer(props: PromptComposerProps) {
   const pushHistoryEntry = usePromptStore((state) => state.pushHistoryEntry)
   const setHistoryNavigation = usePromptStore((state) => state.setHistoryNavigation)
   const clearHistoryNavigation = usePromptStore((state) => state.resetHistoryNavigation)
+  const readingSelectionEntries = useMemo(
+    () =>
+      draft.parts.flatMap((part) =>
+        part.type === READING_SELECTION_PART_TYPE
+          ? [{ part, key: buildReadingSelectionEntryKey(part) }]
+          : [],
+      ),
+    [draft.parts],
+  )
+  const draftEditorParts = useMemo(
+    () => draft.parts.filter((part) => part.type !== READING_SELECTION_PART_TYPE),
+    [draft.parts],
+  )
+  const draftEditorValue = useMemo(() => serializePromptEditorParts(draft.parts), [draft.parts])
   const hasSubmittableParts = useMemo(() => hasSubmittablePromptParts(draft.parts), [draft.parts])
   const canSubmit = useMemo(
-    () => draft.value.trim().length > 0 || draft.attachments.length > 0 || hasSubmittableParts,
-    [draft.attachments.length, draft.value, hasSubmittableParts],
+    () => draftEditorValue.trim().length > 0 || draft.attachments.length > 0 || hasSubmittableParts,
+    [draft.attachments.length, draftEditorValue, hasSubmittableParts],
   )
   const [cursorOffset, setCursorOffset] = useState(() => draft.cursor)
   const [dragging, setDragging] = useState(false)
   const [modelMenuOpen, setModelMenuOpen] = useState(false)
+  const [dismissedSelectionPreviews, setDismissedSelectionPreviews] = useState<
+    DismissedSelectionPreview[]
+  >([])
   const historyIndex = historyNavigation.historyIndex
   const savedHistoryDraft = historyNavigation.savedDraft
 
   const viewState = usePromptComposerViewState({
     cursorOffset,
-    draftValue: draft.value,
+    draftValue: draftEditorValue,
     selectedPersona: props.selectedPersona,
     personaOptions: props.personaOptions,
     mentionableAgents: props.mentionableAgents,
@@ -152,9 +185,9 @@ export function PromptComposer(props: PromptComposerProps) {
   })
 
   useEffect(() => {
-    if (cursorOffset <= draft.value.length) return
-    setCursorOffset(draft.value.length)
-  }, [cursorOffset, draft.value])
+    if (cursorOffset <= draftEditorValue.length) return
+    setCursorOffset(draftEditorValue.length)
+  }, [cursorOffset, draftEditorValue])
 
   const attachmentState = usePromptComposerAttachments({
     promptKey,
@@ -166,10 +199,36 @@ export function PromptComposer(props: PromptComposerProps) {
   usePromptEditorSync({
     editorRef,
     mirrorInputRef,
-    draft,
+    draft: {
+      ...draft,
+      value: draftEditorValue,
+      parts: draftEditorParts,
+    },
     knownAgents: viewState.knownAgents,
     setCursorOffset,
   })
+
+  const previousReadingSelectionCountRef = useRef(readingSelectionEntries.length)
+
+  useEffect(() => {
+    const previous = previousReadingSelectionCountRef.current
+    previousReadingSelectionCountRef.current = readingSelectionEntries.length
+    if (readingSelectionEntries.length <= previous) return
+
+    const editor = editorRef.current
+    if (!editor) return
+    editor.focus()
+    const nextCursor = Math.max(0, Math.min(draft.cursor, draftEditorValue.length))
+    setCursorPosition(editor, nextCursor)
+    setCursorOffset(nextCursor)
+    setDraftCursor(promptKey, nextCursor)
+  }, [
+    draft.cursor,
+    draftEditorValue.length,
+    promptKey,
+    readingSelectionEntries.length,
+    setDraftCursor,
+  ])
 
   useEffect(() => {
     const wasBusy = previousBusyRef.current
@@ -184,7 +243,7 @@ export function PromptComposer(props: PromptComposerProps) {
       if (!editor) return
 
       editor.focus()
-      const nextCursor = Math.max(0, Math.min(draft.cursor, draft.value.length))
+      const nextCursor = Math.max(0, Math.min(draft.cursor, draftEditorValue.length))
       setCursorPosition(editor, nextCursor)
       setCursorOffset(nextCursor)
       setDraftCursor(promptKey, nextCursor)
@@ -193,7 +252,7 @@ export function PromptComposer(props: PromptComposerProps) {
     return () => {
       window.cancelAnimationFrame(frame)
     }
-  }, [draft.cursor, draft.value.length, promptKey, props.isBusy, setDraftCursor])
+  }, [draft.cursor, draftEditorValue.length, promptKey, props.isBusy, setDraftCursor])
 
   function replaceDraftFromComposer(draftState: Omit<typeof draft, "updatedAt">) {
     mirrorInputRef.current = true
@@ -223,12 +282,17 @@ export function PromptComposer(props: PromptComposerProps) {
       next.parts.length > 0
         ? clonePromptParts(next.parts)
         : createPromptPartsFromValue(next.value, viewState.knownAgents)
-    const nextValue = next.parts.length > 0 ? serializePromptParts(nextParts) : next.value
+    const readingSelectionParts = nextParts.filter(
+      (part): part is Extract<PromptComposerPart, { type: typeof READING_SELECTION_PART_TYPE }> =>
+        part.type === READING_SELECTION_PART_TYPE,
+    )
+    const editorParts = nextParts.filter((part) => part.type !== READING_SELECTION_PART_TYPE)
+    const nextValue = next.parts.length > 0 ? serializePromptEditorParts(nextParts) : next.value
     const nextCursor = cursor === "start" ? 0 : nextValue.length
-    renderEditorAtCursor(nextParts, nextCursor, true)
+    renderEditorAtCursor(editorParts, nextCursor, true)
     replaceDraftFromComposer({
       value: nextValue,
-      parts: nextParts,
+      parts: [...readingSelectionParts, ...editorParts],
       attachments: cloneAttachments(next.attachments),
       cursor: nextCursor,
     })
@@ -239,17 +303,22 @@ export function PromptComposer(props: PromptComposerProps) {
 
   function readEditorDraft() {
     const editor = editorRef.current
+    const readingSelectionParts = draft.parts.filter(
+      (part): part is Extract<PromptComposerPart, { type: typeof READING_SELECTION_PART_TYPE }> =>
+        part.type === READING_SELECTION_PART_TYPE,
+    )
     if (!editor) {
       return {
-        value: draft.value,
+        value: draftEditorValue,
         parts: clonePromptParts(draft.parts),
         attachments: cloneAttachments(draft.attachments),
         cursor: draft.cursor,
       }
     }
 
-    const parts = collectPromptParts(editor)
-    const value = serializePromptParts(parts)
+    const editorParts = collectPromptParts(editor)
+    const parts = [...readingSelectionParts, ...editorParts]
+    const value = serializePromptEditorParts(editorParts)
     const cursor = getCursorPosition(editor)
     return {
       value,
@@ -257,6 +326,38 @@ export function PromptComposer(props: PromptComposerProps) {
       attachments: cloneAttachments(draft.attachments),
       cursor,
     }
+  }
+
+  function removeReadingSelectionByKey(key: string) {
+    const dismissedSelection = readingSelectionEntries.find((entry) => entry.key === key)
+    if (dismissedSelection) {
+      setDismissedSelectionPreviews((current) => [
+        ...current,
+        { key, text: dismissedSelection.part.text },
+      ])
+      window.setTimeout(() => {
+        setDismissedSelectionPreviews((current) =>
+          current.filter((selection) => selection.key !== key),
+        )
+      }, 220)
+    }
+
+    const currentDraft = getPromptDraft(usePromptStore.getState(), promptKey)
+    const nextParts = currentDraft.parts.filter((part) => {
+      if (part.type !== READING_SELECTION_PART_TYPE) return true
+      if (part.selectionKey) {
+        return part.selectionKey !== key
+      }
+      return buildReadingSelectionEntryKey(part) !== key
+    })
+    const nextValue = serializePromptEditorParts(nextParts)
+    const nextCursor = Math.max(0, Math.min(currentDraft.cursor, nextValue.length))
+    replaceDraftFromComposer({
+      value: nextValue,
+      parts: nextParts,
+      attachments: currentDraft.attachments,
+      cursor: nextCursor,
+    })
   }
 
   function commitDraftToHistory(input: Omit<PromptDraftState, "updatedAt"> = draft) {
@@ -272,8 +373,13 @@ export function PromptComposer(props: PromptComposerProps) {
     const editor = editorRef.current
     if (!editor) return
 
-    const nextParts = collectPromptParts(editor)
-    const nextValue = serializePromptParts(nextParts)
+    const readingSelectionParts = draft.parts.filter(
+      (part): part is Extract<PromptComposerPart, { type: typeof READING_SELECTION_PART_TYPE }> =>
+        part.type === READING_SELECTION_PART_TYPE,
+    )
+    const nextEditorParts = collectPromptParts(editor)
+    const nextParts = [...readingSelectionParts, ...nextEditorParts]
+    const nextValue = serializePromptEditorParts(nextEditorParts)
     const nextCursor = getCursorPosition(editor)
     const shouldReset =
       !NON_EMPTY_TEXT.test(nextValue) &&
@@ -288,11 +394,22 @@ export function PromptComposer(props: PromptComposerProps) {
     viewState.setDismissedMentionKey(undefined)
     viewState.setDismissedSlashKey(undefined)
 
-    if (shouldReset) {
+    if (shouldReset && readingSelectionParts.length === 0) {
       resetHistoryNavigation()
       replaceDraftFromComposer({
         value: "",
         parts: [],
+        attachments: draft.attachments,
+        cursor: 0,
+      })
+      return
+    }
+
+    if (shouldReset) {
+      resetHistoryNavigation()
+      replaceDraftFromComposer({
+        value: "",
+        parts: readingSelectionParts,
         attachments: draft.attachments,
         cursor: 0,
       })
@@ -475,6 +592,39 @@ export function PromptComposer(props: PromptComposerProps) {
 
   return (
     <div className={props.className ?? "mx-4 mb-4"}>
+      {readingSelectionEntries.length > 0 || dismissedSelectionPreviews.length > 0 ? (
+        <div className="mb-2 flex flex-wrap gap-1.5">
+          {readingSelectionEntries.map(({ part, key }) => (
+            <div
+              key={key}
+              className="animate-in fade-in slide-in-from-top-1 zoom-in-95 duration-300 transition-all ease-out flex max-w-[min(72%,56ch)] items-center gap-1.5 rounded-md border border-border-base bg-surface-weak px-2 py-1"
+            >
+              <div className="min-w-0 flex-1 truncate text-[11px] leading-4 text-text-base">
+                {part.text}
+              </div>
+              <button
+                type="button"
+                onClick={() => removeReadingSelectionByKey(key)}
+                aria-label="Remove selected passage"
+                className="inline-flex size-5 shrink-0 items-center justify-center rounded-full text-text-weak transition-colors hover:bg-surface-strong hover:text-text-base"
+              >
+                <XIcon className="size-3" />
+              </button>
+            </div>
+          ))}
+          {dismissedSelectionPreviews.map((selection) => (
+            <div
+              key={`dismissed_${selection.key}`}
+              className="animate-out fade-out slide-out-to-top-1 zoom-out-95 duration-200 pointer-events-none flex max-w-[min(72%,56ch)] items-center gap-1.5 rounded-md border border-border-base bg-surface-weak px-2 py-1 opacity-0"
+            >
+              <div className="min-w-0 flex-1 truncate text-[11px] leading-4 text-text-base">
+                {selection.text}
+              </div>
+              <span className="inline-flex size-5 shrink-0" />
+            </div>
+          ))}
+        </div>
+      ) : null}
       <form
         id="prompt-composer-form"
         data-component="prompt-composer"
@@ -523,7 +673,7 @@ export function PromptComposer(props: PromptComposerProps) {
             </div>
           ) : null}
 
-          {!draft.value && draft.attachments.length === 0 && !hasSubmittableParts ? (
+          {!draftEditorValue && draft.attachments.length === 0 && !hasSubmittableParts ? (
             <div
               className="pointer-events-none absolute left-3 top-3 right-20 text-sm leading-6 text-text-weak transition-opacity duration-250 ease-out"
               style={{ opacity: viewState.placeholderOpacity }}
@@ -555,7 +705,7 @@ export function PromptComposer(props: PromptComposerProps) {
                 return
               }
 
-              const nextCursor = Math.max(0, Math.min(draft.cursor, draft.value.length))
+              const nextCursor = Math.max(0, Math.min(draft.cursor, draftEditorValue.length))
               setCursorPosition(editor, nextCursor)
               setCursorOffset(nextCursor)
               setDraftCursor(promptKey, nextCursor)
@@ -569,7 +719,7 @@ export function PromptComposer(props: PromptComposerProps) {
             }}
             onKeyDown={(event) => {
               const editor = editorRef.current
-              const currentCursor = editor ? getCursorPosition(editor) : draft.value.length
+              const currentCursor = editor ? getCursorPosition(editor) : draftEditorValue.length
               setCursorOffset(currentCursor)
               setDraftCursor(promptKey, currentCursor)
 
@@ -658,7 +808,7 @@ export function PromptComposer(props: PromptComposerProps) {
                 (event.key === "ArrowUp" || event.key === "ArrowDown") &&
                 canNavigateHistoryAtCursor(
                   event.key === "ArrowUp" ? "up" : "down",
-                  draft.value,
+                  draftEditorValue,
                   currentCursor,
                   historyIndex !== -1,
                 )
@@ -668,7 +818,7 @@ export function PromptComposer(props: PromptComposerProps) {
                   entries: historyEntries,
                   historyIndex,
                   current: {
-                    value: draft.value,
+                    value: draftEditorValue,
                     attachments: cloneAttachments(draft.attachments),
                     parts: clonePromptParts(draft.parts),
                   },

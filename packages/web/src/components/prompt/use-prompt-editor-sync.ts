@@ -15,6 +15,22 @@ function arePromptPartsEqual(left: PromptComposerPart[], right: PromptComposerPa
     if ("name" in leftPart && "name" in rightPart && leftPart.name !== rightPart.name) return false
     if ("path" in leftPart && "path" in rightPart && leftPart.path !== rightPart.path) return false
     if ("key" in leftPart && "key" in rightPart && leftPart.key !== rightPart.key) return false
+    if ("resourceKey" in leftPart && "resourceKey" in rightPart) {
+      if (leftPart.resourceKey !== rightPart.resourceKey) return false
+    }
+    if ("cfi" in leftPart && "cfi" in rightPart && leftPart.cfi !== rightPart.cfi) return false
+    if ("index" in leftPart && "index" in rightPart && leftPart.index !== rightPart.index) {
+      return false
+    }
+    if ("tocLabel" in leftPart && "tocLabel" in rightPart) {
+      if (leftPart.tocLabel !== rightPart.tocLabel) return false
+    }
+    if ("pageLabel" in leftPart && "pageLabel" in rightPart) {
+      if (leftPart.pageLabel !== rightPart.pageLabel) return false
+    }
+    if ("locationLabel" in leftPart && "locationLabel" in rightPart) {
+      if (leftPart.locationLabel !== rightPart.locationLabel) return false
+    }
   }
 
   return true
