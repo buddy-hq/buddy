@@ -29,6 +29,7 @@ const PACKAGE_DIR = path.resolve(import.meta.dir, "..")
 const PACKAGE_JSON_PATH = path.resolve(PACKAGE_DIR, "package.json")
 const BACKEND_RESOURCES_DIR = path.resolve(PACKAGE_DIR, "resources/backend")
 const MIGRATIONS_DIR = path.resolve(PACKAGE_DIR, "resources/migrations")
+const TAURI_SIGNER_BINARY_RELATIVE_PATH = "node_modules/.bin/tauri"
 
 export const SIDECAR_BINARIES: SidecarBinary[] = SHARED_SIDECAR_BINARIES
 
@@ -102,4 +103,11 @@ export function readDesktopPackageVersion() {
     version: string
   }
   return pkg.version
+}
+
+export function resolveTauriSignerBinaryPath(environment: NodeJS.ProcessEnv = Bun.env) {
+  return (
+    environment.TAURI_SIGNER_BINARY_PATH?.trim() ||
+    path.join(PACKAGE_DIR, TAURI_SIGNER_BINARY_RELATIVE_PATH)
+  )
 }

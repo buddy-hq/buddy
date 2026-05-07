@@ -4,12 +4,12 @@ import { $ } from "bun"
 import path from "node:path"
 import { createHash } from "node:crypto"
 import { access, mkdir, readFile, stat } from "node:fs/promises"
+import { resolveTauriSignerBinaryPath } from "./utils"
 
 const LATEST_YML_DIR_ENV_KEY = "LATEST_YML_DIR"
 const RELEASE_REPOSITORY_ENV_KEY = "GH_REPO"
 const VERSION_ENV_KEY = "BUDDY_VERSION"
 const ELECTRON_DIST_DIR_ENV_KEY = "ELECTRON_DIST_DIR"
-const TAURI_SIGNER_BINARY_PATH_ENV_KEY = "TAURI_SIGNER_BINARY_PATH"
 const UPDATE_OUTPUT_DIR_ENV_KEY = "BUDDY_UPDATE_OUTPUT_DIR"
 const UPDATE_ASSET_BASE_URL_ENV_KEY = "BUDDY_UPDATE_ASSET_BASE_URL"
 const UPDATE_SKIP_UPLOAD_ENV_KEY = "BUDDY_UPDATE_SKIP_UPLOAD"
@@ -25,7 +25,6 @@ if (!version) {
 }
 
 const electronDistDir = process.env[ELECTRON_DIST_DIR_ENV_KEY]?.trim() || ""
-const tauriSignerBinaryPath = process.env[TAURI_SIGNER_BINARY_PATH_ENV_KEY]?.trim() || ""
 const assetBaseUrl = process.env[UPDATE_ASSET_BASE_URL_ENV_KEY]?.trim() || ""
 const skipUpload = process.env[UPDATE_SKIP_UPLOAD_ENV_KEY]?.trim() === TRUE_ENV_VALUE
 const releaseVersion = version
@@ -185,12 +184,15 @@ function resolveAssetUrl(filename: string) {
   return `https://github.com/${repo}/releases/download/${tag}/${filename}`
 }
 
-function requireTauriSignerBinaryPath() {
-  if (!tauriSignerBinaryPath) {
-    throw new Error(`${TAURI_SIGNER_BINARY_PATH_ENV_KEY} is required`)
+async function requireTauriSignerBinaryPath() {
+  const binaryPath = resolveTauriSignerBinaryPath(process.env)
+  try {
+    await access(binaryPath)
+  } catch {
+    throw new Error(`Missing Tauri signer binary at ${binaryPath}`)
   }
 
-  return tauriSignerBinaryPath
+  return binaryPath
 }
 
 function ensureTauriSigningKeyPresent() {
@@ -230,7 +232,7 @@ await mkdir(outputDirectory, { recursive: true })
 await Bun.write(outputPath, `${JSON.stringify(output, null, 2)}\n`)
 
 ensureTauriSigningKeyPresent()
-const tauriSigner = requireTauriSignerBinaryPath()
+const tauriSigner = await requireTauriSignerBinaryPath()
 
 await $`${tauriSigner} signer sign ${outputPath}`.env(resolveSignerEnvironment())
 

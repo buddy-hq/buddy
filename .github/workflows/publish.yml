@@ -52,9 +52,33 @@ jobs:
       tag: ${{ steps.version.outputs.tag }}
       repo: ${{ steps.version.outputs.repo }}
 
+  release-preflight:
+    needs:
+      - version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.11"
+
+      - run: bun install
+
+      - name: Verify mac updater signer tooling
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PATH: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PATH }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: bun run --cwd packages/desktop-electron verify:update-signing
+
   build-sidecar:
     needs:
       - version
+      - release-preflight
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -78,6 +102,7 @@ jobs:
   build-electron:
     needs:
       - version
+      - release-preflight
       - build-sidecar
     strategy:
       fail-fast: false
@@ -208,7 +233,6 @@ jobs:
           BUDDY_VERSION: ${{ needs.version.outputs.version }}
           LATEST_YML_DIR: ${{ github.workspace }}/latest-yml
           ELECTRON_DIST_DIR: ${{ github.workspace }}/electron-dist
-          TAURI_SIGNER_BINARY_PATH: ${{ github.workspace }}/packages/desktop/node_modules/.bin/tauri
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PATH: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PATH }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
@@ -219,6 +243,7 @@ jobs:
   build-advanced-math:
     needs:
       - version
+      - release-preflight
     strategy:
       fail-fast: false
       matrix:
@@ -351,6 +376,7 @@ jobs:
   build-standards:
     needs:
       - version
+      - release-preflight
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

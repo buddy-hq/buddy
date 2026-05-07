@@ -3,7 +3,7 @@
 import { $ } from "bun"
 import { existsSync, readFileSync } from "node:fs"
 import path from "node:path"
-import { readDesktopPackageVersion } from "./utils"
+import { readDesktopPackageVersion, resolveTauriSignerBinaryPath } from "./utils"
 
 const DEFAULT_UPDATE_HOSTNAME = "127.0.0.1"
 const DEFAULT_UPDATE_PORT = 43199
@@ -43,7 +43,6 @@ const CONTENT_TYPES = new Map<string, string>([
 ])
 
 const packageDir = path.resolve(import.meta.dir, "..")
-const desktopPackageDir = path.resolve(packageDir, "../desktop")
 const distDir = path.resolve(
   Bun.env[ELECTRON_DIST_DIR_ENV_KEY]?.trim() || path.join(packageDir, "dist"),
 )
@@ -143,9 +142,7 @@ function resolveSigningEnvironment(): SigningEnvironment {
     [UPDATE_OUTPUT_DIR_ENV_KEY]: distDir,
     [UPDATE_ASSET_BASE_URL_ENV_KEY]: assetBaseUrl,
     [UPDATE_SKIP_UPLOAD_ENV_KEY]: TRUE_ENV_VALUE,
-    [TAURI_SIGNER_BINARY_PATH_ENV_KEY]:
-      Bun.env[TAURI_SIGNER_BINARY_PATH_ENV_KEY]?.trim() ||
-      path.join(desktopPackageDir, "node_modules/.bin/tauri"),
+    [TAURI_SIGNER_BINARY_PATH_ENV_KEY]: resolveTauriSignerBinaryPath(Bun.env),
   }
 
   const rawPrivateKey = Bun.env[TAURI_SIGNING_PRIVATE_KEY_ENV_KEY]?.trim()

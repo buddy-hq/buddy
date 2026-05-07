@@ -25,7 +25,8 @@
     "prepare:release": "bun ./scripts/prepare.ts",
     "copy:bundles": "bun ./scripts/copy-bundles.ts",
     "build:installable": "bun ./scripts/local-release.ts",
-    "serve:update:mac-local": "bun ./scripts/serve-local-mac-update.ts"
+    "serve:update:mac-local": "bun ./scripts/serve-local-mac-update.ts",
+    "verify:update-signing": "bun ./scripts/verify-update-signing.ts"
   },
   "dependencies": {
     "@bokuweb/zstd-wasm": "^0.0.27",
@@ -42,6 +43,7 @@
     "@buddy/web": "workspace:*",
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/router-plugin": "^1.167.22",
+    "@tauri-apps/cli": "^2",
     "@types/bun": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "^18.2.0",
