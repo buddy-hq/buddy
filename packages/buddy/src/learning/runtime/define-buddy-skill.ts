@@ -1,3 +1,6 @@
+import { existsSync, readFileSync } from "node:fs"
+import { fileURLToPath } from "node:url"
+
 type BuddySkillDefinition = {
   file: URL
   content: string
@@ -29,8 +32,27 @@ function parseSkillFrontmatter(content: string): { name: string; description: st
   }
 }
 
+function readRawSkillFile(file: URL): string | undefined {
+  const filepath = fileURLToPath(file)
+  if (!existsSync(filepath)) {
+    return undefined
+  }
+
+  return readFileSync(filepath, "utf8")
+}
+
+function resolveSkillDocumentContent(input: BuddySkillDefinition): string {
+  try {
+    parseSkillFrontmatter(input.content)
+    return input.content
+  } catch {
+    return readRawSkillFile(input.file) ?? input.content
+  }
+}
+
 function defineBuddySkill(input: BuddySkillDefinition): BuddySkill {
-  const { name, description } = parseSkillFrontmatter(input.content)
+  const content = resolveSkillDocumentContent(input)
+  const { name, description } = parseSkillFrontmatter(content)
 
   return {
     url: input.file,
