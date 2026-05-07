@@ -110,10 +110,16 @@ import { useTeachingWorkspace } from "./use-teaching-workspace"
 import { getRightSidebarDefaultWidth, RIGHT_SIDEBAR_EDITOR_MIN_WIDTH } from "./right-sidebar-layout"
 import type { ResourceCardTarget } from "@/components/layout/chat-left-sidebar/resource-card-grid"
 import { useQuestionSetSidebarActions } from "@/components/question-set/use-question-set-sidebar-actions"
+import { bootstrapLearnerMemoryForNotebookBestEffort } from "@/lib/learner-memory"
 import { useWorkspaceQuestionSetPanelStore } from "@/state/workspace-question-set-panel-store"
 
 const BOTTOM_THRESHOLD_PX = 96
 const SIDEBAR_MIN_WIDTH = 220
+const READING_PREFETCH_BLOCKED_STATUSES = new Set<NonNullable<ResourceCardTarget["status"]>>([
+  "preparing",
+  "unsupported",
+  "error",
+])
 
 function canScrollElement(el: HTMLElement) {
   return el.scrollHeight - el.clientHeight > 1
@@ -887,7 +893,11 @@ export function useDirectoryChatPageController(
     }
   }
 
-  async function onCreateNotebook(name: string) {
+  async function onCreateNotebook(
+    name: string,
+    enableLearnerMemory?: boolean,
+    enableAutoExtract?: boolean,
+  ) {
     try {
       const nextDirectory = await createManagedNotebook(name)
       setOpenProjectsQueryData(queryClient, useChatStore.getState().openProjects)
@@ -899,6 +909,11 @@ export function useDirectoryChatPageController(
       if (nextDirectory !== decodedDirectory) {
         onSwitchDirectory(nextDirectory)
       }
+      void bootstrapLearnerMemoryForNotebookBestEffort({
+        directory: nextDirectory,
+        enabled: enableLearnerMemory,
+        autoExtract: enableAutoExtract,
+      })
     } catch (error) {
       reportCurrentDirectoryError(error)
       throw error
@@ -1054,18 +1069,21 @@ export function useDirectoryChatPageController(
     }
 
     void queryClient.prefetchQuery(resourcesQueryOptions(targetDirectory))
-    if (isSupportedReadingResourcePath(resource.path)) {
+    const canPrefetchReadingBlob =
+      isSupportedReadingResourcePath(resource.path) &&
+      (resource.status === undefined || !READING_PREFETCH_BLOCKED_STATUSES.has(resource.status))
+    if (canPrefetchReadingBlob) {
       void queryClient.prefetchQuery(
         readingResourceBlobQueryOptions(targetDirectory, resource.path),
       )
     }
 
     void (async () => {
-      if (openingFromLibrary) {
+      if (linkedSessionID && linkedSessionID !== activeSessionID) {
+        await selectSession(targetDirectory, linkedSessionID).catch(() => undefined)
+      } else if (openingFromLibrary) {
         startNewSessionDraft(targetDirectory)
         seedDraftModelSelection(targetDirectory)
-      } else if (linkedSessionID && linkedSessionID !== activeSessionID) {
-        await selectSession(targetDirectory, linkedSessionID).catch(() => undefined)
       }
 
       void navigate({
@@ -1204,19 +1222,6 @@ export function useDirectoryChatPageController(
 
     const rawAttachments = input.attachments ?? []
     const promptParts = [...(input.parts ?? [])]
-    const hasActiveReadingResourceReference =
-      !!activeReadingResource?.resourceID &&
-      !promptParts.some(
-        (part) =>
-          part.type === RESOURCE_REFERENCE_PART_TYPE &&
-          part.key === activeReadingResource.resourceID,
-      )
-    if (hasActiveReadingResourceReference && activeReadingResource.resourceID) {
-      promptParts.unshift({
-        type: RESOURCE_REFERENCE_PART_TYPE,
-        key: activeReadingResource.resourceID,
-      })
-    }
     const content = input.content.trim()
     const hasStructuredPromptParts = promptParts.some((part) => part.type !== PROMPT_PART_TYPE_TEXT)
     const promptPartsForSubmission = hasStructuredPromptParts ? promptParts : []
@@ -1260,11 +1265,35 @@ export function useDirectoryChatPageController(
               ...(activeReadingResource.locationLabel
                 ? { locationLabel: activeReadingResource.locationLabel }
                 : {}),
+              ...(activeReadingResource.cfi ? { cfi: activeReadingResource.cfi } : {}),
+              ...(activeReadingResource.index !== undefined
+                ? { index: activeReadingResource.index }
+                : {}),
+              ...(activeReadingResource.fraction !== undefined
+                ? { fraction: activeReadingResource.fraction }
+                : {}),
               ...(activeReadingResource.tocLabel
                 ? { tocLabel: activeReadingResource.tocLabel }
                 : {}),
               ...(activeReadingResource.pageLabel
                 ? { pageLabel: activeReadingResource.pageLabel }
+                : {}),
+              ...(activeReadingResource.currentPassageText
+                ? { currentPassageText: activeReadingResource.currentPassageText }
+                : {}),
+              ...(activeReadingResource.visibleStartText
+                ? { visibleStartText: activeReadingResource.visibleStartText }
+                : {}),
+              ...(activeReadingResource.visibleEndText
+                ? { visibleEndText: activeReadingResource.visibleEndText }
+                : {}),
+              ...(activeReadingResource.readingTrail &&
+              activeReadingResource.readingTrail.length > 0
+                ? { readingTrail: activeReadingResource.readingTrail }
+                : {}),
+              ...(activeReadingResource.annotationSummary &&
+              activeReadingResource.annotationSummary.length > 0
+                ? { annotationSummary: activeReadingResource.annotationSummary }
                 : {}),
             },
           }

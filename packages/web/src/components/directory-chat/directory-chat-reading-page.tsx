@@ -7,9 +7,12 @@ import { DirectoryChatReadingReaderPane } from "@/components/directory-chat/dire
 import { DirectoryChatReadingThreadBrowser } from "@/components/directory-chat/directory-chat-reading-thread-browser"
 import { usePersistentResizablePanelLayout } from "@/components/layout/use-persistent-resizable-panel-layout"
 import { useDirectoryNotebookRouteContext } from "@/components/directory-chat/directory-notebook-route-context"
+import { READING_SELECTION_PART_TYPE } from "@/components/prompt/prompt-types"
+import { serializePromptEditorParts } from "@/components/prompt/prompt-parts"
 import { language } from "@/context/language"
 import { fileNameFromPath, normalizeRelativePath } from "@/lib/workspace-file-paths"
 import { useChatStore } from "@/state/chat-store"
+import { getPromptDraft, usePromptStore } from "@/state/prompt-store"
 import { resourcesQueryOptions } from "@/state/resources-query"
 import { useTeachingRuntime, teachingSelectionKey } from "@/state/teaching-runtime"
 import { type ResourceRecord } from "@/state/resource-actions"
@@ -34,6 +37,11 @@ const READING_READER_PANEL_ID = "directory-chat-reading-reader"
 const READING_CONVERSATION_PANEL_ID = "directory-chat-reading-conversation"
 const READING_LAYOUT_PANEL_IDS = [READING_READER_PANEL_ID, READING_CONVERSATION_PANEL_ID]
 const READING_DRAFT_SESSION_ID = undefined
+
+function createReadingSelectionKey() {
+  const random = Math.random().toString(36).slice(2, 10)
+  return `sel_${Date.now().toString(36)}_${random}`
+}
 
 function getReadingChatPanelMaxWidth() {
   return typeof window === "undefined"
@@ -69,6 +77,12 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
   const updateActiveReadingResourceLocation = useChatStore(
     (state) => state.updateActiveReadingResourceLocation,
   )
+  const appendReadingTrailEntry = useChatStore((state) => state.appendReadingTrailEntry)
+  const setActiveReadingAnnotationSummary = useChatStore(
+    (state) => state.setActiveReadingAnnotationSummary,
+  )
+  const setLastOpenedReadingResource = useChatStore((state) => state.setLastOpenedReadingResource)
+  const linkedSessionByResource = useChatStore((state) => state.linkedSessionByResource)
   const setSessionPersona = useTeachingRuntime((state) => state.setSessionPersona)
   const clearSessionPersona = useTeachingRuntime((state) => state.clearSessionPersona)
   const readingPersonaSessionKey = useMemo(
@@ -106,6 +120,13 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
       (resource) => normalizeResourceRecordPath(resource) === normalizedPath,
     )
   }, [normalizedPath, props.resourceKey, resourcesQuery.data?.processed])
+  const linkedReadingSessionID = useMemo(() => {
+    if (!readyDirectory || !resourceRecord?.id) {
+      return undefined
+    }
+
+    return linkedSessionByResource[`${readyDirectory}::${resourceRecord.id}`]
+  }, [linkedSessionByResource, readyDirectory, resourceRecord?.id])
 
   useEffect(() => {
     if (!readyDirectory) {
@@ -161,11 +182,23 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
       path: normalizedPath,
       ...(resourceRecord?.status ? { status: resourceRecord.status } : {}),
     })
+    setLastOpenedReadingResource(readyDirectory, {
+      ...(resourceRecord?.id ? { resourceID: resourceRecord.id } : {}),
+      name: resourceName,
+      path: normalizedPath,
+    })
 
     return () => {
       setActiveReadingResource(readyDirectory, undefined)
     }
-  }, [normalizedPath, readyDirectory, resourceName, resourceRecord, setActiveReadingResource])
+  }, [
+    normalizedPath,
+    readyDirectory,
+    resourceName,
+    resourceRecord,
+    setActiveReadingResource,
+    setLastOpenedReadingResource,
+  ])
 
   if (controller.status === "invalid") {
     return <DirectoryInvalidNotebook />
@@ -182,6 +215,66 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
   const readyController = controller
   const currentDirectory = readyController.mainPaneProps.directory
   const threadBrowserState = readyController.mainPaneProps.chatState
+
+  function stageReadingSelection(input: {
+    text: string
+    cfi: string
+    index: number
+    selectionKey?: string
+    tocLabel?: string
+    pageLabel?: string
+    locationLabel?: string
+  }) {
+    const promptKey = readyController.mainPaneProps.chatState.promptKey
+    const setPromptDraft = readyController.mainPaneProps.chatState.setPromptDraft
+    const currentDraft = getPromptDraft(usePromptStore.getState(), promptKey)
+    const resourceKey = resourceRecord?.id ?? resourceRecord?.alias ?? props.resourceKey
+    const nextParts = [
+      ...currentDraft.parts,
+      {
+        type: READING_SELECTION_PART_TYPE,
+        text: input.text,
+        selectionKey: input.selectionKey ?? createReadingSelectionKey(),
+        ...(resourceKey ? { resourceKey } : {}),
+        cfi: input.cfi,
+        index: input.index,
+        ...(input.tocLabel ? { tocLabel: input.tocLabel } : {}),
+        ...(input.pageLabel ? { pageLabel: input.pageLabel } : {}),
+        ...(input.locationLabel ? { locationLabel: input.locationLabel } : {}),
+      },
+    ]
+    const nextValue = serializePromptEditorParts(nextParts)
+
+    setPromptDraft(promptKey, {
+      value: nextValue,
+      parts: nextParts,
+      attachments: currentDraft.attachments,
+      cursor: nextValue.length,
+    })
+  }
+
+  function removeStagedReadingSelection(selectionKey: string) {
+    const promptKey = readyController.mainPaneProps.chatState.promptKey
+    const setPromptDraft = readyController.mainPaneProps.chatState.setPromptDraft
+    const currentDraft = getPromptDraft(usePromptStore.getState(), promptKey)
+    const nextParts = currentDraft.parts.filter((part) => {
+      if (part.type !== READING_SELECTION_PART_TYPE) return true
+      return part.selectionKey !== selectionKey
+    })
+
+    if (nextParts.length === currentDraft.parts.length) {
+      return
+    }
+
+    const nextValue = serializePromptEditorParts(nextParts)
+    const nextCursor = Math.max(0, Math.min(currentDraft.cursor, nextValue.length))
+    setPromptDraft(promptKey, {
+      value: nextValue,
+      parts: nextParts,
+      attachments: currentDraft.attachments,
+      cursor: nextCursor,
+    })
+  }
 
   return (
     <section
@@ -206,12 +299,40 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
                 directory={readyDirectory}
                 resourceName={resourceName}
                 resourcePath={normalizedPath}
+                resourceID={resourceRecord?.id}
+                resourceStatus={resourceRecord?.status}
                 onLocationChange={(location) => {
                   updateActiveReadingResourceLocation(readyDirectory, {
+                    cfi: location.cfi,
+                    index: location.index,
+                    fraction: location.fraction,
                     locationLabel: location.locationLabel,
                     tocLabel: location.tocLabel,
                     pageLabel: location.pageLabel,
+                    currentPassageText: location.currentPassageText,
                   })
+                  if (location.tocLabel) {
+                    appendReadingTrailEntry(readyDirectory, {
+                      tocLabel: location.tocLabel,
+                      cfi: location.cfi,
+                      fraction: location.fraction,
+                    })
+                  }
+                }}
+                onChatSelection={(selection) => {
+                  stageReadingSelection(selection)
+                }}
+                onChatSelectionRemoved={(selectionKey) => {
+                  removeStagedReadingSelection(selectionKey)
+                }}
+                onAnnotationsChange={(annotations) => {
+                  const summary = annotations.slice(-10).map((annotation) => {
+                    const note = annotation.note?.trim()
+                    return note
+                      ? { text: annotation.text ?? "", note }
+                      : { text: annotation.text ?? "" }
+                  })
+                  setActiveReadingAnnotationSummary(readyDirectory, summary)
                 }}
               />
             ) : null}
@@ -233,6 +354,7 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
                 sessionTitle={threadBrowserState.sessionTitle}
                 sessions={threadBrowserState.sessions}
                 activeSessionID={threadBrowserState.sessionID}
+                linkedSessionID={linkedReadingSessionID}
                 parentSession={threadBrowserState.parentSession}
                 onNewSession={() => {
                   void readyController.leftSidebarProps.onNewSession(currentDirectory)

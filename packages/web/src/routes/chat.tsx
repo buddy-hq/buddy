@@ -6,6 +6,7 @@ import { NotebookCreationDialog } from "@/components/layout/chat-left-sidebar/di
 import { FolderOpenIcon, FolderPlusIcon, SparklesIcon } from "@/components/layout/sidebar-icons"
 import { language } from "@/context/language"
 import { getPlatform, usePlatform } from "@/context/platform"
+import { bootstrapLearnerMemoryForNotebookBestEffort } from "@/lib/learner-memory"
 import { resolveBuddyIconUrl } from "@/lib/static-asset"
 import { stringifyError } from "../lib/api-client"
 import { shouldShowCurrentDesktopOnboarding } from "../lib/desktop-onboarding"
@@ -130,7 +131,11 @@ function ChatEntryPage() {
     })
   }
 
-  async function createNotebook(name: string) {
+  async function createNotebook(
+    name: string,
+    enableLearnerMemory?: boolean,
+    enableAutoExtract?: boolean,
+  ) {
     const trimmed = name.trim()
     if (!trimmed) return
 
@@ -140,6 +145,11 @@ function ChatEntryPage() {
       startNewSessionDraft(nextDirectory)
       useUiPreferences.getState().setMainPaneTab("chat")
       navigateToDirectory(nextDirectory)
+      void bootstrapLearnerMemoryForNotebookBestEffort({
+        directory: nextDirectory,
+        enabled: enableLearnerMemory,
+        autoExtract: enableAutoExtract,
+      })
     })
   }
 
@@ -179,7 +189,11 @@ type EmptyProjectsStateProps = {
   onOpenDirectory: (directory: string) => void | Promise<void>
   onOpenPickedDirectory: () => void | Promise<void>
   onQuickChat: () => void | Promise<void>
-  onCreateNotebook: (name: string) => void | Promise<void>
+  onCreateNotebook: (
+    name: string,
+    enableLearnerMemory?: boolean,
+    enableAutoExtract?: boolean,
+  ) => void | Promise<void>
 }
 
 function EmptyProjectsState(props: EmptyProjectsStateProps) {
@@ -188,6 +202,8 @@ function EmptyProjectsState(props: EmptyProjectsStateProps) {
   const [directory, setDirectory] = useState("")
   const [notebookName, setNotebookName] = useState("")
   const [notebookDialogOpen, setNotebookDialogOpen] = useState(false)
+  const [learnerMemoryEnabled, setLearnerMemoryEnabled] = useState(true)
+  const [autoExtractEnabled, setAutoExtractEnabled] = useState(true)
   const hasNativePicker = typeof platform.openDirectoryPickerDialog === "function"
 
   return (
@@ -312,12 +328,18 @@ function EmptyProjectsState(props: EmptyProjectsStateProps) {
           setNotebookDialogOpen(open)
           if (!open) {
             setNotebookName("")
+            setLearnerMemoryEnabled(true)
+            setAutoExtractEnabled(true)
           }
         }}
         onNotebookNameChange={setNotebookName}
         onCreate={() => {
-          void props.onCreateNotebook(notebookName)
+          void props.onCreateNotebook(notebookName, learnerMemoryEnabled, autoExtractEnabled)
         }}
+        enableLearnerMemory={learnerMemoryEnabled}
+        onLearnerMemoryChange={setLearnerMemoryEnabled}
+        enableAutoExtract={autoExtractEnabled}
+        onAutoExtractChange={setAutoExtractEnabled}
       />
     </div>
   )

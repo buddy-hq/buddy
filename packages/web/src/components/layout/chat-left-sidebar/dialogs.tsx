@@ -7,6 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
+  Switch,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -27,6 +28,10 @@ type NotebookCreationDialogProps = {
   onNotebookNameChange: (name: string) => void
   onCreate: () => void
   onOpenExistingFolder?: () => void
+  enableLearnerMemory?: boolean
+  onLearnerMemoryChange?: (enabled: boolean) => void
+  enableAutoExtract?: boolean
+  onAutoExtractChange?: (enabled: boolean) => void
 }
 
 type ChatLeftSidebarDialogsProps = {
@@ -160,6 +165,30 @@ export function NotebookCreationDialog(props: NotebookCreationDialogProps) {
             }}
             placeholder={props.placeholder}
           />
+          {props.enableLearnerMemory !== undefined && (
+            <div className="flex items-center justify-between gap-3 px-1">
+              <span className="text-sm text-text-base">
+                {language.t("sidebar.notebookLearnerMemory")}
+              </span>
+              <Switch
+                checked={props.enableLearnerMemory}
+                onCheckedChange={props.onLearnerMemoryChange}
+                disabled={props.busy}
+              />
+            </div>
+          )}
+          {props.enableAutoExtract !== undefined && (
+            <div className="flex items-center justify-between gap-3 px-1">
+              <span className="text-sm text-text-base">
+                {language.t("sidebar.notebookLearnerMemoryAutoExtract")}
+              </span>
+              <Switch
+                checked={props.enableAutoExtract}
+                onCheckedChange={props.onAutoExtractChange}
+                disabled={props.busy || !props.enableLearnerMemory}
+              />
+            </div>
+          )}
           {props.onOpenExistingFolder && (
             <div className="flex justify-center pt-1">
               <Tooltip>

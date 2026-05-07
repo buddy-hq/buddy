@@ -15,6 +15,7 @@ import {
 } from "@buddy/ui"
 import {
   AlertTriangleIcon,
+  BookOpenIcon,
   CheckIcon,
   FileTextIcon,
   Loader2Icon,
@@ -23,6 +24,7 @@ import {
 import { language } from "@/context/language"
 import { stringifyError } from "@/lib/api-client"
 import { addResource, rebuildResource, removeResource } from "@/state/resource-actions"
+import { useChatStore } from "@/state/chat-store"
 import {
   invalidateResourcesQueries,
   resourceCoverQueryOptions,
@@ -36,7 +38,9 @@ const SHOW_MORE_BATCH_LABEL_KEY = "sidebar.libraryShowMoreCount"
 const STICKY_READING_RESET_DELAY_MS = 500
 const CONTEXT_MENU_WIDTH_CLASS = "w-48"
 
-export type ResourceCardTarget = Pick<ResourceListItem, "path" | "name" | "resourceID" | "status">
+export type ResourceCardTarget = Pick<ResourceListItem, "path" | "name" | "resourceID"> & {
+  status?: ResourceViewStatus
+}
 
 type ResourceCardGridProps = {
   directory: string
@@ -252,6 +256,13 @@ export function ResourceCardGrid(props: ResourceCardGridProps) {
   const [stickyReadingPath, setStickyReadingPath] = useState<string | undefined>(readingPath)
   const [busyKeys, setBusyKeys] = useState<Set<string>>(() => new Set())
   const [actionError, setActionError] = useState<string | undefined>(undefined)
+  const lastOpenedReadingResource = useChatStore((state) =>
+    props.directory ? state.lastOpenedReadingResourceByDirectory[props.directory] : undefined,
+  )
+  const resumeReadingResource =
+    lastOpenedReadingResource && lastOpenedReadingResource.path !== stickyReadingPath
+      ? lastOpenedReadingResource
+      : undefined
   const { visibleCount, nextBatchCount, canShowMore, showMore } = useVisibleResourceCount(
     props.resources.length,
     props.pageSize,
@@ -335,6 +346,28 @@ export function ResourceCardGrid(props: ResourceCardGridProps) {
         <div className="rounded-lg border border-border-critical-weak bg-surface-critical-base p-4 text-center text-sm text-text-critical-strong">
           {actionError}
         </div>
+      ) : null}
+
+      {resumeReadingResource ? (
+        <button
+          type="button"
+          onClick={() =>
+            props.onOpenResource(props.directory, {
+              path: resumeReadingResource.path,
+              name: resumeReadingResource.name,
+              ...(resumeReadingResource.resourceID
+                ? { resourceID: resumeReadingResource.resourceID }
+                : {}),
+            })
+          }
+          className="flex w-full items-center justify-between rounded-lg border border-border-info-weak bg-surface-info-base px-4 py-2.5 text-left text-sm transition-colors hover:bg-surface-info-hover"
+        >
+          <span className="flex items-center gap-2 text-text-info-strong">
+            <BookOpenIcon className="size-4" />
+            Resume reading
+          </span>
+          <span className="truncate text-text-info-weak">{resumeReadingResource.name}</span>
+        </button>
       ) : null}
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">

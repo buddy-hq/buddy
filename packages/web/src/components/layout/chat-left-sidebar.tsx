@@ -31,7 +31,11 @@ type ChatLeftSidebarProps = {
   onOpenDirectory: () => void
   onOpenExistingFolder?: () => void | Promise<void>
   onQuickChat?: () => void | Promise<void>
-  onCreateNotebook?: (name: string) => void | Promise<void>
+  onCreateNotebook?: (
+    name: string,
+    enableLearnerMemory?: boolean,
+    enableAutoExtract?: boolean,
+  ) => void | Promise<void>
   onNewSession: (directory?: string) => void
   onSelectSession: (directory: string, sessionID?: string) => void
   onTogglePin: (directory: string, sessionID: string) => void
@@ -110,6 +114,8 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
   const [notebookCreationOpen, setNotebookCreationOpen] = useState(false)
   const [notebookName, setNotebookName] = useState("")
   const [notebookSaving, setNotebookSaving] = useState(false)
+  const [learnerMemoryEnabled, setLearnerMemoryEnabled] = useState(true)
+  const [autoExtractEnabled, setAutoExtractEnabled] = useState(true)
   const hasInitializedCollapsedDirectoriesRef = useRef(false)
 
   const directoryGroups = useDirectoryGroups({
@@ -202,9 +208,11 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
 
     setNotebookSaving(true)
     try {
-      await props.onCreateNotebook(name)
+      await props.onCreateNotebook(name, learnerMemoryEnabled, autoExtractEnabled)
       setNotebookCreationOpen(false)
       setNotebookName("")
+      setLearnerMemoryEnabled(true)
+      setAutoExtractEnabled(true)
     } catch {
       // Parent-level handlers own error surfacing.
     } finally {
@@ -363,6 +371,8 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
           setNotebookCreationOpen(open)
           if (!open) {
             setNotebookName("")
+            setLearnerMemoryEnabled(true)
+            setAutoExtractEnabled(true)
           }
         }}
         onNotebookNameChange={setNotebookName}
@@ -377,6 +387,10 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
             props.onOpenDirectory()
           }
         }}
+        enableLearnerMemory={learnerMemoryEnabled}
+        onLearnerMemoryChange={setLearnerMemoryEnabled}
+        enableAutoExtract={autoExtractEnabled}
+        onAutoExtractChange={setAutoExtractEnabled}
       />
     </aside>
   )

@@ -1,5 +1,6 @@
 import { useRef, useState } from "react"
 import {
+  Badge,
   Button,
   Command,
   CommandEmpty,
@@ -20,6 +21,7 @@ type DirectoryChatReadingThreadBrowserProps = {
   sessionTitle: string
   sessions: SessionInfo[]
   activeSessionID?: string
+  linkedSessionID?: string
   parentSession?: SessionInfo
   onNewSession: () => void | Promise<void>
   onSelectSession: (sessionID: string) => void | Promise<void>
@@ -39,10 +41,20 @@ export function DirectoryChatReadingThreadBrowser(props: DirectoryChatReadingThr
   const [isOpen, setIsOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const hasQuery = query.trim().length > 0
+  const linkedSessionID = props.linkedSessionID
   const parentSessionID = props.parentSession?.id
   const parentSessionTitle = props.parentSession
     ? parseSubagentSession(props.parentSession).title || getThreadTitle(props.parentSession)
     : undefined
+  const orderedSessions =
+    linkedSessionID === undefined
+      ? props.sessions
+      : props.sessions.toSorted((a, b) => {
+          const aLinked = a.id === linkedSessionID
+          const bLinked = b.id === linkedSessionID
+          if (aLinked === bLinked) return 0
+          return aLinked ? -1 : 1
+        })
 
   return (
     <div
@@ -120,9 +132,10 @@ export function DirectoryChatReadingThreadBrowser(props: DirectoryChatReadingThr
                   </div>
                 </CommandEmpty>
 
-                {props.sessions.map((session) => {
+                {orderedSessions.map((session) => {
                   const title = getThreadTitle(session)
                   const age = formatThreadAge(session.time.updated ?? session.time.created)
+                  const isLinkedSession = session.id === linkedSessionID
 
                   return (
                     <CommandItem
@@ -145,10 +158,20 @@ export function DirectoryChatReadingThreadBrowser(props: DirectoryChatReadingThr
                         setQuery("")
                       }}
                     >
-                      <span className="min-w-0 flex-1 truncate text-sm font-medium tracking-tight transition-colors duration-200">
-                        {title}
-                      </span>
-                      <span className="shrink-0 text-[10px] tabular-nums uppercase tracking-[0.16em] text-text-weaker/50">
+                      <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+                        <span className="min-w-0 flex-1 truncate text-sm font-medium tracking-tight transition-colors duration-200">
+                          {title}
+                        </span>
+                        {isLinkedSession ? (
+                          <Badge
+                            variant="outline"
+                            className="h-5 border-border-base text-text-weaker"
+                          >
+                            Current book
+                          </Badge>
+                        ) : null}
+                      </div>
+                      <span className="shrink-0 text-[10px] tabular-nums uppercase tracking-[0.16em] text-text-weaker">
                         {age}
                       </span>
                     </CommandItem>

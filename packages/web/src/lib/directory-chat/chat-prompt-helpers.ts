@@ -1,8 +1,10 @@
-import { serializePromptParts } from "@/components/prompt/prompt-parts"
+import { serializePromptEditorParts } from "@/components/prompt/prompt-parts"
 import {
   PROMPT_PART_TYPE_AGENT,
   PROMPT_PART_TYPE_FILE,
   PROMPT_PART_TYPE_TEXT,
+  READING_SELECTION_PART_TYPE,
+  readPromptReadingSelectionMetadata,
   RESOURCE_REFERENCE_PART_TYPE,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
 } from "@/components/prompt/prompt-types"
@@ -175,6 +177,19 @@ function isResourceReferencePart(
   return part.type === RESOURCE_REFERENCE_PART_TYPE && typeof part.key === "string"
 }
 
+function isReadingSelectionPart(part: MessagePart): part is MessagePart & {
+  type: typeof READING_SELECTION_PART_TYPE
+  text: string
+  resourceKey?: string
+  cfi?: string
+  index?: number
+  tocLabel?: string
+  pageLabel?: string
+  locationLabel?: string
+} {
+  return part.type === READING_SELECTION_PART_TYPE && typeof part.text === "string"
+}
+
 function toPromptComposerAttachment(part: MessagePart): PromptComposerAttachment | undefined {
   if (!isChatFilePart(part)) return undefined
   if (!part.url.startsWith(DATA_URL_PREFIX)) return undefined
@@ -253,6 +268,11 @@ export function buildPromptDraftFromUserMessage(
   for (const part of message.parts) {
     if (isChatTextPart(part)) {
       if (part.synthetic === true) continue
+      const readingSelectionPart = readPromptReadingSelectionMetadata(part.metadata)
+      if (readingSelectionPart) {
+        promptParts.push(readingSelectionPart)
+        continue
+      }
       promptParts.push({
         type: PROMPT_PART_TYPE_TEXT,
         text: part.text,
@@ -284,6 +304,20 @@ export function buildPromptDraftFromUserMessage(
       continue
     }
 
+    if (isReadingSelectionPart(part)) {
+      promptParts.push({
+        type: READING_SELECTION_PART_TYPE,
+        text: part.text,
+        ...(typeof part.resourceKey === "string" ? { resourceKey: part.resourceKey } : {}),
+        ...(typeof part.cfi === "string" ? { cfi: part.cfi } : {}),
+        ...(typeof part.index === "number" ? { index: part.index } : {}),
+        ...(typeof part.tocLabel === "string" ? { tocLabel: part.tocLabel } : {}),
+        ...(typeof part.pageLabel === "string" ? { pageLabel: part.pageLabel } : {}),
+        ...(typeof part.locationLabel === "string" ? { locationLabel: part.locationLabel } : {}),
+      })
+      continue
+    }
+
     const attachment = toPromptComposerAttachment(part)
     if (attachment) {
       attachments.push(attachment)
@@ -299,7 +333,7 @@ export function buildPromptDraftFromUserMessage(
     }
   }
 
-  const value = serializePromptParts(promptParts)
+  const value = serializePromptEditorParts(promptParts)
 
   return {
     value,
