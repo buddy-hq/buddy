@@ -23,6 +23,12 @@ export type MessagePromptPipelineResult = {
     items: TeachingSessionState["lastDeliveredLearnerContextItems"]
     kind: "bootstrap" | "delta"
   }
+  turnContextDelivery?: {
+    currentReadingFingerprint?: string
+    deliveredReadingFingerprint?: string
+    currentTeachingFingerprint?: string
+    deliveredTeachingFingerprint?: string
+  }
 }
 
 export async function runMessagePromptPipeline(input: {
@@ -55,6 +61,7 @@ export async function runMessagePromptPipeline(input: {
     | undefined
   let nextTeachingState: TeachingSessionState | undefined
   let learnerContextDelivery: MessagePromptPipelineResult["learnerContextDelivery"]
+  let turnContextDelivery: MessagePromptPipelineResult["turnContextDelivery"]
   const existingSystem = typeof input.body.system === "string" ? input.body.system.trim() : ""
   let buddySystem = ""
 
@@ -73,6 +80,7 @@ export async function runMessagePromptPipeline(input: {
     nextTeachingState = promptContextResult.nextTeachingState
     buddySystem = promptEnvelope.systemContext
     learnerContextDelivery = promptEnvelope.deliveredLearnerContext
+    turnContextDelivery = promptEnvelope.turnContextDelivery
 
     if (promptEnvelope.userPreludeParts.length > 0) {
       parts.unshift(...promptEnvelope.userPreludeParts)
@@ -100,5 +108,6 @@ export async function runMessagePromptPipeline(input: {
     sessionRuntimeForPermissions,
     ...(nextTeachingState ? { nextTeachingState } : {}),
     ...(learnerContextDelivery ? { learnerContextDelivery } : {}),
+    ...(turnContextDelivery ? { turnContextDelivery } : {}),
   }
 }

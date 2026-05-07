@@ -28,9 +28,29 @@ type ActiveReadingContext = {
   resourceKey?: string
   title: string
   path: string
+  cfi?: string
+  index?: number
+  fraction?: number
   locationLabel?: string
   tocLabel?: string
   pageLabel?: string
+  currentPassageText?: string
+  visibleStartText?: string
+  visibleEndText?: string
+  readingTrail?: ActiveReadingTrailEntry[]
+  annotationSummary?: ActiveAnnotationSummaryEntry[]
+}
+
+type ActiveReadingTrailEntry = {
+  tocLabel: string
+  cfi?: string
+  fraction?: number
+}
+
+type ActiveAnnotationSummaryEntry = {
+  text: string
+  tocLabel?: string
+  note?: string
 }
 
 export type PromptResourceStatus = "preparing" | "ready" | "unsupported" | "error" | "stale"
@@ -59,9 +79,17 @@ export type ActivePromptResource = {
   title: string
   path: string
   status?: PromptResourceStatus
+  cfi?: string
+  index?: number
+  fraction?: number
   locationLabel?: string
   tocLabel?: string
   pageLabel?: string
+  currentPassageText?: string
+  visibleStartText?: string
+  visibleEndText?: string
+  readingTrail?: ActiveReadingTrailEntry[]
+  annotationSummary?: ActiveAnnotationSummaryEntry[]
 }
 
 export type PromptModel = {
@@ -89,6 +117,8 @@ export type PromptContext = {
   learnerContextDigest?: string
   priorLearnerContextDigest?: string
   priorLearnerContextItems?: LearnerContextItem[]
+  priorDeliveredReadingTurnContextDigest?: string
+  priorDeliveredTeachingTurnContextDigest?: string
   focusGoalIds: string[]
   resources: PromptResource[]
   activeResource?: ActivePromptResource
@@ -118,11 +148,48 @@ function resolveTeachingContext(body: Record<string, unknown>): TeachingPromptCo
   return result.success ? result.data : undefined
 }
 
+const MAX_PASSAGE_TEXT_CHARS = 1200
+const MAX_START_END_TEXT_CHARS = 200
+
+function boundText(value: string, maxChars: number): string {
+  return value.length <= maxChars ? value : value.slice(0, maxChars)
+}
+
 function readTrimmedStringField(value: object, key: string): string | undefined {
   const candidate = Reflect.get(value, key)
   if (typeof candidate !== "string") return undefined
   const trimmed = candidate.trim()
   return trimmed ? trimmed : undefined
+}
+
+function readBoundedStringField(value: object, key: string, maxChars: number): string | undefined {
+  const trimmed = readTrimmedStringField(value, key)
+  if (!trimmed) return undefined
+  return boundText(trimmed, maxChars)
+}
+
+function readFiniteNumberField(value: object, key: string): number | undefined {
+  const candidate = Reflect.get(value, key)
+  return typeof candidate === "number" && Number.isFinite(candidate) ? candidate : undefined
+}
+
+function readReadingTrail(value: unknown): ActiveReadingTrailEntry[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  const entries = value.flatMap((entry) => {
+    if (!entry || typeof entry !== "object") return []
+    const tocLabel = readTrimmedStringField(entry, "tocLabel")
+    if (!tocLabel) return []
+    const cfi = readTrimmedStringField(entry, "cfi")
+    const fraction = readFiniteNumberField(entry, "fraction")
+    return [
+      {
+        tocLabel,
+        ...(cfi ? { cfi } : {}),
+        ...(fraction !== undefined ? { fraction } : {}),
+      },
+    ]
+  })
+  return entries.length > 0 ? entries : undefined
 }
 
 function resolvePromptPersonalization(
@@ -234,19 +301,62 @@ function parseActiveReadingContext(value: unknown): ActiveReadingContext | undef
   const title = readTrimmedStringField(value, "title") ?? ""
   const path = readTrimmedStringField(value, "path") ?? ""
   const resourceKey = readTrimmedStringField(value, "resourceKey")
+  const cfi = readTrimmedStringField(value, "cfi")
+  const index = readFiniteNumberField(value, "index")
+  const fraction = readFiniteNumberField(value, "fraction")
   const locationLabel = readTrimmedStringField(value, "locationLabel")
   const tocLabel = readTrimmedStringField(value, "tocLabel")
   const pageLabel = readTrimmedStringField(value, "pageLabel")
+  const currentPassageText = readBoundedStringField(
+    value,
+    "currentPassageText",
+    MAX_PASSAGE_TEXT_CHARS,
+  )
+  const visibleStartText = readBoundedStringField(
+    value,
+    "visibleStartText",
+    MAX_START_END_TEXT_CHARS,
+  )
+  const visibleEndText = readBoundedStringField(value, "visibleEndText", MAX_START_END_TEXT_CHARS)
+  const readingTrail = readReadingTrail(Reflect.get(value, "readingTrail"))
+  const annotationSummary = readAnnotationSummary(Reflect.get(value, "annotationSummary"))
   if (!title || !path) return undefined
 
   return {
     ...(resourceKey ? { resourceKey } : {}),
     title,
     path,
+    ...(cfi ? { cfi } : {}),
+    ...(index !== undefined ? { index } : {}),
+    ...(fraction !== undefined ? { fraction } : {}),
     ...(locationLabel ? { locationLabel } : {}),
     ...(tocLabel ? { tocLabel } : {}),
     ...(pageLabel ? { pageLabel } : {}),
+    ...(currentPassageText ? { currentPassageText } : {}),
+    ...(visibleStartText ? { visibleStartText } : {}),
+    ...(visibleEndText ? { visibleEndText } : {}),
+    ...(readingTrail ? { readingTrail } : {}),
+    ...(annotationSummary ? { annotationSummary } : {}),
   }
+}
+
+function readAnnotationSummary(value: unknown): ActiveAnnotationSummaryEntry[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  const entries = value.flatMap((entry) => {
+    if (!entry || typeof entry !== "object") return []
+    const text = readTrimmedStringField(entry, "text")
+    if (!text) return []
+    const tocLabel = readTrimmedStringField(entry, "tocLabel")
+    const note = readTrimmedStringField(entry, "note")
+    return [
+      {
+        text,
+        ...(tocLabel ? { tocLabel } : {}),
+        ...(note ? { note } : {}),
+      },
+    ]
+  })
+  return entries.length > 0 ? entries : undefined
 }
 
 function buildActiveResource(
@@ -273,11 +383,31 @@ function buildActiveResource(
       : {}),
     title: activeReadingContext.title,
     path: activeReadingContext.path,
+    ...(activeReadingContext.cfi ? { cfi: activeReadingContext.cfi } : {}),
+    ...(activeReadingContext.index !== undefined ? { index: activeReadingContext.index } : {}),
+    ...(activeReadingContext.fraction !== undefined
+      ? { fraction: activeReadingContext.fraction }
+      : {}),
     ...(activeReadingContext.locationLabel
       ? { locationLabel: activeReadingContext.locationLabel }
       : {}),
     ...(activeReadingContext.tocLabel ? { tocLabel: activeReadingContext.tocLabel } : {}),
     ...(activeReadingContext.pageLabel ? { pageLabel: activeReadingContext.pageLabel } : {}),
+    ...(activeReadingContext.currentPassageText
+      ? { currentPassageText: activeReadingContext.currentPassageText }
+      : {}),
+    ...(activeReadingContext.visibleStartText
+      ? { visibleStartText: activeReadingContext.visibleStartText }
+      : {}),
+    ...(activeReadingContext.visibleEndText
+      ? { visibleEndText: activeReadingContext.visibleEndText }
+      : {}),
+    ...(activeReadingContext.readingTrail
+      ? { readingTrail: activeReadingContext.readingTrail }
+      : {}),
+    ...(activeReadingContext.annotationSummary
+      ? { annotationSummary: activeReadingContext.annotationSummary }
+      : {}),
   }
 }
 
@@ -345,6 +475,18 @@ async function buildPromptContext(
         : {}),
       ...(input.previousState?.lastDeliveredLearnerContextItems
         ? { priorLearnerContextItems: input.previousState.lastDeliveredLearnerContextItems }
+        : {}),
+      ...(input.previousState?.lastDeliveredReadingTurnContextDigest
+        ? {
+            priorDeliveredReadingTurnContextDigest:
+              input.previousState.lastDeliveredReadingTurnContextDigest,
+          }
+        : {}),
+      ...(input.previousState?.lastDeliveredTeachingTurnContextDigest
+        ? {
+            priorDeliveredTeachingTurnContextDigest:
+              input.previousState.lastDeliveredTeachingTurnContextDigest,
+          }
         : {}),
       focusGoalIds,
       resources: promptResources,

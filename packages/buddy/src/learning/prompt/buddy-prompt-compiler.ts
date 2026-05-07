@@ -10,6 +10,12 @@ export type BuddyPromptEnvelope = {
   systemContext: string
   userPreludeParts: readonly BuddyUserPreludePart[]
   changedSinceCheckpoint?: boolean
+  turnContextDelivery: {
+    currentReadingFingerprint?: string
+    deliveredReadingFingerprint?: string
+    currentTeachingFingerprint?: string
+    deliveredTeachingFingerprint?: string
+  }
   deliveredLearnerContext?: {
     fingerprint: string
     items: ReturnType<typeof buildLearnerContextView>["items"]
@@ -29,15 +35,16 @@ export async function buildBuddyPromptEnvelope(input: PromptContext): Promise<Bu
     previousItems: input.priorLearnerContextItems,
   })
 
-  const userPreludeParts = buildBuddyUserPrelude({
+  const userPrelude = buildBuddyUserPrelude({
     context: input,
     changedSinceCheckpoint: runtimeContext.changedSinceCheckpoint,
   })
 
   return {
     systemContext: runtimeContext.runtimeContext,
-    userPreludeParts,
+    userPreludeParts: userPrelude.parts,
     changedSinceCheckpoint: runtimeContext.changedSinceCheckpoint,
+    turnContextDelivery: userPrelude.turnContextDelivery,
     ...(learnerContextDelivery
       ? {
           deliveredLearnerContext: {

@@ -16,9 +16,6 @@ export const activeResourceSection = defineRuntimeSection({
       ...(resource.id ? [`id=${resource.id}`] : []),
       ...(resource.alias ? [`alias=${resource.alias}`] : []),
       ...(resource.status ? [`status=${resource.status}`] : []),
-      ...(resource.tocLabel ? [`toc=${resource.tocLabel}`] : []),
-      ...(resource.pageLabel ? [`page=${resource.pageLabel}`] : []),
-      ...(resource.locationLabel ? [`location=${resource.locationLabel}`] : []),
     ]
 
     const optional_fields = fields.length === 0 ? "" : `${fields.join("\n")}\n`
@@ -27,6 +24,9 @@ export const activeResourceSection = defineRuntimeSection({
       title: resource.title,
       path: resource.path,
       optional_fields,
+      current_passage_block: "",
+      reading_trail_block: "",
+      annotation_summary_block: "",
     })
   },
 })

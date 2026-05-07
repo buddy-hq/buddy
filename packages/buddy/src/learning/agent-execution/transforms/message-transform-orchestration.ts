@@ -31,6 +31,38 @@ export async function orchestrateSessionMessageTransform(input: {
 
   let rollbackTeachingState: (() => void) | undefined
   if (pipelineResult.nextTeachingState) {
+    const turnContextDelivery = pipelineResult.turnContextDelivery
+    const readingDeliveryPatch = turnContextDelivery
+      ? {
+          readingTurnContextDigest: turnContextDelivery.currentReadingFingerprint,
+          ...(turnContextDelivery.deliveredReadingFingerprint
+            ? {
+                lastDeliveredReadingTurnContextDigest:
+                  turnContextDelivery.deliveredReadingFingerprint,
+              }
+            : turnContextDelivery.currentReadingFingerprint === undefined
+              ? {
+                  lastDeliveredReadingTurnContextDigest: undefined,
+                }
+              : {}),
+        }
+      : {}
+    const teachingDeliveryPatch = turnContextDelivery
+      ? {
+          teachingTurnContextDigest: turnContextDelivery.currentTeachingFingerprint,
+          ...(turnContextDelivery.deliveredTeachingFingerprint
+            ? {
+                lastDeliveredTeachingTurnContextDigest:
+                  turnContextDelivery.deliveredTeachingFingerprint,
+              }
+            : turnContextDelivery.currentTeachingFingerprint === undefined
+              ? {
+                  lastDeliveredTeachingTurnContextDigest: undefined,
+                }
+              : {}),
+        }
+      : {}
+
     rollbackTeachingState = () =>
       restoreTeachingSessionState({
         directory: input.context.directory,
@@ -54,7 +86,21 @@ export async function orchestrateSessionMessageTransform(input: {
               previousState.lastDeliveredLearnerContextMessageId,
           }
         : {}),
+      ...(previousState?.lastDeliveredReadingTurnContextDigest
+        ? {
+            lastDeliveredReadingTurnContextDigest:
+              previousState.lastDeliveredReadingTurnContextDigest,
+          }
+        : {}),
+      ...(previousState?.lastDeliveredTeachingTurnContextDigest
+        ? {
+            lastDeliveredTeachingTurnContextDigest:
+              previousState.lastDeliveredTeachingTurnContextDigest,
+          }
+        : {}),
       ...pipelineResult.nextTeachingState,
+      ...readingDeliveryPatch,
+      ...teachingDeliveryPatch,
       ...(pipelineResult.learnerContextDelivery
         ? {
             lastDeliveredLearnerContextDigest: pipelineResult.learnerContextDelivery.fingerprint,

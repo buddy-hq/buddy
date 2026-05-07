@@ -24,6 +24,10 @@ export type TeachingSessionState = {
   lastDeliveredLearnerContextDigest?: string
   lastDeliveredLearnerContextItems?: LearnerContextItem[]
   lastDeliveredLearnerContextMessageId?: string
+  readingTurnContextDigest?: string
+  lastDeliveredReadingTurnContextDigest?: string
+  teachingTurnContextDigest?: string
+  lastDeliveredTeachingTurnContextDigest?: string
   lastLlmOutbound?: TeachingLlmOutboundEntry
   llmOutboundHistory?: TeachingLlmOutboundEntry[]
 }

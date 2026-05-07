@@ -1,10 +1,13 @@
+import { createHash } from "node:crypto"
 import type { PromptContext, PromptTurnSnapshot } from "../context"
 import {
   buildLearnerContextView,
   decideLearnerContextDelivery,
 } from "../../shared/learner-context-delivery"
 import { hasText } from "../utils"
-import { activeResourceReminder } from "./active-resource-reminder"
+import READING_TURN_CONTEXT_TEMPLATE_SOURCE from "./reading-turn-context.t.md"
+import TEACHING_TURN_CONTEXT_TEMPLATE_SOURCE from "./teaching-turn-context.t.md"
+import { definePromptTemplate } from "../template/engine"
 import { checkpointReminder } from "./checkpoint-reminder"
 import type { TurnReminderDefinition, TurnReminderContext } from "./definition"
 import { learnerMemoryReminder } from "./learner-memory-reminder"
@@ -16,17 +19,151 @@ export type BuddyUserPreludePart = {
   synthetic: true
 }
 
+export type BuddyUserPreludeBuild = {
+  parts: readonly BuddyUserPreludePart[]
+  turnContextDelivery: {
+    currentReadingFingerprint?: string
+    deliveredReadingFingerprint?: string
+    currentTeachingFingerprint?: string
+    deliveredTeachingFingerprint?: string
+  }
+}
+
+type TurnContextPartBuild = {
+  text?: string
+  fingerprint?: string
+}
+
+const READING_TURN_CONTEXT_TEMPLATE = definePromptTemplate({
+  source: READING_TURN_CONTEXT_TEMPLATE_SOURCE,
+  debugName: "learning/prompt/user-prelude/reading-turn-context.t.md",
+})
+
+const TEACHING_TURN_CONTEXT_TEMPLATE = definePromptTemplate({
+  source: TEACHING_TURN_CONTEXT_TEMPLATE_SOURCE,
+  debugName: "learning/prompt/user-prelude/teaching-turn-context.t.md",
+})
+
 const TURN_REMINDERS: readonly TurnReminderDefinition[] = [
   learnerMemoryReminder,
   turnTransitionReminder,
   checkpointReminder,
-  activeResourceReminder,
 ]
+
+function fingerprintText(text: string): string {
+  return createHash("sha256").update(text).digest("hex")
+}
+
+function shortFingerprint(value: string): string {
+  return value.slice(0, 12)
+}
+
+function buildReadingTurnContextPart(context: PromptContext): TurnContextPartBuild {
+  const resource = context.activeResource
+  if (!resource) return {}
+
+  const fields = [
+    ...(resource.cfi ? [`cfi=${resource.cfi}`] : []),
+    ...(resource.index !== undefined ? [`index=${resource.index}`] : []),
+    ...(resource.fraction !== undefined ? [`fraction=${resource.fraction}`] : []),
+    ...(resource.tocLabel ? [`toc=${resource.tocLabel}`] : []),
+    ...(resource.pageLabel ? [`page=${resource.pageLabel}`] : []),
+    ...(resource.locationLabel ? [`location=${resource.locationLabel}`] : []),
+  ]
+  const optionalFields = fields.length === 0 ? "" : `${fields.join("\n")}\n`
+  const currentPassageBlock = resource.currentPassageText
+    ? `current_passage:\n${resource.currentPassageText}\n`
+    : ""
+  const visibleStartTextBlock = resource.visibleStartText
+    ? `visible_start:\n${resource.visibleStartText}\n`
+    : ""
+  const visibleEndTextBlock = resource.visibleEndText
+    ? `visible_end:\n${resource.visibleEndText}\n`
+    : ""
+  const readingTrailBlock = resource.readingTrail?.length
+    ? `reading_trail:\n${resource.readingTrail
+        .map(
+          (entry) =>
+            `  - ${entry.tocLabel}${entry.cfi ? ` (cfi=${entry.cfi})` : ""}${entry.fraction !== undefined ? ` (fraction=${entry.fraction})` : ""}`,
+        )
+        .join("\n")}\n`
+    : ""
+  const annotationSummaryBlock = resource.annotationSummary?.length
+    ? `recent_annotations:\n${resource.annotationSummary
+        .map(
+          (entry) =>
+            `  - "${entry.text.slice(0, 200)}"${entry.note ? ` (note: ${entry.note.slice(0, 200)})` : ""}`,
+        )
+        .join("\n")}\n`
+    : ""
+
+  const text = READING_TURN_CONTEXT_TEMPLATE.render({
+    title: resource.title,
+    path: resource.path,
+    optional_fields: optionalFields,
+    current_passage_block: currentPassageBlock,
+    visible_start_text_block: visibleStartTextBlock,
+    visible_end_text_block: visibleEndTextBlock,
+    reading_trail_block: readingTrailBlock,
+    annotation_summary_block: annotationSummaryBlock,
+  })
+  const fingerprint = fingerprintText(text)
+  if (context.priorDeliveredReadingTurnContextDigest === fingerprint) {
+    return {
+      fingerprint,
+      text: `<reading_ctx_ref same="${shortFingerprint(fingerprint)}"/>`,
+    }
+  }
+
+  return {
+    fingerprint,
+    text,
+  }
+}
+
+function buildTeachingTurnContextPart(input: {
+  context: PromptContext
+  changedSinceCheckpoint?: boolean
+}): TurnContextPartBuild {
+  const teaching = input.context.teachingContext
+  if (!teaching?.active) return {}
+
+  const selection =
+    teaching.selectionStartLine !== undefined &&
+    teaching.selectionStartColumn !== undefined &&
+    teaching.selectionEndLine !== undefined &&
+    teaching.selectionEndColumn !== undefined
+      ? `Selection: L${teaching.selectionStartLine}:C${teaching.selectionStartColumn}-L${teaching.selectionEndLine}:C${teaching.selectionEndColumn}`
+      : undefined
+
+  const lines = [
+    `Session: ${teaching.sessionID}`,
+    `Revision: ${teaching.revision}`,
+    selection,
+    `Checkpoint: ${input.changedSinceCheckpoint ? "pending acceptance" : "accepted"}`,
+  ].filter((line): line is string => line !== undefined)
+
+  const text = TEACHING_TURN_CONTEXT_TEMPLATE.render({
+    details: `${lines.join("\n")}\n`,
+  })
+  const fingerprint = fingerprintText(text)
+  if (input.context.priorDeliveredTeachingTurnContextDigest === fingerprint) {
+    return {
+      fingerprint,
+      text: `<teaching_ctx_ref same="${shortFingerprint(fingerprint)}"/>`,
+    }
+  }
+
+  return {
+    fingerprint,
+    text,
+  }
+}
 
 export function buildBuddyUserPrelude(input: {
   context: PromptContext
   changedSinceCheckpoint?: boolean
-}): readonly BuddyUserPreludePart[] {
+}): BuddyUserPreludeBuild {
   const learnerContextView = buildLearnerContextView(input.context.learnerSnapshot)
   const learnerContextDelivery = decideLearnerContextDelivery({
     current: {
@@ -62,13 +199,46 @@ export function buildBuddyUserPrelude(input: {
     return typeof rendered === "string" && hasText(rendered) ? [rendered] : []
   })
 
-  if (reminderLines.length === 0) return []
+  const readingTurnContext = buildReadingTurnContextPart(input.context)
+  const teachingTurnContext = buildTeachingTurnContextPart({
+    context: input.context,
+    changedSinceCheckpoint: input.changedSinceCheckpoint,
+  })
 
-  return [
-    {
-      type: "text",
-      text: `<system-reminder>\n${reminderLines.join("\n")}\n</system-reminder>`,
-      synthetic: true,
-    },
+  const contextLines = [readingTurnContext.text, teachingTurnContext.text].filter(
+    (line): line is string => line !== undefined,
+  )
+
+  const sectionLines = [
+    ...contextLines,
+    ...(reminderLines.length > 0 ? [reminderLines.join("\n")] : []),
   ]
+  const preludeParts: BuddyUserPreludePart[] =
+    sectionLines.length === 0
+      ? []
+      : [
+          {
+            type: "text",
+            text: `<system-reminder>\n${sectionLines.join("\n\n")}\n</system-reminder>`,
+            synthetic: true,
+          },
+        ]
+
+  return {
+    parts: preludeParts,
+    turnContextDelivery: {
+      ...(readingTurnContext.fingerprint
+        ? { currentReadingFingerprint: readingTurnContext.fingerprint }
+        : {}),
+      ...(readingTurnContext.text && readingTurnContext.fingerprint
+        ? { deliveredReadingFingerprint: readingTurnContext.fingerprint }
+        : {}),
+      ...(teachingTurnContext.fingerprint
+        ? { currentTeachingFingerprint: teachingTurnContext.fingerprint }
+        : {}),
+      ...(teachingTurnContext.text && teachingTurnContext.fingerprint
+        ? { deliveredTeachingFingerprint: teachingTurnContext.fingerprint }
+        : {}),
+    },
+  }
 }

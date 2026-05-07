@@ -24,36 +24,12 @@ export const teachingWorkspaceSection = defineRuntimeSection({
   when: (context) => context.teachingContext?.active === true && context.hasEditor,
   render: (context) => {
     const teachingContext = context.teachingContext!
-    const checkpointStatus = context.checkpointStatus
-    const optionalLines: string[] = []
-
-    if (checkpointStatus) {
-      optionalLines.push(
-        `Checkpoint status: ${checkpointStatus.changedSinceLastCheckpoint ? "pending acceptance" : "accepted"}`,
-      )
-    }
-    if (checkpointStatus?.trackedFiles.length) {
-      optionalLines.push("Tracked files:")
-      optionalLines.push(...checkpointStatus.trackedFiles.map((file) => `- ${file}`))
-    }
-    if (
-      teachingContext.selectionStartLine !== undefined &&
-      teachingContext.selectionStartColumn !== undefined &&
-      teachingContext.selectionEndLine !== undefined &&
-      teachingContext.selectionEndColumn !== undefined
-    ) {
-      optionalLines.push(
-        `Selection: L${teachingContext.selectionStartLine}:C${teachingContext.selectionStartColumn}-L${teachingContext.selectionEndLine}:C${teachingContext.selectionEndColumn}`,
-      )
-    }
 
     return TEACHING_WORKSPACE_CONTEXT_TEMPLATE.render({
       session_id: teachingContext.sessionID,
       lesson_file_path: teachingContext.lessonFilePath,
       checkpoint_file_path: teachingContext.checkpointFilePath,
       language: teachingContext.language,
-      revision: `${teachingContext.revision}`,
-      optional_sections: optionalLines.length > 0 ? `${optionalLines.join("\n")}\n` : "",
     })
   },
 })

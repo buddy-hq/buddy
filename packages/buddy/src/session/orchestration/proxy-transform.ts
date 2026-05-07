@@ -6,7 +6,19 @@ import {
   prepareProxyBody,
 } from "../../http"
 import { resolveFeatureRegistrationFlags } from "../../learning/runtime/tool-registration-policy"
+import { flattenPromptPartsForRuntime } from "../../learning/prompt/workspace-file-references"
 import { SessionLookupError, SessionTransformValidationError } from "./errors"
+
+function prepareRuntimePromptBody(body: Record<string, unknown>) {
+  if (!Array.isArray(body.parts)) {
+    return body
+  }
+
+  return {
+    ...body,
+    parts: flattenPromptPartsForRuntime(body.parts),
+  }
+}
 
 export function mapSessionTransformError(
   c: { json: (body: unknown, status?: number) => Response },
@@ -56,7 +68,12 @@ export async function runSessionTransformProxy(input: {
     path: input.targetPath,
     query: query ? `?${query}` : "",
     headers: prepared.headers,
-    body: prepared.body,
+    body:
+      typeof prepared.body === "string"
+        ? JSON.stringify(
+            prepareRuntimePromptBody(JSON.parse(prepared.body) as Record<string, unknown>),
+          )
+        : prepared.body,
     toolRegistrations: prepared.registrationFlags,
   }).then((result) => normalizeErrorResponse(result, true))
 

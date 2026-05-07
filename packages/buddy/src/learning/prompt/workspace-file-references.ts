@@ -10,6 +10,10 @@ import { resolveResourceReference } from "../../resources/resource-registry-serv
 export const WORKSPACE_FILE_REFERENCE_PART_TYPE = "workspace-file-reference" as const
 // Sync with packages/web/src/components/prompt/prompt-types.ts.
 export const RESOURCE_REFERENCE_PART_TYPE = "resource-reference" as const
+// Sync with packages/web/src/components/prompt/prompt-types.ts.
+export const READING_SELECTION_PART_TYPE = "reading-selection" as const
+// Sync with packages/web/src/components/prompt/prompt-types.ts.
+export const BUDDY_PROMPT_PART_METADATA_KEY = "buddyPromptPart" as const
 export const PROMPT_WORKSPACE_FILE_REFERENCE_REGEX =
   /(?<![\w`])@(?:"([^"\n]+)"|`([^`\n]+)`|(\.?[^\s`,.]+(?:\.[^\s`,.]+)*))/g
 const PROMPT_PART_TYPE_TEXT = "text" as const
@@ -31,6 +35,17 @@ export type WorkspaceFileReferencePart = {
 export type ResourceReferencePart = {
   type: typeof RESOURCE_REFERENCE_PART_TYPE
   key: string
+}
+
+export type ReadingSelectionPart = {
+  type: typeof READING_SELECTION_PART_TYPE
+  text: string
+  resourceKey?: string
+  cfi?: string
+  index?: number
+  tocLabel?: string
+  pageLabel?: string
+  locationLabel?: string
 }
 
 export async function normalizePromptParts(input: {
@@ -80,6 +95,11 @@ export async function normalizePromptParts(input: {
           part,
         })),
       )
+      continue
+    }
+
+    if (isReadingSelectionPart(part)) {
+      normalizedParts.push(normalizeReadingSelectionPart(part))
       continue
     }
 
@@ -326,6 +346,56 @@ function isWorkspaceFileReferencePart(part: unknown): part is WorkspaceFileRefer
 function isResourceReferencePart(part: unknown): part is ResourceReferencePart {
   if (!isPlainObject(part)) return false
   return part.type === RESOURCE_REFERENCE_PART_TYPE && typeof part.key === "string"
+}
+
+function isReadingSelectionPart(part: unknown): part is ReadingSelectionPart {
+  if (!isPlainObject(part)) return false
+  return part.type === READING_SELECTION_PART_TYPE && typeof part.text === "string"
+}
+
+function normalizeReadingSelectionPart(part: ReadingSelectionPart) {
+  const text = part.text.trim()
+  if (!text) {
+    throw new SessionTransformValidationError("reading-selection text is required")
+  }
+
+  return {
+    type: READING_SELECTION_PART_TYPE,
+    text,
+    ...(typeof part.resourceKey === "string" && part.resourceKey.trim().length > 0
+      ? { resourceKey: part.resourceKey.trim() }
+      : {}),
+    ...(typeof part.cfi === "string" && part.cfi.trim().length > 0 ? { cfi: part.cfi.trim() } : {}),
+    ...(typeof part.index === "number" && Number.isFinite(part.index) ? { index: part.index } : {}),
+    ...(typeof part.tocLabel === "string" && part.tocLabel.trim().length > 0
+      ? { tocLabel: part.tocLabel.trim() }
+      : {}),
+    ...(typeof part.pageLabel === "string" && part.pageLabel.trim().length > 0
+      ? { pageLabel: part.pageLabel.trim() }
+      : {}),
+    ...(typeof part.locationLabel === "string" && part.locationLabel.trim().length > 0
+      ? { locationLabel: part.locationLabel.trim() }
+      : {}),
+  }
+}
+
+export function flattenPromptPartsForRuntime(parts: unknown[]): Record<string, unknown>[] {
+  return parts.flatMap((part) => {
+    if (!isReadingSelectionPart(part)) {
+      return isPlainObject(part) ? [{ ...part }] : []
+    }
+
+    const normalized = normalizeReadingSelectionPart(part)
+    return [
+      {
+        type: PROMPT_PART_TYPE_TEXT,
+        text: normalized.text,
+        metadata: {
+          [BUDDY_PROMPT_PART_METADATA_KEY]: normalized,
+        },
+      },
+    ]
+  })
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

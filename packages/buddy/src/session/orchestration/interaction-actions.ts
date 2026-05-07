@@ -5,6 +5,7 @@ import { SessionID } from "@buddy/opencode-adapter/id"
 import { fetchOpenCode, normalizeErrorResponse, withConfigSync } from "../../http"
 import { createSessionCommandTransform } from "../../learning/agent-execution/transforms/command-transform"
 import { createSessionMessageTransform } from "../../learning/agent-execution/transforms/message-transform"
+import { flattenPromptPartsForRuntime } from "../../learning/prompt/workspace-file-references"
 import type { SessionTransformContext } from "../../learning/agent-execution/transforms/types"
 import { resolveFeatureRegistrationFlags } from "../../learning/runtime/tool-registration-policy"
 import {
@@ -67,13 +68,19 @@ async function queueSessionPromptAsync(input: {
 
   try {
     const transformed = await promptTransform.onTransform(input.body)
+    const runtimeSafeBody = Array.isArray(transformed.parts)
+      ? {
+          ...transformed,
+          parts: flattenPromptPartsForRuntime(transformed.parts),
+        }
+      : transformed
     const response = await fetchOpenCode({
       directory: input.directory,
       method: "POST",
       path: `/session/${encodeURIComponent(input.sessionID)}/prompt_async`,
       query: buildPromptAsyncQuery(input.request, input.directory),
       headers: new Headers(input.request.headers),
-      body: JSON.stringify(transformed),
+      body: JSON.stringify(runtimeSafeBody),
       toolRegistrations: resolveFeatureRegistrationFlags(),
     }).then((result) => normalizeErrorResponse(result, true))
 
