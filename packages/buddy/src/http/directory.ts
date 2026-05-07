@@ -1,3 +1,4 @@
+import fs from "node:fs"
 import { allowedDirectoryRoots, isAllowedDirectory, resolveDirectory } from "../project"
 import { isDirectoryInOpenProjectRegistry } from "../project/open-project-registry"
 
@@ -26,6 +27,62 @@ export type EnsureAllowedDirectory = (source: DirectoryRequestSource) => Allowed
 export type DirectoryRequestContext = {
   requestURL: URL
   directory: string
+}
+
+const DIRECTORY_FORBIDDEN_STATUS = 403
+const DIRECTORY_NOT_FOUND_STATUS = 404
+const DIRECTORY_ACCESS_DENIED_ERROR_CODES = new Set(["EACCES", "EPERM"])
+
+type NodeErrorWithCode = {
+  code?: unknown
+}
+
+function readErrorCode(error: unknown): string | undefined {
+  if (!error || typeof error !== "object") return undefined
+  const candidate = error as NodeErrorWithCode
+  return typeof candidate.code === "string" ? candidate.code : undefined
+}
+
+function inaccessibleDirectoryMessage(directory: string) {
+  if (process.platform === "darwin") {
+    return `Buddy cannot access ${directory}. Grant Buddy access to this folder in macOS Privacy & Security, or move the project outside protected folders like Documents.`
+  }
+
+  return `Buddy cannot access ${directory}. Check this folder's permissions and try again.`
+}
+
+function validateDirectoryAccess(directory: string): Response | undefined {
+  try {
+    const stats = fs.lstatSync(directory)
+    if (!stats.isDirectory()) {
+      return Response.json(
+        { error: `Directory not found: ${directory}` },
+        { status: DIRECTORY_NOT_FOUND_STATUS },
+      )
+    }
+    fs.accessSync(directory, fs.constants.R_OK)
+    return undefined
+  } catch (error) {
+    const code = readErrorCode(error)
+
+    if (DIRECTORY_ACCESS_DENIED_ERROR_CODES.has(code ?? "")) {
+      return Response.json(
+        {
+          error: inaccessibleDirectoryMessage(directory),
+        },
+        { status: DIRECTORY_FORBIDDEN_STATUS },
+      )
+    }
+
+    if (code === "ENOENT") {
+      return Response.json(
+        { error: `Directory not found: ${directory}` },
+        { status: DIRECTORY_NOT_FOUND_STATUS },
+      )
+    }
+
+    return undefined
+  }
 }
 
 function readSourceURL(source: DirectoryRequestSource): URL {
@@ -65,6 +122,14 @@ export const ensureAllowedDirectory: EnsureAllowedDirectory = (source) => {
     return {
       ok: false,
       response: Response.json({ error: "Directory is outside allowed roots" }, { status: 403 }),
+    }
+  }
+
+  const accessFailure = validateDirectoryAccess(directory)
+  if (accessFailure) {
+    return {
+      ok: false,
+      response: accessFailure,
     }
   }
 

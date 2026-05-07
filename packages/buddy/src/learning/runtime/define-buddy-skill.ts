@@ -1,8 +1,6 @@
-import { readFileSync } from "node:fs"
-import { fileURLToPath } from "node:url"
-
 type BuddySkillDefinition = {
   file: URL
+  content: string
 }
 
 type BuddySkill = {
@@ -32,9 +30,7 @@ function parseSkillFrontmatter(content: string): { name: string; description: st
 }
 
 function defineBuddySkill(input: BuddySkillDefinition): BuddySkill {
-  const path = fileURLToPath(input.file)
-  const content = readFileSync(path, "utf-8")
-  const { name, description } = parseSkillFrontmatter(content)
+  const { name, description } = parseSkillFrontmatter(input.content)
 
   return {
     url: input.file,

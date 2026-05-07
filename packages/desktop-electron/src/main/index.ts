@@ -25,7 +25,7 @@ import {
 } from "./constants"
 import type { CommandChild, TerminatedPayload } from "./cli"
 import { checkAppExists, resolveAppPath, wslPath } from "./apps"
-import { installCli, syncCli } from "./cli"
+import { installCli } from "./cli"
 import {
   registerIpcHandlers,
   sendDeepLinks,
@@ -140,7 +140,6 @@ function setupApplication() {
     }
     updaterEnabled = await setupAutoUpdater()
     setDockIcon()
-    syncCli()
     await initialize()
   })
 }
