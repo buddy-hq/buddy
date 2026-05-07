@@ -14,6 +14,7 @@ import {
 import {
   PROMPT_PART_TYPE_AGENT,
   PROMPT_PART_TYPE_TEXT,
+  READING_SELECTION_PART_TYPE,
   RESOURCE_REFERENCE_PART_TYPE,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
   type PromptComposerAttachment,
@@ -103,6 +104,18 @@ function isPromptComposerPart(value: unknown): value is PromptComposerPart {
   }
   if (value.type === RESOURCE_REFERENCE_PART_TYPE) {
     return typeof value.key === "string"
+  }
+  if (value.type === READING_SELECTION_PART_TYPE) {
+    return (
+      typeof value.text === "string" &&
+      (value.selectionKey === undefined || typeof value.selectionKey === "string") &&
+      (value.resourceKey === undefined || typeof value.resourceKey === "string") &&
+      (value.cfi === undefined || typeof value.cfi === "string") &&
+      (value.index === undefined || typeof value.index === "number") &&
+      (value.tocLabel === undefined || typeof value.tocLabel === "string") &&
+      (value.pageLabel === undefined || typeof value.pageLabel === "string") &&
+      (value.locationLabel === undefined || typeof value.locationLabel === "string")
+    )
   }
   return false
 }

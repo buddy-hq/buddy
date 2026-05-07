@@ -25,15 +25,43 @@ import { IDLE_SESSION_STATUS, isSessionWorking, sessionStatusEquals } from "./se
 
 type StreamStatus = "idle" | "connecting" | "connected" | "error"
 
+type ReadingTrailEntry = {
+  tocLabel: string
+  cfi?: string
+  fraction?: number
+}
+
+type AnnotationSummaryEntry = {
+  text: string
+  tocLabel?: string
+  note?: string
+}
+
+const READING_TRAIL_MAX_ENTRIES = 20
+
 export type ActiveReadingResourceState = {
   resourceID?: string
   alias?: string
   name: string
   path: string
   status?: "preparing" | "ready" | "unsupported" | "error" | "stale" | "unprocessed"
+  cfi?: string
+  index?: number
+  fraction?: number
   locationLabel?: string
   tocLabel?: string
   pageLabel?: string
+  currentPassageText?: string
+  visibleStartText?: string
+  visibleEndText?: string
+  readingTrail?: ReadingTrailEntry[]
+  annotationSummary?: AnnotationSummaryEntry[]
+}
+
+type LastOpenedReadingResource = {
+  resourceID?: string
+  name: string
+  path: string
 }
 
 type ChatStore = {
@@ -45,6 +73,7 @@ type ChatStore = {
   selectedModelByDirectory: Record<string, string>
   activeReadingResourceByDirectory: Record<string, ActiveReadingResourceState>
   linkedSessionByResource: Record<string, string>
+  lastOpenedReadingResourceByDirectory: Record<string, LastOpenedReadingResource>
   directories: Record<string, DirectoryChatState>
   streamStatus: StreamStatus
   ensureOpenProject: (directory: string) => void
@@ -87,9 +116,27 @@ type ChatStore = {
   ) => void
   updateActiveReadingResourceLocation: (
     directory: string,
-    input: Pick<ActiveReadingResourceState, "locationLabel" | "tocLabel" | "pageLabel">,
+    input: Pick<
+      ActiveReadingResourceState,
+      | "cfi"
+      | "index"
+      | "fraction"
+      | "locationLabel"
+      | "tocLabel"
+      | "pageLabel"
+      | "currentPassageText"
+    >,
   ) => void
   linkReadingResourceSession: (directory: string, resourceID: string, sessionID: string) => void
+  appendReadingTrailEntry: (
+    directory: string,
+    entry: { tocLabel: string; cfi?: string; fraction?: number },
+  ) => void
+  setActiveReadingAnnotationSummary: (directory: string, summary: AnnotationSummaryEntry[]) => void
+  setLastOpenedReadingResource: (
+    directory: string,
+    resource: LastOpenedReadingResource | undefined,
+  ) => void
   setEntryError: (error?: string) => void
   setStreamStatus: (status: StreamStatus) => void
   resetRuntimeState: () => void
@@ -105,6 +152,7 @@ type ChatStoreStateFields = Pick<
   | "selectedModelByDirectory"
   | "activeReadingResourceByDirectory"
   | "linkedSessionByResource"
+  | "lastOpenedReadingResourceByDirectory"
   | "directories"
   | "streamStatus"
 >
@@ -123,6 +171,7 @@ type PersistedChatStoreState = {
   lastSessionByDirectory?: Record<string, string>
   activeReadingResourceByDirectory?: Record<string, ActiveReadingResourceState>
   linkedSessionByResource?: Record<string, string>
+  lastOpenedReadingResourceByDirectory?: Record<string, LastOpenedReadingResource>
 }
 
 function normalizeProjectDirectory(input: string | undefined) {
@@ -150,6 +199,28 @@ function readStringRecord(value: unknown): Record<string, string> | undefined {
   return result
 }
 
+function isLastOpenedReadingResource(value: unknown): value is LastOpenedReadingResource {
+  if (!isRecord(value)) return false
+  return (
+    typeof value.name === "string" &&
+    typeof value.path === "string" &&
+    (value.resourceID === undefined || typeof value.resourceID === "string")
+  )
+}
+
+function readLastOpenedReadingResourceRecord(
+  value: unknown,
+): Record<string, LastOpenedReadingResource> | undefined {
+  if (!isRecord(value)) return undefined
+  const result: Record<string, LastOpenedReadingResource> = {}
+  for (const [key, entry] of Object.entries(value)) {
+    if (isLastOpenedReadingResource(entry)) {
+      result[key] = entry
+    }
+  }
+  return result
+}
+
 function isActiveReadingResourceState(value: unknown): value is ActiveReadingResourceState {
   if (!isRecord(value)) {
     return false
@@ -166,10 +237,32 @@ function isActiveReadingResourceState(value: unknown): value is ActiveReadingRes
       value.status === "error" ||
       value.status === "stale" ||
       value.status === "unprocessed") &&
+    (value.cfi === undefined || typeof value.cfi === "string") &&
+    (value.index === undefined || typeof value.index === "number") &&
+    (value.fraction === undefined || typeof value.fraction === "number") &&
     (value.locationLabel === undefined || typeof value.locationLabel === "string") &&
     (value.tocLabel === undefined || typeof value.tocLabel === "string") &&
-    (value.pageLabel === undefined || typeof value.pageLabel === "string")
+    (value.pageLabel === undefined || typeof value.pageLabel === "string") &&
+    (value.currentPassageText === undefined || typeof value.currentPassageText === "string") &&
+    (value.visibleStartText === undefined || typeof value.visibleStartText === "string") &&
+    (value.visibleEndText === undefined || typeof value.visibleEndText === "string") &&
+    (value.readingTrail === undefined || Array.isArray(value.readingTrail)) &&
+    (value.annotationSummary === undefined || Array.isArray(value.annotationSummary))
   )
+}
+
+function stripTransientActiveReadingResourceFields(
+  value: ActiveReadingResourceState,
+): ActiveReadingResourceState {
+  const {
+    currentPassageText: _currentPassageText,
+    visibleStartText: _visibleStartText,
+    visibleEndText: _visibleEndText,
+    readingTrail: _readingTrail,
+    annotationSummary: _annotationSummary,
+    ...persisted
+  } = value
+  return persisted
 }
 
 function readActiveReadingResourceRecord(
@@ -182,7 +275,7 @@ function readActiveReadingResourceRecord(
   const result: Record<string, ActiveReadingResourceState> = {}
   for (const [key, entry] of Object.entries(value)) {
     if (isActiveReadingResourceState(entry)) {
-      result[key] = entry
+      result[key] = stripTransientActiveReadingResourceFields(entry)
     }
   }
   return result
@@ -200,6 +293,9 @@ function readPersistedChatStoreState(value: unknown): PersistedChatStoreState {
       value.activeReadingResourceByDirectory,
     ),
     linkedSessionByResource: readStringRecord(value.linkedSessionByResource),
+    lastOpenedReadingResourceByDirectory: readLastOpenedReadingResourceRecord(
+      value.lastOpenedReadingResourceByDirectory,
+    ),
   }
 }
 
@@ -236,6 +332,7 @@ function createChatStoreStateFields(): ChatStoreStateFields {
     selectedModelByDirectory: {},
     activeReadingResourceByDirectory: {},
     linkedSessionByResource: {},
+    lastOpenedReadingResourceByDirectory: {},
     directories: {},
     streamStatus: STREAM_STATUS_IDLE,
   }
@@ -551,6 +648,7 @@ export const useChatStore = create<ChatStore>()(
           delete state.directories[normalized]
           delete state.lastSessionByDirectory[normalized]
           delete state.activeReadingResourceByDirectory[normalized]
+          delete state.lastOpenedReadingResourceByDirectory[normalized]
           state.linkedSessionByResource = Object.fromEntries(
             Object.entries(state.linkedSessionByResource).filter(
               ([key]) => !key.startsWith(`${normalized}::`),
@@ -1162,6 +1260,51 @@ export const useChatStore = create<ChatStore>()(
           state.linkedSessionByResource[resourceSessionKey(normalized, resourceID)] = sessionID
         })
       },
+      appendReadingTrailEntry(directory, entry) {
+        const normalized = normalizeProjectDirectory(directory)
+        if (!normalized) return
+        if (!entry.tocLabel) return
+
+        set((state) => {
+          const current = state.activeReadingResourceByDirectory[normalized]
+          if (!current) return
+          const trail = current.readingTrail ?? []
+          const last = trail[trail.length - 1]
+          if (last?.tocLabel === entry.tocLabel && last?.fraction === entry.fraction) {
+            return
+          }
+          const boundedTrail = [...trail, entry].slice(-READING_TRAIL_MAX_ENTRIES)
+          state.activeReadingResourceByDirectory[normalized] = {
+            ...current,
+            readingTrail: boundedTrail,
+          }
+        })
+      },
+      setActiveReadingAnnotationSummary(directory, summary) {
+        const normalized = normalizeProjectDirectory(directory)
+        if (!normalized) return
+
+        set((state) => {
+          const current = state.activeReadingResourceByDirectory[normalized]
+          if (!current) return
+          state.activeReadingResourceByDirectory[normalized] = {
+            ...current,
+            annotationSummary: summary,
+          }
+        })
+      },
+      setLastOpenedReadingResource(directory, resource) {
+        const normalized = normalizeProjectDirectory(directory)
+        if (!normalized) return
+
+        set((state) => {
+          if (resource) {
+            state.lastOpenedReadingResourceByDirectory[normalized] = resource
+            return
+          }
+          delete state.lastOpenedReadingResourceByDirectory[normalized]
+        })
+      },
       setEntryError(error) {
         set((state) => {
           state.entryError = error
@@ -1210,6 +1353,11 @@ export const useChatStore = create<ChatStore>()(
           linkedSessionByResource: Object.fromEntries(
             Object.entries(persisted.linkedSessionByResource ?? {}),
           ),
+          lastOpenedReadingResourceByDirectory: Object.fromEntries(
+            Object.entries(persisted.lastOpenedReadingResourceByDirectory ?? {}).filter(
+              ([directory]) => !!normalizeProjectDirectory(directory),
+            ),
+          ),
         }
       },
       partialize(state) {
@@ -1222,11 +1370,19 @@ export const useChatStore = create<ChatStore>()(
             ),
           ),
           activeReadingResourceByDirectory: Object.fromEntries(
-            Object.entries(state.activeReadingResourceByDirectory).filter(
+            Object.entries(state.activeReadingResourceByDirectory)
+              .filter(([directory]) => !!normalizeProjectDirectory(directory))
+              .map(([directory, resource]) => [
+                directory,
+                stripTransientActiveReadingResourceFields(resource),
+              ]),
+          ),
+          linkedSessionByResource: state.linkedSessionByResource,
+          lastOpenedReadingResourceByDirectory: Object.fromEntries(
+            Object.entries(state.lastOpenedReadingResourceByDirectory).filter(
               ([directory]) => !!normalizeProjectDirectory(directory),
             ),
           ),
-          linkedSessionByResource: state.linkedSessionByResource,
         }
       },
     },

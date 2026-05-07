@@ -84,6 +84,33 @@ describe("chat-store parity events", () => {
     })
   })
 
+  test("does not persist current passage text from active reading state", () => {
+    const store = useChatStore.getState()
+
+    store.setActiveReadingResource(directory, {
+      resourceID: "resource_1",
+      name: "Book",
+      path: "books/book.epub",
+      currentPassageText: "This should stay in live state only.",
+    })
+
+    const persistedRaw = localStorage.getItem("buddy.chat.v4")
+    expect(persistedRaw).not.toBeNull()
+
+    const persisted = JSON.parse(persistedRaw ?? "{}") as {
+      state?: {
+        activeReadingResourceByDirectory?: Record<string, Record<string, unknown>>
+      }
+    }
+
+    expect(
+      useChatStore.getState().activeReadingResourceByDirectory[directory]?.currentPassageText,
+    ).toBe("This should stay in live state only.")
+    expect(
+      persisted.state?.activeReadingResourceByDirectory?.[directory]?.currentPassageText,
+    ).toBeUndefined()
+  })
+
   test("defers persisted active directory until backend open-projects are loaded", async () => {
     localStorage.setItem(
       "buddy.chat.v4",

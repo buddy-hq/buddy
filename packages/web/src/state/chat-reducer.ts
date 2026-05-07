@@ -45,14 +45,49 @@ function shouldReplaceOptimisticPart(existing: MessagePart, incoming: MessagePar
     return false
   }
 
-  if (existing.type !== incoming.type) {
-    return false
-  }
-
   switch (incoming.type) {
     case "text":
+      if (
+        existing.type === "reading-selection" &&
+        typeof existing.text === "string" &&
+        typeof incoming.metadata === "object" &&
+        incoming.metadata !== null &&
+        "buddyPromptPart" in incoming.metadata
+      ) {
+        const metadata = incoming.metadata.buddyPromptPart
+        if (
+          typeof metadata !== "object" ||
+          metadata === null ||
+          !("type" in metadata) ||
+          metadata.type !== "reading-selection" ||
+          !("text" in metadata) ||
+          metadata.text !== existing.text
+        ) {
+          return false
+        }
+
+        const metadataCfi =
+          "cfi" in metadata && typeof metadata.cfi === "string" ? metadata.cfi : undefined
+        const metadataIndex =
+          "index" in metadata && typeof metadata.index === "number" ? metadata.index : undefined
+
+        if (metadataCfi !== undefined && existing.cfi !== metadataCfi) {
+          return false
+        }
+        if (metadataIndex !== undefined && existing.index !== metadataIndex) {
+          return false
+        }
+
+        return true
+      }
+      if (existing.type !== incoming.type) {
+        return false
+      }
       return typeof existing.text === "string" && existing.text === incoming.text
     case "file":
+      if (existing.type !== incoming.type) {
+        return false
+      }
       return (
         typeof existing.mime === "string" &&
         typeof existing.url === "string" &&
@@ -62,11 +97,30 @@ function shouldReplaceOptimisticPart(existing: MessagePart, incoming: MessagePar
         existing.filename === incoming.filename
       )
     case "agent":
+      if (existing.type !== incoming.type) {
+        return false
+      }
       return typeof existing.name === "string" && existing.name === incoming.name
     case "workspace-file-reference":
+      if (existing.type !== incoming.type) {
+        return false
+      }
       return typeof existing.path === "string" && existing.path === incoming.path
     case "resource-reference":
+      if (existing.type !== incoming.type) {
+        return false
+      }
       return typeof existing.key === "string" && existing.key === incoming.key
+    case "reading-selection":
+      if (existing.type !== incoming.type) {
+        return false
+      }
+      return (
+        typeof existing.text === "string" &&
+        existing.text === incoming.text &&
+        existing.cfi === incoming.cfi &&
+        existing.index === incoming.index
+      )
     default:
       return false
   }

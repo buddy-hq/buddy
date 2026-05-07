@@ -1513,9 +1513,17 @@ export async function sendPrompt(
       resourceKey?: string
       title: string
       path: string
+      cfi?: string
+      index?: number
+      fraction?: number
       locationLabel?: string
       tocLabel?: string
       pageLabel?: string
+      currentPassageText?: string
+      visibleStartText?: string
+      visibleEndText?: string
+      readingTrail?: { tocLabel: string; cfi?: string; fraction?: number }[]
+      annotationSummary?: { text: string; tocLabel?: string; note?: string }[]
     }
   },
 ): Promise<string> {

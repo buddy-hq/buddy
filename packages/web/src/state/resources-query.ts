@@ -19,6 +19,7 @@ const RESOURCE_QUERY_AUTO_REFRESH_INTERVAL_MS = 1500
 const RESOURCE_DISCOVERY_LIMIT = 200
 const RESOURCE_STATUS_PREPARING = "preparing"
 const RESOURCE_COVER_STALE_TIME_MS = 5 * 60 * 1000
+const READING_BLOB_STALE_TIME_MS = 30 * 60 * 1000
 
 const RESOURCE_DISCOVERY_EXTENSIONS: ReadonlyArray<string> = [
   RESOURCE_FILE_EXTENSION_PDF,
@@ -298,7 +299,7 @@ export function readingResourceBlobQueryOptions(directory: string, resourcePath:
   return queryOptions({
     queryKey: readingResourceBlobQueryKey(directory, resourcePath),
     queryFn: () => loadProjectFileBlobOrThrow(directory, resourcePath),
-    staleTime: RESOURCE_COVER_STALE_TIME_MS,
+    staleTime: READING_BLOB_STALE_TIME_MS,
   })
 }
 
