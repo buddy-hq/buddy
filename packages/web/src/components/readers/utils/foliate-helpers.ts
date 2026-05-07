@@ -258,6 +258,40 @@ export function buildLocationState(detail?: FoliateRelocationDetail): FoliateRea
     tocLabel: detail.tocItem?.label,
     pageLabel: detail.pageItem?.label,
     locationLabel,
+    currentPassageText: readCurrentPassageText(detail.range),
+  }
+}
+
+const CURRENT_PASSAGE_MAX_CHARS = 1200
+
+function normalizeCurrentPassageText(value: string): string | undefined {
+  const normalized = value
+    .replace(/\r\n?/g, "\n")
+    .replace(/[\t\f\v ]+/g, " ")
+    .replace(/ *\n */g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+
+  if (!normalized) {
+    return undefined
+  }
+
+  if (normalized.length <= CURRENT_PASSAGE_MAX_CHARS) {
+    return normalized
+  }
+
+  return `${normalized.slice(0, CURRENT_PASSAGE_MAX_CHARS).trimEnd()}…`
+}
+
+function readCurrentPassageText(range: Range | null | undefined): string | undefined {
+  if (!range) {
+    return undefined
+  }
+
+  try {
+    return normalizeCurrentPassageText(range.toString())
+  } catch {
+    return undefined
   }
 }
 

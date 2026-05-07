@@ -163,6 +163,23 @@ export interface FoliateReaderLocation {
   tocLabel?: string
   pageLabel?: string
   locationLabel?: string
+  currentPassageText?: string
+}
+
+export type ReadingTrailEntry = {
+  tocLabel: string
+  cfi?: string
+  fraction?: number
+}
+
+export type FoliateReaderSelection = {
+  text: string
+  cfi: string
+  index: number
+  selectionKey?: string
+  tocLabel?: string
+  pageLabel?: string
+  locationLabel?: string
 }
 
 // ============================================================
@@ -194,8 +211,12 @@ export interface FoliateReaderProps {
   emptyState?: ReactNode
   onReady?: (snapshot: FoliateReaderSnapshot) => void
   onLocationChange?: (location: FoliateReaderLocation) => void
+  onChatSelection?: (selection: FoliateReaderSelection) => void
+  onChatSelectionRemoved?: (selectionKey: string) => void
   onOpenExternalLink?: (href: string) => void
   onError?: (error: Error) => void
+  onAnnotationsChange?: (annotations: ReaderAnnotation[]) => void
+  persistenceSuffix?: string
 }
 
 // ============================================================
@@ -311,6 +332,10 @@ export interface ReaderSelectionAction {
   range: Range
   cfi: string
   text: string
+  selectionKey: string
+  tocLabel?: string
+  pageLabel?: string
+  locationLabel?: string
   x: number
   y: number
 }
@@ -318,6 +343,9 @@ export interface ReaderSelectionAction {
 export interface ReaderSelectionToolbarState {
   text: string
   cfi: string
+  tocLabel?: string
+  pageLabel?: string
+  locationLabel?: string
   x: number
   y: number
 }

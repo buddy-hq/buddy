@@ -97,7 +97,7 @@ declare module "foliate-js/view.js" {
   export type FoliateRelocationDetail = {
     fraction?: number
     index?: number
-    range?: Range
+    range?: Range | null
     cfi?: string
     location?: {
       current?: number

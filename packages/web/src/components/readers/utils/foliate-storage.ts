@@ -187,13 +187,17 @@ export function normalizeStorageSegment(value: string | undefined) {
     .replace(/^-+|-+$/g, "")
 }
 
-export function buildBookPersistenceKey(source: FoliateReaderSource, book: FoliateBook): string {
+export function buildBookPersistenceKey(
+  source: FoliateReaderSource,
+  book: FoliateBook,
+  suffix?: string,
+): string {
   const identifier = formatMetadataValue(book.metadata?.identifier)
   const title = formatMetadataValue(book.metadata?.title)
   const author =
     formatContributor(book.metadata?.author) ?? formatContributor(book.metadata?.contributor)
   const sourceName = getSourceName(source)
-  const pieces = [identifier, title, author, sourceName]
+  const pieces = [identifier, title, author, sourceName, suffix]
     .map(normalizeStorageSegment)
     .filter(Boolean)
   return `${BOOK_STATE_STORAGE_KEY_PREFIX}${pieces.join("__") || "unknown"}`

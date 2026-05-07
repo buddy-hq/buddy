@@ -153,6 +153,11 @@ import { formatContributor, formatMetadataValue } from "./utils/foliate-formatte
 
 ensureFoliateRuntimeCompat()
 
+function createSelectionKey() {
+  const random = Math.random().toString(36).slice(2, 10)
+  return `sel_${Date.now().toString(36)}_${random}`
+}
+
 export type {
   FoliateReaderAppearanceMode,
   FoliateReaderAnnotationStyle,
@@ -160,6 +165,7 @@ export type {
   FoliateReaderFontPreset,
   FoliateReaderLandmark,
   FoliateReaderLocation,
+  FoliateReaderSelection,
   FoliateReaderSearchScope,
   FoliateReaderSidebarTab,
   FoliateReaderSnapshot,
@@ -186,8 +192,12 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       emptyState,
       onReady,
       onLocationChange,
+      onChatSelection,
+      onChatSelectionRemoved,
       onOpenExternalLink,
       onError,
+      onAnnotationsChange,
+      persistenceSuffix,
     },
     ref,
   ) {
@@ -203,8 +213,11 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     const callbacksRef = useRef({
       onReady,
       onLocationChange,
+      onChatSelection,
+      onChatSelectionRemoved,
       onOpenExternalLink,
       onError,
+      onAnnotationsChange,
     })
     const [preferences, setPreferences] = useState(() =>
       loadGlobalPreferences(defaultTheme, defaultFlow),
@@ -291,8 +304,11 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     callbacksRef.current = {
       onReady,
       onLocationChange,
+      onChatSelection,
+      onChatSelectionRemoved,
       onOpenExternalLink,
       onError,
+      onAnnotationsChange,
     }
     preferencesRef.current = preferences
     effectiveAppearanceRef.current = effectiveAppearance
@@ -395,6 +411,10 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
         annotations,
       })
     }, [annotations, bookmarks, bookKey, location.cfi])
+
+    useEffect(() => {
+      callbacksRef.current.onAnnotationsChange?.(annotations)
+    }, [annotations])
 
     useEffect(() => {
       return () => {
@@ -596,14 +616,35 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     }
 
     function openSelectionToolbar(action: ReaderSelectionAction) {
+      if (!action.text.trim()) {
+        return
+      }
       selectionActionRef.current = action
       setAnnotationPopover(null)
       setSelectionToolbar({
         text: action.text,
         cfi: action.cfi,
+        ...(action.tocLabel ? { tocLabel: action.tocLabel } : {}),
+        ...(action.pageLabel ? { pageLabel: action.pageLabel } : {}),
+        ...(action.locationLabel ? { locationLabel: action.locationLabel } : {}),
         x: action.x,
         y: action.y,
       })
+      callbacksRef.current.onChatSelection?.({
+        text: action.text,
+        cfi: action.cfi,
+        index: action.index,
+        selectionKey: action.selectionKey,
+        ...(action.tocLabel ? { tocLabel: action.tocLabel } : {}),
+        ...(action.pageLabel ? { pageLabel: action.pageLabel } : {}),
+        ...(action.locationLabel ? { locationLabel: action.locationLabel } : {}),
+      })
+    }
+
+    function removeCurrentChatSelection() {
+      const selectionKey = selectionActionRef.current?.selectionKey
+      if (!selectionKey) return
+      callbacksRef.current.onChatSelectionRemoved?.(selectionKey)
     }
 
     function openAnnotationSurface(value: string, range: Range) {
@@ -655,6 +696,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     }
 
     async function handleCopySelection(text: string) {
+      removeCurrentChatSelection()
       const copied = await copyText(text)
       dismissSelectionToolbar(copied)
       if (copied) {
@@ -975,10 +1017,14 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
                 )
                 const position = getOverlayPosition(range, container)
                 openSelectionToolbar({
+                  selectionKey: createSelectionKey(),
                   index: event.detail.index,
                   range,
                   cfi: view.getCFI(event.detail.index, range),
                   text: selection?.toString().trim() ?? "",
+                  tocLabel: locationRef.current.tocLabel,
+                  pageLabel: locationRef.current.pageLabel,
+                  locationLabel: locationRef.current.locationLabel,
                   x: position.x,
                   y: position.y,
                 })
@@ -1016,7 +1062,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
             configurePdfFixedLayoutView(view, pdfViewModeRef.current)
           }
 
-          const nextBookKey = buildBookPersistenceKey(stableSource, view.book)
+          const nextBookKey = buildBookPersistenceKey(stableSource, view.book, persistenceSuffix)
           const persisted = loadBookState(nextBookKey)
 
           const themeDefinition = getThemeDefinition(preferencesRef.current.themeId)
@@ -1121,7 +1167,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
         coverUrlRef.current = undefined
         host.replaceChildren()
       }
-    }, [hydrateAnnotations, sourceIsPdf, stableInitialLocation, stableSource])
+    }, [hydrateAnnotations, persistenceSuffix, sourceIsPdf, stableInitialLocation, stableSource])
 
     const progressValue =
       progressDraft ?? Math.round((location.fraction ?? 0) * DEFAULT_PROGRESS_STEPS)
@@ -1339,6 +1385,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
             selectionAction={selectionToolbar}
             onCopyText={(text: string) => void handleCopySelection(text)}
             onHighlight={() => {
+              removeCurrentChatSelection()
               const action = selectionActionRef.current
               if (!action) return
               const now = new Date().toISOString()
@@ -1373,8 +1420,14 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
                 dismissSelectionToolbar(true)
               })()
             }}
-            onOpenAnnotationDialog={() => openAnnotationDialog()}
-            onSearch={(query: string) => openSearchWithQuery(query)}
+            onOpenAnnotationDialog={() => {
+              removeCurrentChatSelection()
+              openAnnotationDialog()
+            }}
+            onSearch={(query: string) => {
+              removeCurrentChatSelection()
+              openSearchWithQuery(query)
+            }}
             onClose={() => setSelectionToolbar(null)}
           />
 
