@@ -4,6 +4,27 @@
 
 Buddy is an AI learning companion built for people who learn constantly and are tired of losing context between sessions.
 
+## Install (macOS)
+
+Run:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/prashantbhudwal/buddy/main/scripts/install-buddy-macos.sh | bash
+```
+
+What this does:
+
+- Downloads the latest macOS Buddy release package for your architecture.
+- Removes the quarantine flag from the downloaded package.
+- Opens the downloaded package so you can install Buddy.
+- Uses only built-in macOS tools (`bash`, `curl`, `xattr`, `open`) and does not require Python.
+
+If Buddy is blocked after install, run:
+
+```bash
+xattr -rd com.apple.quarantine "/Applications/Buddy.app"
+```
+
 ## Constitution
 
 ### Local
