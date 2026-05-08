@@ -57,15 +57,14 @@ Long term maintainability is a core priority. If you add new functionality, firs
 
 ## Buddy Architectural Concepts
 - Core vocabulary lives in `packages/buddy/src/learning/shared/teaching-vocabulary.ts`.
-- **Persona**: the core Buddy agent.
-- Capabilities come in three forms:
-    - **Tools**: runtime tools gated by intent.
-    - **Skills**: a reusable, versioned bundle of files that gives an agent a specific capability or workflow.
-    - **Subagents**: specialized internal agents a persona can delegate to.
-- All three capabilities are first-class opencode runtime capabilities.
-- Capabilities may also be constrained by context:
-    - **Surface**: tools are available only on enabled surfaces such as chat, curriculum, editor, figure, or quiz.
-    - **Workspace state**: some teaching tools require an interactive session.
+- **Persona**: the core Buddy agent. Personas enable **features**
+- **Feature**: the only authoring and access grouping unit. A feature owns:
+    - **Tools**: runtime tools gated by constraints (e.g., teaching workspace active, runtime readiness). 
+      - Some tools are dynamic — discoverable via features but requiring an on-demand load flow.
+    - **Skills**: a reusable, versioned bundle of files that gives an agent a specific capability or workflow. 
+    - **Subagents**: specialized internal agents a persona can delegate to. Subagents carry their own tools, skills, and subagents as object references.
+    - **Surfaces**: UI surfaces unlocked by the feature (curriculum, figure, flashcard, editor, question-set).
+- All three capabilities (tools, skills, subagents) are first-class opencode runtime capabilities.
 
 ## Misc Rules
 - Buddy uses `@hey-api/openapi-ts` to generate a type-safe SDK from its Hono backend. Always use the typed SDK (`BuddyClient`) for API interactions. Never use manual fetch helpers like `requestJson`.
