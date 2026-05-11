@@ -22,13 +22,17 @@ export type InstalledSkillInfo = {
   libraryID?: string
 }
 
-export type SkillLibraryEntry = {
+export type SkillLibraryItemState = "available" | "installed" | "withdrawn_installed"
+
+export type SkillLibraryItemView = {
   id: string
-  name: string
-  description: string
   summary: string
-  examplePrompt: string
-  installed: boolean
+  displayName: string
+  categories: string[]
+  tags: string[]
+  sourceKind: "github"
+  sourceLabel: string
+  state: SkillLibraryItemState
 }
 
 export type SkillsCatalog = {
@@ -36,7 +40,7 @@ export type SkillsCatalog = {
   managedRoot: string
   externalVendorRootsEnabled: boolean
   installed: InstalledSkillInfo[]
-  library: SkillLibraryEntry[]
+  library: SkillLibraryItemView[]
   librarySyncError?: string
 }
 

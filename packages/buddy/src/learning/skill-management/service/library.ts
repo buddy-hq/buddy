@@ -1,294 +1,289 @@
-import { spawn } from "node:child_process"
 import fsp from "node:fs/promises"
 import path from "node:path"
-import matter from "gray-matter"
-import type { SkillLibraryEntry } from "./contracts"
-import { readOptionalString } from "./documents"
-import { curatedSkillsCacheRoot } from "./paths"
+import { fileURLToPath } from "node:url"
+import { z } from "zod"
+import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
+import {
+  skillArtifactIntegritySchema,
+  skillSourceRefSchema,
+  type SkillSourceRef,
+} from "./catalog-schemas"
+import { SkillServiceError, type SkillLibraryItemView } from "./contracts"
+import {
+  readInstalledSkillLock,
+  type InstalledSkillLockEntry,
+  writeInstalledSkillLock,
+} from "./lock"
+import {
+  ensureManagedSkillPathReady,
+  isWithinPath,
+  managedLibraryRoot,
+  managedWithdrawnLibraryRoot,
+} from "./paths"
 
-const DEFAULT_CURATED_SKILLS_REPO_URL = "https://github.com/openai/skills.git"
-const CURATED_REPO_MIRROR_NAME = "skills-repo"
-const CURATED_REPO_SHA_MARKER_FILE = "skills-repo.sha"
-const CURATED_SKILLS_ROOT = path.join("skills", ".curated")
+const CATALOG_SCHEMA_VERSION = 1
+const CATALOG_PATH = path.join(path.dirname(fileURLToPath(import.meta.url)), "catalog.json")
+const WITHDRAWN_PATH_MAX_ATTEMPTS = 100
 
-export type CuratedLibrarySkill = Omit<SkillLibraryEntry, "installed"> & {
-  sourceDirectory: string
-  skillFile: string
-  skillName: string
+type WithdrawnSkillMove = {
+  catalogId: string
+  installedPath: string
+  withdrawnPath: string
+  previousEntry: InstalledSkillLockEntry
 }
 
-function curatedSkillsRepoURL() {
-  return process.env.BUDDY_CURATED_SKILLS_REPO_URL?.trim() || DEFAULT_CURATED_SKILLS_REPO_URL
-}
+const skillReviewSchema = z.object({
+  approvedAt: z.string().trim().datetime(),
+  approvedBy: z.string().trim().min(1).optional(),
+  policyVersion: z.number().int().positive(),
+  approvedWarningRuleIDs: z.array(z.string().trim().min(1)).optional(),
+  notes: z.string().trim().min(1).optional(),
+})
 
-function curatedMirrorRoot() {
-  return path.join(curatedSkillsCacheRoot(), CURATED_REPO_MIRROR_NAME)
-}
+const skillCatalogEntrySchema = z.object({
+  id: z
+    .string()
+    .trim()
+    .min(1)
+    .regex(/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/),
+  displayName: z.string().trim().min(1),
+  summary: z.string().trim().min(1),
+  categories: z.array(z.string().trim().min(1)),
+  tags: z.array(z.string().trim().min(1)),
+  source: skillSourceRefSchema,
+  integrity: skillArtifactIntegritySchema,
+  review: skillReviewSchema,
+  status: z.enum(["approved", "withdrawn"]),
+})
 
-function curatedShaMarkerPath() {
-  return path.join(curatedSkillsCacheRoot(), CURATED_REPO_SHA_MARKER_FILE)
-}
+const skillCatalogDocumentSchema = z.object({
+  schemaVersion: z.literal(CATALOG_SCHEMA_VERSION),
+  entries: z.array(skillCatalogEntrySchema),
+})
 
-function errorMessage(error: unknown) {
-  if (error instanceof Error && error.message.trim().length > 0) {
-    return error.message
-  }
-  return String(error)
-}
+export type SkillReview = z.infer<typeof skillReviewSchema>
+export type SkillCatalogEntry = z.infer<typeof skillCatalogEntrySchema>
+export type SkillCatalogDocument = z.infer<typeof skillCatalogDocumentSchema>
 
-async function directoryExists(filepath: string) {
-  const stats = await fsp.stat(filepath).catch(() => undefined)
-  return !!stats?.isDirectory()
-}
-
-async function readTrimmedFile(filepath: string) {
-  const value = await fsp.readFile(filepath, "utf8").catch(() => undefined)
-  return value?.trim()
-}
-
-function runGit(args: string[], cwd?: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const child = spawn("git", args, {
-      cwd,
-      stdio: ["ignore", "pipe", "pipe"],
-    })
-
-    let stdout = ""
-    let stderr = ""
-
-    child.stdout.on("data", (chunk: Buffer | string) => {
-      stdout += chunk.toString()
-    })
-    child.stderr.on("data", (chunk: Buffer | string) => {
-      stderr += chunk.toString()
-    })
-    child.on("error", (error) => {
-      reject(error)
-    })
-    child.on("close", (code) => {
-      if (code === 0) {
-        resolve(stdout.trim())
-        return
-      }
-
-      const output = stderr.trim() || stdout.trim()
-      reject(
-        new Error(
-          output.length > 0 ? output : `git ${args.join(" ")} failed with exit code ${code}`,
-        ),
-      )
-    })
+function catalogValidationError(error: z.ZodError) {
+  const issues = error.issues.map((issue) => {
+    const location = issue.path.length > 0 ? issue.path.join(".") : "catalog"
+    return `${location}: ${issue.message}`
   })
+  return new Error(`Invalid skill catalog: ${issues.join("; ")}`)
 }
 
-function parseHeadSha(input: string): string | undefined {
-  const firstLine = input
-    .split("\n")
-    .map((line) => line.trim())
-    .find((line) => line.length > 0)
-  if (!firstLine) return undefined
-  const [sha] = firstLine.split(/\s+/)
-  return sha?.trim().length ? sha : undefined
-}
-
-async function resolveRemoteHeadSha(repositoryURL: string) {
-  const lsRemoteOutput = await runGit(["ls-remote", repositoryURL, "HEAD"])
-  const remoteSHA = parseHeadSha(lsRemoteOutput)
-  if (!remoteSHA) {
-    throw new Error(`Could not resolve remote HEAD for ${repositoryURL}`)
+export function parseSkillCatalogDocument(input: unknown): SkillCatalogDocument {
+  const result = skillCatalogDocumentSchema.safeParse(input)
+  if (!result.success) {
+    throw catalogValidationError(result.error)
   }
-  return remoteSHA
+  const ids = new Set<string>()
+  for (const entry of result.data.entries) {
+    if (ids.has(entry.id)) {
+      throw new Error(`Invalid skill catalog: duplicate entry id "${entry.id}"`)
+    }
+    ids.add(entry.id)
+  }
+  return result.data
 }
 
-async function removeDirectory(directory: string) {
-  await fsp.rm(directory, {
-    recursive: true,
-    force: true,
-  })
+export function sourceLabel(source: SkillSourceRef): string {
+  return `${source.repo}/${source.path}`
 }
 
-function mirrorSwapPaths(mirrorRoot: string) {
-  const timestamp = Date.now()
+function toSkillLibraryItemView(input: {
+  entry: SkillCatalogEntry
+  state: SkillLibraryItemView["state"]
+}): SkillLibraryItemView {
   return {
-    tempRoot: `${mirrorRoot}.tmp-${timestamp}-${process.pid}`,
-    backupRoot: `${mirrorRoot}.bak-${timestamp}-${process.pid}`,
+    id: input.entry.id,
+    displayName: input.entry.displayName,
+    summary: input.entry.summary,
+    categories: input.entry.categories,
+    tags: input.entry.tags,
+    sourceKind: "github",
+    sourceLabel: sourceLabel(input.entry.source),
+    state: input.state,
   }
 }
 
-async function syncCuratedRepository(): Promise<void> {
-  const repositoryURL = curatedSkillsRepoURL()
-  const cacheRoot = curatedSkillsCacheRoot()
-  const mirrorRoot = curatedMirrorRoot()
-  const markerPath = curatedShaMarkerPath()
+async function readCatalogJson(): Promise<unknown> {
+  const source = await fsp.readFile(CATALOG_PATH, "utf8")
+  try {
+    return JSON.parse(source)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    throw new Error(`Invalid skill catalog JSON: ${message}`, { cause: error })
+  }
+}
 
-  await fsp.mkdir(cacheRoot, { recursive: true })
+export async function readSkillCatalogDocument(): Promise<SkillCatalogDocument> {
+  return parseSkillCatalogDocument(await readCatalogJson())
+}
 
-  const remoteSHA = await resolveRemoteHeadSha(repositoryURL)
-  const existingSHA = await readTrimmedFile(markerPath)
-  const hasMirror = await directoryExists(mirrorRoot)
-  if (hasMirror && existingSHA === remoteSHA) {
-    return
+async function readReconciledInstalledSkillLock() {
+  const lock = await readInstalledSkillLock()
+  let changed = false
+
+  for (const [catalogId, lockEntry] of Object.entries(lock.installed)) {
+    const trackedPath = path.resolve(
+      lockEntry.state === "active" ? lockEntry.installedPath : lockEntry.withdrawnPath,
+    )
+    const expectedRoot =
+      lockEntry.state === "active" ? managedLibraryRoot() : managedWithdrawnLibraryRoot()
+    const trackedStat = await fsp.stat(trackedPath).catch(() => undefined)
+
+    if (!trackedStat?.isDirectory() || !isWithinPath(expectedRoot, trackedPath)) {
+      delete lock.installed[catalogId]
+      changed = true
+    }
   }
 
-  const { tempRoot, backupRoot } = mirrorSwapPaths(mirrorRoot)
+  if (changed) {
+    await writeInstalledSkillLock(lock)
+  }
 
-  await removeDirectory(tempRoot)
+  return lock
+}
+
+export async function listCatalogLibraryItems(): Promise<SkillLibraryItemView[]> {
+  const [catalog, lock] = await Promise.all([
+    readSkillCatalogDocument(),
+    readReconciledInstalledSkillLock(),
+  ])
+
+  return catalog.entries.flatMap((entry) => {
+    const lockEntry = lock.installed[entry.id]
+    if (entry.status === "withdrawn" && !lockEntry) {
+      return []
+    }
+
+    const state: SkillLibraryItemView["state"] =
+      entry.status === "withdrawn" || lockEntry?.state === "withdrawn"
+        ? "withdrawn_installed"
+        : lockEntry?.state === "active"
+          ? "installed"
+          : "available"
+
+    return [
+      toSkillLibraryItemView({
+        entry,
+        state,
+      }),
+    ]
+  })
+}
+
+export async function readCatalogEntryByID(
+  skillID: string,
+): Promise<SkillCatalogEntry | undefined> {
+  const catalog = await readSkillCatalogDocument()
+  return catalog.entries.find((entry) => entry.id === skillID)
+}
+
+async function refreshSkillRuntime(): Promise<void> {
+  await OpenCodeInstance.disposeAll()
+}
+
+async function nextWithdrawnSkillPath(catalogId: string): Promise<string> {
+  const root = managedWithdrawnLibraryRoot()
+  const base = path.join(root, catalogId)
+  const timestamp = Date.now()
+
+  for (let attempt = 0; attempt < WITHDRAWN_PATH_MAX_ATTEMPTS; attempt += 1) {
+    const candidate = attempt === 0 ? base : `${base}-${timestamp}-${attempt}`
+    const exists = await fsp.stat(candidate).then(
+      () => true,
+      () => false,
+    )
+    if (!exists) {
+      return candidate
+    }
+  }
+
+  throw new SkillServiceError("conflict", `Could not allocate withdrawn path for ${catalogId}`)
+}
+
+async function rollbackWithdrawnSkillMoves(moves: WithdrawnSkillMove[]): Promise<void> {
+  for (const move of moves.toReversed()) {
+    const [withdrawnStat, installedStat] = await Promise.all([
+      fsp.stat(move.withdrawnPath).catch(() => undefined),
+      fsp.stat(move.installedPath).catch(() => undefined),
+    ])
+    if (!withdrawnStat?.isDirectory() || installedStat) {
+      continue
+    }
+
+    await fsp.mkdir(path.dirname(move.installedPath), { recursive: true }).catch(() => undefined)
+    await fsp.rename(move.withdrawnPath, move.installedPath).catch(() => undefined)
+  }
+}
+
+export async function reconcileWithdrawnLibrarySkills(): Promise<void> {
+  const [catalog, lock] = await Promise.all([
+    readSkillCatalogDocument(),
+    readReconciledInstalledSkillLock(),
+  ])
+  const withdrawnCatalogIds = new Set(
+    catalog.entries.filter((entry) => entry.status === "withdrawn").map((entry) => entry.id),
+  )
+  let changed = false
+  const movedSkills: WithdrawnSkillMove[] = []
 
   try {
-    await runGit(["clone", "--depth", "1", repositoryURL, tempRoot])
-    if (hasMirror) {
-      await removeDirectory(backupRoot)
-      await fsp.rename(mirrorRoot, backupRoot)
+    for (const [catalogId, lockEntry] of Object.entries(lock.installed)) {
+      if (lockEntry.state !== "active" || !withdrawnCatalogIds.has(catalogId)) {
+        continue
+      }
+
+      await ensureManagedSkillPathReady()
+
+      const installedPath = path.resolve(lockEntry.installedPath)
+      if (!isWithinPath(managedLibraryRoot(), installedPath)) {
+        throw new SkillServiceError(
+          "forbidden",
+          `Refusing to withdraw library skill outside Buddy-managed storage: ${catalogId}`,
+        )
+      }
+
+      const withdrawnPath = await nextWithdrawnSkillPath(catalogId)
+      const installedStat = await fsp.stat(installedPath).catch(() => undefined)
+      if (installedStat?.isDirectory()) {
+        await fsp.mkdir(path.dirname(withdrawnPath), { recursive: true })
+        await fsp.rename(installedPath, withdrawnPath)
+        movedSkills.push({
+          catalogId,
+          installedPath,
+          withdrawnPath,
+          previousEntry: lockEntry,
+        })
+      }
+
+      lock.installed[catalogId] = {
+        catalogId: lockEntry.catalogId,
+        displayName: lockEntry.displayName,
+        skillName: lockEntry.skillName,
+        source: lockEntry.source,
+        integrity: lockEntry.integrity,
+        installedAt: lockEntry.installedAt,
+        scannerPolicyVersion: lockEntry.scannerPolicyVersion,
+        catalogRevision: lockEntry.catalogRevision,
+        state: "withdrawn",
+        withdrawnPath,
+        withdrawnAt: new Date().toISOString(),
+      }
+      changed = true
     }
-    await fsp.rename(tempRoot, mirrorRoot)
-    await removeDirectory(backupRoot)
-    await fsp.writeFile(markerPath, `${remoteSHA}\n`, "utf8")
+
+    if (!changed) {
+      return
+    }
+
+    await writeInstalledSkillLock(lock)
   } catch (error) {
-    const mirrorExists = await directoryExists(mirrorRoot)
-    const backupExists = await directoryExists(backupRoot)
-    if (!mirrorExists && backupExists) {
-      await fsp.rename(backupRoot, mirrorRoot).catch(() => undefined)
-    }
+    await rollbackWithdrawnSkillMoves(movedSkills)
     throw error
-  } finally {
-    await removeDirectory(tempRoot)
-    await removeDirectory(backupRoot)
   }
-}
-
-async function resolveCuratedRepository(options?: {
-  refresh?: boolean
-}): Promise<{ root?: string; syncError?: string }> {
-  const mirrorRoot = curatedMirrorRoot()
-  if (options?.refresh) {
-    try {
-      await syncCuratedRepository()
-    } catch (error) {
-      const hasCache = await directoryExists(mirrorRoot)
-      const message = errorMessage(error)
-      if (hasCache) {
-        return {
-          root: mirrorRoot,
-          syncError: message,
-        }
-      }
-      return {
-        syncError: message,
-      }
-    }
-  }
-
-  const hasMirror = await directoryExists(mirrorRoot)
-  if (!hasMirror) {
-    return {}
-  }
-
-  return {
-    root: mirrorRoot,
-  }
-}
-
-function summarizeContent(input: string) {
-  const normalized = input.replace(/\r\n/g, "\n").trim()
-  if (!normalized) return undefined
-  const firstParagraph = normalized
-    .split(/\n\s*\n/)
-    .map((entry) => entry.replace(/\s+/g, " ").trim())
-    .find((entry) => entry.length > 0)
-  if (!firstParagraph) return undefined
-  if (firstParagraph.length <= 220) {
-    return firstParagraph
-  }
-  return `${firstParagraph.slice(0, 217).trimEnd()}...`
-}
-
-function parseCuratedSkillDocument(input: {
-  id: string
-  skillFile: string
-  sourceDirectory: string
-  document: string
-}): CuratedLibrarySkill {
-  const parsed = matter(input.document)
-  const skillName = readOptionalString(parsed.data["name"]) ?? input.id
-  const summarizedContent =
-    summarizeContent(parsed.content) ?? `Use the ${skillName} skill for this workflow.`
-  const description = readOptionalString(parsed.data["description"]) ?? summarizedContent
-  const summary = readOptionalString(parsed.data["summary"]) ?? summarizedContent
-  const examplePrompt =
-    readOptionalString(parsed.data["example_prompt"]) ??
-    `Use the ${skillName} skill to help with this task.`
-
-  return {
-    id: input.id,
-    name: skillName,
-    description,
-    summary,
-    examplePrompt,
-    sourceDirectory: input.sourceDirectory,
-    skillFile: input.skillFile,
-    skillName,
-  }
-}
-
-async function readCuratedSkillsFromRepository(
-  repositoryRoot: string,
-): Promise<CuratedLibrarySkill[]> {
-  const curatedRoot = path.join(repositoryRoot, CURATED_SKILLS_ROOT)
-  const entries = await fsp
-    .readdir(curatedRoot, {
-      withFileTypes: true,
-    })
-    .catch(() => [])
-
-  const skills: CuratedLibrarySkill[] = []
-
-  for (const entry of entries.toSorted((left, right) => left.name.localeCompare(right.name))) {
-    if (!entry.isDirectory()) continue
-    const sourceDirectory = path.join(curatedRoot, entry.name)
-    const skillFile = path.join(sourceDirectory, "SKILL.md")
-    const document = await fsp.readFile(skillFile, "utf8").catch(() => undefined)
-    if (!document) continue
-
-    skills.push(
-      parseCuratedSkillDocument({
-        id: entry.name,
-        skillFile,
-        sourceDirectory,
-        document,
-      }),
-    )
-  }
-
-  return skills.toSorted((left, right) => left.name.localeCompare(right.name))
-}
-
-export async function listCuratedLibrarySkills(options?: {
-  refresh?: boolean
-}): Promise<{ skills: CuratedLibrarySkill[]; syncError?: string }> {
-  const repository = await resolveCuratedRepository({
-    refresh: options?.refresh,
-  })
-  if (!repository.root) {
-    return {
-      skills: [],
-      ...(repository.syncError ? { syncError: repository.syncError } : {}),
-    }
-  }
-
-  return {
-    skills: await readCuratedSkillsFromRepository(repository.root),
-    ...(repository.syncError ? { syncError: repository.syncError } : {}),
-  }
-}
-
-export async function readCuratedLibrarySkillByID(
-  skillID: string,
-  options?: {
-    refresh?: boolean
-  },
-) {
-  const result = await listCuratedLibrarySkills({
-    refresh: options?.refresh,
-  })
-  return result.skills.find((skill) => skill.id === skillID)
+  await refreshSkillRuntime()
 }

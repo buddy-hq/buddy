@@ -2,11 +2,11 @@ import fsp from "node:fs/promises"
 import path from "node:path"
 import matter from "gray-matter"
 import { Config } from "@buddy/backend/config"
-import type { InstalledSkillInfo, SkillLibraryEntry, SkillsCatalog } from "./contracts"
+import type { InstalledSkillInfo, SkillsCatalog } from "./contracts"
 import { readOptionalString } from "./documents"
 import { loadVisibleSkills } from "./discovery"
-import { listCuratedLibrarySkills } from "./library"
-import { managedLibraryRoot, managedSkillsRoot, managedSource, resolveSkillScope } from "./paths"
+import { listCatalogLibraryItems, reconcileWithdrawnLibrarySkills } from "./library"
+import { managedSkillsRoot, managedSource, resolveSkillScope } from "./paths"
 import {
   enabledAction,
   resolvePermissionSource,
@@ -84,31 +84,10 @@ async function readInstalledSkillEntries(input: {
   )
 }
 
-async function readCuratedLibraryEntries(options?: {
-  refresh?: boolean
-}): Promise<{ entries: SkillLibraryEntry[]; syncError?: string }> {
-  const curated = await listCuratedLibrarySkills({
-    refresh: options?.refresh,
-  })
-  const entries = await Promise.all(
-    curated.skills.map(async (entry): Promise<SkillLibraryEntry> => {
-      const installedFile = path.join(managedLibraryRoot(), entry.id, "SKILL.md")
-      const stats = await fsp.stat(installedFile).catch(() => undefined)
-
-      return {
-        id: entry.id,
-        name: entry.name,
-        description: entry.description,
-        summary: entry.summary,
-        examplePrompt: entry.examplePrompt,
-        installed: !!stats?.isFile(),
-      }
-    }),
-  )
-
+async function readCuratedLibraryEntries() {
+  const entries = await listCatalogLibraryItems()
   return {
     entries,
-    ...(curated.syncError ? { syncError: curated.syncError } : {}),
   }
 }
 
@@ -118,14 +97,14 @@ export async function listSkillsCatalog(
     refresh?: boolean
   },
 ): Promise<SkillsCatalog> {
+  await reconcileWithdrawnLibrarySkills()
+
   const [installed, library, globalConfig] = await Promise.all([
     readInstalledSkillEntries({
       directory,
       refresh: options?.refresh,
     }),
-    readCuratedLibraryEntries({
-      refresh: options?.refresh,
-    }),
+    readCuratedLibraryEntries(),
     Config.getGlobal(),
   ])
 
@@ -135,6 +114,5 @@ export async function listSkillsCatalog(
     externalVendorRootsEnabled: globalConfig.skills_external_vendor_roots_enabled === true,
     installed,
     library: library.entries,
-    ...(library.syncError ? { librarySyncError: library.syncError } : {}),
   }
 }
