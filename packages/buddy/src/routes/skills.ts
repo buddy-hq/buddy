@@ -20,6 +20,7 @@ import {
   createCustomSkill,
   installCuratedLibrarySkill,
   listSkillsCatalog,
+  removeCuratedLibrarySkill,
   removeManagedSkill,
   setInstalledSkillAction,
 } from "../learning/skill-management"
@@ -51,11 +52,13 @@ const installedSkillSchema = z.object({
 
 const skillLibraryEntrySchema = z.object({
   id: z.string(),
-  name: z.string(),
-  description: z.string(),
+  displayName: z.string(),
   summary: z.string(),
-  examplePrompt: z.string(),
-  installed: z.boolean(),
+  categories: z.array(z.string()),
+  tags: z.array(z.string()),
+  sourceKind: z.literal("github"),
+  sourceLabel: z.string(),
+  state: z.enum(["available", "installed", "withdrawn_installed"]),
 })
 
 const skillsCatalogResponseSchema = z.object({
@@ -211,6 +214,38 @@ export const SkillsRoutes = new Hono()
         mapError: (error) =>
           c.json({ error: skillErrorMessage(error) }, HTTP_STATUS.INTERNAL_SERVER_ERROR),
       }),
+  )
+  .delete(
+    "/library/:skillID",
+    describeRoute({
+      operationId: "skills.library.delete",
+      summary: "Remove an installed curated library skill",
+      responses: {
+        200: {
+          description: "Removed skill",
+          content: {
+            "application/json": { schema: resolver(skillCreatedResponseSchema) },
+          },
+        },
+        ...routeErrors(400, 403, 404, 500),
+      },
+    }),
+    validator("query", directoryQuerySchema),
+    validator("param", SkillIDParamSchema),
+    async (c) =>
+      withDirectoryRoute(c, async (context) =>
+        runRouteTask({
+          task: async () => {
+            const removedSkillName = await removeCuratedLibrarySkill(
+              c.req.valid("param").skillID,
+              context.directory,
+            )
+            return c.json({ ok: true, name: removedSkillName })
+          },
+          mapError: (error) =>
+            c.json({ error: skillErrorMessage(error) }, installLibrarySkillErrorStatus(error)),
+        }),
+      ),
   )
   .patch(
     "/:name",

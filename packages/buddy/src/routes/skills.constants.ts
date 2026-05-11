@@ -41,8 +41,10 @@ export const SKILL_ERROR_STATUS = {
     not_found: HTTP_STATUS.NOT_FOUND,
     invalid_input: HTTP_STATUS.BAD_REQUEST,
     conflict: HTTP_STATUS.CONFLICT,
+    forbidden: HTTP_STATUS.FORBIDDEN,
   } satisfies SkillErrorStatusMap,
   byName: {
+    forbidden: HTTP_STATUS.FORBIDDEN,
     not_found: HTTP_STATUS.NOT_FOUND,
   } satisfies SkillErrorStatusMap,
 } as const

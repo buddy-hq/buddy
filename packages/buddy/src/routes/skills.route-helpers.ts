@@ -33,7 +33,7 @@ export function createSkillErrorStatus(error: unknown): 400 | 409 | 500 {
   return skillErrorStatus(error, SKILL_ERROR_STATUS.create, HTTP_STATUS.INTERNAL_SERVER_ERROR)
 }
 
-export function installLibrarySkillErrorStatus(error: unknown): 400 | 404 | 409 | 500 {
+export function installLibrarySkillErrorStatus(error: unknown): 400 | 403 | 404 | 409 | 500 {
   return skillErrorStatus(
     error,
     SKILL_ERROR_STATUS.installLibrary,
@@ -41,7 +41,7 @@ export function installLibrarySkillErrorStatus(error: unknown): 400 | 404 | 409 
   )
 }
 
-export function notFoundSkillErrorStatus(error: unknown): 400 | 404 | 500 {
+export function notFoundSkillErrorStatus(error: unknown): 400 | 403 | 404 | 500 {
   return skillErrorStatus(error, SKILL_ERROR_STATUS.byName, HTTP_STATUS.BAD_REQUEST)
 }
 

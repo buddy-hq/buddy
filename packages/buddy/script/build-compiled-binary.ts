@@ -108,6 +108,10 @@ export async function buildCompiledBuddyBinary(input: BuildCompiledBuddyBinaryIn
     backendDir,
     "src/opencode-runtime/system-prompt-capture.ts",
   )
+  const skillCatalogPath = path.resolve(
+    backendDir,
+    "src/learning/skill-management/service/catalog.json",
+  )
 
   const buddyMigrations = loadMigrations(buddyMigrationDir, "Buddy")
   const opencodeMigrations = loadMigrations(opencodeMigrationDir, "OpenCode")
@@ -169,6 +173,11 @@ export async function buildCompiledBuddyBinary(input: BuildCompiledBuddyBinaryIn
       if (existsSync(systemPromptCaptureModule)) {
         const bundledCaptureTarget = path.resolve(bundleOutdir, "system-prompt-capture.ts")
         copyFileSync(systemPromptCaptureModule, bundledCaptureTarget)
+      }
+
+      if (existsSync(skillCatalogPath)) {
+        const bundledCatalogTarget = path.resolve(bundleOutdir, "catalog.json")
+        copyFileSync(skillCatalogPath, bundledCatalogTarget)
       }
     }
 

@@ -1,6 +1,7 @@
 import { setConfigOverlay } from "@buddy/opencode-adapter/config"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { Config } from "../config.js"
+import { reconcileWithdrawnLibrarySkills } from "../../learning/skill-management/service/library.js"
 import { configErrorMessage, isConfigValidationError } from "../contract/errors.js"
 import { readInstalledSystemSkillsFingerprint } from "../../learning/skill-management/service/system-installer.js"
 import {
@@ -51,6 +52,7 @@ export async function readProjectConfigFile(directory: string): Promise<Config.I
 }
 
 async function buildAndApplyProjectOverlay(directory: string) {
+  await reconcileWithdrawnLibrarySkills()
   const config = await readProjectConfig(directory)
   const overlay = await buildOpenCodeConfigOverlay({
     config,
