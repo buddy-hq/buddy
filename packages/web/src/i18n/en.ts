@@ -944,6 +944,7 @@ export const dict = {
   "skills.status.allow": "Always available",
   "skills.status.ask": "On-demand approval",
   "skills.status.deny": "Blocked",
+  "skills.withdrawn": "Withdrawn",
   "teaching.createFileDialog.create": "Create",
   "teaching.createFileDialog.defaultPath": "helpers.ts",
   "teaching.createFileDialog.description": "Enter a path relative to the workspace root.",

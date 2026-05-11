@@ -31,6 +31,7 @@ import {
   createCustomSkill,
   installLibrarySkill,
   loadSkillsCatalog,
+  removeLibrarySkill,
   removeSkill,
   setSkillPermissionAction,
   type CreateCustomSkillInput,
@@ -259,34 +260,47 @@ function LibraryCard(props: {
   skill: SkillLibraryEntry
   disabled?: boolean
   onInstall: () => void
+  onRemove: () => void
 }) {
+  const available = props.skill.state === "available"
+  const withdrawn = props.skill.state === "withdrawn_installed"
+
   return (
     <Card className="border-border-base/60 bg-surface-raised-base/60 transition-colors hover:border-border-base">
       <CardContent className="flex h-full flex-col gap-4 p-5">
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <SparklesIcon className="size-4 text-icon-info-base" />
-            <p className="text-sm font-semibold text-text-base">{props.skill.name}</p>
+            <p className="text-sm font-semibold text-text-base">{props.skill.displayName}</p>
           </div>
-          <p className="text-sm text-text-weak">{props.skill.description}</p>
           <p className="text-xs text-text-weak">{props.skill.summary}</p>
+          <p className="text-xs text-text-weaker">{props.skill.sourceLabel}</p>
         </div>
 
         <div className="mt-auto flex items-center justify-between gap-3">
           <Badge
             variant="outline"
-            className="h-5 border-border-info-base bg-surface-info-base/10 text-icon-info-base"
+            className={cn(
+              "h-5",
+              withdrawn
+                ? "border-border-critical-base bg-surface-critical-base/10 text-icon-critical-base"
+                : "border-border-info-base bg-surface-info-base/10 text-icon-info-base",
+            )}
           >
-            {language.t("skills.curated")}
+            {withdrawn ? language.t("skills.withdrawn") : language.t("skills.curated")}
           </Badge>
           <Button
             type="button"
-            variant={props.skill.installed ? "outline" : "default"}
+            variant={available ? "default" : withdrawn ? "destructive" : "outline"}
             size="sm"
-            disabled={props.disabled || props.skill.installed}
-            onClick={props.onInstall}
+            disabled={props.disabled || props.skill.state === "installed"}
+            onClick={withdrawn ? props.onRemove : props.onInstall}
           >
-            {props.skill.installed ? language.t("skills.installed") : language.t("skills.add")}
+            {available
+              ? language.t("skills.add")
+              : withdrawn
+                ? language.t("skills.detail.remove")
+                : language.t("skills.installed")}
           </Button>
         </div>
       </CardContent>
@@ -334,9 +348,9 @@ export function SkillsPage(props: { directory?: string }) {
 
     return (catalog?.library ?? []).filter((skill) => {
       return (
-        skill.name.toLowerCase().includes(query) ||
-        skill.description.toLowerCase().includes(query) ||
-        skill.summary.toLowerCase().includes(query)
+        skill.displayName.toLowerCase().includes(query) ||
+        skill.summary.toLowerCase().includes(query) ||
+        skill.sourceLabel.toLowerCase().includes(query)
       )
     })
   }, [catalog?.library, search])
@@ -629,12 +643,21 @@ export function SkillsPage(props: { directory?: string }) {
                   <LibraryCard
                     key={skill.id}
                     skill={skill}
-                    disabled={busyKey === `install:${skill.id}`}
+                    disabled={
+                      busyKey === `install:${skill.id}` || busyKey === `remove-library:${skill.id}`
+                    }
                     onInstall={() =>
                       void runMutation(
                         `install:${skill.id}`,
                         () => installLibrarySkill(skill.id, currentDirectory),
-                        language.t("skills.librarySection.addedSkill", { name: skill.name }),
+                        language.t("skills.librarySection.addedSkill", { name: skill.displayName }),
+                      )
+                    }
+                    onRemove={() =>
+                      void runMutation(
+                        `remove-library:${skill.id}`,
+                        () => removeLibrarySkill(skill.id, currentDirectory),
+                        language.t("skills.detail.removedSkill", { name: skill.displayName }),
                       )
                     }
                   />
