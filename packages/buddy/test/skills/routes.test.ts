@@ -6,45 +6,7 @@ import { mkdtempSync, writeFileSync } from "node:fs"
 import { app } from "../../src/index.ts"
 import { Config } from "@buddy/backend/config"
 import { Global } from "../../src/storage"
-import { createGitRepo, runGit } from "../helpers/repo"
-
-function createCuratedSkillsRepo(prefix: string) {
-  const root = mkdtempSync(path.join(os.tmpdir(), `${prefix}-`))
-  runGit(root, ["init", "-q"])
-
-  const releaseNotesSkillDir = path.join(root, "skills", ".curated", "release-notes")
-  fs.mkdirSync(path.join(releaseNotesSkillDir, "references"), {
-    recursive: true,
-  })
-  writeFileSync(
-    path.join(releaseNotesSkillDir, "SKILL.md"),
-    `---
-name: release-notes
-description: Draft release notes from completed changes.
-summary: Turn merged work into a concise release update.
-example_prompt: Use release-notes to summarize this sprint.
----
-
-Create a polished release summary grouped by user impact.
-`,
-  )
-  writeFileSync(
-    path.join(releaseNotesSkillDir, "references", "template.md"),
-    "## Release notes template\n",
-  )
-
-  runGit(root, ["add", "."])
-  runGit(root, [
-    "-c",
-    "user.email=buddy@test.local",
-    "-c",
-    "user.name=Buddy Test",
-    "commit",
-    "-qm",
-    "init",
-  ])
-  return root
-}
+import { createGitRepo } from "../helpers/repo"
 
 describe("skills routes", () => {
   test("applies skills v2 roots, external toggle, and curated install flow", async () => {
@@ -64,12 +26,10 @@ Use the local review workflow for this repository.
 `,
     )
 
-    const curatedRepo = createCuratedSkillsRepo("buddy-curated-skills")
     const fakeHome = mkdtempSync(path.join(os.tmpdir(), "buddy-skills-home-"))
     const previousHome = process.env.HOME
     const previousBuddyHome = process.env.BUDDY_TEST_HOME
     const previousCodexHome = process.env.CODEX_HOME
-    const previousCuratedRepo = process.env.BUDDY_CURATED_SKILLS_REPO_URL
     const globalFile = path.join(Global.Path.config, "buddy.jsonc")
     const previousGlobal = fs.existsSync(globalFile)
       ? fs.readFileSync(globalFile, "utf8")
@@ -78,7 +38,6 @@ Use the local review workflow for this repository.
     process.env.HOME = fakeHome
     process.env.BUDDY_TEST_HOME = fakeHome
     process.env.CODEX_HOME = path.join(fakeHome, ".codex")
-    process.env.BUDDY_CURATED_SKILLS_REPO_URL = curatedRepo
 
     fs.rmSync(path.join(fakeHome, ".buddy"), {
       recursive: true,
@@ -87,6 +46,43 @@ Use the local review workflow for this repository.
     fs.rmSync(globalFile, {
       force: true,
     })
+
+    const installedLockPath = path.join(fakeHome, ".buddy", "skills.lock.json")
+    fs.mkdirSync(path.dirname(installedLockPath), { recursive: true })
+    writeFileSync(
+      installedLockPath,
+      `${JSON.stringify(
+        {
+          schemaVersion: 1,
+          installed: {
+            "anthropic-pptx": {
+              catalogId: "anthropic-pptx",
+              displayName: "PowerPoint Presentation",
+              skillName: "pptx",
+              source: {
+                type: "github",
+                repo: "anthropics/skills",
+                path: "skills/pptx",
+                ref: "f458cee31a7577a47ba0c9a101976fa599385174",
+              },
+              integrity: {
+                algorithm: "tree-sha256-v1",
+                sha256: "282238363dfc8f6d3bf72326976397182e87e93d10ade6e2f05bfbf931a5dc37",
+                sizeBytes: 1129944,
+                fileCount: 59,
+              },
+              installedAt: "2026-05-10T00:00:00.000Z",
+              scannerPolicyVersion: 1,
+              state: "active",
+              installedPath: path.join(fakeHome, ".buddy", "skills", "library", "anthropic-pptx"),
+            },
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    )
 
     try {
       const listBefore = await app.request("/api/skills", {
@@ -100,13 +96,31 @@ Use the local review workflow for this repository.
         managedRoot: string
         externalVendorRootsEnabled: boolean
         installed: Array<{ name: string }>
-        library: Array<{ id: string; installed: boolean }>
+        library: Array<{ id: string; state: string }>
       }
 
       expect(beforeBody.managedRoot).toBe(path.join(fakeHome, ".buddy", "skills"))
       expect(beforeBody.externalVendorRootsEnabled).toBe(false)
       expect(beforeBody.installed.some((skill) => skill.name === "local-review")).toBe(false)
-      expect(beforeBody.library.length).toBe(0)
+      expect(
+        beforeBody.library.some(
+          (entry) => entry.id === "anthropic-pptx" && entry.state === "available",
+        ),
+      ).toBe(true)
+      const removeSystemSkillResponse = await app.request("/api/skills/reading", {
+        method: "DELETE",
+        headers: {
+          "x-buddy-directory": repo,
+        },
+      })
+      expect(removeSystemSkillResponse.status).toBe(403)
+      expect(
+        fs.existsSync(path.join(fakeHome, ".buddy", "skills", ".system", "reading", "SKILL.md")),
+      ).toBe(true)
+      const reconciledLock = JSON.parse(fs.readFileSync(installedLockPath, "utf8")) as {
+        installed: Record<string, unknown>
+      }
+      expect(Object.keys(reconciledLock.installed)).toHaveLength(0)
 
       const toggleOnResponse = await app.request("/api/skills/settings", {
         method: "PATCH",
@@ -129,7 +143,6 @@ Use the local review workflow for this repository.
       const afterToggleBody = (await listAfterToggle.json()) as {
         externalVendorRootsEnabled: boolean
         installed: Array<{ name: string; scope: string; permissionAction: string }>
-        library: Array<{ id: string; installed: boolean }>
       }
       expect(afterToggleBody.externalVendorRootsEnabled).toBe(true)
       expect(
@@ -140,67 +153,6 @@ Use the local review workflow for this repository.
             skill.permissionAction === "ask",
         ),
       ).toBe(true)
-      expect(
-        afterToggleBody.library.some(
-          (entry) => entry.id === "release-notes" && entry.installed === false,
-        ),
-      ).toBe(true)
-
-      const installResponse = await app.request("/api/skills/library/release-notes/install", {
-        method: "POST",
-        headers: {
-          "x-buddy-directory": repo,
-        },
-      })
-      expect(installResponse.status).toBe(200)
-
-      const listAfterInstall = await app.request("/api/skills", {
-        headers: {
-          "x-buddy-directory": repo,
-        },
-      })
-      expect(listAfterInstall.status).toBe(200)
-      const afterInstallBody = (await listAfterInstall.json()) as {
-        installed: Array<{ name: string; enabled: boolean; source: string }>
-        library: Array<{ id: string; installed: boolean }>
-      }
-
-      expect(
-        afterInstallBody.installed.some(
-          (skill) => skill.name === "release-notes" && skill.enabled && skill.source === "library",
-        ),
-      ).toBe(true)
-      expect(
-        afterInstallBody.library.some((entry) => entry.id === "release-notes" && entry.installed),
-      ).toBe(true)
-
-      const disableResponse = await app.request("/api/skills/release-notes", {
-        method: "PATCH",
-        headers: {
-          "content-type": "application/json",
-          "x-buddy-directory": repo,
-        },
-        body: JSON.stringify({
-          enabled: false,
-        }),
-      })
-      expect(disableResponse.status).toBe(200)
-
-      const listAfterDisable = await app.request("/api/skills", {
-        headers: {
-          "x-buddy-directory": repo,
-        },
-      })
-      expect(listAfterDisable.status).toBe(200)
-      const afterDisableBody = (await listAfterDisable.json()) as {
-        installed: Array<{ name: string; enabled: boolean }>
-      }
-      expect(
-        afterDisableBody.installed.some(
-          (skill) => skill.name === "release-notes" && skill.enabled === false,
-        ),
-      ).toBe(true)
-
       const localRuleResponse = await app.request("/api/skills/local-review", {
         method: "PATCH",
         headers: {
@@ -298,14 +250,6 @@ Use the local review workflow for this repository.
       })
       expect(removeCustomResponse.status).toBe(200)
 
-      const removeLibraryResponse = await app.request("/api/skills/release-notes", {
-        method: "DELETE",
-        headers: {
-          "x-buddy-directory": repo,
-        },
-      })
-      expect(removeLibraryResponse.status).toBe(200)
-
       const listAfterRemove = await app.request("/api/skills", {
         headers: {
           "x-buddy-directory": repo,
@@ -316,12 +260,10 @@ Use the local review workflow for this repository.
         installed: Array<{ name: string }>
       }
       expect(afterRemoveBody.installed.some((skill) => skill.name === "plan-helper")).toBe(false)
-      expect(afterRemoveBody.installed.some((skill) => skill.name === "release-notes")).toBe(false)
     } finally {
       process.env.HOME = previousHome
       process.env.BUDDY_TEST_HOME = previousBuddyHome
       process.env.CODEX_HOME = previousCodexHome
-      process.env.BUDDY_CURATED_SKILLS_REPO_URL = previousCuratedRepo
 
       fs.rmSync(path.join(fakeHome, ".buddy"), {
         recursive: true,
