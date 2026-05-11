@@ -46,5 +46,6 @@ export const MATH_BUDDY = defineBuddyPersona({
   runtime: {
     kind: "primary",
     prompt: MATH_BUDDY_OVERLAY,
+    availableSubagents: ["question-set-author", "flashcard-author", "general"],
   },
 })

@@ -7,13 +7,21 @@ import {
   buildPersonaProfileFromDefinition,
 } from "./persona-profiles"
 
+function resolvePersonaAvailableSubagents(definition: BuiltinBuddyPersonaDefinition): string[] {
+  if (definition.runtime.availableSubagents) {
+    return [...definition.runtime.availableSubagents]
+  }
+
+  const personaProfile = buildPersonaProfileFromDefinition(definition)
+  return Object.entries(personaProfile.subagents)
+    .filter(([, access]) => access === "allow")
+    .map(([subagentID]) => subagentID)
+}
+
 export function createBuddyPersonaAgent(definition: BuiltinBuddyPersonaDefinition) {
   const { runtime, ...profile } = definition
   const { kind, ...runtimeAgent } = runtime
-  const personaProfile = buildPersonaProfileFromDefinition(definition)
-  const availableSubagents = Object.entries(personaProfile.subagents)
-    .filter(([, access]) => access === "allow")
-    .map(([subagentID]) => subagentID)
+  const availableSubagents = resolvePersonaAvailableSubagents(definition)
 
   const agentInput = {
     ...runtimeAgent,

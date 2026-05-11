@@ -25,6 +25,7 @@ type PersonaRuntimeDefinition = Omit<
   prompt: string
   description?: string
   permission?: BuddyPermissionInput
+  availableSubagents?: string[]
 }
 
 type BuddyPersonaFullDefinitionInput<Id extends string> = BuddyPersonaDefinitionInput<Id> & {

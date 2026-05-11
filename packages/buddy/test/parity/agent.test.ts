@@ -75,6 +75,9 @@ describe("parity.agent", () => {
       )
       expect(typeof curriculumPrompt).toBe("string")
       expect(curriculumPrompt.length).toBeGreaterThan(0)
+      expect(PermissionNext.evaluate("task", "general", curriculumAgent.permission).action).toBe(
+        "allow",
+      )
     })
   })
 
@@ -171,6 +174,15 @@ describe("parity.agent", () => {
       expect(
         PermissionNext.evaluate("task", "question-set-author", readingBuddyAgent.permission).action,
       ).toBe("allow")
+      expect(PermissionNext.evaluate("task", "general", readingBuddyAgent.permission).action).toBe(
+        "allow",
+      )
+      expect(
+        PermissionNext.evaluate("task", "flashcard-author", readingBuddyAgent.permission).action,
+      ).toBe("allow")
+      expect(
+        PermissionNext.evaluate("task", "practice-agent", readingBuddyAgent.permission).action,
+      ).toBe("deny")
       expect(
         PermissionNext.evaluate(
           "teaching_start_lesson",
@@ -198,10 +210,21 @@ describe("parity.agent", () => {
 
       expect(
         PermissionNext.evaluate("task", "curriculum-orchestrator", buddyAgent.permission).action,
-      ).toBe("allow")
+      ).toBe("deny")
+      expect(PermissionNext.evaluate("task", "general", buddyAgent.permission).action).toBe("allow")
       expect(PermissionNext.evaluate("task", "practice-agent", buddyAgent.permission).action).toBe(
         "deny",
       )
+      expect(
+        PermissionNext.evaluate("task", "question-set-author", buddyAgent.permission).action,
+      ).toBe("allow")
+      expect(
+        PermissionNext.evaluate("task", "flashcard-author", buddyAgent.permission).action,
+      ).toBe("allow")
+      expect(
+        PermissionNext.evaluate("task", "learner-memory-consolidator", buddyAgent.permission)
+          .action,
+      ).toBe("allow")
 
       expect(
         PermissionNext.evaluate("task", "curriculum-orchestrator", codeBuddyAgent.permission)
@@ -209,9 +232,25 @@ describe("parity.agent", () => {
       ).toBe("deny")
       expect(
         PermissionNext.evaluate("task", "practice-agent", codeBuddyAgent.permission).action,
-      ).toBe("allow")
+      ).toBe("deny")
+      expect(
+        PermissionNext.evaluate("task", "assessment-agent", codeBuddyAgent.permission).action,
+      ).toBe("deny")
       expect(
         PermissionNext.evaluate("task", "question-set-author", codeBuddyAgent.permission).action,
+      ).toBe("allow")
+      expect(PermissionNext.evaluate("task", "general", codeBuddyAgent.permission).action).toBe(
+        "allow",
+      )
+      expect(PermissionNext.evaluate("task", "explore", codeBuddyAgent.permission).action).toBe(
+        "allow",
+      )
+      expect(
+        PermissionNext.evaluate("task", "flashcard-author", codeBuddyAgent.permission).action,
+      ).toBe("allow")
+      expect(
+        PermissionNext.evaluate("task", "learner-memory-consolidator", codeBuddyAgent.permission)
+          .action,
       ).toBe("allow")
 
       expect(
@@ -220,10 +259,19 @@ describe("parity.agent", () => {
       ).toBe("deny")
       expect(
         PermissionNext.evaluate("task", "practice-agent", mathBuddyAgent.permission).action,
-      ).toBe("allow")
+      ).toBe("deny")
       expect(
         PermissionNext.evaluate("task", "assessment-agent", mathBuddyAgent.permission).action,
       ).toBe("deny")
+      expect(PermissionNext.evaluate("task", "general", mathBuddyAgent.permission).action).toBe(
+        "allow",
+      )
+      expect(
+        PermissionNext.evaluate("task", "question-set-author", mathBuddyAgent.permission).action,
+      ).toBe("allow")
+      expect(
+        PermissionNext.evaluate("task", "flashcard-author", mathBuddyAgent.permission).action,
+      ).toBe("allow")
     })
   })
 

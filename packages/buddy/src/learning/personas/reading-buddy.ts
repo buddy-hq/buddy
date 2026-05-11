@@ -39,5 +39,6 @@ export const READING_BUDDY = defineBuddyPersona({
   runtime: {
     kind: "primary",
     prompt: READING_BUDDY_OVERLAY,
+    availableSubagents: ["question-set-author", "flashcard-author", "general"],
   },
 })

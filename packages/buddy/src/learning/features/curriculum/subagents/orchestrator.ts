@@ -14,6 +14,7 @@ export const CURRICULUM_ORCHESTRATOR = defineBuddySubagent({
       "goal-writer": "allow",
       "practice-agent": "allow",
       "assessment-agent": "allow",
+      general: "allow",
     },
   },
 })
