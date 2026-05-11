@@ -66,6 +66,14 @@ export const Route = createFileRoute("/chat")({
       context.queryClient.ensureQueryData(openProjectsWithSessionsQueryOptions()),
       context.queryClient.ensureQueryData(notebookHomeQueryOptions()),
     ])
+
+    const activeDirectory = useChatStore.getState().activeDirectory
+    if (activeDirectory && activeDirectory !== "/") {
+      throw redirect({
+        to: "/$directory/chat",
+        params: { directory: encodeDirectory(activeDirectory) },
+      })
+    }
   },
   component: ChatEntryPage,
 })

@@ -1379,6 +1379,7 @@ export async function ensureDirectorySession(directory: string) {
           activeState?.sessionID === info.id &&
           (activeState.messages.length > 0 || activeState.isBusy)
         if (!hasLiveTranscript) {
+          store.setDirectoryReady(targetDirectory, false)
           await loadMessages(targetDirectory, info.id)
         }
       } else {
