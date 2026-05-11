@@ -5,21 +5,19 @@
 - Buddy is local-first: the main agent loop usually runs locally on the host that launched it. It is not strictly local-only, and may expose server/client or remote-agent surfaces or use the network beyond LLM calls, web search, MCP, and third-party APIs, including for auth, remote config/admin policy, and remote subagent/client connections.
 
 ## Task Completion Requirements
-- All of `bun fmt`, `bun lint`, and `bun typecheck` must pass before considering tasks completed.
+- All of `bun fmt`, `bun lint`, &  `bun typecheck` must pass before considering tasks completed. no typecheck: md-only edits
 
 ## Breaking Changes ALLOWED & Backward Compatibility NOT REQUIRED
-- Buddy is single-user, single-machine. Backward compatibility is not required.
-- Prefer better APIs and reduced complexity over preserving old behavior.
-- This section will be removed when that assumption changes.
+- Buddy is single-user, single-machine. Backward compatibility is not required.This section will be removed when that assumption changes.
+- Until then, Prefer better APIs and reduced complexity over preserving old behavior.
 
 ## Core Priorities
+Long term maintainability is a core priority. If you add new functionality, first check if there is shared logic that can be extracted to a separate module. Duplicate logic across multiple files is a code smell and should be avoided. Don't be afraid to change existing code. Don't take shortcuts by just adding local logic to solve a problem.
+
 1. Performance first.
 2. Reliability first.
 3. Keep behavior predictable under load and during failures (session restarts, reconnects, partial streams).
-If a tradeoff is required, choose correctness and robustness over short-term convenience.
-
-## Maintainability
-Long term maintainability is a core priority. If you add new functionality, first check if there is shared logic that can be extracted to a separate module. Duplicate logic across multiple files is a code smell and should be avoided. Don't be afraid to change existing code. Don't take shortcuts by just adding local logic to solve a problem.
+4. If a tradeoff is required, choose correctness and robustness over short-term convenience.
 
 ## Packages:
 - `packages/buddy`: backend (Bun + Hono + hono-openapi)
@@ -38,17 +36,8 @@ Long term maintainability is a core priority. If you add new functionality, firs
 - Do not patch `vendor` directly. Edits to `vendor/opencode/packages/opencode/**` are only allowed as tracked vendored patches for the next subtree refresh.
 
 ## Target Platforms
-- Desktop work should support both macOS and Windows.
-- The current developer tests on macOS arm64, but many users will be on Windows.
-- Unless explicitly scoped otherwise, desktop changes should be implemented for both platforms.
-
-
-## Working Style
-
-- Name things by what they literally do. If a name needs explanation, change it.
-- Keep side effects explicit. Prefer `register*` / `ensure*` entrypoints over hidden import-time behavior.
-- Prefer clear `create*` / `register*` APIs and explicit bottom exports for helper modules.
-- Use `git mv` for tracked moves.
+- Desktop work should support both macOS and Windows. Unless explicitly scoped otherwise, desktop changes should be implemented for both platforms.
+- The developer tests on macOS arm64, but many users will be on Windows.
 
 ## Generated / Do Not Edit
 - `packages/web/src/routeTree.gen.ts` (TanStack Router)
@@ -67,12 +56,13 @@ Long term maintainability is a core priority. If you add new functionality, firs
 - All three capabilities (tools, skills, subagents) are first-class opencode runtime capabilities.
 
 ## Misc Rules
-- Buddy uses `@hey-api/openapi-ts` to generate a type-safe SDK from its Hono backend. Always use the typed SDK (`BuddyClient`) for API interactions. Never use manual fetch helpers like `requestJson`.
+- Buddy uses `@hey-api/openapi-ts` to generate a type-safe SDK from its Hono backend. Always use the typed SDK (`BuddyClient`) for API interactions. Never use manual fetch or fetch helpers like `requestJson`.
 - NEVER use magic strings and magic numbers.
-- ALWAYS use types; NOT interfaces.
+- ALWAYS use types; NEVER interfaces.
 - Don't use subagents to delegate any work, unless the user explicitly asks for subagent invocation.
 - Run only tests for the packages you change. Never run vendor tests or the full suite.
-### TypeScript
-- Strict and sound: no casts, no `any`. Prefer `unknown` plus narrowing (zod, type guards, `in`).
-- Use `import type { ... }` for type-only imports.
-- Infer local types; annotate exports and public APIs.
+- Use `git mv` for tracked moves.
+- TypeScript
+  - Strict and sound: no casts, no `any`. Prefer `unknown` plus narrowing (zod, type guards, `in`).
+  - Use `import type { ... }` for type-only imports.
+  - Infer local types; annotate exports and public APIs.
