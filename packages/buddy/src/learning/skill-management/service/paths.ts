@@ -31,6 +31,14 @@ export function managedCustomRoot() {
   return path.join(managedSkillsRoot(), "custom")
 }
 
+export function managedWithdrawnLibraryRoot() {
+  return path.join(buddyHomeRoot(), "withdrawn-skills", "library")
+}
+
+export function installedSkillLockPath() {
+  return path.join(buddyHomeRoot(), "skills.lock.json")
+}
+
 export function curatedSkillsCacheRoot() {
   return path.join(buddyHomeRoot(), "cache")
 }
@@ -40,6 +48,7 @@ export async function ensureManagedSkillPathReady() {
   await fsp.mkdir(managedSystemRoot(), { recursive: true })
   await fsp.mkdir(managedLibraryRoot(), { recursive: true })
   await fsp.mkdir(managedCustomRoot(), { recursive: true })
+  await fsp.mkdir(managedWithdrawnLibraryRoot(), { recursive: true })
 }
 
 export function isWithinPath(root: string, target: string) {
