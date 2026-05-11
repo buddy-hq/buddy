@@ -8,13 +8,11 @@ import {
   ScaleIcon,
   SettingsIcon,
   SlidersHorizontalIcon,
-  SparklesIcon,
   type LucideIcon,
 } from "lucide-react"
 import { GeneralSettings } from "./settings-general"
 import { ProvidersSettings } from "./settings-providers"
 import { McpsSettings } from "./settings-mcps"
-import { SkillsPage } from "@/components/skills/skills-page"
 import { AdvancedSettings } from "./settings-advanced"
 import { StandardsSettings } from "./settings-tools"
 import { AttributionSettings } from "./settings-attribution"
@@ -26,7 +24,6 @@ export type SettingsTab =
   | "general"
   | "providers"
   | "mcps"
-  | "skills"
   | "personalization"
   | "learnerMemory"
   | "advanced"
@@ -82,15 +79,6 @@ export const SETTINGS_TABS: SettingsTabDefinition[] = [
     group: "main",
     scope: "global",
     render: (workbench) => <McpsSettings workbench={workbench} />,
-  },
-  {
-    id: "skills",
-    navLabelKey: "routes.settings.nav.skills",
-    icon: SparklesIcon,
-    layout: "full-page",
-    group: "main",
-    scope: "mixed",
-    render: (workbench) => <SkillsPage directory={workbench.selectedDirectory} />,
   },
   {
     id: "personalization",

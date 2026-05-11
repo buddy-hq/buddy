@@ -815,6 +815,7 @@ export const dict = {
   "sidebar.organizeChronological": "Chronological list",
   "sidebar.organizeThreads": "Organize threads",
   "sidebar.pinThread": "Pin thread",
+  "sidebar.skills": "Skills",
   "sidebar.library": "Library",
   "sidebar.appLibrary": "App Library",
   "sidebar.libraryEmpty": "No books in your library yet",

@@ -110,6 +110,10 @@ import { useTeachingWorkspace } from "./use-teaching-workspace"
 import { getRightSidebarDefaultWidth, RIGHT_SIDEBAR_EDITOR_MIN_WIDTH } from "./right-sidebar-layout"
 import type { ResourceCardTarget } from "@/components/layout/chat-left-sidebar/resource-card-grid"
 import { useQuestionSetSidebarActions } from "@/components/question-set/use-question-set-sidebar-actions"
+import {
+  DIRECTORY_CHAT_SHELL_VIEW,
+  type DirectoryChatShellView,
+} from "@/lib/directory-chat/directory-chat-shell-view"
 import { bootstrapLearnerMemoryForNotebookBestEffort } from "@/lib/learner-memory"
 import { useWorkspaceQuestionSetPanelStore } from "@/state/workspace-question-set-panel-store"
 
@@ -194,7 +198,9 @@ export function useDirectoryChatPageController(
   >(undefined)
   const [isStartingInteractiveLesson, setIsStartingInteractiveLesson] = useState(false)
   const [createFileDialogOpen, setCreateFileDialogOpen] = useState(false)
-  const [libraryOpen, setLibraryOpen] = useState(false)
+  const [shellView, setShellView] = useState<DirectoryChatShellView>(
+    DIRECTORY_CHAT_SHELL_VIEW.WORKSPACE,
+  )
 
   const decodedDirectory = useMemo(() => {
     try {
@@ -799,9 +805,23 @@ export function useDirectoryChatPageController(
     setSelectedVariant(scopeKey, undefined)
   }
 
+  function showWorkspace() {
+    setShellView(DIRECTORY_CHAT_SHELL_VIEW.WORKSPACE)
+  }
+
+  function showLibrary() {
+    setShellView(DIRECTORY_CHAT_SHELL_VIEW.LIBRARY)
+  }
+
+  function showSkills() {
+    setShellView(DIRECTORY_CHAT_SHELL_VIEW.SKILLS)
+  }
+
   async function onNewSession(targetDirectory = decodedDirectory) {
     if (!targetDirectory) return
     try {
+      cs.setMainPaneTab("chat")
+      showWorkspace()
       startNewSessionDraft(targetDirectory)
       seedDraftModelSelection(targetDirectory)
       if (targetDirectory !== decodedDirectory) onSwitchDirectory(targetDirectory)
@@ -812,8 +832,8 @@ export function useDirectoryChatPageController(
 
   async function onSelectSession(targetDirectory: string, nextSessionID?: string) {
     if (!targetDirectory) return
-    if (libraryOpen) {
-      setLibraryOpen(false)
+    if (shellView !== DIRECTORY_CHAT_SHELL_VIEW.WORKSPACE) {
+      showWorkspace()
       cs.setMainPaneTab("chat")
     }
     if (!nextSessionID) {
@@ -870,6 +890,7 @@ export function useDirectoryChatPageController(
       const picked = await pickProjectDirectory()
       if (!picked) return
       const nextDirectory = await openProject(picked)
+      showWorkspace()
       setOpenProjectsQueryData(queryClient, useChatStore.getState().openProjects)
       cs.setActiveDirectory(nextDirectory)
       onSwitchDirectory(nextDirectory)
@@ -881,6 +902,8 @@ export function useDirectoryChatPageController(
   async function onQuickChat() {
     try {
       const inboxDirectory = await openInboxNotebook()
+      cs.setMainPaneTab("chat")
+      showWorkspace()
       setOpenProjectsQueryData(queryClient, useChatStore.getState().openProjects)
       cs.setActiveDirectory(inboxDirectory)
       startNewSessionDraft(inboxDirectory)
@@ -900,11 +923,11 @@ export function useDirectoryChatPageController(
   ) {
     try {
       const nextDirectory = await createManagedNotebook(name)
+      showWorkspace()
       setOpenProjectsQueryData(queryClient, useChatStore.getState().openProjects)
       cs.setActiveDirectory(nextDirectory)
       startNewSessionDraft(nextDirectory)
       useUiPreferences.getState().setMainPaneTab("chat")
-      setLibraryOpen(false)
       seedDraftModelSelection(nextDirectory)
       if (nextDirectory !== decodedDirectory) {
         onSwitchDirectory(nextDirectory)
@@ -1057,14 +1080,14 @@ export function useDirectoryChatPageController(
   }
 
   function openResourceInReadingMode(targetDirectory: string, resource: ResourceCardTarget) {
-    const openingFromLibrary = libraryOpen
+    const openingFromLibrary = shellView === DIRECTORY_CHAT_SHELL_VIEW.LIBRARY
     const activeSessionID = useChatStore.getState().directories[targetDirectory]?.sessionID
     const linkedSessionID = resource.resourceID
       ? linkedSessionByResource[`${targetDirectory}::${resource.resourceID}`]
       : undefined
 
     if (openingFromLibrary) {
-      setLibraryOpen(false)
+      showWorkspace()
       cs.setMainPaneTab("chat")
     }
 
@@ -1109,8 +1132,8 @@ export function useDirectoryChatPageController(
     }
 
     if (targetDirectory !== decodedDirectory) {
-      if (libraryOpen) {
-        setLibraryOpen(false)
+      if (shellView !== DIRECTORY_CHAT_SHELL_VIEW.WORKSPACE) {
+        showWorkspace()
         cs.setMainPaneTab("chat")
       }
 
@@ -1661,19 +1684,13 @@ export function useDirectoryChatPageController(
       void onOpenExistingFolder()
     },
     onQuickChat: () => {
-      cs.setMainPaneTab("chat")
-      setLibraryOpen(false)
       void onQuickChat()
     },
     onCreateNotebook,
     onNewSession: (targetDirectory) => {
-      cs.setMainPaneTab("chat")
-      setLibraryOpen(false)
       void onNewSession(targetDirectory)
     },
     onSelectSession: (targetDirectory, targetSessionID) => {
-      cs.setMainPaneTab("chat")
-      setLibraryOpen(false)
       void onSelectSession(targetDirectory, targetSessionID)
     },
     onTogglePin: (targetDirectory, targetSessionID) =>
@@ -1692,11 +1709,12 @@ export function useDirectoryChatPageController(
       void onCloseDirectory(targetDirectory)
     },
     onOpenCurriculum: openCurriculumPanel,
-    libraryOpen,
-    onToggleLibrary: () => setLibraryOpen(true),
+    shellView,
+    onSelectLibrary: showLibrary,
+    onSelectSkills: showSkills,
     mainPaneTab: cs.mainPaneTab,
     onMainPaneTabChange: (tab) => {
-      setLibraryOpen(false)
+      showWorkspace()
       cs.setMainPaneTab(tab)
     },
     onOpenSettings: openSettingsPanel,
@@ -1748,7 +1766,7 @@ export function useDirectoryChatPageController(
     onOpenResource: openResourceInReadingMode,
     onOpenQuestionSet: openQuestionSetFromLibrary,
     selectedPersonaDefaultSurface: cs.selectedPersonaDefaultSurface,
-    libraryOpen,
+    shellView,
     directories: cs.sidebarDirectories,
   }
 
