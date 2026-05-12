@@ -7,7 +7,7 @@ type PrepareProxyBodyResult =
   | {
       ok: true
       body: BodyInit | undefined
-      registrationFlags: ProxyRegistrationFlags
+      registrationFlags?: ProxyRegistrationFlags
       method: string
       headers: Headers
     }
@@ -75,7 +75,9 @@ async function prepareProxyBody(
   const method = c.req.method.toUpperCase()
   const headers = new Headers(c.req.raw.headers)
   let body: BodyInit | undefined
-  let registrationFlags = resolveInitialRegistrationFlags(input)
+  let registrationFlags = input.toolRegistrations
+    ? resolveInitialRegistrationFlags(input)
+    : undefined
 
   if (method !== "GET" && method !== "HEAD") {
     if (input.transformJsonBody) {
@@ -89,7 +91,9 @@ async function prepareProxyBody(
         }
 
         const transformed = await input.transformJsonBody(parsedBody)
-        registrationFlags = resolveBodyRegistrationFlags(transformed, input)
+        if (input.toolRegistrations) {
+          registrationFlags = resolveBodyRegistrationFlags(transformed, input)
+        }
         body = JSON.stringify(transformed)
       } else {
         try {

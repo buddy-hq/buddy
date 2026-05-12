@@ -3,10 +3,12 @@ import { normalizeToolRegistrationFlags, registerOpenCodeTools } from "./registr
 import type { FetchOpenCodeInput } from "./types"
 
 async function fetchOpenCode(input: FetchOpenCodeInput): Promise<Response> {
-  await registerOpenCodeTools(
-    input.directory,
-    normalizeToolRegistrationFlags(input.toolRegistrations),
-  )
+  if (input.toolRegistrations !== undefined) {
+    await registerOpenCodeTools(
+      input.directory,
+      normalizeToolRegistrationFlags(input.toolRegistrations),
+    )
+  }
 
   const openCodeApp = await loadOpenCodeApp()
   const url = new URL(`http://opencode.local${input.path}`)
