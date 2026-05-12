@@ -1,4 +1,7 @@
 import { readProjectConfig } from "@buddy/backend/config/runtime"
+import { SessionID } from "@buddy/opencode-adapter/id"
+import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
+import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
 import { getBuddyPersona } from "../../personas/wiring/persona-profiles"
 import { REGISTERED_BUDDY_PERSONAS } from "../../personas/registry"
 import {
@@ -13,6 +16,7 @@ import { readTeachingSessionState, writeTeachingSessionState } from "../state/se
 import { syncBuddyRuntimeSessionPermissions } from "../permissions/runtime-session-permissions"
 import { restoreTeachingSessionState, writeLastLlmOutbound } from "../state/transform-state"
 import type { SessionTransform, SessionTransformContext } from "./types"
+import { resolveSubagentToolForwarding } from "./subagent-tool-forwarding"
 
 export function createSessionCommandTransform(input: {
   context: SessionTransformContext
@@ -24,16 +28,16 @@ export function createSessionCommandTransform(input: {
       assertNoLegacyRuntimeOverrides(body)
 
       const projectConfig = await readProjectConfig(input.context.directory)
+      const previousState = readTeachingSessionState(
+        input.context.directory,
+        input.context.sessionID,
+      )
       const target = normalizePersonaTarget({
         body,
         config: projectConfig,
       })
 
       if (target.includeBuddySystem && target.personaID) {
-        const previousState = readTeachingSessionState(
-          input.context.directory,
-          input.context.sessionID,
-        )
         const teachingWorkspaceState = previousState?.teachingWorkspaceState ?? "inactive"
         const persona = getBuddyPersona(target.personaID, projectConfig.personas)
         const personaDefinition = REGISTERED_BUDDY_PERSONAS.find(
@@ -88,6 +92,37 @@ export function createSessionCommandTransform(input: {
       }
       if (!hasExplicitCommandModel(body.model) && projectConfig.model) {
         transformed.model = projectConfig.model
+      }
+      const subagentForwarding = await resolveSubagentToolForwarding({
+        currentTools: transformed.tools,
+        directory: input.context.directory,
+        previousState,
+        projectConfig,
+        sessionID: input.context.sessionID,
+        targetAgent: target.agent,
+      })
+      if (subagentForwarding.stateSeed && !previousState) {
+        rollbackTeachingState = () =>
+          restoreTeachingSessionState({
+            directory: input.context.directory,
+            sessionID: input.context.sessionID,
+            previousState,
+          })
+        writeTeachingSessionState(input.context.directory, subagentForwarding.stateSeed)
+      }
+      if (subagentForwarding.toolOverrides) {
+        transformed.tools = subagentForwarding.toolOverrides
+      }
+      const sessionPermission = subagentForwarding.sessionPermission
+      if (sessionPermission) {
+        await OpenCodeInstance.provide({
+          directory: input.context.directory,
+          fn: () =>
+            OpenCodeSession.setPermission({
+              sessionID: SessionID.make(input.context.sessionID),
+              permission: sessionPermission,
+            }),
+        })
       }
       delete transformed.persona
       delete transformed.focusGoalIds

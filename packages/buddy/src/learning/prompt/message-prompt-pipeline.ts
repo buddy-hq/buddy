@@ -8,6 +8,7 @@ import {
   hasExplicitModel,
   normalizePersonaTarget,
 } from "../shared/targeting"
+import { resolveSubagentToolForwarding } from "../agent-execution/transforms/subagent-tool-forwarding"
 
 export type MessagePromptPipelineContext = {
   directory: string
@@ -98,6 +99,20 @@ export async function runMessagePromptPipeline(input: {
     transformed.model = configuredModel
   }
   transformed.agent = target.agent
+  const subagentForwarding = await resolveSubagentToolForwarding({
+    currentTools: transformed.tools,
+    directory: input.context.directory,
+    previousState: input.previousState,
+    projectConfig: input.projectConfig,
+    sessionID: input.context.sessionID,
+    targetAgent: target.agent,
+  })
+  if (subagentForwarding.toolOverrides) {
+    transformed.tools = subagentForwarding.toolOverrides
+  }
+  if (subagentForwarding.stateSeed && !nextTeachingState) {
+    nextTeachingState = subagentForwarding.stateSeed
+  }
   delete transformed.content
   delete transformed.persona
   delete transformed.focusGoalIds
