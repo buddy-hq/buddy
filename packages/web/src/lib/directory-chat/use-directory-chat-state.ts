@@ -1,22 +1,28 @@
 import { useMemo } from "react"
 import { useQueries, useQuery } from "@tanstack/react-query"
 import { useShallow } from "zustand/react/shallow"
-import { useChatStore } from "@/state/chat-store"
+import { useChatStore, type ChatStore } from "@/state/chat-store"
 import {
   getSelectedAgentKey,
   getSelectedModelKey,
   getSelectedVariantKey,
   useModelSelectionStore,
+  type ModelSelectionStore,
 } from "@/state/model-selection-store"
-import { useUiPreferences } from "@/state/ui-preferences"
-import { useTeachingRuntime, teachingSelectionKey } from "@/state/teaching-runtime"
-import { usePromptStore, getPromptScopeKey } from "@/state/prompt-store"
+import { useUiPreferences, type UiPreferencesStore } from "@/state/ui-preferences"
+import {
+  useTeachingRuntime,
+  teachingSelectionKey,
+  type TeachingLanguage,
+  type TeachingRuntimeState,
+} from "@/state/teaching-runtime"
+import { usePromptStore, getPromptScopeKey, type PromptStore } from "@/state/prompt-store"
 import {
   directoryPermissionsQueryOptions,
   directoryQuestionsQueryOptions,
   directorySessionsQueryOptions,
 } from "@/state/directory-chat-query"
-import { getSessionFamily } from "../session-family"
+import { getSessionFamily, type SessionFamily } from "../session-family"
 import { modelSelectionKey, parseConfiguredModel } from "./chat-prompt-helpers"
 import type { SessionInfo, SessionStatusInfo } from "@/state/chat-types"
 import type { AgentConfigOption, PersonaConfigOption } from "@/state/chat-actions"
@@ -25,9 +31,11 @@ import {
   getConnectedProviders,
   resolveAutoModelSelection,
   resolveConnectedModelSelection,
+  type ProviderModelSelection,
 } from "@/lib/provider-catalog"
 import { resolveCurrentAgent } from "./agent-catalog"
 import { getRightSidebarMaxWidth, getRightSidebarMinWidth } from "./right-sidebar-layout"
+import type { NotebookMainPaneTab } from "@/state/ui-preferences"
 
 const MODEL_VISIBILITY_WINDOW_MS = 1000 * 60 * 60 * 24 * 31 * 6
 const EMPTY_LIST: never[] = []
@@ -156,7 +164,133 @@ type UseDirectoryChatStateProps = {
   showPaletteSidebarTab: boolean
 }
 
-export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
+type DirectoryChatStoreSlice = Pick<
+  ChatStore,
+  | "streamStatus"
+  | "setStreamStatus"
+  | "setActiveDirectory"
+  | "applySessionUpdated"
+  | "applySessionStatus"
+  | "applyMessageUpdated"
+  | "applyMessageRemoved"
+  | "applyPartUpdated"
+  | "applyPartRemoved"
+  | "applyPartDelta"
+  | "applyPermissionAsked"
+  | "applyPermissionReplied"
+  | "applyQuestionAsked"
+  | "applyQuestionResolved"
+  | "clearDirectoryError"
+  | "setDirectoryError"
+>
+
+type DirectoryChatUiSlice = Pick<
+  UiPreferencesStore,
+  | "leftSidebarOpen"
+  | "rightSidebarOpen"
+  | "rightSidebarWidth"
+  | "mainPaneTab"
+  | "rightSidebarTab"
+  | "pinnedByDirectory"
+  | "unreadByDirectory"
+  | "setLeftSidebarOpen"
+  | "setRightSidebarOpen"
+  | "setRightSidebarWidth"
+  | "setMainPaneTab"
+  | "setRightSidebarTab"
+  | "togglePinned"
+  | "markUnread"
+  | "clearUnread"
+  | "clearDirectorySessionState"
+>
+
+type DirectoryChatModelSlice = Pick<
+  ModelSelectionStore,
+  | "setSelectedAgent"
+  | "setSelectedModel"
+  | "setSelectedVariant"
+  | "pushRecentModelKey"
+  | "restoreSessionSelection"
+>
+
+type DirectoryChatTeachingSlice = Pick<TeachingRuntimeState, "setSessionPersona">
+
+type DirectoryChatModelOption = {
+  key: string
+  label: string
+  group?: string
+  disabled?: boolean
+}
+
+type DirectoryChatThinkingOption = {
+  key: string
+  label: string
+}
+
+export type DirectoryChatState = DirectoryChatStoreSlice &
+  DirectoryChatUiSlice &
+  DirectoryChatModelSlice &
+  DirectoryChatTeachingSlice & {
+    setLeftSidebarWidth: UiPreferencesStore["setChatLeftSidebarWidth"]
+    setPromptDraft: PromptStore["replaceDraft"]
+    clearPromptDraft: PromptStore["clearDraft"]
+    migrateWorkspaceDraft: PromptStore["migrateWorkspaceDraft"]
+    migrateWorkspaceModelSelection: ModelSelectionStore["migrateWorkspaceSelection"]
+    removePromptDraft: PromptStore["removeSessionDraft"]
+    sessionID: ChatStore["directories"][string]["sessionID"] | undefined
+    promptKey: string
+    sessionTitle: string
+    parentSession: SessionInfo | undefined
+    sessions: SessionInfo[]
+    sessionFamily: SessionFamily
+    sessionKey: string
+    leftSidebarWidth: UiPreferencesStore["chatLeftSidebarWidth"]
+    leftSidebarDisplayWidth: number
+    leftSidebarMaxWidth: number
+    mainPaneTab: NotebookMainPaneTab
+    rightSidebarDisplayWidth: number
+    rightSidebarMinWidth: number
+    rightSidebarMaxWidth: number
+    rightSidebarActiveTab: ChatRightSidebarTab
+    editorPanelSizing: boolean
+    sidebarDirectories: string[]
+    validOpenProjects: string[]
+    hasRegisteredProject: boolean
+    selectedModelKey: string
+    currentAgentName: string | undefined
+    selectedModelOverrideKey: string | undefined
+    selectedVariantKey: string | null | undefined
+    effectiveModelSelection: ProviderModelSelection | undefined
+    selectedThinking: string
+    thinkingOptions: DirectoryChatThinkingOption[]
+    modelOptions: DirectoryChatModelOption[]
+    primaryPersonaOptions: PersonaConfigOption[]
+    teachingWorkspace: TeachingRuntimeState["workspaceBySession"][string] | undefined
+    storedPersona: string
+    preferredLanguage: TeachingLanguage
+    selectedPersona: string
+    selectedPersonaSurfaces: PersonaConfigOption["surfaces"]
+    selectedPersonaDefaultSurface: PersonaConfigOption["defaultSurface"]
+    selectedPersonaSupportsEditor: boolean
+    selectedPersonaSupportsFigure: boolean
+    selectedSurfaceTab: PersonaConfigOption["surfaces"][number]
+    isInteractiveMode: boolean
+    autoCompactionEnabled: boolean
+    isBusy: ChatStore["directories"][string]["isBusy"]
+    isReady: ChatStore["directories"][string]["isReady"]
+    error: ChatStore["directories"][string]["error"] | undefined
+    pendingPermissions: ChatStore["directories"][string]["pendingPermissions"]
+    pendingQuestions: ChatStore["directories"][string]["pendingQuestions"]
+    messages: ChatStore["directories"][string]["messages"]
+    providers: ChatStore["directories"][string]["providers"]
+    sessionsByDirectory: Record<string, SessionInfo[]>
+    sessionStatusByDirectory: Record<string, Record<string, SessionStatusInfo>>
+    connectedMcpCount: number
+    hasMcpError: boolean
+    mcpEntries: Array<[string, ChatStore["directories"][string]["mcpStatus"][string]]>
+  }
+
+export function useDirectoryChatState(props: UseDirectoryChatStateProps): DirectoryChatState {
   const { decodedDirectory } = props
 
   // ── Chat store ─────────────────────────────────────────────────────────────
@@ -613,5 +747,3 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps) {
     mcpEntries,
   }
 }
-
-export type DirectoryChatState = ReturnType<typeof useDirectoryChatState>

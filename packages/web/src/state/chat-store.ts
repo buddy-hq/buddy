@@ -1,4 +1,4 @@
-import { create } from "zustand"
+import { create, type Mutate, type StoreApi, type UseBoundStore } from "zustand"
 import { persist } from "zustand/middleware"
 import { immer } from "zustand/middleware/immer"
 import { createPlatformJsonStorage } from "../context/platform"
@@ -64,7 +64,7 @@ type LastOpenedReadingResource = {
   path: string
 }
 
-type ChatStore = {
+export type ChatStore = {
   openProjects: string[]
   activeDirectory?: string
   pendingActiveDirectory?: string
@@ -569,8 +569,15 @@ function sealCompletedAssistantMessages(messages: MessageWithParts[], completedA
   return changed ? nextMessages : messages
 }
 
-export const useChatStore = create<ChatStore>()(
-  persist(
+type ChatStoreHook = UseBoundStore<
+  Mutate<
+    StoreApi<ChatStore>,
+    [["zustand/persist", PersistedChatStoreState], ["zustand/immer", never]]
+  >
+>
+
+export const useChatStore: ChatStoreHook = create<ChatStore>()(
+  persist<ChatStore, [], [["zustand/immer", never]], PersistedChatStoreState>(
     immer((set, get) => ({
       ...createChatStoreStateFields(),
       ensureOpenProject(directory) {

@@ -834,6 +834,11 @@ export function useDirectoryChatPageController(
     if (!targetDirectory) return
     if (shellView !== DIRECTORY_CHAT_SHELL_VIEW.WORKSPACE) {
       showWorkspace()
+    }
+    // Always switch back to the chat pane when selecting a session.
+    // The library/instructions shortcuts stay within WORKSPACE but change the
+    // mainPaneTab, so we can't rely on the shellView guard alone.
+    if (nextSessionID) {
       cs.setMainPaneTab("chat")
     }
     if (!nextSessionID) {

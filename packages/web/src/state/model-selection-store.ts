@@ -10,7 +10,7 @@ const RECENT_MODEL_LIMIT = 5
 
 type SelectionSource = "local" | "restored"
 
-type ModelSelectionStore = {
+export type ModelSelectionStore = {
   selectionSourceByKey: Record<string, SelectionSource>
   restoredSelectionCreatedAtByKey: Record<string, number>
   selectedAgentByKey: Record<string, string>

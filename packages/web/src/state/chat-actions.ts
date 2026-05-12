@@ -1200,7 +1200,7 @@ export async function loadMessages(directory: string, sessionID: string) {
   throw lastError
 }
 
-export async function loadPermissions(directory: string) {
+export async function loadPermissions(directory: string): Promise<PermissionRequest[]> {
   const store = useChatStore.getState()
   try {
     const requests: PermissionRequest[] = requireBuddyData<PermissionListResponses[200]>(

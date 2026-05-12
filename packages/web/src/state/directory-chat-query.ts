@@ -1,4 +1,8 @@
-import { queryOptions, type QueryClient } from "@tanstack/react-query"
+import {
+  queryOptions,
+  type QueryClient,
+  type UndefinedInitialDataOptions,
+} from "@tanstack/react-query"
 import { loadPermissions, loadQuestions, loadSessions } from "./chat-actions"
 import type { PermissionRequest, QuestionRequest, SessionInfo } from "./chat-types"
 
@@ -91,7 +95,16 @@ export function directorySessionsQueryOptions(directory: string) {
   })
 }
 
-export function directoryPermissionsQueryOptions(directory: string) {
+type DirectoryPermissionsQueryOptions = UndefinedInitialDataOptions<
+  PermissionRequest[],
+  Error,
+  PermissionRequest[],
+  ReturnType<typeof directoryChatQueryKeys.permissions>
+>
+
+export function directoryPermissionsQueryOptions(
+  directory: string,
+): DirectoryPermissionsQueryOptions {
   return queryOptions({
     queryKey: directoryChatQueryKeys.permissions(directory),
     queryFn: () => loadPermissions(directory),

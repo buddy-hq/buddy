@@ -40,7 +40,7 @@ function readLegacyLeftSidebarWidth(state: PersistedUiPreferences | undefined) {
   return state.leftSidebarWidth
 }
 
-type UiPreferencesStore = {
+export type UiPreferencesStore = {
   pinnedByDirectory: Record<string, string[]>
   unreadByDirectory: Record<string, Record<string, true>>
   leftSidebarOpen: boolean

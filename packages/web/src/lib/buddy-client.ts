@@ -1,11 +1,11 @@
-import { createBuddyClient } from "@buddy/sdk"
+import { BuddyClient, createBuddyClient } from "@buddy/sdk"
 import {
   authorizationHeader,
   createServerFetchTransport,
   resolveServerApiBaseUrl,
 } from "./server-client"
 
-export function getBuddyClient(directory?: string) {
+export function getBuddyClient(directory?: string): BuddyClient {
   const auth = authorizationHeader()
   const baseUrl = resolveServerApiBaseUrl()
   const transport = createServerFetchTransport(baseUrl)

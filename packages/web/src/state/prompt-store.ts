@@ -39,7 +39,7 @@ export type PromptHistoryNavigationState = {
   savedDraft: PromptHistoryEntry | null
 }
 
-type PromptStore = {
+export type PromptStore = {
   draftsByKey: Record<string, PromptDraftState>
   historyByDirectory: Record<string, PromptHistoryEntry[]>
   historyNavigationByKey: Record<string, PromptHistoryNavigationState>
