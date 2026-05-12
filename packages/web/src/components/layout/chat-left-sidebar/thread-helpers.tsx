@@ -1,4 +1,3 @@
-import { LoaderCircleIcon } from "lucide-react"
 import { language } from "@/context/language"
 export {
   buildSessionChildrenByParent,
@@ -36,8 +35,8 @@ export function threadStatusLabel(status: "busy" | "unread" | "idle") {
 export function ThreadStatusIndicator(props: { status: "busy" | "unread" | "idle" }) {
   if (props.status === "busy") {
     return (
-      <LoaderCircleIcon
-        className="size-3 shrink-0 animate-spin text-text-weaker group-hover/thread:text-text-base transition-colors"
+      <span
+        className="inline-block size-1.5 shrink-0 rounded-full bg-text-interactive-base animate-pulse"
         aria-hidden="true"
       />
     )

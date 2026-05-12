@@ -26,6 +26,7 @@ import {
   TooltipTrigger,
   XIcon,
   ZapIcon,
+  BotIcon,
 } from "@buddy/ui"
 import { language } from "@/context/language"
 import {
@@ -136,12 +137,8 @@ type DirectoryThreadRowProps = {
 const COLLAPSED_COUNT = 5
 const QUICK_CHAT_COLLAPSED_COUNT = 3
 const THREAD_ROW_PADDING_LEFT_PX = 20
-const THREAD_CHILD_INDENT_PX = 14
+const THREAD_CHILD_INDENT_PX = 10
 const THREAD_STATUS_OFFSET_PX = 6
-// Width of the elbow guide; controls how far the horizontal branch extends before the text
-const THREAD_GUIDE_ELBOW_WIDTH = 10
-// Approximate half-height of a single thread row: py-1.5 (6+6px) + text-xs content (~18px) ≈ 30px total
-const THREAD_ROW_HALF_HEIGHT_PX = 15
 // Maximum number of subagent child rows visible before the "show more" button appears
 const MAX_VISIBLE_SUBAGENTS = 5
 
@@ -761,48 +758,15 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
 
   return (
     <div className="mx-2 last:mb-1 group/sibling relative">
-      {depth > 0 && (
-        <>
-          {/* Elbow: vertical from top to row-center, then turns right — connects this row to the branch above */}
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute z-[1]"
-            style={{
-              left: `${leftPadding - THREAD_GUIDE_ELBOW_WIDTH}px`,
-              top: 0,
-              height: `${THREAD_ROW_HALF_HEIGHT_PX}px`,
-              width: `${THREAD_GUIDE_ELBOW_WIDTH}px`,
-              borderLeft: "1px solid var(--color-border-weaker-base)",
-              borderBottom: "1px solid var(--color-border-weaker-base)",
-            }}
-          />
-          {/* Continuation line: row-center to bottom — connects to the next sibling; hidden on the last sibling */}
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute z-[1] group-last/sibling:hidden"
-            style={{
-              left: `${leftPadding - THREAD_GUIDE_ELBOW_WIDTH}px`,
-              top: `${THREAD_ROW_HALF_HEIGHT_PX}px`,
-              bottom: 0,
-              width: "1px",
-              backgroundColor: "var(--color-border-weaker-base)",
-            }}
-          />
-        </>
-      )}
       <ContextMenu>
         <ContextMenuTrigger asChild>
           <div
             className={`group/thread relative rounded-lg data-[state=open]:bg-surface-raised-base-hover ${
               active
-                ? depth > 0
-                  ? "text-text-strong"
-                  : "bg-surface-raised-strong shadow-sm text-text-strong"
+                ? "bg-surface-raised-strong text-text-strong"
                 : familyActive
                   ? "bg-surface-raised-strong/40 text-text-base"
-                  : depth > 0
-                    ? ""
-                    : "hover:bg-surface-raised-base-hover"
+                  : "hover:bg-surface-raised-base-hover"
             }`}
           >
             <button
@@ -812,7 +776,7 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
               data-session-id={props.session.id}
               data-active={active ? "true" : "false"}
               aria-expanded={canToggleChildren ? branchExpanded : undefined}
-              className="relative w-full py-1.5 pr-2.5 text-left"
+              className="relative w-full py-1 pr-2.5 text-left"
               style={{ paddingLeft: `${leftPadding}px` }}
               onClick={handleSelectSession}
             >
@@ -820,25 +784,21 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
                 className="absolute top-1/2 flex -translate-y-1/2 items-center justify-center"
                 style={{ left: `${statusOffset}px` }}
               >
-                {active ? <ThreadStatusIndicator status={threadStatus} /> : null}
+                {threadStatus !== "idle" ? <ThreadStatusIndicator status={threadStatus} /> : null}
               </div>
               <div className="relative flex min-w-0 items-center">
                 {depth > 0 ? (
-                  // Two-line layout for subagent rows: title on top, agent name below
-                  <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  // Subagent child row: title only, agent name omitted to reduce noise
+                  <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                    <BotIcon
+                      className={`size-3 shrink-0 ${active ? "text-text-interactive-base" : "text-text-weaker"}`}
+                    />
                     <span
-                      className={`truncate text-xs font-light ${active ? "text-text-interactive-base" : ""}`}
+                      className={`truncate text-xs font-light ${active ? "text-text-interactive-base" : "text-text-weaker"}`}
                     >
                       {title}
-                      {pinned ? <PinIcon className="ml-1 inline size-3 text-text-weaker" /> : null}
                     </span>
-                    {display.agent ? (
-                      <span
-                        className={`truncate font-mono text-[10px] ${active ? "text-text-interactive-base" : ""}`}
-                      >
-                        {display.agent}
-                      </span>
-                    ) : null}
+                    {pinned ? <PinIcon className="size-2.5 shrink-0 text-text-weaker" /> : null}
                   </div>
                 ) : (
                   // Single-line layout with hover overlay for root-level thread rows
@@ -848,12 +808,12 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
                       {pinned ? <PinIcon className="size-3 shrink-0 text-text-weaker" /> : null}
                     </div>
                     <div
-                      className={`absolute right-0 top-1/2 -translate-y-1/2 z-10 flex items-center gap-2 pl-2 opacity-0 group-hover/thread:opacity-100 transition-opacity shadow-[-8px_0_10px_-2px_var(--color-surface-raised-base)] ${
+                      className={`absolute right-0 top-1/2 -translate-y-1/2 z-10 flex items-center gap-2 pl-6 pr-0.5 opacity-0 group-hover/thread:opacity-100 transition-opacity ${
                         active
-                          ? "bg-surface-raised-strong"
+                          ? "bg-gradient-to-r from-transparent to-[var(--color-surface-raised-strong)]"
                           : familyActive
-                            ? "bg-surface-raised-strong"
-                            : "bg-surface-raised-base-hover"
+                            ? "bg-gradient-to-r from-transparent to-[var(--color-surface-raised-strong)]"
+                            : "bg-gradient-to-r from-transparent to-[var(--color-surface-raised-base)]"
                       }`}
                     >
                       {display.agent ? (
@@ -958,20 +918,7 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
               ))
             : null}
           {childrenMounted && hiddenChildCount > 0 ? (
-            <div className="mx-2 last:mb-1 group/sibling relative">
-              {/* Elbow guide — same shape as subagent rows */}
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute z-[1]"
-                style={{
-                  left: `${THREAD_ROW_PADDING_LEFT_PX + (depth + 1) * THREAD_CHILD_INDENT_PX - THREAD_GUIDE_ELBOW_WIDTH}px`,
-                  top: 0,
-                  height: `${THREAD_ROW_HALF_HEIGHT_PX}px`,
-                  width: `${THREAD_GUIDE_ELBOW_WIDTH}px`,
-                  borderLeft: "1px solid var(--color-border-weaker-base)",
-                  borderBottom: "1px solid var(--color-border-weaker-base)",
-                }}
-              />
+            <div className="mx-2">
               <button
                 type="button"
                 className="py-1 text-[10px] text-text-weaker hover:text-text-base"
