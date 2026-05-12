@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process"
 import { dirname, join } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import type { TitlebarTheme } from "../preload/types"
+import { wireContextMenu } from "./context-menu"
 
 type WindowGlobals = {
   updaterEnabled: boolean
@@ -139,6 +140,7 @@ export function createMainWindow(globals: WindowGlobals) {
   state.manage(win)
   lockWindowTitle(win)
   loadWindow(win, "index.html")
+  wireContextMenu(win)
   wireZoom(win)
   injectGlobals(win, globals)
   setTitlebar(win)
@@ -173,6 +175,7 @@ export function createLoadingWindow(globals: WindowGlobals) {
 
   lockWindowTitle(win)
   loadWindow(win, "loading.html")
+  wireContextMenu(win)
   injectGlobals(win, globals)
   setTitlebar(win)
 
