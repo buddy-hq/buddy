@@ -1,18 +1,23 @@
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { motion, AnimatePresence } from "motion/react"
 import { language } from "@/context/language"
+import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 import { stringifyError } from "@/lib/api-client"
-import { useUiPreferences } from "@/state/ui-preferences"
-import { useWorkspaceQuestionSetPanelStore } from "@/state/workspace-question-set-panel-store"
 import { workspaceQuestionSetArtifactsQueryOptions } from "@/state/workspace-artifacts-query"
 import { ToolOutputPanel } from "../../tool-output-panel"
 import type { ToolPartProps } from "../../registry"
+import {
+  QuestionSetInlineView,
+  type SubmitQuestionSetAttemptOutput,
+} from "../question-set/question-set-inline-view"
 import { TASK_CARD_TRANSITION } from "../task-motion"
 import { useTaskCardHeader } from "./task-card-header"
 import { SubagentArtifactCard } from "./subagent-artifact-card"
 import { parseTaskResultOutput } from "./task-utils"
 import type { QuestionSetArtifactsListResponse } from "@buddy/sdk"
+
+type QuestionSetArtifact = QuestionSetArtifactsListResponse["artifacts"][number]
 
 function questionCountLabel(count: number): string {
   return language.t(count === 1 ? "chatTools.questionCount.one" : "chatTools.questionCount.other", {
@@ -21,8 +26,8 @@ function questionCountLabel(count: number): string {
 }
 
 function QuestionSetArtifactTaskPreview(props: {
-  artifact: QuestionSetArtifactsListResponse["artifacts"][number]
-  onOpenArtifact: (artifact: QuestionSetArtifactsListResponse["artifacts"][number]) => void
+  artifact: QuestionSetArtifact
+  onOpenArtifact: (artifact: QuestionSetArtifact) => void
 }) {
   return (
     <motion.button
@@ -58,9 +63,7 @@ export function QuestionSetAuthorTaskCard({
   const header = useTaskCardHeader({ state, onOpenSession, directory })
   const output = state.output || (state.error ?? "")
   const taskResultOutput = parseTaskResultOutput(output)
-  const setRightSidebarOpen = useUiPreferences((store) => store.setRightSidebarOpen)
-  const setRightSidebarTab = useUiPreferences((store) => store.setRightSidebarTab)
-  const openQuestionSet = useWorkspaceQuestionSetPanelStore((store) => store.openQuestionSet)
+  const [openArtifact, setOpenArtifact] = useState<QuestionSetArtifact | undefined>(undefined)
 
   const artifactsQuery = useQuery({
     ...workspaceQuestionSetArtifactsQueryOptions(directory ?? ""),
@@ -75,11 +78,8 @@ export function QuestionSetAuthorTaskCard({
       .toSorted((a, b) => b.createdAt.localeCompare(a.createdAt))
   }, [artifactsQuery.data, header.childSessionID])
 
-  function handleOpenArtifact(artifact: QuestionSetArtifactsListResponse["artifacts"][number]) {
-    if (!directory) return
-    openQuestionSet(directory, artifact.artifactID)
-    setRightSidebarTab("question-set")
-    setRightSidebarOpen(true)
+  function handleOpenArtifact(artifact: QuestionSetArtifact) {
+    setOpenArtifact(artifact)
   }
 
   return (
@@ -123,6 +123,32 @@ export function QuestionSetAuthorTaskCard({
         >
           {stringifyError(artifactsQuery.error)}
         </motion.p>
+      ) : null}
+      {openArtifact && directory ? (
+        <QuestionSetInlineView
+          artifact={openArtifact}
+          defaultOpen={true}
+          hideCard={true}
+          persistKey={`task-question-set:${openArtifact.artifactID}`}
+          onOpenChange={(open) => {
+            if (!open) {
+              setOpenArtifact(undefined)
+            }
+          }}
+          onSubmit={async (answers) => {
+            const response: SubmitQuestionSetAttemptOutput = requireBuddyData(
+              await getBuddyClient(directory).questionSetArtifacts.submitAttempt({
+                artifactID: openArtifact.artifactID,
+                answers: openArtifact.questions.map((question) => ({
+                  questionID: question.id,
+                  selectedChoiceIds: answers[question.id] ?? [],
+                })),
+              }),
+            )
+
+            return response.result
+          }}
+        />
       ) : null}
     </SubagentArtifactCard>
   )
