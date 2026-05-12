@@ -9,9 +9,11 @@ import {
   cn,
 } from "@buddy/ui"
 import { AnimatePresence, motion } from "motion/react"
+import { FastForward, Panda } from "lucide-react"
 
 import type { MessagePart } from "@/state/chat-types"
 
+import type { ToolIconRenderer } from "../tool-registry-types"
 import { AssistantPartRenderer } from "../../parts/assistant-part/assistant-part"
 import { useThrottledText } from "../../hooks/use-throttled-text"
 import {
@@ -21,6 +23,7 @@ import {
   hiddenStepsEntryHasVisibleError,
   hiddenStepsEntryIsActive,
   hiddenStepsEntryUsesSummaryRow,
+  ABSTRACTED_THINKING_LABEL,
   type HiddenStepsEntry,
   type HiddenStepsPreview,
 } from "./entries"
@@ -55,8 +58,8 @@ type HiddenStepsToggleProps = {
   title: string
   showLivePreview: boolean
   animateLiveTitle: boolean
-  errorCount: number
   summaryDetail?: string
+  icon?: ToolIconRenderer
 }
 
 type HiddenStepsPreviewPanelProps = {
@@ -72,8 +75,8 @@ function HiddenStepsToggle({
   title,
   showLivePreview,
   animateLiveTitle,
-  errorCount,
   summaryDetail,
+  icon,
 }: HiddenStepsToggleProps) {
   return (
     <CollapsibleTrigger asChild>
@@ -87,18 +90,20 @@ function HiddenStepsToggle({
               "relative truncate",
               showLivePreview
                 ? "text-text-base transition-colors group-hover:text-text-strong"
-                : errorCount > 0
-                  ? "text-icon-critical-base"
-                  : "text-inherit",
+                : "text-inherit",
             )}
           >
-            {showLivePreview ? <TextShimmer text={title} active={animateLiveTitle} /> : title}
+            {showLivePreview ? (
+              <span className="inline-flex items-center gap-1.5">
+                {icon ? (
+                  <span className="shrink-0">{icon("size-3.5 shrink-0 text-text-weaker")}</span>
+                ) : null}
+                <TextShimmer text={title} active={animateLiveTitle} />
+              </span>
+            ) : (
+              title
+            )}
           </span>
-          {!showLivePreview && errorCount > 0 ? (
-            <span className="flex shrink-0 items-center gap-1 rounded bg-surface-critical-base/10 px-1.5 py-px font-medium text-icon-critical-base">
-              {errorCount} {errorCount === 1 ? "error" : "errors"}
-            </span>
-          ) : null}
           {!showLivePreview && summaryDetail && summaryDetail !== title ? (
             <span className="truncate text-text-weaker transition-colors group-hover:text-text-weak">
               {summaryDetail}
@@ -279,6 +284,14 @@ export function HiddenSteps({
     showLivePreview || showErrorPreview ? preview.title : (summaryDetail ?? DEFAULT_STEPS_TITLE)
   const animateLiveTitle = showLivePreview && Boolean(isBusy)
 
+  const toggleIcon: ToolIconRenderer | undefined = showLivePreview
+    ? previewEntry?.part.type === "reasoning"
+      ? title === ABSTRACTED_THINKING_LABEL
+        ? (cn) => <Panda className={cn} />
+        : (cn) => <FastForward className={cn} />
+      : previewEntry?.icon
+    : undefined
+
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="w-full">
       <HiddenStepsToggle
@@ -286,8 +299,8 @@ export function HiddenSteps({
         title={title}
         showLivePreview={showLivePreview}
         animateLiveTitle={animateLiveTitle}
-        errorCount={errorCount}
         summaryDetail={summaryDetail}
+        icon={toggleIcon}
       />
 
       <HiddenStepsPreviewPanel
@@ -299,7 +312,7 @@ export function HiddenSteps({
       />
 
       <CollapsibleContent>
-        <div className="mt-3 px-2 flex flex-col gap-1.5">
+        <div className="mt-3 px-2 flex flex-col gap-2.5">
           {entries.map((entry) =>
             hiddenStepsEntryUsesSummaryRow(entry) ? (
               <HiddenStepsSummaryRow key={entry.part.id} entry={entry} />

@@ -16,7 +16,6 @@ export const Completed: Story = {
   args: {
     state: makeToolState({ status: "completed" }),
     displayAgent: "flashcard-author",
-    isLoading: false,
     taskResultOutput: "Created 5 flashcards covering photosynthesis",
     children: <div className="text-sm text-text-strong">Flashcard deck preview here</div>,
   },
@@ -26,7 +25,6 @@ export const Running: Story = {
   args: {
     state: makeToolState({ status: "running" }),
     displayAgent: "flashcard-author",
-    isLoading: true,
     taskResultOutput: "",
     children: null,
   },
@@ -36,7 +34,6 @@ export const Pending: Story = {
   args: {
     state: makeToolState({ status: "pending" }),
     displayAgent: "question-set-author",
-    isLoading: true,
     taskResultOutput: "",
     children: null,
   },
@@ -49,7 +46,6 @@ export const ErrorState: Story = {
       error: "Failed to create flashcard deck: invalid input",
     }),
     displayAgent: "flashcard-author",
-    isLoading: false,
     taskResultOutput: "Failed to create flashcard deck: invalid input",
     children: null,
   },
@@ -59,13 +55,9 @@ export const WithOutputFallback: Story = {
   args: {
     state: makeToolState({ status: "completed" }),
     displayAgent: "coder",
-    isLoading: false,
     taskResultOutput: "Refactored auth module into separate service and types files",
     children: (
-      <ToolOutputPanel
-        output="Refactored auth module into separate service and types files"
-        copyLabel="Copy"
-      />
+      <ToolOutputPanel output="Refactored auth module into separate service and types files" />
     ),
   },
 }

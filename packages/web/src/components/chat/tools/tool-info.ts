@@ -391,13 +391,21 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
         },
         metadataTitle,
       )
-    case "skill":
+    case "skill": {
+      const skillName = readNonEmptyString(input.name) ?? readNonEmptyString(state.metadata.name)
       return withMetadataTitle(
         {
-          title: active ? "Using Skill" : "Used Skill",
+          title: skillName
+            ? active
+              ? `Using ${skillName}`
+              : `Used ${skillName}`
+            : active
+              ? "Using Skill"
+              : "Used Skill",
         },
         metadataTitle,
       )
+    }
     case "learner_memory_search":
       return withMetadataTitle(
         {

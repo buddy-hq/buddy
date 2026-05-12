@@ -22,7 +22,7 @@ export function ToolErrorPanel({ error, copyLabel }: ToolErrorPanelProps) {
       transition={CONTENT_REVEAL_TRANSITION}
       className="mt-2 flex flex-col gap-2"
     >
-      <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 px-3 py-2 text-xs text-icon-critical-base">
+      <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words font-mono text-[11px] leading-[1.6] text-icon-critical-base">
         {error}
       </pre>
       <div className="flex justify-start">

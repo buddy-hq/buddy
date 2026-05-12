@@ -1,10 +1,12 @@
-import { ToolStatusIndicator } from "../../tool-header"
+import { Bot, PhoneCall } from "lucide-react"
 import { language } from "@/context/language"
 import { parseSubagentSession } from "@/lib/session-family"
 import { useChatStore } from "@/state/chat-store"
 import { readString } from "../../types"
 import type { ToolPartProps } from "../../registry"
 import { formatThreadAge } from "@/components/layout/chat-left-sidebar/thread-helpers"
+import { ToolRow, ToolRowAction, ToolRowIcon, ToolRowSubject } from "../../tool-row"
+import { TextShimmer } from "../../text-shimmer"
 
 export function useTaskCardHeader(
   input: Pick<ToolPartProps, "state" | "onOpenSession" | "directory">,
@@ -57,39 +59,59 @@ export function useTaskCardHeader(
   }
 }
 
+/**
+ * Flat shimmer row shown while a subagent task is pending (not yet started).
+ * No card chrome — appears inline like other tools, then the card
+ * animates in once the subagent session is running.
+ */
+export function SubagentLoadingRow() {
+  return (
+    <div className="flex min-w-0 items-center gap-1.5">
+      <span className="shrink-0 text-text-weaker" aria-hidden="true">
+        <PhoneCall className="size-3.5" />
+      </span>
+      <TextShimmer
+        text="Handing off to a specialist..."
+        active={true}
+        className="text-sm text-text-weak"
+      />
+    </div>
+  )
+}
+
 export function TaskCardHeaderContent(props: {
   displayAgent?: string
   status: ToolPartProps["state"]["status"]
-  isLoading?: boolean
   onOpenSession?: () => void
 }) {
   const isComplete = props.status === "completed"
+  const isRunning = props.status === "running"
   const verb = isComplete ? "Used" : "Using"
+  const agentName = props.displayAgent || "subagent"
 
-  const text = (
-    <span className="text-xs font-medium text-text-base">
-      {verb} {props.displayAgent || "subagent"}
-    </span>
-  )
-
-  const clickableText = props.onOpenSession ? (
-    <button
-      type="button"
-      onClick={props.onOpenSession}
-      className="text-xs font-medium text-text-base transition-colors hover:text-text-interactive-base hover:underline"
-    >
-      {verb} {props.displayAgent || "subagent"}
-    </button>
+  const agentLabel = isRunning ? (
+    <TextShimmer text={agentName} active={true} className="text-xs text-text-weaker" />
   ) : (
-    text
+    agentName
   )
 
   return (
-    <div className="flex items-center justify-between">
-      {clickableText}
-      {(props.status === "pending" || props.status === "running") && (
-        <ToolStatusIndicator status={props.status} />
+    <ToolRow>
+      <ToolRowIcon>
+        <Bot className="size-3.5" />
+      </ToolRowIcon>
+      <ToolRowAction>{verb}</ToolRowAction>
+      {props.onOpenSession ? (
+        <button
+          type="button"
+          onClick={props.onOpenSession}
+          className="min-w-0 flex-1 truncate text-left text-xs text-text-weaker transition-colors hover:text-text-interactive-base hover:underline"
+        >
+          {agentLabel}
+        </button>
+      ) : (
+        <ToolRowSubject>{agentLabel}</ToolRowSubject>
       )}
-    </div>
+    </ToolRow>
   )
 }

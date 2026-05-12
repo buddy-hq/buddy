@@ -3,6 +3,7 @@ import { language } from "@/context/language"
 import { reasoningHeading } from "../utils/markdown"
 import { stripAnsi } from "../utils/path"
 import { readNonEmptyString } from "./types"
+import { isPermissionDenied } from "./tool-permission"
 import type {
   ResolvedSummaryContent,
   ResolvedSummaryContentFormat,
@@ -87,6 +88,9 @@ function searchInputText(props: ToolPartProps): string | undefined {
 }
 
 function resolveSummaryErrorPreview(props: ToolPartProps): string | undefined {
+  // Permission denials are user choices, not failures — suppress error preview.
+  if (isPermissionDenied(props.state)) return undefined
+
   const errorText = stripAnsi(String(props.state.error ?? "")).trim()
   if (errorText) {
     return errorText

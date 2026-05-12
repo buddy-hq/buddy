@@ -107,6 +107,28 @@
   }
 }
 
+/* Shimmer group: icon sibling that pulses in sync with the text sweep.
+ * Wrap both the icon span and TextShimmer in [data-shimmer-group="active|idle"]
+ * so both CSS animations start in the same render frame and stay in phase. */
+[data-shimmer-group="active"] [data-slot="shimmer-icon"] {
+  animation: shimmer-icon-pulse 1200ms linear infinite;
+}
+
+[data-shimmer-group="idle"] [data-slot="shimmer-icon"] {
+  opacity: 1;
+  transition: opacity 220ms ease-out;
+}
+
+@keyframes shimmer-icon-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   [data-component="text-shimmer"] [data-slot="text-shimmer-char-base"],
   [data-component="text-shimmer"] [data-slot="text-shimmer-char-shimmer"] {
@@ -121,6 +143,11 @@
   }
 
   [data-component="text-shimmer"] [data-slot="text-shimmer-char-base"] {
+    opacity: 1 !important;
+  }
+
+  [data-shimmer-group] [data-slot="shimmer-icon"] {
+    animation: none !important;
     opacity: 1 !important;
   }
 }

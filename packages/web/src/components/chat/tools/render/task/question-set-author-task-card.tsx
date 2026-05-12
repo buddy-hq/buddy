@@ -86,7 +86,6 @@ export function QuestionSetAuthorTaskCard({
     <SubagentArtifactCard
       state={state}
       displayAgent={header.displayAgent}
-      isLoading={header.isLoading}
       openChildSession={header.openChildSession}
       taskResultOutput={taskResultOutput}
     >
@@ -113,7 +112,7 @@ export function QuestionSetAuthorTaskCard({
         ))}
       </AnimatePresence>
       {!artifactsQuery.isPending && items.length === 0 && taskResultOutput.length > 0 ? (
-        <ToolOutputPanel output={taskResultOutput} copyLabel={language.t("chatTools.copyOutput")} />
+        <ToolOutputPanel output={taskResultOutput} />
       ) : null}
       {artifactsQuery.error ? (
         <motion.p

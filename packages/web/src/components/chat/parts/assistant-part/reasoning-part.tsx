@@ -14,8 +14,8 @@ export const ReasoningPart = memo(function ReasoningPart({ part }: ReasoningPart
   if (!throttledText.trim()) return null
 
   return (
-    <div className="w-full">
-      <Markdown text={throttledText} cacheKey={part.id} className="text-sm text-text-weak/60" />
+    <div className="w-full opacity-60">
+      <Markdown text={throttledText} cacheKey={part.id} />
     </div>
   )
 })

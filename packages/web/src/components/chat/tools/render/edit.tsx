@@ -1,109 +1,21 @@
-import { BasicTool } from "../../tools/basic-tool"
-import { ToolOutputPanel } from "../../tools/tool-output-panel"
-import { ToolErrorPanel } from "../../tools/tool-error-panel"
-import { DiagnosticList } from "./diagnostic-list"
-import { language } from "@/context/language"
-import { isRecord, readString } from "../../tools/types"
+import { readString } from "../../tools/types"
+import { ToolRow, ToolRowIcon, ToolRowAction, ToolRowSubject } from "../tool-row"
 import type { ToolPartProps } from "../registry"
-interface ToolDiagnostic {
-  range: {
-    start: {
-      line: number
-      character: number
-    }
-  }
-  message: string
-  severity?: number
+
+function basename(filePath: string): string {
+  const lastSlash = Math.max(filePath.lastIndexOf("/"), filePath.lastIndexOf("\\"))
+  return lastSlash >= 0 ? filePath.slice(lastSlash + 1) : filePath
 }
 
-export function renderEditTool({ state, defaultOpen }: ToolPartProps) {
+export function renderEditTool({ state, tool, icon }: ToolPartProps) {
   const filePath = readString(state.input.filePath)
-  const fileDiff = isRecord(state.metadata.filediff) ? state.metadata.filediff : undefined
-  const beforeText = typeof fileDiff?.before === "string" ? fileDiff.before : undefined
-  const afterText = typeof fileDiff?.after === "string" ? fileDiff.after : undefined
-  const writeContent = readString(state.input.content)
-  const output = state.output || (state.error ?? "")
-  const hasContent = output.trim().length > 0
-  const hasError = state.status === "error" && hasContent
-
-  const diagnostics: ToolDiagnostic[] = []
-  if (filePath && state.metadata.diagnostics) {
-    const rawDiagnosticsByFile = isRecord(state.metadata.diagnostics)
-      ? state.metadata.diagnostics
-      : undefined
-    if (rawDiagnosticsByFile) {
-      const rawDiagnostics = rawDiagnosticsByFile[filePath]
-      if (Array.isArray(rawDiagnostics)) {
-        for (const entry of rawDiagnostics) {
-          if (!isRecord(entry)) continue
-          if (!isRecord(entry.range)) continue
-          if (!isRecord(entry.range.start)) continue
-          if (typeof entry.range.start.line !== "number") continue
-          if (typeof entry.range.start.character !== "number") continue
-          if (typeof entry.message !== "string") continue
-          diagnostics.push({
-            range: {
-              start: {
-                line: entry.range.start.line,
-                character: entry.range.start.character,
-              },
-            },
-            message: entry.message,
-            severity: typeof entry.severity === "number" ? entry.severity : undefined,
-          })
-        }
-      }
-    }
-  }
+  const isWrite = tool === "write"
 
   return (
-    <BasicTool
-      trigger={{
-        title:
-          state.input.oldString !== undefined
-            ? language.t("chatTools.edit")
-            : language.t("chatTools.write"),
-        subtitle: filePath ? dirname(filePath) : undefined,
-      }}
-      status={state.status}
-      defaultOpen={defaultOpen ?? (state.status === "completed" || state.status === "error")}
-    >
-      {beforeText !== undefined || afterText !== undefined ? (
-        <div className="grid gap-2 md:grid-cols-2">
-          <div>
-            <div className="mb-1 text-xs font-semibold text-text-weak">
-              {language.t("chatTools.before")}
-            </div>
-            <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border-base bg-background-base p-2 text-xs text-text-weak">
-              {beforeText || language.t("chatTools.empty")}
-            </pre>
-          </div>
-          <div>
-            <div className="mb-1 text-xs font-semibold text-text-weak">
-              {language.t("chatTools.after")}
-            </div>
-            <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border-base bg-background-base p-2 text-xs text-text-weak">
-              {afterText || language.t("chatTools.empty")}
-            </pre>
-          </div>
-        </div>
-      ) : null}
-      {writeContent ? (
-        <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border-base bg-background-base p-2 text-xs text-text-weak">
-          {writeContent}
-        </pre>
-      ) : null}
-      <DiagnosticList diagnostics={diagnostics.filter((d) => d.severity === 1).slice(0, 3)} />
-      {hasError ? (
-        <ToolErrorPanel error={output} />
-      ) : hasContent ? (
-        <ToolOutputPanel output={output} copyLabel={language.t("chatTools.copyOutput")} />
-      ) : null}
-    </BasicTool>
+    <ToolRow>
+      <ToolRowIcon>{icon?.("size-3.5")}</ToolRowIcon>
+      <ToolRowAction>{isWrite ? "wrote" : "edited"}</ToolRowAction>
+      {filePath ? <ToolRowSubject>{basename(filePath)}</ToolRowSubject> : null}
+    </ToolRow>
   )
-}
-
-function dirname(filePath: string): string {
-  const lastSlash = filePath.lastIndexOf("/")
-  return lastSlash > 0 ? filePath.slice(0, lastSlash) : filePath
 }

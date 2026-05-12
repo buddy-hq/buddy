@@ -35,7 +35,7 @@ export function assistantPartRenderable(
   if (renderer.hidden) return false
 
   if (tool === "question") {
-    return !(state.status === "pending" || state.status === "running")
+    return state.status !== "running"
   }
 
   return true
@@ -53,7 +53,7 @@ export function assistantPartStartsFollowup(part: MessagePart): boolean {
     if (renderer.hidden || renderer.summary) return false
 
     if (tool === "question") {
-      return !(state.status === "pending" || state.status === "running")
+      return state.status !== "running"
     }
 
     return true

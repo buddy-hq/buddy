@@ -3,11 +3,19 @@ import type { ReactNode } from "react"
 
 import type { ToolAttachment, ToolInfo, ToolState } from "./types"
 
+/**
+ * A function that renders the tool's icon with a given Tailwind className.
+ * Defined once in the tool registry; used by both card renderers and the
+ * hidden-steps toggle so there is a single source of truth for each icon.
+ */
+export type ToolIconRenderer = (className: string) => ReactNode
+
 export type ToolPartProps = {
   part: MessagePart
   state: ToolState
   info: ToolInfo
   tool: string
+  icon?: ToolIconRenderer
   directory?: string
   onOpenSession?: (sessionID: string) => void
   defaultOpen?: boolean
@@ -54,6 +62,7 @@ export type ToolRenderer = {
   hidden?: boolean
   card?: ToolCardRenderer
   summary?: ToolSummary
+  icon?: ToolIconRenderer
 }
 
 export type ResolvedSummaryContentFormat = "text" | "markdown"

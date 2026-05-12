@@ -1,28 +1,14 @@
-import { BasicTool } from "../../tools/basic-tool"
-import { ToolErrorPanel } from "../../tools/tool-error-panel"
-import { ToolEmptyState } from "../../tools/tool-empty-state"
-import { Markdown } from "@/components/markdown/Markdown"
+import { ToolRow, ToolRowIcon, ToolRowAction, ToolRowSubject } from "../tool-row"
 import type { ToolPartProps } from "../registry"
 
-export function renderSearchTool({ part, state, defaultOpen, info }: ToolPartProps) {
-  const output = state.output || (state.error ?? "")
-  const showOutput = output.trim().length > 0
+export function renderSearchTool({ info, tool, icon }: ToolPartProps) {
+  const isList = tool === "list"
 
   return (
-    <BasicTool
-      trigger={{ title: info.title, subtitle: info.subtitle }}
-      status={state.status}
-      defaultOpen={defaultOpen}
-    >
-      {state.status === "error" && showOutput ? (
-        <ToolErrorPanel error={output} />
-      ) : showOutput ? (
-        <div className="rounded-md border border-border-base bg-background-base px-3 py-2">
-          <Markdown text={output} cacheKey={`${part.id}:tool-output`} />
-        </div>
-      ) : state.status === "completed" ? (
-        <ToolEmptyState />
-      ) : null}
-    </BasicTool>
+    <ToolRow>
+      <ToolRowIcon>{icon?.("size-3.5")}</ToolRowIcon>
+      <ToolRowAction>{isList ? "listed" : "searched"}</ToolRowAction>
+      {info.subtitle ? <ToolRowSubject>{info.subtitle}</ToolRowSubject> : null}
+    </ToolRow>
   )
 }

@@ -1,15 +1,10 @@
 import { useState, useEffect, type ReactNode } from "react"
 import { motion } from "motion/react"
-import {
-  Collapsible,
-  CollapsibleTrigger,
-  CollapsibleContent,
-  ChevronRightIcon,
-  cn,
-} from "@buddy/ui"
+import { Collapsible, CollapsibleTrigger, CollapsibleContent, ChevronRightIcon } from "@buddy/ui"
 import { ToolStatusIndicator } from "../tools/tool-header"
 import { MOTION_SNAPPY } from "../tools/tool-motion"
 import { TextShimmer } from "../tools/text-shimmer"
+import { ToolRowAction, ToolRowSubject, ToolRowArg } from "../tools/tool-row"
 import type { ToolState } from "../tools/registry"
 
 export interface BasicToolTrigger {
@@ -25,6 +20,8 @@ export interface BasicToolProps {
   trigger: BasicToolTrigger | ReactNode
   status?: ToolState["status"]
   hideStatus?: boolean
+  /** When true, prevents the panel from auto-expanding on error (e.g. permission denials). */
+  suppressAutoOpen?: boolean
   defaultOpen?: boolean
   hideDetails?: boolean
   children?: ReactNode
@@ -44,6 +41,7 @@ export function BasicTool({
   trigger,
   status,
   hideStatus = false,
+  suppressAutoOpen = false,
   defaultOpen = false,
   hideDetails = false,
   children,
@@ -52,8 +50,8 @@ export function BasicTool({
   const running = status === "pending" || status === "running"
 
   useEffect(() => {
-    if (status === "error") setOpen(true)
-  }, [status])
+    if (status === "error" && !suppressAutoOpen) setOpen(true)
+  }, [status, suppressAutoOpen])
 
   return (
     <Collapsible
@@ -67,33 +65,18 @@ export function BasicTool({
       <CollapsibleTrigger asChild>
         <button
           type="button"
-          className="group flex min-w-0 w-full max-w-full items-start gap-2 text-left"
+          className="group flex min-w-0 w-full max-w-full items-center gap-1.5 text-left"
         >
-          {icon ? <span className="shrink-0 text-text-weak">{icon}</span> : null}
+          {icon ? <span className="shrink-0 text-text-weaker">{icon}</span> : null}
           {isTriggerTitle(trigger) ? (
             <>
-              <span
-                className={cn(
-                  "min-w-0 whitespace-normal break-words text-xs font-medium",
-                  status === "error" ? "text-icon-critical-base" : "text-text-weak",
-                )}
-              >
+              <ToolRowAction>
                 <TextShimmer text={trigger.title} active={running} />
-              </span>
+              </ToolRowAction>
               {trigger.subtitle && !running ? (
-                <span className="min-w-0 flex-1 truncate text-xs text-text-weaker">
-                  {trigger.subtitle}
-                </span>
+                <ToolRowSubject>{trigger.subtitle}</ToolRowSubject>
               ) : null}
-              {!running &&
-                trigger.args?.map((arg) => (
-                  <span
-                    key={arg}
-                    className="rounded bg-surface-weak px-1 py-px text-[11px] text-text-weaker"
-                  >
-                    {arg}
-                  </span>
-                ))}
+              {!running && trigger.args?.map((arg) => <ToolRowArg key={arg}>{arg}</ToolRowArg>)}
               {!running && trigger.action}
               {trigger.trailing}
             </>

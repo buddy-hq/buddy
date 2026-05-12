@@ -5,10 +5,12 @@ import { stripAnsi } from "../../utils/path"
 import { parseToolState } from "../parse-tool-state"
 import { parseToolUiMetadata } from "../parse-tool-ui-metadata"
 import { getToolInfo } from "../tool-info"
+import { isPermissionDenied } from "../tool-permission"
 import type {
   ResolvedToolSummaryAggregate,
   ResolvedSummaryContentFormat,
   ResolvedToolSummary,
+  ToolIconRenderer,
   ToolInfo,
   ToolPartProps,
   ToolState,
@@ -18,7 +20,7 @@ import { resolveToolSummary } from "../tool-summary-resolver"
 import { isRecord } from "../types"
 
 const SUMMARY_MAX_LABEL_COUNT = 3
-const ABSTRACTED_THINKING_LABEL = "Thinking"
+export const ABSTRACTED_THINKING_LABEL = "Thinking"
 const ABSTRACTED_THOUGHT_LABEL = "Thought"
 const ABSTRACTED_WORKING_LABEL = "Working"
 
@@ -27,6 +29,7 @@ export type HiddenStepsEntry = {
   state?: ToolState
   info?: ToolInfo
   summary?: ResolvedToolSummary
+  icon?: ToolIconRenderer
 }
 
 export type HiddenStepsPreview = {
@@ -88,6 +91,7 @@ export function createHiddenStepsEntry(part: MessagePart): HiddenStepsEntry {
     state,
     info,
     summary: renderer.summary ? resolveToolSummary(renderer.summary, props) : undefined,
+    icon: renderer.icon,
   }
 }
 
@@ -106,6 +110,8 @@ function hiddenStepsEntryHasError(entry: HiddenStepsEntry): boolean {
 }
 
 export function hiddenStepsEntryHasVisibleError(entry: HiddenStepsEntry): boolean {
+  // Permission denials are user choices, not failures — don't count as errors.
+  if (entry.state && isPermissionDenied(entry.state)) return false
   return hiddenStepsEntryHasError(entry) && entry.summary?.errorVisibility === "visible"
 }
 
@@ -120,14 +126,18 @@ function hiddenStepsEntrySummaryLabel(entry: HiddenStepsEntry): string | undefin
 function hiddenStepsEntrySummaryBucket(
   entry: HiddenStepsEntry,
 ): { key: string; label: string; aggregate?: ResolvedToolSummaryAggregate } | undefined {
-  const label = hiddenStepsEntrySummaryLabel(entry)
-  if (!label || entry.part.type === "reasoning") {
+  if (entry.part.type === "reasoning") {
     return undefined
   }
 
   const aggregate = entry.summary?.aggregate
   if (!aggregate) {
-    return { key: `label:${label}`, label }
+    return undefined
+  }
+
+  const label = hiddenStepsEntrySummaryLabel(entry)
+  if (!label) {
+    return undefined
   }
 
   const bucketLabel =
@@ -148,7 +158,7 @@ function formatSummaryBucket(bucket: SummaryBucket): string {
       case "action-times":
         return bucket.count === 1
           ? bucket.latestLabel
-          : `${bucket.aggregate.action} ${bucket.count} times`
+          : `${bucket.aggregate.action} ×${bucket.count}`
       case "count-items":
         return bucket.count === 1
           ? bucket.latestLabel
@@ -220,7 +230,9 @@ export function buildHiddenStepsPreview(entry: HiddenStepsEntry | undefined): Hi
 
   if (entry.part.type === "tool" && entry.info) {
     const errorText =
-      entry.state?.status === "error" && entry.summary?.errorVisibility === "visible"
+      entry.state?.status === "error" &&
+      entry.summary?.errorVisibility === "visible" &&
+      !isPermissionDenied(entry.state)
         ? entry.summary.errorPreview
         : undefined
     const previewText = normalizeHiddenStepsPreviewText(

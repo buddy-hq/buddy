@@ -54,6 +54,7 @@ export const ToolPartCard = memo(function ToolPartCard({
     state,
     info,
     tool,
+    icon: renderer.icon,
     directory,
     onOpenSession,
     defaultOpen,

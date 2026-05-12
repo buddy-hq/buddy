@@ -1,3 +1,23 @@
+import { createElement } from "react"
+import {
+  BookOpen,
+  Bot,
+  Brain,
+  FileText,
+  FilePlus,
+  FolderOpen,
+  GitBranch,
+  Globe,
+  HelpCircle,
+  Image,
+  Layers,
+  Network,
+  PenLine,
+  Search,
+  Terminal,
+  Wrench,
+} from "lucide-react"
+
 import { renderApplyPatchTool } from "./render/apply-patch"
 import { renderBashTool } from "./render/bash"
 import { renderBuddyCustomTool } from "./render/buddy-custom"
@@ -27,9 +47,10 @@ const hiddenToolRenderer = createToolRenderer({
 
 export const builtInTools: Record<string, ToolRenderer> = {
   read: createToolRenderer({
+    icon: (cn) => createElement(FileText, { className: cn }),
     card: renderReadTool,
     summary: {
-      display: "row",
+      display: "card",
       pattern: "read",
       suppressError: true,
       aggregate: {
@@ -42,6 +63,7 @@ export const builtInTools: Record<string, ToolRenderer> = {
     },
   }),
   list: createToolRenderer({
+    icon: (cn) => createElement(FolderOpen, { className: cn }),
     card: renderSearchTool,
     summary: {
       display: "card",
@@ -50,6 +72,7 @@ export const builtInTools: Record<string, ToolRenderer> = {
     },
   }),
   glob: createToolRenderer({
+    icon: (cn) => createElement(Search, { className: cn }),
     card: renderSearchTool,
     summary: {
       display: "card",
@@ -58,6 +81,7 @@ export const builtInTools: Record<string, ToolRenderer> = {
     },
   }),
   grep: createToolRenderer({
+    icon: (cn) => createElement(Search, { className: cn }),
     card: renderSearchTool,
     summary: {
       display: "card",
@@ -66,9 +90,10 @@ export const builtInTools: Record<string, ToolRenderer> = {
     },
   }),
   edit: createToolRenderer({
+    icon: (cn) => createElement(PenLine, { className: cn }),
     card: renderEditTool,
     summary: {
-      display: "row",
+      display: "card",
       pattern: "info",
       aggregate: {
         key: "edit",
@@ -80,9 +105,10 @@ export const builtInTools: Record<string, ToolRenderer> = {
     },
   }),
   write: createToolRenderer({
+    icon: (cn) => createElement(FilePlus, { className: cn }),
     card: renderEditTool,
     summary: {
-      display: "row",
+      display: "card",
       pattern: "info",
       aggregate: {
         key: "write",
@@ -94,9 +120,10 @@ export const builtInTools: Record<string, ToolRenderer> = {
     },
   }),
   apply_patch: createToolRenderer({
+    icon: (cn) => createElement(Layers, { className: cn }),
     card: renderApplyPatchTool,
     summary: {
-      display: "row",
+      display: "card",
       pattern: "info",
       aggregate: {
         key: "edit",
@@ -108,9 +135,10 @@ export const builtInTools: Record<string, ToolRenderer> = {
     },
   }),
   bash: createToolRenderer({
+    icon: (cn) => createElement(Terminal, { className: cn }),
     card: renderBashTool,
     summary: {
-      display: "row",
+      display: "card",
       pattern: "command",
       aggregate: {
         key: "terminal",
@@ -121,12 +149,14 @@ export const builtInTools: Record<string, ToolRenderer> = {
     },
   }),
   python_calculator: createToolRenderer({
+    icon: (cn) => createElement(Wrench, { className: cn }),
     card: renderPythonCalculatorTool,
   }),
   webfetch: createToolRenderer({
+    icon: (cn) => createElement(Globe, { className: cn }),
     card: renderWebfetchTool,
     summary: {
-      display: "row",
+      display: "card",
       pattern: "link",
       suppressError: true,
       aggregate: {
@@ -138,6 +168,7 @@ export const builtInTools: Record<string, ToolRenderer> = {
     },
   }),
   websearch: createToolRenderer({
+    icon: (cn) => createElement(Globe, { className: cn }),
     card: renderExaSearchTool,
     summary: {
       display: "card",
@@ -146,6 +177,7 @@ export const builtInTools: Record<string, ToolRenderer> = {
     },
   }),
   codesearch: createToolRenderer({
+    icon: (cn) => createElement(Search, { className: cn }),
     card: renderExaSearchTool,
     summary: {
       display: "card",
@@ -154,12 +186,14 @@ export const builtInTools: Record<string, ToolRenderer> = {
     },
   }),
   task: createToolRenderer({
+    icon: (cn) => createElement(Bot, { className: cn }),
     card: renderTaskTool,
   }),
   skill: createToolRenderer({
+    icon: (cn) => createElement(Brain, { className: cn }),
     card: renderSkillTool,
     summary: {
-      display: "row",
+      display: "card",
       pattern: "info",
       suppressError: true,
       aggregate: {
@@ -172,24 +206,30 @@ export const builtInTools: Record<string, ToolRenderer> = {
     },
   }),
   render_figure: createToolRenderer({
+    icon: (cn) => createElement(Image, { className: cn }),
     card: renderRenderFigureTool,
   }),
   render_freeform_figure: createToolRenderer({
+    icon: (cn) => createElement(Image, { className: cn }),
     card: renderRenderFigureTool,
   }),
   render_mermaid: createToolRenderer({
+    icon: (cn) => createElement(GitBranch, { className: cn }),
     card: renderRenderMermaidTool,
   }),
   render_saved_question_set: createToolRenderer({
+    icon: (cn) => createElement(BookOpen, { className: cn }),
     card: renderSavedQuestionSetTool,
   }),
   question: createToolRenderer({
+    icon: (cn) => createElement(HelpCircle, { className: cn }),
     card: renderQuestionTool,
   }),
   learning_tool_search: createToolRenderer({
+    icon: (cn) => createElement(Wrench, { className: cn }),
     card: renderGenericTool,
     summary: {
-      display: "row",
+      display: "card",
       pattern: "info",
       aggregate: {
         key: "tool-search",
@@ -199,34 +239,40 @@ export const builtInTools: Record<string, ToolRenderer> = {
     },
   }),
   learning_tool_load: createToolRenderer({
+    icon: (cn) => createElement(Wrench, { className: cn }),
     card: renderGenericTool,
     summary: {
-      display: "row",
+      display: "card",
       pattern: "info",
       suppressError: true,
       aggregate: { key: "tool-load", mode: "label-times", label: "Load Tools" },
     },
   }),
   goal_state: createToolRenderer({
+    icon: (cn) => createElement(Wrench, { className: cn }),
     card: renderGenericTool,
-    summary: { display: "row", pattern: "info" },
+    summary: { display: "card", pattern: "info" },
   }),
   goal_commit: createToolRenderer({
+    icon: (cn) => createElement(Wrench, { className: cn }),
     card: renderGenericTool,
-    summary: { display: "row", pattern: "info" },
+    summary: { display: "card", pattern: "info" },
   }),
   goal_decide_scope: createToolRenderer({
+    icon: (cn) => createElement(Wrench, { className: cn }),
     card: renderGenericTool,
-    summary: { display: "row", pattern: "info" },
+    summary: { display: "card", pattern: "info" },
   }),
   goal_lint: createToolRenderer({
+    icon: (cn) => createElement(Wrench, { className: cn }),
     card: renderGenericTool,
-    summary: { display: "row", pattern: "info" },
+    summary: { display: "card", pattern: "info" },
   }),
   search_standards: createToolRenderer({
+    icon: (cn) => createElement(Network, { className: cn }),
     card: renderKnowledgeGraphTool,
     summary: {
-      display: "row",
+      display: "card",
       pattern: "info",
       suppressError: true,
       aggregate: {
@@ -237,9 +283,10 @@ export const builtInTools: Record<string, ToolRenderer> = {
     },
   }),
   get_standard: createToolRenderer({
+    icon: (cn) => createElement(Network, { className: cn }),
     card: renderKnowledgeGraphTool,
     summary: {
-      display: "row",
+      display: "card",
       pattern: "info",
       suppressError: true,
       aggregate: {
@@ -250,9 +297,10 @@ export const builtInTools: Record<string, ToolRenderer> = {
     },
   }),
   get_learning_components: createToolRenderer({
+    icon: (cn) => createElement(Network, { className: cn }),
     card: renderKnowledgeGraphTool,
     summary: {
-      display: "row",
+      display: "card",
       pattern: "info",
       suppressError: true,
       aggregate: {
@@ -263,9 +311,10 @@ export const builtInTools: Record<string, ToolRenderer> = {
     },
   }),
   get_prerequisites: createToolRenderer({
+    icon: (cn) => createElement(Network, { className: cn }),
     card: renderKnowledgeGraphTool,
     summary: {
-      display: "row",
+      display: "card",
       pattern: "info",
       suppressError: true,
       aggregate: {
@@ -276,9 +325,10 @@ export const builtInTools: Record<string, ToolRenderer> = {
     },
   }),
   get_next_standards: createToolRenderer({
+    icon: (cn) => createElement(Network, { className: cn }),
     card: renderKnowledgeGraphTool,
     summary: {
-      display: "row",
+      display: "card",
       pattern: "info",
       suppressError: true,
       aggregate: {
@@ -289,9 +339,10 @@ export const builtInTools: Record<string, ToolRenderer> = {
     },
   }),
   get_crosswalk: createToolRenderer({
+    icon: (cn) => createElement(Network, { className: cn }),
     card: renderKnowledgeGraphTool,
     summary: {
-      display: "row",
+      display: "card",
       pattern: "info",
       suppressError: true,
       aggregate: {
@@ -302,9 +353,10 @@ export const builtInTools: Record<string, ToolRenderer> = {
     },
   }),
   query_standards_sql: createToolRenderer({
+    icon: (cn) => createElement(Network, { className: cn }),
     card: renderKnowledgeGraphTool,
     summary: {
-      display: "row",
+      display: "card",
       pattern: "info",
       suppressError: true,
       aggregate: {
@@ -315,24 +367,29 @@ export const builtInTools: Record<string, ToolRenderer> = {
     },
   }),
   ingest_full_text: createToolRenderer({
+    icon: (cn) => createElement(FileText, { className: cn }),
     card: renderBuddyCustomTool,
-    summary: { display: "row", pattern: "info", suppressError: true },
+    summary: { display: "card", pattern: "info", suppressError: true },
   }),
   prepare_resource: createToolRenderer({
+    icon: (cn) => createElement(Wrench, { className: cn }),
     card: renderBuddyCustomTool,
-    summary: { display: "row", pattern: "info", suppressError: true },
+    summary: { display: "card", pattern: "info", suppressError: true },
   }),
   reflection: createToolRenderer({
+    icon: (cn) => createElement(Wrench, { className: cn }),
     card: renderBuddyCustomTool,
-    summary: { display: "row", pattern: "info", suppressError: true },
+    summary: { display: "card", pattern: "info", suppressError: true },
   }),
   learner_memory_search: createToolRenderer({
+    icon: (cn) => createElement(Wrench, { className: cn }),
     card: renderBuddyCustomTool,
-    summary: { display: "row", pattern: "info", suppressError: true },
+    summary: { display: "card", pattern: "info", suppressError: true },
   }),
   learner_memory_update: createToolRenderer({
+    icon: (cn) => createElement(Wrench, { className: cn }),
     card: renderBuddyCustomTool,
-    summary: { display: "row", pattern: "info", suppressError: true },
+    summary: { display: "card", pattern: "info", suppressError: true },
   }),
   todowrite: hiddenToolRenderer,
   todoread: hiddenToolRenderer,

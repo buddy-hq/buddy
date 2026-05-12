@@ -1,23 +1,23 @@
-import { BasicTool } from "../../tools/basic-tool"
-import { ToolErrorPanel } from "../../tools/tool-error-panel"
-import { ToolEmptyState } from "../../tools/tool-empty-state"
+import { HIDDEN_STEPS_ERROR_CLASS_NAME } from "../hidden-steps/styles"
+import { ToolRow, ToolRowIcon, ToolRowAction, ToolRowDenied } from "../tool-row"
+import { isPermissionDenied } from "../tool-permission"
 import type { ToolPartProps } from "../registry"
 
-export function renderGenericTool({ state, info }: ToolPartProps) {
+export function renderGenericTool({ state, info, icon }: ToolPartProps) {
+  const denied = isPermissionDenied(state)
   const output = state.output || (state.error ?? "")
-  const showOutput = output.trim().length > 0
+  const showOutput = !denied && output.trim().length > 0
 
   return (
-    <BasicTool
-      trigger={{ title: info.title, subtitle: info.subtitle, args: info.args }}
-      status={state.status}
-      hideDetails
-    >
+    <div className="flex flex-col gap-1.5">
+      <ToolRow>
+        <ToolRowIcon>{icon?.("size-3.5")}</ToolRowIcon>
+        <ToolRowAction>{info.title}</ToolRowAction>
+        {denied ? <ToolRowDenied /> : null}
+      </ToolRow>
       {state.status === "error" && showOutput ? (
-        <ToolErrorPanel error={output} />
-      ) : state.status === "completed" && !showOutput ? (
-        <ToolEmptyState />
+        <pre className={HIDDEN_STEPS_ERROR_CLASS_NAME}>{output}</pre>
       ) : null}
-    </BasicTool>
+    </div>
   )
 }
