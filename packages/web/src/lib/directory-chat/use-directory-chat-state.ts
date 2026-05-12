@@ -24,7 +24,7 @@ import {
 } from "@/state/directory-chat-query"
 import { getSessionFamily, type SessionFamily } from "../session-family"
 import { modelSelectionKey, parseConfiguredModel } from "./chat-prompt-helpers"
-import type { SessionInfo, SessionStatusInfo } from "@/state/chat-types"
+import type { ProviderInfo, SessionInfo, SessionStatusInfo } from "@/state/chat-types"
 import type { AgentConfigOption, PersonaConfigOption } from "@/state/chat-actions"
 import type { ChatRightSidebarTab } from "@/components/layout/chat-right-sidebar"
 import {
@@ -33,6 +33,7 @@ import {
   resolveConnectedModelSelection,
   type ProviderModelSelection,
 } from "@/lib/provider-catalog"
+import { OPENCODE_PROVIDER_ID } from "@/lib/provider-ids"
 import { resolveCurrentAgent } from "./agent-catalog"
 import { getRightSidebarMaxWidth, getRightSidebarMinWidth } from "./right-sidebar-layout"
 import type { NotebookMainPaneTab } from "@/state/ui-preferences"
@@ -114,6 +115,55 @@ function isModelSelection(
   value: ReturnType<typeof parseConfiguredModel>,
 ): value is NonNullable<ReturnType<typeof parseConfiguredModel>> {
   return value !== undefined
+}
+
+function isAlwaysVisibleProviderModel(providerID: string) {
+  return providerID === OPENCODE_PROVIDER_ID
+}
+
+export function resolveVisibleModelKeys(input: {
+  connectedProviders: ProviderInfo[]
+  autoModelSelection: ProviderModelSelection | undefined
+  selectedModelOverrideKey: string | undefined
+  now?: number
+}) {
+  const visible = new Set<string>()
+  const latestByFamily = new Map<string, { key: string; releaseTime: number }>()
+  const now = input.now ?? Date.now()
+
+  for (const provider of input.connectedProviders) {
+    for (const model of provider.models) {
+      const key = modelSelectionKey({ providerID: provider.id, modelID: model.id })
+      if (isAlwaysVisibleProviderModel(provider.id)) {
+        visible.add(key)
+        continue
+      }
+
+      const releaseTime = model.releaseDate ? Date.parse(model.releaseDate) : Number.NaN
+
+      if (!Number.isFinite(releaseTime)) {
+        visible.add(key)
+        continue
+      }
+      if (Math.abs(now - releaseTime) >= MODEL_VISIBILITY_WINDOW_MS) continue
+
+      const family = model.family || model.id
+      const familyKey = `${provider.id}:${family}`
+      const existing = latestByFamily.get(familyKey)
+      if (!existing || releaseTime > existing.releaseTime) {
+        latestByFamily.set(familyKey, { key, releaseTime })
+      }
+    }
+  }
+
+  for (const latest of latestByFamily.values()) {
+    visible.add(latest.key)
+  }
+
+  if (input.autoModelSelection) visible.add(modelSelectionKey(input.autoModelSelection))
+  if (input.selectedModelOverrideKey) visible.add(input.selectedModelOverrideKey)
+
+  return visible
 }
 
 function resolveConfiguredAgentVariant(input: {
@@ -465,38 +515,11 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps): Direct
     })
   }, [currentAgent?.model, props.configuredModel, providerDefault, providers, recentModels])
   const visibleModelKeys = useMemo(() => {
-    const visible = new Set<string>()
-    const latestByFamily = new Map<string, { key: string; releaseTime: number }>()
-    const now = Date.now()
-
-    for (const provider of connectedProviders) {
-      for (const model of provider.models) {
-        const key = modelSelectionKey({ providerID: provider.id, modelID: model.id })
-        const releaseTime = model.releaseDate ? Date.parse(model.releaseDate) : Number.NaN
-
-        if (!Number.isFinite(releaseTime)) {
-          visible.add(key)
-          continue
-        }
-        if (Math.abs(now - releaseTime) >= MODEL_VISIBILITY_WINDOW_MS) continue
-
-        const family = model.family || model.id
-        const familyKey = `${provider.id}:${family}`
-        const existing = latestByFamily.get(familyKey)
-        if (!existing || releaseTime > existing.releaseTime) {
-          latestByFamily.set(familyKey, { key, releaseTime })
-        }
-      }
-    }
-
-    for (const latest of latestByFamily.values()) {
-      visible.add(latest.key)
-    }
-
-    if (autoModelSelection) visible.add(modelSelectionKey(autoModelSelection))
-    if (selectedModelOverrideKey) visible.add(selectedModelOverrideKey)
-
-    return visible
+    return resolveVisibleModelKeys({
+      connectedProviders,
+      autoModelSelection,
+      selectedModelOverrideKey,
+    })
   }, [autoModelSelection, connectedProviders, selectedModelOverrideKey])
   const primaryPersonaOptions = useMemo(
     () => props.personaCatalog.filter((persona) => !persona.hidden),
