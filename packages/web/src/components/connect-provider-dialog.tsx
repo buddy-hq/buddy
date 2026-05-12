@@ -17,6 +17,7 @@ import {
 import { type FormEvent, useEffect, useState } from "react"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
+import { providerNeedsConfigDisable } from "@/lib/provider-connection"
 import { getOpenCodeClient } from "../lib/opencode-client"
 import {
   authorizeProviderOAuth,
@@ -49,10 +50,6 @@ function readDisabledProviders(config: Record<string, unknown>) {
   const value = config[DISABLED_PROVIDERS_CONFIG_KEY]
   if (!Array.isArray(value)) return []
   return value.filter((item): item is string => typeof item === "string")
-}
-
-function providerNeedsConfigDisable(provider: ProviderInfo) {
-  return provider.source === "config" || provider.source === "custom"
 }
 
 export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
@@ -153,8 +150,8 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
         directory: props.directory,
         providerID,
       })
-      if (providerNeedsConfigDisable(selectedProvider)) {
-        const config = await loadGlobalConfig()
+      const config = await loadGlobalConfig()
+      if (providerNeedsConfigDisable(selectedProvider, config)) {
         const disabledProviders = readDisabledProviders(config)
         if (!disabledProviders.includes(providerID)) {
           await patchGlobalConfig({

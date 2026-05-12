@@ -6,10 +6,6 @@ import {
   Card,
   CardContent,
   CheckIcon,
-  ChevronDownIcon,
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
   Dialog,
   DialogContent,
   DialogTitle,
@@ -34,6 +30,15 @@ import { connectedProviders } from "@/state/project-settings-store"
 import { ProviderSourceBadge, SettingsListCard, SettingsContent } from "./settings-primitives"
 import type { SettingsWorkbench } from "./settings-workbench"
 
+const OPENCODE_GO_PROVIDER_ID = "opencode-go"
+type RecommendedProviderDefinition = {
+  providerID: string
+  title: string
+  description: string
+  iconID: string
+  connectLabel: string
+}
+
 type RecommendedProviderCardProps = {
   provider?: ProviderInfo
   title: string
@@ -45,6 +50,71 @@ type RecommendedProviderCardProps = {
   error?: string
   onConnect: () => void
   onManage: () => void
+}
+
+const RECOMMENDED_PROVIDER_DEFINITIONS: RecommendedProviderDefinition[] = [
+  {
+    providerID: OPENAI_PROVIDER_ID,
+    title: language.t("settings.providers.chatGptTitle"),
+    description: language.t("settings.providers.chatGptDescription"),
+    iconID: OPENAI_PROVIDER_ID,
+    connectLabel: language.t("settings.providers.connectChatGpt"),
+  },
+  {
+    providerID: OPENCODE_PROVIDER_ID,
+    title: language.t("settings.providers.openCodeZenTitle"),
+    description: language.t("settings.providers.openCodeZenDescription"),
+    iconID: OPENCODE_PROVIDER_ID,
+    connectLabel: language.t("common.connect"),
+  },
+  {
+    providerID: OPENCODE_GO_PROVIDER_ID,
+    title: language.t("settings.providers.openCodeGoTitle"),
+    description: language.t("settings.providers.openCodeGoDescription"),
+    iconID: OPENCODE_GO_PROVIDER_ID,
+    connectLabel: language.t("common.connect"),
+  },
+]
+
+export function resolveRecommendedProviderCards(allProviders: ProviderInfo[]) {
+  const providersByID = new Map(allProviders.map((provider) => [provider.id, provider]))
+
+  return RECOMMENDED_PROVIDER_DEFINITIONS.flatMap((definition) => {
+    const provider = providersByID.get(definition.providerID)
+    if (provider?.connected) return []
+    if (!provider) return []
+    return [provider]
+  })
+}
+
+export function resolveAvailableProviders(allProviders: ProviderInfo[]) {
+  return allProviders
+    .filter((provider) => !provider.connected)
+    .toSorted((left, right) => left.name.localeCompare(right.name))
+}
+
+export function resolveProviderListRowAction(provider: ProviderInfo, connected: boolean) {
+  if (!connected) return "connect"
+  return "edit"
+}
+
+export function resolveProviderListRowControls(provider: ProviderInfo, connected: boolean) {
+  if (!connected) {
+    return {
+      showConnect: true,
+      showDisconnect: false,
+      showEdit: false,
+      showEnvNote: false,
+    }
+  }
+
+  const envManaged = provider.source === "env"
+  return {
+    showConnect: false,
+    showDisconnect: false,
+    showEdit: true,
+    showEnvNote: envManaged,
+  }
 }
 
 function ProviderSection(props: { title: string; action?: ReactNode; children: ReactNode }) {
@@ -137,7 +207,11 @@ function ProviderListRow(props: {
   connected: boolean
   last: boolean
   onOpenDialog: (providerID: string) => void
+  busy?: boolean
 }) {
+  const action = resolveProviderListRowAction(props.provider, props.connected)
+  const controls = resolveProviderListRowControls(props.provider, props.connected)
+
   return (
     <div
       data-component="settings-provider-item"
@@ -164,22 +238,47 @@ function ProviderListRow(props: {
           </div>
         </div>
 
-        <Button
-          data-action={
-            props.connected
-              ? `settings-provider-edit-${props.provider.id}`
-              : `settings-provider-connect-${props.provider.id}`
-          }
-          type="button"
-          size="sm"
-          variant="secondary"
-          className="shrink-0 active:scale-[0.97] transition-all duration-150 ease-out"
-          onClick={() => props.onOpenDialog(props.provider.id)}
-        >
-          {props.connected
-            ? language.t("settings.providers.editConnection")
-            : language.t("common.connect")}
-        </Button>
+        <div className="flex shrink-0 items-center gap-2">
+          {controls.showEnvNote ? (
+            <span className="text-xs text-text-weak">
+              {language.t("settings.providers.connectedFromEnv")}
+            </span>
+          ) : null}
+
+          {controls.showEdit ? (
+            <Button
+              data-action={`settings-provider-edit-${props.provider.id}`}
+              type="button"
+              size="sm"
+              variant="secondary"
+              className="shrink-0 active:scale-[0.97] transition-all duration-150 ease-out"
+              onClick={() => props.onOpenDialog(props.provider.id)}
+              disabled={props.busy}
+            >
+              {language.t("settings.providers.editConnection")}
+            </Button>
+          ) : null}
+
+          {controls.showConnect || controls.showDisconnect ? (
+            <Button
+              data-action={
+                action === "connect"
+                  ? `settings-provider-connect-${props.provider.id}`
+                  : `settings-provider-edit-${props.provider.id}`
+              }
+              type="button"
+              size="sm"
+              variant="secondary"
+              className="shrink-0 active:scale-[0.97] transition-all duration-150 ease-out"
+              onClick={() => props.onOpenDialog(props.provider.id)}
+              disabled={props.busy}
+            >
+              {action === "connect"
+                ? language.t("common.connect")
+                : language.t("settings.providers.editConnection")}
+            </Button>
+          ) : null}
+        </div>
       </div>
       {props.last ? null : <Separator />}
     </div>
@@ -201,13 +300,13 @@ export function ProvidersSettings({ workbench }: { workbench: SettingsWorkbench 
     [providerCatalog],
   )
   const allProviders = useMemo(() => providerCatalog?.providers ?? [], [providerCatalog?.providers])
-  const availableProviders = useMemo(
-    () => allProviders.filter((provider) => !provider.connected),
+  const recommendedProviders = useMemo(
+    () => resolveRecommendedProviderCards(allProviders),
     [allProviders],
   )
+  const availableProviders = useMemo(() => resolveAvailableProviders(allProviders), [allProviders])
   const [providerDialogOpen, setProviderDialogOpen] = useState(false)
   const [providerDialogTarget, setProviderDialogTarget] = useState<string | undefined>(undefined)
-  const [allProvidersOpen, setAllProvidersOpen] = useState(false)
   const [chatGptConnecting, setChatGptConnecting] = useState(false)
   const [chatGptWaitingOpen, setChatGptWaitingOpen] = useState(false)
   const [chatGptErrorState, setChatGptError] = useState<string | undefined>(undefined)
@@ -219,7 +318,6 @@ export function ProvidersSettings({ workbench }: { workbench: SettingsWorkbench 
     [allProviders],
   )
   const chatGptProvider = providersByID.get(OPENAI_PROVIDER_ID)
-  const openCodeGoProvider = providersByID.get(OPENCODE_PROVIDER_ID)
   const chatGptError = chatGptProvider?.connected ? undefined : chatGptErrorState
 
   function openProviderDialog(initialProvider?: string) {
@@ -298,84 +396,74 @@ export function ProvidersSettings({ workbench }: { workbench: SettingsWorkbench 
           </ProviderSection>
         ) : null}
 
-        <ProviderSection title={language.t("settings.providers.recommendedSection")}>
-          <div className="grid gap-3 md:grid-cols-2">
-            <RecommendedProviderCard
-              provider={chatGptProvider}
-              title={language.t("settings.providers.chatGptTitle")}
-              description={language.t("settings.providers.chatGptDescription")}
-              iconID={OPENAI_PROVIDER_ID}
-              connectLabel={language.t("settings.providers.connectChatGpt")}
-              unavailableLabel={language.t("settings.providers.unavailable")}
-              busy={chatGptConnecting}
-              error={chatGptError}
-              onConnect={() => {
-                void handleConnectChatGpt()
-              }}
-              onManage={() => openProviderDialog(OPENAI_PROVIDER_ID)}
-            />
-            <RecommendedProviderCard
-              provider={openCodeGoProvider}
-              title={language.t("settings.providers.openCodeGoTitle")}
-              description={language.t("settings.providers.openCodeGoDescription")}
-              iconID={OPENCODE_PROVIDER_ID}
-              connectLabel={language.t("common.connect")}
-              unavailableLabel={language.t("settings.providers.unavailable")}
-              onConnect={() => openProviderDialog(OPENCODE_PROVIDER_ID)}
-              onManage={() => openProviderDialog(OPENCODE_PROVIDER_ID)}
-            />
-          </div>
-        </ProviderSection>
+        {recommendedProviders.length > 0 ? (
+          <ProviderSection title={language.t("settings.providers.recommendedSection")}>
+            <div className="grid gap-3 md:grid-cols-2">
+              {recommendedProviders.map((provider) => {
+                const definition = RECOMMENDED_PROVIDER_DEFINITIONS.find(
+                  (item) => item.providerID === provider.id,
+                )
+                if (!definition) return null
 
-        <Collapsible
-          open={allProvidersOpen}
-          onOpenChange={setAllProvidersOpen}
-          className="space-y-3"
-        >
-          <div className="flex items-center justify-between gap-3">
-            <h3 className="text-sm font-medium text-text-base">
-              {language.t("settings.providers.allProvidersSection")}
-            </h3>
-            <CollapsibleTrigger asChild>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                data-action="settings-providers-toggle-all"
-                className="gap-2"
-              >
-                {allProvidersOpen
-                  ? language.t("settings.providers.hideAllProviders")
-                  : language.t("settings.providers.showAllProviders")}
-                <ChevronDownIcon
-                  className={cn(
-                    "size-4 transition-transform",
-                    allProvidersOpen ? "rotate-180" : "rotate-0",
-                  )}
-                />
-              </Button>
-            </CollapsibleTrigger>
-          </div>
-          <CollapsibleContent>
-            <SettingsListCard>
-              {availableProviders.length > 0 ? (
-                availableProviders.map((provider, index) => (
-                  <ProviderListRow
-                    key={provider.id}
+                return (
+                  <RecommendedProviderCard
+                    key={definition.providerID}
                     provider={provider}
-                    connected={false}
-                    last={index === availableProviders.length - 1}
-                    onOpenDialog={openProviderDialog}
+                    title={definition.title}
+                    description={definition.description}
+                    iconID={definition.iconID}
+                    connectLabel={definition.connectLabel}
+                    unavailableLabel={language.t("settings.providers.unavailable")}
+                    busy={
+                      definition.providerID === OPENAI_PROVIDER_ID ? chatGptConnecting : undefined
+                    }
+                    error={definition.providerID === OPENAI_PROVIDER_ID ? chatGptError : undefined}
+                    onConnect={() => {
+                      if (definition.providerID === OPENAI_PROVIDER_ID) {
+                        void handleConnectChatGpt()
+                        return
+                      }
+                      openProviderDialog(definition.providerID)
+                    }}
+                    onManage={() => openProviderDialog(definition.providerID)}
                   />
-                ))
-              ) : (
-                <div className="px-4 py-6 text-center text-sm text-text-weak">
-                  {language.t("settings.providers.allConnected")}
-                </div>
-              )}
-            </SettingsListCard>
-          </CollapsibleContent>
-        </Collapsible>
+                )
+              })}
+            </div>
+          </ProviderSection>
+        ) : null}
+
+        <ProviderSection title={language.t("settings.providers.allProvidersSection")}>
+          {chatGptError ? (
+            <p className="rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 px-3 py-2 text-xs text-icon-critical-base">
+              {chatGptError}
+            </p>
+          ) : null}
+          <SettingsListCard>
+            {availableProviders.length > 0 ? (
+              availableProviders.map((provider, index) => (
+                <ProviderListRow
+                  key={provider.id}
+                  provider={provider}
+                  connected={false}
+                  last={index === availableProviders.length - 1}
+                  onOpenDialog={(providerID) => {
+                    if (providerID === OPENAI_PROVIDER_ID) {
+                      void handleConnectChatGpt()
+                      return
+                    }
+                    openProviderDialog(providerID)
+                  }}
+                  busy={provider.id === OPENAI_PROVIDER_ID ? chatGptConnecting : undefined}
+                />
+              ))
+            ) : (
+              <div className="px-4 py-6 text-center text-sm text-text-weak">
+                {language.t("settings.providers.allConnected")}
+              </div>
+            )}
+          </SettingsListCard>
+        </ProviderSection>
       </SettingsContent>
 
       <Dialog

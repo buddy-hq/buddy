@@ -1,8 +1,11 @@
+import type { ProviderAuthResponse, ProviderListResponse } from "@buddy/sdk"
 import { describe, expect, test } from "bun:test"
 import {
   resolveAutoModelSelection,
   resolveConnectedModelSelection,
 } from "../src/lib/provider-catalog"
+import { OPENCODE_PROVIDER_ID } from "../src/lib/provider-ids"
+import { normalizeProviderCatalog } from "../src/state/chat-actions"
 import type { ProviderInfo, ProviderModelInfo } from "../src/state/chat-types"
 
 function createModel(providerID: string, modelID: string): ProviderModelInfo {
@@ -53,6 +56,115 @@ function createProvider(input: {
     connected: input.connected ?? true,
     methods: [],
     models: input.modelIDs.map((modelID) => createModel(input.id, modelID)),
+  }
+}
+
+function createRawProviderModel(input: {
+  providerID: string
+  id: string
+  name?: string
+  costInput?: number
+  status?: "active" | "alpha" | "beta" | "deprecated"
+}) {
+  return {
+    id: input.id,
+    providerID: input.providerID,
+    api: {
+      id: "test-api",
+      url: "https://example.com",
+      npm: "test-provider",
+    },
+    name: input.name ?? input.id,
+    family: "test-family",
+    capabilities: {
+      temperature: true,
+      reasoning: true,
+      attachment: true,
+      toolcall: true,
+      input: {
+        text: true,
+        audio: false,
+        image: true,
+        video: false,
+        pdf: true,
+      },
+      output: {
+        text: true,
+        audio: false,
+        image: false,
+        video: false,
+        pdf: false,
+      },
+      interleaved: false,
+    },
+    cost: {
+      input: input.costInput ?? 0,
+      output: 0,
+      cache: {
+        read: 0,
+        write: 0,
+      },
+    },
+    limit: {
+      context: 200_000,
+      output: 16_384,
+    },
+    status: input.status ?? "active",
+    options: {},
+    headers: {},
+    release_date: "2026-01-01",
+    variants: {},
+  }
+}
+
+function createRawProviderCatalog(): ProviderListResponse {
+  return {
+    all: [
+      {
+        id: OPENCODE_PROVIDER_ID,
+        name: "OpenCode",
+        source: "custom",
+        env: [],
+        options: {},
+        models: {
+          paid: createRawProviderModel({
+            providerID: OPENCODE_PROVIDER_ID,
+            id: "paid",
+            name: "Paid Model",
+            costInput: 1,
+          }),
+          freeZed: createRawProviderModel({
+            providerID: OPENCODE_PROVIDER_ID,
+            id: "free-zed",
+            name: "Zed Free",
+            costInput: 0,
+          }),
+          freeAlpha: createRawProviderModel({
+            providerID: OPENCODE_PROVIDER_ID,
+            id: "free-alpha",
+            name: "Alpha Free",
+            costInput: 0,
+          }),
+          deprecatedFree: createRawProviderModel({
+            providerID: OPENCODE_PROVIDER_ID,
+            id: "deprecated-free",
+            name: "Deprecated Free",
+            costInput: 0,
+            status: "deprecated",
+          }),
+        },
+      },
+    ],
+    default: {
+      [OPENCODE_PROVIDER_ID]: "paid",
+    },
+    connected: [],
+  }
+}
+
+function createProviderAuthMethods(): ProviderAuthResponse {
+  return {
+    [OPENCODE_PROVIDER_ID]: [{ type: "oauth", label: "Sign in" }],
   }
 }
 
@@ -127,6 +239,23 @@ describe("resolveAutoModelSelection", () => {
         recentModels: [{ providerID: "anthropic", modelID: "claude-sonnet-4" }],
       }),
     ).toEqual({ providerID: "openai", modelID: "gpt-5" })
+  })
+})
+
+describe("normalizeProviderCatalog", () => {
+  test("keeps only public unauthenticated opencode models and rewrites the default", () => {
+    const catalog = normalizeProviderCatalog(
+      createRawProviderCatalog(),
+      createProviderAuthMethods(),
+    )
+
+    expect(catalog.default[OPENCODE_PROVIDER_ID]).toBe("free-alpha")
+    expect(catalog.providers).toHaveLength(1)
+    expect(catalog.providers[0]?.connected).toBe(true)
+    expect(catalog.providers[0]?.models.map((model) => model.id)).toEqual([
+      "free-alpha",
+      "free-zed",
+    ])
   })
 })
 

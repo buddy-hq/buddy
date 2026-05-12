@@ -44,6 +44,7 @@ import type {
 } from "./chat-types"
 import type { TeachingPromptContext } from "./teaching-runtime"
 import { stringifyError } from "../lib/api-client"
+import { OPENCODE_PROVIDER_ID } from "../lib/provider-ids"
 
 import { getBuddyClient, requireBuddyData, buddyResultMessage } from "../lib/buddy-client"
 import { retry } from "../lib/retry"
@@ -808,34 +809,60 @@ function normalizeProviderModel(
   }
 }
 
-function normalizeProviderCatalog(
+function isPublicOpencodeModel(model: RawProviderModel) {
+  return model.cost.input === 0
+}
+
+export function normalizeProviderCatalog(
   providers: ProviderListResponse,
   authMethods: ProviderAuthResponse,
 ): ProviderCatalogState {
   const connected = new Set(providers.connected)
+  const normalizedDefault = { ...providers.default }
 
   return {
-    default: providers.default,
+    default: normalizedDefault,
     providers: providers.all
       .map((provider) => {
         const isConnected = connected.has(provider.id)
+        const rawModels = Object.values(provider.models).filter(
+          (model) => model.status !== "deprecated",
+        )
+        const visibleModels =
+          provider.id === OPENCODE_PROVIDER_ID && !isConnected
+            ? rawModels.filter(isPublicOpencodeModel)
+            : rawModels
+        const treatAsConnected =
+          isConnected || (provider.id === OPENCODE_PROVIDER_ID && visibleModels.length > 0)
         const source = normalizeProviderSource(
           "source" in provider ? provider.source : undefined,
-          isConnected,
+          treatAsConnected,
         )
+
+        if (
+          provider.id === OPENCODE_PROVIDER_ID &&
+          visibleModels.length > 0 &&
+          !visibleModels.some((model) => model.id === normalizedDefault[provider.id])
+        ) {
+          const defaultModel = visibleModels
+            .slice()
+            .toSorted((left, right) => left.name.localeCompare(right.name))[0]
+          if (defaultModel) {
+            normalizedDefault[provider.id] = defaultModel.id
+          }
+        }
 
         return {
           id: provider.id,
           name: provider.name,
           source,
           env: provider.env,
-          connected: isConnected,
+          connected: treatAsConnected,
           methods: (authMethods[provider.id] ?? []).map((method: ProviderAuthMethod) => ({
             type: method.type,
             label: method.label,
           })),
-          models: Object.values(provider.models)
-            .filter((model) => model.status !== "deprecated")
+          models: visibleModels
             .map((model) => normalizeProviderModel(provider.id, model))
             .toSorted((a, b) => a.name.localeCompare(b.name)),
         }
