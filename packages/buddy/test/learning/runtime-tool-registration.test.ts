@@ -1,13 +1,19 @@
 import { afterEach, describe, expect, test } from "bun:test"
+import { Agent as OpenCodeAgent } from "@buddy/opencode-adapter/agent"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { PermissionNext } from "@buddy/opencode-adapter/permission"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
 import { SessionID } from "@buddy/opencode-adapter/id"
+import { syncOpenCodeProjectConfig } from "../../src/config/runtime/opencode-sync"
+import { resolveSessionRuntime } from "../../src/learning/access/resolve-session-runtime"
+import { buildBuddyRuntimeSessionPermissions } from "../../src/learning/agent-execution/permissions/session-permissions"
 import { listBuddySubagents } from "../../src/learning/runtime-subagents"
 import { dynamicDebugAttemptTool } from "../../src/learning/features/debug-guidance/tools/debug-attempt"
 import { dynamicReflectionTool } from "../../src/learning/features/teaching-guidance/tools/reflection"
 import { dynamicStepwiseSolveTool } from "../../src/learning/features/stepwise-solving/tools/stepwise-solve"
+import { REGISTERED_BUDDY_PERSONAS } from "../../src/learning/personas/registry"
+import { getBuddyPersona } from "../../src/learning/personas/wiring/persona-profiles"
 import {
   dynamicLearningToolAgentPermission,
   dynamicLearningToolDefaultDenyRules,
@@ -466,4 +472,107 @@ describe("runtime tool registration", () => {
       }).has(DYNAMIC_REFLECTION_TOOL_ID),
     ).toBe(true)
   })
+
+  test("primary session denies subagent-only authoring tools while owning subagents allow them", async () => {
+    await using project = await tmpdir({ git: true })
+
+    await registerRuntimeTools(project.path, {
+      ...disabledToolFlags(),
+      "question-sets": true,
+      flashcards: true,
+    })
+
+    const result = await OpenCodeInstance.provide({
+      directory: project.path,
+      async fn() {
+        const buddyDefinition = REGISTERED_BUDDY_PERSONAS.find(
+          (definition) => definition.id === "buddy",
+        )
+        if (!buddyDefinition) {
+          throw new Error('Missing "buddy" persona definition')
+        }
+
+        const buddyPersona = getBuddyPersona("buddy")
+        const buddySessionRuntime = resolveSessionRuntime({
+          persona: {
+            id: buddyPersona.id,
+            features: buddyDefinition.features,
+            defaultSurface: buddyPersona.defaultSurface,
+          },
+          teachingWorkspaceState: "inactive",
+        })
+        const buddySessionPermission = buildBuddyRuntimeSessionPermissions({
+          sessionRuntime: buddySessionRuntime,
+        })
+
+        const questionSetAuthor = listBuddySubagents().find(
+          (agent) => agent.key === "question-set-author",
+        )
+        const flashcardAuthor = listBuddySubagents().find(
+          (agent) => agent.key === "flashcard-author",
+        )
+
+        if (!questionSetAuthor || !flashcardAuthor) {
+          throw new Error("Missing required Buddy subagents for tool visibility test")
+        }
+
+        return {
+          buddySessionPermission,
+          questionSetAuthorPermission: PermissionNext.fromConfig(
+            questionSetAuthor.agent.permission ?? {},
+          ),
+          flashcardAuthorPermission: PermissionNext.fromConfig(
+            flashcardAuthor.agent.permission ?? {},
+          ),
+        }
+      },
+    })
+
+    expect(result.buddySessionPermission).toContainEqual({
+      permission: "save_question_set",
+      pattern: "*",
+      action: "deny",
+    })
+    expect(result.buddySessionPermission).toContainEqual({
+      permission: "save_flashcard_deck",
+      pattern: "*",
+      action: "deny",
+    })
+    expect(
+      PermissionNext.evaluate("save_question_set", "*", result.questionSetAuthorPermission).action,
+    ).toBe("allow")
+    expect(
+      PermissionNext.evaluate("save_flashcard_deck", "*", result.flashcardAuthorPermission).action,
+    ).toBe("allow")
+  })
+
+  test("syncOpenCodeProjectConfig registers authoring tools for direct subagent sessions", async () => {
+    await using project = await tmpdir({ git: true })
+
+    await syncOpenCodeProjectConfig(project.path)
+
+    const result = await OpenCodeInstance.provide({
+      directory: project.path,
+      async fn() {
+        const questionSetAuthor = await OpenCodeAgent.get("question-set-author")
+        const flashcardAuthor = await OpenCodeAgent.get("flashcard-author")
+
+        if (!questionSetAuthor || !flashcardAuthor) {
+          throw new Error("Missing required Buddy subagents for direct session registration test")
+        }
+
+        const questionSetTools = await ToolRegistry.tools(TEST_TOOL_MODEL, questionSetAuthor)
+        const flashcardTools = await ToolRegistry.tools(TEST_TOOL_MODEL, flashcardAuthor)
+
+        return {
+          questionSetToolIDs: questionSetTools.map((tool) => tool.id),
+          flashcardToolIDs: flashcardTools.map((tool) => tool.id),
+        }
+      },
+    })
+
+    expect(result.questionSetToolIDs).toContain("save_question_set")
+    expect(result.flashcardToolIDs).toContain("save_flashcard_deck")
+    expect(result.flashcardToolIDs).toContain("ingest_full_text")
+  }, 10_000)
 })
