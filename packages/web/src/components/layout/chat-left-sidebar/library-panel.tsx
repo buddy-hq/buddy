@@ -52,6 +52,10 @@ import {
   QuestionSetInlineView,
   type PublicQuestionSetArtifact,
 } from "@/components/chat/tools/render/question-set/question-set-inline-view"
+import {
+  QuestionMarkdown,
+  buildQuestionMarkdownCacheKey,
+} from "@/components/chat/tools/render/question-set/question-markdown"
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 import {
   ResourceCardGrid,
@@ -1281,9 +1285,17 @@ function LibraryQuestionSetCard(props: {
       >
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-text-base">
-              {props.artifactStub.title}
-            </p>
+            <QuestionMarkdown
+              text={props.artifactStub.title}
+              cacheKey={buildQuestionMarkdownCacheKey(
+                "library-question-set-shelf",
+                props.directory,
+                props.artifactStub.artifactID,
+                "title",
+              )}
+              variant="compact"
+              className="text-sm font-medium text-text-base [&_p]:truncate [&_p]:overflow-hidden [&_p]:whitespace-nowrap"
+            />
             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-text-weak">
               <span>
                 {language.t(

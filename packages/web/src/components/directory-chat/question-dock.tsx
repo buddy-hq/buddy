@@ -1,6 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
+import { motion } from "motion/react"
+import { Tabs, TabsList, TabsTrigger, cn } from "@buddy/ui"
 import { language } from "@/context/language"
 import type { QuestionRequest } from "@/state/chat-types"
+import {
+  QuestionMarkdown,
+  buildQuestionMarkdownCacheKey,
+  enumerateQuestionMarkdownText,
+} from "@/components/chat/tools/render/question-set/question-markdown"
 
 type QuestionDockProps = {
   request: QuestionRequest
@@ -10,6 +17,10 @@ type QuestionDockProps = {
 }
 
 const MAX_DIGIT = 9
+
+// Horizontal slide + fade for tab switching (panels slide in the direction of navigation)
+const TAB_SLIDE_PX = 16
+const TAB_PANEL_TRANSITION = { duration: 0.2, ease: [0.25, 0.1, 0.25, 1] as const }
 
 function isCustomEnabled(v: boolean | undefined) {
   return v !== false
@@ -52,20 +63,11 @@ export function QuestionDock(props: QuestionDockProps) {
   const total = options.length + (hasCustom ? 1 : 0)
   const isOther = hasCustom && selected === options.length
   const isMulti = question?.multiple === true
-  const input = customText[tab] ?? ""
-  const customPicked = useMemo(() => {
-    if (!input) return false
-    return answers[tab]?.includes(input) ?? false
-  }, [answers, tab, input])
-  const canSubmit = useMemo(
-    () => questions.every((_, index) => (answers[index]?.length ?? 0) > 0),
-    [answers, questions],
-  )
 
   // --- actions ---
 
   function doSubmit() {
-    if (responding || !canSubmit) return
+    if (responding) return
     setResponding(true)
     const result = questions.map((_, i) => answers[i] ?? [])
     void props.onReply(result).finally(() => setResponding(false))
@@ -309,176 +311,306 @@ export function QuestionDock(props: QuestionDockProps) {
     <div
       ref={containerRef}
       tabIndex={-1}
-      className="flex flex-col overflow-hidden rounded-lg border border-border-base border-l-2 border-l-border-interactive-base bg-surface-raised-base focus:outline-none"
+      className="flex flex-col overflow-hidden rounded-lg border border-border-weak-base border-l-2 border-l-border-interactive-base bg-surface-base focus:outline-none"
       role="region"
       aria-label={language.t("chat.questionDock.responseRequired")}
     >
       {/* Tab bar (multi-question only) */}
       {!isSingle && (
-        <div className="flex gap-1 px-3 pt-2.5 pb-1">
-          {questions.map((q, i) => {
-            const isActive = i === tab
-            const isAnswered = (answers[i]?.length ?? 0) > 0
-            return (
-              <button
-                key={`tab-${requestID}-${q.header}`}
-                type="button"
-                onClick={() => doSelectTab(i)}
-                className={`rounded px-2 py-0.5 text-xs font-medium transition-colors ${
-                  isActive
-                    ? "bg-surface-interactive-base text-text-on-interactive-base"
-                    : isAnswered
-                      ? "text-text-base hover:bg-surface-raised-base-hover"
-                      : "text-text-weak hover:bg-surface-raised-base-hover"
-                }`}
-              >
-                {q.header}
-              </button>
-            )
-          })}
-          <button
-            type="button"
-            onClick={() => doSelectTab(questions.length)}
-            className={`rounded px-2 py-0.5 text-xs font-medium transition-colors ${
-              isConfirm
-                ? "bg-surface-interactive-base text-text-on-interactive-base"
-                : "text-text-weak hover:bg-surface-raised-base-hover"
-            }`}
+        <Tabs
+          value={String(tab)}
+          onValueChange={(v: string) => doSelectTab(Number(v))}
+          activationMode="manual"
+          className="flex flex-col"
+        >
+          <TabsList
+            variant="line"
+            className="flex h-auto w-full justify-start gap-1 rounded-none px-4 pt-3 pb-2"
           >
-            {language.t("chat.questionDock.confirm")}
-          </button>
-        </div>
-      )}
-
-      {/* Question body */}
-      {!isConfirm && question && (
-        <div className="flex flex-col gap-2 px-3 py-2">
-          <p className="text-sm text-text-base">
-            {question.question}
-            {isMulti ? language.t("chat.questionDock.selectAllSuffix") : ""}
-          </p>
-
-          <div className="flex flex-col">
-            {options.map((opt, i) => {
-              const isActive = i === selected
-              const isPicked = answers[tab]?.includes(opt.label) ?? false
+            {questions.map((q, i) => {
+              const isAnswered = (answers[i]?.length ?? 0) > 0
               return (
-                <div
-                  key={`opt-${requestID}-${tab}-${opt.label}`}
-                  onMouseEnter={() => setSelected(i)}
-                  onClick={() => doSelectAt(i)}
-                  className={`cursor-pointer rounded px-1 py-0.5 ${isActive ? "bg-surface-raised-base-hover" : ""}`}
-                >
-                  <div className="flex items-baseline gap-1.5">
-                    <span
-                      className={`text-xs tabular-nums ${isActive ? "text-text-interactive-base" : "text-text-weaker"}`}
-                    >
-                      {i + 1}.
-                    </span>
-                    <span
-                      className={`text-sm ${
-                        isActive
-                          ? "text-text-interactive-base"
-                          : isPicked
-                            ? "text-icon-success-base"
-                            : "text-text-base"
-                      }`}
-                    >
-                      {isMulti ? `[${isPicked ? "\u2713" : "\u00A0"}] ${opt.label}` : opt.label}
-                    </span>
-                    {!isMulti && isPicked && (
-                      <span className="text-xs text-icon-success-base">{"\u2713"}</span>
-                    )}
-                  </div>
-                  {opt.description && (
-                    <div className="pl-5 text-xs text-text-weak">{opt.description}</div>
+                <TabsTrigger
+                  key={`tab-${requestID}-${q.header}`}
+                  value={String(i)}
+                  className={cn(
+                    "h-auto flex-none rounded px-3 py-1 text-xs font-medium transition-colors focus-visible:outline-none",
+                    "data-[state=active]:bg-surface-interactive-base data-[state=active]:text-text-on-interactive-base",
+                    "data-[state=inactive]:hover:bg-surface-base-hover",
+                    isAnswered
+                      ? "data-[state=inactive]:text-text-base"
+                      : "data-[state=inactive]:text-text-weak",
                   )}
-                </div>
+                >
+                  {q.header}
+                </TabsTrigger>
               )
             })}
+            <TabsTrigger
+              value={String(questions.length)}
+              className={cn(
+                "h-auto flex-none rounded px-3 py-1 text-xs font-medium transition-colors focus-visible:outline-none",
+                "data-[state=active]:bg-surface-interactive-base data-[state=active]:text-text-on-interactive-base",
+                "data-[state=inactive]:text-text-weak data-[state=inactive]:hover:bg-surface-base-hover",
+              )}
+            >
+              {language.t("chat.questionDock.review")}
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      )}
 
-            {/* "Type your own answer" option */}
-            {hasCustom && (
-              <div
-                onMouseEnter={() => setSelected(options.length)}
-                onClick={() => doSelectAt(options.length)}
-                className={`cursor-pointer rounded px-1 py-0.5 ${isOther ? "bg-surface-raised-base-hover" : ""}`}
-              >
-                <div className="flex items-baseline gap-1.5">
-                  <span
-                    className={`text-xs tabular-nums ${isOther ? "text-text-interactive-base" : "text-text-weaker"}`}
-                  >
-                    {options.length + 1}.
-                  </span>
-                  <span
-                    className={`text-sm ${
-                      isOther
-                        ? "text-text-interactive-base"
-                        : customPicked
-                          ? "text-icon-success-base"
-                          : "text-text-base"
-                    }`}
-                  >
-                    {isMulti
-                      ? `[${customPicked ? "\u2713" : "\u00A0"}] ${language.t("chat.questionDock.typeOwnAnswer")}`
-                      : language.t("chat.questionDock.typeOwnAnswer")}
-                  </span>
-                  {!isMulti && customPicked && (
-                    <span className="text-xs text-icon-success-base">{"\u2713"}</span>
+      {/* Grid-stack: all panels share the same grid cell (1/1), only the active
+         one is visible. Keeps MarkdownHtmlSegment mounted so its async parse
+         happens once on first render, avoiding the layout flicker that
+         AnimatePresence+popLayout caused with the initially-empty markdown divs. */}
+      <div className="grid overflow-hidden" style={{ gridTemplate: "1fr / 1fr" }}>
+        {/* Question panels */}
+        {questions.map((q, qi) => {
+          const isActivePanel = !isSingle ? tab === qi : true
+          const panelOptions = q.options ?? []
+          const panelHasCustom = isCustomEnabled(q.custom)
+          const panelIsMulti = q.multiple === true
+          const panelInput = customText[qi] ?? ""
+          const panelCacheKey = buildQuestionMarkdownCacheKey(
+            "question-dock",
+            requestID,
+            qi,
+            q.header,
+          )
+          const panelCustomPicked = panelInput
+            ? (answers[qi]?.includes(panelInput) ?? false)
+            : false
+
+          return (
+            <motion.div
+              key={`panel-${requestID}-${q.header}`}
+              animate={
+                isActivePanel
+                  ? { opacity: 1, x: 0 }
+                  : { opacity: 0, x: qi < tab ? -TAB_SLIDE_PX : TAB_SLIDE_PX }
+              }
+              transition={TAB_PANEL_TRANSITION}
+              className={isActivePanel ? undefined : "pointer-events-none"}
+              style={{ gridArea: "1 / 1" }}
+              role={!isSingle ? "tabpanel" : undefined}
+            >
+              <div className="flex flex-col gap-3 px-4 py-3">
+                <QuestionMarkdown
+                  text={q.question}
+                  cacheKey={`${panelCacheKey}:prompt`}
+                  variant="compact"
+                  className="text-text-base"
+                />
+                {panelIsMulti ? (
+                  <p className="text-xs text-text-weak">
+                    {language.t("chat.questionDock.selectAllSuffix")}
+                  </p>
+                ) : null}
+
+                <div className="flex flex-col gap-0.5">
+                  {panelOptions.map((opt, i) => {
+                    const isActive = isActivePanel && i === selected
+                    const isPicked = answers[qi]?.includes(opt.label) ?? false
+                    return (
+                      <div
+                        key={`opt-${requestID}-${qi}-${opt.label}`}
+                        onMouseEnter={() => setSelected(i)}
+                        onClick={() => doSelectAt(i)}
+                        className={cn(
+                          "cursor-pointer rounded px-2 py-1",
+                          isActive ? "bg-surface-base-hover" : "",
+                        )}
+                      >
+                        <div className="flex items-baseline gap-2">
+                          <span
+                            className={cn(
+                              "shrink-0 text-xs tabular-nums",
+                              isActive ? "text-text-interactive-base" : "text-text-weaker",
+                            )}
+                          >
+                            {i + 1}.
+                          </span>
+                          {panelIsMulti ? (
+                            <span
+                              className={cn(
+                                "shrink-0 text-sm",
+                                isActive
+                                  ? "text-text-interactive-base"
+                                  : isPicked
+                                    ? "text-icon-success-base"
+                                    : "text-text-base",
+                              )}
+                            >
+                              [{isPicked ? "\u2713" : "\u00A0"}]
+                            </span>
+                          ) : null}
+                          <div
+                            className={cn(
+                              "min-w-0 text-sm",
+                              isActive
+                                ? "text-text-interactive-base"
+                                : isPicked
+                                  ? "text-icon-success-base"
+                                  : "text-text-base",
+                            )}
+                          >
+                            <QuestionMarkdown
+                              text={opt.label}
+                              cacheKey={`${panelCacheKey}:option:${i}:label`}
+                              variant="compact"
+                            />
+                          </div>
+                          {!panelIsMulti && isPicked && (
+                            <span className="text-xs text-icon-success-base">{"\u2713"}</span>
+                          )}
+                        </div>
+                        {opt.description && (
+                          <div className="pl-5 text-xs text-text-weak">
+                            <QuestionMarkdown
+                              text={opt.description}
+                              cacheKey={`${panelCacheKey}:option:${i}:description`}
+                              variant="compact"
+                              className="text-xs text-text-weak"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+
+                  {/* "Type your own answer" option */}
+                  {panelHasCustom && (
+                    <div
+                      onMouseEnter={() => setSelected(panelOptions.length)}
+                      onClick={() => doSelectAt(panelOptions.length)}
+                      className={cn(
+                        "cursor-pointer rounded px-2 py-1",
+                        isActivePanel && isOther ? "bg-surface-base-hover" : "",
+                      )}
+                    >
+                      <div className="flex items-baseline gap-2">
+                        <span
+                          className={cn(
+                            "shrink-0 text-xs tabular-nums",
+                            isActivePanel && isOther
+                              ? "text-text-interactive-base"
+                              : "text-text-weaker",
+                          )}
+                        >
+                          {panelOptions.length + 1}.
+                        </span>
+                        <span
+                          className={cn(
+                            "text-sm",
+                            isActivePanel && isOther
+                              ? "text-text-interactive-base"
+                              : panelCustomPicked
+                                ? "text-icon-success-base"
+                                : "text-text-base",
+                          )}
+                        >
+                          {panelIsMulti
+                            ? `[${panelCustomPicked ? "\u2713" : "\u00A0"}] ${language.t("chat.questionDock.typeOwnAnswer")}`
+                            : language.t("chat.questionDock.typeOwnAnswer")}
+                        </span>
+                        {!panelIsMulti && panelCustomPicked && (
+                          <span className="text-xs text-icon-success-base">{"\u2713"}</span>
+                        )}
+                      </div>
+
+                      {/* Inline textarea when editing */}
+                      {isActivePanel && editing && (
+                        <div className="pl-5 pt-1">
+                          <textarea
+                            ref={(el) => {
+                              textareaRef.current = el
+                              if (el) {
+                                el.focus()
+                                el.selectionStart = el.selectionEnd = el.value.length
+                              }
+                            }}
+                            defaultValue={panelInput}
+                            placeholder={language.t("chat.questionDock.customPlaceholder")}
+                            rows={1}
+                            className="w-full resize-none bg-transparent p-0 text-sm text-text-base placeholder:text-text-weak focus:outline-none"
+                          />
+                        </div>
+                      )}
+
+                      {/* Show committed custom text when not editing */}
+                      {!(isActivePanel && editing) && panelInput ? (
+                        <div className="pl-5 text-xs text-text-weak">
+                          <QuestionMarkdown
+                            text={panelInput}
+                            cacheKey={`${panelCacheKey}:custom`}
+                            variant="compact"
+                            className="text-xs text-text-weak"
+                          />
+                        </div>
+                      ) : null}
+                    </div>
                   )}
                 </div>
+              </div>
+            </motion.div>
+          )
+        })}
 
-                {/* Inline textarea when editing */}
-                {editing && (
-                  <div className="pl-5 pt-1">
-                    <textarea
-                      ref={(el) => {
-                        textareaRef.current = el
-                        if (el) {
-                          el.focus()
-                          el.selectionStart = el.selectionEnd = el.value.length
-                        }
-                      }}
-                      defaultValue={input}
-                      placeholder={language.t("chat.questionDock.customPlaceholder")}
-                      rows={1}
-                      className="w-full resize-none bg-transparent p-0 text-sm text-text-base placeholder:text-text-weak focus:outline-none"
-                    />
+        {/* Review panel (multi-question only) */}
+        {!isSingle && (
+          <motion.div
+            animate={isConfirm ? { opacity: 1, x: 0 } : { opacity: 0, x: -TAB_SLIDE_PX }}
+            transition={TAB_PANEL_TRANSITION}
+            className={isConfirm ? undefined : "pointer-events-none"}
+            style={{ gridArea: "1 / 1" }}
+            role="tabpanel"
+          >
+            <div className="flex flex-col gap-2 px-4 py-3">
+              <p className="text-sm font-medium text-text-base">
+                {language.t("chat.questionDock.review")}
+              </p>
+              {questions.map((q, i) => {
+                const value = answers[i] ?? []
+                const answerEntries = enumerateQuestionMarkdownText(value)
+                const isAnswered = value.length > 0
+                const reviewCacheKey = buildQuestionMarkdownCacheKey(
+                  "question-dock-review",
+                  requestID,
+                  i,
+                  q.header,
+                )
+                return (
+                  <div key={`review-${requestID}-${q.header}`} className="pl-1 text-sm">
+                    <span className="text-text-weak">{q.header}: </span>
+                    {isAnswered ? (
+                      <div className="mt-0.5 flex flex-col gap-1">
+                        {answerEntries.map((answerEntry) => (
+                          <QuestionMarkdown
+                            key={`${reviewCacheKey}:answer:${answerEntry.text}:${answerEntry.occurrence}`}
+                            text={answerEntry.text}
+                            cacheKey={`${reviewCacheKey}:answer:${answerEntry.text}:${answerEntry.occurrence}`}
+                            variant="compact"
+                            className="text-text-base"
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-icon-critical-base">
+                        {language.t("chat.questionDock.notAnswered")}
+                      </span>
+                    )}
                   </div>
-                )}
-
-                {/* Show committed custom text when not editing */}
-                {!editing && input && <div className="pl-5 text-xs text-text-weak">{input}</div>}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Confirm / review tab */}
-      {isConfirm && (
-        <div className="flex flex-col gap-1.5 px-3 py-2">
-          <p className="text-sm font-medium text-text-base">
-            {language.t("chat.questionDock.review")}
-          </p>
-          {questions.map((q, i) => {
-            const value = answers[i]?.join(", ") ?? ""
-            const isAnswered = Boolean(value)
-            return (
-              <div key={`review-${requestID}-${q.header}`} className="pl-1 text-sm">
-                <span className="text-text-weak">{q.header}: </span>
-                <span className={isAnswered ? "text-text-base" : "text-icon-critical-base"}>
-                  {isAnswered ? value : language.t("chat.questionDock.notAnswered")}
-                </span>
-              </div>
-            )
-          })}
-        </div>
-      )}
+                )
+              })}
+            </div>
+          </motion.div>
+        )}
+      </div>
 
       {/* Pending count */}
       {(props.pendingCount ?? 0) > 0 && (
-        <div className="px-3 pb-1 text-xs text-text-weak">
+        <div className="px-4 pb-2 text-xs text-text-weak">
           {language.t(
             (props.pendingCount ?? 0) === 1
               ? "chat.questionDock.pendingQuestions.one"
@@ -489,7 +621,7 @@ export function QuestionDock(props: QuestionDockProps) {
       )}
 
       {/* Keyboard shortcuts footer */}
-      <div className="flex gap-3 border-t border-border-base px-3 py-1.5 text-xs">
+      <div className="flex items-center gap-3 border-t border-border-weak-base px-4 py-2 text-xs">
         {!isSingle && (
           <span>
             <span className="text-text-base">{"\u21C6"}</span>{" "}
@@ -510,6 +642,23 @@ export function QuestionDock(props: QuestionDockProps) {
           <span className="text-text-base">esc</span>{" "}
           <span className="text-text-weak">dismiss</span>
         </span>
+        {isConfirm && (
+          <button
+            type="button"
+            onClick={doSubmit}
+            disabled={responding}
+            className={cn(
+              "ml-auto rounded px-3 py-1 text-xs font-medium transition-opacity",
+              "bg-surface-interactive-base text-text-on-interactive-base",
+              "hover:opacity-90 active:scale-[0.98]",
+              "disabled:cursor-not-allowed disabled:opacity-40",
+            )}
+          >
+            {responding
+              ? language.t("chat.questionDock.submitting")
+              : language.t("chat.questionDock.submit")}
+          </button>
+        )}
       </div>
     </div>
   )

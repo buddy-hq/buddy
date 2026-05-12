@@ -1,10 +1,18 @@
-import { motion } from "motion/react"
-import { MOTION_SOFT } from "../../tools/tool-motion"
-import { language } from "@/context/language"
+import { AnimatePresence, motion } from "motion/react"
+import { ClipboardPenLine } from "lucide-react"
 import { isRecord } from "../../tools/types"
+import { language } from "@/context/language"
+import { ToolRow, ToolRowAction, ToolRowIcon, ToolRowSubject } from "../tool-row"
 import { TextShimmer } from "../../tools/text-shimmer"
+import { TASK_CARD_TRANSITION } from "./task-motion"
 import type { ToolPartProps } from "../registry"
-interface ToolQuestion {
+import {
+  QuestionMarkdown,
+  buildQuestionMarkdownCacheKey,
+  enumerateQuestionMarkdownText,
+} from "./question-set/question-markdown"
+
+type ToolQuestion = {
   question: string
 }
 
@@ -29,10 +37,12 @@ function readQuestionAnswers(metadata: Record<string, unknown>): string[][] {
   })
 }
 
-export function renderQuestionTool({ state, info }: ToolPartProps) {
+export function renderQuestionTool({ state, info, icon }: ToolPartProps) {
   const questions = readQuestions(state.input)
   const questionAnswers = readQuestionAnswers(state.metadata)
   const hasAnswers = questionAnswers.length > 0
+  const isActive = state.status === "pending" || state.status === "running"
+  const isPending = state.status === "pending"
 
   const subtitle =
     questions.length === 0
@@ -47,43 +57,97 @@ export function renderQuestionTool({ state, info }: ToolPartProps) {
           )
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={MOTION_SOFT}
-      className="w-full rounded-xl border border-border-base bg-surface-base p-4"
-    >
-      {hasAnswers ? (
-        <div className="flex w-full flex-col gap-6">
-          {questions.map((question, index) => {
-            const answers = questionAnswers[index] ?? []
-            const questionKey = `${question.question}:${answers.join("|")}`
-            return (
-              <div key={questionKey} className="flex w-full flex-col gap-2">
-                <div className="text-[15px] font-medium leading-relaxed text-text-stronger">
-                  {question.question}
-                </div>
-                <div className="flex items-start gap-2 rounded-lg bg-surface-weak px-3 py-2 text-[14px] leading-relaxed text-text-base">
-                  <span className="mt-0.5 font-medium text-text-weaker">↳</span>
-                  <div className="flex-1">
-                    {answers.join(", ") || language.t("chatTools.noAnswer")}
+    <AnimatePresence mode="wait" initial={false}>
+      {isPending ? (
+        <motion.div
+          key="pending"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={TASK_CARD_TRANSITION}
+        >
+          <ToolRow>
+            <ToolRowIcon>
+              <ClipboardPenLine className="size-3.5" />
+            </ToolRowIcon>
+            <ToolRowAction>
+              <TextShimmer text={language.t("chatTools.askingQuestions")} active={true} />
+            </ToolRowAction>
+          </ToolRow>
+        </motion.div>
+      ) : !hasAnswers ? (
+        <motion.div
+          key="asking"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={TASK_CARD_TRANSITION}
+        >
+          <ToolRow>
+            <ToolRowIcon>{icon?.("size-3.5")}</ToolRowIcon>
+            <ToolRowAction>
+              <TextShimmer text="asking" active={isActive} />
+            </ToolRowAction>
+            {subtitle ? <ToolRowSubject>{subtitle}</ToolRowSubject> : null}
+          </ToolRow>
+        </motion.div>
+      ) : (
+        <motion.div
+          key="answered"
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0 }}
+          transition={TASK_CARD_TRANSITION}
+          className="w-full overflow-hidden rounded-lg border border-border-weak-base bg-surface-base"
+        >
+          <div className="border-b border-border-weak-base p-2">
+            <ToolRow>
+              <ToolRowIcon>{icon?.("size-3.5")}</ToolRowIcon>
+              <ToolRowAction>asked</ToolRowAction>
+              {subtitle ? <ToolRowSubject>{subtitle}</ToolRowSubject> : null}
+            </ToolRow>
+          </div>
+          <div className="flex flex-col gap-3 p-2">
+            {questions.map((question, index) => {
+              const answers = questionAnswers[index] ?? []
+              const answerEntries = enumerateQuestionMarkdownText(answers)
+              const questionKey = `${question.question}:${answers.join("|")}`
+              const questionCacheKey = buildQuestionMarkdownCacheKey(
+                "question-tool",
+                index,
+                question.question,
+              )
+              return (
+                <div key={questionKey} className="flex flex-col gap-1">
+                  <QuestionMarkdown
+                    text={question.question}
+                    cacheKey={`${questionCacheKey}:prompt`}
+                    variant="compact"
+                    className="text-text-base"
+                  />
+                  <div className="flex flex-col gap-0.5 pl-2">
+                    {answers.length > 0 ? (
+                      answerEntries.map((answerEntry) => (
+                        <QuestionMarkdown
+                          key={`${questionCacheKey}:answer:${answerEntry.text}:${answerEntry.occurrence}`}
+                          text={answerEntry.text}
+                          cacheKey={`${questionCacheKey}:answer:${answerEntry.text}:${answerEntry.occurrence}`}
+                          variant="compact"
+                          className="text-text-weaker"
+                        />
+                      ))
+                    ) : (
+                      <span className="text-xs text-text-weaker">
+                        {language.t("chatTools.noAnswer")}
+                      </span>
+                    )}
                   </div>
                 </div>
-              </div>
-            )
-          })}
-        </div>
-      ) : (
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-text-weak">
-            <TextShimmer
-              text={info.title}
-              active={state.status === "pending" || state.status === "running"}
-            />
-          </span>
-          {subtitle && <span className="text-xs text-text-weaker">{subtitle}</span>}
-        </div>
+              )
+            })}
+          </div>
+        </motion.div>
       )}
-    </motion.div>
+    </AnimatePresence>
   )
 }

@@ -11,6 +11,7 @@ import {
 import { language } from "@/context/language"
 import { CheckIcon, XIcon, ListIcon, PresentationIcon } from "lucide-react"
 import { cn } from "@buddy/ui"
+import { QuestionMarkdown, buildQuestionMarkdownCacheKey } from "./question-markdown"
 
 export type PublicQuestionSetArtifact = {
   artifactID: string
@@ -318,6 +319,11 @@ export function QuestionSetInlineView(props: {
                       (choice) => choice.isNoneOfTheAbove,
                     )?.id
                     const expectedCount = question.payload.numCorrect
+                    const questionCacheKey = buildQuestionMarkdownCacheKey(
+                      "question-set-inline",
+                      props.artifact.artifactID,
+                      question.id,
+                    )
 
                     return (
                       <motion.div
@@ -349,10 +355,14 @@ export function QuestionSetInlineView(props: {
                         )}
                       >
                         <div className="flex items-start justify-between gap-4">
-                          <p className="text-base font-medium text-text-stronger">
-                            <span className="text-text-weak mr-2">{questionIndex + 1}.</span>
-                            {question.prompt}
-                          </p>
+                          <div className="flex min-w-0 items-start gap-2 text-text-stronger">
+                            <span className="mt-0.5 text-text-weak">{questionIndex + 1}.</span>
+                            <QuestionMarkdown
+                              text={question.prompt}
+                              cacheKey={`${questionCacheKey}:prompt`}
+                              className="min-w-0 flex-1 text-text-stronger"
+                            />
+                          </div>
                           {evaluation ? (
                             <div
                               className={cn(
@@ -392,23 +402,35 @@ export function QuestionSetInlineView(props: {
                               choiceEvaluation &&
                               choiceEvaluation.selected &&
                               !choiceEvaluation.correct
+                            const onChoose = () => {
+                              if (submitting) {
+                                return
+                              }
+                              toggleChoice({
+                                questionID: question.id,
+                                choiceID: choice.id,
+                                multipleSelect: question.payload.multipleSelect,
+                                noneOfTheAboveChoiceID,
+                              })
+                            }
 
                             return (
-                              <button
+                              <div
                                 key={choice.id}
-                                type="button"
-                                onClick={() =>
-                                  !submitting &&
-                                  toggleChoice({
-                                    questionID: question.id,
-                                    choiceID: choice.id,
-                                    multipleSelect: question.payload.multipleSelect,
-                                    noneOfTheAboveChoiceID,
-                                  })
-                                }
-                                disabled={submitting}
+                                role="button"
+                                tabIndex={submitting ? -1 : 0}
+                                aria-pressed={selected}
+                                aria-disabled={submitting}
+                                onClick={onChoose}
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter" || event.key === " ") {
+                                    event.preventDefault()
+                                    onChoose()
+                                  }
+                                }}
                                 className={cn(
                                   "flex w-full cursor-pointer flex-col gap-2 rounded-xl border-2 p-4 text-left transition-all duration-200 active:scale-[0.99]",
+                                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-interactive-base",
                                   // Default states
                                   !evaluation &&
                                     !selected &&
@@ -468,9 +490,12 @@ export function QuestionSetInlineView(props: {
                                       <CheckIcon className="size-3" strokeWidth={3} />
                                     ) : null}
                                   </div>
-                                  <span className="text-sm font-medium text-text-stronger">
-                                    {choice.content}
-                                  </span>
+                                  <QuestionMarkdown
+                                    text={choice.content}
+                                    cacheKey={`${questionCacheKey}:choice:${choice.id}:content`}
+                                    variant="compact"
+                                    className="min-w-0 flex-1 text-text-stronger"
+                                  />
                                 </div>
 
                                 {showRationale ? (
@@ -482,20 +507,28 @@ export function QuestionSetInlineView(props: {
                                         : "text-icon-critical-base border border-border-critical-base/30",
                                     )}
                                   >
-                                    {choiceEvaluation?.rationale}
+                                    <QuestionMarkdown
+                                      text={choiceEvaluation?.rationale ?? ""}
+                                      cacheKey={`${questionCacheKey}:choice:${choice.id}:rationale`}
+                                      variant="compact"
+                                    />
                                   </div>
                                 ) : null}
-                              </button>
+                              </div>
                             )
                           })}
                         </div>
 
                         {evaluation && (evaluation.explanation || question.explanation) ? (
                           <div className="mt-4 rounded-lg bg-surface-weak/50 p-4">
-                            <p className="text-sm text-text-base">
-                              <span className="font-semibold mr-1">Explanation:</span>
-                              {evaluation?.explanation ?? question.explanation}
+                            <p className="mb-2 text-sm font-semibold text-text-base">
+                              Explanation:
                             </p>
+                            <QuestionMarkdown
+                              text={evaluation?.explanation ?? question.explanation ?? ""}
+                              cacheKey={`${questionCacheKey}:explanation`}
+                              variant="compact"
+                            />
                           </div>
                         ) : null}
                       </motion.div>
