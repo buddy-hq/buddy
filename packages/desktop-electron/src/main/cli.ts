@@ -16,7 +16,6 @@ const SERVE_COMMAND = "serve"
 const HOSTNAME_OPTION = "--hostname"
 const PORT_OPTION = "--port"
 const WATCH_OPTION = "--watch"
-const ENV_FILE_OPTION = "--env-file"
 const BUN_RUN_COMMAND = "run"
 const BUN_EXECUTABLE = "bun"
 const ADVANCED_MATH_LOCAL_ASSET_DIR_ENV = "BUDDY_ADVANCED_MATH_LOCAL_ASSET_DIR"
@@ -33,6 +32,7 @@ const BUNDLED_MIGRATIONS_DIRECTORY_NAME = "migrations"
 const BUDDY_MIGRATION_DIRECTORY_NAME = "buddy"
 const DEVELOPMENT_BACKEND_PACKAGE_NAME = "buddy"
 const DEVELOPMENT_BACKEND_ENTRYPOINT_PATH_SEGMENTS = ["src", "index.ts"] as const
+const DEVELOPMENT_BACKEND_WRAPPER_PATH_SEGMENTS = ["src", "dev", "start-with-safe-env.ts"] as const
 const DEVELOPMENT_BACKEND_MIGRATION_PATH_SEGMENTS = ["migration"] as const
 const DEFAULT_NOTEBOOK_HOME_SEGMENTS = ["Documents", "Buddy"] as const
 const PATH_ENV_KEYS = ["PATH", "Path"] as const
@@ -44,7 +44,6 @@ const POSIX_SIDECAR_PATH_ENTRIES = [
   "/usr/sbin",
   "/sbin",
 ] as const
-
 export type SqliteMigrationProgress = { type: "InProgress"; value: number } | { type: "Done" }
 
 export type TerminatedPayload = {
@@ -124,11 +123,6 @@ function resolveDevelopmentBackendRoot() {
   }
 
   return undefined
-}
-
-function resolveDevelopmentEnvFilePath(backendRoot: string) {
-  const envFilePath = path.resolve(backendRoot, "..", "..", ".env")
-  return existsSync(envFilePath) ? `${ENV_FILE_OPTION}=${envFilePath}` : undefined
 }
 
 function getBuddyMigrationDir() {
@@ -265,7 +259,7 @@ function killStaleDevelopmentSidecars(runtimeRoot: string) {
   const sidecarPath = getSidecarPath()
   const backendRoot = resolveDevelopmentBackendRoot()
   const developmentEntrypoint = backendRoot
-    ? path.join(backendRoot, ...DEVELOPMENT_BACKEND_ENTRYPOINT_PATH_SEGMENTS)
+    ? path.join(backendRoot, ...DEVELOPMENT_BACKEND_WRAPPER_PATH_SEGMENTS)
     : undefined
   const currentPid = process.pid
 
@@ -302,20 +296,29 @@ export async function serve(hostname: string, port: number, password: string) {
   const backendRoot = resolveDevelopmentBackendRoot()
   const command = backendRoot ? BUN_EXECUTABLE : getSidecarPath()
   const entrypoint = backendRoot
-    ? path.join(backendRoot, ...DEVELOPMENT_BACKEND_ENTRYPOINT_PATH_SEGMENTS)
+    ? path.join(backendRoot, ...DEVELOPMENT_BACKEND_WRAPPER_PATH_SEGMENTS)
     : getBundledBackendEntrypointPath()
-  const envFileArgument = backendRoot ? resolveDevelopmentEnvFilePath(backendRoot) : undefined
-  const args = [
-    ...(envFileArgument ? [envFileArgument] : []),
-    BUN_RUN_COMMAND,
-    ...(backendRoot ? [WATCH_OPTION] : []),
-    entrypoint,
-    SERVE_COMMAND,
-    HOSTNAME_OPTION,
-    hostname,
-    PORT_OPTION,
-    String(port),
-  ]
+  const args = backendRoot
+    ? [
+        `--env-file=${path.resolve(backendRoot, "..", "..", ".env")}`,
+        BUN_RUN_COMMAND,
+        entrypoint,
+        WATCH_OPTION,
+        SERVE_COMMAND,
+        HOSTNAME_OPTION,
+        hostname,
+        PORT_OPTION,
+        String(port),
+      ]
+    : [
+        BUN_RUN_COMMAND,
+        entrypoint,
+        SERVE_COMMAND,
+        HOSTNAME_OPTION,
+        hostname,
+        PORT_OPTION,
+        String(port),
+      ]
 
   const shell = process.platform === "win32" ? null : getUserShell()
   const env = await buildRuntimeEnvironment(password, port)
