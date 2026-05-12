@@ -3,11 +3,53 @@ import { defineBuddyAgent } from "./register-buddy-agent"
 import { BUDDY_SUBAGENTS } from "./subagent-manifest"
 import type { BuddySubagentDefinition } from "./subagent-manifest"
 import type { RegisteredBuddyAgent } from "./register-buddy-agent"
+import type { BuddyPermissionInput } from "./agent-factories"
+
+type OwnedToolPermissionMap = Record<string, "allow">
+
+function subagentToolPermissions(
+  definition: BuddySubagentDefinition,
+): OwnedToolPermissionMap | undefined {
+  const permissions = Object.fromEntries(
+    (definition.tools ?? []).map((tool) => [tool.id, "allow" as const]),
+  )
+
+  return Object.keys(permissions).length > 0 ? permissions : undefined
+}
+
+function mergeOwnedToolPermissions(
+  permission: BuddyPermissionInput | undefined,
+  ownedToolPermissions: OwnedToolPermissionMap | undefined,
+): BuddyPermissionInput | undefined {
+  if (!ownedToolPermissions) {
+    return permission
+  }
+
+  if (!permission) {
+    return ownedToolPermissions
+  }
+
+  if (typeof permission === "string") {
+    return {
+      "*": permission,
+      ...ownedToolPermissions,
+    }
+  }
+
+  return {
+    ...permission,
+    ...ownedToolPermissions,
+  }
+}
 
 function createRegisteredBuddySubagent(definition: BuddySubagentDefinition): RegisteredBuddyAgent {
   const { key, kind, prompt, description, permission } = definition
 
-  const agentInput = { prompt, description, permission }
+  const agentInput = {
+    prompt,
+    description,
+    permission: mergeOwnedToolPermissions(permission, subagentToolPermissions(definition)),
+  }
 
   return defineBuddyAgent({
     key,

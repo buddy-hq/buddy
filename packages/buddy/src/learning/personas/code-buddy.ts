@@ -43,12 +43,12 @@ export const CODE_BUDDY = defineBuddyPersona({
   runtime: {
     kind: "primary",
     prompt: CODE_BUDDY_OVERLAY,
-    availableSubagents: [
-      "question-set-author",
-      "flashcard-author",
-      "general",
-      "explore",
-      "learner-memory-consolidator",
-    ],
+    subagents: {
+      "question-set-author": true,
+      "flashcard-author": true,
+      general: true,
+      explore: true,
+      "learner-memory-consolidator": true,
+    },
   },
 })

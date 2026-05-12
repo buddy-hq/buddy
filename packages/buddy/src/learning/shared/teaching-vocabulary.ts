@@ -30,10 +30,24 @@ export const SUBAGENT_IDS = [
 ] as const
 export type SubagentId = (typeof SUBAGENT_IDS)[number]
 
+export const NATIVE_DELEGATE_IDS = ["general", "explore"] as const
+export type NativeDelegateId = (typeof NATIVE_DELEGATE_IDS)[number]
+
+export const PERSONA_DELEGATE_IDS = [...SUBAGENT_IDS, ...NATIVE_DELEGATE_IDS] as const
+export type PersonaDelegateId = (typeof PERSONA_DELEGATE_IDS)[number]
+
 export function isPersona(value: string): value is Persona {
   return PERSONAS.includes(value as Persona)
 }
 
 export function isPersonaSurface(value: string): value is PersonaSurface {
   return PERSONA_SURFACES.includes(value as PersonaSurface)
+}
+
+export function isSubagentId(value: string): value is SubagentId {
+  return SUBAGENT_IDS.includes(value as SubagentId)
+}
+
+export function isPersonaDelegateId(value: string): value is PersonaDelegateId {
+  return PERSONA_DELEGATE_IDS.includes(value as PersonaDelegateId)
 }

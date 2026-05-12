@@ -46,11 +46,11 @@ export const BUDDY = defineBuddyPersona({
       todoread: "deny",
       todowrite: "deny",
     },
-    availableSubagents: [
-      "question-set-author",
-      "flashcard-author",
-      "general",
-      "learner-memory-consolidator",
-    ],
+    subagents: {
+      "question-set-author": true,
+      "flashcard-author": true,
+      general: true,
+      "learner-memory-consolidator": true,
+    },
   },
 })

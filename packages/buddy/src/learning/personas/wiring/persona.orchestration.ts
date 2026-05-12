@@ -8,8 +8,8 @@ import {
 } from "./persona-profiles"
 
 function resolvePersonaAvailableSubagents(definition: BuiltinBuddyPersonaDefinition): string[] {
-  if (definition.runtime.availableSubagents) {
-    return [...definition.runtime.availableSubagents]
+  if (definition.runtime.subagents) {
+    return Object.keys(definition.runtime.subagents)
   }
 
   const personaProfile = buildPersonaProfileFromDefinition(definition)

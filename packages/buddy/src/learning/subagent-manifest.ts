@@ -31,6 +31,10 @@ function listBuddySubagentDefinitions(): BuddySubagentDefinition[] {
   return BUDDY_SUBAGENTS.map((subagent) => cloneBuddySubagentDefinition(subagent))
 }
 
-export { BUDDY_SUBAGENTS, listBuddySubagentDefinitions }
+function getBuddySubagentDefinition(key: string): BuddySubagentDefinition | undefined {
+  return BUDDY_SUBAGENTS.find((subagent) => subagent.key === key)
+}
+
+export { BUDDY_SUBAGENTS, getBuddySubagentDefinition, listBuddySubagentDefinitions }
 
 export type { BuddySubagentDefinition }

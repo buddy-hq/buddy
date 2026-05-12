@@ -58,7 +58,9 @@ function derivePersonaSkills(features: readonly DefinedBuddyFeature[]): Record<s
   return skills
 }
 
-function derivePersonaSubagents(features: readonly DefinedBuddyFeature[]): Record<string, "allow"> {
+function deriveFeaturePersonaSubagents(
+  features: readonly DefinedBuddyFeature[],
+): Record<string, "allow"> {
   const subagents: Record<string, "allow"> = {}
   for (const feature of features) {
     for (const subagent of feature.subagents) {
@@ -66,6 +68,21 @@ function derivePersonaSubagents(features: readonly DefinedBuddyFeature[]): Recor
     }
   }
   return subagents
+}
+
+function deriveRuntimePersonaSubagents(input: {
+  runtime?: {
+    subagents?: Partial<Record<string, true | { denyTools?: readonly string[] }>>
+  }
+  features: readonly DefinedBuddyFeature[]
+}): Record<string, "allow"> {
+  if (!input.runtime?.subagents) {
+    return deriveFeaturePersonaSubagents(input.features)
+  }
+
+  return Object.fromEntries(
+    Object.keys(input.runtime.subagents).map((subagentID) => [subagentID, "allow" as const]),
+  )
 }
 
 function cloneBuddyPersonaProfile(profile: BuddyPersonaProfile): BuddyPersonaProfile {
@@ -89,6 +106,9 @@ function buildPersonaProfileFromDefinition(definition: {
   description: string
   defaultSurface: Surface
   hidden: boolean
+  runtime?: {
+    subagents?: Partial<Record<string, true | { denyTools?: readonly string[] }>>
+  }
   context: {
     attachCurriculum: boolean
     attachProgress: boolean
@@ -110,7 +130,7 @@ function buildPersonaProfileFromDefinition(definition: {
       dynamic: derivePersonaDynamicTools(definition.features),
     },
     skills: derivePersonaSkills(definition.features),
-    subagents: derivePersonaSubagents(definition.features),
+    subagents: deriveRuntimePersonaSubagents(definition),
     context: { ...definition.context },
   }
 }

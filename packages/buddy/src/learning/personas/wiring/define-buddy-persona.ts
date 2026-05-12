@@ -1,7 +1,7 @@
 import { definePromptTemplate } from "../../prompt/template/engine"
 import type { BuddyPermissionInput, CoreAgentDefinition } from "../../agent-factories"
 import type { PersonaContextPolicy } from "../../shared/runtime-types"
-import type { Surface } from "../../shared/teaching-vocabulary"
+import type { PersonaDelegateId, Surface } from "../../shared/teaching-vocabulary"
 import type { DefinedBuddyFeature } from "../../runtime/define-buddy-feature"
 import BASE_PERSONA_PROMPT from "../prompts/base.p.md"
 
@@ -17,6 +17,12 @@ type BuddyPersonaDefinitionInput<Id extends string = string> = {
 
 type PersonaRuntimeKind = "primary" | "build"
 
+type PersonaSubagentPolicy = {
+  denyTools?: readonly string[]
+}
+
+type PersonaSubagentConfig = Partial<Record<PersonaDelegateId, true | PersonaSubagentPolicy>>
+
 type PersonaRuntimeDefinition = Omit<
   CoreAgentDefinition,
   "mode" | "availableSubagents" | "prompt" | "description"
@@ -25,7 +31,7 @@ type PersonaRuntimeDefinition = Omit<
   prompt: string
   description?: string
   permission?: BuddyPermissionInput
-  availableSubagents?: string[]
+  subagents?: PersonaSubagentConfig
 }
 
 type BuddyPersonaFullDefinitionInput<Id extends string> = BuddyPersonaDefinitionInput<Id> & {
@@ -33,6 +39,21 @@ type BuddyPersonaFullDefinitionInput<Id extends string> = BuddyPersonaDefinition
 }
 
 type DefinedBuddyPersona<Id extends string = string> = BuddyPersonaFullDefinitionInput<Id>
+
+function cloneSubagentConfig(
+  config: PersonaSubagentConfig | undefined,
+): PersonaSubagentConfig | undefined {
+  if (!config) {
+    return undefined
+  }
+
+  return Object.fromEntries(
+    Object.entries(config).map(([key, value]) => [
+      key,
+      value === true ? true : value.denyTools ? { denyTools: [...value.denyTools] } : {},
+    ]),
+  ) as PersonaSubagentConfig
+}
 
 const PRIMARY_PERSONA_PERMISSION = {
   question: "allow",
@@ -73,6 +94,7 @@ export function defineBuddyPersona<const Id extends string>(
       }),
       ...(runtime.description ? { description: runtime.description } : {}),
       permission: runtime.permission ?? PRIMARY_PERSONA_PERMISSION,
+      ...(runtime.subagents ? { subagents: cloneSubagentConfig(runtime.subagents) } : {}),
     },
   }
 }
@@ -83,5 +105,7 @@ export type {
   BuddyPersonaDefinitionInput,
   BuddyPersonaFullDefinitionInput,
   DefinedBuddyPersona,
+  PersonaSubagentConfig,
+  PersonaSubagentPolicy,
   PersonaRuntimeDefinition,
 }

@@ -43,13 +43,6 @@ function collectFeatureTools(features: readonly DefinedBuddyFeature[]): BuddyToo
       seen.add(tool.id)
       tools.push(tool)
     }
-    for (const subagent of feature.subagents) {
-      for (const tool of subagent.tools ?? []) {
-        if (seen.has(tool.id)) continue
-        seen.add(tool.id)
-        tools.push(tool)
-      }
-    }
   }
 
   return tools

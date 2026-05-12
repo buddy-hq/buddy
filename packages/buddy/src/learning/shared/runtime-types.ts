@@ -1,7 +1,7 @@
 import type {
   Persona,
   PersonaSurface,
-  SubagentId,
+  PersonaDelegateId,
 } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import type { ResolvedSessionRuntime } from "../access/types"
 
@@ -42,7 +42,7 @@ export type PersonaDefinition = {
   hidden: boolean
   tools: PersonaTools
   skills: SkillDelta
-  subagents: SubagentDelta<SubagentId>
+  subagents: SubagentDelta<PersonaDelegateId>
   context: PersonaContextPolicy
 }
 
