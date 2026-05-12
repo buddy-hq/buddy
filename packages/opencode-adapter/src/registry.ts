@@ -38,8 +38,13 @@ type RuntimeTool = Omit<OpenCodeTool.Def, "execute"> & {
     ctx: Parameters<OpenCodeTool.Def["execute"]>[1],
   ) => Promise<OpenCodeTool.ExecuteResult>
 }
+type ToolDefTransformer = <TTool extends OpenCodeTool.Def>(input: {
+  directory: string
+  tool: TTool
+}) => TTool
 const customTools = new Map<string, Map<string, CustomToolInfo>>()
 const customToolUiMetadata = new Map<string, Map<string, ToolUiMetadata>>()
+const toolDefTransformers = new Set<ToolDefTransformer>()
 
 function key(directory: string) {
   const resolved = path.resolve(directory)
@@ -67,6 +72,27 @@ function mergeToolDefs(base: readonly OpenCodeTool.Def[], extra: readonly OpenCo
     merged.set(tool.id, tool)
   }
   return [...merged.values()]
+}
+
+function applyToolDefTransformer<TTool extends OpenCodeTool.Def>(
+  directory: string,
+  tool: TTool,
+): TTool {
+  let next = tool
+  for (const transform of toolDefTransformers) {
+    next = transform({
+      directory,
+      tool: next,
+    })
+  }
+  return next
+}
+
+function applyToolDefTransformers<TTool extends OpenCodeTool.Def>(
+  directory: string,
+  tools: readonly TTool[],
+) {
+  return tools.map((tool) => applyToolDefTransformer(directory, tool))
 }
 
 function toRuntimeTool(tool: OpenCodeTool.Def): RuntimeTool {
@@ -97,6 +123,7 @@ function ensurePatched(service: OpenCodeToolRegistry.Interface) {
 
   const originalIds = service.ids.bind(service)
   const originalAll = service.all.bind(service)
+  const originalNamed = service.named.bind(service)
   const originalTools = service.tools.bind(service)
 
   const ids: OpenCodeToolRegistry.Interface["ids"] = Effect.fn("BuddyToolRegistry.ids")(
@@ -111,7 +138,17 @@ function ensurePatched(service: OpenCodeToolRegistry.Interface) {
     function* () {
       const base = yield* originalAll()
       const extra = yield* Effect.promise(() => customToolDefs(Instance.directory))
-      return mergeToolDefs(base, extra)
+      return applyToolDefTransformers(Instance.directory, mergeToolDefs(base, extra))
+    },
+  )
+
+  const named: OpenCodeToolRegistry.Interface["named"] = Effect.fn("BuddyToolRegistry.named")(
+    function* () {
+      const base = yield* originalNamed()
+      return {
+        task: applyToolDefTransformer(Instance.directory, base.task),
+        read: applyToolDefTransformer(Instance.directory, base.read),
+      }
     },
   )
 
@@ -119,13 +156,14 @@ function ensurePatched(service: OpenCodeToolRegistry.Interface) {
     function* (model) {
       const base = yield* originalTools(model)
       const extra = yield* Effect.promise(() => customToolDefs(Instance.directory))
-      return mergeToolDefs(base, extra)
+      return applyToolDefTransformers(Instance.directory, mergeToolDefs(base, extra))
     },
   )
 
   Object.defineProperties(service, {
     ids: { value: ids },
     all: { value: all },
+    named: { value: named },
     tools: { value: tools },
   })
 }
@@ -149,6 +187,13 @@ async function resolveToolAgent(agent?: ToolAgentInput): Promise<ToolAgentInfo> 
 }
 
 export namespace ToolRegistry {
+  export function registerToolDefTransformer(transform: ToolDefTransformer) {
+    toolDefTransformers.add(transform)
+    return () => {
+      toolDefTransformers.delete(transform)
+    }
+  }
+
   export async function register(input: RegisteredCustomTool | CustomToolInfo) {
     const directory = key(Instance.directory)
     const tools = customTools.get(directory) ?? new Map<string, CustomToolInfo>()
