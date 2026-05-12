@@ -12,6 +12,7 @@ import { useChatStore } from "@/state/chat-store"
 import { ThemeProvider } from "@/theme"
 import type { ThemeAppliedDetails } from "@/theme"
 import { routeTree } from "./routeTree.gen"
+import "@/state/appearance-preferences"
 
 const DEFAULT_QUERY_STALE_TIME_MS = 15_000
 const DEFAULT_QUERY_GC_TIME_MS = 30 * 60 * 1000

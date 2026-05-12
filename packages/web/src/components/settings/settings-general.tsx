@@ -2,6 +2,7 @@ import { useMemo, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   Button,
+  Input,
   Select,
   SelectContent,
   SelectItem,
@@ -18,11 +19,75 @@ import { saveNotebookHome } from "@/state/chat-actions"
 import { notebookHomeQueryOptions, setNotebookHomeQueryData } from "@/state/bootstrap-query"
 import { showDesktopUpdateToast } from "@/lib/desktop-updates"
 import { useTheme, type ColorScheme } from "@/theme"
+import {
+  CODE_FONT_PLACEHOLDER,
+  MAX_APPEARANCE_FONT_SIZE,
+  MIN_APPEARANCE_FONT_SIZE,
+  UI_FONT_PLACEHOLDER,
+  codeFontFamily,
+  normalizeAppearanceFontSize,
+  uiFontFamily,
+  useAppearancePreferences,
+} from "@/state/appearance-preferences"
 import { SettingsContent, SettingsListCard, SettingsRow } from "./settings-primitives"
 import type { SettingsWorkbench } from "./settings-workbench"
 
 function isColorScheme(value: string): value is ColorScheme {
   return value === "system" || value === "light" || value === "dark"
+}
+
+function FontTextInput(props: {
+  value: string
+  placeholder: string
+  ariaLabel: string
+  dataAction: string
+  fontFamily: string
+  onChange: (value: string) => void
+}) {
+  return (
+    <Input
+      data-action={props.dataAction}
+      value={props.value}
+      placeholder={props.placeholder}
+      aria-label={props.ariaLabel}
+      spellCheck={false}
+      autoCorrect="off"
+      autoComplete="off"
+      autoCapitalize="off"
+      className="h-8 text-xs"
+      style={{ fontFamily: props.fontFamily }}
+      onChange={(event) => props.onChange(event.currentTarget.value)}
+    />
+  )
+}
+
+function FontSizeInput(props: {
+  value: number
+  ariaLabel: string
+  dataAction: string
+  onChange: (value: number) => void
+}) {
+  return (
+    <div className="flex items-center justify-end gap-2">
+      <Input
+        data-action={props.dataAction}
+        type="number"
+        min={MIN_APPEARANCE_FONT_SIZE}
+        max={MAX_APPEARANCE_FONT_SIZE}
+        step={1}
+        value={props.value}
+        aria-label={props.ariaLabel}
+        className="h-8 w-20 text-right text-xs tabular-nums"
+        onChange={(event) => {
+          const value = Number(event.currentTarget.value)
+          if (Number.isFinite(value)) {
+            props.onChange(normalizeAppearanceFontSize(value, props.value))
+          }
+        }}
+      />
+      <span className="w-5 text-xs text-text-weak">px</span>
+    </div>
+  )
 }
 
 export function GeneralSettings({ workbench }: { workbench: SettingsWorkbench }) {
@@ -34,6 +99,14 @@ export function GeneralSettings({ workbench }: { workbench: SettingsWorkbench })
   const [checkingForUpdates, setCheckingForUpdates] = useState(false)
   const [changingBuddyHome, setChangingBuddyHome] = useState(false)
   const { themeId, colorScheme, themes, setTheme, setColorScheme } = useTheme()
+  const uiFont = useAppearancePreferences((state) => state.uiFont)
+  const codeFont = useAppearancePreferences((state) => state.codeFont)
+  const uiFontSize = useAppearancePreferences((state) => state.uiFontSize)
+  const codeFontSize = useAppearancePreferences((state) => state.codeFontSize)
+  const setUiFont = useAppearancePreferences((state) => state.setUiFont)
+  const setCodeFont = useAppearancePreferences((state) => state.setCodeFont)
+  const setUiFontSize = useAppearancePreferences((state) => state.setUiFontSize)
+  const setCodeFontSize = useAppearancePreferences((state) => state.setCodeFontSize)
   const notebookHomeQuery = useQuery(notebookHomeQueryOptions())
   const notebookHome = notebookHomeQuery.data
 
@@ -145,6 +218,76 @@ export function GeneralSettings({ workbench }: { workbench: SettingsWorkbench })
           }
         />
         <SettingsRow
+          title={language.t("settings.appearance.themeTitle")}
+          description={language.t("settings.appearance.themeDescription")}
+          control={
+            <Select value={themeId} onValueChange={setTheme}>
+              <SelectTrigger data-action="settings-theme" className="w-full">
+                <SelectValue placeholder={language.t("settings.appearance.themePlaceholder")} />
+              </SelectTrigger>
+              <SelectContent>
+                {themeOptions.map((option) => (
+                  <SelectItem key={option.id} value={option.id}>
+                    {option.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          }
+        />
+        <SettingsRow
+          title={language.t("settings.general.uiFontTitle")}
+          description={language.t("settings.general.uiFontDescription")}
+          control={
+            <FontTextInput
+              dataAction="settings-ui-font"
+              value={uiFont}
+              placeholder={UI_FONT_PLACEHOLDER}
+              ariaLabel={language.t("settings.general.uiFontAria")}
+              fontFamily={uiFontFamily(uiFont)}
+              onChange={setUiFont}
+            />
+          }
+        />
+        <SettingsRow
+          title={language.t("settings.general.codeFontTitle")}
+          description={language.t("settings.general.codeFontDescription")}
+          control={
+            <FontTextInput
+              dataAction="settings-code-font"
+              value={codeFont}
+              placeholder={CODE_FONT_PLACEHOLDER}
+              ariaLabel={language.t("settings.general.codeFontAria")}
+              fontFamily={codeFontFamily(codeFont)}
+              onChange={setCodeFont}
+            />
+          }
+        />
+        <SettingsRow
+          title={language.t("settings.general.uiFontSizeTitle")}
+          description={language.t("settings.general.uiFontSizeDescription")}
+          control={
+            <FontSizeInput
+              dataAction="settings-ui-font-size"
+              value={uiFontSize}
+              ariaLabel={language.t("settings.general.uiFontSizeAria")}
+              onChange={setUiFontSize}
+            />
+          }
+        />
+        <SettingsRow
+          title={language.t("settings.general.codeFontSizeTitle")}
+          description={language.t("settings.general.codeFontSizeDescription")}
+          control={
+            <FontSizeInput
+              dataAction="settings-code-font-size"
+              value={codeFontSize}
+              ariaLabel={language.t("settings.general.codeFontSizeAria")}
+              onChange={setCodeFontSize}
+            />
+          }
+        />
+        <SettingsRow
           title={language.t("settings.general.fullTextTitle")}
           description="Allow Buddy to read an entire prepared resource into context when there is enough live context budget. Turn this off to avoid expensive full-book reads."
           control={
@@ -187,6 +330,7 @@ export function GeneralSettings({ workbench }: { workbench: SettingsWorkbench })
         <SettingsRow
           title={language.t("settings.general.buddyHomeTitle")}
           description={language.t("settings.general.buddyHomeDescription")}
+          last={!showDesktopUpdateControls}
           control={
             <div className="space-y-2">
               <Button
@@ -208,25 +352,6 @@ export function GeneralSettings({ workbench }: { workbench: SettingsWorkbench })
                 </p>
               ) : null}
             </div>
-          }
-        />
-        <SettingsRow
-          title={language.t("settings.appearance.themeTitle")}
-          description={language.t("settings.appearance.themeDescription")}
-          last={!showDesktopUpdateControls}
-          control={
-            <Select value={themeId} onValueChange={setTheme}>
-              <SelectTrigger data-action="settings-theme" className="w-full">
-                <SelectValue placeholder={language.t("settings.appearance.themePlaceholder")} />
-              </SelectTrigger>
-              <SelectContent>
-                {themeOptions.map((option) => (
-                  <SelectItem key={option.id} value={option.id}>
-                    {option.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           }
         />
         {showDesktopUpdateControls ? (
