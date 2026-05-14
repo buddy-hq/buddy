@@ -18,6 +18,9 @@ export const modelSection = defineRuntimeSection({
       input_window_line:
         model.inputWindow !== undefined ? `Input window: ${model.inputWindow}\n` : "",
       output_window: `${model.outputWindow}`,
+      vision: model.image
+        ? "\nvision: yes [this model supports vision; you can use read tool to view images]"
+        : "",
     })
   },
 })

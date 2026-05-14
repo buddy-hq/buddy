@@ -116,6 +116,7 @@ export async function runMessagePromptPipeline(input: {
   delete transformed.content
   delete transformed.persona
   delete transformed.focusGoalIds
+  delete transformed.modelRuntime
   delete transformed.teaching
 
   return {

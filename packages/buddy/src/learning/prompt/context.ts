@@ -98,6 +98,7 @@ export type PromptModel = {
   contextWindow: number
   inputWindow?: number
   outputWindow: number
+  image?: boolean
 }
 
 export type PromptPersonalization = {
@@ -105,6 +106,8 @@ export type PromptPersonalization = {
   occupation?: string
   moreAboutYou?: string
 }
+
+type PromptModelRuntimeSnapshot = PromptModel
 
 export type PromptContext = {
   directory: string
@@ -217,16 +220,19 @@ async function resolvePromptModel(input: {
   body: Record<string, unknown>
   projectConfig: MessagePromptProjectConfig
 }) {
+  const runtimeSnapshot = readPromptModelRuntimeSnapshot(input.body.modelRuntime)
   const explicitModel = hasExplicitModel(input.body.model) ? input.body.model : undefined
   const configuredModel = parseConfiguredModel(input.projectConfig.model)
   const modelRef = explicitModel ?? configuredModel
-  if (!modelRef) return undefined
+  if (!modelRef) return runtimeSnapshot
 
   const resolvedModel = await Provider.getModel(
     ProviderID.make(modelRef.providerID),
     ModelID.make(modelRef.modelID),
   ).catch(() => undefined)
-  if (!resolvedModel) return undefined
+  if (!resolvedModel) return runtimeSnapshot
+
+  const image = resolvedModel.capabilities?.input?.image ?? false
 
   return {
     providerID: resolvedModel.providerID,
@@ -234,6 +240,47 @@ async function resolvePromptModel(input: {
     contextWindow: resolvedModel.limit.context,
     ...(resolvedModel.limit.input !== undefined ? { inputWindow: resolvedModel.limit.input } : {}),
     outputWindow: resolvedModel.limit.output,
+    ...(image ? { image } : {}),
+  }
+}
+
+function readPromptModelRuntimeSnapshot(value: unknown): PromptModelRuntimeSnapshot | undefined {
+  if (!value || typeof value !== "object") return undefined
+
+  const record = value as Record<string, unknown>
+  const providerID =
+    typeof record.providerID === "string" && record.providerID.trim().length > 0
+      ? record.providerID
+      : undefined
+  const modelID =
+    typeof record.modelID === "string" && record.modelID.trim().length > 0
+      ? record.modelID
+      : undefined
+  const contextWindow =
+    typeof record.contextWindow === "number" && Number.isFinite(record.contextWindow)
+      ? record.contextWindow
+      : undefined
+  const outputWindow =
+    typeof record.outputWindow === "number" && Number.isFinite(record.outputWindow)
+      ? record.outputWindow
+      : undefined
+  const inputWindow =
+    typeof record.inputWindow === "number" && Number.isFinite(record.inputWindow)
+      ? record.inputWindow
+      : undefined
+  const image = typeof record.image === "boolean" ? record.image : undefined
+
+  if (!providerID || !modelID || contextWindow === undefined || outputWindow === undefined) {
+    return undefined
+  }
+
+  return {
+    providerID,
+    modelID,
+    contextWindow,
+    ...(inputWindow !== undefined ? { inputWindow } : {}),
+    ...(image ? { image } : {}),
+    outputWindow,
   }
 }
 

@@ -3,7 +3,8 @@ import path from "node:path"
 
 type EnvMap = Record<string, string>
 
-const PROVIDER_SECRET_KEY_PATTERN = /(^|_)(API_KEY|ACCESS_TOKEN|AUTH_TOKEN|BEARER_TOKEN|SECRET_KEY)$/
+const PROVIDER_SECRET_KEY_PATTERN =
+  /(^|_)(API_KEY|ACCESS_TOKEN|AUTH_TOKEN|BEARER_TOKEN|SECRET_KEY)$/
 
 function parseEnvFile(content: string) {
   const env: EnvMap = {}
