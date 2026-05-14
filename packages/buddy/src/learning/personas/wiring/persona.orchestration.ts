@@ -20,7 +20,7 @@ function resolvePersonaAvailableSubagents(definition: BuiltinBuddyPersonaDefinit
 
 export function createBuddyPersonaAgent(definition: BuiltinBuddyPersonaDefinition) {
   const { runtime, ...profile } = definition
-  const { kind, ...runtimeAgent } = runtime
+  const { kind, subagents: _subagents, ...runtimeAgent } = runtime
   const availableSubagents = resolvePersonaAvailableSubagents(definition)
 
   const agentInput = {

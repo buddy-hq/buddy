@@ -305,4 +305,26 @@ describe("parity.agent", () => {
       ).toBe("deny")
     })
   })
+
+  test("does not leak persona subagent config into provider-facing agent options", async () => {
+    await withRepo(async (directory) => {
+      const result = await withSyncedOpenCodeConfig(directory, async () => ({
+        buddyAgent: await OpenCodeAgent.get("buddy"),
+        codeBuddyAgent: await OpenCodeAgent.get("code-buddy"),
+        mathBuddyAgent: await OpenCodeAgent.get("math-buddy"),
+        readingBuddyAgent: await OpenCodeAgent.get("reading-buddy"),
+      }))
+
+      const agents = [
+        requireValue(result.buddyAgent, "buddy agent"),
+        requireValue(result.codeBuddyAgent, "code-buddy agent"),
+        requireValue(result.mathBuddyAgent, "math-buddy agent"),
+        requireValue(result.readingBuddyAgent, "reading-buddy agent"),
+      ]
+
+      for (const agent of agents) {
+        expect(agent.options?.subagents).toBeUndefined()
+      }
+    })
+  })
 })
