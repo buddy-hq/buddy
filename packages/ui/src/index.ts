@@ -114,6 +114,7 @@ export {
 } from "./components/ui/select"
 export { Switch } from "./components/ui/switch"
 export { Skeleton } from "./components/ui/skeleton"
+export { Slider } from "./components/ui/slider"
 export { ToggleGroup, ToggleGroupItem } from "./components/ui/toggle-group"
 export { Toaster } from "./components/ui/sonner"
 export { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs"
@@ -167,6 +168,13 @@ export { toast } from "sonner"
 
 export { ScrollArea } from "./components/ui/scroll-area"
 export {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "./components/ui/carousel"
+export {
   Command,
   CommandDialog,
   CommandInput,
@@ -177,4 +185,14 @@ export {
   CommandShortcut,
   CommandSeparator,
 } from "./components/ui/command"
+export {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "./components/ui/table"
 export * from "./components/ui/item"
