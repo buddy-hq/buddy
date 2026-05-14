@@ -35,6 +35,7 @@ import {
 import { initLogging, safelyWriteToStandardStream } from "./logging"
 import { parseMarkdown } from "./markdown"
 import { createMenu } from "./menu"
+import { configureSidecarRequestAuth, registerSidecarRequestAuth } from "./sidecar-auth"
 import {
   getDefaultServerUrl,
   getWslConfig,
@@ -116,6 +117,7 @@ function setupApplication() {
   }
 
   void app.whenReady().then(async () => {
+    registerSidecarRequestAuth()
     app.setAsDefaultProtocolClient(APP_PROTOCOL)
     if (process.platform === "darwin") {
       customMacUpdater = createCustomMacUpdater({
@@ -183,6 +185,11 @@ async function initialize() {
       username: SIDECAR_USERNAME,
       password,
       isSidecar: true,
+    })
+    configureSidecarRequestAuth({
+      url,
+      username: SIDECAR_USERNAME,
+      password,
     })
 
     const sidecarReady = Promise.race([

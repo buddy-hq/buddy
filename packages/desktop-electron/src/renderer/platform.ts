@@ -229,5 +229,11 @@ export function createDesktopPlatform(): Platform {
     async openPath(path, app) {
       await window.api.openPath(path, app)
     },
+    async revealPath(path) {
+      await window.api.revealPath(path)
+    },
+    getFileIcon(path) {
+      return window.api.getFileIcon(path)
+    },
   }
 }

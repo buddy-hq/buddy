@@ -20,6 +20,8 @@ const pickerFilters = (extensions?: string[]) => {
   return [{ name: "Files", extensions }]
 }
 
+const FILE_ICON_SIZE = "normal" as const
+
 type Deps = {
   killSidecar: () => void
   installCli: () => Promise<string>
@@ -199,6 +201,16 @@ export function registerIpcHandlers(deps: Deps) {
       })
     },
   )
+
+  ipcMain.handle("reveal-path", async (_event: IpcMainInvokeEvent, path: string) => {
+    shell.showItemInFolder(path)
+  })
+
+  ipcMain.handle("get-file-icon", async (_event: IpcMainInvokeEvent, path: string) => {
+    const image = await app.getFileIcon(path, { size: FILE_ICON_SIZE })
+    if (image.isEmpty()) return null
+    return image.toDataURL()
+  })
 
   ipcMain.handle("read-clipboard-image", () => {
     const image = clipboard.readImage()

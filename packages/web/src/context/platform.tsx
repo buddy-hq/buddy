@@ -29,6 +29,8 @@ export type Platform = {
   resolveDroppedFilePath?(file: File): Promise<string | null> | string | null
   consumeDroppedFilePaths?(): Promise<string[]> | string[]
   openPath?(path: string, app?: string): Promise<void>
+  revealPath?(path: string): Promise<void>
+  getFileIcon?(path: string): Promise<string | null>
   fetch?: typeof fetch
   openLink(url: string): void
   restart(): Promise<void>
