@@ -1,5 +1,9 @@
 import { useState } from "react"
-import { createAttachmentID, readFileAsDataUrl } from "./attachment-utils"
+import {
+  attachmentRequiresVisionInput,
+  createAttachmentID,
+  readFileAsDataUrl,
+} from "./attachment-utils"
 import type { PromptComposerAttachment } from "./prompt-types"
 
 type UsePromptComposerAttachmentsProps = {
@@ -7,6 +11,8 @@ type UsePromptComposerAttachmentsProps = {
   attachments: PromptComposerAttachment[]
   setDraftAttachments: (key: string, attachments: PromptComposerAttachment[]) => void
   resetHistoryNavigation: () => void
+  acceptsImages: boolean
+  onUnsupportedImages?: (count: number) => void
 }
 
 export function usePromptComposerAttachments(props: UsePromptComposerAttachmentsProps) {
@@ -15,9 +21,17 @@ export function usePromptComposerAttachments(props: UsePromptComposerAttachments
   async function addAttachments(files: FileList | File[]) {
     const list = Array.from(files)
     if (list.length === 0) return
+    const supported = props.acceptsImages
+      ? list
+      : list.filter((file) => !attachmentRequiresVisionInput(file.type))
+    const unsupportedImageCount = list.length - supported.length
+    if (unsupportedImageCount > 0) {
+      props.onUnsupportedImages?.(unsupportedImageCount)
+    }
+    if (supported.length === 0) return
 
     const next = await Promise.all(
-      list.map(async (file) => ({
+      supported.map(async (file) => ({
         id: createAttachmentID(),
         filename: file.name || (file.type.startsWith("image/") ? "image" : "attachment"),
         mime: file.type || "application/octet-stream",

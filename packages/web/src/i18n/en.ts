@@ -107,6 +107,8 @@ export const dict = {
   "chatTools.info.questions.running": "Asking",
   "chatTools.info.read": "Read",
   "chatTools.info.read.running": "Reading",
+  "chatTools.info.read.image": "Viewed",
+  "chatTools.info.read.image.running": "Viewing",
   "chatTools.info.shell": "Terminal",
   "chatTools.info.shell.running": "Running",
   "chatTools.info.skill": "Skill",

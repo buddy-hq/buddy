@@ -1280,6 +1280,20 @@ export function useDirectoryChatPageController(
       focusGoalIds: input.focusGoalIds,
       agent: currentAgentName,
       model: cs.effectiveModelSelection,
+      ...(cs.effectiveModelInfo
+        ? {
+            modelRuntime: {
+              providerID: cs.effectiveModelSelection?.providerID ?? "",
+              modelID: cs.effectiveModelSelection?.modelID ?? "",
+              contextWindow: cs.effectiveModelInfo.limit.context,
+              ...(cs.effectiveModelInfo.limit.input !== undefined
+                ? { inputWindow: cs.effectiveModelInfo.limit.input }
+                : {}),
+              outputWindow: cs.effectiveModelInfo.limit.output,
+              ...(cs.effectiveModelInfo.capabilities.input.image ? { image: true } : {}),
+            },
+          }
+        : {}),
       variant,
       teaching: teachingContext,
       ...(activeReadingResource
@@ -1644,6 +1658,7 @@ export function useDirectoryChatPageController(
     modelOptions: cs.modelOptions,
     selectedPersona: cs.selectedPersona,
     selectedModel: cs.selectedModelKey,
+    selectedModelAcceptsImages: cs.selectedModelAcceptsImages,
     pendingSteerLabel: pendingSuggestionOverride?.label,
     thinkingOptions: cs.thinkingOptions,
     selectedThinking,

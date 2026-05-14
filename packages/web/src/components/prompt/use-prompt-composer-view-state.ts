@@ -104,6 +104,7 @@ type UsePromptComposerViewStateProps = {
     label: string
     group?: string
     disabled?: boolean
+    acceptsImages: boolean
   }>
   onSearchFiles?: (query: string) => Promise<MentionableFile[]>
   onRefreshSlashCommands?: () => void

@@ -1535,6 +1535,14 @@ export async function sendPrompt(
       providerID: string
       modelID: string
     }
+    modelRuntime?: {
+      providerID: string
+      modelID: string
+      contextWindow: number
+      inputWindow?: number
+      outputWindow: number
+      image?: boolean
+    }
     variant?: string
     teaching?: TeachingPromptContext
     reading?: {
@@ -1577,6 +1585,7 @@ export async function sendPrompt(
         ? { focusGoalIds: input.focusGoalIds }
         : {}),
       ...(input?.model ? { model: input.model } : {}),
+      ...(input?.modelRuntime ? { modelRuntime: input.modelRuntime } : {}),
       ...(input?.variant ? { variant: input.variant } : {}),
       ...(input?.teaching ? { teaching: input.teaching } : {}),
       ...(input?.reading ? { reading: input.reading } : {}),

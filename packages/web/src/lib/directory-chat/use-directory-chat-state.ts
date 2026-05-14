@@ -24,7 +24,12 @@ import {
 } from "@/state/directory-chat-query"
 import { getSessionFamily, type SessionFamily } from "../session-family"
 import { modelSelectionKey, parseConfiguredModel } from "./chat-prompt-helpers"
-import type { ProviderInfo, SessionInfo, SessionStatusInfo } from "@/state/chat-types"
+import type {
+  ProviderInfo,
+  ProviderModelInfo,
+  SessionInfo,
+  SessionStatusInfo,
+} from "@/state/chat-types"
 import type { AgentConfigOption, PersonaConfigOption } from "@/state/chat-actions"
 import type { ChatRightSidebarTab } from "@/components/layout/chat-right-sidebar"
 import {
@@ -270,6 +275,7 @@ type DirectoryChatModelOption = {
   label: string
   group?: string
   disabled?: boolean
+  acceptsImages: boolean
 }
 
 type DirectoryChatThinkingOption = {
@@ -311,6 +317,8 @@ export type DirectoryChatState = DirectoryChatStoreSlice &
     selectedModelOverrideKey: string | undefined
     selectedVariantKey: string | null | undefined
     effectiveModelSelection: ProviderModelSelection | undefined
+    effectiveModelInfo: ProviderModelInfo | undefined
+    selectedModelAcceptsImages: boolean
     selectedThinking: string
     thinkingOptions: DirectoryChatThinkingOption[]
     modelOptions: DirectoryChatModelOption[]
@@ -526,13 +534,18 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps): Direct
     [props.personaCatalog],
   )
   const modelOptions = useMemo(() => {
-    const options: Array<{ key: string; label: string; group?: string; disabled?: boolean }> = []
+    const options: DirectoryChatModelOption[] = []
 
     for (const provider of connectedProviders) {
       for (const model of provider.models) {
         const key = modelSelectionKey({ providerID: provider.id, modelID: model.id })
         if (!visibleModelKeys.has(key)) continue
-        options.push({ key, label: model.name || model.id, group: provider.name })
+        options.push({
+          key,
+          label: model.name || model.id,
+          group: provider.name,
+          acceptsImages: model.capabilities.input.image,
+        })
       }
     }
 
@@ -734,10 +747,12 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps): Direct
     hasRegisteredProject,
     // Model
     selectedModelKey: effectiveModelSelection ? modelSelectionKey(effectiveModelSelection) : "",
+    selectedModelAcceptsImages: effectiveModelInfo?.capabilities.input.image ?? false,
     currentAgentName,
     selectedModelOverrideKey,
     selectedVariantKey,
     effectiveModelSelection,
+    effectiveModelInfo,
     selectedThinking,
     thinkingOptions,
     modelOptions,

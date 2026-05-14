@@ -1,7 +1,12 @@
 import type { PromptComposerAttachment } from "./prompt-types"
 
-const ACCEPTED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"]
-export const ACCEPTED_FILE_TYPES = [...ACCEPTED_IMAGE_TYPES, "application/pdf"]
+export const ACCEPTED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"]
+export const ACCEPTED_NON_IMAGE_FILE_TYPES = ["application/pdf", "image/svg+xml"]
+export const ACCEPTED_FILE_TYPES = [...ACCEPTED_IMAGE_TYPES, ...ACCEPTED_NON_IMAGE_FILE_TYPES]
+
+export function attachmentRequiresVisionInput(mime: string): boolean {
+  return ACCEPTED_IMAGE_TYPES.includes(mime.toLowerCase())
+}
 
 export function cloneAttachments(attachments: PromptComposerAttachment[]) {
   return attachments.map((attachment) => ({ ...attachment }))

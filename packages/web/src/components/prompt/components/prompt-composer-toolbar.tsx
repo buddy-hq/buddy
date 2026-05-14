@@ -12,6 +12,7 @@ import {
   SquareIcon,
   XIcon,
 } from "@buddy/ui"
+import { ImageIcon } from "lucide-react"
 import type { RefObject } from "react"
 import * as React from "react"
 import { language } from "@/context/language"
@@ -27,13 +28,16 @@ type PromptComposerToolbarProps = {
   }>
   onPersonaChange: (persona: string) => void
   selectedModel: string
+  selectedModelAcceptsImages: boolean
   onModelChange: (model: string) => void
   modelMenuOpen: boolean
   onModelMenuOpenChange: (open: boolean) => void
   modelTriggerRef: RefObject<HTMLButtonElement>
   groupedModelOptions: {
-    ungrouped: Array<{ key: string; label: string; disabled?: boolean }>
-    grouped: Array<[string, Array<{ key: string; label: string; disabled?: boolean }>]>
+    ungrouped: Array<{ key: string; label: string; disabled?: boolean; acceptsImages: boolean }>
+    grouped: Array<
+      [string, Array<{ key: string; label: string; disabled?: boolean; acceptsImages: boolean }>]
+    >
   }
   selectedThinking: string
   thinkingOptions: Array<{ key: string; label: string }>
@@ -52,6 +56,14 @@ type PromptComposerToolbarProps = {
 }
 
 export function PromptComposerToolbar(props: PromptComposerToolbarProps) {
+  const selectedModelLabel = React.useMemo(() => {
+    const allOptions = [
+      ...props.groupedModelOptions.ungrouped,
+      ...props.groupedModelOptions.grouped.flatMap(([, opts]) => opts),
+    ]
+    return allOptions.find((opt) => opt.key === props.selectedModel)?.label
+  }, [props.selectedModel, props.groupedModelOptions])
+
   return (
     <div className="-mt-3.5 rounded-[12px] rounded-tl-none rounded-tr-none border border-t-0 bg-surface-raised-base/95 px-2 pt-5 pb-2">
       {props.pendingSteerLabel ? (
@@ -99,7 +111,9 @@ export function PromptComposerToolbar(props: PromptComposerToolbarProps) {
               className="h-7 max-w-[180px] min-w-0 border-0 bg-surface-raised-base/95 px-2 text-xs text-text-weak shadow-none hover:bg-surface-raised-base-hover focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-0 data-[state=open]:bg-surface-raised-base-hover data-[state=open]:text-text-base data-[state=open]:ring-0 data-[state=open]:border-0 [&_svg]:text-inherit [&_svg:last-child]:size-3"
               aria-label={language.t("prompt.toolbar.aria.model")}
             >
-              <SelectValue placeholder={language.t("prompt.toolbar.placeholders.model")} />
+              <SelectValue placeholder={language.t("prompt.toolbar.placeholders.model")}>
+                {selectedModelLabel}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent
               side="top"
@@ -110,18 +124,26 @@ export function PromptComposerToolbar(props: PromptComposerToolbarProps) {
             >
               {props.groupedModelOptions.ungrouped.map((option) => (
                 <SelectItem key={option.key} value={option.key} disabled={option.disabled}>
-                  {option.key.includes("/") ? (
-                    <span className="flex min-w-0 items-center gap-2">
-                      <ProviderIcon
-                        id={option.key.slice(0, option.key.indexOf("/"))}
-                        className="size-4 shrink-0 opacity-60"
+                  <span className="flex min-w-0 items-center gap-2">
+                    {option.key.includes("/") ? (
+                      <>
+                        <ProviderIcon
+                          id={option.key.slice(0, option.key.indexOf("/"))}
+                          className="size-4 shrink-0 opacity-60"
+                          aria-hidden="true"
+                        />
+                        <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                      </>
+                    ) : (
+                      <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                    )}
+                    {option.acceptsImages ? (
+                      <ImageIcon
+                        className="size-3 shrink-0 text-icon-info-base"
                         aria-hidden="true"
                       />
-                      <span className="min-w-0 truncate">{option.label}</span>
-                    </span>
-                  ) : (
-                    option.label
-                  )}
+                    ) : null}
+                  </span>
                 </SelectItem>
               ))}
               {props.groupedModelOptions.grouped.map(([group, options]) => (
@@ -139,7 +161,13 @@ export function PromptComposerToolbar(props: PromptComposerToolbarProps) {
                           className="size-4 shrink-0 opacity-60"
                           aria-hidden="true"
                         />
-                        <span className="min-w-0 truncate">{option.label}</span>
+                        <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                        {option.acceptsImages ? (
+                          <ImageIcon
+                            className="size-3 shrink-0 text-icon-info-base"
+                            aria-hidden="true"
+                          />
+                        ) : null}
                       </span>
                     </SelectItem>
                   ))}

@@ -6,6 +6,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  toast,
 } from "@buddy/ui"
 import { XIcon } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
@@ -45,7 +46,12 @@ import {
   RESOURCE_REFERENCE_PART_TYPE,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
 } from "./prompt-types"
-import { ACCEPTED_FILE_TYPES, cloneAttachments } from "./attachment-utils"
+import {
+  ACCEPTED_FILE_TYPES,
+  ACCEPTED_NON_IMAGE_FILE_TYPES,
+  attachmentRequiresVisionInput,
+  cloneAttachments,
+} from "./attachment-utils"
 import { ImageAttachments } from "./image-attachments"
 import { usePromptComposerAttachments } from "./use-prompt-composer-attachments"
 import { usePromptComposerViewState } from "./use-prompt-composer-view-state"
@@ -80,7 +86,9 @@ type PromptComposerProps = {
     label: string
     group?: string
     disabled?: boolean
+    acceptsImages: boolean
   }>
+  selectedModelAcceptsImages: boolean
   selectedPersona: string
   selectedModel: string
   pendingSteerLabel?: string
@@ -159,9 +167,28 @@ export function PromptComposer(props: PromptComposerProps) {
   )
   const draftEditorValue = useMemo(() => serializePromptEditorParts(draft.parts), [draft.parts])
   const hasSubmittableParts = useMemo(() => hasSubmittablePromptParts(draft.parts), [draft.parts])
+  const unsupportedImageAttachments = useMemo(
+    () =>
+      props.selectedModelAcceptsImages
+        ? []
+        : draft.attachments.filter((attachment) => attachmentRequiresVisionInput(attachment.mime)),
+    [draft.attachments, props.selectedModelAcceptsImages],
+  )
+  const unsupportedImageAttachmentIds = useMemo(
+    () => new Set(unsupportedImageAttachments.map((attachment) => attachment.id)),
+    [unsupportedImageAttachments],
+  )
+  const hasUnsupportedImageAttachments = unsupportedImageAttachments.length > 0
   const canSubmit = useMemo(
-    () => draftEditorValue.trim().length > 0 || draft.attachments.length > 0 || hasSubmittableParts,
-    [draft.attachments.length, draftEditorValue, hasSubmittableParts],
+    () =>
+      !hasUnsupportedImageAttachments &&
+      (draftEditorValue.trim().length > 0 || draft.attachments.length > 0 || hasSubmittableParts),
+    [
+      draft.attachments.length,
+      draftEditorValue,
+      hasSubmittableParts,
+      hasUnsupportedImageAttachments,
+    ],
   )
   const [cursorOffset, setCursorOffset] = useState(() => draft.cursor)
   const [dragging, setDragging] = useState(false)
@@ -194,6 +221,10 @@ export function PromptComposer(props: PromptComposerProps) {
     attachments: draft.attachments,
     setDraftAttachments,
     resetHistoryNavigation,
+    acceptsImages: props.selectedModelAcceptsImages,
+    onUnsupportedImages: () => {
+      toast.error("This model cannot accept image attachments.")
+    },
   })
 
   usePromptEditorSync({
@@ -567,6 +598,7 @@ export function PromptComposer(props: PromptComposerProps) {
 
   function handleSubmit() {
     if (props.isBusy) return
+    if (hasUnsupportedImageAttachments) return
 
     const currentDraft = readEditorDraft()
     const currentHasSubmittableParts = hasSubmittablePromptParts(currentDraft.parts)
@@ -882,7 +914,10 @@ export function PromptComposer(props: PromptComposerProps) {
             data-action="prompt-file-input"
             type="file"
             multiple
-            accept={ACCEPTED_FILE_TYPES.join(",")}
+            accept={(props.selectedModelAcceptsImages
+              ? ACCEPTED_FILE_TYPES
+              : ACCEPTED_NON_IMAGE_FILE_TYPES
+            ).join(",")}
             className="hidden"
             onChange={(event) => {
               const files = event.target.files
@@ -895,9 +930,16 @@ export function PromptComposer(props: PromptComposerProps) {
 
         <ImageAttachments
           attachments={draft.attachments}
+          unsupportedAttachmentIds={unsupportedImageAttachmentIds}
           onRemove={attachmentState.removeAttachment}
           onOpen={attachmentState.openPreviewAttachment}
         />
+        {hasUnsupportedImageAttachments ? (
+          <div className="mx-3 mt-2 rounded-md border border-border-warning-base bg-surface-warning-weak px-2.5 py-2 text-xs text-text-base">
+            This model cannot accept image attachments. Remove the image or switch to a vision model
+            before sending.
+          </div>
+        ) : null}
       </form>
 
       <PromptComposerToolbar
@@ -907,6 +949,7 @@ export function PromptComposer(props: PromptComposerProps) {
         personaOptions={viewState.personaOptions}
         onPersonaChange={props.onPersonaChange}
         selectedModel={props.selectedModel}
+        selectedModelAcceptsImages={props.selectedModelAcceptsImages}
         onModelChange={props.onModelChange}
         modelMenuOpen={modelMenuOpen}
         onModelMenuOpenChange={setModelMenuOpen}
