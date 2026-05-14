@@ -5,10 +5,6 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   ExternalLinkIcon,
-  FileArchiveIcon,
-  FileCodeIcon,
-  FileIcon,
-  FileImageIcon,
   FolderIcon,
   Loader2Icon,
   RefreshCwIcon,
@@ -22,11 +18,14 @@ import { FoliateReader, type FoliateReaderSource } from "@/components/readers/fo
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { buddyResultMessage, getBuddyClient } from "@/lib/buddy-client"
+import { FileTypeIcon } from "@/components/files/file-type-icon"
+import { buildProjectFileRawParameters } from "@/lib/project-file-raw-url"
 import {
-  buildProjectFileRawParameters,
-  CONTENT_LENGTH_HEADER,
-  CONTENT_TYPE_HEADER,
-} from "@/lib/project-file-raw-url"
+  classifyWorkspaceMedia,
+  isWorkspaceReaderPath,
+  readWorkspaceFileRawMetadata,
+  shouldOpenFileInDefaultAppBySize,
+} from "@/lib/workspace-file-media"
 import {
   fileExtensionFromPath as fileExtension,
   fileNameFromPath as fileName,
@@ -41,34 +40,15 @@ import {
   type ProjectExplorerFileContent,
   type ProjectExplorerFileNode,
 } from "@/state/chat-actions"
+import {
+  useWorkspaceFilePanelStore,
+  type WorkspaceFilePanelItem,
+} from "@/state/workspace-file-panel-store"
 
 const ROOT_DIRECTORY_PATH = ""
-const LARGE_TEXT_FILE_LIMIT_BYTES = 1_000_000
 const EMPTY_CHILDREN: string[] = []
 const EMPTY_TABS: string[] = []
-const IMAGE_MIME_PREFIX = "image/"
 const FILE_TREE_COLUMN_WIDTH_CLASS = "w-[19rem]"
-const IMAGE_FILE_EXTENSIONS = new Set([
-  "avif",
-  "bmp",
-  "gif",
-  "ico",
-  "jpeg",
-  "jpg",
-  "png",
-  "svg",
-  "webp",
-])
-const FOLIATE_READER_EXTENSIONS = new Set([
-  "azw",
-  "azw3",
-  "cbz",
-  "epub",
-  "fb2",
-  "fbz",
-  "mobi",
-  "pdf",
-])
 
 const EXTENSION_TO_MONACO_LANGUAGE: Record<string, string> = {
   txt: "plaintext",
@@ -150,53 +130,12 @@ function formatLabelForPath(filepath: string) {
   return extension.toUpperCase()
 }
 
-function isFoliateReaderPath(filepath: string) {
-  return FOLIATE_READER_EXTENSIONS.has(fileExtension(filepath))
-}
-
-function isImagePath(filepath: string) {
-  return IMAGE_FILE_EXTENSIONS.has(fileExtension(filepath))
-}
-
 function isEditableTextFileContent(content: ProjectExplorerFileContent | undefined) {
   if (!content) return false
   if (content.type !== "text") return false
   if (content.encoding === "base64") return false
+  const LARGE_TEXT_FILE_LIMIT_BYTES = 1_000_000
   return content.content.length <= LARGE_TEXT_FILE_LIMIT_BYTES
-}
-
-function isImageMimeType(mimeType: string | undefined) {
-  return mimeType?.startsWith(IMAGE_MIME_PREFIX) ?? false
-}
-
-function shouldOpenFileInDefaultAppBySize(input: {
-  path: string
-  size: number | undefined
-  mimeType: string | undefined
-}) {
-  if (typeof input.size !== "number") return false
-  if (input.size <= LARGE_TEXT_FILE_LIMIT_BYTES) return false
-  if (isImageMimeType(input.mimeType) || isImagePath(input.path)) return false
-  return true
-}
-
-async function readProjectFileRawMetadata(input: { directory: string; path: string }): Promise<{
-  size: number | undefined
-  mimeType: string | undefined
-}> {
-  const response = await getBuddyClient(input.directory).headApiFileRawFileName(
-    buildProjectFileRawParameters(input.path),
-  )
-  if (!response.response?.ok) {
-    throw new Error(buddyResultMessage(response))
-  }
-
-  const sizeHeader = response.response.headers.get(CONTENT_LENGTH_HEADER)
-  const parsedSize = sizeHeader ? Number.parseInt(sizeHeader, 10) : Number.NaN
-  return {
-    size: Number.isFinite(parsedSize) && parsedSize >= 0 ? parsedSize : undefined,
-    mimeType: response.response.headers.get(CONTENT_TYPE_HEADER) ?? undefined,
-  }
 }
 
 function isAbortError(error: unknown) {
@@ -205,35 +144,7 @@ function isAbortError(error: unknown) {
 
 function fileIconForNode(node: ProjectExplorerFileNode) {
   if (node.type === "directory") return <FolderIcon className="size-4 text-text-weak" />
-  if (isImagePath(node.path)) {
-    return <FileImageIcon className="size-4 text-text-weak" />
-  }
-  const extension = fileExtension(node.path)
-  if (
-    [
-      "ts",
-      "tsx",
-      "js",
-      "jsx",
-      "json",
-      "py",
-      "go",
-      "rs",
-      "java",
-      "css",
-      "html",
-      "md",
-      "sql",
-      "yaml",
-      "yml",
-    ].includes(extension)
-  ) {
-    return <FileCodeIcon className="size-4 text-text-weak" />
-  }
-  if (["zip", "tar", "gz", "bz2", "rar", "7z"].includes(extension)) {
-    return <FileArchiveIcon className="size-4 text-text-weak" />
-  }
-  return <FileIcon className="size-4 text-text-weak" />
+  return <FileTypeIcon fileName={node.path} className="size-4 object-contain" />
 }
 
 function buildDefaultDirectoryState(): ExplorerDirectoryStateMap {
@@ -261,6 +172,14 @@ function sortedNodes(paths: string[], nodesByPath: ExplorerNodeMap) {
 
 export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
   const platform = usePlatform()
+  const pendingOpenPath = useWorkspaceFilePanelStore(
+    (state) => state.pendingOpenByDirectory[props.directory]?.path,
+  )
+  const selectedFileItem = useWorkspaceFilePanelStore(
+    (state) => state.selectedItemByDirectory[props.directory],
+  )
+  const consumePendingOpen = useWorkspaceFilePanelStore((state) => state.consumePendingOpen)
+  const openQueuedFile = useWorkspaceFilePanelStore((state) => state.openFile)
   const editorRefs = useRef<Record<string, VersionedTextFileEditorHandle | null>>({})
   const fileViewByPathRef = useRef<ExplorerFileViewStateMap>({})
   const readerViewByPathRef = useRef<ExplorerReaderViewStateMap>({})
@@ -427,7 +346,7 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
       })
 
       try {
-        const metadata = await readProjectFileRawMetadata({
+        const metadata = await readWorkspaceFileRawMetadata({
           directory: props.directory,
           path: normalizedPath,
         })
@@ -577,14 +496,15 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
   }, [])
 
   const openFile = useCallback(
-    (path: string) => {
-      const normalizedPath = normalizeRelativePath(path)
+    (item: WorkspaceFilePanelItem) => {
+      const normalizedPath = normalizeRelativePath(item.path)
+
       setOpenTabs((current) => {
         if (current.includes(normalizedPath)) return current
         return [...current, normalizedPath]
       })
       setActivePath(normalizedPath)
-      if (isFoliateReaderPath(normalizedPath)) {
+      if (isWorkspaceReaderPath(normalizedPath)) {
         void loadReaderFile(normalizedPath)
         return
       }
@@ -592,6 +512,23 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
     },
     [loadFile, loadReaderFile],
   )
+
+  const openWorkspaceFile = useCallback(
+    (path: string) => {
+      openFile({ path })
+    },
+    [openFile],
+  )
+
+  useEffect(() => {
+    if (!pendingOpenPath) return
+
+    const pendingItem = consumePendingOpen(props.directory)
+    if (!pendingItem) return
+
+    openFile(pendingItem)
+    openQueuedFile(props.directory, pendingItem)
+  }, [consumePendingOpen, openFile, openQueuedFile, pendingOpenPath, props.directory])
 
   const closeFileTab = useCallback(async (path: string) => {
     const normalizedPath = normalizeRelativePath(path)
@@ -630,10 +567,13 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
   }, [])
 
   const activeNode = activePath ? nodesByPath[activePath] : undefined
+  const activeSelectedFileItem =
+    activePath && selectedFileItem?.path === activePath ? selectedFileItem : undefined
   const activeViewState = activePath ? fileViewByPath[activePath] : undefined
   const activeReaderViewState = activePath ? readerViewByPath[activePath] : undefined
   const activeContent = activeViewState?.content
   const activeFileName = activePath ? fileName(activePath) : ""
+  const activeDisplayPath = activePath
   const openTabCount = openTabs.length
   const activeReaderSource = useMemo<FoliateReaderSource | null>(() => {
     if (!activePath) return null
@@ -648,7 +588,7 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
 
   const viewerMode = useMemo(() => {
     if (!activePath) return "empty" as const
-    if (isFoliateReaderPath(activePath)) {
+    if (isWorkspaceReaderPath(activePath)) {
       if (!activeReaderViewState || activeReaderViewState.loading) return "loading" as const
       if (activeReaderViewState.error) return "error" as const
       if (activeReaderViewState.blob) return "reader" as const
@@ -661,9 +601,18 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
 
     if (activeContent.type === "binary") return "unsupported" as const
     if (activeContent.encoding === "base64") {
-      if (activeContent.mimeType?.startsWith(IMAGE_MIME_PREFIX)) return "image" as const
+      if (
+        classifyWorkspaceMedia({
+          path: activePath,
+          mimeType: activeContent.mimeType,
+          sizeBytes: undefined,
+        }).mediaKind === "image"
+      ) {
+        return "image" as const
+      }
       return "unsupported" as const
     }
+    const LARGE_TEXT_FILE_LIMIT_BYTES = 1_000_000
     if (activeContent.content.length > LARGE_TEXT_FILE_LIMIT_BYTES) return "large" as const
     return "text" as const
   }, [activeContent, activePath, activeReaderViewState, activeViewState])
@@ -681,7 +630,8 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
             : undefined
 
   const openInDefaultApp = useCallback(async () => {
-    if (!activeNode?.absolute) return
+    const pathToOpen = activeSelectedFileItem?.absolutePath ?? activeNode?.absolute
+    if (!pathToOpen) return
     if (!platform.openPath) {
       setOpenPathError(language.t("projectExplorer.openInDefaultAppUnavailable"))
       return
@@ -689,11 +639,11 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
 
     try {
       setOpenPathError(undefined)
-      await platform.openPath(activeNode.absolute)
+      await platform.openPath(pathToOpen)
     } catch (error) {
       setOpenPathError(error instanceof Error ? error.message : String(error))
     }
-  }, [activeNode?.absolute, platform])
+  }, [activeNode?.absolute, activeSelectedFileItem?.absolutePath, platform])
 
   const refreshExpandedDirectories = useCallback(async () => {
     const expandedPaths = Object.entries(directoriesByPath)
@@ -770,7 +720,7 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
                   : "text-text-weak hover:bg-surface-raised-base/80 hover:text-text-base",
               )}
               style={{ paddingLeft: `${depth * 12 + 24}px` }}
-              onClick={() => openFile(node.path)}
+              onClick={() => openWorkspaceFile(node.path)}
             >
               {fileIconForNode(node)}
               <span className="min-w-0 flex-1 truncate">{node.name}</span>
@@ -854,7 +804,9 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
                     >
                       <button
                         type="button"
-                        onClick={() => openFile(tabPath)}
+                        onClick={() => {
+                          openWorkspaceFile(tabPath)
+                        }}
                         className="max-w-64 truncate px-3 py-1.5 text-xs"
                         title={tabPath}
                       >
@@ -890,7 +842,7 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
                     ) : null}
                     {activeModeLabel ? <Badge variant="outline">{activeModeLabel}</Badge> : null}
                   </div>
-                  <p className="mt-1 truncate text-[11px] text-text-weak">{activePath}</p>
+                  <p className="mt-1 truncate text-[11px] text-text-weak">{activeDisplayPath}</p>
                 </div>
               </div>
               {openPathError ? (
