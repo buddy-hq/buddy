@@ -2,6 +2,14 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react"
 import DOMPurify from "dompurify"
 import morphdom from "morphdom"
 import "katex/dist/katex.min.css"
+import { resolveFileTypeIconUrl } from "@/components/files/file-type-icon"
+import {
+  findPresentedMediaCandidateMatches,
+  isLikelyPresentedMediaPathCandidate,
+  normalizePresentedMediaCandidatePath,
+  toWorkspaceFilePanelItem,
+} from "@/lib/presented-media"
+import { useWorkspaceFilePanelStore } from "@/state/workspace-file-panel-store"
 import { getServerConnection } from "@/context/server"
 import { resolveAssetUrl } from "@/lib/resource-url"
 import { parseMarkdownToHtml } from "./markdown-parser"
@@ -94,6 +102,16 @@ function codeUrl(text: string) {
   }
 }
 
+function presentedMediaLinkLabel(path: string) {
+  const normalized = normalizePresentedMediaCandidatePath(path)
+  const withoutFileProtocol = normalized.startsWith("file://")
+    ? normalized.replace(/^file:\/\//u, "")
+    : normalized
+  const trimmed = withoutFileProtocol.replace(/[\\/]+$/gu, "")
+  const lastSlash = Math.max(trimmed.lastIndexOf("/"), trimmed.lastIndexOf("\\"))
+  return lastSlash >= 0 ? trimmed.slice(lastSlash + 1) : trimmed
+}
+
 function createCopyIcon(path: string, slot: string) {
   const icon = document.createElement("span")
   icon.setAttribute("data-slot", slot)
@@ -106,6 +124,50 @@ function createCopyIcon(path: string, slot: string) {
   svg.innerHTML = path
   icon.appendChild(svg)
   return icon
+}
+
+function createPresentedMediaIcon(path: string) {
+  const icon = document.createElement("span")
+  icon.setAttribute("data-slot", "presented-media-icon")
+  icon.className = "pointer-events-none inline-flex h-4 w-3 shrink-0 items-center justify-center"
+
+  const fileName = presentedMediaLinkLabel(path)
+  const image = document.createElement("img")
+  image.setAttribute("alt", "")
+  image.setAttribute("aria-hidden", "true")
+  image.setAttribute("src", resolveFileTypeIconUrl({ fileName }))
+  image.className = "h-4 w-3 object-contain"
+  icon.appendChild(image)
+  return icon
+}
+
+function decoratePresentedMediaLink(link: HTMLAnchorElement, filePath: string) {
+  link.href = filePath
+  link.setAttribute("data-presented-media-path", filePath)
+  link.className =
+    "presented-media-link inline-flex items-center gap-1.5 align-baseline text-text-interactive-base no-underline hover:underline hover:underline-offset-2"
+  link.removeAttribute("target")
+  link.removeAttribute("rel")
+  link.setAttribute("title", filePath)
+
+  const existingIcon = link.querySelector('[data-slot="presented-media-icon"]')
+  if (existingIcon instanceof HTMLElement) {
+    existingIcon.replaceWith(createPresentedMediaIcon(filePath))
+  } else {
+    link.appendChild(createPresentedMediaIcon(filePath))
+  }
+
+  const label = presentedMediaLinkLabel(filePath)
+  const existingLabel = link.querySelector('[data-slot="presented-media-label"]')
+  if (existingLabel instanceof HTMLElement) {
+    existingLabel.textContent = label
+  } else {
+    const labelNode = document.createElement("span")
+    labelNode.setAttribute("data-slot", "presented-media-label")
+    labelNode.className = "min-w-0 truncate"
+    labelNode.textContent = label
+    link.appendChild(labelNode)
+  }
 }
 
 function createCopyButton(labels: CopyLabels) {
@@ -173,15 +235,33 @@ function ensureCodeWrapper(block: HTMLPreElement, labels: CopyLabels) {
 function markCodeLinks(root: HTMLDivElement) {
   const codeNodes = Array.from(root.querySelectorAll(":not(pre) > code"))
   for (const code of codeNodes) {
-    const href = codeUrl(code.textContent ?? "")
+    const text = code.textContent ?? ""
+    const href = codeUrl(text)
+    const filePath = isLikelyPresentedMediaPathCandidate(text)
+      ? normalizePresentedMediaCandidatePath(text)
+      : undefined
     const parentLink =
       code.parentElement instanceof HTMLAnchorElement &&
-      code.parentElement.classList.contains("external-link")
+      (code.parentElement.classList.contains("external-link") ||
+        code.parentElement.classList.contains("presented-media-link"))
         ? code.parentElement
         : null
 
     if (!href) {
-      if (parentLink) parentLink.replaceWith(code)
+      if (!filePath) {
+        if (parentLink) parentLink.replaceWith(code)
+        continue
+      }
+
+      const link = parentLink ?? document.createElement("a")
+      if (!parentLink) {
+        code.parentNode?.replaceChild(link, code)
+      }
+      decoratePresentedMediaLink(link, filePath)
+
+      if (code.parentNode === link) {
+        code.remove()
+      }
       continue
     }
 
@@ -200,12 +280,53 @@ function markCodeLinks(root: HTMLDivElement) {
   }
 }
 
+function markTextLinks(root: HTMLDivElement) {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+  const nodes: Text[] = []
+
+  for (let current = walker.nextNode(); current; current = walker.nextNode()) {
+    if (!(current instanceof Text)) continue
+    if (!current.textContent?.trim()) continue
+    const parent = current.parentElement
+    if (!parent) continue
+    if (parent.closest("pre, code, a, button")) continue
+    nodes.push(current)
+  }
+
+  for (const node of nodes) {
+    const text = node.textContent ?? ""
+    const matches = findPresentedMediaCandidateMatches(text)
+    if (matches.length === 0) continue
+
+    const fragment = document.createDocumentFragment()
+    let cursor = 0
+
+    for (const match of matches) {
+      if (match.start > cursor) {
+        fragment.appendChild(document.createTextNode(text.slice(cursor, match.start)))
+      }
+
+      const link = document.createElement("a")
+      decoratePresentedMediaLink(link, match.path)
+      fragment.appendChild(link)
+      cursor = match.end
+    }
+
+    if (cursor < text.length) {
+      fragment.appendChild(document.createTextNode(text.slice(cursor)))
+    }
+
+    node.replaceWith(fragment)
+  }
+}
+
 function decorateMarkdown(root: HTMLDivElement, labels: CopyLabels) {
   const blocks = Array.from(root.querySelectorAll("pre"))
   for (const block of blocks) {
     ensureCodeWrapper(block, labels)
   }
   markCodeLinks(root)
+  markTextLinks(root)
 }
 
 function setupCodeCopy(root: HTMLDivElement, labels: CopyLabels) {
@@ -285,12 +406,14 @@ export function MarkdownHtmlSegment(props: {
   text: string
   cacheKey?: string
   className?: string
+  directory?: string
 }) {
   const rootRef = useRef<HTMLDivElement | null>(null)
   const renderIdRef = useRef(0)
   const copyCleanupRef = useRef<(() => void) | undefined>(undefined)
   const copySetupTimerRef = useRef<number | undefined>(undefined)
   const copyLabels = useMemo<CopyLabels>(() => ({ copy: "Copy code", copied: "Copied" }), [])
+  const queueFileOpen = useWorkspaceFilePanelStore((state) => state.queueFileOpen)
   const sanitizeContextKey = markdownSanitizeContextKey()
   const fullCacheKey = useMemo(
     () => `${props.cacheKey ?? props.text}::${sanitizeContextKey}`,
@@ -341,6 +464,52 @@ export function MarkdownHtmlSegment(props: {
     const root = rootRef.current
     if (!root) return
 
+    const handleClick = (event: MouseEvent) => {
+      const target = event.target
+      if (!(target instanceof Element)) return
+      const link = target.closest("a")
+      if (!(link instanceof HTMLAnchorElement)) return
+      if (!props.directory) return
+      if (link.classList.contains("external-link")) return
+
+      const rawPath =
+        link.getAttribute("data-presented-media-path")?.trim() ??
+        link.getAttribute("title")?.trim() ??
+        link.getAttribute("href")?.trim()
+      if (!rawPath) return
+      if (!isLikelyPresentedMediaPathCandidate(rawPath)) return
+      event.preventDefault()
+
+      const panelItem = toWorkspaceFilePanelItem({
+        id: "",
+        inputPath: rawPath,
+        absolutePath: "",
+        displayPath: rawPath,
+        workspacePath: rawPath,
+        fileName: presentedMediaLinkLabel(rawPath),
+        mediaKind: "other",
+        renderMode: "file",
+        mimeType: null,
+        sizeBytes: null,
+        modifiedAt: null,
+        rawUrl: "",
+        actionCapabilities: {
+          canOpenDefaultApp: false,
+          canRevealInFileManager: false,
+          canOpenInWorkspacePanel: true,
+        },
+        availability: {
+          status: "available",
+          message: null,
+        },
+      })
+      if (panelItem) {
+        queueFileOpen(props.directory ?? "", panelItem, { autoOpen: true })
+      }
+    }
+
+    root.addEventListener("click", handleClick)
+
     const renderId = renderIdRef.current + 1
     renderIdRef.current = renderId
     let cancelled = false
@@ -370,9 +539,10 @@ export function MarkdownHtmlSegment(props: {
 
     return () => {
       cancelled = true
+      root.removeEventListener("click", handleClick)
       resetCodeCopy()
     }
-  }, [copyLabels, fullCacheKey, props.text, resetCodeCopy])
+  }, [copyLabels, fullCacheKey, props.directory, props.text, queueFileOpen, resetCodeCopy])
 
   return <div ref={rootRef} className={props.className ?? markdownClassName} />
 }

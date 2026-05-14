@@ -21,19 +21,10 @@ import {
   EllipsisIcon,
   Skeleton,
 } from "@buddy/ui"
-import {
-  FileIcon,
-  FileTextIcon,
-  ImageIcon,
-  RefreshCwIcon,
-  PlusIcon,
-  Loader2Icon,
-  AlertCircleIcon,
-  FileCodeIcon,
-  FileArchiveIcon,
-} from "lucide-react"
+import { RefreshCwIcon, PlusIcon, Loader2Icon, AlertCircleIcon } from "lucide-react"
 import { language } from "@/context/language"
 import { stringifyError } from "@/lib/api-client"
+import { FileTypeIcon } from "@/components/files/file-type-icon"
 import {
   addResource,
   rebuildResource,
@@ -74,14 +65,10 @@ function statusVariant(status: ResourceRecord["status"]): "secondary" | "outline
 }
 
 function ResourceIcon({ format }: { format: string }) {
-  const f = format.toLowerCase()
-  if (["png", "jpg", "jpeg", "gif", "svg", "webp"].includes(f))
-    return <ImageIcon className="size-4" />
-  if (["txt", "md", "mdx", "csv"].includes(f)) return <FileTextIcon className="size-4" />
-  if (["json", "js", "ts", "jsx", "tsx", "html", "css", "py", "rs", "go"].includes(f))
-    return <FileCodeIcon className="size-4" />
-  if (["zip", "tar", "gz"].includes(f)) return <FileArchiveIcon className="size-4" />
-  return <FileIcon className="size-4" />
+  const normalizedFormat = format.toLowerCase()
+  return (
+    <FileTypeIcon fileName={`resource.${normalizedFormat}`} className="size-4 object-contain" />
+  )
 }
 
 function SkeletonCard() {

@@ -1,6 +1,7 @@
 import { useEffect } from "react"
 import { ChatRightSidebar } from "@/components/layout/chat-right-sidebar"
 import { useWorkspaceQuestionSetPanelStore } from "@/state/workspace-question-set-panel-store"
+import { useWorkspaceFilePanelStore } from "@/state/workspace-file-panel-store"
 import type { LearnerCurriculumView } from "@/state/chat-actions"
 import type { DirectoryChatState } from "@/lib/directory-chat/use-directory-chat-state"
 import type { TeachingWorkspaceController } from "@/lib/directory-chat/use-teaching-workspace"
@@ -51,11 +52,23 @@ export function DirectoryChatRightSidebar(props: DirectoryChatRightSidebarProps)
   const selectedQuestionSetArtifactID = useWorkspaceQuestionSetPanelStore(
     (state) => state.selectedArtifactIDByDirectory[directory],
   )
+  const pendingAutoFileOpen = useWorkspaceFilePanelStore(
+    (state) => state.pendingAutoOpenByDirectory[directory],
+  )
   const rightSidebarOpen = chatState.rightSidebarOpen
   const rightSidebarTab = chatState.rightSidebarTab
   const selectedPersonaDefaultSurface = chatState.selectedPersonaDefaultSurface
   const setRightSidebarOpen = chatState.setRightSidebarOpen
   const setRightSidebarTab = chatState.setRightSidebarTab
+
+  useEffect(() => {
+    if (!pendingAutoFileOpen) {
+      return
+    }
+
+    setRightSidebarTab("files")
+    setRightSidebarOpen(true)
+  }, [pendingAutoFileOpen, setRightSidebarOpen, setRightSidebarTab])
 
   useEffect(() => {
     if (!rightSidebarOpen) {

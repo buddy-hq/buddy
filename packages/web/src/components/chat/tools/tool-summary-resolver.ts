@@ -59,6 +59,21 @@ function fileExtension(path: string | undefined): string | undefined {
   return match ? match[1] : undefined
 }
 
+const IMAGE_FILE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"]
+
+function isImageFilePath(filePath: string | undefined): boolean {
+  if (!filePath) return false
+  const lower = filePath.toLowerCase()
+  return IMAGE_FILE_EXTENSIONS.some((ext) => lower.endsWith(ext))
+}
+
+function isImageRead(props: ToolPartProps): boolean {
+  const path =
+    readNonEmptyString(props.state.input.filePath) ?? readNonEmptyString(props.info.subtitle)
+  if (isImageFilePath(path)) return true
+  return props.state.attachments?.some((a) => a.mime.startsWith("image/")) ?? false
+}
+
 function isMarkdownRead(props: ToolPartProps): boolean {
   const path =
     readNonEmptyString(props.state.input.filePath) ?? readNonEmptyString(props.info.subtitle)
@@ -195,6 +210,7 @@ export function resolveToolSummary(
       })
     }
     case "read": {
+      const image = isImageRead(props)
       const fileName = props.info.subtitle
       const fileDirectory = props.info.detail
       const snippet = summarizeText(props.state.output, SUMMARY_ROW_PREVIEW_MAX_CHARS)
@@ -210,7 +226,20 @@ export function resolveToolSummary(
         details.push({ value: snippet, format })
       }
 
-      return withResolvedSummary(summary, {
+      const aggregate = image
+        ? resolveSummaryAggregate({
+            ...summary,
+            aggregate: {
+              key: "view-image",
+              mode: "count-items" as const,
+              past: "Viewed",
+              singular: "image",
+              plural: "images",
+            },
+          })
+        : resolveSummaryAggregate(summary)
+
+      return {
         display: summary.display,
         label: buildLabel(props.info.title, heading ?? fileName),
         preview: previewValue
@@ -223,7 +252,8 @@ export function resolveToolSummary(
         errorPreview: summary.suppressError ? undefined : resolveSummaryErrorPreview(props),
         errorVisibility: summary.suppressError ? "suppressed" : "visible",
         suppressError: summary.suppressError,
-      })
+        aggregate,
+      }
     }
     case "artifact": {
       const artifact = readNonEmptyString(props.state.metadata.artifact)

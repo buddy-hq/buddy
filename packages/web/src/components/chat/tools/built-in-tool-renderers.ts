@@ -29,6 +29,7 @@ import { renderRenderMermaidTool } from "./render/mermaid"
 import { renderPythonCalculatorTool } from "./render/python-calculator"
 import { renderQuestionTool } from "./render/question"
 import { renderSavedQuestionSetTool } from "./render/question-set/saved-question-set-tool"
+import { renderPresentMediaTool } from "./render/present-media"
 import { renderReadTool } from "./render/read"
 import { renderRenderFigureTool } from "./render/render-figure"
 import { renderSearchTool } from "./render/search"
@@ -220,6 +221,10 @@ export const builtInTools: Record<string, ToolRenderer> = {
   render_saved_question_set: createToolRenderer({
     icon: (cn) => createElement(BookOpen, { className: cn }),
     card: renderSavedQuestionSetTool,
+  }),
+  present_media: createToolRenderer({
+    icon: (cn) => createElement(Image, { className: cn }),
+    card: renderPresentMediaTool,
   }),
   question: createToolRenderer({
     icon: (cn) => createElement(HelpCircle, { className: cn }),

@@ -26,14 +26,34 @@ function stripUrlCredentials(value: string): string {
   }
 }
 
+function readProducerArtifact(
+  state: ToolPartProps["state"],
+): { artifact: string; value: unknown } | undefined {
+  const producerArtifact = isRecord(state.metadata.producerArtifact)
+    ? state.metadata.producerArtifact
+    : undefined
+  const artifact = producerArtifact && readString(producerArtifact.artifact)
+  if (!producerArtifact || !artifact) return undefined
+
+  return {
+    artifact,
+    value: producerArtifact.value,
+  }
+}
+
 export function parseRenderFigureOutput(
   state: ToolPartProps["state"],
 ): RenderFigureToolOutput | undefined {
-  const artifact = readString(state.metadata.artifact)
+  const producerArtifact = readProducerArtifact(state)
+  const artifact = producerArtifact?.artifact ?? readString(state.metadata.artifact)
   if (artifact !== "RenderFigureOutput" && artifact !== "RenderFreeformFigureOutput")
     return undefined
 
-  const value = isRecord(state.metadata.value) ? state.metadata.value : undefined
+  const value = isRecord(producerArtifact?.value)
+    ? producerArtifact.value
+    : isRecord(state.metadata.value)
+      ? state.metadata.value
+      : undefined
   if (!value) return undefined
 
   const figureID = readNonEmptyString(value.figureID)

@@ -10,6 +10,7 @@ export function Markdown(props: {
   cacheKey?: string
   mermaidContext?: MarkdownMermaidContext
   isStreaming?: boolean
+  directory?: string
 }) {
   const baseCacheKey = props.cacheKey ?? props.text
   const segments = useMemo(() => parseMarkdownSegments(props.text), [props.text])
@@ -22,6 +23,7 @@ export function Markdown(props: {
         text={props.text}
         cacheKey={baseCacheKey}
         className={cn(markdownClassName, props.className)}
+        directory={props.directory}
       />
     )
   }
@@ -34,6 +36,7 @@ export function Markdown(props: {
             key={`${baseCacheKey}:html:${segment.segmentIndex}`}
             text={segment.markdown}
             cacheKey={`${baseCacheKey}:html:${segment.segmentIndex}`}
+            directory={props.directory}
           />
         ) : props.mermaidContext ? (
           <MarkdownMermaidSegment

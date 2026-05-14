@@ -46,7 +46,8 @@ function buildSummaryRowDetails(entry: HiddenStepsEntry): ResolvedSummaryContent
   return uniqueDetails(entry.summary?.details ?? [])
 }
 
-export function HiddenStepsSummaryRow({ entry }: { entry: HiddenStepsEntry }) {
+export function HiddenStepsSummaryRow(props: { entry: HiddenStepsEntry; directory?: string }) {
+  const { entry, directory } = props
   if (!entry.info || !entry.summary) {
     return null
   }
@@ -63,6 +64,7 @@ export function HiddenStepsSummaryRow({ entry }: { entry: HiddenStepsEntry }) {
             text={detail.value}
             cacheKey={detailCacheKey(entry.part.id, detail)}
             className={detailKindClassName(detail.format)}
+            directory={directory}
           />
         ) : (
           <div

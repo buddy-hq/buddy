@@ -103,6 +103,7 @@ export const AssistantTextPart = memo(function AssistantTextPart({
           cacheKey={part.id}
           mermaidContext={mermaidContext}
           isStreaming={displayedText !== visibleText}
+          directory={directory}
         />
       </div>
       {copyEnabled ? (

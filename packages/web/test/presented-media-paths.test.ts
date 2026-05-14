@@ -1,0 +1,180 @@
+import { afterEach, describe, expect, mock, test } from "bun:test"
+import {
+  collectPresentedMediaCandidatePaths,
+  isLikelyPresentedMediaPathCandidate,
+  normalizePresentedMediaCandidatePath,
+  readPresentedMediaAvailability,
+  resolvePresentedMediaAvailability,
+  type PresentedMediaItem,
+} from "../src/lib/presented-media"
+import { withFetchPreconnect } from "../src/lib/fetch-transport"
+
+const originalFetch = globalThis.fetch
+
+describe("presented media path helpers", () => {
+  afterEach(() => {
+    globalThis.fetch = originalFetch
+  })
+
+  test("normalizes slashless unix absolute candidates", () => {
+    expect(
+      normalizePresentedMediaCandidatePath(
+        "Users/prashantbhudwal/Documents/Buddy/teaching/generated/worksheet.pdf",
+      ),
+    ).toBe("/Users/prashantbhudwal/Documents/Buddy/teaching/generated/worksheet.pdf")
+  })
+
+  test("strips surrounding markdown wrappers", () => {
+    expect(normalizePresentedMediaCandidatePath("(generated/worksheet.pdf)")).toBe(
+      "generated/worksheet.pdf",
+    )
+    expect(normalizePresentedMediaCandidatePath("[generated/worksheet.pdf]")).toBe(
+      "generated/worksheet.pdf",
+    )
+  })
+
+  test("collects likely local media candidates and skips noisy workspace paths", () => {
+    expect(collectPresentedMediaCandidatePaths("generated/worksheet.pdf")).toEqual([
+      "generated/worksheet.pdf",
+    ])
+    expect(
+      collectPresentedMediaCandidatePaths("node_modules/pkg/image.png dist/output.pdf"),
+    ).toEqual([])
+  })
+
+  test("collects workspace-relative candidates with spaces and unicode characters", () => {
+    expect(
+      collectPresentedMediaCandidatePaths(
+        [
+          "generated/Mark Richards; Neal Ford - Fundamentals of Software Architecture.pdf",
+          "generated/Command R+ Blog Header.png",
+          "generated/Рильке, Райнер Мария - Letters to a Young Poet.epub",
+        ].join("\n"),
+      ),
+    ).toEqual([
+      "generated/Mark Richards; Neal Ford - Fundamentals of Software Architecture.pdf",
+      "generated/Command R+ Blog Header.png",
+      "generated/Рильке, Райнер Мария - Letters to a Young Poet.epub",
+    ])
+  })
+
+  test("rejects external-looking paths from plain assistant text affordances", () => {
+    expect(isLikelyPresentedMediaPathCandidate("generated/worksheet.pdf")).toBe(true)
+    expect(isLikelyPresentedMediaPathCandidate("/tmp/worksheet.pdf")).toBe(false)
+    expect(isLikelyPresentedMediaPathCandidate("~/Downloads/worksheet.pdf")).toBe(false)
+    expect(isLikelyPresentedMediaPathCandidate("file:///tmp/worksheet.pdf")).toBe(false)
+    expect(isLikelyPresentedMediaPathCandidate("C:\\Users\\buddy\\worksheet.pdf")).toBe(false)
+    expect(isLikelyPresentedMediaPathCandidate("../worksheet.pdf")).toBe(false)
+  })
+
+  test("checks raw media availability through the backend-provided raw URL", async () => {
+    const calls: string[] = []
+    globalThis.fetch = withFetchPreconnect(
+      mock(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url =
+          typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
+        const method = input instanceof Request ? input.method : (init?.method ?? "GET")
+        calls.push(`${method} ${url}`)
+
+        if (
+          method === "HEAD" &&
+          url.includes("/api/presented-media/artifact_1/raw/item_1") &&
+          url.includes("directory=%2Frepo")
+        ) {
+          return new Response(null, { status: 200 })
+        }
+
+        throw new Error(`Unexpected fetch: ${method} ${url}`)
+      }),
+      originalFetch,
+    )
+
+    const availability = await readPresentedMediaAvailability("/repo", localMediaItem)
+
+    expect(availability.status).toBe("available")
+    expect(calls.some((call) => call.includes("/api/presented-media/resolve"))).toBe(false)
+    expect(calls.some((call) => call.includes("/api/presented-media/artifact_1/raw/item_1"))).toBe(
+      true,
+    )
+  })
+
+  test("treats oversized media as available when the backend can serve it", async () => {
+    globalThis.fetch = withFetchPreconnect(
+      mock(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url =
+          typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
+        const method = input instanceof Request ? input.method : (init?.method ?? "GET")
+
+        if (
+          method === "HEAD" &&
+          url.includes("/api/presented-media/artifact_1/raw/item_1") &&
+          url.includes("directory=%2Frepo")
+        ) {
+          return new Response(null, { status: 200 })
+        }
+
+        throw new Error(`Unexpected fetch: ${method} ${url}`)
+      }),
+      originalFetch,
+    )
+
+    const availability = await readPresentedMediaAvailability("/repo", {
+      ...localMediaItem,
+      mediaKind: "image",
+      renderMode: "image",
+      sizeBytes: 1024 * 1024 * 1024,
+    })
+
+    expect(availability.status).toBe("available")
+  })
+
+  test("returns missing when the artifact-backed raw media URL no longer exists", async () => {
+    globalThis.fetch = withFetchPreconnect(
+      mock(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url =
+          typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
+        const method = input instanceof Request ? input.method : (init?.method ?? "GET")
+
+        if (
+          method === "HEAD" &&
+          url.includes("/api/presented-media/artifact_1/raw/item_1") &&
+          url.includes("directory=%2Frepo")
+        ) {
+          return new Response(null, { status: 404 })
+        }
+
+        throw new Error(`Unexpected fetch: ${method} ${url}`)
+      }),
+      originalFetch,
+    )
+
+    const result = await resolvePresentedMediaAvailability("/repo", localMediaItem)
+
+    expect(result.availability.status).toBe("missing")
+    expect(result.item.rawUrl).toContain("/api/presented-media/artifact_1/raw/item_1")
+  })
+})
+
+const localMediaItem: PresentedMediaItem = {
+  id: "item_1",
+  inputPath: "/tmp/notes.pdf",
+  absolutePath: "/tmp/notes.pdf",
+  displayPath: "/tmp/notes.pdf",
+  workspacePath: null,
+  fileName: "notes.pdf",
+  mediaKind: "pdf",
+  renderMode: "pdf",
+  mimeType: "application/pdf",
+  sizeBytes: 42,
+  modifiedAt: null,
+  rawUrl: "/api/presented-media/artifact_1/raw/item_1?directory=%2Frepo&fileName=notes.pdf",
+  actionCapabilities: {
+    canOpenDefaultApp: true,
+    canRevealInFileManager: true,
+    canOpenInWorkspacePanel: false,
+  },
+  availability: {
+    status: "available",
+    message: null,
+  },
+}

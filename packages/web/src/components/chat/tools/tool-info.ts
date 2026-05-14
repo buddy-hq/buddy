@@ -4,6 +4,18 @@ import { isRecord, readNonEmptyString, readNonNegativeInt } from "./types"
 import { parseToolUiMetadata } from "./parse-tool-ui-metadata"
 import type { ToolInfo, ToolState } from "./types"
 
+const IMAGE_FILE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"]
+
+function isImageFilePath(filePath: string | undefined): boolean {
+  if (!filePath) return false
+  const lower = filePath.toLowerCase()
+  return IMAGE_FILE_EXTENSIONS.some((ext) => lower.endsWith(ext))
+}
+
+function hasImageAttachments(state: ToolState): boolean {
+  return state.attachments?.some((a) => a.mime.startsWith("image/")) ?? false
+}
+
 const KNOWLEDGE_GRAPH_TOOL_TITLES = {
   search_standards: "Search Standards",
   get_standard: "Get Standard",
@@ -171,9 +183,13 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
       const args: string[] = []
       if (typeof input.offset === "number") args.push(`offset=${input.offset}`)
       if (typeof input.limit === "number") args.push(`limit=${input.limit}`)
+      const isImage = isImageFilePath(filePath) || hasImageAttachments(state)
+      const title = active
+        ? language.t(isImage ? "chatTools.info.read.image.running" : "chatTools.info.read.running")
+        : language.t(isImage ? "chatTools.info.read.image" : "chatTools.info.read")
       return withMetadataTitle(
         {
-          title: language.t(active ? "chatTools.info.read.running" : "chatTools.info.read"),
+          title,
           subtitle: filePath ? basename(filePath) : undefined,
           detail: filePath ? dirname(filePath) : undefined,
           summary,

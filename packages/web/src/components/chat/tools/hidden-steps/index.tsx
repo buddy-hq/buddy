@@ -9,13 +9,15 @@ import {
   cn,
 } from "@buddy/ui"
 import { AnimatePresence, motion } from "motion/react"
-import { FastForward, Panda } from "lucide-react"
+import { FastForward, Panda, View } from "lucide-react"
 
 import type { MessagePart } from "@/state/chat-types"
 
-import type { ToolIconRenderer } from "../tool-registry-types"
+import type { ToolAttachment, ToolIconRenderer } from "../tool-registry-types"
 import { AssistantPartRenderer } from "../../parts/assistant-part/assistant-part"
+import { resolveAssetUrl } from "../../../../lib/resource-url"
 import { useThrottledText } from "../../hooks/use-throttled-text"
+import { getReadPreviewImageAttachments, isReadImagePreview } from "../read-image-preview"
 import {
   buildHiddenStepsSummary,
   buildHiddenStepsPreview,
@@ -38,8 +40,51 @@ import { MOTION_GENTLE, MOTION_SNAPPY } from "../tool-motion"
 import { TextShimmer } from "../text-shimmer"
 
 const DEFAULT_STEPS_TITLE = "Steps"
+
+type HiddenStepsImageRowProps = {
+  attachments: ToolAttachment[]
+  small?: boolean
+}
+
+function HiddenStepsImageRow({ attachments, small }: HiddenStepsImageRowProps) {
+  return (
+    <div className="flex gap-2 overflow-x-auto">
+      {attachments.map((attachment) => {
+        const url =
+          attachment.url.startsWith("data:") || attachment.url.startsWith("blob:")
+            ? attachment.url
+            : resolveAssetUrl(attachment.url)
+        const label = attachment.filename ?? "image"
+
+        return (
+          <img
+            key={attachment.id}
+            src={url}
+            alt={label}
+            className={
+              small
+                ? "max-h-16 w-auto shrink-0 rounded-md border border-border-base object-contain bg-surface-weaker"
+                : "max-h-28 w-auto shrink-0 rounded-md border border-border-base object-contain bg-surface-weaker"
+            }
+          />
+        )
+      })}
+    </div>
+  )
+}
 const PREVIEW_MAX_HEIGHT_PX = 80
 const SHELL_TOOL_NAME = "bash"
+const READ_TOOL_NAME = "read"
+
+function isReadToolEntryWithState(
+  entry: HiddenStepsEntry | undefined,
+): entry is HiddenStepsEntry & { state: NonNullable<HiddenStepsEntry["state"]> } {
+  return (
+    entry?.part.type === "tool" &&
+    String(entry.part.tool ?? "") === READ_TOOL_NAME &&
+    entry.state !== undefined
+  )
+}
 
 type HiddenStepsProps = {
   parts: MessagePart[]
@@ -68,6 +113,8 @@ type HiddenStepsPreviewPanelProps = {
   previewText: string
   previewPartID?: string
   previewViewportHeight?: number
+  directory?: string
+  imageAttachments?: ToolAttachment[]
 }
 
 function HiddenStepsToggle({
@@ -130,6 +177,8 @@ function HiddenStepsPreviewPanel({
   previewText,
   previewPartID,
   previewViewportHeight,
+  directory,
+  imageAttachments,
 }: HiddenStepsPreviewPanelProps) {
   const previewViewportRef = useRef<HTMLDivElement>(null)
   const previewContentRef = useRef<HTMLDivElement>(null)
@@ -180,7 +229,7 @@ function HiddenStepsPreviewPanel({
           <div
             ref={previewViewportRef}
             data-preview-viewport=""
-            className="mt-3 overflow-hidden"
+            className="mt-3 overflow-hidden px-2"
             style={{
               ...(typeof previewViewportHeight === "number"
                 ? { height: `${previewViewportHeight}px` }
@@ -194,6 +243,7 @@ function HiddenStepsPreviewPanel({
                   text={previewText}
                   cacheKey={previewPartID ? `${previewPartID}:hidden-preview` : "hidden-preview"}
                   className={HIDDEN_STEPS_MARKDOWN_CLASS_NAME}
+                  directory={directory}
                 />
               ) : (
                 <div
@@ -206,6 +256,9 @@ function HiddenStepsPreviewPanel({
                   {previewText}
                 </div>
               )}
+              {imageAttachments && imageAttachments.length > 0 ? (
+                <HiddenStepsImageRow attachments={imageAttachments} small />
+              ) : null}
             </div>
           </div>
         </motion.div>
@@ -227,11 +280,19 @@ export function HiddenSteps({
 }: HiddenStepsProps) {
   const [isOpen, setIsOpen] = useState(false)
   const lastActiveEntryRef = useRef<HiddenStepsEntry | undefined>(undefined)
-  const { entries, activeEntry, lastErrorEntry, errorCount, summaryDetail } = useMemo(() => {
+  const {
+    entries,
+    activeEntry,
+    lastErrorEntry,
+    errorCount,
+    summaryDetail,
+    completedReadImageAttachments,
+  } = useMemo(() => {
     const entries = parts.map((part) => createHiddenStepsEntry(part))
     let activeEntry: HiddenStepsEntry | undefined
     let lastErrorEntry: HiddenStepsEntry | undefined
     let errorCount = 0
+    const completedReadImageAttachments: ToolAttachment[] = []
 
     for (const entry of entries) {
       if (hiddenStepsEntryIsActive(entry)) {
@@ -242,6 +303,19 @@ export function HiddenSteps({
         lastErrorEntry = entry
         errorCount += 1
       }
+
+      if (
+        entry.part.type === "tool" &&
+        String(entry.part.tool ?? "") === READ_TOOL_NAME &&
+        entry.state?.status === "completed"
+      ) {
+        completedReadImageAttachments.push(
+          ...getReadPreviewImageAttachments({
+            state: entry.state,
+            filePath: entry.info?.subtitle,
+          }),
+        )
+      }
     }
 
     return {
@@ -250,6 +324,7 @@ export function HiddenSteps({
       lastErrorEntry,
       errorCount,
       summaryDetail: buildHiddenStepsSummary(entries),
+      completedReadImageAttachments,
     }
   }, [parts])
 
@@ -284,12 +359,25 @@ export function HiddenSteps({
     showLivePreview || showErrorPreview ? preview.title : (summaryDetail ?? DEFAULT_STEPS_TITLE)
   const animateLiveTitle = showLivePreview && Boolean(isBusy)
 
+  const previewImageAttachments = isReadToolEntryWithState(previewEntry)
+    ? getReadPreviewImageAttachments({
+        state: previewEntry.state,
+        filePath: previewEntry.info?.subtitle,
+      })
+    : []
+
+  const isImageRead = isReadToolEntryWithState(previewEntry)
+    ? isReadImagePreview({ state: previewEntry.state, filePath: previewEntry.info?.subtitle })
+    : false
+
   const toggleIcon: ToolIconRenderer | undefined = showLivePreview
     ? previewEntry?.part.type === "reasoning"
       ? title === ABSTRACTED_THINKING_LABEL
         ? (cn) => <Panda className={cn} />
         : (cn) => <FastForward className={cn} />
-      : previewEntry?.icon
+      : isImageRead
+        ? (cn) => <View className={cn} />
+        : previewEntry?.icon
     : undefined
 
   return (
@@ -309,13 +397,21 @@ export function HiddenSteps({
         previewText={previewText}
         previewPartID={previewEntry?.part.id}
         previewViewportHeight={showLivePreview ? PREVIEW_MAX_HEIGHT_PX : undefined}
+        directory={directory}
+        imageAttachments={showLivePreview ? previewImageAttachments : undefined}
       />
+
+      {!isOpen && completedReadImageAttachments.length > 0 && !showLivePreview ? (
+        <div className="mt-2.5 px-2">
+          <HiddenStepsImageRow attachments={completedReadImageAttachments} />
+        </div>
+      ) : null}
 
       <CollapsibleContent>
         <div className="mt-3 px-2 flex flex-col gap-2.5">
           {entries.map((entry) =>
             hiddenStepsEntryUsesSummaryRow(entry) ? (
-              <HiddenStepsSummaryRow key={entry.part.id} entry={entry} />
+              <HiddenStepsSummaryRow key={entry.part.id} entry={entry} directory={directory} />
             ) : (
               <AssistantPartRenderer
                 key={entry.part.id}
