@@ -10,6 +10,7 @@ import {
   practiceFeature,
   assessmentFeature,
   questionSetsFeature,
+  mediaPresentationsFeature,
 } from "../features"
 
 export const READING_BUDDY = defineBuddyPersona({
@@ -26,6 +27,7 @@ export const READING_BUDDY = defineBuddyPersona({
     practiceFeature,
     assessmentFeature,
     questionSetsFeature,
+    mediaPresentationsFeature,
   ],
   defaultSurface: "curriculum",
   hidden: false,

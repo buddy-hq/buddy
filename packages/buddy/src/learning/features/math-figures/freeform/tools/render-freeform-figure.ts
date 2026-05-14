@@ -4,6 +4,7 @@ import {
   type BuddyToolContext,
 } from "@buddy/backend/learning/runtime/create-buddy-tool"
 import z from "zod"
+import { buildPresentedMediaOutputForPath } from "../../../media-presentations/service/file-media"
 import { FreeformFigurePath } from "../path"
 import { renderFreeformFigure } from "../service/render"
 
@@ -33,12 +34,21 @@ const renderFreeformFigureTool = createBuddyTool({
     })
 
     const result = await renderFreeformFigure(ctx.directory, params)
+    const presentedMedia = await buildPresentedMediaOutputForPath({
+      directory: ctx.directory,
+      path: result.relativePath,
+    })
+
     return {
       title: "Rendered freeform figure",
       output: JSON.stringify(result, null, 2),
       metadata: {
-        artifact: "RenderFreeformFigureOutput",
-        value: result,
+        artifact: "PresentedMediaOutput",
+        value: presentedMedia,
+        producerArtifact: {
+          artifact: "RenderFreeformFigureOutput",
+          value: result,
+        },
       },
     }
   },

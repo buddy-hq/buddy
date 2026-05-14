@@ -21,6 +21,7 @@ import {
   readProjectTextFile,
   saveProjectTextFile,
 } from "../project/project-file-editor-service"
+import { resolvePresentedMediaItem } from "../learning/features/media-presentations/service/file-media"
 
 const findFileQuerySchema = z.object({
   query: z.string(),
@@ -42,6 +43,15 @@ const fileReadQuerySchema = z.object({
 
 const fileRawParamSchema = z.object({
   fileName: z.string().min(1),
+})
+
+const presentedMediaRawParamSchema = z.object({
+  artifactID: z.string().min(1),
+  itemID: z.string().min(1),
+})
+
+const presentedMediaRawQuerySchema = directoryQuerySchema.extend({
+  fileName: z.string().min(1).optional(),
 })
 
 const fileEditBodySchema = z.object({
@@ -336,6 +346,86 @@ export const CompatibilityRoutes = new Hono()
             }),
           })
         },
+      })
+    },
+  )
+  .get(
+    "/presented-media/:artifactID/raw/:itemID",
+    describeRoute({
+      operationId: "presentedMedia.raw",
+      summary: "Read raw presented media bytes",
+      responses: {
+        200: {
+          description: "Raw presented media bytes",
+          content: {
+            "application/octet-stream": {
+              schema: resolver(z.string()),
+            },
+          },
+        },
+        ...routeErrors(403, 404),
+      },
+    }),
+    validator("param", presentedMediaRawParamSchema),
+    validator("query", presentedMediaRawQuerySchema),
+    async (c) => {
+      const directoryContext = resolveDirectoryRequestContext(c)
+      if (!directoryContext.ok) return directoryContext.response
+      const params = c.req.valid("param")
+      const query = c.req.valid("query")
+
+      const item = await resolvePresentedMediaItem(
+        directoryContext.context.directory,
+        params.artifactID,
+        params.itemID,
+      )
+      if (!item) {
+        return Response.json({ error: FILE_NOT_FOUND_ERROR }, { status: 404 })
+      }
+
+      const fileRecord = readProjectFileRecord(item.absolutePath)
+      if (!fileRecord.ok) return fileRecord.response
+
+      const downloadName = query.fileName ?? item.fileName
+      return new Response(Bun.file(fileRecord.filepath), {
+        headers: buildRawProjectFileHeaders({
+          downloadName,
+          filepath: fileRecord.filepath,
+          size: fileRecord.size,
+        }),
+      })
+    },
+  )
+  .on(
+    "HEAD",
+    "/presented-media/:artifactID/raw/:itemID",
+    validator("param", presentedMediaRawParamSchema),
+    validator("query", presentedMediaRawQuerySchema),
+    async (c) => {
+      const directoryContext = resolveDirectoryRequestContext(c)
+      if (!directoryContext.ok) return directoryContext.response
+      const params = c.req.valid("param")
+      const query = c.req.valid("query")
+
+      const item = await resolvePresentedMediaItem(
+        directoryContext.context.directory,
+        params.artifactID,
+        params.itemID,
+      )
+      if (!item) {
+        return Response.json({ error: FILE_NOT_FOUND_ERROR }, { status: 404 })
+      }
+
+      const fileRecord = readProjectFileRecord(item.absolutePath)
+      if (!fileRecord.ok) return fileRecord.response
+
+      const downloadName = query.fileName ?? item.fileName
+      return new Response(null, {
+        headers: buildRawProjectFileHeaders({
+          downloadName,
+          filepath: fileRecord.filepath,
+          size: fileRecord.size,
+        }),
       })
     },
   )

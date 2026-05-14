@@ -5,6 +5,7 @@ import {
   type BuddyToolContext,
 } from "@buddy/backend/learning/runtime/create-buddy-tool"
 import { FigurePath } from "../path"
+import { buildPresentedMediaOutputForPath } from "../../../media-presentations/service/file-media"
 import { GeometryFigureSpecSchema } from "../types"
 import { renderGeometryFigure } from "../render-figure"
 
@@ -34,12 +35,21 @@ const renderFigureTool = createBuddyTool({
     })
 
     const result = await renderGeometryFigure(ctx.directory, params)
+    const presentedMedia = await buildPresentedMediaOutputForPath({
+      directory: ctx.directory,
+      path: result.relativePath,
+    })
+
     return {
       title: "Rendered figure",
       output: JSON.stringify(result, null, 2),
       metadata: {
-        artifact: "RenderFigureOutput",
-        value: result,
+        artifact: "PresentedMediaOutput",
+        value: presentedMedia,
+        producerArtifact: {
+          artifact: "RenderFigureOutput",
+          value: result,
+        },
       },
     }
   },

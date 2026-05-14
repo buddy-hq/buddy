@@ -63,6 +63,7 @@ describe("figure tools", () => {
 
     expect(payload.repairAttempts).toBe(0)
     expect(payload.figureID).toMatch(/^[a-f0-9]{64}$/)
+    expect(payload.relativePath).toBe(`.buddy/figures/${payload.figureID}.svg`)
     expect(payload.markdown).toContain(`/api/figures/${payload.figureID}?directory=`)
     expect(svg.startsWith("<svg")).toBe(true)
     expect(svg).toContain("</svg>")
@@ -106,6 +107,41 @@ describe("figure tools", () => {
       "utf8",
     )
     expect(svg).toContain("<svg")
+  })
+
+  test("tool metadata also includes presented media output for the rendered figure", async () => {
+    await using project = await tmpdir({ git: true })
+
+    const result = await OpenCodeInstance.provide({
+      directory: project.path,
+      async fn() {
+        await ensureFigureToolsRegistered(project.path)
+        const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
+        const renderFigure = requireTool(tools, "render_figure")
+
+        return renderFigure.execute(
+          baseFigureInput(),
+          createToolContext({
+            sessionID: "ses_math",
+            messageID: "msg_math",
+            agent: "math-buddy",
+          }),
+        )
+      },
+    })
+
+    const metadataValue = result.metadata?.value as
+      | { items?: Array<{ displayPath?: string; rawUrl?: string }> }
+      | undefined
+    const producerArtifact = result.metadata?.producerArtifact as
+      | { artifact?: string; value?: { relativePath?: string } }
+      | undefined
+
+    expect(result.metadata?.artifact).toBe("PresentedMediaOutput")
+    expect(metadataValue?.items?.[0]?.displayPath).toBeDefined()
+    expect(metadataValue?.items?.[0]?.rawUrl).toContain("/api/presented-media/")
+    expect(producerArtifact?.artifact).toBe("RenderFigureOutput")
+    expect(producerArtifact?.value?.relativePath).toMatch(/^\.buddy\/figures\/[a-f0-9]{64}\.svg$/)
   })
 
   test("resolves perpendicular-foot constraints so derived helper lines land exactly on the base", async () => {

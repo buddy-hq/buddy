@@ -207,6 +207,7 @@ async function renderGeometryFigure(
               figureID,
               mime: "image/svg+xml",
               url: `/api/figures/${figureID}?directory=${encodeURIComponent(directory)}`,
+              relativePath: `.buddy/figures/${figureID}.svg`,
               alt: input.alt,
               ...(input.caption ? { caption: input.caption } : {}),
               markdown: `![${escapeGeometryFigureMarkdownAlt(input.alt)}](/api/figures/${figureID}?directory=${encodeURIComponent(directory)})`,

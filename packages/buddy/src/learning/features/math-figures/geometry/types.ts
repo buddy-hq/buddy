@@ -106,6 +106,7 @@ const RenderFigureOutputSchema = z.object({
   figureID: z.string().length(64),
   mime: z.literal("image/svg+xml"),
   url: nonEmptyString,
+  relativePath: nonEmptyString,
   alt: nonEmptyString,
   caption: nonEmptyString.optional(),
   markdown: nonEmptyString,

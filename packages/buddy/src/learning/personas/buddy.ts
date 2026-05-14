@@ -11,6 +11,7 @@ import {
   diagramsFeature,
   questionSetsFeature,
   flashcardsFeature,
+  mediaPresentationsFeature,
 } from "../features"
 
 export const BUDDY = defineBuddyPersona({
@@ -29,6 +30,7 @@ export const BUDDY = defineBuddyPersona({
     curriculumPlanningFeature,
     questionSetsFeature,
     flashcardsFeature,
+    mediaPresentationsFeature,
   ],
   defaultSurface: "curriculum",
   hidden: false,

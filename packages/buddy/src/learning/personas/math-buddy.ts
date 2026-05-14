@@ -13,6 +13,7 @@ import {
   calculatorFeature,
   practiceFeature,
   questionSetsFeature,
+  mediaPresentationsFeature,
 } from "../features"
 
 export const MATH_BUDDY = defineBuddyPersona({
@@ -33,6 +34,7 @@ export const MATH_BUDDY = defineBuddyPersona({
     calculatorFeature,
     practiceFeature,
     questionSetsFeature,
+    mediaPresentationsFeature,
   ],
   defaultSurface: "figure",
   hidden: false,

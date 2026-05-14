@@ -12,6 +12,7 @@ import {
   practiceFeature,
   assessmentFeature,
   questionSetsFeature,
+  mediaPresentationsFeature,
 } from "../features"
 
 export const CODE_BUDDY = defineBuddyPersona({
@@ -30,6 +31,7 @@ export const CODE_BUDDY = defineBuddyPersona({
     practiceFeature,
     assessmentFeature,
     questionSetsFeature,
+    mediaPresentationsFeature,
   ],
   defaultSurface: "editor",
   hidden: false,

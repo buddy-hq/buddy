@@ -51,6 +51,7 @@ async function renderFreeformFigure(
     figureID,
     mime: "image/svg+xml",
     url,
+    relativePath: `.buddy/freeform-figures/${figureID}.svg`,
     alt: input.alt,
     ...(input.caption ? { caption: input.caption } : {}),
     markdown: `![${escapeMarkdownAlt(input.alt)}](${url})`,
