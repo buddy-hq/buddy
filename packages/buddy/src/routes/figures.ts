@@ -2,8 +2,8 @@ import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
 import { directoryQuerySchema, routeErrors, runRouteTask, withDirectoryRoute } from "../http"
-import { readGeometryFigure } from "../learning/features/math-figures/geometry/read-figure"
-import { mapFigureRouteError } from "../learning/features/math-figures/errors"
+import { readGeometryFigure } from "../learning/features/figure-rendering/geometry/read-figure"
+import { mapFigureRouteError } from "../learning/features/figure-rendering/errors"
 
 const figureIDParamSchema = z.object({
   figureID: z.string(),

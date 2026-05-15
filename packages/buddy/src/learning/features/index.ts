@@ -8,7 +8,7 @@ import { analogiesFeature } from "./analogies/feature"
 import { stepwiseSolvingFeature } from "./stepwise-solving/feature"
 import { debugGuidanceFeature } from "./debug-guidance/feature"
 import { diagramsFeature } from "./diagrams/feature"
-import { mathFiguresFeature } from "./math-figures/feature"
+import { figureRenderingFeature } from "./figure-rendering/feature"
 import { calculatorFeature } from "./calculator/feature"
 import { lessonWorkspaceFeature } from "./lesson-workspace/feature"
 import { practiceFeature } from "./practice/feature"
@@ -28,7 +28,7 @@ const ALL_BUDDY_FEATURES = [
   stepwiseSolvingFeature,
   debugGuidanceFeature,
   diagramsFeature,
-  mathFiguresFeature,
+  figureRenderingFeature,
   calculatorFeature,
   lessonWorkspaceFeature,
   practiceFeature,
@@ -49,7 +49,7 @@ export {
   stepwiseSolvingFeature,
   debugGuidanceFeature,
   diagramsFeature,
-  mathFiguresFeature,
+  figureRenderingFeature,
   calculatorFeature,
   lessonWorkspaceFeature,
   practiceFeature,
