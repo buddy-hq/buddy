@@ -1060,7 +1060,9 @@ export function SkillsPage(props: { directory?: string }) {
                           onClick={() =>
                             void copyWithSuccessToast(
                               selectedSkill.examplePrompt!,
-                              language.t("skills.detail.copiedPrompt", { name: selectedSkill.name }),
+                              language.t("skills.detail.copiedPrompt", {
+                                name: selectedSkill.name,
+                              }),
                             )
                           }
                         >

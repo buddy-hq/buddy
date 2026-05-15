@@ -5,6 +5,8 @@ import { ReasoningPart } from "./reasoning-part"
 import { ToolPartCard } from "./tool-part"
 import type { MessagePart } from "@/state/chat-types"
 import { isChatReasoningPart, isChatTextPart, isChatToolPart } from "../../utils/part-guards"
+import { motion } from "motion/react"
+import { CONTENT_REVEAL_TRANSITION } from "../../tools/tool-motion"
 
 // Serialize tool state for comparison
 function getToolStateHash(part: MessagePart): string {
@@ -97,12 +99,20 @@ export const AssistantPartRenderer = memo(function AssistantPartRenderer({
 
   if (isChatToolPart(part)) {
     return (
-      <ToolPartCard
-        part={part}
-        directory={directory}
-        onOpenSession={onOpenSession}
-        defaultOpen={defaultOpen}
-      />
+      <motion.div
+        layout
+        initial={{ opacity: 0, height: 0 }}
+        animate={{ opacity: 1, height: "auto" }}
+        transition={CONTENT_REVEAL_TRANSITION}
+        className="w-full overflow-hidden p-1 -m-1"
+      >
+        <ToolPartCard
+          part={part}
+          directory={directory}
+          onOpenSession={onOpenSession}
+          defaultOpen={defaultOpen}
+        />
+      </motion.div>
     )
   }
 
