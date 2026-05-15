@@ -16,6 +16,7 @@ import { assessmentFeature } from "./assessment/feature"
 import { questionSetsFeature } from "./question-sets/feature"
 import { flashcardsFeature } from "./flashcards/feature"
 import { mediaPresentationsFeature } from "./media-presentations/feature"
+import { mathFeature } from "./math/feature"
 
 const ALL_BUDDY_FEATURES = [
   curriculumFeature,
@@ -36,6 +37,7 @@ const ALL_BUDDY_FEATURES = [
   questionSetsFeature,
   flashcardsFeature,
   mediaPresentationsFeature,
+  mathFeature,
 ] as const
 
 export {
@@ -57,5 +59,6 @@ export {
   questionSetsFeature,
   flashcardsFeature,
   mediaPresentationsFeature,
+  mathFeature,
   ALL_BUDDY_FEATURES,
 }

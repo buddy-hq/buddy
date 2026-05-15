@@ -1,7 +1,6 @@
 import { defineBuddyPersona } from "./wiring/define-buddy-persona"
 import {
   curriculumFeature,
-  curriculumPlanningFeature,
   memoryFeature,
   standardsFeature,
   readingFeature,
@@ -9,9 +8,14 @@ import {
   analogiesFeature,
   stepwiseSolvingFeature,
   diagramsFeature,
+  figureRenderingFeature,
+  calculatorFeature,
+  practiceFeature,
+  assessmentFeature,
   questionSetsFeature,
   flashcardsFeature,
   mediaPresentationsFeature,
+  mathFeature,
 } from "../features"
 
 export const BUDDY = defineBuddyPersona({
@@ -27,10 +31,14 @@ export const BUDDY = defineBuddyPersona({
     analogiesFeature,
     stepwiseSolvingFeature,
     diagramsFeature,
-    curriculumPlanningFeature,
+    figureRenderingFeature,
+    calculatorFeature,
+    practiceFeature,
+    assessmentFeature,
     questionSetsFeature,
     flashcardsFeature,
     mediaPresentationsFeature,
+    mathFeature,
   ],
   defaultSurface: "curriculum",
   hidden: false,
@@ -39,7 +47,7 @@ export const BUDDY = defineBuddyPersona({
     attachProgress: true,
     attachTeachingWorkspace: false,
     attachTeachingPolicy: false,
-    attachFigureContext: false,
+    attachFigureContext: true,
   },
   runtime: {
     kind: "build",
