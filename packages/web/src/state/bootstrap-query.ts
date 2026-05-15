@@ -1,5 +1,6 @@
 import { queryOptions, type QueryClient } from "@tanstack/react-query"
 import {
+  loadNotebookHomeAccess,
   bootstrapOpenProjects,
   loadNotebookHome,
   loadOpenProjects,
@@ -12,6 +13,7 @@ const BOOTSTRAP_QUERY_SCOPE = "bootstrap" as const
 const OPEN_PROJECTS_QUERY_KEY = "open-projects" as const
 const OPEN_PROJECTS_WITH_SESSIONS_QUERY_KEY = "open-projects-with-sessions" as const
 const NOTEBOOK_HOME_QUERY_KEY = "notebook-home" as const
+const NOTEBOOK_HOME_ACCESS_QUERY_KEY = "notebook-home-access" as const
 const PROVIDER_SNAPSHOT_QUERY_KEY = "provider-snapshot" as const
 const PRELOADED_SESSIONS_QUERY_KEY = "preloaded-sessions" as const
 const GLOBAL_DIRECTORY_QUERY_KEY = "__global__" as const
@@ -27,6 +29,7 @@ export const bootstrapQueryKeys = {
   openProjectsWithSessions: () =>
     [BOOTSTRAP_QUERY_SCOPE, OPEN_PROJECTS_WITH_SESSIONS_QUERY_KEY] as const,
   notebookHome: () => [BOOTSTRAP_QUERY_SCOPE, NOTEBOOK_HOME_QUERY_KEY] as const,
+  notebookHomeAccess: () => [BOOTSTRAP_QUERY_SCOPE, NOTEBOOK_HOME_ACCESS_QUERY_KEY] as const,
   providerSnapshot: (directory?: string) =>
     [
       BOOTSTRAP_QUERY_SCOPE,
@@ -59,6 +62,13 @@ export function notebookHomeQueryOptions() {
   return queryOptions({
     queryKey: bootstrapQueryKeys.notebookHome(),
     queryFn: () => loadNotebookHome(),
+  })
+}
+
+export function notebookHomeAccessQueryOptions() {
+  return queryOptions({
+    queryKey: bootstrapQueryKeys.notebookHomeAccess(),
+    queryFn: () => loadNotebookHomeAccess(),
   })
 }
 

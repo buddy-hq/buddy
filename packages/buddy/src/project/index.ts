@@ -5,7 +5,11 @@ export {
   listManagedNotebooks,
   mapManagedNotebookError,
 } from "./managed-notebook"
-export { readNotebookHomeState, saveNotebookHome } from "./buddy-home"
+export {
+  readBuddyHomeDefaultAccessState,
+  readNotebookHomeState,
+  saveNotebookHome,
+} from "./buddy-home"
 export {
   parseProjectUpdateBody,
   projectUpdateErrorMessage,

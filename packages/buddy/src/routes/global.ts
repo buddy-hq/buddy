@@ -13,6 +13,7 @@ import { proxyToOpenCode } from "../http"
 import {
   listManagedNotebooks,
   mapManagedNotebookError,
+  readBuddyHomeDefaultAccessState,
   readNotebookHomeState,
   saveNotebookHome,
 } from "../project"
@@ -40,6 +41,10 @@ const notebookHomeResponseSchema = z.object({
   resolvedDirectory: z.string(),
   inboxDirectory: z.string(),
   inboxName: z.string(),
+})
+const notebookHomeAccessResponseSchema = z.object({
+  defaultDirectory: z.string(),
+  granted: z.boolean(),
 })
 const notebookHomeBodySchema = z.object({
   directory: z.string(),
@@ -112,6 +117,32 @@ export const GlobalRoutes = new Hono()
       runRouteTask({
         task: async () => c.json(await readNotebookHomeState()),
         mapError: (error) => mapManagedNotebookError(error) ?? mapConfigRouteError(error),
+      }),
+  )
+  .get(
+    "/notebook-home/access",
+    describeRoute({
+      operationId: "global.notebookHome.access",
+      summary: "Check access to Buddy's default notebook home",
+      responses: {
+        200: {
+          description: "Default Buddy notebook home access state",
+          content: {
+            "application/json": { schema: resolver(notebookHomeAccessResponseSchema) },
+          },
+        },
+      },
+    }),
+    async (c) =>
+      runRouteTask({
+        task: async () => {
+          const access = readBuddyHomeDefaultAccessState()
+          return c.json({
+            defaultDirectory: access.defaultPath,
+            granted: access.granted,
+          })
+        },
+        mapError: mapConfigRouteError,
       }),
   )
   .put(

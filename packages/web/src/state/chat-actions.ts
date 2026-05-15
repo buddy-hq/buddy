@@ -11,6 +11,7 @@ import type {
   FlashcardDecksListResponse,
   GlobalConfigGetResponses,
   GlobalNotebookHomeGetResponses,
+  GlobalNotebookHomeAccessResponses,
   GlobalNotebookHomePutResponses,
   GlobalNotebooksListResponses,
   LearnerMemoryListResponses,
@@ -946,6 +947,16 @@ export async function loadNotebookHome() {
     resolvedDirectory: result.resolvedDirectory,
     inboxDirectory: result.inboxDirectory,
     inboxName: result.inboxName,
+  }
+}
+
+export async function loadNotebookHomeAccess() {
+  const result = requireBuddyData<GlobalNotebookHomeAccessResponses[200]>(
+    await getBuddyClient().global.notebookHome.access(),
+  )
+  return {
+    defaultDirectory: result.defaultDirectory,
+    granted: result.granted,
   }
 }
 
