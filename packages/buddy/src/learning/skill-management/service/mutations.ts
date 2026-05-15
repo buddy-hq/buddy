@@ -267,7 +267,21 @@ export async function installCuratedLibrarySkill(skillID: string, directory: str
 
     const scan = await scanSkillDirectory(fetched.skillRoot)
     if (scan.decision === "block") {
-      throw new SkillServiceError("forbidden", "Fetched skill failed the security scan")
+      const approvedBlockRuleIDs = new Set(entry.review.approvedBlockRuleIDs ?? [])
+      const actualBlockRuleIDs = new Set(
+        scan.findings
+          .filter((finding) => finding.severity === "block")
+          .map((finding) => finding.ruleId),
+      )
+      const unapprovedBlockRuleIDs = Array.from(actualBlockRuleIDs).filter(
+        (ruleID) => !approvedBlockRuleIDs.has(ruleID),
+      )
+      if (unapprovedBlockRuleIDs.length > 0) {
+        throw new SkillServiceError(
+          "forbidden",
+          `Fetched skill failed the security scan: unapproved block finding(s): ${unapprovedBlockRuleIDs.toSorted().join(",")}`,
+        )
+      }
     }
     ensureApprovedScanWarnings({
       approvedWarningRuleIDs: entry.review.approvedWarningRuleIDs,

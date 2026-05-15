@@ -37,6 +37,7 @@ const skillReviewSchema = z.object({
   approvedBy: z.string().trim().min(1).optional(),
   policyVersion: z.number().int().positive(),
   approvedWarningRuleIDs: z.array(z.string().trim().min(1)).optional(),
+  approvedBlockRuleIDs: z.array(z.string().trim().min(1)).optional(),
   notes: z.string().trim().min(1).optional(),
 })
 
