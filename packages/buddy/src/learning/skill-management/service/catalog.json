@@ -27,6 +27,141 @@
         "notes": "Trusted local-test catalog entry. Scanner warnings for executable scripts and normal network references were reviewed."
       },
       "status": "approved"
+    },
+    {
+      "id": "anthropics-financial-services-xlsx-author",
+      "displayName": "xlsx-author",
+      "summary": "Produce a .xlsx file on disk (headless) instead of driving a live Excel workbook — for managed-agent sessions with no open Office app.",
+      "categories": ["teaching", "productivity"],
+      "tags": ["excel", "spreadsheets", "finance", "education"],
+      "source": {
+        "type": "github",
+        "repo": "anthropics/financial-services",
+        "path": "plugins/vertical-plugins/financial-analysis/skills/xlsx-author",
+        "ref": "ac4c5b4c917931b989620d3c226d88eda164f596"
+      },
+      "integrity": {
+        "algorithm": "tree-sha256-v1",
+        "sha256": "a7f2657d662083222a08b65b6cd0ce58ac2e7cbf5e620f04f64156a56020287e",
+        "sizeBytes": 1807,
+        "fileCount": 1
+      },
+      "review": {
+        "approvedAt": "2026-05-15T10:48:58.698Z",
+        "approvedBy": "Buddy maintainers",
+        "policyVersion": 1,
+        "notes": "Reviewed. Zero findings. Headless Excel workbook generation via openpyxl. No network, no credentials, no destructive operations. Writes only to ./out/."
+      },
+      "status": "approved"
+    },
+    {
+      "id": "hermes-excalidraw",
+      "displayName": "Excalidraw",
+      "summary": "Create hand-drawn Excalidraw JSON diagrams for concept maps, flows, and architecture visuals.",
+      "categories": ["productivity", "diagramming"],
+      "tags": ["excalidraw", "diagrams", "visualization", "teaching"],
+      "source": {
+        "type": "github",
+        "repo": "NousResearch/hermes-agent",
+        "path": "skills/creative/excalidraw",
+        "ref": "faa13e49f81480771ceeb55991bb0c27edf1a5fb"
+      },
+      "integrity": {
+        "algorithm": "tree-sha256-v1",
+        "sha256": "70a2b6101561e35241250d9bf03439d1dbc2648fee1c6dc3feb683ca001cebfb",
+        "sizeBytes": 29367,
+        "fileCount": 5
+      },
+      "review": {
+        "approvedAt": "2026-05-15T08:55:10.893Z",
+        "approvedBy": "Buddy maintainers",
+        "policyVersion": 1,
+        "approvedWarningRuleIDs": ["broad-filesystem-reference", "network-fetch"],
+        "notes": "Reviewed Excalidraw skill. Approved expected broad path references and network fetch usage."
+      },
+      "status": "approved"
+    },
+    {
+      "id": "nousresearch-hermes-agent-concept-diagrams",
+      "displayName": "concept-diagrams",
+      "summary": "Generate flat, minimal light/dark-aware SVG diagrams as standalone HTML files, using a unified educational visual language with 9 semantic color ramps, sentence-case typography, and automatic dark mode. Best suited for educational and non-software visuals — physics setups, chemistry mechanisms, math curves, physical objects (aircraft, turbines, smartphones, mechanical watches), anatomy, floor plans, cross-sections, narrative journeys (lifecycle of X, process of Y), hub-spoke system integrations (smart city, IoT), and exploded layer views. If a more specialized skill exists for the subject (dedicated software/cloud architecture, hand-drawn sketches, animated explainers, etc.), prefer that — otherwise this skill can also serve as a general-purpose SVG diagram fallback with a clean educational look. Ships with 15 example diagrams.",
+      "categories": ["teaching", "diagramming"],
+      "tags": ["concept-diagrams", "svg", "education", "visualization"],
+      "source": {
+        "type": "github",
+        "repo": "NousResearch/hermes-agent",
+        "path": "optional-skills/creative/concept-diagrams",
+        "ref": "faa13e49f81480771ceeb55991bb0c27edf1a5fb"
+      },
+      "integrity": {
+        "algorithm": "tree-sha256-v1",
+        "sha256": "0b05abf1fe2bf80eb8451df4a0e651f0ec238fe8453d5c4ffd36315ee3923a8c",
+        "sizeBytes": 178126,
+        "fileCount": 20
+      },
+      "review": {
+        "approvedAt": "2026-05-15T10:01:34.679Z",
+        "approvedBy": "Buddy maintainers",
+        "policyVersion": 1,
+        "approvedWarningRuleIDs": ["broad-filesystem-reference", "network-fetch"],
+        "approvedBlockRuleIDs": ["hidden-html-instruction"],
+        "notes": "Reviewed. hidden-html-instruction: FALSE POSITIVE — template.html is a clean CSS scaffold with zero scripts, zero hidden elements, zero external loads. broad-filesystem-reference: expected for diagram output files. network-fetch: optional opt-in localhost server only, 127.0.0.1 bound."
+      },
+      "status": "approved"
+    },
+    {
+      "id": "nousresearch-hermes-agent-duckduckgo-search",
+      "displayName": "duckduckgo-search",
+      "summary": "Free web search via DuckDuckGo — text, news, images, videos. No API key needed. Prefer the `ddgs` CLI when installed; use the Python DDGS library only after verifying that `ddgs` is available in the current runtime.",
+      "categories": ["research"],
+      "tags": ["duckduckgo", "search", "web"],
+      "source": {
+        "type": "github",
+        "repo": "NousResearch/hermes-agent",
+        "path": "optional-skills/research/duckduckgo-search",
+        "ref": "faa13e49f81480771ceeb55991bb0c27edf1a5fb"
+      },
+      "integrity": {
+        "algorithm": "tree-sha256-v1",
+        "sha256": "9340af536f0fd179699e02519e843b74160adafb335ae2ee04c9b90d011349d3",
+        "sizeBytes": 9033,
+        "fileCount": 2
+      },
+      "review": {
+        "approvedAt": "2026-05-15T09:39:32.568Z",
+        "approvedBy": "Buddy maintainers",
+        "policyVersion": 1,
+        "approvedWarningRuleIDs": ["executable-script", "network-fetch"],
+        "notes": "Reviewed. executable-script: 28-line safe wrapper, no destructive ops, no file I/O, no eval/curl. network-fetch: expected for web search, contacts DuckDuckGo endpoints only."
+      },
+      "status": "approved"
+    },
+    {
+      "id": "nousresearch-hermes-agent-youtube-content",
+      "displayName": "youtube-content",
+      "summary": "YouTube transcripts to summaries, threads, blogs.",
+      "categories": ["teaching", "research"],
+      "tags": ["youtube", "transcript", "video", "education"],
+      "source": {
+        "type": "github",
+        "repo": "NousResearch/hermes-agent",
+        "path": "skills/media/youtube-content",
+        "ref": "77276070f5a1302908456734f2a5bdfe790260de"
+      },
+      "integrity": {
+        "algorithm": "tree-sha256-v1",
+        "sha256": "ca74a84cd859aa25f24ef4e74a1aad4549ee6bd9c1863f662cbbec27d1468b29",
+        "sizeBytes": 8518,
+        "fileCount": 3
+      },
+      "review": {
+        "approvedAt": "2026-05-15T10:49:01.318Z",
+        "approvedBy": "Buddy maintainers",
+        "policyVersion": 1,
+        "approvedWarningRuleIDs": ["network-fetch"],
+        "notes": "Reviewed. network-fetch: expected — uses youtube-transcript-api to fetch public YouTube transcripts. No API keys, no auth, no data exfiltration beyond transcript retrieval."
+      },
+      "status": "approved"
     }
   ]
 }
