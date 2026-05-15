@@ -1,4 +1,5 @@
 import { Button, CheckIcon, cn } from "@buddy/ui"
+import { FolderIcon } from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
 import { language } from "@/context/language"
 import { resolveBuddyIconUrl } from "@/lib/static-asset"
@@ -9,6 +10,7 @@ type OnboardingSetupProps = {
   connectedAuthChoice?: OnboardingAuthChoice
   busyChoice?: OnboardingAuthChoice
   folderBusy: boolean
+  documentsAccessGranted: boolean
   showFolderRecovery: boolean
   defaultHomeDirectory?: string
   error?: string
@@ -73,6 +75,22 @@ function PulsingRing({ className }: { className?: string }) {
   )
 }
 
+/** Numbered step indicator dot for the vertical stepper. */
+function StepDot({ step, isActive }: { step: number; isActive: boolean }) {
+  return (
+    <div
+      className={cn(
+        "flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-colors duration-150",
+        isActive
+          ? "bg-surface-interactive-base text-text-on-interactive-base"
+          : "bg-surface-raised-base text-text-weaker border border-border-base",
+      )}
+    >
+      {step}
+    </div>
+  )
+}
+
 export function OnboardingHeader() {
   const buddyIconUrl = resolveBuddyIconUrl()
   const content = {
@@ -85,7 +103,7 @@ export function OnboardingHeader() {
   }
 
   return (
-    <div className="flex items-center gap-6 text-left mb-2">
+    <div className="flex items-center gap-6 text-left mb-4">
       <StaggerItem index={0}>
         <img
           src={buddyIconUrl}
@@ -146,6 +164,12 @@ export function OnboardingSetup(props: OnboardingSetupProps) {
       waitingLabel: language.t("onboardingSetup.chatGptModal.waitingLabel"),
       cancelButton: language.t("onboardingSetup.chatGptModal.cancelButton"),
     },
+    storageSetup: {
+      heading: language.t("onboardingSetup.storageSetup.heading"),
+      locationLabel: language.t("onboardingSetup.storageSetup.locationLabel"),
+      buttonContinue: language.t("onboardingSetup.storageSetup.buttonContinue"),
+      buttonContinueBusy: language.t("onboardingSetup.storageSetup.buttonContinueBusy"),
+    },
   }
   const hasProvider = Boolean(props.authChoice)
   const isChatGptConnected = props.connectedAuthChoice === "chatgpt_plus"
@@ -201,154 +225,26 @@ export function OnboardingSetup(props: OnboardingSetupProps) {
         ) : null}
       </AnimatePresence>
 
-      <div data-component="onboarding-setup" className="flex w-full flex-col gap-10">
-        {/* Engine Selection */}
-        <StaggerItem index={2} className="flex flex-col gap-4">
-          <div className="mb-1 flex items-end justify-between">
-            <h2 className="text-sm font-medium text-text-weaker">
-              {content.engineSelection.heading}
-            </h2>
-          </div>
+      <div data-component="onboarding-setup" className="flex w-full flex-col gap-8">
+        {/* ── Vertical Stepper ── */}
+        <div className="flex flex-col">
+          {/* Step 1: Engine Selection */}
+          <StaggerItem index={2} className="flex gap-5">
+            {/* Rail */}
+            <div className="flex flex-col items-center">
+              <StepDot step={1} isActive />
+              <div className="mt-2 w-px flex-1 bg-border-base" />
+            </div>
 
-          {/* Provider Error */}
-          <AnimatePresence>
-            {showProviderError ? (
-              <motion.div
-                role="alert"
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.2, ease: EASE_OUT }}
-              >
-                <div className="rounded-xl border-l-2 border-l-border-critical-base bg-surface-critical-weak px-3 py-2.5">
-                  <p className="text-sm font-medium text-text-critical-base">{props.error}</p>
-                </div>
-              </motion.div>
-            ) : null}
-          </AnimatePresence>
+            {/* Content */}
+            <div className="flex flex-1 flex-col gap-3 pb-8">
+              <h2 className="text-sm font-medium text-text-weaker">
+                {content.engineSelection.heading}
+              </h2>
 
-          <div className="flex flex-col gap-3">
-            {/* ChatGPT Plus Card */}
-            <button
-              type="button"
-              data-action="onboarding-select-chatgpt-plus"
-              aria-pressed={props.authChoice === "chatgpt_plus"}
-              onClick={() => props.onChoose("chatgpt_plus")}
-              disabled={Boolean(props.busyChoice)}
-              className={cn(
-                "group relative flex w-full items-center gap-5 rounded-2xl border p-5 text-left outline-none transition-[border-color,background-color,opacity,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] focus-visible:ring-2 focus-visible:ring-interactive-base focus-visible:ring-offset-2 active:scale-[0.98]",
-                props.authChoice === "chatgpt_plus"
-                  ? "border-border-success-base bg-surface-success-weak"
-                  : isChatGptConnected
-                    ? "border-border-success-base/50 bg-surface-success-weak/50"
-                    : "border-border-base bg-surface-raised-base hover:border-border-interactive-base hover:bg-surface-raised-base-hover",
-                props.busyChoice === "chatgpt_plus" && "pointer-events-none opacity-70",
-                props.busyChoice &&
-                  props.busyChoice !== "chatgpt_plus" &&
-                  "pointer-events-none opacity-50",
-              )}
-            >
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-border-success-base/20 bg-surface-success-weak">
-                <OpenAIIcon className="size-5 text-icon-success-base" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-text-strong">
-                  {content.engineSelection.chatGpt.title}
-                </p>
-                <p className="mt-0.5 text-xs text-text-weak">
-                  {content.engineSelection.chatGpt.description}
-                </p>
-              </div>
+              {/* Provider Error */}
               <AnimatePresence>
-                {isChatGptConnected ? (
-                  <motion.span
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.25, ease: EASE_OUT }}
-                    className="inline-flex items-center gap-1 rounded-full border border-border-success-base bg-surface-success-weak px-2.5 py-1 text-[11px] font-medium text-icon-success-base"
-                  >
-                    <CheckIcon className="size-3.5" />
-                    {content.engineSelection.connected}
-                  </motion.span>
-                ) : null}
-              </AnimatePresence>
-              {props.busyChoice === "chatgpt_plus" ? (
-                <PulsingRing className="text-icon-success-base" />
-              ) : null}
-            </button>
-
-            {/* Free Models Card */}
-            <AnimatePresence>
-              {!isChatGptConnected ? (
-                <motion.div
-                  exit={{ opacity: 0, height: 0, marginTop: 0 }}
-                  transition={{ duration: 0.25, ease: EASE_OUT }}
-                >
-                  <button
-                    type="button"
-                    data-action="onboarding-select-free-models"
-                    aria-pressed={props.authChoice === "free_models"}
-                    onClick={() => props.onChoose("free_models")}
-                    disabled={Boolean(props.busyChoice)}
-                    className={cn(
-                      "group relative flex w-full items-center gap-5 rounded-2xl border p-5 text-left outline-none transition-[border-color,background-color,opacity,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] focus-visible:ring-2 focus-visible:ring-interactive-base focus-visible:ring-offset-2 active:scale-[0.98]",
-                      props.authChoice === "free_models"
-                        ? "border-border-interactive-base bg-surface-interactive-weak"
-                        : "border-border-base bg-surface-raised-base hover:border-border-interactive-base hover:bg-surface-raised-base-hover",
-                      props.busyChoice === "free_models" && "pointer-events-none opacity-70",
-                      props.busyChoice &&
-                        props.busyChoice !== "free_models" &&
-                        "pointer-events-none opacity-50",
-                    )}
-                  >
-                    <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-border-base bg-surface-raised-base">
-                      <svg
-                        className="size-5 text-icon-base"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                        <path d="M2 17l10 5 10-5" />
-                        <path d="M2 12l10 5 10-5" />
-                      </svg>
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-text-strong">
-                        {content.engineSelection.freeModels.title}
-                      </p>
-                      <p className="mt-0.5 text-xs text-text-weak">
-                        {content.engineSelection.freeModels.description}
-                      </p>
-                    </div>
-                  </button>
-                </motion.div>
-              ) : null}
-            </AnimatePresence>
-          </div>
-        </StaggerItem>
-
-        {/* Folder Recovery */}
-        <AnimatePresence>
-          {props.showFolderRecovery ? (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.25, ease: EASE_OUT }}
-              className="flex flex-col gap-4"
-            >
-              <div className="flex items-end justify-between">
-                <h2 className="text-sm font-medium text-text-weaker">
-                  {content.notebookSelection.recoveryHeading}
-                </h2>
-              </div>
-
-              <AnimatePresence>
-                {showRecoveryError ? (
+                {showProviderError ? (
                   <motion.div
                     role="alert"
                     initial={{ opacity: 0, height: 0 }}
@@ -357,34 +253,240 @@ export function OnboardingSetup(props: OnboardingSetupProps) {
                     transition={{ duration: 0.2, ease: EASE_OUT }}
                   >
                     <div className="rounded-xl border-l-2 border-l-border-critical-base bg-surface-critical-weak px-3 py-2.5">
-                      <p className="text-sm font-medium text-text-critical-base">{props.error}</p>
+                      <p className="text-sm font-medium text-icon-critical-base">{props.error}</p>
                     </div>
                   </motion.div>
                 ) : null}
               </AnimatePresence>
 
-              <Button
-                type="button"
-                data-action="onboarding-pick-folder"
-                variant="outline"
-                onClick={props.onPickFolder}
-                disabled={props.folderBusy || !hasProvider}
-                size="lg"
-                className="h-14 w-full rounded-2xl px-4 text-sm"
+              <div className="flex flex-col gap-3">
+                {/* ChatGPT Plus Card */}
+                <button
+                  type="button"
+                  data-action="onboarding-select-chatgpt-plus"
+                  aria-pressed={props.authChoice === "chatgpt_plus"}
+                  onClick={() => props.onChoose("chatgpt_plus")}
+                  disabled={Boolean(props.busyChoice)}
+                  className={cn(
+                    "group relative flex w-full items-center gap-4 rounded-2xl border p-4 text-left outline-none transition-[border-color,background-color,opacity,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] focus-visible:ring-2 focus-visible:ring-interactive-base focus-visible:ring-offset-2 active:scale-[0.98]",
+                    props.authChoice === "chatgpt_plus"
+                      ? "border-border-success-base bg-surface-success-weak"
+                      : isChatGptConnected
+                        ? "border-border-success-base/50 bg-surface-success-weak/50"
+                        : "border-border-base bg-surface-raised-base hover:border-border-interactive-base hover:bg-surface-raised-base-hover",
+                    props.busyChoice === "chatgpt_plus" && "pointer-events-none opacity-70",
+                    props.busyChoice &&
+                      props.busyChoice !== "chatgpt_plus" &&
+                      "pointer-events-none opacity-50",
+                  )}
+                >
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border-success-base/20 bg-surface-success-weak">
+                    <OpenAIIcon className="size-4 text-icon-success-base" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-text-strong">
+                      {content.engineSelection.chatGpt.title}
+                    </p>
+                    <p className="mt-0.5 text-xs text-text-weak">
+                      {content.engineSelection.chatGpt.description}
+                    </p>
+                  </div>
+                  <AnimatePresence>
+                    {isChatGptConnected ? (
+                      <motion.span
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.25, ease: EASE_OUT }}
+                        className="inline-flex items-center gap-1 rounded-full border border-border-success-base bg-surface-success-weak px-2.5 py-1 text-[11px] font-medium text-icon-success-base"
+                      >
+                        <CheckIcon className="size-3.5" />
+                        {content.engineSelection.connected}
+                      </motion.span>
+                    ) : null}
+                  </AnimatePresence>
+                  {props.busyChoice === "chatgpt_plus" ? (
+                    <PulsingRing className="text-icon-success-base" />
+                  ) : null}
+                </button>
+
+                {/* Free Models Card */}
+                <AnimatePresence>
+                  {!isChatGptConnected ? (
+                    <motion.div
+                      exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                      transition={{ duration: 0.25, ease: EASE_OUT }}
+                    >
+                      <button
+                        type="button"
+                        data-action="onboarding-select-free-models"
+                        aria-pressed={props.authChoice === "free_models"}
+                        onClick={() => props.onChoose("free_models")}
+                        disabled={Boolean(props.busyChoice)}
+                        className={cn(
+                          "group relative flex w-full items-center gap-4 rounded-2xl border p-4 text-left outline-none transition-[border-color,background-color,opacity,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] focus-visible:ring-2 focus-visible:ring-interactive-base focus-visible:ring-offset-2 active:scale-[0.98]",
+                          props.authChoice === "free_models"
+                            ? "border-border-interactive-base bg-surface-interactive-weak"
+                            : "border-border-base bg-surface-raised-base hover:border-border-interactive-base hover:bg-surface-raised-base-hover",
+                          props.busyChoice === "free_models" && "pointer-events-none opacity-70",
+                          props.busyChoice &&
+                            props.busyChoice !== "free_models" &&
+                            "pointer-events-none opacity-50",
+                        )}
+                      >
+                        <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border-base bg-surface-raised-base">
+                          <svg
+                            className="size-4 text-icon-base"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                            <path d="M2 17l10 5 10-5" />
+                            <path d="M2 12l10 5 10-5" />
+                          </svg>
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-text-strong">
+                            {content.engineSelection.freeModels.title}
+                          </p>
+                          <p className="mt-0.5 text-xs text-text-weak">
+                            {content.engineSelection.freeModels.description}
+                          </p>
+                        </div>
+                      </button>
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
+              </div>
+            </div>
+          </StaggerItem>
+
+          {/* Step 2: Local Storage Setup */}
+          <StaggerItem index={3} className="flex gap-5">
+            {/* Rail */}
+            <div className="flex flex-col items-center">
+              <StepDot step={2} isActive={hasProvider} />
+            </div>
+
+            {/* Content */}
+            <div className="flex flex-1 flex-col gap-3">
+              <AnimatePresence mode="wait">
+                {props.showFolderRecovery ? (
+                  /* ── Folder Recovery ── */
+                  <motion.div
+                    key="recovery"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.25, ease: EASE_OUT }}
+                    className="flex flex-col gap-3"
+                  >
+                    <h2 className="text-sm font-medium text-text-weaker">
+                      {content.notebookSelection.recoveryHeading}
+                    </h2>
+
+                    <AnimatePresence>
+                      {showRecoveryError ? (
+                        <motion.div
+                          role="alert"
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.2, ease: EASE_OUT }}
+                        >
+                          <div className="rounded-xl border-l-2 border-l-border-critical-base bg-surface-critical-weak px-3 py-2.5">
+                            <p className="text-sm font-medium text-icon-critical-base">
+                              {props.error}
+                            </p>
+                          </div>
+                        </motion.div>
+                      ) : null}
+                    </AnimatePresence>
+
+                    <Button
+                      type="button"
+                      data-action="onboarding-pick-folder"
+                      variant="outline"
+                      onClick={props.onPickFolder}
+                      disabled={props.folderBusy || !hasProvider}
+                      size="lg"
+                      className="h-14 w-full rounded-2xl px-4 text-sm"
+                    >
+                      {props.folderBusy
+                        ? content.notebookSelection.buttonPickFolderBusy
+                        : content.notebookSelection.buttonPickFolderIdle}
+                    </Button>
+                    {props.defaultHomeDirectory ? (
+                      <p className="text-xs text-text-weaker">
+                        {content.notebookSelection.defaultPathLabel}: {props.defaultHomeDirectory}
+                      </p>
+                    ) : null}
+                    <p className="text-xs text-text-weaker">{content.notebookSelection.note}</p>
+                  </motion.div>
+                ) : (
+                  /* ── Default Storage ── */
+                  <motion.div
+                    key="default-storage"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.25, ease: EASE_OUT }}
+                    className="flex flex-col gap-3"
+                  >
+                    <h2 className="text-sm font-medium text-text-weaker">
+                      {content.storageSetup.heading}
+                    </h2>
+
+                    <div className="flex items-center gap-4 rounded-2xl border border-border-base bg-surface-raised-base p-4">
+                      <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border-base bg-surface-base">
+                        <FolderIcon className="size-4 text-icon-base" />
+                      </div>
+                      <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
+                        <p className="text-sm font-medium text-text-strong">
+                          {content.storageSetup.locationLabel}
+                        </p>
+                        {props.documentsAccessGranted ? (
+                          <CheckIcon className="size-4 shrink-0 text-icon-success-base" />
+                        ) : null}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </StaggerItem>
+        </div>
+
+        {/* ── Primary CTA ── */}
+        <StaggerItem index={4}>
+          <AnimatePresence mode="wait">
+            {!props.showFolderRecovery ? (
+              <motion.div
+                key="default-cta"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.25, ease: EASE_OUT }}
               >
-                {props.folderBusy
-                  ? content.notebookSelection.buttonPickFolderBusy
-                  : content.notebookSelection.buttonPickFolderIdle}
-              </Button>
-              {props.defaultHomeDirectory ? (
-                <p className="text-xs text-text-weaker">
-                  {content.notebookSelection.defaultPathLabel}: {props.defaultHomeDirectory}
-                </p>
-              ) : null}
-              <p className="text-xs text-text-weaker">{content.notebookSelection.note}</p>
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
+                <Button
+                  type="button"
+                  data-action="onboarding-use-default-home"
+                  onClick={props.onUseDefaultHome}
+                  disabled={props.folderBusy || !hasProvider}
+                  size="lg"
+                  className="h-12 w-full rounded-2xl text-sm"
+                >
+                  {props.folderBusy
+                    ? content.storageSetup.buttonContinueBusy
+                    : content.storageSetup.buttonContinue}
+                </Button>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+        </StaggerItem>
       </div>
     </>
   )

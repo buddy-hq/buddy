@@ -46,8 +46,7 @@ import {
   type NotebookHomeState,
 } from "@/state/chat-actions"
 import {
-  bootstrapQueryKeys,
-  notebookHomeQueryOptions,
+  notebookHomeAccessQueryOptions,
   openProjectsQueryOptions,
   providerCatalogSnapshotQueryOptions,
   setNotebookHomeQueryData,
@@ -73,33 +72,14 @@ const EMPTY_PROVIDER_CATALOG_SNAPSHOT: ProviderCatalogState = {
   providers: [],
   default: {},
 }
-const EMPTY_NOTEBOOK_HOME_STATE: NotebookHomeState = {
-  configuredDirectory: undefined,
-  defaultDirectory: "",
-  resolvedDirectory: "",
-  inboxDirectory: "",
-  inboxName: "Inbox",
-}
-
 const EASE_OUT = [0.23, 1, 0.32, 1] as const
 const TOTAL_ONBOARDING_STEPS = 2
 
-function StepIndicator({ current, total }: { current: number; total: number }) {
+function StepBadge({ current, total }: { current: number; total: number }) {
   return (
-    <div className="flex items-center gap-1.5">
-      {Array.from({ length: total }, (_, i) => (
-        <motion.div
-          key={i}
-          initial={false}
-          animate={{
-            width: i + 1 === current ? 20 : 6,
-            opacity: i + 1 <= current ? 1 : 0.3,
-          }}
-          transition={{ duration: 0.3, ease: EASE_OUT }}
-          className="h-1.5 rounded-full bg-icon-interactive-base"
-        />
-      ))}
-    </div>
+    <span className="text-xs font-medium text-text-weaker">
+      {current} / {total}
+    </span>
   )
 }
 
@@ -134,7 +114,6 @@ export const Route = createFileRoute("/onboarding")({
     await Promise.allSettled([
       context.queryClient.ensureQueryData(openProjectsQueryOptions()),
       context.queryClient.ensureQueryData(providerCatalogSnapshotQueryOptions()),
-      context.queryClient.ensureQueryData(notebookHomeQueryOptions()),
     ])
   },
   component: OnboardingRoute,
@@ -167,11 +146,9 @@ function OnboardingRoute() {
   const setActiveDirectory = useChatStore((state) => state.setActiveDirectory)
   const openProjectsQuery = useQuery(openProjectsQueryOptions())
   const providerCatalogSnapshotQuery = useQuery(providerCatalogSnapshotQueryOptions())
-  const notebookHomeQuery = useQuery(notebookHomeQueryOptions())
   const openProjects = openProjectsQuery.data ?? EMPTY_OPEN_PROJECTS
   const providerCatalogSnapshot =
     providerCatalogSnapshotQuery.data ?? EMPTY_PROVIDER_CATALOG_SNAPSHOT
-  const notebookHome = notebookHomeQuery.data ?? EMPTY_NOTEBOOK_HOME_STATE
 
   const [connectedAuthChoice, setConnectedAuthChoice] = useState<OnboardingAuthChoice | undefined>(
     undefined,
@@ -186,7 +163,11 @@ function OnboardingRoute() {
   const [personalizationDirectory, setPersonalizationDirectory] = useState<string | undefined>(
     undefined,
   )
-  const defaultHomeDirectory = notebookHome.defaultDirectory
+  const notebookHomeAccessQuery = useQuery({
+    ...notebookHomeAccessQueryOptions(),
+    enabled: Boolean(authChoice) && !showFolderRecovery,
+  })
+  const notebookHomeAccess = notebookHomeAccessQuery.data
   const autoContinueHandledRef = useRef(false)
   const form = useForm({
     defaultValues: EMPTY_PERSONALIZATION_SETTINGS,
@@ -309,13 +290,6 @@ function OnboardingRoute() {
       if (savedNotebookHome) {
         setNotebookHomeQueryData(queryClient, savedNotebookHome)
       }
-      await queryClient.invalidateQueries({
-        queryKey: bootstrapQueryKeys.notebookHome(),
-      })
-      await queryClient.fetchQuery({
-        ...notebookHomeQueryOptions(),
-        staleTime: 0,
-      })
 
       applyOnboardingModelSelection(result.directory, result.model)
       setPersonalizationDirectory(result.directory)
@@ -348,7 +322,8 @@ function OnboardingRoute() {
 
   async function handleUseDefaultHome() {
     setShowFolderRecovery(false)
-    await finalizeNotebookSelection(authChoice, defaultHomeDirectory)
+    const accessState = await queryClient.ensureQueryData(notebookHomeAccessQueryOptions())
+    await finalizeNotebookSelection(authChoice, accessState.defaultDirectory)
   }
 
   async function handleSubmitPersonalization() {
@@ -403,7 +378,7 @@ function OnboardingRoute() {
   async function finalizeExistingNotebookProviderSelection(choice: OnboardingAuthChoice) {
     const existingDirectory = personalizationDirectory ?? onboardingPersonalizationDirectory
     if (!existingDirectory) {
-      await finalizeNotebookSelection(choice, defaultHomeDirectory)
+      await finalizeNotebookSelection(choice)
       return
     }
 
@@ -431,6 +406,7 @@ function OnboardingRoute() {
 
   async function handleChoose(choice: OnboardingAuthChoice) {
     setError(undefined)
+    setShowFolderRecovery(false)
 
     const existingDirectory = personalizationDirectory ?? onboardingPersonalizationDirectory
     const shouldResumePersonalization = shouldResumeOnboardingPersonalization({
@@ -448,9 +424,7 @@ function OnboardingRoute() {
       setAuthChoice(choice)
       if (showProviderSelectionStep) {
         await finalizeExistingNotebookProviderSelection(choice)
-        return
       }
-      await finalizeNotebookSelection(choice, defaultHomeDirectory)
       return
     }
 
@@ -458,9 +432,7 @@ function OnboardingRoute() {
       setAuthChoice(choice)
       if (showProviderSelectionStep) {
         await finalizeExistingNotebookProviderSelection(choice)
-        return
       }
-      await finalizeNotebookSelection(choice, defaultHomeDirectory)
       return
     }
 
@@ -493,9 +465,7 @@ function OnboardingRoute() {
       setAuthChoice(choice)
       if (showProviderSelectionStep) {
         await finalizeExistingNotebookProviderSelection(choice)
-        return
       }
-      await finalizeNotebookSelection(choice, defaultHomeDirectory)
     } catch (err) {
       if (!abort.signal.aborted) {
         abort.abort()
@@ -514,7 +484,7 @@ function OnboardingRoute() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-start bg-background-base px-6 pb-20 pt-[15vh] text-text-base">
-      <div className="flex w-full max-w-md flex-col gap-10">
+      <div className="flex w-full max-w-md flex-col gap-14">
         <OnboardingHeader />
 
         <AnimatePresence mode="wait">
@@ -525,9 +495,9 @@ function OnboardingRoute() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.3, ease: EASE_OUT }}
-              className="flex w-full flex-col gap-8"
+              className="flex w-full flex-col gap-6"
             >
-              {/* Navigation + Step indicator */}
+              {/* Navigation + Step badge */}
               <div className="flex items-center justify-between">
                 <Button
                   type="button"
@@ -538,28 +508,34 @@ function OnboardingRoute() {
                   <ArrowLeftIcon className="mr-2 size-4" />
                   {language.t("onboardingPersonalization.back")}
                 </Button>
-                <StepIndicator current={currentStep} total={TOTAL_ONBOARDING_STEPS} />
+                <StepBadge current={currentStep} total={TOTAL_ONBOARDING_STEPS} />
+              </div>
+
+              <div className="flex flex-col pb-2 pt-2">
+                <h2 className="text-sm font-medium text-text-weaker">Make buddy your own</h2>
               </div>
 
               {/* Form fields — flat, no card wrapper */}
-              <SharedPersonalizationFormFields form={form} />
+              <div className="flex flex-col gap-6 pb-2">
+                <SharedPersonalizationFormFields form={form} />
 
-              {/* Error */}
-              <AnimatePresence>
-                {error ? (
-                  <motion.div
-                    role="alert"
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.2, ease: EASE_OUT }}
-                  >
-                    <div className="rounded-xl border-l-2 border-l-border-critical-base bg-surface-critical-weak px-3 py-2.5">
-                      <p className="text-sm font-medium text-text-critical-base">{error}</p>
-                    </div>
-                  </motion.div>
-                ) : null}
-              </AnimatePresence>
+                {/* Error */}
+                <AnimatePresence>
+                  {error ? (
+                    <motion.div
+                      role="alert"
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.2, ease: EASE_OUT }}
+                    >
+                      <div className="rounded-xl border-l-2 border-l-border-critical-base bg-surface-critical-weak px-3 py-2.5">
+                        <p className="text-sm font-medium text-icon-critical-base">{error}</p>
+                      </div>
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
+              </div>
 
               {/* Actions */}
               <div className="flex items-center justify-end gap-3">
@@ -577,6 +553,7 @@ function OnboardingRoute() {
                     void handleSubmitPersonalization()
                   }}
                   disabled={personalizationBusy}
+                  className="min-w-32"
                 >
                   {personalizationBusy
                     ? language.t("onboardingPersonalization.submitting")
@@ -597,9 +574,10 @@ function OnboardingRoute() {
                 authChoice={authChoice}
                 connectedAuthChoice={connectedAuthChoice}
                 busyChoice={busyChoice}
+                documentsAccessGranted={notebookHomeAccess?.granted ?? false}
                 folderBusy={folderBusy}
                 showFolderRecovery={showFolderRecovery}
-                defaultHomeDirectory={defaultHomeDirectory}
+                defaultHomeDirectory={notebookHomeAccess?.defaultDirectory}
                 error={error}
                 onChoose={handleChoose}
                 onUseDefaultHome={() => {

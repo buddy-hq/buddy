@@ -28,6 +28,7 @@ describe("OnboardingSetup", () => {
           authChoice={undefined}
           connectedAuthChoice={undefined}
           busyChoice={undefined}
+          documentsAccessGranted={false}
           folderBusy={false}
           showFolderRecovery={false}
           defaultHomeDirectory="/Users/test/Documents/Buddy"
@@ -39,8 +40,8 @@ describe("OnboardingSetup", () => {
     })
 
     const text = container.textContent ?? ""
-    expect(text.includes("Choose Buddy Home")).toBe(false)
-    expect(text.includes("Use default home and start")).toBe(false)
+    expect(text.includes("Choose notebook location")).toBe(false)
+    expect(text.includes("Set up Buddy in Documents")).toBe(false)
     expect(text.includes("Choose another folder")).toBe(false)
   })
 
@@ -51,6 +52,7 @@ describe("OnboardingSetup", () => {
           authChoice="free_models"
           connectedAuthChoice={undefined}
           busyChoice={undefined}
+          documentsAccessGranted={false}
           folderBusy={false}
           showFolderRecovery
           defaultHomeDirectory="/Users/test/Documents/Buddy"
@@ -63,8 +65,34 @@ describe("OnboardingSetup", () => {
     })
 
     const text = container.textContent ?? ""
-    expect(text.includes("Choose Buddy Home manually")).toBe(true)
+    expect(text.includes("Choose another location")).toBe(true)
     expect(text.includes("Choose another folder")).toBe(true)
+  })
+
+  test("shows documents setup copy after a provider is selected", async () => {
+    await act(async () => {
+      root.render(
+        <OnboardingSetup
+          authChoice="free_models"
+          connectedAuthChoice={undefined}
+          busyChoice={undefined}
+          documentsAccessGranted
+          folderBusy={false}
+          showFolderRecovery={false}
+          defaultHomeDirectory="/Users/test/Documents/Buddy"
+          onChoose={() => undefined}
+          onUseDefaultHome={() => undefined}
+          onPickFolder={() => undefined}
+        />,
+      )
+    })
+
+    const text = container.textContent ?? ""
+    expect(text.includes("Data is stored in your documents folder.")).toBe(true)
+    expect(text.includes("Documents")).toBe(true)
+    expect(text.includes("Next")).toBe(true)
+    expect(text.includes("Choose a different location")).toBe(false)
+    expect(text.includes("You can change this later in Settings.")).toBe(false)
   })
 
   test("shows provider errors even when a provider is already selected", async () => {
@@ -74,6 +102,7 @@ describe("OnboardingSetup", () => {
           authChoice="free_models"
           connectedAuthChoice={undefined}
           busyChoice={undefined}
+          documentsAccessGranted={false}
           folderBusy={false}
           showFolderRecovery={false}
           error="Could not switch providers"

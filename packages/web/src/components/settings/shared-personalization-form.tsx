@@ -22,7 +22,7 @@ export function PersonalizationFormField({
       transition={{ duration: 0.35, ease: EASE_OUT, delay: index * 0.06 }}
       className="flex flex-col gap-2"
     >
-      <p className="text-xs font-medium uppercase tracking-[0.1em] text-text-weaker">{label}</p>
+      <p className="text-sm font-medium text-text-weaker">{label}</p>
       {children}
     </motion.div>
   )
