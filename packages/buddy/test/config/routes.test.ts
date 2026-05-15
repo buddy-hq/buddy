@@ -6,6 +6,13 @@ import { app } from "../../src/index.ts"
 import { Global } from "../../src/storage"
 import { createGitRepo } from "../helpers/repo"
 
+function normalizePathForAssertion(value: string): string {
+  if (process.platform !== "darwin") {
+    return value
+  }
+  return value.startsWith("/private/") ? value.slice("/private".length) : value
+}
+
 describe("config routes", () => {
   test("patches and returns project config", async () => {
     const repo = createGitRepo("buddy-route-config-project")
@@ -399,14 +406,21 @@ describe("config routes", () => {
         configuredDirectory?: string
         resolvedDirectory: string
       }
-      expect(afterBody.configuredDirectory).toBe(configuredDirectory)
-      expect(afterBody.resolvedDirectory).toBe(configuredDirectory)
+      expect(normalizePathForAssertion(afterBody.configuredDirectory ?? "")).toBe(
+        normalizePathForAssertion(configuredDirectory),
+      )
+      expect(normalizePathForAssertion(afterBody.resolvedDirectory)).toBe(
+        normalizePathForAssertion(configuredDirectory),
+      )
 
       const getAfter = await app.request("/api/global/config")
       expect(getAfter.status).toBe(200)
-      await expect(getAfter.json()).resolves.toMatchObject({
-        notebook_home: configuredDirectory,
-      })
+      const persistedGlobal = (await getAfter.json()) as {
+        notebook_home?: string
+      }
+      expect(normalizePathForAssertion(persistedGlobal.notebook_home ?? "")).toBe(
+        normalizePathForAssertion(configuredDirectory),
+      )
     } finally {
       if (originalAllowedRoots === undefined) {
         delete process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS
@@ -462,14 +476,23 @@ describe("config routes", () => {
 
       const listResponse = await app.request("/api/global/notebooks")
       expect(listResponse.status).toBe(200)
-      await expect(listResponse.json()).resolves.toEqual([
+      const listBody = (await listResponse.json()) as Array<{
+        name: string
+        directory: string
+      }>
+      expect(
+        listBody.map((entry) => ({
+          ...entry,
+          directory: normalizePathForAssertion(entry.directory),
+        })),
+      ).toEqual([
         {
           name: "Algebra",
-          directory: algebraDirectory,
+          directory: normalizePathForAssertion(algebraDirectory),
         },
         {
           name: "Inbox",
-          directory: inboxDirectory,
+          directory: normalizePathForAssertion(inboxDirectory),
         },
       ])
     } finally {

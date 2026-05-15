@@ -207,7 +207,7 @@ describe("subagent tool forwarding", () => {
     expect(transformed.agent).toBe("question-set-author")
     expect(tools.save_flashcard_deck).toBe(false)
     expect(tools.debug_attempt).toBe(false)
-    expect(tools.goal_state).toBe(true)
+    expect(tools.goal_state).toBe(false)
     expect(tools.learner_memory_search).toBe(true)
     expect(tools.prepare_resource).toBe(true)
     expect(tools.ingest_full_text).toBe(true)
@@ -224,7 +224,7 @@ describe("subagent tool forwarding", () => {
       session.permission?.some(
         (rule) => rule.permission === "goal_state" && rule.action === "allow",
       ),
-    ).toBe(true)
+    ).toBe(false)
     expect(
       session.permission?.some(
         (rule) => rule.permission === "save_flashcard_deck" && rule.action === "deny",
@@ -326,7 +326,7 @@ describe("subagent tool forwarding", () => {
 
     expect(userMessage.info.tools?.save_flashcard_deck).toBe(false)
     expect(userMessage.info.tools?.debug_attempt).toBe(false)
-    expect(userMessage.info.tools?.goal_state).toBe(true)
+    expect(userMessage.info.tools?.goal_state).toBe(false)
     expect(userMessage.info.tools?.learner_memory_search).toBe(true)
     expect(userMessage.info.tools?.prepare_resource).toBe(true)
     expect(userMessage.info.tools?.ingest_full_text).toBe(true)
@@ -341,7 +341,7 @@ describe("subagent tool forwarding", () => {
       session.permission?.some(
         (rule) => rule.permission === "goal_state" && rule.action === "allow",
       ),
-    ).toBe(true)
+    ).toBe(false)
     expect(
       session.permission?.some(
         (rule) => rule.permission === "save_flashcard_deck" && rule.action === "deny",

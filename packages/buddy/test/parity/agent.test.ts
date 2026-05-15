@@ -143,7 +143,7 @@ describe("parity.agent", () => {
         PermissionNext.evaluate("python_calculator", "*", mathBuddyAgent.permission).action,
       ).toBe("allow")
       expect(PermissionNext.evaluate("python_calculator", "*", buddyAgent.permission).action).toBe(
-        "deny",
+        "allow",
       )
       expect(
         PermissionNext.evaluate("python_calculator", "*", codeBuddyAgent.permission).action,

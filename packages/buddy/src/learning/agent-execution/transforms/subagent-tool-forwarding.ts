@@ -56,6 +56,27 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value)
 }
 
+function isSessionNotFoundError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false
+  }
+  const payload = error as {
+    name?: unknown
+    message?: unknown
+    data?: { message?: unknown }
+  }
+  if (payload.name !== "NotFoundError") {
+    return false
+  }
+  const message =
+    typeof payload.data?.message === "string"
+      ? payload.data.message
+      : typeof payload.message === "string"
+        ? payload.message
+        : undefined
+  return typeof message === "string" && message.startsWith("Session not found:")
+}
+
 function toolPermissionKey(toolID: string): string {
   return EDIT_PERMISSION_TOOL_IDS.has(toolID) ? "edit" : toolID
 }
@@ -277,12 +298,25 @@ async function resolveSubagentPolicyContext(input: {
   const session = await OpenCodeInstance.provide({
     directory: input.directory,
     fn: () => OpenCodeSession.get(SessionID.make(input.sessionID)),
+  }).catch((error) => {
+    if (isSessionNotFoundError(error)) {
+      return undefined
+    }
+    throw error
   })
+  if (!session) {
+    return undefined
+  }
   const parentSessionID = session.parentID
   const parentSession = parentSessionID
     ? await OpenCodeInstance.provide({
         directory: input.directory,
         fn: () => OpenCodeSession.get(SessionID.make(parentSessionID)),
+      }).catch((error) => {
+        if (isSessionNotFoundError(error)) {
+          return undefined
+        }
+        throw error
       })
     : undefined
   const parentState = parentSession

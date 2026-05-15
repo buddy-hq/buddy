@@ -12,6 +12,13 @@ function readRegistryFile() {
   return JSON.parse(readFileSync(registryPath, "utf8")) as string[]
 }
 
+function normalizePathForAssertion(value: string): string {
+  if (process.platform !== "darwin") {
+    return value
+  }
+  return value.startsWith("/private/") ? value.slice("/private".length) : value
+}
+
 describe("open project routes", () => {
   beforeEach(() => {
     rmSync(registryPath, { force: true })
@@ -351,10 +358,15 @@ describe("open project routes", () => {
       })
 
       expect(createResponse.status).toBe(200)
-      await expect(createResponse.json()).resolves.toEqual({
-        directory: expectedDirectory,
-      })
-      expect(readRegistryFile()).toEqual([expectedDirectory])
+      const createdBody = (await createResponse.json()) as {
+        directory: string
+      }
+      expect(normalizePathForAssertion(createdBody.directory)).toBe(
+        normalizePathForAssertion(expectedDirectory),
+      )
+      expect(readRegistryFile().map(normalizePathForAssertion)).toEqual([
+        normalizePathForAssertion(expectedDirectory),
+      ])
     } finally {
       if (originalAllowedRoots === undefined) delete process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS
       else process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS = originalAllowedRoots
