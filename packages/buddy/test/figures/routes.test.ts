@@ -5,8 +5,6 @@ import { tmpdir } from "../helpers/tmpdir"
 
 function routeFigureInput() {
   return {
-    kind: "geometry.v1" as const,
-    alt: "Proof triangle",
     spec: {
       canvas: {
         width: 220,

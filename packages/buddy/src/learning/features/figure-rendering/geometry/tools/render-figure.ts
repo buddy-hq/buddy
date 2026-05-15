@@ -12,8 +12,6 @@ import { renderGeometryFigure } from "../render-figure"
 const nonEmptyString = z.string().trim().min(1)
 
 const RenderFigureInputSchema = z.object({
-  kind: z.literal("geometry.v1"),
-  alt: nonEmptyString,
   caption: nonEmptyString.optional(),
   spec: GeometryFigureSpecSchema,
 })
@@ -30,7 +28,7 @@ const renderFigureTool = createBuddyTool({
       patterns: [FigurePath.glob(ctx.directory)],
       always: ["*"],
       metadata: {
-        kind: params.kind,
+        kind: "geometry.v1",
       },
     })
 

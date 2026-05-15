@@ -4,24 +4,26 @@ import { FreeformFigureRenderError } from "./errors"
 import { writeFreeformFigure } from "./io"
 import { lintSvg } from "./lint"
 import { applyTextHalo, sanitizeSvg } from "./sanitize"
-
-function escapeMarkdownAlt(value: string): string {
-  return value.replaceAll("\\", "\\\\").replaceAll("[", "\\[").replaceAll("]", "\\]")
-}
+import { escapeFigureMarkdownAlt, resolveFigureAlt } from "../../shared/presentation"
 
 function buildFreeformFigureURL(directory: string, figureID: string): string {
   return `/api/freeform-figures/${figureID}?directory=${encodeURIComponent(directory)}`
 }
 
-function hashFreeformFigure(input: { kind: "svg.v1"; source: string }): string {
-  return createHash("sha256").update(JSON.stringify(input)).digest("hex")
+function hashFreeformFigure(source: string): string {
+  return createHash("sha256")
+    .update(
+      JSON.stringify({
+        kind: "svg.v1" as const,
+        source,
+      }),
+    )
+    .digest("hex")
 }
 
 async function renderFreeformFigure(
   directory: string,
   input: {
-    kind: "svg.v1"
-    alt: string
     caption?: string
     source: string
   },
@@ -39,9 +41,10 @@ async function renderFreeformFigure(
     throw new FreeformFigureRenderError(sanitizedIssues)
   }
 
-  const figureID = hashFreeformFigure({
-    kind: input.kind,
-    source: sanitizedSource,
+  const figureID = hashFreeformFigure(sanitizedSource)
+  const alt = resolveFigureAlt({
+    caption: input.caption,
+    fallback: "Custom SVG figure",
   })
   const url = buildFreeformFigureURL(directory, figureID)
 
@@ -52,9 +55,9 @@ async function renderFreeformFigure(
     mime: "image/svg+xml",
     url,
     relativePath: `.buddy/freeform-figures/${figureID}.svg`,
-    alt: input.alt,
+    alt,
     ...(input.caption ? { caption: input.caption } : {}),
-    markdown: `![${escapeMarkdownAlt(input.alt)}](${url})`,
+    markdown: `![${escapeFigureMarkdownAlt(alt)}](${url})`,
     repairAttempts: 0,
   })
 }

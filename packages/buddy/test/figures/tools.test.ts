@@ -12,8 +12,6 @@ import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tool
 
 function baseFigureInput(): RenderFigureInput {
   return {
-    kind: "geometry.v1" as const,
-    alt: "Right triangle ABC",
     spec: {
       canvas: {
         width: 240,
@@ -64,6 +62,7 @@ describe("figure tools", () => {
     expect(payload.repairAttempts).toBe(0)
     expect(payload.figureID).toMatch(/^[a-f0-9]{64}$/)
     expect(payload.relativePath).toBe(`.buddy/figures/${payload.figureID}.svg`)
+    expect(payload.alt).toBe("Geometry figure")
     expect(payload.markdown).toContain(`/api/figures/${payload.figureID}?directory=`)
     expect(svg.startsWith("<svg")).toBe(true)
     expect(svg).toContain("</svg>")
@@ -148,8 +147,6 @@ describe("figure tools", () => {
     await using project = await tmpdir({ git: true })
 
     const rendered = await renderGeometryFigure(project.path, {
-      kind: "geometry.v1",
-      alt: "Right triangle with perpendicular foot",
       spec: {
         canvas: {
           width: 260,

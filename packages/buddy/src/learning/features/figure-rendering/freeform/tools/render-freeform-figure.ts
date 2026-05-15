@@ -11,8 +11,6 @@ import { renderFreeformFigure } from "../service/render"
 const nonEmptyString = z.string().trim().min(1)
 
 const RenderFreeformFigureInputSchema = z.object({
-  kind: z.literal("svg.v1"),
-  alt: nonEmptyString,
   caption: nonEmptyString.optional(),
   source: nonEmptyString,
 })
@@ -29,7 +27,7 @@ const renderFreeformFigureTool = createBuddyTool({
       patterns: [FreeformFigurePath.glob(ctx.directory)],
       always: ["*"],
       metadata: {
-        kind: params.kind,
+        kind: "svg.v1",
       },
     })
 

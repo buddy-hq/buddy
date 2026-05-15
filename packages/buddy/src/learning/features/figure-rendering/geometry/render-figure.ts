@@ -7,6 +7,7 @@ import { resolveGeometryFigureSpec } from "./resolve"
 import { RenderFigureOutputSchema, type GeometryFigureSpec, type RenderFigureOutput } from "./types"
 import { validateGeometryFigureSpec, type FigureValidationIssue } from "./validate"
 import { FigureRenderError } from "../errors"
+import { escapeFigureMarkdownAlt, resolveFigureAlt } from "../shared/presentation"
 const MAX_TOTAL_ATTEMPTS = 3
 const MAX_REPAIR_PASSES = 2
 
@@ -160,12 +161,15 @@ function validateGeometrySvgSanity(svg: string): FigureValidationIssue[] {
   return issues
 }
 
-function hashGeometryFigure(input: { kind: "geometry.v1"; spec: GeometryFigureSpec }): string {
-  return createHash("sha256").update(JSON.stringify(input)).digest("hex")
-}
-
-function escapeGeometryFigureMarkdownAlt(value: string): string {
-  return value.replaceAll("\\", "\\\\").replaceAll("[", "\\[").replaceAll("]", "\\]")
+function hashGeometryFigure(spec: GeometryFigureSpec): string {
+  return createHash("sha256")
+    .update(
+      JSON.stringify({
+        kind: "geometry.v1" as const,
+        spec,
+      }),
+    )
+    .digest("hex")
 }
 
 async function writeGeometryFigure(directory: string, figureID: string, svg: string) {
@@ -176,8 +180,6 @@ async function writeGeometryFigure(directory: string, figureID: string, svg: str
 async function renderGeometryFigure(
   directory: string,
   input: {
-    kind: "geometry.v1"
-    alt: string
     caption?: string
     spec: GeometryFigureSpec
   },
@@ -197,9 +199,10 @@ async function renderGeometryFigure(
           const svg = renderGeometryFigureSvg(resolved.spec)
           const svgIssues = validateGeometrySvgSanity(svg)
           if (svgIssues.length === 0) {
-            const figureID = hashGeometryFigure({
-              kind: input.kind,
-              spec: resolved.spec,
+            const figureID = hashGeometryFigure(resolved.spec)
+            const alt = resolveFigureAlt({
+              caption: input.caption,
+              fallback: "Geometry figure",
             })
             await writeGeometryFigure(directory, figureID, svg)
 
@@ -208,9 +211,9 @@ async function renderGeometryFigure(
               mime: "image/svg+xml",
               url: `/api/figures/${figureID}?directory=${encodeURIComponent(directory)}`,
               relativePath: `.buddy/figures/${figureID}.svg`,
-              alt: input.alt,
+              alt,
               ...(input.caption ? { caption: input.caption } : {}),
-              markdown: `![${escapeGeometryFigureMarkdownAlt(input.alt)}](/api/figures/${figureID}?directory=${encodeURIComponent(directory)})`,
+              markdown: `![${escapeFigureMarkdownAlt(alt)}](/api/figures/${figureID}?directory=${encodeURIComponent(directory)})`,
               repairAttempts,
             })
           }

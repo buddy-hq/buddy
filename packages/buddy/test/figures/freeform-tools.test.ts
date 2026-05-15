@@ -13,8 +13,6 @@ import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tool
 
 function baseFreeformFigureInput(): RenderFreeformFigureInput {
   return {
-    kind: "svg.v1",
-    alt: "Curved proof figure",
     source: [
       "<!-- comment before the root should still parse -->",
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 80">',
@@ -61,6 +59,7 @@ describe("freeform figure tools", () => {
     expect(payload.repairAttempts).toBe(0)
     expect(payload.figureID).toMatch(/^[a-f0-9]{64}$/)
     expect(payload.relativePath).toBe(`.buddy/freeform-figures/${payload.figureID}.svg`)
+    expect(payload.alt).toBe("Custom SVG figure")
     expect(payload.markdown).toContain(`/api/freeform-figures/${payload.figureID}?directory=`)
     expect(svg).toContain("<svg")
     expect(svg).toContain("</svg>")
@@ -74,8 +73,6 @@ describe("freeform figure tools", () => {
 
     await expect(
       renderFreeformFigure(project.path, {
-        kind: "svg.v1",
-        alt: "Broken svg",
         source: "<svg><g></svg>",
       }),
     ).rejects.toBeInstanceOf(FreeformFigureRenderError)
@@ -85,8 +82,6 @@ describe("freeform figure tools", () => {
     await using project = await tmpdir({ git: true })
 
     const rendered = await renderFreeformFigure(project.path, {
-      kind: "svg.v1",
-      alt: "Sanitized svg",
       source: [
         '<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)" viewBox="0 0 40 20">',
         '  <script>alert("x")</script>',
