@@ -17,6 +17,8 @@
     "build:knowledge-graph": "bun ./script/update-knowledge-graph.ts",
     "update:knowledge-graph": "bun ./script/update-knowledge-graph.ts",
     "verify:knowledge-graph": "bun ./script/verify-knowledge-graph.ts",
+    "skill:audit": "bun ./script/skill-audit.ts",
+    "skill:curate": "bun ./script/skill-curation.ts",
     "build:advanced-math-runtime": "bun ./script/build-advanced-math-runtime.ts",
     "ensure:advanced-math-runtime": "bun ./script/ensure-advanced-math-runtime.ts",
     "typecheck": "tsgo --noEmit",
