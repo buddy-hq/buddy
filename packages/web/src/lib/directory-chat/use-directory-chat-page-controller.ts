@@ -186,7 +186,7 @@ export function useDirectoryChatPageController(
   const settlingRef = useRef(false)
   const settleTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
-  const [stickToBottom, setStickToBottom] = useState(true)
+  const [stickToBottom, setStickToBottomState] = useState(true)
   const [systemPromptRefreshToken, setSystemPromptRefreshToken] = useState(0)
   const [pendingSuggestionOverride, setPendingSuggestionOverride] = useState<
     | {
@@ -401,10 +401,27 @@ export function useDirectoryChatPageController(
     return Math.abs(el.scrollTop - a.top) < 2
   }
 
-  function updateOverflowAnchor(el: HTMLElement | null) {
-    if (!el) return
-    el.style.overflowAnchor = stickToBottomRef.current ? "none" : "auto"
-  }
+  const updateOverflowAnchor = useCallback(
+    (el: HTMLElement | null, nextStickToBottom = stickToBottomRef.current) => {
+      if (!el) return
+      el.style.overflowAnchor = nextStickToBottom ? "none" : "auto"
+    },
+    [],
+  )
+
+  const setTranscriptStickToBottom = useCallback(
+    (nextStickToBottom: boolean, el: HTMLElement | null = transcriptRef.current) => {
+      stickToBottomRef.current = nextStickToBottom
+      setStickToBottomState(nextStickToBottom)
+      updateOverflowAnchor(el, nextStickToBottom)
+      if (!nextStickToBottom && autoScrollTimerRef.current) {
+        clearTimeout(autoScrollTimerRef.current)
+        autoScrollMarkerRef.current = undefined
+        autoScrollTimerRef.current = undefined
+      }
+    },
+    [updateOverflowAnchor],
+  )
 
   const startSmoothFollow = useCallback(() => {
     if (smoothFollowRafRef.current !== null) return
@@ -625,8 +642,8 @@ export function useDirectoryChatPageController(
       Date.now() + TRANSCRIPT_THREAD_SWITCH_SNAP_WINDOW_MS
     stopTranscriptScrollAnimation()
     stopSmoothFollow()
-    setStickToBottom(true)
-  }, [sessionID, stopSmoothFollow, stopTranscriptScrollAnimation])
+    setTranscriptStickToBottom(true)
+  }, [sessionID, setTranscriptStickToBottom, stopSmoothFollow, stopTranscriptScrollAnimation])
 
   useEffect(() => {
     if (!decodedDirectory || !sessionID) return
@@ -729,14 +746,14 @@ export function useDirectoryChatPageController(
       if (!stickToBottomRef.current) return
       stopTranscriptScrollAnimation()
       stopSmoothFollow()
-      setStickToBottom(false)
+      setTranscriptStickToBottom(false, container)
     }
 
     container.addEventListener("wheel", handleWheel, { passive: true })
     return () => {
       container.removeEventListener("wheel", handleWheel)
     }
-  }, [stopSmoothFollow, stopTranscriptScrollAnimation])
+  }, [setTranscriptStickToBottom, stopSmoothFollow, stopTranscriptScrollAnimation])
 
   useEffect(() => {
     const container = transcriptRef.current
@@ -748,7 +765,7 @@ export function useDirectoryChatPageController(
         if (!stickToBottomRef.current) return
         stopTranscriptScrollAnimation()
         stopSmoothFollow()
-        setStickToBottom(false)
+        setTranscriptStickToBottom(false, container)
       }
     }
 
@@ -756,13 +773,13 @@ export function useDirectoryChatPageController(
     return () => {
       container.removeEventListener("pointerdown", handleInteraction, { capture: true })
     }
-  }, [stopSmoothFollow, stopTranscriptScrollAnimation])
+  }, [setTranscriptStickToBottom, stopSmoothFollow, stopTranscriptScrollAnimation])
 
   useEffect(() => {
     const container = transcriptRef.current
     if (!container) return
-    container.style.overflowAnchor = stickToBottom ? "none" : "auto"
-  }, [stickToBottom])
+    updateOverflowAnchor(container, stickToBottom)
+  }, [stickToBottom, updateOverflowAnchor])
 
   const syncTeachingRuntimeSelection = useCallback(
     async (input?: { directory?: string; sessionID?: string; sessionKey?: string }) => {
@@ -1369,7 +1386,7 @@ export function useDirectoryChatPageController(
     const content = rawContent.trim()
     if (!content && rawAttachments.length === 0 && promptParts.length === 0) return
 
-    setStickToBottom(true)
+    setTranscriptStickToBottom(true)
 
     const variant = selectedThinking !== "default" ? selectedThinking : undefined
     const slashCommand = parseSlashCommandInput(rawContent, slashCommandCandidates)
@@ -1563,7 +1580,10 @@ export function useDirectoryChatPageController(
   function onTranscriptScroll(event: UIEvent<HTMLElement>) {
     const node = event.currentTarget
     if (!canScrollElement(node)) {
-      if (!stickToBottom) setStickToBottom(true)
+      if (!stickToBottomRef.current) {
+        setTranscriptStickToBottom(true, node)
+        return
+      }
       updateOverflowAnchor(node)
       return
     }
@@ -1571,23 +1591,28 @@ export function useDirectoryChatPageController(
     const dist = distanceFromBottom(node)
 
     if (dist <= BOTTOM_THRESHOLD_PX) {
-      if (!stickToBottom) setStickToBottom(true)
+      if (!stickToBottomRef.current) {
+        setTranscriptStickToBottom(true, node)
+        return
+      }
       updateOverflowAnchor(node)
       return
     }
 
-    if ((transcriptScrollAnimationRef.current || smoothFollowingRef.current) && stickToBottom) {
+    if (
+      (transcriptScrollAnimationRef.current || smoothFollowingRef.current) &&
+      stickToBottomRef.current
+    ) {
       return
     }
 
-    if (stickToBottom && isAutoScroll(node)) {
+    if (stickToBottomRef.current && isAutoScroll(node)) {
       syncTranscriptToBottom()
       return
     }
 
     stopTranscriptScrollAnimation()
-    setStickToBottom(false)
-    updateOverflowAnchor(node)
+    setTranscriptStickToBottom(false, node)
   }
 
   function onPersonaChange(persona: string) {

@@ -143,6 +143,7 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
   const description = typeof input.description === "string" ? input.description : undefined
   const subagent = typeof input.subagent_type === "string" ? input.subagent_type : undefined
   const alt = typeof input.alt === "string" ? input.alt : undefined
+  const caption = typeof input.caption === "string" ? input.caption : undefined
   const code = typeof input.code === "string" ? input.code : undefined
   const jurisdiction = typeof input.jurisdiction === "string" ? input.jurisdiction : undefined
   const targetJurisdiction =
@@ -442,7 +443,7 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
       return withMetadataTitle(
         {
           title: language.t(active ? "chatTools.info.figure.running" : "chatTools.info.figure"),
-          subtitle: alt,
+          subtitle: caption ?? alt,
         },
         metadataTitle,
       )
