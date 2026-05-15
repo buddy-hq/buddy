@@ -9,7 +9,7 @@
 - the left pane is `DirectoryChatReadingReaderPane`, which loads a resource blob and renders `FoliateReader`.
 - the right pane is the normal chat conversation pane with a reading-specific thread browser header.
 - the main entrypoint is `openResourceInReadingMode` from the notebook UI.
-- while the route is mounted, the selected session persona is switched to `reading-buddy`.
+- while the route is mounted, the selected session persona is switched to `buddy`.
 - when the route unmounts, the page restores the prior persona selection for the affected session.
 - every prompt sent from reading mode includes the `reading` payload (position, passage, trail, annotations) as primary grounding. Resource-reference auto-injection has been removed; the model grounds on local reading context first and uses resource pack reads only when broader scope is needed.
 - the backend turns that request payload into `activeResource` prompt context and renders `<active_reading_resource>` into the prompt pipeline.
@@ -31,7 +31,7 @@
 1. the user opens a PDF or EPUB resource.
 2. `openResourceInReadingMode` prefetches notebook resources and, for supported files, prefetches the raw blob for the reader.
 3. the app navigates to `/$directory/read` with the resource path and optional resource id in search params.
-4. `DirectoryChatReadingPage` resolves the matching resource record, marks it as the active reading resource for the directory, and switches the current session to `reading-buddy`.
+4. `DirectoryChatReadingPage` resolves the matching resource record, marks it as the active reading resource for the directory, and switches the current session to `buddy`.
 5. `DirectoryChatReadingReaderPane` loads the blob through `readingResourceBlobQueryOptions` and passes it to `FoliateReader`.
 6. `FoliateReader` opens the book, restores persisted reader state, and emits location updates.
 7. those location updates are copied into `activeReadingResourceByDirectory`, so the current location, toc label, and page label are available to prompt submission.
@@ -99,7 +99,7 @@
 
 ### 10. The system has no “seen so far” reading trail
 - current behavior: there is no state that records which sections, chapters, or page windows the learner has already visited over the course of the session.
-- current behavior: this is notable because the `reading-buddy` persona prompt explicitly says to maintain awareness of what portion of the document has been seen so far.
+- current behavior: this is notable because the `reading` skill explicitly says to maintain awareness of what portion of the document has been seen so far.
 - why it matters: without a reading trail, the agent cannot distinguish “we are still in chapter 1” from “the learner has already moved through five sections and came back here.”
 - likely change: keep a bounded reading trail such as the last several distinct TOC items, page windows, or section indexes with timestamps and revisit counts.
 
@@ -121,7 +121,7 @@
 
 ### 14. The reading surface does not capture the learner’s reading goal
 - current behavior: the chat pane is the normal generic prompt composer. it does not capture whether the learner is reading for comprehension, close reading, critique, study, exam prep, or discussion.
-- why it matters: the `reading-buddy` persona is already designed around these modes, but the UI does not help the user express them. that makes the agent feel less intentional than the persona design suggests.
+- why it matters: the `reading` skill is already designed around these modes, but the UI does not help the user express them. that makes the agent feel less intentional than the skill design suggests.
 - likely change: add lightweight reading-mode goal chips or quick intents above the composer, such as `Understand`, `Analyze`, `Close read`, `Study`, and `Discuss`.
 
 ## Selection To Chat

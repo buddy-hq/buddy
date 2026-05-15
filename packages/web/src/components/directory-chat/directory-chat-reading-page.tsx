@@ -148,13 +148,13 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
 
     const currentPersona = selectedPersonaForSession
 
-    if (currentPersona === "reading-buddy") return
+    if (currentPersona === "buddy") return
 
     if (!(sessionKey in previousPersonaBySessionRef.current)) {
       previousPersonaBySessionRef.current[sessionKey] = currentPersona
     }
 
-    setSessionPersona(sessionKey, "reading-buddy")
+    setSessionPersona(sessionKey, "buddy")
   }, [readingSessionID, readyDirectory, selectedPersonaForSession, setSessionPersona])
 
   useEffect(() => {

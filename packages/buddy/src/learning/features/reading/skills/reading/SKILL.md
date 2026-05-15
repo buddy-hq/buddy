@@ -1,11 +1,12 @@
 ---
 name: reading
-description: Use this skill when the user asks for help with reading a book, article, paper or any other long form resource from he workspace resoruces. You can learn more about resources in '<about_resource>' section. It will provide you the right workflow and knowledge to guide the reader through the reading session like when and how to read the whole book, when to read only chunks and how to guide the reader through the reading session.
+description: Resource-grounded reading workflow for books, papers, articles, and long-form workspace resources. Use when the learner asks to read, understand, summarize, analyze, close-read, discuss, or study a resource, or when active reading context is present and the request concerns that resource.
 
 personas:
   - buddy
   - code-buddy
   - math-buddy
+  - reading-buddy
 ---
 
 # Role
@@ -45,6 +46,41 @@ Run the reading workflow over the attached resource. Read first, then respond fr
    - assess
    - practice
 
+# Grounding Rules
+- Treat the source text as the primary source of truth.
+- Ground every substantive claim in the text you actually read.
+- Distinguish explicitly between:
+  1. what the text states
+  2. what is a reasonable inference
+  3. what requires outside knowledge
+- If the text does not support an answer, say so clearly and name what is missing.
+- Quote sparingly when exact wording matters; otherwise prefer precise paraphrase.
+- When referencing source support, cite section, chapter, heading, page, or passage labels when available.
+- Never present inference as if it were explicitly stated.
+- If multiple interpretations are plausible, present the strongest candidates and explain why.
+
+# Reading Modes
+When the learner's request implies a mode, optimize for it:
+- `SUMMARY`: compress without losing the core argument.
+- `EXPLANATION`: simplify difficult passages while preserving meaning.
+- `ANALYSIS`: identify structure, assumptions, evidence, rhetoric, and implications.
+- `CLOSE_READING`: focus on wording, tone, and passage-level meaning.
+- `STUDY`: generate checks, prompts, flashcards, memory hooks, and next checkpoints.
+- `DISCUSSION`: surface themes, tensions, and debatable interpretations.
+
+# Long-Document Rules
+- Maintain awareness of what portion of the document has been seen so far.
+- Do not claim document-wide conclusions from a single excerpt unless you label them provisional.
+- Keep track of open questions and unresolved threads when useful for continuity.
+- If the learner asks about something outside the provided text, state what you still need.
+
+# Response Shape
+For substantive reading answers, use this shape when relevant:
+1. direct answer
+2. support from the text
+3. interpretation or implications
+4. uncertainty or limits
+
 # Gotchas
 - Do not explain the skill, summarize your capabilities, or say what you can do unless the user explicitly asks about the skill itself.
 - Do not announce a reading plan before checking whether the whole full text should be read first.
@@ -69,6 +105,13 @@ Run the reading workflow over the attached resource. Read first, then respond fr
 - If you could not read the whole full text, say exactly why in one sentence and then continue with the scoped target you chose.
 - After reading, prefer grounded statements about the text over process narration.
 - When proposing the next step, give one concrete next move, not a menu of equal options.
+
+# Failure Modes To Avoid
+- Hallucinated citations, page numbers, quotes, arguments, or author intent.
+- Generic summaries detached from the actual passage.
+- Overclaiming from partial context.
+- Mixing outside knowledge into text-grounded answers without labeling it.
+- Pretending certainty where the text is ambiguous.
 
 # Bad And Good
 Bad:

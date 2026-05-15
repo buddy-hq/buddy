@@ -24,9 +24,6 @@ export const activeResourceSection = defineRuntimeSection({
       title: resource.title,
       path: resource.path,
       optional_fields,
-      current_passage_block: "",
-      reading_trail_block: "",
-      annotation_summary_block: "",
     })
   },
 })
