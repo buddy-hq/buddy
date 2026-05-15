@@ -939,6 +939,7 @@ export const dict = {
   "skills.detail.permission": "Permission",
   "skills.detail.remove": "Remove",
   "skills.detail.skillContent": "Skill content",
+  "skills.install": "Install",
   "skills.installed": "Installed",
   "skills.installedSection.description":
     "Set allow, ask, or block rules for each skill name, inspect details, and remove Buddy-managed skills.",
