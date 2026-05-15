@@ -14,6 +14,7 @@ const EVIDENCE_MAX_LENGTH = 160
 const TEXT_READ_ENCODING = "utf8"
 const EXECUTABLE_MODE_MASK = 0o111
 const SAMPLE_BYTES_FOR_BINARY_CHECK = 8_192
+const BYTE_ORDER_MARK = "\ufeff"
 
 export type SkillScanSeverity = "block" | "warn"
 export type SkillScanCategory =
@@ -186,7 +187,7 @@ const SOURCE_RULES: SourceRule[] = [
     category: "credential_access",
     message: "Credential store path access detected",
     pattern:
-      /(?:(?:~|\$HOME|process\.env\.HOME|os\.path\.expanduser\(["']~["']\))\/(?:\.ssh|\.aws|\.gnupg|\.kube|\.docker)|\b(?:credentials|\.netrc|\.npmrc|\.pypirc|\.pgpass)\b)/i,
+      /(?:(?:~|\$HOME|process\.env\.HOME|os\.path\.expanduser\(["']~["']\))\/(?:\.ssh|\.aws|\.gnupg|\.kube|\.docker)|(?:^|[/"'\s])(?:\.netrc|\.npmrc|\.pypirc|\.pgpass)(?:$|[/"'\s])|(?:\/|\\)credentials(?:\/|\\|$))/i,
   },
   {
     ruleId: "environment-secret-access",
@@ -402,6 +403,14 @@ function unicodeFindings(input: { relativePath: string; source: string }): Skill
     const line = lines[index]
     for (const [character, name] of INVISIBLE_UNICODE) {
       if (!line.includes(character)) {
+        continue
+      }
+      const isBenignByteOrderMark =
+        character === BYTE_ORDER_MARK &&
+        index === 0 &&
+        line.startsWith(BYTE_ORDER_MARK) &&
+        line.lastIndexOf(BYTE_ORDER_MARK) === 0
+      if (isBenignByteOrderMark) {
         continue
       }
       findings.push(
