@@ -154,6 +154,10 @@ function wireDesktopEvents() {
   window.api.onDeepLink((urls) => {
     window.dispatchEvent(new CustomEvent("buddy:deep-link", { detail: { urls } }))
   })
+
+  window.api.onNotificationClick((href) => {
+    window.dispatchEvent(new CustomEvent("buddy:notification-click", { detail: { href } }))
+  })
 }
 
 async function bootstrap() {

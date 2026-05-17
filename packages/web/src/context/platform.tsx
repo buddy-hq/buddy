@@ -36,10 +36,32 @@ export type Platform = {
   restart(): Promise<void>
   back(): void
   forward(): void
-  notify(title: string, description?: string): Promise<void>
+  notify(title: string, description?: string, href?: string): Promise<void>
   checkUpdate?(): Promise<UpdateCheckResult>
   update?(): Promise<void>
   parseMarkdown?(markdown: string): Promise<string>
+}
+
+function notifyWindowOfClick(href: string) {
+  window.focus()
+
+  if (/^(\/|\.\/|\.\.\/|\?|#)/u.test(href)) {
+    window.dispatchEvent(new CustomEvent("buddy:notification-click", { detail: { href } }))
+    return
+  }
+
+  try {
+    const url = new URL(href)
+    const currentUrl = new URL(window.location.href)
+    if (url.origin === currentUrl.origin) {
+      window.dispatchEvent(new CustomEvent("buddy:notification-click", { detail: { href } }))
+      return
+    }
+  } catch {
+    // Fall back to location.assign below.
+  }
+
+  window.location.assign(href)
 }
 
 const defaultPlatform: Platform = {
@@ -56,21 +78,27 @@ const defaultPlatform: Platform = {
   forward() {
     window.history.forward()
   },
-  async notify(title: string, description?: string) {
+  async notify(title: string, description?: string, href?: string) {
     if (!("Notification" in window)) return
+    const options = description ? { body: description } : undefined
     if (Notification.permission === "granted") {
-      const notification = new Notification(title, description ? { body: description } : undefined)
-      void notification
+      const notification = new Notification(title, options)
+      if (href) {
+        notification.addEventListener("click", () => {
+          notifyWindowOfClick(href)
+        })
+      }
       return
     }
     if (Notification.permission !== "denied") {
       const next = await Notification.requestPermission()
       if (next === "granted") {
-        const notification = new Notification(
-          title,
-          description ? { body: description } : undefined,
-        )
-        void notification
+        const notification = new Notification(title, options)
+        if (href) {
+          notification.addEventListener("click", () => {
+            notifyWindowOfClick(href)
+          })
+        }
       }
     }
   },

@@ -169,11 +169,11 @@ export function createDesktopPlatform(): Platform {
     openLink(url: string) {
       window.api.openLink(url)
     },
-    async notify(title, description) {
+    async notify(title, description, href) {
       const focused = await window.api.getWindowFocused().catch(() => document.hasFocus())
       if (focused) return
 
-      window.api.showNotification(title, description)
+      window.api.showNotification(title, description, href)
     },
     parseMarkdown(markdown) {
       return window.api.parseMarkdownCommand(markdown)
