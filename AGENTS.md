@@ -5,7 +5,8 @@
 - Buddy is local-first: the main agent loop usually runs locally on the host that launched it. It is not strictly local-only, and may expose server/client or remote-agent surfaces or use the network beyond LLM calls, web search, MCP, and third-party APIs, including for auth, remote config/admin policy, and remote subagent/client connections.
 
 ## Task Completion Requirements
-- All of `bun fmt`, `bun lint`, &  `bun typecheck` must pass before considering tasks completed. no typecheck: md-only edits
+- Both of `bun lint`, &  `bun typecheck` must pass before considering tasks completed. no typecheck: md-only edits
+- Run `bun fmt` only when the task is complete and user is satisfied.
 
 ## Breaking Changes ALLOWED & Backward Compatibility NOT REQUIRED
 - Buddy is single-user, single-machine. Backward compatibility is not required.This section will be removed when that assumption changes.
