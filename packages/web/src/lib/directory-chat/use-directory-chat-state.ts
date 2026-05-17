@@ -336,6 +336,7 @@ export type DirectoryChatState = DirectoryChatStoreSlice &
     autoCompactionEnabled: boolean
     isBusy: ChatStore["directories"][string]["isBusy"]
     isReady: ChatStore["directories"][string]["isReady"]
+    loadingSessionID: ChatStore["directories"][string]["loadingSessionID"]
     error: ChatStore["directories"][string]["error"] | undefined
     pendingPermissions: ChatStore["directories"][string]["pendingPermissions"]
     pendingQuestions: ChatStore["directories"][string]["pendingQuestions"]
@@ -610,6 +611,7 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps): Direct
   )
   const isBusy = directoryState?.isBusy ?? false
   const isReady = directoryState?.isReady ?? false
+  const loadingSessionID = directoryState?.loadingSessionID
   const error = directoryState?.error
   const pendingPermissions = directoryState?.pendingPermissions ?? []
   const pendingQuestions = directoryState?.pendingQuestions ?? []
@@ -773,6 +775,7 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps): Direct
     // Directory state
     isBusy,
     isReady,
+    loadingSessionID,
     error,
     pendingPermissions,
     pendingQuestions,

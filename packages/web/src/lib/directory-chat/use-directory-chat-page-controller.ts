@@ -2,6 +2,7 @@ import { useNavigate } from "@tanstack/react-router"
 import { useQueryClient } from "@tanstack/react-query"
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react"
 import { ChatLeftSidebar } from "@/components/layout/chat-left-sidebar"
+import { getFilename } from "@/components/layout/sidebar-helpers"
 import { CreateTeachingFileDialog } from "@/components/teaching/create-teaching-file-dialog"
 import {
   PROMPT_PART_TYPE_TEXT,
@@ -43,6 +44,7 @@ import {
   ensureDirectorySession,
   findWorkspaceFiles,
   loadMessages,
+  prefetchSessionMessages,
   createManagedNotebook,
   compactSession,
   openInboxNotebook,
@@ -84,6 +86,7 @@ import {
 } from "../../state/prompt-store"
 import { getModelSelectionScopeKey } from "../../state/model-selection-store"
 import { useChatStore } from "../../state/chat-store"
+import { useNotifications } from "../../state/notifications"
 import { useUiPreferences } from "../../state/ui-preferences"
 import { useShallow } from "zustand/react/shallow"
 import { stringifyError } from "../../state/teaching-actions"
@@ -335,6 +338,7 @@ export function useDirectoryChatPageController(
     working: cs.isBusy,
     contentDep: cs.messages,
   })
+  const snapToBottomForThreadSwitch = autoScroll.snapToBottomForThreadSwitch
 
   useEffect(() => {
     setPendingSuggestionOverride(undefined)
@@ -449,12 +453,13 @@ export function useDirectoryChatPageController(
   }, [decodedDirectory])
 
   useEffect(() => {
-    autoScroll.snapToBottomForThreadSwitch()
-  }, [sessionID, autoScroll])
+    snapToBottomForThreadSwitch()
+  }, [sessionID, snapToBottomForThreadSwitch])
 
   useEffect(() => {
     if (!decodedDirectory || !sessionID) return
     clearUnread(decodedDirectory, sessionID)
+    useNotifications.getState().markSessionViewed(sessionID)
   }, [clearUnread, decodedDirectory, sessionID])
 
   const handleOpenCurrentDirectorySession = useCallback(
@@ -465,6 +470,7 @@ export function useDirectoryChatPageController(
         try {
           await selectSession(decodedDirectory, targetSessionID)
           clearUnread(decodedDirectory, targetSessionID)
+          useNotifications.getState().markSessionViewed(targetSessionID)
         } catch {
           // Store already captures and displays errors.
         }
@@ -1394,6 +1400,9 @@ export function useDirectoryChatPageController(
     onSelectSession: (targetDirectory, targetSessionID) => {
       void onSelectSession(targetDirectory, targetSessionID)
     },
+    onPrefetchSession: (targetDirectory, targetSessionID) => {
+      void prefetchSessionMessages(targetDirectory, targetSessionID).catch(() => undefined)
+    },
     onTogglePin: (targetDirectory, targetSessionID) =>
       cs.togglePinned(targetDirectory, targetSessionID),
     onToggleUnread: onToggleUnreadSession,
@@ -1419,6 +1428,7 @@ export function useDirectoryChatPageController(
       cs.setMainPaneTab(tab)
     },
     onOpenSettings: openSettingsPanel,
+    showHeader: false,
     className: "w-full h-full",
   }
 
@@ -1426,8 +1436,17 @@ export function useDirectoryChatPageController(
     directory: decodedDirectory,
     chatState: cs,
     transcriptRef: autoScroll.scrollRef,
+    transcriptContentRef: autoScroll.contentRef,
+    userScrolled: autoScroll.userScrolled,
     onTranscriptScroll: autoScroll.handleScroll,
-    onAssistantTextFinalRender: autoScroll.scrollToBottom,
+    onTranscriptWheel: autoScroll.handleWheel,
+    onTranscriptKeyDown: autoScroll.handleKeyDown,
+    onTranscriptPointerDown: autoScroll.handlePointerDown,
+    onTranscriptTouchStart: autoScroll.handleTouchStart,
+    onTranscriptTouchMove: autoScroll.handleTouchMove,
+    onTranscriptTouchEnd: autoScroll.handleTouchEnd,
+    onTranscriptTouchCancel: autoScroll.handleTouchCancel,
+    onTranscriptInteraction: autoScroll.handleInteraction,
     onOpenSession: handleOpenCurrentDirectorySession,
     onRevertMessage: async ({ sessionID, messageID }) => {
       const restoreDraft = resolveUndoRestoreDraft(messageID)
@@ -1497,6 +1516,13 @@ export function useDirectoryChatPageController(
   }
 
   const shellProps: ReadyDirectoryChatPageControllerState["shellProps"] = {
+    chatTitle: cs.sessionTitle,
+    projectName: getFilename(decodedDirectory),
+    titlebarVariant:
+      shellView === DIRECTORY_CHAT_SHELL_VIEW.SKILLS ||
+      shellView === DIRECTORY_CHAT_SHELL_VIEW.LIBRARY
+        ? "shell"
+        : "chat",
     leftSidebarOpen: cs.leftSidebarOpen,
     leftSidebarDisplayWidth: cs.leftSidebarDisplayWidth,
     leftSidebarWidth: cs.leftSidebarWidth,

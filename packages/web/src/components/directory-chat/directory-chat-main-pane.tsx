@@ -1,5 +1,15 @@
 import { Button, ScrollArea } from "@buddy/ui"
-import { useMemo, type ComponentProps, type ReactNode, type RefObject, type UIEvent } from "react"
+import {
+  useMemo,
+  type ComponentProps,
+  type KeyboardEvent,
+  type PointerEvent,
+  type ReactNode,
+  type RefObject,
+  type TouchEvent,
+  type UIEvent,
+  type WheelEvent,
+} from "react"
 import { ChatEmptyState } from "@/components/directory-chat/chat-empty-state"
 import { SessionContextUsage } from "@/components/directory-chat/session-context-usage"
 import { ChatTranscript } from "@/components/chat/chat-transcript"
@@ -8,6 +18,7 @@ import { QuestionDock } from "@/components/directory-chat/question-dock"
 import { language } from "@/context/language"
 import { getFilename } from "@/components/layout/sidebar-helpers"
 import { PromptComposer } from "@/components/prompt/prompt-composer"
+import { useAdaptiveSelectMode } from "@/components/prompt/use-adaptive-select-mode"
 import type { DirectoryChatState } from "@/lib/directory-chat/use-directory-chat-state"
 import { getSessionContextMetrics } from "@/state/context-metrics"
 import type { MessageWithParts, ProviderInfo, QuestionRequest } from "@/state/chat-types"
@@ -21,8 +32,18 @@ type PromptComposerProps = Omit<
 type DirectoryChatMainPaneProps = {
   directory: string
   chatState: DirectoryChatState
-  transcriptRef: RefObject<HTMLElement>
+  transcriptRef: RefObject<HTMLElement | null>
+  transcriptContentRef: RefObject<HTMLElement | null>
+  userScrolled: boolean
   onTranscriptScroll: (event: UIEvent<HTMLElement>) => void
+  onTranscriptWheel: (event: WheelEvent<HTMLElement>) => void
+  onTranscriptKeyDown: (event: KeyboardEvent<HTMLElement>) => void
+  onTranscriptPointerDown: (event: PointerEvent<HTMLElement>) => void
+  onTranscriptTouchStart: (event: TouchEvent<HTMLElement>) => void
+  onTranscriptTouchMove: (event: TouchEvent<HTMLElement>) => void
+  onTranscriptTouchEnd: () => void
+  onTranscriptTouchCancel: () => void
+  onTranscriptInteraction?: () => void
   onAssistantTextFinalRender?: () => void
   onOpenSession: (sessionID: string) => void
   onRevertMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
@@ -132,7 +153,17 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
     directory,
     chatState,
     transcriptRef,
+    transcriptContentRef,
+    userScrolled,
     onTranscriptScroll,
+    onTranscriptWheel,
+    onTranscriptKeyDown,
+    onTranscriptPointerDown,
+    onTranscriptTouchStart,
+    onTranscriptTouchMove,
+    onTranscriptTouchEnd,
+    onTranscriptTouchCancel,
+    onTranscriptInteraction,
     onAssistantTextFinalRender,
     onOpenSession,
     onRevertMessage,
@@ -161,6 +192,15 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
     [chatState.messages, revertMessageID],
   )
   const activeQuestion = currentSessionQuestions[0]
+  const isTranscriptLoading =
+    !!chatState.sessionID &&
+    chatState.loadingSessionID === chatState.sessionID &&
+    chatState.messages.length === 0
+  const promptSelectorMode = useAdaptiveSelectMode({
+    sessionID: chatState.sessionID,
+    isReady: chatState.isReady,
+    messages: chatState.messages,
+  })
 
   return (
     <main
@@ -178,10 +218,19 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
             data-component="chat-transcript-scroll-area"
             viewportRef={transcriptRef as React.Ref<HTMLDivElement>}
             onScroll={onTranscriptScroll as React.UIEventHandler<HTMLDivElement>}
+            onWheel={onTranscriptWheel as React.WheelEventHandler<HTMLDivElement>}
+            onKeyDown={onTranscriptKeyDown as React.KeyboardEventHandler<HTMLDivElement>}
+            onPointerDown={onTranscriptPointerDown as React.PointerEventHandler<HTMLDivElement>}
+            onTouchStart={onTranscriptTouchStart as React.TouchEventHandler<HTMLDivElement>}
+            onTouchMove={onTranscriptTouchMove as React.TouchEventHandler<HTMLDivElement>}
+            onTouchEnd={onTranscriptTouchEnd as React.TouchEventHandler<HTMLDivElement>}
+            onTouchCancel={onTranscriptTouchCancel as React.TouchEventHandler<HTMLDivElement>}
             fillContentWidth
             className="min-w-0 flex-1 min-h-0"
           >
             <div
+              ref={transcriptContentRef as React.Ref<HTMLDivElement>}
+              onClick={onTranscriptInteraction}
               className={`mx-auto min-w-0 w-full max-w-full px-4 pt-4 pb-12 space-y-4 md:max-w-200 2xl:max-w-[1000px] ${
                 chatState.messages.length === 0 && chatState.isReady ? "h-full" : ""
               }`}
@@ -190,6 +239,19 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
                 <p className="text-sm text-text-weak">
                   {language.t("directoryChat.loadingConversationHistory")}
                 </p>
+              ) : isTranscriptLoading ? (
+                <div className="space-y-6 pt-2">
+                  <div className="h-3 w-28 rounded-full bg-surface-raised-base" />
+                  <div className="space-y-3">
+                    <div className="h-4 w-4/5 rounded-full bg-surface-raised-base/80" />
+                    <div className="h-4 w-3/5 rounded-full bg-surface-raised-base/60" />
+                    <div className="h-40 w-full rounded-xl bg-surface-raised-base/50" />
+                  </div>
+                  <div className="space-y-3">
+                    <div className="h-4 w-2/3 rounded-full bg-surface-raised-base/60" />
+                    <div className="h-4 w-1/2 rounded-full bg-surface-raised-base/50" />
+                  </div>
+                </div>
               ) : chatState.messages.length === 0 ? (
                 <div className="h-full flex flex-col">
                   <ChatEmptyState directoryLabel={getFilename(directory)} />
@@ -199,6 +261,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
                   <ChatTranscript
                     directory={directory}
                     scrollViewportRef={transcriptRef}
+                    userScrolled={userScrolled}
                     onAssistantTextFinalRender={onAssistantTextFinalRender}
                     onOpenSession={onOpenSession}
                     onRevertMessage={onRevertMessage}
@@ -292,6 +355,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
             {!chatState.parentSession && (
               <PromptComposer
                 {...promptComposerProps}
+                selectorMode={promptSelectorMode}
                 className="mb-1"
                 sessionContextUsage={
                   <SessionContextUsage

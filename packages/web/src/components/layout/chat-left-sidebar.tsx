@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { LibraryBigIcon, SparklesIcon } from "lucide-react"
 import { Button } from "@buddy/ui"
 import { language } from "@/context/language"
+import { usePlatform } from "@/context/platform"
 import {
   DIRECTORY_CHAT_SHELL_VIEW,
   type DirectoryChatShellView,
@@ -42,6 +43,7 @@ type ChatLeftSidebarProps = {
   ) => void | Promise<void>
   onNewSession: (directory?: string) => void
   onSelectSession: (directory: string, sessionID?: string) => void
+  onPrefetchSession?: (directory: string, sessionID: string) => void
   onTogglePin: (directory: string, sessionID: string) => void
   onToggleUnread: (directory: string, sessionID: string, unread: boolean) => void
   onArchiveSession: (directory: string, sessionID: string) => Promise<void>
@@ -55,6 +57,7 @@ type ChatLeftSidebarProps = {
   mainPaneTab?: NotebookMainPaneTab
   onMainPaneTabChange?: (tab: NotebookMainPaneTab) => void
   onOpenSettings: () => void
+  showHeader?: boolean
   footer?: ReactNode
   children?: ReactNode
   className?: string
@@ -107,6 +110,9 @@ function buildCollapsedDirectories(
 }
 
 export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
+  const platform = usePlatform()
+  const isMacDesktop = platform.platform === "desktop" && platform.os === "macos"
+  const [isFullscreen, setIsFullscreen] = useState(false)
   const libraryOpen = props.shellView === DIRECTORY_CHAT_SHELL_VIEW.LIBRARY
   const skillsOpen = props.shellView === DIRECTORY_CHAT_SHELL_VIEW.SKILLS
   const [archiveState, setArchiveState] = useState<ArchiveState | undefined>(undefined)
@@ -124,6 +130,15 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
   const [learnerMemoryEnabled, setLearnerMemoryEnabled] = useState(true)
   const [autoExtractEnabled, setAutoExtractEnabled] = useState(true)
   const hasInitializedCollapsedDirectoriesRef = useRef(false)
+
+  useEffect(() => {
+    if (!isMacDesktop) return
+    const media = window.matchMedia("(display-mode: fullscreen)")
+    const handler = (e: MediaQueryListEvent | MediaQueryList) => setIsFullscreen(e.matches)
+    handler(media)
+    media.addEventListener("change", handler)
+    return () => media.removeEventListener("change", handler)
+  }, [isMacDesktop])
 
   const directoryGroups = useDirectoryGroups({
     directories: props.directories,
@@ -230,17 +245,24 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
   return (
     <aside
       data-component="chat-left-sidebar"
-      className={`shrink-0 border-r border-border-weaker-base bg-background-base text-text-base flex flex-col min-h-0 ${
+      className={`shrink-0 border-r border-border-weaker-base bg-surface-raised-base text-text-base flex flex-col min-h-0 ${
         props.className ?? ""
       }`}
     >
+      {props.showHeader !== false ? (
+        <header
+          className={`flex h-[52px] shrink-0 items-center justify-end px-2 ${
+            isMacDesktop && !isFullscreen ? "pl-[72px]" : ""
+          }`}
+        />
+      ) : null}
       {props.children ? (
-        <div className="scrollbar-hover flex-1 min-h-0 overflow-y-auto px-3 pt-2 pb-3">
+        <div className="scrollbar-hover flex-1 min-h-0 overflow-y-auto px-1.5 pt-2 pb-3">
           {props.children}
         </div>
       ) : (
-        <div className="scrollbar-hover flex-1 min-h-0 overflow-y-auto px-3 pt-2 pb-3">
-          <div className="mb-2 space-y-1">
+        <div className="scrollbar-hover flex-1 min-h-0 overflow-y-auto px-1.5 pt-2 pb-3">
+          <div className="mb-3 space-y-1">
             <Button
               data-action="left-sidebar-toggle-skills"
               variant="ghost"
@@ -248,7 +270,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
               className={`h-8 w-full justify-start rounded-lg px-2 text-sm font-medium ${
                 skillsOpen
                   ? "bg-surface-raised-strong text-text-strong"
-                  : "text-text-weak hover:bg-surface-raised-base-hover hover:text-text-strong"
+                  : "text-text-base hover:bg-surface-raised-base-hover hover:text-text-strong"
               }`}
               onClick={() => props.onSelectSkills?.()}
             >
@@ -262,7 +284,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
               className={`h-8 w-full justify-start rounded-lg px-2 text-sm font-medium ${
                 libraryOpen
                   ? "bg-surface-raised-strong text-text-strong"
-                  : "text-text-weak hover:bg-surface-raised-base-hover hover:text-text-strong"
+                  : "text-text-base hover:bg-surface-raised-base-hover hover:text-text-strong"
               }`}
               onClick={() => props.onSelectLibrary?.()}
             >
@@ -309,6 +331,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
             onSelectSession={(directory, sessionID) => {
               props.onSelectSession(directory, sessionID)
             }}
+            onPrefetchSession={props.onPrefetchSession}
             onTogglePin={props.onTogglePin}
             onToggleUnread={props.onToggleUnread}
             onRequestArchive={(directory, sessionID, title) => {
@@ -349,7 +372,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
         </div>
       )}
 
-      <footer className="border-t border-border-base/40 px-2 py-2">
+      <footer className="border-t border-border-base/40 px-1.5 py-2">
         {props.footer !== undefined ? (
           props.footer
         ) : (

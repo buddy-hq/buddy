@@ -66,6 +66,7 @@ type ChatLeftSidebarDirectoryListProps = {
   onToggleCollapsedDirectory: (directory: string, isOpen: boolean) => void
   onToggleExpandedDirectory: (directory: string) => void
   onSelectSession: (directory: string, sessionID?: string) => void
+  onPrefetchSession?: (directory: string, sessionID: string) => void
   onTogglePin: (directory: string, sessionID: string) => void
   onToggleUnread: (directory: string, sessionID: string, unread: boolean) => void
   onRequestArchive: (directory: string, sessionID: string, title: string) => void
@@ -96,6 +97,7 @@ type DirectoryGroupSectionProps = {
   onToggleCollapsed: (isOpen: boolean) => void
   onToggleExpanded: () => void
   onSelectSession: (sessionID?: string) => void
+  onPrefetchSession?: (sessionID: string) => void
   onTogglePin: (sessionID: string) => void
   onToggleUnread: (sessionID: string, unread: boolean) => void
   onRequestArchive: (sessionID: string, title: string) => void
@@ -127,6 +129,7 @@ type DirectoryThreadRowProps = {
   pinnedSet: Set<string>
   unreadMap: Record<string, true>
   onSelectSession: (sessionID: string) => void
+  onPrefetchSession?: (sessionID: string) => void
   onTogglePin: (sessionID: string) => void
   onToggleUnread: (sessionID: string, unread: boolean) => void
   onRequestRename: (sessionID: string, title: string) => void
@@ -141,6 +144,7 @@ const THREAD_CHILD_INDENT_PX = 10
 const THREAD_STATUS_OFFSET_PX = 6
 // Maximum number of subagent child rows visible before the "show more" button appears
 const MAX_VISIBLE_SUBAGENTS = 5
+const SESSION_PREFETCH_HOVER_DELAY_MS = 120
 
 const MAIN_PANE_SHORTCUTS: MainPaneShortcut[] = [
   {
@@ -241,7 +245,7 @@ function NotebookLearnerMemoryContextItems(props: { directory: string }) {
 
 export function ChatLeftSidebarDirectoryList(props: ChatLeftSidebarDirectoryListProps) {
   return (
-    <div data-component="left-sidebar-directory-list" className="space-y-2 mt-1">
+    <div data-component="left-sidebar-directory-list" className="space-y-0.5 mt-0.5">
       {props.directoryGroups.map((group) => {
         const allSessions = props.sessionsByDirectory[group.directory] ?? []
         const sessionStatusByID = props.sessionStatusByDirectory[group.directory] ?? {}
@@ -272,6 +276,7 @@ export function ChatLeftSidebarDirectoryList(props: ChatLeftSidebarDirectoryList
             }
             onToggleExpanded={() => props.onToggleExpandedDirectory(group.directory)}
             onSelectSession={(sessionID) => props.onSelectSession(group.directory, sessionID)}
+            onPrefetchSession={(sessionID) => props.onPrefetchSession?.(group.directory, sessionID)}
             onTogglePin={(sessionID) => props.onTogglePin(group.directory, sessionID)}
             onToggleUnread={(sessionID, unread) =>
               props.onToggleUnread(group.directory, sessionID, unread)
@@ -347,19 +352,13 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
   }
 
   const headerNode = (
-    <div
-      className={`group/notebook-header relative flex items-center gap-1 rounded-lg px-2 pt-1 ${
-        !props.collapsed
-          ? "rounded-t-lg rounded-b-none bg-surface-raised-base pb-2.5"
-          : "pb-1 data-[state=open]:bg-surface-raised-base-hover"
-      }`}
-    >
+    <div className={`group/notebook-header relative flex items-center gap-1 px-1.5 pt-0.5 pb-0.5`}>
       <CollapsibleTrigger asChild>
         <button
           type="button"
           data-action="left-sidebar-directory-toggle"
           data-directory={props.group.directory}
-          className={`flex min-w-0 flex-1 items-center gap-1.5 rounded-lg px-0 py-1 text-left text-xs font-light text-text-weaker hover:text-text-strong ${
+          className={`flex min-w-0 flex-1 items-center gap-1.5 rounded-lg px-0 py-1 text-left text-sm font-light text-text-weak hover:text-text-strong ${
             canDrag && !isQuickChatGroup ? "cursor-grab active:cursor-grabbing" : ""
           }`}
           onPointerDown={
@@ -367,25 +366,25 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
           }
         >
           {isQuickChatGroup ? (
-            <ZapIcon className="size-3 shrink-0" />
+            <ZapIcon className="size-3.5 shrink-0" />
           ) : (
-            <span className="relative flex size-3 shrink-0">
+            <span className="relative flex size-3.5 shrink-0">
               <FolderIcon
-                className={`absolute inset-0 size-3 transition-opacity duration-200 ${
+                className={`absolute inset-0 size-3.5 transition-opacity duration-200 ${
                   props.collapsed
                     ? "opacity-100 group-hover/notebook-header:opacity-0"
                     : "opacity-0"
                 }`}
               />
               <ChevronRightIcon
-                className={`absolute inset-0 size-3 transition-opacity duration-200 ${
+                className={`absolute inset-0 size-3.5 transition-opacity duration-200 ${
                   props.collapsed
                     ? "opacity-0 group-hover/notebook-header:opacity-100"
                     : "opacity-0"
                 }`}
               />
               <ChevronDownIcon
-                className={`absolute inset-0 size-3 transition-opacity duration-200 ${
+                className={`absolute inset-0 size-3.5 transition-opacity duration-200 ${
                   !props.collapsed ? "opacity-100" : "opacity-0"
                 }`}
               />
@@ -398,7 +397,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
       </CollapsibleTrigger>
 
       <div
-        className={`relative z-10 flex items-center gap-0.5 pl-1 bg-surface-raised-base shadow-[-6px_0_8px_-2px_var(--color-surface-raised-base)] transition-opacity focus-within:opacity-100 focus-within:pointer-events-auto group-data-[state=open]/notebook-header:opacity-100 group-data-[state=open]/notebook-header:pointer-events-auto ${
+        className={`relative z-10 flex items-center gap-0.5 pl-1 transition-opacity focus-within:opacity-100 focus-within:pointer-events-auto group-data-[state=open]/notebook-header:opacity-100 group-data-[state=open]/notebook-header:pointer-events-auto ${
           !props.collapsed || isCurrentDirectory
             ? "opacity-100 pointer-events-auto"
             : "opacity-0 pointer-events-none"
@@ -489,11 +488,9 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
         data-directory={props.group.directory}
         data-current={isCurrentDirectory ? "true" : "false"}
         ref={props.onSectionRef}
-        className={`group/directory relative ${
-          isDragging ? "opacity-40" : ""
-        } overflow-hidden rounded-lg bg-surface-raised-base shadow-sm border py-1 ${
-          isCurrentDirectory ? "border-[var(--color-border-focus)]" : "border-transparent"
-        } ${props.collapsed ? "mb-1.5" : "mb-3"}`}
+        className={`group/directory relative ${isDragging ? "opacity-40" : ""} ${
+          isCurrentDirectory ? "" : ""
+        }`}
       >
         {isDragOver && props.dragOverPosition === "before" ? (
           <div className="h-0.5 rounded-full bg-surface-interactive-base/70 mx-2 mb-1" />
@@ -586,6 +583,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                       setPopoverOpen(false)
                       props.onSelectSession(id)
                     }}
+                    onPrefetchSession={props.onPrefetchSession}
                     onTogglePin={props.onTogglePin}
                     onToggleUnread={props.onToggleUnread}
                     onRequestRename={props.onRequestRename}
@@ -645,6 +643,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                     pinnedSet={props.pinnedSet}
                     unreadMap={props.unreadMap}
                     onSelectSession={props.onSelectSession}
+                    onPrefetchSession={props.onPrefetchSession}
                     onTogglePin={props.onTogglePin}
                     onToggleUnread={props.onToggleUnread}
                     onRequestRename={props.onRequestRename}
@@ -726,6 +725,7 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
   // when navigating from one thread to another with subagents).
   const [childrenMounted, setChildrenMounted] = useState(false)
   const [childrenExpanded, setChildrenExpanded] = useState(false)
+  const prefetchTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   useEffect(() => {
     if (childrenVisible) {
       setChildrenMounted(true)
@@ -742,6 +742,32 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
   const visibleChildSessions = showAllChildren
     ? childSessions
     : childSessions.slice(0, MAX_VISIBLE_SUBAGENTS)
+
+  useEffect(
+    () => () => {
+      if (prefetchTimeoutRef.current) {
+        clearTimeout(prefetchTimeoutRef.current)
+      }
+    },
+    [],
+  )
+
+  function handlePrefetchIntent() {
+    if (!props.onPrefetchSession || active) return
+    if (prefetchTimeoutRef.current) {
+      clearTimeout(prefetchTimeoutRef.current)
+    }
+    prefetchTimeoutRef.current = setTimeout(() => {
+      prefetchTimeoutRef.current = undefined
+      props.onPrefetchSession?.(props.session.id)
+    }, SESSION_PREFETCH_HOVER_DELAY_MS)
+  }
+
+  function cancelPrefetchIntent() {
+    if (!prefetchTimeoutRef.current) return
+    clearTimeout(prefetchTimeoutRef.current)
+    prefetchTimeoutRef.current = undefined
+  }
 
   function handleSelectSession() {
     if (canToggleChildren && active) {
@@ -766,7 +792,7 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
                 ? "bg-surface-raised-strong text-text-strong"
                 : familyActive
                   ? "bg-surface-raised-strong/40 text-text-base"
-                  : "hover:bg-surface-raised-base-hover"
+                  : "text-text-weak hover:bg-surface-raised-base-hover"
             }`}
           >
             <button
@@ -779,6 +805,13 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
               className="relative w-full py-1 pr-2.5 text-left"
               style={{ paddingLeft: `${leftPadding}px` }}
               onClick={handleSelectSession}
+              onPointerEnter={(event) => {
+                if (event.pointerType === "touch") return
+                handlePrefetchIntent()
+              }}
+              onPointerLeave={cancelPrefetchIntent}
+              onFocus={handlePrefetchIntent}
+              onBlur={cancelPrefetchIntent}
             >
               <div
                 className="absolute top-1/2 flex -translate-y-1/2 items-center justify-center"
