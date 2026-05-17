@@ -29,7 +29,8 @@ export type ChatTurn = {
 
 export interface ChatTranscriptProps {
   directory?: string
-  scrollViewportRef?: RefObject<HTMLElement>
+  scrollViewportRef?: RefObject<HTMLElement | null>
+  userScrolled?: boolean
   onAssistantTextFinalRender?: () => void
   onOpenSession?: (sessionID: string) => void
   onForkMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
@@ -41,6 +42,7 @@ export interface TurnRowProps {
   turnIndex: number
   totalTurns: number
   addBottomSpacing?: boolean
+  preferEagerMarkdown?: boolean
   providers: ProviderInfo[]
   isLastTurnBusy: boolean
   activeSessionStatus: SessionStatusInfo
@@ -59,6 +61,7 @@ export interface TurnRendererProps {
   turn: ChatTurn
   turnIndex: number
   totalTurns: number
+  preferEagerMarkdown?: boolean
   providers: ProviderInfo[]
   isBusy: boolean
   activeSessionStatus: SessionStatusInfo
@@ -76,6 +79,7 @@ export interface AssistantSectionProps {
   assistantMetaText: string
   assistantAborted: boolean
   isBusy: boolean
+  preferEagerMarkdown?: boolean
   shellToolDefaultOpen: boolean
   editToolDefaultOpen: boolean
   directory?: string
