@@ -36,40 +36,41 @@ if (typeof window !== "undefined" && DOMPurify.isSupported) {
 }
 
 const sanitizeConfig = {
-  USE_PROFILES: { html: true, mathMl: true },
+  USE_PROFILES: { html: true, mathMl: true, svg: true },
   SANITIZE_NAMED_PROPS: true,
   FORBID_TAGS: ["style"],
   FORBID_CONTENTS: ["style", "script"],
 }
 
 const markdownClassName = [
-  "min-w-0 max-w-full break-words text-sm leading-[1.65] text-text-base",
+  "min-w-0 max-w-full break-words text-sm leading-[1.6] text-text-strong",
   "[&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
-  "[&_h1]:mt-6 [&_h1]:mb-2.5 [&_h1]:text-sm [&_h1]:font-semibold [&_h1]:leading-[1.45] [&_h1]:text-text-base",
-  "[&_h2]:mt-6 [&_h2]:mb-2.5 [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:leading-[1.45] [&_h2]:text-text-base",
-  "[&_h3]:mt-6 [&_h3]:mb-2.5 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:leading-[1.45] [&_h3]:text-text-base",
-  "[&_h4]:mt-6 [&_h4]:mb-2.5 [&_h4]:text-sm [&_h4]:font-semibold [&_h4]:leading-[1.45] [&_h4]:text-text-base",
-  "[&_h5]:mt-6 [&_h5]:mb-2.5 [&_h5]:text-sm [&_h5]:font-semibold [&_h5]:leading-[1.45] [&_h5]:text-text-base",
-  "[&_h6]:mt-6 [&_h6]:mb-2.5 [&_h6]:text-sm [&_h6]:font-semibold [&_h6]:leading-[1.45] [&_h6]:text-text-base",
-  "[&_strong]:font-semibold [&_strong]:text-text-base [&_b]:font-semibold [&_b]:text-text-base",
-  "[&_p]:mb-4",
+  "[&_h1]:mt-0 [&_h1]:mb-6 [&_h1]:text-sm [&_h1]:font-medium [&_h1]:leading-[1.667] [&_h1]:text-text-strong",
+  "[&_h2]:mt-0 [&_h2]:mb-6 [&_h2]:text-sm [&_h2]:font-medium [&_h2]:leading-[1.667] [&_h2]:text-text-strong",
+  "[&_h3]:mt-0 [&_h3]:mb-6 [&_h3]:text-sm [&_h3]:font-medium [&_h3]:leading-[1.667] [&_h3]:text-text-strong",
+  "[&_h4]:mt-0 [&_h4]:mb-6 [&_h4]:text-sm [&_h4]:font-medium [&_h4]:leading-[1.667] [&_h4]:text-text-strong",
+  "[&_h5]:mt-0 [&_h5]:mb-6 [&_h5]:text-sm [&_h5]:font-medium [&_h5]:leading-[1.667] [&_h5]:text-text-strong",
+  "[&_h6]:mt-0 [&_h6]:mb-6 [&_h6]:text-sm [&_h6]:font-medium [&_h6]:leading-[1.667] [&_h6]:text-text-strong",
+  "[&_strong]:font-medium [&_strong]:text-text-strong [&_b]:font-medium [&_b]:text-text-strong",
+  "[&_p]:mb-3",
   "[&_a]:text-text-interactive-base [&_a]:no-underline [&_a:hover]:underline [&_a:hover]:underline-offset-2",
-  "[&_ul]:mt-2 [&_ul]:mb-4 [&_ul]:list-outside [&_ul]:list-disc [&_ul]:pl-5",
-  "[&_ol]:mt-2 [&_ol]:mb-4 [&_ol]:list-outside [&_ol]:list-decimal [&_ol]:pl-5",
-  "[&_li]:mb-1.5 [&_li::marker]:text-text-weak",
+  "[&_ul]:my-2 [&_ul]:mb-3 [&_ul]:ml-0 [&_ul]:list-outside [&_ul]:list-disc [&_ul]:pl-8",
+  "[&_ol]:my-2 [&_ol]:mb-3 [&_ol]:ml-0 [&_ol]:list-outside [&_ol]:list-decimal [&_ol]:pl-9",
+  "[&_li]:mb-2 [&_li::marker]:text-text-weak",
   "[&_li>p:first-child]:m-0 [&_li>p:first-child]:inline",
-  "[&_li>p+p]:mt-1.5 [&_li>p+p]:block",
-  "[&_li>ul]:my-1 [&_li>ul]:pl-4 [&_li>ol]:my-1 [&_li>ol]:pl-4",
-  "[&_blockquote]:my-5 [&_blockquote]:border-l-2 [&_blockquote]:border-border-base [&_blockquote]:pl-2.5 [&_blockquote]:text-text-weak",
-  "[&_hr]:my-8 [&_hr]:h-0 [&_hr]:border-0",
-  "[&_pre]:my-4 [&_pre]:overflow-auto [&_pre]:[scrollbar-width:none] [&_pre::-webkit-scrollbar]:hidden",
-  "[&_.shiki]:rounded-md [&_.shiki]:border [&_.shiki]:border-border-base [&_.shiki]:px-3 [&_.shiki]:py-2 [&_.shiki]:text-[13px]",
-  "[&_code]:rounded-[4px] [&_code]:border [&_code]:border-border-base [&_code]:bg-[color-mix(in_oklab,var(--surface-weak)_70%,transparent)] [&_code]:px-1 [&_code]:py-px [&_code]:font-mono [&_code]:text-[0.83em] [&_code]:text-text-base",
+  "[&_li>p+p]:mt-2 [&_li>p+p]:block",
+  "[&_li>ul]:my-1 [&_li>ul]:pl-4 [&_li>ol]:my-1 [&_li>ol]:pl-7",
+  "[&_blockquote]:my-6 [&_blockquote]:border-l-2 [&_blockquote]:border-border-weak-base [&_blockquote]:pl-2 [&_blockquote]:not-italic [&_blockquote]:text-text-weak",
+  "[&_hr]:my-10 [&_hr]:h-0 [&_hr]:border-0",
+  "[&_pre]:mt-3 [&_pre]:mb-8 [&_pre]:overflow-auto [&_pre]:[scrollbar-width:none] [&_pre::-webkit-scrollbar]:hidden",
+  "[&_.shiki]:rounded [&_.shiki]:border [&_.shiki]:border-border-weak-base [&_.shiki]:p-3 [&_.shiki]:text-[13px]",
+  "[&_code]:font-mono [&_code]:[font-feature-settings:var(--font-family-mono--font-feature-settings)] [&_code]:text-syntax-string [&_code]:font-medium",
   "[&_pre_code]:border-0 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-inherit",
-  "[&_table]:my-5 [&_table]:block [&_table]:w-full [&_table]:overflow-x-auto [&_table]:border-collapse [&_table]:text-sm",
-  "[&_th]:border-b [&_th]:border-border-base [&_th]:px-2 [&_th]:py-2 [&_th]:text-left [&_th]:align-top [&_th]:font-semibold [&_th]:text-text-base",
-  "[&_td]:border-b [&_td]:border-b-[color-mix(in_oklab,var(--border-base)_70%,transparent)] [&_td]:px-2 [&_td]:py-2 [&_td]:text-left [&_td]:align-top",
-  "[&_img]:my-5 [&_img]:block [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded-md",
+  "[&_table]:my-6 [&_table]:block [&_table]:w-full [&_table]:overflow-x-auto [&_table]:border-collapse [&_table]:text-sm",
+  "[&_th]:border-b [&_th]:border-border-weak-base [&_th]:p-3 [&_th]:text-left [&_th]:align-top [&_th]:font-medium [&_th]:text-text-strong",
+  "[&_td]:border-b [&_td]:border-border-weaker-base [&_td]:p-3 [&_td]:text-left [&_td]:align-top",
+  "[&_img]:my-6 [&_img]:block [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded",
+  "[&_.katex-display]:my-4 [&_.katex-display]:overflow-x-auto [&_.katex-display]:overflow-y-hidden [&_.katex-display]:[scrollbar-width:none] [&_.katex-display::-webkit-scrollbar]:hidden",
   "[&_a.external-link:hover>code]:underline [&_a.external-link:hover>code]:underline-offset-2",
 ].join(" ")
 
@@ -174,7 +175,6 @@ function createCopyButton(labels: CopyLabels) {
   const button = document.createElement("button")
   button.type = "button"
   button.setAttribute("data-slot", "markdown-copy-button")
-  button.setAttribute("data-copied", "false")
   button.setAttribute("aria-label", labels.copy)
   button.setAttribute("title", labels.copy)
   button.className =
@@ -187,22 +187,24 @@ function createCopyButton(labels: CopyLabels) {
 }
 
 function setCopyState(button: HTMLButtonElement, labels: CopyLabels, copied: boolean) {
-  button.setAttribute("data-copied", copied ? "true" : "false")
-  button.setAttribute("aria-label", copied ? labels.copied : labels.copy)
-  button.setAttribute("title", copied ? labels.copied : labels.copy)
+  if (copied) {
+    button.setAttribute("data-copied", "true")
+    button.setAttribute("aria-label", labels.copied)
+    button.setAttribute("title", labels.copied)
+    return
+  }
+  button.removeAttribute("data-copied")
+  button.setAttribute("aria-label", labels.copy)
+  button.setAttribute("title", labels.copy)
+}
 
+function setIconVisibility(button: HTMLButtonElement) {
+  const copied = button.getAttribute("data-copied") === "true"
   const copyIcon = button.querySelector('[data-slot="copy-icon"]')
   const checkIcon = button.querySelector('[data-slot="check-icon"]')
   if (!(copyIcon instanceof HTMLElement) || !(checkIcon instanceof HTMLElement)) return
-
-  if (copied) {
-    copyIcon.style.display = "none"
-    checkIcon.style.display = "inline-flex"
-    return
-  }
-
-  copyIcon.style.display = "inline-flex"
-  checkIcon.style.display = "none"
+  copyIcon.style.display = copied ? "none" : "inline-flex"
+  checkIcon.style.display = copied ? "inline-flex" : "none"
 }
 
 function ensureCodeWrapper(block: HTMLPreElement, labels: CopyLabels) {
@@ -336,8 +338,7 @@ function setupCodeCopy(root: HTMLDivElement, labels: CopyLabels) {
   )
 
   for (const button of buttons) {
-    const copied = button.getAttribute("data-copied") === "true"
-    setCopyState(button, labels, copied)
+    setIconVisibility(button)
   }
 
   const handleClick = async (event: MouseEvent) => {
@@ -350,9 +351,13 @@ function setupCodeCopy(root: HTMLDivElement, labels: CopyLabels) {
     if (!content || !navigator.clipboard) return
     await navigator.clipboard.writeText(content)
     setCopyState(button, labels, true)
+    setIconVisibility(button)
     const existing = timeouts.get(button)
     if (existing) clearTimeout(existing)
-    const timeout = setTimeout(() => setCopyState(button, labels, false), 2000)
+    const timeout = setTimeout(() => {
+      setCopyState(button, labels, false)
+      setIconVisibility(button)
+    }, 2000)
     timeouts.set(button, timeout)
   }
 
@@ -365,7 +370,7 @@ function setupCodeCopy(root: HTMLDivElement, labels: CopyLabels) {
   }
 }
 
-function sanitize(html: string) {
+export function sanitizeMarkdownHtml(html: string) {
   if (!DOMPurify.isSupported) return ""
   return DOMPurify.sanitize(html, sanitizeConfig)
 }
@@ -376,7 +381,8 @@ export function sanitizeRawMarkdownFallback(text: string): string {
     .replace(/</gu, "&lt;")
     .replace(/>/gu, "&gt;")
     .replace(/"/gu, "&quot;")
-  return sanitize(escaped.replace(/\r\n?/gu, "\n").replace(/\n/gu, "<br>"))
+    .replace(/'/gu, "&#39;")
+  return sanitizeMarkdownHtml(escaped.replace(/\r\n?/gu, "\n").replace(/\n/gu, "<br>"))
 }
 
 function markdownSanitizeContextKey() {
@@ -407,6 +413,8 @@ export function MarkdownHtmlSegment(props: {
   cacheKey?: string
   className?: string
   directory?: string
+  streaming?: boolean
+  interrupted?: boolean
 }) {
   const rootRef = useRef<HTMLDivElement | null>(null)
   const renderIdRef = useRef(0)
@@ -416,8 +424,9 @@ export function MarkdownHtmlSegment(props: {
   const queueFileOpen = useWorkspaceFilePanelStore((state) => state.queueFileOpen)
   const sanitizeContextKey = markdownSanitizeContextKey()
   const fullCacheKey = useMemo(
-    () => `${props.cacheKey ?? props.text}::${sanitizeContextKey}`,
-    [props.cacheKey, props.text, sanitizeContextKey],
+    () =>
+      `${props.cacheKey ?? props.text}::${sanitizeContextKey}::${props.streaming ? "live" : "full"}::${props.interrupted ? "interrupted" : "active"}`,
+    [props.cacheKey, props.text, sanitizeContextKey, props.streaming, props.interrupted],
   )
   const cachedEntry = useMemo(() => {
     const cached = markdownCache.get(fullCacheKey)
@@ -517,7 +526,13 @@ export function MarkdownHtmlSegment(props: {
     void (async () => {
       let html: string
       try {
-        html = sanitize(await parseMarkdownToHtml(props.text))
+        html = sanitizeMarkdownHtml(
+          await parseMarkdownToHtml(
+            props.text,
+            props.streaming,
+            props.cacheKey,
+          ),
+        )
       } catch {
         html = sanitizeRawMarkdownFallback(props.text)
       }
@@ -529,6 +544,19 @@ export function MarkdownHtmlSegment(props: {
 
       morphdom(root, nextRoot, {
         childrenOnly: true,
+        onBeforeElUpdated: (fromEl, toEl) => {
+          if (
+            fromEl instanceof HTMLButtonElement &&
+            toEl instanceof HTMLButtonElement &&
+            fromEl.getAttribute("data-slot") === "markdown-copy-button" &&
+            toEl.getAttribute("data-slot") === "markdown-copy-button" &&
+            fromEl.getAttribute("data-copied") === "true"
+          ) {
+            setCopyState(toEl, copyLabels, true)
+          }
+          if (fromEl.isEqualNode(toEl)) return false
+          return true
+        },
       })
       resetCodeCopy()
       copySetupTimerRef.current = window.setTimeout(() => {
@@ -542,7 +570,17 @@ export function MarkdownHtmlSegment(props: {
       root.removeEventListener("click", handleClick)
       resetCodeCopy()
     }
-  }, [copyLabels, fullCacheKey, props.directory, props.text, queueFileOpen, resetCodeCopy])
+  }, [
+    copyLabels,
+    fullCacheKey,
+    props.cacheKey,
+    props.directory,
+    props.interrupted,
+    props.text,
+    props.streaming,
+    queueFileOpen,
+    resetCodeCopy,
+  ])
 
   return <div ref={rootRef} className={props.className ?? markdownClassName} />
 }

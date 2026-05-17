@@ -4,6 +4,7 @@ import {
   shouldDelayMarkdownMermaidSegment,
   shouldStartMarkdownMermaidAutoRepair,
 } from "../src/components/markdown/markdown-mermaid-segment"
+import { canContainMermaidBlock } from "../src/components/markdown/Markdown"
 import { parseMarkdownSegments } from "../src/components/markdown/markdown-segments"
 
 describe("markdown mermaid segments", () => {
@@ -28,6 +29,10 @@ describe("markdown mermaid segments", () => {
         segmentIndex: 2,
       },
     ])
+  })
+
+  test("preflight detection allows CommonMark-indented mermaid fences", () => {
+    expect(canContainMermaidBlock("Before\n   ```mermaid\ngraph TD\nA-->B\n   ```")).toBe(true)
   })
 
   test("keeps unclosed mermaid fences in html output", () => {

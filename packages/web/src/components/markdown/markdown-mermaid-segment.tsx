@@ -1,9 +1,18 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from "react"
 import { language } from "@/context/language"
 import { sendPrompt } from "@/state/chat-actions"
 import { useChatStore } from "@/state/chat-store"
 import { MermaidDiagram } from "@/components/chat/tools/render/mermaid/mermaid-diagram"
 import { MermaidToolCard } from "@/components/chat/tools/render/mermaid/mermaid-tool-card"
+import { useInlineAssetActivation } from "@/components/chat/inline-asset-boundary"
 import {
   createInlineMermaidArtifact,
   readMermaidAutoRepairStatus,
@@ -163,9 +172,10 @@ function renderMarkdownMermaidCard(input: {
   diagramType?: string
   body: ReactNode
   actions?: ReactNode | null
+  containerRef?: RefObject<HTMLDivElement>
 }): ReactNode {
   return (
-    <div className="my-4">
+    <div ref={input.containerRef} className="my-4">
       <MermaidToolCard
         title={input.title ?? MARKDOWN_MERMAID_DEFAULT_TITLE}
         diagramType={input.diagramType ?? MARKDOWN_MERMAID_DEFAULT_TYPE}
@@ -197,6 +207,7 @@ export function MarkdownMermaidSegment(props: {
   const [renderFailure, setRenderFailure] = useState<MermaidRenderFailure | undefined>(undefined)
   const [repairState, setRepairState] = useState<MermaidRepairState>({ status: "idle" })
   const [fixRequested, setFixRequested] = useState(false)
+  const activation = useInlineAssetActivation()
   const startedRepairRef = useRef<string | undefined>(undefined)
   const requestedSourceByArtifactIDRef = useRef(new Map<string, string>())
   const artifactID = artifact?.artifactID
@@ -234,7 +245,7 @@ export function MarkdownMermaidSegment(props: {
   }, [props.isStreaming, sourceIdentity])
 
   useEffect(() => {
-    if (!ready) {
+    if (!ready || !activation.active) {
       return
     }
     let cancelled = false
@@ -282,6 +293,7 @@ export function MarkdownMermaidSegment(props: {
     props.segmentIndex,
     props.source,
     ready,
+    activation.active,
     artifactID,
   ])
 
@@ -424,10 +436,11 @@ export function MarkdownMermaidSegment(props: {
     return undefined
   }, [repairState])
 
-  if (!ready) {
+  if (!ready || !activation.active) {
     return renderMarkdownMermaidCard({
       title: MARKDOWN_MERMAID_DEFAULT_TITLE,
       diagramType: MARKDOWN_MERMAID_DEFAULT_TYPE,
+      containerRef: activation.ref,
       body: (
         <div
           data-component="markdown-mermaid-loading"
@@ -461,6 +474,7 @@ export function MarkdownMermaidSegment(props: {
     return renderMarkdownMermaidCard({
       title: MARKDOWN_MERMAID_DEFAULT_TITLE,
       diagramType: MARKDOWN_MERMAID_DEFAULT_TYPE,
+      containerRef: activation.ref,
       body: (
         <div className="flex h-full items-center justify-center text-sm text-text-weak">
           {language.t("chatTools.rehydratingMermaid")}
@@ -493,6 +507,7 @@ export function MarkdownMermaidSegment(props: {
         renderMarkdownMermaidCard({
           title: artifact.alt,
           diagramType: artifact.diagramType,
+          containerRef: activation.ref,
           body: <div className="h-full w-full">{diagramElement}</div>,
           actions,
         })

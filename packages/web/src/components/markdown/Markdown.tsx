@@ -3,6 +3,14 @@ import { useMemo } from "react"
 import { MarkdownHtmlSegment, markdownClassName } from "./markdown-html-segment"
 import { MarkdownMermaidSegment, type MarkdownMermaidContext } from "./markdown-mermaid-segment"
 import { parseMarkdownSegments } from "./markdown-segments"
+import { shouldVirtualizeMarkdown, VirtualizedMarkdown } from "./virtualized-markdown"
+
+const POSSIBLE_MERMAID_BLOCK_RE =
+  /(^|\n)[ \t]{0,3}(`{3,}|~{3,})[ \t]*mermaid(?:[ \t][^\n]*)?\r?\n/u
+
+export function canContainMermaidBlock(markdown: string): boolean {
+  return POSSIBLE_MERMAID_BLOCK_RE.test(markdown)
+}
 
 export function Markdown(props: {
   text: string
@@ -10,20 +18,40 @@ export function Markdown(props: {
   cacheKey?: string
   mermaidContext?: MarkdownMermaidContext
   isStreaming?: boolean
+  isInterrupted?: boolean
+  preferEagerRender?: boolean
   directory?: string
 }) {
   const baseCacheKey = props.cacheKey ?? props.text
-  const segments = useMemo(() => parseMarkdownSegments(props.text), [props.text])
-  const hasMermaidSegments =
-    !!props.mermaidContext && segments.some((segment) => segment.kind === "mermaid")
+  const canContainMermaid = !!props.mermaidContext && canContainMermaidBlock(props.text)
+  const segments = useMemo(
+    () => (canContainMermaid ? parseMarkdownSegments(props.text) : []),
+    [canContainMermaid, props.text],
+  )
+  const hasMermaidSegments = segments.some((segment) => segment.kind === "mermaid")
 
   if (!hasMermaidSegments) {
+    if (!props.preferEagerRender && shouldVirtualizeMarkdown(props.text)) {
+      return (
+        <VirtualizedMarkdown
+          text={props.text}
+          cacheKey={baseCacheKey}
+          className={props.className}
+          directory={props.directory}
+          streaming={props.isStreaming}
+          interrupted={props.isInterrupted}
+        />
+      )
+    }
+
     return (
       <MarkdownHtmlSegment
         text={props.text}
         cacheKey={baseCacheKey}
         className={cn(markdownClassName, props.className)}
         directory={props.directory}
+        streaming={props.isStreaming}
+        interrupted={props.isInterrupted}
       />
     )
   }
@@ -37,6 +65,8 @@ export function Markdown(props: {
             text={segment.markdown}
             cacheKey={`${baseCacheKey}:html:${segment.segmentIndex}`}
             directory={props.directory}
+            streaming={props.isStreaming}
+            interrupted={props.isInterrupted}
           />
         ) : props.mermaidContext ? (
           <MarkdownMermaidSegment
