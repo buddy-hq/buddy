@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from "motion/react"
 import { language } from "@/context/language"
 import { cn } from "@buddy/ui"
+import { Markdown } from "@/components/markdown/Markdown"
 
 type BasicFields = {
   front: string
@@ -123,9 +124,10 @@ function BasicCardDisplay(props: {
           <div className="absolute left-0 right-0 top-8 h-px bg-brand-base/20" />
 
           <div className="flex flex-1 items-center justify-center overflow-y-auto px-6 pb-6 pt-12">
-            <p className="max-w-prose text-center text-xl font-medium leading-relaxed text-text-stronger whitespace-pre-wrap">
-              {props.front}
-            </p>
+            <Markdown
+              text={props.front}
+              className="max-w-prose text-center text-xl font-medium leading-relaxed text-text-stronger"
+            />
           </div>
           {!props.revealed && (
             <div className="shrink-0 bg-surface-base py-4 text-center text-xs font-medium text-text-weaker">
@@ -151,9 +153,10 @@ function BasicCardDisplay(props: {
             </p>
           </div>
           <div className="flex flex-1 items-center justify-center overflow-y-auto px-6 pb-10 pt-4">
-            <p className="max-w-prose text-center text-xl font-medium leading-relaxed text-brand-base whitespace-pre-wrap">
-              {props.back}
-            </p>
+            <Markdown
+              text={props.back}
+              className="max-w-prose text-center text-xl font-medium leading-relaxed text-brand-base"
+            />
           </div>
         </div>
       </motion.div>
@@ -203,9 +206,10 @@ function ClozeCardDisplay(props: {
           <div className="absolute left-0 right-0 top-8 h-px bg-brand-base/20" />
 
           <div className="flex flex-1 items-center justify-center overflow-y-auto px-6 pb-6 pt-12">
-            <p className="max-w-prose text-center text-xl font-medium leading-relaxed text-text-stronger whitespace-pre-wrap">
-              {frontText}
-            </p>
+            <Markdown
+              text={frontText}
+              className="max-w-prose text-center text-xl font-medium leading-relaxed text-text-stronger"
+            />
           </div>
 
           {!props.revealed && (
@@ -227,9 +231,10 @@ function ClozeCardDisplay(props: {
           <div className="absolute left-0 right-0 top-8 h-px bg-brand-base/20" />
 
           <div className="flex flex-1 items-center justify-center overflow-y-auto px-6 pb-6 pt-12">
-            <p className="max-w-prose text-center text-xl font-medium leading-relaxed text-brand-base whitespace-pre-wrap">
-              {backText}
-            </p>
+            <Markdown
+              text={backText}
+              className="max-w-prose text-center text-xl font-medium leading-relaxed text-brand-base"
+            />
           </div>
         </div>
       </motion.div>

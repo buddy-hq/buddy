@@ -75,6 +75,8 @@ type ResizeDirection = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw"
 
 const MIN_DEVTOOLS_WIDTH = 320
 const MIN_DEVTOOLS_HEIGHT = 200
+const DEVTOOLS_FLOATING_PADDING_PX = 12
+const DESKTOP_TITLEBAR_SELECTOR = '[data-component="desktop-titlebar"]'
 const MEMORY_DEVTOOLS_LIMIT = 30
 const MEMORY_TEST_AUTO_MODEL_VALUE = "__auto__"
 const MEMORY_TEST_DEFAULT_QUERY = "bridge validation boundary structured errors"
@@ -150,25 +152,46 @@ function isBuddyDevToolsTab(value: string): value is BuddyDevToolsTab {
 }
 
 function getDefaultDevToolsRect(): Rect {
-  const vw = window.innerWidth
-  const vh = window.innerHeight
+  const { vw, topInset, maxHeight } = readViewportBounds()
   const width = Math.min(420, vw)
   return {
     left: vw - width,
-    top: 0,
+    top: topInset,
     width,
-    height: vh,
+    height: maxHeight,
   }
 }
 
 function clampRectToViewport(r: Rect): Rect {
+  const { vw, vh, topInset, maxHeight } = readViewportBounds()
+  const width = Math.min(Math.max(r.width, MIN_DEVTOOLS_WIDTH), vw)
+  const minHeight = Math.min(MIN_DEVTOOLS_HEIGHT, maxHeight)
+  const height = Math.min(Math.max(r.height, minHeight), maxHeight)
+  const left = Math.min(Math.max(r.left, 0), vw - width)
+  const top = Math.min(Math.max(r.top, topInset), vh - height)
+  return { left, top, width, height }
+}
+
+function readDesktopTitlebarBottomOffset(): number {
+  const titlebar = document.querySelector(DESKTOP_TITLEBAR_SELECTOR)
+  if (!(titlebar instanceof HTMLElement)) {
+    return 0
+  }
+
+  const { bottom } = titlebar.getBoundingClientRect()
+  if (!Number.isFinite(bottom) || bottom <= 0) {
+    return 0
+  }
+
+  return Math.ceil(bottom)
+}
+
+function readViewportBounds() {
   const vw = window.innerWidth
   const vh = window.innerHeight
-  const width = Math.min(Math.max(r.width, MIN_DEVTOOLS_WIDTH), vw)
-  const height = Math.min(Math.max(r.height, MIN_DEVTOOLS_HEIGHT), vh)
-  const left = Math.min(Math.max(r.left, 0), vw - width)
-  const top = Math.min(Math.max(r.top, 0), vh - height)
-  return { left, top, width, height }
+  const topInset = Math.max(0, Math.min(readDesktopTitlebarBottomOffset(), vh))
+  const maxHeight = Math.max(0, vh - topInset)
+  return { vw, vh, topInset, maxHeight }
 }
 
 function useDevToolsRect() {
@@ -315,40 +338,47 @@ function useDevToolsRect() {
   }, [])
 
   const snapLeft = useCallback(() => {
-    const vw = window.innerWidth
-    const vh = window.innerHeight
-    setRect(clampRectToViewport({ left: 0, top: 0, width: Math.min(420, vw), height: vh }))
-  }, [])
-
-  const snapRight = useCallback(() => {
-    const vw = window.innerWidth
-    const vh = window.innerHeight
-    const width = Math.min(420, vw)
-    setRect(clampRectToViewport({ left: vw - width, top: 0, width, height: vh }))
-  }, [])
-
-  const snapBottom = useCallback(() => {
-    const vw = window.innerWidth
-    const vh = window.innerHeight
+    const { vw, topInset, maxHeight } = readViewportBounds()
     setRect(
       clampRectToViewport({
         left: 0,
-        top: Math.floor(vh / 2),
+        top: topInset,
+        width: Math.min(420, vw),
+        height: maxHeight,
+      }),
+    )
+  }, [])
+
+  const snapRight = useCallback(() => {
+    const { vw, topInset, maxHeight } = readViewportBounds()
+    const width = Math.min(420, vw)
+    setRect(clampRectToViewport({ left: vw - width, top: topInset, width, height: maxHeight }))
+  }, [])
+
+  const snapBottom = useCallback(() => {
+    const { vw, topInset, maxHeight } = readViewportBounds()
+    const height = Math.floor(maxHeight / 2)
+    setRect(
+      clampRectToViewport({
+        left: 0,
+        top: topInset + height,
         width: vw,
-        height: Math.floor(vh / 2),
+        height,
       }),
     )
   }, [])
 
   const snapFloating = useCallback(() => {
-    const vw = window.innerWidth
-    const vh = window.innerHeight
-    const width = Math.min(640, vw - 24)
-    const height = Math.min(420, vh - 24)
+    const { vw, vh, topInset, maxHeight } = readViewportBounds()
+    const width = Math.min(640, Math.max(0, vw - DEVTOOLS_FLOATING_PADDING_PX * 2))
+    const height = Math.min(420, Math.max(0, maxHeight - DEVTOOLS_FLOATING_PADDING_PX * 2))
     setRect(
       clampRectToViewport({
-        left: Math.max(12, vw - width - 12),
-        top: Math.max(12, vh - height - 12),
+        left: Math.max(DEVTOOLS_FLOATING_PADDING_PX, vw - width - DEVTOOLS_FLOATING_PADDING_PX),
+        top: Math.max(
+          topInset + DEVTOOLS_FLOATING_PADDING_PX,
+          vh - height - DEVTOOLS_FLOATING_PADDING_PX,
+        ),
         width,
         height,
       }),
@@ -2327,6 +2357,26 @@ export function BuddyDevTools() {
   const sessionID = useChatStore((s) =>
     activeDirectory ? s.directories[activeDirectory]?.sessionID : undefined,
   )
+  const activeSessionTitle = useChatStore((state) => {
+    if (!activeDirectory) {
+      return undefined
+    }
+
+    const directoryState = state.directories[activeDirectory]
+    if (!directoryState) {
+      return undefined
+    }
+
+    const activeSessionID = directoryState.sessionID
+    if (!activeSessionID) {
+      return directoryState.sessionTitle || undefined
+    }
+
+    const resolvedTitle = directoryState.sessions.find(
+      (session) => session.id === activeSessionID,
+    )?.title
+    return resolvedTitle || directoryState.sessionTitle || undefined
+  })
 
   const navigate = useNavigate()
   const location = useLocation()
@@ -2417,7 +2467,7 @@ export function BuddyDevTools() {
       {routerOpen && <TanStackRouterDevtools position="bottom-left" />}
 
       {/* Unified trigger bar at bottom right */}
-      <div className="fixed bottom-3 right-3 z-[9999] flex flex-col items-end gap-1.5">
+      <div className="fixed bottom-3 right-3 z-[9999] flex flex-col items-end gap-1.5 [-webkit-app-region:no-drag]">
         {devInstanceName ? (
           <div className="max-w-72 truncate rounded-md border border-border-base bg-background-base/95 px-2 py-1 text-[11px] font-medium text-text-weak shadow-xl">
             {devInstanceName}
@@ -2505,7 +2555,7 @@ export function BuddyDevTools() {
       {/* Buddy panel */}
       {buddyOpen && (
         <div
-          className="fixed z-[9999] flex flex-col overflow-hidden rounded-lg border border-border-base bg-background-base shadow-xl"
+          className="fixed z-[9999] flex flex-col overflow-hidden rounded-lg border border-border-base bg-background-base shadow-xl [-webkit-app-region:no-drag]"
           style={{
             left: rect.left,
             top: rect.top,
@@ -2726,10 +2776,16 @@ export function BuddyDevTools() {
             <TabsContent value="trace" className="min-h-0 flex-1 overflow-hidden mt-0">
               {sessionTrace ? (
                 <div className="flex h-full flex-col">
-                  {activeDirectory ? <CapabilitiesChips directory={activeDirectory} /> : null}
-                  <div className="border-b border-border-weaker-base" />
-                  <div className="flex items-center justify-between px-3 py-2">
-                    <p className="text-xs font-medium text-text-weak">Trace</p>
+                  <div className="flex items-center justify-between border-b border-border-weaker-base px-3 py-2">
+                    <div className="min-w-0">
+                      <p
+                        className="truncate text-[11px] font-medium text-text-base"
+                        title={activeSessionTitle ?? undefined}
+                      >
+                        {activeSessionTitle || "Untitled chat"}
+                      </p>
+                      <p className="text-xs font-medium text-text-weak">Trace</p>
+                    </div>
                     <Button
                       type="button"
                       variant="outline"
@@ -2745,6 +2801,12 @@ export function BuddyDevTools() {
                       {language.t("desktopTitlebar.copySessionTrace")}
                     </Button>
                   </div>
+                  {activeDirectory ? (
+                    <>
+                      <CapabilitiesChips directory={activeDirectory} />
+                      <div className="border-b border-border-weaker-base" />
+                    </>
+                  ) : null}
                   <pre className="flex-1 overflow-auto p-3 text-[11px] leading-relaxed text-text-weak">
                     {sessionTrace}
                   </pre>
