@@ -1,17 +1,22 @@
 import { animate, type AnimationPlaybackControls } from "motion"
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+  type TouchEvent as ReactTouchEvent,
+  type WheelEvent as ReactWheelEvent,
+} from "react"
 
 /**
  * Threshold (in px) from the bottom at which we consider the user "at the bottom".
  * Vendor uses 10px. We use 20px to account for sub-pixel rounding and padding.
  */
 const BOTTOM_THRESHOLD_PX = 20
-
-/**
- * After a user-initiated detach (wheel-up / pointer-select), ignore
- * scroll-handler re-engagement for this long. Prevents the feedback
- * loop where programmatic scroll positioning keeps the user pinned.
- */
+const SCROLL_GESTURE_WINDOW_MS = 250
 const USER_DETACH_COOLDOWN_MS = 300
 
 /**
@@ -38,7 +43,25 @@ const SETTLE_DURATION_MS = 300
  * Thread-switch snap window: after switching sessions, snap instantly
  * to the bottom for this duration to avoid visible scroll animation.
  */
-const THREAD_SWITCH_SNAP_WINDOW_MS = 350
+const THREAD_SWITCH_SNAP_WINDOW_MS = 8_000
+const SCROLL_TOP_CHANGE_THRESHOLD_PX = 1
+
+const SCROLL_DETACH_KEYS = new Set([
+  "ArrowUp",
+  "PageUp",
+  "Home",
+  " ",
+])
+
+const SCROLL_GESTURE_KEYS = new Set([
+  "ArrowUp",
+  "ArrowDown",
+  "PageUp",
+  "PageDown",
+  "Home",
+  "End",
+  " ",
+])
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 
@@ -48,6 +71,52 @@ function canScroll(el: HTMLElement) {
 
 function distanceFromBottom(el: HTMLElement) {
   return el.scrollHeight - el.clientHeight - el.scrollTop
+}
+
+function normalizeWheelDelta(input: { deltaY: number; deltaMode: number; rootHeight: number }) {
+  if (input.deltaMode === 1) return input.deltaY * 40
+  if (input.deltaMode === 2) return input.deltaY * input.rootHeight
+  return input.deltaY
+}
+
+function shouldMarkBoundaryGesture(input: {
+  delta: number
+  scrollTop: number
+  scrollHeight: number
+  clientHeight: number
+}) {
+  const max = input.scrollHeight - input.clientHeight
+  if (max <= 1) return true
+  if (!input.delta) return false
+
+  if (input.delta < 0) return input.scrollTop + input.delta <= 0
+
+  const remaining = max - input.scrollTop
+  return input.delta > remaining
+}
+
+function boundaryTarget(root: HTMLElement, target: EventTarget | null) {
+  const current = target instanceof Element ? target : undefined
+  const nested = current?.closest("[data-scrollable]")
+  if (!nested || nested === root) return root
+  if (!(nested instanceof HTMLElement)) return root
+  return nested
+}
+
+function shouldMarkRootGesture(input: {
+  root: HTMLElement
+  target: EventTarget | null
+  delta: number
+}) {
+  const target = boundaryTarget(input.root, input.target)
+  if (target === input.root) return true
+
+  return shouldMarkBoundaryGesture({
+    delta: input.delta,
+    scrollTop: target.scrollTop,
+    scrollHeight: target.scrollHeight,
+    clientHeight: target.clientHeight,
+  })
 }
 
 // ─── Types ────────────────────────────────────────────────────────────
@@ -64,10 +133,27 @@ type AutoScrollOptions = {
 type AutoScrollResult = {
   /** Attach to the scrollable container element. */
   scrollRef: React.RefObject<HTMLElement | null>
+  /** Attach to the scroll content element. */
+  contentRef: React.RefObject<HTMLElement | null>
   /** Whether the user has scrolled away from the bottom. */
   userScrolled: boolean
   /** Call from the container's onScroll handler. */
   handleScroll: (event: React.UIEvent<HTMLElement>) => void
+  /** Call from the container's onWheel handler. */
+  handleWheel: (event: ReactWheelEvent<HTMLElement>) => void
+  /** Call from the container's onKeyDown handler. */
+  handleKeyDown: (event: ReactKeyboardEvent<HTMLElement>) => void
+  /** Call from the container's onPointerDown handler. */
+  handlePointerDown: (event: ReactPointerEvent<HTMLElement>) => void
+  /** Call from the container's touch handlers. */
+  handleTouchStart: (event: ReactTouchEvent<HTMLElement>) => void
+  handleTouchMove: (event: ReactTouchEvent<HTMLElement>) => void
+  handleTouchEnd: () => void
+  handleTouchCancel: () => void
+  /** Call from content interactions that should pause auto-follow. */
+  handleInteraction: () => void
+  /** Pause auto-follow without forcing a scroll. */
+  pause: () => void
   /** Force re-engagement and scroll to bottom (e.g. on send). */
   forceScrollToBottom: () => void
   /**
@@ -81,6 +167,8 @@ type AutoScrollResult = {
 
 export function useAutoScroll(options: AutoScrollOptions): AutoScrollResult {
   const scrollRef = useRef<HTMLElement | null>(null)
+  const contentRef = useRef<HTMLElement | null>(null)
+  const onUserScrolled = options.onUserScrolled
 
   // ─── Refs (synchronous, no render) ──────────────────────────────
   const userScrolledRef = useRef(false)
@@ -89,15 +177,24 @@ export function useAutoScroll(options: AutoScrollOptions): AutoScrollResult {
   const settleTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const autoMarkerRef = useRef<{ top: number; time: number } | undefined>(undefined)
   const autoTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const userDetachUntilRef = useRef(0)
   const animationRef = useRef<AnimationPlaybackControls | null>(null)
   const threadSwitchSnapUntilRef = useRef(0)
+  const scrollGestureUntilRef = useRef(0)
+  const touchGestureYRef = useRef<number | undefined>(undefined)
+  const userDetachUntilRef = useRef(0)
+  const lastScrollTopRef = useRef<number | undefined>(undefined)
 
   // ─── State (triggers re-render for UI, e.g. "scroll to bottom" button) ──
   const [userScrolled, setUserScrolled] = useState(false)
 
   // ─── Derived ────────────────────────────────────────────────────
   const active = () => workingRef.current || settlingRef.current
+  const hasScrollGesture = () => Date.now() < scrollGestureUntilRef.current
+  const shouldHonorThreadSwitchSnap = () => Date.now() < threadSwitchSnapUntilRef.current
+
+  const markScrollGesture = useCallback(() => {
+    scrollGestureUntilRef.current = Date.now() + SCROLL_GESTURE_WINDOW_MS
+  }, [])
 
   // ─── Auto-scroll marker ─────────────────────────────────────────
   // After we programmatically set scrollTop, mark the expected position
@@ -143,11 +240,11 @@ export function useAutoScroll(options: AutoScrollOptions): AutoScrollResult {
       if (el) updateOverflowAnchor(el, next)
 
       if (next) {
-        // Detaching: clear auto markers so scroll handler doesn't
-        // mistake programmatic scrolls in progress.
         if (userInitiated) {
           userDetachUntilRef.current = Date.now() + USER_DETACH_COOLDOWN_MS
         }
+        // Detaching: clear auto markers so scroll handler doesn't
+        // mistake programmatic scrolls in progress.
         if (autoTimerRef.current) {
           clearTimeout(autoTimerRef.current)
           autoMarkerRef.current = undefined
@@ -164,6 +261,21 @@ export function useAutoScroll(options: AutoScrollOptions): AutoScrollResult {
     animationRef.current?.stop()
     animationRef.current = null
   }, [])
+
+  const pause = useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    if (!canScroll(el)) {
+      if (userScrolledRef.current) {
+        setScrolledAway(false, el)
+      }
+      return
+    }
+    if (userScrolledRef.current) return
+    stopAnimation()
+    setScrolledAway(true, el, true)
+    onUserScrolled?.()
+  }, [onUserScrolled, setScrolledAway, stopAnimation])
 
   // ─── Scroll to bottom (instant, for streaming follow) ───────────
 
@@ -245,7 +357,7 @@ export function useAutoScroll(options: AutoScrollOptions): AutoScrollResult {
     const el = scrollRef.current
     if (!el) return
 
-    if (Date.now() < threadSwitchSnapUntilRef.current) {
+    if (shouldHonorThreadSwitchSnap()) {
       scrollToBottomInstant(el)
       return
     }
@@ -258,15 +370,18 @@ export function useAutoScroll(options: AutoScrollOptions): AutoScrollResult {
 
   useLayoutEffect(() => {
     const container = scrollRef.current
-    if (!container) return
-    const content = container.firstElementChild
-    if (!(content instanceof HTMLElement)) return
+    const content = contentRef.current
+    if (!(container instanceof HTMLElement) || !(content instanceof HTMLElement)) return
 
     const observer = new ResizeObserver(() => {
       if (userScrolledRef.current) return
+      if (shouldHonorThreadSwitchSnap()) {
+        scrollToBottomInstant(container)
+        return
+      }
+      if (!active()) return
       scrollToBottomInstant(container)
     })
-    observer.observe(container)
     observer.observe(content)
 
     return () => observer.disconnect()
@@ -307,43 +422,6 @@ export function useAutoScroll(options: AutoScrollOptions): AutoScrollResult {
 
   // ─── Wheel handler: detect user scrolling up ────────────────────
 
-  useEffect(() => {
-    const container = scrollRef.current
-    if (!container) return
-
-    const handleWheel = (e: WheelEvent) => {
-      if (e.deltaY >= 0) return
-      const target = e.target instanceof Element ? e.target : undefined
-      const nested = target?.closest("[data-scrollable]")
-      if (nested && nested !== container) return
-      if (userScrolledRef.current) return
-      stopAnimation()
-      setScrolledAway(true, container, true)
-    }
-
-    container.addEventListener("wheel", handleWheel, { passive: true })
-    return () => container.removeEventListener("wheel", handleWheel)
-  }, [setScrolledAway, stopAnimation])
-
-  // ─── Pointer handler: detect text selection ─────────────────────
-
-  useEffect(() => {
-    const container = scrollRef.current
-    if (!container) return
-
-    const handleInteraction = () => {
-      const selection = window.getSelection()
-      if (selection && selection.toString().length > 0) {
-        if (userScrolledRef.current) return
-        stopAnimation()
-        setScrolledAway(true, container, true)
-      }
-    }
-
-    container.addEventListener("pointerdown", handleInteraction, { capture: true })
-    return () => container.removeEventListener("pointerdown", handleInteraction, { capture: true })
-  }, [setScrolledAway, stopAnimation])
-
   // ─── Cleanup ────────────────────────────────────────────────────
 
   useEffect(
@@ -360,11 +438,14 @@ export function useAutoScroll(options: AutoScrollOptions): AutoScrollResult {
   const handleScroll = useCallback(
     (event: React.UIEvent<HTMLElement>) => {
       const el = event.currentTarget
-      const inCooldown = Date.now() < userDetachUntilRef.current
+      const previousScrollTop = lastScrollTopRef.current
+      lastScrollTopRef.current = el.scrollTop
+      const scrollTopChanged =
+        previousScrollTop !== undefined &&
+        Math.abs(el.scrollTop - previousScrollTop) > SCROLL_TOP_CHANGE_THRESHOLD_PX
 
-      // Non-scrollable container: always re-engage unless in cooldown.
       if (!canScroll(el)) {
-        if (userScrolledRef.current && !inCooldown) {
+        if (userScrolledRef.current) {
           setScrolledAway(false, el)
         }
         return
@@ -372,9 +453,12 @@ export function useAutoScroll(options: AutoScrollOptions): AutoScrollResult {
 
       const dist = distanceFromBottom(el)
 
-      // Near bottom: re-engage unless in cooldown.
+      if (userScrolledRef.current && Date.now() < userDetachUntilRef.current) {
+        return
+      }
+
       if (dist <= BOTTOM_THRESHOLD_PX) {
-        if (userScrolledRef.current && !inCooldown) {
+        if (userScrolledRef.current) {
           setScrolledAway(false, el)
         }
         return
@@ -391,17 +475,112 @@ export function useAutoScroll(options: AutoScrollOptions): AutoScrollResult {
         return
       }
 
-      // User has scrolled away from the bottom.
-      stopAnimation()
-      setScrolledAway(true, el)
+      if (!hasScrollGesture()) {
+        if (!userScrolledRef.current && scrollTopChanged) {
+          pause()
+        }
+        return
+      }
+
+      pause()
     },
-    [isAuto, scrollToBottomInstant, setScrolledAway, stopAnimation],
+    [isAuto, pause, scrollToBottomInstant, setScrolledAway],
   )
+
+  const handleInteraction = useCallback(() => {
+    if (!active()) return
+    const selection = window.getSelection()
+    if (selection && selection.toString().length > 0) {
+      pause()
+    }
+  }, [pause])
+
+  const handleWheel = useCallback(
+    (event: ReactWheelEvent<HTMLElement>) => {
+      const root = event.currentTarget
+      const delta = normalizeWheelDelta({
+        deltaY: event.deltaY,
+        deltaMode: event.deltaMode,
+        rootHeight: root.clientHeight,
+      })
+      if (!delta) return
+      if (!shouldMarkRootGesture({ root, target: event.target, delta })) return
+
+      markScrollGesture()
+      if (delta < 0) {
+        pause()
+      }
+    },
+    [markScrollGesture, pause],
+  )
+
+  const handleKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLElement>) => {
+      if (!SCROLL_GESTURE_KEYS.has(event.key)) {
+        return
+      }
+      markScrollGesture()
+      if (event.key === " " && !event.shiftKey) {
+        return
+      }
+      if (SCROLL_DETACH_KEYS.has(event.key)) {
+        pause()
+      }
+    },
+    [markScrollGesture, pause],
+  )
+
+  const handlePointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLElement>) => {
+      if (event.target === event.currentTarget) {
+        markScrollGesture()
+      }
+    },
+    [markScrollGesture],
+  )
+
+  const handleTouchStart = useCallback((event: ReactTouchEvent<HTMLElement>) => {
+    touchGestureYRef.current = event.touches[0]?.clientY
+  }, [])
+
+  const handleTouchMove = useCallback(
+    (event: ReactTouchEvent<HTMLElement>) => {
+      const nextY = event.touches[0]?.clientY
+      const previousY = touchGestureYRef.current
+      touchGestureYRef.current = nextY
+      if (nextY === undefined || previousY === undefined) return
+
+      const delta = previousY - nextY
+      if (!delta) return
+      if (!shouldMarkRootGesture({ root: event.currentTarget, target: event.target, delta })) return
+
+      markScrollGesture()
+    },
+    [markScrollGesture],
+  )
+
+  const handleTouchEnd = useCallback(() => {
+    touchGestureYRef.current = undefined
+  }, [])
+
+  const handleTouchCancel = useCallback(() => {
+    touchGestureYRef.current = undefined
+  }, [])
 
   return {
     scrollRef,
+    contentRef,
     userScrolled,
     handleScroll,
+    handleWheel,
+    handleKeyDown,
+    handlePointerDown,
+    handleTouchStart,
+    handleTouchMove,
+    handleTouchEnd,
+    handleTouchCancel,
+    handleInteraction,
+    pause,
     forceScrollToBottom,
     scrollToBottom,
     snapToBottomForThreadSwitch,

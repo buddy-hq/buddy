@@ -8,6 +8,13 @@ function ScrollArea({
   children,
   viewportRef,
   onScroll,
+  onWheel,
+  onKeyDown,
+  onPointerDown,
+  onTouchStart,
+  onTouchMove,
+  onTouchEnd,
+  onTouchCancel,
   fillContentWidth = false,
   ...props
 }: React.ComponentProps<typeof ScrollAreaPrimitive.Root> & {
@@ -24,6 +31,13 @@ function ScrollArea({
       <ScrollAreaPrimitive.Viewport
         ref={viewportRef}
         onScroll={onScroll}
+        onWheel={onWheel}
+        onKeyDown={onKeyDown}
+        onPointerDown={onPointerDown}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onTouchCancel={onTouchCancel}
         data-slot="scroll-area-viewport"
         className={cn(
           "focus-visible:ring-border-interactive-base/50 size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:outline-1",
