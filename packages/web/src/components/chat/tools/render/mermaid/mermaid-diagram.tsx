@@ -9,6 +9,7 @@ import { MermaidFullscreenDialog } from "./mermaid-fullscreen-dialog"
 import { MODAL_EXPAND_SPRING } from "./motion"
 import { mermaidConstants } from "./constants"
 import { useMermaidViewport } from "./use-mermaid-viewport"
+import { useInlineAssetActivation } from "@/components/chat/inline-asset-boundary"
 
 export const DIAGRAM_REVEAL_SPRING = {
   type: "spring",
@@ -121,12 +122,14 @@ export function MermaidDiagram(props: {
   const [fullscreenOpen, setFullscreenOpen] = useState(false)
   const [copiedErrorDetails, setCopiedErrorDetails] = useState(false)
   const copyResetTimeoutRef = useRef<number | undefined>(undefined)
+  const activation = useInlineAssetActivation()
+  const enabled = (props.enabled ?? true) && activation.active
 
   const { state } = useMermaidRender({
     source,
     artifactID,
     directory: props.directory,
-    enabled: props.enabled,
+    enabled,
     priority: props.renderPriority,
   })
 
@@ -223,7 +226,7 @@ export function MermaidDiagram(props: {
     ) : null
 
   const content = (
-    <div className={cn("h-full min-h-0", props.className)}>
+    <div ref={activation.ref} className={cn("h-full min-h-0", props.className)}>
       {state.status === "loading" ? (
         props.hideLoadingPlaceholder ? (
           <div aria-hidden className="min-h-6" />

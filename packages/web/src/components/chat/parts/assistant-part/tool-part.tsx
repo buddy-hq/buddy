@@ -1,9 +1,11 @@
 import { memo } from "react"
+import { BasicTool } from "../../tools/basic-tool"
+import { InlineAssetBoundary } from "../../inline-asset-boundary"
 import { parseToolState } from "../../tools/parse-tool-state"
 import { parseToolUiMetadata } from "../../tools/parse-tool-ui-metadata"
 import { resolveToolRenderer } from "../../tools/registry"
 import { getToolInfo } from "../../tools/tool-info"
-import type { ToolPartProps } from "../../tools/registry"
+import type { ToolCardRenderer, ToolPartProps } from "../../tools/registry"
 import type { ChatToolPart } from "../../utils/part-guards"
 
 interface ToolPartRendererProps {
@@ -33,6 +35,26 @@ function toolPartCardEqual(
   )
 }
 
+function DeferredToolCardFallback(props: ToolPartProps) {
+  return (
+    <BasicTool
+      icon={props.icon?.("h-3.5 w-3.5")}
+      trigger={{ title: props.info.title, subtitle: props.info.subtitle }}
+      status={props.state.status}
+      hideDetails
+    >
+      <div aria-hidden className="space-y-2 py-1">
+        <div className="h-2.5 w-44 rounded-full bg-surface-weak/45" />
+        <div className="h-2.5 w-28 rounded-full bg-surface-weak/35" />
+      </div>
+    </BasicTool>
+  )
+}
+
+function DeferredToolCardContent(props: { card: ToolCardRenderer; toolProps: ToolPartProps }) {
+  return <>{props.card(props.toolProps)}</>
+}
+
 export const ToolPartCard = memo(function ToolPartCard({
   part,
   directory,
@@ -58,6 +80,14 @@ export const ToolPartCard = memo(function ToolPartCard({
     directory,
     onOpenSession,
     defaultOpen,
+  }
+
+  if (renderer.deferUntilVisible && state.status === "completed") {
+    return (
+      <InlineAssetBoundary fallback={<DeferredToolCardFallback {...props} />}>
+        <DeferredToolCardContent card={renderer.card} toolProps={props} />
+      </InlineAssetBoundary>
+    )
   }
 
   return <>{renderer.card(props)}</>

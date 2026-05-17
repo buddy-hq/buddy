@@ -89,11 +89,12 @@ export function useMermaidRender({
   const { mode, themeId } = useTheme()
   const requestTokenRef = useRef(0)
   const [state, setState] = useState<MermaidRenderState>(
-    () => getCachedState({ source, artifactID }) ?? { status: "loading" },
+    () => (enabled ? getCachedState({ source, artifactID }) : undefined) ?? { status: "loading" },
   )
 
   useEffect(() => {
     if (!enabled) {
+      setState({ status: "loading" })
       return
     }
 

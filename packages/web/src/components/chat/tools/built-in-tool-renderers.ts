@@ -152,6 +152,7 @@ export const builtInTools: Record<string, ToolRenderer> = {
   python_calculator: createToolRenderer({
     icon: (cn) => createElement(Wrench, { className: cn }),
     card: renderPythonCalculatorTool,
+    deferUntilVisible: true,
   }),
   webfetch: createToolRenderer({
     icon: (cn) => createElement(Globe, { className: cn }),
@@ -209,14 +210,17 @@ export const builtInTools: Record<string, ToolRenderer> = {
   render_figure: createToolRenderer({
     icon: (cn) => createElement(Image, { className: cn }),
     card: renderRenderFigureTool,
+    deferUntilVisible: true,
   }),
   render_freeform_figure: createToolRenderer({
     icon: (cn) => createElement(Image, { className: cn }),
     card: renderRenderFigureTool,
+    deferUntilVisible: true,
   }),
   render_mermaid: createToolRenderer({
     icon: (cn) => createElement(GitBranch, { className: cn }),
     card: renderRenderMermaidTool,
+    deferUntilVisible: true,
   }),
   render_saved_question_set: createToolRenderer({
     icon: (cn) => createElement(BookOpen, { className: cn }),
@@ -225,6 +229,7 @@ export const builtInTools: Record<string, ToolRenderer> = {
   present_media: createToolRenderer({
     icon: (cn) => createElement(Image, { className: cn }),
     card: renderPresentMediaTool,
+    deferUntilVisible: true,
   }),
   question: createToolRenderer({
     icon: (cn) => createElement(HelpCircle, { className: cn }),

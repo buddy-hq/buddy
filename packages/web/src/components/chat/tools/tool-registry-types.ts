@@ -63,6 +63,7 @@ export type ToolRenderer = {
   card?: ToolCardRenderer
   summary?: ToolSummary
   icon?: ToolIconRenderer
+  deferUntilVisible?: boolean
 }
 
 export type ResolvedSummaryContentFormat = "text" | "markdown"
