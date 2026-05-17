@@ -13,7 +13,7 @@ export const CODE_FONT_PLACEHOLDER = "System Mono"
 
 const APPEARANCE_STYLE_ID = "buddy-appearance-preferences"
 const UI_FONT_BASE =
-  '"Inter Variable", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+  'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
 const CODE_FONT_BASE =
   'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
 
@@ -89,11 +89,11 @@ export function applyAppearancePreferences(preferences: AppearancePreferences): 
   root.style.setProperty("--font-mono", "var(--buddy-font-family-mono)")
   root.style.setProperty("--buddy-ui-font-size", `${uiFontSize}px`)
   root.style.setProperty("--buddy-code-font-size", `${codeFontSize}px`)
-  root.style.setProperty("--text-xs", "calc(var(--buddy-ui-font-size) * 0.857142857)")
-  root.style.setProperty("--text-sm", "var(--buddy-ui-font-size)")
-  root.style.setProperty("--text-base", "calc(var(--buddy-ui-font-size) * 1.142857143)")
-  root.style.setProperty("--text-lg", "calc(var(--buddy-ui-font-size) * 1.285714286)")
-  root.style.setProperty("--text-xl", "calc(var(--buddy-ui-font-size) * 1.428571429)")
+  root.style.setProperty("--buddy-font-size-xs", "calc(var(--buddy-ui-font-size) * 0.857142857)")
+  root.style.setProperty("--buddy-font-size-sm", "var(--buddy-ui-font-size)")
+  root.style.setProperty("--buddy-font-size-base", "calc(var(--buddy-ui-font-size) * 1.142857143)")
+  root.style.setProperty("--buddy-font-size-lg", "calc(var(--buddy-ui-font-size) * 1.285714286)")
+  root.style.setProperty("--buddy-font-size-xl", "calc(var(--buddy-ui-font-size) * 1.428571429)")
 
   ensureAppearanceStyleElement().textContent = `
 body,

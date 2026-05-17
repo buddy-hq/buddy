@@ -45,6 +45,14 @@
   --radius-4xl: calc(var(--radius) + 16px);
 }
 
+@theme reference {
+  --text-xs: var(--buddy-font-size-xs);
+  --text-sm: var(--buddy-font-size-sm);
+  --text-base: var(--buddy-font-size-base);
+  --text-lg: var(--buddy-font-size-lg);
+  --text-xl: var(--buddy-font-size-xl);
+}
+
 @layer base {
   * {
     @apply border-border-base outline-border-interactive-base/50;
