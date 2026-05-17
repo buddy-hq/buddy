@@ -20,6 +20,7 @@ export interface AssistantPartRendererProps {
   copyPartID?: string
   metaText?: string
   interrupted?: boolean
+  preferEagerMarkdown?: boolean
   onOpenSession?: (sessionID: string) => void
   stripLeadingFigureImage?: boolean
   stripLeadingMermaidSources?: string[]
@@ -37,6 +38,7 @@ function assistantPartRendererEqual(
   if (prevProps.copyPartID !== nextProps.copyPartID) return false
   if (prevProps.metaText !== nextProps.metaText) return false
   if (prevProps.interrupted !== nextProps.interrupted) return false
+  if (prevProps.preferEagerMarkdown !== nextProps.preferEagerMarkdown) return false
   if (prevProps.stripLeadingFigureImage !== nextProps.stripLeadingFigureImage) return false
   if (prevProps.stripLeadingMermaidSources !== nextProps.stripLeadingMermaidSources) return false
   if (prevProps.directory !== nextProps.directory) return false
@@ -63,6 +65,7 @@ export const AssistantPartRenderer = memo(function AssistantPartRenderer({
   copyPartID,
   metaText,
   interrupted,
+  preferEagerMarkdown,
   onOpenSession,
   stripLeadingFigureImage,
   stripLeadingMermaidSources,
@@ -81,6 +84,7 @@ export const AssistantPartRenderer = memo(function AssistantPartRenderer({
         copyEnabled={copyPartID === part.id}
         metaText={metaText}
         interrupted={interrupted}
+        preferEagerMarkdown={preferEagerMarkdown}
         stripLeadingFigureImage={stripLeadingFigureImage}
         stripLeadingMermaidSources={stripLeadingMermaidSources}
         directory={directory}

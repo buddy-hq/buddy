@@ -11,6 +11,7 @@ type AssistantTextPartProps = {
   copyEnabled: boolean
   metaText?: string
   interrupted?: boolean
+  preferEagerMarkdown?: boolean
   stripLeadingFigureImage?: boolean
   stripLeadingMermaidSources?: string[]
   directory?: string
@@ -59,6 +60,7 @@ function assistantTextPartEqual(
   if (prevProps.copyEnabled !== nextProps.copyEnabled) return false
   if (prevProps.metaText !== nextProps.metaText) return false
   if (prevProps.interrupted !== nextProps.interrupted) return false
+  if (prevProps.preferEagerMarkdown !== nextProps.preferEagerMarkdown) return false
   if (prevProps.stripLeadingFigureImage !== nextProps.stripLeadingFigureImage) return false
   if (prevProps.stripLeadingMermaidSources !== nextProps.stripLeadingMermaidSources) return false
   if (prevProps.directory !== nextProps.directory) return false
@@ -71,6 +73,7 @@ export const AssistantTextPart = memo(function AssistantTextPart({
   copyEnabled,
   metaText,
   interrupted,
+  preferEagerMarkdown,
   stripLeadingFigureImage,
   stripLeadingMermaidSources,
   directory,
@@ -84,6 +87,7 @@ export const AssistantTextPart = memo(function AssistantTextPart({
     ? stripLeadingRenderMermaidMarkdown(withoutLeadingFigure, stripLeadingMermaidSources)
     : withoutLeadingFigure
   const displayedText = useAdaptiveStreamingText(visibleText, onFinalRender)
+  const useStreamingMath = displayedText !== visibleText || interrupted === true
   const mermaidContext: MarkdownMermaidContext | undefined =
     directory && part.sessionID && part.messageID && part.id
       ? {
@@ -102,7 +106,9 @@ export const AssistantTextPart = memo(function AssistantTextPart({
           text={displayedText}
           cacheKey={part.id}
           mermaidContext={mermaidContext}
-          isStreaming={displayedText !== visibleText}
+          isStreaming={useStreamingMath}
+          isInterrupted={interrupted}
+          preferEagerRender={preferEagerMarkdown}
           directory={directory}
         />
       </div>

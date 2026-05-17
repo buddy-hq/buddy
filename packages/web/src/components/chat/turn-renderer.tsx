@@ -20,6 +20,7 @@ export function areTurnRendererPropsEqual(
 ): boolean {
   if (prevProps.turnIndex !== nextProps.turnIndex) return false
   if (prevProps.totalTurns !== nextProps.totalTurns) return false
+  if (prevProps.preferEagerMarkdown !== nextProps.preferEagerMarkdown) return false
   if (prevProps.isBusy !== nextProps.isBusy) return false
   if (prevProps.activeSessionStatus !== nextProps.activeSessionStatus) return false
   if (prevProps.directory !== nextProps.directory) return false
@@ -47,6 +48,7 @@ export const TurnRenderer = memo(function TurnRenderer({
   turn,
   turnIndex,
   totalTurns,
+  preferEagerMarkdown,
   providers,
   isBusy,
   activeSessionStatus,
@@ -147,6 +149,7 @@ export const TurnRenderer = memo(function TurnRenderer({
           assistantMetaText={assistantMetaText}
           assistantAborted={assistantAborted}
           isBusy={isBusy}
+          preferEagerMarkdown={preferEagerMarkdown}
           shellToolDefaultOpen={shellToolDefaultOpen}
           editToolDefaultOpen={editToolDefaultOpen}
           directory={directory}

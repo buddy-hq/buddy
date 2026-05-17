@@ -15,6 +15,7 @@ export const AssistantSection = memo(function AssistantSection({
   assistantMetaText,
   assistantAborted,
   isBusy,
+  preferEagerMarkdown,
   shellToolDefaultOpen,
   editToolDefaultOpen,
   directory,
@@ -73,6 +74,7 @@ export const AssistantSection = memo(function AssistantSection({
             copyPartID={assistantCopyPartID}
             metaText={assistantMetaText}
             interrupted={assistantAborted}
+            preferEagerMarkdown={preferEagerMarkdown}
             onOpenSession={onOpenSession}
             stripLeadingFigureImage={stripLeadingFigureImage}
             stripLeadingMermaidSources={stripLeadingMermaidSources}
