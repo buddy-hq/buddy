@@ -11,7 +11,7 @@ const DIRECTORY_CHAT_SESSIONS_QUERY_KEY = "sessions" as const
 const DIRECTORY_CHAT_PERMISSIONS_QUERY_KEY = "permissions" as const
 const DIRECTORY_CHAT_QUESTIONS_QUERY_KEY = "questions" as const
 const GLOBAL_DIRECTORY_QUERY_KEY = "__global__" as const
-const DIRECTORY_CHAT_QUERY_STALE_TIME_MS = 5_000
+const DIRECTORY_CHAT_METADATA_STALE_TIME_MS = 60_000
 
 function resolveDirectoryQueryKey(directory: string) {
   const normalizedDirectory = directory.trim()
@@ -91,7 +91,7 @@ export function directorySessionsQueryOptions(directory: string) {
   return queryOptions({
     queryKey: directoryChatQueryKeys.sessions(directory),
     queryFn: () => loadSessions(directory),
-    staleTime: DIRECTORY_CHAT_QUERY_STALE_TIME_MS,
+    staleTime: DIRECTORY_CHAT_METADATA_STALE_TIME_MS,
   })
 }
 
@@ -108,7 +108,7 @@ export function directoryPermissionsQueryOptions(
   return queryOptions({
     queryKey: directoryChatQueryKeys.permissions(directory),
     queryFn: () => loadPermissions(directory),
-    staleTime: DIRECTORY_CHAT_QUERY_STALE_TIME_MS,
+    staleTime: DIRECTORY_CHAT_METADATA_STALE_TIME_MS,
   })
 }
 
@@ -116,7 +116,7 @@ export function directoryQuestionsQueryOptions(directory: string) {
   return queryOptions({
     queryKey: directoryChatQueryKeys.questions(directory),
     queryFn: () => loadQuestions(directory),
-    staleTime: DIRECTORY_CHAT_QUERY_STALE_TIME_MS,
+    staleTime: DIRECTORY_CHAT_METADATA_STALE_TIME_MS,
   })
 }
 
