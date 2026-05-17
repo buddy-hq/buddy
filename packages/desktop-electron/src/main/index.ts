@@ -57,6 +57,9 @@ const LOADING_WINDOW_COMPLETE_TIMEOUT_MS = 5_000
 const MAC_UPDATE_CACHE_DIRECTORY_NAME = "mac-updater"
 
 app.setName(resolveAppName(app.isPackaged))
+if (process.platform === "win32") {
+  app.setAppUserModelId(resolveAppId(app.isPackaged))
+}
 app.setPath("userData", join(app.getPath("appData"), resolveAppId(app.isPackaged)))
 
 const logger = initLogging()

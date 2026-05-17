@@ -114,14 +114,14 @@ export function createMainWindow(globals: WindowGlobals) {
     y: state.y,
     width: state.width,
     height: state.height,
-    show: true,
+    show: false,
     title: resolveWindowTitle(),
     icon: iconPath(),
     backgroundColor: resolveBackgroundColor(),
     ...(process.platform === "darwin"
       ? {
           titleBarStyle: "hidden" as const,
-          trafficLightPosition: { x: 12, y: 14 },
+          trafficLightPosition: { x: 12, y: 21 },
         }
       : {}),
     ...(process.platform === "win32"
@@ -144,6 +144,10 @@ export function createMainWindow(globals: WindowGlobals) {
   wireZoom(win)
   injectGlobals(win, globals)
   setTitlebar(win)
+
+  win.once("ready-to-show", () => {
+    win.show()
+  })
 
   return win
 }
