@@ -1,5 +1,5 @@
 const TITLEBAR_INTERACTIVE_SELECTOR =
-  "button, a, input, textarea, select, option, [role='button'], [role='menuitem'], [contenteditable='true'], [contenteditable='']"
+  "button, a, input, textarea, select, option, [role='button'], [role='menuitem'], [data-titlebar-no-drag], [contenteditable='true'], [contenteditable='']"
 
 export function isTitlebarInteractiveTarget(target: EventTarget | null) {
   if (!(target instanceof Element)) return false

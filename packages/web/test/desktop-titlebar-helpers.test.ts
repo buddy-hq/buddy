@@ -17,4 +17,14 @@ describe("desktop titlebar helpers", () => {
     expect(isTitlebarInteractiveTarget(container)).toBe(false)
     expect(isTitlebarInteractiveTarget(null)).toBe(false)
   })
+
+  test("treats explicit titlebar no-drag regions as interactive", () => {
+    const container = document.createElement("div")
+    const child = document.createElement("span")
+    container.dataset.titlebarNoDrag = ""
+    container.append(child)
+
+    expect(isTitlebarInteractiveTarget(container)).toBe(true)
+    expect(isTitlebarInteractiveTarget(child)).toBe(true)
+  })
 })

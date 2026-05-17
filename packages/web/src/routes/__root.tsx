@@ -76,11 +76,15 @@ function ReleaseUpdateWatcher() {
 function RootLayout() {
   const location = useLocation()
   const isOnboarding = location.pathname.startsWith("/onboarding")
+  const isDirectoryChat = location.pathname !== "/chat" && location.pathname.endsWith("/chat")
+  const isSettings = location.pathname === "/settings"
 
   return (
     <div className="h-full overflow-hidden bg-background-base text-text-base flex min-h-0 flex-col">
       <ReleaseUpdateWatcher />
-      {!isOnboarding && <DesktopTitlebar />}
+      {!isOnboarding && !isDirectoryChat && (
+        <DesktopTitlebar variant={isSettings ? "shell" : undefined} />
+      )}
       <div className="min-h-0 flex-1">
         <Outlet />
       </div>
