@@ -24,7 +24,6 @@ import type {
   ProjectListResponses,
   QuestionSetArtifactsListResponse,
   SessionCommandResponses,
-  SessionMessagesResponses,
   SessionTeachingStateResponses,
   ProviderAuthMethod,
   ProviderAuthResponse,
@@ -43,12 +42,17 @@ import type {
   ProviderInfo,
   SessionInfo,
 } from "./chat-types"
+import {
+  directorySessionMessagesQueryOptions,
+  setDirectorySessionMessagesQueryData,
+} from "./session-messages-query"
+import { appQueryClient } from "./query-client"
+import { fetchSessionMessagesWithRetry } from "./session-messages"
 import type { TeachingPromptContext } from "./teaching-runtime"
 import { stringifyError } from "../lib/api-client"
 import { OPENCODE_PROVIDER_ID } from "../lib/provider-ids"
 
 import { getBuddyClient, requireBuddyData, buddyResultMessage } from "../lib/buddy-client"
-import { retry } from "../lib/retry"
 import type { PromptFilePart, PromptSubmissionPart } from "../components/prompt/prompt-types"
 import {
   BUSY_SESSION_STATUS,
@@ -316,9 +320,6 @@ const SESSION_NOT_FOUND_ERROR = "Session not found"
 const UNDO_MISSING_SESSION_ERROR = "Start a session before undoing the last message."
 const UNDO_NO_MESSAGE_ERROR = "No user message is available to undo."
 const RESTORE_NO_MESSAGE_ERROR = "No undone message is available to restore."
-const TRANSCRIPT_RETRY_ATTEMPTS = 4
-const TRANSCRIPT_RETRY_DELAY_MS = 500
-const TRANSCRIPT_RETRY_FACTOR = 2
 const pendingSessionCreations = new Map<string, Promise<SessionInfo>>()
 export const DEFAULT_INBOX_NOTEBOOK_NAME = "Inbox" as const
 
@@ -439,14 +440,6 @@ type OptimisticPromptInput = {
   variant?: string
 }
 
-class RetryableTranscriptReloadError extends Error {
-  constructor(cause: unknown) {
-    super("Retryable transcript reload")
-    this.name = "RetryableTranscriptReloadError"
-    this.cause = cause
-  }
-}
-
 function toLearnerPersona(persona?: string): LearnerSnapshotPersona | undefined {
   switch (persona) {
     case undefined:
@@ -473,31 +466,6 @@ function asString(value: unknown, fallback = ""): string {
 function asStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return []
   return value.filter((item): item is string => typeof item === "string")
-}
-
-function isMessageWithParts(value: unknown): value is MessageWithParts {
-  const record = asRecord(value)
-  if (!record) return false
-  if (!("info" in record)) return false
-  if (!Array.isArray(record.parts)) return false
-  return true
-}
-
-function isMessageWithPartsArray(value: unknown): value is MessageWithParts[] {
-  return Array.isArray(value) && value.every((entry) => isMessageWithParts(entry))
-}
-
-function parseSessionMessagesPayload(value: unknown): MessageWithParts[] {
-  if (isMessageWithPartsArray(value)) {
-    return value
-  }
-
-  const record = asRecord(value)
-  if (record && isMessageWithPartsArray(record.messages)) {
-    return record.messages
-  }
-
-  throw new Error("Session messages payload must be an array of message parts.")
 }
 
 function restoreSessionSelectionFromMessages(
@@ -1094,16 +1062,6 @@ async function sessionStillExists(directory: string, sessionID: string) {
   return listResult.data.some((session) => session.id === sessionID)
 }
 
-async function fetchSessionMessages(directory: string, sessionID: string) {
-  const payload = requireBuddyData<SessionMessagesResponses[200]>(
-    await getBuddyClient(directory).session.messages({
-      sessionID,
-    }),
-  )
-
-  return parseSessionMessagesPayload(payload)
-}
-
 async function loadSessionStatuses(directory: string) {
   const statusBySession = requireBuddyData(await getBuddyClient(directory).session.status())
   const store = useChatStore.getState()
@@ -1184,58 +1142,63 @@ export async function loadMessages(directory: string, sessionID: string) {
   let lastError: unknown
 
   try {
-    const messages = await retry(
-      async () => {
-        try {
-          return await fetchSessionMessages(directory, sessionID)
-        } catch (error) {
-          if (!isLatestTranscriptRequest(directory, requestSequence)) {
-            throw error
-          }
-
-          const shouldRetry =
-            isMissingSessionError(error) &&
-            currentSelectedSessionID(directory) === sessionID &&
-            (await sessionStillExists(directory, sessionID).catch(() => false))
-
-          if (!shouldRetry) {
-            throw error
-          }
-
-          throw new RetryableTranscriptReloadError(error)
+    const messages = await fetchSessionMessagesWithRetry(directory, sessionID, {
+      shouldRetryMissing: async (error) => {
+        if (!isLatestTranscriptRequest(directory, requestSequence)) {
+          return false
         }
+
+        return (
+          isMissingSessionError(error) &&
+          currentSelectedSessionID(directory) === sessionID &&
+          (await sessionStillExists(directory, sessionID).catch(() => false))
+        )
       },
-      {
-        attempts: TRANSCRIPT_RETRY_ATTEMPTS,
-        delay: TRANSCRIPT_RETRY_DELAY_MS,
-        factor: TRANSCRIPT_RETRY_FACTOR,
-        retryIf: (error) => error instanceof RetryableTranscriptReloadError,
-      },
-    )
+    })
 
     if (!isLatestTranscriptRequest(directory, requestSequence)) {
       return messages
     }
 
     store.setMessages(directory, sessionID, messages)
+    setDirectorySessionMessagesQueryData(appQueryClient, directory, sessionID, messages)
     restoreSessionSelectionFromMessages(directory, sessionID, messages)
     store.setDirectoryError(directory, undefined)
     return messages
   } catch (error) {
-    lastError =
-      error instanceof RetryableTranscriptReloadError && error.cause !== undefined
-        ? error.cause
-        : error
+    lastError = error
   }
 
   if (
     isLatestTranscriptRequest(directory, requestSequence) &&
     currentSelectedSessionID(directory) === sessionID
   ) {
+    store.clearLoadingSession(directory, sessionID)
     store.setDirectoryError(directory, stringifyError(lastError))
   }
 
   throw lastError
+}
+
+export async function prefetchSessionMessages(directory: string, sessionID: string) {
+  const store = useChatStore.getState()
+  const directoryState = store.directories[directory]
+  if (
+    directoryState?.messagesBySessionID &&
+    Object.hasOwn(directoryState.messagesBySessionID, sessionID)
+  ) {
+    return directoryState.messagesBySessionID[sessionID] ?? []
+  }
+
+  if (directoryState?.sessionID === sessionID && directoryState.messages.length > 0) {
+    return directoryState.messages
+  }
+
+  const messages = await appQueryClient.fetchQuery(
+    directorySessionMessagesQueryOptions(directory, sessionID),
+  )
+  useChatStore.getState().setMessages(directory, sessionID, messages)
+  return messages
 }
 
 export async function loadPermissions(directory: string): Promise<PermissionRequest[]> {
