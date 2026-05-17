@@ -9,6 +9,15 @@ import {
   type StreamingTextStrategy,
 } from "../utils/streaming-text-utils"
 
+const MAX_STREAMING_TEXT_LENGTH = 12_000
+const MAX_STREAMING_MATH_MARKERS = 32
+
+function shouldBypassStreamingAnimation(value: string): boolean {
+  if (value.length >= MAX_STREAMING_TEXT_LENGTH) return true
+  const mathMarkers = value.match(/\$\$|\\\[|\\\(|\\begin\{/gu)?.length ?? 0
+  return mathMarkers >= MAX_STREAMING_MATH_MARKERS
+}
+
 function useStreamingText(
   value: string,
   input?: {
@@ -76,6 +85,10 @@ function useStreamingText(
     lastIncomingAtRef.current = now
 
     const currentText = visibleTextRef.current
+    if (shouldBypassStreamingAnimation(value)) {
+      finishStreaming(value)
+      return
+    }
     const shouldStream =
       value.length > currentText.length &&
       value.startsWith(currentText) &&
