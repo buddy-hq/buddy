@@ -163,6 +163,21 @@ describe("chat-store parity events", () => {
     expect(useChatStore.getState().entryError).toBeUndefined()
   })
 
+  test("clears selected session loading state after load failure", () => {
+    const store = useChatStore.getState()
+
+    store.setSessions(directory, [session("session_1", 1), session("session_2", 2)])
+    store.setActiveSession(directory, "session_1")
+
+    expect(useChatStore.getState().directories[directory]?.loadingSessionID).toBe("session_1")
+
+    store.clearLoadingSession(directory, "session_2")
+    expect(useChatStore.getState().directories[directory]?.loadingSessionID).toBe("session_1")
+
+    store.clearLoadingSession(directory, "session_1")
+    expect(useChatStore.getState().directories[directory]?.loadingSessionID).toBeUndefined()
+  })
+
   test("clears volatile runtime state while keeping persisted handoff data", () => {
     const store = useChatStore.getState()
 
@@ -277,6 +292,29 @@ describe("chat-store parity events", () => {
 
     store.applySessionStatus(directory, "session_1", IDLE_SESSION_STATUS)
     expect(useChatStore.getState().directories[directory]?.isBusy).toBe(false)
+  })
+
+  test("marks uncached session switches as loading until transcript arrives", () => {
+    const store = useChatStore.getState()
+
+    store.ensureOpenProject(directory)
+    store.setSessions(directory, [session("session_1", 2), session("session_2", 1)])
+    store.setSessionInfo(directory, session("session_1", 2))
+
+    let next = useChatStore.getState().directories[directory]
+    expect(next?.loadingSessionID).toBe("session_1")
+
+    store.setMessages(directory, "session_1", [{ info: userMessage("message_1", "session_1"), parts: [] }])
+    next = useChatStore.getState().directories[directory]
+    expect(next?.loadingSessionID).toBeUndefined()
+
+    store.setSessionInfo(directory, session("session_2", 1))
+    next = useChatStore.getState().directories[directory]
+    expect(next?.loadingSessionID).toBe("session_2")
+
+    store.setMessages(directory, "session_2", [])
+    next = useChatStore.getState().directories[directory]
+    expect(next?.loadingSessionID).toBeUndefined()
   })
 
   test("keeps live messages when a stale transcript snapshot lands during a run", () => {

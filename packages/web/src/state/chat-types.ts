@@ -143,6 +143,7 @@ export type McpStatusMap = Record<string, McpStatusInfo>
 
 export type DirectoryChatState = {
   sessionID?: string
+  loadingSessionID?: string
   isDraft?: boolean
   sessionTitle: string
   sessions: SessionInfo[]

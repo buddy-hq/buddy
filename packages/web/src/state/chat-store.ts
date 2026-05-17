@@ -88,6 +88,7 @@ export type ChatStore = {
   startSessionDraft: (directory: string) => void
   setSessionInfo: (directory: string, info: SessionInfo) => void
   setMessages: (directory: string, sessionID: string, messages: MessageWithParts[]) => void
+  clearLoadingSession: (directory: string, sessionID: string) => void
   applySessionUpdated: (directory: string, info: SessionInfo) => void
   applySessionStatus: (directory: string, sessionID: string, status: SessionStatusInfo) => void
   applyMessageUpdated: (directory: string, info: MessageInfo) => void
@@ -319,6 +320,7 @@ function emptyDirectoryState(): DirectoryChatState {
     mcpStatus: {},
     isBusy: false,
     isReady: false,
+    loadingSessionID: undefined,
   }
 }
 
@@ -404,6 +406,11 @@ function sessionMessages(state: DirectoryChatState, sessionID: string | undefine
   return (
     state.messagesBySessionID?.[sessionID] ?? (state.sessionID === sessionID ? state.messages : [])
   )
+}
+
+function hasCachedSessionMessages(state: DirectoryChatState, sessionID: string | undefined) {
+  if (!sessionID) return false
+  return Object.hasOwn(state.messagesBySessionID ?? {}, sessionID)
 }
 
 function nextMessagesBySession(
@@ -778,6 +785,7 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
               ...current,
               isDraft: true,
               sessionID: undefined,
+              loadingSessionID: undefined,
               sessionTitle: DEFAULT_TITLE,
               messages: [],
               messagesBySessionID: current.messagesBySessionID ?? {},
@@ -793,11 +801,13 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
             (session: SessionInfo) => session.id === sessionID,
           )
           const switchedSession = current.sessionID !== sessionID
+          const hasCachedMessages = hasCachedSessionMessages(current, sessionID)
           const nextMessages = sessionMessages(current, sessionID)
           state.directories[directory] = {
             ...current,
             isDraft: false,
             sessionID,
+            loadingSessionID: hasCachedMessages ? undefined : sessionID,
             sessionTitle: activeInfo?.title ?? current.sessionTitle,
             messages: nextMessages,
             messagesBySessionID: current.messagesBySessionID ?? {},
@@ -826,12 +836,14 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
           const current = state.directories[directory] ?? emptyDirectoryState()
           const nextSessions = upsertSession(current.sessions, info)
           state.lastSessionByDirectory[directory] = info.id
+          const hasCachedMessages = hasCachedSessionMessages(current, info.id)
           const nextMessages = sessionMessages(current, info.id)
           state.directories[directory] = {
             ...current,
             isDraft: false,
             sessions: nextSessions,
             sessionID: info.id,
+            loadingSessionID: hasCachedMessages ? undefined : info.id,
             sessionTitle: info.title || DEFAULT_TITLE,
             messages: nextMessages,
             messagesBySessionID: current.messagesBySessionID ?? {},
@@ -880,6 +892,10 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
             ...current,
             isDraft: isActiveSession ? false : current.isDraft,
             sessionID: nextSessionID,
+            loadingSessionID:
+              isActiveSession && current.loadingSessionID === sessionID
+                ? undefined
+                : current.loadingSessionID,
             sessionTitle: activeInfo?.title ?? current.sessionTitle,
             messages: isActiveSession ? nextMessages : current.messages,
             messagesBySessionID: nextMessagesBySession(current, sessionID, nextMessages),
@@ -895,6 +911,18 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
                 })
               : current.isBusy,
             sessionStatusByID: nextSessionStatusByID,
+          }
+        })
+      },
+      clearLoadingSession(directory, sessionID) {
+        set((state) => {
+          const current = state.directories[directory]
+          if (!current || current.loadingSessionID !== sessionID) {
+            return
+          }
+          state.directories[directory] = {
+            ...current,
+            loadingSessionID: undefined,
           }
         })
       },
@@ -917,6 +945,11 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
           const nextMessages = switchedActiveSession
             ? sessionMessages(current, nextSessionID)
             : current.messages
+          const nextLoadingSessionID = switchedActiveSession
+            ? hasCachedSessionMessages(current, nextSessionID)
+              ? undefined
+              : nextSessionID
+            : current.loadingSessionID
           const nextBusy = resolveActiveSessionBusy({
             sessionID: nextSessionID,
             sessions: nextSessions,
@@ -929,6 +962,7 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
             isDraft: nextSessionID === undefined,
             sessions: nextSessions,
             sessionID: nextSessionID,
+            loadingSessionID: nextLoadingSessionID,
             sessionTitle: nextActiveInfo?.title ?? DEFAULT_TITLE,
             messages: nextMessages,
             messagesBySessionID: info.time.archived
