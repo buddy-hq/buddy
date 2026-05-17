@@ -670,6 +670,22 @@ export const dict = {
   "settings.general.buddyHomeChanging": "Changing Buddy Home...",
   "settings.general.buddyHomeSaved": "Buddy Home updated",
   "settings.general.buddyHomeSaveFailed": "Couldn't update Buddy Home. Try again.",
+  "settings.general.notificationsAgentTitle": "Agent notifications",
+  "settings.general.notificationsAgentDescription":
+    "Show a system notification when Buddy finishes responding or needs attention.",
+  "settings.general.notificationsAgentAria": "Enable agent notifications",
+  "settings.general.notificationsPermissionsTitle": "Permission notifications",
+  "settings.general.notificationsPermissionsDescription":
+    "Show a system notification when Buddy is waiting for a permission or question.",
+  "settings.general.notificationsPermissionsAria": "Enable permission notifications",
+  "settings.general.notificationsErrorsTitle": "Error notifications",
+  "settings.general.notificationsErrorsDescription":
+    "Show a system notification when a chat run fails.",
+  "settings.general.notificationsErrorsAria": "Enable error notifications",
+  "notification.session.responseReady.fallbackDescription": "Buddy finished responding.",
+  "notification.session.error.title": "Session error",
+  "notification.permission.title": "Permission required",
+  "notification.question.title": "Question waiting",
   "settings.personalization.title": "Personalization",
   "settings.personalization.description":
     "Manage the structured profile Buddy knows about you and the global instructions Buddy should follow.",

@@ -15,6 +15,7 @@ import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { pickProjectDirectory } from "@/lib/directory-picker"
 import { useGeneralSettings } from "@/state/general-settings"
+import { useNotificationPreferences } from "@/state/notification-preferences"
 import { saveNotebookHome } from "@/state/chat-actions"
 import { notebookHomeQueryOptions, setNotebookHomeQueryData } from "@/state/bootstrap-query"
 import { showDesktopUpdateToast } from "@/lib/desktop-updates"
@@ -107,6 +108,10 @@ export function GeneralSettings({ workbench }: { workbench: SettingsWorkbench })
   const setCodeFont = useAppearancePreferences((state) => state.setCodeFont)
   const setUiFontSize = useAppearancePreferences((state) => state.setUiFontSize)
   const setCodeFontSize = useAppearancePreferences((state) => state.setCodeFontSize)
+  const notificationPreferences = useNotificationPreferences((state) => state.preferences)
+  const setAgentNotifications = useNotificationPreferences((state) => state.setAgent)
+  const setPermissionNotifications = useNotificationPreferences((state) => state.setPermissions)
+  const setErrorNotifications = useNotificationPreferences((state) => state.setErrors)
   const notebookHomeQuery = useQuery(notebookHomeQueryOptions())
   const notebookHome = notebookHomeQuery.data
 
@@ -330,7 +335,6 @@ export function GeneralSettings({ workbench }: { workbench: SettingsWorkbench })
         <SettingsRow
           title={language.t("settings.general.buddyHomeTitle")}
           description={language.t("settings.general.buddyHomeDescription")}
-          last={!showDesktopUpdateControls}
           control={
             <div className="space-y-2">
               <Button
@@ -351,6 +355,64 @@ export function GeneralSettings({ workbench }: { workbench: SettingsWorkbench })
                   {notebookHome.resolvedDirectory}
                 </p>
               ) : null}
+            </div>
+          }
+        />
+        <SettingsRow
+          title={language.t("settings.general.notificationsAgentTitle")}
+          description={language.t("settings.general.notificationsAgentDescription")}
+          control={
+            <div className="flex items-center justify-between gap-3 rounded-md border border-border-base/60 px-3 py-2">
+              <span className="text-sm text-text-weak">
+                {notificationPreferences.agent
+                  ? language.t("settings.notebook.on")
+                  : language.t("settings.notebook.off")}
+              </span>
+              <Switch
+                data-action="settings-notifications-agent"
+                checked={notificationPreferences.agent}
+                onCheckedChange={setAgentNotifications}
+                aria-label={language.t("settings.general.notificationsAgentAria")}
+              />
+            </div>
+          }
+        />
+        <SettingsRow
+          title={language.t("settings.general.notificationsPermissionsTitle")}
+          description={language.t("settings.general.notificationsPermissionsDescription")}
+          control={
+            <div className="flex items-center justify-between gap-3 rounded-md border border-border-base/60 px-3 py-2">
+              <span className="text-sm text-text-weak">
+                {notificationPreferences.permissions
+                  ? language.t("settings.notebook.on")
+                  : language.t("settings.notebook.off")}
+              </span>
+              <Switch
+                data-action="settings-notifications-permissions"
+                checked={notificationPreferences.permissions}
+                onCheckedChange={setPermissionNotifications}
+                aria-label={language.t("settings.general.notificationsPermissionsAria")}
+              />
+            </div>
+          }
+        />
+        <SettingsRow
+          title={language.t("settings.general.notificationsErrorsTitle")}
+          description={language.t("settings.general.notificationsErrorsDescription")}
+          last={!showDesktopUpdateControls}
+          control={
+            <div className="flex items-center justify-between gap-3 rounded-md border border-border-base/60 px-3 py-2">
+              <span className="text-sm text-text-weak">
+                {notificationPreferences.errors
+                  ? language.t("settings.notebook.on")
+                  : language.t("settings.notebook.off")}
+              </span>
+              <Switch
+                data-action="settings-notifications-errors"
+                checked={notificationPreferences.errors}
+                onCheckedChange={setErrorNotifications}
+                aria-label={language.t("settings.general.notificationsErrorsAria")}
+              />
             </div>
           }
         />
