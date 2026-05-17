@@ -1,10 +1,14 @@
 import { useEffect } from "react"
 import { useQueryClient } from "@tanstack/react-query"
+import { language } from "@/context/language"
+import { usePlatform } from "@/context/platform"
 import { startChatSync } from "@/state/chat-sync"
 import { resyncDirectory, resyncDirectoryAfterReconnect } from "@/state/chat-actions"
 import { isAbortLikeError } from "@/state/chat-error"
 import { useUiPreferences } from "@/state/ui-preferences"
 import { useChatStore } from "@/state/chat-store"
+import { useNotifications } from "@/state/notifications"
+import { useNotificationPreferences } from "@/state/notification-preferences"
 import { getModelSelectionScopeKey, useModelSelectionStore } from "@/state/model-selection-store"
 import { IDLE_SESSION_STATUS, normalizeSessionStatusValue } from "@/state/session-status"
 import {
@@ -27,8 +31,106 @@ import type {
   SessionStatusInfo,
   SessionInfo,
 } from "@/state/chat-types"
+import { encodeDirectory } from "../directory-token"
 
 const DOCUMENT_VISIBILITY_VISIBLE = "visible"
+const PERMISSION_NOTIFICATION_COOLDOWN_MS = 15_000
+const NOTIFICATION_PREVIEW_MAX_LENGTH = 360
+const DEFAULT_SESSION_TITLE = "New thread"
+const GLOBAL_NOTIFICATION_SESSION = "global"
+
+function sessionHref(directory: string, sessionID: string) {
+  return `/${encodeDirectory(directory)}/chat?session=${encodeURIComponent(sessionID)}`
+}
+
+function directoryHref(directory: string) {
+  return `/${encodeDirectory(directory)}/chat`
+}
+
+function sessionDescription(directory: string, sessionID: string) {
+  const directoryState = useChatStore.getState().directories[directory]
+  const session = directoryState?.sessions.find((item) => item.id === sessionID)
+  return session?.title || directoryState?.sessionTitle || DEFAULT_SESSION_TITLE
+}
+
+function sessionInfo(directory: string, sessionID: string | undefined) {
+  if (!sessionID) return undefined
+  return useChatStore
+    .getState()
+    .directories[directory]?.sessions.find((session) => session.id === sessionID)
+}
+
+function isParentSession(directory: string, sessionID: string | undefined) {
+  const session = sessionInfo(directory, sessionID)
+  return !!session && !session.parentID
+}
+
+function isViewedInCurrentSession(directory: string, sessionID: string | undefined) {
+  if (!sessionID) return false
+  const store = useChatStore.getState()
+  return (
+    store.activeDirectory === directory && store.directories[directory]?.sessionID === sessionID
+  )
+}
+
+function normalizeNotificationText(text: string) {
+  return text.replace(/\s+/g, " ").trim()
+}
+
+function truncateNotificationText(text: string) {
+  if (text.length <= NOTIFICATION_PREVIEW_MAX_LENGTH) return text
+  return `${text.slice(0, NOTIFICATION_PREVIEW_MAX_LENGTH).trimEnd()}...`
+}
+
+function readLatestAssistantResponsePreview(directory: string, sessionID: string) {
+  const directoryState = useChatStore.getState().directories[directory]
+  const messages =
+    directoryState?.messagesBySessionID?.[sessionID] ??
+    (directoryState?.sessionID === sessionID ? directoryState.messages : undefined)
+  if (!messages) return undefined
+
+  for (const message of messages.toReversed()) {
+    if (message.info.role !== "assistant") continue
+    const text = message.parts
+      .filter((part) => part.type === "text" && typeof part.text === "string")
+      .map((part) => String(part.text))
+      .join("\n\n")
+    const normalized = normalizeNotificationText(text)
+    if (normalized) return truncateNotificationText(normalized)
+  }
+
+  return undefined
+}
+
+function appendTurnCompleteNotification(directory: string, sessionID: string) {
+  const viewed = isViewedInCurrentSession(directory, sessionID)
+  useNotifications.getState().append({
+    directory,
+    session: sessionID,
+    time: Date.now(),
+    type: "turn-complete",
+    viewed,
+  })
+  if (!viewed) {
+    useUiPreferences.getState().markUnread(directory, sessionID)
+  }
+}
+
+function appendErrorNotification(directory: string, sessionID: string | undefined, error: unknown) {
+  const viewed = isViewedInCurrentSession(directory, sessionID)
+  const notificationSession = sessionID ?? GLOBAL_NOTIFICATION_SESSION
+  useNotifications.getState().append({
+    directory,
+    session: notificationSession,
+    time: Date.now(),
+    type: "error",
+    error,
+    viewed,
+  })
+  if (!viewed && sessionID) {
+    useUiPreferences.getState().markUnread(directory, sessionID)
+  }
+}
 
 type UseChatSyncProps = {
   decodedDirectory: string
@@ -60,6 +162,7 @@ type UseChatSyncProps = {
 
 export function useChatSync(props: UseChatSyncProps) {
   const queryClient = useQueryClient()
+  const platform = usePlatform()
   const {
     decodedDirectory,
     hasRegisteredProject,
@@ -85,6 +188,8 @@ export function useChatSync(props: UseChatSyncProps) {
   // ── SSE sync ────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!decodedDirectory || !hasRegisteredProject) return
+    const workingSessions = new Set<string>()
+    const attentionNotificationAt = new Map<string, number>()
 
     const syncDirectoryQueriesFromStore = (directory: string) => {
       const directoryState = useChatStore.getState().directories[directory]
@@ -155,6 +260,25 @@ export function useChatSync(props: UseChatSyncProps) {
         if (payload.type === "session.status") {
           const normalizedStatus = normalizeSessionStatusValue(properties.status)
           const statusSessionID = String(properties.sessionID ?? "")
+          if (normalizedStatus.type === "idle") {
+            if (
+              statusSessionID &&
+              workingSessions.delete(statusSessionID) &&
+              isParentSession(directory, statusSessionID)
+            ) {
+              appendTurnCompleteNotification(directory, statusSessionID)
+              const notificationPreferences = useNotificationPreferences.getState().preferences
+              if (notificationPreferences.agent) {
+                const title = sessionDescription(directory, statusSessionID)
+                const description =
+                  readLatestAssistantResponsePreview(directory, statusSessionID) ??
+                  language.t("notification.session.responseReady.fallbackDescription")
+                void platform.notify(title, description, sessionHref(directory, statusSessionID))
+              }
+            }
+          } else if (statusSessionID) {
+            workingSessions.add(statusSessionID)
+          }
           applySessionStatus(directory, statusSessionID, normalizedStatus)
           const activeSessionID = useChatStore.getState().directories[directory]?.sessionID
           if (normalizedStatus.type === "busy" && statusSessionID === activeSessionID) {
@@ -175,6 +299,9 @@ export function useChatSync(props: UseChatSyncProps) {
             typeof properties.sessionID === "string" && properties.sessionID
               ? properties.sessionID
               : undefined
+          if (erroredSessionID && !isParentSession(directory, erroredSessionID)) {
+            return
+          }
           if (erroredSessionID) {
             applySessionStatus(directory, erroredSessionID, IDLE_SESSION_STATUS)
           }
@@ -182,7 +309,16 @@ export function useChatSync(props: UseChatSyncProps) {
             clearDirectoryError(directory)
             return
           }
-          setDirectoryError(directory, readSessionErrorMessage(properties.error))
+          const message = readSessionErrorMessage(properties.error)
+          setDirectoryError(directory, message)
+          appendErrorNotification(directory, erroredSessionID, properties.error)
+          const notificationPreferences = useNotificationPreferences.getState().preferences
+          if (notificationPreferences.errors) {
+            const href = erroredSessionID
+              ? sessionHref(directory, erroredSessionID)
+              : directoryHref(directory)
+            void platform.notify(language.t("notification.session.error.title"), message, href)
+          }
           return
         }
 
@@ -257,6 +393,21 @@ export function useChatSync(props: UseChatSyncProps) {
           const permissionRequest = properties as PermissionRequest
           applyPermissionAsked(directory, permissionRequest)
           upsertDirectoryPermissionQueryData(queryClient, directory, permissionRequest)
+          const notificationPreferences = useNotificationPreferences.getState().preferences
+          if (notificationPreferences.permissions) {
+            const sessionID = permissionRequest.sessionID
+            const key = `permission:${directory}:${sessionID}`
+            const now = Date.now()
+            const lastAlertAt = attentionNotificationAt.get(key) ?? 0
+            if (now - lastAlertAt > PERMISSION_NOTIFICATION_COOLDOWN_MS) {
+              attentionNotificationAt.set(key, now)
+              void platform.notify(
+                language.t("notification.permission.title"),
+                sessionDescription(directory, sessionID),
+                sessionHref(directory, sessionID),
+              )
+            }
+          }
           return
         }
 
@@ -274,6 +425,21 @@ export function useChatSync(props: UseChatSyncProps) {
           const questionRequest = properties as QuestionRequest
           applyQuestionAsked(directory, questionRequest)
           upsertDirectoryQuestionQueryData(queryClient, directory, questionRequest)
+          const notificationPreferences = useNotificationPreferences.getState().preferences
+          if (notificationPreferences.permissions) {
+            const sessionID = questionRequest.sessionID
+            const key = `question:${directory}:${sessionID}`
+            const now = Date.now()
+            const lastAlertAt = attentionNotificationAt.get(key) ?? 0
+            if (now - lastAlertAt > PERMISSION_NOTIFICATION_COOLDOWN_MS) {
+              attentionNotificationAt.set(key, now)
+              void platform.notify(
+                language.t("notification.question.title"),
+                sessionDescription(directory, sessionID),
+                sessionHref(directory, sessionID),
+              )
+            }
+          }
           return
         }
 
@@ -304,6 +470,7 @@ export function useChatSync(props: UseChatSyncProps) {
     applySessionStatus,
     applySessionUpdated,
     clearDirectoryError,
+    platform,
     queryClient,
     setDirectoryError,
     setStreamStatus,
