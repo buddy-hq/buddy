@@ -1,6 +1,9 @@
 import {
   ArrowUpIcon,
   Badge,
+  NativeSelect,
+  NativeSelectOptGroup,
+  NativeSelectOption,
   PlusIcon,
   Select,
   SelectContent,
@@ -17,6 +20,7 @@ import type { RefObject } from "react"
 import * as React from "react"
 import { language } from "@/context/language"
 import { ProviderIcon } from "@/components/provider-icon"
+import type { PromptSelectMode } from "../prompt-select-performance"
 
 type PromptComposerToolbarProps = {
   pendingSteerLabel?: string
@@ -30,15 +34,16 @@ type PromptComposerToolbarProps = {
   selectedModel: string
   selectedModelAcceptsImages: boolean
   onModelChange: (model: string) => void
-  modelMenuOpen: boolean
-  onModelMenuOpenChange: (open: boolean) => void
-  modelTriggerRef: RefObject<HTMLButtonElement>
+  modelMenuOpenRequest?: number
+  modelNativeTriggerRef: RefObject<HTMLSelectElement>
+  modelRadixTriggerRef: RefObject<HTMLButtonElement>
   groupedModelOptions: {
     ungrouped: Array<{ key: string; label: string; disabled?: boolean; acceptsImages: boolean }>
     grouped: Array<
       [string, Array<{ key: string; label: string; disabled?: boolean; acceptsImages: boolean }>]
     >
   }
+  selectorMode?: PromptSelectMode
   selectedThinking: string
   thinkingOptions: Array<{ key: string; label: string }>
   onThinkingChange: (thinking: string) => void
@@ -55,14 +60,53 @@ type PromptComposerToolbarProps = {
   stopAriaLabel?: string
 }
 
-export function PromptComposerToolbar(props: PromptComposerToolbarProps) {
+export const PromptComposerToolbar = React.memo(function PromptComposerToolbar(
+  props: PromptComposerToolbarProps,
+) {
+  const previousModelMenuOpenRequestRef = React.useRef(props.modelMenuOpenRequest)
+  const [modelSelectOpen, setModelSelectOpen] = React.useState(false)
   const selectedModelLabel = React.useMemo(() => {
     const allOptions = [
       ...props.groupedModelOptions.ungrouped,
-      ...props.groupedModelOptions.grouped.flatMap(([, opts]) => opts),
+      ...props.groupedModelOptions.grouped.flatMap(([, options]) => options),
     ]
-    return allOptions.find((opt) => opt.key === props.selectedModel)?.label
-  }, [props.selectedModel, props.groupedModelOptions])
+    return allOptions.find((option) => option.key === props.selectedModel)?.label
+  }, [props.groupedModelOptions, props.selectedModel])
+  React.useEffect(() => {
+    if (props.modelMenuOpenRequest === undefined) return
+    if (previousModelMenuOpenRequestRef.current === props.modelMenuOpenRequest) return
+
+    previousModelMenuOpenRequestRef.current = props.modelMenuOpenRequest
+
+    const frame = window.requestAnimationFrame(() => {
+      const trigger =
+        props.selectorMode === "native"
+          ? props.modelNativeTriggerRef.current
+          : props.modelRadixTriggerRef.current
+      if (!(trigger instanceof HTMLElement)) return
+      trigger.focus()
+
+      if (props.selectorMode === "native") {
+        if ("showPicker" in trigger && typeof trigger.showPicker === "function") {
+          trigger.showPicker()
+        }
+        return
+      }
+
+      setModelSelectOpen(true)
+    })
+
+    return () => {
+      window.cancelAnimationFrame(frame)
+    }
+  }, [
+    props.modelMenuOpenRequest,
+    props.modelNativeTriggerRef,
+    props.modelRadixTriggerRef,
+    props.selectorMode,
+  ])
+
+  const isNativeMode = props.selectorMode === "native"
 
   return (
     <div className="-mt-3.5 rounded-[12px] rounded-tl-none rounded-tr-none border border-t-0 bg-surface-raised-base/95 px-2 pt-5 pb-2">
@@ -97,109 +141,164 @@ export function PromptComposerToolbar(props: PromptComposerToolbarProps) {
             <PlusIcon className="size-3.5" />
           </button>
 
-          <Select
-            value={props.selectedModel}
-            onValueChange={props.onModelChange}
-            open={props.modelMenuOpen}
-            onOpenChange={props.onModelMenuOpenChange}
-          >
-            <SelectTrigger
-              type="button"
-              data-action="prompt-model-select"
-              ref={props.modelTriggerRef}
+          {isNativeMode ? (
+            <NativeSelect
+              ref={props.modelNativeTriggerRef}
+              value={props.selectedModel}
+              onChange={(event) => props.onModelChange(event.currentTarget.value)}
               size="sm"
-              className="h-7 max-w-[180px] min-w-0 border-0 bg-surface-raised-base/95 px-2 text-xs text-text-weak shadow-none hover:bg-surface-raised-base-hover focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-0 data-[state=open]:bg-surface-raised-base-hover data-[state=open]:text-text-base data-[state=open]:ring-0 data-[state=open]:border-0 [&_svg]:text-inherit [&_svg:last-child]:size-3"
               aria-label={language.t("prompt.toolbar.aria.model")}
-            >
-              <SelectValue placeholder={language.t("prompt.toolbar.placeholders.model")}>
-                {selectedModelLabel}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent
-              side="top"
-              align="start"
-              position="popper"
-              sideOffset={6}
-              className="w-[min(22rem,calc(100vw-2rem))] max-h-[min(28rem,calc(100vh-8rem))]"
+              wrapperClassName="w-[180px] max-w-[180px] min-w-0"
+              className="h-7 border-0 bg-surface-raised-base/95 text-xs text-text-weak shadow-none hover:bg-surface-raised-base-hover focus-visible:bg-surface-raised-base-hover focus-visible:text-text-base focus-visible:ring-0 focus-visible:ring-offset-0"
             >
               {props.groupedModelOptions.ungrouped.map((option) => (
-                <SelectItem key={option.key} value={option.key} disabled={option.disabled}>
-                  <span className="flex min-w-0 items-center gap-2">
-                    {option.key.includes("/") ? (
-                      <>
-                        <ProviderIcon
-                          id={option.key.slice(0, option.key.indexOf("/"))}
-                          className="size-4 shrink-0 opacity-60"
-                          aria-hidden="true"
-                        />
-                        <span className="min-w-0 flex-1 truncate">{option.label}</span>
-                      </>
-                    ) : (
-                      <span className="min-w-0 flex-1 truncate">{option.label}</span>
-                    )}
-                    {option.acceptsImages ? (
-                      <ImageIcon
-                        className="size-3 shrink-0 text-icon-info-base"
-                        aria-hidden="true"
-                      />
-                    ) : null}
-                  </span>
-                </SelectItem>
+                <NativeSelectOption key={option.key} value={option.key} disabled={option.disabled}>
+                  {option.label}
+                </NativeSelectOption>
               ))}
               {props.groupedModelOptions.grouped.map(([group, options]) => (
-                <SelectGroup key={group}>
-                  <SelectLabel>
-                    {group === "OpenCode Zen" || group === "Opencode Zen"
+                <NativeSelectOptGroup
+                  key={group}
+                  label={
+                    group === "OpenCode Zen" || group === "Opencode Zen"
                       ? "Free (via. Opencode)"
-                      : group}
-                  </SelectLabel>
+                      : group
+                  }
+                >
                   {options.map((option) => (
-                    <SelectItem key={option.key} value={option.key} disabled={option.disabled}>
-                      <span className="flex min-w-0 items-center gap-2">
-                        <ProviderIcon
-                          id={option.key.slice(0, option.key.indexOf("/"))}
-                          className="size-4 shrink-0 opacity-60"
-                          aria-hidden="true"
-                        />
-                        <span className="min-w-0 flex-1 truncate">{option.label}</span>
-                        {option.acceptsImages ? (
-                          <ImageIcon
-                            className="size-3 shrink-0 text-icon-info-base"
+                    <NativeSelectOption
+                      key={option.key}
+                      value={option.key}
+                      disabled={option.disabled}
+                    >
+                      {option.label}
+                    </NativeSelectOption>
+                  ))}
+                </NativeSelectOptGroup>
+              ))}
+            </NativeSelect>
+          ) : (
+            <Select
+              value={props.selectedModel}
+              onValueChange={props.onModelChange}
+              open={modelSelectOpen}
+              onOpenChange={setModelSelectOpen}
+            >
+              <SelectTrigger
+                type="button"
+                ref={props.modelRadixTriggerRef}
+                size="sm"
+                data-action="prompt-model-select"
+                className="h-7 max-w-[180px] min-w-0 border-0 bg-surface-raised-base/95 px-2 text-xs text-text-weak shadow-none hover:bg-surface-raised-base-hover focus-visible:border-0 focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=open]:border-0 data-[state=open]:bg-surface-raised-base-hover data-[state=open]:text-text-base data-[state=open]:ring-0 [&_svg]:text-inherit [&_svg:last-child]:size-3"
+                aria-label={language.t("prompt.toolbar.aria.model")}
+              >
+                <SelectValue placeholder={language.t("prompt.toolbar.placeholders.model")}>
+                  {selectedModelLabel}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent
+                side="top"
+                align="start"
+                position="popper"
+                sideOffset={6}
+                className="w-[min(22rem,calc(100vw-2rem))] max-h-[min(28rem,calc(100vh-8rem))]"
+              >
+                {props.groupedModelOptions.ungrouped.map((option) => (
+                  <SelectItem key={option.key} value={option.key} disabled={option.disabled}>
+                    <span className="flex min-w-0 items-center gap-2">
+                      {option.key.includes("/") ? (
+                        <>
+                          <ProviderIcon
+                            id={option.key.slice(0, option.key.indexOf("/"))}
+                            className="size-4 shrink-0 opacity-60"
                             aria-hidden="true"
                           />
-                        ) : null}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              ))}
-            </SelectContent>
-          </Select>
+                          <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                        </>
+                      ) : (
+                        <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                      )}
+                      {option.acceptsImages ? (
+                        <ImageIcon
+                          className="size-3 shrink-0 text-icon-info-base"
+                          aria-hidden="true"
+                        />
+                      ) : null}
+                    </span>
+                  </SelectItem>
+                ))}
+                {props.groupedModelOptions.grouped.map(([group, options]) => (
+                  <SelectGroup key={group}>
+                    <SelectLabel>
+                      {group === "OpenCode Zen" || group === "Opencode Zen"
+                        ? "Free (via. Opencode)"
+                        : group}
+                    </SelectLabel>
+                    {options.map((option) => (
+                      <SelectItem key={option.key} value={option.key} disabled={option.disabled}>
+                        <span className="flex min-w-0 items-center gap-2">
+                          <ProviderIcon
+                            id={option.key.slice(0, option.key.indexOf("/"))}
+                            className="size-4 shrink-0 opacity-60"
+                            aria-hidden="true"
+                          />
+                          <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                          {option.acceptsImages ? (
+                            <ImageIcon
+                              className="size-3 shrink-0 text-icon-info-base"
+                              aria-hidden="true"
+                            />
+                          ) : null}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
 
-          <Select value={props.selectedThinking} onValueChange={props.onThinkingChange}>
-            <SelectTrigger
-              type="button"
-              data-action="prompt-thinking-select"
+          {isNativeMode ? (
+            <NativeSelect
+              value={props.selectedThinking}
+              onChange={(event) => props.onThinkingChange(event.currentTarget.value)}
               size="sm"
-              className="h-7 max-w-[160px] min-w-0 border-0 bg-surface-raised-base/95 px-2 text-xs text-text-weak shadow-none hover:bg-surface-raised-base-hover focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-0 data-[state=open]:bg-surface-raised-base-hover data-[state=open]:text-text-base data-[state=open]:ring-0 data-[state=open]:border-0 [&_svg]:text-inherit [&_svg:last-child]:size-3"
               aria-label={language.t("prompt.toolbar.aria.thinking")}
-            >
-              <SelectValue placeholder={language.t("prompt.toolbar.placeholders.thinking")} />
-            </SelectTrigger>
-            <SelectContent
-              side="top"
-              align="start"
-              position="popper"
-              sideOffset={6}
-              className="w-[min(18rem,calc(100vw-2rem))] max-h-[min(20rem,calc(100vh-8rem))]"
+              wrapperClassName="w-[160px] max-w-[160px] min-w-0"
+              className="h-7 border-0 bg-surface-raised-base/95 text-xs text-text-weak shadow-none hover:bg-surface-raised-base-hover focus-visible:bg-surface-raised-base-hover focus-visible:text-text-base focus-visible:ring-0 focus-visible:ring-offset-0"
             >
               {props.thinkingOptions.map((option) => (
-                <SelectItem key={option.key} value={option.key}>
+                <NativeSelectOption key={option.key} value={option.key}>
                   {option.label}
-                </SelectItem>
+                </NativeSelectOption>
               ))}
-            </SelectContent>
-          </Select>
+            </NativeSelect>
+          ) : (
+            <Select value={props.selectedThinking} onValueChange={props.onThinkingChange}>
+              <SelectTrigger
+                type="button"
+                size="sm"
+                data-action="prompt-thinking-select"
+                className="h-7 max-w-[160px] min-w-0 border-0 bg-surface-raised-base/95 px-2 text-xs text-text-weak shadow-none hover:bg-surface-raised-base-hover focus-visible:border-0 focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=open]:border-0 data-[state=open]:bg-surface-raised-base-hover data-[state=open]:text-text-base data-[state=open]:ring-0 [&_svg]:text-inherit [&_svg:last-child]:size-3"
+                aria-label={language.t("prompt.toolbar.aria.thinking")}
+              >
+                <SelectValue placeholder={language.t("prompt.toolbar.placeholders.thinking")} />
+              </SelectTrigger>
+              <SelectContent
+                side="top"
+                align="start"
+                position="popper"
+                sideOffset={6}
+                className="w-[min(18rem,calc(100vw-2rem))] max-h-[min(20rem,calc(100vh-8rem))]"
+              >
+                {props.thinkingOptions.map((option) => (
+                  <SelectItem key={option.key} value={option.key}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
         <div className="flex items-center gap-1">
@@ -226,4 +325,4 @@ export function PromptComposerToolbar(props: PromptComposerToolbarProps) {
       </div>
     </div>
   )
-}
+})

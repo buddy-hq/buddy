@@ -1,6 +1,8 @@
 import {
   Dialog,
   DialogContent,
+  NativeSelect,
+  NativeSelectOption,
   Select,
   SelectContent,
   SelectItem,
@@ -56,6 +58,7 @@ import { ImageAttachments } from "./image-attachments"
 import { usePromptComposerAttachments } from "./use-prompt-composer-attachments"
 import { usePromptComposerViewState } from "./use-prompt-composer-view-state"
 import { usePromptEditorSync } from "./use-prompt-editor-sync"
+import type { PromptSelectMode } from "./prompt-select-performance"
 import {
   getPromptDraft,
   getPromptHistoryEntries,
@@ -107,6 +110,7 @@ type PromptComposerProps = {
   onOpenMcpDialog?: () => void
   onSearchFiles?: (query: string) => Promise<MentionableFile[]>
   onRefreshSlashCommands?: () => void
+  selectorMode?: PromptSelectMode
   className?: string
   sessionContextUsage?: React.ReactNode
 }
@@ -134,7 +138,8 @@ type DismissedSelectionPreview = {
 export function PromptComposer(props: PromptComposerProps) {
   const editorRef = useRef<HTMLDivElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
-  const modelTriggerRef = useRef<HTMLButtonElement | null>(null)
+  const modelNativeTriggerRef = useRef<HTMLSelectElement>(null)
+  const modelRadixTriggerRef = useRef<HTMLButtonElement>(null)
   const mirrorInputRef = useRef(false)
   const historyApplyingRef = useRef(false)
   const previousBusyRef = useRef(props.isBusy)
@@ -192,7 +197,7 @@ export function PromptComposer(props: PromptComposerProps) {
   )
   const [cursorOffset, setCursorOffset] = useState(() => draft.cursor)
   const [dragging, setDragging] = useState(false)
-  const [modelMenuOpen, setModelMenuOpen] = useState(false)
+  const [modelMenuOpenRequest, setModelMenuOpenRequest] = useState(0)
   const [dismissedSelectionPreviews, setDismissedSelectionPreviews] = useState<
     DismissedSelectionPreview[]
   >([])
@@ -563,10 +568,7 @@ export function PromptComposer(props: PromptComposerProps) {
       }
       case "model":
         clearComposer()
-        setModelMenuOpen(true)
-        window.requestAnimationFrame(() => {
-          modelTriggerRef.current?.focus()
-        })
+        setModelMenuOpenRequest((current) => current + 1)
         return true
       case "mcp":
         clearComposer()
@@ -951,10 +953,11 @@ export function PromptComposer(props: PromptComposerProps) {
         selectedModel={props.selectedModel}
         selectedModelAcceptsImages={props.selectedModelAcceptsImages}
         onModelChange={props.onModelChange}
-        modelMenuOpen={modelMenuOpen}
-        onModelMenuOpenChange={setModelMenuOpen}
-        modelTriggerRef={modelTriggerRef}
+        modelMenuOpenRequest={modelMenuOpenRequest}
+        modelNativeTriggerRef={modelNativeTriggerRef}
+        modelRadixTriggerRef={modelRadixTriggerRef}
         groupedModelOptions={viewState.groupedModelOptions}
+        selectorMode={props.selectorMode}
         selectedThinking={props.selectedThinking}
         thinkingOptions={props.thinkingOptions}
         onThinkingChange={props.onThinkingChange}
@@ -972,30 +975,48 @@ export function PromptComposer(props: PromptComposerProps) {
 
       {props.sessionContextUsage ? (
         <div className="flex items-center justify-between px-2 pt-1.5 pb-1">
-          <Select value={props.selectedPersona} onValueChange={props.onPersonaChange}>
-            <SelectTrigger
-              type="button"
-              data-action="prompt-persona-select"
+          {props.selectorMode === "native" ? (
+            <NativeSelect
+              value={props.selectedPersona}
+              onChange={(event) => props.onPersonaChange(event.currentTarget.value)}
               size="sm"
-              className="h-6 max-w-[120px] min-w-0 border-0 bg-transparent px-0 text-xs text-text-weaker shadow-none hover:text-text-base hover:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-0 data-[state=open]:text-text-base data-[state=open]:ring-0 data-[state=open]:border-0 [&_svg]:text-inherit [&_svg:last-child]:size-3"
+              data-action="prompt-persona-select"
+              wrapperClassName="w-[120px] max-w-[120px] min-w-0"
+              className="h-6 border-0 bg-transparent text-xs text-text-weaker shadow-none hover:bg-transparent focus-visible:text-text-base focus-visible:ring-0 focus-visible:ring-offset-0"
               aria-label={language.t("prompt.toolbar.aria.persona")}
             >
-              <SelectValue placeholder={language.t("prompt.toolbar.placeholders.persona")} />
-            </SelectTrigger>
-            <SelectContent
-              side="top"
-              align="start"
-              position="popper"
-              sideOffset={6}
-              className="w-[min(16rem,calc(100vw-2rem))] max-h-[min(20rem,calc(100vh-8rem))]"
-            >
               {viewState.personaOptions.map((persona) => (
-                <SelectItem key={persona.name} value={persona.name}>
+                <NativeSelectOption key={persona.name} value={persona.name}>
                   {persona.label ?? persona.name}
-                </SelectItem>
+                </NativeSelectOption>
               ))}
-            </SelectContent>
-          </Select>
+            </NativeSelect>
+          ) : (
+            <Select value={props.selectedPersona} onValueChange={props.onPersonaChange}>
+              <SelectTrigger
+                type="button"
+                size="sm"
+                data-action="prompt-persona-select"
+                className="h-6 max-w-[120px] min-w-0 border-0 bg-transparent px-0 text-xs text-text-weaker shadow-none hover:bg-transparent hover:text-text-base focus-visible:border-0 focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=open]:border-0 data-[state=open]:text-text-base data-[state=open]:ring-0 [&_svg]:text-inherit [&_svg:last-child]:size-3"
+                aria-label={language.t("prompt.toolbar.aria.persona")}
+              >
+                <SelectValue placeholder={language.t("prompt.toolbar.placeholders.persona")} />
+              </SelectTrigger>
+              <SelectContent
+                side="top"
+                align="start"
+                position="popper"
+                sideOffset={6}
+                className="w-[min(16rem,calc(100vw-2rem))] max-h-[min(20rem,calc(100vh-8rem))]"
+              >
+                {viewState.personaOptions.map((persona) => (
+                  <SelectItem key={persona.name} value={persona.name}>
+                    {persona.label ?? persona.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           {props.sessionContextUsage}
         </div>
       ) : null}
