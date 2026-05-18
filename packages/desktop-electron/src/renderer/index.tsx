@@ -158,6 +158,14 @@ function wireDesktopEvents() {
   window.api.onNotificationClick((href) => {
     window.dispatchEvent(new CustomEvent("buddy:notification-click", { detail: { href } }))
   })
+
+  window.api.onFullscreenChanged((isFullscreen) => {
+    window.dispatchEvent(new CustomEvent("buddy:fullscreen-changed", { detail: { isFullscreen } }))
+  })
+
+  void window.api.getIsFullscreen().then((isFullscreen) => {
+    window.dispatchEvent(new CustomEvent("buddy:fullscreen-changed", { detail: { isFullscreen } }))
+  })
 }
 
 async function bootstrap() {

@@ -118,6 +118,12 @@ const api: ElectronAPI = {
     ipcRenderer.on("deep-link", handler)
     return () => ipcRenderer.removeListener("deep-link", handler)
   },
+  onFullscreenChanged: (cb) => {
+    const handler = (_: unknown, isFullscreen: boolean) => cb(isFullscreen)
+    ipcRenderer.on("fullscreen-changed", handler)
+    return () => ipcRenderer.removeListener("fullscreen-changed", handler)
+  },
+  getIsFullscreen: () => ipcRenderer.invoke("get-is-fullscreen"),
 
   openDirectoryPicker: (opts) => ipcRenderer.invoke("open-directory-picker", opts),
   openFilePicker: (opts) => ipcRenderer.invoke("open-file-picker", opts),

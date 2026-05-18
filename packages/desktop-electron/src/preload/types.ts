@@ -44,6 +44,8 @@ export type ElectronAPI = {
   onSqliteMigrationProgress: (cb: (progress: SqliteMigrationProgress) => void) => () => void
   onMenuCommand: (cb: (id: string) => void) => () => void
   onDeepLink: (cb: (urls: string[]) => void) => () => void
+  onFullscreenChanged: (cb: (isFullscreen: boolean) => void) => () => void
+  getIsFullscreen: () => Promise<boolean>
 
   openDirectoryPicker: (opts?: {
     multiple?: boolean

@@ -267,6 +267,10 @@ export function registerIpcHandlers(deps: Deps) {
     if (!win) return
     setTitlebar(win, theme)
   })
+  ipcMain.handle("get-is-fullscreen", (event: IpcMainInvokeEvent) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    return win?.isFullScreen() ?? false
+  })
 }
 
 export function sendSqliteMigrationProgress(win: BrowserWindow, progress: SqliteMigrationProgress) {
@@ -279,4 +283,8 @@ export function sendMenuCommand(win: BrowserWindow, id: string) {
 
 export function sendDeepLinks(win: BrowserWindow, urls: string[]) {
   win.webContents.send("deep-link", urls)
+}
+
+export function sendFullscreenChanged(win: BrowserWindow, isFullscreen: boolean) {
+  win.webContents.send("fullscreen-changed", isFullscreen)
 }

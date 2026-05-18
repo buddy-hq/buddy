@@ -142,6 +142,7 @@ export function createMainWindow(globals: WindowGlobals) {
   loadWindow(win, "index.html")
   wireContextMenu(win)
   wireZoom(win)
+  wireFullscreen(win)
   injectGlobals(win, globals)
   setTitlebar(win)
 
@@ -261,4 +262,10 @@ function wireZoom(win: BrowserWindow) {
   win.webContents.on("zoom-changed", () => {
     win.webContents.setZoomFactor(1)
   })
+}
+
+export function wireFullscreen(win: BrowserWindow) {
+  const send = (isFullscreen: boolean) => win.webContents.send("fullscreen-changed", isFullscreen)
+  win.on("enter-full-screen", () => send(true))
+  win.on("leave-full-screen", () => send(false))
 }
