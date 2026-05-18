@@ -4,16 +4,16 @@ import { useEffect, useMemo } from "react"
 import {
   Button,
   ResizeHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
   Separator,
   cn,
   toast,
-  useResizablePanelRef,
 } from "@buddy/ui"
 import { ArrowLeftIcon } from "lucide-react"
 import { ChatLeftSidebar } from "@/components/layout/chat-left-sidebar"
-import { usePersistentResizablePanelLayout } from "@/components/layout/use-persistent-resizable-panel-layout"
+import {
+  DesktopTitlebar,
+  MAC_WINDOW_CONTROL_INSET_WIDTH,
+} from "@/components/layout/desktop-titlebar"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { SettingsPage } from "@/components/settings/settings-page"
@@ -51,10 +51,7 @@ import { useUiPreferences } from "@/state/ui-preferences"
 import { pickProjectDirectory } from "../lib/directory-picker"
 
 const SETTINGS_SIDEBAR_MIN_WIDTH_PX = 220
-const SETTINGS_LAYOUT_ID = "settings-layout"
-const SETTINGS_SIDEBAR_PANEL_ID = "settings-sidebar"
-const SETTINGS_MAIN_PANEL_ID = "settings-main-pane"
-const SETTINGS_LAYOUT_PANEL_IDS = [SETTINGS_SIDEBAR_PANEL_ID, SETTINGS_MAIN_PANEL_ID]
+const SETTINGS_TITLEBAR_HEIGHT_PX = 40
 
 function readSeededSessionList(directory: string) {
   const sessions = useChatStore.getState().directories[directory]?.sessions
@@ -100,11 +97,8 @@ function SettingsRoute() {
     open: true,
     platform: platform.platform,
   })
-  const leftSidebarPanelRef = useResizablePanelRef()
-  const { defaultLayout, onLayoutChanged } = usePersistentResizablePanelLayout({
-    id: SETTINGS_LAYOUT_ID,
-    panelIds: SETTINGS_LAYOUT_PANEL_IDS,
-  })
+  const isDesktop = platform.platform === "desktop"
+  const isMac = isDesktop && platform.os === "macos"
 
   useQueries({
     queries: openProjects.map((directory) => ({
@@ -272,90 +266,124 @@ function SettingsRoute() {
   return (
     <div
       data-component="settings-route"
-      className="h-full w-full overflow-hidden bg-surface-raised-base"
+      className={cn(
+        "h-full w-full overflow-hidden bg-surface-raised-base transition-[grid-template-columns] duration-200 ease-out motion-reduce:transition-none",
+        isDesktop && "grid",
+      )}
+      style={
+        isDesktop
+          ? {
+              gridTemplateColumns: `${settingsSidebarWidth}px minmax(0, 1fr)`,
+              gridTemplateRows: `${SETTINGS_TITLEBAR_HEIGHT_PX}px minmax(0, 1fr)`,
+            }
+          : undefined
+      }
     >
-      <ResizablePanelGroup
-        id={SETTINGS_LAYOUT_ID}
-        orientation="horizontal"
-        defaultLayout={defaultLayout}
-        onLayoutChanged={onLayoutChanged}
-        className="h-full w-full min-w-0"
+      {isDesktop && (
+        <>
+          {/* Row 1, Col 1: sidebar titlebar area */}
+          <div className="relative col-start-1 row-start-1 select-none border-r border-border-weaker-base bg-surface-raised-base [-webkit-app-region:drag]">
+            {isMac ? (
+              <div
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: MAC_WINDOW_CONTROL_INSET_WIDTH,
+                  height: SETTINGS_TITLEBAR_HEIGHT_PX,
+                }}
+                className="[-webkit-app-region:no-drag]"
+              />
+            ) : null}
+          </div>
+          {/* Row 1, Col 2: main titlebar */}
+          <div className="col-start-2 row-start-1 min-w-0">
+            <DesktopTitlebar placement="settings" variant="shell" />
+          </div>
+        </>
+      )}
+      {/* Row 2, Col 1: sidebar */}
+      <div
+        className={cn(
+          "min-h-0 min-w-0 overflow-hidden",
+          isDesktop ? "col-start-1 row-start-2" : "h-full",
+        )}
       >
-        <ResizablePanel
-          id={SETTINGS_SIDEBAR_PANEL_ID}
-          panelRef={leftSidebarPanelRef}
-          defaultSize={settingsSidebarWidth}
-          minSize={SETTINGS_SIDEBAR_MIN_WIDTH_PX}
-          maxSize={leftSidebarMaxWidth}
-          className="relative flex min-h-0 min-w-0 overflow-hidden"
-        >
-          <ChatLeftSidebar
-            directories={openProjects}
-            currentDirectory={currentDirectory}
-            sessionsByDirectory={sessionsByDirectory}
-            activeSessionID={activeSessionID}
-            sessionStatusByDirectory={sessionStatusByDirectory}
-            pinnedByDirectory={pinnedByDirectory}
-            unreadByDirectory={unreadByDirectory}
-            onOpenDirectory={() => void onOpenDirectory()}
-            onNewSession={(targetDirectory) => void onNewSession(targetDirectory)}
-            onSelectSession={(targetDirectory, targetSessionID) =>
-              void onSelectSession(targetDirectory, targetSessionID)
-            }
-            onTogglePin={(targetDirectory, targetSessionID) =>
-              togglePinned(targetDirectory, targetSessionID)
-            }
-            onToggleUnread={onToggleUnread}
-            onArchiveSession={onArchiveSession}
-            onRenameSession={onRenameSession}
-            onReorderDirectories={(nextOrder) => {
-              void reorderOpenProjects(nextOrder)
-                .then((nextDirectories) => {
-                  setOpenProjectsQueryData(queryClient, nextDirectories)
-                })
-                .catch(() => undefined)
-            }}
-            onCloseDirectory={(targetDirectory) => void onCloseDirectory(targetDirectory)}
-            onOpenCurriculum={() => {
-              if (currentDirectory) openChat(currentDirectory)
-            }}
-            onOpenSettings={() => undefined}
-            footer={null}
-            className="h-full w-full"
-          >
-            <SettingsNavContent
-              activeTab={tab}
-              mainTabs={mainTabs}
-              optionalTabs={optionalTabs}
-              onTabChange={(nextTab) => {
-                navigate({ to: "/settings", search: { tab: nextTab } })
+        <div className="relative flex h-full min-h-0 overflow-hidden">
+          <div className="h-full w-full min-w-0">
+            <ChatLeftSidebar
+              directories={openProjects}
+              currentDirectory={currentDirectory}
+              sessionsByDirectory={sessionsByDirectory}
+              activeSessionID={activeSessionID}
+              sessionStatusByDirectory={sessionStatusByDirectory}
+              pinnedByDirectory={pinnedByDirectory}
+              unreadByDirectory={unreadByDirectory}
+              onOpenDirectory={() => void onOpenDirectory()}
+              onNewSession={(targetDirectory) => void onNewSession(targetDirectory)}
+              onSelectSession={(targetDirectory, targetSessionID) =>
+                void onSelectSession(targetDirectory, targetSessionID)
+              }
+              onTogglePin={(targetDirectory, targetSessionID) =>
+                togglePinned(targetDirectory, targetSessionID)
+              }
+              onToggleUnread={onToggleUnread}
+              onArchiveSession={onArchiveSession}
+              onRenameSession={onRenameSession}
+              onReorderDirectories={(nextOrder) => {
+                void reorderOpenProjects(nextOrder)
+                  .then((nextDirectories) => {
+                    setOpenProjectsQueryData(queryClient, nextDirectories)
+                  })
+                  .catch(() => undefined)
               }}
-              onBack={() => {
-                if (currentDirectory) {
-                  openChat(currentDirectory)
-                  return
-                }
-                navigate({ to: "/chat" })
+              onCloseDirectory={(targetDirectory) => void onCloseDirectory(targetDirectory)}
+              onOpenCurriculum={() => {
+                if (currentDirectory) openChat(currentDirectory)
               }}
-            />
-          </ChatLeftSidebar>
+              onOpenSettings={() => undefined}
+              showHeader={false}
+              footer={null}
+              className="h-full w-full"
+            >
+              <SettingsNavContent
+                activeTab={tab}
+                mainTabs={mainTabs}
+                optionalTabs={optionalTabs}
+                onTabChange={(nextTab) => {
+                  navigate({ to: "/settings", search: { tab: nextTab } })
+                }}
+                onBack={() => {
+                  if (currentDirectory) {
+                    openChat(currentDirectory)
+                    return
+                  }
+                  navigate({ to: "/chat" })
+                }}
+              />
+            </ChatLeftSidebar>
+          </div>
           <ResizeHandle
             direction="horizontal"
             size={settingsSidebarWidth}
             min={SETTINGS_SIDEBAR_MIN_WIDTH_PX}
             max={leftSidebarMaxWidth}
-            onResize={(width) => {
-              leftSidebarPanelRef.current?.resize(width)
-              setSettingsSidebarWidth(width)
-            }}
+            onResize={setSettingsSidebarWidth}
           />
-        </ResizablePanel>
-        <ResizablePanel id={SETTINGS_MAIN_PANEL_ID} className="min-h-0 min-w-0">
-          <main className="min-h-0 min-w-0 flex h-full flex-1 overflow-hidden bg-background-base/20">
-            <SettingsPage workbench={settingsWorkbench} activeTab={tab} />
-          </main>
-        </ResizablePanel>
-      </ResizablePanelGroup>
+        </div>
+      </div>
+
+      {/* Row 2, Col 2: main content */}
+      <div
+        className={cn(
+          "min-h-0 min-w-0 overflow-hidden bg-background-base",
+          isDesktop ? "col-start-2 row-start-2" : "h-full",
+        )}
+      >
+        <main className="flex h-full min-h-0 min-w-0 flex-1 overflow-hidden bg-background-base">
+          <SettingsPage workbench={settingsWorkbench} activeTab={tab} />
+        </main>
+      </div>
     </div>
   )
 }

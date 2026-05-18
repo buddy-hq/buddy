@@ -375,22 +375,24 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
         </div>
       )}
 
-      <footer className="border-t border-border-base/40 px-1.5 py-2">
-        {props.footer !== undefined ? (
-          props.footer
-        ) : (
-          <Button
-            data-action="left-sidebar-open-settings"
-            variant="ghost"
-            size="sm"
-            className="h-9 w-full justify-start rounded-lg px-2 text-sm font-medium text-text-weak hover:bg-surface-raised-base-hover hover:text-text-strong"
-            onClick={props.onOpenSettings}
-          >
-            <SettingsIcon className="size-3.5" />
-            Settings
-          </Button>
-        )}
-      </footer>
+      {props.footer !== null && (
+        <footer className="border-t border-border-base/40 px-1.5 py-2">
+          {props.footer !== undefined ? (
+            props.footer
+          ) : (
+            <Button
+              data-action="left-sidebar-open-settings"
+              variant="ghost"
+              size="sm"
+              className="h-9 w-full justify-start rounded-lg px-2 text-sm font-medium text-text-weak hover:bg-surface-raised-base-hover hover:text-text-strong"
+              onClick={props.onOpenSettings}
+            >
+              <SettingsIcon className="size-3.5" />
+              Settings
+            </Button>
+          )}
+        </footer>
+      )}
 
       <ChatLeftSidebarDialogs
         archiveState={archiveState}

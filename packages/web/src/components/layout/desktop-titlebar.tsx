@@ -19,7 +19,7 @@ import {
 } from "@/lib/directory-chat/right-sidebar-layout"
 
 type DesktopTitlebarProps = {
-  placement?: "root" | "chat"
+  placement?: "root" | "chat" | "settings"
   chatTitle?: string
   projectName?: string
   variant?: "chat" | "shell"
@@ -29,8 +29,9 @@ type DesktopTitlebarProps = {
 const ROOT_TITLEBAR_HEIGHT_CLASS = "h-10"
 const CHAT_TITLEBAR_HEIGHT_CLASS = "h-[52px]"
 const CHAT_TITLEBAR_HEIGHT_PX = 52
+export const MAC_WINDOW_CONTROL_INSET_WIDTH = 90
 const MAC_WINDOW_CONTROL_INSET_CLASS = "w-[90px]"
-const MAC_WINDOW_CONTROL_INSET_WIDTH = 90
+
 // When sidebar is closed, reserve space for the fixed toggle (w-8 = 32px) + 8px gap
 const CHAT_SIDEBAR_TOGGLE_RESERVED_PX = 40
 // Fixed toggle left positions
@@ -90,7 +91,7 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
     placement === "chat" || (pathname !== "/chat" && pathname.endsWith("/chat"))
   // In chat placement the toggle is a fixed element inside the header — not in the flow
   const showLeftSidebarToggle = placement === "chat" ? false : showSidebarToggles
-  const shouldReserveMacWindowControls = placement === "chat" ? false : isMac && !isFullscreen
+  const shouldReserveMacWindowControls = placement === "root" ? isMac && !isFullscreen : false
   // Animated spacer clears the fixed toggle from the title in ALL desktop variants:
   //   Mac non-fullscreen closed: 90px (traffic lights) + 40px (toggle + gap) = 130px
   //   Mac fullscreen / Windows closed: 8px (toggle left) + 40px (toggle + gap) = 48px
@@ -307,7 +308,7 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
         ) : null}
         {!isShellVariant && (
           placement === "chat" ? (
-            <div className="flex min-w-0 flex-1 items-center gap-2 px-2">
+            <div className="flex min-w-0 flex-1 items-center gap-2 pl-4 pr-2">
               <h1 className="min-w-0 truncate text-sm font-medium text-text-strong">
                 {props.chatTitle}
               </h1>
